@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package sliverpb;
+
+
+message Envelope {
+  string type = 1; // Message type
+  bytes data = 2;  // Actual message data
+}
+
+message RegisterSliver {
+  string name = 1;
+  string hostname = 2;
+  string username = 3;
+  string uid = 4;
+  string gid = 5;
+  string os = 6;
+  string arch = 7;
+}
+
+// aka Shellcode
+message Task {
+  string encoder = 1;
+  bytes data = 2;
+}
+
