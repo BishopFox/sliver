@@ -27,8 +27,7 @@ func SetupAssets() {
 // SetupCerts - Creates directories for certs
 func SetupCerts(appDir string) {
 	os.MkdirAll(path.Join(appDir, "certs"), os.ModePerm)
-	GenerateCertificateAuthority("pivots", true)
-	GenerateCertificateAuthority("clients", true)
+	GenerateCertificateAuthority("slivers", true)
 }
 
 // SetupGo - Unzip Go compiler assets

@@ -148,10 +148,9 @@ func tlsConnect(address string, port uint16) *tls.Conn {
 
 func getTLSConfig() *tls.Config {
 
-	// Load pivot certs
 	certPEM, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
 	if err != nil {
-		log.Printf("Cannot load pivot certificate: %v", err)
+		log.Printf("Cannot load sliver certificate: %v", err)
 		os.Exit(5)
 	}
 

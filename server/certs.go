@@ -23,7 +23,7 @@ const (
 	validFor     = 365 * 24 * time.Hour
 	certsDirName = "certs"
 
-	// SliversDir - Directory to store pivot certificates
+	// SliversDir - Directory to store sliver certificates
 	SliversDir = "slivers"
 	// ServersDir - Subdirectory of ClientsDir/SliversDir to store server certificates
 	ServersDir = "servers"
@@ -140,7 +140,7 @@ func GenerateCertificateAuthority(caType string, save bool) ([]byte, []byte) {
 	return cert, key
 }
 
-// GetCertificateAuthority - Get the current CA certificate for CLIENTS or PIVOTS
+// GetCertificateAuthority - Get the current CA certificate
 func GetCertificateAuthority(caType string) (*x509.Certificate, *ecdsa.PrivateKey, error) {
 
 	certPEM, keyPEM, err := GetCertificateAuthorityPEM(caType)
@@ -247,15 +247,6 @@ func GenerateCertificate(host string, caType string, isCA bool, isClient bool) (
 	serialNumber, _ := rand.Int(rand.Reader, serialNumberLimit)
 	log.Printf("Serial Number: %d", serialNumber)
 
-	// [!] Extended Key Usage (EKU)
-	// -------------------------------------------------------------------------------
-	// This is actually pretty important, it controls what the key can be used to do.
-	// We need to be careful that client certificates can only be used to authenticate
-	// clients, since everything is signed with the same CA an attacker who recovered
-	// a pivot binary could potentially recover the embedded cert/key and use that to
-	// mitm other connections, which would validate since we only check the signing
-	// authority. To prevent this only server keys can be used to authenticate servers
-	// and only client keys can be used to authenticate clients.
 	var extKeyUsage []x509.ExtKeyUsage
 
 	if isCA {
@@ -302,8 +293,6 @@ func GenerateCertificate(host string, caType string, isCA bool, isClient bool) (
 		template.KeyUsage |= x509.KeyUsageCertSign
 		derBytes, err = x509.CreateCertificate(rand.Reader, &template, &template, publicKey(privateKey), privateKey)
 	} else {
-		// We use seperate authorities for clients, and pivots otherwise an attacker could take a cert/key pair
-		// from a pivot and use it to authenticate against the client socket.
 		caCert, caKey, err := GetCertificateAuthority(caType) // Sign the new ceritificate with our CA
 		if err != nil {
 			log.Fatalf("Invalid ca type (%s): %v", caType, err)

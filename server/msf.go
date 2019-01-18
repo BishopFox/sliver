@@ -28,6 +28,7 @@ var (
 
 	// ValidEncoders - Valid MSF encoders
 	ValidEncoders = map[string]bool{
+		"":                   true,
 		"x86/shikata_ga_nai": true,
 	}
 
@@ -52,6 +53,7 @@ var (
 
 	// ValidEncrypters - MSF Encrypters
 	ValidEncrypters = map[string]bool{
+		"":       true,
 		"aes256": true,
 		"rc4":    true,
 	}
@@ -129,6 +131,7 @@ func MsfVenomPayload(config VenomConfig) ([]byte, error) {
 
 // MsfVenomCmd - Execute a msfvenom command
 func MsfVenomCmd(args []string) ([]byte, error) {
+	log.Printf("%s %v", venomBin, args)
 	cmd := exec.Command(venomBin, args...)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

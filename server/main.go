@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -25,10 +26,9 @@ const (
 	// randomIDSize - Size of the TunnelID in bytes
 	randomIDSize = 8
 
-	clientBinFileName = "sliver" // TODO: Dynamically add .exe for Windows
-	logFileName       = "sliver.log"
-	timeout           = 30 * time.Second
-	readBufSize       = 1024
+	logFileName = "sliver.log"
+	timeout     = 30 * time.Second
+	readBufSize = 1024
 )
 
 // Sliver implant
@@ -53,7 +53,7 @@ type ConsoleMsg struct {
 
 var (
 	server      *string
-	sliverLPort *int
+	serverLPort *int
 
 	// Yea I'm lazy, it'd be better not to use mutex
 	hiveMutex = &sync.RWMutex{}
@@ -61,37 +61,60 @@ var (
 )
 
 func main() {
+	server = flag.String("server", "", "bind server address")
+	serverLPort = flag.Int("server-lport", 8888, "bind listen port")
+	flag.Parse()
 
-	// Setup logging
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	appDir := GetRootAppDir()
-	f, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	defer f.Close()
-	if err != nil {
-		log.Fatalf("Error opening file: %v", err)
-	}
-	log.SetOutput(f)
-
+	logFile := initLogging(appDir)
+	defer logFile.Close()
 	if _, err := os.Stat(path.Join(appDir, goDirName)); os.IsNotExist(err) {
-		fmt.Println("First time setup, unpacking assets please wait ... ")
+		log.Println("First time setup, unpacking assets please wait ... ")
 		SetupAssets()
 	}
 
-	console := make(chan ConsoleMsg)
+	// console := make(chan ConsoleMsg)
+	events := make(chan Sliver)
 
 	log.Println("Starting listeners ...")
-	ln, err := startSliverListener(*server, uint16(*sliverLPort), console)
+	ln, err := startSliverListener(*server, uint16(*serverLPort), events)
 	if err != nil {
 		log.Printf("Failed to start server")
 		return
 	}
-	defer ln.Close()
 
-	startConsole(console)
+	defer func() {
+		ln.Close()
+		hiveMutex.Lock()
+		defer hiveMutex.Unlock()
+		for _, sliver := range hive {
+			close(sliver.Send)
+		}
+	}()
 
+	path, err := GenerateImplantBinary(windowsPlatform, "amd64")
+	if err != nil {
+		log.Printf("Erorr generating sliver: %v", err)
+	}
+	log.Printf("Generated sliver binary at: %s", path)
+
+	for sliver := range events {
+		log.Printf("New connection from %s", sliver.Name)
+	}
 }
 
-func startSliverListener(bindIface string, port uint16, console chan ConsoleMsg) (net.Listener, error) {
+// Initialize logging
+func initLogging(appDir string) *os.File {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("Error opening file: %v", err)
+	}
+	log.SetOutput(logFile)
+	return logFile
+}
+
+func startSliverListener(bindIface string, port uint16, events chan Sliver) (net.Listener, error) {
 	log.Printf("Starting listener on %s:%d", bindIface, port)
 
 	tlsConfig := getServerTLSConfig(SliversDir, bindIface)
@@ -100,11 +123,11 @@ func startSliverListener(bindIface string, port uint16, console chan ConsoleMsg)
 		log.Println(err)
 		return nil, err
 	}
-	go acceptConnections(ln)
+	go acceptConnections(ln, events)
 	return ln, nil
 }
 
-func acceptConnections(ln net.Listener) {
+func acceptConnections(ln net.Listener, events chan Sliver) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -114,11 +137,11 @@ func acceptConnections(ln net.Listener) {
 			log.Printf("Accept failed: %v", err)
 			continue
 		}
-		go handleSliverConnection(conn)
+		go handleSliverConnection(conn, events)
 	}
 }
 
-func handleSliverConnection(conn net.Conn) {
+func handleSliverConnection(conn net.Conn, events chan Sliver) {
 	log.Printf("Accepted incoming connection: %v", conn)
 
 	envelope, err := socketReadEnvelope(conn)
@@ -152,6 +175,11 @@ func handleSliverConnection(conn net.Conn) {
 		hiveMutex.Unlock()
 		conn.Close()
 	}()
+
+	select {
+	case events <- sliver: // Non-blocking channel send
+	default:
+	}
 
 	for envelope := range sliver.Send {
 		err := socketWriteEnvelope(conn, envelope)
@@ -261,7 +289,7 @@ func GetRootAppDir() string {
 	user, _ := user.Current()
 	dir := path.Join(user.HomeDir, ".sliver")
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		log.Printf("Creating app directory: %s", dir)
+		// log.Printf("Creating app directory: %s", dir)
 		err = os.MkdirAll(dir, os.ModePerm)
 		if err != nil {
 			log.Fatal(err)

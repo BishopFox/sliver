@@ -109,5 +109,7 @@ func savePlatformCode(sliverBox packr.Box, platform string, workingDir string) {
 	sliverPlatformCode, _ := sliverBox.MustString(fileName)
 	sliverPlatformCodePath := path.Join(workingDir, fileName)
 	err := ioutil.WriteFile(sliverPlatformCodePath, []byte(sliverPlatformCode), os.ModePerm)
-	log.Printf("Error writing file %s: %s", sliverPlatformCodePath, err)
+	if err != nil {
+		log.Printf("Error writing file %s: %s", sliverPlatformCodePath, err)
+	}
 }
