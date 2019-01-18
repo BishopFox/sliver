@@ -1,6 +1,7 @@
 Sliver
 ======
 
+Sliver is a remote shellcode loading and injection service that uses end-to-end encryption (mTLS) for all network traffic. Implants are dynamically compiled with unique X.509 certificates signed by a per-instance certificate authority generated when you first run the binary. Sliver can load arbitrary shellcode but also integrates with MSFVenom to automatically generate, executate, and manage Meterpreter payloads.
 
 
 ## Building From Scratch
