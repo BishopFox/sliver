@@ -25,10 +25,10 @@ const (
 	caCertPEM  = `{{.CACert}}`
 
 	defaultServerIP    = `{{.DefaultServer}}`
-	defaultServerLport = 8444
+	defaultServerLport = 8888
 
 	timeout        = 30 * time.Second
-	readBufSize    = 256 * 1024 // 64kb
+	readBufSize    = 64 * 1024 // 64kb
 	zeroReadsLimit = 10
 )
 

@@ -44,7 +44,7 @@ func GetBinDir() string {
 }
 
 // GenerateImplantBinary - Generates a binary
-func GenerateImplantBinary(goos string, goarch string) (string, error) {
+func GenerateImplantBinary(goos string, goarch string, server string, lport uint16) (string, error) {
 
 	goos = path.Base(goos)
 	goarch = path.Base(goarch)
@@ -54,8 +54,8 @@ func GenerateImplantBinary(goos string, goarch string) (string, error) {
 	}
 
 	config := SliverConfig{
-		DefaultServer:      "localhost",
-		DefaultServerLPort: 8444,
+		DefaultServer:      server,
+		DefaultServerLPort: lport,
 	}
 
 	config.Name = GetCodename()
@@ -97,11 +97,14 @@ func GenerateImplantBinary(goos string, goarch string) (string, error) {
 		GOPATH: GetGoPathDir(),
 	}
 
-	dst := path.Join(workingDir, config.Name)
+	dest := path.Join(workingDir, config.Name)
+	if goConfig.GOOS == "windows" {
+		dest += ".exe"
+	}
 	tags := []string{"netgo"}
 	ldflags := []string{"-s -w"}
-	_, err = GoBuild(goConfig, workingDir, dst, tags, ldflags)
-	return dst, err
+	_, err = GoBuild(goConfig, workingDir, dest, tags, ldflags)
+	return dest, err
 }
 
 func savePlatformCode(sliverBox packr.Box, platform string, workingDir string) {
