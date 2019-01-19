@@ -76,7 +76,7 @@ func main() {
 	events := make(chan *Sliver)
 
 	log.Println("Starting listeners ...")
-	fmt.Printf("Binding to %s:%d", *server, *serverLPort)
+	// fmt.Printf(Info+"Binding to %s:%d\n", *server, *serverLPort)
 	ln, err := startSliverListener(*server, uint16(*serverLPort), events)
 	if err != nil {
 		log.Printf("Failed to start server")

@@ -61,7 +61,7 @@ var (
 
 // VenomConfig -
 type VenomConfig struct {
-	OS         string
+	Os         string
 	Arch       string
 	Payload    string
 	Encoder    string
@@ -80,24 +80,28 @@ func MsfVersion() (string, error) {
 // MsfVenomPayload - Generates an MSFVenom payload
 func MsfVenomPayload(config VenomConfig) ([]byte, error) {
 
-	if _, ok := ValidPayloads[config.OS]; !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("Invalid operating system: %s", config.OS))
+	if _, ok := ValidPayloads[config.Os]; !ok {
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid operating system: %s", config.Os))
 	}
 	if _, ok := ValidArches[config.Arch]; !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("Invalid arch: %s", config.OS))
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid arch: %s", config.Os))
 	}
 
-	if _, ok := ValidPayloads[config.OS][config.Payload]; !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("Invalid payload: %s", config.OS))
+	if _, ok := ValidPayloads[config.Os][config.Payload]; !ok {
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid payload: %s", config.Os))
 	}
 
 	if _, ok := ValidEncoders[config.Encoder]; !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("Invalid payload: %s", config.OS))
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid payload: %s", config.Os))
 	}
 
-	payload := strings.Join([]string{config.OS, config.Payload}, sep)
+	target := config.Os
+	if config.Arch == "x64" {
+		target = strings.Join([]string{config.Os, config.Arch}, sep)
+	}
+	payload := strings.Join([]string{target, config.Payload}, sep)
 	args := []string{
-		"--platform", config.OS,
+		"--platform", config.Os,
 		"--arch", config.Arch,
 		"--format", "raw",
 		"--payload", payload,

