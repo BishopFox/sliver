@@ -33,22 +33,22 @@ const (
 
 // Sliver implant
 type Sliver struct {
-	ID       string
-	Name     string
-	Hostname string
-	Username string
-	Uid      string
-	Gid      string
-	Os       string
-	Arch     string
-	Send     chan pb.Envelope
+	ID            string
+	Name          string
+	Hostname      string
+	Username      string
+	Uid           string
+	Gid           string
+	Os            string
+	Arch          string
+	RemoteAddress string
+	Send          chan pb.Envelope
 }
 
 // ConsoleMsg -
 type ConsoleMsg struct {
-	Level     string
-	EventType string
-	Message   string
+	Level   string
+	Message string
 }
 
 var (
@@ -57,7 +57,7 @@ var (
 
 	// Yea I'm lazy, it'd be better not to use mutex
 	hiveMutex = &sync.RWMutex{}
-	hive      = &map[string]Sliver{}
+	hive      = &map[string]*Sliver{}
 )
 
 func main() {
@@ -73,8 +73,7 @@ func main() {
 		SetupAssets()
 	}
 
-	// console := make(chan ConsoleMsg)
-	events := make(chan Sliver)
+	events := make(chan *Sliver)
 
 	log.Println("Starting listeners ...")
 	fmt.Printf("Binding to %s:%d", *server, *serverLPort)
@@ -99,9 +98,7 @@ func main() {
 	}
 	log.Printf("Generated sliver binary at: %s", path)
 
-	for sliver := range events {
-		log.Printf("New connection from %s", sliver.Name)
-	}
+	startConsole(events)
 }
 
 // Initialize logging
@@ -115,7 +112,7 @@ func initLogging(appDir string) *os.File {
 	return logFile
 }
 
-func startSliverListener(bindIface string, port uint16, events chan Sliver) (net.Listener, error) {
+func startSliverListener(bindIface string, port uint16, events chan *Sliver) (net.Listener, error) {
 	log.Printf("Starting listener on %s:%d", bindIface, port)
 
 	tlsConfig := getServerTLSConfig(SliversDir, bindIface)
@@ -128,7 +125,7 @@ func startSliverListener(bindIface string, port uint16, events chan Sliver) (net
 	return ln, nil
 }
 
-func acceptConnections(ln net.Listener, events chan Sliver) {
+func acceptConnections(ln net.Listener, events chan *Sliver) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -142,7 +139,7 @@ func acceptConnections(ln net.Listener, events chan Sliver) {
 	}
 }
 
-func handleSliverConnection(conn net.Conn, events chan Sliver) {
+func handleSliverConnection(conn net.Conn, events chan *Sliver) {
 	log.Printf("Accepted incoming connection: %s", conn.RemoteAddr())
 
 	envelope, err := socketReadEnvelope(conn)
@@ -154,16 +151,17 @@ func handleSliverConnection(conn net.Conn, events chan Sliver) {
 	proto.Unmarshal(envelope.Data, registerSliver)
 	send := make(chan pb.Envelope)
 
-	sliver := Sliver{
-		ID:       randomID(),
-		Name:     registerSliver.Name,
-		Hostname: registerSliver.Hostname,
-		Username: registerSliver.Username,
-		Uid:      registerSliver.Uid,
-		Gid:      registerSliver.Gid,
-		Os:       registerSliver.Os,
-		Arch:     registerSliver.Arch,
-		Send:     send,
+	sliver := &Sliver{
+		ID:            randomID(),
+		Name:          registerSliver.Name,
+		Hostname:      registerSliver.Hostname,
+		Username:      registerSliver.Username,
+		Uid:           registerSliver.Uid,
+		Gid:           registerSliver.Gid,
+		Os:            registerSliver.Os,
+		Arch:          registerSliver.Arch,
+		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
+		Send:          send,
 	}
 
 	hiveMutex.Lock()

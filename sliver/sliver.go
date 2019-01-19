@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/user"
@@ -54,11 +55,13 @@ func main() {
 	handlers := getSystemHandlers()
 	for {
 		envelope, err := socketReadEnvelope(conn)
-		if err != nil {
-			continue
+		if err == io.EOF {
+			break
 		}
-		handler := handlers[envelope.Type]
-		go handler.(func([]byte))(envelope.Data)
+		if err == nil {
+			handler := handlers[envelope.Type]
+			go handler.(func([]byte))(envelope.Data)
+		}
 	}
 }
 
