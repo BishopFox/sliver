@@ -46,7 +46,9 @@ var (
 	history      = []string{}
 	cmdHandlers  = map[string]interface{}{
 		"help": help,
+		"ls":   ls,
 		"info": info,
+		"use":  use,
 	}
 )
 
@@ -80,12 +82,11 @@ func startConsole(events chan *Sliver) {
 			if cmd, ok := cmdHandlers[words[0]]; ok {
 				go cmd.(func(*terminal.Terminal, []string))(term, words[1:])
 			} else {
-				msg := fmt.Sprintf(Warn+"Invalid command '%s'", words[0])
-				fmt.Fprintln(term, "", msg)
+				fmt.Fprintf(term, Warn+"Invalid command '%s'\n", words[0])
 			}
 		case sliver := <-events:
-			msg := fmt.Sprintf(Info+"New connection: %s", sliver.Name)
-			fmt.Fprintln(term, "", msg)
+			fmt.Fprintf(term, Info+"%s - %s (%s) - %s/%s\n",
+				sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
 		}
 	}
 }
@@ -114,7 +115,7 @@ func lineReader(term *terminal.Terminal, reader chan string) {
 func setPrompt(term *terminal.Terminal) {
 	prompt := fmt.Sprintf(clearln + underline + "sliver" + normal)
 	if activeSliver != nil {
-		prompt += fmt.Sprintf(bold+red+"(%s)%s", activeSliver.Name, normal)
+		prompt += fmt.Sprintf(bold+red+" (%s)%s", activeSliver.Name, normal)
 	}
 	prompt += " > "
 	term.SetPrompt(prompt)
@@ -133,10 +134,57 @@ func getSliverByName(name string) *Sliver {
 }
 
 // ---------------- Commands ----------------
-func help() {
+func help(term *terminal.Terminal, args []string) {
 
 }
 
-func info() {
+func ls(term *terminal.Terminal, args []string) {
+	hiveMutex.Lock()
+	defer hiveMutex.Unlock()
+	index := 1
+	for _, sliver := range *hive {
+		fmt.Fprintf(term, " %d. %s (%s)\n", index, sliver.Name, sliver.RemoteAddress)
+		index++
+	}
+	if index == 1 {
+		fmt.Fprintln(term, Info+"No slivers connected")
+	}
+}
 
+func info(term *terminal.Terminal, args []string) {
+	if len(args) == 1 {
+		sliver := getSliverByName(args[0])
+		if sliver != nil {
+			fmt.Fprintln(term, "")
+			fmt.Fprintf(term, bold+"ID: %s%s\n", normal, sliver.ID)
+			fmt.Fprintf(term, bold+"Name: %s%s\n", normal, sliver.Name)
+			fmt.Fprintf(term, bold+"Hostname: %s%s\n", normal, sliver.Hostname)
+			fmt.Fprintf(term, bold+"Username: %s%s\n", normal, sliver.Username)
+			fmt.Fprintf(term, bold+"UID: %s%s\n", normal, sliver.Uid)
+			fmt.Fprintf(term, bold+"GID: %s%s\n", normal, sliver.Gid)
+			fmt.Fprintf(term, bold+"OS: %s%s\n", normal, sliver.Os)
+			fmt.Fprintf(term, bold+"Arch: %s%s\n", normal, sliver.Arch)
+			fmt.Fprintf(term, bold+"Remote Address: %s%s\n", normal, sliver.RemoteAddress)
+			fmt.Fprintln(term, "")
+		} else {
+			fmt.Fprintf(term, Warn+"No sliver with name '%s'", args[0])
+		}
+	} else {
+		fmt.Fprintln(term, Warn+"Missing sliver name")
+	}
+}
+
+func use(term *terminal.Terminal, args []string) {
+	if 0 < len(args) {
+		sliver := getSliverByName(args[0])
+		if sliver != nil {
+			activeSliver = sliver
+			setPrompt(term)
+			fmt.Fprintf(term, Info+"Active sliver set to '%s'\n", activeSliver.Name)
+		} else {
+			fmt.Fprintf(term, Warn+"No sliver with name '%s'\n", args[0])
+		}
+	} else {
+		fmt.Fprintln(term, Warn+"Missing sliver name")
+	}
 }
