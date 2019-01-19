@@ -80,6 +80,7 @@ func main() {
 	ln, err := startSliverListener(*server, uint16(*serverLPort), events)
 	if err != nil {
 		log.Printf("Failed to start server")
+		fmt.Printf("\rFailed to start server %v", err)
 		return
 	}
 
@@ -91,12 +92,6 @@ func main() {
 			close(sliver.Send)
 		}
 	}()
-
-	path, err := GenerateImplantBinary(windowsPlatform, "amd64", *server, uint16(*serverLPort))
-	if err != nil {
-		log.Printf("Erorr generating sliver: %v", err)
-	}
-	log.Printf("Generated sliver binary at: %s", path)
 
 	startConsole(events)
 }

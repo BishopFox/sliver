@@ -3,8 +3,12 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"strings"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 const (
@@ -47,59 +51,73 @@ var (
 )
 
 func startConsole(events chan *Sliver) {
+	if !terminal.IsTerminal(0) || !terminal.IsTerminal(1) {
+		log.Print("stdin/stdout should be terminal")
+		return
+	}
+	oldState, err := terminal.MakeRaw(0)
+	if err != nil {
+		return
+	}
+	defer terminal.Restore(0, oldState)
+	screen := struct {
+		io.Reader
+		io.Writer
+	}{os.Stdin, os.Stdout}
+	term := terminal.NewTerminal(screen, "")
+	setPrompt(term)
 
-	console := make(chan ConsoleMsg)
-	go consolePrinter(console)
-
-	defer close(events)
-	go func() {
-		for sliver := range events {
-			console <- ConsoleMsg{
-				Level: Info,
-				Message: fmt.Sprintf("%s - %s (%s) - %s/%s",
-					sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch),
+	reader := make(chan string)
+	go lineReader(term, reader)
+	for {
+		select {
+		case line := <-reader:
+			fmt.Fprintln(term, "", line)
+			if line == "exit" {
+				return
 			}
+			words := strings.Fields(line)
+			if cmd, ok := cmdHandlers[words[0]]; ok {
+				go cmd.(func(*terminal.Terminal, []string))(term, words[1:])
+			} else {
+				msg := fmt.Sprintf(Warn+"Invalid command '%s'", words[0])
+				fmt.Fprintln(term, "", msg)
+			}
+		case sliver := <-events:
+			msg := fmt.Sprintf(Info+"New connection: %s", sliver.Name)
+			fmt.Fprintln(term, "", msg)
 		}
-	}()
-
-	console <- ConsoleMsg{
-		Level:   Info,
-		Message: "Welcome to the Sliver shell, please type 'help' for options",
 	}
-
-	consoleReader := make(chan string)
-	go commandLoop(console, consoleReader)
-
-	reader := bufio.NewReader(os.Stdin)
-	buf := make([]byte, 1)
-	reader.Read(buf)
-
 }
 
-func consolePrinter(console chan ConsoleMsg) {
-	for msg := range console {
-		fmt.Printf(clearln+"%s%s", msg.Level, msg.Message)
-		if msg.Level != Empty {
-			fmt.Printf("\n")
+func lineReader(term *terminal.Terminal, reader chan string) {
+	defer close(reader)
+	for {
+		line, err := term.ReadLine()
+		if err == io.EOF || strings.HasPrefix(line, "exit") {
+			reader <- "exit"
+			return
 		}
-		prompt()
+		if err != nil {
+			log.Printf("Error %v", err)
+			reader <- "exit"
+			return
+		}
+		if line == "" {
+			continue
+		} else {
+			reader <- line
+		}
 	}
 }
 
-func print(console chan ConsoleMsg, msg string) {
-	if !strings.HasSuffix(msg, "\n") {
-		msg += "\n"
-	}
-	console <- ConsoleMsg{Level: Empty, Message: msg}
-}
-
-func prompt() {
-	fmt.Printf(clearln + underline + "sliver" + normal)
+func setPrompt(term *terminal.Terminal) {
+	prompt := fmt.Sprintf(clearln + underline + "sliver" + normal)
 	if activeSliver != nil {
-		fmt.Printf(bold+red+"(%s)%s", activeSliver.Name, normal)
+		prompt += fmt.Sprintf(bold+red+"(%s)%s", activeSliver.Name, normal)
 	}
-	fmt.Printf(normal + " > ")
-	stdout.Flush()
+	prompt += " > "
+	term.SetPrompt(prompt)
 }
 
 func getSliverByName(name string) *Sliver {
@@ -115,64 +133,10 @@ func getSliverByName(name string) *Sliver {
 }
 
 // ---------------- Commands ----------------
+func help() {
 
-func commandLoop(console chan ConsoleMsg, consoleReader chan string) {
-	defer close(console)
-	for line := range consoleReader {
-		line = strings.TrimSpace(line)
-		words := strings.Fields(line)
-		if len(words) == 0 {
-			console <- ConsoleMsg{Level: Empty, Message: Empty}
-			continue
-		}
-		if words[0] == "exit" {
-			console <- ConsoleMsg{Level: Info, Message: "User exit"}
-			return
-		}
-		if cmd, ok := cmdHandlers[words[0]]; ok {
-			go cmd.(func(chan ConsoleMsg, []string))(console, words[1:])
-		} else {
-			console <- ConsoleMsg{
-				Level:   Warn,
-				Message: fmt.Sprintf("Invalid command '%s'", words[0]),
-			}
-		}
-	}
 }
 
-func help(console chan ConsoleMsg, args []string) {
-	console <- ConsoleMsg{Level: Empty, Message: fmt.Sprintf(`
-%sSliver Commands%s
-==============
-help        - Display this help message
-use <name>  - Use a sliver 
-info <name> - Display informationa about a sliver
+func info() {
 
-`, bold, normal)}
-}
-
-func info(console chan ConsoleMsg, args []string) {
-	if len(args) == 1 {
-		sliver := getSliverByName(args[0])
-		if sliver != nil {
-			print(console, "\n")
-			print(console, fmt.Sprintf(bold+"ID: %s%s", normal, sliver.ID))
-			print(console, fmt.Sprintf(bold+"Name: %s%s", normal, sliver.Name))
-			print(console, fmt.Sprintf(bold+"Hostname: %s%s", normal, sliver.Hostname))
-			print(console, fmt.Sprintf(bold+"Username: %s%s", normal, sliver.Username))
-			print(console, fmt.Sprintf(bold+"UID: %s%s", normal, sliver.Uid))
-			print(console, fmt.Sprintf(bold+"GID: %s%s", normal, sliver.Gid))
-			print(console, fmt.Sprintf(bold+"OS: %s%s", normal, sliver.Os))
-			print(console, fmt.Sprintf(bold+"Arch: %s%s", normal, sliver.Arch))
-			print(console, fmt.Sprintf(bold+"Remote Address: %s%s", normal, sliver.RemoteAddress))
-			print(console, "\n")
-		} else {
-			console <- ConsoleMsg{
-				Level:   Warn,
-				Message: fmt.Sprintf("No sliver with name '%s'", args[0]),
-			}
-		}
-	} else {
-		console <- ConsoleMsg{Level: Warn, Message: "Please provide a sliver name"}
-	}
 }
