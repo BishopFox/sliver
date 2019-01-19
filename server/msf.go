@@ -67,7 +67,7 @@ type VenomConfig struct {
 	Encoder    string
 	Iterations int
 	LHost      string
-	LPort      int16
+	LPort      uint16
 	Encrypt    string
 }
 
@@ -166,6 +166,14 @@ func MsfConsoleCmd(args []string) ([]byte, error) {
 	}
 
 	return stdout.Bytes(), err
+}
+
+// MsfArch - Convert golang arch to msf arch
+func MsfArch(arch string) string {
+	if arch == "amd64" {
+		return "x64"
+	}
+	return "x86"
 }
 
 func randomEncryptKey() string {

