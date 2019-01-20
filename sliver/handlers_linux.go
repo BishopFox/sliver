@@ -1,13 +1,14 @@
 package main
 
 var (
-	darwinHandlers = map[string]interface{}{
+	linuxHandlers = map[string]interface{}{
 		"task": taskHandler,
+		"ping": pingHandler,
 	}
 )
 
 func getSystemHandlers() map[string]interface{} {
-	return darwinHandlers
+	return linuxHandlers
 }
 
 func taskHandler(msg []byte) {

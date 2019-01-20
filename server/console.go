@@ -47,7 +47,14 @@ var (
 	activeSliver *Sliver
 	stdout       = bufio.NewWriter(os.Stdout)
 	history      = []string{}
-	cmdHandlers  = map[string]interface{}{
+
+	// Stylizes known processes in the `ps` command
+	knownProcs = map[string]string{
+		"ccSvcHst.exe": red, // SEP
+		"cb.exe":       red, // Carbon Black
+	}
+
+	cmdHandlers = map[string]interface{}{
 		"help":     help,
 		"ls":       ls,
 		"info":     info,
@@ -350,6 +357,11 @@ func inject(term *terminal.Terminal, args []string) {
 }
 
 func ps(term *terminal.Terminal, args []string) {
+	psFlags := flag.NewFlagSet("ps", flag.ContinueOnError)
+	pidFilter := psFlags.Int("pid", -1, "find proc by pid")
+	exeFilter := psFlags.String("exe", "", "filter procs by name")
+	psFlags.Parse(args)
+
 	if activeSliver != nil {
 		fmt.Fprintf(term, Info+"Requesting process list from %s ...\n", activeSliver.Name)
 
@@ -378,13 +390,38 @@ func ps(term *terminal.Terminal, args []string) {
 		fmt.Fprintf(term, header)
 		fmt.Fprintf(term, "%s\n", strings.Repeat("=", len(header)))
 		for _, proc := range psList.Processes {
-			fmt.Fprintf(term, "%s% 6d%s | % 6d | %s\n",
-				bold, proc.Pid, normal, proc.Ppid, proc.Executable)
+			if *pidFilter != -1 {
+				if proc.Pid == int32(*pidFilter) {
+					printProcInfo(term, proc)
+				}
+			}
+			if *exeFilter != "" {
+				if strings.HasPrefix(proc.Executable, *exeFilter) {
+					printProcInfo(term, proc)
+				}
+			}
+			if *pidFilter == -1 && *exeFilter == "" {
+				printProcInfo(term, proc)
+			}
 		}
+
 		fmt.Fprintf(term, "\n")
 	} else {
 		fmt.Fprintf(term, Warn+"Please select and active sliver via `use`\n")
 	}
+}
+
+// printProcInfo - Stylizes the process information
+func printProcInfo(term *terminal.Terminal, proc *pb.Process) {
+	color := normal
+	if modifyColor, ok := knownProcs[proc.Executable]; ok {
+		color = modifyColor
+	}
+	if strings.HasPrefix(proc.Executable, activeSliver.Name) {
+		color = green
+	}
+	fmt.Fprintf(term, "%s%s% 6d%s%s | % 6d | %s%s\n",
+		color, bold, proc.Pid, normal, color, proc.Ppid, proc.Executable, normal)
 }
 
 func ping(term *terminal.Terminal, args []string) {

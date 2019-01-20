@@ -65,6 +65,7 @@ func main() {
 	logFile := initLogging(appDir)
 	defer logFile.Close()
 	if _, err := os.Stat(path.Join(appDir, goDirName)); os.IsNotExist(err) {
+		fmt.Println(Info + "First time setup, unpacking assets please wait ... ")
 		log.Println("First time setup, unpacking assets please wait ... ")
 		SetupAssets()
 	}

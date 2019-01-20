@@ -74,9 +74,10 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 
 	// Load code template
 	sliverBox := packr.NewBox("../sliver")
-	saveCode(sliverBox, "sliver_windows.go", workingDir)
-	saveCode(sliverBox, "sliver_linux.go", workingDir)
-	saveCode(sliverBox, "sliver_darwin.go", workingDir)
+	saveCode(sliverBox, "handlers.go", workingDir)
+	saveCode(sliverBox, "handlers_windows.go", workingDir)
+	saveCode(sliverBox, "handlers_linux.go", workingDir)
+	saveCode(sliverBox, "handlers_darwin.go", workingDir)
 	saveCode(sliverBox, "ps.go", workingDir)
 	saveCode(sliverBox, "ps_windows.go", workingDir)
 	saveCode(sliverBox, "ps_linux.go", workingDir)
