@@ -46,12 +46,6 @@ type Sliver struct {
 	Resp          map[string]chan pb.Envelope
 }
 
-// ConsoleMsg -
-type ConsoleMsg struct {
-	Level   string
-	Message string
-}
-
 var (
 	server      *string
 	serverLPort *int
@@ -78,7 +72,6 @@ func main() {
 	events := make(chan *Sliver)
 
 	log.Println("Starting listeners ...")
-	// fmt.Printf(Info+"Binding to %s:%d\n", *server, *serverLPort)
 	ln, err := startSliverListener(*server, uint16(*serverLPort), events)
 	if err != nil {
 		log.Printf("Failed to start server")

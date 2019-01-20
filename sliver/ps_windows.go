@@ -1,8 +1,6 @@
 // +build windows
 package main
 
-// https://github.com/mitchellh/go-ps/blob/master/process_windows.go
-
 import (
 	"fmt"
 	"syscall"

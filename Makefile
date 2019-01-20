@@ -24,20 +24,20 @@ windows: clean pb
 #
 static-macos: clean pb
 	packr
-	sed -i '' '/$*.windows\/*./d' ./server/a_main-packr.go
-	sed -i '' '/$*.linux\/*./d' ./server/a_main-packr.go
+	sed -i '' '/$*.windows\/go\.zip/d' ./server/a_main-packr.go
+	sed -i '' '/$*.linux\/go\.zip/d' ./server/a_main-packr.go
 	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
 
 static-windows: clean pb
 	packr
-	sed -i '' '/$*.darwin\/*./d' ./server/a_main-packr.go
-	sed -i '' '/$*.linux\/*./d' ./server/a_main-packr.go
+	sed -i '' '/$*.darwin\/go\.zip/d' ./server/a_main-packr.go
+	sed -i '' '/$*.linux\/go\.zip/d' ./server/a_main-packr.go
 	GOOS=windows $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
 
 static-linux: clean pb
 	packr
-	sed -i '' '/$*.darwin\/*./d' ./server/a_main-packr.go
-	sed -i '' '/$*.windows\/*./d' ./server/a_main-packr.go
+	sed -i '' '/$*.darwin\/go\.zip/d' ./server/a_main-packr.go
+	sed -i '' '/$*.windows\/go\.zip/d' ./server/a_main-packr.go
 	GOOS=linux $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
 
 pb:
