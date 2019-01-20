@@ -56,6 +56,7 @@ var (
 		"msf":      msf,
 		"inject":   inject,
 		"ps":       ps,
+		"ping":     ping,
 	}
 )
 
@@ -352,16 +353,21 @@ func ps(term *terminal.Terminal, args []string) {
 	if activeSliver != nil {
 		fmt.Fprintf(term, Info+"Requesting process list from %s ...\n", activeSliver.Name)
 
+		respId := randomID()
 		data, _ := proto.Marshal(&pb.ProcessListReq{
-			Id: randomID(),
+			Id: respId,
 		})
+		resp := make(chan pb.Envelope)
+		(*activeSliver).Resp[respId] = resp
+		defer close(resp)
 		(*activeSliver).Send <- pb.Envelope{
+			Id:   respId,
 			Type: "psReq",
 			Data: data,
 		}
-		resp := <-(*activeSliver).Recv
+		envelope := <-resp
 		psList := &pb.ProcessList{}
-		err := proto.Unmarshal(resp.Data, psList)
+		err := proto.Unmarshal(envelope.Data, psList)
 		if err != nil {
 			fmt.Fprintf(term, Warn+"Unmarshaling envelope error: %v\n", err)
 			return
@@ -371,10 +377,45 @@ func ps(term *terminal.Terminal, args []string) {
 		fmt.Fprintf(term, header)
 		fmt.Fprintf(term, "%s\n", strings.Repeat("=", len(header)))
 		for _, proc := range psList.Processes {
-			fmt.Fprintf(term, "% 6d | % 6d | %s\n", proc.Pid, proc.Ppid, proc.Executable)
+			fmt.Fprintf(term, "%s% 6d%s | % 6d | %s\n",
+				bold, proc.Pid, normal, proc.Ppid, proc.Executable)
 		}
 		fmt.Fprintf(term, "\n")
 	} else {
 		fmt.Fprintf(term, Warn+"Please select and active sliver via `use`\n")
+	}
+}
+
+func ping(term *terminal.Terminal, args []string) {
+	var name *string
+	if len(args) == 1 {
+		name = &args[0]
+	} else if activeSliver != nil {
+		name = &activeSliver.Name
+	}
+	if name != nil {
+		sliver := getSliverByName(*name)
+		respId := randomID()
+		data, _ := proto.Marshal(&pb.Ping{
+			Id: respId,
+		})
+		resp := make(chan pb.Envelope)
+		(*sliver).Resp[respId] = resp
+		defer close(resp)
+		(*sliver).Send <- pb.Envelope{
+			Id:   respId,
+			Type: "ping",
+			Data: data,
+		}
+		envelope := <-resp
+		pong := &pb.Ping{}
+		err := proto.Unmarshal(envelope.Data, pong)
+		if err != nil {
+			fmt.Fprintf(term, Warn+"Unmarshaling envelope error: %v\n", err)
+			return
+		}
+		fmt.Fprintf(term, Info+"Ping/Pong with ID = %s\n", pong.Id)
+	} else {
+		fmt.Fprintln(term, Warn+"Missing sliver name\n")
 	}
 }

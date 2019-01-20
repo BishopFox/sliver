@@ -6,6 +6,7 @@ package sliverpb;
 message Envelope {
   string type = 1; // Message type
   bytes data = 2;  // Actual message data
+  string id = 3;
 }
 
 message RegisterSliver {
@@ -16,6 +17,10 @@ message RegisterSliver {
   string gid = 5;
   string os = 6;
   string arch = 7;
+}
+
+message Ping {
+  string Id = 1;
 }
 
 // aka Shellcode
