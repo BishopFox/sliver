@@ -8,6 +8,9 @@ var (
 		"gen":      genHelp,
 		"generate": genHelp,
 		"msf":      msfHelp,
+		"inject":   injectHelp,
+		"ps":       psHelp,
+		"ping":     pingHelp,
 	}
 
 	defaultHelp = `
@@ -26,40 +29,66 @@ Use '<command> -help' to see information about a specific command.
 `
 
 	lsHelp = `
-Command: [[.Bold]]ls[[.Normal]]
+[[.Bold]]Command:[[.Normal]] ls
 List active sliver connections.
 
 `
 
 	infoHelp = `
-Command: [[.Bold]]info[[.Normal]] <sliver name>
+[[.Bold]]Command:[[.Normal]] info<sliver name>
 Get information about a sliver by name, or for the active sliver.
 
 `
 
 	useHelp = `
-Command: [[.Bold]]use[[.Normal]] [sliver name]
+[[.Bold]]Command:[[.Normal]] use [sliver name]
 Switch the active sliver, a valid name must be provided (see ls).
 
 `
 
 	genHelp = `
-Command: [[.Bold]]gen[[.Normal]] <options>
-Options:
-	      -os  | [windows/linux/macos]
-        -arch  | [amd64/386]
+[[.Bold]]Command:[[.Normal]] gen<options>
+[[.Bold]]Options:[[.Normal]]
+	       -os | [windows/linux/macos]
+         -arch | [amd64/386]
        -server | Sliver server address
  -server-lport | Sliver server listen port
 
 `
 	msfHelp = `
-Command: [[.Bold]]msf[[.Normal]] <options>
-Options:
+[[.Bold]]Command:[[.Normal]] msf [-lhost] <options>
+[[.Bold]]Options:[[.Normal]]
    -payload | The MSF payload to use (default: meterpreter_reverse_https)
    -lhost   | Metasploit listener LHOST (required)
    -lport   | Metasploit listener LPORT (default: 4444)
-   -encoder | MSF encoder
-   -iter    | Iterations of the encoder
+   -encoder | MSF encoder (default: none)
+   -iter    | Iterations of the encoder (requires -encoder)
+
+`
+
+	injectHelp = `
+[[.Bold]]Command:[[.Normal]] inject [-pid] [-lhost] <options>
+[[.Bold]]Options:[[.Normal]]
+    -pid | The pid of the process to inject into (see 'ps')
+-payload | The MSF payload to use (default: meterpreter_reverse_https)
+  -lhost | Metasploit listener LHOST (required)
+  -lport | Metasploit listener LPORT (default: 4444)
+-encoder | MSF encoder (default: none)
+   -iter | Iterations of the encoder (requires -encoder)
+
+`
+
+	psHelp = `
+[[.Bold]]Command:[[.Normal]] ps <options>
+[[.Bold]]Options:[[.Normal]]
+ -pid | Filter results based on pid
+ -exe | Filter results based on exe name (prefix)
+
+`
+
+	pingHelp = `
+[[.Bold]]Command:[[.Normal]] ping <sliver name>
+Ping sliver by name or the active sliver
 
 `
 )

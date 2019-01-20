@@ -187,10 +187,17 @@ func help(term *terminal.Terminal, args []string) {
 }
 
 func ls(term *terminal.Terminal, args []string) {
+	lsFlags := flag.NewFlagSet("ls", flag.ContinueOnError)
+	lsFlags.Usage = func() { help(term, []string{"ls"}) }
+	err := lsFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
+
 	hiveMutex.Lock()
 	defer hiveMutex.Unlock()
 	if 0 < len(*hive) {
-		fmt.Fprintf(term, "\nAvailable Slivers\n")
+		fmt.Fprintf(term, "\n%sAvailable Slivers%s\n", bold, normal)
 		fmt.Fprintf(term, "=================\n")
 		for _, sliver := range *hive {
 			fmt.Fprintf(term, " %d. %s (%s)\n", sliver.Id, sliver.Name, sliver.RemoteAddress)
@@ -202,6 +209,13 @@ func ls(term *terminal.Terminal, args []string) {
 }
 
 func info(term *terminal.Terminal, args []string) {
+	infoFlags := flag.NewFlagSet("info", flag.ContinueOnError)
+	infoFlags.Usage = func() { help(term, []string{"info"}) }
+	err := infoFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
+
 	var sliver *Sliver
 	if activeSliver != nil {
 		sliver = getSliver(strconv.Itoa(activeSliver.Id))
@@ -226,6 +240,13 @@ func info(term *terminal.Terminal, args []string) {
 }
 
 func use(term *terminal.Terminal, args []string) {
+	useFlags := flag.NewFlagSet("use", flag.ContinueOnError)
+	useFlags.Usage = func() { help(term, []string{"use"}) }
+	err := useFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
+
 	if 0 < len(args) {
 		sliver := getSliver(args[0])
 		if sliver != nil {
@@ -247,7 +268,11 @@ func generate(term *terminal.Terminal, args []string) {
 	lhost := genFlags.String("lhost", *server, "sliver server listener lhost")
 	lport := genFlags.Int("lport", *serverLPort, "sliver server listner port")
 	save := genFlags.String("save", "", "save binary file to path")
-	genFlags.Parse(args)
+	genFlags.Usage = func() { help(term, []string{"generate"}) }
+	err := genFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
 
 	fmt.Fprintf(term, Info+"Generating new %s/%s sliver binary, please wait ... \n", *target, *arch)
 	path, err := GenerateImplantBinary(*target, *arch, *lhost, uint16(*lport))
@@ -272,13 +297,17 @@ func generate(term *terminal.Terminal, args []string) {
 }
 
 func msf(term *terminal.Terminal, args []string) {
-	if activeSliver != nil {
-		msfFlags := flag.NewFlagSet("msf", flag.ContinueOnError)
-		payloadName := msfFlags.String("payload", "meterpreter_reverse_https", "metasploit payload")
-		lhost := msfFlags.String("lhost", "", "metasploit listener lhost")
-		lport := msfFlags.Int("lport", 4444, "metasploit listner port")
-		msfFlags.Parse(args)
+	msfFlags := flag.NewFlagSet("msf", flag.ContinueOnError)
+	payloadName := msfFlags.String("payload", "meterpreter_reverse_https", "metasploit payload")
+	lhost := msfFlags.String("lhost", "", "metasploit listener lhost")
+	lport := msfFlags.Int("lport", 4444, "metasploit listner port")
+	msfFlags.Usage = func() { help(term, []string{"msf"}) }
+	err := msfFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
 
+	if activeSliver != nil {
 		if *lhost == "" {
 			fmt.Fprintf(term, Warn+"Invalid lhost '%s', see `help msf`\n", *lhost)
 			return
@@ -319,14 +348,18 @@ func msf(term *terminal.Terminal, args []string) {
 }
 
 func inject(term *terminal.Terminal, args []string) {
-	if activeSliver != nil {
-		injectFlags := flag.NewFlagSet("inject", flag.ContinueOnError)
-		injectPid := injectFlags.Int("pid", 0, "pid to inject payload into")
-		payloadName := injectFlags.String("payload", "meterpreter_reverse_https", "metasploit payload")
-		lhost := injectFlags.String("lhost", "", "metasploit listener lhost")
-		lport := injectFlags.Int("lport", 4444, "metasploit listner port")
-		injectFlags.Parse(args)
+	injectFlags := flag.NewFlagSet("inject", flag.ContinueOnError)
+	injectPid := injectFlags.Int("pid", 0, "pid to inject payload into")
+	payloadName := injectFlags.String("payload", "meterpreter_reverse_https", "metasploit payload")
+	lhost := injectFlags.String("lhost", "", "metasploit listener lhost")
+	lport := injectFlags.Int("lport", 4444, "metasploit listner port")
+	injectFlags.Usage = func() { help(term, []string{"inject"}) }
+	err := injectFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
 
+	if activeSliver != nil {
 		if *lhost == "" {
 			fmt.Fprintf(term, Warn+"Invalid lhost '%s', see `help msf`\n", *lhost)
 			return
@@ -371,7 +404,11 @@ func ps(term *terminal.Terminal, args []string) {
 	psFlags := flag.NewFlagSet("ps", flag.ContinueOnError)
 	pidFilter := psFlags.Int("pid", -1, "find proc by pid")
 	exeFilter := psFlags.String("exe", "", "filter procs by name")
-	psFlags.Parse(args)
+	psFlags.Usage = func() { help(term, []string{"ps"}) }
+	err := psFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
 
 	if activeSliver != nil {
 		fmt.Fprintf(term, Info+"Requesting process list from %s ...\n", activeSliver.Name)
@@ -443,6 +480,13 @@ func printProcInfo(term *terminal.Terminal, proc *pb.Process) {
 }
 
 func ping(term *terminal.Terminal, args []string) {
+	pingFlags := flag.NewFlagSet("ping", flag.ContinueOnError)
+	pingFlags.Usage = func() { help(term, []string{"ping"}) }
+	err := pingFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
+
 	var sliver *Sliver
 	if activeSliver != nil {
 		sliver = getSliver(strconv.Itoa(activeSliver.Id))
