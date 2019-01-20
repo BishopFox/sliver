@@ -14,7 +14,7 @@ Sliver can inject payloads into it's own process or optionally use remote thread
 ### Setup
 
 1. Install Metasploit Framework v5 or later
-2. Download the [Sliver]() binary
+2. Download the latest [Sliver](https://github.com/BishopFox/sliver/releases) binary
 3. ???
 4. Shellz
 

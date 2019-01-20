@@ -13,14 +13,16 @@ var (
 	defaultHelp = `
 [[.Bold]]Commands[[.Normal]]
 =========
-ls   - List all sliver connections
-info - Get information about a sliver
-use  - Switch the active sliver
-gen  - Generate a new sliver binary
-msf  - Send an msf payload to the active sliver
-kill - Kill connection to sliver
+ls     - List all sliver connections
+info   - Get information about a sliver
+use    - Switch the active sliver
+gen    - Generate a new sliver binary
+msf    - Send an msf payload to the active sliver
+ps     - List processes of active sliver
+ping   - Send a ping message to active sliver
+inject - Inject a payload into a remote process
 
-Use 'help <command>' to see information about a specific command.
+Use '<command> -help' to see information about a specific command.
 `
 
 	lsHelp = `

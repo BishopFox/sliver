@@ -404,7 +404,6 @@ func ps(term *terminal.Terminal, args []string) {
 				printProcInfo(term, proc)
 			}
 		}
-
 		fmt.Fprintf(term, "\n")
 	} else {
 		fmt.Fprintf(term, Warn+"Please select and active sliver via `use`\n")
