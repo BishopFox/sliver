@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	pb "sliver/protobuf"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 	"text/template"
 	"time"
 
@@ -194,17 +196,50 @@ func ls(term *terminal.Terminal, args []string) {
 		return
 	}
 
-	hiveMutex.Lock()
-	defer hiveMutex.Unlock()
 	if 0 < len(*hive) {
-		fmt.Fprintf(term, "\n%sAvailable Slivers%s\n", bold, normal)
-		fmt.Fprintf(term, "=================\n")
-		for _, sliver := range *hive {
-			fmt.Fprintf(term, " %d. %s (%s)\n", sliver.Id, sliver.Name, sliver.RemoteAddress)
-		}
-		fmt.Fprintf(term, "\n")
+		printSlivers(term)
 	} else {
 		fmt.Fprintln(term, Info+"No slivers connected\n")
+	}
+}
+
+func printSlivers(term *terminal.Terminal) {
+	outputBuf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+
+	// Column Headers
+	fmt.Fprintln(table, "\nID\tName\tRemote Address\tUsername\tOperating System\t")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+		strings.Repeat("=", len("ID")),
+		strings.Repeat("=", len("Name")),
+		strings.Repeat("=", len("Remote Address")),
+		strings.Repeat("=", len("Username")),
+		strings.Repeat("=", len("Operating System")))
+	hiveMutex.Lock()
+	defer hiveMutex.Unlock()
+
+	activeIndex := -1
+	for index, sliver := range *hive {
+		if activeSliver != nil && activeSliver.Id == sliver.Id {
+			activeIndex = index + 2
+		}
+		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t\n",
+			sliver.Id, sliver.Name, sliver.RemoteAddress, sliver.Username,
+			fmt.Sprintf("%s/%s", sliver.Os, sliver.Arch))
+	}
+	table.Flush()
+
+	if activeIndex != -1 {
+		lines := strings.Split(outputBuf.String(), "\n")
+		for lineNumber, line := range lines {
+			if lineNumber == activeIndex {
+				fmt.Fprintf(term, "%s%s%s\n", green, line, normal)
+			} else {
+				fmt.Fprintf(term, "%s\n", line)
+			}
+		}
+	} else {
+		fmt.Fprintln(term, outputBuf.String())
 	}
 }
 

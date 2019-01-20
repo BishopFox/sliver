@@ -29,25 +29,28 @@ Use '<command> -help' to see information about a specific command.
 `
 
 	lsHelp = `
-[[.Bold]]Command:[[.Normal]] ls
-List active sliver connections.
+[[.Bold]]Command:[[.Normal]] ls <options>
+[[.Bold]]About:[[.Normal]] List active sliver connections.
+[[.Bold]]Options:[[.Normal]]
+ -l | Display additional details about each sliver
 
 `
 
 	infoHelp = `
 [[.Bold]]Command:[[.Normal]] info<sliver name>
-Get information about a sliver by name, or for the active sliver.
+[[.Bold]]About:[[.Normal]] Get information about a sliver by name, or for the active sliver.
 
 `
 
 	useHelp = `
 [[.Bold]]Command:[[.Normal]] use [sliver name]
-Switch the active sliver, a valid name must be provided (see ls).
+[[.Bold]]About:[[.Normal]] Switch the active sliver, a valid name must be provided (see ls).
 
 `
 
 	genHelp = `
 [[.Bold]]Command:[[.Normal]] gen<options>
+[[.Bold]]About:[[.Normal]] Generate a new sliver binary.
 [[.Bold]]Options:[[.Normal]]
 	       -os | [windows/linux/macos]
          -arch | [amd64/386]
@@ -57,6 +60,7 @@ Switch the active sliver, a valid name must be provided (see ls).
 `
 	msfHelp = `
 [[.Bold]]Command:[[.Normal]] msf [-lhost] <options>
+[[.Bold]]About:[[.Normal]] Execute a metasploit payload in the current process.
 [[.Bold]]Options:[[.Normal]]
    -payload | The MSF payload to use (default: meterpreter_reverse_https)
    -lhost   | Metasploit listener LHOST (required)
@@ -68,6 +72,7 @@ Switch the active sliver, a valid name must be provided (see ls).
 
 	injectHelp = `
 [[.Bold]]Command:[[.Normal]] inject [-pid] [-lhost] <options>
+[[.Bold]]About:[[.Normal]] Execute a metasploit payload in a remote process.
 [[.Bold]]Options:[[.Normal]]
     -pid | The pid of the process to inject into (see 'ps')
 -payload | The MSF payload to use (default: meterpreter_reverse_https)
@@ -80,6 +85,7 @@ Switch the active sliver, a valid name must be provided (see ls).
 
 	psHelp = `
 [[.Bold]]Command:[[.Normal]] ps <options>
+[[.Bold]]About:[[.Normal]] List processes on remote system.
 [[.Bold]]Options:[[.Normal]]
  -pid | Filter results based on pid
  -exe | Filter results based on exe name (prefix)
@@ -88,7 +94,7 @@ Switch the active sliver, a valid name must be provided (see ls).
 
 	pingHelp = `
 [[.Bold]]Command:[[.Normal]] ping <sliver name>
-Ping sliver by name or the active sliver
+[[.Bold]]About:[[.Normal]] Ping sliver by name or the active sliver.
 
 `
 )
