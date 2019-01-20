@@ -46,9 +46,16 @@ type Sliver struct {
 	Resp          map[string]chan pb.Envelope
 }
 
+// Event - Sliver connect/disconnect
+type Event struct {
+	Sliver    *Sliver
+	EventType string
+}
+
 var (
-	server      *string
-	serverLPort *int
+	sliverServerVersion = "0.0.1"
+	server              *string
+	serverLPort         *int
 
 	// Yea I'm lazy, it'd be better not to use mutex
 	hiveMutex = &sync.RWMutex{}
@@ -59,7 +66,13 @@ var (
 func main() {
 	server = flag.String("server", "", "bind server address")
 	serverLPort = flag.Int("server-lport", 8888, "bind listen port")
+	version := flag.Bool("version", false, "print version number")
 	flag.Parse()
+
+	if *version {
+		fmt.Printf("v%s\n", sliverServerVersion)
+		os.Exit(0)
+	}
 
 	appDir := GetRootAppDir()
 	logFile := initLogging(appDir)
@@ -70,7 +83,7 @@ func main() {
 		SetupAssets()
 	}
 
-	events := make(chan *Sliver)
+	events := make(chan Event, 128)
 
 	log.Println("Starting listeners ...")
 	ln, err := startSliverListener(*server, uint16(*serverLPort), events)
@@ -103,7 +116,7 @@ func initLogging(appDir string) *os.File {
 	return logFile
 }
 
-func startSliverListener(bindIface string, port uint16, events chan *Sliver) (net.Listener, error) {
+func startSliverListener(bindIface string, port uint16, events chan Event) (net.Listener, error) {
 	log.Printf("Starting listener on %s:%d", bindIface, port)
 
 	tlsConfig := getServerTLSConfig(SliversDir, bindIface)
@@ -116,7 +129,7 @@ func startSliverListener(bindIface string, port uint16, events chan *Sliver) (ne
 	return ln, nil
 }
 
-func acceptConnections(ln net.Listener, events chan *Sliver) {
+func acceptConnections(ln net.Listener, events chan Event) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -130,7 +143,7 @@ func acceptConnections(ln net.Listener, events chan *Sliver) {
 	}
 }
 
-func handleSliverConnection(conn net.Conn, events chan *Sliver) {
+func handleSliverConnection(conn net.Conn, events chan Event) {
 	log.Printf("Accepted incoming connection: %s", conn.RemoteAddr())
 
 	envelope, err := socketReadEnvelope(conn)
@@ -161,25 +174,28 @@ func handleSliverConnection(conn net.Conn, events chan *Sliver) {
 	hiveMutex.Unlock()
 
 	defer func() {
+		log.Printf("Cleaning up for %s", sliver.Name)
 		hiveMutex.Lock()
 		delete(*hive, sliver.Id)
 		hiveMutex.Unlock()
 		conn.Close()
+		events <- Event{Sliver: sliver, EventType: "disconnected"}
 	}()
 
-	events <- sliver
+	events <- Event{Sliver: sliver, EventType: "connected"}
 
 	go func() {
 		defer func() {
 			for _, resp := range sliver.Resp {
 				close(resp)
 			}
+			close(sliver.Send)
 		}()
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err != nil {
 				log.Printf("Socket read error %v", err)
-				break
+				return
 			}
 			if envelope.Id != "" {
 				if resp, ok := sliver.Resp[envelope.Id]; ok {
@@ -192,10 +208,11 @@ func handleSliverConnection(conn net.Conn, events chan *Sliver) {
 	for envelope := range sliver.Send {
 		err := socketWriteEnvelope(conn, envelope)
 		if err != nil {
+			log.Printf("Socket write failed %v", err)
 			return
 		}
 	}
-
+	log.Printf("Closing connection to sliver %s", sliver.Name)
 }
 
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing

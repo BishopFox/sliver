@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"io"
@@ -12,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/ssh/terminal"
@@ -45,8 +45,7 @@ const (
 
 var (
 	activeSliver *Sliver
-	stdout       = bufio.NewWriter(os.Stdout)
-	history      = []string{}
+	cmdTimeout   = 10 * time.Second
 
 	// Stylizes known processes in the `ps` command
 	knownProcs = map[string]string{
@@ -68,7 +67,7 @@ var (
 	}
 )
 
-func startConsole(events chan *Sliver) {
+func startConsole(events chan Event) {
 	if !terminal.IsTerminal(0) || !terminal.IsTerminal(1) {
 		log.Print("stdin/stdout should be terminal")
 		return
@@ -104,9 +103,21 @@ func startConsole(events chan *Sliver) {
 				fmt.Fprintf(term, Warn+"Invalid command '%s'\n", words[0])
 			}
 			done <- true
-		case sliver := <-events:
-			fmt.Fprintf(term, Info+"%s - %s (%s) - %s/%s\n",
-				sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
+		case event := <-events:
+			sliver := event.Sliver
+			switch event.EventType {
+			case "connected":
+				fmt.Fprintf(term, Info+"Connection #%d %s - %s (%s) - %s/%s\n",
+					sliver.Id, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
+			case "disconnected":
+				fmt.Fprintf(term, Warn+"Lost connection #%d %s - %s (%s) - %s/%s\n",
+					sliver.Id, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
+				if activeSliver != nil && sliver.Id == activeSliver.Id {
+					activeSliver = nil
+					setPrompt(term)
+					fmt.Fprintf(term, Warn+"Warning: Active sliver diconnected\n")
+				}
+			}
 		}
 	}
 }
@@ -378,7 +389,15 @@ func ps(term *terminal.Terminal, args []string) {
 			Type: "psReq",
 			Data: data,
 		}
-		envelope := <-resp
+
+		var envelope pb.Envelope
+		select {
+		case envelope = <-resp:
+		case <-time.After(cmdTimeout):
+			fmt.Fprintf(term, Warn+"Command failed due to timeout\n")
+			return
+		}
+
 		psList := &pb.ProcessList{}
 		err := proto.Unmarshal(envelope.Data, psList)
 		if err != nil {
@@ -444,7 +463,15 @@ func ping(term *terminal.Terminal, args []string) {
 			Type: "ping",
 			Data: data,
 		}
-		envelope := <-resp
+
+		var envelope pb.Envelope
+		select {
+		case envelope = <-resp:
+		case <-time.After(cmdTimeout):
+			fmt.Fprintf(term, Warn+"Command failed due to timeout\n")
+			return
+		}
+
 		pong := &pb.Ping{}
 		err := proto.Unmarshal(envelope.Data, pong)
 		if err != nil {
