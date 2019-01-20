@@ -52,6 +52,14 @@ func main() {
 	defer conn.Close()
 	registerSliver(conn)
 
+	send := make(chan pb.Envelope)
+	defer close(send)
+	go func() {
+		for envelope := range send {
+			socketWriteEnvelope(conn, envelope)
+		}
+	}()
+
 	handlers := getSystemHandlers()
 	for {
 		envelope, err := socketReadEnvelope(conn)
@@ -60,7 +68,7 @@ func main() {
 		}
 		if err == nil {
 			handler := handlers[envelope.Type]
-			go handler.(func([]byte))(envelope.Data)
+			go handler.(func(chan pb.Envelope, []byte))(send, envelope.Data)
 		}
 	}
 }

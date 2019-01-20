@@ -53,9 +53,11 @@ Options:
 	msfHelp = `
 Command: [[.Bold]]msf[[.Normal]] <options>
 Options:
- -payload | The MSF payload to use
-   -lhost | Metasploit listener LHOST
-   -lport | Metasploit listener LPORT
+   -payload | The MSF payload to use (default: meterpreter_reverse_https)
+   -lhost   | Metasploit listener LHOST (required)
+   -lport   | Metasploit listener LPORT (default: 4444)
+   -encoder | MSF encoder
+   -iter    | Iterations of the encoder
 
 `
 )

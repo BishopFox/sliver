@@ -74,9 +74,13 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 
 	// Load code template
 	sliverBox := packr.NewBox("../sliver")
-	savePlatformCode(sliverBox, windowsPlatform, workingDir)
-	savePlatformCode(sliverBox, linuxPlatform, workingDir)
-	savePlatformCode(sliverBox, darwinPlatform, workingDir)
+	saveCode(sliverBox, "sliver_windows.go", workingDir)
+	saveCode(sliverBox, "sliver_linux.go", workingDir)
+	saveCode(sliverBox, "sliver_darwin.go", workingDir)
+	saveCode(sliverBox, "ps.go", workingDir)
+	saveCode(sliverBox, "ps_windows.go", workingDir)
+	saveCode(sliverBox, "ps_linux.go", workingDir)
+	saveCode(sliverBox, "ps_darwin.go", workingDir)
 
 	sliverGoCode, _ := sliverBox.MustString("sliver.go")
 	sliverCodePath := path.Join(workingDir, "sliver.go")
@@ -107,8 +111,7 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	return dest, err
 }
 
-func savePlatformCode(sliverBox packr.Box, platform string, workingDir string) {
-	fileName := fmt.Sprintf("sliver_%s.go", platform)
+func saveCode(sliverBox packr.Box, fileName string, workingDir string) {
 	sliverPlatformCode, _ := sliverBox.MustString(fileName)
 	sliverPlatformCodePath := path.Join(workingDir, fileName)
 	err := ioutil.WriteFile(sliverPlatformCodePath, []byte(sliverPlatformCode), os.ModePerm)

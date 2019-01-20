@@ -43,6 +43,7 @@ type Sliver struct {
 	Arch          string
 	RemoteAddress string
 	Send          chan pb.Envelope
+	Recv          chan pb.Envelope
 }
 
 // ConsoleMsg -
@@ -145,6 +146,7 @@ func handleSliverConnection(conn net.Conn, events chan *Sliver) {
 	registerSliver := &pb.RegisterSliver{}
 	proto.Unmarshal(envelope.Data, registerSliver)
 	send := make(chan pb.Envelope)
+	recv := make(chan pb.Envelope)
 
 	sliver := &Sliver{
 		ID:            randomID(),
@@ -157,6 +159,7 @@ func handleSliverConnection(conn net.Conn, events chan *Sliver) {
 		Arch:          registerSliver.Arch,
 		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
 		Send:          send,
+		Recv:          recv,
 	}
 
 	hiveMutex.Lock()
@@ -174,6 +177,18 @@ func handleSliverConnection(conn net.Conn, events chan *Sliver) {
 	case events <- sliver: // Non-blocking channel send
 	default:
 	}
+
+	go func() {
+		defer close(sliver.Recv)
+		for {
+			envelope, err := socketReadEnvelope(conn)
+			if err != nil {
+				log.Printf("Socket read error %v", err)
+				break
+			}
+			sliver.Recv <- envelope
+		}
+	}()
 
 	for envelope := range sliver.Send {
 		err := socketWriteEnvelope(conn, envelope)
