@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	pb "sliver/protobuf"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -134,10 +135,16 @@ func setPrompt(term *terminal.Terminal) {
 	term.SetPrompt(prompt)
 }
 
-func getSliverByName(name string) *Sliver {
+func getSliver(name string) *Sliver {
+	id, err := strconv.Atoi(name)
 	name = strings.ToUpper(name)
 	hiveMutex.Lock()
 	defer hiveMutex.Unlock()
+	if err == nil {
+		if sliver, ok := (*hive)[id]; ok {
+			return sliver
+		}
+	}
 	for _, sliver := range *hive {
 		if sliver.Name == name {
 			return sliver
@@ -167,10 +174,8 @@ func ls(term *terminal.Terminal, args []string) {
 	if 0 < len(*hive) {
 		fmt.Fprintf(term, "\nAvailable Slivers\n")
 		fmt.Fprintf(term, "=================\n")
-		index := 1
 		for _, sliver := range *hive {
-			fmt.Fprintf(term, " %d. %s (%s)\n", index, sliver.Name, sliver.RemoteAddress)
-			index++
+			fmt.Fprintf(term, " %d. %s (%s)\n", sliver.Id, sliver.Name, sliver.RemoteAddress)
 		}
 		fmt.Fprintf(term, "\n")
 	} else {
@@ -179,41 +184,36 @@ func ls(term *terminal.Terminal, args []string) {
 }
 
 func info(term *terminal.Terminal, args []string) {
-	var name *string
-	if len(args) == 1 {
-		name = &args[0]
-	} else if activeSliver != nil {
-		name = &activeSliver.Name
+	var sliver *Sliver
+	if activeSliver != nil {
+		sliver = getSliver(strconv.Itoa(activeSliver.Id))
+	} else if 0 < len(args) {
+		sliver = getSliver(args[0])
 	}
-	if name != nil {
-		sliver := getSliverByName(*name)
-		if sliver != nil {
-			fmt.Fprintln(term, "")
-			fmt.Fprintf(term, bold+"ID: %s%s\n", normal, sliver.ID)
-			fmt.Fprintf(term, bold+"Name: %s%s\n", normal, sliver.Name)
-			fmt.Fprintf(term, bold+"Hostname: %s%s\n", normal, sliver.Hostname)
-			fmt.Fprintf(term, bold+"Username: %s%s\n", normal, sliver.Username)
-			fmt.Fprintf(term, bold+"UID: %s%s\n", normal, sliver.Uid)
-			fmt.Fprintf(term, bold+"GID: %s%s\n", normal, sliver.Gid)
-			fmt.Fprintf(term, bold+"OS: %s%s\n", normal, sliver.Os)
-			fmt.Fprintf(term, bold+"Arch: %s%s\n", normal, sliver.Arch)
-			fmt.Fprintf(term, bold+"Remote Address: %s%s\n", normal, sliver.RemoteAddress)
-			fmt.Fprintln(term, "")
-		} else {
-			fmt.Fprintf(term, Warn+"No sliver with name '%s'\n", args[0])
-		}
+	if sliver != nil {
+		fmt.Fprintln(term, "")
+		fmt.Fprintf(term, bold+"ID: %s%d\n", normal, sliver.Id)
+		fmt.Fprintf(term, bold+"Name: %s%s\n", normal, sliver.Name)
+		fmt.Fprintf(term, bold+"Hostname: %s%s\n", normal, sliver.Hostname)
+		fmt.Fprintf(term, bold+"Username: %s%s\n", normal, sliver.Username)
+		fmt.Fprintf(term, bold+"UID: %s%s\n", normal, sliver.Uid)
+		fmt.Fprintf(term, bold+"GID: %s%s\n", normal, sliver.Gid)
+		fmt.Fprintf(term, bold+"OS: %s%s\n", normal, sliver.Os)
+		fmt.Fprintf(term, bold+"Arch: %s%s\n", normal, sliver.Arch)
+		fmt.Fprintf(term, bold+"Remote Address: %s%s\n", normal, sliver.RemoteAddress)
+		fmt.Fprintln(term, "")
 	} else {
-		fmt.Fprintln(term, Warn+"Missing sliver name\n")
+		fmt.Fprintln(term, Warn+"Invalid sliver name\n")
 	}
 }
 
 func use(term *terminal.Terminal, args []string) {
 	if 0 < len(args) {
-		sliver := getSliverByName(args[0])
+		sliver := getSliver(args[0])
 		if sliver != nil {
 			activeSliver = sliver
 			setPrompt(term)
-			fmt.Fprintf(term, Info+"Active sliver set to '%s'\n", activeSliver.Name)
+			fmt.Fprintf(term, Info+"Active sliver set to '%s' (%d)\n", activeSliver.Name, activeSliver.Id)
 		} else {
 			fmt.Fprintf(term, Warn+"No sliver with name '%s'\n", args[0])
 		}
@@ -360,6 +360,7 @@ func ps(term *terminal.Terminal, args []string) {
 		resp := make(chan pb.Envelope)
 		(*activeSliver).Resp[respId] = resp
 		defer close(resp)
+		defer delete((*activeSliver).Resp, respId)
 		(*activeSliver).Send <- pb.Envelope{
 			Id:   respId,
 			Type: "psReq",
@@ -387,14 +388,13 @@ func ps(term *terminal.Terminal, args []string) {
 }
 
 func ping(term *terminal.Terminal, args []string) {
-	var name *string
-	if len(args) == 1 {
-		name = &args[0]
-	} else if activeSliver != nil {
-		name = &activeSliver.Name
+	var sliver *Sliver
+	if activeSliver != nil {
+		sliver = getSliver(strconv.Itoa(activeSliver.Id))
+	} else if 0 < len(args) {
+		sliver = getSliver(args[0])
 	}
-	if name != nil {
-		sliver := getSliverByName(*name)
+	if sliver != nil {
 		respId := randomID()
 		data, _ := proto.Marshal(&pb.Ping{
 			Id: respId,
@@ -402,6 +402,7 @@ func ping(term *terminal.Terminal, args []string) {
 		resp := make(chan pb.Envelope)
 		(*sliver).Resp[respId] = resp
 		defer close(resp)
+		defer delete((*sliver).Resp, respId)
 		(*sliver).Send <- pb.Envelope{
 			Id:   respId,
 			Type: "ping",
@@ -416,6 +417,6 @@ func ping(term *terminal.Terminal, args []string) {
 		}
 		fmt.Fprintf(term, Info+"Ping/Pong with ID = %s\n", pong.Id)
 	} else {
-		fmt.Fprintln(term, Warn+"Missing sliver name\n")
+		fmt.Fprintln(term, Warn+"Invalid sliver name\n")
 	}
 }

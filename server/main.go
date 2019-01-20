@@ -33,7 +33,7 @@ const (
 
 // Sliver implant
 type Sliver struct {
-	ID            string
+	Id            int
 	Name          string
 	Hostname      string
 	Username      string
@@ -58,7 +58,8 @@ var (
 
 	// Yea I'm lazy, it'd be better not to use mutex
 	hiveMutex = &sync.RWMutex{}
-	hive      = &map[string]*Sliver{}
+	hive      = &map[int]*Sliver{}
+	hiveID    = new(int)
 )
 
 func main() {
@@ -148,7 +149,7 @@ func handleSliverConnection(conn net.Conn, events chan *Sliver) {
 	send := make(chan pb.Envelope)
 
 	sliver := &Sliver{
-		ID:            randomID(),
+		Id:            getHiveID(),
 		Name:          registerSliver.Name,
 		Hostname:      registerSliver.Hostname,
 		Username:      registerSliver.Username,
@@ -162,20 +163,17 @@ func handleSliverConnection(conn net.Conn, events chan *Sliver) {
 	}
 
 	hiveMutex.Lock()
-	(*hive)[sliver.ID] = sliver
+	(*hive)[sliver.Id] = sliver
 	hiveMutex.Unlock()
 
 	defer func() {
 		hiveMutex.Lock()
-		delete(*hive, sliver.ID)
+		delete(*hive, sliver.Id)
 		hiveMutex.Unlock()
 		conn.Close()
 	}()
 
-	select {
-	case events <- sliver: // Non-blocking channel send
-	default:
-	}
+	events <- sliver
 
 	go func() {
 		defer func() {
@@ -320,4 +318,10 @@ func randomID() string {
 	rand.Read(randBuf)
 	digest := sha256.Sum256(randBuf)
 	return fmt.Sprintf("%x", digest[:randomIDSize])
+}
+
+func getHiveID() int {
+	hiveId := (*hiveID) + 1
+	(*hiveID)++
+	return hiveId
 }
