@@ -94,7 +94,6 @@ Requirements:
 Build thin server (for developement)
 
 ```
-$ ./deps.sh
 $ ./go-assets.sh
 $ make
 ```
