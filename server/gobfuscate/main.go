@@ -30,26 +30,28 @@ func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath str
 		return "", errors.New("Failed to copy GOPATH")
 	}
 
-	enc := &Encrypter{Key: encKey}
-	log.Println("Obfuscating package names ...")
-	if err := ObfuscatePackageNames(ctx, newGopath, enc); err != nil {
-		log.Println("Failed to obfuscate package names:", err)
-		return "", err
-	}
+	// enc := &Encrypter{Key: encKey}
+	// log.Println("Obfuscating package names ...")
+	// if err := ObfuscatePackageNames(ctx, newGopath, enc); err != nil {
+	// 	log.Println("Failed to obfuscate package names:", err)
+	// 	return "", err
+	// }
+
 	log.Println("Obfuscating strings ...")
 	if err := ObfuscateStrings(newGopath); err != nil {
 		log.Println("Failed to obfuscate strings:", err)
 		return "", err
 	}
-	log.Println("Obfuscating symbols ...")
-	if err := ObfuscateSymbols(ctx, newGopath, enc); err != nil {
-		log.Println("Failed to obfuscate symbols:", err)
-		return "", err
-	}
 
-	newPkg := encryptComponents(pkgName, enc)
+	// log.Println("Obfuscating symbols ...")
+	// if err := ObfuscateSymbols(ctx, newGopath, enc); err != nil {
+	// 	log.Println("Failed to obfuscate symbols:", err)
+	// 	return "", err
+	// }
 
-	return newPkg, nil
+	// newPkg := encryptComponents(pkgName, enc)
+
+	return "sliver", nil
 }
 
 func encryptComponents(pkgName string, enc *Encrypter) string {

