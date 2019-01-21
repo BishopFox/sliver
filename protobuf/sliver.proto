@@ -23,6 +23,10 @@ message Ping {
   string Id = 1;
 }
 
+message Kill {
+  string Id = 1;
+}
+
 // aka Shellcode
 message Task {
   string encoder = 1;

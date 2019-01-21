@@ -27,6 +27,7 @@ type SliverConfig struct {
 	Key                string
 	DefaultServer      string
 	DefaultServerLPort uint16
+	Debug              bool
 }
 
 // GetBinDir - Get the binary directory
@@ -44,7 +45,7 @@ func GetBinDir() string {
 }
 
 // GenerateImplantBinary - Generates a binary
-func GenerateImplantBinary(goos string, goarch string, server string, lport uint16) (string, error) {
+func GenerateImplantBinary(goos string, goarch string, server string, lport uint16, debug bool) (string, error) {
 
 	goos = path.Base(goos)
 	goarch = path.Base(goarch)
@@ -56,6 +57,7 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	config := SliverConfig{
 		DefaultServer:      server,
 		DefaultServerLPort: lport,
+		Debug:              debug,
 	}
 
 	config.Name = GetCodename()
@@ -108,6 +110,9 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	}
 	tags := []string{"netgo"}
 	ldflags := []string{"-s -w"}
+	if !debug && goConfig.GOOS == "windows" {
+		ldflags[0] += " -H=windowsgui"
+	}
 	_, err = GoBuild(goConfig, workingDir, dest, tags, ldflags)
 	return dest, err
 }

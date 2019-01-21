@@ -15,6 +15,7 @@ var (
 		"remoteTask": remoteTaskHandler,
 		"psReq":      psHandler,
 		"ping":       pingHandler,
+		"kill":       killHandler,
 	}
 )
 
@@ -25,7 +26,6 @@ func getSystemHandlers() map[string]interface{} {
 // ---------------- Windows Handlers ----------------
 
 func taskHandler(send chan pb.Envelope, data []byte) {
-
 	task := &pb.Task{}
 	err := proto.Unmarshal(data, task)
 	if err != nil {

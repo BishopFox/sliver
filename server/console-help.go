@@ -11,6 +11,7 @@ var (
 		"inject":   injectHelp,
 		"ps":       psHelp,
 		"ping":     pingHelp,
+		"kill":     killHelp,
 	}
 
 	defaultHelp = `
@@ -24,6 +25,7 @@ msf    - Send an msf payload to the active sliver
 ps     - List processes of active sliver
 ping   - Send a ping message to active sliver
 inject - Inject a payload into a remote process
+kill   - Kill a remote sliver process
 
 Use '<command> -help' to see information about a specific command.
 `
@@ -95,6 +97,12 @@ Use '<command> -help' to see information about a specific command.
 	pingHelp = `
 [[.Bold]]Command:[[.Normal]] ping <sliver name>
 [[.Bold]]About:[[.Normal]] Ping sliver by name or the active sliver.
+
+`
+
+	killHelp = `
+[[.Bold]]Command:[[.Normal]] kill <sliver name>
+[[.Bold]]About:[[.Normal]] Kill a remote sliver process (does not delete file).
 
 `
 )

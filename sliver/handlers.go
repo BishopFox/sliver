@@ -2,12 +2,17 @@ package main
 
 import (
 	"log"
+	"os"
 	pb "sliver/protobuf"
 
 	"github.com/golang/protobuf/proto"
 )
 
 // ---------------- Cross-platform Handlers ----------------
+func killHandler(send chan pb.Envelope, data []byte) {
+	log.Printf("Received kill command\n")
+	os.Exit(0)
+}
 
 func pingHandler(send chan pb.Envelope, data []byte) {
 	ping := &pb.Ping{}

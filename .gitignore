@@ -4,6 +4,10 @@
 sliver-server
 sliver.exe
 
+sliver-server-linux.zip
+sliver-server-macos.zip
+sliver-server-windows.zip
+
 # Large static assets
 server/assets/src.zip
 server/assets/darwin/*.zip
