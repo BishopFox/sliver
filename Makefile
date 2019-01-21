@@ -7,6 +7,12 @@ ENV = CGO_ENABLED=0
 TAGS = -tags netgo
 LDFLAGS = -ldflags '-s -w'
 
+SED_INPLACE := sed -i
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+	SED_INPLACE := sed -i ''
+endif
+
 
 macos: clean pb
 	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
@@ -20,24 +26,23 @@ windows: clean pb
 
 #
 # Static builds were we bundle everything together
-# TODO: I think the `sed` command syntax is only valid on MacOS
 #
 static-macos: clean pb
 	packr
-	sed -i '' '/$*.windows\/go\.zip/d' ./server/a_main-packr.go
-	sed -i '' '/$*.linux\/go\.zip/d' ./server/a_main-packr.go
+	$(SED_INPLACE) '/$*.windows\/go\.zip/d' ./server/a_main-packr.go
+	$(SED_INPLACE) '/$*.linux\/go\.zip/d' ./server/a_main-packr.go
 	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
 
 static-windows: clean pb
 	packr
-	sed -i '' '/$*.darwin\/go\.zip/d' ./server/a_main-packr.go
-	sed -i '' '/$*.linux\/go\.zip/d' ./server/a_main-packr.go
+	$(SED_INPLACE) '/$*.darwin\/go\.zip/d' ./server/a_main-packr.go
+	$(SED_INPLACE) '/$*.linux\/go\.zip/d' ./server/a_main-packr.go
 	GOOS=windows $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
 
 static-linux: clean pb
 	packr
-	sed -i '' '/$*.darwin\/go\.zip/d' ./server/a_main-packr.go
-	sed -i '' '/$*.windows\/go\.zip/d' ./server/a_main-packr.go
+	$(SED_INPLACE) '/$*.darwin\/go\.zip/d' ./server/a_main-packr.go
+	$(SED_INPLACE) '/$*.windows\/go\.zip/d' ./server/a_main-packr.go
 	GOOS=linux $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
 
 pb:
