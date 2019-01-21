@@ -1,4 +1,4 @@
-package main
+package gogo
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ const (
 )
 
 var (
-	validCompilerTargets = map[string]bool{
+	ValidCompilerTargets = map[string]bool{
 		"darwin/386":    true,
 		"darwin/amd64":  true,
 		"linux/386":     true,
@@ -34,21 +34,19 @@ type GoConfig struct {
 }
 
 // GetGoRootDir - Get the path to GOROOT
-func GetGoRootDir() string {
-	appDir := GetRootAppDir()
+func GetGoRootDir(appDir string) string {
 	return path.Join(appDir, goDirName)
 }
 
 // GetGoPathDir - Get the path to GOPATH
-func GetGoPathDir() string {
-	appDir := GetRootAppDir()
+func GetGoPathDir(appDir string) string {
 	return path.Join(appDir, goPathDirName)
 }
 
 // GoCmd - Execute a go command
 func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
-	if _, ok := validCompilerTargets[target]; !ok {
+	if _, ok := ValidCompilerTargets[target]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	goBinPath := path.Join(config.GOROOT, "bin", "go")

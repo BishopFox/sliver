@@ -11,6 +11,8 @@ Sliver can inject payloads into it's own process or optionally use remote thread
 [attacker] <-(mTLS)-> [sliver] -(code injection)-> [remote process]
 ```
 
+Sliver is designed to be secure-by-default and have as few dependancies as possible.
+
 ### Setup
 
 1. Install Metasploit Framework v5 or later

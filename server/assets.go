@@ -9,12 +9,18 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	gogo "sliver/server/gogo"
 
 	"github.com/gobuffalo/packr"
 )
 
+const (
+	goDirName     = "go"
+	goPathDirName = "gopath"
+)
+
 // SetupAssets - Extract or create local assets
-// TODO: Add some type of version awareness and a -force option
+// TODO: Add some type of version awareness
 func SetupAssets() {
 	appDir := GetRootAppDir()
 	assetsBox := packr.NewBox("./assets")
@@ -33,7 +39,7 @@ func SetupCerts(appDir string) {
 // SetupGo - Unzip Go compiler assets
 func setupGo(appDir string, assetsBox packr.Box) error {
 
-	log.Printf("Unpacking assets ...")
+	log.Printf("Unpacking to '%s'", appDir)
 
 	// Go compiler and stdlib
 	goZip, err := assetsBox.MustBytes(path.Join(runtime.GOOS, "go.zip"))
@@ -66,7 +72,7 @@ func setupGo(appDir string, assetsBox packr.Box) error {
 	}
 
 	// GOPATH setup
-	goPathSrc := path.Join(GetGoPathDir(), "src")
+	goPathSrc := path.Join(gogo.GetGoPathDir(appDir), "src")
 	if _, err := os.Stat(goPathSrc); os.IsNotExist(err) {
 		log.Printf("Creating GOPATH directory: %s", goPathSrc)
 		os.MkdirAll(goPathSrc, os.ModePerm)
