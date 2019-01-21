@@ -1,3 +1,9 @@
+
+# Sliver / gobfuscate
+
+__This directory contains a highly modified version of gobfuscate__
+
+
 # gobfuscate
 
 When you compile a Go binary, it contains a lot of information about your source code: field names, strings, package paths, etc. If you want to ship a binary without leaking this kind of information, what are you to do?
