@@ -149,7 +149,7 @@ func lineReader(term *terminal.Terminal, reader chan string, done chan bool) {
 }
 
 func setPrompt(term *terminal.Terminal) {
-	prompt := fmt.Sprintf(clearln + underline + "sliver" + normal)
+	prompt := fmt.Sprintf(clearln + "\n" + underline + "sliver" + normal)
 	if activeSliver != nil {
 		prompt += fmt.Sprintf(bold+red+" (%s)%s", activeSliver.Name, normal)
 	}
@@ -201,7 +201,7 @@ func ls(term *terminal.Terminal, args []string) {
 	if 0 < len(*hive) {
 		printSlivers(term)
 	} else {
-		fmt.Fprintln(term, "\n"+Info+"No slivers connected\n")
+		fmt.Fprintln(term, "\n"+Info+"No slivers connected")
 	}
 }
 
@@ -258,7 +258,7 @@ func printSlivers(term *terminal.Terminal) {
 			}
 		}
 	} else {
-		fmt.Fprintln(term, outputBuf.String())
+		fmt.Fprintf(term, outputBuf.String())
 	}
 }
 
@@ -313,7 +313,7 @@ func info(term *terminal.Terminal, args []string) {
 		fmt.Fprintf(term, bold+"Remote Address: %s%s\n", normal, sliver.RemoteAddress)
 		fmt.Fprintln(term, "")
 	} else {
-		fmt.Fprintln(term, Warn+"Invalid sliver name\n")
+		fmt.Fprintln(term, "\n"+Warn+"Invalid sliver name")
 	}
 }
 
@@ -330,7 +330,7 @@ func use(term *terminal.Terminal, args []string) {
 		if sliver != nil {
 			activeSliver = sliver
 			setPrompt(term)
-			fmt.Fprintf(term, "\n"+Info+"Active sliver set to '%s' (%d)\n\n", activeSliver.Name, activeSliver.Id)
+			fmt.Fprintf(term, "\n"+Info+"Active sliver set to '%s' (%d)\n", activeSliver.Name, activeSliver.Id)
 		} else {
 			fmt.Fprintf(term, "\n"+Warn+"No sliver with name '%s'\n", args[0])
 		}
@@ -352,6 +352,9 @@ func generate(term *terminal.Terminal, args []string) {
 	if err == flag.ErrHelp {
 		return
 	}
+	if *lhost == "" {
+		fmt.Fprintf(term, "\n"+Warn+"Invalid lhost '%s'", *lhost)
+	}
 
 	fmt.Fprintf(term, "\n"+Info+"Generating new %s/%s sliver binary, please wait ... \n", *target, *arch)
 	path, err := GenerateImplantBinary(*target, *arch, *lhost, uint16(*lport), *debug)
@@ -359,7 +362,7 @@ func generate(term *terminal.Terminal, args []string) {
 		fmt.Fprintf(term, Warn+"Error generating sliver: %v\n", err)
 	}
 	if save == nil || *save == "" {
-		fmt.Fprintf(term, Info+"Generated sliver binary at: %s\n\n", path)
+		fmt.Fprintf(term, Info+"Generated sliver binary at: %s\n", path)
 	} else {
 		saveTo, _ := filepath.Abs(*save)
 		fi, _ := os.Stat(saveTo)
@@ -369,9 +372,9 @@ func generate(term *terminal.Terminal, args []string) {
 		}
 		err = copyFileContents(path, saveTo)
 		if err != nil {
-			fmt.Fprintf(term, Warn+"Failed to write to %s\n\n", saveTo)
+			fmt.Fprintf(term, Warn+"Failed to write to %s\n", saveTo)
 		}
-		fmt.Fprintf(term, Info+"Generated sliver binary at: %s\n\n", saveTo)
+		fmt.Fprintf(term, Info+"Generated sliver binary at: %s\n", saveTo)
 	}
 }
 

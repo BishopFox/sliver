@@ -54,10 +54,10 @@ Use '<command> -help' to see information about a specific command.
 [[.Bold]]Command:[[.Normal]] gen<options>
 [[.Bold]]About:[[.Normal]] Generate a new sliver binary.
 [[.Bold]]Options:[[.Normal]]
-	       -os | [windows/linux/macos]
-         -arch | [amd64/386]
-       -server | Sliver server address
- -server-lport | Sliver server listen port
+    -os | [windows/linux/macos]
+  -arch | [amd64/386]
+ -lhost | Sliver server address
+ -lport | Sliver server listen port
 
 `
 	msfHelp = `
