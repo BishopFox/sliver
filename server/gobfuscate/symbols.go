@@ -10,7 +10,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"golang.org/x/tools/refactor/importgraph"
 	"golang.org/x/tools/refactor/rename"
@@ -262,21 +261,7 @@ func containsCGO(dir string) bool {
 }
 
 // containsIgnoreConstraint checks if the file contains an
-// "ignore" build constraint or "DO NOT EDIT!" generation marker.
+// "ignore" build constraint or "DO NOT FUCKING EDIT!" generation marker.
 func containsIgnoreConstraint(path string) bool {
-	set := token.NewFileSet()
-	file, err := parser.ParseFile(set, path, nil, parser.ParseComments)
-	if err != nil {
-		return false
-	}
-	packagePos := file.Package
-	for _, comment := range file.Comments {
-		commentStr := strings.TrimRight(comment.Text(), "\n\r")
-		if comment.Pos() < packagePos &&
-			(commentStr == "+build ignore" ||
-				strings.Contains(commentStr, "DO NOT EDIT")) {
-			return true
-		}
-	}
 	return false
 }
