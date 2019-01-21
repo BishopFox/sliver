@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	pb "sliver/protobuf"
+	"sort"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -203,6 +204,15 @@ func ls(term *terminal.Terminal, args []string) {
 	}
 }
 
+/*
+	So this method is a little more complex than you'd maybe think,
+	this is because Go's tabwriter aligns columns by counting bytes
+	and since we want to modify the color of the active sliver row
+	the number of bytes per row won't line up. So we render the table
+	into a buffer and note which row the active sliver is in. Then we
+	write each line to the term and insert the ANSI codes just before
+	we display the row.
+*/
 func printSlivers(term *terminal.Terminal) {
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
@@ -218,10 +228,18 @@ func printSlivers(term *terminal.Terminal) {
 	hiveMutex.Lock()
 	defer hiveMutex.Unlock()
 
+	// Sort the keys becuase maps have a randomized order
+	var keys []int
+	for _, sliver := range *hive {
+		keys = append(keys, sliver.Id)
+	}
+	sort.Ints(keys)
+
 	activeIndex := -1
-	for index, sliver := range *hive {
+	for index, key := range keys {
+		sliver := (*hive)[key]
 		if activeSliver != nil && activeSliver.Id == sliver.Id {
-			activeIndex = index + 2
+			activeIndex = index + 3 // Two lines for the headers
 		}
 		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t\n",
 			sliver.Id, sliver.Name, sliver.RemoteAddress, sliver.Username,
