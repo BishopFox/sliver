@@ -2,7 +2,6 @@ package gobfuscate
 
 import (
 	"errors"
-	"fmt"
 	"go/build"
 	"log"
 	"os"
@@ -15,7 +14,7 @@ func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath str
 
 	newGopath := outPath
 	if err := os.Mkdir(newGopath, 0755); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to create destination:", err)
+		log.Println("Failed to create destination:", err)
 		return "", err
 	}
 
@@ -32,19 +31,19 @@ func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath str
 	}
 
 	enc := &Encrypter{Key: encKey}
-	log.Println("Obfuscating package names...")
-	if err := ObfuscatePackageNames(newGopath, enc); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to obfuscate package names:", err)
+	log.Println("Obfuscating package names ...")
+	if err := ObfuscatePackageNames(ctx, newGopath, enc); err != nil {
+		log.Println("Failed to obfuscate package names:", err)
 		return "", err
 	}
-	log.Println("Obfuscating strings...")
+	log.Println("Obfuscating strings ...")
 	if err := ObfuscateStrings(newGopath); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to obfuscate strings:", err)
+		log.Println("Failed to obfuscate strings:", err)
 		return "", err
 	}
-	log.Println("Obfuscating symbols...")
-	if err := ObfuscateSymbols(newGopath, enc); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to obfuscate symbols:", err)
+	log.Println("Obfuscating symbols ...")
+	if err := ObfuscateSymbols(ctx, newGopath, enc); err != nil {
+		log.Println("Failed to obfuscate symbols:", err)
 		return "", err
 	}
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -14,7 +15,7 @@ import (
 )
 
 const (
-	binDirName = "bin"
+	sliversDirName = "slivers"
 
 	windowsPlatform = "windows"
 	darwinPlatform  = "darwin"
@@ -32,18 +33,18 @@ type SliverConfig struct {
 	Debug              bool
 }
 
-// GetBinDir - Get the binary directory
-func GetBinDir() string {
+// GetSliversDir - Get the binary directory
+func GetSliversDir() string {
 	appDir := GetRootAppDir()
-	binDir := path.Join(appDir, binDirName)
-	if _, err := os.Stat(binDir); os.IsNotExist(err) {
-		log.Printf("Creating bin directory: %s", binDir)
-		err = os.MkdirAll(binDir, os.ModePerm)
+	sliversDir := path.Join(appDir, sliversDirName)
+	if _, err := os.Stat(sliversDir); os.IsNotExist(err) {
+		log.Printf("Creating bin directory: %s", sliversDir)
+		err = os.MkdirAll(sliversDir, os.ModePerm)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
-	return binDir
+	return sliversDir
 }
 
 // GenerateImplantBinary - Generates a binary
@@ -66,29 +67,36 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	log.Printf("Generating new sliver binary '%s'", config.Name)
 
 	// Cert PEM encoded certificates
-	caCert, _, _ := GetCertificateAuthorityPEM(SliversDir)
+	caCert, _, _ := GetCertificateAuthorityPEM(sliversCertDir)
 	sliverCert, sliverKey := GenerateSliverCertificate(config.Name, true)
 	config.CACert = string(caCert)
 	config.Cert = string(sliverCert)
 	config.Key = string(sliverKey)
 
-	binDir := GetBinDir()
-	sourceDir := path.Join(binDir, SliversDir, goos, goarch, config.Name, "src")
-	os.MkdirAll(sourceDir, os.ModePerm)
+	sliversDir := GetSliversDir() // ~/.sliver/slivers
+
+	// projectDir - ~/.sliver/slivers/<os>/<arch>/<name>/
+	projectGoPathDir := path.Join(sliversDir, goos, goarch, config.Name)
+	os.MkdirAll(projectGoPathDir, os.ModePerm)
+
+	// binDir - ~/.sliver/slivers/<os>/<arch>/<name>/bin
+	binDir := path.Join(projectGoPathDir, "bin")
+	os.MkdirAll(binDir, os.ModePerm)
+
+	// srcDir - ~/.sliver/slivers/<os>/<arch>/<name>/src
+	srcDir := path.Join(projectGoPathDir, "src")
+	SetupGoPath(srcDir) // Extract GOPATH dependancy files
+
+	sliverPkgDir := path.Join(srcDir, "sliver") // "main"
+	os.MkdirAll(sliverPkgDir, os.ModePerm)
 
 	// Load code template
 	sliverBox := packr.NewBox("../sliver")
-	saveCode(sliverBox, "handlers.go", sourceDir)
-	saveCode(sliverBox, "handlers_windows.go", sourceDir)
-	saveCode(sliverBox, "handlers_linux.go", sourceDir)
-	saveCode(sliverBox, "handlers_darwin.go", sourceDir)
-	saveCode(sliverBox, "ps.go", sourceDir)
-	saveCode(sliverBox, "ps_windows.go", sourceDir)
-	saveCode(sliverBox, "ps_linux.go", sourceDir)
-	saveCode(sliverBox, "ps_darwin.go", sourceDir)
+
+	unpackCode(sliverBox, sliverPkgDir)
 
 	sliverGoCode, _ := sliverBox.MustString("sliver.go")
-	sliverCodePath := path.Join(sourceDir, "sliver.go")
+	sliverCodePath := path.Join(sliverPkgDir, "sliver.go")
 	fSliver, _ := os.Create(sliverCodePath)
 	log.Printf("Rendering sliver code to: %s", sliverCodePath)
 	sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
@@ -104,16 +112,24 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 		GOOS:   goos,
 		GOARCH: goarch,
 		GOROOT: gogo.GetGoRootDir(appDir),
-		GOPATH: gogo.GetGoPathDir(appDir),
+		GOPATH: projectGoPathDir,
 	}
 
 	if !debug {
 		log.Printf("Obfuscating source code ...")
-		obfuscatedDir := path.Join(binDir, SliversDir, goos, goarch, config.Name, "obfuscated")
-		gobfuscate.Gobfuscate(goConfig, randomEncryptKey(), "main", obfuscatedDir)
+		obfuscatedGoPath := path.Join(projectGoPathDir, "obfuscated")
+		obfuscatedPkg, err := gobfuscate.Gobfuscate(goConfig, randomEncryptKey(), "sliver", obfuscatedGoPath)
+		if err != nil {
+			log.Printf("Error while obfuscating sliver %v", err)
+			return "", err
+		}
+		goConfig.GOPATH = obfuscatedGoPath
+		log.Printf("Obfuscated GOPATH = %s", obfuscatedGoPath)
+		log.Printf("Obfuscated sliver package: %s", obfuscatedPkg)
+		sliverPkgDir = path.Join(obfuscatedGoPath, "src", obfuscatedPkg) // new "main"
 	}
 
-	dest := path.Join(sourceDir, config.Name)
+	dest := path.Join(binDir, config.Name)
 	if goConfig.GOOS == "windows" {
 		dest += ".exe"
 	}
@@ -122,15 +138,54 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	if !debug && goConfig.GOOS == "windows" {
 		ldflags[0] += " -H=windowsgui"
 	}
-	_, err = gogo.GoBuild(goConfig, sourceDir, dest, tags, ldflags)
+	_, err = gogo.GoBuild(goConfig, sliverPkgDir, dest, tags, ldflags)
 	return dest, err
 }
 
-func saveCode(sliverBox packr.Box, fileName string, sourceDir string) {
+func unpackCode(sliverBox packr.Box, sourceDir string) error {
+	srcFiles := []string{
+		"handlers.go",
+		"handlers_windows.go",
+		"handlers_linux.go",
+		"handlers_darwin.go",
+		"ps.go",
+		"ps_windows.go",
+		"ps_linux.go",
+		"ps_darwin.go",
+	}
+	for _, fileName := range srcFiles {
+		err := saveCode(sliverBox, fileName, sourceDir)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func saveCode(sliverBox packr.Box, fileName string, sourceDir string) error {
 	sliverPlatformCode, _ := sliverBox.MustString(fileName)
 	sliverPlatformCodePath := path.Join(sourceDir, fileName)
 	err := ioutil.WriteFile(sliverPlatformCodePath, []byte(sliverPlatformCode), os.ModePerm)
 	if err != nil {
 		log.Printf("Error writing file %s: %s", sliverPlatformCodePath, err)
+		return err
 	}
+	return nil
+}
+
+func getObfuscatedSliverPkgDir(obfuscatedDir string) (string, error) {
+	dirList, err := ioutil.ReadDir(obfuscatedDir)
+	if err != nil {
+		return "", err
+	}
+
+	for _, dir := range dirList {
+		path := path.Join(obfuscatedDir, dir.Name(), "sliver.go")
+		log.Printf("Checking %s for slivers ...", path)
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			return dir.Name(), nil
+		}
+
+	}
+	return "", errors.New("no sliver files found")
 }

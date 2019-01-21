@@ -7,6 +7,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,28 +23,28 @@ type symbolRenameReq struct {
 	NewName string
 }
 
-func ObfuscateSymbols(gopath string, enc *Encrypter) error {
+func ObfuscateSymbols(ctx build.Context, gopath string, enc *Encrypter) error {
 	renames, err := topLevelRenames(gopath, enc)
 	if err != nil {
 		return fmt.Errorf("top-level renames: %s", err)
 	}
-	if err := runRenames(gopath, renames); err != nil {
+	if err := runRenames(ctx, gopath, renames); err != nil {
 		return fmt.Errorf("top-level renaming: %s", err)
 	}
-	renames, err = methodRenames(gopath, enc)
+	renames, err = methodRenames(ctx, gopath, enc)
 	if err != nil {
 		return fmt.Errorf("method renames: %s", err)
 	}
-	if err := runRenames(gopath, renames); err != nil {
+	if err := runRenames(ctx, gopath, renames); err != nil {
 		return fmt.Errorf("method renaming: %s", err)
 	}
 	return nil
 }
 
-func runRenames(gopath string, renames []symbolRenameReq) error {
-	ctx := build.Default
+func runRenames(ctx build.Context, gopath string, renames []symbolRenameReq) error {
 	ctx.GOPATH = gopath
 	for _, r := range renames {
+		log.Printf("[gobfuscate] rename %s -> %s", r.OldName, r.NewName)
 		if err := rename.Main(&ctx, "", r.OldName, r.NewName); err != nil {
 			return err
 		}
@@ -103,8 +104,8 @@ func topLevelRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 	return singleRenames(res), err
 }
 
-func methodRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
-	exclude, err := interfaceMethods(gopath)
+func methodRenames(ctx build.Context, gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
+	exclude, err := interfaceMethods(ctx, gopath)
 	if err != nil {
 		return nil, err
 	}
@@ -151,8 +152,7 @@ func methodRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 	return singleRenames(res), err
 }
 
-func interfaceMethods(gopath string) (map[string]bool, error) {
-	ctx := build.Default
+func interfaceMethods(ctx build.Context, gopath string) (map[string]bool, error) {
 	ctx.GOPATH = gopath
 	forward, backward, _ := importgraph.Build(&ctx)
 	pkgs := map[string]bool{}

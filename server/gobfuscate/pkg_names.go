@@ -16,8 +16,8 @@ import (
 
 const GoExtension = ".go"
 
-func ObfuscatePackageNames(gopath string, enc *Encrypter) error {
-	ctx := build.Default
+func ObfuscatePackageNames(ctx build.Context, gopath string, enc *Encrypter) error {
+
 	ctx.GOPATH = gopath
 
 	level := 1

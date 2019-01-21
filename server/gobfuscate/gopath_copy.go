@@ -2,9 +2,9 @@ package gobfuscate
 
 import (
 	"errors"
-	"fmt"
 	"go/build"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,13 +16,13 @@ import (
 // and all of its dependencies.
 func CopyGopath(ctx build.Context, packageName string, newGopath string, keepTests bool) bool {
 	if ctx.GOPATH == "" {
-		fmt.Fprintln(os.Stderr, "GOPATH not set.")
+		log.Println("GOPATH not set.")
 	}
 	forward, _, errs := importgraph.Build(&ctx)
 	if _, ok := forward[packageName]; !ok {
-		fmt.Fprintln(os.Stderr, "Failed to build import graph:", packageName)
+		log.Println("Failed to build import graph:", packageName)
 		if err, ok := errs[packageName]; ok {
-			fmt.Fprintln(os.Stderr, " -> Error for package:", err)
+			log.Println(" -> Error for package:", err)
 		}
 		return false
 	}
@@ -31,7 +31,7 @@ func CopyGopath(ctx build.Context, packageName string, newGopath string, keepTes
 	for dep := range allDeps {
 		err := copyDep(dep, ctx.GOPATH, newGopath, keepTests)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to copy %s: %s\n", dep, err)
+			log.Printf("Failed to copy %s: %s\n", dep, err)
 			return false
 		}
 	}
@@ -40,9 +40,9 @@ func CopyGopath(ctx build.Context, packageName string, newGopath string, keepTes
 		ctx.GOPATH = newGopath
 		forward, _, errs = importgraph.Build(&ctx)
 		if _, ok := forward[packageName]; !ok {
-			fmt.Fprintln(os.Stderr, "Failed to re-build import graph:", packageName)
+			log.Println("Failed to re-build import graph:", packageName)
 			if err, ok := errs[packageName]; ok {
-				fmt.Fprintln(os.Stderr, " -> Error for package:", err)
+				log.Println(" -> Error for package:", err)
 			}
 			return false
 		}
@@ -50,7 +50,7 @@ func CopyGopath(ctx build.Context, packageName string, newGopath string, keepTes
 	}
 
 	if err := removeUnusedPkgs(newGopath, allDeps); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to prune sub-packages:", err)
+		log.Println("Failed to prune sub-packages:", err)
 		return false
 	}
 	return true

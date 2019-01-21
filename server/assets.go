@@ -9,7 +9,6 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	gogo "sliver/server/gogo"
 
 	"github.com/gobuffalo/packr"
 )
@@ -19,12 +18,15 @@ const (
 	goPathDirName = "gopath"
 )
 
+var (
+	assetsBox   = packr.NewBox("./assets")
+	protobufBox = packr.NewBox("../protobuf")
+)
+
 // SetupAssets - Extract or create local assets
 // TODO: Add some type of version awareness
 func SetupAssets() {
 	appDir := GetRootAppDir()
-	assetsBox := packr.NewBox("./assets")
-
 	SetupCerts(appDir)
 	setupGo(appDir, assetsBox)
 	setupCodenames(appDir, assetsBox)
@@ -71,15 +73,19 @@ func setupGo(appDir string, assetsBox packr.Box) error {
 		return err
 	}
 
+	return nil
+}
+
+// SetupGoPath - Extracts dependancies to goPathSrc
+func SetupGoPath(goPathSrc string) error {
+
 	// GOPATH setup
-	goPathSrc := path.Join(gogo.GetGoPathDir(appDir), "src")
 	if _, err := os.Stat(goPathSrc); os.IsNotExist(err) {
 		log.Printf("Creating GOPATH directory: %s", goPathSrc)
 		os.MkdirAll(goPathSrc, os.ModePerm)
 	}
 
 	// Protobuf dependencies
-	protobufBox := packr.NewBox("../protobuf")
 	pbGoSrc, err := protobufBox.MustBytes("sliver.pb.go")
 	if err != nil {
 		log.Printf("static asset not found: src.zip")
@@ -94,7 +100,6 @@ func setupGo(appDir string, assetsBox packr.Box) error {
 	if err != nil {
 		log.Fatalf("Failed to unzip go dependency: %v", err)
 	}
-
 	return nil
 }
 

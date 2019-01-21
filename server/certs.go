@@ -23,10 +23,8 @@ const (
 	validFor     = 365 * 24 * time.Hour
 	certsDirName = "certs"
 
-	// SliversDir - Directory to store sliver certificates
-	SliversDir = "slivers"
-	// ServersDir - Subdirectory of ClientsDir/SliversDir to store server certificates
-	ServersDir = "servers"
+	sliversCertDir = "slivers"
+	serversCertDir = "servers"
 )
 
 // -------------------
@@ -35,9 +33,9 @@ const (
 
 // GenerateSliverCertificate - Generate a certificate signed with a given CA
 func GenerateSliverCertificate(host string, save bool) ([]byte, []byte) {
-	cert, key := GenerateCertificate(host, SliversDir, false, true)
+	cert, key := GenerateCertificate(host, sliversCertDir, false, true)
 	if save {
-		SaveCertificate(SliversDir, host, cert, key)
+		SaveCertificate(sliversCertDir, host, cert, key)
 	}
 	return cert, key
 }
@@ -46,7 +44,7 @@ func GenerateSliverCertificate(host string, save bool) ([]byte, []byte) {
 func GenerateServerCertificate(caType string, host string, save bool) ([]byte, []byte) {
 	cert, key := GenerateCertificate(host, caType, false, false)
 	if save {
-		SaveCertificate(path.Join(caType, ServersDir), host, cert, key)
+		SaveCertificate(path.Join(caType, serversCertDir), host, cert, key)
 	}
 	return cert, key
 }
@@ -57,13 +55,13 @@ func GetServerCertificatePEM(caType string, host string) ([]byte, []byte, error)
 	log.Printf("Getting certificate (ca type = %s) '%s'", caType, host)
 
 	// If not certificate exists for this host we just generate one on the fly
-	_, _, err := GetCertificatePEM(path.Join(caType, ServersDir), host)
+	_, _, err := GetCertificatePEM(path.Join(caType, serversCertDir), host)
 	if err != nil {
 		log.Printf("No server certificate, generating ca type = %s '%s'", caType, host)
 		GenerateServerCertificate(caType, host, true)
 	}
 
-	certPEM, keyPEM, err := GetCertificatePEM(path.Join(caType, ServersDir), host)
+	certPEM, keyPEM, err := GetCertificatePEM(path.Join(caType, serversCertDir), host)
 	if err != nil {
 		log.Printf("Failed to load PEM data %v", err)
 		return nil, nil, err

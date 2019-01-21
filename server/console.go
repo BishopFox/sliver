@@ -353,7 +353,8 @@ func generate(term *terminal.Terminal, args []string) {
 		return
 	}
 	if *lhost == "" {
-		fmt.Fprintf(term, "\n"+Warn+"Invalid lhost '%s'", *lhost)
+		fmt.Fprintf(term, "\n"+Warn+"Invalid lhost '%s'\n", *lhost)
+		return
 	}
 
 	fmt.Fprintf(term, "\n"+Info+"Generating new %s/%s sliver binary, please wait ... \n", *target, *arch)

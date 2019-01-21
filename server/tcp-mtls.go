@@ -16,7 +16,7 @@ import (
 func startMutualTLSListener(bindIface string, port uint16, events chan Event) (net.Listener, error) {
 	log.Printf("Starting Raw TCP/TLS listener on %s:%d", bindIface, port)
 
-	tlsConfig := getServerTLSConfig(SliversDir, bindIface)
+	tlsConfig := getServerTLSConfig(sliversCertDir, bindIface)
 	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", bindIface, port), tlsConfig)
 	if err != nil {
 		log.Println(err)
