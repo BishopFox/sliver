@@ -61,6 +61,7 @@ func handleSliverConnection(conn net.Conn, events chan Event) {
 		Gid:           registerSliver.Gid,
 		Os:            registerSliver.Os,
 		Arch:          registerSliver.Arch,
+		Pid:           registerSliver.Pid,
 		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
 		Send:          send,
 		Resp:          map[string]chan pb.Envelope{},

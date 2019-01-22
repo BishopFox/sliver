@@ -17,6 +17,7 @@ message RegisterSliver {
   string gid = 5;
   string os = 6;
   string arch = 7;
+  int32 pid = 8;
 }
 
 message Ping {

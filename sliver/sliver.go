@@ -115,6 +115,7 @@ func registerSliver(conn *tls.Conn) {
 		Gid:      currentUser.Gid,
 		Os:       runtime.GOOS,
 		Arch:     runtime.GOARCH,
+		Pid:      int32(os.Getpid()),
 	})
 	envelope := pb.Envelope{
 		Type: "register",

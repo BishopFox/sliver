@@ -555,7 +555,7 @@ func printProcInfo(term *terminal.Terminal, proc *pb.Process) {
 	if modifyColor, ok := knownProcs[proc.Executable]; ok {
 		color = modifyColor
 	}
-	if strings.HasPrefix(proc.Executable, activeSliver.Name) {
+	if proc.Pid == activeSliver.Pid {
 		color = green
 	}
 	fmt.Fprintf(term, "%s%s% 6d%s%s | % 6d | %s%s\n",
