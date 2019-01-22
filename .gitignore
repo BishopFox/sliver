@@ -10,6 +10,7 @@ sliver-server-windows.zip
 
 # Large static assets
 server/assets/src.zip
+server/assets/protobuf.zip
 server/assets/darwin/*.zip
 server/assets/linux/*.zip
 server/assets/windows/*.zip

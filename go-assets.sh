@@ -67,6 +67,18 @@ cp -vv windows-go.zip $REPO_DIR/server/assets/windows/go.zip
 rm -rf ./go
 rm -f windows-go.zip go$GO_VER.windows-amd64.zip
 
+
+echo "-----------------------------------------------------------------"
+echo " 3rd Party Assets"
+echo "-----------------------------------------------------------------"
+cd $WORK_DIR
+wget https://github.com/golang/protobuf/archive/master.zip
+mkdir -p github.com/golang/protobuf
+unzip master.zip
+mv protobuf-master protobuf
+zip -r protobuf.zip ./protobuf
+cp -vv protobuf.zip $REPO_DIR/server/assets/protobuf.zip
+
 # end
 echo -e "clean up: $WORK_DIR"
 rm -rf $WORK_DIR

@@ -96,15 +96,17 @@ func SetupGoPath(goPathSrc string) error {
 	ioutil.WriteFile(path.Join(protobufDir, "sliver.pb.go"), pbGoSrc, 0644)
 
 	// GOPATH 3rd party dependencies
-	err = unzipGoDependency("github.com.zip", goPathSrc, assetsBox)
+	protobufPath := path.Join(goPathSrc, "github.com", "golang")
+	err = unzipGoDependency("protobuf.zip", protobufPath, assetsBox)
 	if err != nil {
 		log.Fatalf("Failed to unzip go dependency: %v", err)
 	}
+
 	return nil
 }
 
-func unzipGoDependency(fileName string, goPathSrc string, assetsBox packr.Box) error {
-	log.Printf("Unpacking go dependency %s -> %s", fileName, goPathSrc)
+func unzipGoDependency(fileName string, targetPath string, assetsBox packr.Box) error {
+	log.Printf("Unpacking go dependency %s -> %s", fileName, targetPath)
 	appDir := GetRootAppDir()
 	godep, err := assetsBox.MustBytes(fileName)
 	if err != nil {
@@ -115,7 +117,7 @@ func unzipGoDependency(fileName string, goPathSrc string, assetsBox packr.Box) e
 	godepZipPath := path.Join(appDir, fileName)
 	defer os.Remove(godepZipPath)
 	ioutil.WriteFile(godepZipPath, godep, 0644)
-	_, err = unzip(godepZipPath, goPathSrc)
+	_, err = unzip(godepZipPath, targetPath)
 	if err != nil {
 		log.Printf("Failed to unzip file %s -> %s", godepZipPath, appDir)
 		return err
