@@ -28,8 +28,8 @@ var (
 func SetupAssets() {
 	appDir := GetRootAppDir()
 	SetupCerts(appDir)
-	setupGo(appDir, assetsBox)
-	setupCodenames(appDir, assetsBox)
+	setupGo(appDir)
+	setupCodenames(appDir)
 }
 
 // SetupCerts - Creates directories for certs
@@ -39,12 +39,12 @@ func SetupCerts(appDir string) {
 }
 
 // SetupGo - Unzip Go compiler assets
-func setupGo(appDir string, assetsBox packr.Box) error {
+func setupGo(appDir string) error {
 
 	log.Printf("Unpacking to '%s'", appDir)
 
 	// Go compiler and stdlib
-	goZip, err := assetsBox.MustBytes(path.Join(runtime.GOOS, "go.zip"))
+	goZip, err := assetsBox.Find(path.Join(runtime.GOOS, "go.zip"))
 	if err != nil {
 		log.Printf("static asset not found: go.zip")
 		return err
@@ -59,7 +59,7 @@ func setupGo(appDir string, assetsBox packr.Box) error {
 		return err
 	}
 
-	goSrcZip, err := assetsBox.MustBytes("src.zip")
+	goSrcZip, err := assetsBox.Find("src.zip")
 	if err != nil {
 		log.Printf("static asset not found: src.zip")
 		return err
@@ -86,7 +86,7 @@ func SetupGoPath(goPathSrc string) error {
 	}
 
 	// Protobuf dependencies
-	pbGoSrc, err := protobufBox.MustBytes("sliver.pb.go")
+	pbGoSrc, err := protobufBox.Find("sliver.pb.go")
 	if err != nil {
 		log.Printf("static asset not found: src.zip")
 		return err
@@ -108,7 +108,7 @@ func SetupGoPath(goPathSrc string) error {
 func unzipGoDependency(fileName string, targetPath string, assetsBox packr.Box) error {
 	log.Printf("Unpacking go dependency %s -> %s", fileName, targetPath)
 	appDir := GetRootAppDir()
-	godep, err := assetsBox.MustBytes(fileName)
+	godep, err := assetsBox.Find(fileName)
 	if err != nil {
 		log.Printf("static asset not found: %s", fileName)
 		return err
@@ -126,9 +126,9 @@ func unzipGoDependency(fileName string, targetPath string, assetsBox packr.Box) 
 	return nil
 }
 
-func setupCodenames(appDir string, assetsBox packr.Box) error {
-	nouns, err := assetsBox.MustBytes("nouns.txt")
-	adjectives, err := assetsBox.MustBytes("adjectives.txt")
+func setupCodenames(appDir string) error {
+	nouns, err := assetsBox.Find("nouns.txt")
+	adjectives, err := assetsBox.Find("adjectives.txt")
 
 	err = ioutil.WriteFile(path.Join(appDir, "nouns.txt"), nouns, 0600)
 	if err != nil {

@@ -95,7 +95,7 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 
 	unpackCode(sliverBox, sliverPkgDir)
 
-	sliverGoCode, _ := sliverBox.MustString("sliver.go")
+	sliverGoCode, _ := sliverBox.FindString("sliver.go")
 	sliverCodePath := path.Join(sliverPkgDir, "sliver.go")
 	fSliver, _ := os.Create(sliverCodePath)
 	log.Printf("Rendering sliver code to: %s", sliverCodePath)
@@ -163,7 +163,7 @@ func unpackCode(sliverBox packr.Box, sourceDir string) error {
 }
 
 func saveCode(sliverBox packr.Box, fileName string, sourceDir string) error {
-	sliverPlatformCode, _ := sliverBox.MustString(fileName)
+	sliverPlatformCode, _ := sliverBox.FindString(fileName)
 	sliverPlatformCodePath := path.Join(sourceDir, fileName)
 	err := ioutil.WriteFile(sliverPlatformCodePath, []byte(sliverPlatformCode), os.ModePerm)
 	if err != nil {

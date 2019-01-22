@@ -73,7 +73,6 @@ echo " 3rd Party Assets"
 echo "-----------------------------------------------------------------"
 cd $WORK_DIR
 wget https://github.com/golang/protobuf/archive/master.zip
-mkdir -p github.com/golang/protobuf
 unzip master.zip
 mv protobuf-master protobuf
 zip -r protobuf.zip ./protobuf
