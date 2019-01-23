@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -182,6 +183,29 @@ func getSliver(name string) *Sliver {
 		}
 	}
 	return nil
+}
+
+func activeSliverRequest(msgType string, reqId string, data []byte) (pb.Envelope, error) {
+	if activeSliver == nil {
+		return pb.Envelope{}, errors.New("No active sliver")
+	}
+	resp := make(chan pb.Envelope)
+	(*activeSliver).Resp[reqId] = resp
+	defer close(resp)
+	defer delete((*activeSliver).Resp, reqId)
+	(*activeSliver).Send <- pb.Envelope{
+		Id:   reqId,
+		Type: msgType,
+		Data: data,
+	}
+
+	var respEnvelope pb.Envelope
+	select {
+	case respEnvelope = <-resp:
+	case <-time.After(cmdTimeout):
+		return pb.Envelope{}, errors.New("timeout")
+	}
+	return respEnvelope, nil
 }
 
 // ---------------- Commands ----------------
@@ -512,25 +536,11 @@ func psCmd(term *terminal.Terminal, args []string) {
 
 	fmt.Fprintf(term, Info+"Requesting process list from %s ...\n", activeSliver.Name)
 
-	respId := randomId()
-	data, _ := proto.Marshal(&pb.ProcessListReq{
-		Id: respId,
-	})
-	resp := make(chan pb.Envelope)
-	(*activeSliver).Resp[respId] = resp
-	defer close(resp)
-	defer delete((*activeSliver).Resp, respId)
-	(*activeSliver).Send <- pb.Envelope{
-		Id:   respId,
-		Type: "psReq",
-		Data: data,
-	}
-
-	var envelope pb.Envelope
-	select {
-	case envelope = <-resp:
-	case <-time.After(cmdTimeout):
-		fmt.Fprintf(term, "\n"+Warn+"Command failed due to timeout\n")
+	reqId := randomId()
+	data, _ := proto.Marshal(&pb.ProcessListReq{Id: reqId})
+	envelope, err := activeSliverRequest("psReq", reqId, data)
+	if err != nil {
+		fmt.Fprintf(term, "\n"+Warn+"Error: %s", err)
 		return
 	}
 
@@ -595,25 +605,11 @@ func pingCmd(term *terminal.Terminal, args []string) {
 		return
 	}
 
-	respId := randomId()
-	data, _ := proto.Marshal(&pb.Ping{
-		Id: respId,
-	})
-	resp := make(chan pb.Envelope)
-	(*sliver).Resp[respId] = resp
-	defer close(resp)
-	defer delete((*sliver).Resp, respId)
-	(*sliver).Send <- pb.Envelope{
-		Id:   respId,
-		Type: "ping",
-		Data: data,
-	}
-
-	var envelope pb.Envelope
-	select {
-	case envelope = <-resp:
-	case <-time.After(cmdTimeout):
-		fmt.Fprintf(term, "\n"+Warn+"Command failed due to timeout\n")
+	reqId := randomId()
+	data, _ := proto.Marshal(&pb.Ping{Id: reqId})
+	envelope, err := activeSliverRequest("ping", reqId, data)
+	if err != nil {
+		fmt.Fprintf(term, "\n"+Warn+"Error: %s\n", err)
 		return
 	}
 
@@ -645,29 +641,16 @@ func lsCmd(term *terminal.Terminal, args []string) {
 		args = append(args, ".")
 	}
 
-	respId := randomId()
+	reqId := randomId()
 	data, _ := proto.Marshal(&pb.DirListReq{
-		Id:   respId,
+		Id:   reqId,
 		Path: args[0],
 	})
-	resp := make(chan pb.Envelope)
-	(*activeSliver).Resp[respId] = resp
-	defer close(resp)
-	defer delete((*activeSliver).Resp, respId)
-	(*activeSliver).Send <- pb.Envelope{
-		Id:   respId,
-		Type: "dirListReq",
-		Data: data,
-	}
-
-	var envelope pb.Envelope
-	select {
-	case envelope = <-resp:
-	case <-time.After(cmdTimeout):
-		fmt.Fprintf(term, "\n"+Warn+"Command failed due to timeout\n")
+	envelope, err := activeSliverRequest("dirListReq", reqId, data)
+	if err != nil {
+		fmt.Fprintf(term, "\n"+Warn+"Error: %s\n", err)
 		return
 	}
-
 	dirList := &pb.DirList{}
 	err = proto.Unmarshal(envelope.Data, dirList)
 	if err != nil {
@@ -710,26 +693,14 @@ func cdCmd(term *terminal.Terminal, args []string) {
 		return
 	}
 
-	respId := randomId()
+	reqId := randomId()
 	data, _ := proto.Marshal(&pb.CdReq{
-		Id:   respId,
+		Id:   reqId,
 		Path: args[0],
 	})
-	resp := make(chan pb.Envelope)
-	(*activeSliver).Resp[respId] = resp
-	defer close(resp)
-	defer delete((*activeSliver).Resp, respId)
-	(*activeSliver).Send <- pb.Envelope{
-		Id:   respId,
-		Type: "cdReq",
-		Data: data,
-	}
-
-	var envelope pb.Envelope
-	select {
-	case envelope = <-resp:
-	case <-time.After(cmdTimeout):
-		fmt.Fprintf(term, "\n"+Warn+"Command failed due to timeout\n")
+	envelope, err := activeSliverRequest("cdReq", reqId, data)
+	if err != nil {
+		fmt.Fprintf(term, "\n"+Warn+"Error: %s\n", err)
 		return
 	}
 	pwd := &pb.Pwd{}
@@ -759,23 +730,11 @@ func pwdCmd(term *terminal.Terminal, args []string) {
 		return
 	}
 
-	respId := randomId()
-	data, _ := proto.Marshal(&pb.PwdReq{Id: respId})
-	resp := make(chan pb.Envelope)
-	(*activeSliver).Resp[respId] = resp
-	defer close(resp)
-	defer delete((*activeSliver).Resp, respId)
-	(*activeSliver).Send <- pb.Envelope{
-		Id:   respId,
-		Type: "pwdReq",
-		Data: data,
-	}
-
-	var envelope pb.Envelope
-	select {
-	case envelope = <-resp:
-	case <-time.After(cmdTimeout):
-		fmt.Fprintf(term, "\n"+Warn+"Command failed due to timeout\n")
+	reqId := randomId()
+	data, _ := proto.Marshal(&pb.PwdReq{Id: reqId})
+	envelope, err := activeSliverRequest("pwdReq", reqId, data)
+	if err != nil {
+		fmt.Fprintf(term, "\n"+Warn+"Error: %s", err)
 		return
 	}
 	pwd := &pb.Pwd{}
