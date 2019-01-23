@@ -8,11 +8,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
-
-	// {{if .Debug}}
+	"io/ioutil"
 	"log"
-	// {{end}}
-
 	"os"
 	"os/user"
 	"runtime"
@@ -48,6 +45,9 @@ func main() {
 
 	// {{if .Debug}}
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	// {{else}}
+	log.SetFlags(0)
+	log.SetOutput(ioutil.Discard)
 	// {{end}}
 
 	server = flag.String("server", defaultServerIP, "")

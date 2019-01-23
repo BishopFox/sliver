@@ -1,9 +1,7 @@
-package main
+package msf
 
 import (
 	"bytes"
-	"crypto/rand"
-	"crypto/sha256"
 	"fmt"
 	"log"
 	"os/exec"
@@ -12,10 +10,9 @@ import (
 )
 
 const (
-	consoleBin     = "msfconsole"
-	venomBin       = "msfvenom"
-	sep            = "/"
-	encryptKeySize = 16
+	consoleBin = "msfconsole"
+	venomBin   = "msfvenom"
+	sep        = "/"
 )
 
 var (
@@ -49,13 +46,6 @@ var (
 			"meterpreter_reverse_https": true,
 			"meterpreter_reverse_tcp":   true,
 		},
-	}
-
-	// ValidEncrypters - MSF Encrypters
-	ValidEncrypters = map[string]bool{
-		"":       true,
-		"aes256": true,
-		"rc4":    true,
 	}
 )
 
@@ -92,7 +82,7 @@ func MsfVenomPayload(config VenomConfig) ([]byte, error) {
 	}
 
 	if _, ok := ValidEncoders[config.Encoder]; !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("Invalid payload: %s", config.Os))
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid encoder: %s", config.Os))
 	}
 
 	target := config.Os
@@ -117,17 +107,6 @@ func MsfVenomPayload(config VenomConfig) ([]byte, error) {
 		args = append(args,
 			"--encoder", config.Encoder,
 			"--iterations", strconv.Itoa(iterations))
-	}
-
-	if config.Encrypt != "" {
-		iterations := config.Iterations
-		if iterations <= 0 {
-			iterations = 1
-		}
-		args = append(args,
-			"--encrypt", config.Encrypt,
-			"--encrypt-iv", randomEncryptKey(),
-			"--encrypt-key", randomEncryptKey())
 	}
 
 	return MsfVenomCmd(args)
@@ -174,11 +153,4 @@ func MsfArch(arch string) string {
 		return "x64"
 	}
 	return "x86"
-}
-
-func randomEncryptKey() string {
-	randBuf := make([]byte, 64) // 64 bytes of randomness
-	rand.Read(randBuf)
-	digest := sha256.Sum256(randBuf)
-	return fmt.Sprintf("%x", digest[:encryptKeySize])
 }

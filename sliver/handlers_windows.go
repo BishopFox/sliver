@@ -11,11 +11,14 @@ import (
 
 var (
 	windowsHandlers = map[string]interface{}{
-		"task":       taskHandler,
-		"remoteTask": remoteTaskHandler,
-		"psReq":      psHandler,
-		"ping":       pingHandler,
-		"kill":       killHandler,
+		"task":        taskHandler,
+		"remoteTask":  remoteTaskHandler,
+		"psReq":       psHandler,
+		"ping":        pingHandler,
+		"kill":        killHandler,
+		"dirListReq":  dirListHandler,
+		"downloadReq": downloadHandler,
+		"uploadReq":   uploadHandler,
 	}
 )
 

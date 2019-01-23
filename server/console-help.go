@@ -2,7 +2,7 @@ package main
 
 var (
 	cmdHelp = map[string]string{
-		"ls":       lsHelp,
+		"sessions": sessionsHelp,
 		"info":     infoHelp,
 		"use":      useHelp,
 		"gen":      genHelp,
@@ -17,20 +17,20 @@ var (
 	defaultHelp = `
 [[.Bold]]Commands[[.Normal]]
 =========
-ls     - List all sliver connections
-info   - Get information about a sliver
-use    - Switch the active sliver
-gen    - Generate a new sliver binary
-msf    - Send an msf payload to the active sliver
-ps     - List processes of active sliver
-ping   - Send a ping message to active sliver
-inject - Inject a payload into a remote process
-kill   - Kill a remote sliver process
+sessions - List all sliver connections
+info     - Get information about a sliver
+use      - Switch the active sliver
+gen      - Generate a new sliver binary
+msf      - Send an msf payload to the active sliver
+ps       - List processes of active sliver
+ping     - Send a ping message to active sliver
+inject   - Inject a payload into a remote process
+kill     - Kill a remote sliver process
 
 Use '<command> -help' to see information about a specific command.
 `
 
-	lsHelp = `
+	sessionsHelp = `
 [[.Bold]]Command:[[.Normal]] ls <options>
 [[.Bold]]About:[[.Normal]] List active sliver connections.
 [[.Bold]]Options:[[.Normal]]

@@ -2,11 +2,10 @@ syntax = "proto3";
 
 package sliverpb;
 
-
 message Envelope {
   string type = 1; // Message type
   bytes data = 2;  // Actual message data
-  string id = 3;
+  string id = 3;   // Resp ID
 }
 
 message RegisterSliver {
@@ -21,22 +20,24 @@ message RegisterSliver {
 }
 
 message Ping {
-  string Id = 1;
+  string id = 1;
 }
 
 message Kill {
-  string Id = 1;
+  string id = 1;
 }
 
 // aka Shellcode
 message Task {
-  string encoder = 1;
-  bytes data = 2;
+  string id = 1;
+  string encoder = 2;
+  bytes data = 9;
 }
 
 message RemoteTask {
-  string encoder = 1;
-  int32 pid = 2;
+  string id = 1;
+  string encoder = 2;
+  int32 pid = 3;
   bytes data = 9;
 }
 
@@ -53,4 +54,49 @@ message Process {
 message ProcessList {
   string id = 1;
   repeated Process processes = 2;
+}
+
+message DirListReq {
+  string id = 1;
+  string path = 2;
+}
+
+message DirList {
+  string id = 1;
+  string path = 2;
+  bool exists = 3; 
+  repeated FileInfo files = 9;
+}
+
+message FileInfo {
+  string Name = 1;
+  bool isDir = 2;
+  int64 size = 3;
+}
+
+message DownloadReq {
+  string id = 1;
+  string path = 2;
+}
+
+message Download {
+  string id = 1;
+  string path = 2;
+  string encoder = 3;
+  bool exists = 4;
+  bytes data = 9;
+}
+
+message UploadReq {
+  string id = 1;
+  string path = 2;
+  string encoder = 3;
+  bytes data = 9;
+}
+
+message Upload {
+  string id = 1;
+  string path = 2;
+  string err = 3;
+  bool success = 4;
 }

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -20,6 +22,8 @@ const (
 	windowsPlatform = "windows"
 	darwinPlatform  = "darwin"
 	linuxPlatform   = "linux"
+
+	encryptKeySize = 16
 )
 
 // SliverConfig - Parameters when generating a implant
@@ -188,4 +192,11 @@ func getObfuscatedSliverPkgDir(obfuscatedDir string) (string, error) {
 
 	}
 	return "", errors.New("no sliver files found")
+}
+
+func randomEncryptKey() string {
+	randBuf := make([]byte, 64) // 64 bytes of randomness
+	rand.Read(randBuf)
+	digest := sha256.Sum256(randBuf)
+	return fmt.Sprintf("%x", digest[:encryptKeySize])
 }

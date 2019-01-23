@@ -124,8 +124,8 @@ func GetRootAppDir() string {
 	return dir
 }
 
-// randomID - Generate random ID of randomIDSize bytes
-func randomID() string {
+// randomId - Generate random ID of randomIDSize bytes
+func randomId() string {
 	randBuf := make([]byte, 64) // 64 bytes of randomness
 	rand.Read(randBuf)
 	digest := sha256.Sum256(randBuf)
