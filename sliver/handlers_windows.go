@@ -19,6 +19,8 @@ var (
 		"dirListReq":  dirListHandler,
 		"downloadReq": downloadHandler,
 		"uploadReq":   uploadHandler,
+		"cdReq":       cdHandler,
+		"pwdReq":      pwdHandler,
 	}
 )
 

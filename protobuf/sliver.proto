@@ -23,7 +23,7 @@ message Ping {
   string id = 1;
 }
 
-message Kill {
+message KillReq {
   string id = 1;
 }
 
@@ -62,9 +62,8 @@ message DirListReq {
 }
 
 message DirList {
-  string id = 1;
-  string path = 2;
-  bool exists = 3; 
+  string path = 1;
+  bool exists = 2; 
   repeated FileInfo files = 9;
 }
 
@@ -74,16 +73,29 @@ message FileInfo {
   int64 size = 3;
 }
 
+message PwdReq {
+  string id = 1;
+}
+
+message CdReq {
+  string id = 1;
+  string path = 2;
+}
+
+message Pwd {
+  string path = 1;
+  string err = 2;
+}
+
 message DownloadReq {
   string id = 1;
   string path = 2;
 }
 
 message Download {
-  string id = 1;
-  string path = 2;
-  string encoder = 3;
-  bool exists = 4;
+  string path = 1;
+  string encoder = 2;
+  bool exists = 3;
   bytes data = 9;
 }
 
@@ -95,8 +107,7 @@ message UploadReq {
 }
 
 message Upload {
-  string id = 1;
-  string path = 2;
-  string err = 3;
-  bool success = 4;
+  string path = 1;
+  string err = 2;
+  bool success = 3;
 }

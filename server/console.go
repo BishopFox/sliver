@@ -60,6 +60,7 @@ var (
 	cmdHandlers = map[string]interface{}{
 		"help":     helpCmd,
 		"s":        sessionsCmd,
+		"sess":     sessionsCmd,
 		"sessions": sessionsCmd,
 		"info":     infoCmd,
 		"use":      useCmd,
@@ -72,6 +73,8 @@ var (
 		"kill":     killCmd,
 
 		"ls":       lsCmd,
+		"cd":       cdCmd,
+		"pwd":      pwdCmd,
 		"download": downloadCmd,
 		"upload":   uploadCmd,
 	}
@@ -284,7 +287,7 @@ func killCmd(term *terminal.Terminal, args []string) {
 	}
 	if sliver != nil {
 		fmt.Fprintf(term, "\n"+Info+"Killing sliver %s (%d)", sliver.Name, sliver.Id)
-		data, _ := proto.Marshal(&pb.Kill{Id: randomId()})
+		data, _ := proto.Marshal(&pb.KillReq{Id: randomId()})
 		(*sliver).Send <- pb.Envelope{
 			Type: "kill",
 			Data: data,
@@ -695,10 +698,106 @@ func printDirList(term *terminal.Terminal, dirList *pb.DirList) {
 	table.Flush()
 }
 
+func cdCmd(term *terminal.Terminal, args []string) {
+	cdFlags := flag.NewFlagSet("cd", flag.ContinueOnError)
+	cdFlags.Usage = func() { helpCmd(term, []string{"cd"}) }
+	err := cdFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
+	if activeSliver == nil {
+		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		return
+	}
+
+	respId := randomId()
+	data, _ := proto.Marshal(&pb.CdReq{
+		Id:   respId,
+		Path: args[0],
+	})
+	resp := make(chan pb.Envelope)
+	(*activeSliver).Resp[respId] = resp
+	defer close(resp)
+	defer delete((*activeSliver).Resp, respId)
+	(*activeSliver).Send <- pb.Envelope{
+		Id:   respId,
+		Type: "cdReq",
+		Data: data,
+	}
+
+	var envelope pb.Envelope
+	select {
+	case envelope = <-resp:
+	case <-time.After(cmdTimeout):
+		fmt.Fprintf(term, "\n"+Warn+"Command failed due to timeout\n")
+		return
+	}
+	pwd := &pb.Pwd{}
+	err = proto.Unmarshal(envelope.Data, pwd)
+	if err != nil {
+		fmt.Fprintf(term, "\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		return
+	}
+
+	if pwd.Err == "" {
+		fmt.Fprintln(term, "\n"+Info+pwd.Path)
+	} else {
+		fmt.Fprintln(term, "\n"+Warn+pwd.Err)
+	}
+
+}
+
+func pwdCmd(term *terminal.Terminal, args []string) {
+	pwdFlags := flag.NewFlagSet("pwd", flag.ContinueOnError)
+	pwdFlags.Usage = func() { helpCmd(term, []string{"pwd"}) }
+	err := pwdFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
+	if activeSliver == nil {
+		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		return
+	}
+
+	respId := randomId()
+	data, _ := proto.Marshal(&pb.PwdReq{Id: respId})
+	resp := make(chan pb.Envelope)
+	(*activeSliver).Resp[respId] = resp
+	defer close(resp)
+	defer delete((*activeSliver).Resp, respId)
+	(*activeSliver).Send <- pb.Envelope{
+		Id:   respId,
+		Type: "pwdReq",
+		Data: data,
+	}
+
+	var envelope pb.Envelope
+	select {
+	case envelope = <-resp:
+	case <-time.After(cmdTimeout):
+		fmt.Fprintf(term, "\n"+Warn+"Command failed due to timeout\n")
+		return
+	}
+	pwd := &pb.Pwd{}
+	err = proto.Unmarshal(envelope.Data, pwd)
+	if err != nil {
+		fmt.Fprintf(term, "\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		return
+	}
+
+	if pwd.Err == "" {
+		fmt.Fprintln(term, "\n"+Info+pwd.Path)
+	} else {
+		fmt.Fprintln(term, "\n"+Warn+pwd.Err)
+	}
+
+}
+
 func downloadCmd(term *terminal.Terminal, args []string) {
 	downloadFlags := flag.NewFlagSet("download", flag.ContinueOnError)
 	downloadFlags.Usage = func() { helpCmd(term, []string{"download"}) }
 	err := downloadFlags.Parse(args)
+	args = downloadFlags.Args()
 	if err == flag.ErrHelp {
 		return
 	}
