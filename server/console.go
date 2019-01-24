@@ -166,6 +166,9 @@ func startConsole(events chan Event) {
 			return
 		}
 		words := strings.Fields(line)
+		if len(words) < 1 {
+			continue
+		}
 		if cmd, ok := cmdHandlers[words[0]]; ok {
 			cmd.(func(*readline.Instance, []string))(term, words[1:])
 		} else {
@@ -205,7 +208,7 @@ func filterInput(r rune) (rune, bool) {
 	return r, true
 }
 
-func listFiles(path string) func(string) []string {
+func localFileList(path string) func(string) []string {
 	return func(line string) []string {
 		names := make([]string, 0)
 		files, _ := ioutil.ReadDir(path)
