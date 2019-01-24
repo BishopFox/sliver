@@ -302,6 +302,8 @@ func injectCmd(term *readline.Instance, args []string) {
 	payloadName := injectFlags.String("payload", "meterpreter_reverse_https", "metasploit payload")
 	lhost := injectFlags.String("lhost", "", "metasploit listener lhost")
 	lport := injectFlags.Int("lport", 4444, "metasploit listner port")
+	encoder := injectFlags.String("encoder", "", "metasploit encoder")
+	iterations := injectFlags.Int("iterations", 1, "metasploit encoder iterations")
 	injectFlags.Usage = func() { helpCmd(term, []string{"inject"}) }
 	err := injectFlags.Parse(args)
 	if err == flag.ErrHelp {
@@ -325,8 +327,8 @@ func injectCmd(term *readline.Instance, args []string) {
 		Payload:    *payloadName,
 		LHost:      *lhost,
 		LPort:      uint16(*lport),
-		Encoder:    "",
-		Iterations: 0, // TODO: Add support for msf encoders/encrypters
+		Encoder:    *encoder,
+		Iterations: *iterations,
 	}
 	rawPayload, err := msf.VenomPayload(config)
 	if err != nil {
