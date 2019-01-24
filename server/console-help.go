@@ -12,6 +12,11 @@ var (
 		"ps":       psHelp,
 		"ping":     pingHelp,
 		"kill":     killHelp,
+		"ls":       lsHelp,
+		"cd":       cdHelp,
+		"cat":      catHelp,
+		"download": downloadHelp,
+		"upload":   uploadHelp,
 	}
 
 	defaultHelp = `
@@ -20,7 +25,7 @@ var (
 sessions - List all sliver connections
 info     - Get information about a sliver
 use      - Switch the active sliver
-gen      - Generate a new sliver binary
+generate - Generate a new sliver binary
 msf      - Send an msf payload to the active sliver
 ps       - List processes of active sliver
 ping     - Send a ping message to active sliver
@@ -31,11 +36,10 @@ Use '<command> -help' to see information about a specific command.
 `
 
 	sessionsHelp = `
-[[.Bold]]Command:[[.Normal]] ls <options>
-[[.Bold]]About:[[.Normal]] List active sliver connections.
+[[.Bold]]Command:[[.Normal]] sessions <options>
+[[.Bold]]About:[[.Normal]] List files on remote system.
 [[.Bold]]Options:[[.Normal]]
- -l | Display additional details about each sliver
-
+	-i | Interact with sliver
 `
 
 	infoHelp = `
@@ -103,6 +107,42 @@ Use '<command> -help' to see information about a specific command.
 	killHelp = `
 [[.Bold]]Command:[[.Normal]] kill <sliver name>
 [[.Bold]]About:[[.Normal]] Kill a remote sliver process (does not delete file).
+
+`
+
+	lsHelp = `
+[[.Bold]]Command:[[.Normal]] ls
+[[.Bold]]About:[[.Normal]] List remote files in current directory.
+
+`
+
+	cdHelp = `
+[[.Bold]]Command:[[.Normal]] cd
+[[.Bold]]About:[[.Normal]] Change working directory.
+
+`
+
+	pwdHelp = `
+[[.Bold]]Command:[[.Normal]] pwd
+[[.Bold]]About:[[.Normal]] Print working directory.
+
+`
+
+	catHelp = `
+[[.Bold]]Command:[[.Normal]] cat <remote file> 
+[[.Bold]]About:[[.Normal]] Cat a remote file to stdout.
+
+`
+
+	downloadHelp = `
+[[.Bold]]Command:[[.Normal]] download <remote src> <local dest>
+[[.Bold]]About:[[.Normal]] Download a file from the remote system.
+
+`
+
+	uploadHelp = `
+[[.Bold]]Command:[[.Normal]] upload <local src> <remote dest>
+[[.Bold]]About:[[.Normal]] Upload a file to the remote system.
 
 `
 )
