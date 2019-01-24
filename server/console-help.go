@@ -2,21 +2,22 @@ package main
 
 var (
 	cmdHelp = map[string]string{
-		"sessions": sessionsHelp,
-		"info":     infoHelp,
-		"use":      useHelp,
-		"gen":      genHelp,
-		"generate": genHelp,
-		"msf":      msfHelp,
-		"inject":   injectHelp,
-		"ps":       psHelp,
-		"ping":     pingHelp,
-		"kill":     killHelp,
-		"ls":       lsHelp,
-		"cd":       cdHelp,
-		"cat":      catHelp,
-		"download": downloadHelp,
-		"upload":   uploadHelp,
+		"sessions":   sessionsHelp,
+		"background": backgroundHelp,
+		"info":       infoHelp,
+		"use":        useHelp,
+		"gen":        genHelp,
+		"generate":   genHelp,
+		"msf":        msfHelp,
+		"inject":     injectHelp,
+		"ps":         psHelp,
+		"ping":       pingHelp,
+		"kill":       killHelp,
+		"ls":         lsHelp,
+		"cd":         cdHelp,
+		"cat":        catHelp,
+		"download":   downloadHelp,
+		"upload":     uploadHelp,
 	}
 
 	defaultHelp = `
@@ -40,6 +41,12 @@ Use '<command> -help' to see information about a specific command.
 [[.Bold]]About:[[.Normal]] List files on remote system.
 [[.Bold]]Options:[[.Normal]]
 	-i | Interact with sliver
+`
+
+	backgroundHelp = `
+[[.Bold]]Command:[[.Normal]] background
+[[.Bold]]About:[[.Normal]] Background the active sliver.
+
 `
 
 	infoHelp = `

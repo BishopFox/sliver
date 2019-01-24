@@ -51,16 +51,17 @@ var (
 	}
 
 	cmdHandlers = map[string]interface{}{
-		"help":     helpCmd,
-		"sessions": sessionsCmd,
-		"info":     infoCmd,
-		"use":      useCmd,
-		"generate": generateCmd,
-		"msf":      msfCmd,
-		"inject":   injectCmd,
-		"ps":       psCmd,
-		"ping":     pingCmd,
-		"kill":     killCmd,
+		"help":       helpCmd,
+		"sessions":   sessionsCmd,
+		"background": backgroundCmd,
+		"info":       infoCmd,
+		"use":        useCmd,
+		"generate":   generateCmd,
+		"msf":        msfCmd,
+		"inject":     injectCmd,
+		"ps":         psCmd,
+		"ping":       pingCmd,
+		"kill":       killCmd,
 
 		"ls":       lsCmd,
 		"cd":       cdCmd,
@@ -74,6 +75,7 @@ var (
 var completer = readline.NewPrefixCompleter(
 	readline.PcItem("help",
 		readline.PcItem("sessions"),
+		readline.PcItem("background"),
 		readline.PcItem("info"),
 		readline.PcItem("use"),
 		readline.PcItem("generate"),
@@ -92,6 +94,7 @@ var completer = readline.NewPrefixCompleter(
 	readline.PcItem("sessions",
 		readline.PcItem("-i"),
 	),
+	readline.PcItem("background"),
 	readline.PcItem("info"),
 	readline.PcItem("use"),
 	readline.PcItem("generate",
@@ -185,6 +188,7 @@ func eventLoop(term *readline.Instance, events chan Event) {
 				sliver.Id, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
 			if activeSliver != nil && sliver.Id == activeSliver.Id {
 				activeSliver = nil
+				term.SetPrompt(getPrompt())
 				term.Refresh()
 				fmt.Fprintf(term, Warn+"Warning: Active sliver diconnected\n")
 			}

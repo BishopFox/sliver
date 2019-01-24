@@ -69,17 +69,19 @@ func Version() (string, error) {
 // VenomPayload - Generates an MSFVenom payload
 func VenomPayload(config VenomConfig) ([]byte, error) {
 
+	// OS
 	if _, ok := ValidPayloads[config.Os]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid operating system: %s", config.Os))
 	}
+	// Arch
 	if _, ok := ValidArches[config.Arch]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid arch: %s", config.Os))
 	}
-
+	// Payload
 	if _, ok := ValidPayloads[config.Os][config.Payload]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid payload: %s", config.Os))
 	}
-
+	// Encoder
 	if _, ok := ValidEncoders[config.Encoder]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid encoder: %s", config.Os))
 	}
@@ -96,11 +98,12 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 		"--payload", payload,
 		fmt.Sprintf("LHOST=%s", config.LHost),
 		fmt.Sprintf("LPORT=%d", config.LPort),
+		fmt.Sprintf("EXITFUNC=thread"),
 	}
 
-	if config.Encoder != "" {
+	if config.Encoder != "" && config.Encoder != "none" {
 		iterations := config.Iterations
-		if iterations <= 0 {
+		if iterations <= 0 || 50 <= iterations {
 			iterations = 1
 		}
 		args = append(args,
@@ -108,11 +111,11 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 			"--iterations", strconv.Itoa(iterations))
 	}
 
-	return msfVenomCmd(args)
+	return venomCmd(args)
 }
 
-// MsfVenomCmd - Execute a msfvenom command
-func msfVenomCmd(args []string) ([]byte, error) {
+// venomCmd - Execute a msfvenom command
+func venomCmd(args []string) ([]byte, error) {
 	log.Printf("%s %v", venomBin, args)
 	cmd := exec.Command(venomBin, args...)
 	var stdout bytes.Buffer
