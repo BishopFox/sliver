@@ -1,0 +1,15 @@
+[[constraint]]
+  name = "github.com/gobuffalo/packr"
+  version = "1.21.9"
+
+[[constraint]]
+  name = "github.com/golang/protobuf"
+  version = "1.2.0"
+
+[[constraint]]
+  branch = "master"
+  name = "golang.org/x/crypto"
+
+[[constraint]]
+  branch = "master"
+  name = "golang.org/x/tools"

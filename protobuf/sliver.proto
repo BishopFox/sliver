@@ -87,6 +87,15 @@ message Pwd {
   string err = 2;
 }
 
+message RmReq {
+  string id = 1;
+  string path = 2;
+}
+
+message Rm {
+  bool success = 1;
+}
+
 message DownloadReq {
   string id = 1;
   string path = 2;

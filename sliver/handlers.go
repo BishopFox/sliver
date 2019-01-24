@@ -171,7 +171,7 @@ func downloadHandler(send chan pb.Envelope, data []byte) {
 	rawData, err := ioutil.ReadFile(target)
 
 	var download *pb.Download
-	if err != nil {
+	if err == nil {
 		gzipData := bytes.NewBuffer([]byte{})
 		gzipWrite(gzipData, rawData)
 		download = &pb.Download{

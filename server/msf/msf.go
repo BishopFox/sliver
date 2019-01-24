@@ -58,17 +58,16 @@ type VenomConfig struct {
 	Iterations int
 	LHost      string
 	LPort      uint16
-	Encrypt    string
 }
 
-// MsfVersion - Return the version of MSFVenom
-func MsfVersion() (string, error) {
-	stdout, err := MsfConsoleCmd([]string{"--version"})
+// Version - Return the version of MSFVenom
+func Version() (string, error) {
+	stdout, err := consoleCmd([]string{"--version"})
 	return string(stdout), err
 }
 
-// MsfVenomPayload - Generates an MSFVenom payload
-func MsfVenomPayload(config VenomConfig) ([]byte, error) {
+// VenomPayload - Generates an MSFVenom payload
+func VenomPayload(config VenomConfig) ([]byte, error) {
 
 	if _, ok := ValidPayloads[config.Os]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid operating system: %s", config.Os))
@@ -109,11 +108,11 @@ func MsfVenomPayload(config VenomConfig) ([]byte, error) {
 			"--iterations", strconv.Itoa(iterations))
 	}
 
-	return MsfVenomCmd(args)
+	return msfVenomCmd(args)
 }
 
 // MsfVenomCmd - Execute a msfvenom command
-func MsfVenomCmd(args []string) ([]byte, error) {
+func msfVenomCmd(args []string) ([]byte, error) {
 	log.Printf("%s %v", venomBin, args)
 	cmd := exec.Command(venomBin, args...)
 	var stdout bytes.Buffer
@@ -130,8 +129,8 @@ func MsfVenomCmd(args []string) ([]byte, error) {
 	return stdout.Bytes(), err
 }
 
-// MsfConsoleCmd - Execute a msfvenom command
-func MsfConsoleCmd(args []string) ([]byte, error) {
+// consoleCmd - Execute a msfvenom command
+func consoleCmd(args []string) ([]byte, error) {
 	cmd := exec.Command(consoleBin, args...)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -147,8 +146,8 @@ func MsfConsoleCmd(args []string) ([]byte, error) {
 	return stdout.Bytes(), err
 }
 
-// MsfArch - Convert golang arch to msf arch
-func MsfArch(arch string) string {
+// Arch - Convert golang arch to msf arch
+func Arch(arch string) string {
 	if arch == "amd64" {
 		return "x64"
 	}
