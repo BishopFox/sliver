@@ -18,8 +18,11 @@ var (
 
 // Some constants from the Windows API
 const (
-	ERROR_NO_MORE_FILES = 0x12
-	MAX_PATH            = 260
+	ERROR_NO_MORE_FILES       = 0x12
+	MAX_PATH                  = 260
+	PROCESS_QUERY_INFORMATION = 0x0400
+	PROCESS_VM_READ           = 0x0010
+	TOKEN_QUERY               = 0x0008
 )
 
 // PROCESSENTRY32 is the Windows API structure that contains a process's
@@ -39,9 +42,10 @@ type PROCESSENTRY32 struct {
 
 // WindowsProcess is an implementation of Process for Windows.
 type WindowsProcess struct {
-	pid  int
-	ppid int
-	exe  string
+	pid   int
+	ppid  int
+	exe   string
+	owner string
 }
 
 func (p *WindowsProcess) Pid() int {
@@ -56,6 +60,10 @@ func (p *WindowsProcess) Executable() string {
 	return p.exe
 }
 
+func (p *WindowsProcess) Owner() string {
+	return p.owner
+}
+
 func newWindowsProcess(e *PROCESSENTRY32) *WindowsProcess {
 	// Find when the string ends for decoding
 	end := 0
@@ -65,11 +73,13 @@ func newWindowsProcess(e *PROCESSENTRY32) *WindowsProcess {
 		}
 		end++
 	}
+	account, _ := getProcessOwner(e.ProcessID)
 
 	return &WindowsProcess{
-		pid:  int(e.ProcessID),
-		ppid: int(e.ParentProcessID),
-		exe:  syscall.UTF16ToString(e.ExeFile[:end]),
+		pid:   int(e.ProcessID),
+		ppid:  int(e.ParentProcessID),
+		exe:   syscall.UTF16ToString(e.ExeFile[:end]),
+		owner: account,
 	}
 }
 
@@ -86,6 +96,51 @@ func findProcess(pid int) (Process, error) {
 	}
 
 	return nil, nil
+}
+
+// getInfo retrieves a specified type of information about an access token.
+func getInfo(t syscall.Token, class uint32, initSize int) (unsafe.Pointer, error) {
+	n := uint32(initSize)
+	for {
+		b := make([]byte, n)
+		e := syscall.GetTokenInformation(t, class, &b[0], uint32(len(b)), &n)
+		if e == nil {
+			return unsafe.Pointer(&b[0]), nil
+		}
+		if e != syscall.ERROR_INSUFFICIENT_BUFFER {
+			return nil, e
+		}
+		if n <= uint32(len(b)) {
+			return nil, e
+		}
+	}
+}
+
+// getTokenOwner retrieves access token t owner account information.
+func getTokenOwner(t syscall.Token) (*syscall.Tokenuser, error) {
+	i, e := getInfo(t, syscall.TokenOwner, 50)
+	if e != nil {
+		return nil, e
+	}
+	return (*syscall.Tokenuser)(i), nil
+}
+
+func getProcessOwner(pid uint32) (owner string, err error) {
+	handle, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, pid)
+	if err != nil {
+		return
+	}
+	var token syscall.Token
+	if err = syscall.OpenProcessToken(handle, syscall.TOKEN_QUERY, &token); err != nil {
+		return
+	}
+	tokenUser, err := getTokenOwner(token)
+	if err != nil {
+		return
+	}
+	owner, domain, _, err := tokenUser.User.Sid.LookupAccount("")
+	owner = fmt.Sprintf("%s\\%s", domain, owner)
+	return
 }
 
 func processes() ([]Process, error) {

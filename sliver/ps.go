@@ -20,6 +20,9 @@ type Process interface {
 	// Executable name running this process. This is not a path to the
 	// executable.
 	Executable() string
+
+	// Owner is the account name of the process owner.
+	Owner() string
 }
 
 // Processes returns all processes.

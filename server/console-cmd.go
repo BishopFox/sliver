@@ -383,7 +383,7 @@ func psCmd(term *readline.Instance, args []string) {
 		return
 	}
 
-	header := fmt.Sprintf("\n% 6s | % 6s | %s\n", "pid", "ppid", "executable")
+	header := fmt.Sprintf("\n% 6s | % 6s | % 40s | %s\n", "pid", "ppid", "executable", "owner")
 	fmt.Fprintf(term, header)
 	fmt.Fprintf(term, "%s\n", strings.Repeat("=", len(header)))
 	for _, proc := range psList.Processes {
@@ -414,8 +414,8 @@ func printProcInfo(term *readline.Instance, proc *pb.Process) {
 	if proc.Pid == activeSliver.Pid {
 		color = green
 	}
-	fmt.Fprintf(term, "%s%s% 6d%s%s | % 6d | %s%s\n",
-		color, bold, proc.Pid, normal, color, proc.Ppid, proc.Executable, normal)
+	fmt.Fprintf(term, "%s%s% 6d%s%s | % 6d | % 40s%s | %s%s%s\n",
+		color, bold, proc.Pid, normal, color, proc.Ppid, proc.Executable, normal, color, proc.Owner, normal)
 }
 
 func pingCmd(term *readline.Instance, args []string) {
