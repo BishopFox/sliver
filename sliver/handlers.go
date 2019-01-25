@@ -57,6 +57,7 @@ func psHandler(send chan pb.Envelope, data []byte) {
 			Pid:        int32(proc.Pid()),
 			Ppid:       int32(proc.PPid()),
 			Executable: proc.Executable(),
+			Owner:      proc.Owner(),
 		})
 	}
 	data, _ = proto.Marshal(psList)

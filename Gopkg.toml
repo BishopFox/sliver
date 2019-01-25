@@ -13,3 +13,7 @@
 [[constraint]]
   branch = "master"
   name = "golang.org/x/tools"
+
+[[override]]
+  branch = "master"
+  name = "github.com/chzyer/readline"

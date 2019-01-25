@@ -49,6 +49,7 @@ message Process {
   int32 pid = 1;
   int32 ppid = 2;
   string executable = 3;
+  string owner = 4;
 }
 
 message ProcessList {
