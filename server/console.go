@@ -152,7 +152,7 @@ func cmdInit(sliverApp *grumble.App) {
 		Name: msfStr,
 		Help: getHelpFor(msfStr),
 		Flags: func(f *grumble.Flags) {
-			f.String("m", "payload", "", "msf payload")
+			f.String("m", "payload", "meterpreter_reverse_https", "msf payload")
 			f.String("h", "lhost", "", "listen host")
 			f.Int("l", "lport", 4444, "listen port")
 			f.String("e", "encoder", "", "msf encoder")
@@ -169,7 +169,7 @@ func cmdInit(sliverApp *grumble.App) {
 		Help: getHelpFor(injectStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("p", "pid", -1, "pid to inject into")
-			f.String("m", "payload", "", "msf payload")
+			f.String("m", "payload", "meterpreter_reverse_https", "msf payload")
 			f.String("h", "lhost", "", "listen host")
 			f.Int("l", "lport", 4444, "listen port")
 			f.String("e", "encoder", "", "msf encoder")
