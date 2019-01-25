@@ -2,22 +2,21 @@ package main
 
 var (
 	cmdHelp = map[string]string{
-		"sessions":   sessionsHelp,
-		"background": backgroundHelp,
-		"info":       infoHelp,
-		"use":        useHelp,
-		"gen":        genHelp,
-		"generate":   genHelp,
-		"msf":        msfHelp,
-		"inject":     injectHelp,
-		"ps":         psHelp,
-		"ping":       pingHelp,
-		"kill":       killHelp,
-		"ls":         lsHelp,
-		"cd":         cdHelp,
-		"cat":        catHelp,
-		"download":   downloadHelp,
-		"upload":     uploadHelp,
+		sessionsStr:   sessionsHelp,
+		backgroundStr: backgroundHelp,
+		infoStr:       infoHelp,
+		useStr:        useHelp,
+		generateStr:   genHelp,
+		msfStr:        msfHelp,
+		injectStr:     injectHelp,
+		psStr:         psHelp,
+		pingStr:       pingHelp,
+		killStr:       killHelp,
+		lsStr:         lsHelp,
+		cdStr:         cdHelp,
+		catStr:        catHelp,
+		downloadStr:   downloadHelp,
+		uploadStr:     uploadHelp,
 	}
 
 	defaultHelp = `
@@ -154,9 +153,9 @@ Use '<command> -help' to see information about a specific command.
 `
 )
 
-func getHelpFor(args []string) string {
-	if 0 < len(args) {
-		if help, ok := cmdHelp[args[0]]; ok {
+func getHelpFor(cmdName string) string {
+	if 0 < len(cmdName) {
+		if help, ok := cmdHelp[cmdName]; ok {
 			return help
 		}
 	}

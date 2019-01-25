@@ -17,11 +17,16 @@ import (
 )
 
 const (
-	sliversDirName = "slivers"
+	// WINDOWS OS
+	WINDOWS = "windows"
 
-	windowsPlatform = "windows"
-	darwinPlatform  = "darwin"
-	linuxPlatform   = "linux"
+	// DARWIN / MacOS
+	DARWIN = "darwin"
+
+	// LINUX OS
+	LINUX = "linux"
+
+	sliversDirName = "slivers"
 
 	encryptKeySize = 16
 )
