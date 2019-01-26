@@ -3,6 +3,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"syscall"
 	"unsafe"
 )
@@ -113,18 +114,22 @@ func getProcessOwner(pid uint32) (owner string, err error) {
 func processes() ([]Process, error) {
 	handle, err := syscall.CreateToolhelp32Snapshot(syscall.TH32CS_SNAPPROCESS, 0)
 	if err != nil {
+		log.Println("CreateToolhel32Snapshot failed")
 		return nil, err
 	}
 	defer syscall.CloseHandle(handle)
 
 	var entry syscall.ProcessEntry32
+	entry.Size = uint32(unsafe.Sizeof(entry))
 	if err = syscall.Process32First(handle, &entry); err != nil {
+		log.Println("Process32First failed")
 		return nil, err
 	}
 
 	results := make([]Process, 0, 50)
 	for {
 		results = append(results, newWindowsProcess(&entry))
+		log.Println("Looping through processes")
 
 		err = syscall.Process32Next(handle, &entry)
 		if err != nil {
