@@ -7,39 +7,6 @@ import (
 	"unsafe"
 )
 
-// Windows API functions
-var (
-	modKernel32                  = syscall.NewLazyDLL("kernel32.dll")
-	procCloseHandle              = modKernel32.NewProc("CloseHandle")
-	procCreateToolhelp32Snapshot = modKernel32.NewProc("CreateToolhelp32Snapshot")
-	procProcess32First           = modKernel32.NewProc("Process32FirstW")
-	procProcess32Next            = modKernel32.NewProc("Process32NextW")
-)
-
-// Some constants from the Windows API
-const (
-	ERROR_NO_MORE_FILES       = 0x12
-	MAX_PATH                  = 260
-	PROCESS_QUERY_INFORMATION = 0x0400
-	PROCESS_VM_READ           = 0x0010
-	TOKEN_QUERY               = 0x0008
-)
-
-// PROCESSENTRY32 is the Windows API structure that contains a process's
-// information.
-type PROCESSENTRY32 struct {
-	Size              uint32
-	CntUsage          uint32
-	ProcessID         uint32
-	DefaultHeapID     uintptr
-	ModuleID          uint32
-	CntThreads        uint32
-	ParentProcessID   uint32
-	PriorityClassBase int32
-	Flags             uint32
-	ExeFile           [MAX_PATH]uint16
-}
-
 // WindowsProcess is an implementation of Process for Windows.
 type WindowsProcess struct {
 	pid   int
@@ -64,7 +31,7 @@ func (p *WindowsProcess) Owner() string {
 	return p.owner
 }
 
-func newWindowsProcess(e *PROCESSENTRY32) *WindowsProcess {
+func newWindowsProcess(e *syscall.ProcessEntry32) *WindowsProcess {
 	// Find when the string ends for decoding
 	end := 0
 	for {
