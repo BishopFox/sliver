@@ -53,28 +53,28 @@ func handleSliverConnection(conn net.Conn, events chan Event) {
 	send := make(chan pb.Envelope)
 
 	sliver := &Sliver{
-		Id:            getHiveID(),
+		ID:            getHiveID(),
 		Name:          registerSliver.Name,
 		Hostname:      registerSliver.Hostname,
 		Username:      registerSliver.Username,
-		Uid:           registerSliver.Uid,
-		Gid:           registerSliver.Gid,
+		UID:           registerSliver.Uid,
+		GID:           registerSliver.Gid,
 		Os:            registerSliver.Os,
 		Arch:          registerSliver.Arch,
-		Pid:           registerSliver.Pid,
+		PID:           registerSliver.Pid,
 		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
 		Send:          send,
 		Resp:          map[string]chan pb.Envelope{},
 	}
 
 	hiveMutex.Lock()
-	(*hive)[sliver.Id] = sliver
+	(*hive)[sliver.ID] = sliver
 	hiveMutex.Unlock()
 
 	defer func() {
 		log.Printf("Cleaning up for %s", sliver.Name)
 		hiveMutex.Lock()
-		delete(*hive, sliver.Id)
+		delete(*hive, sliver.ID)
 		hiveMutex.Unlock()
 		conn.Close()
 		events <- Event{Sliver: sliver, EventType: "disconnected"}

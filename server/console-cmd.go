@@ -130,18 +130,18 @@ func printSlivers() {
 	// Sort the keys becuase maps have a randomized order
 	var keys []int
 	for _, sliver := range *hive {
-		keys = append(keys, sliver.Id)
+		keys = append(keys, sliver.ID)
 	}
 	sort.Ints(keys)
 
 	activeIndex := -1
 	for index, key := range keys {
 		sliver := (*hive)[key]
-		if activeSliver != nil && activeSliver.Id == sliver.Id {
+		if activeSliver != nil && activeSliver.ID == sliver.ID {
 			activeIndex = index + 3 // Two lines for the headers
 		}
 		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t\n",
-			sliver.Id, sliver.Name, sliver.RemoteAddress, sliver.Username,
+			sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Username,
 			fmt.Sprintf("%s/%s", sliver.Os, sliver.Arch))
 	}
 	table.Flush()
@@ -163,13 +163,13 @@ func printSlivers() {
 func killCmd(ctx *grumble.Context) {
 	var sliver *Sliver
 	if activeSliver != nil {
-		sliver = getSliver(strconv.Itoa(activeSliver.Id))
+		sliver = getSliver(strconv.Itoa(activeSliver.ID))
 	} else if 0 < len(ctx.Args) {
 		sliver = getSliver(ctx.Args[0])
 	}
 	if sliver != nil {
-		fmt.Printf("\n"+Info+"Killing sliver %s (%d)", sliver.Name, sliver.Id)
-		data, _ := proto.Marshal(&pb.KillReq{Id: randomId()})
+		fmt.Printf("\n"+Info+"Killing sliver %s (%d)", sliver.Name, sliver.ID)
+		data, _ := proto.Marshal(&pb.KillReq{Id: randomID()})
 		(*sliver).Send <- pb.Envelope{
 			Type: "kill",
 			Data: data,
@@ -180,19 +180,19 @@ func killCmd(ctx *grumble.Context) {
 func infoCmd(ctx *grumble.Context) {
 	var sliver *Sliver
 	if activeSliver != nil {
-		sliver = getSliver(strconv.Itoa(activeSliver.Id))
+		sliver = getSliver(strconv.Itoa(activeSliver.ID))
 	} else if 0 < len(ctx.Args) {
 		sliver = getSliver(ctx.Args[0])
 	}
 	if sliver != nil {
 		fmt.Println("")
-		fmt.Printf(bold+"ID: %s%d\n", normal, sliver.Id)
+		fmt.Printf(bold+"ID: %s%d\n", normal, sliver.ID)
 		fmt.Printf(bold+"Name: %s%s\n", normal, sliver.Name)
 		fmt.Printf(bold+"Hostname: %s%s\n", normal, sliver.Hostname)
 		fmt.Printf(bold+"Username: %s%s\n", normal, sliver.Username)
-		fmt.Printf(bold+"UID: %s%s\n", normal, sliver.Uid)
-		fmt.Printf(bold+"GID: %s%s\n", normal, sliver.Gid)
-		fmt.Printf(bold+"PID: %s%d\n", normal, sliver.Pid)
+		fmt.Printf(bold+"UID: %s%s\n", normal, sliver.UID)
+		fmt.Printf(bold+"GID: %s%s\n", normal, sliver.GID)
+		fmt.Printf(bold+"PID: %s%d\n", normal, sliver.PID)
 		fmt.Printf(bold+"OS: %s%s\n", normal, sliver.Os)
 		fmt.Printf(bold+"Arch: %s%s\n", normal, sliver.Arch)
 		fmt.Printf(bold+"Remote Address: %s%s\n", normal, sliver.RemoteAddress)
@@ -215,7 +215,7 @@ func setActiveSliver(ctx *grumble.Context, target string) {
 	if sliver != nil {
 		activeSliver = sliver
 		ctx.App.SetPrompt(getPrompt())
-		fmt.Printf("\n"+Info+"Active sliver set to '%s' (%d)\n\n", activeSliver.Name, activeSliver.Id)
+		fmt.Printf("\n"+Info+"Active sliver set to '%s' (%d)\n\n", activeSliver.Name, activeSliver.ID)
 	} else {
 		fmt.Printf("\n"+Warn+"No sliver with name '%s'\n\n", target)
 	}
@@ -371,9 +371,9 @@ func psCmd(ctx *grumble.Context) {
 
 	fmt.Printf("\n"+Info+"Requesting process list from %s ...\n", activeSliver.Name)
 
-	reqId := randomId()
-	data, _ := proto.Marshal(&pb.ProcessListReq{Id: reqId})
-	envelope, err := activeSliverRequest("psReq", reqId, data)
+	reqID := randomID()
+	data, _ := proto.Marshal(&pb.ProcessListReq{Id: reqID})
+	envelope, err := activeSliverRequest("psReq", reqID, data)
 	if err != nil {
 		fmt.Printf("\n"+Warn+"Error: %s", err)
 		return
@@ -425,7 +425,6 @@ func psCmd(ctx *grumble.Context) {
 		// We need to account for the two rows of column headers
 		if 0 < len(line) && 2 <= index {
 			lineColor := lineColors[index-2]
-			line = strings.Replace(line, normal, normal+lineColor, -1)
 			fmt.Printf("%s%s%s\n", lineColor, line, normal)
 		} else {
 			fmt.Printf("%s\n", line)
@@ -441,18 +440,17 @@ func printProcInfo(table *tabwriter.Writer, proc *pb.Process) string {
 	if modifyColor, ok := knownProcs[proc.Executable]; ok {
 		color = modifyColor
 	}
-	if proc.Pid == activeSliver.Pid {
+	if proc.Pid == activeSliver.PID {
 		color = green
 	}
-	fmt.Fprintf(table, "%s%d%s\t%d\t%s\t%s\t\n",
-		bold, proc.Pid, normal, proc.Ppid, proc.Executable, proc.Owner)
+	fmt.Fprintf(table, "%d\t%d\t%s\t%s\t\n", proc.Pid, proc.Ppid, proc.Executable, proc.Owner)
 	return color
 }
 
 func pingCmd(ctx *grumble.Context) {
 	var sliver *Sliver
 	if activeSliver != nil {
-		sliver = getSliver(strconv.Itoa(activeSliver.Id))
+		sliver = getSliver(strconv.Itoa(activeSliver.ID))
 	} else if 0 < len(ctx.Args) {
 		sliver = getSliver(ctx.Args[0])
 	}
@@ -461,9 +459,9 @@ func pingCmd(ctx *grumble.Context) {
 		return
 	}
 
-	reqId := randomId()
-	data, _ := proto.Marshal(&pb.Ping{Id: reqId})
-	envelope, err := activeSliverRequest("ping", reqId, data)
+	reqID := randomID()
+	data, _ := proto.Marshal(&pb.Ping{Id: reqID})
+	envelope, err := activeSliverRequest("ping", reqID, data)
 	if err != nil {
 		fmt.Printf("\n"+Warn+"Error: %s\n", err)
 		return
@@ -489,12 +487,12 @@ func lsCmd(ctx *grumble.Context) {
 		ctx.Args = append(ctx.Args, ".")
 	}
 
-	reqId := randomId()
+	reqID := randomID()
 	data, _ := proto.Marshal(&pb.DirListReq{
-		Id:   reqId,
+		Id:   reqID,
 		Path: ctx.Args[0],
 	})
-	envelope, err := activeSliverRequest("dirListReq", reqId, data)
+	envelope, err := activeSliverRequest("dirListReq", reqID, data)
 	if err != nil {
 		fmt.Printf("\n"+Warn+"Error: %s\n", err)
 		return
@@ -541,12 +539,12 @@ func cdCmd(ctx *grumble.Context) {
 		return
 	}
 
-	reqId := randomId()
+	reqID := randomID()
 	data, _ := proto.Marshal(&pb.CdReq{
-		Id:   reqId,
+		Id:   reqID,
 		Path: ctx.Args[0],
 	})
-	envelope, err := activeSliverRequest("cdReq", reqId, data)
+	envelope, err := activeSliverRequest("cdReq", reqID, data)
 	if err != nil {
 		fmt.Printf("\n"+Warn+"Error: %s\n", err)
 		return
@@ -572,9 +570,9 @@ func pwdCmd(ctx *grumble.Context) {
 		return
 	}
 
-	reqId := randomId()
-	data, _ := proto.Marshal(&pb.PwdReq{Id: reqId})
-	envelope, err := activeSliverRequest("pwdReq", reqId, data)
+	reqID := randomID()
+	data, _ := proto.Marshal(&pb.PwdReq{Id: reqID})
+	envelope, err := activeSliverRequest("pwdReq", reqID, data)
 	if err != nil {
 		fmt.Printf("\n"+Warn+"Error: %s", err)
 		return
@@ -639,12 +637,12 @@ func downloadCmd(ctx *grumble.Context) {
 }
 
 func activeSliverDownload(filePath string) ([]byte, error) {
-	reqId := randomId()
+	reqID := randomID()
 	data, _ := proto.Marshal(&pb.DownloadReq{
-		Id:   reqId,
+		Id:   reqID,
 		Path: filePath,
 	})
-	envelope, err := activeSliverRequest("downloadReq", reqId, data)
+	envelope, err := activeSliverRequest("downloadReq", reqID, data)
 	if err != nil {
 		return []byte{}, err
 	}

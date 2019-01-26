@@ -26,16 +26,16 @@ const (
 
 // Sliver implant
 type Sliver struct {
-	Id            int
+	ID            int
 	Name          string
 	Hostname      string
 	Username      string
-	Uid           string
-	Gid           string
+	UID           string
+	GID           string
 	Os            string
 	Arch          string
 	RemoteAddress string
-	Pid           int32
+	PID           int32
 	Send          chan pb.Envelope
 	Resp          map[string]chan pb.Envelope
 }
@@ -124,8 +124,8 @@ func GetRootAppDir() string {
 	return dir
 }
 
-// randomId - Generate random ID of randomIDSize bytes
-func randomId() string {
+// randomID - Generate random ID of randomIDSize bytes
+func randomID() string {
 	randBuf := make([]byte, 64) // 64 bytes of randomness
 	rand.Read(randBuf)
 	digest := sha256.Sum256(randBuf)

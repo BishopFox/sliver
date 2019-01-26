@@ -58,13 +58,13 @@ func eventLoop(sliverApp *grumble.App, events chan Event) {
 		switch event.EventType {
 		case "connected":
 			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n",
-				sliver.Id, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
+				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
 			fmt.Printf(getPrompt())
 			stdout.Flush()
 		case "disconnected":
 			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
-				sliver.Id, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
-			if activeSliver != nil && sliver.Id == activeSliver.Id {
+				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
+			if activeSliver != nil && sliver.ID == activeSliver.ID {
 				activeSliver = nil
 				sliverApp.SetPrompt(getPrompt())
 				fmt.Printf(Warn + "Warning: Active sliver diconnected\n")
@@ -319,16 +319,16 @@ func getSliver(name string) *Sliver {
 	return nil
 }
 
-func activeSliverRequest(msgType string, reqId string, data []byte) (pb.Envelope, error) {
+func activeSliverRequest(msgType string, reqID string, data []byte) (pb.Envelope, error) {
 	if activeSliver == nil {
 		return pb.Envelope{}, errors.New("No active sliver")
 	}
 	resp := make(chan pb.Envelope)
-	(*activeSliver).Resp[reqId] = resp
+	(*activeSliver).Resp[reqID] = resp
 	defer close(resp)
-	defer delete((*activeSliver).Resp, reqId)
+	defer delete((*activeSliver).Resp, reqID)
 	(*activeSliver).Send <- pb.Envelope{
-		Id:   reqId,
+		Id:   reqID,
 		Type: msgType,
 		Data: data,
 	}
