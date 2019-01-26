@@ -39,6 +39,7 @@ type Sliver struct {
 	Filename      string
 	Send          chan pb.Envelope
 	Resp          map[string]chan pb.Envelope
+	RespMutex     *sync.RWMutex
 }
 
 // Event - Sliver connect/disconnect

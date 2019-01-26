@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	pb "sliver/protobuf"
+	"sync"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -73,6 +74,7 @@ func handleSliverConnection(conn net.Conn, events chan Event) {
 		Filename:      registerSliver.Filename,
 		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
 		Send:          send,
+		RespMutex:     &sync.RWMutex{},
 		Resp:          map[string]chan pb.Envelope{},
 	}
 
@@ -93,7 +95,10 @@ func handleSliverConnection(conn net.Conn, events chan Event) {
 
 	go func() {
 		defer func() {
-			for _, resp := range sliver.Resp {
+			sliver.RespMutex.Lock()
+			defer sliver.RespMutex.Unlock()
+			for key, resp := range sliver.Resp {
+				delete(sliver.Resp, key)
 				close(resp)
 			}
 			close(sliver.Send)
@@ -105,9 +110,11 @@ func handleSliverConnection(conn net.Conn, events chan Event) {
 				return
 			}
 			if envelope.Id != "" {
+				sliver.RespMutex.Lock()
 				if resp, ok := sliver.Resp[envelope.Id]; ok {
-					resp <- envelope
+					resp <- envelope // Could deadlock, maybe want to investigate better solutions
 				}
+				sliver.RespMutex.Unlock()
 			}
 		}
 	}()

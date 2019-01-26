@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -680,7 +681,7 @@ func downloadCmd(ctx *grumble.Context) {
 	}
 
 	if len(ctx.Args) < 1 {
-		fmt.Printf("\n" + Warn + "Missing parameter, see `help download`\n")
+		fmt.Println("\n" + Warn + "Missing parameter, see `help download`\n")
 		return
 	}
 	if len(ctx.Args) == 1 {
@@ -692,7 +693,7 @@ func downloadCmd(ctx *grumble.Context) {
 	dst, _ := filepath.Abs(ctx.Args[1])
 	fi, err := os.Stat(dst)
 	if err != nil {
-		fmt.Printf(Warn+"Invalid local path %s: %v", ctx.Args[1], err)
+		fmt.Printf(Warn+"%v\n\n", err)
 		return
 	}
 	if fi.IsDir() {
@@ -761,6 +762,50 @@ func uploadCmd(ctx *grumble.Context) {
 		return
 	}
 
+	if len(ctx.Args) < 1 {
+		fmt.Println("\n" + Warn + "Missing parameter, see `help upload`\n")
+		return
+	}
+
+	src, _ := filepath.Abs(ctx.Args[0])
+	_, err := os.Stat(src)
+	if err != nil {
+		fmt.Printf(Warn+"%v\n\n", err)
+		return
+	}
+
+	if len(ctx.Args) == 1 {
+		fileName := filepath.Base(src)
+		ctx.Args = append(ctx.Args, fileName)
+	}
+
+	fileBuf, err := ioutil.ReadFile(src)
+	uploadGzip := bytes.NewBuffer([]byte{})
+	gzipWrite(uploadGzip, fileBuf)
+
+	reqID := randomID()
+	data, _ := proto.Marshal(&pb.UploadReq{
+		Id:      reqID,
+		Path:    ctx.Args[1],
+		Data:    uploadGzip.Bytes(),
+		Encoder: "gzip",
+	})
+	envelope, err := activeSliverRequest(pb.MsgUploadReq, reqID, data)
+	if err != nil {
+		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		return
+	}
+	upload := &pb.Upload{}
+	err = proto.Unmarshal(envelope.Data, upload)
+	if err != nil {
+		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		return
+	}
+	if upload.Success {
+		fmt.Printf("\n"+Info+"Written to %s\n\n", upload.Path)
+	} else {
+		fmt.Printf("\n"+Warn+"Error %s", upload.Err)
+	}
 }
 
 func byteCountBinary(b int64) string {

@@ -360,16 +360,6 @@ func cmdInit(sliverApp *grumble.App) {
 		},
 	})
 
-	sliverApp.AddCommand(&grumble.Command{
-		Name:      uploadStr,
-		Help:      getHelpFor(uploadStr),
-		AllowArgs: true,
-		Run: func(ctx *grumble.Context) error {
-			uploadCmd(ctx)
-			return nil
-		},
-	})
-
 }
 
 func localFileList(line string) []string {
@@ -419,14 +409,19 @@ func getSliver(name string) *Sliver {
 	return nil
 }
 
+// Sends a protobuf request to the active sliver and returns the response
 func activeSliverRequest(msgType string, reqID string, data []byte) (pb.Envelope, error) {
 	if activeSliver == nil {
 		return pb.Envelope{}, errors.New("No active sliver")
 	}
 	resp := make(chan pb.Envelope)
 	(*activeSliver).Resp[reqID] = resp
-	defer close(resp)
-	defer delete((*activeSliver).Resp, reqID)
+	defer func() {
+		activeSliver.RespMutex.Lock()
+		defer activeSliver.RespMutex.Unlock()
+		close(resp)
+		delete((*activeSliver).Resp, reqID)
+	}()
 	(*activeSliver).Send <- pb.Envelope{
 		Id:   reqID,
 		Type: msgType,
