@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	pb "sliver/protobuf"
@@ -425,7 +424,6 @@ func psCmd(ctx *grumble.Context) {
 	for index, line := range strings.Split(outputBuf.String(), "\n") {
 		// We need to account for the two rows of column headers
 		if 0 < len(line) && 2 <= index {
-			log.Printf("color #%d %#v", index-2, lineColors[index-2])
 			fmt.Printf("%s%s%s\n", lineColors[index-2], line, normal)
 		} else {
 			fmt.Printf("%s\n", line)
