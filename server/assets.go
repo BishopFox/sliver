@@ -88,12 +88,20 @@ func SetupGoPath(goPathSrc string) error {
 	// Protobuf dependencies
 	pbGoSrc, err := protobufBox.Find("sliver.pb.go")
 	if err != nil {
-		log.Printf("static asset not found: src.zip")
+		log.Printf("static asset not found: sliver.pb.go")
 		return err
 	}
+	pbConstSrc, err := protobufBox.Find("constants.go")
+	if err != nil {
+		log.Printf("static asset not found: constants.go")
+		return err
+	}
+
 	protobufDir := path.Join(goPathSrc, "sliver", "protobuf")
 	os.MkdirAll(protobufDir, os.ModePerm)
-	ioutil.WriteFile(path.Join(protobufDir, "sliver.pb.go"), pbGoSrc, 0644)
+	ioutil.WriteFile(path.Join(protobufDir, "constants.go"), pbGoSrc, 0644)
+
+	ioutil.WriteFile(path.Join(protobufDir, "sliver.pb.go"), pbConstSrc, 0644)
 
 	// GOPATH 3rd party dependencies
 	protobufPath := path.Join(goPathSrc, "github.com", "golang")

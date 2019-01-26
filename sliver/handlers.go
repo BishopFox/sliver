@@ -63,7 +63,7 @@ func psHandler(send chan pb.Envelope, data []byte) {
 	data, _ = proto.Marshal(psList)
 	envelope := pb.Envelope{
 		Id:   psListReq.Id,
-		Type: "psList",
+		Type: pb.MsgPsList,
 		Data: data,
 	}
 	send <- envelope
@@ -98,7 +98,7 @@ func dirListHandler(send chan pb.Envelope, data []byte) {
 	data, _ = proto.Marshal(dirList)
 	envelope := pb.Envelope{
 		Id:   dirListReq.Id,
-		Type: "dirList",
+		Type: pb.MsgDirList,
 		Data: data,
 	}
 	send <- envelope
@@ -131,7 +131,7 @@ func cdHandler(send chan pb.Envelope, data []byte) {
 	data, _ = proto.Marshal(pwd)
 	envelope := pb.Envelope{
 		Id:   cdReq.Id,
-		Type: "pwd",
+		Type: pb.MsgPwd,
 		Data: data,
 	}
 	send <- envelope
@@ -154,7 +154,7 @@ func pwdHandler(send chan pb.Envelope, data []byte) {
 	data, _ = proto.Marshal(pwd)
 	envelope := pb.Envelope{
 		Id:   pwdReq.Id,
-		Type: "pwd",
+		Type: pb.MsgPwd,
 		Data: data,
 	}
 	send <- envelope
@@ -188,7 +188,7 @@ func downloadHandler(send chan pb.Envelope, data []byte) {
 	data, _ = proto.Marshal(download)
 	envelope := pb.Envelope{
 		Id:   downloadReq.Id,
-		Type: "download",
+		Type: pb.MsgDownload,
 		Data: data,
 	}
 	send <- envelope
@@ -222,7 +222,7 @@ func uploadHandler(send chan pb.Envelope, data []byte) {
 	data, _ = proto.Marshal(upload)
 	envelope := pb.Envelope{
 		Id:   uploadReq.Id,
-		Type: "upload",
+		Type: pb.MsgUpload,
 		Data: data,
 	}
 	send <- envelope

@@ -12,6 +12,7 @@ type DarwinProcess struct {
 	pid    int
 	ppid   int
 	binary string
+	owner  string
 }
 
 func (p *DarwinProcess) Pid() int {
@@ -24,6 +25,10 @@ func (p *DarwinProcess) PPid() int {
 
 func (p *DarwinProcess) Executable() string {
 	return p.binary
+}
+
+func (p *DarwinProcess) Owner() string {
+	return p.owner
 }
 
 func findProcess(pid int) (Process, error) {
@@ -66,6 +71,7 @@ func processes() ([]Process, error) {
 			pid:    int(p.Pid),
 			ppid:   int(p.PPid),
 			binary: darwinCstring(p.Comm),
+			owner:  "",
 		}
 	}
 

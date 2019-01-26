@@ -119,7 +119,7 @@ func registerSliver(conn *tls.Conn) {
 		Pid:      int32(os.Getpid()),
 	})
 	envelope := pb.Envelope{
-		Type: "register",
+		Type: pb.MsgRegister,
 		Data: data,
 	}
 	socketWriteEnvelope(conn, envelope)

