@@ -28,6 +28,10 @@ const (
 	useStr        = "use"
 	generateStr   = "generate"
 
+	jobsStr = "jobs"
+	mtlsStr = "mtls"
+	dnsStr  = "dns"
+
 	msfStr    = "msf"
 	injectStr = "inject"
 
@@ -53,10 +57,12 @@ const (
 var (
 	activeSliver *Sliver
 
+	events = make(chan Event, 64)
+
 	cmdTimeout = 10 * time.Second
 )
 
-func startConsole(events chan Event) {
+func startConsole() {
 
 	sliverApp := grumble.New(&grumble.Config{
 		Name:                  "sliver",
@@ -71,22 +77,47 @@ func startConsole(events chan Event) {
 	sliverApp.SetPrintASCIILogo(printLogo)
 	cmdInit(sliverApp)
 
-	defer close(events)
+	defer func() {
+
+		// Cleanup "Jobs" i.e. listeners
+		jobMutex.Lock()
+		for ID, job := range *jobs {
+			job.JobCtrl <- true
+			delete(*jobs, ID)
+		}
+		jobMutex.Unlock()
+
+		for _, sliver := range *hive {
+			hiveMutex.Lock()
+			if _, ok := (*hive)[sliver.ID]; ok {
+				delete(*hive, sliver.ID)
+				close(sliver.Send)
+			}
+			hiveMutex.Unlock()
+		}
+
+		close(events)
+	}()
+
 	go eventLoop(sliverApp, events)
 
-	sliverApp.Run()
+	err := sliverApp.Run()
+	if err != nil {
+		log.Printf("Run loop returned error: %v", err)
+	}
 }
 
 func eventLoop(sliverApp *grumble.App, events chan Event) {
 	stdout := bufio.NewWriter(os.Stdout)
 	for event := range events {
 		sliver := event.Sliver
+		job := event.Job
 		switch event.EventType {
+		case "stopped":
+			fmt.Printf(clearln+Warn+"Job #%d stopped %s\n", job.ID, job.Name)
 		case "connected":
 			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n",
 				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
-			fmt.Printf(getPrompt())
-			stdout.Flush()
 		case "disconnected":
 			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
@@ -95,9 +126,9 @@ func eventLoop(sliverApp *grumble.App, events chan Event) {
 				sliverApp.SetPrompt(getPrompt())
 				fmt.Printf(Warn + "Warning: Active sliver diconnected\n")
 			}
-			fmt.Printf(getPrompt())
-			stdout.Flush()
 		}
+		fmt.Printf(getPrompt())
+		stdout.Flush()
 	}
 }
 
@@ -112,6 +143,47 @@ func cmdInit(sliverApp *grumble.App) {
 			return nil
 		},
 	})
+
+	// [ Jobs ] -----------------------------------------------------------------
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: jobsStr,
+		Help: getHelpFor(jobsStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("k", "kill", -1, "kill a background job")
+		},
+		Run: func(ctx *grumble.Context) error {
+			jobsCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: mtlsStr,
+		Help: getHelpFor(mtlsStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "server", "", "interface to bind server to")
+			f.Int("l", "lport", 8888, "tcp listen port")
+		},
+		Run: func(ctx *grumble.Context) error {
+			startMTLSListenerCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: dnsStr,
+		Help: getHelpFor(dnsStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("d", "domain", "", "parent domain to use for DNS C2")
+		},
+		Run: func(ctx *grumble.Context) error {
+			startDNSListenerCmd(ctx)
+			return nil
+		},
+	})
+
+	// [ Commands ] --------------------------------------------------------------
 
 	sliverApp.AddCommand(&grumble.Command{
 		Name: sessionsStr,
@@ -459,11 +531,11 @@ var asciiLogos = []string{
 ` + normal,
 
 	green + `
-███████╗██╗     ██╗██╗   ██╗███████╗██████╗ 
-██╔════╝██║     ██║██║   ██║██╔════╝██╔══██╗
-███████╗██║     ██║██║   ██║█████╗  ██████╔╝
-╚════██║██║     ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗
-███████║███████╗██║ ╚████╔╝ ███████╗██║  ██║
-╚══════╝╚══════╝╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝                                          
+    ███████╗██╗     ██╗██╗   ██╗███████╗██████╗ 
+    ██╔════╝██║     ██║██║   ██║██╔════╝██╔══██╗
+    ███████╗██║     ██║██║   ██║█████╗  ██████╔╝
+    ╚════██║██║     ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗
+    ███████║███████╗██║ ╚████╔╝ ███████╗██║  ██║
+    ╚══════╝╚══════╝╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 ` + normal,
 }

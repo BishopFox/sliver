@@ -42,27 +42,38 @@ type Sliver struct {
 	RespMutex     *sync.RWMutex
 }
 
+// Job - Manages background jobs
+type Job struct {
+	ID       int
+	Name     string
+	Protocol string
+	Port     uint16
+	JobCtrl  chan bool
+}
+
 // Event - Sliver connect/disconnect
 type Event struct {
 	Sliver    *Sliver
+	Job       *Job
 	EventType string
 }
 
 var (
 	sliverServerVersion = "0.0.4"
-	server              *string
-	serverLPort         *int
 
 	// Yea I'm lazy, it'd be better not to use mutex
 	hiveMutex = &sync.RWMutex{}
 	hive      = &map[int]*Sliver{}
 	hiveID    = new(int)
+
+	// Yea I'm lazy, it'd be better not to use mutex
+	jobMutex = &sync.RWMutex{}
+	jobs     = &map[int]*Job{}
+	jobID    = new(int)
 )
 
 func main() {
-	server = flag.String("server", "", "bind server address")
-	serverLPort = flag.Int("server-lport", 8888, "bind listen port")
-	forceUnpack := flag.Bool("unpack", false, "force unpack assets")
+	unpack := flag.Bool("unpack", false, "force unpack assets")
 	version := flag.Bool("version", false, "print version number")
 	flag.Parse()
 
@@ -72,34 +83,16 @@ func main() {
 	}
 
 	appDir := GetRootAppDir()
-	logFile := initLogging(appDir)
-	defer logFile.Close()
-	if _, err := os.Stat(path.Join(appDir, goDirName)); os.IsNotExist(err) || *forceUnpack {
+	if _, err := os.Stat(path.Join(appDir, goDirName)); os.IsNotExist(err) || *unpack {
 		fmt.Println(Info + "First time setup, please wait ... ")
 		log.Println("Unpacking assets ... ")
 		SetupAssets()
 	}
 
-	events := make(chan Event, 128)
+	logFile := initLogging(appDir)
+	defer logFile.Close()
 
-	log.Println("Starting listeners ...")
-	ln, err := startMutualTLSListener(*server, uint16(*serverLPort), events)
-	if err != nil {
-		log.Printf("Failed to start server")
-		fmt.Printf("\r"+Warn+"Failed to start server %v", err)
-		return
-	}
-
-	defer func() {
-		ln.Close()
-		hiveMutex.Lock()
-		defer hiveMutex.Unlock()
-		for _, sliver := range *hive {
-			close(sliver.Send)
-		}
-	}()
-
-	startConsole(events)
+	startConsole()
 }
 
 // Initialize logging
@@ -138,5 +131,12 @@ func randomID() string {
 func getHiveID() int {
 	newID := (*hiveID) + 1
 	(*hiveID)++
+	return newID
+}
+
+// getJobID - Returns an incremental nonce as an id
+func getJobID() int {
+	newID := (*jobID) + 1
+	(*jobID)++
 	return newID
 }

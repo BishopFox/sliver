@@ -424,7 +424,6 @@ func psCmd(ctx *grumble.Context) {
 			fmt.Printf("%s\n", line)
 		}
 	}
-	fmt.Println()
 
 }
 

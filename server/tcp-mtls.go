@@ -19,7 +19,7 @@ const (
 	defaultServerCert = "hive"
 )
 
-func startMutualTLSListener(bindIface string, port uint16, events chan Event) (net.Listener, error) {
+func startMutualTLSListener(bindIface string, port uint16) (net.Listener, error) {
 	log.Printf("Starting Raw TCP/TLS listener on %s:%d", bindIface, port)
 	hostCert := bindIface
 	if hostCert == "" {
@@ -31,11 +31,11 @@ func startMutualTLSListener(bindIface string, port uint16, events chan Event) (n
 		log.Println(err)
 		return nil, err
 	}
-	go acceptConnections(ln, events)
+	go acceptConnections(ln)
 	return ln, nil
 }
 
-func acceptConnections(ln net.Listener, events chan Event) {
+func acceptConnections(ln net.Listener) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -45,11 +45,11 @@ func acceptConnections(ln net.Listener, events chan Event) {
 			log.Printf("Accept failed: %v", err)
 			continue
 		}
-		go handleSliverConnection(conn, events)
+		go handleSliverConnection(conn)
 	}
 }
 
-func handleSliverConnection(conn net.Conn, events chan Event) {
+func handleSliverConnection(conn net.Conn) {
 	log.Printf("Accepted incoming connection: %s", conn.RemoteAddr())
 
 	envelope, err := socketReadEnvelope(conn)
@@ -101,7 +101,13 @@ func handleSliverConnection(conn net.Conn, events chan Event) {
 				delete(sliver.Resp, key)
 				close(resp)
 			}
-			close(sliver.Send)
+
+			hiveMutex.Lock()
+			if _, ok := (*hive)[sliver.ID]; ok {
+				delete(*hive, sliver.ID)
+				close(sliver.Send)
+			}
+			hiveMutex.Unlock()
 		}()
 		for {
 			envelope, err := socketReadEnvelope(conn)
