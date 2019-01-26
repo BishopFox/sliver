@@ -87,6 +87,7 @@ func startConsole() {
 		}
 		jobMutex.Unlock()
 
+		// Cleanup sliver connections
 		for _, sliver := range *hive {
 			hiveMutex.Lock()
 			if _, ok := (*hive)[sliver.ID]; ok {
@@ -96,7 +97,7 @@ func startConsole() {
 			hiveMutex.Unlock()
 		}
 
-		close(events)
+		close(events) // Cleanup eventLoop()
 	}()
 
 	go eventLoop(sliverApp, events)
@@ -114,7 +115,7 @@ func eventLoop(sliverApp *grumble.App, events chan Event) {
 		job := event.Job
 		switch event.EventType {
 		case "stopped":
-			fmt.Printf(clearln+Warn+"Job #%d stopped %s\n", job.ID, job.Name)
+			fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n", job.ID, job.Protocol, job.Name)
 		case "connected":
 			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n",
 				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)

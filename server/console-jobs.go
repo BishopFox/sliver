@@ -17,6 +17,21 @@ func jobsCmd(ctx *grumble.Context) {
 		return
 	}
 
+	killID := ctx.Flags.Int("kill")
+	if killID != -1 {
+		if job, ok := (*jobs)[killID]; ok {
+			fmt.Printf("\n"+Warn+"Killing job #%d\n\n", killID)
+			job.JobCtrl <- true
+		} else {
+			fmt.Printf("\n"+Warn+"Job ID #%d does not exist\n\n", killID)
+		}
+	} else {
+		printJobs()
+	}
+
+}
+
+func printJobs() {
 	fmt.Println()
 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
 	fmt.Fprintf(table, "ID\tName\tProtocol\tPort\t\n")
