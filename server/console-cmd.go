@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	pb "sliver/protobuf"
 	"sliver/server/msf"
@@ -13,6 +14,7 @@ import (
 	"text/tabwriter"
 	"text/template"
 
+	"github.com/AlecAivazis/survey"
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
 )
@@ -610,6 +612,7 @@ func catCmd(ctx *grumble.Context) {
 	data, err := activeSliverDownload(ctx.Args[0])
 	if err != nil {
 		fmt.Printf("\n"+Warn+"Error: %v\n", err)
+		return
 	}
 	fmt.Println(string(data))
 }
@@ -621,22 +624,58 @@ func downloadCmd(ctx *grumble.Context) {
 		return
 	}
 
-	if len(ctx.Args) < 2 {
-		fmt.Printf("\n" + Warn + "Missing parameter\n")
+	if len(ctx.Args) < 1 {
+		fmt.Printf("\n" + Warn + "Missing parameter, see `help download`\n")
+		return
 	}
-	data, err := activeSliverDownload(ctx.Args[0])
-	if err != nil {
-		fmt.Printf("\n"+Warn+"Error: %v\n", err)
+	if len(ctx.Args) == 1 {
+		ctx.Args = append(ctx.Args, ".")
 	}
 
-	f, err := os.Create(ctx.Args[1])
+	src := ctx.Args[0]
+	fileName := filepath.Base(src)
+	dst, _ := filepath.Abs(ctx.Args[1])
+	fi, err := os.Stat(dst)
 	if err != nil {
-		fmt.Printf("\n"+Warn+"File write failture %s\n", err)
+		fmt.Printf(Warn+"Invalid local path %s: %v", ctx.Args[1], err)
+		return
+	}
+	if fi.IsDir() {
+		dst = path.Join(dst, fileName)
+	}
+
+	if _, err := os.Stat(dst); err == nil {
+		overwrite := false
+		prompt := &survey.Confirm{Message: "Overwrite local file?"}
+		survey.AskOne(prompt, &overwrite, nil)
+		if !overwrite {
+			fmt.Println()
+			return
+		}
+	}
+
+	f, err := os.Create(dst)
+	if err != nil {
+		fmt.Printf("\n"+Warn+"Failed to open local file %s: %v\n", dst, err)
 	}
 	defer f.Close()
-	f.Write(data)
+
+	fmt.Printf("\n"+Info+"%s -> %s\n", fileName, dst)
+	data, err := activeSliverDownload(src)
+	if err != nil {
+		fmt.Printf("\n"+Warn+"Error: %v\n\n", err)
+		return
+	}
+
+	n, err := f.Write(data)
+	if err != nil {
+		fmt.Printf(Warn+"Failed to write data %v\n\n", err)
+	} else {
+		fmt.Printf(Info+"Wrote %d bytes to %s\n\n", n, dst)
+	}
 }
 
+// Reusable download function (e.g. cat / download commands)
 func activeSliverDownload(filePath string) ([]byte, error) {
 	reqID := randomID()
 	data, _ := proto.Marshal(&pb.DownloadReq{
