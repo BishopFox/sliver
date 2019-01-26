@@ -72,11 +72,22 @@ echo "-----------------------------------------------------------------"
 echo " 3rd Party Assets"
 echo "-----------------------------------------------------------------"
 cd $WORK_DIR
-wget https://github.com/golang/protobuf/archive/master.zip
-unzip master.zip
-mv protobuf-master protobuf
+
+PROTOBUF_COMMIT=347cf4a86c1cb8d262994d8ef5924d4576c5b331
+wget https://github.com/golang/protobuf/archive/$PROTOBUF_COMMIT.zip
+unzip $PROTOBUF_COMMIT.zip
+rm -f $PROTOBUF_COMMIT.zip
+mv protobuf-$PROTOBUF_COMMIT protobuf
 zip -r protobuf.zip ./protobuf
 cp -vv protobuf.zip $REPO_DIR/server/assets/protobuf.zip
+
+DNS_COMMIT=56be65265e34e731425e0269a301774938827c60
+wget https://github.com/miekg/dns/archive/$DNS_COMMIT.zip
+unzip $DNS_COMMIT.zip
+rm -f $DNS_COMMIT.zip
+mv dns-$DNS_COMMIT dns
+zip -r dns.zip ./dns
+cp -vv dns.zip $REPO_DIR/server/assets/dns.zip
 
 # end
 echo -e "clean up: $WORK_DIR"

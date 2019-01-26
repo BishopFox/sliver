@@ -59,6 +59,13 @@ pb:
 	fi
 	protoc -I protobuf/ protobuf/sliver.proto --go_out=protobuf/
 
+.PHONY: clean-all
+clean-all: clean
+	rm -f ./server/assets/darwin/go.zip
+	rm -f ./server/assets/windows/go.zip
+	rm -f ./server/assets/linux/go.zip
+	rm -f ./server/assets/*.zip
+
 .PHONY: clean
 clean:
 	@hash packr > /dev/null 2>&1; if [ $$? -ne 0 ]; then \
