@@ -424,7 +424,9 @@ func psCmd(ctx *grumble.Context) {
 	for index, line := range strings.Split(outputBuf.String(), "\n") {
 		// We need to account for the two rows of column headers
 		if 0 < len(line) && 2 <= index {
-			fmt.Printf("%s%s%s\n", lineColors[index-2], line, normal)
+			lineColor := lineColors[index-2]
+			line = strings.Replace(line, normal, normal+lineColor, -1)
+			fmt.Printf("%s%s%s\n", lineColor, line, normal)
 		} else {
 			fmt.Printf("%s\n", line)
 		}
@@ -442,7 +444,8 @@ func printProcInfo(table *tabwriter.Writer, proc *pb.Process) string {
 	if proc.Pid == activeSliver.Pid {
 		color = green
 	}
-	fmt.Fprintf(table, "%d\t%d\t%s\t%s\t\n", proc.Pid, proc.Ppid, proc.Executable, proc.Owner)
+	fmt.Fprintf(table, "%s%d%s\t%d\t%s\t%s\t\n",
+		bold, proc.Pid, normal, proc.Ppid, proc.Executable, proc.Owner)
 	return color
 }
 
