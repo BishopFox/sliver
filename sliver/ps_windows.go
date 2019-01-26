@@ -7,39 +7,6 @@ import (
 	"unsafe"
 )
 
-// Windows API functions
-var (
-	modKernel32                  = syscall.NewLazyDLL("kernel32.dll")
-	procCloseHandle              = modKernel32.NewProc("CloseHandle")
-	procCreateToolhelp32Snapshot = modKernel32.NewProc("CreateToolhelp32Snapshot")
-	procProcess32First           = modKernel32.NewProc("Process32FirstW")
-	procProcess32Next            = modKernel32.NewProc("Process32NextW")
-)
-
-// Some constants from the Windows API
-const (
-	ERROR_NO_MORE_FILES       = 0x12
-	MAX_PATH                  = 260
-	PROCESS_QUERY_INFORMATION = 0x0400
-	PROCESS_VM_READ           = 0x0010
-	TOKEN_QUERY               = 0x0008
-)
-
-// PROCESSENTRY32 is the Windows API structure that contains a process's
-// information.
-type PROCESSENTRY32 struct {
-	Size              uint32
-	CntUsage          uint32
-	ProcessID         uint32
-	DefaultHeapID     uintptr
-	ModuleID          uint32
-	CntThreads        uint32
-	ParentProcessID   uint32
-	PriorityClassBase int32
-	Flags             uint32
-	ExeFile           [MAX_PATH]uint16
-}
-
 // WindowsProcess is an implementation of Process for Windows.
 type WindowsProcess struct {
 	pid   int
@@ -64,7 +31,7 @@ func (p *WindowsProcess) Owner() string {
 	return p.owner
 }
 
-func newWindowsProcess(e *PROCESSENTRY32) *WindowsProcess {
+func newWindowsProcess(e *syscall.ProcessEntry32) *WindowsProcess {
 	// Find when the string ends for decoding
 	end := 0
 	for {
@@ -144,27 +111,24 @@ func getProcessOwner(pid uint32) (owner string, err error) {
 }
 
 func processes() ([]Process, error) {
-	handle, _, _ := procCreateToolhelp32Snapshot.Call(
-		0x00000002,
-		0)
-	if handle < 0 {
-		return nil, syscall.GetLastError()
+	handle, err := syscall.CreateToolhelp32Snapshot(syscall.TH32CS_SNAPPROCESS, 0)
+	if err != nil {
+		return nil, err
 	}
-	defer procCloseHandle.Call(handle)
+	defer syscall.CloseHandle(handle)
 
-	var entry PROCESSENTRY32
+	var entry syscall.ProcessEntry32
 	entry.Size = uint32(unsafe.Sizeof(entry))
-	ret, _, _ := procProcess32First.Call(handle, uintptr(unsafe.Pointer(&entry)))
-	if ret == 0 {
-		return nil, fmt.Errorf("Error retrieving process info.")
+	if err = syscall.Process32First(handle, &entry); err != nil {
+		return nil, err
 	}
 
 	results := make([]Process, 0, 50)
 	for {
 		results = append(results, newWindowsProcess(&entry))
 
-		ret, _, _ := procProcess32Next.Call(handle, uintptr(unsafe.Pointer(&entry)))
-		if ret == 0 {
+		err = syscall.Process32Next(handle, &entry)
+		if err != nil {
 			break
 		}
 	}
