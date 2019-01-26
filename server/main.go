@@ -36,6 +36,7 @@ type Sliver struct {
 	Arch          string
 	RemoteAddress string
 	PID           int32
+	Filename      string
 	Send          chan pb.Envelope
 	Resp          map[string]chan pb.Envelope
 }

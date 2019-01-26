@@ -21,6 +21,8 @@ var (
 		pb.MsgUploadReq:   uploadHandler,
 		pb.MsgCdReq:       cdHandler,
 		pb.MsgPwdReq:      pwdHandler,
+		pb.MsgRmReq:       rmHandler,
+		pb.MsgMkdirReq:    mkdirHandler,
 	}
 )
 

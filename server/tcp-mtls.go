@@ -13,10 +13,18 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
+const (
+	// defaultServerCert - Default certificate name if bind is "" (all interfaces)
+	defaultServerCert = "hive"
+)
+
 func startMutualTLSListener(bindIface string, port uint16, events chan Event) (net.Listener, error) {
 	log.Printf("Starting Raw TCP/TLS listener on %s:%d", bindIface, port)
-
-	tlsConfig := getServerTLSConfig(sliversCertDir, bindIface)
+	hostCert := bindIface
+	if hostCert == "" {
+		hostCert = defaultServerCert
+	}
+	tlsConfig := getServerTLSConfig(sliversCertDir, hostCert)
 	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", bindIface, port), tlsConfig)
 	if err != nil {
 		log.Println(err)
@@ -62,6 +70,7 @@ func handleSliverConnection(conn net.Conn, events chan Event) {
 		Os:            registerSliver.Os,
 		Arch:          registerSliver.Arch,
 		PID:           registerSliver.Pid,
+		Filename:      registerSliver.Filename,
 		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
 		Send:          send,
 		Resp:          map[string]chan pb.Envelope{},

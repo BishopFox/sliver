@@ -41,11 +41,21 @@ const (
 
 	// MsgCdReq - Request a change directory on the remote system
 	MsgCdReq = "cdReq"
-	// MsgCd - Confirms teh success/failure of the `cd` request (resp to MsgCdReq)
+	// MsgCd - Confirms the success/failure of the `cd` request (resp to MsgCdReq)
 	MsgCd = "cd"
 
 	// MsgPwdReq - A request to get the CWD from the remote process
 	MsgPwdReq = "pwdReq"
 	// MsgPwd - The CWD of the remote process (resp to MsgPwdReq)
 	MsgPwd = "pwd"
+
+	// MsgRmReq - Request to delete remote file
+	MsgRmReq = "rmReq"
+	// MsgRm - Confirms the success/failure of delete request (resp to MsgRmReq)
+	MsgRm = "rm"
+
+	// MsgMkdirReq - Request to create a directory on the remote system
+	MsgMkdirReq = "mkdirReq"
+	// MsgMkdir - Confirms the success/failure of the mkdir request (resp to MsgMkdirReq)
+	MsgMkdir = "mkdir"
 )

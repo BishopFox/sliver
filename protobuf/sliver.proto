@@ -17,6 +17,7 @@ message RegisterSliver {
   string os = 6;
   string arch = 7;
   int32 pid = 8;
+  string filename = 9;
 }
 
 message Ping {
@@ -95,6 +96,19 @@ message RmReq {
 
 message Rm {
   bool success = 1;
+  string path = 2;
+  string Err = 3;
+}
+
+message MkdirReq {
+  string id = 1;
+  string path = 2;
+}
+
+message Mkdir {
+  bool success = 1;
+  string path = 2;
+  string Err = 3;
 }
 
 message DownloadReq {

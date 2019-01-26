@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	insecureRand "math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -40,6 +41,8 @@ const (
 	whoamiStr = "whoami"
 
 	lsStr       = "ls"
+	rmStr       = "rm"
+	mkdirStr    = "mkdir"
 	cdStr       = "cd"
 	pwdStr      = "pwd"
 	catStr      = "cat"
@@ -289,6 +292,26 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
+		Name:      rmStr,
+		Help:      getHelpFor(rmStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			rmCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name:      mkdirStr,
+		Help:      getHelpFor(mkdirStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			mkdirCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
 		Name:      cdStr,
 		Help:      getHelpFor(cdStr),
 		AllowArgs: true,
@@ -420,7 +443,32 @@ func activeSliverRequest(msgType string, reqID string, data []byte) (pb.Envelope
 }
 
 func printLogo(sliverApp *grumble.App) {
-	fmt.Println()
+	insecureRand.Seed(time.Now().Unix())
+	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
+	fmt.Println(logo)
 	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
 	fmt.Println()
+}
+
+var asciiLogos = []string{
+	red + `
+ 	  ██████  ██▓     ██▓ ██▒   █▓▓█████  ██▀███  
+	▒██    ▒ ▓██▒    ▓██▒▓██░   █▒▓█   ▀ ▓██ ▒ ██▒
+	░ ▓██▄   ▒██░    ▒██▒ ▓██  █▒░▒███   ▓██ ░▄█ ▒
+	  ▒   ██▒▒██░    ░██░  ▒██ █░░▒▓█  ▄ ▒██▀▀█▄  
+	▒██████▒▒░██████▒░██░   ▒▀█░  ░▒████▒░██▓ ▒██▒
+	▒ ▒▓▒ ▒ ░░ ▒░▓  ░░▓     ░ ▐░  ░░ ▒░ ░░ ▒▓ ░▒▓░
+	░ ░▒  ░ ░░ ░ ▒  ░ ▒ ░   ░ ░░   ░ ░  ░  ░▒ ░ ▒░
+	░  ░  ░    ░ ░    ▒ ░     ░░     ░     ░░   ░ 
+		  ░      ░  ░ ░        ░     ░  ░   ░     
+` + normal,
+
+	green + `
+███████╗██╗     ██╗██╗   ██╗███████╗██████╗ 
+██╔════╝██║     ██║██║   ██║██╔════╝██╔══██╗
+███████╗██║     ██║██║   ██║█████╗  ██████╔╝
+╚════██║██║     ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗
+███████║███████╗██║ ╚████╔╝ ███████╗██║  ██║
+╚══════╝╚══════╝╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝                                          
+` + normal,
 }
