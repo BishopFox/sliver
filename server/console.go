@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"path"
 	"path/filepath"
 	pb "sliver/protobuf"
@@ -50,12 +52,15 @@ func startConsole(events chan Event) {
 }
 
 func eventLoop(sliverApp *grumble.App, events chan Event) {
+	stdout := bufio.NewWriter(os.Stdout)
 	for event := range events {
 		sliver := event.Sliver
 		switch event.EventType {
 		case "connected":
 			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n",
 				sliver.Id, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
+			fmt.Printf(getPrompt())
+			stdout.Flush()
 		case "disconnected":
 			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 				sliver.Id, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
@@ -64,6 +69,8 @@ func eventLoop(sliverApp *grumble.App, events chan Event) {
 				sliverApp.SetPrompt(getPrompt())
 				fmt.Printf(Warn + "Warning: Active sliver diconnected\n")
 			}
+			fmt.Printf(getPrompt())
+			stdout.Flush()
 		}
 	}
 }
