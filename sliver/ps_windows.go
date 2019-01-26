@@ -144,27 +144,23 @@ func getProcessOwner(pid uint32) (owner string, err error) {
 }
 
 func processes() ([]Process, error) {
-	handle, _, _ := procCreateToolhelp32Snapshot.Call(
-		0x00000002,
-		0)
-	if handle < 0 {
-		return nil, syscall.GetLastError()
+	handle, err := syscall.CreateToolhelp32Snapshot(syscall.TH32CS_SNAPPROCESS, 0)
+	if err != nil {
+		return nil, err
 	}
-	defer procCloseHandle.Call(handle)
+	defer syscall.CloseHandle(handle)
 
-	var entry PROCESSENTRY32
-	entry.Size = uint32(unsafe.Sizeof(entry))
-	ret, _, _ := procProcess32First.Call(handle, uintptr(unsafe.Pointer(&entry)))
-	if ret == 0 {
-		return nil, fmt.Errorf("Error retrieving process info.")
+	var entry syscall.ProcessEntry32
+	if err = syscall.Process32First(handle, &entry); err != nil {
+		return nil, err
 	}
 
 	results := make([]Process, 0, 50)
 	for {
 		results = append(results, newWindowsProcess(&entry))
 
-		ret, _, _ := procProcess32Next.Call(handle, uintptr(unsafe.Pointer(&entry)))
-		if ret == 0 {
+		err = syscall.Process32Next(handle, &entry)
+		if err != nil {
 			break
 		}
 	}
