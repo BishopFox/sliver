@@ -20,24 +20,6 @@ import (
 )
 
 const (
-	helpStr       = "help"
-	sessionsStr   = "sessions"
-	backgroundStr = "background"
-	infoStr       = "info"
-	useStr        = "use"
-	generateStr   = "generate"
-	msfStr        = "msf"
-	injectStr     = "inject"
-	psStr         = "ps"
-	pingStr       = "ping"
-	killStr       = "kill"
-	lsStr         = "ls"
-	cdStr         = "cd"
-	pwdStr        = "pwd"
-	catStr        = "cat"
-	downloadStr   = "download"
-	uploadStr     = "upload"
-
 	// ANSI Colors
 	normal    = "\033[0m"
 	black     = "\033[30m"
@@ -62,6 +44,14 @@ const (
 	Debug = bold + purple + "[-] " + normal
 	// Woot - Display success
 	Woot = bold + green + "[$] " + normal
+)
+
+var (
+	// Stylizes known processes in the `ps` command
+	knownProcs = map[string]string{
+		"ccSvcHst.exe": red, // SEP
+		"cb.exe":       red, // Carbon Black
+	}
 )
 
 // ---------------------- Command Implementations ----------------------

@@ -18,16 +18,39 @@ import (
 	"github.com/fatih/color"
 )
 
+const (
+	helpStr = "help"
+
+	sessionsStr   = "sessions"
+	backgroundStr = "background"
+	infoStr       = "info"
+	useStr        = "use"
+	generateStr   = "generate"
+
+	msfStr    = "msf"
+	injectStr = "inject"
+
+	psStr   = "ps"
+	pingStr = "ping"
+	killStr = "kill"
+
+	getPIDStr = "getpid"
+	getUIDStr = "getuid"
+	getGIDStr = "getgid"
+	whoamiStr = "whoami"
+
+	lsStr       = "ls"
+	cdStr       = "cd"
+	pwdStr      = "pwd"
+	catStr      = "cat"
+	downloadStr = "download"
+	uploadStr   = "upload"
+)
+
 var (
 	activeSliver *Sliver
 
 	cmdTimeout = 10 * time.Second
-
-	// Stylizes known processes in the `ps` command
-	knownProcs = map[string]string{
-		"ccSvcHst.exe": red, // SEP
-		"cb.exe":       red, // Carbon Black
-	}
 )
 
 func startConsole(events chan Event) {
@@ -213,6 +236,50 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
+		Name: getPIDStr,
+		Help: getHelpFor(getPIDStr),
+		Run: func(ctx *grumble.Context) error {
+			if activeSliver != nil {
+				fmt.Printf("\n"+Info+"%d\n\n", activeSliver.PID)
+			}
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: getUIDStr,
+		Help: getHelpFor(getUIDStr),
+		Run: func(ctx *grumble.Context) error {
+			if activeSliver != nil {
+				fmt.Printf("\n"+Info+"%s\n\n", activeSliver.UID)
+			}
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: getGIDStr,
+		Help: getHelpFor(getGIDStr),
+		Run: func(ctx *grumble.Context) error {
+			if activeSliver != nil {
+				fmt.Printf("\n"+Info+"%s\n\n", activeSliver.GID)
+			}
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: whoamiStr,
+		Help: getHelpFor(whoamiStr),
+		Run: func(ctx *grumble.Context) error {
+			if activeSliver != nil {
+				fmt.Printf("\n"+Info+"%s\n\n", activeSliver.Username)
+			}
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
 		Name: lsStr,
 		Help: getHelpFor(lsStr),
 		Run: func(ctx *grumble.Context) error {
@@ -256,6 +323,16 @@ func cmdInit(sliverApp *grumble.App) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			downloadCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name:      uploadStr,
+		Help:      getHelpFor(uploadStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			uploadCmd(ctx)
 			return nil
 		},
 	})
