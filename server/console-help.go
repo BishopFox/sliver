@@ -17,29 +17,48 @@ var (
 		catStr:        catHelp,
 		downloadStr:   downloadHelp,
 		uploadStr:     uploadHelp,
+		mkdirStr:      mkdirHelp,
+		rmStr:         rmHelp,
 	}
 
 	defaultHelp = `
 [[.Bold]]Commands[[.Normal]]
-=========
-sessions - List all sliver connections
-info     - Get information about a sliver
-use      - Switch the active sliver
-generate - Generate a new sliver binary
-msf      - Send an msf payload to the active sliver
-ps       - List processes of active sliver
-ping     - Send a ping message to active sliver
-inject   - Inject a payload into a remote process
-kill     - Kill a remote sliver process
+========
+  sessions - List sliver connections
+background - Background the active sliver
+      info - Get information about a sliver
+       use - Select an active sliver
+  generate - Generate a new sliver binary
+        ps - List processes of active sliver
+      ping - Send a ping message to active sliver
+	  kill - Kill a remote sliver process
 
-Use '<command> -help' to see information about a specific command.
+[[.Bold]]File System Commands[[.Normal]]
+====================
+      ls - List remote directory
+     pwd - Print the current remote working directory
+   mkdir - Make a directory on the remote file system
+      rm - Delete a remote file system path
+     cat - Dump a remote file to local stdout
+download - Download a remote file to the local system
+  upload - Upload a local file to the remote system
+
+[[.Bold]]Chainloader Commands[[.Normal]]
+====================
+   msf - Send an msf payload to the active sliver
+inject - Inject a payload into a remote process of the active sliver
+
+
+Use 'help <command>' to see information about a specific command.
+
 `
 
 	sessionsHelp = `
 [[.Bold]]Command:[[.Normal]] sessions <options>
 [[.Bold]]About:[[.Normal]] List files on remote system.
 [[.Bold]]Options:[[.Normal]]
-	-i | Interact with sliver
+--interact | Interact with sliver (same as 'use')
+
 `
 
 	backgroundHelp = `
@@ -49,49 +68,49 @@ Use '<command> -help' to see information about a specific command.
 `
 
 	infoHelp = `
-[[.Bold]]Command:[[.Normal]] info<sliver name>
+[[.Bold]]Command:[[.Normal]] info <sliver name>
 [[.Bold]]About:[[.Normal]] Get information about a sliver by name, or for the active sliver.
 
 `
 
 	useHelp = `
 [[.Bold]]Command:[[.Normal]] use [sliver name]
-[[.Bold]]About:[[.Normal]] Switch the active sliver, a valid name must be provided (see ls).
+[[.Bold]]About:[[.Normal]] Switch the active sliver, a valid name must be provided (see sessions).
 
 `
 
 	genHelp = `
-[[.Bold]]Command:[[.Normal]] gen<options>
+[[.Bold]]Command:[[.Normal]] gen <options>
 [[.Bold]]About:[[.Normal]] Generate a new sliver binary.
 [[.Bold]]Options:[[.Normal]]
-    -os | [windows/linux/macos]
-  -arch | [amd64/386]
- -lhost | Sliver server address
- -lport | Sliver server listen port
+    --os | [windows/linux/macos] (default: windows)
+  --arch | [amd64/386] (default: amd64)
+ --lhost | Sliver server address (required)
+ --lport | Sliver server listen port (default: 8888)
 
 `
 	msfHelp = `
-[[.Bold]]Command:[[.Normal]] msf [-lhost] <options>
+[[.Bold]]Command:[[.Normal]] msf [--lhost] <options>
 [[.Bold]]About:[[.Normal]] Execute a metasploit payload in the current process.
 [[.Bold]]Options:[[.Normal]]
-   -payload | The MSF payload to use (default: meterpreter_reverse_https)
-   -lhost   | Metasploit listener LHOST (required)
-   -lport   | Metasploit listener LPORT (default: 4444)
-   -encoder | MSF encoder (default: none)
-   -iter    | Iterations of the encoder (requires -encoder)
+   --payload | The MSF payload to use (default: meterpreter_reverse_https)
+     --lhost | Metasploit listener LHOST (required)
+     --lport | Metasploit listener LPORT (default: 4444)
+   --encoder | MSF encoder (default: none)
+--iterations | Iterations of the encoder (requires -encoder)
 
 `
 
 	injectHelp = `
-[[.Bold]]Command:[[.Normal]] inject [-pid] [-lhost] <options>
+[[.Bold]]Command:[[.Normal]] inject [--pid] [--lhost] <options>
 [[.Bold]]About:[[.Normal]] Execute a metasploit payload in a remote process.
 [[.Bold]]Options:[[.Normal]]
-    -pid | The pid of the process to inject into (see 'ps')
--payload | The MSF payload to use (default: meterpreter_reverse_https)
-  -lhost | Metasploit listener LHOST (required)
-  -lport | Metasploit listener LPORT (default: 4444)
--encoder | MSF encoder (default: none)
-   -iter | Iterations of the encoder (requires -encoder)
+       --pid | The pid of the process to inject into (required, see 'ps')
+   --payload | The MSF payload to use (default: meterpreter_reverse_https)
+     --lhost | Metasploit listener LHOST (required)
+     --lport | Metasploit listener LPORT (default: 4444)
+   --encoder | MSF encoder (default: none)
+--iterations | Iterations of the encoder (requires --encoder)
 
 `
 
@@ -99,8 +118,9 @@ Use '<command> -help' to see information about a specific command.
 [[.Bold]]Command:[[.Normal]] ps <options>
 [[.Bold]]About:[[.Normal]] List processes on remote system.
 [[.Bold]]Options:[[.Normal]]
- -pid | Filter results based on pid
- -exe | Filter results based on exe name (prefix)
+  --pid | Filter results based on pid
+  --exe | Filter results based on exe name (prefix)
+--owner | Filter results based on owner (prefix)
 
 `
 
@@ -123,7 +143,7 @@ Use '<command> -help' to see information about a specific command.
 `
 
 	cdHelp = `
-[[.Bold]]Command:[[.Normal]] cd
+[[.Bold]]Command:[[.Normal]] cd [dir]
 [[.Bold]]About:[[.Normal]] Change working directory.
 
 `
@@ -134,6 +154,18 @@ Use '<command> -help' to see information about a specific command.
 
 `
 
+	mkdirHelp = `
+[[.Bold]]Command:[[.Normal]] mkdir <remote path> 
+[[.Bold]]About:[[.Normal]] Create a remote directory.
+
+`
+
+	rmHelp = `
+[[.Bold]]Command:[[.Normal]] rm <remote file> 
+[[.Bold]]About:[[.Normal]] Delete a remote file or directory.
+
+`
+
 	catHelp = `
 [[.Bold]]Command:[[.Normal]] cat <remote file> 
 [[.Bold]]About:[[.Normal]] Cat a remote file to stdout.
@@ -141,13 +173,13 @@ Use '<command> -help' to see information about a specific command.
 `
 
 	downloadHelp = `
-[[.Bold]]Command:[[.Normal]] download <remote src> <local dest>
+[[.Bold]]Command:[[.Normal]] download <remote src> <local dst>
 [[.Bold]]About:[[.Normal]] Download a file from the remote system.
 
 `
 
 	uploadHelp = `
-[[.Bold]]Command:[[.Normal]] upload <local src> <remote dest>
+[[.Bold]]Command:[[.Normal]] upload <local src> <remote dst>
 [[.Bold]]About:[[.Normal]] Upload a file to the remote system.
 
 `
