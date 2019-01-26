@@ -185,8 +185,9 @@ func cmdInit(sliverApp *grumble.App) {
 		Name: psStr,
 		Help: getHelpFor(psStr),
 		Flags: func(f *grumble.Flags) {
-			f.Int("p", "pid", -1, "pid to inject into")
-			f.String("x", "exe", "", "executable name")
+			f.Int("p", "pid", -1, "filter based on pid")
+			f.String("e", "exe", "", "filter based on executable name")
+			f.String("o", "owner", "", "filter based on owner")
 		},
 		Run: func(ctx *grumble.Context) error {
 			psCmd(ctx)

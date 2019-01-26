@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	pb "sliver/protobuf"
@@ -192,6 +193,7 @@ func infoCmd(ctx *grumble.Context) {
 		fmt.Printf(bold+"Username: %s%s\n", normal, sliver.Username)
 		fmt.Printf(bold+"UID: %s%s\n", normal, sliver.Uid)
 		fmt.Printf(bold+"GID: %s%s\n", normal, sliver.Gid)
+		fmt.Printf(bold+"PID: %s%d\n", normal, sliver.Pid)
 		fmt.Printf(bold+"OS: %s%s\n", normal, sliver.Os)
 		fmt.Printf(bold+"Arch: %s%s\n", normal, sliver.Arch)
 		fmt.Printf(bold+"Remote Address: %s%s\n", normal, sliver.RemoteAddress)
@@ -361,13 +363,14 @@ func psCmd(ctx *grumble.Context) {
 
 	pidFilter := ctx.Flags.Int("pid")
 	exeFilter := ctx.Flags.String("exe")
+	ownerFilter := ctx.Flags.String("owner")
 
 	if activeSliver == nil {
 		fmt.Println("\n" + Warn + "Please select an active sliver via `use`\n")
 		return
 	}
 
-	fmt.Printf(Info+"Requesting process list from %s ...\n", activeSliver.Name)
+	fmt.Printf("\n"+Info+"Requesting process list from %s ...\n", activeSliver.Name)
 
 	reqId := randomId()
 	data, _ := proto.Marshal(&pb.ProcessListReq{Id: reqId})
@@ -384,30 +387,56 @@ func psCmd(ctx *grumble.Context) {
 		return
 	}
 
-	header := fmt.Sprintf("\n% 6s | % 6s | % 40s | %s\n", "pid", "ppid", "executable", "owner")
-	fmt.Printf(header)
-	fmt.Printf("%s\n", strings.Repeat("=", len(header)))
+	outputBuf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+
+	fmt.Fprintf(table, "pid\tppid\texecutable\towner\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
+		strings.Repeat("=", len("pid")),
+		strings.Repeat("=", len("ppid")),
+		strings.Repeat("=", len("executable")),
+		strings.Repeat("=", len("owner")),
+	)
+
+	lineColors := []string{}
 	for _, proc := range psList.Processes {
-		if pidFilter != -1 {
-			if proc.Pid == int32(pidFilter) {
-				printProcInfo(proc)
-			}
+		var lineColor = ""
+		if pidFilter != -1 && proc.Pid == int32(pidFilter) {
+			lineColor = printProcInfo(table, proc)
 		}
-		if exeFilter != "" {
-			if strings.HasPrefix(proc.Executable, exeFilter) {
-				printProcInfo(proc)
-			}
+		if exeFilter != "" && strings.HasPrefix(proc.Executable, exeFilter) {
+			lineColor = printProcInfo(table, proc)
 		}
-		if pidFilter == -1 && exeFilter == "" {
-			printProcInfo(proc)
+		if ownerFilter != "" && strings.HasPrefix(proc.Owner, ownerFilter) {
+			lineColor = printProcInfo(table, proc)
+		}
+		if pidFilter == -1 && exeFilter == "" && ownerFilter == "" {
+			lineColor = printProcInfo(table, proc)
+		}
+
+		// Should be set to normal/green if we rendered the line
+		if lineColor != "" {
+			lineColors = append(lineColors, lineColor)
 		}
 	}
-	fmt.Printf("\n")
+	table.Flush()
+
+	fmt.Println()
+	for index, line := range strings.Split(outputBuf.String(), "\n") {
+		// We need to account for the two rows of column headers
+		if 0 < len(line) && 2 <= index {
+			log.Printf("color #%d %#v", index-2, lineColors[index-2])
+			fmt.Printf("%s%s%s\n", lineColors[index-2], line, normal)
+		} else {
+			fmt.Printf("%s\n", line)
+		}
+	}
+	fmt.Println()
 
 }
 
 // printProcInfo - Stylizes the process information
-func printProcInfo(proc *pb.Process) {
+func printProcInfo(table *tabwriter.Writer, proc *pb.Process) string {
 	color := normal
 	if modifyColor, ok := knownProcs[proc.Executable]; ok {
 		color = modifyColor
@@ -415,8 +444,8 @@ func printProcInfo(proc *pb.Process) {
 	if proc.Pid == activeSliver.Pid {
 		color = green
 	}
-	fmt.Printf("%s%s% 6d%s%s | % 6d | % 40s%s | %s%s%s\n",
-		color, bold, proc.Pid, normal, color, proc.Ppid, proc.Executable, normal, color, proc.Owner, normal)
+	fmt.Fprintf(table, "%d\t%d\t%s\t%s\t\n", proc.Pid, proc.Ppid, proc.Executable, proc.Owner)
+	return color
 }
 
 func pingCmd(ctx *grumble.Context) {
