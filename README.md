@@ -88,14 +88,16 @@ sliver (STUPID_AIRBAG) > msf -lhost 172.16.20.2
 
 You'll want to compile from a MacOS or Linux machine, compiling from Windows should work but none of the scripts are designed to run on Windows (you can compile the Windows binaries from MacOS or Linux).
 
-Requirements:
+Requirements for Compiling:
 * Metasploit Framework v5 or later
 * Go v1.11 or later
-* Make, sed, tar, wget, zip
+* `make`, `sed`, `tar`, `wget`, `zip` commands
+* [Dep](https://golang.github.io/dep/)
 
 Build thin server (for developement)
 
 ```
+$ dep ensure
 $ ./go-assets.sh
 $ make
 ```
@@ -103,6 +105,8 @@ $ make
 Statically compile and bundle server with all dependencies and assets:
 
 ```
+$ dep ensure
+$ ./go-assets.sh
 $ make static-macos
 $ make static-linux
 $ make static-windows
