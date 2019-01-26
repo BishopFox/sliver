@@ -48,7 +48,7 @@ type Event struct {
 }
 
 var (
-	sliverServerVersion = "0.0.3"
+	sliverServerVersion = "0.0.4"
 	server              *string
 	serverLPort         *int
 
