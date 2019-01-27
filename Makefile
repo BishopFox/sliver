@@ -54,9 +54,6 @@ static-linux: clean pb
 .PHONY: pb
 pb:
 	go install ./vendor/github.com/golang/protobuf/protoc-gen-go
-	@hash protoc > /dev/null 2>&1; if [ $$? -ne 0 ]; then \
-		$(GO) get -u github.com/golang/protobuf/protoc-gen-go; \
-	fi
 	protoc -I protobuf/ protobuf/sliver.proto --go_out=protobuf/
 
 .PHONY: clean-all
@@ -68,10 +65,6 @@ clean-all: clean
 
 .PHONY: clean
 clean:
-	@hash packr > /dev/null 2>&1; if [ $$? -ne 0 ]; then \
-		$(GO) get -u github.com/gobuffalo/packr; \
-		$(GO) get -u github.com/gobuffalo/packr/packr; \
-	fi
 	packr clean
 	rm -f ./protobuf/*.pb.go
 	rm -f sliver-server *.exe

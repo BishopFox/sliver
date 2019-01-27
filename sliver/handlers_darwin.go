@@ -1,7 +1,11 @@
 package main
 
 import (
+	// {{if .Debug}}
 	"log"
+	// {{else}}
+	// {{end}}
+
 	pb "sliver/protobuf"
 	"syscall"
 	"unsafe"
@@ -43,7 +47,9 @@ func remoteTaskHandler(send chan pb.Envelope, data []byte) {
 	remoteTask := &pb.RemoteTask{}
 	err := proto.Unmarshal(data, remoteTask)
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
+		// {{end}}
 		return
 	}
 }

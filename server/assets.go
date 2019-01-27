@@ -110,6 +110,12 @@ func SetupGoPath(goPathSrc string) error {
 		log.Fatalf("Failed to unzip go dependency: %v", err)
 	}
 
+	dnsPath := path.Join(goPathSrc, "github.com", "miekg")
+	err = unzipGoDependency("dns.zip", dnsPath, assetsBox)
+	if err != nil {
+		log.Fatalf("Failed to unzip go dependency: %v", err)
+	}
+
 	return nil
 }
 

@@ -83,14 +83,14 @@ func main() {
 	}
 
 	appDir := GetRootAppDir()
+	logFile := initLogging(appDir)
+	defer logFile.Close()
+
 	if _, err := os.Stat(path.Join(appDir, goDirName)); os.IsNotExist(err) || *unpack {
 		fmt.Println(Info + "First time setup, please wait ... ")
 		log.Println("Unpacking assets ... ")
 		SetupAssets()
 	}
-
-	logFile := initLogging(appDir)
-	defer logFile.Close()
 
 	startConsole()
 }
