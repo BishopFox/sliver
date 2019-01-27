@@ -49,6 +49,15 @@ func GenerateServerCertificate(caType string, host string, save bool) ([]byte, [
 	return cert, key
 }
 
+// GenerateServerRSACertificate - Generate a server certificate signed with a given CA
+func GenerateServerRSACertificate(caType string, host string, save bool) ([]byte, []byte) {
+	cert, key := GenerateRSACertificate(host, caType, false, false)
+	if save {
+		SaveCertificate(path.Join(caType, serversCertDir), host, cert, key)
+	}
+	return cert, key
+}
+
 // GetServerCertificatePEM - Get a server certificate/key pair signed by ca type
 func GetServerCertificatePEM(caType string, host string) ([]byte, []byte, error) {
 
@@ -59,6 +68,27 @@ func GetServerCertificatePEM(caType string, host string) ([]byte, []byte, error)
 	if err != nil {
 		log.Printf("No server certificate, generating ca type = %s '%s'", caType, host)
 		GenerateServerCertificate(caType, host, true)
+	}
+
+	certPEM, keyPEM, err := GetCertificatePEM(path.Join(caType, serversCertDir), host)
+	if err != nil {
+		log.Printf("Failed to load PEM data %v", err)
+		return nil, nil, err
+	}
+
+	return certPEM, keyPEM, nil
+}
+
+// GetServerRSACertificatePEM - Get a server certificate/key pair signed by ca type
+func GetServerRSACertificatePEM(caType string, host string) ([]byte, []byte, error) {
+
+	log.Printf("Getting rsa certificate (ca type = %s) '%s'", caType, host)
+
+	// If not certificate exists for this host we just generate one on the fly
+	_, _, err := GetCertificatePEM(path.Join(caType, serversCertDir), host)
+	if err != nil {
+		log.Printf("No server certificate, generating ca type = %s '%s'", caType, host)
+		GenerateServerRSACertificate(caType, host, true)
 	}
 
 	certPEM, keyPEM, err := GetCertificatePEM(path.Join(caType, serversCertDir), host)
@@ -311,6 +341,96 @@ func GenerateCertificate(host string, caType string, isCA bool, isClient bool) (
 	return certOut.Bytes(), keyOut.Bytes()
 }
 
+// GenerateRSACertificate - Generates a 2048 bit RSA Certificate
+func GenerateRSACertificate(host string, caType string, isCA bool, isClient bool) ([]byte, []byte) {
+
+	log.Printf("Generating new TLS certificate ...")
+
+	var privateKey interface{}
+	var err error
+
+	// Generate private key
+	privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		log.Fatalf("Failed to generate private key: %s", err)
+	}
+
+	// Valid times
+	notBefore := time.Now()
+	notAfter := notBefore.Add(validFor)
+	log.Printf("Valid from %v to %v", notBefore, notAfter)
+
+	// Serial number
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, _ := rand.Int(rand.Reader, serialNumberLimit)
+	log.Printf("Serial Number: %d", serialNumber)
+
+	var extKeyUsage []x509.ExtKeyUsage
+
+	if isCA {
+		log.Printf("Authority certificate")
+		extKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
+	} else if isClient {
+		log.Printf("Client authentication certificate")
+		extKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+	} else {
+		log.Printf("Server authentication certificate")
+		extKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+	}
+	log.Printf("ExtKeyUsage = %v", extKeyUsage)
+
+	// Certificate template
+	template := x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			Organization: []string{"Sliver Hive"},
+		},
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           extKeyUsage,
+		BasicConstraintsValid: isCA,
+	}
+
+	if !isClient {
+		// Host or IP address
+		if ip := net.ParseIP(host); ip != nil {
+			log.Printf("Certificate authenticates IP address: %v", ip)
+			template.IPAddresses = append(template.IPAddresses, ip)
+		} else {
+			log.Printf("Certificate authenticates host: %v", host)
+			template.DNSNames = append(template.DNSNames, host)
+		}
+	}
+
+	// Sign certificate or self-sign if CA
+	var derBytes []byte
+	if isCA {
+		log.Printf("Ceritificate is an AUTHORITY")
+		template.IsCA = true
+		template.KeyUsage |= x509.KeyUsageCertSign
+		derBytes, err = x509.CreateCertificate(rand.Reader, &template, &template, publicKey(privateKey), privateKey)
+	} else {
+		caCert, caKey, err := GetCertificateAuthority(caType) // Sign the new ceritificate with our CA
+		if err != nil {
+			log.Fatalf("Invalid ca type (%s): %v", caType, err)
+		}
+		derBytes, err = x509.CreateCertificate(rand.Reader, &template, caCert, publicKey(privateKey), caKey)
+	}
+	if err != nil {
+		log.Fatalf("Failed to create certificate: %s", err)
+	}
+
+	// Encode certificate and key
+	certOut := bytes.NewBuffer([]byte{})
+	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+
+	keyOut := bytes.NewBuffer([]byte{})
+	pem.Encode(keyOut, pemBlockForKey(privateKey))
+
+	return certOut.Bytes(), keyOut.Bytes()
+}
+
 func publicKey(priv interface{}) interface{} {
 	switch k := priv.(type) {
 	case *rsa.PrivateKey:
@@ -324,6 +444,9 @@ func publicKey(priv interface{}) interface{} {
 
 func pemBlockForKey(priv interface{}) *pem.Block {
 	switch key := priv.(type) {
+	case *rsa.PrivateKey:
+		data := x509.MarshalPKCS1PrivateKey(key)
+		return &pem.Block{Type: "RSA PRIVATE KEY", Bytes: data}
 	case *ecdsa.PrivateKey:
 		data, err := x509.MarshalECPrivateKey(key)
 		if err != nil {

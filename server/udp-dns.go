@@ -26,7 +26,7 @@ var (
 	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789-_")
 
 	// Max TXT record is 255, so (n*8 + 5) / 6 = 250 (250 bytes per block + 4 byte sequence number)
-	byteBlockSize = 185 // Can be as high as 187, but we'll leave some slop
+	byteBlockSize = 185 // Can be as high as n = 187, but we'll leave some slop
 
 	blockIDSize     = 6
 	sendBlocksMutex = &sync.RWMutex{}
@@ -107,6 +107,8 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 		} else {
 			log.Printf("Block request has invalid number of fields %d expected %d", len(fields), 5)
 		}
+	case "_sp": // Session polling: _(nonce).(session id)
+
 	case "_cb": // Clear block: _(nonce).(block id)._cb.example.com
 		if len(fields) == 3 {
 			result := 0
@@ -143,7 +145,7 @@ func handleA(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 }
 
 func getDomainKeyFor(domain string) (string, int) {
-	certPEM, _, _ := GetServerCertificatePEM("slivers", domain)
+	certPEM, _, _ := GetServerRSACertificatePEM("slivers", domain)
 	blockID, blockSize := storeSendBlocks(certPEM)
 	log.Printf("Encoded cert into %d blocks with ID = %s", blockSize, blockID)
 	return blockID, blockSize
