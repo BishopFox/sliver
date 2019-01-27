@@ -208,7 +208,7 @@ func storeSendBlocks(data []byte) (string, int) {
 		seqBuf := new(bytes.Buffer)
 		binary.Write(seqBuf, binary.LittleEndian, uint32(sequenceNumber))
 		blockBytes := append(seqBuf.Bytes(), data[start:stop]...)
-		encoded := base64.RawStdEncoding.EncodeToString(blockBytes)
+		encoded := "." + base64.RawStdEncoding.EncodeToString(blockBytes)
 		log.Printf("Encoded block is %d bytes", len(encoded))
 		sendBlock.Data = append(sendBlock.Data, encoded)
 		sequenceNumber++

@@ -123,24 +123,29 @@ func fetchRecvBlock(parentDomain string, reasm *BlockReassembler, start int, sto
 		log.Printf("Failed to fetch blocks %v", err)
 	}
 	for _, txt := range txts {
-		log.Printf("Decoding TXT record: %s", txt)
-		rawBlock, err := base64.RawStdEncoding.DecodeString(txt)
-		if err != nil {
-			log.Printf("Failed to decode raw block '%s'", rawBlock)
-			continue
+		// Split on delim '.'
+		for _, record := range strings.Split(txt, ".") {
+			if len(record) == 0 {
+				continue
+			}
+			log.Printf("Decoding TXT record: %s", record)
+			rawBlock, err := base64.RawStdEncoding.DecodeString(record)
+			if err != nil {
+				log.Printf("Failed to decode raw block '%s'", rawBlock)
+				continue
+			}
+			if len(rawBlock) < 4 {
+				log.Printf("Invalid raw block size %d", len(rawBlock))
+				continue
+			}
+			seqBuf := make([]byte, 4)
+			copy(seqBuf, rawBlock[:4])
+			seq := int(binary.LittleEndian.Uint32(seqBuf))
+			log.Printf("seq = %d (%d bytes)", seq, len(rawBlock[4:]))
+			reasm.Recv <- RecvBlock{
+				Index: seq,
+				Data:  rawBlock[4:],
+			}
 		}
-		if len(rawBlock) < 4 {
-			log.Printf("Invalid raw block size %d", len(rawBlock))
-			continue
-		}
-		seqBuf := make([]byte, 4)
-		copy(seqBuf, rawBlock[:4])
-		seq := int(binary.LittleEndian.Uint32(seqBuf))
-		log.Printf("seq = %d (%d bytes)", seq, len(rawBlock[4:]))
-		reasm.Recv <- RecvBlock{
-			Index: seq,
-			Data:  rawBlock[4:],
-		}
-
 	}
 }

