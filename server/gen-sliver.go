@@ -40,6 +40,9 @@ type SliverConfig struct {
 	DefaultServer      string
 	DefaultServerLPort uint16
 	Debug              bool
+	ReconnectInterval  int
+
+	DNSParent string
 }
 
 // GetSliversDir - Get the binary directory
@@ -56,8 +59,8 @@ func GetSliversDir() string {
 	return sliversDir
 }
 
-// GenerateImplantBinary - Generates a binary
-func GenerateImplantBinary(goos string, goarch string, server string, lport uint16, debug bool) (string, error) {
+// GenerateImplantBinary - Generates a binary - TODO: This should probably just accept a SliverConfig{}
+func GenerateImplantBinary(goos string, goarch string, server string, lport uint16, dnsParent string, debug bool) (string, error) {
 
 	goos = path.Base(goos)
 	goarch = path.Base(goarch)
@@ -70,6 +73,8 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 		DefaultServer:      server,
 		DefaultServerLPort: lport,
 		Debug:              debug,
+		ReconnectInterval:  30,
+		DNSParent:          dnsParent,
 	}
 
 	config.Name = GetCodename()
@@ -112,6 +117,7 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 		"ps_linux.go",
 		"ps_darwin.go",
 		"tcp-mtls.go",
+		"udp-dns.go",
 		"sliver.go",
 	}
 	for _, fileName := range srcFiles {

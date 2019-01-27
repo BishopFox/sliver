@@ -221,6 +221,7 @@ func generateCmd(ctx *grumble.Context) {
 	lhost := ctx.Flags.String("lhost")
 	lport := ctx.Flags.Int("lport")
 	debug := ctx.Flags.Bool("debug")
+	dnsParent := ctx.Flags.String("dns")
 	save := ctx.Flags.String("save")
 
 	if lhost == "" {
@@ -228,8 +229,16 @@ func generateCmd(ctx *grumble.Context) {
 		return
 	}
 
+	// Make sure we have the FQDN
+	if dnsParent != "" && !strings.HasSuffix(dnsParent, ".") {
+		dnsParent += "."
+	}
+	if dnsParent != "" && strings.HasPrefix(dnsParent, ".") {
+		dnsParent = dnsParent[1:]
+	}
+
 	fmt.Printf("\n"+Info+"Generating new %s/%s sliver binary, please wait ... \n", targetOS, arch)
-	path, err := GenerateImplantBinary(targetOS, arch, lhost, uint16(lport), debug)
+	path, err := GenerateImplantBinary(targetOS, arch, lhost, uint16(lport), dnsParent, debug)
 	if err != nil {
 		fmt.Printf(Warn+"Error generating sliver: %v\n", err)
 	}

