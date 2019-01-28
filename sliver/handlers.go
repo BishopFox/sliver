@@ -293,6 +293,29 @@ func uploadHandler(send chan pb.Envelope, data []byte) {
 
 }
 
+func dumpHandler(send chan pb.Envelope, data []byte) {
+	procDumpReq := &pb.ProcessDumpReq{}
+	err := proto.Unmarshal(data, procDumpReq)
+	if err != nil {
+		log.Println("error decoding message: %v", err)
+		return
+	}
+	res, err := DumpProcess(procDumpReq.Pid)
+	dumpResp := &pb.ProcessDump{Data: res.Data()}
+	if err == nil {
+		dumpResp.Err = ""
+	} else {
+		dumpResp.Err = fmt.Sprintf("%v", err)
+	}
+	data, _ = proto.Marshal(dumpResp)
+	envelope := pb.Envelope{
+		Id:   procDumpReq.Id,
+		Type: pb.MsgProcessDump,
+		Data: data,
+	}
+	send <- envelope
+}
+
 // ---------------- Data Encoders ----------------
 func gzipWrite(w io.Writer, data []byte) error {
 	gw, err := gzip.NewWriterLevel(w, gzip.BestSpeed)

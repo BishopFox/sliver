@@ -19,6 +19,7 @@ var (
 		uploadStr:     uploadHelp,
 		mkdirStr:      mkdirHelp,
 		rmStr:         rmHelp,
+		procdumpStr:   procdumpHelp,
 	}
 
 	defaultHelp = `
@@ -181,6 +182,12 @@ Use 'help <command>' to see information about a specific command.
 	uploadHelp = `
 [[.Bold]]Command:[[.Normal]] upload <local src> <remote dst>
 [[.Bold]]About:[[.Normal]] Upload a file to the remote system.
+
+`
+
+	procdumpHelp = `
+[[.Bold]]Command:[[.Normal]] procdump <pid>
+[[.Bold]]About:[[.Normal]] Dumps the process memory given a process identifier (pid)
 
 `
 )

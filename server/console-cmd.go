@@ -808,6 +808,50 @@ func uploadCmd(ctx *grumble.Context) {
 	}
 }
 
+func procdumpCmd(ctx *grumble.Context) {
+	if activeSliver == nil {
+		fmt.Println("\n" + Warn + "Please select an active sliver via `use`\n")
+		return
+	}
+
+	if len(ctx.Args) < 1 {
+		fmt.Println("\n" + Warn + "Missing parameter, see `help procdump`\n")
+		return
+	}
+
+	pid, err := strconv.Atoi(ctx.Args[0])
+	if err != nil {
+		fmt.Printf("\n" + Warn + "Please provide a valid PID\n")
+		return
+	}
+	reqID := randomID()
+	data, _ := proto.Marshal(&pb.ProcessDumpReq{
+		Id:  reqID,
+		Pid: int32(pid),
+	})
+	envelope, err := activeSliverRequest(pb.MsgProcessDumpReq, reqID, data)
+	if err != nil {
+		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		return
+	}
+	procDump := &pb.ProcessDump{}
+	err = proto.Unmarshal(envelope.Data, procDump)
+	if err != nil {
+		fmt.Printf("\n"+Warn+"Unmarshaling envelope error: %v\n", err)
+		return
+	}
+	if procDump.Err != "" {
+		fmt.Printf("\n"+Warn+"Error %s", procDump.Err)
+		return
+	}
+	f, err := ioutil.TempFile("", fmt.Sprintf("procdump_%s_%d_*", activeSliver.Hostname, pid))
+	if err != nil {
+		fmt.Printf("\n"+Warn+"Error creating temporary file: %v", err)
+	}
+	f.Write(procDump.GetData())
+	fmt.Printf("\n"+Info+"Process dump stored in %s\n", f.Name())
+}
+
 func byteCountBinary(b int64) string {
 	const unit = 1024
 	if b < unit {

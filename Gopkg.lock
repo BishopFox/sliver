@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  digest = "1:d5487b7d1471b572cb4632fd5643469f96b7bc56f1fdbcffe2935c2ad5581a76"
+  name = "github.com/AlecAivazis/survey"
+  packages = ["."]
+  pruneopts = ""
+  revision = "3389f2f05f2f02457ea70d0cf93653543d2324e9"
+  version = "v1.8.1"
+
+[[projects]]
   digest = "1:2d5471db9131b2bbcb6e21a3ae38e72622f3021cac56e8858e778370bc67b3b8"
   name = "github.com/desertbit/closer"
   packages = ["."]
@@ -115,6 +123,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:63e7368fcf6b54804076eaec26fd9cf0c4466166b272393db4b93102e1e962df"
+  name = "github.com/kballard/go-shellquote"
+  packages = ["."]
+  pruneopts = ""
+  revision = "95032a82bc518f77982ea72343cc1ade730072f0"
+
+[[projects]]
+  branch = "master"
   digest = "1:ff3d3a7e367bf58b25e3c9203b7e82a02b2bfa220eacb2b362c0dbc3fcffa15b"
   name = "github.com/markbates/oncer"
   packages = ["."]
@@ -136,6 +152,14 @@
   pruneopts = ""
   revision = "6ca4dbf54d38eea1a992b3c722a76a5d1c4cb25c"
   version = "v0.0.4"
+
+[[projects]]
+  branch = "master"
+  digest = "1:50416da10e189bc201e122e20078fb8e680a439cbdd24aaece06c434b4415b60"
+  name = "github.com/mgutz/ansi"
+  packages = ["."]
+  pruneopts = ""
+  revision = "9520e82c474b0a04dd04f8a40959027271bab992"
 
 [[projects]]
   digest = "1:1d7e1867c49a6dd9856598ef7c3123604ea3daabf5b83f303ff457bcbc410b1d"
@@ -182,10 +206,22 @@
   pruneopts = ""
   revision = "cc6a436ffe6b424fffa1d91862c9b664d8407828"
 
+[[projects]]
+  digest = "1:d5487b7d1471b572cb4632fd5643469f96b7bc56f1fdbcffe2935c2ad5581a76"
+  name = "gopkg.in/AlecAivazis/survey.v1"
+  packages = [
+    "core",
+    "terminal",
+  ]
+  pruneopts = ""
+  revision = "3389f2f05f2f02457ea70d0cf93653543d2324e9"
+  version = "v1.8.1"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/AlecAivazis/survey",
     "github.com/desertbit/grumble",
     "github.com/fatih/color",
     "github.com/gobuffalo/packr",

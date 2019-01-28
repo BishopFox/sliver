@@ -161,6 +161,10 @@ func unpackCode(sliverBox packr.Box, sourceDir string) error {
 		"ps_windows.go",
 		"ps_linux.go",
 		"ps_darwin.go",
+		"dump.go",
+		"dump_windows.go",
+		"dump_linux.go",
+		"dump_darwin.go",
 	}
 	for _, fileName := range srcFiles {
 		err := saveCode(sliverBox, fileName, sourceDir)

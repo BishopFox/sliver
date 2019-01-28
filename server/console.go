@@ -48,6 +48,7 @@ const (
 	catStr      = "cat"
 	downloadStr = "download"
 	uploadStr   = "upload"
+	procdumpStr = "procdump"
 )
 
 var (
@@ -356,6 +357,16 @@ func cmdInit(sliverApp *grumble.App) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			uploadCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: procdumpStr,
+		Help: getHelpFor(procdumpStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			procdumpCmd(ctx)
 			return nil
 		},
 	})

