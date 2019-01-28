@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	insecureRand "math/rand"
-	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -66,8 +65,6 @@ func handleDNSRequest(domain string, writer dns.ResponseWriter, req *dns.Msg) {
 
 	resp := &dns.Msg{}
 	switch req.Question[0].Qtype {
-	case dns.TypeA:
-		resp = handleA(domain, subdomain, req)
 	case dns.TypeTXT:
 		resp = handleTXT(domain, subdomain, req)
 	default:
@@ -107,8 +104,10 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 		} else {
 			log.Printf("Block request has invalid number of fields %d expected %d", len(fields), 5)
 		}
-	case "_sp": // Session polling: _(nonce).(session id)
+	case "_si": // Session init: _(nonce).(session key).(sliver name)._si.example.com
+		if len(fields) == 4 {
 
+		}
 	case "_cb": // Clear block: _(nonce).(block id)._cb.example.com
 		if len(fields) == 3 {
 			result := 0
@@ -117,7 +116,7 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 			}
 			txt := &dns.TXT{
 				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-				Txt: []string{string(result)},
+				Txt: []string{fmt.Sprintf("%d", result)},
 			}
 			resp.Answer = append(resp.Answer, txt)
 		}
@@ -127,20 +126,6 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 
 	log.Println("\n" + strings.Repeat("-", 40) + "\n" + resp.String() + "\n" + strings.Repeat("-", 40))
 
-	return resp
-}
-
-func handleA(domain string, subdomain string, req *dns.Msg) *dns.Msg {
-	q := req.Question[0]
-	resp := new(dns.Msg)
-	resp.SetReply(req)
-
-	a := &dns.A{
-		Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-		A:   net.IP([]byte{0, 0, 0, 0}),
-	}
-
-	resp.Answer = append(resp.Answer, a)
 	return resp
 }
 

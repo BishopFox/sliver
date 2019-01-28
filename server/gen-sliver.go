@@ -108,6 +108,7 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	sliverBox := packr.NewBox("../sliver")
 
 	srcFiles := []string{
+		"crypto.go",
 		"handlers.go",
 		"handlers_windows.go",
 		"handlers_linux.go",

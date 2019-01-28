@@ -81,14 +81,6 @@ mv protobuf-$PROTOBUF_COMMIT protobuf
 zip -r protobuf.zip ./protobuf
 cp -vv protobuf.zip $REPO_DIR/server/assets/protobuf.zip
 
-DNS_COMMIT=56be65265e34e731425e0269a301774938827c60
-wget https://github.com/miekg/dns/archive/$DNS_COMMIT.zip
-unzip $DNS_COMMIT.zip
-rm -f $DNS_COMMIT.zip
-mv dns-$DNS_COMMIT dns
-zip -r dns.zip ./dns
-cp -vv dns.zip $REPO_DIR/server/assets/dns.zip
-
 # end
 echo -e "clean up: $WORK_DIR"
 rm -rf $WORK_DIR

