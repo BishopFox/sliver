@@ -140,7 +140,7 @@ func processes() ([]Process, error) {
 			}
 			p.owner, err = getProcessOwner(int(pid))
 			if err != nil {
-				p.owner = ""
+				continue
 			}
 			results = append(results, p)
 		}
