@@ -297,7 +297,7 @@ func dumpHandler(send chan pb.Envelope, data []byte) {
 	procDumpReq := &pb.ProcessDumpReq{}
 	err := proto.Unmarshal(data, procDumpReq)
 	if err != nil {
-		log.Println("error decoding message: %v", err)
+		log.Printf("error decoding message: %v", err)
 		return
 	}
 	res, err := DumpProcess(procDumpReq.Pid)
