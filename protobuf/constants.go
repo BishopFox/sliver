@@ -58,4 +58,8 @@ const (
 	MsgMkdirReq = "mkdirReq"
 	// MsgMkdir - Confirms the success/failure of the mkdir request (resp to MsgMkdirReq)
 	MsgMkdir = "mkdir"
+	// MsgProcessDumpReq - Request to create a process dump
+	MsgProcessDumpReq = "dumpReq"
+	// MsgProcessDump - Dump of process)
+	MsgProcessDump = "dump"
 )
