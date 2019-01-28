@@ -35,7 +35,7 @@ const (
 	domainKeySubdomain = "_domainkey"
 	nonceStdSize       = 6
 
-	// (n*8 + 4) / 5 = 63 means we can encode 39 bytes
+	// Base 32 encoding, so (n*8 + 4) / 5 = 63 means we can encode 39 bytes
 	byteBlockSize = 39
 
 	maxFetchTxts = 200 // How many txts to request at a time
@@ -83,11 +83,12 @@ func dnsGetServerPublicKey() *rsa.PublicKey {
 		return nil
 	}
 
-	err = rootOnlyVerifyCertificate([][]byte{pubKeyBlock.Bytes}, [][]*x509.Certificate{})
-	if err == nil {
+	certErr := rootOnlyVerifyCertificate([][]byte{pubKeyBlock.Bytes}, [][]*x509.Certificate{})
+	if certErr == nil {
 		cert, _ := x509.ParseCertificate(pubKeyBlock.Bytes)
 		return cert.PublicKey.(*rsa.PublicKey)
 	}
+
 	// {{if .Debug}}
 	log.Printf("Invalid certificate %v", err)
 	// {{end}}

@@ -21,10 +21,17 @@ type SendBlock struct {
 	Data []string
 }
 
+const (
+	domainKeyMsg = "_domainkey"
+	blockReqMsg = "_b"
+	clearBlockMsg = "_cb"
+	sessionInitMsg = "_si"
+)
+
 var (
 	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789-_")
 
-	// Max TXT record is 255, so (n*8 + 5) / 6 = 250 (250 bytes per block + 4 byte sequence number)
+	// Max TXT record is 255, so (n*8 + 5) / 6 = ~250 (250 bytes per block + 4 byte sequence number)
 	byteBlockSize = 185 // Can be as high as n = 187, but we'll leave some slop
 
 	blockIDSize     = 6
@@ -45,8 +52,6 @@ func startDNSListener(domain string) *dns.Server {
 }
 
 func handleDNSRequest(domain string, writer dns.ResponseWriter, req *dns.Msg) {
-
-	log.Printf("Parsing incoming DNS request")
 
 	if len(req.Question) < 1 {
 		log.Printf("No questions in DNS request")
@@ -84,14 +89,14 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 	msgType := fields[len(fields)-1]
 	log.Printf("msgType = %s", msgType)
 	switch msgType {
-	case "_domainkey": // Send PubKey -  _(nonce).(slivername)._domainkey.example.com
+	case domainKeyMsg: // Send PubKey -  _(nonce).(slivername)._domainkey.example.com
 		blockID, size := getDomainKeyFor(domain)
 		txt := &dns.TXT{
 			Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
 			Txt: []string{fmt.Sprintf("%s.%d", blockID, size)},
 		}
 		resp.Answer = append(resp.Answer, txt)
-	case "_b": // Get block: _(nonce).(start).(stop).(block id)._b.example.com
+	case blockReqMsg: // Get block: _(nonce).(start).(stop).(block id)._b.example.com
 		if len(fields) == 5 {
 			startIndex := fields[1]
 			stopIndex := fields[2]
@@ -104,11 +109,11 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 		} else {
 			log.Printf("Block request has invalid number of fields %d expected %d", len(fields), 5)
 		}
-	case "_si": // Session init: _(nonce).(session key).(sliver name)._si.example.com
+	case sessionInitMsg: // Session init: _(nonce).(session key).(sliver name)._si.example.com
 		if len(fields) == 4 {
 
 		}
-	case "_cb": // Clear block: _(nonce).(block id)._cb.example.com
+	case clearBlockMsg: // Clear block: _(nonce).(block id)._cb.example.com
 		if len(fields) == 3 {
 			result := 0
 			if clearSendBlock(fields[1]) {
