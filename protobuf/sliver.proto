@@ -135,3 +135,13 @@ message Upload {
   string err = 2;
   bool success = 3;
 }
+
+message ProcessDumpReq {
+  string id = 1;
+  int32 pid = 2;
+}
+
+message ProcessDump {
+  bytes data = 1;
+  string err = 2;
+}
