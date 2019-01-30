@@ -2,12 +2,15 @@
 
 
 [[projects]]
+  digest = "1:d5487b7d1471b572cb4632fd5643469f96b7bc56f1fdbcffe2935c2ad5581a76"
   name = "github.com/AlecAivazis/survey"
   packages = ["."]
+  pruneopts = ""
   revision = "3389f2f05f2f02457ea70d0cf93653543d2324e9"
   version = "v1.8.1"
 
 [[projects]]
+  digest = "1:2d5471db9131b2bbcb6e21a3ae38e72622f3021cac56e8858e778370bc67b3b8"
   name = "github.com/desertbit/closer"
   packages = ["."]
   revision = "93b2a5f3df09367c0106a72d7a4ed591f11f32c3"
@@ -93,12 +96,15 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:63e7368fcf6b54804076eaec26fd9cf0c4466166b272393db4b93102e1e962df"
   name = "github.com/kballard/go-shellquote"
   packages = ["."]
+  pruneopts = ""
   revision = "95032a82bc518f77982ea72343cc1ade730072f0"
 
 [[projects]]
   branch = "master"
+  digest = "1:ff3d3a7e367bf58b25e3c9203b7e82a02b2bfa220eacb2b362c0dbc3fcffa15b"
   name = "github.com/markbates/oncer"
   packages = ["."]
   revision = "bf2de49a0be218916e69a11d22866e6cd0a560f2"
@@ -117,17 +123,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:50416da10e189bc201e122e20078fb8e680a439cbdd24aaece06c434b4415b60"
   name = "github.com/mgutz/ansi"
   packages = ["."]
+  pruneopts = ""
   revision = "9520e82c474b0a04dd04f8a40959027271bab992"
 
 [[projects]]
-  name = "github.com/miekg/dns"
-  packages = ["."]
-  revision = "56be65265e34e731425e0269a301774938827c60"
-  version = "v1.1.3"
-
-[[projects]]
+  digest = "1:1d7e1867c49a6dd9856598ef7c3123604ea3daabf5b83f303ff457bcbc410b1d"
   name = "github.com/pkg/errors"
   packages = ["."]
   revision = "ba968bfe8b2f7e042a574c888954fccecfa385b4"
@@ -164,14 +167,27 @@
   revision = "cc6a436ffe6b424fffa1d91862c9b664d8407828"
 
 [[projects]]
+  digest = "1:d5487b7d1471b572cb4632fd5643469f96b7bc56f1fdbcffe2935c2ad5581a76"
   name = "gopkg.in/AlecAivazis/survey.v1"
-  packages = ["core","terminal"]
-  revision = "38cdfa1242b19e0eb8b6f33004bf8e89832b8743"
-  version = "v1.8.0"
+  packages = [
+    "core",
+    "terminal",
+  ]
+  pruneopts = ""
+  revision = "3389f2f05f2f02457ea70d0cf93653543d2324e9"
+  version = "v1.8.1"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e94157a7c87950e4ae99c93c99bc405da527404c9afaa8ec393802ae0aa71ac1"
+  input-imports = [
+    "github.com/AlecAivazis/survey",
+    "github.com/desertbit/grumble",
+    "github.com/fatih/color",
+    "github.com/gobuffalo/packr",
+    "github.com/golang/protobuf/proto",
+    "golang.org/x/tools/refactor/importgraph",
+    "golang.org/x/tools/refactor/rename",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1

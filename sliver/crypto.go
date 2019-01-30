@@ -26,6 +26,12 @@ const (
 // AESKey - 128 bit key
 type AESKey [AESKeySize]byte
 
+func (AESKey) FromBytes(data []byte) AESKey {
+	var key AESKey
+	copy(key[:], data[:AESKeySize])
+	return key
+}
+
 // AESIV - 128 bit IV
 type AESIV [aes.BlockSize]byte
 

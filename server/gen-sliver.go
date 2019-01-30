@@ -120,6 +120,10 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 		"tcp-mtls.go",
 		"udp-dns.go",
 		"sliver.go",
+		"dump.go",
+		"dump_windows.go",
+		"dump_linux.go",
+		"dump_darwin.go",
 	}
 	for _, fileName := range srcFiles {
 		sliverGoCode, _ := sliverBox.FindString(fileName)

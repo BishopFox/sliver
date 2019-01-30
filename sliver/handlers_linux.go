@@ -1,8 +1,10 @@
 package main
 
+import pb "sliver/protobuf"
+
 var (
 	linuxHandlers = map[string]interface{}{
-		"ping": pingHandler,
+		pb.MsgPsListReq: psHandler,
 	}
 )
 

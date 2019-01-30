@@ -254,7 +254,7 @@ func SaveCertificateAuthority(caType string, cert []byte, key []byte) {
 // Returns two strings `cert` and `key` (PEM Encoded).
 func GenerateCertificate(host string, caType string, isCA bool, isClient bool) ([]byte, []byte) {
 
-	log.Printf("Generating new TLS certificate ...")
+	log.Printf("Generating new TLS certificate (ECC) ...")
 
 	var privateKey interface{}
 	var err error
@@ -344,7 +344,7 @@ func GenerateCertificate(host string, caType string, isCA bool, isClient bool) (
 // GenerateRSACertificate - Generates a 2048 bit RSA Certificate
 func GenerateRSACertificate(host string, caType string, isCA bool, isClient bool) ([]byte, []byte) {
 
-	log.Printf("Generating new TLS certificate ...")
+	log.Printf("Generating new TLS certificate (RSA) ...")
 
 	var privateKey interface{}
 	var err error

