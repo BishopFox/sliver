@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"crypto/x509"
-	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/pem"
@@ -134,7 +133,7 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 	case sessionInitMsg: // Session init: _(nonce).(session key).(sliver name)._si.example.com
 		if len(fields) == 4 {
 			encryptedSessionKey := fields[1]
-			sliverName := fields[2]
+			sliverName := fields[2] // TODO: RSA Encrypt?
 			encryptedSessionID, _ := startDNSSession(domain, encryptedSessionKey, sliverName)
 			txt := &dns.TXT{
 				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
@@ -142,6 +141,10 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 			}
 			resp.Answer = append(resp.Answer, txt)
 		}
+	case sessionHeaderMsg: // Session Header: _(nonce).(pb.DNSBlock).(session id)._sh.example.com
+
+	case sessionMsg: //Session data: _(nonce).(seq|encoded data).(seq|encoded data).s.example.com
+
 	case clearBlockMsg: // Clear block: _(nonce).(block id)._cb.example.com
 		if len(fields) == 3 {
 			result := 0
@@ -179,7 +182,7 @@ func startDNSSession(domain string, encryptedSessionKey string, sliverName strin
 	sessionID := dnsSessionID()
 	aesSessionKey, _ := cryptography.AESKeyFromBytes(sessionKey)
 	encryptedSessionID, _ := cryptography.GCMEncrypt(aesSessionKey, []byte(sessionID))
-	encodedSessionID := base32.StdEncoding.EncodeToString(encryptedSessionID)
+	encodedSessionID := base64.RawStdEncoding.EncodeToString(encryptedSessionID)
 	return encodedSessionID, nil
 }
 

@@ -154,7 +154,7 @@ func dnsSessionSend(parentDomain string, sessionID string, sessionKey AESKey, en
 	encryptedEnvelope, _ := GCMEncrypt(sessionKey, envelopeData)
 
 	// Send message header
-	size := math.Round(float64(len(encryptedEnvelope)) / float64(byteBlockSize))
+	size := int(math.Round(float64(len(encryptedEnvelope)) / float64(byteBlockSize)))
 	blockID := generateBlockID()
 	dnsBlock := &pb.DNSBlock{Id: blockID, Size: int32(size)}
 	dnsBlockData, _ := proto.Marshal(dnsBlock)
@@ -164,19 +164,26 @@ func dnsSessionSend(parentDomain string, sessionID string, sessionKey AESKey, en
 	txts, err := net.LookupTXT(fmt.Sprintf("%s.%s.%s._sh.%s", nonce, encodedDNSBlock, sessionID, parentDomain))
 	if err != nil {
 		return err
+	} else if len(txts) < 1 || txts[0] == "1" {
+		return errors.New("Server rejected session message header")
 	}
 
 	// Send message body
-	sequenceNumber := 0
 	nonce = dnsNonce(nonceStdSize)
-	for index := 0; index < len(encryptedEnvelope); index += byteBlockSize {
+	for sequenceNumber := 0; sequenceNumber < size; sequenceNumber++ {
 		buf := new(bytes.Buffer)
 		binary.Write(buf, binary.LittleEndian, uint32(sequenceNumber))
-		data := append(buf.Bytes(), encryptedEnvelope[index:index+byteBlockSize]...)
+
+		start := sequenceNumber * byteBlockSize
+		stop := start + byteBlockSize
+		data := append(buf.Bytes(), encryptedEnvelope[start:stop]...)
+
 		encoded := base32.StdEncoding.EncodeToString(data)
 		txts, err := net.LookupTXT(fmt.Sprintf("%s.%s.s.%s", nonce, encoded, parentDomain))
 		if err != nil {
 			return err
+		} else if len(txts) < 1 || txts[0] == "1" {
+			return errors.New("Server rejected session message")
 		}
 
 	}
