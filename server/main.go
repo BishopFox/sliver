@@ -38,7 +38,7 @@ type Sliver struct {
 	PID           int32
 	Filename      string
 	Send          chan pb.Envelope
-	Resp          map[string]chan pb.Envelope
+	Resp          map[string]chan *pb.Envelope
 	RespMutex     *sync.RWMutex
 }
 

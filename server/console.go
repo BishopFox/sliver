@@ -436,8 +436,8 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: procdumpStr,
-		Help: getHelpFor(procdumpStr),
+		Name:      procdumpStr,
+		Help:      getHelpFor(procdumpStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			procdumpCmd(ctx)
@@ -495,11 +495,11 @@ func getSliver(name string) *Sliver {
 }
 
 // Sends a protobuf request to the active sliver and returns the response
-func activeSliverRequest(msgType string, reqID string, data []byte) (pb.Envelope, error) {
+func activeSliverRequest(msgType string, reqID string, data []byte) (*pb.Envelope, error) {
 	if activeSliver == nil {
-		return pb.Envelope{}, errors.New("No active sliver")
+		return nil, errors.New("No active sliver")
 	}
-	resp := make(chan pb.Envelope)
+	resp := make(chan *pb.Envelope)
 	(*activeSliver).Resp[reqID] = resp
 	defer func() {
 		activeSliver.RespMutex.Lock()
@@ -513,11 +513,11 @@ func activeSliverRequest(msgType string, reqID string, data []byte) (pb.Envelope
 		Data: data,
 	}
 
-	var respEnvelope pb.Envelope
+	var respEnvelope *pb.Envelope
 	select {
 	case respEnvelope = <-resp:
 	case <-time.After(cmdTimeout):
-		return pb.Envelope{}, errors.New("timeout")
+		return nil, errors.New("timeout")
 	}
 	return respEnvelope, nil
 }

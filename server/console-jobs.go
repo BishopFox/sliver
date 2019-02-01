@@ -115,7 +115,7 @@ func jobStartDNSListener(domain string) (int, error) {
 
 	job := &Job{
 		ID:       getJobID(),
-		Name:     "DNS",
+		Name:     fmt.Sprintf("DNS (%s)", domain),
 		Protocol: "udp",
 		Port:     53,
 		JobCtrl:  make(chan bool),

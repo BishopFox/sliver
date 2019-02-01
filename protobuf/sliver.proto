@@ -148,10 +148,10 @@ message ProcessDump {
 
 // DNS Specific messages
 message DNSPoll {
-  repeated DNSBlock blocks = 1;
+  repeated DNSBlockHeader blocks = 1;
 }
 
-message DNSBlock {
+message DNSBlockHeader {
   string id = 1;
-  int32 size = 2;
+  uint32 size = 2;
 }

