@@ -44,11 +44,12 @@ type Sliver struct {
 
 // Job - Manages background jobs
 type Job struct {
-	ID       int
-	Name     string
-	Protocol string
-	Port     uint16
-	JobCtrl  chan bool
+	ID          int
+	Name        string
+	Description string
+	Protocol    string
+	Port        uint16
+	JobCtrl     chan bool
 }
 
 // Event - Sliver connect/disconnect

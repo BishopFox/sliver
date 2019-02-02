@@ -9,11 +9,12 @@ DNS Tunnel Implementation
 
 import (
 	"bytes"
-	"crypto/x509"
+	//"crypto/x509"
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/pem"
+
+	//"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
@@ -30,17 +31,12 @@ import (
 )
 
 const (
-	domainKeyMsg  = "_domainkey"
-	blockReqMsg   = "_b"
-	clearBlockMsg = "_cb"
-
-	sessionInitMsg    = "_si"
-	sessionCleanupMsg = "_sc"
-	sessionMsg        = "s"
-	sessionHeaderMsg  = "_sh"
+	domainKeyMsg      = "_domainkey"
+	blockReqMsg       = "_b"
+	clearBlockMsg     = "_cb"
+	dataMsg           = "d"
+	sessionInitMsg    = "si"
 	sessionPollingMsg = "_sp"
-
-	sessionIDSize = 8
 
 	// Max TXT record is 255, so (n*8 + 5) / 6 = ~250 (250 bytes per block + 4 byte sequence number)
 	byteBlockSize = 185 // Can be as high as n = 187, but we'll leave some slop
@@ -59,6 +55,9 @@ var (
 
 	blockReassemblerMutex = &sync.RWMutex{}
 	blockReassembler      = &map[string][][]byte{}
+
+	initReassemblerMutex = &sync.RWMutex{}
+	initReassembler      = &map[string][][]byte{}
 )
 
 // SendBlock - Data is encoded and split into `Blocks`
@@ -146,48 +145,15 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 		} else {
 			log.Printf("Block request has invalid number of fields %d expected %d", len(fields), 5)
 		}
-	case sessionInitMsg: // Session init: _(nonce).(session key).(sliver name)._si.example.com
-		if len(fields) == 4 {
-			encryptedSessionKey := fields[1]
-			sliverName := fields[2] // TODO: RSA Encrypt?
-			encryptedSessionID, _ := startDNSSession(domain, encryptedSessionKey, sliverName)
-			txt := &dns.TXT{
-				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-				Txt: []string{encryptedSessionID},
-			}
-			resp.Answer = append(resp.Answer, txt)
+	case sessionInitMsg: // Session init: _(nonce).(session key).si.example.com
+
+		result := startDNSSession(domain, fields)
+		txt := &dns.TXT{
+			Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
+			Txt: []string{result},
 		}
-	case sessionHeaderMsg: // Session Header: _(nonce).(pb.DNSBlockHeader).(session id)._sh.example.com
-		if len(fields) == 3 {
-			encodedDNSBlock := fields[1]
-			sessionID := fields[2]
-			err := dnsSessionHeader(encodedDNSBlock, sessionID)
-			result := 0
-			if err != nil {
-				result = 1
-			}
-			txt := &dns.TXT{
-				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-				Txt: []string{fmt.Sprintf("%d", result)},
-			}
-			resp.Answer = append(resp.Answer, txt)
-		}
-	case sessionMsg: //Session data: _(nonce).(seq|encoded data).(blockHeaderID).(session id).s.example.com
-		if len(fields) == 2 {
-			data1 := fields[1]
-			headerID := fields[2]
-			sessionID := fields[3]
-			err := dnsSessionMessage([]string{data1}, headerID, sessionID)
-			result := 0
-			if err != nil {
-				result = 1
-			}
-			txt := &dns.TXT{
-				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-				Txt: []string{fmt.Sprintf("%d", result)},
-			}
-			resp.Answer = append(resp.Answer, txt)
-		}
+		resp.Answer = append(resp.Answer, txt)
+
 	case clearBlockMsg: // Clear block: _(nonce).(block id)._cb.example.com
 		if len(fields) == 3 {
 			result := 0
@@ -204,55 +170,62 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 		log.Printf("Unknown msg type '%s' in TXT req", fields[len(fields)-1])
 	}
 
-	log.Println("\n" + strings.Repeat("-", 40) + "\n" + resp.String() + "\n" + strings.Repeat("-", 40))
+	// log.Println("\n" + strings.Repeat("-", 40) + "\n" + resp.String() + "\n" + strings.Repeat("-", 40))
 
 	return resp
 }
 
 // --------------------------- DNS SESSION START ---------------------------
 func getDomainKeyFor(domain string) (string, int) {
-	certPEM, _, _ := GetServerRSACertificatePEM("slivers-rsa", domain)
+	certPEM, _, _ := GetServerRSACertificatePEM("slivers", domain)
 	blockID, blockSize := storeSendBlocks(certPEM)
 	log.Printf("Encoded cert into %d blocks with ID = %s", blockSize, blockID)
 	return blockID, blockSize
 }
 
-func startDNSSession(domain string, encryptedSessionKey string, sliverName string) (string, error) {
-	_, privateKeyPEM, err := GetServerRSACertificatePEM("slivers-rsa", domain)
-	if err != nil {
-		log.Printf("Failed to fetch RSA key pair %v", err)
-		return "", err
-	}
-	privateKeyBlock, _ := pem.Decode([]byte(privateKeyPEM))
-	privateKey, _ := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
-	sessionKey, err := cryptography.RSADecrypt([]byte(encryptedSessionKey), privateKey)
-	if err != nil {
-		log.Printf("Failed to decrypt RSA message %v", err)
-		return "", err
-	}
-	aesSessionKey, _ := cryptography.AESKeyFromBytes(sessionKey)
+func startDNSSession(domain string, fields []string) string {
 
-	sliver := &Sliver{
-		ID:        getHiveID(),
-		Send:      make(chan pb.Envelope),
-		RespMutex: &sync.RWMutex{},
-		Resp:      map[string]chan *pb.Envelope{},
-	}
+	log.Printf("[start session] fields = %#v", fields)
+	return "0"
 
-	sessionID := dnsSessionID()
-	dnsSessionsMutex.Lock()
-	(*dnsSessions)[sessionID] = &DNSSession{
-		ID:          sessionID,
-		SliverName:  sliverName,
-		Sliver:      sliver,
-		Key:         aesSessionKey,
-		LastCheckin: time.Now(),
-	}
-	dnsSessionsMutex.Unlock()
+	// initReassemblerMutex.Lock()
+	// initReassembler
+	// initReassemblerMutex.Unlock()
 
-	encryptedSessionID, _ := cryptography.GCMEncrypt(aesSessionKey, []byte(sessionID))
-	encodedSessionID := base64.RawStdEncoding.EncodeToString(encryptedSessionID)
-	return encodedSessionID, nil
+	// _, privateKeyPEM, err := GetServerRSACertificatePEM("slivers", domain)
+	// if err != nil {
+	// 	log.Printf("Failed to fetch RSA key pair %v", err)
+	// 	return "1"
+	// }
+	// privateKeyBlock, _ := pem.Decode([]byte(privateKeyPEM))
+	// privateKey, _ := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
+	// sessionKey, err := cryptography.RSADecrypt([]byte(encryptedSessionKey), privateKey)
+	// if err != nil {
+	// 	log.Printf("Failed to decrypt RSA message %v", err)
+	// 	return "1"
+	// }
+
+	// sliver := &Sliver{
+	// 	ID:        getHiveID(),
+	// 	Send:      make(chan pb.Envelope),
+	// 	RespMutex: &sync.RWMutex{},
+	// 	Resp:      map[string]chan *pb.Envelope{},
+	// }
+
+	// sessionID := dnsSessionID()
+	// dnsSessionsMutex.Lock()
+	// (*dnsSessions)[sessionID] = &DNSSession{
+	// 	ID:          sessionID,
+	// 	SliverName:  sliverName,
+	// 	Sliver:      sliver,
+	// 	Key:         aesSessionKey,
+	// 	LastCheckin: time.Now(),
+	// }
+	// dnsSessionsMutex.Unlock()
+
+	// encryptedSessionID, _ := cryptography.GCMEncrypt(aesSessionKey, []byte(sessionID))
+	// encodedSessionID := base64.RawStdEncoding.EncodeToString(encryptedSessionID)
+	// return encodedSessionID, nil
 }
 
 // --------------------------- DNS SESSION RECV ---------------------------
@@ -429,18 +402,6 @@ func generateBlockID() string {
 	return string(blockID)
 }
 
-// SessionIDs are public parameters in this use case
-// so it's only important that they're unique
-func dnsSessionID() string {
-	insecureRand.Seed(time.Now().UnixNano())
-	sessionID := []rune{}
-	for i := 0; i < sessionIDSize; i++ {
-		index := insecureRand.Intn(len(dnsCharSet))
-		sessionID = append(sessionID, dnsCharSet[index])
-	}
-	return "_" + string(sessionID)
-}
-
 // Wrapper around GCMEncrypt & Base32 encode
 func sessionDecrypt(sessionKey cryptography.AESKey, data string) ([]byte, error) {
 	encryptedData, err := base32.StdEncoding.DecodeString(data)
@@ -448,4 +409,28 @@ func sessionDecrypt(sessionKey cryptography.AESKey, data string) ([]byte, error)
 		return nil, err
 	}
 	return cryptography.GCMDecrypt(sessionKey, encryptedData)
+}
+
+// --------------------------- ENCODER ---------------------------
+var base32Alphabet = "0123456789abcdefghjkmnpqrtuvwxyz"
+var lowerBase32 = base32.NewEncoding(base32Alphabet)
+
+// EncodeToString encodes the given byte slice in base32
+func dnsEncodeToString(in []byte) string {
+	return strings.TrimRight(lowerBase32.EncodeToString(in), "=")
+}
+
+// DecodeString decodes the given base32 encodeed bytes
+func dnsDecodeString(raw string) ([]byte, error) {
+	pad := 8 - (len(raw) % 8)
+	nb := []byte(raw)
+	if pad != 8 {
+		nb = make([]byte, len(raw)+pad)
+		copy(nb, raw)
+		for index := 0; index < pad; index++ {
+			nb[len(raw)+index] = '='
+		}
+	}
+
+	return lowerBase32.DecodeString(string(nb))
 }

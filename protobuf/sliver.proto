@@ -147,6 +147,17 @@ message ProcessDump {
 }
 
 // DNS Specific messages
+message DNSEnvelope {
+  string type = 1;
+  bytes data = 2;
+  string sessionId = 3;
+}
+
+message DNSSessionInit {
+  string sessionId = 1;
+  bytes key = 2;
+}
+
 message DNSPoll {
   repeated DNSBlockHeader blocks = 1;
 }

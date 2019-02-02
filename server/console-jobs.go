@@ -70,11 +70,12 @@ func jobStartMTLSListener(bindIface string, port uint16) (int, error) {
 	}
 
 	job := &Job{
-		ID:       getJobID(),
-		Name:     "mTLS",
-		Protocol: "tcp",
-		Port:     port,
-		JobCtrl:  make(chan bool),
+		ID:          getJobID(),
+		Name:        "mTLS",
+		Description: "mutual tls",
+		Protocol:    "tcp",
+		Port:        port,
+		JobCtrl:     make(chan bool),
 	}
 
 	go func() {
@@ -114,11 +115,12 @@ func jobStartDNSListener(domain string) (int, error) {
 	server := startDNSListener(domain)
 
 	job := &Job{
-		ID:       getJobID(),
-		Name:     fmt.Sprintf("DNS (%s)", domain),
-		Protocol: "udp",
-		Port:     53,
-		JobCtrl:  make(chan bool),
+		ID:          getJobID(),
+		Name:        "dns",
+		Description: domain,
+		Protocol:    "udp",
+		Port:        53,
+		JobCtrl:     make(chan bool),
 	}
 
 	go func() {

