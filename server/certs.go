@@ -59,15 +59,19 @@ func GenerateServerRSACertificate(caType string, host string, save bool) ([]byte
 }
 
 // GetServerCertificatePEM - Get a server certificate/key pair signed by ca type
-func GetServerCertificatePEM(caType string, host string) ([]byte, []byte, error) {
+func GetServerCertificatePEM(caType string, host string, generateIfNoneExists bool) ([]byte, []byte, error) {
 
 	log.Printf("Getting certificate (ca type = %s) '%s'", caType, host)
 
 	// If not certificate exists for this host we just generate one on the fly
 	_, _, err := GetCertificatePEM(path.Join(caType, "ecc", serversCertDir), host)
 	if err != nil {
-		log.Printf("No server certificate, generating ca type = %s '%s'", caType, host)
-		GenerateServerCertificate(caType, host, true)
+		if generateIfNoneExists {
+			log.Printf("No server certificate, generating ca type = %s '%s'", caType, host)
+			GenerateServerCertificate(caType, host, true)
+		} else {
+			return nil, nil, err
+		}
 	}
 
 	certPEM, keyPEM, err := GetCertificatePEM(path.Join(caType, "ecc", serversCertDir), host)
@@ -80,15 +84,19 @@ func GetServerCertificatePEM(caType string, host string) ([]byte, []byte, error)
 }
 
 // GetServerRSACertificatePEM - Get a server certificate/key pair signed by ca type
-func GetServerRSACertificatePEM(caType string, host string) ([]byte, []byte, error) {
+func GetServerRSACertificatePEM(caType string, host string, generateIfNoneExists bool) ([]byte, []byte, error) {
 
 	log.Printf("Getting rsa certificate (ca type = %s) '%s'", caType, host)
 
 	// If not certificate exists for this host we just generate one on the fly
 	_, _, err := GetCertificatePEM(path.Join(caType, "rsa", serversCertDir), host)
 	if err != nil {
-		log.Printf("No server certificate, generating ca type = %s '%s'", caType, host)
-		GenerateServerRSACertificate(caType, host, true)
+		if generateIfNoneExists {
+			log.Printf("No server certificate, generating ca type = %s '%s'", caType, host)
+			GenerateServerRSACertificate(caType, host, true)
+		} else {
+			return nil, nil, err
+		}
 	}
 
 	certPEM, keyPEM, err := GetCertificatePEM(path.Join(caType, "rsa", serversCertDir), host)

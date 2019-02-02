@@ -210,7 +210,7 @@ func getServerTLSConfig(caType string, host string) *tls.Config {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AddCert(caCertPtr)
 
-	certPEM, keyPEM, _ := GetServerCertificatePEM(caType, host)
+	certPEM, keyPEM, _ := GetServerCertificatePEM(caType, host, true)
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		log.Fatalf("Error loading server certificate: %v", err)

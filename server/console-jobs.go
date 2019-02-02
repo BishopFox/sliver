@@ -111,7 +111,7 @@ func startDNSListenerCmd(ctx *grumble.Context) {
 }
 
 func jobStartDNSListener(domain string) (int, error) {
-
+	GetServerRSACertificatePEM("slivers", domain, true)
 	server := startDNSListener(domain)
 
 	job := &Job{
