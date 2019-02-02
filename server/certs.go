@@ -44,7 +44,7 @@ func GenerateSliverCertificate(host string, save bool) ([]byte, []byte) {
 func GenerateServerCertificate(caType string, host string, save bool) ([]byte, []byte) {
 	cert, key := GenerateCertificate(host, caType, false, false)
 	if save {
-		SaveCertificate(path.Join(caType, serversCertDir), host, cert, key)
+		SaveCertificate(path.Join(caType, "ecc", serversCertDir), host, cert, key)
 	}
 	return cert, key
 }
@@ -53,7 +53,7 @@ func GenerateServerCertificate(caType string, host string, save bool) ([]byte, [
 func GenerateServerRSACertificate(caType string, host string, save bool) ([]byte, []byte) {
 	cert, key := GenerateRSACertificate(host, caType, false, false)
 	if save {
-		SaveCertificate(path.Join(caType, serversCertDir), host, cert, key)
+		SaveCertificate(path.Join(caType, "rsa", serversCertDir), host, cert, key)
 	}
 	return cert, key
 }
@@ -64,13 +64,13 @@ func GetServerCertificatePEM(caType string, host string) ([]byte, []byte, error)
 	log.Printf("Getting certificate (ca type = %s) '%s'", caType, host)
 
 	// If not certificate exists for this host we just generate one on the fly
-	_, _, err := GetCertificatePEM(path.Join(caType, serversCertDir), host)
+	_, _, err := GetCertificatePEM(path.Join(caType, "ecc", serversCertDir), host)
 	if err != nil {
 		log.Printf("No server certificate, generating ca type = %s '%s'", caType, host)
 		GenerateServerCertificate(caType, host, true)
 	}
 
-	certPEM, keyPEM, err := GetCertificatePEM(path.Join(caType, serversCertDir), host)
+	certPEM, keyPEM, err := GetCertificatePEM(path.Join(caType, "ecc", serversCertDir), host)
 	if err != nil {
 		log.Printf("Failed to load PEM data %v", err)
 		return nil, nil, err
@@ -85,13 +85,13 @@ func GetServerRSACertificatePEM(caType string, host string) ([]byte, []byte, err
 	log.Printf("Getting rsa certificate (ca type = %s) '%s'", caType, host)
 
 	// If not certificate exists for this host we just generate one on the fly
-	_, _, err := GetCertificatePEM(path.Join(caType, serversCertDir), host)
+	_, _, err := GetCertificatePEM(path.Join(caType, "rsa", serversCertDir), host)
 	if err != nil {
 		log.Printf("No server certificate, generating ca type = %s '%s'", caType, host)
 		GenerateServerRSACertificate(caType, host, true)
 	}
 
-	certPEM, keyPEM, err := GetCertificatePEM(path.Join(caType, serversCertDir), host)
+	certPEM, keyPEM, err := GetCertificatePEM(path.Join(caType, "rsa", serversCertDir), host)
 	if err != nil {
 		log.Printf("Failed to load PEM data %v", err)
 		return nil, nil, err

