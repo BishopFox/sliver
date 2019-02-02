@@ -154,8 +154,7 @@ message DNSEnvelope {
 }
 
 message DNSSessionInit {
-  string sessionId = 1;
-  bytes key = 2;
+  bytes key = 1;
 }
 
 message DNSPoll {
