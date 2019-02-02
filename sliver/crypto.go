@@ -12,6 +12,7 @@ import (
 	secureRand "crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"errors"
 	"io"
 )
 
@@ -114,6 +115,9 @@ func GCMEncrypt(key AESKey, plaintext []byte) ([]byte, error) {
 
 // GCMDecrypt - Decrypt GCM ciphertext
 func GCMDecrypt(key AESKey, ciphertext []byte) ([]byte, error) {
+	if len(ciphertext) < GCMNonceSize+1 {
+		return nil, errors.New("Invalid ciphertext length")
+	}
 	block, _ := aes.NewCipher(key[:])
 	aesgcm, _ := cipher.NewGCM(block)
 	plaintext, err := aesgcm.Open(nil, ciphertext[:GCMNonceSize], ciphertext[GCMNonceSize:], nil)

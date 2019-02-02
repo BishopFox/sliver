@@ -34,10 +34,11 @@ type Sliver struct {
 	GID           string
 	Os            string
 	Arch          string
+	Transport     string
 	RemoteAddress string
 	PID           int32
 	Filename      string
-	Send          chan pb.Envelope
+	Send          chan *pb.Envelope
 	Resp          map[string]chan *pb.Envelope
 	RespMutex     *sync.RWMutex
 }

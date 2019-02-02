@@ -8,7 +8,7 @@ message Envelope {
   string id = 3;   // Resp ID
 }
 
-message RegisterSliver {
+message Register {
   string name = 1;
   string hostname = 2;
   string username = 3;
@@ -147,12 +147,6 @@ message ProcessDump {
 }
 
 // DNS Specific messages
-message DNSEnvelope {
-  string type = 1;
-  bytes data = 2;
-  string sessionId = 3;
-}
-
 message DNSSessionInit {
   bytes key = 1;
 }

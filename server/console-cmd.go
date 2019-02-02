@@ -110,10 +110,11 @@ func printSlivers() {
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
 	// Column Headers
-	fmt.Fprintln(table, "\nID\tName\tRemote Address\tUsername\tOperating System\t")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+	fmt.Fprintln(table, "\nID\tName\tTransport\tRemote Address\tUsername\tOperating System\t")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("ID")),
 		strings.Repeat("=", len("Name")),
+		strings.Repeat("=", len("Transport")),
 		strings.Repeat("=", len("Remote Address")),
 		strings.Repeat("=", len("Username")),
 		strings.Repeat("=", len("Operating System")))
@@ -133,8 +134,8 @@ func printSlivers() {
 		if activeSliver != nil && activeSliver.ID == sliver.ID {
 			activeIndex = index + 3 // Two lines for the headers
 		}
-		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t\n",
-			sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Username,
+		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t\n",
+			sliver.ID, sliver.Name, sliver.Transport, sliver.RemoteAddress, sliver.Username,
 			fmt.Sprintf("%s/%s", sliver.Os, sliver.Arch))
 	}
 	table.Flush()
@@ -163,7 +164,7 @@ func killCmd(ctx *grumble.Context) {
 	if sliver != nil {
 		fmt.Printf("\n"+Info+"Killing sliver %s (%d)", sliver.Name, sliver.ID)
 		data, _ := proto.Marshal(&pb.KillReq{Id: randomID()})
-		(*sliver).Send <- pb.Envelope{
+		(*sliver).Send <- &pb.Envelope{
 			Type: pb.MsgKill,
 			Data: data,
 		}
@@ -304,7 +305,7 @@ func msfCmd(ctx *grumble.Context) {
 		Encoder: "raw",
 		Data:    rawPayload,
 	})
-	(*activeSliver).Send <- pb.Envelope{
+	(*activeSliver).Send <- &pb.Envelope{
 		Type: pb.MsgTask,
 		Data: data,
 	}
@@ -353,7 +354,7 @@ func injectCmd(ctx *grumble.Context) {
 		Encoder: "raw",
 		Data:    rawPayload,
 	})
-	(*activeSliver).Send <- pb.Envelope{
+	(*activeSliver).Send <- &pb.Envelope{
 		Type: pb.MsgRemoteTask,
 		Data: data,
 	}

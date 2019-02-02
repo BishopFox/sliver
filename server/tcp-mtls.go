@@ -52,26 +52,18 @@ func acceptConnections(ln net.Listener) {
 func handleSliverConnection(conn net.Conn) {
 	log.Printf("Accepted incoming connection: %s", conn.RemoteAddr())
 
-	envelope, err := socketReadEnvelope(conn)
-	if err != nil {
-		log.Printf("Socket read error: %v", err)
-		return
-	}
-	registerSliver := &pb.RegisterSliver{}
-	proto.Unmarshal(envelope.Data, registerSliver)
-	send := make(chan pb.Envelope)
+	// envelope, err := socketReadEnvelope(conn)
+	// if err != nil {
+	// 	log.Printf("Socket read error: %v", err)
+	// 	return
+	// }
+	// registerSliver := &pb.RegisterSliver{}
+	// proto.Unmarshal(envelope.Data, registerSliver)
+	send := make(chan *pb.Envelope)
 
 	sliver := &Sliver{
 		ID:            getHiveID(),
-		Name:          registerSliver.Name,
-		Hostname:      registerSliver.Hostname,
-		Username:      registerSliver.Username,
-		UID:           registerSliver.Uid,
-		GID:           registerSliver.Gid,
-		Os:            registerSliver.Os,
-		Arch:          registerSliver.Arch,
-		PID:           registerSliver.Pid,
-		Filename:      registerSliver.Filename,
+		Transport:     "mtls",
 		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
 		Send:          send,
 		RespMutex:     &sync.RWMutex{},
@@ -109,6 +101,8 @@ func handleSliverConnection(conn net.Conn) {
 			}
 			hiveMutex.Unlock()
 		}()
+
+		handlers := getServerHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err != nil {
@@ -121,6 +115,8 @@ func handleSliverConnection(conn net.Conn) {
 					resp <- envelope // Could deadlock, maybe want to investigate better solutions
 				}
 				sliver.RespMutex.Unlock()
+			} else if handler, ok := handlers[envelope.Type]; ok {
+				go handler.(func(*Sliver, []byte))(sliver, envelope.Data)
 			}
 		}
 	}()
@@ -138,8 +134,8 @@ func handleSliverConnection(conn net.Conn) {
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message
 // e.g. [uint32 length|message] so the reciever can delimit messages properly
-func socketWriteEnvelope(connection net.Conn, envelope pb.Envelope) error {
-	data, err := proto.Marshal(&envelope)
+func socketWriteEnvelope(connection net.Conn, envelope *pb.Envelope) error {
+	data, err := proto.Marshal(envelope)
 	if err != nil {
 		log.Print("Envelope marshaling error: ", err)
 		return err

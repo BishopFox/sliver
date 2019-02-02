@@ -507,7 +507,7 @@ func activeSliverRequest(msgType string, reqID string, data []byte) (*pb.Envelop
 		close(resp)
 		delete((*activeSliver).Resp, reqID)
 	}()
-	(*activeSliver).Send <- pb.Envelope{
+	(*activeSliver).Send <- &pb.Envelope{
 		Id:   reqID,
 		Type: msgType,
 		Data: data,
