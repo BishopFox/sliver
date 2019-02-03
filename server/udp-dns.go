@@ -1,10 +1,7 @@
 package main
 
 /*
-
-DNS Tunnel Implementation
-
-
+	DNS Tunnel Implementation
 */
 
 import (
