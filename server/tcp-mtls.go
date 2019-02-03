@@ -59,13 +59,12 @@ func handleSliverConnection(conn net.Conn) {
 	// }
 	// registerSliver := &pb.RegisterSliver{}
 	// proto.Unmarshal(envelope.Data, registerSliver)
-	send := make(chan *pb.Envelope)
 
 	sliver := &Sliver{
 		ID:            getHiveID(),
 		Transport:     "mtls",
 		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
-		Send:          send,
+		Send:          make(chan *pb.Envelope),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[string]chan *pb.Envelope{},
 	}

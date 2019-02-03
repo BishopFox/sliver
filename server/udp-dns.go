@@ -8,7 +8,6 @@ DNS Tunnel Implementation
 */
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"crypto/x509"
 	"math"
@@ -45,7 +44,7 @@ const (
 	sessionPollingMsg  = "sp"
 	sessionEnvelopeMsg = "se"
 
-	// Max TXT record is 255, so (n*8 + 5) / 6 = ~250 (250 bytes per block + 4 byte sequence number)
+	// Max TXT record is 255, records are b64 so (n*8 + 5) / 6 = ~250
 	byteBlockSize = 185 // Can be as high as n = 187, but we'll leave some slop
 
 	blockIDSize = 6
@@ -75,13 +74,11 @@ type SendBlock struct {
 
 // DNSSession - Holds DNS session information
 type DNSSession struct {
-	ID            string
-	SessionInitID string
-	SliverName    string
-	Sliver        *Sliver
-	Key           cryptography.AESKey
-	LastCheckin   time.Time
-	replay        map[string]bool // Sessions are mutex'd
+	ID          string
+	Sliver      *Sliver
+	Key         cryptography.AESKey
+	LastCheckin time.Time
+	replay      map[string]bool // Sessions are mutex'd
 }
 
 func (s *DNSSession) isReplayAttack(ciphertext []byte) bool {
@@ -147,10 +144,13 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 	switch msgType {
 
 	case domainKeyMsg: // Send PubKey -  _(nonce).(slivername).domainkey.example.com
-		blockID, size := getDomainKeyFor(domain)
+		result, err := getDomainKeyFor(domain)
+		if err != nil {
+			log.Printf("Error during session init: %v", err)
+		}
 		txt := &dns.TXT{
 			Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-			Txt: []string{fmt.Sprintf("%s.%d", blockID, size)},
+			Txt: result,
 		}
 		resp.Answer = append(resp.Answer, txt)
 
@@ -222,7 +222,7 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 		log.Printf("Unknown msg type '%s' in TXT req", fields[len(fields)-1])
 	}
 
- 	log.Println("\n" + strings.Repeat("-", 40) + "\n" + resp.String() + "\n" + strings.Repeat("-", 40))
+	// log.Println("\n" + strings.Repeat("-", 40) + "\n" + resp.String() + "\n" + strings.Repeat("-", 40))
 
 	return resp
 }
@@ -331,7 +331,7 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		ID:            getHiveID(),
 		Transport:     "dns",
 		RemoteAddress: "n/a",
-		Send:          make(chan *pb.Envelope),
+		Send:          make(chan *pb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[string]chan *pb.Envelope{},
 	}
@@ -402,7 +402,7 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 		envelope := &pb.Envelope{}
 		proto.Unmarshal(envelopeData, envelope)
 
-		log.Printf("Envelope Type = %#v ID = %#v", envelope.Type, envelope.Id)
+		log.Printf("Envelope Type = %#v RespID = %#v", envelope.Type, envelope.Id)
 
 		// Response Envelope or Handler
 		handlers := getServerHandlers()
@@ -440,6 +440,7 @@ func dnsSegmentReassemble(nonce string) ([]byte, error) {
 			log.Printf("Failed to decode session init: %v", err)
 			return nil, err
 		}
+		delete((*dnsSegmentReassembler), nonce)
 		return data, nil
 	}
 	return nil, fmt.Errorf("Invalid nonce '%#v' (session init reassembler)", nonce)
@@ -470,11 +471,9 @@ func dnsSegment(fields []string) ([]string, error) {
 	return []string{"1"}, errors.New("Invalid nonce (session segment)")
 }
 
-func getDomainKeyFor(domain string) (string, int) {
+func getDomainKeyFor(domain string) ([]string, error) {
 	certPEM, _, _ := GetServerRSACertificatePEM("slivers", domain, false)
-	blockID, blockSize := storeSendBlocks(certPEM)
-	log.Printf("Encoded cert into %d blocks with ID = %s", blockSize, blockID)
-	return blockID, blockSize
+	return dnsSendOnce(certPEM)
 }
 
 // --------------------------- DNS SESSION SEND ---------------------------
@@ -491,7 +490,7 @@ func dnsSendOnce(rawData []byte) ([]string, error) {
 	for index := 0; index < size; index++ {
 		start := index * 255
 		stop := start + 255
-		if len(data) <= stop {
+		if len(data) < stop {
 			stop = len(data)
 		}
 		txts = append(txts, data[start:stop])
@@ -512,12 +511,14 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 	isDrained := false
 	envelopes := []*pb.Envelope{}
 	for !isDrained {
-	select {
-	case envelope := <-dnsSession.Sliver.Send:
-		envelopes = append(envelopes, envelope)
-	default:
-		isDrained = true
-	}}
+		select {
+		case envelope := <-dnsSession.Sliver.Send:
+			log.Printf("New message from send channel ...")
+			envelopes = append(envelopes, envelope)
+		default:
+			isDrained = true
+		}
+	}
 
 	if 0 < len(envelopes) {
 		log.Printf("%d new message(s) for session id %#v", len(envelopes), sessionID)
@@ -528,9 +529,16 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 				log.Printf("Failed to encode envelope %v", err)
 				continue
 			}
-			blockID, size := storeSendBlocks(data)
+
+			encryptedEnvelopeData, err := cryptography.GCMEncrypt(dnsSession.Key, data)
+			if err != nil {
+				log.Printf("Failed to encrypt poll data %v", err)
+				return []string{"1"}, errors.New("Failed to encrypt dns poll data")
+			}
+
+			blockID, size := storeSendBlocks(encryptedEnvelopeData)
 			dnsPoll.Blocks = append(dnsPoll.Blocks, &pb.DNSBlockHeader{
-				Id: blockID,
+				Id:   blockID,
 				Size: uint32(size),
 			})
 		}
@@ -539,7 +547,12 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 			log.Printf("Failed to encode envelope %v", err)
 			return []string{"1"}, errors.New("Failed to encode dns poll data")
 		}
-		return dnsSendOnce(pollData)
+		encryptedPollData, err := cryptography.GCMEncrypt(dnsSession.Key, pollData)
+		if err != nil {
+			log.Printf("Failed to encrypt poll data %v", err)
+			return []string{"1"}, errors.New("Failed to encrypt dns poll data")
+		}
+		return dnsSendOnce(encryptedPollData)
 	}
 	log.Printf("No new message for session id %#v", sessionID)
 	return []string{"0"}, nil
@@ -597,20 +610,15 @@ func storeSendBlocks(data []byte) (string, int) {
 		ID:   blockID,
 		Data: []string{},
 	}
-	sequenceNumber := 0
 	for index := 0; index < len(data); index += byteBlockSize {
 		start := index
 		stop := index + byteBlockSize
-		if len(data) <= stop {
-			stop = len(data) - 1
+		if len(data) < stop {
+			stop = len(data)
 		}
-		seqBuf := new(bytes.Buffer)
-		binary.Write(seqBuf, binary.LittleEndian, uint32(sequenceNumber))
-		blockBytes := append(seqBuf.Bytes(), data[start:stop]...)
-		encoded := "." + base64.RawStdEncoding.EncodeToString(blockBytes)
+		encoded := base64.RawStdEncoding.EncodeToString(data[start:stop])
 		log.Printf("Encoded block is %d bytes", len(encoded))
 		sendBlock.Data = append(sendBlock.Data, encoded)
-		sequenceNumber++
 	}
 	sendBlocksMutex.Lock()
 	(*sendBlocks)[sendBlock.ID] = sendBlock
