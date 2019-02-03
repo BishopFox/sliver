@@ -27,11 +27,11 @@ rm -f ./pkg/tool/darwin_amd64/doc
 rm -f ./pkg/tool/darwin_amd64/tour
 rm -f ./pkg/tool/darwin_amd64/test2json
 cd ..
-cp -vv src.zip $REPO_DIR/server/assets/src.zip
+cp -vv src.zip $REPO_DIR/assets/src.zip
 rm -f src.zip
 
 zip -r darwin-go.zip ./go
-cp -vv darwin-go.zip $REPO_DIR/server/assets/darwin/go.zip
+cp -vv darwin-go.zip $REPO_DIR/assets/darwin/go.zip
 
 rm -rf ./go
 rm -f darwin-go.zip go$GO_VER.darwin-amd64.tar.gz
@@ -48,7 +48,7 @@ rm -f ./pkg/tool/linux_amd64/tour
 rm -f ./pkg/tool/linux_amd64/test2json
 cd ..
 zip -r linux-go.zip ./go
-cp -vv linux-go.zip $REPO_DIR/server/assets/linux/go.zip
+cp -vv linux-go.zip $REPO_DIR/assets/linux/go.zip
 rm -rf ./go
 rm -f linux-go.zip go$GO_VER.linux-amd64.tar.gz
 
@@ -63,7 +63,7 @@ rm -f ./pkg/tool/windows_amd64/tour.exe
 rm -f ./pkg/tool/windows_amd64/test2json.exe
 cd ..
 zip -r windows-go.zip ./go
-cp -vv windows-go.zip $REPO_DIR/server/assets/windows/go.zip
+cp -vv windows-go.zip $REPO_DIR/assets/windows/go.zip
 rm -rf ./go
 rm -f windows-go.zip go$GO_VER.windows-amd64.zip
 
@@ -79,7 +79,7 @@ unzip $PROTOBUF_COMMIT.zip
 rm -f $PROTOBUF_COMMIT.zip
 mv protobuf-$PROTOBUF_COMMIT protobuf
 zip -r protobuf.zip ./protobuf
-cp -vv protobuf.zip $REPO_DIR/server/assets/protobuf.zip
+cp -vv protobuf.zip $REPO_DIR/assets/protobuf.zip
 
 # end
 echo -e "clean up: $WORK_DIR"

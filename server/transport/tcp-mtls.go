@@ -1,4 +1,4 @@
-package main
+package transport
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	pb "sliver/protobuf"
+	"sliver/server/core"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
@@ -19,7 +20,8 @@ const (
 	defaultServerCert = "hive"
 )
 
-func startMutualTLSListener(bindIface string, port uint16) (net.Listener, error) {
+// StartMutualTLSListener - Start a mutual TLS listener
+func StartMutualTLSListener(bindIface string, port uint16, sliversCertDir string) (net.Listener, error) {
 	log.Printf("Starting Raw TCP/TLS listener on %s:%d", bindIface, port)
 	hostCert := bindIface
 	if hostCert == "" {
@@ -52,16 +54,8 @@ func acceptConnections(ln net.Listener) {
 func handleSliverConnection(conn net.Conn) {
 	log.Printf("Accepted incoming connection: %s", conn.RemoteAddr())
 
-	// envelope, err := socketReadEnvelope(conn)
-	// if err != nil {
-	// 	log.Printf("Socket read error: %v", err)
-	// 	return
-	// }
-	// registerSliver := &pb.RegisterSliver{}
-	// proto.Unmarshal(envelope.Data, registerSliver)
-
-	sliver := &Sliver{
-		ID:            getHiveID(),
+	sliver := &core.Sliver{
+		ID:            core.GetHiveID(),
 		Transport:     "mtls",
 		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
 		Send:          make(chan *pb.Envelope),
@@ -69,20 +63,20 @@ func handleSliverConnection(conn net.Conn) {
 		Resp:          map[string]chan *pb.Envelope{},
 	}
 
-	hiveMutex.Lock()
-	(*hive)[sliver.ID] = sliver
-	hiveMutex.Unlock()
+	core.HiveMutex.Lock()
+	(*core.Hive)[sliver.ID] = sliver
+	core.HiveMutex.Unlock()
 
 	defer func() {
 		log.Printf("Cleaning up for %s", sliver.Name)
-		hiveMutex.Lock()
-		delete(*hive, sliver.ID)
-		hiveMutex.Unlock()
+		core.HiveMutex.Lock()
+		delete(*core.Hive, sliver.ID)
+		core.HiveMutex.Unlock()
 		conn.Close()
-		events <- Event{Sliver: sliver, EventType: "disconnected"}
+		events <- core.Event{Sliver: sliver, EventType: "disconnected"}
 	}()
 
-	events <- Event{Sliver: sliver, EventType: "connected"}
+	events <- core.Event{Sliver: sliver, EventType: "connected"}
 
 	go func() {
 		defer func() {

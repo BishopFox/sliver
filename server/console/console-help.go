@@ -1,4 +1,4 @@
-package main
+package console
 
 var (
 	cmdHelp = map[string]string{

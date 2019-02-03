@@ -9,10 +9,11 @@ sliver-server-macos.zip
 sliver-server-windows.zip
 
 # Large static assets
-server/assets/*.zip
-server/assets/darwin/*.zip
-server/assets/linux/*.zip
-server/assets/windows/*.zip
+assets/
+assets/*.zip
+assets/darwin/*.zip
+assets/linux/*.zip
+assets/windows/*.zip
 
 # Binaries for programs and plugins
 *.exe

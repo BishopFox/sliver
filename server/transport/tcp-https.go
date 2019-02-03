@@ -1,3 +1,3 @@
-package main
+package transport
 
 // TODO - Add HTTPS long-polling support

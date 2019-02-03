@@ -1,4 +1,4 @@
-package main
+package console
 
 import (
 	"bufio"
@@ -17,6 +17,8 @@ import (
 
 	"github.com/desertbit/grumble"
 	"github.com/fatih/color"
+
+	"sliver/server/core"
 )
 
 const (
@@ -56,14 +58,12 @@ const (
 )
 
 var (
-	activeSliver *Sliver
-
-	events = make(chan Event, 64)
-
-	cmdTimeout = 10 * time.Second
+	activeSliver *core.Sliver
+	cmdTimeout   = 10 * time.Second
 )
 
-func startConsole() {
+// Start - Starts the main server console
+func Start() {
 
 	sliverApp := grumble.New(&grumble.Config{
 		Name:                  "sliver",
@@ -98,10 +98,10 @@ func startConsole() {
 			hiveMutex.Unlock()
 		}
 
-		close(events) // Cleanup eventLoop()
+		close(core.Events) // Cleanup eventLoop()
 	}()
 
-	go eventLoop(sliverApp, events)
+	go eventLoop(sliverApp, core.Events)
 
 	err := sliverApp.Run()
 	if err != nil {
@@ -109,7 +109,7 @@ func startConsole() {
 	}
 }
 
-func eventLoop(sliverApp *grumble.App, events chan Event) {
+func eventLoop(sliverApp *grumble.App, events chan core.Event) {
 	stdout := bufio.NewWriter(os.Stdout)
 	for event := range events {
 		sliver := event.Sliver
@@ -476,7 +476,7 @@ func getPrompt() string {
 	return prompt
 }
 
-func getSliver(name string) *Sliver {
+func getSliver(name string) *core.Sliver {
 	id, err := strconv.Atoi(name)
 	name = strings.ToUpper(name)
 	hiveMutex.Lock()

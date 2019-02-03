@@ -1,9 +1,10 @@
-package main
+package console
 
 import (
 	"fmt"
 	"log"
 	"os"
+	"sliver/server/core"
 	"strings"
 	"text/tabwriter"
 
@@ -69,7 +70,7 @@ func jobStartMTLSListener(bindIface string, port uint16) (int, error) {
 		return -1, err // If we fail to bind don't setup the Job
 	}
 
-	job := &Job{
+	job := &core.Job{
 		ID:          getJobID(),
 		Name:        "mTLS",
 		Description: "mutual tls",

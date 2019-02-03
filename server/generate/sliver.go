@@ -1,4 +1,4 @@
-package main
+package generate
 
 import (
 	"crypto/rand"
@@ -9,6 +9,8 @@ import (
 	"log"
 	"os"
 	"path"
+	"sliver/server/assets"
+	"sliver/server/certs"
 	gobfuscate "sliver/server/gobfuscate"
 	gogo "sliver/server/gogo"
 	"text/template"
@@ -47,7 +49,7 @@ type SliverConfig struct {
 
 // GetSliversDir - Get the binary directory
 func GetSliversDir() string {
-	appDir := GetRootAppDir()
+	appDir := assets.GetRootAppDir()
 	sliversDir := path.Join(appDir, sliversDirName)
 	if _, err := os.Stat(sliversDir); os.IsNotExist(err) {
 		log.Printf("Creating bin directory: %s", sliversDir)
@@ -81,8 +83,9 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	log.Printf("Generating new sliver binary '%s'", config.Name)
 
 	// Cert PEM encoded certificates
-	caCert, _, _ := GetCertificateAuthorityPEM(sliversCertDir)
-	sliverCert, sliverKey := GenerateSliverCertificate(config.Name, true)
+	rootDir := assets.GetRootAppDir()
+	caCert, _, _ := certs.GetCertificateAuthorityPEM(rootDir, certs.SliversCertDir)
+	sliverCert, sliverKey := certs.GenerateSliverCertificate(rootDir, config.Name, true)
 	config.CACert = string(caCert)
 	config.Cert = string(sliverCert)
 	config.Key = string(sliverKey)
@@ -99,7 +102,7 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 
 	// srcDir - ~/.sliver/slivers/<os>/<arch>/<name>/src
 	srcDir := path.Join(projectGoPathDir, "src")
-	SetupGoPath(srcDir) // Extract GOPATH dependancy files
+	assets.SetupGoPath(srcDir) // Extract GOPATH dependancy files
 
 	sliverPkgDir := path.Join(srcDir, "sliver") // "main"
 	os.MkdirAll(sliverPkgDir, os.ModePerm)
@@ -139,7 +142,7 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	}
 
 	// Compile go code
-	appDir := GetRootAppDir()
+	appDir := assets.GetRootAppDir()
 	goConfig := gogo.GoConfig{
 		GOOS:   goos,
 		GOARCH: goarch,

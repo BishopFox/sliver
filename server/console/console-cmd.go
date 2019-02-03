@@ -1,4 +1,4 @@
-package main
+package console
 
 import (
 	"bytes"
@@ -8,6 +8,8 @@ import (
 	"path"
 	"path/filepath"
 	pb "sliver/protobuf"
+	"sliver/server/core"
+	gen "sliver/server/generate"
 	"sliver/server/msf"
 	"sort"
 	"strconv"
@@ -82,7 +84,7 @@ func sessionsCmd(ctx *grumble.Context) {
 		return
 	}
 
-	if 0 < len(*hive) {
+	if 0 < len(*core.Hive) {
 		printSlivers()
 	} else {
 		fmt.Println("\n" + Info + "No slivers connected\n")
@@ -118,19 +120,19 @@ func printSlivers() {
 		strings.Repeat("=", len("Remote Address")),
 		strings.Repeat("=", len("Username")),
 		strings.Repeat("=", len("Operating System")))
-	hiveMutex.Lock()
-	defer hiveMutex.Unlock()
+	core.HiveMutex.Lock()
+	defer core.HiveMutex.Unlock()
 
 	// Sort the keys becuase maps have a randomized order
 	var keys []int
-	for _, sliver := range *hive {
+	for _, sliver := range *core.Hive {
 		keys = append(keys, sliver.ID)
 	}
 	sort.Ints(keys)
 
 	activeIndex := -1
 	for index, key := range keys {
-		sliver := (*hive)[key]
+		sliver := (*core.Hive)[key]
 		if activeSliver != nil && activeSliver.ID == sliver.ID {
 			activeIndex = index + 3 // Two lines for the headers
 		}
@@ -155,7 +157,7 @@ func printSlivers() {
 }
 
 func killCmd(ctx *grumble.Context) {
-	var sliver *Sliver
+	var sliver *core.Sliver
 	if activeSliver != nil {
 		sliver = getSliver(strconv.Itoa(activeSliver.ID))
 	} else if 0 < len(ctx.Args) {
@@ -163,7 +165,7 @@ func killCmd(ctx *grumble.Context) {
 	}
 	if sliver != nil {
 		fmt.Printf("\n"+Info+"Killing sliver %s (%d)", sliver.Name, sliver.ID)
-		data, _ := proto.Marshal(&pb.KillReq{Id: randomID()})
+		data, _ := proto.Marshal(&pb.KillReq{Id: core.RandomID()})
 		(*sliver).Send <- &pb.Envelope{
 			Type: pb.MsgKill,
 			Data: data,
@@ -172,7 +174,7 @@ func killCmd(ctx *grumble.Context) {
 }
 
 func infoCmd(ctx *grumble.Context) {
-	var sliver *Sliver
+	var sliver *core.Sliver
 	if activeSliver != nil {
 		sliver = getSliver(strconv.Itoa(activeSliver.ID))
 	} else if 0 < len(ctx.Args) {
@@ -239,7 +241,7 @@ func generateCmd(ctx *grumble.Context) {
 	}
 
 	fmt.Printf("\n"+Info+"Generating new %s/%s sliver binary, please wait ... \n", targetOS, arch)
-	path, err := GenerateImplantBinary(targetOS, arch, lhost, uint16(lport), dnsParent, debug)
+	path, err := gen.GenerateImplantBinary(targetOS, arch, lhost, uint16(lport), dnsParent, debug)
 	if err != nil {
 		fmt.Printf(Warn+"Error generating sliver: %v\n", err)
 	}

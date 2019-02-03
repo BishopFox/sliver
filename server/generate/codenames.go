@@ -1,4 +1,4 @@
-package main
+package generate
 
 import (
 	"bufio"
@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"path"
+	"sliver/server/assets"
 	"strings"
 	"time"
 )
@@ -35,7 +36,7 @@ func readlines(path string) []string {
 // getRandomAdjective - Get a random noun, not cryptographically secure
 func getRandomAdjective() string {
 	rand.Seed(time.Now().UnixNano())
-	appDir := GetRootAppDir()
+	appDir := assets.GetRootAppDir()
 	words := readlines(path.Join(appDir, "adjectives.txt"))
 	word := words[rand.Intn(len(words)-1)]
 	return strings.TrimSpace(word)
@@ -44,7 +45,7 @@ func getRandomAdjective() string {
 // getRandomNoun - Get a random noun, not cryptographically secure
 func getRandomNoun() string {
 	rand.Seed(time.Now().Unix())
-	appDir := GetRootAppDir()
+	appDir := assets.GetRootAppDir()
 	words := readlines(path.Join(appDir, "nouns.txt"))
 	word := words[rand.Intn(len(words)-1)]
 	return strings.TrimSpace(word)

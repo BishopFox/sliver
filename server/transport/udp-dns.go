@@ -1,4 +1,4 @@
-package main
+package transport
 
 /*
 	DNS Tunnel Implementation
@@ -20,6 +20,7 @@ import (
 	"log"
 	insecureRand "math/rand"
 	pb "sliver/protobuf"
+	"sliver/server/core"
 	"sliver/server/cryptography"
 	"strconv"
 	"strings"
@@ -72,7 +73,7 @@ type SendBlock struct {
 // DNSSession - Holds DNS session information
 type DNSSession struct {
 	ID          string
-	Sliver      *Sliver
+	Sliver      *core.Sliver
 	Key         cryptography.AESKey
 	LastCheckin time.Time
 	replay      map[string]bool // Sessions are mutex'd
