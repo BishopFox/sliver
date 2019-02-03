@@ -10,7 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	pb "sliver/protobuf"
+	pb "sliver/protobuf/sliver"
 	"strconv"
 	"strings"
 	"time"
@@ -18,8 +18,8 @@ import (
 	"github.com/desertbit/grumble"
 	"github.com/fatih/color"
 
-	"sliver/server/core"
 	"sliver/server/assets"
+	"sliver/server/core"
 	"sliver/server/generate"
 )
 
@@ -35,6 +35,10 @@ const (
 	jobsStr = "jobs"
 	mtlsStr = "mtls"
 	dnsStr  = "dns"
+
+	newPlayerStr  = "new"
+	kickPlayerStr = "kick"
+	listPlayerStr = "players"
 
 	msfStr    = "msf"
 	injectStr = "inject"
@@ -183,6 +187,47 @@ func cmdInit(sliverApp *grumble.App) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			startDNSListenerCmd(ctx)
+			return nil
+		},
+	})
+
+	// [ Multiplayer ] -----------------------------------------------------------------
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: newPlayerStr,
+		Help: getHelpFor(newPlayerStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("o", "os", generate.WINDOWS, "operating system")
+			f.String("a", "arch", "amd64", "cpu architecture")
+			f.String("h", "lhost", "", "listen host")
+			f.Int("l", "lport", 8888, "listen port")
+			f.Bool("d", "debug", false, "enable debug features")
+			f.String("s", "save", "", "directory/file to the binary to")
+			f.String("n", "operator", "", "operator name")
+		},
+		Run: func(ctx *grumble.Context) error {
+			newPlayerCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: listPlayerStr,
+		Help: getHelpFor(listPlayerStr),
+		Run: func(ctx *grumble.Context) error {
+			listPlayersCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: kickPlayerStr,
+		Help: getHelpFor(kickPlayerStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("o", "operator", "", "operator name")
+		},
+		Run: func(ctx *grumble.Context) error {
+			kickPlayerCmd(ctx)
 			return nil
 		},
 	})

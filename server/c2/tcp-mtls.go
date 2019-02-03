@@ -1,7 +1,6 @@
-package transport
+package c2
 
 import (
-	"sliver/server/assets"
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
@@ -9,7 +8,8 @@ import (
 	"fmt"
 	"log"
 	"net"
-	pb "sliver/protobuf"
+	pb "sliver/protobuf/sliver"
+	"sliver/server/assets"
 	"sliver/server/core"
 	"sync"
 
@@ -22,8 +22,6 @@ import (
 const (
 	// defaultServerCert - Default certificate name if bind is "" (all interfaces)
 	defaultServerCert = "hive"
-
-	readBufSize = 1024
 )
 
 // StartMutualTLSListener - Start a mutual TLS listener
@@ -39,11 +37,11 @@ func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error)
 		log.Println(err)
 		return nil, err
 	}
-	go acceptConnections(ln)
+	go acceptSliverConnections(ln)
 	return ln, nil
 }
 
-func acceptConnections(ln net.Listener) {
+func acceptSliverConnections(ln net.Listener) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -99,7 +97,7 @@ func handleSliverConnection(conn net.Conn) {
 			core.HiveMutex.Unlock()
 		}()
 
-		handlers := serverHandlers.GetServerHandlers()
+		handlers := serverHandlers.GetSliverHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err != nil {

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	pb "sliver/protobuf"
+	pb "sliver/protobuf/sliver"
 	"sliver/server/core"
 	"sliver/server/encoders"
 	gen "sliver/server/generate"
@@ -243,7 +243,7 @@ func generateCmd(ctx *grumble.Context) {
 	}
 
 	fmt.Printf("\n"+Info+"Generating new %s/%s sliver binary, please wait ... \n", targetOS, arch)
-	path, err := gen.GenerateImplantBinary(targetOS, arch, lhost, uint16(lport), dnsParent, debug)
+	path, err := gen.ImplantBinary(targetOS, arch, lhost, uint16(lport), dnsParent, debug)
 	if err != nil {
 		fmt.Printf(Warn+"Error generating sliver: %v\n", err)
 	}

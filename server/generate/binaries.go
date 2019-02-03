@@ -28,6 +28,7 @@ const (
 	// LINUX OS
 	LINUX = "linux"
 
+	clientsDirName = "clients"
 	sliversDirName = "slivers"
 
 	encryptKeySize = 16
@@ -61,8 +62,8 @@ func GetSliversDir() string {
 	return sliversDir
 }
 
-// GenerateImplantBinary - Generates a binary - TODO: This should probably just accept a SliverConfig{}
-func GenerateImplantBinary(goos string, goarch string, server string, lport uint16, dnsParent string, debug bool) (string, error) {
+// ImplantBinary - Generates a binary - TODO: This should probably just accept a SliverConfig{}
+func ImplantBinary(goos string, goarch string, server string, lport uint16, dnsParent string, debug bool) (string, error) {
 
 	goos = path.Base(goos)
 	goarch = path.Base(goarch)

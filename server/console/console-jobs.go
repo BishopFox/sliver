@@ -1,13 +1,13 @@
 package console
 
 import (
-	"sliver/server/assets"
 	"fmt"
 	"log"
 	"os"
-	"sliver/server/core"
+	"sliver/server/assets"
+	"sliver/server/c2"
 	"sliver/server/certs"
-	"sliver/server/transport"
+	"sliver/server/core"
 	"strings"
 	"text/tabwriter"
 
@@ -68,7 +68,7 @@ func startMTLSListenerCmd(ctx *grumble.Context) {
 
 func jobStartMTLSListener(bindIface string, port uint16) (int, error) {
 
-	ln, err := transport.StartMutualTLSListener(bindIface, port)
+	ln, err := c2.StartMutualTLSListener(bindIface, port)
 	if err != nil {
 		return -1, err // If we fail to bind don't setup the Job
 	}
@@ -117,7 +117,7 @@ func startDNSListenerCmd(ctx *grumble.Context) {
 func jobStartDNSListener(domain string) (int, error) {
 	rootDir := assets.GetRootAppDir()
 	certs.GetServerRSACertificatePEM(rootDir, "slivers", domain, true)
-	server := transport.StartDNSListener(domain)
+	server := c2.StartDNSListener(domain)
 
 	job := &core.Job{
 		ID:          core.GetJobID(),

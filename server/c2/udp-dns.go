@@ -1,14 +1,14 @@
-package transport
+package c2
 
 /*
 	DNS Tunnel Implementation
 */
 
 import (
-	"sliver/server/assets"
 	"crypto/sha256"
 	"crypto/x509"
 	"math"
+	"sliver/server/assets"
 	"sort"
 
 	"encoding/base32"
@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"log"
 	insecureRand "math/rand"
-	pb "sliver/protobuf"
+	pb "sliver/protobuf/sliver"
 	"sliver/server/certs"
 	"sliver/server/core"
 	"sliver/server/cryptography"
@@ -48,8 +48,7 @@ const (
 
 	// Max TXT record is 255, records are b64 so (n*8 + 5) / 6 = ~250
 	byteBlockSize = 185 // Can be as high as n = 187, but we'll leave some slop
-
-	blockIDSize = 6
+	blockIDSize   = 6
 )
 
 var (
@@ -409,7 +408,7 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 		log.Printf("Envelope Type = %#v RespID = %#v", envelope.Type, envelope.Id)
 
 		// Response Envelope or Handler
-		handlers := serverHandlers.GetServerHandlers()
+		handlers := serverHandlers.GetSliverHandlers()
 		if envelope.Id != "" {
 			dnsSession.Sliver.RespMutex.Lock()
 			defer dnsSession.Sliver.RespMutex.Unlock()

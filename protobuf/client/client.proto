@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package clientpb;
+
+message Envelope {
+    string type = 1; // Message type
+    bytes data = 2;  // Actual message data
+    string id = 3;   // Resp ID
+  }
+  

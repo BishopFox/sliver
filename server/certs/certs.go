@@ -25,6 +25,7 @@ const (
 	CertsDirName   = "certs"
 	SliversCertDir = "slivers"
 	ServersCertDir = "servers"
+	ClientsCertDir = "clients"
 )
 
 // -------------------
@@ -32,10 +33,19 @@ const (
 // -------------------
 
 // GenerateSliverCertificate - Generate a certificate signed with a given CA
-func GenerateSliverCertificate(rootDir string, host string, save bool) ([]byte, []byte) {
-	cert, key := GenerateCertificate(rootDir, host, SliversCertDir, false, true)
+func GenerateSliverCertificate(rootDir string, sliverName string, save bool) ([]byte, []byte) {
+	cert, key := GenerateCertificate(rootDir, sliverName, SliversCertDir, false, true)
 	if save {
-		SaveCertificate(rootDir, SliversCertDir, host, cert, key)
+		SaveCertificate(rootDir, SliversCertDir, sliverName, cert, key)
+	}
+	return cert, key
+}
+
+// GenerateClientCertificate - Generate a certificate signed with a given CA
+func GenerateClientCertificate(rootDir string, operator string, save bool) ([]byte, []byte) {
+	cert, key := GenerateCertificate(rootDir, operator, ClientsCertDir, false, true)
+	if save {
+		SaveCertificate(rootDir, ClientsCertDir, operator, cert, key)
 	}
 	return cert, key
 }

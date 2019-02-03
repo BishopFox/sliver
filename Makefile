@@ -53,7 +53,8 @@ static-linux: clean pb packr
 .PHONY: pb
 pb:
 	go install ./vendor/github.com/golang/protobuf/protoc-gen-go
-	protoc -I protobuf/ protobuf/sliver.proto --go_out=protobuf/
+	protoc -I protobuf/ protobuf/sliver/sliver.proto --go_out=protobuf/
+	protoc -I protobuf/ protobuf/client/client.proto --go_out=protobuf/
 
 .PHONY: packr
 packr:
@@ -71,5 +72,6 @@ clean-all: clean
 .PHONY: clean
 clean:
 	packr clean
-	rm -f ./protobuf/*.pb.go
+	rm -f ./protobuf/client/*.pb.go
+	rm -f ./protobuf/sliver/*.pb.go
 	rm -f sliver-server *.exe

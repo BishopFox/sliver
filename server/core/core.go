@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	pb "sliver/protobuf"
+	pb "sliver/protobuf/sliver"
 )
 
 const (
