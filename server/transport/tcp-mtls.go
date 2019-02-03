@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"sliver/server/assets"
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
@@ -12,22 +13,27 @@ import (
 	"sliver/server/core"
 	"sync"
 
+	"sliver/server/certs"
+	serverHandlers "sliver/server/handlers"
+
 	"github.com/golang/protobuf/proto"
 )
 
 const (
 	// defaultServerCert - Default certificate name if bind is "" (all interfaces)
 	defaultServerCert = "hive"
+
+	readBufSize = 1024
 )
 
 // StartMutualTLSListener - Start a mutual TLS listener
-func StartMutualTLSListener(bindIface string, port uint16, sliversCertDir string) (net.Listener, error) {
+func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error) {
 	log.Printf("Starting Raw TCP/TLS listener on %s:%d", bindIface, port)
 	hostCert := bindIface
 	if hostCert == "" {
 		hostCert = defaultServerCert
 	}
-	tlsConfig := getServerTLSConfig(sliversCertDir, hostCert)
+	tlsConfig := getServerTLSConfig(certs.SliversCertDir, hostCert)
 	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", bindIface, port), tlsConfig)
 	if err != nil {
 		log.Println(err)
@@ -73,10 +79,10 @@ func handleSliverConnection(conn net.Conn) {
 		delete(*core.Hive, sliver.ID)
 		core.HiveMutex.Unlock()
 		conn.Close()
-		events <- core.Event{Sliver: sliver, EventType: "disconnected"}
+		core.Events <- core.Event{Sliver: sliver, EventType: "disconnected"}
 	}()
 
-	events <- core.Event{Sliver: sliver, EventType: "connected"}
+	core.Events <- core.Event{Sliver: sliver, EventType: "connected"}
 
 	go func() {
 		defer func() {
@@ -87,15 +93,15 @@ func handleSliverConnection(conn net.Conn) {
 				close(resp)
 			}
 
-			hiveMutex.Lock()
-			if _, ok := (*hive)[sliver.ID]; ok {
-				delete(*hive, sliver.ID)
+			core.HiveMutex.Lock()
+			if _, ok := (*core.Hive)[sliver.ID]; ok {
+				delete(*core.Hive, sliver.ID)
 				close(sliver.Send)
 			}
-			hiveMutex.Unlock()
+			core.HiveMutex.Unlock()
 		}()
 
-		handlers := getServerHandlers()
+		handlers := serverHandlers.GetServerHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err != nil {
@@ -109,7 +115,7 @@ func handleSliverConnection(conn net.Conn) {
 				}
 				sliver.RespMutex.Unlock()
 			} else if handler, ok := handlers[envelope.Type]; ok {
-				go handler.(func(*Sliver, []byte))(sliver, envelope.Data)
+				go handler.(func(*core.Sliver, []byte))(sliver, envelope.Data)
 			}
 		}
 	}()
@@ -192,14 +198,17 @@ func socketReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 // getServerTLSConfig - Generate the TLS configuration, we do now allow the end user
 // to specify any TLS paramters, we choose sensible defaults instead
 func getServerTLSConfig(caType string, host string) *tls.Config {
-	caCertPtr, _, err := GetCertificateAuthority(caType)
+
+	rootDir := assets.GetRootAppDir()
+
+	caCertPtr, _, err := certs.GetCertificateAuthority(rootDir, caType)
 	if err != nil {
 		log.Fatalf("Invalid ca type (%s): %v", caType, host)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AddCert(caCertPtr)
 
-	certPEM, keyPEM, _ := GetServerCertificatePEM(caType, host, true)
+	certPEM, keyPEM, _ := certs.GetServerCertificatePEM(rootDir, caType, host, true)
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		log.Fatalf("Error loading server certificate: %v", err)

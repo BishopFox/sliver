@@ -5,6 +5,7 @@ package transport
 */
 
 import (
+	"sliver/server/assets"
 	"crypto/sha256"
 	"crypto/x509"
 	"math"
@@ -20,12 +21,15 @@ import (
 	"log"
 	insecureRand "math/rand"
 	pb "sliver/protobuf"
+	"sliver/server/certs"
 	"sliver/server/core"
 	"sliver/server/cryptography"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	serverHandlers "sliver/server/handlers"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/miekg/dns"
@@ -92,7 +96,8 @@ func (s *DNSSession) isReplayAttack(ciphertext []byte) bool {
 
 // --------------------------- DNS SERVER ---------------------------
 
-func startDNSListener(domain string) *dns.Server {
+// StartDNSListener - Start a DNS listener
+func StartDNSListener(domain string) *dns.Server {
 
 	log.Printf("Starting DNS listener for '%s' ...", domain)
 
@@ -304,7 +309,8 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		return []string{"1"}, err
 	}
 
-	publicKeyPEM, privateKeyPEM, err := GetServerRSACertificatePEM("slivers", domain, false)
+	rootDir := assets.GetRootAppDir()
+	publicKeyPEM, privateKeyPEM, err := certs.GetServerRSACertificatePEM(rootDir, "slivers", domain, false)
 	if err != nil {
 		log.Printf("Failed to fetch rsa private key")
 		return []string{"1"}, err
@@ -325,17 +331,17 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 
 	log.Printf("Received new session in request")
 
-	sliver := &Sliver{
-		ID:            getHiveID(),
+	sliver := &core.Sliver{
+		ID:            core.GetHiveID(),
 		Transport:     "dns",
 		RemoteAddress: "n/a",
 		Send:          make(chan *pb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[string]chan *pb.Envelope{},
 	}
-	hiveMutex.Lock()
-	(*hive)[sliver.ID] = sliver
-	hiveMutex.Unlock()
+	core.HiveMutex.Lock()
+	(*core.Hive)[sliver.ID] = sliver
+	core.HiveMutex.Unlock()
 
 	aesKey, _ := cryptography.AESKeyFromBytes(sessionInit.Key)
 	sessionID := dnsSessionID()
@@ -403,7 +409,7 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 		log.Printf("Envelope Type = %#v RespID = %#v", envelope.Type, envelope.Id)
 
 		// Response Envelope or Handler
-		handlers := getServerHandlers()
+		handlers := serverHandlers.GetServerHandlers()
 		if envelope.Id != "" {
 			dnsSession.Sliver.RespMutex.Lock()
 			defer dnsSession.Sliver.RespMutex.Unlock()
@@ -411,7 +417,7 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 				resp <- envelope
 			}
 		} else if handler, ok := handlers[envelope.Type]; ok {
-			handler.(func(*Sliver, []byte))(dnsSession.Sliver, envelope.Data)
+			handler.(func(*core.Sliver, []byte))(dnsSession.Sliver, envelope.Data)
 		}
 		return []string{"0"}, nil
 	}
@@ -470,7 +476,8 @@ func dnsSegment(fields []string) ([]string, error) {
 }
 
 func getDomainKeyFor(domain string) ([]string, error) {
-	certPEM, _, _ := GetServerRSACertificatePEM("slivers", domain, false)
+	rootDir := assets.GetRootAppDir()
+	certPEM, _, _ := certs.GetServerRSACertificatePEM(rootDir, "slivers", domain, false)
 	return dnsSendOnce(certPEM)
 }
 

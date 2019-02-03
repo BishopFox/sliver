@@ -1,10 +1,13 @@
 package console
 
 import (
+	"sliver/server/assets"
 	"fmt"
 	"log"
 	"os"
 	"sliver/server/core"
+	"sliver/server/certs"
+	"sliver/server/transport"
 	"strings"
 	"text/tabwriter"
 
@@ -13,14 +16,14 @@ import (
 
 func jobsCmd(ctx *grumble.Context) {
 
-	if len(*jobs) < 1 {
+	if len(*core.Jobs) < 1 {
 		fmt.Println("\n" + Info + "No jobs runnning\n")
 		return
 	}
 
 	killID := ctx.Flags.Int("kill")
 	if killID != -1 {
-		if job, ok := (*jobs)[killID]; ok {
+		if job, ok := (*core.Jobs)[killID]; ok {
 			fmt.Printf("\n"+Warn+"Killing job #%d\n\n", killID)
 			job.JobCtrl <- true
 		} else {
@@ -42,7 +45,7 @@ func printJobs() {
 		strings.Repeat("=", len("Protocol")),
 		strings.Repeat("=", len("Port")))
 
-	for ID, job := range *jobs {
+	for ID, job := range *core.Jobs {
 		fmt.Fprintf(table, "%d\t%s\t%s\t%d\t\n", ID, job.Name, job.Protocol, job.Port)
 	}
 	table.Flush()
@@ -65,13 +68,13 @@ func startMTLSListenerCmd(ctx *grumble.Context) {
 
 func jobStartMTLSListener(bindIface string, port uint16) (int, error) {
 
-	ln, err := startMutualTLSListener(bindIface, port)
+	ln, err := transport.StartMutualTLSListener(bindIface, port)
 	if err != nil {
 		return -1, err // If we fail to bind don't setup the Job
 	}
 
 	job := &core.Job{
-		ID:          getJobID(),
+		ID:          core.GetJobID(),
 		Name:        "mTLS",
 		Description: "mutual tls",
 		Protocol:    "tcp",
@@ -84,16 +87,16 @@ func jobStartMTLSListener(bindIface string, port uint16) (int, error) {
 		log.Printf("Stopping mTLS listener (%d) ...", job.ID)
 		ln.Close() // Kills listener GoRoutines in startMutualTLSListener() but NOT connections
 
-		jobMutex.Lock()
-		delete(*jobs, job.ID)
-		jobMutex.Unlock()
+		core.JobMutex.Lock()
+		delete(*core.Jobs, job.ID)
+		core.JobMutex.Unlock()
 
-		events <- Event{EventType: "stopped", Job: job}
+		core.Events <- core.Event{EventType: "stopped", Job: job}
 	}()
 
-	jobMutex.Lock()
-	(*jobs)[job.ID] = job
-	jobMutex.Unlock()
+	core.JobMutex.Lock()
+	(*core.Jobs)[job.ID] = job
+	core.JobMutex.Unlock()
 
 	return job.ID, nil
 }
@@ -112,11 +115,12 @@ func startDNSListenerCmd(ctx *grumble.Context) {
 }
 
 func jobStartDNSListener(domain string) (int, error) {
-	GetServerRSACertificatePEM("slivers", domain, true)
-	server := startDNSListener(domain)
+	rootDir := assets.GetRootAppDir()
+	certs.GetServerRSACertificatePEM(rootDir, "slivers", domain, true)
+	server := transport.StartDNSListener(domain)
 
-	job := &Job{
-		ID:          getJobID(),
+	job := &core.Job{
+		ID:          core.GetJobID(),
 		Name:        "dns",
 		Description: domain,
 		Protocol:    "udp",
@@ -129,16 +133,16 @@ func jobStartDNSListener(domain string) (int, error) {
 		log.Printf("Stopping DNS listener (%d) ...", job.ID)
 		server.Shutdown()
 
-		jobMutex.Lock()
-		delete(*jobs, job.ID)
-		jobMutex.Unlock()
+		core.JobMutex.Lock()
+		delete(*core.Jobs, job.ID)
+		core.JobMutex.Unlock()
 
-		events <- Event{EventType: "stopped", Job: job}
+		core.Events <- core.Event{EventType: "stopped", Job: job}
 	}()
 
-	jobMutex.Lock()
-	(*jobs)[job.ID] = job
-	jobMutex.Unlock()
+	core.JobMutex.Lock()
+	(*core.Jobs)[job.ID] = job
+	core.JobMutex.Unlock()
 
 	// There is no way to call ListenAndServe() without blocking
 	// but we also need to check the error in the case the server

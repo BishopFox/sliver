@@ -9,8 +9,10 @@ import (
 	"path/filepath"
 	pb "sliver/protobuf"
 	"sliver/server/core"
+	"sliver/server/encoders"
 	gen "sliver/server/generate"
 	"sliver/server/msf"
+	"sliver/server/util"
 	"sort"
 	"strconv"
 	"strings"
@@ -258,7 +260,7 @@ func generateCmd(ctx *grumble.Context) {
 			filename := filepath.Base(path)
 			saveTo = filepath.Join(saveTo, filename)
 		}
-		err = copyFileContents(path, saveTo)
+		err = util.CopyFileContents(path, saveTo)
 		if err != nil {
 			fmt.Printf(Warn+"Failed to write to %s\n\n", saveTo)
 			return
@@ -377,7 +379,7 @@ func psCmd(ctx *grumble.Context) {
 
 	fmt.Printf("\n"+Info+"Requesting process list from %s ...\n", activeSliver.Name)
 
-	reqID := randomID()
+	reqID := core.RandomID()
 	data, _ := proto.Marshal(&pb.ProcessListReq{Id: reqID})
 	envelope, err := activeSliverRequest(pb.MsgPsListReq, reqID, data)
 	if err != nil {
@@ -453,7 +455,7 @@ func printProcInfo(table *tabwriter.Writer, proc *pb.Process) string {
 }
 
 func pingCmd(ctx *grumble.Context) {
-	var sliver *Sliver
+	var sliver *core.Sliver
 	if activeSliver != nil {
 		sliver = getSliver(strconv.Itoa(activeSliver.ID))
 	} else if 0 < len(ctx.Args) {
@@ -464,7 +466,7 @@ func pingCmd(ctx *grumble.Context) {
 		return
 	}
 
-	reqID := randomID()
+	reqID := core.RandomID()
 	data, _ := proto.Marshal(&pb.Ping{Id: reqID})
 	envelope, err := activeSliverRequest(pb.MsgPing, reqID, data)
 	if err != nil {
@@ -492,7 +494,7 @@ func lsCmd(ctx *grumble.Context) {
 		ctx.Args = append(ctx.Args, ".")
 	}
 
-	reqID := randomID()
+	reqID := core.RandomID()
 	data, _ := proto.Marshal(&pb.DirListReq{
 		Id:   reqID,
 		Path: ctx.Args[0],
@@ -543,7 +545,7 @@ func rmCmd(ctx *grumble.Context) {
 		return
 	}
 
-	reqID := randomID()
+	reqID := core.RandomID()
 	data, _ := proto.Marshal(&pb.RmReq{
 		Id:   reqID,
 		Path: ctx.Args[0],
@@ -575,7 +577,7 @@ func mkdirCmd(ctx *grumble.Context) {
 		return
 	}
 
-	reqID := randomID()
+	reqID := core.RandomID()
 	data, _ := proto.Marshal(&pb.MkdirReq{
 		Id:   reqID,
 		Path: ctx.Args[0],
@@ -609,7 +611,7 @@ func cdCmd(ctx *grumble.Context) {
 		return
 	}
 
-	reqID := randomID()
+	reqID := core.RandomID()
 	data, _ := proto.Marshal(&pb.CdReq{
 		Id:   reqID,
 		Path: ctx.Args[0],
@@ -640,7 +642,7 @@ func pwdCmd(ctx *grumble.Context) {
 		return
 	}
 
-	reqID := randomID()
+	reqID := core.RandomID()
 	data, _ := proto.Marshal(&pb.PwdReq{Id: reqID})
 	envelope, err := activeSliverRequest(pb.MsgPwdReq, reqID, data)
 	if err != nil {
@@ -744,7 +746,7 @@ func downloadCmd(ctx *grumble.Context) {
 
 // Reusable download function (e.g. cat / download commands)
 func activeSliverDownload(filePath string) ([]byte, error) {
-	reqID := randomID()
+	reqID := core.RandomID()
 	data, _ := proto.Marshal(&pb.DownloadReq{
 		Id:   reqID,
 		Path: filePath,
@@ -762,7 +764,7 @@ func activeSliverDownload(filePath string) ([]byte, error) {
 		return []byte{}, fmt.Errorf("Remote file does not exist '%s'", download.Path)
 	}
 	if download.Encoder == "gzip" {
-		return gzipRead(download.Data)
+		return encoders.GzipRead(download.Data)
 	}
 	return download.Data, nil
 }
@@ -792,9 +794,9 @@ func uploadCmd(ctx *grumble.Context) {
 
 	fileBuf, err := ioutil.ReadFile(src)
 	uploadGzip := bytes.NewBuffer([]byte{})
-	gzipWrite(uploadGzip, fileBuf)
+	encoders.GzipWrite(uploadGzip, fileBuf)
 
-	reqID := randomID()
+	reqID := core.RandomID()
 	data, _ := proto.Marshal(&pb.UploadReq{
 		Id:      reqID,
 		Path:    ctx.Args[1],
@@ -835,7 +837,7 @@ func procdumpCmd(ctx *grumble.Context) {
 		fmt.Printf("\n" + Warn + "Please provide a valid PID\n")
 		return
 	}
-	reqID := randomID()
+	reqID := core.RandomID()
 	data, _ := proto.Marshal(&pb.ProcessDumpReq{
 		Id:  reqID,
 		Pid: int32(pid),

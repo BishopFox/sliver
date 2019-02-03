@@ -1,4 +1,4 @@
-package main
+package encoders
 
 import (
 	"bytes"
@@ -6,15 +6,14 @@ import (
 	"io"
 )
 
-// ---------------- Data Encoders ----------------
-func gzipWrite(w io.Writer, data []byte) error {
+func GzipWrite(w io.Writer, data []byte) error {
 	gw, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
 	defer gw.Close()
 	gw.Write(data)
 	return err
 }
 
-func gzipRead(data []byte) ([]byte, error) {
+func GzipRead(data []byte) ([]byte, error) {
 	bytes.NewReader(data)
 	reader, _ := gzip.NewReader(bytes.NewReader(data))
 	var buf bytes.Buffer

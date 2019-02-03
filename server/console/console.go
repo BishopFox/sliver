@@ -19,6 +19,8 @@ import (
 	"github.com/fatih/color"
 
 	"sliver/server/core"
+	"sliver/server/assets"
+	"sliver/server/generate"
 )
 
 const (
@@ -68,7 +70,7 @@ func Start() {
 	sliverApp := grumble.New(&grumble.Config{
 		Name:                  "sliver",
 		Description:           "Bishop Fox - Sliver",
-		HistoryFile:           path.Join(GetRootAppDir(), "history"),
+		HistoryFile:           path.Join(assets.GetRootAppDir(), "history"),
 		Prompt:                getPrompt(),
 		PromptColor:           color.New(),
 		HelpHeadlineColor:     color.New(),
@@ -81,21 +83,21 @@ func Start() {
 	defer func() {
 
 		// Cleanup "Jobs" i.e. listeners
-		jobMutex.Lock()
-		for ID, job := range *jobs {
+		core.JobMutex.Lock()
+		for ID, job := range *core.Jobs {
 			job.JobCtrl <- true
-			delete(*jobs, ID)
+			delete(*core.Jobs, ID)
 		}
-		jobMutex.Unlock()
+		core.JobMutex.Unlock()
 
 		// Cleanup sliver connections
-		for _, sliver := range *hive {
-			hiveMutex.Lock()
-			if _, ok := (*hive)[sliver.ID]; ok {
-				delete(*hive, sliver.ID)
+		for _, sliver := range *core.Hive {
+			core.HiveMutex.Lock()
+			if _, ok := (*core.Hive)[sliver.ID]; ok {
+				delete(*core.Hive, sliver.ID)
 				close(sliver.Send)
 			}
-			hiveMutex.Unlock()
+			core.HiveMutex.Unlock()
 		}
 
 		close(core.Events) // Cleanup eventLoop()
@@ -242,7 +244,7 @@ func cmdInit(sliverApp *grumble.App) {
 		Name: generateStr,
 		Help: getHelpFor(generateStr),
 		Flags: func(f *grumble.Flags) {
-			f.String("o", "os", WINDOWS, "operating system")
+			f.String("o", "os", generate.WINDOWS, "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.String("h", "lhost", "", "listen host")
 			f.Int("l", "lport", 8888, "listen port")
@@ -479,14 +481,14 @@ func getPrompt() string {
 func getSliver(name string) *core.Sliver {
 	id, err := strconv.Atoi(name)
 	name = strings.ToUpper(name)
-	hiveMutex.Lock()
-	defer hiveMutex.Unlock()
+	core.HiveMutex.Lock()
+	defer core.HiveMutex.Unlock()
 	if err == nil {
-		if sliver, ok := (*hive)[id]; ok {
+		if sliver, ok := (*core.Hive)[id]; ok {
 			return sliver
 		}
 	}
-	for _, sliver := range *hive {
+	for _, sliver := range *core.Hive {
 		if sliver.Name == name {
 			return sliver
 		}

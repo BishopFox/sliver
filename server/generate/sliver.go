@@ -108,7 +108,7 @@ func GenerateImplantBinary(goos string, goarch string, server string, lport uint
 	os.MkdirAll(sliverPkgDir, os.ModePerm)
 
 	// Load code template
-	sliverBox := packr.NewBox("../sliver")
+	sliverBox := packr.NewBox("../../sliver")
 
 	srcFiles := []string{
 		"crypto.go",
