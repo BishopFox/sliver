@@ -67,15 +67,11 @@ func handleSliverConnection(conn net.Conn) {
 		Resp:          map[string]chan *pb.Envelope{},
 	}
 
-	core.HiveMutex.Lock()
-	(*core.Hive)[sliver.ID] = sliver
-	core.HiveMutex.Unlock()
+	core.Hive.AddSliver(sliver)
 
 	defer func() {
 		log.Printf("Cleaning up for %s", sliver.Name)
-		core.HiveMutex.Lock()
-		delete(*core.Hive, sliver.ID)
-		core.HiveMutex.Unlock()
+		core.Hive.RemoveSliver(sliver)
 		conn.Close()
 		core.Events <- core.Event{Sliver: sliver, EventType: "disconnected"}
 	}()
@@ -88,13 +84,6 @@ func handleSliverConnection(conn net.Conn) {
 				delete(sliver.Resp, key)
 				close(resp)
 			}
-
-			core.HiveMutex.Lock()
-			if _, ok := (*core.Hive)[sliver.ID]; ok {
-				delete(*core.Hive, sliver.ID)
-				close(sliver.Send)
-			}
-			core.HiveMutex.Unlock()
 		}()
 
 		handlers := serverHandlers.GetSliverHandlers()

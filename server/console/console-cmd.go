@@ -17,7 +17,6 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
-	"text/template"
 
 	"github.com/AlecAivazis/survey"
 	"github.com/desertbit/grumble"
@@ -61,24 +60,6 @@ var (
 
 // ---------------------- Command Implementations ----------------------
 
-func helpCmd(ctx *grumble.Context) {
-	cmd := ""
-	if 0 < len(ctx.Args) {
-		cmd = ctx.Args[0]
-	}
-	tmpl, _ := template.New("help").Delims("[[", "]]").Parse(getHelpFor(cmd))
-	tmpl.Execute(os.Stdout, struct {
-		Normal    string
-		Bold      string
-		Underline string
-	}{
-		Normal:    normal,
-		Bold:      bold,
-		Underline: underline,
-	})
-
-}
-
 func sessionsCmd(ctx *grumble.Context) {
 	interact := ctx.Flags.String("interact")
 	if interact != "" {
@@ -86,7 +67,7 @@ func sessionsCmd(ctx *grumble.Context) {
 		return
 	}
 
-	if 0 < len(*core.Hive) {
+	if 0 < len(*core.Hive.Slivers) {
 		printSlivers()
 	} else {
 		fmt.Println("\n" + Info + "No slivers connected\n")
@@ -122,19 +103,17 @@ func printSlivers() {
 		strings.Repeat("=", len("Remote Address")),
 		strings.Repeat("=", len("Username")),
 		strings.Repeat("=", len("Operating System")))
-	core.HiveMutex.Lock()
-	defer core.HiveMutex.Unlock()
 
 	// Sort the keys becuase maps have a randomized order
 	var keys []int
-	for _, sliver := range *core.Hive {
+	for _, sliver := range *core.Hive.Slivers {
 		keys = append(keys, sliver.ID)
 	}
 	sort.Ints(keys)
 
 	activeIndex := -1
 	for index, key := range keys {
-		sliver := (*core.Hive)[key]
+		sliver := (*core.Hive.Slivers)[key]
 		if activeSliver != nil && activeSliver.ID == sliver.ID {
 			activeIndex = index + 3 // Two lines for the headers
 		}

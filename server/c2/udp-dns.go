@@ -338,9 +338,8 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[string]chan *pb.Envelope{},
 	}
-	core.HiveMutex.Lock()
-	(*core.Hive)[sliver.ID] = sliver
-	core.HiveMutex.Unlock()
+
+	core.Hive.AddSliver(sliver)
 
 	aesKey, _ := cryptography.AESKeyFromBytes(sessionInit.Key)
 	sessionID := dnsSessionID()

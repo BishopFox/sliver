@@ -24,8 +24,6 @@ import (
 )
 
 const (
-	helpStr = "help"
-
 	sessionsStr   = "sessions"
 	backgroundStr = "background"
 	infoStr       = "info"
@@ -96,13 +94,8 @@ func Start() {
 		core.JobMutex.Unlock()
 
 		// Cleanup sliver connections
-		for _, sliver := range *core.Hive {
-			core.HiveMutex.Lock()
-			if _, ok := (*core.Hive)[sliver.ID]; ok {
-				delete(*core.Hive, sliver.ID)
-				close(sliver.Send)
-			}
-			core.HiveMutex.Unlock()
+		for _, sliver := range *core.Hive.Slivers {
+			core.Hive.RemoveSliver(sliver)
 		}
 
 		close(core.Events) // Cleanup eventLoop()
@@ -143,21 +136,12 @@ func eventLoop(sliverApp *grumble.App, events chan core.Event) {
 
 func cmdInit(sliverApp *grumble.App) {
 
-	sliverApp.AddCommand(&grumble.Command{
-		Name:      helpStr,
-		Help:      getHelpFor(helpStr),
-		AllowArgs: true,
-		Run: func(ctx *grumble.Context) error {
-			helpCmd(ctx)
-			return nil
-		},
-	})
-
 	// [ Jobs ] -----------------------------------------------------------------
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: jobsStr,
-		Help: getHelpFor(jobsStr),
+		Name:     jobsStr,
+		Help:     "Job control",
+		LongHelp: getHelpFor(jobsStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("k", "kill", -1, "kill a background job")
 		},
@@ -168,8 +152,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: mtlsStr,
-		Help: getHelpFor(mtlsStr),
+		Name:     mtlsStr,
+		Help:     "Start an mTLS listener",
+		LongHelp: getHelpFor(mtlsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "server", "", "interface to bind server to")
 			f.Int("l", "lport", 8888, "tcp listen port")
@@ -181,8 +166,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: dnsStr,
-		Help: getHelpFor(dnsStr),
+		Name:     dnsStr,
+		Help:     "Start a DNS listener",
+		LongHelp: getHelpFor(dnsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domain", "", "parent domain to use for DNS C2")
 		},
@@ -193,8 +179,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: multiplayerModeStr,
-		Help: getHelpFor(multiplayerModeStr),
+		Name:     multiplayerModeStr,
+		Help:     "Enable multiplayer mode",
+		LongHelp: getHelpFor(multiplayerModeStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "server", "", "interface to bind server to")
 			f.Int("l", "lport", 31337, "tcp listen port")
@@ -208,8 +195,9 @@ func cmdInit(sliverApp *grumble.App) {
 	// [ Multiplayer ] -----------------------------------------------------------------
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: newPlayerStr,
-		Help: getHelpFor(newPlayerStr),
+		Name:     newPlayerStr,
+		Help:     "Create a new player config file",
+		LongHelp: getHelpFor(newPlayerStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "os", generate.WINDOWS, "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
@@ -226,8 +214,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: listPlayerStr,
-		Help: getHelpFor(listPlayerStr),
+		Name:     listPlayerStr,
+		Help:     "List players connected to the server",
+		LongHelp: getHelpFor(listPlayerStr),
 		Run: func(ctx *grumble.Context) error {
 			listPlayersCmd(ctx)
 			return nil
@@ -235,8 +224,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: kickPlayerStr,
-		Help: getHelpFor(kickPlayerStr),
+		Name:     kickPlayerStr,
+		Help:     "Kick a player from the server",
+		LongHelp: getHelpFor(kickPlayerStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "operator", "", "operator name")
 		},
@@ -249,8 +239,9 @@ func cmdInit(sliverApp *grumble.App) {
 	// [ Commands ] --------------------------------------------------------------
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: sessionsStr,
-		Help: getHelpFor(sessionsStr),
+		Name:     sessionsStr,
+		Help:     "Session management",
+		LongHelp: getHelpFor(sessionsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("i", "interact", "", "interact with a sliver")
 		},
@@ -261,8 +252,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: backgroundStr,
-		Help: getHelpFor(backgroundStr),
+		Name:     backgroundStr,
+		Help:     "Background an active session",
+		LongHelp: getHelpFor(backgroundStr),
 		Run: func(ctx *grumble.Context) error {
 			backgroundCmd(ctx)
 			return nil
@@ -271,7 +263,8 @@ func cmdInit(sliverApp *grumble.App) {
 
 	sliverApp.AddCommand(&grumble.Command{
 		Name:      killStr,
-		Help:      getHelpFor(killStr),
+		Help:      "Kill a remote sliver process",
+		LongHelp:  getHelpFor(killStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			killCmd(ctx)
@@ -281,7 +274,8 @@ func cmdInit(sliverApp *grumble.App) {
 
 	sliverApp.AddCommand(&grumble.Command{
 		Name:      infoStr,
-		Help:      getHelpFor(infoStr),
+		Help:      "Get info about sliver",
+		LongHelp:  getHelpFor(infoStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			infoCmd(ctx)
@@ -291,7 +285,8 @@ func cmdInit(sliverApp *grumble.App) {
 
 	sliverApp.AddCommand(&grumble.Command{
 		Name:      useStr,
-		Help:      getHelpFor(useStr),
+		Help:      "Switch the active sliver",
+		LongHelp:  getHelpFor(useStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			useCmd(ctx)
@@ -300,8 +295,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: generateStr,
-		Help: getHelpFor(generateStr),
+		Name:     generateStr,
+		Help:     "Generate a sliver binary",
+		LongHelp: getHelpFor(generateStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "os", generate.WINDOWS, "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
@@ -318,8 +314,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: msfStr,
-		Help: getHelpFor(msfStr),
+		Name:     msfStr,
+		Help:     "Execute a MSF payload",
+		LongHelp: getHelpFor(msfStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("m", "payload", "meterpreter_reverse_https", "msf payload")
 			f.String("h", "lhost", "", "listen host")
@@ -334,8 +331,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: injectStr,
-		Help: getHelpFor(injectStr),
+		Name:     injectStr,
+		Help:     "Inject a MSF payload",
+		LongHelp: getHelpFor(injectStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("p", "pid", -1, "pid to inject into")
 			f.String("m", "payload", "meterpreter_reverse_https", "msf payload")
@@ -351,8 +349,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: psStr,
-		Help: getHelpFor(psStr),
+		Name:     psStr,
+		Help:     "List remote processes",
+		LongHelp: getHelpFor(psStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("p", "pid", -1, "filter based on pid")
 			f.String("e", "exe", "", "filter based on executable name")
@@ -366,7 +365,8 @@ func cmdInit(sliverApp *grumble.App) {
 
 	sliverApp.AddCommand(&grumble.Command{
 		Name:      pingStr,
-		Help:      getHelpFor(pingStr),
+		Help:      "Test connection to sliver",
+		LongHelp:  getHelpFor(pingStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			pingCmd(ctx)
@@ -375,8 +375,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: getPIDStr,
-		Help: getHelpFor(getPIDStr),
+		Name:     getPIDStr,
+		Help:     "Get sliver pid",
+		LongHelp: getHelpFor(getPIDStr),
 		Run: func(ctx *grumble.Context) error {
 			if activeSliver != nil {
 				fmt.Printf("\n"+Info+"%d\n\n", activeSliver.PID)
@@ -386,8 +387,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: getUIDStr,
-		Help: getHelpFor(getUIDStr),
+		Name:     getUIDStr,
+		Help:     "Get sliver UID",
+		LongHelp: getHelpFor(getUIDStr),
 		Run: func(ctx *grumble.Context) error {
 			if activeSliver != nil {
 				fmt.Printf("\n"+Info+"%s\n\n", activeSliver.UID)
@@ -397,8 +399,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: getGIDStr,
-		Help: getHelpFor(getGIDStr),
+		Name:     getGIDStr,
+		Help:     "Get sliver GID",
+		LongHelp: getHelpFor(getGIDStr),
 		Run: func(ctx *grumble.Context) error {
 			if activeSliver != nil {
 				fmt.Printf("\n"+Info+"%s\n\n", activeSliver.GID)
@@ -408,8 +411,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: whoamiStr,
-		Help: getHelpFor(whoamiStr),
+		Name:     whoamiStr,
+		Help:     "Get sliver user",
+		LongHelp: getHelpFor(whoamiStr),
 		Run: func(ctx *grumble.Context) error {
 			if activeSliver != nil {
 				fmt.Printf("\n"+Info+"%s\n\n", activeSliver.Username)
@@ -419,8 +423,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: lsStr,
-		Help: getHelpFor(lsStr),
+		Name:     lsStr,
+		Help:     "List current directory",
+		LongHelp: getHelpFor(lsStr),
 		Run: func(ctx *grumble.Context) error {
 			lsCmd(ctx)
 			return nil
@@ -429,7 +434,8 @@ func cmdInit(sliverApp *grumble.App) {
 
 	sliverApp.AddCommand(&grumble.Command{
 		Name:      rmStr,
-		Help:      getHelpFor(rmStr),
+		Help:      "Remove a file or directory",
+		LongHelp:  getHelpFor(rmStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			rmCmd(ctx)
@@ -439,7 +445,8 @@ func cmdInit(sliverApp *grumble.App) {
 
 	sliverApp.AddCommand(&grumble.Command{
 		Name:      mkdirStr,
-		Help:      getHelpFor(mkdirStr),
+		Help:      "Make a directory",
+		LongHelp:  getHelpFor(mkdirStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			mkdirCmd(ctx)
@@ -449,7 +456,8 @@ func cmdInit(sliverApp *grumble.App) {
 
 	sliverApp.AddCommand(&grumble.Command{
 		Name:      cdStr,
-		Help:      getHelpFor(cdStr),
+		Help:      "Change directory",
+		LongHelp:  getHelpFor(cdStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			cdCmd(ctx)
@@ -458,8 +466,9 @@ func cmdInit(sliverApp *grumble.App) {
 	})
 
 	sliverApp.AddCommand(&grumble.Command{
-		Name: pwdStr,
-		Help: getHelpFor(pwdStr),
+		Name:     pwdStr,
+		Help:     "Print working directory",
+		LongHelp: getHelpFor(pwdStr),
 		Run: func(ctx *grumble.Context) error {
 			pwdCmd(ctx)
 			return nil
@@ -468,7 +477,8 @@ func cmdInit(sliverApp *grumble.App) {
 
 	sliverApp.AddCommand(&grumble.Command{
 		Name:      catStr,
-		Help:      getHelpFor(catStr),
+		Help:      "Dump file to stdout",
+		LongHelp:  getHelpFor(catStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			catCmd(ctx)
@@ -478,7 +488,8 @@ func cmdInit(sliverApp *grumble.App) {
 
 	sliverApp.AddCommand(&grumble.Command{
 		Name:      downloadStr,
-		Help:      getHelpFor(downloadStr),
+		Help:      "Download a file",
+		LongHelp:  getHelpFor(downloadStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			downloadCmd(ctx)
@@ -488,7 +499,8 @@ func cmdInit(sliverApp *grumble.App) {
 
 	sliverApp.AddCommand(&grumble.Command{
 		Name:      uploadStr,
-		Help:      getHelpFor(uploadStr),
+		Help:      "Upload a file",
+		LongHelp:  getHelpFor(uploadStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			uploadCmd(ctx)
@@ -498,7 +510,8 @@ func cmdInit(sliverApp *grumble.App) {
 
 	sliverApp.AddCommand(&grumble.Command{
 		Name:      procdumpStr,
-		Help:      getHelpFor(procdumpStr),
+		Help:      "Dump process memory",
+		LongHelp:  getHelpFor(procdumpStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			procdumpCmd(ctx)
@@ -540,14 +553,12 @@ func getPrompt() string {
 func getSliver(name string) *core.Sliver {
 	id, err := strconv.Atoi(name)
 	name = strings.ToUpper(name)
-	core.HiveMutex.Lock()
-	defer core.HiveMutex.Unlock()
 	if err == nil {
-		if sliver, ok := (*core.Hive)[id]; ok {
+		if sliver, ok := (*core.Hive.Slivers)[id]; ok {
 			return sliver
 		}
 	}
-	for _, sliver := range *core.Hive {
+	for _, sliver := range *core.Hive.Slivers {
 		if sliver.Name == name {
 			return sliver
 		}

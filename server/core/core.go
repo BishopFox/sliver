@@ -34,6 +34,26 @@ type Sliver struct {
 	RespMutex     *sync.RWMutex
 }
 
+// SliverHive - Mananges the slivers, provides atomic access
+type SliverHive struct {
+	mutex   *sync.RWMutex
+	Slivers *map[int]*Sliver
+}
+
+// AddSliver - Add a sliver to the hive (atomically)
+func (h *SliverHive) AddSliver(sliver *Sliver) {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+	(*h.Slivers)[sliver.ID] = sliver
+}
+
+// RemoveSliver - Add a sliver to the hive (atomically)
+func (h *SliverHive) RemoveSliver(sliver *Sliver) {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+	delete((*h.Slivers), sliver.ID)
+}
+
 // Job - Manages background jobs
 type Job struct {
 	ID          int
@@ -97,10 +117,12 @@ var (
 		mutex:       &sync.RWMutex{},
 	}
 
-	// HiveMutex - Controls access to Hive map
-	HiveMutex = &sync.RWMutex{}
-	// Hive - Holds all the slivers pointers
-	Hive   = &map[int]*Sliver{}
+	// Hive - Manages sliver connections
+	Hive = &SliverHive{
+		Slivers: &map[int]*Sliver{},
+		mutex:   &sync.RWMutex{},
+	}
+
 	hiveID = new(int)
 
 	// JobMutex - Controls access to the Jobs map
