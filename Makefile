@@ -15,15 +15,15 @@ endif
 
 
 .PHONY: macos
-macos: clean pb packr
+macos: clean pb
 	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
 
 .PHONY: linux
-linux: clean pb packr
+linux: clean pb
 	GOOS=linux $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
 
 .PHONY: windows
-windows: clean pb packr
+windows: clean pb
 	GOOS=windows $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
 
 

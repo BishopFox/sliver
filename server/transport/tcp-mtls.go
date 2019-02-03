@@ -82,8 +82,6 @@ func handleSliverConnection(conn net.Conn) {
 		core.Events <- core.Event{Sliver: sliver, EventType: "disconnected"}
 	}()
 
-	core.Events <- core.Event{Sliver: sliver, EventType: "connected"}
-
 	go func() {
 		defer func() {
 			sliver.RespMutex.Lock()
