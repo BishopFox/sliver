@@ -1,7 +1,6 @@
 package console
 
 import (
-	"encoding/json"
 	"fmt"
 	"sliver/client/assets"
 	"sort"
@@ -46,20 +45,5 @@ func getPromptForConfigs(configs map[string]*assets.ClientConfig) []*survey.Ques
 				Default: keys[0],
 			},
 		},
-	}
-}
-
-func getNewConfig() *assets.ClientConfig {
-	for {
-		text := ""
-		prompt := &survey.Multiline{
-			Message: "Paste new config",
-		}
-		survey.AskOne(prompt, &text, nil)
-		conf := assets.ClientConfig{}
-		err := json.Unmarshal([]byte(text), &conf)
-		if err != nil {
-			return &conf
-		}
 	}
 }

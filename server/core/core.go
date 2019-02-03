@@ -92,7 +92,10 @@ func (cc *clientConns) RemoveClient(clientID int) {
 
 var (
 	// Clients - Manages client connections
-	Clients = &clientConns{}
+	Clients = &clientConns{
+		Connections: &map[int]*Client{},
+		mutex:       &sync.RWMutex{},
+	}
 
 	// HiveMutex - Controls access to Hive map
 	HiveMutex = &sync.RWMutex{}

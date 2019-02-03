@@ -214,7 +214,7 @@ func cmdInit(sliverApp *grumble.App) {
 			f.String("o", "os", generate.WINDOWS, "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.String("h", "lhost", "", "listen host")
-			f.Int("l", "lport", 8888, "listen port")
+			f.Int("l", "lport", 31337, "listen port")
 			f.Bool("d", "debug", false, "enable debug features")
 			f.String("s", "save", "", "directory/file to the binary to")
 			f.String("n", "operator", "", "operator name")
