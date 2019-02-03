@@ -5,19 +5,13 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/user"
 	"path"
+	"sliver/client/assets"
+	"sliver/client/console"
 )
 
 const (
-	operator  = `{{.Operator}}`
-	keyPEM    = `{{.Key}}`
-	certPEM   = `{{.Cert}}`
-	caCertPEM = `{{.CACert}}`
-
-	defaultServerIP = `{{.DefaultServer}}`
-
-	logFileName = ".sliver-client.log"
+	logFileName = "sliver-client.log"
 )
 
 var (
@@ -33,17 +27,17 @@ func main() {
 		os.Exit(0)
 	}
 
-	logFile := initLogging()
+	appDir := assets.GetRootAppDir()
+	logFile := initLogging(appDir)
 	defer logFile.Close()
 
-	startConsole()
+	console.Start()
 }
 
 // Initialize logging
-func initLogging() *os.File {
-	user, err := user.Current()
+func initLogging(appDir string) *os.File {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	logFile, err := os.OpenFile(path.Join(user.HomeDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("Error opening file: %v", err)
 	}

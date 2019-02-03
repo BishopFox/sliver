@@ -17,14 +17,17 @@ endif
 .PHONY: macos
 macos: clean pb
 	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
+	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: linux
 linux: clean pb
 	GOOS=linux $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
+	GOOS=linux $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: windows
 windows: clean pb
 	GOOS=windows $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
+	GOOS=windows $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-client.exe ./client
 
 
 #
@@ -74,4 +77,4 @@ clean:
 	packr clean
 	rm -f ./protobuf/client/*.pb.go
 	rm -f ./protobuf/sliver/*.pb.go
-	rm -f sliver-server *.exe
+	rm -f sliver-client sliver-server *.exe

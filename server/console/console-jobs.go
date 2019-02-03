@@ -8,6 +8,7 @@ import (
 	"sliver/server/c2"
 	"sliver/server/certs"
 	"sliver/server/core"
+	"sliver/server/transport"
 	"strings"
 	"text/tabwriter"
 
@@ -156,6 +157,53 @@ func jobStartDNSListener(domain string) (int, error) {
 			job.JobCtrl <- true
 		}
 	}()
+
+	return job.ID, nil
+}
+
+func startMultiplayerModeCmd(ctx *grumble.Context) {
+	server := ctx.Flags.String("server")
+	lport := uint16(ctx.Flags.Int("lport"))
+
+	fmt.Printf("\n" + Info + "Starting client listener ...\n")
+	ID, err := jobStartClientListener(server, lport)
+	if err == nil {
+		fmt.Printf(Info+"Successfully started job #%d\n\n", ID)
+	} else {
+		fmt.Printf(Warn+"Failed to start job %v\n\n", err)
+	}
+}
+
+func jobStartClientListener(bindIface string, port uint16) (int, error) {
+	ln, err := transport.StartClientListener(bindIface, port)
+	if err != nil {
+		return -1, err // If we fail to bind don't setup the Job
+	}
+
+	job := &core.Job{
+		ID:          core.GetJobID(),
+		Name:        "mTLS/RPC",
+		Description: "client listener",
+		Protocol:    "tcp",
+		Port:        port,
+		JobCtrl:     make(chan bool),
+	}
+
+	go func() {
+		<-job.JobCtrl
+		log.Printf("Stopping client listener (%d) ...", job.ID)
+		ln.Close() // Kills listener GoRoutines in startMutualTLSListener() but NOT connections
+
+		core.JobMutex.Lock()
+		delete(*core.Jobs, job.ID)
+		core.JobMutex.Unlock()
+
+		core.Events <- core.Event{EventType: "stopped", Job: job}
+	}()
+
+	core.JobMutex.Lock()
+	(*core.Jobs)[job.ID] = job
+	core.JobMutex.Unlock()
 
 	return job.ID, nil
 }

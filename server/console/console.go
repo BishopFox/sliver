@@ -36,9 +36,10 @@ const (
 	mtlsStr = "mtls"
 	dnsStr  = "dns"
 
-	newPlayerStr  = "new"
-	kickPlayerStr = "kick"
-	listPlayerStr = "players"
+	newPlayerStr       = "new"
+	kickPlayerStr      = "kick"
+	listPlayerStr      = "players"
+	multiplayerModeStr = "multiplayer"
 
 	msfStr    = "msf"
 	injectStr = "inject"
@@ -187,6 +188,19 @@ func cmdInit(sliverApp *grumble.App) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			startDNSListenerCmd(ctx)
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
+		Name: multiplayerModeStr,
+		Help: getHelpFor(multiplayerModeStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "server", "", "interface to bind server to")
+			f.Int("l", "lport", 31337, "tcp listen port")
+		},
+		Run: func(ctx *grumble.Context) error {
+			startMultiplayerModeCmd(ctx)
 			return nil
 		},
 	})

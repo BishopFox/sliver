@@ -4,6 +4,9 @@
 sliver-server
 sliver.exe
 
+sliver-client
+sliver-client.exe
+
 sliver-server-linux.zip
 sliver-server-macos.zip
 sliver-server-windows.zip
