@@ -89,7 +89,7 @@ func GetServerRSACertificatePEM(rootDir string, caType string, host string, gene
 	log.Printf("Getting rsa certificate (ca type = %s) '%s'", caType, host)
 
 	// If not certificate exists for this host we just generate one on the fly
-	_, _, err := GetCertificatePEM(rootDir, path.Join(caType, "rsa", ServersCertDir), host)
+	_, _, err := GetCertificatePEM(rootDir, path.Join(ServersCertDir, "rsa"), host)
 	if err != nil {
 		if generateIfNoneExists {
 			log.Printf("No server certificate, generating ca type = %s '%s'", caType, host)
@@ -99,7 +99,7 @@ func GetServerRSACertificatePEM(rootDir string, caType string, host string, gene
 		}
 	}
 
-	certPEM, keyPEM, err := GetCertificatePEM(rootDir, path.Join(caType, "rsa", ServersCertDir), host)
+	certPEM, keyPEM, err := GetCertificatePEM(rootDir, path.Join(ServersCertDir, "rsa"), host)
 	if err != nil {
 		log.Printf("Failed to load PEM data %v", err)
 		return nil, nil, err
