@@ -9,7 +9,6 @@ sliver-server-macos.zip
 sliver-server-windows.zip
 
 # Large static assets
-assets/
 assets/*.zip
 assets/darwin/*.zip
 assets/linux/*.zip

@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	validFor = 365 * 24 * time.Hour
-
+	validFor       = 365 * 24 * time.Hour
+	ClientsCertDir = "clients"
 	CertsDirName   = "certs"
 	SliversCertDir = "slivers"
 	ServersCertDir = "servers"
