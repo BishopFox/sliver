@@ -21,6 +21,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 			f.Int("k", "kill", -1, "kill a background job")
 		},
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			jobs(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -36,6 +37,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 			f.Int("l", "lport", 8888, "tcp listen port")
 		},
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			startMTLSListener(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -50,6 +52,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 			f.String("d", "domain", "", "parent domain to use for DNS C2")
 		},
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			startDNSListener(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -65,6 +68,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 			f.Int("l", "lport", 31337, "tcp listen port")
 		},
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			startMultiplayerMode(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -81,6 +85,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 			f.String("i", "interact", "", "interact with a sliver")
 		},
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			sessions(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -92,6 +97,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		Help:     "Background an active session",
 		LongHelp: help.GetHelpFor(consts.BackgroundStr),
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			background(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -104,6 +110,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp:  help.GetHelpFor(consts.KillStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			kill(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -116,6 +123,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp:  help.GetHelpFor(consts.InfoStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			info(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -128,6 +136,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp:  help.GetHelpFor(consts.UseStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			use(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -148,6 +157,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 			f.String("s", "save", "", "directory/file to the binary to")
 		},
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			generate(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -166,6 +176,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 			f.Int("i", "iterations", 1, "iterations of the encoder")
 		},
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			msf(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -185,6 +196,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 			f.Int("i", "iterations", 1, "iterations of the encoder")
 		},
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			inject(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -201,6 +213,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 			f.String("o", "owner", "", "filter based on owner")
 		},
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			ps(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -213,6 +226,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp:  help.GetHelpFor(consts.PingStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			ping(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -224,6 +238,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		Help:     "Get sliver pid",
 		LongHelp: help.GetHelpFor(consts.GetPIDStr),
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			getPID(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -235,6 +250,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		Help:     "Get sliver UID",
 		LongHelp: help.GetHelpFor(consts.GetUIDStr),
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			getUID(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -246,6 +262,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		Help:     "Get sliver GID",
 		LongHelp: help.GetHelpFor(consts.GetGIDStr),
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			getGID(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -257,6 +274,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		Help:     "Get sliver user",
 		LongHelp: help.GetHelpFor(consts.WhoamiStr),
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			whoami(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -268,6 +286,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		Help:     "List current directory",
 		LongHelp: help.GetHelpFor(consts.LsStr),
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			ls(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -280,6 +299,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp:  help.GetHelpFor(consts.RmStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			rm(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -292,6 +312,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp:  help.GetHelpFor(consts.MkdirStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			mkdir(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -304,6 +325,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp:  help.GetHelpFor(consts.CdStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			cd(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -315,6 +337,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		Help:     "Print working directory",
 		LongHelp: help.GetHelpFor(consts.PwdStr),
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			pwd(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -327,6 +350,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp:  help.GetHelpFor(consts.CatStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			cat(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -339,6 +363,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp:  help.GetHelpFor(consts.DownloadStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			download(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -351,6 +376,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp:  help.GetHelpFor(consts.UploadStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			upload(ctx, rpc)
 			fmt.Println()
 			return nil
@@ -363,6 +389,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp:  help.GetHelpFor(consts.ProcdumpStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			procdump(ctx, rpc)
 			fmt.Println()
 			return nil

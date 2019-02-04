@@ -11,7 +11,7 @@ import (
 	"sliver/server/assets"
 	"sliver/server/certs"
 	"sliver/server/core"
-	serverHandlers "sliver/server/handlers"
+	rpc "sliver/server/handlers"
 
 	pb "sliver/protobuf/client"
 
@@ -54,9 +54,9 @@ func acceptClientConnections(ln net.Listener) {
 	}
 }
 
-func printConnState(conn *tls.Conn) {
-	log.Print(">>>>>>>>>>>>>>>> State <<<<<<<<<<<<<<<<")
-	state := conn.ConnectionState()
+func printConnState(tlsConn *tls.Conn) {
+	log.Print(">>>>>>>>>>>>>>>> TLS State <<<<<<<<<<<<<<<<")
+	state := tlsConn.ConnectionState()
 	log.Printf("Version: %x", state.Version)
 	log.Printf("HandshakeComplete: %t", state.HandshakeComplete)
 	log.Printf("DidResume: %t", state.DidResume)
@@ -82,8 +82,13 @@ func handleClientConnection(conn net.Conn) {
 	}
 	tlsConn.Read([]byte{}) // Unless you read 0 bytes the TLS handshake will not complete
 	printConnState(tlsConn)
-	log.Printf("Accepted incoming connection: %s", conn.RemoteAddr())
-	client := core.GetClient("test")
+	certs := tlsConn.ConnectionState().PeerCertificates
+	if len(certs) < 1 {
+		return
+	}
+	operator := certs[0].Subject.CommonName // Get operator name from cert CN
+	log.Printf("Accepted incoming client connection: %s (%s)", conn.RemoteAddr(), operator)
+	client := core.GetClient(operator)
 	core.Clients.AddClient(client)
 
 	defer func() {
@@ -92,17 +97,20 @@ func handleClientConnection(conn net.Conn) {
 	}()
 
 	go func() {
-		handlers := serverHandlers.GetRPCHandlers()
+		handlers := rpc.GetRPCHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err != nil {
 				log.Printf("Socket read error %v", err)
 				return
 			}
-			if envelope.ID != "" {
-				client.Response(envelope)
-			} else if handler, ok := handlers[envelope.Type]; ok {
-				go handler.(func(*core.Client, []byte))(client, envelope.Data)
+			if handler, ok := handlers[envelope.Type]; ok {
+				go handler(envelope.Data, func(data []byte) {
+					client.Send <- &pb.Envelope{
+						ID:   envelope.ID,
+						Data: data,
+					}
+				})
 			}
 		}
 	}()

@@ -328,6 +328,9 @@ func GenerateCertificate(rootDir string, host string, caType string, isCA bool, 
 			log.Printf("Certificate authenticates host: %v", host)
 			template.DNSNames = append(template.DNSNames, host)
 		}
+	} else {
+		log.Printf("Client certificate authenticates CN: %v", host)
+		template.Subject.CommonName = host
 	}
 
 	// Sign certificate or self-sign if CA
@@ -418,6 +421,9 @@ func GenerateRSACertificate(rootDir string, host string, caType string, isCA boo
 			log.Printf("Certificate authenticates host: %v", host)
 			template.DNSNames = append(template.DNSNames, host)
 		}
+	} else {
+		log.Printf("Client certificate authenticates CN: %v", host)
+		template.Subject.CommonName = host
 	}
 
 	// Sign certificate or self-sign if CA
