@@ -1,4 +1,4 @@
-package console
+package help
 
 import (
 	"bytes"
@@ -6,26 +6,81 @@ import (
 	"text/template"
 )
 
+const (
+	NewPlayerStr       = "new"
+	ListPlayerStr      = "players"
+	KickPlayerStr      = "kick"
+	MultiplayerModeStr = "multiplayer"
+
+	SessionsStr   = "sessions"
+	BackgroundStr = "background"
+	InfoStr       = "info"
+	UseStr        = "use"
+	GenerateStr   = "generate"
+
+	JobsStr = "jobs"
+	MtlsStr = "mtls"
+	DnsStr  = "dns"
+
+	MsfStr    = "msf"
+	InjectStr = "inject"
+
+	PsStr   = "ps"
+	PingStr = "ping"
+	KillStr = "kill"
+
+	GetPIDStr = "getpid"
+	GetUIDStr = "getuid"
+	GetGIDStr = "getgid"
+	WhoamiStr = "whoami"
+
+	LsStr       = "ls"
+	RmStr       = "rm"
+	MkdirStr    = "mkdir"
+	CdStr       = "cd"
+	PwdStr      = "pwd"
+	CatStr      = "cat"
+	DownloadStr = "download"
+	UploadStr   = "upload"
+	ProcdumpStr = "procdump"
+
+	// ANSI Colors
+	normal    = "\033[0m"
+	black     = "\033[30m"
+	red       = "\033[31m"
+	green     = "\033[32m"
+	orange    = "\033[33m"
+	blue      = "\033[34m"
+	purple    = "\033[35m"
+	cyan      = "\033[36m"
+	gray      = "\033[37m"
+	bold      = "\033[1m"
+	clearln   = "\r\x1b[2K"
+	upN       = "\033[%dA"
+	downN     = "\033[%dB"
+	underline = "\033[4m"
+)
+
 var (
 	cmdHelp = map[string]string{
-		sessionsStr:   sessionsHelp,
-		backgroundStr: backgroundHelp,
-		infoStr:       infoHelp,
-		useStr:        useHelp,
-		generateStr:   genHelp,
-		msfStr:        msfHelp,
-		injectStr:     injectHelp,
-		psStr:         psHelp,
-		pingStr:       pingHelp,
-		killStr:       killHelp,
-		lsStr:         lsHelp,
-		cdStr:         cdHelp,
-		catStr:        catHelp,
-		downloadStr:   downloadHelp,
-		uploadStr:     uploadHelp,
-		mkdirStr:      mkdirHelp,
-		rmStr:         rmHelp,
-		procdumpStr:   procdumpHelp,
+		SessionsStr:   sessionsHelp,
+		BackgroundStr: backgroundHelp,
+		InfoStr:       infoHelp,
+		UseStr:        useHelp,
+		GenerateStr:   genHelp,
+		MsfStr:        msfHelp,
+		InjectStr:     injectHelp,
+		PsStr:         psHelp,
+		PingStr:       pingHelp,
+		KillStr:       killHelp,
+		LsStr:         lsHelp,
+		CdStr:         cdHelp,
+		CatStr:        catHelp,
+		DownloadStr:   downloadHelp,
+		UploadStr:     uploadHelp,
+		MkdirStr:      mkdirHelp,
+		RmStr:         rmHelp,
+		ProcdumpStr:   procdumpHelp,
 	}
 
 	sessionsHelp = `[[.Bold]]Command:[[.Normal]] sessions <options>
@@ -86,7 +141,8 @@ var (
 [[.Bold]]About:[[.Normal]] Dumps the process memory given a process identifier (pid)`
 )
 
-func getHelpFor(cmdName string) string {
+// GetHelpFor - Get help string for a command
+func GetHelpFor(cmdName string) string {
 	if 0 < len(cmdName) {
 		if helpTmpl, ok := cmdHelp[cmdName]; ok {
 			outputBuf := bytes.NewBufferString("")
