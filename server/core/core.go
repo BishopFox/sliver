@@ -85,7 +85,7 @@ type Client struct {
 func (c *Client) Response(envelope *clientpb.Envelope) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	if resp, ok := c.Resp[envelope.Id]; ok {
+	if resp, ok := c.Resp[envelope.ID]; ok {
 		resp <- envelope
 	}
 }
@@ -164,4 +164,15 @@ func GetClientID() int {
 	newID := (*clientID) + 1
 	(*clientID)++
 	return newID
+}
+
+// GetClient - Create a new client object
+func GetClient(operator string) *Client {
+	return &Client{
+		ID:       GetClientID(),
+		Operator: operator,
+		mutex:    &sync.RWMutex{},
+		Send:     make(chan *clientpb.Envelope),
+		Resp:     map[string]chan *clientpb.Envelope{},
+	}
 }

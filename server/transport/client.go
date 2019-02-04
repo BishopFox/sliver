@@ -54,11 +54,36 @@ func acceptClientConnections(ln net.Listener) {
 	}
 }
 
-func handleClientConnection(conn net.Conn) {
-	log.Printf("Accepted incoming connection: %s", conn.RemoteAddr())
-	client := &core.Client{
-		ID: core.GetClientID(),
+func printConnState(conn *tls.Conn) {
+	log.Print(">>>>>>>>>>>>>>>> State <<<<<<<<<<<<<<<<")
+	state := conn.ConnectionState()
+	log.Printf("Version: %x", state.Version)
+	log.Printf("HandshakeComplete: %t", state.HandshakeComplete)
+	log.Printf("DidResume: %t", state.DidResume)
+	log.Printf("CipherSuite: %x", state.CipherSuite)
+	log.Printf("NegotiatedProtocol: %s", state.NegotiatedProtocol)
+	log.Printf("NegotiatedProtocolIsMutual: %t", state.NegotiatedProtocolIsMutual)
+
+	log.Print("Certificate chain:")
+	for i, cert := range state.PeerCertificates {
+		subject := cert.Subject
+		issuer := cert.Issuer
+		log.Printf(" %d s:/C=%v/ST=%v/L=%v/O=%v/OU=%v/CN=%s", i, subject.Country, subject.Province, subject.Locality, subject.Organization, subject.OrganizationalUnit, subject.CommonName)
+		log.Printf("   i:/C=%v/ST=%v/L=%v/O=%v/OU=%v/CN=%s", issuer.Country, issuer.Province, issuer.Locality, issuer.Organization, issuer.OrganizationalUnit, issuer.CommonName)
 	}
+	log.Print(">>>>>>>>>>>>>>>> State End <<<<<<<<<<<<<<<<")
+}
+
+func handleClientConnection(conn net.Conn) {
+	defer conn.Close()
+	tlsConn, ok := conn.(*tls.Conn)
+	if !ok {
+		return
+	}
+	tlsConn.Read([]byte{}) // Unless you read 0 bytes the TLS handshake will not complete
+	printConnState(tlsConn)
+	log.Printf("Accepted incoming connection: %s", conn.RemoteAddr())
+	client := core.GetClient("test")
 	core.Clients.AddClient(client)
 
 	defer func() {
@@ -74,7 +99,7 @@ func handleClientConnection(conn net.Conn) {
 				log.Printf("Socket read error %v", err)
 				return
 			}
-			if envelope.Id != "" {
+			if envelope.ID != "" {
 				client.Response(envelope)
 			} else if handler, ok := handlers[envelope.Type]; ok {
 				go handler.(func(*core.Client, []byte))(client, envelope.Data)

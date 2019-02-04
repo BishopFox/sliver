@@ -3,8 +3,40 @@ syntax = "proto3";
 package clientpb;
 
 message Envelope {
-    string type = 1; // Message type
-    bytes data = 2;  // Actual message data
-    string id = 3;   // Resp ID
-  }
-  
+  string Type = 1; // Message type
+  bytes Data = 2;  // Actual message data
+  string ID = 3;   // Resp ID
+}
+
+// [ core ] ----------------------------------------
+
+message Sliver {
+	int32 ID = 1;
+	string Name = 2;
+	string Hostname = 3;
+	string Username = 4;
+	string UID = 5;
+	string GID = 6;
+	string OS = 7;
+	string Arch = 8;
+	string Transport = 9;
+	string RemoteAddress = 10;
+	int32 PID = 11;
+  string Filename = 12;
+}
+
+message Sessions {
+  repeated Sliver Slivers = 1;
+ }
+
+message Job {
+  int32 ID = 1;
+  string Name = 2;
+  string Description = 3;
+  string Protocol = 4;
+  int32 Port = 5;
+}
+
+message Jobs {
+  repeated Job Active = 1;
+}

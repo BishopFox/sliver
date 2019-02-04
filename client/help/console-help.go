@@ -3,47 +3,11 @@ package help
 import (
 	"bytes"
 	"fmt"
+	consts "sliver/client/constants"
 	"text/template"
 )
 
 const (
-	NewPlayerStr       = "new"
-	ListPlayerStr      = "players"
-	KickPlayerStr      = "kick"
-	MultiplayerModeStr = "multiplayer"
-
-	SessionsStr   = "sessions"
-	BackgroundStr = "background"
-	InfoStr       = "info"
-	UseStr        = "use"
-	GenerateStr   = "generate"
-
-	JobsStr = "jobs"
-	MtlsStr = "mtls"
-	DnsStr  = "dns"
-
-	MsfStr    = "msf"
-	InjectStr = "inject"
-
-	PsStr   = "ps"
-	PingStr = "ping"
-	KillStr = "kill"
-
-	GetPIDStr = "getpid"
-	GetUIDStr = "getuid"
-	GetGIDStr = "getgid"
-	WhoamiStr = "whoami"
-
-	LsStr       = "ls"
-	RmStr       = "rm"
-	MkdirStr    = "mkdir"
-	CdStr       = "cd"
-	PwdStr      = "pwd"
-	CatStr      = "cat"
-	DownloadStr = "download"
-	UploadStr   = "upload"
-	ProcdumpStr = "procdump"
-
 	// ANSI Colors
 	normal    = "\033[0m"
 	black     = "\033[30m"
@@ -63,24 +27,24 @@ const (
 
 var (
 	cmdHelp = map[string]string{
-		SessionsStr:   sessionsHelp,
-		BackgroundStr: backgroundHelp,
-		InfoStr:       infoHelp,
-		UseStr:        useHelp,
-		GenerateStr:   genHelp,
-		MsfStr:        msfHelp,
-		InjectStr:     injectHelp,
-		PsStr:         psHelp,
-		PingStr:       pingHelp,
-		KillStr:       killHelp,
-		LsStr:         lsHelp,
-		CdStr:         cdHelp,
-		CatStr:        catHelp,
-		DownloadStr:   downloadHelp,
-		UploadStr:     uploadHelp,
-		MkdirStr:      mkdirHelp,
-		RmStr:         rmHelp,
-		ProcdumpStr:   procdumpHelp,
+		consts.SessionsStr:   sessionsHelp,
+		consts.BackgroundStr: backgroundHelp,
+		consts.InfoStr:       infoHelp,
+		consts.UseStr:        useHelp,
+		consts.GenerateStr:   genHelp,
+		consts.MsfStr:        msfHelp,
+		consts.InjectStr:     injectHelp,
+		consts.PsStr:         psHelp,
+		consts.PingStr:       pingHelp,
+		consts.KillStr:       killHelp,
+		consts.LsStr:         lsHelp,
+		consts.CdStr:         cdHelp,
+		consts.CatStr:        catHelp,
+		consts.DownloadStr:   downloadHelp,
+		consts.UploadStr:     uploadHelp,
+		consts.MkdirStr:      mkdirHelp,
+		consts.RmStr:         rmHelp,
+		consts.ProcdumpStr:   procdumpHelp,
 	}
 
 	sessionsHelp = `[[.Bold]]Command:[[.Normal]] sessions <options>
