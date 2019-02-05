@@ -195,6 +195,10 @@ func cdHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
+	// {{if .Debug}}
+	log.Printf("cd '%s' -> %s", cdReq.Path, dir)
+	// {{end}}
+
 	data, err = proto.Marshal(pwd)
 	resp(data, err)
 }

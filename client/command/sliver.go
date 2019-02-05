@@ -9,6 +9,7 @@ import (
 	consts "sliver/client/constants"
 	"sliver/client/spin"
 	pb "sliver/protobuf/client"
+	sliverpb "sliver/protobuf/sliver"
 	"sort"
 	"strconv"
 	"strings"
@@ -241,7 +242,7 @@ func ps(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	data, _ := proto.Marshal(&pb.PsReq{SliverID: ActiveSliver.Sliver.ID})
+	data, _ := proto.Marshal(&sliverpb.PsReq{SliverID: ActiveSliver.Sliver.ID})
 	resp := rpc(&pb.Envelope{
 		Type: consts.PsStr,
 		Data: data,
@@ -250,7 +251,7 @@ func ps(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
 		return
 	}
-	ps := &pb.Ps{}
+	ps := &sliverpb.Ps{}
 	err := proto.Unmarshal(resp.Data, ps)
 	if err != nil {
 		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
@@ -307,7 +308,7 @@ func ps(ctx *grumble.Context, rpc RPCServer) {
 }
 
 // printProcInfo - Stylizes the process information
-func printProcInfo(table *tabwriter.Writer, proc *pb.Process) string {
+func printProcInfo(table *tabwriter.Writer, proc *sliverpb.Process) string {
 	color := normal
 	if modifyColor, ok := knownProcs[proc.Executable]; ok {
 		color = modifyColor

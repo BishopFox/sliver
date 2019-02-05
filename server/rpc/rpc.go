@@ -19,7 +19,14 @@ var (
 		consts.SessionsStr: rpcSessions,
 		consts.GenerateStr: rpcGenerate,
 
-		consts.PsStr: rpcPs,
+		consts.PsStr:       rpcPs,
+		consts.LsStr:       rpcLs,
+		consts.RmStr:       rpcRm,
+		consts.MkdirStr:    rpcMkdir,
+		consts.CdStr:       rpcCd,
+		consts.PwdStr:      rpcPwd,
+		consts.DownloadStr: rpcDownload,
+		consts.UploadStr:   rpcUpload,
 	}
 )
 

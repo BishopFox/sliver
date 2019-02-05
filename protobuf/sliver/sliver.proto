@@ -25,6 +25,7 @@ message Ping {
 }
 
 message KillReq {
+  int32 SliverID = 9;
 }
 
 // aka Shellcode
@@ -40,10 +41,11 @@ message RemoteTask {
 }
 
 message PsReq {
+  int32 SliverID = 9;
 }
 
 message Ps {
-  repeated Process processes = 1;
+  repeated Process Processes = 1;
 }
 
 message Process {
@@ -56,6 +58,8 @@ message Process {
 
 message DirListReq {
   string path = 1;
+
+  int32 SliverID = 9;
 }
 
 message DirList {
@@ -71,10 +75,13 @@ message FileInfo {
 }
 
 message PwdReq {
+
+  int32 SliverID = 9;
 }
 
 message CdReq {
   string path = 1;
+  int32 SliverID = 9;
 }
 
 message Pwd {
@@ -84,6 +91,8 @@ message Pwd {
 
 message RmReq {
   string path = 1;
+
+  int32 SliverID = 9;
 }
 
 message Rm {
@@ -93,7 +102,9 @@ message Rm {
 }
 
 message MkdirReq {
-  string path = 2;
+  string path = 1;
+
+  int32 SliverID = 9;
 }
 
 message Mkdir {
@@ -104,6 +115,8 @@ message Mkdir {
 
 message DownloadReq {
   string path = 1;
+
+  int32 SliverID = 9;
 }
 
 message Download {
@@ -117,8 +130,9 @@ message Download {
 message UploadReq {
   string path = 1;
   string encoder = 2;
+  bytes data = 3;
 
-  bytes data = 9;
+  int32 SliverID = 9;
 }
 
 message Upload {
@@ -129,6 +143,8 @@ message Upload {
 
 message ProcessDumpReq {
   int32 pid = 1;
+
+  int32 SliverID = 9;
 }
 
 message ProcessDump {

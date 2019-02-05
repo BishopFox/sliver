@@ -86,5 +86,32 @@ func startMTLSListener(ctx *grumble.Context, rpc RPCServer) {
 }
 
 func startDNSListener(ctx *grumble.Context, rpc RPCServer) {
+	domain := ctx.Flags.String("domain")
+	if domain == "" {
+		fmt.Printf(Warn + "Missing parameter, see 'help dns'\n")
+		return
+	}
+	if !strings.HasSuffix(domain, ".") {
+		domain += "."
+	}
 
+	fmt.Printf(Info+"Starting DNS listener with parent domain '%s' ...\n", domain)
+
+	data, _ := proto.Marshal(&pb.DNSReq{Domain: domain})
+	resp := rpc(&pb.Envelope{
+		Type: consts.DnsStr,
+		Data: data,
+	}, defaultTimeout)
+	if resp == nil {
+		fmt.Printf(Warn + "Command timeout\n")
+		return
+	}
+	if resp.Error != "" {
+		fmt.Printf(Warn+"Failed to start job %s\n", resp.Error)
+		return
+	}
+	dns := &pb.DNS{}
+	proto.Unmarshal(resp.Data, dns)
+
+	fmt.Printf("\n"+Info+"Successfully started job #%d\n", dns.JobID)
 }

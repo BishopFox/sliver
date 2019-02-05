@@ -3,7 +3,9 @@ package rpc
 import (
 	"log"
 	pb "sliver/protobuf/client"
+	"sliver/server/assets"
 	"sliver/server/c2"
+	"sliver/server/certs"
 	"sliver/server/core"
 
 	"github.com/golang/protobuf/proto"
@@ -79,5 +81,59 @@ func jobStartMTLSListener(bindIface string, port uint16) (int, error) {
 }
 
 func rpcStartDNSListener(data []byte, resp RPCResponse) {
+	dnsReq := &pb.DNSReq{}
+	err := proto.Unmarshal(data, dnsReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	jobID, err := jobStartDNSListener(dnsReq.Domain)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	data, err = proto.Marshal(&pb.DNS{JobID: int32(jobID)})
+	resp(data, err)
+}
 
+func jobStartDNSListener(domain string) (int, error) {
+	rootDir := assets.GetRootAppDir()
+	certs.GetServerRSACertificatePEM(rootDir, "slivers", domain, true)
+	server := c2.StartDNSListener(domain)
+
+	job := &core.Job{
+		ID:          core.GetJobID(),
+		Name:        "dns",
+		Description: domain,
+		Protocol:    "udp",
+		Port:        53,
+		JobCtrl:     make(chan bool),
+	}
+
+	go func() {
+		<-job.JobCtrl
+		log.Printf("Stopping DNS listener (%d) ...", job.ID)
+		server.Shutdown()
+
+		core.Jobs.RemoveJob(job)
+
+		core.Events <- core.Event{EventType: "stopped", Job: job}
+	}()
+
+	core.Jobs.AddJob(job)
+
+	// There is no way to call ListenAndServe() without blocking
+	// but we also need to check the error in the case the server
+	// fails to start at all, so we setup all the Job mechanics
+	// then kick off the server and if it fails we kill the job
+	// ourselves.
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil {
+			log.Printf("DNS listener error %v", err)
+			job.JobCtrl <- true
+		}
+	}()
+
+	return job.ID, nil
 }

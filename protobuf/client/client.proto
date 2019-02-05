@@ -65,11 +65,18 @@ message MTLS {
   int32 JobID = 1;
 }
 
+message DNSReq {
+  string Domain = 1;
+}
+
+message DNS {
+  int32 JobID = 1;
+}
+
 // [ commands ] ----------------------------------------
 
 message Sessions {
   repeated Sliver Slivers = 1;
-  string Err = 2;
 }
 
 message GenerateReq {
@@ -83,12 +90,4 @@ message GenerateReq {
 
 message Generate {
   File File = 1;
-}
-
-message PsReq {
-  int32 SliverID = 1;
-}
-
-message Ps {
-  repeated Process Processes = 1;
 }

@@ -66,7 +66,7 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 }
 
 func rpcPs(req []byte, resp RPCResponse) {
-	psReq := &pb.PsReq{}
+	psReq := &sliverpb.PsReq{}
 	err := proto.Unmarshal(req, psReq)
 	if err != nil {
 		resp([]byte{}, err)

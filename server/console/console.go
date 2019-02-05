@@ -62,7 +62,6 @@ func Start() {
 				}
 			})
 			return <-resp
-			fmt.Println()
 		}
 		fmt.Println()
 		return nil
