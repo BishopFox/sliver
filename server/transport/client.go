@@ -104,11 +104,16 @@ func handleClientConnection(conn net.Conn) {
 				log.Printf("Socket read error %v", err)
 				return
 			}
-			if handler, ok := handlers[envelope.Type]; ok {
-				go handler(envelope.Data, func(data []byte) {
+			if handler, ok := (*handlers)[envelope.Type]; ok {
+				go handler(envelope.Data, func(data []byte, err error) {
+					errStr := ""
+					if err != nil {
+						errStr = fmt.Sprintf("%v", err)
+					}
 					client.Send <- &pb.Envelope{
-						ID:   envelope.ID,
-						Data: data,
+						ID:    envelope.ID,
+						Data:  data,
+						Error: errStr,
 					}
 				})
 			}

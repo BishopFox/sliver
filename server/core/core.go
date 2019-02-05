@@ -3,8 +3,11 @@ package core
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
@@ -30,8 +33,37 @@ type Sliver struct {
 	PID           int32
 	Filename      string
 	Send          chan *sliverpb.Envelope
-	Resp          map[string]chan *sliverpb.Envelope
+	Resp          map[uint64]chan *sliverpb.Envelope
 	RespMutex     *sync.RWMutex
+}
+
+// Request - Sends a protobuf request to the active sliver and returns the response
+func (s *Sliver) Request(msgType uint32, timeout time.Duration, data []byte) ([]byte, error) {
+
+	resp := make(chan *sliverpb.Envelope)
+	reqID := EnvelopeID()
+	s.RespMutex.Lock()
+	s.Resp[reqID] = resp
+	s.RespMutex.Unlock()
+	defer func() {
+		s.RespMutex.Lock()
+		defer s.RespMutex.Unlock()
+		close(resp)
+		delete(s.Resp, reqID)
+	}()
+	s.Send <- &sliverpb.Envelope{
+		ID:   reqID,
+		Type: msgType,
+		Data: data,
+	}
+
+	var respEnvelope *sliverpb.Envelope
+	select {
+	case respEnvelope = <-resp:
+	case <-time.After(timeout):
+		return nil, errors.New("timeout")
+	}
+	return respEnvelope.Data, nil
 }
 
 // SliverHive - Mananges the slivers, provides atomic access
@@ -143,6 +175,13 @@ func RandomID() string {
 	rand.Read(randBuf)
 	digest := sha256.Sum256(randBuf)
 	return fmt.Sprintf("%x", digest[:randomIDSize])
+}
+
+// EnvelopeID - Generate random ID of randomIDSize bytes
+func EnvelopeID() uint64 {
+	randBuf := make([]byte, 8) // 64 bytes of randomness
+	rand.Read(randBuf)
+	return binary.LittleEndian.Uint64(randBuf)
 }
 
 // GetHiveID - Returns an incremental nonce as an id

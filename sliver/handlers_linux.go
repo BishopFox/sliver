@@ -3,11 +3,11 @@ package main
 import pb "sliver/protobuf"
 
 var (
-	linuxHandlers = map[string]interface{}{
+	linuxHandlers = map[int32]RPCHandler{
 		pb.MsgPsListReq: psHandler,
 	}
 )
 
-func getSystemHandlers() map[string]interface{} {
+func getSystemHandlers() map[int32]RPCHandler {
 	return linuxHandlers
 }

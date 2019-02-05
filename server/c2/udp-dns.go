@@ -336,7 +336,7 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		RemoteAddress: "n/a",
 		Send:          make(chan *pb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
-		Resp:          map[string]chan *pb.Envelope{},
+		Resp:          map[uint64]chan *pb.Envelope{},
 	}
 
 	core.Hive.AddSliver(sliver)
@@ -404,14 +404,14 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 		envelope := &pb.Envelope{}
 		proto.Unmarshal(envelopeData, envelope)
 
-		log.Printf("Envelope Type = %#v RespID = %#v", envelope.Type, envelope.Id)
+		log.Printf("Envelope Type = %#v RespID = %#v", envelope.Type, envelope.ID)
 
 		// Response Envelope or Handler
 		handlers := serverHandlers.GetSliverHandlers()
-		if envelope.Id != "" {
+		if envelope.ID != 0 {
 			dnsSession.Sliver.RespMutex.Lock()
 			defer dnsSession.Sliver.RespMutex.Unlock()
-			if resp, ok := dnsSession.Sliver.Resp[envelope.Id]; ok {
+			if resp, ok := dnsSession.Sliver.Resp[envelope.ID]; ok {
 				resp <- envelope
 			}
 		} else if handler, ok := handlers[envelope.Type]; ok {

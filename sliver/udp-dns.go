@@ -19,7 +19,7 @@ import (
 
 	insecureRand "math/rand"
 	"net"
-	pb "sliver/protobuf"
+	pb "sliver/protobuf/sliver"
 	"strconv"
 	"strings"
 	"sync"

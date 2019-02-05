@@ -64,7 +64,7 @@ func handleSliverConnection(conn net.Conn) {
 		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
 		Send:          make(chan *pb.Envelope),
 		RespMutex:     &sync.RWMutex{},
-		Resp:          map[string]chan *pb.Envelope{},
+		Resp:          map[uint64]chan *pb.Envelope{},
 	}
 
 	core.Hive.AddSliver(sliver)
@@ -93,9 +93,9 @@ func handleSliverConnection(conn net.Conn) {
 				log.Printf("Socket read error %v", err)
 				return
 			}
-			if envelope.Id != "" {
+			if envelope.ID != 0 {
 				sliver.RespMutex.Lock()
-				if resp, ok := sliver.Resp[envelope.Id]; ok {
+				if resp, ok := sliver.Resp[envelope.ID]; ok {
 					resp <- envelope // Could deadlock, maybe want to investigate better solutions
 				}
 				sliver.RespMutex.Unlock()

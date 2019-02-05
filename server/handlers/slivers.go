@@ -9,13 +9,13 @@ import (
 )
 
 var (
-	serverHandlers = map[string]interface{}{
+	serverHandlers = map[uint32]interface{}{
 		pb.MsgRegister: registerSliverHandler,
 	}
 )
 
 // GetSliverHandlers - Returns a map of server-side msg handlers
-func GetSliverHandlers() map[string]interface{} {
+func GetSliverHandlers() map[uint32]interface{} {
 	return serverHandlers
 }
 

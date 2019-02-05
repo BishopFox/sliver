@@ -6,6 +6,19 @@ message Envelope {
   string Type = 1; // Message type
   bytes Data = 2;  // Actual message data
   string ID = 3;   // Resp ID
+  string Error = 4;
+}
+// [ generic ] ----------------------------------------
+message File {
+  string Name = 1;
+  bytes Data = 2;
+}
+
+message Process {
+  int32 pid = 1;
+  int32 ppid = 2;
+  string executable = 3;
+  string owner = 4;
 }
 
 // [ core ] ----------------------------------------
@@ -27,7 +40,21 @@ message Sliver {
 
 message Sessions {
   repeated Sliver Slivers = 1;
- }
+  string Err = 2;
+}
+
+message GenerateReq {
+  string OS = 1;
+  string Arch = 2;
+  string LHost = 3;
+  int32 LPort = 4;
+  bool Debug = 5;
+  string DNSParent = 6;
+}
+
+message Generate {
+  File File = 1;
+}
 
 message Job {
   int32 ID = 1;
@@ -39,4 +66,12 @@ message Job {
 
 message Jobs {
   repeated Job Active = 1;
+}
+
+message PsReq {
+  int32 SliverID = 1;
+}
+
+message Ps {
+  repeated Process Processes = 1;
 }
