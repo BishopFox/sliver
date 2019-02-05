@@ -241,16 +241,11 @@ func ps(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	ctrl := make(chan bool)
-	msg := fmt.Sprintf("Requesting process list from %s ...\n", ActiveSliver.Sliver.Name)
-	go spin.Until(msg, ctrl)
-
 	data, _ := proto.Marshal(&pb.PsReq{SliverID: ActiveSliver.Sliver.ID})
 	resp := rpc(&pb.Envelope{
 		Type: consts.PsStr,
 		Data: data,
 	}, defaultTimeout)
-	ctrl <- true
 	if resp.Error != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
 		return
@@ -296,8 +291,10 @@ func ps(ctx *grumble.Context, rpc RPCServer) {
 	}
 	table.Flush()
 
-	fmt.Println()
 	for index, line := range strings.Split(outputBuf.String(), "\n") {
+		if len(line) == 0 {
+			continue
+		}
 		// We need to account for the two rows of column headers
 		if 0 < len(line) && 2 <= index {
 			lineColor := lineColors[index-2]

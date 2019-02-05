@@ -59,22 +59,6 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 	})
 
-	app.AddCommand(&grumble.Command{
-		Name:     consts.MultiplayerModeStr,
-		Help:     "Enable multiplayer mode",
-		LongHelp: help.GetHelpFor(consts.MultiplayerModeStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("s", "server", "", "interface to bind server to")
-			f.Int("l", "lport", 31337, "tcp listen port")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			startMultiplayerMode(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-	})
-
 	// [ Commands ] --------------------------------------------------------------
 
 	app.AddCommand(&grumble.Command{

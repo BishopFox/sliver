@@ -11,7 +11,7 @@ import (
 	"sliver/server/assets"
 	"sliver/server/certs"
 	"sliver/server/core"
-	rpc "sliver/server/handlers"
+	"sliver/server/rpc"
 
 	pb "sliver/protobuf/client"
 

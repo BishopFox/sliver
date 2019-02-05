@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sliver/server/assets"
 	"sliver/server/certs"
+	"sliver/server/core"
+	"sliver/server/transport"
 
 	"github.com/desertbit/grumble"
 )
@@ -60,21 +63,21 @@ func newPlayerCmd(ctx *grumble.Context) {
 	operator = regex.ReplaceAllString(operator, "")
 
 	if operator == "" {
-		fmt.Printf("\n" + Warn + "Operator name required (--operator) \n\n")
+		fmt.Printf(Warn + "Operator name required (--operator) \n")
 		return
 	}
 
 	if lhost == "" {
-		fmt.Printf("\n" + Warn + "Missing lhost (--lhost) \n\n")
+		fmt.Printf(Warn + "Missing lhost (--lhost) \n")
 		return
 	}
 
 	if save == "" {
-		fmt.Printf("\n" + Warn + "Save file required (--save)\n\n")
+		fmt.Printf(Warn + "Save file required (--save)\n")
 		return
 	}
 
-	fmt.Printf("\n" + Info + "Generating new client certificate, please wait ... \n")
+	fmt.Printf(Info + "Generating new client certificate, please wait ... \n")
 	rootDir := assets.GetRootAppDir()
 	publicKey, privateKey := certs.GenerateClientCertificate(rootDir, operator, true)
 	caCertPEM, _, _ := certs.GetCertificateAuthorityPEM(rootDir, certs.ClientsCertDir)
@@ -90,7 +93,7 @@ func newPlayerCmd(ctx *grumble.Context) {
 	saveTo, _ := filepath.Abs(save)
 	fi, err := os.Stat(saveTo)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to generate sliver %v\n\n", err)
+		fmt.Printf(Warn+"Failed to generate sliver %v\n", err)
 		return
 	}
 	if fi.IsDir() {
@@ -99,10 +102,10 @@ func newPlayerCmd(ctx *grumble.Context) {
 	}
 	err = ioutil.WriteFile(saveTo, configJSON, 0644)
 	if err != nil {
-		fmt.Printf("\n"+Warn+"Failed to write config to: %s (%v) \n\n", saveTo, err)
+		fmt.Printf(Warn+"Failed to write config to: %s (%v) \n", saveTo, err)
 		return
 	}
-	fmt.Printf("\n"+Info+"Saved new client config to: %s \n\n", saveTo)
+	fmt.Printf(Info+"Saved new client config to: %s \n", saveTo)
 }
 
 func kickPlayerCmd(ctx *grumble.Context) {
@@ -111,4 +114,47 @@ func kickPlayerCmd(ctx *grumble.Context) {
 
 func listPlayersCmd(ctx *grumble.Context) {
 
+}
+
+func startMultiplayerModeCmd(ctx *grumble.Context) {
+	server := ctx.Flags.String("server")
+	lport := uint16(ctx.Flags.Int("lport"))
+
+	fmt.Printf("\n" + Info + "Starting client listener ...\n")
+	ID, err := jobStartClientListener(server, lport)
+	if err == nil {
+		fmt.Printf(Info+"Successfully started job #%d\n", ID)
+	} else {
+		fmt.Printf(Warn+"Failed to start job %v\n", err)
+	}
+}
+
+func jobStartClientListener(bindIface string, port uint16) (int, error) {
+	ln, err := transport.StartClientListener(bindIface, port)
+	if err != nil {
+		return -1, err // If we fail to bind don't setup the Job
+	}
+
+	job := &core.Job{
+		ID:          core.GetJobID(),
+		Name:        "mTLS/RPC",
+		Description: "client listener",
+		Protocol:    "tcp",
+		Port:        port,
+		JobCtrl:     make(chan bool),
+	}
+
+	go func() {
+		<-job.JobCtrl
+		log.Printf("Stopping client listener (%d) ...\n", job.ID)
+		ln.Close() // Kills listener GoRoutines in startMutualTLSListener() but NOT connections
+
+		core.Jobs.RemoveJob(job)
+
+		core.Events <- core.Event{EventType: "stopped", Job: job}
+	}()
+
+	core.Jobs.AddJob(job)
+
+	return job.ID, nil
 }

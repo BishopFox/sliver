@@ -43,6 +43,8 @@ func Start() {
 	})
 	sliverApp.SetPrintASCIILogo(printLogo)
 
+	serverOnlyCmds(sliverApp)
+
 	handlers := rpc.GetRPCHandlers()
 	command.Init(sliverApp, func(envelope *pb.Envelope, timeout time.Duration) *pb.Envelope {
 		resp := make(chan *pb.Envelope)
@@ -60,7 +62,9 @@ func Start() {
 				}
 			})
 			return <-resp
+			fmt.Println()
 		}
+		fmt.Println()
 		return nil
 	})
 
@@ -106,6 +110,22 @@ func serverOnlyCmds(sliverApp *grumble.App) {
 	// [ Multiplayer ] -----------------------------------------------------------------
 
 	sliverApp.AddCommand(&grumble.Command{
+		Name:     consts.MultiplayerModeStr,
+		Help:     "Enable multiplayer mode",
+		LongHelp: help.GetHelpFor(consts.MultiplayerModeStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "server", "", "interface to bind server to")
+			f.Int("l", "lport", 31337, "tcp listen port")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			startMultiplayerModeCmd(ctx)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	sliverApp.AddCommand(&grumble.Command{
 		Name:     consts.NewPlayerStr,
 		Help:     "Create a new player config file",
 		LongHelp: help.GetHelpFor(consts.NewPlayerStr),
@@ -119,7 +139,9 @@ func serverOnlyCmds(sliverApp *grumble.App) {
 			f.String("n", "operator", "", "operator name")
 		},
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			newPlayerCmd(ctx)
+			fmt.Println()
 			return nil
 		},
 	})
@@ -129,7 +151,9 @@ func serverOnlyCmds(sliverApp *grumble.App) {
 		Help:     "List players connected to the server",
 		LongHelp: help.GetHelpFor(consts.ListPlayerStr),
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			listPlayersCmd(ctx)
+			fmt.Println()
 			return nil
 		},
 	})
@@ -142,7 +166,9 @@ func serverOnlyCmds(sliverApp *grumble.App) {
 			f.String("o", "operator", "", "operator name")
 		},
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			kickPlayerCmd(ctx)
+			fmt.Println()
 			return nil
 		},
 	})
