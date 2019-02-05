@@ -98,17 +98,16 @@ func (s *Spinner) Reset() {
 }
 
 // Until - Spint until ctrl channel signals
-func Until(msg string, ctrl chan bool, out *os.File) {
+func Until(msg string, ctrl chan bool) {
 	defer close(ctrl)
 	s := spin.New()
 	for {
 		select {
 		case <-time.After(100 * time.Millisecond):
-			fmt.Fprintf(out, clearln+" %s  %s", s.Next(), msg)
+			fmt.Fprintf(os.Stdout, clearln+" %s  %s", s.Next(), msg)
 		case <-ctrl:
-			fmt.Fprintf(out, clearln)
+			fmt.Fprintf(os.Stdout, clearln)
 			return
 		}
-
 	}
 }

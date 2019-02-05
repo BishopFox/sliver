@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	darwinHandlers = map[int32]RPCHandler{
+	darwinHandlers = map[uint32]RPCHandler{
 		pb.MsgTask:       taskHandler,
 		pb.MsgRemoteTask: remoteTaskHandler,
 
@@ -31,7 +31,7 @@ var (
 	}
 )
 
-func getSystemHandlers() map[int32]RPCHandler {
+func getSystemHandlers() map[uint32]RPCHandler {
 	return darwinHandlers
 }
 

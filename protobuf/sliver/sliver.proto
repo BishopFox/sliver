@@ -3,20 +3,20 @@ syntax = "proto3";
 package sliverpb;
 
 message Envelope {
-  uint32 type = 1; // Message type
+  uint32 Type = 1; // Message type
   uint64 ID = 2;   // Resp ID
-  bytes data = 9;  // Actual message data
+  bytes Data = 9;  // Actual message data
 }
 
 message Register {
-  string name = 1;
-  string hostname = 2;
-  string username = 3;
-  string uid = 4;
-  string gid = 5;
-  string os = 6;
-  string arch = 7;
-  int32 pid = 8;
+  string Name = 1;
+  string Hostname = 2;
+  string Username = 3;
+  string Uid = 4;
+  string Gid = 5;
+  string Os = 6;
+  string Arch = 7;
+  int32 Pid = 8;
   string filename = 9;
 }
 

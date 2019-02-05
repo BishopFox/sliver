@@ -171,7 +171,7 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 
 	fmt.Printf(Info+"Generating new %s/%s sliver binary \n", targetOS, arch)
 	ctrl := make(chan bool)
-	go spin.Until("Compiling ...", ctrl, os.Stdout)
+	go spin.Until("Compiling ...", ctrl)
 	generateReq, _ := proto.Marshal(&pb.GenerateReq{
 		OS:        targetOS,
 		Arch:      arch,
@@ -243,7 +243,7 @@ func ps(ctx *grumble.Context, rpc RPCServer) {
 
 	ctrl := make(chan bool)
 	msg := fmt.Sprintf("Requesting process list from %s ...\n", ActiveSliver.Sliver.Name)
-	go spin.Until(msg, ctrl, os.Stdout)
+	go spin.Until(msg, ctrl)
 
 	data, _ := proto.Marshal(&pb.PsReq{SliverID: ActiveSliver.Sliver.ID})
 	resp := rpc(&pb.Envelope{

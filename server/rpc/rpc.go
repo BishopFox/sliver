@@ -1,4 +1,4 @@
-package handlers
+package rpc
 
 import (
 	consts "sliver/client/constants"
@@ -12,9 +12,14 @@ type RPCHandler func([]byte, RPCResponse)
 
 var (
 	rpcHandlers = &map[string]RPCHandler{
+		consts.JobsStr: rpcJobs,
+		consts.MtlsStr: rpcStartMTLSListener,
+		consts.DnsStr:  rpcStartDNSListener,
+
 		consts.SessionsStr: rpcSessions,
 		consts.GenerateStr: rpcGenerate,
-		consts.PsStr:       rpcPs,
+
+		consts.PsStr: rpcPs,
 	}
 )
 

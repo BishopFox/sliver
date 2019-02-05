@@ -13,7 +13,7 @@ import (
 	pb "sliver/protobuf/client"
 	"time"
 
-	rpc "sliver/server/handlers"
+	"sliver/server/rpc"
 
 	"github.com/desertbit/grumble"
 	"github.com/fatih/color"

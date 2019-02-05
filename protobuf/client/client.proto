@@ -38,6 +38,35 @@ message Sliver {
   string Filename = 12;
 }
 
+message Job {
+  int32 ID = 1;
+  string Name = 2;
+  string Description = 3;
+  string Protocol = 4;
+  int32 Port = 5;
+}
+
+message JobStop {
+  int32 ID = 1;
+}
+
+message Jobs {
+  repeated Job Active = 1;
+}
+
+// [ listeners ] ----------------------------------------
+
+message MTLSReq {
+  string Server = 1;
+  int32 LPort = 2;
+}
+
+message MTLS {
+  int32 JobID = 1;
+}
+
+// [ commands ] ----------------------------------------
+
 message Sessions {
   repeated Sliver Slivers = 1;
   string Err = 2;
@@ -54,18 +83,6 @@ message GenerateReq {
 
 message Generate {
   File File = 1;
-}
-
-message Job {
-  int32 ID = 1;
-  string Name = 2;
-  string Description = 3;
-  string Protocol = 4;
-  int32 Port = 5;
-}
-
-message Jobs {
-  repeated Job Active = 1;
 }
 
 message PsReq {

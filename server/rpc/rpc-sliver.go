@@ -1,4 +1,4 @@
-package handlers
+package rpc
 
 import (
 	"io/ioutil"
