@@ -22,8 +22,7 @@ import (
 
 const (
 	readBufSize        = 1024
-	keepAliveInterval  = 1 * time.Second
-	socketReadDeadline = 3 * time.Second
+	socketReadDeadline = 120 * time.Second
 )
 
 var (
@@ -47,21 +46,11 @@ func Connect(config *assets.ClientConfig) (chan *pb.Envelope, chan *pb.Envelope,
 			conn.Close()
 			core.Events <- &pb.Event{EventType: consts.ServerErrorStr}
 		})
-		for {
-			select {
-			case envelope := <-send:
-				err := socketWriteEnvelope(conn, envelope)
-				if err != nil {
-					return
-				}
-			case <-time.After(keepAliveInterval):
-				err := socketWriteEnvelope(conn, &pb.Envelope{
-					Type: consts.KeepAliveStr,
-					Data: []byte{1},
-				})
-				if err != nil {
-					return
-				}
+
+		for envelope := range send {
+			err := socketWriteEnvelope(conn, envelope)
+			if err != nil {
+				return
 			}
 		}
 	}()

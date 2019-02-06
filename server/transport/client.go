@@ -24,8 +24,7 @@ const (
 	defaultServerCert = "clients"
 	readBufSize       = 1024
 
-	keepAliveInterval  = 1 * time.Second
-	socketReadDeadline = 3 * time.Second
+	socketReadDeadline = 120 * time.Second
 )
 
 var (
@@ -123,9 +122,6 @@ func handleClientConnection(conn net.Conn) {
 				log.Printf("Socket read error %v", err)
 				return
 			}
-			if envelope.Type == consts.KeepAliveStr {
-				continue
-			}
 			if handler, ok := (*handlers)[envelope.Type]; ok {
 				go handler(envelope.Data, func(data []byte, err error) {
 					errStr := ""
@@ -147,24 +143,14 @@ func handleClientConnection(conn net.Conn) {
 	go eventLoop(conn, events)
 
 	defer once.Do(cleanup)
-	for {
-		select {
-		case envelope := <-client.Send:
-			err := socketWriteEnvelope(conn, envelope)
-			if err != nil {
-				log.Printf("Socket error %v", err)
-				return
-			}
-		case <-time.After(keepAliveInterval):
-			err := socketWriteEnvelope(conn, &pb.Envelope{
-				Type: consts.KeepAliveStr,
-				Data: []byte{1},
-			})
-			if err != nil {
-				log.Printf("Socket error %v", err)
-				return
-			}
+
+	for envelope := range client.Send {
+		err := socketWriteEnvelope(conn, envelope)
+		if err != nil {
+			log.Printf("Socket error %v", err)
+			return
 		}
+
 	}
 
 }

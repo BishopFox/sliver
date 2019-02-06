@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
@@ -141,6 +142,10 @@ func kill(ctx *grumble.Context, rpc RPCServer) {
 		Type: consts.KillStr,
 		Data: data,
 	}, defaultTimeout)
+	if resp == nil {
+		fmt.Printf(Warn + "No response from server\n")
+		return
+	}
 
 	if resp.Error != "" {
 		fmt.Printf(Warn+"%s\n", resp.Error)
@@ -215,8 +220,12 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 	resp := rpc(&pb.Envelope{
 		Type: consts.GenerateStr,
 		Data: generateReq,
-	}, defaultTimeout)
+	}, 1200*time.Second)
 	ctrl <- true
+	if resp == nil {
+		fmt.Printf(Warn + "No response from server\n")
+		return
+	}
 	if resp.Error != "" {
 		fmt.Printf(Warn+"%s\n", resp.Error)
 		return
