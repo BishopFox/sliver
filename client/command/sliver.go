@@ -9,8 +9,8 @@ import (
 	consts "sliver/client/constants"
 	"sliver/client/spin"
 	pb "sliver/protobuf/client"
+	sliverpb "sliver/protobuf/sliver"
 	"sort"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -113,21 +113,13 @@ func use(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "Missing sliver name or session number, see `help use`\n")
 		return
 	}
-	resp := rpc(&pb.Envelope{
-		Type: consts.SessionsStr,
-		Data: []byte{},
-	}, defaultTimeout)
-	sessions := &pb.Sessions{}
-	proto.Unmarshal(resp.Data, sessions)
-
-	for _, sliver := range sessions.Slivers {
-		if strconv.Itoa(int(sliver.ID)) == ctx.Args[0] || sliver.Name == ctx.Args[0] {
-			ActiveSliver.SetActiveSliver(sliver)
-			fmt.Printf(Info+"Active sliver: %s (%d)\n", sliver.Name, sliver.ID)
-			return
-		}
+	sliver := getSliver(ctx.Args[0], rpc)
+	if sliver != nil {
+		ActiveSliver.SetActiveSliver(sliver)
+		fmt.Printf(Info+"Active sliver %s (%d)\n", sliver.Name, sliver.ID)
+	} else {
+		fmt.Printf(Warn+"Invalid sliver name or session number '%s'\n", ctx.Args[0])
 	}
-	fmt.Printf(Warn+"Invalid sliver name or session number '%s'\n", ctx.Args[0])
 }
 
 func background(ctx *grumble.Context, rpc RPCServer) {
@@ -136,11 +128,50 @@ func background(ctx *grumble.Context, rpc RPCServer) {
 }
 
 func kill(ctx *grumble.Context, rpc RPCServer) {
+	if ActiveSliver.Sliver == nil {
+		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+		return
+	}
 
+	sliver := ActiveSliver.Sliver
+	data, _ := proto.Marshal(&sliverpb.KillReq{
+		SliverID: sliver.ID,
+	})
+	resp := rpc(&pb.Envelope{
+		Type: consts.KillStr,
+		Data: data,
+	}, defaultTimeout)
+
+	if resp.Error != "" {
+		fmt.Printf(Warn+"%s\n", resp.Error)
+	} else {
+		fmt.Printf(Info+"Killed %s (%d)\n", sliver.Name, sliver.ID)
+	}
 }
 
 func info(ctx *grumble.Context, rpc RPCServer) {
 
+	var sliver *pb.Sliver
+	if ActiveSliver.Sliver != nil {
+		sliver = ActiveSliver.Sliver
+	} else if 0 < len(ctx.Args) {
+		sliver = getSliver(ctx.Args[0], rpc)
+	}
+
+	if sliver != nil {
+		fmt.Printf(bold+"            ID: %s%d\n", normal, sliver.ID)
+		fmt.Printf(bold+"          Name: %s%s\n", normal, sliver.Name)
+		fmt.Printf(bold+"      Hostname: %s%s\n", normal, sliver.Hostname)
+		fmt.Printf(bold+"      Username: %s%s\n", normal, sliver.Username)
+		fmt.Printf(bold+"           UID: %s%s\n", normal, sliver.UID)
+		fmt.Printf(bold+"           GID: %s%s\n", normal, sliver.GID)
+		fmt.Printf(bold+"           PID: %s%d\n", normal, sliver.PID)
+		fmt.Printf(bold+"            OS: %s%s\n", normal, sliver.OS)
+		fmt.Printf(bold+"          Arch: %s%s\n", normal, sliver.Arch)
+		fmt.Printf(bold+"Remote Address: %s%s\n", normal, sliver.RemoteAddress)
+	} else {
+		fmt.Printf(Warn+"No target sliver, see `help %s`\n", consts.InfoStr)
+	}
 }
 
 func generate(ctx *grumble.Context, rpc RPCServer) {

@@ -1,8 +1,12 @@
 package command
 
 import (
+	consts "sliver/client/constants"
 	pb "sliver/protobuf/client"
+	"strconv"
 	"time"
+
+	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -33,8 +37,17 @@ const (
 )
 
 var (
+
+	// ActiveSliver - The current sliver we're interacting with
+	ActiveSliver = &activeSliver{
+		observers: []observer{},
+	}
+
 	defaultTimeout = 30 * time.Second
 )
+
+// RPCServer - Function used to send/recv envelopes
+type RPCServer func(*pb.Envelope, time.Duration) *pb.Envelope
 
 type observer func()
 
@@ -54,12 +67,19 @@ func (s *activeSliver) SetActiveSliver(sliver *pb.Sliver) {
 	}
 }
 
-var (
-	// ActiveSliver - The current sliver we're interacting with
-	ActiveSliver = &activeSliver{
-		observers: []observer{},
-	}
-)
+// Get Sliver by session ID or name
+func getSliver(arg string, rpc RPCServer) *pb.Sliver {
+	resp := rpc(&pb.Envelope{
+		Type: consts.SessionsStr,
+		Data: []byte{},
+	}, defaultTimeout)
+	sessions := &pb.Sessions{}
+	proto.Unmarshal(resp.Data, sessions)
 
-// RPCServer - Function used to send/recv envelopes
-type RPCServer func(*pb.Envelope, time.Duration) *pb.Envelope
+	for _, sliver := range sessions.Slivers {
+		if strconv.Itoa(int(sliver.ID)) == arg || sliver.Name == arg {
+			return sliver
+		}
+	}
+	return nil
+}

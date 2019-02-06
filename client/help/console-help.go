@@ -2,7 +2,6 @@ package help
 
 import (
 	"bytes"
-	"fmt"
 	consts "sliver/client/constants"
 	"text/template"
 )
@@ -27,6 +26,7 @@ const (
 
 var (
 	cmdHelp = map[string]string{
+		consts.JobsStr:       jobsHelp,
 		consts.SessionsStr:   sessionsHelp,
 		consts.BackgroundStr: backgroundHelp,
 		consts.InfoStr:       infoHelp,
@@ -46,6 +46,9 @@ var (
 		consts.RmStr:         rmHelp,
 		consts.ProcdumpStr:   procdumpHelp,
 	}
+
+	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
+	[[.Bold]]About:[[.Normal]] Manange jobs/listeners.`
 
 	sessionsHelp = `[[.Bold]]Command:[[.Normal]] sessions <options>
 [[.Bold]]About:[[.Normal]] List files on remote system.`
@@ -124,5 +127,5 @@ func GetHelpFor(cmdName string) string {
 			return outputBuf.String()
 		}
 	}
-	return fmt.Sprintf("No help for '%s'", cmdName)
+	return ""
 }
