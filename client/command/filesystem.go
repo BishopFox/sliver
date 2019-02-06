@@ -6,6 +6,7 @@ import (
 	consts "sliver/client/constants"
 	pb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
+	"sliver/server/encoders"
 	"sliver/server/util"
 	"strings"
 	"text/tabwriter"
@@ -62,11 +63,79 @@ func printDirList(dirList *sliverpb.DirList) {
 }
 
 func rm(ctx *grumble.Context, rpc RPCServer) {
+	if ActiveSliver.Sliver == nil {
+		fmt.Println(Warn + "Please select an active sliver via `use`\n")
+		return
+	}
+
+	if len(ctx.Args) == 0 {
+		fmt.Printf(Warn + "Missing parameter: file or directory name\n")
+		return
+	}
+
+	data, _ := proto.Marshal(&sliverpb.RmReq{
+		SliverID: ActiveSliver.Sliver.ID,
+		Path:     ctx.Args[0],
+	})
+	resp := rpc(&pb.Envelope{
+		Type: consts.RmStr,
+		Data: data,
+	}, defaultTimeout)
+	if resp.Error != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Error)
+		return
+	}
+
+	rm := &sliverpb.Rm{}
+	err := proto.Unmarshal(resp.Data, rm)
+	if err != nil {
+		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
+		return
+	}
+	if rm.Success {
+		fmt.Printf(Info+"%s\n", rm.Path)
+	} else {
+		fmt.Printf(Warn+"%s\n", rm.Err)
+	}
 
 }
 
 func mkdir(ctx *grumble.Context, rpc RPCServer) {
 
+	if ActiveSliver.Sliver == nil {
+		fmt.Println(Warn + "Please select an active sliver via `use`\n")
+		return
+	}
+
+	if len(ctx.Args) == 0 {
+		fmt.Printf(Warn + "Missing parameter: directory name\n")
+		return
+	}
+
+	data, _ := proto.Marshal(&sliverpb.MkdirReq{
+		SliverID: ActiveSliver.Sliver.ID,
+		Path:     ctx.Args[0],
+	})
+	resp := rpc(&pb.Envelope{
+		Type: consts.MkdirStr,
+		Data: data,
+	}, defaultTimeout)
+	if resp.Error != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Error)
+		return
+	}
+
+	mkdir := &sliverpb.Mkdir{}
+	err := proto.Unmarshal(resp.Data, mkdir)
+	if err != nil {
+		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
+		return
+	}
+	if mkdir.Success {
+		fmt.Printf(Info+"%s\n", mkdir.Path)
+	} else {
+		fmt.Printf(Warn+"%s\n", mkdir.Err)
+	}
 }
 
 func cd(ctx *grumble.Context, rpc RPCServer) {
@@ -85,7 +154,7 @@ func cd(ctx *grumble.Context, rpc RPCServer) {
 		Path:     ctx.Args[0],
 	})
 	resp := rpc(&pb.Envelope{
-		Type: consts.LsStr,
+		Type: consts.CdStr,
 		Data: data,
 	}, defaultTimeout)
 	if resp.Error != "" {
@@ -112,7 +181,7 @@ func pwd(ctx *grumble.Context, rpc RPCServer) {
 		SliverID: ActiveSliver.Sliver.ID,
 	})
 	resp := rpc(&pb.Envelope{
-		Type: consts.LsStr,
+		Type: consts.PwdStr,
 		Data: data,
 	}, defaultTimeout)
 	if resp.Error != "" {
@@ -130,7 +199,39 @@ func pwd(ctx *grumble.Context, rpc RPCServer) {
 }
 
 func cat(ctx *grumble.Context, rpc RPCServer) {
+	if ActiveSliver.Sliver == nil {
+		fmt.Println(Warn + "Please select an active sliver via `use`\n")
+		return
+	}
 
+	if len(ctx.Args) == 0 {
+		fmt.Printf(Warn + "Missing parameter: file name\n")
+		return
+	}
+
+	data, _ := proto.Marshal(&sliverpb.DownloadReq{
+		SliverID: ActiveSliver.Sliver.ID,
+		Path:     ctx.Args[0],
+	})
+	resp := rpc(&pb.Envelope{
+		Type: consts.DownloadStr,
+		Data: data,
+	}, defaultTimeout)
+	if resp.Error != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Error)
+		return
+	}
+	if resp.Error != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Error)
+		return
+	}
+
+	download := &sliverpb.Download{}
+	proto.Unmarshal(resp.Data, download)
+	if download.Encoder == "gzip" {
+		download.Data, _ = encoders.GzipRead(download.Data)
+	}
+	fmt.Printf(string(download.Data))
 }
 
 func download(ctx *grumble.Context, rpc RPCServer) {
