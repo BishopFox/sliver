@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	consts "sliver/client/constants"
 	"sliver/server/assets"
 	"sliver/server/certs"
 	"sliver/server/core"
@@ -150,7 +151,10 @@ func jobStartClientListener(bindIface string, port uint16) (int, error) {
 
 		core.Jobs.RemoveJob(job)
 
-		core.Events <- core.Event{EventType: "stopped", Job: job}
+		core.EventBroker.Publish(core.Event{
+			Job:       job,
+			EventType: consts.StoppedEvent,
+		})
 	}()
 
 	core.Jobs.AddJob(job)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	consts "sliver/client/constants"
 	pb "sliver/protobuf/sliver"
 	"sliver/server/assets"
 	"sliver/server/core"
@@ -73,7 +74,10 @@ func handleSliverConnection(conn net.Conn) {
 		log.Printf("Cleaning up for %s", sliver.Name)
 		core.Hive.RemoveSliver(sliver)
 		conn.Close()
-		core.Events <- core.Event{Sliver: sliver, EventType: "disconnected"}
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.DisconnectedEvent,
+			Sliver:    sliver,
+		})
 	}()
 
 	go func() {

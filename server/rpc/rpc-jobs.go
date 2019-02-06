@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"log"
+	consts "sliver/client/constants"
 	pb "sliver/protobuf/client"
 	"sliver/server/assets"
 	"sliver/server/c2"
@@ -72,7 +73,10 @@ func jobStartMTLSListener(bindIface string, port uint16) (int, error) {
 
 		core.Jobs.RemoveJob(job)
 
-		core.Events <- core.Event{EventType: "stopped", Job: job}
+		core.EventBroker.Publish(core.Event{
+			Job:       job,
+			EventType: consts.StoppedEvent,
+		})
 	}()
 
 	core.Jobs.AddJob(job)
@@ -117,7 +121,10 @@ func jobStartDNSListener(domain string) (int, error) {
 
 		core.Jobs.RemoveJob(job)
 
-		core.Events <- core.Event{EventType: "stopped", Job: job}
+		core.EventBroker.Publish(core.Event{
+			Job:       job,
+			EventType: consts.StoppedEvent,
+		})
 	}()
 
 	core.Jobs.AddJob(job)

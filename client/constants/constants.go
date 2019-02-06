@@ -1,5 +1,33 @@
 package constants
 
+// Meta
+const (
+	KeepAliveStr = "keepalive"
+)
+
+// Events
+const (
+	EventStr = "event"
+
+	ServerErrorStr = "server"
+
+	// ConnectedEvent - Sliver Connected
+	ConnectedEvent = "connected"
+	// DisconnectedEvent - Sliver disconnected
+	DisconnectedEvent = "disconnected"
+
+	// JoinedEvent - Player joined the game
+	JoinedEvent = "joined"
+	// LeftEvent - Player left the game
+	LeftEvent = "left"
+
+	// StartedEvent - Job was started
+	StartedEvent = "started"
+	// StoppedEvent - Job was stopped
+	StoppedEvent = "stopped"
+)
+
+// Commands
 const (
 	NewPlayerStr       = "new"
 	ListPlayerStr      = "players"

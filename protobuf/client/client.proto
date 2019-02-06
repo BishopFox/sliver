@@ -8,6 +8,7 @@ message Envelope {
   string ID = 3;   // Resp ID
   string Error = 4;
 }
+
 // [ generic ] ----------------------------------------
 message File {
   string Name = 1;
@@ -111,4 +112,18 @@ message MSFInjectReq {
 
   int32 PID = 8;
   int32 SliverID = 9;
+}
+
+// [ events ] ----------------------------------------
+
+message Client {
+  int32 ID = 1;
+  string Operator = 2;
+}
+
+message Event {
+  string EventType = 1;
+  Sliver Sliver = 2;
+  Job Job = 3;
+  Client Client = 4;
 }

@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 	"sync"
 	"time"
@@ -33,6 +34,24 @@ type Sliver struct {
 	Send          chan *sliverpb.Envelope
 	Resp          map[uint64]chan *sliverpb.Envelope
 	RespMutex     *sync.RWMutex
+}
+
+// ToProtobuf - Get the protobuf version of the object
+func (s *Sliver) ToProtobuf() *clientpb.Sliver {
+	return &clientpb.Sliver{
+		ID:            int32(s.ID),
+		Name:          s.Name,
+		Hostname:      s.Hostname,
+		Username:      s.Username,
+		UID:           s.UID,
+		GID:           s.GID,
+		OS:            s.Os,
+		Arch:          s.Arch,
+		Transport:     s.Transport,
+		RemoteAddress: s.RemoteAddress,
+		PID:           int32(s.PID),
+		Filename:      s.Filename,
+	}
 }
 
 // Request - Sends a protobuf request to the active sliver and returns the response

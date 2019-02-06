@@ -9,6 +9,7 @@ import (
 	"path"
 	"sliver/client/assets"
 	cmd "sliver/client/command"
+	consts "sliver/client/constants"
 	"sliver/client/core"
 	"sliver/client/transport"
 
@@ -56,17 +57,13 @@ func Start() {
 	if config == nil {
 		return
 	}
-	rpc, recv, err := transport.Connect(config)
+	send, recv, err := transport.Connect(config)
 	if err != nil {
 		fmt.Printf(Warn+"Connection to server failed %v", err)
 		return
 	}
-	defer func() {
-		close(rpc)
-		close(recv)
-	}()
 
-	sliverServer := core.BindSliverServer(rpc, recv)
+	sliverServer := core.BindSliverServer(send, recv)
 	go sliverServer.ResponseMapper()
 
 	startConsole(sliverServer)
@@ -92,7 +89,7 @@ func startConsole(sliverServer *core.SliverServer) {
 		sliverClientApp.SetPrompt(getPrompt())
 	})
 
-	go eventLoop(sliverClientApp, core.Events)
+	go eventLoop(sliverClientApp)
 
 	err := sliverClientApp.Run()
 	if err != nil {
@@ -100,24 +97,40 @@ func startConsole(sliverServer *core.SliverServer) {
 	}
 }
 
-func eventLoop(sliverApp *grumble.App, events chan core.Event) {
+func eventLoop(sliverApp *grumble.App) {
 	stdout := bufio.NewWriter(os.Stdout)
-	for event := range events {
-		sliver := event.Sliver
-		job := event.Job
+	for event := range core.Events {
+
 		switch event.EventType {
-		case "stopped":
-			fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n", job.ID, job.Protocol, job.Name)
-		case "connected":
-			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n",
+
+		case consts.ServerErrorStr:
+			fmt.Printf(clearln + Warn + "Server connection error!\n\n")
+			os.Exit(1)
+
+		case consts.JoinedEvent:
+			fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator)
+		case consts.LeftEvent:
+			fmt.Printf(clearln+Info+"%s left the game\n\n", event.Client.Operator)
+
+		case consts.StoppedEvent:
+			job := event.Job
+			fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
+
+		case consts.ConnectedEvent:
+			sliver := event.Sliver
+			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n\n",
 				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.OS, sliver.Arch)
-		case "disconnected":
+		case consts.DisconnectedEvent:
+			sliver := event.Sliver
 			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.OS, sliver.Arch)
-			if cmd.ActiveSliver.Sliver != nil && sliver.ID == cmd.ActiveSliver.Sliver.ID {
+			activeSliver := cmd.ActiveSliver.Sliver
+			if activeSliver != nil && int32(sliver.ID) == activeSliver.ID {
 				cmd.ActiveSliver.SetActiveSliver(nil)
+				sliverApp.SetPrompt(getPrompt())
 				fmt.Printf(Warn + "Warning: Active sliver diconnected\n")
 			}
+			fmt.Println()
 		}
 		fmt.Printf(getPrompt())
 		stdout.Flush()

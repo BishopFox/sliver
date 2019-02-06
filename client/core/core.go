@@ -5,10 +5,12 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"sliver/client/assets"
+	consts "sliver/client/constants"
+	pb "sliver/protobuf/client"
 	"sync"
 	"time"
 
-	pb "sliver/protobuf/client"
+	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -17,15 +19,8 @@ const (
 
 var (
 	// Events - Connect/Disconnect events
-	Events = make(chan Event, 64)
+	Events = make(chan *pb.Event, 64)
 )
-
-// Event - Sliver connect/disconnect
-type Event struct {
-	Sliver    *pb.Sliver
-	Job       *pb.Job
-	EventType string
-}
 
 // SliverServer - Server info
 type SliverServer struct {
@@ -45,6 +40,10 @@ func (ss *SliverServer) ResponseMapper() {
 				resp <- envelope
 			}
 			ss.mutex.Unlock()
+		} else if envelope.Type == consts.EventStr {
+			event := &pb.Event{}
+			proto.Unmarshal(envelope.Data, event)
+			Events <- event
 		}
 	}
 }

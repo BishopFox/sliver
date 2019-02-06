@@ -71,7 +71,9 @@ func Start() {
 		sliverApp.SetPrompt(getPrompt())
 	})
 
-	go eventLoop(sliverApp, core.Events)
+	events := core.EventBroker.Subscribe()
+	defer core.EventBroker.Unsubscribe(events)
+	go eventLoop(sliverApp, events)
 
 	err := sliverApp.Run()
 	if err != nil {
@@ -82,22 +84,32 @@ func Start() {
 func eventLoop(sliverApp *grumble.App, events chan core.Event) {
 	stdout := bufio.NewWriter(os.Stdout)
 	for event := range events {
-		sliver := event.Sliver
-		job := event.Job
+
 		switch event.EventType {
-		case "stopped":
-			fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n", job.ID, job.Protocol, job.Name)
-		case "connected":
-			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n",
+		case consts.JoinedEvent:
+			fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator)
+		case consts.LeftEvent:
+			fmt.Printf(clearln+Info+"%s left the game\n\n", event.Client.Operator)
+
+		case consts.StoppedEvent:
+			job := event.Job
+			fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
+
+		case consts.ConnectedEvent:
+			sliver := event.Sliver
+			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n\n",
 				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
-		case "disconnected":
+		case consts.DisconnectedEvent:
+			sliver := event.Sliver
 			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
-			if activeSliver != nil && sliver.ID == activeSliver.ID {
-				activeSliver = nil
+			activeSliver := command.ActiveSliver.Sliver
+			if activeSliver != nil && int32(sliver.ID) == activeSliver.ID {
+				command.ActiveSliver.SetActiveSliver(nil)
 				sliverApp.SetPrompt(getPrompt())
 				fmt.Printf(Warn + "Warning: Active sliver diconnected\n")
 			}
+			fmt.Println()
 		}
 		fmt.Printf(getPrompt())
 		stdout.Flush()

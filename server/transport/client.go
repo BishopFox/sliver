@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"log"
 	"net"
+	consts "sliver/client/constants"
+	pb "sliver/protobuf/client"
 	"sliver/server/assets"
 	"sliver/server/certs"
 	"sliver/server/core"
 	"sliver/server/rpc"
-
-	pb "sliver/protobuf/client"
+	"sync"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -21,6 +23,13 @@ import (
 const (
 	defaultServerCert = "clients"
 	readBufSize       = 1024
+
+	keepAliveInterval  = 1 * time.Second
+	socketReadDeadline = 3 * time.Second
+)
+
+var (
+	once = &sync.Once{}
 )
 
 // StartClientListener - Start a mutual TLS listener
@@ -54,7 +63,7 @@ func acceptClientConnections(ln net.Listener) {
 	}
 }
 
-func printConnState(tlsConn *tls.Conn) {
+func logState(tlsConn *tls.Conn) {
 	log.Print(">>>>>>>>>>>>>>>> TLS State <<<<<<<<<<<<<<<<")
 	state := tlsConn.ConnectionState()
 	log.Printf("Version: %x", state.Version)
@@ -63,7 +72,6 @@ func printConnState(tlsConn *tls.Conn) {
 	log.Printf("CipherSuite: %x", state.CipherSuite)
 	log.Printf("NegotiatedProtocol: %s", state.NegotiatedProtocol)
 	log.Printf("NegotiatedProtocolIsMutual: %t", state.NegotiatedProtocolIsMutual)
-
 	log.Print("Certificate chain:")
 	for i, cert := range state.PeerCertificates {
 		subject := cert.Subject
@@ -81,7 +89,7 @@ func handleClientConnection(conn net.Conn) {
 		return
 	}
 	tlsConn.Read([]byte{}) // Unless you read 0 bytes the TLS handshake will not complete
-	printConnState(tlsConn)
+	logState(tlsConn)
 	certs := tlsConn.ConnectionState().PeerCertificates
 	if len(certs) < 1 {
 		return
@@ -91,18 +99,32 @@ func handleClientConnection(conn net.Conn) {
 	client := core.GetClient(operator)
 	core.Clients.AddClient(client)
 
-	defer func() {
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.JoinedEvent,
+		Client:    client,
+	})
+
+	cleanup := func() {
+		log.Printf("Closing connection to client (%s)", client.Operator)
 		core.Clients.RemoveClient(client.ID)
 		conn.Close()
-	}()
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.LeftEvent,
+			Client:    client,
+		})
+	}
 
 	go func() {
+		defer once.Do(cleanup)
 		handlers := rpc.GetRPCHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err != nil {
 				log.Printf("Socket read error %v", err)
 				return
+			}
+			if envelope.Type == consts.KeepAliveStr {
+				continue
 			}
 			if handler, ok := (*handlers)[envelope.Type]; ok {
 				go handler(envelope.Data, func(data []byte, err error) {
@@ -120,14 +142,58 @@ func handleClientConnection(conn net.Conn) {
 		}
 	}()
 
-	for envelope := range client.Send {
+	events := core.EventBroker.Subscribe()
+	defer core.EventBroker.Unsubscribe(events)
+	go eventLoop(conn, events)
+
+	defer once.Do(cleanup)
+	for {
+		select {
+		case envelope := <-client.Send:
+			err := socketWriteEnvelope(conn, envelope)
+			if err != nil {
+				log.Printf("Socket error %v", err)
+				return
+			}
+		case <-time.After(keepAliveInterval):
+			err := socketWriteEnvelope(conn, &pb.Envelope{
+				Type: consts.KeepAliveStr,
+				Data: []byte{1},
+			})
+			if err != nil {
+				log.Printf("Socket error %v", err)
+				return
+			}
+		}
+	}
+
+}
+
+func eventLoop(conn net.Conn, events chan core.Event) {
+	for event := range events {
+		pbEvent := &pb.Event{EventType: event.EventType}
+
+		if event.Job != nil {
+			pbEvent.Job = event.Job.ToProtobuf()
+		}
+		if event.Client != nil {
+			pbEvent.Client = event.Client.ToProtobuf()
+		}
+		if event.Sliver != nil {
+			pbEvent.Sliver = event.Sliver.ToProtobuf()
+		}
+
+		data, _ := proto.Marshal(pbEvent)
+		envelope := &pb.Envelope{
+			Type: consts.EventStr,
+			Data: data,
+		}
 		err := socketWriteEnvelope(conn, envelope)
 		if err != nil {
 			log.Printf("Socket write failed %v", err)
 			return
 		}
 	}
-	log.Printf("Closing connection to client (%s)", client.Operator)
 }
 
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
@@ -149,6 +215,8 @@ func socketWriteEnvelope(connection net.Conn, envelope *pb.Envelope) error {
 // socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
 // returns messageType, message, and error
 func socketReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
+
+	connection.SetReadDeadline(time.Now().Add(socketReadDeadline))
 
 	// Read the first four bytes to determine data length
 	dataLengthBuf := make([]byte, 4) // Size of uint32

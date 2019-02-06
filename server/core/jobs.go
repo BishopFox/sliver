@@ -1,6 +1,9 @@
 package core
 
-import "sync"
+import (
+	pb "sliver/protobuf/client"
+	"sync"
+)
 
 var (
 	// Jobs - Holds pointers to all the current jobs
@@ -19,6 +22,17 @@ type Job struct {
 	Protocol    string
 	Port        uint16
 	JobCtrl     chan bool
+}
+
+// ToProtobuf - Get the protobuf version of the object
+func (j *Job) ToProtobuf() *pb.Job {
+	return &pb.Job{
+		ID:          int32(j.ID),
+		Name:        j.Name,
+		Description: j.Description,
+		Protocol:    j.Protocol,
+		Port:        int32(j.Port),
+	}
 }
 
 // Jobs - Holds refs to all active jobs

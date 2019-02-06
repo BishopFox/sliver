@@ -12,18 +12,6 @@ const (
 	randomIDSize = 8
 )
 
-// Event - Sliver connect/disconnect
-type Event struct {
-	Sliver    *Sliver
-	Job       *Job
-	EventType string
-}
-
-var (
-	// Events - Connect/Disconnect events
-	Events = make(chan Event, 64)
-)
-
 // RandomID - Generate random ID of randomIDSize bytes
 func RandomID() string {
 	randBuf := make([]byte, 64) // 64 bytes of randomness

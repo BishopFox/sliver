@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log"
+	consts "sliver/client/constants"
 	pb "sliver/protobuf/sliver"
 	"sliver/server/core"
 
@@ -29,7 +30,12 @@ func registerSliverHandler(sliver *core.Sliver, data []byte) {
 
 	// If this is the first time we're getting reg info alert user(s)
 	if sliver.Name == "" {
-		defer func() { core.Events <- core.Event{Sliver: sliver, EventType: "connected"} }()
+		defer func() {
+			core.EventBroker.Publish(core.Event{
+				EventType: consts.ConnectedEvent,
+				Sliver:    sliver,
+			})
+		}()
 	}
 
 	sliver.Name = register.Name

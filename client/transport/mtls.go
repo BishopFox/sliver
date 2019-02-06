@@ -9,15 +9,25 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync"
+	"time"
 
 	"sliver/client/assets"
+	consts "sliver/client/constants"
+	"sliver/client/core"
 	pb "sliver/protobuf/client"
 
 	"github.com/golang/protobuf/proto"
 )
 
 const (
-	readBufSize = 1024
+	readBufSize        = 1024
+	keepAliveInterval  = 1 * time.Second
+	socketReadDeadline = 3 * time.Second
+)
+
+var (
+	once = &sync.Once{}
 )
 
 // Connect - Connect to the sliver server
@@ -28,20 +38,49 @@ func Connect(config *assets.ClientConfig) (chan *pb.Envelope, chan *pb.Envelope,
 	}
 
 	send := make(chan *pb.Envelope)
+	recv := make(chan *pb.Envelope)
+
 	go func() {
-		defer conn.Close()
-		for envelope := range send {
-			socketWriteEnvelope(conn, envelope)
+		defer once.Do(func() {
+			close(send)
+			close(recv)
+			conn.Close()
+			core.Events <- &pb.Event{EventType: consts.ServerErrorStr}
+		})
+		for {
+			select {
+			case envelope := <-send:
+				err := socketWriteEnvelope(conn, envelope)
+				if err != nil {
+					return
+				}
+			case <-time.After(keepAliveInterval):
+				err := socketWriteEnvelope(conn, &pb.Envelope{
+					Type: consts.KeepAliveStr,
+					Data: []byte{1},
+				})
+				if err != nil {
+					return
+				}
+			}
 		}
 	}()
 
-	recv := make(chan *pb.Envelope)
 	go func() {
-		defer conn.Close()
+		defer once.Do(func() {
+			close(send)
+			close(recv)
+			conn.Close()
+			core.Events <- &pb.Event{EventType: consts.ServerErrorStr}
+		})
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err == io.EOF {
+				log.Printf("Lost connection to server")
 				return
+			}
+			if envelope.Type == consts.KeepAliveStr {
+				continue
 			}
 			if err == nil {
 				recv <- envelope
@@ -58,9 +97,7 @@ func Connect(config *assets.ClientConfig) (chan *pb.Envelope, chan *pb.Envelope,
 func socketWriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
-
 		log.Print("Envelope marshaling error: ", err)
-
 		return err
 	}
 	dataLengthBuf := new(bytes.Buffer)
@@ -73,11 +110,11 @@ func socketWriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
 // socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
 func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4) // Size of uint32
+
+	connection.SetReadDeadline(time.Now().Add(socketReadDeadline))
 	_, err := connection.Read(dataLengthBuf)
 	if err != nil {
-
 		log.Printf("Socket error (read msg-length): %v\n", err)
-
 		return nil, err
 	}
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
