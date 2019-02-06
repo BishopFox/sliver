@@ -9,7 +9,6 @@ import (
 	consts "sliver/client/constants"
 	"sliver/client/spin"
 	pb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
 	"sort"
 	"strconv"
 	"strings"
@@ -213,113 +212,41 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 }
 
 func ping(ctx *grumble.Context, rpc RPCServer) {
+	if ActiveSliver.Sliver == nil {
+		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+		return
+	}
 
 }
 
 func getPID(ctx *grumble.Context, rpc RPCServer) {
-
+	if ActiveSliver.Sliver == nil {
+		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+		return
+	}
+	fmt.Printf("%d\n", ActiveSliver.Sliver.PID)
 }
 
 func getUID(ctx *grumble.Context, rpc RPCServer) {
-
+	if ActiveSliver.Sliver == nil {
+		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+		return
+	}
+	fmt.Printf("%s\n", ActiveSliver.Sliver.UID)
 }
 
 func getGID(ctx *grumble.Context, rpc RPCServer) {
-
+	if ActiveSliver.Sliver == nil {
+		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+		return
+	}
+	fmt.Printf("%s\n", ActiveSliver.Sliver.GID)
 }
 
 func whoami(ctx *grumble.Context, rpc RPCServer) {
-
-}
-
-func ps(ctx *grumble.Context, rpc RPCServer) {
-	pidFilter := ctx.Flags.Int("pid")
-	exeFilter := ctx.Flags.String("exe")
-	ownerFilter := ctx.Flags.String("owner")
-
 	if ActiveSliver.Sliver == nil {
-		fmt.Println(Warn + "Please select an active sliver via `use`\n")
+		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
 		return
 	}
-
-	data, _ := proto.Marshal(&sliverpb.PsReq{SliverID: ActiveSliver.Sliver.ID})
-	resp := rpc(&pb.Envelope{
-		Type: consts.PsStr,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Error)
-		return
-	}
-	ps := &sliverpb.Ps{}
-	err := proto.Unmarshal(resp.Data, ps)
-	if err != nil {
-		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-		return
-	}
-
-	outputBuf := bytes.NewBufferString("")
-	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
-
-	fmt.Fprintf(table, "pid\tppid\texecutable\towner\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
-		strings.Repeat("=", len("pid")),
-		strings.Repeat("=", len("ppid")),
-		strings.Repeat("=", len("executable")),
-		strings.Repeat("=", len("owner")),
-	)
-
-	lineColors := []string{}
-	for _, proc := range ps.Processes {
-		var lineColor = ""
-		if pidFilter != -1 && proc.Pid == int32(pidFilter) {
-			lineColor = printProcInfo(table, proc)
-		}
-		if exeFilter != "" && strings.HasPrefix(proc.Executable, exeFilter) {
-			lineColor = printProcInfo(table, proc)
-		}
-		if ownerFilter != "" && strings.HasPrefix(proc.Owner, ownerFilter) {
-			lineColor = printProcInfo(table, proc)
-		}
-		if pidFilter == -1 && exeFilter == "" && ownerFilter == "" {
-			lineColor = printProcInfo(table, proc)
-		}
-
-		// Should be set to normal/green if we rendered the line
-		if lineColor != "" {
-			lineColors = append(lineColors, lineColor)
-		}
-	}
-	table.Flush()
-
-	for index, line := range strings.Split(outputBuf.String(), "\n") {
-		if len(line) == 0 {
-			continue
-		}
-		// We need to account for the two rows of column headers
-		if 0 < len(line) && 2 <= index {
-			lineColor := lineColors[index-2]
-			fmt.Printf("%s%s%s\n", lineColor, line, normal)
-		} else {
-			fmt.Printf("%s\n", line)
-		}
-	}
-
-}
-
-// printProcInfo - Stylizes the process information
-func printProcInfo(table *tabwriter.Writer, proc *sliverpb.Process) string {
-	color := normal
-	if modifyColor, ok := knownProcs[proc.Executable]; ok {
-		color = modifyColor
-	}
-	if ActiveSliver.Sliver != nil && proc.Pid == ActiveSliver.Sliver.PID {
-		color = green
-	}
-	fmt.Fprintf(table, "%d\t%d\t%s\t%s\t\n", proc.Pid, proc.Ppid, proc.Executable, proc.Owner)
-	return color
-}
-
-func procdump(ctx *grumble.Context, rpc RPCServer) {
-
+	fmt.Printf("%s\n", ActiveSliver.Sliver.Username)
 }

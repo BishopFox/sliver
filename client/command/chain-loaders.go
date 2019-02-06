@@ -8,6 +8,6 @@ func msf(ctx *grumble.Context, rpc RPCServer) {
 
 }
 
-func inject(ctx *grumble.Context, rpc RPCServer) {
+func msfInject(ctx *grumble.Context, rpc RPCServer) {
 
 }

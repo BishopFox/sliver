@@ -144,6 +144,7 @@ message Upload {
 message ProcessDumpReq {
   int32 pid = 1;
 
+  int32 Timeout = 8;
   int32 SliverID = 9;
 }
 

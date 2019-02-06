@@ -20,6 +20,8 @@ var (
 		consts.GenerateStr: rpcGenerate,
 
 		consts.PsStr:       rpcPs,
+		consts.ProcdumpStr: rpcProcdump,
+
 		consts.LsStr:       rpcLs,
 		consts.RmStr:       rpcRm,
 		consts.MkdirStr:    rpcMkdir,

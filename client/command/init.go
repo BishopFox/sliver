@@ -150,7 +150,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.MsfStr,
-		Help:     "Execute a MSF payload",
+		Help:     "Execute an MSF payload in the current process",
 		LongHelp: help.GetHelpFor(consts.MsfStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("m", "payload", "meterpreter_reverse_https", "msf payload")
@@ -169,7 +169,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.InjectStr,
-		Help:     "Inject a MSF payload",
+		Help:     "Inject an MSF payload into a process",
 		LongHelp: help.GetHelpFor(consts.InjectStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("p", "pid", -1, "pid to inject into")
@@ -181,7 +181,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			inject(ctx, rpc)
+			msfInject(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -368,10 +368,14 @@ func Init(app *grumble.App, rpc RPCServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.ProcdumpStr,
-		Help:      "Dump process memory",
-		LongHelp:  help.GetHelpFor(consts.ProcdumpStr),
-		AllowArgs: true,
+		Name:     consts.ProcdumpStr,
+		Help:     "Dump process memory",
+		LongHelp: help.GetHelpFor(consts.ProcdumpStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("p", "pid", -1, "target pid")
+			f.String("n", "name", "", "target process name")
+			f.Int("t", "timeout", 360, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			procdump(ctx, rpc)
