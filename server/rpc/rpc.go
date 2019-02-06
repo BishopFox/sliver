@@ -24,6 +24,9 @@ var (
 		consts.SessionsStr: rpcSessions,
 		consts.GenerateStr: rpcGenerate,
 
+		consts.MsfStr:    rpcMsf,
+		consts.InjectStr: rpcMsfInject,
+
 		consts.PsStr:       rpcPs,
 		consts.ProcdumpStr: rpcProcdump,
 

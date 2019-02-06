@@ -18,20 +18,20 @@ func msf(ctx *grumble.Context, rpc RPCServer) {
 	lport := ctx.Flags.Int("lport")
 	encoder := ctx.Flags.String("encoder")
 	iterations := ctx.Flags.Int("iterations")
-	activeSliver := ActiveSliver.Sliver
 
+	activeSliver := ActiveSliver.Sliver
 	if activeSliver == nil {
-		fmt.Println(Warn + "Please select an active sliver via `use`\n")
+		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
 		return
 	}
 
 	if lhost == "" {
-		fmt.Printf(Warn+"Invalid lhost '%s', see `help msf`\n", lhost)
+		fmt.Printf(Warn+"Invalid lhost '%s', see `help %s`\n", lhost, consts.MsfStr)
 		return
 	}
 
 	ctrl := make(chan bool)
-	msg := fmt.Sprintf("Send payload %s %s/%s -> %s:%d ...\n",
+	msg := fmt.Sprintf("Sending payload %s %s/%s -> %s:%d ...",
 		payloadName, activeSliver.OS, activeSliver.Arch, lhost, lport)
 	go spin.Until(msg, ctrl)
 	data, _ := proto.Marshal(&pb.MSFReq{
@@ -62,15 +62,15 @@ func msfInject(ctx *grumble.Context, rpc RPCServer) {
 	encoder := ctx.Flags.String("encoder")
 	iterations := ctx.Flags.Int("iterations")
 	pid := ctx.Flags.Int("pid")
-	activeSliver := ActiveSliver.Sliver
 
+	activeSliver := ActiveSliver.Sliver
 	if activeSliver == nil {
-		fmt.Println(Warn + "Please select an active sliver via `use`\n")
+		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
 		return
 	}
 
 	if lhost == "" {
-		fmt.Printf(Warn+"Invalid lhost '%s', see `help %s`\n", lhost, consts.MsfStr)
+		fmt.Printf(Warn+"Invalid lhost '%s', see `help %s`\n", lhost, consts.InjectStr)
 		return
 	}
 
@@ -80,7 +80,7 @@ func msfInject(ctx *grumble.Context, rpc RPCServer) {
 	}
 
 	ctrl := make(chan bool)
-	msg := fmt.Sprintf("Send payload %s %s/%s -> %s:%d ...\n",
+	msg := fmt.Sprintf("Injecting payload %s %s/%s -> %s:%d ...",
 		payloadName, activeSliver.OS, activeSliver.Arch, lhost, lport)
 	go spin.Until(msg, ctrl)
 	data, _ := proto.Marshal(&pb.MSFInjectReq{
