@@ -109,4 +109,20 @@ func rpcDownload(req []byte, resp RPCResponse) {
 }
 
 func rpcUpload(req []byte, resp RPCResponse) {
+	uploadReq := &sliverpb.UploadReq{}
+	err := proto.Unmarshal(req, uploadReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	sliver := (*core.Hive.Slivers)[int(uploadReq.SliverID)]
+
+	timeout := 30 * time.Second
+	data, _ := proto.Marshal(&sliverpb.UploadReq{
+		Encoder: uploadReq.Encoder,
+		Path:    uploadReq.Path,
+		Data:    uploadReq.Data,
+	})
+	data, err = sliver.Request(sliverpb.MsgUploadReq, timeout, data)
+	resp(data, err)
 }

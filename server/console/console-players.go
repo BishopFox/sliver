@@ -120,10 +120,9 @@ func startMultiplayerModeCmd(ctx *grumble.Context) {
 	server := ctx.Flags.String("server")
 	lport := uint16(ctx.Flags.Int("lport"))
 
-	fmt.Printf("\n" + Info + "Starting client listener ...\n")
-	ID, err := jobStartClientListener(server, lport)
+	_, err := jobStartClientListener(server, lport)
 	if err == nil {
-		fmt.Printf(Info+"Successfully started job #%d\n", ID)
+		fmt.Printf(Info + "Multiplayer mode enabled!\n")
 	} else {
 		fmt.Printf(Warn+"Failed to start job %v\n", err)
 	}
@@ -137,7 +136,7 @@ func jobStartClientListener(bindIface string, port uint16) (int, error) {
 
 	job := &core.Job{
 		ID:          core.GetJobID(),
-		Name:        "mTLS/RPC",
+		Name:        "rpc",
 		Description: "client listener",
 		Protocol:    "tcp",
 		Port:        port,

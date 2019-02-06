@@ -4,7 +4,6 @@ package spin
 
 import (
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -104,9 +103,9 @@ func Until(msg string, ctrl chan bool) {
 	for {
 		select {
 		case <-time.After(100 * time.Millisecond):
-			fmt.Fprintf(os.Stdout, clearln+" %s  %s", s.Next(), msg)
+			fmt.Printf(clearln+" %s  %s", s.Next(), msg)
 		case <-ctrl:
-			fmt.Fprintf(os.Stdout, clearln)
+			fmt.Printf(clearln)
 			return
 		}
 	}

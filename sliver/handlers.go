@@ -267,8 +267,9 @@ func uploadHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
-	upload := &pb.Upload{Path: uploadReq.Path}
-	f, err := os.Create(uploadReq.Path)
+	uploadPath, _ := filepath.Abs(uploadReq.Path)
+	upload := &pb.Upload{Path: uploadPath}
+	f, err := os.Create(uploadPath)
 	if err != nil {
 		upload.Err = fmt.Sprintf("%v", err)
 		upload.Success = false
