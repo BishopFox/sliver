@@ -13,7 +13,7 @@ import (
 	// {{end}}
 
 	"os"
-	pb "sliver/protobuf"
+	pb "sliver/protobuf/sliver"
 
 	"github.com/golang/protobuf/proto"
 )

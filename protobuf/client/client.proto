@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+package clientpb;
+
+message Envelope {
+  string Type = 1; // Message type
+  bytes Data = 2;  // Actual message data
+  string ID = 3;   // Resp ID
+  string Error = 4;
+}
+
+// [ generic ] ----------------------------------------
+message File {
+  string Name = 1;
+  bytes Data = 2;
+}
+
+message Process {
+  int32 pid = 1;
+  int32 ppid = 2;
+  string executable = 3;
+  string owner = 4;
+}
+
+// [ core ] ----------------------------------------
+
+message Sliver {
+	int32 ID = 1;
+	string Name = 2;
+	string Hostname = 3;
+	string Username = 4;
+	string UID = 5;
+	string GID = 6;
+	string OS = 7;
+	string Arch = 8;
+	string Transport = 9;
+	string RemoteAddress = 10;
+	int32 PID = 11;
+  string Filename = 12;
+}
+
+message Job {
+  int32 ID = 1;
+  string Name = 2;
+  string Description = 3;
+  string Protocol = 4;
+  int32 Port = 5;
+}
+
+message JobStop {
+  int32 ID = 1;
+}
+
+message Jobs {
+  repeated Job Active = 1;
+}
+
+// [ listeners ] ----------------------------------------
+
+message MTLSReq {
+  string Server = 1;
+  int32 LPort = 2;
+}
+
+message MTLS {
+  int32 JobID = 1;
+}
+
+message DNSReq {
+  string Domain = 1;
+}
+
+message DNS {
+  int32 JobID = 1;
+}
+
+// [ commands ] ----------------------------------------
+
+message Sessions {
+  repeated Sliver Slivers = 1;
+}
+
+message GenerateReq {
+  string OS = 1;
+  string Arch = 2;
+  string LHost = 3;
+  int32 LPort = 4;
+  bool Debug = 5;
+  string DNSParent = 6;
+}
+
+message Generate {
+  File File = 1;
+}
+
+message MSFReq {
+  string Payload = 1;
+  string LHost = 2;
+  int32 LPort = 3;
+  string Encoder = 4;
+  int32 Iterations = 5;
+
+  int32 SliverID = 9;
+}
+
+message MSFInjectReq {
+  string Payload = 1;
+  string LHost = 2;
+  int32 LPort = 3;
+  string Encoder = 4;
+  int32 Iterations = 5;
+
+  int32 PID = 8;
+  int32 SliverID = 9;
+}
+
+// [ events ] ----------------------------------------
+
+message Client {
+  int32 ID = 1;
+  string Operator = 2;
+}
+
+message Event {
+  string EventType = 1;
+  Sliver Sliver = 2;
+  Job Job = 3;
+  Client Client = 4;
+}

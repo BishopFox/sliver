@@ -3,47 +3,49 @@ syntax = "proto3";
 package sliverpb;
 
 message Envelope {
-  string type = 1; // Message type
-  bytes data = 2;  // Actual message data
-  string id = 3;   // Resp ID
+  uint32 Type = 1; // Message type
+  uint64 ID = 2;   // Resp ID
+  bytes Data = 9;  // Actual message data
 }
 
 message Register {
-  string name = 1;
-  string hostname = 2;
-  string username = 3;
-  string uid = 4;
-  string gid = 5;
-  string os = 6;
-  string arch = 7;
-  int32 pid = 8;
+  string Name = 1;
+  string Hostname = 2;
+  string Username = 3;
+  string Uid = 4;
+  string Gid = 5;
+  string Os = 6;
+  string Arch = 7;
+  int32 Pid = 8;
   string filename = 9;
 }
 
 message Ping {
-  string id = 1;
+  int32 nonce = 1;
 }
 
 message KillReq {
-  string id = 1;
+  int32 SliverID = 9;
 }
 
 // aka Shellcode
 message Task {
-  string id = 1;
   string encoder = 2;
   bytes data = 9;
 }
 
 message RemoteTask {
-  string id = 1;
   string encoder = 2;
   int32 pid = 3;
   bytes data = 9;
 }
 
-message ProcessListReq {
-  string id = 1;
+message PsReq {
+  int32 SliverID = 9;
+}
+
+message Ps {
+  repeated Process Processes = 1;
 }
 
 message Process {
@@ -53,20 +55,17 @@ message Process {
   string owner = 4;
 }
 
-message ProcessList {
-  string id = 1;
-  repeated Process processes = 2;
-}
 
 message DirListReq {
-  string id = 1;
-  string path = 2;
+  string path = 1;
+
+  int32 SliverID = 9;
 }
 
 message DirList {
   string path = 1;
   bool exists = 2; 
-  repeated FileInfo files = 9;
+  repeated FileInfo files = 3;
 }
 
 message FileInfo {
@@ -76,12 +75,13 @@ message FileInfo {
 }
 
 message PwdReq {
-  string id = 1;
+
+  int32 SliverID = 9;
 }
 
 message CdReq {
-  string id = 1;
-  string path = 2;
+  string path = 1;
+  int32 SliverID = 9;
 }
 
 message Pwd {
@@ -90,8 +90,9 @@ message Pwd {
 }
 
 message RmReq {
-  string id = 1;
-  string path = 2;
+  string path = 1;
+
+  int32 SliverID = 9;
 }
 
 message Rm {
@@ -101,8 +102,9 @@ message Rm {
 }
 
 message MkdirReq {
-  string id = 1;
-  string path = 2;
+  string path = 1;
+
+  int32 SliverID = 9;
 }
 
 message Mkdir {
@@ -112,22 +114,25 @@ message Mkdir {
 }
 
 message DownloadReq {
-  string id = 1;
-  string path = 2;
+  string path = 1;
+
+  int32 SliverID = 9;
 }
 
 message Download {
   string path = 1;
   string encoder = 2;
   bool exists = 3;
+
   bytes data = 9;
 }
 
 message UploadReq {
-  string id = 1;
-  string path = 2;
-  string encoder = 3;
-  bytes data = 9;
+  string path = 1;
+  string encoder = 2;
+  bytes data = 3;
+
+  int32 SliverID = 9;
 }
 
 message Upload {
@@ -137,8 +142,10 @@ message Upload {
 }
 
 message ProcessDumpReq {
-  string id = 1;
-  int32 pid = 2;
+  int32 pid = 1;
+
+  int32 Timeout = 8;
+  int32 SliverID = 9;
 }
 
 message ProcessDump {

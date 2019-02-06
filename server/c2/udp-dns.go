@@ -1,14 +1,14 @@
-package transport
+package c2
 
 /*
 	DNS Tunnel Implementation
 */
 
 import (
-	"sliver/server/assets"
 	"crypto/sha256"
 	"crypto/x509"
 	"math"
+	"sliver/server/assets"
 	"sort"
 
 	"encoding/base32"
@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"log"
 	insecureRand "math/rand"
-	pb "sliver/protobuf"
+	pb "sliver/protobuf/sliver"
 	"sliver/server/certs"
 	"sliver/server/core"
 	"sliver/server/cryptography"
@@ -48,8 +48,7 @@ const (
 
 	// Max TXT record is 255, records are b64 so (n*8 + 5) / 6 = ~250
 	byteBlockSize = 185 // Can be as high as n = 187, but we'll leave some slop
-
-	blockIDSize = 6
+	blockIDSize   = 6
 )
 
 var (
@@ -337,11 +336,10 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		RemoteAddress: "n/a",
 		Send:          make(chan *pb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
-		Resp:          map[string]chan *pb.Envelope{},
+		Resp:          map[uint64]chan *pb.Envelope{},
 	}
-	core.HiveMutex.Lock()
-	(*core.Hive)[sliver.ID] = sliver
-	core.HiveMutex.Unlock()
+
+	core.Hive.AddSliver(sliver)
 
 	aesKey, _ := cryptography.AESKeyFromBytes(sessionInit.Key)
 	sessionID := dnsSessionID()
@@ -406,14 +404,14 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 		envelope := &pb.Envelope{}
 		proto.Unmarshal(envelopeData, envelope)
 
-		log.Printf("Envelope Type = %#v RespID = %#v", envelope.Type, envelope.Id)
+		log.Printf("Envelope Type = %#v RespID = %#v", envelope.Type, envelope.ID)
 
 		// Response Envelope or Handler
-		handlers := serverHandlers.GetServerHandlers()
-		if envelope.Id != "" {
+		handlers := serverHandlers.GetSliverHandlers()
+		if envelope.ID != 0 {
 			dnsSession.Sliver.RespMutex.Lock()
 			defer dnsSession.Sliver.RespMutex.Unlock()
-			if resp, ok := dnsSession.Sliver.Resp[envelope.Id]; ok {
+			if resp, ok := dnsSession.Sliver.Resp[envelope.ID]; ok {
 				resp <- envelope
 			}
 		} else if handler, ok := handlers[envelope.Type]; ok {

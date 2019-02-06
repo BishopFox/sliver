@@ -17,14 +17,17 @@ endif
 .PHONY: macos
 macos: clean pb
 	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
+	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: linux
 linux: clean pb
 	GOOS=linux $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
+	GOOS=linux $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: windows
 windows: clean pb
 	GOOS=windows $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
+	GOOS=windows $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-client.exe ./client
 
 
 #
@@ -53,7 +56,8 @@ static-linux: clean pb packr
 .PHONY: pb
 pb:
 	go install ./vendor/github.com/golang/protobuf/protoc-gen-go
-	protoc -I protobuf/ protobuf/sliver.proto --go_out=protobuf/
+	protoc -I protobuf/ protobuf/sliver/sliver.proto --go_out=protobuf/
+	protoc -I protobuf/ protobuf/client/client.proto --go_out=protobuf/
 
 .PHONY: packr
 packr:
@@ -71,5 +75,6 @@ clean-all: clean
 .PHONY: clean
 clean:
 	packr clean
-	rm -f ./protobuf/*.pb.go
-	rm -f sliver-server *.exe
+	rm -f ./protobuf/client/*.pb.go
+	rm -f ./protobuf/sliver/*.pb.go
+	rm -f sliver-client sliver-server *.exe

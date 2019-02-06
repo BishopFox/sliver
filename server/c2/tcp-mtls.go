@@ -1,7 +1,6 @@
-package transport
+package c2
 
 import (
-	"sliver/server/assets"
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
@@ -9,7 +8,9 @@ import (
 	"fmt"
 	"log"
 	"net"
-	pb "sliver/protobuf"
+	consts "sliver/client/constants"
+	pb "sliver/protobuf/sliver"
+	"sliver/server/assets"
 	"sliver/server/core"
 	"sync"
 
@@ -22,8 +23,6 @@ import (
 const (
 	// defaultServerCert - Default certificate name if bind is "" (all interfaces)
 	defaultServerCert = "hive"
-
-	readBufSize = 1024
 )
 
 // StartMutualTLSListener - Start a mutual TLS listener
@@ -39,11 +38,11 @@ func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error)
 		log.Println(err)
 		return nil, err
 	}
-	go acceptConnections(ln)
+	go acceptSliverConnections(ln)
 	return ln, nil
 }
 
-func acceptConnections(ln net.Listener) {
+func acceptSliverConnections(ln net.Listener) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -66,20 +65,19 @@ func handleSliverConnection(conn net.Conn) {
 		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
 		Send:          make(chan *pb.Envelope),
 		RespMutex:     &sync.RWMutex{},
-		Resp:          map[string]chan *pb.Envelope{},
+		Resp:          map[uint64]chan *pb.Envelope{},
 	}
 
-	core.HiveMutex.Lock()
-	(*core.Hive)[sliver.ID] = sliver
-	core.HiveMutex.Unlock()
+	core.Hive.AddSliver(sliver)
 
 	defer func() {
 		log.Printf("Cleaning up for %s", sliver.Name)
-		core.HiveMutex.Lock()
-		delete(*core.Hive, sliver.ID)
-		core.HiveMutex.Unlock()
+		core.Hive.RemoveSliver(sliver)
 		conn.Close()
-		core.Events <- core.Event{Sliver: sliver, EventType: "disconnected"}
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.DisconnectedEvent,
+			Sliver:    sliver,
+		})
 	}()
 
 	go func() {
@@ -90,25 +88,18 @@ func handleSliverConnection(conn net.Conn) {
 				delete(sliver.Resp, key)
 				close(resp)
 			}
-
-			core.HiveMutex.Lock()
-			if _, ok := (*core.Hive)[sliver.ID]; ok {
-				delete(*core.Hive, sliver.ID)
-				close(sliver.Send)
-			}
-			core.HiveMutex.Unlock()
 		}()
 
-		handlers := serverHandlers.GetServerHandlers()
+		handlers := serverHandlers.GetSliverHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err != nil {
 				log.Printf("Socket read error %v", err)
 				return
 			}
-			if envelope.Id != "" {
+			if envelope.ID != 0 {
 				sliver.RespMutex.Lock()
-				if resp, ok := sliver.Resp[envelope.Id]; ok {
+				if resp, ok := sliver.Resp[envelope.ID]; ok {
 					resp <- envelope // Could deadlock, maybe want to investigate better solutions
 				}
 				sliver.RespMutex.Unlock()

