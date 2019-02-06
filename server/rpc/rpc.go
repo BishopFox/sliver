@@ -2,6 +2,11 @@ package rpc
 
 import (
 	consts "sliver/client/constants"
+	"time"
+)
+
+const (
+	defaultTimeout = 30 * time.Second
 )
 
 // RPCResponse - Called with response data, mapped back to reqID

@@ -91,3 +91,24 @@ message GenerateReq {
 message Generate {
   File File = 1;
 }
+
+message MSFReq {
+  string Payload = 1;
+  string LHost = 2;
+  int32 LPort = 3;
+  string Encoder = 4;
+  int32 Iterations = 5;
+
+  int32 SliverID = 9;
+}
+
+message MSFInjectReq {
+  string Payload = 1;
+  string LHost = 2;
+  int32 LPort = 3;
+  string Encoder = 4;
+  int32 Iterations = 5;
+
+  int32 PID = 8;
+  int32 SliverID = 9;
+}
