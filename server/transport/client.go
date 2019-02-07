@@ -15,7 +15,6 @@ import (
 	"sliver/server/core"
 	"sliver/server/rpc"
 	"sync"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -23,8 +22,6 @@ import (
 const (
 	defaultServerCert = "clients"
 	readBufSize       = 1024
-
-	socketReadDeadline = 120 * time.Second
 )
 
 var (
@@ -201,8 +198,6 @@ func socketWriteEnvelope(connection net.Conn, envelope *pb.Envelope) error {
 // socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
 // returns messageType, message, and error
 func socketReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
-
-	connection.SetReadDeadline(time.Now().Add(socketReadDeadline))
 
 	// Read the first four bytes to determine data length
 	dataLengthBuf := make([]byte, 4) // Size of uint32

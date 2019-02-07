@@ -10,7 +10,6 @@ import (
 	"log"
 	"os"
 	"sync"
-	"time"
 
 	"sliver/client/assets"
 	consts "sliver/client/constants"
@@ -21,8 +20,7 @@ import (
 )
 
 const (
-	readBufSize        = 1024
-	socketReadDeadline = 120 * time.Second
+	readBufSize = 1024
 )
 
 var (
@@ -68,10 +66,11 @@ func Connect(config *assets.ClientConfig) (chan *pb.Envelope, chan *pb.Envelope,
 				log.Printf("Lost connection to server")
 				return
 			}
-			if envelope.Type == consts.KeepAliveStr {
+			if envelope == nil {
+				log.Printf("Warning: nil envelope")
 				continue
 			}
-			if err == nil {
+			if err == nil && envelope != nil {
 				recv <- envelope
 			}
 		}
@@ -100,7 +99,6 @@ func socketWriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
 func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4) // Size of uint32
 
-	connection.SetReadDeadline(time.Now().Add(socketReadDeadline))
 	_, err := connection.Read(dataLengthBuf)
 	if err != nil {
 		log.Printf("Socket error (read msg-length): %v\n", err)
