@@ -13,3 +13,7 @@
 [[constraint]]
   branch = "master"
   name = "golang.org/x/tools"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/tj/go-spin"
