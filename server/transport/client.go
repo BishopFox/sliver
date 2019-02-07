@@ -137,10 +137,9 @@ func handleClientConnection(conn net.Conn) {
 
 	events := core.EventBroker.Subscribe()
 	defer core.EventBroker.Unsubscribe(events)
-	go eventLoop(conn, events)
+	go socketEventLoop(conn, events)
 
 	defer once.Do(cleanup)
-
 	for envelope := range client.Send {
 		err := socketWriteEnvelope(conn, envelope)
 		if err != nil {
@@ -152,7 +151,7 @@ func handleClientConnection(conn net.Conn) {
 
 }
 
-func eventLoop(conn net.Conn, events chan core.Event) {
+func socketEventLoop(conn net.Conn, events chan core.Event) {
 	for event := range events {
 		pbEvent := &pb.Event{EventType: event.EventType}
 
