@@ -251,6 +251,100 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 	fmt.Printf(Info+"Sliver binary saved to: %s\n", saveTo)
 }
 
+func profileGenerate(ctx *grumble.Context, rpc RPCServer) {
+
+}
+
+func profiles(ctx *grumble.Context, rpc RPCServer) {
+	profiles := getSliverProfiles(rpc)
+	if profiles == nil {
+		return
+	}
+	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+	fmt.Fprintf(table, "Name\tPlatform\tmTLS\tDNS\tDebug\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+		strings.Repeat("=", len("Name")),
+		strings.Repeat("=", len("Platform")),
+		strings.Repeat("=", len("mTLS")),
+		strings.Repeat("=", len("DNS")),
+		strings.Repeat("=", len("Debug")))
+	for name, profile := range *profiles {
+		config := profile.Config
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+			name,
+			fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
+			fmt.Sprintf("%s:%d", config.MTLSServer, config.MTLSLPort),
+			config.DNSParent,
+			fmt.Sprintf("%v", config.Debug),
+		)
+	}
+	table.Flush()
+}
+
+func newProfile(ctx *grumble.Context, rpc RPCServer) {
+	name := ctx.Flags.String("name")
+
+	targetOS := ctx.Flags.String("os")
+	arch := ctx.Flags.String("arch")
+	lhost := ctx.Flags.String("lhost")
+	lport := ctx.Flags.Int("lport")
+	debug := ctx.Flags.Bool("debug")
+	dnsParent := ctx.Flags.String("dns")
+
+	data, _ := proto.Marshal(&pb.Profile{
+		Name: name,
+		Config: &pb.SliverConfig{
+			GOOS:       targetOS,
+			GOARCH:     arch,
+			MTLSServer: lhost,
+			MTLSLPort:  int32(lport),
+			Debug:      debug,
+			DNSParent:  dnsParent,
+		},
+	})
+
+	resp := rpc(&pb.Envelope{
+		Type: consts.NewProfileStr,
+		Data: data,
+	}, defaultTimeout)
+	if resp == nil {
+		fmt.Printf(Warn + "No response from server\n")
+		return
+	}
+	if resp.Error != "" {
+		fmt.Printf(Warn+"%s\n", resp.Error)
+	} else {
+		fmt.Printf(Info + "Saved new profile\n")
+	}
+}
+
+func getSliverProfiles(rpc RPCServer) *map[string]*pb.Profile {
+	resp := rpc(&pb.Envelope{
+		Type: consts.ProfilesStr,
+	}, defaultTimeout)
+	if resp == nil {
+		fmt.Printf(Warn + "No response from server\n")
+		return nil
+	}
+	if resp.Error != "" {
+		fmt.Printf(Warn+"%s\n", resp.Error)
+		return nil
+	}
+
+	pbProfiles := &pb.Profiles{}
+	err := proto.Unmarshal(resp.Data, pbProfiles)
+	if err != nil {
+		fmt.Printf(Warn+"Error %s", err)
+		return nil
+	}
+
+	profiles := &map[string]*pb.Profile{}
+	for _, profile := range pbProfiles.List {
+		(*profiles)[profile.Name] = profile
+	}
+	return profiles
+}
+
 func ping(ctx *grumble.Context, rpc RPCServer) {
 	if ActiveSliver.Sliver == nil {
 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")

@@ -74,6 +74,30 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+func rpcProfiles(_ []byte, resp RPCResponse) {
+	profiles := &pb.Profiles{List: []*pb.Profile{}}
+	for name, config := range generate.GetProfiles() {
+		profiles.List = append(profiles.List, &pb.Profile{
+			Name:   name,
+			Config: config.ToProtobuf(),
+		})
+	}
+	data, err := proto.Marshal(profiles)
+	resp(data, err)
+}
+
+func rpcNewProfile(req []byte, resp RPCResponse) {
+	profile := &pb.Profile{}
+	err := proto.Unmarshal(req, profile)
+	if err != nil {
+		log.Printf("Failed to decode message %v", err)
+		resp([]byte{}, err)
+	}
+	config := generate.SliverConfigFromProtobuf(profile.Config)
+	err = generate.SaveProfile(profile.Name, config)
+	resp([]byte{}, err)
+}
+
 func rpcPs(req []byte, resp RPCResponse) {
 	psReq := &sliverpb.PsReq{}
 	err := proto.Unmarshal(req, psReq)

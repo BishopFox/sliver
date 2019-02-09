@@ -149,6 +149,39 @@ func Init(app *grumble.App, rpc RPCServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
+		Name:     consts.NewProfileStr,
+		Help:     "Save a new sliver profile",
+		LongHelp: help.GetHelpFor(consts.NewProfileStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("p", "name", "", "profile name")
+			f.String("o", "os", "windows", "operating system")
+			f.String("a", "arch", "amd64", "cpu architecture")
+			f.String("h", "lhost", "", "listen host")
+			f.Int("l", "lport", 8888, "listen port")
+			f.Bool("d", "debug", false, "enable debug features")
+			f.String("n", "dns", "", "dns c2 parent domain")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			newProfile(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ProfilesStr,
+		Help:     "List existing profiles",
+		LongHelp: help.GetHelpFor(consts.ProfilesStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			profiles(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(&grumble.Command{
 		Name:     consts.MsfStr,
 		Help:     "Execute an MSF payload in the current process",
 		LongHelp: help.GetHelpFor(consts.MsfStr),

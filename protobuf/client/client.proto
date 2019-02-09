@@ -39,6 +39,31 @@ message Sliver {
   string Filename = 12;
 }
 
+message SliverConfig {
+  string GOOS = 1;
+  string GOARCH = 2;
+  string Name = 3;
+  string CACert = 4;
+  string Cert = 5;
+  string Key = 6;
+  bool Debug = 7;
+  int32 ReconnectInterval = 8;
+
+  string MTLSServer = 9;
+  int32 MTLSLPort = 10;
+
+  string DNSParent = 11;
+}
+
+message Profile {
+  string Name = 1;
+  SliverConfig Config = 2;
+}
+
+message Profiles {
+  repeated Profile List = 1;
+}
+
 message Job {
   int32 ID = 1;
   string Name = 2;

@@ -29,16 +29,20 @@ const (
 
 // Commands
 const (
-	NewPlayerStr       = "new"
+	NewPlayerStr       = "new-player"
 	ListPlayerStr      = "players"
-	KickPlayerStr      = "kick"
+	KickPlayerStr      = "kick-player"
 	MultiplayerModeStr = "multiplayer"
 
 	SessionsStr   = "sessions"
 	BackgroundStr = "background"
 	InfoStr       = "info"
 	UseStr        = "use"
-	GenerateStr   = "generate"
+
+	GenerateStr        = "generate"
+	ProfileGenerateStr = "profile-generate"
+	ProfilesStr        = "profiles"
+	NewProfileStr      = "new-profile"
 
 	JobsStr = "jobs"
 	MtlsStr = "mtls"

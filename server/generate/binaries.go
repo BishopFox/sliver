@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	pb "sliver/protobuf/client"
 	"sliver/server/assets"
 	"sliver/server/certs"
 	gobfuscate "sliver/server/gobfuscate"
@@ -33,28 +34,112 @@ const (
 	sliversDirName = "slivers"
 
 	encryptKeySize = 16
+
+	// DefaultReconnectInterval - In seconds
+	DefaultReconnectInterval = 60
+	// DefaultMTLSLPort - Default listen port
+	DefaultMTLSLPort = 8888
+)
+
+var (
+	srcFiles = []string{
+
+		"crypto.go",
+		"handlers.go",
+		"handlers_windows.go",
+		"handlers_linux.go",
+		"handlers_darwin.go",
+		"tcp-mtls.go",
+		"udp-dns.go",
+		"sliver.go",
+
+		"limits/limits.go",
+		"limits/limits_windows.go",
+		"limits/limits_darwin.go",
+		"limits/limits_linux.go",
+
+		"ps/ps.go",
+		"ps/ps_windows.go",
+		"ps/ps_linux.go",
+		"ps/ps_darwin.go",
+
+		"taskrunner/task.go",
+		"taskrunner/task_windows.go",
+		"taskrunner/task_darwin.go",
+		"taskrunner/task_linux.go",
+
+		"procdump/dump.go",
+		"procdump/dump_windows.go",
+		"procdump/dump_linux.go",
+		"procdump/dump_darwin.go",
+	}
 )
 
 // SliverConfig - Parameters when generating a implant
 type SliverConfig struct {
 	// Go
-	GOOS   string
-	GOARCH string
+	GOOS   string `json:"go_os"`
+	GOARCH string `json:"go_arch"`
 
 	// Standard
-	Name              string
-	CACert            string
-	Cert              string
-	Key               string
-	Debug             bool
-	ReconnectInterval int
+	Name              string `json:"name"`
+	CACert            string `json:"ca_cert"`
+	Cert              string `json:"cert"`
+	Key               string `json:"key"`
+	Debug             bool   `json:"debug"`
+	ReconnectInterval int    `json:"reconnect_interval"`
 
 	// mTLS
-	MTLSServer string
-	MTLSLPort  uint16
+	MTLSServer string `json:"mtls_server"`
+	MTLSLPort  uint16 `json:"mtls_lport"`
 
 	// DNS
-	DNSParent string
+	DNSParent string `json:"dns_parent"`
+}
+
+// ToProtobuf - Convert SliverConfig to protobuf equiv
+func (c *SliverConfig) ToProtobuf() *pb.SliverConfig {
+	return &pb.SliverConfig{
+		GOOS:              c.GOOS,
+		GOARCH:            c.GOARCH,
+		Name:              c.Name,
+		CACert:            c.CACert,
+		Cert:              c.Cert,
+		Key:               c.Key,
+		Debug:             c.Debug,
+		ReconnectInterval: int32(c.ReconnectInterval),
+		MTLSServer:        c.MTLSServer,
+		MTLSLPort:         int32(c.MTLSLPort),
+		DNSParent:         c.DNSParent,
+	}
+}
+
+// SliverConfigFromProtobuf - Create config from Protobuf
+func SliverConfigFromProtobuf(pbConfig *pb.SliverConfig) *SliverConfig {
+	c := &SliverConfig{}
+	c.GOOS = pbConfig.GOOS
+	c.GOARCH = pbConfig.GOARCH
+	c.Name = pbConfig.Name
+	c.CACert = pbConfig.CACert
+	c.Cert = pbConfig.Cert
+	c.Key = pbConfig.Key
+	c.Debug = pbConfig.Debug
+
+	if pbConfig.ReconnectInterval != 0 {
+		c.ReconnectInterval = int(pbConfig.ReconnectInterval)
+	} else {
+		c.ReconnectInterval = DefaultReconnectInterval
+	}
+
+	c.MTLSServer = pbConfig.MTLSServer
+	if pbConfig.MTLSLPort != 0 {
+		c.MTLSLPort = uint16(pbConfig.MTLSLPort)
+	} else {
+		c.MTLSLPort = DefaultMTLSLPort
+	}
+
+	c.DNSParent = pbConfig.DNSParent
+	return c
 }
 
 // GetSliversDir - Get the binary directory
@@ -122,33 +207,6 @@ func SliverExecutable(config SliverConfig) (string, error) {
 
 	// Load code template
 	sliverBox := packr.NewBox("../../sliver")
-
-	srcFiles := []string{
-
-		"crypto.go",
-		"handlers.go",
-		"handlers_windows.go",
-		"handlers_linux.go",
-		"handlers_darwin.go",
-		"tcp-mtls.go",
-		"udp-dns.go",
-		"sliver.go",
-
-		"limits/limits.go",
-		"limits/limits_windows.go",
-		"limits/limits_darwin.go",
-		"limits/limits_linux.go",
-
-		"ps/ps.go",
-		"ps/ps_windows.go",
-		"ps/ps_linux.go",
-		"ps/ps_darwin.go",
-
-		"procdump/dump.go",
-		"procdump/dump_windows.go",
-		"procdump/dump_linux.go",
-		"procdump/dump_darwin.go",
-	}
 	for _, boxName := range srcFiles {
 		sliverGoCode, _ := sliverBox.FindString(boxName)
 
