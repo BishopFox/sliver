@@ -1,5 +1,7 @@
 package main
 
+// {{if .MTLSServer}}
+
 import (
 	"bytes"
 	"crypto/tls"
@@ -123,3 +125,5 @@ func getTLSConfig() *tls.Config {
 
 	return tlsConfig
 }
+
+// {{end}} -MTLSServer

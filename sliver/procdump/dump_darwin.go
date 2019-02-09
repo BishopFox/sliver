@@ -1,5 +1,6 @@
 // +darwin
-package main
+
+package procdump
 
 type DarwinDump struct {
 	data []byte

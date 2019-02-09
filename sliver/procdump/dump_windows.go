@@ -1,4 +1,4 @@
-package main
+package procdump
 
 import (
 	"fmt"
@@ -8,12 +8,27 @@ import (
 	"unsafe"
 )
 
+const (
+	PROCESS_ALL_ACCESS = 0x1F0FFF
+)
+
 type WindowsDump struct {
 	data []byte
 }
 
 func (d *WindowsDump) Data() []byte {
 	return d.data
+}
+
+func ptr(val interface{}) uintptr {
+	switch val.(type) {
+	case string:
+		return uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(val.(string))))
+	case int:
+		return uintptr(val.(int))
+	default:
+		return uintptr(0)
+	}
 }
 
 // Most of the following code comes from

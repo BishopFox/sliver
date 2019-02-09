@@ -48,7 +48,16 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	fpath, err := generate.ImplantBinary(genReq.OS, genReq.Arch, genReq.LHost, uint16(genReq.LPort), genReq.DNSParent, genReq.Debug)
+	config := generate.SliverConfig{
+		GOOS:       genReq.OS,
+		GOARCH:     genReq.Arch,
+		MTLSServer: genReq.LHost,
+		MTLSLPort:  uint16(genReq.LPort),
+		DNSParent:  genReq.DNSParent,
+		Debug:      genReq.Debug,
+	}
+
+	fpath, err := generate.SliverExecutable(config)
 	if err != nil {
 		resp([]byte{}, err)
 		return

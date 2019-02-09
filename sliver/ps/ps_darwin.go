@@ -1,5 +1,6 @@
 // +build darwin
-package main
+
+package ps
 
 import (
 	"bytes"

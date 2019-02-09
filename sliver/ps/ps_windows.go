@@ -1,5 +1,6 @@
 // +build windows
-package main
+
+package ps
 
 import (
 	"fmt"

