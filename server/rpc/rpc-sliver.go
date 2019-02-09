@@ -48,7 +48,7 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	config := generate.SliverConfig{
+	config := &generate.SliverConfig{
 		GOOS:       genReq.OS,
 		GOARCH:     genReq.Arch,
 		MTLSServer: genReq.LHost,

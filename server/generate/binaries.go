@@ -163,13 +163,69 @@ func SliverEgg(config SliverConfig) (string, error) {
 }
 
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
-func SliverSharedLibrary(config SliverConfig) (string, error) {
-	return "", nil
+// NOTE: This doesn't work just yet, just a prototype
+func SliverSharedLibrary(config *SliverConfig) (string, error) {
+	// Compile go code
+	appDir := assets.GetRootAppDir()
+	goConfig := &gogo.GoConfig{
+		GOOS:   config.GOOS,
+		GOARCH: config.GOARCH,
+		GOROOT: gogo.GetGoRootDir(appDir),
+	}
+	pkgPath, err := renderSliverGoCode(config, goConfig)
+	if err != nil {
+		return "", err
+	}
+
+	dest := path.Join(goConfig.GOPATH, "bin", config.Name)
+	if goConfig.GOOS == WINDOWS {
+		dest += ".dll"
+	}
+	if goConfig.GOOS == DARWIN {
+		dest += ".dylib"
+	}
+	if goConfig.GOOS == LINUX {
+		dest += ".so"
+	}
+
+	tags := []string{"netgo"}
+	ldflags := []string{"-s -w"}
+	if !config.Debug && goConfig.GOOS == WINDOWS {
+		ldflags[0] += " -H=windowsgui"
+	}
+	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags)
+	return dest, err
 }
 
 // SliverExecutable - Generates a sliver executable binary
-func SliverExecutable(config SliverConfig) (string, error) {
+func SliverExecutable(config *SliverConfig) (string, error) {
 
+	// Compile go code
+	appDir := assets.GetRootAppDir()
+	goConfig := &gogo.GoConfig{
+		GOOS:   config.GOOS,
+		GOARCH: config.GOARCH,
+		GOROOT: gogo.GetGoRootDir(appDir),
+	}
+	pkgPath, err := renderSliverGoCode(config, goConfig)
+	if err != nil {
+		return "", err
+	}
+
+	dest := path.Join(goConfig.GOPATH, "bin", config.Name)
+	if goConfig.GOOS == "windows" {
+		dest += ".exe"
+	}
+	tags := []string{"netgo"}
+	ldflags := []string{"-s -w"}
+	if !config.Debug && goConfig.GOOS == "windows" {
+		ldflags[0] += " -H=windowsgui"
+	}
+	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags)
+	return dest, err
+}
+
+func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := gogo.ValidCompilerTargets[target]; !ok {
 		return "", fmt.Errorf("Invalid compiler target: %s", target)
@@ -180,6 +236,11 @@ func SliverExecutable(config SliverConfig) (string, error) {
 	}
 	log.Printf("Generating new sliver binary '%s'", config.Name)
 
+	sliversDir := GetSliversDir() // ~/.sliver/slivers
+	projectGoPathDir := path.Join(sliversDir, config.GOOS, config.GOARCH, config.Name)
+	os.MkdirAll(projectGoPathDir, os.ModePerm)
+	goConfig.GOPATH = projectGoPathDir
+
 	// Cert PEM encoded certificates
 	rootDir := assets.GetRootAppDir()
 	caCert, _, _ := certs.GetCertificateAuthorityPEM(rootDir, certs.SliversCertDir)
@@ -187,12 +248,6 @@ func SliverExecutable(config SliverConfig) (string, error) {
 	config.CACert = string(caCert)
 	config.Cert = string(sliverCert)
 	config.Key = string(sliverKey)
-
-	sliversDir := GetSliversDir() // ~/.sliver/slivers
-
-	// projectDir - ~/.sliver/slivers/<os>/<arch>/<name>/
-	projectGoPathDir := path.Join(sliversDir, config.GOOS, config.GOARCH, config.Name)
-	os.MkdirAll(projectGoPathDir, os.ModePerm)
 
 	// binDir - ~/.sliver/slivers/<os>/<arch>/<name>/bin
 	binDir := path.Join(projectGoPathDir, "bin")
@@ -239,19 +294,10 @@ func SliverExecutable(config SliverConfig) (string, error) {
 		}
 	}
 
-	// Compile go code
-	appDir := assets.GetRootAppDir()
-	goConfig := gogo.GoConfig{
-		GOOS:   config.GOOS,
-		GOARCH: config.GOARCH,
-		GOROOT: gogo.GetGoRootDir(appDir),
-		GOPATH: projectGoPathDir,
-	}
-
 	if !config.Debug {
 		log.Printf("Obfuscating source code ...")
 		obfuscatedGoPath := path.Join(projectGoPathDir, "obfuscated")
-		obfuscatedPkg, err := gobfuscate.Gobfuscate(goConfig, randomObfuscationKey(), "sliver", obfuscatedGoPath)
+		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, randomObfuscationKey(), "sliver", obfuscatedGoPath)
 		if err != nil {
 			log.Printf("Error while obfuscating sliver %v", err)
 			return "", err
@@ -261,18 +307,7 @@ func SliverExecutable(config SliverConfig) (string, error) {
 		log.Printf("Obfuscated sliver package: %s", obfuscatedPkg)
 		sliverPkgDir = path.Join(obfuscatedGoPath, "src", obfuscatedPkg) // new "main"
 	}
-
-	dest := path.Join(binDir, config.Name)
-	if goConfig.GOOS == "windows" {
-		dest += ".exe"
-	}
-	tags := []string{"netgo"}
-	ldflags := []string{"-s -w"}
-	if !config.Debug && goConfig.GOOS == "windows" {
-		ldflags[0] += " -H=windowsgui"
-	}
-	_, err := gogo.GoBuild(goConfig, sliverPkgDir, dest, tags, ldflags)
-	return dest, err
+	return sliverPkgDir, nil
 }
 
 func getObfuscatedSliverPkgDir(obfuscatedDir string) (string, error) {
