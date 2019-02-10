@@ -21,8 +21,10 @@ var (
 		consts.MtlsStr: rpcStartMTLSListener,
 		consts.DnsStr:  rpcStartDNSListener,
 
-		consts.SessionsStr: rpcSessions,
-		consts.GenerateStr: rpcGenerate,
+		consts.SessionsStr:   rpcSessions,
+		consts.GenerateStr:   rpcGenerate,
+		consts.ProfilesStr:   rpcProfiles,
+		consts.NewProfileStr: rpcNewProfile,
 
 		consts.MsfStr:    rpcMsf,
 		consts.InjectStr: rpcMsfInject,

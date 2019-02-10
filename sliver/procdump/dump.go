@@ -1,4 +1,4 @@
-package main
+package procdump
 
 // ProcessDump is the generic interfaces that provides access to a process dump
 type ProcessDump interface {

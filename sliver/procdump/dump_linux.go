@@ -1,5 +1,6 @@
 // +linux
-package main
+
+package procdump
 
 // LinuxDump - Structure implementing the ProcessDump
 // interface for linux processes

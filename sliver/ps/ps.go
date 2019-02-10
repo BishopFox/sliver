@@ -1,4 +1,4 @@
-package main
+package ps
 
 // ps provides an API for finding and listing processes in a platform-agnostic
 // way.

@@ -1,5 +1,7 @@
 package main
 
+// {{if .DNSParent}}
+
 import (
 	"bytes"
 	"crypto/rsa"
@@ -555,3 +557,5 @@ func dnsSessionID() string {
 	}
 	return "_" + string(sessionID)
 }
+
+// {{end}} -DNSParent

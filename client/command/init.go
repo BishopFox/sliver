@@ -138,11 +138,72 @@ func Init(app *grumble.App, rpc RPCServer) {
 			f.Int("l", "lport", 8888, "listen port")
 			f.Bool("d", "debug", false, "enable debug features")
 			f.String("n", "dns", "", "dns c2 parent domain")
+
+			f.String("w", "limit-datetime", "", "limit execution to before datetime")
+			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
+			f.String("y", "limit-username", "", "limit execution to specified username")
+			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
+
 			f.String("s", "save", "", "directory/file to the binary to")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			generate(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.NewProfileStr,
+		Help:     "Save a new sliver profile",
+		LongHelp: help.GetHelpFor(consts.NewProfileStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("o", "os", "windows", "operating system")
+			f.String("a", "arch", "amd64", "cpu architecture")
+			f.String("h", "lhost", "", "listen host")
+			f.Int("l", "lport", 8888, "listen port")
+			f.Bool("d", "debug", false, "enable debug features")
+			f.String("n", "dns", "", "dns c2 parent domain")
+
+			f.String("w", "limit-datetime", "", "limit execution to before datetime")
+			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
+			f.String("y", "limit-username", "", "limit execution to specified username")
+			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
+
+			f.String("p", "name", "", "profile name")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			newProfile(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ProfilesStr,
+		Help:     "List existing profiles",
+		LongHelp: help.GetHelpFor(consts.ProfilesStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			profiles(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ProfileGenerateStr,
+		Help:     "Generate sliver from profile",
+		LongHelp: help.GetHelpFor(consts.ProfileGenerateStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("p", "name", "", "profile name")
+			f.String("s", "save", "", "directory/file to the binary to")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			profileGenerate(ctx, rpc)
 			fmt.Println()
 			return nil
 		},

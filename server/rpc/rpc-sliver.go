@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"errors"
 	"io/ioutil"
 	"log"
 	"path"
@@ -48,7 +49,8 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	fpath, err := generate.ImplantBinary(genReq.OS, genReq.Arch, genReq.LHost, uint16(genReq.LPort), genReq.DNSParent, genReq.Debug)
+	config := generate.SliverConfigFromProtobuf(genReq.Config)
+	fpath, err := generate.SliverExecutable(config)
 	if err != nil {
 		resp([]byte{}, err)
 		return
@@ -63,6 +65,36 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 	}
 	data, err := proto.Marshal(generated)
 	resp(data, err)
+}
+
+func rpcProfiles(_ []byte, resp RPCResponse) {
+	profiles := &pb.Profiles{List: []*pb.Profile{}}
+	for name, config := range generate.GetProfiles() {
+		profiles.List = append(profiles.List, &pb.Profile{
+			Name:   name,
+			Config: config.ToProtobuf(),
+		})
+	}
+	data, err := proto.Marshal(profiles)
+	resp(data, err)
+}
+
+func rpcNewProfile(req []byte, resp RPCResponse) {
+	profile := &pb.Profile{}
+	err := proto.Unmarshal(req, profile)
+	if err != nil {
+		log.Printf("Failed to decode message %v", err)
+		resp([]byte{}, err)
+	}
+	config := generate.SliverConfigFromProtobuf(profile.Config)
+	profile.Name = path.Base(profile.Name)
+	if 0 < len(profile.Name) && profile.Name != "." {
+		log.Printf("Saving new profile with name %#v", profile.Name)
+		err = generate.SaveProfile(profile.Name, config)
+	} else {
+		err = errors.New("Invalid profile name")
+	}
+	resp([]byte{}, err)
 }
 
 func rpcPs(req []byte, resp RPCResponse) {

