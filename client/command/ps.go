@@ -27,10 +27,11 @@ func ps(ctx *grumble.Context, rpc RPCServer) {
 	}
 
 	data, _ := proto.Marshal(&sliverpb.PsReq{SliverID: ActiveSliver.Sliver.ID})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.PsStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp.Error != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
 		return
@@ -132,10 +133,11 @@ func procdump(ctx *grumble.Context, rpc RPCServer) {
 		Pid:      int32(pid),
 		Timeout:  int32(timeout),
 	})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.ProcdumpStr,
 		Data: data,
 	}, time.Duration(timeout+1)*time.Second)
+	resp := <-respCh
 	ctrl <- true
 
 	procDump := &sliverpb.ProcessDump{}
@@ -156,10 +158,11 @@ func procdump(ctx *grumble.Context, rpc RPCServer) {
 
 func getPIDByName(name string, rpc RPCServer) int {
 	data, _ := proto.Marshal(&sliverpb.PsReq{SliverID: ActiveSliver.Sliver.ID})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.PsStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	ps := &sliverpb.Ps{}
 	proto.Unmarshal(resp.Data, ps)
 	for _, proc := range ps.Processes {

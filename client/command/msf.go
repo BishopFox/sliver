@@ -42,10 +42,11 @@ func msf(ctx *grumble.Context, rpc RPCServer) {
 		Iterations: int32(iterations),
 		SliverID:   ActiveSliver.Sliver.ID,
 	})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.MsfStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	ctrl <- true
 	if resp.Error != "" {
 		fmt.Printf(Warn+"%s\n", resp.Error)
@@ -92,10 +93,11 @@ func msfInject(ctx *grumble.Context, rpc RPCServer) {
 		PID:        int32(pid),
 		SliverID:   ActiveSliver.Sliver.ID,
 	})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.MsfStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	ctrl <- true
 	if resp.Error != "" {
 		fmt.Printf(Warn+"%s\n", resp.Error)

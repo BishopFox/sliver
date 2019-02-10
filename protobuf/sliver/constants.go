@@ -65,6 +65,6 @@ const (
 
 	// MsgShellReq - Starts an interactive shell
 	MsgShellReq = uint32(24)
-	// MsgShell - Data for stdin/out/err
-	MsgShell = uint32(25)
+	// MsgShellData - Data for stdin/out/err
+	MsgShellData = uint32(25)
 )

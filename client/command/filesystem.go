@@ -35,10 +35,11 @@ func ls(ctx *grumble.Context, rpc RPCServer) {
 		SliverID: ActiveSliver.Sliver.ID,
 		Path:     ctx.Args[0],
 	})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.LsStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp.Error != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
 		return
@@ -83,10 +84,11 @@ func rm(ctx *grumble.Context, rpc RPCServer) {
 		SliverID: ActiveSliver.Sliver.ID,
 		Path:     ctx.Args[0],
 	})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.RmStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp.Error != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
 		return
@@ -122,10 +124,11 @@ func mkdir(ctx *grumble.Context, rpc RPCServer) {
 		SliverID: ActiveSliver.Sliver.ID,
 		Path:     ctx.Args[0],
 	})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.MkdirStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp.Error != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
 		return
@@ -159,10 +162,11 @@ func cd(ctx *grumble.Context, rpc RPCServer) {
 		SliverID: ActiveSliver.Sliver.ID,
 		Path:     ctx.Args[0],
 	})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.CdStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp.Error != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
 		return
@@ -186,10 +190,11 @@ func pwd(ctx *grumble.Context, rpc RPCServer) {
 	data, _ := proto.Marshal(&sliverpb.PwdReq{
 		SliverID: ActiveSliver.Sliver.ID,
 	})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.PwdStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp.Error != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
 		return
@@ -219,10 +224,11 @@ func cat(ctx *grumble.Context, rpc RPCServer) {
 		SliverID: ActiveSliver.Sliver.ID,
 		Path:     ctx.Args[0],
 	})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.DownloadStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp.Error != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
 		return
@@ -281,10 +287,11 @@ func download(ctx *grumble.Context, rpc RPCServer) {
 		SliverID: ActiveSliver.Sliver.ID,
 		Path:     ctx.Args[0],
 	})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.DownloadStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	ctrl <- true
 	if resp.Error != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
@@ -345,10 +352,11 @@ func upload(ctx *grumble.Context, rpc RPCServer) {
 		Data:     uploadGzip.Bytes(),
 		Encoder:  "gzip",
 	})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.UploadStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	ctrl <- true
 	if resp.Error != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Error)

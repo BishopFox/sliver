@@ -28,10 +28,11 @@ var (
 )
 
 func sessions(ctx *grumble.Context, rpc RPCServer) {
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.SessionsStr,
 		Data: []byte{},
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp == nil {
 		fmt.Printf(Warn + "Command timeout\n")
 		return
@@ -138,10 +139,11 @@ func kill(ctx *grumble.Context, rpc RPCServer) {
 	data, _ := proto.Marshal(&sliverpb.KillReq{
 		SliverID: sliver.ID,
 	})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.KillStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp == nil {
 		fmt.Printf(Warn + "No response from server\n")
 		return
@@ -243,10 +245,11 @@ func compile(config *pb.SliverConfig, save string, rpc RPCServer) {
 	go spin.Until("Compiling ...", ctrl)
 	generateReq, _ := proto.Marshal(&pb.GenerateReq{Config: config})
 
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.GenerateStr,
 		Data: generateReq,
 	}, 1200*time.Second)
+	resp := <-respCh
 	ctrl <- true
 	if resp == nil {
 		fmt.Printf(Warn + "No response from server\n")
@@ -362,10 +365,11 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 		},
 	})
 
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.NewProfileStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp == nil {
 		fmt.Printf(Warn + "No response from server\n")
 		return
@@ -378,9 +382,10 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 }
 
 func getSliverProfiles(rpc RPCServer) *map[string]*pb.Profile {
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.ProfilesStr,
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp == nil {
 		fmt.Printf(Warn + "No response from server\n")
 		return nil

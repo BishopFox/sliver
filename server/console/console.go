@@ -46,9 +46,8 @@ func Start() {
 	serverOnlyCmds(sliverApp)
 
 	handlers := rpc.GetRPCHandlers()
-	command.Init(sliverApp, func(envelope *pb.Envelope, timeout time.Duration) *pb.Envelope {
+	command.Init(sliverApp, func(envelope *pb.Envelope, timeout time.Duration) chan *pb.Envelope {
 		resp := make(chan *pb.Envelope)
-		defer close(resp)
 		if handler, ok := (*handlers)[envelope.Type]; ok {
 			go handler(envelope.Data, func(data []byte, err error) {
 				errStr := ""
@@ -61,7 +60,7 @@ func Start() {
 					Error: errStr,
 				}
 			})
-			return <-resp
+			return resp
 		}
 		fmt.Println()
 		return nil

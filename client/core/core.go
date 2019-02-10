@@ -49,19 +49,23 @@ func (ss *SliverServer) ResponseMapper() {
 }
 
 // RequestResponse - Send a request envelope and wait for a response (blocking)
-func (ss *SliverServer) RequestResponse(envelope *pb.Envelope, timeout time.Duration) *pb.Envelope {
+func (ss *SliverServer) RequestResponse(envelope *pb.Envelope, timeout time.Duration) chan *pb.Envelope {
 	reqID := RandomID()
 	envelope.ID = reqID
 	resp := make(chan *pb.Envelope)
 	ss.AddRespListener(reqID, resp)
-	defer ss.RemoveRespListener(reqID)
 	ss.Send <- envelope
-	select {
-	case respEnvelope := <-resp:
-		return respEnvelope
-	case <-time.After(timeout):
-		return nil
-	}
+	respCh := make(chan *pb.Envelope)
+	go func() {
+		defer ss.RemoveRespListener(reqID)
+		select {
+		case respEnvelope := <-resp:
+			respCh <- respEnvelope
+		case <-time.After(timeout):
+			respCh <- nil
+		}
+	}()
+	return respCh
 }
 
 // AddRespListener - Add a response listener

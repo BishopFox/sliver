@@ -3,65 +3,44 @@ package command
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	consts "sliver/client/constants"
 	pb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
-	"sync"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
 )
-
-var (
-	Shells = shells{
-		recievers: &map[uint32]chan []byte{},
-		mutex:     &sync.RWMutex{},
-	}
-)
-
-type shells struct {
-	recievers *map[uint32]chan []byte
-	mutex     *sync.RWMutex
-}
-
-func (s *shells) AddReciever(ID uint32, recv chan []byte) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	(*s.recievers)[ID] = recv
-}
-
-func (s *shells) RemoveReciever(ID uint32, recv chan []byte) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	close((*s.recievers)[ID])
-	delete((*s.recievers), ID)
-}
 
 func shell(ctx *grumble.Context, rpc RPCServer) {
 	if ActiveSliver.Sliver == nil {
 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
 		return
 	}
+
+	fmt.Printf(Info + "Opening shell channel with sliver ...\n")
+
 	shellReq := &pb.ShellReq{SliverID: ActiveSliver.Sliver.ID}
 	shellReqData, _ := proto.Marshal(shellReq)
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.ShellStr,
 		Data: shellReqData,
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp.Error != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
 		return
 	}
 
-	shellData := &sliverpb.ShellData{}
-	proto.Unmarshal(resp.Data, shellData)
-	recv := make(chan []byte)
-
-	Shells.AddReciever(shellData.ID, recv)
+	openedShell := &sliverpb.ShellData{}
+	proto.Unmarshal(resp.Data, openedShell)
 	go func() {
-		for data := range recv {
-			os.Stdout.Write(data)
+		for envelope := range respCh {
+			shellData := &sliverpb.ShellData{}
+			proto.Unmarshal(envelope.Data, shellData)
+			log.Printf("[write] stdout ShellID = %d", shellData.ID)
+			os.Stdout.Write(shellData.Stdout)
 		}
 	}()
 
@@ -72,10 +51,11 @@ func shell(ctx *grumble.Context, rpc RPCServer) {
 			return
 		}
 		data, err := proto.Marshal(&sliverpb.ShellData{
-			ID:       shellData.ID,
+			ID:       openedShell.ID,
 			Stdin:    readBuf[:n],
 			SliverID: ActiveSliver.Sliver.ID,
 		})
+		log.Printf("[read] stdin tunnel to ShellID = %d", openedShell.ID)
 		go rpc(&pb.Envelope{
 			Type: consts.ShellDataStr,
 			Data: data,

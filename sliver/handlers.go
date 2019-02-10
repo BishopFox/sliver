@@ -314,21 +314,25 @@ func dumpHandler(data []byte, resp RPCResponse) {
 
 func startShellHandler(data []byte, resp RPCResponse) {
 	shellPath := shell.GetSystemShellPath()
-	send := make(chan []byte)
-	recv := make(chan []byte)
 
-	newShell := shell.StartInteractive(shellPath, send, recv)
-	shell.Shells.AddShell(newShell)
-
+	systemShell := shell.StartInteractive(shellPath)
+	shell.Shells.AddShell(systemShell)
 	data, err := proto.Marshal(&pb.ShellData{
-		ID: newShell.ID,
+		ID: systemShell.ID,
 	})
 	resp(data, err)
 
-	for shellData := range newShell.Recv {
+	// {{if .Debug}}
+	log.Printf("Started shell with ID %d", systemShell.ID)
+	// {{end}}
+
+	for rawShellData := range *systemShell.Read {
+		// {{if .Debug}}
+		log.Printf("Read %d bytes from shell with id %d", len(rawShellData), systemShell.ID)
+		// {{end}}
 		data, err := proto.Marshal(&pb.ShellData{
-			ID:     newShell.ID,
-			Stdout: shellData,
+			ID:     systemShell.ID,
+			Stdout: rawShellData,
 		})
 		resp(data, err)
 	}
@@ -337,8 +341,11 @@ func startShellHandler(data []byte, resp RPCResponse) {
 func shellDataHandler(data []byte, resp RPCResponse) {
 	shellData := &pb.ShellData{}
 	proto.Unmarshal(data, shellData)
+	// {{if .Debug}}
+	log.Printf("ShellData (stdin) for ShellID = %d", shellData.ID)
+	// {{end}}
 	if shellData.Close {
-		shell.Shells.Close(shellData.ID)
+		shell.Shells.CloseShell(shellData.ID)
 	}
 	shell.Shells.WriteData(shellData)
 }

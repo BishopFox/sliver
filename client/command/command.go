@@ -47,7 +47,7 @@ var (
 )
 
 // RPCServer - Function used to send/recv envelopes
-type RPCServer func(*pb.Envelope, time.Duration) *pb.Envelope
+type RPCServer func(*pb.Envelope, time.Duration) chan *pb.Envelope
 
 type observer func()
 
@@ -69,12 +69,12 @@ func (s *activeSliver) SetActiveSliver(sliver *pb.Sliver) {
 
 // Get Sliver by session ID or name
 func getSliver(arg string, rpc RPCServer) *pb.Sliver {
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.SessionsStr,
 		Data: []byte{},
 	}, defaultTimeout)
 	sessions := &pb.Sessions{}
-	proto.Unmarshal(resp.Data, sessions)
+	proto.Unmarshal((<-respCh).Data, sessions)
 
 	for _, sliver := range sessions.Slivers {
 		if strconv.Itoa(int(sliver.ID)) == arg || sliver.Name == arg {

