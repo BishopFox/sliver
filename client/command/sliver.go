@@ -226,7 +226,7 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 }
 
 func profileGenerate(ctx *grumble.Context, rpc RPCServer) {
-	name := ctx.Flags.String("profile")
+	name := ctx.Flags.String("name")
 	save := ctx.Flags.String("save")
 
 	profiles := getSliverProfiles(rpc)

