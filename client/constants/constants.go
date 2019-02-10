@@ -69,4 +69,7 @@ const (
 	DownloadStr = "download"
 	UploadStr   = "upload"
 	ProcdumpStr = "procdump"
+
+	ShellStr     = "shell"
+	ShellDataStr = "shell-data"
 )

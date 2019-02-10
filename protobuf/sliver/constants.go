@@ -62,4 +62,9 @@ const (
 	MsgProcessDumpReq = uint32(22)
 	// MsgProcessDump - Dump of process)
 	MsgProcessDump = uint32(23)
+
+	// MsgShellReq - Starts an interactive shell
+	MsgShellReq = uint32(24)
+	// MsgShell - Data for stdin/out/err
+	MsgShell = uint32(25)
 )

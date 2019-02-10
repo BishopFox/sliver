@@ -51,6 +51,11 @@ var (
 		"udp-dns.go",
 		"sliver.go",
 
+		"shell/shell.go",
+		"shell/shell_windows.go",
+		"shell/shell_darwin.go",
+		"shell/shell_linux.go",
+
 		"limits/limits.go",
 		"limits/limits_windows.go",
 		"limits/limits_darwin.go",

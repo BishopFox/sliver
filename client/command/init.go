@@ -128,6 +128,19 @@ func Init(app *grumble.App, rpc RPCServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
+		Name:      consts.ShellStr,
+		Help:      "Start an interactive shell",
+		LongHelp:  help.GetHelpFor(consts.ShellStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			shell(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(&grumble.Command{
 		Name:     consts.GenerateStr,
 		Help:     "Generate a sliver binary",
 		LongHelp: help.GetHelpFor(consts.GenerateStr),

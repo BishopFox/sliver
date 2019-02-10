@@ -166,3 +166,24 @@ message DNSBlockHeader {
   string id = 1;
   uint32 size = 2;
 }
+
+// Shell messages
+message StartReq {
+  string Path = 1;
+}
+
+message Start {
+  string Err = 1;
+}
+
+message ShellData {
+  uint32 ID = 1;
+
+  bytes Stdin = 2;
+  bytes Stdout = 3;
+  bytes Stderr = 4;
+
+  bool Close = 5;
+  
+  int32 SliverID = 9;
+}

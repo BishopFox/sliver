@@ -139,6 +139,11 @@ message MSFInjectReq {
   int32 SliverID = 9;
 }
 
+// [ Shell ] ----------------------------------------
+message ShellReq {
+  int32 SliverID = 1;
+}
+
 // [ events ] ----------------------------------------
 
 message Client {
