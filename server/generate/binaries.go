@@ -3,9 +3,7 @@ package generate
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -95,6 +93,12 @@ type SliverConfig struct {
 
 	// DNS
 	DNSParent string `json:"dns_parent"`
+
+	// Limits
+	LimitDomainJoined bool   `json:"limit_domainjoined"`
+	LimitHostname     string `json:"limit_hostname"`
+	LimitUsername     string `json:"limit_username"`
+	LimitDatetime     string `json:"limit_datetime"`
 }
 
 // ToProtobuf - Convert SliverConfig to protobuf equiv
@@ -111,35 +115,45 @@ func (c *SliverConfig) ToProtobuf() *pb.SliverConfig {
 		MTLSServer:        c.MTLSServer,
 		MTLSLPort:         int32(c.MTLSLPort),
 		DNSParent:         c.DNSParent,
+
+		LimitDatetime:     c.LimitDatetime,
+		LimitDomainJoined: c.LimitDomainJoined,
+		LimitHostname:     c.LimitHostname,
+		LimitUsername:     c.LimitUsername,
 	}
 }
 
 // SliverConfigFromProtobuf - Create config from Protobuf
 func SliverConfigFromProtobuf(pbConfig *pb.SliverConfig) *SliverConfig {
-	c := &SliverConfig{}
-	c.GOOS = pbConfig.GOOS
-	c.GOARCH = pbConfig.GOARCH
-	c.Name = pbConfig.Name
-	c.CACert = pbConfig.CACert
-	c.Cert = pbConfig.Cert
-	c.Key = pbConfig.Key
-	c.Debug = pbConfig.Debug
+	cfg := &SliverConfig{}
+	cfg.GOOS = pbConfig.GOOS
+	cfg.GOARCH = pbConfig.GOARCH
+	cfg.Name = pbConfig.Name
+	cfg.CACert = pbConfig.CACert
+	cfg.Cert = pbConfig.Cert
+	cfg.Key = pbConfig.Key
+	cfg.Debug = pbConfig.Debug
+
+	cfg.LimitDomainJoined = pbConfig.LimitDomainJoined
+	cfg.LimitDatetime = pbConfig.LimitDatetime
+	cfg.LimitUsername = pbConfig.LimitUsername
+	cfg.LimitHostname = pbConfig.LimitHostname
 
 	if pbConfig.ReconnectInterval != 0 {
-		c.ReconnectInterval = int(pbConfig.ReconnectInterval)
+		cfg.ReconnectInterval = int(pbConfig.ReconnectInterval)
 	} else {
-		c.ReconnectInterval = DefaultReconnectInterval
+		cfg.ReconnectInterval = DefaultReconnectInterval
 	}
 
-	c.MTLSServer = pbConfig.MTLSServer
+	cfg.MTLSServer = pbConfig.MTLSServer
 	if pbConfig.MTLSLPort != 0 {
-		c.MTLSLPort = uint16(pbConfig.MTLSLPort)
+		cfg.MTLSLPort = uint16(pbConfig.MTLSLPort)
 	} else {
-		c.MTLSLPort = DefaultMTLSLPort
+		cfg.MTLSLPort = DefaultMTLSLPort
 	}
 
-	c.DNSParent = pbConfig.DNSParent
-	return c
+	cfg.DNSParent = pbConfig.DNSParent
+	return cfg
 }
 
 // GetSliversDir - Get the binary directory
@@ -213,12 +227,12 @@ func SliverExecutable(config *SliverConfig) (string, error) {
 	}
 
 	dest := path.Join(goConfig.GOPATH, "bin", config.Name)
-	if goConfig.GOOS == "windows" {
+	if goConfig.GOOS == WINDOWS {
 		dest += ".exe"
 	}
 	tags := []string{"netgo"}
 	ldflags := []string{"-s -w"}
-	if !config.Debug && goConfig.GOOS == "windows" {
+	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
 	}
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags)
@@ -308,23 +322,6 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		sliverPkgDir = path.Join(obfuscatedGoPath, "src", obfuscatedPkg) // new "main"
 	}
 	return sliverPkgDir, nil
-}
-
-func getObfuscatedSliverPkgDir(obfuscatedDir string) (string, error) {
-	dirList, err := ioutil.ReadDir(obfuscatedDir)
-	if err != nil {
-		return "", err
-	}
-
-	for _, dir := range dirList {
-		path := path.Join(obfuscatedDir, dir.Name(), "sliver.go")
-		log.Printf("Checking %s for slivers ...", path)
-		if _, err := os.Stat(path); !os.IsNotExist(err) {
-			return dir.Name(), nil
-		}
-
-	}
-	return "", errors.New("no sliver files found")
 }
 
 func randomObfuscationKey() string {

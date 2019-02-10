@@ -53,6 +53,11 @@ message SliverConfig {
   int32 MTLSLPort = 10;
 
   string DNSParent = 11;
+
+  bool LimitDomainJoined = 12;
+  string LimitDatetime = 13;
+  string LimitHostname = 14;
+  string LimitUsername = 15;
 }
 
 message Profile {
@@ -106,12 +111,7 @@ message Sessions {
 }
 
 message GenerateReq {
-  string OS = 1;
-  string Arch = 2;
-  string LHost = 3;
-  int32 LPort = 4;
-  bool Debug = 5;
-  string DNSParent = 6;
+  SliverConfig Config = 1;
 }
 
 message Generate {

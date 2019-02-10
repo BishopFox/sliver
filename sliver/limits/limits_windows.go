@@ -1,9 +1,15 @@
 package limits
 
 import (
+	// {{if .Debug}}
+	"log"
+	// {{else}}{{end}}
+	"os"
 	"syscall"
 	"unsafe"
 )
+
+// {{if .LimitDomainJoined}}
 
 func isDomainJoined() (bool, error) {
 	var domain *uint16
@@ -16,7 +22,19 @@ func isDomainJoined() (bool, error) {
 	return status == syscall.NetSetupDomainName, nil
 }
 
-func lookupFullNameDomain(domainAndUser string) (string, error) {
-	return syscall.TranslateAccountName(domainAndUser,
-		syscall.NameSamCompatible, syscall.NameDisplay, 50)
+// {{end}}
+
+func PlatformLimits() {
+	kernel32, _ = syscall.LoadLibrary("kernel32.dll")
+	defer syscall.FreeLibrary(kernel32)
+	isDebuggerPresent, _ = syscall.GetProcAddress(kernel32, "IsDebuggerPresent")
+	ret, _, err := syscall.Syscall(uintptr(isDebuggerPresent))
+	// {{if .Debug}}
+	log.Printf("IsDebuggerPresent = %#v", ret)
+	// {{end}}
+	// {{if .PlatformLimits}}
+	if err == nil && ret {
+		os.Exit(1)
+	}
+	// {{end}}
 }

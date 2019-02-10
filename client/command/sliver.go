@@ -186,6 +186,12 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 	lport := ctx.Flags.Int("lport")
 	debug := ctx.Flags.Bool("debug")
 	dnsParent := ctx.Flags.String("dns")
+
+	limitDomainJoined := ctx.Flags.Bool("limit-domainjoined")
+	limitHostname := ctx.Flags.String("limit-hostname")
+	limitUsername := ctx.Flags.String("limit-username")
+	limitDatetime := ctx.Flags.String("limit-datetime")
+
 	save := ctx.Flags.String("save")
 
 	if lhost == "" {
@@ -204,18 +210,38 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 	if dnsParent != "" && strings.HasPrefix(dnsParent, ".") {
 		dnsParent = dnsParent[1:]
 	}
+	compile(&pb.SliverConfig{
+		GOOS:       targetOS,
+		GOARCH:     arch,
+		MTLSServer: lhost,
+		MTLSLPort:  int32(lport),
+		Debug:      debug,
+		DNSParent:  dnsParent,
 
-	fmt.Printf(Info+"Generating new %s/%s sliver binary \n", targetOS, arch)
+		LimitDomainJoined: limitDomainJoined,
+		LimitHostname:     limitHostname,
+		LimitUsername:     limitUsername,
+		LimitDatetime:     limitDatetime,
+	}, save, rpc)
+}
+
+func profileGenerate(ctx *grumble.Context, rpc RPCServer) {
+	name := ctx.Flags.String("profile")
+	save := ctx.Flags.String("save")
+
+	profiles := getSliverProfiles(rpc)
+	if profile, ok := (*profiles)[name]; ok {
+		compile(profile.Config, save, rpc)
+	} else {
+		fmt.Printf(Warn+"No profile with name '%s'", name)
+	}
+}
+
+func compile(config *pb.SliverConfig, save string, rpc RPCServer) {
+	fmt.Printf(Info+"Generating new %s/%s sliver binary \n", config.GOOS, config.GOARCH)
 	ctrl := make(chan bool)
 	go spin.Until("Compiling ...", ctrl)
-	generateReq, _ := proto.Marshal(&pb.GenerateReq{
-		OS:        targetOS,
-		Arch:      arch,
-		LHost:     lhost,
-		LPort:     int32(lport),
-		Debug:     debug,
-		DNSParent: dnsParent,
-	})
+	generateReq, _ := proto.Marshal(&pb.GenerateReq{Config: config})
 
 	resp := rpc(&pb.Envelope{
 		Type: consts.GenerateStr,
@@ -251,38 +277,61 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 	fmt.Printf(Info+"Sliver binary saved to: %s\n", saveTo)
 }
 
-func profileGenerate(ctx *grumble.Context, rpc RPCServer) {
-
-}
-
 func profiles(ctx *grumble.Context, rpc RPCServer) {
 	profiles := getSliverProfiles(rpc)
 	if profiles == nil {
 		return
 	}
+	if len(*profiles) == 0 {
+		fmt.Printf(Info+"No profiles, create one with `%s`\n", consts.NewProfileStr)
+		return
+	}
 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintf(table, "Name\tPlatform\tmTLS\tDNS\tDebug\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+	fmt.Fprintf(table, "Name\tPlatform\tmTLS\tDNS\tDebug\tLimitations\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("Name")),
 		strings.Repeat("=", len("Platform")),
 		strings.Repeat("=", len("mTLS")),
 		strings.Repeat("=", len("DNS")),
-		strings.Repeat("=", len("Debug")))
+		strings.Repeat("=", len("Debug")),
+		strings.Repeat("=", len("Limitations")))
 	for name, profile := range *profiles {
 		config := profile.Config
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t\n",
 			name,
 			fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
 			fmt.Sprintf("%s:%d", config.MTLSServer, config.MTLSLPort),
 			config.DNSParent,
 			fmt.Sprintf("%v", config.Debug),
+			getLimitsString(config),
 		)
 	}
 	table.Flush()
 }
 
+func getLimitsString(config *pb.SliverConfig) string {
+	limits := []string{}
+	if config.LimitDatetime != "" {
+		limits = append(limits, fmt.Sprintf("datetime=%s", config.LimitDatetime))
+	}
+	if config.LimitDomainJoined {
+		limits = append(limits, fmt.Sprintf("domainjoined=%v", config.LimitDomainJoined))
+	}
+	if config.LimitUsername != "" {
+		limits = append(limits, fmt.Sprintf("username=%s", config.LimitUsername))
+	}
+	if config.LimitHostname != "" {
+		limits = append(limits, fmt.Sprintf("hostname=%s", config.LimitHostname))
+	}
+	return strings.Join(limits, "; ")
+}
+
 func newProfile(ctx *grumble.Context, rpc RPCServer) {
 	name := ctx.Flags.String("name")
+	if name == "" {
+		fmt.Printf(Warn + "Invalid profile name\n")
+		return
+	}
 
 	targetOS := ctx.Flags.String("os")
 	arch := ctx.Flags.String("arch")
@@ -290,6 +339,11 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 	lport := ctx.Flags.Int("lport")
 	debug := ctx.Flags.Bool("debug")
 	dnsParent := ctx.Flags.String("dns")
+
+	limitDomainJoined := ctx.Flags.Bool("limit-domainjoined")
+	limitHostname := ctx.Flags.String("limit-hostname")
+	limitUsername := ctx.Flags.String("limit-username")
+	limitDatetime := ctx.Flags.String("limit-datetime")
 
 	data, _ := proto.Marshal(&pb.Profile{
 		Name: name,
@@ -300,6 +354,11 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 			MTLSLPort:  int32(lport),
 			Debug:      debug,
 			DNSParent:  dnsParent,
+
+			LimitDomainJoined: limitDomainJoined,
+			LimitHostname:     limitHostname,
+			LimitUsername:     limitUsername,
+			LimitDatetime:     limitDatetime,
 		},
 	})
 

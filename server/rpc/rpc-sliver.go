@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"errors"
 	"io/ioutil"
 	"log"
 	"path"
@@ -48,15 +49,7 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	config := &generate.SliverConfig{
-		GOOS:       genReq.OS,
-		GOARCH:     genReq.Arch,
-		MTLSServer: genReq.LHost,
-		MTLSLPort:  uint16(genReq.LPort),
-		DNSParent:  genReq.DNSParent,
-		Debug:      genReq.Debug,
-	}
-
+	config := generate.SliverConfigFromProtobuf(genReq.Config)
 	fpath, err := generate.SliverExecutable(config)
 	if err != nil {
 		resp([]byte{}, err)
@@ -94,7 +87,13 @@ func rpcNewProfile(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 	}
 	config := generate.SliverConfigFromProtobuf(profile.Config)
-	err = generate.SaveProfile(profile.Name, config)
+	profile.Name = path.Base(profile.Name)
+	if 0 < len(profile.Name) && profile.Name != "." {
+		log.Printf("Saving new profile with name %#v", profile.Name)
+		err = generate.SaveProfile(profile.Name, config)
+	} else {
+		err = errors.New("Invalid profile name")
+	}
 	resp([]byte{}, err)
 }
 

@@ -31,20 +31,21 @@ var (
 		consts.BackgroundStr: backgroundHelp,
 		consts.InfoStr:       infoHelp,
 		consts.UseStr:        useHelp,
-		consts.GenerateStr:   genHelp,
-		consts.MsfStr:        msfHelp,
-		consts.InjectStr:     injectHelp,
-		consts.PsStr:         psHelp,
-		consts.PingStr:       pingHelp,
-		consts.KillStr:       killHelp,
-		consts.LsStr:         lsHelp,
-		consts.CdStr:         cdHelp,
-		consts.CatStr:        catHelp,
-		consts.DownloadStr:   downloadHelp,
-		consts.UploadStr:     uploadHelp,
-		consts.MkdirStr:      mkdirHelp,
-		consts.RmStr:         rmHelp,
-		consts.ProcdumpStr:   procdumpHelp,
+		consts.GenerateStr:   generateHelp,
+
+		consts.MsfStr:      msfHelp,
+		consts.InjectStr:   injectHelp,
+		consts.PsStr:       psHelp,
+		consts.PingStr:     pingHelp,
+		consts.KillStr:     killHelp,
+		consts.LsStr:       lsHelp,
+		consts.CdStr:       cdHelp,
+		consts.CatStr:      catHelp,
+		consts.DownloadStr: downloadHelp,
+		consts.UploadStr:   uploadHelp,
+		consts.MkdirStr:    mkdirHelp,
+		consts.RmStr:       rmHelp,
+		consts.ProcdumpStr: procdumpHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -62,7 +63,7 @@ var (
 	useHelp = `[[.Bold]]Command:[[.Normal]] use [sliver name]
 [[.Bold]]About:[[.Normal]] Switch the active sliver, a valid name must be provided (see sessions).`
 
-	genHelp = `[[.Bold]]Command:[[.Normal]] gen <options>
+	generateHelp = `[[.Bold]]Command:[[.Normal]] generate <options>
 [[.Bold]]About:[[.Normal]] Generate a new sliver binary.`
 
 	msfHelp = `[[.Bold]]Command:[[.Normal]] msf [--lhost] <options>
