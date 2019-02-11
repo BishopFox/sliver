@@ -1,12 +1,15 @@
 package limits
 
 import (
-	"log"
-	"os"
-	"runtime"
 
+	// {{if and .LimitUsername .LimitHostname .Debug}}
+	"log"
+	// {{end}}
+	"os"
 	// {{if .LimitUsername}}
 	"os/user"
+	"runtime"
+
 	// {{end}}
 
 	// {{if .LimitDatetime}}

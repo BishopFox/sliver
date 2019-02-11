@@ -62,4 +62,12 @@ const (
 	MsgProcessDumpReq = uint32(22)
 	// MsgProcessDump - Dump of process)
 	MsgProcessDump = uint32(23)
+	// MsgImpersonateReq - Request for process impersonation
+	MsgImpersonateReq = uint32(24)
+	// MsgImpersonate - Output of the impersonation command
+	MsgImpersonate = uint32(25)
+	// MsgElevateReq - Request to run a new sliver session in an elevated context
+	MsgElevateReq = uint32(26)
+	//MsgElevate - Response to the elevation request
+	MsgElevate = uint32(27)
 )

@@ -13,84 +13,111 @@
   digest = "1:2d5471db9131b2bbcb6e21a3ae38e72622f3021cac56e8858e778370bc67b3b8"
   name = "github.com/desertbit/closer"
   packages = ["."]
+  pruneopts = ""
   revision = "93b2a5f3df09367c0106a72d7a4ed591f11f32c3"
   version = "v2.0.0"
 
 [[projects]]
+  digest = "1:58a647bbdb5eb4584a4ebbf3f648ece1633f2155bea139ca44281069a08a0436"
   name = "github.com/desertbit/columnize"
   packages = ["."]
+  pruneopts = ""
   revision = "983d3a5fab1bf04d1b412465d2d9f8430e2e917e"
   version = "v2.1.0"
 
 [[projects]]
   branch = "master"
+  digest = "1:93a4238f875be092b3bc5c68424a91d8f948d5f0cda99b44bc6de4849047d883"
   name = "github.com/desertbit/go-shlex"
   packages = ["."]
+  pruneopts = ""
   revision = "3f9db97f856818214da2e1057f8ad84803971cff"
 
 [[projects]]
+  digest = "1:6ecec059283ec9df1681436d44551c1acd2f58a798f8719c13080e37544e8cce"
   name = "github.com/desertbit/grumble"
   packages = ["."]
+  pruneopts = ""
   revision = "09bfd1c64f745c996d1301a2b6957b627b53383d"
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:8e9e9b413d0d42246340a89debd1d2c2ae0284774462c11a7ea1b1e25d913700"
   name = "github.com/desertbit/readline"
   packages = ["."]
+  pruneopts = ""
   revision = "f6d7a1f6fbf35bbf9beb80dc63c56a29dcfb759f"
   version = "v1.5"
 
 [[projects]]
+  digest = "1:e988ed0ca0d81f4d28772760c02ee95084961311291bdfefc1b04617c178b722"
   name = "github.com/fatih/color"
   packages = ["."]
+  pruneopts = ""
   revision = "5b77d2a35fb0ede96d138fc9a99f5c9b6aef11b4"
   version = "v1.7.0"
 
 [[projects]]
+  digest = "1:3522d0cc6a8f41d4a91b757b1042bb89dc261a36aebfb47ae81bf37aeade2768"
   name = "github.com/gobuffalo/envy"
   packages = ["."]
+  pruneopts = ""
   revision = "f3b98d4da2fa434517f47f615e217fa72ff2c51e"
   version = "v1.6.12"
 
 [[projects]]
   branch = "master"
+  digest = "1:3637ea23c1d8720d62f8400f4b3b5750b11c35baa093a97856bc6295c77cf372"
   name = "github.com/gobuffalo/packd"
   packages = ["."]
+  pruneopts = ""
   revision = "eca3b8fd66872a76119b189bbe0f58f776a2a39f"
 
 [[projects]]
+  digest = "1:82c8a32555836303cadb66876d39e3adae68c969cf9de02dd6cf989ddd8823b3"
   name = "github.com/gobuffalo/packr"
   packages = ["."]
+  pruneopts = ""
   revision = "679459352e18b4c74274a979d695fe13b68730c1"
   version = "v1.21.9"
 
 [[projects]]
   branch = "master"
+  digest = "1:6098f692e043c3ee2612f47f214d169a3bdeb13ee37f946d10353b5e37aa702b"
   name = "github.com/gobuffalo/syncx"
   packages = ["."]
+  pruneopts = ""
   revision = "558ac7de985fc4f4057bff27c7bdf99e92fe0750"
 
 [[projects]]
+  digest = "1:3dd078fda7500c341bc26cfbc6c6a34614f295a2457149fc1045cab767cbcf18"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
+  pruneopts = ""
   revision = "aa810b61a9c79d51363740d207bb46cf8e620ed5"
   version = "v1.2.0"
 
 [[projects]]
+  digest = "1:8e3bd93036b4a925fe2250d3e4f38f21cadb8ef623561cd80c3c50c114b13201"
   name = "github.com/hashicorp/errwrap"
   packages = ["."]
+  pruneopts = ""
   revision = "8a6fb523712970c966eefc6b39ed2c5e74880354"
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:72308fdd6d5ef61106a95be7ca72349a5565809042b6426a3cfb61d99483b824"
   name = "github.com/hashicorp/go-multierror"
   packages = ["."]
+  pruneopts = ""
   revision = "886a7fbe3eb1c874d46f623bfa70af45f425b3d1"
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:7df5a9695a743c3e1626b28bb8741602c8c15527e1efaeaec48ab2ff9a23f74c"
   name = "github.com/joho/godotenv"
   packages = ["."]
+  pruneopts = ""
   revision = "23d116af351c84513e1946b527c88823e476be13"
   version = "v1.3.0"
 
@@ -107,17 +134,22 @@
   digest = "1:ff3d3a7e367bf58b25e3c9203b7e82a02b2bfa220eacb2b362c0dbc3fcffa15b"
   name = "github.com/markbates/oncer"
   packages = ["."]
+  pruneopts = ""
   revision = "bf2de49a0be218916e69a11d22866e6cd0a560f2"
 
 [[projects]]
+  digest = "1:9ea83adf8e96d6304f394d40436f2eb44c1dc3250d223b74088cc253a6cd0a1c"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
+  pruneopts = ""
   revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
   version = "v0.0.9"
 
 [[projects]]
+  digest = "1:3140e04675a6a91d2a20ea9d10bdadf6072085502e6def6768361260aee4b967"
   name = "github.com/mattn/go-isatty"
   packages = ["."]
+  pruneopts = ""
   revision = "6ca4dbf54d38eea1a992b3c722a76a5d1c4cb25c"
   version = "v0.0.4"
 
@@ -130,40 +162,93 @@
   revision = "9520e82c474b0a04dd04f8a40959027271bab992"
 
 [[projects]]
+  digest = "1:103c1001b79009329824bc60f93f8f7150bf1ad31f18d29a476deb8a2de0f002"
+  name = "github.com/miekg/dns"
+  packages = ["."]
+  pruneopts = ""
+  revision = "8fc2e5773bbd308ca2fcc962fd8d25c1bd0f6743"
+  version = "v1.1.4"
+
+[[projects]]
   digest = "1:1d7e1867c49a6dd9856598ef7c3123604ea3daabf5b83f303ff457bcbc410b1d"
   name = "github.com/pkg/errors"
   packages = ["."]
+  pruneopts = ""
   revision = "ba968bfe8b2f7e042a574c888954fccecfa385b4"
   version = "v0.8.1"
 
 [[projects]]
+  digest = "1:8709094ab0fc13daac9566f27afeea57885e16525b8709074260176f69396c31"
   name = "github.com/rogpeppe/go-internal"
-  packages = ["modfile","module","semver"]
+  packages = [
+    "modfile",
+    "module",
+    "semver",
+  ]
+  pruneopts = ""
   revision = "68d1cb014f030acd0f10ac553801e43c0e5da629"
   version = "v1.1.0"
 
 [[projects]]
   branch = "master"
+  digest = "1:c346411e6138741122957ba461b0e8b50c3ff0f416e67e4c5659831e4d1cc204"
+  name = "github.com/tj/go-spin"
+  packages = ["."]
+  pruneopts = ""
+  revision = "30574f5fadef1aa5c61d4c42e936785af9f03ada"
+
+[[projects]]
+  branch = "master"
+  digest = "1:278d561dd1f1743e1b8995f202f56314e33364b395b95514d7df91df48b267da"
   name = "golang.org/x/crypto"
-  packages = ["ed25519","ed25519/internal/edwards25519"]
+  packages = [
+    "ed25519",
+    "ed25519/internal/edwards25519",
+  ]
+  pruneopts = ""
   revision = "057139ce5d2bdbe6fe73c53679e24e9cf007f637"
 
 [[projects]]
   branch = "master"
+  digest = "1:1e9704e5379e68ac473c28aeb3f7e7cd4036ae8a246bf0285b5ebdbb8e0cfacf"
   name = "golang.org/x/net"
-  packages = ["bpf","internal/iana","internal/socket","ipv4","ipv6"]
+  packages = [
+    "bpf",
+    "internal/iana",
+    "internal/socket",
+    "ipv4",
+    "ipv6",
+  ]
+  pruneopts = ""
   revision = "d26f9f9a57f3fab6a695bec0d84433c2c50f8bbf"
 
 [[projects]]
   branch = "master"
+  digest = "1:7e3b61f51ebcb58b3894928ed7c63aae68820dec1dd57166e5d6e65ef2868f40"
   name = "golang.org/x/sys"
-  packages = ["unix"]
+  packages = [
+    "unix",
+    "windows",
+    "windows/registry",
+  ]
+  pruneopts = ""
   revision = "b90733256f2e882e81d52f9126de08df5615afd9"
 
 [[projects]]
   branch = "master"
+  digest = "1:788d8cc5c9830c1ac6afee88cbe1b85d390aeeea27a19cd23c0b9bff0f75b6c0"
   name = "golang.org/x/tools"
-  packages = ["go/ast/astutil","go/buildutil","go/internal/cgo","go/loader","go/types/typeutil","refactor/importgraph","refactor/rename","refactor/satisfy"]
+  packages = [
+    "go/ast/astutil",
+    "go/buildutil",
+    "go/internal/cgo",
+    "go/loader",
+    "go/types/typeutil",
+    "refactor/importgraph",
+    "refactor/rename",
+    "refactor/satisfy",
+  ]
+  pruneopts = ""
   revision = "cc6a436ffe6b424fffa1d91862c9b664d8407828"
 
 [[projects]]
@@ -186,6 +271,9 @@
     "github.com/fatih/color",
     "github.com/gobuffalo/packr",
     "github.com/golang/protobuf/proto",
+    "github.com/miekg/dns",
+    "github.com/tj/go-spin",
+    "golang.org/x/sys/windows/registry",
     "golang.org/x/tools/refactor/importgraph",
     "golang.org/x/tools/refactor/rename",
   ]
