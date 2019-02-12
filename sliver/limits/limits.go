@@ -1,9 +1,12 @@
 package limits
 
 import (
-	"log"
 	"os"
+	// {{if .Debug}}
+	"log"
 	"runtime"
+
+	// {{end}}
 
 	// {{if .LimitUsername}}
 	"os/user"
