@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	readBufSize = 128
+	readBufSize = 1024
 )
 
 var (
@@ -78,14 +78,14 @@ func Start(command string) error {
 }
 
 // StartInteractive - Start a shell
-func StartInteractive(command string) *Shell {
+func StartInteractive(command []string) *Shell {
 
 	// {{if .Debug}}
 	log.Printf("[shell] %s", command)
 	// {{end}}
 
 	var cmd *exec.Cmd
-	cmd = exec.Command(command)
+	cmd = exec.Command(command[0], command[1:]...)
 
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
@@ -146,7 +146,7 @@ func StartInteractive(command string) *Shell {
 
 	return &Shell{
 		ID:    GetShellID(),
-		Path:  command,
+		Path:  command[0],
 		Read:  &read,
 		Write: &write,
 	}
