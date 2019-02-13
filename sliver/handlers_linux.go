@@ -4,8 +4,6 @@ import pb "sliver/protobuf/sliver"
 
 var (
 	linuxHandlers = map[uint32]RPCHandler{
-		pb.MsgTask:       taskHandler,
-		pb.MsgRemoteTask: remoteTaskHandler,
 
 		pb.MsgPsListReq:   psHandler,
 		pb.MsgPing:        pingHandler,
