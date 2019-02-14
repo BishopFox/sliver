@@ -11,7 +11,6 @@ import (
 
 	// {{if .Debug}}
 	"log"
-	// {{else}}
 	// {{end}}
 
 	"os"

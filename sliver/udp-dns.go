@@ -17,7 +17,7 @@ import (
 
 	// {{if .Debug}}
 	"log"
-	// {{else}}{{end}}
+	// {{end}}
 
 	insecureRand "math/rand"
 	"net"

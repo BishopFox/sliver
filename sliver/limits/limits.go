@@ -1,14 +1,17 @@
 package limits
 
 import (
-
-	// {{if and .LimitUsername .LimitHostname .Debug}}
+	// {{if .Debug}}
 	"log"
 	// {{end}}
 	"os"
+
+	// {{if .LimitUsername}}
+	"runtime"
+	// {{end}}
+
 	// {{if .LimitUsername}}
 	"os/user"
-	"runtime"
 
 	// {{end}}
 
@@ -69,6 +72,10 @@ func ExecLimits() {
 		// {{end}}
 		os.Exit(1)
 	}
+	// {{end}}
+
+	// {{if .Debug}}
+	log.Printf("Limit checks completed")
 	// {{end}}
 
 	os.Executable() // To avoid any "os unused" errors
