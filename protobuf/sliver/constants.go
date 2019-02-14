@@ -62,4 +62,8 @@ const (
 	MsgProcessDumpReq
 	// MsgProcessDump - Dump of process)
 	MsgProcessDump
+	// MsgExecuteAssemblyReq - Request to load and execute a .NET assembly
+	MsgExecuteAssemblyReq
+	// MsgExecuteAssembly - Output of the assembly execution
+	MsgExecuteAssembly
 )
