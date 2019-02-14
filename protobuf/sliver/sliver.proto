@@ -153,6 +153,18 @@ message ProcessDump {
   string err = 2;
 }
 
+message ExecuteAssemblyReq {
+  bytes hostingDll = 1;
+  bytes assembly = 2;
+  string arguments = 3;
+  int32 SliverID = 9;
+}
+
+message ExecuteAssembly {
+  string output = 1;
+  string error = 2;
+}
+
 // DNS Specific messages
 message DNSSessionInit {
   bytes key = 1;
