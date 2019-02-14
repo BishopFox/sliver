@@ -32,13 +32,14 @@ var (
 		consts.PsStr:       rpcPs,
 		consts.ProcdumpStr: rpcProcdump,
 
-		consts.LsStr:       rpcLs,
-		consts.RmStr:       rpcRm,
-		consts.MkdirStr:    rpcMkdir,
-		consts.CdStr:       rpcCd,
-		consts.PwdStr:      rpcPwd,
-		consts.DownloadStr: rpcDownload,
-		consts.UploadStr:   rpcUpload,
+		consts.LsStr:              rpcLs,
+		consts.RmStr:              rpcRm,
+		consts.MkdirStr:           rpcMkdir,
+		consts.CdStr:              rpcCd,
+		consts.PwdStr:             rpcPwd,
+		consts.DownloadStr:        rpcDownload,
+		consts.UploadStr:          rpcUpload,
+		consts.ExecuteAssemblyStr: rpcExecuteAssembly,
 	}
 )
 

@@ -39,6 +39,12 @@ func GetRootAppDir() string {
 	return dir
 }
 
+// GetDataDir - Returns the full path to the data directory
+func GetDataDir() string {
+	dir := GetRootAppDir() + "data"
+	return dir
+}
+
 // Setup - Extract or create local assets
 // TODO: Add some type of version awareness
 func Setup() {
@@ -46,6 +52,7 @@ func Setup() {
 	SetupCerts(appDir)
 	setupGo(appDir)
 	setupCodenames(appDir)
+	SetupDataPath(appDir)
 }
 
 // SetupCerts - Creates directories for certs
@@ -129,6 +136,21 @@ func SetupGoPath(goPathSrc string) error {
 	}
 
 	return nil
+}
+
+// SetupDataPath - Sets the data directory up
+func SetupDataPath(appDir string) error {
+	dataDir := appDir + "data"
+	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+		log.Printf("Creating data directory: %s", dataDir)
+		os.MkdirAll(dataDir, os.ModePerm)
+	}
+	hostingDll, err := assetsBox.Find("HostingCLRx64.dll")
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(dataDir+"/HostingCLRx64.dll", hostingDll, 0644)
+	return err
 }
 
 func unzipGoDependency(fileName string, targetPath string, assetsBox packr.Box) error {

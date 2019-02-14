@@ -1,0 +1,58 @@
+package command
+
+import (
+	"fmt"
+	"io/ioutil"
+
+	consts "sliver/client/constants"
+	"sliver/client/spin"
+	pb "sliver/protobuf/client"
+	sliverpb "sliver/protobuf/sliver"
+
+	"github.com/desertbit/grumble"
+	"github.com/golang/protobuf/proto"
+)
+
+func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
+	if ActiveSliver.Sliver == nil {
+		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+		return
+	}
+
+	if len(ctx.Args) < 1 {
+		fmt.Printf(Warn + "Please provide valid arguments.\n")
+		return
+	}
+	assemblyArgs := ""
+	if len(ctx.Args) == 2 {
+		assemblyArgs = ctx.Args[1]
+	}
+	assemblyBytes, err := ioutil.ReadFile(ctx.Args[0])
+	if err != nil {
+		fmt.Printf(Warn+"%s", err.Error())
+		return
+	}
+
+	ctrl := make(chan bool)
+	go spin.Until("Executing assembly ...", ctrl)
+	data, _ := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
+		SliverID:   ActiveSliver.Sliver.ID,
+		Timeout:    int32(defaultTimeout),
+		Arguments:  assemblyArgs,
+		Assembly:   assemblyBytes,
+		HostingDll: []byte{},
+	})
+
+	resp := rpc(&pb.Envelope{
+		Data: data,
+		Type: consts.ExecuteAssemblyStr,
+	}, defaultTimeout)
+	ctrl <- true
+	execResp := &sliverpb.ExecuteAssembly{}
+	proto.Unmarshal(resp.Data, execResp)
+	if execResp.Error != "" {
+		fmt.Printf(Warn+"%s", execResp.Error)
+		return
+	}
+	fmt.Printf(Info+"Assembly output:\n%s", execResp.Output)
+}

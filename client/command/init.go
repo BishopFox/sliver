@@ -445,4 +445,16 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 	})
 
+	app.AddCommand(&grumble.Command{
+		Name:      consts.ExecuteAssemblyStr,
+		Help:      "Load and executes a .NET assembly in a child process",
+		LongHelp:  help.GetHelpFor(consts.ExecuteAssemblyStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			executeAssembly(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
 }
