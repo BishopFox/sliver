@@ -14,10 +14,10 @@ import (
 var (
 	windowsHandlers = map[uint32]RPCHandler{
 		// Windows Only
-		pb.MsgTask:            taskHandler,
-		pb.MsgRemoteTask:      remoteTaskHandler,
-		pb.MsgProcessDumpReq:  dumpHandler,
-		pb.MsgExecuteAssembly: executeAssemblyHandler,
+		pb.MsgTask:               taskHandler,
+		pb.MsgRemoteTask:         remoteTaskHandler,
+		pb.MsgProcessDumpReq:     dumpHandler,
+		pb.MsgExecuteAssemblyReq: executeAssemblyHandler,
 
 		// Generic
 		pb.MsgPsListReq:   psHandler,
