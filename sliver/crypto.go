@@ -27,6 +27,7 @@ const (
 // AESKey - 128 bit key
 type AESKey [AESKeySize]byte
 
+// FromBytes - Creates an AESKey from bytes
 func (AESKey) FromBytes(data []byte) AESKey {
 	var key AESKey
 	copy(key[:], data[:AESKeySize])
