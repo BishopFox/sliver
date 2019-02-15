@@ -180,8 +180,8 @@ func info(ctx *grumble.Context, rpc RPCServer) {
 }
 
 func generate(ctx *grumble.Context, rpc RPCServer) {
-	targetOS := ctx.Flags.String("os")
-	arch := ctx.Flags.String("arch")
+	targetOS := strings.ToLower(ctx.Flags.String("os"))
+	arch := strings.ToLower(ctx.Flags.String("arch"))
 	lhost := ctx.Flags.String("lhost")
 	lport := ctx.Flags.Int("lport")
 	debug := ctx.Flags.Bool("debug")
@@ -195,7 +195,6 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 	save := ctx.Flags.String("save")
 
 	/* For UX we convert some synonymous terms */
-	targetOS = strings.ToLower(targetOS)
 	if targetOS == "mac" || targetOS == "macos" || targetOS == "m" {
 		targetOS = "darwin"
 	}
@@ -217,8 +216,7 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 	if save == "" {
-		fmt.Printf(Warn + "Save path required (--save)\n")
-		return
+		save, _ = os.Getwd()
 	}
 
 	// Make sure we have the FQDN
