@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	readBufSize = 1024
+	readBufSize = 2048
 )
 
 var (
