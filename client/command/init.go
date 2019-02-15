@@ -128,10 +128,12 @@ func Init(app *grumble.App, rpc RPCServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.ShellStr,
-		Help:      "Start an interactive shell",
-		LongHelp:  help.GetHelpFor(consts.ShellStr),
-		AllowArgs: true,
+		Name:     consts.ShellStr,
+		Help:     "Start an interactive shell",
+		LongHelp: help.GetHelpFor(consts.ShellStr),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("y", "no-pty", false, "disable use of pty on macos/linux")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			shell(ctx, rpc)

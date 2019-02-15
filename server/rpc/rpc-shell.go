@@ -31,9 +31,13 @@ func rpcStartShell(req []byte, resp RPCResponse) {
 		close(respCh)
 		delete(sliver.Resp, reqID)
 	}()
+	startShell, _ := proto.Marshal(&sliverpb.ShellReq{
+		EnablePTY: shellReq.EnablePTY,
+	})
 	sliver.Send <- &sliverpb.Envelope{
 		ID:   reqID,
 		Type: sliverpb.MsgShellReq,
+		Data: startShell,
 	}
 	for envelope := range respCh {
 		shellData := &sliverpb.ShellData{}

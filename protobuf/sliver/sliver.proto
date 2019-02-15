@@ -168,11 +168,13 @@ message DNSBlockHeader {
 }
 
 // Shell messages
-message StartReq {
+message ShellReq {
   string Path = 1;
+  bool EnablePTY = 2;
 }
 
-message Start {
+// Response to StartReq
+message Shell {
   string Err = 1;
 }
 
@@ -182,7 +184,6 @@ message ShellData {
   bytes Stdin = 2;
   bytes Stdout = 3;
   bytes Stderr = 4;
-
   bool Close = 5;
   
   int32 SliverID = 9;

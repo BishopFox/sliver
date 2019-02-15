@@ -8,6 +8,7 @@ import (
 	consts "sliver/client/constants"
 	pb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
+	gen "sliver/server/generate"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
@@ -19,9 +20,17 @@ func shell(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
+	noPty := ctx.Flags.Bool("no-pty")
+	if ActiveSliver.Sliver.OS == gen.WINDOWS {
+		noPty = true // Windows of course doesn't have PTYs
+	}
+
 	fmt.Printf(Info + "Opening shell channel with sliver ...\n")
 
-	shellReq := &pb.ShellReq{SliverID: ActiveSliver.Sliver.ID}
+	shellReq := &pb.ShellReq{
+		SliverID:  ActiveSliver.Sliver.ID,
+		EnablePTY: !noPty,
+	}
 	shellReqData, _ := proto.Marshal(shellReq)
 	respCh := rpc(&pb.Envelope{
 		Type: consts.ShellStr,
