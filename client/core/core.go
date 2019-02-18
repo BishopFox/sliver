@@ -20,7 +20,63 @@ const (
 var (
 	// Events - Connect/Disconnect events
 	Events = make(chan *pb.Event, 64)
+
+	// Tunnels - Duplex data tunnels with atomic wrappers
+	Tunnels = &tunnels{
+		tunnels: &map[int32]*tunnel{},
+		mutex:   &sync.RWMutex{},
+	}
 )
+
+type tunnels struct {
+	tunnels *map[int32]*tunnel
+	mutex   *sync.RWMutex
+}
+
+func (t *tunnels) Tunnel(ID int32) *tunnel {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	return (*t.tunnels)[ID]
+}
+
+func (t *tunnels) RecvTunnel(ID int32, data []byte) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	tunnel := (*t.tunnels)[ID]
+	(*tunnel).Recv <- data
+}
+
+func (t *tunnels) AddTunnel(tunnel *tunnel) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	(*t.tunnels)[tunnel.ID] = tunnel
+}
+
+func (t *tunnels) RemoveTunnel(ID int32) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	delete(*t.tunnels, ID)
+}
+
+// tunnel - Duplex data tunnel
+type tunnel struct {
+	SliverID int32
+	ID       int32
+	Recv     chan []byte
+}
+
+func (t *tunnel) Send(data []byte) *pb.Envelope {
+	tunnelData := &pb.TunnelData{
+		SliverID: t.SliverID,
+		TunnelID: t.ID,
+		Data:     data,
+	}
+	rawTunnelData, _ := proto.Marshal(tunnelData)
+	return &pb.Envelope{
+		Type: consts.TunnelData,
+		Data: rawTunnelData,
+	}
+}
 
 // SliverServer - Server info
 type SliverServer struct {

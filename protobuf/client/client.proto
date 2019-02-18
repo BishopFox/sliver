@@ -142,7 +142,23 @@ message MSFInjectReq {
 // [ Shell ] ----------------------------------------
 message ShellReq {
   int32 SliverID = 1;
-  bool EnablePTY = 2;
+  string path = 2;
+  bool EnablePTY = 3;
+}
+
+message Shell {
+
+  int32 TunnelID = 9;
+}
+
+// [ Tunnels ] ----------------------------------------
+message TunnelData {
+  int32 SliverID = 1;
+  bytes Data = 2;
+  bool Close = 3;
+  string Err = 4;
+
+  int32 TunnelID = 9;
 }
 
 // [ events ] ----------------------------------------

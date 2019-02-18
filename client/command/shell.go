@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	consts "sliver/client/constants"
+	"sliver/client/core"
 	pb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 	gen "sliver/server/generate"
@@ -32,42 +33,39 @@ func shell(ctx *grumble.Context, rpc RPCServer) {
 		EnablePTY: !noPty,
 	}
 	shellReqData, _ := proto.Marshal(shellReq)
-	respCh := rpc(&pb.Envelope{
+	resp := <-rpc(&pb.Envelope{
 		Type: consts.ShellStr,
 		Data: shellReqData,
 	}, defaultTimeout)
-	resp := <-respCh
 	if resp.Error != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
 		return
 	}
 
-	openedShell := &sliverpb.ShellData{}
+	openedShell := &sliverpb.Shell{}
 	proto.Unmarshal(resp.Data, openedShell)
+
+	tunnel := core.Tunnels.Tunnel(openedShell.TunnelID)
+
 	go func() {
-		for envelope := range respCh {
+		for recvData := range tunnel.Recv {
 			shellData := &sliverpb.ShellData{}
-			proto.Unmarshal(envelope.Data, shellData)
-			log.Printf("[write] stdout ShellID = %d", shellData.ID)
+			proto.Unmarshal(recvData, shellData)
+			log.Printf("[write] stdout shell with tunnel id = %d", shellData.TunnelID)
 			os.Stdout.Write(shellData.Stdout)
 		}
 	}()
 
-	readBuf := make([]byte, 16)
+	readBuf := make([]byte, 128)
 	for {
 		n, err := os.Stdin.Read(readBuf)
 		if err == io.EOF {
 			return
 		}
-		data, err := proto.Marshal(&sliverpb.ShellData{
-			ID:       openedShell.ID,
-			Stdin:    readBuf[:n],
-			SliverID: ActiveSliver.Sliver.ID,
+		data, _ := proto.Marshal(&sliverpb.ShellData{
+			Stdin: readBuf[:n],
 		})
-		log.Printf("[read] stdin tunnel to ShellID = %d", openedShell.ID)
-		go rpc(&pb.Envelope{
-			Type: consts.ShellDataStr,
-			Data: data,
-		}, defaultTimeout)
+		log.Printf("[read] stdin tunnel %d", openedShell.TunnelID)
+		go rpc(tunnel.Send(data), defaultTimeout)
 	}
 }

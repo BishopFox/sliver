@@ -73,3 +73,7 @@ const (
 	ShellStr     = "shell"
 	ShellDataStr = "shell-data"
 )
+
+const (
+	TunnelData = "tunnel-data"
+)

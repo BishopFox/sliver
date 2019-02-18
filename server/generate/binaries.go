@@ -66,6 +66,7 @@ var (
 		"shell/pty/ztypes_amd64.go",
 		"shell/pty/ioctl.go",
 		"shell/pty/ioctl_bsd.go",
+		"shell/pty/pty_unsupported.go",
 
 		"limits/limits.go",
 		"limits/limits_windows.go",

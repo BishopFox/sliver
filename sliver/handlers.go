@@ -26,6 +26,7 @@ type RPCResponse func([]byte, error)
 type RPCHandler func([]byte, RPCResponse)
 
 // ---------------- Cross-platform Handlers ----------------
+
 func killHandler(data []byte, resp RPCResponse) {
 	// {{if .Debug}}
 	log.Printf("Received kill command\n")
@@ -358,6 +359,7 @@ func shellDataHandler(data []byte, resp RPCResponse) {
 }
 
 // ---------------- Data Encoders ----------------
+
 func gzipWrite(w io.Writer, data []byte) error {
 	gw, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
 	defer gw.Close()

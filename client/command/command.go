@@ -69,12 +69,12 @@ func (s *activeSliver) SetActiveSliver(sliver *pb.Sliver) {
 
 // Get Sliver by session ID or name
 func getSliver(arg string, rpc RPCServer) *pb.Sliver {
-	respCh := rpc(&pb.Envelope{
+	resp := <-rpc(&pb.Envelope{
 		Type: consts.SessionsStr,
 		Data: []byte{},
 	}, defaultTimeout)
 	sessions := &pb.Sessions{}
-	proto.Unmarshal((<-respCh).Data, sessions)
+	proto.Unmarshal((resp).Data, sessions)
 
 	for _, sliver := range sessions.Slivers {
 		if strconv.Itoa(int(sliver.ID)) == arg || sliver.Name == arg {

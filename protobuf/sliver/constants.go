@@ -65,6 +65,9 @@ const (
 
 	// MsgShellReq - Starts an interactive shell
 	MsgShellReq
-	// MsgShellData - Data for stdin/out/err
-	MsgShellData
+
+	// MsgTunnelReq - Request to open a duplex data tunnel
+	MsgTunnelReq
+	// MsgTunnelData - Data for duplex tunnels
+	MsgTunnelData
 )
