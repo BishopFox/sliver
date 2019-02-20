@@ -74,8 +74,7 @@ func newPlayerCmd(ctx *grumble.Context) {
 	}
 
 	if save == "" {
-		fmt.Printf(Warn + "Save file required (--save)\n")
-		return
+		save, _ = os.Getwd()
 	}
 
 	fmt.Printf(Info + "Generating new client certificate, please wait ... \n")

