@@ -25,7 +25,7 @@ message Ping {
 }
 
 message KillReq {
-  int32 SliverID = 9;
+  uint32 SliverID = 9;
 }
 
 // aka Shellcode
@@ -41,7 +41,7 @@ message RemoteTask {
 }
 
 message PsReq {
-  int32 SliverID = 9;
+  uint32 SliverID = 9;
 }
 
 message Ps {
@@ -59,7 +59,7 @@ message Process {
 message DirListReq {
   string path = 1;
 
-  int32 SliverID = 9;
+  uint32 SliverID = 9;
 }
 
 message DirList {
@@ -76,12 +76,12 @@ message FileInfo {
 
 message PwdReq {
 
-  int32 SliverID = 9;
+  uint32 SliverID = 9;
 }
 
 message CdReq {
   string path = 1;
-  int32 SliverID = 9;
+  uint32 SliverID = 9;
 }
 
 message Pwd {
@@ -92,7 +92,7 @@ message Pwd {
 message RmReq {
   string path = 1;
 
-  int32 SliverID = 9;
+  uint32 SliverID = 9;
 }
 
 message Rm {
@@ -104,7 +104,7 @@ message Rm {
 message MkdirReq {
   string path = 1;
 
-  int32 SliverID = 9;
+  uint32 SliverID = 9;
 }
 
 message Mkdir {
@@ -116,7 +116,7 @@ message Mkdir {
 message DownloadReq {
   string path = 1;
 
-  int32 SliverID = 9;
+  uint32 SliverID = 9;
 }
 
 message Download {
@@ -132,7 +132,7 @@ message UploadReq {
   string encoder = 2;
   bytes data = 3;
 
-  int32 SliverID = 9;
+  uint32 SliverID = 9;
 }
 
 message Upload {
@@ -145,7 +145,7 @@ message ProcessDumpReq {
   int32 pid = 1;
 
   int32 Timeout = 8;
-  int32 SliverID = 9;
+  uint32 SliverID = 9;
 }
 
 message ProcessDump {
@@ -167,8 +167,10 @@ message DNSBlockHeader {
   uint32 size = 2;
 }
 
+// Tunnels, shells, and port fwds
+
 message TunnelData {
-  int32 ID = 1;
+  uint64 ID = 1;
   bytes Data = 2;
 }
 
@@ -177,14 +179,14 @@ message ShellReq {
   string Path = 1;
   bool EnablePTY = 2;
 
-  int32 TunnelID = 9;
+  uint64 TunnelID = 9;
 }
 
 // Response to StartReq
 message Shell {
   string Err = 1;
 
-  int32 TunnelID = 9;
+  uint64 TunnelID = 9;
 }
 
 message ShellData {

@@ -15,7 +15,7 @@ func rpcLs(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	sliver := (*core.Hive.Slivers)[int(dirList.SliverID)]
+	sliver := core.Hive.Sliver(dirList.SliverID)
 
 	timeout := 30 * time.Second
 	data, _ := proto.Marshal(&sliverpb.DirListReq{
@@ -32,7 +32,7 @@ func rpcRm(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	sliver := (*core.Hive.Slivers)[int(rmReq.SliverID)]
+	sliver := core.Hive.Sliver(rmReq.SliverID)
 
 	timeout := 30 * time.Second
 	data, _ := proto.Marshal(&sliverpb.RmReq{
@@ -49,7 +49,7 @@ func rpcMkdir(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	sliver := (*core.Hive.Slivers)[int(mkdirReq.SliverID)]
+	sliver := core.Hive.Sliver(mkdirReq.SliverID)
 
 	timeout := 30 * time.Second
 	data, _ := proto.Marshal(&sliverpb.MkdirReq{
@@ -66,7 +66,7 @@ func rpcCd(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	sliver := (*core.Hive.Slivers)[int(cdReq.SliverID)]
+	sliver := core.Hive.Sliver(cdReq.SliverID)
 
 	timeout := 30 * time.Second
 	data, _ := proto.Marshal(&sliverpb.CdReq{
@@ -83,7 +83,7 @@ func rpcPwd(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	sliver := (*core.Hive.Slivers)[int(pwdReq.SliverID)]
+	sliver := (*core.Hive.Slivers)[pwdReq.SliverID]
 
 	timeout := 30 * time.Second
 	data, _ := proto.Marshal(&sliverpb.PwdReq{})
@@ -98,7 +98,7 @@ func rpcDownload(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	sliver := (*core.Hive.Slivers)[int(downloadReq.SliverID)]
+	sliver := core.Hive.Sliver(downloadReq.SliverID)
 
 	timeout := 30 * time.Second
 	data, _ := proto.Marshal(&sliverpb.DownloadReq{
@@ -115,7 +115,7 @@ func rpcUpload(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	sliver := (*core.Hive.Slivers)[int(uploadReq.SliverID)]
+	sliver := core.Hive.Sliver(uploadReq.SliverID)
 
 	timeout := 30 * time.Second
 	data, _ := proto.Marshal(&sliverpb.UploadReq{

@@ -75,5 +75,6 @@ const (
 )
 
 const (
-	TunnelData = "tunnel-data"
+	CreateTUNStr = "create-tunnel"
+	TunnelData   = "tunnel-data"
 )

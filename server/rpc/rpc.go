@@ -2,6 +2,7 @@ package rpc
 
 import (
 	consts "sliver/client/constants"
+	"sliver/server/core"
 	"time"
 )
 
@@ -14,6 +15,7 @@ type RPCResponse func([]byte, error)
 
 // RPCHandler - RPC handlers accept bytes and return bytes
 type RPCHandler func([]byte, RPCResponse)
+type TUNHandler func(*core.Client, []byte, RPCResponse)
 
 var (
 	rpcHandlers = &map[string]RPCHandler{
@@ -40,12 +42,20 @@ var (
 		consts.DownloadStr: rpcDownload,
 		consts.UploadStr:   rpcUpload,
 
-		consts.ShellStr:     rpcStartShell,
-		consts.ShellDataStr: rpcShellData,
+		consts.ShellStr: rpcShell,
+	}
+
+	tunHandlers = &map[string]TUNHandler{
+		consts.CreateTUNStr: tunCreate,
 	}
 )
 
 // GetRPCHandlers - Returns a map of server-side msg handlers
 func GetRPCHandlers() *map[string]RPCHandler {
 	return rpcHandlers
+}
+
+// GetTUNHandlers - Returns a map of tunnel handlers
+func GetTUNHandlers() *map[string]TUNHandler {
+	return tunHandlers
 }

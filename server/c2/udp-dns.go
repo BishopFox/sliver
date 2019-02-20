@@ -83,6 +83,9 @@ type DNSSession struct {
 }
 
 func (s *DNSSession) isReplayAttack(ciphertext []byte) bool {
+	if len(ciphertext) < 1 {
+		return false
+	}
 	sha := sha256.New()
 	sha.Write(ciphertext)
 	digest := base64.RawStdEncoding.EncodeToString(sha.Sum(nil))

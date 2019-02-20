@@ -25,7 +25,7 @@ message Process {
 // [ core ] ----------------------------------------
 
 message Sliver {
-	int32 ID = 1;
+	uint32 ID = 1;
 	string Name = 2;
 	string Hostname = 3;
 	string Username = 4;
@@ -125,7 +125,7 @@ message MSFReq {
   string Encoder = 4;
   int32 Iterations = 5;
 
-  int32 SliverID = 9;
+  uint32 SliverID = 9;
 }
 
 message MSFInjectReq {
@@ -136,29 +136,40 @@ message MSFInjectReq {
   int32 Iterations = 5;
 
   int32 PID = 8;
-  int32 SliverID = 9;
+  uint32 SliverID = 9;
 }
 
 // [ Shell ] ----------------------------------------
 message ShellReq {
-  int32 SliverID = 1;
+  uint32 SliverID = 1;
   string path = 2;
   bool EnablePTY = 3;
 }
 
 message Shell {
 
-  int32 TunnelID = 9;
+  uint64 TunnelID = 9;
 }
 
 // [ Tunnels ] ----------------------------------------
+message TunnelCreateReq {
+  uint32 SliverID = 1;
+}
+
+// Response to TunnelCreateReq
+message TunnelCreate {
+  uint32 SliverID = 1;
+
+  uint64 TunnelID = 9;
+}
+
 message TunnelData {
-  int32 SliverID = 1;
+  uint32 SliverID = 1;
   bytes Data = 2;
   bool Close = 3;
   string Err = 4;
 
-  int32 TunnelID = 9;
+  uint64 TunnelID = 9;
 }
 
 // [ events ] ----------------------------------------

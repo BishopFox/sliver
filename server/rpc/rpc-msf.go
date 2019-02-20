@@ -19,7 +19,7 @@ func rpcMsf(req []byte, resp RPCResponse) {
 		return
 	}
 
-	sliver := (*core.Hive.Slivers)[int(msfReq.SliverID)]
+	sliver := core.Hive.Sliver(msfReq.SliverID)
 	if sliver == nil {
 		resp([]byte{}, err)
 		return
@@ -56,7 +56,7 @@ func rpcMsfInject(req []byte, resp RPCResponse) {
 		return
 	}
 
-	sliver := (*core.Hive.Slivers)[int(msfReq.SliverID)]
+	sliver := core.Hive.Sliver(msfReq.SliverID)
 	if sliver == nil {
 		resp([]byte{}, err)
 		return

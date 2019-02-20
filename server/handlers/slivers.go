@@ -11,7 +11,8 @@ import (
 
 var (
 	serverHandlers = map[uint32]interface{}{
-		pb.MsgRegister: registerSliverHandler,
+		pb.MsgRegister:   registerSliverHandler,
+		pb.MsgTunnelData: tunnelDataHandler,
 	}
 )
 
@@ -47,5 +48,8 @@ func registerSliverHandler(sliver *core.Sliver, data []byte) {
 	sliver.Arch = register.Arch
 	sliver.PID = register.Pid
 	sliver.Filename = register.Filename
+}
+
+func tunnelDataHandler(sliver *core.Sliver, data []byte) {
 
 }

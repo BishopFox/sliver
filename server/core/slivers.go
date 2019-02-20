@@ -11,15 +11,15 @@ import (
 var (
 	// Hive - Manages sliver connections
 	Hive = &SliverHive{
-		Slivers: &map[int]*Sliver{},
+		Slivers: &map[uint32]*Sliver{},
 		mutex:   &sync.RWMutex{},
 	}
-	hiveID = new(int)
+	hiveID = new(uint32)
 )
 
 // Sliver implant
 type Sliver struct {
-	ID            int
+	ID            uint32
 	Name          string
 	Hostname      string
 	Username      string
@@ -39,7 +39,7 @@ type Sliver struct {
 // ToProtobuf - Get the protobuf version of the object
 func (s *Sliver) ToProtobuf() *clientpb.Sliver {
 	return &clientpb.Sliver{
-		ID:            int32(s.ID),
+		ID:            uint32(s.ID),
 		Name:          s.Name,
 		Hostname:      s.Hostname,
 		Username:      s.Username,
@@ -86,7 +86,15 @@ func (s *Sliver) Request(msgType uint32, timeout time.Duration, data []byte) ([]
 // SliverHive - Mananges the slivers, provides atomic access
 type SliverHive struct {
 	mutex   *sync.RWMutex
-	Slivers *map[int]*Sliver
+	Slivers *map[uint32]*Sliver
+}
+
+// Sliver - Get Sliver by ID
+func (h *SliverHive) Sliver(sliverID uint32) *Sliver {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
+	return (*h.Slivers)[sliverID]
 }
 
 // AddSliver - Add a sliver to the hive (atomically)
@@ -104,7 +112,7 @@ func (h *SliverHive) RemoveSliver(sliver *Sliver) {
 }
 
 // GetHiveID - Returns an incremental nonce as an id
-func GetHiveID() int {
+func GetHiveID() uint32 {
 	newID := (*hiveID) + 1
 	(*hiveID)++
 	return newID

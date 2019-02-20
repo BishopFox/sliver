@@ -27,7 +27,7 @@ const (
 
 // StartMutualTLSListener - Start a mutual TLS listener
 func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error) {
-	log.Printf("Starting Raw TCP/TLS listener on %s:%d", bindIface, port)
+	log.Printf("Starting Raw TCP/mTLS listener on %s:%d", bindIface, port)
 	hostCert := bindIface
 	if hostCert == "" {
 		hostCert = defaultServerCert

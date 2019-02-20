@@ -112,15 +112,31 @@ func handleClientConnection(conn net.Conn) {
 
 	go func() {
 		defer once.Do(cleanup)
-		handlers := rpc.GetRPCHandlers()
+		rpcHandlers := rpc.GetRPCHandlers()
+		tunHandlers := rpc.GetTUNHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err != nil {
 				log.Printf("Socket read error %v", err)
 				return
 			}
-			if handler, ok := (*handlers)[envelope.Type]; ok {
-				go handler(envelope.Data, func(data []byte, err error) {
+			// RPC
+			if rpcHandler, ok := (*rpcHandlers)[envelope.Type]; ok {
+				go rpcHandler(envelope.Data, func(data []byte, err error) {
+					errStr := ""
+					if err != nil {
+						errStr = fmt.Sprintf("%v", err)
+					}
+					client.Send <- &pb.Envelope{
+						ID:    envelope.ID,
+						Data:  data,
+						Error: errStr,
+					}
+				})
+			}
+			// TUN
+			if tunHandler, ok := (*tunHandlers)[envelope.Type]; ok {
+				go tunHandler(client, envelope.Data, func(data []byte, err error) {
 					errStr := ""
 					if err != nil {
 						errStr = fmt.Sprintf("%v", err)
@@ -146,7 +162,6 @@ func handleClientConnection(conn net.Conn) {
 			log.Printf("Socket error %v", err)
 			return
 		}
-
 	}
 
 }

@@ -19,27 +19,27 @@ const (
 
 var (
 	// Events - Connect/Disconnect events
-	Events = make(chan *pb.Event, 64)
+	Events = make(chan *pb.Event, 16)
 
 	// Tunnels - Duplex data tunnels with atomic wrappers
 	Tunnels = &tunnels{
-		tunnels: &map[int32]*tunnel{},
+		tunnels: &map[uint64]*tunnel{},
 		mutex:   &sync.RWMutex{},
 	}
 )
 
 type tunnels struct {
-	tunnels *map[int32]*tunnel
+	tunnels *map[uint64]*tunnel
 	mutex   *sync.RWMutex
 }
 
-func (t *tunnels) Tunnel(ID int32) *tunnel {
+func (t *tunnels) Tunnel(ID uint64) *tunnel {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	return (*t.tunnels)[ID]
 }
 
-func (t *tunnels) RecvTunnel(ID int32, data []byte) {
+func (t *tunnels) RecvTunnel(ID uint64, data []byte) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	tunnel := (*t.tunnels)[ID]
@@ -52,7 +52,7 @@ func (t *tunnels) AddTunnel(tunnel *tunnel) {
 	(*t.tunnels)[tunnel.ID] = tunnel
 }
 
-func (t *tunnels) RemoveTunnel(ID int32) {
+func (t *tunnels) RemoveTunnel(ID uint64) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	delete(*t.tunnels, ID)
@@ -61,7 +61,7 @@ func (t *tunnels) RemoveTunnel(ID int32) {
 // tunnel - Duplex data tunnel
 type tunnel struct {
 	SliverID int32
-	ID       int32
+	ID       uint64
 	Recv     chan []byte
 }
 
