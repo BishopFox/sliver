@@ -41,7 +41,7 @@ func GetRootAppDir() string {
 
 // GetDataDir - Returns the full path to the data directory
 func GetDataDir() string {
-	dir := GetRootAppDir() + "data"
+	dir := GetRootAppDir() + "/data"
 	return dir
 }
 
@@ -140,13 +140,14 @@ func SetupGoPath(goPathSrc string) error {
 
 // SetupDataPath - Sets the data directory up
 func SetupDataPath(appDir string) error {
-	dataDir := appDir + "data"
+	dataDir := appDir + "/data"
 	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
 		log.Printf("Creating data directory: %s", dataDir)
 		os.MkdirAll(dataDir, os.ModePerm)
 	}
 	hostingDll, err := assetsBox.Find("HostingCLRx64.dll")
 	if err != nil {
+		log.Printf("failed to find the dll")
 		return err
 	}
 	err = ioutil.WriteFile(dataDir+"/HostingCLRx64.dll", hostingDll, 0644)

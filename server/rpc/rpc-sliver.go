@@ -158,6 +158,8 @@ func rpcExecuteAssembly(req []byte, resp RPCResponse) {
 		Assembly:   execReq.Assembly,
 		HostingDll: hostingDllBytes,
 		Arguments:  execReq.Arguments,
+		Timeout:    execReq.Timeout,
+		SliverID:   execReq.SliverID,
 	})
 	timeout := time.Duration(execReq.Timeout) * time.Second
 	data, err = sliver.Request(sliverpb.MsgExecuteAssemblyReq, timeout, data)

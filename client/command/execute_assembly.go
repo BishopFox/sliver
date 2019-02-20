@@ -23,21 +23,22 @@ func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "Please provide valid arguments.\n")
 		return
 	}
-	assemblyArgs := ""
-	if len(ctx.Args) == 2 {
-		assemblyArgs = ctx.Args[1]
-	}
 	assemblyBytes, err := ioutil.ReadFile(ctx.Args[0])
 	if err != nil {
 		fmt.Printf(Warn+"%s", err.Error())
 		return
 	}
 
+	assemblyArgs := ""
+	if len(ctx.Args) == 2 {
+		assemblyArgs = ctx.Args[1]
+	}
+
 	ctrl := make(chan bool)
 	go spin.Until("Executing assembly ...", ctrl)
 	data, _ := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
 		SliverID:   ActiveSliver.Sliver.ID,
-		Timeout:    int32(defaultTimeout),
+		Timeout:    int32(30),
 		Arguments:  assemblyArgs,
 		Assembly:   assemblyBytes,
 		HostingDll: []byte{},

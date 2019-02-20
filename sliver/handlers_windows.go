@@ -74,7 +74,7 @@ func executeAssemblyHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	output, err := taskrunner.ExecuteAssembly(execReq.Assembly, execReq.HostingDll, execReq.Arguments)
+	output, err := taskrunner.ExecuteAssembly(execReq.Assembly, execReq.HostingDll, execReq.Arguments, execReq.Timeout)
 	strErr := ""
 	if err != nil {
 		strErr = err.Error()
@@ -83,7 +83,7 @@ func executeAssemblyHandler(data []byte, resp RPCResponse) {
 		Output: output,
 		Error:  strErr,
 	}
-	data, err = proto.Marshal(execReq)
+	data, err = proto.Marshal(execResp)
 	resp(data, err)
 
 }
