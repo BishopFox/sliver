@@ -32,8 +32,9 @@ var (
 		consts.PsStr:       rpcPs,
 		consts.ProcdumpStr: rpcProcdump,
 
-		consts.ElevateStr:     rpcElevate,
-		consts.ImpersonateStr: rpcImpersonate,
+		consts.ElevateStr:         rpcElevate,
+		consts.ImpersonateStr:     rpcImpersonate,
+		consts.ExecuteAssemblyStr: rpcExecuteAssembly,
 
 		consts.LsStr:       rpcLs,
 		consts.RmStr:       rpcRm,

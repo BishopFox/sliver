@@ -70,4 +70,8 @@ const (
 	MsgElevateReq
 	//MsgElevate - Response to the elevation request
 	MsgElevate
+	// MsgExecuteAssemblyReq - Request to load and execute a .NET assembly
+	MsgExecuteAssemblyReq
+	// MsgExecuteAssembly - Output of the assembly execution
+	MsgExecuteAssembly
 )
