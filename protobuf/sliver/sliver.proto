@@ -153,6 +153,27 @@ message ProcessDump {
   string err = 2;
 }
 
+message ImpersonateReq {
+  string username = 1;
+  string process = 2;
+  string args = 3;
+  int32 SliverID = 9;
+}
+
+message Impersonate {
+  string output = 1;
+}
+
+message ElevateReq {
+  int32 Timeout = 8;
+  int32 SliverID = 9;
+}
+
+message Elevate {
+  bool success = 1;
+  string err = 2;
+}
+
 message ExecuteAssemblyReq {
   bytes hostingDll = 1;
   bytes assembly = 2;
@@ -160,6 +181,7 @@ message ExecuteAssemblyReq {
   int32 Timeout = 8;
   int32 SliverID = 9;
 }
+
 
 message ExecuteAssembly {
   string output = 1;

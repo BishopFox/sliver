@@ -70,6 +70,9 @@ var (
 		"procdump/dump_windows.go",
 		"procdump/dump_linux.go",
 		"procdump/dump_darwin.go",
+
+		"priv/priv.go",
+		"priv/priv_windows.go",
 	}
 )
 

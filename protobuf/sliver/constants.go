@@ -62,6 +62,14 @@ const (
 	MsgProcessDumpReq
 	// MsgProcessDump - Dump of process)
 	MsgProcessDump
+	// MsgImpersonateReq - Request for process impersonatio
+	MsgImpersonateReq
+	// MsgImpersonate - Output of the impersonation command
+	MsgImpersonate
+	// MsgElevateReq - Request to run a new sliver session in an elevated context
+	MsgElevateReq
+	//MsgElevate - Response to the elevation request
+	MsgElevate
 	// MsgExecuteAssemblyReq - Request to load and execute a .NET assembly
 	MsgExecuteAssemblyReq
 	// MsgExecuteAssembly - Output of the assembly execution

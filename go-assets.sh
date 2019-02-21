@@ -81,6 +81,14 @@ mv protobuf-$PROTOBUF_COMMIT protobuf
 zip -r protobuf.zip ./protobuf
 cp -vv protobuf.zip $REPO_DIR/assets/protobuf.zip
 
+wget https://go.googlesource.com/sys/+archive/master.tar.gz
+mkdir $WORK_DIR/sys
+cd $WORK_DIR/sys
+tar xfv ../master.tar.gz
+rm -rf ../master.tar.gz
+cd ..
+zip -r $REPO_DIR/assets/golang_x_sys.zip sys
+
 # end
 echo -e "clean up: $WORK_DIR"
 rm -rf $WORK_DIR

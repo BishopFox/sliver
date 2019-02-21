@@ -69,5 +69,8 @@ const (
 	DownloadStr        = "download"
 	UploadStr          = "upload"
 	ProcdumpStr        = "procdump"
+	ImpersonateStr     = "impersonate"
+	ElevateStr         = "elevate"
+	GetSystemStr       = "getsystem"
 	ExecuteAssemblyStr = "execute-assembly"
 )
