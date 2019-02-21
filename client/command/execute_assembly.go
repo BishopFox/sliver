@@ -55,5 +55,5 @@ func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"%s", execResp.Error)
 		return
 	}
-	fmt.Printf(Info+"Assembly output:\n%s", execResp.Output)
+	fmt.Printf("\n"+Info+"Assembly output:\n%s", execResp.Output)
 }
