@@ -157,6 +157,7 @@ message ImpersonateReq {
   string username = 1;
   string process = 2;
   string args = 3;
+  int32 SliverID = 9;
 }
 
 message Impersonate {
