@@ -1,8 +1,8 @@
 package command
 
 import (
-	consts "sliver/client/constants"
-	pb "sliver/protobuf/client"
+	clientpb "sliver/protobuf/client"
+	sliverpb "sliver/protobuf/sliver"
 	"strconv"
 	"time"
 
@@ -47,12 +47,12 @@ var (
 )
 
 // RPCServer - Function used to send/recv envelopes
-type RPCServer func(*pb.Envelope, time.Duration) chan *pb.Envelope
+type RPCServer func(*sliverpb.Envelope, time.Duration) chan *sliverpb.Envelope
 
 type observer func()
 
 type activeSliver struct {
-	Sliver    *pb.Sliver
+	Sliver    *clientpb.Sliver
 	observers []observer
 }
 
@@ -60,7 +60,7 @@ func (s *activeSliver) AddObserver(fn observer) {
 	s.observers = append(s.observers, fn)
 }
 
-func (s *activeSliver) SetActiveSliver(sliver *pb.Sliver) {
+func (s *activeSliver) SetActiveSliver(sliver *clientpb.Sliver) {
 	s.Sliver = sliver
 	for _, fn := range s.observers {
 		fn()
@@ -68,12 +68,12 @@ func (s *activeSliver) SetActiveSliver(sliver *pb.Sliver) {
 }
 
 // Get Sliver by session ID or name
-func getSliver(arg string, rpc RPCServer) *pb.Sliver {
-	resp := <-rpc(&pb.Envelope{
-		Type: consts.SessionsStr,
+func getSliver(arg string, rpc RPCServer) *clientpb.Sliver {
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgSessions,
 		Data: []byte{},
 	}, defaultTimeout)
-	sessions := &pb.Sessions{}
+	sessions := &clientpb.Sessions{}
 	proto.Unmarshal((resp).Data, sessions)
 
 	for _, sliver := range sessions.Slivers {

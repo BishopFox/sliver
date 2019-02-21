@@ -6,6 +6,8 @@ message Envelope {
   uint32 Type = 1; // Message type
   uint64 ID = 2;   // Resp ID
   bytes Data = 9;  // Actual message data
+  
+  string Error = 4;
 }
 
 message Register {
@@ -17,11 +19,11 @@ message Register {
   string Os = 6;
   string Arch = 7;
   int32 Pid = 8;
-  string filename = 9;
+  string Filename = 9;
 }
 
 message Ping {
-  int32 nonce = 1;
+  int32 Nonce = 1;
 }
 
 message KillReq {
@@ -30,14 +32,14 @@ message KillReq {
 
 // aka Shellcode
 message Task {
-  string encoder = 2;
-  bytes data = 9;
+  string Encoder = 2;
+  bytes Data = 9;
 }
 
 message RemoteTask {
-  string encoder = 2;
-  int32 pid = 3;
-  bytes data = 9;
+  string Encoder = 2;
+  int32 Pid = 3;
+  bytes Data = 9;
 }
 
 message PsReq {
@@ -49,67 +51,66 @@ message Ps {
 }
 
 message Process {
-  int32 pid = 1;
-  int32 ppid = 2;
-  string executable = 3;
-  string owner = 4;
+  int32 Pid = 1;
+  int32 Ppid = 2;
+  string Executable = 3;
+  string Owner = 4;
 }
 
 
 message DirListReq {
-  string path = 1;
+  string Path = 1;
 
   uint32 SliverID = 9;
 }
 
 message DirList {
-  string path = 1;
-  bool exists = 2; 
-  repeated FileInfo files = 3;
+  string Path = 1;
+  bool Exists = 2; 
+  repeated FileInfo Files = 3;
 }
 
 message FileInfo {
   string Name = 1;
-  bool isDir = 2;
-  int64 size = 3;
+  bool IsDir = 2;
+  int64 Size = 3;
 }
 
 message PwdReq {
-
   uint32 SliverID = 9;
 }
 
 message CdReq {
-  string path = 1;
+  string Path = 1;
   uint32 SliverID = 9;
 }
 
 message Pwd {
-  string path = 1;
-  string err = 2;
+  string Path = 1;
+  string Err = 2;
 }
 
 message RmReq {
-  string path = 1;
+  string Path = 1;
 
   uint32 SliverID = 9;
 }
 
 message Rm {
-  bool success = 1;
-  string path = 2;
+  bool Success = 1;
+  string Path = 2;
   string Err = 3;
 }
 
 message MkdirReq {
-  string path = 1;
+  string Path = 1;
 
   uint32 SliverID = 9;
 }
 
 message Mkdir {
-  bool success = 1;
-  string path = 2;
+  bool Success = 1;
+  string Path = 2;
   string Err = 3;
 }
 
@@ -120,25 +121,25 @@ message DownloadReq {
 }
 
 message Download {
-  string path = 1;
-  string encoder = 2;
-  bool exists = 3;
+  string Path = 1;
+  string Encoder = 2;
+  bool Exists = 3;
 
-  bytes data = 9;
+  bytes Data = 9;
 }
 
 message UploadReq {
-  string path = 1;
-  string encoder = 2;
-  bytes data = 3;
+  string Path = 1;
+  string Encoder = 2;
+  bytes Data = 3;
 
   uint32 SliverID = 9;
 }
 
 message Upload {
-  string path = 1;
-  string err = 2;
-  bool success = 3;
+  string Path = 1;
+  string Err = 2;
+  bool Success = 3;
 }
 
 message ProcessDumpReq {
@@ -149,13 +150,13 @@ message ProcessDumpReq {
 }
 
 message ProcessDump {
-  bytes data = 1;
-  string err = 2;
+  bytes Data = 1;
+  string Err = 2;
 }
 
 // DNS Specific messages
 message DNSSessionInit {
-  bytes key = 1;
+  bytes Key = 1;
 }
 
 message DNSPoll {
@@ -163,35 +164,26 @@ message DNSPoll {
 }
 
 message DNSBlockHeader {
-  string id = 1;
-  uint32 size = 2;
+  string ID = 1;
+  uint32 Size = 2;
 }
 
 // Tunnels, shells, and port fwds
-
 message TunnelData {
-  uint64 ID = 1;
+  uint32 SliverID = 1;
+
   bytes Data = 2;
+  bool Close = 3;
+  string Err = 4;
+
+  uint64 TunnelID = 9;
 }
 
 // Shell messages
 message ShellReq {
-  string Path = 1;
-  bool EnablePTY = 2;
+  uint32 SliverID = 1;
+  string Path = 2;
+  bool EnablePTY = 3;
 
   uint64 TunnelID = 9;
-}
-
-// Response to StartReq
-message Shell {
-  string Err = 1;
-
-  uint64 TunnelID = 9;
-}
-
-message ShellData {
-  bytes Stdin = 1;
-  bytes Stdout = 2;
-  bytes Stderr = 3;
-  bool Close = 4;
 }

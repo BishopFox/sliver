@@ -1,7 +1,8 @@
 package core
 
 import (
-	pb "sliver/protobuf/client"
+	clientpb "sliver/protobuf/client"
+	sliverpb "sliver/protobuf/sliver"
 	"sync"
 )
 
@@ -20,21 +21,21 @@ type Client struct {
 	ID       int
 	Operator string
 
-	Send  chan *pb.Envelope
-	Resp  map[string]chan *pb.Envelope
+	Send  chan *sliverpb.Envelope
+	Resp  map[uint64]chan *sliverpb.Envelope
 	mutex *sync.RWMutex
 }
 
 // ToProtobuf - Get the protobuf version of the object
-func (c *Client) ToProtobuf() *pb.Client {
-	return &pb.Client{
+func (c *Client) ToProtobuf() *clientpb.Client {
+	return &clientpb.Client{
 		ID:       int32(c.ID),
 		Operator: c.Operator,
 	}
 }
 
 // Response - Drop an evelope into a response channel
-func (c *Client) Response(envelope *pb.Envelope) {
+func (c *Client) Response(envelope *sliverpb.Envelope) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	if resp, ok := c.Resp[envelope.ID]; ok {
@@ -75,7 +76,7 @@ func GetClient(operator string) *Client {
 		ID:       GetClientID(),
 		Operator: operator,
 		mutex:    &sync.RWMutex{},
-		Send:     make(chan *pb.Envelope),
-		Resp:     map[string]chan *pb.Envelope{},
+		Send:     make(chan *sliverpb.Envelope),
+		Resp:     map[uint64]chan *sliverpb.Envelope{},
 	}
 }

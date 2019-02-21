@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	consts "sliver/client/constants"
 	"sliver/client/spin"
-	pb "sliver/protobuf/client"
+	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 	"sort"
 	"strings"
@@ -28,18 +28,18 @@ var (
 )
 
 func sessions(ctx *grumble.Context, rpc RPCServer) {
-	resp := <-rpc(&pb.Envelope{
-		Type: consts.SessionsStr,
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgSessions,
 		Data: []byte{},
 	}, defaultTimeout)
 	if resp == nil {
 		fmt.Printf(Warn + "Command timeout\n")
 		return
 	}
-	sessions := &pb.Sessions{}
+	sessions := &clientpb.Sessions{}
 	proto.Unmarshal(resp.Data, sessions)
 
-	slivers := map[int32]*pb.Sliver{}
+	slivers := map[uint32]*clientpb.Sliver{}
 	for _, sliver := range sessions.Slivers {
 		slivers[sliver.ID] = sliver
 	}
@@ -59,7 +59,7 @@ func sessions(ctx *grumble.Context, rpc RPCServer) {
 	write each line to the term and insert the ANSI codes just before
 	we display the row.
 */
-func printSlivers(sessions map[int32]*pb.Sliver) {
+func printSlivers(sessions map[uint32]*clientpb.Sliver) {
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
@@ -82,7 +82,7 @@ func printSlivers(sessions map[int32]*pb.Sliver) {
 
 	activeIndex := -1
 	for index, key := range keys {
-		sliver := sessions[int32(key)]
+		sliver := sessions[uint32(key)]
 		if ActiveSliver.Sliver != nil && ActiveSliver.Sliver.ID == sliver.ID {
 			activeIndex = index + 2 // Two lines for the headers
 		}
@@ -138,8 +138,8 @@ func kill(ctx *grumble.Context, rpc RPCServer) {
 	data, _ := proto.Marshal(&sliverpb.KillReq{
 		SliverID: sliver.ID,
 	})
-	resp := <-rpc(&pb.Envelope{
-		Type: consts.KillStr,
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: sliverpb.MsgKill,
 		Data: data,
 	}, defaultTimeout)
 	if resp == nil {
@@ -156,7 +156,7 @@ func kill(ctx *grumble.Context, rpc RPCServer) {
 
 func info(ctx *grumble.Context, rpc RPCServer) {
 
-	var sliver *pb.Sliver
+	var sliver *clientpb.Sliver
 	if ActiveSliver.Sliver != nil {
 		sliver = ActiveSliver.Sliver
 	} else if 0 < len(ctx.Args) {
@@ -226,7 +226,7 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 	if dnsParent != "" && strings.HasPrefix(dnsParent, ".") {
 		dnsParent = dnsParent[1:]
 	}
-	compile(&pb.SliverConfig{
+	compile(&clientpb.SliverConfig{
 		GOOS:       targetOS,
 		GOARCH:     arch,
 		MTLSServer: lhost,
@@ -253,14 +253,14 @@ func profileGenerate(ctx *grumble.Context, rpc RPCServer) {
 	}
 }
 
-func compile(config *pb.SliverConfig, save string, rpc RPCServer) {
+func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 	fmt.Printf(Info+"Generating new %s/%s sliver binary \n", config.GOOS, config.GOARCH)
 	ctrl := make(chan bool)
 	go spin.Until("Compiling ...", ctrl)
-	generateReq, _ := proto.Marshal(&pb.GenerateReq{Config: config})
+	generateReq, _ := proto.Marshal(&clientpb.GenerateReq{Config: config})
 
-	resp := <-rpc(&pb.Envelope{
-		Type: consts.GenerateStr,
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgGenerate,
 		Data: generateReq,
 	}, 1200*time.Second) // TODO: make timeout a parameter
 	ctrl <- true
@@ -273,7 +273,7 @@ func compile(config *pb.SliverConfig, save string, rpc RPCServer) {
 		return
 	}
 
-	generated := &pb.Generate{}
+	generated := &clientpb.Generate{}
 	proto.Unmarshal(resp.Data, generated)
 
 	saveTo, _ := filepath.Abs(save)
@@ -325,7 +325,7 @@ func profiles(ctx *grumble.Context, rpc RPCServer) {
 	table.Flush()
 }
 
-func getLimitsString(config *pb.SliverConfig) string {
+func getLimitsString(config *clientpb.SliverConfig) string {
 	limits := []string{}
 	if config.LimitDatetime != "" {
 		limits = append(limits, fmt.Sprintf("datetime=%s", config.LimitDatetime))
@@ -361,9 +361,9 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 	limitUsername := ctx.Flags.String("limit-username")
 	limitDatetime := ctx.Flags.String("limit-datetime")
 
-	data, _ := proto.Marshal(&pb.Profile{
+	data, _ := proto.Marshal(&clientpb.Profile{
 		Name: name,
-		Config: &pb.SliverConfig{
+		Config: &clientpb.SliverConfig{
 			GOOS:       targetOS,
 			GOARCH:     arch,
 			MTLSServer: lhost,
@@ -378,8 +378,8 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 		},
 	})
 
-	resp := <-rpc(&pb.Envelope{
-		Type: consts.NewProfileStr,
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgNewProfile,
 		Data: data,
 	}, defaultTimeout)
 	if resp == nil {
@@ -393,9 +393,9 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 	}
 }
 
-func getSliverProfiles(rpc RPCServer) *map[string]*pb.Profile {
-	resp := <-rpc(&pb.Envelope{
-		Type: consts.ProfilesStr,
+func getSliverProfiles(rpc RPCServer) *map[string]*clientpb.Profile {
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgProfiles,
 	}, defaultTimeout)
 	if resp == nil {
 		fmt.Printf(Warn + "No response from server\n")
@@ -406,14 +406,14 @@ func getSliverProfiles(rpc RPCServer) *map[string]*pb.Profile {
 		return nil
 	}
 
-	pbProfiles := &pb.Profiles{}
+	pbProfiles := &clientpb.Profiles{}
 	err := proto.Unmarshal(resp.Data, pbProfiles)
 	if err != nil {
 		fmt.Printf(Warn+"Error %s", err)
 		return nil
 	}
 
-	profiles := &map[string]*pb.Profile{}
+	profiles := &map[string]*clientpb.Profile{}
 	for _, profile := range pbProfiles.List {
 		(*profiles)[profile.Name] = profile
 	}

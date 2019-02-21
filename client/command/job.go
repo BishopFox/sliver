@@ -7,26 +7,26 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	consts "sliver/client/constants"
-	pb "sliver/protobuf/client"
+	clientpb "sliver/protobuf/client"
+	sliverpb "sliver/protobuf/sliver"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
 )
 
 func jobs(ctx *grumble.Context, rpc RPCServer) {
-	resp := <-rpc(&pb.Envelope{
-		Type: consts.JobsStr,
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgJobs,
 		Data: []byte{},
 	}, defaultTimeout)
 	if resp == nil {
 		fmt.Printf(Warn + "Command timeout\n")
 		return
 	}
-	jobs := &pb.Jobs{}
+	jobs := &clientpb.Jobs{}
 	proto.Unmarshal(resp.Data, jobs)
 
-	activeJobs := map[int32]*pb.Job{}
+	activeJobs := map[int32]*clientpb.Job{}
 	for _, job := range jobs.Active {
 		activeJobs[job.ID] = job
 	}
@@ -37,7 +37,7 @@ func jobs(ctx *grumble.Context, rpc RPCServer) {
 	}
 }
 
-func printJobs(jobs map[int32]*pb.Job) {
+func printJobs(jobs map[int32]*clientpb.Job) {
 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
 	fmt.Fprintf(table, "ID\tName\tProtocol\tPort\t\n")
 	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
@@ -64,12 +64,12 @@ func startMTLSListener(ctx *grumble.Context, rpc RPCServer) {
 	lport := uint16(ctx.Flags.Int("lport"))
 
 	fmt.Printf(Info + "Starting mTLS listener ...\n")
-	data, _ := proto.Marshal(&pb.MTLSReq{
+	data, _ := proto.Marshal(&clientpb.MTLSReq{
 		Server: server,
 		LPort:  int32(lport),
 	})
-	respCh := rpc(&pb.Envelope{
-		Type: consts.MtlsStr,
+	respCh := rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgMtls,
 		Data: data,
 	}, defaultTimeout)
 	resp := <-respCh
@@ -81,7 +81,7 @@ func startMTLSListener(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"Failed to start job %s\n", resp.Error)
 		return
 	}
-	mtls := &pb.MTLS{}
+	mtls := &clientpb.MTLS{}
 	proto.Unmarshal(resp.Data, mtls)
 	fmt.Printf(Info+"Successfully started job #%d\n", mtls.JobID)
 }
@@ -98,9 +98,9 @@ func startDNSListener(ctx *grumble.Context, rpc RPCServer) {
 
 	fmt.Printf(Info+"Starting DNS listener with parent domain '%s' ...\n", domain)
 
-	data, _ := proto.Marshal(&pb.DNSReq{Domain: domain})
-	resp := <-rpc(&pb.Envelope{
-		Type: consts.DnsStr,
+	data, _ := proto.Marshal(&clientpb.DNSReq{Domain: domain})
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgDns,
 		Data: data,
 	}, defaultTimeout)
 	if resp == nil {
@@ -111,7 +111,7 @@ func startDNSListener(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"Failed to start job %s\n", resp.Error)
 		return
 	}
-	dns := &pb.DNS{}
+	dns := &clientpb.DNS{}
 	proto.Unmarshal(resp.Data, dns)
 
 	fmt.Printf("\n"+Info+"Successfully started job #%d\n", dns.JobID)

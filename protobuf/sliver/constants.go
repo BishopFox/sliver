@@ -49,6 +49,9 @@ const (
 	// MsgPwd - The CWD of the remote process (resp to MsgPwdReq)
 	MsgPwd
 
+	// MsgLs - Ls msg
+	MsgLs
+
 	// MsgRmReq - Request to delete remote file
 	MsgRmReq
 	// MsgRm - Confirms the success/failure of delete request (resp to MsgRmReq)
@@ -58,10 +61,14 @@ const (
 	MsgMkdirReq
 	// MsgMkdir - Confirms the success/failure of the mkdir request (resp to MsgMkdirReq)
 	MsgMkdir
+
 	// MsgProcessDumpReq - Request to create a process dump
 	MsgProcessDumpReq
 	// MsgProcessDump - Dump of process)
 	MsgProcessDump
+
+	// MsgPs - list processes
+	MsgPs
 
 	// MsgShellReq - Starts an interactive shell
 	MsgShellReq

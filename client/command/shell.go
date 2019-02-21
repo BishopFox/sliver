@@ -5,9 +5,8 @@ import (
 	"io"
 	"log"
 	"os"
-	consts "sliver/client/constants"
 	"sliver/client/core"
-	pb "sliver/protobuf/client"
+	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 	gen "sliver/server/generate"
 
@@ -26,33 +25,48 @@ func shell(ctx *grumble.Context, rpc RPCServer) {
 		noPty = true // Windows of course doesn't have PTYs
 	}
 
-	fmt.Printf(Info + "Opening shell channel with sliver ...\n")
+	fmt.Printf(Info + "Opening shell tunnel with sliver ...\n")
 
-	shellReq := &pb.ShellReq{
+	tunReq := &clientpb.TunnelCreateReq{
+		SliverID: ActiveSliver.Sliver.ID,
+	}
+	tunReqData, _ := proto.Marshal(tunReq)
+	tunResp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgTunnelCreate,
+		Data: tunReqData,
+	}, defaultTimeout)
+	if tunResp.Error != "" {
+		fmt.Printf(Warn+"Error: %s", tunResp.Error)
+		return
+	}
+	tunnelCreate := &clientpb.TunnelCreate{}
+	proto.Unmarshal(tunResp.Data, tunnelCreate)
+
+	shellReq := &sliverpb.ShellReq{
 		SliverID:  ActiveSliver.Sliver.ID,
 		EnablePTY: !noPty,
+		TunnelID:  tunnelCreate.TunnelID,
 	}
 	shellReqData, _ := proto.Marshal(shellReq)
-	resp := <-rpc(&pb.Envelope{
-		Type: consts.ShellStr,
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: sliverpb.MsgShellReq,
 		Data: shellReqData,
 	}, defaultTimeout)
 	if resp.Error != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
 		return
 	}
-
 	openedShell := &sliverpb.Shell{}
 	proto.Unmarshal(resp.Data, openedShell)
 
-	tunnel := core.Tunnels.Tunnel(openedShell.TunnelID)
+	tunnel := core.Tunnels.Tunnel(tunnelCreate.TunnelID) // Client core tunnel
 
 	go func() {
 		for recvData := range tunnel.Recv {
-			shellData := &sliverpb.ShellData{}
-			proto.Unmarshal(recvData, shellData)
-			log.Printf("[write] stdout shell with tunnel id = %d", shellData.TunnelID)
-			os.Stdout.Write(shellData.Stdout)
+			tunData := &sliverpb.TunnelData{}
+			proto.Unmarshal(recvData, tunData)
+			log.Printf("[write] stdout shell with tunnel id = %l", tunData.TunnelID)
+			os.Stdout.Write(tunData.Data)
 		}
 	}()
 
@@ -62,8 +76,8 @@ func shell(ctx *grumble.Context, rpc RPCServer) {
 		if err == io.EOF {
 			return
 		}
-		data, _ := proto.Marshal(&sliverpb.ShellData{
-			Stdin: readBuf[:n],
+		data, _ := proto.Marshal(&sliverpb.TunnelData{
+			Data: readBuf[:n],
 		})
 		log.Printf("[read] stdin tunnel %d", openedShell.TunnelID)
 		go rpc(tunnel.Send(data), defaultTimeout)

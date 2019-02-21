@@ -2,11 +2,12 @@ package core
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
-	"fmt"
+	"encoding/binary"
 	"sliver/client/assets"
-	consts "sliver/client/constants"
-	pb "sliver/protobuf/client"
+
+	clientpb "sliver/protobuf/client"
+	sliverpb "sliver/protobuf/sliver"
+
 	"sync"
 	"time"
 
@@ -19,7 +20,7 @@ const (
 
 var (
 	// Events - Connect/Disconnect events
-	Events = make(chan *pb.Event, 16)
+	Events = make(chan *clientpb.Event, 16)
 
 	// Tunnels - Duplex data tunnels with atomic wrappers
 	Tunnels = &tunnels{
@@ -60,29 +61,29 @@ func (t *tunnels) RemoveTunnel(ID uint64) {
 
 // tunnel - Duplex data tunnel
 type tunnel struct {
-	SliverID int32
+	SliverID uint32
 	ID       uint64
 	Recv     chan []byte
 }
 
-func (t *tunnel) Send(data []byte) *pb.Envelope {
-	tunnelData := &pb.TunnelData{
+func (t *tunnel) Send(data []byte) *sliverpb.Envelope {
+	tunnelData := &sliverpb.TunnelData{
 		SliverID: t.SliverID,
 		TunnelID: t.ID,
 		Data:     data,
 	}
 	rawTunnelData, _ := proto.Marshal(tunnelData)
-	return &pb.Envelope{
-		Type: consts.TunnelData,
+	return &sliverpb.Envelope{
+		Type: sliverpb.MsgTunnelData,
 		Data: rawTunnelData,
 	}
 }
 
 // SliverServer - Server info
 type SliverServer struct {
-	Send      chan *pb.Envelope
-	recv      chan *pb.Envelope
-	responses *map[string]chan *pb.Envelope
+	Send      chan *sliverpb.Envelope
+	recv      chan *sliverpb.Envelope
+	responses *map[uint64]chan *sliverpb.Envelope
 	mutex     *sync.RWMutex
 	Config    *assets.ClientConfig
 }
@@ -90,14 +91,14 @@ type SliverServer struct {
 // ResponseMapper - Maps recv'd envelopes to response channels
 func (ss *SliverServer) ResponseMapper() {
 	for envelope := range ss.recv {
-		if envelope.ID != "" {
+		if envelope.ID != 0 {
 			ss.mutex.Lock()
 			if resp, ok := (*ss.responses)[envelope.ID]; ok {
 				resp <- envelope
 			}
 			ss.mutex.Unlock()
-		} else if envelope.Type == consts.EventStr {
-			event := &pb.Event{}
+		} else if envelope.Type == clientpb.MsgEvent {
+			event := &clientpb.Event{}
 			proto.Unmarshal(envelope.Data, event)
 			Events <- event
 		}
@@ -105,13 +106,13 @@ func (ss *SliverServer) ResponseMapper() {
 }
 
 // RequestResponse - Send a request envelope and wait for a response (blocking)
-func (ss *SliverServer) RequestResponse(envelope *pb.Envelope, timeout time.Duration) chan *pb.Envelope {
-	reqID := RandomID()
+func (ss *SliverServer) RequestResponse(envelope *sliverpb.Envelope, timeout time.Duration) chan *sliverpb.Envelope {
+	reqID := EnvelopeID()
 	envelope.ID = reqID
-	resp := make(chan *pb.Envelope)
+	resp := make(chan *sliverpb.Envelope)
 	ss.AddRespListener(reqID, resp)
 	ss.Send <- envelope
-	respCh := make(chan *pb.Envelope)
+	respCh := make(chan *sliverpb.Envelope)
 	go func() {
 		defer ss.RemoveRespListener(reqID)
 		select {
@@ -125,34 +126,33 @@ func (ss *SliverServer) RequestResponse(envelope *pb.Envelope, timeout time.Dura
 }
 
 // AddRespListener - Add a response listener
-func (ss *SliverServer) AddRespListener(requestID string, resp chan *pb.Envelope) {
+func (ss *SliverServer) AddRespListener(envelopeID uint64, resp chan *sliverpb.Envelope) {
 	ss.mutex.Lock()
 	defer ss.mutex.Unlock()
-	(*ss.responses)[requestID] = resp
+	(*ss.responses)[envelopeID] = resp
 }
 
 // RemoveRespListener - Remove a listener
-func (ss *SliverServer) RemoveRespListener(requestID string) {
+func (ss *SliverServer) RemoveRespListener(envelopeID uint64) {
 	ss.mutex.Lock()
 	defer ss.mutex.Unlock()
-	close((*ss.responses)[requestID])
-	delete((*ss.responses), requestID)
+	close((*ss.responses)[envelopeID])
+	delete((*ss.responses), envelopeID)
 }
 
 // BindSliverServer - Bind send/recv channels to a server
-func BindSliverServer(send chan *pb.Envelope, recv chan *pb.Envelope) *SliverServer {
+func BindSliverServer(send chan *sliverpb.Envelope, recv chan *sliverpb.Envelope) *SliverServer {
 	return &SliverServer{
 		Send:      send,
 		recv:      recv,
-		responses: &map[string]chan *pb.Envelope{},
+		responses: &map[uint64]chan *sliverpb.Envelope{},
 		mutex:     &sync.RWMutex{},
 	}
 }
 
-// RandomID - Generate random ID of randomIDSize bytes
-func RandomID() string {
-	randBuf := make([]byte, 64) // 64 bytes of randomness
+// EnvelopeID - Generate random ID of randomIDSize bytes
+func EnvelopeID() uint64 {
+	randBuf := make([]byte, 8) // 64 bytes of randomness
 	rand.Read(randBuf)
-	digest := sha256.Sum256(randBuf)
-	return fmt.Sprintf("%x", digest[:randomIDSize])
+	return binary.LittleEndian.Uint64(randBuf)
 }

@@ -2,13 +2,6 @@ syntax = "proto3";
 
 package clientpb;
 
-message Envelope {
-  string Type = 1; // Message type
-  bytes Data = 2;  // Actual message data
-  string ID = 3;   // Resp ID
-  string Error = 4;
-}
-
 // [ generic ] ----------------------------------------
 message File {
   string Name = 1;
@@ -139,18 +132,6 @@ message MSFInjectReq {
   uint32 SliverID = 9;
 }
 
-// [ Shell ] ----------------------------------------
-message ShellReq {
-  uint32 SliverID = 1;
-  string path = 2;
-  bool EnablePTY = 3;
-}
-
-message Shell {
-
-  uint64 TunnelID = 9;
-}
-
 // [ Tunnels ] ----------------------------------------
 message TunnelCreateReq {
   uint32 SliverID = 1;
@@ -159,15 +140,6 @@ message TunnelCreateReq {
 // Response to TunnelCreateReq
 message TunnelCreate {
   uint32 SliverID = 1;
-
-  uint64 TunnelID = 9;
-}
-
-message TunnelData {
-  uint32 SliverID = 1;
-  bytes Data = 2;
-  bool Close = 3;
-  string Err = 4;
 
   uint64 TunnelID = 9;
 }

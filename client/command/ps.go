@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	consts "sliver/client/constants"
 	"sliver/client/spin"
-	pb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 	"strings"
 	"text/tabwriter"
@@ -27,8 +25,8 @@ func ps(ctx *grumble.Context, rpc RPCServer) {
 	}
 
 	data, _ := proto.Marshal(&sliverpb.PsReq{SliverID: ActiveSliver.Sliver.ID})
-	resp := <-rpc(&pb.Envelope{
-		Type: consts.PsStr,
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: sliverpb.MsgPs,
 		Data: data,
 	}, defaultTimeout)
 	if resp.Error != "" {
@@ -132,8 +130,8 @@ func procdump(ctx *grumble.Context, rpc RPCServer) {
 		Pid:      int32(pid),
 		Timeout:  int32(timeout),
 	})
-	resp := <-rpc(&pb.Envelope{
-		Type: consts.ProcdumpStr,
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: sliverpb.MsgProcessDump,
 		Data: data,
 	}, time.Duration(timeout+1)*time.Second)
 	ctrl <- true
@@ -156,8 +154,8 @@ func procdump(ctx *grumble.Context, rpc RPCServer) {
 
 func getPIDByName(name string, rpc RPCServer) int {
 	data, _ := proto.Marshal(&sliverpb.PsReq{SliverID: ActiveSliver.Sliver.ID})
-	resp := <-rpc(&pb.Envelope{
-		Type: consts.PsStr,
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: sliverpb.MsgPs,
 		Data: data,
 	}, defaultTimeout)
 	ps := &sliverpb.Ps{}
