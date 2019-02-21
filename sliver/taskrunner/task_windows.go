@@ -261,8 +261,11 @@ func ExecuteAssembly(hostingDll, assembly []byte, params string, timeout int32) 
 	}()
 	_, errStderr = io.Copy(&stderrBuf, stderrIn)
 
-	if errStdout != nil || errStderr != nil {
-		log.Fatal("failed to capture stdout or stderr\n")
+	if errStdout != nil {
+		return "", errStdout
+	}
+	if errStderr != nil {
+		return "", errStderr
 	}
 	outStr, _ := string(stdoutBuf.Bytes()), string(stderrBuf.Bytes())
 	// {{if .Debug}}
