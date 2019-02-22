@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	// {{if .Debug}}
@@ -22,7 +22,7 @@ var (
 		pb.MsgPsListReq:   psHandler,
 		pb.MsgPing:        pingHandler,
 		pb.MsgKill:        killHandler,
-		pb.MsgDirListReq:  dirListHandler,
+		pb.MsgLsReq:       dirListHandler,
 		pb.MsgDownloadReq: downloadHandler,
 		pb.MsgUploadReq:   uploadHandler,
 		pb.MsgCdReq:       cdHandler,
@@ -35,7 +35,7 @@ var (
 	}
 )
 
-func getSystemHandlers() map[uint32]RPCHandler {
+func GetSystemHandlers() map[uint32]RPCHandler {
 	return windowsHandlers
 }
 

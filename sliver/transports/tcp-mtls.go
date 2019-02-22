@@ -1,4 +1,4 @@
-package main
+package transports
 
 // {{if .MTLSServer}}
 
@@ -18,11 +18,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 )
-
-func mtlsRegisterSliver(conn *tls.Conn) {
-	envelope := getRegisterSliver()
-	socketWriteEnvelope(conn, envelope)
-}
 
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message

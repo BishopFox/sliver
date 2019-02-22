@@ -137,12 +137,21 @@ message TunnelCreateReq {
   uint32 SliverID = 1;
 }
 
-// Response to TunnelCreateReq
 message TunnelCreate {
   uint32 SliverID = 1;
 
   uint64 TunnelID = 9;
 }
+
+message TunnelCloseReq {
+  uint64 TunnelID = 9;
+}
+
+message TunnelClose {
+  bool Closed = 1;
+  uint64 TunnelID = 9;
+}
+
 
 // [ events ] ----------------------------------------
 

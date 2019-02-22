@@ -3,7 +3,7 @@ package handlers
 import (
 	"log"
 	consts "sliver/client/constants"
-	pb "sliver/protobuf/sliver"
+	sliverpb "sliver/protobuf/sliver"
 	"sliver/server/core"
 
 	"github.com/golang/protobuf/proto"
@@ -11,8 +11,8 @@ import (
 
 var (
 	serverHandlers = map[uint32]interface{}{
-		pb.MsgRegister:   registerSliverHandler,
-		pb.MsgTunnelData: tunnelDataHandler,
+		sliverpb.MsgRegister:   registerSliverHandler,
+		sliverpb.MsgTunnelData: tunnelDataHandler,
 	}
 )
 
@@ -22,7 +22,7 @@ func GetSliverHandlers() map[uint32]interface{} {
 }
 
 func registerSliverHandler(sliver *core.Sliver, data []byte) {
-	register := &pb.Register{}
+	register := &sliverpb.Register{}
 	err := proto.Unmarshal(data, register)
 	if err != nil {
 		log.Printf("error decoding message: %v", err)
@@ -51,5 +51,15 @@ func registerSliverHandler(sliver *core.Sliver, data []byte) {
 }
 
 func tunnelDataHandler(sliver *core.Sliver, data []byte) {
-
+	tunnelData := &sliverpb.TunnelData{}
+	proto.Unmarshal(data, tunnelData)
+	tunnel := core.Tunnels.Tunnel(tunnelData.TunnelID)
+	if tunnel != nil && sliver.ID == tunnel.Sliver.ID {
+		tunnel.Client.Send <- &sliverpb.Envelope{
+			Type: sliverpb.MsgTunnelData,
+			Data: data,
+		}
+	} else {
+		log.Printf("Data sent on nil tunnel %d", tunnelData.TunnelID)
+	}
 }

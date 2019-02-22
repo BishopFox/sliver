@@ -1,4 +1,4 @@
-package main
+package transports
 
 /*
 This package contains wrappers around Golang's crypto package that make it easier to use

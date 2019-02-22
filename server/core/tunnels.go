@@ -35,6 +35,17 @@ func (t *tunnels) CreateTunnel(client *Client, sliverID uint32) *tunnel {
 	return tun
 }
 
+func (t *tunnels) CloseTunnel(client *Client, tunnelID uint64) bool {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	tunnel := (*t.tunnels)[tunnelID]
+	if tunnel != nil && client.ID == tunnel.Client.ID {
+		delete(*t.tunnels, tunnelID)
+		return true
+	}
+	return false
+}
+
 func (t *tunnels) Tunnel(tunnelID uint64) *tunnel {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()

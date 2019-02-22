@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import pb "sliver/protobuf/sliver"
 
@@ -21,6 +21,6 @@ var (
 	}
 )
 
-func getSystemHandlers() map[uint32]RPCHandler {
+func GetSystemHandlers() map[uint32]RPCHandler {
 	return linuxHandlers
 }
