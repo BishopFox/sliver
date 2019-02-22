@@ -9,7 +9,7 @@ import (
 )
 
 func rpcLs(req []byte, resp RPCResponse) {
-	dirList := &sliverpb.DirListReq{}
+	dirList := &sliverpb.LsReq{}
 	err := proto.Unmarshal(req, dirList)
 	if err != nil {
 		resp([]byte{}, err)
@@ -18,10 +18,10 @@ func rpcLs(req []byte, resp RPCResponse) {
 	sliver := core.Hive.Sliver(dirList.SliverID)
 
 	timeout := 30 * time.Second
-	data, _ := proto.Marshal(&sliverpb.DirListReq{
+	data, _ := proto.Marshal(&sliverpb.LsReq{
 		Path: dirList.Path,
 	})
-	data, err = sliver.Request(sliverpb.MsgDirListReq, timeout, data)
+	data, err = sliver.Request(sliverpb.MsgLsReq, timeout, data)
 	resp(data, err)
 }
 

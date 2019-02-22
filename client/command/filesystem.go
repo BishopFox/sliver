@@ -29,7 +29,7 @@ func ls(ctx *grumble.Context, rpc RPCServer) {
 		ctx.Args = append(ctx.Args, ".")
 	}
 
-	data, _ := proto.Marshal(&sliverpb.DirListReq{
+	data, _ := proto.Marshal(&sliverpb.LsReq{
 		SliverID: ActiveSliver.Sliver.ID,
 		Path:     ctx.Args[0],
 	})
@@ -42,7 +42,7 @@ func ls(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	dirList := &sliverpb.DirList{}
+	dirList := &sliverpb.Ls{}
 	err := proto.Unmarshal(resp.Data, dirList)
 	if err != nil {
 		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
@@ -51,7 +51,7 @@ func ls(ctx *grumble.Context, rpc RPCServer) {
 	printDirList(dirList)
 }
 
-func printDirList(dirList *sliverpb.DirList) {
+func printDirList(dirList *sliverpb.Ls) {
 	fmt.Printf("%s\n", dirList.Path)
 	fmt.Printf("%s\n", strings.Repeat("=", len(dirList.Path)))
 

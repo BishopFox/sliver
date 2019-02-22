@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 	"sliver/server/core"
 
@@ -9,7 +8,7 @@ import (
 )
 
 func rpcShell(req []byte, resp RPCResponse) {
-	shellReq := &clientpb.ShellReq{}
+	shellReq := &sliverpb.ShellReq{}
 	proto.Unmarshal(req, shellReq)
 
 	sliver := core.Hive.Sliver(shellReq.SliverID)

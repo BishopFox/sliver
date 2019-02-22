@@ -279,7 +279,7 @@ func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 	saveTo, _ := filepath.Abs(save)
 	fi, err := os.Stat(saveTo)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to generate sliver %v\n\n", err)
+		fmt.Printf(Warn+"Failed to generate sliver %v\n", err)
 		return
 	}
 	if fi.IsDir() {

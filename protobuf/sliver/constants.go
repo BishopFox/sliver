@@ -24,10 +24,10 @@ const (
 	// MsgKill - Kill request to the sliver process
 	MsgKill
 
-	// MsgDirListReq - Request a directory listing from the remote system
-	MsgDirListReq
-	// MsgDirList - Directory listing (resp to MsgDirListReq)
-	MsgDirList
+	// MsgLsReq - Request a directory listing from the remote system
+	MsgLsReq
+	// MsgLs - Directory listing (resp to MsgDirListReq)
+	MsgLs
 
 	// MsgDownloadReq - Request to download a file from the remote system
 	MsgDownloadReq
@@ -49,9 +49,6 @@ const (
 	// MsgPwd - The CWD of the remote process (resp to MsgPwdReq)
 	MsgPwd
 
-	// MsgLs - Ls msg
-	MsgLs
-
 	// MsgRmReq - Request to delete remote file
 	MsgRmReq
 	// MsgRm - Confirms the success/failure of delete request (resp to MsgRmReq)
@@ -67,7 +64,8 @@ const (
 	// MsgProcessDump - Dump of process)
 	MsgProcessDump
 
-	// MsgPs - list processes
+	// MsgPsReq - list processes
+	MsgPsReq
 	MsgPs
 
 	// MsgShellReq - Starts an interactive shell

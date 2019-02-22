@@ -58,13 +58,13 @@ message Process {
 }
 
 
-message DirListReq {
+message LsReq {
   string Path = 1;
 
   uint32 SliverID = 9;
 }
 
-message DirList {
+message Ls {
   string Path = 1;
   bool Exists = 2; 
   repeated FileInfo Files = 3;

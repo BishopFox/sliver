@@ -27,10 +27,9 @@ func shell(ctx *grumble.Context, rpc RPCServer) {
 
 	fmt.Printf(Info + "Opening shell tunnel with sliver ...\n")
 
-	tunReq := &clientpb.TunnelCreateReq{
-		SliverID: ActiveSliver.Sliver.ID,
-	}
+	tunReq := &clientpb.TunnelCreateReq{SliverID: ActiveSliver.Sliver.ID}
 	tunReqData, _ := proto.Marshal(tunReq)
+
 	tunResp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgTunnelCreate,
 		Data: tunReqData,
@@ -39,15 +38,17 @@ func shell(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"Error: %s", tunResp.Error)
 		return
 	}
-	tunnelCreate := &clientpb.TunnelCreate{}
-	proto.Unmarshal(tunResp.Data, tunnelCreate)
+
+	tunnelCreated := &clientpb.TunnelCreate{}
+	proto.Unmarshal(tunResp.Data, tunnelCreated)
 
 	shellReq := &sliverpb.ShellReq{
 		SliverID:  ActiveSliver.Sliver.ID,
 		EnablePTY: !noPty,
-		TunnelID:  tunnelCreate.TunnelID,
+		TunnelID:  tunnelCreated.TunnelID,
 	}
 	shellReqData, _ := proto.Marshal(shellReq)
+
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: sliverpb.MsgShellReq,
 		Data: shellReqData,
@@ -56,16 +57,14 @@ func shell(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
 		return
 	}
-	openedShell := &sliverpb.Shell{}
-	proto.Unmarshal(resp.Data, openedShell)
 
-	tunnel := core.Tunnels.Tunnel(tunnelCreate.TunnelID) // Client core tunnel
+	tunnel := core.Tunnels.Tunnel(tunnelCreated.TunnelID) // Client core tunnel
 
 	go func() {
 		for recvData := range tunnel.Recv {
 			tunData := &sliverpb.TunnelData{}
 			proto.Unmarshal(recvData, tunData)
-			log.Printf("[write] stdout shell with tunnel id = %l", tunData.TunnelID)
+			log.Printf("[write] stdout shell with tunnel id = %d", shellReq.TunnelID)
 			os.Stdout.Write(tunData.Data)
 		}
 	}()
@@ -76,10 +75,8 @@ func shell(ctx *grumble.Context, rpc RPCServer) {
 		if err == io.EOF {
 			return
 		}
-		data, _ := proto.Marshal(&sliverpb.TunnelData{
-			Data: readBuf[:n],
-		})
-		log.Printf("[read] stdin tunnel %d", openedShell.TunnelID)
+		data, _ := proto.Marshal(&sliverpb.TunnelData{Data: readBuf[:n]})
+		log.Printf("[read] stdin tunnel %d", shellReq.TunnelID)
 		go rpc(tunnel.Send(data), defaultTimeout)
 	}
 }

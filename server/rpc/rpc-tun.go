@@ -8,7 +8,7 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-func tunCreate(client *core.Client, req []byte, resp RPCResponse) {
+func tunnelCreate(client *core.Client, req []byte, resp RPCResponse) {
 
 	tunCreateReq := &clientpb.TunnelCreateReq{}
 	proto.Unmarshal(req, tunCreateReq)
@@ -22,7 +22,7 @@ func tunCreate(client *core.Client, req []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func tunData(client *core.Client, req []byte, _ RPCResponse) {
+func tunnelData(client *core.Client, req []byte, _ RPCResponse) {
 
 }
 

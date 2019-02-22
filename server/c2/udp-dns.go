@@ -544,7 +544,7 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 
 			blockID, size := storeSendBlocks(encryptedEnvelopeData)
 			dnsPoll.Blocks = append(dnsPoll.Blocks, &pb.DNSBlockHeader{
-				Id:   blockID,
+				ID:   blockID,
 				Size: uint32(size),
 			})
 		}

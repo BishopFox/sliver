@@ -1,9 +1,10 @@
 package clientpb
 
 const (
+	clientOffset = 10000 // To avoid duplications with sliverpb constants
 
 	// MsgEvent - Initial message from sliver with metadata
-	MsgEvent = uint32(1 + iota)
+	MsgEvent = uint32(clientOffset + iota)
 
 	// MsgSessions - Sessions message
 	MsgSessions
@@ -19,6 +20,9 @@ const (
 
 	// MsgMsf - MSF message
 	MsgMsf
+
+	// MsgMsfInject - MSF injection message
+	MsgMsfInject
 
 	// MsgTunnelCreate - Create tunnel message
 	MsgTunnelCreate

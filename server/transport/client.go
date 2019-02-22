@@ -9,7 +9,8 @@ import (
 	"log"
 	"net"
 	consts "sliver/client/constants"
-	pb "sliver/protobuf/client"
+	clientpb "sliver/protobuf/client"
+	sliverpb "sliver/protobuf/sliver"
 	"sliver/server/assets"
 	"sliver/server/certs"
 	"sliver/server/core"
@@ -113,7 +114,7 @@ func handleClientConnection(conn net.Conn) {
 	go func() {
 		defer once.Do(cleanup)
 		rpcHandlers := rpc.GetRPCHandlers()
-		tunHandlers := rpc.GetTUNHandlers()
+		tunHandlers := rpc.GetTunnelHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err != nil {
@@ -127,7 +128,7 @@ func handleClientConnection(conn net.Conn) {
 					if err != nil {
 						errStr = fmt.Sprintf("%v", err)
 					}
-					client.Send <- &pb.Envelope{
+					client.Send <- &sliverpb.Envelope{
 						ID:    envelope.ID,
 						Data:  data,
 						Error: errStr,
@@ -141,7 +142,7 @@ func handleClientConnection(conn net.Conn) {
 					if err != nil {
 						errStr = fmt.Sprintf("%v", err)
 					}
-					client.Send <- &pb.Envelope{
+					client.Send <- &sliverpb.Envelope{
 						ID:    envelope.ID,
 						Data:  data,
 						Error: errStr,
@@ -168,7 +169,7 @@ func handleClientConnection(conn net.Conn) {
 
 func socketEventLoop(conn net.Conn, events chan core.Event) {
 	for event := range events {
-		pbEvent := &pb.Event{EventType: event.EventType}
+		pbEvent := &clientpb.Event{EventType: event.EventType}
 
 		if event.Job != nil {
 			pbEvent.Job = event.Job.ToProtobuf()
@@ -181,8 +182,8 @@ func socketEventLoop(conn net.Conn, events chan core.Event) {
 		}
 
 		data, _ := proto.Marshal(pbEvent)
-		envelope := &pb.Envelope{
-			Type: consts.EventStr,
+		envelope := &sliverpb.Envelope{
+			Type: clientpb.MsgEvent,
 			Data: data,
 		}
 		err := socketWriteEnvelope(conn, envelope)
@@ -196,7 +197,7 @@ func socketEventLoop(conn net.Conn, events chan core.Event) {
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message
 // e.g. [uint32 length|message] so the reciever can delimit messages properly
-func socketWriteEnvelope(connection net.Conn, envelope *pb.Envelope) error {
+func socketWriteEnvelope(connection net.Conn, envelope *sliverpb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		log.Print("Envelope marshaling error: ", err)
@@ -211,7 +212,7 @@ func socketWriteEnvelope(connection net.Conn, envelope *pb.Envelope) error {
 
 // socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
 // returns messageType, message, and error
-func socketReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
+func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 
 	// Read the first four bytes to determine data length
 	dataLengthBuf := make([]byte, 4) // Size of uint32
@@ -249,7 +250,7 @@ func socketReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 		return nil, err
 	}
 	// Unmarshal the protobuf envelope
-	envelope := &pb.Envelope{}
+	envelope := &sliverpb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
 		log.Printf("unmarshaling envelope error: %v", err)

@@ -1,9 +1,11 @@
 package rpc
 
 import (
-	consts "sliver/client/constants"
 	"sliver/server/core"
 	"time"
+
+	clientpb "sliver/protobuf/client"
+	sliverpb "sliver/protobuf/sliver"
 )
 
 const (
@@ -15,47 +17,47 @@ type RPCResponse func([]byte, error)
 
 // RPCHandler - RPC handlers accept bytes and return bytes
 type RPCHandler func([]byte, RPCResponse)
-type TUNHandler func(*core.Client, []byte, RPCResponse)
+type TunnelHandler func(*core.Client, []byte, RPCResponse)
 
 var (
-	rpcHandlers = &map[string]RPCHandler{
-		consts.JobsStr: rpcJobs,
-		consts.MtlsStr: rpcStartMTLSListener,
-		consts.DnsStr:  rpcStartDNSListener,
+	rpcHandlers = &map[uint32]RPCHandler{
+		clientpb.MsgJobs: rpcJobs,
+		clientpb.MsgMtls: rpcStartMTLSListener,
+		clientpb.MsgDns:  rpcStartDNSListener,
 
-		consts.SessionsStr:   rpcSessions,
-		consts.GenerateStr:   rpcGenerate,
-		consts.ProfilesStr:   rpcProfiles,
-		consts.NewProfileStr: rpcNewProfile,
+		clientpb.MsgSessions:   rpcSessions,
+		clientpb.MsgGenerate:   rpcGenerate,
+		clientpb.MsgProfiles:   rpcProfiles,
+		clientpb.MsgNewProfile: rpcNewProfile,
 
-		consts.MsfStr:    rpcMsf,
-		consts.InjectStr: rpcMsfInject,
+		clientpb.MsgMsf:       rpcMsf,
+		clientpb.MsgMsfInject: rpcMsfInject,
 
-		consts.PsStr:       rpcPs,
-		consts.ProcdumpStr: rpcProcdump,
+		sliverpb.MsgPsReq:          rpcPs,
+		sliverpb.MsgProcessDumpReq: rpcProcdump,
 
-		consts.LsStr:       rpcLs,
-		consts.RmStr:       rpcRm,
-		consts.MkdirStr:    rpcMkdir,
-		consts.CdStr:       rpcCd,
-		consts.PwdStr:      rpcPwd,
-		consts.DownloadStr: rpcDownload,
-		consts.UploadStr:   rpcUpload,
+		sliverpb.MsgLsReq:       rpcLs,
+		sliverpb.MsgRmReq:       rpcRm,
+		sliverpb.MsgMkdirReq:    rpcMkdir,
+		sliverpb.MsgCdReq:       rpcCd,
+		sliverpb.MsgPwdReq:      rpcPwd,
+		sliverpb.MsgDownloadReq: rpcDownload,
+		sliverpb.MsgUploadReq:   rpcUpload,
 
-		consts.ShellStr: rpcShell,
+		sliverpb.MsgShellReq: rpcShell,
 	}
 
-	tunHandlers = &map[string]TUNHandler{
-		consts.CreateTUNStr: tunCreate,
+	tunHandlers = &map[uint32]TunnelHandler{
+		clientpb.MsgTunnelCreate: tunnelCreate,
 	}
 )
 
 // GetRPCHandlers - Returns a map of server-side msg handlers
-func GetRPCHandlers() *map[string]RPCHandler {
+func GetRPCHandlers() *map[uint32]RPCHandler {
 	return rpcHandlers
 }
 
-// GetTUNHandlers - Returns a map of tunnel handlers
-func GetTUNHandlers() *map[string]TUNHandler {
+// GetTunnelHandlers - Returns a map of tunnel handlers
+func GetTunnelHandlers() *map[uint32]TunnelHandler {
 	return tunHandlers
 }

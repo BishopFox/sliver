@@ -10,7 +10,7 @@ import (
 	"sliver/client/command"
 	consts "sliver/client/constants"
 	"sliver/client/help"
-	pb "sliver/protobuf/client"
+	sliverpb "sliver/protobuf/sliver"
 	"time"
 
 	"sliver/server/rpc"
@@ -46,15 +46,15 @@ func Start() {
 	serverOnlyCmds(sliverApp)
 
 	handlers := rpc.GetRPCHandlers()
-	command.Init(sliverApp, func(envelope *pb.Envelope, timeout time.Duration) chan *pb.Envelope {
-		resp := make(chan *pb.Envelope)
+	command.Init(sliverApp, func(envelope *sliverpb.Envelope, timeout time.Duration) chan *sliverpb.Envelope {
+		resp := make(chan *sliverpb.Envelope)
 		if handler, ok := (*handlers)[envelope.Type]; ok {
 			go handler(envelope.Data, func(data []byte, err error) {
 				errStr := ""
 				if err != nil {
 					errStr = fmt.Sprintf("%v", err)
 				}
-				resp <- &pb.Envelope{
+				resp <- &sliverpb.Envelope{
 					ID:    envelope.ID,
 					Data:  data,
 					Error: errStr,
@@ -103,7 +103,7 @@ func eventLoop(sliverApp *grumble.App, events chan core.Event) {
 			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
 			activeSliver := command.ActiveSliver.Sliver
-			if activeSliver != nil && int32(sliver.ID) == activeSliver.ID {
+			if activeSliver != nil && sliver.ID == activeSliver.ID {
 				command.ActiveSliver.SetActiveSliver(nil)
 				sliverApp.SetPrompt(getPrompt())
 				fmt.Printf(Warn + "Warning: Active sliver diconnected\n")
