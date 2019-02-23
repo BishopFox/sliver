@@ -33,6 +33,7 @@ var (
 		clientpb.MsgMsf:       rpcMsf,
 		clientpb.MsgMsfInject: rpcMsfInject,
 
+		// "Req"s directly map to responses
 		sliverpb.MsgPsReq:          rpcPs,
 		sliverpb.MsgProcessDumpReq: rpcProcdump,
 

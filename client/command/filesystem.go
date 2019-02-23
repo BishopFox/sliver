@@ -34,7 +34,7 @@ func ls(ctx *grumble.Context, rpc RPCServer) {
 		Path:     ctx.Args[0],
 	})
 	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgLs,
+		Type: sliverpb.MsgLsReq,
 		Data: data,
 	}, defaultTimeout)
 	if resp.Error != "" {
@@ -82,7 +82,7 @@ func rm(ctx *grumble.Context, rpc RPCServer) {
 		Path:     ctx.Args[0],
 	})
 	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgRm,
+		Type: sliverpb.MsgRmReq,
 		Data: data,
 	}, defaultTimeout)
 	if resp.Error != "" {
@@ -121,7 +121,7 @@ func mkdir(ctx *grumble.Context, rpc RPCServer) {
 		Path:     ctx.Args[0],
 	})
 	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgMkdir,
+		Type: sliverpb.MsgMkdirReq,
 		Data: data,
 	}, defaultTimeout)
 	if resp.Error != "" {
@@ -158,7 +158,7 @@ func cd(ctx *grumble.Context, rpc RPCServer) {
 		Path:     ctx.Args[0],
 	})
 	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgCd,
+		Type: sliverpb.MsgCdReq,
 		Data: data,
 	}, defaultTimeout)
 	if resp.Error != "" {
@@ -185,7 +185,7 @@ func pwd(ctx *grumble.Context, rpc RPCServer) {
 		SliverID: ActiveSliver.Sliver.ID,
 	})
 	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgPwd,
+		Type: sliverpb.MsgPwdReq,
 		Data: data,
 	}, defaultTimeout)
 	if resp.Error != "" {
@@ -218,7 +218,7 @@ func cat(ctx *grumble.Context, rpc RPCServer) {
 		Path:     ctx.Args[0],
 	})
 	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgDownload,
+		Type: sliverpb.MsgDownloadReq,
 		Data: data,
 	}, defaultTimeout)
 	if resp.Error != "" {
@@ -280,7 +280,7 @@ func download(ctx *grumble.Context, rpc RPCServer) {
 		Path:     ctx.Args[0],
 	})
 	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgDownload,
+		Type: sliverpb.MsgDownloadReq,
 		Data: data,
 	}, defaultTimeout)
 	ctrl <- true
@@ -344,7 +344,7 @@ func upload(ctx *grumble.Context, rpc RPCServer) {
 		Encoder:  "gzip",
 	})
 	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgUpload,
+		Type: sliverpb.MsgUploadReq,
 		Data: data,
 	}, defaultTimeout)
 	ctrl <- true

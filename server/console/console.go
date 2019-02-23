@@ -45,25 +45,10 @@ func Start() {
 
 	serverOnlyCmds(sliverApp)
 
-	handlers := rpc.GetRPCHandlers()
 	command.Init(sliverApp, func(envelope *sliverpb.Envelope, timeout time.Duration) chan *sliverpb.Envelope {
 		resp := make(chan *sliverpb.Envelope)
-		if handler, ok := (*handlers)[envelope.Type]; ok {
-			go handler(envelope.Data, func(data []byte, err error) {
-				errStr := ""
-				if err != nil {
-					errStr = fmt.Sprintf("%v", err)
-				}
-				resp <- &sliverpb.Envelope{
-					ID:    envelope.ID,
-					Data:  data,
-					Error: errStr,
-				}
-			})
-			return resp
-		}
-		fmt.Println()
-		return nil
+		go responseMapper(resp, envelope)
+		return resp
 	})
 
 	command.ActiveSliver.AddObserver(func() {
@@ -77,6 +62,27 @@ func Start() {
 	err := sliverApp.Run()
 	if err != nil {
 		log.Printf("Run loop returned error: %v", err)
+	}
+}
+
+// Maps request envelope ID to a response envelope
+func responseMapper(resp chan *sliverpb.Envelope, envelope *sliverpb.Envelope) {
+	handlers := rpc.GetRPCHandlers()
+	if handler, ok := (*handlers)[envelope.Type]; ok {
+		handler(envelope.Data, func(data []byte, err error) {
+			errStr := ""
+			if err != nil {
+				errStr = fmt.Sprintf("%v", err)
+			}
+			resp <- &sliverpb.Envelope{
+				ID:    envelope.ID,
+				Data:  data,
+				Error: errStr,
+			}
+		})
+	} else {
+		log.Printf("No rpc handler for msg type %d", envelope.Type)
+		resp <- nil // Invalid RPC call
 	}
 }
 

@@ -35,7 +35,13 @@ func tunnelDataHandler(req []byte, connection *transports.Connection) {
 	tunData := &pb.TunnelData{}
 	proto.Unmarshal(req, tunData)
 	tunnel := connection.Tunnel(tunData.TunnelID)
-	tunnel.Writer.Write(tunData.Data)
+	if tunnel != nil {
+		tunnel.Writer.Write(tunData.Data)
+	} else {
+		// {{if .Debug}}
+		log.Printf("Data for nil tunnel %d", tunData.TunnelID)
+		// {{end}}
+	}
 }
 
 func shellReqHandler(req []byte, connection *transports.Connection) {
@@ -61,7 +67,10 @@ func shellReqHandler(req []byte, connection *transports.Connection) {
 			readBuf := make([]byte, readBufSize)
 			n, err := tunnel.Reader.Read(readBuf)
 			if err == io.EOF {
-				break
+				// {{if .Debug}}
+				log.Printf("Read EOF on tunnel %d", tunnel.ID)
+				// {{end}}
+				return
 			}
 			data, err := proto.Marshal(&pb.TunnelData{
 				TunnelID: tunnel.ID,
