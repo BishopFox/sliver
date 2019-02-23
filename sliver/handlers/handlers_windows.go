@@ -29,8 +29,6 @@ var (
 		pb.MsgPwdReq:      pwdHandler,
 		pb.MsgRmReq:       rmHandler,
 		pb.MsgMkdirReq:    mkdirHandler,
-
-		pb.MsgShellReq: shellHandler,
 	}
 )
 
