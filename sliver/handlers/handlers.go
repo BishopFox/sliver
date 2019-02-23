@@ -326,19 +326,18 @@ func startShellHandler(data []byte, resp RPCResponse) {
 	shellPath := shell.GetSystemShellPath()
 	systemShell := shell.StartInteractive(shellReq.TunnelID, shellPath, shellReq.EnablePTY)
 	tunnel := tun.Tunnel{
-		ID: shellReq.TunnelID
+		ID:     shellReq.TunnelID,
 		Reader: systemShell.Stdout,
 		Writer: systemShell.Stdin,
 	}
 	tun.Tunnels.Start(tunnel)
-	
+
 	// {{if .Debug}}
 	log.Printf("Started shell with tunnel ID %d", tunnel.ID)
 	// {{end}}
 
 	data, err := proto.Marshal(&pb.Shell{TunnelID: tunnel.ID})
 	resp(data, err)
-
 }
 
 func shellDataHandler(data []byte, resp RPCResponse) {
