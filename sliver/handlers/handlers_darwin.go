@@ -26,11 +26,10 @@ var (
 		pb.MsgPwdReq:      pwdHandler,
 		pb.MsgRmReq:       rmHandler,
 		pb.MsgMkdirReq:    mkdirHandler,
-
-		pb.MsgShellReq: startShellHandler,
 	}
 )
 
+// GetSystemHandlers - Returns a map of the darwin system handlers
 func GetSystemHandlers() map[uint32]RPCHandler {
 	return darwinHandlers
 }

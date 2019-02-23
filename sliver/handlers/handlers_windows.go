@@ -30,8 +30,7 @@ var (
 		pb.MsgRmReq:       rmHandler,
 		pb.MsgMkdirReq:    mkdirHandler,
 
-		pb.MsgShellReq:  startShellHandler,
-		pb.MsgShellData: shellDataHandler,
+		pb.MsgShellReq: shellHandler,
 	}
 )
 

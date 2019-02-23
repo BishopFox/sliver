@@ -7,6 +7,7 @@ import (
 	"os"
 	pb "sliver/protobuf/sliver"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -37,6 +38,15 @@ type Connection struct {
 	Recv    chan *pb.Envelope
 	Ctrl    chan bool
 	Cleanup func()
+	Tunnels *map[uint64]*Tunnel
+	mutex   *sync.RWMutex
+}
+
+// AddTunnel - Add tunnel to mapping
+func (c *Connection) AddTunnel(tun *Tunnel) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	(*c.Tunnels)[tun.ID] = tun
 }
 
 // StartConnectionLoop - Starts the main connection loop
