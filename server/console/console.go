@@ -67,9 +67,22 @@ func Start() {
 
 // Maps request envelope ID to a response envelope
 func responseMapper(resp chan *sliverpb.Envelope, envelope *sliverpb.Envelope) {
-	handlers := rpc.GetRPCHandlers()
-	if handler, ok := (*handlers)[envelope.Type]; ok {
-		handler(envelope.Data, func(data []byte, err error) {
+	rpcHandlers := rpc.GetRPCHandlers()
+	tunHanlders := rpc.GetTunnelHandlers()
+	if rpcHandler, ok := (*rpcHandlers)[envelope.Type]; ok {
+		rpcHandler(envelope.Data, func(data []byte, err error) {
+			errStr := ""
+			if err != nil {
+				errStr = fmt.Sprintf("%v", err)
+			}
+			resp <- &sliverpb.Envelope{
+				ID:    envelope.ID,
+				Data:  data,
+				Error: errStr,
+			}
+		})
+	} else if tunHandler, ok := (*tunHanlders)[envelope.Type]; ok {
+		tunHandler(envelope.Data, func(data []byte, err error) {
 			errStr := ""
 			if err != nil {
 				errStr = fmt.Sprintf("%v", err)
