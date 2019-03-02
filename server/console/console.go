@@ -6,7 +6,6 @@ import (
 	"sliver/client/command"
 	clientconsole "sliver/client/console"
 	consts "sliver/client/constants"
-	"sliver/client/core"
 	clientcore "sliver/client/core"
 	"sliver/client/help"
 	sliverpb "sliver/protobuf/sliver"
@@ -16,6 +15,7 @@ import (
 	"github.com/desertbit/grumble"
 
 	"sliver/server/generate"
+	"sliver/server/transport"
 )
 
 // Start - Starts the server console
@@ -24,10 +24,11 @@ func Start() {
 	send := make(chan *sliverpb.Envelope)
 	recv := make(chan *sliverpb.Envelope)
 
-	server := core.BindSliverServer(send, recv)
+	transport.LocalClientConnect(send, recv)
+
+	server := clientcore.BindSliverServer(send, recv)
 	go server.ResponseMapper()
 	clientconsole.Start(server, serverOnlyCmds)
-
 }
 
 // ServerOnlyCmds - Server only commands

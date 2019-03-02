@@ -14,6 +14,24 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
+func createTunnel(server *core.SliverServer) *clientpb.TunnelCreate {
+	tunReq := &clientpb.TunnelCreateReq{SliverID: ActiveSliver.Sliver.ID}
+	tunReqData, _ := proto.Marshal(tunReq)
+
+	tunResp := <-server.RPC(&sliverpb.Envelope{
+		Type: clientpb.MsgTunnelCreate,
+		Data: tunReqData,
+	}, defaultTimeout)
+	if tunResp.Error != "" {
+		fmt.Printf(Warn+"Error: %s", tunResp.Error)
+		return nil
+	}
+
+	tunnelCreated := &clientpb.TunnelCreate{}
+	proto.Unmarshal(tunResp.Data, tunnelCreated)
+	return tunnelCreated
+}
+
 func shell(ctx *grumble.Context, server *core.SliverServer) {
 	if ActiveSliver.Sliver == nil {
 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
@@ -27,25 +45,15 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 
 	fmt.Printf(Info + "Opening shell tunnel with sliver ...\n")
 
-	tunReq := &clientpb.TunnelCreateReq{SliverID: ActiveSliver.Sliver.ID}
-	tunReqData, _ := proto.Marshal(tunReq)
-
-	tunResp := <-server.RPC(&sliverpb.Envelope{
-		Type: clientpb.MsgTunnelCreate,
-		Data: tunReqData,
-	}, defaultTimeout)
-	if tunResp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", tunResp.Error)
+	tunMeta := createTunnel(server)
+	if tunMeta == nil {
 		return
 	}
-
-	tunnelCreated := &clientpb.TunnelCreate{}
-	proto.Unmarshal(tunResp.Data, tunnelCreated)
 
 	shellReq := &sliverpb.ShellReq{
 		SliverID:  ActiveSliver.Sliver.ID,
 		EnablePTY: !noPty,
-		TunnelID:  tunnelCreated.TunnelID,
+		TunnelID:  tunMeta.TunnelID,
 	}
 	shellReqData, _ := proto.Marshal(shellReq)
 
@@ -58,7 +66,7 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 		return
 	}
 
-	tunnel := server.Tunnels.BindTunnel(tunnelCreated.SliverID, tunnelCreated.TunnelID) // Client core tunnel
+	tunnel := server.Tunnels.BindTunnel(tunMeta.SliverID, tunMeta.TunnelID) // Client core tunnel
 
 	go func() {
 		for data := range tunnel.Recv {

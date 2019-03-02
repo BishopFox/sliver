@@ -7,14 +7,18 @@ import (
 	"sliver/server/rpc"
 )
 
-func localClientConnect(send, recv chan *sliverpb.Envelope) {
+// LocalClientConnect - Handles local connections to the server console
+// keep in mind the arguments to this function are in the context of the client
+// so send = "send to server" and recv = "recv from server"
+func LocalClientConnect(send, recv chan *sliverpb.Envelope) {
 	client := core.GetClient("server")
+	client.Send = recv // Client's recv channel
 	core.Clients.AddClient(client)
 
 	go func() {
 		rpcHandlers := rpc.GetRPCHandlers()
 		tunHandlers := rpc.GetTunnelHandlers()
-		for envelope := range recv {
+		for envelope := range send {
 			// RPC
 			if rpcHandler, ok := (*rpcHandlers)[envelope.Type]; ok {
 				go rpcHandler(envelope.Data, func(data []byte, err error) {
@@ -45,9 +49,4 @@ func localClientConnect(send, recv chan *sliverpb.Envelope) {
 			}
 		}
 	}()
-
-	for envelope := range client.Send {
-		send <- envelope
-	}
-
 }
