@@ -25,7 +25,7 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 		noPty = true // Windows of course doesn't have PTYs
 	}
 
-	fmt.Printf(Info + "Opening shell tunnel with sliver ...\n")
+	fmt.Printf(Info + "Opening shell tunnel (EOF to exit) ...\n\n")
 
 	tunnel, err := server.CreateTunnel(ActiveSliver.Sliver.ID, defaultTimeout)
 	if err != nil {
