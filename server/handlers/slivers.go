@@ -11,8 +11,9 @@ import (
 
 var (
 	serverHandlers = map[uint32]interface{}{
-		sliverpb.MsgRegister:   registerSliverHandler,
-		sliverpb.MsgTunnelData: tunnelDataHandler,
+		sliverpb.MsgRegister:    registerSliverHandler,
+		sliverpb.MsgTunnelData:  tunnelDataHandler,
+		sliverpb.MsgTunnelClose: tunnelCloseHandler,
 	}
 )
 
@@ -62,5 +63,17 @@ func tunnelDataHandler(sliver *core.Sliver, data []byte) {
 		}
 	} else {
 		log.Printf("Data sent on nil tunnel %d", tunnelData.TunnelID)
+	}
+}
+
+func tunnelCloseHandler(sliver *core.Sliver, data []byte) {
+	tunnelClose := &sliverpb.TunnelClose{}
+	proto.Unmarshal(data, tunnelClose)
+	tunnel := core.Tunnels.Tunnel(tunnelClose.TunnelID)
+	if tunnel.Sliver.ID == sliver.ID {
+		log.Printf("Sliver %d closed tunnel %d (reason: %s)", sliver.ID, tunnel.ID, tunnelClose.Err)
+		core.Tunnels.CloseTunnel(tunnel.ID, tunnelClose.Err)
+	} else {
+		log.Printf("Warning: Sliver attempted to close tunnel it did not own") // TODO: Log to security events
 	}
 }

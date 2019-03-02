@@ -37,8 +37,8 @@ func ls(ctx *grumble.Context, rpc RPCServer) {
 		Type: sliverpb.MsgLsReq,
 		Data: data,
 	}, defaultTimeout)
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
 
@@ -85,8 +85,8 @@ func rm(ctx *grumble.Context, rpc RPCServer) {
 		Type: sliverpb.MsgRmReq,
 		Data: data,
 	}, defaultTimeout)
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
 
@@ -124,8 +124,8 @@ func mkdir(ctx *grumble.Context, rpc RPCServer) {
 		Type: sliverpb.MsgMkdirReq,
 		Data: data,
 	}, defaultTimeout)
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
 
@@ -161,8 +161,8 @@ func cd(ctx *grumble.Context, rpc RPCServer) {
 		Type: sliverpb.MsgCdReq,
 		Data: data,
 	}, defaultTimeout)
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
 
@@ -188,8 +188,8 @@ func pwd(ctx *grumble.Context, rpc RPCServer) {
 		Type: sliverpb.MsgPwdReq,
 		Data: data,
 	}, defaultTimeout)
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
 
@@ -221,12 +221,12 @@ func cat(ctx *grumble.Context, rpc RPCServer) {
 		Type: sliverpb.MsgDownloadReq,
 		Data: data,
 	}, defaultTimeout)
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
 
@@ -284,8 +284,8 @@ func download(ctx *grumble.Context, rpc RPCServer) {
 		Data: data,
 	}, defaultTimeout)
 	ctrl <- true
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
 
@@ -348,8 +348,8 @@ func upload(ctx *grumble.Context, rpc RPCServer) {
 		Data: data,
 	}, defaultTimeout)
 	ctrl <- true
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
 

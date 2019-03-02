@@ -147,11 +147,6 @@ message TunnelCloseReq {
   uint64 TunnelID = 9;
 }
 
-message TunnelClose {
-  bool Closed = 1;
-  uint64 TunnelID = 9;
-}
-
 
 // [ events ] ----------------------------------------
 

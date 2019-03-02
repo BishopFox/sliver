@@ -77,8 +77,8 @@ func startMTLSListener(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "Command timeout\n")
 		return
 	}
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Failed to start job %s\n", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Failed to start job %s\n", resp.Err)
 		return
 	}
 	mtls := &clientpb.MTLS{}
@@ -107,8 +107,8 @@ func startDNSListener(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "Command timeout\n")
 		return
 	}
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Failed to start job %s\n", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Failed to start job %s\n", resp.Err)
 		return
 	}
 	dns := &clientpb.DNS{}

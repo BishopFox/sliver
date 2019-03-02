@@ -3,7 +3,10 @@ package core
 import (
 	"crypto/rand"
 	"encoding/binary"
+	sliverpb "sliver/protobuf/sliver"
 	"sync"
+
+	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -35,11 +38,23 @@ func (t *tunnels) CreateTunnel(client *Client, sliverID uint32) *tunnel {
 	return tun
 }
 
-func (t *tunnels) CloseTunnel(client *Client, tunnelID uint64) bool {
+func (t *tunnels) CloseTunnel(tunnelID uint64, reason string) bool {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	tunnel := (*t.tunnels)[tunnelID]
-	if tunnel != nil && client.ID == tunnel.Client.ID {
+	if tunnel != nil {
+		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelClose{
+			TunnelID: tunnelID,
+			Err:      reason,
+		})
+		tunnel.Client.Send <- &sliverpb.Envelope{
+			Type: sliverpb.MsgTunnelClose,
+			Data: tunnelClose,
+		}
+		tunnel.Sliver.Send <- &sliverpb.Envelope{
+			Type: sliverpb.MsgTunnelClose,
+			Data: tunnelClose,
+		}
 		delete(*t.tunnels, tunnelID)
 		return true
 	}

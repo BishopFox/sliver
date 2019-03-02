@@ -29,8 +29,8 @@ func ps(ctx *grumble.Context, rpc RPCServer) {
 		Type: sliverpb.MsgPsReq,
 		Data: data,
 	}, defaultTimeout)
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
 	ps := &sliverpb.Ps{}

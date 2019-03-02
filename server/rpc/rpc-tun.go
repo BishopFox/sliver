@@ -11,7 +11,6 @@ import (
 )
 
 func tunnelCreate(client *core.Client, req []byte, resp RPCResponse) {
-
 	tunCreateReq := &clientpb.TunnelCreateReq{}
 	proto.Unmarshal(req, tunCreateReq)
 
@@ -26,7 +25,6 @@ func tunnelCreate(client *core.Client, req []byte, resp RPCResponse) {
 }
 
 func tunnelData(client *core.Client, req []byte, _ RPCResponse) {
-
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(req, tunnelData)
 	tunnel := core.Tunnels.Tunnel(tunnelData.TunnelID)
@@ -41,12 +39,17 @@ func tunnelClose(client *core.Client, req []byte, resp RPCResponse) {
 	tunCloseReq := &clientpb.TunnelCloseReq{}
 	proto.Unmarshal(req, tunCloseReq)
 
-	closed := core.Tunnels.CloseTunnel(client, tunCloseReq.TunnelID)
+	tunnel := core.Tunnels.Tunnel(tunCloseReq.TunnelID)
 
-	data, err := proto.Marshal(&clientpb.TunnelClose{
-		TunnelID: tunCloseReq.TunnelID,
-		Closed:   closed,
-	})
-
-	resp(data, err)
+	if tunnel != nil && client.ID == tunnel.Client.ID {
+		closed := core.Tunnels.CloseTunnel(tunCloseReq.TunnelID, "Client exit")
+		closeResp := &sliverpb.TunnelClose{
+			TunnelID: tunCloseReq.TunnelID,
+		}
+		if !closed {
+			closeResp.Err = "Failed to close tunnel"
+		}
+		data, err := proto.Marshal(closeResp)
+		resp(data, err)
+	}
 }

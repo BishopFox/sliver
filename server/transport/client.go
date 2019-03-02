@@ -129,9 +129,9 @@ func handleClientConnection(conn net.Conn) {
 						errStr = fmt.Sprintf("%v", err)
 					}
 					client.Send <- &sliverpb.Envelope{
-						ID:    envelope.ID,
-						Data:  data,
-						Error: errStr,
+						ID:   envelope.ID,
+						Data: data,
+						Err:  errStr,
 					}
 				})
 			}
@@ -143,9 +143,9 @@ func handleClientConnection(conn net.Conn) {
 						errStr = fmt.Sprintf("%v", err)
 					}
 					client.Send <- &sliverpb.Envelope{
-						ID:    envelope.ID,
-						Data:  data,
-						Error: errStr,
+						ID:   envelope.ID,
+						Data: data,
+						Err:  errStr,
 					}
 				})
 			}

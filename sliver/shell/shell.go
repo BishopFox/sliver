@@ -23,7 +23,7 @@ const (
 // Shell - Struct to hold shell related data
 type Shell struct {
 	ID      uint64
-	Command []string
+	Command *exec.Cmd
 	Stdout  io.ReadCloser
 	Stdin   io.WriteCloser
 }
@@ -60,7 +60,7 @@ func pipedShell(tunnelID uint64, command []string) *Shell {
 
 	return &Shell{
 		ID:      tunnelID,
-		Command: command,
+		Command: cmd,
 		Stdout:  stdout,
 		Stdin:   stdin,
 	}
@@ -85,7 +85,7 @@ func ptyShell(tunnelID uint64, command []string) *Shell {
 
 	return &Shell{
 		ID:      tunnelID,
-		Command: command,
+		Command: cmd,
 		Stdout:  ptmx,
 		Stdin:   ptmx,
 	}

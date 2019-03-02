@@ -147,8 +147,8 @@ func kill(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	if resp.Error != "" {
-		fmt.Printf(Warn+"%s\n", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"%s\n", resp.Err)
 	} else {
 		fmt.Printf(Info+"Killed %s (%d)\n", sliver.Name, sliver.ID)
 	}
@@ -268,8 +268,8 @@ func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 		fmt.Printf(Warn + "No response from server\n")
 		return
 	}
-	if resp.Error != "" {
-		fmt.Printf(Warn+"%s\n", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"%s\n", resp.Err)
 		return
 	}
 
@@ -386,8 +386,8 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "No response from server\n")
 		return
 	}
-	if resp.Error != "" {
-		fmt.Printf(Warn+"%s\n", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"%s\n", resp.Err)
 	} else {
 		fmt.Printf(Info + "Saved new profile\n")
 	}
@@ -401,8 +401,8 @@ func getSliverProfiles(rpc RPCServer) *map[string]*clientpb.Profile {
 		fmt.Printf(Warn + "No response from server\n")
 		return nil
 	}
-	if resp.Error != "" {
-		fmt.Printf(Warn+"%s\n", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"%s\n", resp.Err)
 		return nil
 	}
 

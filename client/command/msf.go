@@ -48,8 +48,8 @@ func msf(ctx *grumble.Context, rpc RPCServer) {
 		Data: data,
 	}, defaultTimeout)
 	ctrl <- true
-	if resp.Error != "" {
-		fmt.Printf(Warn+"%s\n", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"%s\n", resp.Err)
 		return
 	}
 
@@ -98,8 +98,8 @@ func msfInject(ctx *grumble.Context, rpc RPCServer) {
 		Data: data,
 	}, defaultTimeout)
 	ctrl <- true
-	if resp.Error != "" {
-		fmt.Printf(Warn+"%s\n", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"%s\n", resp.Err)
 		return
 	}
 

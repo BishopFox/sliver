@@ -11,6 +11,7 @@ import (
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 func shell(ctx *grumble.Context, server *core.SliverServer) {
@@ -32,13 +33,11 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 		return
 	}
 
-	shellReq := &sliverpb.ShellReq{
+	shellReqData, _ := proto.Marshal(&sliverpb.ShellReq{
 		SliverID:  ActiveSliver.Sliver.ID,
 		EnablePTY: !noPty,
 		TunnelID:  tunnel.ID,
-	}
-	shellReqData, _ := proto.Marshal(shellReq)
-
+	})
 	resp := <-server.RPC(&sliverpb.Envelope{
 		Type: sliverpb.MsgShellReq,
 		Data: shellReqData,
@@ -47,26 +46,44 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 		fmt.Printf(Warn + "Error: Server did not respond to request")
 		return
 	}
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
 
+	oldState, err := terminal.MakeRaw(0)
+	readBuf := make([]byte, 128)
+
+	cleanup := func() {
+		log.Printf("[client] cleanup tunnel %d", tunnel.ID)
+		tunnelClose, _ := proto.Marshal(&sliverpb.ShellReq{
+			TunnelID: tunnel.ID,
+		})
+		server.RPC(&sliverpb.Envelope{
+			Type: sliverpb.MsgTunnelClose,
+			Data: tunnelClose,
+		}, defaultTimeout)
+		terminal.Restore(0, oldState)
+	}
+
 	go func() {
+		defer cleanup()
 		for data := range tunnel.Recv {
-			log.Printf("[write] stdout shell with tunnel id = %d", shellReq.TunnelID)
+			log.Printf("[write] stdout shell with tunnel id = %d", tunnel.ID)
 			os.Stdout.Write(data)
 		}
 	}()
 
-	readBuf := make([]byte, 128)
 	for {
 		n, err := os.Stdin.Read(readBuf)
 		if err == io.EOF {
-			return
+			break
 		}
-		log.Printf("[read] %#v", string(readBuf[:n]))
-		log.Printf("[read] stdin tunnel %d", shellReq.TunnelID)
-		tunnel.Send(readBuf[:n])
+		if err == nil && 0 < n {
+			tunnel.Send(readBuf[:n])
+		} else if err == nil && n == 0 {
+			break
+		}
+
 	}
 }

@@ -43,7 +43,8 @@ var (
 		observers: []observer{},
 	}
 
-	defaultTimeout = 30 * time.Second
+	defaultTimeout   = 30 * time.Second
+	stdinReadTimeout = 10 * time.Millisecond
 )
 
 // RPCServer - Function used to send/recv envelopes

@@ -7,7 +7,7 @@ message Envelope {
   uint64 ID = 2;   // Resp ID
   bytes Data = 9;  // Actual message data
   
-  string Error = 4;
+  string Err = 4;
 }
 
 message Register {
@@ -143,7 +143,7 @@ message Upload {
 }
 
 message ProcessDumpReq {
-  int32 pid = 1;
+  int32 Pid = 1;
 
   int32 Timeout = 8;
   uint32 SliverID = 9;
@@ -176,6 +176,11 @@ message TunnelData {
   bool Close = 3;
   string Err = 4;
 
+  uint64 TunnelID = 9;
+}
+
+message TunnelClose {
+  string Err = 1;
   uint64 TunnelID = 9;
 }
 

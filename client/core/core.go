@@ -52,9 +52,10 @@ func (t *tunnels) RecvTunnelData(tunnelData *sliverpb.TunnelData) {
 	}
 }
 
-func (t *tunnels) RemoveTunnel(ID uint64) {
+func (t *tunnels) Close(ID uint64) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+	close((*t.tunnels)[ID].Recv)
 	delete(*t.tunnels, ID)
 }
 
@@ -100,8 +101,8 @@ func (ss *SliverServer) CreateTunnel(sliverID uint32, defaultTimeout time.Durati
 		Type: clientpb.MsgTunnelCreate,
 		Data: tunReqData,
 	}, defaultTimeout)
-	if tunResp.Error != "" {
-		return nil, fmt.Errorf("Error: %s", tunResp.Error)
+	if tunResp.Err != "" {
+		return nil, fmt.Errorf("Error: %s", tunResp.Err)
 	}
 
 	tunnelCreated := &clientpb.TunnelCreate{}
@@ -126,6 +127,7 @@ func (ss *SliverServer) ResponseMapper() {
 		} else {
 			// If the message does not have an envelope ID then we route it based on type
 			switch envelope.Type {
+
 			case clientpb.MsgEvent:
 				event := &clientpb.Event{}
 				err := proto.Unmarshal(envelope.Data, event)
@@ -145,6 +147,16 @@ func (ss *SliverServer) ResponseMapper() {
 				}
 				log.Printf("[client] Routing tunnel data with id %d", tunnelData.TunnelID)
 				ss.Tunnels.RecvTunnelData(tunnelData)
+
+			case sliverpb.MsgTunnelClose:
+				tunnelClose := &sliverpb.TunnelClose{}
+				err := proto.Unmarshal(envelope.Data, tunnelClose)
+				if err != nil {
+					log.Printf("Failed to decode tunnel data envelope")
+					continue
+				}
+				ss.Tunnels.Close(tunnelClose.TunnelID)
+
 			}
 		}
 	}
