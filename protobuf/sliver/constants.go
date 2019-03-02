@@ -70,9 +70,9 @@ const (
 
 	// MsgShellReq - Starts an interactive shell
 	MsgShellReq
+	MsgShell
 
-	// MsgTunnelReq - Request to open a duplex data tunnel
-	MsgTunnelReq
 	// MsgTunnelData - Data for duplex tunnels
 	MsgTunnelData
+	MsgTunnelClose
 )

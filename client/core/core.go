@@ -67,6 +67,7 @@ type tunnel struct {
 }
 
 func (t *tunnel) Send(data []byte) {
+	log.Printf("Sending %d bytes on tunnel %d (sliver %d)", len(data), t.ID, t.SliverID)
 	tunnelData := &sliverpb.TunnelData{
 		SliverID: t.SliverID,
 		TunnelID: t.ID,

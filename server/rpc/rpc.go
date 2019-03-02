@@ -50,6 +50,8 @@ var (
 
 	tunHandlers = &map[uint32]TunnelHandler{
 		clientpb.MsgTunnelCreate: tunnelCreate,
+		sliverpb.MsgTunnelData:   tunnelData,
+		sliverpb.MsgTunnelClose:  tunnelClose,
 	}
 )
 

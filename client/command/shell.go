@@ -65,8 +65,8 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 		if err == io.EOF {
 			return
 		}
-		data, _ := proto.Marshal(&sliverpb.TunnelData{Data: readBuf[:n]})
+		log.Printf("[read] %#v", string(readBuf[:n]))
 		log.Printf("[read] stdin tunnel %d", shellReq.TunnelID)
-		go tunnel.Send(data)
+		tunnel.Send(readBuf[:n])
 	}
 }

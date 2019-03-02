@@ -36,6 +36,12 @@ func tunnelDataHandler(envelope *pb.Envelope, connection *transports.Connection)
 	proto.Unmarshal(envelope.Data, tunData)
 	tunnel := connection.Tunnel(tunData.TunnelID)
 	if tunnel != nil {
+
+		// {{if .Debug}}
+		log.Printf("[tunnel] Write %d bytes to tunnel %d", len(tunData.Data), tunnel.ID)
+		log.Printf("[tunnel] %#v", string(tunData.Data))
+		// {{end}}
+
 		tunnel.Writer.Write(tunData.Data)
 	} else {
 		// {{if .Debug}}
@@ -80,6 +86,7 @@ func shellReqHandler(envelope *pb.Envelope, connection *transports.Connection) {
 			}
 			// {{if .Debug}}
 			log.Printf("[shell] stdout %d bytes on tunnel %d", n, tunnel.ID)
+			log.Printf("[shell] %#v", string(readBuf[:n]))
 			// {{end}}
 			data, err := proto.Marshal(&pb.TunnelData{
 				TunnelID: tunnel.ID,

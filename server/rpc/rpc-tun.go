@@ -26,6 +26,7 @@ func tunnelCreate(client *core.Client, req []byte, resp RPCResponse) {
 }
 
 func tunnelData(client *core.Client, req []byte, _ RPCResponse) {
+
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(req, tunnelData)
 	tunnel := core.Tunnels.Tunnel(tunnelData.TunnelID)
