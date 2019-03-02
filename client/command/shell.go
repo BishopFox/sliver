@@ -6,31 +6,12 @@ import (
 	"log"
 	"os"
 	"sliver/client/core"
-	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 	gen "sliver/server/generate"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
 )
-
-func createTunnel(server *core.SliverServer) *clientpb.TunnelCreate {
-	tunReq := &clientpb.TunnelCreateReq{SliverID: ActiveSliver.Sliver.ID}
-	tunReqData, _ := proto.Marshal(tunReq)
-
-	tunResp := <-server.RPC(&sliverpb.Envelope{
-		Type: clientpb.MsgTunnelCreate,
-		Data: tunReqData,
-	}, defaultTimeout)
-	if tunResp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", tunResp.Error)
-		return nil
-	}
-
-	tunnelCreated := &clientpb.TunnelCreate{}
-	proto.Unmarshal(tunResp.Data, tunnelCreated)
-	return tunnelCreated
-}
 
 func shell(ctx *grumble.Context, server *core.SliverServer) {
 	if ActiveSliver.Sliver == nil {
@@ -45,15 +26,16 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 
 	fmt.Printf(Info + "Opening shell tunnel with sliver ...\n")
 
-	tunMeta := createTunnel(server)
-	if tunMeta == nil {
+	tunnel, err := server.CreateTunnel(ActiveSliver.Sliver.ID, defaultTimeout)
+	if err != nil {
+		log.Printf(Warn+"%s", err)
 		return
 	}
 
 	shellReq := &sliverpb.ShellReq{
 		SliverID:  ActiveSliver.Sliver.ID,
 		EnablePTY: !noPty,
-		TunnelID:  tunMeta.TunnelID,
+		TunnelID:  tunnel.ID,
 	}
 	shellReqData, _ := proto.Marshal(shellReq)
 
@@ -61,12 +43,14 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 		Type: sliverpb.MsgShellReq,
 		Data: shellReqData,
 	}, defaultTimeout)
+	if resp == nil {
+		fmt.Printf(Warn + "Error: Server did not respond to request")
+		return
+	}
 	if resp.Error != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Error)
 		return
 	}
-
-	tunnel := server.Tunnels.BindTunnel(tunMeta.SliverID, tunMeta.TunnelID) // Client core tunnel
 
 	go func() {
 		for data := range tunnel.Recv {

@@ -21,10 +21,10 @@ import (
 // Start - Starts the server console
 func Start() {
 
-	send := make(chan *sliverpb.Envelope)
-	recv := make(chan *sliverpb.Envelope)
+	send := make(chan *sliverpb.Envelope) // To "server"
+	recv := make(chan *sliverpb.Envelope) // From "server"
 
-	transport.LocalClientConnect(send, recv)
+	transport.LocalClientConnect(send, recv) // Simulates a client connection
 
 	server := clientcore.BindSliverServer(send, recv)
 	go server.ResponseMapper()

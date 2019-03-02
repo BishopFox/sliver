@@ -187,3 +187,10 @@ message ShellReq {
 
   uint64 TunnelID = 9;
 }
+
+message Shell {
+  bool Success = 1;
+  string Err = 2;
+
+  uint64 TunnelID = 9;
+}

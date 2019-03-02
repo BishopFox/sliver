@@ -142,9 +142,11 @@ func mtlsConnect() (*Connection, error) {
 	recv := make(chan *pb.Envelope)
 	ctrl := make(chan bool)
 	connection := &Connection{
-		Send: send,
-		Recv: recv,
-		Ctrl: ctrl,
+		Send:    send,
+		Recv:    recv,
+		Ctrl:    ctrl,
+		tunnels: &map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
 		Cleanup: func() {
 			conn.Close()
 		},
@@ -200,9 +202,11 @@ func dnsConnect() (*Connection, error) {
 	pollCtrl := make(chan bool)
 	ctrl := make(chan bool)
 	connection := &Connection{
-		Send: send,
-		Recv: recv,
-		Ctrl: ctrl,
+		Send:    send,
+		Recv:    recv,
+		Ctrl:    ctrl,
+		tunnels: &map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
 		Cleanup: func() {
 			pollCtrl <- true // Stop polling
 			close(pollCtrl)

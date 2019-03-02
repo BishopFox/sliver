@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"log"
 	sliverpb "sliver/protobuf/sliver"
 	"sliver/server/core"
 
@@ -14,7 +15,7 @@ func rpcShell(req []byte, resp RPCResponse) {
 	sliver := core.Hive.Sliver(shellReq.SliverID)
 	tunnel := core.Tunnels.Tunnel(shellReq.TunnelID)
 
-	startShell, err := proto.Marshal(&sliverpb.ShellReq{
+	startShellReq, err := proto.Marshal(&sliverpb.ShellReq{
 		EnablePTY: shellReq.EnablePTY,
 		TunnelID:  tunnel.ID,
 	})
@@ -22,11 +23,8 @@ func rpcShell(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-
-	data, err := sliver.Request(sliverpb.MsgShellReq, defaultTimeout, startShell)
-	if err != nil {
-		resp(data, err)
-		return
-	}
-
+	log.Printf("Requesting Sliver %d to start shell", sliver.ID)
+	data, err := sliver.Request(sliverpb.MsgShellReq, defaultTimeout, startShellReq)
+	log.Printf("Sliver %d responded to shell start request", sliver.ID)
+	resp(data, err)
 }

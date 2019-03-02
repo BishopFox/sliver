@@ -55,6 +55,7 @@ func tunnelDataHandler(sliver *core.Sliver, data []byte) {
 	proto.Unmarshal(data, tunnelData)
 	tunnel := core.Tunnels.Tunnel(tunnelData.TunnelID)
 	if tunnel != nil && sliver.ID == tunnel.Sliver.ID {
+		log.Printf("Routing data to tunnel id %d to client %d", tunnelData.TunnelID, tunnel.Client.ID)
 		tunnel.Client.Send <- &sliverpb.Envelope{
 			Type: sliverpb.MsgTunnelData,
 			Data: data,

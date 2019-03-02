@@ -3,6 +3,7 @@ package core
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"log"
 	"sliver/client/assets"
 
@@ -25,7 +26,7 @@ type tunnels struct {
 	mutex   *sync.RWMutex
 }
 
-func (t *tunnels) BindTunnel(SliverID uint32, TunnelID uint64) *tunnel {
+func (t *tunnels) bindTunnel(SliverID uint32, TunnelID uint64) *tunnel {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -44,7 +45,11 @@ func (t *tunnels) RecvTunnelData(tunnelData *sliverpb.TunnelData) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	tunnel := (*t.tunnels)[tunnelData.TunnelID]
-	(*tunnel).Recv <- tunnelData.Data
+	if tunnel != nil {
+		(*tunnel).Recv <- tunnelData.Data
+	} else {
+		log.Printf("No client tunnel with ID %d", tunnelData.TunnelID)
+	}
 }
 
 func (t *tunnels) RemoveTunnel(ID uint64) {
@@ -85,6 +90,29 @@ type SliverServer struct {
 	Tunnels   *tunnels
 }
 
+// CreateTunnel - Create a new tunnel on the server, returns tunnel metadata
+func (ss *SliverServer) CreateTunnel(sliverID uint32, defaultTimeout time.Duration) (*tunnel, error) {
+	tunReq := &clientpb.TunnelCreateReq{SliverID: sliverID}
+	tunReqData, _ := proto.Marshal(tunReq)
+
+	tunResp := <-ss.RPC(&sliverpb.Envelope{
+		Type: clientpb.MsgTunnelCreate,
+		Data: tunReqData,
+	}, defaultTimeout)
+	if tunResp.Error != "" {
+		return nil, fmt.Errorf("Error: %s", tunResp.Error)
+	}
+
+	tunnelCreated := &clientpb.TunnelCreate{}
+	proto.Unmarshal(tunResp.Data, tunnelCreated)
+
+	tunnel := ss.Tunnels.bindTunnel(tunnelCreated.SliverID, tunnelCreated.TunnelID)
+
+	log.Printf("Created new tunnel with ID %d", tunnel.ID)
+
+	return tunnel, nil
+}
+
 // ResponseMapper - Maps recv'd envelopes to response channels
 func (ss *SliverServer) ResponseMapper() {
 	for envelope := range ss.recv {
@@ -95,8 +123,8 @@ func (ss *SliverServer) ResponseMapper() {
 			}
 			ss.mutex.Unlock()
 		} else {
+			// If the message does not have an envelope ID then we route it based on type
 			switch envelope.Type {
-
 			case clientpb.MsgEvent:
 				event := &clientpb.Event{}
 				err := proto.Unmarshal(envelope.Data, event)
@@ -104,6 +132,7 @@ func (ss *SliverServer) ResponseMapper() {
 					log.Printf("Failed to decode event envelope")
 					continue
 				}
+				log.Printf("[client] Routing event message")
 				ss.Events <- event
 
 			case sliverpb.MsgTunnelData:
@@ -113,6 +142,7 @@ func (ss *SliverServer) ResponseMapper() {
 					log.Printf("Failed to decode tunnel data envelope")
 					continue
 				}
+				log.Printf("[client] Routing tunnel data with id %d", tunnelData.TunnelID)
 				ss.Tunnels.RecvTunnelData(tunnelData)
 			}
 		}

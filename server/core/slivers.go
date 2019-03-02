@@ -65,7 +65,7 @@ func (s *Sliver) Request(msgType uint32, timeout time.Duration, data []byte) ([]
 	defer func() {
 		s.RespMutex.Lock()
 		defer s.RespMutex.Unlock()
-		close(resp)
+		//		close(resp)
 		delete(s.Resp, reqID)
 	}()
 	s.Send <- &sliverpb.Envelope{

@@ -2,10 +2,6 @@ package main
 
 import (
 	"flag"
-
-	// {{if .MTLSServer}}
-
-	// {{end}}
 	"os"
 	"os/user"
 	"runtime"
@@ -74,7 +70,7 @@ func mainLoop(connection *transports.Connection) {
 			// {{if .Debug}}
 			log.Printf("[recv] tunHandler %d", envelope.Type)
 			// {{end}}
-			go handler(envelope.Data, connection)
+			go handler(envelope, connection)
 		} else {
 			// {{if .Debug}}
 			log.Printf("[recv] unknown envelope type %d", envelope.Type)
