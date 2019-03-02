@@ -12,9 +12,6 @@ import (
 	"sync"
 
 	"sliver/client/assets"
-	consts "sliver/client/constants"
-	"sliver/client/core"
-	clientpb "sliver/protobuf/client"
 	pb "sliver/protobuf/sliver"
 
 	"github.com/golang/protobuf/proto"
@@ -43,7 +40,6 @@ func Connect(config *assets.ClientConfig) (chan *pb.Envelope, chan *pb.Envelope,
 			close(send)
 			close(recv)
 			conn.Close()
-			core.Events <- &clientpb.Event{EventType: consts.ServerErrorStr}
 		})
 
 		for envelope := range send {
@@ -59,7 +55,6 @@ func Connect(config *assets.ClientConfig) (chan *pb.Envelope, chan *pb.Envelope,
 			close(send)
 			close(recv)
 			conn.Close()
-			core.Events <- &clientpb.Event{EventType: consts.ServerErrorStr}
 		})
 		for {
 			envelope, err := socketReadEnvelope(conn)

@@ -3,13 +3,14 @@ package command
 import (
 	"fmt"
 	consts "sliver/client/constants"
+	"sliver/client/core"
 	"sliver/client/help"
 
 	"github.com/desertbit/grumble"
 )
 
 // Init - Bind commands to a App
-func Init(app *grumble.App, rpc RPCServer) {
+func Init(app *grumble.App, server *core.SliverServer) {
 
 	// [ Jobs ] -----------------------------------------------------------------
 
@@ -22,7 +23,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			jobs(ctx, rpc)
+			jobs(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -38,7 +39,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			startMTLSListener(ctx, rpc)
+			startMTLSListener(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -53,7 +54,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			startDNSListener(ctx, rpc)
+			startDNSListener(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -70,7 +71,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			sessions(ctx, rpc)
+			sessions(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -82,7 +83,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp: help.GetHelpFor(consts.BackgroundStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			background(ctx, rpc)
+			background(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -95,7 +96,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			kill(ctx, rpc)
+			kill(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -108,7 +109,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			info(ctx, rpc)
+			info(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -121,7 +122,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			use(ctx, rpc)
+			use(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -136,7 +137,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			shell(ctx, rpc)
+			shell(ctx, server)
 			fmt.Println()
 			return nil
 		},
@@ -163,7 +164,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			generate(ctx, rpc)
+			generate(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -190,7 +191,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			newProfile(ctx, rpc)
+			newProfile(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -202,7 +203,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp: help.GetHelpFor(consts.ProfilesStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			profiles(ctx, rpc)
+			profiles(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -218,7 +219,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			profileGenerate(ctx, rpc)
+			profileGenerate(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -237,7 +238,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			msf(ctx, rpc)
+			msf(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -257,7 +258,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			msfInject(ctx, rpc)
+			msfInject(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -274,7 +275,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			ps(ctx, rpc)
+			ps(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -287,7 +288,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			ping(ctx, rpc)
+			ping(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -299,7 +300,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp: help.GetHelpFor(consts.GetPIDStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			getPID(ctx, rpc)
+			getPID(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -311,7 +312,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp: help.GetHelpFor(consts.GetUIDStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			getUID(ctx, rpc)
+			getUID(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -323,7 +324,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp: help.GetHelpFor(consts.GetGIDStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			getGID(ctx, rpc)
+			getGID(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -335,7 +336,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp: help.GetHelpFor(consts.WhoamiStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			whoami(ctx, rpc)
+			whoami(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -347,7 +348,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp: help.GetHelpFor(consts.LsStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			ls(ctx, rpc)
+			ls(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -360,7 +361,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			rm(ctx, rpc)
+			rm(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -373,7 +374,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			mkdir(ctx, rpc)
+			mkdir(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -386,7 +387,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			cd(ctx, rpc)
+			cd(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -398,7 +399,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		LongHelp: help.GetHelpFor(consts.PwdStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			pwd(ctx, rpc)
+			pwd(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -411,7 +412,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			cat(ctx, rpc)
+			cat(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -424,7 +425,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			download(ctx, rpc)
+			download(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -437,7 +438,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			upload(ctx, rpc)
+			upload(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -454,7 +455,7 @@ func Init(app *grumble.App, rpc RPCServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			procdump(ctx, rpc)
+			procdump(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},

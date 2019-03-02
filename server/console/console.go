@@ -1,144 +1,41 @@
 package console
 
 import (
-	"bufio"
 	"fmt"
-	"log"
 	insecureRand "math/rand"
-	"os"
-	"path"
 	"sliver/client/command"
+	clientconsole "sliver/client/console"
 	consts "sliver/client/constants"
+	"sliver/client/core"
+	clientcore "sliver/client/core"
 	"sliver/client/help"
 	sliverpb "sliver/protobuf/sliver"
+
 	"time"
 
-	"sliver/server/rpc"
-
 	"github.com/desertbit/grumble"
-	"github.com/fatih/color"
 
-	"sliver/server/assets"
-	"sliver/server/core"
 	"sliver/server/generate"
 )
 
-var (
-	activeSliver *core.Sliver
-	cmdTimeout   = 10 * time.Second
-)
-
-// Start - Starts the main server console
+// Start - Starts the server console
 func Start() {
 
-	sliverApp := grumble.New(&grumble.Config{
-		Name:                  "sliver",
-		Description:           "Bishop Fox - Sliver",
-		HistoryFile:           path.Join(assets.GetRootAppDir(), "history"),
-		Prompt:                getPrompt(),
-		PromptColor:           color.New(),
-		HelpHeadlineColor:     color.New(),
-		HelpHeadlineUnderline: true,
-		HelpSubCommands:       true,
-	})
-	sliverApp.SetPrintASCIILogo(printLogo)
+	send := make(chan *sliverpb.Envelope)
+	recv := make(chan *sliverpb.Envelope)
 
-	serverOnlyCmds(sliverApp)
+	server := core.BindSliverServer(send, recv)
+	go server.ResponseMapper()
+	clientconsole.Start(server, serverOnlyCmds)
 
-	command.Init(sliverApp, func(envelope *sliverpb.Envelope, timeout time.Duration) chan *sliverpb.Envelope {
-		resp := make(chan *sliverpb.Envelope)
-		go responseMapper(resp, envelope)
-		return resp
-	})
-
-	command.ActiveSliver.AddObserver(func() {
-		sliverApp.SetPrompt(getPrompt())
-	})
-
-	events := core.EventBroker.Subscribe()
-	defer core.EventBroker.Unsubscribe(events)
-	go eventLoop(sliverApp, events)
-
-	err := sliverApp.Run()
-	if err != nil {
-		log.Printf("Run loop returned error: %v", err)
-	}
 }
 
-// Maps request envelope ID to a response envelope
-func responseMapper(resp chan *sliverpb.Envelope, envelope *sliverpb.Envelope) {
-	rpcHandlers := rpc.GetRPCHandlers()
-	tunHanlders := rpc.GetTunnelHandlers()
-	if rpcHandler, ok := (*rpcHandlers)[envelope.Type]; ok {
-		rpcHandler(envelope.Data, func(data []byte, err error) {
-			errStr := ""
-			if err != nil {
-				errStr = fmt.Sprintf("%v", err)
-			}
-			resp <- &sliverpb.Envelope{
-				ID:    envelope.ID,
-				Data:  data,
-				Error: errStr,
-			}
-		})
-	} else if tunHandler, ok := (*tunHanlders)[envelope.Type]; ok {
-		tunHandler(envelope.Data, func(data []byte, err error) {
-			errStr := ""
-			if err != nil {
-				errStr = fmt.Sprintf("%v", err)
-			}
-			resp <- &sliverpb.Envelope{
-				ID:    envelope.ID,
-				Data:  data,
-				Error: errStr,
-			}
-		})
-	} else {
-		log.Printf("No rpc handler for msg type %d", envelope.Type)
-		resp <- nil // Invalid RPC call
-	}
-}
-
-func eventLoop(sliverApp *grumble.App, events chan core.Event) {
-	stdout := bufio.NewWriter(os.Stdout)
-	for event := range events {
-
-		switch event.EventType {
-		case consts.JoinedEvent:
-			fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator)
-		case consts.LeftEvent:
-			fmt.Printf(clearln+Info+"%s left the game\n\n", event.Client.Operator)
-
-		case consts.StoppedEvent:
-			job := event.Job
-			fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
-
-		case consts.ConnectedEvent:
-			sliver := event.Sliver
-			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n\n",
-				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
-		case consts.DisconnectedEvent:
-			sliver := event.Sliver
-			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
-				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.Os, sliver.Arch)
-			activeSliver := command.ActiveSliver.Sliver
-			if activeSliver != nil && sliver.ID == activeSliver.ID {
-				command.ActiveSliver.SetActiveSliver(nil)
-				sliverApp.SetPrompt(getPrompt())
-				fmt.Printf(Warn + "Warning: Active sliver diconnected\n")
-			}
-			fmt.Println()
-		}
-		fmt.Printf(getPrompt())
-		stdout.Flush()
-	}
-}
-
-func serverOnlyCmds(sliverApp *grumble.App) {
+// ServerOnlyCmds - Server only commands
+func serverOnlyCmds(app *grumble.App, server *clientcore.SliverServer) {
 
 	// [ Multiplayer ] -----------------------------------------------------------------
 
-	sliverApp.AddCommand(&grumble.Command{
+	app.AddCommand(&grumble.Command{
 		Name:     consts.MultiplayerModeStr,
 		Help:     "Enable multiplayer mode",
 		LongHelp: help.GetHelpFor(consts.MultiplayerModeStr),
@@ -154,7 +51,7 @@ func serverOnlyCmds(sliverApp *grumble.App) {
 		},
 	})
 
-	sliverApp.AddCommand(&grumble.Command{
+	app.AddCommand(&grumble.Command{
 		Name:     consts.NewPlayerStr,
 		Help:     "Create a new player config file",
 		LongHelp: help.GetHelpFor(consts.NewPlayerStr),
@@ -175,7 +72,7 @@ func serverOnlyCmds(sliverApp *grumble.App) {
 		},
 	})
 
-	sliverApp.AddCommand(&grumble.Command{
+	app.AddCommand(&grumble.Command{
 		Name:     consts.ListPlayerStr,
 		Help:     "List players connected to the server",
 		LongHelp: help.GetHelpFor(consts.ListPlayerStr),
@@ -187,7 +84,7 @@ func serverOnlyCmds(sliverApp *grumble.App) {
 		},
 	})
 
-	sliverApp.AddCommand(&grumble.Command{
+	app.AddCommand(&grumble.Command{
 		Name:     consts.KickPlayerStr,
 		Help:     "Kick a player from the server",
 		LongHelp: help.GetHelpFor(consts.KickPlayerStr),
@@ -213,7 +110,7 @@ func getPrompt() string {
 	return prompt
 }
 
-func printLogo(sliverApp *grumble.App) {
+func printLogo(app *grumble.App) {
 	insecureRand.Seed(time.Now().Unix())
 	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
 	fmt.Println(logo)

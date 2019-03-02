@@ -3,6 +3,7 @@ package core
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"log"
 	"sliver/client/assets"
 
 	clientpb "sliver/protobuf/client"
@@ -18,39 +19,32 @@ const (
 	randomIDSize = 16 // 64bits
 )
 
-var (
-	// Events - Connect/Disconnect events
-	Events = make(chan *clientpb.Event, 16)
-
-	// Tunnels - Duplex data tunnels with atomic wrappers
-	Tunnels = &tunnels{
-		tunnels: &map[uint64]*tunnel{},
-		mutex:   &sync.RWMutex{},
-	}
-)
-
 type tunnels struct {
+	server  *SliverServer
 	tunnels *map[uint64]*tunnel
 	mutex   *sync.RWMutex
 }
 
-func (t *tunnels) Tunnel(ID uint64) *tunnel {
+func (t *tunnels) BindTunnel(SliverID uint32, TunnelID uint64) *tunnel {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	return (*t.tunnels)[ID]
+
+	(*t.tunnels)[TunnelID] = &tunnel{
+		server:   t.server,
+		SliverID: SliverID,
+		ID:       TunnelID,
+		Recv:     make(chan []byte),
+	}
+
+	return (*t.tunnels)[TunnelID]
 }
 
-func (t *tunnels) RecvTunnel(ID uint64, data []byte) {
+// RecvTunnelData - Routes a TunnelData protobuf msg to the correct tunnel object
+func (t *tunnels) RecvTunnelData(tunnelData *sliverpb.TunnelData) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	tunnel := (*t.tunnels)[ID]
-	(*tunnel).Recv <- data
-}
-
-func (t *tunnels) AddTunnel(tunnel *tunnel) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-	(*t.tunnels)[tunnel.ID] = tunnel
+	tunnel := (*t.tunnels)[tunnelData.TunnelID]
+	(*tunnel).Recv <- tunnelData.Data
 }
 
 func (t *tunnels) RemoveTunnel(ID uint64) {
@@ -61,19 +55,20 @@ func (t *tunnels) RemoveTunnel(ID uint64) {
 
 // tunnel - Duplex data tunnel
 type tunnel struct {
+	server   *SliverServer
 	SliverID uint32
 	ID       uint64
 	Recv     chan []byte
 }
 
-func (t *tunnel) Send(data []byte) *sliverpb.Envelope {
+func (t *tunnel) Send(data []byte) {
 	tunnelData := &sliverpb.TunnelData{
 		SliverID: t.SliverID,
 		TunnelID: t.ID,
 		Data:     data,
 	}
 	rawTunnelData, _ := proto.Marshal(tunnelData)
-	return &sliverpb.Envelope{
+	t.server.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgTunnelData,
 		Data: rawTunnelData,
 	}
@@ -86,6 +81,8 @@ type SliverServer struct {
 	responses *map[uint64]chan *sliverpb.Envelope
 	mutex     *sync.RWMutex
 	Config    *assets.ClientConfig
+	Events    chan *clientpb.Event
+	Tunnels   *tunnels
 }
 
 // ResponseMapper - Maps recv'd envelopes to response channels
@@ -97,16 +94,33 @@ func (ss *SliverServer) ResponseMapper() {
 				resp <- envelope
 			}
 			ss.mutex.Unlock()
-		} else if envelope.Type == clientpb.MsgEvent {
-			event := &clientpb.Event{}
-			proto.Unmarshal(envelope.Data, event)
-			Events <- event
+		} else {
+			switch envelope.Type {
+
+			case clientpb.MsgEvent:
+				event := &clientpb.Event{}
+				err := proto.Unmarshal(envelope.Data, event)
+				if err != nil {
+					log.Printf("Failed to decode event envelope")
+					continue
+				}
+				ss.Events <- event
+
+			case sliverpb.MsgTunnelData:
+				tunnelData := &sliverpb.TunnelData{}
+				err := proto.Unmarshal(envelope.Data, tunnelData)
+				if err != nil {
+					log.Printf("Failed to decode tunnel data envelope")
+					continue
+				}
+				ss.Tunnels.RecvTunnelData(tunnelData)
+			}
 		}
 	}
 }
 
-// RequestResponse - Send a request envelope and wait for a response (blocking)
-func (ss *SliverServer) RequestResponse(envelope *sliverpb.Envelope, timeout time.Duration) chan *sliverpb.Envelope {
+// RPC - Send a request envelope and wait for a response (blocking)
+func (ss *SliverServer) RPC(envelope *sliverpb.Envelope, timeout time.Duration) chan *sliverpb.Envelope {
 	reqID := EnvelopeID()
 	envelope.ID = reqID
 	resp := make(chan *sliverpb.Envelope)
@@ -141,18 +155,25 @@ func (ss *SliverServer) RemoveRespListener(envelopeID uint64) {
 }
 
 // BindSliverServer - Bind send/recv channels to a server
-func BindSliverServer(send chan *sliverpb.Envelope, recv chan *sliverpb.Envelope) *SliverServer {
-	return &SliverServer{
+func BindSliverServer(send, recv chan *sliverpb.Envelope) *SliverServer {
+	server := &SliverServer{
 		Send:      send,
 		recv:      recv,
 		responses: &map[uint64]chan *sliverpb.Envelope{},
 		mutex:     &sync.RWMutex{},
+		Events:    make(chan *clientpb.Event, 1),
 	}
+	server.Tunnels = &tunnels{
+		server:  server,
+		tunnels: &map[uint64]*tunnel{},
+		mutex:   &sync.RWMutex{},
+	}
+	return server
 }
 
-// EnvelopeID - Generate random ID of randomIDSize bytes
+// EnvelopeID - Generate random ID
 func EnvelopeID() uint64 {
-	randBuf := make([]byte, 8) // 64 bytes of randomness
+	randBuf := make([]byte, 8) // 64 bits of randomness
 	rand.Read(randBuf)
 	return binary.LittleEndian.Uint64(randBuf)
 }

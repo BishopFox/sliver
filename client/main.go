@@ -30,8 +30,7 @@ func main() {
 	appDir := assets.GetRootAppDir()
 	logFile := initLogging(appDir)
 	defer logFile.Close()
-
-	console.Start()
+	console.StartClientConsole()
 }
 
 // Initialize logging

@@ -1,16 +1,14 @@
 package main
 
 import (
-
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"path"
 
-
-	"sliver/server/console"
 	"sliver/server/assets"
+	"sliver/server/console"
 )
 
 const (

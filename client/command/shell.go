@@ -14,7 +14,7 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-func shell(ctx *grumble.Context, rpc RPCServer) {
+func shell(ctx *grumble.Context, server *core.SliverServer) {
 	if ActiveSliver.Sliver == nil {
 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
 		return
@@ -30,7 +30,7 @@ func shell(ctx *grumble.Context, rpc RPCServer) {
 	tunReq := &clientpb.TunnelCreateReq{SliverID: ActiveSliver.Sliver.ID}
 	tunReqData, _ := proto.Marshal(tunReq)
 
-	tunResp := <-rpc(&sliverpb.Envelope{
+	tunResp := <-server.RPC(&sliverpb.Envelope{
 		Type: clientpb.MsgTunnelCreate,
 		Data: tunReqData,
 	}, defaultTimeout)
@@ -49,7 +49,7 @@ func shell(ctx *grumble.Context, rpc RPCServer) {
 	}
 	shellReqData, _ := proto.Marshal(shellReq)
 
-	resp := <-rpc(&sliverpb.Envelope{
+	resp := <-server.RPC(&sliverpb.Envelope{
 		Type: sliverpb.MsgShellReq,
 		Data: shellReqData,
 	}, defaultTimeout)
@@ -58,14 +58,12 @@ func shell(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	tunnel := core.Tunnels.Tunnel(tunnelCreated.TunnelID) // Client core tunnel
+	tunnel := server.Tunnels.BindTunnel(tunnelCreated.SliverID, tunnelCreated.TunnelID) // Client core tunnel
 
 	go func() {
-		for recvData := range tunnel.Recv {
-			tunData := &sliverpb.TunnelData{}
-			proto.Unmarshal(recvData, tunData)
+		for data := range tunnel.Recv {
 			log.Printf("[write] stdout shell with tunnel id = %d", shellReq.TunnelID)
-			os.Stdout.Write(tunData.Data)
+			os.Stdout.Write(data)
 		}
 	}()
 
@@ -77,6 +75,6 @@ func shell(ctx *grumble.Context, rpc RPCServer) {
 		}
 		data, _ := proto.Marshal(&sliverpb.TunnelData{Data: readBuf[:n]})
 		log.Printf("[read] stdin tunnel %d", shellReq.TunnelID)
-		go rpc(tunnel.Send(data), defaultTimeout)
+		go tunnel.Send(data)
 	}
 }

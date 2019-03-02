@@ -11,7 +11,6 @@ import (
 	cmd "sliver/client/command"
 	consts "sliver/client/constants"
 	"sliver/client/core"
-	"sliver/client/transport"
 
 	"time"
 
@@ -46,32 +45,12 @@ const (
 	Woot = bold + green + "[$] " + normal
 )
 
-// Start - Main entrypoint
-func Start() {
-	configs := assets.GetConfigs()
-	if len(configs) == 0 {
-		fmt.Printf(Warn+"No config files found at %s\n", assets.GetConfigDir())
-		return
-	}
-	config := selectConfig()
-	if config == nil {
-		return
-	}
-	send, recv, err := transport.Connect(config)
-	if err != nil {
-		fmt.Printf(Warn+"Connection to server failed %v", err)
-		return
-	}
-
-	sliverServer := core.BindSliverServer(send, recv)
-	go sliverServer.ResponseMapper()
-
-	startConsole(sliverServer)
-}
+// ExtraCmds - Bind extra commands to the app object
+type ExtraCmds func(*grumble.App, *core.SliverServer)
 
 // Start - Console entrypoint
-func startConsole(sliverServer *core.SliverServer) {
-	sliverClientApp := grumble.New(&grumble.Config{
+func Start(server *core.SliverServer, extraCmds ExtraCmds) {
+	app := grumble.New(&grumble.Config{
 		Name:                  "consts.sliver client",
 		Description:           "Bishop Fox - Sliver Client",
 		HistoryFile:           path.Join(assets.GetRootAppDir(), "history"),
@@ -81,25 +60,26 @@ func startConsole(sliverServer *core.SliverServer) {
 		HelpHeadlineUnderline: true,
 		HelpSubCommands:       true,
 	})
-	sliverClientApp.SetPrintASCIILogo(printLogo)
+	app.SetPrintASCIILogo(printLogo)
 
-	cmd.Init(sliverClientApp, sliverServer.RequestResponse)
+	cmd.Init(app, server)
+	extraCmds(app, server)
 
 	cmd.ActiveSliver.AddObserver(func() {
-		sliverClientApp.SetPrompt(getPrompt())
+		app.SetPrompt(getPrompt())
 	})
 
-	go eventLoop(sliverClientApp)
+	go eventLoop(app, server)
 
-	err := sliverClientApp.Run()
+	err := app.Run()
 	if err != nil {
 		log.Printf("Run loop returned error: %v", err)
 	}
 }
 
-func eventLoop(sliverApp *grumble.App) {
+func eventLoop(app *grumble.App, server *core.SliverServer) {
 	stdout := bufio.NewWriter(os.Stdout)
-	for event := range core.Events {
+	for event := range server.Events {
 
 		switch event.EventType {
 
@@ -127,7 +107,7 @@ func eventLoop(sliverApp *grumble.App) {
 			activeSliver := cmd.ActiveSliver.Sliver
 			if activeSliver != nil && sliver.ID == activeSliver.ID {
 				cmd.ActiveSliver.SetActiveSliver(nil)
-				sliverApp.SetPrompt(getPrompt())
+				app.SetPrompt(getPrompt())
 				fmt.Printf(Warn + "Warning: Active sliver diconnected\n")
 			}
 			fmt.Println()
