@@ -15,8 +15,7 @@ import (
 
 var (
 	darwinHandlers = map[uint32]RPCHandler{
-
-		pb.MsgPsListReq:   psHandler,
+		pb.MsgPsReq:       psHandler,
 		pb.MsgPing:        pingHandler,
 		pb.MsgKill:        killHandler,
 		pb.MsgLsReq:       dirListHandler,

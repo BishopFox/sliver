@@ -23,7 +23,7 @@ var (
 		pb.MsgExecuteAssemblyReq: executeAssemblyHandler,
 
 		// Generic
-		pb.MsgPsListReq:   psHandler,
+		pb.MsgPsReq:       psHandler,
 		pb.MsgPing:        pingHandler,
 		pb.MsgKill:        killHandler,
 		pb.MsgLsReq:       dirListHandler,
