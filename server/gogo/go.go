@@ -3,6 +3,7 @@ package gogo
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -43,6 +44,12 @@ func GetGoPathDir(appDir string) string {
 	return path.Join(appDir, goPathDirName)
 }
 
+// GetTempDir - Get the OS temp dir (used for GOCACHE)
+func GetTempDir() string {
+	dir, _ := ioutil.TempDir("", ".sliver_gocache")
+	return dir
+}
+
 // GoCmd - Execute a go command
 func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
@@ -58,6 +65,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOARCH=%s", config.GOARCH),
 		fmt.Sprintf("GOROOT=%s", config.GOROOT),
 		fmt.Sprintf("GOPATH=%s", config.GOPATH),
+		fmt.Sprintf("GOCACHE=%s", GetTempDir()),
 		fmt.Sprintf("PATH=%s/bin", config.GOROOT),
 	}
 	var stdout bytes.Buffer
