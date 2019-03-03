@@ -3,7 +3,7 @@
 # Creates the static go asset archives
 # You'll need wget, tar, and unzip commands
 
-GO_VER="1.11.5"
+GO_VER="1.12"
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test"
 
 
@@ -14,6 +14,7 @@ echo "-----------------------------------------------------------------"
 echo $WORK_DIR
 echo "-----------------------------------------------------------------"
 cd $WORK_DIR
+mkdir -p $REPO_DIR/assets/
 
 # --- Darwin --- 
 wget https://dl.google.com/go/go$GO_VER.darwin-amd64.tar.gz
@@ -31,6 +32,7 @@ cp -vv src.zip $REPO_DIR/assets/src.zip
 rm -f src.zip
 
 zip -r darwin-go.zip ./go
+mkdir -p $REPO_DIR/assets/darwin/
 cp -vv darwin-go.zip $REPO_DIR/assets/darwin/go.zip
 
 rm -rf ./go
@@ -48,6 +50,7 @@ rm -f ./pkg/tool/linux_amd64/tour
 rm -f ./pkg/tool/linux_amd64/test2json
 cd ..
 zip -r linux-go.zip ./go
+mkdir -p $REPO_DIR/assets/linux/
 cp -vv linux-go.zip $REPO_DIR/assets/linux/go.zip
 rm -rf ./go
 rm -f linux-go.zip go$GO_VER.linux-amd64.tar.gz
@@ -63,6 +66,7 @@ rm -f ./pkg/tool/windows_amd64/tour.exe
 rm -f ./pkg/tool/windows_amd64/test2json.exe
 cd ..
 zip -r windows-go.zip ./go
+mkdir -p $REPO_DIR/assets/windows/
 cp -vv windows-go.zip $REPO_DIR/assets/windows/go.zip
 rm -rf ./go
 rm -f windows-go.zip go$GO_VER.windows-amd64.zip

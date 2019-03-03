@@ -37,6 +37,9 @@ func main() {
 		fmt.Println(console.Info + "First time setup, please wait ... ")
 		log.Println("Unpacking assets ... ")
 		assets.Setup()
+		if *unpack {
+			os.Exit(0)
+		}
 	}
 
 	console.Start()
