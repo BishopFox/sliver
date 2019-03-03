@@ -69,7 +69,6 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 	go func() {
 		defer cleanup()
 		for data := range tunnel.Recv {
-			log.Printf("[write] stdout shell with tunnel id = %d", tunnel.ID)
 			os.Stdout.Write(data)
 		}
 	}()

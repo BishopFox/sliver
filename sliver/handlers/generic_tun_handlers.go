@@ -54,7 +54,6 @@ func tunnelDataHandler(envelope *pb.Envelope, connection *transports.Connection)
 
 		// {{if .Debug}}
 		log.Printf("[tunnel] Write %d bytes to tunnel %d", len(tunData.Data), tunnel.ID)
-		log.Printf("[tunnel] %#v", string(tunData.Data))
 		// {{end}}
 
 		tunnel.Writer.Write(tunData.Data)
