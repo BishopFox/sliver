@@ -461,4 +461,57 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		},
 	})
 
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ImpersonateStr,
+		Help:     "Run a new process in the context of the designated user",
+		LongHelp: help.GetHelpFor(consts.ImpersonateStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("u", "username", "NT AUTHORITY\\SYSTEM", "user to impersonate")
+			f.String("p", "process", "", "process to start")
+			f.String("a", "args", "", "arguments for the process")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			impersonate(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ElevateStr,
+		Help:     "Spawns a new sliver session as an elevated process (UAC bypass)",
+		LongHelp: help.GetHelpFor(consts.ElevateStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			elevate(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.GetSystemStr,
+		Help:     "Spawns a new sliver session as the NT AUTHORITY\\SYSTEM user",
+		LongHelp: help.GetHelpFor(consts.GetSystemStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			getsystem(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.ExecuteAssemblyStr,
+		Help:      "Load and executes a .NET assembly in a child process",
+		LongHelp:  help.GetHelpFor(consts.ExecuteAssemblyStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			executeAssembly(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
 }

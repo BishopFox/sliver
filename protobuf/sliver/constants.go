@@ -63,16 +63,16 @@ const (
 	MsgProcessDumpReq
 	// MsgProcessDump - Dump of process)
 	MsgProcessDump
-
-	// MsgPsReq - list processes
-	MsgPsReq
-	MsgPs
-
-	// MsgShellReq - Starts an interactive shell
-	MsgShellReq
-	MsgShell
-
-	// MsgTunnelData - Data for duplex tunnels
-	MsgTunnelData
-	MsgTunnelClose
+	// MsgImpersonateReq - Request for process impersonatio
+	MsgImpersonateReq
+	// MsgImpersonate - Output of the impersonation command
+	MsgImpersonate
+	// MsgElevateReq - Request to run a new sliver session in an elevated context
+	MsgElevateReq
+	//MsgElevate - Response to the elevation request
+	MsgElevate
+	// MsgExecuteAssemblyReq - Request to load and execute a .NET assembly
+	MsgExecuteAssemblyReq
+	// MsgExecuteAssembly - Output of the assembly execution
+	MsgExecuteAssembly
 )

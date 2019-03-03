@@ -33,19 +33,20 @@ var (
 		consts.UseStr:        useHelp,
 		consts.GenerateStr:   generateHelp,
 
-		consts.MsfStr:      msfHelp,
-		consts.InjectStr:   injectHelp,
-		consts.PsStr:       psHelp,
-		consts.PingStr:     pingHelp,
-		consts.KillStr:     killHelp,
-		consts.LsStr:       lsHelp,
-		consts.CdStr:       cdHelp,
-		consts.CatStr:      catHelp,
-		consts.DownloadStr: downloadHelp,
-		consts.UploadStr:   uploadHelp,
-		consts.MkdirStr:    mkdirHelp,
-		consts.RmStr:       rmHelp,
-		consts.ProcdumpStr: procdumpHelp,
+		consts.MsfStr:             msfHelp,
+		consts.InjectStr:          injectHelp,
+		consts.PsStr:              psHelp,
+		consts.PingStr:            pingHelp,
+		consts.KillStr:            killHelp,
+		consts.LsStr:              lsHelp,
+		consts.CdStr:              cdHelp,
+		consts.CatStr:             catHelp,
+		consts.DownloadStr:        downloadHelp,
+		consts.UploadStr:          uploadHelp,
+		consts.MkdirStr:           mkdirHelp,
+		consts.RmStr:              rmHelp,
+		consts.ProcdumpStr:        procdumpHelp,
+		consts.ExecuteAssemblyStr: executeAssemblyHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -107,6 +108,14 @@ var (
 
 	procdumpHelp = `[[.Bold]]Command:[[.Normal]] procdump <pid>
 [[.Bold]]About:[[.Normal]] Dumps the process memory given a process identifier (pid)`
+
+	impersonateHelp = `[[.Bold]]Command:[[.Normal]] impersonate [--username] [--process] [--args]
+[[.Bold]]About:[[.Normal]] Run a new process in the context of the designated user`
+
+	elevateHelp = `[[.Bold]]Command:[[.Normal]] elevate
+[[.Bold]]About:[[.Normal]] Spawn a new sliver session as an elevated process (UAC bypass)`
+	executeAssemblyHelp = `[[.Bold]]Command:[[.Normal]] execute-assembly <path to assembly> [arguments]
+[[.Bold]]About:[[.Normal]] Executes the .NET assembly in a child process.`
 )
 
 // GetHelpFor - Get help string for a command

@@ -37,6 +37,10 @@ var (
 		sliverpb.MsgPsReq:          rpcPs,
 		sliverpb.MsgProcessDumpReq: rpcProcdump,
 
+sliverpb.MsgElevate:         rpcElevate,
+sliverpb.MsgImpersonate:     rpcImpersonate,
+sliverpb.MsgExecuteAssembly: rpcExecuteAssembly,
+
 		sliverpb.MsgLsReq:       rpcLs,
 		sliverpb.MsgRmReq:       rpcRm,
 		sliverpb.MsgMkdirReq:    rpcMkdir,

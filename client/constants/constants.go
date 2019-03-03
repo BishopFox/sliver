@@ -60,21 +60,17 @@ const (
 	GetGIDStr = "getgid"
 	WhoamiStr = "whoami"
 
-	LsStr       = "ls"
-	RmStr       = "rm"
-	MkdirStr    = "mkdir"
-	CdStr       = "cd"
-	PwdStr      = "pwd"
-	CatStr      = "cat"
-	DownloadStr = "download"
-	UploadStr   = "upload"
-	ProcdumpStr = "procdump"
-
-	ShellStr     = "shell"
-	ShellDataStr = "shell-data"
-)
-
-const (
-	TunnelCreateStr = "tunnel-create"
-	TunnelDataStr   = "tunnel-data"
+	LsStr              = "ls"
+	RmStr              = "rm"
+	MkdirStr           = "mkdir"
+	CdStr              = "cd"
+	PwdStr             = "pwd"
+	CatStr             = "cat"
+	DownloadStr        = "download"
+	UploadStr          = "upload"
+	ProcdumpStr        = "procdump"
+	ImpersonateStr     = "impersonate"
+	ElevateStr         = "elevate"
+	GetSystemStr       = "getsystem"
+	ExecuteAssemblyStr = "execute-assembly"
 )
