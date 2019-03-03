@@ -2,9 +2,12 @@ package transport
 
 import (
 	"fmt"
+	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 	"sliver/server/core"
 	"sliver/server/rpc"
+
+	"github.com/golang/protobuf/proto"
 )
 
 // LocalClientConnect - Handles local connections to the server console
@@ -49,4 +52,31 @@ func LocalClientConnect(send, recv chan *sliverpb.Envelope) {
 			}
 		}
 	}()
+
+	go localEventLoop(client)
+}
+
+// Passes along events to the local server console
+func localEventLoop(client *core.Client) {
+	events := core.EventBroker.Subscribe()
+	defer core.EventBroker.Unsubscribe(events)
+	for event := range events {
+		pbEvent := &clientpb.Event{EventType: event.EventType}
+
+		if event.Job != nil {
+			pbEvent.Job = event.Job.ToProtobuf()
+		}
+		if event.Client != nil {
+			pbEvent.Client = event.Client.ToProtobuf()
+		}
+		if event.Sliver != nil {
+			pbEvent.Sliver = event.Sliver.ToProtobuf()
+		}
+
+		data, _ := proto.Marshal(pbEvent)
+		client.Send <- &sliverpb.Envelope{
+			Type: clientpb.MsgEvent,
+			Data: data,
+		}
+	}
 }

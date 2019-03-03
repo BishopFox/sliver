@@ -5,6 +5,8 @@ import (
 	"sliver/client/assets"
 	"sliver/client/core"
 	"sliver/client/transport"
+
+	"github.com/desertbit/grumble"
 )
 
 // StartClientConsole - Start the client console
@@ -27,6 +29,5 @@ func StartClientConsole() {
 	sliverServer := core.BindSliverServer(send, recv)
 	go sliverServer.ResponseMapper()
 
-	var nop ExtraCmds
-	Start(sliverServer, nop)
+	Start(sliverServer, func(*grumble.App, *core.SliverServer) {})
 }

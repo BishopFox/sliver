@@ -81,9 +81,6 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 		}
 		if err == nil && 0 < n {
 			tunnel.Send(readBuf[:n])
-		} else if err == nil && n == 0 {
-			break
 		}
-
 	}
 }
