@@ -5,19 +5,21 @@ import (
 	"io/ioutil"
 	"log"
 	"path"
-	pb "sliver/protobuf/client"
+	clientpb "sliver/protobuf/client"
+	sliverpb "sliver/protobuf/sliver"
 	"sliver/server/assets"
 	"sliver/server/core"
 	"sliver/server/generate"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 )
 
 func rpcSessions(_ []byte, resp RPCResponse) {
-	sessions := &pb.Sessions{}
+	sessions := &clientpb.Sessions{}
 	if 0 < len(*core.Hive.Slivers) {
 		for _, sliver := range *core.Hive.Slivers {
-			sessions.Slivers = append(sessions.Slivers, &pb.Sliver{
+			sessions.Slivers = append(sessions.Slivers, &clientpb.Sliver{
 				ID:            sliver.ID,
 				Name:          sliver.Name,
 				Hostname:      sliver.Hostname,
@@ -41,7 +43,7 @@ func rpcSessions(_ []byte, resp RPCResponse) {
 }
 
 func rpcGenerate(req []byte, resp RPCResponse) {
-	genReq := &pb.GenerateReq{}
+	genReq := &clientpb.GenerateReq{}
 	err := proto.Unmarshal(req, genReq)
 	if err != nil {
 		resp([]byte{}, err)
@@ -55,8 +57,8 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 	}
 	filename := path.Base(fpath)
 	filedata, err := ioutil.ReadFile(fpath)
-	generated := &pb.Generate{
-		File: &pb.File{
+	generated := &clientpb.Generate{
+		File: &clientpb.File{
 			Name: filename,
 			Data: filedata,
 		},
@@ -66,9 +68,9 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 }
 
 func rpcProfiles(_ []byte, resp RPCResponse) {
-	profiles := &pb.Profiles{List: []*pb.Profile{}}
+	profiles := &clientpb.Profiles{List: []*clientpb.Profile{}}
 	for name, config := range generate.GetProfiles() {
-		profiles.List = append(profiles.List, &pb.Profile{
+		profiles.List = append(profiles.List, &clientpb.Profile{
 			Name:   name,
 			Config: config.ToProtobuf(),
 		})
@@ -78,7 +80,7 @@ func rpcProfiles(_ []byte, resp RPCResponse) {
 }
 
 func rpcNewProfile(req []byte, resp RPCResponse) {
-	profile := &pb.Profile{}
+	profile := &clientpb.Profile{}
 	err := proto.Unmarshal(req, profile)
 	if err != nil {
 		log.Printf("Failed to decode message %v", err)
@@ -102,7 +104,7 @@ func rpcExecuteAssembly(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	sliver := (*core.Hive.Slivers)[int(execReq.SliverID)]
+	sliver := core.Hive.Sliver(execReq.SliverID)
 	if sliver == nil {
 		resp([]byte{}, err)
 		return

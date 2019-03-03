@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	consts "sliver/client/constants"
 	"sliver/client/spin"
-	pb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 
 	"github.com/desertbit/grumble"
@@ -44,9 +42,9 @@ func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 		HostingDll: []byte{},
 	})
 
-	resp := rpc(&pb.Envelope{
+	resp := <-rpc(&sliverpb.Envelope{
 		Data: data,
-		Type: consts.ExecuteAssemblyStr,
+		Type: sliverpb.MsgExecuteAssembly,
 	}, defaultTimeout)
 	ctrl <- true
 	execResp := &sliverpb.ExecuteAssembly{}

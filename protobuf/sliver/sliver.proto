@@ -115,7 +115,7 @@ message Mkdir {
 }
 
 message DownloadReq {
-  string path = 1;
+  string Path = 1;
 
   uint32 SliverID = 9;
 }
@@ -155,32 +155,32 @@ message ProcessDump {
 }
 
 message ImpersonateReq {
-  string username = 1;
-  string process = 2;
-  string args = 3;
-  int32 SliverID = 9;
+  string Username = 1;
+  string Process = 2;
+  string Args = 3;
+  uint32 SliverID = 9;
 }
 
 message Impersonate {
-  string output = 1;
+  string Output = 1;
 }
 
 message ElevateReq {
   int32 Timeout = 8;
-  int32 SliverID = 9;
+  uint32 SliverID = 9;
 }
 
 message Elevate {
-  bool success = 1;
-  string err = 2;
+  bool Success = 1;
+  string Err = 2;
 }
 
 message ExecuteAssemblyReq {
-  bytes hostingDll = 1;
-  bytes assembly = 2;
-  string arguments = 3;
+  bytes HostingDll = 1;
+  bytes Assembly = 2;
+  string Arguments = 3;
   int32 Timeout = 8;
-  int32 SliverID = 9;
+  uint32 SliverID = 9;
 }
 
 

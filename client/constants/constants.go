@@ -60,6 +60,8 @@ const (
 	GetGIDStr = "getgid"
 	WhoamiStr = "whoami"
 
+	ShellStr = "shell"
+
 	LsStr              = "ls"
 	RmStr              = "rm"
 	MkdirStr           = "mkdir"

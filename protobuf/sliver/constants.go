@@ -13,11 +13,6 @@ const (
 	// MsgRemoteTask - Remote thread injection task
 	MsgRemoteTask
 
-	// MsgPsListReq - Request to get process information
-	MsgPsListReq
-	// MsgPsList - Process information (resp to MsgPsReq)
-	MsgPsList
-
 	// MsgPing - Confirm connection is open used as req/resp
 	MsgPing
 
@@ -58,6 +53,21 @@ const (
 	MsgMkdirReq
 	// MsgMkdir - Confirms the success/failure of the mkdir request (resp to MsgMkdirReq)
 	MsgMkdir
+
+	// MsgPsReq - List processes req
+	MsgPsReq
+	// MsgPs - List processes resp
+	MsgPs
+
+	// MsgShellReq - Starts an interactive shell
+	MsgShellReq
+	// MsgShell - Response on starting shell
+	MsgShell
+
+	// MsgTunnelData - Data for duplex tunnels
+	MsgTunnelData
+	// MsgTunnelClose - Close a duplex tunnel
+	MsgTunnelClose
 
 	// MsgProcessDumpReq - Request to create a process dump
 	MsgProcessDumpReq

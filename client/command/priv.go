@@ -2,9 +2,7 @@ package command
 
 import (
 	"fmt"
-	consts "sliver/client/constants"
 	"sliver/client/spin"
-	pb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 
 	"github.com/desertbit/grumble"
@@ -60,13 +58,13 @@ func elevate(ctx *grumble.Context, rpc RPCServer) {
 	ctrl := make(chan bool)
 	go spin.Until("Starting a new sliver session...", ctrl)
 	data, _ := proto.Marshal(&sliverpb.ElevateReq{SliverID: ActiveSliver.Sliver.ID})
-	resp := rpc(&pb.Envelope{
-		Type: consts.ElevateStr,
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: sliverpb.MsgElevate,
 		Data: data,
 	}, defaultTimeout)
 	ctrl <- true
-	if resp.Error != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Error)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
 	elevate := &sliverpb.Elevate{}
@@ -91,12 +89,12 @@ func runProcessAsUser(username, process, arguments string, rpc RPCServer) (imper
 		SliverID: ActiveSliver.Sliver.ID,
 	})
 
-	resp := rpc(&pb.Envelope{
-		Type: consts.ImpersonateStr,
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: sliverpb.MsgImpersonate,
 		Data: data,
 	}, defaultTimeout)
-	if resp.Error != "" {
-		err = fmt.Errorf(Warn+"Error: %s", resp.Error)
+	if resp.Err != "" {
+		err = fmt.Errorf(Warn+"Error: %s", resp.Err)
 		return
 	}
 	impersonate = &sliverpb.Impersonate{}

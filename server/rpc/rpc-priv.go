@@ -16,7 +16,7 @@ func rpcImpersonate(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	sliver := (*core.Hive.Slivers)[int(impersonateReq.SliverID)]
+	sliver := core.Hive.Sliver(impersonateReq.SliverID)
 	if sliver == nil {
 		resp([]byte{}, fmt.Errorf("Could not find sliver"))
 		return
@@ -38,7 +38,7 @@ func rpcElevate(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	sliver := (*core.Hive.Slivers)[int(elevateReq.SliverID)]
+	sliver := core.Hive.Sliver(elevateReq.SliverID)
 	if sliver == nil {
 		resp([]byte{}, fmt.Errorf("Could not find sliver"))
 		return

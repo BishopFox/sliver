@@ -23,7 +23,7 @@ func rpcPs(req []byte, resp RPCResponse) {
 	}
 
 	data, _ := proto.Marshal(&sliverpb.PsReq{})
-	data, err = sliver.Request(sliverpb.MsgPsListReq, defaultTimeout, data)
+	data, err = sliver.Request(sliverpb.MsgPsReq, defaultTimeout, data)
 	resp(data, err)
 }
 

@@ -472,7 +472,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			impersonate(ctx, rpc)
+			impersonate(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -484,7 +484,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.ElevateStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			elevate(ctx, rpc)
+			elevate(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -496,7 +496,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.GetSystemStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			getsystem(ctx, rpc)
+			getsystem(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -509,7 +509,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			executeAssembly(ctx, rpc)
+			executeAssembly(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
