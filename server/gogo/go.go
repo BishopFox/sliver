@@ -16,6 +16,7 @@ const (
 )
 
 var (
+	// ValidCompilerTargets - Supported compiler targets
 	ValidCompilerTargets = map[string]bool{
 		"darwin/386":    true,
 		"darwin/amd64":  true,

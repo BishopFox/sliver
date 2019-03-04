@@ -86,8 +86,8 @@ var (
 		"taskrunner/task_windows.go",
 		"taskrunner/task_darwin.go",
 
-"priv/priv.go",
-"priv/priv_windows.go",
+		"priv/priv.go",
+		"priv/priv_windows.go",
 
 		"transports/crypto.go",
 		"transports/tcp-mtls.go",
