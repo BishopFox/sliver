@@ -12,11 +12,11 @@ RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC
     && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
     && cp -vv ./bin/protoc /usr/local/bin
 
-# go utils
+# go get utils
 RUN go get github.com/golang/protobuf/protoc-gen-go
 RUN go get -u github.com/gobuffalo/packr/packr
 
-# dep
+# install dep
 RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 
 # assets
@@ -24,11 +24,14 @@ WORKDIR /go/src/sliver
 ADD ./go-assets.sh /go/src/sliver/go-assets.sh
 RUN ./go-assets.sh
 
+# dep - https://github.com/golang/dep/issues/796
+ADD ./Gopkg.lock /go/src/sliver/Gopkg.lock
+ADD ./Gopkg.toml /go/src/sliver/Gopkg.toml
+RUN dep ensure --vendor-only
+
 # compile - we have to run dep after copying the code over or it bitches
 ADD . /go/src/sliver/
-RUN dep ensure
 RUN make static-linux
-
 RUN /go/src/sliver/sliver-server -unpack
 
 ENTRYPOINT [ "/go/src/sliver/go-tests.sh" ]
