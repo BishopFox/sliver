@@ -60,7 +60,7 @@ func GenerateServerCertificate(rootDir string, caType string, host string, save 
 
 // GenerateServerRSACertificate - Generate a server certificate signed with a given CA
 func GenerateServerRSACertificate(rootDir string, caType string, host string, save bool) ([]byte, []byte) {
-	cert, key := GenerateRSACertificate(rootDir, host, caType, false, false)
+	cert, key := GenerateRSACertificate(rootDir, caType, host, false, false)
 	if save {
 		SaveCertificate(rootDir, path.Join(ServersCertDir, "rsa"), host, cert, key)
 	}
@@ -361,7 +361,7 @@ func GenerateCertificate(rootDir string, host string, caType string, isCA bool, 
 }
 
 // GenerateRSACertificate - Generates a 2048 bit RSA Certificate
-func GenerateRSACertificate(rootDir string, host string, caType string, isCA bool, isClient bool) ([]byte, []byte) {
+func GenerateRSACertificate(rootDir string, caType string, host string, isCA bool, isClient bool) ([]byte, []byte) {
 
 	log.Printf("Generating new TLS certificate (RSA) ...")
 

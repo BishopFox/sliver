@@ -1,9 +1,9 @@
 package cryptography
 
 /*
-This package contains wrappers around Golang's crypto package that make it easier to use
-we manage things like the nonces/iv's. The preferred choice is to always use GCM but for
-saving space we also have CTR mode available but it does not provide integrity checks.
+	This package contains wrappers around Golang's crypto package that make it easier to use
+	we manage things like the nonces/iv's. The preferred choice is to always use GCM but for
+	saving space we also have CTR mode available but it does not provide integrity checks.
 */
 
 import (

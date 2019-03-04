@@ -22,12 +22,13 @@ func TestGenerateClientCertificate(t *testing.T) {
 func TestGenerateServerCertificate(t *testing.T) {
 	rootDir, _ := ioutil.TempDir("", "sliver_test")
 	GenerateCertificateAuthority(rootDir, ServersCertDir, true)
-	GenerateServerCertificate(rootDir, "test3.com", ServersCertDir, false)
-	GenerateServerCertificate(rootDir, "test3.com", ServersCertDir, true)
+	GenerateServerCertificate(rootDir, ServersCertDir, "test3.com", false)
+	GenerateServerCertificate(rootDir, ServersCertDir, "test3.com", true)
 }
 
 func TestGenerateRSACertificate(t *testing.T) {
 	rootDir, _ := ioutil.TempDir("", "sliver_test")
-	GenerateRSACertificate(rootDir, "test4.com", ServersCertDir, true, false)
-	GenerateRSACertificate(rootDir, "test4.com", ServersCertDir, false, true)
+	GenerateCertificateAuthority(rootDir, ServersCertDir, true)
+	GenerateRSACertificate(rootDir, ServersCertDir, "test4.com", true, false)
+	GenerateRSACertificate(rootDir, ServersCertDir, "test4.com", false, true)
 }
