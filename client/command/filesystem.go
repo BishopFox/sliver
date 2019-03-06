@@ -233,7 +233,7 @@ func cat(ctx *grumble.Context, rpc RPCServer) {
 	download := &sliverpb.Download{}
 	proto.Unmarshal(resp.Data, download)
 	if download.Encoder == "gzip" {
-		download.Data, _ = encoders.GzipRead(download.Data)
+		download.Data, _ = encoders.GzipDecode(download.Data)
 	}
 	fmt.Printf(string(download.Data))
 }
@@ -292,7 +292,7 @@ func download(ctx *grumble.Context, rpc RPCServer) {
 	download := &sliverpb.Download{}
 	proto.Unmarshal(resp.Data, download)
 	if download.Encoder == "gzip" {
-		download.Data, _ = encoders.GzipRead(download.Data)
+		download.Data, _ = encoders.GzipDecode(download.Data)
 	}
 	f, err := os.Create(dst)
 	if err != nil {
@@ -333,7 +333,7 @@ func upload(ctx *grumble.Context, rpc RPCServer) {
 
 	fileBuf, err := ioutil.ReadFile(src)
 	uploadGzip := bytes.NewBuffer([]byte{})
-	encoders.GzipWrite(uploadGzip, fileBuf)
+	encoders.GzipEncode(uploadGzip, fileBuf)
 
 	ctrl := make(chan bool)
 	go spin.Until(fmt.Sprintf("%s -> %s", src, dst), ctrl)
