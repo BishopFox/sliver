@@ -21,6 +21,7 @@ var (
 		pb.MsgRmReq:       rmHandler,
 		pb.MsgMkdirReq:    mkdirHandler,
 		pb.MsgTask:        taskHandler,
+		pb.MsgRemoteTask:  remoteTaskHandler,
 	}
 )
 
