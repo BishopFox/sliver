@@ -1,13 +1,11 @@
 package spin
 
-// https://github.com/tj/go-spin
+// Adapted from https://github.com/tj/go-spin
 
 import (
 	"fmt"
 	"sync"
 	"time"
-
-	spin "github.com/tj/go-spin"
 )
 
 const (
@@ -99,7 +97,7 @@ func (s *Spinner) Reset() {
 // Until - Spint until ctrl channel signals
 func Until(msg string, ctrl chan bool) {
 	defer close(ctrl)
-	s := spin.New()
+	s := New()
 	for {
 		select {
 		case <-time.After(100 * time.Millisecond):

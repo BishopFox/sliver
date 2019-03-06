@@ -282,7 +282,7 @@ func GenerateCertificate(rootDir string, host string, caType string, isCA bool, 
 	}
 
 	// Valid times
-	notBefore := time.Now()
+	notBefore := time.Now() // TODO: Randomize
 	notAfter := notBefore.Add(validFor)
 	log.Printf("Valid from %v to %v", notBefore, notAfter)
 

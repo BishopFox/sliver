@@ -51,11 +51,9 @@ func tunnelDataHandler(envelope *pb.Envelope, connection *transports.Connection)
 	proto.Unmarshal(envelope.Data, tunData)
 	tunnel := connection.Tunnel(tunData.TunnelID)
 	if tunnel != nil {
-
 		// {{if .Debug}}
 		log.Printf("[tunnel] Write %d bytes to tunnel %d", len(tunData.Data), tunnel.ID)
 		// {{end}}
-
 		tunnel.Writer.Write(tunData.Data)
 	} else {
 		// {{if .Debug}}
