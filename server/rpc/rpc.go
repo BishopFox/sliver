@@ -51,7 +51,7 @@ var (
 
 		sliverpb.MsgShellReq: rpcShell,
 
-		sliverpb.MsgTask: rpcLocalTask,
+		clientpb.MsgTask: rpcLocalTask,
 	}
 
 	tunHandlers = &map[uint32]TunnelHandler{
