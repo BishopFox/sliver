@@ -2,6 +2,7 @@ package c2
 
 import (
 	"crypto/tls"
+	"log"
 	"net/http"
 	"time"
 
@@ -18,6 +19,9 @@ type HTTPHandler func(resp http.ResponseWriter, req *http.Request)
 // HTTPServerConfig - Config data for servers
 type HTTPServerConfig struct {
 	Addr     string
+	LPort    uint16
+	Domain   string
+	Secure   bool
 	CertPath string
 	KeyPath  string
 }
@@ -37,31 +41,30 @@ func StartHTTPSListener(conf *HTTPServerConfig) *http.Server {
 	}
 	httpsServer := &http.Server{
 		Addr:         conf.Addr,
-		Handler:      httpSliverRouter(conf),
+		Handler:      httpSliverRouter(),
 		WriteTimeout: defaultHTTPTimeout,
 		ReadTimeout:  defaultHTTPTimeout,
 		IdleTimeout:  defaultHTTPTimeout,
 		TLSConfig:    tlsConf,
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 	}
-	go httpsServer.ListenAndServeTLS(conf.CertPath, conf.KeyPath)
 	return httpsServer
 }
 
 // StartHTTPListener - Start a mutual TLS listener
 func StartHTTPListener(conf *HTTPServerConfig) *http.Server {
+	log.Printf("Starting http listener on '%s'", conf.Addr)
 	httpServer := &http.Server{
 		Addr:         conf.Addr,
-		Handler:      httpSliverRouter(conf),
+		Handler:      httpSliverRouter(),
 		WriteTimeout: defaultHTTPTimeout,
 		ReadTimeout:  defaultHTTPTimeout,
 		IdleTimeout:  defaultHTTPTimeout,
 	}
-	go httpServer.ListenAndServe()
 	return httpServer
 }
 
-func httpSliverRouter(conf *HTTPServerConfig) *mux.Router {
+func httpSliverRouter() *mux.Router {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/{url:.*}", indexHandler).Methods("GET")
@@ -70,5 +73,5 @@ func httpSliverRouter(conf *HTTPServerConfig) *mux.Router {
 }
 
 func indexHandler(resp http.ResponseWriter, req *http.Request) {
-
+	log.Printf("[http] got req")
 }

@@ -180,6 +180,9 @@ func socketEventLoop(conn net.Conn, events chan core.Event) {
 		if event.Sliver != nil {
 			pbEvent.Sliver = event.Sliver.ToProtobuf()
 		}
+		if event.Err != nil {
+			pbEvent.Err = fmt.Sprintf("%v", event.Err)
+		}
 
 		data, _ := proto.Marshal(pbEvent)
 		envelope := &sliverpb.Envelope{

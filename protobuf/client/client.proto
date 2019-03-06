@@ -16,7 +16,6 @@ message Process {
 }
 
 // [ core ] ----------------------------------------
-
 message Sliver {
 	uint32 ID = 1;
 	string Name = 2;
@@ -79,7 +78,6 @@ message Jobs {
 }
 
 // [ listeners ] ----------------------------------------
-
 message MTLSReq {
   string Server = 1;
   int32 LPort = 2;
@@ -97,8 +95,18 @@ message DNS {
   int32 JobID = 1;
 }
 
-// [ commands ] ----------------------------------------
+message HTTPReq {
+  string Domain = 1;
+  string Iface = 2;
+  int32 LPort = 3;
+  bool Secure = 4; // Enable HTTPS
+}
 
+message HTTP {
+  int32 JobID = 1;
+}
+
+// [ commands ] ----------------------------------------
 message Sessions {
   repeated Sliver Slivers = 1;
 }
@@ -154,7 +162,6 @@ message TunnelCloseReq {
 
 
 // [ events ] ----------------------------------------
-
 message Client {
   int32 ID = 1;
   string Operator = 2;
@@ -165,4 +172,5 @@ message Event {
   Sliver Sliver = 2;
   Job Job = 3;
   Client Client = 4;
+  string Err = 5;
 }

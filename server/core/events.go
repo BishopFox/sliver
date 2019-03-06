@@ -8,6 +8,7 @@ type Event struct {
 	Job       *Job
 	Client    *Client
 	EventType string
+	Err       error
 }
 
 type eventBroker struct {

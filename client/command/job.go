@@ -68,11 +68,10 @@ func startMTLSListener(ctx *grumble.Context, rpc RPCServer) {
 		Server: server,
 		LPort:  int32(lport),
 	})
-	respCh := rpc(&sliverpb.Envelope{
+	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgMtls,
 		Data: data,
 	}, defaultTimeout)
-	resp := <-respCh
 	if resp == nil {
 		fmt.Printf(Warn + "Command timeout\n")
 		return
@@ -114,5 +113,59 @@ func startDNSListener(ctx *grumble.Context, rpc RPCServer) {
 	dns := &clientpb.DNS{}
 	proto.Unmarshal(resp.Data, dns)
 
-	fmt.Printf("\n"+Info+"Successfully started job #%d\n", dns.JobID)
+	fmt.Printf(Info+"Successfully started job #%d\n", dns.JobID)
+}
+
+func startHTTPSListener(ctx *grumble.Context, rpc RPCServer) {
+	domain := ctx.Flags.String("domain")
+	lport := uint16(ctx.Flags.Int("lport"))
+
+	fmt.Printf(Info+"Starting HTTPS %s:%d listener ...\n", domain, lport)
+	data, _ := proto.Marshal(&clientpb.HTTPReq{
+		Domain: domain,
+		LPort:  int32(lport),
+		Secure: true,
+	})
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgHttps,
+		Data: data,
+	}, defaultTimeout)
+	if resp == nil {
+		fmt.Printf(Warn + "Command timeout\n")
+		return
+	}
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Failed to start job %s\n", resp.Err)
+		return
+	}
+	httpJob := &clientpb.HTTP{}
+	proto.Unmarshal(resp.Data, httpJob)
+	fmt.Printf(Info+"Successfully started job #%d\n", httpJob.JobID)
+}
+
+func startHTTPListener(ctx *grumble.Context, rpc RPCServer) {
+	domain := ctx.Flags.String("domain")
+	lport := uint16(ctx.Flags.Int("lport"))
+
+	fmt.Printf(Info+"Starting HTTP %s:%d listener ...\n", domain, lport)
+	data, _ := proto.Marshal(&clientpb.HTTPReq{
+		Domain: domain,
+		LPort:  int32(lport),
+		Secure: false,
+	})
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgHttp,
+		Data: data,
+	}, defaultTimeout)
+	if resp == nil {
+		fmt.Printf(Warn + "Command timeout\n")
+		return
+	}
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Failed to start job %s\n", resp.Err)
+		return
+	}
+	httpJob := &clientpb.HTTP{}
+	proto.Unmarshal(resp.Data, httpJob)
+	fmt.Printf(Info+"Successfully started job #%d\n", httpJob.JobID)
 }
