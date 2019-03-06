@@ -72,6 +72,9 @@ func localEventLoop(client *core.Client) {
 		if event.Sliver != nil {
 			pbEvent.Sliver = event.Sliver.ToProtobuf()
 		}
+		if event.Err != nil {
+			pbEvent.Err = fmt.Sprintf("%v", event.Err)
+		}
 
 		data, _ := proto.Marshal(pbEvent)
 		client.Send <- &sliverpb.Envelope{

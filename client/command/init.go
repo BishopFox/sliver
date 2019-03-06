@@ -60,6 +60,38 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		},
 	})
 
+	app.AddCommand(&grumble.Command{
+		Name:     consts.HttpStr,
+		Help:     "Start a HTTP listener",
+		LongHelp: help.GetHelpFor(consts.HttpStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("d", "domain", "", "limit responses to specific domain")
+			f.Int("l", "lport", 80, "tcp listen port")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			startHTTPListener(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.HttpsStr,
+		Help:     "Start a HTTPS listener",
+		LongHelp: help.GetHelpFor(consts.HttpsStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("d", "domain", "", "limit responses to specific domain")
+			f.Int("l", "lport", 443, "tcp listen port")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			startHTTPSListener(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+	})
+
 	// [ Commands ] --------------------------------------------------------------
 
 	app.AddCommand(&grumble.Command{

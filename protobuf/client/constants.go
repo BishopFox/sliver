@@ -18,6 +18,11 @@ const (
 	// MsgDns - DNS message
 	MsgDns
 
+	// MsgHttp - HTTP(S) listener  message
+	MsgHttp
+	// MsgHttps - HTTP(S) listener  message
+	MsgHttps
+
 	// MsgMsf - MSF message
 	MsgMsf
 
