@@ -85,6 +85,7 @@ var (
 		"taskrunner/task.go",
 		"taskrunner/task_windows.go",
 		"taskrunner/task_darwin.go",
+		"taskrunner/task_linux.go",
 
 		"priv/priv.go",
 		"priv/priv_windows.go",
