@@ -132,6 +132,11 @@ message MSFInjectReq {
   uint32 SliverID = 9;
 }
 
+message TaskReq {
+  bytes Data = 1;
+  uint32 SliverID = 9;
+}
+
 // [ Tunnels ] ----------------------------------------
 message TunnelCreateReq {
   uint32 SliverID = 1;

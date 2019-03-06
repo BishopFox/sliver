@@ -32,4 +32,5 @@ const (
 	MsgGenerate
 	MsgNewProfile
 	MsgProfiles
+	MsgTask
 )

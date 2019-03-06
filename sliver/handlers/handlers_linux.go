@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	// {{if .Debug}}
 	"log"
+	// {{else}}{{end}}
 	pb "sliver/protobuf/sliver"
 	"sliver/sliver/taskrunner"
 
