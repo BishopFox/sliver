@@ -81,6 +81,9 @@ type BlockReassembler struct {
 // to add time-stamps and clear old hashes to keep memory usage lower.
 // A re-key message could also help since we could clear all old msg digests
 func isReplayAttack(ciphertext []byte) bool {
+	if len(ciphertext) == 0 {
+		return false
+	}
 	sha := sha256.New()
 	sha.Write(ciphertext)
 	digest := base64.RawStdEncoding.EncodeToString(sha.Sum(nil))
