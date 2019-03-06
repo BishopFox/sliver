@@ -211,7 +211,7 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
 	cleanup := func(err error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
-		server.Shutdown(ctx)
+		server.HTTPServer.Shutdown(ctx)
 		core.Jobs.RemoveJob(job)
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
@@ -223,10 +223,10 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
 
 	go func() {
 		var err error
-		if conf.Secure {
-			err = server.ListenAndServeTLS(conf.CertPath, conf.KeyPath)
+		if server.Conf.Secure {
+			err = server.HTTPServer.ListenAndServeTLS(conf.CertPath, conf.KeyPath)
 		} else {
-			err = server.ListenAndServe()
+			err = server.HTTPServer.ListenAndServe()
 		}
 		if err != nil {
 			log.Printf("%s listener error %v", name, err)

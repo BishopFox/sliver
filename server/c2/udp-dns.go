@@ -400,6 +400,10 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 
 	if dnsSession, ok := (*dnsSessions)[sessionID]; ok {
 		log.Printf("Envelope has valid DNS session (%s)", dnsSession.ID)
+		if dnsSession.isReplayAttack(encryptedDNSEnvelope) {
+			log.Printf("WARNING: Replay attack detected, ignore request")
+			return []string{"1"}, errors.New("Replay attack")
+		}
 		envelopeData, err := cryptography.GCMDecrypt(dnsSession.Key, encryptedDNSEnvelope)
 		if err != nil {
 			return []string{"1"}, errors.New("Failed to decrypt DNS envelope")

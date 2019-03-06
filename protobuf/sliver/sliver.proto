@@ -203,6 +203,11 @@ message DNSBlockHeader {
   uint32 Size = 2;
 }
 
+// HTTP Sepecific message
+message HTTPSessionInit {
+  bytes Key = 1;
+}
+
 // Tunnels, shells, and port fwds
 message TunnelData {
   uint32 SliverID = 1;

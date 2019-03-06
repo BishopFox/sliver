@@ -12,6 +12,7 @@ func EnglishEncode(w io.Writer, data []byte) {
 }
 
 // EnglishDecode - Decode English ascii words into binary data
-func EnglishDecode() {
+func EnglishDecode(data []byte) ([]byte, error) {
 
+	return []byte{}, nil
 }
