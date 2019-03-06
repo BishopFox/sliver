@@ -514,4 +514,17 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			return nil
 		},
 	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.ExecuteShellcodeStr,
+		Help:      "Executes the given shellcode in the sliver process",
+		LongHelp:  help.GetHelpFor(consts.ExecuteShellcodeStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			executeShellcode(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+	})
 }

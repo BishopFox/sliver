@@ -33,20 +33,21 @@ var (
 		consts.UseStr:        useHelp,
 		consts.GenerateStr:   generateHelp,
 
-		consts.MsfStr:             msfHelp,
-		consts.InjectStr:          injectHelp,
-		consts.PsStr:              psHelp,
-		consts.PingStr:            pingHelp,
-		consts.KillStr:            killHelp,
-		consts.LsStr:              lsHelp,
-		consts.CdStr:              cdHelp,
-		consts.CatStr:             catHelp,
-		consts.DownloadStr:        downloadHelp,
-		consts.UploadStr:          uploadHelp,
-		consts.MkdirStr:           mkdirHelp,
-		consts.RmStr:              rmHelp,
-		consts.ProcdumpStr:        procdumpHelp,
-		consts.ExecuteAssemblyStr: executeAssemblyHelp,
+		consts.MsfStr:              msfHelp,
+		consts.InjectStr:           injectHelp,
+		consts.PsStr:               psHelp,
+		consts.PingStr:             pingHelp,
+		consts.KillStr:             killHelp,
+		consts.LsStr:               lsHelp,
+		consts.CdStr:               cdHelp,
+		consts.CatStr:              catHelp,
+		consts.DownloadStr:         downloadHelp,
+		consts.UploadStr:           uploadHelp,
+		consts.MkdirStr:            mkdirHelp,
+		consts.RmStr:               rmHelp,
+		consts.ProcdumpStr:         procdumpHelp,
+		consts.ExecuteAssemblyStr:  executeAssemblyHelp,
+		consts.ExecuteShellcodeStr: executeShellcodeHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -116,6 +117,9 @@ var (
 [[.Bold]]About:[[.Normal]] Spawn a new sliver session as an elevated process (UAC bypass)`
 	executeAssemblyHelp = `[[.Bold]]Command:[[.Normal]] execute-assembly <path to assembly> [arguments]
 [[.Bold]]About:[[.Normal]] Executes the .NET assembly in a child process.`
+
+	executeShellcodeHelp = `[[.Bold]]Command:[[.Normal]] execute-shellcode <path to raw shellcode>
+[[.Bold]]About:[[.Normal]] Executes the given shellcode in the sliver process.`
 )
 
 // GetHelpFor - Get help string for a command
