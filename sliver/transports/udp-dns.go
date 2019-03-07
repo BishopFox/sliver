@@ -124,7 +124,7 @@ func dnsSend(parentDomain string, msgType string, sessionID string, data []byte)
 	log.Printf("Encoded message length is: %d (size = %d)", len(encoded), size)
 	// {{end}}
 
-	nonce := dnsNonce(20) // Larger nonce for this use case
+	nonce := dnsNonce(10) // Larger nonce for this use case
 
 	// DNS domains are limited to 254 characters including '.' so that means
 	// Base 32 encoding, so (n*8 + 4) / 5 = 63 means we can encode 39 bytes

