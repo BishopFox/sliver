@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	consts "sliver/client/constants"
 	"sliver/server/assets"
 	"sliver/server/certs"
 	"sliver/server/core"
@@ -229,7 +230,6 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 	session := newSession()
 	session.Key, _ = cryptography.AESKeyFromBytes(sessionInit.Key)
-
 	session.Sliver = &core.Sliver{
 		ID:            core.GetHiveID(),
 		Transport:     "http(s)",
@@ -344,7 +344,14 @@ func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) 
 		resp.WriteHeader(404)
 		return
 	}
+
+	core.Hive.RemoveSliver(session.Sliver)
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.DisconnectedEvent,
+		Sliver:    session.Sliver,
+	})
 	s.Sessions.Remove(session.ID)
+
 	resp.WriteHeader(200)
 }
 
@@ -352,7 +359,7 @@ func newSession() *HTTPSession {
 	return &HTTPSession{
 		ID:            newHTTPSessionID(),
 		LastCheckin:   time.Now(),
-		msgQueue:      [][]byte{},
+		msgQueue:      [][]byte{}, // TODO: Async queue support
 		msgQueueMutex: &sync.Mutex{},
 	}
 }

@@ -41,15 +41,18 @@ message SliverConfig {
   bool Debug = 7;
   int32 ReconnectInterval = 8;
 
+  // c2
   string MTLSServer = 9;
   int32 MTLSLPort = 10;
+  string HTTPServer = 11;
+  int32 HTTPLPort = 12;
+  bool NoVerify = 13;
+  string DNSParent = 14;
 
-  string DNSParent = 11;
-
-  bool LimitDomainJoined = 12;
-  string LimitDatetime = 13;
-  string LimitHostname = 14;
-  string LimitUsername = 15;
+  bool LimitDomainJoined = 20;
+  string LimitDatetime = 21;
+  string LimitHostname = 22;
+  string LimitUsername = 23;
 }
 
 message Profile {

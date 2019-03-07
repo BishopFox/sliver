@@ -182,9 +182,15 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
-			f.String("h", "lhost", "", "listen host")
-			f.Int("l", "lport", 8888, "listen port")
 			f.Bool("d", "debug", false, "enable debug features")
+
+			f.String("m", "mtls", "", "mtls listen host")
+			f.Int("r", "mtls-lport", 8888, "mtls listen port")
+
+			f.String("t", "http", "", "http(s) listen host")
+			f.Int("e", "http-lport", 443, "http(s) listen port")
+			f.Bool("v", "no-verify", false, "do not verify https certificates")
+
 			f.String("n", "dns", "", "dns c2 parent domain")
 
 			f.String("w", "limit-datetime", "", "limit execution to before datetime")

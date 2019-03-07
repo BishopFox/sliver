@@ -182,9 +182,16 @@ func info(ctx *grumble.Context, rpc RPCServer) {
 func generate(ctx *grumble.Context, rpc RPCServer) {
 	targetOS := strings.ToLower(ctx.Flags.String("os"))
 	arch := strings.ToLower(ctx.Flags.String("arch"))
-	lhost := ctx.Flags.String("lhost")
-	lport := ctx.Flags.Int("lport")
+
 	debug := ctx.Flags.Bool("debug")
+
+	mtlsServer := ctx.Flags.String("mtls")
+	mtlsLPort := ctx.Flags.Int("mtls-lport")
+
+	httpServer := ctx.Flags.String("http")
+	httpLPort := ctx.Flags.Int("http-lport")
+	noVerify := ctx.Flags.Bool("no-verify")
+
 	dnsParent := ctx.Flags.String("dns")
 
 	limitDomainJoined := ctx.Flags.Bool("limit-domainjoined")
@@ -211,8 +218,8 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 		arch = "386"
 	}
 
-	if lhost == "" && dnsParent == "" {
-		fmt.Printf(Warn + "Must specify --lhost or --dns\n")
+	if mtlsServer == "" && httpServer == "" && dnsParent == "" {
+		fmt.Printf(Warn + "Must specify --mtls, --http, or --dns\n")
 		return
 	}
 	if save == "" {
@@ -227,11 +234,15 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 		dnsParent = dnsParent[1:]
 	}
 	compile(&clientpb.SliverConfig{
-		GOOS:       targetOS,
-		GOARCH:     arch,
-		MTLSServer: lhost,
-		MTLSLPort:  int32(lport),
-		Debug:      debug,
+		GOOS:   targetOS,
+		GOARCH: arch,
+		Debug:  debug,
+
+		MTLSServer: mtlsServer,
+		MTLSLPort:  int32(mtlsLPort),
+		HTTPServer: httpServer,
+		HTTPLPort:  int32(httpLPort),
+		NoVerify:   noVerify,
 		DNSParent:  dnsParent,
 
 		LimitDomainJoined: limitDomainJoined,
@@ -254,11 +265,12 @@ func profileGenerate(ctx *grumble.Context, rpc RPCServer) {
 }
 
 func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
+
 	fmt.Printf(Info+"Generating new %s/%s sliver binary \n", config.GOOS, config.GOARCH)
 	ctrl := make(chan bool)
 	go spin.Until("Compiling ...", ctrl)
-	generateReq, _ := proto.Marshal(&clientpb.GenerateReq{Config: config})
 
+	generateReq, _ := proto.Marshal(&clientpb.GenerateReq{Config: config})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgGenerate,
 		Data: generateReq,
@@ -351,8 +363,13 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 
 	targetOS := ctx.Flags.String("os")
 	arch := ctx.Flags.String("arch")
-	lhost := ctx.Flags.String("lhost")
-	lport := ctx.Flags.Int("lport")
+	mtlsServer := ctx.Flags.String("mtls")
+	mtlsLPort := ctx.Flags.Int("mtls-lport")
+
+	httpServer := ctx.Flags.String("http")
+	httpLPort := ctx.Flags.Int("http-lport")
+	noVerify := ctx.Flags.Bool("no-verify")
+
 	debug := ctx.Flags.Bool("debug")
 	dnsParent := ctx.Flags.String("dns")
 
@@ -364,11 +381,16 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 	data, _ := proto.Marshal(&clientpb.Profile{
 		Name: name,
 		Config: &clientpb.SliverConfig{
-			GOOS:       targetOS,
-			GOARCH:     arch,
-			MTLSServer: lhost,
-			MTLSLPort:  int32(lport),
-			Debug:      debug,
+			GOOS:   targetOS,
+			GOARCH: arch,
+
+			Debug: debug,
+
+			MTLSServer: mtlsServer,
+			MTLSLPort:  int32(mtlsLPort),
+			HTTPServer: httpServer,
+			HTTPLPort:  int32(httpLPort),
+			NoVerify:   noVerify,
 			DNSParent:  dnsParent,
 
 			LimitDomainJoined: limitDomainJoined,
@@ -425,7 +447,6 @@ func ping(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
 		return
 	}
-
 }
 
 func getPID(ctx *grumble.Context, rpc RPCServer) {
