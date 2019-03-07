@@ -20,6 +20,7 @@ import (
 
 	pb "sliver/protobuf/sliver"
 	sliverpb "sliver/protobuf/sliver"
+	sliverHandlers "sliver/server/handlers"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
@@ -27,6 +28,7 @@ import (
 
 const (
 	defaultHTTPTimeout = time.Second * 60
+	pollTimeout        = defaultHTTPTimeout - 5
 )
 
 // HTTPSession - Holds data related to a sliver c2 session
@@ -212,7 +214,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 	// RSA decrypt request body
 	publicKeyBlock, _ := pem.Decode([]byte(publicKeyPEM))
-	log.Printf("RSA Fingerprint: %s", fingerprintSHA256(publicKeyBlock))
+	log.Printf("[http] RSA Fingerprint: %s", fingerprintSHA256(publicKeyBlock))
 	privateKeyBlock, _ := pem.Decode([]byte(privateKeyPEM))
 	privateKey, _ := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
 	buf, _ := ioutil.ReadAll(req.Body)
@@ -254,11 +256,16 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 	session := s.Sessions.Get(sessionID)
 	if session == nil {
 		log.Printf("[http] No session with id %#v", sessionID)
-		resp.WriteHeader(404)
+		resp.WriteHeader(403)
 		return
 	}
 
 	data, _ := ioutil.ReadAll(req.Body)
+	if session.isReplayAttack(data) {
+		log.Printf("[http] WARNING: Replay attack detected")
+		resp.WriteHeader(404)
+		return
+	}
 	body, err := cryptography.GCMDecrypt(session.Key, data)
 	if err != nil {
 		log.Printf("[http] GCM decryption failed %v", err)
@@ -268,14 +275,77 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 	envelope := &sliverpb.Envelope{}
 	proto.Unmarshal(body, envelope)
 
+	handlers := sliverHandlers.GetSliverHandlers()
+	if envelope.ID != 0 {
+		session.Sliver.RespMutex.Lock()
+		defer session.Sliver.RespMutex.Unlock()
+		if resp, ok := session.Sliver.Resp[envelope.ID]; ok {
+			resp <- envelope
+		}
+	} else if handler, ok := handlers[envelope.Type]; ok {
+		handler.(func(*core.Sliver, []byte))(session.Sliver, envelope.Data)
+	}
+	resp.WriteHeader(200)
+	// TODO: Return random data?
 }
 
 func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) {
+	sessionID := mux.Vars(req)["sessionid"]
+	session := s.Sessions.Get(sessionID)
+	if session == nil {
+		log.Printf("[http] No session with id %#v", sessionID)
+		resp.WriteHeader(403)
+		return
+	}
 
+	// Decrypt a nonce to prove that the client has the session key
+	nonce := []byte(mux.Vars(req)["nonce"])
+	if session.isReplayAttack(nonce) {
+		log.Printf("[http] WARNING: Replay attack detected")
+		resp.WriteHeader(404)
+		return
+	}
+	_, err := cryptography.GCMDecrypt(session.Key, nonce)
+	if err != nil {
+		log.Printf("[http] GCM decryption failed %v", err)
+		resp.WriteHeader(404)
+		return
+	}
+
+	select {
+	case envelope := <-session.Sliver.Send:
+		resp.WriteHeader(200)
+		envelopeData, _ := proto.Marshal(envelope)
+		data, _ := cryptography.GCMEncrypt(session.Key, envelopeData)
+		resp.Write(data)
+	case <-time.After(pollTimeout):
+		resp.WriteHeader(201)
+	}
 }
 
 func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) {
+	sessionID := mux.Vars(req)["sessionid"]
+	session := s.Sessions.Get(sessionID)
+	if session == nil {
+		log.Printf("[http] No session with id %#v", sessionID)
+		resp.WriteHeader(403)
+		return
+	}
 
+	nonce := []byte(mux.Vars(req)["nonce"])
+	if session.isReplayAttack(nonce) {
+		log.Printf("[http] WARNING: Replay attack detected")
+		resp.WriteHeader(404)
+		return
+	}
+	_, err := cryptography.GCMDecrypt(session.Key, nonce)
+	if err != nil {
+		log.Printf("[http] GCM decryption failed %v", err)
+		resp.WriteHeader(404)
+		return
+	}
+	s.Sessions.Remove(session.ID)
+	resp.WriteHeader(200)
 }
 
 func newSession() *HTTPSession {
