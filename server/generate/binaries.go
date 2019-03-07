@@ -37,6 +37,8 @@ const (
 	DefaultReconnectInterval = 60
 	// DefaultMTLSLPort - Default listen port
 	DefaultMTLSLPort = 8888
+	// DefaultHTTPLPort - Default HTTP listen port
+	DefaultHTTPLPort = 443 // Assume SSL, it'll fallback
 )
 
 var (
@@ -117,6 +119,11 @@ type SliverConfig struct {
 	MTLSServer string `json:"mtls_server"`
 	MTLSLPort  uint16 `json:"mtls_lport"`
 
+	// HTTPS
+	HTTPServer string `json:"http_server"`
+	HTTPLPort  uint16 `json:"http_lport"`
+	NoVerify   bool   `json:"no_verify"`
+
 	// DNS
 	DNSParent string `json:"dns_parent"`
 
@@ -138,9 +145,14 @@ func (c *SliverConfig) ToProtobuf() *pb.SliverConfig {
 		Key:               c.Key,
 		Debug:             c.Debug,
 		ReconnectInterval: int32(c.ReconnectInterval),
-		MTLSServer:        c.MTLSServer,
-		MTLSLPort:         int32(c.MTLSLPort),
-		DNSParent:         c.DNSParent,
+
+		MTLSServer: c.MTLSServer,
+		MTLSLPort:  int32(c.MTLSLPort),
+
+		HTTPServer: c.HTTPServer,
+		HTTPLPort:  int32(c.HTTPLPort),
+
+		DNSParent: c.DNSParent,
 
 		LimitDatetime:     c.LimitDatetime,
 		LimitDomainJoined: c.LimitDomainJoined,
@@ -176,6 +188,13 @@ func SliverConfigFromProtobuf(pbConfig *pb.SliverConfig) *SliverConfig {
 		cfg.MTLSLPort = uint16(pbConfig.MTLSLPort)
 	} else {
 		cfg.MTLSLPort = DefaultMTLSLPort
+	}
+
+	cfg.HTTPServer = pbConfig.HTTPServer
+	if pbConfig.HTTPLPort != 0 {
+		cfg.HTTPLPort = uint16(pbConfig.HTTPLPort)
+	} else {
+		cfg.HTTPLPort = DefaultHTTPLPort
 	}
 
 	cfg.DNSParent = pbConfig.DNSParent
