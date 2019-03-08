@@ -11,8 +11,8 @@ Sliver can inject payloads into it's own process or optionally use remote thread
 
 #### C2
 - [x] Mutual TLS
-- [x] Encrypted DNS
-- [ ] HTTP(S)
+- [x] DNS
+- [x] HTTP(S)
 - [ ] ICMP
 
 #### Chain Loader

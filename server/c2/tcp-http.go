@@ -19,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	pb "sliver/protobuf/sliver"
 	sliverpb "sliver/protobuf/sliver"
 	sliverHandlers "sliver/server/handlers"
 
@@ -34,32 +33,11 @@ const (
 
 // HTTPSession - Holds data related to a sliver c2 session
 type HTTPSession struct {
-	ID            string
-	Sliver        *core.Sliver
-	Key           cryptography.AESKey
-	LastCheckin   time.Time
-	replay        map[string]bool // Sessions are mutex'd
-	msgQueue      [][]byte
-	msgQueueMutex *sync.Mutex
-}
-
-// Push - FIFO Push a message into the queue
-func (s *HTTPSession) Push(msg []byte) {
-	s.msgQueueMutex.Lock()
-	defer s.msgQueueMutex.Unlock()
-	s.msgQueue = append(s.msgQueue, msg)
-}
-
-// Pop - FIFO Pop a message from the queue
-func (s *HTTPSession) Pop() []byte {
-	s.msgQueueMutex.Lock()
-	defer s.msgQueueMutex.Unlock()
-	if len(s.msgQueue) == 0 {
-		return nil
-	}
-	msg := s.msgQueue[0]
-	s.msgQueue = s.msgQueue[1:]
-	return msg
+	ID          string
+	Sliver      *core.Sliver
+	Key         cryptography.AESKey
+	LastCheckin time.Time
+	replay      map[string]bool // Sessions are mutex'd
 }
 
 // Keeps a hash of each msg in a session to detect replay'd messages
@@ -122,17 +100,7 @@ type SliverHTTPC2 struct {
 
 // StartHTTPSListener - Start a mutual TLS listener
 func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
-	tlsConf := &tls.Config{
-		MinVersion:               tls.VersionTLS12,
-		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
-		PreferServerCipherSuites: true,
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-		},
-	}
+	log.Printf("Starting https listener on '%s'", conf.Addr)
 	server := &SliverHTTPC2{
 		Conf: conf,
 		Sessions: &httpSessions{
@@ -146,7 +114,17 @@ func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 		WriteTimeout: defaultHTTPTimeout,
 		ReadTimeout:  defaultHTTPTimeout,
 		IdleTimeout:  defaultHTTPTimeout,
-		TLSConfig:    tlsConf,
+		TLSConfig: &tls.Config{
+			MinVersion:               tls.VersionTLS12,
+			CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+			PreferServerCipherSuites: true,
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+			},
+		},
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 	}
 	return server
@@ -234,9 +212,9 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		ID:            core.GetHiveID(),
 		Transport:     "http(s)",
 		RemoteAddress: req.RemoteAddr,
-		Send:          make(chan *pb.Envelope, 16),
+		Send:          make(chan *sliverpb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
-		Resp:          map[uint64]chan *pb.Envelope{},
+		Resp:          map[uint64]chan *sliverpb.Envelope{},
 	}
 	core.Hive.AddSliver(session.Sliver)
 	s.Sessions.Add(session)
@@ -299,20 +277,6 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	// Decrypt a nonce to prove that the client has the session key
-	// nonce := []byte(req.URL.Query().Get("nonce"))
-	// if session.isReplayAttack(nonce) {
-	// 	log.Printf("[http] WARNING: Replay attack detected")
-	// 	resp.WriteHeader(404)
-	// 	return
-	// }
-	//_, err := cryptography.GCMDecrypt(session.Key, nonce)
-	// if err != nil {
-	// 	log.Printf("[http] GCM decryption failed %v", err)
-	// 	resp.WriteHeader(404)
-	// 	return
-	// }
-
 	select {
 	case envelope := <-session.Sliver.Send:
 		resp.WriteHeader(200)
@@ -320,7 +284,9 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 		data, _ := cryptography.GCMEncrypt(session.Key, envelopeData)
 		resp.Write(data)
 	case <-time.After(pollTimeout):
+		log.Printf("Poll time out")
 		resp.WriteHeader(201)
+		resp.Write([]byte{})
 	}
 }
 
@@ -358,11 +324,9 @@ func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) 
 
 func newSession() *HTTPSession {
 	return &HTTPSession{
-		ID:            newHTTPSessionID(),
-		LastCheckin:   time.Now(),
-		replay:        map[string]bool{},
-		msgQueue:      [][]byte{}, // TODO: Async queue support
-		msgQueueMutex: &sync.Mutex{},
+		ID:          newHTTPSessionID(),
+		LastCheckin: time.Now(),
+		replay:      map[string]bool{},
 	}
 }
 

