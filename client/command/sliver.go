@@ -240,10 +240,12 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 
 		MTLSServer: mtlsServer,
 		MTLSLPort:  int32(mtlsLPort),
+
 		HTTPServer: httpServer,
 		HTTPLPort:  int32(httpLPort),
 		NoVerify:   noVerify,
-		DNSParent:  dnsParent,
+
+		DNSParent: dnsParent,
 
 		LimitDomainJoined: limitDomainJoined,
 		LimitHostname:     limitHostname,
@@ -254,8 +256,13 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 
 func profileGenerate(ctx *grumble.Context, rpc RPCServer) {
 	name := ctx.Flags.String("name")
+	if name == "" && 1 <= len(ctx.Args) {
+		name = ctx.Args[0]
+	}
 	save := ctx.Flags.String("save")
-
+	if save == "" {
+		save, _ = os.Getwd()
+	}
 	profiles := getSliverProfiles(rpc)
 	if profile, ok := (*profiles)[name]; ok {
 		compile(profile.Config, save, rpc)
@@ -315,20 +322,22 @@ func profiles(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintf(table, "Name\tPlatform\tmTLS\tDNS\tDebug\tLimitations\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t\n",
+	fmt.Fprintf(table, "Name\tPlatform\tmTLS\tHTTP\tDNS\tDebug\tLimitations\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("Name")),
 		strings.Repeat("=", len("Platform")),
 		strings.Repeat("=", len("mTLS")),
+		strings.Repeat("=", len("HTTP")),
 		strings.Repeat("=", len("DNS")),
 		strings.Repeat("=", len("Debug")),
 		strings.Repeat("=", len("Limitations")))
 	for name, profile := range *profiles {
 		config := profile.Config
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t\n",
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
 			name,
 			fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
 			fmt.Sprintf("%s:%d", config.MTLSServer, config.MTLSLPort),
+			fmt.Sprintf("%s:%d", config.HTTPServer, config.HTTPLPort),
 			config.DNSParent,
 			fmt.Sprintf("%v", config.Debug),
 			getLimitsString(config),
@@ -377,6 +386,23 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 	limitHostname := ctx.Flags.String("limit-hostname")
 	limitUsername := ctx.Flags.String("limit-username")
 	limitDatetime := ctx.Flags.String("limit-datetime")
+
+	/* For UX we convert some synonymous terms */
+	if targetOS == "mac" || targetOS == "macos" || targetOS == "m" {
+		targetOS = "darwin"
+	}
+	if targetOS == "win" || targetOS == "w" || targetOS == "shit" {
+		targetOS = "windows"
+	}
+	if targetOS == "unix" || targetOS == "l" {
+		targetOS = "linux"
+	}
+	if arch == "x64" || strings.HasPrefix(arch, "64") {
+		arch = "amd64"
+	}
+	if arch == "x86" || strings.HasPrefix(arch, "32") {
+		arch = "386"
+	}
 
 	data, _ := proto.Marshal(&clientpb.Profile{
 		Name: name,

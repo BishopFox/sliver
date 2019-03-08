@@ -40,7 +40,7 @@ const (
 	UseStr        = "use"
 
 	GenerateStr        = "generate"
-	ProfileGenerateStr = "profile-generate"
+	ProfileGenerateStr = "generate-profile"
 	ProfilesStr        = "profiles"
 	NewProfileStr      = "new-profile"
 
