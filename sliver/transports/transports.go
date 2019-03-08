@@ -3,6 +3,8 @@ package transports
 import (
 	"crypto/x509"
 	"io"
+	"net"
+	"net/url"
 
 	// {{if .Debug}}
 	"log"
@@ -174,8 +176,12 @@ func mtlsConnect() (*Connection, error) {
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
 		cleanup: func() {
+			// {{if .Debug}}
+			log.Printf("[mtls] lost connection, cleanup...")
+			// {{end}}
 			close(send)
 			conn.Close()
+			close(recv)
 		},
 	}
 
@@ -228,7 +234,7 @@ func httpConnect() (*Connection, error) {
 
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool)
+	ctrl := make(chan bool, 1)
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
@@ -237,8 +243,12 @@ func httpConnect() (*Connection, error) {
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
 		cleanup: func() {
+			// {{if .Debug}}
+			log.Printf("[http] lost connection, cleanup...")
+			// {{end}}
 			close(send)
 			ctrl <- true
+			close(recv)
 		},
 	}
 
@@ -261,19 +271,35 @@ func httpConnect() (*Connection, error) {
 				return
 			default:
 				resp, err := client.Get("/poll")
-				// {{if .Debug}}
-				log.Printf("Poll result: %v (err: %v)", resp, err)
-				// {{end}}
-				if err == nil {
+				switch err := err.(type) {
+				case nil:
 					envelope := &pb.Envelope{}
 					proto.Unmarshal(resp, envelope)
 					if err != nil {
 						continue
 					}
-					// {{if .Debug}}
-					log.Printf("[http] recv envelope ...")
-					// {{end}}
 					recv <- envelope
+				case net.Error:
+					if err.Timeout() {
+						// {{if .Debug}}
+						log.Printf("non-fatal error, continue")
+						// {{end}}
+						continue
+					}
+					return
+				case *url.Error:
+					if err, ok := err.Err.(net.Error); ok && err.Timeout() {
+						// {{if .Debug}}
+						log.Printf("non-fatal error, continue")
+						// {{end}}
+						continue
+					}
+					return
+				default:
+					// {{if .Debug}}
+					log.Printf("[http] error: %#v", err)
+					// {{end}}
+					return
 				}
 			}
 		}
@@ -303,7 +329,7 @@ func dnsConnect() (*Connection, error) {
 
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool)
+	ctrl := make(chan bool, 1)
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
@@ -312,8 +338,12 @@ func dnsConnect() (*Connection, error) {
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
 		cleanup: func() {
+			// {{if .Debug}}
+			log.Printf("[dns] lost connection, cleanup...")
+			// {{end}}
 			close(send)
 			ctrl <- true // Stop polling
+			close(recv)
 		},
 	}
 
