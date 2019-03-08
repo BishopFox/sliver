@@ -1,13 +1,8 @@
 package handlers
 
-import (
-	// {{if .Debug}}
-	"log"
+import ( // {{if .Debug}}
 	// {{else}}{{end}}
 	pb "sliver/protobuf/sliver"
-	"sliver/sliver/taskrunner"
-
-	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -29,31 +24,4 @@ var (
 
 func GetSystemHandlers() map[uint32]RPCHandler {
 	return linuxHandlers
-}
-
-func taskHandler(data []byte, resp RPCResponse) {
-	task := &pb.Task{}
-	err := proto.Unmarshal(data, task)
-	if err != nil {
-		// {{if .Debug}}
-		log.Printf("error decoding message: %v", err)
-		// {{end}}
-		return
-	}
-
-	err = taskrunner.LocalTask(task.Data)
-	resp([]byte{}, err)
-}
-
-func remoteTaskHandler(data []byte, resp RPCResponse) {
-	remoteTask := &pb.RemoteTask{}
-	err := proto.Unmarshal(data, remoteTask)
-	if err != nil {
-		// {{if .Debug}}
-		log.Printf("error decoding message: %v", err)
-		// {{end}}
-		return
-	}
-	err = taskrunner.RemoteTask(int(remoteTask.Pid), remoteTask.Data)
-	resp([]byte{}, err)
 }
