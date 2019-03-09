@@ -201,8 +201,10 @@ func dnsDomainSeq(seq int) []byte {
 
 func dnsStartSession(parentDomain string) (string, AESKey, error) {
 	sessionKey := RandomAESKey()
-
 	pubKey := dnsGetServerPublicKey()
+	if pubKey == nil {
+		return "", AESKey{}, errors.New("pubkey required for new DNS session")
+	}
 	dnsSessionInit := &pb.DNSSessionInit{
 		Key: sessionKey[:],
 	}
