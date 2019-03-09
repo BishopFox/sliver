@@ -21,9 +21,11 @@ type TunnelHandler func(*core.Client, []byte, RPCResponse)
 
 var (
 	rpcHandlers = &map[uint32]RPCHandler{
-		clientpb.MsgJobs: rpcJobs,
-		clientpb.MsgMtls: rpcStartMTLSListener,
-		clientpb.MsgDns:  rpcStartDNSListener,
+		clientpb.MsgJobs:  rpcJobs,
+		clientpb.MsgMtls:  rpcStartMTLSListener,
+		clientpb.MsgDns:   rpcStartDNSListener,
+		clientpb.MsgHttp:  rpcStartHTTPListener,
+		clientpb.MsgHttps: rpcStartHTTPSListener,
 
 		clientpb.MsgSessions:   rpcSessions,
 		clientpb.MsgGenerate:   rpcGenerate,

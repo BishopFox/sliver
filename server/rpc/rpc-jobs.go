@@ -1,6 +1,8 @@
 package rpc
 
 import (
+	"context"
+	"fmt"
 	"log"
 	consts "sliver/client/constants"
 	pb "sliver/protobuf/client"
@@ -8,6 +10,8 @@ import (
 	"sliver/server/c2"
 	"sliver/server/certs"
 	"sliver/server/core"
+	"sync"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -143,4 +147,98 @@ func jobStartDNSListener(domain string) (int, error) {
 	}()
 
 	return job.ID, nil
+}
+
+func rpcStartHTTPSListener(data []byte, resp RPCResponse) {
+	httpReq := &pb.HTTPReq{}
+	err := proto.Unmarshal(data, httpReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+
+	conf := &c2.HTTPServerConfig{
+		Addr:     fmt.Sprintf("%s:%d", httpReq.Iface, httpReq.LPort),
+		LPort:    uint16(httpReq.LPort),
+		Secure:   true,
+		Domain:   httpReq.Domain,
+		CertPath: "", // TODO: Get certs
+		KeyPath:  "",
+	}
+	job := jobStartHTTPListener(conf)
+
+	data, err = proto.Marshal(&pb.HTTP{JobID: int32(job.ID)})
+	resp(data, err)
+}
+
+func rpcStartHTTPListener(data []byte, resp RPCResponse) {
+	httpReq := &pb.HTTPReq{}
+	err := proto.Unmarshal(data, httpReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+
+	conf := &c2.HTTPServerConfig{
+		Addr:   fmt.Sprintf("%s:%d", httpReq.Iface, httpReq.LPort),
+		LPort:  uint16(httpReq.LPort),
+		Domain: httpReq.Domain,
+		Secure: false,
+	}
+	job := jobStartHTTPListener(conf)
+
+	data, err = proto.Marshal(&pb.HTTP{JobID: int32(job.ID)})
+	resp(data, err)
+}
+
+func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
+	server := c2.StartHTTPSListener(conf)
+	name := "http"
+	if conf.Secure {
+		name = "https"
+	}
+
+	job := &core.Job{
+		ID:          core.GetJobID(),
+		Name:        name,
+		Description: fmt.Sprintf("%s for domain %s", name, conf.Domain),
+		Protocol:    "tcp",
+		Port:        uint16(conf.LPort),
+		JobCtrl:     make(chan bool),
+	}
+	core.Jobs.AddJob(job)
+
+	cleanup := func(err error) {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+		server.HTTPServer.Shutdown(ctx)
+		core.Jobs.RemoveJob(job)
+		core.EventBroker.Publish(core.Event{
+			Job:       job,
+			EventType: consts.StoppedEvent,
+			Err:       err,
+		})
+	}
+	once := &sync.Once{}
+
+	go func() {
+		var err error
+		if server.Conf.Secure {
+			err = server.HTTPServer.ListenAndServeTLS(conf.CertPath, conf.KeyPath)
+		} else {
+			err = server.HTTPServer.ListenAndServe()
+		}
+		if err != nil {
+			log.Printf("%s listener error %v", name, err)
+			once.Do(func() { cleanup(err) })
+			job.JobCtrl <- true // Cleanup other goroutine
+		}
+	}()
+
+	go func() {
+		<-job.JobCtrl
+		once.Do(func() { cleanup(nil) })
+	}()
+
+	return job
 }

@@ -40,13 +40,15 @@ const (
 	UseStr        = "use"
 
 	GenerateStr        = "generate"
-	ProfileGenerateStr = "profile-generate"
+	ProfileGenerateStr = "generate-profile"
 	ProfilesStr        = "profiles"
 	NewProfileStr      = "new-profile"
 
-	JobsStr = "jobs"
-	MtlsStr = "mtls"
-	DnsStr  = "dns"
+	JobsStr  = "jobs"
+	MtlsStr  = "mtls"
+	DnsStr   = "dns"
+	HttpStr  = "http"
+	HttpsStr = "https"
 
 	MsfStr    = "msf"
 	InjectStr = "inject"

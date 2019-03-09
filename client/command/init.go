@@ -60,6 +60,38 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		},
 	})
 
+	app.AddCommand(&grumble.Command{
+		Name:     consts.HttpStr,
+		Help:     "Start a HTTP listener",
+		LongHelp: help.GetHelpFor(consts.HttpStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("d", "domain", "", "limit responses to specific domain")
+			f.Int("l", "lport", 80, "tcp listen port")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			startHTTPListener(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.HttpsStr,
+		Help:     "Start a HTTPS listener",
+		LongHelp: help.GetHelpFor(consts.HttpsStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("d", "domain", "", "limit responses to specific domain")
+			f.Int("l", "lport", 443, "tcp listen port")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			startHTTPSListener(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+	})
+
 	// [ Commands ] --------------------------------------------------------------
 
 	app.AddCommand(&grumble.Command{
@@ -150,9 +182,15 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
-			f.String("h", "lhost", "", "listen host")
-			f.Int("l", "lport", 8888, "listen port")
 			f.Bool("d", "debug", false, "enable debug features")
+
+			f.String("m", "mtls", "", "mtls listen host")
+			f.Int("r", "mtls-lport", 8888, "mtls listen port")
+
+			f.String("t", "http", "", "http(s) listen host")
+			f.Int("e", "http-lport", 443, "http(s) listen port")
+			f.Bool("v", "no-verify", false, "do not verify https certificates")
+
 			f.String("n", "dns", "", "dns c2 parent domain")
 
 			f.String("w", "limit-datetime", "", "limit execution to before datetime")
@@ -177,9 +215,15 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
-			f.String("h", "lhost", "", "listen host")
-			f.Int("l", "lport", 8888, "listen port")
 			f.Bool("d", "debug", false, "enable debug features")
+
+			f.String("m", "mtls", "", "mtls listen host")
+			f.Int("r", "mtls-lport", 8888, "mtls listen port")
+
+			f.String("t", "http", "", "http(s) listen host")
+			f.Int("e", "http-lport", 443, "http(s) listen port")
+			f.Bool("v", "no-verify", false, "do not verify https certificates")
+
 			f.String("n", "dns", "", "dns c2 parent domain")
 
 			f.String("w", "limit-datetime", "", "limit execution to before datetime")
@@ -217,6 +261,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			f.String("p", "name", "", "profile name")
 			f.String("s", "save", "", "directory/file to the binary to")
 		},
+		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			profileGenerate(ctx, server.RPC)

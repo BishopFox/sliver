@@ -81,6 +81,9 @@ type BlockReassembler struct {
 // to add time-stamps and clear old hashes to keep memory usage lower.
 // A re-key message could also help since we could clear all old msg digests
 func isReplayAttack(ciphertext []byte) bool {
+	if len(ciphertext) == 0 {
+		return false
+	}
 	sha := sha256.New()
 	sha.Write(ciphertext)
 	digest := base64.RawStdEncoding.EncodeToString(sha.Sum(nil))
@@ -121,7 +124,7 @@ func dnsSend(parentDomain string, msgType string, sessionID string, data []byte)
 	log.Printf("Encoded message length is: %d (size = %d)", len(encoded), size)
 	// {{end}}
 
-	nonce := dnsNonce(20) // Larger nonce for this use case
+	nonce := dnsNonce(10) // Larger nonce for this use case
 
 	// DNS domains are limited to 254 characters including '.' so that means
 	// Base 32 encoding, so (n*8 + 4) / 5 = 63 means we can encode 39 bytes
