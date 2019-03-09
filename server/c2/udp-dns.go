@@ -112,6 +112,10 @@ func StartDNSListener(domain string) *dns.Server {
 }
 
 func handleDNSRequest(domain string, writer dns.ResponseWriter, req *dns.Msg) {
+	if req == nil {
+		log.Printf("req can not be nil")
+		return
+	}
 
 	if len(req.Question) < 1 {
 		log.Printf("No questions in DNS request")
