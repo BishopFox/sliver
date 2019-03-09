@@ -81,15 +81,6 @@ func handleSliverConnection(conn net.Conn) {
 	}()
 
 	go func() {
-		defer func() {
-			sliver.RespMutex.Lock()
-			defer sliver.RespMutex.Unlock()
-			for key, resp := range sliver.Resp {
-				delete(sliver.Resp, key)
-				close(resp)
-			}
-		}()
-
 		handlers := serverHandlers.GetSliverHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
@@ -98,11 +89,11 @@ func handleSliverConnection(conn net.Conn) {
 				return
 			}
 			if envelope.ID != 0 {
-				sliver.RespMutex.Lock()
+				sliver.RespMutex.RLock()
 				if resp, ok := sliver.Resp[envelope.ID]; ok {
 					resp <- envelope // Could deadlock, maybe want to investigate better solutions
 				}
-				sliver.RespMutex.Unlock()
+				sliver.RespMutex.RUnlock()
 			} else if handler, ok := handlers[envelope.Type]; ok {
 				go handler.(func(*core.Sliver, []byte))(sliver, envelope.Data)
 			}

