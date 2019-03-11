@@ -251,7 +251,7 @@ func (s *SliverHTTPClient) txtURL() string {
 }
 
 func (s *SliverHTTPClient) randomPath(segments []string, filenames []string) []string {
-	seed := rand.NewSource(time.Now().Unix())
+	seed := rand.NewSource(time.Now().UnixNano())
 	insecureRand := rand.New(seed)
 	n := insecureRand.Intn(2) // How many segements?
 	genSegments := []string{}
@@ -267,11 +267,10 @@ func (s *SliverHTTPClient) randomPath(segments []string, filenames []string) []s
 // [ HTTP(S) Clients ] ------------------------------------------------------------
 
 func httpClient(address string) *SliverHTTPClient {
-	jar := cookieJar()
 	return &SliverHTTPClient{
 		Origin: fmt.Sprintf("http://%s", address),
 		Client: &http.Client{
-			Jar:     jar,
+			Jar:     cookieJar(),
 			Timeout: defaultReqTimeout,
 		},
 	}
@@ -284,51 +283,49 @@ func httpsClient(address string) *SliverHTTPClient {
 		}).Dial,
 		TLSHandshakeTimeout: defaultNetTimeout,
 	}
-	jar := cookieJar()
 	return &SliverHTTPClient{
 		Origin: fmt.Sprintf("https://%s", address),
 		Client: &http.Client{
-			Jar:       jar,
+			Jar:       cookieJar(),
 			Timeout:   defaultReqTimeout,
 			Transport: netTransport,
 		},
 	}
 }
 
+// Jar - CookieJar implementation that ignores domains/origins
+type Jar struct {
+	lk      sync.Mutex
+	cookies []*http.Cookie
+}
+
 func cookieJar() *Jar {
 	return &Jar{
 		lk:      sync.Mutex{},
-		cookies: map[string][]*http.Cookie{},
+		cookies: []*http.Cookie{},
 	}
-}
-
-// Jar - Cookie Jar implementation that ignores domains/origins
-type Jar struct {
-	lk      sync.Mutex
-	cookies map[string][]*http.Cookie
 }
 
 // NewJar - Get a new instance of a cookie jar
 func NewJar() *Jar {
 	jar := new(Jar)
-	jar.cookies = make(map[string][]*http.Cookie)
+	jar.cookies = make([]*http.Cookie, 0)
 	return jar
 }
 
 // SetCookies handles the receipt of the cookies in a reply for the
-// given URL.  It may or may not choose to save the cookies, depending
-// on the jar's policy and implementation.
+// given URL (which is ignored).
 func (jar *Jar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 	jar.lk.Lock()
-	jar.cookies["_"] = cookies
+	jar.cookies = append(jar.cookies, cookies...)
 	jar.lk.Unlock()
 }
 
 // Cookies returns the cookies to send in a request for the given URL.
 // It is up to the implementation to honor the standard cookie use
-// restrictions such as in RFC 6265.
+// restrictions such as in RFC 6265 (which we do not).
 func (jar *Jar) Cookies(u *url.URL) []*http.Cookie {
-	return jar.cookies["_"]
+	return jar.cookies
 }
 
 // {{end}} -HTTPServer

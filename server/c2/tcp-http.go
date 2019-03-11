@@ -16,7 +16,7 @@ import (
 	"sliver/server/certs"
 	"sliver/server/core"
 	"sliver/server/cryptography"
-	"sliver/server/encoders"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,13 +30,7 @@ import (
 const (
 	defaultHTTPTimeout = time.Second * 60
 	pollTimeout        = defaultHTTPTimeout - 5
-)
-
-var (
-	cookieEncoders = map[string]encoders.ASCIIEncoder{
-		"JSESSIONID": encoders.Hex{},
-		"SESSIONID":  encoders.Base64{},
-	}
+	sessionCookieName  = "PHPSESSID"
 )
 
 // HTTPSession - Holds data related to a sliver c2 session
@@ -187,6 +181,31 @@ func loggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func defaultRespHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		resp.Header().Set("Server", "Apache/2.4.9 (Unix)")
+		resp.Header().Set("X-Powered-By", "PHP/5.1.2-1+b1")
+		resp.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+
+		switch uri := req.URL.Path; {
+		case strings.HasSuffix(uri, ".txt"):
+			resp.Header().Set("Content-type", "text/plain; charset=utf-8")
+		case strings.HasSuffix(uri, ".css"):
+			resp.Header().Set("Content-type", "text/css; charset=utf-8")
+		case strings.HasSuffix(uri, ".php"):
+			resp.Header().Set("Content-type", "text/html; charset=utf-8")
+		case strings.HasSuffix(uri, ".js"):
+			resp.Header().Set("Content-type", "text/javascript; charset=utf-8")
+		case strings.HasSuffix(uri, ".png"):
+			resp.Header().Set("Content-type", "image/png")
+		default:
+			resp.Header().Set("Content-type", "application/octet-stream")
+		}
+
+		next.ServeHTTP(resp, req)
+	})
+}
+
 // [ HTTP Handlers ] ---------------------------------------------------------------
 
 func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
@@ -239,10 +258,9 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		resp.WriteHeader(404)
 		return
 	}
-	// encoderName, encodedData := s.cookieEncoder(data)
 	http.SetCookie(resp, &http.Cookie{
 		Domain:   s.Conf.Domain,
-		Name:     "sessionid",
+		Name:     sessionCookieName,
 		Value:    session.ID,
 		Secure:   true,
 		HttpOnly: true,
@@ -343,7 +361,7 @@ func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) 
 func (s *SliverHTTPC2) getSession(req *http.Request) *HTTPSession {
 	for _, cookie := range req.Cookies() {
 		log.Printf("[http] Cookie: %#v", cookie)
-		if cookie.Name == "sessionid" {
+		if cookie.Name == sessionCookieName {
 			session := s.Sessions.Get(cookie.Value)
 			if session != nil {
 				session.LastCheckin = time.Now()
@@ -353,18 +371,6 @@ func (s *SliverHTTPC2) getSession(req *http.Request) *HTTPSession {
 		}
 	}
 	return nil // No valid cookie names
-}
-
-func (s *SliverHTTPC2) cookieEncoder(data []byte) (string, string) {
-	name, encoder := randomCookieEncoder()
-	return name, encoder.Encode(data)
-}
-
-func randomCookieEncoder() (string, encoders.ASCIIEncoder) {
-	for k, v := range cookieEncoders {
-		return k, v
-	}
-	return "", nil
 }
 
 func newSession() *HTTPSession {
