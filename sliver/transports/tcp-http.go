@@ -33,6 +33,7 @@ import (
 	"time"
 
 	pb "sliver/protobuf/sliver"
+	"sliver/sliver/proxy"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -267,6 +268,12 @@ func (s *SliverHTTPClient) randomPath(segments []string, filenames []string) []s
 // [ HTTP(S) Clients ] ------------------------------------------------------------
 
 func httpClient(address string) *SliverHTTPClient {
+	p := proxy.NewProvider("").GetHTTPProxy("http://rapid7.com")
+	if p != nil {
+		// {{if .Debug}}
+		fmt.Printf("Found proxy: %s\n", p)
+		// {{end}}
+	}
 	return &SliverHTTPClient{
 		Origin: fmt.Sprintf("http://%s", address),
 		Client: &http.Client{
@@ -282,6 +289,12 @@ func httpsClient(address string) *SliverHTTPClient {
 			Timeout: defaultNetTimeout,
 		}).Dial,
 		TLSHandshakeTimeout: defaultNetTimeout,
+	}
+	p := proxy.NewProvider("").GetHTTPSProxy("https://rapid7.com")
+	if p != nil {
+		// {{if .Debug}}
+		fmt.Printf("Found proxy: %s\n", p)
+		// {{end}}
 	}
 	return &SliverHTTPClient{
 		Origin: fmt.Sprintf("https://%s", address),
