@@ -1,6 +1,9 @@
 package handlers
 
-import pb "sliver/protobuf/sliver"
+import ( // {{if .Debug}}
+	// {{else}}{{end}}
+	pb "sliver/protobuf/sliver"
+)
 
 var (
 	linuxHandlers = map[uint32]RPCHandler{
@@ -14,6 +17,8 @@ var (
 		pb.MsgPwdReq:      pwdHandler,
 		pb.MsgRmReq:       rmHandler,
 		pb.MsgMkdirReq:    mkdirHandler,
+		pb.MsgTask:        taskHandler,
+		pb.MsgRemoteTask:  remoteTaskHandler,
 	}
 )
 
