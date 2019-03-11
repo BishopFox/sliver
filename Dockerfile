@@ -3,8 +3,8 @@ FROM golang:1.12
 ENV PROTOC_VER 3.6.1
 
 # os packages
-RUN apt-get update && \
-    apt-get -y install wget git zip unzip build-essential
+RUN apt-get update \
+    && apt-get -y install wget git zip unzip build-essential
 
 # protoc
 WORKDIR /tmp

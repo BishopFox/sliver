@@ -3,8 +3,12 @@ package transports
 import (
 	"crypto/x509"
 	"io"
+
+	// {{if .HTTPServer}}
 	"net"
 	"net/url"
+
+	// {{end}}
 
 	// {{if .Debug}}
 	"log"

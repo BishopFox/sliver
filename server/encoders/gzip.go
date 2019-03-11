@@ -6,16 +6,19 @@ import (
 	"io"
 )
 
-// GzipEncode - Compress data with gzip
-func GzipEncode(w io.Writer, data []byte) error {
-	gw, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
+// Gzip - Gzip compression encoder
+type Gzip struct{}
+
+// Encode - Compress data with gzip
+func (g Gzip) Encode(w io.Writer, data []byte) error {
+	gw, _ := gzip.NewWriterLevel(w, gzip.BestSpeed)
 	defer gw.Close()
-	gw.Write(data)
+	_, err := gw.Write(data)
 	return err
 }
 
-// GzipDecode - Uncompress data with gzip
-func GzipDecode(data []byte) ([]byte, error) {
+// Decode - Uncompress data with gzip
+func (g Gzip) Decode(data []byte) ([]byte, error) {
 	bytes.NewReader(data)
 	reader, _ := gzip.NewReader(bytes.NewReader(data))
 	var buf bytes.Buffer

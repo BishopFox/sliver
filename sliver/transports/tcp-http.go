@@ -244,8 +244,8 @@ func (s *SliverHTTPClient) phpURL() string {
 
 func (s *SliverHTTPClient) txtURL() string {
 	curl, _ := url.Parse(s.Origin)
-	segments := []string{"static", "www", "assets", "textual", "nfo", "sample"}
-	filenames := []string{"robots.txt", "sample.txt", "info.txt"}
+	segments := []string{"static", "www", "assets", "textual", "docs", "sample"}
+	filenames := []string{"robots.txt", "sample.txt", "info.txt", "example.txt"}
 	curl.Path = path.Join(s.randomPath(segments, filenames)...)
 	return curl.String()
 }
@@ -302,11 +302,13 @@ func cookieJar() *Jar {
 	}
 }
 
+// Jar - Cookie Jar implementation that ignores domains/origins
 type Jar struct {
 	lk      sync.Mutex
 	cookies map[string][]*http.Cookie
 }
 
+// NewJar - Get a new instance of a cookie jar
 func NewJar() *Jar {
 	jar := new(Jar)
 	jar.cookies = make(map[string][]*http.Cookie)

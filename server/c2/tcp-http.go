@@ -168,6 +168,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	// .php = session
 	//  .js = poll
 	// .png = stop
+
 	router.HandleFunc("/{rpath:.*\\.txt$}", s.rsaKeyHandler).Methods("GET")
 	router.HandleFunc("/{rpath:.*\\.css$}", s.startSessionHandler).Methods("GET", "POST")
 	router.HandleFunc("/{rpath:.*\\.php$}", s.sessionHandler).Methods("GET", "POST")
@@ -251,10 +252,9 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request) {
 
-	sessionID := s.getSessionID(req)
-	session := s.Sessions.Get(sessionID)
+	session := s.getSession(req)
 	if session == nil {
-		log.Printf("[http] No session with id %#v", sessionID)
+		log.Printf("[http] No session with id %#v", session.ID)
 		resp.WriteHeader(403)
 		return
 	}
@@ -289,10 +289,9 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 }
 
 func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) {
-	sessionID := s.getSessionID(req)
-	session := s.Sessions.Get(sessionID)
+	session := s.getSession(req)
 	if session == nil {
-		log.Printf("[http] No session with id %#v", sessionID)
+		log.Printf("[http] No session with id %#v", session.ID)
 		resp.WriteHeader(403)
 		return
 	}
@@ -311,10 +310,9 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 }
 
 func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) {
-	sessionID := s.getSessionID(req)
-	session := s.Sessions.Get(sessionID)
+	session := s.getSession(req)
 	if session == nil {
-		log.Printf("[http] No session with id %#v", sessionID)
+		log.Printf("[http] No session with id %#v", session.ID)
 		resp.WriteHeader(403)
 		return
 	}
@@ -342,14 +340,19 @@ func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) 
 	resp.WriteHeader(200)
 }
 
-func (s *SliverHTTPC2) getSessionID(req *http.Request) string {
+func (s *SliverHTTPC2) getSession(req *http.Request) *HTTPSession {
 	for _, cookie := range req.Cookies() {
 		log.Printf("[http] Cookie: %#v", cookie)
 		if cookie.Name == "sessionid" {
-			return cookie.Value
+			session := s.Sessions.Get(cookie.Value)
+			if session != nil {
+				session.LastCheckin = time.Now()
+				return session
+			}
+			return nil
 		}
 	}
-	return "" // No valid cookie names
+	return nil // No valid cookie names
 }
 
 func (s *SliverHTTPC2) cookieEncoder(data []byte) (string, string) {

