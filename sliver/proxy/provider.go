@@ -18,7 +18,11 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+
+	// {{if .Debug}}
 	"log"
+	// {{end}}
+
 	"net/url"
 	"os"
 	"os/exec"
@@ -195,7 +199,9 @@ Returns:
 func (p *provider) readConfigFileProxy(protocol string) Proxy {
 	proxyJson, err := p.unmarshalProxyConfigFile()
 	if err != nil {
+		// {{if .Debug}}
 		log.Printf("[proxy.Provider.readConfigFileProxy]: %s\n", err)
+		// {{end}}
 		return nil
 	}
 	uStr, exists := proxyJson[protocol]
@@ -208,7 +214,9 @@ func (p *provider) readConfigFileProxy(protocol string) Proxy {
 		uProxy, uErr = NewProxy(uUrl, srcConfigurationFile)
 	}
 	if uErr != nil {
+		// {{if .Debug}}
 		log.Printf("[proxy.Provider.readConfigFileProxy]: invalid config file proxy, skipping \"%s\": \"%s\"\n", protocol, uStr)
+		// {{end}}
 		return nil
 	}
 	return uProxy
@@ -281,7 +289,9 @@ K:
 		proxy, err := p.parseEnvProxy(key)
 		if err != nil {
 			if !isNotFound(err) {
+				// {{if .Debug}}
 				log.Printf("[proxy.Provider.readSystemEnvProxy]: failed to parse \"%s\" value: %s\n", key, err)
+				// {{end}}
 			}
 			continue
 		}
@@ -291,7 +301,9 @@ K:
 				continue
 			}
 			bypass = p.isProxyBypass(targetUrl, proxyBypass, ",")
+			// {{if .Debug}}
 			log.Printf("[proxy.Provider.readSystemEnvProxy]: \"%s\"=\"%s\", targetUrl=%s, bypass=%t", noProxyKey, proxyBypass, targetUrl, bypass)
+			// {{end}}
 			if bypass {
 				continue K
 			}

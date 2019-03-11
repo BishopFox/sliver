@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 )
@@ -144,7 +145,7 @@ func (p *proxy) String() string {
 			auth = "<username>@"
 		}
 	}
-	return fmt.Sprintf("%s|%s://%s%s:%d", p.Src(), p.Protocol(), auth, p.Host(), p.Port())
+	return fmt.Sprintf("%s://%s%s:%d", p.Protocol(), auth, p.Host(), p.Port())
 }
 
 func (p *proxy) MarshalJSON() ([]byte, error) {
@@ -169,4 +170,54 @@ func (p *proxy) toMap() map[string]interface{} {
 		m["password"] = nil
 	}
 	return m
+}
+
+// Dialer object to use with http client
+// A Dialer is a means to establish a connection.
+type Dialer interface {
+	// Dial connects to the given address via the proxy.
+	Dial(network, addr string) (c net.Conn, err error)
+}
+
+type Auth struct {
+	User, Password string
+}
+
+type direct struct{}
+
+// Direct is a direct proxy: one that makes network connections directly.
+var Direct = direct{}
+
+func (direct) Dial(network, addr string) (net.Conn, error) {
+	return net.Dial(network, addr)
+}
+
+var proxySchemes map[string]func(*url.URL, Dialer) (Dialer, error)
+
+func RegisterDialerType(scheme string, f func(*url.URL, Dialer) (Dialer, error)) {
+	if proxySchemes == nil {
+		proxySchemes = make(map[string]func(*url.URL, Dialer) (Dialer, error))
+	}
+	proxySchemes[scheme] = f
+}
+
+func FromURL(u *url.URL, forward Dialer) (Dialer, error) {
+	var auth *Auth
+	if u.User != nil {
+		auth = new(Auth)
+		auth.User = u.User.Username()
+		if p, ok := u.User.Password(); ok {
+			auth.Password = p
+		}
+	}
+
+	// If the scheme doesn't match any of the built-in schemes, see if it
+	// was registered by another package.
+	if proxySchemes != nil {
+		if f, ok := proxySchemes[u.Scheme]; ok {
+			return f(u, forward)
+		}
+	}
+
+	return nil, errors.New("proxy: unknown scheme: " + u.Scheme)
 }
