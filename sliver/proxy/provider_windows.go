@@ -15,10 +15,11 @@ package proxy
 import (
 	// {{if .Debug}}
 	"log"
+	"reflect"
+
 	// {{end}}
 
 	"net/url"
-	"reflect"
 	"sliver/sliver/winhttp"
 	"strings"
 )

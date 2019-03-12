@@ -14,9 +14,10 @@ package proxy
 
 import (
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"net/url"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var dataNewProxy = []struct {
@@ -243,23 +244,23 @@ var dataString = []struct {
 }{
 	{
 		&proxy{protocol: "https", host: "testProxy", port: 8999, user: url.UserPassword("user1", "password1"), src: "Test"},
-		"Test|https://<username>:<password>@testProxy:8999",
+		"https://<username>:<password>@testProxy:8999",
 	},
 	{
 		&proxy{protocol: "https", host: "testProxy", port: 8999, user: url.User("user1"), src: "Test"},
-		"Test|https://<username>@testProxy:8999",
+		"https://<username>@testProxy:8999",
 	},
 	{
 		&proxy{protocol: "https", host: "testProxy", port: 8999, user: url.User("user1"), src: "Test"},
-		"Test|https://<username>@testProxy:8999",
+		"https://<username>@testProxy:8999",
 	},
 	{
 		&proxy{protocol: "https", host: "testProxy", port: 8999, src: "Test"},
-		"Test|https://testProxy:8999",
+		"https://testProxy:8999",
 	},
 	{
 		&proxy{},
-		"|://:0",
+		"://:0",
 	},
 }
 

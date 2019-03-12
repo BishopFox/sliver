@@ -304,6 +304,7 @@ K:
 			// {{if .Debug}}
 			log.Printf("[proxy.Provider.readSystemEnvProxy]: \"%s\"=\"%s\", targetUrl=%s, bypass=%t", noProxyKey, proxyBypass, targetUrl, bypass)
 			// {{end}}
+			noProxyKey = noProxyKey // Avoid unused variable
 			if bypass {
 				continue K
 			}
