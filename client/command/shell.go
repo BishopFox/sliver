@@ -42,10 +42,6 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 		Type: sliverpb.MsgShellReq,
 		Data: shellReqData,
 	}, defaultTimeout)
-	if resp == nil {
-		fmt.Printf(Warn + "Error: Server did not respond to request")
-		return
-	}
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
