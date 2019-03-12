@@ -225,10 +225,6 @@ func cat(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Err)
-		return
-	}
 
 	download := &sliverpb.Download{}
 	proto.Unmarshal(resp.Data, download)
@@ -353,10 +349,6 @@ func upload(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	if err != nil {
-		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-		return
-	}
 	upload := &sliverpb.Upload{}
 	err = proto.Unmarshal(resp.Data, upload)
 	if err != nil {

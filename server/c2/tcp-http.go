@@ -163,16 +163,28 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	//  .js = poll
 	// .png = stop
 
-	router.HandleFunc("/{rpath:.*\\.txt$}", s.rsaKeyHandler).Methods("GET")
-	router.HandleFunc("/{rpath:.*\\.css$}", s.startSessionHandler).Methods("GET", "POST")
-	router.HandleFunc("/{rpath:.*\\.php$}", s.sessionHandler).Methods("GET", "POST")
-	router.HandleFunc("/{rpath:.*\\.js$}", s.pollHandler).Methods("GET")
-	router.HandleFunc("/{rpath:.*\\.png$}", s.stopHandler).Methods("GET")
+	router.HandleFunc("/{rpath:.*\\.txt$}", s.rsaKeyHandler).MatcherFunc(filterAgent).Methods(http.MethodGet)
+	router.HandleFunc("/{rpath:.*\\.css$}", s.startSessionHandler).MatcherFunc(filterAgent).Methods(http.MethodGet, http.MethodPost)
+	router.HandleFunc("/{rpath:.*\\.php$}", s.sessionHandler).MatcherFunc(filterAgent).Methods(http.MethodGet, http.MethodPost)
+	router.HandleFunc("/{rpath:.*\\.js$}", s.pollHandler).MatcherFunc(filterAgent).Methods(http.MethodGet)
+	router.HandleFunc("/{rpath:.*\\.png$}", s.stopHandler).MatcherFunc(filterAgent).Methods(http.MethodGet)
+
+	// Request does not match the C2 profile so we pass it to the default handler
+	router.HandleFunc("{rpath:.*}", defaultHandler).Methods(http.MethodGet, http.MethodPost)
 
 	router.Use(loggingMiddleware)
 	router.Use(defaultRespHeaders)
 
 	return router
+}
+
+// This filters requests that do not have the correct "User-agent" header
+func filterAgent(req *http.Request, rm *mux.RouteMatch) bool {
+	userAgent := req.Header["User-Agent"]
+	if 0 < len(userAgent) && strings.HasPrefix(userAgent[0], "Mozillа") {
+		return true
+	}
+	return false
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
@@ -205,6 +217,10 @@ func defaultRespHeaders(next http.Handler) http.Handler {
 
 		next.ServeHTTP(resp, req)
 	})
+}
+
+func defaultHandler(resp http.ResponseWriter, req *http.Request) {
+	resp.WriteHeader(404)
 }
 
 // [ HTTP Handlers ] ---------------------------------------------------------------
@@ -361,7 +377,7 @@ func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) 
 
 func (s *SliverHTTPC2) getSession(req *http.Request) *HTTPSession {
 	for _, cookie := range req.Cookies() {
-		log.Printf("[http] Cookie: %#v", cookie)
+		// log.Printf("[http] Cookie: %#v", cookie)
 		if cookie.Name == sessionCookieName {
 			session := s.Sessions.Get(cookie.Value)
 			if session != nil {

