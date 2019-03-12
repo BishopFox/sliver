@@ -199,6 +199,8 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 
 			f.String("s", "save", "", "directory/file to the binary to")
+
+			f.Bool("p", "dll", false, "Build as a DLL")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()

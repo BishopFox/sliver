@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	pb "sliver/protobuf/client"
 	"sliver/server/assets"
 	"sliver/server/certs"
@@ -72,6 +73,9 @@ type SliverConfig struct {
 	LimitHostname     string `json:"limit_hostname"`
 	LimitUsername     string `json:"limit_username"`
 	LimitDatetime     string `json:"limit_datetime"`
+
+	// DLL test
+	IsDll bool `json:"is_dll"`
 }
 
 // ToProtobuf - Convert SliverConfig to protobuf equiv
@@ -98,6 +102,8 @@ func (c *SliverConfig) ToProtobuf() *pb.SliverConfig {
 		LimitDomainJoined: c.LimitDomainJoined,
 		LimitHostname:     c.LimitHostname,
 		LimitUsername:     c.LimitUsername,
+
+		IsDll: c.IsDll,
 	}
 }
 
@@ -116,6 +122,8 @@ func SliverConfigFromProtobuf(pbConfig *pb.SliverConfig) *SliverConfig {
 	cfg.LimitDatetime = pbConfig.LimitDatetime
 	cfg.LimitUsername = pbConfig.LimitUsername
 	cfg.LimitHostname = pbConfig.LimitHostname
+
+	cfg.IsDll = pbConfig.IsDll
 
 	if pbConfig.ReconnectInterval != 0 {
 		cfg.ReconnectInterval = int(pbConfig.ReconnectInterval)
@@ -167,6 +175,8 @@ func SliverSharedLibrary(config *SliverConfig) (string, error) {
 	// Compile go code
 	appDir := assets.GetRootAppDir()
 	goConfig := &gogo.GoConfig{
+		CGO:    "1",
+		CC:     getCompiler(),
 		GOOS:   config.GOOS,
 		GOARCH: config.GOARCH,
 		GOROOT: gogo.GetGoRootDir(appDir),
@@ -202,6 +212,7 @@ func SliverExecutable(config *SliverConfig) (string, error) {
 	// Compile go code
 	appDir := assets.GetRootAppDir()
 	goConfig := &gogo.GoConfig{
+		CGO:    "0",
 		GOOS:   config.GOOS,
 		GOARCH: config.GOARCH,
 		GOROOT: gogo.GetGoRootDir(appDir),
@@ -307,6 +318,15 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		sliverPkgDir = path.Join(obfuscatedGoPath, "src", obfuscatedPkg) // new "main"
 	}
 	return sliverPkgDir, nil
+}
+
+func getCompiler() string {
+	// TODO: find a better way to do this
+	compiler := "/usr/bin/x86_64-w64-mingw32-gcc"
+	if runtime.GOOS == "windows" {
+		compiler = ""
+	}
+	return compiler
 }
 
 func randomObfuscationKey() string {

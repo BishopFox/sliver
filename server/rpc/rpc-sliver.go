@@ -43,6 +43,7 @@ func rpcSessions(_ []byte, resp RPCResponse) {
 }
 
 func rpcGenerate(req []byte, resp RPCResponse) {
+	var fpath string
 	genReq := &clientpb.GenerateReq{}
 	err := proto.Unmarshal(req, genReq)
 	if err != nil {
@@ -50,7 +51,11 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 		return
 	}
 	config := generate.SliverConfigFromProtobuf(genReq.Config)
-	fpath, err := generate.SliverExecutable(config)
+	if genReq.Config.IsDll {
+		fpath, err = generate.SliverSharedLibrary(config)
+	} else {
+		fpath, err = generate.SliverExecutable(config)
+	}
 	if err != nil {
 		resp([]byte{}, err)
 		return

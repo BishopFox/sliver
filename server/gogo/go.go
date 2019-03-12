@@ -33,6 +33,8 @@ type GoConfig struct {
 	GOARCH string
 	GOROOT string
 	GOPATH string
+	CGO    string
+	CC     string
 }
 
 // GetGoRootDir - Get the path to GOROOT
@@ -61,7 +63,8 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	cmd := exec.Command(goBinPath, command...)
 	cmd.Dir = cwd
 	cmd.Env = []string{
-		"CGO_ENABLED=0",
+		fmt.Sprintf("CC=%s", config.CC),
+		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
 		fmt.Sprintf("GOOS=%s", config.GOOS),
 		fmt.Sprintf("GOARCH=%s", config.GOARCH),
 		fmt.Sprintf("GOROOT=%s", config.GOROOT),

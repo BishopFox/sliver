@@ -1,5 +1,10 @@
 package main
 
+// {{if .IsDll}}
+
+import "C"
+
+// {{end}}
 import (
 	"flag"
 	"os"
@@ -21,6 +26,15 @@ import (
 
 	"github.com/golang/protobuf/proto"
 )
+
+// {{if .IsDll}}
+
+//export RunSliver
+func RunSliver() {
+	main()
+}
+
+// {{end}}
 
 func main() {
 

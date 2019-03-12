@@ -53,6 +53,8 @@ message SliverConfig {
   string LimitDatetime = 21;
   string LimitHostname = 22;
   string LimitUsername = 23;
+
+  bool IsDll = 24;
 }
 
 message Profile {
