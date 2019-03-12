@@ -170,6 +170,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	router.HandleFunc("/{rpath:.*\\.png$}", s.stopHandler).Methods("GET")
 
 	router.Use(loggingMiddleware)
+	router.Use(defaultRespHeaders)
 
 	return router
 }
