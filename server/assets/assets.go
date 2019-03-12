@@ -4,12 +4,12 @@ import (
 	"archive/zip"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/user"
 	"path"
 	"path/filepath"
 	"runtime"
+	"sliver/server/log"
 
 	"sliver/server/certs"
 
@@ -17,11 +17,14 @@ import (
 )
 
 const (
+	// GoDirName - The directory to store the go compiler/toolchain files in
 	GoDirName     = "go"
 	goPathDirName = "gopath"
 )
 
 var (
+	logger = log.NewLogger("assets")
+
 	assetsBox   = packr.NewBox("../../assets")
 	protobufBox = packr.NewBox("../../protobuf")
 )
@@ -33,7 +36,7 @@ func GetRootAppDir() string {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, os.ModePerm)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 	}
 	return dir
@@ -41,7 +44,7 @@ func GetRootAppDir() string {
 
 // GetDataDir - Returns the full path to the data directory
 func GetDataDir() string {
-	dir := GetRootAppDir() + "/data"
+	dir := path.Join(GetRootAppDir(), "data")
 	return dir
 }
 
@@ -66,12 +69,12 @@ func SetupCerts(appDir string) {
 // SetupGo - Unzip Go compiler assets
 func setupGo(appDir string) error {
 
-	log.Printf("Unpacking to '%s'", appDir)
+	logger.Infof("Unpacking to '%s'", appDir)
 
 	// Go compiler and stdlib
 	goZip, err := assetsBox.Find(path.Join(runtime.GOOS, "go.zip"))
 	if err != nil {
-		log.Printf("static asset not found: go.zip")
+		logger.Info("static asset not found: go.zip")
 		return err
 	}
 
@@ -80,13 +83,13 @@ func setupGo(appDir string) error {
 	ioutil.WriteFile(goZipPath, goZip, 0644)
 	_, err = unzip(goZipPath, appDir)
 	if err != nil {
-		log.Printf("Failed to unzip file %s -> %s", goZipPath, appDir)
+		logger.Infof("Failed to unzip file %s -> %s", goZipPath, appDir)
 		return err
 	}
 
 	goSrcZip, err := assetsBox.Find("src.zip")
 	if err != nil {
-		log.Printf("static asset not found: src.zip")
+		logger.Info("static asset not found: src.zip")
 		return err
 	}
 	goSrcZipPath := path.Join(appDir, "src.zip")
@@ -94,7 +97,7 @@ func setupGo(appDir string) error {
 	ioutil.WriteFile(goSrcZipPath, goSrcZip, 0644)
 	_, err = unzip(goSrcZipPath, path.Join(appDir, GoDirName))
 	if err != nil {
-		log.Printf("Failed to unzip file %s -> %s/go", goSrcZipPath, appDir)
+		logger.Infof("Failed to unzip file %s -> %s/go", goSrcZipPath, appDir)
 		return err
 	}
 
@@ -106,19 +109,19 @@ func SetupGoPath(goPathSrc string) error {
 
 	// GOPATH setup
 	if _, err := os.Stat(goPathSrc); os.IsNotExist(err) {
-		log.Printf("Creating GOPATH directory: %s", goPathSrc)
+		logger.Infof("Creating GOPATH directory: %s", goPathSrc)
 		os.MkdirAll(goPathSrc, os.ModePerm)
 	}
 
 	// Protobuf dependencies
 	pbGoSrc, err := protobufBox.Find("sliver/sliver.pb.go")
 	if err != nil {
-		log.Printf("static asset not found: sliver.pb.go")
+		logger.Info("static asset not found: sliver.pb.go")
 		return err
 	}
 	pbConstSrc, err := protobufBox.Find("sliver/constants.go")
 	if err != nil {
-		log.Printf("static asset not found: constants.go")
+		logger.Info("static asset not found: constants.go")
 		return err
 	}
 
@@ -132,12 +135,12 @@ func SetupGoPath(goPathSrc string) error {
 	protobufPath := path.Join(goPathSrc, "github.com", "golang")
 	err = unzipGoDependency("protobuf.zip", protobufPath, assetsBox)
 	if err != nil {
-		log.Fatalf("Failed to unzip go dependency: %v", err)
+		logger.Fatalf("Failed to unzip go dependency: %v", err)
 	}
 	golangXPath := path.Join(goPathSrc, "golang.org", "x")
 	err = unzipGoDependency("golang_x_sys.zip", golangXPath, assetsBox)
 	if err != nil {
-		log.Fatalf("Failed to unzip go dependency: %v", err)
+		logger.Fatalf("Failed to unzip go dependency: %v", err)
 	}
 
 	return nil
@@ -147,12 +150,12 @@ func SetupGoPath(goPathSrc string) error {
 func SetupDataPath(appDir string) error {
 	dataDir := appDir + "/data"
 	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
-		log.Printf("Creating data directory: %s", dataDir)
+		logger.Infof("Creating data directory: %s", dataDir)
 		os.MkdirAll(dataDir, os.ModePerm)
 	}
 	hostingDll, err := assetsBox.Find("HostingCLRx64.dll")
 	if err != nil {
-		log.Printf("failed to find the dll")
+		logger.Info("failed to find the dll")
 		return err
 	}
 	err = ioutil.WriteFile(dataDir+"/HostingCLRx64.dll", hostingDll, 0644)
@@ -160,11 +163,11 @@ func SetupDataPath(appDir string) error {
 }
 
 func unzipGoDependency(fileName string, targetPath string, assetsBox packr.Box) error {
-	log.Printf("Unpacking go dependency %s -> %s", fileName, targetPath)
+	logger.Infof("Unpacking go dependency %s -> %s", fileName, targetPath)
 	appDir := GetRootAppDir()
 	godep, err := assetsBox.Find(fileName)
 	if err != nil {
-		log.Printf("static asset not found: %s", fileName)
+		logger.Infof("static asset not found: %s", fileName)
 		return err
 	}
 
@@ -173,7 +176,7 @@ func unzipGoDependency(fileName string, targetPath string, assetsBox packr.Box) 
 	ioutil.WriteFile(godepZipPath, godep, 0644)
 	_, err = unzip(godepZipPath, targetPath)
 	if err != nil {
-		log.Printf("Failed to unzip file %s -> %s", godepZipPath, appDir)
+		logger.Infof("Failed to unzip file %s -> %s", godepZipPath, appDir)
 		return err
 	}
 
@@ -186,13 +189,13 @@ func setupCodenames(appDir string) error {
 
 	err = ioutil.WriteFile(path.Join(appDir, "nouns.txt"), nouns, 0600)
 	if err != nil {
-		log.Printf("Failed to write noun data to: %s", appDir)
+		logger.Infof("Failed to write noun data to: %s", appDir)
 		return err
 	}
 
 	err = ioutil.WriteFile(path.Join(appDir, "adjectives.txt"), adjectives, 0600)
 	if err != nil {
-		log.Printf("Failed to write adjective data to: %s", appDir)
+		logger.Infof("Failed to write adjective data to: %s", appDir)
 		return err
 	}
 	return nil
