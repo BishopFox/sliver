@@ -290,9 +290,9 @@ func Init(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:     consts.InjectStr,
+		Name:     consts.MsfInjectStr,
 		Help:     "Inject an MSF payload into a process",
-		LongHelp: help.GetHelpFor(consts.InjectStr),
+		LongHelp: help.GetHelpFor(consts.MsfInjectStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("p", "pid", -1, "pid to inject into")
 			f.String("m", "payload", "meterpreter_reverse_https", "msf payload")

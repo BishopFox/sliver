@@ -16,14 +16,10 @@ import (
 	"text/template"
 
 	"github.com/gobuffalo/packr"
-	"github.com/sirupsen/logrus"
 )
 
 var (
-	buildLog = log.RootLogger.WithFields(logrus.Fields{
-		"pkg":    "generate",
-		"stream": "build",
-	})
+	buildLog = log.NamedLogger("generate", "build")
 )
 
 const (

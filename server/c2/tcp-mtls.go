@@ -18,7 +18,6 @@ import (
 	serverHandlers "sliver/server/handlers"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -27,10 +26,7 @@ const (
 )
 
 var (
-	mtlsLog = log.RootLogger.WithFields(logrus.Fields{
-		"pkg":    "c2",
-		"stream": "mtls",
-	})
+	mtlsLog = log.NamedLogger("c2", "mtls")
 )
 
 // StartMutualTLSListener - Start a mutual TLS listener

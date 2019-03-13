@@ -33,7 +33,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/miekg/dns"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -53,10 +52,7 @@ const (
 )
 
 var (
-	dnsLog = log.RootLogger.WithFields(logrus.Fields{
-		"pkg":    "c2",
-		"stream": "dns",
-	})
+	dnsLog = log.NamedLogger("c2", "dns")
 )
 
 var (

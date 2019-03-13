@@ -8,6 +8,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/binary"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
@@ -17,22 +18,23 @@ import (
 	"path"
 	"sliver/server/log"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 var (
-	certsLog = log.RootLogger.WithFields(logrus.Fields{
-		"pkg":    "certs",
-		"stream": "certificates",
-	})
+	certsLog = log.NamedLogger("certs", "certificates")
 )
 
 const (
-	validFor       = 365 * 24 * time.Hour
+	// Certs are valid for ~3 Years, minus up to 1 year from Now()
+	validFor = 3 * (365 * 24 * time.Hour)
+
+	// CertsDirName - Parent directory for all certs
+	CertsDirName = "certs"
+	// ClientsCertDir - Directory containing client certificates
 	ClientsCertDir = "clients"
-	CertsDirName   = "certs"
+	// SliversCertDir - Directory containing sliver certificates
 	SliversCertDir = "slivers"
+	// ServersCertDir - Directory containing server certificates
 	ServersCertDir = "servers"
 )
 
@@ -290,8 +292,10 @@ func GenerateCertificate(rootDir string, host string, caType string, isCA bool, 
 		certsLog.Fatalf("Failed to generate private key: %s", err)
 	}
 
-	// Valid times
-	notBefore := time.Now() // TODO: Randomize
+	// Valid times, subtract random days from .Now()
+	notBefore := time.Now()
+	days := randomInt(365) * -1 // Within -1 year
+	notBefore = notBefore.AddDate(0, 0, days)
 	notAfter := notBefore.Add(validFor)
 	certsLog.Infof("Valid from %v to %v", notBefore, notAfter)
 
@@ -318,7 +322,7 @@ func GenerateCertificate(rootDir string, host string, caType string, isCA bool, 
 	template := x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
-			Organization: []string{"Sliver Hive"},
+			Organization: []string{""},
 		},
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
@@ -380,11 +384,13 @@ func GenerateRSACertificate(rootDir string, caType string, host string, isCA boo
 	// Generate private key
 	privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		certsLog.Fatalf("Failed to generate private key: %s", err)
+		certsLog.Fatalf("Failed to generate private key %s", err)
 	}
 
-	// Valid times
+	// Valid times, subtract random days from .Now()
 	notBefore := time.Now()
+	days := randomInt(365) * -1 // Within -1 year
+	notBefore = notBefore.AddDate(0, 0, days)
 	notAfter := notBefore.Add(validFor)
 	certsLog.Infof("Valid from %v to %v", notBefore, notAfter)
 
@@ -411,7 +417,7 @@ func GenerateRSACertificate(rootDir string, caType string, host string, isCA boo
 	template := x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
-			Organization: []string{"Sliver Hive"},
+			Organization: []string{""},
 		},
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
@@ -487,4 +493,11 @@ func pemBlockForKey(priv interface{}) *pem.Block {
 	default:
 		return nil
 	}
+}
+
+func randomInt(max int) int {
+	buf := make([]byte, 4)
+	rand.Read(buf)
+	i := binary.LittleEndian.Uint32(buf)
+	return int(i) % max
 }

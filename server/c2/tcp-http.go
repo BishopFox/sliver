@@ -25,18 +25,11 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
-	"github.com/sirupsen/logrus"
 )
 
 var (
-	httpLog = log.RootLogger.WithFields(logrus.Fields{
-		"pkg":    "c2",
-		"stream": "http",
-	})
-	accessLog = log.RootLogger.WithFields(logrus.Fields{
-		"pkg":    "c2",
-		"stream": "http-access",
-	})
+	httpLog   = log.NamedLogger("c2", "http")
+	accessLog = log.NamedLogger("c2", "http-access")
 )
 
 const (

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -16,6 +17,14 @@ var (
 	// RootLogger - Root Logger
 	RootLogger = rootLogger()
 )
+
+// NamedLogger - Returns a logger wrapped with pkg/stream fields
+func NamedLogger(pkg, stream string) *logrus.Entry {
+	return RootLogger.WithFields(logrus.Fields{
+		"pkg":    pkg,
+		"stream": stream,
+	})
+}
 
 // GetLogDir - Return the log dir
 func GetLogDir() string {
@@ -87,20 +96,32 @@ func (hook *TxtHook) Fire(entry *logrus.Entry) error {
 	if hook.logger == nil {
 		return errors.New("No txt logger")
 	}
+
+	// Determine the caller (filename/line number)
+	srcFile := "<no caller>"
+	if entry.HasCaller() {
+		sliverIndex := strings.Index(entry.Caller.File, "sliver")
+		srcFile = entry.Caller.File
+		if sliverIndex != -1 {
+			srcFile = srcFile[sliverIndex:]
+		}
+	}
+
 	switch entry.Level {
 	case logrus.PanicLevel:
-		hook.logger.Panic(entry.Message)
+		hook.logger.Panicf("[%s:%d] %s", srcFile, entry.Caller.Line, entry.Message)
 	case logrus.FatalLevel:
-		hook.logger.Fatal(entry.Message)
+		hook.logger.Fatalf("[%s:%d] %s", srcFile, entry.Caller.Line, entry.Message)
 	case logrus.ErrorLevel:
-		hook.logger.Error(entry.Message)
+		hook.logger.Errorf("[%s:%d] %s", srcFile, entry.Caller.Line, entry.Message)
 	case logrus.WarnLevel:
-		hook.logger.Warn(entry.Message)
+		hook.logger.Warnf("[%s:%d] %s", srcFile, entry.Caller.Line, entry.Message)
 	case logrus.InfoLevel:
-		hook.logger.Info(entry.Message)
+		hook.logger.Infof("[%s:%d] %s", srcFile, entry.Caller.Line, entry.Message)
 	case logrus.DebugLevel, logrus.TraceLevel:
-		hook.logger.Debug(entry.Message)
+		hook.logger.Debugf("[%s:%d] %s", srcFile, entry.Caller.Line, entry.Message)
 	}
+
 	return nil
 }
 
