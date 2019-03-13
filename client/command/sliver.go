@@ -195,7 +195,7 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 	limitUsername := ctx.Flags.String("limit-username")
 	limitDatetime := ctx.Flags.String("limit-datetime")
 
-	isDll := ctx.Flags.Bool("dll")
+	isDll := ctx.Flags.Bool("shared")
 
 	save := ctx.Flags.String("save")
 
