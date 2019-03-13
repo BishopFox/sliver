@@ -1,7 +1,5 @@
 package core
 
-import "log"
-
 // Event - Sliver connect/disconnect
 type Event struct {
 	Sliver    *Sliver
@@ -24,7 +22,6 @@ func (b *eventBroker) Start() {
 	for {
 		select {
 		case <-b.stop:
-			log.Printf("Closing subscriber channels ...")
 			for sub := range subscribers {
 				close(sub)
 			}

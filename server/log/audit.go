@@ -1,7 +1,7 @@
 package log
 
 import (
-	golog "log"
+	"fmt"
 	"os"
 	"path"
 
@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	// Audit - Single audit log
-	Audit = newAuditLogger()
+	// AuditLogger - Single audit log
+	AuditLogger = newAuditLogger()
 )
 
 func newAuditLogger() *logrus.Logger {
@@ -19,10 +19,10 @@ func newAuditLogger() *logrus.Logger {
 	jsonFilePath := path.Join(GetLogDir(), "audit.json")
 	jsonFile, err := os.OpenFile(jsonFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		golog.Fatalf("Failed to open log file %v", err)
+		panic(fmt.Sprintf("Failed to open log file %v", err))
 	}
 	auditLogger.Out = jsonFile
-	auditLogger.SetLevel(logrus.InfoLevel)
+	auditLogger.SetLevel(logrus.DebugLevel)
 
 	return auditLogger
 }
