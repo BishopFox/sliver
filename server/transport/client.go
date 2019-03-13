@@ -22,10 +22,7 @@ import (
 )
 
 var (
-	clientLog = log.RootLogger.WithFields(logrus.Fields{
-		"pkg":    "transport",
-		"stream": "client",
-	})
+	clientLog = log.NamedLogger("transport", "client")
 )
 
 const (
