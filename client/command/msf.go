@@ -71,12 +71,12 @@ func msfInject(ctx *grumble.Context, rpc RPCServer) {
 	}
 
 	if lhost == "" {
-		fmt.Printf(Warn+"Invalid lhost '%s', see `help %s`\n", lhost, consts.InjectStr)
+		fmt.Printf(Warn+"Invalid lhost '%s', see `help %s`\n", lhost, consts.MsfInjectStr)
 		return
 	}
 
 	if pid == -1 {
-		fmt.Printf(Warn+"Invalid pid '%s', see `help %s`\n", lhost, consts.InjectStr)
+		fmt.Printf(Warn+"Invalid pid '%s', see `help %s`\n", lhost, consts.MsfInjectStr)
 		return
 	}
 
