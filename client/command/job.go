@@ -19,10 +19,11 @@ func jobs(ctx *grumble.Context, rpc RPCServer) {
 		Type: clientpb.MsgJobs,
 		Data: []byte{},
 	}, defaultTimeout)
-	if resp == nil {
-		fmt.Printf(Warn + "Command timeout\n")
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s\n", resp.Err)
 		return
 	}
+
 	jobs := &clientpb.Jobs{}
 	proto.Unmarshal(resp.Data, jobs)
 
@@ -72,10 +73,6 @@ func startMTLSListener(ctx *grumble.Context, rpc RPCServer) {
 		Type: clientpb.MsgMtls,
 		Data: data,
 	}, defaultTimeout)
-	if resp == nil {
-		fmt.Printf(Warn + "Command timeout\n")
-		return
-	}
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Failed to start job %s\n", resp.Err)
 		return
@@ -102,10 +99,6 @@ func startDNSListener(ctx *grumble.Context, rpc RPCServer) {
 		Type: clientpb.MsgDns,
 		Data: data,
 	}, defaultTimeout)
-	if resp == nil {
-		fmt.Printf(Warn + "Command timeout\n")
-		return
-	}
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Failed to start job %s\n", resp.Err)
 		return
@@ -130,10 +123,6 @@ func startHTTPSListener(ctx *grumble.Context, rpc RPCServer) {
 		Type: clientpb.MsgHttps,
 		Data: data,
 	}, defaultTimeout)
-	if resp == nil {
-		fmt.Printf(Warn + "Command timeout\n")
-		return
-	}
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Failed to start job %s\n", resp.Err)
 		return
@@ -157,10 +146,6 @@ func startHTTPListener(ctx *grumble.Context, rpc RPCServer) {
 		Type: clientpb.MsgHttp,
 		Data: data,
 	}, defaultTimeout)
-	if resp == nil {
-		fmt.Printf(Warn + "Command timeout\n")
-		return
-	}
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Failed to start job %s\n", resp.Err)
 		return

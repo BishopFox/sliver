@@ -32,8 +32,8 @@ func sessions(ctx *grumble.Context, rpc RPCServer) {
 		Type: clientpb.MsgSessions,
 		Data: []byte{},
 	}, defaultTimeout)
-	if resp == nil {
-		fmt.Printf(Warn + "Command timeout\n")
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s\n", resp.Err)
 		return
 	}
 	sessions := &clientpb.Sessions{}
@@ -142,10 +142,6 @@ func kill(ctx *grumble.Context, rpc RPCServer) {
 		Type: sliverpb.MsgKill,
 		Data: data,
 	}, defaultTimeout)
-	if resp == nil {
-		fmt.Printf(Warn + "No response from server\n")
-		return
-	}
 
 	if resp.Err != "" {
 		fmt.Printf(Warn+"%s\n", resp.Err)
@@ -286,10 +282,6 @@ func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 		Data: generateReq,
 	}, 1200*time.Second) // TODO: make timeout a parameter
 	ctrl <- true
-	if resp == nil {
-		fmt.Printf(Warn + "No response from server\n")
-		return
-	}
 	if resp.Err != "" {
 		fmt.Printf(Warn+"%s\n", resp.Err)
 		return
@@ -433,10 +425,6 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 		Type: clientpb.MsgNewProfile,
 		Data: data,
 	}, defaultTimeout)
-	if resp == nil {
-		fmt.Printf(Warn + "No response from server\n")
-		return
-	}
 	if resp.Err != "" {
 		fmt.Printf(Warn+"%s\n", resp.Err)
 	} else {
@@ -448,10 +436,6 @@ func getSliverProfiles(rpc RPCServer) *map[string]*clientpb.Profile {
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgProfiles,
 	}, defaultTimeout)
-	if resp == nil {
-		fmt.Printf(Warn + "No response from server\n")
-		return nil
-	}
 	if resp.Err != "" {
 		fmt.Printf(Warn+"%s\n", resp.Err)
 		return nil
