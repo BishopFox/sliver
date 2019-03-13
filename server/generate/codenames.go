@@ -3,20 +3,29 @@ package generate
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
 	"path"
 	"sliver/server/assets"
+	"sliver/server/log"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
+)
+
+var (
+	codenameLog = log.RootLogger.WithFields(logrus.Fields{
+		"pkg":    "generate",
+		"stream": "codenames",
+	})
 )
 
 // readlines - Read lines of a text file into a slice
 func readlines(path string) []string {
 	file, err := os.Open(path)
 	if err != nil {
-		log.Fatal(err)
+		codenameLog.Fatal(err)
 	}
 	defer file.Close()
 
@@ -27,7 +36,7 @@ func readlines(path string) []string {
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		codenameLog.Fatal(err)
 	}
 
 	return words

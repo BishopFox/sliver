@@ -6,18 +6,19 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"fmt"
-	"log"
 	"net"
 	consts "sliver/client/constants"
 	pb "sliver/protobuf/sliver"
 	"sliver/server/assets"
 	"sliver/server/core"
+	"sliver/server/log"
 	"sync"
 
 	"sliver/server/certs"
 	serverHandlers "sliver/server/handlers"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -25,9 +26,16 @@ const (
 	defaultServerCert = "hive"
 )
 
+var (
+	mtlsLog = log.RootLogger.WithFields(logrus.Fields{
+		"pkg":    "c2",
+		"stream": "mtls",
+	})
+)
+
 // StartMutualTLSListener - Start a mutual TLS listener
 func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error) {
-	log.Printf("Starting Raw TCP/mTLS listener on %s:%d", bindIface, port)
+	mtlsLog.Infof("Starting Raw TCP/mTLS listener on %s:%d", bindIface, port)
 	hostCert := bindIface
 	if hostCert == "" {
 		hostCert = defaultServerCert
@@ -35,7 +43,7 @@ func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error)
 	tlsConfig := getServerTLSConfig(certs.SliversCertDir, hostCert)
 	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", bindIface, port), tlsConfig)
 	if err != nil {
-		log.Println(err)
+		mtlsLog.Error(err)
 		return nil, err
 	}
 	go acceptSliverConnections(ln)
@@ -49,7 +57,7 @@ func acceptSliverConnections(ln net.Listener) {
 			if errType, ok := err.(*net.OpError); ok && errType.Op == "accept" {
 				break
 			}
-			log.Printf("Accept failed: %v", err)
+			mtlsLog.Errorf("Accept failed: %v", err)
 			continue
 		}
 		go handleSliverConnection(conn)
@@ -57,7 +65,7 @@ func acceptSliverConnections(ln net.Listener) {
 }
 
 func handleSliverConnection(conn net.Conn) {
-	log.Printf("Accepted incoming connection: %s", conn.RemoteAddr())
+	mtlsLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
 
 	sliver := &core.Sliver{
 		ID:            core.GetHiveID(),
@@ -71,7 +79,7 @@ func handleSliverConnection(conn net.Conn) {
 	core.Hive.AddSliver(sliver)
 
 	defer func() {
-		log.Printf("Cleaning up for %s", sliver.Name)
+		mtlsLog.Debugf("Cleaning up for %s", sliver.Name)
 		core.Hive.RemoveSliver(sliver)
 		conn.Close()
 		core.EventBroker.Publish(core.Event{
@@ -85,7 +93,7 @@ func handleSliverConnection(conn net.Conn) {
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err != nil {
-				log.Printf("Socket read error %v", err)
+				mtlsLog.Errorf("Socket read error %v", err)
 				return
 			}
 			if envelope.ID != 0 {
@@ -103,11 +111,11 @@ func handleSliverConnection(conn net.Conn) {
 	for envelope := range sliver.Send {
 		err := socketWriteEnvelope(conn, envelope)
 		if err != nil {
-			log.Printf("Socket write failed %v", err)
+			mtlsLog.Errorf("Socket write failed %v", err)
 			return
 		}
 	}
-	log.Printf("Closing connection to sliver %s", sliver.Name)
+	mtlsLog.Infof("Closing connection to sliver %s", sliver.Name)
 }
 
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
@@ -116,7 +124,7 @@ func handleSliverConnection(conn net.Conn) {
 func socketWriteEnvelope(connection net.Conn, envelope *pb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
-		log.Print("Envelope marshaling error: ", err)
+		mtlsLog.Errorf("Envelope marshaling error: %v", err)
 		return err
 	}
 	dataLengthBuf := new(bytes.Buffer)
@@ -134,7 +142,7 @@ func socketReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4) // Size of uint32
 	_, err := connection.Read(dataLengthBuf)
 	if err != nil {
-		log.Printf("Socket error (read msg-length): %v", err)
+		mtlsLog.Errorf("Socket error (read msg-length): %v", err)
 		return nil, err
 	}
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
@@ -156,20 +164,20 @@ func socketReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 			break
 		}
 		if err != nil {
-			log.Printf("Read error: %s", err)
+			mtlsLog.Errorf("Read error: %s", err)
 			break
 		}
 	}
 
 	if err != nil {
-		log.Printf("Socket error (read data): %v", err)
+		mtlsLog.Errorf("Socket error (read data): %v", err)
 		return nil, err
 	}
 	// Unmarshal the protobuf envelope
 	envelope := &pb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
-		log.Printf("unmarshaling envelope error: %v", err)
+		mtlsLog.Errorf("unmarshaling envelope error: %v", err)
 		return nil, err
 	}
 	return envelope, nil
@@ -183,7 +191,7 @@ func getServerTLSConfig(caType string, host string) *tls.Config {
 
 	caCertPtr, _, err := certs.GetCertificateAuthority(rootDir, caType)
 	if err != nil {
-		log.Fatalf("Invalid ca type (%s): %v", caType, host)
+		mtlsLog.Fatalf("Invalid ca type (%s): %v", caType, host)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AddCert(caCertPtr)
@@ -191,7 +199,7 @@ func getServerTLSConfig(caType string, host string) *tls.Config {
 	certPEM, keyPEM, _ := certs.GetServerCertificatePEM(rootDir, caType, host, true)
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
-		log.Fatalf("Error loading server certificate: %v", err)
+		mtlsLog.Fatalf("Error loading server certificate: %v", err)
 	}
 
 	tlsConfig := &tls.Config{

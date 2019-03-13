@@ -24,7 +24,10 @@ const (
 )
 
 var (
-	logger = log.RootLogger.WithFields(logrus.Fields{"pkg": "assets", "stream": "setup"})
+	logger = log.RootLogger.WithFields(logrus.Fields{
+		"pkg":    "assets",
+		"stream": "setup",
+	})
 
 	assetsBox   = packr.NewBox("../../assets")
 	protobufBox = packr.NewBox("../../protobuf")
