@@ -94,7 +94,7 @@ func msfInject(ctx *grumble.Context, rpc RPCServer) {
 		SliverID:   ActiveSliver.Sliver.ID,
 	})
 	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgMsf,
+		Type: clientpb.MsgMsfInject,
 		Data: data,
 	}, defaultTimeout)
 	ctrl <- true

