@@ -27,6 +27,9 @@ def docker_rm_containers():
 def docker_rm_images():
     exec_cmd("docker rmi -f $(docker images -q)", ignore_status=True)
 
+def docker_prune():
+    exec_cmd("docker image prune -f", ignore_status=True)
+
 def docker_rm_all():
     docker_rm_containers()
     docker_rm_images()
@@ -45,6 +48,9 @@ def main(args):
         docker_rm_volumes()
     if args.rm_all:
         docker_rm_all()
+    
+    if not args.no_prune:
+        docker_prune()
     if not args.no_build:
         build()
 
@@ -56,6 +62,10 @@ if __name__ == '__main__':
     parser.add_argument('--no-build', '-b',
                         help='do not run build',
                         dest='no_build',
+                        action='store_true')
+    parser.add_argument('--no-prune', '-np',
+                        help='do not prune images',
+                        dest='no_prune',
                         action='store_true')
 
     parser.add_argument('--rm-all', '-rma',
