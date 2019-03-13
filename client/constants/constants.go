@@ -50,8 +50,8 @@ const (
 	HttpStr  = "http"
 	HttpsStr = "https"
 
-	MsfStr    = "msf"
-	InjectStr = "inject"
+	MsfStr       = "msf"
+	MsfInjectStr = "msf-inject"
 
 	PsStr   = "ps"
 	PingStr = "ping"

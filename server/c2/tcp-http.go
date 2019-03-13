@@ -9,13 +9,13 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"io/ioutil"
-	"log"
 	"net/http"
 	consts "sliver/client/constants"
 	"sliver/server/assets"
 	"sliver/server/certs"
 	"sliver/server/core"
 	"sliver/server/cryptography"
+	"sliver/server/log"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +25,11 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
+)
+
+var (
+	httpLog   = log.NamedLogger("c2", "http")
+	accessLog = log.NamedLogger("c2", "http-access")
 )
 
 const (
@@ -102,7 +107,7 @@ type SliverHTTPC2 struct {
 
 // StartHTTPSListener - Start a mutual TLS listener
 func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
-	log.Printf("Starting https listener on '%s'", conf.Addr)
+	httpLog.Infof("Starting https listener on '%s'", conf.Addr)
 	server := &SliverHTTPC2{
 		Conf: conf,
 		Sessions: &httpSessions{
@@ -134,7 +139,7 @@ func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 
 // StartHTTPListener - Start a mutual TLS listener
 func StartHTTPListener(conf *HTTPServerConfig) *SliverHTTPC2 {
-	log.Printf("Starting http listener on '%s'", conf.Addr)
+	httpLog.Infof("Starting http listener on '%s'", conf.Addr)
 	server := &SliverHTTPC2{
 		Conf: conf,
 		Sessions: &httpSessions{
@@ -189,7 +194,7 @@ func filterAgent(req *http.Request, rm *mux.RouteMatch) bool {
 
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		log.Printf("[http] %v", req.RequestURI)
+		accessLog.Infof("%s - %s - %v", req.RemoteAddr, req.RequestURI, req.Header["User-Agent"])
 		next.ServeHTTP(resp, req)
 	})
 }
@@ -235,20 +240,20 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	rootDir := assets.GetRootAppDir()
 	publicKeyPEM, privateKeyPEM, err := certs.GetServerRSACertificatePEM(rootDir, "slivers", s.Conf.Domain, false)
 	if err != nil {
-		log.Printf("[http] Failed to fetch rsa private key")
+		httpLog.Info("Failed to fetch rsa private key")
 		resp.WriteHeader(404)
 		return
 	}
 
 	// RSA decrypt request body
 	publicKeyBlock, _ := pem.Decode([]byte(publicKeyPEM))
-	log.Printf("[http] RSA Fingerprint: %s", fingerprintSHA256(publicKeyBlock))
+	httpLog.Debugf("RSA Fingerprint: %s", fingerprintSHA256(publicKeyBlock))
 	privateKeyBlock, _ := pem.Decode([]byte(privateKeyPEM))
 	privateKey, _ := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
 	buf, _ := ioutil.ReadAll(req.Body)
 	sessionInitData, err := cryptography.RSADecrypt(buf, privateKey)
 	if err != nil {
-		log.Printf("[http] RSA decryption failed")
+		httpLog.Info("RSA decryption failed")
 		resp.WriteHeader(404)
 		return
 	}
@@ -267,11 +272,11 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	}
 	core.Hive.AddSliver(session.Sliver)
 	s.Sessions.Add(session)
-	log.Printf("Started new session with id %s", session.ID)
+	httpLog.Infof("Started new session with id %s", session.ID)
 
 	data, err := cryptography.GCMEncrypt(session.Key, []byte(session.ID))
 	if err != nil {
-		log.Printf("[http] Failed to encrypt session identifier")
+		httpLog.Info("Failed to encrypt session identifier")
 		resp.WriteHeader(404)
 		return
 	}
@@ -289,20 +294,20 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 
 	session := s.getSession(req)
 	if session == nil {
-		log.Printf("[http] No session with id %#v", session.ID)
+		httpLog.Infof("No session with id %#v", session.ID)
 		resp.WriteHeader(403)
 		return
 	}
 
 	data, _ := ioutil.ReadAll(req.Body)
 	if session.isReplayAttack(data) {
-		log.Printf("[http] WARNING: Replay attack detected")
+		httpLog.Warn("Replay attack detected")
 		resp.WriteHeader(404)
 		return
 	}
 	body, err := cryptography.GCMDecrypt(session.Key, data)
 	if err != nil {
-		log.Printf("[http] GCM decryption failed %v", err)
+		httpLog.Warnf("GCM decryption failed %v", err)
 		resp.WriteHeader(404)
 		return
 	}
@@ -326,7 +331,7 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) {
 	session := s.getSession(req)
 	if session == nil {
-		log.Printf("[http] No session with id %#v", session.ID)
+		httpLog.Infof("No session with id %#v", session.ID)
 		resp.WriteHeader(403)
 		return
 	}
@@ -338,7 +343,7 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 		data, _ := cryptography.GCMEncrypt(session.Key, envelopeData)
 		resp.Write(data)
 	case <-time.After(pollTimeout):
-		log.Printf("Poll time out")
+		httpLog.Info("Poll time out")
 		resp.WriteHeader(201)
 		resp.Write([]byte{})
 	}
@@ -347,20 +352,20 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) {
 	session := s.getSession(req)
 	if session == nil {
-		log.Printf("[http] No session with id %#v", session.ID)
+		httpLog.Infof("No session with id %#v", session.ID)
 		resp.WriteHeader(403)
 		return
 	}
 
 	nonce := []byte(req.URL.Query().Get("nonce"))
 	if session.isReplayAttack(nonce) {
-		log.Printf("[http] WARNING: Replay attack detected")
+		httpLog.Warn("Replay attack detected")
 		resp.WriteHeader(404)
 		return
 	}
 	_, err := cryptography.GCMDecrypt(session.Key, nonce)
 	if err != nil {
-		log.Printf("[http] GCM decryption failed %v", err)
+		httpLog.Warnf("GCM decryption failed %v", err)
 		resp.WriteHeader(404)
 		return
 	}
@@ -377,7 +382,6 @@ func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) 
 
 func (s *SliverHTTPC2) getSession(req *http.Request) *HTTPSession {
 	for _, cookie := range req.Cookies() {
-		// log.Printf("[http] Cookie: %#v", cookie)
 		if cookie.Name == sessionCookieName {
 			session := s.Sessions.Get(cookie.Value)
 			if session != nil {

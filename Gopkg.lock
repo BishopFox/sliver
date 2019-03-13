@@ -110,6 +110,12 @@
   revision = "95032a82bc518f77982ea72343cc1ade730072f0"
 
 [[projects]]
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  revision = "f55edac94c9bbba5d6182a4be46d86a2c9b5b50e"
+  version = "v1.0.2"
+
+[[projects]]
   branch = "master"
   name = "github.com/markbates/oncer"
   packages = ["."]
@@ -158,6 +164,12 @@
   version = "v1.1.0"
 
 [[projects]]
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  revision = "dae0fa8d5b0c810a8ab733fbd5510c7cae84eca4"
+  version = "v1.4.0"
+
+[[projects]]
   name = "github.com/stretchr/testify"
   packages = ["assert"]
   revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
@@ -196,6 +208,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "12bb047183bd6580886f9c009db6f81cb4ffc778b642691a60e40a5170d59aaa"
+  inputs-digest = "b4b6ede190a30d8bc4cf75b9deaa090032ec2cd9655c6d47d27d8b9f1e4fe729"
   solver-name = "gps-cdcl"
   solver-version = 1

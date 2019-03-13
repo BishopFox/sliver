@@ -34,7 +34,7 @@ var (
 		consts.GenerateStr:   generateHelp,
 
 		consts.MsfStr:              msfHelp,
-		consts.InjectStr:           injectHelp,
+		consts.MsfInjectStr:        msfInjectHelp,
 		consts.PsStr:               psHelp,
 		consts.PingStr:             pingHelp,
 		consts.KillStr:             killHelp,
@@ -71,7 +71,7 @@ var (
 	msfHelp = `[[.Bold]]Command:[[.Normal]] msf [--lhost] <options>
 [[.Bold]]About:[[.Normal]] Execute a metasploit payload in the current process.`
 
-	injectHelp = `[[.Bold]]Command:[[.Normal]] inject [--pid] [--lhost] <options>
+	msfInjectHelp = `[[.Bold]]Command:[[.Normal]] inject [--pid] [--lhost] <options>
 [[.Bold]]About:[[.Normal]] Execute a metasploit payload in a remote process.`
 
 	psHelp = `[[.Bold]]Command:[[.Normal]] ps <options>

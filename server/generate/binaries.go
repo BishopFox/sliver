@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -14,9 +13,14 @@ import (
 	"sliver/server/certs"
 	gobfuscate "sliver/server/gobfuscate"
 	gogo "sliver/server/gogo"
+	"sliver/server/log"
 	"text/template"
 
 	"github.com/gobuffalo/packr"
+)
+
+var (
+	buildLog = log.NamedLogger("generate", "build")
 )
 
 const (
@@ -154,10 +158,10 @@ func GetSliversDir() string {
 	appDir := assets.GetRootAppDir()
 	sliversDir := path.Join(appDir, sliversDirName)
 	if _, err := os.Stat(sliversDir); os.IsNotExist(err) {
-		log.Printf("Creating bin directory: %s", sliversDir)
+		buildLog.Infof("Creating bin directory: %s", sliversDir)
 		err = os.MkdirAll(sliversDir, os.ModePerm)
 		if err != nil {
-			log.Fatal(err)
+			buildLog.Fatal(err)
 		}
 	}
 	return sliversDir
@@ -244,7 +248,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 	if config.Name == "" {
 		config.Name = GetCodename()
 	}
-	log.Printf("Generating new sliver binary '%s'", config.Name)
+	buildLog.Infof("Generating new sliver binary '%s'", config.Name)
 
 	sliversDir := GetSliversDir() // ~/.sliver/slivers
 	projectGoPathDir := path.Join(sliversDir, config.GOOS, config.GOARCH, config.Name)
@@ -286,7 +290,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 			// Add an extra "sliver" dir
 			dirPath := path.Join(sliverPkgDir, "sliver", dirName)
 			if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-				log.Printf("[mkdir] %#v", dirPath)
+				buildLog.Infof("[mkdir] %#v", dirPath)
 				os.MkdirAll(dirPath, os.ModePerm)
 			}
 			sliverCodePath = path.Join(dirPath, fileName)
@@ -295,26 +299,26 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		}
 
 		fSliver, _ := os.Create(sliverCodePath)
-		log.Printf("[render] %s", sliverCodePath)
+		buildLog.Infof("[render] %s", sliverCodePath)
 		sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
 		err := sliverCodeTmpl.Execute(fSliver, config)
 		if err != nil {
-			log.Printf("Failed to render go code: %v", err)
+			buildLog.Infof("Failed to render go code: %v", err)
 			return "", err
 		}
 	}
 
 	if !config.Debug {
-		log.Printf("Obfuscating source code ...")
+		buildLog.Infof("Obfuscating source code ...")
 		obfuscatedGoPath := path.Join(projectGoPathDir, "obfuscated")
 		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, randomObfuscationKey(), "sliver", obfuscatedGoPath)
 		if err != nil {
-			log.Printf("Error while obfuscating sliver %v", err)
+			buildLog.Infof("Error while obfuscating sliver %v", err)
 			return "", err
 		}
 		goConfig.GOPATH = obfuscatedGoPath
-		log.Printf("Obfuscated GOPATH = %s", obfuscatedGoPath)
-		log.Printf("Obfuscated sliver package: %s", obfuscatedPkg)
+		buildLog.Infof("Obfuscated GOPATH = %s", obfuscatedGoPath)
+		buildLog.Infof("Obfuscated sliver package: %s", obfuscatedPkg)
 		sliverPkgDir = path.Join(obfuscatedGoPath, "src", obfuscatedPkg) // new "main"
 	}
 	return sliverPkgDir, nil

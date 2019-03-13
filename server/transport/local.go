@@ -5,9 +5,11 @@ import (
 	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 	"sliver/server/core"
+	"sliver/server/log"
 	"sliver/server/rpc"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/sirupsen/logrus"
 )
 
 // LocalClientConnect - Handles local connections to the server console
@@ -35,6 +37,10 @@ func LocalClientConnect(send, recv chan *sliverpb.Envelope) {
 						Err:  errStr,
 					}
 				})
+				log.AuditLogger.WithFields(logrus.Fields{
+					"operator":      client.Operator,
+					"envelope_type": envelope.Type,
+				}).Info("rpc command")
 			}
 			// TUN
 			if tunHandler, ok := (*tunHandlers)[envelope.Type]; ok {

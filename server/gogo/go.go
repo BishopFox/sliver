@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"path"
+	"sliver/server/log"
 )
 
 const (
@@ -16,6 +16,8 @@ const (
 )
 
 var (
+	gogoLog = log.NamedLogger("gogo", "compiler")
+
 	// ValidCompilerTargets - Supported compiler targets
 	ValidCompilerTargets = map[string]bool{
 		"darwin/386":    true,
@@ -77,12 +79,12 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	log.Printf("go cmd: '%v'", cmd)
+	gogoLog.Infof("go cmd: '%v'", cmd)
 	err := cmd.Run()
 	if err != nil {
-		log.Printf("--- stdout ---\n%s\n", stdout.String())
-		log.Printf("--- stderr ---\n%s\n", stderr.String())
-		log.Print(err)
+		gogoLog.Infof("--- stdout ---\n%s\n", stdout.String())
+		gogoLog.Infof("--- stderr ---\n%s\n", stderr.String())
+		gogoLog.Info(err)
 	}
 
 	return stdout.Bytes(), err

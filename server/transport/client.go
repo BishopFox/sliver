@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"fmt"
-	"log"
 	"net"
 	consts "sliver/client/constants"
 	clientpb "sliver/protobuf/client"
@@ -14,10 +13,16 @@ import (
 	"sliver/server/assets"
 	"sliver/server/certs"
 	"sliver/server/core"
+	"sliver/server/log"
 	"sliver/server/rpc"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/sirupsen/logrus"
+)
+
+var (
+	clientLog = log.NamedLogger("transport", "client")
 )
 
 const (
@@ -31,7 +36,7 @@ var (
 
 // StartClientListener - Start a mutual TLS listener
 func StartClientListener(bindIface string, port uint16) (net.Listener, error) {
-	log.Printf("Starting Raw TCP/TLS listener on %s:%d", bindIface, port)
+	clientLog.Infof("Starting Raw TCP/TLS listener on %s:%d", bindIface, port)
 	hostCert := bindIface
 	if hostCert == "" {
 		hostCert = defaultServerCert
@@ -39,7 +44,7 @@ func StartClientListener(bindIface string, port uint16) (net.Listener, error) {
 	tlsConfig := getServerTLSConfig(certs.ClientsCertDir, hostCert)
 	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", bindIface, port), tlsConfig)
 	if err != nil {
-		log.Println(err)
+		clientLog.Error(err)
 		return nil, err
 	}
 	go acceptClientConnections(ln)
@@ -53,7 +58,7 @@ func acceptClientConnections(ln net.Listener) {
 			if errType, ok := err.(*net.OpError); ok && errType.Op == "accept" {
 				break
 			}
-			log.Printf("Accept failed: %v", err)
+			clientLog.Errorf("Accept failed: %v", err)
 			continue
 		}
 		go handleClientConnection(conn)
@@ -61,22 +66,22 @@ func acceptClientConnections(ln net.Listener) {
 }
 
 func logState(tlsConn *tls.Conn) {
-	log.Print(">>>>>>>>>>>>>>>> TLS State <<<<<<<<<<<<<<<<")
+	clientLog.Debug(">>>>>>>>>>>>>>>> TLS State <<<<<<<<<<<<<<<<")
 	state := tlsConn.ConnectionState()
-	log.Printf("Version: %x", state.Version)
-	log.Printf("HandshakeComplete: %t", state.HandshakeComplete)
-	log.Printf("DidResume: %t", state.DidResume)
-	log.Printf("CipherSuite: %x", state.CipherSuite)
-	log.Printf("NegotiatedProtocol: %s", state.NegotiatedProtocol)
-	log.Printf("NegotiatedProtocolIsMutual: %t", state.NegotiatedProtocolIsMutual)
-	log.Print("Certificate chain:")
+	clientLog.Debugf("Version: %x", state.Version)
+	clientLog.Debugf("HandshakeComplete: %t", state.HandshakeComplete)
+	clientLog.Debugf("DidResume: %t", state.DidResume)
+	clientLog.Debugf("CipherSuite: %x", state.CipherSuite)
+	clientLog.Debugf("NegotiatedProtocol: %s", state.NegotiatedProtocol)
+	clientLog.Debugf("NegotiatedProtocolIsMutual: %t", state.NegotiatedProtocolIsMutual)
+	clientLog.Debug("Certificate chain:")
 	for i, cert := range state.PeerCertificates {
 		subject := cert.Subject
 		issuer := cert.Issuer
-		log.Printf(" %d s:/C=%v/ST=%v/L=%v/O=%v/OU=%v/CN=%s", i, subject.Country, subject.Province, subject.Locality, subject.Organization, subject.OrganizationalUnit, subject.CommonName)
-		log.Printf("   i:/C=%v/ST=%v/L=%v/O=%v/OU=%v/CN=%s", issuer.Country, issuer.Province, issuer.Locality, issuer.Organization, issuer.OrganizationalUnit, issuer.CommonName)
+		clientLog.Debugf(" %d s:/C=%v/ST=%v/L=%v/O=%v/OU=%v/CN=%s", i, subject.Country, subject.Province, subject.Locality, subject.Organization, subject.OrganizationalUnit, subject.CommonName)
+		clientLog.Debugf("   i:/C=%v/ST=%v/L=%v/O=%v/OU=%v/CN=%s", issuer.Country, issuer.Province, issuer.Locality, issuer.Organization, issuer.OrganizationalUnit, issuer.CommonName)
 	}
-	log.Print(">>>>>>>>>>>>>>>> State End <<<<<<<<<<<<<<<<")
+	clientLog.Debug(">>>>>>>>>>>>>>>> State End <<<<<<<<<<<<<<<<")
 }
 
 func handleClientConnection(conn net.Conn) {
@@ -92,7 +97,13 @@ func handleClientConnection(conn net.Conn) {
 		return
 	}
 	operator := certs[0].Subject.CommonName // Get operator name from cert CN
-	log.Printf("Accepted incoming client connection: %s (%s)", conn.RemoteAddr(), operator)
+	clientLog.Infof("Accepted incoming client connection: %s (%s)", conn.RemoteAddr(), operator)
+
+	log.AuditLogger.WithFields(logrus.Fields{
+		"pkg":      "transport",
+		"operator": operator,
+	}).Info("connected")
+
 	client := core.GetClient(operator)
 	core.Clients.AddClient(client)
 
@@ -102,7 +113,11 @@ func handleClientConnection(conn net.Conn) {
 	})
 
 	cleanup := func() {
-		log.Printf("Closing connection to client (%s)", client.Operator)
+		clientLog.Infof("Closing connection to client (%s)", client.Operator)
+		log.AuditLogger.WithFields(logrus.Fields{
+			"pkg":      "transport",
+			"operator": client.Operator,
+		}).Info("disconnected")
 		core.Clients.RemoveClient(client.ID)
 		conn.Close()
 		core.EventBroker.Publish(core.Event{
@@ -118,7 +133,7 @@ func handleClientConnection(conn net.Conn) {
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err != nil {
-				log.Printf("Socket read error %v", err)
+				clientLog.Errorf("Socket read error %v", err)
 				return
 			}
 			// RPC
@@ -134,6 +149,11 @@ func handleClientConnection(conn net.Conn) {
 						Err:  errStr,
 					}
 				})
+				log.AuditLogger.WithFields(logrus.Fields{
+					"pkg":           "transport",
+					"operator":      client.Operator,
+					"envelope_type": envelope.Type,
+				}).Info("rpc command")
 			}
 			// TUN
 			if tunHandler, ok := (*tunHandlers)[envelope.Type]; ok {
@@ -160,7 +180,7 @@ func handleClientConnection(conn net.Conn) {
 	for envelope := range client.Send {
 		err := socketWriteEnvelope(conn, envelope)
 		if err != nil {
-			log.Printf("Socket error %v", err)
+			clientLog.Errorf("Socket error %v", err)
 			return
 		}
 	}
@@ -191,7 +211,7 @@ func socketEventLoop(conn net.Conn, events chan core.Event) {
 		}
 		err := socketWriteEnvelope(conn, envelope)
 		if err != nil {
-			log.Printf("Socket write failed %v", err)
+			clientLog.Errorf("Socket write failed %v", err)
 			return
 		}
 	}
@@ -203,7 +223,7 @@ func socketEventLoop(conn net.Conn, events chan core.Event) {
 func socketWriteEnvelope(connection net.Conn, envelope *sliverpb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
-		log.Print("Envelope marshaling error: ", err)
+		clientLog.Errorf("Envelope marshaling error: %v", err)
 		return err
 	}
 	dataLengthBuf := new(bytes.Buffer)
@@ -221,7 +241,7 @@ func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4) // Size of uint32
 	_, err := connection.Read(dataLengthBuf)
 	if err != nil {
-		log.Printf("Socket error (read msg-length): %v", err)
+		clientLog.Errorf("Socket error (read msg-length): %v", err)
 		return nil, err
 	}
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
@@ -243,20 +263,20 @@ func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 			break
 		}
 		if err != nil {
-			log.Printf("Read error: %s", err)
+			clientLog.Errorf("Read error: %s", err)
 			break
 		}
 	}
 
 	if err != nil {
-		log.Printf("Socket error (read data): %v", err)
+		clientLog.Errorf("Socket error (read data): %v", err)
 		return nil, err
 	}
 	// Unmarshal the protobuf envelope
 	envelope := &sliverpb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
-		log.Printf("unmarshaling envelope error: %v", err)
+		clientLog.Errorf("unmarshaling envelope error: %v", err)
 		return nil, err
 	}
 	return envelope, nil
@@ -270,7 +290,7 @@ func getServerTLSConfig(caType string, host string) *tls.Config {
 
 	caCertPtr, _, err := certs.GetCertificateAuthority(rootDir, caType)
 	if err != nil {
-		log.Fatalf("Invalid ca type (%s): %v", caType, host)
+		clientLog.Fatalf("Invalid ca type (%s): %v", caType, host)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AddCert(caCertPtr)
@@ -278,7 +298,7 @@ func getServerTLSConfig(caType string, host string) *tls.Config {
 	certPEM, keyPEM, _ := certs.GetServerCertificatePEM(rootDir, caType, host, true)
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
-		log.Fatalf("Error loading server certificate: %v", err)
+		clientLog.Fatalf("Error loading server certificate: %v", err)
 	}
 
 	tlsConfig := &tls.Config{
