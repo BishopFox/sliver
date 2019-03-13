@@ -200,7 +200,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 
 			f.String("s", "save", "", "directory/file to the binary to")
 
-			f.Bool("p", "dll", false, "Build as a DLL")
+			f.Bool("p", "shared", false, "Build as a shared library (dll/so/dylib)")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
