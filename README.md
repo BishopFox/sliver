@@ -28,12 +28,6 @@ Sliver can inject payloads into it's own process or optionally use remote thread
 - [ ] TCP tunnels
 - [ ] Reverse SOCKS proxy  
 
-### Setup
-
-1. Download the latest [Sliver](https://github.com/BishopFox/sliver/releases) binary
-2. ???
-3. Shellz
-
 ## Compile From Source
 
-See the [wiki](https://github.com/BishopFox/sliver/wiki/Compile-From-Source)
+Just run the `build.py` script (requires Docker), or for details, see the [wiki](https://github.com/BishopFox/sliver/wiki/Compile-From-Source).
