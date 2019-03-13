@@ -14,6 +14,7 @@ import (
 	"sliver/server/certs"
 
 	"github.com/gobuffalo/packr"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -23,7 +24,7 @@ const (
 )
 
 var (
-	logger = log.NewLogger("assets")
+	logger = log.RootLogger.WithFields(logrus.Fields{"pkg": "assets", "stream": "setup"})
 
 	assetsBox   = packr.NewBox("../../assets")
 	protobufBox = packr.NewBox("../../protobuf")

@@ -1,8 +1,8 @@
 package log
 
 import (
+	"errors"
 	"fmt"
-	golog "log"
 	"os"
 	"os/user"
 	"path"
@@ -13,117 +13,9 @@ import (
 var (
 	// RootLoggerName - Root logger name, contains all log data
 	RootLoggerName = "root"
-	// RootLoggers - The actual loggers for the "root" stream
-	RootLoggers = rootLoggers()
+	// RootLogger - Root Logger
+	RootLogger = rootLogger()
 )
-
-// Stream - Struct that writes logs to multiple files
-type Stream struct {
-	Name        string
-	loggers     []*logrus.Logger
-	rootLoggers []*logrus.Logger
-}
-
-func (s Stream) allLoggers() []*logrus.Logger {
-	return append(s.loggers, s.rootLoggers...)
-}
-
-// Debug - Write to debug logs
-func (s Stream) Debug(msg ...interface{}) {
-	for _, logger := range s.allLoggers() {
-		logger.WithFields(logrus.Fields{
-			"stream": s.Name,
-		}).Debug(msg...)
-	}
-}
-
-// Debugf - Write to Debug logs
-func (s Stream) Debugf(format string, msg ...interface{}) {
-	for _, logger := range s.allLoggers() {
-		logger.WithFields(logrus.Fields{
-			"stream": s.Name,
-		}).Debugf(format, msg...)
-	}
-}
-
-// Info - Write to Info logs
-func (s Stream) Info(msg ...interface{}) {
-	for _, logger := range s.allLoggers() {
-		logger.WithFields(logrus.Fields{
-			"stream": s.Name,
-		}).Info(msg...)
-	}
-}
-
-// Infof - Write to Info logs
-func (s Stream) Infof(format string, msg ...interface{}) {
-	for _, logger := range s.allLoggers() {
-		logger.WithFields(logrus.Fields{
-			"stream": s.Name,
-		}).Infof(format, msg...)
-	}
-}
-
-// Warn - Write to debug logs
-func (s Stream) Warn(msg ...interface{}) {
-	for _, logger := range s.allLoggers() {
-		logger.WithFields(logrus.Fields{
-			"stream": s.Name,
-		}).Warn(msg...)
-	}
-}
-
-// Warnf - Write to Warn logs
-func (s Stream) Warnf(format string, msg ...interface{}) {
-	for _, logger := range s.allLoggers() {
-		logger.WithFields(logrus.Fields{
-			"stream": s.Name,
-		}).Warnf(format, msg...)
-	}
-}
-
-// Error - Write to debug logs
-func (s Stream) Error(msg ...interface{}) {
-	for _, logger := range s.allLoggers() {
-		logger.WithFields(logrus.Fields{
-			"stream": s.Name,
-		}).Error(msg...)
-	}
-}
-
-// Errorf - Write to Error logs
-func (s Stream) Errorf(format string, msg ...interface{}) {
-	for _, logger := range s.allLoggers() {
-		logger.WithFields(logrus.Fields{
-			"stream": s.Name,
-		}).Errorf(format, msg...)
-	}
-}
-
-// Fatal - Write to debug logs
-func (s Stream) Fatal(msg ...interface{}) {
-	for _, logger := range s.allLoggers() {
-		logger.WithFields(logrus.Fields{
-			"stream": s.Name,
-		}).Fatal(msg...)
-	}
-}
-
-// Fatalf - Write to Fatal logs
-func (s Stream) Fatalf(format string, msg ...interface{}) {
-	for _, logger := range s.allLoggers() {
-		logger.WithFields(logrus.Fields{
-			"stream": s.Name,
-		}).Fatalf(format, msg...)
-	}
-}
-
-// SetLevel - Set the level of logging
-func (s Stream) SetLevel(level logrus.Level) {
-	for _, logger := range s.loggers {
-		logger.SetLevel(level)
-	}
-}
 
 // GetLogDir - Return the log dir
 func GetLogDir() string {
@@ -146,59 +38,73 @@ func GetLogDir() string {
 }
 
 // RootLogger - Returns the root logger
-func rootLoggers() []*logrus.Logger {
-
-	jsonLogger := logrus.New()
-	jsonLogger.Formatter = &logrus.JSONFormatter{}
-	jsonFilePath := path.Join(GetLogDir(), "root.json")
+func rootLogger() *logrus.Logger {
+	rootLogger := logrus.New()
+	rootLogger.Formatter = &logrus.JSONFormatter{}
+	jsonFilePath := path.Join(GetLogDir(), "sliver.json")
 	jsonFile, err := os.OpenFile(jsonFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open log file %v", err))
 	}
-	jsonLogger.Out = jsonFile
-	jsonLogger.SetLevel(logrus.DebugLevel)
+	rootLogger.Out = jsonFile
+	rootLogger.SetLevel(logrus.DebugLevel)
+	rootLogger.SetReportCaller(true)
+	rootLogger.AddHook(NewTxtHook("root"))
+	return rootLogger
+}
 
+// RootLogger - Returns the root logger
+func txtLogger() *logrus.Logger {
 	txtLogger := logrus.New()
-	txtLogger.Formatter = &logrus.TextFormatter{}
-	txtFilePath := path.Join(GetLogDir(), "root.log")
+	txtLogger.Formatter = &logrus.TextFormatter{ForceColors: true}
+	txtFilePath := path.Join(GetLogDir(), "sliver.log")
 	txtFile, err := os.OpenFile(txtFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open log file %v", err))
 	}
 	txtLogger.Out = txtFile
 	txtLogger.SetLevel(logrus.DebugLevel)
-
-	return []*logrus.Logger{jsonLogger, txtLogger}
-
+	return txtLogger
 }
 
-// NewLogger - Get a new log stream by name
-func NewLogger(name string) *Stream {
+// TxtHook - Hook in a textual version of the logs
+type TxtHook struct {
+	Name   string
+	logger *logrus.Logger
+}
 
-	logger := &Stream{Name: name}
-
-	jsonLogger := logrus.New()
-	jsonLogger.Formatter = &logrus.JSONFormatter{}
-	jsonFilePath := path.Join(GetLogDir(), path.Base(name)+".json")
-	jsonFile, err := os.OpenFile(jsonFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		golog.Fatalf("Failed to open log file %v", err)
+// NewTxtHook - returns a new txt hook
+func NewTxtHook(name string) *TxtHook {
+	hook := &TxtHook{
+		Name:   name,
+		logger: txtLogger(),
 	}
-	jsonLogger.Out = jsonFile
-	jsonLogger.SetLevel(logrus.InfoLevel)
+	return hook
+}
 
-	txtLogger := logrus.New()
-	txtLogger.Formatter = &logrus.TextFormatter{}
-	txtFilePath := path.Join(GetLogDir(), path.Base(name)+".log")
-	txtFile, err := os.OpenFile(txtFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to open log file %v", err))
+// Fire - Implements the fire method of the Logrus hook
+func (hook *TxtHook) Fire(entry *logrus.Entry) error {
+	if hook.logger == nil {
+		return errors.New("No txt logger")
 	}
-	txtLogger.Out = txtFile
-	txtLogger.SetLevel(logrus.InfoLevel)
+	switch entry.Level {
+	case logrus.PanicLevel:
+		hook.logger.Panic(entry.Message)
+	case logrus.FatalLevel:
+		hook.logger.Fatal(entry.Message)
+	case logrus.ErrorLevel:
+		hook.logger.Error(entry.Message)
+	case logrus.WarnLevel:
+		hook.logger.Warn(entry.Message)
+	case logrus.InfoLevel:
+		hook.logger.Info(entry.Message)
+	case logrus.DebugLevel, logrus.TraceLevel:
+		hook.logger.Debug(entry.Message)
+	}
+	return nil
+}
 
-	logger.loggers = []*logrus.Logger{jsonLogger, txtLogger}
-	logger.loggers = append(logger.loggers, RootLoggers...)
-
-	return logger
+// Levels - Hook all levels
+func (hook *TxtHook) Levels() []logrus.Level {
+	return logrus.AllLevels
 }

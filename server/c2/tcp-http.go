@@ -25,11 +25,18 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
 )
 
 var (
-	logger = log.NewLogger("c2_http")
-	weblog = log.NewLogger("c2_http_weblog")
+	logger = log.RootLogger.WithFields(logrus.Fields{
+		"pkg":    "c2",
+		"stream": "http",
+	})
+	accessLog = log.RootLogger.WithFields(logrus.Fields{
+		"pkg":    "c2",
+		"stream": "access",
+	})
 )
 
 const (
@@ -194,7 +201,7 @@ func filterAgent(req *http.Request, rm *mux.RouteMatch) bool {
 
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		weblog.Infof("%v - %s", req.Header["User-agent"], req.RequestURI)
+		accessLog.Infof("%s - %s - %v", req.RemoteAddr, req.RequestURI, req.Header["User-Agent"])
 		next.ServeHTTP(resp, req)
 	})
 }
