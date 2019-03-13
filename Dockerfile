@@ -22,7 +22,7 @@ RUN apt-get update --fix-missing && apt-get -y install \
 
 WORKDIR /opt
 RUN git clone --progress --verbose --depth 1 https://github.com/rapid7/metasploit-framework.git msf
-WORKDIR msf
+WORKDIR /opt/msf
 
 # RVM
 RUN gpg --no-tty --keyserver hkp://pool.sks-keyservers.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
@@ -32,7 +32,7 @@ RUN /bin/bash -l -c "rvm requirements"
 RUN /bin/bash -l -c "rvm install ${RUBY_VER}"
 RUN /bin/bash -l -c "rvm use ${RUBY_VER} --default"
 RUN /bin/bash -l -c "source /usr/local/rvm/scripts/rvm"
-RUN /bin/bash -l -c "gem install bundler --no-ri --no-rdoc"
+RUN /bin/bash -l -c "gem install bundler"
 RUN /bin/bash -l -c "source /usr/local/rvm/scripts/rvm && which bundle"
 RUN /bin/bash -l -c "which bundle"
 
@@ -75,7 +75,12 @@ RUN dep ensure --vendor-only
 
 # compile - we have to run dep after copying the code over or it bitches
 ADD . /go/src/sliver/
-RUN make static-linux
-RUN /go/src/sliver/sliver-server -unpack
+RUN make static-linux && cp -vv sliver-server /opt/sliver-server
+RUN /opt/sliver-server -unpack && /go/src/sliver/go-tests.sh
+RUN make clean \
+    && rm -rf /go/src/* \
+    && rm -rf /root/.sliver
 
-ENTRYPOINT [ "/go/src/sliver/go-tests.sh" ]
+# TODO: Don't run server as root user
+
+ENTRYPOINT [ "/opt/sliver-server" ]
