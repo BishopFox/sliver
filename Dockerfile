@@ -1,10 +1,10 @@
 FROM golang:1.12
 
-ENV PROTOC_VER 3.6.1
+ENV PROTOC_VER 3.7.0
 
 # os packages
 RUN apt-get update \
-    && apt-get -y install wget git zip unzip build-essential
+    && apt-get -y install wget git zip unzip build-essential mingw-w64 binutils-mingw-w64 g++-mingw-w64
 
 # protoc
 WORKDIR /tmp

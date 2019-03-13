@@ -1,5 +1,7 @@
 .vscode/*
 
+*.orig
+
 # Binaries
 sliver-server
 sliver.exe

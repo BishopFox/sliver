@@ -55,7 +55,7 @@ static-linux: clean pb packr
 
 .PHONY: pb
 pb:
-	go install ./vendor/github.com/golang/protobuf/protoc-gen-go
+	# go install ./vendor/github.com/golang/protobuf/protoc-gen-go
 	protoc -I protobuf/ protobuf/sliver/sliver.proto --go_out=protobuf/
 	protoc -I protobuf/ protobuf/client/client.proto --go_out=protobuf/
 

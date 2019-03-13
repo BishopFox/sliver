@@ -5,43 +5,48 @@ import (
 	"testing"
 )
 
-func TestSliverC2s(t *testing.T) {
+func TestSliverExecutableWindows(t *testing.T) {
 
 	// mTLS C2
-	mtls(t, "windows", "amd64", false)
-	mtls(t, "windows", "386", false)
-	mtls(t, "windows", "amd64", true)
-	mtls(t, "windows", "386", true)
+	mtlsExe(t, "windows", "amd64", false)
+	mtlsExe(t, "windows", "386", false)
+	mtlsExe(t, "windows", "amd64", true)
+	mtlsExe(t, "windows", "386", true)
 
 	// DNS C2
-	dns(t, "windows", "amd64", false)
-	dns(t, "windows", "386", false)
-	dns(t, "windows", "amd64", true)
-	dns(t, "windows", "386", true)
+	dnsExe(t, "windows", "amd64", false)
+	dnsExe(t, "windows", "386", false)
+	dnsExe(t, "windows", "amd64", true)
+	dnsExe(t, "windows", "386", true)
 
 	// HTTP C2
-	http(t, "windows", "amd64", false)
-	http(t, "windows", "386", false)
-	http(t, "windows", "amd64", true)
-	http(t, "windows", "386", true)
+	httpExe(t, "windows", "amd64", false)
+	httpExe(t, "windows", "386", false)
+	httpExe(t, "windows", "amd64", true)
+	httpExe(t, "windows", "386", true)
 
 	// Multiple C2s
-	multiC2(t, "windows", "amd64", true)
-	multiC2(t, "windows", "amd64", false)
+	multiExe(t, "windows", "amd64", true)
+	multiExe(t, "windows", "amd64", false)
+}
+
+func TestSliverSharedLibWindows(t *testing.T) {
+	multiLibrary(t, "windows", "amd64", true)
+	multiLibrary(t, "windows", "amd64", false)
 }
 
 func TestSliverExecutableLinux(t *testing.T) {
-	multiC2(t, "linux", "amd64", true)
-	multiC2(t, "linux", "amd64", false)
+	multiExe(t, "linux", "amd64", true)
+	multiExe(t, "linux", "amd64", false)
 }
 
 func TestSliverExecutableDarwin(t *testing.T) {
-	multiC2(t, "darwin", "amd64", true)
-	multiC2(t, "darwin", "amd64", false)
+	multiExe(t, "darwin", "amd64", true)
+	multiExe(t, "darwin", "amd64", false)
 }
 
-func mtls(t *testing.T, goos string, goarch string, debug bool) {
-	t.Logf("[mtls] %s/%s - debug: %v", goos, goarch, debug)
+func mtlsExe(t *testing.T, goos string, goarch string, debug bool) {
+	t.Logf("[mtls] EXE %s/%s - debug: %v", goos, goarch, debug)
 	config := &SliverConfig{
 		GOOS:       goos,
 		GOARCH:     goarch,
@@ -55,8 +60,8 @@ func mtls(t *testing.T, goos string, goarch string, debug bool) {
 	}
 }
 
-func dns(t *testing.T, goos string, goarch string, debug bool) {
-	t.Logf("[dns] %s/%s - debug: %v", goos, goarch, debug)
+func dnsExe(t *testing.T, goos string, goarch string, debug bool) {
+	t.Logf("[dns] EXE %s/%s - debug: %v", goos, goarch, debug)
 	config := &SliverConfig{
 		GOOS:      goos,
 		GOARCH:    goarch,
@@ -69,8 +74,8 @@ func dns(t *testing.T, goos string, goarch string, debug bool) {
 	}
 }
 
-func http(t *testing.T, goos string, goarch string, debug bool) {
-	t.Logf("[http] %s/%s - debug: %v", goos, goarch, debug)
+func httpExe(t *testing.T, goos string, goarch string, debug bool) {
+	t.Logf("[http] EXE %s/%s - debug: %v", goos, goarch, debug)
 	config := &SliverConfig{
 		GOOS:       goos,
 		GOARCH:     goarch,
@@ -83,7 +88,7 @@ func http(t *testing.T, goos string, goarch string, debug bool) {
 	}
 }
 
-func multiC2(t *testing.T, goos string, goarch string, debug bool) {
+func multiExe(t *testing.T, goos string, goarch string, debug bool) {
 	t.Logf("[multi] %s/%s - debug: %v", goos, goarch, debug)
 	config := &SliverConfig{
 		GOOS:   goos,
@@ -96,6 +101,24 @@ func multiC2(t *testing.T, goos string, goarch string, debug bool) {
 		Debug:      debug,
 	}
 	_, err := SliverExecutable(config)
+	if err != nil {
+		t.Errorf(fmt.Sprintf("%v", err))
+	}
+}
+
+func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
+	t.Logf("[multi] LIB %s/%s - debug: %v", goos, goarch, debug)
+	config := &SliverConfig{
+		GOOS:   goos,
+		GOARCH: goarch,
+
+		MTLSServer: "1.example.com",
+		MTLSLPort:  1337,
+		HTTPServer: "2.example.com",
+		DNSParent:  "3.example.com",
+		Debug:      debug,
+	}
+	_, err := SliverSharedLibrary(config)
 	if err != nil {
 		t.Errorf(fmt.Sprintf("%v", err))
 	}

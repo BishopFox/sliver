@@ -174,7 +174,6 @@ func SliverEgg(config SliverConfig) (string, error) {
 }
 
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
-// NOTE: This doesn't work just yet, just a prototype
 func SliverSharedLibrary(config *SliverConfig) (string, error) {
 	// Compile go code
 	appDir := assets.GetRootAppDir()
