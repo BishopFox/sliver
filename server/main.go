@@ -16,7 +16,7 @@ const (
 )
 
 var (
-	sliverServerVersion = "0.0.4"
+	sliverServerVersion = fmt.Sprintf("0.0.4 - %s", assets.GitVersion)
 )
 
 func main() {
@@ -33,14 +33,7 @@ func main() {
 	logFile := initLogging(appDir)
 	defer logFile.Close()
 
-	if _, err := os.Stat(path.Join(appDir, assets.GoDirName)); os.IsNotExist(err) || *unpack {
-		fmt.Println(console.Info + "First time setup, please wait ... ")
-		log.Println("Unpacking assets ... ")
-		assets.Setup()
-		if *unpack {
-			os.Exit(0)
-		}
-	}
+	assets.Setup()
 
 	console.Start()
 }

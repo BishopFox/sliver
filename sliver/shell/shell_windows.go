@@ -7,7 +7,7 @@ var (
 		"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
 		"-NoExit",
 		"-Command",
-		"[Console]::OutputEncoding = [Text.UTF8Encoding]::UTF8",
+		"[Console]::OutputEncoding=[Text.UTF8Encoding]::UTF8",
 	}
 )
 

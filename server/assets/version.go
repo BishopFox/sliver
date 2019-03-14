@@ -1,0 +1,3 @@
+package assets
+
+const GitVersion = ""

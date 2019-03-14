@@ -135,7 +135,6 @@ func writeGoodBytes(b []byte, pn string, virtualoffset uint32, secname string, v
 		loc := uintptr(dllOffset + uint(i))
 		mem := (*[1]byte)(unsafe.Pointer(loc))
 		(*mem)[0] = b[i]
-
 	}
 
 	virtprot.Call(

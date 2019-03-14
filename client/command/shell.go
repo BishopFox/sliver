@@ -47,7 +47,16 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 		return
 	}
 
-	oldState, err := terminal.MakeRaw(0)
+	var oldState *terminal.State
+	if !noPty {
+		oldState, err = terminal.MakeRaw(0)
+		log.Printf("Saving terminal state: %v", oldState)
+		if err != nil {
+			fmt.Printf(Warn + "Failed to save terminal state")
+			return
+		}
+	}
+
 	readBuf := make([]byte, 128)
 
 	cleanup := func() {
@@ -59,12 +68,16 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 			Type: sliverpb.MsgTunnelClose,
 			Data: tunnelClose,
 		}, defaultTimeout)
-		terminal.Restore(0, oldState)
+		if !noPty {
+			log.Printf("Restoring old terminal state: %v", oldState)
+			terminal.Restore(0, oldState)
+		}
 	}
 
 	go func() {
 		defer cleanup()
 		for data := range tunnel.Recv {
+			log.Printf("[write] %v", string(data))
 			os.Stdout.Write(data)
 		}
 	}()
