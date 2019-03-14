@@ -20,7 +20,6 @@ import (
 
 // Start - Starts the server console
 func Start() {
-
 	send := make(chan *sliverpb.Envelope) // To "server"
 	recv := make(chan *sliverpb.Envelope) // From "server"
 

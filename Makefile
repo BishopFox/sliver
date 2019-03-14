@@ -15,10 +15,6 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 
-.PHONY: version
-version:
-	echo 'package assets\n\nconst GitVersion = "$(GIT_VERSION)"\n' > ./server/assets/version.go 
-
 .PHONY: macos
 macos: clean version pb
 	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
@@ -63,6 +59,10 @@ pb:
 	go install ./vendor/github.com/golang/protobuf/protoc-gen-go
 	protoc -I protobuf/ protobuf/sliver/sliver.proto --go_out=protobuf/
 	protoc -I protobuf/ protobuf/client/client.proto --go_out=protobuf/
+
+.PHONY: version
+version:
+	echo 'package assets\n\nconst GitVersion = "$(GIT_VERSION)"\n' > ./server/assets/version.go 
 
 .PHONY: packr
 packr:

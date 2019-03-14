@@ -20,8 +20,10 @@ import (
 
 const (
 	// GoDirName - The directory to store the go compiler/toolchain files in
-	GoDirName     = "go"
-	goPathDirName = "gopath"
+	GoDirName       = "go"
+	goPathDirName   = "gopath"
+	versionFileName = "version"
+	dataDirName     = "data"
 )
 
 var (
@@ -46,34 +48,48 @@ func GetRootAppDir() string {
 
 // GetDataDir - Returns the full path to the data directory
 func GetDataDir() string {
-	dir := path.Join(GetRootAppDir(), "data")
+	dir := path.Join(GetRootAppDir(), dataDirName)
 	return dir
 }
 
 func assetVersion() string {
 	appDir := GetRootAppDir()
-	data, err := ioutil.ReadFile(path.Join(appDir, "git"))
+	data, err := ioutil.ReadFile(path.Join(appDir, versionFileName))
 	if err != nil {
+		setupLog.Infof("No version detected %s", err)
 		return ""
 	}
 	return strings.TrimSpace(string(data))
+}
+
+func saveAssetVersion(appDir string) {
+	versionFilePath := path.Join(appDir, versionFileName)
+	fVer, _ := os.Create(versionFilePath)
+	defer fVer.Close()
+	fVer.Write([]byte(GitVersion))
 }
 
 // Setup - Extract or create local assets
 func Setup(force bool) {
 	appDir := GetRootAppDir()
 	ver := assetVersion()
+	if ver == "" {
+		fmt.Printf("Generating certificates ...\n")
+		setupCerts(appDir)
+	}
 	if force || ver == "" || ver != GitVersion {
-		fmt.Printf("Unpacking assets ...")
-		SetupCerts(appDir)
+		setupLog.Infof("Version mismatch %v != %v", ver, GitVersion)
+		fmt.Printf("Unpacking assets ...\n")
 		setupGo(appDir)
 		setupCodenames(appDir)
-		SetupDataPath(appDir)
+		setupDataPath(appDir)
+		saveAssetVersion(appDir)
 	}
+
 }
 
-// SetupCerts - Creates directories for certs
-func SetupCerts(appDir string) {
+// setupCerts - Creates directories for certs
+func setupCerts(appDir string) {
 	os.MkdirAll(path.Join(appDir, "certs"), os.ModePerm)
 	rootDir := GetRootAppDir()
 	certs.GenerateCertificateAuthority(rootDir, certs.SliversCertDir, true)
@@ -84,6 +100,13 @@ func SetupCerts(appDir string) {
 func setupGo(appDir string) error {
 
 	setupLog.Infof("Unpacking to '%s'", appDir)
+	goRootPath := path.Join(appDir, GoDirName)
+	setupLog.Infof("GOPATH = %s", goRootPath)
+	if _, err := os.Stat(goRootPath); !os.IsNotExist(err) {
+		setupLog.Info("Removing old go root directory")
+		os.RemoveAll(goRootPath)
+	}
+	os.MkdirAll(goRootPath, os.ModePerm)
 
 	// Go compiler and stdlib
 	goZip, err := assetsBox.Find(path.Join(runtime.GOOS, "go.zip"))
@@ -109,7 +132,7 @@ func setupGo(appDir string) error {
 	goSrcZipPath := path.Join(appDir, "src.zip")
 	defer os.Remove(goSrcZipPath)
 	ioutil.WriteFile(goSrcZipPath, goSrcZip, 0644)
-	_, err = unzip(goSrcZipPath, path.Join(appDir, GoDirName))
+	_, err = unzip(goSrcZipPath, goRootPath)
 	if err != nil {
 		setupLog.Infof("Failed to unzip file %s -> %s/go", goSrcZipPath, appDir)
 		return err
@@ -160,9 +183,9 @@ func SetupGoPath(goPathSrc string) error {
 	return nil
 }
 
-// SetupDataPath - Sets the data directory up
-func SetupDataPath(appDir string) error {
-	dataDir := appDir + "/data"
+// setupDataPath - Sets the data directory up
+func setupDataPath(appDir string) error {
+	dataDir := path.Join(appDir, dataDirName)
 	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
 		setupLog.Infof("Creating data directory: %s", dataDir)
 		os.MkdirAll(dataDir, os.ModePerm)
