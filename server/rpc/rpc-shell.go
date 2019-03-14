@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"log"
 	sliverpb "sliver/protobuf/sliver"
 	"sliver/server/core"
 
@@ -23,8 +22,8 @@ func rpcShell(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	log.Printf("Requesting Sliver %d to start shell", sliver.ID)
+	rpcLog.Infof("Requesting Sliver %d to start shell", sliver.ID)
 	data, err := sliver.Request(sliverpb.MsgShellReq, defaultTimeout, startShellReq)
-	log.Printf("Sliver %d responded to shell start request", sliver.ID)
+	rpcLog.Infof("Sliver %d responded to shell start request", sliver.ID)
 	resp(data, err)
 }

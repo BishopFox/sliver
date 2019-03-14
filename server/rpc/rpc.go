@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"sliver/server/core"
+	"sliver/server/log"
 	"time"
 
 	clientpb "sliver/protobuf/client"
@@ -10,6 +11,10 @@ import (
 
 const (
 	defaultTimeout = 30 * time.Second
+)
+
+var (
+	rpcLog = log.NamedLogger("rpc", "server")
 )
 
 // RPCResponse - Called with response data, mapped back to reqID

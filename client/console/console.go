@@ -59,10 +59,6 @@ func Start(server *core.SliverServer, extraCmds ExtraCmds) {
 		HelpHeadlineColor:     color.New(),
 		HelpHeadlineUnderline: true,
 		HelpSubCommands:       true,
-		// Flags: func(f *grumble.Flags) {
-		// 	f.Bool("f", "force-unpack", false, "force unpack assets")
-		// 	f.Bool("v", "version", false, "print version and exit")
-		// },
 	})
 	app.SetPrintASCIILogo(printLogo)
 

@@ -3,7 +3,6 @@ package rpc
 import (
 	"errors"
 	"io/ioutil"
-	"log"
 	"path"
 	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
@@ -37,7 +36,7 @@ func rpcSessions(_ []byte, resp RPCResponse) {
 	}
 	data, err := proto.Marshal(sessions)
 	if err != nil {
-		log.Printf("Error encoding rpc response %v", err)
+		rpcLog.Errorf("Error encoding rpc response %v", err)
 	}
 	resp(data, err)
 }
@@ -88,13 +87,13 @@ func rpcNewProfile(req []byte, resp RPCResponse) {
 	profile := &clientpb.Profile{}
 	err := proto.Unmarshal(req, profile)
 	if err != nil {
-		log.Printf("Failed to decode message %v", err)
+		rpcLog.Errorf("Failed to decode message %v", err)
 		resp([]byte{}, err)
 	}
 	config := generate.SliverConfigFromProtobuf(profile.Config)
 	profile.Name = path.Base(profile.Name)
 	if 0 < len(profile.Name) && profile.Name != "." {
-		log.Printf("Saving new profile with name %#v", profile.Name)
+		rpcLog.Infof("Saving new profile with name %#v", profile.Name)
 		err = generate.SaveProfile(profile.Name, config)
 	} else {
 		err = errors.New("Invalid profile name")

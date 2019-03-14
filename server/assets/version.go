@@ -1,4 +1,4 @@
 package assets
 
-const GitVersion = "243f567d5643108bec22ce897f244aa758eaaab5"
+const GitVersion = "b67207b0441e27c1f1e7d3c5855c670b7112babf"
 

@@ -85,7 +85,6 @@ func Setup(force bool) {
 		setupDataPath(appDir)
 		saveAssetVersion(appDir)
 	}
-
 }
 
 // setupCerts - Creates directories for certs

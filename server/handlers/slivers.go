@@ -1,15 +1,17 @@
 package handlers
 
 import (
-	"log"
 	consts "sliver/client/constants"
 	sliverpb "sliver/protobuf/sliver"
 	"sliver/server/core"
+	"sliver/server/log"
 
 	"github.com/golang/protobuf/proto"
 )
 
 var (
+	handlerLog = log.NamedLogger("handlers", "slivers")
+
 	serverHandlers = map[uint32]interface{}{
 		sliverpb.MsgRegister:    registerSliverHandler,
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
@@ -26,7 +28,7 @@ func registerSliverHandler(sliver *core.Sliver, data []byte) {
 	register := &sliverpb.Register{}
 	err := proto.Unmarshal(data, register)
 	if err != nil {
-		log.Printf("error decoding message: %v", err)
+		handlerLog.Warnf("error decoding message: %v", err)
 		return
 	}
 
@@ -56,13 +58,13 @@ func tunnelDataHandler(sliver *core.Sliver, data []byte) {
 	proto.Unmarshal(data, tunnelData)
 	tunnel := core.Tunnels.Tunnel(tunnelData.TunnelID)
 	if tunnel != nil && sliver.ID == tunnel.Sliver.ID {
-		log.Printf("Routing data to tunnel id %d to client %d", tunnelData.TunnelID, tunnel.Client.ID)
+		handlerLog.Debugf("Routing data to tunnel id %d to client %d", tunnelData.TunnelID, tunnel.Client.ID)
 		tunnel.Client.Send <- &sliverpb.Envelope{
 			Type: sliverpb.MsgTunnelData,
 			Data: data,
 		}
 	} else {
-		log.Printf("Data sent on nil tunnel %d", tunnelData.TunnelID)
+		handlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
 	}
 }
 
@@ -71,9 +73,9 @@ func tunnelCloseHandler(sliver *core.Sliver, data []byte) {
 	proto.Unmarshal(data, tunnelClose)
 	tunnel := core.Tunnels.Tunnel(tunnelClose.TunnelID)
 	if tunnel.Sliver.ID == sliver.ID {
-		log.Printf("Sliver %d closed tunnel %d (reason: %s)", sliver.ID, tunnel.ID, tunnelClose.Err)
+		handlerLog.Debugf("Sliver %d closed tunnel %d (reason: %s)", sliver.ID, tunnel.ID, tunnelClose.Err)
 		core.Tunnels.CloseTunnel(tunnel.ID, tunnelClose.Err)
 	} else {
-		log.Printf("Warning: Sliver attempted to close tunnel it did not own") // TODO: Log to security events
+		handlerLog.Warnf("Warning: Sliver attempted to close tunnel it did not own") // TODO: Log to security events
 	}
 }

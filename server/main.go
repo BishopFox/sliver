@@ -24,5 +24,6 @@ func main() {
 	}
 
 	assets.Setup(*unpack)
+	os.Args = os.Args[:1] // Stops grumble from bitching about unknown flags
 	console.Start()
 }

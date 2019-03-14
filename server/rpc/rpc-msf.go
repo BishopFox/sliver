@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"log"
 	"sliver/server/core"
 	"sliver/server/msf"
 
@@ -36,7 +35,7 @@ func rpcMsf(req []byte, resp RPCResponse) {
 	}
 	rawPayload, err := msf.VenomPayload(config)
 	if err != nil {
-		log.Printf("Error while generating msf payload: %v\n", err)
+		rpcLog.Warnf("Error while generating msf payload: %v\n", err)
 		resp([]byte{}, err)
 		return
 	}
@@ -73,7 +72,7 @@ func rpcMsfInject(req []byte, resp RPCResponse) {
 	}
 	rawPayload, err := msf.VenomPayload(config)
 	if err != nil {
-		log.Printf("Error while generating msf payload: %v\n", err)
+		rpcLog.Errorf("Error while generating msf payload: %v\n", err)
 		resp([]byte{}, err)
 		return
 	}
