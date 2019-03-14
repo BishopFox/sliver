@@ -149,7 +149,6 @@ func writeGoodBytes(b []byte, pn string, virtualoffset uint32, secname string, v
 // injectTask - Injects shellcode into a process handle
 func injectTask(processHandle syscall.Handle, data []byte) error {
 
-	// Create native buffer with the shellcode
 	dataSize := len(data)
 	// Remotely allocate memory in the target process
 	// {{if .Debug}}
