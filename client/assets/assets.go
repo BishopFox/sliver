@@ -8,6 +8,7 @@ import (
 )
 
 const (
+	// SliverClientDirName - Directory storing all of the client configs/logs
 	SliverClientDirName = ".sliver-client"
 )
 

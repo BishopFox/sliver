@@ -20,6 +20,7 @@ var (
 
 func main() {
 	version := flag.Bool("version", false, "print version number")
+	config := flag.String("config", "", "config file")
 	flag.Parse()
 
 	if *version {
@@ -27,9 +28,19 @@ func main() {
 		os.Exit(0)
 	}
 
+	if *config != "" {
+		conf, err := assets.ReadConfig(*config)
+		if err != nil {
+			fmt.Printf("Error %s", err)
+			os.Exit(1)
+		}
+		assets.SaveConfig(conf)
+	}
 	appDir := assets.GetRootAppDir()
 	logFile := initLogging(appDir)
 	defer logFile.Close()
+
+	os.Args = os.Args[:1] // Stops grumble from complaining
 	console.StartClientConsole()
 }
 
