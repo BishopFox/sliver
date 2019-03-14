@@ -36,6 +36,7 @@ var (
 		clientpb.MsgGenerate:   rpcGenerate,
 		clientpb.MsgProfiles:   rpcProfiles,
 		clientpb.MsgNewProfile: rpcNewProfile,
+		clientpb.MsgPlayers:    rpcPlayers,
 
 		clientpb.MsgMsf:       rpcMsf,
 		clientpb.MsgMsfInject: rpcMsfInject,

@@ -9,6 +9,9 @@ const (
 	// MsgSessions - Sessions message
 	MsgSessions
 
+	// MsgPlayers - List active players
+	MsgPlayers
+
 	// MsgJobs - Jobs message
 	MsgJobs
 

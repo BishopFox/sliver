@@ -104,7 +104,7 @@ func handleClientConnection(conn net.Conn) {
 		"operator": operator,
 	}).Info("connected")
 
-	client := core.GetClient(operator)
+	client := core.GetClient(certs[0])
 	core.Clients.AddClient(client)
 
 	core.EventBroker.Publish(core.Event{
@@ -154,9 +154,7 @@ func handleClientConnection(conn net.Conn) {
 					"operator":      client.Operator,
 					"envelope_type": envelope.Type,
 				}).Info("rpc command")
-			}
-			// TUN
-			if tunHandler, ok := (*tunHandlers)[envelope.Type]; ok {
+			} else if tunHandler, ok := (*tunHandlers)[envelope.Type]; ok {
 				go tunHandler(client, envelope.Data, func(data []byte, err error) {
 					errStr := ""
 					if err != nil {
@@ -168,6 +166,12 @@ func handleClientConnection(conn net.Conn) {
 						Err:  errStr,
 					}
 				})
+			} else {
+				client.Send <- &sliverpb.Envelope{
+					ID:   envelope.ID,
+					Data: []byte{},
+					Err:  "Unknown rpc command",
+				}
 			}
 		}
 	}()

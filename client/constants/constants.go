@@ -30,7 +30,7 @@ const (
 // Commands
 const (
 	NewPlayerStr       = "new-player"
-	ListPlayerStr      = "players"
+	PlayersStr         = "players"
 	KickPlayerStr      = "kick-player"
 	MultiplayerModeStr = "multiplayer"
 

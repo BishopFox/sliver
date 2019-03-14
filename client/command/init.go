@@ -92,6 +92,18 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		},
 	})
 
+	app.AddCommand(&grumble.Command{
+		Name:     consts.PlayersStr,
+		Help:     "List players",
+		LongHelp: help.GetHelpFor(consts.PlayersStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			playersCmd(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+	})
+
 	// [ Commands ] --------------------------------------------------------------
 
 	app.AddCommand(&grumble.Command{

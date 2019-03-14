@@ -17,6 +17,7 @@ import (
 	"os"
 	"path"
 	"sliver/server/log"
+	"strings"
 	"time"
 )
 
@@ -58,6 +59,40 @@ func GenerateClientCertificate(rootDir string, operator string, save bool) ([]by
 		SaveCertificate(rootDir, ClientsCertDir, operator, cert, key)
 	}
 	return cert, key
+}
+
+// GetClientCertificates - Get all client certificates
+func GetClientCertificates(rootDir string) []*x509.Certificate {
+	certsPath := path.Join(rootDir, CertsDirName, ClientsCertDir)
+	files, err := ioutil.ReadDir(certsPath)
+	if err != nil {
+		certsLog.Errorf("Failed to read client certs %v", err)
+		return nil
+	}
+
+	certs := []*x509.Certificate{}
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), "-cert.pem") {
+			certPEM, err := ioutil.ReadFile(path.Join(certsPath, file.Name()))
+			if err != nil {
+				certsLog.Warnf("Failed to read cert file %v", err)
+				continue
+			}
+			block, _ := pem.Decode(certPEM)
+			if block == nil {
+				certsLog.Warn("failed to parse certificate PEM")
+				continue
+			}
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				certsLog.Warnf("failed to parse x.509 certificate %v", err)
+				continue
+			}
+			certs = append(certs, cert)
+		}
+	}
+
+	return certs
 }
 
 // GenerateServerCertificate - Generate a server certificate signed with a given CA
