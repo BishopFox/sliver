@@ -1,4 +1,0 @@
-package assets
-
-const GitVersion = ""
-
