@@ -8,7 +8,7 @@ TAGS = -tags netgo
 LDFLAGS = -ldflags '-s -w'
 GIT_VERSION = $(shell git rev-parse HEAD)
 
-ECHO_INPLACE := echo -e
+ECHO := echo -e
 SED_INPLACE := sed -i
 
 UNAME_S := $(shell uname -s)
