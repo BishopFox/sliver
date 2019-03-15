@@ -27,6 +27,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -43,6 +44,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -58,6 +60,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -74,6 +77,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -90,6 +94,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -102,6 +107,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.MultiplayerHelpGroup,
 	})
 
 	// [ Commands ] --------------------------------------------------------------
@@ -119,6 +125,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -131,6 +138,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -144,6 +152,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -157,6 +166,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -170,6 +180,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -185,6 +196,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -220,6 +232,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -253,6 +266,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -265,6 +279,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.MultiplayerHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -282,6 +297,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -301,6 +317,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -321,6 +338,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -338,6 +356,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -351,6 +370,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -363,6 +383,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -375,6 +396,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -387,6 +409,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -399,6 +422,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -411,6 +435,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -424,6 +449,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -437,6 +463,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -450,6 +477,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -462,6 +490,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -475,6 +504,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -488,6 +518,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -501,6 +532,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -518,6 +550,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -535,6 +568,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -547,6 +581,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -559,6 +594,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -572,6 +608,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -585,5 +622,6 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 }
