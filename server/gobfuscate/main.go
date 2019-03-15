@@ -3,10 +3,14 @@ package gobfuscate
 import (
 	"errors"
 	"go/build"
-	"log"
 	"os"
 	gogo "sliver/server/gogo"
+	"sliver/server/log"
 	"strings"
+)
+
+var (
+	obfLog = log.NamedLogger("gobfuscate", "obfuscator")
 )
 
 // Gobfuscate - Obfuscate Go code
@@ -14,7 +18,7 @@ func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath str
 
 	newGopath := outPath
 	if err := os.Mkdir(newGopath, 0755); err != nil {
-		log.Println("Failed to create destination:", err)
+		obfLog.Errorf("Failed to create destination: %v", err)
 		return "", err
 	}
 
@@ -24,7 +28,7 @@ func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath str
 	ctx.GOROOT = config.GOROOT
 	ctx.GOPATH = config.GOPATH
 
-	log.Printf("Copying GOPATH (%s) ...\n", ctx.GOPATH)
+	obfLog.Infof("Copying GOPATH (%s) ...\n", ctx.GOPATH)
 
 	if !CopyGopath(ctx, pkgName, newGopath, false) {
 		return "", errors.New("Failed to copy GOPATH")
@@ -37,9 +41,9 @@ func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath str
 	// 	return "", err
 	// }
 
-	log.Println("Obfuscating strings ...")
+	obfLog.Info("Obfuscating strings ...")
 	if err := ObfuscateStrings(newGopath); err != nil {
-		log.Println("Failed to obfuscate strings:", err)
+		obfLog.Errorf("Failed to obfuscate strings: %v", err)
 		return "", err
 	}
 
