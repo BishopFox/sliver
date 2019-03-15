@@ -376,6 +376,7 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 
 	debug := ctx.Flags.Bool("debug")
 	dnsParent := ctx.Flags.String("dns")
+	sharedLib := ctx.Flags.Bool("shared")
 
 	limitDomainJoined := ctx.Flags.Bool("limit-domainjoined")
 	limitHostname := ctx.Flags.String("limit-hostname")
@@ -418,6 +419,8 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 			LimitHostname:     limitHostname,
 			LimitUsername:     limitUsername,
 			LimitDatetime:     limitDatetime,
+
+			IsDll: sharedLib,
 		},
 	})
 

@@ -259,6 +259,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 
 			f.String("p", "name", "", "profile name")
+			f.Bool("h", "shared", false, "generate as a shared library (dll/so/dylib)")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
