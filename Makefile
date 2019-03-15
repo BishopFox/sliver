@@ -8,10 +8,13 @@ TAGS = -tags netgo
 LDFLAGS = -ldflags '-s -w'
 GIT_VERSION = $(shell git rev-parse HEAD)
 
+ECHO_INPLACE := echo -e
 SED_INPLACE := sed -i
+
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
 	SED_INPLACE := sed -i ''
+	ECHO := echo
 endif
 
 
@@ -62,7 +65,7 @@ pb:
 
 .PHONY: version
 version:
-	echo 'package assets\n\nconst GitVersion = "$(GIT_VERSION)"\n' > ./server/assets/version.go 
+	$(ECHO) 'package assets\n\nconst GitVersion = "$(GIT_VERSION)"\n' > ./server/assets/version.go
 
 .PHONY: packr
 packr:
@@ -72,7 +75,7 @@ packr:
 
 .PHONY: clean-version
 clean-version:
-	echo 'package assets\n\nconst GitVersion = ""\n' > ./server/assets/version.go 
+	$(ECHO) 'package assets\n\nconst GitVersion = ""\n' > ./server/assets/version.go
 
 .PHONY: clean-all
 clean-all: clean clean-version
