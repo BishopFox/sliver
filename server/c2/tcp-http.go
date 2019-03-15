@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	consts "sliver/client/constants"
 	"sliver/server/assets"
 	"sliver/server/certs"
@@ -90,13 +91,14 @@ type HTTPHandler func(resp http.ResponseWriter, req *http.Request)
 
 // HTTPServerConfig - Config data for servers
 type HTTPServerConfig struct {
-	Addr     string
-	LPort    uint16
-	Domain   string
-	Secure   bool
-	CertPath string
-	KeyPath  string
-	ACME     bool
+	Addr      string
+	LPort     uint16
+	Domain    string
+	StaticDir string
+	Secure    bool
+	CertPath  string
+	KeyPath   string
+	ACME      bool
 }
 
 // SliverHTTPC2 - Holds refs to all the C2 objects
@@ -189,7 +191,16 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	router.HandleFunc("/{rpath:.*\\.png$}", s.stopHandler).MatcherFunc(filterAgent).Methods(http.MethodGet)
 
 	// Request does not match the C2 profile so we pass it to the default handler
-	router.HandleFunc("{rpath:.*}", defaultHandler).Methods(http.MethodGet, http.MethodPost)
+	if s.Conf.StaticDir != "" {
+		staticDir, _ := filepath.Abs(s.Conf.StaticDir)
+		fs := http.Dir(staticDir)
+		httpLog.Infof("Serving static content from: %s", staticDir)
+		router.HandleFunc("{rpath:.*}", func(resp http.ResponseWriter, req *http.Request) {
+			http.FileServer(fs).ServeHTTP(resp, req)
+		}).Methods(http.MethodGet)
+	} else {
+		router.HandleFunc("{rpath:.*}", default404Handler).Methods(http.MethodGet, http.MethodPost)
+	}
 
 	router.Use(loggingMiddleware)
 	router.Use(defaultRespHeaders)
@@ -238,8 +249,8 @@ func defaultRespHeaders(next http.Handler) http.Handler {
 	})
 }
 
-func defaultHandler(resp http.ResponseWriter, req *http.Request) {
-	resp.WriteHeader(404)
+func default404Handler(resp http.ResponseWriter, req *http.Request) {
+	resp.WriteHeader(404) // TODO: Serve static content
 }
 
 // [ HTTP Handlers ] ---------------------------------------------------------------

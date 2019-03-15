@@ -12,6 +12,8 @@ import (
 // Init - Bind commands to a App
 func Init(app *grumble.App, server *core.SliverServer) {
 
+	app.SetPrintHelp(helpCmd)
+
 	// [ Jobs ] -----------------------------------------------------------------
 
 	app.AddCommand(&grumble.Command{
@@ -27,6 +29,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -43,6 +46,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -58,6 +62,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -74,6 +79,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -90,6 +96,20 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.PlayersStr,
+		Help:     "List players",
+		LongHelp: help.GetHelpFor(consts.PlayersStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			playersCmd(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.MultiplayerHelpGroup,
 	})
 
 	// [ Commands ] --------------------------------------------------------------
@@ -107,6 +127,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -119,6 +140,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -132,6 +154,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -145,6 +168,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -158,6 +182,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -173,6 +198,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -208,6 +234,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -234,6 +261,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 
 			f.String("p", "name", "", "profile name")
+			f.Bool("h", "shared", false, "generate as a shared library (dll/so/dylib)")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -241,6 +269,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -253,6 +282,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -270,6 +300,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -289,6 +320,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -309,6 +341,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -326,6 +359,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -339,6 +373,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -351,6 +386,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -363,6 +399,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -375,6 +412,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -387,6 +425,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -399,6 +438,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -412,6 +452,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -425,6 +466,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -438,6 +480,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -450,6 +493,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -463,6 +507,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -476,6 +521,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -489,6 +535,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -506,6 +553,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -523,6 +571,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -535,6 +584,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -547,6 +597,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -560,6 +611,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -573,5 +625,6 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 }

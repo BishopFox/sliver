@@ -51,7 +51,7 @@ type ExtraCmds func(*grumble.App, *core.SliverServer)
 // Start - Console entrypoint
 func Start(server *core.SliverServer, extraCmds ExtraCmds) {
 	app := grumble.New(&grumble.Config{
-		Name:                  "consts.sliver client",
+		Name:                  "Sliver",
 		Description:           "Bishop Fox - Sliver Client",
 		HistoryFile:           path.Join(assets.GetRootAppDir(), "history"),
 		Prompt:                getPrompt(),
