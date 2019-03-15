@@ -266,7 +266,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
-		HelpGroup: consts.SliverHelpGroup,
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -279,7 +279,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
-		HelpGroup: consts.MultiplayerHelpGroup,
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
