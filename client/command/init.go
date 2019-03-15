@@ -9,16 +9,14 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+var defaultHelpCommand *grumble.Command
+
 // Init - Bind commands to a App
 func Init(app *grumble.App, server *core.SliverServer) {
+	defaultHelpCommand = app.Commands().Get("help")
 
+	app.SetPrintHelp(helpCmd)
 	// [ Jobs ] -----------------------------------------------------------------
-	app.AddCommand(&grumble.Command{
-		Name:      "help",
-		Help:      "use 'help [command] for command help'",
-		Run:       helpCmd,
-		AllowArgs: true,
-	})
 	app.AddCommand(&grumble.Command{
 		Name:     consts.JobsStr,
 		Help:     "Job control",
@@ -542,7 +540,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
-		HelpGroup: consts.SliverWindowsHelpGroup,
+		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -560,7 +558,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
-		HelpGroup: consts.SliverWindowsHelpGroup,
+		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -573,7 +571,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
-		HelpGroup: consts.SliverWindowsHelpGroup,
+		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -586,7 +584,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
-		HelpGroup: consts.SliverWindowsHelpGroup,
+		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -600,7 +598,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
-		HelpGroup: consts.SliverWindowsHelpGroup,
+		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
