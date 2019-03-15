@@ -30,7 +30,7 @@ const (
 // Commands
 const (
 	NewPlayerStr       = "new-player"
-	ListPlayerStr      = "players"
+	PlayersStr         = "players"
 	KickPlayerStr      = "kick-player"
 	MultiplayerModeStr = "multiplayer"
 
@@ -78,4 +78,9 @@ const (
 	GetSystemStr        = "getsystem"
 	ExecuteAssemblyStr  = "execute-assembly"
 	ExecuteShellcodeStr = "execute-shellcode"
+
+	GenericHelpGroup     = "Generic:"
+	SliverHelpGroup      = "Sliver:"
+	SliverWinHelpGroup   = "Sliver - Windows:"
+	MultiplayerHelpGroup = "Multiplayer:"
 )

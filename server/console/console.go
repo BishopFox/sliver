@@ -49,6 +49,7 @@ func serverOnlyCmds(app *grumble.App, server *clientcore.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.MultiplayerHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -70,18 +71,7 @@ func serverOnlyCmds(app *grumble.App, server *clientcore.SliverServer) {
 			fmt.Println()
 			return nil
 		},
-	})
-
-	app.AddCommand(&grumble.Command{
-		Name:     consts.ListPlayerStr,
-		Help:     "List players connected to the server",
-		LongHelp: help.GetHelpFor(consts.ListPlayerStr),
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			listPlayersCmd(ctx)
-			fmt.Println()
-			return nil
-		},
+		HelpGroup: consts.MultiplayerHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -97,6 +87,7 @@ func serverOnlyCmds(app *grumble.App, server *clientcore.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.MultiplayerHelpGroup,
 	})
 
 }

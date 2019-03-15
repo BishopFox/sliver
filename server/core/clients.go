@@ -1,6 +1,7 @@
 package core
 
 import (
+	"crypto/x509"
 	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 	"sync"
@@ -18,12 +19,12 @@ var (
 
 // Client - Single client connection
 type Client struct {
-	ID       int
-	Operator string
-
-	Send  chan *sliverpb.Envelope
-	Resp  map[uint64]chan *sliverpb.Envelope
-	mutex *sync.RWMutex
+	ID          int
+	Operator    string
+	Certificate *x509.Certificate
+	Send        chan *sliverpb.Envelope
+	Resp        map[uint64]chan *sliverpb.Envelope
+	mutex       *sync.RWMutex
 }
 
 // ToProtobuf - Get the protobuf version of the object
@@ -71,12 +72,19 @@ func GetClientID() int {
 }
 
 // GetClient - Create a new client object
-func GetClient(operator string) *Client {
+func GetClient(certificate *x509.Certificate) *Client {
+	var operator string
+	if certificate != nil {
+		operator = certificate.Subject.CommonName
+	} else {
+		operator = "server"
+	}
 	return &Client{
-		ID:       GetClientID(),
-		Operator: operator,
-		mutex:    &sync.RWMutex{},
-		Send:     make(chan *sliverpb.Envelope),
-		Resp:     map[uint64]chan *sliverpb.Envelope{},
+		ID:          GetClientID(),
+		Operator:    operator,
+		Certificate: certificate,
+		mutex:       &sync.RWMutex{},
+		Send:        make(chan *sliverpb.Envelope),
+		Resp:        map[uint64]chan *sliverpb.Envelope{},
 	}
 }

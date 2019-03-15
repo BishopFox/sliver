@@ -9,6 +9,7 @@ LDFLAGS = -ldflags '-s -w'
 GIT_VERSION = $(shell git rev-parse HEAD)
 
 SED_INPLACE := sed -i
+
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
 	SED_INPLACE := sed -i ''
@@ -62,7 +63,7 @@ pb:
 
 .PHONY: version
 version:
-	echo 'package assets\n\nconst GitVersion = "$(GIT_VERSION)"\n' > ./server/assets/version.go 
+	printf "package assets\n\nconst GitVersion = \"%s\"\n" $(GIT_VERSION) > ./server/assets/version.go
 
 .PHONY: packr
 packr:
@@ -72,7 +73,7 @@ packr:
 
 .PHONY: clean-version
 clean-version:
-	echo 'package assets\n\nconst GitVersion = ""\n' > ./server/assets/version.go 
+	printf "package assets\n\nconst GitVersion = \"\"\n" > ./server/assets/version.go
 
 .PHONY: clean-all
 clean-all: clean clean-version

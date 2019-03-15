@@ -6,8 +6,8 @@ var (
 	powerShell    = []string{
 		"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
 		"-NoExit",
-		"-Command",
-		"[Console]::OutputEncoding=[Text.UTF8Encoding]::UTF8",
+		"-WindowStyle", "Hidden",
+		"-Command", "[Console]::OutputEncoding=[Text.UTF8Encoding]::UTF8",
 	}
 )
 

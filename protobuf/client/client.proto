@@ -179,3 +179,12 @@ message Event {
   Client Client = 4;
   string Err = 5;
 }
+
+message Players {
+  repeated Player Players = 1;
+}
+
+message Player {
+  Client Client = 1;
+  bool Online = 2;
+}

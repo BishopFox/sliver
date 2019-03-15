@@ -112,10 +112,6 @@ func kickPlayerCmd(ctx *grumble.Context) {
 
 }
 
-func listPlayersCmd(ctx *grumble.Context) {
-
-}
-
 func startMultiplayerModeCmd(ctx *grumble.Context) {
 	server := ctx.Flags.String("server")
 	lport := uint16(ctx.Flags.Int("lport"))

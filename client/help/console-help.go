@@ -46,6 +46,8 @@ var (
 		consts.MkdirStr:            mkdirHelp,
 		consts.RmStr:               rmHelp,
 		consts.ProcdumpStr:         procdumpHelp,
+		consts.ElevateStr:          elevateHelp,
+		consts.ImpersonateStr:      impersonateHelp,
 		consts.ExecuteAssemblyStr:  executeAssemblyHelp,
 		consts.ExecuteShellcodeStr: executeShellcodeHelp,
 	}
