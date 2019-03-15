@@ -16,7 +16,7 @@ import (
 // keep in mind the arguments to this function are in the context of the client
 // so send = "send to server" and recv = "recv from server"
 func LocalClientConnect(send, recv chan *sliverpb.Envelope) {
-	client := core.GetClient("server")
+	client := core.GetClient(nil)
 	client.Send = recv // Client's recv channel
 	core.Clients.AddClient(client)
 
@@ -24,7 +24,6 @@ func LocalClientConnect(send, recv chan *sliverpb.Envelope) {
 		rpcHandlers := rpc.GetRPCHandlers()
 		tunHandlers := rpc.GetTunnelHandlers()
 		for envelope := range send {
-			// RPC
 			if rpcHandler, ok := (*rpcHandlers)[envelope.Type]; ok {
 				go rpcHandler(envelope.Data, func(data []byte, err error) {
 					errStr := ""
@@ -41,9 +40,7 @@ func LocalClientConnect(send, recv chan *sliverpb.Envelope) {
 					"operator":      client.Operator,
 					"envelope_type": envelope.Type,
 				}).Info("rpc command")
-			}
-			// TUN
-			if tunHandler, ok := (*tunHandlers)[envelope.Type]; ok {
+			} else if tunHandler, ok := (*tunHandlers)[envelope.Type]; ok {
 				go tunHandler(client, envelope.Data, func(data []byte, err error) {
 					errStr := ""
 					if err != nil {
@@ -55,6 +52,12 @@ func LocalClientConnect(send, recv chan *sliverpb.Envelope) {
 						Err:  errStr,
 					}
 				})
+			} else {
+				client.Send <- &sliverpb.Envelope{
+					ID:   envelope.ID,
+					Data: []byte{},
+					Err:  "Unknown rpc command",
+				}
 			}
 		}
 	}()

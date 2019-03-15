@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"log"
 	"sliver/server/core"
 
 	clientpb "sliver/protobuf/client"
@@ -31,7 +30,7 @@ func tunnelData(client *core.Client, req []byte, _ RPCResponse) {
 	if tunnel != nil && client.ID == tunnel.Client.ID {
 		tunnel.Sliver.Request(sliverpb.MsgTunnelData, defaultTimeout, req)
 	} else {
-		log.Printf("Data sent on nil tunnel %d", tunnelData.TunnelID)
+		rpcLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
 	}
 }
 

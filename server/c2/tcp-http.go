@@ -96,6 +96,7 @@ type HTTPServerConfig struct {
 	Secure   bool
 	CertPath string
 	KeyPath  string
+	ACME     bool
 }
 
 // SliverHTTPC2 - Holds refs to all the C2 objects
@@ -121,20 +122,33 @@ func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 		WriteTimeout: defaultHTTPTimeout,
 		ReadTimeout:  defaultHTTPTimeout,
 		IdleTimeout:  defaultHTTPTimeout,
-		TLSConfig: &tls.Config{
-			MinVersion:               tls.VersionTLS12,
-			CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
-			PreferServerCipherSuites: true,
-			CipherSuites: []uint16{
-				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-			},
-		},
+		TLSConfig:    getHTTPTLSConfig(conf),
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 	}
 	return server
+}
+
+func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
+	if conf.ACME {
+		return certs.GetACMECertificate(assets.GetRootAppDir(), conf.Domain)
+	}
+	cert, err := tls.LoadX509KeyPair(conf.CertPath, conf.KeyPath)
+	if err != nil {
+		httpLog.Warnf("Failed to load tls key pair %v", err)
+		return nil
+	}
+	return &tls.Config{
+		Certificates:             []tls.Certificate{cert},
+		MinVersion:               tls.VersionTLS12,
+		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+		PreferServerCipherSuites: true,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+		},
+	}
 }
 
 // StartHTTPListener - Start a mutual TLS listener

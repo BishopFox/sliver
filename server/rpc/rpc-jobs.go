@@ -3,7 +3,6 @@ package rpc
 import (
 	"context"
 	"fmt"
-	"log"
 	consts "sliver/client/constants"
 	pb "sliver/protobuf/client"
 	"sliver/server/assets"
@@ -31,7 +30,7 @@ func rpcJobs(_ []byte, resp RPCResponse) {
 	}
 	data, err := proto.Marshal(jobs)
 	if err != nil {
-		log.Printf("Error encoding rpc response %v", err)
+		rpcLog.Errorf("Error encoding rpc response %v", err)
 		resp([]byte{}, err)
 		return
 	}
@@ -72,7 +71,7 @@ func jobStartMTLSListener(bindIface string, port uint16) (int, error) {
 
 	go func() {
 		<-job.JobCtrl
-		log.Printf("Stopping mTLS listener (%d) ...", job.ID)
+		rpcLog.Infof("Stopping mTLS listener (%d) ...", job.ID)
 		ln.Close() // Kills listener GoRoutines in startMutualTLSListener() but NOT connections
 
 		core.Jobs.RemoveJob(job)
@@ -120,7 +119,7 @@ func jobStartDNSListener(domain string) (int, error) {
 
 	go func() {
 		<-job.JobCtrl
-		log.Printf("Stopping DNS listener (%d) ...", job.ID)
+		rpcLog.Infof("Stopping DNS listener (%d) ...", job.ID)
 		server.Shutdown()
 
 		core.Jobs.RemoveJob(job)
@@ -141,7 +140,7 @@ func jobStartDNSListener(domain string) (int, error) {
 	go func() {
 		err := server.ListenAndServe()
 		if err != nil {
-			log.Printf("DNS listener error %v", err)
+			rpcLog.Errorf("DNS listener error %v", err)
 			job.JobCtrl <- true
 		}
 	}()
@@ -229,7 +228,7 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
 			err = server.HTTPServer.ListenAndServe()
 		}
 		if err != nil {
-			log.Printf("%s listener error %v", name, err)
+			rpcLog.Errorf("%s listener error %v", name, err)
 			once.Do(func() { cleanup(err) })
 			job.JobCtrl <- true // Cleanup other goroutine
 		}

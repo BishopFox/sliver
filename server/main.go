@@ -11,12 +11,12 @@ import (
 	"sliver/server/console"
 )
 
-const (
-	logFileName = "sliver.log"
+var (
+	sliverServerVersion = fmt.Sprintf("0.0.4 - %s", assets.GitVersion)
 )
 
-var (
-	sliverServerVersion = "0.0.4"
+const (
+	logFileName = "console.log"
 )
 
 func main() {
@@ -29,18 +29,14 @@ func main() {
 		os.Exit(0)
 	}
 
+	assets.Setup(*unpack)
+	if *unpack {
+		os.Exit(0)
+	}
+
 	appDir := assets.GetRootAppDir()
 	logFile := initLogging(appDir)
 	defer logFile.Close()
-
-	if _, err := os.Stat(path.Join(appDir, assets.GoDirName)); os.IsNotExist(err) || *unpack {
-		fmt.Println(console.Info + "First time setup, please wait ... ")
-		log.Println("Unpacking assets ... ")
-		assets.Setup()
-		if *unpack {
-			os.Exit(0)
-		}
-	}
 
 	console.Start()
 }

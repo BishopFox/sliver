@@ -52,27 +52,36 @@ func GetConfigs() map[string]*ClientConfig {
 	for _, confFile := range configFiles {
 		confFilePath := path.Join(configDir, confFile.Name())
 		log.Printf("Parsing config %s", confFilePath)
-		confFile, err := os.Open(confFilePath)
-		if err != nil {
-			log.Printf("Open failed %v", err)
-			continue
-		}
-		data, err := ioutil.ReadAll(confFile)
-		if err != nil {
-			log.Printf("Read failed %v", err)
-			continue
-		}
-		conf := ClientConfig{}
-		err = json.Unmarshal(data, &conf)
-		if err != nil {
-			log.Printf("Parse failed %v", err)
-			continue
-		}
-		confs[conf.LHost] = &conf
-		confFile.Close()
-	}
 
+		conf, err := ReadConfig(confFilePath)
+		if err != nil {
+			continue
+		}
+		confs[conf.LHost] = conf
+	}
 	return confs
+}
+
+// ReadConfig - Load config into struct
+func ReadConfig(confFilePath string) (*ClientConfig, error) {
+	confFile, err := os.Open(confFilePath)
+	defer confFile.Close()
+	if err != nil {
+		log.Printf("Open failed %v", err)
+		return nil, err
+	}
+	data, err := ioutil.ReadAll(confFile)
+	if err != nil {
+		log.Printf("Read failed %v", err)
+		return nil, err
+	}
+	conf := &ClientConfig{}
+	err = json.Unmarshal(data, conf)
+	if err != nil {
+		log.Printf("Parse failed %v", err)
+		return nil, err
+	}
+	return conf, nil
 }
 
 // SaveConfig - Save a config to disk

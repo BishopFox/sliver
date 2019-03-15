@@ -100,6 +100,19 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 
+	app.AddCommand(&grumble.Command{
+		Name:     consts.PlayersStr,
+		Help:     "List players",
+		LongHelp: help.GetHelpFor(consts.PlayersStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			playersCmd(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.MultiplayerHelpGroup,
+	})
+
 	// [ Commands ] --------------------------------------------------------------
 
 	app.AddCommand(&grumble.Command{
@@ -540,7 +553,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
-		HelpGroup: consts.SliverWinHelpGroup,
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{

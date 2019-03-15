@@ -11,13 +11,18 @@ import (
 func selectConfig() *assets.ClientConfig {
 
 	configs := assets.GetConfigs()
+
 	if len(configs) == 0 {
 		return nil
 	}
 
-	answer := struct {
-		Config string
-	}{}
+	if len(configs) == 1 {
+		for _, config := range configs {
+			return config
+		}
+	}
+
+	answer := struct{ Config string }{}
 	qs := getPromptForConfigs(configs)
 	err := survey.Ask(qs, &answer)
 	if err != nil {

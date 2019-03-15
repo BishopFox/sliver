@@ -3,8 +3,8 @@ package msf
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os/exec"
+	"sliver/server/log"
 	"strconv"
 	"strings"
 )
@@ -16,6 +16,7 @@ const (
 )
 
 var (
+	msfLog = log.NamedLogger("msf", "venom")
 
 	// ValidArches - Support CPU architectures
 	ValidArches = map[string]bool{
@@ -116,7 +117,7 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 
 // venomCmd - Execute a msfvenom command
 func venomCmd(args []string) ([]byte, error) {
-	log.Printf("%s %v", venomBin, args)
+	msfLog.Printf("%s %v", venomBin, args)
 	cmd := exec.Command(venomBin, args...)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -124,9 +125,9 @@ func venomCmd(args []string) ([]byte, error) {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		log.Printf("--- stdout ---\n%s\n", stdout.String())
-		log.Printf("--- stderr ---\n%s\n", stderr.String())
-		log.Print(err)
+		msfLog.Printf("--- stdout ---\n%s\n", stdout.String())
+		msfLog.Printf("--- stderr ---\n%s\n", stderr.String())
+		msfLog.Print(err)
 	}
 
 	return stdout.Bytes(), err
@@ -141,9 +142,9 @@ func consoleCmd(args []string) ([]byte, error) {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		log.Printf("--- stdout ---\n%s\n", stdout.String())
-		log.Printf("--- stderr ---\n%s\n", stderr.String())
-		log.Print(err)
+		msfLog.Printf("--- stdout ---\n%s\n", stdout.String())
+		msfLog.Printf("--- stderr ---\n%s\n", stderr.String())
+		msfLog.Print(err)
 	}
 
 	return stdout.Bytes(), err
