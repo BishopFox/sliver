@@ -9,11 +9,8 @@ import (
 	"github.com/desertbit/grumble"
 )
 
-var defaultHelpCommand *grumble.Command
-
 // Init - Bind commands to a App
 func Init(app *grumble.App, server *core.SliverServer) {
-	defaultHelpCommand = app.Commands().Get("help")
 
 	app.SetPrintHelp(helpCmd)
 	// [ Jobs ] -----------------------------------------------------------------
