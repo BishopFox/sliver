@@ -78,4 +78,9 @@ const (
 	GetSystemStr        = "getsystem"
 	ExecuteAssemblyStr  = "execute-assembly"
 	ExecuteShellcodeStr = "execute-shellcode"
+
+	SliverHelpGroup        = "Sliver:"
+	SliverWindowsHelpGroup = "Sliver - Windows:"
+	GenericHelpGroup       = "Generic:"
+	MultiplayerHelpGroup   = "Multiplayer:"
 )
