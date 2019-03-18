@@ -27,6 +27,7 @@ message Ping {
 }
 
 message KillReq {
+  bool Force = 1;
   uint32 SliverID = 9;
 }
 

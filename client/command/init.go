@@ -152,6 +152,9 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("f", "force", false, "Force kill,  does not clean up")
+		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
