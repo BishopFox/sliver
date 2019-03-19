@@ -3,12 +3,14 @@ package generate
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
-	pb "sliver/protobuf/client"
+	clientpb "sliver/protobuf/client"
 	"sliver/server/assets"
 	"sliver/server/certs"
 	gobfuscate "sliver/server/gobfuscate"
@@ -44,6 +46,8 @@ const (
 	DefaultMTLSLPort = 8888
 	// DefaultHTTPLPort - Default HTTP listen port
 	DefaultHTTPLPort = 443 // Assume SSL, it'll fallback
+
+	defaultMingwPath = "/usr/bin/x86_64-w64-mingw32-gcc"
 )
 
 // SliverConfig - Parameters when generating a implant
@@ -53,24 +57,18 @@ type SliverConfig struct {
 	GOARCH string `json:"go_arch"`
 
 	// Standard
-	Name              string `json:"name"`
-	CACert            string `json:"ca_cert"`
-	Cert              string `json:"cert"`
-	Key               string `json:"key"`
-	Debug             bool   `json:"debug"`
-	ReconnectInterval int    `json:"reconnect_interval"`
+	Name                string `json:"name"`
+	CACert              string `json:"ca_cert"`
+	Cert                string `json:"cert"`
+	Key                 string `json:"key"`
+	Debug               bool   `json:"debug"`
+	ReconnectInterval   int    `json:"reconnect_interval"`
+	MaxConnectionErrors int    `json:"max_connection_errors`
 
-	// mTLS
-	MTLSServer string `json:"mtls_server"`
-	MTLSLPort  uint16 `json:"mtls_lport"`
-
-	// HTTPS
-	HTTPServer string `json:"http_server"`
-	HTTPLPort  uint16 `json:"http_lport"`
-	NoVerify   bool   `json:"no_verify"`
-
-	// DNS
-	DNSParent string `json:"dns_parent"`
+	C2            []string `json:"c2s"`
+	MTLSc2Enabled bool     `json:"c2_mtls_enabled"`
+	HTTPc2Enabled bool     `json:"c2_http_enabled"`
+	DNSc2Enabled  bool     `json:"c2_dns_enabled"`
 
 	// Limits
 	LimitDomainJoined bool   `json:"limit_domainjoined"`
@@ -79,41 +77,35 @@ type SliverConfig struct {
 	LimitDatetime     string `json:"limit_datetime"`
 
 	// DLL test
-	IsDll bool `json:"is_dll"`
+	IsSharedLib bool `json:"is_shared_lib"`
 }
 
 // ToProtobuf - Convert SliverConfig to protobuf equiv
-func (c *SliverConfig) ToProtobuf() *pb.SliverConfig {
-	return &pb.SliverConfig{
-		GOOS:              c.GOOS,
-		GOARCH:            c.GOARCH,
-		Name:              c.Name,
-		CACert:            c.CACert,
-		Cert:              c.Cert,
-		Key:               c.Key,
-		Debug:             c.Debug,
-		ReconnectInterval: int32(c.ReconnectInterval),
-
-		MTLSServer: c.MTLSServer,
-		MTLSLPort:  int32(c.MTLSLPort),
-
-		HTTPServer: c.HTTPServer,
-		HTTPLPort:  int32(c.HTTPLPort),
-
-		DNSParent: c.DNSParent,
+func (c *SliverConfig) ToProtobuf() *clientpb.SliverConfig {
+	return &clientpb.SliverConfig{
+		GOOS:                c.GOOS,
+		GOARCH:              c.GOARCH,
+		Name:                c.Name,
+		CACert:              c.CACert,
+		Cert:                c.Cert,
+		Key:                 c.Key,
+		Debug:               c.Debug,
+		ReconnectInterval:   uint32(c.ReconnectInterval),
+		MaxConnectionErrors: uint32(c.MaxConnectionErrors),
 
 		LimitDatetime:     c.LimitDatetime,
 		LimitDomainJoined: c.LimitDomainJoined,
 		LimitHostname:     c.LimitHostname,
 		LimitUsername:     c.LimitUsername,
 
-		IsDll: c.IsDll,
+		IsSharedLib: c.IsSharedLib,
 	}
 }
 
-// SliverConfigFromProtobuf - Create config from Protobuf
-func SliverConfigFromProtobuf(pbConfig *pb.SliverConfig) *SliverConfig {
+// SliverConfigFromProtobuf - Create a native config struct from Protobuf
+func SliverConfigFromProtobuf(pbConfig *clientpb.SliverConfig) *SliverConfig {
 	cfg := &SliverConfig{}
+
 	cfg.GOOS = pbConfig.GOOS
 	cfg.GOARCH = pbConfig.GOARCH
 	cfg.Name = pbConfig.Name
@@ -127,30 +119,43 @@ func SliverConfigFromProtobuf(pbConfig *pb.SliverConfig) *SliverConfig {
 	cfg.LimitUsername = pbConfig.LimitUsername
 	cfg.LimitHostname = pbConfig.LimitHostname
 
-	cfg.IsDll = pbConfig.IsDll
+	cfg.IsSharedLib = pbConfig.IsSharedLib
 
-	if pbConfig.ReconnectInterval != 0 {
-		cfg.ReconnectInterval = int(pbConfig.ReconnectInterval)
-	} else {
-		cfg.ReconnectInterval = DefaultReconnectInterval
-	}
+	cfg.C2 = copyC2List(pbConfig.C2)
+	cfg.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, cfg.C2)
+	cfg.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, cfg.C2)
+	cfg.DNSc2Enabled = isC2Enabled([]string{"dns"}, cfg.C2)
 
-	cfg.MTLSServer = pbConfig.MTLSServer
-	if pbConfig.MTLSLPort != 0 {
-		cfg.MTLSLPort = uint16(pbConfig.MTLSLPort)
-	} else {
-		cfg.MTLSLPort = DefaultMTLSLPort
-	}
-
-	cfg.HTTPServer = pbConfig.HTTPServer
-	if pbConfig.HTTPLPort != 0 {
-		cfg.HTTPLPort = uint16(pbConfig.HTTPLPort)
-	} else {
-		cfg.HTTPLPort = DefaultHTTPLPort
-	}
-
-	cfg.DNSParent = pbConfig.DNSParent
 	return cfg
+}
+
+func copyC2List(src []*clientpb.SliverC2) []string {
+	c2s := []string{}
+	for _, srcC2 := range src {
+		c2URL, err := url.Parse(srcC2.URL)
+		if err != nil {
+			buildLog.Warnf("Failed to parse c2 url %v", err)
+			continue
+		}
+		c2s = append(c2s, c2URL.String())
+	}
+	return c2s
+}
+
+func isC2Enabled(schemes []string, c2s []string) bool {
+	for _, c2 := range c2s {
+		c2URL, err := url.Parse(c2)
+		if err != nil {
+			buildLog.Warnf("Failed to parse c2 url %v", err)
+			continue
+		}
+		for _, scheme := range schemes {
+			if scheme == c2URL.Scheme {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // GetSliversDir - Get the binary directory
@@ -177,9 +182,13 @@ func SliverEgg(config SliverConfig) (string, error) {
 func SliverSharedLibrary(config *SliverConfig) (string, error) {
 	// Compile go code
 	appDir := assets.GetRootAppDir()
+	crossCompiler := getCCompiler()
+	if crossCompiler == "" {
+		return "", errors.New("No cross-compiler (mingw) found")
+	}
 	goConfig := &gogo.GoConfig{
 		CGO:    "1",
-		CC:     getCompiler(),
+		CC:     crossCompiler,
 		GOOS:   config.GOOS,
 		GOARCH: config.GOARCH,
 		GOROOT: gogo.GetGoRootDir(appDir),
@@ -323,12 +332,19 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 	return sliverPkgDir, nil
 }
 
-func getCompiler() string {
-	// TODO: find a better way to do this
-	compiler := "/usr/bin/x86_64-w64-mingw32-gcc"
+func getCCompiler() string {
+	compiler := os.Getenv("SLIVER_CC")
+	if compiler == "" {
+		compiler = defaultMingwPath
+	}
+	if _, err := os.Stat(compiler); os.IsNotExist(err) {
+		buildLog.Warnf("CC path %v does not exist", compiler)
+		return ""
+	}
 	if runtime.GOOS == "windows" {
 		compiler = ""
 	}
+	buildLog.Infof("CC = %v", compiler)
 	return compiler
 }
 

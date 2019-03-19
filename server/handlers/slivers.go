@@ -1,5 +1,11 @@
 package handlers
 
+/*
+
+	WARNING: These functions can be invoked by remote slivers without user interaction
+
+*/
+
 import (
 	consts "sliver/client/constants"
 	sliverpb "sliver/protobuf/sliver"
@@ -57,11 +63,14 @@ func tunnelDataHandler(sliver *core.Sliver, data []byte) {
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
 	tunnel := core.Tunnels.Tunnel(tunnelData.TunnelID)
-	if tunnel != nil && sliver.ID == tunnel.Sliver.ID {
-		handlerLog.Debugf("Routing data to tunnel id %d to client %d", tunnelData.TunnelID, tunnel.Client.ID)
-		tunnel.Client.Send <- &sliverpb.Envelope{
-			Type: sliverpb.MsgTunnelData,
-			Data: data,
+	if tunnel != nil {
+		if sliver.ID == tunnel.Sliver.ID {
+			tunnel.Client.Send <- &sliverpb.Envelope{
+				Type: sliverpb.MsgTunnelData,
+				Data: data,
+			}
+		} else {
+			handlerLog.Warnf("Warning: Sliver %d attempted to send data on tunnel it did not own", sliver.ID)
 		}
 	} else {
 		handlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
@@ -76,6 +85,6 @@ func tunnelCloseHandler(sliver *core.Sliver, data []byte) {
 		handlerLog.Debugf("Sliver %d closed tunnel %d (reason: %s)", sliver.ID, tunnel.ID, tunnelClose.Err)
 		core.Tunnels.CloseTunnel(tunnel.ID, tunnelClose.Err)
 	} else {
-		handlerLog.Warnf("Warning: Sliver attempted to close tunnel it did not own") // TODO: Log to security events
+		handlerLog.Warnf("Warning: Sliver %d attempted to close tunnel it did not own", sliver.ID)
 	}
 }

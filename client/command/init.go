@@ -9,6 +9,10 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+const (
+	defaultMTLSLPort = 8888
+)
+
 // Init - Bind commands to a App
 func Init(app *grumble.App, server *core.SliverServer) {
 
@@ -36,7 +40,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.MtlsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "server", "", "interface to bind server to")
-			f.Int("l", "lport", 8888, "tcp listen port")
+			f.Int("l", "lport", defaultMTLSLPort, "tcp listen port")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -208,23 +212,21 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
 
-			f.String("m", "mtls", "", "mtls listen host")
-			f.Int("r", "mtls-lport", 8888, "mtls listen port")
+			f.String("m", "mtls", "", "mtls connection strings")
+			f.String("t", "http", "", "http(s) connection strings")
+			f.String("n", "dns", "", "dns connection strings")
 
-			f.String("t", "http", "", "http(s) listen host")
-			f.Int("e", "http-lport", 443, "http(s) listen port")
-			f.Bool("v", "no-verify", false, "do not verify https certificates")
-
-			f.String("n", "dns", "", "dns c2 parent domain")
+			f.Int("j", "reconnect", 60, "attempt to reconnect every n second(s)")
+			f.Int("k", "max-errors", 1000, "max number of connection errors")
 
 			f.String("w", "limit-datetime", "", "limit execution to before datetime")
 			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 
-			f.String("s", "save", "", "directory/file to the binary to")
+			f.Bool("r", "shared", false, "Build as a shared library (dll/so/dylib)")
 
-			f.Bool("p", "shared", false, "Build as a shared library (dll/so/dylib)")
+			f.String("s", "save", "", "directory/file to the binary to")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -244,22 +246,21 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
 
-			f.String("m", "mtls", "", "mtls listen host")
-			f.Int("r", "mtls-lport", 8888, "mtls listen port")
+			f.String("m", "mtls", "", "mtls connection strings")
+			f.String("t", "http", "", "http(s) connection strings")
+			f.String("n", "dns", "", "dns connection strings")
 
-			f.String("t", "http", "", "http(s) listen host")
-			f.Int("e", "http-lport", 443, "http(s) listen port")
-			f.Bool("v", "no-verify", false, "do not verify https certificates")
-
-			f.String("n", "dns", "", "dns c2 parent domain")
+			f.Int("j", "reconnect", 60, "attempt to reconnect every n second(s)")
+			f.Int("k", "max-errors", 1000, "max number of connection errors")
 
 			f.String("w", "limit-datetime", "", "limit execution to before datetime")
 			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 
+			f.Bool("r", "shared", false, "Build as a shared library (dll/so/dylib)")
+
 			f.String("p", "name", "", "profile name")
-			f.Bool("h", "shared", false, "generate as a shared library (dll/so/dylib)")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()

@@ -31,6 +31,12 @@ message Sliver {
   string Filename = 12;
 }
 
+message SliverC2 {
+  uint32 Priority = 1;
+  string URL = 2;
+  string Options = 3;  // Protocol specific options
+}
+
 message SliverConfig {
   string GOOS = 1;
   string GOARCH = 2;
@@ -39,22 +45,19 @@ message SliverConfig {
   string Cert = 5;
   string Key = 6;
   bool Debug = 7;
-  int32 ReconnectInterval = 8;
+  
+  uint32 ReconnectInterval = 8;
+  uint32 MaxConnectionErrors = 9;
 
   // c2
-  string MTLSServer = 9;
-  int32 MTLSLPort = 10;
-  string HTTPServer = 11;
-  int32 HTTPLPort = 12;
-  bool NoVerify = 13;
-  string DNSParent = 14;
+  repeated SliverC2 C2 = 10;
 
   bool LimitDomainJoined = 20;
   string LimitDatetime = 21;
   string LimitHostname = 22;
   string LimitUsername = 23;
 
-  bool IsDll = 24;
+  bool IsSharedLib = 24;
 }
 
 message Profile {
@@ -105,6 +108,10 @@ message HTTPReq {
   string Iface = 2;
   int32 LPort = 3;
   bool Secure = 4; // Enable HTTPS
+  string StaticDir = 5;
+  bytes Cert = 6;
+  bytes Key = 7;
+  bool ACME = 8;
 }
 
 message HTTP {

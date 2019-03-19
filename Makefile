@@ -6,6 +6,8 @@ GO ?= go
 ENV = CGO_ENABLED=0
 TAGS = -tags netgo
 LDFLAGS = -ldflags '-s -w'
+
+GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
 GIT_VERSION = $(shell git rev-parse HEAD)
 
 SED_INPLACE := sed -i
@@ -63,7 +65,8 @@ pb:
 
 .PHONY: version
 version:
-	printf "package assets\n\nconst GitVersion = \"%s\"\n" $(GIT_VERSION) > ./server/assets/version.go
+	printf "package version\n\nconst GitVersion = \"%s\"\n" $(GIT_VERSION) > ./client/version/version.go
+	printf "const GitDirty = \"%s\"\n" $(GIT_DIRTY) >> ./client/version/version.go
 
 .PHONY: packr
 packr:
@@ -73,7 +76,7 @@ packr:
 
 .PHONY: clean-version
 clean-version:
-	printf "package assets\n\nconst GitVersion = \"\"\n" > ./server/assets/version.go
+	printf "package version\n\nconst GitVersion = \"\"\n" > ./client/version/version.go
 
 .PHONY: clean-all
 clean-all: clean clean-version

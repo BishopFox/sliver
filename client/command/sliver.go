@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	consts "sliver/client/constants"
@@ -17,14 +19,6 @@ import (
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
-)
-
-var (
-	// Stylizes known processes in the `ps` command
-	knownProcs = map[string]string{
-		"ccSvcHst.exe": red, // SEP
-		"cb.exe":       red, // Carbon Black
-	}
 )
 
 func sessions(ctx *grumble.Context, rpc RPCServer) {
@@ -176,28 +170,49 @@ func info(ctx *grumble.Context, rpc RPCServer) {
 }
 
 func generate(ctx *grumble.Context, rpc RPCServer) {
+	config := parseCompileFlags(ctx)
+	if config == nil {
+		return
+	}
+	save := ctx.Flags.String("save")
+	if save == "" {
+		save, _ = os.Getwd()
+	}
+	compile(config, save, rpc)
+}
+
+// Shared function that extracts the compile flags from the grumble context
+func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 	targetOS := strings.ToLower(ctx.Flags.String("os"))
 	arch := strings.ToLower(ctx.Flags.String("arch"))
 
 	debug := ctx.Flags.Bool("debug")
 
-	mtlsServer := ctx.Flags.String("mtls")
-	mtlsLPort := ctx.Flags.Int("mtls-lport")
+	c2s := []*clientpb.SliverC2{}
 
-	httpServer := ctx.Flags.String("http")
-	httpLPort := ctx.Flags.Int("http-lport")
-	noVerify := ctx.Flags.Bool("no-verify")
+	mtlsC2 := parseMTLSc2(ctx.Flags.String("mtls"))
+	c2s = append(c2s, mtlsC2...)
 
-	dnsParent := ctx.Flags.String("dns")
+	httpC2 := parseHTTPc2(ctx.Flags.String("http"))
+	c2s = append(c2s, httpC2...)
+
+	dnsC2 := parseDNSc2(ctx.Flags.String("dns"))
+	c2s = append(c2s, dnsC2...)
+
+	if len(mtlsC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 {
+		fmt.Printf(Warn + "Must specify at least on of --mtls, --http, or --dns\n")
+		return nil
+	}
+
+	reconnectInverval := ctx.Flags.Int("reconnect")
+	maxConnectionErrors := ctx.Flags.Int("max-errors")
 
 	limitDomainJoined := ctx.Flags.Bool("limit-domainjoined")
 	limitHostname := ctx.Flags.String("limit-hostname")
 	limitUsername := ctx.Flags.String("limit-username")
 	limitDatetime := ctx.Flags.String("limit-datetime")
 
-	isDll := ctx.Flags.Bool("shared")
-
-	save := ctx.Flags.String("save")
+	isSharedLib := ctx.Flags.Bool("shared")
 
 	/* For UX we convert some synonymous terms */
 	if targetOS == "mac" || targetOS == "macos" || targetOS == "m" {
@@ -216,41 +231,97 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 		arch = "386"
 	}
 
-	if mtlsServer == "" && httpServer == "" && dnsParent == "" {
-		fmt.Printf(Warn + "Must specify --mtls, --http, or --dns\n")
-		return
-	}
-	if save == "" {
-		save, _ = os.Getwd()
-	}
-
-	// Make sure we have the FQDN
-	if dnsParent != "" && !strings.HasSuffix(dnsParent, ".") {
-		dnsParent += "."
-	}
-	if dnsParent != "" && strings.HasPrefix(dnsParent, ".") {
-		dnsParent = dnsParent[1:]
-	}
-	compile(&clientpb.SliverConfig{
+	config := &clientpb.SliverConfig{
 		GOOS:   targetOS,
 		GOARCH: arch,
 		Debug:  debug,
+		C2:     c2s,
 
-		MTLSServer: mtlsServer,
-		MTLSLPort:  int32(mtlsLPort),
-
-		HTTPServer: httpServer,
-		HTTPLPort:  int32(httpLPort),
-		NoVerify:   noVerify,
-
-		DNSParent: dnsParent,
+		ReconnectInterval:   uint32(reconnectInverval),
+		MaxConnectionErrors: uint32(maxConnectionErrors),
 
 		LimitDomainJoined: limitDomainJoined,
 		LimitHostname:     limitHostname,
 		LimitUsername:     limitUsername,
 		LimitDatetime:     limitDatetime,
-		IsDll:             isDll,
-	}, save, rpc)
+
+		IsSharedLib: isSharedLib,
+	}
+
+	return config
+}
+
+func parseMTLSc2(args string) []*clientpb.SliverC2 {
+	c2s := []*clientpb.SliverC2{}
+	if args == "" {
+		return c2s
+	}
+	for index, arg := range strings.Split(args, ",") {
+		uri := url.URL{Scheme: "mtls"}
+		uri.Host = arg
+		if uri.Port() == "" {
+			uri.Host = fmt.Sprintf("%s:%d", uri.Host, defaultMTLSLPort)
+		}
+		c2s = append(c2s, &clientpb.SliverC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s
+}
+
+func parseHTTPc2(args string) []*clientpb.SliverC2 {
+	c2s := []*clientpb.SliverC2{}
+	if args == "" {
+		return c2s
+	}
+	for index, arg := range strings.Split(args, ",") {
+		arg = strings.ToLower(arg)
+		var uri *url.URL
+		var err error
+		if strings.HasPrefix(arg, "http://") || strings.HasPrefix(arg, "https://") {
+			uri, err = url.Parse(arg)
+			if err != nil {
+				log.Printf("Failed to parse c2 URL %v", err)
+				continue
+			}
+		} else {
+			uri := &url.URL{Scheme: "https"} // HTTPS is the default, will fallback to HTTP
+			uri.Host = arg
+		}
+		c2s = append(c2s, &clientpb.SliverC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s
+}
+
+func parseDNSc2(args string) []*clientpb.SliverC2 {
+	c2s := []*clientpb.SliverC2{}
+	if args == "" {
+		return c2s
+	}
+	for index, arg := range strings.Split(args, ",") {
+		uri := url.URL{Scheme: "dns"}
+		if len(arg) < 1 {
+			continue
+		}
+		// Make sure we have the FQDN
+		if !strings.HasSuffix(arg, ".") {
+			arg += "."
+		}
+		if strings.HasPrefix(arg, ".") {
+			arg = arg[1:]
+		}
+
+		uri.Host = arg
+		c2s = append(c2s, &clientpb.SliverC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s
 }
 
 func profileGenerate(ctx *grumble.Context, rpc RPCServer) {
@@ -317,23 +388,22 @@ func profiles(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintf(table, "Name\tPlatform\tmTLS\tHTTP\tDNS\tDebug\tLimitations\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+	fmt.Fprintf(table, "Name\tPlatform\tDebug\tLimitations\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("Name")),
 		strings.Repeat("=", len("Platform")),
-		strings.Repeat("=", len("mTLS")),
-		strings.Repeat("=", len("HTTP")),
-		strings.Repeat("=", len("DNS")),
+
+		// C2
+
 		strings.Repeat("=", len("Debug")),
 		strings.Repeat("=", len("Limitations")))
 	for name, profile := range *profiles {
 		config := profile.Config
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+		fmt.Fprintf(table, "%s\t%s\t%s\t\n",
 			name,
-			fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
-			fmt.Sprintf("%s:%d", config.MTLSServer, config.MTLSLPort),
-			fmt.Sprintf("%s:%d", config.HTTPServer, config.HTTPLPort),
-			config.DNSParent,
+
+			// C2
+
 			fmt.Sprintf("%v", config.Debug),
 			getLimitsString(config),
 		)
@@ -365,63 +435,14 @@ func newProfile(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	targetOS := ctx.Flags.String("os")
-	arch := ctx.Flags.String("arch")
-	mtlsServer := ctx.Flags.String("mtls")
-	mtlsLPort := ctx.Flags.Int("mtls-lport")
-
-	httpServer := ctx.Flags.String("http")
-	httpLPort := ctx.Flags.Int("http-lport")
-	noVerify := ctx.Flags.Bool("no-verify")
-
-	debug := ctx.Flags.Bool("debug")
-	dnsParent := ctx.Flags.String("dns")
-	sharedLib := ctx.Flags.Bool("shared")
-
-	limitDomainJoined := ctx.Flags.Bool("limit-domainjoined")
-	limitHostname := ctx.Flags.String("limit-hostname")
-	limitUsername := ctx.Flags.String("limit-username")
-	limitDatetime := ctx.Flags.String("limit-datetime")
-
-	/* For UX we convert some synonymous terms */
-	if targetOS == "mac" || targetOS == "macos" || targetOS == "m" {
-		targetOS = "darwin"
-	}
-	if targetOS == "win" || targetOS == "w" || targetOS == "shit" {
-		targetOS = "windows"
-	}
-	if targetOS == "unix" || targetOS == "l" {
-		targetOS = "linux"
-	}
-	if arch == "x64" || strings.HasPrefix(arch, "64") {
-		arch = "amd64"
-	}
-	if arch == "x86" || strings.HasPrefix(arch, "32") {
-		arch = "386"
+	config := parseCompileFlags(ctx)
+	if config == nil {
+		return
 	}
 
 	data, _ := proto.Marshal(&clientpb.Profile{
-		Name: name,
-		Config: &clientpb.SliverConfig{
-			GOOS:   targetOS,
-			GOARCH: arch,
-
-			Debug: debug,
-
-			MTLSServer: mtlsServer,
-			MTLSLPort:  int32(mtlsLPort),
-			HTTPServer: httpServer,
-			HTTPLPort:  int32(httpLPort),
-			NoVerify:   noVerify,
-			DNSParent:  dnsParent,
-
-			LimitDomainJoined: limitDomainJoined,
-			LimitHostname:     limitHostname,
-			LimitUsername:     limitUsername,
-			LimitDatetime:     limitDatetime,
-
-			IsDll: sharedLib,
-		},
+		Name:   name,
+		Config: config,
 	})
 
 	resp := <-rpc(&sliverpb.Envelope{

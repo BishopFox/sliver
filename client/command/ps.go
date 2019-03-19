@@ -14,6 +14,14 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
+var (
+	// Stylizes known processes in the `ps` command
+	knownProcs = map[string]string{
+		"ccSvcHst.exe": red, // SEP
+		"cb.exe":       red, // Carbon Black
+	}
+)
+
 func ps(ctx *grumble.Context, rpc RPCServer) {
 	pidFilter := ctx.Flags.Int("pid")
 	exeFilter := ctx.Flags.String("exe")

@@ -1,6 +1,6 @@
 package transports
 
-// {{if .HTTPServer}}
+// {{if .HTTPc2Enabled}}
 
 // Procedural C2
 // ===============

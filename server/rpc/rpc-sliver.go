@@ -50,7 +50,12 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 		return
 	}
 	config := generate.SliverConfigFromProtobuf(genReq.Config)
-	if genReq.Config.IsDll {
+	if config == nil {
+		err := errors.New("Invalid Sliver config")
+		resp([]byte{}, err)
+		return
+	}
+	if genReq.Config.IsSharedLib {
 		fpath, err = generate.SliverSharedLibrary(config)
 	} else {
 		fpath, err = generate.SliverExecutable(config)

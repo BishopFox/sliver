@@ -10,6 +10,8 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"path"
 	"path/filepath"
 	consts "sliver/client/constants"
 	"sliver/server/assets"
@@ -37,6 +39,8 @@ const (
 	defaultHTTPTimeout = time.Second * 60
 	pollTimeout        = defaultHTTPTimeout - 5
 	sessionCookieName  = "PHPSESSID"
+
+	staticWebDirName = "www"
 )
 
 // HTTPSession - Holds data related to a sliver c2 session
@@ -192,9 +196,14 @@ func (s *SliverHTTPC2) router() *mux.Router {
 
 	// Request does not match the C2 profile so we pass it to the default handler
 	if s.Conf.StaticDir != "" {
-		staticDir, _ := filepath.Abs(s.Conf.StaticDir)
-		fs := http.Dir(staticDir)
-		httpLog.Infof("Serving static content from: %s", staticDir)
+		exposeDir := filepath.Base(s.Conf.StaticDir)
+		exposeStaticDir := path.Join(assets.GetRootAppDir(), staticWebDirName, exposeDir)
+		if _, err := os.Stat(exposeStaticDir); os.IsNotExist(err) {
+			httpLog.Warnf("Static dir does not exist; makedir %v", exposeStaticDir)
+			os.MkdirAll(exposeStaticDir, os.ModePerm)
+		}
+		fs := http.Dir(exposeStaticDir)
+		httpLog.Infof("Serving static content from: %s", exposeStaticDir)
 		router.HandleFunc("{rpath:.*}", func(resp http.ResponseWriter, req *http.Request) {
 			http.FileServer(fs).ServeHTTP(resp, req)
 		}).Methods(http.MethodGet)
@@ -250,7 +259,7 @@ func defaultRespHeaders(next http.Handler) http.Handler {
 }
 
 func default404Handler(resp http.ResponseWriter, req *http.Request) {
-	resp.WriteHeader(404) // TODO: Serve static content
+	resp.WriteHeader(404)
 }
 
 // [ HTTP Handlers ] ---------------------------------------------------------------
@@ -263,6 +272,8 @@ func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request
 
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request) {
 	rootDir := assets.GetRootAppDir()
+
+	// Note: these are the c2 certificates NOT the certificates/keys used for SSL/TLS
 	publicKeyPEM, privateKeyPEM, err := certs.GetServerRSACertificatePEM(rootDir, "slivers", s.Conf.Domain, false)
 	if err != nil {
 		httpLog.Info("Failed to fetch rsa private key")

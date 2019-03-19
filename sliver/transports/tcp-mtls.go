@@ -1,6 +1,6 @@
 package transports
 
-// {{if .MTLSServer}}
+// {{if .MTLSc2Enabled}}
 
 import (
 	"bytes"
@@ -120,4 +120,4 @@ func getTLSConfig() *tls.Config {
 	return tlsConfig
 }
 
-// {{end}} -MTLSServer
+// {{end}} -MTLSc2Enabled
