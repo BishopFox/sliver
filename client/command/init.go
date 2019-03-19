@@ -156,6 +156,9 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("f", "force", false, "Force kill,  does not clean up")
+		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
@@ -626,4 +629,19 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.MigrateStr,
+		Help:      "Migrate into a remote process",
+		LongHelp:  help.GetHelpFor(consts.MigrateStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			migrate(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
 }

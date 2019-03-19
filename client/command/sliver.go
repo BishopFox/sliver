@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	consts "sliver/client/constants"
 	"sliver/client/spin"
@@ -128,19 +129,23 @@ func kill(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
+	force := ctx.Flags.Bool("force")
+
 	sliver := ActiveSliver.Sliver
 	data, _ := proto.Marshal(&sliverpb.KillReq{
 		SliverID: sliver.ID,
+		Force:    force,
 	})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: sliverpb.MsgKill,
 		Data: data,
-	}, defaultTimeout)
+	}, 5)
 
-	if resp.Err != "" {
+	if !force && resp.Err != "" {
 		fmt.Printf(Warn+"%s\n", resp.Err)
 	} else {
 		fmt.Printf(Info+"Killed %s (%d)\n", sliver.Name, sliver.ID)
+		ActiveSliver.DisableActiveSliver()
 	}
 }
 
@@ -376,6 +381,8 @@ func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 		return
 	}
 	fmt.Printf(Info+"Sliver binary saved to: %s\n", saveTo)
+	sliverName := strings.Split(path.Base(generated.File.Name), ".")[0]
+	addConfig(sliverName, config)
 }
 
 func profiles(ctx *grumble.Context, rpc RPCServer) {

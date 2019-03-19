@@ -85,4 +85,6 @@ const (
 	MsgExecuteAssemblyReq
 	// MsgExecuteAssembly - Output of the assembly execution
 	MsgExecuteAssembly
+	// MsgMigrateReq - Spawn a new sliver in a designated process
+	MsgMigrateReq
 )

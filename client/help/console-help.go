@@ -50,6 +50,7 @@ var (
 		consts.ImpersonateStr:      impersonateHelp,
 		consts.ExecuteAssemblyStr:  executeAssemblyHelp,
 		consts.ExecuteShellcodeStr: executeShellcodeHelp,
+		consts.MigrateStr:          migrateHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -122,6 +123,9 @@ var (
 
 	executeShellcodeHelp = `[[.Bold]]Command:[[.Normal]] execute-shellcode <path to raw shellcode>
 [[.Bold]]About:[[.Normal]] Executes the given shellcode in the sliver process.`
+
+	migrateHelp = `[[.Bold]]Command:[[.Normal]] migrate <pid>
+[[.Bold]]About:[[.Normal]] Migrates into the process designated by <pid>.`
 )
 
 // GetHelpFor - Get help string for a command

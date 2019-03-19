@@ -6,6 +6,7 @@ var (
 
 		"handlers/generic_rpc_handlers.go",
 		"handlers/generic_tun_handlers.go",
+		"handlers/special_handlers.go",
 		"handlers/handlers_darwin.go",
 		"handlers/handlers_linux.go",
 		"handlers/handlers_windows.go",
