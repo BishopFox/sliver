@@ -9,5 +9,10 @@ go test ./server/c2
 # Sliver
 go test ./sliver/proxy
 
-# Server & Sliver 
-go test ./server/generate
+
+if go test ./server/generate ; then
+    :
+else
+    cat ~/.sliver/logs/sliver.log
+    exit 1
+fi

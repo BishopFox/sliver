@@ -114,6 +114,9 @@ func SliverConfigFromProtobuf(pbConfig *clientpb.SliverConfig) *SliverConfig {
 	cfg.Key = pbConfig.Key
 	cfg.Debug = pbConfig.Debug
 
+	cfg.ReconnectInterval = int(pbConfig.ReconnectInterval)
+	cfg.MaxConnectionErrors = int(pbConfig.MaxConnectionErrors)
+
 	cfg.LimitDomainJoined = pbConfig.LimitDomainJoined
 	cfg.LimitDatetime = pbConfig.LimitDatetime
 	cfg.LimitUsername = pbConfig.LimitUsername
@@ -155,6 +158,7 @@ func isC2Enabled(schemes []string, c2s []string) bool {
 			}
 		}
 	}
+	buildLog.Debugf("No %v URLs found in %v", schemes, c2s)
 	return false
 }
 
@@ -257,6 +261,10 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		config.Name = GetCodename()
 	}
 	buildLog.Infof("Generating new sliver binary '%s'", config.Name)
+
+	config.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, config.C2)
+	config.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, config.C2)
+	config.DNSc2Enabled = isC2Enabled([]string{"dns"}, config.C2)
 
 	sliversDir := GetSliversDir() // ~/.sliver/slivers
 	projectGoPathDir := path.Join(sliversDir, config.GOOS, config.GOARCH, config.Name)

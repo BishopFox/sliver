@@ -1,10 +1,11 @@
 package main
 
-// {{if .IsDll}}
+// {{if .IsSharedLib}}
 
 import "C"
 
 // {{end}}
+
 import (
 	"flag"
 	"os"
@@ -27,7 +28,7 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-// {{if .IsDll}}
+// {{if .IsSharedLib}}
 
 // RunSliver - Export for shared lib build
 func RunSliver() {

