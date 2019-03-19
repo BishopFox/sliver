@@ -11,6 +11,7 @@ import (
 	cmd "sliver/client/command"
 	consts "sliver/client/constants"
 	"sliver/client/core"
+	"sliver/client/version"
 
 	"time"
 
@@ -130,6 +131,7 @@ func printLogo(sliverApp *grumble.App) {
 	insecureRand.Seed(time.Now().Unix())
 	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
 	fmt.Println(logo)
+	fmt.Printf(Info+"v%s\n", version.FullVersion())
 	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
 	fmt.Println()
 }

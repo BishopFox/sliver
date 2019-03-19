@@ -8,23 +8,20 @@ import (
 	"path"
 	"sliver/client/assets"
 	"sliver/client/console"
+	"sliver/client/version"
 )
 
 const (
 	logFileName = "sliver-client.log"
 )
 
-var (
-	clientVersion = "0.0.1"
-)
-
 func main() {
-	version := flag.Bool("version", false, "print version number")
+	displayVersion := flag.Bool("version", false, "print version number")
 	config := flag.String("config", "", "config file")
 	flag.Parse()
 
-	if *version {
-		fmt.Printf("v%s\n", clientVersion)
+	if *displayVersion {
+		fmt.Printf("v%s\n", version.ClientVersion)
 		os.Exit(0)
 	}
 

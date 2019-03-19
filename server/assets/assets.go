@@ -13,6 +13,8 @@ import (
 	"sliver/server/log"
 	"strings"
 
+	ver "sliver/client/version"
+
 	"sliver/server/certs"
 
 	"github.com/gobuffalo/packr"
@@ -66,19 +68,19 @@ func saveAssetVersion(appDir string) {
 	versionFilePath := path.Join(appDir, versionFileName)
 	fVer, _ := os.Create(versionFilePath)
 	defer fVer.Close()
-	fVer.Write([]byte(GitVersion))
+	fVer.Write([]byte(ver.GitVersion))
 }
 
 // Setup - Extract or create local assets
 func Setup(force bool) {
 	appDir := GetRootAppDir()
-	ver := assetVersion()
-	if ver == "" {
+	localVer := assetVersion()
+	if localVer == "" {
 		fmt.Printf("Generating certificates ...\n")
 		setupCerts(appDir)
 	}
-	if force || ver == "" || ver != GitVersion {
-		setupLog.Infof("Version mismatch %v != %v", ver, GitVersion)
+	if force || localVer == "" || localVer != ver.GitVersion {
+		setupLog.Infof("Version mismatch %v != %v", localVer, ver.GitVersion)
 		fmt.Printf("Unpacking assets ...\n")
 		setupGo(appDir)
 		setupCodenames(appDir)

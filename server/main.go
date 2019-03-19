@@ -7,12 +7,13 @@ import (
 	"os"
 	"path"
 
+	"sliver/client/version"
 	"sliver/server/assets"
 	"sliver/server/console"
 )
 
 var (
-	sliverServerVersion = fmt.Sprintf("0.0.4 - %s", assets.GitVersion)
+	sliverServerVersion = fmt.Sprintf("Client v%s\nServer v0.0.4", version.FullVersion())
 )
 
 const (
@@ -25,7 +26,7 @@ func main() {
 	flag.Parse()
 
 	if *version {
-		fmt.Printf("v%s\n", sliverServerVersion)
+		fmt.Printf("%s\n", sliverServerVersion)
 		os.Exit(0)
 	}
 
