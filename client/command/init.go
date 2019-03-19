@@ -227,7 +227,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 
-			f.String("r", "format", "exe", "Specifies the output formats, valid values are: 'exe' (default), 'shared' (for dynamic libraries) and 'shellcode' (windows only)")
+			f.String("r", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries) and 'shellcode' (windows only)")
 
 			f.String("s", "save", "", "directory/file to the binary to")
 		},
