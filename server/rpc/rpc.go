@@ -43,6 +43,7 @@ var (
 
 		// "Req"s directly map to responses
 		sliverpb.MsgPsReq:          rpcPs,
+		sliverpb.MsgKill:           rpcKill,
 		sliverpb.MsgProcessDumpReq: rpcProcdump,
 
 		sliverpb.MsgElevate:         rpcElevate,
@@ -59,7 +60,8 @@ var (
 
 		sliverpb.MsgShellReq: rpcShell,
 
-		clientpb.MsgTask: rpcLocalTask,
+		clientpb.MsgTask:    rpcLocalTask,
+		clientpb.MsgMigrate: rpcMigrate,
 	}
 
 	tunHandlers = &map[uint32]TunnelHandler{

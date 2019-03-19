@@ -22,12 +22,12 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-func killHandler(data []byte, resp RPCResponse) {
-	// {{if .Debug}}
-	log.Printf("Received kill command")
-	// {{end}}
-	os.Exit(0)
-}
+// func killHandler(data []byte, resp RPCResponse) {
+// 	// {{if .Debug}}
+// 	log.Printf("Received kill command")
+// 	// {{end}}
+// 	os.Exit(0)
+// }
 
 func pingHandler(data []byte, resp RPCResponse) {
 	ping := &pb.Ping{}

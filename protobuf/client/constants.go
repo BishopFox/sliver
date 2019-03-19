@@ -41,4 +41,5 @@ const (
 	MsgNewProfile
 	MsgProfiles
 	MsgTask
+	MsgMigrate
 )
