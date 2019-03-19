@@ -3,12 +3,26 @@ package generate
 import (
 	"encoding/binary"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"math"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 )
+
+// ShellcodeRDIToFile generates a sRDI shellcode and writes it to a file
+func ShellcodeRDIToFile(dllPath string, functionName string) (shellcodePath string, err error) {
+	shellcode, err := ShellcodeRDI(dllPath, functionName)
+	if err != nil {
+		return "", err
+	}
+	dir := path.Dir(dllPath)
+	filename := strings.Replace(path.Base(dllPath), ".dll", ".bin", 1)
+	filepath := filepath.Join(dir, filename)
+	ioutil.WriteFile(filepath, shellcode, os.ModePerm)
+	return filepath, nil
+}
 
 // ShellcodeRDI generates a reflective shellcode based on a DLL file
 func ShellcodeRDI(dllPath string, functionName string) (shellcode []byte, err error) {
@@ -40,10 +54,7 @@ func ShellcodeRDI(dllPath string, functionName string) (shellcode []byte, err er
 		userData = []byte(userDataStr)
 	}
 	shellcode = convertToShellcode(dllBytes, hashFunction, userData, flags)
-	err = os.RemoveAll(path.Clean(path.Dir(dllPath) + "/../"))
-	if err != nil {
-		fmt.Println(err)
-	}
+	//	err = os.RemoveAll(path.Clean(path.Dir(dllPath) + "/../"))
 	return shellcode, nil
 
 }

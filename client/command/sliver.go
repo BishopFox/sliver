@@ -217,8 +217,23 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 	limitUsername := ctx.Flags.String("limit-username")
 	limitDatetime := ctx.Flags.String("limit-datetime")
 
-	isSharedLib := ctx.Flags.Bool("shared")
+	isSharedLib := false
 
+	format := ctx.Flags.String("format")
+	var configFormat clientpb.SliverConfig_OutputFormat
+	switch format {
+	case "exe":
+		configFormat = clientpb.SliverConfig_EXECUTABLE
+	case "shared":
+		configFormat = clientpb.SliverConfig_SHARED_LIB
+		isSharedLib = true
+	case "shellcode":
+		configFormat = clientpb.SliverConfig_SHELLCODE
+		isSharedLib = true
+	default:
+		// default to exe
+		configFormat = clientpb.SliverConfig_EXECUTABLE
+	}
 	/* For UX we convert some synonymous terms */
 	if targetOS == "mac" || targetOS == "macos" || targetOS == "m" {
 		targetOS = "darwin"
@@ -250,6 +265,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 		LimitUsername:     limitUsername,
 		LimitDatetime:     limitDatetime,
 
+		Format:      configFormat,
 		IsSharedLib: isSharedLib,
 	}
 

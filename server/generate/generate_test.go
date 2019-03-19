@@ -2,6 +2,7 @@ package generate
 
 import (
 	"fmt"
+	clientpb "sliver/protobuf/client"
 	"sliver/server/log"
 	"testing"
 )
@@ -137,8 +138,8 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 			"http://4.example.com",
 		},
 
-		Debug:       debug,
-		IsSharedLib: true,
+		Debug:  debug,
+		Format: clientpb.SliverConfig_SHARED_LIB,
 	}
 	_, err := SliverSharedLibrary(config)
 	if err != nil {
