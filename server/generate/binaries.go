@@ -324,7 +324,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		}
 	}
 
-	if !config.Debug && !config.IsDll {
+	if !config.Debug && !config.IsSharedLib {
 		buildLog.Infof("Obfuscating source code ...")
 		obfuscatedGoPath := path.Join(projectGoPathDir, "obfuscated")
 		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, randomObfuscationKey(), "sliver", obfuscatedGoPath)
