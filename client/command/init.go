@@ -261,7 +261,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 
-			f.Bool("r", "shared", false, "Build as a shared library (dll/so/dylib)")
+			f.String("r", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries) and 'shellcode' (windows only)")
 
 			f.String("p", "name", "", "profile name")
 		},
