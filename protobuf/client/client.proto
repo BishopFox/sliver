@@ -57,7 +57,13 @@ message SliverConfig {
   string LimitHostname = 22;
   string LimitUsername = 23;
 
-  bool IsSharedLib = 24;
+  enum OutputFormat {
+    SHARED_LIB = 0;
+    SHELLCODE = 1;
+    EXECUTABLE = 2;
+  }
+  OutputFormat Format = 25;
+  bool IsSharedLib = 26;
 }
 
 message Profile {

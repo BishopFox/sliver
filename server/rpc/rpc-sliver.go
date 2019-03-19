@@ -68,14 +68,22 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	if genReq.Config.IsSharedLib {
-		fpath, err = generate.SliverSharedLibrary(config)
-	} else {
+	switch genReq.Config.Format {
+	case clientpb.SliverConfig_EXECUTABLE:
 		fpath, err = generate.SliverExecutable(config)
-	}
-	if err != nil {
-		resp([]byte{}, err)
-		return
+	case clientpb.SliverConfig_SHARED_LIB:
+		fpath, err = generate.SliverSharedLibrary(config)
+	case clientpb.SliverConfig_SHELLCODE:
+		fpath, err = generate.SliverSharedLibrary(config)
+		if err != nil {
+			resp([]byte{}, err)
+			return
+		}
+		fpath, err = generate.ShellcodeRDIToFile(fpath, "RunSliver")
+		if err != nil {
+			resp([]byte{}, err)
+			return
+		}
 	}
 	filename := path.Base(fpath)
 	filedata, err := ioutil.ReadFile(fpath)

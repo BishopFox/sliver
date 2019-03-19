@@ -76,7 +76,9 @@ type SliverConfig struct {
 	LimitUsername     string `json:"limit_username"`
 	LimitDatetime     string `json:"limit_datetime"`
 
-	// DLL test
+	// Output Format
+	Format clientpb.SliverConfig_OutputFormat `json:"format"`
+	// For shared libraries
 	IsSharedLib bool `json:"is_shared_lib"`
 }
 
@@ -99,6 +101,7 @@ func (c *SliverConfig) ToProtobuf() *clientpb.SliverConfig {
 		LimitUsername:     c.LimitUsername,
 
 		IsSharedLib: c.IsSharedLib,
+		Format:      c.Format,
 	}
 }
 
@@ -122,6 +125,7 @@ func SliverConfigFromProtobuf(pbConfig *clientpb.SliverConfig) *SliverConfig {
 	cfg.LimitUsername = pbConfig.LimitUsername
 	cfg.LimitHostname = pbConfig.LimitHostname
 
+	cfg.Format = pbConfig.Format
 	cfg.IsSharedLib = pbConfig.IsSharedLib
 
 	cfg.C2 = copyC2List(pbConfig.C2)
@@ -324,6 +328,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		}
 	}
 
+	// Don't obfuscate DLLs, as we need the export names to stay in the final binary
 	if !config.Debug && !config.IsSharedLib {
 		buildLog.Infof("Obfuscating source code ...")
 		obfuscatedGoPath := path.Join(projectGoPathDir, "obfuscated")
