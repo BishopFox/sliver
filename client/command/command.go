@@ -42,6 +42,7 @@ var (
 	ActiveSliver = &activeSliver{
 		observers: []observer{},
 	}
+	sliverConfigs = make(map[string]*clientpb.SliverConfig)
 
 	defaultTimeout   = 30 * time.Second
 	stdinReadTimeout = 10 * time.Millisecond
@@ -68,6 +69,13 @@ func (s *activeSliver) SetActiveSliver(sliver *clientpb.Sliver) {
 	}
 }
 
+func (s *activeSliver) DisableActiveSliver() {
+	s.Sliver = nil
+	for _, fn := range s.observers {
+		fn()
+	}
+}
+
 // Get Sliver by session ID or name
 func getSliver(arg string, rpc RPCServer) *clientpb.Sliver {
 	resp := <-rpc(&sliverpb.Envelope{
@@ -83,4 +91,17 @@ func getSliver(arg string, rpc RPCServer) *clientpb.Sliver {
 		}
 	}
 	return nil
+}
+
+// GetConfig returns the sliver configuration based on its name
+func GetConfig(sliverName string) *clientpb.SliverConfig {
+	conf, ok := sliverConfigs[sliverName]
+	if ok {
+		return conf
+	}
+	return nil
+}
+
+func addConfig(sliverName string, config *clientpb.SliverConfig) {
+	sliverConfigs[sliverName] = config
 }

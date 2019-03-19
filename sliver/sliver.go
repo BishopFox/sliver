@@ -30,6 +30,7 @@ import (
 // {{if .IsDll}}
 
 // RunSliver - Export for shared lib build
+//export RunSliver
 func RunSliver() {
 	main()
 }

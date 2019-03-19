@@ -184,12 +184,21 @@ message ExecuteAssemblyReq {
   uint32 SliverID = 9;
 }
 
-
 message ExecuteAssembly {
   string output = 1;
   string error = 2;
 }
 
+message MigrateReq {
+  uint32 Pid = 1;
+  bytes Shellcode = 2;
+  uint32 SliverID = 9;
+}
+
+message Migrate {
+  bool Success = 1;
+  string Err = 2;
+}
 // DNS Specific messages
 message DNSSessionInit {
   bytes Key = 1;

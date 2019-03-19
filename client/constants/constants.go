@@ -78,6 +78,7 @@ const (
 	GetSystemStr        = "getsystem"
 	ExecuteAssemblyStr  = "execute-assembly"
 	ExecuteShellcodeStr = "execute-shellcode"
+	MigrateStr          = "migrate"
 
 	GenericHelpGroup     = "Generic:"
 	SliverHelpGroup      = "Sliver:"

