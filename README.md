@@ -3,7 +3,18 @@ Sliver
 
 ![Sliver](/sliver/sliver.jpeg)
 
-Sliver is a general implant framework that supports C2 over Mutual-TLS, HTTP(S), and DNS. Implants are dynamically compiled with unique X.509 certificates signed by a per-instance certificate authority generated when you first run the binary. 
+Sliver is a general purpose cross-platform implant framework that supports C2 over Mutual-TLS, HTTP(S), and DNS. Implants are dynamically compiled with unique X.509 certificates signed by a per-instance certificate authority generated when you first run the binary.
+
+## Features
+
+ * Dynamic code generation
+ * Compile-time obfuscation
+ * Local and remote process injection
+ * Anti-anti-forensics
+ * Secure C2 over mTLS, HTTP(S), and DNS
+ * Windows process migration
+ * Windows user token manipulation
+ 
 
 ## Source Code
 
