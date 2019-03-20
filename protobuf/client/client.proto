@@ -28,7 +28,8 @@ message Sliver {
 	string Transport = 9;
 	string RemoteAddress = 10;
 	int32 PID = 11;
-  string Filename = 12;
+  string Filename = 12; // Argv[0]
+  string LastCheckin = 13;
 }
 
 message SliverC2 {

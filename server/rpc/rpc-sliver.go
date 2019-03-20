@@ -31,20 +31,7 @@ func rpcSessions(_ []byte, resp RPCResponse) {
 	sessions := &clientpb.Sessions{}
 	if 0 < len(*core.Hive.Slivers) {
 		for _, sliver := range *core.Hive.Slivers {
-			sessions.Slivers = append(sessions.Slivers, &clientpb.Sliver{
-				ID:            sliver.ID,
-				Name:          sliver.Name,
-				Hostname:      sliver.Hostname,
-				Username:      sliver.Username,
-				UID:           sliver.UID,
-				GID:           sliver.GID,
-				OS:            sliver.Os,
-				Arch:          sliver.Arch,
-				Transport:     sliver.Transport,
-				RemoteAddress: sliver.RemoteAddress,
-				PID:           sliver.PID,
-				Filename:      sliver.Filename,
-			})
+			sessions.Slivers = append(sessions.Slivers, sliver.ToProtobuf())
 		}
 	}
 	data, err := proto.Marshal(sessions)

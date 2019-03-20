@@ -341,6 +341,7 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 
 	dnsLog.Infof("Received new session in request")
 
+	checkin := time.Now()
 	sliver := &core.Sliver{
 		ID:            core.GetHiveID(),
 		Transport:     "dns",
@@ -348,6 +349,7 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		Send:          make(chan *pb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *pb.Envelope{},
+		LastCheckin:   &checkin,
 	}
 
 	core.Hive.AddSliver(sliver)
@@ -420,6 +422,9 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 		proto.Unmarshal(envelopeData, envelope)
 
 		dnsLog.Infof("Envelope Type = %#v RespID = %#v", envelope.Type, envelope.ID)
+
+		checkin := time.Now()
+		dnsSession.Sliver.LastCheckin = &checkin
 
 		// Response Envelope or Handler
 		handlers := serverHandlers.GetSliverHandlers()

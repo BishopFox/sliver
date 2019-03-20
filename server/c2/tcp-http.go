@@ -45,11 +45,11 @@ const (
 
 // HTTPSession - Holds data related to a sliver c2 session
 type HTTPSession struct {
-	ID          string
-	Sliver      *core.Sliver
-	Key         cryptography.AESKey
-	LastCheckin time.Time
-	replay      map[string]bool // Sessions are mutex'd
+	ID      string
+	Sliver  *core.Sliver
+	Key     cryptography.AESKey
+	Started time.Time
+	replay  map[string]bool // Sessions are mutex'd
 }
 
 // Keeps a hash of each msg in a session to detect replay'd messages
@@ -298,6 +298,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 	session := newSession()
 	session.Key, _ = cryptography.AESKeyFromBytes(sessionInit.Key)
+	checkin := time.Now()
 	session.Sliver = &core.Sliver{
 		ID:            core.GetHiveID(),
 		Transport:     "http(s)",
@@ -305,6 +306,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		Send:          make(chan *sliverpb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
+		LastCheckin:   &checkin,
 	}
 	core.Hive.AddSliver(session.Sliver)
 	s.Sessions.Add(session)
@@ -421,7 +423,8 @@ func (s *SliverHTTPC2) getSession(req *http.Request) *HTTPSession {
 		if cookie.Name == sessionCookieName {
 			session := s.Sessions.Get(cookie.Value)
 			if session != nil {
-				session.LastCheckin = time.Now()
+				checkin := time.Now()
+				session.Sliver.LastCheckin = &checkin
 				return session
 			}
 			return nil
@@ -432,9 +435,9 @@ func (s *SliverHTTPC2) getSession(req *http.Request) *HTTPSession {
 
 func newSession() *HTTPSession {
 	return &HTTPSession{
-		ID:          newHTTPSessionID(),
-		LastCheckin: time.Now(),
-		replay:      map[string]bool{},
+		ID:      newHTTPSessionID(),
+		Started: time.Now(),
+		replay:  map[string]bool{},
 	}
 }
 

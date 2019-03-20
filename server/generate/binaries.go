@@ -63,7 +63,7 @@ type SliverConfig struct {
 	Key                 string `json:"key"`
 	Debug               bool   `json:"debug"`
 	ReconnectInterval   int    `json:"reconnect_interval"`
-	MaxConnectionErrors int    `json:"max_connection_errors`
+	MaxConnectionErrors int    `json:"max_connection_errors"`
 
 	C2            []string `json:"c2s"`
 	MTLSc2Enabled bool     `json:"c2_mtls_enabled"`
@@ -78,6 +78,7 @@ type SliverConfig struct {
 
 	// Output Format
 	Format clientpb.SliverConfig_OutputFormat `json:"format"`
+
 	// For shared libraries
 	IsSharedLib bool `json:"is_shared_lib"`
 }

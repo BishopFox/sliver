@@ -31,6 +31,7 @@ type Sliver struct {
 	RemoteAddress string
 	PID           int32
 	Filename      string
+	LastCheckin   *time.Time
 	Send          chan *sliverpb.Envelope
 	Resp          map[uint64]chan *sliverpb.Envelope
 	RespMutex     *sync.RWMutex
@@ -38,6 +39,12 @@ type Sliver struct {
 
 // ToProtobuf - Get the protobuf version of the object
 func (s *Sliver) ToProtobuf() *clientpb.Sliver {
+	var lastCheckin string
+	if s.LastCheckin == nil {
+		lastCheckin = time.Now().Format(time.RFC1123) // Realtime connections have a nil .LastCheckin
+	} else {
+		lastCheckin = s.LastCheckin.Format(time.RFC1123)
+	}
 	return &clientpb.Sliver{
 		ID:            uint32(s.ID),
 		Name:          s.Name,
@@ -51,6 +58,7 @@ func (s *Sliver) ToProtobuf() *clientpb.Sliver {
 		RemoteAddress: s.RemoteAddress,
 		PID:           int32(s.PID),
 		Filename:      s.Filename,
+		LastCheckin:   lastCheckin,
 	}
 }
 
@@ -65,7 +73,7 @@ func (s *Sliver) Request(msgType uint32, timeout time.Duration, data []byte) ([]
 	defer func() {
 		s.RespMutex.Lock()
 		defer s.RespMutex.Unlock()
-		//		close(resp)
+		// close(resp)
 		delete(s.Resp, reqID)
 	}()
 	s.Send <- &sliverpb.Envelope{
