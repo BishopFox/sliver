@@ -110,6 +110,7 @@ type SliverHTTPC2 struct {
 	HTTPServer *http.Server
 	Conf       *HTTPServerConfig
 	Sessions   *httpSessions
+	Cleanup    func()
 }
 
 // StartHTTPSListener - Start a mutual TLS listener
@@ -128,18 +129,26 @@ func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 		WriteTimeout: defaultHTTPTimeout,
 		ReadTimeout:  defaultHTTPTimeout,
 		IdleTimeout:  defaultHTTPTimeout,
-		TLSConfig:    getHTTPTLSConfig(conf),
+		//	TLSConfig:    getHTTPTLSConfig(conf),
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
+	}
+	if conf.ACME {
+		conf.Domain = filepath.Base(conf.Domain) // I don't think we need this, but we do it anyways
+		httpLog.Infof("Attempting to fetch let's encrypt certificate for '%s' ...", conf.Domain)
+		acmeManager := certs.GetACMEManager(assets.GetRootAppDir(), conf.Domain)
+		go http.ListenAndServe(":80", acmeManager.HTTPHandler(nil))
+		server.HTTPServer.TLSConfig = &tls.Config{
+			GetCertificate: acmeManager.GetCertificate,
+		}
+	} else {
+		server.HTTPServer.TLSConfig = getHTTPTLSConfig(conf)
 	}
 	return server
 }
 
 func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
-	conf.Domain = filepath.Base(conf.Domain) // I don't think we need this, but we do it anyways
-	if conf.ACME {
-		return certs.GetACMECertificate(assets.GetRootAppDir(), conf.Domain)
-	}
 	if conf.Cert == nil || conf.Key == nil {
+		// Generate a self-signed certificate
 		_, _, err := certs.GetCertificateAuthority(assets.GetRootAppDir(), certs.ServersCertDir)
 		if err != nil {
 			certs.GenerateCertificateAuthority(assets.GetRootAppDir(), certs.ServersCertDir, true)

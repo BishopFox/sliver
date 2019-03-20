@@ -187,6 +187,7 @@ func rpcStartHTTPListener(data []byte, resp RPCResponse) {
 		LPort:  uint16(httpReq.LPort),
 		Domain: httpReq.Domain,
 		Secure: false,
+		ACME:   false,
 	}
 	job := jobStartHTTPListener(conf)
 
@@ -227,7 +228,11 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
 	go func() {
 		var err error
 		if server.Conf.Secure {
-			err = listenAndServeTLS(server.HTTPServer, conf.Cert, conf.Key)
+			if server.Conf.ACME {
+				server.HTTPServer.ListenAndServeTLS("", "")
+			} else {
+				err = listenAndServeTLS(server.HTTPServer, conf.Cert, conf.Key)
+			}
 		} else {
 			err = server.HTTPServer.ListenAndServe()
 		}
