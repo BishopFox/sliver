@@ -91,6 +91,11 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domain", "", "limit responses to specific domain")
 			f.Int("l", "lport", 443, "tcp listen port")
+
+			f.String("c", "cert", "", "PEM encoded certificate file")
+			f.String("k", "key", "", "PEM encoded private key file")
+
+			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()

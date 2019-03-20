@@ -2,6 +2,7 @@ package command
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"sort"
 	"strings"
@@ -113,11 +114,20 @@ func startHTTPSListener(ctx *grumble.Context, rpc RPCServer) {
 	domain := ctx.Flags.String("domain")
 	lport := uint16(ctx.Flags.Int("lport"))
 
+	cert, key, err := getLocalCertificatePair(ctx)
+	if err != nil {
+		fmt.Printf(Warn+"Failed to load local certificate %v", err)
+		return
+	}
+
 	fmt.Printf(Info+"Starting HTTPS %s:%d listener ...\n", domain, lport)
 	data, _ := proto.Marshal(&clientpb.HTTPReq{
 		Domain: domain,
 		LPort:  int32(lport),
 		Secure: true,
+		Cert:   cert,
+		Key:    key,
+		ACME:   ctx.Flags.Bool("lets-encrypt"),
 	})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgHttps,
@@ -130,6 +140,21 @@ func startHTTPSListener(ctx *grumble.Context, rpc RPCServer) {
 	httpJob := &clientpb.HTTP{}
 	proto.Unmarshal(resp.Data, httpJob)
 	fmt.Printf(Info+"Successfully started job #%d\n", httpJob.JobID)
+}
+
+func getLocalCertificatePair(ctx *grumble.Context) ([]byte, []byte, error) {
+	if ctx.Flags.String("cert") == "" && ctx.Flags.String("key") == "" {
+		return nil, nil, nil
+	}
+	cert, err := ioutil.ReadFile(ctx.Flags.String("cert"))
+	if err != nil {
+		return nil, nil, err
+	}
+	key, err := ioutil.ReadFile(ctx.Flags.String("key"))
+	if err != nil {
+		return nil, nil, err
+	}
+	return cert, key, nil
 }
 
 func startHTTPListener(ctx *grumble.Context, rpc RPCServer) {

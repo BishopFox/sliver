@@ -2,7 +2,10 @@ package rpc
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net"
+	"net/http"
 	consts "sliver/client/constants"
 	pb "sliver/protobuf/client"
 	"sliver/server/assets"
@@ -157,12 +160,13 @@ func rpcStartHTTPSListener(data []byte, resp RPCResponse) {
 	}
 
 	conf := &c2.HTTPServerConfig{
-		Addr:     fmt.Sprintf("%s:%d", httpReq.Iface, httpReq.LPort),
-		LPort:    uint16(httpReq.LPort),
-		Secure:   true,
-		Domain:   httpReq.Domain,
-		CertPath: "", // TODO: Get certs
-		KeyPath:  "",
+		Addr:   fmt.Sprintf("%s:%d", httpReq.Iface, httpReq.LPort),
+		LPort:  uint16(httpReq.LPort),
+		Secure: true,
+		Domain: httpReq.Domain,
+		Cert:   httpReq.Cert,
+		Key:    httpReq.Key,
+		ACME:   httpReq.ACME,
 	}
 	job := jobStartHTTPListener(conf)
 
@@ -223,7 +227,7 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
 	go func() {
 		var err error
 		if server.Conf.Secure {
-			err = server.HTTPServer.ListenAndServeTLS(conf.CertPath, conf.KeyPath)
+			err = listenAndServeTLS(server.HTTPServer, conf.Cert, conf.Key)
 		} else {
 			err = server.HTTPServer.ListenAndServe()
 		}
@@ -240,4 +244,52 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
 	}()
 
 	return job
+}
+
+// Fuck'in Go - https://stackoverflow.com/questions/30815244/golang-https-server-passing-certfile-and-kyefile-in-terms-of-byte-array
+func listenAndServeTLS(srv *http.Server, certPEMBlock, keyPEMBlock []byte) error {
+	addr := srv.Addr
+	if addr == "" {
+		addr = ":https"
+	}
+	config := &tls.Config{}
+	if srv.TLSConfig != nil {
+		*config = *srv.TLSConfig
+	}
+	if config.NextProtos == nil {
+		config.NextProtos = []string{"http/1.1"}
+	}
+
+	var err error
+	config.Certificates = make([]tls.Certificate, 1)
+	config.Certificates[0], err = tls.X509KeyPair(certPEMBlock, keyPEMBlock)
+	if err != nil {
+		return err
+	}
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+
+	tlsListener := tls.NewListener(tcpKeepAliveListener{ln.(*net.TCPListener)}, config)
+	return srv.Serve(tlsListener)
+}
+
+// tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
+// connections. It's used by ListenAndServe and ListenAndServeTLS so
+// dead TCP connections (e.g. closing laptop mid-download) eventually
+// go away.
+type tcpKeepAliveListener struct {
+	*net.TCPListener
+}
+
+func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
+	tc, err := ln.AcceptTCP()
+	if err != nil {
+		return
+	}
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(3 * time.Minute)
+	return tc, nil
 }

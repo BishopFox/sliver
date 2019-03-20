@@ -100,8 +100,8 @@ type HTTPServerConfig struct {
 	Domain    string
 	StaticDir string
 	Secure    bool
-	CertPath  string
-	KeyPath   string
+	Cert      []byte
+	Key       []byte
 	ACME      bool
 }
 
@@ -135,12 +135,20 @@ func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 }
 
 func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
+	conf.Domain = filepath.Base(conf.Domain) // I don't think we need this, but we do it anyways
 	if conf.ACME {
 		return certs.GetACMECertificate(assets.GetRootAppDir(), conf.Domain)
 	}
-	cert, err := tls.LoadX509KeyPair(conf.CertPath, conf.KeyPath)
+	if conf.Cert == nil || conf.Key == nil {
+		_, _, err := certs.GetCertificateAuthority(assets.GetRootAppDir(), certs.ServersCertDir)
+		if err != nil {
+			certs.GenerateCertificateAuthority(assets.GetRootAppDir(), certs.ServersCertDir, true)
+		}
+		conf.Cert, conf.Key = certs.GenerateServerRSACertificate(assets.GetRootAppDir(), certs.ServersCertDir, conf.Domain, true)
+	}
+	cert, err := tls.X509KeyPair(conf.Cert, conf.Key)
 	if err != nil {
-		httpLog.Warnf("Failed to load tls key pair %v", err)
+		httpLog.Warnf("Failed to parse tls cert/key pair %v", err)
 		return nil
 	}
 	return &tls.Config{
