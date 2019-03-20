@@ -65,10 +65,10 @@ type SliverConfig struct {
 	ReconnectInterval   int    `json:"reconnect_interval"`
 	MaxConnectionErrors int    `json:"max_connection_errors"`
 
-	C2            []string `json:"c2s"`
-	MTLSc2Enabled bool     `json:"c2_mtls_enabled"`
-	HTTPc2Enabled bool     `json:"c2_http_enabled"`
-	DNSc2Enabled  bool     `json:"c2_dns_enabled"`
+	C2            []SliverC2 `json:"c2s"`
+	MTLSc2Enabled bool       `json:"c2_mtls_enabled"`
+	HTTPc2Enabled bool       `json:"c2_http_enabled"`
+	DNSc2Enabled  bool       `json:"c2_dns_enabled"`
 
 	// Limits
 	LimitDomainJoined bool   `json:"limit_domainjoined"`
@@ -85,7 +85,7 @@ type SliverConfig struct {
 
 // ToProtobuf - Convert SliverConfig to protobuf equiv
 func (c *SliverConfig) ToProtobuf() *clientpb.SliverConfig {
-	return &clientpb.SliverConfig{
+	config := &clientpb.SliverConfig{
 		GOOS:                c.GOOS,
 		GOARCH:              c.GOARCH,
 		Name:                c.Name,
@@ -104,6 +104,11 @@ func (c *SliverConfig) ToProtobuf() *clientpb.SliverConfig {
 		IsSharedLib: c.IsSharedLib,
 		Format:      c.Format,
 	}
+	config.C2 = []*clientpb.SliverC2{}
+	for _, c2 := range c.C2 {
+		config.C2 = append(config.C2, c2.ToProtobuf())
+	}
+	return config
 }
 
 // SliverConfigFromProtobuf - Create a native config struct from Protobuf
@@ -137,22 +142,26 @@ func SliverConfigFromProtobuf(pbConfig *clientpb.SliverConfig) *SliverConfig {
 	return cfg
 }
 
-func copyC2List(src []*clientpb.SliverC2) []string {
-	c2s := []string{}
+func copyC2List(src []*clientpb.SliverC2) []SliverC2 {
+	c2s := []SliverC2{}
 	for _, srcC2 := range src {
 		c2URL, err := url.Parse(srcC2.URL)
 		if err != nil {
 			buildLog.Warnf("Failed to parse c2 url %v", err)
 			continue
 		}
-		c2s = append(c2s, c2URL.String())
+		c2s = append(c2s, SliverC2{
+			Priority: srcC2.Priority,
+			URL:      c2URL.String(),
+			Options:  srcC2.Options,
+		})
 	}
 	return c2s
 }
 
-func isC2Enabled(schemes []string, c2s []string) bool {
+func isC2Enabled(schemes []string, c2s []SliverC2) bool {
 	for _, c2 := range c2s {
-		c2URL, err := url.Parse(c2)
+		c2URL, err := url.Parse(c2.URL)
 		if err != nil {
 			buildLog.Warnf("Failed to parse c2 url %v", err)
 			continue
@@ -165,6 +174,22 @@ func isC2Enabled(schemes []string, c2s []string) bool {
 	}
 	buildLog.Debugf("No %v URLs found in %v", schemes, c2s)
 	return false
+}
+
+// SliverC2 - C2 struct
+type SliverC2 struct {
+	Priority uint32 `json:"priority"`
+	URL      string `json:"url"`
+	Options  string `json:"options"`
+}
+
+// ToProtobuf - Convert to protobuf version
+func (s SliverC2) ToProtobuf() *clientpb.SliverC2 {
+	return &clientpb.SliverC2{
+		Priority: s.Priority,
+		URL:      s.URL,
+		Options:  s.Options,
+	}
 }
 
 // GetSliversDir - Get the binary directory

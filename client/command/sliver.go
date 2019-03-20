@@ -23,7 +23,6 @@ import (
 )
 
 func sessions(ctx *grumble.Context, rpc RPCServer) {
-
 	interact := ctx.Flags.String("interact")
 	if interact != "" {
 		sliver := getSliver(interact, rpc)
@@ -425,25 +424,34 @@ func profiles(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintf(table, "Name\tPlatform\tDebug\tLimitations\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
+	fmt.Fprintf(table, "Name\tPlatform\tCommand & Control\tDebug\tLimitations\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("Name")),
 		strings.Repeat("=", len("Platform")),
-
-		// C2
-
+		strings.Repeat("=", len("Command & Control")),
 		strings.Repeat("=", len("Debug")),
-		strings.Repeat("=", len("Limitations")))
+		strings.Repeat("=", len("Limits")))
 	for name, profile := range *profiles {
 		config := profile.Config
-		fmt.Fprintf(table, "%s\t%s\t%s\t\n",
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
 			name,
-
-			// C2
-
+			fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
+			fmt.Sprintf("[1] %s", config.C2[0].URL),
 			fmt.Sprintf("%v", config.Debug),
 			getLimitsString(config),
 		)
+		if 1 < len(config.C2) {
+			for index, c2 := range config.C2[1:] {
+				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
+					"",
+					"",
+					fmt.Sprintf("[%d] %s", index+2, c2.URL),
+					"",
+					"",
+				)
+			}
+		}
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n", "", "", "", "", "")
 	}
 	table.Flush()
 }
