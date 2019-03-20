@@ -16,27 +16,70 @@ import (
 )
 
 func jobs(ctx *grumble.Context, rpc RPCServer) {
+	if ctx.Flags.Int("kill") != -1 {
+		killJob(int32(ctx.Flags.Int("kill")), rpc)
+	} else if ctx.Flags.Bool("kill-all") {
+		killAllJobs(rpc)
+	} else {
+		jobs := getJobs(rpc)
+		if jobs == nil {
+			return
+		}
+		activeJobs := map[int32]*clientpb.Job{}
+		for _, job := range jobs.Active {
+			activeJobs[job.ID] = job
+		}
+		if 0 < len(activeJobs) {
+			printJobs(activeJobs)
+		} else {
+			fmt.Printf(Info + "No active jobs\n")
+		}
+	}
+}
+
+func killAllJobs(rpc RPCServer) {
+	jobs := getJobs(rpc)
+	if jobs == nil {
+		return
+	}
+	for _, job := range jobs.Active {
+		killJob(job.ID, rpc)
+	}
+}
+
+func killJob(jobID int32, rpc RPCServer) {
+	fmt.Printf(Info+"Killing job #%d ...\n", jobID)
+	data, _ := proto.Marshal(&clientpb.JobKillReq{ID: jobID})
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgJobKill,
+		Data: data,
+	}, defaultTimeout)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s\n", resp.Err)
+		return
+	}
+	jobKill := &clientpb.JobKill{}
+	proto.Unmarshal(resp.Data, jobKill)
+
+	if jobKill.Success {
+		fmt.Printf(Info+"Successfully killed job #%d\n", jobKill.ID)
+	} else {
+		fmt.Printf(Warn+"Failed to kill job #%d, %s\n", jobKill.ID, jobKill.Err)
+	}
+}
+
+func getJobs(rpc RPCServer) *clientpb.Jobs {
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgJobs,
 		Data: []byte{},
 	}, defaultTimeout)
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Error: %s\n", resp.Err)
-		return
+		return nil
 	}
-
 	jobs := &clientpb.Jobs{}
 	proto.Unmarshal(resp.Data, jobs)
-
-	activeJobs := map[int32]*clientpb.Job{}
-	for _, job := range jobs.Active {
-		activeJobs[job.ID] = job
-	}
-	if 0 < len(activeJobs) {
-		printJobs(activeJobs)
-	} else {
-		fmt.Printf(Info + "No active jobs\n")
-	}
+	return jobs
 }
 
 func printJobs(jobs map[int32]*clientpb.Job) {

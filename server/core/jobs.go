@@ -48,11 +48,17 @@ func (j *jobs) AddJob(job *Job) {
 	(*j.Active)[job.ID] = job
 }
 
-// RemoveJob - Remove a job (atomically)
 func (j *jobs) RemoveJob(job *Job) {
 	j.mutex.Lock()
 	defer j.mutex.Unlock()
 	delete((*j.Active), job.ID)
+}
+
+// Job - Get a Job
+func (j *jobs) Job(jobID int) *Job {
+	j.mutex.Lock()
+	defer j.mutex.Unlock()
+	return (*j.Active)[jobID]
 }
 
 // GetJobID - Returns an incremental nonce as an id

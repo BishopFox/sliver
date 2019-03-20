@@ -1,6 +1,7 @@
 package c2
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/tls"
@@ -129,19 +130,40 @@ func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 		WriteTimeout: defaultHTTPTimeout,
 		ReadTimeout:  defaultHTTPTimeout,
 		IdleTimeout:  defaultHTTPTimeout,
-		//	TLSConfig:    getHTTPTLSConfig(conf),
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 	}
 	if conf.ACME {
 		conf.Domain = filepath.Base(conf.Domain) // I don't think we need this, but we do it anyways
 		httpLog.Infof("Attempting to fetch let's encrypt certificate for '%s' ...", conf.Domain)
 		acmeManager := certs.GetACMEManager(assets.GetRootAppDir(), conf.Domain)
-		go http.ListenAndServe(":80", acmeManager.HTTPHandler(nil))
+		acmeHTTPServer := &http.Server{Addr: ":80", Handler: acmeManager.HTTPHandler(nil)}
+		go acmeHTTPServer.ListenAndServe()
 		server.HTTPServer.TLSConfig = &tls.Config{
 			GetCertificate: acmeManager.GetCertificate,
 		}
+		server.Cleanup = func() {
+			ctx, cancelHTTP := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancelHTTP()
+			if err := acmeHTTPServer.Shutdown(ctx); err != nil {
+				httpLog.Warnf("Failed to shutdown http acme server")
+			}
+			ctx, cancelHTTPS := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancelHTTPS()
+			server.HTTPServer.Shutdown(ctx)
+			if err := acmeHTTPServer.Shutdown(ctx); err != nil {
+				httpLog.Warnf("Failed to shutdown https server")
+			}
+		}
 	} else {
 		server.HTTPServer.TLSConfig = getHTTPTLSConfig(conf)
+		server.Cleanup = func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			server.HTTPServer.Shutdown(ctx)
+			if err := server.HTTPServer.Shutdown(ctx); err != nil {
+				httpLog.Warnf("Failed to shutdown https server")
+			}
+		}
 	}
 	return server
 }
@@ -190,6 +212,14 @@ func StartHTTPListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 		WriteTimeout: defaultHTTPTimeout,
 		ReadTimeout:  defaultHTTPTimeout,
 		IdleTimeout:  defaultHTTPTimeout,
+	}
+	server.Cleanup = func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		server.HTTPServer.Shutdown(ctx)
+		if err := server.HTTPServer.Shutdown(ctx); err != nil {
+			httpLog.Warnf("Failed to shutdown http server")
+		}
 	}
 	return server
 }

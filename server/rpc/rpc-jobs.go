@@ -1,13 +1,12 @@
 package rpc
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
 	consts "sliver/client/constants"
-	pb "sliver/protobuf/client"
+	clientpb "sliver/protobuf/client"
 	"sliver/server/assets"
 	"sliver/server/c2"
 	"sliver/server/certs"
@@ -19,11 +18,11 @@ import (
 )
 
 func rpcJobs(_ []byte, resp RPCResponse) {
-	jobs := &pb.Jobs{
-		Active: []*pb.Job{},
+	jobs := &clientpb.Jobs{
+		Active: []*clientpb.Job{},
 	}
 	for _, job := range *core.Jobs.Active {
-		jobs.Active = append(jobs.Active, &pb.Job{
+		jobs.Active = append(jobs.Active, &clientpb.Job{
 			ID:          int32(job.ID),
 			Name:        job.Name,
 			Description: job.Description,
@@ -40,8 +39,28 @@ func rpcJobs(_ []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+func rpcJobKill(data []byte, resp RPCResponse) {
+	jobKillReq := &clientpb.JobKillReq{}
+	err := proto.Unmarshal(data, jobKillReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	job := core.Jobs.Job(int(jobKillReq.ID))
+	jobKill := &clientpb.JobKill{ID: int32(job.ID)}
+	if job != nil {
+		job.JobCtrl <- true
+		jobKill.Success = true
+	} else {
+		jobKill.Success = false
+		jobKill.Err = "Invalid Job ID"
+	}
+	data, err = proto.Marshal(jobKill)
+	resp(data, err)
+}
+
 func rpcStartMTLSListener(data []byte, resp RPCResponse) {
-	mtlsReq := &pb.MTLSReq{}
+	mtlsReq := &clientpb.MTLSReq{}
 	err := proto.Unmarshal(data, mtlsReq)
 	if err != nil {
 		resp([]byte{}, err)
@@ -52,7 +71,7 @@ func rpcStartMTLSListener(data []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	data, err = proto.Marshal(&pb.MTLS{JobID: int32(jobID)})
+	data, err = proto.Marshal(&clientpb.MTLS{JobID: int32(jobID)})
 	resp(data, err)
 }
 
@@ -91,7 +110,7 @@ func jobStartMTLSListener(bindIface string, port uint16) (int, error) {
 }
 
 func rpcStartDNSListener(data []byte, resp RPCResponse) {
-	dnsReq := &pb.DNSReq{}
+	dnsReq := &clientpb.DNSReq{}
 	err := proto.Unmarshal(data, dnsReq)
 	if err != nil {
 		resp([]byte{}, err)
@@ -102,7 +121,7 @@ func rpcStartDNSListener(data []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	data, err = proto.Marshal(&pb.DNS{JobID: int32(jobID)})
+	data, err = proto.Marshal(&clientpb.DNS{JobID: int32(jobID)})
 	resp(data, err)
 }
 
@@ -135,7 +154,7 @@ func jobStartDNSListener(domain string) (int, error) {
 
 	core.Jobs.AddJob(job)
 
-	// There is no way to call ListenAndServe() without blocking
+	// There is no way to call DNS's ListenAndServe() without blocking
 	// but we also need to check the error in the case the server
 	// fails to start at all, so we setup all the Job mechanics
 	// then kick off the server and if it fails we kill the job
@@ -152,7 +171,7 @@ func jobStartDNSListener(domain string) (int, error) {
 }
 
 func rpcStartHTTPSListener(data []byte, resp RPCResponse) {
-	httpReq := &pb.HTTPReq{}
+	httpReq := &clientpb.HTTPReq{}
 	err := proto.Unmarshal(data, httpReq)
 	if err != nil {
 		resp([]byte{}, err)
@@ -170,12 +189,12 @@ func rpcStartHTTPSListener(data []byte, resp RPCResponse) {
 	}
 	job := jobStartHTTPListener(conf)
 
-	data, err = proto.Marshal(&pb.HTTP{JobID: int32(job.ID)})
+	data, err = proto.Marshal(&clientpb.HTTP{JobID: int32(job.ID)})
 	resp(data, err)
 }
 
 func rpcStartHTTPListener(data []byte, resp RPCResponse) {
-	httpReq := &pb.HTTPReq{}
+	httpReq := &clientpb.HTTPReq{}
 	err := proto.Unmarshal(data, httpReq)
 	if err != nil {
 		resp([]byte{}, err)
@@ -191,7 +210,7 @@ func rpcStartHTTPListener(data []byte, resp RPCResponse) {
 	}
 	job := jobStartHTTPListener(conf)
 
-	data, err = proto.Marshal(&pb.HTTP{JobID: int32(job.ID)})
+	data, err = proto.Marshal(&clientpb.HTTP{JobID: int32(job.ID)})
 	resp(data, err)
 }
 
@@ -213,9 +232,7 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
 	core.Jobs.AddJob(job)
 
 	cleanup := func(err error) {
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-		server.HTTPServer.Shutdown(ctx)
+		server.Cleanup()
 		core.Jobs.RemoveJob(job)
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
@@ -229,7 +246,7 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
 		var err error
 		if server.Conf.Secure {
 			if server.Conf.ACME {
-				server.HTTPServer.ListenAndServeTLS("", "")
+				err = server.HTTPServer.ListenAndServeTLS("", "") // ACME manager pulls the certs under the hood
 			} else {
 				err = listenAndServeTLS(server.HTTPServer, conf.Cert, conf.Key)
 			}
@@ -252,6 +269,7 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
 }
 
 // Fuck'in Go - https://stackoverflow.com/questions/30815244/golang-https-server-passing-certfile-and-kyefile-in-terms-of-byte-array
+// basically the same as server.ListenAndServerTLS() but we can passin byte slices instead of file paths
 func listenAndServeTLS(srv *http.Server, certPEMBlock, keyPEMBlock []byte) error {
 	addr := srv.Addr
 	if addr == "" {

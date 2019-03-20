@@ -14,6 +14,7 @@ const (
 
 	// MsgJobs - Jobs message
 	MsgJobs
+	MsgJobKill
 
 	// MsgMtls - MTLS message
 	MsgMtls

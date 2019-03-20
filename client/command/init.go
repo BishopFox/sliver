@@ -24,6 +24,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.JobsStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("k", "kill", -1, "kill a background job")
+			f.Bool("K", "kill-all", false, "kill all jobs")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
