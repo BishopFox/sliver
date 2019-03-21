@@ -12,6 +12,7 @@ import (
 
 func helpCmd(app *grumble.App, isShell bool) {
 	printHelp(app)
+	fmt.Println()
 }
 
 func printHelp(a *grumble.App) {
