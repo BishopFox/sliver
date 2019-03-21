@@ -17,6 +17,7 @@ const (
 func Init(app *grumble.App, server *core.SliverServer) {
 
 	app.SetPrintHelp(helpCmd)
+
 	// [ Jobs ] -----------------------------------------------------------------
 	app.AddCommand(&grumble.Command{
 		Name:     consts.JobsStr,

@@ -192,6 +192,10 @@ func (s SliverC2) ToProtobuf() *clientpb.SliverC2 {
 	}
 }
 
+func (s SliverC2) String() string {
+	return s.URL
+}
+
 // GetSliversDir - Get the binary directory
 func GetSliversDir() string {
 	appDir := assets.GetRootAppDir()
