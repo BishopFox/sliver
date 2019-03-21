@@ -56,8 +56,8 @@ func mtlsExe(t *testing.T, goos string, goarch string, debug bool) {
 	config := &SliverConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-		C2: []string{
-			"mtls://1.example.com",
+		C2: []SliverC2{
+			SliverC2{URL: "mtls://1.example.com"},
 		},
 		MTLSc2Enabled: true,
 		Debug:         debug,
@@ -73,8 +73,8 @@ func dnsExe(t *testing.T, goos string, goarch string, debug bool) {
 	config := &SliverConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-		C2: []string{
-			"dns://3.example.com",
+		C2: []SliverC2{
+			SliverC2{URL: "dns://3.example.com"},
 		},
 		DNSc2Enabled: true,
 		Debug:        debug,
@@ -90,8 +90,8 @@ func httpExe(t *testing.T, goos string, goarch string, debug bool) {
 	config := &SliverConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-		C2: []string{
-			"http://4.example.com",
+		C2: []SliverC2{
+			SliverC2{URL: "http://4.example.com"},
 		},
 		HTTPc2Enabled: true,
 		Debug:         debug,
@@ -108,11 +108,11 @@ func multiExe(t *testing.T, goos string, goarch string, debug bool) {
 		GOOS:   goos,
 		GOARCH: goarch,
 
-		C2: []string{
-			"mtls://1.example.com",
-			"mtls://2.example.com",
-			"dns://3.example.com",
-			"http://4.example.com",
+		C2: []SliverC2{
+			SliverC2{URL: "mtls://1.example.com"},
+			SliverC2{URL: "mtls://2.example.com"},
+			SliverC2{URL: "https://3.example.com"},
+			SliverC2{URL: "dns://4.example.com"},
 		},
 		MTLSc2Enabled: true,
 		HTTPc2Enabled: true,
@@ -131,11 +131,11 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 		GOOS:   goos,
 		GOARCH: goarch,
 
-		C2: []string{
-			"mtls://1.example.com",
-			"mtls://2.example.com",
-			"dns://3.example.com",
-			"http://4.example.com",
+		C2: []SliverC2{
+			SliverC2{URL: "mtls://1.example.com"},
+			SliverC2{URL: "mtls://2.example.com"},
+			SliverC2{URL: "https://3.example.com"},
+			SliverC2{URL: "dns://4.example.com"},
 		},
 
 		Debug:  debug,
