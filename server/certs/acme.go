@@ -1,8 +1,9 @@
 package certs
 
 import (
-	"crypto/tls"
+	"os"
 	"path"
+	"sliver/server/log"
 
 	"golang.org/x/crypto/acme/autocert"
 )
@@ -12,18 +13,25 @@ const (
 	ACMEDirName = "acme"
 )
 
+var (
+	acmeLog = log.NamedLogger("certs", "acme")
+)
+
 // GetACMEDir - Dir to store ACME certs
 func GetACMEDir(rootDir string) string {
-	return path.Join(rootDir, CertsDirName, ACMEDirName)
+	acmePath := path.Join(rootDir, CertsDirName, ACMEDirName)
+	if _, err := os.Stat(acmePath); os.IsNotExist(err) {
+		acmeLog.Infof("[mkdir] %s", acmePath)
+		os.MkdirAll(acmePath, os.ModePerm)
+	}
+	return acmePath
 }
 
-// GetACMECertificate - Get an ACME cert/tls config with the certs
-func GetACMECertificate(rootDir string, domain string) *tls.Config {
+// GetACMEManager - Get an ACME cert/tls config with the certs
+func GetACMEManager(rootDir string, domain string) *autocert.Manager {
 	acmeDir := GetACMEDir(rootDir)
-	manager := &autocert.Manager{
-		Cache:      autocert.DirCache(acmeDir),
-		HostPolicy: autocert.HostWhitelist(domain),
-		Prompt:     autocert.AcceptTOS,
+	return &autocert.Manager{
+		Cache:  autocert.DirCache(acmeDir),
+		Prompt: autocert.AcceptTOS,
 	}
-	return manager.TLSConfig()
 }

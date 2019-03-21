@@ -1,6 +1,7 @@
 package c2
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/tls"
@@ -45,11 +46,11 @@ const (
 
 // HTTPSession - Holds data related to a sliver c2 session
 type HTTPSession struct {
-	ID          string
-	Sliver      *core.Sliver
-	Key         cryptography.AESKey
-	LastCheckin time.Time
-	replay      map[string]bool // Sessions are mutex'd
+	ID      string
+	Sliver  *core.Sliver
+	Key     cryptography.AESKey
+	Started time.Time
+	replay  map[string]bool // Sessions are mutex'd
 }
 
 // Keeps a hash of each msg in a session to detect replay'd messages
@@ -100,8 +101,8 @@ type HTTPServerConfig struct {
 	Domain    string
 	StaticDir string
 	Secure    bool
-	CertPath  string
-	KeyPath   string
+	Cert      []byte
+	Key       []byte
 	ACME      bool
 }
 
@@ -110,6 +111,7 @@ type SliverHTTPC2 struct {
 	HTTPServer *http.Server
 	Conf       *HTTPServerConfig
 	Sessions   *httpSessions
+	Cleanup    func()
 }
 
 // StartHTTPSListener - Start a mutual TLS listener
@@ -128,19 +130,56 @@ func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 		WriteTimeout: defaultHTTPTimeout,
 		ReadTimeout:  defaultHTTPTimeout,
 		IdleTimeout:  defaultHTTPTimeout,
-		TLSConfig:    getHTTPTLSConfig(conf),
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
+	}
+	if conf.ACME {
+		conf.Domain = filepath.Base(conf.Domain) // I don't think we need this, but we do it anyways
+		httpLog.Infof("Attempting to fetch let's encrypt certificate for '%s' ...", conf.Domain)
+		acmeManager := certs.GetACMEManager(assets.GetRootAppDir(), conf.Domain)
+		acmeHTTPServer := &http.Server{Addr: ":80", Handler: acmeManager.HTTPHandler(nil)}
+		go acmeHTTPServer.ListenAndServe()
+		server.HTTPServer.TLSConfig = &tls.Config{
+			GetCertificate: acmeManager.GetCertificate,
+		}
+		server.Cleanup = func() {
+			ctx, cancelHTTP := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancelHTTP()
+			if err := acmeHTTPServer.Shutdown(ctx); err != nil {
+				httpLog.Warnf("Failed to shutdown http acme server")
+			}
+			ctx, cancelHTTPS := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancelHTTPS()
+			server.HTTPServer.Shutdown(ctx)
+			if err := acmeHTTPServer.Shutdown(ctx); err != nil {
+				httpLog.Warnf("Failed to shutdown https server")
+			}
+		}
+	} else {
+		server.HTTPServer.TLSConfig = getHTTPTLSConfig(conf)
+		server.Cleanup = func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			server.HTTPServer.Shutdown(ctx)
+			if err := server.HTTPServer.Shutdown(ctx); err != nil {
+				httpLog.Warnf("Failed to shutdown https server")
+			}
+		}
 	}
 	return server
 }
 
 func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
-	if conf.ACME {
-		return certs.GetACMECertificate(assets.GetRootAppDir(), conf.Domain)
+	if conf.Cert == nil || conf.Key == nil {
+		// Generate a self-signed certificate
+		_, _, err := certs.GetCertificateAuthority(assets.GetRootAppDir(), certs.ServersCertDir)
+		if err != nil {
+			certs.GenerateCertificateAuthority(assets.GetRootAppDir(), certs.ServersCertDir, true)
+		}
+		conf.Cert, conf.Key = certs.GenerateServerRSACertificate(assets.GetRootAppDir(), certs.ServersCertDir, conf.Domain, true)
 	}
-	cert, err := tls.LoadX509KeyPair(conf.CertPath, conf.KeyPath)
+	cert, err := tls.X509KeyPair(conf.Cert, conf.Key)
 	if err != nil {
-		httpLog.Warnf("Failed to load tls key pair %v", err)
+		httpLog.Warnf("Failed to parse tls cert/key pair %v", err)
 		return nil
 	}
 	return &tls.Config{
@@ -173,6 +212,14 @@ func StartHTTPListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 		WriteTimeout: defaultHTTPTimeout,
 		ReadTimeout:  defaultHTTPTimeout,
 		IdleTimeout:  defaultHTTPTimeout,
+	}
+	server.Cleanup = func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		server.HTTPServer.Shutdown(ctx)
+		if err := server.HTTPServer.Shutdown(ctx); err != nil {
+			httpLog.Warnf("Failed to shutdown http server")
+		}
 	}
 	return server
 }
@@ -298,6 +345,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 	session := newSession()
 	session.Key, _ = cryptography.AESKeyFromBytes(sessionInit.Key)
+	checkin := time.Now()
 	session.Sliver = &core.Sliver{
 		ID:            core.GetHiveID(),
 		Transport:     "http(s)",
@@ -305,6 +353,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		Send:          make(chan *sliverpb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
+		LastCheckin:   &checkin,
 	}
 	core.Hive.AddSliver(session.Sliver)
 	s.Sessions.Add(session)
@@ -421,7 +470,8 @@ func (s *SliverHTTPC2) getSession(req *http.Request) *HTTPSession {
 		if cookie.Name == sessionCookieName {
 			session := s.Sessions.Get(cookie.Value)
 			if session != nil {
-				session.LastCheckin = time.Now()
+				checkin := time.Now()
+				session.Sliver.LastCheckin = &checkin
 				return session
 			}
 			return nil
@@ -432,9 +482,9 @@ func (s *SliverHTTPC2) getSession(req *http.Request) *HTTPSession {
 
 func newSession() *HTTPSession {
 	return &HTTPSession{
-		ID:          newHTTPSessionID(),
-		LastCheckin: time.Now(),
-		replay:      map[string]bool{},
+		ID:      newHTTPSessionID(),
+		Started: time.Now(),
+		replay:  map[string]bool{},
 	}
 }
 

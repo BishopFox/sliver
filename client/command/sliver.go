@@ -23,25 +23,36 @@ import (
 )
 
 func sessions(ctx *grumble.Context, rpc RPCServer) {
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgSessions,
-		Data: []byte{},
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s\n", resp.Err)
-		return
-	}
-	sessions := &clientpb.Sessions{}
-	proto.Unmarshal(resp.Data, sessions)
-
-	slivers := map[uint32]*clientpb.Sliver{}
-	for _, sliver := range sessions.Slivers {
-		slivers[sliver.ID] = sliver
-	}
-	if 0 < len(slivers) {
-		printSlivers(slivers)
+	interact := ctx.Flags.String("interact")
+	if interact != "" {
+		sliver := getSliver(interact, rpc)
+		if sliver != nil {
+			ActiveSliver.SetActiveSliver(sliver)
+			fmt.Printf(Info+"Active sliver %s (%d)\n", sliver.Name, sliver.ID)
+		} else {
+			fmt.Printf(Warn+"Invalid sliver name or session number '%s'\n", ctx.Args[0])
+		}
 	} else {
-		fmt.Printf(Info + "No slivers connected\n")
+		resp := <-rpc(&sliverpb.Envelope{
+			Type: clientpb.MsgSessions,
+			Data: []byte{},
+		}, defaultTimeout)
+		if resp.Err != "" {
+			fmt.Printf(Warn+"Error: %s\n", resp.Err)
+			return
+		}
+		sessions := &clientpb.Sessions{}
+		proto.Unmarshal(resp.Data, sessions)
+
+		slivers := map[uint32]*clientpb.Sliver{}
+		for _, sliver := range sessions.Slivers {
+			slivers[sliver.ID] = sliver
+		}
+		if 0 < len(slivers) {
+			printSlivers(slivers)
+		} else {
+			fmt.Printf(Info + "No slivers connected\n")
+		}
 	}
 }
 
@@ -59,14 +70,15 @@ func printSlivers(sessions map[uint32]*clientpb.Sliver) {
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
 	// Column Headers
-	fmt.Fprintln(table, "ID\tName\tTransport\tRemote Address\tUsername\tOperating System\t")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t\n",
+	fmt.Fprintln(table, "ID\tName\tTransport\tRemote Address\tUsername\tOperating System\tLast Check-in\t")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("ID")),
 		strings.Repeat("=", len("Name")),
 		strings.Repeat("=", len("Transport")),
 		strings.Repeat("=", len("Remote Address")),
 		strings.Repeat("=", len("Username")),
-		strings.Repeat("=", len("Operating System")))
+		strings.Repeat("=", len("Operating System")),
+		strings.Repeat("=", len("Last Check-in")))
 
 	// Sort the keys becuase maps have a randomized order
 	var keys []int
@@ -81,9 +93,10 @@ func printSlivers(sessions map[uint32]*clientpb.Sliver) {
 		if ActiveSliver.Sliver != nil && ActiveSliver.Sliver.ID == sliver.ID {
 			activeIndex = index + 2 // Two lines for the headers
 		}
-		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t\n",
+		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
 			sliver.ID, sliver.Name, sliver.Transport, sliver.RemoteAddress, sliver.Username,
-			fmt.Sprintf("%s/%s", sliver.OS, sliver.Arch))
+			fmt.Sprintf("%s/%s", sliver.OS, sliver.Arch),
+			sliver.LastCheckin)
 	}
 	table.Flush()
 
@@ -307,7 +320,7 @@ func parseHTTPc2(args string) []*clientpb.SliverC2 {
 				continue
 			}
 		} else {
-			uri := &url.URL{Scheme: "https"} // HTTPS is the default, will fallback to HTTP
+			uri = &url.URL{Scheme: "https"} // HTTPS is the default, will fallback to HTTP
 			uri.Host = arg
 		}
 		c2s = append(c2s, &clientpb.SliverC2{
@@ -411,25 +424,34 @@ func profiles(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintf(table, "Name\tPlatform\tDebug\tLimitations\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
+	fmt.Fprintf(table, "Name\tPlatform\tCommand & Control\tDebug\tLimitations\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("Name")),
 		strings.Repeat("=", len("Platform")),
-
-		// C2
-
+		strings.Repeat("=", len("Command & Control")),
 		strings.Repeat("=", len("Debug")),
-		strings.Repeat("=", len("Limitations")))
+		strings.Repeat("=", len("Limits")))
 	for name, profile := range *profiles {
 		config := profile.Config
-		fmt.Fprintf(table, "%s\t%s\t%s\t\n",
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
 			name,
-
-			// C2
-
+			fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
+			fmt.Sprintf("[1] %s", config.C2[0].URL),
 			fmt.Sprintf("%v", config.Debug),
 			getLimitsString(config),
 		)
+		if 1 < len(config.C2) {
+			for index, c2 := range config.C2[1:] {
+				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
+					"",
+					"",
+					fmt.Sprintf("[%d] %s", index+2, c2.URL),
+					"",
+					"",
+				)
+			}
+		}
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n", "", "", "", "", "")
 	}
 	table.Flush()
 }
