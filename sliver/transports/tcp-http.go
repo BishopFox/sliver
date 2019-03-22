@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	// IE 11 User-agent with a unicode 'a'
+	// IE 11 User-agent "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
 	defaultUserAgent  = "Mozillа/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
 	defaultNetTimeout = time.Second * 60
 	defaultReqTimeout = time.Second * 60 // Long polling, we want a large timeout

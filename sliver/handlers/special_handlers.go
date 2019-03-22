@@ -20,7 +20,9 @@ func GetSpecialHandlers() map[uint32]SpecialHandler {
 func killHandler(data []byte, connection *transports.Connection) error {
 	killReq := &pb.KillReq{}
 	err := proto.Unmarshal(data, killReq)
+	// {{if .Debug}}
 	println("KILL called")
+	// {{end}}
 	if err != nil {
 		return err
 	}
@@ -30,7 +32,9 @@ func killHandler(data []byte, connection *transports.Connection) error {
 	}
 	// Cleanup connection
 	connection.Cleanup()
+	// {{if .Debug}}
 	println("Let's exit!")
+	// {{end}}
 	os.Exit(0)
 	return nil
 }

@@ -91,7 +91,11 @@ func httpExe(t *testing.T, goos string, goarch string, debug bool) {
 		GOOS:   goos,
 		GOARCH: goarch,
 		C2: []SliverC2{
-			SliverC2{URL: "http://4.example.com"},
+			SliverC2{
+				Priority: 1,
+				URL:      "http://4.example.com",
+				Options:  "asdf",
+			},
 		},
 		HTTPc2Enabled: true,
 		Debug:         debug,
@@ -110,9 +114,9 @@ func multiExe(t *testing.T, goos string, goarch string, debug bool) {
 
 		C2: []SliverC2{
 			SliverC2{URL: "mtls://1.example.com"},
-			SliverC2{URL: "mtls://2.example.com"},
+			SliverC2{URL: "mtls://2.example.com", Options: "asdf"},
 			SliverC2{URL: "https://3.example.com"},
-			SliverC2{URL: "dns://4.example.com"},
+			SliverC2{Priority: 3, URL: "dns://4.example.com"},
 		},
 		MTLSc2Enabled: true,
 		HTTPc2Enabled: true,
@@ -133,9 +137,9 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 
 		C2: []SliverC2{
 			SliverC2{URL: "mtls://1.example.com"},
-			SliverC2{URL: "mtls://2.example.com"},
+			SliverC2{Priority: 2, URL: "mtls://2.example.com"},
 			SliverC2{URL: "https://3.example.com"},
-			SliverC2{URL: "dns://4.example.com"},
+			SliverC2{URL: "dns://4.example.com", Options: "asdf"},
 		},
 
 		Debug:  debug,
