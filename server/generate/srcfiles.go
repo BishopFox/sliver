@@ -41,7 +41,6 @@ var (
 		"shell/shell_linux.go",
 		"shell/pty/pty_linux.go",
 
-		"shell/pty/doc.go",
 		"shell/pty/run.go",
 		"shell/pty/util.go",
 		"shell/pty/doc.go",
