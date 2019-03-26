@@ -380,4 +380,4 @@ func (jar *Jar) Cookies(u *url.URL) []*http.Cookie {
 	return jar.cookies
 }
 
-// {{end}} -HTTPServer
+// {{end}} -HTTPc2Enabled
