@@ -29,4 +29,4 @@ The source code repo contains the following directories:
 
 ### Compile From Source
 
-Just run the `build.py` script (requires Docker), or for details see the [wiki](https://github.com/BishopFox/sliver/wiki/Compile-From-Source).
+Do a `git clone --recursive` for the repo and run the `build.py` script (also requires Docker), or for details see the [wiki](https://github.com/BishopFox/sliver/wiki/Compile-From-Source).
