@@ -64,7 +64,7 @@ func migrate(ctx *grumble.Context, rpc RPCServer) {
 	if err != nil {
 		fmt.Printf(Warn+"Error: %v", err)
 	}
-	config := GetConfig(activeSliver.Name)
+	config := getActiveSliverConfig()
 	ctrl := make(chan bool)
 	msg := fmt.Sprintf("Migrating into %d ...", pid)
 	go spin.Until(msg, ctrl)
@@ -83,4 +83,27 @@ func migrate(ctx *grumble.Context, rpc RPCServer) {
 	} else {
 		fmt.Printf("\n"+Info+"Successfully migrated to %d\n", pid)
 	}
+}
+
+func getActiveSliverConfig() *clientpb.SliverConfig {
+	activeSliver := ActiveSliver.Sliver
+	println(activeSliver.ActiveC2)
+	c2s := []*clientpb.SliverC2{}
+	c2s = append(c2s, &clientpb.SliverC2{
+		URL:      activeSliver.ActiveC2,
+		Priority: uint32(0),
+	})
+	config := &clientpb.SliverConfig{
+		GOOS:   activeSliver.GetOS(),
+		GOARCH: activeSliver.GetArch(),
+		Debug:  true,
+
+		MaxConnectionErrors: uint32(1000),
+		ReconnectInterval:   uint32(60),
+
+		Format:      clientpb.SliverConfig_SHELLCODE,
+		IsSharedLib: true,
+		C2:          c2s,
+	}
+	return config
 }

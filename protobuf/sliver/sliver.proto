@@ -6,7 +6,7 @@ message Envelope {
   uint32 Type = 1; // Message type
   uint64 ID = 2;   // Resp ID
   bytes Data = 9;  // Actual message data
-  
+
   string Err = 4;
 }
 
@@ -20,11 +20,10 @@ message Register {
   string Arch = 7;
   int32 Pid = 8;
   string Filename = 9;
+  string ActiveC2 = 10;
 }
 
-message Ping {
-  int32 Nonce = 1;
-}
+message Ping { int32 Nonce = 1; }
 
 message KillReq {
   bool Force = 1;
@@ -43,13 +42,9 @@ message RemoteTask {
   bytes Data = 9;
 }
 
-message PsReq {
-  uint32 SliverID = 9;
-}
+message PsReq { uint32 SliverID = 9; }
 
-message Ps {
-  repeated Process Processes = 1;
-}
+message Ps { repeated Process Processes = 1; }
 
 message Process {
   int32 Pid = 1;
@@ -57,7 +52,6 @@ message Process {
   string Executable = 3;
   string Owner = 4;
 }
-
 
 message LsReq {
   string Path = 1;
@@ -67,7 +61,7 @@ message LsReq {
 
 message Ls {
   string Path = 1;
-  bool Exists = 2; 
+  bool Exists = 2;
   repeated FileInfo Files = 3;
 }
 
@@ -77,9 +71,7 @@ message FileInfo {
   int64 Size = 3;
 }
 
-message PwdReq {
-  uint32 SliverID = 9;
-}
+message PwdReq { uint32 SliverID = 9; }
 
 message CdReq {
   string Path = 1;
@@ -162,9 +154,7 @@ message ImpersonateReq {
   uint32 SliverID = 9;
 }
 
-message Impersonate {
-  string Output = 1;
-}
+message Impersonate { string Output = 1; }
 
 message ElevateReq {
   int32 Timeout = 8;
@@ -200,13 +190,9 @@ message Migrate {
   string Err = 2;
 }
 // DNS Specific messages
-message DNSSessionInit {
-  bytes Key = 1;
-}
+message DNSSessionInit { bytes Key = 1; }
 
-message DNSPoll {
-  repeated DNSBlockHeader blocks = 1;
-}
+message DNSPoll { repeated DNSBlockHeader blocks = 1; }
 
 message DNSBlockHeader {
   string ID = 1;
@@ -214,9 +200,7 @@ message DNSBlockHeader {
 }
 
 // HTTP Sepecific message
-message HTTPSessionInit {
-  bytes Key = 1;
-}
+message HTTPSessionInit { bytes Key = 1; }
 
 // Tunnels, shells, and port fwds
 message TunnelData {

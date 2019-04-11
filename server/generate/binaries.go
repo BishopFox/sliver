@@ -79,7 +79,7 @@ type SliverConfig struct {
 	// Output Format
 	Format clientpb.SliverConfig_OutputFormat `json:"format"`
 
-	// For shared libraries
+	// For 	IsSharedLib bool `json:"is_shared_lib"`
 	IsSharedLib bool `json:"is_shared_lib"`
 }
 

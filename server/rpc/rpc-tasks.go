@@ -33,7 +33,6 @@ func rpcMigrate(req []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 	}
 	sliver := core.Hive.Sliver(migrateReq.SliverID)
-	// TODO: generate.GetShellcodeRDI()
 	config := generate.SliverConfigFromProtobuf(migrateReq.Config)
 	config.Format = clientpb.SliverConfig_SHARED_LIB
 	dllPath, err := generate.SliverSharedLibrary(config)

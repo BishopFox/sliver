@@ -34,6 +34,8 @@ var (
 	reconnectInterval = getReconnectInterval()
 
 	ccCounter = new(int)
+
+	activeC2 string
 )
 
 // Connection - Abstract connection to the server
@@ -105,6 +107,7 @@ func StartConnectionLoop() *Connection {
 		case "mtls":
 			connection, err = mtlsConnect(uri)
 			if err == nil {
+				activeC2 = uri.String()
 				return connection
 			}
 			// {{if .Debug}}
@@ -120,6 +123,7 @@ func StartConnectionLoop() *Connection {
 			// {{if .HTTPc2Enabled}}
 			connection, err = httpConnect(uri)
 			if err == nil {
+				activeC2 = uri.String()
 				return connection
 			}
 			// {{if .Debug}}
@@ -133,6 +137,7 @@ func StartConnectionLoop() *Connection {
 			// {{if .DNSc2Enabled}}
 			connection, err = dnsConnect(uri)
 			if err == nil {
+				activeC2 = uri.String()
 				return connection
 			}
 			// {{if .Debug}}
@@ -163,6 +168,11 @@ var ccServers = []string{
 	// {{range $index, $value := .C2}}
 	"{{$value}}", // {{$index}}
 	// {{end}}
+}
+
+// GetActiveC2 returns the URL of the C2 in use
+func GetActiveC2() string {
+	return activeC2
 }
 
 func nextCCServer() *url.URL {

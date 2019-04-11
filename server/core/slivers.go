@@ -35,6 +35,7 @@ type Sliver struct {
 	Send          chan *sliverpb.Envelope
 	Resp          map[uint64]chan *sliverpb.Envelope
 	RespMutex     *sync.RWMutex
+	ActiveC2      string
 }
 
 // ToProtobuf - Get the protobuf version of the object
@@ -59,6 +60,7 @@ func (s *Sliver) ToProtobuf() *clientpb.Sliver {
 		PID:           int32(s.PID),
 		Filename:      s.Filename,
 		LastCheckin:   lastCheckin,
+		ActiveC2:      s.ActiveC2,
 	}
 }
 

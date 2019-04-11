@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	consts "sliver/client/constants"
 	"sliver/client/spin"
@@ -410,8 +409,6 @@ func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 		return
 	}
 	fmt.Printf(Info+"Sliver binary saved to: %s\n", saveTo)
-	sliverName := strings.Split(path.Base(generated.File.Name), ".")[0]
-	addConfig(sliverName, config)
 }
 
 func profiles(ctx *grumble.Context, rpc RPCServer) {

@@ -57,6 +57,7 @@ func registerSliverHandler(sliver *core.Sliver, data []byte) {
 	sliver.Arch = register.Arch
 	sliver.PID = register.Pid
 	sliver.Filename = register.Filename
+	sliver.ActiveC2 = register.ActiveC2
 }
 
 func tunnelDataHandler(sliver *core.Sliver, data []byte) {

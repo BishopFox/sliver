@@ -42,7 +42,6 @@ var (
 	ActiveSliver = &activeSliver{
 		observers: []observer{},
 	}
-	sliverConfigs = make(map[string]*clientpb.SliverConfig)
 
 	defaultTimeout   = 30 * time.Second
 	stdinReadTimeout = 10 * time.Millisecond
@@ -91,17 +90,4 @@ func getSliver(arg string, rpc RPCServer) *clientpb.Sliver {
 		}
 	}
 	return nil
-}
-
-// GetConfig returns the sliver configuration based on its name
-func GetConfig(sliverName string) *clientpb.SliverConfig {
-	conf, ok := sliverConfigs[sliverName]
-	if ok {
-		return conf
-	}
-	return nil
-}
-
-func addConfig(sliverName string, config *clientpb.SliverConfig) {
-	sliverConfigs[sliverName] = config
 }
