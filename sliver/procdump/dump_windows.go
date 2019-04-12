@@ -45,8 +45,6 @@ func dumpProcess(pid int32) (ProcessDump, error) {
 		return res, err
 	}
 	if hProc != 0 {
-		taskrunner.RefreshPE(`c:\windows\system32\ntdll.dll`)
-		taskrunner.RefreshPE(`c:\windows\system32\dbgcore.dll`)
 		return minidump(int(pid), int(hProc))
 	}
 	return res, fmt.Errorf("Could not dump process memory")
@@ -109,6 +107,8 @@ func minidump(pid, proc int) (ProcessDump, error) {
 	dump := &WindowsDump{}
 	k32 := syscall.NewLazyDLL("Dbgcore.dll")
 	minidumpWriteDump := k32.NewProc("MiniDumpWriteDump")
+	taskrunner.RefreshPE(`c:\windows\system32\ntdll.dll`)
+	taskrunner.RefreshPE(`c:\windows\system32\dbgcore.dll`)
 	// TODO: find a better place to store the dump file
 	f, err := ioutil.TempFile("", "")
 
