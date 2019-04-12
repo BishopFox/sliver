@@ -87,7 +87,6 @@ func migrate(ctx *grumble.Context, rpc RPCServer) {
 
 func getActiveSliverConfig() *clientpb.SliverConfig {
 	activeSliver := ActiveSliver.Sliver
-	println(activeSliver.ActiveC2)
 	c2s := []*clientpb.SliverC2{}
 	c2s = append(c2s, &clientpb.SliverC2{
 		URL:      activeSliver.ActiveC2,
