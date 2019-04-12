@@ -51,6 +51,59 @@ func dumpProcess(pid int32) (ProcessDump, error) {
 	return res, fmt.Errorf("Could not dump process memory")
 }
 
+func setPrivilege(s string, b bool) bool {
+	type LUID struct {
+		LowPart  uint32
+		HighPart int32
+	}
+	type LUID_AND_ATTRIBUTES struct {
+		Luid       LUID
+		Attributes uint32
+	}
+	type TOKEN_PRIVILEGES struct {
+		PrivilegeCount uint32
+		Privileges     [1]LUID_AND_ATTRIBUTES
+	}
+
+	modadvapi32 := syscall.NewLazyDLL("advapi32.dll")
+	procAdjustTokenPrivileges := modadvapi32.NewProc("AdjustTokenPrivileges")
+
+	procLookupPriv := modadvapi32.NewProc("LookupPrivilegeValueW")
+	var tokenHandle syscall.Token
+	thsHandle, err := syscall.GetCurrentProcess()
+	if err != nil {
+		panic(err)
+	}
+	syscall.OpenProcessToken(
+		thsHandle,                       //  HANDLE  ProcessHandle,
+		syscall.TOKEN_ADJUST_PRIVILEGES, //	DWORD   DesiredAccess,
+		&tokenHandle,                    //	PHANDLE TokenHandle
+	)
+	var luid LUID
+	r, _, _ := procLookupPriv.Call(
+		ptr(0),                         //LPCWSTR lpSystemName,
+		ptr(s),                         //LPCWSTR lpName,
+		uintptr(unsafe.Pointer(&luid)), //PLUID   lpLuid
+	)
+	if r == 0 {
+		return false
+	}
+	SE_PRIVILEGE_ENABLED := uint32(0x00000002)
+	privs := TOKEN_PRIVILEGES{}
+	privs.PrivilegeCount = 1
+	privs.Privileges[0].Luid = luid
+	privs.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED
+	r, _, _ = procAdjustTokenPrivileges.Call(
+		uintptr(tokenHandle),
+		uintptr(0),
+		uintptr(unsafe.Pointer(&privs)),
+		ptr(0),
+		ptr(0),
+		ptr(0),
+	)
+	return r != 0
+}
+
 func minidump(pid, proc int) (ProcessDump, error) {
 	dump := &WindowsDump{}
 	k32 := syscall.NewLazyDLL("Dbgcore.dll")
