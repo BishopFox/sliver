@@ -276,6 +276,7 @@ func filterAgent(req *http.Request, rm *mux.RouteMatch) bool {
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		accessLog.Infof("%s - %s - %v", req.RemoteAddr, req.RequestURI, req.Header["User-Agent"])
+		httpLog.Debugf("%v", resp)
 		next.ServeHTTP(resp, req)
 	})
 }
@@ -313,7 +314,7 @@ func default404Handler(resp http.ResponseWriter, req *http.Request) {
 
 func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
 	rootDir := assets.GetRootAppDir()
-	certPEM, _, _ := certs.GetServerRSACertificatePEM(rootDir, "slivers", s.Conf.Domain, true)
+	certPEM, _, _ := certs.GetServerRSACertificatePEM(rootDir, certs.SliversCertDir, s.Conf.Domain, true)
 	resp.Write(certPEM)
 }
 
@@ -321,7 +322,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	rootDir := assets.GetRootAppDir()
 
 	// Note: these are the c2 certificates NOT the certificates/keys used for SSL/TLS
-	publicKeyPEM, privateKeyPEM, err := certs.GetServerRSACertificatePEM(rootDir, "slivers", s.Conf.Domain, false)
+	publicKeyPEM, privateKeyPEM, err := certs.GetServerRSACertificatePEM(rootDir, certs.SliversCertDir, s.Conf.Domain, false)
 	if err != nil {
 		httpLog.Info("Failed to fetch rsa private key")
 		resp.WriteHeader(404)
