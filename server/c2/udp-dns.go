@@ -320,16 +320,21 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 	}
 
 	rootDir := assets.GetRootAppDir()
-	publicKeyPEM, privateKeyPEM, err := certs.GetServerRSACertificatePEM(rootDir, "slivers", domain, false)
+	publicKeyPEM, privateKeyPEM, err := certs.GetServerRSACertificatePEM(rootDir, certs.SliversCertDir, domain, false)
 	if err != nil {
-		dnsLog.Infof("Failed to fetch rsa private key")
+		dnsLog.Infof("Failed to fetch RSA private key")
 		return []string{"1"}, err
 	}
 	publicKeyBlock, _ := pem.Decode([]byte(publicKeyPEM))
 	dnsLog.Infof("RSA Fingerprint: %s", fingerprintSHA256(publicKeyBlock))
 	privateKeyBlock, _ := pem.Decode([]byte(privateKeyPEM))
-	privateKey, _ := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
+	privateKey, err := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
+	if err != nil {
+		dnsLog.Infof("Failed to decode RSA private key")
+		return []string{"1"}, err
+	}
 
+	dnsLog.Debugf("Session Init: %v", encryptedSessionInit)
 	sessionInitData, err := cryptography.RSADecrypt(encryptedSessionInit, privateKey)
 	if err != nil {
 		dnsLog.Infof("Failed to decrypt session init msg")

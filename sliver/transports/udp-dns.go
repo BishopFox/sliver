@@ -520,7 +520,7 @@ func fingerprintSHA256(block *pem.Block) string {
 
 // --------------------------- ENCODER ---------------------------
 
-var base32Alphabet = "a0b1c2d3e4f5g6h7j8k9mnpqrtuvwxyz"
+var base32Alphabet = "ab1c2d3e4f5g6h7j8k9m0npqrtuvwxyz"
 var sliverBase32 = base32.NewEncoding(base32Alphabet)
 
 // EncodeToString encodes the given byte slice in base32
