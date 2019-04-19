@@ -27,10 +27,35 @@ var (
 
 // Bucket - Badger database and namespaced logger
 type Bucket struct {
-	DB  *badger.DB
+	db  *badger.DB
 	Log *logrus.Entry
 }
 
+// These are just pass-thru functions to prevent external callers from
+// trying to manually manage db transcations
+
+// Set - Set a value (simplified API)
+func (b *Bucket) Set(key string, value []byte) error {
+	return b.db.Update(func(txn *badger.Txn) error {
+		return txn.Set([]byte(key), value)
+	})
+}
+
+// Get - Get a value (simplified API)
+func (b *Bucket) Get(key string) ([]byte, error) {
+	var value []byte
+	err := b.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(key))
+		if err != nil {
+			return err
+		}
+		value, err = item.ValueCopy(nil)
+		return err
+	})
+	return value, err
+}
+
+// Ptr to the root databasea that maps bucket Names <-> UUIDs
 func getRootDB() *badger.DB {
 	rootDir := assets.GetRootAppDir()
 	dbDir := path.Join(rootDir, dbDirName, rootDBDirName)
@@ -94,7 +119,7 @@ func GetBucket(name string) (*Bucket, error) {
 		return nil, err
 	}
 	return &Bucket{
-		DB:  db,
+		db:  db,
 		Log: log.NamedLogger("db", name),
 	}, nil
 }
