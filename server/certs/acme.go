@@ -18,8 +18,8 @@ var (
 )
 
 // GetACMEDir - Dir to store ACME certs
-func GetACMEDir(rootDir string) string {
-	acmePath := path.Join(rootDir, CertsDirName, ACMEDirName)
+func GetACMEDir() string {
+	acmePath := path.Join(getCertDir(), ACMEDirName)
 	if _, err := os.Stat(acmePath); os.IsNotExist(err) {
 		acmeLog.Infof("[mkdir] %s", acmePath)
 		os.MkdirAll(acmePath, os.ModePerm)
@@ -28,8 +28,8 @@ func GetACMEDir(rootDir string) string {
 }
 
 // GetACMEManager - Get an ACME cert/tls config with the certs
-func GetACMEManager(rootDir string, domain string) *autocert.Manager {
-	acmeDir := GetACMEDir(rootDir)
+func GetACMEManager(domain string) *autocert.Manager {
+	acmeDir := GetACMEDir()
 	return &autocert.Manager{
 		Cache:  autocert.DirCache(acmeDir),
 		Prompt: autocert.AcceptTOS,

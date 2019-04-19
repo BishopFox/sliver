@@ -15,8 +15,6 @@ import (
 
 	ver "sliver/client/version"
 
-	"sliver/server/certs"
-
 	"github.com/gobuffalo/packr"
 )
 
@@ -75,10 +73,6 @@ func saveAssetVersion(appDir string) {
 func Setup(force bool) {
 	appDir := GetRootAppDir()
 	localVer := assetVersion()
-	if localVer == "" {
-		fmt.Printf("Generating certificates ...\n")
-		setupCerts(appDir)
-	}
 	if force || localVer == "" || localVer != ver.GitVersion {
 		setupLog.Infof("Version mismatch %v != %v", localVer, ver.GitVersion)
 		fmt.Printf("Unpacking assets ...\n")
@@ -87,14 +81,6 @@ func Setup(force bool) {
 		setupDataPath(appDir)
 		saveAssetVersion(appDir)
 	}
-}
-
-// setupCerts - Creates directories for certs
-func setupCerts(appDir string) {
-	os.MkdirAll(path.Join(appDir, "certs"), os.ModePerm)
-	rootDir := GetRootAppDir()
-	certs.GenerateCertificateAuthority(rootDir, certs.SliversCertDir, true)
-	certs.GenerateCertificateAuthority(rootDir, certs.ClientsCertDir, true)
 }
 
 // SetupGo - Unzip Go compiler assets

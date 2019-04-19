@@ -34,14 +34,14 @@ type Bucket struct {
 // These are just pass-thru functions to prevent external callers from
 // trying to manually manage db transcations
 
-// Set - Set a value (simplified API)
+// Set - Set a key/value (simplified API)
 func (b *Bucket) Set(key string, value []byte) error {
 	return b.db.Update(func(txn *badger.Txn) error {
 		return txn.Set([]byte(key), value)
 	})
 }
 
-// Get - Get a value (simplified API)
+// Get - Get a value for a given key (simplified API)
 func (b *Bucket) Get(key string) ([]byte, error) {
 	var value []byte
 	err := b.db.View(func(txn *badger.Txn) error {
@@ -53,6 +53,31 @@ func (b *Bucket) Get(key string) ([]byte, error) {
 		return err
 	})
 	return value, err
+}
+
+// Delete - Delete a key/value
+func (b *Bucket) Delete(key string) error {
+	return b.db.Update(func(txn *badger.Txn) error {
+		return txn.Delete([]byte(key))
+	})
+}
+
+// List - List keys filtered by prefix
+func (b *Bucket) List(prefix string) ([]string, error) {
+	keyPrefix := []byte(prefix)
+	keys := []string{}
+	err := b.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Seek(keyPrefix); it.ValidForPrefix(keyPrefix); it.Next() {
+			item := it.Item()
+			keys = append(keys, string(item.Key()))
+		}
+		return nil
+	})
+	return keys, err
 }
 
 // Ptr to the root databasea that maps bucket Names <-> UUIDs
