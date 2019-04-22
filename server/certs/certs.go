@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net"
 	"sliver/server/db"
@@ -23,10 +24,20 @@ var (
 )
 
 const (
+	// RSAKeySize - Default size of RSA keys in bits
+	RSAKeySize = 2048
+
 	// Certs are valid for ~3 Years, minus up to 1 year from Now()
 	validFor = 3 * (365 * 24 * time.Hour)
+
+	// ECCKey - Namespace for ECC keys
+	ECCKey = "ecc"
+
+	// RSAKey - Namespace for RSA keys
+	RSAKey = "rsa"
 )
 
+// CertificateKeyPair - Single struct with KeyType/Cert/PrivateKey
 type CertificateKeyPair struct {
 	KeyType     string `json:"key_type"`
 	Certificate []byte `json:"certificate"`
@@ -35,7 +46,15 @@ type CertificateKeyPair struct {
 
 // SaveCertificate - Save the certificate and the key to the filesystem
 func SaveCertificate(caType string, keyType string, commonName string, cert []byte, key []byte) error {
-	bucket := db.Bucket(caType)
+
+	if keyType != ECCKey && keyType != RSAKey {
+		return fmt.Errorf("Invalid key type '%s'", keyType)
+	}
+
+	bucket, err := db.GetBucket(caType)
+	if err != nil {
+		return err
+	}
 	bucket.Log.Infof("Saving certificate for %s", commonName)
 	keyPair, err := json.Marshal(CertificateKeyPair{
 		KeyType:     keyType,
@@ -46,25 +65,59 @@ func SaveCertificate(caType string, keyType string, commonName string, cert []by
 		bucket.Log.Errorf("Failed to marshal key pair %s", err)
 		return err
 	}
-	return bucket.Set(commonName, keyPair)
+	return bucket.Set(fmt.Sprintf("%s_%s", keyType, commonName), keyPair)
 }
 
-// GetCertificatePEM - Get the PEM encoded certificate & key for a host
-func GetCertificatePEM(caType string, commonName string) ([]byte, []byte, error) {
-	bucket := db.Bucket(caType)
-	rawKeyPair, err := bucket.Get(commonName)
+// GetECCCertificate - Get an ECC certificate
+func GetECCCertificate(caType string, commonName string) ([]byte, []byte, error) {
+	return GetCertificate(caType, commonName, ECCKey)
+}
+
+// GetRSACertificate - Get an RSA certificate
+func GetRSACertificate(caType string, commonName string) ([]byte, []byte, error) {
+	return GetCertificate(caType, commonName, RSAKey)
+}
+
+// GetCertificate - Get the PEM encoded certificate & key for a host
+func GetCertificate(caType string, commonName string, keyType string) ([]byte, []byte, error) {
+
+	if keyType != ECCKey && keyType != RSAKey {
+		return nil, nil, fmt.Errorf("Invalid key type '%s'", keyType)
+	}
+
+	certsLog.Infof("Getting certificate ca type = %s, cn = '%s'", caType, commonName)
+	bucket, err := db.GetBucket(caType)
 	if err != nil {
 		return nil, nil, err
 	}
-	keyPair, err := json.Unmarshal(rawKeyPair)
+	rawKeyPair, err := bucket.Get(fmt.Sprintf("%s_%s", keyType, commonName))
 	if err != nil {
 		return nil, nil, err
 	}
-	return keyPair.Ceritificate, keyPair.PrivateKey, nil
+	keyPair := &CertificateKeyPair{}
+	err = json.Unmarshal(rawKeyPair, keyPair)
+	if err != nil {
+		return nil, nil, err
+	}
+	return keyPair.Certificate, keyPair.PrivateKey, nil
+}
+
+// RemoveCertificate - Remove a certificate from the cert store
+func RemoveCertificate(caType string, commonName string, keyType string) error {
+	if keyType != ECCKey && keyType != RSAKey {
+		return fmt.Errorf("Invalid key type '%s'", keyType)
+	}
+
+	bucket, err := db.GetBucket(caType)
+	if err != nil {
+		return err
+	}
+
+	return bucket.Delete(fmt.Sprintf("%s_%s", keyType, commonName))
 }
 
 // --------------------------------
-//  Generic Certificates Functions
+//  Generic Certificate Functions
 // --------------------------------
 
 // GenerateECCCertificate - Generate a TLS certificate with the given parameters
@@ -72,7 +125,7 @@ func GetCertificatePEM(caType string, commonName string) ([]byte, []byte, error)
 // Returns two strings `cert` and `key` (PEM Encoded).
 func GenerateECCCertificate(caType string, commonName string, isCA bool, isClient bool) ([]byte, []byte) {
 
-	certsLog.Infof("Generating TLS certificate (ECC) ...")
+	certsLog.Infof("Generating TLS certificate (ECC) for '%s' ...", commonName)
 
 	var privateKey interface{}
 	var err error
@@ -83,23 +136,23 @@ func GenerateECCCertificate(caType string, commonName string, isCA bool, isClien
 		certsLog.Fatalf("Failed to generate private key: %s", err)
 	}
 
-	return generateCertificate(caType, commonName, isCa, isClient, privateKey)
+	return generateCertificate(caType, commonName, isCA, isClient, privateKey)
 }
 
 // GenerateRSACertificate - Generates a 2048 bit RSA Certificate
 func GenerateRSACertificate(caType string, commonName string, isCA bool, isClient bool) ([]byte, []byte) {
 
-	certsLog.Infof("Generating TLS certificate (RSA) ...")
+	certsLog.Infof("Generating TLS certificate (RSA) for '%s' ...", commonName)
 
 	var privateKey interface{}
 	var err error
 
 	// Generate private key
-	privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
+	privateKey, err = rsa.GenerateKey(rand.Reader, RSAKeySize)
 	if err != nil {
 		certsLog.Fatalf("Failed to generate private key %s", err)
 	}
-	return generateCertificate(caType, commonName, isCa, isClient, privateKey)
+	return generateCertificate(caType, commonName, isCA, isClient, privateKey)
 }
 
 func generateCertificate(caType string, commonName string, isCA bool, isClient bool, privateKey interface{}) ([]byte, []byte) {
@@ -158,6 +211,7 @@ func generateCertificate(caType string, commonName string, isCA bool, isClient b
 	}
 
 	// Sign certificate or self-sign if CA
+	var err error
 	var derBytes []byte
 	if isCA {
 		certsLog.Infof("Ceritificate is an AUTHORITY")
@@ -165,13 +219,14 @@ func generateCertificate(caType string, commonName string, isCA bool, isClient b
 		template.KeyUsage |= x509.KeyUsageCertSign
 		derBytes, err = x509.CreateCertificate(rand.Reader, &template, &template, publicKey(privateKey), privateKey)
 	} else {
-		caCert, caKey, err := GetCertificateAuthority(rootDir, caType) // Sign the new ceritificate with our CA
+		caCert, caKey, err := GetCertificateAuthority(caType) // Sign the new ceritificate with our CA
 		if err != nil {
 			certsLog.Fatalf("Invalid ca type (%s): %v", caType, err)
 		}
 		derBytes, err = x509.CreateCertificate(rand.Reader, &template, caCert, publicKey(privateKey), caKey)
 	}
 	if err != nil {
+		// We maybe don't want this to be fatal, but it should basically never happen afaik
 		certsLog.Fatalf("Failed to create certificate: %s", err)
 	}
 

@@ -13,19 +13,25 @@ const (
 
 // GenerateOperatorCertificate - Generate a certificate signed with a given CA
 func GenerateOperatorCertificate(operator string) ([]byte, []byte) {
-	return GenerateCertificate(OperatorCA, operator, false, true)
+	return GenerateECCCertificate(OperatorCA, operator, false, true)
 }
 
 // GetOperatorCertificate - Generate a certificate signed with a given CA
-func GetOperatorCertificate(operator string) ([]byte, []byte) {
-	return GetCertificate(OperatorCA, operator)
+func GetOperatorCertificate(operator string) ([]byte, []byte, error) {
+	return GetECCCertificate(OperatorCA, operator)
 }
 
 // ListOperatorCertificates - Get all client certificates
 func ListOperatorCertificates() []*x509.Certificate {
-	bucket := db.Bucket(OperatorCA)
-	for _, names := range bucket.List("") {
+	bucket, err := db.GetBucket(OperatorCA)
+	if err != nil {
+		return []*x509.Certificate{}
+	}
 
+	certs := []*x509.Certificate{}
+	ls, err := bucket.List("")
+	for _, operator := range ls {
+		certPEM, err := bucket.Get(operator)
 		if err != nil {
 			certsLog.Warnf("Failed to read cert file %v", err)
 			continue

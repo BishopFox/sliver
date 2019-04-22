@@ -7,12 +7,10 @@ const (
 
 // GenerateECCSliverCertificate - Generate a certificate signed with a given CA
 func GenerateECCSliverCertificate(sliverName string) ([]byte, []byte) {
-	cert, key := GenerateCertificate(rootDir, sliverName, SliversCert, false, true)
-	return cert, key
+	return GenerateECCCertificate(SliverCA, sliverName, false, true)
 }
 
 // GenerateRSASliverCertificate - Generate a certificate signed with a given CA
 func GenerateRSASliverCertificate(sliverName string) ([]byte, []byte) {
-	cert, key := GenerateCertificate(rootDir, sliverName, SliversCert, false, true)
-	return cert, key
+	return GenerateRSACertificate(SliverCA, sliverName, false, true)
 }

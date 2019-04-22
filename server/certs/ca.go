@@ -31,9 +31,10 @@ func getCertDir() string {
 
 // GenerateCertificateAuthority - Creates a new CA cert for a given type
 func GenerateCertificateAuthority(caType string) ([]byte, []byte) {
-	caDir := getCertDir()
-
-	return nil, nil
+	certsLog.Infof("Generating certificate authority for '%s'", caType)
+	cert, key := GenerateECCCertificate(caType, "", true, false)
+	SaveCertificateAuthority(caType, cert, key)
+	return cert, key
 }
 
 // GetCertificateAuthority - Get the current CA certificate
@@ -70,7 +71,6 @@ func GetCertificateAuthority(caType string) (*x509.Certificate, *ecdsa.PrivateKe
 
 // GetCertificateAuthorityPEM - Get PEM encoded CA cert/key
 func GetCertificateAuthorityPEM(caType string) ([]byte, []byte, error) {
-
 	caType = path.Base(caType)
 	caCertPath := path.Join(getCertDir(), fmt.Sprintf("%s-ca-cert.pem", caType))
 	caKeyPath := path.Join(getCertDir(), fmt.Sprintf("%s-ca-key.pem", caType))
@@ -90,6 +90,8 @@ func GetCertificateAuthorityPEM(caType string) ([]byte, []byte, error) {
 }
 
 // SaveCertificateAuthority - Save the certificate and the key to the filesystem
+// doesn't return an error because errors are fatal. If we can't generate CAs,
+// then we can't secure comms and we should die a horrible death.
 func SaveCertificateAuthority(caType string, cert []byte, key []byte) {
 
 	storageDir := getCertDir()
@@ -97,6 +99,8 @@ func SaveCertificateAuthority(caType string, cert []byte, key []byte) {
 		os.MkdirAll(storageDir, os.ModePerm)
 	}
 
+	// CAs get written to the filesystem since we control the names and makes them
+	// easier to move around/backup
 	certFilePath := path.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
 	keyFilePath := path.Join(storageDir, fmt.Sprintf("%s-ca-key.pem", caType))
 
