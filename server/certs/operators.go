@@ -11,18 +11,15 @@ const (
 	OperatorCA = "operator"
 )
 
-// GenerateOperatorCertificate - Generate a certificate signed with a given CA
-func GenerateOperatorCertificate(operator string) ([]byte, []byte) {
-	return GenerateECCCertificate(OperatorCA, operator, false, true)
+// OperatorGenerateCertificate - Generate a certificate signed with a given CA
+func OperatorGenerateCertificate(operator string) ([]byte, []byte, error) {
+	cert, key := GenerateECCCertificate(OperatorCA, operator, false, true)
+	err := SaveCertificate(OperatorCA, ECCKey, operator, cert, key)
+	return cert, key, err
 }
 
-// GetOperatorCertificate - Generate a certificate signed with a given CA
-func GetOperatorCertificate(operator string) ([]byte, []byte, error) {
-	return GetECCCertificate(OperatorCA, operator)
-}
-
-// ListOperatorCertificates - Get all client certificates
-func ListOperatorCertificates() []*x509.Certificate {
+// OperatorListCertificates - Get all client certificates
+func OperatorListCertificates() []*x509.Certificate {
 	bucket, err := db.GetBucket(OperatorCA)
 	if err != nil {
 		return []*x509.Certificate{}

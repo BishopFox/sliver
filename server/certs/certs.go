@@ -79,7 +79,7 @@ func GetRSACertificate(caType string, commonName string) ([]byte, []byte, error)
 }
 
 // GetCertificate - Get the PEM encoded certificate & key for a host
-func GetCertificate(caType string, commonName string, keyType string) ([]byte, []byte, error) {
+func GetCertificate(caType string, keyType string, commonName string) ([]byte, []byte, error) {
 
 	if keyType != ECCKey && keyType != RSAKey {
 		return nil, nil, fmt.Errorf("Invalid key type '%s'", keyType)

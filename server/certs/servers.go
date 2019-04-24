@@ -5,12 +5,14 @@ const (
 	ServerCA = "server"
 )
 
-// GenerateECCServerCertificate - Generate a server certificate signed with a given CA
-func GenerateECCServerCertificate(host string) ([]byte, []byte) {
+// ServerGenerateECCCertificate - Generate a server certificate signed with a given CA
+func ServerGenerateECCCertificate(host string) ([]byte, []byte) {
 	return GenerateECCCertificate(ServerCA, host, false, false)
 }
 
-// GenerateRSAServerCertificate - Generate a server certificate signed with a given CA
-func GenerateRSAServerCertificate(host string) ([]byte, []byte) {
-	return GenerateRSACertificate(ServerCA, host, false, false)
+// ServerGenerateRSACertificate - Generate a server certificate signed with a given CA
+func ServerGenerateRSACertificate(host string) ([]byte, []byte, error) {
+	cert, key := GenerateRSACertificate(ServerCA, host, false, false)
+	err := SaveCertificate(ServerCA, RSAKey, host, cert, key)
+	return cert, key, err
 }

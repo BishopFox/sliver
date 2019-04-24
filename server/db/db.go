@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sync"
 
 	"sliver/server/assets"
 	"sliver/server/log"
@@ -21,8 +22,10 @@ const (
 )
 
 var (
-	rootDB = getRootDB()
-	dbLog  = log.NamedLogger("db", "")
+	rootDB       = getRootDB()
+	dbLog        = log.NamedLogger("db", "")
+	dbCache      = &map[string]*Bucket{}
+	dbCacheMutex = &sync.Mutex{}
 )
 
 // Bucket - Badger database and namespaced logger
@@ -130,6 +133,16 @@ func GetBucket(name string) (*Bucket, error) {
 		dbLog.Debugf("Using bucket %#v (%s)", name, bucketUUID)
 	}
 
+	// We can only call open() once on each directory so we save references
+	// to buckets when we open them.
+	dbCacheMutex.Lock()
+	defer dbCacheMutex.Unlock()
+	if bucket, ok := (*dbCache)[bucketUUID]; ok {
+		dbLog.Debugf("Cache hit for bucket bucket %#v (%s)", name, bucketUUID)
+		return bucket, nil
+	}
+
+	// No open handle to database, open/create the bucket
 	bucketDir := path.Join(rootDir, dbDirName, bucketsDirName, bucketUUID)
 	if _, err := os.Stat(bucketDir); os.IsNotExist(err) {
 		os.MkdirAll(bucketDir, os.ModePerm)
@@ -143,10 +156,12 @@ func GetBucket(name string) (*Bucket, error) {
 		dbLog.Errorf("Failed to open db %s", err)
 		return nil, err
 	}
-	return &Bucket{
+	bucket := &Bucket{
 		db:  db,
 		Log: log.NamedLogger("db", name),
-	}, nil
+	}
+	(*dbCache)[bucketUUID] = bucket
+	return bucket, nil
 }
 
 // DeleteBucket - Deletes a bucket from the filesystem and rootDB

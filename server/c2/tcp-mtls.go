@@ -9,7 +9,6 @@ import (
 	"net"
 	consts "sliver/client/constants"
 	pb "sliver/protobuf/sliver"
-	"sliver/server/assets"
 	"sliver/server/core"
 	"sliver/server/log"
 	"sync"
@@ -22,7 +21,7 @@ import (
 
 const (
 	// defaultServerCert - Default certificate name if bind is "" (all interfaces)
-	defaultServerCert = "hive"
+	defaultServerCert = ""
 )
 
 var (
@@ -32,11 +31,11 @@ var (
 // StartMutualTLSListener - Start a mutual TLS listener
 func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error) {
 	mtlsLog.Infof("Starting Raw TCP/mTLS listener on %s:%d", bindIface, port)
-	hostCert := bindIface
-	if hostCert == "" {
-		hostCert = defaultServerCert
+	host := bindIface
+	if host == "" {
+		host = defaultServerCert
 	}
-	tlsConfig := getServerTLSConfig(certs.SliversCertDir, hostCert)
+	tlsConfig := getServerTLSConfig(certs.ServerCA, host)
 	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", bindIface, port), tlsConfig)
 	if err != nil {
 		mtlsLog.Error(err)
@@ -183,16 +182,14 @@ func socketReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 // to specify any TLS paramters, we choose sensible defaults instead
 func getServerTLSConfig(caType string, host string) *tls.Config {
 
-	rootDir := assets.GetRootAppDir()
-
-	caCertPtr, _, err := certs.GetCertificateAuthority(rootDir, caType)
+	caCertPtr, _, err := certs.GetCertificateAuthority(caType)
 	if err != nil {
 		mtlsLog.Fatalf("Invalid ca type (%s): %v", caType, host)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AddCert(caCertPtr)
 
-	certPEM, keyPEM, _ := certs.GetServerCertificatePEM(rootDir, caType, host, true)
+	certPEM, keyPEM, _ := certs.GetCertificate(caType, certs.RSAKey, host)
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		mtlsLog.Fatalf("Error loading server certificate: %v", err)

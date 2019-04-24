@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"regexp"
 	consts "sliver/client/constants"
-	"sliver/server/assets"
 	"sliver/server/certs"
 	"sliver/server/core"
 	"sliver/server/transport"
@@ -78,9 +77,12 @@ func newPlayerCmd(ctx *grumble.Context) {
 	}
 
 	fmt.Printf(Info + "Generating new client certificate, please wait ... \n")
-	rootDir := assets.GetRootAppDir()
-	publicKey, privateKey := certs.GenerateClientCertificate(rootDir, operator, true)
-	caCertPEM, _, _ := certs.GetCertificateAuthorityPEM(rootDir, certs.ClientsCertDir)
+	publicKey, privateKey, err := certs.OperatorGenerateCertificate(operator)
+	if err != nil {
+		fmt.Printf(Warn+"Failed to generate certificate %s", err)
+		return
+	}
+	caCertPEM, _, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
 	config := ClientConfig{
 		Operator:      operator,
 		LHost:         lhost,

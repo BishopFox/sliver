@@ -306,10 +306,12 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 	goConfig.GOPATH = projectGoPathDir
 
 	// Cert PEM encoded certificates
-	rootDir := assets.GetRootAppDir()
-	caCert, _, _ := certs.GetCertificateAuthorityPEM(rootDir, certs.SliversCertDir)
-	sliverCert, sliverKey := certs.GenerateSliverCertificate(rootDir, config.Name, true)
-	config.CACert = string(caCert)
+	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.ServerCA)
+	sliverCert, sliverKey, err := certs.SliverGenerateECCCertificate(config.Name)
+	if err != nil {
+		return "", err
+	}
+	config.CACert = string(serverCACert)
 	config.Cert = string(sliverCert)
 	config.Key = string(sliverKey)
 

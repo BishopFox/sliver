@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/x509"
 	clientpb "sliver/protobuf/client"
-	"sliver/server/assets"
 	"sliver/server/certs"
 	"sliver/server/core"
 
@@ -13,7 +12,7 @@ import (
 
 func rpcPlayers(_ []byte, resp RPCResponse) {
 
-	clientCerts := certs.GetClientCertificates(assets.GetRootAppDir())
+	clientCerts := certs.OperatorListCertificates()
 
 	players := &clientpb.Players{Players: []*clientpb.Player{}}
 	for _, cert := range clientCerts {

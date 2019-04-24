@@ -10,7 +10,6 @@ import (
 	consts "sliver/client/constants"
 	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
-	"sliver/server/assets"
 	"sliver/server/certs"
 	"sliver/server/core"
 	"sliver/server/log"
@@ -41,7 +40,7 @@ func StartClientListener(bindIface string, port uint16) (net.Listener, error) {
 	if hostCert == "" {
 		hostCert = defaultServerCert
 	}
-	tlsConfig := getServerTLSConfig(certs.ClientsCertDir, hostCert)
+	tlsConfig := getOperatorServerTLSConfig(certs.OperatorCA, hostCert)
 	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", bindIface, port), tlsConfig)
 	if err != nil {
 		clientLog.Error(err)
@@ -286,20 +285,18 @@ func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 	return envelope, nil
 }
 
-// getServerTLSConfig - Generate the TLS configuration, we do now allow the end user
+// getOperatorServerTLSConfig - Generate the TLS configuration, we do now allow the end user
 // to specify any TLS paramters, we choose sensible defaults instead
-func getServerTLSConfig(caType string, host string) *tls.Config {
+func getOperatorServerTLSConfig(caType string, host string) *tls.Config {
 
-	rootDir := assets.GetRootAppDir()
-
-	caCertPtr, _, err := certs.GetCertificateAuthority(rootDir, caType)
+	caCertPtr, _, err := certs.GetCertificateAuthority(caType)
 	if err != nil {
 		clientLog.Fatalf("Invalid ca type (%s): %v", caType, host)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AddCert(caCertPtr)
 
-	certPEM, keyPEM, _ := certs.GetServerCertificatePEM(rootDir, caType, host, true)
+	certPEM, keyPEM, _ := certs.GetCertificate(caType, certs.ECCKey, host)
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		clientLog.Fatalf("Error loading server certificate: %v", err)

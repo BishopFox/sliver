@@ -5,12 +5,16 @@ const (
 	SliverCA = "sliver"
 )
 
-// GenerateECCSliverCertificate - Generate a certificate signed with a given CA
-func GenerateECCSliverCertificate(sliverName string) ([]byte, []byte) {
-	return GenerateECCCertificate(SliverCA, sliverName, false, true)
+// SliverGenerateECCCertificate - Generate a certificate signed with a given CA
+func SliverGenerateECCCertificate(sliverName string) ([]byte, []byte, error) {
+	cert, key := GenerateECCCertificate(SliverCA, sliverName, false, true)
+	err := SaveCertificate(SliverCA, ECCKey, sliverName, cert, key)
+	return cert, key, err
 }
 
-// GenerateRSASliverCertificate - Generate a certificate signed with a given CA
-func GenerateRSASliverCertificate(sliverName string) ([]byte, []byte) {
-	return GenerateRSACertificate(SliverCA, sliverName, false, true)
+// SliverGenerateRSACertificate - Generate a certificate signed with a given CA
+func SliverGenerateRSACertificate(sliverName string) ([]byte, []byte, error) {
+	cert, key := GenerateRSACertificate(SliverCA, sliverName, false, true)
+	err := SaveCertificate(SliverCA, RSAKey, sliverName, cert, key)
+	return cert, key, err
 }

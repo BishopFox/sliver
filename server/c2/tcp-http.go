@@ -135,7 +135,7 @@ func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 	if conf.ACME {
 		conf.Domain = filepath.Base(conf.Domain) // I don't think we need this, but we do it anyways
 		httpLog.Infof("Attempting to fetch let's encrypt certificate for '%s' ...", conf.Domain)
-		acmeManager := certs.GetACMEManager(assets.GetRootAppDir(), conf.Domain)
+		acmeManager := certs.GetACMEManager(conf.Domain)
 		acmeHTTPServer := &http.Server{Addr: ":80", Handler: acmeManager.HTTPHandler(nil)}
 		go acmeHTTPServer.ListenAndServe()
 		server.HTTPServer.TLSConfig = &tls.Config{
@@ -171,11 +171,11 @@ func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
 	if conf.Cert == nil || conf.Key == nil {
 		// Generate a self-signed certificate
-		_, _, err := certs.GetCertificateAuthority(assets.GetRootAppDir(), certs.ServersCertDir)
+		_, _, err := certs.GetCertificateAuthority(certs.ServerCA)
 		if err != nil {
-			certs.GenerateCertificateAuthority(assets.GetRootAppDir(), certs.ServersCertDir, true)
+			certs.GenerateCertificateAuthority(certs.ServerCA)
 		}
-		conf.Cert, conf.Key = certs.GenerateServerRSACertificate(assets.GetRootAppDir(), certs.ServersCertDir, conf.Domain, true)
+		conf.Cert, conf.Key, _ = certs.HTTPSGenerateRSACertificate(conf.Domain)
 	}
 	cert, err := tls.X509KeyPair(conf.Cert, conf.Key)
 	if err != nil {
@@ -313,16 +313,14 @@ func default404Handler(resp http.ResponseWriter, req *http.Request) {
 // [ HTTP Handlers ] ---------------------------------------------------------------
 
 func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
-	rootDir := assets.GetRootAppDir()
-	certPEM, _, _ := certs.GetServerRSACertificatePEM(rootDir, certs.SliversCertDir, s.Conf.Domain, true)
+	certPEM, _, _ := certs.ServerGenerateRSACertificate(s.Conf.Domain)
 	resp.Write(certPEM)
 }
 
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request) {
-	rootDir := assets.GetRootAppDir()
 
 	// Note: these are the c2 certificates NOT the certificates/keys used for SSL/TLS
-	publicKeyPEM, privateKeyPEM, err := certs.GetServerRSACertificatePEM(rootDir, certs.SliversCertDir, s.Conf.Domain, false)
+	publicKeyPEM, privateKeyPEM, err := certs.ServerGenerateRSACertificate(s.Conf.Domain)
 	if err != nil {
 		httpLog.Info("Failed to fetch rsa private key")
 		resp.WriteHeader(404)

@@ -20,6 +20,7 @@ func SetupCAs() {
 	GenerateCertificateAuthority(ServerCA)
 	GenerateCertificateAuthority(SliverCA)
 	GenerateCertificateAuthority(OperatorCA)
+	GenerateCertificateAuthority(HTTPSCA)
 }
 
 func getCertDir() string {
