@@ -66,10 +66,10 @@ func getsystem(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 	if gsResp.Output != "" {
-		fmt.Printf("\n"+Warn+"Error: %s", gsResp.Output)
+		fmt.Printf("\n"+Warn+"Error: %s\n", gsResp.Output)
 		return
 	}
-	fmt.Printf("\n" + Info + "A new SYSTEM session should pop soon...")
+	fmt.Printf("\n" + Info + "A new SYSTEM session should pop soon...\n")
 }
 
 func elevate(ctx *grumble.Context, rpc RPCServer) {
