@@ -6,10 +6,8 @@ import (
 	"path"
 	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
-	"sliver/server/assets"
 	"sliver/server/core"
 	"sliver/server/generate"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -111,35 +109,4 @@ func rpcNewProfile(req []byte, resp RPCResponse) {
 		err = errors.New("Invalid profile name")
 	}
 	resp([]byte{}, err)
-}
-
-func rpcExecuteAssembly(req []byte, resp RPCResponse) {
-	execReq := &sliverpb.ExecuteAssemblyReq{}
-	err := proto.Unmarshal(req, execReq)
-	if err != nil {
-		resp([]byte{}, err)
-		return
-	}
-	sliver := core.Hive.Sliver(execReq.SliverID)
-	if sliver == nil {
-		resp([]byte{}, err)
-		return
-	}
-	hostingDllPath := assets.GetDataDir() + "/HostingCLRx64.dll"
-	hostingDllBytes, err := ioutil.ReadFile(hostingDllPath)
-	if err != nil {
-		resp([]byte{}, err)
-		return
-	}
-	data, _ := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
-		Assembly:   execReq.Assembly,
-		HostingDll: hostingDllBytes,
-		Arguments:  execReq.Arguments,
-		Timeout:    execReq.Timeout,
-		SliverID:   execReq.SliverID,
-	})
-	timeout := time.Duration(execReq.Timeout) * time.Second
-	data, err = sliver.Request(sliverpb.MsgExecuteAssemblyReq, timeout, data)
-	resp(data, err)
-
 }
