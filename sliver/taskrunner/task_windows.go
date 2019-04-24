@@ -296,6 +296,9 @@ func ExecuteAssembly(hostingDll, assembly []byte, params string, timeout int32) 
 	if err != nil {
 		return "", err
 	}
+	// {{if .Debug}}
+	log.Printf("[*] RemoteThread started, now sleeping %d seconds...\n", timeout)
+	// {{end}}
 	time.Sleep(time.Duration(rand.Int31n(timeout)) * time.Second)
 	cmd.Process.Kill()
 	go func() {

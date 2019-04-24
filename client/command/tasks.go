@@ -117,6 +117,7 @@ func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "Please provide valid arguments.\n")
 		return
 	}
+	timeout := ctx.Flags.Int("timeout")
 	assemblyBytes, err := ioutil.ReadFile(ctx.Args[0])
 	if err != nil {
 		fmt.Printf(Warn+"%s", err.Error())
@@ -132,7 +133,7 @@ func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 	go spin.Until("Executing assembly ...", ctrl)
 	data, _ := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
 		SliverID:   ActiveSliver.Sliver.ID,
-		Timeout:    int32(5),
+		Timeout:    int32(timeout),
 		Arguments:  assemblyArgs,
 		Assembly:   assemblyBytes,
 		HostingDll: []byte{},

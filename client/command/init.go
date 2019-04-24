@@ -611,7 +611,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:      consts.ExecuteAssemblyStr,
-		Help:      "Load and executes a .NET assembly in a child process",
+		Help:      "Loads and executes a .NET assembly in a child process",
 		LongHelp:  help.GetHelpFor(consts.ExecuteAssemblyStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
@@ -619,6 +619,9 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			executeAssembly(ctx, server.RPC)
 			fmt.Println()
 			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", 30, "Time to wait before killing the hosting process")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
