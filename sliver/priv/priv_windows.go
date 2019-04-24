@@ -4,6 +4,7 @@ package priv
 
 import (
 	// {{if .Debug}}
+	"fmt"
 	"log"
 	// {{end}}
 	"os"
@@ -214,6 +215,10 @@ func impersonateProcess(pid uint32) (newToken syscall.Token, err error) {
 }
 
 func impersonateUser(username string) (token syscall.Token, err error) {
+	if username == "" {
+		err = fmt.Errorf("username can't be empty")
+		return
+	}
 	p, err := ps.Processes()
 	if err != nil {
 		return
