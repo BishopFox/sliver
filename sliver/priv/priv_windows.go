@@ -4,13 +4,12 @@ package priv
 
 import (
 	// {{if .Debug}}
-	"fmt"
 	"log"
-	"runtime"
-
 	// {{end}}
+	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
