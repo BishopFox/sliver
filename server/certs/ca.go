@@ -26,15 +26,28 @@ func SetupCAs() {
 func getCertDir() string {
 	rootDir := assets.GetRootAppDir()
 	certDir := path.Join(rootDir, "certs")
-	os.MkdirAll(certDir, os.ModePerm)
+	if _, err := os.Stat(certDir); os.IsNotExist(err) {
+		err := os.MkdirAll(certDir, os.ModePerm)
+		if err != nil {
+			certsLog.Fatalf("Failed to create cert dir %s", err)
+		}
+	}
 	return certDir
 }
 
 // GenerateCertificateAuthority - Creates a new CA cert for a given type
-func GenerateCertificateAuthority(caType string) ([]byte, []byte) {
-	certsLog.Infof("Generating certificate authority for '%s'", caType)
-	cert, key := GenerateECCCertificate(caType, "", true, false)
-	SaveCertificateAuthority(caType, cert, key)
+func GenerateCertificateAuthority(caType string) (*x509.Certificate, *ecdsa.PrivateKey) {
+	storageDir := getCertDir()
+	certFilePath := path.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
+	if _, err := os.Stat(certFilePath); os.IsNotExist(err) {
+		certsLog.Infof("Generating certificate authority for '%s'", caType)
+		cert, key := GenerateECCCertificate(caType, "", true, false)
+		SaveCertificateAuthority(caType, cert, key)
+	}
+	cert, key, err := GetCertificateAuthority(caType)
+	if err != nil {
+		certsLog.Fatalf("Failed to load CA %s", err)
+	}
 	return cert, key
 }
 

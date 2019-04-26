@@ -24,6 +24,7 @@ const (
 	goPathDirName   = "gopath"
 	versionFileName = "version"
 	dataDirName     = "data"
+	envVarName      = "SLIVER_ROOT_DIR"
 )
 
 var (
@@ -33,14 +34,23 @@ var (
 	protobufBox = packr.NewBox("../../protobuf")
 )
 
-// GetRootAppDir - Get the Sliver app dir ~/.sliver/
+// GetRootAppDir - Get the Sliver app dir, default is: ~/.sliver/
 func GetRootAppDir() string {
-	user, _ := user.Current()
-	dir := path.Join(user.HomeDir, ".sliver")
+
+	value := os.Getenv(envVarName)
+
+	var dir string
+	if len(value) == 0 {
+		user, _ := user.Current()
+		dir = path.Join(user.HomeDir, ".sliver")
+	} else {
+		dir = value
+	}
+
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, os.ModePerm)
 		if err != nil {
-			setupLog.Fatal(err)
+			setupLog.Fatalf("Cannot write to sliver root dir %s", err)
 		}
 	}
 	return dir

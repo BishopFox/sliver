@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-func TestGenerateECCSliverCertificate(t *testing.T) {
+func TestSliverGenerateECCCertificate(t *testing.T) {
 	GenerateCertificateAuthority(SliverCA)
-	eccCert1, eccKey1, err := GenerateECCSliverCertificate("test1")
+	eccCert1, eccKey1, err := SliverGenerateECCCertificate("test1")
 	if err != nil {
 		t.Errorf("Failed to generate ecc certificate %v", err)
 		return
@@ -24,8 +24,8 @@ func TestGenerateECCSliverCertificate(t *testing.T) {
 
 }
 
-func TestGenerateRSASliverCertificate(t *testing.T) {
-	rsaCert1, rsaKey1, err := GenerateRSASliverCertificate("test2")
+func TestSliverGenerateRSACertificate(t *testing.T) {
+	rsaCert1, rsaKey1, err := SliverGenerateRSACertificate("test2")
 	if err != nil {
 		t.Errorf("Failed to generate rsa certificate %v", err)
 		return
@@ -41,9 +41,9 @@ func TestGenerateRSASliverCertificate(t *testing.T) {
 	}
 }
 
-func TestGenerateOperatorCertificate(t *testing.T) {
+func TestOperatorGenerateCertificate(t *testing.T) {
 	GenerateCertificateAuthority(OperatorCA)
-	cert1, key1, err := GenerateOperatorCertificate("test3")
+	cert1, key1, err := OperatorGenerateCertificate("test3")
 	if err != nil {
 		t.Errorf("Failed to store ecc certificate %v", err)
 	}
@@ -61,8 +61,10 @@ func TestGenerateOperatorCertificate(t *testing.T) {
 
 func TestGenerateServerCertificate(t *testing.T) {
 	GenerateCertificateAuthority(ServerCA)
-
-	GenerateECCServerCertificate("test3.com")
-	GenerateRSAServerCertificate("test3.com")
-
+	ServerGenerateECCCertificate("test3.com")
+	_, _, err := ServerGenerateRSACertificate("test3.com")
+	if err != nil {
+		t.Errorf("Failed to generate server rsa certificate")
+		return
+	}
 }

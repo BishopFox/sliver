@@ -114,7 +114,8 @@ type SliverHTTPC2 struct {
 	Cleanup    func()
 }
 
-// StartHTTPSListener - Start a mutual TLS listener
+// StartHTTPSListener - Start an HTTP(S) listener, this can be used to start both
+//						HTTP/HTTPS depending on the caller's conf
 func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 	httpLog.Infof("Starting https listener on '%s'", conf.Addr)
 	server := &SliverHTTPC2{
@@ -165,17 +166,25 @@ func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 			}
 		}
 	}
+	_, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, conf.Domain)
+	if err == certs.ErrCertDoesNotExist {
+		_, _, err := certs.ServerGenerateRSACertificate(conf.Domain)
+		if err != nil {
+			httpLog.Errorf("Failed to generate server rsa certificate %s", err)
+			return nil
+		}
+	}
 	return server
 }
 
 func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
 	if conf.Cert == nil || conf.Key == nil {
-		// Generate a self-signed certificate
-		_, _, err := certs.GetCertificateAuthority(certs.ServerCA)
+		var err error
+		conf.Cert, conf.Key, err = certs.HTTPSGenerateRSACertificate(conf.Domain)
 		if err != nil {
-			certs.GenerateCertificateAuthority(certs.ServerCA)
+			httpLog.Warnf("Failed to generate self-signed tls cert/key pair %v", err)
+			return nil
 		}
-		conf.Cert, conf.Key, _ = certs.HTTPSGenerateRSACertificate(conf.Domain)
 	}
 	cert, err := tls.X509KeyPair(conf.Cert, conf.Key)
 	if err != nil {
@@ -194,34 +203,6 @@ func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
 			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
 		},
 	}
-}
-
-// StartHTTPListener - Start a mutual TLS listener
-func StartHTTPListener(conf *HTTPServerConfig) *SliverHTTPC2 {
-	httpLog.Infof("Starting http listener on '%s'", conf.Addr)
-	server := &SliverHTTPC2{
-		Conf: conf,
-		Sessions: &httpSessions{
-			sessions: &map[string]*HTTPSession{},
-			mutex:    &sync.RWMutex{},
-		},
-	}
-	server.HTTPServer = &http.Server{
-		Addr:         conf.Addr,
-		Handler:      server.router(),
-		WriteTimeout: defaultHTTPTimeout,
-		ReadTimeout:  defaultHTTPTimeout,
-		IdleTimeout:  defaultHTTPTimeout,
-	}
-	server.Cleanup = func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		server.HTTPServer.Shutdown(ctx)
-		if err := server.HTTPServer.Shutdown(ctx); err != nil {
-			httpLog.Warnf("Failed to shutdown http server")
-		}
-	}
-	return server
 }
 
 func (s *SliverHTTPC2) router() *mux.Router {
@@ -276,7 +257,6 @@ func filterAgent(req *http.Request, rm *mux.RouteMatch) bool {
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		accessLog.Infof("%s - %s - %v", req.RemoteAddr, req.RequestURI, req.Header["User-Agent"])
-		httpLog.Debugf("%v", resp)
 		next.ServeHTTP(resp, req)
 	})
 }
@@ -313,14 +293,17 @@ func default404Handler(resp http.ResponseWriter, req *http.Request) {
 // [ HTTP Handlers ] ---------------------------------------------------------------
 
 func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
-	certPEM, _, _ := certs.ServerGenerateRSACertificate(s.Conf.Domain)
+	certPEM, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, s.Conf.Domain)
+	if err != nil {
+		httpLog.Infof("Failed to get server certificate for cn = '%s': %s", s.Conf.Domain, err)
+	}
 	resp.Write(certPEM)
 }
 
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request) {
 
 	// Note: these are the c2 certificates NOT the certificates/keys used for SSL/TLS
-	publicKeyPEM, privateKeyPEM, err := certs.ServerGenerateRSACertificate(s.Conf.Domain)
+	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, s.Conf.Domain)
 	if err != nil {
 		httpLog.Info("Failed to fetch rsa private key")
 		resp.WriteHeader(404)

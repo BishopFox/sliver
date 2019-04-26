@@ -138,7 +138,6 @@ func GetBucket(name string) (*Bucket, error) {
 	dbCacheMutex.Lock()
 	defer dbCacheMutex.Unlock()
 	if bucket, ok := (*dbCache)[bucketUUID]; ok {
-		dbLog.Debugf("Cache hit for bucket bucket %#v (%s)", name, bucketUUID)
 		return bucket, nil
 	}
 

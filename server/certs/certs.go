@@ -11,21 +11,20 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
 	"sliver/server/db"
 	"sliver/server/log"
 	"time"
-)
 
-var (
-	certsLog = log.NamedLogger("certs", "certificates")
+	"github.com/dgraph-io/badger"
 )
 
 const (
 	// RSAKeySize - Default size of RSA keys in bits
-	RSAKeySize = 2048
+	RSAKeySize = 2048 // This is plenty 4096 is overkill
 
 	// Certs are valid for ~3 Years, minus up to 1 year from Now()
 	validFor = 3 * (365 * 24 * time.Hour)
@@ -35,6 +34,13 @@ const (
 
 	// RSAKey - Namespace for RSA keys
 	RSAKey = "rsa"
+)
+
+var (
+	certsLog = log.NamedLogger("certs", "certificates")
+
+	// ErrCertDoesNotExist - Returned if a GetCertificate() is called for a cert/cn that does not exist
+	ErrCertDoesNotExist = errors.New("Certificate does not exist")
 )
 
 // CertificateKeyPair - Single struct with KeyType/Cert/PrivateKey
@@ -55,7 +61,7 @@ func SaveCertificate(caType string, keyType string, commonName string, cert []by
 	if err != nil {
 		return err
 	}
-	bucket.Log.Infof("Saving certificate for %s", commonName)
+	bucket.Log.Infof("Saving certificate for cn = '%s'", commonName)
 	keyPair, err := json.Marshal(CertificateKeyPair{
 		KeyType:     keyType,
 		Certificate: cert,
@@ -91,6 +97,9 @@ func GetCertificate(caType string, keyType string, commonName string) ([]byte, [
 		return nil, nil, err
 	}
 	rawKeyPair, err := bucket.Get(fmt.Sprintf("%s_%s", keyType, commonName))
+	if err == badger.ErrKeyNotFound {
+		return nil, nil, ErrCertDoesNotExist
+	}
 	if err != nil {
 		return nil, nil, err
 	}
