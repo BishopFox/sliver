@@ -15,7 +15,8 @@ const (
 	// MsgJobs - Jobs message
 	MsgJobs
 	MsgJobKill
-
+	// MsgTcp - TCP message
+	MsgTcp
 	// MsgMtls - MTLS message
 	MsgMtls
 
@@ -44,4 +45,5 @@ const (
 	MsgTask
 	MsgMigrate
 	MsgGetSystemReq
+	MsgEggReq
 )

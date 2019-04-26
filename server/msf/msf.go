@@ -28,6 +28,7 @@ var (
 	ValidEncoders = map[string]bool{
 		"":                   true,
 		"x86/shikata_ga_nai": true,
+		"x64/xor_dynamic":    true,
 	}
 
 	// ValidPayloads - Valid payloads and OS combos
@@ -36,6 +37,9 @@ var (
 			"meterpreter_reverse_http":  true,
 			"meterpreter_reverse_https": true,
 			"meterpreter_reverse_tcp":   true,
+			"meterpreter/reverse_tcp":   true,
+			"meterpreter/reverse_http":  true,
+			"meterpreter/reverse_https": true,
 		},
 		"linux": map[string]bool{
 			"meterpreter_reverse_http":  true,
@@ -59,6 +63,7 @@ type VenomConfig struct {
 	Iterations int
 	LHost      string
 	LPort      uint16
+	Options    []string
 }
 
 // Version - Return the version of MSFVenom
@@ -99,6 +104,7 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 		"--payload", payload,
 		fmt.Sprintf("LHOST=%s", config.LHost),
 		fmt.Sprintf("LPORT=%d", config.LPort),
+		strings.Join(config.Options, " "),
 		fmt.Sprintf("EXITFUNC=thread"),
 	}
 

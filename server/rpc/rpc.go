@@ -43,6 +43,8 @@ var (
 		clientpb.MsgMsfInject:    rpcMsfInject,
 		clientpb.MsgGetSystemReq: rpcGetSystem,
 
+		clientpb.MsgEggReq: rpcEgg,
+
 		// "Req"s directly map to responses
 		sliverpb.MsgPsReq:          rpcPs,
 		sliverpb.MsgKill:           rpcKill,

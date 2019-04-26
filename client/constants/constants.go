@@ -41,6 +41,7 @@ const (
 
 	GenerateStr        = "generate"
 	ProfileGenerateStr = "generate-profile"
+	EggGenerate        = "generate-egg"
 	ProfilesStr        = "profiles"
 	NewProfileStr      = "new-profile"
 

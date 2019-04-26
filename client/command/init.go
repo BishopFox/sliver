@@ -11,6 +11,7 @@ import (
 
 const (
 	defaultMTLSLPort = 8888
+	defaultTCPPort   = 4444
 )
 
 // Init - Bind commands to a App
@@ -241,6 +242,41 @@ func Init(app *grumble.App, server *core.SliverServer) {
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			generate(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.EggGenerate,
+		Help:     "Generate an egg shellcode (sliver stager)",
+		LongHelp: help.GetHelpFor(consts.EggGenerate),
+		Flags: func(f *grumble.Flags) {
+			f.String("o", "os", "windows", "operating system")
+			f.String("a", "arch", "amd64", "cpu architecture")
+			f.Bool("d", "debug", false, "enable debug features")
+
+			f.String("m", "mtls", "", "mtls connection strings")
+			f.String("t", "http", "", "http(s) connection strings")
+			f.String("n", "dns", "", "dns connection strings")
+
+			f.Int("j", "reconnect", 60, "attempt to reconnect every n second(s)")
+			f.Int("k", "max-errors", 1000, "max number of connection errors")
+
+			f.String("w", "limit-datetime", "", "limit execution to before datetime")
+			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
+			f.String("y", "limit-username", "", "limit execution to specified username")
+			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
+
+			f.String("r", "format", "shellcode", "Fixed to 'shellcode' - do not change") // TODO: find a better way to handle this
+
+			f.String("s", "save", "", "directory/file to the binary to")
+			f.String("c", "listener-url", "", "URL to fetch the stage from ([tcp|http(s)]://SLIVER_SERVER:PORT")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			generateEgg(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},

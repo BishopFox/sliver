@@ -99,6 +99,13 @@ message MTLSReq {
   int32 LPort = 2;
 }
 
+message TCPReq {
+  string Server = 1;
+  int32 LPort = 2;
+}
+
+message TCP { int32 JobID = 1; }
+
 message MTLS { int32 JobID = 1; }
 
 message DNSReq { string Domain = 1; }
@@ -160,6 +167,28 @@ message MigrateReq {
 message GetSystemReq {
   SliverConfig Config = 1;
   uint32 SliverID = 9;
+}
+
+message EggConfig {
+  enum EggProtocol {
+    TCP = 0;
+    HTTP = 1;
+    HTTPS = 2;
+  }
+  EggProtocol Protocol = 1;
+  string Host = 2;
+  uint32 Port = 3;
+  string Arch = 4;
+}
+
+message EggRequest {
+  SliverConfig Config = 1;
+  EggConfig EConfig = 2;
+}
+message Egg {
+  bytes Data = 1;
+  string Filename = 2;
+  int32 JobID = 3;
 }
 
 // [ Tunnels ] ----------------------------------------
