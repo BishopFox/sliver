@@ -200,7 +200,6 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 }
 
 func generateEgg(ctx *grumble.Context, rpc RPCServer) {
-	stageCmd := ""
 	stagingURL := ctx.Flags.String("listener-url")
 	if stagingURL == "" {
 		return
@@ -213,36 +212,26 @@ func generateEgg(ctx *grumble.Context, rpc RPCServer) {
 	config.Format = clientpb.SliverConfig_SHELLCODE
 	config.IsSharedLib = true
 	// Find job type (tcp / http)
-	splitted := strings.Split(stagingURL, ":")
-	if len(splitted) != 3 {
-		fmt.Printf(Warn + "Format should be [tcp|http(s)]://IP:PORT")
-		return
-	}
-	scheme := splitted[0]
-	host := splitted[1]
-	port, err := strconv.ParseUint(splitted[2], 10, 32)
+	u, err := url.Parse(stagingURL)
 	if err != nil {
-		fmt.Printf(Warn+"%s", err)
+		fmt.Printf(Warn + "listener-url format not supported")
 		return
 	}
+	port, _ := strconv.Atoi(u.Port())
 	eggConfig := &clientpb.EggConfig{
-		Host: host,
+		Host: u.Hostname(),
 		Port: uint32(port),
 		Arch: config.GOARCH,
 	}
-	switch scheme {
+	switch u.Scheme {
 	case "tcp":
 		eggConfig.Protocol = clientpb.EggConfig_TCP
-		stageCmd = fmt.Sprintf("tcp --server %s --lport %d", host, port)
 	case "http":
 		eggConfig.Protocol = clientpb.EggConfig_HTTP
-		stageCmd = fmt.Sprintf("http --domain %s --lport %d", host, port)
 	case "https":
 		eggConfig.Protocol = clientpb.EggConfig_HTTPS
-		stageCmd = fmt.Sprintf("http --domain %s --lport %d", host, port)
 	default:
 		eggConfig.Protocol = clientpb.EggConfig_TCP
-		stageCmd = fmt.Sprintf("tcp --server %s --lport %d", host, port)
 	}
 	ctrl := make(chan bool)
 	go spin.Until("Creating stager shellcode...", ctrl)
@@ -280,8 +269,8 @@ func generateEgg(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
 		return
 	}
+	fmt.Printf(Info+"Successfully started job #%d\n", eggResp.JobID)
 	fmt.Printf(Info+"Sliver egg saved to: %s\n", saveTo)
-	fmt.Printf(Info+"Don't forget to start the stage listener with \"%s\"\n", stageCmd)
 }
 
 // Shared function that extracts the compile flags from the grumble context

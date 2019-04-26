@@ -272,7 +272,7 @@ func Init(app *grumble.App, server *core.SliverServer) {
 			f.String("r", "format", "shellcode", "Fixed to 'shellcode' - do not change") // TODO: find a better way to handle this
 
 			f.String("s", "save", "", "directory/file to the binary to")
-			f.String("c", "listener-url", "", "URL to fetch the stage from ([tcp|http(s)]://SLIVER_SERVER:PORT")
+			f.String("c", "listener-url", "", "URL to fetch the stage from (tcp://SLIVER_SERVER:PORT or http(s)://SLIVER_SERVER:PORT")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()

