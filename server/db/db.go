@@ -93,6 +93,7 @@ func getRootDB() *badger.DB {
 	opts := badger.DefaultOptions
 	opts.Dir = dbDir
 	opts.ValueDir = dbDir
+	opts.Logger = log.NamedLogger("db", "root")
 	db, err := badger.Open(opts)
 	if err != nil {
 		dbLog.Fatal(err)
@@ -118,7 +119,7 @@ func GetBucket(name string) (*Bucket, error) {
 		dbLog.Infof("No bucket for name %#v", name)
 		id := uuid.New()
 		txn.Set([]byte(name), []byte(id.String()))
-		if err := txn.Commit(nil); err != nil {
+		if err := txn.Commit(); err != nil {
 			dbLog.Debugf("Failed to create bucket %#v, %v", name, err)
 			return nil, err
 		}
@@ -150,6 +151,8 @@ func GetBucket(name string) (*Bucket, error) {
 	opts := badger.DefaultOptions
 	opts.Dir = bucketDir
 	opts.ValueDir = bucketDir
+	logger := log.NamedLogger("db", name)
+	opts.Logger = logger
 	db, err := badger.Open(opts)
 	if err != nil {
 		dbLog.Errorf("Failed to open db %s", err)
@@ -157,7 +160,7 @@ func GetBucket(name string) (*Bucket, error) {
 	}
 	bucket := &Bucket{
 		db:  db,
-		Log: log.NamedLogger("db", name),
+		Log: logger,
 	}
 	(*dbCache)[bucketUUID] = bucket
 	return bucket, nil
@@ -191,7 +194,7 @@ func DeleteBucket(name string) error {
 	}
 	dbLog.Debugf("Delete bucket %#v (%s)", name, bucketUUID)
 	txn.Delete([]byte(name))
-	if err := txn.Commit(nil); err != nil {
+	if err := txn.Commit(); err != nil {
 		dbLog.Debugf("Failed to delete bucket %#v %v", name, err)
 		return err
 	}

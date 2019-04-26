@@ -320,7 +320,7 @@ func httpsClient(address string, useProxy bool) *SliverHTTPClient {
 			Timeout: defaultNetTimeout,
 		}).Dial,
 		TLSHandshakeTimeout: defaultNetTimeout,
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // We don't care about the HTTP(S) layer certs
 	}
 	client := &SliverHTTPClient{
 		Origin: fmt.Sprintf("https://%s", address),

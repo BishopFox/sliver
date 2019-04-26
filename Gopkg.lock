@@ -50,16 +50,22 @@
   version = "v1.5"
 
 [[projects]]
+  branch = "master"
   name = "github.com/dgraph-io/badger"
-  packages = [".","options","protos","skl","table","y"]
-  revision = "99233d725dbdd26d156c61b2f42ae1671b794656"
-  version = "v1.5.4"
+  packages = [".","options","pb","skl","table","y"]
+  revision = "ff2b7fe72292c0c971de7c8659b13542aa71a5c0"
 
 [[projects]]
   branch = "master"
   name = "github.com/dgryski/go-farm"
   packages = ["."]
   revision = "e1214b5e05dc9a680734f587f0e1686b3889f983"
+
+[[projects]]
+  name = "github.com/dustin/go-humanize"
+  packages = ["."]
+  revision = "9f541cc9db5d55bce703bd99987c9d5cb8eea45e"
+  version = "v1.0.0"
 
 [[projects]]
   name = "github.com/fatih/color"
@@ -238,6 +244,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b27bf0817b450e1874e658f07166493ed71f529ead9ed65add5cf866d601d970"
+  inputs-digest = "5525a3fa0d9165d13814583218639e8f65350256119bbce196ed4ee5bf17713a"
   solver-name = "gps-cdcl"
   solver-version = 1
