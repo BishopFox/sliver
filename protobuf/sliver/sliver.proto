@@ -156,6 +156,15 @@ message ImpersonateReq {
 
 message Impersonate { string Output = 1; }
 
+message GetSystemReq {
+  bytes Data = 1;
+  uint32 SliverID = 9;
+}
+
+message GetSystem {
+  string Output = 1;
+}
+
 message ElevateReq {
   int32 Timeout = 8;
   uint32 SliverID = 9;

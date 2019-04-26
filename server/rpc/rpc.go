@@ -39,8 +39,9 @@ var (
 		clientpb.MsgNewProfile: rpcNewProfile,
 		clientpb.MsgPlayers:    rpcPlayers,
 
-		clientpb.MsgMsf:       rpcMsf,
-		clientpb.MsgMsfInject: rpcMsfInject,
+		clientpb.MsgMsf:          rpcMsf,
+		clientpb.MsgMsfInject:    rpcMsfInject,
+		clientpb.MsgGetSystemReq: rpcGetSystem,
 
 		// "Req"s directly map to responses
 		sliverpb.MsgPsReq:          rpcPs,

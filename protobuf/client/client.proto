@@ -157,6 +157,11 @@ message MigrateReq {
   uint32 SliverID = 9;
 }
 
+message GetSystemReq {
+  SliverConfig Config = 1;
+  uint32 SliverID = 9;
+}
+
 // [ Tunnels ] ----------------------------------------
 message TunnelCreateReq { uint32 SliverID = 1; }
 

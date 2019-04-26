@@ -43,4 +43,5 @@ const (
 	MsgProfiles
 	MsgTask
 	MsgMigrate
+	MsgGetSystemReq
 )

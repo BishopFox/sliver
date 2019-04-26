@@ -77,6 +77,10 @@ const (
 	MsgImpersonateReq
 	// MsgImpersonate - Output of the impersonation command
 	MsgImpersonate
+	// MsgGetSystemReq - Elevate as SYSTEM user
+	MsgGetSystemReq
+	// MsgGetSystem - Response to getsystem request
+	MsgGetSystem
 	// MsgElevateReq - Request to run a new sliver session in an elevated context
 	MsgElevateReq
 	//MsgElevate - Response to the elevation request

