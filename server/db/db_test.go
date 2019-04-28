@@ -3,6 +3,7 @@ package db
 import (
 	"bytes"
 	"crypto/rand"
+	"strings"
 	"testing"
 )
 
@@ -48,5 +49,49 @@ func TestGetBucketInvalidName(t *testing.T) {
 	_, err := GetBucket("")
 	if err == nil {
 		t.Errorf("Failed to create bucket %v", err)
+	}
+}
+
+func TestBucketList(t *testing.T) {
+	data := randomData()
+	bucket, err := GetBucket("test")
+	if err != nil {
+		t.Errorf("Failed to create bucket %v", err)
+		return
+	}
+	err = bucket.Set("foo", data)
+	if err != nil {
+		t.Errorf("Failed write to bucket %v", err)
+		return
+	}
+
+	keys, err := bucket.List("f")
+	if err != nil {
+		t.Errorf("Failed to list bucket %v", err)
+		return
+	}
+	for _, k := range keys {
+		if !strings.HasPrefix(k, "f") {
+			t.Errorf("Key '%s' does not have 'f' prefix", k)
+		}
+	}
+}
+
+func TestBucketMap(t *testing.T) {
+	data := randomData()
+	bucket, err := GetBucket("test")
+	if err != nil {
+		t.Errorf("Failed to create bucket %v", err)
+		return
+	}
+	err = bucket.Set("foo", data)
+	if err != nil {
+		t.Errorf("Failed write to bucket %v", err)
+		return
+	}
+	bucketMap, err := bucket.Map("f")
+	if !bytes.Equal(bucketMap["foo"], data) {
+		t.Errorf("Fetched value does not match sample %v != %v", bucketMap["foo"], data)
+		return
 	}
 }

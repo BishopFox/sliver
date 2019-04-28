@@ -259,6 +259,10 @@ func SliverSharedLibrary(config *SliverConfig) (string, error) {
 		ldflags[0] += " -H=windowsgui"
 	}
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags)
+	saveErr := SliverFileSave(config.Name, dest)
+	if saveErr != nil {
+		buildLog.Errorf("Failed to save file to db %s", saveErr)
+	}
 	return dest, err
 }
 
@@ -288,6 +292,10 @@ func SliverExecutable(config *SliverConfig) (string, error) {
 		ldflags[0] += " -H=windowsgui"
 	}
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags)
+	saveErr := SliverFileSave(config.Name, dest)
+	if saveErr != nil {
+		buildLog.Errorf("Failed to save file to db %s", saveErr)
+	}
 	return dest, err
 }
 
