@@ -47,6 +47,8 @@ const (
 	// DefaultHTTPLPort - Default HTTP listen port
 	DefaultHTTPLPort = 443 // Assume SSL, it'll fallback
 
+	// SliverCCEnvVar - Environment variable that can specify the mingw path
+	SliverCCEnvVar   = "SLIVER_CC"
 	defaultMingwPath = "/usr/bin/x86_64-w64-mingw32-gcc"
 )
 
@@ -216,6 +218,10 @@ func SliverEgg(config SliverConfig) (string, error) {
 	return "", nil
 }
 
+// -----------------------
+// Sliver Generation Code
+// -----------------------
+
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
 func SliverSharedLibrary(config *SliverConfig) (string, error) {
 	// Compile go code
@@ -374,11 +380,15 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		buildLog.Infof("Obfuscated sliver package: %s", obfuscatedPkg)
 		sliverPkgDir = path.Join(obfuscatedGoPath, "src", obfuscatedPkg) // new "main"
 	}
+	err = SliverConfigSave(config)
+	if err != nil {
+		buildLog.Errorf("Failed to save sliver config %s", err)
+	}
 	return sliverPkgDir, nil
 }
 
 func getCCompiler() string {
-	compiler := os.Getenv("SLIVER_CC")
+	compiler := os.Getenv(SliverCCEnvVar)
 	if compiler == "" {
 		compiler = defaultMingwPath
 	}

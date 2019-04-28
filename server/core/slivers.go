@@ -64,6 +64,12 @@ func (s *Sliver) ToProtobuf() *clientpb.Sliver {
 	}
 }
 
+// Config - Get the config the sliver was generated with
+func (s *Sliver) Config() error {
+
+	return nil
+}
+
 // Request - Sends a protobuf request to the active sliver and returns the response
 func (s *Sliver) Request(msgType uint32, timeout time.Duration, data []byte) ([]byte, error) {
 

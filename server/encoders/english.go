@@ -1,18 +1,16 @@
 package encoders
 
-import "io"
+// English Encoder - An ASCIIEncoder for binary to english text
+type English struct{}
 
-/*
-	Go implementation of the "English2bin" encoder scheme
-*/
+// Encode - Base64 Encode
+func (e English) Encode(data []byte) string {
 
-// EnglishEncode - Encode binary data as English ascii text
-func EnglishEncode(w io.Writer, data []byte) {
-
+	return ""
 }
 
-// EnglishDecode - Decode English ascii words into binary data
-func EnglishDecode(data []byte) ([]byte, error) {
+// Decode - Base64 Decode
+func (e English) Decode(data string) ([]byte, error) {
 
-	return []byte{}, nil
+	return nil, nil
 }
