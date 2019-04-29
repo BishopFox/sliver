@@ -14,7 +14,6 @@ import (
 
 	"github.com/desertbit/grumble"
 
-	"sliver/server/generate"
 	"sliver/server/transport"
 )
 
@@ -57,11 +56,8 @@ func serverOnlyCmds(app *grumble.App, server *clientcore.SliverServer) {
 		Help:     "Create a new player config file",
 		LongHelp: help.GetHelpFor(consts.NewPlayerStr),
 		Flags: func(f *grumble.Flags) {
-			f.String("o", "os", generate.WINDOWS, "operating system")
-			f.String("a", "arch", "amd64", "cpu architecture")
 			f.String("h", "lhost", "", "listen host")
 			f.Int("l", "lport", 31337, "listen port")
-			f.Bool("d", "debug", false, "enable debug features")
 			f.String("s", "save", "", "directory/file to the binary to")
 			f.String("n", "operator", "", "operator name")
 		},
