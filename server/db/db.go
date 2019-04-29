@@ -65,7 +65,7 @@ func (b *Bucket) Delete(key string) error {
 	})
 }
 
-// List - List keys filtered by prefix
+// List - Returns a list of keys filtered by prefix. Note that modify this list will not affect the database.
 func (b *Bucket) List(prefix string) ([]string, error) {
 	keyPrefix := []byte(prefix)
 	keys := []string{}
@@ -81,6 +81,27 @@ func (b *Bucket) List(prefix string) ([]string, error) {
 		return nil
 	})
 	return keys, err
+}
+
+// Map - Returns a map of key/values filtered by prefix. Note that modify this map will not affect the database.
+func (b *Bucket) Map(prefix string) (map[string][]byte, error) {
+	keyPrefix := []byte(prefix)
+	bucketMap := map[string][]byte{}
+	err := b.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Seek(keyPrefix); it.ValidForPrefix(keyPrefix); it.Next() {
+			item := it.Item()
+			value, err := item.ValueCopy(nil)
+			if err != nil {
+				continue
+			}
+			bucketMap[string(item.Key())] = value
+		}
+		return nil
+	})
+	return bucketMap, err
 }
 
 // Ptr to the root databasea that maps bucket Names <-> UUIDs

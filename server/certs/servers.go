@@ -6,8 +6,10 @@ const (
 )
 
 // ServerGenerateECCCertificate - Generate a server certificate signed with a given CA
-func ServerGenerateECCCertificate(host string) ([]byte, []byte) {
-	return GenerateECCCertificate(ServerCA, host, false, false)
+func ServerGenerateECCCertificate(host string) ([]byte, []byte, error) {
+	cert, key := GenerateECCCertificate(ServerCA, host, false, false)
+	err := SaveCertificate(ServerCA, RSAKey, host, cert, key)
+	return cert, key, err
 }
 
 // ServerGenerateRSACertificate - Generate a server certificate signed with a given CA

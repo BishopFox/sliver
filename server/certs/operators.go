@@ -27,6 +27,9 @@ func OperatorListCertificates() []*x509.Certificate {
 
 	certs := []*x509.Certificate{}
 	ls, err := bucket.List("")
+	if err != nil {
+		return []*x509.Certificate{}
+	}
 	for _, operator := range ls {
 		certPEM, err := bucket.Get(operator)
 		if err != nil {

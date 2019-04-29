@@ -35,6 +35,10 @@ func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error)
 	if host == "" {
 		host = defaultServerCert
 	}
+	_, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, host)
+	if err != nil {
+		certs.ServerGenerateECCCertificate(host)
+	}
 	tlsConfig := getServerTLSConfig(certs.ServerCA, host)
 	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", bindIface, port), tlsConfig)
 	if err != nil {
@@ -189,7 +193,8 @@ func getServerTLSConfig(caType string, host string) *tls.Config {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AddCert(caCertPtr)
 
-	certPEM, keyPEM, _ := certs.GetCertificate(caType, certs.RSAKey, host)
+	certPEM, keyPEM, err := certs.GetCertificate(caType, certs.RSAKey, host)
+
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		mtlsLog.Fatalf("Error loading server certificate: %v", err)

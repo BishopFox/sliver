@@ -83,7 +83,7 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 
 func rpcProfiles(_ []byte, resp RPCResponse) {
 	profiles := &clientpb.Profiles{List: []*clientpb.Profile{}}
-	for name, config := range generate.GetProfiles() {
+	for name, config := range generate.Profiles() {
 		profiles.List = append(profiles.List, &clientpb.Profile{
 			Name:   name,
 			Config: config.ToProtobuf(),
@@ -104,7 +104,7 @@ func rpcNewProfile(req []byte, resp RPCResponse) {
 	profile.Name = path.Base(profile.Name)
 	if 0 < len(profile.Name) && profile.Name != "." {
 		rpcLog.Infof("Saving new profile with name %#v", profile.Name)
-		err = generate.SaveProfile(profile.Name, config)
+		err = generate.ProfileSave(profile.Name, config)
 	} else {
 		err = errors.New("Invalid profile name")
 	}
