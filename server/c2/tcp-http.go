@@ -476,7 +476,7 @@ func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) 
 func (s *SliverHTTPC2) eggHandler(resp http.ResponseWriter, req *http.Request) {
 	httpLog.Infof("Received egg request from %s", req.RemoteAddr)
 	resp.Write(s.SliverShellcode)
-	httpLog.Infof("Serving sliver shellcode to %s", req.RemoteAddr)
+	httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverShellcode), req.RemoteAddr)
 	resp.WriteHeader(200)
 }
 

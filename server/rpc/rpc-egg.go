@@ -111,7 +111,7 @@ func generateMsfStage(config *clientpb.EggConfig) ([]byte, error) {
 	}
 
 	venomConfig := msf.VenomConfig{
-		Os:      "windows",
+		Os:      "windows", // We only support windows at the moment
 		Payload: payload,
 		LHost:   config.Host,
 		LPort:   uint16(config.Port),

@@ -97,10 +97,6 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 		target = strings.Join([]string{config.Os, config.Arch}, sep)
 	}
 	payload := strings.Join([]string{target, config.Payload}, sep)
-	opts := ""
-	if len(config.Options) > 0 {
-		opts = strings.Join(config.Options, " ")
-	}
 	args := []string{
 		"--platform", config.Os,
 		"--arch", config.Arch,
@@ -108,8 +104,10 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 		"--payload", payload,
 		fmt.Sprintf("LHOST=%s", config.LHost),
 		fmt.Sprintf("LPORT=%d", config.LPort),
-		opts,
 		fmt.Sprintf("EXITFUNC=thread"),
+	}
+	if len(config.Options) > 0 {
+		args = append(args, strings.Join(config.Options, ""))
 	}
 
 	if config.Encoder != "" && config.Encoder != "none" {

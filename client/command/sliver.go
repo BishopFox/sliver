@@ -269,7 +269,7 @@ func generateEgg(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
 		return
 	}
-	fmt.Printf(Info+"Successfully started job #%d\n", eggResp.JobID)
+	fmt.Printf("\n"+Info+"Successfully started job #%d\n", eggResp.JobID)
 	fmt.Printf(Info+"Sliver egg saved to: %s\n", saveTo)
 }
 
