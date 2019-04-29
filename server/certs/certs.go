@@ -9,314 +9,132 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/binary"
+	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"net"
-	"os"
-	"path"
+	"sliver/server/db"
 	"sliver/server/log"
-	"strings"
 	"time"
+
+	"github.com/dgraph-io/badger"
+)
+
+const (
+	// RSAKeySize - Default size of RSA keys in bits
+	RSAKeySize = 2048 // This is plenty 4096 is overkill
+
+	// Certs are valid for ~3 Years, minus up to 1 year from Now()
+	validFor = 3 * (365 * 24 * time.Hour)
+
+	// ECCKey - Namespace for ECC keys
+	ECCKey = "ecc"
+
+	// RSAKey - Namespace for RSA keys
+	RSAKey = "rsa"
 )
 
 var (
 	certsLog = log.NamedLogger("certs", "certificates")
+
+	// ErrCertDoesNotExist - Returned if a GetCertificate() is called for a cert/cn that does not exist
+	ErrCertDoesNotExist = errors.New("Certificate does not exist")
 )
 
-const (
-	// Certs are valid for ~3 Years, minus up to 1 year from Now()
-	validFor = 3 * (365 * 24 * time.Hour)
-
-	// CertsDirName - Parent directory for all certs
-	CertsDirName = "certs"
-	// ClientsCertDir - Directory containing client certificates
-	ClientsCertDir = "clients"
-	// SliversCertDir - Directory containing sliver certificates
-	SliversCertDir = "slivers"
-	// ServersCertDir - Directory containing server certificates
-	ServersCertDir = "servers"
-)
-
-// -------------------
-//  LEAF CERTIFICATES
-// -------------------
-
-// GenerateSliverCertificate - Generate a certificate signed with a given CA
-func GenerateSliverCertificate(rootDir string, sliverName string, save bool) ([]byte, []byte) {
-	cert, key := GenerateCertificate(rootDir, sliverName, SliversCertDir, false, true)
-	if save {
-		SaveCertificate(rootDir, SliversCertDir, sliverName, cert, key)
-	}
-	return cert, key
-}
-
-// GenerateClientCertificate - Generate a certificate signed with a given CA
-func GenerateClientCertificate(rootDir string, operator string, save bool) ([]byte, []byte) {
-	cert, key := GenerateCertificate(rootDir, operator, ClientsCertDir, false, true)
-	if save {
-		SaveCertificate(rootDir, ClientsCertDir, operator, cert, key)
-	}
-	return cert, key
-}
-
-// GetClientCertificates - Get all client certificates
-func GetClientCertificates(rootDir string) []*x509.Certificate {
-	certsPath := path.Join(rootDir, CertsDirName, ClientsCertDir)
-	files, err := ioutil.ReadDir(certsPath)
-	if err != nil {
-		certsLog.Errorf("Failed to read client certs %v", err)
-		return nil
-	}
-
-	certs := []*x509.Certificate{}
-	for _, file := range files {
-		if strings.HasSuffix(file.Name(), "-cert.pem") {
-			certPEM, err := ioutil.ReadFile(path.Join(certsPath, file.Name()))
-			if err != nil {
-				certsLog.Warnf("Failed to read cert file %v", err)
-				continue
-			}
-			block, _ := pem.Decode(certPEM)
-			if block == nil {
-				certsLog.Warn("failed to parse certificate PEM")
-				continue
-			}
-			cert, err := x509.ParseCertificate(block.Bytes)
-			if err != nil {
-				certsLog.Warnf("failed to parse x.509 certificate %v", err)
-				continue
-			}
-			certs = append(certs, cert)
-		}
-	}
-
-	return certs
-}
-
-// GenerateServerCertificate - Generate a server certificate signed with a given CA
-func GenerateServerCertificate(rootDir string, caType string, host string, save bool) ([]byte, []byte) {
-	cert, key := GenerateCertificate(rootDir, host, caType, false, false)
-	if save {
-		SaveCertificate(rootDir, path.Join(caType, "ecc"), host, cert, key)
-	}
-	return cert, key
-}
-
-// GenerateServerRSACertificate - Generate a server certificate signed with a given CA
-func GenerateServerRSACertificate(rootDir string, caType string, host string, save bool) ([]byte, []byte) {
-	cert, key := GenerateRSACertificate(rootDir, caType, host, false, false)
-	if save {
-		SaveCertificate(rootDir, path.Join(caType, "rsa"), host, cert, key)
-	}
-	return cert, key
-}
-
-// GetServerCertificatePEM - Get a server certificate/key pair signed by ca type
-func GetServerCertificatePEM(rootDir string, caType string, host string, generateIfNoneExists bool) ([]byte, []byte, error) {
-
-	certsLog.Infof("Getting certificate (ca type = %s) '%s'", caType, host)
-
-	// If not certificate exists for this host we just generate one on the fly
-	_, _, err := GetCertificatePEM(rootDir, path.Join(caType, "ecc"), host)
-	if err != nil {
-		if generateIfNoneExists {
-			certsLog.Infof("No server certificate, generating ca type = %s '%s'", caType, host)
-			GenerateServerCertificate(rootDir, caType, host, true)
-		} else {
-			return nil, nil, err
-		}
-	}
-
-	certPEM, keyPEM, err := GetCertificatePEM(rootDir, path.Join(caType, "ecc"), host)
-	if err != nil {
-		certsLog.Infof("Failed to load PEM data %v", err)
-		return nil, nil, err
-	}
-
-	return certPEM, keyPEM, nil
-}
-
-// GetServerRSACertificatePEM - Get a server certificate/key pair signed by ca type
-func GetServerRSACertificatePEM(rootDir string, caType string, host string, generateIfNoneExists bool) ([]byte, []byte, error) {
-
-	certsLog.Infof("Getting rsa certificate (ca type = %s) '%s'", caType, host)
-
-	// If not certificate exists for this host we just generate one on the fly
-	_, _, err := GetCertificatePEM(rootDir, path.Join(caType, "rsa"), host)
-	if err != nil {
-		if generateIfNoneExists {
-			certsLog.Infof("No server certificate, generating ca type = %s '%s'", caType, host)
-			GenerateServerRSACertificate(rootDir, caType, host, true)
-		} else {
-			return nil, nil, err
-		}
-	}
-
-	certPEM, keyPEM, err := GetCertificatePEM(rootDir, path.Join(caType, "rsa"), host)
-	if err != nil {
-		certsLog.Infof("Failed to load PEM data %v", err)
-		return nil, nil, err
-	}
-
-	return certPEM, keyPEM, nil
+// CertificateKeyPair - Single struct with KeyType/Cert/PrivateKey
+type CertificateKeyPair struct {
+	KeyType     string `json:"key_type"`
+	Certificate []byte `json:"certificate"`
+	PrivateKey  []byte `json:"private_key"`
 }
 
 // SaveCertificate - Save the certificate and the key to the filesystem
-func SaveCertificate(rootDir string, prefix string, host string, cert []byte, key []byte) {
+func SaveCertificate(caType string, keyType string, commonName string, cert []byte, key []byte) error {
 
-	storageDir := path.Join(rootDir, CertsDirName, prefix)
-	if _, err := os.Stat(storageDir); os.IsNotExist(err) {
-		os.MkdirAll(storageDir, os.ModePerm)
+	if keyType != ECCKey && keyType != RSAKey {
+		return fmt.Errorf("Invalid key type '%s'", keyType)
 	}
 
-	host = path.Base(host)
-	certFilePath := path.Join(storageDir, fmt.Sprintf("%s-cert.pem", host))
-	keyFilePath := path.Join(storageDir, fmt.Sprintf("%s-key.pem", host))
-
-	certsLog.Infof("Saving certificate to: %s", certFilePath)
-	err := ioutil.WriteFile(certFilePath, cert, 0600)
+	bucket, err := db.GetBucket(caType)
 	if err != nil {
-		certsLog.Fatalf("Failed write certificate data to: %s", certFilePath)
+		return err
 	}
-
-	certsLog.Infof("Saving key to: %s", keyFilePath)
-	err = ioutil.WriteFile(keyFilePath, key, 0600)
+	bucket.Log.Infof("Saving certificate for cn = '%s'", commonName)
+	keyPair, err := json.Marshal(CertificateKeyPair{
+		KeyType:     keyType,
+		Certificate: cert,
+		PrivateKey:  key,
+	})
 	if err != nil {
-		certsLog.Fatalf("Failed write key data to: %s", keyFilePath)
+		bucket.Log.Errorf("Failed to marshal key pair %s", err)
+		return err
 	}
+	return bucket.Set(fmt.Sprintf("%s_%s", keyType, commonName), keyPair)
 }
 
-// GetCertificatePEM - Get the PEM encoded certificate & key for a host
-func GetCertificatePEM(rootDir string, prefix string, host string) ([]byte, []byte, error) {
-
-	storageDir := path.Join(rootDir, CertsDirName, prefix)
-	if _, err := os.Stat(storageDir); os.IsNotExist(err) {
-		return nil, nil, err
-	}
-
-	host = path.Base(host)
-	certFileName := fmt.Sprintf("%s-cert.pem", host)
-	keyFileName := fmt.Sprintf("%s-key.pem", host)
-
-	certFilePath := path.Join(storageDir, certFileName)
-	keyFilePath := path.Join(storageDir, keyFileName)
-
-	certPEM, err := ioutil.ReadFile(certFilePath)
-	if err != nil {
-		certsLog.Infof("Failed to load %v", err)
-		return nil, nil, err
-	}
-
-	keyPEM, err := ioutil.ReadFile(keyFilePath)
-	if err != nil {
-		certsLog.Infof("Failed to load %v", err)
-		return nil, nil, err
-	}
-
-	return certPEM, keyPEM, nil
+// GetECCCertificate - Get an ECC certificate
+func GetECCCertificate(caType string, commonName string) ([]byte, []byte, error) {
+	return GetCertificate(caType, commonName, ECCKey)
 }
 
-// -----------------------
-//  CERTIFICATE AUTHORITY
-// -----------------------
-
-// GenerateCertificateAuthority - Creates a new CA cert for a given type
-func GenerateCertificateAuthority(rootDir string, caType string, save bool) ([]byte, []byte) {
-	cert, key := GenerateCertificate(rootDir, "", caType, true, false)
-	if save {
-		SaveCertificateAuthority(rootDir, caType, cert, key)
-	}
-	return cert, key
+// GetRSACertificate - Get an RSA certificate
+func GetRSACertificate(caType string, commonName string) ([]byte, []byte, error) {
+	return GetCertificate(caType, commonName, RSAKey)
 }
 
-// GetCertificateAuthority - Get the current CA certificate
-func GetCertificateAuthority(rootDir string, caType string) (*x509.Certificate, *ecdsa.PrivateKey, error) {
+// GetCertificate - Get the PEM encoded certificate & key for a host
+func GetCertificate(caType string, keyType string, commonName string) ([]byte, []byte, error) {
 
-	certPEM, keyPEM, err := GetCertificateAuthorityPEM(rootDir, caType)
+	if keyType != ECCKey && keyType != RSAKey {
+		return nil, nil, fmt.Errorf("Invalid key type '%s'", keyType)
+	}
+
+	certsLog.Infof("Getting certificate ca type = %s, cn = '%s'", caType, commonName)
+	bucket, err := db.GetBucket(caType)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	certBlock, _ := pem.Decode(certPEM)
-	if certBlock == nil {
-		certsLog.Error("Failed to parse certificate PEM")
-		return nil, nil, err
+	rawKeyPair, err := bucket.Get(fmt.Sprintf("%s_%s", keyType, commonName))
+	if err == badger.ErrKeyNotFound {
+		return nil, nil, ErrCertDoesNotExist
 	}
-	cert, err := x509.ParseCertificate(certBlock.Bytes)
 	if err != nil {
-		certsLog.Error("Failed to parse certificate: " + err.Error())
 		return nil, nil, err
 	}
-
-	keyBlock, _ := pem.Decode(keyPEM)
-	if keyBlock == nil {
-		certsLog.Error("Failed to parse certificate PEM")
-		return nil, nil, err
-	}
-	key, err := x509.ParseECPrivateKey(keyBlock.Bytes)
+	keyPair := &CertificateKeyPair{}
+	err = json.Unmarshal(rawKeyPair, keyPair)
 	if err != nil {
-		certsLog.Error(err)
 		return nil, nil, err
 	}
-
-	return cert, key, nil
+	return keyPair.Certificate, keyPair.PrivateKey, nil
 }
 
-// GetCertificateAuthorityPEM - Get PEM encoded CA cert/key
-func GetCertificateAuthorityPEM(rootDir string, caType string) ([]byte, []byte, error) {
+// RemoveCertificate - Remove a certificate from the cert store
+func RemoveCertificate(caType string, commonName string, keyType string) error {
+	if keyType != ECCKey && keyType != RSAKey {
+		return fmt.Errorf("Invalid key type '%s'", keyType)
+	}
 
-	caType = path.Base(caType)
-	caCertPath := path.Join(rootDir, CertsDirName, fmt.Sprintf("%s-ca-cert.pem", caType))
-	caKeyPath := path.Join(rootDir, CertsDirName, fmt.Sprintf("%s-ca-key.pem", caType))
-
-	certPEM, err := ioutil.ReadFile(caCertPath)
+	bucket, err := db.GetBucket(caType)
 	if err != nil {
-		certsLog.Error(err)
-		return nil, nil, err
+		return err
 	}
 
-	keyPEM, err := ioutil.ReadFile(caKeyPath)
-	if err != nil {
-		certsLog.Error(err)
-		return nil, nil, err
-	}
-	return certPEM, keyPEM, nil
-}
-
-// SaveCertificateAuthority - Save the certificate and the key to the filesystem
-func SaveCertificateAuthority(rootDir string, caType string, cert []byte, key []byte) {
-
-	storageDir := path.Join(rootDir, CertsDirName)
-	if _, err := os.Stat(storageDir); os.IsNotExist(err) {
-		os.MkdirAll(storageDir, os.ModePerm)
-	}
-
-	certFilePath := path.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
-	keyFilePath := path.Join(storageDir, fmt.Sprintf("%s-ca-key.pem", caType))
-
-	err := ioutil.WriteFile(certFilePath, cert, 0600)
-	if err != nil {
-		certsLog.Fatalf("Failed write certificate data to: %s", certFilePath)
-	}
-
-	err = ioutil.WriteFile(keyFilePath, key, 0600)
-	if err != nil {
-		certsLog.Fatalf("Failed write certificate data to: %s", keyFilePath)
-	}
+	return bucket.Delete(fmt.Sprintf("%s_%s", keyType, commonName))
 }
 
 // --------------------------------
-//  Generic Certificates Functions
+//  Generic Certificate Functions
 // --------------------------------
 
-// GenerateCertificate - Generate a TLS certificate with the given parameters
+// GenerateECCCertificate - Generate a TLS certificate with the given parameters
 // We choose some reasonable defaults like Curve, Key Size, ValidFor, etc.
 // Returns two strings `cert` and `key` (PEM Encoded).
-func GenerateCertificate(rootDir string, host string, caType string, isCA bool, isClient bool) ([]byte, []byte) {
+func GenerateECCCertificate(caType string, commonName string, isCA bool, isClient bool) ([]byte, []byte) {
 
-	certsLog.Infof("Generating new TLS certificate (ECC) ...")
+	certsLog.Infof("Generating TLS certificate (ECC) for '%s' ...", commonName)
 
 	var privateKey interface{}
 	var err error
@@ -327,100 +145,26 @@ func GenerateCertificate(rootDir string, host string, caType string, isCA bool, 
 		certsLog.Fatalf("Failed to generate private key: %s", err)
 	}
 
-	// Valid times, subtract random days from .Now()
-	notBefore := time.Now()
-	days := randomInt(365) * -1 // Within -1 year
-	notBefore = notBefore.AddDate(0, 0, days)
-	notAfter := notBefore.Add(validFor)
-	certsLog.Infof("Valid from %v to %v", notBefore, notAfter)
-
-	// Serial number
-	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
-	serialNumber, _ := rand.Int(rand.Reader, serialNumberLimit)
-	certsLog.Infof("Serial Number: %d", serialNumber)
-
-	var extKeyUsage []x509.ExtKeyUsage
-
-	if isCA {
-		certsLog.Infof("Authority certificate")
-		extKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
-	} else if isClient {
-		certsLog.Infof("Client authentication certificate")
-		extKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
-	} else {
-		certsLog.Infof("Server authentication certificate")
-		extKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
-	}
-	certsLog.Infof("ExtKeyUsage = %v", extKeyUsage)
-
-	// Certificate template
-	template := x509.Certificate{
-		SerialNumber: serialNumber,
-		Subject: pkix.Name{
-			Organization: []string{""},
-		},
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           extKeyUsage,
-		BasicConstraintsValid: isCA,
-	}
-
-	if !isClient {
-		// Host or IP address
-		if ip := net.ParseIP(host); ip != nil {
-			certsLog.Infof("Certificate authenticates IP address: %v", ip)
-			template.IPAddresses = append(template.IPAddresses, ip)
-		} else {
-			certsLog.Infof("Certificate authenticates host: %v", host)
-			template.DNSNames = append(template.DNSNames, host)
-		}
-	} else {
-		certsLog.Infof("Client certificate authenticates CN: %v", host)
-		template.Subject.CommonName = host
-	}
-
-	// Sign certificate or self-sign if CA
-	var derBytes []byte
-	if isCA {
-		certsLog.Infof("Ceritificate is an AUTHORITY")
-		template.IsCA = true
-		template.KeyUsage |= x509.KeyUsageCertSign
-		derBytes, err = x509.CreateCertificate(rand.Reader, &template, &template, publicKey(privateKey), privateKey)
-	} else {
-		caCert, caKey, err := GetCertificateAuthority(rootDir, caType) // Sign the new ceritificate with our CA
-		if err != nil {
-			certsLog.Fatalf("Invalid ca type (%s): %v", caType, err)
-		}
-		derBytes, err = x509.CreateCertificate(rand.Reader, &template, caCert, publicKey(privateKey), caKey)
-	}
-	if err != nil {
-		certsLog.Fatalf("Failed to create certificate: %s", err)
-	}
-
-	// Encode certificate and key
-	certOut := bytes.NewBuffer([]byte{})
-	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-
-	keyOut := bytes.NewBuffer([]byte{})
-	pem.Encode(keyOut, pemBlockForKey(privateKey))
-
-	return certOut.Bytes(), keyOut.Bytes()
+	return generateCertificate(caType, commonName, isCA, isClient, privateKey)
 }
 
 // GenerateRSACertificate - Generates a 2048 bit RSA Certificate
-func GenerateRSACertificate(rootDir string, caType string, host string, isCA bool, isClient bool) ([]byte, []byte) {
+func GenerateRSACertificate(caType string, commonName string, isCA bool, isClient bool) ([]byte, []byte) {
 
-	certsLog.Infof("Generating new TLS certificate (RSA) ...")
+	certsLog.Infof("Generating TLS certificate (RSA) for '%s' ...", commonName)
 
 	var privateKey interface{}
 	var err error
 
 	// Generate private key
-	privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
+	privateKey, err = rsa.GenerateKey(rand.Reader, RSAKeySize)
 	if err != nil {
 		certsLog.Fatalf("Failed to generate private key %s", err)
 	}
+	return generateCertificate(caType, commonName, isCA, isClient, privateKey)
+}
+
+func generateCertificate(caType string, commonName string, isCA bool, isClient bool, privateKey interface{}) ([]byte, []byte) {
 
 	// Valid times, subtract random days from .Now()
 	notBefore := time.Now()
@@ -463,19 +207,20 @@ func GenerateRSACertificate(rootDir string, caType string, host string, isCA boo
 
 	if !isClient {
 		// Host or IP address
-		if ip := net.ParseIP(host); ip != nil {
+		if ip := net.ParseIP(commonName); ip != nil {
 			certsLog.Infof("Certificate authenticates IP address: %v", ip)
 			template.IPAddresses = append(template.IPAddresses, ip)
 		} else {
-			certsLog.Infof("Certificate authenticates host: %v", host)
-			template.DNSNames = append(template.DNSNames, host)
+			certsLog.Infof("Certificate authenticates host: %v", commonName)
+			template.DNSNames = append(template.DNSNames, commonName)
 		}
 	} else {
-		certsLog.Infof("Client certificate authenticates CN: %v", host)
-		template.Subject.CommonName = host
+		certsLog.Infof("Client certificate authenticates CN: %v", commonName)
+		template.Subject.CommonName = commonName
 	}
 
 	// Sign certificate or self-sign if CA
+	var err error
 	var derBytes []byte
 	if isCA {
 		certsLog.Infof("Ceritificate is an AUTHORITY")
@@ -483,13 +228,14 @@ func GenerateRSACertificate(rootDir string, caType string, host string, isCA boo
 		template.KeyUsage |= x509.KeyUsageCertSign
 		derBytes, err = x509.CreateCertificate(rand.Reader, &template, &template, publicKey(privateKey), privateKey)
 	} else {
-		caCert, caKey, err := GetCertificateAuthority(rootDir, caType) // Sign the new ceritificate with our CA
+		caCert, caKey, err := GetCertificateAuthority(caType) // Sign the new ceritificate with our CA
 		if err != nil {
 			certsLog.Fatalf("Invalid ca type (%s): %v", caType, err)
 		}
 		derBytes, err = x509.CreateCertificate(rand.Reader, &template, caCert, publicKey(privateKey), caKey)
 	}
 	if err != nil {
+		// We maybe don't want this to be fatal, but it should basically never happen afaik
 		certsLog.Fatalf("Failed to create certificate: %s", err)
 	}
 

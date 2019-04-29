@@ -15,8 +15,6 @@ import (
 
 	ver "sliver/client/version"
 
-	"sliver/server/certs"
-
 	"github.com/gobuffalo/packr"
 )
 
@@ -26,6 +24,7 @@ const (
 	goPathDirName   = "gopath"
 	versionFileName = "version"
 	dataDirName     = "data"
+	envVarName      = "SLIVER_ROOT_DIR"
 )
 
 var (
@@ -35,14 +34,23 @@ var (
 	protobufBox = packr.NewBox("../../protobuf")
 )
 
-// GetRootAppDir - Get the Sliver app dir ~/.sliver/
+// GetRootAppDir - Get the Sliver app dir, default is: ~/.sliver/
 func GetRootAppDir() string {
-	user, _ := user.Current()
-	dir := path.Join(user.HomeDir, ".sliver")
+
+	value := os.Getenv(envVarName)
+
+	var dir string
+	if len(value) == 0 {
+		user, _ := user.Current()
+		dir = path.Join(user.HomeDir, ".sliver")
+	} else {
+		dir = value
+	}
+
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, os.ModePerm)
 		if err != nil {
-			setupLog.Fatal(err)
+			setupLog.Fatalf("Cannot write to sliver root dir %s", err)
 		}
 	}
 	return dir
@@ -75,10 +83,6 @@ func saveAssetVersion(appDir string) {
 func Setup(force bool) {
 	appDir := GetRootAppDir()
 	localVer := assetVersion()
-	if localVer == "" {
-		fmt.Printf("Generating certificates ...\n")
-		setupCerts(appDir)
-	}
 	if force || localVer == "" || localVer != ver.GitVersion {
 		setupLog.Infof("Version mismatch %v != %v", localVer, ver.GitVersion)
 		fmt.Printf("Unpacking assets ...\n")
@@ -87,14 +91,6 @@ func Setup(force bool) {
 		setupDataPath(appDir)
 		saveAssetVersion(appDir)
 	}
-}
-
-// setupCerts - Creates directories for certs
-func setupCerts(appDir string) {
-	os.MkdirAll(path.Join(appDir, "certs"), os.ModePerm)
-	rootDir := GetRootAppDir()
-	certs.GenerateCertificateAuthority(rootDir, certs.SliversCertDir, true)
-	certs.GenerateCertificateAuthority(rootDir, certs.ClientsCertDir, true)
 }
 
 // SetupGo - Unzip Go compiler assets

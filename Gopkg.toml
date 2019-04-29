@@ -17,3 +17,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/tj/go-spin"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/dgraph-io/badger"

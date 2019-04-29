@@ -2,8 +2,7 @@ package cryptography
 
 /*
 	This package contains wrappers around Golang's crypto package that make it easier to use
-	we manage things like the nonces/iv's. The preferred choice is to always use GCM but for
-	saving space we also have CTR mode available but it does not provide integrity checks.
+	we manage things like the nonces/iv's
 */
 
 import (
@@ -76,27 +75,6 @@ func RSADecrypt(ciphertext []byte, privateKey *rsa.PrivateKey) ([]byte, error) {
 		return nil, err
 	}
 	return plaintext, nil
-}
-
-// CTREncrypt - AES CTR Encrypt
-func CTREncrypt(key AESKey, plaintext []byte) []byte {
-	block, _ := aes.NewCipher(key[:])
-	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
-	iv := RandomAESIV()
-	copy(ciphertext[:aes.BlockSize], iv[:])
-	stream := cipher.NewCTR(block, iv[:])
-	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
-	return ciphertext
-}
-
-// CTRDecrypt - AES CTR Decrypt
-func CTRDecrypt(key AESKey, ciphertext []byte) []byte {
-	plaintext := make([]byte, len(ciphertext)-aes.BlockSize)
-	block, _ := aes.NewCipher(key[:])
-	iv := ciphertext[:aes.BlockSize]
-	stream := cipher.NewCTR(block, iv)
-	stream.XORKeyStream(plaintext, ciphertext[aes.BlockSize:])
-	return plaintext
 }
 
 // GCMEncrypt - Encrypt using AES GCM

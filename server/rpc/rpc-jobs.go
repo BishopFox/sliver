@@ -2,14 +2,13 @@ package rpc
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	consts "sliver/client/constants"
 	clientpb "sliver/protobuf/client"
-	"sliver/server/assets"
 	"sliver/server/c2"
-	"sliver/server/certs"
 	"sliver/server/core"
 	"sync"
 	"time"
@@ -126,8 +125,7 @@ func rpcStartDNSListener(data []byte, resp RPCResponse) {
 }
 
 func jobStartDNSListener(domain string) (int, error) {
-	rootDir := assets.GetRootAppDir()
-	certs.GetServerRSACertificatePEM(rootDir, "slivers", domain, true)
+
 	server := c2.StartDNSListener(domain)
 
 	job := &core.Job{
@@ -209,13 +207,21 @@ func rpcStartHTTPListener(data []byte, resp RPCResponse) {
 		ACME:   false,
 	}
 	job := jobStartHTTPListener(conf)
+	if job == nil {
+		data, _ = proto.Marshal(&clientpb.HTTP{JobID: int32(-1)})
+		resp(data, errors.New("Failed to start job"))
+	} else {
+		data, err = proto.Marshal(&clientpb.HTTP{JobID: int32(job.ID)})
+		resp(data, err)
+	}
 
-	data, err = proto.Marshal(&clientpb.HTTP{JobID: int32(job.ID)})
-	resp(data, err)
 }
 
 func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
 	server := c2.StartHTTPSListener(conf)
+	if server == nil {
+		return nil
+	}
 	name := "http"
 	if conf.Secure {
 		name = "https"

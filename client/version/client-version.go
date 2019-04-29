@@ -4,7 +4,7 @@ import "fmt"
 
 const (
 	// ClientVersion - Client version number
-	ClientVersion = "0.0.2"
+	ClientVersion = "0.0.5"
 	normal        = "\033[0m"
 	bold          = "\033[1m"
 )

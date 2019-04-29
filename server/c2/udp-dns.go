@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"math"
-	"sliver/server/assets"
 	"sort"
 
 	"encoding/base32"
@@ -319,8 +318,7 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		return []string{"1"}, err
 	}
 
-	rootDir := assets.GetRootAppDir()
-	publicKeyPEM, privateKeyPEM, err := certs.GetServerRSACertificatePEM(rootDir, certs.SliversCertDir, domain, false)
+	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, domain)
 	if err != nil {
 		dnsLog.Infof("Failed to fetch RSA private key")
 		return []string{"1"}, err
@@ -499,8 +497,10 @@ func dnsSegment(fields []string) ([]string, error) {
 }
 
 func getDomainKeyFor(domain string) ([]string, error) {
-	rootDir := assets.GetRootAppDir()
-	certPEM, _, _ := certs.GetServerRSACertificatePEM(rootDir, "slivers", domain, false)
+	certPEM, _, err := certs.GetCertificate(certs.SliverCA, certs.RSAKey, domain)
+	if err != nil {
+
+	}
 	return dnsSendOnce(certPEM)
 }
 

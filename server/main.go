@@ -9,11 +9,12 @@ import (
 
 	"sliver/client/version"
 	"sliver/server/assets"
+	"sliver/server/certs"
 	"sliver/server/console"
 )
 
 var (
-	sliverServerVersion = fmt.Sprintf("Client v%s\nServer v0.0.4", version.FullVersion())
+	sliverServerVersion = fmt.Sprintf("Client v%s\nServer v0.0.5", version.FullVersion())
 )
 
 const (
@@ -38,6 +39,8 @@ func main() {
 	appDir := assets.GetRootAppDir()
 	logFile := initLogging(appDir)
 	defer logFile.Close()
+
+	certs.SetupCAs()
 
 	console.Start()
 }
