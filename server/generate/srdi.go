@@ -28,7 +28,7 @@ func ShellcodeRDIToFile(dllPath string, functionName string) (shellcodePath stri
 func ShellcodeRDI(dllPath string, functionName string) (shellcode []byte, err error) {
 	// handle command line arguments, -h or -help shows the menu
 	userDataStr := ""
-	clearHeader := false
+	clearHeader := true
 	flag.Parse()
 
 	dllBytes, err := ioutil.ReadFile(dllPath)
