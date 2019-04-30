@@ -105,10 +105,12 @@ func setPrivilege(s string, b bool) bool {
 
 func minidump(pid, proc int) (ProcessDump, error) {
 	dump := &WindowsDump{}
-	k32 := syscall.NewLazyDLL("Dbgcore.dll")
-	minidumpWriteDump := k32.NewProc("MiniDumpWriteDump")
-	taskrunner.RefreshPE(`c:\windows\system32\ntdll.dll`)
-	taskrunner.RefreshPE(`c:\windows\system32\dbgcore.dll`)
+	dbgHelp := syscall.NewLazyDLL("DbgHelp.dll")
+	minidumpWriteDump := dbgHelp.NewProc("MiniDumpWriteDump")
+	err := taskrunner.RefreshPE(`c:\windows\system32\ntdll.dll`)
+	if err != nil {
+		return dump, err
+	}
 	// TODO: find a better place to store the dump file
 	f, err := ioutil.TempFile("", "")
 
