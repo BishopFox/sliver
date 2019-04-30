@@ -118,7 +118,7 @@ func minidump(pid, proc int) (ProcessDump, error) {
 		return dump, err
 	}
 	stdOutHandle := f.Fd()
-	r, _, _ := minidumpWriteDump.Call(ptr(proc), ptr(pid), stdOutHandle, 3, 0, 0, 0)
+	r, _, e := minidumpWriteDump.Call(ptr(proc), ptr(pid), stdOutHandle, 3, 0, 0, 0)
 	if r != 0 {
 		data, err := ioutil.ReadFile(f.Name())
 		dump.data = data
@@ -126,6 +126,8 @@ func minidump(pid, proc int) (ProcessDump, error) {
 			return dump, err
 		}
 		os.Remove(f.Name())
+	} else {
+		return dump, e
 	}
 	return dump, nil
 }
