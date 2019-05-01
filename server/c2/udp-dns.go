@@ -8,6 +8,9 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"math"
+	"net"
+	"sliver/server/db"
+	"sliver/server/generate"
 	"sort"
 
 	"encoding/base32"
@@ -15,9 +18,11 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 
+	secureRand "crypto/rand"
 	"errors"
 	"fmt"
 	insecureRand "math/rand"
+	consts "sliver/client/constants"
 	pb "sliver/protobuf/sliver"
 	"sliver/server/certs"
 	"sliver/server/core"
@@ -52,9 +57,7 @@ const (
 
 var (
 	dnsLog = log.NamedLogger("c2", "dns")
-)
 
-var (
 	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789-_")
 
 	sendBlocksMutex = &sync.RWMutex{}
@@ -102,19 +105,20 @@ func (s *DNSSession) isReplayAttack(ciphertext []byte) bool {
 // --------------------------- DNS SERVER ---------------------------
 
 // StartDNSListener - Start a DNS listener
-func StartDNSListener(domain string) *dns.Server {
+func StartDNSListener(domains []string, canaries bool) *dns.Server {
 
-	dnsLog.Infof("Starting DNS listener for '%s' ...", domain)
+	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
 
 	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {
-		handleDNSRequest(domain, writer, req)
+		handleDNSRequest(domains, canaries, writer, req)
 	})
 
 	server := &dns.Server{Addr: ":53", Net: "udp"}
 	return server
 }
 
-func handleDNSRequest(domain string, writer dns.ResponseWriter, req *dns.Msg) {
+// DNSRequest -> C2 or canary?
+func handleDNSRequest(domains []string, canaries bool, writer dns.ResponseWriter, req *dns.Msg) {
 	if req == nil {
 		dnsLog.Info("req can not be nil")
 		return
@@ -125,26 +129,74 @@ func handleDNSRequest(domain string, writer dns.ResponseWriter, req *dns.Msg) {
 		return
 	}
 
-	if !dns.IsSubDomain(domain, req.Question[0].Name) {
-		dnsLog.Infof("Ignoring DNS req, '%s' is not a child of '%s'", req.Question[0].Name, domain)
-		return
+	resp := &dns.Msg{}
+	isC2, domain := isC2SubDomain(domains, req.Question[0].Name)
+	if isC2 {
+		handleC2(domain, req, resp)
+	} else if canaries {
+		dnsLog.Info("checking for DNS canary matches")
+		handleCanary(req, resp)
 	}
+	writer.WriteMsg(resp)
+}
+
+// Returns true if the requested domain is a c2 subdomain, and the domain it matched with
+func isC2SubDomain(domains []string, reqDomain string) (bool, string) {
+	for _, parentDomain := range domains {
+		if dns.IsSubDomain(parentDomain, reqDomain) {
+			return true, parentDomain
+		}
+	}
+	return false, ""
+}
+
+// C2 -> Record type?
+func handleC2(domain string, req *dns.Msg, resp *dns.Msg) {
 	subdomain := req.Question[0].Name[:len(req.Question[0].Name)-len(domain)]
 	if strings.HasSuffix(subdomain, ".") {
 		subdomain = subdomain[:len(subdomain)-1]
 	}
-	dnsLog.Infof("[dns] processing req for subdomain = %s", subdomain)
-
-	resp := &dns.Msg{}
+	dnsLog.Infof("processing req for subdomain = %s", subdomain)
 	switch req.Question[0].Qtype {
 	case dns.TypeTXT:
 		resp = handleTXT(domain, subdomain, req)
 	default:
 	}
-
-	writer.WriteMsg(resp)
 }
 
+// Canary -> valid? -> trigger alert event
+func handleCanary(req *dns.Msg, resp *dns.Msg) {
+	bucket, err := db.GetBucket(generate.CanaryBucketName)
+	if err == nil {
+		sliverName, err := bucket.Get(req.Question[0].Name)
+		if err != nil {
+			dnsLog.Warnf("DNS canary tripped for '%s'", string(sliverName))
+			core.EventBroker.Publish(core.Event{
+				Sliver: &core.Sliver{
+					Name: string(sliverName),
+				},
+				EventType: consts.CanaryEvent,
+				Err:       fmt.Errorf("DNS canary for '%s' tripped", string(sliverName)),
+			})
+		}
+	} else {
+		dnsLog.Errorf("Failed to fetch canary bucket")
+	}
+
+	// Respond with random IPs
+	switch req.Question[0].Qtype {
+	case dns.TypeA:
+		a := &dns.A{
+			Hdr: dns.RR_Header{Name: req.Question[0].Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 0},
+			A:   randomIP(),
+		}
+		resp.Answer = append(resp.Answer, a)
+	default:
+	}
+
+}
+
+// handles the c2 TXT record interactions, kind hacky this probably needs to get refactored at some point
 func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 
 	q := req.Question[0]
@@ -671,6 +723,16 @@ func fingerprintSHA256(block *pem.Block) string {
 	hash := sha256.Sum256(block.Bytes)
 	b64hash := base64.RawStdEncoding.EncodeToString(hash[:])
 	return strings.TrimRight(b64hash, "=")
+}
+
+// TODO: Add a geofilter to make it look like we're in various regions of the world.
+// We don't really need to use srand but it's just easier to operate on bytes here.
+func randomIP() net.IP {
+	randBuf := make([]byte, 4)
+	secureRand.Read(randBuf)
+
+	// Ensure non-zeros with various bitmasks
+	return net.IPv4(randBuf[0]|0x10, randBuf[1]|0x10, randBuf[2]|0x1, randBuf[3]|0x10)
 }
 
 // --------------------------- ENCODER ---------------------------

@@ -491,6 +491,7 @@ func fetchBlockSegments(parentDomain string, reasm *BlockReassembler, index int,
 
 // --------------------------- HELPERS ---------------------------
 
+// BlockIDs are public parameters and only need to be unqiue
 func dnsBlockHeaderID() string {
 	insecureRand.Seed(time.Now().UnixNano())
 	blockID := []rune{}
@@ -501,7 +502,7 @@ func dnsBlockHeaderID() string {
 	return string(blockID)
 }
 
-// dnsNonce - Generate a nonce of a given size
+// dnsNonce - Generate a nonce of a given size in case the resolver ignores the TTL
 func dnsNonce(size int) string {
 	insecureRand.Seed(time.Now().UnixNano())
 	nonce := []rune{}

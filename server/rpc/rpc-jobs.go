@@ -10,6 +10,7 @@ import (
 	clientpb "sliver/protobuf/client"
 	"sliver/server/c2"
 	"sliver/server/core"
+	"strings"
 	"sync"
 	"time"
 
@@ -126,12 +127,14 @@ func rpcStartDNSListener(data []byte, resp RPCResponse) {
 
 func jobStartDNSListener(domain string) (int, error) {
 
-	server := c2.StartDNSListener(domain)
+	domains := []string{domain}
+
+	server := c2.StartDNSListener(domains, true)
 
 	job := &core.Job{
 		ID:          core.GetJobID(),
 		Name:        "dns",
-		Description: domain,
+		Description: strings.Join(domains, " "),
 		Protocol:    "udp",
 		Port:        53,
 		JobCtrl:     make(chan bool),
@@ -275,7 +278,7 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
 }
 
 // Fuck'in Go - https://stackoverflow.com/questions/30815244/golang-https-server-passing-certfile-and-kyefile-in-terms-of-byte-array
-// basically the same as server.ListenAndServerTLS() but we can passin byte slices instead of file paths
+// basically the same as server.ListenAndServerTLS() but we can pass in byte slices instead of file paths
 func listenAndServeTLS(srv *http.Server, certPEMBlock, keyPEMBlock []byte) error {
 	addr := srv.Addr
 	if addr == "" {
