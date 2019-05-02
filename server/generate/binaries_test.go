@@ -39,6 +39,8 @@ func TestSliverExecutableWindows(t *testing.T) {
 func TestSliverSharedLibWindows(t *testing.T) {
 	multiLibrary(t, "windows", "amd64", true)
 	multiLibrary(t, "windows", "amd64", false)
+	multiLibrary(t, "windows", "386", true)
+	multiLibrary(t, "windows", "386", false)
 }
 
 func TestSliverExecutableLinux(t *testing.T) {

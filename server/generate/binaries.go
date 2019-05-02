@@ -23,6 +23,11 @@ import (
 
 var (
 	buildLog = log.NamedLogger("generate", "build")
+	// Fix #67: use an arch specific compiler
+	defaultMingwPath = map[string]string{
+		"386":   "/usr/bin/i686-w64-mingw32-gcc",
+		"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
+	}
 )
 
 const (
@@ -48,8 +53,7 @@ const (
 	DefaultHTTPLPort = 443 // Assume SSL, it'll fallback
 
 	// SliverCCEnvVar - Environment variable that can specify the mingw path
-	SliverCCEnvVar   = "SLIVER_CC"
-	defaultMingwPath = "/usr/bin/x86_64-w64-mingw32-gcc"
+	SliverCCEnvVar = "SLIVER_CC"
 )
 
 // SliverConfig - Parameters when generating a implant
@@ -226,7 +230,7 @@ func SliverEgg(config SliverConfig) (string, error) {
 func SliverSharedLibrary(config *SliverConfig) (string, error) {
 	// Compile go code
 	appDir := assets.GetRootAppDir()
-	crossCompiler := getCCompiler()
+	crossCompiler := getCCompiler(config.GOARCH)
 	if crossCompiler == "" {
 		return "", errors.New("No cross-compiler (mingw) found")
 	}
@@ -395,10 +399,13 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 	return sliverPkgDir, nil
 }
 
-func getCCompiler() string {
+func getCCompiler(arch string) string {
+	var found bool // meh, ugly
 	compiler := os.Getenv(SliverCCEnvVar)
 	if compiler == "" {
-		compiler = defaultMingwPath
+		if compiler, found = defaultMingwPath[arch]; !found {
+			compiler = defaultMingwPath["amd64"] // should not happen, but just in case ...
+		}
 	}
 	if _, err := os.Stat(compiler); os.IsNotExist(err) {
 		buildLog.Warnf("CC path %v does not exist", compiler)
