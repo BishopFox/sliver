@@ -110,6 +110,9 @@ func generateMsfStage(config *clientpb.EggConfig) ([]byte, error) {
 		return stage, fmt.Errorf("Protocol not supported")
 	}
 
+	// Prevent badchars
+	options = append(options, "-b \\x00")
+
 	venomConfig := msf.VenomConfig{
 		Os:      "windows", // We only support windows at the moment
 		Payload: payload,
