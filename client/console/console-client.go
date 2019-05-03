@@ -6,11 +6,14 @@ import (
 	"sliver/client/core"
 	"sliver/client/transport"
 
+	"log"
+
 	"github.com/desertbit/grumble"
 )
 
 // StartClientConsole - Start the client console
 func StartClientConsole() {
+	log.Printf("Console starting ...")
 	configs := assets.GetConfigs()
 	if len(configs) == 0 {
 		fmt.Printf(Warn+"No config files found at %s or -config\n", assets.GetConfigDir())

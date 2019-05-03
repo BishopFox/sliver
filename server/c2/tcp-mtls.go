@@ -35,11 +35,11 @@ func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error)
 	if host == "" {
 		host = defaultServerCert
 	}
-	_, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, host)
+	_, _, err := certs.GetCertificate(certs.ServerCA, certs.ECCKey, host)
 	if err != nil {
 		certs.ServerGenerateECCCertificate(host)
 	}
-	tlsConfig := getServerTLSConfig(certs.ServerCA, host)
+	tlsConfig := getServerTLSConfig(host)
 	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", bindIface, port), tlsConfig)
 	if err != nil {
 		mtlsLog.Error(err)
@@ -184,16 +184,20 @@ func socketReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 
 // getServerTLSConfig - Generate the TLS configuration, we do now allow the end user
 // to specify any TLS paramters, we choose sensible defaults instead
-func getServerTLSConfig(caType string, host string) *tls.Config {
+func getServerTLSConfig(host string) *tls.Config {
 
-	caCertPtr, _, err := certs.GetCertificateAuthority(caType)
+	sliverCACert, _, err := certs.GetCertificateAuthority(certs.SliverCA)
 	if err != nil {
-		mtlsLog.Fatalf("Invalid ca type (%s): %v", caType, host)
+		mtlsLog.Fatalf("Failed to find ca type (%s)", certs.SliverCA)
 	}
-	caCertPool := x509.NewCertPool()
-	caCertPool.AddCert(caCertPtr)
+	sliverCACertPool := x509.NewCertPool()
+	sliverCACertPool.AddCert(sliverCACert)
 
-	certPEM, keyPEM, err := certs.GetCertificate(caType, certs.RSAKey, host)
+	certPEM, keyPEM, err := certs.GetCertificate(certs.ServerCA, certs.ECCKey, host)
+	if err != nil {
+		mtlsLog.Errorf("Failed to generate or fecth certificate %s", err)
+		return nil
+	}
 
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
@@ -201,9 +205,9 @@ func getServerTLSConfig(caType string, host string) *tls.Config {
 	}
 
 	tlsConfig := &tls.Config{
-		RootCAs:                  caCertPool,
+		RootCAs:                  sliverCACertPool,
 		ClientAuth:               tls.RequireAndVerifyClientCert,
-		ClientCAs:                caCertPool,
+		ClientCAs:                sliverCACertPool,
 		Certificates:             []tls.Certificate{cert},
 		CipherSuites:             []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384},
 		PreferServerCipherSuites: true,

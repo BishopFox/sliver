@@ -298,7 +298,16 @@ func getOperatorServerTLSConfig(caType string, host string) *tls.Config {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AddCert(caCertPtr)
 
-	certPEM, keyPEM, _ := certs.GetCertificate(caType, certs.ECCKey, host)
+	_, _, err = certs.GetCertificate(caType, certs.ECCKey, host)
+	if err == certs.ErrCertDoesNotExist {
+		certs.OperatorServerGenerateCertificate(host)
+	}
+
+	certPEM, keyPEM, err := certs.GetCertificate(caType, certs.ECCKey, host)
+	if err != nil {
+		clientLog.Errorf("Failed to generate or fetch certificate %s", err)
+		return nil
+	}
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		clientLog.Fatalf("Error loading server certificate: %v", err)

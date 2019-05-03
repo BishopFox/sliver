@@ -77,7 +77,7 @@ func newPlayerCmd(ctx *grumble.Context) {
 	}
 
 	fmt.Printf(Info + "Generating new client certificate, please wait ... \n")
-	publicKey, privateKey, err := certs.OperatorGenerateCertificate(operator)
+	publicKey, privateKey, err := certs.OperatorClientGenerateCertificate(operator)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to generate certificate %s", err)
 		return
