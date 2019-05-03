@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
@@ -365,10 +366,23 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		}
 
 		fSliver, _ := os.Create(sliverCodePath)
+		buf := bytes.NewBuffer([]byte{})
 		buildLog.Infof("[render] %s", sliverCodePath)
 
+		// Render code
 		sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
-		err := sliverCodeTmpl.Execute(fSliver, config)
+		sliverCodeTmpl.Execute(buf, config)
+
+		// Render canaries
+		canaryTempl := template.New("canary").Delims("[[", "]]")
+		canaryGenerator := &CanaryGenerator{
+			SliverName:    config.Name,
+			ParentDomains: []string{"testing.com"},
+		}
+		canaryTempl, err := canaryTempl.Funcs(template.FuncMap{
+			"GenerateCanary": canaryGenerator.GenerateCanary,
+		}).Parse(buf.String())
+		canaryTempl.Execute(fSliver, canaryGenerator)
 
 		if err != nil {
 			buildLog.Infof("Failed to render go code: %s", err)

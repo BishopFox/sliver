@@ -41,7 +41,7 @@ func RandomAESKey() AESKey {
 	randBuf := make([]byte, 64)
 	n, err := secureRand.Read(randBuf)
 	if n != 64 || err != nil {
-		panic("[[.DNSCanary]]") // If we can't securely generate keys then we die
+		panic("[[GenerateCanary]]") // If we can't securely generate keys then we die
 	}
 	digest := sha256.Sum256(randBuf)
 	var key AESKey

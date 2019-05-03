@@ -2,7 +2,6 @@ package generate
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	insecureRand "math/rand"
 	"sliver/server/db"
@@ -13,8 +12,8 @@ import (
 const (
 	// CanaryBucketName - DNS Canary bucket name
 	CanaryBucketName = "canaries"
-
-	canarySize = 6
+	canaryPrefix     = "can://"
+	canarySize       = 6
 )
 
 var (
@@ -32,7 +31,6 @@ type DNSCanary struct {
 }
 
 func canarySubDomain() string {
-	insecureRand.Seed(time.Now().UnixNano())
 	subdomain := []rune{}
 	for i := 0; i < canarySize; i++ {
 		index := insecureRand.Intn(len(dnsCharSet))
@@ -69,30 +67,46 @@ func UpdateCanary(canary *DNSCanary) error {
 	return bucket.Set(canary.Domain, canaryData)
 }
 
-// generateCanaryDomain - Generate a canary domain and save it to the db
-func generateCanaryDomain(sliverName string, parentDomain string) (string, error) {
+// CanaryGenerator - Holds data related to canary generation
+type CanaryGenerator struct {
+	SliverName    string
+	ParentDomains []string
+}
+
+// GenerateCanary - Generate a canary domain and save it to the db
+func (g *CanaryGenerator) GenerateCanary() string {
+
 	bucket, err := db.GetBucket(CanaryBucketName)
 	if err != nil {
-		return "", err
+		buildLog.Warnf("Failed to fetch canary bucket")
+		return ""
 	}
-	if len(parentDomain) < 3 {
-		return "", errors.New("Invalid parent domain")
+	if len(g.ParentDomains) < 1 {
+		buildLog.Warnf("No parent domains")
+		return ""
 	}
+
+	// Don't need secure random here
+	insecureRand.Seed(time.Now().UnixNano())
+	index := insecureRand.Intn(len(g.ParentDomains))
+
+	parentDomain := g.ParentDomains[index]
 	if strings.HasPrefix(parentDomain, ".") {
 		parentDomain = parentDomain[1:]
 	}
 
 	subdomain := canarySubDomain()
 	canaryDomain := fmt.Sprintf("%s.%s", subdomain, parentDomain)
+	buildLog.Infof("Generated new canary domain %s", canaryDomain)
 	canary, err := json.Marshal(&DNSCanary{
-		SliverName: sliverName,
+		SliverName: g.SliverName,
 		Domain:     canaryDomain,
 		Triggered:  false,
 		Count:      0,
 	})
 	if err != nil {
-		return "", err
+		return ""
 	}
 	err = bucket.Set(canaryDomain, canary)
-	return canaryDomain, err
+	return fmt.Sprintf("%s%s", canaryPrefix, canaryDomain)
 }
