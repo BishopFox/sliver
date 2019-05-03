@@ -1,0 +1,29 @@
+#!/bin/bash -e
+
+main=$1
+coverprofile=$2
+
+# Temporary working directory.
+workdir=$(mktemp -d)
+
+# Wrap the main function in a go test.
+cp ${main} ${workdir}
+cat > ${workdir}/main_test.go <<EOF
+package main
+
+import "testing"
+
+func TestRunMain(t *testing.T) {
+	main()
+}
+EOF
+
+# Execute the test with coverage.
+testbin="${workdir}/testbin"
+output="${workdir}/cover.out"
+go test -o ${testbin} -covermode=count -coverpkg="github.com/mmcloughlin/avo/..." ${workdir}/*.go
+${testbin} -test.coverprofile=${output}
+cp ${output} ${coverprofile}
+
+# Cleanup.
+rm -rf ${workdir}

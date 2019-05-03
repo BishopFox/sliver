@@ -1,0 +1,32 @@
+language: go
+os:
+  - windows
+  - linux
+  - osx
+go:
+  - "1.11.x"
+  - "1.12beta2"
+env:
+  - GO111MODULE=on
+go_import_path: github.com/rogpeppe/go-internal
+
+# Add this before_install until we have a definitive resolution on
+# https://travis-ci.community/t/files-in-checkout-have-eol-changed-from-lf-to-crlf/349/2
+before_install:
+  - cd ../..
+  - mv $TRAVIS_REPO_SLUG _old
+  - git config --global core.autocrlf false
+  - git clone --depth=50 _old $TRAVIS_REPO_SLUG
+  - cd $TRAVIS_REPO_SLUG
+
+install: "echo no install step required"
+
+script:
+  - go test ./...
+  - go mod tidy
+
+  # https://github.com/golang/go/issues/27868#issuecomment-431413621
+  - go list all > /dev/null
+
+  - test -z "$(gofmt -d .)" || (gofmt -d . && false)
+  - test -z "$(git status --porcelain)" || (git status; git diff && false)

@@ -1,0 +1,12 @@
+# prior to go 1.12 you cannot list a module without a requirement
+[!go1.12] go get fruit.com
+
+go list -m -versions fruit.com
+stdout 'v1.0.0 v1.1.0'
+
+go get -m fruit.com@v1.0.0
+go get -m fruit.com@v1.1.0
+
+-- go.mod --
+module mod
+

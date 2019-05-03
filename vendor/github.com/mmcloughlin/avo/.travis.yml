@@ -1,0 +1,13 @@
+language: go
+go:
+- 1.x
+install:
+- ./script/bootstrap
+script:
+- go build ./...
+- go test -bench . ./...
+- ./script/coverage
+- ./script/lint
+after_success:
+- bash <(curl -s https://codecov.io/bash) -F unittests -f unittests.coverprofile
+- bash <(curl -s https://codecov.io/bash) -F integration -f integration.coverprofile

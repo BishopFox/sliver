@@ -1,0 +1,24 @@
+#!/bin/bash -e
+
+eval $(go env)
+
+workdir=$(mktemp -d)
+
+# Provide stub "go_asm.h".
+include=${workdir}/include
+mkdir -p ${include}
+echo '#define get_tls ' > ${include}/go_asm.h
+
+# Preprocess all assembly files.
+asm=${workdir}/all.s
+find ${GOROOT}/src -name '*_amd64.s' | grep -v testdata | while read s; do
+  gcc -E -I${GOROOT}/pkg/include -I${include} ${s} >>${asm}
+done
+
+# Extract instructions.
+awk '/^[[:space:]]+[A-Z0-9]+[[:space:]]+/ { print $1 }' ${asm} | \
+  sort | uniq | \
+  grep -Ev '(TEXT|FUNCDATA|PCDATA|BYTE|WORD)'
+
+# Clean.
+rm -rf ${workdir}
