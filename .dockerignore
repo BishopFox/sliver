@@ -2,4 +2,3 @@ assets/*.zip
 assets/darwin
 assets/linux
 assets/windows
-vendor/
