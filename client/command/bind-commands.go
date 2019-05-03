@@ -13,8 +13,8 @@ const (
 	defaultMTLSLPort = 8888
 )
 
-// Init - Bind commands to a App
-func Init(app *grumble.App, server *core.SliverServer) {
+// BindCommands - Bind commands to a App
+func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.SetPrintHelp(helpCmd)
 

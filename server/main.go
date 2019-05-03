@@ -41,7 +41,6 @@ func main() {
 	defer logFile.Close()
 
 	certs.SetupCAs()
-
 	console.Start()
 }
 
