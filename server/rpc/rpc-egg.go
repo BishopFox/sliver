@@ -110,8 +110,10 @@ func generateMsfStage(config *clientpb.EggConfig) ([]byte, error) {
 		return stage, fmt.Errorf("Protocol not supported")
 	}
 
+	// This is way too hacky: we should take the full options from the protobuf message
 	// Prevent badchars
 	options = append(options, "-b \\x00")
+	// Handle user specified format
 	options = append(options, "--format "+config.Format)
 
 	venomConfig := msf.VenomConfig{
