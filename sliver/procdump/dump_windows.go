@@ -8,6 +8,9 @@ import (
 	"log"
 	//{{end}}
 
+	// {{if eq .GOARCH "amd64"}}
+	"sliver/sliver/taskrunner"
+	// {{end}}
 	"os"
 	"syscall"
 	"unsafe"
