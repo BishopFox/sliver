@@ -12,6 +12,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
+)
+
+const (
+	canaryPrefix = "[["
+	canarySuffix = "]]"
 )
 
 func ObfuscateStrings(gopath string) error {
@@ -87,6 +93,9 @@ func (s *stringObfuscator) Obfuscate() ([]byte, error) {
 	data := s.Contents
 	for i, node := range s.Nodes {
 		strVal := parsed[i]
+		if strings.HasPrefix(strVal, canaryPrefix) && strings.HasSuffix(strVal, canarySuffix) {
+			continue // Skip canaries
+		}
 		startIdx := node.Pos() - 1
 		endIdx := node.End() - 1
 		result.Write(data[lastIndex:startIdx])

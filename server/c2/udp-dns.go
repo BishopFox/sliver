@@ -9,7 +9,6 @@ import (
 	"crypto/x509"
 	"math"
 	"net"
-	"sliver/server/db"
 	"sliver/server/generate"
 	"sort"
 
@@ -166,21 +165,29 @@ func handleC2(domain string, req *dns.Msg, resp *dns.Msg) {
 
 // Canary -> valid? -> trigger alert event
 func handleCanary(req *dns.Msg, resp *dns.Msg) {
-	bucket, err := db.GetBucket(generate.CanaryBucketName)
-	if err == nil {
-		sliverName, err := bucket.Get(req.Question[0].Name)
-		if err != nil {
-			dnsLog.Warnf("DNS canary tripped for '%s'", string(sliverName))
-			core.EventBroker.Publish(core.Event{
+
+	canary, err := generate.CheckCanary(req.Question[0].Name)
+	if err != nil {
+		return
+	}
+
+	if canary != nil {
+		dnsLog.Warnf("DNS canary tripped for '%s'", canary.SliverName)
+		if !canary.Triggered {
+			// Defer publishing the event until we're sure the db is sync'd
+			defer core.EventBroker.Publish(core.Event{
 				Sliver: &core.Sliver{
-					Name: string(sliverName),
+					Name: canary.SliverName,
 				},
+				Data:      []byte(canary.Domain),
 				EventType: consts.CanaryEvent,
-				Err:       fmt.Errorf("DNS canary for '%s' tripped", string(sliverName)),
 			})
+			canary.Triggered = true
+			canary.FirstTrigger = time.Now().Format(time.RFC1123)
 		}
-	} else {
-		dnsLog.Errorf("Failed to fetch canary bucket")
+		canary.LatestTrigger = time.Now().Format(time.RFC1123)
+		canary.Count++
+		generate.UpdateCanary(canary)
 	}
 
 	// Respond with random IPs
@@ -193,7 +200,6 @@ func handleCanary(req *dns.Msg, resp *dns.Msg) {
 		resp.Answer = append(resp.Answer, a)
 	default:
 	}
-
 }
 
 // handles the c2 TXT record interactions, kind hacky this probably needs to get refactored at some point

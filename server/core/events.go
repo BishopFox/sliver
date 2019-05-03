@@ -6,6 +6,7 @@ type Event struct {
 	Job       *Job
 	Client    *Client
 	EventType string
+	Data      []byte
 	Err       error
 }
 

@@ -366,10 +366,12 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 
 		fSliver, _ := os.Create(sliverCodePath)
 		buildLog.Infof("[render] %s", sliverCodePath)
+
 		sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
 		err := sliverCodeTmpl.Execute(fSliver, config)
+
 		if err != nil {
-			buildLog.Infof("Failed to render go code: %v", err)
+			buildLog.Infof("Failed to render go code: %s", err)
 			return "", err
 		}
 	}
