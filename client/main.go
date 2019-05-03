@@ -16,6 +16,9 @@ const (
 )
 
 func main() {
+
+	fmt.Println("\n-- WTF --\n")
+
 	displayVersion := flag.Bool("version", false, "print version number")
 	config := flag.String("config", "", "config file")
 	flag.Parse()
@@ -28,8 +31,8 @@ func main() {
 	if *config != "" {
 		conf, err := assets.ReadConfig(*config)
 		if err != nil {
-			fmt.Printf("Error %s", err)
-			os.Exit(1)
+			fmt.Printf("Error %s\n", err)
+			os.Exit(3)
 		}
 		assets.SaveConfig(conf)
 	}
@@ -38,7 +41,10 @@ func main() {
 	defer logFile.Close()
 
 	os.Args = os.Args[:1] // Stops grumble from complaining
-	console.StartClientConsole()
+	err := console.StartClientConsole()
+	if err != nil {
+		fmt.Printf("[!] %s\n", err)
+	}
 }
 
 // Initialize logging
@@ -46,7 +52,7 @@ func initLogging(appDir string) *os.File {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		log.Fatalf("Error opening file: %v", err)
+		panic(fmt.Sprintf("Error opening file: %s", err))
 	}
 	log.SetOutput(logFile)
 	return logFile
