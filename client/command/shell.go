@@ -7,11 +7,14 @@ import (
 	"os"
 	"sliver/client/core"
 	sliverpb "sliver/protobuf/sliver"
-	gen "sliver/server/generate"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/ssh/terminal"
+)
+
+const (
+	windows = "windows"
 )
 
 func shell(ctx *grumble.Context, server *core.SliverServer) {
@@ -21,7 +24,7 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 	}
 
 	noPty := ctx.Flags.Bool("no-pty")
-	if ActiveSliver.Sliver.OS == gen.WINDOWS {
+	if ActiveSliver.Sliver.OS == windows {
 		noPty = true // Windows of course doesn't have PTYs
 	}
 

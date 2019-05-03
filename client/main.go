@@ -16,9 +16,6 @@ const (
 )
 
 func main() {
-
-	fmt.Println("\n-- WTF --\n")
-
 	displayVersion := flag.Bool("version", false, "print version number")
 	config := flag.String("config", "", "config file")
 	flag.Parse()
