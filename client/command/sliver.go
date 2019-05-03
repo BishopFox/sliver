@@ -22,6 +22,31 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
+var validFormats = []string{
+	"bash",
+	"c",
+	"csharp",
+	"dw",
+	"dword",
+	"hex",
+	"java",
+	"js_be",
+	"js_le",
+	"num",
+	"perl",
+	"pl",
+	"powershell",
+	"ps1",
+	"py",
+	"python",
+	"raw",
+	"rb",
+	"ruby",
+	"sh",
+	"vbapplication",
+	"vbscript",
+}
+
 func sessions(ctx *grumble.Context, rpc RPCServer) {
 	interact := ctx.Flags.String("interact")
 	if interact != "" {
@@ -200,6 +225,18 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 }
 
 func generateEgg(ctx *grumble.Context, rpc RPCServer) {
+	outFmt := ctx.Flags.String("output-format")
+	validFmt := false
+	for _, f := range validFormats {
+		if f == outFmt {
+			validFmt = true
+			break
+		}
+	}
+	if !validFmt {
+		fmt.Printf(Warn+"Invalid output format: %s", outFmt)
+		return
+	}
 	stagingURL := ctx.Flags.String("listener-url")
 	if stagingURL == "" {
 		return
@@ -217,11 +254,16 @@ func generateEgg(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "listener-url format not supported")
 		return
 	}
-	port, _ := strconv.Atoi(u.Port())
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		fmt.Printf(Warn+"Invalid port number: %s", err.Error())
+		return
+	}
 	eggConfig := &clientpb.EggConfig{
-		Host: u.Hostname(),
-		Port: uint32(port),
-		Arch: config.GOARCH,
+		Host:   u.Hostname(),
+		Port:   uint32(port),
+		Arch:   config.GOARCH,
+		Format: outFmt,
 	}
 	switch u.Scheme {
 	case "tcp":
@@ -254,23 +296,30 @@ func generateEgg(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
 		return
 	}
-	// Save it to disk
-	saveTo, _ := filepath.Abs(save)
-	fi, err := os.Stat(saveTo)
-	if err != nil {
-		fmt.Printf(Warn+"Failed to generate sliver egg %v\n", err)
-		return
-	}
-	if fi.IsDir() {
-		saveTo = filepath.Join(saveTo, eggResp.Filename)
-	}
-	err = ioutil.WriteFile(saveTo, eggResp.Data, os.ModePerm)
-	if err != nil {
-		fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
-		return
+	// Don't display raw shellcode out stdout
+	if save != "" || outFmt == "raw" {
+		// Save it to disk
+		saveTo, _ := filepath.Abs(save)
+		fi, err := os.Stat(saveTo)
+		if err != nil {
+			fmt.Printf(Warn+"Failed to generate sliver egg %v\n", err)
+			return
+		}
+		if fi.IsDir() {
+			saveTo = filepath.Join(saveTo, eggResp.Filename)
+		}
+		err = ioutil.WriteFile(saveTo, eggResp.Data, os.ModePerm)
+		if err != nil {
+			fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
+			return
+		}
+		fmt.Printf(Info+"Sliver egg saved to: %s\n", saveTo)
+	} else {
+		// Display shellcode to stdout
+		fmt.Println("\n" + Info + "Here's your Egg:")
+		fmt.Println(string(eggResp.Data))
 	}
 	fmt.Printf("\n"+Info+"Successfully started job #%d\n", eggResp.JobID)
-	fmt.Printf(Info+"Sliver egg saved to: %s\n", saveTo)
 }
 
 // Shared function that extracts the compile flags from the grumble context

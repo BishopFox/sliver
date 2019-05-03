@@ -97,10 +97,16 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 		target = strings.Join([]string{config.Os, config.Arch}, sep)
 	}
 	payload := strings.Join([]string{target, config.Payload}, sep)
+	format := "raw"
+	for _, o := range config.Options {
+		if strings.Contains(o, "--format") {
+			format = strings.Split(o, "--format ")[1]
+		}
+	}
 	args := []string{
 		"--platform", config.Os,
 		"--arch", config.Arch,
-		"--format", "raw",
+		"--format", format,
 		"--payload", payload,
 		fmt.Sprintf("LHOST=%s", config.LHost),
 		fmt.Sprintf("LPORT=%d", config.LPort),

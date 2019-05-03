@@ -179,6 +179,7 @@ message EggConfig {
   string Host = 2;
   uint32 Port = 3;
   string Arch = 4;
+  string Format = 5;
 }
 
 message EggRequest {

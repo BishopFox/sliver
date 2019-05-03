@@ -112,6 +112,7 @@ func generateMsfStage(config *clientpb.EggConfig) ([]byte, error) {
 
 	// Prevent badchars
 	options = append(options, "-b \\x00")
+	options = append(options, "--format "+config.Format)
 
 	venomConfig := msf.VenomConfig{
 		Os:      "windows", // We only support windows at the moment

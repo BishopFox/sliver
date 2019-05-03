@@ -271,8 +271,9 @@ func Init(app *grumble.App, server *core.SliverServer) {
 
 			f.String("r", "format", "shellcode", "Fixed to 'shellcode' - do not change") // TODO: find a better way to handle this
 
-			f.String("s", "save", "", "directory/file to the binary to")
+			f.String("s", "save", "", "directory to save the egg to")
 			f.String("c", "listener-url", "", "URL to fetch the stage from (tcp://SLIVER_SERVER:PORT or http(s)://SLIVER_SERVER:PORT")
+			f.String("v", "output-format", "raw", "Output format (msfvenom's style). All msfvenom's transform formats are supported")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
