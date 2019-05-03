@@ -21,6 +21,8 @@ const (
 	// LeftEvent - Player left the game
 	LeftEvent = "left"
 
+	CanaryEvent = "canary"
+
 	// StartedEvent - Job was started
 	StartedEvent = "started"
 	// StoppedEvent - Job was stopped

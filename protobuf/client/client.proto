@@ -184,7 +184,9 @@ message Event {
   Sliver Sliver = 2;
   Job Job = 3;
   Client Client = 4;
-  string Err = 5;
+  bytes  Data = 5;
+  
+  string Err = 9;
 }
 
 message Players { repeated Player Players = 1; }

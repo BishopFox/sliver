@@ -187,12 +187,14 @@ func handleClientConnection(conn net.Conn) {
 			return
 		}
 	}
-
 }
 
 func socketEventLoop(conn net.Conn, events chan core.Event) {
 	for event := range events {
-		pbEvent := &clientpb.Event{EventType: event.EventType}
+		pbEvent := &clientpb.Event{
+			EventType: event.EventType,
+			Data:      event.Data,
+		}
 
 		if event.Job != nil {
 			pbEvent.Job = event.Job.ToProtobuf()
