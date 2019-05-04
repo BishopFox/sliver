@@ -44,4 +44,9 @@ const (
 	MsgTask
 	MsgMigrate
 	MsgGetSystemReq
+
+	MsgRegenerate
+
+	MsgListSliverBuilds
+	MsgListCanaries
 )

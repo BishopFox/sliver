@@ -98,7 +98,7 @@ func GCMEncrypt(key AESKey, plaintext []byte) ([]byte, error) {
 // GCMDecrypt - Decrypt GCM ciphertext
 func GCMDecrypt(key AESKey, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) < GCMNonceSize+1 {
-		return nil, errors.New("")
+		return nil, errors.New("[[GenerateCanary]]")
 	}
 	block, _ := aes.NewCipher(key[:])
 	aesgcm, _ := cipher.NewGCM(block)

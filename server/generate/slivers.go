@@ -41,6 +41,25 @@ func SliverConfigByName(name string) (*SliverConfig, error) {
 	return config, err
 }
 
+// SliverConfigMap - Get a sliver's config by it's codename
+func SliverConfigMap() (map[string]*SliverConfig, error) {
+	bucket, err := db.GetBucket(sliverBucketName)
+	if err != nil {
+		return nil, err
+	}
+	ls, err := bucket.List(sliverConfigNamespace)
+	configs := map[string]*SliverConfig{}
+	for _, config := range ls {
+		sliverName := config[len(sliverConfigNamespace)+1:]
+		config, err := SliverConfigByName(sliverName)
+		if err != nil {
+			continue
+		}
+		configs[sliverName] = config
+	}
+	return configs, nil
+}
+
 // SliverConfigSave - Save a configuration to the database
 func SliverConfigSave(config *SliverConfig) error {
 	bucket, err := db.GetBucket(sliverBucketName)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	insecureRand "math/rand"
+	clientpb "sliver/protobuf/client"
 	"sliver/server/db"
 	"strings"
 	"time"
@@ -28,6 +29,18 @@ type DNSCanary struct {
 	FirstTrigger  string `json:"first_trigger"`
 	LatestTrigger string `json:"latest_trigger"`
 	Count         int    `json:"count"`
+}
+
+// ToProtobuf - Return a protobuf version of the struct
+func (c *DNSCanary) ToProtobuf() *clientpb.DNSCanary {
+	return &clientpb.DNSCanary{
+		SliverName:     c.SliverName,
+		Domain:         c.Domain,
+		Triggered:      c.Triggered,
+		FristTriggered: c.FirstTrigger,
+		LatestTrigger:  c.LatestTrigger,
+		Count:          uint32(c.Count),
+	}
 }
 
 func canarySubDomain() string {
@@ -74,6 +87,7 @@ type CanaryGenerator struct {
 }
 
 // GenerateCanary - Generate a canary domain and save it to the db
+// 				    currently this gets called by template engine
 func (g *CanaryGenerator) GenerateCanary() string {
 
 	bucket, err := db.GetBucket(CanaryBucketName)

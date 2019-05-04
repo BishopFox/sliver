@@ -5,38 +5,10 @@ import (
 	"io/ioutil"
 	"path"
 	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
-	"sliver/server/core"
 	"sliver/server/generate"
 
 	"github.com/golang/protobuf/proto"
 )
-
-func rpcKill(data []byte, resp RPCResponse) {
-	killReq := &sliverpb.KillReq{}
-	err := proto.Unmarshal(data, killReq)
-	if err != nil {
-		resp([]byte{}, err)
-	}
-	sliver := core.Hive.Sliver(killReq.SliverID)
-	data, err = sliver.Request(sliverpb.MsgKill, defaultTimeout, data)
-	core.Hive.RemoveSliver(sliver)
-	resp(data, err)
-}
-
-func rpcSessions(_ []byte, resp RPCResponse) {
-	sessions := &clientpb.Sessions{}
-	if 0 < len(*core.Hive.Slivers) {
-		for _, sliver := range *core.Hive.Slivers {
-			sessions.Slivers = append(sessions.Slivers, sliver.ToProtobuf())
-		}
-	}
-	data, err := proto.Marshal(sessions)
-	if err != nil {
-		rpcLog.Errorf("Error encoding rpc response %v", err)
-	}
-	resp(data, err)
-}
 
 func rpcGenerate(req []byte, resp RPCResponse) {
 	var fpath string
@@ -79,6 +51,51 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 	}
 	data, err := proto.Marshal(generated)
 	resp(data, err)
+}
+
+func rpcRegenerate(req []byte, resp RPCResponse) {
+	regenReq := &clientpb.Regenerate{}
+	err := proto.Unmarshal(req, regenReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	sliverConfig, _ := generate.SliverConfigByName(regenReq.SliverName)
+	sliverFileData, err := generate.SliverFileByName(regenReq.SliverName)
+	regenerated := &clientpb.Regenerate{SliverName: regenReq.SliverName}
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+
+	if sliverFileData != nil && sliverConfig != nil {
+		regenerated.File = &clientpb.File{
+			Name: sliverConfig.FileName,
+			Data: sliverFileData,
+		}
+	}
+	data, err := proto.Marshal(regenerated)
+	resp(data, err)
+}
+
+func rpcListSliverBuilds(_ []byte, resp RPCResponse) {
+	configs, err := generate.SliverConfigMap()
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	sliverBuilds := &clientpb.SliverBuilds{
+		Configs: map[string]*clientpb.SliverConfig{},
+	}
+	for name, cfg := range configs {
+		sliverBuilds.Configs[name] = cfg.ToProtobuf()
+	}
+	data, err := proto.Marshal(sliverBuilds)
+	resp(data, err)
+}
+
+func rpcListCanaries(_ []byte, resp RPCResponse) {
+
 }
 
 func rpcProfiles(_ []byte, resp RPCResponse) {

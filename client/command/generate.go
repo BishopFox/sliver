@@ -1,18 +1,17 @@
 package command
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	consts "sliver/client/constants"
 	"sliver/client/spin"
 	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
-	"sort"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -20,171 +19,6 @@ import (
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
 )
-
-func sessions(ctx *grumble.Context, rpc RPCServer) {
-	interact := ctx.Flags.String("interact")
-	if interact != "" {
-		sliver := getSliver(interact, rpc)
-		if sliver != nil {
-			ActiveSliver.SetActiveSliver(sliver)
-			fmt.Printf(Info+"Active sliver %s (%d)\n", sliver.Name, sliver.ID)
-		} else {
-			fmt.Printf(Warn+"Invalid sliver name or session number '%s'\n", ctx.Args[0])
-		}
-	} else {
-		resp := <-rpc(&sliverpb.Envelope{
-			Type: clientpb.MsgSessions,
-			Data: []byte{},
-		}, defaultTimeout)
-		if resp.Err != "" {
-			fmt.Printf(Warn+"Error: %s\n", resp.Err)
-			return
-		}
-		sessions := &clientpb.Sessions{}
-		proto.Unmarshal(resp.Data, sessions)
-
-		slivers := map[uint32]*clientpb.Sliver{}
-		for _, sliver := range sessions.Slivers {
-			slivers[sliver.ID] = sliver
-		}
-		if 0 < len(slivers) {
-			printSlivers(slivers)
-		} else {
-			fmt.Printf(Info + "No slivers connected\n")
-		}
-	}
-}
-
-/*
-	So this method is a little more complex than you'd maybe think,
-	this is because Go's tabwriter aligns columns by counting bytes
-	and since we want to modify the color of the active sliver row
-	the number of bytes per row won't line up. So we render the table
-	into a buffer and note which row the active sliver is in. Then we
-	write each line to the term and insert the ANSI codes just before
-	we display the row.
-*/
-func printSlivers(sessions map[uint32]*clientpb.Sliver) {
-	outputBuf := bytes.NewBufferString("")
-	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
-
-	// Column Headers
-	fmt.Fprintln(table, "ID\tName\tTransport\tRemote Address\tUsername\tOperating System\tLast Check-in\t")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-		strings.Repeat("=", len("ID")),
-		strings.Repeat("=", len("Name")),
-		strings.Repeat("=", len("Transport")),
-		strings.Repeat("=", len("Remote Address")),
-		strings.Repeat("=", len("Username")),
-		strings.Repeat("=", len("Operating System")),
-		strings.Repeat("=", len("Last Check-in")))
-
-	// Sort the keys becuase maps have a randomized order
-	var keys []int
-	for _, sliver := range sessions {
-		keys = append(keys, int(sliver.ID))
-	}
-	sort.Ints(keys) // Fucking Go can't sort int32's, so we convert to/from int's
-
-	activeIndex := -1
-	for index, key := range keys {
-		sliver := sessions[uint32(key)]
-		if ActiveSliver.Sliver != nil && ActiveSliver.Sliver.ID == sliver.ID {
-			activeIndex = index + 2 // Two lines for the headers
-		}
-		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-			sliver.ID, sliver.Name, sliver.Transport, sliver.RemoteAddress, sliver.Username,
-			fmt.Sprintf("%s/%s", sliver.OS, sliver.Arch),
-			sliver.LastCheckin)
-	}
-	table.Flush()
-
-	if activeIndex != -1 {
-		lines := strings.Split(outputBuf.String(), "\n")
-		for lineNumber, line := range lines {
-			if len(line) == 0 {
-				continue
-			}
-			if lineNumber == activeIndex {
-				fmt.Printf("%s%s%s\n", green, line, normal)
-			} else {
-				fmt.Printf("%s\n", line)
-			}
-		}
-	} else {
-		fmt.Printf(outputBuf.String())
-	}
-}
-
-func use(ctx *grumble.Context, rpc RPCServer) {
-	if len(ctx.Args) == 0 {
-		fmt.Printf(Warn + "Missing sliver name or session number, see `help use`\n")
-		return
-	}
-	sliver := getSliver(ctx.Args[0], rpc)
-	if sliver != nil {
-		ActiveSliver.SetActiveSliver(sliver)
-		fmt.Printf(Info+"Active sliver %s (%d)\n", sliver.Name, sliver.ID)
-	} else {
-		fmt.Printf(Warn+"Invalid sliver name or session number '%s'\n", ctx.Args[0])
-	}
-}
-
-func background(ctx *grumble.Context, rpc RPCServer) {
-	ActiveSliver.SetActiveSliver(nil)
-	fmt.Printf(Info + "Background ...\n")
-}
-
-func kill(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-		return
-	}
-
-	force := ctx.Flags.Bool("force")
-
-	sliver := ActiveSliver.Sliver
-	data, _ := proto.Marshal(&sliverpb.KillReq{
-		SliverID: sliver.ID,
-		Force:    force,
-	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgKill,
-		Data: data,
-	}, 5)
-
-	if !force && resp.Err != "" {
-		fmt.Printf(Warn+"%s\n", resp.Err)
-	} else {
-		fmt.Printf(Info+"Killed %s (%d)\n", sliver.Name, sliver.ID)
-		ActiveSliver.DisableActiveSliver()
-	}
-}
-
-func info(ctx *grumble.Context, rpc RPCServer) {
-
-	var sliver *clientpb.Sliver
-	if ActiveSliver.Sliver != nil {
-		sliver = ActiveSliver.Sliver
-	} else if 0 < len(ctx.Args) {
-		sliver = getSliver(ctx.Args[0], rpc)
-	}
-
-	if sliver != nil {
-		fmt.Printf(bold+"            ID: %s%d\n", normal, sliver.ID)
-		fmt.Printf(bold+"          Name: %s%s\n", normal, sliver.Name)
-		fmt.Printf(bold+"      Hostname: %s%s\n", normal, sliver.Hostname)
-		fmt.Printf(bold+"      Username: %s%s\n", normal, sliver.Username)
-		fmt.Printf(bold+"           UID: %s%s\n", normal, sliver.UID)
-		fmt.Printf(bold+"           GID: %s%s\n", normal, sliver.GID)
-		fmt.Printf(bold+"           PID: %s%d\n", normal, sliver.PID)
-		fmt.Printf(bold+"            OS: %s%s\n", normal, sliver.OS)
-		fmt.Printf(bold+"          Arch: %s%s\n", normal, sliver.Arch)
-		fmt.Printf(bold+"Remote Address: %s%s\n", normal, sliver.RemoteAddress)
-	} else {
-		fmt.Printf(Warn+"No target sliver, see `help %s`\n", consts.InfoStr)
-	}
-}
 
 func generate(ctx *grumble.Context, rpc RPCServer) {
 	config := parseCompileFlags(ctx)
@@ -196,6 +30,59 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 		save, _ = os.Getwd()
 	}
 	compile(config, save, rpc)
+}
+
+func regenerate(ctx *grumble.Context, rpc RPCServer) {
+	if len(ctx.Args) < 1 {
+		fmt.Printf(Warn+"Invalid sliver name, see 'help %s'\n", consts.RegenerateStr)
+		return
+	}
+	save := ctx.Flags.String("save")
+	if save == "" {
+		save, _ = os.Getwd()
+	}
+
+	regenerateReq, _ := proto.Marshal(&clientpb.Regenerate{
+		SliverName: ctx.Args[0],
+	})
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgRegenerate,
+		Data: regenerateReq,
+	}, defaultTimeout)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"%s\n", resp.Err)
+		return
+	}
+
+	regen := &clientpb.Regenerate{}
+	proto.Unmarshal(resp.Data, regen)
+
+	saveTo, _ := filepath.Abs(save)
+	fi, err := os.Stat(saveTo)
+	if err != nil {
+		fmt.Printf(Warn+"Failed to regenerate sliver %s\n", err)
+		return
+	}
+	if regen.File == nil {
+		fmt.Printf(Warn + "Failed to regenerate sliver (no data)\n")
+		return
+	}
+
+	if fi.IsDir() {
+		var fileName string
+		if 0 < len(regen.File.Name) {
+			fileName = path.Base(regen.File.Name)
+		} else {
+			fileName = path.Base(ctx.Args[0])
+		}
+		saveTo = filepath.Join(saveTo, fileName)
+	}
+	err = ioutil.WriteFile(saveTo, regen.File.Data, os.ModePerm)
+	if err != nil {
+		fmt.Printf(Warn+"Failed to write to %s\n", err)
+		return
+	}
+	fmt.Printf(Info+"Sliver binary saved to: %s\n", saveTo)
 }
 
 // Shared function that extracts the compile flags from the grumble context
@@ -219,6 +106,12 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 	if len(mtlsC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 {
 		fmt.Printf(Warn + "Must specify at least on of --mtls, --http, or --dns\n")
 		return nil
+	}
+
+	canaries := ctx.Flags.String("canary")
+	canaryDomains := []string{}
+	if 0 < len(canaries) {
+		canaryDomains = strings.Split(canaries, ",")
 	}
 
 	reconnectInverval := ctx.Flags.Int("reconnect")
@@ -264,10 +157,11 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 	}
 
 	config := &clientpb.SliverConfig{
-		GOOS:   targetOS,
-		GOARCH: arch,
-		Debug:  debug,
-		C2:     c2s,
+		GOOS:          targetOS,
+		GOARCH:        arch,
+		Debug:         debug,
+		C2:            c2s,
+		CanaryDomains: canaryDomains,
 
 		ReconnectInterval:   uint32(reconnectInverval),
 		MaxConnectionErrors: uint32(maxConnectionErrors),
@@ -401,7 +295,7 @@ func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 		return
 	}
 	if fi.IsDir() {
-		saveTo = filepath.Join(saveTo, generated.File.Name)
+		saveTo = filepath.Join(saveTo, path.Base(generated.File.Name))
 	}
 	err = ioutil.WriteFile(saveTo, generated.File.Data, os.ModePerm)
 	if err != nil {
@@ -428,6 +322,7 @@ func profiles(ctx *grumble.Context, rpc RPCServer) {
 		strings.Repeat("=", len("Command & Control")),
 		strings.Repeat("=", len("Debug")),
 		strings.Repeat("=", len("Limits")))
+
 	for name, profile := range *profiles {
 		config := profile.Config
 		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
@@ -519,43 +414,4 @@ func getSliverProfiles(rpc RPCServer) *map[string]*clientpb.Profile {
 		(*profiles)[profile.Name] = profile
 	}
 	return profiles
-}
-
-func ping(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-		return
-	}
-}
-
-func getPID(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-		return
-	}
-	fmt.Printf("%d\n", ActiveSliver.Sliver.PID)
-}
-
-func getUID(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-		return
-	}
-	fmt.Printf("%s\n", ActiveSliver.Sliver.UID)
-}
-
-func getGID(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-		return
-	}
-	fmt.Printf("%s\n", ActiveSliver.Sliver.GID)
-}
-
-func whoami(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-		return
-	}
-	fmt.Printf("%s\n", ActiveSliver.Sliver.Username)
 }

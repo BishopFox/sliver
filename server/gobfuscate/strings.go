@@ -97,7 +97,7 @@ func (s *stringObfuscator) Obfuscate() ([]byte, error) {
 			startIdx := node.Pos() - 1
 			endIdx := node.End() - 1
 			result.Write(data[lastIndex:startIdx])
-			canary := fmt.Sprintf("\"%s\"", strVal[len(canaryPrefix):])
+			canary := fmt.Sprintf("\"http://%s\"", strVal[len(canaryPrefix):])
 			result.Write([]byte(canary))
 			lastIndex = int(endIdx)
 		} else {

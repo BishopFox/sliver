@@ -16,6 +16,10 @@ message Process {
 }
 
 // [ core ] ----------------------------------------
+
+// This 'Sliver' data structure is used for actively
+// connected slivers, SliverBuild is a backup of an
+// already built sliver
 message Sliver {
   uint32 ID = 1;
   string Name = 2;
@@ -53,6 +57,7 @@ message SliverConfig {
 
   // c2
   repeated SliverC2 C2 = 10;
+  repeated string CanaryDomains = 11;
 
   bool LimitDomainJoined = 20;
   string LimitDatetime = 21;
@@ -66,7 +71,26 @@ message SliverConfig {
   }
   OutputFormat Format = 25;
   bool IsSharedLib = 26;
+
+  string FileName = 27;
 }
+
+// Configs of previously built slivers
+message SliverBuilds {
+  map<string, SliverConfig> Configs = 1;
+}
+
+// DNSCanary - Single canary and metadata
+message DNSCanary {
+  string SliverName = 1;
+  string Domain = 2;
+  bool Triggered = 3;
+  string FristTriggered = 4;
+  string LatestTrigger = 5;
+  uint32 Count = 6;
+}
+
+message Canaries { repeated DNSCanary Canaries = 1; }
 
 message Profile {
   string Name = 1;
@@ -74,6 +98,11 @@ message Profile {
 }
 
 message Profiles { repeated Profile List = 1; }
+
+message Regenerate {
+  string SliverName = 1;
+  File File = 2;
+}
 
 message Job {
   int32 ID = 1;
@@ -101,7 +130,10 @@ message MTLSReq {
 
 message MTLS { int32 JobID = 1; }
 
-message DNSReq { string Domain = 1; }
+message DNSReq { 
+  string Domain = 1; 
+  bool Canaries = 2;
+}
 
 message DNS { int32 JobID = 1; }
 
