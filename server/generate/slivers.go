@@ -2,6 +2,7 @@ package generate
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -24,6 +25,8 @@ const (
 
 var (
 	storageLog = log.NamedLogger("generate", "storage")
+
+	ErrSliverNotFound = errors.New("Sliver not found")
 )
 
 // SliverConfigByName - Get a sliver's config by it's codename
@@ -102,7 +105,11 @@ func SliverFileByName(name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return bucket.Get(fmt.Sprintf("%s.%s", sliverFileNamespace, name))
+	sliver, err := bucket.Get(fmt.Sprintf("%s.%s", sliverFileNamespace, name))
+	if err != nil {
+		return nil, ErrSliverNotFound
+	}
+	return sliver, nil
 }
 
 // SliverFiles - List all sliver files
