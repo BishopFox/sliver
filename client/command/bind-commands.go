@@ -58,7 +58,8 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Help:     "Start a DNS listener",
 		LongHelp: help.GetHelpFor(consts.DnsStr),
 		Flags: func(f *grumble.Flags) {
-			f.String("d", "domain", "", "parent domain to use for DNS C2")
+			f.String("d", "domains", "", "parent domain(s) to use for DNS c2")
+			f.Bool("c", "no-canaries", true, "disable dns canary detection")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -71,7 +72,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.HttpStr,
-		Help:     "Start a HTTP listener",
+		Help:     "Start an HTTP listener",
 		LongHelp: help.GetHelpFor(consts.HttpStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domain", "", "limit responses to specific domain")
@@ -88,7 +89,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.HttpsStr,
-		Help:     "Start a HTTPS listener",
+		Help:     "Start an HTTPS listener",
 		LongHelp: help.GetHelpFor(consts.HttpsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domain", "", "limit responses to specific domain")
@@ -356,7 +357,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-
+			canaries(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},

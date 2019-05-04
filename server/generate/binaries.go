@@ -388,10 +388,11 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		sliverCodeTmpl.Execute(buf, config)
 
 		// Render canaries
+		buildLog.Infof("Canary damain(s): %v", config.CanaryDomains)
 		canaryTempl := template.New("canary").Delims("[[", "]]")
 		canaryGenerator := &CanaryGenerator{
 			SliverName:    config.Name,
-			ParentDomains: []string{"testing.com"},
+			ParentDomains: config.CanaryDomains,
 		}
 		canaryTempl, err := canaryTempl.Funcs(template.FuncMap{
 			"GenerateCanary": canaryGenerator.GenerateCanary,

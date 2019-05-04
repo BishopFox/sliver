@@ -45,11 +45,34 @@ func (c *DNSCanary) ToProtobuf() *clientpb.DNSCanary {
 
 func canarySubDomain() string {
 	subdomain := []rune{}
+	index := insecureRand.Intn(len(dnsCharSet) - 12) // ensure first char is alphabetic
+	subdomain = append(subdomain, dnsCharSet[index])
 	for i := 0; i < canarySize; i++ {
 		index := insecureRand.Intn(len(dnsCharSet))
 		subdomain = append(subdomain, dnsCharSet[index])
 	}
 	return string(subdomain)
+}
+
+// ListCanaries - List of all embedded canaries
+func ListCanaries() ([]*DNSCanary, error) {
+	bucket, err := db.GetBucket(CanaryBucketName)
+	if err != nil {
+		return nil, err
+	}
+
+	rawCanaries, err := bucket.Map("")
+	canaries := []*DNSCanary{}
+	for _, rawCanary := range rawCanaries {
+		canary := &DNSCanary{}
+		err := json.Unmarshal(rawCanary, canary)
+		if err != nil {
+			buildLog.Errorf("Failed to parse canary")
+			continue
+		}
+		canaries = append(canaries, canary)
+	}
+	return canaries, nil
 }
 
 // CheckCanary - Check if a canary exists
@@ -122,5 +145,9 @@ func (g *CanaryGenerator) GenerateCanary() string {
 		return ""
 	}
 	err = bucket.Set(canaryDomain, canary)
+	if err != nil {
+		buildLog.Errorf("Failed to save canary %s", err)
+		return ""
+	}
 	return fmt.Sprintf("%s%s", canaryPrefix, canaryDomain)
 }

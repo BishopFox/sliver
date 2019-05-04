@@ -415,3 +415,20 @@ func getSliverProfiles(rpc RPCServer) *map[string]*clientpb.Profile {
 	}
 	return profiles
 }
+
+func canaries(ctx *grumble.Context, rpc RPCServer) {
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgListCanaries,
+	}, defaultTimeout)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"%s\n", resp.Err)
+		return
+	}
+
+	canaries := &clientpb.Canaries{}
+	proto.Unmarshal(resp.Data, canaries)
+	for i, canary := range canaries.Canaries {
+		fmt.Printf("%d. %v\n", i, canary)
+	}
+
+}

@@ -131,7 +131,7 @@ message MTLSReq {
 message MTLS { int32 JobID = 1; }
 
 message DNSReq { 
-  string Domain = 1; 
+  repeated string Domains = 1; 
   bool Canaries = 2;
 }
 

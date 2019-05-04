@@ -26,6 +26,7 @@ const (
 var (
 	storageLog = log.NamedLogger("generate", "storage")
 
+	// ErrSliverNotFound - More descriptive 'key not found' error
 	ErrSliverNotFound = errors.New("Sliver not found")
 )
 

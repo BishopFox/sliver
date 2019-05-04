@@ -95,7 +95,19 @@ func rpcListSliverBuilds(_ []byte, resp RPCResponse) {
 }
 
 func rpcListCanaries(_ []byte, resp RPCResponse) {
-
+	jsonCanaries, err := generate.ListCanaries()
+	if err != nil {
+		resp([]byte{}, err)
+	}
+	rpcLog.Infof("Found %d canaries", len(jsonCanaries))
+	canaries := []*clientpb.DNSCanary{}
+	for _, canary := range jsonCanaries {
+		canaries = append(canaries, canary.ToProtobuf())
+	}
+	data, err := proto.Marshal(&clientpb.Canaries{
+		Canaries: canaries,
+	})
+	resp(data, err)
 }
 
 func rpcProfiles(_ []byte, resp RPCResponse) {
