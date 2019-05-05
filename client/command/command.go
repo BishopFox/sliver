@@ -91,3 +91,21 @@ func getSliver(arg string, rpc RPCServer) *clientpb.Sliver {
 	}
 	return nil
 }
+
+// SliverSessionsByName - Return all sessions for a Sliver by name
+func SliverSessionsByName(name string, rpc RPCServer) []*clientpb.Sliver {
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: clientpb.MsgSessions,
+		Data: []byte{},
+	}, defaultTimeout)
+	allSessions := &clientpb.Sessions{}
+	proto.Unmarshal((resp).Data, allSessions)
+
+	sessions := []*clientpb.Sliver{}
+	for _, sliver := range allSessions.Slivers {
+		if sliver.Name == name {
+			sessions = append(sessions, sliver)
+		}
+	}
+	return sessions
+}

@@ -27,6 +27,7 @@ func CopyFileContents(src string, dst string) error {
 	return nil
 }
 
+// ByteCountBinary - Pretty print byte size
 func ByteCountBinary(b int64) string {
 	const unit = 1024
 	if b < unit {

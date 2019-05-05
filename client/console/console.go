@@ -85,6 +85,14 @@ func eventLoop(app *grumble.App, server *core.SliverServer) {
 
 		switch event.EventType {
 
+		case consts.CanaryEvent:
+			fmt.Printf(clearln+Warn+bold+"WARNING %s%s has been burned (DNS Canary)\n", normal, event.Sliver.Name)
+			sessions := cmd.SliverSessionsByName(event.Sliver.Name, server.RPC)
+			for _, sliver := range sessions {
+				fmt.Printf(clearln+"\t🔥 Session #%d is affected\n", sliver.ID)
+			}
+			fmt.Println()
+
 		case consts.ServerErrorStr:
 			fmt.Printf(clearln + Warn + "Server connection error!\n\n")
 			os.Exit(4)
