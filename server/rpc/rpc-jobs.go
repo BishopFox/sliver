@@ -116,7 +116,7 @@ func rpcStartDNSListener(data []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	jobID, err := jobStartDNSListener(dnsReq.Domain)
+	jobID, err := jobStartDNSListener(dnsReq.Domains, dnsReq.Canaries)
 	if err != nil {
 		resp([]byte{}, err)
 		return
@@ -125,16 +125,14 @@ func rpcStartDNSListener(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func jobStartDNSListener(domain string) (int, error) {
+func jobStartDNSListener(domains []string, canaries bool) (int, error) {
 
-	domains := []string{domain}
-
-	server := c2.StartDNSListener(domains, true)
-
+	server := c2.StartDNSListener(domains, canaries)
+	description := fmt.Sprintf("%s (canaries %v)", strings.Join(domains, " "), canaries)
 	job := &core.Job{
 		ID:          core.GetJobID(),
 		Name:        "dns",
-		Description: strings.Join(domains, " "),
+		Description: description,
 		Protocol:    "udp",
 		Port:        53,
 		JobCtrl:     make(chan bool),
@@ -190,7 +188,9 @@ func rpcStartHTTPSListener(data []byte, resp RPCResponse) {
 	}
 	job := jobStartHTTPListener(conf)
 
-	data, err = proto.Marshal(&clientpb.HTTP{JobID: int32(job.ID)})
+	data, err = proto.Marshal(&clientpb.HTTP{
+		JobID: int32(job.ID),
+	})
 	resp(data, err)
 }
 

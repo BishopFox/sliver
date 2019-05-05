@@ -58,7 +58,8 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Help:     "Start a DNS listener",
 		LongHelp: help.GetHelpFor(consts.DnsStr),
 		Flags: func(f *grumble.Flags) {
-			f.String("d", "domain", "", "parent domain to use for DNS C2")
+			f.String("d", "domains", "", "parent domain(s) to use for DNS c2")
+			f.Bool("c", "no-canaries", true, "disable dns canary detection")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -71,7 +72,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.HttpStr,
-		Help:     "Start a HTTP listener",
+		Help:     "Start an HTTP listener",
 		LongHelp: help.GetHelpFor(consts.HttpStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domain", "", "limit responses to specific domain")
@@ -88,7 +89,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.HttpsStr,
-		Help:     "Start a HTTPS listener",
+		Help:     "Start an HTTPS listener",
 		LongHelp: help.GetHelpFor(consts.HttpsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domain", "", "limit responses to specific domain")
@@ -222,6 +223,8 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
 
+			f.String("c", "canary", "", "canary domain(s)")
+
 			f.String("m", "mtls", "", "mtls connection strings")
 			f.String("t", "http", "", "http(s) connection strings")
 			f.String("n", "dns", "", "dns connection strings")
@@ -256,9 +259,11 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
 
-			f.String("m", "mtls", "", "mtls connection strings")
-			f.String("t", "http", "", "http(s) connection strings")
-			f.String("n", "dns", "", "dns connection strings")
+			f.String("m", "mtls", "", "mtls connection string(s)")
+			f.String("t", "http", "", "http[s] connection string(s)")
+			f.String("n", "dns", "", "dns connection strin(s)")
+
+			f.String("c", "canary", "", "canary domain(s)")
 
 			f.Int("j", "reconnect", 60, "attempt to reconnect every n second(s)")
 			f.Int("k", "max-errors", 1000, "max number of connection errors")
@@ -275,6 +280,23 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			newProfile(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.RegenerateStr,
+		Help:      "Regenerate target sliver",
+		LongHelp:  help.GetHelpFor(consts.RegenerateStr),
+		AllowArgs: true,
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "save", "", "directory/file to the binary to")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			regenerate(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -306,6 +328,36 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			profileGenerate(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ListSliverBuildsStr,
+		Help:     "List old sliver builds",
+		LongHelp: help.GetHelpFor(consts.ListSliverBuildsStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			listSliverBuilds(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ListCanariesStr,
+		Help:     "List generated canaries",
+		LongHelp: help.GetHelpFor(consts.ListCanariesStr),
+		Flags: func(f *grumble.Flags) {
+
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			canaries(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},

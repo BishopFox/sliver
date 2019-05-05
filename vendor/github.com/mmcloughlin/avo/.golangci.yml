@@ -1,0 +1,25 @@
+linters:
+  enable-all: true
+  disable:
+  - maligned
+  - lll
+  - gosec
+  - prealloc
+  - unparam
+  - gochecknoglobals
+  - gochecknoinits
+
+linters-settings:
+  depguard:
+    list-type: whitelist
+    packages:
+      - github.com/mmcloughlin/avo
+      - golang.org/x/
+
+issues:
+  exclude-use-default: false
+  exclude:
+    # errcheck: Almost all programs ignore errors on these functions and in most cases it's ok
+    - Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*printf?|os\.(Un)?Setenv). is not checked
+    # gocritic: https://github.com/go-critic/go-critic/issues/762
+    - ' with `(len|cap|real|imag)`'

@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
@@ -75,6 +76,7 @@ type SliverConfig struct {
 	MTLSc2Enabled bool       `json:"c2_mtls_enabled"`
 	HTTPc2Enabled bool       `json:"c2_http_enabled"`
 	DNSc2Enabled  bool       `json:"c2_dns_enabled"`
+	CanaryDomains []string   `json:"canary_domains"`
 
 	// Limits
 	LimitDomainJoined bool   `json:"limit_domainjoined"`
@@ -87,18 +89,22 @@ type SliverConfig struct {
 
 	// For 	IsSharedLib bool `json:"is_shared_lib"`
 	IsSharedLib bool `json:"is_shared_lib"`
+
+	FileName string
 }
 
 // ToProtobuf - Convert SliverConfig to protobuf equiv
 func (c *SliverConfig) ToProtobuf() *clientpb.SliverConfig {
 	config := &clientpb.SliverConfig{
-		GOOS:                c.GOOS,
-		GOARCH:              c.GOARCH,
-		Name:                c.Name,
-		CACert:              c.CACert,
-		Cert:                c.Cert,
-		Key:                 c.Key,
-		Debug:               c.Debug,
+		GOOS:          c.GOOS,
+		GOARCH:        c.GOARCH,
+		Name:          c.Name,
+		CACert:        c.CACert,
+		Cert:          c.Cert,
+		Key:           c.Key,
+		Debug:         c.Debug,
+		CanaryDomains: c.CanaryDomains,
+
 		ReconnectInterval:   uint32(c.ReconnectInterval),
 		MaxConnectionErrors: uint32(c.MaxConnectionErrors),
 
@@ -109,6 +115,8 @@ func (c *SliverConfig) ToProtobuf() *clientpb.SliverConfig {
 
 		IsSharedLib: c.IsSharedLib,
 		Format:      c.Format,
+
+		FileName: c.FileName,
 	}
 	config.C2 = []*clientpb.SliverC2{}
 	for _, c2 := range c.C2 {
@@ -128,6 +136,7 @@ func SliverConfigFromProtobuf(pbConfig *clientpb.SliverConfig) *SliverConfig {
 	cfg.Cert = pbConfig.Cert
 	cfg.Key = pbConfig.Key
 	cfg.Debug = pbConfig.Debug
+	cfg.CanaryDomains = pbConfig.CanaryDomains
 
 	cfg.ReconnectInterval = int(pbConfig.ReconnectInterval)
 	cfg.MaxConnectionErrors = int(pbConfig.MaxConnectionErrors)
@@ -145,6 +154,7 @@ func SliverConfigFromProtobuf(pbConfig *clientpb.SliverConfig) *SliverConfig {
 	cfg.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, cfg.C2)
 	cfg.DNSc2Enabled = isC2Enabled([]string{"dns"}, cfg.C2)
 
+	cfg.FileName = pbConfig.FileName
 	return cfg
 }
 
@@ -263,9 +273,11 @@ func SliverSharedLibrary(config *SliverConfig) (string, error) {
 		ldflags[0] += " -H=windowsgui"
 	}
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags)
-	saveErr := SliverFileSave(config.Name, dest)
-	if saveErr != nil {
-		buildLog.Errorf("Failed to save file to db %s", saveErr)
+	config.FileName = path.Base(dest)
+	saveFileErr := SliverFileSave(config.Name, dest)
+	saveCfgErr := SliverConfigSave(config)
+	if saveFileErr != nil || saveCfgErr != nil {
+		buildLog.Errorf("Failed to save file to db %s %s", saveFileErr, saveCfgErr)
 	}
 	return dest, err
 }
@@ -296,13 +308,16 @@ func SliverExecutable(config *SliverConfig) (string, error) {
 		ldflags[0] += " -H=windowsgui"
 	}
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags)
-	saveErr := SliverFileSave(config.Name, dest)
-	if saveErr != nil {
-		buildLog.Errorf("Failed to save file to db %s", saveErr)
+	config.FileName = path.Base(dest)
+	saveFileErr := SliverFileSave(config.Name, dest)
+	saveCfgErr := SliverConfigSave(config)
+	if saveFileErr != nil || saveCfgErr != nil {
+		buildLog.Errorf("Failed to save file to db %s %s", saveFileErr, saveCfgErr)
 	}
 	return dest, err
 }
 
+// This function is a little too long, we should probably refactor it as some point
 func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := gogo.ValidCompilerTargets[target]; !ok {
@@ -369,10 +384,24 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		}
 
 		fSliver, _ := os.Create(sliverCodePath)
+		buf := bytes.NewBuffer([]byte{})
 		buildLog.Infof("[render] %s", sliverCodePath)
 
+		// Render code
 		sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
-		err := sliverCodeTmpl.Execute(fSliver, config)
+		sliverCodeTmpl.Execute(buf, config)
+
+		// Render canaries
+		buildLog.Infof("Canary damain(s): %v", config.CanaryDomains)
+		canaryTempl := template.New("canary").Delims("[[", "]]")
+		canaryGenerator := &CanaryGenerator{
+			SliverName:    config.Name,
+			ParentDomains: config.CanaryDomains,
+		}
+		canaryTempl, err := canaryTempl.Funcs(template.FuncMap{
+			"GenerateCanary": canaryGenerator.GenerateCanary,
+		}).Parse(buf.String())
+		canaryTempl.Execute(fSliver, canaryGenerator)
 
 		if err != nil {
 			buildLog.Infof("Failed to render go code: %s", err)
@@ -394,7 +423,6 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		buildLog.Infof("Obfuscated sliver package: %s", obfuscatedPkg)
 		sliverPkgDir = path.Join(obfuscatedGoPath, "src", obfuscatedPkg) // new "main"
 	}
-	err = SliverConfigSave(config)
 	if err != nil {
 		buildLog.Errorf("Failed to save sliver config %s", err)
 	}

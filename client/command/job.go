@@ -127,18 +127,20 @@ func startMTLSListener(ctx *grumble.Context, rpc RPCServer) {
 }
 
 func startDNSListener(ctx *grumble.Context, rpc RPCServer) {
-	domain := ctx.Flags.String("domain")
-	if domain == "" {
-		fmt.Printf(Warn + "Missing parameter, see 'help dns'\n")
-		return
-	}
-	if !strings.HasSuffix(domain, ".") {
-		domain += "."
+
+	domains := strings.Split(ctx.Flags.String("domains"), ",")
+	for _, domain := range domains {
+		if !strings.HasSuffix(domain, ".") {
+			domain += "."
+		}
 	}
 
-	fmt.Printf(Info+"Starting DNS listener with parent domain '%s' ...\n", domain)
+	fmt.Printf(Info+"Starting DNS listener with parent domain(s) %v ...\n", domains)
 
-	data, _ := proto.Marshal(&clientpb.DNSReq{Domain: domain})
+	data, _ := proto.Marshal(&clientpb.DNSReq{
+		Domains:  domains,
+		Canaries: ctx.Flags.Bool("canaries"),
+	})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgDns,
 		Data: data,

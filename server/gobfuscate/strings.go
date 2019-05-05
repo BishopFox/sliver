@@ -16,10 +16,10 @@ import (
 )
 
 const (
-	canaryPrefix = "[["
-	canarySuffix = "]]"
+	canaryPrefix = "can://"
 )
 
+// ObfuscateStrings - Obfuscate strings in a given gopath, skips canaries
 func ObfuscateStrings(gopath string) error {
 	return filepath.Walk(gopath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -93,14 +93,20 @@ func (s *stringObfuscator) Obfuscate() ([]byte, error) {
 	data := s.Contents
 	for i, node := range s.Nodes {
 		strVal := parsed[i]
-		if strings.HasPrefix(strVal, canaryPrefix) && strings.HasSuffix(strVal, canarySuffix) {
-			continue // Skip canaries
+		if strings.HasPrefix(strVal, canaryPrefix) {
+			startIdx := node.Pos() - 1
+			endIdx := node.End() - 1
+			result.Write(data[lastIndex:startIdx])
+			canary := fmt.Sprintf("\"http://%s\"", strVal[len(canaryPrefix):])
+			result.Write([]byte(canary))
+			lastIndex = int(endIdx)
+		} else {
+			startIdx := node.Pos() - 1
+			endIdx := node.End() - 1
+			result.Write(data[lastIndex:startIdx])
+			result.Write(obfuscatedStringCode(strVal))
+			lastIndex = int(endIdx)
 		}
-		startIdx := node.Pos() - 1
-		endIdx := node.End() - 1
-		result.Write(data[lastIndex:startIdx])
-		result.Write(obfuscatedStringCode(strVal))
-		lastIndex = int(endIdx)
 	}
 	result.Write(data[lastIndex:])
 	return result.Bytes(), nil

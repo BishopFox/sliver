@@ -1,0 +1,12 @@
+#!/bin/bash -e
+
+source script/lib.sh
+
+status=0
+pkgs=$(go list -f '{{if not .Doc}}{{.ImportPath}}{{end}}' ./...)
+for pkg in ${pkgs}; do
+    print_error "${pkg} missing docstring"
+    status=1
+done
+
+exit ${status}

@@ -2,9 +2,9 @@ package generate
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	insecureRand "math/rand"
+	clientpb "sliver/protobuf/client"
 	"sliver/server/db"
 	"strings"
 	"time"
@@ -13,8 +13,8 @@ import (
 const (
 	// CanaryBucketName - DNS Canary bucket name
 	CanaryBucketName = "canaries"
-
-	canarySize = 6
+	canaryPrefix     = "can://"
+	canarySize       = 6
 )
 
 var (
@@ -31,14 +31,48 @@ type DNSCanary struct {
 	Count         int    `json:"count"`
 }
 
+// ToProtobuf - Return a protobuf version of the struct
+func (c *DNSCanary) ToProtobuf() *clientpb.DNSCanary {
+	return &clientpb.DNSCanary{
+		SliverName:     c.SliverName,
+		Domain:         c.Domain,
+		Triggered:      c.Triggered,
+		FristTriggered: c.FirstTrigger,
+		LatestTrigger:  c.LatestTrigger,
+		Count:          uint32(c.Count),
+	}
+}
+
 func canarySubDomain() string {
-	insecureRand.Seed(time.Now().UnixNano())
 	subdomain := []rune{}
+	index := insecureRand.Intn(len(dnsCharSet) - 12) // ensure first char is alphabetic
+	subdomain = append(subdomain, dnsCharSet[index])
 	for i := 0; i < canarySize; i++ {
 		index := insecureRand.Intn(len(dnsCharSet))
 		subdomain = append(subdomain, dnsCharSet[index])
 	}
 	return string(subdomain)
+}
+
+// ListCanaries - List of all embedded canaries
+func ListCanaries() ([]*DNSCanary, error) {
+	bucket, err := db.GetBucket(CanaryBucketName)
+	if err != nil {
+		return nil, err
+	}
+
+	rawCanaries, err := bucket.Map("")
+	canaries := []*DNSCanary{}
+	for _, rawCanary := range rawCanaries {
+		canary := &DNSCanary{}
+		err := json.Unmarshal(rawCanary, canary)
+		if err != nil {
+			buildLog.Errorf("Failed to parse canary")
+			continue
+		}
+		canaries = append(canaries, canary)
+	}
+	return canaries, nil
 }
 
 // CheckCanary - Check if a canary exists
@@ -69,30 +103,51 @@ func UpdateCanary(canary *DNSCanary) error {
 	return bucket.Set(canary.Domain, canaryData)
 }
 
-// generateCanaryDomain - Generate a canary domain and save it to the db
-func generateCanaryDomain(sliverName string, parentDomain string) (string, error) {
+// CanaryGenerator - Holds data related to canary generation
+type CanaryGenerator struct {
+	SliverName    string
+	ParentDomains []string
+}
+
+// GenerateCanary - Generate a canary domain and save it to the db
+// 				    currently this gets called by template engine
+func (g *CanaryGenerator) GenerateCanary() string {
+
 	bucket, err := db.GetBucket(CanaryBucketName)
 	if err != nil {
-		return "", err
+		buildLog.Warnf("Failed to fetch canary bucket")
+		return ""
 	}
-	if len(parentDomain) < 3 {
-		return "", errors.New("Invalid parent domain")
+	if len(g.ParentDomains) < 1 {
+		buildLog.Warnf("No parent domains")
+		return ""
 	}
+
+	// Don't need secure random here
+	insecureRand.Seed(time.Now().UnixNano())
+	index := insecureRand.Intn(len(g.ParentDomains))
+
+	parentDomain := g.ParentDomains[index]
 	if strings.HasPrefix(parentDomain, ".") {
 		parentDomain = parentDomain[1:]
 	}
 
 	subdomain := canarySubDomain()
 	canaryDomain := fmt.Sprintf("%s.%s", subdomain, parentDomain)
+	buildLog.Infof("Generated new canary domain %s", canaryDomain)
 	canary, err := json.Marshal(&DNSCanary{
-		SliverName: sliverName,
+		SliverName: g.SliverName,
 		Domain:     canaryDomain,
 		Triggered:  false,
 		Count:      0,
 	})
 	if err != nil {
-		return "", err
+		return ""
 	}
 	err = bucket.Set(canaryDomain, canary)
-	return canaryDomain, err
+	if err != nil {
+		buildLog.Errorf("Failed to save canary %s", err)
+		return ""
+	}
+	return fmt.Sprintf("%s%s", canaryPrefix, canaryDomain)
 }

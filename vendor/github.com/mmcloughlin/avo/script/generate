@@ -1,0 +1,24 @@
+#!/bin/bash -ex
+
+# Separate core packages from those that depend on the whole library being built.
+core=$(go list ./... | grep -Ev 'avo/(examples|tests)')
+post=$(go list ./... | grep -E  'avo/(examples|tests)')
+
+# Install avogen (for bootstrapping).
+go install ./internal/cmd/avogen
+
+# Attempt to delete generated files, to prove we can recreate them.
+grep -RE '^// Code generated.*DO NOT EDIT\.$' . | grep -v download | cut -d: -f1 | grep -v '.md$' | xargs rm -v
+
+# Generate once.
+go generate -v -x ${core}
+
+# If the instruction database has changed, may need to repeat.
+go install ./internal/cmd/avogen
+go generate -v -x ${core}
+
+# Generate dependent packages.
+go generate -v -x ${post}
+
+# Regenerate documentation.
+./script/doc
