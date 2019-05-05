@@ -139,7 +139,7 @@ func startDNSListener(ctx *grumble.Context, rpc RPCServer) {
 
 	data, _ := proto.Marshal(&clientpb.DNSReq{
 		Domains:  domains,
-		Canaries: ctx.Flags.Bool("canaries"),
+		Canaries: !ctx.Flags.Bool("no-canaries"),
 	})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgDns,

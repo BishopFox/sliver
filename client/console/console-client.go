@@ -2,7 +2,6 @@ package console
 
 import (
 	"fmt"
-	"log"
 	"sliver/client/assets"
 	"sliver/client/core"
 	"sliver/client/transport"
@@ -12,7 +11,7 @@ import (
 
 // StartClientConsole - Start the client console
 func StartClientConsole() error {
-	log.Printf("Console starting ...")
+
 	configs := assets.GetConfigs()
 	if len(configs) == 0 {
 		fmt.Printf(Warn+"No config files found at %s or -config\n", assets.GetConfigDir())
@@ -22,7 +21,8 @@ func StartClientConsole() error {
 	if config == nil {
 		return nil
 	}
-	send, recv, err := transport.Connect(config)
+	fmt.Printf(Info+"Connecting to %s:%d ...\n", config.LHost, config.LPort)
+	send, recv, err := transport.MTLSConnect(config)
 	if err != nil {
 		fmt.Printf(Warn+"Connection to server failed %v", err)
 		return nil
