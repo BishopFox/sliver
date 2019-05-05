@@ -1,6 +1,7 @@
 package command
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -34,7 +35,7 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 
 func regenerate(ctx *grumble.Context, rpc RPCServer) {
 	if len(ctx.Args) < 1 {
-		fmt.Printf(Warn+"Invalid sliver name, see 'help %s'\n", consts.RegenerateStr)
+		fmt.Printf(Warn+"Invalid sliver name, see `help %s`\n", consts.RegenerateStr)
 		return
 	}
 	save := ctx.Flags.String("save")
@@ -427,8 +428,54 @@ func canaries(ctx *grumble.Context, rpc RPCServer) {
 
 	canaries := &clientpb.Canaries{}
 	proto.Unmarshal(resp.Data, canaries)
-	for i, canary := range canaries.Canaries {
-		fmt.Printf("%d. %v\n", i, canary)
+	if 0 < len(canaries.Canaries) {
+		displayCanaries(canaries.Canaries)
+	} else {
+		fmt.Printf(Info + "No canaries in database\n")
 	}
+}
 
+func displayCanaries(canaries []*clientpb.DNSCanary) {
+
+	outputBuf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+
+	fmt.Fprintf(table, "Sliver Name\tDomain\tTriggered\tFirst Trigger\tLatest Trigger\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+		strings.Repeat("=", len("Sliver Name")),
+		strings.Repeat("=", len("Domain")),
+		strings.Repeat("=", len("Triggered")),
+		strings.Repeat("=", len("First Trigger")),
+		strings.Repeat("=", len("Latest Trigger")),
+	)
+
+	lineColors := []string{}
+	for _, canary := range canaries {
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+			canary.SliverName,
+			canary.Domain,
+			fmt.Sprintf("%v", canary.Triggered),
+			canary.FristTriggered,
+			canary.LatestTrigger,
+		)
+		if canary.Triggered {
+			lineColors = append(lineColors, red)
+		} else {
+			lineColors = append(lineColors, normal)
+		}
+	}
+	table.Flush()
+
+	for index, line := range strings.Split(outputBuf.String(), "\n") {
+		if len(line) == 0 {
+			continue
+		}
+		// We need to account for the two rows of column headers
+		if 0 < len(line) && 2 <= index {
+			lineColor := lineColors[index-2]
+			fmt.Printf("%s%s%s\n", lineColor, line, normal)
+		} else {
+			fmt.Printf("%s\n", line)
+		}
+	}
 }
