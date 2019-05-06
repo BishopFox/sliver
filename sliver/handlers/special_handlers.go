@@ -34,7 +34,7 @@ func killHandler(data []byte, connection *transports.Connection) error {
 	}
 	// {{if .IsSharedLib}}
 	if runtime.GOOS == "windows" {
-		// Windows only: ExitThread() instead of os.Exit() for DLL/shellcode sliver's
+		// Windows only: ExitThread() instead of os.Exit() for DLL/shellcode slivers
 		// so that the parent process is not killed
 		exitFunc := syscall.MustLoadDLL("kernel32.dll").MustFindProc("ExitThread")
 		exitFunc.Call(uintptr(0))
