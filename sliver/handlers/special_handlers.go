@@ -5,6 +5,12 @@ import (
 	pb "sliver/protobuf/sliver"
 	"sliver/sliver/transports"
 
+	// {{if .IsSharedLib}}
+	"runtime"
+	"syscall"
+
+	// {{end}}
+
 	"github.com/golang/protobuf/proto"
 )
 
@@ -26,10 +32,20 @@ func killHandler(data []byte, connection *transports.Connection) error {
 	if err != nil {
 		return err
 	}
+	// {{if .IsSharedLib}}
+	if runtime.GOOS == "windows" {
+		// Windows only: ExitThread() instead of os.Exit() for DLL/shellcode sliver's
+		// so that the parent process is not killed
+		exitFunc := syscall.MustLoadDLL("kernel32.dll").MustFindProc("ExitThread")
+		exitFunc.Call(uintptr(0))
+		return nil
+	}
+	// {{else}}
 	// Exit now if we've received a force request
 	if killReq.Force {
 		os.Exit(0)
 	}
+	//{{end}}
 	// Cleanup connection
 	connection.Cleanup()
 	// {{if .Debug}}
