@@ -174,7 +174,12 @@ func handleC2(domain string, req *dns.Msg) *dns.Msg {
 // Canary -> valid? -> trigger alert event
 func handleCanary(req *dns.Msg) *dns.Msg {
 
-	canary, err := generate.CheckCanary(req.Question[0].Name)
+	reqDomain := req.Question[0].Name
+	if !strings.HasSuffix(reqDomain, ".") {
+		reqDomain += "." // Ensure we have the FQDN
+	}
+
+	canary, err := generate.CheckCanary(reqDomain)
 	if err != nil {
 		return nil
 	}

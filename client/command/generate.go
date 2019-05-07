@@ -105,14 +105,19 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 	c2s = append(c2s, dnsC2...)
 
 	if len(mtlsC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 {
-		fmt.Printf(Warn + "Must specify at least on of --mtls, --http, or --dns\n")
+		fmt.Printf(Warn + "Must specify at least one of --mtls, --http, or --dns\n")
 		return nil
 	}
 
-	canaries := ctx.Flags.String("canary")
+	rawCanaries := ctx.Flags.String("canary")
 	canaryDomains := []string{}
-	if 0 < len(canaries) {
-		canaryDomains = strings.Split(canaries, ",")
+	if 0 < len(rawCanaries) {
+		for _, canaryDomain := range strings.Split(rawCanaries, ",") {
+			if !strings.HasSuffix(canaryDomain, ".") {
+				canaryDomain += "." // Ensure we have the FQDN
+			}
+			canaryDomains = append(canaryDomains, canaryDomain)
+		}
 	}
 
 	reconnectInverval := ctx.Flags.Int("reconnect")

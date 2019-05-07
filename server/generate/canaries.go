@@ -131,6 +131,9 @@ func (g *CanaryGenerator) GenerateCanary() string {
 	if strings.HasPrefix(parentDomain, ".") {
 		parentDomain = parentDomain[1:]
 	}
+	if !strings.HasSuffix(parentDomain, ".") {
+		parentDomain += "." // Ensure we have the FQDN
+	}
 
 	subdomain := canarySubDomain()
 	canaryDomain := fmt.Sprintf("%s.%s", subdomain, parentDomain)
