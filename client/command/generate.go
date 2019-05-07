@@ -429,13 +429,13 @@ func canaries(ctx *grumble.Context, rpc RPCServer) {
 	canaries := &clientpb.Canaries{}
 	proto.Unmarshal(resp.Data, canaries)
 	if 0 < len(canaries.Canaries) {
-		displayCanaries(canaries.Canaries)
+		displayCanaries(canaries.Canaries, ctx.Flags.Bool("burned"))
 	} else {
 		fmt.Printf(Info + "No canaries in database\n")
 	}
 }
 
-func displayCanaries(canaries []*clientpb.DNSCanary) {
+func displayCanaries(canaries []*clientpb.DNSCanary, burnedOnly bool) {
 
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
@@ -451,6 +451,9 @@ func displayCanaries(canaries []*clientpb.DNSCanary) {
 
 	lineColors := []string{}
 	for _, canary := range canaries {
+		if burnedOnly && !canary.Triggered {
+			continue
+		}
 		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
 			canary.SliverName,
 			canary.Domain,
@@ -459,7 +462,7 @@ func displayCanaries(canaries []*clientpb.DNSCanary) {
 			canary.LatestTrigger,
 		)
 		if canary.Triggered {
-			lineColors = append(lineColors, red)
+			lineColors = append(lineColors, bold+red)
 		} else {
 			lineColors = append(lineColors, normal)
 		}

@@ -42,7 +42,7 @@ func displayAllSliverBuilds(configs map[string]*clientpb.SliverConfig) {
 		strings.Repeat("=", len("Name")),
 		strings.Repeat("=", len("OS/Arch")),
 		strings.Repeat("=", len("Debug")),
-		strings.Repeat("=", len("File Name")),
+		strings.Repeat("=", len("Format")),
 	)
 
 	for sliverName, config := range configs {
@@ -54,5 +54,5 @@ func displayAllSliverBuilds(configs map[string]*clientpb.SliverConfig) {
 		)
 	}
 	table.Flush()
-	fmt.Println(outputBuf.String())
+	fmt.Printf(outputBuf.String())
 }

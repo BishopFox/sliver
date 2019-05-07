@@ -59,7 +59,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.DnsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domains", "", "parent domain(s) to use for DNS c2")
-			f.Bool("c", "no-canaries", true, "disable dns canary detection")
+			f.Bool("c", "no-canaries", false, "disable dns canary detection")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -352,7 +352,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Help:     "List generated canaries",
 		LongHelp: help.GetHelpFor(consts.ListCanariesStr),
 		Flags: func(f *grumble.Flags) {
-
+			f.Bool("b", "burned", false, "show only triggered canaries")
 		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
