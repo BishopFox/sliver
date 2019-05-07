@@ -217,7 +217,7 @@ func dnsStartSession(parentDomain string) (string, AESKey, error) {
 
 	encryptedSessionID, err := dnsSend(parentDomain, sessionInitMsg, "_", encryptedData)
 	if err != nil {
-		return "", AESKey{}, errors.New("Failed to start new DNS session")
+		return "", AESKey{}, errors.New("Failed to start new DNS session (sessionInitMsg send failed)")
 	}
 	// {{if .Debug}}
 	log.Printf("Encrypted session id = %s", encryptedSessionID)

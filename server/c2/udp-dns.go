@@ -128,15 +128,22 @@ func handleDNSRequest(domains []string, canaries bool, writer dns.ResponseWriter
 		return
 	}
 
-	resp := &dns.Msg{}
+	var resp *dns.Msg
 	isC2, domain := isC2SubDomain(domains, req.Question[0].Name)
 	if isC2 {
-		handleC2(domain, req, resp)
+		dnsLog.Debugf("'%s' is subdomain of c2 parent '%s'", req.Question[0].Name, domain)
+		resp = handleC2(domain, req)
 	} else if canaries {
-		dnsLog.Info("checking for DNS canary matches")
-		handleCanary(req, resp)
+		dnsLog.Debugf("checking '%s' for DNS canary matches", req.Question[0].Name)
+		resp = handleCanary(req)
 	}
-	writer.WriteMsg(resp)
+
+	if resp != nil {
+		// dnsLog.Debug(resp.String())
+		writer.WriteMsg(resp)
+	} else {
+		dnsLog.Infof("Invalid query, no DNS response")
+	}
 }
 
 // Returns true if the requested domain is a c2 subdomain, and the domain it matched with
@@ -150,7 +157,7 @@ func isC2SubDomain(domains []string, reqDomain string) (bool, string) {
 }
 
 // C2 -> Record type?
-func handleC2(domain string, req *dns.Msg, resp *dns.Msg) {
+func handleC2(domain string, req *dns.Msg) *dns.Msg {
 	subdomain := req.Question[0].Name[:len(req.Question[0].Name)-len(domain)]
 	if strings.HasSuffix(subdomain, ".") {
 		subdomain = subdomain[:len(subdomain)-1]
@@ -158,19 +165,22 @@ func handleC2(domain string, req *dns.Msg, resp *dns.Msg) {
 	dnsLog.Infof("processing req for subdomain = %s", subdomain)
 	switch req.Question[0].Qtype {
 	case dns.TypeTXT:
-		resp = handleTXT(domain, subdomain, req)
+		return handleTXT(domain, subdomain, req)
 	default:
 	}
+	return nil
 }
 
 // Canary -> valid? -> trigger alert event
-func handleCanary(req *dns.Msg, resp *dns.Msg) {
+func handleCanary(req *dns.Msg) *dns.Msg {
 
 	canary, err := generate.CheckCanary(req.Question[0].Name)
 	if err != nil {
-		return
+		return nil
 	}
 
+	resp := new(dns.Msg)
+	resp.SetReply(req)
 	if canary != nil {
 		dnsLog.Warnf("DNS canary tripped for '%s'", canary.SliverName)
 		if !canary.Triggered {
@@ -193,13 +203,14 @@ func handleCanary(req *dns.Msg, resp *dns.Msg) {
 	// Respond with random IPs
 	switch req.Question[0].Qtype {
 	case dns.TypeA:
-		a := &dns.A{
+		resp.Answer = append(resp.Answer, &dns.A{
 			Hdr: dns.RR_Header{Name: req.Question[0].Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 0},
 			A:   randomIP(),
-		}
-		resp.Answer = append(resp.Answer, a)
+		})
 	default:
 	}
+
+	return resp
 }
 
 // handles the c2 TXT record interactions, kind hacky this probably needs to get refactored at some point
@@ -207,6 +218,7 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 
 	q := req.Question[0]
 	fields := strings.Split(subdomain, ".")
+
 	resp := new(dns.Msg)
 	resp.SetReply(req)
 	msgType := fields[len(fields)-1]
@@ -291,8 +303,6 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 	default:
 		dnsLog.Infof("Unknown msg type '%s' in TXT req", fields[len(fields)-1])
 	}
-
-	dnsLog.Debug(resp.String())
 
 	return resp
 }
@@ -554,10 +564,15 @@ func dnsSegment(fields []string) ([]string, error) {
 	return []string{"1"}, errors.New("Invalid nonce (session segment)")
 }
 
+// TODO: Avoid double-fetch
 func getDomainKeyFor(domain string) ([]string, error) {
-	certPEM, _, err := certs.GetCertificate(certs.SliverCA, certs.RSAKey, domain)
+	_, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, domain)
 	if err != nil {
-
+		certs.ServerGenerateRSACertificate(domain)
+	}
+	certPEM, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, domain)
+	if err != nil {
+		return nil, err
 	}
 	return dnsSendOnce(certPEM)
 }
