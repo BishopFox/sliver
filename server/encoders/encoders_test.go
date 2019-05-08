@@ -12,6 +12,20 @@ func randomData() []byte {
 	return buf
 }
 
+func TestEnglish(t *testing.T) {
+	sample := randomData()
+	english := new(English)
+	encoded := english.Encode(sample)
+	data, err := english.Decode(encoded)
+	if err != nil {
+		t.Error("Failed to encode sample data into english")
+		return
+	}
+	if !bytes.Equal(sample, data) {
+		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
+	}
+}
+
 func TestGzip(t *testing.T) {
 	sample := randomData()
 	gzipData := bytes.NewBuffer([]byte{})
@@ -20,6 +34,7 @@ func TestGzip(t *testing.T) {
 	data, err := gz.Decode(gzipData.Bytes())
 	if err != nil {
 		t.Errorf("gzip decode returned an error %v", err)
+		return
 	}
 	if !bytes.Equal(sample, data) {
 		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
