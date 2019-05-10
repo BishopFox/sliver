@@ -10,6 +10,7 @@ import (
 	clientpb "sliver/protobuf/client"
 	"sliver/server/c2"
 	"sliver/server/core"
+	"strings"
 	"sync"
 	"time"
 
@@ -115,7 +116,7 @@ func rpcStartDNSListener(data []byte, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	jobID, err := jobStartDNSListener(dnsReq.Domain)
+	jobID, err := jobStartDNSListener(dnsReq.Domains, dnsReq.Canaries)
 	if err != nil {
 		resp([]byte{}, err)
 		return
@@ -124,14 +125,14 @@ func rpcStartDNSListener(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func jobStartDNSListener(domain string) (int, error) {
+func jobStartDNSListener(domains []string, canaries bool) (int, error) {
 
-	server := c2.StartDNSListener(domain)
-
+	server := c2.StartDNSListener(domains, canaries)
+	description := fmt.Sprintf("%s (canaries %v)", strings.Join(domains, " "), canaries)
 	job := &core.Job{
 		ID:          core.GetJobID(),
 		Name:        "dns",
-		Description: domain,
+		Description: description,
 		Protocol:    "udp",
 		Port:        53,
 		JobCtrl:     make(chan bool),
@@ -187,7 +188,9 @@ func rpcStartHTTPSListener(data []byte, resp RPCResponse) {
 	}
 	job := jobStartHTTPListener(conf)
 
-	data, err = proto.Marshal(&clientpb.HTTP{JobID: int32(job.ID)})
+	data, err = proto.Marshal(&clientpb.HTTP{
+		JobID: int32(job.ID),
+	})
 	resp(data, err)
 }
 
@@ -275,7 +278,7 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
 }
 
 // Fuck'in Go - https://stackoverflow.com/questions/30815244/golang-https-server-passing-certfile-and-kyefile-in-terms-of-byte-array
-// basically the same as server.ListenAndServerTLS() but we can passin byte slices instead of file paths
+// basically the same as server.ListenAndServerTLS() but we can pass in byte slices instead of file paths
 func listenAndServeTLS(srv *http.Server, certPEMBlock, keyPEMBlock []byte) error {
 	addr := srv.Addr
 	if addr == "" {

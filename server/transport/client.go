@@ -25,8 +25,8 @@ var (
 )
 
 const (
-	defaultServerCert = "clients"
-	readBufSize       = 1024
+	defaultHostname = ""
+	readBufSize     = 1024
 )
 
 var (
@@ -36,11 +36,7 @@ var (
 // StartClientListener - Start a mutual TLS listener
 func StartClientListener(bindIface string, port uint16) (net.Listener, error) {
 	clientLog.Infof("Starting Raw TCP/TLS listener on %s:%d", bindIface, port)
-	hostCert := bindIface
-	if hostCert == "" {
-		hostCert = defaultServerCert
-	}
-	tlsConfig := getOperatorServerTLSConfig(certs.OperatorCA, hostCert)
+	tlsConfig := getOperatorServerTLSConfig(bindIface)
 	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", bindIface, port), tlsConfig)
 	if err != nil {
 		clientLog.Error(err)
@@ -187,12 +183,14 @@ func handleClientConnection(conn net.Conn) {
 			return
 		}
 	}
-
 }
 
 func socketEventLoop(conn net.Conn, events chan core.Event) {
 	for event := range events {
-		pbEvent := &clientpb.Event{EventType: event.EventType}
+		pbEvent := &clientpb.Event{
+			EventType: event.EventType,
+			Data:      event.Data,
+		}
 
 		if event.Job != nil {
 			pbEvent.Job = event.Job.ToProtobuf()
@@ -287,16 +285,25 @@ func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 
 // getOperatorServerTLSConfig - Generate the TLS configuration, we do now allow the end user
 // to specify any TLS paramters, we choose sensible defaults instead
-func getOperatorServerTLSConfig(caType string, host string) *tls.Config {
+func getOperatorServerTLSConfig(host string) *tls.Config {
 
-	caCertPtr, _, err := certs.GetCertificateAuthority(caType)
+	caCertPtr, _, err := certs.GetCertificateAuthority(certs.OperatorCA)
 	if err != nil {
-		clientLog.Fatalf("Invalid ca type (%s): %v", caType, host)
+		clientLog.Fatalf("Invalid ca type (%s): %v", certs.OperatorCA, host)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AddCert(caCertPtr)
 
-	certPEM, keyPEM, _ := certs.GetCertificate(caType, certs.ECCKey, host)
+	_, _, err = certs.OperatorServerGetCertificate(host)
+	if err == certs.ErrCertDoesNotExist {
+		certs.OperatorServerGenerateCertificate(host)
+	}
+
+	certPEM, keyPEM, err := certs.OperatorServerGetCertificate(host)
+	if err != nil {
+		clientLog.Errorf("Failed to generate or fetch certificate %s", err)
+		return nil
+	}
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		clientLog.Fatalf("Error loading server certificate: %v", err)

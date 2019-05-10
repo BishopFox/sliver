@@ -12,7 +12,7 @@ import (
 
 func rpcPlayers(_ []byte, resp RPCResponse) {
 
-	clientCerts := certs.OperatorListCertificates()
+	clientCerts := certs.OperatorClientListCertificates()
 
 	players := &clientpb.Players{Players: []*clientpb.Player{}}
 	for _, cert := range clientCerts {

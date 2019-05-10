@@ -68,11 +68,6 @@ WORKDIR /go/src/sliver
 ADD ./go-assets.sh /go/src/sliver/go-assets.sh
 RUN ./go-assets.sh
 
-# dep - https://github.com/golang/dep/issues/796
-ADD ./Gopkg.lock /go/src/sliver/Gopkg.lock
-ADD ./Gopkg.toml /go/src/sliver/Gopkg.toml
-RUN dep ensure --vendor-only
-
 # compile - we have to run dep after copying the code over or it bitches
 ADD . /go/src/sliver/
 RUN make static-linux && cp -vv sliver-server /opt/sliver-server

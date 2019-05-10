@@ -25,8 +25,8 @@ var (
 	once = &sync.Once{}
 )
 
-// Connect - Connect to the sliver server
-func Connect(config *assets.ClientConfig) (chan *pb.Envelope, chan *pb.Envelope, error) {
+// MTLSConnect - Connect to the sliver server
+func MTLSConnect(config *assets.ClientConfig) (chan *pb.Envelope, chan *pb.Envelope, error) {
 	conn, err := tlsConnect(config.LHost, uint16(config.LPort), config)
 	if err != nil {
 		return nil, nil, err

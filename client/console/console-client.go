@@ -10,24 +10,26 @@ import (
 )
 
 // StartClientConsole - Start the client console
-func StartClientConsole() {
+func StartClientConsole() error {
+
 	configs := assets.GetConfigs()
 	if len(configs) == 0 {
 		fmt.Printf(Warn+"No config files found at %s or -config\n", assets.GetConfigDir())
-		return
+		return nil
 	}
 	config := selectConfig()
 	if config == nil {
-		return
+		return nil
 	}
-	send, recv, err := transport.Connect(config)
+	fmt.Printf(Info+"Connecting to %s:%d ...\n", config.LHost, config.LPort)
+	send, recv, err := transport.MTLSConnect(config)
 	if err != nil {
 		fmt.Printf(Warn+"Connection to server failed %v", err)
-		return
+		return nil
 	}
 
 	sliverServer := core.BindSliverServer(send, recv)
 	go sliverServer.ResponseMapper()
 
-	Start(sliverServer, func(*grumble.App, *core.SliverServer) {})
+	return Start(sliverServer, func(*grumble.App, *core.SliverServer) {})
 }

@@ -50,10 +50,10 @@ const (
 type ExtraCmds func(*grumble.App, *core.SliverServer)
 
 // Start - Console entrypoint
-func Start(server *core.SliverServer, extraCmds ExtraCmds) {
+func Start(server *core.SliverServer, extraCmds ExtraCmds) error {
 	app := grumble.New(&grumble.Config{
 		Name:                  "Sliver",
-		Description:           "Bishop Fox - Sliver Client",
+		Description:           "Sliver Client",
 		HistoryFile:           path.Join(assets.GetRootAppDir(), "history"),
 		Prompt:                getPrompt(),
 		PromptColor:           color.New(),
@@ -63,7 +63,7 @@ func Start(server *core.SliverServer, extraCmds ExtraCmds) {
 	})
 	app.SetPrintASCIILogo(printLogo)
 
-	cmd.Init(app, server)
+	cmd.BindCommands(app, server)
 	extraCmds(app, server)
 
 	cmd.ActiveSliver.AddObserver(func() {
@@ -76,6 +76,7 @@ func Start(server *core.SliverServer, extraCmds ExtraCmds) {
 	if err != nil {
 		log.Printf("Run loop returned error: %v", err)
 	}
+	return err
 }
 
 func eventLoop(app *grumble.App, server *core.SliverServer) {
@@ -84,9 +85,17 @@ func eventLoop(app *grumble.App, server *core.SliverServer) {
 
 		switch event.EventType {
 
+		case consts.CanaryEvent:
+			fmt.Printf(clearln+Warn+bold+"WARNING: %s%s has been burned (DNS Canary)\n", normal, event.Sliver.Name)
+			sessions := cmd.SliverSessionsByName(event.Sliver.Name, server.RPC)
+			for _, sliver := range sessions {
+				fmt.Printf(clearln+"\t🔥 Session #%d is affected\n", sliver.ID)
+			}
+			fmt.Println()
+
 		case consts.ServerErrorStr:
 			fmt.Printf(clearln + Warn + "Server connection error!\n\n")
-			os.Exit(1)
+			os.Exit(4)
 
 		case consts.JoinedEvent:
 			fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator)
@@ -101,6 +110,7 @@ func eventLoop(app *grumble.App, server *core.SliverServer) {
 			sliver := event.Sliver
 			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n\n",
 				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.OS, sliver.Arch)
+
 		case consts.DisconnectedEvent:
 			sliver := event.Sliver
 			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
@@ -109,10 +119,12 @@ func eventLoop(app *grumble.App, server *core.SliverServer) {
 			if activeSliver != nil && sliver.ID == activeSliver.ID {
 				cmd.ActiveSliver.SetActiveSliver(nil)
 				app.SetPrompt(getPrompt())
-				fmt.Printf(Warn + "Warning: Active sliver diconnected\n")
+				fmt.Printf(Warn + " Active sliver diconnected\n")
 			}
 			fmt.Println()
+
 		}
+
 		fmt.Printf(getPrompt())
 		stdout.Flush()
 	}

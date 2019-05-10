@@ -43,18 +43,20 @@ func TestSliverGenerateRSACertificate(t *testing.T) {
 
 func TestOperatorGenerateCertificate(t *testing.T) {
 	GenerateCertificateAuthority(OperatorCA)
-	cert1, key1, err := OperatorGenerateCertificate("test3")
+	cert1, key1, err := OperatorClientGenerateCertificate("test3")
 	if err != nil {
 		t.Errorf("Failed to store ecc certificate %v", err)
+		return
 	}
 
-	cert2, key2, err := GetCertificate(OperatorCA, ECCKey, "test3")
+	cert2, key2, err := OperatorClientGetCertificate("test3")
 	if err != nil {
 		t.Errorf("Failed to get ecc certificate %v", err)
+		return
 	}
 
 	if !bytes.Equal(cert1, cert2) || !bytes.Equal(key1, key2) {
-		t.Errorf("Stored ecc cert/key does match generated cert/key")
+		t.Errorf("Stored ecc cert/key does match generated cert/key: %v != %v", cert1, cert2)
 		return
 	}
 }

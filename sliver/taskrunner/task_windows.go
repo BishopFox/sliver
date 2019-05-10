@@ -103,6 +103,9 @@ func ptr(val interface{}) uintptr {
 }
 
 func RefreshPE(name string) error {
+	//{{if .Debug}}
+	log.Printf("Reloading %s...\n", name)
+	//{{end}}
 	df, e := ioutil.ReadFile(name)
 	if e != nil {
 		return e
@@ -127,16 +130,22 @@ func writeGoodBytes(b []byte, pn string, virtualoffset uint32, secname string, v
 
 	dllOffset := uint(dllBase) + uint(virtualoffset)
 
-	var old uint64
+	var old int
 	kernel32 := syscall.NewLazyDLL("kernel32.dll")
 
 	virtprot := kernel32.NewProc("VirtualProtect")
-	virtprot.Call(
+	r, _, e := virtprot.Call(
 		uintptr(dllOffset),
 		uintptr(len(b)),
 		uintptr(0x40),
 		uintptr(unsafe.Pointer(&old)),
 	)
+	if int(r) == 0 {
+		return e
+	}
+	//{{if .Debug}}
+	log.Println("Made memory map RWX")
+	//{{end}}
 
 	for i := 0; i < len(b); i++ {
 		loc := uintptr(dllOffset + uint(i))
@@ -144,12 +153,22 @@ func writeGoodBytes(b []byte, pn string, virtualoffset uint32, secname string, v
 		(*mem)[0] = b[i]
 	}
 
-	virtprot.Call(
+	//{{if .Debug}}
+	log.Println("DLL overwritten")
+	//{{end}}
+
+	r, _, e = virtprot.Call(
 		uintptr(dllOffset),
 		uintptr(len(b)),
 		uintptr(old),
 		uintptr(unsafe.Pointer(&old)),
 	)
+	if int(r) == 0 {
+		return e
+	}
+	//{{if .Debug}}
+	log.Println("Restored memory map permissions")
+	//{{end}}
 	return nil
 }
 

@@ -2,6 +2,7 @@ package generate
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -24,6 +25,9 @@ const (
 
 var (
 	storageLog = log.NamedLogger("generate", "storage")
+
+	// ErrSliverNotFound - More descriptive 'key not found' error
+	ErrSliverNotFound = errors.New("Sliver not found")
 )
 
 // SliverConfigByName - Get a sliver's config by it's codename
@@ -39,6 +43,25 @@ func SliverConfigByName(name string) (*SliverConfig, error) {
 	config := &SliverConfig{}
 	err = json.Unmarshal(rawConfig, config)
 	return config, err
+}
+
+// SliverConfigMap - Get a sliver's config by it's codename
+func SliverConfigMap() (map[string]*SliverConfig, error) {
+	bucket, err := db.GetBucket(sliverBucketName)
+	if err != nil {
+		return nil, err
+	}
+	ls, err := bucket.List(sliverConfigNamespace)
+	configs := map[string]*SliverConfig{}
+	for _, config := range ls {
+		sliverName := config[len(sliverConfigNamespace)+1:]
+		config, err := SliverConfigByName(sliverName)
+		if err != nil {
+			continue
+		}
+		configs[sliverName] = config
+	}
+	return configs, nil
 }
 
 // SliverConfigSave - Save a configuration to the database
@@ -83,7 +106,11 @@ func SliverFileByName(name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return bucket.Get(fmt.Sprintf("%s.%s", sliverFileNamespace, name))
+	sliver, err := bucket.Get(fmt.Sprintf("%s.%s", sliverFileNamespace, name))
+	if err != nil {
+		return nil, ErrSliverNotFound
+	}
+	return sliver, nil
 }
 
 // SliverFiles - List all sliver files

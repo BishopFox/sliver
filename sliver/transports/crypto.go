@@ -1,9 +1,8 @@
 package transports
 
 /*
-This package contains wrappers around Golang's crypto package that make it easier to use
-we manage things like the nonces/iv's. The preferred choice is to always use GCM but for
-saving space we also have CTR mode available but it does not provide integrity checks.
+	This package contains wrappers around Golang's crypto package that make it easier to use
+	we manage things like the nonces, key gen, etc.
 */
 
 import (
@@ -40,7 +39,10 @@ type AESIV [aes.BlockSize]byte
 // RandomAESKey - Generate random ID of randomIDSize bytes
 func RandomAESKey() AESKey {
 	randBuf := make([]byte, 64)
-	secureRand.Read(randBuf)
+	n, err := secureRand.Read(randBuf)
+	if n != 64 || err != nil {
+		panic("[[GenerateCanary]]") // If we can't securely generate keys then we die
+	}
 	digest := sha256.Sum256(randBuf)
 	var key AESKey
 	copy(key[:], digest[:AESKeySize])
@@ -75,27 +77,6 @@ func RSADecrypt(ciphertext []byte, privateKey *rsa.PrivateKey) ([]byte, error) {
 	return plaintext, nil
 }
 
-// CTREncrypt - AES CTR Encrypt
-func CTREncrypt(key AESKey, plaintext []byte) []byte {
-	block, _ := aes.NewCipher(key[:])
-	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
-	iv := RandomAESIV()
-	copy(ciphertext[:aes.BlockSize], iv[:])
-	stream := cipher.NewCTR(block, iv[:])
-	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
-	return ciphertext
-}
-
-// CTRDecrypt - AES CTR Decrypt
-func CTRDecrypt(key AESKey, ciphertext []byte) []byte {
-	plaintext := make([]byte, len(ciphertext)-aes.BlockSize)
-	block, _ := aes.NewCipher(key[:])
-	iv := ciphertext[:aes.BlockSize]
-	stream := cipher.NewCTR(block, iv)
-	stream.XORKeyStream(plaintext, ciphertext[aes.BlockSize:])
-	return plaintext
-}
-
 // GCMEncrypt - Encrypt using AES GCM
 func GCMEncrypt(key AESKey, plaintext []byte) ([]byte, error) {
 	block, _ := aes.NewCipher(key[:])
@@ -117,7 +98,7 @@ func GCMEncrypt(key AESKey, plaintext []byte) ([]byte, error) {
 // GCMDecrypt - Decrypt GCM ciphertext
 func GCMDecrypt(key AESKey, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) < GCMNonceSize+1 {
-		return nil, errors.New("Invalid ciphertext length")
+		return nil, errors.New("[[GenerateCanary]]")
 	}
 	block, _ := aes.NewCipher(key[:])
 	aesgcm, _ := cipher.NewGCM(block)

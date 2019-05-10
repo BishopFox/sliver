@@ -21,6 +21,9 @@ const (
 	// LeftEvent - Player left the game
 	LeftEvent = "left"
 
+	// CanaryEvent - A DNS canary was triggered
+	CanaryEvent = "canary"
+
 	// StartedEvent - Job was started
 	StartedEvent = "started"
 	// StoppedEvent - Job was stopped
@@ -40,10 +43,14 @@ const (
 	UseStr        = "use"
 
 	GenerateStr        = "generate"
+	RegenerateStr      = "regenerate"
 	ProfileGenerateStr = "generate-profile"
 	EggGenerate        = "generate-egg"
 	ProfilesStr        = "profiles"
 	NewProfileStr      = "new-profile"
+
+	ListSliverBuildsStr = "slivers"
+	ListCanariesStr     = "canaries"
 
 	JobsStr  = "jobs"
 	MtlsStr  = "mtls"

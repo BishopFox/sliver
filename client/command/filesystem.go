@@ -9,8 +9,7 @@ import (
 	"path/filepath"
 	"sliver/client/spin"
 	sliverpb "sliver/protobuf/sliver"
-	"sliver/server/encoders"
-	"sliver/server/util"
+	"sliver/util"
 	"strings"
 	"text/tabwriter"
 
@@ -229,7 +228,7 @@ func cat(ctx *grumble.Context, rpc RPCServer) {
 	download := &sliverpb.Download{}
 	proto.Unmarshal(resp.Data, download)
 	if download.Encoder == "gzip" {
-		download.Data, _ = new(encoders.Gzip).Decode(download.Data)
+		download.Data, _ = new(util.Gzip).Decode(download.Data)
 	}
 	fmt.Printf(string(download.Data))
 }
@@ -288,7 +287,7 @@ func download(ctx *grumble.Context, rpc RPCServer) {
 	download := &sliverpb.Download{}
 	proto.Unmarshal(resp.Data, download)
 	if download.Encoder == "gzip" {
-		download.Data, _ = new(encoders.Gzip).Decode(download.Data)
+		download.Data, _ = new(util.Gzip).Decode(download.Data)
 	}
 	f, err := os.Create(dst)
 	if err != nil {
@@ -329,7 +328,7 @@ func upload(ctx *grumble.Context, rpc RPCServer) {
 
 	fileBuf, err := ioutil.ReadFile(src)
 	uploadGzip := bytes.NewBuffer([]byte{})
-	new(encoders.Gzip).Encode(uploadGzip, fileBuf)
+	new(util.Gzip).Encode(uploadGzip, fileBuf)
 
 	ctrl := make(chan bool)
 	go spin.Until(fmt.Sprintf("%s -> %s", src, dst), ctrl)

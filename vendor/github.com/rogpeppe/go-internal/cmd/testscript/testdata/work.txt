@@ -1,0 +1,8 @@
+# should support skip
+unquote file.txt
+
+testscript -v -work file.txt
+stderr '\Qtemporary work directory: '$WORK'\E[/\\]tmp[/\\]'
+
+-- file.txt --
+>exec true

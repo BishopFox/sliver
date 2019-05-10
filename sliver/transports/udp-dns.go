@@ -217,7 +217,7 @@ func dnsStartSession(parentDomain string) (string, AESKey, error) {
 
 	encryptedSessionID, err := dnsSend(parentDomain, sessionInitMsg, "_", encryptedData)
 	if err != nil {
-		return "", AESKey{}, errors.New("Failed to start new DNS session")
+		return "", AESKey{}, errors.New("Failed to start new DNS session (sessionInitMsg send failed)")
 	}
 	// {{if .Debug}}
 	log.Printf("Encrypted session id = %s", encryptedSessionID)
@@ -491,6 +491,7 @@ func fetchBlockSegments(parentDomain string, reasm *BlockReassembler, index int,
 
 // --------------------------- HELPERS ---------------------------
 
+// BlockIDs are public parameters and only need to be unqiue
 func dnsBlockHeaderID() string {
 	insecureRand.Seed(time.Now().UnixNano())
 	blockID := []rune{}
@@ -501,7 +502,7 @@ func dnsBlockHeaderID() string {
 	return string(blockID)
 }
 
-// dnsNonce - Generate a nonce of a given size
+// dnsNonce - Generate a nonce of a given size in case the resolver ignores the TTL
 func dnsNonce(size int) string {
 	insecureRand.Seed(time.Now().UnixNano())
 	nonce := []rune{}
