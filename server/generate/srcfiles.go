@@ -4,9 +4,9 @@ var (
 	srcFiles = []string{
 		"constants/constants.go",
 
-		"handlers/generic_rpc_handlers.go",
-		"handlers/generic_tun_handlers.go",
-		"handlers/special_handlers.go",
+		"handlers/generic-rpc-handlers.go",
+		"handlers/generic-tun-handlers.go",
+		"handlers/special-handlers.go",
 		"handlers/handlers_darwin.go",
 		"handlers/handlers_linux.go",
 		"handlers/handlers_windows.go",

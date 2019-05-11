@@ -17,6 +17,7 @@ import (
 	gobfuscate "sliver/server/gobfuscate"
 	gogo "sliver/server/gogo"
 	"sliver/server/log"
+	"strings"
 	"text/template"
 
 	"github.com/gobuffalo/packr"
@@ -362,6 +363,23 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 	// Load code template
 	sliverBox := packr.NewBox("../../sliver")
 	for _, boxName := range srcFiles {
+
+		// Gobfuscate doesn't handle all the platform specific code
+		// well and the renamer can get confused when symbols for a
+		// different OS don't show up. So we just filter out anything
+		// we're not actually going to compile into the final binary
+		if strings.Contains(boxName, "_") {
+			if strings.HasSuffix(boxName, "_test.go") {
+				buildLog.Infof("Skipping (test): %s", boxName)
+				continue
+			}
+			osSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOOS))
+			if !strings.HasSuffix(boxName, osSuffix) {
+				buildLog.Infof("Skipping (wrong os): %s", boxName)
+				continue
+			}
+		}
+
 		sliverGoCode, _ := sliverBox.FindString(boxName)
 
 		// We need to correct for the "sliver/sliver/foo" imports, since Go
@@ -392,7 +410,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		sliverCodeTmpl.Execute(buf, config)
 
 		// Render canaries
-		buildLog.Infof("Canary damain(s): %v", config.CanaryDomains)
+		buildLog.Infof("Canary domain(s): %v", config.CanaryDomains)
 		canaryTempl := template.New("canary").Delims("[[", "]]")
 		canaryGenerator := &CanaryGenerator{
 			SliverName:    config.Name,
@@ -409,8 +427,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		}
 	}
 
-	// Don't obfuscate DLLs, as we need the export names to stay in the final binary
-	if !config.Debug && !config.IsSharedLib {
+	if !config.Debug {
 		buildLog.Infof("Obfuscating source code ...")
 		obfuscatedGoPath := path.Join(projectGoPathDir, "obfuscated")
 		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, randomObfuscationKey(), "sliver", obfuscatedGoPath)

@@ -14,8 +14,10 @@ import (
 	"golang.org/x/tools/refactor/rename"
 )
 
+// GoExtension - Go src code file extension
 const GoExtension = ".go"
 
+// ObfuscatePackageNames - Obfuscate package names
 func ObfuscatePackageNames(ctx build.Context, gopath string, enc *Encrypter) error {
 
 	ctx.GOPATH = gopath

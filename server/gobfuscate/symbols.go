@@ -7,7 +7,6 @@ import (
 	"go/parser"
 	"go/token"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -15,13 +14,20 @@ import (
 	"golang.org/x/tools/refactor/rename"
 )
 
-var IgnoreMethods = map[string]bool{"main": true, "init": true}
+// IgnoreMethods - Methods to skip when obfuscating
+var IgnoreMethods = map[string]bool{
+	"main":      true,
+	"init":      true,
+	"_":         true,
+	"RunSliver": true, // DLL Entrypoint, TODO: Rename
+}
 
 type symbolRenameReq struct {
 	OldName string
 	NewName string
 }
 
+// ObfuscateSymbols - Obfuscate binary symbols
 func ObfuscateSymbols(ctx build.Context, gopath string, enc *Encrypter) error {
 	renames, err := topLevelRenames(gopath, enc)
 	if err != nil {
@@ -43,7 +49,7 @@ func ObfuscateSymbols(ctx build.Context, gopath string, enc *Encrypter) error {
 func runRenames(ctx build.Context, gopath string, renames []symbolRenameReq) error {
 	ctx.GOPATH = gopath
 	for _, r := range renames {
-		log.Printf("[gobfuscate] rename %s -> %s", r.OldName, r.NewName)
+		obfuscateLog.Infof(" rename %s -> %s", r.OldName, r.NewName)
 		if err := rename.Main(&ctx, "", r.OldName, r.NewName); err != nil {
 			return err
 		}
@@ -67,7 +73,7 @@ func topLevelRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 		if info.IsDir() && containsUnsupportedCode(path) {
 			return filepath.SkipDir
 		}
-		if filepath.Ext(path) != GoExtension || containsIgnoreConstraint(path) {
+		if filepath.Ext(path) != GoExtension {
 			return nil
 		}
 		pkgPath, err := filepath.Rel(srcDir, filepath.Dir(path))
@@ -118,7 +124,7 @@ func methodRenames(ctx build.Context, gopath string, enc *Encrypter) ([]symbolRe
 		if info.IsDir() && containsUnsupportedCode(path) {
 			return filepath.SkipDir
 		}
-		if filepath.Ext(path) != GoExtension || containsIgnoreConstraint(path) {
+		if filepath.Ext(path) != GoExtension {
 			return nil
 		}
 		pkgPath, err := filepath.Rel(srcDir, filepath.Dir(path))
@@ -257,11 +263,5 @@ func containsCGO(dir string) bool {
 			}
 		}
 	}
-	return false
-}
-
-// containsIgnoreConstraint checks if the file contains an
-// "ignore" build constraint or "DO NOT FUCKING EDIT!" generation marker.
-func containsIgnoreConstraint(path string) bool {
 	return false
 }
