@@ -76,23 +76,22 @@ func copyDep(packagePath, oldGopath, newGopath string, keepTests bool) error {
 		newPath := filepath.Join(newGopath, base)
 		if info.IsDir() {
 			return createDir(newPath)
-		} else {
-			if !keepTests && strings.HasSuffix(source, "_test.go") {
-				return nil
-			}
-			newFile, err := os.Create(newPath)
-			if err != nil {
-				return err
-			}
-			defer newFile.Close()
-			oldFile, err := os.Open(source)
-			if err != nil {
-				return err
-			}
-			defer oldFile.Close()
-			_, err = io.Copy(newFile, oldFile)
+		}
+		if !keepTests && strings.HasSuffix(source, "_test.go") {
+			return nil
+		}
+		newFile, err := os.Create(newPath)
+		if err != nil {
 			return err
 		}
+		defer newFile.Close()
+		oldFile, err := os.Open(source)
+		if err != nil {
+			return err
+		}
+		defer oldFile.Close()
+		_, err = io.Copy(newFile, oldFile)
+		return err
 	})
 }
 
@@ -127,9 +126,8 @@ func createDir(dir string) error {
 	if info, err := os.Stat(dir); err == nil {
 		if info.IsDir() {
 			return nil
-		} else {
-			return errors.New("file already exists: " + dir)
 		}
+		return errors.New("file already exists: " + dir)
 	}
 	if filepath.Dir(dir) != dir {
 		parent := filepath.Dir(dir)
