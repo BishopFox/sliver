@@ -146,7 +146,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 		configFormat = clientpb.SliverConfig_EXECUTABLE
 	}
 	/* For UX we convert some synonymous terms */
-	if targetOS == "mac" || targetOS == "macos" || targetOS == "m" {
+	if targetOS == "mac" || targetOS == "macos" || targetOS == "m" || targetOS == "osx" {
 		targetOS = "darwin"
 	}
 	if targetOS == "win" || targetOS == "w" || targetOS == "shit" {
