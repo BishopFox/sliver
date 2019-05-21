@@ -24,7 +24,7 @@ func rpcShell(req []byte, timeout time.Duration, resp RPCResponse) {
 		return
 	}
 	rpcLog.Infof("Requesting Sliver %d to start shell", sliver.ID)
-	data, err := sliver.Request(sliverpb.MsgShellReq, defaultTimeout, startShellReq)
+	data, err := sliver.Request(sliverpb.MsgShellReq, timeout, startShellReq)
 	rpcLog.Infof("Sliver %d responded to shell start request", sliver.ID)
 	resp(data, err)
 }

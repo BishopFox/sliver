@@ -44,7 +44,7 @@ func rpcMsf(req []byte, timeout time.Duration, resp RPCResponse) {
 		Encoder: "raw",
 		Data:    rawPayload,
 	})
-	data, err = sliver.Request(sliverpb.MsgTask, defaultTimeout, data)
+	data, err = sliver.Request(sliverpb.MsgTask, timeout, data)
 	resp(data, err)
 }
 
@@ -82,6 +82,6 @@ func rpcMsfInject(req []byte, timeout time.Duration, resp RPCResponse) {
 		Encoder: "raw",
 		Data:    rawPayload,
 	})
-	data, err = sliver.Request(sliverpb.MsgRemoteTask, defaultTimeout, data)
+	data, err = sliver.Request(sliverpb.MsgRemoteTask, timeout, data)
 	resp(data, err)
 }

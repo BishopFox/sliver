@@ -2,11 +2,16 @@ package rpc
 
 import (
 	"sliver/server/core"
+	"time"
 
 	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 
 	"github.com/golang/protobuf/proto"
+)
+
+const (
+	tunDefaultTimeout = 30 * time.Second
 )
 
 func tunnelCreate(client *core.Client, req []byte, resp RPCResponse) {
@@ -28,7 +33,7 @@ func tunnelData(client *core.Client, req []byte, _ RPCResponse) {
 	proto.Unmarshal(req, tunnelData)
 	tunnel := core.Tunnels.Tunnel(tunnelData.TunnelID)
 	if tunnel != nil && client.ID == tunnel.Client.ID {
-		tunnel.Sliver.Request(sliverpb.MsgTunnelData, defaultTimeout, req)
+		tunnel.Sliver.Request(sliverpb.MsgTunnelData, tunDefaultTimeout, req)
 	} else {
 		rpcLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
 	}

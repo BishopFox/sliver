@@ -25,7 +25,7 @@ func rpcLocalTask(req []byte, timeout time.Duration, resp RPCResponse) {
 		Encoder: "raw",
 		Data:    taskReq.Data,
 	})
-	data, err = sliver.Request(sliverpb.MsgTask, defaultTimeout, data)
+	data, err = sliver.Request(sliverpb.MsgTask, timeout, data)
 	resp(data, err)
 }
 
@@ -53,7 +53,7 @@ func rpcMigrate(req []byte, timeout time.Duration, resp RPCResponse) {
 		Shellcode: shellcode,
 		Pid:       migrateReq.Pid,
 	})
-	data, err = sliver.Request(sliverpb.MsgMigrateReq, defaultTimeout, data)
+	data, err = sliver.Request(sliverpb.MsgMigrateReq, timeout, data)
 	resp(data, err)
 }
 

@@ -9,10 +9,6 @@ import (
 	sliverpb "sliver/protobuf/sliver"
 )
 
-const (
-	defaultTimeout = 30 * time.Second
-)
-
 var (
 	rpcLog = log.NamedLogger("rpc", "server")
 )
