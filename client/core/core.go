@@ -176,7 +176,7 @@ func (ss *SliverServer) RPC(envelope *sliverpb.Envelope, timeout time.Duration) 
 		select {
 		case respEnvelope := <-resp:
 			respCh <- respEnvelope
-		case <-time.After(timeout):
+		case <-time.After(timeout + time.Second):
 			respCh <- &sliverpb.Envelope{Err: "Timeout"}
 		}
 	}()
