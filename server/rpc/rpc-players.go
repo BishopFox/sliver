@@ -6,11 +6,12 @@ import (
 	clientpb "sliver/protobuf/client"
 	"sliver/server/certs"
 	"sliver/server/core"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcPlayers(_ []byte, resp RPCResponse) {
+func rpcPlayers(_ []byte, timeout time.Duration, resp RPCResponse) {
 
 	clientCerts := certs.OperatorClientListCertificates()
 

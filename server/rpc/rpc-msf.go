@@ -3,6 +3,7 @@ package rpc
 import (
 	"sliver/server/core"
 	"sliver/server/msf"
+	"time"
 
 	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
@@ -10,7 +11,7 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcMsf(req []byte, resp RPCResponse) {
+func rpcMsf(req []byte, timeout time.Duration, resp RPCResponse) {
 	msfReq := &clientpb.MSFReq{}
 	err := proto.Unmarshal(req, msfReq)
 	if err != nil {
@@ -47,7 +48,7 @@ func rpcMsf(req []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcMsfInject(req []byte, resp RPCResponse) {
+func rpcMsfInject(req []byte, timeout time.Duration, resp RPCResponse) {
 	msfReq := &clientpb.MSFInjectReq{}
 	err := proto.Unmarshal(req, msfReq)
 	if err != nil {

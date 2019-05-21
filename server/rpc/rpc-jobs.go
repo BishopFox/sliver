@@ -17,7 +17,7 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcJobs(_ []byte, resp RPCResponse) {
+func rpcJobs(_ []byte, timeout time.Duration, resp RPCResponse) {
 	jobs := &clientpb.Jobs{
 		Active: []*clientpb.Job{},
 	}
@@ -39,7 +39,7 @@ func rpcJobs(_ []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcJobKill(data []byte, resp RPCResponse) {
+func rpcJobKill(data []byte, timeout time.Duration, resp RPCResponse) {
 	jobKillReq := &clientpb.JobKillReq{}
 	err := proto.Unmarshal(data, jobKillReq)
 	if err != nil {
@@ -59,7 +59,7 @@ func rpcJobKill(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcStartMTLSListener(data []byte, resp RPCResponse) {
+func rpcStartMTLSListener(data []byte, timeout time.Duration, resp RPCResponse) {
 	mtlsReq := &clientpb.MTLSReq{}
 	err := proto.Unmarshal(data, mtlsReq)
 	if err != nil {
@@ -109,7 +109,7 @@ func jobStartMTLSListener(bindIface string, port uint16) (int, error) {
 	return job.ID, nil
 }
 
-func rpcStartDNSListener(data []byte, resp RPCResponse) {
+func rpcStartDNSListener(data []byte, timeout time.Duration, resp RPCResponse) {
 	dnsReq := &clientpb.DNSReq{}
 	err := proto.Unmarshal(data, dnsReq)
 	if err != nil {
@@ -169,7 +169,7 @@ func jobStartDNSListener(domains []string, canaries bool) (int, error) {
 	return job.ID, nil
 }
 
-func rpcStartHTTPSListener(data []byte, resp RPCResponse) {
+func rpcStartHTTPSListener(data []byte, timeout time.Duration, resp RPCResponse) {
 	httpReq := &clientpb.HTTPReq{}
 	err := proto.Unmarshal(data, httpReq)
 	if err != nil {
@@ -194,7 +194,7 @@ func rpcStartHTTPSListener(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcStartHTTPListener(data []byte, resp RPCResponse) {
+func rpcStartHTTPListener(data []byte, timeout time.Duration, resp RPCResponse) {
 	httpReq := &clientpb.HTTPReq{}
 	err := proto.Unmarshal(data, httpReq)
 	if err != nil {

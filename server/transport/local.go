@@ -7,6 +7,7 @@ import (
 	"sliver/server/core"
 	"sliver/server/log"
 	"sliver/server/rpc"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
@@ -25,7 +26,8 @@ func LocalClientConnect(send, recv chan *sliverpb.Envelope) {
 		tunHandlers := rpc.GetTunnelHandlers()
 		for envelope := range send {
 			if rpcHandler, ok := (*rpcHandlers)[envelope.Type]; ok {
-				go rpcHandler(envelope.Data, func(data []byte, err error) {
+				timeout := time.Duration(envelope.Timeout)
+				go rpcHandler(envelope.Data, timeout, func(data []byte, err error) {
 					errStr := ""
 					if err != nil {
 						errStr = fmt.Sprintf("%v", err)

@@ -21,7 +21,7 @@ var (
 type RPCResponse func([]byte, error)
 
 // RPCHandler - RPC handlers accept bytes and return bytes
-type RPCHandler func([]byte, RPCResponse)
+type RPCHandler func([]byte, time.Duration, RPCResponse)
 type TunnelHandler func(*core.Client, []byte, RPCResponse)
 
 var (

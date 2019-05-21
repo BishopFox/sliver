@@ -4,11 +4,12 @@ import (
 	clientpb "sliver/protobuf/client"
 	sliverpb "sliver/protobuf/sliver"
 	"sliver/server/core"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcKill(data []byte, resp RPCResponse) {
+func rpcKill(data []byte, timeout time.Duration, resp RPCResponse) {
 	killReq := &sliverpb.KillReq{}
 	err := proto.Unmarshal(data, killReq)
 	if err != nil {
@@ -20,7 +21,7 @@ func rpcKill(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcSessions(_ []byte, resp RPCResponse) {
+func rpcSessions(_ []byte, timeout time.Duration, resp RPCResponse) {
 	sessions := &clientpb.Sessions{}
 	if 0 < len(*core.Hive.Slivers) {
 		for _, sliver := range *core.Hive.Slivers {

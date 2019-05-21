@@ -573,9 +573,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.DownloadStr,
-		Help:      "Download a file",
-		LongHelp:  help.GetHelpFor(consts.DownloadStr),
+		Name:     consts.DownloadStr,
+		Help:     "Download a file",
+		LongHelp: help.GetHelpFor(consts.DownloadStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", 360, "command timeout in seconds")
+		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()

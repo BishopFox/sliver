@@ -166,6 +166,7 @@ func (ss *SliverServer) ResponseMapper() {
 func (ss *SliverServer) RPC(envelope *sliverpb.Envelope, timeout time.Duration) chan *sliverpb.Envelope {
 	reqID := EnvelopeID()
 	envelope.ID = reqID
+	envelope.Timeout = timeout.Nanoseconds()
 	resp := make(chan *sliverpb.Envelope)
 	ss.AddRespListener(reqID, resp)
 	ss.Send <- envelope

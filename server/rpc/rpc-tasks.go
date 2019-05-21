@@ -13,7 +13,7 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcLocalTask(req []byte, resp RPCResponse) {
+func rpcLocalTask(req []byte, timeout time.Duration, resp RPCResponse) {
 	taskReq := &clientpb.TaskReq{}
 	err := proto.Unmarshal(req, taskReq)
 	if err != nil {
@@ -29,7 +29,7 @@ func rpcLocalTask(req []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcMigrate(req []byte, resp RPCResponse) {
+func rpcMigrate(req []byte, timeout time.Duration, resp RPCResponse) {
 	migrateReq := &clientpb.MigrateReq{}
 	err := proto.Unmarshal(req, migrateReq)
 	if err != nil {
@@ -57,7 +57,7 @@ func rpcMigrate(req []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcExecuteAssembly(req []byte, resp RPCResponse) {
+func rpcExecuteAssembly(req []byte, timeout time.Duration, resp RPCResponse) {
 	execReq := &sliverpb.ExecuteAssemblyReq{}
 	err := proto.Unmarshal(req, execReq)
 	if err != nil {
@@ -82,7 +82,7 @@ func rpcExecuteAssembly(req []byte, resp RPCResponse) {
 		Timeout:    execReq.Timeout,
 		SliverID:   execReq.SliverID,
 	})
-	timeout := time.Duration(execReq.Timeout) * time.Second
+
 	data, err = sliver.Request(sliverpb.MsgExecuteAssemblyReq, timeout, data)
 	resp(data, err)
 

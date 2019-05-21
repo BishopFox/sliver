@@ -113,14 +113,18 @@ func getRegisterSliver() *pb.Envelope {
 	}
 	currentUser, err := user.Current()
 	if err != nil {
+
 		// {{if .Debug}}
 		log.Printf("Failed to determine current user %s", err)
 		// {{end}}
+
+		// Gracefully error out
 		currentUser = &user.User{
 			Username: "<< error >>",
 			Uid:      "<< error >>",
 			Gid:      "<< error >>",
 		}
+
 	}
 	filename, err := os.Executable()
 	// Should not happen, but still...

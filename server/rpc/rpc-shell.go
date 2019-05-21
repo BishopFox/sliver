@@ -3,11 +3,12 @@ package rpc
 import (
 	sliverpb "sliver/protobuf/sliver"
 	"sliver/server/core"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcShell(req []byte, resp RPCResponse) {
+func rpcShell(req []byte, timeout time.Duration, resp RPCResponse) {
 	shellReq := &sliverpb.ShellReq{}
 	proto.Unmarshal(req, shellReq)
 

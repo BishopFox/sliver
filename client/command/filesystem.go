@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"sliver/util"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/AlecAivazis/survey"
 	"github.com/desertbit/grumble"
@@ -239,6 +241,9 @@ func download(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
+	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
+	log.Printf("Download timeout = %v", cmdTimeout)
+
 	if len(ctx.Args) < 1 {
 		fmt.Println(Warn + "Missing parameter(s), see `help download`\n")
 		return
@@ -277,7 +282,7 @@ func download(ctx *grumble.Context, rpc RPCServer) {
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: sliverpb.MsgDownloadReq,
 		Data: data,
-	}, defaultTimeout)
+	}, cmdTimeout)
 	ctrl <- true
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Err)

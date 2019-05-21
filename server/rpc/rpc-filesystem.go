@@ -8,7 +8,7 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcLs(req []byte, resp RPCResponse) {
+func rpcLs(req []byte, timeout time.Duration, resp RPCResponse) {
 	dirList := &sliverpb.LsReq{}
 	err := proto.Unmarshal(req, dirList)
 	if err != nil {
@@ -17,7 +17,6 @@ func rpcLs(req []byte, resp RPCResponse) {
 	}
 	sliver := core.Hive.Sliver(dirList.SliverID)
 
-	timeout := 30 * time.Second
 	data, _ := proto.Marshal(&sliverpb.LsReq{
 		Path: dirList.Path,
 	})
@@ -25,7 +24,7 @@ func rpcLs(req []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcRm(req []byte, resp RPCResponse) {
+func rpcRm(req []byte, timeout time.Duration, resp RPCResponse) {
 	rmReq := &sliverpb.RmReq{}
 	err := proto.Unmarshal(req, rmReq)
 	if err != nil {
@@ -34,7 +33,6 @@ func rpcRm(req []byte, resp RPCResponse) {
 	}
 	sliver := core.Hive.Sliver(rmReq.SliverID)
 
-	timeout := 30 * time.Second
 	data, _ := proto.Marshal(&sliverpb.RmReq{
 		Path: rmReq.Path,
 	})
@@ -42,7 +40,7 @@ func rpcRm(req []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcMkdir(req []byte, resp RPCResponse) {
+func rpcMkdir(req []byte, timeout time.Duration, resp RPCResponse) {
 	mkdirReq := &sliverpb.MkdirReq{}
 	err := proto.Unmarshal(req, mkdirReq)
 	if err != nil {
@@ -51,7 +49,6 @@ func rpcMkdir(req []byte, resp RPCResponse) {
 	}
 	sliver := core.Hive.Sliver(mkdirReq.SliverID)
 
-	timeout := 30 * time.Second
 	data, _ := proto.Marshal(&sliverpb.MkdirReq{
 		Path: mkdirReq.Path,
 	})
@@ -59,7 +56,7 @@ func rpcMkdir(req []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcCd(req []byte, resp RPCResponse) {
+func rpcCd(req []byte, timeout time.Duration, resp RPCResponse) {
 	cdReq := &sliverpb.CdReq{}
 	err := proto.Unmarshal(req, cdReq)
 	if err != nil {
@@ -68,7 +65,6 @@ func rpcCd(req []byte, resp RPCResponse) {
 	}
 	sliver := core.Hive.Sliver(cdReq.SliverID)
 
-	timeout := 30 * time.Second
 	data, _ := proto.Marshal(&sliverpb.CdReq{
 		Path: cdReq.Path,
 	})
@@ -76,7 +72,7 @@ func rpcCd(req []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcPwd(req []byte, resp RPCResponse) {
+func rpcPwd(req []byte, timeout time.Duration, resp RPCResponse) {
 	pwdReq := &sliverpb.PwdReq{}
 	err := proto.Unmarshal(req, pwdReq)
 	if err != nil {
@@ -85,13 +81,12 @@ func rpcPwd(req []byte, resp RPCResponse) {
 	}
 	sliver := (*core.Hive.Slivers)[pwdReq.SliverID]
 
-	timeout := 30 * time.Second
 	data, _ := proto.Marshal(&sliverpb.PwdReq{})
 	data, err = sliver.Request(sliverpb.MsgPwdReq, timeout, data)
 	resp(data, err)
 }
 
-func rpcDownload(req []byte, resp RPCResponse) {
+func rpcDownload(req []byte, timeout time.Duration, resp RPCResponse) {
 	downloadReq := &sliverpb.DownloadReq{}
 	err := proto.Unmarshal(req, downloadReq)
 	if err != nil {
@@ -100,7 +95,6 @@ func rpcDownload(req []byte, resp RPCResponse) {
 	}
 	sliver := core.Hive.Sliver(downloadReq.SliverID)
 
-	timeout := 30 * time.Second
 	data, _ := proto.Marshal(&sliverpb.DownloadReq{
 		Path: downloadReq.Path,
 	})
@@ -108,7 +102,7 @@ func rpcDownload(req []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcUpload(req []byte, resp RPCResponse) {
+func rpcUpload(req []byte, timeout time.Duration, resp RPCResponse) {
 	uploadReq := &sliverpb.UploadReq{}
 	err := proto.Unmarshal(req, uploadReq)
 	if err != nil {
@@ -117,7 +111,6 @@ func rpcUpload(req []byte, resp RPCResponse) {
 	}
 	sliver := core.Hive.Sliver(uploadReq.SliverID)
 
-	timeout := 30 * time.Second
 	data, _ := proto.Marshal(&sliverpb.UploadReq{
 		Encoder: uploadReq.Encoder,
 		Path:    uploadReq.Path,
