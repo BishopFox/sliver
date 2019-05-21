@@ -490,9 +490,10 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:     consts.LsStr,
-		Help:     "List current directory",
-		LongHelp: help.GetHelpFor(consts.LsStr),
+		Name:      consts.LsStr,
+		Help:      "List current directory",
+		LongHelp:  help.GetHelpFor(consts.LsStr),
+		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			ls(ctx, server.RPC)
