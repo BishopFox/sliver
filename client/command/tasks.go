@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strconv"
+	"time"
 
 	"sliver/client/spin"
 	clientpb "sliver/protobuf/client"
@@ -117,7 +118,7 @@ func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "Please provide valid arguments.\n")
 		return
 	}
-	timeout := ctx.Flags.Int("timeout")
+	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
 	assemblyBytes, err := ioutil.ReadFile(ctx.Args[0])
 	if err != nil {
 		fmt.Printf(Warn+"%s", err.Error())
@@ -133,7 +134,7 @@ func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 	go spin.Until("Executing assembly ...", ctrl)
 	data, _ := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
 		SliverID:   ActiveSliver.Sliver.ID,
-		Timeout:    int32(timeout),
+		Timeout:    int32(ctx.Flags.Int("timeout")),
 		Arguments:  assemblyArgs,
 		Assembly:   assemblyBytes,
 		HostingDll: []byte{},
@@ -142,7 +143,7 @@ func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 	resp := <-rpc(&sliverpb.Envelope{
 		Data: data,
 		Type: sliverpb.MsgExecuteAssembly,
-	}, defaultTimeout)
+	}, cmdTimeout)
 	ctrl <- true
 	execResp := &sliverpb.ExecuteAssembly{}
 	proto.Unmarshal(resp.Data, execResp)

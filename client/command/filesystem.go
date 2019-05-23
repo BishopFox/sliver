@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -242,7 +241,6 @@ func download(ctx *grumble.Context, rpc RPCServer) {
 	}
 
 	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
-	log.Printf("Download timeout = %v", cmdTimeout)
 
 	if len(ctx.Args) < 1 {
 		fmt.Println(Warn + "Missing parameter(s), see `help download`\n")
@@ -318,6 +316,8 @@ func upload(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
+	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
+
 	src, _ := filepath.Abs(ctx.Args[0])
 	_, err := os.Stat(src)
 	if err != nil {
@@ -346,7 +346,7 @@ func upload(ctx *grumble.Context, rpc RPCServer) {
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: sliverpb.MsgUploadReq,
 		Data: data,
-	}, defaultTimeout)
+	}, cmdTimeout)
 	ctrl <- true
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Err)

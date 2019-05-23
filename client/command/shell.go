@@ -23,6 +23,10 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 		return
 	}
 
+	if !isUserAnAdult() {
+		return
+	}
+
 	noPty := ctx.Flags.Bool("no-pty")
 	if ActiveSliver.Sliver.OS == windows {
 		noPty = true // Windows of course doesn't have PTYs

@@ -117,7 +117,9 @@ func procdump(ctx *grumble.Context, rpc RPCServer) {
 	}
 	pid := ctx.Flags.Int("pid")
 	name := ctx.Flags.String("name")
-	timeout := ctx.Flags.Int("timeout")
+
+	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
+
 	if pid == -1 && name != "" {
 		pid = getPIDByName(name, rpc)
 	}
@@ -126,7 +128,7 @@ func procdump(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	if timeout < 1 {
+	if ctx.Flags.Int("timeout") < 1 {
 		fmt.Printf(Warn + "Invalid timeout argument\n")
 		return
 	}
@@ -136,12 +138,12 @@ func procdump(ctx *grumble.Context, rpc RPCServer) {
 	data, _ := proto.Marshal(&sliverpb.ProcessDumpReq{
 		SliverID: ActiveSliver.Sliver.ID,
 		Pid:      int32(pid),
-		Timeout:  int32(timeout),
+		Timeout:  int32(ctx.Flags.Int("timeout")),
 	})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: sliverpb.MsgProcessDumpReq,
 		Data: data,
-	}, time.Duration(timeout+1)*time.Second)
+	}, cmdTimeout)
 	ctrl <- true
 
 	procDump := &sliverpb.ProcessDump{}
