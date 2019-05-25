@@ -13,12 +13,14 @@ import (
 
 var (
 	cmdHelp = map[string]string{
-		consts.JobsStr:       jobsHelp,
-		consts.SessionsStr:   sessionsHelp,
-		consts.BackgroundStr: backgroundHelp,
-		consts.InfoStr:       infoHelp,
-		consts.UseStr:        useHelp,
-		consts.GenerateStr:   generateHelp,
+		consts.JobsStr:            jobsHelp,
+		consts.SessionsStr:        sessionsHelp,
+		consts.BackgroundStr:      backgroundHelp,
+		consts.InfoStr:            infoHelp,
+		consts.UseStr:             useHelp,
+		consts.GenerateStr:        generateHelp,
+		consts.NewProfileStr:      newProfileHelp,
+		consts.ProfileGenerateStr: generateProfileHelp,
 
 		consts.MsfStr:              msfHelp,
 		consts.MsfInjectStr:        msfInjectHelp,
@@ -95,17 +97,31 @@ and which implant file was discovered along with any affected sessions.
 
 [[.Bold]]Important:[[.Normal]] You must have a DNS listener/server running to detect the DNS queries (see the "dns" command).
 
-Unique canary subdomains are automatically generated and inserted using the --canary flag:
+Unique canary subdomains are automatically generated and inserted using the --canary flag. You can view previously generated 
+canaries and their status using the "canaries" command:
 	generate --mtls foo.example.com --canary 1.foobar.com
-
 
 [[.Bold]][[.Underline]]++ Execution Limits ++[[.Normal]]
 Execution limits can be used to restrict the execution of a Sliver implant to machines with specific configurations.
 
 [[.Bold]][[.Underline]]++ Profiles ++[[.Normal]]
 Due to the large number of options and C2s this can be a lot of typing. If you'd like to have a reusable a Sliver config
-see 'help new-profile'. All "generate" flags can be saved into a profile.
+see 'help new-profile'. All "generate" flags can be saved into a profile, you can view existing profiles with the "profiles"
+command.
 `
+
+	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new-profile [--name] <options>
+[[.Bold]]About:[[.Normal]] Create a new profile with a given name and options, a name is required.
+
+[[.Bold]][[.Underline]]++ Profiles ++[[.Normal]]
+Profiles are an easy way to save a sliver configurate and easily generate multiple copies of the binary with the same
+settings, but will still have per-binary certificates/obfuscation/etc. This command is used with generate-profile:
+	new-profile --name mtls-profile  --mtls foo.example.com --canary 1.foobar.com
+	generate-profile mtls-profile
+`
+
+	generateProfileHelp = `[[.Bold]]Command:[[.Normal]] generate-profile [name] <options>
+[[.Bold]]About:[[.Normal]] Generate a Sliver from a saved profile (see new-profile).`
 
 	msfHelp = `[[.Bold]]Command:[[.Normal]] msf [--lhost] <options>
 [[.Bold]]About:[[.Normal]] Execute a metasploit payload in the current process.`
@@ -157,10 +173,16 @@ c2 message round trip to ensure the remote Sliver is still responding to command
 [[.Bold]]About:[[.Normal]] (Windows Only) Spawn a new sliver session as an elevated process (UAC bypass)`
 
 	executeAssemblyHelp = `[[.Bold]]Command:[[.Normal]] execute-assembly [local path to assembly] [arguments]
-[[.Bold]]About:[[.Normal]] (Windows Only) Executes the .NET assembly in a child process.`
+[[.Bold]]About:[[.Normal]] (Windows Only) Executes the .NET assembly in a child process.
+`
 
 	executeShellcodeHelp = `[[.Bold]]Command:[[.Normal]] execute-shellcode [local path to raw shellcode]
-[[.Bold]]About:[[.Normal]] Executes the given shellcode in the Sliver process.`
+[[.Bold]]About:[[.Normal]] Executes the given shellcode in the Sliver process.
+
+[[.Bold]][[.Underline]]++ Shellcode ++[[.Normal]]
+Shellcode files should be binary encoded, you can generate Sliver shellcode files with the generage command:
+	generate --format shellcode
+`
 
 	migrateHelp = `[[.Bold]]Command:[[.Normal]] migrate <pid>
 [[.Bold]]About:[[.Normal]] (Windows Only) Migrates into the process designated by <pid>.`

