@@ -36,7 +36,7 @@ var (
 	procCreateThread       = kernel32.MustFindProc("CreateThread")
 
 	ntdllPath    = "C:\\Windows\\System32\\ntdll.dll" // We make this a var so the string obfuscator can refactor it
-	kernel32Path = "C:\\Windows\\System32\\kernel32.dll"
+	kernel32dllPath = "C:\\Windows\\System32\\kernel32.dll"
 )
 
 func virtualAllocEx(process syscall.Handle, addr uintptr, size, allocType, protect uint32) (uintptr, error) {

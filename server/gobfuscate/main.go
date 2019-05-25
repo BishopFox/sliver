@@ -55,8 +55,8 @@ func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath str
 	// }
 
 	// newPkg := encryptComponents(pkgName, enc)
-
-	return "sliver", nil
+	// Hard code this until we get the pkg obfuscator working correctly
+	return "github.com/bishopfox/sliver", nil
 }
 
 func encryptComponents(pkgName string, enc *Encrypter) string {

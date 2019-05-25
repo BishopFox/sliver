@@ -357,7 +357,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 	srcDir := path.Join(projectGoPathDir, "src")
 	assets.SetupGoPath(srcDir) // Extract GOPATH dependancy files
 
-	sliverPkgDir := path.Join(srcDir, "sliver") // "main"
+	sliverPkgDir := path.Join(srcDir, "github.com", "bishopfox", "sliver") // "main"
 	os.MkdirAll(sliverPkgDir, os.ModePerm)
 
 	// Load code template
@@ -414,7 +414,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 	if !config.Debug && !config.IsSharedLib {
 		buildLog.Infof("Obfuscating source code ...")
 		obfuscatedGoPath := path.Join(projectGoPathDir, "obfuscated")
-		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, randomObfuscationKey(), "sliver", obfuscatedGoPath)
+		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, randomObfuscationKey(), "github.com/bishopfox/sliver", obfuscatedGoPath)
 		if err != nil {
 			buildLog.Infof("Error while obfuscating sliver %v", err)
 			return "", err
