@@ -26,14 +26,14 @@ func normalizePath(path string) string {
 }
 
 // GetContent - Get static content for a given path
-func GetContent(website string, path string) (string, []byte, error) {
+func GetContent(websiteName string, path string) (string, []byte, error) {
 	bucket, err := db.GetBucket(websiteBucketName)
 	if err != nil {
 		return "", []byte{}, err
 	}
 
 	path = normalizePath(path)
-	webContentRaw, err := bucket.Get(fmt.Sprintf("%s.%s", website, path))
+	webContentRaw, err := bucket.Get(fmt.Sprintf("%s.%s", websiteName, path))
 	if err != nil {
 		return "", []byte{}, err
 	}
@@ -47,7 +47,7 @@ func GetContent(website string, path string) (string, []byte, error) {
 }
 
 // AddContent - Add website content for a path
-func AddContent(website string, path string, contentType string, content []byte) error {
+func AddContent(websiteName string, path string, contentType string, content []byte) error {
 	bucket, err := db.GetBucket(websiteBucketName)
 	if err != nil {
 		return err
@@ -61,7 +61,7 @@ func AddContent(website string, path string, contentType string, content []byte)
 		return err
 	}
 	path = normalizePath(path)
-	bucket.Set(fmt.Sprintf("%s.%s", website, path), webContent)
+	bucket.Set(fmt.Sprintf("%s.%s", websiteName, path), webContent)
 	return nil
 }
 
@@ -82,15 +82,15 @@ func ListWebsites() ([]string, error) {
 		return nil, err
 	}
 
-	keys, err := bucket.List("")
+	keys, err := bucket.Map("")
 	if err != nil {
 		return nil, err
 	}
 
 	// Because Go doesn't have a generic Keys()
 	websites := make(map[string]bool)
-	for _, k := range keys {
-		name := strings.Split(k, ".")[0] // Split on '.' and take the zero'th
+	for key := range keys {
+		name := strings.Split(key, ".")[0] // Split on '.' and take the zero'th
 		websites[name] = true
 	}
 	websiteNames := make([]string, 0, len(websites))
@@ -101,16 +101,19 @@ func ListWebsites() ([]string, error) {
 }
 
 // ListContent - List the content of a specific site, returns map of path->json(content-type/size)
-func ListContent(website string) (*map[string][]byte, error) {
+func ListContent(websiteName string) (*clientpb.Website, error) {
 	bucket, err := db.GetBucket(websiteBucketName)
 	if err != nil {
 		return nil, err
 	}
-	websiteContent, err := bucket.Map(fmt.Sprintf("%s.", website))
+	websiteContent, err := bucket.Map(fmt.Sprintf("%s.", websiteName))
 	if err != nil {
 		return nil, err
 	}
-	siteContent := &map[string][]byte{}
+	website := &clientpb.Website{
+		Name:    websiteName,
+		Content: map[string]*clientpb.WebContent{},
+	}
 	for key, contentRaw := range websiteContent {
 		webContent := &clientpb.WebContent{}
 		err := json.Unmarshal(contentRaw, webContent)
@@ -118,9 +121,8 @@ func ListContent(website string) (*map[string][]byte, error) {
 			continue
 		}
 		webContent.Content = []byte{} // Remove actual file contents
-		path := key[len(fmt.Sprintf("%s.", website)):]
-		content, _ := json.Marshal(webContent)
-		(*siteContent)[path] = content
+		webContent.Path = key[len(fmt.Sprintf("%s.", website)):]
+		website.Content[webContent.Path] = webContent
 	}
-	return siteContent, nil
+	return website, nil
 }

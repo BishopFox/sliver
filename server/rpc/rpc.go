@@ -33,7 +33,6 @@ var (
 		clientpb.MsgWebsiteList:          rpcWebsiteList,
 		clientpb.MsgWebsiteAddContent:    rpcWebsiteAddContent,
 		clientpb.MsgWebsiteRemoveContent: rpcWebsiteRemoveContent,
-		clientpb.MsgWebsiteListContent:   rpcWebsiteListContent,
 
 		clientpb.MsgSessions:         rpcSessions,
 		clientpb.MsgGenerate:         rpcGenerate,
