@@ -2,7 +2,7 @@ package gogo
 
 import (
 	"fmt"
-	"sliver/server/assets"
+	"github.com/bishopfox/sliver/server/assets"
 	"testing"
 )
 

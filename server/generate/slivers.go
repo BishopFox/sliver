@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"sliver/server/assets"
-	"sliver/server/db"
-	"sliver/server/log"
 	"strings"
 	"time"
+
+	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/log"
 )
 
 const (

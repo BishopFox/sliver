@@ -1,11 +1,11 @@
 package rpc
 
 import (
-	"sliver/server/core"
+	"github.com/bishopfox/sliver/server/core"
 	"time"
 
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 
 	"github.com/golang/protobuf/proto"
 )

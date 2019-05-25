@@ -3,10 +3,11 @@ package rpc
 import (
 	"bytes"
 	"crypto/x509"
-	clientpb "sliver/protobuf/client"
-	"sliver/server/certs"
-	"sliver/server/core"
 	"time"
+
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/core"
 
 	"github.com/golang/protobuf/proto"
 )

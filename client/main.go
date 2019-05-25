@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 	"path"
-	"sliver/client/assets"
-	"sliver/client/console"
-	"sliver/client/version"
+	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/version"
 )
 
 const (

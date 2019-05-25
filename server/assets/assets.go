@@ -158,12 +158,12 @@ func SetupGoPath(goPathSrc string) error {
 	}
 
 	// Protobuf dependencies
-	pbGoSrc, err := protobufBox.Find("sliver/sliver.pb.go")
+	pbGoSrc, err := protobufBox.Find("github.com/bishopfox/sliver/sliver.pb.go")
 	if err != nil {
 		setupLog.Info("static asset not found: sliver.pb.go")
 		return err
 	}
-	pbConstSrc, err := protobufBox.Find("sliver/constants.go")
+	pbConstSrc, err := protobufBox.Find("github.com/bishopfox/sliver/constants.go")
 	if err != nil {
 		setupLog.Info("static asset not found: constants.go")
 		return err

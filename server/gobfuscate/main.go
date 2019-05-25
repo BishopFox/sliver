@@ -4,9 +4,10 @@ import (
 	"errors"
 	"go/build"
 	"os"
-	gogo "sliver/server/gogo"
-	"sliver/server/log"
 	"strings"
+
+	gogo "github.com/bishopfox/sliver/server/gogo"
+	"github.com/bishopfox/sliver/server/log"
 )
 
 var (

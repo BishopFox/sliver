@@ -2,7 +2,7 @@ package encoders
 
 import (
 	insecureRand "math/rand"
-	"sliver/server/assets"
+	"github.com/bishopfox/sliver/server/assets"
 	"strings"
 	"time"
 )

@@ -11,13 +11,14 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	clientpb "sliver/protobuf/client"
-	"sliver/server/assets"
-	"sliver/server/certs"
-	gobfuscate "sliver/server/gobfuscate"
-	gogo "sliver/server/gogo"
-	"sliver/server/log"
 	"text/template"
+
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/certs"
+	gobfuscate "github.com/bishopfox/sliver/server/gobfuscate"
+	gogo "github.com/bishopfox/sliver/server/gogo"
+	"github.com/bishopfox/sliver/server/log"
 
 	"github.com/gobuffalo/packr"
 )
@@ -364,7 +365,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 	for _, boxName := range srcFiles {
 		sliverGoCode, _ := sliverBox.FindString(boxName)
 
-		// We need to correct for the "sliver/sliver/foo" imports, since Go
+		// We need to correct for the "github.com/bishopfox/sliver/sliver/foo" imports, since Go
 		// doesn't allow relative imports and "sliver" is a subdirectory of
 		// the main "sliver" repo we need to fake this when coping the code
 		// to our per-compile "GOPATH"
