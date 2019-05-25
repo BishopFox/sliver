@@ -1,8 +1,9 @@
 package core
 
 import (
-	pb "sliver/protobuf/client"
 	"sync"
+
+	pb "github.com/bishopfox/sliver/protobuf/client"
 )
 
 var (

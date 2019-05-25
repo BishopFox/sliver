@@ -4,7 +4,8 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"sliver/server/db"
+
+	"github.com/bishopfox/sliver/server/db"
 )
 
 const (

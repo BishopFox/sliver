@@ -7,11 +7,12 @@ import (
 	insecureRand "math/rand"
 	"os"
 	"path"
-	"sliver/client/assets"
-	cmd "sliver/client/command"
-	consts "sliver/client/constants"
-	"sliver/client/core"
-	"sliver/client/version"
+
+	"github.com/bishopfox/sliver/client/assets"
+	cmd "github.com/bishopfox/sliver/client/command"
+	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/version"
 
 	"time"
 

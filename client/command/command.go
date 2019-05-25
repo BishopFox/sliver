@@ -1,10 +1,11 @@
 package command
 
 import (
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
 	"strconv"
 	"time"
+
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 
 	"github.com/AlecAivazis/survey"
 	"github.com/golang/protobuf/proto"

@@ -3,18 +3,17 @@ package console
 import (
 	"fmt"
 	insecureRand "math/rand"
-	"sliver/client/command"
-	clientconsole "sliver/client/console"
-	consts "sliver/client/constants"
-	clientcore "sliver/client/core"
-	"sliver/client/help"
-	sliverpb "sliver/protobuf/sliver"
-
 	"time"
 
 	"github.com/desertbit/grumble"
 
-	"sliver/server/transport"
+	"github.com/bishopfox/sliver/client/command"
+	clientconsole "github.com/bishopfox/sliver/client/console"
+	consts "github.com/bishopfox/sliver/client/constants"
+	clientcore "github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/help"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/server/transport"
 )
 
 // Start - Starts the server console

@@ -7,8 +7,9 @@ package help
 
 import (
 	"bytes"
-	consts "sliver/client/constants"
 	"text/template"
+
+	consts "github.com/bishopfox/sliver/client/constants"
 )
 
 var (

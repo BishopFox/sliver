@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"sliver/client/spin"
-	sliverpb "sliver/protobuf/sliver"
 	"strings"
 	"text/tabwriter"
 	"time"
+
+	"github.com/bishopfox/sliver/client/spin"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"

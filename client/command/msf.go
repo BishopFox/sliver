@@ -2,11 +2,12 @@ package command
 
 import (
 	"fmt"
-	consts "sliver/client/constants"
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
 
-	"sliver/client/spin"
+	consts "github.com/bishopfox/sliver/client/constants"
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+
+	"github.com/bishopfox/sliver/client/spin"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"

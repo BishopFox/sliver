@@ -7,10 +7,10 @@ package handlers
 */
 
 import (
-	consts "sliver/client/constants"
-	sliverpb "sliver/protobuf/sliver"
-	"sliver/server/core"
-	"sliver/server/log"
+	consts "github.com/bishopfox/sliver/client/constants"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/log"
 
 	"github.com/golang/protobuf/proto"
 )

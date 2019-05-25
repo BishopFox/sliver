@@ -5,10 +5,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
-	"sliver/client/assets"
 
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/client/assets"
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 
 	"sync"
 	"time"

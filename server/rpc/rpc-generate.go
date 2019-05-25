@@ -4,9 +4,10 @@ import (
 	"errors"
 	"io/ioutil"
 	"path"
-	clientpb "sliver/protobuf/client"
-	"sliver/server/generate"
 	"time"
+
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	"github.com/bishopfox/sliver/server/generate"
 
 	"github.com/golang/protobuf/proto"
 )

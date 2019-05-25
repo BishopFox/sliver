@@ -5,8 +5,9 @@ import (
 	"io"
 	"log"
 	"os"
-	"sliver/client/core"
-	sliverpb "sliver/protobuf/sliver"
+
+	"github.com/bishopfox/sliver/client/core"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"

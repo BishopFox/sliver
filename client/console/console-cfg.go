@@ -2,8 +2,9 @@ package console
 
 import (
 	"fmt"
-	"sliver/client/assets"
 	"sort"
+
+	"github.com/bishopfox/sliver/client/assets"
 
 	"github.com/AlecAivazis/survey"
 )

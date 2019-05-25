@@ -7,12 +7,13 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sliver/client/spin"
-	sliverpb "sliver/protobuf/sliver"
-	"sliver/util"
 	"strings"
 	"text/tabwriter"
 	"time"
+
+	"github.com/bishopfox/sliver/client/spin"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/util"
 
 	"github.com/AlecAivazis/survey"
 	"github.com/desertbit/grumble"

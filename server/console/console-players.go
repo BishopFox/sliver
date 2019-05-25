@@ -8,10 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	consts "sliver/client/constants"
-	"sliver/server/certs"
-	"sliver/server/core"
-	"sliver/server/transport"
+
+	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/transport"
 
 	"github.com/desertbit/grumble"
 )

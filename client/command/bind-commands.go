@@ -18,9 +18,10 @@ package command
 
 import (
 	"fmt"
-	consts "sliver/client/constants"
-	"sliver/client/core"
-	"sliver/client/help"
+
+	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/help"
 
 	"github.com/desertbit/grumble"
 )

@@ -2,12 +2,13 @@ package transport
 
 import (
 	"fmt"
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
-	"sliver/server/core"
-	"sliver/server/log"
-	"sliver/server/rpc"
 	"time"
+
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/server/rpc"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"

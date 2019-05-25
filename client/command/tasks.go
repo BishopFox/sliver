@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"sliver/client/spin"
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/client/spin"
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"

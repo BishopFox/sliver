@@ -3,8 +3,9 @@ package c2
 import (
 	"net/http"
 	"net/http/httptest"
-	"sliver/server/certs"
 	"testing"
+
+	"github.com/bishopfox/sliver/server/certs"
 )
 
 func TestRsaKeyHandler(t *testing.T) {

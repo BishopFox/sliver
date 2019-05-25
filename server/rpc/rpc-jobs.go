@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	consts "sliver/client/constants"
-	clientpb "sliver/protobuf/client"
-	"sliver/server/c2"
-	"sliver/server/core"
 	"strings"
 	"sync"
 	"time"
+
+	consts "github.com/bishopfox/sliver/client/constants"
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	"github.com/bishopfox/sliver/server/c2"
+	"github.com/bishopfox/sliver/server/core"
 
 	"github.com/golang/protobuf/proto"
 )

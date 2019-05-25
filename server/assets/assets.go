@@ -10,10 +10,10 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"sliver/server/log"
 	"strings"
 
-	ver "sliver/client/version"
+	ver "github.com/bishopfox/sliver/client/version"
+	"github.com/bishopfox/sliver/server/log"
 
 	"github.com/gobuffalo/packr"
 )
