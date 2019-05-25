@@ -16,8 +16,8 @@ import (
 	clientpb "github.com/bishopfox/sliver/protobuf/client"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/certs"
-	gobfuscate "github.com/bishopfox/sliver/server/gobfuscate"
-	gogo "github.com/bishopfox/sliver/server/gogo"
+	"github.com/bishopfox/sliver/server/gobfuscate"
+	"github.com/bishopfox/sliver/server/gogo"
 	"github.com/bishopfox/sliver/server/log"
 
 	"github.com/gobuffalo/packr"
