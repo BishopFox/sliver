@@ -48,7 +48,7 @@ func OperatorClientListCertificates() []*x509.Certificate {
 		return []*x509.Certificate{}
 	}
 
-	// The key structure is: <key type>_<name space>.<operator name>
+	// The key structure is: <key type>_<namespace>.<operator name>
 	operators, err := bucket.List(fmt.Sprintf("%s_%s", ECCKey, clientNamespace))
 	if err != nil {
 		return []*x509.Certificate{}

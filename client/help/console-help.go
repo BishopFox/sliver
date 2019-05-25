@@ -41,6 +41,8 @@ var (
 		consts.ExecuteAssemblyStr:  executeAssemblyHelp,
 		consts.ExecuteShellcodeStr: executeShellcodeHelp,
 		consts.MigrateStr:          migrateHelp,
+
+		consts.WebsitesStr: websitesHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -187,6 +189,23 @@ Shellcode files should be binary encoded, you can generate Sliver shellcode file
 
 	migrateHelp = `[[.Bold]]Command:[[.Normal]] migrate <pid>
 [[.Bold]]About:[[.Normal]] (Windows Only) Migrates into the process designated by <pid>.`
+
+	websitesHelp = `[[.Bold]]Command:[[.Normal]] websites <subcommand> <options>
+[[.Bold]]About:[[.Normal]] Add content to HTTP(S) C2 websites to make them look more legit.
+
+[[.Bold]][[.Underline]]++ Subcommands ++[[.Normal]]
+Subcommands are used to manage the content of each website.
+
+[[.Bold]]ls:[[.Normal]] List the content of a website, specified with --website
+[[.Bold]]add:[[.Normal]] Add content to a website, specified with --website and --path
+[[.Bold]]rm:[[.Normal]] Remove content from a website, specified with --website and --path
+
+[[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
+
+Add content to a website:
+	websites add --website blog --path / --content ./index.html
+
+`
 )
 
 const (

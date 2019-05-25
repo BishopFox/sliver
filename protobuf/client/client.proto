@@ -142,7 +142,7 @@ message HTTPReq {
   string Iface = 2;
   int32 LPort = 3;
   bool Secure = 4; // Enable HTTPS
-  string StaticDir = 5;
+  string Website = 5;
   bytes Cert = 6;
   bytes Key = 7;
   bool ACME = 8;
@@ -227,3 +227,19 @@ message Player {
   Client Client = 1;
   bool Online = 2;
 }
+
+// [ websites ] ----------------------------------------
+message WebContent {
+  string Path = 1;
+  string ContentType = 2;
+  uint64 Size = 3;
+
+  bytes Content = 9;
+}
+
+message Website {
+  string Name = 1;
+  map<string, WebContent> Content = 2;
+}
+
+message Websites { repeated Website Sites = 1; }
