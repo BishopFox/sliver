@@ -222,19 +222,12 @@ func (s *SliverHTTPC2) router() *mux.Router {
 
 	// Request does not match the C2 profile so we pass it to the static content or 404 handler
 	if s.Conf.Website != "" {
-		httpLog.Infof("Serving static content from website %s", s.Conf.Website)
-		router.HandleFunc("{rpath:.*}", func(resp http.ResponseWriter, req *http.Request) {
-			contentType, content, err := website.GetContent(s.Conf.Website, req.RequestURI)
-			if err != nil {
-				resp.WriteHeader(404) // No content for this path
-				return
-			}
-			resp.Header().Set("Content-type", contentType)
-			resp.Write(content)
-		}).Methods(http.MethodGet)
+		httpLog.Infof("Serving static content from website %v", s.Conf.Website)
+		router.HandleFunc("/{rpath:.*}", s.websiteContentHandler).Methods(http.MethodGet)
 	} else {
 		// 404 Handler - Just 404 on every path that doesn't match another handler
-		router.HandleFunc("{rpath:.*}", default404Handler).Methods(http.MethodGet, http.MethodPost)
+		httpLog.Infof("No website content, using wildcard 404 handler")
+		router.HandleFunc("/{rpath:.*}", default404Handler).Methods(http.MethodGet, http.MethodPost)
 	}
 
 	router.Use(loggingMiddleware)
@@ -282,6 +275,18 @@ func defaultRespHeaders(next http.Handler) http.Handler {
 
 		next.ServeHTTP(resp, req)
 	})
+}
+
+func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http.Request) {
+	httpLog.Infof("Request for site %v -> %s", s.Conf.Website, req.RequestURI)
+	contentType, content, err := website.GetContent(s.Conf.Website, req.RequestURI)
+	if err != nil {
+		httpLog.Infof("No website content for %s", req.RequestURI)
+		resp.WriteHeader(404) // No content for this path
+		return
+	}
+	resp.Header().Set("Content-type", contentType)
+	resp.Write(content)
 }
 
 func default404Handler(resp http.ResponseWriter, req *http.Request) {

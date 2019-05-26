@@ -179,13 +179,14 @@ func rpcStartHTTPSListener(data []byte, timeout time.Duration, resp RPCResponse)
 	}
 
 	conf := &c2.HTTPServerConfig{
-		Addr:   fmt.Sprintf("%s:%d", httpReq.Iface, httpReq.LPort),
-		LPort:  uint16(httpReq.LPort),
-		Secure: true,
-		Domain: httpReq.Domain,
-		Cert:   httpReq.Cert,
-		Key:    httpReq.Key,
-		ACME:   httpReq.ACME,
+		Addr:    fmt.Sprintf("%s:%d", httpReq.Iface, httpReq.LPort),
+		LPort:   uint16(httpReq.LPort),
+		Secure:  true,
+		Domain:  httpReq.Domain,
+		Website: httpReq.Website,
+		Cert:    httpReq.Cert,
+		Key:     httpReq.Key,
+		ACME:    httpReq.ACME,
 	}
 	job := jobStartHTTPListener(conf)
 
@@ -204,11 +205,12 @@ func rpcStartHTTPListener(data []byte, timeout time.Duration, resp RPCResponse) 
 	}
 
 	conf := &c2.HTTPServerConfig{
-		Addr:   fmt.Sprintf("%s:%d", httpReq.Iface, httpReq.LPort),
-		LPort:  uint16(httpReq.LPort),
-		Domain: httpReq.Domain,
-		Secure: false,
-		ACME:   false,
+		Addr:    fmt.Sprintf("%s:%d", httpReq.Iface, httpReq.LPort),
+		LPort:   uint16(httpReq.LPort),
+		Domain:  httpReq.Domain,
+		Website: httpReq.Website,
+		Secure:  false,
+		ACME:    false,
 	}
 	job := jobStartHTTPListener(conf)
 	if job == nil {

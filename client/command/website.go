@@ -179,11 +179,11 @@ func webDisplay(web *clientpb.Website) {
 func webAddDirectory(web *clientpb.Website, webpath string, contentPath string) {
 	fullLocalPath, _ := filepath.Abs(contentPath)
 	filepath.Walk(contentPath, func(localPath string, info os.FileInfo, err error) error {
-		// fmt.Printf(Info+"Adding: %s\n", localPath)
 		if err != nil {
 			return err
 		}
 		if !info.IsDir() {
+			// localPath is the full absolute path to the file, so we cut it down
 			fullWebpath := path.Join(webpath, localPath[len(fullLocalPath):])
 			webAddFile(web, fullWebpath, "", localPath)
 		}

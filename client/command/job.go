@@ -210,9 +210,10 @@ func startHTTPListener(ctx *grumble.Context, rpc RPCServer) {
 
 	fmt.Printf(Info+"Starting HTTP %s:%d listener ...\n", domain, lport)
 	data, _ := proto.Marshal(&clientpb.HTTPReq{
-		Domain: domain,
-		LPort:  int32(lport),
-		Secure: false,
+		Domain:  domain,
+		Website: ctx.Flags.String("website"),
+		LPort:   int32(lport),
+		Secure:  false,
 	})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgHttp,
