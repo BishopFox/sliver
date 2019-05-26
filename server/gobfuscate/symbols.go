@@ -23,11 +23,11 @@ var IgnoreMethods = map[string]bool{
 
 // SkipRenames - Skip renaming these symbols
 var SkipRenames = map[string]bool{
-	"_":             true,
-	"int32ptr":      true,
-	"atomicLock":    true,
-	"grow":          true,
-	"_IOC_PARM_LEN": true,
+	"_":          true,
+	"int32ptr":   true,
+	"atomicLock": true,
+	"grow":       true,
+	// "_IOC_PARM_LEN": true,
 }
 
 type symbolRenameReq struct {
