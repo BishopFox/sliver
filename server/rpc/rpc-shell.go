@@ -1,13 +1,15 @@
 package rpc
 
 import (
-	sliverpb "sliver/protobuf/sliver"
-	"sliver/server/core"
+	"time"
+
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/server/core"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcShell(req []byte, resp RPCResponse) {
+func rpcShell(req []byte, timeout time.Duration, resp RPCResponse) {
 	shellReq := &sliverpb.ShellReq{}
 	proto.Unmarshal(req, shellReq)
 
@@ -23,7 +25,7 @@ func rpcShell(req []byte, resp RPCResponse) {
 		return
 	}
 	rpcLog.Infof("Requesting Sliver %d to start shell", sliver.ID)
-	data, err := sliver.Request(sliverpb.MsgShellReq, defaultTimeout, startShellReq)
+	data, err := sliver.Request(sliverpb.MsgShellReq, timeout, startShellReq)
 	rpcLog.Infof("Sliver %d responded to shell start request", sliver.ID)
 	resp(data, err)
 }

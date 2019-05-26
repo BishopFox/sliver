@@ -10,10 +10,10 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"sliver/server/log"
 	"strings"
 
-	ver "sliver/client/version"
+	ver "github.com/bishopfox/sliver/client/version"
+	"github.com/bishopfox/sliver/server/log"
 
 	"github.com/gobuffalo/packr"
 )
@@ -169,7 +169,7 @@ func SetupGoPath(goPathSrc string) error {
 		return err
 	}
 
-	protobufDir := path.Join(goPathSrc, "sliver", "protobuf", "sliver")
+	protobufDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliver")
 	os.MkdirAll(protobufDir, os.ModePerm)
 	ioutil.WriteFile(path.Join(protobufDir, "constants.go"), pbGoSrc, 0644)
 

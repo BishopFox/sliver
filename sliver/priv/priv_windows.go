@@ -16,8 +16,8 @@ import (
 
 	"golang.org/x/sys/windows/registry"
 
-	"sliver/sliver/ps"
-	"sliver/sliver/taskrunner"
+	"github.com/bishopfox/sliver/sliver/ps"
+	"github.com/bishopfox/sliver/sliver/taskrunner"
 )
 
 const (

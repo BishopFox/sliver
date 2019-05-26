@@ -2,9 +2,10 @@ package core
 
 import (
 	"crypto/x509"
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
 	"sync"
+
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 )
 
 var (

@@ -18,7 +18,7 @@ const (
 
 // ClientConfig - Client JSON config
 type ClientConfig struct {
-	Operator      string `json:"operator"`
+	Operator      string `json:"operator"` // This value is actually ignored for the most part (cert CN is used instead)
 	LHost         string `json:"lhost"`
 	LPort         int    `json:"lport"`
 	CACertificate string `json:"ca_certificate"`

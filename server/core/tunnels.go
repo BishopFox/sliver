@@ -3,8 +3,9 @@ package core
 import (
 	"crypto/rand"
 	"encoding/binary"
-	sliverpb "sliver/protobuf/sliver"
 	"sync"
+
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 
 	"github.com/golang/protobuf/proto"
 )

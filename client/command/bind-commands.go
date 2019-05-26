@@ -1,22 +1,44 @@
 package command
 
+/*
+	This file contains all of the code that binds a given string/flags/etc. to a
+	command implementation function.
+
+	Guidelines when adding a command:
+
+		* Try to reuse the same short/long flags for the same paramenter,
+		  e.g. "timeout" flags should always be -t and --timeout when possible.
+		  Try to avoid creating flags that conflict with others even if you're
+		  not using the flag, e.g. avoid using -t even if your command doesn't
+		  have a --timeout.
+
+		* Add a long-form help template to `client/help`
+
+*/
+
 import (
 	"fmt"
-	consts "sliver/client/constants"
-	"sliver/client/core"
-	"sliver/client/help"
+
+	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/help"
 
 	"github.com/desertbit/grumble"
 )
 
 const (
-	defaultMTLSLPort = 8888
+	defaultMTLSLPort  = 8888
+	defaultHTTPLPort  = 80
+	defaultHTTPSLPort = 443
+
+	defaultReconnect = 60
+	defaultMaxErrors = 1000
 )
 
 // BindCommands - Bind commands to a App
 func BindCommands(app *grumble.App, server *core.SliverServer) {
 
-	app.SetPrintHelp(helpCmd)
+	app.SetPrintHelp(helpCmd) // Responsible for display long-form help templates, etc.
 
 	// [ Jobs ] -----------------------------------------------------------------
 	app.AddCommand(&grumble.Command{
@@ -76,7 +98,8 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.HttpStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domain", "", "limit responses to specific domain")
-			f.Int("l", "lport", 80, "tcp listen port")
+			f.String("w", "website", "", "website name (see websites cmd)")
+			f.Int("l", "lport", defaultHTTPLPort, "tcp listen port")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -93,7 +116,8 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.HttpsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domain", "", "limit responses to specific domain")
-			f.Int("l", "lport", 443, "tcp listen port")
+			f.String("w", "website", "", "website name (see websites cmd)")
+			f.Int("l", "lport", defaultHTTPSLPort, "tcp listen port")
 
 			f.String("c", "cert", "", "PEM encoded certificate file")
 			f.String("k", "key", "", "PEM encoded private key file")
@@ -229,8 +253,8 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("t", "http", "", "http(s) connection strings")
 			f.String("n", "dns", "", "dns connection strings")
 
-			f.Int("j", "reconnect", 60, "attempt to reconnect every n second(s)")
-			f.Int("k", "max-errors", 1000, "max number of connection errors")
+			f.Int("j", "reconnect", defaultReconnect, "attempt to reconnect every n second(s)")
+			f.Int("k", "max-errors", defaultMaxErrors, "max number of connection errors")
 
 			f.String("w", "limit-datetime", "", "limit execution to before datetime")
 			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
@@ -259,14 +283,14 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
 
-			f.String("m", "mtls", "", "mtls connection string(s)")
-			f.String("t", "http", "", "http[s] connection string(s)")
-			f.String("n", "dns", "", "dns connection strin(s)")
+			f.String("m", "mtls", "", "mtls domain(s)")
+			f.String("t", "http", "", "http[s] domain(s)")
+			f.String("n", "dns", "", "dns domain(s)")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
-			f.Int("j", "reconnect", 60, "attempt to reconnect every n second(s)")
-			f.Int("k", "max-errors", 1000, "max number of connection errors")
+			f.Int("j", "reconnect", defaultReconnect, "attempt to reconnect every n second(s)")
+			f.Int("k", "max-errors", defaultMaxErrors, "max number of connection errors")
 
 			f.String("w", "limit-datetime", "", "limit execution to before datetime")
 			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
@@ -318,7 +342,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.ProfileGenerateStr,
-		Help:     "Generate sliver from profile",
+		Help:     "Generate Sliver from a profile",
 		LongHelp: help.GetHelpFor(consts.ProfileGenerateStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "name", "", "profile name")
@@ -336,7 +360,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.ListSliverBuildsStr,
-		Help:     "List old sliver builds",
+		Help:     "List old Sliver builds",
 		LongHelp: help.GetHelpFor(consts.ListSliverBuildsStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -349,10 +373,10 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.ListCanariesStr,
-		Help:     "List generated canaries",
+		Help:     "List previously generated canaries",
 		LongHelp: help.GetHelpFor(consts.ListCanariesStr),
 		Flags: func(f *grumble.Flags) {
-			f.Bool("b", "burned", false, "show only triggered canaries")
+			f.Bool("b", "burned", false, "show only triggered/burned canaries")
 		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
@@ -425,7 +449,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:      consts.PingStr,
-		Help:      "Test connection to sliver",
+		Help:      "Test connection to Sliver (does not use ICMP)",
 		LongHelp:  help.GetHelpFor(consts.PingStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
@@ -439,7 +463,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.GetPIDStr,
-		Help:     "Get sliver pid",
+		Help:     "Get Sliver pid",
 		LongHelp: help.GetHelpFor(consts.GetPIDStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -452,7 +476,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.GetUIDStr,
-		Help:     "Get sliver UID",
+		Help:     "Get Sliver process UID",
 		LongHelp: help.GetHelpFor(consts.GetUIDStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -465,7 +489,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.GetGIDStr,
-		Help:     "Get sliver GID",
+		Help:     "Get Sliver process GID",
 		LongHelp: help.GetHelpFor(consts.GetGIDStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -478,7 +502,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.WhoamiStr,
-		Help:     "Get sliver user",
+		Help:     "Get Sliver user execution context",
 		LongHelp: help.GetHelpFor(consts.WhoamiStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -490,9 +514,10 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:     consts.LsStr,
-		Help:     "List current directory",
-		LongHelp: help.GetHelpFor(consts.LsStr),
+		Name:      consts.LsStr,
+		Help:      "List current directory",
+		LongHelp:  help.GetHelpFor(consts.LsStr),
+		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			ls(ctx, server.RPC)
@@ -572,9 +597,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.DownloadStr,
-		Help:      "Download a file",
-		LongHelp:  help.GetHelpFor(consts.DownloadStr),
+		Name:     consts.DownloadStr,
+		Help:     "Download a file",
+		LongHelp: help.GetHelpFor(consts.DownloadStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", 360, "command timeout in seconds")
+		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -586,9 +614,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.UploadStr,
-		Help:      "Upload a file",
-		LongHelp:  help.GetHelpFor(consts.UploadStr),
+		Name:     consts.UploadStr,
+		Help:     "Upload a file",
+		LongHelp: help.GetHelpFor(consts.UploadStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", 360, "command timeout in seconds")
+		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -619,7 +650,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.ImpersonateStr,
-		Help:     "Run a new process in the context of the designated user",
+		Help:     "Run a new process in the context of the designated user (Windows Only)",
 		LongHelp: help.GetHelpFor(consts.ImpersonateStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("u", "username", "NT AUTHORITY\\SYSTEM", "user to impersonate")
@@ -637,7 +668,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.ElevateStr,
-		Help:     "Spawns a new sliver session as an elevated process (UAC bypass)",
+		Help:     "Spawns a new sliver session as an elevated process (UAC bypass/Windows Only)",
 		LongHelp: help.GetHelpFor(consts.ElevateStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -650,7 +681,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.GetSystemStr,
-		Help:     "Spawns a new sliver session as the NT AUTHORITY\\SYSTEM user",
+		Help:     "Spawns a new sliver session as the NT AUTHORITY\\SYSTEM user (Windows Only)",
 		LongHelp: help.GetHelpFor(consts.GetSystemStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -663,7 +694,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:      consts.ExecuteAssemblyStr,
-		Help:      "Loads and executes a .NET assembly in a child process",
+		Help:      "Loads and executes a .NET assembly in a child process (Windows Only)",
 		LongHelp:  help.GetHelpFor(consts.ExecuteAssemblyStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
@@ -673,7 +704,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", 30, "Time to wait before killing the hosting process")
+			f.Int("t", "timeout", 30, "Time to wait before killing the hosting process (seconds)")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
@@ -704,6 +735,27 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			return nil
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.WebsitesStr,
+		Help:     "Host a static file on a website (used with HTTP C2)",
+		LongHelp: help.GetHelpFor(consts.WebsitesStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("w", "website", "", "website name")
+			f.String("t", "content-type", "", "mime content-type (if blank use file ext.)")
+			f.String("p", "web-path", "/", "http path to host file at")
+			f.String("c", "content", "", "local file path/dir (must use --recursive for dir)")
+			f.Bool("r", "recursive", false, "recursively add content from dir, --web-path is prefixed")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			websites(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 }

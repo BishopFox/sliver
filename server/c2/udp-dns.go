@@ -9,8 +9,9 @@ import (
 	"crypto/x509"
 	"math"
 	"net"
-	"sliver/server/generate"
 	"sort"
+
+	"github.com/bishopfox/sliver/server/generate"
 
 	"encoding/base32"
 	"encoding/base64"
@@ -21,18 +22,18 @@ import (
 	"errors"
 	"fmt"
 	insecureRand "math/rand"
-	consts "sliver/client/constants"
-	pb "sliver/protobuf/sliver"
-	"sliver/server/certs"
-	"sliver/server/core"
-	"sliver/server/cryptography"
-	"sliver/server/log"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	serverHandlers "sliver/server/handlers"
+	consts "github.com/bishopfox/sliver/client/constants"
+	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/cryptography"
+	serverHandlers "github.com/bishopfox/sliver/server/handlers"
+	"github.com/bishopfox/sliver/server/log"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/miekg/dns"
@@ -109,6 +110,7 @@ func StartDNSListener(domains []string, canaries bool) *dns.Server {
 	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
 
 	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {
+		req.Question[0].Name = strings.ToLower(req.Question[0].Name)
 		handleDNSRequest(domains, canaries, writer, req)
 	})
 
@@ -150,9 +152,11 @@ func handleDNSRequest(domains []string, canaries bool, writer dns.ResponseWriter
 func isC2SubDomain(domains []string, reqDomain string) (bool, string) {
 	for _, parentDomain := range domains {
 		if dns.IsSubDomain(parentDomain, reqDomain) {
+			dnsLog.Infof("'%s' is subdomain of '%s'", reqDomain, parentDomain)
 			return true, parentDomain
 		}
 	}
+	dnsLog.Infof("'%s' is NOT subdomain of any %v", reqDomain, domains)
 	return false, ""
 }
 
@@ -174,7 +178,7 @@ func handleC2(domain string, req *dns.Msg) *dns.Msg {
 // Canary -> valid? -> trigger alert event
 func handleCanary(req *dns.Msg) *dns.Msg {
 
-	reqDomain := req.Question[0].Name
+	reqDomain := strings.ToLower(req.Question[0].Name)
 	if !strings.HasSuffix(reqDomain, ".") {
 		reqDomain += "." // Ensure we have the FQDN
 	}
@@ -226,7 +230,7 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 
 	resp := new(dns.Msg)
 	resp.SetReply(req)
-	msgType := fields[len(fields)-1]
+	msgType := strings.ToLower(fields[len(fields)-1])
 
 	switch msgType {
 

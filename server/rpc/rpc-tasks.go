@@ -2,18 +2,18 @@ package rpc
 
 import (
 	"io/ioutil"
-	"sliver/server/assets"
-	"sliver/server/core"
 	"time"
 
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
-	"sliver/server/generate"
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/generate"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcLocalTask(req []byte, resp RPCResponse) {
+func rpcLocalTask(req []byte, timeout time.Duration, resp RPCResponse) {
 	taskReq := &clientpb.TaskReq{}
 	err := proto.Unmarshal(req, taskReq)
 	if err != nil {
@@ -25,11 +25,11 @@ func rpcLocalTask(req []byte, resp RPCResponse) {
 		Encoder: "raw",
 		Data:    taskReq.Data,
 	})
-	data, err = sliver.Request(sliverpb.MsgTask, defaultTimeout, data)
+	data, err = sliver.Request(sliverpb.MsgTask, timeout, data)
 	resp(data, err)
 }
 
-func rpcMigrate(req []byte, resp RPCResponse) {
+func rpcMigrate(req []byte, timeout time.Duration, resp RPCResponse) {
 	migrateReq := &clientpb.MigrateReq{}
 	err := proto.Unmarshal(req, migrateReq)
 	if err != nil {
@@ -53,11 +53,11 @@ func rpcMigrate(req []byte, resp RPCResponse) {
 		Shellcode: shellcode,
 		Pid:       migrateReq.Pid,
 	})
-	data, err = sliver.Request(sliverpb.MsgMigrateReq, defaultTimeout, data)
+	data, err = sliver.Request(sliverpb.MsgMigrateReq, timeout, data)
 	resp(data, err)
 }
 
-func rpcExecuteAssembly(req []byte, resp RPCResponse) {
+func rpcExecuteAssembly(req []byte, timeout time.Duration, resp RPCResponse) {
 	execReq := &sliverpb.ExecuteAssemblyReq{}
 	err := proto.Unmarshal(req, execReq)
 	if err != nil {
@@ -82,7 +82,7 @@ func rpcExecuteAssembly(req []byte, resp RPCResponse) {
 		Timeout:    execReq.Timeout,
 		SliverID:   execReq.SliverID,
 	})
-	timeout := time.Duration(execReq.Timeout) * time.Second
+
 	data, err = sliver.Request(sliverpb.MsgExecuteAssemblyReq, timeout, data)
 	resp(data, err)
 

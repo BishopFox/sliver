@@ -1,16 +1,13 @@
 package rpc
 
 import (
-	"sliver/server/core"
-	"sliver/server/log"
 	"time"
 
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
-)
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/log"
 
-const (
-	defaultTimeout = 30 * time.Second
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 )
 
 var (
@@ -21,7 +18,7 @@ var (
 type RPCResponse func([]byte, error)
 
 // RPCHandler - RPC handlers accept bytes and return bytes
-type RPCHandler func([]byte, RPCResponse)
+type RPCHandler func([]byte, time.Duration, RPCResponse)
 type TunnelHandler func(*core.Client, []byte, RPCResponse)
 
 var (
@@ -33,6 +30,10 @@ var (
 		clientpb.MsgHttp:    rpcStartHTTPListener,
 		clientpb.MsgHttps:   rpcStartHTTPSListener,
 
+		clientpb.MsgWebsiteList:          rpcWebsiteList,
+		clientpb.MsgWebsiteAddContent:    rpcWebsiteAddContent,
+		clientpb.MsgWebsiteRemoveContent: rpcWebsiteRemoveContent,
+
 		clientpb.MsgSessions:         rpcSessions,
 		clientpb.MsgGenerate:         rpcGenerate,
 		clientpb.MsgRegenerate:       rpcRegenerate,
@@ -42,8 +43,9 @@ var (
 		clientpb.MsgNewProfile:       rpcNewProfile,
 		clientpb.MsgPlayers:          rpcPlayers,
 
-		clientpb.MsgMsf:          rpcMsf,
-		clientpb.MsgMsfInject:    rpcMsfInject,
+		clientpb.MsgMsf:       rpcMsf,
+		clientpb.MsgMsfInject: rpcMsfInject,
+
 		clientpb.MsgGetSystemReq: rpcGetSystem,
 
 		// "Req"s directly map to responses

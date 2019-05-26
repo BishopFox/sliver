@@ -5,10 +5,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
-	"sliver/client/assets"
 
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/client/assets"
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 
 	"sync"
 	"time"
@@ -166,6 +166,7 @@ func (ss *SliverServer) ResponseMapper() {
 func (ss *SliverServer) RPC(envelope *sliverpb.Envelope, timeout time.Duration) chan *sliverpb.Envelope {
 	reqID := EnvelopeID()
 	envelope.ID = reqID
+	envelope.Timeout = timeout.Nanoseconds()
 	resp := make(chan *sliverpb.Envelope)
 	ss.AddRespListener(reqID, resp)
 	ss.Send <- envelope
@@ -175,7 +176,7 @@ func (ss *SliverServer) RPC(envelope *sliverpb.Envelope, timeout time.Duration) 
 		select {
 		case respEnvelope := <-resp:
 			respCh <- respEnvelope
-		case <-time.After(timeout):
+		case <-time.After(timeout + time.Second):
 			respCh <- &sliverpb.Envelope{Err: "Timeout"}
 		}
 	}()

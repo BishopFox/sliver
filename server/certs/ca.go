@@ -8,7 +8,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"sliver/server/assets"
+
+	"github.com/bishopfox/sliver/server/assets"
 )
 
 // -----------------------

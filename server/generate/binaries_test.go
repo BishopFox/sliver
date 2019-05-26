@@ -2,8 +2,8 @@ package generate
 
 import (
 	"fmt"
-	clientpb "sliver/protobuf/client"
-	"sliver/server/log"
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	"github.com/bishopfox/sliver/server/log"
 	"testing"
 )
 

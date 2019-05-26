@@ -4,13 +4,15 @@ import (
 	"errors"
 	"io/ioutil"
 	"path"
-	clientpb "sliver/protobuf/client"
-	"sliver/server/generate"
+	"time"
+
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	"github.com/bishopfox/sliver/server/generate"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcGenerate(req []byte, resp RPCResponse) {
+func rpcGenerate(req []byte, timeout time.Duration, resp RPCResponse) {
 	var fpath string
 	genReq := &clientpb.GenerateReq{}
 	err := proto.Unmarshal(req, genReq)
@@ -53,7 +55,7 @@ func rpcGenerate(req []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcRegenerate(req []byte, resp RPCResponse) {
+func rpcRegenerate(req []byte, timeout time.Duration, resp RPCResponse) {
 	regenReq := &clientpb.Regenerate{}
 	err := proto.Unmarshal(req, regenReq)
 	if err != nil {
@@ -78,7 +80,7 @@ func rpcRegenerate(req []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcListSliverBuilds(_ []byte, resp RPCResponse) {
+func rpcListSliverBuilds(_ []byte, timeout time.Duration, resp RPCResponse) {
 	configs, err := generate.SliverConfigMap()
 	if err != nil {
 		resp([]byte{}, err)
@@ -94,7 +96,7 @@ func rpcListSliverBuilds(_ []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcListCanaries(_ []byte, resp RPCResponse) {
+func rpcListCanaries(_ []byte, timeout time.Duration, resp RPCResponse) {
 	jsonCanaries, err := generate.ListCanaries()
 	if err != nil {
 		resp([]byte{}, err)
@@ -110,7 +112,7 @@ func rpcListCanaries(_ []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcProfiles(_ []byte, resp RPCResponse) {
+func rpcProfiles(_ []byte, timeout time.Duration, resp RPCResponse) {
 	profiles := &clientpb.Profiles{List: []*clientpb.Profile{}}
 	for name, config := range generate.Profiles() {
 		profiles.List = append(profiles.List, &clientpb.Profile{
@@ -122,7 +124,7 @@ func rpcProfiles(_ []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func rpcNewProfile(req []byte, resp RPCResponse) {
+func rpcNewProfile(req []byte, timeout time.Duration, resp RPCResponse) {
 	profile := &clientpb.Profile{}
 	err := proto.Unmarshal(req, profile)
 	if err != nil {

@@ -1,11 +1,13 @@
 package command
 
 import (
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
 	"strconv"
 	"time"
 
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+
+	"github.com/AlecAivazis/survey"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -108,4 +110,12 @@ func SliverSessionsByName(name string, rpc RPCServer) []*clientpb.Sliver {
 		}
 	}
 	return sessions
+}
+
+// This should be called for any dangerous (OPSEC-wise) functions
+func isUserAnAdult() bool {
+	confirm := false
+	prompt := &survey.Confirm{Message: "This action is bad OPSEC, are you an adult?"}
+	survey.AskOne(prompt, &confirm, nil)
+	return confirm
 }

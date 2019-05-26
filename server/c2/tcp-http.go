@@ -11,21 +11,19 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"path"
 	"path/filepath"
-	consts "sliver/client/constants"
-	"sliver/server/assets"
-	"sliver/server/certs"
-	"sliver/server/core"
-	"sliver/server/cryptography"
-	"sliver/server/log"
 	"strings"
 	"sync"
 	"time"
 
-	sliverpb "sliver/protobuf/sliver"
-	sliverHandlers "sliver/server/handlers"
+	consts "github.com/bishopfox/sliver/client/constants"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/cryptography"
+	sliverHandlers "github.com/bishopfox/sliver/server/handlers"
+	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/server/website"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
@@ -96,14 +94,14 @@ type HTTPHandler func(resp http.ResponseWriter, req *http.Request)
 
 // HTTPServerConfig - Config data for servers
 type HTTPServerConfig struct {
-	Addr      string
-	LPort     uint16
-	Domain    string
-	StaticDir string
-	Secure    bool
-	Cert      []byte
-	Key       []byte
-	ACME      bool
+	Addr    string
+	LPort   uint16
+	Domain  string
+	Website string
+	Secure  bool
+	Cert    []byte
+	Key     []byte
+	ACME    bool
 }
 
 // SliverHTTPC2 - Holds refs to all the C2 objects
@@ -222,21 +220,14 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	router.HandleFunc("/{rpath:.*\\.js$}", s.pollHandler).MatcherFunc(filterAgent).Methods(http.MethodGet)
 	router.HandleFunc("/{rpath:.*\\.png$}", s.stopHandler).MatcherFunc(filterAgent).Methods(http.MethodGet)
 
-	// Request does not match the C2 profile so we pass it to the default handler
-	if s.Conf.StaticDir != "" {
-		exposeDir := filepath.Base(s.Conf.StaticDir)
-		exposeStaticDir := path.Join(assets.GetRootAppDir(), staticWebDirName, exposeDir)
-		if _, err := os.Stat(exposeStaticDir); os.IsNotExist(err) {
-			httpLog.Warnf("Static dir does not exist; makedir %v", exposeStaticDir)
-			os.MkdirAll(exposeStaticDir, os.ModePerm)
-		}
-		fs := http.Dir(exposeStaticDir)
-		httpLog.Infof("Serving static content from: %s", exposeStaticDir)
-		router.HandleFunc("{rpath:.*}", func(resp http.ResponseWriter, req *http.Request) {
-			http.FileServer(fs).ServeHTTP(resp, req)
-		}).Methods(http.MethodGet)
+	// Request does not match the C2 profile so we pass it to the static content or 404 handler
+	if s.Conf.Website != "" {
+		httpLog.Infof("Serving static content from website %v", s.Conf.Website)
+		router.HandleFunc("/{rpath:.*}", s.websiteContentHandler).Methods(http.MethodGet)
 	} else {
-		router.HandleFunc("{rpath:.*}", default404Handler).Methods(http.MethodGet, http.MethodPost)
+		// 404 Handler - Just 404 on every path that doesn't match another handler
+		httpLog.Infof("No website content, using wildcard 404 handler")
+		router.HandleFunc("/{rpath:.*}", default404Handler).Methods(http.MethodGet, http.MethodPost)
 	}
 
 	router.Use(loggingMiddleware)
@@ -284,6 +275,18 @@ func defaultRespHeaders(next http.Handler) http.Handler {
 
 		next.ServeHTTP(resp, req)
 	})
+}
+
+func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http.Request) {
+	httpLog.Infof("Request for site %v -> %s", s.Conf.Website, req.RequestURI)
+	contentType, content, err := website.GetContent(s.Conf.Website, req.RequestURI)
+	if err != nil {
+		httpLog.Infof("No website content for %s", req.RequestURI)
+		resp.WriteHeader(404) // No content for this path
+		return
+	}
+	resp.Header().Set("Content-type", contentType)
+	resp.Write(content)
 }
 
 func default404Handler(resp http.ResponseWriter, req *http.Request) {

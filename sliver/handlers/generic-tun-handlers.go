@@ -7,9 +7,9 @@ import (
 	"log"
 	// {{end}}
 
-	pb "sliver/protobuf/sliver"
-	"sliver/sliver/shell"
-	"sliver/sliver/transports"
+	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/sliver/shell"
+	"github.com/bishopfox/sliver/sliver/transports"
 
 	"github.com/golang/protobuf/proto"
 )

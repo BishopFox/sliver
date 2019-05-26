@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
-	"sliver/server/log"
+	"github.com/bishopfox/sliver/server/log"
 	"strconv"
 	"strings"
 )

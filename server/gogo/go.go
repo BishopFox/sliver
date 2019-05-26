@@ -7,7 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"sliver/server/log"
+
+	"github.com/bishopfox/sliver/server/log"
 )
 
 const (

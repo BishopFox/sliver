@@ -87,6 +87,9 @@ const (
 	ExecuteShellcodeStr = "execute-shellcode"
 	MigrateStr          = "migrate"
 
+	WebsitesStr = "websites"
+
+	// Groups
 	GenericHelpGroup     = "Generic:"
 	SliverHelpGroup      = "Sliver:"
 	SliverWinHelpGroup   = "Sliver - Windows:"

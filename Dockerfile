@@ -64,14 +64,14 @@ RUN go get -u github.com/gobuffalo/packr/packr
 RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 
 # assets
-WORKDIR /go/src/sliver
-ADD ./go-assets.sh /go/src/sliver/go-assets.sh
+WORKDIR /go/src/github.com/bishopfox/sliver
+ADD ./go-assets.sh /go/src/github.com/bishopfox/sliver/go-assets.sh
 RUN ./go-assets.sh
 
 # compile - we have to run dep after copying the code over or it bitches
-ADD . /go/src/sliver/
+ADD . /go/src/github.com/bishopfox/sliver/
 RUN make static-linux && cp -vv sliver-server /opt/sliver-server
-RUN /opt/sliver-server -unpack && /go/src/sliver/go-tests.sh
+RUN /opt/sliver-server -unpack && /go/src/github.com/bishopfox/sliver/go-tests.sh
 RUN make clean \
     && rm -rf /go/src/* \
     && rm -rf /root/.sliver

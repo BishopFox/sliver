@@ -7,11 +7,13 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sliver/client/spin"
-	sliverpb "sliver/protobuf/sliver"
-	"sliver/util"
 	"strings"
 	"text/tabwriter"
+	"time"
+
+	"github.com/bishopfox/sliver/client/spin"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/util"
 
 	"github.com/AlecAivazis/survey"
 	"github.com/desertbit/grumble"
@@ -239,6 +241,8 @@ func download(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
+	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
+
 	if len(ctx.Args) < 1 {
 		fmt.Println(Warn + "Missing parameter(s), see `help download`\n")
 		return
@@ -277,7 +281,7 @@ func download(ctx *grumble.Context, rpc RPCServer) {
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: sliverpb.MsgDownloadReq,
 		Data: data,
-	}, defaultTimeout)
+	}, cmdTimeout)
 	ctrl <- true
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Err)
@@ -313,6 +317,8 @@ func upload(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
+	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
+
 	src, _ := filepath.Abs(ctx.Args[0])
 	_, err := os.Stat(src)
 	if err != nil {
@@ -341,7 +347,7 @@ func upload(ctx *grumble.Context, rpc RPCServer) {
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: sliverpb.MsgUploadReq,
 		Data: data,
-	}, defaultTimeout)
+	}, cmdTimeout)
 	ctrl <- true
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Err)

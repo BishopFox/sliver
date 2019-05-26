@@ -4,9 +4,10 @@ import (
 	"errors"
 	"go/build"
 	"os"
-	gogo "sliver/server/gogo"
-	"sliver/server/log"
 	"strings"
+
+	gogo "github.com/bishopfox/sliver/server/gogo"
+	"github.com/bishopfox/sliver/server/log"
 )
 
 var (
@@ -53,9 +54,9 @@ func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath str
 		return "", err
 	}
 
-	newPkg := encryptComponents(pkgName, enc)
-
-	return newPkg, nil
+	// newPkg := encryptComponents(pkgName, enc)
+	// Hard code this until we get the pkg obfuscator working correctly
+	return "github.com/bishopfox/sliver", nil
 }
 
 func encryptComponents(pkgName string, enc *Encrypter) string {
