@@ -9,17 +9,25 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/tools/refactor/importgraph"
-	"golang.org/x/tools/refactor/rename"
 )
 
 // IgnoreMethods - Methods to skip when obfuscating
 var IgnoreMethods = map[string]bool{
 	"main":      true,
 	"init":      true,
-	"_":         true,
 	"RunSliver": true, // DLL Entrypoint, TODO: Rename
+}
+
+// SkipRenames - Skip renaming these symbols
+var SkipRenames = map[string]bool{
+	"_":             true,
+	"int32ptr":      true,
+	"atomicLock":    true,
+	"grow":          true,
+	"_IOC_PARM_LEN": true,
 }
 
 type symbolRenameReq struct {
@@ -49,8 +57,14 @@ func ObfuscateSymbols(ctx build.Context, gopath string, enc *Encrypter) error {
 func runRenames(ctx build.Context, gopath string, renames []symbolRenameReq) error {
 	ctx.GOPATH = gopath
 	for _, r := range renames {
-		obfuscateLog.Infof(" rename %s -> %s", r.OldName, r.NewName)
-		if err := rename.Main(&ctx, "", r.OldName, r.NewName); err != nil {
+		parts := strings.Split(r.OldName, ".") // OldName contains the full obfuscated path
+		symbol := parts[len(parts)-1]
+		if _, ok := SkipRenames[symbol]; ok {
+			obfuscateLog.Infof("Skipping rename of %s", symbol)
+			continue
+		}
+		obfuscateLog.Infof("Rename %s -> %s", symbol, r.NewName)
+		if err := Rename(&ctx, "", r.OldName, r.NewName); err != nil {
 			return err
 		}
 	}

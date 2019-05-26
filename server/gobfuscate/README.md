@@ -1,8 +1,9 @@
 
 # Sliver / gobfuscate
 
-__This directory contains a highly modified version of gobfuscate__
+This directory contains a highly modified version of gobfuscate, it's been modified to work with the Sliver build process.
 
+It also contains a modified version of the `https://github.com/golang/tools/refactor/rename` tool.
 
 # gobfuscate
 

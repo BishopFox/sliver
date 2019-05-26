@@ -10,8 +10,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
-
-	"golang.org/x/tools/refactor/rename"
 )
 
 // GoExtension - Go src code file extension
@@ -50,7 +48,7 @@ func ObfuscatePackageNames(ctx build.Context, gopath string, enc *Encrypter) err
 			if err != nil {
 				return err
 			}
-			if err := rename.Move(&ctx, srcPkg, dstPkg, ""); err != nil {
+			if err := MovePackage(&ctx, srcPkg, dstPkg, ""); err != nil {
 				return fmt.Errorf("package move: %s", err)
 			}
 			if isMain {
