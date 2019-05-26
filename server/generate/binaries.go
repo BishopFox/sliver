@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"text/template"
 
 	clientpb "github.com/bishopfox/sliver/protobuf/client"
