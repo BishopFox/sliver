@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"os"
-	pb "sliver/protobuf/sliver"
-	"sliver/sliver/transports"
+	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/sliver/transports"
 
 	// {{if .IsSharedLib}}
 	"runtime"

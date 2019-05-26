@@ -9,7 +9,7 @@ import (
 	//{{end}}
 
 	// {{if eq .GOARCH "amd64"}}
-	"sliver/sliver/taskrunner"
+	"github.com/bishopfox/sliver/sliver/taskrunner"
 	// {{end}}
 	"os"
 	"syscall"

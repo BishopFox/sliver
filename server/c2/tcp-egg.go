@@ -4,7 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	"sliver/server/log"
+
+	"github.com/bishopfox/sliver/server/log"
 )
 
 var (

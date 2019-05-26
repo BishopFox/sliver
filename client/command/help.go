@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	consts "sliver/client/constants"
+	consts "github.com/bishopfox/sliver/client/constants"
 
 	"github.com/desertbit/columnize"
 	"github.com/desertbit/grumble"

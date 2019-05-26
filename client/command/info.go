@@ -2,8 +2,8 @@ package command
 
 import (
 	"fmt"
-	consts "sliver/client/constants"
-	clientpb "sliver/protobuf/client"
+	consts "github.com/bishopfox/sliver/client/constants"
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
 
 	"github.com/desertbit/grumble"
 )

@@ -7,14 +7,16 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	consts "sliver/client/constants"
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
-	"sliver/server/certs"
-	"sliver/server/core"
-	"sliver/server/log"
-	"sliver/server/rpc"
 	"sync"
+	"time"
+
+	consts "github.com/bishopfox/sliver/client/constants"
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/server/rpc"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
@@ -133,7 +135,8 @@ func handleClientConnection(conn net.Conn) {
 			}
 			// RPC
 			if rpcHandler, ok := (*rpcHandlers)[envelope.Type]; ok {
-				go rpcHandler(envelope.Data, func(data []byte, err error) {
+				timeout := time.Duration(envelope.Timeout)
+				go rpcHandler(envelope.Data, timeout, func(data []byte, err error) {
 					errStr := ""
 					if err != nil {
 						errStr = fmt.Sprintf("%v", err)

@@ -2,18 +2,22 @@ package rpc
 
 import (
 	"fmt"
-	consts "sliver/client/constants"
-	clientpb "sliver/protobuf/client"
-	"sliver/server/c2"
-	"sliver/server/core"
-	"sliver/server/generate"
-	"sliver/server/msf"
 	"sync"
+	"time"
+
+	"github.com/bishopfox/sliver/server/c2"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/generate"
+	"github.com/bishopfox/sliver/server/msf"
+
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+
+	consts "github.com/bishopfox/sliver/client/constants"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcEgg(data []byte, resp RPCResponse) {
+func rpcEgg(data []byte, timeout time.Duration, resp RPCResponse) {
 	var jobID int
 	eggReq := &clientpb.EggRequest{}
 	err := proto.Unmarshal(data, eggReq)

@@ -10,10 +10,10 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"sliver/server/log"
 	"strings"
 
-	ver "sliver/client/version"
+	ver "github.com/bishopfox/sliver/client/version"
+	"github.com/bishopfox/sliver/server/log"
 
 	"github.com/gobuffalo/packr"
 )
@@ -89,20 +89,18 @@ func Setup(force bool) {
 		setupGo(appDir)
 		setupCodenames(appDir)
 		setupDataPath(appDir)
-		setupEnglish(appDir)
 		saveAssetVersion(appDir)
 	}
 }
 
-// setupEnglish - Extracts the english dictionary for the english encoder
-func setupEnglish(appDir string) error {
-	english, err := assetsBox.Find("english.txt")
-	err = ioutil.WriteFile(path.Join(appDir, "english.txt"), english, 0600)
+// English - Extracts the english dictionary for the english encoder
+func English() []string {
+	rawEnglish, err := assetsBox.Find("english.txt")
 	if err != nil {
-		setupLog.Infof("Failed to write noun data to: %s", appDir)
-		return err
+		return []string{}
 	}
-	return nil
+	englishWords := strings.Split(string(rawEnglish), "\n")
+	return englishWords
 }
 
 // SetupGo - Unzip Go compiler assets
@@ -171,7 +169,7 @@ func SetupGoPath(goPathSrc string) error {
 		return err
 	}
 
-	protobufDir := path.Join(goPathSrc, "sliver", "protobuf", "sliver")
+	protobufDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliver")
 	os.MkdirAll(protobufDir, os.ModePerm)
 	ioutil.WriteFile(path.Join(protobufDir, "constants.go"), pbGoSrc, 0644)
 

@@ -6,10 +6,11 @@ import (
 	"math/rand"
 	"os"
 	"path"
-	"sliver/server/assets"
-	"sliver/server/log"
 	"strings"
 	"time"
+
+	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/log"
 
 	"github.com/sirupsen/logrus"
 )

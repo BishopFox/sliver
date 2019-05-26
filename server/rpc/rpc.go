@@ -1,16 +1,13 @@
 package rpc
 
 import (
-	"sliver/server/core"
-	"sliver/server/log"
 	"time"
 
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
-)
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/log"
 
-const (
-	defaultTimeout = 30 * time.Second
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 )
 
 var (
@@ -21,7 +18,7 @@ var (
 type RPCResponse func([]byte, error)
 
 // RPCHandler - RPC handlers accept bytes and return bytes
-type RPCHandler func([]byte, RPCResponse)
+type RPCHandler func([]byte, time.Duration, RPCResponse)
 type TunnelHandler func(*core.Client, []byte, RPCResponse)
 
 var (

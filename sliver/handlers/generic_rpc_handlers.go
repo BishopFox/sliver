@@ -14,10 +14,10 @@ import (
 
 	"os"
 	"path/filepath"
-	pb "sliver/protobuf/sliver"
-	"sliver/sliver/procdump"
-	"sliver/sliver/ps"
-	"sliver/sliver/taskrunner"
+	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/sliver/procdump"
+	"github.com/bishopfox/sliver/sliver/ps"
+	"github.com/bishopfox/sliver/sliver/taskrunner"
 
 	"github.com/golang/protobuf/proto"
 )

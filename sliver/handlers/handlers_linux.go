@@ -2,7 +2,7 @@ package handlers
 
 import ( // {{if .Debug}}
 	// {{else}}{{end}}
-	pb "sliver/protobuf/sliver"
+	pb "github.com/bishopfox/sliver/protobuf/sliver"
 )
 
 var (

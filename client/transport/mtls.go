@@ -11,8 +11,8 @@ import (
 	"os"
 	"sync"
 
-	"sliver/client/assets"
-	pb "sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/client/assets"
+	pb "github.com/bishopfox/sliver/protobuf/sliver"
 
 	"github.com/golang/protobuf/proto"
 )

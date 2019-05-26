@@ -7,14 +7,14 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	consts "sliver/client/constants"
-	pb "sliver/protobuf/sliver"
-	"sliver/server/core"
-	"sliver/server/log"
 	"sync"
 
-	"sliver/server/certs"
-	serverHandlers "sliver/server/handlers"
+	consts "github.com/bishopfox/sliver/client/constants"
+	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/core"
+	serverHandlers "github.com/bishopfox/sliver/server/handlers"
+	"github.com/bishopfox/sliver/server/log"
 
 	"github.com/golang/protobuf/proto"
 )

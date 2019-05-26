@@ -7,10 +7,10 @@ import (
 	"os"
 	"path"
 
-	"sliver/client/version"
-	"sliver/server/assets"
-	"sliver/server/certs"
-	"sliver/server/console"
+	"github.com/bishopfox/sliver/client/version"
+	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/console"
 )
 
 var (

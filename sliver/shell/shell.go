@@ -12,7 +12,7 @@ import (
 
 	// {{if ne .GOOS "windows"}}
 	"runtime"
-	"sliver/sliver/shell/pty"
+	"github.com/bishopfox/sliver/sliver/shell/pty"
 	// {{end}}
 )
 

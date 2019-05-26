@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	insecureRand "math/rand"
-	clientpb "sliver/protobuf/client"
-	"sliver/server/db"
 	"strings"
 	"time"
+
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	"github.com/bishopfox/sliver/server/db"
 )
 
 const (

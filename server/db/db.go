@@ -7,8 +7,8 @@ import (
 	"path"
 	"sync"
 
-	"sliver/server/assets"
-	"sliver/server/log"
+	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/log"
 
 	"github.com/dgraph-io/badger"
 	"github.com/google/uuid"

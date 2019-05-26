@@ -2,16 +2,17 @@ package rpc
 
 import (
 	"fmt"
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
-	"sliver/server/core"
-	"sliver/server/generate"
 	"time"
+
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/generate"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcImpersonate(req []byte, resp RPCResponse) {
+func rpcImpersonate(req []byte, timeout time.Duration, resp RPCResponse) {
 	impersonateReq := &sliverpb.ImpersonateReq{}
 	err := proto.Unmarshal(req, impersonateReq)
 	if err != nil {
@@ -28,12 +29,12 @@ func rpcImpersonate(req []byte, resp RPCResponse) {
 		Username: impersonateReq.Username,
 		Args:     impersonateReq.Args,
 	})
-	timeout := 30 * time.Second
+
 	data, err = sliver.Request(sliverpb.MsgImpersonateReq, timeout, data)
 	resp(data, err)
 }
 
-func rpcGetSystem(req []byte, resp RPCResponse) {
+func rpcGetSystem(req []byte, timeout time.Duration, resp RPCResponse) {
 	gsReq := &clientpb.GetSystemReq{}
 	err := proto.Unmarshal(req, gsReq)
 	if err != nil {
@@ -61,13 +62,13 @@ func rpcGetSystem(req []byte, resp RPCResponse) {
 		Data:     shellcode,
 		SliverID: gsReq.SliverID,
 	})
-	timeout := 30 * time.Second
+
 	data, err = sliver.Request(sliverpb.MsgGetSystemReq, timeout, data)
 	resp(data, err)
 
 }
 
-func rpcElevate(req []byte, resp RPCResponse) {
+func rpcElevate(req []byte, timeout time.Duration, resp RPCResponse) {
 	elevateReq := &sliverpb.ElevateReq{}
 	err := proto.Unmarshal(req, elevateReq)
 	if err != nil {
@@ -80,7 +81,7 @@ func rpcElevate(req []byte, resp RPCResponse) {
 		return
 	}
 	data, _ := proto.Marshal(&sliverpb.ElevateReq{})
-	timeout := 30 * time.Second
+
 	data, err = sliver.Request(sliverpb.MsgElevateReq, timeout, data)
 	resp(data, err)
 

@@ -3,8 +3,8 @@ package command
 import (
 	"bytes"
 	"fmt"
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 	"strings"
 	"text/tabwriter"
 

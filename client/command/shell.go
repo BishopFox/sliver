@@ -5,8 +5,9 @@ import (
 	"io"
 	"log"
 	"os"
-	"sliver/client/core"
-	sliverpb "sliver/protobuf/sliver"
+
+	"github.com/bishopfox/sliver/client/core"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
@@ -20,6 +21,10 @@ const (
 func shell(ctx *grumble.Context, server *core.SliverServer) {
 	if ActiveSliver.Sliver == nil {
 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+		return
+	}
+
+	if !isUserAnAdult() {
 		return
 	}
 

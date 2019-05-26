@@ -14,7 +14,7 @@ import (
 	// {{end}}
 
 	"os"
-	pb "sliver/protobuf/sliver"
+	pb "github.com/bishopfox/sliver/protobuf/sliver"
 	"strconv"
 	"sync"
 	"time"

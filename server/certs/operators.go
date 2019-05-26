@@ -2,9 +2,11 @@ package certs
 
 import (
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"sliver/server/db"
+
+	"github.com/bishopfox/sliver/server/db"
 )
 
 const (
@@ -46,18 +48,26 @@ func OperatorClientListCertificates() []*x509.Certificate {
 		return []*x509.Certificate{}
 	}
 
-	certs := []*x509.Certificate{}
-	ls, err := bucket.List(clientNamespace)
+	// The key structure is: <key type>_<name space>.<operator name>
+	operators, err := bucket.List(fmt.Sprintf("%s_%s", ECCKey, clientNamespace))
 	if err != nil {
 		return []*x509.Certificate{}
 	}
-	for _, operator := range ls {
-		certPEM, err := bucket.Get(operator)
+	certsLog.Infof("Found %d operator certs ...", len(operators))
+
+	certs := []*x509.Certificate{}
+	for _, operator := range operators {
+
+		certsLog.Infof("Operator = %v", operator)
+		keypairRaw, err := bucket.Get(operator)
 		if err != nil {
-			certsLog.Warnf("Failed to read cert file %v", err)
+			certsLog.Warnf("Failed to fetch operator keypair %v", err)
 			continue
 		}
-		block, _ := pem.Decode(certPEM)
+		keypair := &CertificateKeyPair{}
+		json.Unmarshal(keypairRaw, keypair)
+
+		block, _ := pem.Decode(keypair.Certificate)
 		if block == nil {
 			certsLog.Warn("failed to parse certificate PEM")
 			continue

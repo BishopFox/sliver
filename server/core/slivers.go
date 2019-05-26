@@ -2,10 +2,11 @@ package core
 
 import (
 	"errors"
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
 	"sync"
 	"time"
+
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 )
 
 var (

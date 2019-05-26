@@ -34,8 +34,8 @@ import (
 	"path"
 	"time"
 
-	pb "sliver/protobuf/sliver"
-	"sliver/sliver/proxy"
+	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/sliver/proxy"
 
 	"github.com/golang/protobuf/proto"
 )

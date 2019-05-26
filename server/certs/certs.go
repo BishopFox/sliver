@@ -15,9 +15,10 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"sliver/server/db"
-	"sliver/server/log"
 	"time"
+
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/log"
 
 	"github.com/dgraph-io/badger"
 )

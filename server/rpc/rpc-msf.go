@@ -1,16 +1,17 @@
 package rpc
 
 import (
-	"sliver/server/core"
-	"sliver/server/msf"
+	"time"
 
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/msf"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcMsf(req []byte, resp RPCResponse) {
+func rpcMsf(req []byte, timeout time.Duration, resp RPCResponse) {
 	msfReq := &clientpb.MSFReq{}
 	err := proto.Unmarshal(req, msfReq)
 	if err != nil {
@@ -43,11 +44,11 @@ func rpcMsf(req []byte, resp RPCResponse) {
 		Encoder: "raw",
 		Data:    rawPayload,
 	})
-	data, err = sliver.Request(sliverpb.MsgTask, defaultTimeout, data)
+	data, err = sliver.Request(sliverpb.MsgTask, timeout, data)
 	resp(data, err)
 }
 
-func rpcMsfInject(req []byte, resp RPCResponse) {
+func rpcMsfInject(req []byte, timeout time.Duration, resp RPCResponse) {
 	msfReq := &clientpb.MSFInjectReq{}
 	err := proto.Unmarshal(req, msfReq)
 	if err != nil {
@@ -81,6 +82,6 @@ func rpcMsfInject(req []byte, resp RPCResponse) {
 		Encoder: "raw",
 		Data:    rawPayload,
 	})
-	data, err = sliver.Request(sliverpb.MsgRemoteTask, defaultTimeout, data)
+	data, err = sliver.Request(sliverpb.MsgRemoteTask, timeout, data)
 	resp(data, err)
 }

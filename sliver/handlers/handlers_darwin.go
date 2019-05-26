@@ -6,7 +6,7 @@ import (
 	// {{else}}
 	// {{end}}
 
-	pb "sliver/protobuf/sliver"
+	pb "github.com/bishopfox/sliver/protobuf/sliver"
 )
 
 var (

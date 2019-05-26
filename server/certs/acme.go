@@ -3,7 +3,8 @@ package certs
 import (
 	"os"
 	"path"
-	"sliver/server/log"
+
+	"github.com/bishopfox/sliver/server/log"
 
 	"golang.org/x/crypto/acme/autocert"
 )

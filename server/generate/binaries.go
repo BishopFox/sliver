@@ -11,13 +11,14 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	clientpb "sliver/protobuf/client"
-	"sliver/server/assets"
-	"sliver/server/certs"
-	gobfuscate "sliver/server/gobfuscate"
-	gogo "sliver/server/gogo"
-	"sliver/server/log"
 	"text/template"
+
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/gobfuscate"
+	"github.com/bishopfox/sliver/server/gogo"
+	"github.com/bishopfox/sliver/server/log"
 
 	"github.com/gobuffalo/packr"
 )
@@ -356,7 +357,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 	srcDir := path.Join(projectGoPathDir, "src")
 	assets.SetupGoPath(srcDir) // Extract GOPATH dependancy files
 
-	sliverPkgDir := path.Join(srcDir, "sliver") // "main"
+	sliverPkgDir := path.Join(srcDir, "github.com", "bishopfox", "sliver") // "main"
 	os.MkdirAll(sliverPkgDir, os.ModePerm)
 
 	// Load code template
@@ -364,7 +365,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 	for _, boxName := range srcFiles {
 		sliverGoCode, _ := sliverBox.FindString(boxName)
 
-		// We need to correct for the "sliver/sliver/foo" imports, since Go
+		// We need to correct for the "github.com/bishopfox/sliver/sliver/foo" imports, since Go
 		// doesn't allow relative imports and "sliver" is a subdirectory of
 		// the main "sliver" repo we need to fake this when coping the code
 		// to our per-compile "GOPATH"
@@ -413,7 +414,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 	if !config.Debug && !config.IsSharedLib {
 		buildLog.Infof("Obfuscating source code ...")
 		obfuscatedGoPath := path.Join(projectGoPathDir, "obfuscated")
-		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, randomObfuscationKey(), "sliver", obfuscatedGoPath)
+		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, randomObfuscationKey(), "github.com/bishopfox/sliver", obfuscatedGoPath)
 		if err != nil {
 			buildLog.Infof("Error while obfuscating sliver %v", err)
 			return "", err

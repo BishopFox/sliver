@@ -2,9 +2,10 @@ package console
 
 import (
 	"fmt"
-	"sliver/client/assets"
-	"sliver/client/core"
-	"sliver/client/transport"
+
+	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/transport"
 
 	"github.com/desertbit/grumble"
 )

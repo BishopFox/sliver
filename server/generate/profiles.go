@@ -2,7 +2,8 @@ package generate
 
 import (
 	"encoding/json"
-	"sliver/server/db"
+
+	"github.com/bishopfox/sliver/server/db"
 )
 
 const (

@@ -5,6 +5,8 @@ package sliverpb;
 message Envelope {
   uint32 Type = 1; // Message type
   uint64 ID = 2;   // Resp ID
+  int64 Timeout = 3;
+  
   bytes Data = 9;  // Actual message data
 
   string Err = 4;
