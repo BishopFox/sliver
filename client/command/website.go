@@ -3,17 +3,25 @@ package command
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/AlecAivazis/survey"
+
 	clientpb "github.com/bishopfox/sliver/protobuf/client"
 	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/desertbit/grumble"
+)
+
+const (
+	fileSampleSize  = 512
+	defaultMimeType = "application/octet-stream"
 )
 
 func websites(ctx *grumble.Context, rpc RPCServer) {
@@ -54,9 +62,12 @@ func listWebsites(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	for index, site := range websites.Sites {
-		fmt.Printf("%d. %s\n", index+1, site.Name)
+	fmt.Println("Websites")
+	fmt.Println(strings.Repeat("=", len("Websites")))
+	for _, site := range websites.Sites {
+		fmt.Printf("%s%s%s - %d page(s)\n", bold, site.Name, normal, len(site.Content))
 	}
+
 }
 
 func listWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
@@ -79,14 +90,17 @@ func addWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
 	webPath := ctx.Flags.String("web-path")
 	contentPath := ctx.Flags.String("content")
 	if contentPath == "" {
-		fmt.Printf(Warn + "Must specify some --content")
+		fmt.Println(Warn + "Must specify some --content")
 		return
 	}
 	contentPath, _ = filepath.Abs(contentPath)
 	contentType := ctx.Flags.String("content-type")
 	recursive := ctx.Flags.Bool("recursive")
 
-	addWebsite := &clientpb.Website{Name: websiteName}
+	addWebsite := &clientpb.Website{
+		Name:    websiteName,
+		Content: map[string]*clientpb.WebContent{},
+	}
 
 	fileInfo, _ := os.Stat(contentPath)
 	if fileInfo.IsDir() {
@@ -110,6 +124,9 @@ func addWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Error: %s\n", resp.Err)
 		return
+	}
+	for _, content := range addWebsite.Content {
+		fmt.Printf(Info+"Content added (%s): %s \n", content.ContentType, content.Path)
 	}
 
 }
@@ -154,6 +171,10 @@ func webAddFile(web *clientpb.Website, path string, contentType string, contentP
 		return err
 	}
 
+	if contentType == "" {
+		contentType = sniffContentType(file)
+	}
+
 	web.Content[path] = &clientpb.WebContent{
 		Path:        path,
 		ContentType: contentType,
@@ -167,4 +188,15 @@ func confirmAddDirectory() bool {
 	prompt := &survey.Confirm{Message: "Recursively add entire directory?"}
 	survey.AskOne(prompt, &confirm, nil)
 	return confirm
+}
+
+func sniffContentType(out *os.File) string {
+	out.Seek(0, io.SeekStart)
+	buffer := make([]byte, fileSampleSize)
+	_, err := out.Read(buffer)
+	if err != nil {
+		return defaultMimeType
+	}
+	contentType := http.DetectContentType(buffer)
+	return contentType
 }

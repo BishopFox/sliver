@@ -110,7 +110,7 @@ func ListContent(websiteName string) (*clientpb.Website, error) {
 	if err != nil {
 		return nil, err
 	}
-	website := &clientpb.Website{
+	pbWebsite := &clientpb.Website{
 		Name:    websiteName,
 		Content: map[string]*clientpb.WebContent{},
 	}
@@ -121,8 +121,8 @@ func ListContent(websiteName string) (*clientpb.Website, error) {
 			continue
 		}
 		webContent.Content = []byte{} // Remove actual file contents
-		webContent.Path = key[len(fmt.Sprintf("%s.", website)):]
-		website.Content[webContent.Path] = webContent
+		webContent.Path = key[len(fmt.Sprintf("%s.", websiteName)):]
+		pbWebsite.Content[webContent.Path] = webContent
 	}
-	return website, nil
+	return pbWebsite, nil
 }
