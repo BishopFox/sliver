@@ -44,9 +44,13 @@ func rpcWebsiteAddContent(req []byte, _ time.Duration, resp RPCResponse) {
 }
 
 func rpcWebsiteRemoveContent(req []byte, _ time.Duration, resp RPCResponse) {
-	resp([]byte{}, nil)
-}
-
-func rpcWebsiteListContent(req []byte, _ time.Duration, resp RPCResponse) {
+	rmWebsite := &clientpb.Website{}
+	err := proto.Unmarshal(req, rmWebsite)
+	if err != nil {
+		resp([]byte{}, err)
+	}
+	for webpath := range rmWebsite.Content {
+		website.RemoveContent(rmWebsite.Name, webpath)
+	}
 	resp([]byte{}, nil)
 }

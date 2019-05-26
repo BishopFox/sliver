@@ -7,8 +7,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey"
 
@@ -67,7 +69,6 @@ func listWebsites(ctx *grumble.Context, rpc RPCServer) {
 	for _, site := range websites.Sites {
 		fmt.Printf("%s%s%s - %d page(s)\n", bold, site.Name, normal, len(site.Content))
 	}
-
 }
 
 func listWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
@@ -81,11 +82,15 @@ func listWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
 
 	websites := &clientpb.Websites{}
 	proto.Unmarshal(resp.Data, websites)
-
+	websiteName := ctx.Flags.String("website")
+	for _, web := range websites.Sites {
+		if web.Name == websiteName {
+			webDisplay(web)
+		}
+	}
 }
 
 func addWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
-
 	websiteName := ctx.Flags.String("website")
 	webPath := ctx.Flags.String("web-path")
 	contentPath := ctx.Flags.String("content")
@@ -102,7 +107,11 @@ func addWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
 		Content: map[string]*clientpb.WebContent{},
 	}
 
-	fileInfo, _ := os.Stat(contentPath)
+	fileInfo, err := os.Stat(contentPath)
+	if err != nil {
+		fmt.Printf(Warn+"Error adding content %s\n", err)
+		return
+	}
 	if fileInfo.IsDir() {
 		if !recursive && !confirmAddDirectory() {
 			return
@@ -128,30 +137,61 @@ func addWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
 	for _, content := range addWebsite.Content {
 		fmt.Printf(Info+"Content added (%s): %s \n", content.ContentType, content.Path)
 	}
-
 }
 
 func removeWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
+	rmWeb := &clientpb.Website{
+		Name:    ctx.Flags.String("website"),
+		Content: map[string]*clientpb.WebContent{},
+	}
+	webpath := ctx.Flags.String("web-path")
+	rmWeb.Content[webpath] = &clientpb.WebContent{}
 
+	data, _ := proto.Marshal(rmWeb)
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgWebsiteRemoveContent,
+		Data: data,
 	}, defaultTimeout)
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Error: %s\n", resp.Err)
 		return
 	}
-
+	for webpath := range rmWeb.Content {
+		fmt.Printf(Info+"Removed %s\n", webpath)
+	}
 }
 
-func displayWebsite(web *clientpb.Website) {
-
+func webDisplay(web *clientpb.Website) {
+	fmt.Println(Info + web.Name)
+	fmt.Println()
+	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+	fmt.Fprintf(table, "Path\tContent-type\tSize\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t\n",
+		strings.Repeat("=", len("Path")),
+		strings.Repeat("=", len("Content-type")),
+		strings.Repeat("=", len("Size")))
+	for path, content := range web.Content {
+		fmt.Fprintf(table, "%s\t%s\t%d\t\n", path, content.ContentType, content.Size)
+	}
+	table.Flush()
 }
 
-func webAddDirectory(web *clientpb.Website, path string, contentPath string) {
-
+func webAddDirectory(web *clientpb.Website, webpath string, contentPath string) {
+	fullLocalPath, _ := filepath.Abs(contentPath)
+	filepath.Walk(contentPath, func(localPath string, info os.FileInfo, err error) error {
+		// fmt.Printf(Info+"Adding: %s\n", localPath)
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			fullWebpath := path.Join(webpath, localPath[len(fullLocalPath):])
+			webAddFile(web, fullWebpath, "", localPath)
+		}
+		return nil
+	})
 }
 
-func webAddFile(web *clientpb.Website, path string, contentType string, contentPath string) error {
+func webAddFile(web *clientpb.Website, webpath string, contentType string, contentPath string) error {
 
 	fileInfo, err := os.Stat(contentPath)
 	if os.IsNotExist(err) {
@@ -175,8 +215,8 @@ func webAddFile(web *clientpb.Website, path string, contentType string, contentP
 		contentType = sniffContentType(file)
 	}
 
-	web.Content[path] = &clientpb.WebContent{
-		Path:        path,
+	web.Content[webpath] = &clientpb.WebContent{
+		Path:        webpath,
 		ContentType: contentType,
 		Content:     data,
 	}

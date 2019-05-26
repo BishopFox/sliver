@@ -8,10 +8,15 @@ import (
 
 	clientpb "github.com/bishopfox/sliver/protobuf/client"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/log"
 )
 
 const (
 	websiteBucketName = "websites" // keys are <website name>.<path> -> clientpb.WebContent{} (json)
+)
+
+var (
+	websiteLog = log.NamedLogger("website", "content")
 )
 
 func normalizePath(path string) string {
@@ -61,7 +66,9 @@ func AddContent(websiteName string, path string, contentType string, content []b
 		return err
 	}
 	path = normalizePath(path)
-	bucket.Set(fmt.Sprintf("%s.%s", websiteName, path), webContent)
+	key := fmt.Sprintf("%s.%s", websiteName, path)
+	websiteLog.Infof("[add] %s", key)
+	bucket.Set(key, webContent)
 	return nil
 }
 
@@ -72,7 +79,9 @@ func RemoveContent(website string, path string) error {
 		return err
 	}
 	path = normalizePath(path)
-	return bucket.Delete(fmt.Sprintf("%s.%s", website, path))
+	key := fmt.Sprintf("%s.%s", website, path)
+	websiteLog.Infof("[delete] %s", key)
+	return bucket.Delete(key)
 }
 
 // ListWebsites - List all websites
