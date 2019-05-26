@@ -744,9 +744,9 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Flags: func(f *grumble.Flags) {
 			f.String("w", "website", "", "website name")
 			f.String("t", "content-type", "", "mime content-type (if blank use file ext.)")
-			f.String("p", "path", "/", "http path to host file at")
+			f.String("p", "web-path", "/", "http path to host file at")
 			f.String("c", "content", "", "local file path/dir (must use --recursive for dir)")
-			f.Bool("r", "recursive", false, "recursively add content from dir, --path is prefixed")
+			f.Bool("r", "recursive", false, "recursively add content from dir, --web-path is prefixed")
 		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {

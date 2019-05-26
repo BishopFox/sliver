@@ -49,6 +49,14 @@ func listWebsites(ctx *grumble.Context, rpc RPCServer) {
 	websites := &clientpb.Websites{}
 	proto.Unmarshal(resp.Data, websites)
 
+	if len(websites.Sites) < 1 {
+		fmt.Printf(Info + "No websites\n")
+		return
+	}
+
+	for index, site := range websites.Sites {
+		fmt.Printf("%d. %s\n", index+1, site.Name)
+	}
 }
 
 func listWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
@@ -65,14 +73,16 @@ func listWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
 
 }
 
-// f.String("t", "content-type", "", "mime content-type (if blank use file ext.)")
-// f.String("p", "path", "/", "http path to host file at")
-// f.String("c", "content", "", "local file path/dir (must use --recursive for dir)")
 func addWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
 
 	websiteName := ctx.Flags.String("website")
-	webPath := ctx.Flags.String("path")
-	contentPath, _ := filepath.Abs(ctx.Flags.String("content"))
+	webPath := ctx.Flags.String("web-path")
+	contentPath := ctx.Flags.String("content")
+	if contentPath == "" {
+		fmt.Printf(Warn + "Must specify some --content")
+		return
+	}
+	contentPath, _ = filepath.Abs(contentPath)
 	contentType := ctx.Flags.String("content-type")
 	recursive := ctx.Flags.Bool("recursive")
 
@@ -113,6 +123,10 @@ func removeWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"Error: %s\n", resp.Err)
 		return
 	}
+
+}
+
+func displayWebsite(web *clientpb.Website) {
 
 }
 
