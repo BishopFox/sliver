@@ -363,13 +363,16 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 
 	// Load code template
 	sliverBox := packr.NewBox("../../sliver")
-	for _, boxName := range srcFiles {
+	for index, boxName := range srcFiles {
 
 		// Gobfuscate doesn't handle all the platform specific code
 		// well and the renamer can get confused when symbols for a
 		// different OS don't show up. So we just filter out anything
 		// we're not actually going to compile into the final binary
+		suffix := ".go"
 		if strings.Contains(boxName, "_") {
+			fileNameParts := strings.Split(boxName, "_")
+			suffix = "_" + fileNameParts[len(fileNameParts)-1]
 			if strings.HasSuffix(boxName, "_test.go") {
 				buildLog.Infof("Skipping (test): %s", boxName)
 				continue
@@ -390,7 +393,12 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		// to our per-compile "GOPATH"
 		var sliverCodePath string
 		dirName := filepath.Dir(boxName)
-		fileName := filepath.Base(boxName)
+		var fileName string
+		if config.Debug {
+			fileName = filepath.Base(boxName)
+		} else {
+			fileName = fmt.Sprintf("s%d%s", index, suffix)
+		}
 		if dirName != "." {
 			// Add an extra "sliver" dir
 			dirPath := path.Join(sliverPkgDir, "sliver", dirName)
