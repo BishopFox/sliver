@@ -146,6 +146,7 @@ func procdump(ctx *grumble.Context, rpc RPCServer) {
 		Data: data,
 	}, cmdTimeout)
 	ctrl <- true
+	<-ctrl
 
 	procDump := &sliverpb.ProcessDump{}
 	proto.Unmarshal(resp.Data, procDump)

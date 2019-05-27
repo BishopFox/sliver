@@ -43,6 +43,7 @@ func executeShellcode(ctx *grumble.Context, rpc RPCServer) {
 		Data: data,
 	}, defaultTimeout)
 	ctrl <- true
+	<-ctrl
 	if resp.Err != "" {
 		fmt.Printf(Warn+"%s\n", resp.Err)
 	}
@@ -79,6 +80,7 @@ func migrate(ctx *grumble.Context, rpc RPCServer) {
 		Data: data,
 	}, defaultTimeout)
 	ctrl <- true
+	<-ctrl
 	if resp.Err != "" {
 		fmt.Printf(Warn+"%s\n", resp.Err)
 	} else {
@@ -145,6 +147,7 @@ func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 		Type: sliverpb.MsgExecuteAssembly,
 	}, cmdTimeout)
 	ctrl <- true
+	<-ctrl
 	execResp := &sliverpb.ExecuteAssembly{}
 	proto.Unmarshal(resp.Data, execResp)
 	if execResp.Error != "" {

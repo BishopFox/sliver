@@ -104,6 +104,7 @@ func Until(msg string, ctrl chan bool) {
 			fmt.Printf(clearln+" %s  %s", s.Next(), msg)
 		case <-ctrl:
 			fmt.Printf(clearln)
+			ctrl <- true
 			return
 		}
 	}
