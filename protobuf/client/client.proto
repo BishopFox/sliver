@@ -51,6 +51,7 @@ message SliverConfig {
   string Cert = 5;
   string Key = 6;
   bool Debug = 7;
+  bool ObfuscateSymbols = 30;
 
   uint32 ReconnectInterval = 8;
   uint32 MaxConnectionErrors = 9;

@@ -15,7 +15,7 @@ var (
 )
 
 // Gobfuscate - Obfuscate Go code
-func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath string) (string, error) {
+func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath string, symbols bool) (string, error) {
 
 	newGopath := outPath
 	if err := os.Mkdir(newGopath, 0755); err != nil {
@@ -31,15 +31,11 @@ func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath str
 
 	obfuscateLog.Infof("Copying GOPATH (%s) ...\n", ctx.GOPATH)
 
+	newPkgName := "github.com/bishopfox/sliver"
+	enc := &Encrypter{Key: encKey}
+
 	if !CopyGopath(ctx, pkgName, newGopath, false) {
 		return "", errors.New("Failed to copy GOPATH")
-	}
-
-	enc := &Encrypter{Key: encKey}
-	obfuscateLog.Info("Obfuscating package names ...")
-	if err := ObfuscatePackageNames(ctx, newGopath, enc); err != nil {
-		obfuscateLog.Errorf("Failed to obfuscate package names: %s", err)
-		return "", err
 	}
 
 	obfuscateLog.Info("Obfuscating strings ...")
@@ -48,15 +44,22 @@ func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath str
 		return "", err
 	}
 
-	obfuscateLog.Info("Obfuscating symbols ...")
-	if err := ObfuscateSymbols(ctx, newGopath, enc); err != nil {
-		obfuscateLog.Errorf("Failed to obfuscate symbols: %s", err)
-		return "", err
+	if symbols {
+		obfuscateLog.Info("Obfuscating package names ...")
+		if err := ObfuscatePackageNames(ctx, newGopath, enc); err != nil {
+			obfuscateLog.Errorf("Failed to obfuscate package names: %s", err)
+			return "", err
+		}
+
+		obfuscateLog.Info("Obfuscating symbols ...")
+		if err := ObfuscateSymbols(ctx, newGopath, enc); err != nil {
+			obfuscateLog.Errorf("Failed to obfuscate symbols: %s", err)
+			return "", err
+		}
+		newPkgName = encryptComponents(pkgName, enc)
 	}
 
-	newPkg := encryptComponents(pkgName, enc)
-
-	return newPkg, nil
+	return newPkgName, nil
 }
 
 func encryptComponents(pkgName string, enc *Encrypter) string {

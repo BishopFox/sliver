@@ -246,6 +246,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
+			f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
@@ -282,6 +283,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
+			f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
 
 			f.String("m", "mtls", "", "mtls domain(s)")
 			f.String("t", "http", "", "http[s] domain(s)")

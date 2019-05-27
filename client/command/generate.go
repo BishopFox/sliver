@@ -92,8 +92,6 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 	targetOS := strings.ToLower(ctx.Flags.String("os"))
 	arch := strings.ToLower(ctx.Flags.String("arch"))
 
-	debug := ctx.Flags.Bool("debug")
-
 	c2s := []*clientpb.SliverC2{}
 
 	mtlsC2 := parseMTLSc2(ctx.Flags.String("mtls"))
@@ -104,6 +102,13 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 
 	dnsC2 := parseDNSc2(ctx.Flags.String("dns"))
 	c2s = append(c2s, dnsC2...)
+
+	var symbolObfuscation bool
+	if ctx.Flags.Bool("debug") {
+		symbolObfuscation = false
+	} else {
+		symbolObfuscation = !ctx.Flags.Bool("skip-symbols")
+	}
 
 	if len(mtlsC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 {
 		fmt.Printf(Warn + "Must specify at least one of --mtls, --http, or --dns\n")
@@ -164,11 +169,12 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 	}
 
 	config := &clientpb.SliverConfig{
-		GOOS:          targetOS,
-		GOARCH:        arch,
-		Debug:         debug,
-		C2:            c2s,
-		CanaryDomains: canaryDomains,
+		GOOS:             targetOS,
+		GOARCH:           arch,
+		Debug:            ctx.Flags.Bool("debug"),
+		ObfuscateSymbols: symbolObfuscation,
+		C2:               c2s,
+		CanaryDomains:    canaryDomains,
 
 		ReconnectInterval:   uint32(reconnectInverval),
 		MaxConnectionErrors: uint32(maxConnectionErrors),
@@ -278,6 +284,13 @@ func profileGenerate(ctx *grumble.Context, rpc RPCServer) {
 func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 
 	fmt.Printf(Info+"Generating new %s/%s Sliver binary\n", config.GOOS, config.GOARCH)
+
+	if config.ObfuscateSymbols {
+		fmt.Printf(Info + "Symbol obfuscation is enabled, this process takes about 15 minutes\n")
+	} else if !config.Debug {
+		fmt.Printf(Warn+"Symbol obfuscation is %sdisabled%s\n", bold, normal)
+	}
+
 	start := time.Now()
 	ctrl := make(chan bool)
 	go spin.Until("Compiling, please wait ...", ctrl)

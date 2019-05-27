@@ -71,6 +71,7 @@ type SliverConfig struct {
 	Cert                string `json:"cert"`
 	Key                 string `json:"key"`
 	Debug               bool   `json:"debug"`
+	ObfuscateSymbols    bool   `json:"obfuscate_symbols"`
 	ReconnectInterval   int    `json:"reconnect_interval"`
 	MaxConnectionErrors int    `json:"max_connection_errors"`
 
@@ -98,14 +99,15 @@ type SliverConfig struct {
 // ToProtobuf - Convert SliverConfig to protobuf equiv
 func (c *SliverConfig) ToProtobuf() *clientpb.SliverConfig {
 	config := &clientpb.SliverConfig{
-		GOOS:          c.GOOS,
-		GOARCH:        c.GOARCH,
-		Name:          c.Name,
-		CACert:        c.CACert,
-		Cert:          c.Cert,
-		Key:           c.Key,
-		Debug:         c.Debug,
-		CanaryDomains: c.CanaryDomains,
+		GOOS:             c.GOOS,
+		GOARCH:           c.GOARCH,
+		Name:             c.Name,
+		CACert:           c.CACert,
+		Cert:             c.Cert,
+		Key:              c.Key,
+		Debug:            c.Debug,
+		ObfuscateSymbols: c.ObfuscateSymbols,
+		CanaryDomains:    c.CanaryDomains,
 
 		ReconnectInterval:   uint32(c.ReconnectInterval),
 		MaxConnectionErrors: uint32(c.MaxConnectionErrors),
@@ -138,6 +140,7 @@ func SliverConfigFromProtobuf(pbConfig *clientpb.SliverConfig) *SliverConfig {
 	cfg.Cert = pbConfig.Cert
 	cfg.Key = pbConfig.Key
 	cfg.Debug = pbConfig.Debug
+	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
 	cfg.CanaryDomains = pbConfig.CanaryDomains
 
 	cfg.ReconnectInterval = int(pbConfig.ReconnectInterval)
@@ -439,16 +442,18 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 
 	if !config.Debug {
 		buildLog.Infof("Obfuscating source code ...")
-		obfuscatedGoPath := path.Join(projectGoPathDir, "obfuscated")
-		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, randomObfuscationKey(), "github.com/bishopfox/sliver", obfuscatedGoPath)
+		obfgoPath := path.Join(projectGoPathDir, "obfuscated")
+		pkgName := "github.com/bishopfox/sliver"
+		obfSymbols := config.ObfuscateSymbols
+		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, randomObfuscationKey(), pkgName, obfgoPath, obfSymbols)
 		if err != nil {
 			buildLog.Infof("Error while obfuscating sliver %v", err)
 			return "", err
 		}
-		goConfig.GOPATH = obfuscatedGoPath
-		buildLog.Infof("Obfuscated GOPATH = %s", obfuscatedGoPath)
+		goConfig.GOPATH = obfgoPath
+		buildLog.Infof("Obfuscated GOPATH = %s", obfgoPath)
 		buildLog.Infof("Obfuscated sliver package: %s", obfuscatedPkg)
-		sliverPkgDir = path.Join(obfuscatedGoPath, "src", obfuscatedPkg) // new "main"
+		sliverPkgDir = path.Join(obfgoPath, "src", obfuscatedPkg) // new "main"
 	}
 	if err != nil {
 		buildLog.Errorf("Failed to save sliver config %s", err)
