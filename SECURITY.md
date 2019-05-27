@@ -1,8 +1,10 @@
 # Security Policy
 
+
+
 ### Bug Bounty
 
-Anything in the `master` branch.
+Anything in the `master` branch, without an open ticket.
 
 | Criticality | Reward  |
 |---|---|
@@ -13,5 +15,5 @@ Anything in the `master` branch.
 
 ### Reporting a Vulnerability
 
-[Contact](https://keybase.io/moloch)
+[Contact](https://keybase.io/moloch), if no reponse file a ticket with a `security` tag.
 
