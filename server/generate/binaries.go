@@ -375,8 +375,9 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 				continue
 			}
 			osSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOOS))
-			if !strings.HasSuffix(boxName, osSuffix) {
-				buildLog.Infof("Skipping (wrong os): %s", boxName)
+			archSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOARCH))
+			if !strings.HasSuffix(boxName, osSuffix) && !strings.HasSuffix(boxName, archSuffix) {
+				buildLog.Infof("Skipping file wrong os/arch: %s", boxName)
 				continue
 			}
 		}

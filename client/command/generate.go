@@ -292,10 +292,9 @@ func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 		fmt.Printf(Warn+"%s\n", resp.Err)
 		return
 	}
-
 	end := time.Now()
 	elapsed := time.Time{}.Add(end.Sub(start))
-	fmt.Printf(Info+"Build completed in %s\n", elapsed.Format("15:04:05"))
+	fmt.Printf(clearln+Info+"Build completed in %s\n", elapsed.Format("15:04:05"))
 
 	generated := &clientpb.Generate{}
 	proto.Unmarshal(resp.Data, generated)
