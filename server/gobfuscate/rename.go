@@ -1,5 +1,35 @@
 package gobfuscate
 
+/*
+	Copyright (c) 2009 The Go Authors. All rights reserved.
+
+	Redistribution and use in source and binary forms, with or without
+	modification, are permitted provided that the following conditions are
+	met:
+
+	* Redistributions of source code must retain the above copyright
+	notice, this list of conditions and the following disclaimer.
+	* Redistributions in binary form must reproduce the above
+	copyright notice, this list of conditions and the following disclaimer
+	in the documentation and/or other materials provided with the
+	distribution.
+	* Neither the name of Google Inc. nor the names of its
+	contributors may be used to endorse or promote products derived from
+	this software without specific prior written permission.
+
+	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+	"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+	LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+	A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+	OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+	SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+	LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+	DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+	THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+	(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+	OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 import (
 	"bytes"
 	"errors"
@@ -12,7 +42,6 @@ import (
 	"go/types"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -31,7 +60,7 @@ var (
 	// Force enables patching of the source files even if conflicts were reported.
 	// The resulting program may be ill-formed.
 	// It may even cause gorename to crash.  TODO(adonovan): fix that.
-	Force = true
+	Force = true // This ensure we ignore any "DO NOT EDIT"s
 
 	// Diff causes the tool to display diffs instead of rewriting files.
 	Diff bool
@@ -62,7 +91,7 @@ type renamer struct {
 }
 
 var reportError = func(posn token.Position, message string) {
-	fmt.Fprintf(os.Stderr, "%s: %s\n", posn, message)
+	obfuscateLog.Errorf("%s: %s\n", posn, message)
 }
 
 // importName renames imports of fromPath within the package specified by info.
@@ -96,8 +125,7 @@ func importName(iprog *loader.Program, info *loader.PackageInfo, fromPath, fromN
 		}
 		r.check(from)
 		if r.hadConflicts {
-			reportError(iprog.Fset.Position(f.Imports[0].Pos()),
-				"skipping update of this file")
+			reportError(iprog.Fset.Position(f.Imports[0].Pos()), "skipping update of this file")
 			continue // ignore errors; leave the existing name
 		}
 		if err := r.update(); err != nil {
@@ -160,7 +188,7 @@ func Rename(ctxt *build.Context, offsetFlag, fromFlag, to string) error {
 		// package defining the object, plus their tests.
 
 		if Verbose {
-			log.Print("Potentially global renaming; scanning workspace...")
+			obfuscateLog.Info("Potentially global renaming; scanning workspace...")
 		}
 
 		// Scan the workspace and build the import graph.
@@ -269,7 +297,7 @@ func loadProgram(ctxt *build.Context, pkgs map[string]bool) (*loader.Program, er
 		}
 		sort.Strings(list)
 		for _, pkg := range list {
-			log.Printf("Loading package: %s", pkg)
+			obfuscateLog.Infof("Loading package: %s", pkg)
 		}
 	}
 
@@ -402,19 +430,19 @@ func (r *renamer) update() error {
 					npkgs++
 					first = false
 					if Verbose {
-						log.Printf("Updating package %s", info.Pkg.Path())
+						obfuscateLog.Infof("Updating package %s", info.Pkg.Path())
 					}
 				}
 
 				filename := tokenFile.Name()
 				var buf bytes.Buffer
 				if err := format.Node(&buf, r.iprog.Fset, f); err != nil {
-					log.Printf("failed to pretty-print syntax tree: %v", err)
+					obfuscateLog.Infof("failed to pretty-print syntax tree: %v", err)
 					nerrs++
 					continue
 				}
 				if err := writeFile(filename, buf.Bytes()); err != nil {
-					log.Print(err)
+					obfuscateLog.Error(err)
 					nerrs++
 				}
 			}

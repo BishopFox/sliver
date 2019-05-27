@@ -18,7 +18,9 @@ import (
 var IgnoreMethods = map[string]bool{
 	"main":      true,
 	"init":      true,
-	"RunSliver": true, // DLL Entrypoint, TODO: Rename
+	"RunSliver": true,
+
+	"_IOC_PARM_LEN": true,
 }
 
 // SkipRenames - Skip renaming these symbols
@@ -27,7 +29,6 @@ var SkipRenames = map[string]bool{
 	"int32ptr":   true,
 	"atomicLock": true,
 	"grow":       true,
-	// "_IOC_PARM_LEN": true,
 }
 
 type symbolRenameReq struct {

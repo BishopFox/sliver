@@ -16,7 +16,6 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -132,7 +131,7 @@ func parseFromFlag(ctxt *build.Context, fromFlag string) (*spec, error) {
 	}
 
 	if Verbose {
-		log.Printf("-from spec: %+v", spec)
+		obfuscateLog.Infof("-from spec: %+v", spec)
 	}
 
 	return &spec, nil

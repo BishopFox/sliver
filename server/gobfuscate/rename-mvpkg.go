@@ -19,7 +19,6 @@ import (
 	"go/build"
 	"go/format"
 	"go/token"
-	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -142,7 +141,7 @@ func subpackages(ctxt *build.Context, srcDir string, dir string) map[string]bool
 	// Find all packages under srcDir whose import paths start with dir.
 	buildutil.ForEachPackage(ctxt, func(pkg string, err error) {
 		if err != nil {
-			log.Fatalf("unexpected error in ForEachPackage: %v", err)
+			obfuscateLog.Fatalf("unexpected error in ForEachPackage: %v", err)
 		}
 
 		// Only process the package or a sub-package
@@ -153,10 +152,10 @@ func subpackages(ctxt *build.Context, srcDir string, dir string) map[string]bool
 
 		p, err := ctxt.Import(pkg, "", build.FindOnly)
 		if err != nil {
-			log.Fatalf("unexpected: package %s can not be located by build context: %s", pkg, err)
+			obfuscateLog.Fatalf("unexpected: package %s can not be located by build context: %s", pkg, err)
 		}
 		if p.SrcRoot == "" {
-			log.Fatalf("unexpected: could not determine srcDir for package %s: %s", pkg, err)
+			obfuscateLog.Fatalf("unexpected: could not determine srcDir for package %s: %s", pkg, err)
 		}
 		if p.SrcRoot != srcDir {
 			return
@@ -240,7 +239,7 @@ func (m *mover) move() error {
 	// Change the moved package's "package" declaration to its new base name.
 	pkg, ok := m.iprog.Imported[m.from]
 	if !ok {
-		log.Fatalf("unexpected: package %s is not in import map", m.from)
+		obfuscateLog.Fatalf("unexpected: package %s is not in import map", m.from)
 	}
 	newName := filepath.Base(m.to)
 	for _, f := range pkg.Files {
@@ -300,7 +299,7 @@ func (m *mover) move() error {
 	for ap := range m.affectedPackages {
 		info, ok := m.iprog.Imported[ap]
 		if !ok {
-			log.Fatalf("unexpected: package %s is not in import map", ap)
+			obfuscateLog.Fatalf("unexpected: package %s is not in import map", ap)
 		}
 		for _, f := range info.Files {
 			for _, imp := range f.Imports {
@@ -328,7 +327,7 @@ func (m *mover) move() error {
 	for f := range filesToUpdate {
 		var buf bytes.Buffer
 		if err := format.Node(&buf, m.iprog.Fset, f); err != nil {
-			log.Printf("failed to pretty-print syntax tree: %v", err)
+			obfuscateLog.Infof("failed to pretty-print syntax tree: %v", err)
 			continue
 		}
 		tokenFile := m.iprog.Fset.File(f.Pos())

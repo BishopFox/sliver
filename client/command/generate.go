@@ -277,20 +277,25 @@ func profileGenerate(ctx *grumble.Context, rpc RPCServer) {
 
 func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 
-	fmt.Printf(Info+"Generating new %s/%s sliver binary \n", config.GOOS, config.GOARCH)
+	fmt.Printf(Info+"Generating new %s/%s Sliver binary \n", config.GOOS, config.GOARCH)
+	start := time.Now()
 	ctrl := make(chan bool)
-	go spin.Until("Compiling ...", ctrl)
+	go spin.Until("Compiling, please wait ...", ctrl)
 
 	generateReq, _ := proto.Marshal(&clientpb.GenerateReq{Config: config})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgGenerate,
 		Data: generateReq,
-	}, 1200*time.Second) // TODO: make timeout a parameter
+	}, 25*time.Minute)
 	ctrl <- true
 	if resp.Err != "" {
 		fmt.Printf(Warn+"%s\n", resp.Err)
 		return
 	}
+
+	end := time.Now()
+	elapsed := time.Time{}.Add(end.Sub(start))
+	fmt.Printf(Info+"Build completed in %s", elapsed.Format("12:34:56"))
 
 	generated := &clientpb.Generate{}
 	proto.Unmarshal(resp.Data, generated)
@@ -299,6 +304,10 @@ func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 	fi, err := os.Stat(saveTo)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to generate sliver %v\n", err)
+		return
+	}
+	if len(generated.File.Data) == 0 {
+		fmt.Printf(Warn + "Build failed, no file data\n")
 		return
 	}
 	if fi.IsDir() {
