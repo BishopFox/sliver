@@ -277,7 +277,7 @@ func profileGenerate(ctx *grumble.Context, rpc RPCServer) {
 
 func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 
-	fmt.Printf(Info+"Generating new %s/%s Sliver binary \n", config.GOOS, config.GOARCH)
+	fmt.Printf(Info+"Generating new %s/%s Sliver binary\n", config.GOOS, config.GOARCH)
 	start := time.Now()
 	ctrl := make(chan bool)
 	go spin.Until("Compiling, please wait ...", ctrl)
@@ -295,7 +295,7 @@ func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 
 	end := time.Now()
 	elapsed := time.Time{}.Add(end.Sub(start))
-	fmt.Printf(Info+"Build completed in %s", elapsed.Format("12:34:56"))
+	fmt.Printf(Info+"Build completed in %s\n", elapsed.Format("15:04:05"))
 
 	generated := &clientpb.Generate{}
 	proto.Unmarshal(resp.Data, generated)

@@ -1,5 +1,10 @@
 package generate
 
+// These files get rendered as part of the build process.
+
+// If you add a file to `sliver/` it won't be automatically included
+// as part of the build by the server, you have to add it here.
+
 var (
 	srcFiles = []string{
 		"constants/constants.go",
@@ -49,6 +54,7 @@ var (
 		"shell/pty/ztypes_amd64.go",
 		"shell/pty/ioctl.go",
 		"shell/pty/ioctl_bsd.go",
+		"shell/pty/ioctl_darwin.go",
 		"shell/pty/pty_unsupported.go",
 
 		"taskrunner/task.go",

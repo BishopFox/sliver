@@ -19,8 +19,6 @@ var IgnoreMethods = map[string]bool{
 	"main":      true,
 	"init":      true,
 	"RunSliver": true,
-
-	"_IOC_PARM_LEN": true,
 }
 
 // SkipRenames - Skip renaming these symbols
