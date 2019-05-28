@@ -25,8 +25,7 @@ RUN git clone --progress --verbose --depth 1 https://github.com/rapid7/metasploi
 WORKDIR /opt/msf
 
 # RVM
-RUN gpg --no-tty --keyserver hkp://pool.sks-keyservers.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
-RUN curl -sSL https://rvm.io/mpapis.asc | gpg --no-tty --import
+RUN gpg --no-tty --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
 RUN curl -L https://get.rvm.io | bash -s stable 
 RUN /bin/bash -l -c "rvm requirements"
 RUN /bin/bash -l -c "rvm install ${RUBY_VER}"

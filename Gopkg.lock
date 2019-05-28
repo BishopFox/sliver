@@ -232,7 +232,7 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/tools"
-  packages = ["go/ast/astutil","go/buildutil","go/gcexportdata","go/internal/cgo","go/internal/gcimporter","go/internal/packagesdriver","go/loader","go/packages","go/types/typeutil","internal/fastwalk","internal/gopathwalk","internal/semver","refactor/importgraph","refactor/rename","refactor/satisfy"]
+  packages = ["go/ast/astutil","go/buildutil","go/gcexportdata","go/internal/cgo","go/internal/gcimporter","go/internal/packagesdriver","go/loader","go/packages","go/types/typeutil","internal/fastwalk","internal/gopathwalk","internal/semver","refactor/importgraph","refactor/satisfy"]
   revision = "cc6a436ffe6b424fffa1d91862c9b664d8407828"
 
 [[projects]]
@@ -244,6 +244,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5525a3fa0d9165d13814583218639e8f65350256119bbce196ed4ee5bf17713a"
+  inputs-digest = "095daf8c62dbc180a0a27d5df7d6621d7ebf6d614e8be2ce5e0d57b0acf098cc"
   solver-name = "gps-cdcl"
   solver-version = 1

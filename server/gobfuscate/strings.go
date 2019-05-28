@@ -7,7 +7,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/ioutil"
-	"math/rand"
+	insecureRand "math/rand"
 	"os"
 	"path/filepath"
 	"sort"
@@ -130,7 +130,7 @@ func obfuscatedStringCode(str string) []byte {
 	res.WriteString("mask := []byte(\"")
 	mask := make([]byte, len(str))
 	for i := range mask {
-		mask[i] = byte(rand.Intn(256))
+		mask[i] = byte(insecureRand.Intn(256))
 		res.WriteString(fmt.Sprintf("\\x%02x", mask[i]))
 	}
 	res.WriteString("\")\nmaskedStr := []byte(\"")
