@@ -5,26 +5,23 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"os"
+	"io/ioutil"
+	"path/filepath"
 )
 
 // CopyFileContents - Copy/overwrite src to dst
 func CopyFileContents(src string, dst string) error {
-	in, err := os.Open(src)
+	// Calling f.Sync() should be unecessary as long as the
+	// returned err is properly checked. The only reason
+	// this would fail implictly (meaning the file isn't
+	// available to a Stat() called immediately after calling
+	// this function) would be because the kernel or filesystem
+	// is inherently broken.
+	contents, err := ioutil.ReadFile(filepath.Clean(src))
 	if err != nil {
 		return err
 	}
-	defer in.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	if _, err = io.Copy(out, in); err != nil {
-		return err
-	}
-	out.Sync()
-	return nil
+	return ioutil.WriteFile(filepath.Clean(dst), contents, 0775)
 }
 
 // ByteCountBinary - Pretty print byte size
