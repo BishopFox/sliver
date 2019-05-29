@@ -18,5 +18,5 @@ This directory contains the Sliver server implementation, and is strucutred as f
  * `msf/` - Metasploit helper functions
  * `rpc/` - Remote procedure call implementations, generally called by the `/client/` code
  * `transport/` - Code that wires the server to the `/client`
- * `util/` - Various utility methods
+ * `website/` - Code that manages static content to host on HTTP(S) C2 domains
  * `main.go` - Entrypoint
