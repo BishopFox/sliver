@@ -1,5 +1,11 @@
 FROM golang:1.12
 
+#
+# IMPORTANT: This Dockerfile is used for testing, I do not recommend deploying
+#            Sliver using this container configuration! However, if you do want
+#            a Docker deployment this is probably a good place to start.
+#
+
 ENV PROTOC_VER 3.7.0
 ENV RUBY_VER 2.6.2
 
@@ -15,6 +21,11 @@ RUN apt-get update --fix-missing && apt-get -y install \
   libpcap-dev libsqlite3-dev libgmp3-dev \
   zip unzip mingw-w64 binutils-mingw-w64 g++-mingw-w64 \
   nasm
+
+#
+# > User
+#
+RUN groupadd -g 999 sliver && useradd -r -u 999 -g sliver sliver
 
 #
 # > Metasploit
@@ -70,11 +81,11 @@ RUN ./go-assets.sh
 # compile - we have to run dep after copying the code over or it bitches
 ADD . /go/src/github.com/bishopfox/sliver/
 RUN make static-linux && cp -vv sliver-server /opt/sliver-server
+
 RUN /opt/sliver-server -unpack && /go/src/github.com/bishopfox/sliver/go-tests.sh
 RUN make clean \
     && rm -rf /go/src/* \
     && rm -rf /root/.sliver
 
-# TODO: Don't run server as root user
-
+USER sliver
 ENTRYPOINT [ "/opt/sliver-server" ]
