@@ -11,7 +11,7 @@ import (
 // we can dynamically swap out obfuscators at runtime
 type strObfuscationCodeGen func(str string) []byte
 
-var strObfuscationCodeGens = []strObfuscationCodeGen{
+var defaultStrObfuscationCodeGens = []strObfuscationCodeGen{
 	xorStringObfuscator,
 	xorStringObfuscator,
 	xorStringObfuscator,
@@ -53,6 +53,6 @@ func xorStringObfuscator(str string) []byte {
 	return buf.Bytes()
 }
 
-// [ AES ] ----------------------------------------------------------------------------
-
 // [ APT ] ----------------------------------------------------------------------------
+
+// [ AES ] ----------------------------------------------------------------------------

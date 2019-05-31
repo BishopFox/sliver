@@ -7,6 +7,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/ioutil"
+	insecureRand "math/rand"
 	"os"
 	"path/filepath"
 	"sort"
@@ -124,6 +125,6 @@ func (s *stringObfuscator) Less(i, j int) bool {
 }
 
 func obfuscatedStringCode(str string) []byte {
-
-	return strObfuscationCodeGens[0](str)
+	index := insecureRand.Intn(len(defaultStrObfuscationCodeGens))
+	return defaultStrObfuscationCodeGens[index](str)
 }
