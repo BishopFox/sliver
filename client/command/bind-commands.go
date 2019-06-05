@@ -99,6 +99,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.HttpStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domain", "", "limit responses to specific domain")
+			f.String("w", "website", "", "website name (see websites cmd)")
 			f.Int("l", "lport", defaultHTTPLPort, "tcp listen port")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -116,6 +117,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.HttpsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domain", "", "limit responses to specific domain")
+			f.String("w", "website", "", "website name (see websites cmd)")
 			f.Int("l", "lport", defaultHTTPSLPort, "tcp listen port")
 
 			f.String("c", "cert", "", "PEM encoded certificate file")
@@ -245,6 +247,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
+			f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
@@ -318,6 +321,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
+			f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
 
 			f.String("m", "mtls", "", "mtls domain(s)")
 			f.String("t", "http", "", "http[s] domain(s)")
@@ -771,6 +775,27 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			return nil
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.WebsitesStr,
+		Help:     "Host a static file on a website (used with HTTP C2)",
+		LongHelp: help.GetHelpFor(consts.WebsitesStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("w", "website", "", "website name")
+			f.String("t", "content-type", "", "mime content-type (if blank use file ext.)")
+			f.String("p", "web-path", "/", "http path to host file at")
+			f.String("c", "content", "", "local file path/dir (must use --recursive for dir)")
+			f.Bool("r", "recursive", false, "recursively add content from dir, --web-path is prefixed")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			websites(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 
 }

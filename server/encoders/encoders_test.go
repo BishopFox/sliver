@@ -26,21 +26,6 @@ func TestEnglish(t *testing.T) {
 	}
 }
 
-func TestGzip(t *testing.T) {
-	sample := randomData()
-	gzipData := bytes.NewBuffer([]byte{})
-	gz := new(Gzip)
-	gz.Encode(gzipData, sample)
-	data, err := gz.Decode(gzipData.Bytes())
-	if err != nil {
-		t.Errorf("gzip decode returned an error %v", err)
-		return
-	}
-	if !bytes.Equal(sample, data) {
-		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-	}
-}
-
 func TestHex(t *testing.T) {
 	sample := randomData()
 	x := new(Hex)

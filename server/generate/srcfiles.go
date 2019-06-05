@@ -1,12 +1,17 @@
 package generate
 
+// These files get rendered as part of the build process.
+
+// If you add a file to `sliver/` it won't be automatically included
+// as part of the build by the server, you have to add it here.
+
 var (
 	srcFiles = []string{
 		"constants/constants.go",
 
-		"handlers/generic_rpc_handlers.go",
-		"handlers/generic_tun_handlers.go",
-		"handlers/special_handlers.go",
+		"handlers/generic-rpc-handlers.go",
+		"handlers/generic-tun-handlers.go",
+		"handlers/special-handlers.go",
 		"handlers/handlers_darwin.go",
 		"handlers/handlers_linux.go",
 		"handlers/handlers_windows.go",
@@ -49,6 +54,7 @@ var (
 		"shell/pty/ztypes_amd64.go",
 		"shell/pty/ioctl.go",
 		"shell/pty/ioctl_bsd.go",
+		"shell/pty/ioctl_darwin.go",
 		"shell/pty/pty_unsupported.go",
 
 		"taskrunner/task.go",

@@ -30,6 +30,10 @@ var (
 		clientpb.MsgHttp:    rpcStartHTTPListener,
 		clientpb.MsgHttps:   rpcStartHTTPSListener,
 
+		clientpb.MsgWebsiteList:          rpcWebsiteList,
+		clientpb.MsgWebsiteAddContent:    rpcWebsiteAddContent,
+		clientpb.MsgWebsiteRemoveContent: rpcWebsiteRemoveContent,
+
 		clientpb.MsgSessions:         rpcSessions,
 		clientpb.MsgGenerate:         rpcGenerate,
 		clientpb.MsgRegenerate:       rpcRegenerate,
@@ -39,8 +43,9 @@ var (
 		clientpb.MsgNewProfile:       rpcNewProfile,
 		clientpb.MsgPlayers:          rpcPlayers,
 
-		clientpb.MsgMsf:          rpcMsf,
-		clientpb.MsgMsfInject:    rpcMsfInject,
+		clientpb.MsgMsf:       rpcMsf,
+		clientpb.MsgMsfInject: rpcMsfInject,
+
 		clientpb.MsgGetSystemReq: rpcGetSystem,
 
 		clientpb.MsgEggReq: rpcEgg,

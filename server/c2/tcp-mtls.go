@@ -22,6 +22,8 @@ import (
 const (
 	// defaultServerCert - Default certificate name if bind is "" (all interfaces)
 	defaultServerCert = ""
+
+	readBufSize = 1024
 )
 
 var (

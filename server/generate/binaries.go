@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"text/template"
 
 	clientpb "github.com/bishopfox/sliver/protobuf/client"
@@ -70,6 +71,7 @@ type SliverConfig struct {
 	Cert                string `json:"cert"`
 	Key                 string `json:"key"`
 	Debug               bool   `json:"debug"`
+	ObfuscateSymbols    bool   `json:"obfuscate_symbols"`
 	ReconnectInterval   int    `json:"reconnect_interval"`
 	MaxConnectionErrors int    `json:"max_connection_errors"`
 
@@ -97,14 +99,15 @@ type SliverConfig struct {
 // ToProtobuf - Convert SliverConfig to protobuf equiv
 func (c *SliverConfig) ToProtobuf() *clientpb.SliverConfig {
 	config := &clientpb.SliverConfig{
-		GOOS:          c.GOOS,
-		GOARCH:        c.GOARCH,
-		Name:          c.Name,
-		CACert:        c.CACert,
-		Cert:          c.Cert,
-		Key:           c.Key,
-		Debug:         c.Debug,
-		CanaryDomains: c.CanaryDomains,
+		GOOS:             c.GOOS,
+		GOARCH:           c.GOARCH,
+		Name:             c.Name,
+		CACert:           c.CACert,
+		Cert:             c.Cert,
+		Key:              c.Key,
+		Debug:            c.Debug,
+		ObfuscateSymbols: c.ObfuscateSymbols,
+		CanaryDomains:    c.CanaryDomains,
 
 		ReconnectInterval:   uint32(c.ReconnectInterval),
 		MaxConnectionErrors: uint32(c.MaxConnectionErrors),
@@ -137,6 +140,7 @@ func SliverConfigFromProtobuf(pbConfig *clientpb.SliverConfig) *SliverConfig {
 	cfg.Cert = pbConfig.Cert
 	cfg.Key = pbConfig.Key
 	cfg.Debug = pbConfig.Debug
+	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
 	cfg.CanaryDomains = pbConfig.CanaryDomains
 
 	cfg.ReconnectInterval = int(pbConfig.ReconnectInterval)
@@ -362,7 +366,28 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 
 	// Load code template
 	sliverBox := packr.NewBox("../../sliver")
-	for _, boxName := range srcFiles {
+	for index, boxName := range srcFiles {
+
+		// Gobfuscate doesn't handle all the platform specific code
+		// well and the renamer can get confused when symbols for a
+		// different OS don't show up. So we just filter out anything
+		// we're not actually going to compile into the final binary
+		suffix := ".go"
+		if strings.Contains(boxName, "_") {
+			fileNameParts := strings.Split(boxName, "_")
+			suffix = "_" + fileNameParts[len(fileNameParts)-1]
+			if strings.HasSuffix(boxName, "_test.go") {
+				buildLog.Infof("Skipping (test): %s", boxName)
+				continue
+			}
+			osSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOOS))
+			archSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOARCH))
+			if !strings.HasSuffix(boxName, osSuffix) && !strings.HasSuffix(boxName, archSuffix) {
+				buildLog.Infof("Skipping file wrong os/arch: %s", boxName)
+				continue
+			}
+		}
+
 		sliverGoCode, _ := sliverBox.FindString(boxName)
 
 		// We need to correct for the "github.com/bishopfox/sliver/sliver/foo" imports, since Go
@@ -371,7 +396,12 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		// to our per-compile "GOPATH"
 		var sliverCodePath string
 		dirName := filepath.Dir(boxName)
-		fileName := filepath.Base(boxName)
+		var fileName string
+		if config.Debug {
+			fileName = filepath.Base(boxName)
+		} else {
+			fileName = fmt.Sprintf("s%d%s", index, suffix)
+		}
 		if dirName != "." {
 			// Add an extra "sliver" dir
 			dirPath := path.Join(sliverPkgDir, "sliver", dirName)
@@ -393,7 +423,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		sliverCodeTmpl.Execute(buf, config)
 
 		// Render canaries
-		buildLog.Infof("Canary damain(s): %v", config.CanaryDomains)
+		buildLog.Infof("Canary domain(s): %v", config.CanaryDomains)
 		canaryTempl := template.New("canary").Delims("[[", "]]")
 		canaryGenerator := &CanaryGenerator{
 			SliverName:    config.Name,
@@ -410,19 +440,20 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		}
 	}
 
-	// Don't obfuscate DLLs, as we need the export names to stay in the final binary
-	if !config.Debug && !config.IsSharedLib {
+	if !config.Debug {
 		buildLog.Infof("Obfuscating source code ...")
-		obfuscatedGoPath := path.Join(projectGoPathDir, "obfuscated")
-		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, randomObfuscationKey(), "github.com/bishopfox/sliver", obfuscatedGoPath)
+		obfgoPath := path.Join(projectGoPathDir, "obfuscated")
+		pkgName := "github.com/bishopfox/sliver"
+		obfSymbols := config.ObfuscateSymbols
+		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, randomObfuscationKey(), pkgName, obfgoPath, obfSymbols)
 		if err != nil {
 			buildLog.Infof("Error while obfuscating sliver %v", err)
 			return "", err
 		}
-		goConfig.GOPATH = obfuscatedGoPath
-		buildLog.Infof("Obfuscated GOPATH = %s", obfuscatedGoPath)
+		goConfig.GOPATH = obfgoPath
+		buildLog.Infof("Obfuscated GOPATH = %s", obfgoPath)
 		buildLog.Infof("Obfuscated sliver package: %s", obfuscatedPkg)
-		sliverPkgDir = path.Join(obfuscatedGoPath, "src", obfuscatedPkg) // new "main"
+		sliverPkgDir = path.Join(obfgoPath, "src", obfuscatedPkg) // new "main"
 	}
 	if err != nil {
 		buildLog.Errorf("Failed to save sliver config %s", err)

@@ -7,21 +7,34 @@ import (
 	"go/parser"
 	"go/token"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/tools/refactor/importgraph"
-	"golang.org/x/tools/refactor/rename"
 )
 
-var IgnoreMethods = map[string]bool{"main": true, "init": true}
+// IgnoreMethods - Methods to skip when obfuscating
+var IgnoreMethods = map[string]bool{
+	"main":      true,
+	"init":      true,
+	"RunSliver": true,
+}
+
+// SkipRenames - Skip renaming these symbols
+var SkipRenames = map[string]bool{
+	"_":          true,
+	"int32ptr":   true,
+	"atomicLock": true,
+	"grow":       true,
+}
 
 type symbolRenameReq struct {
 	OldName string
 	NewName string
 }
 
+// ObfuscateSymbols - Obfuscate binary symbols
 func ObfuscateSymbols(ctx build.Context, gopath string, enc *Encrypter) error {
 	renames, err := topLevelRenames(gopath, enc)
 	if err != nil {
@@ -43,8 +56,14 @@ func ObfuscateSymbols(ctx build.Context, gopath string, enc *Encrypter) error {
 func runRenames(ctx build.Context, gopath string, renames []symbolRenameReq) error {
 	ctx.GOPATH = gopath
 	for _, r := range renames {
-		log.Printf("[gobfuscate] rename %s -> %s", r.OldName, r.NewName)
-		if err := rename.Main(&ctx, "", r.OldName, r.NewName); err != nil {
+		parts := strings.Split(r.OldName, ".") // OldName contains the full obfuscated path
+		symbol := parts[len(parts)-1]
+		if _, ok := SkipRenames[symbol]; ok {
+			obfuscateLog.Infof("Skipping rename of %s", symbol)
+			continue
+		}
+		obfuscateLog.Infof("Rename %s -> %s", symbol, r.NewName)
+		if err := Rename(&ctx, "", r.OldName, r.NewName); err != nil {
 			return err
 		}
 	}
@@ -67,7 +86,7 @@ func topLevelRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 		if info.IsDir() && containsUnsupportedCode(path) {
 			return filepath.SkipDir
 		}
-		if filepath.Ext(path) != GoExtension || containsIgnoreConstraint(path) {
+		if filepath.Ext(path) != GoExtension {
 			return nil
 		}
 		pkgPath, err := filepath.Rel(srcDir, filepath.Dir(path))
@@ -118,7 +137,7 @@ func methodRenames(ctx build.Context, gopath string, enc *Encrypter) ([]symbolRe
 		if info.IsDir() && containsUnsupportedCode(path) {
 			return filepath.SkipDir
 		}
-		if filepath.Ext(path) != GoExtension || containsIgnoreConstraint(path) {
+		if filepath.Ext(path) != GoExtension {
 			return nil
 		}
 		pkgPath, err := filepath.Rel(srcDir, filepath.Dir(path))
@@ -257,11 +276,5 @@ func containsCGO(dir string) bool {
 			}
 		}
 	}
-	return false
-}
-
-// containsIgnoreConstraint checks if the file contains an
-// "ignore" build constraint or "DO NOT FUCKING EDIT!" generation marker.
-func containsIgnoreConstraint(path string) bool {
 	return false
 }

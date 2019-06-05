@@ -157,6 +157,7 @@ func startDNSListener(ctx *grumble.Context, rpc RPCServer) {
 
 func startHTTPSListener(ctx *grumble.Context, rpc RPCServer) {
 	domain := ctx.Flags.String("domain")
+	website := ctx.Flags.String("website")
 	lport := uint16(ctx.Flags.Int("lport"))
 
 	cert, key, err := getLocalCertificatePair(ctx)
@@ -167,12 +168,13 @@ func startHTTPSListener(ctx *grumble.Context, rpc RPCServer) {
 
 	fmt.Printf(Info+"Starting HTTPS %s:%d listener ...\n", domain, lport)
 	data, _ := proto.Marshal(&clientpb.HTTPReq{
-		Domain: domain,
-		LPort:  int32(lport),
-		Secure: true,
-		Cert:   cert,
-		Key:    key,
-		ACME:   ctx.Flags.Bool("lets-encrypt"),
+		Domain:  domain,
+		Website: website,
+		LPort:   int32(lport),
+		Secure:  true,
+		Cert:    cert,
+		Key:     key,
+		ACME:    ctx.Flags.Bool("lets-encrypt"),
 	})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgHttps,
@@ -208,9 +210,10 @@ func startHTTPListener(ctx *grumble.Context, rpc RPCServer) {
 
 	fmt.Printf(Info+"Starting HTTP %s:%d listener ...\n", domain, lport)
 	data, _ := proto.Marshal(&clientpb.HTTPReq{
-		Domain: domain,
-		LPort:  int32(lport),
-		Secure: false,
+		Domain:  domain,
+		Website: ctx.Flags.String("website"),
+		LPort:   int32(lport),
+		Secure:  false,
 	})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgHttp,

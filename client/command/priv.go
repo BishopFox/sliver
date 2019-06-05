@@ -56,6 +56,7 @@ func getsystem(ctx *grumble.Context, rpc RPCServer) {
 		Data: data,
 	}, defaultTimeout)
 	ctrl <- true
+	<-ctrl
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
@@ -86,6 +87,7 @@ func elevate(ctx *grumble.Context, rpc RPCServer) {
 		Data: data,
 	}, defaultTimeout)
 	ctrl <- true
+	<-ctrl
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return

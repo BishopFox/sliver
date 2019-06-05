@@ -100,25 +100,61 @@ func printLogo(app *grumble.App) {
 	insecureRand.Seed(time.Now().Unix())
 	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
 	fmt.Println(logo)
+	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
 	fmt.Println(Info + "Welcome to the sliver server shell, please type 'help' for options")
 	fmt.Println()
 }
 
+var abilities = []string{
+	"first strike",
+	"vigilance",
+	"haste",
+	"indestructible",
+	"hexproof",
+	"deathtouch",
+	"fear",
+	"epic",
+	"ninjitsu",
+	"recover",
+	"persist",
+	"conspire",
+	"reinforce",
+	"exalted",
+	"annihilator",
+	"infect",
+	"undying",
+	"living weapon",
+	"miracle",
+	"scavenge",
+	"cipher",
+	"evolve",
+	"dethrone",
+	"hidden agenda",
+	"prowess",
+	"dash",
+	"exploit",
+	"renown",
+	"skulk",
+	"improvise",
+	"assist",
+	"jump-start",
+}
+
 var asciiLogos = []string{
 	red + `
- 	  ██████  ██▓     ██▓ ██▒   █▓▓█████  ██▀███  
+ 	  ██████  ██▓     ██▓ ██▒   █▓▓█████  ██▀███
 	▒██    ▒ ▓██▒    ▓██▒▓██░   █▒▓█   ▀ ▓██ ▒ ██▒
 	░ ▓██▄   ▒██░    ▒██▒ ▓██  █▒░▒███   ▓██ ░▄█ ▒
-	  ▒   ██▒▒██░    ░██░  ▒██ █░░▒▓█  ▄ ▒██▀▀█▄  
+	  ▒   ██▒▒██░    ░██░  ▒██ █░░▒▓█  ▄ ▒██▀▀█▄
 	▒██████▒▒░██████▒░██░   ▒▀█░  ░▒████▒░██▓ ▒██▒
 	▒ ▒▓▒ ▒ ░░ ▒░▓  ░░▓     ░ ▐░  ░░ ▒░ ░░ ▒▓ ░▒▓░
 	░ ░▒  ░ ░░ ░ ▒  ░ ▒ ░   ░ ░░   ░ ░  ░  ░▒ ░ ▒░
-	░  ░  ░    ░ ░    ▒ ░     ░░     ░     ░░   ░ 
-		  ░      ░  ░ ░        ░     ░  ░   ░     
+	░  ░  ░    ░ ░    ▒ ░     ░░     ░     ░░   ░
+		  ░      ░  ░ ░        ░     ░  ░   ░
 ` + normal,
 
 	green + `
-    ███████╗██╗     ██╗██╗   ██╗███████╗██████╗ 
+    ███████╗██╗     ██╗██╗   ██╗███████╗██████╗
     ██╔════╝██║     ██║██║   ██║██╔════╝██╔══██╗
     ███████╗██║     ██║██║   ██║█████╗  ██████╔╝
     ╚════██║██║     ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗

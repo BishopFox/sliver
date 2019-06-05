@@ -216,8 +216,6 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 	targetOS := strings.ToLower(ctx.Flags.String("os"))
 	arch := strings.ToLower(ctx.Flags.String("arch"))
 
-	debug := ctx.Flags.Bool("debug")
-
 	c2s := []*clientpb.SliverC2{}
 
 	mtlsC2 := parseMTLSc2(ctx.Flags.String("mtls"))
@@ -228,6 +226,13 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 
 	dnsC2 := parseDNSc2(ctx.Flags.String("dns"))
 	c2s = append(c2s, dnsC2...)
+
+	var symbolObfuscation bool
+	if ctx.Flags.Bool("debug") {
+		symbolObfuscation = false
+	} else {
+		symbolObfuscation = !ctx.Flags.Bool("skip-symbols")
+	}
 
 	if len(mtlsC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 {
 		fmt.Printf(Warn + "Must specify at least one of --mtls, --http, or --dns\n")
@@ -288,11 +293,12 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 	}
 
 	config := &clientpb.SliverConfig{
-		GOOS:          targetOS,
-		GOARCH:        arch,
-		Debug:         debug,
-		C2:            c2s,
-		CanaryDomains: canaryDomains,
+		GOOS:             targetOS,
+		GOARCH:           arch,
+		Debug:            ctx.Flags.Bool("debug"),
+		ObfuscateSymbols: symbolObfuscation,
+		C2:               c2s,
+		CanaryDomains:    canaryDomains,
 
 		ReconnectInterval:   uint32(reconnectInverval),
 		MaxConnectionErrors: uint32(maxConnectionErrors),
@@ -401,20 +407,32 @@ func profileGenerate(ctx *grumble.Context, rpc RPCServer) {
 
 func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 
-	fmt.Printf(Info+"Generating new %s/%s sliver binary \n", config.GOOS, config.GOARCH)
+	fmt.Printf(Info+"Generating new %s/%s Sliver binary\n", config.GOOS, config.GOARCH)
+
+	if config.ObfuscateSymbols {
+		fmt.Printf(Info + "Symbol obfuscation is enabled, this process takes about 15 minutes\n")
+	} else if !config.Debug {
+		fmt.Printf(Warn+"Symbol obfuscation is %sdisabled%s\n", bold, normal)
+	}
+
+	start := time.Now()
 	ctrl := make(chan bool)
-	go spin.Until("Compiling ...", ctrl)
+	go spin.Until("Compiling, please wait ...", ctrl)
 
 	generateReq, _ := proto.Marshal(&clientpb.GenerateReq{Config: config})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgGenerate,
 		Data: generateReq,
-	}, 1200*time.Second) // TODO: make timeout a parameter
+	}, 45*time.Minute)
 	ctrl <- true
+	<-ctrl
 	if resp.Err != "" {
 		fmt.Printf(Warn+"%s\n", resp.Err)
 		return
 	}
+	end := time.Now()
+	elapsed := time.Time{}.Add(end.Sub(start))
+	fmt.Printf(clearln+Info+"Build completed in %s\n", elapsed.Format("15:04:05"))
 
 	generated := &clientpb.Generate{}
 	proto.Unmarshal(resp.Data, generated)
@@ -423,6 +441,10 @@ func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 	fi, err := os.Stat(saveTo)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to generate sliver %v\n", err)
+		return
+	}
+	if len(generated.File.Data) == 0 {
+		fmt.Printf(Warn + "Build failed, no file data\n")
 		return
 	}
 	if fi.IsDir() {

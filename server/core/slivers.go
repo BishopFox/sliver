@@ -43,7 +43,7 @@ type Sliver struct {
 func (s *Sliver) ToProtobuf() *clientpb.Sliver {
 	var lastCheckin string
 	if s.LastCheckin == nil {
-		lastCheckin = time.Now().Format(time.RFC1123) // Realtime connections have a nil .LastCheckin
+		lastCheckin = time.Now().Format(time.RFC1123) // Stateful connections have a nil .LastCheckin
 	} else {
 		lastCheckin = s.LastCheckin.Format(time.RFC1123)
 	}

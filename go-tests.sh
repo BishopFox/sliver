@@ -42,7 +42,7 @@ else
 fi
 
 # server / generate
-if go test ./server/generate ; then
+if go test ./server/generate -timeout 6h ; then
     :
 else
     cat ~/.sliver/logs/sliver.log

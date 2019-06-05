@@ -4,7 +4,6 @@ import (
 	"errors"
 	"go/build"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,17 +11,17 @@ import (
 	"golang.org/x/tools/refactor/importgraph"
 )
 
-// CopyGopath creates a new Gopath with a copy of a package
+// CopyGopath - Creates a new Gopath with a copy of a package
 // and all of its dependencies.
 func CopyGopath(ctx build.Context, packageName string, newGopath string, keepTests bool) bool {
 	if ctx.GOPATH == "" {
-		log.Println("GOPATH not set.")
+		obfuscateLog.Warn("GOPATH not set.")
 	}
 	forward, _, errs := importgraph.Build(&ctx)
 	if _, ok := forward[packageName]; !ok {
-		log.Println("Failed to build import graph:", packageName)
+		obfuscateLog.Errorf("Failed to build import graph: %s", packageName)
 		if err, ok := errs[packageName]; ok {
-			log.Println(" -> Error for package:", err)
+			obfuscateLog.Errorf(" -> Error for package: %s", err)
 		}
 		return false
 	}
@@ -31,7 +30,7 @@ func CopyGopath(ctx build.Context, packageName string, newGopath string, keepTes
 	for dep := range allDeps {
 		err := copyDep(dep, ctx.GOPATH, newGopath, keepTests)
 		if err != nil {
-			log.Printf("Failed to copy %s: %s\n", dep, err)
+			obfuscateLog.Errorf("Failed to copy %s: %s\n", dep, err)
 			return false
 		}
 	}
@@ -40,9 +39,9 @@ func CopyGopath(ctx build.Context, packageName string, newGopath string, keepTes
 		ctx.GOPATH = newGopath
 		forward, _, errs = importgraph.Build(&ctx)
 		if _, ok := forward[packageName]; !ok {
-			log.Println("Failed to re-build import graph:", packageName)
+			obfuscateLog.Errorf("Failed to re-build import graph: %s", packageName)
 			if err, ok := errs[packageName]; ok {
-				log.Println(" -> Error for package:", err)
+				obfuscateLog.Errorf(" -> Error for package: %s", err)
 			}
 			return false
 		}
@@ -50,7 +49,7 @@ func CopyGopath(ctx build.Context, packageName string, newGopath string, keepTes
 	}
 
 	if err := removeUnusedPkgs(newGopath, allDeps); err != nil {
-		log.Println("Failed to prune sub-packages:", err)
+		obfuscateLog.Errorf("Failed to prune sub-packages: %s", err)
 		return false
 	}
 	return true
@@ -77,23 +76,22 @@ func copyDep(packagePath, oldGopath, newGopath string, keepTests bool) error {
 		newPath := filepath.Join(newGopath, base)
 		if info.IsDir() {
 			return createDir(newPath)
-		} else {
-			if !keepTests && strings.HasSuffix(source, "_test.go") {
-				return nil
-			}
-			newFile, err := os.Create(newPath)
-			if err != nil {
-				return err
-			}
-			defer newFile.Close()
-			oldFile, err := os.Open(source)
-			if err != nil {
-				return err
-			}
-			defer oldFile.Close()
-			_, err = io.Copy(newFile, oldFile)
+		}
+		if !keepTests && strings.HasSuffix(source, "_test.go") {
+			return nil
+		}
+		newFile, err := os.Create(newPath)
+		if err != nil {
 			return err
 		}
+		defer newFile.Close()
+		oldFile, err := os.Open(source)
+		if err != nil {
+			return err
+		}
+		defer oldFile.Close()
+		_, err = io.Copy(newFile, oldFile)
+		return err
 	})
 }
 
@@ -128,9 +126,8 @@ func createDir(dir string) error {
 	if info, err := os.Stat(dir); err == nil {
 		if info.IsDir() {
 			return nil
-		} else {
-			return errors.New("file already exists: " + dir)
 		}
+		return errors.New("file already exists: " + dir)
 	}
 	if filepath.Dir(dir) != dir {
 		parent := filepath.Dir(dir)

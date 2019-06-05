@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-const hashedSymbolSize = 10
+const hashedSymbolSize = 5
 
 // An Encrypter encrypts textual tokens.
 type Encrypter struct {
@@ -17,7 +17,6 @@ type Encrypter struct {
 // The case of the first letter of the token is preserved.
 func (e *Encrypter) Encrypt(token string) string {
 	hashArray := sha256.Sum256([]byte(e.Key + token))
-
 	hexStr := strings.ToLower(hex.EncodeToString(hashArray[:hashedSymbolSize]))
 	for i, x := range hexStr {
 		if x >= '0' && x <= '9' {

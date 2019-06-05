@@ -283,6 +283,7 @@ func download(ctx *grumble.Context, rpc RPCServer) {
 		Data: data,
 	}, cmdTimeout)
 	ctrl <- true
+	<-ctrl
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
@@ -349,6 +350,7 @@ func upload(ctx *grumble.Context, rpc RPCServer) {
 		Data: data,
 	}, cmdTimeout)
 	ctrl <- true
+	<-ctrl
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return

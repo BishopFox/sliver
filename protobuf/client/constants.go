@@ -51,4 +51,9 @@ const (
 
 	MsgListSliverBuilds
 	MsgListCanaries
+
+	// Website related messages
+	MsgWebsiteList
+	MsgWebsiteAddContent
+	MsgWebsiteRemoveContent
 )
