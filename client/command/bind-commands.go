@@ -303,6 +303,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("c", "listener-url", "", "URL to fetch the stage from (tcp://SLIVER_SERVER:PORT or http(s)://SLIVER_SERVER:PORT")
 			f.String("v", "output-format", "raw", "Output format (msfvenom's style). All msfvenom's transform formats are supported")
 			f.String("x", "canary", "", "canary domain(s)")
+			f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
