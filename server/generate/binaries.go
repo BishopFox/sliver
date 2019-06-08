@@ -277,7 +277,9 @@ func SliverSharedLibrary(config *SliverConfig) (string, error) {
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
 	}
-	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags)
+	gcflags := fmt.Sprintf("-trimpath=%s", pkgPath)
+	asmflags := fmt.Sprintf("-trimpath=%s", pkgPath)
+	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags, gcflags, asmflags)
 	config.FileName = path.Base(dest)
 	saveFileErr := SliverFileSave(config.Name, dest)
 	saveCfgErr := SliverConfigSave(config)
@@ -308,11 +310,13 @@ func SliverExecutable(config *SliverConfig) (string, error) {
 		dest += ".exe"
 	}
 	tags := []string{"netgo"}
-	ldflags := []string{"-s -w"}
+	ldflags := []string{"-s -w -buildid="}
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
 	}
-	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags)
+	gcflags := fmt.Sprintf("-trimpath=%s", pkgPath)
+	asmflags := fmt.Sprintf("-trimpath=%s", pkgPath)
+	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcflags, asmflags)
 	config.FileName = path.Base(dest)
 	saveFileErr := SliverFileSave(config.Name, dest)
 	saveCfgErr := SliverConfigSave(config)

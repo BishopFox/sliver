@@ -1,7 +1,6 @@
 package cloudflare
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/bishopfox/sliver/server/config"
@@ -9,24 +8,38 @@ import (
 	"github.com/cloudflare/cloudflare-go"
 )
 
+const (
+	// APIKeyEnvVar - Name of env variable to pull the cf api key
+	APIKeyEnvVar = "CF_API_KEY"
+	// APIEmailEnvVar - Name of env variable to pull the cf api email
+	APIEmailEnvVar = "CF_API_EMAIL"
+)
+
 var (
 	cloudflareLog = log.NamedLogger("infrastruture", "cloudflare")
 )
 
+// Pulls the CF creds from either the local configuration database
+// or from the environment variables.
 func getCFCredentials() (string, string) {
-	apiKey, err := config.GetConfig("CF_API_KEY")
+	apiKey, err := config.GetConfig(APIKeyEnvVar)
 	if err != nil || apiKey == "" {
-		apiKey = os.Getenv("CF_API_KEY")
+		cloudflareLog.Warnf("Local config returned %s", err)
+		apiKey = os.Getenv(APIKeyEnvVar)
 	}
-	apiEmail, err := config.GetConfig("CF_API_EMAIL")
+	apiEmail, err := config.GetConfig(APIEmailEnvVar)
 	if err != nil || apiEmail == "" {
-		apiEmail = os.Getenv("CF_API_EMAIL")
+		cloudflareLog.Warnf("Local config returned %s", err)
+		apiEmail = os.Getenv(APIEmailEnvVar)
+	}
+	if apiKey == "" || apiEmail == "" {
+		cloudflareLog.Warn("Failed to find crednetials")
 	}
 	return apiKey, apiEmail
 }
 
 // DNSConfigureForC2 - Confiture a Cloudflare domain for DNS C2
-func DNSConfigureForC2(parentDomain string) error {
+func DNSConfigureForC2(parentDomain string, force bool) error {
 	// Construct a new API object
 	api, err := cloudflare.New(getCFCredentials())
 	if err != nil {
@@ -41,10 +54,10 @@ func DNSConfigureForC2(parentDomain string) error {
 		return err
 	}
 	// Print user details
-	fmt.Println(u)
+	cloudflareLog.Info(u)
 
 	// Fetch the zone ID
-	id, err := api.ZoneIDByName(parentDomain) // Assuming example.com exists in your Cloudflare account already
+	id, err := api.ZoneIDByName(parentDomain)
 	if err != nil {
 		cloudflareLog.Error(err)
 		return err

@@ -10,7 +10,7 @@ Sliver is a general purpose cross-platform implant framework that supports C2 ov
  * Dynamic code generation
  * Compile-time obfuscation
  * Local and remote process injection
- * Anti-anti-forensics
+ * Anti-anti-anti-forensics
  * Secure C2 over mTLS, HTTP(S), and DNS
  * Windows process migration
  * Windows user token manipulation

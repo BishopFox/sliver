@@ -92,7 +92,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 }
 
 // GoBuild - Execute a go build command, returns stdout/error
-func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []string, ldflags []string) ([]byte, error) {
+func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []string, ldflags []string, gcflags, asmflags string) ([]byte, error) {
 	var goCommand = []string{"build"}
 	if 0 < len(tags) {
 		goCommand = append(goCommand, "-tags")
@@ -101,6 +101,12 @@ func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []
 	if 0 < len(ldflags) {
 		goCommand = append(goCommand, "-ldflags")
 		goCommand = append(goCommand, ldflags...)
+	}
+	if 0 < len(gcflags) {
+		goCommand = append(goCommand, fmt.Sprintf("-gcflags=%s", gcflags))
+	}
+	if 0 < len(asmflags) {
+		goCommand = append(goCommand, fmt.Sprintf("-asmflags=%s", asmflags))
 	}
 	if 0 < len(buildmode) {
 		goCommand = append(goCommand, fmt.Sprintf("-buildmode=%s", buildmode))
