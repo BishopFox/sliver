@@ -79,6 +79,7 @@ func rpcExecuteAssembly(req []byte, timeout time.Duration, resp RPCResponse) {
 		Assembly:   execReq.Assembly,
 		HostingDll: hostingDllBytes,
 		Arguments:  execReq.Arguments,
+		Process:    execReq.Process,
 		Timeout:    execReq.Timeout,
 		SliverID:   execReq.SliverID,
 	})
