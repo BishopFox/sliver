@@ -125,25 +125,6 @@ func (s *stringObfuscator) Less(i, j int) bool {
 }
 
 func obfuscatedStringCode(str string) []byte {
-	var res bytes.Buffer
-	res.WriteString("(func() string {\n")
-	res.WriteString("mask := []byte(\"")
-	mask := make([]byte, len(str))
-	for i := range mask {
-		mask[i] = byte(insecureRand.Intn(256))
-		res.WriteString(fmt.Sprintf("\\x%02x", mask[i]))
-	}
-	res.WriteString("\")\nmaskedStr := []byte(\"")
-	for i, x := range []byte(str) {
-		res.WriteString(fmt.Sprintf("\\x%02x", x^mask[i]))
-	}
-	res.WriteString("\")\nres := make([]byte, ")
-	res.WriteString(strconv.Itoa(len(mask)))
-	res.WriteString(`)
-        for i, m := range mask {
-            res[i] = m ^ maskedStr[i]
-        }
-        return string(res)
-        }())`)
-	return res.Bytes()
+	index := insecureRand.Intn(len(defaultStrObfuscationCodeGens))
+	return defaultStrObfuscationCodeGens[index](str)
 }
