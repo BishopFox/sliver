@@ -1,5 +1,13 @@
 package generate
 
+/*
+	This is port of SRDI by Leo Loobeek, that we've made a few modifications to
+
+	Originals:
+	https://gist.github.com/leoloobeek/c726719d25d7e7953d4121bd93dd2ed3
+	https://silentbreaksecurity.com/srdi-shellcode-reflective-dll-injection/
+*/
+
 // Moved shellcode to it's own file to de-clutter the source code
 
 var (
