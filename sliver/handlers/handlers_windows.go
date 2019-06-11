@@ -131,7 +131,7 @@ func executeAssemblyHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	output, err := taskrunner.ExecuteAssembly(execReq.HostingDll, execReq.Assembly, execReq.Arguments, execReq.Timeout)
+	output, err := taskrunner.ExecuteAssembly(execReq.HostingDll, execReq.Assembly, execReq.Process, execReq.Arguments, execReq.Timeout)
 	strErr := ""
 	if err != nil {
 		strErr = err.Error()

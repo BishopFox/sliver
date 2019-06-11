@@ -149,6 +149,7 @@ func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 	if len(ctx.Args) == 2 {
 		assemblyArgs = ctx.Args[1]
 	}
+	process := ctx.Flags.String("process")
 
 	ctrl := make(chan bool)
 	go spin.Until("Executing assembly ...", ctrl)
@@ -156,6 +157,7 @@ func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 		SliverID:   ActiveSliver.Sliver.ID,
 		Timeout:    int32(ctx.Flags.Int("timeout")),
 		Arguments:  assemblyArgs,
+		Process:    process,
 		Assembly:   assemblyBytes,
 		HostingDll: []byte{},
 	})
