@@ -492,17 +492,19 @@ func profiles(ctx *grumble.Context, rpc RPCServer) {
 		strings.Repeat("=", len("Platform")),
 		strings.Repeat("=", len("Command & Control")),
 		strings.Repeat("=", len("Debug")),
-		strings.Repeat("=", len("Limits")))
+		strings.Repeat("=", len("Limitations")))
 
 	for name, profile := range *profiles {
 		config := profile.Config
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
-			name,
-			fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
-			fmt.Sprintf("[1] %s", config.C2[0].URL),
-			fmt.Sprintf("%v", config.Debug),
-			getLimitsString(config),
-		)
+		if 0 < len(config.C2) {
+			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
+				name,
+				fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
+				fmt.Sprintf("[1] %s", config.C2[0].URL),
+				fmt.Sprintf("%v", config.Debug),
+				getLimitsString(config),
+			)
+		}
 		if 1 < len(config.C2) {
 			for index, c2 := range config.C2[1:] {
 				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
