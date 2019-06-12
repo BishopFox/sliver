@@ -14,6 +14,18 @@
   revision = "e2d15f34fcf99d5dbb871c820ec73f710fca9815"
 
 [[projects]]
+  name = "github.com/aws/aws-sdk-go"
+  packages = ["aws/awserr","aws/credentials","internal/ini","internal/shareddefaults"]
+  revision = "54fbc97aa845c26cccf06231baa55a3d6b813e23"
+  version = "v1.19.48"
+
+[[projects]]
+  name = "github.com/cloudflare/cloudflare-go"
+  packages = ["."]
+  revision = "024278eb1b129df5cf9fdaf301c08b99283e81bc"
+  version = "v0.9.1"
+
+[[projects]]
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
@@ -231,6 +243,12 @@
 
 [[projects]]
   branch = "master"
+  name = "golang.org/x/time"
+  packages = ["rate"]
+  revision = "9d24e82272b4f38b78bc8cff74fa936d31ccd8ef"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/tools"
   packages = ["go/ast/astutil","go/buildutil","go/gcexportdata","go/internal/cgo","go/internal/gcimporter","go/internal/packagesdriver","go/loader","go/packages","go/types/typeutil","internal/fastwalk","internal/gopathwalk","internal/semver","refactor/importgraph","refactor/satisfy"]
   revision = "cc6a436ffe6b424fffa1d91862c9b664d8407828"
@@ -244,6 +262,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "095daf8c62dbc180a0a27d5df7d6621d7ebf6d614e8be2ce5e0d57b0acf098cc"
+  inputs-digest = "3cff189e178f754deb264164d178c36a67260c6e5cbd91ed2dc2f7a6f740d166"
   solver-name = "gps-cdcl"
   solver-version = 1
