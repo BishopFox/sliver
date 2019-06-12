@@ -20,6 +20,7 @@ Sliver is a general purpose cross-platform implant framework that supports C2 ov
 * Procedurally generated C2 over HTTP
 * Let's Encrypt integration
 * In-memory .NET assembly execution
+* [DNS Canary](https://github.com/BishopFox/sliver/wiki/DNS-C2#dns-canaries) Blue Team Detection
 
 ### Getting Started
 
