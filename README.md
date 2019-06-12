@@ -43,4 +43,4 @@ The source code repo contains the following directories:
 
 ### License - GPLv3
 
-Sliver is licesed under [GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html), some subcomponets have seperate licenses. See their respective subdirectories in this project for details.
+Sliver is licensed under [GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html), some subcomponents have seperate licenses. See their respective subdirectories in this project for details.
