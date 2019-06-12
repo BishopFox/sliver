@@ -3,7 +3,7 @@ Sliver
 
 ![Sliver](/.github/images/sliver.jpeg)
 
-⚠️ Warning: Sliver is currently in __alpha__, you've been warned :)
+⚠️ __Warning:__ Sliver is currently in __alpha__, you've been warned :) and please consider [contributing](/CONTRIBUTING.md)
 
 Sliver is a general purpose cross-platform implant framework that supports C2 over Mutual-TLS, HTTP(S), and DNS. Implants are dynamically compiled with unique X.509 certificates signed by a per-instance certificate authority generated when you first run the binary.
 
