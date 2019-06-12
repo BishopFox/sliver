@@ -1,7 +1,7 @@
 Client
 =======
 
-This directory contains the client implenetation.
+This directory contains the client implenetation, pretty much all of this code is also used by the server console. However, it's very important that no code in this directory import any code from `server/`.
 
  * `assets/` - Static asset files and management code (e.g. client configs)
  * `command/` - Command implementations
