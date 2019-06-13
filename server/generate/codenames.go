@@ -72,7 +72,7 @@ func getRandomAdjective() string {
 
 // getRandomNoun - Get a random noun, not cryptographically secure
 func getRandomNoun() string {
-	rand.Seed(time.Now().Unix())
+	rand.Seed(time.Now().UnixNano())
 	appDir := assets.GetRootAppDir()
 	words := readlines(path.Join(appDir, "nouns.txt"))
 	word := words[rand.Intn(len(words)-1)]
