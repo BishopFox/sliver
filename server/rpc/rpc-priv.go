@@ -78,8 +78,9 @@ func rpcGetSystem(req []byte, timeout time.Duration, resp RPCResponse) {
 		return
 	}
 	data, _ := proto.Marshal(&sliverpb.GetSystemReq{
-		Data:     shellcode,
-		SliverID: gsReq.SliverID,
+		Data:           shellcode,
+		HostingProcess: gsReq.HostingProcess,
+		SliverID:       gsReq.SliverID,
 	})
 
 	data, err = sliver.Request(sliverpb.MsgGetSystemReq, timeout, data)
