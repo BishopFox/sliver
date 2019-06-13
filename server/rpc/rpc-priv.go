@@ -66,6 +66,7 @@ func rpcGetSystem(req []byte, timeout time.Duration, resp RPCResponse) {
 	}
 	config := generate.SliverConfigFromProtobuf(gsReq.Config)
 	config.Format = clientpb.SliverConfig_SHARED_LIB
+	config.ObfuscateSymbols = false
 	dllPath, err := generate.SliverSharedLibrary(config)
 	if err != nil {
 		resp([]byte{}, err)

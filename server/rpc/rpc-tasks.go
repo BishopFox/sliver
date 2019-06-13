@@ -56,6 +56,7 @@ func rpcMigrate(req []byte, timeout time.Duration, resp RPCResponse) {
 	sliver := core.Hive.Sliver(migrateReq.SliverID)
 	config := generate.SliverConfigFromProtobuf(migrateReq.Config)
 	config.Format = clientpb.SliverConfig_SHARED_LIB
+	config.ObfuscateSymbols = false
 	dllPath, err := generate.SliverSharedLibrary(config)
 	if err != nil {
 		resp([]byte{}, err)
