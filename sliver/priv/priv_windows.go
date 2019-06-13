@@ -142,6 +142,16 @@ func impersonateLoggedOnUser(hToken syscall.Token) (err error) {
 	return
 }
 
+func revertToSelf() error {
+	modadvapi32 := syscall.MustLoadDLL("advapi32.dll")
+	procRevertToSelf := modadvapi32.MustFindProc("RevertToSelf")
+	r1, _, err := procRevertToSelf.Call()
+	if r1 != 0 {
+		return nil
+	}
+	return err
+}
+
 func sePrivEnable(s string) error {
 	var tokenHandle syscall.Token
 	thsHandle, err := syscall.GetCurrentProcess()
@@ -293,6 +303,8 @@ func impersonateUser(username string) (token syscall.Token, err error) {
 			}
 		}
 	}
+	revertToSelf()
+	err = fmt.Errorf("Could not acquire a token belonging to %s", username)
 	return
 }
 
