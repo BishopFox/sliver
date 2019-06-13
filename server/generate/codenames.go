@@ -21,7 +21,7 @@ package generate
 import (
 	"bufio"
 	"fmt"
-	"math/rand"
+	insecureRand "math/rand"
 	"os"
 	"path"
 	"strings"
@@ -63,19 +63,19 @@ func readlines(path string) []string {
 
 // getRandomAdjective - Get a random noun, not cryptographically secure
 func getRandomAdjective() string {
-	rand.Seed(time.Now().UnixNano())
+	insecureRand.Seed(time.Now().UnixNano())
 	appDir := assets.GetRootAppDir()
 	words := readlines(path.Join(appDir, "adjectives.txt"))
-	word := words[rand.Intn(len(words)-1)]
+	word := words[insecureRand.Intn(len(words)-1)]
 	return strings.TrimSpace(word)
 }
 
 // getRandomNoun - Get a random noun, not cryptographically secure
 func getRandomNoun() string {
-	rand.Seed(time.Now().Unix())
+	insecureRand.Seed(time.Now().UnixNano())
 	appDir := assets.GetRootAppDir()
 	words := readlines(path.Join(appDir, "nouns.txt"))
-	word := words[rand.Intn(len(words)-1)]
+	word := words[insecureRand.Intn(len(words)-1)]
 	return strings.TrimSpace(word)
 }
 
@@ -83,5 +83,6 @@ func getRandomNoun() string {
 func GetCodename() string {
 	adjective := strings.ToUpper(getRandomAdjective())
 	noun := strings.ToUpper(getRandomNoun())
-	return fmt.Sprintf("%s_%s", adjective, noun)
+	codename := fmt.Sprintf("%s_%s", adjective, noun)
+	return strings.ReplaceAll(codename, " ", "-")
 }
