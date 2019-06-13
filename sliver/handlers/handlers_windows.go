@@ -91,7 +91,7 @@ func getsystemHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	err = priv.GetSystem(gsReq.Data)
+	err = priv.GetSystem(gsReq.Data, gsReq.HostingProcess)
 	gsResp := &pb.GetSystem{}
 	if err != nil {
 		gsResp.Output = err.Error()

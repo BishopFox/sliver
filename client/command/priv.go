@@ -20,6 +20,7 @@ package command
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/bishopfox/sliver/client/spin"
 	clientpb "github.com/bishopfox/sliver/protobuf/client"
@@ -62,17 +63,19 @@ func getsystem(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
 		return
 	}
+	process := ctx.Flags.String("process")
 	config := getActiveSliverConfig()
 	ctrl := make(chan bool)
 	go spin.Until("Attempting to create a new sliver session as 'NT AUTHORITY\\SYSTEM'...", ctrl)
 	data, _ := proto.Marshal(&clientpb.GetSystemReq{
-		SliverID: ActiveSliver.Sliver.ID,
-		Config:   config,
+		SliverID:       ActiveSliver.Sliver.ID,
+		Config:         config,
+		HostingProcess: process,
 	})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgGetSystemReq,
 		Data: data,
-	}, defaultTimeout)
+	}, 45*time.Minute)
 	ctrl <- true
 	<-ctrl
 	if resp.Err != "" {
