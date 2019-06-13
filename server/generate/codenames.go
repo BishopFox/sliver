@@ -83,5 +83,6 @@ func getRandomNoun() string {
 func GetCodename() string {
 	adjective := strings.ToUpper(getRandomAdjective())
 	noun := strings.ToUpper(getRandomNoun())
-	return fmt.Sprintf("%s_%s", adjective, noun)
+	codename := fmt.Sprintf("%s_%s", adjective, noun)
+	return strings.ReplaceAll(codename, " ", "-")
 }
