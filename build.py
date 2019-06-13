@@ -29,6 +29,8 @@ except NameError:
 
 INFO = "\033[1m\033[36m[*]\033[0m "
 WARN = "\033[1m\033[31m[!]\033[0m "
+BOLD = "\033[1m"
+NORM = "\033[0m"
 
 
 def exec_cmd(cmd, ignore_status=False):
@@ -59,7 +61,10 @@ def docker_rm_all():
     docker_rm_volumes()
 
 def build():
-    exec_cmd("docker build -t sliver .")
+    status = exec_cmd("docker build -t sliver .")
+    if status == 0:
+        print(INFO+"Build successful, start with %sdocker run -it sliver:latest%s" % (BOLD, NORM))
+        print(INFO+"Remember you'll need to manually forward network ports")
 
 def main(args):
     """ Execute the respective task(s) based on cli args """
