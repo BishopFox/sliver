@@ -779,7 +779,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
-		HelpGroup: consts.SliverHelpGroup,
+		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
