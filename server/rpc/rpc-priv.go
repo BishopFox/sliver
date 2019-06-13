@@ -66,6 +66,7 @@ func rpcGetSystem(req []byte, timeout time.Duration, resp RPCResponse) {
 	}
 	config := generate.SliverConfigFromProtobuf(gsReq.Config)
 	config.Format = clientpb.SliverConfig_SHARED_LIB
+	config.ObfuscateSymbols = false
 	dllPath, err := generate.SliverSharedLibrary(config)
 	if err != nil {
 		resp([]byte{}, err)
@@ -77,8 +78,9 @@ func rpcGetSystem(req []byte, timeout time.Duration, resp RPCResponse) {
 		return
 	}
 	data, _ := proto.Marshal(&sliverpb.GetSystemReq{
-		Data:     shellcode,
-		SliverID: gsReq.SliverID,
+		Data:           shellcode,
+		HostingProcess: gsReq.HostingProcess,
+		SliverID:       gsReq.SliverID,
 	})
 
 	data, err = sliver.Request(sliverpb.MsgGetSystemReq, timeout, data)

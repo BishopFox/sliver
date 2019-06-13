@@ -199,6 +199,7 @@ message MigrateReq {
 
 message GetSystemReq {
   SliverConfig Config = 1;
+  string HostingProcess = 2;
   uint32 SliverID = 9;
 }
 

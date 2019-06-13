@@ -96,7 +96,7 @@ func migrate(ctx *grumble.Context, rpc RPCServer) {
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgMigrate,
 		Data: data,
-	}, defaultTimeout)
+	}, 45*time.Minute)
 	ctrl <- true
 	<-ctrl
 	if resp.Err != "" {

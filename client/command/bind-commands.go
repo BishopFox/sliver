@@ -741,6 +741,9 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Name:     consts.GetSystemStr,
 		Help:     "Spawns a new sliver session as the NT AUTHORITY\\SYSTEM user (Windows Only)",
 		LongHelp: help.GetHelpFor(consts.GetSystemStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("p", "process", "spoolsv.exe", "SYSTEM process to inject into")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			getsystem(ctx, server.RPC)
