@@ -121,7 +121,7 @@ func newPlayerCmd(ctx *grumble.Context) {
 		filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(operator), filepath.Base(lhost))
 		saveTo = filepath.Join(saveTo, filename)
 	}
-	err = ioutil.WriteFile(saveTo, configJSON, 0644)
+	err = ioutil.WriteFile(saveTo, configJSON, 0600)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to write config to: %s (%v) \n", saveTo, err)
 		return
