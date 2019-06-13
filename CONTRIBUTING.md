@@ -3,7 +3,7 @@ Contributing to Sliver
 
 ## General
 
-* Contributions must be GPLv3
+* Contributions to core code must be GPLv3 (but not libraries)
 * Changes should be made in a new branch.
 * Please provide meaningful commit messages.
 * Ensure code passes existing unit tests, or provide updated test(s).
@@ -11,7 +11,6 @@ Contributing to Sliver
 * Any changes to `vendor/` should be in a distinct commit.
 * Avoid use of `CGO` (limits cross-platform support)
 * Avoid use of empty interfaces
-
 
 ## Security
 
