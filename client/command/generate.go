@@ -191,7 +191,7 @@ func generateEgg(ctx *grumble.Context, rpc RPCServer) {
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgEggReq,
 		Data: data,
-	}, defaultTimeout)
+	}, 45*time.Minute)
 	ctrl <- true
 	if resp.Err != "" {
 		fmt.Printf(Warn+"%s", resp.Err)
