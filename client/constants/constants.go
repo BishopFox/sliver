@@ -63,7 +63,7 @@ const (
 	GenerateStr        = "generate"
 	RegenerateStr      = "regenerate"
 	ProfileGenerateStr = "generate-profile"
-	EggGenerate        = "generate-egg"
+	GenerateEggStr     = "generate-egg"
 	ProfilesStr        = "profiles"
 	NewProfileStr      = "new-profile"
 

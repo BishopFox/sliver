@@ -294,9 +294,9 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:     consts.EggGenerate,
+		Name:     consts.GenerateEggStr,
 		Help:     "Generate an egg shellcode (sliver stager)",
-		LongHelp: help.GetHelpFor(consts.EggGenerate),
+		LongHelp: help.GetHelpFor(consts.GenerateEggStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
