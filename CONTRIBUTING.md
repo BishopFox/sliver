@@ -4,18 +4,18 @@ Contributing to Sliver
 ## General
 
 * Contributions to core code must be GPLv3 (but not libraries)
-* For features, please open a ticket and assign it to yourself
-* Changes should be made in a new branch.
-* Please provide meaningful commit messages.
-* Ensure code passes existing unit tests, or provide updated test(s).
-* `gofmt` your code.
-* Any changes to `vendor/` should be in a distinct commit.
+* If you'd like to work on a feature, please open a ticket and assign it to yourself
+* Changes should be made in a new branch
+* Please provide meaningful commit messages
+* Ensure code passes existing unit tests, or provide updated test(s)
+* `gofmt` your code
+* Any changes to `vendor/` should be in a distinct commit
 * Avoid use of `CGO` (limits cross-platform support)
 * Avoid use of empty interfaces
 
 ## Security
 
-* _Never_ trust the user -applied in a common-sense way.
+* _Never_ trust the user, applied in a common-sense way.
 * __Secure by default__, please ensure any contributed code follows this methodology to the best of your ability. It should be difficult to insecurely configure features/servers.
     - It is better to fail securely than operate in an insecure manner.
 * _Avoid_ incorporating user controlled values when constructing file/directory paths. Ensure any values that must be incorporated into paths are properly canolicalized.
