@@ -111,7 +111,7 @@ func SaveConfig(config *ClientConfig) error {
 	filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(config.Operator), filepath.Base(config.LHost))
 	saveTo, _ := filepath.Abs(path.Join(configDir, filename))
 	configJSON, _ := json.Marshal(config)
-	err := ioutil.WriteFile(saveTo, configJSON, 0644)
+	err := ioutil.WriteFile(saveTo, configJSON, 0600)
 	if err != nil {
 		log.Printf("Failed to write config to: %s (%v)", saveTo, err)
 		return err

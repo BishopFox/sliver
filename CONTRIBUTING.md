@@ -4,6 +4,7 @@ Contributing to Sliver
 ## General
 
 * Contributions to core code must be GPLv3 (but not libraries)
+* For features, please open a ticket and assign it to yourself
 * Changes should be made in a new branch.
 * Please provide meaningful commit messages.
 * Ensure code passes existing unit tests, or provide updated test(s).

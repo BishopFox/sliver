@@ -87,5 +87,6 @@ RUN make clean \
     && rm -rf /go/src/* \
     && rm -rf /root/.sliver
 
+RUN mkdir -p /home/sliver/ && chown -R sliver:sliver /home/sliver
 USER sliver
 ENTRYPOINT [ "/opt/sliver-server" ]

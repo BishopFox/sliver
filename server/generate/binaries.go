@@ -73,8 +73,10 @@ const (
 	// DefaultHTTPLPort - Default HTTP listen port
 	DefaultHTTPLPort = 443 // Assume SSL, it'll fallback
 
-	// SliverCCEnvVar - Environment variable that can specify the mingw path
-	SliverCCEnvVar = "SLIVER_CC"
+	// SliverCC64EnvVar - Environment variable that can specify the 64 bit mingw path
+	SliverCC64EnvVar = "SLIVER_CC_64"
+	// SliverCC32EnvVar - Environment variable that can specify the 32 bit mingw path
+	SliverCC32EnvVar = "SLIVER_CC_32"
 )
 
 // SliverConfig - Parameters when generating a implant
@@ -485,7 +487,13 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 
 func getCCompiler(arch string) string {
 	var found bool // meh, ugly
-	compiler := os.Getenv(SliverCCEnvVar)
+	var compiler string
+	if arch == "amd64" {
+		compiler = os.Getenv(SliverCC64EnvVar)
+	}
+	if arch == "386" {
+		compiler = os.Getenv(SliverCC32EnvVar)
+	}
 	if compiler == "" {
 		if compiler, found = defaultMingwPath[arch]; !found {
 			compiler = defaultMingwPath["amd64"] // should not happen, but just in case ...
@@ -496,7 +504,7 @@ func getCCompiler(arch string) string {
 		return ""
 	}
 	if runtime.GOOS == "windows" {
-		compiler = ""
+		compiler = "" // TODO: Add windows mingw support
 	}
 	buildLog.Infof("CC = %v", compiler)
 	return compiler
