@@ -28,7 +28,7 @@ Download the latest [release](https://github.com/BishopFox/sliver/releases) and 
 
 ### Compile From Source
 
-Do a `git clone` of the Sliver repo into your local `$GOPATH/github.com/bishopfox/sliver` and then run the `build.py` script (requires Docker), or for details see the [wiki](https://github.com/BishopFox/sliver/wiki/Compile-From-Source).
+See the [wiki](https://github.com/BishopFox/sliver/wiki/Compile-From-Source).
 
 ### Source Code
 
