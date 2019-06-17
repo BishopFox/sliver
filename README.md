@@ -13,7 +13,7 @@ The server, client, and implant all support MacOS, Windows, and Linux (and possi
 * Compile-time obfuscation
 * Local and remote process injection
 * Anti-anti-anti-forensics
-* Secure C2 over mTLS, HTTP(S), and DNS
+* [Secure C2](https://github.com/BishopFox/sliver/wiki/Transport-Encryption) over mTLS, HTTP(S), and DNS
 * Windows process migration
 * Windows user token manipulation
 * Multiplayer-mode
