@@ -17,7 +17,7 @@ The server, client, and implant all support MacOS, Windows, and Linux (and possi
 * Windows process migration
 * Windows user token manipulation
 * Multiplayer-mode
-* Procedurally generated C2 over HTTP
+* Procedurally generated C2 over HTTP _(work in progress)_
 * Let's Encrypt integration
 * In-memory .NET assembly execution
 * [DNS Canary](https://github.com/BishopFox/sliver/wiki/DNS-C2#dns-canaries) Blue Team Detection
