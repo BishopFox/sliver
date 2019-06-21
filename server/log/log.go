@@ -29,6 +29,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	envVarName = "SLIVER_ROOT_DIR"
+)
+
 var (
 	// RootLoggerName - Root logger name, contains all log data
 	RootLoggerName = "root"
@@ -44,17 +48,38 @@ func NamedLogger(pkg, stream string) *logrus.Entry {
 	})
 }
 
-// GetLogDir - Return the log dir
-func GetLogDir() string {
-	user, _ := user.Current()
-	dir := path.Join(user.HomeDir, ".sliver")
+// GetRootAppDir - Get the Sliver app dir, default is: ~/.sliver/
+func GetRootAppDir() string {
+
+	value := os.Getenv(envVarName)
+
+	var dir string
+	if len(value) == 0 {
+		user, _ := user.Current()
+		dir = path.Join(user.HomeDir, ".sliver")
+	} else {
+		dir = value
+	}
+
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			panic("Cannot write to sliver root dir")
+		}
+	}
+	return dir
+}
+
+// GetLogDir - Return the log dir
+func GetLogDir() string {
+	rootDir := GetRootAppDir()
+	if _, err := os.Stat(rootDir); os.IsNotExist(err) {
+		err = os.MkdirAll(rootDir, os.ModePerm)
 		if err != nil {
 			panic(err)
 		}
 	}
-	logDir := path.Join(dir, "logs")
+	logDir := path.Join(rootDir, "logs")
 	if _, err := os.Stat(logDir); os.IsNotExist(err) {
 		err = os.MkdirAll(logDir, os.ModePerm)
 		if err != nil {

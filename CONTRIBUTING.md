@@ -25,7 +25,7 @@ Contributing to Sliver
     - RSA-OAEP-2048 / RSA-OAEP-4096
     - SHA2-256 / HMAC-SHA2-256 or higher (e.g. SHA2-384)
     - Curves P521, P384, P256
-* _Never_ using the following in a security context, and _avoid_ use even in a non-security context:
+* _Never_ use the following in a security context, and _avoid_ use even in a non-security context:
     - MD5
     - SHA1
     - AES-ECB
