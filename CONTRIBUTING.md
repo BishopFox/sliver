@@ -20,7 +20,7 @@ Contributing to Sliver
     - It is better to fail securely than operate in an insecure manner.
 * _Avoid_ incorporating user controlled values when constructing file/directory paths. Ensure any values that must be incorporated into paths are properly canolicalized.
 * _Never_ use homegrown or non-peer reveiwed encryption or random number generation algorithms.
-* Whenever possible, use the following alogirthms/encryption modes:
+* Whenever possible, use the following algorithms/encryption modes:
     - AES-GCM-256
     - RSA-OAEP-2048 / RSA-OAEP-4096
     - SHA2-256 / HMAC-SHA2-256 or higher (e.g. SHA2-384)
