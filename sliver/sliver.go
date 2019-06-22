@@ -25,7 +25,6 @@ import "C"
 // {{end}}
 
 import (
-	"flag"
 	"os"
 	"os/user"
 	"runtime"
@@ -64,9 +63,6 @@ func main() {
 	log.SetFlags(0)
 	log.SetOutput(ioutil.Discard)
 	// {{end}}
-
-	flag.Usage = func() {} // No help!
-	flag.Parse()
 
 	// {{if .Debug}}
 	log.Printf("Hello my name is %s", consts.SliverName)
