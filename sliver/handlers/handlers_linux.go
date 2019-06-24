@@ -36,6 +36,7 @@ var (
 		pb.MsgMkdirReq:    mkdirHandler,
 		pb.MsgTask:        taskHandler,
 		pb.MsgRemoteTask:  remoteTaskHandler,
+		pb.MsgIfconfigReq: ifconfigHandler,
 	}
 )
 

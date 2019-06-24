@@ -1,4 +1,12 @@
-package handlers
+package rpc
+
+import (
+	"time"
+
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/golang/protobuf/proto"
+)
 
 /*
 	Sliver Implant Framework
@@ -18,31 +26,20 @@ package handlers
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import (
-	// {{if .Debug}}
-
-	// {{else}}
-	// {{end}}
-
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
-)
-
-var (
-	darwinHandlers = map[uint32]RPCHandler{
-		pb.MsgPsReq:       psHandler,
-		pb.MsgPing:        pingHandler,
-		pb.MsgLsReq:       dirListHandler,
-		pb.MsgDownloadReq: downloadHandler,
-		pb.MsgUploadReq:   uploadHandler,
-		pb.MsgCdReq:       cdHandler,
-		pb.MsgPwdReq:      pwdHandler,
-		pb.MsgRmReq:       rmHandler,
-		pb.MsgMkdirReq:    mkdirHandler,
-		pb.MsgIfconfigReq: ifconfigHandler,
+func rpcIfconfig(req []byte, timeout time.Duration, resp RPCResponse) {
+	ifconfigReq := &sliverpb.IfconfigReq{}
+	err := proto.Unmarshal(req, ifconfigReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
 	}
-)
+	sliver := (*core.Hive.Slivers)[ifconfigReq.SliverID]
+	if sliver == nil {
+		resp([]byte{}, err)
+		return
+	}
 
-// GetSystemHandlers - Returns a map of the darwin system handlers
-func GetSystemHandlers() map[uint32]RPCHandler {
-	return darwinHandlers
+	data, _ := proto.Marshal(&sliverpb.IfconfigReq{})
+	data, err = sliver.Request(sliverpb.MsgIfconfigReq, timeout, data)
+	resp(data, err)
 }

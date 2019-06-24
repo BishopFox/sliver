@@ -689,6 +689,19 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
+		Name:     consts.IfconfigStr,
+		Help:     "View network interface configurations",
+		LongHelp: help.GetHelpFor(consts.IfconfigStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			ifconfig(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
 		Name:     consts.ProcdumpStr,
 		Help:     "Dump process memory",
 		LongHelp: help.GetHelpFor(consts.ProcdumpStr),

@@ -55,6 +55,19 @@ message Process {
   string Owner = 4;
 }
 
+message NetInterface {
+  int32 Index = 1;
+  string Name = 2;
+  string MAC = 3;
+  repeated string IPAddresses = 4;
+}
+
+message IfconfigReq { 
+  uint32 SliverID = 9;
+}
+
+message Ifconfig { repeated NetInterface NetInterfaces = 1; }
+
 message LsReq {
   string Path = 1;
 
