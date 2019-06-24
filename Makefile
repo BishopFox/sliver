@@ -7,6 +7,11 @@ ENV = CGO_ENABLED=0
 TAGS = -tags netgo
 LDFLAGS = -ldflags '-s -w'
 
+# https://stackoverflow.com/questions/5618615/check-if-a-program-exists-from-a-makefile
+EXECUTABLES = protoc protoc-gen-go packr sed git zip go
+K := $(foreach exec,$(EXECUTABLES),\
+        $(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
+
 GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
 GIT_VERSION = $(shell git rev-parse HEAD)
 
