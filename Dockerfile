@@ -6,8 +6,7 @@ FROM golang:1.12
 #            a Docker deployment this is probably a good place to start.
 #
 
-ENV PROTOC_VER 3.7.0
-ENV RUBY_VER 2.6.2
+ENV PROTOC_VER 3.7.1
 
 # Base packages
 RUN apt-get update --fix-missing && apt-get -y install \
