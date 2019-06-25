@@ -42,17 +42,17 @@ func ifconfig(ctx *grumble.Context, rpc RPCServer) {
 		for _, ip := range iface.IPAddresses {
 
 			// Try to find local IPs and colorize them
-			subnet := 64
+			subnet := -1
 			if strings.Contains(ip, "/") {
 				parts := strings.Split(ip, "/")
 				subnetStr := parts[len(parts)-1]
 				subnet, err = strconv.Atoi(subnetStr)
 				if err != nil {
-					subnet = 64
+					subnet = -1
 				}
 			}
 
-			if subnet <= 32 && !isLoopback(ip) {
+			if 0 < subnet && subnet <= 32 && !isLoopback(ip) {
 				fmt.Printf(bold+green+"    IP Address: %s%s\n", ip, normal)
 			} else if 32 < subnet && !isLoopback(ip) {
 				fmt.Printf(bold+cyan+"    IP Address: %s%s\n", ip, normal)

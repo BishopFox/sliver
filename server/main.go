@@ -32,7 +32,7 @@ import (
 )
 
 var (
-	sliverServerVersion = fmt.Sprintf("Client v%s\nServer v0.0.6", version.FullVersion())
+	sliverServerVersion = fmt.Sprintf("Client v%s\nServer v0.0.7", version.FullVersion())
 )
 
 const (
