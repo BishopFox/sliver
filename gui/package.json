@@ -65,6 +65,7 @@
     "rxjs": "6.5.2",
     "spectron": "5.0.0",
     "ts-node": "7.0.1",
+    "ts-protoc-gen": "^0.10.0",
     "tslint": "5.17.0",
     "typescript": "3.4.5",
     "wait-on": "3.2.0",

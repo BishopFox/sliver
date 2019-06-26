@@ -1,4 +1,4 @@
-const { ipcRenderer } = require('electron');
+import { ipcRenderer } from 'electron';
 
 window.addEventListener('message', ({ data }) => {
   console.log('Got data' + data);
