@@ -1,7 +1,7 @@
 import { Subject, Observable, Observer } from 'rxjs';
 import tls from 'tls';
 
-export class SliverRPCService {
+export class MTLSService {
 
     private server: string;
     private port: number;
