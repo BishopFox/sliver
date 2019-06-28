@@ -34,8 +34,10 @@ async function createMainWindow() {
   mainWindow = new BrowserWindow({
     x: 0,
     y: 0,
-    width: size.width,
-    height: size.height,
+    // width: size.width,
+    // height: size.height,
+    width: 800,
+    height: 600,
     webPreferences: {
       nodeIntegration: false,
       preload: path.join(__dirname, 'preload.js')
@@ -72,14 +74,12 @@ async function createMainWindow() {
 }
 
 
-var rcpClient;
-
 try {
 
   console.log('Loading client config ...');
   const rawConfig = fs.readFileSync('/Users/moloch/.sliver-client/configs/moloch_lil-peep.rip.cfg');
   const config: RPCConfig = JSON.parse(rawConfig.toString('utf8'));
-  var rpcClient = new RPCClient(config);
+  const rpcClient = new RPCClient(config);
   rpcClient.connect().then((rpc) => {
     rpc.subscribe(envelope => {
       console.log(`Recv envelope: ${envelope}`);

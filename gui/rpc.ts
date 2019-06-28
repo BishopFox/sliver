@@ -52,20 +52,9 @@ export class RPCClient {
 
       const envelopeObservable = Observable.create((obs: Observer<pb.Envelope>) => {
         this.recvBuffer = Buffer.alloc(0);
-        tlsSubject.subscribe((recvData: Buffer) => {
-          console.log(`Read ${recvData.length} bytes`);
-          this.recvBuffer = Buffer.concat([this.recvBuffer, recvData]);
-          if (4 <= this.recvBuffer.length) {
-            const readSize = new Int32Array(this.recvBuffer.slice(0, 4))[0];
-            console.log(`Recv msg length: ${readSize} bytes`);
-            if (readSize <= 4 + this.recvBuffer.length) {
-              console.log('Parsing out message from recvBuffer');
-              const bytes = this.recvBuffer.slice(4, 4 + readSize);
-              const envelope = pb.Envelope.deserializeBinary(bytes);
-              this.recvBuffer = Buffer.from(this.recvBuffer.slice(4 + readSize));
-              obs.next(envelope);
-            }
-          }
+        tlsSubject.subscribe((data: Buffer) => {
+          console.log(`Read ${data.length} bytes`);
+          this.recvEnvelope(obs, data);
         });
       });
 
@@ -80,6 +69,27 @@ export class RPCClient {
 
       resolve(Subject.create(envelopeObserver, envelopeObservable));
     });
+  }
+
+  private recvEnvelope(obs: Observer<pb.Envelope>, recvData: Buffer) {
+    this.recvBuffer = Buffer.concat([this.recvBuffer, recvData]);
+    console.log(`Current recvBuffer is ${this.recvBuffer.length} bytes...`);
+    if (4 <= this.recvBuffer.length) {
+      const lengthBuffer = this.recvBuffer.slice(0, 4).buffer; // Convert Buffer to ArrayBuffer
+      const readSize = new DataView(lengthBuffer).getUint32(0, true);
+      console.log(`Recv msg length: ${readSize} bytes`);
+      if (readSize <= 4 + this.recvBuffer.length) {
+        console.log('Parsing envelope from recvBuffer');
+        const bytes = this.recvBuffer.slice(4, 4 + readSize);
+        const envelope = pb.Envelope.deserializeBinary(bytes);
+        console.log(`Deseralized msg type ${envelope.getType()}`);
+        this.recvBuffer = Buffer.from(this.recvBuffer.slice(4 + readSize));
+        obs.next(envelope);
+        this.recvEnvelope(obs, Buffer.alloc(0));
+      }
+    } else {
+      console.log('Recv buffer does not contain enough bytes for a valid length');
+    }
   }
 
   private toBytesUint32(num: number): Buffer {
@@ -132,7 +142,6 @@ export class RPCClient {
           const socketObserver = {
             next: (data: Buffer) => {
               console.log(`Socket write ${data.length} bytes`);
-              console.log(data.toString('utf8'));
               this.socket.write(data, () => {
                 console.log(`Socket write completed`);
               });
