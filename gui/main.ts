@@ -3,20 +3,14 @@ import { RPCClient, RPCConfig } from './rpc';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as url from 'url';
-
+import * as pb from './pb/sliver_pb';
+import { ClientPB, SliverPB } from './pb/constants';
 
 let mainWindow, serve;
 const args = process.argv.slice(1);
 serve = args.some(val => val === '--serve');
 
 async function createMainWindow() {
-
-
-  console.log('Loading client config ...');
-  const rawConfig = fs.readFileSync('/Users/moloch/.sliver-client/configs/moloch_lil-peep.rip.cfg');
-  const config: RPCConfig = JSON.parse(rawConfig.toString('utf8'));
-  const rpc = new RPCClient(config);
-  await rpc.connect();
 
   const electronScreen = screen;
   const size = electronScreen.getPrimaryDisplay().workAreaSize;
@@ -59,10 +53,30 @@ async function createMainWindow() {
     mainWindow = null;
   });
 
+  console.log('Main window done');
 }
 
 
+var rcpClient;
+
 try {
+
+  console.log('Loading client config ...');
+  const rawConfig = fs.readFileSync('/Users/moloch/.sliver-client/configs/moloch_lil-peep.rip.cfg');
+  const config: RPCConfig = JSON.parse(rawConfig.toString('utf8'));
+  var rpcClient = new RPCClient(config);
+  rpcClient.connect().then((rpc) => {
+    rpc.subscribe(envelope => {
+      console.log(`Recv envelope: ${envelope}`);
+    });
+
+    const sessionsReq = new pb.Envelope();
+    sessionsReq.setType(ClientPB.MsgSessions);
+    sessionsReq.setTimeout(360);
+    rpc.next(sessionsReq);
+    console.log('rpc done');
+
+  });
 
   // This method will be called when Electron has finished
   // initialization and is ready to create browser windows.

@@ -37,28 +37,71 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var rxjs_1 = require("rxjs");
 var tls_1 = require("tls");
+var pb = require("./pb/sliver_pb");
 var RPCClient = /** @class */ (function () {
     function RPCClient(config) {
+        this.isConnected = false;
         this.config = config;
     }
+    // This method returns a Subject that shits out
+    // or takes in pb.Envelopes and abstracts the byte
+    // non-sense for your.
     RPCClient.prototype.connect = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var tlsSubject, sendData;
+            var _this = this;
             return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0: return [4 /*yield*/, this.tlsConnect()];
-                    case 1:
-                        tlsSubject = _a.sent();
-                        tlsSubject.subscribe(function (recvData) {
-                            console.log(recvData);
+                return [2 /*return*/, new Promise(function (resolve, reject) { return __awaiter(_this, void 0, void 0, function () {
+                        var tlsSubject, envelopeObservable, envelopeObserver;
+                        var _this = this;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isConnected) {
+                                        reject('Already connected to rpc server');
+                                    }
+                                    return [4 /*yield*/, this.tlsConnect()];
+                                case 1:
+                                    tlsSubject = _a.sent();
+                                    this.isConnected = true;
+                                    envelopeObservable = rxjs_1.Observable.create(function (obs) {
+                                        _this.recvBuffer = Buffer.alloc(0);
+                                        tlsSubject.subscribe(function (recvData) {
+                                            console.log("Read " + recvData.length + " bytes");
+                                            _this.recvBuffer = Buffer.concat([_this.recvBuffer, recvData]);
+                                            if (4 <= _this.recvBuffer.length) {
+                                                var readSize = new Int32Array(_this.recvBuffer.slice(0, 4))[0];
+                                                console.log("Recv msg length: " + readSize + " bytes");
+                                                if (readSize <= 4 + _this.recvBuffer.length) {
+                                                    console.log('Parsing out message from recvBuffer');
+                                                    var bytes = _this.recvBuffer.slice(4, 4 + readSize);
+                                                    var envelope = pb.Envelope.deserializeBinary(bytes);
+                                                    _this.recvBuffer = Buffer.from(_this.recvBuffer.slice(4 + readSize));
+                                                    obs.next(envelope);
+                                                }
+                                            }
+                                        });
+                                    });
+                                    envelopeObserver = {
+                                        next: function (envelope) {
+                                            var dataBuffer = Buffer.from(envelope.serializeBinary());
+                                            var sizeBuffer = _this.toBytesUint32(dataBuffer.length);
+                                            console.log("Sending msg (" + envelope.getType() + "): " + dataBuffer.length + " bytes ...");
+                                            tlsSubject.next(Buffer.concat([sizeBuffer, dataBuffer]));
+                                        }
+                                    };
+                                    resolve(rxjs_1.Subject.create(envelopeObserver, envelopeObservable));
+                                    return [2 /*return*/];
+                            }
                         });
-                        console.log('Sending data ...');
-                        sendData = new Buffer('test');
-                        tlsSubject.next(sendData);
-                        return [2 /*return*/];
-                }
+                    }); })];
             });
         });
+    };
+    RPCClient.prototype.toBytesUint32 = function (num) {
+        var arr = new ArrayBuffer(4); // an Int32 takes 4 bytes
+        var view = new DataView(arr);
+        view.setUint32(0, num, false); // byteOffset = 0; litteEndian = false
+        return Buffer.from(arr);
     };
     Object.defineProperty(RPCClient.prototype, "tlsOptions", {
         get: function () {
@@ -78,26 +121,36 @@ var RPCClient = /** @class */ (function () {
         configurable: true
     });
     // This is somehow the "clean" way to do this shit...
+    // tlsConnect returns a Subject that shits out Buffers
+    // or takes in Buffers of an interminate size as they come
     RPCClient.prototype.tlsConnect = function () {
         var _this = this;
         return new Promise(function (resolve, reject) {
             console.log("Connecting to " + _this.config.lhost + ":" + _this.config.lport + " ...");
             // Conenct to the server
             _this.socket = tls_1.connect(_this.tlsOptions);
+            _this.socket.setNoDelay(true);
             // This event fires after the tls handshake, but we need to check `socket.authorized`
             _this.socket.on('secureConnect', function () {
                 console.log('RPC client connected', _this.socket.authorized ? 'authorized' : 'unauthorized');
                 if (_this.socket.authorized === true) {
-                    var observable = rxjs_1.Observable.create(function (obs) {
-                        _this.socket.on('data', obs.next.bind(obs)); // Bind observable's .next() to 'data' event
+                    var socketObservable = rxjs_1.Observable.create(function (obs) {
+                        _this.socket.on('data', function (data) {
+                            console.log("Socket read " + data.length + " bytes");
+                            obs.next(data);
+                        }); // Bind observable's .next() to 'data' event
                         _this.socket.on('close', obs.error.bind(obs)); // same with close/error
                     });
-                    var observer = {
+                    var socketObserver = {
                         next: function (data) {
-                            _this.socket.write(data); // Bind subject's .next() to socket's .write()
+                            console.log("Socket write " + data.length + " bytes");
+                            console.log(data.toString('utf8'));
+                            _this.socket.write(data, function () {
+                                console.log("Socket write completed");
+                            });
                         }
                     };
-                    resolve(rxjs_1.Subject.create(observer, observable));
+                    resolve(rxjs_1.Subject.create(socketObserver, socketObservable));
                 }
                 else {
                     reject('Unauthorized connection');

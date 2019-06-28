@@ -38,13 +38,16 @@ export class RPCClient {
       const envelopeObservable = Observable.create((obs: Observer<pb.Envelope>) => {
         this.recvBuffer = Buffer.alloc(0);
         tlsSubject.subscribe((recvData: Buffer) => {
+          console.log(`Read ${recvData.length} bytes`);
           this.recvBuffer = Buffer.concat([this.recvBuffer, recvData]);
           if (4 <= this.recvBuffer.length) {
             const readSize = new Int32Array(this.recvBuffer.slice(0, 4))[0];
-            console.log(`Recv msg length: ${readSize}`);
+            console.log(`Recv msg length: ${readSize} bytes`);
             if (readSize <= 4 + this.recvBuffer.length) {
+              console.log('Parsing out message from recvBuffer');
               const bytes = this.recvBuffer.slice(4, 4 + readSize);
               const envelope = pb.Envelope.deserializeBinary(bytes);
+              this.recvBuffer = Buffer.from(this.recvBuffer.slice(4 + readSize));
               obs.next(envelope);
             }
           }
@@ -55,6 +58,7 @@ export class RPCClient {
         next: (envelope: pb.Envelope) => {
           const dataBuffer = Buffer.from(envelope.serializeBinary());
           const sizeBuffer = this.toBytesUint32(dataBuffer.length);
+          console.log(`Sending msg (${envelope.getType()}): ${dataBuffer.length} bytes ...`);
           tlsSubject.next(Buffer.concat([sizeBuffer, dataBuffer]));
         }
       };
@@ -95,6 +99,7 @@ export class RPCClient {
 
       // Conenct to the server
       this.socket = connect(this.tlsOptions);
+      this.socket.setNoDelay(true);
 
       // This event fires after the tls handshake, but we need to check `socket.authorized`
       this.socket.on('secureConnect', () => {
@@ -102,13 +107,20 @@ export class RPCClient {
         if (this.socket.authorized === true) {
 
           const socketObservable = Observable.create((obs: Observer<Buffer>) => {
-            this.socket.on('data', obs.next.bind(obs));    // Bind observable's .next() to 'data' event
+            this.socket.on('data', (data) => {
+              console.log(`Socket read ${data.length} bytes`);
+              obs.next(data);
+            });    // Bind observable's .next() to 'data' event
             this.socket.on('close', obs.error.bind(obs));  // same with close/error
           });
 
           const socketObserver = {
             next: (data: Buffer) => {
-              this.socket.write(data); // Bind subject's .next() to socket's .write()
+              console.log(`Socket write ${data.length} bytes`);
+              console.log(data.toString('utf8'));
+              this.socket.write(data, () => {
+                console.log(`Socket write completed`);
+              });
             }
           };
 
