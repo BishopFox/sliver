@@ -1,5 +1,5 @@
 import { Subject, Observable, Observer } from 'rxjs';
-import { TLSSocket, ConnectionOptions, connect } from 'tls';
+import { TLSSocket, ConnectionOptions, TlsOptions, connect } from 'tls';
 
 
 export interface RPCConfig {
@@ -42,7 +42,11 @@ export class RPCClient {
       cert: this.config.certificate,
       host: this.config.lhost,
       port: this.config.lport,
-      rejectUnauthorized: true
+      rejectUnauthorized: true,
+
+      // This should ONLY skip verifying the hostname matches the cerftificate:
+      // https://nodejs.org/api/tls.html#tls_tls_checkserveridentity_hostname_cert
+      checkServerIdentity: () => undefined,
     };
   }
 

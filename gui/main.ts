@@ -18,7 +18,6 @@ async function createMainWindow() {
   const rpc = new RPCClient(config);
   await rpc.connect();
 
-
   const electronScreen = screen;
   const size = electronScreen.getPrimaryDisplay().workAreaSize;
 

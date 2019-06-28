@@ -68,7 +68,10 @@ var RPCClient = /** @class */ (function () {
                 cert: this.config.certificate,
                 host: this.config.lhost,
                 port: this.config.lport,
-                rejectUnauthorized: true
+                rejectUnauthorized: true,
+                // This should ONLY skip verifying the hostname matches the cerftificate:
+                // https://nodejs.org/api/tls.html#tls_tls_checkserveridentity_hostname_cert
+                checkServerIdentity: function () { return undefined; },
             };
         },
         enumerable: true,
