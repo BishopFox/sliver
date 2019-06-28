@@ -18,7 +18,8 @@ import { RPCClient, RPCConfig } from './rpc';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as url from 'url';
-import * as pb from './pb/sliver_pb';
+import * as sliverpb from './pb/sliver_pb';
+import * as clientpb from './pb/client_pb';
 import { ClientPB, SliverPB } from './pb/constants';
 
 let mainWindow, serve;
@@ -80,16 +81,22 @@ try {
   const rawConfig = fs.readFileSync('/Users/moloch/.sliver-client/configs/moloch_lil-peep.rip.cfg');
   const config: RPCConfig = JSON.parse(rawConfig.toString('utf8'));
   const rpcClient = new RPCClient(config);
-  rpcClient.connect().then((rpc) => {
-    rpc.subscribe(envelope => {
-      console.log(`Recv envelope: ${envelope}`);
-    });
+  rpcClient.connect().then(async () => {
 
-    const sessionsReq = new pb.Envelope();
-    sessionsReq.setType(ClientPB.MsgSessions);
-    sessionsReq.setTimeout(360);
-    rpc.next(sessionsReq);
-    console.log('rpc done');
+    (async function() {
+
+      const sessionsReqEnvelope = new sliverpb.Envelope();
+      sessionsReqEnvelope.setType(ClientPB.MsgSessions);
+      const respEnvelope = await rpcClient.request(sessionsReqEnvelope);
+      const sessions = clientpb.Sessions.deserializeBinary(respEnvelope.getData_asU8());
+      console.log(sessions.getSliversList());
+
+      const sessionsReqEnvelope2 = new sliverpb.Envelope();
+      sessionsReqEnvelope2.setType(ClientPB.MsgSessions);
+      const respEnvelope2 = await rpcClient.request(sessionsReqEnvelope2);
+      const sessions2 = clientpb.Sessions.deserializeBinary(respEnvelope2.getData_asU8());
+      console.log(sessions2.getSliversList());
+    })();
 
   });
 

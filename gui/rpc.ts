@@ -15,7 +15,8 @@
 
 import { Subject, Observable, Observer } from 'rxjs';
 import { TLSSocket, ConnectionOptions, TlsOptions, connect } from 'tls';
-import * as pb from './pb/sliver_pb';
+import { randomBytes } from 'crypto';
+import * as sliverpb from './pb/sliver_pb';
 import * as msg from './pb/constants';
 
 export interface RPCConfig {
@@ -31,72 +32,118 @@ export class RPCClient {
 
   private config: RPCConfig;
   private socket: TLSSocket;
+  private tlsSubject: Subject<Buffer>;
+  private envelopeSubject: Subject<sliverpb.Envelope>;
   private recvBuffer: Buffer;
   private isConnected = false;
+  private readonly defaultTimeout = 30 * 1000000000; // 30 seconds (in nano)
 
   constructor(config: RPCConfig) {
     this.config = config;
   }
 
+  async request(reqEnvelope: sliverpb.Envelope): Promise<sliverpb.Envelope> {
+    return new Promise((resolve, reject) => {
+      if (!this.isConnected) {
+        reject('No server connection');
+      }
+      const respId = this.randomId();
+      reqEnvelope.setId(respId);
+      this.envelopeSubject.subscribe((respEnvelope) => {
+        console.log(`Recv Envelope with ID ${respEnvelope.getId()} (want ${respId})`);
+        if (respEnvelope.getId() === respId) {
+          resolve(respEnvelope);
+        }
+      });
+      this.sendEnvelope(reqEnvelope);
+    });
+  }
+
   // This method returns a Subject that shits out
   // or takes in pb.Envelopes and abstracts the byte
   // non-sense for your.
-  async connect(): Promise<Subject<pb.Envelope>> {
+  async connect() {
     return new Promise(async (resolve, reject) => {
       if (this.isConnected) {
         reject('Already connected to rpc server');
       }
 
-      const tlsSubject = await this.tlsConnect();
+      try {
+        this.tlsSubject = await this.tlsConnect();
+      } catch (error) {
+        reject(error);
+      }
       this.isConnected = true;
 
-      const envelopeObservable = Observable.create((obs: Observer<pb.Envelope>) => {
+      const envelopeObservable = Observable.create((obs: Observer<sliverpb.Envelope>) => {
         this.recvBuffer = Buffer.alloc(0);
-        tlsSubject.subscribe((data: Buffer) => {
+        this.tlsSubject.subscribe((data: Buffer) => {
           console.log(`Read ${data.length} bytes`);
           this.recvEnvelope(obs, data);
         });
       });
 
       const envelopeObserver = {
-        next: (envelope: pb.Envelope) => {
-          const dataBuffer = Buffer.from(envelope.serializeBinary());
-          const sizeBuffer = this.toBytesUint32(dataBuffer.length);
-          console.log(`Sending msg (${envelope.getType()}): ${dataBuffer.length} bytes ...`);
-          tlsSubject.next(Buffer.concat([sizeBuffer, dataBuffer]));
+        next: (envelope: sliverpb.Envelope) => {
+          this.sendEnvelope(envelope);
         }
       };
 
-      resolve(Subject.create(envelopeObserver, envelopeObservable));
+      this.envelopeSubject = Subject.create(envelopeObserver, envelopeObservable);
+      resolve();
     });
   }
 
-  private recvEnvelope(obs: Observer<pb.Envelope>, recvData: Buffer) {
+  private sendEnvelope(envelope: sliverpb.Envelope) {
+    if (!envelope.getTimeout()) {
+      envelope.setTimeout(this.defaultTimeout);
+    }
+    const dataBuffer = Buffer.from(envelope.serializeBinary());
+    const sizeBuffer = this.toBytesUint32(dataBuffer.length);
+    console.log(`Sending msg (${envelope.getType()}): ${dataBuffer.length} bytes ...`);
+    this.tlsSubject.next(Buffer.concat([sizeBuffer, dataBuffer]));
+  }
+
+  // This method parses out Envelopes from the recvBuffer stream, since we do not know
+  // the length of the recvData ahead of time, we append it to a running buffer that we
+  // then pull envelopes out of, we do this recursively since we may read two envelopes
+  // worth of data in a single 'data' event. If we don't have enough data to parse out a
+  // length and envelope then we just store it in .recvBuffer and wait for more data.
+  private recvEnvelope(obs: Observer<sliverpb.Envelope>, recvData: Buffer) {
     this.recvBuffer = Buffer.concat([this.recvBuffer, recvData]);
     console.log(`Current recvBuffer is ${this.recvBuffer.length} bytes...`);
     if (4 <= this.recvBuffer.length) {
-      const lengthBuffer = this.recvBuffer.slice(0, 4).buffer; // Convert Buffer to ArrayBuffer
-      const readSize = new DataView(lengthBuffer).getUint32(0, true);
+      const lenBuf = this.recvBuffer.slice(0, 4);
+      // Because the creators of this language are FUCKING IDIOTS, WHY THE FUCK IS THIS A THING
+      // https://stackoverflow.com/questions/8609289/convert-a-binary-nodejs-buffer-to-javascript-arraybuffer/31394257#31394257
+      const lenBufView = new DataView(lenBuf.buffer.slice(lenBuf.byteOffset, lenBuf.byteOffset + lenBuf.byteLength));
+      console.log(lenBuf);
+      const readSize = lenBufView.getUint32(0, true);  // byteOffset = 0; litteEndian = true
       console.log(`Recv msg length: ${readSize} bytes`);
       if (readSize <= 4 + this.recvBuffer.length) {
         console.log('Parsing envelope from recvBuffer');
         const bytes = this.recvBuffer.slice(4, 4 + readSize);
-        const envelope = pb.Envelope.deserializeBinary(bytes);
-        console.log(`Deseralized msg type ${envelope.getType()}`);
+        const envelope = sliverpb.Envelope.deserializeBinary(bytes);
+        console.log(`Deseralized msg Type = ${envelope.getType()}, ID = ${envelope.getId()}`);
         this.recvBuffer = Buffer.from(this.recvBuffer.slice(4 + readSize));
         obs.next(envelope);
-        this.recvEnvelope(obs, Buffer.alloc(0));
+        this.recvEnvelope(obs, Buffer.alloc(0));  // Recursively parse
       }
-    } else {
-      console.log('Recv buffer does not contain enough bytes for a valid length');
     }
   }
 
+  // Convert a number to a 4 byte uint32 buffer
   private toBytesUint32(num: number): Buffer {
-    const arr = new ArrayBuffer(4); // an Int32 takes 4 bytes
+    const arr = new ArrayBuffer(4);
     const view = new DataView(arr);
     view.setUint32(0, num, true); // byteOffset = 0; litteEndian = true
     return Buffer.from(arr);
+  }
+
+  private randomId(): number {
+    const buf = randomBytes(4);
+    const bufView = new DataView(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+    return bufView.getUint32(0, true);
   }
 
   get tlsOptions(): ConnectionOptions {
@@ -135,7 +182,7 @@ export class RPCClient {
             this.socket.on('data', (data) => {
               console.log(`Socket read ${data.length} bytes`);
               obs.next(data);
-            });    // Bind observable's .next() to 'data' event
+            });
             this.socket.on('close', obs.error.bind(obs));  // same with close/error
           });
 
