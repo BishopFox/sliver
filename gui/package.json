@@ -45,7 +45,7 @@
     "@types/jasmine": "2.8.7",
     "@types/jasminewd2": "2.0.3",
     "@types/mocha": "5.2.6",
-    "@types/node": "8.9.4",
+    "@types/node": "^8.10.49",
     "chai": "4.2.0",
     "codelyzer": "5.0.1",
     "conventional-changelog-cli": "2.0.11",
@@ -78,6 +78,9 @@
   "dependencies": {
     "@angular/animations": "^8.0.3",
     "@angular/cdk": "^8.0.1",
-    "@angular/material": "^8.0.1"
+    "@angular/material": "^8.0.1",
+    "file-saver": "^2.0.2",
+    "font-awesome": "^4.7.0",
+    "xterm": "^3.14.4"
   }
 }

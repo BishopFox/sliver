@@ -25,9 +25,15 @@
               "src/favicon.512x512.png"
             ],
             "styles": [
-              "src/styles.scss"
+              "src/styles.scss",
+              "./node_modules/font-awesome/css/font-awesome.css"
             ],
-            "scripts": []
+            "scripts": [
+              "./node_modules/xterm/dist/xterm.js",
+              "./node_modules/xterm/dist/addons/fit/fit.js",
+              "./node_modules/xterm/dist/addons/attach/attach.js",    
+              "./node_modules/file-saver/dist/FileSaver.min.js"
+            ]
           },
           "configurations": {
             "dev": {
