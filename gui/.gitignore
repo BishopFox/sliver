@@ -7,6 +7,7 @@
 /app-builds
 /release
 main.js
+rpc.js
 src/**/*.js
 !src/karma.conf.js
 *.js.map
