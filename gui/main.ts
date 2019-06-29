@@ -13,14 +13,11 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { app, ipcMain, BrowserWindow, Menu, screen } from 'electron';
-import { RPCClient, RPCConfig } from './rpc';
+import { app, ipcMain, BrowserWindow, screen } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as url from 'url';
-import * as sliverpb from './pb/sliver_pb';
-import * as clientpb from './pb/client_pb';
-import { ClientPB, SliverPB } from './pb/constants';
+import * as rpc from './rpc';
 
 let mainWindow, serve;
 const args = process.argv.slice(1);
@@ -79,22 +76,23 @@ try {
 
   console.log('Loading client config ...');
   const rawConfig = fs.readFileSync('/Users/moloch/.sliver-client/configs/moloch_lil-peep.rip.cfg');
-  const config: RPCConfig = JSON.parse(rawConfig.toString('utf8'));
-  const rpcClient = new RPCClient(config);
+  const config: rpc. RPCConfig = JSON.parse(rawConfig.toString('utf8'));
+  const rpcClient = new rpc.RPCClient(config);
   rpcClient.connect().then(async () => {
 
     (async function() {
 
-      const sessionsReqEnvelope = new sliverpb.Envelope();
-      sessionsReqEnvelope.setType(ClientPB.MsgSessions);
+      const sessionsReqEnvelope = new rpc.Envelope();
+      sessionsReqEnvelope.setType(rpc.ClientPB.MsgSessions);
+
       const respEnvelope = await rpcClient.request(sessionsReqEnvelope);
-      const sessions = clientpb.Sessions.deserializeBinary(respEnvelope.getData_asU8());
+      const sessions = rpc.Sessions.deserializeBinary(respEnvelope.getData_asU8());
       console.log(sessions.getSliversList());
 
-      const sessionsReqEnvelope2 = new sliverpb.Envelope();
-      sessionsReqEnvelope2.setType(ClientPB.MsgSessions);
+      const sessionsReqEnvelope2 = new rpc.Envelope();
+      sessionsReqEnvelope2.setType(rpc.ClientPB.MsgSessions);
       const respEnvelope2 = await rpcClient.request(sessionsReqEnvelope2);
-      const sessions2 = clientpb.Sessions.deserializeBinary(respEnvelope2.getData_asU8());
+      const sessions2 = rpc.Sessions.deserializeBinary(respEnvelope2.getData_asU8());
       console.log(sessions2.getSliversList());
     })();
 

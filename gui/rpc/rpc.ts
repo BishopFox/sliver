@@ -43,6 +43,7 @@ export class RPCClient {
     this.config = config;
   }
 
+  // Send an RPC request and get the mapped response
   async request(reqEnvelope: sliverpb.Envelope): Promise<sliverpb.Envelope> {
     return new Promise((resolve, reject) => {
       if (!this.isConnected) {
@@ -170,6 +171,7 @@ export class RPCClient {
         if (this.socket.authorized === true) {
 
           this.socket.setNoDelay(true);
+
           this.tlsObservable = new Observable(producer => {
             this.socket.on('data', (readData: Buffer) => {
               console.log(`Socket read ${readData.length} bytes`);
@@ -180,11 +182,9 @@ export class RPCClient {
           });
 
           this.tlsObserver = {
-            next: (writeData: Buffer) => {
-              console.log(`Socket write ${writeData.length} bytes`);
-              this.socket.write(writeData, () => {
-                console.log(`Socket write completed`);
-              });
+            next: (data: Buffer) => {
+              console.log(`Socket write ${data.length} bytes`);
+              this.socket.write(data);
             },
             complete: () => {},
             error: () => {},
