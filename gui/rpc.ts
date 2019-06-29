@@ -32,7 +32,8 @@ export class RPCClient {
 
   private config: RPCConfig;
   private socket: TLSSocket;
-  private tlsSubject: Subject<Buffer>;
+  private tlsObserver: Observer<Buffer>;
+  private tlsObservable: Observable<Buffer>;
   private envelopeSubject: Subject<sliverpb.Envelope>;
   private recvBuffer: Buffer;
   private isConnected = false;
@@ -49,9 +50,10 @@ export class RPCClient {
       }
       const respId = this.randomId();
       reqEnvelope.setId(respId);
-      this.envelopeSubject.subscribe((respEnvelope) => {
+      const subscription = this.envelopeSubject.subscribe((respEnvelope) => {
         console.log(`Recv Envelope with ID ${respEnvelope.getId()} (want ${respId})`);
         if (respEnvelope.getId() === respId) {
+          subscription.unsubscribe();
           resolve(respEnvelope);
         }
       });
@@ -69,27 +71,17 @@ export class RPCClient {
       }
 
       try {
-        this.tlsSubject = await this.tlsConnect();
+        await this.tlsConnect();
       } catch (error) {
         reject(error);
       }
       this.isConnected = true;
-
-      const envelopeObservable = Observable.create((obs: Observer<sliverpb.Envelope>) => {
-        this.recvBuffer = Buffer.alloc(0);
-        this.tlsSubject.subscribe((data: Buffer) => {
-          console.log(`Read ${data.length} bytes`);
-          this.recvEnvelope(obs, data);
-        });
+      this.recvBuffer = Buffer.alloc(0);
+      this.envelopeSubject = new Subject<sliverpb.Envelope>();
+      this.tlsObservable.subscribe((data: Buffer) => {
+        this.recvEnvelope(this.envelopeSubject, data);
       });
 
-      const envelopeObserver = {
-        next: (envelope: sliverpb.Envelope) => {
-          this.sendEnvelope(envelope);
-        }
-      };
-
-      this.envelopeSubject = Subject.create(envelopeObserver, envelopeObservable);
       resolve();
     });
   }
@@ -101,7 +93,7 @@ export class RPCClient {
     const dataBuffer = Buffer.from(envelope.serializeBinary());
     const sizeBuffer = this.toBytesUint32(dataBuffer.length);
     console.log(`Sending msg (${envelope.getType()}): ${dataBuffer.length} bytes ...`);
-    this.tlsSubject.next(Buffer.concat([sizeBuffer, dataBuffer]));
+    this.tlsObserver.next(Buffer.concat([sizeBuffer, dataBuffer]));
   }
 
   // This method parses out Envelopes from the recvBuffer stream, since we do not know
@@ -112,7 +104,7 @@ export class RPCClient {
   private recvEnvelope(obs: Observer<sliverpb.Envelope>, recvData: Buffer) {
     this.recvBuffer = Buffer.concat([this.recvBuffer, recvData]);
     console.log(`Current recvBuffer is ${this.recvBuffer.length} bytes...`);
-    if (4 <= this.recvBuffer.length) {
+    if (4 < this.recvBuffer.length) {
       const lenBuf = this.recvBuffer.slice(0, 4);
       // Because the creators of this language are FUCKING IDIOTS, WHY THE FUCK IS THIS A THING
       // https://stackoverflow.com/questions/8609289/convert-a-binary-nodejs-buffer-to-javascript-arraybuffer/31394257#31394257
@@ -127,7 +119,7 @@ export class RPCClient {
         console.log(`Deseralized msg Type = ${envelope.getType()}, ID = ${envelope.getId()}`);
         this.recvBuffer = Buffer.from(this.recvBuffer.slice(4 + readSize));
         obs.next(envelope);
-        this.recvEnvelope(obs, Buffer.alloc(0));  // Recursively parse
+        this.recvEnvelope(obs, Buffer.alloc(0)); // Recursively parse
       }
     }
   }
@@ -164,39 +156,43 @@ export class RPCClient {
   // This is somehow the "clean" way to do this shit...
   // tlsConnect returns a Subject that shits out Buffers
   // or takes in Buffers of an interminate size as they come
-  private tlsConnect(): Promise<Subject<Buffer>> {
+  private async tlsConnect() {
     return new Promise((resolve, reject) => {
 
       console.log(`Connecting to ${this.config.lhost}:${this.config.lport} ...`);
 
       // Conenct to the server
       this.socket = connect(this.tlsOptions);
-      this.socket.setNoDelay(true);
 
       // This event fires after the tls handshake, but we need to check `socket.authorized`
       this.socket.on('secureConnect', () => {
         console.log('RPC client connected', this.socket.authorized ? 'authorized' : 'unauthorized');
         if (this.socket.authorized === true) {
 
-          const socketObservable = Observable.create((obs: Observer<Buffer>) => {
-            this.socket.on('data', (data) => {
-              console.log(`Socket read ${data.length} bytes`);
-              obs.next(data);
+          this.socket.setNoDelay(true);
+          this.tlsObservable = new Observable(producer => {
+            this.socket.on('data', (readData: Buffer) => {
+              console.log(`Socket read ${readData.length} bytes`);
+              console.log(readData);
+              producer.next(readData);
             });
-            this.socket.on('close', obs.error.bind(obs));  // same with close/error
+            this.socket.on('close', producer.complete);
           });
 
-          const socketObserver = {
-            next: (data: Buffer) => {
-              console.log(`Socket write ${data.length} bytes`);
-              this.socket.write(data, () => {
+          this.tlsObserver = {
+            next: (writeData: Buffer) => {
+              console.log(`Socket write ${writeData.length} bytes`);
+              this.socket.write(writeData, () => {
                 console.log(`Socket write completed`);
               });
-            }
+            },
+            complete: () => {},
+            error: () => {},
           };
 
-          resolve(Subject.create(socketObserver, socketObservable));
+          resolve();
         } else {
+          this.socket.destroy();
           reject('Unauthorized connection');
         }
       });
