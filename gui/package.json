@@ -81,6 +81,7 @@
     "@angular/material": "^8.0.1",
     "file-saver": "^2.0.2",
     "font-awesome": "^4.7.0",
+    "service": "^0.1.4",
     "xterm": "^3.14.4"
   }
 }

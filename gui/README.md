@@ -14,5 +14,6 @@ npm install
 npm install -g electron-packager
 npm install -g ts-protoc-gen
 npm install -g @angular/cli
+./protobuf.sh
 npm run electron:local
 ```

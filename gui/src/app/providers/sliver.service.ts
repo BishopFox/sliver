@@ -13,18 +13,29 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { enableProdMode } from '@angular/core';
-import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
+import { Injectable } from '@angular/core';
+import { IPCService } from './ipc.service';
+import * as clientpb from '../../../rpc/pb/client_pb';
+import * as sliverpb from '../../../rpc/pb/sliver_pb';
 
-import { AppModule } from './app/app.module';
-import { AppConfig } from './environments/environment';
+@Injectable()
+export class SliverService {
 
-if (AppConfig.production) {
-  enableProdMode();
+  private ipc: IPCService;
+
+  constructor(ipc: IPCService) {
+    this.ipc = ipc;
+  }
+
+  async sessions(): Promise<clientpb.Sessions> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const sessions: clientpb.Sessions = await this.ipc.request('sliver_sessions', '');
+        resolve(sessions);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
 }
-
-platformBrowserDynamic()
-  .bootstrapModule(AppModule, {
-    preserveWhitespaces: false
-  })
-  .catch(err => console.error(err));

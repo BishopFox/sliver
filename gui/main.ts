@@ -26,12 +26,12 @@ serve = args.some(val => val === '--serve');
 async function createMainWindow() {
 
   const electronScreen = screen;
-  const size = electronScreen.getPrimaryDisplay().workAreaSize;
+  // const size = electronScreen.getPrimaryDisplay().workAreaSize;
 
   // Create the browser window.
   mainWindow = new BrowserWindow({
-    x: 0,
-    y: 0,
+    // x: 0,
+    // y: 0,
     // width: size.width,
     // height: size.height,
     width: 800,
@@ -71,33 +71,9 @@ async function createMainWindow() {
   console.log('Main window done');
 }
 
+// --------------------------------------------- [ MAIN ] ---------------------------------------------
 
 try {
-
-  console.log('Loading client config ...');
-  const rawConfig = fs.readFileSync('/Users/moloch/.sliver-client/configs/moloch_lil-peep.rip.cfg');
-  const config: rpc. RPCConfig = JSON.parse(rawConfig.toString('utf8'));
-  const rpcClient = new rpc.RPCClient(config);
-  rpcClient.connect().then(async () => {
-
-    (async function() {
-
-      const sessionsReqEnvelope = new rpc.Envelope();
-      sessionsReqEnvelope.setType(rpc.ClientPB.MsgSessions);
-
-      const respEnvelope = await rpcClient.request(sessionsReqEnvelope);
-      const sessions = rpc.Sessions.deserializeBinary(respEnvelope.getData_asU8());
-      console.log(sessions.getSliversList());
-
-      const sessionsReqEnvelope2 = new rpc.Envelope();
-      sessionsReqEnvelope2.setType(rpc.ClientPB.MsgSessions);
-      const respEnvelope2 = await rpcClient.request(sessionsReqEnvelope2);
-      const sessions2 = rpc.Sessions.deserializeBinary(respEnvelope2.getData_asU8());
-      console.log(sessions2.getSliversList());
-    })();
-
-  });
-
   // This method will be called when Electron has finished
   // initialization and is ready to create browser windows.
   // Some APIs can only be used after this event occurs.
@@ -119,11 +95,6 @@ try {
   });
 
 } catch (error) {
-  throw error;
+  console.log(error);
+  process.exit(1);
 }
-
-
-ipcMain.on('postMessage', (event) => {
-  console.log(event);
-  mainWindow.webContents.send('hi back');
-});

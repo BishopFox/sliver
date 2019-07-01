@@ -12,7 +12,9 @@ import { AppRoutingModule } from './app-routing.module';
 import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 
-import { ElectronService } from './providers/electron.service';
+import { IPCService } from './providers/ipc.service';
+import { ConfigService } from './providers/config.service';
+import { SliverService } from './providers/sliver.service';
 
 import { WebviewDirective } from './directives/webview.directive';
 import { BaseMaterialModule } from './base-material';
@@ -46,7 +48,7 @@ export function HttpLoaderFactory(http: HttpClient) {
       }
     })
   ],
-  providers: [ElectronService],
+  providers: [SliverService, ConfigService, IPCService],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

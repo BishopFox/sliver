@@ -11,11 +11,37 @@
   GNU General Public License for more details.
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-------------------------------------------------------------------------
+
+This preload script is callable from within the sandbox via postMessage,
+but should not be directly accessible since it itself is not sandboxed.
+
 */
 
-const {ipcRenderer} = require('electron');
+const { ipcRenderer } = require('electron');
 
-window.addEventListener('message', ({ data }) => {
-  console.log('Got data' + data);
-  ipcRenderer.send('postMessage', data);
+window.addEventListener('message', (event) => {
+  console.log('ipc send:');
+  console.log(event);
+  try {
+    const msg = JSON.parse(event.data);
+    if (msg.type === 'request') {
+      ipcRenderer.send('ipc', event.data);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+ipcRenderer.on('ipc', (event, data) => {
+  console.log('ipc recv:');
+  console.log(event);
+  try {
+    const msg = JSON.parse(data);
+    if (msg.type === 'response') {
+      window.postMessage(data, '*');
+    }
+  } catch (err) {
+    console.error(err);
+  }
 });

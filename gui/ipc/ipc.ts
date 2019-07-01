@@ -13,18 +13,35 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { enableProdMode } from '@angular/core';
-import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
+import { ipcMain } from 'electron';
+import * as config from './config.handlers';
+import * as sliver from './sliver.handlers';
 
-import { AppModule } from './app/app.module';
-import { AppConfig } from './environments/environment';
-
-if (AppConfig.production) {
-  enableProdMode();
+interface IPCMessage {
+  id: number;
+  type: string;
+  method: string;
+  data: string;
 }
 
-platformBrowserDynamic()
-  .bootstrapModule(AppModule, {
-    preserveWhitespaces: false
-  })
-  .catch(err => console.error(err));
+const IPCHanadlers = {
+
+  // Config Handlers
+  'config_list': config.list,
+
+  // Sliver Handlers
+  'sliver_sessions': sliver.sessions,
+
+};
+
+
+ipcMain.on('ipc', (event: any, data: any) => {
+  const msg: IPCMessage = JSON.parse(data);
+  const result = IPCHanadlers[msg.method](JSON.parse(msg.data));
+  event.sender.send('ipc', {
+    id: msg.id,
+    type: 'response',
+    method: msg.method,
+    data: JSON.stringify(result)
+  });
+});
