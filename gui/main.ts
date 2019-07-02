@@ -37,6 +37,9 @@ async function createMainWindow() {
     height: 600,
     webPreferences: {
       sandbox: true,
+      webSecurity: true,
+      contextIsolation: true,
+      allowRunningInsecureContent: false,
       nodeIntegration: false,
       nodeIntegrationInWorker: false,
       preload: path.join(__dirname, 'preload.js')
