@@ -30,17 +30,25 @@ export interface RPCConfig {
 
 export class RPCClient {
 
-  private config: RPCConfig;
+  private _config: RPCConfig;
   private socket: TLSSocket;
   private tlsObserver: Observer<Buffer>;
   private tlsObservable: Observable<Buffer>;
   private envelopeSubject: Subject<sliverpb.Envelope>;
   private recvBuffer: Buffer;
-  private isConnected = false;
+  private _isConnected = false;
   private readonly defaultTimeout = 30 * 1000000000; // 30 seconds (in nano)
 
   constructor(config: RPCConfig) {
-    this.config = config;
+    this._config = config;
+  }
+
+  get config(): RPCConfig {
+    return this._config;
+  }
+
+  get isConnected(): Boolean {
+    return this._isConnected;
   }
 
   // Send an RPC request and get the mapped response
@@ -65,7 +73,7 @@ export class RPCClient {
   // This method returns a Subject that shits out
   // or takes in pb.Envelopes and abstracts the byte
   // non-sense for your.
-  async connect() {
+  async connect(): Promise<any> {
     return new Promise(async (resolve, reject) => {
       if (this.isConnected) {
         reject('Already connected to rpc server');
@@ -76,7 +84,7 @@ export class RPCClient {
       } catch (error) {
         reject(error);
       }
-      this.isConnected = true;
+      this._isConnected = true;
       this.recvBuffer = Buffer.alloc(0);
       this.envelopeSubject = new Subject<sliverpb.Envelope>();
       this.tlsObservable.subscribe((data: Buffer) => {

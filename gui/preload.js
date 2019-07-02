@@ -21,25 +21,26 @@ but should not be directly accessible since it itself is not sandboxed.
 const { ipcRenderer } = require('electron');
 
 window.addEventListener('message', (event) => {
-  console.log('ipc send:');
-  console.log(event);
   try {
     const msg = JSON.parse(event.data);
+    console.log('ipc send:');
+    console.log(event);
     if (msg.type === 'request') {
-      ipcRenderer.send('ipc', event.data);
+      ipcRenderer.send('ipc', msg);
     }
   } catch (err) {
     console.error(err);
   }
 });
 
-ipcRenderer.on('ipc', (event, data) => {
-  console.log('ipc recv:');
-  console.log(event);
+ipcRenderer.on('ipc', (event, msg) => {
+  console.log('msg:');
+  console.log(msg);
   try {
-    const msg = JSON.parse(data);
     if (msg.type === 'response') {
-      window.postMessage(data, '*');
+      console.log('ipc recv:');
+      console.log(event);
+      window.postMessage(JSON.stringify(msg), '*');
     }
   } catch (err) {
     console.error(err);

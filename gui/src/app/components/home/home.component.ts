@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { ConfigService } from '../../providers/config.service';
 
 export interface Config {
   value: string;
@@ -12,11 +13,17 @@ export interface Config {
 })
 export class HomeComponent implements OnInit {
 
+  private configService: ConfigService;
 
-
-  constructor() { }
+  constructor(configService: ConfigService) {
+    this.configService = configService;
+  }
 
   ngOnInit() {
+    console.log('Listing configs ...');
+    this.configService.listConfigs().then((configs) => {
+      console.log(configs);
+    });
   }
 
 }

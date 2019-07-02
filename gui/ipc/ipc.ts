@@ -11,37 +11,95 @@
   GNU General Public License for more details.
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+--------------------------------------------------------------------------
+
+Maps IPC calls to RPC calls, and provides other local operations such as
+listing/selecting configs to the sandboxed code.
+
 */
 
 import { ipcMain } from 'electron';
-import * as config from './config.handlers';
-import * as sliver from './sliver.handlers';
+import { RPCClient, RPCConfig } from '../rpc';
+import { ConfigHandlers } from './config.handlers';
+import { ServerHandlers } from './server.handlers';
+
+
+let rpc: RPCClient;
+
+// IPC Methods used to start/interact with the RPCClient
+class RPCClientHandlers {
+
+  static rpc_start(config: RPCConfig): Promise<any> {
+    return new Promise(async (resolve, reject) => {
+      rpc = new RPCClient(config);
+      await rpc.connect();
+      resolve(null);
+    });
+  }
+
+  static rpc_activeConfig(): Promise<RPCConfig|null> {
+    return new Promise((resolve) => {
+      resolve(rpc ? rpc.config : null);
+    });
+  }
+
+}
+
+function dispatchIPC(method: string, data: string): Promise<Object|null> {
+  return new Promise(async (resolve, reject) => {
+
+    console.log(`IPC Dispatch: ${method} - ${data}`);
+
+    // IPC handlers must start with "namespace_" this helps ensure we do not inadvertently
+    // expose methods that we don't want exposed to the sandboxed code.
+    if (['rpc_', 'config_', 'server_'].some(prefix => method.startsWith(prefix))) {
+      if (typeof RPCClientHandlers[method] === 'function') {
+        const result: Object|null = await RPCClientHandlers[method](data);
+        resolve(result);
+        return;
+      } else if (typeof ConfigHandlers[method] === 'function') {
+        const result: Object|null = await ConfigHandlers[method](data);
+        resolve(result);
+        return;
+      } else if (typeof ServerHandlers[method] === 'function') {
+        if (rpc && rpc.isConnected) {
+          const result: Object|null = await ServerHandlers[method](rpc, data);
+          resolve(result);
+          return;
+        }
+        reject('RPC client is not connected to server');
+      }
+      reject(`No handler for method: ${method}`);
+    } else {
+      reject('Invalid method handler namepsace');
+    }
+
+  });
+}
 
 interface IPCMessage {
   id: number;
   type: string;
-  method: string;
+  method: string; // Identifies the target method and in the response if the method call was a success/error
   data: string;
 }
 
-const IPCHanadlers = {
-
-  // Config Handlers
-  'config_list': config.list,
-
-  // Sliver Handlers
-  'sliver_sessions': sliver.sessions,
-
-};
-
-
-ipcMain.on('ipc', (event: any, data: any) => {
-  const msg: IPCMessage = JSON.parse(data);
-  const result = IPCHanadlers[msg.method](JSON.parse(msg.data));
-  event.sender.send('ipc', {
-    id: msg.id,
-    type: 'response',
-    method: msg.method,
-    data: JSON.stringify(result)
+export function startIPCHandlers() {
+  ipcMain.on('ipc', async (event: any, msg: IPCMessage) => {
+    dispatchIPC(msg.method, msg.data).then((result) => {
+      event.sender.send('ipc', {
+        id: msg.id,
+        type: 'response',
+        method: 'success',
+        data: JSON.stringify(result)
+      });
+    }).catch((err) => {
+      event.sender.send('ipc', {
+        id: msg.id,
+        type: 'response',
+        method: 'error',
+        data: err.toString()
+      });
+    });
   });
-});
+}

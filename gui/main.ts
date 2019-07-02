@@ -13,11 +13,10 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { app, ipcMain, BrowserWindow, screen } from 'electron';
-import * as fs from 'fs';
+import { app, BrowserWindow, screen } from 'electron';
+import { startIPCHandlers } from './ipc';
 import * as path from 'path';
 import * as url from 'url';
-import * as rpc from './rpc';
 
 let mainWindow, serve;
 const args = process.argv.slice(1);
@@ -77,7 +76,10 @@ try {
   // This method will be called when Electron has finished
   // initialization and is ready to create browser windows.
   // Some APIs can only be used after this event occurs.
-  app.on('ready', createMainWindow);
+  app.on('ready', () => {
+    startIPCHandlers();
+    createMainWindow();
+  });
 
   // Quit when all windows are closed.
   app.on('window-all-closed', () => {

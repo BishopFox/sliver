@@ -57,12 +57,12 @@ export class IPCService {
           resolve(JSON.parse(msg.data));
         }
       });
-      window.postMessage({
+      window.postMessage(JSON.stringify({
         id: msgId,
         type: 'request',
         method: method,
         data: data ? JSON.stringify(data) : '',
-      }, '*');
+      }), '*');
     });
   }
 
