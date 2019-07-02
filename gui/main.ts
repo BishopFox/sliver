@@ -36,7 +36,9 @@ async function createMainWindow() {
     width: 800,
     height: 600,
     webPreferences: {
+      sandbox: true,
       nodeIntegration: false,
+      nodeIntegrationInWorker: false,
       preload: path.join(__dirname, 'preload.js')
     },
   });
