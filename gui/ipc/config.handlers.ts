@@ -46,7 +46,7 @@ export class ConfigHandlers {
     });
   }
 
-  static config_configForLHost(lhost: string): Promise<RPCConfig> {
+  static configByLHost(lhost: string): Promise<RPCConfig> {
     return new Promise(async (resolve, reject) => {
       const configs = await this.config_list();
       for (let index = 0; index < configs.length; ++index) {

@@ -24,6 +24,12 @@ import * as clientpb from '../rpc/pb/client_pb';
 
 export class ServerHandlers {
 
+  static server_activeConfig(rpc: RPCClient, _: string): Promise<Object|null> {
+    return new Promise(async (resolve) => {
+      resolve(rpc.config);
+    });
+  }
+
   static server_sessions(rpc: RPCClient, _: string): Promise<Object|null> {
     return new Promise(async (resolve) => {
       const reqEnvelope = new sliverpb.Envelope();

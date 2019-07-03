@@ -23,42 +23,29 @@ import { RPCConfig } from '../../../rpc';
 })
 export class ConfigService {
 
-  private ipc: IPCService;
-
-  constructor(ipc: IPCService) {
-    this.ipc = ipc;
-  }
+  constructor(private _ipc: IPCService) { }
 
   async getActiveConfig(): Promise<RPCConfig> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const config: RPCConfig = await this.ipc.request('config_get', null);
+    return new Promise(async (resolve) => {
+      this._ipc.request('server_activeConfig', null).then((config) => {
         resolve(config);
-      } catch (err) {
-        reject(err);
-      }
+      }).catch(() => {
+        resolve(null);
+      });
     });
   }
 
   async setActiveConfig(config: RPCConfig) {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const data = await this.ipc.request('config_set', config);
-        resolve(data);
-      } catch (err) {
-        reject(err);
-      }
+    return new Promise(async (resolve) => {
+      const data = await this._ipc.request('rpc_start', config);
+      resolve(data);
     });
   }
 
   async listConfigs(): Promise<RPCConfig[]> {
     return new Promise(async (resolve, reject) => {
-      try {
-        const configs: RPCConfig[] = await this.ipc.request('config_list', null);
-        resolve(configs);
-      } catch (err) {
-        reject(err);
-      }
+      const configs: RPCConfig[] = await this._ipc.request('config_list', null);
+      resolve(configs);
     });
   }
 

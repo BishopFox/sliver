@@ -49,12 +49,16 @@ export class IPCService {
   }
 
   async request(method: string, data: Object|null): Promise<any> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const msgId = this.randomId();
       const subscription = this.ipcMessageSubject.subscribe((msg: IPCMessage) => {
         if (msg.id === msgId) {
           subscription.unsubscribe();
-          resolve(JSON.parse(msg.data));
+          if (msg.method !== 'error') {
+            resolve(JSON.parse(msg.data));
+          } else {
+            reject(msg.data); // Error responses are just strings
+          }
         }
       });
       window.postMessage(JSON.stringify({

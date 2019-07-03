@@ -30,9 +30,11 @@ let rpc: RPCClient;
 class RPCClientHandlers {
 
   static rpc_start(config: RPCConfig): Promise<any> {
-    return new Promise(async (resolve, reject) => {
+    return new Promise(async (resolve) => {
+      console.log(`Connecting to ${config.lhost}:${config.lport} ...`);
       rpc = new RPCClient(config);
       await rpc.connect();
+      console.log('Connection successful');
       resolve(null);
     });
   }

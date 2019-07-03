@@ -1,0 +1,14 @@
+<mat-form-field class="example-user-input">
+<mat-select placeholder="Tooltip position" [formControl]="position">
+    <mat-option *ngFor="let positionOption of positionOptions" [value]="positionOption">
+    {{positionOption}}
+    </mat-option>
+</mat-select>
+</mat-form-field>
+
+<button mat-raised-button
+        matTooltip="Info about the action"
+        [matTooltipPosition]="position.value"
+        aria-label="Button that displays a tooltip in various positions">
+    Action
+</button>

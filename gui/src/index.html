@@ -5,14 +5,16 @@
   <title>Sliver</title>
   <base href="./">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-eval'; img-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self';">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
 </head>
 <body>
   <app-root>
-    <h1 class="text-center">
-      <i class="fa fa-fw fa-spinner fa-spin"></i>
-      Loading...
+    <h1>
+      <div>
+        <i class="fas fa-spinner fa-spin"></i>
+        Loading...
+      </div>
     </h1>
   </app-root>
 </body>

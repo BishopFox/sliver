@@ -18,7 +18,9 @@ import { IPCService } from './ipc.service';
 import * as clientpb from '../../../rpc/pb/client_pb';
 import * as sliverpb from '../../../rpc/pb/sliver_pb';
 
-@Injectable()
+@Injectable({
+  providedIn: 'root'
+})
 export class SliverService {
 
   private ipc: IPCService;

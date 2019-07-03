@@ -14,9 +14,15 @@
 */
 
 import { NgModule } from '@angular/core';
-import { MatButtonModule, MatCheckboxModule, MatOptionModule, MatSelectModule, MatFormFieldModule } from '@angular/material';
+import {
+  MatButtonModule, MatCheckboxModule, MatOptionModule, MatSelectModule, MatMenuModule,
+  MatFormFieldModule, MatTooltipModule, MatToolbarModule, MatIconModule, MatProgressSpinnerModule
+} from '@angular/material';
 
-const modules = [MatButtonModule, MatCheckboxModule, MatOptionModule, MatSelectModule, MatFormFieldModule];
+const modules = [
+  MatButtonModule, MatCheckboxModule, MatOptionModule, MatSelectModule, MatMenuModule,
+  MatFormFieldModule, MatTooltipModule, MatToolbarModule, MatIconModule, MatProgressSpinnerModule
+];
 
 @NgModule({
   imports: modules,

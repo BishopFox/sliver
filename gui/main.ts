@@ -36,13 +36,18 @@ async function createMainWindow() {
     width: 800,
     height: 600,
     webPreferences: {
+      // I think I got all of the settings we want here to reasonably lock down
+      // the BrowserWindow - https://electronjs.org/docs/api/browser-window
       sandbox: true,
       webSecurity: true,
       contextIsolation: true,
+      webviewTag: false,
+      enableRemoteModule: false,
       allowRunningInsecureContent: false,
       nodeIntegration: false,
       nodeIntegrationInWorker: false,
-      preload: path.join(__dirname, 'preload.js')
+      nodeIntegrationInSubFrames: false,
+      preload: path.join(__dirname, 'preload.js'),
     },
   });
 

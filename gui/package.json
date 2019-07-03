@@ -20,7 +20,7 @@
     "ng:serve:web": "npm run postinstall:web && ng serve -o",
     "electron:serve-tsc": "tsc -p tsconfig-serve.json",
     "electron:serve": "wait-on http-get://localhost:4200/ && npm run electron:serve-tsc && electron . --serve",
-    "electron:local": "npm run build:prod && electron .",
+    "electron:local": "npm run build:dev && electron .",
     "electron:linux": "npm run build:prod && electron-builder build --linux",
     "electron:windows": "npm run build:prod && electron-builder build --windows",
     "electron:mac": "npm run build:prod && electron-builder build --mac",
@@ -79,9 +79,10 @@
     "@angular/animations": "^8.0.3",
     "@angular/cdk": "^8.0.1",
     "@angular/material": "^8.0.1",
+    "@fortawesome/fontawesome-free": "^5.9.0",
     "file-saver": "^2.0.2",
-    "font-awesome": "^4.7.0",
-    "service": "^0.1.4",
+    "material-design-icons": "^3.0.1",
+    "moment": "^2.24.0",
     "xterm": "^3.14.4"
   }
 }
