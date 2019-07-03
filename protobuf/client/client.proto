@@ -28,6 +28,7 @@ message Sliver {
   string Filename = 12; // Argv[0]
   string LastCheckin = 13;
   string ActiveC2 = 14;
+  string Version = 15;
 }
 
 message SliverC2 {

