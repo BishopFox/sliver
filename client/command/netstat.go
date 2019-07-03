@@ -86,6 +86,11 @@ func displayEntries(entries []*sliverpb.SockTabEntry) {
 		}
 		saddr := lookup(e.LocalAddr)
 		daddr := lookup(e.RemoteAddr)
-		fmt.Printf("%-5s %-23.23s %-23.23s %-12s %-16s\n", e.Proto, saddr, daddr, e.SkState, p)
+		if e.Proc != nil && e.Proc.Pid == ActiveSliver.Sliver.PID {
+			fmt.Printf("%s%-5s %-23.23s %-23.23s %-12s %-16s%s\n", green, e.Proto, saddr, daddr, e.SkState, p, normal)
+		} else {
+
+			fmt.Printf("%-5s %-23.23s %-23.23s %-12s %-16s\n", e.Proto, saddr, daddr, e.SkState, p)
+		}
 	}
 }
