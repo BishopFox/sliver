@@ -45,6 +45,7 @@ type Sliver struct {
 	UID           string
 	GID           string
 	Os            string
+	Version       string
 	Arch          string
 	Transport     string
 	RemoteAddress string
@@ -73,6 +74,7 @@ func (s *Sliver) ToProtobuf() *clientpb.Sliver {
 		UID:           s.UID,
 		GID:           s.GID,
 		OS:            s.Os,
+		Version:       s.Version,
 		Arch:          s.Arch,
 		Transport:     s.Transport,
 		RemoteAddress: s.RemoteAddress,

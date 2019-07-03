@@ -45,6 +45,7 @@ func info(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(bold+"           GID: %s%s\n", normal, sliver.GID)
 		fmt.Printf(bold+"           PID: %s%d\n", normal, sliver.PID)
 		fmt.Printf(bold+"            OS: %s%s\n", normal, sliver.OS)
+		fmt.Printf(bold+"       Version: %s%s\n", normal, sliver.Version)
 		fmt.Printf(bold+"          Arch: %s%s\n", normal, sliver.Arch)
 		fmt.Printf(bold+"Remote Address: %s%s\n", normal, sliver.RemoteAddress)
 	} else {

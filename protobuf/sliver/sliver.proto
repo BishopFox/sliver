@@ -23,6 +23,7 @@ message Register {
   int32 Pid = 8;
   string Filename = 9;
   string ActiveC2 = 10;
+  string Version = 11;
 }
 
 message Ping { int32 Nonce = 1; }

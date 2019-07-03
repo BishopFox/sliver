@@ -41,6 +41,7 @@ import (
 	"github.com/bishopfox/sliver/sliver/handlers"
 	"github.com/bishopfox/sliver/sliver/limits"
 	"github.com/bishopfox/sliver/sliver/transports"
+	"github.com/bishopfox/sliver/sliver/version"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -157,6 +158,7 @@ func getRegisterSliver() *pb.Envelope {
 		Uid:      currentUser.Uid,
 		Gid:      currentUser.Gid,
 		Os:       runtime.GOOS,
+		Version:  version.GetVersion(),
 		Arch:     runtime.GOARCH,
 		Pid:      int32(os.Getpid()),
 		Filename: filename,
