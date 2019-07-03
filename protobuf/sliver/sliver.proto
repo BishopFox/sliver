@@ -6,8 +6,8 @@ message Envelope {
   uint32 Type = 1; // Message type
   uint64 ID = 2;   // Resp ID
   int64 Timeout = 3;
-  
-  bytes Data = 9;  // Actual message data
+
+  bytes Data = 9; // Actual message data
 
   string Err = 4;
 }
@@ -62,9 +62,7 @@ message NetInterface {
   repeated string IPAddresses = 4;
 }
 
-message IfconfigReq { 
-  uint32 SliverID = 9;
-}
+message IfconfigReq { uint32 SliverID = 9; }
 
 message Ifconfig { repeated NetInterface NetInterfaces = 1; }
 
@@ -177,9 +175,7 @@ message GetSystemReq {
   uint32 SliverID = 9;
 }
 
-message GetSystem {
-  string Output = 1;
-}
+message GetSystem { string Output = 1; }
 
 message ElevateReq {
   int32 Timeout = 8;
@@ -215,6 +211,31 @@ message Migrate {
   bool Success = 1;
   string Err = 2;
 }
+
+message NetstatRequest {
+  bool TCP = 1;
+  bool UDP = 2;
+  bool IP4 = 3;
+  bool IP6 = 5;
+  bool Listening = 6;
+  uint32 SliverID = 9;
+}
+
+message SockTabEntry {
+  message SockAddr {
+    string Ip = 1;
+    uint32 Port = 2;
+  }
+  SockAddr LocalAddr = 1;
+  SockAddr RemoteAddr = 2;
+  string SkState = 3;
+  uint32 UID = 4;
+  Process Proc = 5;
+  string Proto = 6;
+}
+
+message NetstatResponse { repeated SockTabEntry Entries = 1; }
+
 // DNS Specific messages
 message DNSSessionInit { bytes Key = 1; }
 

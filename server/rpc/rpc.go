@@ -86,6 +86,7 @@ var (
 		sliverpb.MsgUploadReq:   rpcUpload,
 
 		sliverpb.MsgIfconfigReq: rpcIfconfig,
+		sliverpb.MsgNetstatReq:  rpcNetstat,
 
 		sliverpb.MsgShellReq: rpcShell,
 

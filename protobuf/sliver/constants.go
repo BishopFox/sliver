@@ -112,4 +112,7 @@ const (
 
 	// MsgIfconfigReq - Ifconfig (network interface config) request
 	MsgIfconfigReq
+
+	// MsgNetstatReq - Netstat request
+	MsgNetstatReq
 )

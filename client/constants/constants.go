@@ -99,6 +99,7 @@ const (
 	DownloadStr = "download"
 	UploadStr   = "upload"
 	IfconfigStr = "ifconfig"
+	NetstatStr  = "netstat"
 
 	ProcdumpStr         = "procdump"
 	ImpersonateStr      = "impersonate"
