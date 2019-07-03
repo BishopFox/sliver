@@ -118,7 +118,6 @@ export class RPCClient {
       // Because the creators of this language are FUCKING IDIOTS, WHY THE FUCK IS THIS A THING
       // https://stackoverflow.com/questions/8609289/convert-a-binary-nodejs-buffer-to-javascript-arraybuffer/31394257#31394257
       const lenBufView = new DataView(lenBuf.buffer.slice(lenBuf.byteOffset, lenBuf.byteOffset + lenBuf.byteLength));
-      // console.log(lenBuf);
       const readSize = lenBufView.getUint32(0, true);  // byteOffset = 0; litteEndian = true
       console.log(`Recv msg length: ${readSize} bytes`);
       if (readSize <= 4 + this.recvBuffer.length) {

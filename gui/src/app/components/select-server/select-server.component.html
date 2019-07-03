@@ -1,12 +1,29 @@
-<h1 mat-dialog-title>Select Server</h1>
-<div mat-dialog-content>
-    <p>Select a server configuration:</p>
-    <mat-form-field>
-        <input matInput [(ngModel)]="data">
-    </mat-form-field>
-</div>
-<div mat-dialog-actions>
-    <button mat-button [mat-dialog-close]="data" cdkFocusInitial>
-        Okay
-    </button>
-</div>
+<mat-grid-list [@fadeInOut] cols="3" rowHeight="2:1">
+    
+    <!-- Row #1 -->
+    <mat-grid-tile></mat-grid-tile>
+    <mat-grid-tile></mat-grid-tile>
+    <mat-grid-tile></mat-grid-tile>
+
+    <!-- Row #2 -->
+    <mat-grid-tile></mat-grid-tile>
+    <mat-grid-tile>
+        <div *ngIf="!configs || connecting" class="grid-container">
+            <mat-progress-spinner mode="indeterminate">
+            </mat-progress-spinner>
+        </div>
+        <div *ngIf="configs && !connecting" class="grid-container">
+            <mat-form-field style="width: 100%;">
+                <mat-error *ngIf="selectConfigForm.invalid">You must make a selection</mat-error>
+                <mat-select placeholder="Select a Server" [formControl]="selectConfigForm">
+                    <mat-option value=""></mat-option>
+                    <mat-option *ngFor="let config of configs" [value]="config">{{ config.lhost }} ({{ config.operator }})</mat-option> 
+                </mat-select>
+            </mat-form-field>
+            <button mat-button [disabled]="selectConfigForm.invalid" (click)="onSelectedConfig(selectConfigForm.value)">
+                Connect
+            </button>
+        </div>
+    </mat-grid-tile>
+    <mat-grid-tile></mat-grid-tile>
+</mat-grid-list>

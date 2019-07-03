@@ -14,27 +14,26 @@
 */
 
 import { Component, OnInit } from '@angular/core';
-import { FADE_IN_OUT } from '../../shared/animations';
-import { MatDialog } from '@angular/material/dialog';
 
-import { RPCConfig } from '../../../../rpc';
-import { SelectServerComponent } from '../select-server/select-server.component';
 import { ConfigService } from '../../providers/config.service';
 
 
 @Component({
-  selector: 'app-home',
-  templateUrl: './home.component.html',
-  styleUrls: ['./home.component.scss'],
-  animations: [FADE_IN_OUT]
+  selector: 'app-top-menu',
+  templateUrl: './top-menu.component.html',
+  styleUrls: ['./top-menu.component.scss']
 })
-export class HomeComponent implements OnInit {
+export class TopMenuComponent implements OnInit {
 
-  config: RPCConfig;
+  isConnected = false;
 
   constructor(private _configService: ConfigService) { }
 
-  ngOnInit() {
+  ngOnInit() { }
+
+  async checkIsConnected() {
+    const activeConfig = await this._configService.getActiveConfig();
+    this.isConnected = activeConfig !== null ? true : false;
   }
 
 }
