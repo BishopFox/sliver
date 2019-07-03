@@ -20,7 +20,7 @@ import { BaseMaterialModule } from './base-material';
 
 import { AppComponent } from './app.component';
 import { HomeComponent } from './components/home/home.component';
-import { ConfigComponent } from './components/config/config.component';
+import { SelectServerComponent } from './components/select-server/select-server.component';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -31,7 +31,7 @@ export function HttpLoaderFactory(http: HttpClient) {
   declarations: [
     AppComponent,
     HomeComponent,
-    ConfigComponent
+    SelectServerComponent
   ],
   imports: [
     BrowserModule,
@@ -50,6 +50,7 @@ export function HttpLoaderFactory(http: HttpClient) {
     })
   ],
   providers: [SliverService, ConfigService, IPCService],
-  bootstrap: [AppComponent]
+  bootstrap: [AppComponent],
+  entryComponents: [SelectServerComponent]
 })
 export class AppModule { }

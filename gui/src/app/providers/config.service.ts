@@ -43,7 +43,7 @@ export class ConfigService {
   }
 
   async listConfigs(): Promise<RPCConfig[]> {
-    return new Promise(async (resolve, reject) => {
+    return new Promise(async (resolve) => {
       const configs: RPCConfig[] = await this._ipc.request('config_list', null);
       resolve(configs);
     });

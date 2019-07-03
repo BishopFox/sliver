@@ -4,15 +4,12 @@ import { Routes, RouterModule } from '@angular/router';
 import { ActiveConfig } from './app-routing-guards.module';
 
 import { HomeComponent } from './components/home/home.component';
-import { ConfigComponent } from './components/config/config.component';
+
 
 const routes: Routes = [
 
-    // Can activate without config
-    {path: 'config', component: ConfigComponent},
-
     // Requires active config
-    {path: '', component: HomeComponent, canActivate: [ActiveConfig]}
+    { path: '', component: HomeComponent }
 
 ];
 

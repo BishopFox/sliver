@@ -16,12 +16,14 @@
 import { NgModule } from '@angular/core';
 import {
   MatButtonModule, MatCheckboxModule, MatOptionModule, MatSelectModule, MatMenuModule,
-  MatFormFieldModule, MatTooltipModule, MatToolbarModule, MatIconModule, MatProgressSpinnerModule
+  MatFormFieldModule, MatTooltipModule, MatToolbarModule, MatIconModule, MatProgressSpinnerModule,
+  MatDialogModule
 } from '@angular/material';
 
 const modules = [
   MatButtonModule, MatCheckboxModule, MatOptionModule, MatSelectModule, MatMenuModule,
-  MatFormFieldModule, MatTooltipModule, MatToolbarModule, MatIconModule, MatProgressSpinnerModule
+  MatFormFieldModule, MatTooltipModule, MatToolbarModule, MatIconModule, MatProgressSpinnerModule,
+  MatDialogModule
 ];
 
 @NgModule({

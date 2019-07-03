@@ -1,13 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
 import { FADE_IN_OUT } from '../../shared/animations';
+import { MatDialog } from '@angular/material/dialog';
 
 import { ConfigService } from '../../providers/config.service';
 
-export interface Config {
-  value: string;
-  viewValue: string;
-}
+import { SelectServerComponent } from '../select-server/select-server.component';
+
 
 @Component({
   selector: 'app-home',
@@ -17,14 +16,29 @@ export interface Config {
 })
 export class HomeComponent implements OnInit {
 
-  constructor(private _configService: ConfigService,
+  lhost: string;
+
+  constructor(public dialog: MatDialog,
+              private _configService: ConfigService,
               private _fb: FormBuilder) { }
 
-  ngOnInit() {
-    console.log('Listing configs ...');
-    this._configService.listConfigs().then((configs) => {
-      console.log(configs);
+  openDialog(): void {
+    const dialogRef = this.dialog.open(SelectServerComponent, {
+      width: '250px',
+      data: {lhost: this.lhost}
     });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result === undefined) {
+        this.openDialog();
+      } else {
+        this.lhost = result;
+      }
+    });
+  }
+
+  ngOnInit() {
+    this.openDialog();
   }
 
 }

@@ -19,8 +19,7 @@ export class ActiveConfig implements CanActivate {
       if (activeConfig !== null) {
         resolve(true);
       } else {
-        console.log('Client is not authenticated, redirecting to config');
-        this._router.navigate(['config']);
+        this._router.navigate(['']);
         resolve(false);
       }
     });
