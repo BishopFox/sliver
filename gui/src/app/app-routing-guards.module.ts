@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { CanActivate } from '@angular/router';
 import { Router } from '@angular/router';
 
-import { ConfigService } from './providers/config.service';
+import { ClientService } from './providers/client.service';
 
 
 @Injectable({
@@ -11,11 +11,11 @@ import { ConfigService } from './providers/config.service';
 export class ActiveConfig implements CanActivate {
 
   constructor(private _router: Router,
-              private _configService: ConfigService) { }
+              private _clientService: ClientService) { }
 
   canActivate(): Promise<boolean> {
     return new Promise(async (resolve) => {
-      const activeConfig = await this._configService.getActiveConfig();
+      const activeConfig = await this._clientService.getActiveConfig();
       if (activeConfig !== null) {
         resolve(true);
       } else {

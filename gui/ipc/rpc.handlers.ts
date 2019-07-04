@@ -24,13 +24,17 @@ import * as clientpb from '../rpc/pb/client_pb';
 
 export class RPCHandlers {
 
+  static base64encode(data: Uint8Array): string {
+    return Buffer.from(data).toString('base64');
+  }
+
   static rpc_sessions(rpc: RPCClient, _: string): Promise<Object|null> {
     return new Promise(async (resolve) => {
       const reqEnvelope = new sliverpb.Envelope();
       reqEnvelope.setType(ClientPB.MsgSessions);
       const respEnvelope = await rpc.request(reqEnvelope);
       const sessions = clientpb.Sessions.deserializeBinary(respEnvelope.getData_asU8());
-      resolve(sessions.toObject());
+      resolve({'pb': this.base64encode(sessions.serializeBinary())});
     });
   }
 
@@ -40,11 +44,11 @@ export class RPCHandlers {
       reqEnvelope.setType(ClientPB.MsgJobs);
       const respEnvelope = await rpc.request(reqEnvelope);
       const jobs = clientpb.Jobs.deserializeBinary(respEnvelope.getData_asU8());
-      resolve(jobs.toObject());
+      resolve({'pb': this.base64encode(jobs.serializeBinary())});
     });
   }
 
-  static rpc_generate(rpc: RPCClient, args: string): Promise<Object | null> {
+  static rpc_generate(rpc: RPCClient, args: string): Promise<Object|null> {
     return new Promise(async (resolve) => {
       const reqEnvelope = new sliverpb.Envelope();
       reqEnvelope.setType(ClientPB.MsgGenerate);
@@ -57,7 +61,7 @@ export class RPCHandlers {
       reqEnvelope.setData(data);
       const respEnvelope = await rpc.request(reqEnvelope);
       const generated: clientpb.Generate = clientpb.Generate.deserializeBinary(respEnvelope.getData_asU8());
-      resolve(generated.toObject());
+      resolve({'pb': this.base64encode(generated.serializeBinary())});
     });
   }
 }

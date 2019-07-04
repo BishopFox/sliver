@@ -21,6 +21,10 @@ import { BehaviorSubject } from 'rxjs';
 import { RPCConfig } from '../../../rpc';
 
 
+interface RPCResponse {
+  pb: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -28,11 +32,21 @@ export class SliverService {
 
   constructor(private _ipc: IPCService) { }
 
+  // Holy shit, FUCK JAVASCRIPT
+  decodeResp(response: RPCResponse): Uint8Array {
+    const byteCharacters = atob(response.pb);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let index = 0; index < byteCharacters.length; index++) {
+        byteNumbers[index] = byteCharacters.charCodeAt(index);
+    }
+    return new Uint8Array(byteNumbers);
+  }
+
   async sessions(): Promise<clientpb.Sessions> {
     return new Promise(async (resolve, reject) => {
       try {
-        const sessions: clientpb.Sessions = await this._ipc.request('rpc_sessions', '');
-        resolve(sessions);
+        const resp: RPCResponse = await this._ipc.request('rpc_sessions', '');
+        resolve(clientpb.Sessions.deserializeBinary(this.decodeResp(resp)));
       } catch (err) {
         reject(err);
       }

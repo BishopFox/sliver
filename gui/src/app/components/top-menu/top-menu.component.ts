@@ -15,7 +15,7 @@
 
 import { Component, OnInit } from '@angular/core';
 
-import { IPCService } from '../../providers/ipc.service';
+import { ClientService } from '../../providers/client.service';
 
 
 @Component({
@@ -27,12 +27,16 @@ export class TopMenuComponent implements OnInit {
 
   isConnected = false;
 
-  constructor(private _ipc: IPCService) { }
+  constructor(private _clientService: ClientService) { }
 
   ngOnInit() {
-    this._ipc.isConnected$.subscribe((state) => {
+    this._clientService.isConnected$.subscribe((state) => {
       this.isConnected = state;
     });
+  }
+
+  onExit() {
+    this._clientService.exit();
   }
 
 }

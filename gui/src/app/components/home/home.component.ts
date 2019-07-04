@@ -30,12 +30,7 @@ export class HomeComponent implements OnInit {
   constructor(private _sliver: SliverService) { }
 
   ngOnInit() {
-    this.getSessions();
-  }
 
-  async getSessions() {
-    const sessions = await this._sliver.sessions();
-    console.log(sessions);
   }
 
 }

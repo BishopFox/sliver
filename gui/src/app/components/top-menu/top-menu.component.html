@@ -1,6 +1,27 @@
 <mat-toolbar *ngIf="isConnected" color="primary">
-    <span>
+    <span [routerLink]="['/home']">
         <i class="fas fa-fw fa-dragon"></i>
         Sliver
     </span>
+    <span>
+        &nbsp;&nbsp; <!-- Fix weird spacing, because I suck at CSS -->
+    </span>
+    <button mat-button [matMenuTriggerFor]="generate">Generate</button>
+    <mat-menu #generate="matMenu">
+      <button mat-menu-item [routerLink]="['/generate/new-implant']">New Implant</button>
+      <button mat-menu-item [routerLink]="['/generate/history']">History</button>
+    </mat-menu>
+    <button mat-button [routerLink]="['/sessions']">Sessions</button>
+    <button mat-button>Infrastructure</button>
+
+    <span class="pull-right-spacer"></span>
+
+    <button mat-button [matMenuTriggerFor]="settings">
+        <i class="fas fa-fw fa-cog"></i>
+    </button>
+    <mat-menu #settings="matMenu">
+        <button mat-menu-item (click)="onExit()">
+            Exit
+        </button>
+    </mat-menu>
 </mat-toolbar>

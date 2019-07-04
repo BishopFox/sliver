@@ -17,7 +17,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormControl, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 
-import { ConfigService } from '../../providers/config.service';
+import { ClientService } from '../../providers/client.service';
 import { RPCConfig } from '../../../../rpc';
 import { FADE_IN_OUT } from '../../shared/animations';
 
@@ -36,7 +36,7 @@ export class SelectServerComponent implements OnInit {
   selectConfigForm = new FormControl('', [Validators.required]);
 
   constructor(private _router: Router,
-              private _configService: ConfigService) { }
+              private _clientService: ClientService) { }
 
   ngOnInit() {
     this.fetchConfigs();
@@ -45,7 +45,7 @@ export class SelectServerComponent implements OnInit {
   onSelectedConfig(config: RPCConfig) {
     console.log(config);
     this.connecting = true;
-    this._configService.setActiveConfig(config).then(() => {
+    this._clientService.setActiveConfig(config).then(() => {
 
       this._router.navigate(['/home']);
     }).catch((err) => {
@@ -54,7 +54,7 @@ export class SelectServerComponent implements OnInit {
   }
 
   async fetchConfigs() {
-    this.configs = await this._configService.listConfigs();
+    this.configs = await this._clientService.listConfigs();
   }
 
 }

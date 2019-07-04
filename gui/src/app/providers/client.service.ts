@@ -14,6 +14,8 @@
 */
 
 import { Injectable } from '@angular/core';
+import { BehaviorSubject } from 'rxjs';
+
 import { IPCService } from './ipc.service';
 import { RPCConfig } from '../../../rpc';
 
@@ -21,7 +23,9 @@ import { RPCConfig } from '../../../rpc';
 @Injectable({
   providedIn: 'root'
 })
-export class ConfigService {
+export class ClientService {
+
+  isConnected$: BehaviorSubject<boolean> = new BehaviorSubject(false);
 
   constructor(private _ipc: IPCService) { }
 
@@ -38,7 +42,7 @@ export class ConfigService {
   async setActiveConfig(config: RPCConfig) {
     return new Promise(async (resolve) => {
       const data = await this._ipc.request('client_start', config);
-      this._ipc.isConnected$.next(true);
+      this.isConnected$.next(true);
       resolve(data);
     });
   }
@@ -48,6 +52,10 @@ export class ConfigService {
       const configs: RPCConfig[] = await this._ipc.request('config_list', null);
       resolve(configs);
     });
+  }
+
+  exit() {
+    this._ipc.request('client_exit', null);
   }
 
 }

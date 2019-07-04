@@ -14,7 +14,7 @@
 */
 
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Subject } from 'rxjs';
+import { Subject } from 'rxjs';
 import * as pb from '../../../rpc';
 
 
@@ -29,8 +29,6 @@ interface IPCMessage {
   providedIn: 'root'
 })
 export class IPCService {
-
-  isConnected$: BehaviorSubject<boolean> = new BehaviorSubject(false);
 
   private ipcMessageSubject: Subject<IPCMessage>;
 
@@ -59,7 +57,7 @@ export class IPCService {
           if (msg.method !== 'error') {
             resolve(JSON.parse(msg.data));
           } else {
-            reject(msg.data); // Error responses are just strings
+            reject(msg.data);
           }
         }
       });

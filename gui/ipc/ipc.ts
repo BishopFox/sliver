@@ -45,6 +45,11 @@ class RPCClientHandlers {
     });
   }
 
+  static client_exit() {
+    process.on('unhandledRejection', () => {}); // STFU Node
+    process.exit(0);
+  }
+
 }
 
 function dispatchIPC(method: string, data: string): Promise<Object|null> {
@@ -88,7 +93,7 @@ interface IPCMessage {
 
 export function startIPCHandlers() {
   ipcMain.on('ipc', async (event: any, msg: IPCMessage) => {
-    dispatchIPC(msg.method, msg.data).then((result) => {
+    dispatchIPC(msg.method, msg.data).then((result: Object) => {
       event.sender.send('ipc', {
         id: msg.id,
         type: 'response',

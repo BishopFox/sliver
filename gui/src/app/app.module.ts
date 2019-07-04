@@ -28,7 +28,7 @@ import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 
 import { IPCService } from './providers/ipc.service';
-import { ConfigService } from './providers/config.service';
+import { ClientService } from './providers/client.service';
 import { SliverService } from './providers/sliver.service';
 
 import { BaseMaterialModule } from './base-material';
@@ -37,6 +37,16 @@ import { AppComponent } from './app.component';
 import { HomeComponent } from './components/home/home.component';
 import { SelectServerComponent } from './components/select-server/select-server.component';
 import { TopMenuComponent } from './components/top-menu/top-menu.component';
+
+import { GenerateModule } from './modules/generate/generate.module';
+import { GenerateRoutes } from './modules/generate/generate.routes';
+
+import { SessionsModule } from './modules/sessions/sessions.module';
+import { SessionsRoutes } from './modules/sessions/sessions.routes';
+
+import { InfrastructureModule } from './modules/infrastructure/infrastructure.module';
+import { InfrastructureRoutes } from './modules/infrastructure/infrastructure.routes';
+
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -55,9 +65,20 @@ export function HttpLoaderFactory(http: HttpClient) {
     FormsModule,
     ReactiveFormsModule,
     HttpClientModule,
-    AppRoutingModule,
     BrowserAnimationsModule,
     BaseMaterialModule,
+
+    // Routes
+    AppRoutingModule,
+    GenerateRoutes,
+    SessionsRoutes,
+    InfrastructureRoutes,
+
+    // Modules
+    GenerateModule,
+    SessionsModule,
+    InfrastructureModule,
+
     TranslateModule.forRoot({
       loader: {
         provide: TranslateLoader,
@@ -66,7 +87,7 @@ export function HttpLoaderFactory(http: HttpClient) {
       }
     })
   ],
-  providers: [SliverService, ConfigService, IPCService],
+  providers: [SliverService, ClientService, IPCService],
   bootstrap: [AppComponent],
   entryComponents: [SelectServerComponent]
 })
