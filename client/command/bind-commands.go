@@ -718,6 +718,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.Bool("6", "ip6", false, "display information about IPv6 sockets")
 			f.Bool("l", "listen", false, "display information about listening sockets")
 		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
