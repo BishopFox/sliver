@@ -13,14 +13,29 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, OnInit, ViewChild } from '@angular/core';
-import { MatSort } from '@angular/material/sort';
+import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { MatTableDataSource } from '@angular/material/table';
+import { Sort } from '@angular/material/sort';
 
 import { FADE_IN_OUT } from '../../shared/animations';
 import { SliverService } from '../../providers/sliver.service';
-import * as clientpb from '../../../../rpc/pb/client_pb';
+import * as pb from '../../../../rpc/pb';
 
+
+interface TableSessionData {
+  id: number;
+  name: string;
+  transport: string;
+  remoteaddress: string;
+  username: string;
+  os: string;
+  checkin: string;
+}
+
+function compare(a: number | string, b: number | string, isAsc: boolean) {
+  return (a < b ? -1 : 1) * (isAsc ? 1 : -1);
+}
 
 @Component({
   selector: 'app-sessions',
@@ -30,30 +45,65 @@ import * as clientpb from '../../../../rpc/pb/client_pb';
 })
 export class SessionsComponent implements OnInit {
 
-  @ViewChild(MatSort, {static: true}) sort: MatSort;
-
   displayedColumns: string[] = [
-    'id', 'name', 'transport', 'remote-address', 'username', 'os', 'checkin'
+    'id', 'name', 'transport', 'remoteaddress', 'username', 'os', 'checkin'
   ];
 
-  sessions: clientpb.Sessions;
-  dataSrc = new MatTableDataSource<clientpb.Sliver>([]);
+  dataSrc: MatTableDataSource<TableSessionData>;
+  sessions: pb.Sessions;
 
-  constructor(private _sliver: SliverService) { }
+  constructor(private _router: Router,
+              private _sliverService: SliverService) { }
 
   ngOnInit() {
-    this.dataSrc.sort = this.sort;
     this.getSessions();
   }
 
   async getSessions() {
-    this.sessions = await this._sliver.sessions();
-    this.dataSrc.data = this.sessions.getSliversList();
+    this.sessions = await this._sliverService.sessions();
+    this.dataSrc = new MatTableDataSource(this.tableData());
   }
 
-  sortingDataAccessor(data: clientpb.Sliver, sortHeaderId: string) {
-
+  tableData(): TableSessionData[] {
+    const slivers = this.sessions.getSliversList();
+    const table: TableSessionData[] = [];
+    for (let index = 0; index < slivers.length; index++) {
+      table.push({
+        id: slivers[index].getId(),
+        name: slivers[index].getName(),
+        transport: slivers[index].getTransport(),
+        remoteaddress: slivers[index].getRemoteaddress(),
+        username: slivers[index].getUsername(),
+        os: slivers[index].getOs(),
+        checkin: slivers[index].getLastcheckin()
+      });
+    }
+    return table.sort((a, b) => (a.id > b.id) ? 1 : -1);
   }
 
+  applyFilter(filterValue: string) {
+    this.dataSrc.filter = filterValue.trim().toLowerCase();
+  }
+
+  onRowSelection(row: any) {
+    this._router.navigate(['session', row.id]);
+  }
+
+  // Becauase MatTableDataSource is absolute piece of shit
+  sortData(event: Sort) {
+    this.dataSrc.data = this.dataSrc.data.slice().sort((a, b) => {
+      const isAsc = event.direction === 'asc';
+      switch (event.active) {
+        case 'id': return compare(a.id, b.id, isAsc);
+        case 'name': return compare(a.name, b.name, isAsc);
+        case 'transport': return compare(a.transport, b.transport, isAsc);
+        case 'remoteaddress': return compare(a.remoteaddress, b.remoteaddress, isAsc);
+        case 'username': return compare(a.username, b.username, isAsc);
+        case 'os': return compare(a.os, b.os, isAsc);
+        case 'checkin': return compare(a.checkin, b.checkin, isAsc);
+        default: return 0;
+      }
+    });
+  }
 
 }

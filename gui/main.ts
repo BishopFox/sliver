@@ -25,16 +25,15 @@ serve = args.some(val => val === '--serve');
 async function createMainWindow() {
 
   const electronScreen = screen;
-  // const size = electronScreen.getPrimaryDisplay().workAreaSize;
+  const size = electronScreen.getPrimaryDisplay().workAreaSize;
 
   // Create the browser window.
+  const gutterSize = 100;
   mainWindow = new BrowserWindow({
-    // x: 0,
-    // y: 0,
-    // width: size.width,
-    // height: size.height,
-    width: 800,
-    height: 600,
+    x: gutterSize,
+    y: gutterSize,
+    width: size.width - gutterSize,
+    height: size.height - gutterSize,
     webPreferences: {
       // I think I got all of the settings we want here to reasonably lock down
       // the BrowserWindow - https://electronjs.org/docs/api/browser-window
@@ -64,10 +63,7 @@ async function createMainWindow() {
     }));
   }
 
-  if (serve) {
-    mainWindow.webContents.openDevTools();
-  }
-
+  mainWindow.webContents.openDevTools();
 
   // Emitted when the window is closed.
   mainWindow.on('closed', () => {

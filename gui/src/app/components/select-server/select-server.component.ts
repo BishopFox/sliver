@@ -46,7 +46,6 @@ export class SelectServerComponent implements OnInit {
     console.log(config);
     this.connecting = true;
     this._clientService.setActiveConfig(config).then(() => {
-
       this._router.navigate(['/home']);
     }).catch((err) => {
       console.log(err);

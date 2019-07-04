@@ -47,6 +47,8 @@ import { SessionsRoutes } from './modules/sessions/sessions.routes';
 import { InfrastructureModule } from './modules/infrastructure/infrastructure.module';
 import { InfrastructureRoutes } from './modules/infrastructure/infrastructure.routes';
 
+import { JobsModule } from './modules/jobs/jobs.module';
+import { JobsRoutes } from './modules/jobs/jobs.routes';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -73,11 +75,13 @@ export function HttpLoaderFactory(http: HttpClient) {
     GenerateRoutes,
     SessionsRoutes,
     InfrastructureRoutes,
+    JobsRoutes,
 
     // Modules
     GenerateModule,
     SessionsModule,
     InfrastructureModule,
+    JobsModule,
 
     TranslateModule.forRoot({
       loader: {

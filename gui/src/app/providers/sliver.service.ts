@@ -11,56 +11,52 @@
   GNU General Public License for more details.
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+--------------------------------------------------------------------------
+
+This service is responsible for all of the Sliver Server interactions that
+use protobuf.
+
 */
 
 import { Injectable } from '@angular/core';
 import { IPCService } from './ipc.service';
-import * as base64 from 'base64-arraybuffer';
-import { ClientPB, SliverPB } from '../../../rpc/pb/constants';
-import * as clientpb from '../../../rpc/pb/client_pb';
-import * as sliverpb from '../../../rpc/pb/sliver_pb';
+import { ProtobufService } from './protobuf.service';
+import * as pb from '../../../rpc/pb';
+
 
 @Injectable({
   providedIn: 'root'
 })
-export class SliverService {
+export class SliverService extends ProtobufService {
 
-  constructor(private _ipc: IPCService) { }
-
-  // IPC Decode
-  decode(data: string): Uint8Array {
-    const buf = base64.decode(data);
-    return new Uint8Array(buf);
+  constructor(private _ipc: IPCService) {
+    super();
   }
 
-  // IPC Encode
-  encode(request: sliverpb.Envelope): string {
-    return base64.encode(request.serializeBinary());
-  }
-
-  async sessions(): Promise<clientpb.Sessions> {
+  async sessions(): Promise<pb.Sessions> {
     return new Promise(async (resolve, reject) => {
       try {
-        const reqEnvelope = new sliverpb.Envelope();
-        reqEnvelope.setType(ClientPB.MsgSessions);
+        const reqEnvelope = new pb.Envelope();
+        reqEnvelope.setType(pb.ClientPB.MsgSessions);
         const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
-        resolve(clientpb.Sessions.deserializeBinary(this.decode(resp)));
+        resolve(pb.Sessions.deserializeBinary(this.decode(resp)));
       } catch (err) {
         reject(err);
       }
     });
   }
 
-  async jobs(): Promise<clientpb.Jobs> {
+  async sessionById(id: number): Promise<pb.Sliver> {
     return new Promise(async (resolve, reject) => {
-      try {
-        const reqEnvelope = new sliverpb.Envelope();
-        reqEnvelope.setType(ClientPB.MsgJobs);
-        const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
-        resolve(clientpb.Jobs.deserializeBinary(this.decode(resp)));
-      } catch (err) {
-        reject(err);
+      const sessions = await this.sessions();
+      const slivers = sessions.getSliversList();
+      for (let index = 0; index < slivers.length; ++index) {
+        if (slivers[index].getId() === id) {
+          resolve(slivers[index]);
+          return;
+        }
       }
+      reject();
     });
   }
 
