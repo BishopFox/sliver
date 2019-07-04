@@ -15,15 +15,10 @@
 
 import { Injectable } from '@angular/core';
 import { IPCService } from './ipc.service';
+import * as base64 from 'base64-arraybuffer';
+import { ClientPB, SliverPB } from '../../../rpc/pb/constants';
 import * as clientpb from '../../../rpc/pb/client_pb';
 import * as sliverpb from '../../../rpc/pb/sliver_pb';
-import { BehaviorSubject } from 'rxjs';
-import { RPCConfig } from '../../../rpc';
-
-
-interface RPCResponse {
-  pb: string;
-}
 
 @Injectable({
   providedIn: 'root'
@@ -32,21 +27,37 @@ export class SliverService {
 
   constructor(private _ipc: IPCService) { }
 
-  // Holy shit, FUCK JAVASCRIPT
-  decodeResp(response: RPCResponse): Uint8Array {
-    const byteCharacters = atob(response.pb);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let index = 0; index < byteCharacters.length; index++) {
-        byteNumbers[index] = byteCharacters.charCodeAt(index);
-    }
-    return new Uint8Array(byteNumbers);
+  // IPC Decode
+  decode(data: string): Uint8Array {
+    const buf = base64.decode(data);
+    return new Uint8Array(buf);
+  }
+
+  // IPC Encode
+  encode(request: sliverpb.Envelope): string {
+    return base64.encode(request.serializeBinary());
   }
 
   async sessions(): Promise<clientpb.Sessions> {
     return new Promise(async (resolve, reject) => {
       try {
-        const resp: RPCResponse = await this._ipc.request('rpc_sessions', '');
-        resolve(clientpb.Sessions.deserializeBinary(this.decodeResp(resp)));
+        const reqEnvelope = new sliverpb.Envelope();
+        reqEnvelope.setType(ClientPB.MsgSessions);
+        const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+        resolve(clientpb.Sessions.deserializeBinary(this.decode(resp)));
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  async jobs(): Promise<clientpb.Jobs> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const reqEnvelope = new sliverpb.Envelope();
+        reqEnvelope.setType(ClientPB.MsgJobs);
+        const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+        resolve(clientpb.Jobs.deserializeBinary(this.decode(resp)));
       } catch (err) {
         reject(err);
       }

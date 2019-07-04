@@ -15,8 +15,6 @@
 
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
-import * as pb from '../../../rpc';
-
 
 interface IPCMessage {
   id: number;
@@ -48,14 +46,14 @@ export class IPCService {
     });
   }
 
-  async request(method: string, data: Object|null): Promise<any> {
+  async request(method: string, data: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const msgId = this.randomId();
       const subscription = this.ipcMessageSubject.subscribe((msg: IPCMessage) => {
         if (msg.id === msgId) {
           subscription.unsubscribe();
           if (msg.method !== 'error') {
-            resolve(JSON.parse(msg.data));
+            resolve(msg.data);
           } else {
             reject(msg.data);
           }
@@ -65,7 +63,7 @@ export class IPCService {
         id: msgId,
         type: 'request',
         method: method,
-        data: data ? JSON.stringify(data) : '',
+        data: data,
       }), '*');
     });
   }
