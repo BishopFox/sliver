@@ -112,4 +112,7 @@ const (
 
 	// MsgIfconfigReq - Ifconfig (network interface config) request
 	MsgIfconfigReq
+
+	// MsgExecuteReq - Execute a command on the remote system
+	MsgExecuteReq
 )

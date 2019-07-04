@@ -216,6 +216,19 @@ message Migrate {
   bool Success = 1;
   string Err = 2;
 }
+
+message ExecuteReq {
+  string Path = 1;
+  repeated string Args = 2;
+  bool output = 3;
+  uint32 SliverID = 9;
+}
+
+message Execute {
+  string Error = 1;
+  string Result = 2;
+}
+
 // DNS Specific messages
 message DNSSessionInit { bytes Key = 1; }
 
