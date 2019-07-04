@@ -46,17 +46,4 @@ export class ConfigHandlers {
     });
   }
 
-  static configByLHost(lhost: string): Promise<RPCConfig> {
-    return new Promise(async (resolve, reject) => {
-      const configs = await this.config_list();
-      for (let index = 0; index < configs.length; ++index) {
-        if (configs[index].lhost === lhost) {
-          resolve(configs[index]);
-          return;
-        }
-      }
-      reject('Config not found');
-    });
-  }
-
 }

@@ -22,15 +22,9 @@ import * as sliverpb from '../rpc/pb/sliver_pb';
 import * as clientpb from '../rpc/pb/client_pb';
 
 
-export class ServerHandlers {
+export class RPCHandlers {
 
-  static server_activeConfig(rpc: RPCClient, _: string): Promise<Object|null> {
-    return new Promise(async (resolve) => {
-      resolve(rpc.config);
-    });
-  }
-
-  static server_sessions(rpc: RPCClient, _: string): Promise<Object|null> {
+  static rpc_sessions(rpc: RPCClient, _: string): Promise<Object|null> {
     return new Promise(async (resolve) => {
       const reqEnvelope = new sliverpb.Envelope();
       reqEnvelope.setType(ClientPB.MsgSessions);
@@ -40,7 +34,7 @@ export class ServerHandlers {
     });
   }
 
-  static server_jobs(rpc: RPCClient, _: string): Promise<Object|null> {
+  static rpc_jobs(rpc: RPCClient, _: string): Promise<Object|null> {
     return new Promise(async (resolve) => {
       const reqEnvelope = new sliverpb.Envelope();
       reqEnvelope.setType(ClientPB.MsgJobs);
@@ -50,7 +44,7 @@ export class ServerHandlers {
     });
   }
 
-  static server_generate(rpc: RPCClient, args: string): Promise<Object | null> {
+  static rpc_generate(rpc: RPCClient, args: string): Promise<Object | null> {
     return new Promise(async (resolve) => {
       const reqEnvelope = new sliverpb.Envelope();
       reqEnvelope.setType(ClientPB.MsgGenerate);

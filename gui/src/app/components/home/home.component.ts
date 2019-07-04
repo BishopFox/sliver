@@ -15,11 +15,8 @@
 
 import { Component, OnInit } from '@angular/core';
 import { FADE_IN_OUT } from '../../shared/animations';
-import { MatDialog } from '@angular/material/dialog';
 
-import { RPCConfig } from '../../../../rpc';
-import { SelectServerComponent } from '../select-server/select-server.component';
-import { ConfigService } from '../../providers/config.service';
+import { SliverService } from '../../providers/sliver.service';
 
 
 @Component({
@@ -30,11 +27,15 @@ import { ConfigService } from '../../providers/config.service';
 })
 export class HomeComponent implements OnInit {
 
-  config: RPCConfig;
-
-  constructor(private _configService: ConfigService) { }
+  constructor(private _sliver: SliverService) { }
 
   ngOnInit() {
+    this.getSessions();
+  }
+
+  async getSessions() {
+    const sessions = await this._sliver.sessions();
+    console.log(sessions);
   }
 
 }

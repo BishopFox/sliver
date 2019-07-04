@@ -23,16 +23,12 @@ import * as sliverpb from '../../../rpc/pb/sliver_pb';
 })
 export class SliverService {
 
-  private ipc: IPCService;
-
-  constructor(ipc: IPCService) {
-    this.ipc = ipc;
-  }
+  constructor(private _ipc: IPCService) { }
 
   async sessions(): Promise<clientpb.Sessions> {
     return new Promise(async (resolve, reject) => {
       try {
-        const sessions: clientpb.Sessions = await this.ipc.request('sliver_sessions', '');
+        const sessions: clientpb.Sessions = await this._ipc.request('rpc_sessions', '');
         resolve(sessions);
       } catch (err) {
         reject(err);
