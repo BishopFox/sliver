@@ -21,6 +21,7 @@ package command
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 	"github.com/desertbit/grumble"
@@ -86,11 +87,20 @@ func displayEntries(entries []*sliverpb.SockTabEntry) {
 		}
 		saddr := lookup(e.LocalAddr)
 		daddr := lookup(e.RemoteAddr)
-		if e.Proc != nil && e.Proc.Pid == ActiveSliver.Sliver.PID {
+		if e.Proc != nil && e.Proc.Pid == ActiveSliver.Sliver.PID && isSliverAddr(daddr) {
 			fmt.Printf("%s%-5s %-23.23s %-23.23s %-12s %-16s%s\n", green, e.Proto, saddr, daddr, e.SkState, p, normal)
 		} else {
 
 			fmt.Printf("%-5s %-23.23s %-23.23s %-12s %-16s\n", e.Proto, saddr, daddr, e.SkState, p)
 		}
 	}
+}
+
+func isSliverAddr(daddr string) bool {
+	parts := strings.Split(daddr, ":")
+	if len(parts) != 3 {
+		return false
+	}
+	c2Addr := strings.Split(ActiveSliver.Sliver.ActiveC2, "://")[1]
+	return strings.Join(parts[:2], ":") == c2Addr
 }
