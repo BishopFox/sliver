@@ -17,6 +17,9 @@ import { Injectable } from '@angular/core';
 import { IPCService } from './ipc.service';
 import * as clientpb from '../../../rpc/pb/client_pb';
 import * as sliverpb from '../../../rpc/pb/sliver_pb';
+import { BehaviorSubject } from 'rxjs';
+import { RPCConfig } from '../../../rpc';
+
 
 @Injectable({
   providedIn: 'root'

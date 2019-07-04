@@ -38,6 +38,7 @@ export class ConfigService {
   async setActiveConfig(config: RPCConfig) {
     return new Promise(async (resolve) => {
       const data = await this._ipc.request('client_start', config);
+      this._ipc.isConnected$.next(true);
       resolve(data);
     });
   }

@@ -14,7 +14,7 @@
 */
 
 import { Injectable } from '@angular/core';
-import { Subject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
 import * as pb from '../../../rpc';
 
 
@@ -29,6 +29,8 @@ interface IPCMessage {
   providedIn: 'root'
 })
 export class IPCService {
+
+  isConnected$: BehaviorSubject<boolean> = new BehaviorSubject(false);
 
   private ipcMessageSubject: Subject<IPCMessage>;
 

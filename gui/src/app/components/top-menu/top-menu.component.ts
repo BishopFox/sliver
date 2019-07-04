@@ -15,7 +15,7 @@
 
 import { Component, OnInit } from '@angular/core';
 
-import { ConfigService } from '../../providers/config.service';
+import { IPCService } from '../../providers/ipc.service';
 
 
 @Component({
@@ -27,13 +27,12 @@ export class TopMenuComponent implements OnInit {
 
   isConnected = false;
 
-  constructor(private _configService: ConfigService) { }
+  constructor(private _ipc: IPCService) { }
 
-  ngOnInit() { }
-
-  async checkIsConnected() {
-    const activeConfig = await this._configService.getActiveConfig();
-    this.isConnected = activeConfig !== null ? true : false;
+  ngOnInit() {
+    this._ipc.isConnected$.subscribe((state) => {
+      this.isConnected = state;
+    });
   }
 
 }
