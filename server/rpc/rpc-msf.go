@@ -51,6 +51,7 @@ func rpcMsf(req []byte, timeout time.Duration, resp RPCResponse) {
 		LPort:      uint16(msfReq.LPort),
 		Encoder:    msfReq.Encoder,
 		Iterations: int(msfReq.Iterations),
+		Format:     "raw",
 	}
 	rawPayload, err := msf.VenomPayload(config)
 	if err != nil {
@@ -88,6 +89,7 @@ func rpcMsfInject(req []byte, timeout time.Duration, resp RPCResponse) {
 		LPort:      uint16(msfReq.LPort),
 		Encoder:    msfReq.Encoder,
 		Iterations: int(msfReq.Iterations),
+		Format:     "raw",
 	}
 	rawPayload, err := msf.VenomPayload(config)
 	if err != nil {
