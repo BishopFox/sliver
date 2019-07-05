@@ -15,15 +15,17 @@
 
 import { NgModule } from '@angular/core';
 import {
-  MatButtonModule, MatCheckboxModule, MatOptionModule, MatSelectModule, MatMenuModule,
+  MatButtonModule, MatCheckboxModule, MatOptionModule, MatSelectModule, MatMenuModule, MatTabsModule,
   MatFormFieldModule, MatTooltipModule, MatToolbarModule, MatIconModule, MatProgressSpinnerModule,
-  MatDialogModule, MatGridListModule, MatCardModule, MatTableModule, MatSortModule, MatInputModule
+  MatDialogModule, MatGridListModule, MatCardModule, MatTableModule, MatSortModule, MatInputModule,
+  MatStepperModule
 } from '@angular/material';
 
 const modules = [
-  MatButtonModule, MatCheckboxModule, MatOptionModule, MatSelectModule, MatMenuModule,
+  MatButtonModule, MatCheckboxModule, MatOptionModule, MatSelectModule, MatMenuModule, MatTabsModule,
   MatFormFieldModule, MatTooltipModule, MatToolbarModule, MatIconModule, MatProgressSpinnerModule,
-  MatDialogModule, MatGridListModule, MatCardModule, MatTableModule, MatSortModule, MatInputModule
+  MatDialogModule, MatGridListModule, MatCardModule, MatTableModule, MatSortModule, MatInputModule,
+  MatStepperModule
 ];
 
 @NgModule({

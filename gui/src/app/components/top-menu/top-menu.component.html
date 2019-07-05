@@ -8,20 +8,28 @@
     </span>
     <button mat-button [matMenuTriggerFor]="generate">Generate</button>
     <mat-menu #generate="matMenu">
-      <button mat-menu-item [routerLink]="['/generate/new-implant']">New Implant</button>
-      <button mat-menu-item [routerLink]="['/generate/history']">History</button>
+        <button mat-menu-item [routerLink]="['/generate/new-implant']">New Implant</button>
+        <button mat-menu-item [routerLink]="['/generate/history']">History</button>
     </mat-menu>
     <button mat-button [routerLink]="['/sessions']">Sessions</button>
     <button mat-button [routerLink]="['/jobs']">Jobs</button>
 
     <span class="pull-right-spacer"></span>
 
+    <span *ngIf="activeConfig">
+        <h4 class="mat-h4">
+            {{activeConfig.lhost}}
+            &nbsp;
+        </h4>
+    </span>
+
     <button mat-button [matMenuTriggerFor]="settings">
         <i class="fas fa-fw fa-cog"></i>
     </button>
     <mat-menu #settings="matMenu">
         <button mat-menu-item (click)="onExit()">
-            Exit
+            <i class="fas fa-fw fa-sign-out-alt"></i>
+            &nbsp;Exit
         </button>
     </mat-menu>
 </mat-toolbar>

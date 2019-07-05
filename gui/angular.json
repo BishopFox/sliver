@@ -25,8 +25,9 @@
               "src/favicon.512x512.png"
             ],
             "styles": [
-              "src/styles.scss",
-              "./node_modules/@fortawesome/fontawesome-free/css/all.min.css"
+              "./node_modules/@angular/material/prebuilt-themes/indigo-pink.css",
+              "./node_modules/@fortawesome/fontawesome-free/css/all.min.css",
+              "src/styles.scss"
             ],
             "scripts": [
               "./node_modules/xterm/dist/xterm.js",

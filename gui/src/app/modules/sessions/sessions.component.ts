@@ -86,7 +86,7 @@ export class SessionsComponent implements OnInit {
   }
 
   onRowSelection(row: any) {
-    this._router.navigate(['session', row.id]);
+    this._router.navigate(['sessions', row.id]);
   }
 
   // Becauase MatTableDataSource is absolute piece of shit

@@ -16,6 +16,7 @@
 import { Component, OnInit } from '@angular/core';
 
 import { ClientService } from '../../providers/client.service';
+import { RPCConfig } from '../../../../rpc';
 
 
 @Component({
@@ -26,13 +27,19 @@ import { ClientService } from '../../providers/client.service';
 export class TopMenuComponent implements OnInit {
 
   isConnected = false;
+  activeConfig: RPCConfig;
 
   constructor(private _clientService: ClientService) { }
 
   ngOnInit() {
     this._clientService.isConnected$.subscribe((state) => {
       this.isConnected = state;
+      this.getActiveConfig();
     });
+  }
+
+  async getActiveConfig() {
+    this.activeConfig = await this._clientService.getActiveConfig();
   }
 
   onExit() {

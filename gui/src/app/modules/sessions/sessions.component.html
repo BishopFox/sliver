@@ -32,12 +32,12 @@
 
         <ng-container matColumnDef="remoteaddress">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Remote Address</th>
-            <td mat-cell *matCellDef="let session"> {{session.remoteaddress}} </td>
+            <td mat-cell *matCellDef="let session" class="monospace"> {{session.remoteaddress}} </td>
         </ng-container>
 
         <ng-container matColumnDef="username">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Username</th>
-            <td mat-cell *matCellDef="let session"> {{session.username}} </td>
+            <td mat-cell *matCellDef="let session" class="monospace"> {{session.username}} </td>
         </ng-container>
 
         <ng-container matColumnDef="os">

@@ -1,1 +1,89 @@
-<p>new-implant works!</p>
+<div [@fadeInOut] class="form-container">
+    <mat-vertical-stepper [linear]="true" #stepper>
+
+        <mat-step [stepControl]="genTargetForm" [completed]="false">
+            <form style="width: 100%;" [formGroup]="genTargetForm">
+                <ng-template matStepLabel>Executable</ng-template>
+                <p>
+                    <mat-form-field>
+                        <mat-select [formControl]="genTargetForm.controls['os']" placeholder="Operating System">
+                            <mat-option value=""></mat-option>
+                            <mat-option value="darwin">
+                                MacOS
+                            </mat-option>
+                            <mat-option value="windows">
+                                Windows
+                            </mat-option>
+                            <mat-option value="linux">
+                                Linux
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </p>
+                <p>
+                    <mat-form-field>
+                        <mat-select [formControl]="genTargetForm.controls['arch']" placeholder="CPU Architecture">
+                            <mat-option value=""></mat-option>
+                            <mat-option value="amd64">
+                                64-bit
+                            </mat-option>
+                            <mat-option value="386">
+                                32-bit
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </p>
+
+                <p>
+                    <mat-form-field>
+                        <mat-select [formControl]="genTargetForm.controls['format']" placeholder="File Format">
+                            <mat-option value=""></mat-option>
+                            <mat-option value="exe">
+                                Executable
+                            </mat-option>
+                            <mat-option value="shared">
+                                Shared Library
+                            </mat-option>
+                            <mat-option value="shellcode">
+                                Shellcode
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </p>
+
+                <div>
+                    <button mat-button matStepperNext>Next</button>
+                </div>
+            </form>
+        </mat-step>
+
+        <mat-step [stepControl]="genC2Form" [completed]="false">
+
+            <form [formGroup]="genC2Form">
+                <ng-template matStepLabel>Command & Control</ng-template>
+                <p>
+                    <mat-form-field>
+                        <input matInput [formControl]="genC2Form.controls['mtls']" placeholder="mTLS Endpoints">
+                    </mat-form-field>
+                </p>
+                <p>
+                    <mat-form-field>
+                        <input matInput [formControl]="genC2Form.controls['http']" placeholder="HTTP(S) Endpoints">
+                    </mat-form-field>
+                </p>
+                <p>
+                    <mat-form-field>
+                        <input matInput [formControl]="genC2Form.controls['dns']" placeholder="DNS Endpoints">
+                    </mat-form-field>
+                </p>
+                <div>
+                    <button mat-button matStepperPrevious>Back</button>
+                    <button mat-button matStepperNext>Next</button>
+                </div>
+            </form>
+
+        </mat-step>
+
+    </mat-vertical-stepper>
+
+</div>

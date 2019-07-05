@@ -22,6 +22,7 @@ import { Injectable } from '@angular/core';
 import { IPCService } from './ipc.service';
 import { ProtobufService } from './protobuf.service';
 import * as pb from '../../../rpc/pb';
+import { GenerateReq } from '../../../rpc/pb';
 
 
 @Injectable({
@@ -57,6 +58,28 @@ export class SliverService extends ProtobufService {
         }
       }
       reject();
+    });
+  }
+
+  async generate(config: pb.SliverConfig): Promise<pb.Generate> {
+    return new Promise(async (resolve) => {
+      const reqEnvelope = new pb.Envelope();
+      const generateReq = new pb.GenerateReq();
+      generateReq.setConfig(config);
+      reqEnvelope.setType(pb.ClientPB.MsgGenerate);
+      const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+      resolve(pb.Generate.deserializeBinary(this.decode(resp)));
+    });
+  }
+
+  async regenerate(name: string): Promise<pb.Regenerate> {
+    return new Promise(async (resolve) => {
+      const reqEnvelope = new pb.Envelope();
+      reqEnvelope.setType(pb.ClientPB.MsgRegenerate);
+      const regenReq = new pb.Regenerate();
+      regenReq.setSlivername(name);
+      const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+      resolve(pb.Regenerate.deserializeBinary(this.decode(resp)));
     });
   }
 
