@@ -46,12 +46,15 @@ class RPCClientHandlers {
   }
 
   static client_start(data: string): Promise<string> {
-    return new Promise(async (resolve) => {
+    return new Promise(async (resolve, reject) => {
       const config: RPCConfig = JSON.parse(data);
       rpc = new RPCClient(config);
-      await rpc.connect();
-      console.log('Connection successful');
-      resolve('success');
+      rpc.connect().then(() => {
+        console.log('Connection successful');
+        resolve('success');
+      }).catch((err) => {
+        reject(err);
+      });
     });
   }
 
@@ -104,15 +107,18 @@ function dispatchIPC(method: string, data: string): Promise<Object|null> {
     // expose methods that we don't want exposed to the sandboxed code.
     if (['client_', 'config_', 'rpc_'].some(prefix => method.startsWith(prefix))) {
       if (typeof RPCClientHandlers[method] === 'function') {
-        const result: string = await RPCClientHandlers[method](data);
-        resolve(result);
-        return;
+        try {
+          const result: string = await RPCClientHandlers[method](data);
+          resolve(result);
+        } catch (err) {
+          reject(err);
+        }
+      } else {
+        reject(`No handler for method: ${method}`);
       }
-      reject(`No handler for method: ${method}`);
     } else {
       reject(`Invalid method handler namepsace for "${method}"`);
     }
-
   });
 }
 

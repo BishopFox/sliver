@@ -44,20 +44,28 @@ export class ClientService {
   }
 
   async setActiveConfig(config: RPCConfig) {
-    return new Promise(async (resolve) => {
-      const data = await this._ipc.request('client_start', JSON.stringify(config));
-      this.isConnected$.next(true);
-      resolve(data);
+    return new Promise(async (resolve, reject) => {
+      try {
+        const data = await this._ipc.request('client_start', JSON.stringify(config));
+        this.isConnected$.next(true);
+        resolve(data);
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 
   async listConfigs(): Promise<RPCConfig[]> {
-    return new Promise(async (resolve) => {
-      const resp: string = await this._ipc.request('config_list', '');
-      const configs: RPCConfig[] = JSON.parse(resp);
-      console.log(configs);
-      console.log(typeof configs);
-      resolve(configs);
+    return new Promise(async (resolve, reject) => {
+      try {
+        const resp: string = await this._ipc.request('config_list', '');
+        const configs: RPCConfig[] = JSON.parse(resp);
+        console.log(configs);
+        console.log(typeof configs);
+        resolve(configs);
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 

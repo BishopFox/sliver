@@ -8,21 +8,28 @@
     <!-- Row #2 -->
     <mat-grid-tile></mat-grid-tile>
     <mat-grid-tile>
-        <div *ngIf="!configs || connecting">
+        <div *ngIf="!configs">
             <mat-progress-spinner mode="indeterminate">
             </mat-progress-spinner>
         </div>
-        <div *ngIf="configs && !connecting" class="grid-container">
-            <mat-form-field style="width: 100%;">
-                <mat-error *ngIf="selectConfigForm.invalid">You must make a selection</mat-error>
-                <mat-select placeholder="Select a Server" [formControl]="selectConfigForm">
-                    <mat-option value=""></mat-option>
-                    <mat-option *ngFor="let config of configs" [value]="config">{{ config.lhost }} ({{ config.operator }})</mat-option> 
-                </mat-select>
-            </mat-form-field>
-            <button mat-button [disabled]="selectConfigForm.invalid" (click)="onSelectedConfig(selectConfigForm.value)">
-                Connect
-            </button>
+        <div *ngIf="configs" class="grid-container">
+            <form [formGroup]="selectConfigForm" (ngSubmit)="onSelectedConfig(selectConfigForm.controls['config'].value)">
+                <mat-form-field style="width: 100%;">
+                    <mat-error *ngIf="selectConfigForm.controls['config'].value === ''">
+                        You must select a configuration.
+                    </mat-error>
+                    <mat-error *ngIf="selectConfigForm.controls['config'].hasError('connectionError')">
+                        {{connectionError}}
+                    </mat-error>
+                    <mat-select placeholder="Select a Server" [formControl]="selectConfigForm.controls['config']">
+                        <mat-option value=""></mat-option>
+                        <mat-option *ngFor="let config of configs" [value]="config">{{ config.lhost }} ({{ config.operator }})</mat-option> 
+                    </mat-select>
+                </mat-form-field>
+                <button style="width: 100%;" mat-button [disabled]="connecting || selectConfigForm.controls['config'].value === ''" type="submit">
+                    Connect
+                </button>
+            </form>
         </div>
     </mat-grid-tile>
     <mat-grid-tile></mat-grid-tile>

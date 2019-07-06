@@ -14,8 +14,9 @@
 */
 
 import { Component, OnInit } from '@angular/core';
-import { FormControl, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, FormControl, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { ErrorStateMatcher } from '@angular/material/core';
 
 import { ClientService } from '../../providers/client.service';
 import { RPCConfig } from '../../../../rpc';
@@ -32,13 +33,20 @@ export class SelectServerComponent implements OnInit {
   configs: RPCConfig[];
   selectedConfig: RPCConfig;
   connecting = false;
+  connectionError: string;
 
-  selectConfigForm = new FormControl('', [Validators.required]);
+  selectConfigForm: FormGroup;
 
   constructor(private _router: Router,
+              private _fb: FormBuilder,
               private _clientService: ClientService) { }
 
   ngOnInit() {
+    this.selectConfigForm = this._fb.group({
+      config: ['', Validators.compose([
+        Validators.required,
+      ])]
+    });
     this.fetchConfigs();
   }
 
@@ -48,12 +56,19 @@ export class SelectServerComponent implements OnInit {
     this._clientService.setActiveConfig(config).then(() => {
       this._router.navigate(['/home']);
     }).catch((err) => {
-      console.log(err);
+      this.connectionError = err.toString();
+      this.connecting = false;
+      setTimeout(() => {
+        this.selectConfigForm.controls.config.setErrors({
+          connectionError : true
+        });
+      });
     });
   }
 
   async fetchConfigs() {
     this.configs = await this._clientService.listConfigs();
   }
+
 
 }

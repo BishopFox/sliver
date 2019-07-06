@@ -22,6 +22,10 @@ let mainWindow, serve;
 const args = process.argv.slice(1);
 serve = args.some(val => val === '--serve');
 
+process.on('unhandledRejection', (reason, p) => {
+  console.log('Unhandled Rejection at: Promise', p, 'reason:', reason);
+});
+
 async function createMainWindow() {
 
   const electronScreen = screen;

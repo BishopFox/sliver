@@ -78,20 +78,17 @@ export class RPCClient {
       if (this.isConnected) {
         reject('Already connected to rpc server');
       }
-
-      try {
-        await this.tlsConnect();
-      } catch (error) {
-        reject(error);
-      }
-      this._isConnected = true;
-      this.recvBuffer = Buffer.alloc(0);
-      this.envelopeSubject = new Subject<sliverpb.Envelope>();
-      this.tlsObservable.subscribe((data: Buffer) => {
-        this.recvEnvelope(this.envelopeSubject, data);
+      this.tlsConnect().then(() => {
+        this._isConnected = true;
+        this.recvBuffer = Buffer.alloc(0);
+        this.envelopeSubject = new Subject<sliverpb.Envelope>();
+        this.tlsObservable.subscribe((data: Buffer) => {
+          this.recvEnvelope(this.envelopeSubject, data);
+        });
+        resolve();
+      }).catch((err) => {
+        reject(err);
       });
-
-      resolve();
     });
   }
 
@@ -169,8 +166,11 @@ export class RPCClient {
 
       console.log(`Connecting to ${this.config.lhost}:${this.config.lport} ...`);
 
-      // Conenct to the server
       this.socket = connect(this.tlsOptions);
+      this.socket.on('error', (err) => {
+        this.socket.destroy();
+        reject(err);
+      });
 
       // This event fires after the tls handshake, but we need to check `socket.authorized`
       this.socket.on('secureConnect', () => {

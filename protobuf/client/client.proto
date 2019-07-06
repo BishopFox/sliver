@@ -8,6 +8,13 @@ message File {
   bytes Data = 2;
 }
 
+message Process {
+  int32 pid = 1;
+  int32 ppid = 2;
+  string executable = 3;
+  string owner = 4;
+}
+
 // [ core ] ----------------------------------------
 
 // This 'Sliver' data structure is used for actively
@@ -182,6 +189,18 @@ message MSFInjectReq {
 
 message TaskReq {
   bytes Data = 1;
+  uint32 SliverID = 9;
+}
+
+message MigrateReq {
+  uint32 Pid = 1;
+  SliverConfig Config = 2;
+  uint32 SliverID = 9;
+}
+
+message GetSystemReq {
+  SliverConfig Config = 1;
+  string HostingProcess = 2;
   uint32 SliverID = 9;
 }
 
