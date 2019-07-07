@@ -30,6 +30,8 @@ import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { IPCService } from './providers/ipc.service';
 import { ClientService } from './providers/client.service';
 import { SliverService } from './providers/sliver.service';
+import { JobsService } from './providers/jobs.service';
+import { EventsService } from './providers/events.service';
 
 import { BaseMaterialModule } from './base-material';
 
@@ -50,6 +52,7 @@ import { InfrastructureRoutes } from './modules/infrastructure/infrastructure.ro
 import { JobsModule } from './modules/jobs/jobs.module';
 import { JobsRoutes } from './modules/jobs/jobs.routes';
 
+
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
   return new TranslateHttpLoader(http, './assets/i18n/', '.json');
@@ -60,7 +63,7 @@ export function HttpLoaderFactory(http: HttpClient) {
     AppComponent,
     HomeComponent,
     SelectServerComponent,
-    TopMenuComponent
+    TopMenuComponent,
   ],
   imports: [
     BrowserModule,
@@ -91,7 +94,7 @@ export function HttpLoaderFactory(http: HttpClient) {
       }
     })
   ],
-  providers: [SliverService, ClientService, IPCService],
+  providers: [IPCService, ClientService, SliverService, JobsService, EventsService],
   bootstrap: [AppComponent],
   entryComponents: [SelectServerComponent]
 })

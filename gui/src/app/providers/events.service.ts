@@ -19,21 +19,33 @@ import { ProtobufService } from './protobuf.service';
 import { Subject } from 'rxjs';
 import * as pb from '../../../rpc/pb';
 
+export const Events = {
+  ServerError: 'server',
+  Connected: 'connected',
+  Disconnected: 'disconnected',
+  Joined: 'joined',
+  Left: 'left',
+  Canary: 'canary',
+  Started: 'started',
+  Stopped: 'stopped'
+};
+
 
 @Injectable({
   providedIn: 'root'
 })
 export class EventsService extends ProtobufService {
 
-  eventSubject$: Subject<pb.Event>;
+  eventsSubject$ = new Subject<pb.Event>();
 
   constructor(private _ipc: IPCService) {
     super();
-    this._ipc.ipcMessageSubject$.subscribe((msg) => {
-      if (msg.type === 'push') {
-        const envelope = pb.Envelope.deserializeBinary(this.decode(msg.data));
-        const event = pb.Event.deserializeBinary(envelope.getData_asU8());
-        this.eventSubject$.next(event);
+    this._ipc.ipcEventSubject$.subscribe((msg) => {
+      try {
+        const event = pb.Event.deserializeBinary(this.decode(msg.data));
+        this.eventsSubject$.next(event);
+      } catch (err) {
+        console.error(err);
       }
     });
   }

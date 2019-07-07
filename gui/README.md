@@ -6,7 +6,7 @@ Electron based Sliver GUI written in Angular/TypeScript.
 
 ### Why Electron?
 
-Because I value my devtime more than your RAM.
+Because I value my development time more than your RAM.
 
 ### Security
 

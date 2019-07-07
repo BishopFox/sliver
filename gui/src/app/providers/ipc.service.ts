@@ -32,17 +32,19 @@ interface IPCMessage {
 })
 export class IPCService {
 
-  ipcMessageSubject$: Subject<IPCMessage>;
+  ipcResponseSubject$ = new Subject<IPCMessage>();
+  ipcEventSubject$ = new Subject<IPCMessage>();
 
   constructor() {
-    this.ipcMessageSubject$ = new Subject<IPCMessage>();
     window.addEventListener('message', (event) => {
       console.log('web ipc recv:');
       console.log(event);
       try {
         const msg: IPCMessage = JSON.parse(event.data);
         if (msg.type === 'response') {
-          this.ipcMessageSubject$.next(msg);
+          this.ipcResponseSubject$.next(msg);
+        } else if (msg.type === 'push') {
+          this.ipcEventSubject$.next(msg);
         }
       } catch (err) {
         console.error(err);
@@ -53,7 +55,7 @@ export class IPCService {
   async request(method: string, data: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const msgId = this.randomId();
-      const subscription = this.ipcMessageSubject$.subscribe((msg: IPCMessage) => {
+      const subscription = this.ipcResponseSubject$.subscribe((msg: IPCMessage) => {
         if (msg.id === msgId) {
           subscription.unsubscribe();
           if (msg.method !== 'error') {
