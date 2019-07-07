@@ -28,6 +28,7 @@ export class NewImplantComponent implements OnInit {
 
   genTargetForm: FormGroup;
   genC2Form: FormGroup;
+  compileTimeOptionsForm: FormGroup;
 
   constructor(private _fb: FormBuilder,
               private _sliverService: SliverService) { }
@@ -35,25 +36,37 @@ export class NewImplantComponent implements OnInit {
   ngOnInit() {
 
     this.genTargetForm = this._fb.group({
-      os: ['', Validators.compose([
+      os: ['windows', Validators.compose([
         Validators.required,
       ])],
-      arch: ['', Validators.compose([
+      arch: ['amd64', Validators.compose([
         Validators.required,
       ])],
-      format: ['', Validators.compose([
+      format: ['exe', Validators.compose([
         Validators.required,
       ])],
     });
 
     this.genC2Form = this._fb.group({
       mtls: ['', Validators.compose([
-        Validators.required,
+
       ])],
       http: ['', Validators.compose([
-        Validators.required,
+
       ])],
       dns: ['', Validators.compose([
+
+      ])],
+    });
+
+    this.compileTimeOptionsForm = this._fb.group({
+      reconnect: [60, Validators.compose([
+        Validators.required,
+      ])],
+      maxErrors: [1000, Validators.compose([
+        Validators.required,
+      ])],
+      skipSymbols: [false, Validators.compose([
         Validators.required,
       ])],
     });

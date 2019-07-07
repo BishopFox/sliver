@@ -23,8 +23,6 @@ const { ipcRenderer } = require('electron');
 window.addEventListener('message', (event) => {
   try {
     const msg = JSON.parse(event.data);
-    console.log('ipc send:');
-    console.log(event);
     if (msg.type === 'request') {
       ipcRenderer.send('ipc', msg);
     }
@@ -34,12 +32,10 @@ window.addEventListener('message', (event) => {
 });
 
 ipcRenderer.on('ipc', (event, msg) => {
-  console.log('msg:');
+  console.log(event);
   console.log(msg);
   try {
-    if (msg.type === 'response') {
-      console.log('ipc recv:');
-      console.log(event);
+    if (msg.type === 'response' || msg.type === 'push') {
       window.postMessage(JSON.stringify(msg), '*');
     }
   } catch (err) {

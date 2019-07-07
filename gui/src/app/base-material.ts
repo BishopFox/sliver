@@ -18,14 +18,14 @@ import {
   MatButtonModule, MatCheckboxModule, MatOptionModule, MatSelectModule, MatMenuModule, MatTabsModule,
   MatFormFieldModule, MatTooltipModule, MatToolbarModule, MatIconModule, MatProgressSpinnerModule,
   MatDialogModule, MatGridListModule, MatCardModule, MatTableModule, MatSortModule, MatInputModule,
-  MatStepperModule, MatSnackBarModule
+  MatStepperModule, MatSnackBarModule, MatSlideToggleModule
 } from '@angular/material';
 
 const modules = [
   MatButtonModule, MatCheckboxModule, MatOptionModule, MatSelectModule, MatMenuModule, MatTabsModule,
   MatFormFieldModule, MatTooltipModule, MatToolbarModule, MatIconModule, MatProgressSpinnerModule,
   MatDialogModule, MatGridListModule, MatCardModule, MatTableModule, MatSortModule, MatInputModule,
-  MatStepperModule, MatSnackBarModule
+  MatStepperModule, MatSnackBarModule, MatSlideToggleModule
 ];
 
 @NgModule({

@@ -8,11 +8,11 @@
     <!-- Row #2 -->
     <mat-grid-tile></mat-grid-tile>
     <mat-grid-tile>
-        <div *ngIf="!configs">
+        <div *ngIf="!configs || connecting">
             <mat-progress-spinner mode="indeterminate">
             </mat-progress-spinner>
         </div>
-        <div *ngIf="configs" class="grid-container">
+        <div *ngIf="configs && !connecting" class="grid-container">
             <form [formGroup]="selectConfigForm" (ngSubmit)="onSelectedConfig(selectConfigForm.controls['config'].value)">
                 <mat-form-field style="width: 100%;">
                     <mat-error *ngIf="selectConfigForm.controls['config'].value === ''">
@@ -26,7 +26,7 @@
                         <mat-option *ngFor="let config of configs" [value]="config">{{ config.lhost }} ({{ config.operator }})</mat-option> 
                     </mat-select>
                 </mat-form-field>
-                <button style="width: 100%;" mat-button [disabled]="connecting || selectConfigForm.controls['config'].value === ''" type="submit">
+                <button style="width: 100%;" mat-button [disabled]="selectConfigForm.controls['config'].value === ''" type="submit">
                     Connect
                 </button>
             </form>

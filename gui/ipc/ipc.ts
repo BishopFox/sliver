@@ -32,18 +32,18 @@ import { Envelope } from '../rpc/pb';
 const CONFIG_DIR = path.join(homedir(), '.sliver-client', 'configs');
 let rpc: RPCClient;
 
+function encodeResponse(data: Uint8Array): string {
+  return base64.encode(data);
+}
+
+function decodeRequest(data: string): Uint8Array {
+  const buf = base64.decode(data);
+  return new Uint8Array(buf);
+}
+
 
 // IPC Methods used to start/interact with the RPCClient
 class RPCClientHandlers {
-
-  static encodeRespose(data: Uint8Array): string {
-    return base64.encode(data);
-  }
-
-  static decodeRequest(data: string): Uint8Array {
-    const buf = base64.decode(data);
-    return new Uint8Array(buf);
-  }
 
   static client_start(data: string): Promise<string> {
     return new Promise(async (resolve, reject) => {
@@ -51,6 +51,11 @@ class RPCClientHandlers {
       rpc = new RPCClient(config);
       rpc.connect().then(() => {
         console.log('Connection successful');
+        rpc.envelopeSubject$.subscribe((envelope) => {
+          if (envelope.getId() === 0) {
+            ipcMain.emit('push', encodeResponse(envelope.getData_asU8()));
+          }
+        });
         resolve('success');
       }).catch((err) => {
         reject(err);
@@ -85,9 +90,9 @@ class RPCClientHandlers {
 
   static rpc_request(data: string): Promise<string> {
     return new Promise(async (resolve) => {
-      const request: Envelope = Envelope.deserializeBinary(this.decodeRequest(data));
+      const request: Envelope = Envelope.deserializeBinary(decodeRequest(data));
       const respEnvelope = await rpc.request(request);
-      resolve(this.encodeRespose(respEnvelope.getData_asU8()));
+      resolve(encodeResponse(respEnvelope.getData_asU8()));
     });
   }
 
@@ -129,7 +134,8 @@ interface IPCMessage {
   data: string;
 }
 
-export function startIPCHandlers() {
+export function startIPCHandlers(window) {
+
   ipcMain.on('ipc', async (event: any, msg: IPCMessage) => {
     dispatchIPC(msg.method, msg.data).then((result: string) => {
       event.sender.send('ipc', {
@@ -147,4 +153,15 @@ export function startIPCHandlers() {
       });
     });
   });
+
+  // This one doesn't have an event argument for some reason ...
+  ipcMain.on('push', async (data: string) => {
+    window.webContents.send('ipc', {
+      id: 0,
+      type: 'push',
+      method: '',
+      data: data
+    });
+  });
+
 }

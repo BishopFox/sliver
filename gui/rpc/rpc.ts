@@ -34,10 +34,11 @@ export class RPCClient {
   private socket: TLSSocket;
   private tlsObserver: Observer<Buffer>;
   private tlsObservable: Observable<Buffer>;
-  private envelopeSubject: Subject<sliverpb.Envelope>;
   private recvBuffer: Buffer;
   private _isConnected = false;
   private readonly defaultTimeout = 30 * 1000000000; // 30 seconds (in nano)
+
+  envelopeSubject$: Subject<sliverpb.Envelope>;
 
   constructor(config: RPCConfig) {
     this._config = config;
@@ -59,7 +60,7 @@ export class RPCClient {
       }
       const respId = this.randomId();
       reqEnvelope.setId(respId);
-      const subscription = this.envelopeSubject.subscribe((respEnvelope) => {
+      const subscription = this.envelopeSubject$.subscribe((respEnvelope) => {
         console.log(`Recv Envelope with ID ${respEnvelope.getId()} (want ${respId})`);
         if (respEnvelope.getId() === respId) {
           subscription.unsubscribe();
@@ -81,9 +82,9 @@ export class RPCClient {
       this.tlsConnect().then(() => {
         this._isConnected = true;
         this.recvBuffer = Buffer.alloc(0);
-        this.envelopeSubject = new Subject<sliverpb.Envelope>();
+        this.envelopeSubject$ = new Subject<sliverpb.Envelope>();
         this.tlsObservable.subscribe((data: Buffer) => {
-          this.recvEnvelope(this.envelopeSubject, data);
+          this.recvEnvelope(this.envelopeSubject$, data);
         });
         resolve();
       }).catch((err) => {
