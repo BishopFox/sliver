@@ -1,18 +1,22 @@
-<mat-toolbar *ngIf="isConnected" color="primary">
-    <span [routerLink]="['/home']">
-        <i class="fas fa-fw fa-dragon"></i>
-        Sliver
+<div *ngIf="!isConnected" color="primary" style="border-top: 35px solid #3f51b5; -webkit-app-region: drag;">
+</div>
+<mat-toolbar *ngIf="isConnected" color="primary" style="-webkit-app-region: drag">
+    <span style="width: 60px">
+        <!-- Fix weird spacing, because I suck at CSS -->
     </span>
-    <span>
-        &nbsp;&nbsp; <!-- Fix weird spacing, because I suck at CSS -->
-    </span>
-    <button mat-button [matMenuTriggerFor]="generate">Generate</button>
-    <mat-menu #generate="matMenu">
-        <button mat-menu-item [routerLink]="['/generate/new-implant']">New Implant</button>
-        <button mat-menu-item [routerLink]="['/generate/history']">History</button>
+    <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="generate">
+        Generate
+    </button>
+    <mat-menu style="-webkit-app-region: no-drag" #generate="matMenu">
+        <button mat-menu-item [routerLink]="['/generate/new-implant']">
+            New Implant
+        </button>
+        <button mat-menu-item [routerLink]="['/generate/history']">
+            History
+        </button>
     </mat-menu>
-    <button mat-button [routerLink]="['/sessions']">Sessions</button>
-    <button mat-button [routerLink]="['/jobs']">Jobs</button>
+    <button style="-webkit-app-region: no-drag" mat-button [routerLink]="['/sessions']">Sessions</button>
+    <button style="-webkit-app-region: no-drag" mat-button [routerLink]="['/jobs']">Jobs</button>
 
     <span class="pull-right-spacer"></span>
 
@@ -23,10 +27,10 @@
         </h4>
     </span>
 
-    <button mat-button [matMenuTriggerFor]="settings">
+    <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="settings">
         <i class="fas fa-fw fa-cog"></i>
     </button>
-    <mat-menu #settings="matMenu">
+    <mat-menu style="-webkit-app-region: no-drag" #settings="matMenu">
         <button mat-menu-item (click)="onExit()">
             <i class="fas fa-fw fa-sign-out-alt"></i>
             &nbsp;Exit

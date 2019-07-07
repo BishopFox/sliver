@@ -34,6 +34,8 @@ async function createMainWindow() {
   // Create the browser window.
   const gutterSize = 100;
   mainWindow = new BrowserWindow({
+    // frame: false,
+    titleBarStyle: 'hiddenInset',
     x: gutterSize,
     y: gutterSize,
     width: size.width - gutterSize,
