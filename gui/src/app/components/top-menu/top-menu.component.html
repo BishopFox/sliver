@@ -1,39 +1,60 @@
 <div *ngIf="!isConnected" color="primary" style="border-top: 35px solid #3f51b5; -webkit-app-region: drag;">
 </div>
 <mat-toolbar *ngIf="isConnected" color="primary" style="-webkit-app-region: drag">
-    <span style="width: 60px">
-        <!-- Fix weird spacing, because I suck at CSS -->
-    </span>
-    <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="generate">
-        Generate
+
+  <span style="width: 60px">
+    <!-- Fix weird spacing, because I suck at CSS -->
+  </span>
+
+  <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="generate">
+    <i class="fas fa-fw fa-tractor"></i>
+    Generate
+  </button>
+
+  <mat-menu style="-webkit-app-region: no-drag" #generate="matMenu">
+    <button mat-menu-item [routerLink]="['/generate/new-implant']">
+      <i class="fas fa-fw fa-plus"></i>
+      New Implant
     </button>
-    <mat-menu style="-webkit-app-region: no-drag" #generate="matMenu">
-        <button mat-menu-item [routerLink]="['/generate/new-implant']">
-            New Implant
-        </button>
-        <button mat-menu-item [routerLink]="['/generate/history']">
-            History
-        </button>
-    </mat-menu>
-    <button style="-webkit-app-region: no-drag" mat-button [routerLink]="['/sessions']">Sessions</button>
-    <button style="-webkit-app-region: no-drag" mat-button [routerLink]="['/jobs']">Jobs</button>
+    <button mat-menu-item [routerLink]="['/generate/history']">
+      <i class="fas fa-fw fa-calendar-alt"></i>
+      History
+    </button>
+  </mat-menu>
 
-    <span class="pull-right-spacer"></span>
+  <button style="-webkit-app-region: no-drag" mat-button [routerLink]="['/sessions']">
+    <i class="fas fa-fw fa-project-diagram"></i>
+    Sessions
+  </button>
 
-    <span *ngIf="activeConfig">
-        <h4 class="mat-h4">
-            {{activeConfig.lhost}}
-            &nbsp;
-        </h4>
-    </span>
+  <button style="-webkit-app-region: no-drag" mat-button [routerLink]="['/jobs']">
+    <i class="fas fa-fw fa-flask"></i>
+    Jobs
+  </button>
 
-    <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="settings">
-        <i class="fas fa-fw fa-cog"></i>
+  <button style="-webkit-app-region: no-drag" mat-button [routerLink]="['/events']">
+    <i class="fas fa-fw fa-tasks"></i>
+    Events
+  </button>
+
+  <span class="pull-right-spacer"></span>
+
+  <span *ngIf="isConnected">
+    <h4 class="mat-h4">
+      <i *ngIf="isConnected" class="fas fa-fw fa-spin fa-circle-notch"></i>
+      {{activeConfig.lhost}}
+      &nbsp;
+    </h4>
+  </span>
+
+  <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="settings">
+      <i class="fas fa-caret-square-down"></i>
     </button>
     <mat-menu style="-webkit-app-region: no-drag" #settings="matMenu">
-        <button mat-menu-item (click)="onExit()">
-            <i class="fas fa-fw fa-sign-out-alt"></i>
-            &nbsp;Exit
-        </button>
+      <button mat-menu-item (click)="onExit()">
+        <i class="fas fa-fw fa-sign-out-alt"></i>
+        &nbsp;Exit
+      </button>
     </mat-menu>
+
 </mat-toolbar>
