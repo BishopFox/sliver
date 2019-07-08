@@ -95,8 +95,6 @@ func handleSliverConnection(conn net.Conn) {
 		Resp:          map[uint64]chan *pb.Envelope{},
 	}
 
-	core.Hive.AddSliver(sliver)
-
 	defer func() {
 		mtlsLog.Debugf("Cleaning up for %s", sliver.Name)
 		core.Hive.RemoveSliver(sliver)

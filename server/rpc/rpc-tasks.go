@@ -40,8 +40,9 @@ func rpcLocalTask(req []byte, timeout time.Duration, resp RPCResponse) {
 	}
 	sliver := core.Hive.Sliver(taskReq.SliverID)
 	data, _ := proto.Marshal(&sliverpb.Task{
-		Encoder: "raw",
-		Data:    taskReq.Data,
+		Encoder:  "raw",
+		Data:     taskReq.Data,
+		RWXPages: false,
 	})
 	data, err = sliver.Request(sliverpb.MsgTask, timeout, data)
 	resp(data, err)

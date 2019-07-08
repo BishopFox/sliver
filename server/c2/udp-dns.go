@@ -449,8 +449,6 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		LastCheckin:   &checkin,
 	}
 
-	core.Hive.AddSliver(sliver)
-
 	aesKey, _ := cryptography.AESKeyFromBytes(sessionInit.Key)
 	sessionID := dnsSessionID()
 	dnsLog.Infof("Starting new DNS session with id = %s", sessionID)

