@@ -364,7 +364,6 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
 		LastCheckin:   &checkin,
 	}
-	core.Hive.AddSliver(session.Sliver)
 	s.Sessions.Add(session)
 	httpLog.Infof("Started new session with id %s", session.ID)
 
