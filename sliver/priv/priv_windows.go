@@ -416,7 +416,7 @@ func GetSystem(data []byte, hostingProcess string) (err error) {
 				// {{end}}
 				return
 			}
-			err = taskrunner.RemoteTask(p.Pid(), data)
+			err = taskrunner.RemoteTask(p.Pid(), data, false)
 			if err != nil {
 				// {{if .Debug}}
 				log.Println("RemoteTask failed:", err)

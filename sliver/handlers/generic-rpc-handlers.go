@@ -355,7 +355,7 @@ func taskHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
-	err = taskrunner.LocalTask(task.Data)
+	err = taskrunner.LocalTask(task.Data, task.RWXPages)
 	resp([]byte{}, err)
 }
 
@@ -368,7 +368,7 @@ func remoteTaskHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	err = taskrunner.RemoteTask(int(remoteTask.Pid), remoteTask.Data)
+	err = taskrunner.RemoteTask(int(remoteTask.Pid), remoteTask.Data, remoteTask.RWXPages)
 	resp([]byte{}, err)
 }
 
