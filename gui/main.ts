@@ -38,8 +38,8 @@ async function createMainWindow() {
     titleBarStyle: 'hiddenInset',
     x: gutterSize,
     y: gutterSize,
-    width: size.width - gutterSize,
-    height: size.height - gutterSize,
+    width: size.width - (gutterSize * 2),
+    height: size.height - (gutterSize * 2),
     webPreferences: {
       // I think I got all of the settings we want here to reasonably lock down
       // the BrowserWindow - https://electronjs.org/docs/api/browser-window

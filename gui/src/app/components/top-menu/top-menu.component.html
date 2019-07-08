@@ -1,4 +1,4 @@
-<div *ngIf="!isConnected" color="primary" style="border-top: 35px solid #3f51b5; -webkit-app-region: drag;">
+<div *ngIf="!isConnected" color="primary" style="border-top: 64px solid #3f51b5; -webkit-app-region: drag;">
 </div>
 <mat-toolbar *ngIf="isConnected" color="primary" style="-webkit-app-region: drag">
 
@@ -48,13 +48,17 @@
   </span>
 
   <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="settings">
-      <i class="fas fa-caret-square-down"></i>
+    <i class="fas fa-caret-square-down"></i>
+  </button>
+  <mat-menu style="-webkit-app-region: no-drag" #settings="matMenu">
+    <button mat-menu-item>
+      <i class="fas fa-fw fa-cogs"></i>
+      &nbsp;Settings
     </button>
-    <mat-menu style="-webkit-app-region: no-drag" #settings="matMenu">
-      <button mat-menu-item (click)="onExit()">
-        <i class="fas fa-fw fa-sign-out-alt"></i>
-        &nbsp;Exit
-      </button>
-    </mat-menu>
+    <button mat-menu-item (click)="onExit()">
+      <i class="fas fa-fw fa-sign-out-alt"></i>
+      &nbsp;Exit
+    </button>
+  </mat-menu>
 
 </mat-toolbar>

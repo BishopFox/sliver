@@ -16,6 +16,10 @@ This is my attempt at making a _reasonably_ secure Electron application. High le
 * __No HTTP__ - The sandboxed code does not talk to the server over HTTP. Instead it uses IPC to talk to the native Node process, which then converts the call into RPC (Protobuf over mTLS).
 * __CSP__ - Strong CSP by default, no direct interaction with the DOM, Angular handles all content rendering.
 
+```
+                                                      |----------------- Electron ---------------|
+[implant] <-(mTLS/DNS/HTTP)-> [server] <-(RPC/mTLS)-> [node process] <--(IPC)--> [browser process]
+```
 
 ## Build
 
