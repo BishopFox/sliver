@@ -74,6 +74,7 @@ func registerSliverHandler(sliver *core.Sliver, data []byte) {
 	sliver.Filename = register.Filename
 	sliver.ActiveC2 = register.ActiveC2
 	sliver.Version = register.Version
+	core.Hive.AddSliver(sliver)
 }
 
 func tunnelDataHandler(sliver *core.Sliver, data []byte) {
