@@ -22,9 +22,6 @@ let mainWindow, serve;
 const args = process.argv.slice(1);
 serve = args.some(val => val === '--serve');
 
-process.on('unhandledRejection', (reason, p) => {
-  console.log('Unhandled Rejection at: Promise', p, 'reason:', reason);
-});
 
 async function createMainWindow() {
 
@@ -35,12 +32,13 @@ async function createMainWindow() {
   const gutterSize = 100;
   mainWindow = new BrowserWindow({
     // frame: false,
-    titleBarStyle: 'hiddenInset',
+    titleBarStyle: 'hidden',
     x: gutterSize,
     y: gutterSize,
     width: size.width - (gutterSize * 2),
     height: size.height - (gutterSize * 2),
     webPreferences: {
+      scrollBounce: true,
       // I think I got all of the settings we want here to reasonably lock down
       // the BrowserWindow - https://electronjs.org/docs/api/browser-window
       sandbox: true,
@@ -52,8 +50,15 @@ async function createMainWindow() {
       nodeIntegration: false,
       nodeIntegrationInWorker: false,
       nodeIntegrationInSubFrames: false,
+      nativeWindowOpen: false,
+      safeDialogs: true,
       preload: path.join(__dirname, 'preload.js'),
     },
+    show: false, // hide until 'ready-to-show'
+  });
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
   });
 
   if (serve) {

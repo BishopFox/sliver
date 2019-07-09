@@ -38,12 +38,42 @@ export class EventsService extends ProtobufService {
 
   eventsSubject$ = new Subject<pb.Event>();
 
+  players$ = new Subject<pb.Event>();
+  jobs$ = new Subject<pb.Event>();
+  sessions$ = new Subject<pb.Event>();
+
   constructor(private _ipc: IPCService) {
     super();
     this._ipc.ipcEventSubject$.subscribe((msg) => {
       try {
         const event = pb.Event.deserializeBinary(this.decode(msg.data));
         this.eventsSubject$.next(event);
+
+        const eventType = event.getEventtype();
+        switch (eventType) {
+
+          // Players
+          case Events.Joined:
+          case Events.Left:
+            this.players$.next(event);
+            break;
+
+          // Jobs
+          case Events.Started:
+          case Events.Stopped:
+            this.jobs$.next(event);
+            break;
+
+          // Sessions
+          case Events.Connected:
+          case Events.Disconnected:
+            this.sessions$.next(event);
+            break;
+
+          default:
+            console.error(`Unknown event type: '${eventType}'`);
+        }
+
       } catch (err) {
         console.error(err);
       }

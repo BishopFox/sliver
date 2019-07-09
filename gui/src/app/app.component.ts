@@ -1,9 +1,10 @@
 import { Component } from '@angular/core';
 import { EventsService, Events } from './providers/events.service';
 import { TranslateService } from '@ngx-translate/core';
-import { AppConfig } from '../environments/environment';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Router } from '@angular/router';
 
+import { AppConfig } from '../environments/environment';
 import * as pb from '../../rpc/pb';
 
 
@@ -14,7 +15,8 @@ import * as pb from '../../rpc/pb';
 })
 export class AppComponent {
 
-  constructor(private _eventsService: EventsService,
+  constructor(private _router: Router,
+              private _eventsService: EventsService,
               private _snackBar: MatSnackBar,
               private translate: TranslateService) {
     translate.setDefaultLang('en');
@@ -28,8 +30,8 @@ export class AppComponent {
           this.playerAlert('joined', event.getClient());
           break;
         case Events.Left:
-            this.playerAlert('left', event.getClient());
-            break;
+          this.playerAlert('left', event.getClient());
+          break;
 
         // Jobs
         case Events.Stopped:
@@ -60,12 +62,17 @@ export class AppComponent {
   }
 
   sessionOpenedAlert(session: pb.Sliver) {
-    const snackBarRef = this._snackBar.open(`Session  opened`, 'Interact', {
+    const snackBarRef = this._snackBar.open(`Session #${session.getId()} opened`, 'Interact', {
       duration: 5000,
     });
     snackBarRef.onAction().subscribe(() => {
-      console.log('The snack-bar action was triggered!');
+      this._router.navigate(['sessions', session.getId()]);
     });
+
+    const _ = new Notification('Sliver', {
+      body: `Session #${session.getId()} opened`
+    });
+
   }
 
 }

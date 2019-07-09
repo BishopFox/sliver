@@ -15,12 +15,18 @@
 
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { BaseMaterialModule } from '../../base-material';
 import { JobsComponent } from './jobs.component';
+import { StartListenerComponent } from './components/start-listener/start-listener.component';
 
 @NgModule({
-  declarations: [JobsComponent],
+  declarations: [JobsComponent, StartListenerComponent],
   imports: [
-    CommonModule
+    CommonModule,
+    BaseMaterialModule,
+    FormsModule,
+    ReactiveFormsModule
   ]
 })
 export class JobsModule { }

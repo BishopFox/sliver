@@ -1,16 +1,18 @@
-<div *ngIf="!isConnected" color="primary" style="border-top: 64px solid #3f51b5; -webkit-app-region: drag;">
+<div *ngIf="!isConnected" class="not-connected-topbar" color="primary" style="-webkit-app-region: drag;">
 </div>
-<mat-toolbar *ngIf="isConnected" color="primary" style="-webkit-app-region: drag">
+<mat-toolbar *ngIf="isConnected" class="app-toolbar" color="primary" style="-webkit-app-region: drag">
 
-  <span style="width: 60px">
-    <!-- Fix weird spacing, because I suck at CSS -->
-  </span>
+  <span style="width: 60px;"></span>
+
+  <button mat-button style="-webkit-app-region: no-drag" [routerLink]="['/home']">
+    <i class="fas fa-fw fa-home"></i>
+    Home
+  </button>
 
   <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="generate">
     <i class="fas fa-fw fa-tractor"></i>
     Generate
   </button>
-
   <mat-menu style="-webkit-app-region: no-drag" #generate="matMenu">
     <button mat-menu-item [routerLink]="['/generate/new-implant']">
       <i class="fas fa-fw fa-plus"></i>
@@ -27,10 +29,21 @@
     Sessions
   </button>
 
-  <button style="-webkit-app-region: no-drag" mat-button [routerLink]="['/jobs']">
+  <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="jobs">
     <i class="fas fa-fw fa-flask"></i>
     Jobs
   </button>
+  <mat-menu style="-webkit-app-region: no-drag" #jobs="matMenu">
+    <button mat-menu-item [routerLink]="['/jobs/new']">
+      <i class="fas fa-fw fa-plus"></i>
+      Start Listener
+    </button>
+    <button mat-menu-item [routerLink]="['/jobs']">
+      <i class="fas fa-fw fa-flask"></i>
+      Current Jobs
+    </button>
+  </mat-menu>
+
 
   <button style="-webkit-app-region: no-drag" mat-button [routerLink]="['/events']">
     <i class="fas fa-fw fa-tasks"></i>
@@ -39,16 +52,16 @@
 
   <span class="pull-right-spacer"></span>
 
-  <span *ngIf="isConnected">
+  <span *ngIf="isConnected && activeConfig">
     <h4 class="mat-h4">
-      <i *ngIf="isConnected" class="fas fa-fw fa-spin fa-circle-notch"></i>
-      {{activeConfig.lhost}}
+      <i class="fas fa-fw fa-spin fa-circle-notch"></i>
+        {{activeConfig.lhost}}
       &nbsp;
     </h4>
   </span>
 
   <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="settings">
-    <i class="fas fa-caret-square-down"></i>
+    <i class="fas fa-ellipsis-v"></i>
   </button>
   <mat-menu style="-webkit-app-region: no-drag" #settings="matMenu">
     <button mat-menu-item>

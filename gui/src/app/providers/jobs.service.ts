@@ -40,4 +40,107 @@ export class JobsService extends ProtobufService {
       }
     });
   }
+
+  async jobById(jobId: number): Promise<pb.Job> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const jobs = await this.jobs();
+        const activeJobs = jobs.getActiveList();
+        for (let index = 0; index < activeJobs.length; ++index) {
+          if (jobId === activeJobs[index].getId()) {
+            resolve(activeJobs[index]);
+            return;
+          }
+        }
+        reject('Job not found');
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  async startMTLSListener(lport: number): Promise<pb.Job> {
+    return new Promise(async (resolve, reject) => {
+      if (lport < 1 || 65535 <= lport) {
+        reject('Invalid port number');
+      }
+      try {
+        const reqEnvelope = new pb.Envelope();
+        reqEnvelope.setType(pb.ClientPB.MsgMtls);
+        const mtlsReq = new pb.MTLSReq();
+        mtlsReq.setLport(lport);
+        const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+        const mtls = pb.MTLS.deserializeBinary(this.decode(resp));
+        const job = await this.jobById(mtls.getJobid());
+        resolve(job);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  async startHTTPListener(domain: string, website: string, lport: number): Promise<pb.Job> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (lport < 1 || 65535 <= lport) {
+          reject('Invalid port number');
+        }
+        const reqEnvelope = new pb.Envelope();
+        reqEnvelope.setType(pb.ClientPB.MsgHttp);
+        const httpReq = new pb.HTTPReq();
+        httpReq.setLport(lport);
+        httpReq.setDomain(domain);
+        httpReq.setWebsite(website);
+        const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+        const http = pb.HTTP.deserializeBinary(this.decode(resp));
+        const job = await this.jobById(http.getJobid());
+        resolve(job);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  async startHTTPSListener(domain: string, website: string, lport: number, acme: boolean): Promise<pb.Job> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (lport < 1 || 65535 <= lport) {
+          reject('Invalid port number');
+        }
+        const reqEnvelope = new pb.Envelope();
+        reqEnvelope.setType(pb.ClientPB.MsgHttp);
+        const httpReq = new pb.HTTPReq();
+        httpReq.setLport(lport);
+        httpReq.setDomain(domain);
+        httpReq.setWebsite(website);
+        httpReq.setSecure(true);
+        httpReq.setAcme(acme ? true : false);
+        const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+        const https = pb.HTTP.deserializeBinary(this.decode(resp));
+        const job = await this.jobById(https.getJobid());
+        resolve(job);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  async startDNSListener(domains: string[], canaries: boolean): Promise<pb.Job> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const reqEnvelope = new pb.Envelope();
+        reqEnvelope.setType(pb.ClientPB.MsgDns);
+        const dnsReq = new pb.DNSReq();
+        dnsReq.setDomainsList(domains);
+        dnsReq.setCanaries(canaries ? true : false);
+        const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+        const dns = pb.DNS.deserializeBinary(this.decode(resp));
+        const job = await this.jobById(dns.getJobid());
+        resolve(job);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
 }

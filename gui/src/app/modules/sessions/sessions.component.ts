@@ -13,12 +13,14 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatTableDataSource } from '@angular/material/table';
 import { Sort } from '@angular/material/sort';
+import { Subscription } from 'rxjs';
 
 import { FADE_IN_OUT } from '../../shared/animations';
+import { EventsService } from '../../providers/events.service';
 import { SliverService } from '../../providers/sliver.service';
 import * as pb from '../../../../rpc/pb';
 
@@ -37,35 +39,41 @@ function compare(a: number | string, b: number | string, isAsc: boolean) {
   return (a < b ? -1 : 1) * (isAsc ? 1 : -1);
 }
 
+
 @Component({
   selector: 'app-sessions',
   templateUrl: './sessions.component.html',
   styleUrls: ['./sessions.component.scss'],
   animations: [FADE_IN_OUT]
 })
-export class SessionsComponent implements OnInit {
+export class SessionsComponent implements OnInit, OnDestroy {
 
+  subscription: Subscription;
+  dataSrc: MatTableDataSource<TableSessionData>;
   displayedColumns: string[] = [
     'id', 'name', 'transport', 'remoteaddress', 'username', 'os', 'checkin'
   ];
 
-  dataSrc: MatTableDataSource<TableSessionData>;
-  sessions: pb.Sessions;
-
   constructor(private _router: Router,
+              private _eventsService: EventsService,
               private _sliverService: SliverService) { }
 
   ngOnInit() {
-    this.getSessions();
+    this.fetchSessions();
+    this.subscription = this._eventsService.jobs$.subscribe(this.fetchSessions);
   }
 
-  async getSessions() {
-    this.sessions = await this._sliverService.sessions();
-    this.dataSrc = new MatTableDataSource(this.tableData());
+  ngOnDestroy() {
+    this.subscription.unsubscribe();
   }
 
-  tableData(): TableSessionData[] {
-    const slivers = this.sessions.getSliversList();
+  async fetchSessions() {
+    const sessions = await this._sliverService.sessions();
+    this.dataSrc = new MatTableDataSource(this.tableData(sessions));
+  }
+
+  tableData(sessions: pb.Sessions): TableSessionData[] {
+    const slivers = sessions.getSliversList();
     const table: TableSessionData[] = [];
     for (let index = 0; index < slivers.length; index++) {
       table.push({
