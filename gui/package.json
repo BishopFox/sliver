@@ -40,8 +40,6 @@
     "@angular/platform-browser": "8.0.3",
     "@angular/platform-browser-dynamic": "8.0.3",
     "@angular/router": "8.0.3",
-    "@ngx-translate/core": "11.0.1",
-    "@ngx-translate/http-loader": "4.0.0",
     "@types/jasmine": "2.8.7",
     "@types/jasminewd2": "2.0.3",
     "@types/mocha": "5.2.6",

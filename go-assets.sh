@@ -20,7 +20,7 @@
 # Creates the static go asset archives
 # You'll need wget, tar, and unzip commands
 
-GO_VER="1.12.6"
+GO_VER="1.12.7"
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test"
 
 
