@@ -384,7 +384,7 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeou
 	stderrIn, _ := cmd.StderrPipe()
 
 	var errStdout, errStderr error
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		//{{if .Debug}}
 		log.Println("Could not start process:", process)
