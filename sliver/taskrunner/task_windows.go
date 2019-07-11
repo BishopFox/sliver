@@ -32,10 +32,9 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/bishopfox/sliver/sliver/version"
 	// {{if .Debug}}
 	"log"
-
-	"github.com/bishopfox/sliver/sliver/version"
 	// {{else}}{{end}}
 )
 
