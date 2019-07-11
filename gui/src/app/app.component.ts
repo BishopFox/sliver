@@ -15,7 +15,6 @@
 
 import { Component } from '@angular/core';
 import { EventsService, Events } from './providers/events.service';
-import { TranslateService } from '@ngx-translate/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 
@@ -32,9 +31,7 @@ export class AppComponent {
 
   constructor(private _router: Router,
               private _eventsService: EventsService,
-              private _snackBar: MatSnackBar,
-              private translate: TranslateService) {
-    translate.setDefaultLang('en');
+              private _snackBar: MatSnackBar) {
     console.log(AppConfig);
     this._eventsService.eventsSubject$.subscribe((event: pb.Event) => {
       const eventType = event.getEventtype();
