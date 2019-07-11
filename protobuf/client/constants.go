@@ -64,6 +64,7 @@ const (
 	MsgMigrate
 	MsgGetSystemReq
 	MsgEggReq
+	MsgExecuteAssemblyReq
 
 	MsgRegenerate
 

