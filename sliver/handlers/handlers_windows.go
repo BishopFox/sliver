@@ -125,6 +125,9 @@ func elevateHandler(data []byte, resp RPCResponse) {
 }
 
 func executeAssemblyHandler(data []byte, resp RPCResponse) {
+	//{{if .Debug}}
+	log.Println("executeAssemblyHandler called")
+	//{{end}}
 	execReq := &pb.ExecuteAssemblyReq{}
 	err := proto.Unmarshal(data, execReq)
 	if err != nil {

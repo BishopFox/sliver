@@ -164,7 +164,7 @@ func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 
 	resp := <-rpc(&sliverpb.Envelope{
 		Data: data,
-		Type: sliverpb.MsgExecuteAssembly,
+		Type: clientpb.MsgExecuteAssemblyReq,
 	}, cmdTimeout)
 	ctrl <- true
 	<-ctrl

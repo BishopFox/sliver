@@ -215,7 +215,7 @@ func setupDataPath(appDir string) error {
 		setupLog.Infof("Creating data directory: %s", dataDir)
 		os.MkdirAll(dataDir, os.ModePerm)
 	}
-	hostingDll, err := assetsBox.Find("HostingCLRx64.dll")
+	hostingDll, err := assetsBox.Find("dll/HostingCLRx64.dll")
 	if err != nil {
 		setupLog.Info("failed to find the dll")
 		return err

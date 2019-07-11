@@ -66,16 +66,16 @@ var (
 
 		clientpb.MsgGetSystemReq: rpcGetSystem,
 
-		clientpb.MsgEggReq: rpcEgg,
+		clientpb.MsgEggReq:             rpcEgg,
+		clientpb.MsgExecuteAssemblyReq: rpcExecuteAssembly,
 
 		// "Req"s directly map to responses
 		sliverpb.MsgPsReq:          rpcPs,
 		sliverpb.MsgKill:           rpcKill,
 		sliverpb.MsgProcessDumpReq: rpcProcdump,
 
-		sliverpb.MsgElevate:         rpcElevate,
-		sliverpb.MsgImpersonate:     rpcImpersonate,
-		sliverpb.MsgExecuteAssembly: rpcExecuteAssembly,
+		sliverpb.MsgElevate:     rpcElevate,
+		sliverpb.MsgImpersonate: rpcImpersonate,
 
 		sliverpb.MsgLsReq:       rpcLs,
 		sliverpb.MsgRmReq:       rpcRm,
