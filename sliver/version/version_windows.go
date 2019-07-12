@@ -2,33 +2,96 @@ package version
 
 import (
 	"fmt"
+	//{{if .Debug}}
 	"log"
-	"syscall"
-	"unsafe"
+	//{{end}}
+	"runtime"
+
+	"golang.org/x/sys/windows"
 )
 
-type osVersionInfoEx struct {
-	osVersionInfoSize uint32
-	major             uint32
-	minor             uint32
-	build             uint32
-	platformID        uint32
-	csdVersion        [128]uint16
-	servicePackMajor  uint16
-	servicePackMinor  uint16
-	suiteMask         uint16
-	productType       byte
-	wReserved         byte
+const VER_NT_WORKSTATION = 0x0000001
+
+// GetVersion returns the os version information
+func getOSVersion() string {
+	osVersion := windows.RtlGetVersion()
+
+	var osName string
+	if osVersion.MajorVersion == 6 {
+		switch osVersion.MinorVersion {
+		case 0:
+			if osVersion.ProductType == VER_NT_WORKSTATION {
+				osName = "Vista"
+			} else {
+				osName = "Server 2008"
+			}
+		case 1:
+			if osVersion.ProductType == VER_NT_WORKSTATION {
+				osName = "7"
+			} else {
+				osName = "Server 2008 R2"
+			}
+		case 2:
+			if osVersion.ProductType == VER_NT_WORKSTATION {
+				osName = "8"
+			} else {
+				osName = "Server 2012"
+			}
+		case 3:
+			if osVersion.ProductType == VER_NT_WORKSTATION {
+				osName = "8.1"
+			} else {
+				osName = "Server 2012 R2"
+			}
+		}
+	} else {
+		if osVersion.ProductType == VER_NT_WORKSTATION {
+			osName = "10"
+		} else {
+			osName = "Server 2016"
+		}
+	}
+
+	var servicePack string
+	if osVersion.ServicePackMajor != 0 {
+		servicePack = fmt.Sprintf(" Service Pack %d", osVersion.ServicePackMajor)
+	}
+
+	var arch string
+	if runtime.GOARCH == "amd64" {
+		arch = "x86_64"
+	} else {
+		var is64Bit bool
+		pHandle, err := windows.GetCurrentProcess()
+		if err != nil {
+			//{{if .Debug}}
+			log.Printf("error getting OS version: error getting current process handle: %v")
+			//{{end}}
+			arch = "<error getting arch>"
+		}
+		if err = windows.IsWow64Process(pHandle, &is64Bit); err != nil {
+			//{{if .Debug}}
+			log.Printf("error getting OS version: error checking if running in WOW: %v")
+			//{{end}}
+			arch = "<error getting arch>"
+		} else {
+			if !is64Bit {
+				arch = "x86"
+			} else {
+				arch = "x86_64"
+			}
+		}
+	}
+
+	return fmt.Sprintf("%s%s build %d %s", osName, servicePack, osVersion.BuildNumber, arch)
+}
+
+func IsPrivileged() (privileged bool) {
+	token := windows.GetCurrentProcessToken()
+
+	return token.IsElevated()
 }
 
 func GetVersion() string {
-	kernel32 := syscall.MustLoadDLL("ntdll.dll")
-	procGetProductInfo := kernel32.MustFindProc("RtlGetVersion")
-	osVersion := osVersionInfoEx{}
-	osVersion.osVersionInfoSize = uint32(unsafe.Sizeof(osVersion))
-	r1, _, err := procGetProductInfo.Call(uintptr(unsafe.Pointer(&osVersion)))
-	if r1 != 0 {
-		log.Fatal(err)
-	}
-	return fmt.Sprintf("%d.%d build %d", osVersion.major, osVersion.minor, osVersion.build)
+	return getOSVersion()
 }
