@@ -12,7 +12,6 @@ import (
 
 const VER_NT_WORKSTATION = 0x0000001
 
-// GetVersion returns the os version information
 func getOSVersion() string {
 	osVersion := windows.RtlGetVersion()
 
@@ -86,6 +85,7 @@ func getOSVersion() string {
 	return fmt.Sprintf("%s%s build %d %s", osName, servicePack, osVersion.BuildNumber, arch)
 }
 
+// GetVersion returns the os version information
 func GetVersion() string {
 	return getOSVersion()
 }
