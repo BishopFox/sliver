@@ -86,12 +86,6 @@ func getOSVersion() string {
 	return fmt.Sprintf("%s%s build %d %s", osName, servicePack, osVersion.BuildNumber, arch)
 }
 
-func IsPrivileged() (privileged bool) {
-	token := windows.GetCurrentProcessToken()
-
-	return token.IsElevated()
-}
-
 func GetVersion() string {
 	return getOSVersion()
 }
