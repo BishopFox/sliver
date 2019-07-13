@@ -61,6 +61,7 @@ export class JobsService extends ProtobufService {
 
   async startMTLSListener(lport: number): Promise<pb.Job> {
     return new Promise(async (resolve, reject) => {
+      console.log(`Starting mTLS listener on port ${lport}`);
       if (lport < 1 || 65535 <= lport) {
         reject('Invalid port number');
       }
@@ -69,6 +70,7 @@ export class JobsService extends ProtobufService {
         reqEnvelope.setType(pb.ClientPB.MsgMtls);
         const mtlsReq = new pb.MTLSReq();
         mtlsReq.setLport(lport);
+        reqEnvelope.setData(mtlsReq.serializeBinary());
         const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
         const mtls = pb.MTLS.deserializeBinary(this.decode(resp));
         const job = await this.jobById(mtls.getJobid());
@@ -91,6 +93,7 @@ export class JobsService extends ProtobufService {
         httpReq.setLport(lport);
         httpReq.setDomain(domain);
         httpReq.setWebsite(website);
+        reqEnvelope.setData(httpReq.serializeBinary());
         const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
         const http = pb.HTTP.deserializeBinary(this.decode(resp));
         const job = await this.jobById(http.getJobid());
@@ -115,6 +118,7 @@ export class JobsService extends ProtobufService {
         httpReq.setWebsite(website);
         httpReq.setSecure(true);
         httpReq.setAcme(acme ? true : false);
+        reqEnvelope.setData(httpReq.serializeBinary());
         const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
         const https = pb.HTTP.deserializeBinary(this.decode(resp));
         const job = await this.jobById(https.getJobid());
@@ -133,6 +137,7 @@ export class JobsService extends ProtobufService {
         const dnsReq = new pb.DNSReq();
         dnsReq.setDomainsList(domains);
         dnsReq.setCanaries(canaries ? true : false);
+        reqEnvelope.setData(dnsReq.serializeBinary());
         const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
         const dns = pb.DNS.deserializeBinary(this.decode(resp));
         const job = await this.jobById(dns.getJobid());

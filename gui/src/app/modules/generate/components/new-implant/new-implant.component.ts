@@ -14,10 +14,26 @@
 */
 
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { FormGroup, FormBuilder, FormControl, Validators } from '@angular/forms';
+import { FormGroup, FormBuilder, FormControl, Validators, ValidationErrors } from '@angular/forms';
 import { FADE_IN_OUT } from '../../../../shared/animations';
 import { SliverService } from '../../../../providers/sliver.service';
 import { Subscription } from 'rxjs';
+import { JobsService } from '../../../../providers/jobs.service';
+import * as pb from '../../../../../../rpc/pb';
+import { EventsService } from '../../../../providers/events.service';
+
+
+interface Listener {
+  job: pb.Job;
+  checked: boolean;
+}
+
+interface C2 {
+  protocol: string;
+  domains: string[];
+  lport: number;
+}
+
 
 @Component({
   selector: 'app-new-implant',
@@ -32,7 +48,13 @@ export class NewImplantComponent implements OnInit, OnDestroy {
   genC2Form: FormGroup;
   compileTimeOptionsForm: FormGroup;
 
+  jobs: pb.Job[];
+  jobsSubscription: Subscription;
+  listeners: Listener[];
+
   constructor(private _fb: FormBuilder,
+              private _eventsService: EventsService,
+              private _jobsService: JobsService,
               private _sliverService: SliverService) { }
 
   ngOnInit() {
@@ -65,7 +87,7 @@ export class NewImplantComponent implements OnInit, OnDestroy {
       dns: ['', Validators.compose([
         this.validateDNSEndpoint
       ])],
-    }, {validator: this.validateC2});
+    }, { validator: this.validateGenC2Form });
 
     this.compileTimeOptionsForm = this._fb.group({
       reconnect: [60, Validators.compose([
@@ -79,17 +101,46 @@ export class NewImplantComponent implements OnInit, OnDestroy {
       ])],
     });
 
+    this.fetchJobs();
+    this.jobsSubscription = this._eventsService.jobs$.subscribe(this.fetchJobs);
   }
 
   ngOnDestroy() {
-    this.formSub.unsubscribe();
+    if (this.formSub) {
+      this.formSub.unsubscribe();
+    }
+    if (this.jobsSubscription) {
+      this.jobsSubscription.unsubscribe();
+    }
   }
 
-  validateC2(formGroup: FormGroup): any {
+  async fetchJobs() {
+    const jobs = await this._jobsService.jobs();
+    const activeJobs = jobs.getActiveList();
+    this.listeners = [];
+    for (let index = 0; index < activeJobs.length; ++index) {
+      if (activeJobs[index].getName() === 'rpc') {
+        continue;
+      }
+      this.listeners.push({
+        job: activeJobs[index],
+        checked: false,
+      });
+    }
+  }
+
+  validateGenC2Form(formGroup: FormGroup): ValidationErrors {
     const mtls = formGroup.controls['mtls'].value;
     const http = formGroup.controls['http'].value;
     const dns = formGroup.controls['dns'].value;
-    return [mtls, http, dns].some(c2 => c2 !== '') ? null : { invalidC2 : true};
+    const validC2 = [mtls, http, dns].some(c2 => c2 !== '');
+    return validC2 ? null : {invalidC2: 'You must specify at least one C2 endpoint' };
+  }
+
+  get C2s(): C2[] {
+    const c2s = [];
+
+    return c2s;
   }
 
   validateMTLSEndpoint(mtls: FormControl): any {

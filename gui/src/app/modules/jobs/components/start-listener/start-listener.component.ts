@@ -73,7 +73,7 @@ export class StartListenerComponent implements OnInit {
     switch (this.protocol) {
       case 'mtls':
         form = this.mtlsOptionsForm.value;
-        job = await this._jobsService.startMTLSListener(form.lhost);
+        job = await this._jobsService.startMTLSListener(form.lport);
         break;
       case 'http':
         form = this.httpOptionsForm.value;
@@ -89,7 +89,7 @@ export class StartListenerComponent implements OnInit {
         break;
     }
 
-    this._router.navigate(['jobs', job.getId()]);
+    this._router.navigate(['jobs']);
   }
 
 }
