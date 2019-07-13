@@ -38,10 +38,10 @@
               <mat-option value="exe">
                 Executable
               </mat-option>
-              <mat-option value="shared">
+              <mat-option [disabled]="genTargetForm.controls['os'].value !== 'windows'" value="shared">
                 Shared Library
               </mat-option>
-              <mat-option value="shellcode">
+              <mat-option [disabled]="genTargetForm.controls['os'].value !== 'windows'" value="shellcode">
                 Shellcode
               </mat-option>
             </mat-select>
@@ -57,31 +57,39 @@
     </mat-step>
 
     <mat-step [stepControl]="genC2Form" [completed]="false">
-
-      <form [formGroup]="genC2Form">
-        <ng-template matStepLabel>Command & Control</ng-template>
-        <p>
-          <mat-form-field>
-            <input matInput [formControl]="genC2Form.controls['mtls']" placeholder="mTLS Endpoints">
-          </mat-form-field>
-        </p>
-        <p>
-          <mat-form-field>
-            <input matInput [formControl]="genC2Form.controls['http']" placeholder="HTTP(S) Endpoints">
-          </mat-form-field>
-        </p>
-        <p>
-          <mat-form-field>
-            <input matInput [formControl]="genC2Form.controls['dns']" placeholder="DNS Endpoints">
-          </mat-form-field>
-        </p>
-        <div>
-          <button mat-raised-button matStepperPrevious>Back</button>
-          &nbsp;
-          <button mat-raised-button matStepperNext>Next</button>
-        </div>
-      </form>
-
+      <mat-grid-list cols="2" rowHeight="1:1">
+        <mat-grid-tile>
+          <form [formGroup]="genC2Form" style="display: inline">
+            <ng-template matStepLabel>Command & Control</ng-template>
+            <p>
+              <mat-form-field appearance="outline">
+                <mat-label>Mutual TLS Endpoints</mat-label>
+                <input matInput [formControl]="genC2Form.controls['mtls']" placeholder="mTLS Endpoints">
+              </mat-form-field>
+            </p>
+            <p>
+              <mat-form-field appearance="outline">
+                <mat-label>HTTP(S) Endpoints</mat-label>
+                <input matInput [formControl]="genC2Form.controls['http']" placeholder="HTTP(S) Endpoints">
+              </mat-form-field>
+            </p>
+            <p>
+              <mat-form-field appearance="outline">
+                <mat-label>DNS Endpoints</mat-label>
+                <input matInput [formControl]="genC2Form.controls['dns']" placeholder="DNS Endpoints">
+              </mat-form-field>
+            </p>
+            <div>
+              <button mat-raised-button matStepperPrevious>Back</button>
+              &nbsp;
+              <button [disabled]="genC2Form.invalid" mat-raised-button matStepperNext>Next</button>
+            </div>
+          </form>
+        </mat-grid-tile>
+        <mat-grid-tile>
+          foobar
+        </mat-grid-tile>
+      </mat-grid-list>
     </mat-step>
 
 
