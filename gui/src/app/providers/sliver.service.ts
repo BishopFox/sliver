@@ -61,6 +61,15 @@ export class SliverService extends ProtobufService {
     });
   }
 
+  async sliver_builds(): Promise<pb.SliverBuilds> {
+    return new Promise(async (resolve) => {
+      const reqEnvelope = new pb.Envelope();
+      reqEnvelope.setType(pb.ClientPB.MsgListSliverBuilds);
+      const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+      resolve(pb.SliverBuilds.deserializeBinary(this.decode(resp)));
+    });
+  }
+
   async generate(config: pb.SliverConfig): Promise<pb.Generate> {
     return new Promise(async (resolve) => {
       const reqEnvelope = new pb.Envelope();

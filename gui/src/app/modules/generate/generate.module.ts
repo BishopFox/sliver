@@ -18,16 +18,17 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { BaseMaterialModule } from '../../base-material';
 import { NewImplantComponent } from './components/new-implant/new-implant.component';
-import { HistoryComponent } from './components/history/history.component';
+import { HistoryComponent, RegenerateDialogComponent } from './components/history/history.component';
 
 
 @NgModule({
-  declarations: [NewImplantComponent, HistoryComponent],
+  declarations: [NewImplantComponent, HistoryComponent, RegenerateDialogComponent],
   imports: [
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
     BaseMaterialModule
-  ]
+  ],
+  entryComponents: [RegenerateDialogComponent]
 })
 export class GenerateModule { }

@@ -156,18 +156,20 @@ export class ClientPB {
     static readonly MsgGenerate = ClientPB.clientOffset + 15;
     static readonly MsgNewProfile = ClientPB.clientOffset + 16;
     static readonly MsgProfiles = ClientPB.clientOffset + 17;
+
     static readonly MsgTask = ClientPB.clientOffset + 18;
     static readonly MsgMigrate = ClientPB.clientOffset + 19;
     static readonly MsgGetSystemReq = ClientPB.clientOffset + 20;
     static readonly MsgEggReq = ClientPB.clientOffset + 21;
+    static readonly MsgExecuteAssemblyReq = ClientPB.clientOffset + 22;
 
-    static readonly MsgRegenerate = ClientPB.clientOffset + 22;
+    static readonly MsgRegenerate = ClientPB.clientOffset + 23;
 
-    static readonly MsgListSliverBuilds = ClientPB.clientOffset + 23;
-    static readonly MsgListCanaries = ClientPB.clientOffset + 24;
+    static readonly MsgListSliverBuilds = ClientPB.clientOffset + 24;
+    static readonly MsgListCanaries = ClientPB.clientOffset + 25;
 
     // Website related messages
-    static readonly MsgWebsiteList = ClientPB.clientOffset + 25;
-    static readonly MsgWebsiteAddContent = ClientPB.clientOffset + 26;
-    static readonly MsgWebsiteRemoveContent = ClientPB.clientOffset + 27;
+    static readonly MsgWebsiteList = ClientPB.clientOffset + 26;
+    static readonly MsgWebsiteAddContent = ClientPB.clientOffset + 27;
+    static readonly MsgWebsiteRemoveContent = ClientPB.clientOffset + 28;
 }
