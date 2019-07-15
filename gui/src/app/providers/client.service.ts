@@ -19,6 +19,7 @@ This service is talks to the mTLS client and manages configs/etc.
 
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
+import * as base64 from 'base64-arraybuffer';
 
 import { IPCService } from './ipc.service';
 import { RPCConfig } from '../../../rpc';
@@ -63,6 +64,21 @@ export class ClientService {
         console.log(configs);
         console.log(typeof configs);
         resolve(configs);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  async saveFile(filename: string, data: Uint8Array, overwrite: boolean): Promise<string> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const resp: string = await this._ipc.request('client_saveFile', JSON.stringify({
+          filename: filename,
+          data: base64.encode(data),
+          overwrite: overwrite,
+        }));
+        resolve(resp);
       } catch (err) {
         reject(err);
       }

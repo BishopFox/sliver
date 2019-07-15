@@ -42,6 +42,12 @@ function decodeRequest(data: string): Uint8Array {
 }
 
 
+interface SaveFile {
+  fileName: string;
+  data: string;
+  overwrite: boolean;
+}
+
 // IPC Methods used to start/interact with the RPCClient
 class RPCClientHandlers {
 
@@ -61,6 +67,38 @@ class RPCClientHandlers {
         reject(err);
       });
     });
+  }
+
+  // For now all files are just saved to the Downloads folder,
+  // which should exist on all supported platforms.
+  static client_saveFile(data: string): Promise<string> {
+    return new Promise(async (resolve, reject) => {
+      const saveFile: SaveFile = JSON.parse(data);
+      const options = {
+        mode: 0o755,
+        encoding: 'binary',
+      };
+      const downloadsDir = path.join(homedir(), 'Downloads');
+      const filePath = path.join(downloadsDir, path.basename(saveFile.fileName));
+      if (!fs.existsSync(downloadsDir)) {
+        reject(`Downloads directory does not exist: ${downloadsDir}`);
+      }
+      if (fs.existsSync(filePath) && !saveFile.overwrite) {
+        reject(`File already exists: ${filePath}`);
+      }
+      fs.writeFile(filePath, base64.decode(saveFile.data), options, (err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(filePath);
+        }
+      });
+    });
+  }
+
+  static client_exit() {
+    process.on('unhandledRejection', () => {}); // STFU Node
+    process.exit(0);
   }
 
   static config_list(): Promise<string> {
@@ -94,11 +132,6 @@ class RPCClientHandlers {
       const respEnvelope = await rpc.request(request);
       resolve(encodeResponse(respEnvelope.getData_asU8()));
     });
-  }
-
-  static client_exit() {
-    process.on('unhandledRejection', () => {}); // STFU Node
-    process.exit(0);
   }
 
 }
