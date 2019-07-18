@@ -34,7 +34,7 @@ export class SliverService extends ProtobufService {
     super();
   }
 
-  async sessions(): Promise<pb.Sessions> {
+  sessions(): Promise<pb.Sessions> {
     return new Promise(async (resolve, reject) => {
       try {
         const reqEnvelope = new pb.Envelope();
@@ -47,7 +47,7 @@ export class SliverService extends ProtobufService {
     });
   }
 
-  async sessionById(id: number): Promise<pb.Sliver> {
+  sessionById(id: number): Promise<pb.Sliver> {
     return new Promise(async (resolve, reject) => {
       const sessions = await this.sessions();
       const slivers = sessions.getSliversList();
@@ -61,7 +61,7 @@ export class SliverService extends ProtobufService {
     });
   }
 
-  async sliver_builds(): Promise<pb.SliverBuilds> {
+  sliverBuilds(): Promise<pb.SliverBuilds> {
     return new Promise(async (resolve) => {
       const reqEnvelope = new pb.Envelope();
       reqEnvelope.setType(pb.ClientPB.MsgListSliverBuilds);
@@ -70,7 +70,7 @@ export class SliverService extends ProtobufService {
     });
   }
 
-  async generate(config: pb.SliverConfig): Promise<pb.Generate> {
+  generate(config: pb.SliverConfig): Promise<pb.Generate> {
     return new Promise(async (resolve) => {
       const reqEnvelope = new pb.Envelope();
       const generateReq = new pb.GenerateReq();
@@ -81,7 +81,7 @@ export class SliverService extends ProtobufService {
     });
   }
 
-  async regenerate(name: string): Promise<pb.Regenerate> {
+  regenerate(name: string): Promise<pb.Regenerate> {
     return new Promise(async (resolve) => {
       const reqEnvelope = new pb.Envelope();
       reqEnvelope.setType(pb.ClientPB.MsgRegenerate);

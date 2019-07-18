@@ -32,21 +32,18 @@ import { Envelope } from '../rpc/pb';
 const CONFIG_DIR = path.join(homedir(), '.sliver-client', 'configs');
 let rpc: RPCClient;
 
-function encodeResponse(data: Uint8Array): string {
-  return base64.encode(data);
-}
 
 function decodeRequest(data: string): Uint8Array {
   const buf = base64.decode(data);
   return new Uint8Array(buf);
 }
 
-
 interface SaveFile {
   fileName: string;
   data: string;
   overwrite: boolean;
 }
+
 
 // IPC Methods used to start/interact with the RPCClient
 class RPCClientHandlers {
@@ -59,7 +56,7 @@ class RPCClientHandlers {
         console.log('Connection successful');
         rpc.envelopeSubject$.subscribe((envelope) => {
           if (envelope.getId() === 0) {
-            ipcMain.emit('push', encodeResponse(envelope.getData_asU8()));
+            ipcMain.emit('push', envelope.getData_asB64());
           }
         });
         resolve('success');
@@ -128,9 +125,21 @@ class RPCClientHandlers {
 
   static rpc_request(data: string): Promise<string> {
     return new Promise(async (resolve) => {
-      const request: Envelope = Envelope.deserializeBinary(decodeRequest(data));
-      const respEnvelope = await rpc.request(request);
-      resolve(encodeResponse(respEnvelope.getData_asU8()));
+      const reqEnvelope: Envelope = Envelope.deserializeBinary(decodeRequest(data));
+      const respEnvelope = await rpc.request(reqEnvelope);
+      resolve(base64.encode(respEnvelope.getData_asU8()));
+    });
+  }
+
+  static rpc_send(data: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      try {
+        const envelope: Envelope = Envelope.deserializeBinary(decodeRequest(data));
+        rpc.sendEnvelope(envelope);
+        resolve(JSON.stringify({sucess: true}));
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 
@@ -171,19 +180,25 @@ export function startIPCHandlers(window) {
 
   ipcMain.on('ipc', async (event: any, msg: IPCMessage) => {
     dispatchIPC(msg.method, msg.data).then((result: string) => {
-      event.sender.send('ipc', {
-        id: msg.id,
-        type: 'response',
-        method: 'success',
-        data: result
-      });
+      if (msg.id !== 0) {
+        event.sender.send('ipc', {
+          id: msg.id,
+          type: 'response',
+          method: 'success',
+          data: result
+        });
+      }
     }).catch((err) => {
-      event.sender.send('ipc', {
-        id: msg.id,
-        type: 'response',
-        method: 'error',
-        data: err.toString()
-      });
+      if (msg.id !== 0) {
+        event.sender.send('ipc', {
+          id: msg.id,
+          type: 'response',
+          method: 'error',
+          data: err.toString()
+        });
+      } else {
+        console.error(err);
+      }
     });
   });
 

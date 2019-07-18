@@ -6,32 +6,44 @@
 
   <button mat-button style="-webkit-app-region: no-drag" [routerLink]="['/home']">
     <i class="fas fa-fw fa-home"></i>
-    Home
+    <ng-container i18n>
+      Home
+    </ng-container>
   </button>
 
   <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="generate">
     <i class="fas fa-fw fa-tractor"></i>
-    Generate
+    <ng-container i18n>
+      Generate
+    </ng-container>
   </button>
   <mat-menu style="-webkit-app-region: no-drag" #generate="matMenu">
     <button mat-menu-item [routerLink]="['/generate/new-implant']">
       <i class="fas fa-fw fa-plus"></i>
-      New Implant
+      <ng-container i18n>
+        New Implant
+      </ng-container>
     </button>
     <button mat-menu-item [routerLink]="['/generate/history']">
       <i class="fas fa-fw fa-calendar-alt"></i>
-      History
+      <ng-container i18n>
+        History
+      </ng-container>
     </button>
   </mat-menu>
 
   <button style="-webkit-app-region: no-drag" mat-button [routerLink]="['/sessions']">
     <i class="fas fa-fw fa-project-diagram"></i>
-    Sessions
+    <ng-container i18n>
+      Sessions
+    </ng-container>
   </button>
 
   <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="jobs">
     <i class="fas fa-fw fa-flask"></i>
-    Jobs
+    <ng-container i18n>
+      Jobs
+    </ng-container>
   </button>
   <mat-menu style="-webkit-app-region: no-drag" #jobs="matMenu">
     <button mat-menu-item [routerLink]="['/jobs/new']">

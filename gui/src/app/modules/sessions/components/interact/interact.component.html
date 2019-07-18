@@ -1,49 +1,52 @@
-<mat-grid-list *ngIf="!session" cols="3" >
-    <mat-grid-tile></mat-grid-tile>
-    <mat-grid-tile>
-        <mat-progress-spinner mode="indeterminate">
-        </mat-progress-spinner>
-    </mat-grid-tile>
-    <mat-grid-tile></mat-grid-tile>
+<mat-grid-list *ngIf="!session" cols="3">
+  <mat-grid-tile></mat-grid-tile>
+  <mat-grid-tile>
+    <mat-progress-spinner mode="indeterminate">
+    </mat-progress-spinner>
+  </mat-grid-tile>
+  <mat-grid-tile></mat-grid-tile>
 </mat-grid-list>
 
 <div *ngIf="session">
-    <h1 class="mat-headline">
-        {{session.getName()}}
-    </h1>
-    <h4 class="mat-subheading-1">Session #{{session.getId()}}</h4>
-    <mat-tab-group mat-align-tabs="center">
-        <mat-tab>
-            <ng-template mat-tab-label>
-                <i class="fas fa-fw fa-info-circle"></i>
-                &nbsp;Info
-            </ng-template>
-            <h2 class="mat-title">Info</h2>
-            <p>...</p>
-        </mat-tab>
-        <mat-tab>
-            <ng-template mat-tab-label>
-                <i class="fas fa-fw fa-folder-open"></i>
-                &nbsp;File Browser
-            </ng-template>
-            <h2 class="mat-title">File Browser</h2>
-            <p>...</p>
-        </mat-tab>
-        <mat-tab>
-            <ng-template mat-tab-label>
-                <i class="fas fa-fw fa-list"></i>
-                &nbsp;Processes
-            </ng-template>
-            <h2 class="mat-title">Processes</h2>
-            <p>...</p>
-        </mat-tab>
-        <mat-tab>
-            <ng-template mat-tab-label>
-                <i class="fas fa-fw fa-terminal"></i>
-                &nbsp;Shell
-            </ng-template>
-            <h2 class="mat-title">Shell</h2>
-            <p>...</p>
-        </mat-tab>
-    </mat-tab-group>
+  <mat-tab-group mat-align-tabs="center">
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <i class="fas fa-fw fa-info-circle"></i>
+        &nbsp;Info
+      </ng-template>
+      <h2 class="mat-title">Info</h2>
+      <div>
+        <h1 class="mat-headline">
+          {{session.getName()}}
+        </h1>
+        <h4 class="mat-subheading-1">Session #{{session.getId()}}</h4>
+      </div>
+    </mat-tab>
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <i class="fas fa-fw fa-folder-open"></i>
+        &nbsp;File Browser
+      </ng-template>
+      <h2 class="mat-title">File Browser</h2>
+      <div>
+        <app-file-browser></app-file-browser>
+      </div>
+    </mat-tab>
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <i class="fas fa-fw fa-list"></i>
+        &nbsp;Processes
+      </ng-template>
+      <h2 class="mat-title">Processes</h2>
+      <app-ps></app-ps>
+    </mat-tab>
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <i class="fas fa-fw fa-terminal"></i>
+        &nbsp;Shell
+      </ng-template>
+      <h2 class="mat-title">Shell</h2>
+      <app-shell></app-shell>
+    </mat-tab>
+  </mat-tab-group>
 </div>

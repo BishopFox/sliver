@@ -36,7 +36,7 @@ export const Events = {
 })
 export class EventsService extends ProtobufService {
 
-  eventsSubject$ = new Subject<pb.Event>();
+  events$ = new Subject<pb.Event>();
 
   players$ = new Subject<pb.Event>();
   jobs$ = new Subject<pb.Event>();
@@ -44,10 +44,9 @@ export class EventsService extends ProtobufService {
 
   constructor(private _ipc: IPCService) {
     super();
-    this._ipc.ipcEventSubject$.subscribe((msg) => {
+    this._ipc.ipcEvent$.subscribe((event) => {
       try {
-        const event = pb.Event.deserializeBinary(this.decode(msg.data));
-        this.eventsSubject$.next(event);
+        this.events$.next(event);
 
         const eventType = event.getEventtype();
         switch (eventType) {

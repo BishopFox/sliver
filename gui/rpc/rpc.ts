@@ -14,10 +14,10 @@
 */
 
 import { Subject, Observable, Observer } from 'rxjs';
-import { TLSSocket, ConnectionOptions, TlsOptions, connect } from 'tls';
+import { TLSSocket, ConnectionOptions, connect } from 'tls';
 import { randomBytes } from 'crypto';
 import * as sliverpb from './pb/sliver_pb';
-import * as msg from './pb/constants';
+
 
 export interface RPCConfig {
   operator: string;
@@ -93,7 +93,7 @@ export class RPCClient {
     });
   }
 
-  private sendEnvelope(envelope: sliverpb.Envelope) {
+  sendEnvelope(envelope: sliverpb.Envelope) {
     if (!envelope.getTimeout()) {
       envelope.setTimeout(this.defaultTimeout);
     }
@@ -194,8 +194,10 @@ export class RPCClient {
               console.log(`Socket write ${data.length} bytes`);
               this.socket.write(data);
             },
-            complete: () => {},
-            error: () => {},
+            complete: () => {
+              console.log('TLS Observer completed');
+            },
+            error: console.error,
           };
 
           resolve();

@@ -153,7 +153,6 @@ func (ss *SliverServer) ResponseMapper() {
 					log.Printf("Failed to decode event envelope")
 					continue
 				}
-				// log.Printf("[client] Routing event message")
 				ss.Events <- event
 
 			case sliverpb.MsgTunnelData:
@@ -163,7 +162,6 @@ func (ss *SliverServer) ResponseMapper() {
 					log.Printf("Failed to decode tunnel data envelope")
 					continue
 				}
-				// log.Printf("[client] Routing tunnel data with id %d", tunnelData.TunnelID)
 				ss.Tunnels.RecvTunnelData(tunnelData)
 
 			case sliverpb.MsgTunnelClose:

@@ -75,7 +75,7 @@ export class HistoryComponent implements OnInit {
   }
 
   async fetchSliverBuilds() {
-    const sliver_builds = await this._sliverService.sliver_builds();
+    const sliver_builds = await this._sliverService.sliverBuilds();
     this.dataSrc = new MatTableDataSource(this.tableData(sliver_builds));
   }
 

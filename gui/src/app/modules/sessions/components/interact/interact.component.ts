@@ -43,4 +43,8 @@ export class InteractComponent implements OnInit {
     });
   }
 
+  get ActiveC2(): string {
+    return this.session ? this.session.getActivec2() : null;
+  }
+
 }

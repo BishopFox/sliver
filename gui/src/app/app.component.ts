@@ -33,7 +33,7 @@ export class AppComponent {
               private _eventsService: EventsService,
               private _snackBar: MatSnackBar) {
     console.log(AppConfig);
-    this._eventsService.eventsSubject$.subscribe((event: pb.Event) => {
+    this._eventsService.events$.subscribe((event: pb.Event) => {
       const eventType = event.getEventtype();
       switch (eventType) {
 
@@ -84,7 +84,6 @@ export class AppComponent {
     const _ = new Notification('Sliver', {
       body: `Session #${session.getId()} opened`
     });
-
   }
 
 }
