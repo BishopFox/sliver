@@ -19,12 +19,24 @@ import { ModuleWithProviders } from '@angular/core';
 import { ActiveConfig } from '../../app-routing-guards.module';
 import { SessionsComponent } from './sessions.component';
 import { InteractComponent } from './components/interact/interact.component';
+import { InfoComponent } from './components/info/info.component';
+import { PsComponent } from './components/ps/ps.component';
+import { FileBrowserComponent } from './components/file-browser/file-browser.component';
+import { ShellComponent } from './components/shell/shell.component';
 
 
 const routes: Routes = [
 
     { path: 'sessions', component: SessionsComponent, canActivate: [ActiveConfig] },
-    { path: 'sessions/:id', component: InteractComponent, canActivate: [ActiveConfig] },
+    { path: 'sessions/:session-id', component: InteractComponent, canActivate: [ActiveConfig],
+      children: [
+        { path: '', component: InfoComponent, canActivate: [ActiveConfig] },
+        { path: 'info', component: InfoComponent, canActivate: [ActiveConfig] },
+        { path: 'ps', component: PsComponent, canActivate: [ActiveConfig] },
+        { path: 'file-browser', component: FileBrowserComponent, canActivate: [ActiveConfig] },
+        { path: 'shell', component: ShellComponent, canActivate: [ActiveConfig] },
+      ]
+  },
 
 ];
 

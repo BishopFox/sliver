@@ -1,52 +1,36 @@
-<mat-grid-list *ngIf="!session" cols="3">
-  <mat-grid-tile></mat-grid-tile>
-  <mat-grid-tile>
-    <mat-progress-spinner mode="indeterminate">
-    </mat-progress-spinner>
-  </mat-grid-tile>
-  <mat-grid-tile></mat-grid-tile>
-</mat-grid-list>
+<mat-sidenav-container [@fadeInOut] class="interact-container">
 
-<div *ngIf="session">
-  <mat-tab-group mat-align-tabs="center">
-    <mat-tab>
-      <ng-template mat-tab-label>
-        <i class="fas fa-fw fa-info-circle"></i>
-        &nbsp;Info
-      </ng-template>
-      <h2 class="mat-title">Info</h2>
-      <div>
-        <h1 class="mat-headline">
-          {{session.getName()}}
-        </h1>
-        <h4 class="mat-subheading-1">Session #{{session.getId()}}</h4>
-      </div>
-    </mat-tab>
-    <mat-tab>
-      <ng-template mat-tab-label>
-        <i class="fas fa-fw fa-folder-open"></i>
-        &nbsp;File Browser
-      </ng-template>
-      <h2 class="mat-title">File Browser</h2>
-      <div>
-        <app-file-browser></app-file-browser>
-      </div>
-    </mat-tab>
-    <mat-tab>
-      <ng-template mat-tab-label>
-        <i class="fas fa-fw fa-list"></i>
-        &nbsp;Processes
-      </ng-template>
-      <h2 class="mat-title">Processes</h2>
-      <app-ps></app-ps>
-    </mat-tab>
-    <mat-tab>
-      <ng-template mat-tab-label>
-        <i class="fas fa-fw fa-terminal"></i>
-        &nbsp;Shell
-      </ng-template>
-      <h2 class="mat-title">Shell</h2>
-      <app-shell></app-shell>
-    </mat-tab>
-  </mat-tab-group>
-</div>
+  <mat-sidenav #sidenav mode="side" opened class="interact-sidenav" [fixedInViewport]="false">
+    <button mat-menu-item [routerLink]="['/sessions']">
+      <i class="fas fa-fw fa-arrow-left"></i>
+      Back
+    </button>
+    <button mat-menu-item [routerLink]="['info']">
+      <i class="fas fa-fw fa-info"></i>
+      Info
+    </button>
+    <button mat-menu-item [routerLink]="['ps']">
+      <i class="fas fa-fw fa-list"></i>
+      Process List
+    </button>
+    <button mat-menu-item [routerLink]="['file-browser']">
+      <i class="fas fa-fw fa-folder-open"></i>
+      File Browser
+    </button>
+    <button mat-menu-item [routerLink]="['shell']">
+      <i class="fas fa-fw fa-terminal"></i>
+      Shell
+    </button>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <router-outlet></router-outlet>
+  </mat-sidenav-content>
+
+</mat-sidenav-container>
+
+<mat-toolbar [@fadeInOut] *ngIf="session" color="primary" class="interact-footer">
+  Session #{{session.getId()}} - {{session.getName()}}
+  <span style="flex: 1 1 auto;"></span>
+  <span class="monospace">{{session.getUsername()}}@{{session.getHostname()}} - {{session.getRemoteaddress()}}</span>
+</mat-toolbar>

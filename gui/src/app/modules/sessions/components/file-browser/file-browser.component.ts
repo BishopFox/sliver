@@ -1,4 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Input } from '@angular/core';
+
+import { SliverService } from '../../../../providers/sliver.service';
+import * as pb from '../../../../../../rpc/pb';
+
 
 @Component({
   selector: 'app-file-browser',
@@ -7,9 +11,12 @@ import { Component, OnInit } from '@angular/core';
 })
 export class FileBrowserComponent implements OnInit {
 
-  constructor() { }
+  @Input() session: pb.Sliver;
+
+  constructor(private _sliverService: SliverService) { }
 
   ngOnInit() {
+
   }
 
 }

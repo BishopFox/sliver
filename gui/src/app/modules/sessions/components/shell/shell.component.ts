@@ -29,26 +29,27 @@ import * as xterm from 'xterm';
 })
 export class ShellComponent implements OnInit {
 
-  @Input() sliver: pb.Sliver;
+  @Input() session: pb.Sliver;
+  active = false;
+  tunnel: Tunnel;
 
   constructor(private _tunnelService: TunnelService) { }
 
   ngOnInit() {
-
+    console.log(`Session ${this.session.getId()}`);
   }
 
   async openShell() {
-    const tun = await this._tunnelService.createTunnel(this.sliver.getId());
-
+    this.tunnel = await this._tunnelService.createTunnel(this.session.getId());
+    this.active = true;
   }
-
 
 }
 
 
 @Component({
   selector: 'app-terminal',
-  templateUrl: '<div #terminal></div>',
+  template: `<div #terminal></div>`,
   styleUrls: ['./terminal.component.scss']
 })
 export class TerminalComponent implements OnInit, OnDestroy {
@@ -64,15 +65,6 @@ export class TerminalComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.createTerminal();
-    this.recvSub = this.tunnel.recv.subscribe((data: Buffer) => {
-      console.log(`[terminal] recv: ${data}`);
-      this.terminal.writeUtf8(data);
-    });
-
-    this.terminal.onData((data: string) => {
-      console.log(`[terminal] send: ${data}`);
-      this.tunnel.send.next(Buffer.from(data));
-    });
   }
 
   ngOnDestroy() {
@@ -87,6 +79,14 @@ export class TerminalComponent implements OnInit, OnDestroy {
       scrollback: this.SCROLLBACK,
     });
     this.terminal.open(this.el.nativeElement);
+    this.recvSub = this.tunnel.recv.subscribe((data: Buffer) => {
+      console.log(`[terminal] recv: ${data}`);
+      this.terminal.writeUtf8(data);
+    });
+    this.terminal.onData((data: string) => {
+      console.log(`[terminal] send: ${data}`);
+      this.tunnel.send.next(Buffer.from(data));
+    });
   }
 
 }

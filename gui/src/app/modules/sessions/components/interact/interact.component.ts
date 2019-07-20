@@ -16,6 +16,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 
+import { FADE_IN_OUT } from '../../../../shared/animations';
 import { SliverService } from '../../../../providers/sliver.service';
 import * as pb from '../../../../../../rpc/pb';
 
@@ -23,19 +24,20 @@ import * as pb from '../../../../../../rpc/pb';
 @Component({
   selector: 'app-interact',
   templateUrl: './interact.component.html',
-  styleUrls: ['./interact.component.scss']
+  styleUrls: ['./interact.component.scss'],
+  animations: [FADE_IN_OUT]
 })
 export class InteractComponent implements OnInit {
 
   session: pb.Sliver;
 
   constructor(private _route: ActivatedRoute,
-              private _sliverSerivce: SliverService) { }
+              private _sliverService: SliverService) { }
 
   ngOnInit() {
-    this._route.params.subscribe(params => {
-      const sessionId: number = parseInt(params['id'], 10);
-      this._sliverSerivce.sessionById(sessionId).then((session) => {
+    this._route.params.subscribe((params) => {
+      const sessionId: number = parseInt(params['session-id'], 10);
+      this._sliverService.sessionById(sessionId).then((session) => {
         this.session = session;
       }).catch(() => {
         console.log(`No session with id ${sessionId}`);

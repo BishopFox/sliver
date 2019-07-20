@@ -16,11 +16,13 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BaseMaterialModule } from '../../base-material';
+import { RouterModule } from '@angular/router';
 import { SessionsComponent } from './sessions.component';
 import { InteractComponent } from './components/interact/interact.component';
 import { FileBrowserComponent } from './components/file-browser/file-browser.component';
 import { ShellComponent, TerminalComponent } from './components/shell/shell.component';
 import { PsComponent } from './components/ps/ps.component';
+import { InfoComponent } from './components/info/info.component';
 
 @NgModule({
   declarations: [
@@ -29,10 +31,12 @@ import { PsComponent } from './components/ps/ps.component';
     FileBrowserComponent,
     ShellComponent,
     TerminalComponent,
-    PsComponent
+    PsComponent,
+    InfoComponent
   ],
   imports: [
     CommonModule,
+    RouterModule,
     BaseMaterialModule
   ]
 })

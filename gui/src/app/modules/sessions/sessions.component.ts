@@ -94,7 +94,7 @@ export class SessionsComponent implements OnInit, OnDestroy {
   }
 
   onRowSelection(row: any) {
-    this._router.navigate(['sessions', row.id]);
+    this._router.navigate(['sessions', row.id, 'info']);
   }
 
   // Becauase MatTableDataSource is absolute piece of shit

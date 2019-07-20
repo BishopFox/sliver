@@ -1,1 +1,13 @@
-<div #terminal></div>
+<mat-grid-list cols="10" rowHeight="600px">
+  <mat-grid-tile></mat-grid-tile>
+  <mat-grid-tile [colspan]="8">
+    <app-terminal *ngIf="active" [tunnel]="tunnel">
+    </app-terminal>
+    <div *ngIf="!active">
+      <button mat-raised-button color="primary" (click)="openShell()">
+        Open Shell
+      </button>
+    </div>
+  </mat-grid-tile>
+  <mat-grid-tile></mat-grid-tile>
+</mat-grid-list>

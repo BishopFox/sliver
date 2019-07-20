@@ -1,73 +1,71 @@
-<div *ngIf="!isConnected" class="not-connected-topbar" color="primary" style="-webkit-app-region: drag;">
-</div>
-<mat-toolbar *ngIf="isConnected" class="app-toolbar" color="primary" style="-webkit-app-region: drag">
-
+<mat-toolbar class="app-toolbar" color="primary" style="-webkit-app-region: drag">
   <span style="width: 60px;"></span>
-
-  <button mat-button style="-webkit-app-region: no-drag" [routerLink]="['/home']">
-    <i class="fas fa-fw fa-home"></i>
-    <ng-container i18n>
-      Home
-    </ng-container>
-  </button>
-
-  <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="generate">
-    <i class="fas fa-fw fa-tractor"></i>
-    <ng-container i18n>
-      Generate
-    </ng-container>
-  </button>
-  <mat-menu style="-webkit-app-region: no-drag" #generate="matMenu">
-    <button mat-menu-item [routerLink]="['/generate/new-implant']">
-      <i class="fas fa-fw fa-plus"></i>
+  
+  <div *ngIf="isConnected">
+    <button mat-button style="-webkit-app-region: no-drag" [routerLink]="['/home']">
+      <i class="fas fa-fw fa-home"></i>
       <ng-container i18n>
-        New Implant
+        Home
       </ng-container>
     </button>
-    <button mat-menu-item [routerLink]="['/generate/history']">
-      <i class="fas fa-fw fa-calendar-alt"></i>
+
+    <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="generate">
+      <i class="fas fa-fw fa-tractor"></i>
       <ng-container i18n>
-        History
+        Generate
       </ng-container>
     </button>
-  </mat-menu>
+    <mat-menu style="-webkit-app-region: no-drag" #generate="matMenu">
+      <button mat-menu-item [routerLink]="['/generate/new-implant']">
+        <i class="fas fa-fw fa-plus"></i>
+        <ng-container i18n>
+          New Implant
+        </ng-container>
+      </button>
+      <button mat-menu-item [routerLink]="['/generate/history']">
+        <i class="fas fa-fw fa-calendar-alt"></i>
+        <ng-container i18n>
+          History
+        </ng-container>
+      </button>
+    </mat-menu>
 
-  <button style="-webkit-app-region: no-drag" mat-button [routerLink]="['/sessions']">
-    <i class="fas fa-fw fa-project-diagram"></i>
-    <ng-container i18n>
-      Sessions
-    </ng-container>
-  </button>
-
-  <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="jobs">
-    <i class="fas fa-fw fa-flask"></i>
-    <ng-container i18n>
-      Jobs
-    </ng-container>
-  </button>
-  <mat-menu style="-webkit-app-region: no-drag" #jobs="matMenu">
-    <button mat-menu-item [routerLink]="['/jobs/new']">
-      <i class="fas fa-fw fa-plus"></i>
-      Start Listener
+    <button style="-webkit-app-region: no-drag" mat-button [routerLink]="['/sessions']">
+      <i class="fas fa-fw fa-project-diagram"></i>
+      <ng-container i18n>
+        Sessions
+      </ng-container>
     </button>
-    <button mat-menu-item [routerLink]="['/jobs']">
+
+    <button style="-webkit-app-region: no-drag" mat-button [matMenuTriggerFor]="jobs">
       <i class="fas fa-fw fa-flask"></i>
-      Current Jobs
+      <ng-container i18n>
+        Jobs
+      </ng-container>
     </button>
-  </mat-menu>
+    <mat-menu style="-webkit-app-region: no-drag" #jobs="matMenu">
+      <button mat-menu-item [routerLink]="['/jobs/new']">
+        <i class="fas fa-fw fa-plus"></i>
+        Start Listener
+      </button>
+      <button mat-menu-item [routerLink]="['/jobs']">
+        <i class="fas fa-fw fa-flask"></i>
+        Current Jobs
+      </button>
+    </mat-menu>
 
 
-  <button style="-webkit-app-region: no-drag" mat-button [routerLink]="['/events']">
-    <i class="fas fa-fw fa-tasks"></i>
-    Events
-  </button>
-
+    <button style="-webkit-app-region: no-drag" mat-button [routerLink]="['/events']">
+      <i class="fas fa-fw fa-tasks"></i>
+      Events
+    </button>
+  </div>
   <span class="pull-right-spacer"></span>
 
   <span *ngIf="isConnected && activeConfig">
     <h4 class="mat-h4">
       <i class="fas fa-fw fa-spin fa-circle-notch"></i>
-        {{activeConfig.lhost}}
+      {{activeConfig.lhost}}
       &nbsp;
     </h4>
   </span>
