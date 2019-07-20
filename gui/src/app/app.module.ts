@@ -49,6 +49,7 @@ import { InfrastructureRoutes } from './modules/infrastructure/infrastructure.ro
 
 import { JobsModule } from './modules/jobs/jobs.module';
 import { JobsRoutes } from './modules/jobs/jobs.routes';
+import { SettingsComponent } from './components/settings/settings.component';
 
 
 @NgModule({
@@ -57,6 +58,7 @@ import { JobsRoutes } from './modules/jobs/jobs.routes';
     HomeComponent,
     SelectServerComponent,
     TopMenuComponent,
+    SettingsComponent,
   ],
   imports: [
     BrowserModule,

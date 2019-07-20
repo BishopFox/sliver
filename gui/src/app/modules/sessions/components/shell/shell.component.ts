@@ -15,10 +15,12 @@
 
 
 import { Component, OnInit, ElementRef, ViewChild, Input, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs';
 
+import { SliverService } from '../../../../providers/sliver.service';
 import * as pb from '../../../../../../rpc/pb';
 import { TunnelService, Tunnel } from '../../../../providers/tunnel.service';
-import { Subscription } from 'rxjs';
 import * as xterm from 'xterm';
 
 
@@ -29,14 +31,24 @@ import * as xterm from 'xterm';
 })
 export class ShellComponent implements OnInit {
 
-  @Input() session: pb.Sliver;
-  active = false;
+  session: pb.Sliver;
   tunnel: Tunnel;
+  active = false;
 
-  constructor(private _tunnelService: TunnelService) { }
+  constructor(private _route: ActivatedRoute,
+              private _sliverService: SliverService,
+              private _tunnelService: TunnelService) { }
 
   ngOnInit() {
-    console.log(`Session ${this.session.getId()}`);
+    this._route.parent.params.subscribe((params) => {
+      const sessionId: number = parseInt(params['session-id'], 10);
+      this._sliverService.sessionById(sessionId).then((session) => {
+        this.session = session;
+        this.openShell();
+      }).catch(() => {
+        console.log(`No session with id ${sessionId}`);
+      });
+    });
   }
 
   async openShell() {

@@ -23,6 +23,14 @@ import * as base64 from 'base64-arraybuffer';
 
 import { IPCService } from './ipc.service';
 import { RPCConfig } from '../../../rpc';
+import { FileFilter } from 'electron';
+
+interface SaveFileReq {
+  title: string;
+  message: string;
+  filename: string;
+  data: string;
+}
 
 
 @Injectable({
@@ -34,7 +42,7 @@ export class ClientService {
 
   constructor(private _ipc: IPCService) { }
 
-  async getActiveConfig(): Promise<RPCConfig> {
+  getActiveConfig(): Promise<RPCConfig> {
     return new Promise(async (resolve) => {
       this._ipc.request('client_activeConfig', '').then((rawConfig) => {
         resolve(JSON.parse(rawConfig));
@@ -44,7 +52,7 @@ export class ClientService {
     });
   }
 
-  async setActiveConfig(config: RPCConfig) {
+  setActiveConfig(config: RPCConfig) {
     return new Promise(async (resolve, reject) => {
       try {
         const data = await this._ipc.request('client_start', JSON.stringify(config));
@@ -56,7 +64,7 @@ export class ClientService {
     });
   }
 
-  async listConfigs(): Promise<RPCConfig[]> {
+  listConfigs(): Promise<RPCConfig[]> {
     return new Promise(async (resolve, reject) => {
       try {
         const resp: string = await this._ipc.request('config_list', '');
@@ -70,15 +78,35 @@ export class ClientService {
     });
   }
 
-  async saveFile(filename: string, data: Uint8Array, overwrite: boolean): Promise<string> {
+  saveFile(title: string, message: string, filename: string, data: Uint8Array): Promise<string> {
     return new Promise(async (resolve, reject) => {
       try {
         const resp: string = await this._ipc.request('client_saveFile', JSON.stringify({
+          title: title,
+          message: message,
           filename: filename,
           data: base64.encode(data),
-          overwrite: overwrite,
         }));
         resolve(resp);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  readFile(title: string, message: string, openDirectory?: boolean, multiSelection?: boolean, filter?: FileFilter[]): Promise<string> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const resp: string = await this._ipc.request('client_readFile', JSON.stringify({
+          title: title,
+          message: message,
+          openDirectory: openDirectory === undefined ? false : openDirectory,
+          multiSelection: multiSelection  === undefined ? false : multiSelection,
+          filter: filter === undefined ? filter : [{
+            name: 'All Files', extensions: ['*']
+          }],
+        }));
+        resolve(resp ? JSON.parse(resp) : '');
       } catch (err) {
         reject(err);
       }

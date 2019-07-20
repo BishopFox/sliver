@@ -30,7 +30,6 @@ const routes: Routes = [
     { path: 'sessions', component: SessionsComponent, canActivate: [ActiveConfig] },
     { path: 'sessions/:session-id', component: InteractComponent, canActivate: [ActiveConfig],
       children: [
-        { path: '', component: InfoComponent, canActivate: [ActiveConfig] },
         { path: 'info', component: InfoComponent, canActivate: [ActiveConfig] },
         { path: 'ps', component: PsComponent, canActivate: [ActiveConfig] },
         { path: 'file-browser', component: FileBrowserComponent, canActivate: [ActiveConfig] },

@@ -20,6 +20,7 @@ import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dial
 import { FADE_IN_OUT } from '../../../../shared/animations';
 import { SliverService } from '../../../../providers/sliver.service';
 import * as pb from '../../../../../../rpc/pb';
+import { ClientService } from '../../../../providers/client.service';
 
 
 interface TableSliverBuildData {
@@ -43,9 +44,7 @@ function compare(a: number | string | boolean, b: number | string | boolean, isA
 export class RegenerateDialogComponent {
 
   constructor(public dialogRef: MatDialogRef<RegenerateDialogComponent>,
-              @Inject(MAT_DIALOG_DATA) public data: any) {
-      console.log(this.data);
-    }
+              @Inject(MAT_DIALOG_DATA) public data: any) { }
 
   onNoClick(): void {
     this.dialogRef.close();
@@ -68,6 +67,7 @@ export class HistoryComponent implements OnInit {
   ];
 
   constructor(public dialog: MatDialog,
+              private _clientService: ClientService,
               private _sliverService: SliverService) { }
 
   ngOnInit() {
@@ -115,8 +115,18 @@ export class HistoryComponent implements OnInit {
     const dialogRef = this.dialog.open(RegenerateDialogComponent, {
       data: row,
     });
-    dialogRef.afterClosed().subscribe(result => {
-      console.log(`Dialog result: ${result}`);
+    dialogRef.afterClosed().subscribe(async (targetRow) => {
+      console.log(`Regenerate target sliver: ${targetRow.name}`);
+      const regen = await this._sliverService.regenerate(targetRow.name);
+      if (regen) {
+        console.log(regen.toObject());
+        const file = regen.getFile();
+        const msg = `Save regenerated file ${file.getName()}`;
+        const path = await this._clientService.saveFile('Save File', msg, file.getName(), file.getData_asU8());
+        console.log(`Saved file to: ${path}`);
+      } else {
+        console.error(`Failed to regenerate sliver ${targetRow.name}`);
+      }
     });
   }
 

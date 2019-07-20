@@ -21,7 +21,6 @@ import { Sort } from '@angular/material/sort';
 import * as pb from '../../../../../../rpc/pb';
 import { FADE_IN_OUT } from '../../../../shared/animations';
 import { SliverService } from '../../../../providers/sliver.service';
-import { BehaviorSubject } from 'rxjs';
 
 
 interface TableProcessData {
@@ -60,9 +59,7 @@ export class PsComponent implements OnInit, OnDestroy {
       this._sliverService.sessionById(sessionId).then((session) => {
         this.session = session;
         this.fetchPs();
-        this.interval = setInterval(() => {
-          this.fetchPs();
-        }, 2000);
+        this.interval = setInterval(this.fetchPs, 2000);
       }).catch(() => {
         console.log(`No session with id ${sessionId}`);
       });

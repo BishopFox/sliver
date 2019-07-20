@@ -18,18 +18,21 @@ listing/selecting configs to the sandboxed code.
 
 */
 
-import { ipcMain } from 'electron';
+import { ipcMain, dialog, FileFilter } from 'electron';
 import { homedir } from 'os';
 import * as base64 from 'base64-arraybuffer';
 import * as fs from 'fs';
 import * as path from 'path';
 
-
 import { RPCClient, RPCConfig } from '../rpc';
 import { Envelope } from '../rpc/pb';
 
 
-const CONFIG_DIR = path.join(homedir(), '.sliver-client', 'configs');
+const CLIENT_DIR = path.join(homedir(), '.sliver-client');
+const CONFIG_DIR = path.join(CLIENT_DIR, 'configs');
+const SETTINGS_FILEPATH = path.join(CLIENT_DIR, 'gui-settings.json');
+
+
 let rpc: RPCClient;
 
 
@@ -38,19 +41,27 @@ function decodeRequest(data: string): Uint8Array {
   return new Uint8Array(buf);
 }
 
-interface SaveFile {
-  fileName: string;
+interface SaveFileReq {
+  title: string;
+  message: string;
+  filename: string;
   data: string;
-  overwrite: boolean;
 }
 
+interface ReadFileReq {
+  title: string;
+  message: string;
+  openDirectory: boolean;
+  multiSelections: boolean;
+  filters: FileFilter[] | null; // { filters: [ { name: 'Custom File Type', extensions: ['as'] } ] }
+}
 
 // IPC Methods used to start/interact with the RPCClient
 class RPCClientHandlers {
 
-  static client_start(data: string): Promise<string> {
+  static client_start(req: string): Promise<string> {
     return new Promise(async (resolve, reject) => {
-      const config: RPCConfig = JSON.parse(data);
+      const config: RPCConfig = JSON.parse(req);
       rpc = new RPCClient(config);
       rpc.connect().then(() => {
         console.log('Connection successful');
@@ -66,30 +77,119 @@ class RPCClientHandlers {
     });
   }
 
+  static client_readFile(req: string): Promise<string> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const readFileReq: ReadFileReq = JSON.parse(req);
+        const dialogOptions = {
+          title: readFileReq.title,
+          message: readFileReq.message,
+          openDirectory: readFileReq.openDirectory,
+          multiSelections: readFileReq.multiSelections
+        };
+        dialog.showOpenDialog(null, dialogOptions, (filePaths) => {
+          if (filePaths) {
+
+            // Well this is kinda nasty and nested, but basically
+            // we're just doing 'n' async files reads and putting
+            // them all into `files` but we need to wait for all
+            // 'n' reads to complete before resolve'ing the promise
+            const files = [];
+            Promise.all(filePaths.map((filePath) => {
+              return new Promise(async (resolveRead) => {
+                fs.readFile(filePath, (err, data) => {
+                  files.push({
+                    filePath: filePath,
+                    error: err.toString(),
+                    data: data ? base64.encode(data) : null
+                  });
+                  resolveRead();
+                });
+              });
+            })).then(() => {
+              resolve(JSON.stringify({files: files}));
+            });
+
+          } else {
+            resolve('');
+          }
+        });
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
   // For now all files are just saved to the Downloads folder,
   // which should exist on all supported platforms.
-  static client_saveFile(data: string): Promise<string> {
+  static client_saveFile(req: string): Promise<string> {
     return new Promise(async (resolve, reject) => {
-      const saveFile: SaveFile = JSON.parse(data);
-      const options = {
-        mode: 0o755,
-        encoding: 'binary',
+      const saveFileReq: SaveFileReq = JSON.parse(req);
+      const dialogOptions = {
+        title: saveFileReq.title,
+        message: saveFileReq.message,
+        defaultPath: path.join(homedir(), 'Downloads', path.basename(saveFileReq.filename)),
       };
-      const downloadsDir = path.join(homedir(), 'Downloads');
-      const filePath = path.join(downloadsDir, path.basename(saveFile.fileName));
-      if (!fs.existsSync(downloadsDir)) {
-        reject(`Downloads directory does not exist: ${downloadsDir}`);
-      }
-      if (fs.existsSync(filePath) && !saveFile.overwrite) {
-        reject(`File already exists: ${filePath}`);
-      }
-      fs.writeFile(filePath, base64.decode(saveFile.data), options, (err) => {
-        if (err) {
-          reject(err);
+      dialog.showSaveDialog(null, dialogOptions, (filename) => {
+        console.log(`[save file] ${filename}`);
+        if (filename) {
+          const fileOptions = {
+            mode: 0o644,
+            encoding: 'binary',
+          };
+          const data = Buffer.from(base64.decode(saveFileReq.data));
+          fs.writeFile(filename, data, fileOptions, (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(JSON.stringify({filename: filename}));
+            }
+          });
         } else {
-          resolve(filePath);
+          resolve(''); // User hit 'cancel'
         }
       });
+    });
+  }
+
+  static client_getSettings(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      try {
+        if (!fs.existsSync(SETTINGS_FILEPATH)) {
+          resolve('{}');
+        }
+        fs.readFile(SETTINGS_FILEPATH, 'utf-8', (err, data) => {
+          if (err) {
+            reject(err);
+          }
+          JSON.parse(data);
+          resolve(data);
+        });
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  static client_saveSettings(settings: string): Promise<string> {
+    return new Promise(async (resolve, reject) => {
+      const options = {
+        mode: 0o644,
+        encoding: 'utf-8',
+      };
+      try {
+        JSON.parse(settings);
+        fs.writeFile(SETTINGS_FILEPATH, settings, options, async (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            const updated = await this.client_getSettings();
+            resolve(updated);
+          }
+        });
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 
@@ -148,7 +248,7 @@ class RPCClientHandlers {
 function dispatchIPC(method: string, data: string): Promise<Object|null> {
   return new Promise(async (resolve, reject) => {
 
-    console.log(`IPC Dispatch: ${method} - ${data}`);
+    console.log(`IPC Dispatch: ${method}`);
 
     // IPC handlers must start with "namespace_" this helps ensure we do not inadvertently
     // expose methods that we don't want exposed to the sandboxed code.

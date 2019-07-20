@@ -87,6 +87,7 @@ export class SliverService extends ProtobufService {
       reqEnvelope.setType(pb.ClientPB.MsgRegenerate);
       const regenReq = new pb.Regenerate();
       regenReq.setSlivername(name);
+      reqEnvelope.setData(regenReq.serializeBinary());
       const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
       resolve(pb.Regenerate.deserializeBinary(this.decode(resp)));
     });
