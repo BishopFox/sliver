@@ -94,7 +94,7 @@ export class SliverService extends ProtobufService {
   }
 
   ps(sliverId: number): Promise<pb.Ps> {
-    return new Promise(async (resolve, reject) => {
+    return new Promise(async (resolve) => {
       const reqEnvelope = new pb.Envelope();
       reqEnvelope.setType(pb.SliverPB.MsgPsReq);
       const psReq = new pb.PsReq();
@@ -102,6 +102,44 @@ export class SliverService extends ProtobufService {
       reqEnvelope.setData(psReq.serializeBinary());
       const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
       resolve(pb.Ps.deserializeBinary(this.decode(resp)));
+    });
+  }
+
+  ls(sliverId: number, targetDir: string): Promise<pb.Ls> {
+    return new Promise(async (resolve) => {
+      const reqEnvelope = new pb.Envelope();
+      reqEnvelope.setType(pb.SliverPB.MsgLsReq);
+      const lsReq = new pb.LsReq();
+      lsReq.setSliverid(sliverId);
+      lsReq.setPath(targetDir);
+      reqEnvelope.setData(lsReq.serializeBinary());
+      const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+      resolve(pb.Ls.deserializeBinary(this.decode(resp)));
+    });
+  }
+
+  cd(sliverId: number, targetDir: string): Promise<pb.Pwd> {
+    return new Promise(async (resolve) => {
+      const reqEnvelope = new pb.Envelope();
+      reqEnvelope.setType(pb.SliverPB.MsgCdReq);
+      const cdReq = new pb.CdReq();
+      cdReq.setSliverid(sliverId);
+      cdReq.setPath(targetDir);
+      reqEnvelope.setData(cdReq.serializeBinary());
+      const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+      resolve(pb.Pwd.deserializeBinary(this.decode(resp)));
+    });
+  }
+
+  download(sliverId: number, targetFile: string): Promise<pb.Download> {
+    return new Promise(async (resolve) => {
+
+    });
+  }
+
+  upload(sliverId: number, src: string, data: Uint8Array, dst: string): Promise<pb.Upload> {
+    return new Promise(async (resolve) => {
+
     });
   }
 
