@@ -112,6 +112,8 @@ message Job {
   string Description = 3;
   string Protocol = 4;
   int32 Port = 5;
+
+  repeated string Domains = 6;
 }
 
 message JobKillReq { int32 ID = 1; }
@@ -142,6 +144,7 @@ message MTLS { int32 JobID = 1; }
 message DNSReq { 
   repeated string Domains = 1; 
   bool Canaries = 2;
+  int32 LPort = 3;
 }
 
 message DNS { int32 JobID = 1; }

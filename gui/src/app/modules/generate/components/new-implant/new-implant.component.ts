@@ -15,12 +15,16 @@
 
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormGroup, FormBuilder, FormControl, Validators, ValidationErrors } from '@angular/forms';
+import { Subscription } from 'rxjs';
+
+
 import { FADE_IN_OUT } from '../../../../shared/animations';
 import { SliverService } from '../../../../providers/sliver.service';
-import { Subscription } from 'rxjs';
 import { JobsService } from '../../../../providers/jobs.service';
 import * as pb from '../../../../../../rpc/pb';
 import { EventsService } from '../../../../providers/events.service';
+import { ClientService } from '../../../../providers/client.service';
+
 
 
 interface Listener {
@@ -43,6 +47,8 @@ interface C2 {
 })
 export class NewImplantComponent implements OnInit, OnDestroy {
 
+  isGenerating = false;
+
   genTargetForm: FormGroup;
   formSub: Subscription;
   genC2Form: FormGroup;
@@ -53,6 +59,7 @@ export class NewImplantComponent implements OnInit, OnDestroy {
   listeners: Listener[];
 
   constructor(private _fb: FormBuilder,
+              private _clientService: ClientService,
               private _eventsService: EventsService,
               private _jobsService: JobsService,
               private _sliverService: SliverService) { }
@@ -96,9 +103,8 @@ export class NewImplantComponent implements OnInit, OnDestroy {
       maxErrors: [1000, Validators.compose([
         Validators.required,
       ])],
-      skipSymbols: [false, Validators.compose([
-        Validators.required,
-      ])],
+      skipSymbols: [false],
+      debug: [false],
     });
 
     this.fetchJobs();
@@ -140,6 +146,35 @@ export class NewImplantComponent implements OnInit, OnDestroy {
   get C2s(): C2[] {
     const c2s = [];
 
+    // Get checked listeners
+    this.listeners.forEach((listener) => {
+      if (listener.checked) {
+        c2s.push({
+          protocol: listener.job.getProtocol(),
+          lport: listener.job.getPort(),
+          domains: []
+        });
+      }
+    });
+    c2s.concat(this.mtlsEndpoints);
+    return c2s;
+  }
+
+  isValidC2Config(): boolean {
+    return this.C2s.length ? true : false;
+  }
+
+  get mtlsEndpoints(): C2[] {
+    const c2s: C2[] = [];
+    const mtls = this.genC2Form.controls['mtls'].value;
+    const urls = this.parseURLs(mtls);
+    urls.forEach((url) => {
+      c2s.push({
+        protocol: 'mtls',
+        lport: url.port ? parseInt(url.port, 10) : 8888,
+        domains: [url.hostname]
+      });
+    });
     return c2s;
   }
 
@@ -155,8 +190,38 @@ export class NewImplantComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  onGenerate() {
+  parseURLs(value: string): URL[] {
+    const urls: URL[] = [];
+    try {
+      value.split(',').forEach((rawValue) => {
+        if (rawValue === '') {
+          return;
+        }
+        if (rawValue.indexOf('://') !== -1) {
+          rawValue = rawValue.slice(rawValue.indexOf('://') + 3, rawValue.length);
+        }
+        // Basically because JavaScript is a total piece of shit language, if the
+        // url is not prefixed with "http" it won't be parsed correctly. Because
+        // why would you ever want to parse a non-HTTP URL? Do those even exist?
+        const url: URL = new URL(`http://${rawValue}`);
+        urls.push(url);
+      });
+    } catch (err) {
+      console.error(err);
+    }
+    return urls;
+  }
 
+  async onGenerate() {
+    this.isGenerating = true;
+    const config = new pb.SliverConfig();
+
+
+    const generate = await this._sliverService.generate(config);
+    const file = generate.getFile();
+    const msg = `Save new implant ${file.getName()}`;
+    const save = await this._clientService.saveFile('Save File', msg, file.getName(), file.getData_asU8());
+    console.log(`Saved file to: ${save}`);
   }
 
 }

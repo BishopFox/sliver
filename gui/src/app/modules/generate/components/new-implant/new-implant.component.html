@@ -82,7 +82,7 @@
             <div>
               <button mat-raised-button matStepperPrevious>Back</button>
               &nbsp;
-              <button [disabled]="C2s.length" mat-raised-button matStepperNext>Next</button>
+              <button [disabled]="isValidC2Config()" mat-raised-button matStepperNext>Next</button>
             </div>
           </form>
         </mat-grid-tile>
@@ -133,17 +133,37 @@
             Skip Symbol Obfuscation
           </mat-slide-toggle>
         </p>
+        <p>
+          <mat-slide-toggle color="primary" [formControl]="compileTimeOptionsForm.controls['debug']">
+            Debug Mode
+          </mat-slide-toggle>
+        </p>
         <div>
           <button mat-raised-button matStepperPrevious>Back</button>
           &nbsp;
-          <button mat-raised-button (click)="onGenerate()">
-            <i class="fas fa-fw fa-dragon"></i>
-            &nbsp;
-            Compile
-          </button>
+          <button mat-raised-button matStepperNext>Next</button>
         </div>
       </form>
 
+    </mat-step>
+
+    <mat-step [completed]="false">
+        <ng-template matStepLabel>Summary</ng-template>
+
+        <mat-card>
+
+          summary info
+
+        </mat-card>
+
+        <div>
+            <button mat-raised-button matStepperPrevious>Back</button>
+            &nbsp;
+            <button [disabled]="isGenerating" mat-raised-button (click)="onGenerate()">
+              <i class="fas fa-fw fa-dragon"></i>
+              Generate Implant
+            </button>
+          </div>
     </mat-step>
 
   </mat-vertical-stepper>

@@ -119,7 +119,6 @@ export class HistoryComponent implements OnInit {
       console.log(`Regenerate target sliver: ${targetRow.name}`);
       const regen = await this._sliverService.regenerate(targetRow.name);
       if (regen) {
-        console.log(regen.toObject());
         const file = regen.getFile();
         const msg = `Save regenerated file ${file.getName()}`;
         const path = await this._clientService.saveFile('Save File', msg, file.getName(), file.getData_asU8());
