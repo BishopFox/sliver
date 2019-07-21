@@ -61,7 +61,7 @@ export class PsComponent implements OnInit, OnDestroy {
         this.fetchPs();
         this.interval = setInterval(this.fetchPs, 2000);
       }).catch(() => {
-        console.log(`No session with id ${sessionId}`);
+        console.error(`No session with id ${sessionId}`);
       });
     });
   }

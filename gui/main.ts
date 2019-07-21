@@ -13,14 +13,16 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { app, BrowserWindow, screen } from 'electron';
+import { app, BrowserWindow, screen, protocol } from 'electron';
 import { startIPCHandlers } from './ipc';
 import * as path from 'path';
 import * as url from 'url';
+import * as fs from 'fs';
+import * as AppProtocol from './app-protocol';
 
-let mainWindow, serve;
+
+let mainWindow: BrowserWindow;
 const args = process.argv.slice(1);
-serve = args.some(val => val === '--serve');
 
 
 async function createMainWindow() {
@@ -61,19 +63,7 @@ async function createMainWindow() {
     mainWindow.show();
   });
 
-  if (serve) {
-    require('electron-reload')(__dirname, {
-      electron: require(`${__dirname}/node_modules/electron`)
-    });
-    mainWindow.loadURL('http://localhost:4200');
-  } else {
-    mainWindow.loadURL(url.format({
-      pathname: path.join(__dirname, 'dist/index.html'),
-      protocol: 'file:',
-      slashes: true
-    }));
-  }
-
+  mainWindow.loadURL(`${AppProtocol.scheme}://sliver/index.html`);
   mainWindow.webContents.openDevTools();
 
   // Emitted when the window is closed.
@@ -90,13 +80,22 @@ async function createMainWindow() {
 // --------------------------------------------- [ MAIN ] ---------------------------------------------
 
 try {
-  // This method will be called when Electron has finished
-  // initialization and is ready to create browser windows.
-  // Some APIs can only be used after this event occurs.
+
+  // Custom procotol handler
   app.on('ready', () => {
+    protocol.registerBufferProtocol(AppProtocol.scheme, AppProtocol.requestHandler, (err) => {
+      if (err) {
+        console.error(`[app-protocol] Error: ${err}`);
+      }
+    });
     createMainWindow();
     startIPCHandlers(mainWindow);
   });
+
+  protocol.registerSchemesAsPrivileged([{
+    scheme: AppProtocol.scheme,
+    privileges: { standard: true, secure: true }
+  }]);
 
   // Quit when all windows are closed.
   app.on('window-all-closed', () => {

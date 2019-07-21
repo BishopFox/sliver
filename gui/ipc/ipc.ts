@@ -18,7 +18,7 @@ listing/selecting configs to the sandboxed code.
 
 */
 
-import { ipcMain, dialog, FileFilter } from 'electron';
+import { ipcMain, dialog, FileFilter, BrowserWindow } from 'electron';
 import { homedir } from 'os';
 import * as base64 from 'base64-arraybuffer';
 import * as fs from 'fs';
@@ -41,14 +41,14 @@ function decodeRequest(data: string): Uint8Array {
   return new Uint8Array(buf);
 }
 
-interface SaveFileReq {
+export interface SaveFileReq {
   title: string;
   message: string;
   filename: string;
   data: string;
 }
 
-interface ReadFileReq {
+export interface ReadFileReq {
   title: string;
   message: string;
   openDirectory: boolean;
@@ -56,8 +56,16 @@ interface ReadFileReq {
   filters: FileFilter[] | null; // { filters: [ { name: 'Custom File Type', extensions: ['as'] } ] }
 }
 
+export interface IPCMessage {
+  id: number;
+  type: string;
+  method: string; // Identifies the target method and in the response if the method call was a success/error
+  data: string;
+}
+
+
 // IPC Methods used to start/interact with the RPCClient
-class RPCClientHandlers {
+class IPCHandlers {
 
   static client_start(req: string): Promise<string> {
     return new Promise(async (resolve, reject) => {
@@ -253,9 +261,9 @@ function dispatchIPC(method: string, data: string): Promise<Object|null> {
     // IPC handlers must start with "namespace_" this helps ensure we do not inadvertently
     // expose methods that we don't want exposed to the sandboxed code.
     if (['client_', 'config_', 'rpc_'].some(prefix => method.startsWith(prefix))) {
-      if (typeof RPCClientHandlers[method] === 'function') {
+      if (typeof IPCHandlers[method] === 'function') {
         try {
-          const result: string = await RPCClientHandlers[method](data);
+          const result: string = await IPCHandlers[method](data);
           resolve(result);
         } catch (err) {
           reject(err);
@@ -269,14 +277,7 @@ function dispatchIPC(method: string, data: string): Promise<Object|null> {
   });
 }
 
-interface IPCMessage {
-  id: number;
-  type: string;
-  method: string; // Identifies the target method and in the response if the method call was a success/error
-  data: string;
-}
-
-export function startIPCHandlers(window) {
+export function startIPCHandlers(window: BrowserWindow) {
 
   ipcMain.on('ipc', async (event: any, msg: IPCMessage) => {
     dispatchIPC(msg.method, msg.data).then((result: string) => {

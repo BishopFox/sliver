@@ -46,7 +46,7 @@ export class ShellComponent implements OnInit {
         this.session = session;
         this.openShell();
       }).catch(() => {
-        console.log(`No session with id ${sessionId}`);
+        console.error(`No session with id ${sessionId}`);
       });
     });
   }

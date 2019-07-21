@@ -63,7 +63,7 @@ export class FileBrowserComponent implements OnInit {
         this.session = session;
         this.fetchLs('.');
       }).catch(() => {
-        console.log(`No session with id ${sessionId}`);
+        console.error(`No session with id ${sessionId}`);
       });
     });
   }

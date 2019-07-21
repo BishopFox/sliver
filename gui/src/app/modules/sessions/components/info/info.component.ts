@@ -38,7 +38,7 @@ export class InfoComponent implements OnInit {
       this._sliverService.sessionById(sessionId).then((session) => {
         this.session = session;
       }).catch(() => {
-        console.log(`No session with id ${sessionId}`);
+        console.error(`No session with id ${sessionId}`);
       });
     });
   }
