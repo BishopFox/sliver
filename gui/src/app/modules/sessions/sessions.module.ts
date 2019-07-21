@@ -17,27 +17,44 @@ import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BaseMaterialModule } from '../../base-material';
 import { RouterModule } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+
 import { SessionsComponent } from './sessions.component';
 import { InteractComponent } from './components/interact/interact.component';
-import { FileBrowserComponent } from './components/file-browser/file-browser.component';
+import {
+  FileBrowserComponent, MkdirDialogComponent, RmDialogComponent,
+  DownloadDialogComponent
+} from './components/file-browser/file-browser.component';
 import { ShellComponent, TerminalComponent } from './components/shell/shell.component';
 import { PsComponent } from './components/ps/ps.component';
 import { InfoComponent } from './components/info/info.component';
+import { SharedModule } from '../../shared/shared.module';
+
 
 @NgModule({
   declarations: [
     SessionsComponent,
     InteractComponent,
     FileBrowserComponent,
+    MkdirDialogComponent,
+    RmDialogComponent,
+    DownloadDialogComponent,
     ShellComponent,
     TerminalComponent,
     PsComponent,
     InfoComponent
   ],
   imports: [
+
+    // Modules
     CommonModule,
     RouterModule,
-    BaseMaterialModule
-  ]
+    BaseMaterialModule,
+    FormsModule,
+
+    SharedModule
+
+  ],
+  entryComponents: [MkdirDialogComponent, RmDialogComponent, DownloadDialogComponent]
 })
 export class SessionsModule { }

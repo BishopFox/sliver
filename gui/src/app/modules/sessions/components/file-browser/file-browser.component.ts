@@ -13,10 +13,11 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { MatTableDataSource } from '@angular/material/table';
 import { Sort } from '@angular/material/sort';
+import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 
 import { FADE_IN_OUT } from '../../../../shared/animations';
 import { SliverService } from '../../../../providers/sliver.service';
@@ -46,11 +47,13 @@ export class FileBrowserComponent implements OnInit {
   session: pb.Sliver;
   dataSrc = new MatTableDataSource<TableFileData>();
   displayedColumns: string[] = [
-    'isDir', 'name', 'size'
+    'isDir', 'name', 'size', 'options'
   ];
   isFetching = false;
+  showHiddenFiles = true;
 
-  constructor(private _route: ActivatedRoute,
+  constructor(public dialog: MatDialog,
+              private _route: ActivatedRoute,
               private _sliverService: SliverService) { }
 
   ngOnInit() {
@@ -77,9 +80,26 @@ export class FileBrowserComponent implements OnInit {
   }
 
   async onRowSelection(row: TableFileData) {
+    if (this.isFetching) {
+      return;
+    }
     if (row.isDir) {
+      this.isFetching = true;
       const pwd = await this._sliverService.cd(this.session.getId(), row.name);
       this.fetchLs(pwd.getPath());
+    } else {
+      const dialogRef = this.dialog.open(DownloadDialogComponent, {
+        data: {
+          cwd: this.ls.getPath(),
+          name: row.name,
+          size: row.size,
+        }
+      });
+      dialogRef.afterClosed().subscribe(async (result) => {
+        if (result) {
+          console.log(`[download] ${result.cwd} / ${result.name}`);
+        }
+      });
     }
   }
 
@@ -92,8 +112,12 @@ export class FileBrowserComponent implements OnInit {
       isDir: true,
     });
     for (let index = 0; index < dirLs.length; index++) {
+      const name = dirLs[index].getName();
+      if (!this.showHiddenFiles && name.startsWith('.')) {
+        continue;
+      }
       table.push({
-        name: dirLs[index].getName(),
+        name: name,
         size: dirLs[index].getSize(),
         isDir: dirLs[index].getIsdir()
       });
@@ -118,5 +142,97 @@ export class FileBrowserComponent implements OnInit {
     });
   }
 
+  toggleShowHiddenFiles(checked: boolean) {
+    this.showHiddenFiles = checked;
+    console.log(`Show hidden files: ${this.showHiddenFiles}`);
+    this.dataSrc.data = this.tableData();
+  }
+
+  rm(event: any, entry: TableFileData) {
+    event.stopPropagation();
+    const dialogRef = this.dialog.open(RmDialogComponent, {
+      data: {
+        cwd: this.ls.getPath(),
+        name: entry.name,
+        isDir: entry.isDir
+      }
+    });
+    dialogRef.afterClosed().subscribe(async (result) => {
+      if (result) {
+        console.log(`[rm] ${result.cwd} / ${result.name} (isDir: ${result.isDir})`);
+      }
+    });
+  }
+
+  mkdir() {
+    const dialogRef = this.dialog.open(MkdirDialogComponent, {
+      data: {
+        cwd: this.ls.getPath()
+      }
+    });
+    dialogRef.afterClosed().subscribe(async (result) => {
+      if (result) {
+        console.log(`[mkdir] ${result.cwd} / ${result.name}`);
+      }
+    });
+  }
+}
+
+@Component({
+  selector: 'app-mkdir-dialog',
+  templateUrl: 'mkdir-dialog.html',
+})
+export class MkdirDialogComponent implements OnInit {
+
+  result: any;
+
+  constructor(public dialogRef: MatDialogRef<MkdirDialogComponent>,
+              @Inject(MAT_DIALOG_DATA) public data: any) { }
+
+  ngOnInit() {
+    this.result = this.data;
+  }
+
+  onNoClick(): void {
+    this.dialogRef.close();
+  }
+
+}
+
+
+@Component({
+  selector: 'app-rm-dialog',
+  templateUrl: 'rm-dialog.html',
+})
+export class RmDialogComponent {
+
+  isConfirmed = false;
+  confirmName = '';
+
+  constructor(public dialogRef: MatDialogRef<RmDialogComponent>,
+              @Inject(MAT_DIALOG_DATA) public data: any) { }
+
+  onNoClick(): void {
+    this.dialogRef.close();
+  }
+
+  checkConfirmed() {
+    this.isConfirmed = this.confirmName === this.data.name && this.data.name !== '';
+  }
+
+}
+
+@Component({
+  selector: 'app-download-dialog',
+  templateUrl: 'download-dialog.html',
+})
+export class DownloadDialogComponent {
+
+  constructor(public dialogRef: MatDialogRef<RmDialogComponent>,
+              @Inject(MAT_DIALOG_DATA) public data: any) { }
+
+  onNoClick(): void {
+    this.dialogRef.close();
+  }
 
 }

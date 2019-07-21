@@ -50,10 +50,13 @@ import { InfrastructureRoutes } from './modules/infrastructure/infrastructure.ro
 import { JobsModule } from './modules/jobs/jobs.module';
 import { JobsRoutes } from './modules/jobs/jobs.routes';
 import { SettingsComponent } from './components/settings/settings.component';
+import { FileSizePipe, NullablePipe, CapitalizePipe } from './shared/pipes';
 
 
 @NgModule({
   declarations: [
+
+    // Components
     AppComponent,
     HomeComponent,
     SelectServerComponent,
