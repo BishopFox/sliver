@@ -25,7 +25,7 @@ import {
   FileBrowserComponent, MkdirDialogComponent, RmDialogComponent,
   DownloadDialogComponent
 } from './components/file-browser/file-browser.component';
-import { ShellComponent, TerminalComponent } from './components/shell/shell.component';
+import { ShellComponent } from './components/shell/shell.component';
 import { PsComponent } from './components/ps/ps.component';
 import { InfoComponent } from './components/info/info.component';
 import { SharedModule } from '../../shared/shared.module';
@@ -40,7 +40,6 @@ import { SharedModule } from '../../shared/shared.module';
     RmDialogComponent,
     DownloadDialogComponent,
     ShellComponent,
-    TerminalComponent,
     PsComponent,
     InfoComponent
   ],

@@ -1,12 +1,28 @@
+<mat-grid-list *ngIf="!session" cols="3" rowHeight="3:1">
+  <!-- Row #1 -->
+  <mat-grid-tile></mat-grid-tile>
+  <mat-grid-tile></mat-grid-tile>
+  <mat-grid-tile></mat-grid-tile>
+  <!-- Row #2 -->
+  <mat-grid-tile></mat-grid-tile>
+  <mat-grid-tile>
+    <mat-progress-spinner mode="indeterminate">
+    </mat-progress-spinner>
+  </mat-grid-tile>
+  <mat-grid-tile></mat-grid-tile>
+</mat-grid-list>
+
 <mat-grid-list cols="10" rowHeight="600px">
   <mat-grid-tile></mat-grid-tile>
   <mat-grid-tile [colspan]="8">
-    <app-terminal *ngIf="active" [tunnel]="tunnel">
-    </app-terminal>
-    <div *ngIf="!active">
-      <button mat-raised-button color="primary" (click)="openShell()">
+    <div>
+      <button *ngIf="!active" mat-raised-button color="primary" (click)="openShell()">
+        <i class="fas fa-fw fa-terminal"></i>
         Open Shell
       </button>
+      <br />
+      <br />
+      <div class="monospace" #terminal></div>
     </div>
   </mat-grid-tile>
   <mat-grid-tile></mat-grid-tile>

@@ -14,15 +14,13 @@
 */
 
 import { app, BrowserWindow, screen, protocol } from 'electron';
-import { startIPCHandlers } from './ipc';
 import * as path from 'path';
-import * as url from 'url';
-import * as fs from 'fs';
+
+import { startIPCHandlers } from './ipc';
 import * as AppProtocol from './app-protocol';
 
 
 let mainWindow: BrowserWindow;
-const args = process.argv.slice(1);
 
 
 async function createMainWindow() {
@@ -31,9 +29,8 @@ async function createMainWindow() {
   const size = electronScreen.getPrimaryDisplay().workAreaSize;
 
   // Create the browser window.
-  const gutterSize = 100;
+  const gutterSize = 250;
   mainWindow = new BrowserWindow({
-    // frame: false,
     titleBarStyle: 'hidden',
     x: gutterSize,
     y: gutterSize,

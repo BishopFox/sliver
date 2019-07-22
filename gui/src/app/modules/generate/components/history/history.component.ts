@@ -15,6 +15,7 @@
 
 import { Component, OnInit, Inject } from '@angular/core';
 import { MatTableDataSource } from '@angular/material/table';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { Sort } from '@angular/material/sort';
 import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { FADE_IN_OUT } from '../../../../shared/animations';
@@ -67,6 +68,7 @@ export class HistoryComponent implements OnInit {
   ];
 
   constructor(public dialog: MatDialog,
+              private _snackBar: MatSnackBar,
               private _clientService: ClientService,
               private _sliverService: SliverService) { }
 
@@ -117,6 +119,9 @@ export class HistoryComponent implements OnInit {
     });
     dialogRef.afterClosed().subscribe(async (targetRow) => {
       console.log(`Regenerate target sliver: ${targetRow.name}`);
+      this._snackBar.open(`Regenerating ${targetRow.name}, please wait...`, 'Dismiss', {
+        duration: 5000,
+      });
       const regen = await this._sliverService.regenerate(targetRow.name);
       if (regen) {
         const file = regen.getFile();

@@ -75,7 +75,7 @@ class IPCHandlers {
         console.log('Connection successful');
         rpc.envelopeSubject$.subscribe((envelope) => {
           if (envelope.getId() === 0) {
-            ipcMain.emit('push', envelope.getData_asB64());
+            ipcMain.emit('push', base64.encode(envelope.serializeBinary()));
           }
         });
         resolve('success');

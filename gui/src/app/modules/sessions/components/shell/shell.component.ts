@@ -29,11 +29,17 @@ import * as xterm from 'xterm';
   templateUrl: './shell.component.html',
   styleUrls: ['./shell.component.scss']
 })
-export class ShellComponent implements OnInit {
+export class ShellComponent implements OnInit, OnDestroy {
 
+  readonly SCROLLBACK = 100000;
+
+  @ViewChild('terminal', { static: false }) el: ElementRef;
   session: pb.Sliver;
+  terminal: xterm.Terminal;
+  recvSub: Subscription;
   tunnel: Tunnel;
   active = false;
+  textEncoder = new TextEncoder();
 
   constructor(private _route: ActivatedRoute,
               private _sliverService: SliverService,
@@ -44,60 +50,41 @@ export class ShellComponent implements OnInit {
       const sessionId: number = parseInt(params['session-id'], 10);
       this._sliverService.sessionById(sessionId).then((session) => {
         this.session = session;
-        this.openShell();
+
+        /* Termainl setup */
+        this.terminal = new xterm.Terminal({
+          cursorBlink: true,
+          scrollback: this.SCROLLBACK,
+        });
+        this.terminal.open(this.el.nativeElement);
+        this.terminal.write('\r\x1b[80;1HSystem Ready ');
+
       }).catch(() => {
         console.error(`No session with id ${sessionId}`);
       });
     });
   }
 
-  async openShell() {
-    this.tunnel = await this._tunnelService.createTunnel(this.session.getId());
-    this.active = true;
-  }
-
-}
-
-
-@Component({
-  selector: 'app-terminal',
-  template: `<div #terminal></div>`,
-  styleUrls: ['./terminal.component.scss']
-})
-export class TerminalComponent implements OnInit, OnDestroy {
-
-  readonly SCROLLBACK = 100000;
-
-  @Input() tunnel: Tunnel;
-  @ViewChild('terminal', { static: false }) el: ElementRef;
-  terminal: xterm.Terminal;
-  recvSub: Subscription;
-
-  constructor() { }
-
-  ngOnInit() {
-    this.createTerminal();
-  }
-
   ngOnDestroy() {
     if (this.recvSub) {
       this.recvSub.unsubscribe();
+      this.active = false;
     }
   }
 
-  createTerminal() {
-    this.terminal = new xterm.Terminal({
-      cursorBlink: true,
-      scrollback: this.SCROLLBACK,
-    });
-    this.terminal.open(this.el.nativeElement);
-    this.recvSub = this.tunnel.recv.subscribe((data: Buffer) => {
+  async openShell() {
+    this.active = true;
+    this.terminal.clear();
+    this.terminal.write('\r\x1b[1m\x1b[36m[*] \x1b[0m Connecting ...');
+    this.tunnel = await this._tunnelService.createTunnel(this.session.getId());
+    this.terminal.clear();
+    this.recvSub = this.tunnel.recv.subscribe((data: Uint8Array) => {
       console.log(`[terminal] recv: ${data}`);
       this.terminal.writeUtf8(data);
     });
     this.terminal.onData((data: string) => {
       console.log(`[terminal] send: ${data}`);
-      this.tunnel.send.next(Buffer.from(data));
+      this.tunnel.send.next(this.textEncoder.encode(data));
     });
   }
 
