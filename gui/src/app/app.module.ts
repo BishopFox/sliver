@@ -37,6 +37,7 @@ import { AppComponent } from './app.component';
 import { HomeComponent } from './components/home/home.component';
 import { SelectServerComponent } from './components/select-server/select-server.component';
 import { TopMenuComponent } from './components/top-menu/top-menu.component';
+import { SettingsComponent } from './components/settings/settings.component';
 
 import { GenerateModule } from './modules/generate/generate.module';
 import { GenerateRoutes } from './modules/generate/generate.routes';
@@ -49,7 +50,9 @@ import { InfrastructureRoutes } from './modules/infrastructure/infrastructure.ro
 
 import { JobsModule } from './modules/jobs/jobs.module';
 import { JobsRoutes } from './modules/jobs/jobs.routes';
-import { SettingsComponent } from './components/settings/settings.component';
+
+import { ScriptingModule } from './modules/scripting/scripting.module';
+import { ScriptingRoutes } from './modules/scripting/scripting.routes';
 
 
 @NgModule({
@@ -76,12 +79,14 @@ import { SettingsComponent } from './components/settings/settings.component';
     SessionsRoutes,
     InfrastructureRoutes,
     JobsRoutes,
+    ScriptingRoutes,
 
     // Modules
     GenerateModule,
     SessionsModule,
     InfrastructureModule,
     JobsModule,
+    ScriptingModule,
 
   ],
   providers: [IPCService, ClientService, SliverService, JobsService, EventsService],

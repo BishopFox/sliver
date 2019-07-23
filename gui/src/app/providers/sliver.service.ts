@@ -143,4 +143,16 @@ export class SliverService extends ProtobufService {
     });
   }
 
+  ifconfig(sliverId: number): Promise<pb.Ifconfig> {
+    return new Promise(async (resolve) => {
+      const reqEnvelope = new pb.Envelope();
+      reqEnvelope.setType(pb.SliverPB.MsgIfconfigReq);
+      const ifconfigReq = new pb.IfconfigReq();
+      ifconfigReq.setSliverid(sliverId);
+      reqEnvelope.setData(ifconfigReq.serializeBinary());
+      const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+      resolve(pb.Ifconfig.deserializeBinary(this.decode(resp)));
+    });
+  }
+
 }

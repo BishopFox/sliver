@@ -28,6 +28,7 @@ import * as pb from '../../../../../../rpc/pb';
 export class InfoComponent implements OnInit {
 
   session: pb.Sliver;
+  ifconfig: pb.Ifconfig;
 
   constructor(private _route: ActivatedRoute,
               private _sliverService: SliverService) { }
@@ -37,10 +38,22 @@ export class InfoComponent implements OnInit {
       const sessionId: number = parseInt(params['session-id'], 10);
       this._sliverService.sessionById(sessionId).then((session) => {
         this.session = session;
+        this.fetchIfconfig();
       }).catch(() => {
         console.error(`No session with id ${sessionId}`);
       });
     });
+  }
+
+  async fetchIfconfig() {
+    this.ifconfig = await this._sliverService.ifconfig(this.session.getId());
+  }
+
+  get interfaces(): pb.NetInterface[] {
+    if (!this.ifconfig) {
+      return [];
+    }
+    return this.ifconfig.getNetinterfacesList();
   }
 
 }

@@ -3,6 +3,21 @@ syntax = "proto3";
 package clientpb;
 
 // [ generic ] ----------------------------------------
+message Version {
+  int32 Major = 1;
+  int32 Minor = 2;
+  int32 Patch = 3;
+
+  string Commit = 4;
+
+  enum Component {
+    ConsoleClient = 0;
+    GUIClient = 1;
+    Server = 2;
+    Sliver = 3;
+  }
+}
+
 message File {
   string Name = 1;
   bytes Data = 2;

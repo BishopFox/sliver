@@ -1,6 +1,6 @@
 {
   "name": "sliver-gui",
-  "version": "0.0.1",
+  "version": "0.0.7",
   "description": "Cross-platform GUI for the Sliver implant framework",
   "author": {
     "name": "moloch"
@@ -48,7 +48,7 @@
     "codelyzer": "5.0.1",
     "conventional-changelog-cli": "2.0.11",
     "core-js": "2.6.1",
-    "electron": "5.0.2",
+    "electron": "^5.0.7",
     "electron-builder": "20.41.0",
     "electron-reload": "1.4.0",
     "jasmine-core": "3.3.0",
@@ -60,7 +60,6 @@
     "karma-jasmine-html-reporter": "1.4.0",
     "mocha": "^6.1.4",
     "npm-run-all": "4.1.5",
-    "rxjs": "6.5.2",
     "spectron": "5.0.0",
     "ts-node": "7.0.1",
     "ts-protoc-gen": "^0.10.0",
@@ -78,10 +77,14 @@
     "@angular/cdk": "^8.1.1",
     "@angular/material": "^8.1.1",
     "@fortawesome/fontawesome-free": "^5.9.0",
+    "@materia-ui/ngx-monaco-editor": "^2.0.6",
     "base64-arraybuffer": "^0.2.0",
     "file-saver": "^2.0.2",
+    "google-protobuf": "^3.9.0",
     "material-design-icons": "^3.0.1",
     "moment": "^2.24.0",
+    "monaco-editor": "^0.17.1",
+    "rxjs": "^6.5.2",
     "xterm": "^3.14.4"
   }
 }

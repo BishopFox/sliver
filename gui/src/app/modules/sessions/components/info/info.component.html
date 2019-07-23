@@ -1,26 +1,77 @@
-<mat-grid-list cols="4" rowHeight="1:1">
-  <mat-grid-tile [colspan]="1" [rowspan]="1">
-    <mat-card *ngIf="session">
-      <i *ngIf="session.getOs() === 'darwin'" class="fab fa-5x fa-fw fa-apple"></i>
-      <i *ngIf="session.getOs() === 'windows'" class="fab fa-5x fa-fw fa-windows"></i>
-      <i *ngIf="session.getOs() === 'linux'" class="fab fa-5x fa-fw fa-linux"></i>
-      <mat-divider></mat-divider>
-      Blah Blah Blah Blah
-    </mat-card>
-  </mat-grid-tile>
-  <mat-grid-tile>
+<div *ngIf="session" class="grid-wrapper">
+  <div>
     <mat-card>
-      <h2>Info</h2>
-      <mat-divider></mat-divider>
-      Blah Blah Blah Blah
+      <div>
+        <mat-card-header>
+          <div mat-card-avatar class="card-header">
+            <i class="fas fa-fw fa-3x fa-user"></i>
+          </div>
+          <mat-card-title>
+            {{ session.getUsername() }}
+          </mat-card-title>
+          <mat-card-subtitle>
+            <strong>PID:</strong>
+            {{ session.getPid() }}
+            <strong>UID:</strong>
+            {{ session.getUid() }}
+          </mat-card-subtitle>
+        </mat-card-header>
+        <mat-divider></mat-divider>
+        <mat-card-content>
+          <br />
+          <p>
+            <strong>Transport</strong><br />
+            {{ session.getTransport() }}
+          </p>
+          <p>
+            <strong>Last Check-in</strong><br />
+            {{ session.getLastcheckin() }}
+          </p>
+          <p>
+            <strong>Filename</strong><br />
+            <span class="monospace">{{ session.getFilename() }}</span>
+          </p>
+        </mat-card-content>
+      </div>
     </mat-card>
-  </mat-grid-tile>
-  <mat-grid-tile>
-    <mat-card>
-      <h2>Info</h2>
-      <mat-divider></mat-divider>
-      Blah Blah Blah Blah
-    </mat-card>
-  </mat-grid-tile>
+  </div>
 
-</mat-grid-list>
+  <div>
+    <mat-card>
+      <mat-progress-spinner *ngIf="!session" mode="indeterminate">
+      </mat-progress-spinner>
+      <div *ngIf="session">
+        <mat-card-header>
+          <div mat-card-avatar class="card-header">
+            <i *ngIf="session.getOs() === 'darwin'" class="fab fa-3x fa-fw fa-apple"></i>
+            <i *ngIf="session.getOs() === 'windows'" class="fab fa-3x fa-fw fa-windows"></i>
+            <i *ngIf="session.getOs() === 'linux'" class="fab fa-3x fa-fw fa-linux"></i>
+          </div>
+          <mat-card-title>
+            {{ session.getHostname() }}
+          </mat-card-title>
+          <mat-card-subtitle>
+            {{ session.getOs() | capitalize }} {{ session.getArch()  }}
+          </mat-card-subtitle>
+        </mat-card-header>
+        <mat-divider></mat-divider>
+        <mat-card-content>
+          <br />
+          <mat-progress-spinner *ngIf="!ifconfig" mode="indeterminate">
+          </mat-progress-spinner>
+          <div *ngIf="ifconfig">
+            <div *ngFor="let iface of interfaces">
+              <p>
+                <strong>{{ iface.getName() }}</strong>
+                <br />
+                <span *ngFor="let ip of iface.getIpaddressesList()" class="monospace">
+                  {{ ip }} <br />
+                </span>
+              </p>
+            </div>
+          </div>
+        </mat-card-content>
+      </div>
+    </mat-card>
+  </div>
+</div>

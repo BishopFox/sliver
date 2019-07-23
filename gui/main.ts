@@ -29,7 +29,7 @@ async function createMainWindow() {
   const size = electronScreen.getPrimaryDisplay().workAreaSize;
 
   // Create the browser window.
-  const gutterSize = 250;
+  const gutterSize = 100;
   mainWindow = new BrowserWindow({
     titleBarStyle: 'hidden',
     x: gutterSize,
