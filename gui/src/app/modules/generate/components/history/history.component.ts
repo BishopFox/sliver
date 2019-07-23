@@ -18,10 +18,11 @@ import { MatTableDataSource } from '@angular/material/table';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Sort } from '@angular/material/sort';
 import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { FADE_IN_OUT } from '../../../../shared/animations';
-import { SliverService } from '../../../../providers/sliver.service';
-import * as pb from '../../../../../../rpc/pb';
-import { ClientService } from '../../../../providers/client.service';
+
+import { FadeInOut } from '@app/shared/animations';
+import { SliverService } from '@app/providers/sliver.service';
+import * as pb from '@rpc/pb';
+import { ClientService } from '@app/providers/client.service';
 
 
 interface TableSliverBuildData {
@@ -58,7 +59,7 @@ export class RegenerateDialogComponent {
   selector: 'app-history',
   templateUrl: './history.component.html',
   styleUrls: ['./history.component.scss'],
-  animations: [FADE_IN_OUT]
+  animations: [FadeInOut]
 })
 export class HistoryComponent implements OnInit {
 

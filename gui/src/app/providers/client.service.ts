@@ -22,8 +22,9 @@ import { BehaviorSubject } from 'rxjs';
 import * as base64 from 'base64-arraybuffer';
 
 import { IPCService } from './ipc.service';
-import { RPCConfig } from '../../../rpc';
+import { RPCConfig } from '@rpc/rpc';
 import { FileFilter } from 'electron';
+
 
 interface SaveFileReq {
   title: string;

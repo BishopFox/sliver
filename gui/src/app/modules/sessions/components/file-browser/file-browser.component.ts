@@ -20,9 +20,9 @@ import { Sort } from '@angular/material/sort';
 import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatMenuTrigger } from '@angular/material';
 
-import { FADE_IN_OUT } from '../../../../shared/animations';
-import { SliverService } from '../../../../providers/sliver.service';
-import * as pb from '../../../../../../rpc/pb';
+import { FadeInOut } from '@app/shared/animations';
+import { SliverService } from '@app/providers/sliver.service';
+import * as pb from '@rpc/pb';
 
 
 interface TableFileData {
@@ -40,7 +40,7 @@ function compare(a: number | string | boolean, b: number | string | boolean, isA
   selector: 'app-file-browser',
   templateUrl: './file-browser.component.html',
   styleUrls: ['./file-browser.component.scss'],
-  animations: [FADE_IN_OUT]
+  animations: [FadeInOut]
 })
 export class FileBrowserComponent implements OnInit {
 

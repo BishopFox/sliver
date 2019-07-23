@@ -14,7 +14,7 @@
 */
 
 import { Component, OnInit } from '@angular/core';
-import { FADE_IN_OUT } from '../../shared/animations';
+import { FadeInOut } from '../../shared/animations';
 
 import { SliverService } from '../../providers/sliver.service';
 
@@ -23,7 +23,7 @@ import { SliverService } from '../../providers/sliver.service';
   selector: 'app-home',
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.scss'],
-  animations: [FADE_IN_OUT]
+  animations: [FadeInOut]
 })
 export class HomeComponent implements OnInit {
 

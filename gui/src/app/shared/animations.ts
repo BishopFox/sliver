@@ -13,9 +13,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { trigger, state, style, animate, transition } from '@angular/animations';
+import { trigger, style, animate, transition } from '@angular/animations';
 
-export const FADE_IN_OUT = trigger('fadeInOut', [
+export const FadeInOut = trigger('fadeInOut', [
   transition(':enter', [   // :enter is alias to 'void => *'
     style({opacity: 0}),
     animate(400, style({opacity: 1}))

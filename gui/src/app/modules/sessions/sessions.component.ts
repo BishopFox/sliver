@@ -19,7 +19,7 @@ import { MatTableDataSource } from '@angular/material/table';
 import { Sort } from '@angular/material/sort';
 import { Subscription } from 'rxjs';
 
-import { FADE_IN_OUT } from '../../shared/animations';
+import { FadeInOut } from '../../shared/animations';
 import { EventsService } from '../../providers/events.service';
 import { SliverService } from '../../providers/sliver.service';
 import * as pb from '../../../../rpc/pb';
@@ -44,7 +44,7 @@ function compare(a: number | string, b: number | string, isAsc: boolean) {
   selector: 'app-sessions',
   templateUrl: './sessions.component.html',
   styleUrls: ['./sessions.component.scss'],
-  animations: [FADE_IN_OUT]
+  animations: [FadeInOut]
 })
 export class SessionsComponent implements OnInit, OnDestroy {
 

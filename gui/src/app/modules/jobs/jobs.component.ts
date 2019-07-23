@@ -19,10 +19,10 @@ import { MatTableDataSource } from '@angular/material/table';
 import { Sort } from '@angular/material/sort';
 import { Subscription } from 'rxjs';
 
-import { FADE_IN_OUT } from '../../shared/animations';
-import { JobsService } from '../../providers/jobs.service';
-import * as pb from '../../../../rpc/pb';
-import { EventsService } from '../../providers/events.service';
+import * as pb from '@rpc/pb';
+import { FadeInOut } from '@app/shared/animations';
+import { JobsService } from '@app/providers/jobs.service';
+import { EventsService } from '@app/providers/events.service';
 
 
 interface TableJobData {
@@ -42,7 +42,7 @@ function compare(a: number | string, b: number | string, isAsc: boolean) {
   selector: 'app-jobs',
   templateUrl: './jobs.component.html',
   styleUrls: ['./jobs.component.scss'],
-  animations: [FADE_IN_OUT]
+  animations: [FadeInOut]
 })
 export class JobsComponent implements OnInit, OnDestroy {
 

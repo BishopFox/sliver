@@ -17,16 +17,16 @@ import { Component, OnInit } from '@angular/core';
 import { FormGroup, FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 
-import * as pb from '../../../../../../rpc/pb';
-import { FADE_IN_OUT } from '../../../../shared/animations';
-import { JobsService } from '../../../../providers/jobs.service';
+import * as pb from '@rpc/pb';
+import { FadeInOut } from '@app/shared/animations';
+import { JobsService } from '@app/providers/jobs.service';
 
 
 @Component({
   selector: 'app-start-listener',
   templateUrl: './start-listener.component.html',
   styleUrls: ['./start-listener.component.scss'],
-  animations: [FADE_IN_OUT]
+  animations: [FadeInOut]
 })
 export class StartListenerComponent implements OnInit {
 

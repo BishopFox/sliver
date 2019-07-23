@@ -19,7 +19,7 @@ This service is the common carrier for all IPC messages.
 
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
-import * as pb from '../../../rpc/pb';
+import * as pb from '@rpc/pb';
 import { ProtobufService } from './protobuf.service';
 
 interface IPCMessage {

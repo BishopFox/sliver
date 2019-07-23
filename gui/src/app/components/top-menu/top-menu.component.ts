@@ -15,8 +15,8 @@
 
 import { Component, OnInit } from '@angular/core';
 
-import { ClientService } from '../../providers/client.service';
-import { RPCConfig } from '../../../../rpc';
+import { ClientService } from '@app/providers/client.service';
+import { RPCConfig } from '@rpc/rpc';
 
 
 @Component({

@@ -14,19 +14,19 @@
 */
 
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, FormControl, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { ErrorStateMatcher } from '@angular/material/core';
 
-import { ClientService } from '../../providers/client.service';
-import { RPCConfig } from '../../../../rpc';
-import { FADE_IN_OUT } from '../../shared/animations';
+import { RPCConfig } from '@rpc/rpc';
+import { ClientService } from '@app/providers/client.service';
+import { FadeInOut } from '@app/shared/animations';
+
 
 @Component({
   selector: 'app-select-server',
   templateUrl: './select-server.component.html',
   styleUrls: ['./select-server.component.scss'],
-  animations: [FADE_IN_OUT]
+  animations: [FadeInOut]
 })
 export class SelectServerComponent implements OnInit {
 

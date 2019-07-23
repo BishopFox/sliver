@@ -3,7 +3,11 @@
   "compilerOptions": {
     "outDir": "../out-tsc/app",
     "module": "es2015",
-    "baseUrl": "",
+    "baseUrl": ".",
+    "paths": {
+      "@app/*": ["./app/*"],
+      "@rpc/*": ["../rpc/*"]
+    },
     "types": [],
   },
   "exclude": [

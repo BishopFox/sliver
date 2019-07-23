@@ -16,8 +16,8 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 
-import { SliverService } from '../../../../providers/sliver.service';
-import * as pb from '../../../../../../rpc/pb';
+import { SliverService } from '@app/providers/sliver.service';
+import * as pb from '@rpc/pb';
 
 
 @Component({

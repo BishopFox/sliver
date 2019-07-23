@@ -14,17 +14,15 @@
 */
 
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { FormGroup, FormBuilder, FormControl, Validators, ValidationErrors } from '@angular/forms';
+import { FormGroup, FormBuilder, Validators, ValidationErrors } from '@angular/forms';
 import { Subscription } from 'rxjs';
 
-
-import { FADE_IN_OUT } from '../../../../shared/animations';
-import { SliverService } from '../../../../providers/sliver.service';
-import { JobsService } from '../../../../providers/jobs.service';
-import * as pb from '../../../../../../rpc/pb';
-import { EventsService } from '../../../../providers/events.service';
-import { ClientService } from '../../../../providers/client.service';
-
+import * as pb from '@rpc/pb';
+import { FadeInOut } from '@app/shared/animations';
+import { SliverService } from '@app/providers/sliver.service';
+import { JobsService } from '@app/providers/jobs.service';
+import { EventsService } from '@app/providers/events.service';
+import { ClientService } from '@app/providers/client.service';
 
 
 interface Listener {
@@ -43,7 +41,7 @@ interface C2 {
   selector: 'app-new-implant',
   templateUrl: './new-implant.component.html',
   styleUrls: ['./new-implant.component.scss'],
-  animations: [FADE_IN_OUT]
+  animations: [FadeInOut]
 })
 export class NewImplantComponent implements OnInit, OnDestroy {
 
@@ -85,24 +83,14 @@ export class NewImplantComponent implements OnInit, OnDestroy {
     });
 
     this.genC2Form = this._fb.group({
-      mtls: ['', Validators.compose([
-        this.validateMTLSEndpoint
-      ])],
-      http: ['', Validators.compose([
-        this.validateHTTPEndpoint
-      ])],
-      dns: ['', Validators.compose([
-        this.validateDNSEndpoint
-      ])],
+      mtls: [''],
+      http: [''],
+      dns: [''],
     }, { validator: this.validateGenC2Form });
 
     this.compileTimeOptionsForm = this._fb.group({
-      reconnect: [60, Validators.compose([
-        Validators.required,
-      ])],
-      maxErrors: [1000, Validators.compose([
-        Validators.required,
-      ])],
+      reconnect: [60],
+      maxErrors: [1000],
       skipSymbols: [false],
       debug: [false],
     });
@@ -140,7 +128,7 @@ export class NewImplantComponent implements OnInit, OnDestroy {
     const http = formGroup.controls['http'].value;
     const dns = formGroup.controls['dns'].value;
     const validC2 = [mtls, http, dns].some(c2 => c2 !== '');
-    return validC2 ? null : {invalidC2: 'You must specify at least one C2 endpoint' };
+    return validC2 ? null : { invalidC2: 'You must specify at least one C2 endpoint' };
   }
 
   get C2s(): C2[] {
@@ -176,18 +164,6 @@ export class NewImplantComponent implements OnInit, OnDestroy {
       });
     });
     return c2s;
-  }
-
-  validateMTLSEndpoint(mtls: FormControl): any {
-    return null;
-  }
-
-  validateHTTPEndpoint(http: FormControl): any {
-    return null;
-  }
-
-  validateDNSEndpoint(dns: FormControl): any {
-    return null;
   }
 
   parseURLs(value: string): URL[] {

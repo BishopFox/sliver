@@ -18,7 +18,7 @@ import { Injectable } from '@angular/core';
 import { Subject, Observer } from 'rxjs';
 import { IPCService } from './ipc.service';
 import { ProtobufService } from './protobuf.service';
-import * as pb from '../../../rpc/pb';
+import * as pb from '@rpc/pb';
 
 
 export interface Tunnel {

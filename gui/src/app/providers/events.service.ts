@@ -17,7 +17,8 @@ import { Injectable } from '@angular/core';
 import { IPCService } from './ipc.service';
 import { ProtobufService } from './protobuf.service';
 import { Subject } from 'rxjs';
-import * as pb from '../../../rpc/pb';
+import * as pb from '@rpc/pb';
+
 
 export const Events = {
   ServerError: 'server',

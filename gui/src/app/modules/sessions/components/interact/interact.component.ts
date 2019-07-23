@@ -16,7 +16,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 
-import { FADE_IN_OUT } from '../../../../shared/animations';
+import { FadeInOut } from '../../../../shared/animations';
 import { SliverService } from '../../../../providers/sliver.service';
 import * as pb from '../../../../../../rpc/pb';
 
@@ -25,7 +25,7 @@ import * as pb from '../../../../../../rpc/pb';
   selector: 'app-interact',
   templateUrl: './interact.component.html',
   styleUrls: ['./interact.component.scss'],
-  animations: [FADE_IN_OUT]
+  animations: [FadeInOut]
 })
 export class InteractComponent implements OnInit {
 

@@ -18,9 +18,9 @@ import { Component, OnInit, ElementRef, ViewChild, Input, OnDestroy } from '@ang
 import { ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 
-import { SliverService } from '../../../../providers/sliver.service';
-import * as pb from '../../../../../../rpc/pb';
-import { TunnelService, Tunnel } from '../../../../providers/tunnel.service';
+import * as pb from '@rpc/pb';
+import { SliverService } from '@app/providers/sliver.service';
+import { TunnelService, Tunnel } from '@app/providers/tunnel.service';
 import * as xterm from 'xterm';
 
 

@@ -18,9 +18,9 @@ import { ActivatedRoute } from '@angular/router';
 import { MatTableDataSource } from '@angular/material/table';
 import { Sort } from '@angular/material/sort';
 
-import * as pb from '../../../../../../rpc/pb';
-import { FADE_IN_OUT } from '../../../../shared/animations';
-import { SliverService } from '../../../../providers/sliver.service';
+import * as pb from '@rpc/pb';
+import { FadeInOut } from '@app/shared/animations';
+import { SliverService } from '@app/providers/sliver.service';
 
 
 interface TableProcessData {
@@ -39,7 +39,7 @@ function compare(a: number | string, b: number | string, isAsc: boolean) {
   selector: 'app-ps',
   templateUrl: './ps.component.html',
   styleUrls: ['./ps.component.scss'],
-  animations: [FADE_IN_OUT]
+  animations: [FadeInOut]
 })
 export class PsComponent implements OnInit, OnDestroy {
 
