@@ -57,8 +57,8 @@
         <mat-divider></mat-divider>
         <mat-card-content>
           <br />
-          <mat-progress-spinner *ngIf="!ifconfig" mode="indeterminate">
-          </mat-progress-spinner>
+          <mat-progress-bar *ngIf="!ifconfig" mode="indeterminate"></mat-progress-bar>
+
           <div *ngIf="ifconfig">
             <div *ngFor="let iface of interfaces">
               <p>

@@ -81,6 +81,22 @@
     </ng-container>
 
     <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
-    <tr mat-row (click)="onRowSelection(row)" *matRowDef="let row; columns: displayedColumns;"></tr>
+    <tr mat-row (contextmenu)="onContextMenu($event, row)" (click)="onRowSelection(row)" *matRowDef="let row; columns: displayedColumns;"></tr>
   </table>
 </div>
+<div style="visibility: hidden; position: fixed" [style.left]="contextMenuPosition.x"
+  [style.top]="contextMenuPosition.y" [matMenuTriggerFor]="contextMenu">
+</div>
+<mat-menu #contextMenu="matMenu">
+  <ng-template matMenuContent let-item="item">
+    <button mat-menu-item [disabled]="item.isDir" (click)="openFile(item)">
+      Open
+    </button>
+    <button mat-menu-item [disabled]="item.isDir" (click)="download($event, item)">
+      Download
+    </button>
+    <button mat-menu-item (click)="rm($event, item)">
+      Delete
+    </button>
+  </ng-template>
+</mat-menu>

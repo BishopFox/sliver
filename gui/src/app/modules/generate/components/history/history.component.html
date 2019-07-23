@@ -15,11 +15,6 @@
 
   <table mat-table [dataSource]="dataSrc" matSort (matSortChange)="sortData($event)">
 
-    <ng-container matColumnDef="name">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header>Code Name</th>
-      <td mat-cell *matCellDef="let build"> {{build.name}} </td>
-    </ng-container>
-
     <ng-container matColumnDef="os">
       <th mat-header-cell *matHeaderCellDef mat-sort-header>Operating System</th>
       <td mat-cell *matCellDef="let build">
@@ -29,6 +24,11 @@
       </td>
     </ng-container>
 
+    <ng-container matColumnDef="name">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Code Name</th>
+      <td mat-cell *matCellDef="let build"> {{ build.name }} </td>
+    </ng-container>
+
     <ng-container matColumnDef="arch">
       <th mat-header-cell *matHeaderCellDef mat-sort-header>Architecture</th>
       <td mat-cell *matCellDef="let build"> {{build.arch}} </td>
@@ -36,12 +36,12 @@
 
     <ng-container matColumnDef="debug">
       <th mat-header-cell *matHeaderCellDef mat-sort-header>Debug</th>
-      <td mat-cell *matCellDef="let build"> {{build.debug}} </td>
+      <td mat-cell *matCellDef="let build"> {{ build.debug }} </td>
     </ng-container>
 
     <ng-container matColumnDef="format">
       <th mat-header-cell *matHeaderCellDef mat-sort-header>Format</th>
-      <td mat-cell *matCellDef="let build"> {{build.format}} </td>
+      <td mat-cell *matCellDef="let build"> {{ build.format }} </td>
     </ng-container>
 
     <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>

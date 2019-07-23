@@ -13,11 +13,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, OnInit, Inject } from '@angular/core';
+import { Component, OnInit, Inject, ViewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { MatTableDataSource } from '@angular/material/table';
 import { Sort } from '@angular/material/sort';
 import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatMenuTrigger } from '@angular/material';
 
 import { FADE_IN_OUT } from '../../../../shared/animations';
 import { SliverService } from '../../../../providers/sliver.service';
@@ -52,6 +53,9 @@ export class FileBrowserComponent implements OnInit {
   isFetching = false;
   showHiddenFiles = true;
 
+  @ViewChild(MatMenuTrigger, { static: false }) contextMenu: MatMenuTrigger;
+  contextMenuPosition = { x: '0px', y: '0px' };
+
   constructor(public dialog: MatDialog,
               private _route: ActivatedRoute,
               private _sliverService: SliverService) { }
@@ -75,10 +79,6 @@ export class FileBrowserComponent implements OnInit {
     this.isFetching = false;
   }
 
-  async fetchFile(targetFile: string) {
-
-  }
-
   async onRowSelection(row: TableFileData) {
     if (this.isFetching) {
       return;
@@ -97,7 +97,7 @@ export class FileBrowserComponent implements OnInit {
       });
       dialogRef.afterClosed().subscribe(async (result) => {
         if (result) {
-          console.log(`[download] ${result.cwd} / ${result.name}`);
+          this.download(result);
         }
       });
     }
@@ -148,13 +148,14 @@ export class FileBrowserComponent implements OnInit {
     this.dataSrc.data = this.tableData();
   }
 
-  rm(event: any, entry: TableFileData) {
+  rm(event: any, target: TableFileData) {
     event.stopPropagation();
+    this.contextMenu.closeMenu();
     const dialogRef = this.dialog.open(RmDialogComponent, {
       data: {
         cwd: this.ls.getPath(),
-        name: entry.name,
-        isDir: entry.isDir
+        name: target.name,
+        isDir: target.isDir
       }
     });
     dialogRef.afterClosed().subscribe(async (result) => {
@@ -176,6 +177,26 @@ export class FileBrowserComponent implements OnInit {
       }
     });
   }
+
+  download(target: TableFileData) {
+    this.contextMenu.closeMenu();
+    console.log(`[download] ${target}`);
+  }
+
+  openFile(target: TableFileData) {
+    this.contextMenu.closeMenu();
+    console.log(`[cat] ${target}`);
+  }
+
+  onContextMenu(event: MouseEvent, row: TableFileData) {
+    console.log(event);
+    event.preventDefault();
+    this.contextMenuPosition.x = event.clientX + 'px';
+    this.contextMenuPosition.y = event.clientY + 'px';
+    this.contextMenu.menuData = { 'item': row };
+    this.contextMenu.openMenu();
+  }
+
 }
 
 @Component({
