@@ -20,9 +20,12 @@ import { Sort } from '@angular/material/sort';
 import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatMenuTrigger } from '@angular/material';
 
+import * as pako from 'pako';
+import * as pb from '@rpc/pb';
 import { FadeInOut } from '@app/shared/animations';
 import { SliverService } from '@app/providers/sliver.service';
-import * as pb from '@rpc/pb';
+import { ClientService } from '@app/providers/client.service';
+
 
 
 interface TableFileData {
@@ -51,6 +54,7 @@ export class FileBrowserComponent implements OnInit {
     'isDir', 'name', 'size', 'options'
   ];
   isFetching = false;
+  downloading = false;
   showHiddenFiles = true;
 
   @ViewChild(MatMenuTrigger, { static: false }) contextMenu: MatMenuTrigger;
@@ -58,6 +62,7 @@ export class FileBrowserComponent implements OnInit {
 
   constructor(public dialog: MatDialog,
               private _route: ActivatedRoute,
+              private _clientService: ClientService,
               private _sliverService: SliverService) { }
 
   ngOnInit() {
@@ -178,18 +183,37 @@ export class FileBrowserComponent implements OnInit {
     });
   }
 
-  download(target: TableFileData) {
+  async download(target: TableFileData) {
     this.contextMenu.closeMenu();
+    this.downloading = true;
     console.log(`[download] ${target}`);
+    const download = await this._sliverService.download(this.session.getId(), target.name);
+    let data = download.getData_asU8();
+    if (download.getEncoder() === 'gzip') {
+      data = pako.ungzip(data);
+    }
+    this.downloading = false;
+    const msg = `Save downloaded file: ${target.name}`;
+    const save = await this._clientService.saveFile('Save File', msg, target.name, data);
+    console.log(save);
   }
 
-  openFile(target: TableFileData) {
+  async upload() {
+
+  }
+
+  async openFile(target: TableFileData) {
     this.contextMenu.closeMenu();
-    console.log(`[cat] ${target}`);
+    this.downloading = true;
+    const download = await this._sliverService.download(this.session.getId(), target.name);
+    let data = download.getData_asU8();
+    if (download.getEncoder() === 'gzip') {
+      data = pako.ungzip(data);
+    }
+    this.downloading = false;
   }
 
   onContextMenu(event: MouseEvent, row: TableFileData) {
-    console.log(event);
     event.preventDefault();
     this.contextMenuPosition.x = event.clientX + 'px';
     this.contextMenuPosition.y = event.clientY + 'px';
@@ -198,6 +222,7 @@ export class FileBrowserComponent implements OnInit {
   }
 
 }
+
 
 @Component({
   selector: 'app-mkdir-dialog',
@@ -242,6 +267,7 @@ export class RmDialogComponent {
   }
 
 }
+
 
 @Component({
   selector: 'app-download-dialog',

@@ -1,16 +1,9 @@
-<mat-grid-list *ngIf="!dataSrc" cols="3" rowHeight="3:1">
-  <!-- Row #1 -->
-  <mat-grid-tile></mat-grid-tile>
-  <mat-grid-tile></mat-grid-tile>
-  <mat-grid-tile></mat-grid-tile>
-  <!-- Row #2 -->
-  <mat-grid-tile></mat-grid-tile>
-  <mat-grid-tile>
+<div *ngIf="!dataSrc" class="grid-spinner-wrapper">
+  <div class="spinner">
     <mat-progress-spinner mode="indeterminate">
     </mat-progress-spinner>
-  </mat-grid-tile>
-  <mat-grid-tile></mat-grid-tile>
-</mat-grid-list>
+  </div>
+</div>
 
 <div [@fadeInOut] *ngIf="dataSrc">
   <mat-form-field>

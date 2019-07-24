@@ -1,11 +1,9 @@
-<mat-grid-list *ngIf="!dataSrc" cols="3">
-  <mat-grid-tile></mat-grid-tile>
-  <mat-grid-tile>
+<div *ngIf="!dataSrc" class="grid-spinner-wrapper">
+  <div class="spinner">
     <mat-progress-spinner mode="indeterminate">
     </mat-progress-spinner>
-  </mat-grid-tile>
-  <mat-grid-tile></mat-grid-tile>
-</mat-grid-list>
+  </div>
+</div>
 
 <div [@fadeInOut] *ngIf="dataSrc">
 

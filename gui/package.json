@@ -84,6 +84,7 @@
     "material-design-icons": "^3.0.1",
     "moment": "^2.24.0",
     "monaco-editor": "^0.17.1",
+    "pako": "^1.0.10",
     "rxjs": "^6.5.2",
     "xterm": "^3.14.4"
   }

@@ -132,13 +132,29 @@ export class SliverService extends ProtobufService {
 
   download(sliverId: number, targetFile: string): Promise<pb.Download> {
     return new Promise(async (resolve) => {
-
+      const reqEnvelope = new pb.Envelope();
+      reqEnvelope.setType(pb.SliverPB.MsgDownloadReq);
+      const downloadReq = new pb.DownloadReq();
+      downloadReq.setSliverid(sliverId);
+      downloadReq.setPath(targetFile);
+      reqEnvelope.setData(downloadReq.serializeBinary());
+      const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+      resolve(pb.Download.deserializeBinary(this.decode(resp)));
     });
   }
 
-  upload(sliverId: number, src: string, data: Uint8Array, dst: string): Promise<pb.Upload> {
+  upload(sliverId: number, data: Uint8Array, encoder: string, dst: string): Promise<pb.Upload> {
     return new Promise(async (resolve) => {
-
+      const reqEnvelope = new pb.Envelope();
+      reqEnvelope.setType(pb.SliverPB.MsgUploadReq);
+      const uploadReq = new pb.UploadReq();
+      uploadReq.setSliverid(sliverId);
+      uploadReq.setData(data);
+      uploadReq.setEncoder(encoder);
+      uploadReq.setPath(dst);
+      reqEnvelope.setData(uploadReq.serializeBinary());
+      const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+      resolve(pb.Upload.deserializeBinary(this.decode(resp)));
     });
   }
 

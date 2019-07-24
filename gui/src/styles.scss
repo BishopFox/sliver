@@ -12,6 +12,19 @@ html, body {
   font-family: 'Source Code Pro';
 }
 
+.grid-spinner-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: minmax(50px, auto);
+  justify-items: center;
+  align-items: center;
+}
+
+.spinner {
+  grid-column: 2/3;
+  grid-row: 2/3;
+}
+
 @font-face {
   font-family: 'Source Code Pro';
   font-style: normal;

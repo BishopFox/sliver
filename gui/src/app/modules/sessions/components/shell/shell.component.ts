@@ -14,7 +14,7 @@
 */
 
 
-import { Component, OnInit, ElementRef, ViewChild, Input, OnDestroy } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 
@@ -29,7 +29,7 @@ import * as xterm from 'xterm';
   templateUrl: './shell.component.html',
   styleUrls: ['./shell.component.scss']
 })
-export class ShellComponent implements OnInit, OnDestroy {
+export class ShellComponent implements OnInit, AfterViewInit, OnDestroy {
 
   readonly SCROLLBACK = 100000;
 
@@ -42,23 +42,14 @@ export class ShellComponent implements OnInit, OnDestroy {
   textEncoder = new TextEncoder();
 
   constructor(private _route: ActivatedRoute,
-              private _sliverService: SliverService,
-              private _tunnelService: TunnelService) { }
+    private _sliverService: SliverService,
+    private _tunnelService: TunnelService) { }
 
   ngOnInit() {
     this._route.parent.params.subscribe((params) => {
       const sessionId: number = parseInt(params['session-id'], 10);
       this._sliverService.sessionById(sessionId).then((session) => {
         this.session = session;
-
-        /* Termainl setup */
-        this.terminal = new xterm.Terminal({
-          cursorBlink: true,
-          scrollback: this.SCROLLBACK,
-        });
-        this.terminal.open(this.el.nativeElement);
-        this.terminal.write('\r\x1b[80;1HSystem Ready ');
-
       }).catch(() => {
         console.error(`No session with id ${sessionId}`);
       });
@@ -70,6 +61,16 @@ export class ShellComponent implements OnInit, OnDestroy {
       this.recvSub.unsubscribe();
       this.active = false;
     }
+  }
+
+  ngAfterViewInit() {
+    /* Termainl setup */
+    this.terminal = new xterm.Terminal({
+      cursorBlink: true,
+      scrollback: this.SCROLLBACK,
+    });
+    this.terminal.open(this.el.nativeElement);
+    this.terminal.write('\r\x1b[80;1HSystem Ready ');
   }
 
   async openShell() {
