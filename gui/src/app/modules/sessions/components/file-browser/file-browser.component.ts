@@ -165,20 +165,17 @@ export class FileBrowserComponent implements OnInit {
     });
     dialogRef.afterClosed().subscribe(async (result) => {
       if (result) {
-        console.log(`[rm] ${result.cwd} / ${result.name} (isDir: ${result.isDir})`);
+        console.log(`[rm] ${result.name} (isDir: ${result.isDir})`);
       }
     });
   }
 
   mkdir() {
-    const dialogRef = this.dialog.open(MkdirDialogComponent, {
-      data: {
-        cwd: this.ls.getPath()
-      }
-    });
+    const dialogRef = this.dialog.open(MkdirDialogComponent);
     dialogRef.afterClosed().subscribe(async (result) => {
       if (result) {
-        console.log(`[mkdir] ${result.cwd} / ${result.name}`);
+        console.log(`[mkdir] ${result.name}`);
+        this._sliverService.mkdir(this.session.getId(), result.name);
       }
     });
   }

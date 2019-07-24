@@ -73,7 +73,7 @@ export class IPCService extends ProtobufService {
     });
   }
 
-  async request(method: string, data: string): Promise<string> {
+  request(method: string, data: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const msgId = this.randomId();
       const subscription = this._ipcResponse$.subscribe((msg: IPCMessage) => {

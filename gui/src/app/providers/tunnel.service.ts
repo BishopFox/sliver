@@ -38,8 +38,7 @@ export class TunnelService extends ProtobufService {
     super();
   }
 
-  createTunnel(sliverId: number, enablePty?: boolean): Promise<Tunnel> {
-    return new Promise(async (resolve, reject) => {
+  async createTunnel(sliverId: number, enablePty?: boolean): Promise<Tunnel> {
       try {
 
         // Open Tunnel
@@ -91,16 +90,16 @@ export class TunnelService extends ProtobufService {
           error: console.error,
         };
 
-        resolve({
+        return {
           id: tun.getTunnelid(),
           sliverID: tun.getSliverid(),
           send: sendObs,
           recv: recv$,
-        });
+        };
       } catch (err) {
-        reject(err);
+        console.error(err);
+        return null;
       }
-    });
   }
 
 }

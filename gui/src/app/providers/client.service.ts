@@ -43,75 +43,72 @@ export class ClientService {
 
   constructor(private _ipc: IPCService) { }
 
-  getActiveConfig(): Promise<RPCConfig> {
-    return new Promise(async (resolve) => {
-      this._ipc.request('client_activeConfig', '').then((rawConfig) => {
-        resolve(JSON.parse(rawConfig));
-      }).catch(() => {
-        resolve(null);
-      });
-    });
+  async getActiveConfig(): Promise<RPCConfig> {
+    try {
+      const rawConfig = await this._ipc.request('client_activeConfig', '');
+      return JSON.parse(rawConfig);
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
   }
 
-  setActiveConfig(config: RPCConfig) {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const data = await this._ipc.request('client_start', JSON.stringify(config));
-        this.isConnected$.next(true);
-        resolve(data);
-      } catch (err) {
-        reject(err);
-      }
-    });
+  async setActiveConfig(config: RPCConfig): Promise<string> {
+    try {
+      const data = await this._ipc.request('client_start', JSON.stringify(config));
+      this.isConnected$.next(true);
+      return data;
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
   }
 
-  listConfigs(): Promise<RPCConfig[]> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const resp: string = await this._ipc.request('config_list', '');
-        const configs: RPCConfig[] = JSON.parse(resp);
-        console.log(configs);
-        console.log(typeof configs);
-        resolve(configs);
-      } catch (err) {
-        reject(err);
-      }
-    });
+  async listConfigs(): Promise<RPCConfig[]> {
+    try {
+      const resp: string = await this._ipc.request('config_list', '');
+      const configs: RPCConfig[] = JSON.parse(resp);
+      console.log(configs);
+      console.log(typeof configs);
+      return configs;
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
   }
 
-  saveFile(title: string, message: string, filename: string, data: Uint8Array): Promise<string> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const resp: string = await this._ipc.request('client_saveFile', JSON.stringify({
-          title: title,
-          message: message,
-          filename: filename,
-          data: base64.encode(data),
-        }));
-        resolve(resp);
-      } catch (err) {
-        reject(err);
-      }
-    });
+  async saveFile(title: string, message: string, filename: string, data: Uint8Array): Promise<string> {
+    try {
+      const resp: string = await this._ipc.request('client_saveFile', JSON.stringify({
+        title: title,
+        message: message,
+        filename: filename,
+        data: base64.encode(data),
+      }));
+      return resp;
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
   }
 
-  readFile(title: string, message: string, openDirectory?: boolean, multiSelection?: boolean, filter?: FileFilter[]): Promise<string> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const resp: string = await this._ipc.request('client_readFile', JSON.stringify({
-          title: title,
-          message: message,
-          openDirectory: openDirectory === undefined ? false : openDirectory,
-          multiSelection: multiSelection  === undefined ? false : multiSelection,
-          filter: filter === undefined ? filter : [{
-            name: 'All Files', extensions: ['*']
-          }],
-        }));
-        resolve(resp ? JSON.parse(resp) : '');
-      } catch (err) {
-        reject(err);
-      }
-    });
+  async readFile(title: string, message: string, openDirectory?: boolean,
+                 multiSelection?: boolean, filter?: FileFilter[]): Promise<string> {
+    try {
+      const resp: string = await this._ipc.request('client_readFile', JSON.stringify({
+        title: title,
+        message: message,
+        openDirectory: openDirectory === undefined ? false : openDirectory,
+        multiSelection: multiSelection === undefined ? false : multiSelection,
+        filter: filter === undefined ? filter : [{
+          name: 'All Files', extensions: ['*']
+        }],
+      }));
+      return resp ? JSON.parse(resp) : '';
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
   }
 
   exit() {
