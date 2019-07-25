@@ -47,14 +47,11 @@ function mime(filename: string): string {
 
 export function requestHandler(req: Electron.RegisterBufferProtocolRequest, next: ProtocolCallback) {
   const reqUrl = new URL(req.url);
-  console.log('[app-protocol] URL:');
-  console.log(reqUrl);
   let reqPath = path.normalize(reqUrl.pathname);
   if (reqPath === '/') {
     reqPath = '/index.html';
   }
   const reqFilename = path.basename(reqPath);
-  console.log(`[app-protocol] read: ${path.join(DIST_PATH, reqPath)}`);
   fs.readFile(path.join(DIST_PATH, reqPath), (err, data) => {
     const mimeType = mime(reqFilename);
     if (!err) {
