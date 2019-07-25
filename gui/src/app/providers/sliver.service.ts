@@ -58,6 +58,13 @@ export class SliverService extends ProtobufService {
     return pb.SliverBuilds.deserializeBinary(this.decode(resp));
   }
 
+  async canaries(): Promise<pb.Canaries> {
+    const reqEnvelope = new pb.Envelope();
+    reqEnvelope.setType(pb.ClientPB.MsgListCanaries);
+    const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+    return pb.Canaries.deserializeBinary(this.decode(resp));
+  }
+
   async generate(config: pb.SliverConfig): Promise<pb.Generate> {
     const reqEnvelope = new pb.Envelope();
     const generateReq = new pb.GenerateReq();

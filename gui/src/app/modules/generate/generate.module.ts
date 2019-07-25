@@ -19,10 +19,11 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { BaseMaterialModule } from '../../base-material';
 import { NewImplantComponent } from './components/new-implant/new-implant.component';
 import { HistoryComponent, RegenerateDialogComponent } from './components/history/history.component';
+import { CanariesComponent } from './components/canaries/canaries.component';
 
 
 @NgModule({
-  declarations: [NewImplantComponent, HistoryComponent, RegenerateDialogComponent],
+  declarations: [NewImplantComponent, HistoryComponent, RegenerateDialogComponent, CanariesComponent],
   imports: [
     CommonModule,
     FormsModule,
