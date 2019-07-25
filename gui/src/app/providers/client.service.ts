@@ -33,6 +33,22 @@ interface SaveFileReq {
   data: string;
 }
 
+interface Settings {
+
+  preferredServer: string;
+
+  notifications: {
+    sessionOpened: boolean;
+    sessionClosed: boolean;
+
+    jobStopped: boolean;
+
+    playerJoined: boolean;
+    playerLeft: boolean;
+  };
+
+}
+
 
 @Injectable({
   providedIn: 'root'
@@ -44,71 +60,56 @@ export class ClientService {
   constructor(private _ipc: IPCService) { }
 
   async getActiveConfig(): Promise<RPCConfig> {
-    try {
-      const rawConfig = await this._ipc.request('client_activeConfig', '');
-      return JSON.parse(rawConfig);
-    } catch (err) {
-      console.error(err);
-      return null;
-    }
+    const rawConfig = await this._ipc.request('client_activeConfig');
+    return rawConfig ? JSON.parse(rawConfig) : null;
   }
 
   async setActiveConfig(config: RPCConfig): Promise<string> {
-    try {
-      const data = await this._ipc.request('client_start', JSON.stringify(config));
-      this.isConnected$.next(true);
-      return data;
-    } catch (err) {
-      console.error(err);
-      return null;
-    }
+    const data = await this._ipc.request('client_start', JSON.stringify(config));
+    this.isConnected$.next(true);
+    return data;
+  }
+
+  async getSettings(): Promise<Settings> {
+    const data = await this._ipc.request('client_getSettings');
+    return data ? JSON.parse(data) : {};
+  }
+
+  async setSettings(settings: Settings): Promise<Settings> {
+    await this._ipc.request('client_setSettings', JSON.stringify(settings));
+    return this.getSettings();
   }
 
   async listConfigs(): Promise<RPCConfig[]> {
-    try {
-      const resp: string = await this._ipc.request('config_list', '');
-      const configs: RPCConfig[] = JSON.parse(resp);
-      console.log(configs);
-      console.log(typeof configs);
-      return configs;
-    } catch (err) {
-      console.error(err);
-      return null;
-    }
+    const resp: string = await this._ipc.request('config_list');
+    const configs: RPCConfig[] = JSON.parse(resp);
+    console.log(configs);
+    console.log(typeof configs);
+    return configs;
   }
 
   async saveFile(title: string, message: string, filename: string, data: Uint8Array): Promise<string> {
-    try {
-      const resp: string = await this._ipc.request('client_saveFile', JSON.stringify({
-        title: title,
-        message: message,
-        filename: filename,
-        data: base64.encode(data),
-      }));
-      return resp;
-    } catch (err) {
-      console.error(err);
-      return null;
-    }
+    const resp: string = await this._ipc.request('client_saveFile', JSON.stringify({
+      title: title,
+      message: message,
+      filename: filename,
+      data: base64.encode(data),
+    }));
+    return resp;
   }
 
   async readFile(title: string, message: string, openDirectory?: boolean,
                  multiSelection?: boolean, filter?: FileFilter[]): Promise<string> {
-    try {
-      const resp: string = await this._ipc.request('client_readFile', JSON.stringify({
-        title: title,
-        message: message,
-        openDirectory: openDirectory === undefined ? false : openDirectory,
-        multiSelection: multiSelection === undefined ? false : multiSelection,
-        filter: filter === undefined ? filter : [{
-          name: 'All Files', extensions: ['*']
-        }],
-      }));
-      return resp ? JSON.parse(resp) : '';
-    } catch (err) {
-      console.error(err);
-      return null;
-    }
+    const resp: string = await this._ipc.request('client_readFile', JSON.stringify({
+      title: title,
+      message: message,
+      openDirectory: openDirectory === undefined ? false : openDirectory,
+      multiSelection: multiSelection === undefined ? false : multiSelection,
+      filter: filter === undefined ? filter : [{
+        name: 'All Files', extensions: ['*']
+      }],
+    }));
+    return resp ? JSON.parse(resp) : '';
   }
 
   exit() {

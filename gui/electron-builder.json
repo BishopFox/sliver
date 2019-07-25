@@ -1,5 +1,6 @@
 {
   "productName": "sliver",
+
   "directories": {
     "output": "release/"
   },
@@ -34,7 +35,9 @@
   "linux": {
     "icon": "dist",
     "target": [
-      "AppImage"
+      "AppImage",
+      "deb",
+      "rpm"
     ]
   }
 }

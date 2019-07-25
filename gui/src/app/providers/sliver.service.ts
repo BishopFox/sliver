@@ -34,15 +34,10 @@ export class SliverService extends ProtobufService {
   }
 
   async sessions(): Promise<pb.Sessions> {
-    try {
-      const reqEnvelope = new pb.Envelope();
-      reqEnvelope.setType(pb.ClientPB.MsgSessions);
-      const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
-      return pb.Sessions.deserializeBinary(this.decode(resp));
-    } catch (err) {
-      console.error(err);
-      return null;
-    }
+    const reqEnvelope = new pb.Envelope();
+    reqEnvelope.setType(pb.ClientPB.MsgSessions);
+    const resp: string = await this._ipc.request('rpc_request', this.encode(reqEnvelope));
+    return pb.Sessions.deserializeBinary(this.decode(resp));
   }
 
   async sessionById(id: number): Promise<pb.Sliver> {
@@ -53,7 +48,7 @@ export class SliverService extends ProtobufService {
         return slivers[index];
       }
     }
-    return null;
+    return Promise.reject(`No session with id '${id}'`);
   }
 
   async sliverBuilds(): Promise<pb.SliverBuilds> {

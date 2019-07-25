@@ -67,65 +67,54 @@ export interface IPCMessage {
 // IPC Methods used to start/interact with the RPCClient
 class IPCHandlers {
 
-  static client_start(req: string): Promise<string> {
-    return new Promise(async (resolve, reject) => {
-      const config: RPCConfig = JSON.parse(req);
-      rpc = new RPCClient(config);
-      rpc.connect().then(() => {
-        console.log('Connection successful');
-        rpc.envelopeSubject$.subscribe((envelope) => {
-          if (envelope.getId() === 0) {
-            ipcMain.emit('push', base64.encode(envelope.serializeBinary()));
-          }
-        });
-        resolve('success');
-      }).catch((err) => {
-        reject(err);
-      });
-    });
-  }
-
-  static client_readFile(req: string): Promise<string> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const readFileReq: ReadFileReq = JSON.parse(req);
-        const dialogOptions = {
-          title: readFileReq.title,
-          message: readFileReq.message,
-          openDirectory: readFileReq.openDirectory,
-          multiSelections: readFileReq.multiSelections
-        };
-        dialog.showOpenDialog(null, dialogOptions, (filePaths) => {
-          if (filePaths) {
-
-            // Well this is kinda nasty and nested, but basically
-            // we're just doing 'n' async files reads and putting
-            // them all into `files` but we need to wait for all
-            // 'n' reads to complete before resolve'ing the promise
-            const files = [];
-            Promise.all(filePaths.map((filePath) => {
-              return new Promise(async (resolveRead) => {
-                fs.readFile(filePath, (err, data) => {
-                  files.push({
-                    filePath: filePath,
-                    error: err.toString(),
-                    data: data ? base64.encode(data) : null
-                  });
-                  resolveRead();
-                });
-              });
-            })).then(() => {
-              resolve(JSON.stringify({files: files}));
-            });
-
-          } else {
-            resolve('');
-          }
-        });
-      } catch (err) {
-        reject(err);
+  static async client_start(req: string): Promise<string> {
+    const config: RPCConfig = JSON.parse(req);
+    rpc = new RPCClient(config);
+    await rpc.connect();
+    console.log('Connection successful');
+    rpc.envelopeSubject$.subscribe((envelope) => {
+      if (envelope.getId() === 0) {
+        ipcMain.emit('push', base64.encode(envelope.serializeBinary()));
       }
     });
+    return 'success';
+  }
+
+  static async client_activeConfig(): Promise<string> {
+    return rpc ? JSON.stringify(rpc.config) : '';
+  }
+
+  static async client_readFile(req: string): Promise<string> {
+    const readFileReq: ReadFileReq = JSON.parse(req);
+    const dialogOptions = {
+      title: readFileReq.title,
+      message: readFileReq.message,
+      openDirectory: readFileReq.openDirectory,
+      multiSelections: readFileReq.multiSelections
+    };
+    const files = [];
+    await new Promise((resolve) => {
+      dialog.showOpenDialog(null, dialogOptions, async (filePaths) => {
+        // Well this is kinda nasty and nested, but basically
+        // we're just doing 'n' async files reads and putting
+        // them all into `files` but we need to wait for all
+        // 'n' reads to complete before resolve'ing the promise
+        await Promise.all(filePaths.map((filePath) => {
+          return new Promise(async (resolveRead) => {
+            fs.readFile(filePath, (err, data) => {
+              files.push({
+                filePath: filePath,
+                error: err.toString(),
+                data: data ? base64.encode(data) : null
+              });
+              resolveRead();
+            });
+          });
+        }));
+        resolve();
+      });
+    });
+    return JSON.stringify({ files: files });
   }
 
   // For now all files are just saved to the Downloads folder,
@@ -150,7 +139,7 @@ class IPCHandlers {
             if (err) {
               reject(err);
             } else {
-              resolve(JSON.stringify({filename: filename}));
+              resolve(JSON.stringify({ filename: filename }));
             }
           });
         } else {
@@ -202,7 +191,7 @@ class IPCHandlers {
   }
 
   static client_exit() {
-    process.on('unhandledRejection', () => {}); // STFU Node
+    process.on('unhandledRejection', () => { }); // STFU Node
     process.exit(0);
   }
 
@@ -213,7 +202,7 @@ class IPCHandlers {
           resolve(JSON.stringify([]));
         }
         const configs: RPCConfig[] = [];
-        for (let index = 0; index < items.length;  ++index) {
+        for (let index = 0; index < items.length; ++index) {
           const filePath = path.join(CONFIG_DIR, items[index]);
           if (fs.existsSync(filePath) && !fs.lstatSync(filePath).isDirectory()) {
             const fileData = fs.readFileSync(filePath);
@@ -225,56 +214,35 @@ class IPCHandlers {
     });
   }
 
-  static client_activeConfig(): Promise<string> {
-    return new Promise((resolve) => {
-      resolve(rpc ? JSON.stringify(rpc.config) : '');
-    });
+  static async rpc_request(data: string): Promise<string> {
+    const reqEnvelope: Envelope = Envelope.deserializeBinary(decodeRequest(data));
+    const respEnvelope = await rpc.request(reqEnvelope);
+    return base64.encode(respEnvelope.getData_asU8());
   }
 
-  static rpc_request(data: string): Promise<string> {
-    return new Promise(async (resolve) => {
-      const reqEnvelope: Envelope = Envelope.deserializeBinary(decodeRequest(data));
-      const respEnvelope = await rpc.request(reqEnvelope);
-      resolve(base64.encode(respEnvelope.getData_asU8()));
-    });
-  }
-
-  static rpc_send(data: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      try {
-        const envelope: Envelope = Envelope.deserializeBinary(decodeRequest(data));
-        rpc.sendEnvelope(envelope);
-        resolve(JSON.stringify({sucess: true}));
-      } catch (err) {
-        reject(err);
-      }
-    });
+  static async rpc_send(data: string): Promise<string> {
+    const envelope: Envelope = Envelope.deserializeBinary(decodeRequest(data));
+    rpc.sendEnvelope(envelope);
+    return JSON.stringify({ sucess: true });
   }
 
 }
 
-function dispatchIPC(method: string, data: string): Promise<Object|null> {
-  return new Promise(async (resolve, reject) => {
+async function dispatchIPC(method: string, data: string): Promise<Object | null> {
+  console.log(`IPC Dispatch: ${method}`);
 
-    console.log(`IPC Dispatch: ${method}`);
-
-    // IPC handlers must start with "namespace_" this helps ensure we do not inadvertently
-    // expose methods that we don't want exposed to the sandboxed code.
-    if (['client_', 'config_', 'rpc_'].some(prefix => method.startsWith(prefix))) {
-      if (typeof IPCHandlers[method] === 'function') {
-        try {
-          const result: string = await IPCHandlers[method](data);
-          resolve(result);
-        } catch (err) {
-          reject(err);
-        }
-      } else {
-        reject(`No handler for method: ${method}`);
-      }
+  // IPC handlers must start with "namespace_" this helps ensure we do not inadvertently
+  // expose methods that we don't want exposed to the sandboxed code.
+  if (['client_', 'config_', 'rpc_'].some(prefix => method.startsWith(prefix))) {
+    if (typeof IPCHandlers[method] === 'function') {
+      const result: string = await IPCHandlers[method](data);
+      return result;
     } else {
-      reject(`Invalid method handler namepsace for "${method}"`);
+      return Promise.reject(`No handler for method: ${method}`);
     }
-  });
+  } else {
+    return Promise.reject(`Invalid method handler namepsace for "${method}"`);
+  }
 }
 
 export function startIPCHandlers(window: BrowserWindow) {
@@ -290,6 +258,7 @@ export function startIPCHandlers(window: BrowserWindow) {
         });
       }
     }).catch((err) => {
+      console.error(`[startIPCHandlers] ${err}`);
       if (msg.id !== 0) {
         event.sender.send('ipc', {
           id: msg.id,
@@ -297,8 +266,6 @@ export function startIPCHandlers(window: BrowserWindow) {
           method: 'error',
           data: err.toString()
         });
-      } else {
-        console.error(err);
       }
     });
   });

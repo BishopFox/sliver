@@ -70,5 +70,4 @@ export class SelectServerComponent implements OnInit {
     this.configs = await this._clientService.listConfigs();
   }
 
-
 }

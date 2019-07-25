@@ -2,9 +2,13 @@
   "name": "sliver-gui",
   "version": "0.0.7",
   "description": "Cross-platform GUI for the Sliver implant framework",
+  "license": "GPLv3",
+  "homepage": "https://sliver.sh",
   "author": {
-    "name": "moloch"
+    "name": "moloch",
+    "email": "jdemesy@bishopfox.com"
   },
+  "repository": "https://github.com/BishopFox/sliver",
   "main": "main.js",
   "private": true,
   "scripts": {

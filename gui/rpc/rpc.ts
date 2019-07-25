@@ -53,7 +53,7 @@ export class RPCClient {
   }
 
   // Send an RPC request and get the mapped response
-  async request(reqEnvelope: sliverpb.Envelope): Promise<sliverpb.Envelope> {
+  request(reqEnvelope: sliverpb.Envelope): Promise<sliverpb.Envelope> {
     return new Promise((resolve, reject) => {
       if (!this.isConnected) {
         reject('No server connection');
@@ -75,21 +75,15 @@ export class RPCClient {
   // or takes in pb.Envelopes and abstracts the byte
   // non-sense for your.
   async connect(): Promise<any> {
-    return new Promise(async (resolve, reject) => {
-      if (this.isConnected) {
-        reject('Already connected to rpc server');
-      }
-      this.tlsConnect().then(() => {
-        this._isConnected = true;
-        this.recvBuffer = Buffer.alloc(0);
-        this.envelopeSubject$ = new Subject<sliverpb.Envelope>();
-        this.tlsObservable.subscribe((data: Buffer) => {
-          this.recvEnvelope(this.envelopeSubject$, data);
-        });
-        resolve();
-      }).catch((err) => {
-        reject(err);
-      });
+    if (this.isConnected) {
+      return Promise.reject('Already connected to rpc server');
+    }
+    await this.tlsConnect();
+    this._isConnected = true;
+    this.recvBuffer = Buffer.alloc(0);
+    this.envelopeSubject$ = new Subject<sliverpb.Envelope>();
+    this.tlsObservable.subscribe((data: Buffer) => {
+      this.recvEnvelope(this.envelopeSubject$, data);
     });
   }
 
@@ -162,7 +156,7 @@ export class RPCClient {
   // This is somehow the "clean" way to do this shit...
   // tlsConnect returns a Subject that shits out Buffers
   // or takes in Buffers of an interminate size as they come
-  private async tlsConnect() {
+  private tlsConnect() {
     return new Promise((resolve, reject) => {
 
       console.log(`Connecting to ${this.config.lhost}:${this.config.lport} ...`);

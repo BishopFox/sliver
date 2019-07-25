@@ -42,8 +42,6 @@ export class IPCService extends ProtobufService {
   constructor() {
     super();
     window.addEventListener('message', (ipcEvent) => {
-      console.log('web ipc recv:');
-      console.log(ipcEvent);
       try {
         const msg: IPCMessage = JSON.parse(ipcEvent.data);
         if (msg.type === 'response') {
@@ -64,16 +62,16 @@ export class IPCService extends ProtobufService {
               this.ipcTunnelCtrl$.next(tunCtrl);
               break;
             default:
-              console.error(`Unknown envelope type ${envelope.getType()}`);
+              console.error(`[IPCService] Unknown envelope type ${envelope.getType()}`);
           }
         }
       } catch (err) {
-        console.error(err);
+        console.error(`[IPCService] ${err}`);
       }
     });
   }
 
-  request(method: string, data: string): Promise<string> {
+  request(method: string, data?: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const msgId = this.randomId();
       const subscription = this._ipcResponse$.subscribe((msg: IPCMessage) => {

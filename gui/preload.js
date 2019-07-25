@@ -33,9 +33,7 @@ window.addEventListener('message', (event) => {
   }
 });
 
-ipcRenderer.on('ipc', (event, msg) => {
-  console.log(event);
-  console.log(msg);
+ipcRenderer.on('ipc', (_, msg) => {
   try {
     if (msg.type === 'response' || msg.type === 'push') {
       window.postMessage(JSON.stringify(msg), '*');
