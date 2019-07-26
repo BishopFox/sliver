@@ -15,8 +15,12 @@ export class EditorComponent implements OnInit {
   };
   code = 'function x() {\nconsole.log("Hello world!");\n}';
 
-  constructor() { }
+  constructor() {
 
-  ngOnInit() { }
+  }
+
+  ngOnInit() {
+
+  }
 
 }

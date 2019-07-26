@@ -19,7 +19,9 @@
 
     <ng-container matColumnDef="domain">
       <th mat-header-cell *matHeaderCellDef mat-sort-header>Domain</th>
-      <td mat-cell *matCellDef="let canary"> {{canary.domain}} </td>
+      <td mat-cell *matCellDef="let canary">
+        <span class="monospace">{{canary.domain}}</span>
+      </td>
     </ng-container>
 
     <ng-container matColumnDef="triggered">

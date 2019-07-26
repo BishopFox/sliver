@@ -26,14 +26,14 @@ import { RPCConfig } from '@rpc/rpc';
 import { FileFilter } from 'electron';
 
 
-interface SaveFileReq {
+export interface SaveFileReq {
   title: string;
   message: string;
   filename: string;
   data: string;
 }
 
-interface Settings {
+export interface Settings {
 
   preferredServer: string;
 
@@ -81,15 +81,13 @@ export class ClientService {
   }
 
   async listConfigs(): Promise<RPCConfig[]> {
-    const resp: string = await this._ipc.request('config_list');
+    const resp = await this._ipc.request('config_list');
     const configs: RPCConfig[] = JSON.parse(resp);
-    console.log(configs);
-    console.log(typeof configs);
     return configs;
   }
 
   async saveFile(title: string, message: string, filename: string, data: Uint8Array): Promise<string> {
-    const resp: string = await this._ipc.request('client_saveFile', JSON.stringify({
+    const resp = await this._ipc.request('client_saveFile', JSON.stringify({
       title: title,
       message: message,
       filename: filename,
@@ -100,7 +98,7 @@ export class ClientService {
 
   async readFile(title: string, message: string, openDirectory?: boolean,
                  multiSelection?: boolean, filter?: FileFilter[]): Promise<string> {
-    const resp: string = await this._ipc.request('client_readFile', JSON.stringify({
+    const resp = await this._ipc.request('client_readFile', JSON.stringify({
       title: title,
       message: message,
       openDirectory: openDirectory === undefined ? false : openDirectory,

@@ -51,7 +51,6 @@ export class SelectServerComponent implements OnInit {
   }
 
   onSelectedConfig(config: RPCConfig) {
-    console.log(config);
     this.connecting = true;
     this._clientService.setActiveConfig(config).then(() => {
       this._router.navigate(['/home']);
