@@ -59,7 +59,6 @@ export class CanariesComponent implements OnInit {
 
   tableData(canaries: pb.Canaries): TableCanaryData[] {
     const table: TableCanaryData[] = [];
-
     for (const canary of canaries.getCanariesList()) {
       table.push({
         sliverName: canary.getSlivername(),

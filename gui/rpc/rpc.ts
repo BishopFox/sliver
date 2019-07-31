@@ -71,9 +71,8 @@ export class RPCClient {
     });
   }
 
-  // This method returns a Subject that shits out
-  // or takes in pb.Envelopes and abstracts the byte
-  // non-sense for your.
+  // This method creates a Subject that shits out pb.Envelopes
+  // and abstracts the byte non-sense for your.
   async connect(): Promise<any> {
     if (this.isConnected) {
       return Promise.reject('Already connected to rpc server');

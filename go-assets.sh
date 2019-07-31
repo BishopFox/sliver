@@ -21,7 +21,8 @@
 # You'll need wget, tar, and unzip commands
 
 GO_VER="1.12.7"
-BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test"
+GO_ARCH="amd64"
+BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
 
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -34,16 +35,16 @@ cd $WORK_DIR
 mkdir -p $REPO_DIR/assets/
 
 # --- Darwin --- 
-wget https://dl.google.com/go/go$GO_VER.darwin-amd64.tar.gz
-tar xvf go$GO_VER.darwin-amd64.tar.gz
+wget https://dl.google.com/go/go$GO_VER.darwin-$GO_ARCH.tar.gz
+tar xvf go$GO_VER.darwin-$GO_ARCH.tar.gz
 
 cd go
 rm -rf $BLOAT_FILES
 zip -r ../src.zip ./src  # Zip up /src we only need to do this once
 rm -rf ./src
-rm -f ./pkg/tool/darwin_amd64/doc
-rm -f ./pkg/tool/darwin_amd64/tour
-rm -f ./pkg/tool/darwin_amd64/test2json
+rm -f ./pkg/tool/darwin_$GO_ARCH/doc
+rm -f ./pkg/tool/darwin_$GO_ARCH/tour
+rm -f ./pkg/tool/darwin_$GO_ARCH/test2json
 cd ..
 cp -vv src.zip $REPO_DIR/assets/src.zip
 rm -f src.zip
@@ -53,40 +54,40 @@ mkdir -p $REPO_DIR/assets/darwin/
 cp -vv darwin-go.zip $REPO_DIR/assets/darwin/go.zip
 
 rm -rf ./go
-rm -f darwin-go.zip go$GO_VER.darwin-amd64.tar.gz
+rm -f darwin-go.zip go$GO_VER.darwin-$GO_ARCH.tar.gz
 
 
 # --- Linux --- 
-wget https://dl.google.com/go/go$GO_VER.linux-amd64.tar.gz
-tar xvf go$GO_VER.linux-amd64.tar.gz
+wget https://dl.google.com/go/go$GO_VER.linux-$GO_ARCH.tar.gz
+tar xvf go$GO_VER.linux-$GO_ARCH.tar.gz
 cd go
 rm -rf $BLOAT_FILES
 rm -rf ./src
-rm -f ./pkg/tool/linux_amd64/doc
-rm -f ./pkg/tool/linux_amd64/tour
-rm -f ./pkg/tool/linux_amd64/test2json
+rm -f ./pkg/tool/linux_$GO_ARCH/doc
+rm -f ./pkg/tool/linux_$GO_ARCH/tour
+rm -f ./pkg/tool/linux_$GO_ARCH/test2json
 cd ..
 zip -r linux-go.zip ./go
 mkdir -p $REPO_DIR/assets/linux/
 cp -vv linux-go.zip $REPO_DIR/assets/linux/go.zip
 rm -rf ./go
-rm -f linux-go.zip go$GO_VER.linux-amd64.tar.gz
+rm -f linux-go.zip go$GO_VER.linux-$GO_ARCH.tar.gz
 
 # --- Windows --- 
-wget https://dl.google.com/go/go$GO_VER.windows-amd64.zip
-unzip go$GO_VER.windows-amd64.zip
+wget https://dl.google.com/go/go$GO_VER.windows-$GO_ARCH.zip
+unzip go$GO_VER.windows-$GO_ARCH.zip
 cd go
 rm -rf $BLOAT_FILES
 rm -rf ./src
-rm -f ./pkg/tool/windows_amd64/doc.exe
-rm -f ./pkg/tool/windows_amd64/tour.exe
-rm -f ./pkg/tool/windows_amd64/test2json.exe
+rm -f ./pkg/tool/windows_$GO_ARCH/doc.exe
+rm -f ./pkg/tool/windows_$GO_ARCH/tour.exe
+rm -f ./pkg/tool/windows_$GO_ARCH/test2json.exe
 cd ..
 zip -r windows-go.zip ./go
 mkdir -p $REPO_DIR/assets/windows/
 cp -vv windows-go.zip $REPO_DIR/assets/windows/go.zip
 rm -rf ./go
-rm -f windows-go.zip go$GO_VER.windows-amd64.zip
+rm -f windows-go.zip go$GO_VER.windows-$GO_ARCH.zip
 
 
 echo "-----------------------------------------------------------------"

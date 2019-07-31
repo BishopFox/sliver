@@ -19,7 +19,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 
 import { AppConfig } from '../environments/environment';
-import * as pb from '../../rpc/pb';
+import * as pb from '@rpc/pb';
 
 
 @Component({

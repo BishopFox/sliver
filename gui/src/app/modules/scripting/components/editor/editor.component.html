@@ -1,16 +1,6 @@
-<mat-grid-list cols="2" [style.background]="'skyblue'">
-  <mat-grid-tile>
-    <div style="width: 100%">
-      <ngx-monaco-editor style="height: 600px" [options]="editorOptions" [(ngModel)]="code"></ngx-monaco-editor>
-    </div>
-  </mat-grid-tile>
-  <mat-grid-tile>
-      <mat-grid-tile-header>
-        header
-        </mat-grid-tile-header>
-    asdf
-    <mat-grid-tile-footer>
-      footer
-    </mat-grid-tile-footer>
-  </mat-grid-tile>
-</mat-grid-list>
+<div class="grid-wrapper">
+  <div>
+    <ngx-monaco-editor style="height: 600px" [options]="editorOptions" [(ngModel)]="code">
+    </ngx-monaco-editor>
+  </div>
+</div>
