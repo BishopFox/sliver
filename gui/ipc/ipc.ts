@@ -18,7 +18,7 @@ listing/selecting configs to the sandboxed code.
 
 */
 
-import { ipcMain, dialog, FileFilter, BrowserWindow } from 'electron';
+import { ipcMain, dialog, FileFilter, BrowserWindow, IpcMainEvent } from 'electron';
 import { homedir } from 'os';
 import * as base64 from 'base64-arraybuffer';
 import * as fs from 'fs';
@@ -127,25 +127,24 @@ class IPCHandlers {
         message: saveFileReq.message,
         defaultPath: path.join(homedir(), 'Downloads', path.basename(saveFileReq.filename)),
       };
-      dialog.showSaveDialog(null, dialogOptions, (filename) => {
-        console.log(`[save file] ${filename}`);
-        if (filename) {
-          const fileOptions = {
-            mode: 0o644,
-            encoding: 'binary',
-          };
-          const data = Buffer.from(base64.decode(saveFileReq.data));
-          fs.writeFile(filename, data, fileOptions, (err) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(JSON.stringify({ filename: filename }));
-            }
-          });
-        } else {
-          resolve(''); // User hit 'cancel'
-        }
-      });
+      const save = await dialog.showSaveDialog(dialogOptions);
+      console.log(`[save file] ${save.filePath}`);
+      if (!save.canceled) {
+        const fileOptions = {
+          mode: 0o644,
+          encoding: 'binary',
+        };
+        const data = Buffer.from(base64.decode(saveFileReq.data));
+        fs.writeFile(save.filePath, data, fileOptions, (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(JSON.stringify({ filename: save.filePath }));
+          }
+        });
+      } else {
+        resolve(''); // User hit 'cancel'
+      }
     });
   }
 
@@ -247,7 +246,7 @@ async function dispatchIPC(method: string, data: string): Promise<Object | null>
 
 export function startIPCHandlers(window: BrowserWindow) {
 
-  ipcMain.on('ipc', async (event: any, msg: IPCMessage) => {
+  ipcMain.on('ipc', async (event: IpcMainEvent, msg: IPCMessage) => {
     dispatchIPC(msg.method, msg.data).then((result: string) => {
       if (msg.id !== 0) {
         event.sender.send('ipc', {
@@ -271,7 +270,7 @@ export function startIPCHandlers(window: BrowserWindow) {
   });
 
   // This one doesn't have an event argument for some reason ...
-  ipcMain.on('push', async (data: string) => {
+  ipcMain.on('push', async (_: IpcMainEvent, data: string) => {
     window.webContents.send('ipc', {
       id: 0,
       type: 'push',
