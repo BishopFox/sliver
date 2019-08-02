@@ -15,6 +15,7 @@ This is my attempt at making a _reasonably_ secure Electron application. High le
 * __Sandboxed__ - The main WebView does NOT have `nodeIntegration` enabled; the WebView cannot directly execute native code, access the file system, etc. it has to go thru the IPC interface to perform any actions a browser normally could not. The IPC interface is called via `window.postMessage()` with `contextIsolation` enabled so there are no direct references to Node objects within the sandbox.
 * __No HTTP__ - The sandboxed code does not talk to the server over HTTP. Instead it uses IPC to talk to the native Node process, which then converts the call into RPC (Protobuf over mTLS). There are no locally running HTTP servers and thus no HTTP cross-origin conerns (e.g. CSRF).
 * __CSP__ - Strong CSP by default, no direct interaction with the DOM, Angular handles all content rendering.
+* __App Specific Origin__: No webviews run with a `file://` origin, nor an `http://` origin, etc. Webviews run in either a `null` origin (plugin scripts) or within an `app://sliver` origin. In combination with CSP, this means the main webview cannot access any `file:` or `http:` resources.
 
 ```
                                                       |----------------- Electron ---------------|
