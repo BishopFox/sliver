@@ -23,6 +23,7 @@ import { homedir } from 'os';
 import * as base64 from 'base64-arraybuffer';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as uuid from 'uuid';
 
 import { RPCClient, RPCConfig } from '../rpc';
 import { Envelope } from '../rpc/pb';
@@ -63,9 +64,11 @@ export interface IPCMessage {
   data: string;
 }
 
+const scriptDataURI = `data:text/html;charset=utf-8,<head><meta http-equiv="Content-Security-Policy" content="default-src none"</head>`;
+
 
 // IPC Methods used to start/interact with the RPCClient
-class IPCHandlers {
+export class IPCHandlers {
 
   static async client_start(req: string): Promise<string> {
     const config: RPCConfig = JSON.parse(req);
@@ -78,6 +81,35 @@ class IPCHandlers {
       }
     });
     return 'success';
+  }
+
+  static async client_executeScript(req: string): Promise<string> {
+    const scriptId: string = uuid.v4();
+    const scriptWindow = new BrowserWindow({
+      webPreferences: {
+        sandbox: true,
+        webSecurity: true,
+        contextIsolation: true,
+        webviewTag: false,
+        enableRemoteModule: false,
+        allowRunningInsecureContent: false,
+        nodeIntegration: false,
+        nodeIntegrationInWorker: false,
+        nodeIntegrationInSubFrames: false,
+        nativeWindowOpen: false,
+        safeDialogs: true,
+
+        preload: path.join(__dirname, '..', 'preload', 'script.js'),
+      },
+      show: false,
+    });
+
+    scriptWindow.loadURL(scriptDataURI).then(() => {
+      scriptWindow.webContents.executeJavaScript(`var scriptId = '${scriptId}';`);
+      scriptWindow.webContents.executeJavaScript(req);
+      scriptWindow.webContents.openDevTools({ mode: 'detach' });
+    });
+    return scriptId;
   }
 
   static async client_activeConfig(): Promise<string> {
@@ -93,27 +125,19 @@ class IPCHandlers {
       multiSelections: readFileReq.multiSelections
     };
     const files = [];
-    await new Promise((resolve) => {
-      dialog.showOpenDialog(null, dialogOptions, async (filePaths) => {
-        // Well this is kinda nasty and nested, but basically
-        // we're just doing 'n' async files reads and putting
-        // them all into `files` but we need to wait for all
-        // 'n' reads to complete before resolve'ing the promise
-        await Promise.all(filePaths.map((filePath) => {
-          return new Promise(async (resolveRead) => {
-            fs.readFile(filePath, (err, data) => {
-              files.push({
-                filePath: filePath,
-                error: err.toString(),
-                data: data ? base64.encode(data) : null
-              });
-              resolveRead();
-            });
+    const open = await dialog.showOpenDialog(null, dialogOptions);
+    await Promise.all(open.filePaths.map((filePath) => {
+      return new Promise(async (resolve) => {
+        fs.readFile(filePath, (err, data) => {
+          files.push({
+            filePath: filePath,
+            error: err.toString(),
+            data: data ? base64.encode(data) : null
           });
-        }));
-        resolve();
+          resolve();
+        });
       });
-    });
+    }));
     return JSON.stringify({ files: files });
   }
 
@@ -129,22 +153,21 @@ class IPCHandlers {
       };
       const save = await dialog.showSaveDialog(dialogOptions);
       console.log(`[save file] ${save.filePath}`);
-      if (!save.canceled) {
-        const fileOptions = {
-          mode: 0o644,
-          encoding: 'binary',
-        };
-        const data = Buffer.from(base64.decode(saveFileReq.data));
-        fs.writeFile(save.filePath, data, fileOptions, (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(JSON.stringify({ filename: save.filePath }));
-          }
-        });
-      } else {
-        resolve(''); // User hit 'cancel'
+      if (save.canceled) {
+        return resolve('');  // Must return to stop execution
       }
+      const fileOptions = {
+        mode: 0o644,
+        encoding: 'binary',
+      };
+      const data = Buffer.from(base64.decode(saveFileReq.data));
+      fs.writeFile(save.filePath, data, fileOptions, (err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(JSON.stringify({ filename: save.filePath }));
+        }
+      });
     });
   }
 

@@ -16,7 +16,7 @@
 import { app, BrowserWindow, screen, protocol } from 'electron';
 import * as path from 'path';
 
-import { startIPCHandlers } from './ipc';
+import { startIPCHandlers, IPCHandlers } from './ipc/ipc';
 import * as AppProtocol from './app-protocol';
 
 
@@ -51,7 +51,7 @@ async function createMainWindow() {
       nodeIntegrationInSubFrames: false,
       nativeWindowOpen: false,
       safeDialogs: true,
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload', 'main.js'),
     },
     show: false, // hide until 'ready-to-show'
   });
@@ -72,9 +72,12 @@ async function createMainWindow() {
   });
 
   console.log('Main window done');
+
+  IPCHandlers.client_executeScript('console.log(window.location.origin)');
+
 }
 
-// --------------------------------------------- [ MAIN ] ---------------------------------------------
+// ----------------------------------------- [ MAIN ] -----------------------------------------
 
 try {
 
@@ -101,6 +104,20 @@ try {
     if (process.platform !== 'darwin') {
       app.quit();
     }
+  });
+
+  // Prevent navigation in any window
+  app.on('web-contents-created', (_, contents) => {
+    contents.on('will-navigate', (event, url) => {
+      console.log(`[will-navigate] ${url}`);
+      console.log(event);
+      event.preventDefault();
+    });
+    contents.on('will-redirect', (event, url) => {
+      console.log(`[will-redirect] ${url}`);
+      console.log(event);
+      event.preventDefault();
+    });
   });
 
   app.on('activate', () => {

@@ -82,6 +82,7 @@
     "@angular/material": "^8.1.1",
     "@fortawesome/fontawesome-free": "^5.9.0",
     "@materia-ui/ngx-monaco-editor": "^2.0.6",
+    "@types/uuid": "^3.4.5",
     "base64-arraybuffer": "^0.2.0",
     "file-saver": "^2.0.2",
     "google-protobuf": "^3.9.0",
