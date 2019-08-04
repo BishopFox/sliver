@@ -15,6 +15,18 @@
 
 const { ipcRenderer } = require('electron');
 
+var scriptId = '';
+process.argv.forEach((arg) => {
+  if (arg.startsWith('--scriptId=')) {
+    scriptId = arg.slice('--scriptId='.length);
+  }
+});
+if (scriptId === '') {
+  process.exit(1);
+}
+console.log(`Executing script with id = ${scriptId}`);
+
+
 window.addEventListener('message', (event) => {
   try {
     const msg = JSON.parse(event.data);

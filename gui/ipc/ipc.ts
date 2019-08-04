@@ -69,13 +69,23 @@ export interface ScriptReq {
   script: string;
 }
 
-const sliverScriptDataURI = 'data:text/html;charset=utf-8,' + encodeURIComponent(`
+const sliverScriptParentURI = 'data:text/html;charset=utf-8,' + encodeURIComponent(`
 <head>
-  <meta http-equiv="Content-Security-Policy" content="default-src none; script-src app://sliver">
+  <meta http-equiv="Content-Security-Policy" content="default-src none; script-src app://sliver data:; frame-src data:">
+</head>
+<body></body>
+`);
+
+function renderDataURI(code) {
+  return 'data:text/html;charset=utf-8,' + encodeURIComponent(`
+<head>
+  <meta http-equiv="Content-Security-Policy" content="default-src none; script-src app://sliver data:;">
   <script src="app://sliver/sliver-script/rxjs/rxjs.umd.min.js"></script>
   <script src="app://sliver/sliver-script/api.js"></script>
+  <script src="data:text/javascript;base64,${Buffer.from(code).toString('base64')}"></script>
 </head>
 `);
+}
 
 
 // IPC Methods used to start/interact with the RPCClient
@@ -117,9 +127,15 @@ export class IPCHandlers {
       show: false,
     });
 
-    scriptWindow.loadURL(sliverScriptDataURI).then(() => {
-      scriptWindow.webContents.executeJavaScript(`var sliverScriptId = '${scriptId}';`);
-      scriptWindow.webContents.executeJavaScript(scriptReq.script);
+    scriptWindow.loadURL(sliverScriptParentURI).then(() => {
+      scriptWindow.webContents.executeJavaScript(`var SliverScriptId = '${scriptId}';`);
+      scriptWindow.webContents.executeJavaScript(`var ScriptSrc = '${renderDataURI(scriptReq.script)}'`);
+      scriptWindow.webContents.executeJavaScript(`
+      const childFrame = document.createElement('iframe');
+      childFrame.setAttribute('src', ScriptSrc);
+      childFrame.setAttribute('sandbox', 'allow-scripts')
+      document.body.appendChild(childFrame);
+      `);
       if (scriptReq.devtools) {
         scriptWindow.webContents.openDevTools({ mode: 'detach' });
       }

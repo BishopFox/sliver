@@ -75,9 +75,7 @@ async function createMainWindow() {
 
   IPCHandlers.client_executeScript(JSON.stringify({
     devtools: true,
-    script: `
-console.log(window.location.origin);
-`
+    script: `console.log('hello world')`
   }));
 
 }
@@ -97,6 +95,21 @@ try {
     startIPCHandlers(mainWindow);
   });
 
+  // Prevent navigation in any window
+  // WARNING: This actually doesn't work because Electron hates security
+  app.on('web-contents-created', (_, contents) => {
+    contents.on('will-navigate', (event, url) => {
+      console.log(`[will-navigate] ${url}`);
+      console.log(event);
+      event.preventDefault();
+    });
+    contents.on('will-redirect', (event, url) => {
+      console.log(`[will-redirect] ${url}`);
+      console.log(event);
+      event.preventDefault();
+    });
+  });
+
   protocol.registerSchemesAsPrivileged([{
     scheme: AppProtocol.scheme,
     privileges: { standard: true, secure: true }
@@ -111,21 +124,13 @@ try {
     }
   });
 
-  // Prevent navigation in any window
-  app.on('web-contents-created', (_, contents) => {
-    contents.on('will-navigate', (event) => {
-      event.preventDefault();
-    });
-    contents.on('will-redirect', (event) => {
-      event.preventDefault();
-    });
-  });
 
   app.on('activate', () => {
     if (mainWindow === null) {
       createMainWindow();
     }
   });
+
 
 } catch (error) {
   console.log(error);
