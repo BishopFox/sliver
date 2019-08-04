@@ -20,7 +20,7 @@ window.addEventListener('message', (event) => {
     const msg = JSON.parse(event.data);
     if (msg.type === 'request') {
       if (['rpc_'].some(prefix => msg.method.startsWith(prefix))) {
-        ipcRenderer.send('ipc', msg);
+        ipcRenderer.send('script-ipc', msg);
       }
     }
   } catch (err) {
@@ -28,7 +28,7 @@ window.addEventListener('message', (event) => {
   }
 });
 
-ipcRenderer.on('ipc', (_, msg) => {
+ipcRenderer.on('script-ipc', (_, msg) => {
   try {
     if (msg.type === 'response' || msg.type === 'push') {
       window.postMessage(JSON.stringify(msg), '*');

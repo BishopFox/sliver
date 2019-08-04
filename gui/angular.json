@@ -24,6 +24,16 @@
               "src/favicon.256x256.png",
               "src/favicon.512x512.png",
               {
+                "glob": "rxjs.umd.min.*",
+                "input": "node_modules/rxjs/bundles/",
+                "output": "sliver-script/rxjs"
+              },
+              {
+                "glob": "api.js",
+                "input": "sliver-script/",
+                "output": "sliver-script/"
+              },
+              {
                 "glob": "**/*",
                 "input": "node_modules/monaco-editor",
                 "output": "assets/monaco-editor/"
@@ -39,7 +49,6 @@
               "./node_modules/xterm/dist/xterm.js",
               "./node_modules/xterm/dist/addons/fit/fit.js",
               "./node_modules/xterm/dist/addons/attach/attach.js",    
-              "./node_modules/file-saver/dist/FileSaver.min.js",
               "./node_modules/moment/min/moment-with-locales.min.js"
             ]
           },

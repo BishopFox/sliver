@@ -51,7 +51,7 @@ async function createMainWindow() {
       nodeIntegrationInSubFrames: false,
       nativeWindowOpen: false,
       safeDialogs: true,
-      preload: path.join(__dirname, 'preload', 'main.js'),
+      preload: path.join(__dirname, 'preload.js'),
     },
     show: false, // hide until 'ready-to-show'
   });
@@ -73,7 +73,12 @@ async function createMainWindow() {
 
   console.log('Main window done');
 
-  IPCHandlers.client_executeScript('console.log(window.location.origin)');
+  IPCHandlers.client_executeScript(JSON.stringify({
+    devtools: true,
+    script: `
+console.log(window.location.origin);
+`
+  }));
 
 }
 
@@ -108,14 +113,10 @@ try {
 
   // Prevent navigation in any window
   app.on('web-contents-created', (_, contents) => {
-    contents.on('will-navigate', (event, url) => {
-      console.log(`[will-navigate] ${url}`);
-      console.log(event);
+    contents.on('will-navigate', (event) => {
       event.preventDefault();
     });
-    contents.on('will-redirect', (event, url) => {
-      console.log(`[will-redirect] ${url}`);
-      console.log(event);
+    contents.on('will-redirect', (event) => {
       event.preventDefault();
     });
   });
