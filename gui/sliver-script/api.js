@@ -1,5 +1,7 @@
 var Sliver = {
-    sessions: () => {
-        
-    }
+
+  sessions: async function () {
+
+  }
+
 }

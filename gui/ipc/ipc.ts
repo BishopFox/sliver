@@ -76,13 +76,13 @@ const sliverScriptParentURI = 'data:text/html;charset=utf-8,' + encodeURICompone
 <body></body>
 `);
 
-function renderDataURI(code) {
+function renderDataURI(script: string) {
   return 'data:text/html;charset=utf-8,' + encodeURIComponent(`
 <head>
   <meta http-equiv="Content-Security-Policy" content="default-src none; script-src app://sliver data:;">
   <script src="app://sliver/sliver-script/rxjs/rxjs.umd.min.js"></script>
   <script src="app://sliver/sliver-script/api.js"></script>
-  <script src="data:text/javascript;base64,${Buffer.from(code).toString('base64')}"></script>
+  <script src="data:text/javascript;base64,${Buffer.from(script).toString('base64')}"></script>
 </head>
 `);
 }

@@ -73,11 +73,6 @@ async function createMainWindow() {
 
   console.log('Main window done');
 
-  IPCHandlers.client_executeScript(JSON.stringify({
-    devtools: true,
-    script: `console.log('hello world')`
-  }));
-
 }
 
 // ----------------------------------------- [ MAIN ] -----------------------------------------
@@ -97,6 +92,7 @@ try {
 
   // Prevent navigation in any window
   // WARNING: This actually doesn't work because Electron hates security
+  // https://github.com/electron/electron/issues/8841
   app.on('web-contents-created', (_, contents) => {
     contents.on('will-navigate', (event, url) => {
       console.log(`[will-navigate] ${url}`);

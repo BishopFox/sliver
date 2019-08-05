@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { IPCService } from '@app/providers/ipc.service';
 
 @Component({
   selector: 'app-editor',
@@ -15,12 +16,19 @@ export class EditorComponent implements OnInit {
   };
   code = 'function x() {\nconsole.log("Hello world!");\n}';
 
-  constructor() {
-
-  }
+  constructor(private _ipcService: IPCService) { }
 
   ngOnInit() {
 
+  }
+
+  async executeScript() {
+    const scriptReq = JSON.stringify({
+      script: this.code,
+      devtools: true,
+    });
+    const scriptId = await this._ipcService.request('client_executeScript', scriptReq);
+    console.log(`Executed script with id ${scriptId}`);
   }
 
 }
