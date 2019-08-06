@@ -24,15 +24,16 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	// {{if .Debug}}
 	"log"
+	// {{else}}{{end}}
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"syscall"
 	"time"
-	"unsafe" // {{if .Debug}}
-	// {{else}}{{end}}
+	"unsafe"
 )
 
 const (
