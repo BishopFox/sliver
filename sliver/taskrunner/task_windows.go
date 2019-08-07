@@ -23,8 +23,10 @@ import (
 	"debug/pe"
 	"fmt"
 	"io"
-	"io/ioutil" // {{if .Debug}}
-	"log"       // {{else}}{{end}}
+	"io/ioutil"
+	// {{if .Debug}}
+	"log"
+	// {{else}}{{end}}
 	"os"
 	"os/exec"
 	"runtime"
