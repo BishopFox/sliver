@@ -34,7 +34,7 @@ func getPage(p uintptr) []byte {
 // Will hang the process until shellcode completion
 // TODO: actually test this code
 // Adapted/stolen from: https://github.com/lesnuages/hershell/blob/master/shell/shell_default.go#L48
-func LocalTask(data []byte) error {
+func LocalTask(data []byte, rwxPages bool) error {
 	dataAddr := uintptr(unsafe.Pointer(&data[0]))
 	page := getPage(dataAddr)
 	syscall.Mprotect(page, syscall.PROT_READ|syscall.PROT_EXEC)
@@ -49,6 +49,6 @@ func LocalTask(data []byte) error {
 }
 
 // RemoteTask -
-func RemoteTask(processID int, data []byte) error {
+func RemoteTask(processID int, data []byte, rwxPages bool) error {
 	return nil
 }

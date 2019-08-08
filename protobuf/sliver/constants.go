@@ -109,4 +109,10 @@ const (
 	MsgExecuteAssembly
 	// MsgMigrateReq - Spawn a new sliver in a designated process
 	MsgMigrateReq
+
+	// MsgIfconfigReq - Ifconfig (network interface config) request
+	MsgIfconfigReq
+
+	// MsgExecuteReq - Execute a command on the remote system
+	MsgExecuteReq
 )

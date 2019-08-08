@@ -40,8 +40,9 @@ func rpcLocalTask(req []byte, timeout time.Duration, resp RPCResponse) {
 	}
 	sliver := core.Hive.Sliver(taskReq.SliverID)
 	data, _ := proto.Marshal(&sliverpb.Task{
-		Encoder: "raw",
-		Data:    taskReq.Data,
+		Encoder:  "raw",
+		Data:     taskReq.Data,
+		RWXPages: false,
 	})
 	data, err = sliver.Request(sliverpb.MsgTask, timeout, data)
 	resp(data, err)
@@ -80,17 +81,20 @@ func rpcExecuteAssembly(req []byte, timeout time.Duration, resp RPCResponse) {
 	execReq := &sliverpb.ExecuteAssemblyReq{}
 	err := proto.Unmarshal(req, execReq)
 	if err != nil {
+		rpcLog.Warnf("Error unmarshaling ExecuteAssemblyReq: %v", err)
 		resp([]byte{}, err)
 		return
 	}
 	sliver := core.Hive.Sliver(execReq.SliverID)
 	if sliver == nil {
+		rpcLog.Warnf("Could not find Sliver with ID: %d", execReq.SliverID)
 		resp([]byte{}, err)
 		return
 	}
 	hostingDllPath := assets.GetDataDir() + "/HostingCLRx64.dll"
 	hostingDllBytes, err := ioutil.ReadFile(hostingDllPath)
 	if err != nil {
+		rpcLog.Warnf("Could not find hosting dll in %s", assets.GetDataDir())
 		resp([]byte{}, err)
 		return
 	}
@@ -102,7 +106,7 @@ func rpcExecuteAssembly(req []byte, timeout time.Duration, resp RPCResponse) {
 		Timeout:    execReq.Timeout,
 		SliverID:   execReq.SliverID,
 	})
-
+	rpcLog.Infof("Sending execute assembly request to sliver %d\n", execReq.SliverID)
 	data, err = sliver.Request(sliverpb.MsgExecuteAssemblyReq, timeout, data)
 	resp(data, err)
 

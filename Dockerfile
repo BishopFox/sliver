@@ -6,8 +6,7 @@ FROM golang:1.12
 #            a Docker deployment this is probably a good place to start.
 #
 
-ENV PROTOC_VER 3.7.0
-ENV RUBY_VER 2.6.2
+ENV PROTOC_VER 3.7.1
 
 # Base packages
 RUN apt-get update --fix-missing && apt-get -y install \
@@ -26,35 +25,17 @@ RUN apt-get update --fix-missing && apt-get -y install \
 # > User
 #
 RUN groupadd -g 999 sliver && useradd -r -u 999 -g sliver sliver
+RUN mkdir -p /home/sliver/ && chown -R sliver:sliver /home/sliver
 
 #
 # > Metasploit
 #
 
-WORKDIR /opt
-RUN git clone --progress --verbose --depth 1 https://github.com/rapid7/metasploit-framework.git msf
-WORKDIR /opt/msf
-
-# RVM
-RUN gpg --no-tty --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
-RUN curl -L https://get.rvm.io | bash -s stable 
-RUN /bin/bash -l -c "rvm requirements"
-RUN /bin/bash -l -c "rvm install ${RUBY_VER}"
-RUN /bin/bash -l -c "rvm use ${RUBY_VER} --default"
-RUN /bin/bash -l -c "source /usr/local/rvm/scripts/rvm"
-RUN /bin/bash -l -c "gem install bundler"
-RUN /bin/bash -l -c "source /usr/local/rvm/scripts/rvm && which bundle"
-RUN /bin/bash -l -c "which bundle"
-
-# Get dependencies
-RUN /bin/bash -l -c "BUNDLEJOBS=$(expr $(cat /proc/cpuinfo | grep vendor_id | wc -l) - 1)"
-RUN /bin/bash -l -c "bundle config --global jobs $BUNDLEJOBS"
-RUN /bin/bash -l -c "bundle install"
-
-# Symlink tools to $PATH
-RUN for i in `ls /opt/msf/tools/*/*`; do ln -s $i /usr/local/bin/; done
-RUN ln -s /opt/msf/msf* /usr/local/bin
-
+RUN curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > msfinstall && \
+  chmod 755 msfinstall && \
+  ./msfinstall
+RUN mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete && \
+  su -l sliver -c 'mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete'
 
 #
 # > Sliver
@@ -87,6 +68,5 @@ RUN make clean \
     && rm -rf /go/src/* \
     && rm -rf /root/.sliver
 
-RUN mkdir -p /home/sliver/ && chown -R sliver:sliver /home/sliver
 USER sliver
 ENTRYPOINT [ "/opt/sliver-server" ]

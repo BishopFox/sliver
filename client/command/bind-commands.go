@@ -257,6 +257,24 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
+		Name:     consts.ExecuteStr,
+		Help:     "Execute a program on the remote system",
+		LongHelp: help.GetHelpFor(consts.ExecuteStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("a", "args", "", "command arguments")
+			f.Bool("o", "output", false, "print the command output")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			execute(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		AllowArgs: true,
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
 		Name:     consts.GenerateStr,
 		Help:     "Generate a sliver binary",
 		LongHelp: help.GetHelpFor(consts.GenerateStr),
@@ -264,7 +282,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
-			f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
+			f.Bool("b", "skip-symbols", false, "skip symbol obfuscation")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
@@ -682,6 +700,19 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			upload(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.IfconfigStr,
+		Help:     "View network interface configurations",
+		LongHelp: help.GetHelpFor(consts.IfconfigStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			ifconfig(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},

@@ -293,7 +293,7 @@ func SliverSharedLibrary(config *SliverConfig) (string, error) {
 	}
 
 	tags := []string{"netgo"}
-	ldflags := []string{"-s -w"}
+	ldflags := []string{"-s -w -buildid="}
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
 	}

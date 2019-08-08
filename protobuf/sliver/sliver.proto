@@ -6,8 +6,8 @@ message Envelope {
   uint32 Type = 1; // Message type
   uint64 ID = 2;   // Resp ID
   int64 Timeout = 3;
-  
-  bytes Data = 9;  // Actual message data
+
+  bytes Data = 9; // Actual message data
 
   string Err = 4;
 }
@@ -23,6 +23,7 @@ message Register {
   int32 Pid = 8;
   string Filename = 9;
   string ActiveC2 = 10;
+  string Version = 11;
 }
 
 message Ping { int32 Nonce = 1; }
@@ -35,12 +36,14 @@ message KillReq {
 // aka Shellcode
 message Task {
   string Encoder = 2;
+  bool RWXPages = 4;
   bytes Data = 9;
 }
 
 message RemoteTask {
   string Encoder = 2;
   int32 Pid = 3;
+  bool RWXPages = 4;
   bytes Data = 9;
 }
 
@@ -54,6 +57,17 @@ message Process {
   string Executable = 3;
   string Owner = 4;
 }
+
+message NetInterface {
+  int32 Index = 1;
+  string Name = 2;
+  string MAC = 3;
+  repeated string IPAddresses = 4;
+}
+
+message IfconfigReq { uint32 SliverID = 9; }
+
+message Ifconfig { repeated NetInterface NetInterfaces = 1; }
 
 message LsReq {
   string Path = 1;
@@ -164,9 +178,7 @@ message GetSystemReq {
   uint32 SliverID = 9;
 }
 
-message GetSystem {
-  string Output = 1;
-}
+message GetSystem { string Output = 1; }
 
 message ElevateReq {
   int32 Timeout = 8;
@@ -202,6 +214,19 @@ message Migrate {
   bool Success = 1;
   string Err = 2;
 }
+
+message ExecuteReq {
+  string Path = 1;
+  repeated string Args = 2;
+  bool output = 3;
+  uint32 SliverID = 9;
+}
+
+message Execute {
+  string Error = 1;
+  string Result = 2;
+}
+
 // DNS Specific messages
 message DNSSessionInit { bytes Key = 1; }
 

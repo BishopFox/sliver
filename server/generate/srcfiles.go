@@ -89,6 +89,11 @@ var (
 		"transports/udp-dns.go",
 		"transports/transports.go",
 
+		"version/version.go",
+		"version/version_windows.go",
+		"version/version_linux.go",
+		"version/version_darwin.go",
+
 		"winhttp/winhttp.go",
 
 		"sliver.go",
