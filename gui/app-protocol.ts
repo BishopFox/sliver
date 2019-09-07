@@ -60,7 +60,7 @@ export function requestHandler(req: Electron.RegisterBufferProtocolRequest, next
   const reqFilename = path.basename(reqPath);
   fs.readFile(path.join(DIST_PATH, reqPath), (err, data) => {
     const mimeType = mime(reqFilename);
-    if (!err) {
+    if (!err && mimeType !== 'application/octet-stream') {
       next({
         mimeType: mimeType,
         charset: charset(mimeType),

@@ -80,7 +80,10 @@ function renderDataURI(script: string) {
   return 'data:text/html;charset=utf-8,' + encodeURIComponent(`
 <head>
   <meta http-equiv="Content-Security-Policy" content="default-src none; script-src app://sliver data:;">
-  <script src="app://sliver/sliver-script/rxjs/rxjs.umd.min.js"></script>
+  <script src="app://sliver/sliver-script/require.js"></script>
+  <script src="app://sliver/sliver-script/rxjs.umd.min.js"></script>
+  <script src="app://sliver/sliver-script/protobuf.min.js"></script>
+  <script src="app://sliver/sliver-script/pb/constants.js"></script>
   <script src="app://sliver/sliver-script/api.js"></script>
   <script src="data:text/javascript;base64,${Buffer.from(script).toString('base64')}"></script>
 </head>
@@ -128,7 +131,6 @@ export class IPCHandlers {
     });
 
     scriptWindow.loadURL(sliverScriptParentURI).then(() => {
-      scriptWindow.webContents.executeJavaScript(`var SliverScriptId = '${scriptId}';`);
       scriptWindow.webContents.executeJavaScript(`var ScriptSrc = '${renderDataURI(scriptReq.script)}'`);
       scriptWindow.webContents.executeJavaScript(`
       const childFrame = document.createElement('iframe');

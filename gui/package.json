@@ -90,6 +90,8 @@
     "moment": "^2.24.0",
     "monaco-editor": "^0.17.1",
     "pako": "^1.0.10",
+    "protobufjs": "^6.8.8",
+    "requirejs": "^2.3.6",
     "rxjs": "^6.5.2",
     "xterm": "^3.14.5"
   }

@@ -20,10 +20,29 @@
 # Creates the static go asset archives
 # You'll need wget, tar, and unzip commands
 
-GO_VER="1.12.7"
+GO_VER="1.13"
 GO_ARCH="amd64"
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
 
+if ! [ -x "$(command -v wget)" ]; then
+  echo 'Error: wget is not installed.' >&2
+  exit 1
+fi
+
+if ! [ -x "$(command -v zip)" ]; then
+  echo 'Error: zip is not installed.' >&2
+  exit 1
+fi
+
+if ! [ -x "$(command -v unzip)" ]; then
+  echo 'Error: unzip is not installed.' >&2
+  exit 1
+fi
+
+if ! [ -x "$(command -v tar)" ]; then
+  echo 'Error: tar is not installed.' >&2
+  exit 1
+fi
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 WORK_DIR=`mktemp -d`
