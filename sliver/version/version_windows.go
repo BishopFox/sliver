@@ -61,7 +61,7 @@ func getOSVersion() string {
 		arch = "x86_64"
 	} else {
 		var is64Bit bool
-		pHandle := windows.GetCurrentProcess()
+		pHandle, _ := windows.GetCurrentProcess()
 		if uint(pHandle) == 0 {
 			//{{if .Debug}}
 			log.Printf("error getting OS version: error getting current process handle: %v")
