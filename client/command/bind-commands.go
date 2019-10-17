@@ -813,6 +813,9 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("r", "rwx-pages", false, "Use RWX permissions for memory pages")
+		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
