@@ -30,7 +30,10 @@ var (
 )
 
 // GetSystemShellPath - Find powershell or cmd
-func GetSystemShellPath() []string {
+func GetSystemShellPath(path string) []string {
+	if exists(path) {
+		return []string{path}
+	}
 	if exists(powerShell[0]) {
 		return powerShell
 	}

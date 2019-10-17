@@ -37,6 +37,7 @@ func rpcShell(req []byte, timeout time.Duration, resp RPCResponse) {
 	startShellReq, err := proto.Marshal(&sliverpb.ShellReq{
 		EnablePTY: shellReq.EnablePTY,
 		TunnelID:  tunnel.ID,
+		Path:      shellReq.Path,
 	})
 	if err != nil {
 		resp([]byte{}, err)
