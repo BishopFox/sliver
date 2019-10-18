@@ -42,7 +42,7 @@ func rpcLocalTask(req []byte, timeout time.Duration, resp RPCResponse) {
 	data, _ := proto.Marshal(&sliverpb.Task{
 		Encoder:  "raw",
 		Data:     taskReq.Data,
-		RWXPages: false,
+		RWXPages: taskReq.RwxPages,
 	})
 	data, err = sliver.Request(sliverpb.MsgTask, timeout, data)
 	resp(data, err)

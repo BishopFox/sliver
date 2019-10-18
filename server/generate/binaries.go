@@ -297,9 +297,12 @@ func SliverSharedLibrary(config *SliverConfig) (string, error) {
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
 	}
-	gcflags := fmt.Sprintf("-trimpath=%s", pkgPath)
-	asmflags := fmt.Sprintf("-trimpath=%s", pkgPath)
-	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags, gcflags, asmflags)
+	// Keep those for potential later use
+	gcflags := fmt.Sprintf("")
+	asmflags := fmt.Sprintf("")
+	// trimpath is now a separate flag since Go 1.13
+	trimpath := "-trimpath"
+	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags, gcflags, asmflags, trimpath)
 	config.FileName = path.Base(dest)
 	saveFileErr := SliverFileSave(config.Name, dest)
 	saveCfgErr := SliverConfigSave(config)
@@ -334,9 +337,11 @@ func SliverExecutable(config *SliverConfig) (string, error) {
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
 	}
-	gcflags := fmt.Sprintf("-trimpath=%s", pkgPath)
-	asmflags := fmt.Sprintf("-trimpath=%s", pkgPath)
-	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcflags, asmflags)
+	gcflags := fmt.Sprintf("")
+	asmflags := fmt.Sprintf("")
+	// trimpath is now a separate flag since Go 1.13
+	trimpath := "-trimpath"
+	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcflags, asmflags, trimpath)
 	config.FileName = path.Base(dest)
 	saveFileErr := SliverFileSave(config.Name, dest)
 	saveCfgErr := SliverConfigSave(config)

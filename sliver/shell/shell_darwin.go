@@ -25,7 +25,10 @@ var (
 )
 
 // GetSystemShellPath - Find bash or sh
-func GetSystemShellPath() []string {
+func GetSystemShellPath(path string) []string {
+	if exists(path) {
+		return []string{path}
+	}
 	if exists(bash[0]) {
 		return bash
 	}

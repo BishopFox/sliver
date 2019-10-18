@@ -88,7 +88,7 @@ func shellReqHandler(envelope *pb.Envelope, connection *transports.Connection) {
 		return
 	}
 
-	shellPath := shell.GetSystemShellPath()
+	shellPath := shell.GetSystemShellPath(shellReq.Path)
 	systemShell := shell.StartInteractive(shellReq.TunnelID, shellPath, shellReq.EnablePTY)
 	tunnel := &transports.Tunnel{
 		ID:     shellReq.TunnelID,

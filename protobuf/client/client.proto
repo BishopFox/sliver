@@ -207,6 +207,7 @@ message MSFInjectReq {
 
 message TaskReq {
   bytes Data = 1;
+  bool RwxPages = 2;
   uint32 SliverID = 9;
 }
 

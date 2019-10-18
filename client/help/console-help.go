@@ -222,7 +222,7 @@ c2 message round trip to ensure the remote Sliver is still responding to command
 [[.Bold]]About:[[.Normal]] Executes the given shellcode in the Sliver process.
 
 [[.Bold]][[.Underline]]++ Shellcode ++[[.Normal]]
-Shellcode files should be binary encoded, you can generate Sliver shellcode files with the generage command:
+Shellcode files should be binary encoded, you can generate Sliver shellcode files with the generate command:
 	generate --format shellcode
 `
 

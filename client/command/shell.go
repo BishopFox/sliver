@@ -46,6 +46,7 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 		return
 	}
 
+	shellPath := ctx.Flags.String("shell-path")
 	noPty := ctx.Flags.Bool("no-pty")
 	if ActiveSliver.Sliver.OS == windows {
 		noPty = true // Windows of course doesn't have PTYs
@@ -63,6 +64,7 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 		SliverID:  ActiveSliver.Sliver.ID,
 		EnablePTY: !noPty,
 		TunnelID:  tunnel.ID,
+		Path:      shellPath,
 	})
 	resp := <-server.RPC(&sliverpb.Envelope{
 		Type: sliverpb.MsgShellReq,
