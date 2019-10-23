@@ -121,7 +121,7 @@ func defaultPrintHelp(a *App, shell bool) {
 			// Headline.
 			fmt.Println()
 			printHeadline(a.config, "Sub Commands:")
-			println := headlinePrinter(a.config)
+			hp := headlinePrinter(a.config)
 
 			// Only print the first level of sub commands.
 			for _, c := range a.commands.list {
@@ -139,7 +139,7 @@ func defaultPrintHelp(a *App, shell bool) {
 				}
 
 				fmt.Println()
-				println(c.Name + ":")
+				_, _ = hp(c.Name + ":")
 				fmt.Printf("%s\n", columnize.Format(output, config))
 			}
 		}
@@ -205,16 +205,16 @@ func headlinePrinter(c *Config) func(v ...interface{}) (int, error) {
 }
 
 func printHeadline(c *Config, s string) {
-	println := headlinePrinter(c)
+	hp := headlinePrinter(c)
 	if c.HelpHeadlineUnderline {
-		println(s)
+		_, _ = hp(s)
 		u := ""
 		for i := 0; i < len(s); i++ {
 			u += "="
 		}
-		println(u)
+		_, _ = hp(u)
 	} else {
-		println(s)
+		_, _ = hp(s)
 	}
 }
 

@@ -1,16 +1,21 @@
 language: go
 sudo: false
 
+cache:
+  directories:
+    - $GOPATH/pkg/mod
+
 env:
   global:
     - MOD_VENDOR="-mod=vendor"
     - GO111MODULE=on
+    - GOPROXY=https://proxy.golang.org
 
 matrix:
   fast_finish: true
   include:
-    - go: 1.11.x
     - go: 1.12.x
+    - go: 1.13.x
     - go: 1.x
       env: LATEST=true
     - go: tip
@@ -18,8 +23,8 @@ matrix:
     - go: tip
 
 before_install:
-  - go get github.com/mitchellh/gox
-  - go get -u golang.org/x/lint/golint
+  - cd $(mktemp -d); go mod init tmp; go get -u github.com/mitchellh/gox; cd -
+  - cd $(mktemp -d); go mod init tmp; go get -u golang.org/x/lint/golint; cd -
 
 install:
   - # skip
@@ -31,11 +36,6 @@ script:
   - go test -v -race $MOD_VENDOR ./...
   # Only build binaries from the latest Go release.
   - if [ "${LATEST}" = "true" ]; then gox -os="linux darwin windows" -arch="amd64" -output="flarectl.{{.OS}}.{{.Arch}}" -ldflags "-X main.Rev=`git rev-parse --short HEAD`" -verbose ./...; fi
-
-notifications:
-  email:
-    recipients:
-      - jamesog@cloudflare.com
 
 # deploy:
 #   provider: releases

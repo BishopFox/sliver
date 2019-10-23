@@ -33,7 +33,7 @@ import (
 	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 	"github.com/bishopfox/sliver/util"
 
-	"github.com/AlecAivazis/survey"
+	"gopkg.in/AlecAivazis/survey.v1"
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
 )

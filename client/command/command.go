@@ -25,8 +25,8 @@ import (
 	clientpb "github.com/bishopfox/sliver/protobuf/client"
 	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 
-	"github.com/AlecAivazis/survey"
 	"github.com/golang/protobuf/proto"
+	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 const (

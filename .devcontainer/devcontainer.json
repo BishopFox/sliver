@@ -1,0 +1,20 @@
+// For format details, see https://aka.ms/vscode-remote/devcontainer.json or the definition README at
+// https://github.com/microsoft/vscode-dev-containers/tree/master/containers/go
+{
+	"name": "Go",
+	"dockerFile": "Dockerfile",
+	"workspaceMount": "source=${localWorkspaceFolder},target=/go/src/github.com/bishopfox/sliver,type=bind,consistency=cached",
+	// VSCode will bind to /workspaces/$project by default, which breaks the build paths
+	"workspaceFolder": "/go/src/github.com/bishopfox/sliver",
+	// Uncomment the next line if you want to publish any ports.
+	"appPort": [
+		"172.16.241.1:8888:8888"
+	],
+	"postCreateCommand": "/go/bin/dep ensure",
+	"extensions": [
+		"ms-vscode.go"
+	],
+	"settings": {
+		"go.gopath": "/go"
+	}
+}
