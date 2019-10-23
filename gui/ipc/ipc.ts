@@ -135,7 +135,7 @@ export class IPCHandlers {
       scriptWindow.webContents.executeJavaScript(`
       const childFrame = document.createElement('iframe');
       childFrame.setAttribute('src', ScriptSrc);
-      childFrame.setAttribute('sandbox', 'allow-scripts')
+      childFrame.setAttribute('sandbox', 'allow-scripts');
       document.body.appendChild(childFrame);
       `);
       if (scriptReq.devtools) {
