@@ -1,3 +1,0 @@
-go version
-[go1.11] [!go1.12] stdout go1\.11
-[go1.12] stdout go1\.12

@@ -24,7 +24,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/assets"
 
-	"github.com/AlecAivazis/survey"
+	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 func selectConfig() *assets.ClientConfig {

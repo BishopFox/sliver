@@ -129,9 +129,7 @@ func getRootDB() *badger.DB {
 	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
 		os.MkdirAll(dbDir, os.ModePerm)
 	}
-	opts := badger.DefaultOptions
-	opts.Dir = dbDir
-	opts.ValueDir = dbDir
+	opts := badger.DefaultOptions(dbDir)
 	opts.Logger = log.NamedLogger("db", "root")
 	db, err := badger.Open(opts)
 	if err != nil {
@@ -187,9 +185,7 @@ func GetBucket(name string) (*Bucket, error) {
 		os.MkdirAll(bucketDir, os.ModePerm)
 	}
 	dbLog.Debugf("Loading db from %s", bucketDir)
-	opts := badger.DefaultOptions
-	opts.Dir = bucketDir
-	opts.ValueDir = bucketDir
+	opts := badger.DefaultOptions(bucketDir)
 	logger := log.NamedLogger("db", name)
 	opts.Logger = logger
 	db, err := badger.Open(opts)

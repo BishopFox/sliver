@@ -50,5 +50,5 @@ func newContext(a *App, cmd *Command, flags FlagMap, args []string) *Context {
 
 // Stop signalizes the app to exit.
 func (c *Context) Stop() {
-	c.App.Close()
+	_ = c.App.Close()
 }

@@ -30,7 +30,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/AlecAivazis/survey"
+	"gopkg.in/AlecAivazis/survey.v1"
 
 	clientpb "github.com/bishopfox/sliver/protobuf/client"
 	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
