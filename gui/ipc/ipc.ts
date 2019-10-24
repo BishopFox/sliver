@@ -256,6 +256,7 @@ export class IPCHandlers {
         if (!fs.existsSync(CONFIG_DIR)) {
           resolve(JSON.stringify([]));
         }
+        console.log(items);
         const configs: RPCConfig[] = [];
         for (let index = 0; index < items.length; ++index) {
           const filePath = path.join(CONFIG_DIR, items[index]);
@@ -278,7 +279,7 @@ export class IPCHandlers {
   static async rpc_send(data: string): Promise<string> {
     const envelope: Envelope = Envelope.deserializeBinary(decodeRequest(data));
     rpc.sendEnvelope(envelope);
-    return JSON.stringify({ sucess: true });
+    return JSON.stringify({ success: true });
   }
 
 }
@@ -296,7 +297,7 @@ async function dispatchIPC(method: string, data: string): Promise<Object | null>
       return Promise.reject(`No handler for method: ${method}`);
     }
   } else {
-    return Promise.reject(`Invalid method handler namepsace for "${method}"`);
+    return Promise.reject(`Invalid method handler namespace for "${method}"`);
   }
 }
 
