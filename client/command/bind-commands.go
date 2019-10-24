@@ -855,4 +855,22 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 
+	app.AddCommand(&grumble.Command{
+		Name:     consts.SideloadStr,
+		Help:     "Load and execute a DLL in a remote process",
+		LongHelp: help.GetHelpFor(consts.SideloadStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
+			f.Int("t", "timeout", 10, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			sideloadDll(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+	})
+
 }

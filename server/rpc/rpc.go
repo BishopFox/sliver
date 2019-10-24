@@ -92,6 +92,8 @@ var (
 
 		clientpb.MsgTask:    rpcLocalTask,
 		clientpb.MsgMigrate: rpcMigrate,
+
+		clientpb.MsgSideloadReq: rpcSideload,
 	}
 
 	tunHandlers = &map[uint32]TunnelHandler{

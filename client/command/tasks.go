@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/client/spin"
@@ -176,4 +177,57 @@ func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 	fmt.Printf("\n"+Info+"Assembly output:\n%s", execResp.Output)
+}
+
+// sideload --process --get-output PATH_TO_DLL EntryPoint Args...
+func sideloadDll(ctx *grumble.Context, rpc RPCServer) {
+	if ActiveSliver.Sliver == nil {
+		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+		return
+	}
+
+	var args []string
+	if len(ctx.Args) < 2 {
+		fmt.Printf(Warn + "See `help sideload` for usage.")
+		return
+	} else if len(ctx.Args) > 3 {
+		args = ctx.Args[2:]
+	}
+
+	binPath := ctx.Args[0]
+	entryPoint := ctx.Args[1]
+
+	processName := ctx.Flags.String("process")
+
+	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
+	binData, err := ioutil.ReadFile(binPath)
+	if err != nil {
+		fmt.Printf(Warn+"%s", err.Error())
+		return
+	}
+	ctrl := make(chan bool)
+	go spin.Until(fmt.Sprintf("Sideloading %s ...", binPath), ctrl)
+	data, _ := proto.Marshal(&clientpb.SideloadReq{
+		Data:       binData,
+		Args:       strings.Join(args, " "),
+		ProcName:   processName,
+		EntryPoint: entryPoint,
+		SliverID:   ActiveSliver.Sliver.ID,
+	})
+
+	resp := <-rpc(&sliverpb.Envelope{
+		Data: data,
+		Type: clientpb.MsgSideloadReq,
+	}, cmdTimeout)
+	ctrl <- true
+	<-ctrl
+	execResp := &sliverpb.Sideload{}
+	proto.Unmarshal(resp.Data, execResp)
+	if execResp.Error != "" {
+		fmt.Printf(Warn+"%s", execResp.Error)
+		return
+	}
+	if len(execResp.Result) > 0 {
+		fmt.Printf("\n"+Info+"Output:\n%s", execResp.Result)
+	}
 }

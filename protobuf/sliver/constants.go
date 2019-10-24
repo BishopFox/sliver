@@ -110,6 +110,10 @@ const (
 	// MsgMigrateReq - Spawn a new sliver in a designated process
 	MsgMigrateReq
 
+	// MsgSideloadReq - request to sideload a binary
+	MsgSideloadReq
+	// MsgSideload - output of the binary
+	MsgSideload
 	// MsgIfconfigReq - Ifconfig (network interface config) request
 	MsgIfconfigReq
 
