@@ -13,7 +13,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -------------------------------------------------------------------------
 
-Implementing a custom protocol acheives two goals:
+Implementing a custom protocol achieves two goals:
   1) Allows us to use ES6 modules/targets for Angular
   2) Avoids running the app in a file:// origin
 
@@ -39,7 +39,9 @@ const mimeTypes = {
   '.ico': 'image/vnd.microsoft.icon',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
-  '.map': 'text/plain'
+  '.map': 'text/plain',
+  '.woff': 'application/x-font-woff',
+  '.woff2': 'font/woff2'
 };
 
 function charset(mimeType: string): string {
@@ -48,7 +50,7 @@ function charset(mimeType: string): string {
 
 function mime(filename: string): string {
   const type = mimeTypes[path.extname(`${filename || ''}`).toLowerCase()];
-  return type ? type : 'application/octet-stream';
+  return type ? type : null;
 }
 
 export function requestHandler(req: Electron.HandlerRequest, next: ProtocolCallback) {
@@ -60,7 +62,7 @@ export function requestHandler(req: Electron.HandlerRequest, next: ProtocolCallb
   const reqFilename = path.basename(reqPath);
   fs.readFile(path.join(DIST_PATH, reqPath), (err, data) => {
     const mimeType = mime(reqFilename);
-    if (!err && mimeType !== 'application/octet-stream') {
+    if (!err && mimeType !== null) {
       next({
         mimeType: mimeType,
         charset: charset(mimeType),

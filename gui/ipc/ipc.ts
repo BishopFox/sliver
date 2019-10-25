@@ -25,13 +25,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as uuid from 'uuid';
 
+import { jsonSchema } from './json-schema';
 import { RPCClient, RPCConfig } from '../rpc';
 import { Envelope } from '../rpc/pb';
+import { rejects } from 'assert';
 
 
 const CLIENT_DIR = path.join(homedir(), '.sliver-client');
 const CONFIG_DIR = path.join(CLIENT_DIR, 'configs');
-const SETTINGS_FILEPATH = path.join(CLIENT_DIR, 'gui-settings.json');
+const SETTINGS_PATH = path.join(CLIENT_DIR, 'gui-settings.json');
 
 
 let rpc: RPCClient;
@@ -91,9 +93,35 @@ function renderDataURI(script: string) {
 }
 
 
+async function makeConfigDir(): Promise<NodeJS.ErrnoException|null> {
+  return new Promise((resolve, reject) => {
+    const dirOptions = {
+      mode: 0o700, 
+      recursive: true
+    };
+    fs.mkdir(CONFIG_DIR, dirOptions, (err) => {
+      err ? reject(err) : resolve(null);
+    });
+  });
+}
+
+
 // IPC Methods used to start/interact with the RPCClient
 export class IPCHandlers {
 
+  @jsonSchema({
+    "properties": {
+      "operator": {"type": "string", "minLength": 1},
+      "lhost": {"type": "string", "minLength": 1},
+      "lport": {"type": "number"},
+      "ca_certificate": {"type": "string", "minLength": 1},
+      "certificate": {"type": "string", "minLength": 1},
+      "private_key": {"type": "string", "minLength": 1},
+    },
+    "required": [
+      "operator", "lhost", "lport", "ca_certificate", "certificate", "private_key"
+    ]
+  })
   static async client_start(req: string): Promise<string> {
     const config: RPCConfig = JSON.parse(req);
     rpc = new RPCClient(config);
@@ -149,6 +177,28 @@ export class IPCHandlers {
     return rpc ? JSON.stringify(rpc.config) : '';
   }
 
+  @jsonSchema({
+    "properties": {
+      "title": {"type": "string", "minLength": 1, "maxLength": 100},
+      "message": {"type": "string", "minLength": 1, "maxLength": 100},
+      "openDirectory": {"type": "boolean"},
+      "multiSelections": {"type": "boolean"},
+      "filter": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {"type": "string"},
+            "extensions": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "required": ["title", "message"]
+  })
   static async client_readFile(req: string): Promise<string> {
     const readFileReq: ReadFileReq = JSON.parse(req);
     const dialogOptions = {
@@ -164,7 +214,7 @@ export class IPCHandlers {
         fs.readFile(filePath, (err, data) => {
           files.push({
             filePath: filePath,
-            error: err.toString(),
+            error: err ? err.toString() : null,
             data: data ? base64.encode(data) : null
           });
           resolve();
@@ -174,8 +224,15 @@ export class IPCHandlers {
     return JSON.stringify({ files: files });
   }
 
-  // For now all files are just saved to the Downloads folder,
-  // which should exist on all supported platforms.
+  @jsonSchema({
+    "properties": {
+      "title": {"type": "string", "minLength": 1, "maxLength": 100},
+      "message": {"type": "string", "minLength": 1, "maxLength": 100},
+      "filename": {"type": "string", "minLength": 1},
+      "data": {"type": "string"}
+    },
+    "required": ["title", "message", "filename", "data"]
+  })
   static client_saveFile(req: string): Promise<string> {
     return new Promise(async (resolve, reject) => {
       const saveFileReq: SaveFileReq = JSON.parse(req);
@@ -207,12 +264,12 @@ export class IPCHandlers {
   static client_getSettings(): Promise<string> {
     return new Promise((resolve, reject) => {
       try {
-        if (!fs.existsSync(SETTINGS_FILEPATH)) {
-          resolve('{}');
+        if (!fs.existsSync(SETTINGS_PATH)) {
+          return resolve('{}');
         }
-        fs.readFile(SETTINGS_FILEPATH, 'utf-8', (err, data) => {
+        fs.readFile(SETTINGS_PATH, 'utf-8', (err, data) => {
           if (err) {
-            reject(err);
+            return reject(err);
           }
           JSON.parse(data);
           resolve(data);
@@ -223,15 +280,25 @@ export class IPCHandlers {
     });
   }
 
+  // The Node process never interacts with the "settings" values, so
+  // we do not validate them, aside from ensuing it's valid JSON
   static client_saveSettings(settings: string): Promise<string> {
     return new Promise(async (resolve, reject) => {
-      const options = {
-        mode: 0o644,
+      
+      if (!fs.existsSync(CONFIG_DIR)) {
+        const err = await makeConfigDir();
+        if (err) {
+          return reject(`Failed to create config dir: ${err}`);
+        }
+      }
+
+      const fileOptions = {
+        mode: 0o600,
         encoding: 'utf-8',
       };
       try {
-        JSON.parse(settings);
-        fs.writeFile(SETTINGS_FILEPATH, settings, options, async (err) => {
+        JSON.parse(settings); // Just ensure it's valid JSON
+        fs.writeFile(SETTINGS_PATH, settings, fileOptions, async (err) => {
           if (err) {
             reject(err);
           } else {
@@ -253,10 +320,9 @@ export class IPCHandlers {
   static config_list(): Promise<string> {
     return new Promise((resolve) => {
       fs.readdir(CONFIG_DIR, (_, items) => {
-        if (!fs.existsSync(CONFIG_DIR)) {
-          resolve(JSON.stringify([]));
+        if (!fs.existsSync(CONFIG_DIR) || items === undefined) {
+          return resolve(JSON.stringify([]));
         }
-        console.log(items);
         const configs: RPCConfig[] = [];
         for (let index = 0; index < items.length; ++index) {
           const filePath = path.join(CONFIG_DIR, items[index]);
@@ -268,6 +334,55 @@ export class IPCHandlers {
         resolve(JSON.stringify(configs));
       });
     });
+  }
+
+  @jsonSchema({
+    "properties": {
+      "configs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "operator": {"type": "string", "minLength": 1},
+            "lhost": {"type": "string", "minLength": 1},
+            "lport": {"type": "number"},
+            "ca_certificate": {"type": "string", "minLength": 1},
+            "certificate": {"type": "string", "minLength": 1},
+            "private_key": {"type": "string", "minLength": 1},
+          }
+        },
+      },
+    },
+    "required": ["configs"]
+  })
+  static async config_save(req: string): Promise<string> {
+    
+    const configs: RPCConfig[] = JSON.parse(req).configs;
+    if (!fs.existsSync(CONFIG_DIR)) {
+      const err = await makeConfigDir();
+      if (err) {
+        return Promise.reject(`Failed to create config dir: ${err}`);
+      }
+    }
+    const fileOptions = {
+      mode: 0o600,
+      encoding: 'utf-8',
+    };
+
+    await Promise.all(configs.map((config) => { 
+      return new Promise((resolve) => {
+        const fileName: string = uuid.v4();
+        const data = JSON.stringify(config);
+        fs.writeFile(path.join(CONFIG_DIR, fileName), data, fileOptions, (err) => {
+          if (err) {
+            console.error(err);
+          }
+          resolve();
+        });
+      });
+    }));
+
+    return IPCHandlers.config_list();
   }
 
   static async rpc_request(data: string): Promise<string> {

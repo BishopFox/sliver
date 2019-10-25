@@ -18,8 +18,10 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { RPCConfig } from '@rpc/rpc';
-import { ClientService } from '@app/providers/client.service';
+import { ClientService, ReadFiles } from '@app/providers/client.service';
 import { FadeInOut } from '@app/shared/animations';
+
+import * as base64 from 'base64-arraybuffer';
 
 
 @Component({
@@ -67,6 +69,30 @@ export class SelectServerComponent implements OnInit {
 
   async fetchConfigs() {
     this.configs = await this._clientService.listConfigs();
+  }
+
+  async addConfigFile() {
+    const title = 'Add Config(s)';
+    const msg = 'Select new configuration file(s)';
+    const rawConfigs: ReadFiles = await this._clientService.readFile(title, msg, false, true);
+    
+    if (!rawConfigs || !rawConfigs.files) {
+      return;  // User hit cancel
+    }
+
+    const configs: RPCConfig[] = [];
+    for (let index = 0; index < rawConfigs.files.length; ++index) {
+      try {
+        const config: RPCConfig = JSON.parse(atob(rawConfigs.files[index].data));
+        configs.push(config);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    
+    await this._clientService.saveConfigs(configs);
+    this.fetchConfigs();
+
   }
 
 }

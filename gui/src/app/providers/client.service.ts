@@ -33,6 +33,16 @@ export interface SaveFileReq {
   data: string;
 }
 
+export interface ReadFile {
+  filePath: string|null;
+  error: string|null;
+  data: string|null;
+}
+
+export interface ReadFiles {
+  files: Array<ReadFile>;
+}
+
 export interface Settings {
 
   preferredServer: string;
@@ -86,28 +96,31 @@ export class ClientService {
     return configs;
   }
 
+  async saveConfigs(configs: RPCConfig[]): Promise<string> {
+    return this._ipc.request('config_save', JSON.stringify({ configs: configs })); 
+  }
+
   async saveFile(title: string, message: string, filename: string, data: Uint8Array): Promise<string> {
-    const resp = await this._ipc.request('client_saveFile', JSON.stringify({
+    return await this._ipc.request('client_saveFile', JSON.stringify({
       title: title,
       message: message,
       filename: filename,
       data: base64.encode(data),
     }));
-    return resp;
   }
 
   async readFile(title: string, message: string, openDirectory?: boolean,
-                 multiSelection?: boolean, filter?: FileFilter[]): Promise<string> {
+                 multiSelection?: boolean, filter?: FileFilter[]): Promise<ReadFiles|null> {
     const resp = await this._ipc.request('client_readFile', JSON.stringify({
       title: title,
       message: message,
-      openDirectory: openDirectory === undefined ? false : openDirectory,
-      multiSelection: multiSelection === undefined ? false : multiSelection,
-      filter: filter === undefined ? filter : [{
+      openDirectory: openDirectory !== undefined ? openDirectory : false,
+      multiSelection: multiSelection !== undefined ? multiSelection : false,
+      filter: filter !== undefined ? filter : [{
         name: 'All Files', extensions: ['*']
       }],
     }));
-    return resp ? JSON.parse(resp) : '';
+    return resp ? JSON.parse(resp) : null;
   }
 
   exit() {

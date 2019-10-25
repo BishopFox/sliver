@@ -115,7 +115,7 @@ export class RPCClient {
         console.log('Parsing envelope from recvBuffer');
         const bytes = this.recvBuffer.slice(4, 4 + readSize);
         const envelope = sliverpb.Envelope.deserializeBinary(bytes);
-        console.log(`Deseralized msg Type = ${envelope.getType()}, ID = ${envelope.getId()}`);
+        console.log(`Deserialized msg Type = ${envelope.getType()}, ID = ${envelope.getId()}`);
         this.recvBuffer = Buffer.from(this.recvBuffer.slice(4 + readSize));
         obs.next(envelope);
         this.recvEnvelope(obs, Buffer.alloc(0)); // Recursively parse
@@ -146,7 +146,7 @@ export class RPCClient {
       port: this.config.lport,
       rejectUnauthorized: true,
 
-      // This should ONLY skip verifying the hostname matches the cerftificate:
+      // This should ONLY skip verifying the hostname matches the certificate:
       // https://nodejs.org/api/tls.html#tls_tls_checkserveridentity_hostname_cert
       checkServerIdentity: () => undefined,
     };
@@ -154,7 +154,7 @@ export class RPCClient {
 
   // This is somehow the "clean" way to do this shit...
   // tlsConnect returns a Subject that shits out Buffers
-  // or takes in Buffers of an interminate size as they come
+  // or takes in Buffers of an indeterminate size as they come
   private tlsConnect() {
     return new Promise((resolve, reject) => {
 
