@@ -114,6 +114,10 @@ const (
 	MsgSideloadReq
 	// MsgSideload - output of the binary
 	MsgSideload
+	// MsgSpawnDllReq - Reflective DLL injection request
+	MsgSpawnDllReq
+	// MsgSpawnDll - Reflective DLL injection output
+	MsgSpawnDll
 	// MsgIfconfigReq - Ifconfig (network interface config) request
 	MsgIfconfigReq
 

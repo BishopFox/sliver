@@ -140,3 +140,15 @@ func rpcSideload(req []byte, timeout time.Duration, resp RPCResponse) {
 	resp(data, err)
 
 }
+
+func rpcSpawnDll(req []byte, timeout time.Duration, resp RPCResponse) {
+	spawnReq := &sliverpb.SpawnDllReq{}
+	err := proto.Unmarshal(req, spawnReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	sliver := core.Hive.Sliver(spawnReq.SliverID)
+	data, err := sliver.Request(sliverpb.MsgSpawnDllReq, timeout, req)
+	resp(data, err)
+}

@@ -109,6 +109,7 @@ const (
 	ExecuteShellcodeStr = "execute-shellcode"
 	MigrateStr          = "migrate"
 	SideloadStr         = "sideload"
+	SpawnDllStr         = "spawndll"
 
 	WebsitesStr = "websites"
 

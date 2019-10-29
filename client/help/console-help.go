@@ -250,6 +250,12 @@ Add content to a website:
 
 [[.Bold]]--process[[.Normal]] - Process to inject into.
 `
+	spawnDllHelp = `[[.Bold]]Command:[[.Normal]] spawndll <options> <filepath to DLL> [entrypoint arguments]
+[[.Bold]]About:[[.Normal]] Load and execute a Reflective DLL in memory in a remote process.
+
+[[.Bold]]--process[[.Normal]] - Process to inject into.
+[[.Bold]]--export[[.Normal]] - Name of the export to call (default: ReflectiveLoader)
+`
 )
 
 const (

@@ -873,4 +873,22 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		},
 	})
 
+	app.AddCommand(&grumble.Command{
+		Name:     consts.SpawnDllStr,
+		Help:     "Load and execute a Reflective DLL in a remote process",
+		LongHelp: help.GetHelpFor(consts.SpawnDllStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
+			f.String("e", "export", "ReflectiveLoader", "Entrypoint of the Reflective DLL")
+			f.Int("t", "timeout", 10, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			spawnDll(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+	})
 }

