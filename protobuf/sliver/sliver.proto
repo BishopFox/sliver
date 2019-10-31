@@ -227,6 +227,30 @@ message Execute {
   string Result = 2;
 }
 
+message SideloadReq {
+  bytes Data = 1;
+  string ProcName = 2;
+  uint32 SliverID = 9;
+}
+
+message Sideload {
+  string Error = 1;
+  string Result = 2;
+}
+
+message SpawnDllReq {
+  bytes Data = 1;
+  string ProcName = 2;
+  uint32 Offset = 3;
+  string Args = 4;
+  uint32 SliverID = 9;
+}
+
+message SpawnDll {
+  string Error = 1;
+  string Result = 2;
+}
+
 // DNS Specific messages
 message DNSSessionInit { bytes Key = 1; }
 

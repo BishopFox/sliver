@@ -72,7 +72,7 @@ func rpcGetSystem(req []byte, timeout time.Duration, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	shellcode, err := generate.ShellcodeRDI(dllPath, "RunSliver")
+	shellcode, err := generate.ShellcodeRDI(dllPath, "RunSliver", "")
 	if err != nil {
 		resp([]byte{}, err)
 		return

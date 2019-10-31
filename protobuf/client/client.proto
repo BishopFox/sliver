@@ -228,6 +228,14 @@ message Egg {
   int32 JobID = 3;
 }
 
+message SideloadReq {
+  bytes Data = 1;
+  string ProcName = 2;
+  string Args = 3;
+  string EntryPoint = 4;
+  uint32 SliverID = 9;
+}
+
 // [ Tunnels ] ----------------------------------------
 message TunnelCreateReq { uint32 SliverID = 1; }
 

