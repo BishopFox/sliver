@@ -441,7 +441,7 @@ func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgGenerate,
 		Data: generateReq,
-	}, 45*time.Minute)
+	}, 450*time.Minute)
 	ctrl <- true
 	<-ctrl
 	if resp.Err != "" {
