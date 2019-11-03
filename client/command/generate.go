@@ -428,7 +428,8 @@ func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 	fmt.Printf(Info+"Generating new %s/%s Sliver binary\n", config.GOOS, config.GOARCH)
 
 	if config.ObfuscateSymbols {
-		fmt.Printf(Info + "Symbol obfuscation is enabled, this process takes about 15 minutes\n")
+		fmt.Printf(Info+"%sSymbol obfuscation is enabled.%s\n", bold, normal)
+		fmt.Printf(Info + "This process can take awhile, and consumes significant amounts of CPU/Memory\n")
 	} else if !config.Debug {
 		fmt.Printf(Warn+"Symbol obfuscation is %sdisabled%s\n", bold, normal)
 	}
@@ -441,7 +442,7 @@ func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgGenerate,
 		Data: generateReq,
-	}, 450*time.Minute)
+	}, 24*time.Hour)
 	ctrl <- true
 	<-ctrl
 	if resp.Err != "" {

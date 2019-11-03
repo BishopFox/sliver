@@ -15,9 +15,7 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/miekg/dns v1.1.22
 	github.com/sirupsen/logrus v1.4.2
-	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20190923035154-9ee001bba392
-	golang.org/x/sys v0.0.0-20190924154521-2837fb4f24fe
 	golang.org/x/tools v0.0.0-20190907020128-2ca718005c18
 	gopkg.in/AlecAivazis/survey.v1 v1.8.7
 )

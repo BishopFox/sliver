@@ -66,13 +66,3 @@ else
     cat ~/.sliver/logs/sliver.log
     exit 1
 fi
-
-
-## Sliver
-# sliver / proxy
-if go test ./sliver/proxy ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi

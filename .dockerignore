@@ -3,3 +3,4 @@ assets/darwin
 assets/linux
 assets/windows
 gui/*
+.vscode/*
