@@ -752,7 +752,7 @@ import (
 
 // ShellcodeRDIToFile generates a sRDI shellcode and writes it to a file
 func ShellcodeRDIToFile(dllPath string, functionName string) (shellcodePath string, err error) {
-	shellcode, err := ShellcodeRDI(dllPath, functionName)
+	shellcode, err := ShellcodeRDI(dllPath, functionName, "")
 	if err != nil {
 		return "", err
 	}
@@ -764,9 +764,9 @@ func ShellcodeRDIToFile(dllPath string, functionName string) (shellcodePath stri
 }
 
 // ShellcodeRDI generates a reflective shellcode based on a DLL file
-func ShellcodeRDI(dllPath string, functionName string) (shellcode []byte, err error) {
+func ShellcodeRDI(dllPath string, functionName string, userdata string) (shellcode []byte, err error) {
 	// handle command line arguments, -h or -help shows the menu
-	userDataStr := ""
+	userDataStr := userdata
 	clearHeader := true
 	flag.Parse()
 
@@ -796,6 +796,32 @@ func ShellcodeRDI(dllPath string, functionName string) (shellcode []byte, err er
 	//	err = os.RemoveAll(path.Clean(path.Dir(dllPath) + "/../"))
 	return shellcode, nil
 
+}
+
+func ShellcodeRDIFromBytes(data []byte, functionName string, arguments string) (shellcode []byte, err error) {
+
+	clearHeader := true
+	userDataStr := arguments
+
+	// functionHash is 0x10 by default, otherwise get the hash and convert to bytes
+	var hashFunction []byte
+	if functionName != "" {
+		hashFunctionUint32 := hashFunctionName(functionName)
+		hashFunction = pack(hashFunctionUint32)
+	} else {
+		hashFunction = pack(uint32(0x10))
+	}
+
+	flags := 0
+	if clearHeader {
+		flags |= 0x1
+	}
+	var userData []byte
+	if userDataStr != "" {
+		userData = []byte(userDataStr)
+	}
+	shellcode = convertToShellcode(data, hashFunction, userData, flags)
+	return shellcode, nil
 }
 
 func convertToShellcode(dllBytes, functionHash, userData []byte, flags int) []byte {

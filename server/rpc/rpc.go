@@ -73,6 +73,7 @@ var (
 		sliverpb.MsgPsReq:          rpcPs,
 		sliverpb.MsgKill:           rpcKill,
 		sliverpb.MsgProcessDumpReq: rpcProcdump,
+		sliverpb.MsgSpawnDllReq:    rpcSpawnDll,
 
 		sliverpb.MsgElevate:     rpcElevate,
 		sliverpb.MsgImpersonate: rpcImpersonate,
@@ -92,6 +93,8 @@ var (
 
 		clientpb.MsgTask:    rpcLocalTask,
 		clientpb.MsgMigrate: rpcMigrate,
+
+		clientpb.MsgSideloadReq: rpcSideload,
 	}
 
 	tunHandlers = &map[uint32]TunnelHandler{

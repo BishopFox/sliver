@@ -135,5 +135,5 @@ func createDir(dir string) error {
 			return err
 		}
 	}
-	return os.Mkdir(dir, 0755)
+	return os.Mkdir(dir, 0700)
 }

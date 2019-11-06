@@ -51,7 +51,7 @@ func rpcEgg(data []byte, timeout time.Duration, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	sliverShellcode, err := generate.ShellcodeRDI(dllPath, "RunSliver")
+	sliverShellcode, err := generate.ShellcodeRDI(dllPath, "RunSliver", "")
 	if err != nil {
 		resp([]byte{}, err)
 		return

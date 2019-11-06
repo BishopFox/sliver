@@ -38,6 +38,7 @@ import (
 	"github.com/bishopfox/sliver/server/gobfuscate"
 	"github.com/bishopfox/sliver/server/gogo"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/util"
 
 	"github.com/gobuffalo/packr"
 )
@@ -243,7 +244,7 @@ func GetSliversDir() string {
 	sliversDir := path.Join(appDir, sliversDirName)
 	if _, err := os.Stat(sliversDir); os.IsNotExist(err) {
 		buildLog.Infof("Creating bin directory: %s", sliversDir)
-		err = os.MkdirAll(sliversDir, os.ModePerm)
+		err = os.MkdirAll(sliversDir, 0700)
 		if err != nil {
 			buildLog.Fatal(err)
 		}
@@ -369,7 +370,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 
 	sliversDir := GetSliversDir() // ~/.sliver/slivers
 	projectGoPathDir := path.Join(sliversDir, config.GOOS, config.GOARCH, config.Name)
-	os.MkdirAll(projectGoPathDir, os.ModePerm)
+	os.MkdirAll(projectGoPathDir, 0700)
 	goConfig.GOPATH = projectGoPathDir
 
 	// Cert PEM encoded certificates
@@ -384,14 +385,19 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 
 	// binDir - ~/.sliver/slivers/<os>/<arch>/<name>/bin
 	binDir := path.Join(projectGoPathDir, "bin")
-	os.MkdirAll(binDir, os.ModePerm)
+	os.MkdirAll(binDir, 0700)
 
 	// srcDir - ~/.sliver/slivers/<os>/<arch>/<name>/src
 	srcDir := path.Join(projectGoPathDir, "src")
-	assets.SetupGoPath(srcDir) // Extract GOPATH dependancy files
+	assets.SetupGoPath(srcDir)            // Extract GOPATH dependency files
+	err = util.ChmodR(srcDir, 0600, 0700) // Ensures src code files are writable
+	if err != nil {
+		buildLog.Errorf("fs perms: %v", err)
+		return "", err
+	}
 
 	sliverPkgDir := path.Join(srcDir, "github.com", "bishopfox", "sliver") // "main"
-	os.MkdirAll(sliverPkgDir, os.ModePerm)
+	os.MkdirAll(sliverPkgDir, 0700)
 
 	// Load code template
 	sliverBox := packr.NewBox("../../sliver")
@@ -436,7 +442,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 			dirPath := path.Join(sliverPkgDir, "sliver", dirName)
 			if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 				buildLog.Infof("[mkdir] %#v", dirPath)
-				os.MkdirAll(dirPath, os.ModePerm)
+				os.MkdirAll(dirPath, 0700)
 			}
 			sliverCodePath = path.Join(dirPath, fileName)
 		} else {

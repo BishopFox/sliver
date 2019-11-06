@@ -1,4 +1,4 @@
-FROM golang:1.12
+FROM golang:1.13
 
 #
 # IMPORTANT: This Dockerfile is used for testing, I do not recommend deploying
@@ -63,10 +63,12 @@ RUN ./go-assets.sh
 ADD . /go/src/github.com/bishopfox/sliver/
 RUN make static-linux && cp -vv sliver-server /opt/sliver-server
 
-RUN /opt/sliver-server -unpack && /go/src/github.com/bishopfox/sliver/go-tests.sh
+# USER sliver
+RUN ls -lah && /opt/sliver-server -unpack \
+  && /go/src/github.com/bishopfox/sliver/go-tests.sh
 RUN make clean \
     && rm -rf /go/src/* \
-    && rm -rf /root/.sliver
+    && rm -rf /home/sliver/.sliver
 
-USER sliver
+WORKDIR /home/sliver/
 ENTRYPOINT [ "/opt/sliver-server" ]

