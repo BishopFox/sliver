@@ -83,6 +83,11 @@ var (
 		"priv/priv.go",
 		"priv/priv_windows.go",
 
+		"syscalls/syscalls.go",
+		"syscalls/syscalls_windows.go",
+		"syscalls/types_windows.go",
+		"syscalls/zsyscalls_windows.go",
+
 		"transports/crypto.go",
 		"transports/tcp-mtls.go",
 		"transports/tcp-http.go",

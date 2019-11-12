@@ -798,6 +798,7 @@ func ShellcodeRDI(dllPath string, functionName string, userdata string) (shellco
 
 }
 
+// ShellcodeRDIFromBytes generate a sRDI from a byte array
 func ShellcodeRDIFromBytes(data []byte, functionName string, arguments string) (shellcode []byte, err error) {
 
 	clearHeader := true
