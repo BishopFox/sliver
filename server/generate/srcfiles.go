@@ -27,6 +27,11 @@ var (
 	srcFiles = []string{
 		"constants/constants.go",
 
+		// C files for DLL
+		"dllmain.go",
+		"dllmain.h",
+		"dllmain.c",
+
 		"handlers/generic-rpc-handlers.go",
 		"handlers/generic-tun-handlers.go",
 		"handlers/special-handlers.go",
