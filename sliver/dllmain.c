@@ -5,11 +5,11 @@ typedef struct
     HINSTANCE hinstDLL; // handle to DLL module
     DWORD fdwReason;    // reason for calling function // reserved
     LPVOID lpReserved;  // reserved
-} MyThreadParams;
+} EnjoyParams;
 
-DWORD WINAPI MyThreadFunction(LPVOID lpParam)
+DWORD WINAPI Enjoy(LPVOID lpParam)
 {
-    MyThreadParams params = *((MyThreadParams *)lpParam);
+    EnjoyParams params = *((EnjoyParams *)lpParam);
     RunSliver(params.hinstDLL, params.fdwReason, params.lpReserved);
     free(lpParam);
     return 0;
@@ -26,11 +26,11 @@ BOOL WINAPI DllMain(
         // Initialize once for each new process.
         // Return FALSE to fail DLL load.
         {
-            MyThreadParams *lpThrdParam = (MyThreadParams *)malloc(sizeof(MyThreadParams));
+            EnjoyParams *lpThrdParam = (EnjoyParams *)malloc(sizeof(EnjoyParams));
             lpThrdParam->hinstDLL = _hinstDLL;
             lpThrdParam->fdwReason = _fdwReason;
             lpThrdParam->lpReserved = _lpReserved;
-            HANDLE hThread = CreateThread(NULL, 0, MyThreadFunction, lpThrdParam, 0, NULL);
+            HANDLE hThread = CreateThread(NULL, 0, Enjoy, lpThrdParam, 0, NULL);
             // CreateThread() because otherwise DllMain() is highly likely to deadlock.
         }
         break;
