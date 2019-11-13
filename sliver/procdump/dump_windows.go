@@ -89,7 +89,7 @@ func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 	}
 	stdOutHandle := f.Fd()
 	err = syscalls.MiniDumpWriteDump(proc, pid, stdOutHandle, 3, 0, 0, 0)
-	if err != nil {
+	if err == nil {
 		data, err := ioutil.ReadFile(f.Name())
 		dump.data = data
 		if err != nil {
