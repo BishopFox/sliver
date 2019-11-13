@@ -54,7 +54,7 @@ func impersonateLoggedOnUser(hToken windows.Token) (err error) {
 	return
 }
 
-func sePrivEnable(s string) error {
+func SePrivEnable(s string) error {
 	var tokenHandle windows.Token
 	thsHandle, err := windows.GetCurrentProcess()
 	if err != nil {
@@ -315,10 +315,10 @@ func GetSystem(data []byte, hostingProcess string) (err error) {
 	procs, _ := ps.Processes()
 	for _, p := range procs {
 		if p.Executable() == hostingProcess {
-			err = sePrivEnable("SeDebugPrivilege")
+			err = SePrivEnable("SeDebugPrivilege")
 			if err != nil {
 				// {{if .Debug}}
-				log.Println("sePrivEnable failed:", err)
+				log.Println("SePrivEnable failed:", err)
 				// {{end}}
 				return
 			}

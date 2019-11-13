@@ -38,6 +38,7 @@ func errnoErr(e syscall.Errno) error {
 
 var (
 	modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
+	modDbgHelp  = windows.NewLazySystemDLL("DbgHelp.dll")
 
 	procInitializeProcThreadAttributeList = modkernel32.NewProc("InitializeProcThreadAttributeList")
 	procGetProcessHeap                    = modkernel32.NewProc("GetProcessHeap")
@@ -53,6 +54,7 @@ var (
 	procCreateRemoteThread                = modkernel32.NewProc("CreateRemoteThread")
 	procCreateThread                      = modkernel32.NewProc("CreateThread")
 	procGetExitCodeThread                 = modkernel32.NewProc("GetExitCodeThread")
+	procMiniDumpWriteDump                 = modDbgHelp.NewProc("MiniDumpWriteDump")
 )
 
 func InitializeProcThreadAttributeList(lpAttributeList *PROC_THREAD_ATTRIBUTE_LIST, dwAttributeCount uint32, dwFlags uint32, lpSize *uintptr) (err error) {
@@ -217,6 +219,18 @@ func CreateThread(lpThreadAttributes *windows.SecurityAttributes, dwStackSize ui
 
 func GetExitCodeThread(hTread windows.Handle, lpExitCode *uint32) (err error) {
 	r1, _, e1 := syscall.Syscall(procGetExitCodeThread.Addr(), 2, uintptr(hTread), uintptr(unsafe.Pointer(lpExitCode)), 0)
+	if r1 == 0 {
+		if e1 != 0 {
+			err = errnoErr(e1)
+		} else {
+			err = syscall.EINVAL
+		}
+	}
+	return
+}
+
+func MiniDumpWriteDump(hProcess windows.Handle, pid uint32, hFile uintptr, dumpType uint32, exceptionParam uintptr, userStreamParam uintptr, callbackParam uintptr) (err error) {
+	r1, _, e1 := syscall.Syscall9(procMiniDumpWriteDump.Addr(), 7, uintptr(hProcess), uintptr(pid), uintptr(hFile), uintptr(dumpType), uintptr(exceptionParam), uintptr(userStreamParam), uintptr(callbackParam), 0, 0)
 	if r1 == 0 {
 		if e1 != 0 {
 			err = errnoErr(e1)
