@@ -27,6 +27,11 @@ var (
 	srcFiles = []string{
 		"constants/constants.go",
 
+		"evasion/evasion.go",
+		"evasion/evasion_darwin.go",
+		"evasion/evasion_linux.go",
+		"evasion/evasion_windows.go",
+
 		"handlers/generic-rpc-handlers.go",
 		"handlers/generic-tun-handlers.go",
 		"handlers/special-handlers.go",

