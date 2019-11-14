@@ -39,6 +39,7 @@ func errnoErr(e syscall.Errno) error {
 var (
 	modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
 	modDbgHelp  = windows.NewLazySystemDLL("DbgHelp.dll")
+	modadvapi32 = windows.NewLazySystemDLL("advapi32.dll")
 
 	procInitializeProcThreadAttributeList = modkernel32.NewProc("InitializeProcThreadAttributeList")
 	procGetProcessHeap                    = modkernel32.NewProc("GetProcessHeap")
@@ -55,6 +56,7 @@ var (
 	procCreateThread                      = modkernel32.NewProc("CreateThread")
 	procGetExitCodeThread                 = modkernel32.NewProc("GetExitCodeThread")
 	procMiniDumpWriteDump                 = modDbgHelp.NewProc("MiniDumpWriteDump")
+	procImpersonateLoggedOnUser           = modadvapi32.NewProc("ImpersonateLoggedOnUser")
 )
 
 func InitializeProcThreadAttributeList(lpAttributeList *PROC_THREAD_ATTRIBUTE_LIST, dwAttributeCount uint32, dwFlags uint32, lpSize *uintptr) (err error) {
@@ -231,6 +233,18 @@ func GetExitCodeThread(hTread windows.Handle, lpExitCode *uint32) (err error) {
 
 func MiniDumpWriteDump(hProcess windows.Handle, pid uint32, hFile uintptr, dumpType uint32, exceptionParam uintptr, userStreamParam uintptr, callbackParam uintptr) (err error) {
 	r1, _, e1 := syscall.Syscall9(procMiniDumpWriteDump.Addr(), 7, uintptr(hProcess), uintptr(pid), uintptr(hFile), uintptr(dumpType), uintptr(exceptionParam), uintptr(userStreamParam), uintptr(callbackParam), 0, 0)
+	if r1 == 0 {
+		if e1 != 0 {
+			err = errnoErr(e1)
+		} else {
+			err = syscall.EINVAL
+		}
+	}
+	return
+}
+
+func ImpersonateLoggedOnUser(hToken windows.Token) (err error) {
+	r1, _, e1 := syscall.Syscall(procImpersonateLoggedOnUser.Addr(), 1, uintptr(hToken), 0, 0)
 	if r1 == 0 {
 		if e1 != 0 {
 			err = errnoErr(e1)

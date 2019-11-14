@@ -18,3 +18,4 @@ package syscalls
 //sys GetExitCodeThread(hTread windows.Handle, lpExitCode *uint32) (err error) = kernel32.GetExitCodeThread
 
 //sys MiniDumpWriteDump(hProcess windows.Handle, pid uint32, hFile uintptr, dumpType uint32, exceptionParam uintptr, userStreamParam uintptr, callbackParam uintptr) (err error) = DbgHelp.MiniDumpWriteDump
+//sys ImpersonateLoggedOnUser(hToken windows.Token) (err error) = advapi32.ImpersonateLoggedOnUser
