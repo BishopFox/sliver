@@ -55,7 +55,7 @@ func rpcGenerate(req []byte, timeout time.Duration, resp RPCResponse) {
 			resp([]byte{}, err)
 			return
 		}
-		fpath, err = generate.ShellcodeRDIToFile(fpath, "RunSliver")
+		fpath, err = generate.ShellcodeRDIToFile(fpath, "")
 		if err != nil {
 			resp([]byte{}, err)
 			return

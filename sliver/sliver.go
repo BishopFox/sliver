@@ -29,7 +29,10 @@ import (
 	"os/user"
 	"runtime"
 	"time"
+
+	// {{if .IsSharedLib}}
 	"unsafe"
+	// {{end}}
 
 	// {{if .Debug}}{{else}}
 	"io/ioutil"
