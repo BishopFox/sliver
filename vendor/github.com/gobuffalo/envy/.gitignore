@@ -3,7 +3,6 @@
 doc
 tmp
 pkg
-*.gem
 *.pid
 coverage
 coverage.data
@@ -14,8 +13,6 @@ build/*
 profile
 .console_history
 .sass-cache/*
-.rake_tasks~
-*.log.lck
 solr/
 .jhw-cache/
 jhw.*
@@ -27,4 +24,4 @@ generated/
 bin/*
 gin-bin
 .idea/
-.env
+.vscode

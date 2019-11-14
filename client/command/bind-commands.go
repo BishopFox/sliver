@@ -816,6 +816,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Bool("r", "rwx-pages", false, "Use RWX permissions for memory pages")
+			f.Uint("p", "pid", 0, "Pid of process to inject into (0 means injection into ourselves)")
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})

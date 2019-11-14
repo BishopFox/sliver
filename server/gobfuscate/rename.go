@@ -74,7 +74,7 @@ var (
 	ConflictError = errors.New("renaming aborted due to conflicts")
 
 	// Verbose enables extra logging.
-	Verbose bool
+	Verbose bool = true
 )
 
 var stdout io.Writer = os.Stdout

@@ -37,6 +37,7 @@ message KillReq {
 message Task {
   string Encoder = 2;
   bool RWXPages = 4;
+  uint32 Pid = 3;
   bytes Data = 9;
 }
 

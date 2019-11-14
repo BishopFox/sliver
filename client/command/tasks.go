@@ -50,6 +50,7 @@ func executeShellcode(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "You must provide a path to the shellcode\n")
 		return
 	}
+	pid := ctx.Flags.Uint("pid")
 	shellcodePath := ctx.Args[0]
 	shellcodeBin, err := ioutil.ReadFile(shellcodePath)
 	if err != nil {
@@ -62,6 +63,7 @@ func executeShellcode(ctx *grumble.Context, rpc RPCServer) {
 		Data:     shellcodeBin,
 		SliverID: ActiveSliver.Sliver.ID,
 		RwxPages: ctx.Flags.Bool("rwx-pages"),
+		Pid:      uint32(pid),
 	})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgTask,
