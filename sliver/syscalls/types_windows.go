@@ -4,6 +4,10 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+const (
+	PROC_THREAD_ATTRIBUTE_PARENT_PROCESS = 0x00020000
+)
+
 type StartupInfoEx struct {
 	windows.StartupInfo
 	AttributeList *PROC_THREAD_ATTRIBUTE_LIST

