@@ -1,6 +1,6 @@
 #include <windows.h>
 
-void RunSliver(HINSTANCE, DWORD, LPVOID);
+void RunSliver();
 
 BOOL WINAPI DllMain(
     HINSTANCE _hinstDLL, // handle to DLL module

