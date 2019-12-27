@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"path"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -174,7 +175,8 @@ func procdump(ctx *grumble.Context, rpc RPCServer) {
 	}
 
 	hostname := ActiveSliver.Sliver.Hostname
-	f, err := ioutil.TempFile("", fmt.Sprintf("procdump_%s_%d_*", hostname, pid))
+	temp := path.Base(fmt.Sprintf("procdump_%s_%d_*", hostname, pid))
+	f, err := ioutil.TempFile("", temp)
 	if err != nil {
 		fmt.Printf(Warn+"Error creating temporary file: %v\n", err)
 	}
