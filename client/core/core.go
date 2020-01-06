@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 
 	"github.com/bishopfox/sliver/client/assets"
 	clientpb "github.com/bishopfox/sliver/protobuf/client"
@@ -56,6 +55,7 @@ func (t *tunnels) bindTunnel(SliverID uint32, TunnelID uint64) *tunnel {
 		SliverID: SliverID,
 		ID:       TunnelID,
 		Recv:     make(chan []byte),
+		isOpen:   true,
 	}
 
 	return (*t.tunnels)[TunnelID]
@@ -68,7 +68,6 @@ func (t *tunnels) RecvTunnelData(tunnelData *sliverpb.TunnelData) {
 	tunnel := (*t.tunnels)[tunnelData.TunnelID]
 	if tunnel != nil {
 		(*tunnel).Recv <- tunnelData.Data
-		(*tunnel).RecvData = tunnelData.Data
 	} else {
 		log.Printf("No client tunnel with ID %d", tunnelData.TunnelID)
 	}
@@ -77,18 +76,18 @@ func (t *tunnels) RecvTunnelData(tunnelData *sliverpb.TunnelData) {
 func (t *tunnels) Close(ID uint64) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+	(*t.tunnels)[ID].isOpen = false
 	close((*t.tunnels)[ID].Recv)
 	delete(*t.tunnels, ID)
 }
 
 // tunnel - Duplex data tunnel
 type tunnel struct {
-	server    *SliverServer
-	SliverID  uint32
-	ID        uint64
-	Recv      chan []byte
-	RecvData  []byte
-	ReadIndex int
+	server   *SliverServer
+	SliverID uint32
+	ID       uint64
+	Recv     chan []byte
+	isOpen   bool
 }
 
 type tunnelAddr struct {
@@ -106,6 +105,9 @@ func (a *tunnelAddr) String() string {
 
 func (t *tunnel) Write(data []byte) (n int, err error) {
 	log.Printf("Sending %d bytes on tunnel %d (sliver %d)", len(data), t.ID, t.SliverID)
+	if !t.isOpen {
+		return 0, io.EOF
+	}
 	tunnelData := &sliverpb.TunnelData{
 		SliverID: t.SliverID,
 		TunnelID: t.ID,
@@ -116,29 +118,23 @@ func (t *tunnel) Write(data []byte) (n int, err error) {
 		Type: sliverpb.MsgTunnelData,
 		Data: rawTunnelData,
 	}
-	return len(data), err
+	n = len(data)
+	return
 }
 
 func (t *tunnel) Read(data []byte) (n int, err error) {
 	var buff bytes.Buffer
-	if t.ReadIndex >= len(t.RecvData) {
-		err = fmt.Errorf("read index out of bounds")
-		return
+	if !t.isOpen {
+		return 0, io.EOF
 	}
-	if len(t.RecvData) == 0 {
-		err = io.EOF
-		return
+	select {
+	case msg := <-t.Recv:
+		buff.Write(msg)
+	default:
+		break
 	}
-	for i, b := range t.RecvData[t.ReadIndex:] {
-		if i >= len(data) {
-			break
-		}
-		buff.WriteByte(b)
-		t.ReadIndex++
-	}
-	data = buff.Bytes()
-	n = len(data)
-	return n, err
+	n = copy(data, buff.Bytes())
+	return
 }
 
 func (t *tunnel) Close() error {
@@ -151,10 +147,6 @@ func (t *tunnel) Close() error {
 	}, 30*time.Second)
 	close(t.Recv)
 	return err
-}
-
-func (t *tunnel) LocalAddr() net.Addr {
-
 }
 
 // SliverServer - Server info
