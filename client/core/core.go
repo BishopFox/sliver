@@ -19,10 +19,13 @@ package core
 */
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"log"
+	"net"
 
 	"github.com/bishopfox/sliver/client/assets"
 	clientpb "github.com/bishopfox/sliver/protobuf/client"
@@ -65,6 +68,7 @@ func (t *tunnels) RecvTunnelData(tunnelData *sliverpb.TunnelData) {
 	tunnel := (*t.tunnels)[tunnelData.TunnelID]
 	if tunnel != nil {
 		(*tunnel).Recv <- tunnelData.Data
+		(*tunnel).RecvData = tunnelData.Data
 	} else {
 		log.Printf("No client tunnel with ID %d", tunnelData.TunnelID)
 	}
@@ -79,24 +83,78 @@ func (t *tunnels) Close(ID uint64) {
 
 // tunnel - Duplex data tunnel
 type tunnel struct {
-	server   *SliverServer
-	SliverID uint32
-	ID       uint64
-	Recv     chan []byte
+	server    *SliverServer
+	SliverID  uint32
+	ID        uint64
+	Recv      chan []byte
+	RecvData  []byte
+	ReadIndex int
 }
 
-func (t *tunnel) Send(data []byte) {
+type tunnelAddr struct {
+	network string
+	addr    string
+}
+
+func (a *tunnelAddr) Network() string {
+	return a.network
+}
+
+func (a *tunnelAddr) String() string {
+	return fmt.Sprintf("%s://%s", a.network, a.addr)
+}
+
+func (t *tunnel) Write(data []byte) (n int, err error) {
 	log.Printf("Sending %d bytes on tunnel %d (sliver %d)", len(data), t.ID, t.SliverID)
 	tunnelData := &sliverpb.TunnelData{
 		SliverID: t.SliverID,
 		TunnelID: t.ID,
 		Data:     data,
 	}
-	rawTunnelData, _ := proto.Marshal(tunnelData)
+	rawTunnelData, err := proto.Marshal(tunnelData)
 	t.server.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgTunnelData,
 		Data: rawTunnelData,
 	}
+	return len(data), err
+}
+
+func (t *tunnel) Read(data []byte) (n int, err error) {
+	var buff bytes.Buffer
+	if t.ReadIndex >= len(t.RecvData) {
+		err = fmt.Errorf("read index out of bounds")
+		return
+	}
+	if len(t.RecvData) == 0 {
+		err = io.EOF
+		return
+	}
+	for i, b := range t.RecvData[t.ReadIndex:] {
+		if i >= len(data) {
+			break
+		}
+		buff.WriteByte(b)
+		t.ReadIndex++
+	}
+	data = buff.Bytes()
+	n = len(data)
+	return n, err
+}
+
+func (t *tunnel) Close() error {
+	tunnelClose, err := proto.Marshal(&sliverpb.ShellReq{
+		TunnelID: t.ID,
+	})
+	t.server.RPC(&sliverpb.Envelope{
+		Type: sliverpb.MsgTunnelClose,
+		Data: tunnelClose,
+	}, 30*time.Second)
+	close(t.Recv)
+	return err
+}
+
+func (t *tunnel) LocalAddr() net.Addr {
+
 }
 
 // SliverServer - Server info
