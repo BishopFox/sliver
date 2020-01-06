@@ -59,6 +59,11 @@ func executeShellcode(ctx *grumble.Context, server *core.SliverServer) {
 	shellcodeBin, err := ioutil.ReadFile(shellcodePath)
 	if err != nil {
 		fmt.Printf(Warn+"Error: %s\n", err.Error())
+		return
+	}
+	if pid != 0 && interactive {
+		fmt.Printf(Warn + "Cannot use both `--pid` and `--interactive\n`")
+		return
 	}
 	if interactive {
 		executeInteractive(ctx, `c:\windows\system32\notepad.exe`, shellcodeBin, server)
