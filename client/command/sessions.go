@@ -159,15 +159,10 @@ func kill(ctx *grumble.Context, rpc RPCServer) {
 		SliverID: sliver.ID,
 		Force:    force,
 	})
-	resp := <-rpc(&sliverpb.Envelope{
+	rpc(&sliverpb.Envelope{
 		Type: sliverpb.MsgKill,
 		Data: data,
 	}, 5)
-
-	if !force && resp.Err != "" {
-		fmt.Printf(Warn+"%s\n", resp.Err)
-	} else {
-		fmt.Printf(Info+"Killed %s (%d)\n", sliver.Name, sliver.ID)
-		ActiveSliver.DisableActiveSliver()
-	}
+	fmt.Printf(Info+"Killed %s (%d)\n", sliver.Name, sliver.ID)
+	ActiveSliver.DisableActiveSliver()
 }
