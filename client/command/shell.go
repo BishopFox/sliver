@@ -88,8 +88,6 @@ func runInteractive(shellPath string, noPty bool, server *core.SliverServer) {
 		}
 	}
 
-	// readBuf := make([]byte, 128)
-
 	cleanup := func() {
 		log.Printf("[client] cleanup tunnel %d", tunnel.ID)
 		tunnelClose, _ := proto.Marshal(&sliverpb.ShellReq{
