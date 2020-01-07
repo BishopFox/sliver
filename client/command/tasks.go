@@ -152,9 +152,6 @@ func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte,
 			return
 		}
 	}
-
-	readBuf := make([]byte, 128)
-
 	cleanup := func() {
 		log.Printf("[client] cleanup tunnel %d", tunnel.ID)
 		tunnelClose, _ := proto.Marshal(&sliverpb.ShellReq{
@@ -169,24 +166,25 @@ func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte,
 			terminal.Restore(0, oldState)
 		}
 	}
-
 	go func() {
 		defer cleanup()
-		for data := range tunnel.Recv {
-			log.Printf("[write] %v", string(data))
-			os.Stdout.Write(data)
+		_, err := io.Copy(os.Stdout, tunnel)
+		if err != nil {
+			fmt.Printf(Warn+"error write stdout: %v", err)
+			return
 		}
 	}()
-
 	for {
-		n, err := os.Stdin.Read(readBuf)
+		_, err := io.Copy(tunnel, os.Stdin)
 		if err == io.EOF {
 			break
 		}
-		if err == nil && 0 < n {
-			tunnel.Send(readBuf[:n])
+		if err != nil {
+			fmt.Printf(Warn+"error read stdin: %v", err)
+			break
 		}
 	}
+
 }
 
 func migrate(ctx *grumble.Context, rpc RPCServer) {

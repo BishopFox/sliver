@@ -139,8 +139,8 @@ message TCP { int32 JobID = 1; }
 
 message MTLS { int32 JobID = 1; }
 
-message DNSReq { 
-  repeated string Domains = 1; 
+message DNSReq {
+  repeated string Domains = 1;
   bool Canaries = 2;
 }
 
@@ -260,7 +260,7 @@ message Event {
   Job Job = 3;
   Client Client = 4;
   bytes  Data = 5;
-  
+
   string Err = 9;
 }
 
