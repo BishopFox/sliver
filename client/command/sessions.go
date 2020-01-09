@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	clientpb "github.com/bishopfox/sliver/protobuf/client"
 	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
@@ -52,6 +53,10 @@ func sessions(ctx *grumble.Context, rpc RPCServer) {
 			if err != nil {
 				fmt.Printf(Warn+"Error: %v", err)
 			}
+			fmt.Printf(Info+"Killed %s (%d)\n", sliver.Name, sliver.ID)
+		}
+		if ActiveSliver.Sliver != nil {
+			ActiveSliver.DisableActiveSliver()
 		}
 		return
 	}
@@ -60,6 +65,9 @@ func sessions(ctx *grumble.Context, rpc RPCServer) {
 		err := killSliver(sliver, rpc)
 		if err != nil {
 			fmt.Printf(Warn+"Error: %v", err)
+		}
+		if ActiveSliver.Sliver != nil {
+			ActiveSliver.DisableActiveSliver()
 		}
 		return
 	}
@@ -198,8 +206,6 @@ func killSliver(sliver *clientpb.Sliver, rpc RPCServer) error {
 	rpc(&sliverpb.Envelope{
 		Type: sliverpb.MsgKill,
 		Data: data,
-	}, 5)
-	fmt.Printf(Info+"Killed %s (%d)\n", sliver.Name, sliver.ID)
-	ActiveSliver.DisableActiveSliver()
+	}, 5*time.Second)
 	return nil
 }
