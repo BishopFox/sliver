@@ -103,6 +103,7 @@ const (
 
 	ProcdumpStr         = "procdump"
 	ImpersonateStr      = "impersonate"
+	RunAsStr            = "runas"
 	ElevateStr          = "elevate"
 	GetSystemStr        = "getsystem"
 	ExecuteAssemblyStr  = "execute-assembly"

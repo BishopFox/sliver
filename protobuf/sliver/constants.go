@@ -91,10 +91,12 @@ const (
 	MsgProcessDumpReq
 	// MsgProcessDump - Dump of process)
 	MsgProcessDump
-	// MsgImpersonateReq - Request for process impersonatio
+	// MsgImpersonateReq - Request for process impersonation
 	MsgImpersonateReq
 	// MsgImpersonate - Output of the impersonation command
 	MsgImpersonate
+	// MsgRunAs - Run process as user
+	MsgRunAs
 	// MsgGetSystemReq - Elevate as SYSTEM user
 	MsgGetSystemReq
 	// MsgGetSystem - Response to getsystem request

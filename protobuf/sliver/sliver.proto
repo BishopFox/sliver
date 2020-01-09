@@ -164,14 +164,23 @@ message ProcessDump {
   string Err = 2;
 }
 
-message ImpersonateReq {
+message RunAsReq {
   string Username = 1;
   string Process = 2;
   string Args = 3;
   uint32 SliverID = 9;
 }
 
-message Impersonate { string Output = 1; }
+message RunAs { string Output = 1; }
+
+message ImpersonateReq {
+  string Username = 1;
+  uint32 SliverID = 9;
+}
+
+message Impersonate {
+  string Err = 1;
+}
 
 message GetSystemReq {
   bytes Data = 1;
