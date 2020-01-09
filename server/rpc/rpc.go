@@ -72,6 +72,7 @@ var (
 		// "Req"s directly map to responses
 		sliverpb.MsgPsReq:          rpcPs,
 		sliverpb.MsgKill:           rpcKill,
+		sliverpb.MsgTerminate:      rpcTerminate,
 		sliverpb.MsgProcessDumpReq: rpcProcdump,
 		sliverpb.MsgSpawnDllReq:    rpcSpawnDll,
 

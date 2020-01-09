@@ -46,6 +46,7 @@ var (
 
 		// Generic
 		pb.MsgPsReq:       psHandler,
+		pb.MsgTerminate:   terminateHandler,
 		pb.MsgPing:        pingHandler,
 		pb.MsgLsReq:       dirListHandler,
 		pb.MsgDownloadReq: downloadHandler,

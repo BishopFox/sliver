@@ -59,6 +59,15 @@ message Process {
   string Owner = 4;
 }
 
+message TerminateReq {
+  int32 Pid = 1;
+  uint32 SliverID = 2;
+}
+
+message Terminate {
+  string Err = 1;
+}
+
 message NetInterface {
   int32 Index = 1;
   string Name = 2;

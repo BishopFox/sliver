@@ -79,9 +79,10 @@ const (
 	MsfStr       = "msf"
 	MsfInjectStr = "msf-inject"
 
-	PsStr   = "ps"
-	PingStr = "ping"
-	KillStr = "kill"
+	PsStr        = "ps"
+	PingStr      = "ping"
+	KillStr      = "kill"
+	TerminateStr = "terminate"
 
 	GetPIDStr = "getpid"
 	GetUIDStr = "getuid"

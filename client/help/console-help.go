@@ -60,6 +60,7 @@ var (
 		consts.ExecuteShellcodeStr: executeShellcodeHelp,
 		consts.MigrateStr:          migrateHelp,
 		consts.SideloadStr:         sideloadHelp,
+		consts.TerminateStr:        terminateHelp,
 
 		consts.WebsitesStr: websitesHelp,
 	}
@@ -255,6 +256,10 @@ Add content to a website:
 
 [[.Bold]]--process[[.Normal]] - Process to inject into.
 [[.Bold]]--export[[.Normal]] - Name of the export to call (default: ReflectiveLoader)
+`
+
+	terminateHelp = `[[.Bold]]Command:[[.Normal]] terminate PID
+[[.Bold]]About:[[.Normal]] Kills a remote process designated by PID
 `
 )
 

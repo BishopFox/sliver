@@ -172,6 +172,8 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.SessionsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("i", "interact", "", "interact with a sliver")
+			f.String("k", "kill", "", "Kill the designated session")
+			f.Bool("K", "kill-all", false, "Kill all the sessions")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -891,5 +893,19 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.TerminateStr,
+		Help:      "Kill a process",
+		LongHelp:  help.GetHelpFor(consts.TerminateStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			terminate(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 }
