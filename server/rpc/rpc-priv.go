@@ -72,6 +72,25 @@ func rpcRunAs(req []byte, timeout time.Duration, resp RPCResponse) {
 	resp(data, err)
 }
 
+func rpcRevToSelf(req []byte, timeout time.Duration, resp RPCResponse) {
+	rst := &sliverpb.RevToSelfReq{}
+	err := proto.Unmarshal(req, rst)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	sliver := core.Hive.Sliver(rst.SliverID)
+	if sliver == nil {
+		resp([]byte{}, fmt.Errorf("Could not find sliver"))
+		return
+	}
+	data, _ := proto.Marshal(&sliverpb.RevToSelfReq{
+		SliverID: sliver.ID,
+	})
+	data, err = sliver.Request(sliverpb.MsgRevToSelf, timeout, data)
+	resp(data, err)
+}
+
 func rpcGetSystem(req []byte, timeout time.Duration, resp RPCResponse) {
 	gsReq := &clientpb.GetSystemReq{}
 	err := proto.Unmarshal(req, gsReq)
@@ -105,7 +124,6 @@ func rpcGetSystem(req []byte, timeout time.Duration, resp RPCResponse) {
 
 	data, err = sliver.Request(sliverpb.MsgGetSystemReq, timeout, data)
 	resp(data, err)
-
 }
 
 func rpcElevate(req []byte, timeout time.Duration, resp RPCResponse) {

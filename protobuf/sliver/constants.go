@@ -97,6 +97,8 @@ const (
 	MsgImpersonate
 	// MsgRunAs - Run process as user
 	MsgRunAs
+	// MsgRevToSelf - Revert to self
+	MsgRevToSelf
 	// MsgGetSystemReq - Elevate as SYSTEM user
 	MsgGetSystemReq
 	// MsgGetSystem - Response to getsystem request

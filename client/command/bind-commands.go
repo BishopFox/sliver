@@ -771,6 +771,20 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
+		Name:      consts.RevToSelfStr,
+		Help:      "Revert to self: lose stolen Windows token",
+		LongHelp:  help.GetHelpFor(consts.RevToSelfStr),
+		AllowArgs: false,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			revToSelf(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
 		Name:     consts.ElevateStr,
 		Help:     "Spawns a new sliver session as an elevated process (UAC bypass/Windows Only)",
 		LongHelp: help.GetHelpFor(consts.ElevateStr),

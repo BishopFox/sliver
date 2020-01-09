@@ -28,6 +28,7 @@ import (
 	"github.com/bishopfox/sliver/sliver/taskrunner"
 
 	"github.com/golang/protobuf/proto"
+	"golang.org/x/sys/windows"
 )
 
 var (
@@ -37,7 +38,8 @@ var (
 		pb.MsgRemoteTask:         remoteTaskHandler,
 		pb.MsgProcessDumpReq:     dumpHandler,
 		pb.MsgImpersonateReq:     impersonateHandler,
-		pb.MsgRunAs:     		  runAsHandler,
+		pb.MsgRevToSelf:     	  revToSelfHandler,
+		pb.MsgRunAs:              runAsHandler,
 		pb.MsgGetSystemReq:       getsystemHandler,
 		pb.MsgElevateReq:         elevateHandler,
 		pb.MsgExecuteAssemblyReq: executeAssemblyHandler,
@@ -90,6 +92,7 @@ func impersonateHandler(data []byte, resp RPCResponse) {
 }
 
 func runAsHandler(data []byte, resp RPCResponse) {
+	var errStr string
 	runAsReq := &pb.RunAsReq{}
 	err := proto.Unmarshal(data, runAsReq)
 	if err != nil {
@@ -100,13 +103,33 @@ func runAsHandler(data []byte, resp RPCResponse) {
 	}
 	out, err := priv.RunProcessAsUser(runAsReq.Username, runAsReq.Process, runAsReq.Args)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		errStr = err.Error()
 	}
 	runAs := &pb.RunAs{
 		Output: out,
+		Err:    errStr,
 	}
 	data, err = proto.Marshal(runAs)
+	resp(data, err)
+}
+
+func revToSelfHandler(_ []byte, resp RPCResponse) {
+	var errStr string
+	//{{if .Debug}}
+	log.Println("Calling revToSelf...")
+	//{{end}}
+	taskrunner.CurrentToken = windows.Token(0)
+	err := priv.RevertToSelf()
+	if err != nil {
+		errStr = err.Error()
+	}
+	revToSelfResp := &pb.RevToSelf{
+		Err: errStr,
+	}
+	//{{if .Debug}}
+	log.Println("revToSelf done!")
+	//{{end}}
+	data, err := proto.Marshal(revToSelfResp)
 	resp(data, err)
 }
 
