@@ -43,12 +43,51 @@ func rpcImpersonate(req []byte, timeout time.Duration, resp RPCResponse) {
 		return
 	}
 	data, _ := proto.Marshal(&sliverpb.ImpersonateReq{
-		Process:  impersonateReq.Process,
 		Username: impersonateReq.Username,
-		Args:     impersonateReq.Args,
 	})
 
 	data, err = sliver.Request(sliverpb.MsgImpersonateReq, timeout, data)
+	resp(data, err)
+}
+
+func rpcRunAs(req []byte, timeout time.Duration, resp RPCResponse) {
+	runAsReq := &sliverpb.RunAsReq{}
+	err := proto.Unmarshal(req, runAsReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	sliver := core.Hive.Sliver(runAsReq.SliverID)
+	if sliver == nil {
+		resp([]byte{}, fmt.Errorf("Could not find sliver"))
+		return
+	}
+	data, _ := proto.Marshal(&sliverpb.RunAsReq{
+		Process:  runAsReq.Process,
+		Username: runAsReq.Username,
+		Args:     runAsReq.Args,
+	})
+
+	data, err = sliver.Request(sliverpb.MsgRunAs, timeout, data)
+	resp(data, err)
+}
+
+func rpcRevToSelf(req []byte, timeout time.Duration, resp RPCResponse) {
+	rst := &sliverpb.RevToSelfReq{}
+	err := proto.Unmarshal(req, rst)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	sliver := core.Hive.Sliver(rst.SliverID)
+	if sliver == nil {
+		resp([]byte{}, fmt.Errorf("Could not find sliver"))
+		return
+	}
+	data, _ := proto.Marshal(&sliverpb.RevToSelfReq{
+		SliverID: sliver.ID,
+	})
+	data, err = sliver.Request(sliverpb.MsgRevToSelf, timeout, data)
 	resp(data, err)
 }
 
@@ -85,7 +124,6 @@ func rpcGetSystem(req []byte, timeout time.Duration, resp RPCResponse) {
 
 	data, err = sliver.Request(sliverpb.MsgGetSystemReq, timeout, data)
 	resp(data, err)
-
 }
 
 func rpcElevate(req []byte, timeout time.Duration, resp RPCResponse) {

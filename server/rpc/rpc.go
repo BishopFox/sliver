@@ -78,6 +78,8 @@ var (
 
 		sliverpb.MsgElevate:     rpcElevate,
 		sliverpb.MsgImpersonate: rpcImpersonate,
+		sliverpb.MsgRunAs:       rpcRunAs,
+		sliverpb.MsgRevToSelf:   rpcRevToSelf,
 
 		sliverpb.MsgLsReq:       rpcLs,
 		sliverpb.MsgRmReq:       rpcRm,
