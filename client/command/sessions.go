@@ -193,8 +193,8 @@ func kill(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"Error: %v", err)
 		return
 	}
-	ActiveSliver.DisableActiveSliver()
 	fmt.Printf(Info+"Killed %s (%d)\n", ActiveSliver.Sliver.Name, ActiveSliver.Sliver.ID)
+	ActiveSliver.DisableActiveSliver()
 }
 
 func killSliver(sliver *clientpb.Sliver, rpc RPCServer) error {
