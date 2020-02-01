@@ -432,7 +432,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		var sliverCodePath string
 		dirName := filepath.Dir(boxName)
 		var fileName string
-		if !config.IsSharedLib && config.GOOS != "windows" && boxName == "dllmain.go" {
+		if (!config.IsSharedLib && boxName == "dllmain.go") || config.GOOS != "windows" {
 			continue
 		}
 		if config.Debug || strings.HasSuffix(boxName, ".c") || strings.HasSuffix(boxName, ".h") {
@@ -483,7 +483,8 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		obfgoPath := path.Join(projectGoPathDir, "obfuscated")
 		pkgName := "github.com/bishopfox/sliver"
 		obfSymbols := config.ObfuscateSymbols
-		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, randomObfuscationKey(), pkgName, obfgoPath, obfSymbols)
+		obfKey := randomObfuscationKey()
+		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, obfKey, pkgName, obfgoPath, obfSymbols)
 		if err != nil {
 			buildLog.Infof("Error while obfuscating sliver %v", err)
 			return "", err
