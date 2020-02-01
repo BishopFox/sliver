@@ -140,7 +140,7 @@ func generateMsfStage(config *clientpb.EggConfig) ([]byte, error) {
 		LPort:    uint16(config.Port),
 		Arch:     arch,
 		Format:   config.Format,
-		BadChars: []string{"00", "0a"}, //TODO: make this configurable
+		BadChars: []string{"\\x0a", "\\x00"}, //TODO: make this configurable
 		Luri:     uri,
 	}
 	stage, err := msf.VenomPayload(venomConfig)

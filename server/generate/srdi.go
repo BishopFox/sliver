@@ -741,7 +741,6 @@ package generate
 
 import (
 	"encoding/binary"
-	"flag"
 	"io/ioutil"
 	"math"
 	"os"
@@ -768,7 +767,6 @@ func ShellcodeRDI(dllPath string, functionName string, userdata string) (shellco
 	// handle command line arguments, -h or -help shows the menu
 	userDataStr := userdata
 	clearHeader := true
-	flag.Parse()
 
 	dllBytes, err := ioutil.ReadFile(dllPath)
 	if err != nil {
@@ -798,6 +796,7 @@ func ShellcodeRDI(dllPath string, functionName string, userdata string) (shellco
 
 }
 
+// ShellcodeRDIFromBytes generate a sRDI from a byte array
 func ShellcodeRDIFromBytes(data []byte, functionName string, arguments string) (shellcode []byte, err error) {
 
 	clearHeader := true

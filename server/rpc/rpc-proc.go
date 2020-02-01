@@ -65,3 +65,20 @@ func rpcProcdump(req []byte, timeout time.Duration, resp RPCResponse) {
 	data, err = sliver.Request(sliverpb.MsgProcessDumpReq, timeout, data)
 	resp(data, err)
 }
+
+func rpcTerminate(req []byte, timeout time.Duration, resp RPCResponse) {
+	terminateReq := &sliverpb.TerminateReq{}
+	err := proto.Unmarshal(req, terminateReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	sliver := (*core.Hive.Slivers)[terminateReq.SliverID]
+	if sliver == nil {
+		resp([]byte{}, err)
+		return
+	}
+	data, _ := proto.Marshal(&sliverpb.TerminateReq{Pid: terminateReq.GetPid()})
+	data, err = sliver.Request(sliverpb.MsgTerminate, timeout, data)
+	resp(data, err)
+}

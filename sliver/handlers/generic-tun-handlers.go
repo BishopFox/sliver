@@ -131,8 +131,10 @@ func shellReqHandler(envelope *pb.Envelope, connection *transports.Connection) {
 				return
 			}
 			// {{if .Debug}}
-			log.Printf("[shell] stdout %d bytes on tunnel %d", n, tunnel.ID)
-			log.Printf("[shell] %#v", string(readBuf[:n]))
+			if n > 0 {
+				log.Printf("[shell] stdout %d bytes on tunnel %d", n, tunnel.ID)
+				log.Printf("[shell] %#v", string(readBuf[:n]))
+			}
 			// {{end}}
 			data, err := proto.Marshal(&pb.TunnelData{
 				TunnelID: tunnel.ID,

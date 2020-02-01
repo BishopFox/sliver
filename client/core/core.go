@@ -19,9 +19,11 @@ package core
 */
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"log"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -53,6 +55,7 @@ func (t *tunnels) bindTunnel(SliverID uint32, TunnelID uint64) *tunnel {
 		SliverID: SliverID,
 		ID:       TunnelID,
 		Recv:     make(chan []byte),
+		isOpen:   true,
 	}
 
 	return (*t.tunnels)[TunnelID]
@@ -73,6 +76,7 @@ func (t *tunnels) RecvTunnelData(tunnelData *sliverpb.TunnelData) {
 func (t *tunnels) Close(ID uint64) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+	(*t.tunnels)[ID].isOpen = false
 	close((*t.tunnels)[ID].Recv)
 	delete(*t.tunnels, ID)
 }
@@ -83,20 +87,66 @@ type tunnel struct {
 	SliverID uint32
 	ID       uint64
 	Recv     chan []byte
+	isOpen   bool
 }
 
-func (t *tunnel) Send(data []byte) {
+type tunnelAddr struct {
+	network string
+	addr    string
+}
+
+func (a *tunnelAddr) Network() string {
+	return a.network
+}
+
+func (a *tunnelAddr) String() string {
+	return fmt.Sprintf("%s://%s", a.network, a.addr)
+}
+
+func (t *tunnel) Write(data []byte) (n int, err error) {
 	log.Printf("Sending %d bytes on tunnel %d (sliver %d)", len(data), t.ID, t.SliverID)
+	if !t.isOpen {
+		return 0, io.EOF
+	}
 	tunnelData := &sliverpb.TunnelData{
 		SliverID: t.SliverID,
 		TunnelID: t.ID,
 		Data:     data,
 	}
-	rawTunnelData, _ := proto.Marshal(tunnelData)
+	rawTunnelData, err := proto.Marshal(tunnelData)
 	t.server.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgTunnelData,
 		Data: rawTunnelData,
 	}
+	n = len(data)
+	return
+}
+
+func (t *tunnel) Read(data []byte) (n int, err error) {
+	var buff bytes.Buffer
+	if !t.isOpen {
+		return 0, io.EOF
+	}
+	select {
+	case msg := <-t.Recv:
+		buff.Write(msg)
+	default:
+		break
+	}
+	n = copy(data, buff.Bytes())
+	return
+}
+
+func (t *tunnel) Close() error {
+	tunnelClose, err := proto.Marshal(&sliverpb.ShellReq{
+		TunnelID: t.ID,
+	})
+	t.server.RPC(&sliverpb.Envelope{
+		Type: sliverpb.MsgTunnelClose,
+		Data: tunnelClose,
+	}, 30*time.Second)
+	close(t.Recv)
+	return err
 }
 
 // SliverServer - Server info

@@ -20,7 +20,7 @@
 # Creates the static go asset archives
 # You'll need wget, tar, and unzip commands
 
-GO_VER="1.13.3"
+GO_VER="1.13.7"
 GO_ARCH="amd64"
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
 
@@ -54,8 +54,8 @@ cd $WORK_DIR
 mkdir -p $REPO_DIR/assets/
 
 # --- Darwin --- 
-wget https://dl.google.com/go/go$GO_VER.darwin-$GO_ARCH.tar.gz
-tar xvf go$GO_VER.darwin-$GO_ARCH.tar.gz
+wget -O go$GO_VER.darwin-amd64.tar.gz https://dl.google.com/go/go$GO_VER.darwin-$GO_ARCH.tar.gz
+tar xvf go$GO_VER.darwin-amd64.tar.gz
 
 cd go
 rm -rf $BLOAT_FILES
@@ -77,8 +77,8 @@ rm -f darwin-go.zip go$GO_VER.darwin-$GO_ARCH.tar.gz
 
 
 # --- Linux --- 
-wget https://dl.google.com/go/go$GO_VER.linux-$GO_ARCH.tar.gz
-tar xvf go$GO_VER.linux-$GO_ARCH.tar.gz
+wget -O go$GO_VER.linux-amd64.tar.gz https://dl.google.com/go/go$GO_VER.linux-$GO_ARCH.tar.gz
+tar xvf go$GO_VER.linux-amd64.tar.gz
 cd go
 rm -rf $BLOAT_FILES
 rm -rf ./src
@@ -93,8 +93,8 @@ rm -rf ./go
 rm -f linux-go.zip go$GO_VER.linux-$GO_ARCH.tar.gz
 
 # --- Windows --- 
-wget https://dl.google.com/go/go$GO_VER.windows-$GO_ARCH.zip
-unzip go$GO_VER.windows-$GO_ARCH.zip
+wget -O go$GO_VER.windows-amd64.zip https://dl.google.com/go/go$GO_VER.windows-$GO_ARCH.zip
+unzip go$GO_VER.windows-amd64.zip
 cd go
 rm -rf $BLOAT_FILES
 rm -rf ./src
@@ -115,14 +115,14 @@ echo "-----------------------------------------------------------------"
 cd $WORK_DIR
 
 PROTOBUF_COMMIT=347cf4a86c1cb8d262994d8ef5924d4576c5b331
-wget https://github.com/golang/protobuf/archive/$PROTOBUF_COMMIT.zip
+wget -O $PROTOBUF_COMMIT.zip https://github.com/golang/protobuf/archive/$PROTOBUF_COMMIT.zip
 unzip $PROTOBUF_COMMIT.zip
 rm -f $PROTOBUF_COMMIT.zip
 mv protobuf-$PROTOBUF_COMMIT protobuf
 zip -r protobuf.zip ./protobuf
 cp -vv protobuf.zip $REPO_DIR/assets/protobuf.zip
 
-wget https://go.googlesource.com/sys/+archive/master.tar.gz
+wget -O master.tar.gz https://go.googlesource.com/sys/+archive/master.tar.gz
 mkdir $WORK_DIR/sys
 cd $WORK_DIR/sys
 tar xfv ../master.tar.gz

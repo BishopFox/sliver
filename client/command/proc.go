@@ -22,6 +22,8 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"path"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -174,12 +176,49 @@ func procdump(ctx *grumble.Context, rpc RPCServer) {
 	}
 
 	hostname := ActiveSliver.Sliver.Hostname
-	f, err := ioutil.TempFile("", fmt.Sprintf("procdump_%s_%d_*", hostname, pid))
+	temp := path.Base(fmt.Sprintf("procdump_%s_%d_*", hostname, pid))
+	f, err := ioutil.TempFile("", temp)
 	if err != nil {
 		fmt.Printf(Warn+"Error creating temporary file: %v\n", err)
 	}
 	f.Write(procDump.GetData())
 	fmt.Printf(Info+"Process dump stored in %s\n", f.Name())
+}
+
+func terminate(ctx *grumble.Context, rpc RPCServer) {
+	if ActiveSliver.Sliver == nil {
+		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+		return
+	}
+	if len(ctx.Args) != 1 {
+		fmt.Printf(Warn + "Please provide a PID\n")
+		return
+	}
+	pidStr := ctx.Args[0]
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v\n", err)
+		return
+	}
+	data, _ := proto.Marshal(&sliverpb.TerminateReq{
+		SliverID: ActiveSliver.Sliver.ID,
+		Pid:      int32(pid),
+	})
+	resp := <-rpc(&sliverpb.Envelope{
+		Type: sliverpb.MsgTerminate,
+		Data: data,
+	}, defaultTimeout)
+	termResp := &sliverpb.Terminate{}
+	err = proto.Unmarshal(resp.Data, termResp)
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v\n", err)
+		return
+	}
+	if termResp.Err != "" {
+		fmt.Printf(Warn+"Error: %s\n", termResp.Err)
+		return
+	}
+	fmt.Printf(Info+"Process %d has been terminated\n", pid)
 }
 
 func getPIDByName(name string, rpc RPCServer) int {

@@ -79,9 +79,10 @@ const (
 	MsfStr       = "msf"
 	MsfInjectStr = "msf-inject"
 
-	PsStr   = "ps"
-	PingStr = "ping"
-	KillStr = "kill"
+	PsStr        = "ps"
+	PingStr      = "ping"
+	KillStr      = "kill"
+	TerminateStr = "terminate"
 
 	GetPIDStr = "getpid"
 	GetUIDStr = "getuid"
@@ -103,8 +104,10 @@ const (
 
 	ProcdumpStr         = "procdump"
 	ImpersonateStr      = "impersonate"
+	RunAsStr            = "runas"
 	ElevateStr          = "elevate"
 	GetSystemStr        = "getsystem"
+	RevToSelfStr        = "rev2self"
 	ExecuteAssemblyStr  = "execute-assembly"
 	ExecuteShellcodeStr = "execute-shellcode"
 	MigrateStr          = "migrate"

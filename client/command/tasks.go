@@ -50,6 +50,7 @@ func executeShellcode(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "You must provide a path to the shellcode\n")
 		return
 	}
+	pid := ctx.Flags.Uint("pid")
 	shellcodePath := ctx.Args[0]
 	shellcodeBin, err := ioutil.ReadFile(shellcodePath)
 	if err != nil {
@@ -62,6 +63,7 @@ func executeShellcode(ctx *grumble.Context, rpc RPCServer) {
 		Data:     shellcodeBin,
 		SliverID: ActiveSliver.Sliver.ID,
 		RwxPages: ctx.Flags.Bool("rwx-pages"),
+		Pid:      uint32(pid),
 	})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: clientpb.MsgTask,
@@ -191,12 +193,12 @@ func sideloadDll(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	var args []string
+	var args string
 	if len(ctx.Args) < 2 {
 		fmt.Printf(Warn + "See `help sideload` for usage.")
 		return
-	} else if len(ctx.Args) > 3 {
-		args = append(args, ctx.Args[2:]...)
+	} else if len(ctx.Args) > 2 {
+		args = ctx.Args[2]
 	}
 
 	binPath := ctx.Args[0]
@@ -214,7 +216,7 @@ func sideloadDll(ctx *grumble.Context, rpc RPCServer) {
 	go spin.Until(fmt.Sprintf("Sideloading %s ...", binPath), ctrl)
 	data, _ := proto.Marshal(&clientpb.SideloadReq{
 		Data:       binData,
-		Args:       strings.Join(args, " "),
+		Args:       args,
 		ProcName:   processName,
 		EntryPoint: entryPoint,
 		SliverID:   ActiveSliver.Sliver.ID,

@@ -67,11 +67,27 @@ type Closer interface {
 	//
 	// Implements the io.Closer interface.
 	//
-	// This method returns always the close error, regardless of how often
-	// it gets called. Close blocks, until all close functions are done,
-	// no matter which goroutine called this method.
+	// This method always returns the close error,
+	// regardless of how often it gets called.
+	//
+	// The closing order looks like this:
+	// 1: the closing chan is closed.
+	// 2: the OnClosing funcs are executed.
+	// 3: each of the closer's children is closed.
+	// 4: it waits for the wait group.
+	// 5: the OnClose funcs are executed.
+	// 6: the closed chan is closed.
+	// 7: the parent is closed, if it has one.
+	//
+	// Close blocks, until all steps of the closing order
+	// have been done.
+	// No matter which goroutine called this method.
 	// Returns a hashicorp multierror.
 	Close() error
+
+	// Close_ is a convenience version of Close(), for use in defer
+	// where the error is not of interest.
+	Close_()
 
 	// CloseAndDone performs the same operation as Close(), but decrements
 	// the closer's wait group by one beforehand.
@@ -79,13 +95,19 @@ type Closer interface {
 	// calling AddWaitGroup() results in a panic.
 	CloseAndDone() error
 
+	// CloseAndDone_ is a convenience version of CloseAndDone(), for use in
+	// defer where the error is not of interest.
+	CloseAndDone_()
+
 	// ClosedChan returns a channel, which is closed as
 	// soon as the closer is completely closed.
+	// See Close() for the position in the closing order.
 	ClosedChan() <-chan struct{}
 
 	// CloserAddWait adds the given delta to the closer's
 	// wait group. Useful to wait for routines associated
 	// with this closer to gracefully shutdown.
+	// See Close() for the position in the closing order.
 	CloserAddWait(delta int)
 
 	// CloserDone decrements the closer's wait group by one.
@@ -96,16 +118,19 @@ type Closer interface {
 	// CloserOneWay creates a new child closer that has a one-way relationship
 	// with the current closer. This means that the child is closed whenever
 	// the parent closes, but not vice versa.
-	CloserOneWay(f ...CloseFunc) Closer
+	// See Close() for the position in the closing order.
+	CloserOneWay() Closer
 
 	// CloserTwoWay creates a new child closer that has a two-way relationship
 	// with the current closer. This means that the child is closed whenever
 	// the parent closes and vice versa.
-	CloserTwoWay(f ...CloseFunc) Closer
+	// See Close() for the position in the closing order.
+	CloserTwoWay() Closer
 
 	// ClosingChan returns a channel, which is closed as
 	// soon as the closer is about to close.
 	// Remains closed, once ClosedChan() has also been closed.
+	// See Close() for the position in the closing order.
 	ClosingChan() <-chan struct{}
 
 	// IsClosed returns a boolean indicating
@@ -117,10 +142,19 @@ type Closer interface {
 	// Also returns true, if IsClosed() returns true.
 	IsClosing() bool
 
-	// Calls the close function on close.
-	// Errors are appended to the Close() multi error.
+	// OnClose adds the given CloseFuncs to the closer.
+	// Their errors are appended to the Close() multi error.
 	// Close functions are called in LIFO order.
+	// See Close() for their position in the closing order.
 	OnClose(f ...CloseFunc)
+
+	// OnClosing adds the given CloseFuncs to the closer.
+	// Their errors are appended to the Close() multi error.
+	// Closing functions are called in LIFO order.
+	// It is guaranteed that all closing funcs are executed before
+	// any close funcs.
+	// See Close() for their position in the closing order.
+	OnClosing(f ...CloseFunc)
 }
 
 //######################//
@@ -144,9 +178,11 @@ type closer struct {
 	closeErr error
 
 	// Synchronises the access to the following properties.
-	mutex sync.Mutex
+	mx sync.Mutex
 	// The close funcs that are executed when this closer closes.
-	funcs []CloseFunc
+	closeFuncs []CloseFunc
+	// The closing funcs that are executed when this closer closes.
+	closingFuncs []CloseFunc
 	// The parent of this closer. May be nil.
 	parent *closer
 	// The closer children that this closer spawned.
@@ -165,75 +201,71 @@ type closer struct {
 // New creates a new closer.
 // Optional pass functions which are called only once during close.
 // Close function are called in LIFO order.
-func New(f ...CloseFunc) Closer {
-	return newCloser(f...)
+func New() Closer {
+	return newCloser()
 }
 
 // Implements the Closer interface.
 func (c *closer) Close() error {
 	// Mutex is not unlocked on defer! Therefore, be cautious when adding
 	// new control flow statements like return.
-	c.mutex.Lock()
+	c.mx.Lock()
 
 	// If the closer is already closing, just return the error.
 	if c.IsClosing() {
-		c.mutex.Unlock()
+		c.mx.Unlock()
 		return c.closeErr
 	}
 
 	// Close the closing channel to signal that this closer is about to close now.
 	close(c.closingChan)
 
+	// Execute all closing funcs of this closer.
+	c.closeErr = c.execCloseFuncs(c.closingFuncs)
+	// Delete them, to free resources.
+	c.closingFuncs = nil
+
 	// Close all children.
 	for _, child := range c.children {
-		_ = child.Close()
+		child.Close_()
 	}
 
 	// Wait, until all dependencies of this closer have closed.
 	c.wg.Wait()
 
 	// Execute all close funcs of this closer.
-	// Batch errors together.
-	var mErr *multierror.Error
-
-	// Call in LIFO order. Append the errors.
-	for i := len(c.funcs) - 1; i >= 0; i-- {
-		if err := c.funcs[i](); err != nil {
-			mErr = multierror.Append(mErr, err)
-		}
-	}
-	c.funcs = nil
-
-	if mErr != nil {
-		// The default multiCloser error formatting uses too much space.
-		mErr.ErrorFormat = func(errors []error) string {
-			str := fmt.Sprintf("%v close errors occurred:", len(errors))
-			for _, err := range errors {
-				str += "\n- " + err.Error()
-			}
-			return str
-		}
-		c.closeErr = mErr
-	}
+	c.closeErr = c.execCloseFuncs(c.closeFuncs)
+	// Delete them, to free resources.
+	c.closeFuncs = nil
 
 	// Close the closed channel to signal that this closer is closed now.
 	close(c.closedChan)
 
-	c.mutex.Unlock()
+	c.mx.Unlock()
 
 	// If this is a twoWay closer, close the parent now as well,
-	// but only if it not closing already!
+	// but only if it is not closing already!
 	if c.twoWay && c.parent != nil && !c.parent.IsClosing() {
-		_ = c.parent.Close()
+		c.parent.Close_()
 	}
 
 	return c.closeErr
 }
 
 // Implements the Closer interface.
+func (c *closer) Close_() {
+	_ = c.Close()
+}
+
+// Implements the Closer interface.
 func (c *closer) CloseAndDone() error {
 	c.wg.Done()
 	return c.Close()
+}
+
+// Implements the Closer interface.
+func (c *closer) CloseAndDone_() {
+	_ = c.CloseAndDone()
 }
 
 // Implements the Closer interface.
@@ -252,13 +284,13 @@ func (c *closer) CloserDone() {
 }
 
 // Implements the Closer interface.
-func (c *closer) CloserOneWay(f ...CloseFunc) Closer {
-	return c.addChild(false, f...)
+func (c *closer) CloserOneWay() Closer {
+	return c.addChild(false)
 }
 
 // Implements the Closer interface.
-func (c *closer) CloserTwoWay(f ...CloseFunc) Closer {
-	return c.addChild(true, f...)
+func (c *closer) CloserTwoWay() Closer {
+	return c.addChild(true)
 }
 
 // Implements the Closer interface.
@@ -288,9 +320,16 @@ func (c *closer) IsClosing() bool {
 
 // Implements the Closer interface.
 func (c *closer) OnClose(f ...CloseFunc) {
-	c.mutex.Lock()
-	c.funcs = append(c.funcs, f...)
-	c.mutex.Unlock()
+	c.mx.Lock()
+	c.closeFuncs = append(c.closeFuncs, f...)
+	c.mx.Unlock()
+}
+
+// Implements the Closer interface.
+func (c *closer) OnClosing(f ...CloseFunc) {
+	c.mx.Lock()
+	c.closingFuncs = append(c.closingFuncs, f...)
+	c.mx.Unlock()
 }
 
 //###############//
@@ -298,27 +337,75 @@ func (c *closer) OnClose(f ...CloseFunc) {
 //###############//
 
 // newCloser creates a new closer with the given close funcs.
-func newCloser(f ...CloseFunc) *closer {
+func newCloser() *closer {
 	return &closer{
 		closingChan: make(chan struct{}),
 		closedChan:  make(chan struct{}),
-		funcs:       f,
 	}
 }
 
-// addChild creates a new closer with the given close funcs, and
-// adds it as either a one-way or two-way child to this closer.
-func (c *closer) addChild(twoWay bool, f ...CloseFunc) *closer {
+// addChild creates a new closer and adds it as either
+// a one-way or two-way child to this closer.
+func (c *closer) addChild(twoWay bool) *closer {
 	// Create a new closer and set the current closer as its parent.
 	// Also set the twoWay flag.
-	child := newCloser(f...)
+	child := newCloser()
 	child.parent = c
 	child.twoWay = twoWay
 
-	// Add the new closer to the current closer's children.
-	c.mutex.Lock()
-	c.children = append(c.children, child)
-	c.mutex.Unlock()
+	if twoWay {
+		// Add the twoWay closer to the current closer's children.
+		c.mx.Lock()
+		c.children = append(c.children, child)
+		c.mx.Unlock()
+	} else {
+		// Close oneWay closer in a new routine.
+		c.CloserAddWait(1)
+		go func() {
+			defer c.CloserDone()
+			select {
+			case <-c.ClosingChan():
+			case <-child.ClosingChan():
+			}
+			child.Close_()
+		}()
+	}
 
 	return child
+}
+
+// execCloseFuncs executes the given close funcs and appends them
+// to the closer's closeErr, which is a hashicorp.multiError.
+// The error is then returned.
+func (c *closer) execCloseFuncs(f []CloseFunc) error {
+	// Batch errors together.
+	var mErr *multierror.Error
+
+	// If an error is already set, append the next errors to it.
+	if c.closeErr != nil {
+		mErr = multierror.Append(mErr, c.closeErr)
+	}
+
+	// Call in LIFO order. Append the errors.
+	for i := len(f) - 1; i >= 0; i-- {
+		if err := f[i](); err != nil {
+			mErr = multierror.Append(mErr, err)
+		}
+	}
+
+	// If no error is available, return.
+	if mErr == nil {
+		return nil
+	}
+
+	// The default multiCloser error formatting uses too much space.
+	mErr.ErrorFormat = func(errors []error) string {
+		str := fmt.Sprintf("%v close errors occurred:", len(errors))
+		for _, err := range errors {
+			str += "\n- " + err.Error()
+		}
+		return str
+	}
+
+	return mErr
 }

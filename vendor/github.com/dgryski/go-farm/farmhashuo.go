@@ -114,7 +114,7 @@ func Hash64WithSeed(s []byte, seed uint64) uint64 {
 }
 
 // Hash64 hashes a byte slice and returns a uint64 hash value
-func Hash64(s []byte) uint64 {
+func uoHash64(s []byte) uint64 {
 	if len(s) <= 64 {
 		return naHash64(s)
 	}

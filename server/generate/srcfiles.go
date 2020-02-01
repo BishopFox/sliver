@@ -27,6 +27,15 @@ var (
 	srcFiles = []string{
 		"constants/constants.go",
 
+		"evasion/evasion.go",
+		"evasion/evasion_darwin.go",
+		"evasion/evasion_linux.go",
+		"evasion/evasion_windows.go",
+		// C files for DLL
+		"dllmain.go",
+		"dllmain.h",
+		"dllmain.c",
+
 		"handlers/generic-rpc-handlers.go",
 		"handlers/generic-tun-handlers.go",
 		"handlers/special-handlers.go",
@@ -82,6 +91,11 @@ var (
 
 		"priv/priv.go",
 		"priv/priv_windows.go",
+
+		"syscalls/syscalls.go",
+		"syscalls/syscalls_windows.go",
+		"syscalls/types_windows.go",
+		"syscalls/zsyscalls_windows.go",
 
 		"transports/crypto.go",
 		"transports/tcp-mtls.go",

@@ -37,6 +37,7 @@ message KillReq {
 message Task {
   string Encoder = 2;
   bool RWXPages = 4;
+  uint32 Pid = 3;
   bytes Data = 9;
 }
 
@@ -56,6 +57,15 @@ message Process {
   int32 Ppid = 2;
   string Executable = 3;
   string Owner = 4;
+}
+
+message TerminateReq {
+  int32 Pid = 1;
+  uint32 SliverID = 2;
+}
+
+message Terminate {
+  string Err = 1;
 }
 
 message NetInterface {
@@ -163,14 +173,34 @@ message ProcessDump {
   string Err = 2;
 }
 
-message ImpersonateReq {
+message RunAsReq {
   string Username = 1;
   string Process = 2;
   string Args = 3;
   uint32 SliverID = 9;
 }
 
-message Impersonate { string Output = 1; }
+message RunAs {
+ string Output = 1;
+ string Err = 2;
+}
+
+message ImpersonateReq {
+  string Username = 1;
+  uint32 SliverID = 9;
+}
+
+message Impersonate {
+  string Err = 1;
+}
+
+message RevToSelfReq {
+  uint32 SliverID = 9;
+}
+
+message RevToSelf {
+  string Err = 1;
+}
 
 message GetSystemReq {
   bytes Data = 1;

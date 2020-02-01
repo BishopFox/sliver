@@ -432,7 +432,10 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		var sliverCodePath string
 		dirName := filepath.Dir(boxName)
 		var fileName string
-		if config.Debug {
+		if !config.IsSharedLib && config.GOOS != "windows" && boxName == "dllmain.go" {
+			continue
+		}
+		if config.Debug || strings.HasSuffix(boxName, ".c") || strings.HasSuffix(boxName, ".h") {
 			fileName = filepath.Base(boxName)
 		} else {
 			fileName = fmt.Sprintf("s%d%s", index, suffix)

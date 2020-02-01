@@ -31,7 +31,7 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcLocalTask(req []byte, timeout time.Duration, resp RPCResponse) {
+func rpcTask(req []byte, timeout time.Duration, resp RPCResponse) {
 	taskReq := &clientpb.TaskReq{}
 	err := proto.Unmarshal(req, taskReq)
 	if err != nil {
@@ -43,6 +43,7 @@ func rpcLocalTask(req []byte, timeout time.Duration, resp RPCResponse) {
 		Encoder:  "raw",
 		Data:     taskReq.Data,
 		RWXPages: taskReq.RwxPages,
+		Pid:      taskReq.Pid,
 	})
 	data, err = sliver.Request(sliverpb.MsgTask, timeout, data)
 	resp(data, err)
@@ -63,7 +64,7 @@ func rpcMigrate(req []byte, timeout time.Duration, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	shellcode, err := generate.ShellcodeRDI(dllPath, "RunSliver", "")
+	shellcode, err := generate.ShellcodeRDI(dllPath, "", "")
 	if err != nil {
 		resp([]byte{}, err)
 		return
