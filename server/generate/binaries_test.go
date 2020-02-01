@@ -165,7 +165,7 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 	config := &SliverConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-
+	
 		C2: []SliverC2{
 			SliverC2{URL: "mtls://1.example.com"},
 			SliverC2{Priority: 2, URL: "mtls://2.example.com"},
@@ -176,6 +176,7 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 		Debug:            debug,
 		ObfuscateSymbols: false,
 		Format:           clientpb.SliverConfig_SHARED_LIB,
+		IsSharedLib: true,
 	}
 	_, err := SliverSharedLibrary(config)
 	if err != nil {

@@ -318,8 +318,12 @@ func SliverExecutable(config *SliverConfig) (string, error) {
 
 	// Compile go code
 	appDir := assets.GetRootAppDir()
+	cgo := "0"
+	if config.IsSharedLib {
+		cgo = "1"
+	}
 	goConfig := &gogo.GoConfig{
-		CGO:    "0",
+		CGO:    cgo,
 		GOOS:   config.GOOS,
 		GOARCH: config.GOARCH,
 		GOROOT: gogo.GetGoRootDir(appDir),
