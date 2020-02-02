@@ -1,0 +1,61 @@
+name: Go
+on:
+  push:
+    branches: 
+      - test/*
+
+jobs:
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Go 1.13
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.13
+      id: go
+    
+    - name: OS Packages
+      run: |
+        apt-get update --fix-missing && apt-get -y install \
+        git build-essential zlib1g zlib1g-dev \
+        libxml2 libxml2-dev libxslt-dev locate \
+        libreadline6-dev libcurl4-openssl-dev git-core \
+        libssl-dev libyaml-dev openssl autoconf libtool \
+        ncurses-dev bison curl wget xsel postgresql \
+        postgresql-contrib postgresql-client libpq-dev \
+        libapr1 libaprutil1 libsvn1 \
+        libpcap-dev libsqlite3-dev libgmp3-dev \
+        zip unzip mingw-w64 binutils-mingw-w64 g++-mingw-w64 \
+        nasm
+
+    - name: Metasploit
+      run: |
+        curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > msfinstall && \
+          chmod 755 msfinstall && ./msfinstall
+        mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete
+
+    - name: Protoc
+      env:
+        PROTOC_VER: 3.7.1
+      run: |
+        wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip \
+        && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
+        && cp -vv ./bin/protoc /usr/local/bin
+
+    - name: Protoc-gen-go
+      run: go get github.com/golang/protobuf/protoc-gen-go
+
+    - name: Packr
+      run: go get -u github.com/gobuffalo/packr/packr
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Go Assets
+      run: ./go-assets.sh
+
+    - name: Make
+      run: make linux-static
