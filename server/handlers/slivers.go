@@ -99,6 +99,10 @@ func tunnelCloseHandler(sliver *core.Sliver, data []byte) {
 	tunnelClose := &sliverpb.TunnelClose{}
 	proto.Unmarshal(data, tunnelClose)
 	tunnel := core.Tunnels.Tunnel(tunnelClose.TunnelID)
+	if tunnel == nil {
+		handlerLog.Warnf("Attempting to close nil tunnel")
+		return
+	}
 	if tunnel.Sliver.ID == sliver.ID {
 		handlerLog.Debugf("Sliver %d closed tunnel %d (reason: %s)", sliver.ID, tunnel.ID, tunnelClose.Err)
 		core.Tunnels.CloseTunnel(tunnel.ID, tunnelClose.Err)
