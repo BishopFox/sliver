@@ -86,7 +86,6 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 	}
 
 	go func() {
-		// defer cleanup()
 		_, err := io.Copy(os.Stdout, tunnel)
 		if err != nil {
 			fmt.Printf(Warn+"error write stdout: %v", err)
