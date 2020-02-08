@@ -1,4 +1,4 @@
-FROM golang:1.13
+FROM golang:1.13.7
 
 #
 # IMPORTANT: This Dockerfile is used for testing, I do not recommend deploying
@@ -43,7 +43,7 @@ RUN mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete && \
 
 # protoc
 WORKDIR /tmp
-RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip \
+RUN wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip \
     && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
     && cp -vv ./bin/protoc /usr/local/bin
 

