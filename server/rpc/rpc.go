@@ -93,6 +93,7 @@ var (
 
 		sliverpb.MsgShellReq:   rpcShell,
 		sliverpb.MsgExecuteReq: rpcExecute,
+		sliverpb.MsgScreenshotReq: rpcScreenshot,
 
 		clientpb.MsgTask:    rpcTask,
 		clientpb.MsgMigrate: rpcMigrate,

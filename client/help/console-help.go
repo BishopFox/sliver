@@ -64,7 +64,9 @@ var (
 		consts.SideloadStr:         sideloadHelp,
 		consts.TerminateStr:        terminateHelp,
 
-		consts.WebsitesStr: websitesHelp,
+		consts.WebsitesStr: 		websitesHelp,
+		consts.ScreenshotStr: 		screenshotHelp,
+
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -268,6 +270,10 @@ Add content to a website:
 
 	terminateHelp = `[[.Bold]]Command:[[.Normal]] terminate PID
 [[.Bold]]About:[[.Normal]] Kills a remote process designated by PID
+`
+
+screenshotHelp = `[[.Bold]]Command:[[.Normal]] screenshot
+[[.Bold]]About:[[.Normal]] Take a screenshot from the remote implant.
 `
 )
 

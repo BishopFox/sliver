@@ -116,6 +116,8 @@ const (
 
 	WebsitesStr = "websites"
 
+	ScreenshotStr = "screenshot"
+
 	// Groups
 	GenericHelpGroup     = "Generic:"
 	SliverHelpGroup      = "Sliver:"

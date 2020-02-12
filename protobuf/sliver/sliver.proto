@@ -325,3 +325,14 @@ message Shell {
 
   uint64 TunnelID = 9;
 }
+
+// Screenshot Messages
+message ScreenshotReq {
+  bytes Data = 1;
+  uint32 SliverID = 9;
+}
+
+message Screenshot {
+  bytes Data = 1;
+  uint32 SliverID = 9;
+}
