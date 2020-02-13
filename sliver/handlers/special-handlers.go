@@ -25,9 +25,11 @@ import (
 	"github.com/bishopfox/sliver/sliver/transports"
 
 	// {{if .IsSharedLib}}
+	// {{if eq .GOOS "windows"}}
 	"runtime"
 	"syscall"
 
+	// {{end}}
 	// {{end}}
 
 	"github.com/golang/protobuf/proto"
@@ -52,6 +54,7 @@ func killHandler(data []byte, connection *transports.Connection) error {
 		return err
 	}
 	// {{if .IsSharedLib}}
+	// {{if eq .GOOS "windows"}}
 	if runtime.GOOS == "windows" {
 		// Windows only: ExitThread() instead of os.Exit() for DLL/shellcode slivers
 		// so that the parent process is not killed
@@ -59,6 +62,7 @@ func killHandler(data []byte, connection *transports.Connection) error {
 		exitFunc.Call(uintptr(0))
 		return nil
 	}
+	// {{end}}
 	// {{else}}
 	// Exit now if we've received a force request
 	if killReq.Force {

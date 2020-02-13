@@ -436,8 +436,11 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		var sliverCodePath string
 		dirName := filepath.Dir(boxName)
 		var fileName string
-		if boxName == "dllmain.go" {
-			if config.GOOS != "windows" || !config.IsSharedLib {
+		// Skip dllmain files for anything non windows
+		if boxName == "dllmain.go" || boxName == "dllmain.h" || boxName == "dllmain.c" {
+			if config.GOOS != "windows" {
+				continue
+			} else if !config.IsSharedLib {
 				continue
 			}
 		}
