@@ -280,6 +280,29 @@ message SpawnDll {
   string Error = 1;
   string Result = 2;
 }
+message NetstatRequest {
+  bool TCP = 1;
+  bool UDP = 2;
+  bool IP4 = 3;
+  bool IP6 = 5;
+  bool Listening = 6;
+  uint32 SliverID = 9;
+}
+
+message SockTabEntry {
+  message SockAddr {
+    string Ip = 1;
+    uint32 Port = 2;
+  }
+  SockAddr LocalAddr = 1;
+  SockAddr RemoteAddr = 2;
+  string SkState = 3;
+  uint32 UID = 4;
+  Process Proc = 5;
+  string Proto = 6;
+}
+
+message NetstatResponse { repeated SockTabEntry Entries = 1; }
 
 // DNS Specific messages
 message DNSSessionInit { bytes Key = 1; }

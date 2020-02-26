@@ -43,3 +43,26 @@ func rpcIfconfig(req []byte, timeout time.Duration, resp RPCResponse) {
 	data, err = sliver.Request(sliverpb.MsgIfconfigReq, timeout, data)
 	resp(data, err)
 }
+
+func rpcNetstat(req []byte, timeout time.Duration, resp RPCResponse) {
+	netstatReq := &sliverpb.NetstatRequest{}
+	err := proto.Unmarshal(req, netstatReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	sliver := (*core.Hive.Slivers)[netstatReq.SliverID]
+	if sliver == nil {
+		resp([]byte{}, err)
+		return
+	}
+	data, _ := proto.Marshal(&sliverpb.NetstatRequest{
+		TCP:       netstatReq.TCP,
+		UDP:       netstatReq.UDP,
+		IP4:       netstatReq.IP4,
+		IP6:       netstatReq.IP6,
+		Listening: netstatReq.Listening,
+	})
+	data, err = sliver.Request(sliverpb.MsgNetstatReq, timeout, data)
+	resp(data, err)
+}

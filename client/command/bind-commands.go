@@ -723,6 +723,26 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
+		Name:     consts.NetstatStr,
+		Help:     "Print network connection information",
+		LongHelp: help.GetHelpFor(consts.NetstatStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			netstat(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("t", "tcp", true, "display information about TCP sockets")
+			f.Bool("u", "udp", false, "display information about UDP sockets")
+			f.Bool("4", "ip4", true, "display information about IPv4 sockets")
+			f.Bool("6", "ip6", false, "display information about IPv6 sockets")
+			f.Bool("l", "listen", false, "display information about listening sockets")
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
 		Name:     consts.ProcdumpStr,
 		Help:     "Dump process memory",
 		LongHelp: help.GetHelpFor(consts.ProcdumpStr),

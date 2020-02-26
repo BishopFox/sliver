@@ -129,4 +129,6 @@ const (
 	MsgExecuteReq
 	// MsgTerminate - Kill a remote process
 	MsgTerminate
+	// MsgNetstatReq - Netstat request
+	MsgNetstatReq
 )

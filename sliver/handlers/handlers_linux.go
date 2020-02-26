@@ -39,6 +39,7 @@ var (
 		pb.MsgRemoteTask:  remoteTaskHandler,
 		pb.MsgIfconfigReq: ifconfigHandler,
 		pb.MsgExecuteReq:  executeHandler,
+		pb.MsgNetstatReq:  netstatHandler,
 	}
 )
 
