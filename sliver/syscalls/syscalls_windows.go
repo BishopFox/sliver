@@ -19,3 +19,21 @@ package syscalls
 
 //sys MiniDumpWriteDump(hProcess windows.Handle, pid uint32, hFile uintptr, dumpType uint32, exceptionParam uintptr, userStreamParam uintptr, callbackParam uintptr) (err error) = DbgHelp.MiniDumpWriteDump
 //sys ImpersonateLoggedOnUser(hToken windows.Token) (err error) = advapi32.ImpersonateLoggedOnUser
+
+//sys GetDC(HWND windows.Handle) (HDC windows.Handle, err error) = User32.GetDC
+//sys ReleaseDC(hWnd windows.Handle, hDC windows.Handle) (int uint32, err error) = User32.ReleaseDC
+//sys CreateCompatibleDC(hdc windows.Handle) (HDC windows.Handle, err error) =  Gdi32.CreateCompatibleDC
+//sys GetDesktopWindow() (HWND windows.Handle, err error) = User32.GetDesktopWindow
+//sys DeleteDC(hdc windows.Handle) (BOOL uint32, err error) = Gdi32.DeleteDC
+//sys CreateCompatibleBitmap(hdc windows.Handle, cx uint32, cy uint32) (HBITMAP windows.Handle, err error) = Gdi32.CreateCompatibleBitmap
+//sys DeleteObject(ho windows.Handle) (BOOL uint32, err error) = Gdi32.DeleteObject
+//sys GlobalAlloc(uFlags uint, dwBytes uintptr) (HGLOBAL windows.Handle, err error) = Kernel32.GlobalAlloc
+//sys GlobalFree(hMem windows.Handle) (HGLOBAL windows.Handle, err error) = Kernel32.GlobalFree
+//sys GlobalLock(hMem windows.Handle) (LPVOID uintptr, err error) = Kernel32.GlobalLock
+//sys GlobalUnlock(hMem windows.Handle) (BOOL uint32, err error) = Kernel32.GlobalUnlock
+//sys SelectObject(hdc windows.Handle, h windows.Handle) (HGDIOBJ windows.Handle, err error) = Gdi32.SelectObject
+//sys BitBlt(hdc windows.Handle, x uint32, y uint32, cx uint32, cy uint32, hdcSrc windows.Handle, x1 uint32, y1 uint32, rop int32) (BOOL int, err error) = Gdi32.BitBlt
+//sys GetDIBits(hdc windows.Handle, hbm windows.Handle, start uint32, cLines uint32, lpvBits uintptr, lpbmi uintptr, usage int) (ret int, err error) = Gdi32.GetDIBits
+
+
+  
