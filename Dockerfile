@@ -1,4 +1,4 @@
-FROM golang:1.13.7
+FROM golang:1.14
 
 #
 # IMPORTANT: This Dockerfile is used for testing, I do not recommend deploying
@@ -6,7 +6,7 @@ FROM golang:1.13.7
 #            a Docker deployment this is probably a good place to start.
 #
 
-ENV PROTOC_VER 3.7.1
+ENV PROTOC_VER 3.11.4
 
 # Base packages
 RUN apt-get update --fix-missing && apt-get -y install \
@@ -48,7 +48,7 @@ RUN wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuf
     && cp -vv ./bin/protoc /usr/local/bin
 
 # go get utils
-RUN go get github.com/golang/protobuf/protoc-gen-go
+RUN go get -u github.com/golang/protobuf/protoc-gen-go
 RUN go get -u github.com/gobuffalo/packr/packr
 
 # install dep
