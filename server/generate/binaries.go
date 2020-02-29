@@ -463,7 +463,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 
 		fSliver, _ := os.Create(sliverCodePath)
 		buf := bytes.NewBuffer([]byte{})
-		buildLog.Infof("[render] %s", sliverCodePath)
+		buildLog.Infof("[render] %s -> %s", boxName, sliverCodePath)
 
 		// Render code
 		sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
@@ -471,15 +471,15 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 
 		// Render canaries
 		buildLog.Infof("Canary domain(s): %v", config.CanaryDomains)
-		canaryTempl := template.New("canary").Delims("[[", "]]")
+		canaryTmpl := template.New("canary").Delims("[[", "]]")
 		canaryGenerator := &CanaryGenerator{
 			SliverName:    config.Name,
 			ParentDomains: config.CanaryDomains,
 		}
-		canaryTempl, err := canaryTempl.Funcs(template.FuncMap{
+		canaryTmpl, err := canaryTmpl.Funcs(template.FuncMap{
 			"GenerateCanary": canaryGenerator.GenerateCanary,
 		}).Parse(buf.String())
-		canaryTempl.Execute(fSliver, canaryGenerator)
+		canaryTmpl.Execute(fSliver, canaryGenerator)
 
 		if err != nil {
 			buildLog.Infof("Failed to render go code: %s", err)
