@@ -115,6 +115,6 @@ var (
 		"winhttp/winhttp.go",
 
 		"sliver.go",
-		"go.mod",
+		// "go.mod",
 	}
 )
