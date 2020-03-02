@@ -49,6 +49,11 @@ var (
 		"limits/limits_darwin.go",
 		"limits/limits_linux.go",
 
+		"netstat/netstat.go",
+		"netstat/netstat_windows.go",
+		"netstat/netstat_linux.go",
+		"netstat/netstat_darwin.go",
+
 		"procdump/dump.go",
 		"procdump/dump_windows.go",
 		"procdump/dump_linux.go",
@@ -111,5 +116,6 @@ var (
 		"winhttp/winhttp.go",
 
 		"sliver.go",
+		// "go.mod",
 	}
 )

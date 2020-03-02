@@ -172,6 +172,8 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.SessionsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("i", "interact", "", "interact with a sliver")
+			f.String("k", "kill", "", "Kill the designated session")
+			f.Bool("K", "kill-all", false, "Kill all the sessions")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -721,6 +723,26 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
+		Name:     consts.NetstatStr,
+		Help:     "Print network connection information",
+		LongHelp: help.GetHelpFor(consts.NetstatStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			netstat(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("t", "tcp", true, "display information about TCP sockets")
+			f.Bool("u", "udp", false, "display information about UDP sockets")
+			f.Bool("4", "ip4", true, "display information about IPv4 sockets")
+			f.Bool("6", "ip6", false, "display information about IPv6 sockets")
+			f.Bool("l", "listen", false, "display information about listening sockets")
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
 		Name:     consts.ProcdumpStr,
 		Help:     "Dump process memory",
 		LongHelp: help.GetHelpFor(consts.ProcdumpStr),
@@ -739,9 +761,9 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:     consts.ImpersonateStr,
+		Name:     consts.RunAsStr,
 		Help:     "Run a new process in the context of the designated user (Windows Only)",
-		LongHelp: help.GetHelpFor(consts.ImpersonateStr),
+		LongHelp: help.GetHelpFor(consts.RunAsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("u", "username", "NT AUTHORITY\\SYSTEM", "user to impersonate")
 			f.String("p", "process", "", "process to start")
@@ -749,7 +771,35 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
+			runAs(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.ImpersonateStr,
+		Help:      "Impersonate a logged in user.",
+		LongHelp:  help.GetHelpFor(consts.ImpersonateStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			impersonate(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.RevToSelfStr,
+		Help:      "Revert to self: lose stolen Windows token",
+		LongHelp:  help.GetHelpFor(consts.RevToSelfStr),
+		AllowArgs: false,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			revToSelf(ctx, server.RPC)
 			fmt.Println()
 			return nil
 		},
@@ -892,5 +942,19 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.TerminateStr,
+		Help:      "Kill a process",
+		LongHelp:  help.GetHelpFor(consts.TerminateStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			terminate(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 }

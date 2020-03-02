@@ -318,8 +318,12 @@ func SliverExecutable(config *SliverConfig) (string, error) {
 
 	// Compile go code
 	appDir := assets.GetRootAppDir()
+	cgo := "0"
+	if config.IsSharedLib {
+		cgo = "1"
+	}
 	goConfig := &gogo.GoConfig{
-		CGO:    "0",
+		CGO:    cgo,
 		GOOS:   config.GOOS,
 		GOARCH: config.GOARCH,
 		GOROOT: gogo.GetGoRootDir(appDir),
@@ -432,6 +436,14 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		var sliverCodePath string
 		dirName := filepath.Dir(boxName)
 		var fileName string
+		// Skip dllmain files for anything non windows
+		if boxName == "dllmain.go" || boxName == "dllmain.h" || boxName == "dllmain.c" {
+			if config.GOOS != "windows" {
+				continue
+			} else if !config.IsSharedLib {
+				continue
+			}
+		}
 		if config.Debug || strings.HasSuffix(boxName, ".c") || strings.HasSuffix(boxName, ".h") {
 			fileName = filepath.Base(boxName)
 		} else {
@@ -451,7 +463,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 
 		fSliver, _ := os.Create(sliverCodePath)
 		buf := bytes.NewBuffer([]byte{})
-		buildLog.Infof("[render] %s", sliverCodePath)
+		buildLog.Infof("[render] %s -> %s", boxName, sliverCodePath)
 
 		// Render code
 		sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
@@ -459,15 +471,15 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 
 		// Render canaries
 		buildLog.Infof("Canary domain(s): %v", config.CanaryDomains)
-		canaryTempl := template.New("canary").Delims("[[", "]]")
+		canaryTmpl := template.New("canary").Delims("[[", "]]")
 		canaryGenerator := &CanaryGenerator{
 			SliverName:    config.Name,
 			ParentDomains: config.CanaryDomains,
 		}
-		canaryTempl, err := canaryTempl.Funcs(template.FuncMap{
+		canaryTmpl, err := canaryTmpl.Funcs(template.FuncMap{
 			"GenerateCanary": canaryGenerator.GenerateCanary,
 		}).Parse(buf.String())
-		canaryTempl.Execute(fSliver, canaryGenerator)
+		canaryTmpl.Execute(fSliver, canaryGenerator)
 
 		if err != nil {
 			buildLog.Infof("Failed to render go code: %s", err)
@@ -480,7 +492,8 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		obfgoPath := path.Join(projectGoPathDir, "obfuscated")
 		pkgName := "github.com/bishopfox/sliver"
 		obfSymbols := config.ObfuscateSymbols
-		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, randomObfuscationKey(), pkgName, obfgoPath, obfSymbols)
+		obfKey := randomObfuscationKey()
+		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, obfKey, pkgName, obfgoPath, obfSymbols)
 		if err != nil {
 			buildLog.Infof("Error while obfuscating sliver %v", err)
 			return "", err

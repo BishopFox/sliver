@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	clientpb "github.com/bishopfox/sliver/protobuf/client"
 	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
@@ -34,13 +35,49 @@ import (
 
 func sessions(ctx *grumble.Context, rpc RPCServer) {
 	interact := ctx.Flags.String("interact")
+	kill := ctx.Flags.String("kill")
+	killAll := ctx.Flags.Bool("kill-all")
+	if killAll {
+		resp := <-rpc(&sliverpb.Envelope{
+			Type: clientpb.MsgSessions,
+			Data: []byte{},
+		}, defaultTimeout)
+		if resp.Err != "" {
+			fmt.Printf(Warn+"Error: %s\n", resp.Err)
+			return
+		}
+		sessions := &clientpb.Sessions{}
+		proto.Unmarshal(resp.Data, sessions)
+		for _, sliver := range sessions.Slivers {
+			err := killSliver(sliver, rpc)
+			if err != nil {
+				fmt.Printf(Warn+"Error: %v", err)
+			}
+			fmt.Printf(Info+"Killed %s (%d)\n", sliver.Name, sliver.ID)
+		}
+		if ActiveSliver.Sliver != nil {
+			ActiveSliver.DisableActiveSliver()
+		}
+		return
+	}
+	if kill != "" {
+		sliver := getSliver(kill, rpc)
+		err := killSliver(sliver, rpc)
+		if err != nil {
+			fmt.Printf(Warn+"Error: %v", err)
+		}
+		if ActiveSliver.Sliver != nil {
+			ActiveSliver.DisableActiveSliver()
+		}
+		return
+	}
 	if interact != "" {
 		sliver := getSliver(interact, rpc)
 		if sliver != nil {
 			ActiveSliver.SetActiveSliver(sliver)
 			fmt.Printf(Info+"Active sliver %s (%d)\n", sliver.Name, sliver.ID)
 		} else {
-			fmt.Printf(Warn+"Invalid sliver name or session number '%s'\n", ctx.Args[0])
+			fmt.Printf(Warn+"Invalid sliver name or session number '%s'\n", interact)
 		}
 	} else {
 		resp := <-rpc(&sliverpb.Envelope{
@@ -151,18 +188,26 @@ func kill(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
 		return
 	}
+	err := killSliver(ActiveSliver.Sliver, rpc)
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
+	fmt.Printf(Info+"Killed %s (%d)\n", ActiveSliver.Sliver.Name, ActiveSliver.Sliver.ID)
+	ActiveSliver.DisableActiveSliver()
+}
 
-	force := ctx.Flags.Bool("force")
-
-	sliver := ActiveSliver.Sliver
+func killSliver(sliver *clientpb.Sliver, rpc RPCServer) error {
+	if sliver == nil {
+		return fmt.Errorf("session does not exists")
+	}
 	data, _ := proto.Marshal(&sliverpb.KillReq{
 		SliverID: sliver.ID,
-		Force:    force,
+		Force:    true,
 	})
 	rpc(&sliverpb.Envelope{
 		Type: sliverpb.MsgKill,
 		Data: data,
-	}, 5)
-	fmt.Printf(Info+"Killed %s (%d)\n", sliver.Name, sliver.ID)
-	ActiveSliver.DisableActiveSliver()
+	}, 5*time.Second)
+	return nil
 }

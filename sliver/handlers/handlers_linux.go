@@ -26,6 +26,7 @@ import ( // {{if .Debug}}
 var (
 	linuxHandlers = map[uint32]RPCHandler{
 		pb.MsgPsReq:       psHandler,
+		pb.MsgTerminate:   terminateHandler,
 		pb.MsgPing:        pingHandler,
 		pb.MsgLsReq:       dirListHandler,
 		pb.MsgDownloadReq: downloadHandler,
@@ -38,6 +39,7 @@ var (
 		pb.MsgRemoteTask:  remoteTaskHandler,
 		pb.MsgIfconfigReq: ifconfigHandler,
 		pb.MsgExecuteReq:  executeHandler,
+		pb.MsgNetstatReq:  netstatHandler,
 	}
 )
 

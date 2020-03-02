@@ -35,8 +35,8 @@ func rpcKill(data []byte, timeout time.Duration, resp RPCResponse) {
 		resp([]byte{}, err)
 	}
 	sliver := core.Hive.Sliver(killReq.SliverID)
-	data, err = sliver.Request(sliverpb.MsgKill, timeout, data)
 	core.Hive.RemoveSliver(sliver)
+	data, err = sliver.Request(sliverpb.MsgKill, timeout, data)
 	resp(data, err)
 }
 

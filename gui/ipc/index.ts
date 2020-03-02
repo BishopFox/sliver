@@ -1,0 +1,1 @@
+export { startIPCHandlers } from './ipc';

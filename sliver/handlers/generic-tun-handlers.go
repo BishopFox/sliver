@@ -80,6 +80,23 @@ func tunnelDataHandler(envelope *pb.Envelope, connection *transports.Connection)
 	}
 }
 
+type tunnelWriter struct {
+	tun  *transports.Tunnel
+	conn *transports.Connection
+}
+
+func (t tunnelWriter) Write(data []byte) (n int, err error) {
+	data, err = proto.Marshal(&pb.TunnelData{
+		TunnelID: t.tun.ID,
+		Data:     data,
+	})
+	t.conn.Send <- &pb.Envelope{
+		Type: pb.MsgTunnelData,
+		Data: data,
+	}
+	return len(data), err
+}
+
 func shellReqHandler(envelope *pb.Envelope, connection *transports.Connection) {
 
 	shellReq := &pb.ShellReq{}
@@ -90,6 +107,7 @@ func shellReqHandler(envelope *pb.Envelope, connection *transports.Connection) {
 
 	shellPath := shell.GetSystemShellPath(shellReq.Path)
 	systemShell := shell.StartInteractive(shellReq.TunnelID, shellPath, shellReq.EnablePTY)
+	go systemShell.StartAndWait()
 	tunnel := &transports.Tunnel{
 		ID:     shellReq.TunnelID,
 		Reader: systemShell.Stdout,
@@ -124,28 +142,20 @@ func shellReqHandler(envelope *pb.Envelope, connection *transports.Connection) {
 
 	go func() {
 		for {
-			readBuf := make([]byte, readBufSize)
-			n, err := tunnel.Reader.Read(readBuf)
+			tWriter := tunnelWriter{
+				tun:  tunnel,
+				conn: connection,
+			}
+			_, err := io.Copy(tWriter, tunnel.Reader)
+			if systemShell.Command.ProcessState != nil {
+				if systemShell.Command.ProcessState.Exited() {
+					cleanup("process terminated")
+					return
+				}
+			}
 			if err == io.EOF {
-				// {{if .Debug}}
-				log.Printf("Read EOF on tunnel %d", tunnel.ID)
-				// {{end}}
-				defer cleanup("EOF")
+				cleanup("EOF")
 				return
-			}
-			// {{if .Debug}}
-			if n > 0 {
-				log.Printf("[shell] stdout %d bytes on tunnel %d", n, tunnel.ID)
-				log.Printf("[shell] %#v", string(readBuf[:n]))
-			}
-			// {{end}}
-			data, err := proto.Marshal(&pb.TunnelData{
-				TunnelID: tunnel.ID,
-				Data:     readBuf[:n],
-			})
-			connection.Send <- &pb.Envelope{
-				Type: pb.MsgTunnelData,
-				Data: data,
 			}
 		}
 	}()

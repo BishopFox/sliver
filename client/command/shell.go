@@ -88,23 +88,7 @@ func runInteractive(shellPath string, noPty bool, server *core.SliverServer) {
 		}
 	}
 
-	cleanup := func() {
-		log.Printf("[client] cleanup tunnel %d", tunnel.ID)
-		tunnelClose, _ := proto.Marshal(&sliverpb.ShellReq{
-			TunnelID: tunnel.ID,
-		})
-		server.RPC(&sliverpb.Envelope{
-			Type: sliverpb.MsgTunnelClose,
-			Data: tunnelClose,
-		}, defaultTimeout)
-		if !noPty {
-			log.Printf("Restoring old terminal state: %v", oldState)
-			terminal.Restore(0, oldState)
-		}
-	}
-
 	go func() {
-		defer cleanup()
 		_, err := io.Copy(os.Stdout, tunnel)
 		if err != nil {
 			fmt.Printf(Warn+"error write stdout: %v", err)
@@ -121,5 +105,7 @@ func runInteractive(shellPath string, noPty bool, server *core.SliverServer) {
 			break
 		}
 	}
-	// terminal.Restore(0, oldState)
+	if !noPty {
+		terminal.Restore(0, oldState)
+	}
 }

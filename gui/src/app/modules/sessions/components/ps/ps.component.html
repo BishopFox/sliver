@@ -1,0 +1,38 @@
+<div *ngIf="!dataSrc" class="grid-spinner-wrapper">
+  <div class="spinner">
+    <mat-progress-spinner mode="indeterminate">
+    </mat-progress-spinner>
+  </div>
+</div>
+
+<div [@fadeInOut] *ngIf="dataSrc">
+  <mat-form-field>
+    <input matInput (keyup)="applyFilter($event.target.value)" placeholder="Filter">
+  </mat-form-field>
+
+  <table mat-table [dataSource]="dataSrc" matSort (matSortChange)="sortData($event)">
+
+    <ng-container matColumnDef="pid">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>PID</th>
+      <td mat-cell *matCellDef="let proc"> {{proc.pid}} </td>
+    </ng-container>
+
+    <ng-container matColumnDef="ppid">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>PPID</th>
+      <td mat-cell *matCellDef="let proc"> {{proc.ppid}} </td>
+    </ng-container>
+
+    <ng-container matColumnDef="name">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
+      <td mat-cell *matCellDef="let proc"> {{proc.name}} </td>
+    </ng-container>
+
+    <ng-container matColumnDef="owner">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Owner</th>
+      <td mat-cell *matCellDef="let proc"> {{proc.owner}} </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+  </table>
+</div>

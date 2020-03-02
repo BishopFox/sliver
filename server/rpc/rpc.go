@@ -72,11 +72,14 @@ var (
 		// "Req"s directly map to responses
 		sliverpb.MsgPsReq:          rpcPs,
 		sliverpb.MsgKill:           rpcKill,
+		sliverpb.MsgTerminate:      rpcTerminate,
 		sliverpb.MsgProcessDumpReq: rpcProcdump,
 		sliverpb.MsgSpawnDllReq:    rpcSpawnDll,
 
 		sliverpb.MsgElevate:     rpcElevate,
 		sliverpb.MsgImpersonate: rpcImpersonate,
+		sliverpb.MsgRunAs:       rpcRunAs,
+		sliverpb.MsgRevToSelf:   rpcRevToSelf,
 
 		sliverpb.MsgLsReq:       rpcLs,
 		sliverpb.MsgRmReq:       rpcRm,
@@ -87,6 +90,7 @@ var (
 		sliverpb.MsgUploadReq:   rpcUpload,
 
 		sliverpb.MsgIfconfigReq: rpcIfconfig,
+		sliverpb.MsgNetstatReq:  rpcNetstat,
 
 		sliverpb.MsgShellReq:   rpcShell,
 		sliverpb.MsgExecuteReq: rpcExecute,

