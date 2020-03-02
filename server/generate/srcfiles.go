@@ -52,6 +52,7 @@ var (
 		"netstat/netstat.go",
 		"netstat/netstat_windows.go",
 		"netstat/netstat_linux.go",
+		"netstat/netstat_darwin.go",
 
 		"procdump/dump.go",
 		"procdump/dump_windows.go",
