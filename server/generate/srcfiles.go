@@ -32,9 +32,8 @@ var (
 		"evasion/evasion_linux.go",
 		"evasion/evasion_windows.go",
 		// C files for DLL
-		"dllmain.go",
-		"dllmain.h",
-		"dllmain.c",
+		"sliver.h",
+		"sliver.c",
 
 		"handlers/generic-rpc-handlers.go",
 		"handlers/generic-tun-handlers.go",

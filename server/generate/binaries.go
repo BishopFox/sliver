@@ -265,10 +265,15 @@ func SliverEgg(config SliverConfig) (string, error) {
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
 func SliverSharedLibrary(config *SliverConfig) (string, error) {
 	// Compile go code
+	var crossCompiler string
 	appDir := assets.GetRootAppDir()
-	crossCompiler := getCCompiler(config.GOARCH)
-	if crossCompiler == "" {
-		return "", errors.New("No cross-compiler (mingw) found")
+	// Don't use a cross-compiler if the target bin is built on the same platform
+	// as the sliver-server.
+	if runtime.GOOS != config.GOOS {
+		crossCompiler = getCCompiler(config.GOARCH)
+		if crossCompiler == "" {
+			return "", errors.New("No cross-compiler (mingw) found")
+		}
 	}
 	goConfig := &gogo.GoConfig{
 		CGO:    "1",
@@ -437,10 +442,8 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		dirName := filepath.Dir(boxName)
 		var fileName string
 		// Skip dllmain files for anything non windows
-		if boxName == "dllmain.go" || boxName == "dllmain.h" || boxName == "dllmain.c" {
-			if config.GOOS != "windows" {
-				continue
-			} else if !config.IsSharedLib {
+		if boxName == "sliver.h" || boxName == "sliver.c" {
+			if !config.IsSharedLib {
 				continue
 			}
 		}
