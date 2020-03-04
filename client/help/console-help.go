@@ -254,10 +254,20 @@ Operations are used to manage the content of each website and go at the end of t
 Add content to a website:
 	websites --website blog --web-path / --content ./index.html add
 `
-	sideloadHelp = `[[.Bold]]Command:[[.Normal]] sideload <options> <filepath to DLL> <entrypoint to execute> [entrypoint arguments]
-[[.Bold]]About:[[.Normal]] Load and execute a DLL in memory in a remote process.
+	sideloadHelp = `[[.Bold]]Command:[[.Normal]] sideload <options> <filepath to DLL>
+[[.Bold]]About:[[.Normal]] Load and execute a shared library in memory in a remote process.
+[[.Bold]]Example usage:[[.Normal]]
 
-[[.Bold]]--process[[.Normal]] - Process to inject into.
+Sideload a Linux shared library into a new bash process using LD_PRELOAD:
+	sideload -p /bin/bash /tmp/mylib.so
+Sideload a Windows DLL as shellcode in a new process using sRDI, specifying the entrypoint and its arguments:
+	sideload -a "hello world" -e MyEntryPoint /tmp/mylib.dll
+
+[[.Bold]]Remarks:[[.Normal]]
+Linux shared library must call exit() once done with their jobs, as the Sliver implant will wait until the hosting process
+terminates before responding. This will also prevent the hosting process to run indefinitely.
+This is not required on Windows since the payload is injected as a new remote thread, and we wait for the thread completion before
+killing the hosting process.
 `
 	spawnDllHelp = `[[.Bold]]Command:[[.Normal]] spawndll <options> <filepath to DLL> [entrypoint arguments]
 [[.Bold]]About:[[.Normal]] Load and execute a Reflective DLL in memory in a remote process.
