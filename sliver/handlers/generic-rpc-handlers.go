@@ -404,6 +404,25 @@ func remoteTaskHandler(data []byte, resp RPCResponse) {
 	resp([]byte{}, err)
 }
 
+func sideloadHandler(data []byte, resp RPCResponse) {
+	sideloadReq := &pb.SideloadReq{}
+	err := proto.Unmarshal(data, sideloadReq)
+	if err != nil {
+		return
+	}
+	result, err := taskrunner.Sideload(sideloadReq.ProcName, sideloadReq.Data)
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
+	}
+	sideloadResp := &pb.Sideload{
+		Result: result,
+		Error:  errStr,
+	}
+	data, err = proto.Marshal(sideloadResp)
+	resp(data, err)
+}
+
 func ifconfigHandler(_ []byte, resp RPCResponse) {
 	interfaces := ifconfig()
 	// {{if .Debug}}

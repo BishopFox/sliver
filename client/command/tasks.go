@@ -303,18 +303,11 @@ func sideloadDll(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	var args string
-	if len(ctx.Args) < 2 {
-		fmt.Printf(Warn + "See `help sideload` for usage.")
-		return
-	} else if len(ctx.Args) > 2 {
-		args = ctx.Args[2]
-	}
-
 	binPath := ctx.Args[0]
-	entryPoint := ctx.Args[1]
 
+	entryPoint := ctx.Flags.String("entry-point")
 	processName := ctx.Flags.String("process")
+	args := ctx.Flags.String("args")
 
 	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
 	binData, err := ioutil.ReadFile(binPath)

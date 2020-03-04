@@ -19,6 +19,7 @@ package taskrunner
 */
 
 import (
+	"fmt"
 	"runtime"
 	"syscall"
 	"unsafe"
@@ -51,4 +52,8 @@ func LocalTask(data []byte, rwxPages bool) error {
 // RemoteTask -
 func RemoteTask(processID int, data []byte, rwxPages bool) error {
 	return nil
+}
+
+func Sideload(procName string, data []byte) (string, error) {
+	return "", fmt.Errorf("not implemented")
 }

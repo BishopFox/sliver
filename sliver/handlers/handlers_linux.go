@@ -40,6 +40,7 @@ var (
 		pb.MsgIfconfigReq: ifconfigHandler,
 		pb.MsgExecuteReq:  executeHandler,
 		pb.MsgNetstatReq:  netstatHandler,
+		pb.MsgSideloadReq: sideloadHandler,
 	}
 )
 

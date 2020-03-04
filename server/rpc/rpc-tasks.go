@@ -19,6 +19,7 @@ package rpc
 */
 
 import (
+	"fmt"
 	"io/ioutil"
 	"time"
 
@@ -114,6 +115,7 @@ func rpcExecuteAssembly(req []byte, timeout time.Duration, resp RPCResponse) {
 }
 
 func rpcSideload(req []byte, timeout time.Duration, resp RPCResponse) {
+	var data []byte
 	sideloadReq := &clientpb.SideloadReq{}
 	err := proto.Unmarshal(req, sideloadReq)
 	if err != nil {
@@ -127,17 +129,29 @@ func rpcSideload(req []byte, timeout time.Duration, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	shellcode, err := generate.ShellcodeRDIFromBytes(sideloadReq.Data, sideloadReq.EntryPoint, sideloadReq.Args)
-	if err != nil {
-		resp([]byte{}, err)
-		return
+	switch sliver.ToProtobuf().GetOS() {
+	case "windows":
+		shellcode, err := generate.ShellcodeRDIFromBytes(sideloadReq.Data, sideloadReq.EntryPoint, sideloadReq.Args)
+		if err != nil {
+			resp([]byte{}, err)
+			return
+		}
+		data, _ = proto.Marshal(&sliverpb.SideloadReq{
+			SliverID: sideloadReq.SliverID,
+			Data:     shellcode,
+			ProcName: sideloadReq.ProcName,
+		})
+		data, err = sliver.Request(sliverpb.MsgSideloadReq, timeout, data)
+	case "linux":
+		data, _ = proto.Marshal(&sliverpb.SideloadReq{
+			SliverID: sideloadReq.GetSliverID(),
+			Data:     sideloadReq.GetData(),
+			ProcName: sideloadReq.GetProcName(),
+		})
+		data, err = sliver.Request(sliverpb.MsgSideloadReq, timeout, data)
+	default:
+		err = fmt.Errorf("%s does not support sideloading", sliver.ToProtobuf().GetOS())
 	}
-	data, _ := proto.Marshal(&sliverpb.SideloadReq{
-		SliverID: sideloadReq.SliverID,
-		Data:     shellcode,
-		ProcName: sideloadReq.ProcName,
-	})
-	data, err = sliver.Request(sliverpb.MsgSideloadReq, timeout, data)
 	resp(data, err)
 
 }
