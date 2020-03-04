@@ -54,6 +54,6 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 	return nil
 }
 
-func Sideload(procName string, data []byte) (string, error) {
+func Sideload(procName string, data []byte, args string) (string, error) {
 	return "", fmt.Errorf("not implemented")
 }
