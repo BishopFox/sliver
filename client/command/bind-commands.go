@@ -912,7 +912,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Help:     "Load and execute a shared object (shared library/DLL) in a remote process",
 		LongHelp: help.GetHelpFor(consts.SideloadStr),
 		Flags: func(f *grumble.Flags) {
-			f.String("a", "args", "", "Arguments for the DLL (Windows only)")
+			f.String("a", "args", "", "Arguments for the shared library function")
 			f.String("e", "entry-point", "", "Entrypoint for the DLL (Windows only)")
 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
 			f.Int("t", "timeout", 10, "command timeout in seconds")

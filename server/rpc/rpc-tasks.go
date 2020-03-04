@@ -146,6 +146,7 @@ func rpcSideload(req []byte, timeout time.Duration, resp RPCResponse) {
 		data, _ = proto.Marshal(&sliverpb.SideloadReq{
 			SliverID: sideloadReq.GetSliverID(),
 			Data:     sideloadReq.GetData(),
+			Args:     sideloadReq.GetArgs(),
 			ProcName: sideloadReq.GetProcName(),
 		})
 		data, err = sliver.Request(sliverpb.MsgSideloadReq, timeout, data)
