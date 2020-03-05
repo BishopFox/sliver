@@ -43,4 +43,12 @@ static void init(int argc, char **argv, char **envp)
     RunSliver();
 }
 __attribute__((section(".init_array"), used)) static typeof(init) *init_p = init;
+#elif __APPLE__
+void RunSliver();
+
+__attribute__((constructor)) static void init(int argc, char **argv, char **envp)
+{
+    RunSliver();
+}
+
 #endif
