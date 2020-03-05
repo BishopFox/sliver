@@ -258,18 +258,20 @@ Add content to a website:
 [[.Bold]]About:[[.Normal]] Load and execute a shared library in memory in a remote process.
 [[.Bold]]Example usage:[[.Normal]]
 
+Sideload a MacOS shared library into a new process using DYLD_INSERT_LIBRARIES:
+	sideload -p /Applications/Safari.app/Contents/MacOS/SafariForWebKitDevelopment -a 'Hello World' /tmp/mylib.dylib
 Sideload a Linux shared library into a new bash process using LD_PRELOAD:
 	sideload -p /bin/bash /tmp/mylib.so
 Sideload a Windows DLL as shellcode in a new process using sRDI, specifying the entrypoint and its arguments:
 	sideload -a "hello world" -e MyEntryPoint /tmp/mylib.dll
 
 [[.Bold]]Remarks:[[.Normal]]
-Linux shared library must call exit() once done with their jobs, as the Sliver implant will wait until the hosting process
+Linux and MacOS shared library must call exit() once done with their jobs, as the Sliver implant will wait until the hosting process
 terminates before responding. This will also prevent the hosting process to run indefinitely.
 This is not required on Windows since the payload is injected as a new remote thread, and we wait for the thread completion before
 killing the hosting process.
 
-Parameters to the Linux shared module are passed using the [[.Bold]]LD_PARAMS[[.Normal]] environment variable.
+Parameters to the Linux and MacOS shared module are passed using the [[.Bold]]LD_PARAMS[[.Normal]] environment variable.
 `
 	spawnDllHelp = `[[.Bold]]Command:[[.Normal]] spawndll <options> <filepath to DLL> [entrypoint arguments]
 [[.Bold]]About:[[.Normal]] Load and execute a Reflective DLL in memory in a remote process.
