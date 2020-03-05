@@ -1,5 +1,14 @@
 package taskrunner
 
+import (
+	insecureRand "math/rand"
+	"os/exec"
+	"sync"
+	"syscall"
+	"time"
+	"unsafe"
+)
+
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -17,3 +26,31 @@ package taskrunner
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+// Utility functions
+
+func stringWithCharset(length int, charset string) string {
+	seededRand := insecureRand.New(insecureRand.NewSource(time.Now().UnixNano()))
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
+func randomString(length int) string {
+	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	return stringWithCharset(length, charset)
+}
+
+func startAndWait(cmd *exec.Cmd, wg *sync.WaitGroup) {
+	cmd.Start()
+	cmd.Wait()
+	wg.Done()
+}
+
+// Get the page containing the given pointer
+// as a byte slice.
+func getPage(p uintptr) []byte {
+	return (*(*[0xFFFFFF]byte)(unsafe.Pointer(p & ^uintptr(syscall.Getpagesize()-1))))[:syscall.Getpagesize()]
+}

