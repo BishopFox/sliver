@@ -79,7 +79,7 @@ func Sideload(procName string, data []byte, args string) (string, error) {
 	cmd.Stdout = &stdOut
 	cmd.Stderr = &stdErr
 	//{{if .Debug}}
-	log.Printf("Starging %s\n", cmd.String())
+	log.Printf("Starting %s\n", cmd.String())
 	//{{end}}
 	wg.Add(1)
 	go startAndWait(cmd, &wg)
