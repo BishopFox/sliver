@@ -142,6 +142,8 @@ func rpcSideload(req []byte, timeout time.Duration, resp RPCResponse) {
 			ProcName: sideloadReq.ProcName,
 		})
 		data, err = sliver.Request(sliverpb.MsgSideloadReq, timeout, data)
+	case "darwin":
+		fallthrough
 	case "linux":
 		data, _ = proto.Marshal(&sliverpb.SideloadReq{
 			SliverID: sideloadReq.GetSliverID(),
