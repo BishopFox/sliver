@@ -848,7 +848,8 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "process", "notepad.exe", "Hosting process to inject into")
-			f.Int("t", "timeout", 30, "Time to wait before killing the hosting process (seconds)")
+			f.Bool("a", "amsi", true, "Use AMSI bypass")
+			f.Int("t", "timeout", 30, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 	})

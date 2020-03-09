@@ -105,7 +105,7 @@ func rpcExecuteAssembly(req []byte, timeout time.Duration, resp RPCResponse) {
 		HostingDll: hostingDllBytes,
 		Arguments:  execReq.Arguments,
 		Process:    execReq.Process,
-		Timeout:    execReq.Timeout,
+		AmsiBypass: execReq.AmsiBypass,
 		SliverID:   execReq.SliverID,
 	})
 	rpcLog.Infof("Sending execute assembly request to sliver %d\n", execReq.SliverID)

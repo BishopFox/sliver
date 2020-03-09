@@ -274,7 +274,7 @@ func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 	go spin.Until("Executing assembly ...", ctrl)
 	data, _ := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
 		SliverID:   ActiveSliver.Sliver.ID,
-		Timeout:    int32(ctx.Flags.Int("timeout")),
+		AmsiBypass: ctx.Flags.Bool("amsi"),
 		Arguments:  assemblyArgs,
 		Process:    process,
 		Assembly:   assemblyBytes,
