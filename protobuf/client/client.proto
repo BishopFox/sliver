@@ -3,6 +3,21 @@ syntax = "proto3";
 package clientpb;
 
 // [ generic ] ----------------------------------------
+message Version {
+  int32 Major = 1;
+  int32 Minor = 2;
+  int32 Patch = 3;
+
+  string Commit = 4;
+
+  enum Component {
+    ConsoleClient = 0;
+    GUIClient = 1;
+    Server = 2;
+    Sliver = 3;
+  }
+}
+
 message File {
   string Name = 1;
   bytes Data = 2;
@@ -78,9 +93,7 @@ message SliverConfig {
 }
 
 // Configs of previously built slivers
-message SliverBuilds {
-  map<string, SliverConfig> Configs = 1;
-}
+message SliverBuilds { map<string, SliverConfig> Configs = 1; }
 
 // DNSCanary - Single canary and metadata
 message DNSCanary {
@@ -112,6 +125,8 @@ message Job {
   string Description = 3;
   string Protocol = 4;
   int32 Port = 5;
+
+  repeated string Domains = 6;
 }
 
 message JobKillReq { int32 ID = 1; }
@@ -139,9 +154,10 @@ message TCP { int32 JobID = 1; }
 
 message MTLS { int32 JobID = 1; }
 
-message DNSReq { 
-  repeated string Domains = 1; 
+message DNSReq {
+  repeated string Domains = 1;
   bool Canaries = 2;
+  int32 LPort = 3;
 }
 
 message DNS { int32 JobID = 1; }
@@ -259,8 +275,8 @@ message Event {
   Sliver Sliver = 2;
   Job Job = 3;
   Client Client = 4;
-  bytes  Data = 5;
-  
+  bytes Data = 5;
+
   string Err = 9;
 }
 

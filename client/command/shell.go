@@ -51,7 +51,10 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 	if ActiveSliver.Sliver.OS == windows {
 		noPty = true // Windows of course doesn't have PTYs
 	}
+	runInteractive(shellPath, noPty, server)
+}
 
+func runInteractive(shellPath string, noPty bool, server *core.SliverServer) {
 	fmt.Printf(Info + "Opening shell tunnel (EOF to exit) ...\n\n")
 
 	tunnel, err := server.CreateTunnel(ActiveSliver.Sliver.ID, defaultTimeout)

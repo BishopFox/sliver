@@ -723,6 +723,26 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
+		Name:     consts.NetstatStr,
+		Help:     "Print network connection information",
+		LongHelp: help.GetHelpFor(consts.NetstatStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			netstat(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("t", "tcp", true, "display information about TCP sockets")
+			f.Bool("u", "udp", false, "display information about UDP sockets")
+			f.Bool("4", "ip4", true, "display information about IPv4 sockets")
+			f.Bool("6", "ip6", false, "display information about IPv6 sockets")
+			f.Bool("l", "listen", false, "display information about listening sockets")
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
 		Name:     consts.ProcdumpStr,
 		Help:     "Dump process memory",
 		LongHelp: help.GetHelpFor(consts.ProcdumpStr),
@@ -828,7 +848,8 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "process", "notepad.exe", "Hosting process to inject into")
-			f.Int("t", "timeout", 30, "Time to wait before killing the hosting process (seconds)")
+			f.Bool("a", "amsi", true, "Use AMSI bypass")
+			f.Int("t", "timeout", 30, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
@@ -840,13 +861,14 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			executeShellcode(ctx, server.RPC)
+			executeShellcode(ctx, server)
 			fmt.Println()
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Bool("r", "rwx-pages", false, "Use RWX permissions for memory pages")
 			f.Uint("p", "pid", 0, "Pid of process to inject into (0 means injection into ourselves)")
+			f.Bool("i", "interactive", false, "Inject into a new process and interact with it")
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
@@ -888,14 +910,16 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.SideloadStr,
-		Help:     "Load and execute a DLL in a remote process",
+		Help:     "Load and execute a shared object (shared library/DLL) in a remote process",
 		LongHelp: help.GetHelpFor(consts.SideloadStr),
 		Flags: func(f *grumble.Flags) {
+			f.String("a", "args", "", "Arguments for the shared library function")
+			f.String("e", "entry-point", "", "Entrypoint for the DLL (Windows only)")
 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
 			f.Int("t", "timeout", 10, "command timeout in seconds")
 		},
 		AllowArgs: true,
-		HelpGroup: consts.SliverWinHelpGroup,
+		HelpGroup: consts.SliverHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			sideloadDll(ctx, server.RPC)

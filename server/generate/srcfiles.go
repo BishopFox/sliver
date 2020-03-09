@@ -32,9 +32,8 @@ var (
 		"evasion/evasion_linux.go",
 		"evasion/evasion_windows.go",
 		// C files for DLL
-		"dllmain.go",
-		"dllmain.h",
-		"dllmain.c",
+		"sliver.h",
+		"sliver.c",
 
 		"handlers/generic-rpc-handlers.go",
 		"handlers/generic-tun-handlers.go",
@@ -48,6 +47,11 @@ var (
 		"limits/limits_windows.go",
 		"limits/limits_darwin.go",
 		"limits/limits_linux.go",
+
+		"netstat/netstat.go",
+		"netstat/netstat_windows.go",
+		"netstat/netstat_linux.go",
+		"netstat/netstat_darwin.go",
 
 		"procdump/dump.go",
 		"procdump/dump_windows.go",
@@ -116,6 +120,7 @@ var (
 		"winhttp/winhttp.go",
 
 		"sliver.go",
+
 
 		"3rdparty/BurntSushi/xgb/dri2/dri2.go",
 		"3rdparty/BurntSushi/xgb/res/res.go",
@@ -196,6 +201,9 @@ var (
 		"3rdparty/kbinani/screenshot/screenshot_windows.go",
 		"3rdparty/kbinani/screenshot/screenshot_go1.9_or_earlier_darwin.go",	
 		"3rdparty/kbinani/screenshot/screenshot.go",
+
+
+		// "go.mod",
 
 	}
 )

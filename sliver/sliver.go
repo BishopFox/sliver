@@ -19,6 +19,7 @@ package main
 */
 
 // {{if .IsSharedLib}}
+//#include "sliver.h"
 import "C"
 
 // {{end}}

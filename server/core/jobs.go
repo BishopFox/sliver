@@ -21,7 +21,7 @@ package core
 import (
 	"sync"
 
-	pb "github.com/bishopfox/sliver/protobuf/client"
+	clientpb "github.com/bishopfox/sliver/protobuf/client"
 )
 
 var (
@@ -40,17 +40,19 @@ type Job struct {
 	Description string
 	Protocol    string
 	Port        uint16
+	Domains     []string
 	JobCtrl     chan bool
 }
 
 // ToProtobuf - Get the protobuf version of the object
-func (j *Job) ToProtobuf() *pb.Job {
-	return &pb.Job{
+func (j *Job) ToProtobuf() *clientpb.Job {
+	return &clientpb.Job{
 		ID:          int32(j.ID),
 		Name:        j.Name,
 		Description: j.Description,
 		Protocol:    j.Protocol,
 		Port:        int32(j.Port),
+		Domains:     j.Domains,
 	}
 }
 

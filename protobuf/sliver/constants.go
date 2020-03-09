@@ -130,9 +130,14 @@ const (
 	// MsgTerminate - Kill a remote process
 	MsgTerminate
 
+
 	// MsgScreenshotReq - Request to take a screenshot
 	MsgScreenshotReq
 
 	// MsgScreenshot - Response with the screenshots
 	MsgScreenshot
+
+	// MsgNetstatReq - Netstat request
+	MsgNetstatReq
+
 )

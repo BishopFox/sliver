@@ -265,10 +265,15 @@ func SliverEgg(config SliverConfig) (string, error) {
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
 func SliverSharedLibrary(config *SliverConfig) (string, error) {
 	// Compile go code
+	var crossCompiler string
 	appDir := assets.GetRootAppDir()
-	crossCompiler := getCCompiler(config.GOARCH)
-	if crossCompiler == "" {
-		return "", errors.New("No cross-compiler (mingw) found")
+	// Don't use a cross-compiler if the target bin is built on the same platform
+	// as the sliver-server.
+	if runtime.GOOS != config.GOOS {
+		crossCompiler = getCCompiler(config.GOARCH)
+		if crossCompiler == "" {
+			return "", errors.New("No cross-compiler (mingw) found")
+		}
 	}
 	goConfig := &gogo.GoConfig{
 		CGO:    "1",
@@ -436,8 +441,9 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		var sliverCodePath string
 		dirName := filepath.Dir(boxName)
 		var fileName string
-		if boxName == "dllmain.go" {
-			if config.GOOS != "windows" || !config.IsSharedLib {
+		// Skip dllmain files for anything non windows
+		if boxName == "sliver.h" || boxName == "sliver.c" {
+			if !config.IsSharedLib {
 				continue
 			}
 		}
@@ -460,7 +466,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 
 		fSliver, _ := os.Create(sliverCodePath)
 		buf := bytes.NewBuffer([]byte{})
-		buildLog.Infof("[render] %s", sliverCodePath)
+		buildLog.Infof("[render] %s -> %s", boxName, sliverCodePath)
 
 		// Render code
 		sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
@@ -468,15 +474,15 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 
 		// Render canaries
 		buildLog.Infof("Canary domain(s): %v", config.CanaryDomains)
-		canaryTempl := template.New("canary").Delims("[[", "]]")
+		canaryTmpl := template.New("canary").Delims("[[", "]]")
 		canaryGenerator := &CanaryGenerator{
 			SliverName:    config.Name,
 			ParentDomains: config.CanaryDomains,
 		}
-		canaryTempl, err := canaryTempl.Funcs(template.FuncMap{
+		canaryTmpl, err := canaryTmpl.Funcs(template.FuncMap{
 			"GenerateCanary": canaryGenerator.GenerateCanary,
 		}).Parse(buf.String())
-		canaryTempl.Execute(fSliver, canaryGenerator)
+		canaryTmpl.Execute(fSliver, canaryGenerator)
 
 		if err != nil {
 			buildLog.Infof("Failed to render go code: %s", err)

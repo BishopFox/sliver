@@ -47,6 +47,7 @@ func rpcJobs(_ []byte, timeout time.Duration, resp RPCResponse) {
 			Description: job.Description,
 			Protocol:    job.Protocol,
 			Port:        int32(job.Port),
+			Domains:     job.Domains,
 		})
 	}
 	data, err := proto.Marshal(jobs)
@@ -103,8 +104,8 @@ func jobStartMTLSListener(bindIface string, port uint16) (int, error) {
 
 	job := &core.Job{
 		ID:          core.GetJobID(),
-		Name:        "mTLS",
-		Description: "mutual tls",
+		Name:        "mtls",
+		Description: fmt.Sprintf("mutual tls listener %s", bindIface),
 		Protocol:    "tcp",
 		Port:        port,
 		JobCtrl:     make(chan bool),
@@ -135,7 +136,11 @@ func rpcStartDNSListener(data []byte, timeout time.Duration, resp RPCResponse) {
 		resp([]byte{}, err)
 		return
 	}
-	jobID, err := jobStartDNSListener(dnsReq.Domains, dnsReq.Canaries)
+	lport := uint16(dnsReq.LPort)
+	if lport == 0 {
+		lport = 53
+	}
+	jobID, err := jobStartDNSListener(dnsReq.Domains, dnsReq.Canaries, lport)
 	if err != nil {
 		resp([]byte{}, err)
 		return
@@ -144,7 +149,7 @@ func rpcStartDNSListener(data []byte, timeout time.Duration, resp RPCResponse) {
 	resp(data, err)
 }
 
-func jobStartDNSListener(domains []string, canaries bool) (int, error) {
+func jobStartDNSListener(domains []string, canaries bool, lport uint16) (int, error) {
 
 	server := c2.StartDNSListener(domains, canaries)
 	description := fmt.Sprintf("%s (canaries %v)", strings.Join(domains, " "), canaries)
@@ -153,8 +158,9 @@ func jobStartDNSListener(domains []string, canaries bool) (int, error) {
 		Name:        "dns",
 		Description: description,
 		Protocol:    "udp",
-		Port:        53,
+		Port:        lport,
 		JobCtrl:     make(chan bool),
+		Domains:     domains,
 	}
 
 	go func() {
@@ -258,6 +264,7 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
 		Protocol:    "tcp",
 		Port:        uint16(conf.LPort),
 		JobCtrl:     make(chan bool),
+		Domains:     []string{conf.Domain},
 	}
 	core.Jobs.AddJob(job)
 
