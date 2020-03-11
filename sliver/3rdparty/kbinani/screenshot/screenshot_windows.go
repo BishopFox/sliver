@@ -4,6 +4,7 @@ import (
 	"errors"
 	"image"
 	"syscall"
+	"fmt"
 
 	"unsafe"
 
@@ -41,14 +42,16 @@ func Capture(x, y, width, height int) (*image.RGBA, error) {
 	}
 	defer syscalls.DeleteDC(memory_device)
 
-	bitmap, _ := syscalls.CreateCompatibleBitmap(hdc, uint32(width), uint32(height))
+	bitmap, _ := syscalls.CreateCompatibleBitmap(hdc, width, height)
+
 	if bitmap == 0 {
-		return nil, errors.New("CreateCompatibleBitmap failed")
+		msg := fmt.Sprintf("CreateCompatibleBitmap failed: %d %d %d",hdc,width,height)
+		return nil, errors.New(msg)
 	}
 	defer syscalls.DeleteObject(windows.Handle(bitmap))
 
 	var header syscalls.BITMAPINFOHEADER
-	header.BiSize = uint32(unsafe.Sizeof(header))
+	header.BiSize = uint32(unsafe.Sizeof(header))	
 	header.BiPlanes = 1
 	header.BiBitCount = 32
 	header.BiWidth = int32(width)

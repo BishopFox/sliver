@@ -25,7 +25,7 @@ package syscalls
 //sys CreateCompatibleDC(hdc windows.Handle) (HDC windows.Handle, err error) =  Gdi32.CreateCompatibleDC
 //sys GetDesktopWindow() (HWND windows.Handle, err error) = User32.GetDesktopWindow
 //sys DeleteDC(hdc windows.Handle) (BOOL uint32, err error) = Gdi32.DeleteDC
-//sys CreateCompatibleBitmap(hdc windows.Handle, cx uint32, cy uint32) (HBITMAP windows.Handle, err error) = Gdi32.CreateCompatibleBitmap
+//sys CreateCompatibleBitmap(hdc windows.Handle, cx int, cy int) (HBITMAP windows.Handle, err error) = Gdi32.CreateCompatibleBitmap
 //sys DeleteObject(ho windows.Handle) (BOOL uint32, err error) = Gdi32.DeleteObject
 //sys GlobalAlloc(uFlags uint, dwBytes uintptr) (HGLOBAL windows.Handle, err error) = Kernel32.GlobalAlloc
 //sys GlobalFree(hMem windows.Handle) (HGLOBAL windows.Handle, err error) = Kernel32.GlobalFree

@@ -21,6 +21,9 @@ package command
 import (
 	"fmt"
 	"io/ioutil"
+	"time"
+	"path"
+
 
 	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
 
@@ -39,10 +42,12 @@ func screenshot(ctx *grumble.Context, rpc RPCServer) {
 		return
 	} 
 	
-	fileName := ctx.Flags.String("save")
+	timestamp := time.Now().Format("20060102150405")
+	fileName := path.Base(fmt.Sprintf("screenshot_%s_%s_*.png", ActiveSliver.Sliver.Name, timestamp))
+	f, err := ioutil.TempFile("", fileName)
 
-	if fileName == "" {
-		fmt.Printf(Warn + "-s parameter missing\n")
+	if err != nil {
+		fmt.Printf(Warn+"Error: %s", err)
 		return
 	}
 
@@ -51,18 +56,23 @@ func screenshot(ctx *grumble.Context, rpc RPCServer) {
 		Type: sliverpb.MsgScreenshotReq,
 		Data: data,
 	}, defaultTimeout)
+
 	if resp.Err != "" {
 		fmt.Printf(Warn+"Error: %s", resp.Err)
 		return
 	}
 
 	screenshotConfigs := &sliverpb.Screenshot{}
-	err := proto.Unmarshal(resp.Data, screenshotConfigs)
+	err = proto.Unmarshal(resp.Data, screenshotConfigs)
 	if err != nil {
 		fmt.Printf(Warn + "Failed to decode response\n")
 		return
 	}
 
-	ioutil.WriteFile(fileName, screenshotConfigs.Data, 0644)
-	fmt.Printf(bold + "Written to " + fileName)
+	err = ioutil.WriteFile(f.Name(), screenshotConfigs.Data, 0644)
+	if err != nil {
+		fmt.Printf(Warn + "Error writting screenshot file: %s\n", err)
+		return
+	}
+	fmt.Printf(bold + "Written to " + f.Name())
 }

@@ -337,7 +337,7 @@ func DeleteDC(hdc windows.Handle) (BOOL uint32, err error) {
 	return
 }
 
-func CreateCompatibleBitmap(hdc windows.Handle, cx uint32, cy uint32) (HBITMAP windows.Handle, err error) {
+func CreateCompatibleBitmap(hdc windows.Handle, cx int, cy int) (HBITMAP windows.Handle, err error) {
 	r0, _, e1 := syscall.Syscall(procCreateCompatibleBitmap.Addr(), 3, uintptr(hdc), uintptr(cx), uintptr(cy))
 	HBITMAP = windows.Handle(r0)
 	if HBITMAP == 0 {
