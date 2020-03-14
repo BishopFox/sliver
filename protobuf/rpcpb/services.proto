@@ -13,7 +13,8 @@ service SliverRPC {
 
     // *** Sessions ***
     rpc GetSessions(commonpb.Empty) returns (clientpb.Sessions) {}
-
+    rpc KillSession(sliverpb.KillSessionReq) returns (commonpb.Empty) {}
+    
     // *** Jobs ***
     rpc GetJobs(commonpb.Empty) returns (clientpb.Jobs) {}
     rpc KillJob(clientpb.JobKillReq) returns (clientpb.JobKill) {}
@@ -23,7 +24,6 @@ service SliverRPC {
 
     // *** Session Interactions ***
     rpc Ping(sliverpb.Ping) returns (sliverpb.Ping) {}
-    rpc Kill(sliverpb.KillReq) returns (commonpb.Empty) {}
     rpc Ps(sliverpb.PsReq) returns (sliverpb.Ps) {}
     rpc Terminate(sliverpb.TerminateReq) returns (sliverpb.Terminate) {}
     rpc Ifconfig(sliverpb.IfconfigReq) returns (sliverpb.Ifconfig) {}

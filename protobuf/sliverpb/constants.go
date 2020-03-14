@@ -1,5 +1,9 @@
 package sliverpb
 
+import (
+	proto "github.com/golang/protobuf/proto"
+)
+
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -25,17 +29,17 @@ const (
 	// MsgRegister - Initial message from sliver with metadata
 	MsgRegister = uint32(1 + iota)
 
-	// MsgTask - A local shellcode injection task
-	MsgTask
+	// MsgTaskReq - A local shellcode injection task
+	MsgTaskReq
 
-	// MsgRemoteTask - Remote thread injection task
-	MsgRemoteTask
+	// MsgRemoteTaskReq - Remote thread injection task
+	MsgRemoteTaskReq
 
 	// MsgPing - Confirm connection is open used as req/resp
 	MsgPing
 
-	// MsgKill - Kill request to the sliver process
-	MsgKill
+	// MsgKillSessionReq - Kill request to the sliver process
+	MsgKillSessionReq
 
 	// MsgLsReq - Request a directory listing from the remote system
 	MsgLsReq
@@ -54,8 +58,6 @@ const (
 
 	// MsgCdReq - Request a change directory on the remote system
 	MsgCdReq
-	// MsgCd - Confirms the success/failure of the `cd` request (resp to MsgCdReq)
-	MsgCd
 
 	// MsgPwdReq - A request to get the CWD from the remote process
 	MsgPwdReq
@@ -118,18 +120,21 @@ const (
 	MsgSideloadReq
 	// MsgSideload - output of the binary
 	MsgSideload
+
 	// MsgSpawnDllReq - Reflective DLL injection request
 	MsgSpawnDllReq
 	// MsgSpawnDll - Reflective DLL injection output
 	MsgSpawnDll
+
 	// MsgIfconfigReq - Ifconfig (network interface config) request
 	MsgIfconfigReq
+	// MsgIfconfig - Ifconfig response
+	MsgIfconfig
 
 	// MsgExecuteReq - Execute a command on the remote system
 	MsgExecuteReq
 	// MsgTerminate - Kill a remote process
 	MsgTerminate
-
 
 	// MsgScreenshotReq - Request to take a screenshot
 	MsgScreenshotReq
@@ -139,5 +144,138 @@ const (
 
 	// MsgNetstatReq - Netstat request
 	MsgNetstatReq
-
 )
+
+// MsgNumber - Get a message number of type
+func MsgNumber(request proto.Message) uint32 {
+	switch request.(type) {
+
+	case *Register:
+		return MsgRegister
+
+	case *TaskReq:
+		return MsgTaskReq
+
+	case *RemoteTaskReq:
+		return MsgRemoteTaskReq
+
+	case *Ping:
+		return MsgPing
+
+	case *KillSessionReq:
+		return MsgKillSessionReq
+
+	case *LsReq:
+		return MsgLsReq
+	case *Ls:
+		return MsgLs
+
+	case *DownloadReq:
+		return MsgDownloadReq
+	case *Download:
+		return MsgDownload
+
+	case *UploadReq:
+		return MsgUploadReq
+	case *Upload:
+		return MsgUpload
+
+	case *CdReq:
+		return MsgCdReq
+
+	case *PwdReq:
+		return MsgPwdReq
+	case *Pwd:
+		return MsgPwd
+
+	case *RmReq:
+		return MsgRmReq
+	case *Rm:
+		return MsgRm
+
+	case *MkdirReq:
+		return MsgMkdirReq
+	case *Mkdir:
+		return MsgMkdir
+
+	case *PsReq:
+		return MsgPsReq
+	case *Ps:
+		return MsgPs
+
+	case *ShellReq:
+		return MsgShellReq
+	case *Shell:
+		return MsgShell
+
+	case *TunnelData:
+		return MsgTunnelData
+	case *TunnelClose:
+		return MsgTunnelClose
+
+	case *ProcessDumpReq:
+		return MsgProcessDumpReq
+	case *ProcessDump:
+		return MsgProcessDump
+
+	case *ImpersonateReq:
+		return MsgImpersonateReq
+	case *Impersonate:
+		return MsgImpersonate
+
+	case *RunAs:
+		return MsgRunAs
+
+	case *RevToSelf:
+		return MsgRevToSelf
+
+	case *GetSystemReq:
+		return MsgGetSystemReq
+	case *GetSystem:
+		return MsgGetSystem
+
+	case *ElevateReq:
+		return MsgElevateReq
+	case *Elevate:
+		return MsgElevate
+
+	case *ExecuteAssemblyReq:
+		return MsgExecuteAssemblyReq
+	case *ExecuteAssembly:
+		return MsgExecuteAssembly
+
+	case *MigrateReq:
+		return MsgMigrateReq
+
+	case *SideloadReq:
+		return MsgSideloadReq
+	case *Sideload:
+		return MsgSideload
+
+	case *SpawnDllReq:
+		return MsgSpawnDllReq
+	case *SpawnDll:
+		return MsgSpawnDll
+
+	case *IfconfigReq:
+		return MsgIfconfigReq
+	case *Ifconfig:
+		return MsgIfconfig
+
+	case *ExecuteReq:
+		return MsgExecuteReq
+
+	case *Terminate:
+		return MsgTerminate
+
+	case *ScreenshotReq:
+		return MsgScreenshotReq
+	case *Screenshot:
+		return MsgScreenshot
+
+	case *NetstatReq:
+		return MsgNetstatReq
+
+	}
+	return uint32(0)
+}

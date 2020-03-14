@@ -19,102 +19,66 @@ package rpc
 */
 
 import (
+	"errors"
 	"time"
 
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
-
-	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/golang/protobuf/proto"
 )
 
 var (
 	rpcLog = log.NamedLogger("rpc", "server")
+
+	// ErrInvalidSessionID - Invalid Session ID in request
+	ErrInvalidSessionID = errors.New("Invalid session ID")
 )
 
-// RPCResponse - Called with response data, mapped back to reqID
-type RPCResponse func([]byte, error)
+// Server - gRPC server
+type Server struct{}
 
-// RPCHandler - RPC handlers accept bytes and return bytes
-type RPCHandler func([]byte, time.Duration, RPCResponse)
-type TunnelHandler func(*core.Client, []byte, RPCResponse)
-
-var (
-	rpcHandlers = &map[uint32]RPCHandler{
-		clientpb.MsgJobs:    rpcJobs,
-		clientpb.MsgJobKill: rpcJobKill,
-		clientpb.MsgMtls:    rpcStartMTLSListener,
-		clientpb.MsgDns:     rpcStartDNSListener,
-		clientpb.MsgHttp:    rpcStartHTTPListener,
-		clientpb.MsgHttps:   rpcStartHTTPSListener,
-
-		clientpb.MsgWebsiteList:          rpcWebsiteList,
-		clientpb.MsgWebsiteAddContent:    rpcWebsiteAddContent,
-		clientpb.MsgWebsiteRemoveContent: rpcWebsiteRemoveContent,
-
-		clientpb.MsgSessions:         rpcSessions,
-		clientpb.MsgGenerate:         rpcGenerate,
-		clientpb.MsgRegenerate:       rpcRegenerate,
-		clientpb.MsgListSliverBuilds: rpcListSliverBuilds,
-		clientpb.MsgListCanaries:     rpcListCanaries,
-		clientpb.MsgProfiles:         rpcProfiles,
-		clientpb.MsgNewProfile:       rpcNewProfile,
-		clientpb.MsgPlayers:          rpcPlayers,
-
-		clientpb.MsgMsf:       rpcMsf,
-		clientpb.MsgMsfInject: rpcMsfInject,
-
-		clientpb.MsgGetSystemReq: rpcGetSystem,
-
-		clientpb.MsgEggReq:             rpcEgg,
-		clientpb.MsgExecuteAssemblyReq: rpcExecuteAssembly,
-
-		// "Req"s directly map to responses
-		sliverpb.MsgPsReq:          rpcPs,
-		sliverpb.MsgKill:           rpcKill,
-		sliverpb.MsgTerminate:      rpcTerminate,
-		sliverpb.MsgProcessDumpReq: rpcProcdump,
-		sliverpb.MsgSpawnDllReq:    rpcSpawnDll,
-
-		sliverpb.MsgElevate:     rpcElevate,
-		sliverpb.MsgImpersonate: rpcImpersonate,
-		sliverpb.MsgRunAs:       rpcRunAs,
-		sliverpb.MsgRevToSelf:   rpcRevToSelf,
-
-		sliverpb.MsgLsReq:       rpcLs,
-		sliverpb.MsgRmReq:       rpcRm,
-		sliverpb.MsgMkdirReq:    rpcMkdir,
-		sliverpb.MsgCdReq:       rpcCd,
-		sliverpb.MsgPwdReq:      rpcPwd,
-		sliverpb.MsgDownloadReq: rpcDownload,
-		sliverpb.MsgUploadReq:   rpcUpload,
-
-		sliverpb.MsgIfconfigReq: rpcIfconfig,
-		sliverpb.MsgNetstatReq:  rpcNetstat,
-
-		sliverpb.MsgShellReq:   rpcShell,
-		sliverpb.MsgExecuteReq: rpcExecute,
-		sliverpb.MsgScreenshotReq: rpcScreenshot,
-
-		clientpb.MsgTask:    rpcTask,
-		clientpb.MsgMigrate: rpcMigrate,
-
-		clientpb.MsgSideloadReq: rpcSideload,
-	}
-
-	tunHandlers = &map[uint32]TunnelHandler{
-		clientpb.MsgTunnelCreate: tunnelCreate,
-		sliverpb.MsgTunnelData:   tunnelData,
-		sliverpb.MsgTunnelClose:  tunnelClose,
-	}
-)
-
-// GetRPCHandlers - Returns a map of server-side msg handlers
-func GetRPCHandlers() *map[uint32]RPCHandler {
-	return rpcHandlers
+// GenericRequest - Generic request interface to use with generic handlers
+type GenericRequest interface {
+	GetSessionID() uint32
+	GetTimeout() int64
+	GetAsync() bool
 }
 
-// GetTunnelHandlers - Returns a map of tunnel handlers
-func GetTunnelHandlers() *map[uint32]TunnelHandler {
-	return tunHandlers
+// GenericResponse - Generic response interface to use with generic handlers
+type GenericResponse interface {
+	GetResponse() commonpb.Response
+}
+
+// NewServer - Create new server instance
+func NewServer() *Server {
+	return &Server{}
+}
+
+// GenericHandler - Pass the request to the Sliver/Session
+func (rpc *Server) GenericHandler(pbMsg proto.Message, req GenericRequest, resp proto.Message) error {
+	sliver := core.Hive.Sliver(req.GetSessionID())
+	if sliver == nil {
+		return ErrInvalidSessionID
+	}
+	reqData, err := proto.Marshal(pbMsg)
+	if err != nil {
+		return err
+	}
+	timeout := time.Duration(req.GetTimeout())
+	data, err := sliver.Request(sliverpb.MsgNumber(pbMsg), timeout, reqData)
+	if err != nil {
+		return err
+	}
+	err = proto.Unmarshal(data, resp)
+	if err != nil {
+		return err
+	}
+
+	if resp.(GenericResponse).GetResponse().Err != "" {
+		return errors.New(resp.(GenericResponse).GetResponse().Err)
+	}
+
+	return nil
 }

@@ -19,76 +19,53 @@ package rpc
 */
 
 import (
+	"context"
 	"time"
 
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcLs(req []byte, timeout time.Duration, resp RPCResponse) {
-	dirList := &sliverpb.LsReq{}
-	err := proto.Unmarshal(req, dirList)
+// Ls - List a directory
+func (rpc *Server) Ls(ctx context.Context, msg *sliverpb.LsReq) (*sliverpb.Ls, error) {
+	resp := &sliverpb.Ls{}
+	err := rpc.GenericHandler(msg, msg.Request, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := core.Hive.Sliver(dirList.SliverID)
-
-	data, _ := proto.Marshal(&sliverpb.LsReq{
-		Path: dirList.Path,
-	})
-	data, err = sliver.Request(sliverpb.MsgLsReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }
 
-func rpcRm(req []byte, timeout time.Duration, resp RPCResponse) {
-	rmReq := &sliverpb.RmReq{}
-	err := proto.Unmarshal(req, rmReq)
+// Rm - Remove file or directory
+func (rpc *Server) Rm(ctx context.Context, msg *sliverpb.RmReq) (*sliverpb.Rm, error) {
+	resp := &sliverpb.Rm{}
+	err := rpc.GenericHandler(msg, msg.Request, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := core.Hive.Sliver(rmReq.SliverID)
-
-	data, _ := proto.Marshal(&sliverpb.RmReq{
-		Path: rmReq.Path,
-	})
-	data, err = sliver.Request(sliverpb.MsgRmReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }
 
-func rpcMkdir(req []byte, timeout time.Duration, resp RPCResponse) {
-	mkdirReq := &sliverpb.MkdirReq{}
-	err := proto.Unmarshal(req, mkdirReq)
+// Mkdir - Make a directory
+func (rpc *Server) Mkdir(ctx context.Context, msg *sliverpb.MkdirReq) (*sliverpb.Mkdir, error) {
+	resp := &sliverpb.Mkdir{}
+	err := rpc.GenericHandler(msg, msg.Request, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := core.Hive.Sliver(mkdirReq.SliverID)
-
-	data, _ := proto.Marshal(&sliverpb.MkdirReq{
-		Path: mkdirReq.Path,
-	})
-	data, err = sliver.Request(sliverpb.MsgMkdirReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }
 
-func rpcCd(req []byte, timeout time.Duration, resp RPCResponse) {
-	cdReq := &sliverpb.CdReq{}
-	err := proto.Unmarshal(req, cdReq)
+// Cd - Change directory
+func (rpc *Server) Cd(ctx context.Context, msg *sliverpb.CdReq) (*sliverpb.Pwd, error) {
+	resp := &sliverpb.Pwd{}
+	err := rpc.GenericHandler(msg, msg.Request, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := core.Hive.Sliver(cdReq.SliverID)
-
-	data, _ := proto.Marshal(&sliverpb.CdReq{
-		Path: cdReq.Path,
-	})
-	data, err = sliver.Request(sliverpb.MsgCdReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }
 
 func rpcPwd(req []byte, timeout time.Duration, resp RPCResponse) {

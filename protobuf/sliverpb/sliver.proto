@@ -51,8 +51,8 @@ message Ping {
   commonpb.Response Response = 9;
 }
 
-// KillReq - Request the implant to kill a session
-message KillReq {
+// KillSessionReq - Request the implant to kill a session
+message KillSessionReq {
   bool Force = 1;
 
   commonpb.Request Request = 9;
@@ -274,7 +274,7 @@ message RemoteTaskReq {
   bytes Data = 9;
 }
 
-message Task {
+message TaskReq {
   commonpb.Response Response = 9;
 }
 
