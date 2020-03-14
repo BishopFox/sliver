@@ -20,18 +20,23 @@ package rpc
 
 import (
 	"context"
+	"time"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
-	commonpb "github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/golang/protobuf/proto"
 )
 
 // GetSessions - Get a list of sessions
 func (rpc *Server) GetSessions(ctx context.Context, _ *commonpb.Empty) (*clientpb.Sessions, error) {
-	sessions := &clientpb.Sessions{}
+	sessions := &clientpb.Sessions{
+		Sessions: []*clientpb.Session{},
+	}
 	if 0 < len(*core.Hive.Slivers) {
 		for _, sliver := range *core.Hive.Slivers {
-			sessions.Slivers = append(sessions.Slivers, sliver.ToProtobuf())
+			sessions.Sessions = append(sessions.Sessions, sliver.ToProtobuf())
 		}
 	}
 	return sessions, nil
@@ -41,9 +46,14 @@ func (rpc *Server) GetSessions(ctx context.Context, _ *commonpb.Empty) (*clientp
 func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillSessionReq) (*commonpb.Empty, error) {
 	sliver := core.Hive.Sliver(kill.Request.SessionID)
 	if sliver == nil {
-		return commonpb.Empty{}, ErrInvalidSessionID
+		return &commonpb.Empty{}, ErrInvalidSessionID
 	}
 	core.Hive.RemoveSliver(sliver)
-	sliver.Request(sliverpb.MsgKill, timeout, data)
-	return commonpb.Empty{}, nil
+	data, err := proto.Marshal(kill)
+	if err != nil {
+		return nil, err
+	}
+	timeout := time.Duration(kill.Request.GetTimeout())
+	sliver.Request(sliverpb.MsgNumber(kill), timeout, data)
+	return &commonpb.Empty{}, nil
 }

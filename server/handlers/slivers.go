@@ -23,7 +23,7 @@ package handlers
 
 import (
 	consts "github.com/bishopfox/sliver/client/constants"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
 
@@ -104,8 +104,8 @@ func tunnelCloseHandler(sliver *core.Sliver, data []byte) {
 		return
 	}
 	if tunnel.Sliver.ID == sliver.ID {
-		handlerLog.Debugf("Sliver %d closed tunnel %d (reason: %s)", sliver.ID, tunnel.ID, tunnelClose.Err)
-		core.Tunnels.CloseTunnel(tunnel.ID, tunnelClose.Err)
+		handlerLog.Debugf("Sliver %d closed tunnel %d", sliver.ID, tunnel.ID)
+		core.Tunnels.CloseTunnel(tunnel.ID, "")
 	} else {
 		handlerLog.Warnf("Warning: Sliver %d attempted to close tunnel it did not own", sliver.ID)
 	}

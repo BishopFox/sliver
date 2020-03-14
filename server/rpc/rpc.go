@@ -41,14 +41,16 @@ type Server struct{}
 
 // GenericRequest - Generic request interface to use with generic handlers
 type GenericRequest interface {
-	GetSessionID() uint32
-	GetTimeout() int64
-	GetAsync() bool
+	Reset()
+	String() string
+	ProtoMessage()
+
+	GetRequest() *commonpb.Request
 }
 
 // GenericResponse - Generic response interface to use with generic handlers
 type GenericResponse interface {
-	GetResponse() commonpb.Response
+	GetResponse() *commonpb.Response
 }
 
 // NewServer - Create new server instance
@@ -57,17 +59,19 @@ func NewServer() *Server {
 }
 
 // GenericHandler - Pass the request to the Sliver/Session
-func (rpc *Server) GenericHandler(pbMsg proto.Message, req GenericRequest, resp proto.Message) error {
-	sliver := core.Hive.Sliver(req.GetSessionID())
+func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error {
+	sliver := core.Hive.Sliver(req.GetRequest().SessionID)
 	if sliver == nil {
 		return ErrInvalidSessionID
 	}
-	reqData, err := proto.Marshal(pbMsg)
+
+	reqData, err := proto.Marshal(req)
 	if err != nil {
 		return err
 	}
-	timeout := time.Duration(req.GetTimeout())
-	data, err := sliver.Request(sliverpb.MsgNumber(pbMsg), timeout, reqData)
+
+	timeout := time.Duration(req.GetRequest().Timeout)
+	data, err := sliver.Request(sliverpb.MsgNumber(req), timeout, reqData)
 	if err != nil {
 		return err
 	}

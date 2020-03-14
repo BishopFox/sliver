@@ -24,9 +24,29 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// Screenshot - Take a screenshot of the remote system
-func (rpc *Server) Screenshot(ctx context.Context, req *sliverpb.ScreenshotReq) (*sliverpb.Screenshot, error) {
-	resp := &sliverpb.Screenshot{}
+// Ps - List the processes on the remote machine
+func (rpc *Server) Ps(ctx context.Context, req *sliverpb.PsReq) (*sliverpb.Ps, error) {
+	resp := &sliverpb.Ps{}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ProcessDump - Dump the memory of a remote process
+func (rpc *Server) ProcessDump(ctx context.Context, req *sliverpb.ProcessDumpReq) (*sliverpb.ProcessDump, error) {
+	resp := &sliverpb.ProcessDump{}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// Terminate - Terminate a remote process
+func (rpc *Server) Terminate(ctx context.Context, req *sliverpb.TerminateReq) (*sliverpb.Terminate, error) {
+	resp := &sliverpb.Terminate{}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err

@@ -28,7 +28,7 @@ import (
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/msf"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 
@@ -119,7 +119,7 @@ func generateMsfStage(config *clientpb.EggConfig) ([]byte, error) {
 		arch = "x86"
 	}
 
-	//TODO: change the hardcoded URI to something dynamically generated
+	// TODO: change the hardcoded URI to something dynamically generated
 	switch config.Protocol {
 	case clientpb.EggConfig_TCP:
 		payload = "meterpreter/reverse_tcp"
@@ -140,7 +140,7 @@ func generateMsfStage(config *clientpb.EggConfig) ([]byte, error) {
 		LPort:    uint16(config.Port),
 		Arch:     arch,
 		Format:   config.Format,
-		BadChars: []string{"\\x0a", "\\x00"}, //TODO: make this configurable
+		BadChars: []string{"\\x0a", "\\x00"}, // TODO: make this configurable
 		Luri:     uri,
 	}
 	stage, err := msf.VenomPayload(venomConfig)
