@@ -29,8 +29,8 @@ import (
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"

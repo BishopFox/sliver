@@ -23,7 +23,7 @@ import (
 
 	"github.com/bishopfox/sliver/server/core"
 
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/golang/protobuf/proto"
 )

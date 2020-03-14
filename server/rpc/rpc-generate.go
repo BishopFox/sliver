@@ -24,7 +24,7 @@ import (
 	"path"
 	"time"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/generate"
 
 	"github.com/golang/protobuf/proto"

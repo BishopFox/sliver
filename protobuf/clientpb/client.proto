@@ -1,10 +1,11 @@
 syntax = "proto3";
 package clientpb;
+option go_package = "github.com/bishopfox/sliver/protobuf/clientpb";
 
-import "common/common.proto";
+import "commonpb/common.proto";
 
 
-// [ generic ] ----------------------------------------
+// [ Version ] ----------------------------------------
 message Version {
   int32 Major = 1;
   int32 Minor = 2;
@@ -20,8 +21,7 @@ message Version {
   }
 }
 
-// [ core ] ----------------------------------------
-
+// [ Core ] ----------------------------------------
 message Session {
   uint32 ID = 1;
   string Name = 2;
@@ -109,7 +109,7 @@ message Profiles {
 
 message Regenerate {
   string ImplantName = 1;
-  common.File File = 2;
+  commonpb.File File = 2;
 }
 
 message Job {
@@ -122,10 +122,16 @@ message Job {
   repeated string Domains = 6;
 }
 
+
+// [ Jobs ]  ----------------------------------------
+message Jobs {
+  repeated Job Active = 1;
+}
+
 message JobKillReq {
   int32 ID = 1;
 
-  common.Request Request = 9;
+  commonpb.Request Request = 9;
 }
 
 message JobKill {
@@ -135,16 +141,12 @@ message JobKill {
   string Err = 3;
 }
 
-message Jobs {
-  repeated Job Active = 1;
-}
-
-// [ listeners ] ----------------------------------------
+// [ Listeners ] ----------------------------------------
 message MTLSReq {
   string Server = 1;
   int32 LPort = 2;
 
-  common.Request Request = 9;
+  commonpb.Request Request = 9;
 }
 
 message MTLS {
@@ -155,7 +157,7 @@ message TCPReq {
   string Server = 1;
   int32 LPort = 2;
 
-  common.Request Request = 9;
+  commonpb.Request Request = 9;
 }
 
 message TCP {
@@ -167,7 +169,7 @@ message DNSReq {
   bool Canaries = 2;
   int32 LPort = 3;
 
-  common.Request Request = 9;
+  commonpb.Request Request = 9;
 }
 
 message DNS {
@@ -184,7 +186,7 @@ message HTTPReq {
   bytes Key = 7;
   bool ACME = 8;
 
-  common.Request Request = 9;
+  commonpb.Request Request = 9;
 }
 
 message HTTP {
@@ -199,11 +201,11 @@ message Sessions {
 message GenerateReq {
   ImplantConfig Config = 1;
 
-  common.Request Request = 9;
+  commonpb.Request Request = 9;
 }
 
 message Generate {
-  File File = 1;
+  commonpb.File File = 1;
 }
 
 message MSFReq {
@@ -213,7 +215,7 @@ message MSFReq {
   string Encoder = 4;
   int32 Iterations = 5;
 
-  common.Request Request = 9;
+  commonpb.Request Request = 9;
 }
 
 message MSFInjectReq {
@@ -224,7 +226,7 @@ message MSFInjectReq {
   int32 Iterations = 5;
   int32 PID = 8;
 
-  common.Request Request = 9;
+  commonpb.Request Request = 9;
 }
 
 message TaskReq {
@@ -232,21 +234,21 @@ message TaskReq {
   bool RwxPages = 2;
   uint32 Pid = 3;
 
-  common.Request Request = 9;
+  commonpb.Request Request = 9;
 }
 
 message MigrateReq {
   uint32 Pid = 1;
-  SliverConfig Config = 2;
+  ImplantConfig Config = 2;
 
-  common.Request Request = 9;
+  commonpb.Request Request = 9;
 }
 
 message GetSystemReq {
-  SliverConfig Config = 1;
+  ImplantConfig Config = 1;
   string HostingProcess = 2;
 
-  common.Request Request = 9;
+  commonpb.Request Request = 9;
 }
 
 message EggConfig {
@@ -263,7 +265,7 @@ message EggConfig {
 }
 
 message EggReq {
-  SliverConfig Config = 1;
+  ImplantConfig Config = 1;
   EggConfig EConfig = 2;
 }
 message Egg {

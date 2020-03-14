@@ -24,8 +24,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"

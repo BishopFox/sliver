@@ -25,7 +25,7 @@ import (
 	"os"
 
 	"github.com/bishopfox/sliver/client/core"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"

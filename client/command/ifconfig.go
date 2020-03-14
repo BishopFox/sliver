@@ -8,7 +8,7 @@ import (
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
 
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 func ifconfig(ctx *grumble.Context, rpc RPCServer) {

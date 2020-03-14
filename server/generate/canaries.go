@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
 )
 

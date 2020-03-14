@@ -23,7 +23,7 @@ import (
 	"crypto/x509"
 	"time"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 

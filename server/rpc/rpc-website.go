@@ -21,7 +21,7 @@ package rpc
 import (
 	"time"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
 
 	"github.com/bishopfox/sliver/server/website"
 	"github.com/golang/protobuf/proto"

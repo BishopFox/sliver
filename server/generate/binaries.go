@@ -32,7 +32,7 @@ import (
 	"strings"
 	"text/template"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/gobfuscate"

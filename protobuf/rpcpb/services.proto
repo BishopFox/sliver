@@ -1,22 +1,29 @@
 syntax = "proto3";
 package rpcpb;
+option go_package = "github.com/bishopfox/sliver/protobuf/rpcpb";
 
-
-import "sliver/sliver.proto";
-import "client/client.proto";
+import "commonpb/common.proto";
+import "sliverpb/sliver.proto";
+import "clientpb/client.proto";
 
 
 service SliverRPC {
 
-    // Client interactions
-    rpc GetVersion(clientpb.Empty) returns (clientpb.Version) {}
-    rpc GetSessions(clientpb.Empty) returns (clientpb.Sessions) {}
+    rpc GetVersion(commonpb.Empty) returns (clientpb.Version) {}
 
-    rpc Generate(clientpb.)
+    // *** Sessions ***
+    rpc GetSessions(commonpb.Empty) returns (clientpb.Sessions) {}
 
-    // Session req/resp interations
+    // *** Jobs ***
+    rpc GetJobs(commonpb.Empty) returns (clientpb.Jobs) {}
+    rpc KillJob(clientpb.JobKillReq) returns (clientpb.JobKill) {}
+
+    // *** Implants ***
+    rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate) {}
+
+    // *** Session Interactions ***
     rpc Ping(sliverpb.Ping) returns (sliverpb.Ping) {}
-    rpc Kill(sliverpb.KillReq) returns (sliverpb.Kill) {}
+    rpc Kill(sliverpb.KillReq) returns (commonpb.Empty) {}
     rpc Ps(sliverpb.PsReq) returns (sliverpb.Ps) {}
     rpc Terminate(sliverpb.TerminateReq) returns (sliverpb.Terminate) {}
     rpc Ifconfig(sliverpb.IfconfigReq) returns (sliverpb.Ifconfig) {}
@@ -27,7 +34,7 @@ service SliverRPC {
     rpc Mkdir(sliverpb.MkdirReq) returns (sliverpb.Mkdir) {}
     rpc Download(sliverpb.DownloadReq) returns (sliverpb.Download) {}
     rpc Upload(sliverpb.UploadReq) returns (sliverpb.Upload) {}
-    rpc ProccessDump(sliverpb.ProccessDumpReq) returns (sliverpb.ProccessDump) {}
+    rpc ProcessDump(sliverpb.ProcessDumpReq) returns (sliverpb.ProcessDump) {}
     rpc RunAs(sliverpb.RunAsReq) returns (sliverpb.RunAs) {}
     rpc Impersonate(sliverpb.ImpersonateReq) returns (sliverpb.Impersonate) {}
     rpc RevToSelf(sliverpb.RevToSelfReq) returns (sliverpb.RevToSelf) {}
@@ -43,5 +50,6 @@ service SliverRPC {
     rpc Netstat(sliverpb.NetstatReq) returns (sliverpb.Netstat) {}
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot) {}
 
+    // *** Realtime Interactions ***
 }
   

@@ -64,9 +64,10 @@ static-linux: clean version pb packr
 
 .PHONY: pb
 pb:
-	protoc -I protobuf/ protobuf/sliver/sliver.proto --go_out=protobuf/
-	protoc -I protobuf/ protobuf/client/client.proto --go_out=protobuf/
-	protoc -I protobuf/ protobuf/rpc/services.proto --go_out=plugins=grpc:protobuf/
+	protoc -I protobuf/ protobuf/commonpb/common.proto --go_out=paths=source_relative:protobuf/
+	protoc -I protobuf/ protobuf/sliverpb/sliver.proto --go_out=paths=source_relative:protobuf/
+	protoc -I protobuf/ protobuf/clientpb/client.proto --go_out=paths=source_relative:protobuf/
+	protoc -I protobuf/ protobuf/rpcpb/services.proto --go_out=plugins=grpc,paths=source_relative:protobuf/
 
 .PHONY: version
 version:

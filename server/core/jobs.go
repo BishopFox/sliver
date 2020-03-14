@@ -21,7 +21,7 @@ package core
 import (
 	"sync"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
 var (

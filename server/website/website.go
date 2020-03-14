@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 )

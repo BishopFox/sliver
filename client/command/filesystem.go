@@ -30,7 +30,7 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/client/spin"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
 
 	"gopkg.in/AlecAivazis/survey.v1"

@@ -23,7 +23,7 @@ package handlers
 
 import (
 	consts "github.com/bishopfox/sliver/client/constants"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
 

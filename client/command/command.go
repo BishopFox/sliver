@@ -22,8 +22,8 @@ import (
 	"strconv"
 	"time"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/golang/protobuf/proto"
 	"gopkg.in/AlecAivazis/survey.v1"

@@ -28,7 +28,7 @@ import (
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/msf"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 

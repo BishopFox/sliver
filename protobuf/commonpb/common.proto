@@ -1,19 +1,9 @@
 syntax = "proto3";
-package common;
+package commonpb;
+option go_package = "github.com/bishopfox/sliver/protobuf/commonpb";
+
 /*
-
-  ** Reserved Numbers ***
-
-    For tunnel messages:
-      uint64 TunnelID = 8;
-      uint32 SessionID = 9;
-
-    For request/response messages:
-      Request Request = 9;
-      Response Response = 9;
-  
-    - Request messages should be named with the suffix "Req"
-
+  Generic protobuf messages
 */
 
 message Empty {}

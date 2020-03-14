@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"time"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/rpc"

@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"testing"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/log"
 )
 
