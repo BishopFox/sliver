@@ -1,15 +1,18 @@
 syntax = "proto3";
 package sliverpb;
 
-message Envelope {
-  uint32 Type = 1; // Message type
-  uint64 ID = 2;   // Resp ID
-  int64 Timeout = 3;
-  string Err = 4;
+import "common/common.proto";
 
-  bytes Data = 9; // Actual message data
+
+// Envelope - Used to encode implant<->server messages since we 
+//            cannot use gRPC due to the various transports used.
+message Envelope {
+  uint64 ID = 1;
+  uint32 Type = 2; // Message type
+  bytes Data = 3; // Actual message data
 }
 
+// Register - First message the implant sends to the server
 message Register {
   string Name = 1;
   string Hostname = 2;
@@ -24,46 +27,52 @@ message Register {
   string Version = 11;
 }
 
-message Ping { int32 Nonce = 1; }
+// Ping - Not ICMP, just sends a rount trip message to an implant to
+//        see if it's still responding.
+message Ping {
+  int32 Nonce = 1;
 
+  common.Response Response = 9;
+}
+
+// KillReq - Request the implant to kill a session
 message KillReq {
   bool Force = 1;
-  uint32 SliverID = 9;
+
+  common.Request Request = 9;
 }
 
-// aka Shellcode
-message Task {
-  string Encoder = 2;
-  bool RWXPages = 4;
-  uint32 Pid = 3;
-  bytes Data = 9;
+// PsReq - Request the implant to list processes of a remote session.
+message PsReq {
+  common.Request Request = 9;
 }
 
-message RemoteTask {
-  string Encoder = 2;
-  int32 Pid = 3;
-  bool RWXPages = 4;
-  bytes Data = 9;
+message Ps {
+  repeated common.Process Processes = 1;
+
+  common.Response Response = 9;
 }
 
-message PsReq { uint32 SliverID = 9; }
-
-message Ps { repeated Process Processes = 1; }
-
-message Process {
-  int32 Pid = 1;
-  int32 Ppid = 2;
-  string Executable = 3;
-  string Owner = 4;
-}
-
+// TerminateReq - Request the implant terminate a remote processes
 message TerminateReq {
   int32 Pid = 1;
-  uint32 SliverID = 2;
+
+  common.Request Request = 9;
 }
 
 message Terminate {
-  string Err = 1;
+  common.Response Response = 9;
+}
+
+// IfconfigReq - Request the implant to list network interfaces
+message IfconfigReq {
+  common.Request Request = 9;
+}
+
+message Ifconfig {
+  repeated NetInterface NetInterfaces = 1;
+
+  common.Response Response = 9;
 }
 
 message NetInterface {
@@ -73,20 +82,18 @@ message NetInterface {
   repeated string IPAddresses = 4;
 }
 
-message IfconfigReq { uint32 SliverID = 9; }
-
-message Ifconfig { repeated NetInterface NetInterfaces = 1; }
-
 message LsReq {
   string Path = 1;
 
-  uint32 SliverID = 9;
+  common.Request Request = 9;
 }
 
 message Ls {
   string Path = 1;
   bool Exists = 2;
   repeated FileInfo Files = 3;
+
+  common.Response Response = 9;
 }
 
 message FileInfo {
@@ -95,54 +102,60 @@ message FileInfo {
   int64 Size = 3;
 }
 
-message PwdReq { uint32 SliverID = 9; }
-
 message CdReq {
   string Path = 1;
-  uint32 SliverID = 9;
+  common.Request Request = 9;
+}
+
+message PwdReq {
+  common.Request Request = 9;
 }
 
 message Pwd {
   string Path = 1;
-  string Err = 2;
+
+  common.Response Response = 9;
 }
 
 message RmReq {
   string Path = 1;
 
-  uint32 SliverID = 9;
+  common.Request Request = 9;
 }
 
 message Rm {
   bool Success = 1;
   string Path = 2;
-  string Err = 3;
+
+  common.Response Response = 9;
 }
 
 message MkdirReq {
   string Path = 1;
 
-  uint32 SliverID = 9;
+  common.Request Request = 9;
 }
 
 message Mkdir {
   bool Success = 1;
   string Path = 2;
-  string Err = 3;
+
+  common.Response Response = 9;
 }
 
 message DownloadReq {
   string Path = 1;
 
-  uint32 SliverID = 9;
+  common.Request Request = 9;
 }
 
 message Download {
   string Path = 1;
   string Encoder = 2;
   bool Exists = 3;
+  bytes Data = 4;
 
-  bytes Data = 9;
+  common.Response Response = 9;
 }
 
 message UploadReq {
@@ -150,72 +163,103 @@ message UploadReq {
   string Encoder = 2;
   bytes Data = 3;
 
-  uint32 SliverID = 9;
+  common.Request Request = 9;
 }
 
 message Upload {
   string Path = 1;
-  string Err = 2;
-  bool Success = 3;
+  bool Success = 2;
+
+  common.Response Response = 9;
 }
 
 message ProcessDumpReq {
   int32 Pid = 1;
+  int32 Timeout = 2;
 
-  int32 Timeout = 8;
-  uint32 SliverID = 9;
+  common.Request Request = 9;
 }
 
 message ProcessDump {
   bytes Data = 1;
-  string Err = 2;
+
+  common.Response Response = 9;
 }
 
 message RunAsReq {
   string Username = 1;
   string Process = 2;
   string Args = 3;
-  uint32 SliverID = 9;
+
+  common.Request Request = 9;
 }
 
 message RunAs {
- string Output = 1;
- string Err = 2;
+  string Output = 1;
+
+  common.Response Response = 9;
 }
 
 message ImpersonateReq {
   string Username = 1;
-  uint32 SliverID = 9;
+  common.Request Request = 9;
 }
 
 message Impersonate {
-  string Err = 1;
+  common.Response Response = 9;
 }
 
 message RevToSelfReq {
-  uint32 SliverID = 9;
+  common.Request Request = 9;
 }
 
 message RevToSelf {
-  string Err = 1;
+  common.Response Response = 9;
 }
 
 message GetSystemReq {
   bytes Data = 1;
   string HostingProcess = 2;
-  uint32 SliverID = 9;
+
+  common.Request Request = 9;
 }
 
-message GetSystem { string Output = 1; }
+message GetSystem {
+  string Output = 1;
+
+  common.Response Response = 9;
+}
 
 message ElevateReq {
-  int32 Timeout = 8;
-  uint32 SliverID = 9;
+  int32 Timeout = 1;
+
+  common.Request Request = 9;
 }
 
 message Elevate {
   bool Success = 1;
-  string Err = 2;
+
+  common.Response Response = 9;
+}
+
+message TaskReq {
+  string Encoder = 1;
+  bool RWXPages = 2;
+  uint32 Pid = 3;
+  bytes Data = 4;
+
+  common.Request Request = 9;
+}
+
+message RemoteTaskReq {
+  string Encoder = 2;
+  int32 Pid = 3;
+  bool RWXPages = 4;
+  bytes Data = 9;
+}
+
+message Task {
+  common.Response Response = 9;
 }
 
 message ExecuteAssemblyReq {
@@ -223,48 +267,56 @@ message ExecuteAssemblyReq {
   bytes Assembly = 2;
   string Arguments = 3;
   string Process = 4;
-  bool AmsiBypass = 8;
-  uint32 SliverID = 9;
+  bool AmsiBypass = 5;
+
+  common.Request Request = 9;
 }
 
 message ExecuteAssembly {
-  string output = 1;
-  string error = 2;
+  string Output = 1;
+
+  common.Response Response = 9;
 }
 
 message MigrateReq {
   uint32 Pid = 1;
   bytes Data = 2;
-  uint32 SliverID = 9;
+
+  common.Request Request = 9;
 }
 
 message Migrate {
   bool Success = 1;
-  string Err = 2;
+
+  common.Response Response = 9;
 }
 
 message ExecuteReq {
   string Path = 1;
   repeated string Args = 2;
-  bool output = 3;
-  uint32 SliverID = 9;
+  bool Output = 3;
+
+  common.Request Request = 9;
 }
 
 message Execute {
-  string Error = 1;
-  string Result = 2;
+  string Result = 1;
+
+  common.Response Response = 9;
 }
 
 message SideloadReq {
   bytes Data = 1;
   string ProcName = 2;
   string Args = 3;
-  uint32 SliverID = 9;
+
+  common.Request Request = 9;
 }
 
 message Sideload {
-  string Error = 1;
-  string Result = 2;
+  string Result = 1;
+
+  common.Response Response = 9;
 }
 
 message SpawnDllReq {
@@ -272,20 +324,24 @@ message SpawnDllReq {
   string ProcName = 2;
   uint32 Offset = 3;
   string Args = 4;
-  uint32 SliverID = 9;
+
+  common.Request Request = 9;
 }
 
 message SpawnDll {
-  string Error = 1;
-  string Result = 2;
+  string Result = 1;
+
+  common.Response Response = 9;
 }
-message NetstatRequest {
+
+message NetstatReq {
   bool TCP = 1;
   bool UDP = 2;
   bool IP4 = 3;
   bool IP6 = 5;
   bool Listening = 6;
-  uint32 SliverID = 9;
+
+  common.Request Request = 9;
 }
 
 message SockTabEntry {
@@ -301,12 +357,20 @@ message SockTabEntry {
   string Proto = 6;
 }
 
-message NetstatResponse { repeated SockTabEntry Entries = 1; }
+message Netstat {
+  repeated SockTabEntry Entries = 1;
+
+  common.Response Response = 9;
+}
 
 // DNS Specific messages
-message DNSSessionInit { bytes Key = 1; }
+message DNSSessionInit {
+  bytes Key = 1;
+}
 
-message DNSPoll { repeated DNSBlockHeader blocks = 1; }
+message DNSPoll {
+  repeated DNSBlockHeader blocks = 1;
+}
 
 message DNSBlockHeader {
   string ID = 1;
@@ -314,31 +378,30 @@ message DNSBlockHeader {
 }
 
 // HTTP Sepecific message
-message HTTPSessionInit { bytes Key = 1; }
+message HTTPSessionInit {
+  bytes Key = 1;
+}
 
 // Tunnels, shells, and port fwds
 message TunnelData {
-  uint32 SliverID = 1;
+  bytes Data = 1;
+  bool Close = 2;
 
-  bytes Data = 2;
-  bool Close = 3;
-  string Err = 4;
-
-  uint64 TunnelID = 9;
+  uint64 TunnelID = 8;
+  uint32 SessionID = 9;
 }
 
 message TunnelClose {
-  string Err = 1;
-  uint64 TunnelID = 9;
+  uint64 TunnelID = 8;
+  uint32 SessionID = 9;
 }
 
-// Shell messages
+// ShellReq - Request the implant open a realtime shell tunnel
 message ShellReq {
-  uint32 SliverID = 1;
-  string Path = 2;
-  bool EnablePTY = 3;
+  string Path = 1;
+  bool EnablePTY = 2;
 
-  uint64 TunnelID = 9;
+  common.Request Request = 9;
 }
 
 message Shell {
@@ -346,16 +409,17 @@ message Shell {
   string Err = 2;
   uint32 Pid = 3;
 
-  uint64 TunnelID = 9;
+  uint64 TunnelID = 8;
+  uint32 SessionID = 9;
 }
 
-// Screenshot Messages
+// ScreenshotReq - Request the implant take a screenshot
 message ScreenshotReq {
-  bytes Data = 1;
-  uint32 SliverID = 9;
+  common.Request Request = 9;
 }
 
 message Screenshot {
   bytes Data = 1;
-  uint32 SliverID = 9;
+
+  common.Response Response = 9;
 }

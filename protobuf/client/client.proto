@@ -1,6 +1,9 @@
 syntax = "proto3";
 package clientpb;
 
+import "common/common.proto";
+
+
 // [ generic ] ----------------------------------------
 message Version {
   int32 Major = 1;
@@ -17,17 +20,9 @@ message Version {
   }
 }
 
-message File {
-  string Name = 1;
-  bytes Data = 2;
-}
-
 // [ core ] ----------------------------------------
 
-// This 'Sliver' data structure is used for actively
-// connected slivers, SliverBuild is a backup of an
-// already built sliver
-message Sliver {
+message Session {
   uint32 ID = 1;
   string Name = 2;
   string Hostname = 3;
@@ -45,13 +40,13 @@ message Sliver {
   string Version = 15;
 }
 
-message SliverC2 {
+message ImplantC2 {
   uint32 Priority = 1;
   string URL = 2;
   string Options = 3; // Protocol specific options
 }
 
-message SliverConfig {
+message ImplantConfig {
   string GOOS = 1;
   string GOARCH = 2;
   string Name = 3;
@@ -65,7 +60,7 @@ message SliverConfig {
   uint32 MaxConnectionErrors = 9;
 
   // c2
-  repeated SliverC2 C2 = 10;
+  repeated ImplantC2 C2 = 10;
   repeated string CanaryDomains = 11;
 
   bool LimitDomainJoined = 20;
@@ -84,12 +79,14 @@ message SliverConfig {
   string FileName = 27;
 }
 
-// Configs of previously built slivers
-message SliverBuilds { map<string, SliverConfig> Configs = 1; }
+// Configs of previously built implants
+message ImplantBuilds {
+  map<string, ImplantConfig> Configs = 1;
+}
 
 // DNSCanary - Single canary and metadata
 message DNSCanary {
-  string SliverName = 1;
+  string ImplantName = 1;
   string Domain = 2;
   bool Triggered = 3;
   string FristTriggered = 4;
@@ -97,18 +94,22 @@ message DNSCanary {
   uint32 Count = 6;
 }
 
-message Canaries { repeated DNSCanary Canaries = 1; }
+message Canaries {
+  repeated DNSCanary Canaries = 1;
+}
 
 message Profile {
   string Name = 1;
-  SliverConfig Config = 2;
+  ImplantConfig Config = 2;
 }
 
-message Profiles { repeated Profile List = 1; }
+message Profiles {
+  repeated Profile List = 1;
+}
 
 message Regenerate {
-  string SliverName = 1;
-  File File = 2;
+  string ImplantName = 1;
+  common.File File = 2;
 }
 
 message Job {
@@ -121,38 +122,57 @@ message Job {
   repeated string Domains = 6;
 }
 
-message JobKillReq { int32 ID = 1; }
+message JobKillReq {
+  int32 ID = 1;
+
+  common.Request Request = 9;
+}
 
 message JobKill {
   int32 ID = 1;
   bool Success = 2;
+
   string Err = 3;
 }
 
-message Jobs { repeated Job Active = 1; }
+message Jobs {
+  repeated Job Active = 1;
+}
 
 // [ listeners ] ----------------------------------------
 message MTLSReq {
   string Server = 1;
   int32 LPort = 2;
+
+  common.Request Request = 9;
 }
 
-message MTLS { int32 JobID = 1; }
+message MTLS {
+  int32 JobID = 1;
+}
 
 message TCPReq {
   string Server = 1;
   int32 LPort = 2;
+
+  common.Request Request = 9;
 }
 
-message TCP { int32 JobID = 1; }
+message TCP {
+  int32 JobID = 1;
+}
 
 message DNSReq {
   repeated string Domains = 1;
   bool Canaries = 2;
   int32 LPort = 3;
+
+  common.Request Request = 9;
 }
 
-message DNS { int32 JobID = 1; }
+message DNS {
+  int32 JobID = 1;
+}
 
 message HTTPReq {
   string Domain = 1;
@@ -163,16 +183,28 @@ message HTTPReq {
   bytes Cert = 6;
   bytes Key = 7;
   bool ACME = 8;
+
+  common.Request Request = 9;
 }
 
-message HTTP { int32 JobID = 1; }
+message HTTP {
+  int32 JobID = 1;
+}
 
 // [ commands ] ----------------------------------------
-message Sessions { repeated Sliver Slivers = 1; }
+message Sessions {
+  repeated Session Sessions = 1;
+}
 
-message GenerateReq { SliverConfig Config = 1; }
+message GenerateReq {
+  ImplantConfig Config = 1;
 
-message Generate { File File = 1; }
+  common.Request Request = 9;
+}
+
+message Generate {
+  File File = 1;
+}
 
 message MSFReq {
   string Payload = 1;
@@ -181,7 +213,7 @@ message MSFReq {
   string Encoder = 4;
   int32 Iterations = 5;
 
-  uint32 SliverID = 9;
+  common.Request Request = 9;
 }
 
 message MSFInjectReq {
@@ -190,28 +222,31 @@ message MSFInjectReq {
   int32 LPort = 3;
   string Encoder = 4;
   int32 Iterations = 5;
-
   int32 PID = 8;
-  uint32 SliverID = 9;
+
+  common.Request Request = 9;
 }
 
 message TaskReq {
   bytes Data = 1;
   bool RwxPages = 2;
   uint32 Pid = 3;
-  uint32 SliverID = 9;
+
+  common.Request Request = 9;
 }
 
 message MigrateReq {
   uint32 Pid = 1;
   SliverConfig Config = 2;
-  uint32 SliverID = 9;
+
+  common.Request Request = 9;
 }
 
 message GetSystemReq {
   SliverConfig Config = 1;
   string HostingProcess = 2;
-  uint32 SliverID = 9;
+
+  common.Request Request = 9;
 }
 
 message EggConfig {
@@ -246,25 +281,30 @@ message SideloadReq {
 }
 
 // [ Tunnels ] ----------------------------------------
-message TunnelCreateReq { uint32 SliverID = 1; }
-
-message TunnelCreate {
-  uint32 SliverID = 1;
-
-  uint64 TunnelID = 9;
+message TunnelCreateReq {
+  uint32 SessionID = 9;
 }
 
-message TunnelCloseReq { uint64 TunnelID = 9; }
+message TunnelCreate {
+
+  uint64 TunnelID = 8;
+  uint32 SessionID = 9;
+}
+
+message TunnelCloseReq {
+  uint64 TunnelID = 8;
+  uint32 SessionID = 9;
+}
 
 // [ events ] ----------------------------------------
 message Client {
   int32 ID = 1;
-  string Operator = 2;
+  string OperatorName = 2;
 }
 
 message Event {
   string EventType = 1;
-  Sliver Sliver = 2;
+  Session Session = 2;
   Job Job = 3;
   Client Client = 4;
   bytes Data = 5;
@@ -272,9 +312,11 @@ message Event {
   string Err = 9;
 }
 
-message Players { repeated Player Players = 1; }
+message Operators { 
+  repeated Operator Operators = 1;
+}
 
-message Player {
+message Operator {
   Client Client = 1;
   bool Online = 2;
 }
@@ -293,4 +335,6 @@ message Website {
   map<string, WebContent> Content = 2;
 }
 
-message Websites { repeated Website Sites = 1; }
+message Websites {
+  repeated Website Sites = 1;
+}

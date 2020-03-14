@@ -6,15 +6,42 @@ import "sliver/sliver.proto";
 import "client/client.proto";
 
 
-message Empty {}
-
 service SliverRPC {
 
     // Client interactions
-    rpc GetVersion(Empty) returns (clientpb.Version) {}
-    rpc GetSessions(Empty) returns (clientpb.Sessions) {}
+    rpc GetVersion(clientpb.Empty) returns (clientpb.Version) {}
+    rpc GetSessions(clientpb.Empty) returns (clientpb.Sessions) {}
 
-    // Session interations
+    rpc Generate(clientpb.)
+
+    // Session req/resp interations
     rpc Ping(sliverpb.Ping) returns (sliverpb.Ping) {}
+    rpc Kill(sliverpb.KillReq) returns (sliverpb.Kill) {}
+    rpc Ps(sliverpb.PsReq) returns (sliverpb.Ps) {}
+    rpc Terminate(sliverpb.TerminateReq) returns (sliverpb.Terminate) {}
+    rpc Ifconfig(sliverpb.IfconfigReq) returns (sliverpb.Ifconfig) {}
+    rpc Ls(sliverpb.LsReq) returns (sliverpb.Ls) {}
+    rpc Cd(sliverpb.CdReq) returns (sliverpb.Pwd) {}
+    rpc Pwd(sliverpb.PwdReq) returns (sliverpb.Pwd) {}
+    rpc Rm(sliverpb.RmReq) returns (sliverpb.Rm) {}
+    rpc Mkdir(sliverpb.MkdirReq) returns (sliverpb.Mkdir) {}
+    rpc Download(sliverpb.DownloadReq) returns (sliverpb.Download) {}
+    rpc Upload(sliverpb.UploadReq) returns (sliverpb.Upload) {}
+    rpc ProccessDump(sliverpb.ProccessDumpReq) returns (sliverpb.ProccessDump) {}
+    rpc RunAs(sliverpb.RunAsReq) returns (sliverpb.RunAs) {}
+    rpc Impersonate(sliverpb.ImpersonateReq) returns (sliverpb.Impersonate) {}
+    rpc RevToSelf(sliverpb.RevToSelfReq) returns (sliverpb.RevToSelf) {}
+    rpc GetSystem(sliverpb.GetSystemReq) returns (sliverpb.GetSystem) {}
+    rpc Elevate(sliverpb.ElevateReq) returns (sliverpb.Elevate) {}
+    rpc Task(sliverpb.TaskReq) returns (sliverpb.Task) {}
+    rpc RemoteTask(sliverpb.RemoteTaskReq) returns (sliverpb.Task) {}
+    rpc ExecuteAssembly(sliverpb.ExecuteAssemblyReq) returns (sliverpb.ExecuteAssembly) {}
+    rpc Migrate(sliverpb.MigrateReq) returns (sliverpb.Migrate) {}
+    rpc Execute(sliverpb.ExecuteReq) returns (sliverpb.Execute) {}
+    rpc Sideload(sliverpb.SideloadReq) returns (sliverpb.Sideload) {}
+    rpc SpawnDll(sliverpb.SpawnDllReq) returns (sliverpb.SpawnDll) {}
+    rpc Netstat(sliverpb.NetstatReq) returns (sliverpb.Netstat) {}
+    rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot) {}
+
 }
   

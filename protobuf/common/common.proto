@@ -1,0 +1,46 @@
+syntax = "proto3";
+package common;
+/*
+
+  ** Reserved Numbers ***
+
+    For tunnel messages:
+      uint64 TunnelID = 8;
+      uint32 SessionID = 9;
+
+    For request/response messages:
+      Request Request = 9;
+      Response Response = 9;
+  
+    - Request messages should be named with the suffix "Req"
+
+*/
+
+message Empty {}
+
+// Request - Common fields used in all gRPC requests
+message Request {
+  bool Async = 1;
+  int64 Timeout = 2;
+
+  uint32 SessionID = 9;
+}
+  
+// Response - Common fields used in all gRPC responses
+message Response {
+  string Err = 1;
+}
+
+// File - A basic file data type
+message File {
+  string Name = 1;
+  bytes Data = 2;
+}
+
+// Process - A basic process data type
+message Process {
+  int32 Pid = 1;
+  int32 Ppid = 2;
+  string Executable = 3;
+  string Owner = 4;
+}
