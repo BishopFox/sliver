@@ -37,7 +37,7 @@ import (
 
 func rpcEgg(data []byte, timeout time.Duration, resp RPCResponse) {
 	var jobID int
-	eggReq := &clientpb.EggRequest{}
+	eggReq := &clientpb.EggReq{}
 	err := proto.Unmarshal(data, eggReq)
 	if err != nil {
 		resp([]byte{}, err)

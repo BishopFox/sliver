@@ -1,0 +1,20 @@
+syntax = "proto3";
+package rpcpb;
+
+
+import "sliver/sliver.proto";
+import "client/client.proto";
+
+
+message Empty {}
+
+service SliverRPC {
+
+    // Client interactions
+    rpc GetVersion(Empty) returns (clientpb.Version) {}
+    rpc GetSessions(Empty) returns (clientpb.Sessions) {}
+
+    // Session interations
+    rpc Ping(sliverpb.Ping) returns (sliverpb.Ping) {}
+}
+  

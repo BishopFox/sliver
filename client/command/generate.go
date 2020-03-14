@@ -184,7 +184,7 @@ func generateEgg(ctx *grumble.Context, rpc RPCServer) {
 	}
 	ctrl := make(chan bool)
 	go spin.Until("Creating stager shellcode...", ctrl)
-	data, _ := proto.Marshal(&clientpb.EggRequest{
+	data, _ := proto.Marshal(&clientpb.EggReq{
 		EConfig: eggConfig,
 		Config:  config,
 	})

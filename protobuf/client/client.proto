@@ -1,5 +1,4 @@
 syntax = "proto3";
-
 package clientpb;
 
 // [ generic ] ----------------------------------------
@@ -21,13 +20,6 @@ message Version {
 message File {
   string Name = 1;
   bytes Data = 2;
-}
-
-message Process {
-  int32 pid = 1;
-  int32 ppid = 2;
-  string executable = 3;
-  string owner = 4;
 }
 
 // [ core ] ----------------------------------------
@@ -145,14 +137,14 @@ message MTLSReq {
   int32 LPort = 2;
 }
 
+message MTLS { int32 JobID = 1; }
+
 message TCPReq {
   string Server = 1;
   int32 LPort = 2;
 }
 
 message TCP { int32 JobID = 1; }
-
-message MTLS { int32 JobID = 1; }
 
 message DNSReq {
   repeated string Domains = 1;
@@ -235,7 +227,7 @@ message EggConfig {
   string Format = 5;
 }
 
-message EggRequest {
+message EggReq {
   SliverConfig Config = 1;
   EggConfig EConfig = 2;
 }
