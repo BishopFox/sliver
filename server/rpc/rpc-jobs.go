@@ -53,7 +53,7 @@ func (rpc *Server) Jobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.Jobs,
 	jobs := &clientpb.Jobs{
 		Active: []*clientpb.Job{},
 	}
-	for _, job := range *core.Jobs.Active {
+	for _, job := range core.Jobs.All() {
 		jobs.Active = append(jobs.Active, &clientpb.Job{
 			ID:          uint32(job.ID),
 			Name:        job.Name,
@@ -68,7 +68,7 @@ func (rpc *Server) Jobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.Jobs,
 
 // JobKill - Kill a server-side job
 func (rpc *Server) JobKill(ctx context.Context, kill *clientpb.JobKill) (*clientpb.JobKill, error) {
-	job := core.Jobs.Job(int(kill.ID))
+	job := core.Jobs.Get(int(kill.ID))
 	jobKill := &clientpb.JobKill{ID: int32(job.ID)}
 	if job != nil {
 		job.JobCtrl <- true
@@ -98,7 +98,7 @@ func StartMTLSListener(ctx context.Context, req *clientpb.MTLSListenerReq) (*cli
 	}
 
 	job := &core.Job{
-		ID:          core.GetJobID(),
+		ID:          core.NextJobID(),
 		Name:        "mtls",
 		Description: fmt.Sprintf("mutual tls listener %s", bind),
 		Protocol:    "tcp",
@@ -110,13 +110,13 @@ func StartMTLSListener(ctx context.Context, req *clientpb.MTLSListenerReq) (*cli
 		<-job.JobCtrl
 		rpcLog.Infof("Stopping mTLS listener (%d) ...", job.ID)
 		ln.Close() // Kills listener GoRoutines in StartMutualTLSListener() but NOT connections
-		core.Jobs.RemoveJob(job)
+		core.Jobs.Remove(job)
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
 			EventType: consts.StoppedEvent,
 		})
 	}()
-	core.Jobs.AddJob(job)
+	core.Jobs.Add(job)
 	return &clientpb.MTLSListener{JobID: uint32(job.ID)}, nil
 }
 
@@ -141,7 +141,7 @@ func jobStartDNSListener(domains []string, canaries bool, listenPort uint16) (in
 	server := c2.StartDNSListener(domains, canaries)
 	description := fmt.Sprintf("%s (canaries %v)", strings.Join(domains, " "), canaries)
 	job := &core.Job{
-		ID:          core.GetJobID(),
+		ID:          core.NextJobID(),
 		Name:        "dns",
 		Description: description,
 		Protocol:    "udp",
@@ -154,14 +154,14 @@ func jobStartDNSListener(domains []string, canaries bool, listenPort uint16) (in
 		<-job.JobCtrl
 		rpcLog.Infof("Stopping DNS listener (%d) ...", job.ID)
 		server.Shutdown()
-		core.Jobs.RemoveJob(job)
+		core.Jobs.Remove(job)
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
 			EventType: consts.StoppedEvent,
 		})
 	}()
 
-	core.Jobs.AddJob(job)
+	core.Jobs.Add(job)
 
 	// There is no way to call DNS' ListenAndServe() without blocking
 	// but we also need to check the error in the case the server
@@ -243,7 +243,7 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) (*core.Job, error) {
 	}
 
 	job := &core.Job{
-		ID:          core.GetJobID(),
+		ID:          core.NextJobID(),
 		Name:        name,
 		Description: fmt.Sprintf("%s for domain %s", name, conf.Domain),
 		Protocol:    "tcp",
@@ -251,11 +251,11 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) (*core.Job, error) {
 		JobCtrl:     make(chan bool),
 		Domains:     []string{conf.Domain},
 	}
-	core.Jobs.AddJob(job)
+	core.Jobs.Add(job)
 
 	cleanup := func(err error) {
 		server.Cleanup()
-		core.Jobs.RemoveJob(job)
+		core.Jobs.Remove(job)
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
 			EventType: consts.StoppedEvent,

@@ -18,7 +18,7 @@ package handlers
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 	---
-	WARNING: These functions can be invoked by remote slivers without user interaction
+	WARNING: These functions can be invoked by remote implants without user interaction
 */
 
 import (
@@ -34,7 +34,7 @@ var (
 	handlerLog = log.NamedLogger("handlers", "slivers")
 
 	serverHandlers = map[uint32]interface{}{
-		sliverpb.MsgRegister:    registerSliverHandler,
+		sliverpb.MsgRegister:    registerSessionHandler,
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,
 	}
@@ -45,7 +45,7 @@ func GetSliverHandlers() map[uint32]interface{} {
 	return serverHandlers
 }
 
-func registerSliverHandler(sliver *core.Sliver, data []byte) {
+func registerSessionHandler(session *core.Session, data []byte) {
 	register := &sliverpb.Register{}
 	err := proto.Unmarshal(data, register)
 	if err != nil {
@@ -54,48 +54,48 @@ func registerSliverHandler(sliver *core.Sliver, data []byte) {
 	}
 
 	// If this is the first time we're getting reg info alert user(s)
-	if sliver.Name == "" {
+	if session.Name == "" {
 		defer func() {
 			core.EventBroker.Publish(core.Event{
 				EventType: consts.ConnectedEvent,
-				Sliver:    sliver,
+				Session:   session,
 			})
 		}()
 	}
 
-	sliver.Name = register.Name
-	sliver.Hostname = register.Hostname
-	sliver.Username = register.Username
-	sliver.UID = register.Uid
-	sliver.GID = register.Gid
-	sliver.Os = register.Os
-	sliver.Arch = register.Arch
-	sliver.PID = register.Pid
-	sliver.Filename = register.Filename
-	sliver.ActiveC2 = register.ActiveC2
-	sliver.Version = register.Version
-	core.Hive.AddSliver(sliver)
+	session.Name = register.Name
+	session.Hostname = register.Hostname
+	session.Username = register.Username
+	session.UID = register.Uid
+	session.GID = register.Gid
+	session.Os = register.Os
+	session.Arch = register.Arch
+	session.PID = register.Pid
+	session.Filename = register.Filename
+	session.ActiveC2 = register.ActiveC2
+	session.Version = register.Version
+	core.Sessions.Add(session)
 }
 
-func tunnelDataHandler(sliver *core.Sliver, data []byte) {
+func tunnelDataHandler(session *core.Session, data []byte) {
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
 	tunnel := core.Tunnels.Tunnel(tunnelData.TunnelID)
 	if tunnel != nil {
-		if sliver.ID == tunnel.Sliver.ID {
+		if session.ID == tunnel.Session.ID {
 			tunnel.Client.Send <- &sliverpb.Envelope{
 				Type: sliverpb.MsgTunnelData,
 				Data: data,
 			}
 		} else {
-			handlerLog.Warnf("Warning: Sliver %d attempted to send data on tunnel it did not own", sliver.ID)
+			handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
 		}
 	} else {
 		handlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
 	}
 }
 
-func tunnelCloseHandler(sliver *core.Sliver, data []byte) {
+func tunnelCloseHandler(session *core.Session, data []byte) {
 	tunnelClose := &sliverpb.TunnelClose{}
 	proto.Unmarshal(data, tunnelClose)
 	tunnel := core.Tunnels.Tunnel(tunnelClose.TunnelID)
@@ -103,10 +103,10 @@ func tunnelCloseHandler(sliver *core.Sliver, data []byte) {
 		handlerLog.Warnf("Attempting to close nil tunnel")
 		return
 	}
-	if tunnel.Sliver.ID == sliver.ID {
-		handlerLog.Debugf("Sliver %d closed tunnel %d", sliver.ID, tunnel.ID)
+	if tunnel.Session.ID == session.ID {
+		handlerLog.Debugf("Session %d closed tunnel %d", session.ID, tunnel.ID)
 		core.Tunnels.CloseTunnel(tunnel.ID, "")
 	} else {
-		handlerLog.Warnf("Warning: Sliver %d attempted to close tunnel it did not own", sliver.ID)
+		handlerLog.Warnf("Warning: Session %d attempted to close tunnel it did not own", session.ID)
 	}
 }

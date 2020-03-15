@@ -47,7 +47,7 @@ func (rpc *Server) Task(ctx context.Context, req *sliverpb.TaskReq) (*commonpb.E
 
 // Migrate - Migrate to a new process on the remote system (Windows only)
 func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliverpb.Migrate, error) {
-	session := core.Hive.Sliver(req.Request.SessionID)
+	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
@@ -72,7 +72,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		return nil, err
 	}
 	timeout := time.Duration(req.Request.Timeout)
-	respData, err := session.Request(sliverpb.MsgMigrateReq, timeout, reqData)
+	respData, err := session.Request(sliverpb.MsgInvokeMigrateReq, timeout, reqData)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 
 // ExecuteAssembly - Execute a .NET assembly on the remote system in-memory (Windows only)
 func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAssemblyReq) (*sliverpb.ExecuteAssembly, error) {
-	session := core.Hive.Sliver(req.Request.SessionID)
+	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
@@ -125,7 +125,7 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 
 // Sideload - Sideload a DLL on the remote system (Windows only)
 func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sliverpb.Sideload, error) {
-	session := core.Hive.Sliver(req.Request.SessionID)
+	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}

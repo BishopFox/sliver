@@ -28,7 +28,7 @@ import (
 
 var (
 	// Clients - Manages client connections
-	Clients = &clientConns{
+	Clients = &clients{
 		Connections: &map[int]*Client{},
 		mutex:       &sync.RWMutex{},
 	}
@@ -49,8 +49,8 @@ type Client struct {
 // ToProtobuf - Get the protobuf version of the object
 func (c *Client) ToProtobuf() *clientpb.Client {
 	return &clientpb.Client{
-		ID:       int32(c.ID),
-		Operator: c.Operator,
+		ID:           int32(c.ID),
+		OperatorName: c.Operator,
 	}
 }
 
@@ -63,28 +63,28 @@ func (c *Client) Response(envelope *sliverpb.Envelope) {
 	}
 }
 
-// clientConns - Manage client connections
-type clientConns struct {
+// clients - Manage client connections
+type clients struct {
 	mutex       *sync.RWMutex
 	Connections *map[int]*Client
 }
 
 // AddClient - Add a client struct atomically
-func (cc *clientConns) AddClient(client *Client) {
+func (cc *clients) AddClient(client *Client) {
 	cc.mutex.Lock()
 	defer cc.mutex.Unlock()
 	(*cc.Connections)[client.ID] = client
 }
 
 // RemoveClient - Remove a client struct atomically
-func (cc *clientConns) RemoveClient(clientID int) {
+func (cc *clients) RemoveClient(clientID int) {
 	cc.mutex.Lock()
 	defer cc.mutex.Unlock()
 	delete((*cc.Connections), clientID)
 }
 
-// GetClientID - Get a client ID
-func GetClientID() int {
+// NextClientID - Get a client ID
+func NextClientID() int {
 	newID := (*clientID) + 1
 	(*clientID)++
 	return newID
@@ -99,7 +99,7 @@ func GetClient(certificate *x509.Certificate) *Client {
 		operator = "server"
 	}
 	return &Client{
-		ID:          GetClientID(),
+		ID:          NextClientID(),
 		Operator:    operator,
 		Certificate: certificate,
 		mutex:       &sync.RWMutex{},

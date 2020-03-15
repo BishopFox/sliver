@@ -28,16 +28,16 @@ import (
 )
 
 var (
-	// Hive - Manages sliver connections
-	Hive = &SliverHive{
-		Slivers: &map[uint32]*Sliver{},
-		mutex:   &sync.RWMutex{},
+	// Sessions - Manages implant connections
+	Sessions = &sessions{
+		sessions: &map[uint32]*Session{},
+		mutex:    &sync.RWMutex{},
 	}
 	hiveID = new(uint32)
 )
 
-// Sliver implant
-type Sliver struct {
+// Session - Represents a connection to an implant
+type Session struct {
 	ID            uint32
 	Name          string
 	Hostname      string
@@ -59,14 +59,14 @@ type Sliver struct {
 }
 
 // ToProtobuf - Get the protobuf version of the object
-func (s *Sliver) ToProtobuf() *clientpb.Sliver {
+func (s *Session) ToProtobuf() *clientpb.Session {
 	var lastCheckin string
 	if s.LastCheckin == nil {
 		lastCheckin = time.Now().Format(time.RFC1123) // Stateful connections have a nil .LastCheckin
 	} else {
 		lastCheckin = s.LastCheckin.Format(time.RFC1123)
 	}
-	return &clientpb.Sliver{
+	return &clientpb.Session{
 		ID:            uint32(s.ID),
 		Name:          s.Name,
 		Hostname:      s.Hostname,
@@ -85,14 +85,8 @@ func (s *Sliver) ToProtobuf() *clientpb.Sliver {
 	}
 }
 
-// Config - Get the config the sliver was generated with
-func (s *Sliver) Config() error {
-
-	return nil
-}
-
 // Request - Sends a protobuf request to the active sliver and returns the response
-func (s *Sliver) Request(msgType uint32, timeout time.Duration, data []byte) ([]byte, error) {
+func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([]byte, error) {
 
 	resp := make(chan *sliverpb.Envelope)
 	reqID := EnvelopeID()
@@ -120,36 +114,47 @@ func (s *Sliver) Request(msgType uint32, timeout time.Duration, data []byte) ([]
 	return respEnvelope.Data, nil
 }
 
-// SliverHive - Mananges the slivers, provides atomic access
-type SliverHive struct {
-	mutex   *sync.RWMutex
-	Slivers *map[uint32]*Sliver
+// sessions - Manages the slivers, provides atomic access
+type sessions struct {
+	mutex    *sync.RWMutex
+	sessions *map[uint32]*Session
 }
 
-// Sliver - Get Sliver by ID
-func (h *SliverHive) Sliver(sliverID uint32) *Sliver {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-
-	return (*h.Slivers)[sliverID]
+// All - Return a list of all sessions
+func (s *sessions) All() []*Session {
+	s.mutex.RLock()
+	defer s.mutex.Unlock()
+	all := []*Session{}
+	for _, session := range *s.sessions {
+		all = append(all, session)
+	}
+	return all
 }
 
-// AddSliver - Add a sliver to the hive (atomically)
-func (h *SliverHive) AddSliver(sliver *Sliver) {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-	(*h.Slivers)[sliver.ID] = sliver
+// Get - Get a session by ID
+func (s *sessions) Get(sessionID uint32) *Session {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return (*s.sessions)[sessionID]
 }
 
-// RemoveSliver - Add a sliver to the hive (atomically)
-func (h *SliverHive) RemoveSliver(sliver *Sliver) {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-	delete((*h.Slivers), sliver.ID)
+// Add - Add a sliver to the hive (atomically)
+func (s *sessions) Add(session *Session) *Session {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	(*s.sessions)[session.ID] = session
+	return session
 }
 
-// GetHiveID - Returns an incremental nonce as an id
-func GetHiveID() uint32 {
+// Remove - Remove a sliver from the hive (atomically)
+func (s *sessions) Remove(sessionID uint32) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	delete((*s.sessions), sessionID)
+}
+
+// NextSessionID - Returns an incremental nonce as an id
+func NextSessionID() uint32 {
 	newID := (*hiveID) + 1
 	(*hiveID)++
 	return newID

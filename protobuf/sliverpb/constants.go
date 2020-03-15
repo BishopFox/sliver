@@ -113,8 +113,8 @@ const (
 	MsgExecuteAssemblyReq
 	// MsgExecuteAssembly - Output of the assembly execution
 	MsgExecuteAssembly
-	// MsgMigrateReq - Spawn a new sliver in a designated process
-	MsgMigrateReq
+	// MsgInvokeMigrateReq - Spawn a new sliver in a designated process
+	MsgInvokeMigrateReq
 
 	// MsgSideloadReq - request to sideload a binary
 	MsgSideloadReq
@@ -244,8 +244,8 @@ func MsgNumber(request proto.Message) uint32 {
 	case *ExecuteAssembly:
 		return MsgExecuteAssembly
 
-	case *MigrateReq:
-		return MsgMigrateReq
+	case *InvokeMigrateReq:
+		return MsgInvokeMigrateReq
 
 	case *SideloadReq:
 		return MsgSideloadReq

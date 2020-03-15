@@ -34,21 +34,19 @@ func (rpc *Server) GetSessions(ctx context.Context, _ *commonpb.Empty) (*clientp
 	resp := &clientpb.Sessions{
 		Sessions: []*clientpb.Session{},
 	}
-	if 0 < len(*core.Hive.Slivers) {
-		for _, session := range *core.Hive.Slivers {
-			resp.Sessions = append(resp.Sessions, session.ToProtobuf())
-		}
+	for _, session := range core.Sessions.All() {
+		resp.Sessions = append(resp.Sessions, session.ToProtobuf())
 	}
 	return resp, nil
 }
 
 // KillSession - Kill a session
 func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillSessionReq) (*commonpb.Empty, error) {
-	session := core.Hive.Sliver(kill.Request.SessionID)
+	session := core.Sessions.Get(kill.Request.SessionID)
 	if session == nil {
 		return &commonpb.Empty{}, ErrInvalidSessionID
 	}
-	core.Hive.RemoveSliver(session)
+	core.Sessions.Remove(session.ID)
 	data, err := proto.Marshal(kill)
 	if err != nil {
 		return nil, err

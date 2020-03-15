@@ -23,7 +23,7 @@ import (
 	"encoding/binary"
 	"sync"
 
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -31,23 +31,23 @@ import (
 var (
 	// Tunnels - Interating with duplex tunnels
 	Tunnels = tunnels{
-		tunnels: &map[uint64]*tunnel{},
+		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 	}
 )
 
 type tunnels struct {
-	tunnels *map[uint64]*tunnel
+	tunnels *map[uint64]*Tunnel
 	mutex   *sync.RWMutex
 }
 
-func (t *tunnels) CreateTunnel(client *Client, sliverID uint32) *tunnel {
+func (t *tunnels) CreateTunnel(client *Client, sessionID uint32) *Tunnel {
 	tunID := newTunnelID()
-	sliver := Hive.Sliver(sliverID)
-	tun := &tunnel{
-		ID:     tunID,
-		Client: client,
-		Sliver: sliver,
+	session := Sessions.Get(sessionID)
+	tun := &Tunnel{
+		ID:      tunID,
+		Client:  client,
+		Session: session,
 	}
 
 	t.mutex.Lock()
@@ -64,13 +64,12 @@ func (t *tunnels) CloseTunnel(tunnelID uint64, reason string) bool {
 	if tunnel != nil {
 		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelClose{
 			TunnelID: tunnelID,
-			Err:      reason,
 		})
 		tunnel.Client.Send <- &sliverpb.Envelope{
 			Type: sliverpb.MsgTunnelClose,
 			Data: tunnelClose,
 		}
-		tunnel.Sliver.Send <- &sliverpb.Envelope{
+		tunnel.Session.Send <- &sliverpb.Envelope{
 			Type: sliverpb.MsgTunnelClose,
 			Data: tunnelClose,
 		}
@@ -80,22 +79,22 @@ func (t *tunnels) CloseTunnel(tunnelID uint64, reason string) bool {
 	return false
 }
 
-func (t *tunnels) Tunnel(tunnelID uint64) *tunnel {
+func (t *tunnels) Tunnel(tunnelID uint64) *Tunnel {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	return (*t.tunnels)[tunnelID]
 }
 
-// A tunnel is essentially just a mapping between a specific client and sliver
+// Tunnel  - Essentially just a mapping between a specific client and sliver
 // with an identifier, these tunnels are full duplex. The server doesn't really
 // care what data gets passed back and forth it just facilitates the connection
-type tunnel struct {
-	ID     uint64
-	Sliver *Sliver
-	Client *Client
+type Tunnel struct {
+	ID      uint64
+	Session *Session
+	Client  *Client
 }
 
-// tunnelID - New 32bit identifier
+// newTunnelID - New 32bit identifier
 func newTunnelID() uint64 {
 	randBuf := make([]byte, 8)
 	rand.Read(randBuf)

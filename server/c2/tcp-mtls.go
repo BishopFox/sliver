@@ -86,8 +86,8 @@ func acceptSliverConnections(ln net.Listener) {
 func handleSliverConnection(conn net.Conn) {
 	mtlsLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
 
-	sliver := &core.Sliver{
-		ID:            core.GetHiveID(),
+	session := &core.Session{
+		ID:            core.NextSessionID(),
 		Transport:     "mtls",
 		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
 		Send:          make(chan *sliverpb.Envelope),
@@ -96,12 +96,12 @@ func handleSliverConnection(conn net.Conn) {
 	}
 
 	defer func() {
-		mtlsLog.Debugf("Cleaning up for %s", sliver.Name)
-		core.Hive.RemoveSliver(sliver)
+		mtlsLog.Debugf("Cleaning up for %s", session.Name)
+		core.Sessions.Remove(session.ID)
 		conn.Close()
 		core.EventBroker.Publish(core.Event{
 			EventType: consts.DisconnectedEvent,
-			Sliver:    sliver,
+			Session:   session,
 		})
 	}()
 
@@ -114,25 +114,25 @@ func handleSliverConnection(conn net.Conn) {
 				return
 			}
 			if envelope.ID != 0 {
-				sliver.RespMutex.RLock()
-				if resp, ok := sliver.Resp[envelope.ID]; ok {
+				session.RespMutex.RLock()
+				if resp, ok := session.Resp[envelope.ID]; ok {
 					resp <- envelope // Could deadlock, maybe want to investigate better solutions
 				}
-				sliver.RespMutex.RUnlock()
+				session.RespMutex.RUnlock()
 			} else if handler, ok := handlers[envelope.Type]; ok {
-				go handler.(func(*core.Sliver, []byte))(sliver, envelope.Data)
+				go handler.(func(*core.Session, []byte))(session, envelope.Data)
 			}
 		}
 	}()
 
-	for envelope := range sliver.Send {
+	for envelope := range session.Send {
 		err := socketWriteEnvelope(conn, envelope)
 		if err != nil {
 			mtlsLog.Errorf("Socket write failed %v", err)
 			return
 		}
 	}
-	mtlsLog.Infof("Closing connection to sliver %s", sliver.Name)
+	mtlsLog.Infof("Closing connection to session %s", session.Name)
 }
 
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing

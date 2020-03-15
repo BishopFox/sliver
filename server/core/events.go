@@ -20,7 +20,7 @@ package core
 
 // Event - Sliver connect/disconnect
 type Event struct {
-	Sliver    *Sliver
+	Session   *Session
 	Job       *Job
 	Client    *Client
 	EventType string

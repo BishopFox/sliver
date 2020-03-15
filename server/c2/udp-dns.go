@@ -99,7 +99,7 @@ type SendBlock struct {
 // DNSSession - Holds DNS session information
 type DNSSession struct {
 	ID          string
-	Sliver      *core.Sliver
+	Session     *core.Session
 	Key         cryptography.AESKey
 	LastCheckin time.Time
 	replay      map[string]bool // Sessions are mutex 'd
@@ -212,7 +212,7 @@ func handleCanary(req *dns.Msg) *dns.Msg {
 		if !canary.Triggered {
 			// Defer publishing the event until we're sure the db is sync'd
 			defer core.EventBroker.Publish(core.Event{
-				Sliver: &core.Sliver{
+				Session: &core.Session{
 					Name: canary.ImplantName,
 				},
 				Data:      []byte(canary.Domain),
@@ -439,8 +439,8 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 	dnsLog.Infof("Received new session in request")
 
 	checkin := time.Now()
-	sliver := &core.Sliver{
-		ID:            core.GetHiveID(),
+	session := &core.Session{
+		ID:            core.NextSessionID(),
 		Transport:     "dns",
 		RemoteAddress: "n/a",
 		Send:          make(chan *sliverpb.Envelope, 16),
@@ -455,7 +455,7 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 	dnsSessionsMutex.Lock()
 	(*dnsSessions)[sessionID] = &DNSSession{
 		ID:          sessionID,
-		Sliver:      sliver,
+		Session:     session,
 		Key:         aesKey,
 		LastCheckin: time.Now(),
 		replay:      map[string]bool{},
@@ -519,18 +519,18 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 		dnsLog.Infof("Envelope Type = %#v RespID = %#v", envelope.Type, envelope.ID)
 
 		checkin := time.Now()
-		dnsSession.Sliver.LastCheckin = &checkin
+		dnsSession.Session.LastCheckin = &checkin
 
 		// Response Envelope or Handler
 		handlers := serverHandlers.GetSliverHandlers()
 		if envelope.ID != 0 {
-			dnsSession.Sliver.RespMutex.Lock()
-			defer dnsSession.Sliver.RespMutex.Unlock()
-			if resp, ok := dnsSession.Sliver.Resp[envelope.ID]; ok {
+			dnsSession.Session.RespMutex.Lock()
+			defer dnsSession.Session.RespMutex.Unlock()
+			if resp, ok := dnsSession.Session.Resp[envelope.ID]; ok {
 				resp <- envelope
 			}
 		} else if handler, ok := handlers[envelope.Type]; ok {
-			handler.(func(*core.Sliver, []byte))(dnsSession.Sliver, envelope.Data)
+			handler.(func(*core.Session, []byte))(dnsSession.Session, envelope.Data)
 		}
 		return []string{"0"}, nil
 	}
@@ -637,7 +637,7 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 	envelopes := []*sliverpb.Envelope{}
 	for !isDrained {
 		select {
-		case envelope := <-dnsSession.Sliver.Send:
+		case envelope := <-dnsSession.Session.Send:
 			dnsLog.Infof("New message from send channel ...")
 			envelopes = append(envelopes, envelope)
 		default:

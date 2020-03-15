@@ -241,7 +241,7 @@ message EggReq {
 message Egg {
   bytes Data = 1;
   string Filename = 2;
-  int32 JobID = 3;
+  uint32 JobID = 3;
 }
 
 // GetSystemReq - Client request to the server which is translated into

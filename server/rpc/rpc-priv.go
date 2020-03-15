@@ -62,8 +62,8 @@ func (rpc *Server) RevToSelf(ctx context.Context, req *sliverpb.RevToSelfReq) (*
 
 // GetSystem - Attempt to get 'NT AUTHORITY/SYSTEM' access on a remote Windows system
 func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*sliverpb.GetSystem, error) {
-	sliver := core.Hive.Sliver(req.Request.SessionID)
-	if sliver == nil {
+	session := core.Sessions.Get(req.Request.SessionID)
+	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
 
@@ -88,7 +88,7 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	}
 
 	timeout := time.Duration(req.Request.Timeout)
-	data, err = sliver.Request(sliverpb.MsgInvokeGetSystemReq, timeout, data)
+	data, err = session.Request(sliverpb.MsgInvokeGetSystemReq, timeout, data)
 	getSystem := &sliverpb.GetSystem{}
 	err = proto.Unmarshal(data, getSystem)
 	if err != nil {
