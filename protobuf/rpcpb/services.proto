@@ -20,6 +20,12 @@ service SliverRPC {
     rpc GetJobs(commonpb.Empty) returns (clientpb.Jobs) {}
     rpc JobKill(clientpb.JobKillReq) returns (clientpb.JobKill) {}
 
+    // *** Listeners ***
+    rpc StartMTLSListener(clientpb.MTLSListenerReq) returns (clientpb.MTLSListener) {}
+    rpc StartDNSListener(clientpb.DNSListenerReq) returns (clientpb.DNSListener) {}
+    rpc StartHTTPSListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener) {}
+    rpc StartHTTPListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener) {}
+    
     // *** Implants ***
     rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate) {}
     rpc Regenerate(clientpb.RegenerateReq) returns (clientpb.Generate) {}

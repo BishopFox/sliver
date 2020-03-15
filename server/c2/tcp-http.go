@@ -35,7 +35,7 @@ import (
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
@@ -133,7 +133,8 @@ type SliverHTTPC2 struct {
 
 // StartHTTPSListener - Start an HTTP(S) listener, this can be used to start both
 //						HTTP/HTTPS depending on the caller's conf
-func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
+// TODO: Better error handling, configurable ACME host/port
+func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 	httpLog.Infof("Starting https listener on '%s'", conf.Addr)
 	server := &SliverHTTPC2{
 		Conf: conf,
@@ -188,10 +189,10 @@ func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 		_, _, err := certs.ServerGenerateRSACertificate(conf.Domain)
 		if err != nil {
 			httpLog.Errorf("Failed to generate server rsa certificate %s", err)
-			return nil
+			return nil, err
 		}
 	}
-	return server
+	return server, nil
 }
 
 func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {

@@ -24,7 +24,7 @@ import (
 
 func TestProfileByName(t *testing.T) {
 	name := "foobar"
-	config := &SliverConfig{
+	config := &ImplantConfig{
 		GOOS:   "windows",
 		GOARCH: "amd64",
 	}

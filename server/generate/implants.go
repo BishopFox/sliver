@@ -50,7 +50,7 @@ var (
 )
 
 // SliverConfigByName - Get a sliver's config by it's codename
-func SliverConfigByName(name string) (*SliverConfig, error) {
+func SliverConfigByName(name string) (*ImplantConfig, error) {
 	bucket, err := db.GetBucket(sliverBucketName)
 	if err != nil {
 		return nil, err
@@ -59,19 +59,19 @@ func SliverConfigByName(name string) (*SliverConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	config := &SliverConfig{}
+	config := &ImplantConfig{}
 	err = json.Unmarshal(rawConfig, config)
 	return config, err
 }
 
 // SliverConfigMap - Get a sliver's config by it's codename
-func SliverConfigMap() (map[string]*SliverConfig, error) {
+func SliverConfigMap() (map[string]*ImplantConfig, error) {
 	bucket, err := db.GetBucket(sliverBucketName)
 	if err != nil {
 		return nil, err
 	}
 	ls, err := bucket.List(sliverConfigNamespace)
-	configs := map[string]*SliverConfig{}
+	configs := map[string]*ImplantConfig{}
 	for _, config := range ls {
 		sliverName := config[len(sliverConfigNamespace)+1:]
 		config, err := SliverConfigByName(sliverName)
@@ -84,7 +84,7 @@ func SliverConfigMap() (map[string]*SliverConfig, error) {
 }
 
 // SliverConfigSave - Save a configuration to the database
-func SliverConfigSave(config *SliverConfig) error {
+func SliverConfigSave(config *ImplantConfig) error {
 	bucket, err := db.GetBucket(sliverBucketName)
 	if err != nil {
 		return err

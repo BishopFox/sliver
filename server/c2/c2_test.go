@@ -35,9 +35,13 @@ func TestRsaKeyHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server := StartHTTPSListener(&HTTPServerConfig{
+	server, err := StartHTTPSListener(&HTTPServerConfig{
 		Addr: "127.0.0.1:8888",
 	})
+	if err != nil {
+		t.Errorf("Listener failed to start %s", err)
+		return
+	}
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(server.rsaKeyHandler)
 	handler.ServeHTTP(rr, req)
