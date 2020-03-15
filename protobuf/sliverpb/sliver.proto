@@ -268,15 +268,14 @@ message TaskReq {
 }
 
 message RemoteTaskReq {
-  string Encoder = 2;
-  int32 Pid = 3;
-  bool RWXPages = 4;
-  bytes Data = 9;
+  string Encoder = 1;
+  int32 Pid = 2;
+  bool RWXPages = 3;
+  bytes Data = 4;
+
+  commonpb.Request Request = 9;
 }
 
-message TaskReq {
-  commonpb.Response Response = 9;
-}
 
 message ExecuteAssemblyReq {
   bytes HostingDll = 1;
@@ -325,6 +324,7 @@ message SideloadReq {
   bytes Data = 1;
   string ProcName = 2;
   string Args = 3;
+  string EntryPoint = 4;
 
   commonpb.Request Request = 9;
 }

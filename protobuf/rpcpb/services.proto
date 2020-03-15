@@ -9,6 +9,7 @@ import "clientpb/client.proto";
 
 service SliverRPC {
 
+    // *** Version ***
     rpc GetVersion(commonpb.Empty) returns (clientpb.Version) {}
 
     // *** Sessions ***
@@ -21,6 +22,9 @@ service SliverRPC {
 
     // *** Implants ***
     rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate) {}
+    rpc Regenerate(clientpb.RegenerateReq) returns (clientpb.Generate) {}
+    rpc ImplantBuilds(commonpb.Empty) returns (clientpb.ImplantBuilds) {}
+    rpc Canaries(commonpb.Empty) returns (clientpb.Canaries) {}
 
     // *** Session Interactions ***
     rpc Ping(sliverpb.Ping) returns (sliverpb.Ping) {}
@@ -40,8 +44,8 @@ service SliverRPC {
     rpc RevToSelf(sliverpb.RevToSelfReq) returns (sliverpb.RevToSelf) {}
     rpc GetSystem(sliverpb.GetSystemReq) returns (sliverpb.GetSystem) {}
     rpc Elevate(sliverpb.ElevateReq) returns (sliverpb.Elevate) {}
-    rpc Task(sliverpb.TaskReq) returns (sliverpb.Task) {}
-    rpc RemoteTask(sliverpb.RemoteTaskReq) returns (sliverpb.Task) {}
+    rpc Task(sliverpb.TaskReq) returns (commonpb.Empty) {}
+    rpc RemoteTask(sliverpb.RemoteTaskReq) returns (commonpb.Empty) {}
     rpc ExecuteAssembly(sliverpb.ExecuteAssemblyReq) returns (sliverpb.ExecuteAssembly) {}
     rpc Migrate(sliverpb.MigrateReq) returns (sliverpb.Migrate) {}
     rpc Execute(sliverpb.ExecuteReq) returns (sliverpb.Execute) {}

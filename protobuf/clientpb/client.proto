@@ -107,9 +107,11 @@ message Profiles {
   repeated Profile List = 1;
 }
 
-message Regenerate {
+message RegenerateReq {
   string ImplantName = 1;
   commonpb.File File = 2;
+
+  commonpb.Request Request = 9;
 }
 
 message Job {
@@ -229,28 +231,6 @@ message MSFInjectReq {
   commonpb.Request Request = 9;
 }
 
-message TaskReq {
-  bytes Data = 1;
-  bool RwxPages = 2;
-  uint32 Pid = 3;
-
-  commonpb.Request Request = 9;
-}
-
-message MigrateReq {
-  uint32 Pid = 1;
-  ImplantConfig Config = 2;
-
-  commonpb.Request Request = 9;
-}
-
-message GetSystemReq {
-  ImplantConfig Config = 1;
-  string HostingProcess = 2;
-
-  commonpb.Request Request = 9;
-}
-
 message EggConfig {
   enum EggProtocol {
     TCP = 0;
@@ -272,14 +252,6 @@ message Egg {
   bytes Data = 1;
   string Filename = 2;
   int32 JobID = 3;
-}
-
-message SideloadReq {
-  bytes Data = 1;
-  string ProcName = 2;
-  string Args = 3;
-  string EntryPoint = 4;
-  uint32 SliverID = 9;
 }
 
 // [ Tunnels ] ----------------------------------------

@@ -19,118 +19,110 @@ package rpc
 */
 
 import (
+	"context"
 	"errors"
 	"io/ioutil"
 	"path"
 	"time"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/generate"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcGenerate(req []byte, timeout time.Duration, resp RPCResponse) {
-	var fpath string
-	genReq := &clientpb.GenerateReq{}
-	err := proto.Unmarshal(req, genReq)
-	if err != nil {
-		resp([]byte{}, err)
-		return
-	}
-	config := generate.SliverConfigFromProtobuf(genReq.Config)
+// Generate - Generate a new implant
+func Generate(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.Generate, error) {
+	var fPath string
+	var err error
+	config := generate.SliverConfigFromProtobuf(req.Config)
 	if config == nil {
-		err := errors.New("Invalid Sliver config")
-		resp([]byte{}, err)
-		return
+		return nil, errors.New("Invalid implant config")
 	}
-	switch genReq.Config.Format {
-	case clientpb.SliverConfig_EXECUTABLE:
-		fpath, err = generate.SliverExecutable(config)
-	case clientpb.SliverConfig_SHARED_LIB:
-		fpath, err = generate.SliverSharedLibrary(config)
-	case clientpb.SliverConfig_SHELLCODE:
-		fpath, err = generate.SliverSharedLibrary(config)
+	switch req.Config.Format {
+	case clientpb.ImplantConfig_EXECUTABLE:
+		fPath, err = generate.SliverExecutable(config)
+	case clientpb.ImplantConfig_SHARED_LIB:
+		fPath, err = generate.SliverSharedLibrary(config)
+	case clientpb.ImplantConfig_SHELLCODE:
+		fPath, err = generate.SliverSharedLibrary(config)
 		if err != nil {
-			resp([]byte{}, err)
-			return
+			return nil, err
 		}
-		fpath, err = generate.ShellcodeRDIToFile(fpath, "")
+		fPath, err = generate.ShellcodeRDIToFile(fPath, "")
 		if err != nil {
-			resp([]byte{}, err)
-			return
+			return nil, err
 		}
 	}
-	filename := path.Base(fpath)
-	filedata, err := ioutil.ReadFile(fpath)
-	generated := &clientpb.Generate{
-		File: &clientpb.File{
+
+	filename := path.Base(fPath)
+	filedata, err := ioutil.ReadFile(fPath)
+
+	return &clientpb.Generate{
+		File: &commonpb.File{
 			Name: filename,
 			Data: filedata,
 		},
-	}
-	data, err := proto.Marshal(generated)
-	resp(data, err)
+	}, nil
 }
 
-func rpcRegenerate(req []byte, timeout time.Duration, resp RPCResponse) {
-	regenReq := &clientpb.Regenerate{}
-	err := proto.Unmarshal(req, regenReq)
+// Regenerate - Regenerate a previously generated implant
+func Regenerate(ctx context.Context, req *clientpb.RegenerateReq) (*clientpb.Generate, error) {
+
+	config, err := generate.SliverConfigByName(req.ImplantName)
 	if err != nil {
-		resp([]byte{}, err)
-		return
-	}
-	sliverConfig, _ := generate.SliverConfigByName(regenReq.SliverName)
-	sliverFileData, err := generate.SliverFileByName(regenReq.SliverName)
-	regenerated := &clientpb.Regenerate{SliverName: regenReq.SliverName}
-	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
 
-	if sliverFileData != nil && sliverConfig != nil {
-		regenerated.File = &clientpb.File{
-			Name: sliverConfig.FileName,
-			Data: sliverFileData,
-		}
+	fileData, err := generate.SliverFileByName(req.ImplantName)
+	if err != nil {
+		return nil, err
 	}
-	data, err := proto.Marshal(regenerated)
-	resp(data, err)
+
+	return &clientpb.Generate{
+		File: &commonpb.File{
+			Name: config.FileName,
+			Data: fileData,
+		},
+	}, nil
 }
 
-func rpcListSliverBuilds(_ []byte, timeout time.Duration, resp RPCResponse) {
+// ImplantBuilds - List existing implant builds
+func ImplantBuilds(ctx context.Context, _ *commonpb.Empty) (*clientpb.ImplantBuilds, error) {
 	configs, err := generate.SliverConfigMap()
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliverBuilds := &clientpb.SliverBuilds{
-		Configs: map[string]*clientpb.SliverConfig{},
+	builds := &clientpb.ImplantBuilds{
+		Configs: map[string]*clientpb.ImplantConfig{},
 	}
-	for name, cfg := range configs {
-		sliverBuilds.Configs[name] = cfg.ToProtobuf()
+	for name, config := range configs {
+		builds.Configs[name] = config.ToProtobuf()
 	}
-	data, err := proto.Marshal(sliverBuilds)
-	resp(data, err)
+	return builds, nil
 }
 
-func rpcListCanaries(_ []byte, timeout time.Duration, resp RPCResponse) {
+// Canaries - List existing canaries
+func Canaries(ctx context.Context, _ *commonpb.Empty) (*clientpb.Canaries, error) {
 	jsonCanaries, err := generate.ListCanaries()
 	if err != nil {
-		resp([]byte{}, err)
+		return nil, err
 	}
+
 	rpcLog.Infof("Found %d canaries", len(jsonCanaries))
 	canaries := []*clientpb.DNSCanary{}
 	for _, canary := range jsonCanaries {
 		canaries = append(canaries, canary.ToProtobuf())
 	}
-	data, err := proto.Marshal(&clientpb.Canaries{
+
+	return &clientpb.Canaries{
 		Canaries: canaries,
-	})
-	resp(data, err)
+	}, nil
 }
 
-func rpcProfiles(_ []byte, timeout time.Duration, resp RPCResponse) {
+// Profiles - List profiles
+func Profiles(ctx context.Context, _ *commonpb.Empty) (*clientpb.Profiles, error) {
 	profiles := &clientpb.Profiles{List: []*clientpb.Profile{}}
 	for name, config := range generate.Profiles() {
 		profiles.List = append(profiles.List, &clientpb.Profile{
@@ -138,11 +130,10 @@ func rpcProfiles(_ []byte, timeout time.Duration, resp RPCResponse) {
 			Config: config.ToProtobuf(),
 		})
 	}
-	data, err := proto.Marshal(profiles)
-	resp(data, err)
+	return profiles, nil
 }
 
-func rpcNewProfile(req []byte, timeout time.Duration, resp RPCResponse) {
+func NewProfile(req []byte, timeout time.Duration, resp RPCResponse) {
 	profile := &clientpb.Profile{}
 	err := proto.Unmarshal(req, profile)
 	if err != nil {
