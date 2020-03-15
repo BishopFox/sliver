@@ -23,14 +23,12 @@ import (
 	"sync"
 	"time"
 
+	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/msf"
-
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-
-	consts "github.com/bishopfox/sliver/client/constants"
 
 	"github.com/golang/protobuf/proto"
 )

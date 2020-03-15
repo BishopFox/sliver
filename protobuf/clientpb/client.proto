@@ -115,11 +115,11 @@ message RegenerateReq {
 }
 
 message Job {
-  int32 ID = 1;
+  uint32 ID = 1;
   string Name = 2;
   string Description = 3;
   string Protocol = 4;
-  int32 Port = 5;
+  uint32 Port = 5;
 
   repeated string Domains = 6;
 }

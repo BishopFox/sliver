@@ -18,7 +18,7 @@ service SliverRPC {
     
     // *** Jobs ***
     rpc GetJobs(commonpb.Empty) returns (clientpb.Jobs) {}
-    rpc KillJob(clientpb.JobKillReq) returns (clientpb.JobKill) {}
+    rpc JobKill(clientpb.JobKillReq) returns (clientpb.JobKill) {}
 
     // *** Implants ***
     rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate) {}

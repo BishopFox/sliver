@@ -19,6 +19,7 @@ package rpc
 */
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -29,44 +30,35 @@ import (
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
-	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/core"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcJobs(_ []byte, timeout time.Duration, resp RPCResponse) {
+// Jobs - List jobs
+func (rpc *Server) Jobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.Jobs, error) {
 	jobs := &clientpb.Jobs{
 		Active: []*clientpb.Job{},
 	}
 	for _, job := range *core.Jobs.Active {
 		jobs.Active = append(jobs.Active, &clientpb.Job{
-			ID:          int32(job.ID),
+			ID:          uint32(job.ID),
 			Name:        job.Name,
 			Description: job.Description,
 			Protocol:    job.Protocol,
-			Port:        int32(job.Port),
+			Port:        uint32(job.Port),
 			Domains:     job.Domains,
 		})
 	}
-	data, err := proto.Marshal(jobs)
-	if err != nil {
-		rpcLog.Errorf("Error encoding rpc response %v", err)
-		resp([]byte{}, err)
-		return
-	}
-	resp(data, err)
+	return jobs, nil
 }
 
-func rpcJobKill(data []byte, timeout time.Duration, resp RPCResponse) {
-	jobKillReq := &clientpb.JobKillReq{}
-	err := proto.Unmarshal(data, jobKillReq)
-	if err != nil {
-		resp([]byte{}, err)
-		return
-	}
-	job := core.Jobs.Job(int(jobKillReq.ID))
+// JobKill - Kill a server-side job
+func (rpc *Server) JobKill(ctx context.Context, kill *clientpb.JobKill) (*clientpb.JobKill, error) {
+	job := core.Jobs.Job(int(kill.ID))
 	jobKill := &clientpb.JobKill{ID: int32(job.ID)}
 	if job != nil {
 		job.JobCtrl <- true
@@ -75,8 +67,7 @@ func rpcJobKill(data []byte, timeout time.Duration, resp RPCResponse) {
 		jobKill.Success = false
 		jobKill.Err = "Invalid Job ID"
 	}
-	data, err = proto.Marshal(jobKill)
-	resp(data, err)
+	return jobKill, nil
 }
 
 func rpcStartMTLSListener(data []byte, timeout time.Duration, resp RPCResponse) {
@@ -178,7 +169,7 @@ func jobStartDNSListener(domains []string, canaries bool, lport uint16) (int, er
 
 	core.Jobs.AddJob(job)
 
-	// There is no way to call DNS's ListenAndServe() without blocking
+	// There is no way to call DNS' ListenAndServe() without blocking
 	// but we also need to check the error in the case the server
 	// fails to start at all, so we setup all the Job mechanics
 	// then kick off the server and if it fails we kill the job

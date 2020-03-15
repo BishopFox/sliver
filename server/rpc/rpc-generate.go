@@ -23,17 +23,14 @@ import (
 	"errors"
 	"io/ioutil"
 	"path"
-	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/generate"
-
-	"github.com/golang/protobuf/proto"
 )
 
 // Generate - Generate a new implant
-func Generate(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.Generate, error) {
+func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.Generate, error) {
 	var fPath string
 	var err error
 	config := generate.SliverConfigFromProtobuf(req.Config)
@@ -68,7 +65,7 @@ func Generate(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.Generat
 }
 
 // Regenerate - Regenerate a previously generated implant
-func Regenerate(ctx context.Context, req *clientpb.RegenerateReq) (*clientpb.Generate, error) {
+func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) (*clientpb.Generate, error) {
 
 	config, err := generate.SliverConfigByName(req.ImplantName)
 	if err != nil {
@@ -89,7 +86,7 @@ func Regenerate(ctx context.Context, req *clientpb.RegenerateReq) (*clientpb.Gen
 }
 
 // ImplantBuilds - List existing implant builds
-func ImplantBuilds(ctx context.Context, _ *commonpb.Empty) (*clientpb.ImplantBuilds, error) {
+func (rpc *Server) ImplantBuilds(ctx context.Context, _ *commonpb.Empty) (*clientpb.ImplantBuilds, error) {
 	configs, err := generate.SliverConfigMap()
 	if err != nil {
 		return nil, err
@@ -104,7 +101,7 @@ func ImplantBuilds(ctx context.Context, _ *commonpb.Empty) (*clientpb.ImplantBui
 }
 
 // Canaries - List existing canaries
-func Canaries(ctx context.Context, _ *commonpb.Empty) (*clientpb.Canaries, error) {
+func (rpc *Server) Canaries(ctx context.Context, _ *commonpb.Empty) (*clientpb.Canaries, error) {
 	jsonCanaries, err := generate.ListCanaries()
 	if err != nil {
 		return nil, err
@@ -122,7 +119,7 @@ func Canaries(ctx context.Context, _ *commonpb.Empty) (*clientpb.Canaries, error
 }
 
 // Profiles - List profiles
-func Profiles(ctx context.Context, _ *commonpb.Empty) (*clientpb.Profiles, error) {
+func (rpc *Server) Profiles(ctx context.Context, _ *commonpb.Empty) (*clientpb.Profiles, error) {
 	profiles := &clientpb.Profiles{List: []*clientpb.Profile{}}
 	for name, config := range generate.Profiles() {
 		profiles.List = append(profiles.List, &clientpb.Profile{
@@ -133,20 +130,17 @@ func Profiles(ctx context.Context, _ *commonpb.Empty) (*clientpb.Profiles, error
 	return profiles, nil
 }
 
-func NewProfile(req []byte, timeout time.Duration, resp RPCResponse) {
-	profile := &clientpb.Profile{}
-	err := proto.Unmarshal(req, profile)
-	if err != nil {
-		rpcLog.Errorf("Failed to decode message %v", err)
-		resp([]byte{}, err)
-	}
+// NewProfile - Save a new profile
+func (rpc *Server) NewProfile(ctx context.Context, profile *clientpb.Profile) (*clientpb.Profile, error) {
 	config := generate.SliverConfigFromProtobuf(profile.Config)
 	profile.Name = path.Base(profile.Name)
 	if 0 < len(profile.Name) && profile.Name != "." {
 		rpcLog.Infof("Saving new profile with name %#v", profile.Name)
-		err = generate.ProfileSave(profile.Name, config)
-	} else {
-		err = errors.New("Invalid profile name")
+		err := generate.ProfileSave(profile.Name, config)
+		if err != nil {
+			return nil, err
+		}
+		return profile, nil
 	}
-	resp([]byte{}, err)
+	return nil, errors.New("Invalid profile name")
 }
