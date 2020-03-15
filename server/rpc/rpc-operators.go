@@ -21,35 +21,30 @@ package rpc
 import (
 	"bytes"
 	"crypto/x509"
-	"time"
 
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
-
-	"github.com/golang/protobuf/proto"
 )
 
-func rpcPlayers(_ []byte, timeout time.Duration, resp RPCResponse) {
+// func rpcPlayers(_ []byte, timeout time.Duration, resp RPCResponse) {
 
-	clientCerts := certs.OperatorClientListCertificates()
+// 	clientCerts := certs.OperatorClientListCertificates()
 
-	players := &clientpb.Players{Players: []*clientpb.Player{}}
-	for _, cert := range clientCerts {
-		players.Players = append(players.Players, &clientpb.Player{
-			Client: &clientpb.Client{
-				Operator: cert.Subject.CommonName,
-			},
-			Online: isPlayerOnline(cert),
-		})
-	}
+// 	players := &clientpb.Players{Players: []*clientpb.Player{}}
+// 	for _, cert := range clientCerts {
+// 		players.Players = append(players.Players, &clientpb.Player{
+// 			Client: &clientpb.Client{
+// 				Operator: cert.Subject.CommonName,
+// 			},
+// 			Online: isPlayerOnline(cert),
+// 		})
+// 	}
 
-	data, err := proto.Marshal(players)
-	if err != nil {
-		rpcLog.Errorf("Error encoding rpc response %v", err)
-	}
-	resp(data, err)
-}
+// 	data, err := proto.Marshal(players)
+// 	if err != nil {
+// 		rpcLog.Errorf("Error encoding rpc response %v", err)
+// 	}
+// 	resp(data, err)
+// }
 
 // isPlayerOnline - Is a player connected using a given certificate
 func isPlayerOnline(cert *x509.Certificate) bool {

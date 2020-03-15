@@ -22,8 +22,8 @@ import (
 	"crypto/x509"
 	"sync"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 var (

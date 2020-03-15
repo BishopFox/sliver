@@ -37,6 +37,7 @@ service SliverRPC {
     rpc Ps(sliverpb.PsReq) returns (sliverpb.Ps) {}
     rpc Terminate(sliverpb.TerminateReq) returns (sliverpb.Terminate) {}
     rpc Ifconfig(sliverpb.IfconfigReq) returns (sliverpb.Ifconfig) {}
+    rpc Netstat(sliverpb.NetstatReq) returns (sliverpb.Netstat) {}
     rpc Ls(sliverpb.LsReq) returns (sliverpb.Ls) {}
     rpc Cd(sliverpb.CdReq) returns (sliverpb.Pwd) {}
     rpc Pwd(sliverpb.PwdReq) returns (sliverpb.Pwd) {}
@@ -48,16 +49,17 @@ service SliverRPC {
     rpc RunAs(sliverpb.RunAsReq) returns (sliverpb.RunAs) {}
     rpc Impersonate(sliverpb.ImpersonateReq) returns (sliverpb.Impersonate) {}
     rpc RevToSelf(sliverpb.RevToSelfReq) returns (sliverpb.RevToSelf) {}
-    rpc GetSystem(sliverpb.GetSystemReq) returns (sliverpb.GetSystem) {}
+    rpc GetSystem(clientpb.GetSystemReq) returns (sliverpb.GetSystem) {}
     rpc Elevate(sliverpb.ElevateReq) returns (sliverpb.Elevate) {}
     rpc Task(sliverpb.TaskReq) returns (commonpb.Empty) {}
     rpc RemoteTask(sliverpb.RemoteTaskReq) returns (commonpb.Empty) {}
+    rpc Msf(clientpb.MSFReq) returns (commonpb.Empty) {}
+    rpc MsfRemote(clientpb.MSFRemoteReq) returns (commonpb.Empty) {}
     rpc ExecuteAssembly(sliverpb.ExecuteAssemblyReq) returns (sliverpb.ExecuteAssembly) {}
-    rpc Migrate(sliverpb.MigrateReq) returns (sliverpb.Migrate) {}
+    rpc Migrate(clientpb.MigrateReq) returns (sliverpb.Migrate) {}
     rpc Execute(sliverpb.ExecuteReq) returns (sliverpb.Execute) {}
     rpc Sideload(sliverpb.SideloadReq) returns (sliverpb.Sideload) {}
     rpc SpawnDll(sliverpb.SpawnDllReq) returns (sliverpb.SpawnDll) {}
-    rpc Netstat(sliverpb.NetstatReq) returns (sliverpb.Netstat) {}
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot) {}
 
     // *** Realtime Interactions ***

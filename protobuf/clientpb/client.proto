@@ -210,7 +210,7 @@ message MSFReq {
   commonpb.Request Request = 9;
 }
 
-message MSFInjectReq {
+message MSFRemoteReq {
   string Payload = 1;
   string LHost = 2;
   int32 LPort = 3;
@@ -243,6 +243,25 @@ message Egg {
   string Filename = 2;
   int32 JobID = 3;
 }
+
+// GetSystemReq - Client request to the server which is translated into
+//                InvokeSystemReq when sending to the implant.
+message GetSystemReq {
+  string HostingProcess = 1;
+  ImplantConfig Config = 2;
+
+  commonpb.Request Request = 9;
+}
+
+// MigrateReq - Client request to the server which is translated into
+//              InvokeMigrateReq when sending to the implant.
+message MigrateReq {
+  uint32 Pid = 1;
+  ImplantConfig Config = 2;
+
+  commonpb.Request Request = 9;
+}
+
 
 // [ Tunnels ] ----------------------------------------
 message TunnelCreateReq {

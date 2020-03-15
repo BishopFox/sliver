@@ -33,7 +33,7 @@ import (
 func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.Generate, error) {
 	var fPath string
 	var err error
-	config := generate.SliverConfigFromProtobuf(req.Config)
+	config := generate.ImplantConfigFromProtobuf(req.Config)
 	if config == nil {
 		return nil, errors.New("Invalid implant config")
 	}
@@ -132,7 +132,7 @@ func (rpc *Server) Profiles(ctx context.Context, _ *commonpb.Empty) (*clientpb.P
 
 // NewProfile - Save a new profile
 func (rpc *Server) NewProfile(ctx context.Context, profile *clientpb.Profile) (*clientpb.Profile, error) {
-	config := generate.SliverConfigFromProtobuf(profile.Config)
+	config := generate.ImplantConfigFromProtobuf(profile.Config)
 	profile.Name = path.Base(profile.Name)
 	if 0 < len(profile.Name) && profile.Name != "." {
 		rpcLog.Infof("Saving new profile with name %#v", profile.Name)

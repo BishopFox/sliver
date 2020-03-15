@@ -60,8 +60,8 @@ func NewServer() *Server {
 
 // GenericHandler - Pass the request to the Sliver/Session
 func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error {
-	sliver := core.Hive.Sliver(req.GetRequest().SessionID)
-	if sliver == nil {
+	session := core.Hive.Sliver(req.GetRequest().SessionID)
+	if session == nil {
 		return ErrInvalidSessionID
 	}
 
@@ -71,7 +71,7 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error 
 	}
 
 	timeout := time.Duration(req.GetRequest().Timeout)
-	data, err := sliver.Request(sliverpb.MsgNumber(req), timeout, reqData)
+	data, err := session.Request(sliverpb.MsgNumber(req), timeout, reqData)
 	if err != nil {
 		return err
 	}

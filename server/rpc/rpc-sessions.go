@@ -31,29 +31,29 @@ import (
 
 // GetSessions - Get a list of sessions
 func (rpc *Server) GetSessions(ctx context.Context, _ *commonpb.Empty) (*clientpb.Sessions, error) {
-	sessions := &clientpb.Sessions{
+	resp := &clientpb.Sessions{
 		Sessions: []*clientpb.Session{},
 	}
 	if 0 < len(*core.Hive.Slivers) {
-		for _, sliver := range *core.Hive.Slivers {
-			sessions.Sessions = append(sessions.Sessions, sliver.ToProtobuf())
+		for _, session := range *core.Hive.Slivers {
+			resp.Sessions = append(resp.Sessions, session.ToProtobuf())
 		}
 	}
-	return sessions, nil
+	return resp, nil
 }
 
 // KillSession - Kill a session
 func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillSessionReq) (*commonpb.Empty, error) {
-	sliver := core.Hive.Sliver(kill.Request.SessionID)
-	if sliver == nil {
+	session := core.Hive.Sliver(kill.Request.SessionID)
+	if session == nil {
 		return &commonpb.Empty{}, ErrInvalidSessionID
 	}
-	core.Hive.RemoveSliver(sliver)
+	core.Hive.RemoveSliver(session)
 	data, err := proto.Marshal(kill)
 	if err != nil {
 		return nil, err
 	}
 	timeout := time.Duration(kill.Request.GetTimeout())
-	sliver.Request(sliverpb.MsgNumber(kill), timeout, data)
+	session.Request(sliverpb.MsgNumber(kill), timeout, data)
 	return &commonpb.Empty{}, nil
 }

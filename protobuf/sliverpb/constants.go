@@ -101,8 +101,8 @@ const (
 	MsgRunAs
 	// MsgRevToSelf - Revert to self
 	MsgRevToSelf
-	// MsgGetSystemReq - Elevate as SYSTEM user
-	MsgGetSystemReq
+	// MsgInvokeGetSystemReq - Elevate as SYSTEM user
+	MsgInvokeGetSystemReq
 	// MsgGetSystem - Response to getsystem request
 	MsgGetSystem
 	// MsgElevateReq - Request to run a new sliver session in an elevated context
@@ -229,8 +229,8 @@ func MsgNumber(request proto.Message) uint32 {
 	case *RevToSelf:
 		return MsgRevToSelf
 
-	case *GetSystemReq:
-		return MsgGetSystemReq
+	case *InvokeGetSystemReq:
+		return MsgInvokeGetSystemReq
 	case *GetSystem:
 		return MsgGetSystem
 

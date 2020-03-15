@@ -233,13 +233,16 @@ message RevToSelf {
   commonpb.Response Response = 9;
 }
 
-message GetSystemReq {
+// InvokeGetSystemReq - Implant-side version of GetSystemReq, this message
+//                      contains the .Data based on the client's req.Config
+message InvokeGetSystemReq {
   bytes Data = 1;
   string HostingProcess = 2;
 
   commonpb.Request Request = 9;
 }
 
+// GetSystem - The result of a InvokeGetSystemReq attempt
 message GetSystem {
   string Output = 1;
 
@@ -293,7 +296,7 @@ message ExecuteAssembly {
   commonpb.Response Response = 9;
 }
 
-message MigrateReq {
+message InvokeMigrateReq {
   uint32 Pid = 1;
   bytes Data = 2;
 
