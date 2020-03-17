@@ -74,7 +74,7 @@ func Sideload(procName string, data []byte, args string) (string, error) {
 		fmt.Sprintf("LD_PARAMS=%s", args),
 		fmt.Sprintf("DYLD_INSERT_LIBRARIES=%s", fdPath),
 	}
-	env = append(env, newEnv)
+	env = append(env, newEnv...)
 	cmd := exec.Command(procName)
 	cmd.Env = env
 	cmd.Stdout = &stdOut
