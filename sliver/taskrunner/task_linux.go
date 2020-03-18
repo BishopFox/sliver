@@ -89,11 +89,12 @@ func Sideload(procName string, data []byte, args string) (string, error) {
 	//{{if .Debug}}
 	log.Printf("Data written in %s\n", fdPath)
 	//{{end}}
-	env := []string{
+	env := os.Environ()
+	newEnv := []string{
 		fmt.Sprintf("LD_PARAMS=%s", args),
 		fmt.Sprintf("LD_PRELOAD=%s", fdPath),
-		fmt.Sprintf("PATH=%s", os.Getenv("PATH")),
 	}
+	env = append(env, newEnv...)
 	cmd := exec.Command(procName)
 	cmd.Env = env
 	cmd.Stdout = &stdOut

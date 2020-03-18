@@ -20,9 +20,11 @@ package transport
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
+	"encoding/pem"
 	"fmt"
 	"net"
 	"sync"
@@ -107,11 +109,35 @@ func handleClientConnection(conn net.Conn) {
 	}
 	tlsConn.Read([]byte{}) // Unless you read 0 bytes the TLS handshake will not complete
 	logState(tlsConn)
-	certs := tlsConn.ConnectionState().PeerCertificates
-	if len(certs) < 1 {
+	certificates := tlsConn.ConnectionState().PeerCertificates
+	if len(certificates) < 1 {
 		return
 	}
-	operator := certs[0].Subject.CommonName // Get operator name from cert CN
+	operator := certificates[0].Subject.CommonName // Get operator name from cert CN
+
+	pubPEM, _, err := certs.OperatorClientGetCertificate(operator) // Check if the operator certificate is still in the DB
+	if err != nil {
+		clientLog.Infof("Kicked out operator %s attempts to connect. %s", operator, err.Error())
+		return
+	}
+
+	b, _ := pem.Decode(pubPEM)
+	if b == nil {
+		clientLog.Infof("Error decoding the operator %s PEM certificate", operator)
+		return
+	}
+
+	pubOp, err := x509.ParseCertificate(b.Bytes)
+	if err != nil {
+		clientLog.Infof("Error parsing the client certificate. %s ", err.Error())
+		return
+	}
+
+	if sha256.Sum256(certificates[0].Raw) != sha256.Sum256(pubOp.Raw) {
+		clientLog.Info("Operator public key mismatch.")
+		return
+	}
+
 	clientLog.Infof("Accepted incoming client connection: %s (%s)", conn.RemoteAddr(), operator)
 
 	log.AuditLogger.WithFields(logrus.Fields{
@@ -119,7 +145,7 @@ func handleClientConnection(conn net.Conn) {
 		"operator": operator,
 	}).Info("connected")
 
-	client := core.GetClient(certs[0])
+	client := core.GetClient(certificates[0])
 	core.Clients.AddClient(client)
 
 	core.EventBroker.Publish(core.Event{

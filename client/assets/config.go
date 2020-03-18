@@ -19,6 +19,7 @@ package assets
 */
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -75,7 +76,8 @@ func GetConfigs() map[string]*ClientConfig {
 		if err != nil {
 			continue
 		}
-		confs[conf.LHost] = conf
+		digest := sha256.Sum256([]byte(conf.Certificate))
+		confs[fmt.Sprintf("%s@%s (%x)", conf.Operator, conf.LHost, digest[:8])] = conf
 	}
 	return confs
 }
