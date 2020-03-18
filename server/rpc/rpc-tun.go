@@ -23,8 +23,8 @@ package rpc
 
 // 	"github.com/bishopfox/sliver/server/core"
 
-// 	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
-// 	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
+// 	"github.com/bishopfox/sliver/protobuf/clientpb"
+// 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 // 	"github.com/golang/protobuf/proto"
 // )

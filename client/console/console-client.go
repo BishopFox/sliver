@@ -33,7 +33,7 @@ func StartClientConsole() error {
 
 	configs := assets.GetConfigs()
 	if len(configs) == 0 {
-		fmt.Printf(Warn+"No config files found at %s or -config\n", assets.GetConfigDir())
+		fmt.Printf(Warn+"No config files found at %s or -import\n", assets.GetConfigDir())
 		return nil
 	}
 	config := selectConfig()

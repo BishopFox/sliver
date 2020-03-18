@@ -30,7 +30,7 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	clientcore "github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/help"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/transport"
 )
 

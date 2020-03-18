@@ -27,8 +27,8 @@ import (
 	"log"
 
 	"github.com/bishopfox/sliver/client/assets"
-	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"sync"
 	"time"

@@ -30,12 +30,12 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/client/spin"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
 
-	"gopkg.in/AlecAivazis/survey.v1"
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
+	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 func ls(ctx *grumble.Context, rpc RPCServer) {

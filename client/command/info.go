@@ -22,7 +22,7 @@ import (
 	"fmt"
 
 	consts "github.com/bishopfox/sliver/client/constants"
-	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 
 	"github.com/desertbit/grumble"
 )

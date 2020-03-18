@@ -21,11 +21,10 @@ package command
 import (
 	"fmt"
 	"io/ioutil"
-	"time"
 	"path"
+	"time"
 
-
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
@@ -40,8 +39,8 @@ func screenshot(ctx *grumble.Context, rpc RPCServer) {
 	if ActiveSliver.Sliver.OS == "darwin" {
 		fmt.Printf(Warn + "Not Implemented\n")
 		return
-	} 
-	
+	}
+
 	timestamp := time.Now().Format("20060102150405")
 	fileName := path.Base(fmt.Sprintf("screenshot_%s_%s_*.png", ActiveSliver.Sliver.Name, timestamp))
 	f, err := ioutil.TempFile("", fileName)
@@ -71,7 +70,7 @@ func screenshot(ctx *grumble.Context, rpc RPCServer) {
 
 	err = ioutil.WriteFile(f.Name(), screenshotConfigs.Data, 0644)
 	if err != nil {
-		fmt.Printf(Warn + "Error writting screenshot file: %s\n", err)
+		fmt.Printf(Warn+"Error writting screenshot file: %s\n", err)
 		return
 	}
 	fmt.Printf(bold + "Written to " + f.Name())

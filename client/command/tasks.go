@@ -33,8 +33,8 @@ import (
 
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
-	clientpb "github.com/bishopfox/sliver/protobuf/clientpb"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/desertbit/grumble"
