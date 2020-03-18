@@ -36,7 +36,7 @@ const (
 
 func main() {
 	displayVersion := flag.Bool("version", false, "print version number")
-	config := flag.String("config", "", "config file")
+	config := flag.String("import", "", "import config file to ~/.sliver-client/configs")
 	flag.Parse()
 
 	if *displayVersion {
