@@ -130,7 +130,22 @@ func newPlayerCmd(ctx *grumble.Context) {
 }
 
 func kickPlayerCmd(ctx *grumble.Context) {
+	operator := ctx.Flags.String("operator")
 
+	regex, _ := regexp.Compile("[^A-Za-z0-9]+") // Only allow alphanumeric chars
+	operator = regex.ReplaceAllString(operator, "")
+
+	if operator == "" {
+		fmt.Printf(Warn + "Operator name required (--operator) \n")
+		return
+	}
+	fmt.Printf(Info+"Removing client certificate for operator %s, please wait ... \n", operator)
+	err := certs.OperatorClientRemoveCertificate(operator)
+	if err != nil {
+		fmt.Printf(Warn+"Failed to remove the operator certificate: %v \n", err)
+		return
+	}
+	fmt.Printf(Info+"Operator %s kicked out. \n", operator)
 }
 
 func startMultiplayerModeCmd(ctx *grumble.Context) {

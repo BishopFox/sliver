@@ -131,7 +131,7 @@ func GetCertificate(caType string, keyType string, commonName string) ([]byte, [
 }
 
 // RemoveCertificate - Remove a certificate from the cert store
-func RemoveCertificate(caType string, commonName string, keyType string) error {
+func RemoveCertificate(caType string, keyType string, commonName string) error {
 	if keyType != ECCKey && keyType != RSAKey {
 		return fmt.Errorf("Invalid key type '%s'", keyType)
 	}

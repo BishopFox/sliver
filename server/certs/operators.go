@@ -47,6 +47,11 @@ func OperatorClientGetCertificate(operator string) ([]byte, []byte, error) {
 	return GetCertificate(OperatorCA, ECCKey, fmt.Sprintf("%s.%s", clientNamespace, operator))
 }
 
+// OperatorClientRemoveCertificate - Helper function to remove a client cert
+func OperatorClientRemoveCertificate(operator string) error {
+	return RemoveCertificate(OperatorCA, ECCKey, fmt.Sprintf("%s.%s", clientNamespace, operator))
+}
+
 // OperatorServerGetCertificate - Helper function to fetch a client cert
 func OperatorServerGetCertificate(operator string) ([]byte, []byte, error) {
 	return GetCertificate(OperatorCA, ECCKey, fmt.Sprintf("%s.%s", serverNamespace, operator))
