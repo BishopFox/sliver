@@ -12,6 +12,7 @@ message Version {
   int32 Patch = 3;
 
   string Commit = 4;
+  bool Dirty = 5;
 
   enum Component {
     ConsoleClient = 0;

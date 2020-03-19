@@ -167,8 +167,8 @@ func jobStartClientListener(bindIface string, port uint16) (int, error) {
 	}
 
 	job := &core.Job{
-		ID:          core.GetJobID(),
-		Name:        "rpc",
+		ID:          core.NextJobID(),
+		Name:        "grpc",
 		Description: "client listener",
 		Protocol:    "tcp",
 		Port:        port,
@@ -180,7 +180,7 @@ func jobStartClientListener(bindIface string, port uint16) (int, error) {
 		log.Printf("Stopping client listener (%d) ...\n", job.ID)
 		ln.Close() // Kills listener GoRoutines in startMutualTLSListener() but NOT connections
 
-		core.Jobs.RemoveJob(job)
+		core.Jobs.Remove(job)
 
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
@@ -188,7 +188,7 @@ func jobStartClientListener(bindIface string, port uint16) (int, error) {
 		})
 	}()
 
-	core.Jobs.AddJob(job)
+	core.Jobs.Add(job)
 
 	return job.ID, nil
 }

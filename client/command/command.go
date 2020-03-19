@@ -19,13 +19,11 @@ package command
 */
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
-	"github.com/golang/protobuf/proto"
 	"gopkg.in/AlecAivazis/survey.v1"
 )
 
@@ -97,37 +95,12 @@ func (s *activeSliver) DisableActiveSliver() {
 
 // Get Sliver by session ID or name
 func getSliver(arg string, rpc RPCServer) *clientpb.Sliver {
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgSessions,
-		Data: []byte{},
-	}, defaultTimeout)
-	sessions := &clientpb.Sessions{}
-	proto.Unmarshal((resp).Data, sessions)
 
-	for _, sliver := range sessions.Slivers {
-		if strconv.Itoa(int(sliver.ID)) == arg || sliver.Name == arg {
-			return sliver
-		}
-	}
-	return nil
 }
 
-// SliverSessionsByName - Return all sessions for a Sliver by name
-func SliverSessionsByName(name string, rpc RPCServer) []*clientpb.Sliver {
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgSessions,
-		Data: []byte{},
-	}, defaultTimeout)
-	allSessions := &clientpb.Sessions{}
-	proto.Unmarshal((resp).Data, allSessions)
+// SessionsByName - Return all sessions for a Sliver by name
+func SessionsByName(name string, rpc RPCServer) []*clientpb.Sliver {
 
-	sessions := []*clientpb.Sliver{}
-	for _, sliver := range allSessions.Slivers {
-		if sliver.Name == name {
-			sessions = append(sessions, sliver)
-		}
-	}
-	return sessions
 }
 
 // This should be called for any dangerous (OPSEC-wise) functions

@@ -48,8 +48,8 @@ var (
 	ErrInvalidPort = errors.New("Invalid listener port")
 )
 
-// Jobs - List jobs
-func (rpc *Server) Jobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.Jobs, error) {
+// GetJobs - List jobs
+func (rpc *Server) GetJobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.Jobs, error) {
 	jobs := &clientpb.Jobs{
 		Active: []*clientpb.Job{},
 	}
@@ -67,7 +67,7 @@ func (rpc *Server) Jobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.Jobs,
 }
 
 // JobKill - Kill a server-side job
-func (rpc *Server) JobKill(ctx context.Context, kill *clientpb.JobKill) (*clientpb.JobKill, error) {
+func (rpc *Server) JobKill(ctx context.Context, kill *clientpb.JobKillReq) (*clientpb.JobKill, error) {
 	job := core.Jobs.Get(int(kill.ID))
 	jobKill := &clientpb.JobKill{ID: int32(job.ID)}
 	if job != nil {
@@ -91,7 +91,7 @@ func StartMTLSListener(ctx context.Context, req *clientpb.MTLSListenerReq) (*cli
 		listenPort = uint16(req.Port)
 	}
 
-	bind := fmt.Sprintf("%s:%s", req.Host, listenPort)
+	bind := fmt.Sprintf("%s:%d", req.Host, listenPort)
 	ln, err := c2.StartMutualTLSListener(req.Host, listenPort)
 	if err != nil {
 		return nil, err // If we fail to bind don't setup the Job

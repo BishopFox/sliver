@@ -14,7 +14,7 @@ require (
 	github.com/fatih/color v1.7.0
 	github.com/gobuffalo/envy v1.7.1 // indirect
 	github.com/gobuffalo/packr v1.30.1
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.3.3
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/mattn/go-colorable v0.1.4 // indirect
@@ -24,8 +24,9 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20191112222119-e1110fd1c708
-	golang.org/x/net v0.0.0-20191112182307-2180aed22343 // indirect
+	golang.org/x/net v0.0.0-20191112182307-2180aed22343
 	golang.org/x/sys v0.0.0-20191112214154-59a1497f0cea
 	golang.org/x/tools v0.0.0-20191113055240-e33b02e76616
+	google.golang.org/grpc v1.28.0
 	gopkg.in/AlecAivazis/survey.v1 v1.8.7
 )

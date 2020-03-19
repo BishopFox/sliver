@@ -19,9 +19,12 @@ package rpc
 */
 
 import (
+	"context"
 	"errors"
 	"time"
 
+	"github.com/bishopfox/sliver/client/version"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
@@ -56,6 +59,28 @@ type GenericResponse interface {
 // NewServer - Create new server instance
 func NewServer() *Server {
 	return &Server{}
+}
+
+// GetVersion - Get the server version
+func (rpc *Server) GetVersion(ctx context.Context, _ *commonpb.Empty) (*clientpb.Version, error) {
+	// clientVer := version.ClientVersion()
+	return &clientpb.Version{
+		Major:  0,
+		Minor:  0,
+		Patch:  7,
+		Commit: version.GitVersion,
+		Dirty:  version.GitDirty,
+	}, nil
+}
+
+// Ping - Try to send a round trip message to the implant
+func (rpc *Server) Ping(ctx context.Context, req *sliverpb.Ping) (*sliverpb.Ping, error) {
+	resp := sliverpb.Ping{}
+	err := GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 // GenericHandler - Pass the request to the Sliver/Session

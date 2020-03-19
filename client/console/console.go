@@ -106,7 +106,7 @@ func eventLoop(app *grumble.App, server *core.SliverServer) {
 
 		case consts.CanaryEvent:
 			fmt.Printf(clearln+Warn+bold+"WARNING: %s%s has been burned (DNS Canary)\n", normal, event.Sliver.Name)
-			sessions := cmd.SliverSessionsByName(event.Sliver.Name, server.RPC)
+			sessions := cmd.SliverSessionsByName(event.Session.Name, server.RPC)
 			for _, sliver := range sessions {
 				fmt.Printf(clearln+"\t🔥 Session #%d is affected\n", sliver.ID)
 			}
@@ -126,19 +126,19 @@ func eventLoop(app *grumble.App, server *core.SliverServer) {
 			fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
 
 		case consts.ConnectedEvent:
-			sliver := event.Sliver
+			session := event.Session
 			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n\n",
-				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.OS, sliver.Arch)
+				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
 
 		case consts.DisconnectedEvent:
-			sliver := event.Sliver
+			session := event.Session
 			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
-				sliver.ID, sliver.Name, sliver.RemoteAddress, sliver.Hostname, sliver.OS, sliver.Arch)
+				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
 			activeSliver := cmd.ActiveSliver.Sliver
-			if activeSliver != nil && sliver.ID == activeSliver.ID {
+			if activeSliver != nil && session.ID == activeSliver.ID {
 				cmd.ActiveSliver.SetActiveSliver(nil)
 				app.SetPrompt(getPrompt())
-				fmt.Printf(Warn + " Active sliver diconnected\n")
+				fmt.Printf(Warn + " Active sliver disconnected\n")
 			}
 			fmt.Println()
 
