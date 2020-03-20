@@ -478,6 +478,8 @@ func getExportOffset(filepath string, exportName string) (funcOffset uint32, err
 		}
 		current += uint32(binary.Size(i))
 	}
-
+	if funcOffset == 0 {
+		err = fmt.Errorf("%s offset not found", exportName)
+	}
 	return
 }
