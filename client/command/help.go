@@ -47,7 +47,7 @@ func printHelp(a *grumble.App) {
 				continue
 			}
 		} else {
-			if key == consts.SliverHelpGroup || key == consts.SliverWinHelpGroup {
+			if key == consts.SliverHelpGroup || key == consts.SliverWinHelpGroup || key == consts.ExtensionHelpGroup {
 				continue
 			}
 		}

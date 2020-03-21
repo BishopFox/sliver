@@ -315,31 +315,8 @@ func sideloadDll(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"%s", err.Error())
 		return
 	}
-	ctrl := make(chan bool)
-	go spin.Until(fmt.Sprintf("Sideloading %s ...", binPath), ctrl)
-	data, _ := proto.Marshal(&clientpb.SideloadReq{
-		Data:       binData,
-		Args:       args,
-		ProcName:   processName,
-		EntryPoint: entryPoint,
-		SliverID:   ActiveSliver.Sliver.ID,
-	})
 
-	resp := <-rpc(&sliverpb.Envelope{
-		Data: data,
-		Type: clientpb.MsgSideloadReq,
-	}, cmdTimeout)
-	ctrl <- true
-	<-ctrl
-	execResp := &sliverpb.Sideload{}
-	proto.Unmarshal(resp.Data, execResp)
-	if execResp.Error != "" {
-		fmt.Printf(Warn+"%s", execResp.Error)
-		return
-	}
-	if len(execResp.Result) > 0 {
-		fmt.Printf("\n"+Info+"Output:\n%s", execResp.Result)
-	}
+	runSideload(binData, args, processName, entryPoint, cmdTimeout, rpc)
 }
 
 // spawnDll --process --export  PATH_TO_DLL Args...
@@ -372,8 +349,12 @@ func spawnDll(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"%s", err.Error())
 		return
 	}
+	runSpawndll(binData, args, processName, offset, cmdTimeout, rpc)
+}
+
+func runSpawndll(binData []byte, args string, processName string, offset uint32, cmdTimeout time.Duration, rpc RPCServer) {
 	ctrl := make(chan bool)
-	go spin.Until(fmt.Sprintf("Executing reflective dll %s", binPath), ctrl)
+	go spin.Until("Executing reflective dll ...", ctrl)
 	data, _ := proto.Marshal(&sliverpb.SpawnDllReq{
 		Data:     binData,
 		Args:     args,
@@ -389,6 +370,35 @@ func spawnDll(ctx *grumble.Context, rpc RPCServer) {
 	ctrl <- true
 	<-ctrl
 	execResp := &sliverpb.SpawnDll{}
+	proto.Unmarshal(resp.Data, execResp)
+	if execResp.Error != "" {
+		fmt.Printf(Warn+"%s", execResp.Error)
+		return
+	}
+	if len(execResp.Result) > 0 {
+		fmt.Printf("\n"+Info+"Output:\n%s", execResp.Result)
+	}
+
+}
+
+func runSideload(binData []byte, args string, processName string, entryPoint string, cmdTimeout time.Duration, rpc RPCServer) {
+	ctrl := make(chan bool)
+	go spin.Until("Executing shared object ...", ctrl)
+	data, _ := proto.Marshal(&clientpb.SideloadReq{
+		Data:       binData,
+		Args:       args,
+		ProcName:   processName,
+		EntryPoint: entryPoint,
+		SliverID:   ActiveSliver.Sliver.ID,
+	})
+
+	resp := <-rpc(&sliverpb.Envelope{
+		Data: data,
+		Type: clientpb.MsgSideloadReq,
+	}, cmdTimeout)
+	ctrl <- true
+	<-ctrl
+	execResp := &sliverpb.Sideload{}
 	proto.Unmarshal(resp.Data, execResp)
 	if execResp.Error != "" {
 		fmt.Printf(Warn+"%s", execResp.Error)

@@ -64,9 +64,9 @@ var (
 		consts.SideloadStr:         sideloadHelp,
 		consts.TerminateStr:        terminateHelp,
 
-		consts.WebsitesStr: 		websitesHelp,
-		consts.ScreenshotStr: 		screenshotHelp,
-
+		consts.WebsitesStr:      websitesHelp,
+		consts.ScreenshotStr:    screenshotHelp,
+		consts.LoadExtensionStr: loadExtensionHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -286,8 +286,67 @@ Parameters to the Linux and MacOS shared module are passed using the [[.Bold]]LD
 [[.Bold]]About:[[.Normal]] Kills a remote process designated by PID
 `
 
-screenshotHelp = `[[.Bold]]Command:[[.Normal]] screenshot
+	screenshotHelp = `[[.Bold]]Command:[[.Normal]] screenshot
 [[.Bold]]About:[[.Normal]] Take a screenshot from the remote implant.
+`
+
+	loadExtensionHelp = `[[.Bold]]Command:[[.Normal]] load-extension <directory path> 
+[[.Bold]]About:[[.Normal]] Load a Sliver extension to add new commands.
+
+Extensions are using the [[.Bold]]sideload[[.Normal]] or [[.Bold]]spawndll[[.Normal]] commands under the hood, depending on the use case.
+For Linux and Mac OS, the [[.Bold]]sideload[[.Normal]] command will be used. On Windows, it will depend the extension file is a reflective DLL or not.
+
+Load an extension:
+
+	load /tmp/chrome-dump
+
+Sliver extensions have the following structure (example for the [[.Bold]]chrome-dump[[.Normal]] extension):
+
+chrome-dump
+├── chrome-dump.dll
+├── chrome-dump.so
+└── manifest.json
+
+It is a directory containing any number of files, with a mandatory [[.Bold]]manifest.json[[.Normal]], that has the following structure:
+
+{
+  "extensionName":"chrome-dump", // name of the extension, can be anything
+  "extensionCommands":[
+    {
+      "name":"chrome-dump", // name of the command available in the sliver client (no space)
+      "entrypoint":"ChromeDump", // entrypoint of the shared library to execute
+      "help":"Dump Google Chrome cookies", // short help message
+      "allowArgs":false,  // make it true if the commands require arguments
+      "extFiles":[ // list of files, groupped per target OS
+        {
+          "os":"windows", // Target OS for the following files. Values can be "windows", "linux" or "darwin"
+          "files":{
+            "x64":"chrome-dump.dll",
+            "x86":"chrome-dump.x86.dll" // only x86 and x64 arch are supported, path is relative to the extension directory
+          }
+        },
+        {
+          "os":"linux",
+          "files":{
+            "x64":"chrome-dump.so"
+          }
+        },
+        {
+          "os":"darwin",
+          "files":{
+            "x64":"chrome-dump.dylib"
+          }
+        }
+      ],
+      "isReflective":false // only set to true when using a reflective DLL
+    }
+  ]
+}
+
+[[.Bold]]--process[[.Normal]] - Process to inject into. The following default values are set:
+ - Windows: c:\windows\system32\notepad.exe
+ - Linux: /bin/bash
+ - Mac OS X: /Applications/Safari.app/Contents/MacOS/SafariForWebKitDevelopment
 `
 )
 

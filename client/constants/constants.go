@@ -114,6 +114,7 @@ const (
 	MigrateStr          = "migrate"
 	SideloadStr         = "sideload"
 	SpawnDllStr         = "spawndll"
+	LoadExtensionStr    = "load-extension"
 
 	WebsitesStr = "websites"
 
@@ -124,4 +125,5 @@ const (
 	SliverHelpGroup      = "Sliver:"
 	SliverWinHelpGroup   = "Sliver - Windows:"
 	MultiplayerHelpGroup = "Multiplayer:"
+	ExtensionHelpGroup   = "Sliver - 3rd Party extensions:"
 )
