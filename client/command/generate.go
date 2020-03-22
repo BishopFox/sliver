@@ -19,8 +19,9 @@ package command
 */
 
 import (
-	"bytes"
+	//"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -28,19 +29,18 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"text/tabwriter"
+	//"text/tabwriter"
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	//"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
-	"github.com/golang/protobuf/proto"
+	//"github.com/golang/protobuf/proto"
 )
 
 var validFormats = []string{
@@ -121,103 +121,103 @@ func regenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf(Info+"Sliver binary saved to: %s\n", saveTo)
 }
 
-func generateEgg(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	outFmt := ctx.Flags.String("output-format")
-	validFmt := false
-	for _, f := range validFormats {
-		if f == outFmt {
-			validFmt = true
-			break
-		}
-	}
-	if !validFmt {
-		fmt.Printf(Warn+"Invalid output format: %s", outFmt)
-		return
-	}
-	stagingURL := ctx.Flags.String("listener-url")
-	if stagingURL == "" {
-		return
-	}
-	save := ctx.Flags.String("save")
-	config := parseCompileFlags(ctx)
-	if config == nil {
-		return
-	}
-	config.Format = clientpb.SliverConfig_SHELLCODE
-	config.IsSharedLib = true
-	// Find job type (tcp / http)
-	u, err := url.Parse(stagingURL)
-	if err != nil {
-		fmt.Printf(Warn + "listener-url format not supported")
-		return
-	}
-	port, err := strconv.Atoi(u.Port())
-	if err != nil {
-		fmt.Printf(Warn+"Invalid port number: %s", err.Error())
-		return
-	}
-	eggConfig := &clientpb.EggConfig{
-		Host:   u.Hostname(),
-		Port:   uint32(port),
-		Arch:   config.GOARCH,
-		Format: outFmt,
-	}
-	switch u.Scheme {
-	case "tcp":
-		eggConfig.Protocol = clientpb.EggConfig_TCP
-	case "http":
-		eggConfig.Protocol = clientpb.EggConfig_HTTP
-	case "https":
-		eggConfig.Protocol = clientpb.EggConfig_HTTPS
-	default:
-		eggConfig.Protocol = clientpb.EggConfig_TCP
-	}
-	ctrl := make(chan bool)
-	go spin.Until("Creating stager shellcode...", ctrl)
-	data, _ := proto.Marshal(&clientpb.EggReq{
-		EConfig: eggConfig,
-		Config:  config,
-	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgEggReq,
-		Data: data,
-	}, 45*time.Minute)
-	ctrl <- true
-	if resp.Err != "" {
-		fmt.Printf(Warn+"%s", resp.Err)
-		return
-	}
-	eggResp := &clientpb.Egg{}
-	err = proto.Unmarshal(resp.Data, eggResp)
-	if err != nil {
-		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-		return
-	}
-	// Don't display raw shellcode out stdout
-	if save != "" || outFmt == "raw" {
-		// Save it to disk
-		saveTo, _ := filepath.Abs(save)
-		fi, err := os.Stat(saveTo)
-		if err != nil {
-			fmt.Printf(Warn+"Failed to generate sliver egg %v\n", err)
-			return
-		}
-		if fi.IsDir() {
-			saveTo = filepath.Join(saveTo, eggResp.Filename)
-		}
-		err = ioutil.WriteFile(saveTo, eggResp.Data, os.ModePerm)
-		if err != nil {
-			fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
-			return
-		}
-		fmt.Printf(Info+"Sliver egg saved to: %s\n", saveTo)
-	} else {
-		// Display shellcode to stdout
-		fmt.Println("\n" + Info + "Here's your Egg:")
-		fmt.Println(string(eggResp.Data))
-	}
-	fmt.Printf("\n"+Info+"Successfully started job #%d\n", eggResp.JobID)
-}
+// func generateEgg(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+// 	outFmt := ctx.Flags.String("output-format")
+// 	validFmt := false
+// 	for _, f := range validFormats {
+// 		if f == outFmt {
+// 			validFmt = true
+// 			break
+// 		}
+// 	}
+// 	if !validFmt {
+// 		fmt.Printf(Warn+"Invalid output format: %s", outFmt)
+// 		return
+// 	}
+// 	stagingURL := ctx.Flags.String("listener-url")
+// 	if stagingURL == "" {
+// 		return
+// 	}
+// 	save := ctx.Flags.String("save")
+// 	config := parseCompileFlags(ctx)
+// 	if config == nil {
+// 		return
+// 	}
+// 	config.Format = clientpb.SliverConfig_SHELLCODE
+// 	config.IsSharedLib = true
+// 	// Find job type (tcp / http)
+// 	u, err := url.Parse(stagingURL)
+// 	if err != nil {
+// 		fmt.Printf(Warn + "listener-url format not supported")
+// 		return
+// 	}
+// 	port, err := strconv.Atoi(u.Port())
+// 	if err != nil {
+// 		fmt.Printf(Warn+"Invalid port number: %s", err.Error())
+// 		return
+// 	}
+// 	eggConfig := &clientpb.EggConfig{
+// 		Host:   u.Hostname(),
+// 		Port:   uint32(port),
+// 		Arch:   config.GOARCH,
+// 		Format: outFmt,
+// 	}
+// 	switch u.Scheme {
+// 	case "tcp":
+// 		eggConfig.Protocol = clientpb.EggConfig_TCP
+// 	case "http":
+// 		eggConfig.Protocol = clientpb.EggConfig_HTTP
+// 	case "https":
+// 		eggConfig.Protocol = clientpb.EggConfig_HTTPS
+// 	default:
+// 		eggConfig.Protocol = clientpb.EggConfig_TCP
+// 	}
+// 	ctrl := make(chan bool)
+// 	go spin.Until("Creating stager shellcode...", ctrl)
+// 	data, _ := proto.Marshal(&clientpb.EggReq{
+// 		EConfig: eggConfig,
+// 		Config:  config,
+// 	})
+// 	resp := <-rpc(&sliverpb.Envelope{
+// 		Type: clientpb.MsgEggReq,
+// 		Data: data,
+// 	}, 45*time.Minute)
+// 	ctrl <- true
+// 	if resp.Err != "" {
+// 		fmt.Printf(Warn+"%s", resp.Err)
+// 		return
+// 	}
+// 	eggResp := &clientpb.Egg{}
+// 	err = proto.Unmarshal(resp.Data, eggResp)
+// 	if err != nil {
+// 		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
+// 		return
+// 	}
+// 	// Don't display raw shellcode out stdout
+// 	if save != "" || outFmt == "raw" {
+// 		// Save it to disk
+// 		saveTo, _ := filepath.Abs(save)
+// 		fi, err := os.Stat(saveTo)
+// 		if err != nil {
+// 			fmt.Printf(Warn+"Failed to generate sliver egg %v\n", err)
+// 			return
+// 		}
+// 		if fi.IsDir() {
+// 			saveTo = filepath.Join(saveTo, eggResp.Filename)
+// 		}
+// 		err = ioutil.WriteFile(saveTo, eggResp.Data, os.ModePerm)
+// 		if err != nil {
+// 			fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
+// 			return
+// 		}
+// 		fmt.Printf(Info+"Sliver egg saved to: %s\n", saveTo)
+// 	} else {
+// 		// Display shellcode to stdout
+// 		fmt.Println("\n" + Info + "Here's your Egg:")
+// 		fmt.Println(string(eggResp.Data))
+// 	}
+// 	fmt.Printf("\n"+Info+"Successfully started job #%d\n", eggResp.JobID)
+// }
 
 // Shared function that extracts the compile flags from the grumble context
 func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
@@ -300,7 +300,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 		arch = "386"
 	}
 
-	config := &clientpb.SliverConfig{
+	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
 		GOARCH:           arch,
 		Debug:            ctx.Flags.Bool("debug"),
@@ -396,24 +396,24 @@ func parseDNSc2(args string) []*clientpb.ImplantC2 {
 	return c2s
 }
 
-func profileGenerate(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
-	name := ctx.Flags.String("name")
-	if name == "" && 1 <= len(ctx.Args) {
-		name = ctx.Args[0]
-	}
-	save := ctx.Flags.String("save")
-	if save == "" {
-		save, _ = os.Getwd()
-	}
-	profiles := getSliverProfiles(rpc)
-	if profile, ok := (*profiles)[name]; ok {
-		compile(profile.Config, save, rpc)
-	} else {
-		fmt.Printf(Warn+"No profile with name '%s'", name)
-	}
-}
+// func profileGenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+// 	name := ctx.Flags.String("name")
+// 	if name == "" && 1 <= len(ctx.Args) {
+// 		name = ctx.Args[0]
+// 	}
+// 	save := ctx.Flags.String("save")
+// 	if save == "" {
+// 		save, _ = os.Getwd()
+// 	}
+// 	profiles := getSliverProfiles(rpc)
+// 	if profile, ok := (*profiles)[name]; ok {
+// 		compile(profile.Config, save, rpc)
+// 	} else {
+// 		fmt.Printf(Warn+"No profile with name '%s'", name)
+// 	}
+// }
 
-func compile(config *clientpb.ImplantConfig, save string, rpc *rpcpb.SliverRPCClient) error {
+func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCClient) error {
 
 	fmt.Printf(Info+"Generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
 
@@ -443,11 +443,11 @@ func compile(config *clientpb.ImplantConfig, save string, rpc *rpcpb.SliverRPCCl
 	fi, err := os.Stat(saveTo)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to generate implant %v\n", err)
-		return
+		return err
 	}
 	if len(generated.File.Data) == 0 {
 		fmt.Printf(Warn + "Build failed, no file data\n")
-		return
+		return errors.New("No file data")
 	}
 	if fi.IsDir() {
 		saveTo = filepath.Join(saveTo, path.Base(generated.File.Name))
@@ -455,55 +455,56 @@ func compile(config *clientpb.ImplantConfig, save string, rpc *rpcpb.SliverRPCCl
 	err = ioutil.WriteFile(saveTo, generated.File.Data, os.ModePerm)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
-		return
+		return err
 	}
 	fmt.Printf(Info+"Implant binary saved to: %s\n", saveTo)
+	return nil
 }
 
-func profiles(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
-	profiles := getSliverProfiles(rpc)
-	if profiles == nil {
-		return
-	}
-	if len(*profiles) == 0 {
-		fmt.Printf(Info+"No profiles, create one with `%s`\n", consts.NewProfileStr)
-		return
-	}
-	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintf(table, "Name\tPlatform\tCommand & Control\tDebug\tLimitations\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
-		strings.Repeat("=", len("Name")),
-		strings.Repeat("=", len("Platform")),
-		strings.Repeat("=", len("Command & Control")),
-		strings.Repeat("=", len("Debug")),
-		strings.Repeat("=", len("Limitations")))
+// func profiles(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+// 	profiles := getSliverProfiles(rpc)
+// 	if profiles == nil {
+// 		return
+// 	}
+// 	if len(*profiles) == 0 {
+// 		fmt.Printf(Info+"No profiles, create one with `%s`\n", consts.NewProfileStr)
+// 		return
+// 	}
+// 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+// 	fmt.Fprintf(table, "Name\tPlatform\tCommand & Control\tDebug\tLimitations\t\n")
+// 	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+// 		strings.Repeat("=", len("Name")),
+// 		strings.Repeat("=", len("Platform")),
+// 		strings.Repeat("=", len("Command & Control")),
+// 		strings.Repeat("=", len("Debug")),
+// 		strings.Repeat("=", len("Limitations")))
 
-	for name, profile := range *profiles {
-		config := profile.Config
-		if 0 < len(config.C2) {
-			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
-				name,
-				fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
-				fmt.Sprintf("[1] %s", config.C2[0].URL),
-				fmt.Sprintf("%v", config.Debug),
-				getLimitsString(config),
-			)
-		}
-		if 1 < len(config.C2) {
-			for index, c2 := range config.C2[1:] {
-				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
-					"",
-					"",
-					fmt.Sprintf("[%d] %s", index+2, c2.URL),
-					"",
-					"",
-				)
-			}
-		}
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n", "", "", "", "", "")
-	}
-	table.Flush()
-}
+// 	for name, profile := range *profiles {
+// 		config := profile.Config
+// 		if 0 < len(config.C2) {
+// 			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
+// 				name,
+// 				fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
+// 				fmt.Sprintf("[1] %s", config.C2[0].URL),
+// 				fmt.Sprintf("%v", config.Debug),
+// 				getLimitsString(config),
+// 			)
+// 		}
+// 		if 1 < len(config.C2) {
+// 			for index, c2 := range config.C2[1:] {
+// 				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
+// 					"",
+// 					"",
+// 					fmt.Sprintf("[%d] %s", index+2, c2.URL),
+// 					"",
+// 					"",
+// 				)
+// 			}
+// 		}
+// 		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n", "", "", "", "", "")
+// 	}
+// 	table.Flush()
+// }
 
 func getLimitsString(config *clientpb.ImplantConfig) string {
 	limits := []string{}
@@ -522,119 +523,119 @@ func getLimitsString(config *clientpb.ImplantConfig) string {
 	return strings.Join(limits, "; ")
 }
 
-func newProfile(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
-	name := ctx.Flags.String("name")
-	if name == "" {
-		fmt.Printf(Warn + "Invalid profile name\n")
-		return
-	}
+// func newProfile(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+// 	name := ctx.Flags.String("name")
+// 	if name == "" {
+// 		fmt.Printf(Warn + "Invalid profile name\n")
+// 		return
+// 	}
 
-	config := parseCompileFlags(ctx)
-	if config == nil {
-		return
-	}
+// 	config := parseCompileFlags(ctx)
+// 	if config == nil {
+// 		return
+// 	}
 
-	data, _ := proto.Marshal(&clientpb.Profile{
-		Name:   name,
-		Config: config,
-	})
+// 	data, _ := proto.Marshal(&clientpb.Profile{
+// 		Name:   name,
+// 		Config: config,
+// 	})
 
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgNewProfile,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"%s\n", resp.Err)
-	} else {
-		fmt.Printf(Info + "Saved new profile\n")
-	}
-}
+// 	resp := <-rpc(&sliverpb.Envelope{
+// 		Type: clientpb.MsgNewProfile,
+// 		Data: data,
+// 	}, defaultTimeout)
+// 	if resp.Err != "" {
+// 		fmt.Printf(Warn+"%s\n", resp.Err)
+// 	} else {
+// 		fmt.Printf(Info + "Saved new profile\n")
+// 	}
+// }
 
-func getSliverProfiles(rpc *rpcpb.SliverRPCClient) *map[string]*clientpb.Profile {
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgProfiles,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"%s\n", resp.Err)
-		return nil
-	}
+// func getSliverProfiles(rpc rpcpb.SliverRPCClient) *map[string]*clientpb.Profile {
+// 	resp := <-rpc(&sliverpb.Envelope{
+// 		Type: clientpb.MsgProfiles,
+// 	}, defaultTimeout)
+// 	if resp.Err != "" {
+// 		fmt.Printf(Warn+"%s\n", resp.Err)
+// 		return nil
+// 	}
 
-	pbProfiles := &clientpb.Profiles{}
-	err := proto.Unmarshal(resp.Data, pbProfiles)
-	if err != nil {
-		fmt.Printf(Warn+"Error %s", err)
-		return nil
-	}
+// 	pbProfiles := &clientpb.Profiles{}
+// 	err := proto.Unmarshal(resp.Data, pbProfiles)
+// 	if err != nil {
+// 		fmt.Printf(Warn+"Error %s", err)
+// 		return nil
+// 	}
 
-	profiles := &map[string]*clientpb.Profile{}
-	for _, profile := range pbProfiles.List {
-		(*profiles)[profile.Name] = profile
-	}
-	return profiles
-}
+// 	profiles := &map[string]*clientpb.Profile{}
+// 	for _, profile := range pbProfiles.List {
+// 		(*profiles)[profile.Name] = profile
+// 	}
+// 	return profiles
+// }
 
-func canaries(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgListCanaries,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"%s\n", resp.Err)
-		return
-	}
+// func canaries(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+// 	resp := <-rpc(&sliverpb.Envelope{
+// 		Type: clientpb.MsgListCanaries,
+// 	}, defaultTimeout)
+// 	if resp.Err != "" {
+// 		fmt.Printf(Warn+"%s\n", resp.Err)
+// 		return
+// 	}
 
-	canaries := &clientpb.Canaries{}
-	proto.Unmarshal(resp.Data, canaries)
-	if 0 < len(canaries.Canaries) {
-		displayCanaries(canaries.Canaries, ctx.Flags.Bool("burned"))
-	} else {
-		fmt.Printf(Info + "No canaries in database\n")
-	}
-}
+// 	canaries := &clientpb.Canaries{}
+// 	proto.Unmarshal(resp.Data, canaries)
+// 	if 0 < len(canaries.Canaries) {
+// 		displayCanaries(canaries.Canaries, ctx.Flags.Bool("burned"))
+// 	} else {
+// 		fmt.Printf(Info + "No canaries in database\n")
+// 	}
+// }
 
-func displayCanaries(canaries []*clientpb.DNSCanary, burnedOnly bool) {
+// func displayCanaries(canaries []*clientpb.DNSCanary, burnedOnly bool) {
 
-	outputBuf := bytes.NewBufferString("")
-	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+// 	outputBuf := bytes.NewBufferString("")
+// 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
-	fmt.Fprintf(table, "Sliver Name\tDomain\tTriggered\tFirst Trigger\tLatest Trigger\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
-		strings.Repeat("=", len("Sliver Name")),
-		strings.Repeat("=", len("Domain")),
-		strings.Repeat("=", len("Triggered")),
-		strings.Repeat("=", len("First Trigger")),
-		strings.Repeat("=", len("Latest Trigger")),
-	)
+// 	fmt.Fprintf(table, "Sliver Name\tDomain\tTriggered\tFirst Trigger\tLatest Trigger\t\n")
+// 	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+// 		strings.Repeat("=", len("Sliver Name")),
+// 		strings.Repeat("=", len("Domain")),
+// 		strings.Repeat("=", len("Triggered")),
+// 		strings.Repeat("=", len("First Trigger")),
+// 		strings.Repeat("=", len("Latest Trigger")),
+// 	)
 
-	lineColors := []string{}
-	for _, canary := range canaries {
-		if burnedOnly && !canary.Triggered {
-			continue
-		}
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
-			canary.SliverName,
-			canary.Domain,
-			fmt.Sprintf("%v", canary.Triggered),
-			canary.FristTriggered,
-			canary.LatestTrigger,
-		)
-		if canary.Triggered {
-			lineColors = append(lineColors, bold+red)
-		} else {
-			lineColors = append(lineColors, normal)
-		}
-	}
-	table.Flush()
+// 	lineColors := []string{}
+// 	for _, canary := range canaries {
+// 		if burnedOnly && !canary.Triggered {
+// 			continue
+// 		}
+// 		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+// 			canary.SliverName,
+// 			canary.Domain,
+// 			fmt.Sprintf("%v", canary.Triggered),
+// 			canary.FristTriggered,
+// 			canary.LatestTrigger,
+// 		)
+// 		if canary.Triggered {
+// 			lineColors = append(lineColors, bold+red)
+// 		} else {
+// 			lineColors = append(lineColors, normal)
+// 		}
+// 	}
+// 	table.Flush()
 
-	for index, line := range strings.Split(outputBuf.String(), "\n") {
-		if len(line) == 0 {
-			continue
-		}
-		// We need to account for the two rows of column headers
-		if 0 < len(line) && 2 <= index {
-			lineColor := lineColors[index-2]
-			fmt.Printf("%s%s%s\n", lineColor, line, normal)
-		} else {
-			fmt.Printf("%s\n", line)
-		}
-	}
-}
+// 	for index, line := range strings.Split(outputBuf.String(), "\n") {
+// 		if len(line) == 0 {
+// 			continue
+// 		}
+// 		// We need to account for the two rows of column headers
+// 		if 0 < len(line) && 2 <= index {
+// 			lineColor := lineColors[index-2]
+// 			fmt.Printf("%s%s%s\n", lineColor, line, normal)
+// 		} else {
+// 			fmt.Printf("%s\n", line)
+// 		}
+// 	}
+// }

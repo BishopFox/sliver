@@ -32,7 +32,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
-func ls(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
+func ls(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	session := ActiveSession.Get()
 	if session == nil {
 		return
@@ -68,7 +68,7 @@ func printDirList(dirList *sliverpb.Ls) {
 	table.Flush()
 }
 
-func rm(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
+func rm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	session := ActiveSession.Get()
 	if session == nil {
 		return
@@ -90,7 +90,7 @@ func rm(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
 	}
 }
 
-func mkdir(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
+func mkdir(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	session := ActiveSession.Get()
 	if session == nil {
 		return
@@ -105,14 +105,14 @@ func mkdir(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
 		Request: ActiveSession.Request(),
 		Path:    ctx.Args[0],
 	})
-	if mkdir.Success {
-		fmt.Printf(Info+"%s\n", mkdir.Path)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
 	} else {
-		fmt.Printf(Warn+"%s\n", mkdir.Err)
+		fmt.Printf(Info+"%s\n", mkdir.Path)
 	}
 }
 
-func cd(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
+func cd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	session := ActiveSession.Get()
 	if session == nil {
 		return
@@ -132,7 +132,7 @@ func cd(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
 	}
 }
 
-func pwd(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
+func pwd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	session := ActiveSession.Get()
 	if session == nil {
 		return
@@ -148,7 +148,7 @@ func pwd(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
 	}
 }
 
-// func cat(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
+// func cat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 // 	if ActiveSession.Session == nil {
 // 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
 // 		return
@@ -180,7 +180,7 @@ func pwd(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
 // 	fmt.Printf(string(download.Data))
 // }
 
-// func download(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
+// func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 // 	if ActiveSession.Session == nil {
 // 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
 // 		return
@@ -252,7 +252,7 @@ func pwd(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
 // 	}
 // }
 
-// func upload(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
+// func upload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 // 	if ActiveSession.Session == nil {
 // 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")

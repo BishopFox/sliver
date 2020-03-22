@@ -437,18 +437,18 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// app.AddCommand(&grumble.Command{
-	// 	Name:     consts.ListSliverBuildsStr,
-	// 	Help:     "List old Sliver builds",
-	// 	LongHelp: help.GetHelpFor(consts.ListSliverBuildsStr),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		listSliverBuilds(ctx, rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ListSliverBuildsStr,
+		Help:     "List old Sliver builds",
+		LongHelp: help.GetHelpFor(consts.ListSliverBuildsStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			listImplantBuilds(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
 	// app.AddCommand(&grumble.Command{
 	// 	Name:     consts.ListCanariesStr,

@@ -34,30 +34,30 @@ import (
 )
 
 var (
-	clientLog = log.NamedLogger("transport", "client")
-)
-
-const (
-	defaultHostname = ""
+	mtlsLog = log.NamedLogger("transport", "mtls")
 )
 
 // StartClientListener - Start a mutual TLS listener
-func StartClientListener(host string, port uint16) (*grpc.Server, *net.Listener, error) {
-	clientLog.Infof("Starting gRPC  listener on %s:%d", host, port)
+func StartClientListener(host string, port uint16) (*grpc.Server, net.Listener, error) {
+	mtlsLog.Infof("Starting gRPC  listener on %s:%d", host, port)
 	tlsConfig := getOperatorServerTLSConfig(host)
 	creds := credentials.NewTLS(tlsConfig)
+	options := []grpc.ServerOption{grpc.Creds(creds)}
 
 	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", host, port), tlsConfig)
 	if err != nil {
-		clientLog.Error(err)
+		mtlsLog.Error(err)
 		return nil, nil, err
 	}
 
-	options := []grpc.ServerOption{grpc.Creds(creds)}
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
-	go grpcServer.Serve(ln)
-	return grpcServer, &ln, nil
+	go func() {
+		if err := grpcServer.Serve(ln); err != nil {
+			mtlsLog.Warnf("gRPC server exited with error: %v", err)
+		}
+	}()
+	return grpcServer, ln, nil
 }
 
 // getOperatorServerTLSConfig - Generate the TLS configuration, we do now allow the end user
@@ -66,7 +66,7 @@ func getOperatorServerTLSConfig(host string) *tls.Config {
 
 	caCertPtr, _, err := certs.GetCertificateAuthority(certs.OperatorCA)
 	if err != nil {
-		clientLog.Fatalf("Invalid ca type (%s): %v", certs.OperatorCA, host)
+		mtlsLog.Fatalf("Invalid ca type (%s): %v", certs.OperatorCA, host)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AddCert(caCertPtr)
@@ -78,12 +78,12 @@ func getOperatorServerTLSConfig(host string) *tls.Config {
 
 	certPEM, keyPEM, err := certs.OperatorServerGetCertificate(host)
 	if err != nil {
-		clientLog.Errorf("Failed to generate or fetch certificate %s", err)
+		mtlsLog.Errorf("Failed to generate or fetch certificate %s", err)
 		return nil
 	}
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
-		clientLog.Fatalf("Error loading server certificate: %v", err)
+		mtlsLog.Fatalf("Error loading server certificate: %v", err)
 	}
 
 	tlsConfig := &tls.Config{

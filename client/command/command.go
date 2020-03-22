@@ -61,7 +61,7 @@ var (
 
 	// ActiveSession - The current sliver we're interacting with
 	ActiveSession = &activeSession{
-		observers:  map[int]observer{},
+		observers:  map[int]Observer{},
 		observerID: 0,
 	}
 
@@ -69,7 +69,7 @@ var (
 	stdinReadTimeout = 10 * time.Millisecond
 )
 
-// Observer - A function to call when the sesions changes
+// Observer - A function to call when the sessions changes
 type Observer func(*clientpb.Session)
 
 type activeSession struct {
@@ -126,9 +126,13 @@ func (s *activeSession) Background() {
 }
 
 // Get session by session ID or name
-func getSession(arg string, rpc *rpcpb.SliverRPCClient) *clientpb.Session {
-	sessions, err := rpc.GetSessions(context.Background(), commonpb.Empty{})
-	for _, session := range sessions {
+func getSession(arg string, rpc rpcpb.SliverRPCClient) *clientpb.Session {
+	sessions, err := rpc.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return nil
+	}
+	for _, session := range sessions.GetSessions() {
 		if session.Name == arg || string(session.ID) == arg {
 			return session
 		}
@@ -136,15 +140,20 @@ func getSession(arg string, rpc *rpcpb.SliverRPCClient) *clientpb.Session {
 	return nil
 }
 
-// SessionsByName - Return all sessions for a Sliver by name
-func SessionsByName(name string, rpc *rpcpb.SliverRPCClient) []*clientpb.Session {
-	sessions, err := rpc.GetSessions(context.Background(), commonpb.Empty{})
-	for _, session := range sessions {
+// SessionsByName - Return all sessions for an Implant by name
+func SessionsByName(name string, rpc rpcpb.SliverRPCClient) []*clientpb.Session {
+	sessions, err := rpc.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return nil
+	}
+	matched := []*clientpb.Session{}
+	for _, session := range sessions.GetSessions() {
 		if session.Name == name {
-			return session
+			matched = append(matched, session)
 		}
 	}
-	return nil
+	return matched
 }
 
 // This should be called for any dangerous (OPSEC-wise) functions

@@ -19,11 +19,13 @@ package command
 */
 
 import (
+	"context"
 	"fmt"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
 )
@@ -31,8 +33,8 @@ import (
 func info(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	var session *clientpb.Session
-	if ActiveSession.Session != nil {
-		session = ActiveSession.Session
+	if ActiveSession.Get() != nil {
+		session = ActiveSession.Get()
 	} else if 0 < len(ctx.Args) {
 		session = getSession(ctx.Args[0], rpc)
 	}
@@ -55,40 +57,48 @@ func info(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func ping(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	if ActiveSession.Session == nil {
-		fmt.Printf(Warn + "Please select an active session via `use`\n")
+	session := ActiveSession.Get()
+	if session == nil {
 		return
+	}
+	pong, err := rpc.Ping(context.Background(), &sliverpb.Ping{
+		Request: ActiveSession.Request(),
+	})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+	} else {
+		fmt.Printf(Info+"Pong %d\n", pong.Nonce)
 	}
 }
 
 func getPID(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	if ActiveSession.Session == nil {
-		fmt.Printf(Warn + "Please select an active session via `use`\n")
+	session := ActiveSession.Get()
+	if session == nil {
 		return
 	}
-	fmt.Printf("%d\n", ActiveSession.Session.PID)
+	fmt.Printf("%d\n", session.PID)
 }
 
 func getUID(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	if ActiveSession.Session == nil {
-		fmt.Printf(Warn + "Please select an active session via `use`\n")
+	session := ActiveSession.Get()
+	if session == nil {
 		return
 	}
-	fmt.Printf("%s\n", ActiveSession.Session.UID)
+	fmt.Printf("%s\n", session.UID)
 }
 
 func getGID(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	if ActiveSession.Session == nil {
-		fmt.Printf(Warn + "Please select an active session via `use`\n")
+	session := ActiveSession.Get()
+	if session == nil {
 		return
 	}
-	fmt.Printf("%s\n", ActiveSession.Session.GID)
+	fmt.Printf("%s\n", session.GID)
 }
 
 func whoami(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	if ActiveSession.Session == nil {
-		fmt.Printf(Warn + "Please select an active session via `use`\n")
+	session := ActiveSession.Get()
+	if session == nil {
 		return
 	}
-	fmt.Printf("%s\n", ActiveSession.Session.Username)
+	fmt.Printf("%s\n", session.Username)
 }

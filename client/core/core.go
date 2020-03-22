@@ -18,82 +18,82 @@ package core
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import (
-	"bytes"
-	"fmt"
-	"io"
-	"log"
-	"sync"
-	"time"
+// import (
+// 	"bytes"
+// 	"fmt"
+// 	"io"
+// 	"log"
+// 	"sync"
+// 	"time"
 
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/golang/protobuf/proto"
-)
+// 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+// 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+// 	"github.com/golang/protobuf/proto"
+// )
 
-const (
-	randomIDSize = 16 // 64bits
-)
+// const (
+// 	randomIDSize = 16 // 64bits
+// )
 
-type tunnelAddr struct {
-	network string
-	addr    string
-}
+// type tunnelAddr struct {
+// 	network string
+// 	addr    string
+// }
 
-func (a *tunnelAddr) Network() string {
-	return a.network
-}
+// func (a *tunnelAddr) Network() string {
+// 	return a.network
+// }
 
-func (a *tunnelAddr) String() string {
-	return fmt.Sprintf("%s://%s", a.network, a.addr)
-}
+// func (a *tunnelAddr) String() string {
+// 	return fmt.Sprintf("%s://%s", a.network, a.addr)
+// }
 
-// Tunnel - Duplex data tunnel
-type Tunnel struct {
-	rpc       *rpcpb.SliverRPCClient
-	SessionID uint32
-	ID        uint64
-	isOpen    bool
-}
+// // Tunnel - Duplex data tunnel
+// type Tunnel struct {
+// 	rpc       rpcpb.SliverRPCClient
+// 	SessionID uint32
+// 	ID        uint64
+// 	isOpen    bool
+// }
 
-func (t *tunnel) Write(data []byte) (n int, err error) {
-	log.Printf("Sending %d bytes on tunnel %d (sliver %d)", len(data), t.ID, t.SessionID)
-	if !t.isOpen {
-		return 0, io.EOF
-	}
-	rpc.Tunnel(context.Background()).Send(&sliverpb.TunnelData{
-		SessionID: t.SessionID,
-		TunnelID:  t.ID,
-		Data:      data,
-	})
+// func (t *tunnel) Write(data []byte) (n int, err error) {
+// 	log.Printf("Sending %d bytes on tunnel %d (sliver %d)", len(data), t.ID, t.SessionID)
+// 	if !t.isOpen {
+// 		return 0, io.EOF
+// 	}
+// 	rpc.Tunnel(context.Background()).Send(&sliverpb.TunnelData{
+// 		SessionID: t.SessionID,
+// 		TunnelID:  t.ID,
+// 		Data:      data,
+// 	})
 
-	n = len(data)
-	return
-}
+// 	n = len(data)
+// 	return
+// }
 
-func (t *tunnel) Read(data []byte) (n int, err error) {
-	var buff bytes.Buffer
-	if !t.isOpen {
-		return 0, io.EOF
-	}
-	select {
-	case msg := <-t.Recv:
-		buff.Write(msg)
-	default:
-		break
-	}
-	n = copy(data, buff.Bytes())
-	return
-}
+// func (t *tunnel) Read(data []byte) (n int, err error) {
+// 	var buff bytes.Buffer
+// 	if !t.isOpen {
+// 		return 0, io.EOF
+// 	}
+// 	select {
+// 	case msg := <-t.Recv:
+// 		buff.Write(msg)
+// 	default:
+// 		break
+// 	}
+// 	n = copy(data, buff.Bytes())
+// 	return
+// }
 
-func (t *tunnel) Close() error {
-	tunnelClose, err := proto.Marshal(&sliverpb.ShellReq{
-		TunnelID: t.ID,
-	})
-	t.server.RPC(&sliverpb.Envelope{
-		Type: sliverpb.MsgTunnelClose,
-		Data: tunnelClose,
-	}, 30*time.Second)
-	close(t.Recv)
-	return err
-}
+// func (t *tunnel) Close() error {
+// 	tunnelClose, err := proto.Marshal(&sliverpb.ShellReq{
+// 		TunnelID: t.ID,
+// 	})
+// 	t.server.RPC(&sliverpb.Envelope{
+// 		Type: sliverpb.MsgTunnelClose,
+// 		Data: tunnelClose,
+// 	}, 30*time.Second)
+// 	close(t.Recv)
+// 	return err
+// }

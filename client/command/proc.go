@@ -27,7 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
-	"time"
+	// "time"
 
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -135,7 +135,7 @@ func procdump(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	pid := ctx.Flags.Int("pid")
 	name := ctx.Flags.String("name")
 
-	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
+	// cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
 
 	if pid == -1 && name != "" {
 		pid = getPIDByName(name, rpc)
@@ -200,7 +200,7 @@ func terminate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func getPIDByName(name string, rpc rpcpb.SliverRPCClient) int {
-	ps, err := rpc.Ps(&sliverpb.PsReq{
+	ps, err := rpc.Ps(context.Background(), &sliverpb.PsReq{
 		Request: ActiveSession.Request(),
 	})
 	if err != nil {

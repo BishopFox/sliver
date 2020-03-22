@@ -28,7 +28,7 @@ import (
 )
 
 // GetOperators - Get a list of operators
-func GetOperators(ctx context.Context, _ *commonpb.Empty) (*clientpb.Operators, error) {
+func (s *Server) GetOperators(ctx context.Context, _ *commonpb.Empty) (*clientpb.Operators, error) {
 	operatorCerts := certs.OperatorClientListCertificates()
 	operators := &clientpb.Operators{
 		Operators: []*clientpb.Operator{},

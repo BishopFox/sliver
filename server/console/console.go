@@ -19,8 +19,10 @@ package console
 */
 
 import (
+	"context"
 	"fmt"
 	insecureRand "math/rand"
+	"net"
 	"time"
 
 	"github.com/desertbit/grumble"
@@ -30,11 +32,25 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/server/transport"
+	"google.golang.org/grpc"
+	// "google.golang.org/grpc/test/bufconn"
 )
 
 // Start - Starts the server console
 func Start() {
-	clientconsole.Start(server, serverOnlyCmds)
+	_, ln, _ := transport.LocalListener()
+	ctxDialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+		return ln.Dial()
+	})
+	conn, err := grpc.DialContext(context.Background(), "bufnet", ctxDialer, grpc.WithInsecure())
+	if err != nil {
+		fmt.Printf(Warn+"Failed to dial bufnet: %v", err)
+		return
+	}
+	defer conn.Close()
+	localRPC := rpcpb.NewSliverRPCClient(conn)
+	clientconsole.Start(localRPC, serverOnlyCmds)
 }
 
 // ServerOnlyCmds - Server only commands

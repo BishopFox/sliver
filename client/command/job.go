@@ -30,15 +30,15 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	// "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
-	"github.com/golang/protobuf/proto"
+	// "github.com/golang/protobuf/proto"
 )
 
 func jobs(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if ctx.Flags.Int("kill") != -1 {
-		killJob(int32(ctx.Flags.Int("kill")), rpc)
+		killJob(uint32(ctx.Flags.Int("kill")), rpc)
 	} else if ctx.Flags.Bool("kill-all") {
 		killAllJobs(rpc)
 	} else {
@@ -60,39 +60,30 @@ func jobs(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 }
 
-func killAllJobs(rpc *rpcpb.SliverRPCClient) {
+func killAllJobs(rpc rpcpb.SliverRPCClient) {
 	jobs, err := rpc.GetJobs(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(Warn+"%s", err)
+		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
 	for _, job := range jobs.Active {
-		rpc.KillJob(job.ID, rpc)
+		killJob(job.ID, rpc)
 	}
 }
 
-func killJob(jobID int32, rpc *rpcpb.SliverRPCClient) {
+func killJob(jobID uint32, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf(Info+"Killing job #%d ...\n", jobID)
-	data, _ := proto.Marshal(&clientpb.JobKillReq{ID: jobID})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgJobKill,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s\n", resp.Err)
-		return
-	}
-	jobKill := &clientpb.JobKill{}
-	proto.Unmarshal(resp.Data, jobKill)
-
-	if jobKill.Success {
-		fmt.Printf(Info+"Successfully killed job #%d\n", jobKill.ID)
+	jobKill, err := rpc.KillJob(context.Background(), &clientpb.KillJobReq{
+		ID: jobID,
+	})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
 	} else {
-		fmt.Printf(Warn+"Failed to kill job #%d, %s\n", jobKill.ID, jobKill.Err)
+		fmt.Printf(Info+"Successfully killed job #%d\n", jobKill.ID)
 	}
 }
 
-func printJobs(jobs map[int32]*clientpb.Job) {
+func printJobs(jobs map[uint32]*clientpb.Job) {
 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
 	fmt.Fprintf(table, "ID\tName\tProtocol\tPort\t\n")
 	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
@@ -108,7 +99,7 @@ func printJobs(jobs map[int32]*clientpb.Job) {
 	sort.Ints(keys) // Fucking Go can't sort int32's, so we convert to/from int's
 
 	for _, k := range keys {
-		job := jobs[int32(k)]
+		job := jobs[uint32(k)]
 		fmt.Fprintf(table, "%d\t%s\t%s\t%d\t\n", job.ID, job.Name, job.Protocol, job.Port)
 	}
 	table.Flush()
@@ -119,21 +110,15 @@ func startMTLSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	lport := uint16(ctx.Flags.Int("lport"))
 
 	fmt.Printf(Info + "Starting mTLS listener ...\n")
-	data, _ := proto.Marshal(&clientpb.MTLSReq{
-		Server: server,
-		LPort:  int32(lport),
+	mtls, err := rpc.StartMTLSListener(context.Background(), &clientpb.MTLSListenerReq{
+		Host: server,
+		Port: uint32(lport),
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgMtls,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Failed to start job %s\n", resp.Err)
-		return
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+	} else {
+		fmt.Printf(Info+"Successfully started job #%d\n", mtls.JobID)
 	}
-	mtls := &clientpb.MTLS{}
-	proto.Unmarshal(resp.Data, mtls)
-	fmt.Printf(Info+"Successfully started job #%d\n", mtls.JobID)
 }
 
 func startDNSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -146,26 +131,18 @@ func startDNSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	fmt.Printf(Info+"Starting DNS listener with parent domain(s) %v ...\n", domains)
-
-	data, _ := proto.Marshal(&clientpb.DNSReq{
+	dns, err := rpc.StartDNSListener(context.Background(), &clientpb.DNSListenerReq{
 		Domains:  domains,
 		Canaries: !ctx.Flags.Bool("no-canaries"),
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgDns,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Failed to start job %s\n", resp.Err)
-		return
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+	} else {
+		fmt.Printf(Info+"Successfully started job #%d\n", dns.JobID)
 	}
-	dns := &clientpb.DNS{}
-	proto.Unmarshal(resp.Data, dns)
-
-	fmt.Printf(Info+"Successfully started job #%d\n", dns.JobID)
 }
 
-func startHTTPSListener(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
+func startHTTPSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	domain := ctx.Flags.String("domain")
 	website := ctx.Flags.String("website")
 	lport := uint16(ctx.Flags.Int("lport"))
@@ -177,26 +154,20 @@ func startHTTPSListener(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
 	}
 
 	fmt.Printf(Info+"Starting HTTPS %s:%d listener ...\n", domain, lport)
-	data, _ := proto.Marshal(&clientpb.HTTPReq{
+	https, err := rpc.StartHTTPSListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:  domain,
 		Website: website,
-		LPort:   int32(lport),
+		Port:    uint32(lport),
 		Secure:  true,
 		Cert:    cert,
 		Key:     key,
 		ACME:    ctx.Flags.Bool("lets-encrypt"),
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgHttps,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Failed to start job %s\n", resp.Err)
-		return
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+	} else {
+		fmt.Printf(Info+"Successfully started job #%d\n", https.JobID)
 	}
-	httpJob := &clientpb.HTTP{}
-	proto.Unmarshal(resp.Data, httpJob)
-	fmt.Printf(Info+"Successfully started job #%d\n", httpJob.JobID)
 }
 
 func getLocalCertificatePair(ctx *grumble.Context) ([]byte, []byte, error) {
@@ -219,10 +190,10 @@ func startHTTPListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	lport := uint16(ctx.Flags.Int("lport"))
 
 	fmt.Printf(Info+"Starting HTTP %s:%d listener ...\n", domain, lport)
-	http, err := rpc.startHTTPListener(context.Background(), &clientpb.HTTPReq{
+	http, err := rpc.StartHTTPListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:  domain,
 		Website: ctx.Flags.String("website"),
-		LPort:   int32(lport),
+		Port:    uint32(lport),
 		Secure:  false,
 	})
 	if err != nil {

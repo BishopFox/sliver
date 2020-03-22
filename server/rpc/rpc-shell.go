@@ -18,14 +18,15 @@ package rpc
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// import (
-// 	"time"
+import (
+	"context"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+)
 
-// 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-// 	"github.com/bishopfox/sliver/server/core"
-
-// 	"github.com/golang/protobuf/proto"
-// )
+// Shell - Open an interactive shell
+func (s *Server) Shell(ctx context.Context, _ *sliverpb.ShellReq) (*sliverpb.Shell, error) {
+	return nil, nil
+}
 
 // func rpcShell(req []byte, timeout time.Duration, resp RPCResponse) {
 // 	shellReq := &sliverpb.ShellReq{}

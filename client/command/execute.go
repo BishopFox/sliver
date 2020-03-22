@@ -18,14 +18,15 @@ package command
 import (
 	"fmt"
 	"strings"
+	"context"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
-	"github.com/golang/protobuf/proto"
+
 )
 
-func execute(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
+func execute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	session := ActiveSession.Get()
 	if session == nil {
 		return
@@ -42,16 +43,15 @@ func execute(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
 		args = cmdPath + " " + args
 	}
 	output := ctx.Flags.Bool("output")
-	exec, err := proto.Marshal(&sliverpb.ExecuteReq{
+	exec, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 		Request: ActiveSession.Request(),
 		Path:    cmdPath,
 		Args:    strings.Split(args, " "),
 		Output:  output,
 	})
-
 	if err != nil {
 		fmt.Printf(Warn+"%s", err)
 	} else if output {
-		fmt.Printf(Info+"Output:\n%s", exec.Result)
+		fmt.Printf(Info+"Output:\n%s\n", exec.Result)
 	}
 }

@@ -8,22 +8,23 @@ import (
 
 	"github.com/desertbit/grumble"
 
-	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-func ifconfig(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
-	if ActiveSesssion.Session == nil {
-		fmt.Printf(Warn + "Please select an active session via `use`\n")
+func ifconfig(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
 		return
 	}
 
 	ifconfig, err := rpc.Ifconfig(context.Background(), &sliverpb.IfconfigReq{
-		Request: &commonpb.Request{
-			SessionID: ActiveSesssion.Session.ID,
-		},
+		Request: ActiveSession.Request(),
 	})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
 
 	for ifaceIndex, iface := range ifconfig.NetInterfaces {
 		fmt.Printf("%s%s%s (%d)\n", bold, iface.Name, normal, ifaceIndex)

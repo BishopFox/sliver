@@ -19,6 +19,7 @@ package command
 */
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"path"
@@ -28,7 +29,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
-	"github.com/golang/protobuf/proto"
+	// "github.com/golang/protobuf/proto"
 )
 
 func screenshot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -42,7 +43,7 @@ func screenshot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	screenshot, err := proto.Marshal(&sliverpb.ScreenshotReq{
+	screenshot, err := rpc.Screenshot(context.Background(), &sliverpb.ScreenshotReq{
 		Request: ActiveSession.Request(),
 	})
 	if err != nil {

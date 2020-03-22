@@ -80,8 +80,8 @@ func sessions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		}
 	} else {
 
-		sessionsMap := map[uint32]*clientpb.Sessions{}
-		for _, sessionsMap := range sessions.Sessions {
+		sessionsMap := map[uint32]*clientpb.Session{}
+		for _, session := range sessions.GetSessions() {
 			sessionsMap[session.ID] = session
 		}
 		if 0 < len(sessionsMap) {
@@ -101,7 +101,7 @@ func sessions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	write each line to the term and insert the ANSI codes just before
 	we display the row.
 */
-func printSessions(sessions map[uint32]*clientpb.Sessions) {
+func printSessions(sessions map[uint32]*clientpb.Session) {
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 

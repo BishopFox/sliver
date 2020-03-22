@@ -27,6 +27,7 @@ import (
 	"github.com/bishopfox/sliver/client/assets"
 	cmd "github.com/bishopfox/sliver/client/command"
 	"github.com/bishopfox/sliver/client/version"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 
 	"time"
@@ -63,10 +64,10 @@ const (
 )
 
 // ExtraCmds - Bind extra commands to the app object
-type ExtraCmds func(*grumble.App, *rpcpb.SliverRPCClient)
+type ExtraCmds func(*grumble.App, rpcpb.SliverRPCClient)
 
 // Start - Console entrypoint
-func Start(rpc *rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
+func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 	app := grumble.New(&grumble.Config{
 		Name:                  "Sliver",
 		Description:           "Sliver Client",
@@ -82,7 +83,7 @@ func Start(rpc *rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 	cmd.BindCommands(app, rpc)
 	extraCmds(app, rpc)
 
-	cmd.ActiveSession.AddObserver(func() {
+	cmd.ActiveSession.AddObserver(func(_ *clientpb.Session) {
 		app.SetPrompt(getPrompt())
 	})
 
@@ -95,7 +96,7 @@ func Start(rpc *rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 	return err
 }
 
-func eventLoop(app *grumble.App, rpc *rpcpb.SliverRPCClient) {
+func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	// stdout := bufio.NewWriter(os.Stdout)
 	// for event := range server.Events {
 
@@ -148,8 +149,8 @@ func eventLoop(app *grumble.App, rpc *rpcpb.SliverRPCClient) {
 
 func getPrompt() string {
 	prompt := underline + "sliver" + normal
-	if cmd.ActiveSession.Session != nil {
-		prompt += fmt.Sprintf(bold+red+" (%s)%s", cmd.ActiveSession.Session.Name, normal)
+	if cmd.ActiveSession.Get() != nil {
+		prompt += fmt.Sprintf(bold+red+" (%s)%s", cmd.ActiveSession.Get().Name, normal)
 	}
 	prompt += " > "
 	return prompt

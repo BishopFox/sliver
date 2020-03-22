@@ -30,7 +30,6 @@ import (
 
 // StartClientConsole - Start the client console
 func StartClientConsole() error {
-
 	configs := assets.GetConfigs()
 	if len(configs) == 0 {
 		fmt.Printf(Warn+"No config files found at %s or -import\n", assets.GetConfigDir())
@@ -42,10 +41,10 @@ func StartClientConsole() error {
 	}
 
 	fmt.Printf(Info+"Connecting to %s:%d ...\n", config.LHost, config.LPort)
-	rpc, err := transport.MTLSConnect(config)
+	rpc, _, err := transport.MTLSConnect(config)
 	if err != nil {
 		fmt.Printf(Warn+"Connection to server failed %v", err)
 		return nil
 	}
-	return Start(rpc, func(*grumble.App, *rpcpb.SliverRPCClient) {})
+	return Start(rpc, func(*grumble.App, rpcpb.SliverRPCClient) {})
 }
