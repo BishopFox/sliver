@@ -34,7 +34,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/transport"
 	"google.golang.org/grpc"
-	// "google.golang.org/grpc/test/bufconn"
 )
 
 // Start - Starts the server console

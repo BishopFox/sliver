@@ -123,7 +123,7 @@ type sessions struct {
 // All - Return a list of all sessions
 func (s *sessions) All() []*Session {
 	s.mutex.RLock()
-	defer s.mutex.Unlock()
+	defer s.mutex.RUnlock()
 	all := []*Session{}
 	for _, session := range *s.sessions {
 		all = append(all, session)
