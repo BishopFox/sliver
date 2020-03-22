@@ -18,6 +18,38 @@ package rpc
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	"context"
+
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+)
+
+// CreateTunnel - Create a new tunnel associated with a session
+func (s *Server) CreateTunnel(ctx context.Context, req *clientpb.CreateTunnelReq) (*clientpb.CreateTunnel, error) {
+	return nil, nil
+}
+
+// CloseTunnel - Used by clients to request a tunnel be closed
+func (s *Server) CloseTunnel(ctx context.Context, req *clientpb.CloseTunnelReq) (*commonpb.Empty, error) {
+	return nil, nil
+}
+
+// Tunnel - Streams tunnel data back and forth from the client<->server<->implant
+func (s *Server) Tunnel(stream sliverpb.TunnelData) error {
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			rpcLog.Errorf("Tunnel stream error: %s", err)
+			return err
+		}
+	}
+}
+
 // import (
 // 	"time"
 

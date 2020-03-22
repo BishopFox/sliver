@@ -23,7 +23,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -65,22 +64,30 @@ func NewServer() *Server {
 func (rpc *Server) GetVersion(ctx context.Context, _ *commonpb.Empty) (*clientpb.Version, error) {
 	// clientVer := version.ClientVersion()
 	return &clientpb.Version{
-		Major:  0,
-		Minor:  0,
-		Patch:  7,
-		Commit: version.GitVersion,
-		Dirty:  version.GitDirty,
+		Major: 0,
+		Minor: 0,
+		Patch: 7,
+		// Commit: version.GitVersion,
+		// Dirty:  version.GitDirty,
 	}, nil
 }
 
 // Ping - Try to send a round trip message to the implant
 func (rpc *Server) Ping(ctx context.Context, req *sliverpb.Ping) (*sliverpb.Ping, error) {
-	resp := sliverpb.Ping{}
-	err := GenericHandler(req, resp)
+	resp := &sliverpb.Ping{}
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
+}
+
+// CheckErr - Check an implant's response for Err and convert it to an `error` type
+func (rpc *Server) CheckErr(resp GenericResponse) error {
+	if resp.GetResponse().Err != "" {
+		return errors.New(resp.GetResponse().Err)
+	}
+	return nil
 }
 
 // GenericHandler - Pass the request to the Sliver/Session

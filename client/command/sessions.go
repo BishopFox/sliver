@@ -20,85 +20,74 @@ package command
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"text/tabwriter"
-	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
-	"github.com/golang/protobuf/proto"
 )
 
-func sessions(ctx *grumble.Context, rpc RPCServer) {
+func sessions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+
 	interact := ctx.Flags.String("interact")
 	kill := ctx.Flags.String("kill")
 	killAll := ctx.Flags.Bool("kill-all")
+
+	sessions, err := rpc.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+
 	if killAll {
-		resp := <-rpc(&sliverpb.Envelope{
-			Type: clientpb.MsgSessions,
-			Data: []byte{},
-		}, defaultTimeout)
-		if resp.Err != "" {
-			fmt.Printf(Warn+"Error: %s\n", resp.Err)
-			return
-		}
-		sessions := &clientpb.Sessions{}
-		proto.Unmarshal(resp.Data, sessions)
-		for _, sliver := range sessions.Slivers {
-			err := killSliver(sliver, rpc)
+		ActiveSession.Background()
+		for _, session := range sessions.Sessions {
+			err := killSession(session, rpc)
 			if err != nil {
 				fmt.Printf(Warn+"Error: %v", err)
 			}
-			fmt.Printf(Info+"Killed %s (%d)\n", sliver.Name, sliver.ID)
-		}
-		if ActiveSliver.Sliver != nil {
-			ActiveSliver.DisableActiveSliver()
+			fmt.Printf(Info+"Killed %s (%d)\n", session.Name, session.ID)
 		}
 		return
 	}
 	if kill != "" {
-		sliver := getSliver(kill, rpc)
-		err := killSliver(sliver, rpc)
-		if err != nil {
-			fmt.Printf(Warn+"Error: %v", err)
+		session := getSession(kill, rpc)
+		if session.ID == ActiveSession.Get().ID {
+			ActiveSession.Background()
 		}
-		if ActiveSliver.Sliver != nil {
-			ActiveSliver.DisableActiveSliver()
+		err := killSession(session, rpc)
+		if err != nil {
+			fmt.Printf(Warn+"%s\n", err)
 		}
 		return
 	}
+
 	if interact != "" {
-		sliver := getSliver(interact, rpc)
-		if sliver != nil {
-			ActiveSliver.SetActiveSliver(sliver)
-			fmt.Printf(Info+"Active sliver %s (%d)\n", sliver.Name, sliver.ID)
+		session := getSession(interact, rpc)
+		if session != nil {
+			ActiveSession.Set(session)
+			fmt.Printf(Info+"Active session %s (%d)\n", session.Name, session.ID)
 		} else {
-			fmt.Printf(Warn+"Invalid sliver name or session number '%s'\n", interact)
+			fmt.Printf(Warn+"Invalid session name or session number: %s\n", interact)
 		}
 	} else {
-		resp := <-rpc(&sliverpb.Envelope{
-			Type: clientpb.MsgSessions,
-			Data: []byte{},
-		}, defaultTimeout)
-		if resp.Err != "" {
-			fmt.Printf(Warn+"Error: %s\n", resp.Err)
-			return
-		}
-		sessions := &clientpb.Sessions{}
-		proto.Unmarshal(resp.Data, sessions)
 
-		slivers := map[uint32]*clientpb.Sliver{}
-		for _, sliver := range sessions.Slivers {
-			slivers[sliver.ID] = sliver
+		sessionsMap := map[uint32]*clientpb.Sessions{}
+		for _, sessionsMap := range sessions.Sessions {
+			sessionsMap[session.ID] = session
 		}
-		if 0 < len(slivers) {
-			printSlivers(slivers)
+		if 0 < len(sessionsMap) {
+			printSessions(sessionsMap)
 		} else {
-			fmt.Printf(Info + "No slivers connected\n")
+			fmt.Printf(Info + "No sessions :(\n")
 		}
 	}
 }
@@ -112,7 +101,7 @@ func sessions(ctx *grumble.Context, rpc RPCServer) {
 	write each line to the term and insert the ANSI codes just before
 	we display the row.
 */
-func printSlivers(sessions map[uint32]*clientpb.Sliver) {
+func printSessions(sessions map[uint32]*clientpb.Sessions) {
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
@@ -127,23 +116,28 @@ func printSlivers(sessions map[uint32]*clientpb.Sliver) {
 		strings.Repeat("=", len("Operating System")),
 		strings.Repeat("=", len("Last Check-in")))
 
-	// Sort the keys becuase maps have a randomized order
+	// Sort the keys because maps have a randomized order
 	var keys []int
-	for _, sliver := range sessions {
-		keys = append(keys, int(sliver.ID))
+	for _, session := range sessions {
+		keys = append(keys, int(session.ID))
 	}
 	sort.Ints(keys) // Fucking Go can't sort int32's, so we convert to/from int's
 
 	activeIndex := -1
 	for index, key := range keys {
-		sliver := sessions[uint32(key)]
-		if ActiveSliver.Sliver != nil && ActiveSliver.Sliver.ID == sliver.ID {
+		session := sessions[uint32(key)]
+		if ActiveSession.Get() != nil && ActiveSession.Get().ID == session.ID {
 			activeIndex = index + 2 // Two lines for the headers
 		}
 		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-			sliver.ID, sliver.Name, sliver.Transport, sliver.RemoteAddress, sliver.Username,
-			fmt.Sprintf("%s/%s", sliver.OS, sliver.Arch),
-			sliver.LastCheckin)
+			session.ID,
+			session.Name,
+			session.Transport,
+			session.RemoteAddress,
+			session.Username,
+			fmt.Sprintf("%s/%s", session.OS, session.Arch),
+			session.LastCheckin,
+		)
 	}
 	table.Flush()
 
@@ -164,50 +158,49 @@ func printSlivers(sessions map[uint32]*clientpb.Sliver) {
 	}
 }
 
-func use(ctx *grumble.Context, rpc RPCServer) {
+func use(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if len(ctx.Args) == 0 {
 		fmt.Printf(Warn + "Missing sliver name or session number, see `help use`\n")
 		return
 	}
-	sliver := getSliver(ctx.Args[0], rpc)
-	if sliver != nil {
-		ActiveSliver.SetActiveSliver(sliver)
-		fmt.Printf(Info+"Active sliver %s (%d)\n", sliver.Name, sliver.ID)
+	session := getSession(ctx.Args[0], rpc)
+	if session != nil {
+		ActiveSession.Set(session)
+		fmt.Printf(Info+"Active session %s (%d)\n", session.Name, session.ID)
 	} else {
-		fmt.Printf(Warn+"Invalid sliver name or session number '%s'\n", ctx.Args[0])
+		fmt.Printf(Warn+"Invalid session name or session number '%s'\n", ctx.Args[0])
 	}
 }
 
-func background(ctx *grumble.Context, rpc RPCServer) {
-	ActiveSliver.SetActiveSliver(nil)
+func background(ctx *grumble.Context, _ rpcpb.SliverRPCClient) {
+	ActiveSession.Background()
 	fmt.Printf(Info + "Background ...\n")
 }
 
-func kill(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func kill(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
 		return
 	}
-	err := killSliver(ActiveSliver.Sliver, rpc)
+
+	err := killSession(session, rpc)
 	if err != nil {
-		fmt.Printf(Warn+"Error: %v", err)
+		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
-	fmt.Printf(Info+"Killed %s (%d)\n", ActiveSliver.Sliver.Name, ActiveSliver.Sliver.ID)
-	ActiveSliver.DisableActiveSliver()
+	fmt.Printf(Info+"Killed %s (%d)\n", session.Name, session.ID)
+	ActiveSession.Background()
 }
 
-func killSliver(sliver *clientpb.Sliver, rpc RPCServer) error {
-	if sliver == nil {
-		return fmt.Errorf("session does not exists")
+func killSession(session *clientpb.Session, rpc rpcpb.SliverRPCClient) error {
+	if session == nil {
+		return errors.New("Session does not exist")
 	}
-	data, _ := proto.Marshal(&sliverpb.KillReq{
-		SliverID: sliver.ID,
-		Force:    true,
+	_, err := rpc.KillSession(context.Background(), &sliverpb.KillSessionReq{
+		Request: &commonpb.Request{
+			SessionID: session.ID,
+		},
+		Force: true,
 	})
-	rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgKill,
-		Data: data,
-	}, 5*time.Second)
-	return nil
+	return err
 }

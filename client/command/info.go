@@ -23,71 +23,72 @@ import (
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 
 	"github.com/desertbit/grumble"
 )
 
-func info(ctx *grumble.Context, rpc RPCServer) {
+func info(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
-	var sliver *clientpb.Sliver
-	if ActiveSliver.Sliver != nil {
-		sliver = ActiveSliver.Sliver
+	var session *clientpb.Session
+	if ActiveSession.Session != nil {
+		session = ActiveSession.Session
 	} else if 0 < len(ctx.Args) {
-		sliver = getSliver(ctx.Args[0], rpc)
+		session = getSession(ctx.Args[0], rpc)
 	}
 
-	if sliver != nil {
-		fmt.Printf(bold+"            ID: %s%d\n", normal, sliver.ID)
-		fmt.Printf(bold+"          Name: %s%s\n", normal, sliver.Name)
-		fmt.Printf(bold+"      Hostname: %s%s\n", normal, sliver.Hostname)
-		fmt.Printf(bold+"      Username: %s%s\n", normal, sliver.Username)
-		fmt.Printf(bold+"           UID: %s%s\n", normal, sliver.UID)
-		fmt.Printf(bold+"           GID: %s%s\n", normal, sliver.GID)
-		fmt.Printf(bold+"           PID: %s%d\n", normal, sliver.PID)
-		fmt.Printf(bold+"            OS: %s%s\n", normal, sliver.OS)
-		fmt.Printf(bold+"       Version: %s%s\n", normal, sliver.Version)
-		fmt.Printf(bold+"          Arch: %s%s\n", normal, sliver.Arch)
-		fmt.Printf(bold+"Remote Address: %s%s\n", normal, sliver.RemoteAddress)
+	if session != nil {
+		fmt.Printf(bold+"            ID: %s%d\n", normal, session.ID)
+		fmt.Printf(bold+"          Name: %s%s\n", normal, session.Name)
+		fmt.Printf(bold+"      Hostname: %s%s\n", normal, session.Hostname)
+		fmt.Printf(bold+"      Username: %s%s\n", normal, session.Username)
+		fmt.Printf(bold+"           UID: %s%s\n", normal, session.UID)
+		fmt.Printf(bold+"           GID: %s%s\n", normal, session.GID)
+		fmt.Printf(bold+"           PID: %s%d\n", normal, session.PID)
+		fmt.Printf(bold+"            OS: %s%s\n", normal, session.OS)
+		fmt.Printf(bold+"       Version: %s%s\n", normal, session.Version)
+		fmt.Printf(bold+"          Arch: %s%s\n", normal, session.Arch)
+		fmt.Printf(bold+"Remote Address: %s%s\n", normal, session.RemoteAddress)
 	} else {
-		fmt.Printf(Warn+"No target sliver, see `help %s`\n", consts.InfoStr)
+		fmt.Printf(Warn+"No target session, see `help %s`\n", consts.InfoStr)
 	}
 }
 
-func ping(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func ping(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	if ActiveSession.Session == nil {
+		fmt.Printf(Warn + "Please select an active session via `use`\n")
 		return
 	}
 }
 
-func getPID(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func getPID(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	if ActiveSession.Session == nil {
+		fmt.Printf(Warn + "Please select an active session via `use`\n")
 		return
 	}
-	fmt.Printf("%d\n", ActiveSliver.Sliver.PID)
+	fmt.Printf("%d\n", ActiveSession.Session.PID)
 }
 
-func getUID(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func getUID(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	if ActiveSession.Session == nil {
+		fmt.Printf(Warn + "Please select an active session via `use`\n")
 		return
 	}
-	fmt.Printf("%s\n", ActiveSliver.Sliver.UID)
+	fmt.Printf("%s\n", ActiveSession.Session.UID)
 }
 
-func getGID(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func getGID(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	if ActiveSession.Session == nil {
+		fmt.Printf(Warn + "Please select an active session via `use`\n")
 		return
 	}
-	fmt.Printf("%s\n", ActiveSliver.Sliver.GID)
+	fmt.Printf("%s\n", ActiveSession.Session.GID)
 }
 
-func whoami(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func whoami(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	if ActiveSession.Session == nil {
+		fmt.Printf(Warn + "Please select an active session via `use`\n")
 		return
 	}
-	fmt.Printf("%s\n", ActiveSliver.Sliver.Username)
+	fmt.Printf("%s\n", ActiveSession.Session.Username)
 }

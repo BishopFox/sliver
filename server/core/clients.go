@@ -39,7 +39,7 @@ var (
 // Client - Single client connection
 type Client struct {
 	ID          int
-	Operator    string
+	Operator    *clientpb.Operator
 	Certificate *x509.Certificate
 	Send        chan *sliverpb.Envelope
 	Resp        map[uint64]chan *sliverpb.Envelope
@@ -49,8 +49,8 @@ type Client struct {
 // ToProtobuf - Get the protobuf version of the object
 func (c *Client) ToProtobuf() *clientpb.Client {
 	return &clientpb.Client{
-		ID:           int32(c.ID),
-		OperatorName: c.Operator,
+		ID:       uint32(c.ID),
+		Operator: c.Operator,
 	}
 }
 
@@ -58,9 +58,7 @@ func (c *Client) ToProtobuf() *clientpb.Client {
 func (c *Client) Response(envelope *sliverpb.Envelope) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	if resp, ok := c.Resp[envelope.ID]; ok {
-		resp <- envelope
-	}
+
 }
 
 // clients - Manage client connections
@@ -92,18 +90,18 @@ func NextClientID() int {
 
 // GetClient - Create a new client object
 func GetClient(certificate *x509.Certificate) *Client {
-	var operator string
+	var operatorName string
 	if certificate != nil {
-		operator = certificate.Subject.CommonName
+		operatorName = certificate.Subject.CommonName
 	} else {
-		operator = "server"
+		operatorName = "server"
 	}
 	return &Client{
-		ID:          NextClientID(),
-		Operator:    operator,
+		ID: NextClientID(),
+		Operator: &clientpb.Operator{
+			Name: operatorName,
+		},
 		Certificate: certificate,
 		mutex:       &sync.RWMutex{},
-		Send:        make(chan *sliverpb.Envelope),
-		Resp:        map[uint64]chan *sliverpb.Envelope{},
 	}
 }

@@ -25,33 +25,24 @@ import (
 	"text/tabwriter"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 
 	"github.com/desertbit/grumble"
-	"github.com/golang/protobuf/proto"
 )
 
-func playersCmd(ctx *grumble.Context, rpc RPCServer) {
+func operatorsCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgPlayers,
-		Data: []byte{},
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s\n", resp.Err)
-		return
-	}
-	players := &clientpb.Players{}
-	proto.Unmarshal(resp.Data, players)
-
-	if 0 < len(players.Players) {
-		displayPlayers(players.Players)
+	operators, err := rpc.GetOperators()
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+	} else if 0 < len(operators.Operators) {
+		displayOperators(operators.Operators)
 	} else {
-		fmt.Printf(Info + "No remote players connected\n")
+		fmt.Printf(Info + "No remote operators connected\n")
 	}
 }
 
-func displayPlayers(players []*clientpb.Player) {
+func displayOperators(operators []*clientpb.Operator) {
 
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
@@ -64,9 +55,9 @@ func displayPlayers(players []*clientpb.Player) {
 	)
 
 	colorRow := []string{"", ""} // Two uncolored rows for the headers
-	for _, player := range players {
-		fmt.Fprintf(table, "%s\t%s\t\n", player.Client.Operator, status(player.Online))
-		if player.Online {
+	for _, operator := range operators {
+		fmt.Fprintf(table, "%s\t%s\t\n", operator.Name, status(operator.Online))
+		if operator.Online {
 			colorRow = append(colorRow, bold+green)
 		} else {
 			colorRow = append(colorRow, "")

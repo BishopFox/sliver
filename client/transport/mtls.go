@@ -24,28 +24,27 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sync"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/protobuf/sliver"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
 // MTLSConnect - Connect to the sliver server
-func MTLSConnect(config *assets.ClientConfig) (*rpcpb.SliverRPCClient, error) {
-	var options := []grpc.DialOption{}
+func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+	options := []grpc.DialOption{}
 	tlsConfig, err := getTLSConfig(config.CACertificate, config.Certificate, config.PrivateKey)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	creds := credentials.NewTLS(tlsConfig)
 	options = append(options, grpc.WithTransportCredentials(creds))
-	connection, err := grpc.Dial(&fmt.Sprintf("%s:%d", config.LHost, config.LPort), options)
+	connection, err := grpc.Dial(fmt.Sprintf("%s:%d", config.LHost, config.LPort), options...)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &rpcpb.SliverRPCClient(connection), nil
+	return rpcpb.NewSliverRPCClient(connection), connection, nil
 }
 
 func getTLSConfig(caCertificate string, certificate string, privateKey string) (*tls.Config, error) {

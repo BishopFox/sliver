@@ -72,7 +72,7 @@ type ClientConfig struct {
 	Certificate   string `json:"certificate"`
 }
 
-func newPlayerCmd(ctx *grumble.Context) {
+func newOperatorCmd(ctx *grumble.Context) {
 	operator := ctx.Flags.String("operator")
 	lhost := ctx.Flags.String("lhost")
 	lport := ctx.Flags.Int("lport")
@@ -129,7 +129,7 @@ func newPlayerCmd(ctx *grumble.Context) {
 	fmt.Printf(Info+"Saved new client config to: %s \n", saveTo)
 }
 
-func kickPlayerCmd(ctx *grumble.Context) {
+func kickOperatorCmd(ctx *grumble.Context) {
 	operator := ctx.Flags.String("operator")
 
 	regex, _ := regexp.Compile("[^A-Za-z0-9]+") // Only allow alphanumeric chars
@@ -160,8 +160,8 @@ func startMultiplayerModeCmd(ctx *grumble.Context) {
 	}
 }
 
-func jobStartClientListener(bindIface string, port uint16) (int, error) {
-	ln, err := transport.StartClientListener(bindIface, port)
+func jobStartClientListener(host string, port uint16) (int, error) {
+	_, ln, err := transport.StartClientListener(host, port)
 	if err != nil {
 		return -1, err // If we fail to bind don't setup the Job
 	}
@@ -189,6 +189,5 @@ func jobStartClientListener(bindIface string, port uint16) (int, error) {
 	}()
 
 	core.Jobs.Add(job)
-
 	return job.ID, nil
 }

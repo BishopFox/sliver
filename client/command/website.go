@@ -33,6 +33,7 @@ import (
 	"gopkg.in/AlecAivazis/survey.v1"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/golang/protobuf/proto"
 
@@ -44,7 +45,7 @@ const (
 	defaultMimeType = "application/octet-stream"
 )
 
-func websites(ctx *grumble.Context, rpc RPCServer) {
+func websites(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if len(ctx.Args) < 1 {
 		listWebsites(ctx, rpc)
 		return
@@ -65,14 +66,7 @@ func websites(ctx *grumble.Context, rpc RPCServer) {
 	}
 }
 
-func listWebsites(ctx *grumble.Context, rpc RPCServer) {
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgWebsiteList,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s\n", resp.Err)
-		return
-	}
+func listWebsites(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	websites := &clientpb.Websites{}
 	proto.Unmarshal(resp.Data, websites)

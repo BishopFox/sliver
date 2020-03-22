@@ -22,7 +22,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"sync"
+	"net"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/certs"
@@ -39,15 +39,10 @@ var (
 
 const (
 	defaultHostname = ""
-	readBufSize     = 1024
-)
-
-var (
-	once = &sync.Once{}
 )
 
 // StartClientListener - Start a mutual TLS listener
-func StartClientListener(host string, port uint16) (*grpc.Server, error) {
+func StartClientListener(host string, port uint16) (*grpc.Server, *net.Listener, error) {
 	clientLog.Infof("Starting gRPC  listener on %s:%d", host, port)
 	tlsConfig := getOperatorServerTLSConfig(host)
 	creds := credentials.NewTLS(tlsConfig)
@@ -55,14 +50,14 @@ func StartClientListener(host string, port uint16) (*grpc.Server, error) {
 	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", host, port), tlsConfig)
 	if err != nil {
 		clientLog.Error(err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	options := []grpc.ServerOption{grpc.Creds(creds)}
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
 	go grpcServer.Serve(ln)
-	return grpcServer, nil
+	return grpcServer, &ln, nil
 }
 
 // getOperatorServerTLSConfig - Generate the TLS configuration, we do now allow the end user

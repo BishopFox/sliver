@@ -24,54 +24,43 @@ import (
 	"path"
 	"time"
 
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
 )
 
-func screenshot(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func screenshot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
 		return
 	}
 
-	if ActiveSliver.Sliver.OS == "darwin" {
-		fmt.Printf(Warn + "Not Implemented\n")
+	if session.OS != "windows" && session.OS != "linux" {
+		fmt.Printf(Warn+"Not implemented for %s\n", session.OS)
+		return
+	}
+
+	screenshot, err := proto.Marshal(&sliverpb.ScreenshotReq{
+		Request: ActiveSession.Request(),
+	})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
 
 	timestamp := time.Now().Format("20060102150405")
-	fileName := path.Base(fmt.Sprintf("screenshot_%s_%s_*.png", ActiveSliver.Sliver.Name, timestamp))
-	f, err := ioutil.TempFile("", fileName)
-
+	tmpfileName := path.Base(fmt.Sprintf("screenshot_%s_%s_*.png", session.Name, session.ID, timestamp))
+	tmpFile, err := ioutil.TempFile("", tmpfileName)
 	if err != nil {
-		fmt.Printf(Warn+"Error: %s", err)
+		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
-
-	data, _ := proto.Marshal(&sliverpb.ScreenshotReq{SliverID: ActiveSliver.Sliver.ID})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgScreenshotReq,
-		Data: data,
-	}, defaultTimeout)
-
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Err)
-		return
-	}
-
-	screenshotConfigs := &sliverpb.Screenshot{}
-	err = proto.Unmarshal(resp.Data, screenshotConfigs)
+	err = ioutil.WriteFile(tmpFile.Name(), screenshot.Data, 0600)
 	if err != nil {
-		fmt.Printf(Warn + "Failed to decode response\n")
+		fmt.Printf(Warn+"Error writting file: %s\n", err)
 		return
 	}
-
-	err = ioutil.WriteFile(f.Name(), screenshotConfigs.Data, 0644)
-	if err != nil {
-		fmt.Printf(Warn+"Error writting screenshot file: %s\n", err)
-		return
-	}
-	fmt.Printf(bold + "Written to " + f.Name())
+	fmt.Printf(bold+"Screenshot written to %s\n", tmpFile.Name())
 }

@@ -19,10 +19,13 @@ package command
 */
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 
 	"gopkg.in/AlecAivazis/survey.v1"
 )
@@ -56,51 +59,92 @@ const (
 
 var (
 
-	// ActiveSliver - The current sliver we're interacting with
-	ActiveSliver = &activeSliver{
-		observers: []observer{},
+	// ActiveSession - The current sliver we're interacting with
+	ActiveSession = &activeSession{
+		observers:  map[int]observer{},
+		observerID: 0,
 	}
 
 	defaultTimeout   = 30 * time.Second
 	stdinReadTimeout = 10 * time.Millisecond
 )
 
-// RPCServer - Function used to send/recv envelopes
-type RPCServer func(*sliverpb.Envelope, time.Duration) chan *sliverpb.Envelope
+// Observer - A function to call when the sesions changes
+type Observer func(*clientpb.Session)
 
-type observer func()
-
-type activeSliver struct {
-	Sliver    *clientpb.Sliver
-	observers []observer
+type activeSession struct {
+	session    *clientpb.Session
+	observers  map[int]Observer
+	observerID int
 }
 
-func (s *activeSliver) AddObserver(fn observer) {
-	s.observers = append(s.observers, fn)
+// Get - Get the active session
+func (s *activeSession) Get() *clientpb.Session {
+	if s.session == nil {
+		fmt.Printf(Warn + "Please select an active session via `use`\n")
+		return nil
+	}
+	return s.session
 }
 
-func (s *activeSliver) SetActiveSliver(sliver *clientpb.Sliver) {
-	s.Sliver = sliver
-	for _, fn := range s.observers {
-		fn()
+// AddObserver - Observers to notify when the active session changes
+func (s *activeSession) AddObserver(observer Observer) int {
+	s.observerID++
+	s.observers[s.observerID] = observer
+	return s.observerID
+}
+
+func (s *activeSession) RemoveObserver(observerID int) {
+	if _, ok := s.observers[observerID]; ok {
+		delete(s.observers, observerID)
 	}
 }
 
-func (s *activeSliver) DisableActiveSliver() {
-	s.Sliver = nil
-	for _, fn := range s.observers {
-		fn()
+func (s *activeSession) Request() *commonpb.Request {
+	if s.session == nil {
+		return nil
+	}
+	return &commonpb.Request{
+		SessionID: s.session.ID,
 	}
 }
 
-// Get Sliver by session ID or name
-func getSliver(arg string, rpc RPCServer) *clientpb.Sliver {
+// Set - Change the active session
+func (s *activeSession) Set(session *clientpb.Session) {
+	s.session = session
+	for _, observer := range s.observers {
+		observer(s.session)
+	}
+}
 
+// Background - Background the active session
+func (s *activeSession) Background() {
+	s.session = nil
+	for _, observer := range s.observers {
+		observer(nil)
+	}
+}
+
+// Get session by session ID or name
+func getSession(arg string, rpc *rpcpb.SliverRPCClient) *clientpb.Session {
+	sessions, err := rpc.GetSessions(context.Background(), commonpb.Empty{})
+	for _, session := range sessions {
+		if session.Name == arg || string(session.ID) == arg {
+			return session
+		}
+	}
+	return nil
 }
 
 // SessionsByName - Return all sessions for a Sliver by name
-func SessionsByName(name string, rpc RPCServer) []*clientpb.Sliver {
-
+func SessionsByName(name string, rpc *rpcpb.SliverRPCClient) []*clientpb.Session {
+	sessions, err := rpc.GetSessions(context.Background(), commonpb.Empty{})
+	for _, session := range sessions {
+		if session.Name == name {
+			return session
+		}
+	}
+	return nil
 }
 
 // This should be called for any dangerous (OPSEC-wise) functions

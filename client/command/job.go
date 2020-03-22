@@ -19,6 +19,7 @@ package command
 */
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -27,23 +28,27 @@ import (
 	"text/tabwriter"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
 	"github.com/golang/protobuf/proto"
 )
 
-func jobs(ctx *grumble.Context, rpc RPCServer) {
+func jobs(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if ctx.Flags.Int("kill") != -1 {
 		killJob(int32(ctx.Flags.Int("kill")), rpc)
 	} else if ctx.Flags.Bool("kill-all") {
 		killAllJobs(rpc)
 	} else {
-		jobs := getJobs(rpc)
-		if jobs == nil {
+		jobs, err := rpc.GetJobs(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			fmt.Printf(Warn+"%s", err)
 			return
 		}
-		activeJobs := map[int32]*clientpb.Job{}
+		// Convert to a map
+		activeJobs := map[uint32]*clientpb.Job{}
 		for _, job := range jobs.Active {
 			activeJobs[job.ID] = job
 		}
@@ -55,17 +60,18 @@ func jobs(ctx *grumble.Context, rpc RPCServer) {
 	}
 }
 
-func killAllJobs(rpc RPCServer) {
-	jobs := getJobs(rpc)
-	if jobs == nil {
+func killAllJobs(rpc *rpcpb.SliverRPCClient) {
+	jobs, err := rpc.GetJobs(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"%s", err)
 		return
 	}
 	for _, job := range jobs.Active {
-		killJob(job.ID, rpc)
+		rpc.KillJob(job.ID, rpc)
 	}
 }
 
-func killJob(jobID int32, rpc RPCServer) {
+func killJob(jobID int32, rpc *rpcpb.SliverRPCClient) {
 	fmt.Printf(Info+"Killing job #%d ...\n", jobID)
 	data, _ := proto.Marshal(&clientpb.JobKillReq{ID: jobID})
 	resp := <-rpc(&sliverpb.Envelope{
@@ -84,20 +90,6 @@ func killJob(jobID int32, rpc RPCServer) {
 	} else {
 		fmt.Printf(Warn+"Failed to kill job #%d, %s\n", jobKill.ID, jobKill.Err)
 	}
-}
-
-func getJobs(rpc RPCServer) *clientpb.Jobs {
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgJobs,
-		Data: []byte{},
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s\n", resp.Err)
-		return nil
-	}
-	jobs := &clientpb.Jobs{}
-	proto.Unmarshal(resp.Data, jobs)
-	return jobs
 }
 
 func printJobs(jobs map[int32]*clientpb.Job) {
@@ -122,7 +114,7 @@ func printJobs(jobs map[int32]*clientpb.Job) {
 	table.Flush()
 }
 
-func startMTLSListener(ctx *grumble.Context, rpc RPCServer) {
+func startMTLSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	server := ctx.Flags.String("server")
 	lport := uint16(ctx.Flags.Int("lport"))
 
@@ -144,7 +136,7 @@ func startMTLSListener(ctx *grumble.Context, rpc RPCServer) {
 	fmt.Printf(Info+"Successfully started job #%d\n", mtls.JobID)
 }
 
-func startDNSListener(ctx *grumble.Context, rpc RPCServer) {
+func startDNSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	domains := strings.Split(ctx.Flags.String("domains"), ",")
 	for _, domain := range domains {
@@ -173,7 +165,7 @@ func startDNSListener(ctx *grumble.Context, rpc RPCServer) {
 	fmt.Printf(Info+"Successfully started job #%d\n", dns.JobID)
 }
 
-func startHTTPSListener(ctx *grumble.Context, rpc RPCServer) {
+func startHTTPSListener(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
 	domain := ctx.Flags.String("domain")
 	website := ctx.Flags.String("website")
 	lport := uint16(ctx.Flags.Int("lport"))
@@ -222,26 +214,20 @@ func getLocalCertificatePair(ctx *grumble.Context) ([]byte, []byte, error) {
 	return cert, key, nil
 }
 
-func startHTTPListener(ctx *grumble.Context, rpc RPCServer) {
+func startHTTPListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	domain := ctx.Flags.String("domain")
 	lport := uint16(ctx.Flags.Int("lport"))
 
 	fmt.Printf(Info+"Starting HTTP %s:%d listener ...\n", domain, lport)
-	data, _ := proto.Marshal(&clientpb.HTTPReq{
+	http, err := rpc.startHTTPListener(context.Background(), &clientpb.HTTPReq{
 		Domain:  domain,
 		Website: ctx.Flags.String("website"),
 		LPort:   int32(lport),
 		Secure:  false,
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgHttp,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Failed to start job %s\n", resp.Err)
-		return
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+	} else {
+		fmt.Printf(Info+"Successfully started job #%d\n", http.JobID)
 	}
-	httpJob := &clientpb.HTTP{}
-	proto.Unmarshal(resp.Data, httpJob)
-	fmt.Printf(Info+"Successfully started job #%d\n", httpJob.JobID)
 }

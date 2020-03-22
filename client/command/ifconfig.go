@@ -1,40 +1,31 @@
 package command
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/desertbit/grumble"
-	"github.com/golang/protobuf/proto"
 
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-func ifconfig(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func ifconfig(ctx *grumble.Context, rpc *rpcpb.SliverRPCClient) {
+	if ActiveSesssion.Session == nil {
+		fmt.Printf(Warn + "Please select an active session via `use`\n")
 		return
 	}
 
-	data, _ := proto.Marshal(&sliverpb.IfconfigReq{SliverID: ActiveSliver.Sliver.ID})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgIfconfigReq,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Err)
-		return
-	}
+	ifconfig, err := rpc.Ifconfig(context.Background(), &sliverpb.IfconfigReq{
+		Request: &commonpb.Request{
+			SessionID: ActiveSesssion.Session.ID,
+		},
+	})
 
-	ifaceConfigs := &sliverpb.Ifconfig{}
-	err := proto.Unmarshal(resp.Data, ifaceConfigs)
-	if err != nil {
-		fmt.Printf(Warn + "Failed to decode response\n")
-		return
-	}
-
-	for ifaceIndex, iface := range ifaceConfigs.NetInterfaces {
+	for ifaceIndex, iface := range ifconfig.NetInterfaces {
 		fmt.Printf("%s%s%s (%d)\n", bold, iface.Name, normal, ifaceIndex)
 		if 0 < len(iface.MAC) {
 			fmt.Printf("   MAC Address: %s\n", iface.MAC)

@@ -62,7 +62,7 @@ func executeShellcode(ctx *grumble.Context, server *core.SliverServer) {
 		return
 	}
 	if pid != 0 && interactive {
-		fmt.Printf(Warn + "Cannot use both `--pid` and `--interactive\n`")
+		fmt.Printf(Warn + "Cannot use both `--pid` and `--interactive`\n")
 		return
 	}
 	if interactive {

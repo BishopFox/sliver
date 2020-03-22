@@ -26,7 +26,7 @@ endif
 .PHONY: macos
 macos: clean version pb
 	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
-	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-client ./client
+	# GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: linux
 linux: clean version pb

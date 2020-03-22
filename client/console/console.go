@@ -19,18 +19,15 @@ package console
 */
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	insecureRand "math/rand"
-	"os"
 	"path"
 
 	"github.com/bishopfox/sliver/client/assets"
 	cmd "github.com/bishopfox/sliver/client/command"
-	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/version"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 
 	"time"
 
@@ -66,10 +63,10 @@ const (
 )
 
 // ExtraCmds - Bind extra commands to the app object
-type ExtraCmds func(*grumble.App, *core.SliverServer)
+type ExtraCmds func(*grumble.App, *rpcpb.SliverRPCClient)
 
 // Start - Console entrypoint
-func Start(server *core.SliverServer, extraCmds ExtraCmds) error {
+func Start(rpc *rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 	app := grumble.New(&grumble.Config{
 		Name:                  "Sliver",
 		Description:           "Sliver Client",
@@ -82,14 +79,14 @@ func Start(server *core.SliverServer, extraCmds ExtraCmds) error {
 	})
 	app.SetPrintASCIILogo(printLogo)
 
-	cmd.BindCommands(app, server)
-	extraCmds(app, server)
+	cmd.BindCommands(app, rpc)
+	extraCmds(app, rpc)
 
-	cmd.ActiveSliver.AddObserver(func() {
+	cmd.ActiveSession.AddObserver(func() {
 		app.SetPrompt(getPrompt())
 	})
 
-	go eventLoop(app, server)
+	go eventLoop(app, rpc)
 
 	err := app.Run()
 	if err != nil {
@@ -98,61 +95,61 @@ func Start(server *core.SliverServer, extraCmds ExtraCmds) error {
 	return err
 }
 
-func eventLoop(app *grumble.App, server *core.SliverServer) {
-	stdout := bufio.NewWriter(os.Stdout)
-	for event := range server.Events {
+func eventLoop(app *grumble.App, rpc *rpcpb.SliverRPCClient) {
+	// stdout := bufio.NewWriter(os.Stdout)
+	// for event := range server.Events {
 
-		switch event.EventType {
+	// 	switch event.EventType {
 
-		case consts.CanaryEvent:
-			fmt.Printf(clearln+Warn+bold+"WARNING: %s%s has been burned (DNS Canary)\n", normal, event.Sliver.Name)
-			sessions := cmd.SliverSessionsByName(event.Session.Name, server.RPC)
-			for _, sliver := range sessions {
-				fmt.Printf(clearln+"\t🔥 Session #%d is affected\n", sliver.ID)
-			}
-			fmt.Println()
+	// 	case consts.CanaryEvent:
+	// 		fmt.Printf(clearln+Warn+bold+"WARNING: %s%s has been burned (DNS Canary)\n", normal, event.Session.Name)
+	// 		sessions := cmd.SliverSessionsByName(event.Session.Name, server.RPC)
+	// 		for _, sliver := range sessions {
+	// 			fmt.Printf(clearln+"\t🔥 Session #%d is affected\n", sliver.ID)
+	// 		}
+	// 		fmt.Println()
 
-		case consts.ServerErrorStr:
-			fmt.Printf(clearln + Warn + "Server connection error!\n\n")
-			os.Exit(4)
+	// 	case consts.ServerErrorStr:
+	// 		fmt.Printf(clearln + Warn + "Server connection error!\n\n")
+	// 		os.Exit(4)
 
-		case consts.JoinedEvent:
-			fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator)
-		case consts.LeftEvent:
-			fmt.Printf(clearln+Info+"%s left the game\n\n", event.Client.Operator)
+	// 	case consts.JoinedEvent:
+	// 		fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator)
+	// 	case consts.LeftEvent:
+	// 		fmt.Printf(clearln+Info+"%s left the game\n\n", event.Client.Operator)
 
-		case consts.StoppedEvent:
-			job := event.Job
-			fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
+	// 	case consts.StoppedEvent:
+	// 		job := event.Job
+	// 		fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
 
-		case consts.ConnectedEvent:
-			session := event.Session
-			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n\n",
-				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
+	// 	case consts.ConnectedEvent:
+	// 		session := event.Session
+	// 		fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n\n",
+	// 			session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
 
-		case consts.DisconnectedEvent:
-			session := event.Session
-			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
-				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
-			activeSliver := cmd.ActiveSliver.Sliver
-			if activeSliver != nil && session.ID == activeSliver.ID {
-				cmd.ActiveSliver.SetActiveSliver(nil)
-				app.SetPrompt(getPrompt())
-				fmt.Printf(Warn + " Active sliver disconnected\n")
-			}
-			fmt.Println()
+	// 	case consts.DisconnectedEvent:
+	// 		session := event.Session
+	// 		fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
+	// 			session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
+	// 		activeSliver := cmd.ActiveSliver.Sliver
+	// 		if activeSliver != nil && session.ID == activeSliver.ID {
+	// 			cmd.ActiveSliver.SetActiveSliver(nil)
+	// 			app.SetPrompt(getPrompt())
+	// 			fmt.Printf(Warn + " Active sliver disconnected\n")
+	// 		}
+	// 		fmt.Println()
 
-		}
+	// 	}
 
-		fmt.Printf(getPrompt())
-		stdout.Flush()
-	}
+	// 	fmt.Printf(getPrompt())
+	// 	stdout.Flush()
+	// }
 }
 
 func getPrompt() string {
 	prompt := underline + "sliver" + normal
-	if cmd.ActiveSliver.Sliver != nil {
-		prompt += fmt.Sprintf(bold+red+" (%s)%s", cmd.ActiveSliver.Sliver.Name, normal)
+	if cmd.ActiveSession.Session != nil {
+		prompt += fmt.Sprintf(bold+red+" (%s)%s", cmd.ActiveSession.Session.Name, normal)
 	}
 	prompt += " > "
 	return prompt

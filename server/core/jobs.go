@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	// ActiveJobs - Holds pointers to all the current jobs
+	// Jobs - Holds pointers to all the current jobs
 	Jobs = &jobs{
 		active: &map[int]*Job{},
 		mutex:  &sync.RWMutex{},

@@ -22,8 +22,8 @@ import (
 	"fmt"
 
 	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 
 	"github.com/desertbit/grumble"
 )
@@ -40,12 +40,12 @@ func StartClientConsole() error {
 	if config == nil {
 		return nil
 	}
+
 	fmt.Printf(Info+"Connecting to %s:%d ...\n", config.LHost, config.LPort)
-	rpcServer, err := transport.MTLSConnect(config)
+	rpc, err := transport.MTLSConnect(config)
 	if err != nil {
 		fmt.Printf(Warn+"Connection to server failed %v", err)
 		return nil
 	}
-
-	return Start(sliverServer, func(*grumble.App) {})
+	return Start(rpc, func(*grumble.App, *rpcpb.SliverRPCClient) {})
 }

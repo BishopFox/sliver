@@ -131,17 +131,17 @@ message Jobs {
   repeated Job Active = 1;
 }
 
-message JobKillReq {
-  int32 ID = 1;
+message KillJobReq {
+  uint32 ID = 1;
 
   commonpb.Request Request = 9;
 }
 
-message JobKill {
-  int32 ID = 1;
+message KillJob {
+  uint32 ID = 1;
   bool Success = 2;
 
-  string Err = 3;
+  commonpb.Response Response = 9;
 }
 
 // [ Listeners ] ----------------------------------------
@@ -265,25 +265,29 @@ message MigrateReq {
 
 
 // [ Tunnels ] ----------------------------------------
-message TunnelCreateReq {
-  uint32 SessionID = 9;
+message CreateTunnelReq {
+
+  commonpb.Request Request = 9;
 }
 
-message TunnelCreate {
+message CreateTunnel {
+  uint32 SessionID = 1;
 
   uint64 TunnelID = 8;
-  uint32 SessionID = 9;
 }
 
-message TunnelCloseReq {
+message CloseTunnelReq {
   uint64 TunnelID = 8;
-  uint32 SessionID = 9;
+
+  commonpb.Request Request = 9;
 }
 
 // [ events ] ----------------------------------------
 message Client {
-  int32 ID = 1;
-  string OperatorName = 2;
+  uint32 ID = 1;
+  string Name = 2;
+
+  Operator Operator = 3;
 }
 
 message Event {
@@ -292,8 +296,6 @@ message Event {
   Job Job = 3;
   Client Client = 4;
   bytes Data = 5;
-
-  string Err = 9;
 }
 
 message Operators { 
@@ -301,8 +303,8 @@ message Operators {
 }
 
 message Operator {
-  Client Client = 1;
-  bool Online = 2;
+  bool Online = 1;
+  string Name = 2;
 }
 
 // [ websites ] ----------------------------------------

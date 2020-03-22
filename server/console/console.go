@@ -28,26 +28,17 @@ import (
 	"github.com/bishopfox/sliver/client/command"
 	clientconsole "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	clientcore "github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/help"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/transport"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 )
 
 // Start - Starts the server console
 func Start() {
-	send := make(chan *sliverpb.Envelope) // To "server"
-	recv := make(chan *sliverpb.Envelope) // From "server"
-
-	transport.LocalClientConnect(send, recv) // Simulates a client connection
-
-	server := clientcore.BindSliverServer(send, recv)
-	go server.ResponseMapper()
 	clientconsole.Start(server, serverOnlyCmds)
 }
 
 // ServerOnlyCmds - Server only commands
-func serverOnlyCmds(app *grumble.App, server *clientcore.SliverServer) {
+func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
 
 	// [ Multiplayer ] -----------------------------------------------------------------
 
@@ -80,7 +71,7 @@ func serverOnlyCmds(app *grumble.App, server *clientcore.SliverServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			newPlayerCmd(ctx)
+			newOperatorCmd(ctx)
 			fmt.Println()
 			return nil
 		},
@@ -96,7 +87,7 @@ func serverOnlyCmds(app *grumble.App, server *clientcore.SliverServer) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			kickPlayerCmd(ctx)
+			kickOperatorCmd(ctx)
 			fmt.Println()
 			return nil
 		},
@@ -107,8 +98,8 @@ func serverOnlyCmds(app *grumble.App, server *clientcore.SliverServer) {
 
 func getPrompt() string {
 	prompt := underline + "sliver" + normal
-	if command.ActiveSliver.Sliver != nil {
-		prompt += fmt.Sprintf(bold+red+" (%s)%s", command.ActiveSliver.Sliver.Name, normal)
+	if command.ActiveSession.Get() != nil {
+		prompt += fmt.Sprintf(bold+red+" (%s)%s", command.ActiveSession.Get().Name, normal)
 	}
 	prompt += " > "
 	return prompt

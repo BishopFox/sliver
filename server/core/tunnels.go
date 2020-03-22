@@ -36,25 +36,34 @@ var (
 	}
 )
 
+// Tunnel  - Essentially just a mapping between a specific client and sliver
+// with an identifier, these tunnels are full duplex. The server doesn't really
+// care what data gets passed back and forth it just facilitates the connection
+type Tunnel struct {
+	ID      uint64
+	Session *Session
+	Client  *Client
+}
+
 type tunnels struct {
 	tunnels *map[uint64]*Tunnel
 	mutex   *sync.RWMutex
 }
 
 func (t *tunnels) CreateTunnel(client *Client, sessionID uint32) *Tunnel {
-	tunID := newTunnelID()
+	tunnelID := NewTunnelID()
 	session := Sessions.Get(sessionID)
-	tun := &Tunnel{
-		ID:      tunID,
+	tunnel := &Tunnel{
+		ID:      tunnelID,
 		Client:  client,
 		Session: session,
 	}
 
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	(*t.tunnels)[tun.ID] = tun
+	(*t.tunnels)[tunnel.ID] = tunnel
 
-	return tun
+	return tunnel
 }
 
 func (t *tunnels) CloseTunnel(tunnelID uint64, reason string) bool {
@@ -85,17 +94,8 @@ func (t *tunnels) Tunnel(tunnelID uint64) *Tunnel {
 	return (*t.tunnels)[tunnelID]
 }
 
-// Tunnel  - Essentially just a mapping between a specific client and sliver
-// with an identifier, these tunnels are full duplex. The server doesn't really
-// care what data gets passed back and forth it just facilitates the connection
-type Tunnel struct {
-	ID      uint64
-	Session *Session
-	Client  *Client
-}
-
-// newTunnelID - New 32bit identifier
-func newTunnelID() uint64 {
+// NewTunnelID - New 32bit identifier
+func NewTunnelID() uint64 {
 	randBuf := make([]byte, 8)
 	rand.Read(randBuf)
 	return binary.LittleEndian.Uint64(randBuf)

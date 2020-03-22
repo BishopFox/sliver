@@ -25,6 +25,7 @@ import (
 	"os"
 
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
@@ -36,9 +37,9 @@ const (
 	windows = "windows"
 )
 
-func shell(ctx *grumble.Context, server *core.SliverServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
 		return
 	}
 
@@ -54,27 +55,31 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 	runInteractive(shellPath, noPty, server)
 }
 
-func runInteractive(shellPath string, noPty bool, server *core.SliverServer) {
+func runInteractive(shellPath string, noPty bool, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf(Info + "Opening shell tunnel (EOF to exit) ...\n\n")
 
-	tunnel, err := server.CreateTunnel(ActiveSliver.Sliver.ID, defaultTimeout)
+	tunnelInfo, err := rpc.CreateTunnel(context.Background(), &clientpb.CreateTunnelReq{
+		Request: ActiveSession.Request(),
+	})
 	if err != nil {
-		log.Printf(Warn+"%s", err)
+		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
 
-	shellReqData, _ := proto.Marshal(&sliverpb.ShellReq{
-		SliverID:  ActiveSliver.Sliver.ID,
+	shell, err := rpc.Shell(context.Background(), &sliverpb.ShellReq{
+		Request:   ActiveSession.Request(),
 		EnablePTY: !noPty,
-		TunnelID:  tunnel.ID,
+		TunnelID:  tunnelInfo.ID,
 		Path:      shellPath,
 	})
-	resp := <-server.RPC(&sliverpb.Envelope{
-		Type: sliverpb.MsgShellReq,
-		Data: shellReqData,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Err)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+
+	rpcTunnel, err := rpc.Tunnel(context.Background())
+	if err != nil {
+		fmt.Printf(Warn+"%s", err)
 		return
 	}
 
@@ -91,7 +96,7 @@ func runInteractive(shellPath string, noPty bool, server *core.SliverServer) {
 	go func() {
 		_, err := io.Copy(os.Stdout, tunnel)
 		if err != nil {
-			fmt.Printf(Warn+"error write stdout: %v", err)
+			fmt.Printf(Warn+"Error writing to stdout: %v", err)
 			return
 		}
 	}()
@@ -101,7 +106,7 @@ func runInteractive(shellPath string, noPty bool, server *core.SliverServer) {
 			break
 		}
 		if err != nil {
-			fmt.Printf(Warn+"error read stdin: %v", err)
+			fmt.Printf(Warn+"Error reading from stdin: %v", err)
 			break
 		}
 	}

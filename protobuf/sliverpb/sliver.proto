@@ -48,7 +48,9 @@ message Register {
 message Ping {
   int32 Nonce = 1;
 
-  commonpb.Response Response = 9;
+  // Ping is special
+  commonpb.Request Response = 8;
+  commonpb.Request Request = 9;
 }
 
 // KillSessionReq - Request the implant to kill a session
@@ -77,6 +79,8 @@ message TerminateReq {
 }
 
 message Terminate {
+  int32 Pid = 1;
+
   commonpb.Response Response = 9;
 }
 
