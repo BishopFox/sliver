@@ -372,35 +372,40 @@ const (
 func GetHelpFor(cmdName string) string {
 	if 0 < len(cmdName) {
 		if helpTmpl, ok := cmdHelp[cmdName]; ok {
-			outputBuf := bytes.NewBufferString("")
-			tmpl, _ := template.New("help").Delims("[[", "]]").Parse(helpTmpl)
-			tmpl.Execute(outputBuf, struct {
-				Normal    string
-				Bold      string
-				Underline string
-				Black     string
-				Red       string
-				Green     string
-				Orange    string
-				Blue      string
-				Purple    string
-				Cyan      string
-				Gray      string
-			}{
-				Normal:    normal,
-				Bold:      bold,
-				Underline: underline,
-				Black:     black,
-				Red:       red,
-				Green:     green,
-				Orange:    orange,
-				Blue:      blue,
-				Purple:    purple,
-				Cyan:      cyan,
-				Gray:      gray,
-			})
-			return outputBuf.String()
+			return FormatHelpTmpl(helpTmpl)
 		}
 	}
 	return ""
+}
+
+// FormatHelpTmpl - Applies format template to help string
+func FormatHelpTmpl(helpStr string) string {
+	outputBuf := bytes.NewBufferString("")
+	tmpl, _ := template.New("help").Delims("[[", "]]").Parse(helpStr)
+	tmpl.Execute(outputBuf, struct {
+		Normal    string
+		Bold      string
+		Underline string
+		Black     string
+		Red       string
+		Green     string
+		Orange    string
+		Blue      string
+		Purple    string
+		Cyan      string
+		Gray      string
+	}{
+		Normal:    normal,
+		Bold:      bold,
+		Underline: underline,
+		Black:     black,
+		Red:       red,
+		Green:     green,
+		Orange:    orange,
+		Blue:      blue,
+		Purple:    purple,
+		Cyan:      cyan,
+		Gray:      gray,
+	})
+	return outputBuf.String()
 }
