@@ -986,5 +986,6 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 }

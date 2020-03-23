@@ -8,6 +8,7 @@ import (
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/help"
 	"github.com/desertbit/grumble"
 )
 
@@ -33,7 +34,9 @@ type extensionCommand struct {
 	Name           string    `json:"name"`
 	Entrypoint     string    `json:"entrypoint"`
 	Help           string    `json:"help"`
+	LongHelp       string    `json:"longHelp"`
 	AllowArgs      bool      `json:"allowArgs"`
+	DefaultArgs    string    `json:"defaultArgs"`
 	ExtensionFiles []extFile `json:"extFiles"`
 	IsReflective   bool      `json:"isReflective"`
 }
@@ -129,6 +132,7 @@ func load(ctx *grumble.Context, rpc RPCServer) {
 		ctx.App.AddCommand(&grumble.Command{
 			Name:      extCmd.Name,
 			Help:      extCmd.Help,
+			LongHelp:  help.FormatHelpTmpl(extCmd.LongHelp),
 			AllowArgs: extCmd.AllowArgs,
 			Run: func(extCtx *grumble.Context) error {
 				fmt.Println()
@@ -169,7 +173,10 @@ func runExtensionCommand(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	var args string = "test"
+	var args string
+	if len(c.DefaultArgs) != 0 {
+		args = c.DefaultArgs
+	}
 	if ctx.Command.AllowArgs {
 		if len(ctx.Args) > 0 {
 			args = strings.Join(ctx.Args[0:], " ")
