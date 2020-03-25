@@ -40,8 +40,8 @@ const (
 )
 
 func main() {
-	unpack := flag.Bool("unpack", false, "force unpack assets")
-	version := flag.Bool("version", false, "print version number")
+	unpack := flag.Bool("unpack", false, "unpack assets and exit")
+	version := flag.Bool("version", false, "print version number and exit")
 	flag.Parse()
 
 	if *version {
@@ -59,6 +59,7 @@ func main() {
 	defer logFile.Close()
 
 	certs.SetupCAs()
+
 	console.Start()
 }
 

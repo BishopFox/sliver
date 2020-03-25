@@ -19,15 +19,21 @@ package console
 */
 
 import (
+	"bufio"
+	"context"
 	"fmt"
+	"io"
 	"log"
 	insecureRand "math/rand"
+	"os"
 	"path"
 
 	"github.com/bishopfox/sliver/client/assets"
 	cmd "github.com/bishopfox/sliver/client/command"
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 
 	"time"
@@ -97,54 +103,64 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 }
 
 func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
-	// stdout := bufio.NewWriter(os.Stdout)
-	// for event := range server.Events {
+	eventStream, err := rpc.SubscribeEvents(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+	stdout := bufio.NewWriter(os.Stdout)
 
-	// 	switch event.EventType {
+	for {
+		event, err := eventStream.Recv()
+		if err == io.EOF {
+			return
+		}
 
-	// 	case consts.CanaryEvent:
-	// 		fmt.Printf(clearln+Warn+bold+"WARNING: %s%s has been burned (DNS Canary)\n", normal, event.Session.Name)
-	// 		sessions := cmd.SliverSessionsByName(event.Session.Name, server.RPC)
-	// 		for _, sliver := range sessions {
-	// 			fmt.Printf(clearln+"\t🔥 Session #%d is affected\n", sliver.ID)
-	// 		}
-	// 		fmt.Println()
+		// Trigger event based on type
+		switch event.EventType {
 
-	// 	case consts.ServerErrorStr:
-	// 		fmt.Printf(clearln + Warn + "Server connection error!\n\n")
-	// 		os.Exit(4)
+		case consts.CanaryEvent:
+			fmt.Printf(clearln+Warn+bold+"WARNING: %s%s has been burned (DNS Canary)\n", normal, event.Session.Name)
+			sessions := cmd.GetSessionsByName(event.Session.Name, rpc)
+			for _, session := range sessions {
+				fmt.Printf(clearln+"\t🔥 Session #%d is affected\n", session.ID)
+			}
+			fmt.Println()
 
-	// 	case consts.JoinedEvent:
-	// 		fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator)
-	// 	case consts.LeftEvent:
-	// 		fmt.Printf(clearln+Info+"%s left the game\n\n", event.Client.Operator)
+		case consts.ServerErrorStr:
+			fmt.Printf(clearln + Warn + "Server connection error!\n\n")
+			os.Exit(4)
 
-	// 	case consts.StoppedEvent:
-	// 		job := event.Job
-	// 		fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
+		case consts.JoinedEvent:
+			fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator)
+		case consts.LeftEvent:
+			fmt.Printf(clearln+Info+"%s left the game\n\n", event.Client.Operator)
 
-	// 	case consts.ConnectedEvent:
-	// 		session := event.Session
-	// 		fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n\n",
-	// 			session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
+		case consts.StoppedEvent:
+			job := event.Job
+			fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
 
-	// 	case consts.DisconnectedEvent:
-	// 		session := event.Session
-	// 		fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
-	// 			session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
-	// 		activeSliver := cmd.ActiveSliver.Sliver
-	// 		if activeSliver != nil && session.ID == activeSliver.ID {
-	// 			cmd.ActiveSliver.SetActiveSliver(nil)
-	// 			app.SetPrompt(getPrompt())
-	// 			fmt.Printf(Warn + " Active sliver disconnected\n")
-	// 		}
-	// 		fmt.Println()
+		case consts.ConnectedEvent:
+			session := event.Session
+			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n\n",
+				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
 
-	// 	}
+		case consts.DisconnectedEvent:
+			session := event.Session
+			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
+				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
+			activeSession := cmd.ActiveSession.Get()
+			if activeSession != nil && activeSession.ID == session.ID {
+				cmd.ActiveSession.Set(nil)
+				app.SetPrompt(getPrompt())
+				fmt.Printf(Warn + " Active session disconnected\n")
+			}
+			fmt.Println()
+		}
 
-	// 	fmt.Printf(getPrompt())
-	// 	stdout.Flush()
-	// }
+		fmt.Printf(getPrompt())
+		stdout.Flush()
+	}
 }
 
 func getPrompt() string {

@@ -41,10 +41,11 @@ func StartClientConsole() error {
 	}
 
 	fmt.Printf(Info+"Connecting to %s:%d ...\n", config.LHost, config.LPort)
-	rpc, _, err := transport.MTLSConnect(config)
+	rpc, ln, err := transport.MTLSConnect(config)
 	if err != nil {
 		fmt.Printf(Warn+"Connection to server failed %v", err)
 		return nil
 	}
+	defer ln.Close()
 	return Start(rpc, func(*grumble.App, rpcpb.SliverRPCClient) {})
 }

@@ -52,14 +52,14 @@ func sessions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		for _, session := range sessions.Sessions {
 			err := killSession(session, rpc)
 			if err != nil {
-				fmt.Printf(Warn+"Error: %v", err)
+				fmt.Printf(Warn+"%s\n", err)
 			}
 			fmt.Printf(Info+"Killed %s (%d)\n", session.Name, session.ID)
 		}
 		return
 	}
 	if kill != "" {
-		session := getSession(kill, rpc)
+		session := GetSession(kill, rpc)
 		if session.ID == ActiveSession.Get().ID {
 			ActiveSession.Background()
 		}
@@ -71,7 +71,7 @@ func sessions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	if interact != "" {
-		session := getSession(interact, rpc)
+		session := GetSession(interact, rpc)
 		if session != nil {
 			ActiveSession.Set(session)
 			fmt.Printf(Info+"Active session %s (%d)\n", session.Name, session.ID)
@@ -163,7 +163,7 @@ func use(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn + "Missing sliver name or session number, see `help use`\n")
 		return
 	}
-	session := getSession(ctx.Args[0], rpc)
+	session := GetSession(ctx.Args[0], rpc)
 	if session != nil {
 		ActiveSession.Set(session)
 		fmt.Printf(Info+"Active session %s (%d)\n", session.Name, session.ID)

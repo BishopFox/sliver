@@ -118,8 +118,10 @@ const (
 	WebsitesStr = "websites"
 
 	ScreenshotStr = "screenshot"
+)
 
-	// Groups
+// Groups
+const (
 	GenericHelpGroup     = "Generic:"
 	SliverHelpGroup      = "Sliver:"
 	SliverWinHelpGroup   = "Sliver - Windows:"

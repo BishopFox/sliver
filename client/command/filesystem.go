@@ -19,15 +19,21 @@ package command
 */
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
+	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
+	"gopkg.in/AlecAivazis/survey.v1"
 
 	"github.com/desertbit/grumble"
 )
@@ -148,169 +154,145 @@ func pwd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 }
 
-// func cat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-// 	if ActiveSession.Session == nil {
-// 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-// 		return
-// 	}
+func cat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
 
-// 	if len(ctx.Args) == 0 {
-// 		fmt.Printf(Warn + "Missing parameter: file name\n")
-// 		return
-// 	}
+	if len(ctx.Args) == 0 {
+		fmt.Printf(Warn + "Missing parameter: file name\n")
+		return
+	}
 
-// 	data, _ := proto.Marshal(&sliverpb.DownloadReq{
-// 		SliverID: ActiveSession.Session.ID,
-// 		Path:     ctx.Args[0],
-// 	})
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: sliverpb.MsgDownloadReq,
-// 		Data: data,
-// 	}, defaultTimeout)
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"Error: %s", resp.Err)
-// 		return
-// 	}
+	download, err := rpc.Download(context.Background(), &sliverpb.DownloadReq{
+		Request: ActiveSession.Request(),
+		Path:    ctx.Args[0],
+	})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+	if download.Encoder == "gzip" {
+		download.Data, err = new(util.Gzip).Decode(download.Data)
+		if err != nil {
+			fmt.Printf(Warn+"%s\n", err)
+			return
+		}
+	}
+	fmt.Printf(string(download.Data))
+}
 
-// 	download := &sliverpb.Download{}
-// 	proto.Unmarshal(resp.Data, download)
-// 	if download.Encoder == "gzip" {
-// 		download.Data, _ = new(util.Gzip).Decode(download.Data)
-// 	}
-// 	fmt.Printf(string(download.Data))
-// }
+func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
 
-// func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-// 	if ActiveSession.Session == nil {
-// 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-// 		return
-// 	}
+	// cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
 
-// 	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
+	if len(ctx.Args) < 1 {
+		fmt.Println(Warn + "Missing parameter(s), see `help download`\n")
+		return
+	}
+	if len(ctx.Args) == 1 {
+		ctx.Args = append(ctx.Args, ".")
+	}
 
-// 	if len(ctx.Args) < 1 {
-// 		fmt.Println(Warn + "Missing parameter(s), see `help download`\n")
-// 		return
-// 	}
-// 	if len(ctx.Args) == 1 {
-// 		ctx.Args = append(ctx.Args, ".")
-// 	}
+	src := ctx.Args[0]
+	fileName := filepath.Base(src)
+	dst, _ := filepath.Abs(ctx.Args[1])
+	fi, err := os.Stat(dst)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+	if fi.IsDir() {
+		dst = path.Join(dst, fileName)
+	}
 
-// 	src := ctx.Args[0]
-// 	fileName := filepath.Base(src)
-// 	dst, _ := filepath.Abs(ctx.Args[1])
-// 	fi, err := os.Stat(dst)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"%v\n", err)
-// 		return
-// 	}
-// 	if fi.IsDir() {
-// 		dst = path.Join(dst, fileName)
-// 	}
+	if _, err := os.Stat(dst); err == nil {
+		overwrite := false
+		prompt := &survey.Confirm{Message: "Overwrite local file?"}
+		survey.AskOne(prompt, &overwrite, nil)
+		if !overwrite {
+			return
+		}
+	}
 
-// 	if _, err := os.Stat(dst); err == nil {
-// 		overwrite := false
-// 		prompt := &survey.Confirm{Message: "Overwrite local file?"}
-// 		survey.AskOne(prompt, &overwrite, nil)
-// 		if !overwrite {
-// 			return
-// 		}
-// 	}
+	ctrl := make(chan bool)
+	go spin.Until(fmt.Sprintf("%s -> %s", fileName, dst), ctrl)
+	download, err := rpc.Download(context.Background(), &sliverpb.DownloadReq{
+		Request: ActiveSession.Request(),
+		Path:    ctx.Args[0],
+	})
+	ctrl <- true
+	<-ctrl
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
 
-// 	ctrl := make(chan bool)
-// 	go spin.Until(fmt.Sprintf("%s -> %s", fileName, dst), ctrl)
-// 	data, _ := proto.Marshal(&sliverpb.DownloadReq{
-// 		SliverID: ActiveSession.Session.ID,
-// 		Path:     ctx.Args[0],
-// 	})
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: sliverpb.MsgDownloadReq,
-// 		Data: data,
-// 	}, cmdTimeout)
-// 	ctrl <- true
-// 	<-ctrl
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"Error: %s", resp.Err)
-// 		return
-// 	}
+	if download.Encoder == "gzip" {
+		download.Data, _ = new(util.Gzip).Decode(download.Data)
+	}
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		fmt.Printf(Warn+"Failed to open local file %s: %s\n", dst, err)
+		return
+	}
+	defer dstFile.Close()
+	n, err := dstFile.Write(download.Data)
+	if err != nil {
+		fmt.Printf(Warn+"Failed to write data %v\n", err)
+	} else {
+		fmt.Printf(Info+"Wrote %d bytes to %s\n", n, dstFile.Name())
+	}
+}
 
-// 	download := &sliverpb.Download{}
-// 	proto.Unmarshal(resp.Data, download)
-// 	if download.Encoder == "gzip" {
-// 		download.Data, _ = new(util.Gzip).Decode(download.Data)
-// 	}
-// 	f, err := os.Create(dst)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Failed to open local file %s: %v\n", dst, err)
-// 	}
-// 	defer f.Close()
-// 	n, err := f.Write(download.Data)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Failed to write data %v\n", err)
-// 	} else {
-// 		fmt.Printf(Info+"Wrote %d bytes to %s\n", n, dst)
-// 	}
-// }
+func upload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
 
-// func upload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	if len(ctx.Args) < 1 {
+		fmt.Printf(Warn + "Missing parameter, see `help upload`\n")
+		return
+	}
 
-// 	if ActiveSession.Session == nil {
-// 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-// 		return
-// 	}
-// 	if len(ctx.Args) < 1 {
-// 		fmt.Println(Warn + "Missing parameter, see `help upload`\n")
-// 		return
-// 	}
+	// cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
 
-// 	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
+	src, _ := filepath.Abs(ctx.Args[0])
+	_, err := os.Stat(src)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
 
-// 	src, _ := filepath.Abs(ctx.Args[0])
-// 	_, err := os.Stat(src)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"%v\n", err)
-// 		return
-// 	}
+	if len(ctx.Args) == 1 {
+		fileName := filepath.Base(src)
+		ctx.Args = append(ctx.Args, fileName)
+	}
+	dst := ctx.Args[1]
 
-// 	if len(ctx.Args) == 1 {
-// 		fileName := filepath.Base(src)
-// 		ctx.Args = append(ctx.Args, fileName)
-// 	}
-// 	dst := ctx.Args[1]
+	fileBuf, err := ioutil.ReadFile(src)
+	uploadGzip := bytes.NewBuffer([]byte{})
+	new(util.Gzip).Encode(uploadGzip, fileBuf)
 
-// 	fileBuf, err := ioutil.ReadFile(src)
-// 	uploadGzip := bytes.NewBuffer([]byte{})
-// 	new(util.Gzip).Encode(uploadGzip, fileBuf)
-
-// 	ctrl := make(chan bool)
-// 	go spin.Until(fmt.Sprintf("%s -> %s", src, dst), ctrl)
-// 	data, _ := proto.Marshal(&sliverpb.UploadReq{
-// 		SliverID: ActiveSession.Session.ID,
-// 		Path:     dst,
-// 		Data:     uploadGzip.Bytes(),
-// 		Encoder:  "gzip",
-// 	})
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: sliverpb.MsgUploadReq,
-// 		Data: data,
-// 	}, cmdTimeout)
-// 	ctrl <- true
-// 	<-ctrl
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"Error: %s", resp.Err)
-// 		return
-// 	}
-
-// 	upload := &sliverpb.Upload{}
-// 	err = proto.Unmarshal(resp.Data, upload)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-// 		return
-// 	}
-// 	if upload.Success {
-// 		fmt.Printf(clearln+Info+"Written to %s\n", upload.Path)
-// 	} else {
-// 		fmt.Printf(Warn+"Error %s\n", upload.Err)
-// 	}
-
-// }
+	ctrl := make(chan bool)
+	go spin.Until(fmt.Sprintf("%s -> %s", src, dst), ctrl)
+	upload, err := rpc.Upload(context.Background(), &sliverpb.UploadReq{
+		Request: ActiveSession.Request(),
+		Path:    dst,
+		Data:    uploadGzip.Bytes(),
+		Encoder: "gzip",
+	})
+	ctrl <- true
+	<-ctrl
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+	} else {
+		fmt.Printf(clearln+Info+"Wrote file to %s\n", upload.Path)
+	}
+}

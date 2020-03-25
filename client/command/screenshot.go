@@ -52,8 +52,8 @@ func screenshot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	timestamp := time.Now().Format("20060102150405")
-	tmpfileName := path.Base(fmt.Sprintf("screenshot_%s_%s_*.png", session.Name, session.ID, timestamp))
-	tmpFile, err := ioutil.TempFile("", tmpfileName)
+	tmpFileName := path.Base(fmt.Sprintf("screenshot_%s_%d_%s.png", session.Name, session.ID, timestamp))
+	tmpFile, err := ioutil.TempFile("", tmpFileName)
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
 		return

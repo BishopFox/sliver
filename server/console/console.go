@@ -44,7 +44,7 @@ func Start() {
 	})
 	conn, err := grpc.DialContext(context.Background(), "bufnet", ctxDialer, grpc.WithInsecure())
 	if err != nil {
-		fmt.Printf(Warn+"Failed to dial bufnet: %v", err)
+		fmt.Printf(Warn+"Failed to dial bufnet: %s", err)
 		return
 	}
 	defer conn.Close()

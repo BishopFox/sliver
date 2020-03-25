@@ -125,8 +125,8 @@ func (s *activeSession) Background() {
 	}
 }
 
-// Get session by session ID or name
-func getSession(arg string, rpc rpcpb.SliverRPCClient) *clientpb.Session {
+// GetSession - Get session by session ID or name
+func GetSession(arg string, rpc rpcpb.SliverRPCClient) *clientpb.Session {
 	sessions, err := rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
@@ -140,8 +140,8 @@ func getSession(arg string, rpc rpcpb.SliverRPCClient) *clientpb.Session {
 	return nil
 }
 
-// SessionsByName - Return all sessions for an Implant by name
-func SessionsByName(name string, rpc rpcpb.SliverRPCClient) []*clientpb.Session {
+// GetSessionsByName - Return all sessions for an Implant by name
+func GetSessionsByName(name string, rpc rpcpb.SliverRPCClient) []*clientpb.Session {
 	sessions, err := rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
