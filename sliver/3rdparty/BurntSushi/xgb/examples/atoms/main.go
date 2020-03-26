@@ -9,8 +9,8 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"github.com/BurntSushi/xgb"
-	"github.com/BurntSushi/xgb/xproto"
+	"github.com/bishopfox/sliver/sliver/3rdparty/BurntSushi/xgb"
+	"github.com/bishopfox/sliver/sliver/3rdparty/BurntSushi/xgb/xproto"
 )
 
 var (

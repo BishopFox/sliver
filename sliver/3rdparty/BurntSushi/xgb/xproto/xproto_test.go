@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BurntSushi/xgb"
+	"github.com/bishopfox/sliver/sliver/3rdparty/BurntSushi/xgb"
 )
 
 // The X connection used throughout testing.
