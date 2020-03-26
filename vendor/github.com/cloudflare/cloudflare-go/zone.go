@@ -832,3 +832,14 @@ func (api *API) UpdateZoneSingleSetting(zoneID, settingName string, setting Zone
 
 	return response, nil
 }
+
+// ZoneExport returns the text BIND config for the given zone
+//
+// API reference: https://api.cloudflare.com/#dns-records-for-a-zone-export-dns-records
+func (api *API) ZoneExport(zoneID string) (string, error) {
+	res, err := api.makeRequest("GET", "/zones/"+zoneID+"/dns_records/export", nil)
+	if err != nil {
+		return "", errors.Wrap(err, errMakeRequestError)
+	}
+	return string(res), nil
+}
