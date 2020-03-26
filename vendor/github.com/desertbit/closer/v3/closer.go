@@ -44,6 +44,7 @@
 package closer
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -133,6 +134,12 @@ type Closer interface {
 	// See Close() for the position in the closing order.
 	ClosingChan() <-chan struct{}
 
+	// Context returns a context.Context, which is cancelled
+	// as soon as the closer is closing.
+	// The returned cancel func should be called as soon as the
+	// context is no longer needed, to free resources.
+	Context() (context.Context, context.CancelFunc)
+
 	// IsClosed returns a boolean indicating
 	// whether this instance has been closed completely.
 	IsClosed() bool
@@ -160,6 +167,10 @@ type Closer interface {
 //######################//
 //### Implementation ###//
 //######################//
+
+const (
+	minChildrenCap = 100
+)
 
 // The closer type is this package's implementation of the Closer interface.
 type closer struct {
@@ -196,11 +207,13 @@ type closer struct {
 	// its parent closes, a two-way closer closes also its parent, when
 	// it itself gets closed.
 	twoWay bool
+
+	// The index of this closer in its parent's children slice.
+	// Needed to efficiently remove the closer from its parent.
+	parentIndex int
 }
 
 // New creates a new closer.
-// Optional pass functions which are called only once during close.
-// Close function are called in LIFO order.
 func New() Closer {
 	return newCloser()
 }
@@ -243,10 +256,16 @@ func (c *closer) Close() error {
 
 	c.mx.Unlock()
 
-	// If this is a twoWay closer, close the parent now as well,
-	// but only if it is not closing already!
-	if c.twoWay && c.parent != nil && !c.parent.IsClosing() {
-		c.parent.Close_()
+	// Close the parent now as well, if this is a two way closer.
+	// Otherwise, the closer must remove its reference from its parent's children
+	// to prevent a leak.
+	// Only perform these actions, if the parent is not closing already!
+	if c.parent != nil && !c.parent.IsClosing() {
+		if c.twoWay {
+			c.parent.Close_()
+		} else {
+			c.parent.removeChild(c)
+		}
 	}
 
 	return c.closeErr
@@ -296,6 +315,21 @@ func (c *closer) CloserTwoWay() Closer {
 // Implements the Closer interface.
 func (c *closer) ClosingChan() <-chan struct{} {
 	return c.closingChan
+}
+
+// Implements the Closer interface.
+func (c *closer) Context() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		select {
+		case <-c.closingChan:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
+	return ctx, cancel
 }
 
 // Implements the Closer interface.
@@ -353,25 +387,37 @@ func (c *closer) addChild(twoWay bool) *closer {
 	child.parent = c
 	child.twoWay = twoWay
 
-	if twoWay {
-		// Add the twoWay closer to the current closer's children.
-		c.mx.Lock()
-		c.children = append(c.children, child)
-		c.mx.Unlock()
-	} else {
-		// Close oneWay closer in a new routine.
-		c.CloserAddWait(1)
-		go func() {
-			defer c.CloserDone()
-			select {
-			case <-c.ClosingChan():
-			case <-child.ClosingChan():
-			}
-			child.Close_()
-		}()
-	}
+	// Add the closer to the current closer's children.
+	c.mx.Lock()
+	child.parentIndex = len(c.children)
+	c.children = append(c.children, child)
+	c.mx.Unlock()
 
 	return child
+}
+
+// removeChild removes the given child from this closer's children.
+// If the child can not be found, this is a no-op.
+func (c *closer) removeChild(child *closer) {
+	c.mx.Lock()
+	defer c.mx.Unlock()
+
+	last := len(c.children) - 1
+	c.children[last].parentIndex = child.parentIndex
+	c.children[child.parentIndex] = c.children[last]
+	c.children[last] = nil
+	c.children = c.children[:last]
+
+	// Prevent endless growth.
+	// If the capacity is bigger than our min value and
+	// four times larger than the length, shrink it by half.
+	cp := cap(c.children)
+	le := len(c.children)
+	if cp > minChildrenCap && cp > 4*le {
+		children := make([]*closer, le, le*2)
+		copy(children, c.children)
+		c.children = children
+	}
 }
 
 // execCloseFuncs executes the given close funcs and appends them

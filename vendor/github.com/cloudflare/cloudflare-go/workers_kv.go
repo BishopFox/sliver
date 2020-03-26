@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/pkg/errors"
 )
@@ -82,19 +83,39 @@ func (api *API) CreateWorkersKVNamespace(ctx context.Context, req *WorkersKVName
 // ListWorkersKVNamespaces lists storage namespaces
 //
 // API reference: https://api.cloudflare.com/#workers-kv-namespace-list-namespaces
-func (api *API) ListWorkersKVNamespaces(ctx context.Context) (ListWorkersKVNamespacesResponse, error) {
-	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces", api.AccountID)
-	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
-	if err != nil {
-		return ListWorkersKVNamespacesResponse{}, errors.Wrap(err, errMakeRequestError)
+func (api *API) ListWorkersKVNamespaces(ctx context.Context) ([]WorkersKVNamespace, error) {
+	v := url.Values{}
+	v.Set("per_page", "100")
+
+	var namespaces []WorkersKVNamespace
+	page := 1
+
+	for {
+		v.Set("page", strconv.Itoa(page))
+		uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces?%s", api.AccountID, v.Encode())
+		res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
+		if err != nil {
+			return []WorkersKVNamespace{}, errors.Wrap(err, errMakeRequestError)
+		}
+
+		var p ListWorkersKVNamespacesResponse
+		if err := json.Unmarshal(res, &p); err != nil {
+			return []WorkersKVNamespace{}, errors.Wrap(err, errUnmarshalError)
+		}
+
+		if !p.Success {
+			return []WorkersKVNamespace{}, errors.New(errRequestNotSuccessful)
+		}
+
+		namespaces = append(namespaces, p.Result...)
+		if p.ResultInfo.Page >= p.ResultInfo.TotalPages {
+			break
+		}
+
+		page++
 	}
 
-	result := ListWorkersKVNamespacesResponse{}
-	if err := json.Unmarshal(res, &result); err != nil {
-		return result, errors.Wrap(err, errUnmarshalError)
-	}
-
-	return result, err
+	return namespaces, nil
 }
 
 // DeleteWorkersKVNamespace deletes the namespace corresponding to the given ID

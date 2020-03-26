@@ -39,3 +39,8 @@ Before committing the code, please check if it passes all tests using
 ```bash
 make qa
 ```
+
+## License
+
+As this is a highly derivative work, I have placed it under the same license as the original implementation.  See the
+LICENSE file for details.
