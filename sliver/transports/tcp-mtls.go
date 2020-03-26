@@ -33,7 +33,7 @@ import (
 
 	"os"
 
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/golang/protobuf/proto"
 )

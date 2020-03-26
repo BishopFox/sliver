@@ -24,7 +24,7 @@ import (
 	// {{else}}
 	// {{end}}
 
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 var (
@@ -45,7 +45,6 @@ var (
 		pb.MsgScreenshotReq: screenshotHandler,
 
 		pb.MsgSideloadReq: sideloadHandler,
-
 	}
 )
 

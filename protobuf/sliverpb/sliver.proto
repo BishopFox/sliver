@@ -144,8 +144,7 @@ message RmReq {
 }
 
 message Rm {
-  bool Success = 1;
-  string Path = 2;
+  string Path = 1;
 
   commonpb.Response Response = 9;
 }
@@ -157,8 +156,7 @@ message MkdirReq {
 }
 
 message Mkdir {
-  bool Success = 1;
-  string Path = 2;
+  string Path = 1;
 
   commonpb.Response Response = 9;
 }
@@ -188,7 +186,6 @@ message UploadReq {
 
 message Upload {
   string Path = 1;
-  bool Success = 2;
 
   commonpb.Response Response = 9;
 }
@@ -423,6 +420,8 @@ message TunnelClose {
 message ShellReq {
   string Path = 1;
   bool EnablePTY = 2;
+  
+  uint64 TunnelID = 8;
 
   commonpb.Request Request = 9;
 }

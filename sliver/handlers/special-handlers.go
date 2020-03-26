@@ -21,7 +21,7 @@ package handlers
 import (
 	"os"
 
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/sliver/transports"
 
 	// {{if .IsSharedLib}}
@@ -36,7 +36,7 @@ import (
 )
 
 var specialHandlers = map[uint32]SpecialHandler{
-	pb.MsgKill: killHandler,
+	sliverpb.MsgKillSessionReq: killHandler,
 }
 
 // GetSpecialHandlers returns the specialHandlers map
@@ -45,7 +45,7 @@ func GetSpecialHandlers() map[uint32]SpecialHandler {
 }
 
 func killHandler(data []byte, connection *transports.Connection) error {
-	killReq := &pb.KillReq{}
+	killReq := &sliverpb.KillSessionReq{}
 	err := proto.Unmarshal(data, killReq)
 	// {{if .Debug}}
 	println("KILL called")

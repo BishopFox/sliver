@@ -36,7 +36,7 @@ import (
 
 	"log"
 
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	consts "github.com/bishopfox/sliver/sliver/constants"
 	"github.com/bishopfox/sliver/sliver/handlers"
 	"github.com/bishopfox/sliver/sliver/limits"

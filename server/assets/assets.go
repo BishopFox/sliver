@@ -166,7 +166,7 @@ func setupGo(appDir string) error {
 	return nil
 }
 
-// SetupGoPath - Extracts dependancies to goPathSrc
+// SetupGoPath - Extracts dependencies to goPathSrc
 func SetupGoPath(goPathSrc string) error {
 
 	// GOPATH setup
@@ -175,23 +175,31 @@ func SetupGoPath(goPathSrc string) error {
 		os.MkdirAll(goPathSrc, os.ModePerm)
 	}
 
-	// Protobuf dependencies
-	pbGoSrc, err := protobufBox.Find("sliver/sliver.pb.go")
+	// Sliver PB
+	sliverpbGoSrc, err := protobufBox.Find("sliverpb/sliver.pb.go")
 	if err != nil {
 		setupLog.Info("static asset not found: sliver.pb.go")
 		return err
 	}
-	pbConstSrc, err := protobufBox.Find("sliver/constants.go")
+	sliverpbConstSrc, err := protobufBox.Find("sliverpb/constants.go")
 	if err != nil {
 		setupLog.Info("static asset not found: constants.go")
 		return err
 	}
+	sliverpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliverpb")
+	os.MkdirAll(sliverpbDir, os.ModePerm)
+	ioutil.WriteFile(path.Join(sliverpbDir, "constants.go"), sliverpbGoSrc, 0644)
+	ioutil.WriteFile(path.Join(sliverpbDir, "sliver.pb.go"), sliverpbConstSrc, 0644)
 
-	protobufDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliver")
-	os.MkdirAll(protobufDir, os.ModePerm)
-	ioutil.WriteFile(path.Join(protobufDir, "constants.go"), pbGoSrc, 0644)
-
-	ioutil.WriteFile(path.Join(protobufDir, "sliver.pb.go"), pbConstSrc, 0644)
+	// Common PB
+	commonpbSrc, err := protobufBox.Find("commonpb/common.pb.go")
+	if err != nil {
+		setupLog.Info("static asset not found: common.pb.go")
+		return err
+	}
+	commonpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "commonpb")
+	os.MkdirAll(commonpbDir, os.ModePerm)
+	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0644)
 
 	// GOPATH 3rd party dependencies
 	protobufPath := path.Join(goPathSrc, "github.com", "golang")

@@ -36,7 +36,7 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	// {{if .HTTPc2Enabled}}
 	"github.com/golang/protobuf/proto"

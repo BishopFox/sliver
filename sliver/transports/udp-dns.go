@@ -44,7 +44,7 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	consts "github.com/bishopfox/sliver/sliver/constants"
 

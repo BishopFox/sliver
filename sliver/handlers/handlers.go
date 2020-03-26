@@ -19,7 +19,7 @@ package handlers
 */
 
 import (
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/sliver/transports"
 )
 
