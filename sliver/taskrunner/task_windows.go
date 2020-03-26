@@ -33,11 +33,12 @@ import (
 	"time"
 	"unsafe"
 
+	"syscall"
+
 	"github.com/bishopfox/sliver/sliver/evasion"
 	"github.com/bishopfox/sliver/sliver/syscalls"
 	"github.com/bishopfox/sliver/sliver/version"
 	"golang.org/x/sys/windows"
-	"syscall"
 )
 
 const (
@@ -224,11 +225,6 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 	// Total size to allocate = assembly size + 1024 bytes for the args
 	totalSize := uint32(len(assembly) + 1024)
 	// Padd arguments with 0x00 -- there must be a cleaner way to do that
-	// paramsBytes := []byte(params)
-	// padding := make([]byte, 1024-len(params))
-	// final := append(paramsBytes, padding...)
-	// // Final payload: params + assembly
-	// final = append(final, assembly...)
 
 	// 4 bytes Assembly Size
 	// 4 bytes Params Size

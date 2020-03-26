@@ -39,6 +39,7 @@ type extensionCommand struct {
 	DefaultArgs    string    `json:"defaultArgs"`
 	ExtensionFiles []extFile `json:"extFiles"`
 	IsReflective   bool      `json:"isReflective"`
+	IsAssembly     bool      `json:"IsAssembly"`
 }
 
 func (ec *extensionCommand) getDefaultProcess(targetOS string) (proc string, err error) {
@@ -200,7 +201,9 @@ func runExtensionCommand(ctx *grumble.Context, rpc RPCServer) {
 		fmt.Printf(Warn+"%s", err.Error())
 		return
 	}
-	if c.IsReflective {
+	if c.IsAssembly {
+		runExecuteAssembly(true, binData, strings.Trim(args, " "), processName, cmdTimeout, rpc)
+	} else if c.IsReflective {
 		offset, err := getExportOffset(binPath, c.Entrypoint)
 		if err != nil {
 			fmt.Printf(Warn+"Error: %v\n", err)
