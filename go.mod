@@ -4,17 +4,9 @@ go 1.13
 
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
-<<<<<<< HEAD
-	github.com/Binject/go-donut v0.0.0-20191129042142-b694f312762a
-	github.com/akamensky/argparse v1.2.1 // indirect
-	github.com/aws/aws-sdk-go v1.25.33
-	github.com/cloudflare/cloudflare-go v0.10.7
-	github.com/desertbit/closer/v3 v3.1.1 // indirect
-=======
 	github.com/aws/aws-sdk-go v1.29.32
 	github.com/cloudflare/cloudflare-go v0.11.5
 	github.com/desertbit/closer/v3 v3.1.2 // indirect
->>>>>>> master
 	github.com/desertbit/columnize v2.1.0+incompatible
 	github.com/desertbit/grumble v1.0.4
 	github.com/dgraph-io/badger v1.6.0
