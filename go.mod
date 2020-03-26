@@ -4,6 +4,8 @@ go 1.13
 
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
+	github.com/Binject/go-donut v0.0.0-20191129042142-b694f312762a
+	github.com/akamensky/argparse v1.2.1 // indirect
 	github.com/aws/aws-sdk-go v1.25.33
 	github.com/cloudflare/cloudflare-go v0.10.7
 	github.com/desertbit/closer/v3 v3.1.1 // indirect
