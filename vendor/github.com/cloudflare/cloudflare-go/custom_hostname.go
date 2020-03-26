@@ -55,8 +55,19 @@ type CustomHostnameListResponse struct {
 // hostname in the given zone.
 //
 // API reference: https://api.cloudflare.com/#custom-hostname-for-a-zone-update-custom-hostname-configuration
-func (api *API) UpdateCustomHostnameSSL(zoneID string, customHostnameID string, ssl CustomHostnameSSL) (CustomHostname, error) {
-	return CustomHostname{}, errors.New("Not implemented")
+func (api *API) UpdateCustomHostnameSSL(zoneID string, customHostnameID string, ssl CustomHostnameSSL) (*CustomHostnameResponse, error) {
+	uri := "/zones/" + zoneID + "/custom_hostnames/" + customHostnameID
+	res, err := api.makeRequest("PATCH", uri, ssl)
+	if err != nil {
+		return nil, errors.Wrap(err, errMakeRequestError)
+	}
+
+	var response *CustomHostnameResponse
+	err = json.Unmarshal(res, &response)
+	if err != nil {
+		return nil, errors.Wrap(err, errUnmarshalError)
+	}
+	return response, nil
 }
 
 // DeleteCustomHostname deletes a custom hostname (and any issued SSL

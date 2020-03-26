@@ -61,12 +61,82 @@ type AccessGroupEveryone struct {
 	Everyone struct{} `json:"everyone"`
 }
 
+// AccessGroupServiceToken is used for managing access based on a specific
+// service token.
+type AccessGroupServiceToken struct {
+	ServiceToken struct {
+		ID string `json:"token_id"`
+	} `json:"service_token"`
+}
+
+// AccessGroupAnyValidServiceToken is used for managing access for all valid
+// service tokens (not restricted).
+type AccessGroupAnyValidServiceToken struct {
+	AnyValidServiceToken struct{} `json:"any_valid_service_token"`
+}
+
 // AccessGroupAccessGroup is used for managing access based on an
 // access group.
 type AccessGroupAccessGroup struct {
 	Group struct {
 		ID string `json:"id"`
 	} `json:"group"`
+}
+
+// AccessGroupCertificate is used for managing access to based on a valid
+// mTLS cerificate being presented.
+type AccessGroupCertificate struct {
+	Certificate struct{} `json:"certificate"`
+}
+
+// AccessGroupCertificateCommonName is used for managing access based on a
+// common name within a certificate.
+type AccessGroupCertificateCommonName struct {
+	CommonName struct {
+		CommonName string `json:"common_name"`
+	} `json:"common_name"`
+}
+
+// AccessGroupGSuite is used to configure access based on GSuite group.
+type AccessGroupGSuite struct {
+	Gsuite struct {
+		Email              string `json:"email"`
+		IdentityProviderID string `json:"identity_provider_id"`
+	} `json:"gsuite"`
+}
+
+// AccessGroupGitHub is used to configure access based on a GitHub organisation.
+type AccessGroupGitHub struct {
+	GitHubOrganization struct {
+		Name               string `json:"name"`
+		IdentityProviderID string `json:"identity_provider_id"`
+	} `json:"github-organization"`
+}
+
+// AccessGroupAzure is used to configure access based on a Azure group.
+type AccessGroupAzure struct {
+	AzureAD struct {
+		ID                 string `json:"id"`
+		IdentityProviderID string `json:"identity_provider_id"`
+	} `json:"azureAD"`
+}
+
+// AccessGroupOkta is used to configure access based on a Okta group.
+type AccessGroupOkta struct {
+	Otka struct {
+		Name               string `json:"name"`
+		IdentityProviderID string `json:"identity_provider_id"`
+	} `json:"otka"`
+}
+
+// AccessGroupSAML is used to allow SAML users with a specific attribute
+// configuration.
+type AccessGroupSAML struct {
+	Saml struct {
+		AttributeName      string `json:"attribute_name"`
+		AttributeValue     string `json:"attribute_value"`
+		IdentityProviderID string `json:"identity_provider_id"`
+	} `json:"saml"`
 }
 
 // AccessGroupListResponse represents the response from the list

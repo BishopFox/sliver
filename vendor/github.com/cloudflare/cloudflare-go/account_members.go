@@ -25,7 +25,7 @@ type AccountMemberUserDetails struct {
 	FirstName                      string `json:"first_name"`
 	LastName                       string `json:"last_name"`
 	Email                          string `json:"email"`
-	TwoFactorAuthenticationEnabled bool
+	TwoFactorAuthenticationEnabled bool   `json:"two_factor_authentication_enabled"`
 }
 
 // AccountMembersListResponse represents the response from the list

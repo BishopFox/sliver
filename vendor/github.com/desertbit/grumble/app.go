@@ -123,10 +123,23 @@ func (a *App) Commands() *Commands {
 // PrintError prints the given error.
 func (a *App) PrintError(err error) {
 	if a.config.NoColor {
-		fmt.Printf("error: %v\n", err)
+		a.Printf("error: %v\n", err)
 	} else {
-		fmt.Printf("%s %v\n", a.config.ErrorColor.Sprintf("error:"), err)
+		a.config.ErrorColor.Fprint(a, "error: ")
+		a.Printf("%v\n", err)
 	}
+}
+
+// Printf formats according to a format specifier and writes to terminal output.
+// Printf writes to standard output if terminal output is not yet active.
+func (a *App) Printf(format string, args ...interface{}) (int, error) {
+	return fmt.Fprintf(a, format, args...)
+}
+
+// Println writes to terminal output followed by a newline.
+// Println writes to standard output if terminal output is not yet active.
+func (a *App) Println(args ...interface{}) (int, error) {
+	return fmt.Fprintln(a, args...)
 }
 
 // OnInit sets the function which will be executed before the first command
@@ -166,14 +179,45 @@ func (a *App) SetPrintASCIILogo(f func(a *App)) {
 	}
 }
 
+// Write to the underlying output, using readline if available.
+func (a *App) Write(p []byte) (int, error) {
+	return a.Stdout().Write(p)
+}
+
+// Stdout returns a writer to Stdout, using readline if available.
+// Note that calling before Run() will return a different instance.
+func (a *App) Stdout() io.Writer {
+	if a.rl != nil {
+		return a.rl.Stdout()
+	}
+	return os.Stdout
+}
+
+// Stderr returns a writer to Stderr, using readline if available.
+// Note that calling before Run() will return a different instance.
+func (a *App) Stderr() io.Writer {
+	if a.rl != nil {
+		return a.rl.Stderr()
+	}
+	return os.Stderr
+}
+
 // AddCommand adds a new command.
 // Panics on error.
 func (a *App) AddCommand(cmd *Command) {
+	a.addCommand(cmd, true)
+}
+
+// addCommand adds a new command.
+// If addHelpFlag is true, a help flag is automatically
+// added to the command which displays its usage on use.
+// Panics on error.
+func (a *App) addCommand(cmd *Command, addHelpFlag bool) {
 	err := cmd.validate()
 	if err != nil {
 		panic(err)
 	}
-	cmd.registerFlags()
+	cmd.registerFlags(addHelpFlag)
 
 	a.commands.Add(cmd)
 }
@@ -196,14 +240,14 @@ func (a *App) RunCommand(args []string) error {
 		return fmt.Errorf("command '%s' requires no arguments, try 'help'", cmd.Name)
 	}
 
-	// Create the context and pass the rest args.
-	ctx := newContext(a, cmd, fg, args)
-
-	// Print the command help if the command run function is nil.
-	if cmd.Run == nil {
+	// Print the command help if the command run function is nil or if the help flag is set.
+	if fg.Bool("help") || cmd.Run == nil {
 		a.printCommandHelp(a, cmd, a.isShell)
 		return nil
 	}
+
+	// Create the context and pass the rest args.
+	ctx := newContext(a, cmd, fg, args)
 
 	// Run the command.
 	err = cmd.Run(ctx)
@@ -241,7 +285,7 @@ func (a *App) Run() (err error) {
 	a.isShell = len(args) == 0
 
 	// Add general builtin commands.
-	a.AddCommand(&Command{
+	a.addCommand(&Command{
 		Name:      "help",
 		Help:      "use 'help [command]' for command help",
 		AllowArgs: true,
@@ -260,7 +304,7 @@ func (a *App) Run() (err error) {
 			a.printCommandHelp(a, cmd, a.isShell)
 			return nil
 		},
-	})
+	}, false)
 
 	// Check if help should be displayed.
 	if a.flagMap.Bool("help") {
@@ -294,7 +338,7 @@ func (a *App) Run() (err error) {
 		Name: "clear",
 		Help: "clear the screen",
 		Run: func(c *Context) error {
-			_, _ = readline.ClearScreen(a.rl)
+			readline.ClearScreen(a.rl)
 			return nil
 		},
 	})
