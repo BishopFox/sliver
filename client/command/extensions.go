@@ -129,9 +129,10 @@ func load(ctx *grumble.Context, rpc RPCServer) {
 		// Have to use a global map here, as passing the extCmd
 		// either by value or by ref fucks things up
 		commandMap[extCmd.Name] = *ext
+		helpMsg := fmt.Sprintf("[%s] %s", ext.Name, extCmd.Help)
 		ctx.App.AddCommand(&grumble.Command{
 			Name:      extCmd.Name,
-			Help:      extCmd.Help,
+			Help:      helpMsg,
 			LongHelp:  help.FormatHelpTmpl(extCmd.LongHelp),
 			AllowArgs: extCmd.AllowArgs,
 			Run: func(extCtx *grumble.Context) error {
