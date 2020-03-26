@@ -83,7 +83,12 @@ func (c *Command) validate() error {
 	return nil
 }
 
-func (c *Command) registerFlags() {
+func (c *Command) registerFlags(addHelpFlag bool) {
+	if addHelpFlag {
+		// Add default help command.
+		c.flags.Bool("h", "help", false, "display help")
+	}
+
 	if c.Flags != nil {
 		c.Flags(&c.flags)
 	}
@@ -103,7 +108,7 @@ func (c *Command) AddCommand(cmd *Command) {
 	}
 
 	cmd.parent = c
-	cmd.registerFlags()
+	cmd.registerFlags(true)
 
 	c.commands.Add(cmd)
 }

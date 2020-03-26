@@ -9,210 +9,51 @@ import (
 
 // AccessIdentityProvider is the structure of the provider object.
 type AccessIdentityProvider struct {
-	ID     string      `json:"id,omitemtpy"`
-	Name   string      `json:"name"`
-	Type   string      `json:"type"`
-	Config interface{} `json:"config"`
+	ID     string                              `json:"id,omitemtpy"`
+	Name   string                              `json:"name"`
+	Type   string                              `json:"type"`
+	Config AccessIdentityProviderConfiguration `json:"config"`
 }
 
-// AccessAzureADConfiguration is the representation of the Azure AD identity
-// provider.
+// AccessIdentityProviderConfiguration is the combined structure of *all*
+// identity provider configuration fields. This is done to simplify the use of
+// Access products and their relationship to each other.
 //
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/azuread/
-type AccessAzureADConfiguration struct {
-	ClientID      string `json:"client_id"`
-	ClientSecret  string `json:"client_secret"`
-	DirectoryID   string `json:"directory_id"`
-	SupportGroups bool   `json:"support_groups"`
-}
-
-// AccessCentrifyConfiguration is the representation of the Centrify identity
-// provider.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/centrify/
-type AccessCentrifyConfiguration struct {
-	ClientID        string `json:"client_id"`
-	ClientSecret    string `json:"client_secret"`
-	CentrifyAccount string `json:"centrify_account"`
-	CentrifyAppID   string `json:"centrify_app_id"`
-}
-
-// AccessCentrifySAMLConfiguration is the representation of the Centrify
-// identity provider using SAML.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/saml-centrify/
-type AccessCentrifySAMLConfiguration struct {
-	IssuerURL          string   `json:"issuer_url"`
-	SsoTargetURL       string   `json:"sso_target_url"`
-	Attributes         []string `json:"attributes"`
-	EmailAttributeName string   `json:"email_attribute_name"`
-	SignRequest        bool     `json:"sign_request"`
-	IdpPublicCert      string   `json:"idp_public_cert"`
-}
-
-// AccessFacebookConfiguration is the representation of the Facebook identity
-// provider.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/facebook-login/
-type AccessFacebookConfiguration struct {
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-}
-
-// AccessGSuiteConfiguration is the representation of the GSuite identity
-// provider.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/gsuite/
-type AccessGSuiteConfiguration struct {
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-	AppsDomain   string `json:"apps_domain"`
-}
-
-// AccessGenericOIDCConfiguration is the representation of the generic OpenID
-// Connect (OIDC) connector.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/generic-oidc/
-type AccessGenericOIDCConfiguration struct {
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-	AuthURL      string `json:"auth_url"`
-	TokenURL     string `json:"token_url"`
-	CertsURL     string `json:"certs_url"`
-}
-
-// AccessGitHubConfiguration is the representation of the GitHub identity
-// provider.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/github/
-type AccessGitHubConfiguration struct {
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-}
-
-// AccessGoogleConfiguration is the representation of the Google identity
-// provider.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/google/
-type AccessGoogleConfiguration struct {
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-}
-
-// AccessJumpCloudSAMLConfiguration is the representation of the Jump Cloud
-// identity provider using SAML.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/jumpcloud-saml/
-type AccessJumpCloudSAMLConfiguration struct {
-	IssuerURL          string   `json:"issuer_url"`
-	SsoTargetURL       string   `json:"sso_target_url"`
-	Attributes         []string `json:"attributes"`
-	EmailAttributeName string   `json:"email_attribute_name"`
-	SignRequest        bool     `json:"sign_request"`
-	IdpPublicCert      string   `json:"idp_public_cert"`
-}
-
-// AccessOktaConfiguration is the representation of the Okta identity provider.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/okta/
-type AccessOktaConfiguration struct {
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-	OktaAccount  string `json:"okta_account"`
-}
-
-// AccessOktaSAMLConfiguration is the representation of the Okta identity
-// provider using SAML.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/saml-okta/
-type AccessOktaSAMLConfiguration struct {
-	IssuerURL          string   `json:"issuer_url"`
-	SsoTargetURL       string   `json:"sso_target_url"`
-	Attributes         []string `json:"attributes"`
-	EmailAttributeName string   `json:"email_attribute_name"`
-	SignRequest        bool     `json:"sign_request"`
-	IdpPublicCert      string   `json:"idp_public_cert"`
-}
-
-// AccessOneTimePinConfiguration is the representation of the default One Time
-// Pin identity provider.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/one-time-pin/
-type AccessOneTimePinConfiguration struct{}
-
-// AccessOneLoginOIDCConfiguration is the representation of the OneLogin
-// OpenID connector as an identity provider.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/onelogin-oidc/
-type AccessOneLoginOIDCConfiguration struct {
-	ClientID        string `json:"client_id"`
-	ClientSecret    string `json:"client_secret"`
-	OneloginAccount string `json:"onelogin_account"`
-}
-
-// AccessOneLoginSAMLConfiguration is the representation of the OneLogin
-// identity provider using SAML.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/onelogin-saml/
-type AccessOneLoginSAMLConfiguration struct {
-	IssuerURL          string   `json:"issuer_url"`
-	SsoTargetURL       string   `json:"sso_target_url"`
-	Attributes         []string `json:"attributes"`
-	EmailAttributeName string   `json:"email_attribute_name"`
-	SignRequest        bool     `json:"sign_request"`
-	IdpPublicCert      string   `json:"idp_public_cert"`
-}
-
-// AccessPingSAMLConfiguration is the representation of the Ping identity
-// provider using SAML.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/ping-saml/
-type AccessPingSAMLConfiguration struct {
-	IssuerURL          string   `json:"issuer_url"`
-	SsoTargetURL       string   `json:"sso_target_url"`
-	Attributes         []string `json:"attributes"`
-	EmailAttributeName string   `json:"email_attribute_name"`
-	SignRequest        bool     `json:"sign_request"`
-	IdpPublicCert      string   `json:"idp_public_cert"`
-}
-
-// AccessYandexConfiguration is the representation of the Yandex identity provider.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/yandex/
-type AccessYandexConfiguration struct {
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-}
-
-// AccessADSAMLConfiguration is the representation of the Active Directory
-// identity provider using SAML.
-//
-// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/adfs/
-type AccessADSAMLConfiguration struct {
-	IssuerURL          string   `json:"issuer_url"`
-	SsoTargetURL       string   `json:"sso_target_url"`
-	Attributes         []string `json:"attributes"`
-	EmailAttributeName string   `json:"email_attribute_name"`
-	SignRequest        bool     `json:"sign_request"`
-	IdpPublicCert      string   `json:"idp_public_cert"`
+// API reference: https://developers.cloudflare.com/access/configuring-identity-providers/
+type AccessIdentityProviderConfiguration struct {
+	AppsDomain         string   `json:"apps_domain,omitempty"`
+	Attributes         []string `json:"attributes,omitempty"`
+	AuthURL            string   `json:"auth_url,omitempty"`
+	CentrifyAccount    string   `json:"centrify_account,omitempty"`
+	CentrifyAppID      string   `json:"centrify_app_id,omitempty"`
+	CertsURL           string   `json:"certs_url,omitempty"`
+	ClientID           string   `json:"client_id,omitempty"`
+	ClientSecret       string   `json:"client_secret,omitempty"`
+	DirectoryID        string   `json:"directory_id,omitempty"`
+	EmailAttributeName string   `json:"email_attribute_name,omitempty"`
+	IdpPublicCert      string   `json:"idp_public_cert,omitempty"`
+	IssuerURL          string   `json:"issuer_url,omitempty"`
+	OktaAccount        string   `json:"okta_account,omitempty"`
+	OneloginAccount    string   `json:"onelogin_account,omitempty"`
+	RedirectURL        string   `json:"redirect_url,omitempty"`
+	SignRequest        bool     `json:"sign_request,omitempty"`
+	SsoTargetURL       string   `json:"sso_target_url,omitempty"`
+	SupportGroups      bool     `json:"support_groups,omitempty"`
+	TokenURL           string   `json:"token_url,omitempty"`
 }
 
 // AccessIdentityProvidersListResponse is the API response for multiple
 // Access Identity Providers.
 type AccessIdentityProvidersListResponse struct {
-	Success  bool                     `json:"success"`
-	Errors   []string                 `json:"errors"`
-	Messages []string                 `json:"messages"`
-	Result   []AccessIdentityProvider `json:"result"`
+	Response
+	Result   []AccessIdentityProvider         `json:"result"`
 }
 
 // AccessIdentityProviderListResponse is the API response for a single
 // Access Identity Provider.
 type AccessIdentityProviderListResponse struct {
-	Success  bool                   `json:"success"`
-	Errors   []string               `json:"errors"`
-	Messages []string               `json:"messages"`
-	Result   AccessIdentityProvider `json:"result"`
+	Response
+	Result   AccessIdentityProvider           `json:"result"`
 }
 
 // AccessIdentityProviders returns all Access Identity Providers for an

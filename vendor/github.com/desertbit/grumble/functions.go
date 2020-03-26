@@ -34,10 +34,10 @@ import (
 
 func defaultInterruptHandler(a *App, count int) {
 	if count >= 2 {
-		fmt.Println("interrupted")
+		a.Println("interrupted")
 		os.Exit(1)
 	}
-	fmt.Println("input Ctrl-c once more to exit")
+	a.Println("input Ctrl-c once more to exit")
 }
 
 func defaultPrintHelp(a *App, shell bool) {
@@ -54,14 +54,14 @@ func defaultPrintHelp(a *App, shell bool) {
 
 	// Description.
 	if (len(a.config.Description)) > 0 {
-		fmt.Printf("\n%s\n", a.config.Description)
+		a.Printf("\n%s\n", a.config.Description)
 	}
 
 	// Usage.
 	if !shell {
-		fmt.Println()
-		printHeadline(a.config, "Usage:")
-		fmt.Printf("  %s [command]\n", a.config.Name)
+		a.Println()
+		printHeadline(a, "Usage:")
+		a.Printf("  %s [command]\n", a.config.Name)
 	}
 
 	// Group the commands by their help group if present.
@@ -101,9 +101,9 @@ func defaultPrintHelp(a *App, shell bool) {
 		}
 
 		if len(output) > 0 {
-			fmt.Println()
-			printHeadline(a.config, headline)
-			fmt.Printf("%s\n", columnize.Format(output, config))
+			a.Println()
+			printHeadline(a, headline)
+			a.Printf("%s\n", columnize.Format(output, config))
 		}
 	}
 
@@ -119,9 +119,9 @@ func defaultPrintHelp(a *App, shell bool) {
 		}
 		if hasSubCmds {
 			// Headline.
-			fmt.Println()
-			printHeadline(a.config, "Sub Commands:")
-			hp := headlinePrinter(a.config)
+			a.Println()
+			printHeadline(a, "Sub Commands:")
+			hp := headlinePrinter(a)
 
 			// Only print the first level of sub commands.
 			for _, c := range a.commands.list {
@@ -138,9 +138,9 @@ func defaultPrintHelp(a *App, shell bool) {
 					output = append(output, fmt.Sprintf("%s | %v", name, c.Help))
 				}
 
-				fmt.Println()
+				a.Println()
 				_, _ = hp(c.Name + ":")
-				fmt.Printf("%s\n", columnize.Format(output, config))
+				a.Printf("%s\n", columnize.Format(output, config))
 			}
 		}
 	}
@@ -150,7 +150,7 @@ func defaultPrintHelp(a *App, shell bool) {
 		printFlags(a, &a.flags)
 	}
 
-	fmt.Println()
+	a.Println()
 }
 
 func defaultPrintCommandHelp(a *App, cmd *Command, shell bool) {
@@ -162,16 +162,16 @@ func defaultPrintCommandHelp(a *App, cmd *Command, shell bool) {
 
 	// Help description.
 	if (len(cmd.LongHelp)) > 0 {
-		fmt.Printf("\n%s\n", cmd.LongHelp)
+		a.Printf("\n%s\n", cmd.LongHelp)
 	} else {
-		fmt.Printf("\n%s\n", cmd.Help)
+		a.Printf("\n%s\n", cmd.Help)
 	}
 
 	// Usage
 	if len(cmd.Usage) > 0 {
-		fmt.Println()
-		printHeadline(a.config, "Usage:")
-		fmt.Printf("  %s\n", cmd.Usage)
+		a.Println()
+		printHeadline(a, "Usage:")
+		a.Printf("  %s\n", cmd.Usage)
 	}
 
 	// Flags.
@@ -189,24 +189,26 @@ func defaultPrintCommandHelp(a *App, cmd *Command, shell bool) {
 			output = append(output, fmt.Sprintf("%s | %v", name, c.Help))
 		}
 
-		fmt.Println()
-		printHeadline(a.config, "Sub Commands:")
-		fmt.Printf("%s\n", columnize.Format(output, config))
+		a.Println()
+		printHeadline(a, "Sub Commands:")
+		a.Printf("%s\n", columnize.Format(output, config))
 	}
 
-	fmt.Println()
+	a.Println()
 }
 
-func headlinePrinter(c *Config) func(v ...interface{}) (int, error) {
-	if c.NoColor || c.HelpHeadlineColor == nil {
-		return fmt.Println
+func headlinePrinter(a *App) func(v ...interface{}) (int, error) {
+	if a.config.NoColor || a.config.HelpHeadlineColor == nil {
+		return a.Println
 	}
-	return c.HelpHeadlineColor.Println
+	return func(v ...interface{}) (int, error) {
+		return a.config.HelpHeadlineColor.Fprintln(a, v...)
+	}
 }
 
-func printHeadline(c *Config, s string) {
-	hp := headlinePrinter(c)
-	if c.HelpHeadlineUnderline {
+func printHeadline(a *App, s string) {
+	hp := headlinePrinter(a)
+	if a.config.HelpHeadlineUnderline {
 		_, _ = hp(s)
 		u := ""
 		for i := 0; i < len(s); i++ {
@@ -244,8 +246,8 @@ func printFlags(a *App, flags *Flags) {
 	}
 
 	if len(output) > 0 {
-		fmt.Println()
-		printHeadline(a.config, "Flags:")
-		fmt.Printf("%s\n", columnize.Format(output, config))
+		a.Println()
+		printHeadline(a, "Flags:")
+		a.Printf("%s\n", columnize.Format(output, config))
 	}
 }
