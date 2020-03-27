@@ -20,33 +20,30 @@ package version
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 )
 
 const (
-	// SliverVersion - Sliver version number
-	SliverVersion = "1.0.0"
-	normal        = "\033[0m"
-	bold          = "\033[1m"
+	normal = "\033[0m"
+	bold   = "\033[1m"
 )
 
-// SemVer - Get sematic version as int slice
-func SemVer() []int {
-	semVer := []int{}
-	for _, part := range strings.Split(SliverVersion, ".") {
-		number, _ := strconv.Atoi(part)
-		semVer = append(semVer, number)
-	}
-	if len(semVer) != 3 {
-		panic("invalid semantic version")
-	}
-	return semVer
+var (
+	// SemanticVersion - Sliver version number
+	SemanticVersion = []int{1, 0, 0}
+)
+
+// SliverVersion - Get sematic version as int slice
+func SliverVersion() string {
+	return fmt.Sprintf("%d.%d.%d",
+		SemanticVersion[0],
+		SemanticVersion[1],
+		SemanticVersion[2],
+	)
 }
 
 // FullVersion - Full version string
 func FullVersion() string {
-	ver := fmt.Sprintf("%s - %s", SliverVersion, GitVersion)
+	ver := fmt.Sprintf("%s - %s", SliverVersion(), GitVersion)
 	if GitDirty != "" {
 		ver += " - " + bold + GitDirty + normal
 	}

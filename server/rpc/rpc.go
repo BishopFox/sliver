@@ -63,12 +63,11 @@ func NewServer() *Server {
 
 // GetVersion - Get the server version
 func (rpc *Server) GetVersion(ctx context.Context, _ *commonpb.Empty) (*clientpb.Version, error) {
-	semVer := version.SemVer()
 	dirty := version.GitDirty != ""
 	return &clientpb.Version{
-		Major:  int32(semVer[0]),
-		Minor:  int32(semVer[1]),
-		Patch:  int32(semVer[2]),
+		Major:  int32(version.SemanticVersion[0]),
+		Minor:  int32(version.SemanticVersion[1]),
+		Patch:  int32(version.SemanticVersion[2]),
 		Commit: version.GitVersion,
 		Dirty:  dirty,
 	}, nil
