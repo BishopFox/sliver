@@ -9,7 +9,7 @@ require (
 	github.com/desertbit/closer/v3 v3.1.2 // indirect
 	github.com/desertbit/columnize v2.1.0+incompatible
 	github.com/desertbit/grumble v1.0.4
-	github.com/dgraph-io/badger v1.6.0
+	github.com/dgraph-io/badger v1.6.1
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/fatih/color v1.9.0
 	github.com/gobuffalo/envy v1.9.0 // indirect
