@@ -138,7 +138,7 @@ func getRootDB() *badger.DB {
 	// DB files are not properly closed.
 	// When sliver-server is restarted, badger.Open() fails
 	// because the DB files on disk are not in the expected state.
-	// Enabling truncation fix that.
+	// Enabling truncation fixes that.
 	// See https://github.com/dgraph-io/badger/issues/744 for more details.
 	if runtime.GOOS == "windows" {
 		opts.Truncate = true
