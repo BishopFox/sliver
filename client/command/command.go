@@ -87,6 +87,14 @@ func (s *activeSession) Get() *clientpb.Session {
 	return s.session
 }
 
+// GetSilent - Same as Get() but doesn't print a warning
+func (s *activeSession) GetSilent() *clientpb.Session {
+	if s.session == nil {
+		return nil
+	}
+	return s.session
+}
+
 // AddObserver - Observers to notify when the active session changes
 func (s *activeSession) AddObserver(observer Observer) int {
 	s.observerID++

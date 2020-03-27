@@ -18,18 +18,35 @@ package version
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
 
 const (
-	// ClientVersion - Client version number
-	ClientVersion = "0.1.0"
+	// SliverVersion - Sliver version number
+	SliverVersion = "1.0.0"
 	normal        = "\033[0m"
 	bold          = "\033[1m"
 )
 
+// SemVer - Get sematic version as int slice
+func SemVer() []int {
+	semVer := []int{}
+	for _, part := range strings.Split(SliverVersion, ".") {
+		number, _ := strconv.Atoi(part)
+		semVer = append(semVer, number)
+	}
+	if len(semVer) != 3 {
+		panic("invalid semantic version")
+	}
+	return semVer
+}
+
 // FullVersion - Full version string
 func FullVersion() string {
-	ver := fmt.Sprintf("%s - %s", ClientVersion, GitVersion)
+	ver := fmt.Sprintf("%s - %s", SliverVersion, GitVersion)
 	if GitDirty != "" {
 		ver += " - " + bold + GitDirty + normal
 	}

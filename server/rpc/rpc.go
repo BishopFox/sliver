@@ -23,6 +23,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -62,13 +63,14 @@ func NewServer() *Server {
 
 // GetVersion - Get the server version
 func (rpc *Server) GetVersion(ctx context.Context, _ *commonpb.Empty) (*clientpb.Version, error) {
-	// clientVer := version.ClientVersion()
+	semVer := version.SemVer()
+	dirty := version.GitDirty != ""
 	return &clientpb.Version{
-		Major: 0,
-		Minor: 0,
-		Patch: 7,
-		// Commit: version.GitVersion,
-		// Dirty:  version.GitDirty,
+		Major:  int32(semVer[0]),
+		Minor:  int32(semVer[1]),
+		Patch:  int32(semVer[2]),
+		Commit: version.GitVersion,
+		Dirty:  dirty,
 	}, nil
 }
 

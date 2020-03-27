@@ -149,7 +149,7 @@ func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			session := event.Session
 			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
-			activeSession := cmd.ActiveSession.Get()
+			activeSession := cmd.ActiveSession.GetSilent()
 			if activeSession != nil && activeSession.ID == session.ID {
 				cmd.ActiveSession.Set(nil)
 				app.SetPrompt(getPrompt())
@@ -165,8 +165,8 @@ func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 func getPrompt() string {
 	prompt := underline + "sliver" + normal
-	if cmd.ActiveSession.Get() != nil {
-		prompt += fmt.Sprintf(bold+red+" (%s)%s", cmd.ActiveSession.Get().Name, normal)
+	if cmd.ActiveSession.GetSilent() != nil {
+		prompt += fmt.Sprintf(bold+red+" (%s)%s", cmd.ActiveSession.GetSilent().Name, normal)
 	}
 	prompt += " > "
 	return prompt
