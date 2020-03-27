@@ -19,6 +19,11 @@ const (
 )
 
 var commandMap map[string]extension
+var defaultHostProc = map[string]string{
+	"windows": windowsDefaultHostProc,
+	"linux":   windowsDefaultHostProc,
+	"darwin":  macosDefaultHostProc,
+}
 
 type binFiles struct {
 	Ext64Path string `json:"x64"`
@@ -43,14 +48,8 @@ type extensionCommand struct {
 }
 
 func (ec *extensionCommand) getDefaultProcess(targetOS string) (proc string, err error) {
-	switch targetOS {
-	case "windows":
-		proc = windowsDefaultHostProc
-	case "linux":
-		proc = linuxDefaultHostProc
-	case "darwin":
-		proc = macosDefaultHostProc
-	default:
+	proc, ok := defaultHostProc[targetOS]
+	if !ok {
 		err = fmt.Errorf("no default process for %s target, please specify one", targetOS)
 	}
 	return
@@ -202,7 +201,7 @@ func runExtensionCommand(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 	if c.IsAssembly {
-		runExecuteAssembly(true, binData, strings.Trim(args, " "), processName, cmdTimeout, rpc)
+		runExecuteAssembly(true, binData, args, processName, cmdTimeout, rpc)
 	} else if c.IsReflective {
 		offset, err := getExportOffset(binPath, c.Entrypoint)
 		if err != nil {
