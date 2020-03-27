@@ -186,7 +186,7 @@ func LocalTask(data []byte, rwxPages bool) error {
 
 func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi bool) (string, error) {
 	assemblySizeArr := convertIntToByteArr(len(assembly))
-	paramsSizeArr := convertIntToByteArr(len(params))
+	paramsSizeArr := convertIntToByteArr(len(params) + 1)
 	err := refresh()
 	if err != nil {
 		return "", err
@@ -238,6 +238,7 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 		payload = append(payload, byte(0))
 	}
 	payload = append(payload, []byte(params)...)
+	payload = append(payload, '\x00')
 	payload = append(payload, assembly...)
 	assemblyAddr, err := allocAndWrite(payload, handle, totalSize)
 	if err != nil {
@@ -429,6 +430,5 @@ func convertIntToByteArr(num int) (arr []byte) {
 	arr = append(arr, byte(v%256))
 	v = v / 256
 	arr = append(arr, byte(v))
-
 	return
 }
