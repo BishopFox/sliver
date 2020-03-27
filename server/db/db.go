@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"runtime"
 	"sync"
 
 	"github.com/bishopfox/sliver/server/assets"
@@ -131,6 +132,17 @@ func getRootDB() *badger.DB {
 	}
 	opts := badger.DefaultOptions(dbDir)
 	opts.Logger = log.NamedLogger("db", "root")
+	// Enable truncation on Windows to prevent sliver-server
+	// from crashing. It has been observed that when sliver-server
+	// is abruptly terminated (via SIGINT for example), the badger
+	// DB files are not properly closed.
+	// When sliver-server is restarted, badger.Open() fails
+	// because the DB files on disk are not in the expected state.
+	// Enabling truncation fix that.
+	// See https://github.com/dgraph-io/badger/issues/744 for more details.
+	if runtime.GOOS == "windows" {
+		opts.Truncate = true
+	}
 	db, err := badger.Open(opts)
 	if err != nil {
 		dbLog.Fatal(err)
