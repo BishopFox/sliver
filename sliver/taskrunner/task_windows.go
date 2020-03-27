@@ -33,11 +33,12 @@ import (
 	"time"
 	"unsafe"
 
+	"syscall"
+
 	"github.com/bishopfox/sliver/sliver/evasion"
 	"github.com/bishopfox/sliver/sliver/syscalls"
 	"github.com/bishopfox/sliver/sliver/version"
 	"golang.org/x/sys/windows"
-	"syscall"
 )
 
 const (
@@ -185,7 +186,7 @@ func LocalTask(data []byte, rwxPages bool) error {
 
 func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi bool) (string, error) {
 	assemblySizeArr := convertIntToByteArr(len(assembly))
-	paramsSizeArr := convertIntToByteArr(len(params))
+	paramsSizeArr := convertIntToByteArr(len(params) + 1)
 	err := refresh()
 	if err != nil {
 		return "", err
@@ -224,11 +225,6 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 	// Total size to allocate = assembly size + 1024 bytes for the args
 	totalSize := uint32(len(assembly) + 1024)
 	// Padd arguments with 0x00 -- there must be a cleaner way to do that
-	// paramsBytes := []byte(params)
-	// padding := make([]byte, 1024-len(params))
-	// final := append(paramsBytes, padding...)
-	// // Final payload: params + assembly
-	// final = append(final, assembly...)
 
 	// 4 bytes Assembly Size
 	// 4 bytes Params Size
@@ -242,6 +238,7 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 		payload = append(payload, byte(0))
 	}
 	payload = append(payload, []byte(params)...)
+	payload = append(payload, '\x00')
 	payload = append(payload, assembly...)
 	assemblyAddr, err := allocAndWrite(payload, handle, totalSize)
 	if err != nil {
@@ -433,6 +430,5 @@ func convertIntToByteArr(num int) (arr []byte) {
 	arr = append(arr, byte(v%256))
 	v = v / 256
 	arr = append(arr, byte(v))
-
 	return
 }

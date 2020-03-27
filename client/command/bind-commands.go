@@ -962,9 +962,9 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:     consts.ScreenshotStr,
-		Help:     "Take a screenshot",
-		LongHelp: help.GetHelpFor(consts.ScreenshotStr),
+		Name:      consts.ScreenshotStr,
+		Help:      "Take a screenshot",
+		LongHelp:  help.GetHelpFor(consts.ScreenshotStr),
 		AllowArgs: false,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -973,5 +973,19 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.LoadExtensionStr,
+		Help:      "Load a sliver extension",
+		LongHelp:  help.GetHelpFor(consts.LoadExtensionStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			load(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 }
