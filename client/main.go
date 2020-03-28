@@ -40,7 +40,7 @@ func main() {
 	flag.Parse()
 
 	if *displayVersion {
-		fmt.Printf("v%s\n", version.SliverVersion)
+		fmt.Printf("%s\n", version.FullVersion())
 		os.Exit(0)
 	}
 
