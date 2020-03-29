@@ -129,25 +129,21 @@ func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			}
 			fmt.Println()
 
-		case consts.ServerErrorStr:
-			fmt.Printf(clearln + Warn + "Server connection error!\n\n")
-			os.Exit(4)
-
 		case consts.JoinedEvent:
 			fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator.Name)
 		case consts.LeftEvent:
 			fmt.Printf(clearln+Info+"%s left the game\n\n", event.Client.Operator)
 
-		case consts.StoppedEvent:
+		case consts.JobStoppedEvent:
 			job := event.Job
 			fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
 
-		case consts.ConnectedEvent:
+		case consts.SessionOpenedEvent:
 			session := event.Session
 			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n\n",
 				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
 
-		case consts.DisconnectedEvent:
+		case consts.SessionClosedEvent:
 			session := event.Session
 			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)

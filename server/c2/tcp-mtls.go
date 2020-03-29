@@ -27,7 +27,6 @@ import (
 	"net"
 	"sync"
 
-	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
@@ -99,10 +98,6 @@ func handleSliverConnection(conn net.Conn) {
 		mtlsLog.Debugf("Cleaning up for %s", session.Name)
 		core.Sessions.Remove(session.ID)
 		conn.Close()
-		core.EventBroker.Publish(core.Event{
-			EventType: consts.DisconnectedEvent,
-			Session:   session,
-		})
 	}()
 
 	go func() {

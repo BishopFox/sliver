@@ -22,6 +22,8 @@ import (
 	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+
+	consts "github.com/bishopfox/sliver/client/constants"
 )
 
 var (
@@ -78,6 +80,10 @@ func (j *jobs) Add(job *Job) {
 	j.mutex.Lock()
 	defer j.mutex.Unlock()
 	(*j.active)[job.ID] = job
+	EventBroker.Publish(Event{
+		Job:       job,
+		EventType: consts.JobStartedEvent,
+	})
 }
 
 // Remove - Remove a job
@@ -85,6 +91,10 @@ func (j *jobs) Remove(job *Job) {
 	j.mutex.Lock()
 	defer j.mutex.Unlock()
 	delete((*j.active), job.ID)
+	EventBroker.Publish(Event{
+		Job:       job,
+		EventType: consts.JobStoppedEvent,
+	})
 }
 
 // Get - Get a Job

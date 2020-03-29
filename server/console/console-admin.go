@@ -184,7 +184,7 @@ func jobStartClientListener(host string, port uint16) (int, error) {
 
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
-			EventType: consts.StoppedEvent,
+			EventType: consts.JobStoppedEvent,
 		})
 	}()
 

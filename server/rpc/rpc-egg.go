@@ -121,7 +121,7 @@ func jobStartEggTCPListener(host string, port uint16, shellcode []byte) (int, er
 
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
-			EventType: consts.StoppedEvent,
+			EventType: consts.JobStoppedEvent,
 		})
 	}()
 
@@ -156,7 +156,7 @@ func jobStartEggHTTPListener(conf *c2.HTTPServerConfig, data []byte) (*core.Job,
 		core.Jobs.Remove(job)
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
-			EventType: consts.StoppedEvent,
+			EventType: consts.JobStoppedEvent,
 			Err:       err,
 		})
 	}

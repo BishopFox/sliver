@@ -22,7 +22,6 @@ package handlers
 */
 
 import (
-	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
@@ -51,16 +50,6 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	if err != nil {
 		handlerLog.Warnf("error decoding message: %v", err)
 		return
-	}
-
-	// If this is the first time we're getting reg info alert user(s)
-	if session.Name == "" {
-		defer func() {
-			core.EventBroker.Publish(core.Event{
-				EventType: consts.ConnectedEvent,
-				Session:   session,
-			})
-		}()
 	}
 
 	session.Name = register.Name

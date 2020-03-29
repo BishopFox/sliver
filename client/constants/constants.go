@@ -30,9 +30,9 @@ const (
 	ServerErrorStr = "server"
 
 	// ConnectedEvent - Sliver Connected
-	ConnectedEvent = "connected"
+	SessionOpenedEvent = "connected"
 	// DisconnectedEvent - Sliver disconnected
-	DisconnectedEvent = "disconnected"
+	SessionClosedEvent = "disconnected"
 
 	// JoinedEvent - Player joined the game
 	JoinedEvent = "joined"
@@ -43,9 +43,9 @@ const (
 	CanaryEvent = "canary"
 
 	// StartedEvent - Job was started
-	StartedEvent = "started"
+	JobStartedEvent = "started"
 	// StoppedEvent - Job was stopped
-	StoppedEvent = "stopped"
+	JobStoppedEvent = "stopped"
 )
 
 // Commands

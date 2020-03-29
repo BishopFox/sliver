@@ -34,7 +34,6 @@ import (
 	"sync"
 	"time"
 
-	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
@@ -469,10 +468,6 @@ func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) 
 	}
 
 	core.Sessions.Remove(httpSession.Session.ID)
-	core.EventBroker.Publish(core.Event{
-		EventType: consts.DisconnectedEvent,
-		Session:   httpSession.Session,
-	})
 	s.HTTPSessions.Remove(httpSession.ID)
 	resp.WriteHeader(200)
 }

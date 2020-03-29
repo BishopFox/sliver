@@ -112,10 +112,6 @@ func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSList
 		rpcLog.Infof("Stopping mTLS listener (%d) ...", job.ID)
 		ln.Close() // Kills listener GoRoutines in StartMutualTLSListener() but NOT connections
 		core.Jobs.Remove(job)
-		core.EventBroker.Publish(core.Event{
-			Job:       job,
-			EventType: consts.StoppedEvent,
-		})
 	}()
 	core.Jobs.Add(job)
 	return &clientpb.MTLSListener{JobID: uint32(job.ID)}, nil
@@ -158,7 +154,7 @@ func jobStartDNSListener(domains []string, canaries bool, listenPort uint16) (in
 		core.Jobs.Remove(job)
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
-			EventType: consts.StoppedEvent,
+			EventType: consts.JobStoppedEvent,
 		})
 	}()
 
@@ -259,7 +255,7 @@ func jobStartHTTPListener(conf *c2.HTTPServerConfig) (*core.Job, error) {
 		core.Jobs.Remove(job)
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
-			EventType: consts.StoppedEvent,
+			EventType: consts.JobStoppedEvent,
 			Err:       err,
 		})
 	}

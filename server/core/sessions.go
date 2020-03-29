@@ -25,6 +25,8 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+
+	consts "github.com/bishopfox/sliver/client/constants"
 )
 
 var (
@@ -143,6 +145,10 @@ func (s *sessions) Add(session *Session) *Session {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	(*s.sessions)[session.ID] = session
+	EventBroker.Publish(Event{
+		EventType: consts.SessionOpenedEvent,
+		Session:   session,
+	})
 	return session
 }
 
@@ -150,7 +156,12 @@ func (s *sessions) Add(session *Session) *Session {
 func (s *sessions) Remove(sessionID uint32) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	session := (*s.sessions)[sessionID]
 	delete((*s.sessions), sessionID)
+	EventBroker.Publish(Event{
+		EventType: consts.SessionClosedEvent,
+		Session:   session,
+	})
 }
 
 // NextSessionID - Returns an incremental nonce as an id
