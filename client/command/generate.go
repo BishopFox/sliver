@@ -30,6 +30,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
 	//"text/tabwriter"
 	"time"
 
@@ -37,6 +38,7 @@ import (
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+
 	//"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
@@ -431,6 +433,8 @@ func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCCli
 	generated, err := rpc.Generate(context.Background(), &clientpb.GenerateReq{
 		Config: config,
 	})
+	ctrl <- true
+	<-ctrl
 	if err != nil {
 		return err
 	}
