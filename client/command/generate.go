@@ -116,7 +116,7 @@ func regenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn+"Failed to write to %s\n", err)
 		return
 	}
-	fmt.Printf(Info+"Sliver binary saved to: %s\n", saveTo)
+	fmt.Printf(Info+"Implant binary saved to: %s\n", saveTo)
 }
 
 // func generateEgg(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -452,7 +452,7 @@ func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCCli
 
 	// Check to see if the target directory exists
 	saveToDir := filepath.Dir(saveTo)
-	fi, err := os.Stat(saveToDir)
+	_, err = os.Stat(saveToDir)
 	if os.IsNotExist(err) {
 		err := os.MkdirAll(saveToDir, 0700)
 		if err != nil {
@@ -460,12 +460,12 @@ func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCCli
 			return err
 		}
 	}
-	if fi.IsDir() {
-		saveTo = filepath.Join(saveTo, path.Base(generated.File.Name))
-	}
 
 	// Check if file exists and if the user wants to overwrite it
-	_, err = os.Stat(saveTo)
+	fi, err := os.Stat(saveTo)
+	if os.IsExist(err) && fi.IsDir() {
+		saveTo = filepath.Join(saveToDir, path.Base(generated.File.Name))
+	}
 	if os.IsExist(err) {
 		confirm := false
 		prompt := &survey.Confirm{Message: "Overwrite existing file?"}
