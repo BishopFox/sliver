@@ -87,10 +87,11 @@ func (rpc *Server) Ping(ctx context.Context, req *sliverpb.Ping) (*sliverpb.Ping
 	return resp, nil
 }
 
-// CheckErr - Check an implant's response for Err and convert it to an `error` type
-func (rpc *Server) CheckErr(resp GenericResponse) error {
-	if resp.GetResponse().Err != "" {
-		return errors.New(resp.GetResponse().Err)
+// getError - Check an implant's response for Err and convert it to an `error` type
+func (rpc *Server) getError(resp GenericResponse) error {
+	respHeader := resp.GetResponse()
+	if respHeader != nil && respHeader.Err != "" {
+		return errors.New(respHeader.Err)
 	}
 	return nil
 }
@@ -107,7 +108,7 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error 
 		return err
 	}
 
-	data, err := session.Request(sliverpb.MsgNumber(req), getTimeout(req), reqData)
+	data, err := session.Request(sliverpb.MsgNumber(req), rpc.getTimeout(req), reqData)
 	if err != nil {
 		return err
 	}
@@ -115,15 +116,10 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error 
 	if err != nil {
 		return err
 	}
-
-	respHeader := resp.(GenericResponse).GetResponse()
-	if respHeader != nil && respHeader.Err != "" {
-		return errors.New(resp.(GenericResponse).GetResponse().Err)
-	}
-	return nil
+	return rpc.getError(resp.(GenericResponse))
 }
 
-func getTimeout(req GenericRequest) time.Duration {
+func (rpc *Server) getTimeout(req GenericRequest) time.Duration {
 	timeout := req.GetRequest().Timeout
 	if time.Duration(timeout) < time.Second {
 		return defaultTimeout

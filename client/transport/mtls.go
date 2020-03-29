@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -38,6 +39,8 @@ const (
 
 	// ClientMaxReceiveMessageSize - Max gRPC message size
 	ClientMaxReceiveMessageSize = 2 * gb
+
+	defaultTimeout = time.Duration(10 * time.Second)
 )
 
 // MTLSConnect - Connect to the sliver server
@@ -48,7 +51,9 @@ func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.Clie
 	}
 	creds := credentials.NewTLS(tlsConfig)
 	options := []grpc.DialOption{
+		grpc.WithTimeout(defaultTimeout),
 		grpc.WithTransportCredentials(creds),
+		grpc.WithBlock(),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(ClientMaxReceiveMessageSize)),
 	}
 	connection, err := grpc.Dial(fmt.Sprintf("%s:%d", config.LHost, config.LPort), options...)
@@ -80,7 +85,6 @@ func getTLSConfig(caCertificate string, certificate string, privateKey string) (
 		},
 	}
 	tlsConfig.BuildNameToCertificate()
-
 	return tlsConfig, nil
 }
 

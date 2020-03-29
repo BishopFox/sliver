@@ -42,14 +42,16 @@ func StartClientListener(host string, port uint16) (*grpc.Server, net.Listener, 
 	mtlsLog.Infof("Starting gRPC  listener on %s:%d", host, port)
 	tlsConfig := getOperatorServerTLSConfig(host)
 	creds := credentials.NewTLS(tlsConfig)
-	options := []grpc.ServerOption{grpc.Creds(creds)}
 
-	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", host, port), tlsConfig)
+	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		mtlsLog.Error(err)
 		return nil, nil, err
 	}
 
+	options := []grpc.ServerOption{
+		grpc.Creds(creds),
+	}
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
 	go func() {
@@ -91,9 +93,8 @@ func getOperatorServerTLSConfig(host string) *tls.Config {
 		ClientAuth:               tls.RequireAndVerifyClientCert,
 		ClientCAs:                caCertPool,
 		Certificates:             []tls.Certificate{cert},
-		CipherSuites:             []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384},
 		PreferServerCipherSuites: true,
-		MinVersion:               tls.VersionTLS12,
+		MinVersion:               tls.VersionTLS13,
 	}
 	tlsConfig.BuildNameToCertificate()
 	return tlsConfig

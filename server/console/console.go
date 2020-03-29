@@ -21,13 +21,10 @@ package console
 import (
 	"context"
 	"fmt"
-	insecureRand "math/rand"
 	"net"
-	"time"
 
 	"github.com/desertbit/grumble"
 
-	"github.com/bishopfox/sliver/client/command"
 	clientconsole "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
@@ -115,80 +112,4 @@ func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
 		HelpGroup: consts.MultiplayerHelpGroup,
 	})
 
-}
-
-func getPrompt() string {
-	prompt := underline + "sliver" + normal
-	if command.ActiveSession.GetSilent() != nil {
-		prompt += fmt.Sprintf(bold+red+" (%s)%s", command.ActiveSession.GetSilent().Name, normal)
-	}
-	prompt += " > "
-	return prompt
-}
-
-func printLogo(app *grumble.App) {
-	insecureRand.Seed(time.Now().Unix())
-	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
-	fmt.Println(logo)
-	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
-	fmt.Println(Info + "Welcome to the sliver server shell, please type 'help' for options")
-	fmt.Println()
-}
-
-var abilities = []string{
-	"first strike",
-	"vigilance",
-	"haste",
-	"indestructible",
-	"hexproof",
-	"deathtouch",
-	"fear",
-	"epic",
-	"ninjitsu",
-	"recover",
-	"persist",
-	"conspire",
-	"reinforce",
-	"exalted",
-	"annihilator",
-	"infect",
-	"undying",
-	"living weapon",
-	"miracle",
-	"scavenge",
-	"cipher",
-	"evolve",
-	"dethrone",
-	"hidden agenda",
-	"prowess",
-	"dash",
-	"exploit",
-	"renown",
-	"skulk",
-	"improvise",
-	"assist",
-	"jump-start",
-}
-
-var asciiLogos = []string{
-	red + `
- 	  ██████  ██▓     ██▓ ██▒   █▓▓█████  ██▀███
-	▒██    ▒ ▓██▒    ▓██▒▓██░   █▒▓█   ▀ ▓██ ▒ ██▒
-	░ ▓██▄   ▒██░    ▒██▒ ▓██  █▒░▒███   ▓██ ░▄█ ▒
-	  ▒   ██▒▒██░    ░██░  ▒██ █░░▒▓█  ▄ ▒██▀▀█▄
-	▒██████▒▒░██████▒░██░   ▒▀█░  ░▒████▒░██▓ ▒██▒
-	▒ ▒▓▒ ▒ ░░ ▒░▓  ░░▓     ░ ▐░  ░░ ▒░ ░░ ▒▓ ░▒▓░
-	░ ░▒  ░ ░░ ░ ▒  ░ ▒ ░   ░ ░░   ░ ░  ░  ░▒ ░ ▒░
-	░  ░  ░    ░ ░    ▒ ░     ░░     ░     ░░   ░
-		  ░      ░  ░ ░        ░     ░  ░   ░
-` + normal,
-
-	green + `
-    ███████╗██╗     ██╗██╗   ██╗███████╗██████╗
-    ██╔════╝██║     ██║██║   ██║██╔════╝██╔══██╗
-    ███████╗██║     ██║██║   ██║█████╗  ██████╔╝
-    ╚════██║██║     ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗
-    ███████║███████╗██║ ╚████╔╝ ███████╗██║  ██║
-    ╚══════╝╚══════╝╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
-` + normal,
 }

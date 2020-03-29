@@ -113,11 +113,11 @@ func newOperatorCmd(ctx *grumble.Context) {
 	configJSON, _ := json.Marshal(config)
 	saveTo, _ := filepath.Abs(save)
 	fi, err := os.Stat(saveTo)
-	if err != nil {
-		fmt.Printf(Warn+"Failed to generate sliver %v\n", err)
+	if !os.IsNotExist(err) && !fi.IsDir() {
+		fmt.Printf(Warn+"File already exists %v\n", err)
 		return
 	}
-	if fi.IsDir() {
+	if !os.IsNotExist(err) && fi.IsDir() {
 		filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(operator), filepath.Base(lhost))
 		saveTo = filepath.Join(saveTo, filename)
 	}

@@ -84,7 +84,9 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 		HelpHeadlineUnderline: true,
 		HelpSubCommands:       true,
 	})
-	app.SetPrintASCIILogo(printLogo)
+	app.SetPrintASCIILogo(func(app *grumble.App) {
+		printLogo(app, rpc)
+	})
 
 	cmd.BindCommands(app, rpc)
 	extraCmds(app, rpc)
@@ -93,7 +95,7 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 		app.SetPrompt(getPrompt())
 	})
 
-	go eventLoop(app, rpc)
+	// go eventLoop(app, rpc)
 
 	err := app.Run()
 	if err != nil {
@@ -172,14 +174,30 @@ func getPrompt() string {
 	return prompt
 }
 
-func printLogo(sliverApp *grumble.App) {
+func printLogo(sliverApp *grumble.App, rpc rpcpb.SliverRPCClient) {
+	serverVer, err := rpc.GetVersion(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		panic(err.Error())
+	}
+	dirty := ""
+	if serverVer.Dirty {
+		dirty = bold + "Dirty" + normal
+	}
+	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
+
 	insecureRand.Seed(time.Now().Unix())
 	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
 	fmt.Println(logo)
 	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
-	fmt.Printf(Info+"v%s\n", version.FullVersion())
+	fmt.Printf(Info+"Server v%s - %s - %s\n", serverSemVer, serverVer.Commit, dirty)
+	if version.GitVersion != serverVer.Commit {
+		fmt.Printf(Info+"Client v%s\n", version.FullVersion())
+	}
 	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
 	fmt.Println()
+	if serverVer.Major != int32(version.SemanticVersion[0]) {
+		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
+	}
 }
 
 var abilities = []string{
