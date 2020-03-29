@@ -39,6 +39,10 @@ var (
 	ErrInvalidSessionID = errors.New("Invalid session ID")
 )
 
+const (
+	defaultTimeout = time.Duration(30 * time.Second)
+)
+
 // Server - gRPC server
 type Server struct{}
 
@@ -103,8 +107,7 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error 
 		return err
 	}
 
-	timeout := time.Duration(req.GetRequest().Timeout)
-	data, err := session.Request(sliverpb.MsgNumber(req), timeout, reqData)
+	data, err := session.Request(sliverpb.MsgNumber(req), getTimeout(req), reqData)
 	if err != nil {
 		return err
 	}
@@ -113,9 +116,17 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error 
 		return err
 	}
 
-	if resp.(GenericResponse).GetResponse().Err != "" {
+	respHeader := resp.(GenericResponse).GetResponse()
+	if respHeader != nil && respHeader.Err != "" {
 		return errors.New(resp.(GenericResponse).GetResponse().Err)
 	}
-
 	return nil
+}
+
+func getTimeout(req GenericRequest) time.Duration {
+	timeout := req.GetRequest().Timeout
+	if time.Duration(timeout) < time.Second {
+		return defaultTimeout
+	}
+	return time.Duration(timeout)
 }

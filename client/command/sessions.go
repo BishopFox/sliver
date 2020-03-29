@@ -126,7 +126,7 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 	activeIndex := -1
 	for index, key := range keys {
 		session := sessions[uint32(key)]
-		if ActiveSession.Get() != nil && ActiveSession.Get().ID == session.ID {
+		if ActiveSession.GetSilent() != nil && ActiveSession.GetSilent().ID == session.ID {
 			activeIndex = index + 2 // Two lines for the headers
 		}
 		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t\n",

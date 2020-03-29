@@ -141,7 +141,7 @@ func GetSession(arg string, rpc rpcpb.SliverRPCClient) *clientpb.Session {
 		return nil
 	}
 	for _, session := range sessions.GetSessions() {
-		if session.Name == arg || string(session.ID) == arg {
+		if session.Name == arg || fmt.Sprintf("%d", session.ID) == arg {
 			return session
 		}
 	}
