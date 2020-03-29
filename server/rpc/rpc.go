@@ -89,11 +89,11 @@ var (
 		sliverpb.MsgDownloadReq: rpcDownload,
 		sliverpb.MsgUploadReq:   rpcUpload,
 
-		sliverpb.MsgIfconfigReq: rpcIfconfig,
-		sliverpb.MsgNetstatReq:  rpcNetstat,
+		sliverpb.MsgIfconfigReq:   rpcIfconfig,
+		sliverpb.MsgNamedPipesReq: rpcNamedPipesListener,
 
-		sliverpb.MsgShellReq:   rpcShell,
-		sliverpb.MsgExecuteReq: rpcExecute,
+		sliverpb.MsgShellReq:      rpcShell,
+		sliverpb.MsgExecuteReq:    rpcExecute,
 		sliverpb.MsgScreenshotReq: rpcScreenshot,
 
 		clientpb.MsgTask:    rpcTask,

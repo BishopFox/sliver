@@ -115,6 +115,7 @@ const (
 	SideloadStr         = "sideload"
 	SpawnDllStr         = "spawndll"
 	LoadExtensionStr    = "load-extension"
+	NamedPipeStr        = "named-pipe"
 
 	WebsitesStr = "websites"
 

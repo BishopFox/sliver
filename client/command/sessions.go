@@ -117,12 +117,13 @@ func printSlivers(sessions map[uint32]*clientpb.Sliver) {
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
 	// Column Headers
-	fmt.Fprintln(table, "ID\tName\tTransport\tRemote Address\tUsername\tOperating System\tLast Check-in\t")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+	fmt.Fprintln(table, "ID\tName\tTransport\tRemote Address\tHostname\tUsername\tOperating System\tLast Check-in\t")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("ID")),
 		strings.Repeat("=", len("Name")),
 		strings.Repeat("=", len("Transport")),
 		strings.Repeat("=", len("Remote Address")),
+		strings.Repeat("=", len("Hostname")),
 		strings.Repeat("=", len("Username")),
 		strings.Repeat("=", len("Operating System")),
 		strings.Repeat("=", len("Last Check-in")))
@@ -140,8 +141,8 @@ func printSlivers(sessions map[uint32]*clientpb.Sliver) {
 		if ActiveSliver.Sliver != nil && ActiveSliver.Sliver.ID == sliver.ID {
 			activeIndex = index + 2 // Two lines for the headers
 		}
-		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-			sliver.ID, sliver.Name, sliver.Transport, sliver.RemoteAddress, sliver.Username,
+		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+			sliver.ID, sliver.Name, sliver.Transport, sliver.RemoteAddress, sliver.Hostname, sliver.Username,
 			fmt.Sprintf("%s/%s", sliver.OS, sliver.Arch),
 			sliver.LastCheckin)
 	}

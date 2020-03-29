@@ -361,3 +361,32 @@ message Screenshot {
   bytes Data = 1;
   uint32 SliverID = 9;
 }
+
+// Named Pipes Messages
+message NamedPipesReq {
+  string PipeName = 16;
+  uint32 SliverID = 9;
+}
+
+message NamedPipes {
+  bool Success = 1;
+  string Err = 2;
+}
+
+// Pivot transport
+
+message PivotOpen {
+  uint32 PivotID = 12;
+  string PivotType = 13;
+  string RemoteAddress = 14;
+}
+
+message PivotClose {
+  uint32 PivotID = 12;
+  string Err = 2;
+}
+
+message PivotData {
+  uint32 PivotID = 12;
+  bytes Data = 2;
+}

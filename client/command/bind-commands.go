@@ -39,6 +39,7 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/help"
+	"github.com/bishopfox/sliver/server/c2"
 
 	"github.com/desertbit/grumble"
 )
@@ -292,6 +293,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("m", "mtls", "", "mtls connection strings")
 			f.String("t", "http", "", "http(s) connection strings")
 			f.String("n", "dns", "", "dns connection strings")
+			f.String("p", "named-pipe", "", "named-pipe connection strings")
 
 			f.Int("j", "reconnect", defaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("k", "max-errors", defaultMaxErrors, "max number of connection errors")
@@ -945,6 +947,24 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			fmt.Println()
 			return nil
 		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.NamedPipeStr,
+		Help:     "Start a named pipe listener",
+		LongHelp: help.GetHelpFor(consts.NamedPipeStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "name of the named pipe")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			c2.StartPivotListener()
+			fmt.Println()
+			namedPipeListener(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{

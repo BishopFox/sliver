@@ -12,10 +12,11 @@ require (
 	github.com/dgraph-io/badger v1.6.1
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/fatih/color v1.9.0
+	github.com/go-kit/kit v0.10.0 // indirect
 	github.com/gobuffalo/envy v1.9.0 // indirect
 	github.com/gobuffalo/packd v1.0.0 // indirect
 	github.com/gobuffalo/packr v1.30.1
-	github.com/golang/protobuf v1.3.5
+	github.com/golang/protobuf v1.3.2
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
 	github.com/mattn/go-colorable v0.1.6 // indirect
@@ -28,4 +29,5 @@ require (
 	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
 	golang.org/x/tools v0.0.0-20200325203130-f53864d0dba1
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
+	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 )

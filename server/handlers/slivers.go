@@ -45,6 +45,11 @@ func GetSliverHandlers() map[uint32]interface{} {
 	return serverHandlers
 }
 
+// AddSliverHandlers -  Adds a new handler to the map of server-side msg handlers
+func AddSliverHandlers(key uint32, value interface{}) {
+	serverHandlers[key] = value
+}
+
 func registerSliverHandler(sliver *core.Sliver, data []byte) {
 	register := &sliverpb.Register{}
 	err := proto.Unmarshal(data, register)

@@ -36,6 +36,7 @@ var (
 		"sliver.c",
 
 		"handlers/generic-rpc-handlers.go",
+		"handlers/generic-pivot-handlers.go",
 		"handlers/generic-tun-handlers.go",
 		"handlers/special-handlers.go",
 		"handlers/handlers_darwin.go",
@@ -88,6 +89,12 @@ var (
 		"shell/pty/ioctl_darwin.go",
 		"shell/pty/pty_unsupported.go",
 
+		"pivots/pivots.go",
+		"pivots/namedpipe/namedpipe.go",
+		"pivots/namedpipe/npipe_windows.go",
+		"pivots/namedpipe/znpipe_windows_386.go",
+		"pivots/namedpipe/znpipe_windows_amd64.go",
+
 		"taskrunner/task.go",
 		"taskrunner/task_windows.go",
 		"taskrunner/task_darwin.go",
@@ -107,10 +114,11 @@ var (
 		"syscalls/zsyscalls_windows.go",
 
 		"transports/crypto.go",
-		"transports/tcp-mtls.go",
+		"transports/named-pipe.go",
 		"transports/tcp-http.go",
-		"transports/udp-dns.go",
+		"transports/tcp-mtls.go",
 		"transports/transports.go",
+		"transports/udp-dns.go",
 
 		"version/version.go",
 		"version/version_windows.go",

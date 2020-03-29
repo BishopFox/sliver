@@ -19,11 +19,6 @@ package handlers
 */
 
 import (
-	// {{if .Debug}}
-
-	// {{else}}
-	// {{end}}
-
 	pb "github.com/bishopfox/sliver/protobuf/sliver"
 )
 
@@ -47,9 +42,15 @@ var (
 		pb.MsgSideloadReq: sideloadHandler,
 
 	}
+
+	darwinPivotHandlers = map[uint32]PivotHandler{}
 )
 
 // GetSystemHandlers - Returns a map of the darwin system handlers
 func GetSystemHandlers() map[uint32]RPCHandler {
 	return darwinHandlers
+}
+
+func GetSystemPivotHandlers() map[uint32]PivotHandler {
+	return darwinPivotHandlers
 }

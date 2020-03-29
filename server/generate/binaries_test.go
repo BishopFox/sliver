@@ -50,6 +50,12 @@ func TestSliverExecutableWindows(t *testing.T) {
 	httpExe(t, "windows", "amd64", true)
 	//httpExe(t, "windows", "386", true)
 
+	// Named Pipe C2
+	namedPipeExe(t, "windows", "amd64", false)
+	//namedPipeExe(t, "windows", "386", false)
+	namedPipeExe(t, "windows", "amd64", true)
+	//namedPipeExe(t, "windows", "386", true)
+
 	// Multiple C2s
 	multiExe(t, "windows", "amd64", true)
 	multiExe(t, "windows", "amd64", false)
@@ -136,6 +142,28 @@ func httpExe(t *testing.T, goos string, goarch string, debug bool) {
 	}
 }
 
+func namedPipeExe(t *testing.T, goos string, goarch string, debug bool) {
+	t.Logf("[http] EXE %s/%s - debug: %v", goos, goarch, debug)
+	config := &SliverConfig{
+		GOOS:   goos,
+		GOARCH: goarch,
+		C2: []SliverC2{
+			SliverC2{
+				Priority: 1,
+				URL:      "namedpipe://./pipe/test",
+				Options:  "asdf",
+			},
+		},
+		NamePipec2Enabled: true,
+		Debug:             debug,
+		ObfuscateSymbols:  false,
+	}
+	_, err := SliverExecutable(config)
+	if err != nil {
+		t.Errorf(fmt.Sprintf("%v", err))
+	}
+}
+
 func multiExe(t *testing.T, goos string, goarch string, debug bool) {
 	t.Logf("[multi] %s/%s - debug: %v", goos, goarch, debug)
 	config := &SliverConfig{
@@ -165,7 +193,7 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 	config := &SliverConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-	
+
 		C2: []SliverC2{
 			SliverC2{URL: "mtls://1.example.com"},
 			SliverC2{Priority: 2, URL: "mtls://2.example.com"},
@@ -176,7 +204,7 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 		Debug:            debug,
 		ObfuscateSymbols: false,
 		Format:           clientpb.SliverConfig_SHARED_LIB,
-		IsSharedLib: true,
+		IsSharedLib:      true,
 	}
 	_, err := SliverSharedLibrary(config)
 	if err != nil {

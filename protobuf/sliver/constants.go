@@ -130,7 +130,6 @@ const (
 	// MsgTerminate - Kill a remote process
 	MsgTerminate
 
-
 	// MsgScreenshotReq - Request to take a screenshot
 	MsgScreenshotReq
 
@@ -140,4 +139,18 @@ const (
 	// MsgNetstatReq - Netstat request
 	MsgNetstatReq
 
+	// MsgNamedPipesReq - Request to take create a new named pipe listener
+	MsgNamedPipesReq
+	// MsgNamedPipes - Response with the result
+	MsgNamedPipes
+
+	// 	MsgPivotOpen - XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	MsgPivotOpen
+	MsgPivotClose
+	MsgPivotData
+
+	// MsgPivotTransportReq - XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	MsgPivotTransportReq
+	// MsgPivotTransport - Response with the result
+	MsgPivotTransport
 )
