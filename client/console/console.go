@@ -95,7 +95,7 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 		app.SetPrompt(getPrompt())
 	})
 
-	// go eventLoop(app, rpc)
+	go eventLoop(app, rpc)
 
 	err := app.Run()
 	if err != nil {
@@ -105,7 +105,7 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 }
 
 func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
-	eventStream, err := rpc.SubscribeEvents(context.Background(), &commonpb.Empty{})
+	eventStream, err := rpc.Events(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
 		return

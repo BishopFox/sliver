@@ -73,6 +73,6 @@ service SliverRPC {
     rpc Tunnel(stream sliverpb.TunnelData) returns (stream sliverpb.TunnelData);
 
     // *** Events ***
-    rpc SubscribeEvents(commonpb.Empty) returns (stream clientpb.Event);
+    rpc Events(commonpb.Empty) returns (stream clientpb.Event);
 }
   
