@@ -31,6 +31,7 @@ import (
 	clientconsole "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
+	clienttransport "github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/transport"
 	"google.golang.org/grpc"
@@ -42,7 +43,12 @@ func Start() {
 	ctxDialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return ln.Dial()
 	})
-	conn, err := grpc.DialContext(context.Background(), "bufnet", ctxDialer, grpc.WithInsecure())
+	options := []grpc.DialOption{
+		ctxDialer,
+		grpc.WithInsecure(),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(clienttransport.ClientMaxReceiveMessageSize)),
+	}
+	conn, err := grpc.DialContext(context.Background(), "bufnet", options...)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to dial bufnet: %s", err)
 		return

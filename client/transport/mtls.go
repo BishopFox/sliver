@@ -31,15 +31,26 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+const (
+	kb = 1024
+	mb = kb * 1024
+	gb = mb * 1024
+
+	// ClientMaxReceiveMessageSize - Max gRPC message size
+	ClientMaxReceiveMessageSize = 2 * gb
+)
+
 // MTLSConnect - Connect to the sliver server
 func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
-	options := []grpc.DialOption{}
 	tlsConfig, err := getTLSConfig(config.CACertificate, config.Certificate, config.PrivateKey)
 	if err != nil {
 		return nil, nil, err
 	}
 	creds := credentials.NewTLS(tlsConfig)
-	options = append(options, grpc.WithTransportCredentials(creds))
+	options := []grpc.DialOption{
+		grpc.WithTransportCredentials(creds),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(ClientMaxReceiveMessageSize)),
+	}
 	connection, err := grpc.Dial(fmt.Sprintf("%s:%d", config.LHost, config.LPort), options...)
 	if err != nil {
 		return nil, nil, err

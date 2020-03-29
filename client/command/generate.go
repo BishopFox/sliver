@@ -31,18 +31,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	//"text/tabwriter"
 	"time"
 
+	"github.com/AlecAivazis/survey/v2"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-
-	//"github.com/bishopfox/sliver/protobuf/sliverpb"
-
 	"github.com/desertbit/grumble"
-	//"github.com/golang/protobuf/proto"
 )
 
 var validFormats = []string{
@@ -286,13 +282,13 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 		configFormat = clientpb.ImplantConfig_EXECUTABLE
 	}
 	/* For UX we convert some synonymous terms */
-	if targetOS == "mac" || targetOS == "macos" || targetOS == "m" || targetOS == "osx" {
+	if targetOS == "darwin" || targetOS == "mac" || targetOS == "macos" || targetOS == "m" || targetOS == "osx" {
 		targetOS = "darwin"
 	}
-	if targetOS == "win" || targetOS == "w" || targetOS == "shit" {
+	if targetOS == "windows" || targetOS == "win" || targetOS == "w" || targetOS == "shit" {
 		targetOS = "windows"
 	}
-	if targetOS == "unix" || targetOS == "l" {
+	if targetOS == "linux" || targetOS == "unix" || targetOS == "l" {
 		targetOS = "linux"
 	}
 	if arch == "x64" || strings.HasPrefix(arch, "64") {
@@ -436,26 +432,49 @@ func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCCli
 	ctrl <- true
 	<-ctrl
 	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
 		return err
 	}
 
 	end := time.Now()
 	elapsed := time.Time{}.Add(end.Sub(start))
 	fmt.Printf(clearln+Info+"Build completed in %s\n", elapsed.Format("15:04:05"))
-
-	saveTo, _ := filepath.Abs(save)
-	fi, err := os.Stat(saveTo)
-	if err != nil {
-		fmt.Printf(Warn+"Failed to generate implant %v\n", err)
-		return err
-	}
 	if len(generated.File.Data) == 0 {
 		fmt.Printf(Warn + "Build failed, no file data\n")
 		return errors.New("No file data")
 	}
+
+	saveTo, err := filepath.Abs(save)
+	if err != nil {
+		fmt.Printf(Warn+"Invalid file path %s", save)
+		return err
+	}
+
+	// Check to see if the target directory exists
+	saveToDir := filepath.Dir(saveTo)
+	fi, err := os.Stat(saveToDir)
+	if os.IsNotExist(err) {
+		err := os.MkdirAll(saveToDir, 0700)
+		if err != nil {
+			fmt.Printf(Warn+"Failed to create target directory %s", saveToDir)
+			return err
+		}
+	}
 	if fi.IsDir() {
 		saveTo = filepath.Join(saveTo, path.Base(generated.File.Name))
 	}
+
+	// Check if file exists and if the user wants to overwrite it
+	_, err = os.Stat(saveTo)
+	if os.IsExist(err) {
+		confirm := false
+		prompt := &survey.Confirm{Message: "Overwrite existing file?"}
+		survey.AskOne(prompt, &confirm)
+		if !confirm {
+			return nil
+		}
+	}
+
 	err = ioutil.WriteFile(saveTo, generated.File.Data, os.ModePerm)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)

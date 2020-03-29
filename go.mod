@@ -3,7 +3,9 @@ module github.com/bishopfox/sliver
 go 1.13
 
 require (
+	github.com/AlecAivazis/survey/v2 v2.0.7
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
+	github.com/BurntSushi/xgb v0.0.0-20200324125942-20f126ea2843
 	github.com/aws/aws-sdk-go v1.25.33
 	github.com/cloudflare/cloudflare-go v0.10.7
 	github.com/desertbit/closer/v3 v3.1.1 // indirect
