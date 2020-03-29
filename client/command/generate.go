@@ -463,11 +463,13 @@ func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCCli
 
 	// Check if file exists and if the user wants to overwrite it
 	fi, err := os.Stat(saveTo)
-	if os.IsExist(err) && fi.IsDir() {
+	if !os.IsNotExist(err) && fi.IsDir() {
 		saveTo = filepath.Join(saveToDir, path.Base(generated.File.Name))
 	}
-	if os.IsExist(err) {
+	_, err = os.Stat(saveTo)
+	if !os.IsNotExist(err) {
 		confirm := false
+		fmt.Printf(Info+"File already exists %s\n", saveTo)
 		prompt := &survey.Confirm{Message: "Overwrite existing file?"}
 		survey.AskOne(prompt, &confirm)
 		if !confirm {
@@ -480,7 +482,7 @@ func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCCli
 		fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
 		return err
 	}
-	fmt.Printf(Info+"Implant binary saved to: %s\n", saveTo)
+	fmt.Printf(Info+"Implant saved to %s\n", saveTo)
 	return nil
 }
 
