@@ -14,7 +14,13 @@ var (
 
 // Events - Stream events to client
 func (s *Server) Events(_ *commonpb.Empty, stream rpcpb.SliverRPC_EventsServer) error {
+	commonName := s.getClientCommonName(stream.Context())
+	client := core.NewClient(commonName)
+	core.Clients.Add(client)
+	defer core.Clients.Remove(client.ID)
+
 	events := core.EventBroker.Subscribe()
+	defer core.EventBroker.Unsubscribe(events)
 	for event := range events {
 		pbEvent := &clientpb.Event{
 			EventType: event.EventType,
@@ -30,11 +36,17 @@ func (s *Server) Events(_ *commonpb.Empty, stream rpcpb.SliverRPC_EventsServer) 
 		if event.Session != nil {
 			pbEvent.Session = event.Session.ToProtobuf()
 		}
+		if event.Err != nil {
+			pbEvent.Err = event.Err.Error()
+		}
 
+		// TODO: Need to figure out what a normal disconnect looks like
 		err := stream.Send(pbEvent)
 		if err != nil {
 			rpcEventsLog.Warnf(err.Error())
+			return err
 		}
 	}
+
 	return nil
 }

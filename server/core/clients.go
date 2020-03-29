@@ -19,18 +19,17 @@ package core
 */
 
 import (
-	"crypto/x509"
 	"sync"
 
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 var (
-	// Clients - Manages client connections
+	// Clients - Manages client active
 	Clients = &clients{
-		Connections: &map[int]*Client{},
-		mutex:       &sync.RWMutex{},
+		active: &map[int]*Client{},
+		mutex:  &sync.RWMutex{},
 	}
 
 	clientID = new(int)
@@ -38,12 +37,9 @@ var (
 
 // Client - Single client connection
 type Client struct {
-	ID          int
-	Operator    *clientpb.Operator
-	Certificate *x509.Certificate
-	Send        chan *sliverpb.Envelope
-	Resp        map[uint64]chan *sliverpb.Envelope
-	mutex       *sync.RWMutex
+	ID       int
+	Operator *clientpb.Operator
+	// mutex    *sync.RWMutex
 }
 
 // ToProtobuf - Get the protobuf version of the object
@@ -54,47 +50,49 @@ func (c *Client) ToProtobuf() *clientpb.Client {
 	}
 }
 
-// clients - Manage client connections
+// clients - Manage active clients
 type clients struct {
-	mutex       *sync.RWMutex
-	Connections *map[int]*Client
+	mutex  *sync.RWMutex
+	active *map[int]*Client
 }
 
 // AddClient - Add a client struct atomically
-func (cc *clients) AddClient(client *Client) {
+func (cc *clients) Add(client *Client) {
 	cc.mutex.Lock()
 	defer cc.mutex.Unlock()
-	(*cc.Connections)[client.ID] = client
+	(*cc.active)[client.ID] = client
+	EventBroker.Publish(Event{
+		EventType: consts.JoinedEvent,
+		Client:    client,
+	})
 }
 
 // RemoveClient - Remove a client struct atomically
-func (cc *clients) RemoveClient(clientID int) {
+func (cc *clients) Remove(clientID int) {
 	cc.mutex.Lock()
 	defer cc.mutex.Unlock()
-	delete((*cc.Connections), clientID)
+	client := (*cc.active)[clientID]
+	delete((*cc.active), clientID)
+	EventBroker.Publish(Event{
+		EventType: consts.JoinedEvent,
+		Client:    client,
+	})
 }
 
-// NextClientID - Get a client ID
-func NextClientID() int {
+// nextClientID - Get a client ID
+func nextClientID() int {
 	newID := (*clientID) + 1
 	(*clientID)++
 	return newID
 }
 
-// GetClient - Create a new client object
-func GetClient(certificate *x509.Certificate) *Client {
-	var operatorName string
-	if certificate != nil {
-		operatorName = certificate.Subject.CommonName
-	} else {
-		operatorName = "server"
-	}
+// NewClient - Create a new client object
+func NewClient(operatorName string) *Client {
 	return &Client{
-		ID: NextClientID(),
+		ID: nextClientID(),
 		Operator: &clientpb.Operator{
 			Name: operatorName,
 		},
-		Certificate: certificate,
-		mutex:       &sync.RWMutex{},
+		// mutex: &sync.RWMutex{},
 	}
 }

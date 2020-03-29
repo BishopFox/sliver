@@ -114,7 +114,7 @@ func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 	for {
 		event, err := eventStream.Recv()
-		if err == io.EOF {
+		if err == io.EOF || event == nil {
 			return
 		}
 
@@ -134,7 +134,7 @@ func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			os.Exit(4)
 
 		case consts.JoinedEvent:
-			fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator)
+			fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator.Name)
 		case consts.LeftEvent:
 			fmt.Printf(clearln+Info+"%s left the game\n\n", event.Client.Operator)
 

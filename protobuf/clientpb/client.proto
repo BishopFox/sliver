@@ -296,6 +296,8 @@ message Event {
   Job Job = 3;
   Client Client = 4;
   bytes Data = 5;
+
+  string Err = 6; // Can't trigger normal gRPC error
 }
 
 message Operators { 
