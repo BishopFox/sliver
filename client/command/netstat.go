@@ -24,7 +24,7 @@ func netstat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	udp := ctx.Flags.Bool("udp")
 
 	netstat, err := rpc.Netstat(context.Background(), &sliverpb.NetstatReq{
-		Request:   ActiveSession.Request(),
+		Request:   ActiveSession.Request(ctx),
 		TCP:       tcp,
 		UDP:       udp,
 		Listening: listening,

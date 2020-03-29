@@ -181,7 +181,7 @@ func printLogo(sliverApp *grumble.App, rpc rpcpb.SliverRPCClient) {
 	}
 	dirty := ""
 	if serverVer.Dirty {
-		dirty = bold + "Dirty" + normal
+		dirty = fmt.Sprintf(" - %sDirty%s", bold, normal)
 	}
 	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
 
@@ -189,7 +189,7 @@ func printLogo(sliverApp *grumble.App, rpc rpcpb.SliverRPCClient) {
 	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
 	fmt.Println(logo)
 	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
-	fmt.Printf(Info+"Server v%s - %s - %s\n", serverSemVer, serverVer.Commit, dirty)
+	fmt.Printf(Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
 	if version.GitVersion != serverVer.Commit {
 		fmt.Printf(Info+"Client v%s\n", version.FullVersion())
 	}

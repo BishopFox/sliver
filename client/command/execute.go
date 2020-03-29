@@ -16,14 +16,13 @@ package command
 */
 
 import (
+	"context"
 	"fmt"
 	"strings"
-	"context"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
-
 )
 
 func execute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -44,7 +43,7 @@ func execute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 	output := ctx.Flags.Bool("output")
 	exec, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 		Path:    cmdPath,
 		Args:    strings.Split(args, " "),
 		Output:  output,

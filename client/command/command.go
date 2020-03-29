@@ -26,6 +26,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/desertbit/grumble"
 
 	"gopkg.in/AlecAivazis/survey.v1"
 )
@@ -65,7 +66,6 @@ var (
 		observerID: 0,
 	}
 
-	defaultTimeout   = 30 * time.Second
 	stdinReadTimeout = 10 * time.Millisecond
 )
 
@@ -108,12 +108,14 @@ func (s *activeSession) RemoveObserver(observerID int) {
 	}
 }
 
-func (s *activeSession) Request() *commonpb.Request {
+func (s *activeSession) Request(ctx *grumble.Context) *commonpb.Request {
 	if s.session == nil {
 		return nil
 	}
+	timeout := int64(ctx.Flags.Int("timeout"))
 	return &commonpb.Request{
 		SessionID: s.session.ID,
+		Timeout:   timeout,
 	}
 }
 

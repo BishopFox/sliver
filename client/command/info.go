@@ -62,7 +62,7 @@ func ping(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	pong, err := rpc.Ping(context.Background(), &sliverpb.Ping{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)

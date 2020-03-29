@@ -60,7 +60,8 @@ func sessions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 	if kill != "" {
 		session := GetSession(kill, rpc)
-		if session.ID == ActiveSession.Get().ID {
+		activeSession := ActiveSession.GetSilent()
+		if activeSession != nil && session.ID == activeSession.ID {
 			ActiveSession.Background()
 		}
 		err := killSession(session, rpc)
@@ -79,7 +80,6 @@ func sessions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			fmt.Printf(Warn+"Invalid session name or session number: %s\n", interact)
 		}
 	} else {
-
 		sessionsMap := map[uint32]*clientpb.Session{}
 		for _, session := range sessions.GetSessions() {
 			sessionsMap[session.ID] = session
@@ -87,7 +87,7 @@ func sessions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		if 0 < len(sessionsMap) {
 			printSessions(sessionsMap)
 		} else {
-			fmt.Printf(Info + "No sessions :(\n")
+			fmt.Printf(Info + "No sessions 🙁\n")
 		}
 	}
 }

@@ -19,7 +19,7 @@ func ifconfig(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	ifconfig, err := rpc.Ifconfig(context.Background(), &sliverpb.IfconfigReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)

@@ -54,7 +54,7 @@ func msf(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		payloadName, session.OS, session.Arch, lhost, lport)
 	go spin.Until(msg, ctrl)
 	_, err := rpc.Msf(context.Background(), &clientpb.MSFReq{
-		Request:    ActiveSession.Request(),
+		Request:    ActiveSession.Request(ctx),
 		Payload:    payloadName,
 		LHost:      lhost,
 		LPort:      int32(lport),
@@ -99,7 +99,7 @@ func msfInject(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		payloadName, session.OS, session.Arch, lhost, lport)
 	go spin.Until(msg, ctrl)
 	_, err := rpc.MsfRemote(context.Background(), &clientpb.MSFRemoteReq{
-		Request:    ActiveSession.Request(),
+		Request:    ActiveSession.Request(ctx),
 		Payload:    payloadName,
 		LHost:      lhost,
 		LPort:      int32(lport),

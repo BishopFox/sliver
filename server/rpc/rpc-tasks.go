@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
-	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -81,7 +80,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	if err != nil {
 		return nil, err
 	}
-	timeout := time.Duration(req.Request.Timeout)
+	timeout := rpc.getTimeout(req)
 	respData, err := session.Request(sliverpb.MsgInvokeMigrateReq, timeout, reqData)
 	if err != nil {
 		return nil, err
@@ -120,7 +119,7 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 	}
 
 	rpcLog.Infof("Sending execute assembly request to session %d\n", req.Request.SessionID)
-	timeout := time.Duration(req.Request.Timeout)
+	timeout := rpc.getTimeout(req)
 	respData, err := session.Request(sliverpb.MsgExecuteAssemblyReq, timeout, reqData)
 	if err != nil {
 		return nil, err
@@ -142,7 +141,7 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 
 	var err error
 	var respData []byte
-	timeout := time.Duration(req.Request.Timeout)
+	timeout := rpc.getTimeout(req)
 	switch session.ToProtobuf().GetOS() {
 	case "windows":
 		shellcode, err := generate.ShellcodeRDIFromBytes(req.Data, req.EntryPoint, req.Args)

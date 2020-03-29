@@ -49,7 +49,7 @@ func ls(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	ls, err := rpc.Ls(context.Background(), &sliverpb.LsReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 		Path:    ctx.Args[0],
 	})
 	if err != nil {
@@ -86,7 +86,7 @@ func rm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	rm, err := rpc.Rm(context.Background(), &sliverpb.RmReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 		Path:    ctx.Args[0],
 	})
 	if err != nil {
@@ -108,7 +108,7 @@ func mkdir(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	mkdir, err := rpc.Mkdir(context.Background(), &sliverpb.MkdirReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 		Path:    ctx.Args[0],
 	})
 	if err != nil {
@@ -128,7 +128,7 @@ func cd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	pwd, err := rpc.Cd(context.Background(), &sliverpb.CdReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 		Path:    ctx.Args[0],
 	})
 	if err != nil {
@@ -145,7 +145,7 @@ func pwd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	pwd, err := rpc.Pwd(context.Background(), &sliverpb.PwdReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
@@ -166,7 +166,7 @@ func cat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	download, err := rpc.Download(context.Background(), &sliverpb.DownloadReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 		Path:    ctx.Args[0],
 	})
 	if err != nil {
@@ -223,7 +223,7 @@ func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	ctrl := make(chan bool)
 	go spin.Until(fmt.Sprintf("%s -> %s", fileName, dst), ctrl)
 	download, err := rpc.Download(context.Background(), &sliverpb.DownloadReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 		Path:    ctx.Args[0],
 	})
 	ctrl <- true
@@ -261,8 +261,6 @@ func upload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	// cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
-
 	src, _ := filepath.Abs(ctx.Args[0])
 	_, err := os.Stat(src)
 	if err != nil {
@@ -283,7 +281,7 @@ func upload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	ctrl := make(chan bool)
 	go spin.Until(fmt.Sprintf("%s -> %s", src, dst), ctrl)
 	upload, err := rpc.Upload(context.Background(), &sliverpb.UploadReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 		Path:    dst,
 		Data:    uploadGzip.Bytes(),
 		Encoder: "gzip",

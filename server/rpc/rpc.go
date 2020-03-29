@@ -30,6 +30,8 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/golang/protobuf/proto"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 )
 
 var (
@@ -77,25 +79,6 @@ func (rpc *Server) GetVersion(ctx context.Context, _ *commonpb.Empty) (*clientpb
 	}, nil
 }
 
-// Ping - Try to send a round trip message to the implant
-func (rpc *Server) Ping(ctx context.Context, req *sliverpb.Ping) (*sliverpb.Ping, error) {
-	resp := &sliverpb.Ping{}
-	err := rpc.GenericHandler(req, resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-// getError - Check an implant's response for Err and convert it to an `error` type
-func (rpc *Server) getError(resp GenericResponse) error {
-	respHeader := resp.GetResponse()
-	if respHeader != nil && respHeader.Err != "" {
-		return errors.New(respHeader.Err)
-	}
-	return nil
-}
-
 // GenericHandler - Pass the request to the Sliver/Session
 func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error {
 	session := core.Sessions.Get(req.GetRequest().SessionID)
@@ -119,10 +102,38 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error 
 	return rpc.getError(resp.(GenericResponse))
 }
 
+func (rpc *Server) getClientCommonName(ctx context.Context) string {
+	client, ok := peer.FromContext(ctx)
+	if !ok {
+		return ""
+	}
+	tlsAuth, ok := client.AuthInfo.(credentials.TLSInfo)
+	if !ok {
+		return ""
+	}
+	if len(tlsAuth.State.VerifiedChains) == 0 || len(tlsAuth.State.VerifiedChains[0]) == 0 {
+		return ""
+	}
+	if tlsAuth.State.VerifiedChains[0][0].Subject.CommonName != "" {
+		return tlsAuth.State.VerifiedChains[0][0].Subject.CommonName
+	}
+	return ""
+}
+
+// getTimeout - Get the specified timeout from the request or the default
 func (rpc *Server) getTimeout(req GenericRequest) time.Duration {
 	timeout := req.GetRequest().Timeout
 	if time.Duration(timeout) < time.Second {
 		return defaultTimeout
 	}
 	return time.Duration(timeout)
+}
+
+// getError - Check an implant's response for Err and convert it to an `error` type
+func (rpc *Server) getError(resp GenericResponse) error {
+	respHeader := resp.GetResponse()
+	if respHeader != nil && respHeader.Err != "" {
+		return errors.New(respHeader.Err)
+	}
+	return nil
 }

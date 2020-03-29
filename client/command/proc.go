@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+
 	// "time"
 
 	"github.com/bishopfox/sliver/client/spin"
@@ -56,7 +57,7 @@ func ps(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	ownerFilter := ctx.Flags.String("owner")
 
 	ps, err := rpc.Ps(context.Background(), &sliverpb.PsReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
@@ -138,7 +139,7 @@ func procdump(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	// cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
 
 	if pid == -1 && name != "" {
-		pid = getPIDByName(name, rpc)
+		pid = getPIDByName(ctx, name, rpc)
 	}
 	if pid == -1 {
 		fmt.Printf(Warn + "Invalid process target\n")
@@ -153,7 +154,7 @@ func procdump(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	ctrl := make(chan bool)
 	go spin.Until("Dumping remote process memory ...", ctrl)
 	dump, err := rpc.ProcessDump(context.Background(), &sliverpb.ProcessDumpReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 		Pid:     int32(pid),
 		Timeout: int32(ctx.Flags.Int("timeout")),
 	})
@@ -188,7 +189,7 @@ func terminate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	terminated, err := rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 		Pid:     int32(pid),
 	})
 	if err != nil {
@@ -199,9 +200,9 @@ func terminate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 }
 
-func getPIDByName(name string, rpc rpcpb.SliverRPCClient) int {
+func getPIDByName(ctx *grumble.Context, name string, rpc rpcpb.SliverRPCClient) int {
 	ps, err := rpc.Ps(context.Background(), &sliverpb.PsReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 	})
 	if err != nil {
 		return -1

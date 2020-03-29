@@ -44,7 +44,7 @@ func screenshot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	screenshot, err := rpc.Screenshot(context.Background(), &sliverpb.ScreenshotReq{
-		Request: ActiveSession.Request(),
+		Request: ActiveSession.Request(ctx),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
