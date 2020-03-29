@@ -54,13 +54,6 @@ func (c *Client) ToProtobuf() *clientpb.Client {
 	}
 }
 
-// Response - Drop an evelope into a response channel
-func (c *Client) Response(envelope *sliverpb.Envelope) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-}
-
 // clients - Manage client connections
 type clients struct {
 	mutex       *sync.RWMutex

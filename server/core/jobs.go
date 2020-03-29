@@ -65,7 +65,7 @@ type jobs struct {
 // All - Return a list of all jobs
 func (j *jobs) All() []*Job {
 	j.mutex.RLock()
-	defer j.mutex.Unlock()
+	defer j.mutex.RUnlock()
 	all := []*Job{}
 	for _, job := range *j.active {
 		all = append(all, job)
