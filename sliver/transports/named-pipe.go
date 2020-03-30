@@ -21,7 +21,6 @@ package transports
 // {{if .NamePipec2Enabled}}
 
 import (
-	"net"
 	"net/url"
 	"strings"
 
@@ -30,7 +29,6 @@ import (
 	// {{end}}
 
 	pb "github.com/bishopfox/sliver/protobuf/sliver"
-	"github.com/bishopfox/sliver/sliver/pivots"
 	"github.com/bishopfox/sliver/sliver/pivots/namedpipe"
 )
 
@@ -48,15 +46,11 @@ func namedPipeWriteEnvelope(conn *namedpipe.PipeConn, envelope *pb.Envelope) err
 	// {{if .Debug}}
 	log.Printf("namedPipeWriteEnvelope %d\n", envelope.GetType())
 	// {{end}}
-	var connection net.Conn
-	connection = conn
-	return pivots.PivotWriteEnvelope(&connection, envelope)
+	return namedpipe.PivotWriteEnvelope(conn, envelope)
 }
 
 func namedPipeReadEnvelope(conn *namedpipe.PipeConn) (*pb.Envelope, error) {
-	var connection net.Conn
-	connection = conn
-	return pivots.PivotReadEnvelope(&connection)
+	return namedpipe.PivotReadEnvelope(conn)
 }
 
 // {{end}} -NamePipec2Enabled
