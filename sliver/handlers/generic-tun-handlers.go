@@ -25,7 +25,6 @@ import (
 	// {{if .Debug}}
 	"log"
 	// {{end}}
-
 	pb "github.com/bishopfox/sliver/protobuf/sliver"
 	"github.com/bishopfox/sliver/sliver/shell"
 	"github.com/bishopfox/sliver/sliver/transports"
@@ -39,8 +38,7 @@ const (
 
 var (
 	tunnelHandlers = map[uint32]TunnelHandler{
-		pb.MsgShellReq: shellReqHandler,
-
+		pb.MsgShellReq:    shellReqHandler,
 		pb.MsgTunnelData:  tunnelDataHandler,
 		pb.MsgTunnelClose: tunnelCloseHandler,
 	}

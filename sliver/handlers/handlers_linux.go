@@ -18,8 +18,7 @@ package handlers
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import ( // {{if .Debug}}
-	// {{else}}{{end}}
+import (
 	pb "github.com/bishopfox/sliver/protobuf/sliver"
 )
 
@@ -46,8 +45,14 @@ var (
 		pb.MsgSideloadReq: sideloadHandler,
 
 	}
+
+	linuxPivotHandlers = map[uint32]PivotHandler{}
 )
 
 func GetSystemHandlers() map[uint32]RPCHandler {
 	return linuxHandlers
+}
+
+func GetSystemPivotHandlers() map[uint32]PivotHandler {
+	return linuxPivotHandlers
 }

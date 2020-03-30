@@ -63,6 +63,7 @@ var (
 		consts.MigrateStr:          migrateHelp,
 		consts.SideloadStr:         sideloadHelp,
 		consts.TerminateStr:        terminateHelp,
+		consts.NamedPipeStr:        namedPipeListenerHelp,
 
 		consts.WebsitesStr:      websitesHelp,
 		consts.ScreenshotStr:    screenshotHelp,
@@ -347,6 +348,9 @@ It is a directory containing any number of files, with a mandatory [[.Bold]]mani
  - Windows: c:\windows\system32\notepad.exe
  - Linux: /bin/bash
  - Mac OS X: /Applications/Safari.app/Contents/MacOS/SafariForWebKitDevelopment
+`
+	namedPipeListenerHelp = `[[.Bold]]Command:[[.Normal]] starts a new named pipe listener
+[[.Bold]]About:[[.Normal]]  Starts a new named pipe listener with the specific name
 `
 )
 

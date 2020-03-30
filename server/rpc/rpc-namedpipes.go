@@ -1,4 +1,12 @@
-package handlers
+package rpc
+
+import (
+	"time"
+
+	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/golang/protobuf/proto"
+)
 
 /*
 	Sliver Implant Framework
@@ -18,13 +26,21 @@ package handlers
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import (
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
-	"github.com/bishopfox/sliver/sliver/transports"
-)
-
-type RPCResponse func([]byte, error)
-type RPCHandler func([]byte, RPCResponse)
-type SpecialHandler func([]byte, *transports.Connection) error
-type TunnelHandler func(*pb.Envelope, *transports.Connection)
-type PivotHandler func(*pb.Envelope, *transports.Connection)
+func rpcNamedPipesListener(req []byte, timeout time.Duration, resp RPCResponse) {
+	namedpipeReq := &sliverpb.NamedPipesReq{}
+	err := proto.Unmarshal(req, namedpipeReq)
+	if err != nil {
+		resp([]byte{}, err)
+		return
+	}
+	sliver := (*core.Hive.Slivers)[namedpipeReq.SliverID]
+	if sliver == nil {
+		resp([]byte{}, err)
+		return
+	}
+	data, _ := proto.Marshal(&sliverpb.NamedPipesReq{
+		PipeName: namedpipeReq.PipeName,
+	})
+	data, err = sliver.Request(sliverpb.MsgNamedPipesReq, timeout, data)
+	resp(data, err)
+}

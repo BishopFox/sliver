@@ -96,11 +96,12 @@ type SliverConfig struct {
 	ReconnectInterval   int    `json:"reconnect_interval"`
 	MaxConnectionErrors int    `json:"max_connection_errors"`
 
-	C2            []SliverC2 `json:"c2s"`
-	MTLSc2Enabled bool       `json:"c2_mtls_enabled"`
-	HTTPc2Enabled bool       `json:"c2_http_enabled"`
-	DNSc2Enabled  bool       `json:"c2_dns_enabled"`
-	CanaryDomains []string   `json:"canary_domains"`
+	C2                []SliverC2 `json:"c2s"`
+	MTLSc2Enabled     bool       `json:"c2_mtls_enabled"`
+	HTTPc2Enabled     bool       `json:"c2_http_enabled"`
+	DNSc2Enabled      bool       `json:"c2_dns_enabled"`
+	NamePipec2Enabled bool       `json:"c2_namedpipe_enabled"`
+	CanaryDomains     []string   `json:"canary_domains"`
 
 	// Limits
 	LimitDomainJoined bool   `json:"limit_domainjoined"`
@@ -179,6 +180,7 @@ func SliverConfigFromProtobuf(pbConfig *clientpb.SliverConfig) *SliverConfig {
 	cfg.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, cfg.C2)
 	cfg.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, cfg.C2)
 	cfg.DNSc2Enabled = isC2Enabled([]string{"dns"}, cfg.C2)
+	cfg.NamePipec2Enabled = isC2Enabled([]string{"namedpipe"}, cfg.C2)
 
 	cfg.FileName = pbConfig.FileName
 	return cfg
@@ -376,6 +378,7 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 	config.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, config.C2)
 	config.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, config.C2)
 	config.DNSc2Enabled = isC2Enabled([]string{"dns"}, config.C2)
+	config.NamePipec2Enabled = isC2Enabled([]string{"namedpipe"}, config.C2)
 
 	sliversDir := GetSliversDir() // ~/.sliver/slivers
 	projectGoPathDir := path.Join(sliversDir, config.GOOS, config.GOARCH, config.Name)

