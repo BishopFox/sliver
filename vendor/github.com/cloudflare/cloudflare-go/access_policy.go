@@ -50,7 +50,7 @@ type AccessPolicyEmailDomain struct {
 	} `json:"email_domain"`
 }
 
-// AccessPolicyIP is used for managing access based in the IP. It
+// AccessPolicyIP is used for managing access based on the IP. It
 // accepts individual IPs or CIDRs.
 type AccessPolicyIP struct {
 	IP struct {
@@ -61,6 +61,20 @@ type AccessPolicyIP struct {
 // AccessPolicyEveryone is used for managing access to everyone.
 type AccessPolicyEveryone struct {
 	Everyone struct{} `json:"everyone"`
+}
+
+// AccessPolicyServiceToken is used for managing access based on a specific
+// service token.
+type AccessPolicyServiceToken struct {
+	ServiceToken struct {
+		ID string `json:"token_id"`
+	} `json:"service_token"`
+}
+
+// AccessPolicyAnyValidServiceToken is used for managing access for all valid
+// service tokens (not restricted).
+type AccessPolicyAnyValidServiceToken struct {
+	AnyValidServiceToken struct{} `json:"any_valid_service_token"`
 }
 
 // AccessPolicyAccessGroup is used for managing access based on an

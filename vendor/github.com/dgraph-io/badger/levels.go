@@ -19,7 +19,6 @@ package badger
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"math/rand"
 	"os"
 	"sort"
@@ -53,7 +52,7 @@ var (
 )
 
 // revertToManifest checks that all necessary table files exist and removes all table files not
-// referenced by the manifest.  idMap is a set of table file id's that were read from the directory
+// referenced by the manifest. idMap is a set of table file id's that were read from the directory
 // listing.
 func revertToManifest(kv *DB, mf *Manifest, idMap map[uint64]struct{}) error {
 	// 1. Check all files in manifest exist.
@@ -416,28 +415,35 @@ func (s *levelsController) pickCompactLevels() (prios []compactionPriority) {
 	return prios
 }
 
-// compactBuildTables merge topTables and botTables to form a list of new tables.
+// checkOverlap checks if the given tables overlap with any level from the given "lev" onwards.
+func (s *levelsController) checkOverlap(tables []*table.Table, lev int) bool {
+	kr := getKeyRange(tables...)
+	for i, lh := range s.levels {
+		if i < lev { // Skip upper levels.
+			continue
+		}
+		lh.RLock()
+		left, right := lh.overlappingTables(levelHandlerRLocked{}, kr)
+		lh.RUnlock()
+		if right-left > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// compactBuildTables merges topTables and botTables to form a list of new tables.
 func (s *levelsController) compactBuildTables(
 	lev int, cd compactDef) ([]*table.Table, func() error, error) {
 	topTables := cd.top
 	botTables := cd.bot
 
-	var hasOverlap bool
-	{
-		kr := getKeyRange(cd.top)
-		for i, lh := range s.levels {
-			if i <= lev { // Skip upper levels.
-				continue
-			}
-			lh.RLock()
-			left, right := lh.overlappingTables(levelHandlerRLocked{}, kr)
-			lh.RUnlock()
-			if right-left > 0 {
-				hasOverlap = true
-				break
-			}
-		}
-	}
+	// Check overlap of the top level with the levels which are not being
+	// compacted in this compaction. We don't need to check overlap of the bottom
+	// tables with other levels because if the top tables overlap with any of the lower
+	// levels, it implies bottom level also overlaps because top and bottom tables
+	// overlap with each other.
+	hasOverlap := s.checkOverlap(cd.top, cd.nextLevel.level+1)
 
 	// Try to collect stats so that we can inform value log about GC. That would help us find which
 	// value log file should be GCed.
@@ -472,7 +478,7 @@ func (s *levelsController) compactBuildTables(
 		valid = append(valid, table)
 	}
 	iters = append(iters, table.NewConcatIterator(valid, false))
-	it := y.NewMergeIterator(iters, false)
+	it := table.NewMergeIterator(iters, false)
 	defer it.Close() // Important to close the iterator to do ref counting.
 
 	it.Rewind()
@@ -533,10 +539,15 @@ func (s *levelsController) compactBuildTables(
 				// versions which are below the minReadTs, otherwise, we might end up discarding the
 				// only valid version for a running transaction.
 				numVersions++
-				lastValidVersion := vs.Meta&bitDiscardEarlierVersions > 0
-				if isDeletedOrExpired(vs.Meta, vs.ExpiresAt) ||
-					numVersions > s.kv.opt.NumVersionsToKeep ||
-					lastValidVersion {
+
+				// Keep the current version and discard all the next versions if
+				// - The `discardEarlierVersions` bit is set OR
+				// - We've already processed `NumVersionsToKeep` number of versions
+				// (including the current item being processed)
+				lastValidVersion := vs.Meta&bitDiscardEarlierVersions > 0 ||
+					numVersions == s.kv.opt.NumVersionsToKeep
+
+				if isDeletedOrExpired(vs.Meta, vs.ExpiresAt) || lastValidVersion {
 					// If this version of the key is deleted or expired, skip all the rest of the
 					// versions. Ensure that we're only removing versions below readTs.
 					skipKey = y.SafeCopy(skipKey, it.Key())
@@ -557,7 +568,7 @@ func (s *levelsController) compactBuildTables(
 				}
 			}
 			numKeys++
-			y.Check(builder.Add(it.Key(), it.Value()))
+			builder.Add(it.Key(), it.Value())
 		}
 		// It was true that it.Valid() at least once in the loop above, which means we
 		// called Add() at least once, and builder is not Empty().
@@ -620,9 +631,7 @@ func (s *levelsController) compactBuildTables(
 	sort.Slice(newTables, func(i, j int) bool {
 		return y.CompareKeys(newTables[i].Biggest(), newTables[j].Biggest()) < 0
 	})
-	if err := s.kv.vlog.updateDiscardStats(discardStats); err != nil {
-		return nil, nil, errors.Wrap(err, "failed to update discard stats")
-	}
+	s.kv.vlog.updateDiscardStats(discardStats)
 	s.kv.opt.Debugf("Discard stats: %v", discardStats)
 	return newTables, func() error { return decrRefs(newTables) }, nil
 }
@@ -680,7 +689,7 @@ func (s *levelsController) fillTablesL0(cd *compactDef) bool {
 	}
 	cd.thisRange = infRange
 
-	kr := getKeyRange(cd.top)
+	kr := getKeyRange(cd.top...)
 	left, right := cd.nextLevel.overlappingTables(levelHandlerRLocked{}, kr)
 	cd.bot = make([]*table.Table, right-left)
 	copy(cd.bot, cd.nextLevel.tables[left:right])
@@ -688,7 +697,7 @@ func (s *levelsController) fillTablesL0(cd *compactDef) bool {
 	if len(cd.bot) == 0 {
 		cd.nextRange = kr
 	} else {
-		cd.nextRange = getKeyRange(cd.bot)
+		cd.nextRange = getKeyRange(cd.bot...)
 	}
 
 	if !s.cstatus.compareAndAdd(thisAndNextLevelRLocked{}, *cd) {
@@ -698,30 +707,44 @@ func (s *levelsController) fillTablesL0(cd *compactDef) bool {
 	return true
 }
 
+// sortByOverlap sorts tables in increasing order of overlap with next level.
+func (s *levelsController) sortByOverlap(tables []*table.Table, cd *compactDef) {
+	if len(tables) == 0 || cd.nextLevel == nil {
+		return
+	}
+
+	tableOverlap := make([]int, len(tables))
+	for i := range tables {
+		// get key range for table
+		tableRange := getKeyRange(tables[i])
+		// get overlap with next level
+		left, right := cd.nextLevel.overlappingTables(levelHandlerRLocked{}, tableRange)
+		tableOverlap[i] = right - left
+	}
+
+	sort.Slice(tables, func(i, j int) bool {
+		return tableOverlap[i] < tableOverlap[j]
+	})
+}
+
 func (s *levelsController) fillTables(cd *compactDef) bool {
 	cd.lockLevels()
 	defer cd.unlockLevels()
 
-	tbls := make([]*table.Table, len(cd.thisLevel.tables))
-	copy(tbls, cd.thisLevel.tables)
-	if len(tbls) == 0 {
+	tables := make([]*table.Table, len(cd.thisLevel.tables))
+	copy(tables, cd.thisLevel.tables)
+	if len(tables) == 0 {
 		return false
 	}
 
-	// Find the biggest table, and compact that first.
-	// TODO: Try other table picking strategies.
-	sort.Slice(tbls, func(i, j int) bool {
-		return tbls[i].Size() > tbls[j].Size()
-	})
+	// We want to pick files from current level in order of increasing overlap with next level
+	// tables. Idea here is to first compact file from current level which has least overlap with
+	// next level. This provides us better write amplification.
+	s.sortByOverlap(tables, cd)
 
-	for _, t := range tbls {
+	for _, t := range tables {
 		cd.thisSize = t.Size()
-		cd.thisRange = keyRange{
-			// We pick all the versions of the smallest and the biggest key.
-			left: y.KeyWithTs(y.ParseKey(t.Smallest()), math.MaxUint64),
-			// Note that version zero would be the rightmost key.
-			right: y.KeyWithTs(y.ParseKey(t.Biggest()), 0),
-		}
+		cd.thisRange = getKeyRange(t)
 		if s.cstatus.overlapsWith(cd.thisLevel.level, cd.thisRange) {
 			continue
 		}
@@ -739,7 +762,7 @@ func (s *levelsController) fillTables(cd *compactDef) bool {
 			}
 			return true
 		}
-		cd.nextRange = getKeyRange(cd.bot)
+		cd.nextRange = getKeyRange(cd.bot...)
 
 		if s.cstatus.overlapsWith(cd.nextLevel.level, cd.nextRange) {
 			continue
@@ -966,6 +989,7 @@ func (s *levelsController) getTableInfo(withKeysCount bool) (result []TableInfo)
 				for it.Rewind(); it.Valid(); it.Next() {
 					count++
 				}
+				it.Close()
 			}
 
 			info := TableInfo{

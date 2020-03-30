@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"hash/crc32"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -337,20 +338,23 @@ type IteratorOptions struct {
 	InternalAccess bool // Used to allow internal access to badger keys.
 }
 
+func (opt *IteratorOptions) compareToPrefix(key []byte) int {
+	// We should compare key without timestamp. For example key - a[TS] might be > "aa" prefix.
+	key = y.ParseKey(key)
+	if len(key) > len(opt.Prefix) {
+		key = key[:len(opt.Prefix)]
+	}
+	return bytes.Compare(key, opt.Prefix)
+}
+
 func (opt *IteratorOptions) pickTable(t table.TableInterface) bool {
 	if len(opt.Prefix) == 0 {
 		return true
 	}
-	trim := func(key []byte) []byte {
-		if len(key) > len(opt.Prefix) {
-			return key[:len(opt.Prefix)]
-		}
-		return key
-	}
-	if bytes.Compare(trim(t.Smallest()), opt.Prefix) > 0 {
+	if opt.compareToPrefix(t.Smallest()) > 0 {
 		return false
 	}
-	if bytes.Compare(trim(t.Biggest()), opt.Prefix) < 0 {
+	if opt.compareToPrefix(t.Biggest()) < 0 {
 		return false
 	}
 	// Bloom filter lookup would only work if opt.Prefix does NOT have the read
@@ -359,6 +363,49 @@ func (opt *IteratorOptions) pickTable(t table.TableInterface) bool {
 		return false
 	}
 	return true
+}
+
+// pickTables picks the necessary table for the iterator. This function also assumes
+// that the tables are sorted in the right order.
+func (opt *IteratorOptions) pickTables(all []*table.Table) []*table.Table {
+	if len(opt.Prefix) == 0 {
+		out := make([]*table.Table, len(all))
+		copy(out, all)
+		return out
+	}
+	sIdx := sort.Search(len(all), func(i int) bool {
+		return opt.compareToPrefix(all[i].Biggest()) >= 0
+	})
+	if sIdx == len(all) {
+		// Not found.
+		return []*table.Table{}
+	}
+
+	filtered := all[sIdx:]
+	if !opt.prefixIsKey {
+		eIdx := sort.Search(len(filtered), func(i int) bool {
+			return opt.compareToPrefix(filtered[i].Smallest()) > 0
+		})
+		out := make([]*table.Table, len(filtered[:eIdx]))
+		copy(out, filtered[:eIdx])
+		return out
+	}
+
+	var out []*table.Table
+	for _, t := range filtered {
+		// When we encounter the first table whose smallest key is higher than
+		// opt.Prefix, we can stop.
+		if opt.compareToPrefix(t.Smallest()) > 0 {
+			return out
+		}
+		// opt.Prefix is actually the key. So, we can run bloom filter checks
+		// as well.
+		if t.DoesNotHave(opt.Prefix) {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
 }
 
 // DefaultIteratorOptions contains default options when iterating over Badger key-value stores.
@@ -371,7 +418,7 @@ var DefaultIteratorOptions = IteratorOptions{
 
 // Iterator helps iterating over the KV pairs in a lexicographically sorted order.
 type Iterator struct {
-	iitr   *y.MergeIterator
+	iitr   y.Iterator
 	txn    *Txn
 	readTs uint64
 
@@ -415,9 +462,10 @@ func (txn *Txn) NewIterator(opt IteratorOptions) *Iterator {
 		iters = append(iters, tables[i].NewUniIterator(opt.Reverse))
 	}
 	iters = txn.db.lc.appendIterators(iters, &opt) // This will increment references.
+
 	res := &Iterator{
 		txn:    txn,
-		iitr:   y.NewMergeIterator(iters, opt.Reverse),
+		iitr:   table.NewMergeIterator(iters, opt.Reverse),
 		opt:    opt,
 		readTs: txn.readTs,
 	}
@@ -433,6 +481,7 @@ func (txn *Txn) NewKeyIterator(key []byte, opt IteratorOptions) *Iterator {
 	}
 	opt.Prefix = key // This key must be without the timestamp.
 	opt.prefixIsKey = true
+	opt.AllVersions = true
 	return txn.NewIterator(opt)
 }
 
@@ -456,6 +505,9 @@ func (it *Iterator) Item() *Item {
 func (it *Iterator) Valid() bool {
 	if it.item == nil {
 		return false
+	}
+	if it.opt.prefixIsKey {
+		return bytes.Equal(it.item.key, it.opt.Prefix)
 	}
 	return bytes.HasPrefix(it.item.key, it.opt.Prefix)
 }

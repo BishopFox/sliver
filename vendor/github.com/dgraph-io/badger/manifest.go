@@ -29,6 +29,7 @@ import (
 
 	"github.com/dgraph-io/badger/pb"
 	"github.com/dgraph-io/badger/y"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 )
 
@@ -119,7 +120,7 @@ func openOrCreateManifestFile(dir string, readOnly bool) (
 }
 
 func helpOpenOrCreateManifestFile(dir string, readOnly bool, deletionsThreshold int) (
-	ret *manifestFile, result Manifest, err error) {
+	*manifestFile, Manifest, error) {
 
 	path := filepath.Join(dir, ManifestFilename)
 	var flags uint32
@@ -186,7 +187,7 @@ func (mf *manifestFile) close() error {
 // the wrong time.)
 func (mf *manifestFile) addChanges(changesParam []*pb.ManifestChange) error {
 	changes := pb.ManifestChangeSet{Changes: changesParam}
-	buf, err := changes.Marshal()
+	buf, err := proto.Marshal(&changes)
 	if err != nil {
 		return err
 	}
@@ -241,7 +242,7 @@ func helpRewrite(dir string, m *Manifest) (*os.File, int, error) {
 	changes := m.asChanges()
 	set := pb.ManifestChangeSet{Changes: changes}
 
-	changeBuf, err := set.Marshal()
+	changeBuf, err := proto.Marshal(&set)
 	if err != nil {
 		fp.Close()
 		return nil, 0, err
@@ -330,7 +331,7 @@ var (
 // Also, returns the last offset after a completely read manifest entry -- the file must be
 // truncated at that point before further appends are made (if there is a partial entry after
 // that).  In normal conditions, truncOffset is the file size.
-func ReplayManifestFile(fp *os.File) (ret Manifest, truncOffset int64, err error) {
+func ReplayManifestFile(fp *os.File) (Manifest, int64, error) {
 	r := countingReader{wrapped: bufio.NewReader(fp)}
 
 	var magicBuf [8]byte
@@ -343,7 +344,16 @@ func ReplayManifestFile(fp *os.File) (ret Manifest, truncOffset int64, err error
 	version := binary.BigEndian.Uint32(magicBuf[4:8])
 	if version != magicVersion {
 		return Manifest{}, 0,
-			fmt.Errorf("manifest has unsupported version: %d (we support %d)", version, magicVersion)
+			//nolint:lll
+			fmt.Errorf("manifest has unsupported version: %d (we support %d).\n"+
+				"Please see https://github.com/dgraph-io/badger/blob/master/README.md#i-see-manifest-has-unsupported-version-x-we-support-y-error"+
+				" on how to fix this.",
+				version, magicVersion)
+	}
+
+	stat, err := fp.Stat()
+	if err != nil {
+		return Manifest{}, 0, err
 	}
 
 	build := createManifest()
@@ -359,6 +369,12 @@ func ReplayManifestFile(fp *os.File) (ret Manifest, truncOffset int64, err error
 			return Manifest{}, 0, err
 		}
 		length := binary.BigEndian.Uint32(lenCrcBuf[0:4])
+		// Sanity check to ensure we don't over-allocate memory.
+		if length > uint32(stat.Size()) {
+			return Manifest{}, 0, errors.Errorf(
+				"Buffer length: %d greater than file size: %d. Manifest file might be corrupted",
+				length, stat.Size())
+		}
 		var buf = make([]byte, length)
 		if _, err := io.ReadFull(&r, buf); err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
@@ -371,7 +387,7 @@ func ReplayManifestFile(fp *os.File) (ret Manifest, truncOffset int64, err error
 		}
 
 		var changeSet pb.ManifestChangeSet
-		if err := changeSet.Unmarshal(buf); err != nil {
+		if err := proto.Unmarshal(buf, &changeSet); err != nil {
 			return Manifest{}, 0, err
 		}
 
@@ -380,7 +396,7 @@ func ReplayManifestFile(fp *os.File) (ret Manifest, truncOffset int64, err error
 		}
 	}
 
-	return build, offset, err
+	return build, offset, nil
 }
 
 func applyManifestChange(build *Manifest, tc *pb.ManifestChange) error {

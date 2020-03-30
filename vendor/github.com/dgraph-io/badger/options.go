@@ -44,6 +44,7 @@ type Options struct {
 	ReadOnly            bool
 	Truncate            bool
 	Logger              Logger
+	EventLogging        bool
 
 	// Fine tuning options.
 
@@ -63,6 +64,13 @@ type Options struct {
 	NumCompactors     int
 	CompactL0OnClose  bool
 	LogRotatesToFlush int32
+	// When set, checksum will be validated for each entry read from the value log file.
+	VerifyValueChecksum bool
+
+	// BypassLockGaurd will bypass the lock guard on badger. Bypassing lock
+	// guard can cause data corruption if multiple badger instances are using
+	// the same directory. Use this options with caution.
+	BypassLockGuard bool
 
 	// Transaction start and commit timestamps are managed by end-user.
 	// This is only useful for databases built on top of Badger (like Dgraph).
@@ -97,6 +105,7 @@ func DefaultOptions(path string) Options {
 		SyncWrites:              true,
 		NumVersionsToKeep:       1,
 		CompactL0OnClose:        true,
+		VerifyValueChecksum:     false,
 		// Nothing to read/write value log using standard File I/O
 		// MemoryMap to mmap() the value log files
 		// (2^30 - 1)*2 when mmapping < 2^31 - 1, max int32.
@@ -107,6 +116,7 @@ func DefaultOptions(path string) Options {
 		ValueThreshold:     32,
 		Truncate:           false,
 		Logger:             defaultLogger,
+		EventLogging:       true,
 		LogRotatesToFlush:  2,
 	}
 }
@@ -224,6 +234,16 @@ func (opt Options) WithTruncate(val bool) Options {
 // The default value of Logger writes to stderr using the log package from the Go standard library.
 func (opt Options) WithLogger(val Logger) Options {
 	opt.Logger = val
+	return opt
+}
+
+// WithEventLogging returns a new Options value with EventLogging set to the given value.
+//
+// EventLogging provides a way to enable or disable trace.EventLog logging.
+//
+// The default value of EventLogging is true.
+func (opt Options) WithEventLogging(enabled bool) Options {
+	opt.EventLogging = enabled
 	return opt
 }
 
@@ -370,5 +390,31 @@ func (opt Options) WithCompactL0OnClose(val bool) Options {
 // The default value of LogRotatesToFlush is 2.
 func (opt Options) WithLogRotatesToFlush(val int32) Options {
 	opt.LogRotatesToFlush = val
+	return opt
+}
+
+// WithVerifyValueChecksum returns a new Options value with VerifyValueChecksum set to
+// the given value.
+//
+// When VerifyValueChecksum is set to true, checksum will be verified for every entry read
+// from the value log. If the value is stored in SST (value size less than value threshold) then the
+// checksum validation will not be done.
+//
+// The default value of VerifyValueChecksum is False.
+func (opt Options) WithVerifyValueChecksum(val bool) Options {
+	opt.VerifyValueChecksum = val
+	return opt
+}
+
+// WithBypassLockGuard returns a new Options value with BypassLockGuard
+// set to the given value.
+//
+// When BypassLockGuard option is set, badger will not acquire a lock on the
+// directory. This could lead to data corruption if multiple badger instances
+// write to the same data directory. Use this option with caution.
+//
+// The default value of BypassLockGuard is false.
+func (opt Options) WithBypassLockGuard(b bool) Options {
+	opt.BypassLockGuard = b
 	return opt
 }

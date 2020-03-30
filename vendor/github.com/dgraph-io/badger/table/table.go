@@ -65,7 +65,7 @@ type Table struct {
 	mmap        []byte // Memory mapped.
 
 	// The following are initialized once and const.
-	smallest, biggest []byte // Smallest and largest keys.
+	smallest, biggest []byte // Smallest and largest keys (with timestamps).
 	id                uint64 // file id, part of filename
 
 	bf bbloom.Bloom
@@ -90,6 +90,7 @@ func (t *Table) DecrRef() error {
 			if err := y.Munmap(t.mmap); err != nil {
 				return err
 			}
+			t.mmap = nil
 		}
 		if err := t.fd.Truncate(0); err != nil {
 			// This is very important to let the FS know that the file is deleted.
@@ -196,6 +197,7 @@ func (t *Table) Close() error {
 		if err := y.Munmap(t.mmap); err != nil {
 			return err
 		}
+		t.mmap = nil
 	}
 
 	return t.fd.Close()
