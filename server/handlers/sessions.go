@@ -69,7 +69,7 @@ func registerSessionHandler(session *core.Session, data []byte) {
 func tunnelDataHandler(session *core.Session, data []byte) {
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
-	tunnel := core.Tunnels.NewTunnel(tunnelData.TunnelID)
+	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
 	if tunnel != nil {
 		if session.ID == tunnel.Session.ID {
 			// tunnel.Client.Send <- &sliverpb.Envelope{

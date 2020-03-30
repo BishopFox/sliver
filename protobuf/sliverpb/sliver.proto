@@ -402,39 +402,6 @@ message HTTPSessionInit {
   bytes Key = 1;
 }
 
-// Tunnels, shells, and port fwds
-message TunnelData {
-  bytes Data = 1;
-  bool Close = 2;
-
-  uint64 TunnelID = 8;
-  uint32 SessionID = 9;
-}
-
-message TunnelClose {
-  uint64 TunnelID = 8;
-  uint32 SessionID = 9;
-}
-
-// ShellReq - Request the implant open a realtime shell tunnel
-message ShellReq {
-  string Path = 1;
-  bool EnablePTY = 2;
-  
-  uint64 TunnelID = 8;
-
-  commonpb.Request Request = 9;
-}
-
-message Shell {
-  bool Success = 1;
-  string Err = 2;
-  uint32 Pid = 3;
-
-  uint64 TunnelID = 8;
-  uint32 SessionID = 9;
-}
-
 // ScreenshotReq - Request the implant take a screenshot
 message ScreenshotReq {
   commonpb.Request Request = 9;
@@ -444,4 +411,19 @@ message Screenshot {
   bytes Data = 1;
 
   commonpb.Response Response = 9;
+}
+
+message TunnelClose {
+  uint64 TunnelID = 8;
+  uint32 SessionID = 9;
+}
+
+// Shell - Request the implant open a realtime shell tunnel
+message Shell {
+  string Path = 1;
+  bool EnablePTY = 2;
+  bytes Data = 3;
+
+  uint64 TunnelID = 8;
+  uint32 SessionID = 9;
 }

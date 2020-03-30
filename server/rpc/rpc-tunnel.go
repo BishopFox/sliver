@@ -23,7 +23,6 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	// "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -38,19 +37,19 @@ func (s *Server) CloseTunnel(ctx context.Context, req *clientpb.CloseTunnelReq) 
 }
 
 // Tunnel - Streams tunnel data back and forth from the client<->server<->implant
-func (s *Server) Tunnel(_ rpcpb.SliverRPC_TunnelServer) error {
-	// for {
-	// 	_, err := stream.Recv()
-	// 	if err == io.EOF {
-	// 		return nil
-	// 	}
-	// 	if err != nil {
-	// 		rpcLog.Errorf("Tunnel stream error: %s", err)
-	// 		return err
-	// 	}
-	// }
-	return nil
-}
+// func (s *Server) Tunnel(_ rpcpb.SliverRPC_TunnelServer) error {
+// for {
+// 	_, err := stream.Recv()
+// 	if err == io.EOF {
+// 		return nil
+// 	}
+// 	if err != nil {
+// 		rpcLog.Errorf("Tunnel stream error: %s", err)
+// 		return err
+// 	}
+// }
+// 	return nil
+// }
 
 // import (
 // 	"time"

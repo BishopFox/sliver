@@ -20,32 +20,16 @@ package rpc
 
 import (
 	"context"
+
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/core"
 )
 
 // Shell - Open an interactive shell
-func (s *Server) Shell(ctx context.Context, _ *sliverpb.ShellReq) (*sliverpb.Shell, error) {
+func (s *Server) Shell(ctx context.Context, req *sliverpb.Shell) (*sliverpb.Shell, error) {
+	session := core.Sessions.Get(req.SessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
+	}
 	return nil, nil
 }
-
-// func rpcShell(req []byte, timeout time.Duration, resp RPCResponse) {
-// 	shellReq := &sliverpb.ShellReq{}
-// 	proto.Unmarshal(req, shellReq)
-
-// 	sliver := core.Hive.Sliver(shellReq.SliverID)
-// 	tunnel := core.Tunnels.Tunnel(shellReq.TunnelID)
-
-// 	startShellReq, err := proto.Marshal(&sliverpb.ShellReq{
-// 		EnablePTY: shellReq.EnablePTY,
-// 		TunnelID:  tunnel.ID,
-// 		Path:      shellReq.Path,
-// 	})
-// 	if err != nil {
-// 		resp([]byte{}, err)
-// 		return
-// 	}
-// 	rpcLog.Infof("Requesting Sliver %d to start shell", sliver.ID)
-// 	data, err := sliver.Request(sliverpb.MsgShellReq, timeout, startShellReq)
-// 	rpcLog.Infof("Sliver %d responded to shell start request", sliver.ID)
-// 	resp(data, err)
-// }

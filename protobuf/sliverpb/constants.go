@@ -203,15 +203,8 @@ func MsgNumber(request proto.Message) uint32 {
 	case *Ps:
 		return MsgPs
 
-	case *ShellReq:
-		return MsgShellReq
 	case *Shell:
 		return MsgShell
-
-	case *TunnelData:
-		return MsgTunnelData
-	case *TunnelClose:
-		return MsgTunnelClose
 
 	case *ProcessDumpReq:
 		return MsgProcessDumpReq
