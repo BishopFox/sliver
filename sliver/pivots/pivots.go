@@ -70,6 +70,9 @@ func PivotReadEnvelope(conn *net.Conn) (*pb.Envelope, error) {
 	totalRead := 0
 	for {
 		n, err := (*conn).Read(readBuf)
+		// {{if .Debug}}
+		log.Printf("Read %d bytes with %d bytes total\n", n, n+totalRead)
+		// {{end}}
 		dataBuf = append(dataBuf, readBuf[:n]...)
 		totalRead += n
 		if totalRead == dataLength {

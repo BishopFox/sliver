@@ -44,7 +44,7 @@ func namePipeDial(uri *url.URL) (*namedpipe.PipeConn, error) {
 
 func namedPipeWriteEnvelope(conn *namedpipe.PipeConn, envelope *pb.Envelope) error {
 	// {{if .Debug}}
-	log.Printf("namedPipeWriteEnvelope %d\n", envelope.GetType())
+	log.Printf("namedPipeWriteEnvelope type %d ID %d and %d bytes of data\n", envelope.GetType(), envelope.GetID(), len(envelope.GetData())) // TODO: remove
 	// {{end}}
 	return namedpipe.PivotWriteEnvelope(conn, envelope)
 }

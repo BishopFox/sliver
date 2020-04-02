@@ -109,6 +109,7 @@ func handleSliverConnection(conn net.Conn) {
 		handlers := serverHandlers.GetSliverHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
+			mtlsLog.Printf("Read envlope with type %d ID %d and %d bytes of data", envelope.GetType(), envelope.GetID(), len(envelope.GetData())) // TODO: remove
 			if err != nil {
 				mtlsLog.Errorf("Socket read error %v", err)
 				return
