@@ -19,6 +19,7 @@ package core
 */
 
 const (
+	// Size is arbitrary, just want to avoid weird cases where we'd block on channel sends
 	eventBufSize = 5
 )
 
@@ -89,10 +90,10 @@ func (broker *eventBroker) Publish(event Event) {
 func newBroker() *eventBroker {
 	broker := &eventBroker{
 		stop:        make(chan struct{}),
-		publish:     make(chan Event, 1),
-		subscribe:   make(chan chan Event, 1),
-		unsubscribe: make(chan chan Event, 1),
-		send:        make(chan Event, 1),
+		publish:     make(chan Event, eventBufSize),
+		subscribe:   make(chan chan Event, eventBufSize),
+		unsubscribe: make(chan chan Event, eventBufSize),
+		send:        make(chan Event, eventBufSize),
 	}
 	go broker.Start()
 	return broker

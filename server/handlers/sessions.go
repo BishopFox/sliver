@@ -19,6 +19,7 @@ package handlers
 
 	---
 	WARNING: These functions can be invoked by remote implants without user interaction
+	---
 */
 
 import (
@@ -30,18 +31,18 @@ import (
 )
 
 var (
-	handlerLog = log.NamedLogger("handlers", "slivers")
+	handlerLog = log.NamedLogger("handlers", "sessions")
 
-	serverHandlers = map[uint32]interface{}{
+	sessionHandlers = map[uint32]interface{}{
 		sliverpb.MsgRegister:    registerSessionHandler,
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,
 	}
 )
 
-// GetSliverHandlers - Returns a map of server-side msg handlers
-func GetSliverHandlers() map[uint32]interface{} {
-	return serverHandlers
+// GetSessionHandlers - Returns a map of server-side msg handlers
+func GetSessionHandlers() map[uint32]interface{} {
+	return sessionHandlers
 }
 
 func registerSessionHandler(session *core.Session, data []byte) {
@@ -72,10 +73,10 @@ func tunnelDataHandler(session *core.Session, data []byte) {
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
 	if tunnel != nil {
 		if session.ID == tunnel.Session.ID {
-			// tunnel.Client.Send <- &sliverpb.Envelope{
-			// 	Type: sliverpb.MsgTunnelData,
-			// 	Data: data,
-			// }
+			tunnel.Client.Send <- &sliverpb.Envelope{
+				Type: sliverpb.MsgTunnelData,
+				Data: data,
+			}
 		} else {
 			handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
 		}
@@ -85,17 +86,5 @@ func tunnelDataHandler(session *core.Session, data []byte) {
 }
 
 func tunnelCloseHandler(session *core.Session, data []byte) {
-	tunnelClose := &sliverpb.TunnelClose{}
-	proto.Unmarshal(data, tunnelClose)
-	tunnel := core.Tunnels.NewTunnel(tunnelClose.TunnelID)
-	if tunnel == nil {
-		handlerLog.Warnf("Attempting to close nil tunnel")
-		return
-	}
-	if tunnel.Session.ID == session.ID {
-		handlerLog.Debugf("Session %d closed tunnel %d", session.ID, tunnel.ID)
-		core.Tunnels.CloseTunnel(tunnel.ID, "")
-	} else {
-		handlerLog.Warnf("Warning: Session %d attempted to close tunnel it did not own", session.ID)
-	}
+
 }

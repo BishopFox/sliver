@@ -19,17 +19,17 @@ package rpc
 */
 
 import (
-	"context"
-
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 )
 
 // Shell - Open an interactive shell
-func (s *Server) Shell(ctx context.Context, req *sliverpb.Shell) (*sliverpb.Shell, error) {
+func (s *Server) Shell(req *sliverpb.Shell, stream rpcpb.SliverRPC_ShellServer) error {
 	session := core.Sessions.Get(req.SessionID)
 	if session == nil {
-		return nil, ErrInvalidSessionID
+		return ErrInvalidSessionID
 	}
-	return nil, nil
+
+	return nil
 }
