@@ -124,7 +124,7 @@ cp -vv protobuf.zip $REPO_DIR/assets/protobuf.zip
 
 wget -O master.tar.gz https://github.com/golang/sys/archive/master.tar.gz
 tar xfv master.tar.gz
-rm -rf master.tar.gz
+rm -f master.tar.gz
 mv sys-master sys
 zip -r $REPO_DIR/assets/golang_x_sys.zip sys
 
