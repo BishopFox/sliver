@@ -363,6 +363,12 @@ func SliverExecutable(config *SliverConfig) (string, error) {
 	return dest, err
 }
 
+// list from https://github.com/golang/go/blob/master/src/go/build/syslist.go
+const (
+	goosList = "aix android darwin dragonfly freebsd hurd illumos js linux nacl netbsd openbsd plan9 solaris windows zos "
+	goarchList = "386 amd64 amd64p32 arm armbe arm64 arm64be ppc64 ppc64le mips mipsle mips64 mips64le mips64p32 mips64p32le ppc riscv riscv64 s390 s390x sparc sparc64 wasm "
+)
+
 // This function is a little too long, we should probably refactor it as some point
 func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
@@ -422,17 +428,23 @@ func renderSliverGoCode(config *SliverConfig, goConfig *gogo.GoConfig) (string, 
 		suffix := ".go"
 		if strings.Contains(boxName, "_") {
 			fileNameParts := strings.Split(boxName, "_")
+			fileSuffixParts := strings.Split(fileNameParts[len(fileNameParts)-1], ".")
+			if len(fileSuffixParts) > 1 {
+				// we are interested in file names of the format "_kind.ext"
+				kind := fileSuffixParts[0]
+				if kind == "test" {
+					buildLog.Infof("Skipping (test): %s", boxName)
+					continue
+				}
+				if kind != config.GOARCH && kind != config.GOOS {
+					// is this file targeting a specific OS or Architecture? allow it otherwise
+					if strings.Contains(goosList+goarchList, kind) {
+						buildLog.Infof("Skipping file wrong os/arch: %s", boxName)
+						continue
+					}
+				}
+			}
 			suffix = "_" + fileNameParts[len(fileNameParts)-1]
-			if strings.HasSuffix(boxName, "_test.go") {
-				buildLog.Infof("Skipping (test): %s", boxName)
-				continue
-			}
-			osSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOOS))
-			archSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOARCH))
-			if !strings.HasSuffix(boxName, osSuffix) && !strings.HasSuffix(boxName, archSuffix) {
-				buildLog.Infof("Skipping file wrong os/arch: %s", boxName)
-				continue
-			}
 		}
 
 		sliverGoCode, _ := sliverBox.FindString(boxName)
