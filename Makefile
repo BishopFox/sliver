@@ -6,16 +6,14 @@ GO ?= go
 ENV = CGO_ENABLED=0
 TAGS = -tags netgo
 
+
+#
+# Prerequisites 
+#
 # https://stackoverflow.com/questions/5618615/check-if-a-program-exists-from-a-makefile
-EXECUTABLES = protoc protoc-gen-go packr sed git zip go
+EXECUTABLES = protoc protoc-gen-go packr uname sed git zip go
 K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
-
-PKG = github.com/bishopfox/sliver/client/version
-VERSION = 1.0.0
-GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
-GIT_COMMIT = $(shell git rev-parse HEAD)
-LDFLAGS = -ldflags "-s -w -X $(PKG).Version=$(VERSION) -X $(PKG).GitCommit=$(GIT_COMMIT) -X $(PKG).GitDirty=$(GIT_DIRTY)"
 
 SED_INPLACE := sed -i
 
@@ -25,6 +23,19 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 
+#
+# Version Information
+#
+VERSION = 1.0.0
+PKG = github.com/bishopfox/sliver/client/version
+GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
+GIT_COMMIT = $(shell git rev-parse HEAD)
+LDFLAGS = -ldflags "-s -w -X $(PKG).Version=$(VERSION) -X $(PKG).GitCommit=$(GIT_COMMIT) -X $(PKG).GitDirty=$(GIT_DIRTY)"
+
+
+#
+# Targets
+#
 .PHONY: macos
 macos: clean pb
 	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
@@ -42,7 +53,7 @@ windows: clean pb
 
 
 #
-# Static builds were we bundle everything together
+# Static Targets
 #
 .PHONY: static-macos
 static-macos: clean pb packr
