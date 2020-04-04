@@ -42,8 +42,8 @@ func printHelp(app *grumble.App) {
 	groups := make(map[string]*grumble.Commands)
 	for _, c := range app.Commands().All() {
 		key := c.HelpGroup
-		if ActiveSession.GetSilent() != nil {
-			if ActiveSession.GetSilent().GetOS() != "windows" && key == consts.SliverWinHelpGroup {
+		if ActiveSession.Get() != nil {
+			if ActiveSession.Get().GetOS() != "windows" && key == consts.SliverWinHelpGroup {
 				continue
 			}
 		} else {

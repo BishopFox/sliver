@@ -26,7 +26,7 @@ import (
 )
 
 func execute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}

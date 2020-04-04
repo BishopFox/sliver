@@ -38,7 +38,7 @@ const (
 )
 
 func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -49,7 +49,7 @@ func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	shellPath := ctx.Flags.String("shell-path")
 	noPty := ctx.Flags.Bool("no-pty")
-	if ActiveSession.GetSilent().OS == windows {
+	if ActiveSession.Get().OS == windows {
 		noPty = true // Windows of course doesn't have PTYs
 	}
 	runInteractive(shellPath, noPty, rpc)
@@ -58,9 +58,9 @@ func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 func runInteractive(shellPath string, noPty bool, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf(Info + "Opening shell tunnel (EOF to exit) ...\n\n")
 
-	session := ActiveSession.GetSilent()
+	session := ActiveSession.Get()
 	stream, err := rpc.Shell(context.Background())
-	stream.Send(&sliverpb.Shell{
+	stream.Send(&sliverpb.ShellTunnel{
 		SessionID: session.ID,
 		EnablePTY: !noPty,
 		Path:      shellPath,
@@ -89,7 +89,7 @@ func runInteractive(shellPath string, noPty bool, rpc rpcpb.SliverRPCClient) {
 
 	go func() {
 		for data := range tunnel.Send {
-			stream.Send(&sliverpb.Shell{
+			stream.Send(&sliverpb.ShellTunnel{
 				Data: data,
 			})
 		}

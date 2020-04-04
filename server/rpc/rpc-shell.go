@@ -46,7 +46,7 @@ func (s *Server) Shell(stream rpcpb.SliverRPC_ShellServer) error {
 
 	go func() {
 		for data := range tunnel.Session.Recv {
-			stream.Send(&sliverpb.Shell{
+			stream.Send(&sliverpb.ShellTunnel{
 				SessionID: session.ID,
 				TunnelID:  tunnel.ID,
 				Data:      data,

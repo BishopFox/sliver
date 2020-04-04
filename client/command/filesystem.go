@@ -39,7 +39,7 @@ import (
 )
 
 func ls(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -75,7 +75,7 @@ func printDirList(dirList *sliverpb.Ls) {
 }
 
 func rm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -97,7 +97,7 @@ func rm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func mkdir(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -119,7 +119,7 @@ func mkdir(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func cd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -139,7 +139,7 @@ func cd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func pwd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -155,7 +155,7 @@ func pwd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func cat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -184,7 +184,7 @@ func cat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -251,7 +251,7 @@ func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func upload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}

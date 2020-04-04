@@ -78,8 +78,8 @@ type activeSession struct {
 	observerID int
 }
 
-// Get - Get the active session
-func (s *activeSession) Get() *clientpb.Session {
+// GetInteractive - GetInteractive the active session
+func (s *activeSession) GetInteractive() *clientpb.Session {
 	if s.session == nil {
 		fmt.Printf(Warn + "Please select an active session via `use`\n")
 		return nil
@@ -87,8 +87,8 @@ func (s *activeSession) Get() *clientpb.Session {
 	return s.session
 }
 
-// GetSilent - Same as Get() but doesn't print a warning
-func (s *activeSession) GetSilent() *clientpb.Session {
+// Get - Same as Get() but doesn't print a warning
+func (s *activeSession) Get() *clientpb.Session {
 	if s.session == nil {
 		return nil
 	}

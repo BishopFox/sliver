@@ -47,7 +47,7 @@ var (
 )
 
 func ps(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -119,7 +119,7 @@ func printProcInfo(table *tabwriter.Writer, proc *commonpb.Process) string {
 	if modifyColor, ok := knownProcs[proc.Executable]; ok {
 		color = modifyColor
 	}
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session != nil && proc.Pid == session.PID {
 		color = green
 	}
@@ -128,7 +128,7 @@ func printProcInfo(table *tabwriter.Writer, proc *commonpb.Process) string {
 }
 
 func procdump(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -173,7 +173,7 @@ func procdump(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func terminate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}

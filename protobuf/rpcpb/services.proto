@@ -66,7 +66,7 @@ service SliverRPC {
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
 
     // *** Tunnels ***
-    rpc Shell(stream sliverpb.Shell) returns (stream sliverpb.Shell);
+    rpc Shell(stream sliverpb.ShellTunnel) returns (stream sliverpb.ShellTunnel);
 
     // rpc CreateTunnel(clientpb.CreateTunnelReq) returns (clientpb.CreateTunnel);
     // rpc CloseTunnel(clientpb.CloseTunnelReq) returns (commonpb.Empty);

@@ -12,7 +12,7 @@ import (
 )
 
 func netstat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -53,7 +53,7 @@ func displayEntries(entries []*sliverpb.SockTabEntry) {
 	}
 
 	fmt.Printf("Proto %-23s %-23s %-12s %-16s\n", "Local Addr", "Foreign Addr", "State", "PID/Program name")
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	for _, e := range entries {
 		p := ""
 		if e.Process != nil {
@@ -76,6 +76,6 @@ func isSliverAddr(dstAddr string) bool {
 	if len(parts) != 3 {
 		return false
 	}
-	c2Addr := strings.Split(ActiveSession.Get().ActiveC2, "://")[1]
+	c2Addr := strings.Split(ActiveSession.GetInteractive().ActiveC2, "://")[1]
 	return strings.Join(parts[:2], ":") == c2Addr
 }

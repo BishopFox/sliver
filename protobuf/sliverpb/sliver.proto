@@ -425,11 +425,13 @@ message TunnelClose {
   uint32 SessionID = 9;
 }
 
-// Shell - Request the implant open a realtime shell tunnel
-message Shell {
+// ShellTunnel - Request the implant open a realtime shell tunnel
+message ShellTunnel {
   string Path = 1;
   bool EnablePTY = 2;
-  bytes Data = 3;
+  uint32 Pid = 3;
+  bytes Data = 4;
+
 
   uint64 TunnelID = 8;
   uint32 SessionID = 9;

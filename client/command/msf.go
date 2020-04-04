@@ -33,7 +33,7 @@ import (
 
 func msf(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -72,7 +72,7 @@ func msf(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 func msfInject(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}

@@ -33,8 +33,8 @@ import (
 func info(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	var session *clientpb.Session
-	if ActiveSession.Get() != nil {
-		session = ActiveSession.Get()
+	if ActiveSession.GetInteractive() != nil {
+		session = ActiveSession.GetInteractive()
 	} else if 0 < len(ctx.Args) {
 		session = GetSession(ctx.Args[0], rpc)
 	}
@@ -57,7 +57,7 @@ func info(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func ping(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -72,7 +72,7 @@ func ping(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func getPID(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -80,7 +80,7 @@ func getPID(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func getUID(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -88,7 +88,7 @@ func getUID(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func getGID(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -96,7 +96,7 @@ func getGID(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func whoami(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}

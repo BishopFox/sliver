@@ -203,7 +203,7 @@ func MsgNumber(request proto.Message) uint32 {
 	case *Ps:
 		return MsgPs
 
-	case *Shell:
+	case *ShellTunnel:
 		return MsgShell
 
 	case *ProcessDumpReq:
