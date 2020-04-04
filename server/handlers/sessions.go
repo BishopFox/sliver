@@ -72,11 +72,8 @@ func tunnelDataHandler(session *core.Session, data []byte) {
 	proto.Unmarshal(data, tunnelData)
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
 	if tunnel != nil {
-		if session.ID == tunnel.Session.ID {
-			tunnel.Client.Send <- &sliverpb.Envelope{
-				Type: sliverpb.MsgTunnelData,
-				Data: data,
-			}
+		if session.ID == tunnel.SessionID {
+			tunnel.Client.Send <- tunnelData.GetData()
 		} else {
 			handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
 		}
@@ -86,5 +83,16 @@ func tunnelDataHandler(session *core.Session, data []byte) {
 }
 
 func tunnelCloseHandler(session *core.Session, data []byte) {
-
+	tunnelClose := &sliverpb.TunnelClose{}
+	proto.Unmarshal(data, tunnelClose)
+	tunnel := core.Tunnels.Get(tunnelClose.TunnelID)
+	if tunnel != nil {
+		if session.ID == tunnel.SessionID {
+			core.Tunnels.Close(tunnel.ID)
+		} else {
+			handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
+		}
+	} else {
+		handlerLog.Warnf("Close sent on nil tunnel %d", tunnelClose.TunnelID)
+	}
 }

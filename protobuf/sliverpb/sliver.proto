@@ -413,6 +413,13 @@ message Screenshot {
   commonpb.Response Response = 9;
 }
 
+message TunnelData {
+  bytes Data  = 1;
+
+  uint64 TunnelID = 8;
+  uint32 SessionID = 9;
+}
+
 message TunnelClose {
   uint64 TunnelID = 8;
   uint32 SessionID = 9;

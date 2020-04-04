@@ -411,7 +411,7 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 	envelope := &sliverpb.Envelope{}
 	proto.Unmarshal(body, envelope)
 
-	handlers := sliverHandlers.GetSliverHandlers()
+	handlers := sliverHandlers.GetSessionHandlers()
 	if envelope.ID != 0 {
 		httpSession.Session.RespMutex.RLock()
 		defer httpSession.Session.RespMutex.RUnlock()

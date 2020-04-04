@@ -101,7 +101,7 @@ func handleSliverConnection(conn net.Conn) {
 	}()
 
 	go func() {
-		handlers := serverHandlers.GetSliverHandlers()
+		handlers := serverHandlers.GetSessionHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err != nil {

@@ -21,6 +21,7 @@ package core
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -33,15 +34,25 @@ var (
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 	}
+
+	// ErrInvalidTunnelID - Invalid tunnel ID value
+	ErrInvalidTunnelID = errors.New("Invalid tunnel ID")
 )
+
+// DuplexConnection - Channel connection abstraction
+type DuplexConnection struct {
+	Send chan []byte
+	Recv chan []byte
+}
 
 // Tunnel  - Essentially just a mapping between a specific client and sliver
 // with an identifier, these tunnels are full duplex. The server doesn't really
 // care what data gets passed back and forth it just facilitates the connection
 type Tunnel struct {
-	ID      uint64
-	Session *Session
-	Client  *Client
+	ID        uint64
+	SessionID uint32
+	Session   DuplexConnection
+	Client    DuplexConnection
 }
 
 type tunnels struct {
@@ -49,13 +60,23 @@ type tunnels struct {
 	mutex   *sync.RWMutex
 }
 
-func (t *tunnels) CreateTunnel(client *Client, sessionID uint32) *Tunnel {
+func (t *tunnels) Create(sessionID uint32) *Tunnel {
 	tunnelID := NewTunnelID()
 	session := Sessions.Get(sessionID)
+
+	fromClient := make(chan []byte)
+	toClient := make(chan []byte)
 	tunnel := &Tunnel{
-		ID:      tunnelID,
-		Client:  client,
-		Session: session,
+		ID:        tunnelID,
+		SessionID: session.ID,
+		Client: DuplexConnection{
+			Send: toClient,
+			Recv: fromClient,
+		},
+		Session: DuplexConnection{
+			Send: fromClient,
+			Recv: toClient,
+		},
 	}
 
 	t.mutex.Lock()
@@ -65,26 +86,33 @@ func (t *tunnels) CreateTunnel(client *Client, sessionID uint32) *Tunnel {
 	return tunnel
 }
 
-func (t *tunnels) CloseTunnel(tunnelID uint64, reason string) bool {
+func (t *tunnels) Close(tunnelID uint64) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	tunnel := (*t.tunnels)[tunnelID]
-	if tunnel != nil {
-		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelClose{
-			TunnelID: tunnelID,
-		})
-		// tunnel.ClientSend <- &sliverpb.Envelope{
-		// 	Type: sliverpb.MsgTunnelClose,
-		// 	Data: tunnelClose,
-		// }
-		tunnel.Session.Send <- &sliverpb.Envelope{
-			Type: sliverpb.MsgTunnelClose,
-			Data: tunnelClose,
-		}
-		delete(*t.tunnels, tunnelID)
-		return true
+	if tunnel == nil {
+		return ErrInvalidTunnelID
 	}
-	return false
+
+	tunnelClose, err := proto.Marshal(&sliverpb.TunnelClose{
+		TunnelID:  tunnel.ID,
+		SessionID: tunnel.SessionID,
+	})
+	if err != nil {
+		return err
+	}
+	data, err := proto.Marshal(&sliverpb.Envelope{
+		Type: sliverpb.MsgTunnelClose,
+		Data: tunnelClose,
+	})
+	if err != nil {
+		return err
+	}
+	tunnel.Session.Send <- data
+	close(tunnel.Client.Send)
+	close(tunnel.Client.Recv)
+	delete(*t.tunnels, tunnelID)
+	return nil
 }
 
 // Get - Get a tunnel

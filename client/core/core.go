@@ -2,57 +2,27 @@ package core
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log"
 )
 
-/*
-	Sliver Implant Framework
-	Copyright (C) 2019  Bishop Fox
+const (
+	randomIDSize = 16 // 64bits
+)
 
-	This program is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
+type tunnelAddr struct {
+	network string
+	addr    string
+}
 
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+func (a *tunnelAddr) Network() string {
+	return a.network
+}
 
-	You should have received a copy of the GNU General Public License
-	along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
-
-// import (
-// 	"bytes"
-// 	"fmt"
-// 	"io"
-// 	"log"
-// 	"sync"
-// 	"time"
-
-// 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-// 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-// 	"github.com/golang/protobuf/proto"
-// )
-
-// const (
-// 	randomIDSize = 16 // 64bits
-// )
-
-// type tunnelAddr struct {
-// 	network string
-// 	addr    string
-// }
-
-// func (a *tunnelAddr) Network() string {
-// 	return a.network
-// }
-
-// func (a *tunnelAddr) String() string {
-// 	return fmt.Sprintf("%s://%s", a.network, a.addr)
-// }
+func (a *tunnelAddr) String() string {
+	return fmt.Sprintf("%s://%s", a.network, a.addr)
+}
 
 // Tunnel - Duplex data tunnel
 type Tunnel struct {

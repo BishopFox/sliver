@@ -522,7 +522,7 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 		dnsSession.Session.LastCheckin = &checkin
 
 		// Response Envelope or Handler
-		handlers := serverHandlers.GetSliverHandlers()
+		handlers := serverHandlers.GetSessionHandlers()
 		if envelope.ID != 0 {
 			dnsSession.Session.RespMutex.Lock()
 			defer dnsSession.Session.RespMutex.Unlock()
