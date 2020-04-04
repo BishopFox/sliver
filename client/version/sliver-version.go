@@ -20,6 +20,8 @@ package version
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -28,22 +30,29 @@ const (
 )
 
 var (
-	// SemanticVersion - Sliver version number
-	SemanticVersion = []int{1, 0, 0}
+	// Version - The semantic version in string form
+	Version string
+
+	// GitCommit - The commit id at compile time
+	GitCommit string
+
+	// GitDirty - Was the commit dirty at compile time
+	GitDirty string
 )
 
-// SliverVersion - Get sematic version as int slice
-func SliverVersion() string {
-	return fmt.Sprintf("%d.%d.%d",
-		SemanticVersion[0],
-		SemanticVersion[1],
-		SemanticVersion[2],
-	)
+// SemanticVersion - Get the structured sematic version
+func SemanticVersion() []int {
+	semVer := []int{}
+	for _, part := range strings.Split(Version, ".") {
+		number, _ := strconv.Atoi(part)
+		semVer = append(semVer, number)
+	}
+	return semVer
 }
 
 // FullVersion - Full version string
 func FullVersion() string {
-	ver := fmt.Sprintf("%s - %s", SliverVersion(), GitVersion)
+	ver := fmt.Sprintf("%s - %s", Version, GitCommit)
 	if GitDirty != "" {
 		ver += " - " + bold + GitDirty + normal
 	}

@@ -5,15 +5,17 @@
 GO ?= go
 ENV = CGO_ENABLED=0
 TAGS = -tags netgo
-LDFLAGS = -ldflags '-s -w'
 
 # https://stackoverflow.com/questions/5618615/check-if-a-program-exists-from-a-makefile
 EXECUTABLES = protoc protoc-gen-go packr sed git zip go
 K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
 
+PKG = github.com/bishopfox/sliver/client/version
+VERSION = 1.0.0
 GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
-GIT_VERSION = $(shell git rev-parse HEAD)
+GIT_COMMIT = $(shell git rev-parse HEAD)
+LDFLAGS = -ldflags "-s -w -X $(PKG).Version=$(VERSION) -X $(PKG).GitCommit=$(GIT_COMMIT) -X $(PKG).GitDirty=$(GIT_DIRTY)"
 
 SED_INPLACE := sed -i
 
@@ -24,17 +26,17 @@ endif
 
 
 .PHONY: macos
-macos: clean version pb
+macos: clean pb
 	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
 	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: linux
-linux: clean version pb
+linux: clean pb
 	GOOS=linux $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
 	GOOS=linux $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: windows
-windows: clean version pb
+windows: clean pb
 	GOOS=windows $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
 	GOOS=windows $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-client.exe ./client
 
@@ -43,21 +45,21 @@ windows: clean version pb
 # Static builds were we bundle everything together
 #
 .PHONY: static-macos
-static-macos: clean version pb packr
+static-macos: clean pb packr
 	packr
 	$(SED_INPLACE) '/$*.windows\/go\.zip/d' ./server/assets/a_assets-packr.go
 	$(SED_INPLACE) '/$*.linux\/go\.zip/d' ./server/assets/a_assets-packr.go
 	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
 
 .PHONY: static-windows
-static-windows: clean version pb packr
+static-windows: clean pb packr
 	packr
 	$(SED_INPLACE) '/$*.darwin\/go\.zip/d' ./server/assets/a_assets-packr.go
 	$(SED_INPLACE) '/$*.linux\/go\.zip/d' ./server/assets/a_assets-packr.go
 	GOOS=windows $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
 
 .PHONY: static-linux
-static-linux: clean version pb packr
+static-linux: clean pb packr
 	$(SED_INPLACE) '/$*.darwin\/go\.zip/d' ./server/assets/a_assets-packr.go
 	$(SED_INPLACE) '/$*.windows\/go\.zip/d' ./server/assets/a_assets-packr.go
 	GOOS=linux $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
@@ -69,30 +71,21 @@ pb:
 	protoc -I protobuf/ protobuf/clientpb/client.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/rpcpb/services.proto --go_out=plugins=grpc,paths=source_relative:protobuf/
 
-.PHONY: version
-version:
-	printf "package version\n\nconst GitVersion = \"%s\"\n" $(GIT_VERSION) > ./client/version/version.go
-	printf "const GitDirty = \"%s\"\n" $(GIT_DIRTY) >> ./client/version/version.go
-
 .PHONY: packr
 packr:
 	cd ./server/
 	packr
 	cd ..
 
-.PHONY: clean-version
-clean-version:
-	printf "package version\n\nconst GitVersion = \"\"\n" > ./client/version/version.go
-
 .PHONY: clean-all
-clean-all: clean clean-version
+clean-all: clean
 	rm -f ./assets/darwin/go.zip
 	rm -f ./assets/windows/go.zip
 	rm -f ./assets/linux/go.zip
 	rm -f ./assets/*.zip
 
 .PHONY: clean
-clean: clean-version
+clean:
 	packr clean
 	rm -f ./protobuf/client/*.pb.go
 	rm -f ./protobuf/sliver/*.pb.go

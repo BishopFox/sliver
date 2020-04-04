@@ -94,15 +94,15 @@ func saveAssetVersion(appDir string) {
 	versionFilePath := path.Join(appDir, versionFileName)
 	fVer, _ := os.Create(versionFilePath)
 	defer fVer.Close()
-	fVer.Write([]byte(ver.GitVersion))
+	fVer.Write([]byte(ver.GitCommit))
 }
 
 // Setup - Extract or create local assets
 func Setup(force bool) {
 	appDir := GetRootAppDir()
 	localVer := assetVersion()
-	if force || localVer == "" || localVer != ver.GitVersion {
-		setupLog.Infof("Version mismatch %v != %v", localVer, ver.GitVersion)
+	if force || localVer == "" || localVer != ver.GitCommit {
+		setupLog.Infof("Version mismatch %v != %v", localVer, ver.GitCommit)
 		fmt.Printf("Unpacking assets ...\n")
 		setupGo(appDir)
 		setupCodenames(appDir)

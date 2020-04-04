@@ -186,12 +186,12 @@ func printLogo(sliverApp *grumble.App, rpc rpcpb.SliverRPCClient) {
 	fmt.Println(logo)
 	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
 	fmt.Printf(Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
-	if version.GitVersion != serverVer.Commit {
+	if version.GitCommit != serverVer.Commit {
 		fmt.Printf(Info+"Client v%s\n", version.FullVersion())
 	}
 	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
 	fmt.Println()
-	if serverVer.Major != int32(version.SemanticVersion[0]) {
+	if serverVer.Major != int32(version.SemanticVersion()[0]) {
 		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
 	}
 }
