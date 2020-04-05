@@ -413,14 +413,17 @@ message Screenshot {
   commonpb.Response Response = 9;
 }
 
-message TunnelData {
-  bytes Data  = 1;
+// Tunnel - Tunnel related messages
 
+message Tunnel {
   uint64 TunnelID = 8;
   uint32 SessionID = 9;
 }
 
-message TunnelClose {
+message TunnelData {
+  bytes Data  = 1;
+  bool Closed = 2;
+
   uint64 TunnelID = 8;
   uint32 SessionID = 9;
 }
@@ -431,7 +434,7 @@ message ShellReq{
   bool EnablePTY = 2;
   uint32 Pid = 3;
 
-  uint64 TunnelID = 8;
+  uint64 TunnelID = 8; // Bind to this tunnel
   commonpb.Request Request = 9;
 }
 

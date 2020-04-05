@@ -24,6 +24,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/golang/protobuf/proto"
 )
@@ -39,20 +40,15 @@ var (
 	ErrInvalidTunnelID = errors.New("Invalid tunnel ID")
 )
 
-// DuplexConnection - Channel connection abstraction
-type DuplexConnection struct {
-	Send chan []byte
-	Recv chan []byte
-}
-
 // Tunnel  - Essentially just a mapping between a specific client and sliver
 // with an identifier, these tunnels are full duplex. The server doesn't really
 // care what data gets passed back and forth it just facilitates the connection
 type Tunnel struct {
-	ID        uint64
-	SessionID uint32
-	Session   DuplexConnection
-	Client    DuplexConnection
+	ID          uint64
+	SessionID   uint32
+	ToImplant   chan []byte
+	FromImplant chan []byte
+	Client      rpcpb.SliverRPC_TunnelDataServer
 }
 
 type tunnels struct {
@@ -63,22 +59,12 @@ type tunnels struct {
 func (t *tunnels) Create(sessionID uint32) *Tunnel {
 	tunnelID := NewTunnelID()
 	session := Sessions.Get(sessionID)
-
-	fromClient := make(chan []byte)
-	toClient := make(chan []byte)
 	tunnel := &Tunnel{
-		ID:        tunnelID,
-		SessionID: session.ID,
-		Client: DuplexConnection{
-			Send: toClient,
-			Recv: fromClient,
-		},
-		Session: DuplexConnection{
-			Send: fromClient,
-			Recv: toClient,
-		},
+		ID:          tunnelID,
+		SessionID:   session.ID,
+		ToImplant:   make(chan []byte),
+		FromImplant: make(chan []byte),
 	}
-
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	(*t.tunnels)[tunnel.ID] = tunnel
@@ -89,14 +75,15 @@ func (t *tunnels) Create(sessionID uint32) *Tunnel {
 func (t *tunnels) Close(tunnelID uint64) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+
 	tunnel := (*t.tunnels)[tunnelID]
 	if tunnel == nil {
 		return ErrInvalidTunnelID
 	}
-
-	tunnelClose, err := proto.Marshal(&sliverpb.TunnelClose{
+	tunnelClose, err := proto.Marshal(&sliverpb.TunnelData{
 		TunnelID:  tunnel.ID,
 		SessionID: tunnel.SessionID,
+		Closed:    true,
 	})
 	if err != nil {
 		return err
@@ -108,10 +95,10 @@ func (t *tunnels) Close(tunnelID uint64) error {
 	if err != nil {
 		return err
 	}
-	tunnel.Session.Send <- data
-	close(tunnel.Client.Send)
-	close(tunnel.Client.Recv)
+	tunnel.ToImplant <- data // Send an in-band close to implant
 	delete(*t.tunnels, tunnelID)
+	close(tunnel.ToImplant)
+	close(tunnel.FromImplant)
 	return nil
 }
 

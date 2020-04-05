@@ -25,6 +25,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
@@ -56,7 +57,7 @@ func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf(Info + "Opening shell tunnel (EOF to exit) ...\n\n")
-	_, err := rpc.Shell(context.Background(), &sliverpb.ShellReq{
+	shell, err := rpc.Shell(context.Background(), &sliverpb.ShellReq{
 		Request:   ActiveSession.Request(ctx),
 		Path:      shellPath,
 		EnablePTY: !noPty,
@@ -76,6 +77,7 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcp
 		}
 	}
 
+	tunnel := core.Tunnels.Get(shell.TunnelID)
 	go func() {
 		_, err := io.Copy(os.Stdout, tunnel)
 		if err != nil {

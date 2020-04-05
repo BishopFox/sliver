@@ -20,92 +20,84 @@ package rpc
 
 import (
 	"context"
+	"io"
 
-	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	// "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/core"
 )
 
-// CreateTunnel - Create a new tunnel associated with a session
-func (s *Server) CreateTunnel(ctx context.Context, req *clientpb.CreateTunnelReq) (*clientpb.CreateTunnel, error) {
-	return nil, nil
+// CreateTunnel - Create a new tunnel on the server, however based on only this request there's
+//                no way to associate the tunnel with the correct client, so the client must send
+//                a zero-byte message over TunnelData to bind itself to the newly created tunnel.
+func (s *Server) CreateTunnel(ctx context.Context, req *sliverpb.Tunnel) (*sliverpb.Tunnel, error) {
+	session := core.Sessions.Get(req.SessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
+	}
+	tunnel := core.Tunnels.Create(session.ID)
+	if tunnel == nil {
+		return nil, ErrTunnelInitFailure
+	}
+	return &sliverpb.Tunnel{
+		SessionID: session.ID,
+		TunnelID:  tunnel.ID,
+	}, nil
 }
 
-// CloseTunnel - Used by clients to request a tunnel be closed
-func (s *Server) CloseTunnel(ctx context.Context, req *clientpb.CloseTunnelReq) (*commonpb.Empty, error) {
-	return nil, nil
+// CloseTunnel - Client requests we close a tunnel
+func (s *Server) CloseTunnel(ctx context.Context, req *sliverpb.Tunnel) (*commonpb.Empty, error) {
+	err := core.Tunnels.Close(req.TunnelID)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.Empty{}, nil
 }
 
-// Tunnel - Streams tunnel data back and forth from the client<->server<->implant
-// func (s *Server) Tunnel(_ rpcpb.SliverRPC_TunnelServer) error {
-// for {
-// 	_, err := stream.Recv()
-// 	if err == io.EOF {
-// 		return nil
-// 	}
-// 	if err != nil {
-// 		rpcLog.Errorf("Tunnel stream error: %s", err)
-// 		return err
-// 	}
-// }
-// 	return nil
-// }
+// TunnelData - Streams tunnel data back and forth from the client<->server<->implant
+func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
+	for {
+		fromClient, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			rpcLog.Warn("Error on stream recv %s", err)
+			return err
+		}
 
-// import (
-// 	"time"
+		tunnel := core.Tunnels.Get(fromClient.TunnelID)
+		if tunnel == nil {
+			return core.ErrInvalidTunnelID
+		}
+		if tunnel.Client == nil {
+			tunnel.Client = stream // Bind client to tunnel
+			tunnel.Client.Send(&sliverpb.TunnelData{
+				TunnelID:  tunnel.ID,
+				SessionID: tunnel.SessionID,
+				Closed:    false,
+			})
 
-// 	"github.com/bishopfox/sliver/server/core"
+			go func() {
+				for data := range tunnel.FromImplant {
+					tunnel.Client.Send(&sliverpb.TunnelData{
+						TunnelID:  tunnel.ID,
+						SessionID: tunnel.SessionID,
+						Data:      data,
+						Closed:    false,
+					})
+				}
+				tunnel.Client.Send(&sliverpb.TunnelData{
+					TunnelID:  tunnel.ID,
+					SessionID: tunnel.SessionID,
+					Closed:    true,
+				})
+			}()
 
-// 	"github.com/bishopfox/sliver/protobuf/clientpb"
-// 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-
-// 	"github.com/golang/protobuf/proto"
-// )
-
-// const (
-// 	tunDefaultTimeout = 30 * time.Second
-// )
-
-// func tunnelCreate(client *core.Client, req []byte, resp RPCResponse) {
-// 	tunCreateReq := &clientpb.TunnelCreateReq{}
-// 	proto.Unmarshal(req, tunCreateReq)
-
-// 	tunnel := core.Tunnels.CreateTunnel(client, tunCreateReq.SliverID)
-
-// 	data, err := proto.Marshal(&clientpb.TunnelCreate{
-// 		SliverID: tunnel.Sliver.ID,
-// 		TunnelID: tunnel.ID,
-// 	})
-
-// 	resp(data, err)
-// }
-
-// func tunnelData(client *core.Client, req []byte, _ RPCResponse) {
-// 	tunnelData := &sliverpb.TunnelData{}
-// 	proto.Unmarshal(req, tunnelData)
-// 	tunnel := core.Tunnels.Tunnel(tunnelData.TunnelID)
-// 	if tunnel != nil && client.ID == tunnel.Client.ID {
-// 		tunnel.Sliver.Request(sliverpb.MsgTunnelData, tunDefaultTimeout, req)
-// 	} else {
-// 		rpcLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
-// 	}
-// }
-
-// func tunnelClose(client *core.Client, req []byte, resp RPCResponse) {
-// 	tunCloseReq := &clientpb.TunnelCloseReq{}
-// 	proto.Unmarshal(req, tunCloseReq)
-
-// 	tunnel := core.Tunnels.Tunnel(tunCloseReq.TunnelID)
-
-// 	if tunnel != nil && client.ID == tunnel.Client.ID {
-// 		closed := core.Tunnels.CloseTunnel(tunCloseReq.TunnelID, "Client exit")
-// 		closeResp := &sliverpb.TunnelClose{
-// 			TunnelID: tunCloseReq.TunnelID,
-// 		}
-// 		if !closed {
-// 			closeResp.Err = "Failed to close tunnel"
-// 		}
-// 		data, err := proto.Marshal(closeResp)
-// 		resp(data, err)
-// 	}
-// }
+		} else {
+			tunnel.ToImplant <- fromClient.GetData()
+		}
+	}
+	return nil
+}

@@ -19,10 +19,9 @@ package rpc
 */
 
 import (
+	"context"
 	"errors"
-	"io"
 
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/golang/protobuf/proto"
@@ -34,40 +33,24 @@ var (
 )
 
 // Shell - Open an interactive shell
-func (s *Server) Shell(stream rpcpb.SliverRPC_ShellServer) error {
-	shellTun, err := stream.Recv()
-	if err != nil {
-		return err
+func (s *Server) Shell(ctx context.Context, req *sliverpb.ShellReq) (*sliverpb.Shell, error) {
+	session := core.Sessions.Get(req.Request.SessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
 	}
-	session := core.Sessions.Get(shellTun.SessionID)
-	tunnel := core.Tunnels.Create(session.ID)
+	tunnel := core.Tunnels.Get(req.TunnelID)
 	if tunnel == nil {
-		return ErrTunnelInitFailure
+		return nil, core.ErrInvalidTunnelID
 	}
-	shellTun.TunnelID = tunnel.ID
-	data, _ := proto.Marshal(shellTun)
-	session.Send <- &sliverpb.Envelope{
-		ID:   core.EnvelopeID(),
-		Type: sliverpb.MsgShellTunnel,
-		Data: data,
+	reqData, err := proto.Marshal(req)
+	if err != nil {
+		return nil, err
 	}
-
-	go func() {
-		for data := range tunnel.Session.Recv {
-			stream.Send(&sliverpb.ShellTunnel{
-				SessionID: session.ID,
-				TunnelID:  tunnel.ID,
-				Data:      data,
-			})
-		}
-	}()
-
-	for {
-		shell, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		tunnel.Session.Send <- shell.Data
+	data, err := session.Request(sliverpb.MsgNumber(req), s.getTimeout(req), reqData)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	shell := &sliverpb.Shell{}
+	err = proto.Unmarshal(data, shell)
+	return shell, err
 }
