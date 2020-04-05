@@ -79,7 +79,7 @@ const (
 	// MsgPs - List processes resp
 	MsgPs
 
-	// MsgShellReq - Starts an interactive shell
+	// MsgShellReq - Request to open a shell tunnel
 	MsgShellReq
 	// MsgShell - Response on starting shell
 	MsgShell
@@ -203,7 +203,9 @@ func MsgNumber(request proto.Message) uint32 {
 	case *Ps:
 		return MsgPs
 
-	case *ShellTunnel:
+	case *ShellReq:
+		return MsgShellReq
+	case *Shell:
 		return MsgShell
 
 	case *ProcessDumpReq:

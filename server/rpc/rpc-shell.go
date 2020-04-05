@@ -25,6 +25,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -34,14 +35,21 @@ var (
 
 // Shell - Open an interactive shell
 func (s *Server) Shell(stream rpcpb.SliverRPC_ShellServer) error {
-	shell, err := stream.Recv()
+	shellTun, err := stream.Recv()
 	if err != nil {
 		return err
 	}
-	session := core.Sessions.Get(shell.SessionID)
+	session := core.Sessions.Get(shellTun.SessionID)
 	tunnel := core.Tunnels.Create(session.ID)
 	if tunnel == nil {
 		return ErrTunnelInitFailure
+	}
+	shellTun.TunnelID = tunnel.ID
+	data, _ := proto.Marshal(shellTun)
+	session.Send <- &sliverpb.Envelope{
+		ID:   core.EnvelopeID(),
+		Type: sliverpb.MsgShellTunnel,
+		Data: data,
 	}
 
 	go func() {

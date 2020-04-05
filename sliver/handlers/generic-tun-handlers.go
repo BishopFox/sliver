@@ -39,7 +39,7 @@ const (
 
 var (
 	tunnelHandlers = map[uint32]TunnelHandler{
-		sliverpb.MsgShellReq: shellReqHandler,
+		sliverpb.MsgShellTunnel: shellReqHandler,
 
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,

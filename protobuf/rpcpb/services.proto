@@ -65,12 +65,11 @@ service SliverRPC {
     rpc SpawnDll(sliverpb.SpawnDllReq) returns (sliverpb.SpawnDll);
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
 
-    // *** Tunnels ***
-    rpc Shell(stream sliverpb.ShellTunnel) returns (stream sliverpb.ShellTunnel);
+    // *** Tunnel Requests ***
+    rpc Shell(sliverpb.ShellReq) returns (sliverpb.Shell);
 
-    // rpc CreateTunnel(clientpb.CreateTunnelReq) returns (clientpb.CreateTunnel);
-    // rpc CloseTunnel(clientpb.CloseTunnelReq) returns (commonpb.Empty);
-    // rpc Tunnel(stream sliverpb.DataTunnel) returns (stream sliverpb.TunnelData);
+    // *** Tunnels ***
+    rpc Tunnel(stream sliverpb.TunnelData) returns (stream sliverpb.TunnelData);
 
     // *** Events ***
     rpc Events(commonpb.Empty) returns (stream clientpb.Event);

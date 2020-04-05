@@ -25,7 +25,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
@@ -52,48 +51,20 @@ func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if ActiveSession.Get().OS == windows {
 		noPty = true // Windows of course doesn't have PTYs
 	}
-	runInteractive(shellPath, noPty, rpc)
+	runInteractive(ctx, shellPath, noPty, rpc)
 }
 
-func runInteractive(shellPath string, noPty bool, rpc rpcpb.SliverRPCClient) {
+func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf(Info + "Opening shell tunnel (EOF to exit) ...\n\n")
-
-	session := ActiveSession.Get()
-	stream, err := rpc.Shell(context.Background())
-	stream.Send(&sliverpb.ShellTunnel{
-		SessionID: session.ID,
-		EnablePTY: !noPty,
+	_, err := rpc.Shell(context.Background(), &sliverpb.ShellReq{
+		Request:   ActiveSession.Request(ctx),
 		Path:      shellPath,
+		EnablePTY: !noPty,
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
-
-	tunnel := &core.Tunnel{
-		SessionID: session.ID,
-		Send:      make(chan []byte),
-		Recv:      make(chan []byte),
-	}
-
-	go func() {
-		for {
-			incoming, err := stream.Recv()
-			if err == io.EOF {
-				tunnel.Close()
-				return
-			}
-			tunnel.Recv <- incoming.Data
-		}
-	}()
-
-	go func() {
-		for data := range tunnel.Send {
-			stream.Send(&sliverpb.ShellTunnel{
-				Data: data,
-			})
-		}
-	}()
 
 	var oldState *terminal.State
 	if !noPty {

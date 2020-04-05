@@ -270,22 +270,22 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 
-	// app.AddCommand(&grumble.Command{
-	// 	Name:     consts.ShellStr,
-	// 	Help:     "Start an interactive shell",
-	// 	LongHelp: help.GetHelpFor(consts.ShellStr),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Bool("y", "no-pty", false, "disable use of pty on macos/linux")
-	// 		f.String("s", "shell-path", "", "path to shell interpreter")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		shell(ctx, server)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ShellStr,
+		Help:     "Start an interactive shell",
+		LongHelp: help.GetHelpFor(consts.ShellStr),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("y", "no-pty", false, "disable use of pty on macos/linux")
+			f.String("s", "shell-path", "", "path to shell interpreter")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			shell(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
 	// app.AddCommand(&grumble.Command{
 	// 	Name:     consts.ExecuteStr,
