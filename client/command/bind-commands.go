@@ -328,6 +328,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("m", "mtls", "", "mtls connection strings")
 			f.String("t", "http", "", "http(s) connection strings")
 			f.String("n", "dns", "", "dns connection strings")
+			f.String("p", "named-pipe", "", "named-pipe connection strings")
 
 			f.Int("j", "reconnect", 60, "attempt to reconnect every n second(s)")
 			f.Int("k", "max-errors", 1000, "max number of connection errors")
