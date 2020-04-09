@@ -4,15 +4,15 @@ go 1.13
 
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
-	github.com/aws/aws-sdk-go v1.29.32
-	github.com/cloudflare/cloudflare-go v0.11.5
+	github.com/VirusTotal/vt-go v0.0.0-20200128233257-c1b421c1d7ee
+	github.com/aws/aws-sdk-go v1.30.7
+	github.com/cloudflare/cloudflare-go v0.11.6
 	github.com/desertbit/closer/v3 v3.1.2 // indirect
 	github.com/desertbit/columnize v2.1.0+incompatible
-	github.com/desertbit/grumble v1.0.4
+	github.com/desertbit/grumble v1.0.5
 	github.com/dgraph-io/badger v1.6.1
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/fatih/color v1.9.0
-	github.com/go-kit/kit v0.10.0 // indirect
 	github.com/gobuffalo/envy v1.9.0 // indirect
 	github.com/gobuffalo/packd v1.0.0 // indirect
 	github.com/gobuffalo/packr v1.30.1
@@ -24,10 +24,8 @@ require (
 	github.com/rogpeppe/go-internal v1.5.2 // indirect
 	github.com/sirupsen/logrus v1.5.0
 	github.com/stretchr/testify v1.5.1
-	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
-	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
-	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
-	golang.org/x/tools v0.0.0-20200325203130-f53864d0dba1
+	golang.org/x/crypto v0.0.0-20200406173513-056763e48d71
+	golang.org/x/sys v0.0.0-20200409092240-59c9f1ba88fa
+	golang.org/x/tools v0.0.0-20200408132156-9ee5ef7a2c0d
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
-	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 )
