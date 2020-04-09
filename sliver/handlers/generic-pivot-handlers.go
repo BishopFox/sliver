@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"bytes"
-	"encoding/binary"
 	"net"
 	"sync"
 
@@ -11,6 +9,7 @@ import (
 	// {{end}}
 
 	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/sliver/pivots"
 	"github.com/bishopfox/sliver/sliver/transports"
 	"github.com/golang/protobuf/proto"
 )
@@ -93,35 +92,12 @@ func pivotDataHandler(envelope *pb.Envelope, connection *transports.Connection) 
 
 	pivotConn := pivotsMap.Pivot(pivData.GetPivotID())
 	if pivotConn != nil {
-		pivotWriteEnvelope(pivotConn, origData)
+		pivots.PivotWriteEnvelope(pivotConn, origData)
 	} else {
 		// {{if .Debug}}
 		log.Printf("[pivotDataHandler] PivotID %d not found\n", pivData.GetPivotID())
 		// {{end}}
 	}
-}
-
-func pivotWriteEnvelope(conn *net.Conn, envelope *pb.Envelope) error {
-	// {{if .Debug}}
-	log.Printf("pivotWriteEnvelope %d\n", envelope.GetType())
-	// {{end}}
-	data, err := proto.Marshal(envelope)
-	if err != nil {
-		// {{if .Debug}}
-		log.Print("Envelope marshaling error: ", err)
-		// {{end}}
-		return err
-	}
-	dataLengthBuf := new(bytes.Buffer)
-	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
-	(*conn).Write(dataLengthBuf.Bytes())
-	(*conn).Write(data)
-
-	// {{if .Debug}}
-	log.Printf("pivotWriteEnvelope bytes:%d\n", uint32(len(data)))
-	// {{end}}
-
-	return nil
 }
 
 // pivotsMap - holds the pivots, provides atomic access
