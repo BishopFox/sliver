@@ -242,12 +242,12 @@ func generateCertificate(caType string, commonName string, isCA bool, isClient b
 	var err error
 	var derBytes []byte
 	if isCA {
-		certsLog.Infof("Ceritificate is an AUTHORITY")
+		certsLog.Infof("Certificate is an AUTHORITY")
 		template.IsCA = true
 		template.KeyUsage |= x509.KeyUsageCertSign
 		derBytes, err = x509.CreateCertificate(rand.Reader, &template, &template, publicKey(privateKey), privateKey)
 	} else {
-		caCert, caKey, err := GetCertificateAuthority(caType) // Sign the new ceritificate with our CA
+		caCert, caKey, err := GetCertificateAuthority(caType) // Sign the new certificate with our CA
 		if err != nil {
 			certsLog.Fatalf("Invalid ca type (%s): %v", caType, err)
 		}

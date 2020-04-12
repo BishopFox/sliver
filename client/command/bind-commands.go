@@ -277,6 +277,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("y", "no-pty", false, "disable use of pty on macos/linux")
 			f.String("s", "shell-path", "", "path to shell interpreter")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()

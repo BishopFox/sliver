@@ -57,15 +57,35 @@ func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf(Info + "Opening shell tunnel (EOF to exit) ...\n\n")
-	shell, err := rpc.Shell(context.Background(), &sliverpb.ShellReq{
-		Request:   ActiveSession.Request(ctx),
-		Path:      shellPath,
-		EnablePTY: !noPty,
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
+
+	// Create an RPC tunnel, then start it before binding the shell to the newly created tunnel
+	rpcTunnel, err := rpc.CreateTunnel(context.Background(), &sliverpb.Tunnel{
+		SessionID: session.ID,
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
+	log.Printf("Created new tunnel with id: %d, binding to shell ...", rpcTunnel.TunnelID)
+
+	// Start() takes an RPC tunnel and creates a local Reader/Writer tunnel object
+	tunnel := core.Tunnels.Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
+
+	shell, err := rpc.Shell(context.Background(), &sliverpb.ShellReq{
+		Request:   ActiveSession.Request(ctx),
+		Path:      shellPath,
+		EnablePTY: !noPty,
+		TunnelID:  tunnel.ID,
+	})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+	fmt.Printf(Info+"Started remote shell with pid %d", shell.Pid)
 
 	var oldState *terminal.State
 	if !noPty {
@@ -77,7 +97,6 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcp
 		}
 	}
 
-	tunnel := core.Tunnels.Get(shell.TunnelID)
 	go func() {
 		_, err := io.Copy(os.Stdout, tunnel)
 		if err != nil {

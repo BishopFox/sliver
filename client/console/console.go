@@ -31,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/client/assets"
 	cmd "github.com/bishopfox/sliver/client/command"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -96,6 +97,7 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 	})
 
 	go eventLoop(app, rpc)
+	go core.TunnelLoop(rpc)
 
 	err := app.Run()
 	if err != nil {

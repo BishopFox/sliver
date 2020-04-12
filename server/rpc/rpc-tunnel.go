@@ -95,7 +95,7 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 				})
 			}()
 
-		} else {
+		} else if tunnel.Client == stream {
 			tunnel.ToImplant <- fromClient.GetData()
 		}
 	}
