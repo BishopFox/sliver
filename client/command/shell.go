@@ -85,7 +85,7 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcp
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
-	fmt.Printf(Info+"Started remote shell with pid %d", shell.Pid)
+	fmt.Printf(Info+"Started remote shell with pid %d\n\n", shell.Pid)
 
 	var oldState *terminal.State
 	if !noPty {
@@ -97,6 +97,7 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcp
 		}
 	}
 
+	log.Printf("Starting stdin/stdout shell ...")
 	go func() {
 		_, err := io.Copy(os.Stdout, tunnel)
 		if err != nil {
@@ -105,6 +106,7 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcp
 		}
 	}()
 	for {
+		log.Printf("Reading from stdin ...")
 		_, err := io.Copy(tunnel, os.Stdin)
 		if err == io.EOF {
 			break

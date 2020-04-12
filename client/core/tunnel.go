@@ -63,6 +63,7 @@ func (t *tunnels) Start(tunnelID uint64, sessionID uint32) *Tunnel {
 	go func() {
 		tunnel.IsOpen = true
 		for data := range tunnel.Send {
+			log.Printf("Send %d bytes on tunnel %d", len(data), tunnel.ID)
 			t.stream.Send(&sliverpb.TunnelData{
 				TunnelID:  tunnel.ID,
 				SessionID: tunnel.SessionID,
@@ -70,6 +71,7 @@ func (t *tunnels) Start(tunnelID uint64, sessionID uint32) *Tunnel {
 			})
 		}
 	}()
+	tunnel.Send <- make([]byte, 0) // Send "zero" message to bind client to tunnel
 	return tunnel
 }
 
@@ -96,9 +98,9 @@ type Tunnel struct {
 	Recv chan []byte
 }
 
-// Write -
+// Write - Writer method for interface
 func (tun *Tunnel) Write(data []byte) (int, error) {
-	log.Printf("Sending %d bytes on session %d", len(data), tun.SessionID)
+	log.Printf("Write %d bytes", len(data))
 	if !tun.IsOpen {
 		return 0, io.EOF
 	}
@@ -107,15 +109,16 @@ func (tun *Tunnel) Write(data []byte) (int, error) {
 	return n, nil
 }
 
-// Read -
+// Read - Reader method for interface
 func (tun *Tunnel) Read(data []byte) (int, error) {
 	var buff bytes.Buffer
 	if !tun.IsOpen {
 		return 0, io.EOF
 	}
 	select {
-	case msg := <-tun.Recv:
-		buff.Write(msg)
+	case data := <-tun.Recv:
+		log.Printf("Read %d bytes", len(data))
+		buff.Write(data)
 	default:
 		break
 	}

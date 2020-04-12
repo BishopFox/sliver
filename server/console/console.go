@@ -42,7 +42,7 @@ func Start() {
 	})
 	options := []grpc.DialOption{
 		ctxDialer,
-		grpc.WithInsecure(),
+		grpc.WithInsecure(), // This is an in-memory listener, no need for secure transport
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(clienttransport.ClientMaxReceiveMessageSize)),
 	}
 	conn, err := grpc.DialContext(context.Background(), "bufnet", options...)

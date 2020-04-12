@@ -26,6 +26,12 @@ import (
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/log"
+	"github.com/golang/protobuf/proto"
+)
+
+var (
+	tunnelLog = log.NamedLogger("rpc", "tunnel")
 )
 
 // CreateTunnel - Create a new tunnel on the server, however based on only this request there's
@@ -66,6 +72,8 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 			rpcLog.Warn("Error on stream recv %s", err)
 			return err
 		}
+		tunnelLog.Debugf("Tunnel %d: From client %d byte(s)",
+			fromClient.TunnelID, len(fromClient.Data))
 
 		tunnel := core.Tunnels.Get(fromClient.TunnelID)
 		if tunnel == nil {
@@ -73,6 +81,7 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 		}
 		if tunnel.Client == nil {
 			tunnel.Client = stream // Bind client to tunnel
+			tunnelLog.Debugf("Binding client %v to tunnel id: %d", stream, tunnel.ID)
 			tunnel.Client.Send(&sliverpb.TunnelData{
 				TunnelID:  tunnel.ID,
 				SessionID: tunnel.SessionID,
@@ -81,6 +90,7 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 
 			go func() {
 				for data := range tunnel.FromImplant {
+					tunnelLog.Debugf("Tunnel %d: From implant %d byte(s)", tunnel.ID, len(data))
 					tunnel.Client.Send(&sliverpb.TunnelData{
 						TunnelID:  tunnel.ID,
 						SessionID: tunnel.SessionID,
@@ -88,6 +98,7 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 						Closed:    false,
 					})
 				}
+				tunnelLog.Debugf("Closing tunnel %d (To Client)", tunnel.ID)
 				tunnel.Client.Send(&sliverpb.TunnelData{
 					TunnelID:  tunnel.ID,
 					SessionID: tunnel.SessionID,
@@ -95,7 +106,37 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 				})
 			}()
 
+			go func() {
+				session := core.Sessions.Get(tunnel.SessionID)
+				for data := range tunnel.ToImplant {
+					tunnelLog.Debugf("Tunnel %d: To implant %d byte(s)", tunnel.ID, len(data))
+					data, _ := proto.Marshal(&sliverpb.TunnelData{
+						TunnelID:  tunnel.ID,
+						SessionID: tunnel.SessionID,
+						Data:      data,
+						Closed:    false,
+					})
+					session.Send <- &sliverpb.Envelope{
+						Type: sliverpb.MsgTunnelData,
+						Data: data,
+					}
+				}
+				tunnelLog.Debugf("Closing tunnel %d (To Implant) ...", tunnel.ID)
+				data, _ := proto.Marshal(&sliverpb.TunnelData{
+					TunnelID:  tunnel.ID,
+					SessionID: tunnel.SessionID,
+					Data:      make([]byte, 0),
+					Closed:    true,
+				})
+				session.Send <- &sliverpb.Envelope{
+					Type: sliverpb.MsgTunnelData,
+					Data: data,
+				}
+			}()
+
 		} else if tunnel.Client == stream {
+			tunnelLog.Debugf("Tunnel %d: From client %d byte(s) to implant...",
+				fromClient.TunnelID, len(fromClient.Data))
 			tunnel.ToImplant <- fromClient.GetData()
 		}
 	}
