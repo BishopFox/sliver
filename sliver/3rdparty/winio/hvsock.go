@@ -9,7 +9,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/bishopfox/sliver/sliver/pivots/winio/pkg/guid"
+	"github.com/bishopfox/sliver/sliver/3rdparty/winio/pkg/guid"
 )
 
 //sys bind(s syscall.Handle, name unsafe.Pointer, namelen int32) (err error) [failretval==socketError] = ws2_32.bind

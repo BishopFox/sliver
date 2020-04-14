@@ -30,8 +30,8 @@ import (
 	// {{end}}
 
 	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/sliver/3rdparty/winio"
 	"github.com/bishopfox/sliver/sliver/pivots"
-	"github.com/bishopfox/sliver/sliver/pivots/winio"
 )
 
 func namePipeDial(uri *url.URL) (net.Conn, error) {

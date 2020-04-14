@@ -29,8 +29,8 @@ import (
 	"time"
 
 	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/sliver/3rdparty/winio"
 	"github.com/bishopfox/sliver/sliver/pivots"
-	"github.com/bishopfox/sliver/sliver/pivots/winio"
 	"github.com/bishopfox/sliver/sliver/priv"
 	"github.com/bishopfox/sliver/sliver/taskrunner"
 	"github.com/bishopfox/sliver/sliver/transports"
