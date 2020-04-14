@@ -32,8 +32,8 @@ import (
 */
 
 const (
-	readBufSize  = 256
-	writeBufSize = 256
+	readBufSize  = 1024
+	writeBufSize = 1024
 )
 
 // PivotWriteEnvelope - Writes a protobuf envolope to a generic connection
