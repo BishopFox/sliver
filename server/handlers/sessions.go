@@ -91,6 +91,7 @@ func tunnelCloseHandler(session *core.Session, data []byte) {
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
 	if tunnel != nil {
 		if session.ID == tunnel.SessionID {
+			handlerLog.Infof("Closing tunnel %d", tunnel.ID)
 			core.Tunnels.Close(tunnel.ID)
 		} else {
 			handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)

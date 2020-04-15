@@ -109,7 +109,7 @@ func (t *tunnels) Get(tunnelID uint64) *Tunnel {
 	return (*t.tunnels)[tunnelID]
 }
 
-// NewTunnelID - New 32bit identifier
+// NewTunnelID - New 64-bit identifier
 func NewTunnelID() uint64 {
 	randBuf := make([]byte, 8)
 	rand.Read(randBuf)

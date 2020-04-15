@@ -139,7 +139,7 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	// Cleanup function with arguments
 	cleanup := func(reason string) {
 		// {{if .Debug}}
-		log.Printf("Closing tunnel %d", tunnel.ID)
+		log.Printf("Closing tunnel %d (%s)", tunnel.ID, reason)
 		// {{end}}
 		connection.RemoveTunnel(tunnel.ID)
 		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{

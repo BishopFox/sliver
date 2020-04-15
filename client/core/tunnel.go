@@ -142,12 +142,22 @@ func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 	for {
 		data, err := stream.Recv()
 		if err == io.EOF {
+			log.Printf("EOF Error: Tunnel data stream closed")
 			return nil
+		}
+		if err != nil {
+			log.Printf("Tunnel data read error: %s", err)
+			return err
 		}
 		tunnel := Tunnels.Get(data.TunnelID)
 		if tunnel != nil {
-			log.Printf("Received data on tunnel %d", tunnel.ID)
-			tunnel.Recv <- data.GetData()
+			if !data.Closed {
+				log.Printf("Received data on tunnel %d", tunnel.ID)
+				tunnel.Recv <- data.GetData()
+			} else {
+				tunnel.IsOpen = false
+				tunnel.Recv <- make([]byte, 0)
+			}
 		} else {
 			log.Printf("Received tunnel data for non-existent tunnel id %d", data.TunnelID)
 		}
