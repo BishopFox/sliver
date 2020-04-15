@@ -7,6 +7,8 @@ FROM golang:1.14
 #
 
 ENV PROTOC_VER 3.11.4
+ENV PROTOC_GEN_GO_VER 1.3.4
+ENV PACKR_VER 1.30.1
 
 # Base packages
 RUN apt-get update --fix-missing && apt-get -y install \
@@ -48,8 +50,15 @@ RUN wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuf
     && cp -vv ./bin/protoc /usr/local/bin
 
 # go get utils
-RUN go get -u github.com/golang/protobuf/protoc-gen-go
-RUN go get -u github.com/gobuffalo/packr/packr
+RUN wget -O packr.tar.gz https://github.com/gobuffalo/packr/archive/v${PACKR_VER}.tar.gz && \
+  tar xvf packr.tar.gz && \
+  cd packr-${PACKR_VER} && \
+  make install
+
+RUN wget -O protoc-gen-go.tar.gz https://github.com/golang/protobuf/archive/v${PROTOC_GEN_GO_VER}.tar.gz && \
+  tar xvf protoc-gen-go.tar.gz && \
+  cd protobuf-${PROTOC_GEN_GO_VER} && \
+  make install
 
 # install dep
 RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
