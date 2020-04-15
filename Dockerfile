@@ -60,9 +60,6 @@ RUN wget -O protoc-gen-go.tar.gz https://github.com/golang/protobuf/archive/v${P
   cd protobuf-${PROTOC_GEN_GO_VER} && \
   make install
 
-# install dep
-RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-
 # assets
 WORKDIR /go/src/github.com/bishopfox/sliver
 ADD ./go-assets.sh /go/src/github.com/bishopfox/sliver/go-assets.sh
