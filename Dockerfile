@@ -33,11 +33,11 @@ RUN mkdir -p /home/sliver/ && chown -R sliver:sliver /home/sliver
 # > Metasploit
 #
 
-RUN curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > msfinstall && \
-  chmod 755 msfinstall && \
-  ./msfinstall
-RUN mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete && \
-  su -l sliver -c 'mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete'
+RUN curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > msfinstall \
+  && chmod 755 msfinstall \
+  && ./msfinstall
+RUN mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete \
+  && su -l sliver -c 'mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete'
 
 #
 # > Sliver
@@ -46,19 +46,19 @@ RUN mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete && \
 # protoc
 WORKDIR /tmp
 RUN wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip \
-    && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
-    && cp -vv ./bin/protoc /usr/local/bin
+  && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
+  && cp -vv ./bin/protoc /usr/local/bin
 
 # go get utils
-RUN wget -O packr.tar.gz https://github.com/gobuffalo/packr/archive/v${PACKR_VER}.tar.gz && \
-  tar xvf packr.tar.gz && \
-  cd packr-${PACKR_VER} && \
-  make install
+RUN wget -O packr.tar.gz https://github.com/gobuffalo/packr/archive/v${PACKR_VER}.tar.gz \
+  && tar xvf packr.tar.gz \
+  && cd packr-${PACKR_VER} \
+  && make install
 
-RUN wget -O protoc-gen-go.tar.gz https://github.com/golang/protobuf/archive/v${PROTOC_GEN_GO_VER}.tar.gz && \
-  tar xvf protoc-gen-go.tar.gz && \
-  cd protobuf-${PROTOC_GEN_GO_VER} && \
-  make install
+RUN wget -O protoc-gen-go.tar.gz https://github.com/golang/protobuf/archive/v${PROTOC_GEN_GO_VER}.tar.gz \
+  && tar xvf protoc-gen-go.tar.gz \
+  && cd protobuf-${PROTOC_GEN_GO_VER} \
+  && make install
 
 # assets
 WORKDIR /go/src/github.com/bishopfox/sliver
@@ -69,12 +69,12 @@ RUN ./go-assets.sh
 ADD . /go/src/github.com/bishopfox/sliver/
 RUN make static-linux && cp -vv sliver-server /opt/sliver-server
 
-# USER sliver
 RUN ls -lah && /opt/sliver-server -unpack \
   && /go/src/github.com/bishopfox/sliver/go-tests.sh
 RUN make clean \
-    && rm -rf /go/src/* \
-    && rm -rf /home/sliver/.sliver
+  && rm -rf /go/src/* \
+  && rm -rf /home/sliver/.sliver
 
 WORKDIR /home/sliver/
+USER sliver
 ENTRYPOINT [ "/opt/sliver-server" ]
