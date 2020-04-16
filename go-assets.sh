@@ -20,9 +20,13 @@
 # Creates the static go asset archives
 # You'll need wget, tar, and unzip commands
 
-GO_VER="1.14.1"
+GO_VER="1.14.2"
 GO_ARCH="amd64"
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
+
+PROTOBUF_COMMIT=347cf4a86c1cb8d262994d8ef5924d4576c5b331
+GOLANG_SYS_COMMIT=669c56c373c468cbe0f0c12b7939832b26088d33
+
 
 if ! [ -x "$(command -v wget)" ]; then
   echo 'Error: wget is not installed.' >&2
@@ -114,7 +118,6 @@ echo " 3rd Party Assets"
 echo "-----------------------------------------------------------------"
 cd $WORK_DIR
 
-PROTOBUF_COMMIT=347cf4a86c1cb8d262994d8ef5924d4576c5b331
 wget -O $PROTOBUF_COMMIT.zip https://github.com/golang/protobuf/archive/$PROTOBUF_COMMIT.zip
 unzip $PROTOBUF_COMMIT.zip
 rm -f $PROTOBUF_COMMIT.zip
@@ -122,12 +125,10 @@ mv protobuf-$PROTOBUF_COMMIT protobuf
 zip -r protobuf.zip ./protobuf
 cp -vv protobuf.zip $REPO_DIR/assets/protobuf.zip
 
-wget -O master.tar.gz https://go.googlesource.com/sys/+archive/master.tar.gz
-mkdir $WORK_DIR/sys
-cd $WORK_DIR/sys
-tar xfv ../master.tar.gz
-rm -rf ../master.tar.gz
-cd ..
+wget -O $GOLANG_SYS_COMMIT.tar.gz https://github.com/golang/sys/archive/$GOLANG_SYS_COMMIT.tar.gz
+tar xfv $GOLANG_SYS_COMMIT.tar.gz
+rm -f $GOLANG_SYS_COMMIT.tar.gz
+mv sys-$GOLANG_SYS_COMMIT sys
 zip -r $REPO_DIR/assets/golang_x_sys.zip sys
 
 # end
