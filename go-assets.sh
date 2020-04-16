@@ -20,7 +20,7 @@
 # Creates the static go asset archives
 # You'll need wget, tar, and unzip commands
 
-GO_VER="1.14"
+GO_VER="1.14.2"
 GO_ARCH="amd64"
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
 
@@ -122,10 +122,11 @@ mv protobuf-$PROTOBUF_COMMIT protobuf
 zip -r protobuf.zip ./protobuf
 cp -vv protobuf.zip $REPO_DIR/assets/protobuf.zip
 
-wget -O master.tar.gz https://github.com/golang/sys/archive/master.tar.gz
-tar xfv master.tar.gz
-rm -f master.tar.gz
-mv sys-master sys
+GOLANG_SYS_COMMIT=669c56c373c468cbe0f0c12b7939832b26088d33
+wget -O $GOLANG_SYS_COMMIT.tar.gz https://github.com/golang/sys/archive/$GOLANG_SYS_COMMIT.tar.gz
+tar xfv $GOLANG_SYS_COMMIT.tar.gz
+rm -f $GOLANG_SYS_COMMIT.tar.gz
+mv sys-$GOLANG_SYS_COMMIT sys
 zip -r $REPO_DIR/assets/golang_x_sys.zip sys
 
 # end
