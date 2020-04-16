@@ -123,10 +123,10 @@ type AccessGroupAzure struct {
 
 // AccessGroupOkta is used to configure access based on a Okta group.
 type AccessGroupOkta struct {
-	Otka struct {
+	Okta struct {
 		Name               string `json:"name"`
 		IdentityProviderID string `json:"identity_provider_id"`
-	} `json:"otka"`
+	} `json:"okta"`
 }
 
 // AccessGroupSAML is used to allow SAML users with a specific attribute

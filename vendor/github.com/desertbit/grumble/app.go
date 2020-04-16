@@ -432,7 +432,7 @@ Loop:
 		}
 
 		// Split the line to args.
-		args, err := shlex.Split(line)
+		args, err := shlex.Split(line, true)
 		if err != nil {
 			a.PrintError(fmt.Errorf("invalid args: %v", err))
 			continue Loop

@@ -14,7 +14,7 @@ github.com/BurntSushi/xgb/xfixes
 github.com/BurntSushi/xgb/xinerama
 github.com/BurntSushi/xgb/xproto
 github.com/BurntSushi/xgb/xv
-# github.com/aws/aws-sdk-go v1.29.34
+# github.com/aws/aws-sdk-go v1.30.8
 github.com/aws/aws-sdk-go/aws/awserr
 github.com/aws/aws-sdk-go/aws/credentials
 github.com/aws/aws-sdk-go/internal/context
@@ -23,7 +23,7 @@ github.com/aws/aws-sdk-go/internal/shareddefaults
 github.com/aws/aws-sdk-go/internal/sync/singleflight
 # github.com/cespare/xxhash v1.1.0
 github.com/cespare/xxhash
-# github.com/cloudflare/cloudflare-go v0.11.5
+# github.com/cloudflare/cloudflare-go v0.11.6
 github.com/cloudflare/cloudflare-go
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
@@ -31,9 +31,9 @@ github.com/davecgh/go-spew/spew
 github.com/desertbit/closer/v3
 # github.com/desertbit/columnize v2.1.0+incompatible
 github.com/desertbit/columnize
-# github.com/desertbit/go-shlex v0.0.0-20150515145356-3f9db97f8568
+# github.com/desertbit/go-shlex v0.1.0
 github.com/desertbit/go-shlex
-# github.com/desertbit/grumble v1.0.4
+# github.com/desertbit/grumble v1.0.5
 github.com/desertbit/grumble
 # github.com/desertbit/readline v0.0.0-20171208011716-f6d7a1f6fbf3
 github.com/desertbit/readline
@@ -98,7 +98,7 @@ github.com/rogpeppe/go-internal/semver
 github.com/sirupsen/logrus
 # github.com/stretchr/testify v1.5.1
 github.com/stretchr/testify/assert
-# golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
+# golang.org/x/crypto v0.0.0-20200414173820-0848c9571904
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
 golang.org/x/crypto/ed25519
@@ -116,7 +116,7 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/trace
-# golang.org/x/sys v0.0.0-20200327173247-9dae0f8f5775
+# golang.org/x/sys v0.0.0-20200413165638-669c56c373c4
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
@@ -128,7 +128,7 @@ golang.org/x/text/unicode/norm
 golang.org/x/text/width
 # golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 golang.org/x/time/rate
-# golang.org/x/tools v0.0.0-20200329025819-fd4102a86c65
+# golang.org/x/tools v0.0.0-20200416193827-92fa1ff4b140
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/buildutil
 golang.org/x/tools/go/internal/cgo
@@ -138,7 +138,7 @@ golang.org/x/tools/refactor/importgraph
 golang.org/x/tools/refactor/satisfy
 # google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.28.0
+# google.golang.org/grpc v1.28.1
 google.golang.org/grpc
 google.golang.org/grpc/attributes
 google.golang.org/grpc/backoff
@@ -182,5 +182,5 @@ google.golang.org/grpc/test/bufconn
 gopkg.in/AlecAivazis/survey.v1
 gopkg.in/AlecAivazis/survey.v1/core
 gopkg.in/AlecAivazis/survey.v1/terminal
-# gopkg.in/yaml.v2 v2.2.4
+# gopkg.in/yaml.v2 v2.2.8
 gopkg.in/yaml.v2
