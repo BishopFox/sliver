@@ -145,7 +145,10 @@ func getRootDB() *badger.DB {
 	}
 	db, err := badger.Open(opts)
 	if err != nil {
-		dbLog.Fatal(err)
+		dbLog.Error(err)
+		fmt.Printf("[!] %s\n", err)
+		fmt.Printf("Is there another server instance running?\n")
+		os.Exit(3)
 	}
 	return db
 }
