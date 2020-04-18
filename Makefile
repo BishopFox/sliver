@@ -100,5 +100,6 @@ clean:
 	packr clean
 	rm -f ./protobuf/client/*.pb.go
 	rm -f ./protobuf/sliver/*.pb.go
+	rm -f ./client/version/version.go
 	rm -f sliver-client sliver-server *.exe
 

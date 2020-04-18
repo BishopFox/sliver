@@ -95,28 +95,61 @@ func regenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn+"Failed to regenerate implant %s\n", err)
 		return
 	}
-
-	saveTo, err := filepath.Abs(save)
-	fi, _ := os.Stat(saveTo)
 	if regenerate.File == nil {
 		fmt.Printf(Warn + "Failed to regenerate implant (no data)\n")
 		return
 	}
-	if fi.IsDir() {
-		var fileName string
-		if 0 < len(regenerate.File.Name) {
-			fileName = path.Base(regenerate.File.Name)
-		} else {
-			fileName = path.Base(ctx.Args[0])
-		}
-		saveTo = filepath.Join(saveTo, fileName)
+	saveTo, err := saveLocation(save, regenerate.File.Name)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
 	}
-	err = ioutil.WriteFile(saveTo, regenerate.File.Data, os.ModePerm)
+	err = ioutil.WriteFile(saveTo, regenerate.File.Data, 0600)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to write to %s\n", err)
 		return
 	}
 	fmt.Printf(Info+"Implant binary saved to: %s\n", saveTo)
+}
+
+func saveLocation(save, defaultName string) (string, error) {
+	var saveTo string
+	if save == "" {
+		save, _ = os.Getwd()
+	}
+	fi, err := os.Stat(save)
+	if os.IsNotExist(err) {
+		log.Printf("%s does not exist\n", save)
+		if strings.HasSuffix(save, "/") {
+			log.Printf("%s is dir\n", save)
+			os.MkdirAll(save, 0700)
+			saveTo, _ = filepath.Abs(path.Join(saveTo, defaultName))
+		} else {
+			log.Printf("%s is not dir\n", save)
+			saveDir := filepath.Dir(save)
+			_, err := os.Stat(saveTo)
+			if os.IsNotExist(err) {
+				os.MkdirAll(saveDir, 0700)
+			}
+			saveTo, _ = filepath.Abs(save)
+		}
+	} else {
+		log.Printf("%s does exist\n", save)
+		if fi.IsDir() {
+			log.Printf("%s is dir\n", save)
+			saveTo, _ = filepath.Abs(path.Join(save, defaultName))
+		} else {
+			log.Printf("%s is not dir\n", save)
+			prompt := &survey.Confirm{Message: "Overwrite existing file?"}
+			var confirm bool
+			survey.AskOne(prompt, &confirm)
+			if !confirm {
+				return "", errors.New("File already exists")
+			}
+			saveTo, _ = filepath.Abs(save)
+		}
+	}
+	return saveTo, nil
 }
 
 // func generateEgg(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -444,37 +477,9 @@ func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCCli
 		return errors.New("No file data")
 	}
 
-	saveTo, err := filepath.Abs(save)
+	saveTo, err := saveLocation(save, generated.File.Name)
 	if err != nil {
-		fmt.Printf(Warn+"Invalid file path %s", save)
 		return err
-	}
-
-	// Check to see if the target directory exists
-	saveToDir := filepath.Dir(saveTo)
-	_, err = os.Stat(saveToDir)
-	if os.IsNotExist(err) {
-		err := os.MkdirAll(saveToDir, 0700)
-		if err != nil {
-			fmt.Printf(Warn+"Failed to create target directory %s", saveToDir)
-			return err
-		}
-	}
-
-	// Check if file exists and if the user wants to overwrite it
-	fi, err := os.Stat(saveTo)
-	if !os.IsNotExist(err) && fi.IsDir() {
-		saveTo = filepath.Join(saveToDir, path.Base(generated.File.Name))
-	}
-	_, err = os.Stat(saveTo)
-	if !os.IsNotExist(err) {
-		confirm := false
-		fmt.Printf(Info+"File already exists %s\n", saveTo)
-		prompt := &survey.Confirm{Message: "Overwrite existing file?"}
-		survey.AskOne(prompt, &confirm)
-		if !confirm {
-			return nil
-		}
 	}
 
 	err = ioutil.WriteFile(saveTo, generated.File.Data, os.ModePerm)
