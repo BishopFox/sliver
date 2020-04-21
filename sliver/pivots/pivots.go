@@ -32,7 +32,8 @@ import (
 */
 
 const (
-	readBufSize = 1024
+	readBufSize  = 1024
+	writeBufSize = 1024
 )
 
 // PivotWriteEnvelope - Writes a protobuf envolope to a generic connection
@@ -46,8 +47,31 @@ func PivotWriteEnvelope(conn *net.Conn, envelope *pb.Envelope) error {
 	}
 	dataLengthBuf := new(bytes.Buffer)
 	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
-	(*conn).Write(dataLengthBuf.Bytes())
-	(*conn).Write(data)
+	_, err = (*conn).Write(dataLengthBuf.Bytes())
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("pivots.PivotWriteEnvelope error %v and %d\n", err, dataLengthBuf)
+		// {{end}}
+	}
+	totalWritten := 0
+	for totalWritten < len(data)-writeBufSize {
+		n, err2 := (*conn).Write(data[totalWritten : totalWritten+writeBufSize])
+		totalWritten += n
+		if err2 != nil {
+			// {{if .Debug}}
+			log.Printf("pivots.PivotWriteEnvelope error %v\n", err)
+			// {{end}}
+		}
+	}
+	if totalWritten < len(data) {
+		missing := len(data) - totalWritten
+		_, err := (*conn).Write(data[totalWritten : totalWritten+missing])
+		if err != nil {
+			// {{if .Debug}}
+			log.Printf("pivots.PivotWriteEnvelope error %v\n", err)
+			// {{end}}
+		}
+	}
 	return nil
 }
 
@@ -62,9 +86,6 @@ func PivotReadEnvelope(conn *net.Conn) (*pb.Envelope, error) {
 		return nil, err
 	}
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
-	// {{if .Debug}}
-	log.Printf("Found an evelope of %d bytes\n", dataLength)
-	// {{end}}
 	readBuf := make([]byte, readBufSize)
 	dataBuf := make([]byte, 0)
 	totalRead := 0
@@ -90,8 +111,5 @@ func PivotReadEnvelope(conn *net.Conn) (*pb.Envelope, error) {
 		// {{end}}
 		return &pb.Envelope{}, err
 	}
-	// {{if .Debug}}
-	log.Printf("namedPipeReadEnvelope %d\n", envelope.GetType())
-	// {{end}}
 	return envelope, nil
 }

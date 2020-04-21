@@ -90,10 +90,6 @@ var (
 		"shell/pty/pty_unsupported.go",
 
 		"pivots/pivots.go",
-		"pivots/namedpipe/namedpipe.go",
-		"pivots/namedpipe/npipe_windows.go",
-		"pivots/namedpipe/znpipe_windows_386.go",
-		"pivots/namedpipe/znpipe_windows_amd64.go",
 
 		"taskrunner/task.go",
 		"taskrunner/task_windows.go",
@@ -107,7 +103,7 @@ var (
 		"sc/screenshot_linux.go",
 		"sc/screenshot_windows.go",
 		"sc/screenshot.go",
-		
+
 		"syscalls/syscalls.go",
 		"syscalls/syscalls_windows.go",
 		"syscalls/types_windows.go",
@@ -128,7 +124,6 @@ var (
 		"winhttp/winhttp.go",
 
 		"sliver.go",
-
 
 		"3rdparty/BurntSushi/xgb/dri2/dri2.go",
 		"3rdparty/BurntSushi/xgb/res/res.go",
@@ -207,9 +202,15 @@ var (
 		"3rdparty/kbinani/screenshot/screenshot_solaris.go",
 		"3rdparty/kbinani/screenshot/screenshot_netbsd.go",
 		"3rdparty/kbinani/screenshot/screenshot_windows.go",
-		"3rdparty/kbinani/screenshot/screenshot_go1.9_or_earlier_darwin.go",	
+		"3rdparty/kbinani/screenshot/screenshot_go1.9_or_earlier_darwin.go",
 		"3rdparty/kbinani/screenshot/screenshot.go",
 
+		"3rdparty/winio/hvsock.go",
+		"3rdparty/winio/zsyscall_windows.go",
+		"3rdparty/winio/file.go",
+		"3rdparty/winio/pipe.go",
+		"3rdparty/winio/sd.go",
+		"3rdparty/winio/pkg/guid/guid.go",
 
 		// "go.mod",
 
