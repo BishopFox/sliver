@@ -91,6 +91,10 @@ const (
 	MsgProcessDumpReq
 	// MsgProcessDump - Dump of process)
 	MsgProcessDump
+	// MsgPersistReq - Request to persist
+	MsgPersistReq
+	// MsgPersist - Response to persist pequest
+	MsgPersist
 	// MsgImpersonateReq - Request for process impersonation
 	MsgImpersonateReq
 	// MsgImpersonate - Output of the impersonation command

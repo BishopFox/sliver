@@ -104,6 +104,7 @@ const (
 	NetstatStr  = "netstat"
 
 	ProcdumpStr         = "procdump"
+	PersistStr          = "persist"
 	ImpersonateStr      = "impersonate"
 	RunAsStr            = "runas"
 	ElevateStr          = "elevate"

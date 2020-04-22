@@ -173,6 +173,17 @@ message ProcessDump {
   string Err = 2;
 }
 
+message PersistReq {
+  string Filename = 1;
+
+  uint32 SliverID = 9;
+}
+
+message Persist {
+  bool Success = 1;
+  string Err = 2;
+}
+
 message RunAsReq {
   string Username = 1;
   string Process = 2;

@@ -81,6 +81,9 @@ var (
 		sliverpb.MsgRunAs:       rpcRunAs,
 		sliverpb.MsgRevToSelf:   rpcRevToSelf,
 
+		sliverpb.MsgPersist:    rpcPersist,
+		sliverpb.MsgPersistReq: rpcPersist,
+
 		sliverpb.MsgLsReq:       rpcLs,
 		sliverpb.MsgRmReq:       rpcRm,
 		sliverpb.MsgMkdirReq:    rpcMkdir,

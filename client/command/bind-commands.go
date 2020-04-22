@@ -764,6 +764,19 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
+		Name:     consts.PersistStr,
+		Help:     "Persist on Disk",
+		LongHelp: help.GetHelpFor(consts.PersistStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			persist(ctx, server.RPC)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
 		Name:     consts.RunAsStr,
 		Help:     "Run a new process in the context of the designated user (Windows Only)",
 		LongHelp: help.GetHelpFor(consts.RunAsStr),

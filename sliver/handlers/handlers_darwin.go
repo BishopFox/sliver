@@ -39,8 +39,9 @@ var (
 
 		pb.MsgScreenshotReq: screenshotHandler,
 
-		pb.MsgSideloadReq: sideloadHandler,
+		pb.MsgPersistReq: persistHandler,
 
+		pb.MsgSideloadReq: sideloadHandler,
 	}
 
 	darwinPivotHandlers = map[uint32]PivotHandler{}
