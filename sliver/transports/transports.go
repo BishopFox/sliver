@@ -61,6 +61,7 @@ var (
 type Connection struct {
 	Send    chan *pb.Envelope
 	Recv    chan *pb.Envelope
+	IsOpen  bool
 	ctrl    chan bool
 	cleanup func()
 	once    *sync.Once
@@ -70,6 +71,7 @@ type Connection struct {
 
 // Cleanup - Execute cleanup once
 func (c *Connection) Cleanup() {
+	c.IsOpen = false
 	c.once.Do(c.cleanup)
 }
 
@@ -255,6 +257,7 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
+		IsOpen:  true,
 		cleanup: func() {
 			// {{if .Debug}}
 			log.Printf("[mtls] lost connection, cleanup...")
@@ -314,6 +317,7 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
+		IsOpen:  true,
 		cleanup: func() {
 			// {{if .Debug}}
 			log.Printf("[http] lost connection, cleanup...")
@@ -406,6 +410,7 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
+		IsOpen:  true,
 		cleanup: func() {
 			// {{if .Debug}}
 			log.Printf("[dns] lost connection, cleanup...")
@@ -449,6 +454,7 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
+		IsOpen:  true,
 		cleanup: func() {
 			// {{if .Debug}}
 			log.Printf("[namedpipe] lost connection, cleanup...")

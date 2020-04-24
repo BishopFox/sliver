@@ -309,7 +309,7 @@ func nampedPipeConnectionHandler(conn *net.Conn, connection *transports.Connecti
 
 	defer func() {
 		// {{if .Debug}}
-		log.Println("Cleaning up for pivot %d", pivotID)
+		log.Printf("Cleaning up for pivot %d\n", pivotID)
 		// {{end}}
 		(*conn).Close()
 		pivotClose := &pb.PivotClose{
@@ -320,10 +320,13 @@ func nampedPipeConnectionHandler(conn *net.Conn, connection *transports.Connecti
 			// {{if .Debug}}
 			log.Println(err)
 			// {{end}}
+			return
 		}
-		connection.Send <- &pb.Envelope{
-			Type: pb.MsgPivotClose,
-			Data: data,
+		if connection.IsOpen {
+			connection.Send <- &pb.Envelope{
+				Type: pb.MsgPivotClose,
+				Data: data,
+			}
 		}
 	}()
 
@@ -353,9 +356,11 @@ func nampedPipeConnectionHandler(conn *net.Conn, connection *transports.Connecti
 			// {{end}}
 			return
 		}
-		connection.Send <- &pb.Envelope{
-			Type: pb.MsgPivotData,
-			Data: data2,
+		if connection.IsOpen {
+			connection.Send <- &pb.Envelope{
+				Type: pb.MsgPivotData,
+				Data: data2,
+			}
 		}
 	}
 }
