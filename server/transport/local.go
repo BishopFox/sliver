@@ -19,15 +19,12 @@ package transport
 */
 
 import (
-	"context"
-
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 )
 
@@ -42,28 +39,9 @@ var (
 func LocalListener() (*grpc.Server, *bufconn.Listener, error) {
 	pipeLog.Infof("Binding gRPC to listener ...")
 	ln := bufconn.Listen(bufSize)
-
 	logrusEntry := log.NamedLogger("console", "grpc")
 	grpc_logrus.ReplaceGrpcLogger(logrusEntry)
-	options := []grpc.ServerOption{
-
-		// Server hooks
-		grpc_middleware.WithUnaryServerChain(
-			//grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
-			//grpc_logrus.UnaryServerInterceptor(logrusEntry),
-			grpc_logrus.PayloadUnaryServerInterceptor(logrusEntry, func(ctx context.Context, _ string, _ interface{}) bool {
-				return true
-			}),
-		),
-		grpc_middleware.WithStreamServerChain(
-			// grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
-			// grpc_logrus.StreamServerInterceptor(logrusEntry),
-			grpc_logrus.PayloadStreamServerInterceptor(logrusEntry, func(ctx context.Context, _ string, _ interface{}) bool {
-				return true
-			}),
-		),
-	}
-
+	options := initLoggerMiddleware()
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
 	go func() {

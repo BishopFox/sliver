@@ -29,9 +29,6 @@ import (
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/rpc"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	grpc_tags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -45,31 +42,13 @@ func StartClientListener(host string, port uint16) (*grpc.Server, net.Listener, 
 	mtlsLog.Infof("Starting gRPC  listener on %s:%d", host, port)
 	tlsConfig := getOperatorServerTLSConfig(host)
 	creds := credentials.NewTLS(tlsConfig)
-
 	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		mtlsLog.Error(err)
 		return nil, nil, err
 	}
-
-	logrusEntry := log.NamedLogger("console", "grpc")
-	var fn grpc_logrus.CodeToLevel
-	logrusOpts := []grpc_logrus.Option{
-		grpc_logrus.WithLevels(fn),
-	}
-	grpc_logrus.ReplaceGrpcLogger(logrusEntry)
-
-	options := []grpc.ServerOption{
-		grpc.Creds(creds),
-		grpc_middleware.WithUnaryServerChain(
-			grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
-			grpc_logrus.UnaryServerInterceptor(logrusEntry, logrusOpts...),
-		),
-		grpc_middleware.WithStreamServerChain(
-			grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
-			grpc_logrus.StreamServerInterceptor(logrusEntry, logrusOpts...),
-		),
-	}
+	options := []grpc.ServerOption{grpc.Creds(creds)}
+	options = append(options, initLoggerMiddleware()...)
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
 	go func() {
