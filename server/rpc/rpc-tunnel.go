@@ -97,6 +97,7 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 						Data:      data,
 						Closed:    false,
 					})
+					tunnelLog.Debugf("Sent data to client %v", tunnel.Client)
 				}
 				tunnelLog.Debugf("Closing tunnel %d (To Client)", tunnel.ID)
 				tunnel.Client.Send(&sliverpb.TunnelData{

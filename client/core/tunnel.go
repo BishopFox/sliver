@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	// Tunnels - Interating with duplex tunnels
+	// Tunnels - Holds refs to all tunnels
 	Tunnels tunnels
 )
 
@@ -145,7 +145,8 @@ func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 	for {
 
 		log.Printf("Waiting for TunnelData ...")
-		data, err := stream.Recv()
+		incoming, err := stream.Recv()
+		log.Printf("Recv stream msg: %v", incoming)
 		if err == io.EOF {
 			log.Printf("EOF Error: Tunnel data stream closed")
 			return nil
@@ -154,18 +155,19 @@ func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 			log.Printf("Tunnel data read error: %s", err)
 			return err
 		}
-		log.Printf("Received TunnelData for tunnel %d", data.TunnelID)
-		tunnel := Tunnels.Get(data.TunnelID)
+		log.Printf("Received TunnelData for tunnel %d", incoming.TunnelID)
+		tunnel := Tunnels.Get(incoming.TunnelID)
 		if tunnel != nil {
-			if !data.Closed {
+			if !incoming.Closed {
 				log.Printf("Received data on tunnel %d", tunnel.ID)
-				tunnel.Recv <- data.GetData()
+				tunnel.Recv <- incoming.GetData()
 			} else {
+				log.Printf("Closing tunnel %d", tunnel.ID)
 				tunnel.IsOpen = false
-				tunnel.Recv <- make([]byte, 0)
+				close(tunnel.Recv)
 			}
 		} else {
-			log.Printf("Received tunnel data for non-existent tunnel id %d", data.TunnelID)
+			log.Printf("Received tunnel data for non-existent tunnel id %d", incoming.TunnelID)
 		}
 	}
 }
