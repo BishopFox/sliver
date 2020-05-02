@@ -30,9 +30,9 @@ import (
 
 func initLoggerMiddleware() []grpc.ServerOption {
 	logrusEntry := log.NamedLogger("transport", "grpc")
-	var fn grpc_logrus.CodeToLevel
+	var codeToLevel grpc_logrus.CodeToLevel
 	logrusOpts := []grpc_logrus.Option{
-		grpc_logrus.WithLevels(fn),
+		grpc_logrus.WithLevels(codeToLevel),
 	}
 	grpc_logrus.ReplaceGrpcLogger(logrusEntry)
 	return []grpc.ServerOption{
