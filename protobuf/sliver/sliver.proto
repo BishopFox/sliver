@@ -174,7 +174,7 @@ message ProcessDump {
 }
 
 message PersistReq {
-  string Filename = 1;
+  bytes Assembly = 1;
 
   uint32 SliverID = 9;
 }

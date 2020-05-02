@@ -41,7 +41,7 @@ func rpcPersist(req []byte, timeout time.Duration, resp RPCResponse) {
 	}
 
 	data, _ := proto.Marshal(&sliverpb.PersistReq{
-		Filename: persistReq.Filename,
+		Assembly: persistReq.Assembly,
 	})
 	data, err = sliver.Request(sliverpb.MsgPersistReq, timeout, data)
 	resp(data, err)

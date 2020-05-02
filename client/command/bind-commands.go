@@ -765,8 +765,11 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.PersistStr,
-		Help:     "Persist on Disk",
+		Help:     "Persist a file on Disk",
 		LongHelp: help.GetHelpFor(consts.PersistStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("f", "filename", "", "file to execute")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			persist(ctx, server.RPC)
