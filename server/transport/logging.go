@@ -28,6 +28,12 @@ import (
 	"google.golang.org/grpc"
 )
 
+// deciderAll - Intercept all messages
+func deciderAll(_ context.Context, _ string, _ interface{}) bool {
+	return true
+}
+
+// initLoggerMiddleware - Initialize middleware logger
 func initLoggerMiddleware() []grpc.ServerOption {
 	logrusEntry := log.NamedLogger("transport", "grpc")
 	var codeToLevel grpc_logrus.CodeToLevel
@@ -39,16 +45,12 @@ func initLoggerMiddleware() []grpc.ServerOption {
 		grpc_middleware.WithUnaryServerChain(
 			grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 			grpc_logrus.UnaryServerInterceptor(logrusEntry, logrusOpts...),
-			grpc_logrus.PayloadUnaryServerInterceptor(logrusEntry, func(ctx context.Context, _ string, _ interface{}) bool {
-				return true
-			}),
+			grpc_logrus.PayloadUnaryServerInterceptor(logrusEntry, deciderAll),
 		),
 		grpc_middleware.WithStreamServerChain(
 			grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 			grpc_logrus.StreamServerInterceptor(logrusEntry, logrusOpts...),
-			grpc_logrus.PayloadStreamServerInterceptor(logrusEntry, func(ctx context.Context, _ string, _ interface{}) bool {
-				return true
-			}),
+			grpc_logrus.PayloadStreamServerInterceptor(logrusEntry, deciderAll),
 		),
 	}
 }

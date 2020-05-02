@@ -24,8 +24,6 @@ import (
 	"github.com/bishopfox/sliver/server/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
-
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 )
 
 const bufSize = 1024 * 1024
@@ -39,8 +37,6 @@ var (
 func LocalListener() (*grpc.Server, *bufconn.Listener, error) {
 	pipeLog.Infof("Binding gRPC to listener ...")
 	ln := bufconn.Listen(bufSize)
-	logrusEntry := log.NamedLogger("console", "grpc")
-	grpc_logrus.ReplaceGrpcLogger(logrusEntry)
 	options := initLoggerMiddleware()
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
