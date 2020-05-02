@@ -104,7 +104,7 @@ func regenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
-	err = ioutil.WriteFile(saveTo, regenerate.File.Data, 0600)
+	err = ioutil.WriteFile(saveTo, regenerate.File.Data, 0500)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to write to %s\n", err)
 		return
@@ -482,7 +482,7 @@ func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCCli
 		return err
 	}
 
-	err = ioutil.WriteFile(saveTo, generated.File.Data, os.ModePerm)
+	err = ioutil.WriteFile(saveTo, generated.File.Data, 0500)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
 		return err

@@ -40,6 +40,7 @@ func Start() {
 	ctxDialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return ln.Dial()
 	})
+
 	options := []grpc.DialOption{
 		ctxDialer,
 		grpc.WithInsecure(), // This is an in-memory listener, no need for secure transport

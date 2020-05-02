@@ -66,7 +66,7 @@ func main() {
 // Initialize logging
 func initLogging(appDir string) *os.File {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	if err != nil {
 		panic(fmt.Sprintf("[!] Error opening file: %s", err))
 	}

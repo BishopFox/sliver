@@ -77,6 +77,7 @@ func (t *tunnels) Start(tunnelID uint64, sessionID uint32) *Tunnel {
 
 // Close - Close the tunnel channels
 func (t *tunnels) Close(tunnelID uint64) {
+	log.Printf("Closing tunnel %d", tunnelID)
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	tunnel := (*t.tunnels)[tunnelID]
@@ -113,6 +114,7 @@ func (tun *Tunnel) Write(data []byte) (int, error) {
 func (tun *Tunnel) Read(data []byte) (int, error) {
 	var buff bytes.Buffer
 	if !tun.IsOpen {
+		log.Printf("Warning: Read on closed tunnel %d", tun.ID)
 		return 0, io.EOF
 	}
 	select {
@@ -130,6 +132,7 @@ func (tun *Tunnel) Read(data []byte) (int, error) {
 //              to session/tunnel objects
 func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 	log.Println("Starting tunnel data loop ...")
+	defer log.Printf("Warning: TunnelLoop exited")
 	stream, err := rpc.TunnelData(context.Background())
 	if err != nil {
 		return err
@@ -140,6 +143,8 @@ func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 		stream:  stream,
 	}
 	for {
+
+		log.Printf("Waiting for TunnelData ...")
 		data, err := stream.Recv()
 		if err == io.EOF {
 			log.Printf("EOF Error: Tunnel data stream closed")
@@ -149,6 +154,7 @@ func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 			log.Printf("Tunnel data read error: %s", err)
 			return err
 		}
+		log.Printf("Received TunnelData for tunnel %d", data.TunnelID)
 		tunnel := Tunnels.Get(data.TunnelID)
 		if tunnel != nil {
 			if !data.Closed {

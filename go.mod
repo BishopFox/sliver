@@ -19,12 +19,12 @@ require (
 	github.com/golang/protobuf v1.3.5
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
+	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/miekg/dns v1.1.29
 	github.com/rogpeppe/go-internal v1.5.2 // indirect
 	github.com/sirupsen/logrus v1.5.0
 	github.com/stretchr/testify v1.5.1
 	golang.org/x/crypto v0.0.0-20200414173820-0848c9571904
-	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
 	golang.org/x/sys v0.0.0-20200413165638-669c56c373c4
 	golang.org/x/tools v0.0.0-20200416193827-92fa1ff4b140

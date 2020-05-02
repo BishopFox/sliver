@@ -19,6 +19,7 @@ package command
 */
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -53,6 +54,7 @@ func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		noPty = true // Windows of course doesn't have PTYs
 	}
 	runInteractive(ctx, shellPath, noPty, rpc)
+	fmt.Println("Shell exited")
 }
 
 func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcpb.SliverRPCClient) {
@@ -85,6 +87,7 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcp
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
+	log.Printf("Bound remote shell pid %d to tunnel %d", shell.Pid, shell.TunnelID)
 	fmt.Printf(Info+"Started remote shell with pid %d\n\n", shell.Pid)
 
 	var oldState *terminal.State
@@ -99,7 +102,8 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcp
 
 	log.Printf("Starting stdin/stdout shell ...")
 	go func() {
-		_, err := io.Copy(os.Stdout, tunnel)
+		n, err := io.Copy(os.Stdout, tunnel)
+		log.Printf("Wrote %d bytes to stdout", n)
 		if err != nil {
 			fmt.Printf(Warn+"Error writing to stdout: %v", err)
 			return
@@ -107,7 +111,8 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcp
 	}()
 	for {
 		log.Printf("Reading from stdin ...")
-		_, err := io.Copy(tunnel, os.Stdin)
+		n, err := io.Copy(tunnel, os.Stdin)
+		log.Printf("Read %d bytes from stdin", n)
 		if err == io.EOF {
 			break
 		}
@@ -118,6 +123,10 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcp
 	}
 
 	if !noPty {
+		log.Printf("Restoring terminal state ...")
 		terminal.Restore(0, oldState)
 	}
+
+	log.Printf("Exit interactive")
+	bufio.NewWriter(os.Stdout).Flush()
 }
