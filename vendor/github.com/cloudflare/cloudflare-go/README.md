@@ -1,7 +1,7 @@
 # cloudflare-go
 
 [![GoDoc](https://img.shields.io/badge/godoc-reference-5673AF.svg?style=flat-square)](https://godoc.org/github.com/cloudflare/cloudflare-go)
-[![Build Status](https://img.shields.io/travis/cloudflare/cloudflare-go/master.svg?style=flat-square)](https://travis-ci.org/cloudflare/cloudflare-go)
+![Test](https://github.com/cloudflare/cloudflare-go/workflows/Test/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/cloudflare/cloudflare-go?style=flat-square)](https://goreportcard.com/report/github.com/cloudflare/cloudflare-go)
 
 > **Note**: This library is under active development as we expand it to cover

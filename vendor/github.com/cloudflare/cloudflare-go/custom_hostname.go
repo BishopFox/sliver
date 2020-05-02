@@ -8,12 +8,33 @@ import (
 	"github.com/pkg/errors"
 )
 
+// CustomHostnameStatus is the enumeration of valid state values in the CustomHostnameSSL
+type CustomHostnameStatus string
+
+const (
+	// PENDING status represents state of CustomHostname is pending.
+	PENDING CustomHostnameStatus = "pending"
+	// ACTIVE status represents state of CustomHostname is active.
+	ACTIVE CustomHostnameStatus = "active"
+	// MOVED status represents state of CustomHostname is moved.
+	MOVED CustomHostnameStatus = "moved"
+	// REMOVED status represents state of CustomHostname is removed.
+	REMOVED CustomHostnameStatus = "removed"
+)
+
 // CustomHostnameSSLSettings represents the SSL settings for a custom hostname.
 type CustomHostnameSSLSettings struct {
 	HTTP2         string   `json:"http2,omitempty"`
 	TLS13         string   `json:"tls_1_3,omitempty"`
 	MinTLSVersion string   `json:"min_tls_version,omitempty"`
 	Ciphers       []string `json:"ciphers,omitempty"`
+}
+
+//CustomHostnameOwnershipVerification represents ownership verification status of a given custom hostname.
+type CustomHostnameOwnershipVerification struct {
+	Type  string `json:"type,omitempty"`
+	Name  string `json:"name,omitempty"`
+	Value string `json:"value,omitempty"`
 }
 
 // CustomHostnameSSL represents the SSL section in a given custom hostname.
@@ -31,11 +52,14 @@ type CustomMetadata map[string]interface{}
 
 // CustomHostname represents a custom hostname in a zone.
 type CustomHostname struct {
-	ID                 string            `json:"id,omitempty"`
-	Hostname           string            `json:"hostname,omitempty"`
-	CustomOriginServer string            `json:"custom_origin_server,omitempty"`
-	SSL                CustomHostnameSSL `json:"ssl,omitempty"`
-	CustomMetadata     CustomMetadata    `json:"custom_metadata,omitempty"`
+	ID                    string                              `json:"id,omitempty"`
+	Hostname              string                              `json:"hostname,omitempty"`
+	CustomOriginServer    string                              `json:"custom_origin_server,omitempty"`
+	SSL                   CustomHostnameSSL                   `json:"ssl,omitempty"`
+	CustomMetadata        CustomMetadata                      `json:"custom_metadata,omitempty"`
+	Status                CustomHostnameStatus                `json:"status,omitempty"`
+	VerificationErrors    []string                            `json:"verification_errors,omitempty"`
+	OwnershipVerification CustomHostnameOwnershipVerification `json:"ownership_verification,omitempty"`
 }
 
 // CustomHostnameResponse represents a response from the Custom Hostnames endpoints.
