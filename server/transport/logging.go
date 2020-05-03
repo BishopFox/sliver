@@ -25,19 +25,16 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpc_tags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
-
-// deciderAll - Intercept all messages
-func deciderAll(_ context.Context, _ string, _ interface{}) bool {
-	return true
-}
 
 // initLoggerMiddleware - Initialize middleware logger
 func initLoggerMiddleware() []grpc.ServerOption {
 	logrusEntry := log.NamedLogger("transport", "grpc")
 	logrusOpts := []grpc_logrus.Option{
-		// grpc_logrus.WithLevels(toLevel),
+		grpc_logrus.WithLevels(codeToLevel),
 	}
 	grpc_logrus.ReplaceGrpcLogger(logrusEntry)
 	return []grpc.ServerOption{
@@ -51,5 +48,52 @@ func initLoggerMiddleware() []grpc.ServerOption {
 			grpc_logrus.StreamServerInterceptor(logrusEntry, logrusOpts...),
 			grpc_logrus.PayloadStreamServerInterceptor(logrusEntry, deciderAll),
 		),
+	}
+}
+
+// deciderAll - Intercept all messages
+func deciderAll(_ context.Context, _ string, _ interface{}) bool {
+	return true
+}
+
+// Maps a grpc response code to a logging level
+func codeToLevel(code codes.Code) logrus.Level {
+	switch code {
+	case codes.OK:
+		return logrus.InfoLevel
+	case codes.Canceled:
+		return logrus.InfoLevel
+	case codes.Unknown:
+		return logrus.ErrorLevel
+	case codes.InvalidArgument:
+		return logrus.InfoLevel
+	case codes.DeadlineExceeded:
+		return logrus.WarnLevel
+	case codes.NotFound:
+		return logrus.InfoLevel
+	case codes.AlreadyExists:
+		return logrus.InfoLevel
+	case codes.PermissionDenied:
+		return logrus.WarnLevel
+	case codes.Unauthenticated:
+		return logrus.InfoLevel
+	case codes.ResourceExhausted:
+		return logrus.WarnLevel
+	case codes.FailedPrecondition:
+		return logrus.WarnLevel
+	case codes.Aborted:
+		return logrus.WarnLevel
+	case codes.OutOfRange:
+		return logrus.WarnLevel
+	case codes.Unimplemented:
+		return logrus.ErrorLevel
+	case codes.Internal:
+		return logrus.ErrorLevel
+	case codes.Unavailable:
+		return logrus.WarnLevel
+	case codes.DataLoss:
+		return logrus.ErrorLevel
+	default:
+		return logrus.ErrorLevel
 	}
 }
