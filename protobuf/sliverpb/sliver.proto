@@ -280,6 +280,9 @@ message RemoteTaskReq {
   commonpb.Request Request = 9;
 }
 
+message Task {
+  commonpb.Response Response = 9;
+}
 
 message ExecuteAssemblyReq {
   bytes HostingDll = 1;

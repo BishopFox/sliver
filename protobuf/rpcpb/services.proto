@@ -54,8 +54,8 @@ service SliverRPC {
     rpc RevToSelf(sliverpb.RevToSelfReq) returns (sliverpb.RevToSelf);
     rpc GetSystem(clientpb.GetSystemReq) returns (sliverpb.GetSystem);
     rpc Elevate(sliverpb.ElevateReq) returns (sliverpb.Elevate);
-    rpc Task(sliverpb.TaskReq) returns (commonpb.Empty);
-    rpc RemoteTask(sliverpb.RemoteTaskReq) returns (commonpb.Empty);
+    rpc Task(sliverpb.TaskReq) returns (sliverpb.Task);
+    rpc RemoteTask(sliverpb.RemoteTaskReq) returns (sliverpb.Task);
     rpc Msf(clientpb.MSFReq) returns (commonpb.Empty);
     rpc MsfRemote(clientpb.MSFRemoteReq) returns (commonpb.Empty);
     rpc ExecuteAssembly(sliverpb.ExecuteAssemblyReq) returns (sliverpb.ExecuteAssembly);

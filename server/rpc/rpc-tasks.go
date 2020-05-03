@@ -25,7 +25,6 @@ import (
 	"path"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/core"
@@ -35,8 +34,8 @@ import (
 )
 
 // Task - Execute shellcode in-memory
-func (rpc *Server) Task(ctx context.Context, req *sliverpb.TaskReq) (*commonpb.Empty, error) {
-	resp := &commonpb.Empty{}
+func (rpc *Server) Task(ctx context.Context, req *sliverpb.TaskReq) (*sliverpb.Task, error) {
+	resp := &sliverpb.Task{}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -45,8 +44,8 @@ func (rpc *Server) Task(ctx context.Context, req *sliverpb.TaskReq) (*commonpb.E
 }
 
 // RemoteTask - Inject and execute shellcode in a remote process
-func (rpc *Server) RemoteTask(ctx context.Context, req *sliverpb.RemoteTaskReq) (*commonpb.Empty, error) {
-	resp := &commonpb.Empty{}
+func (rpc *Server) RemoteTask(ctx context.Context, req *sliverpb.RemoteTaskReq) (*sliverpb.Task, error) {
+	resp := &sliverpb.Task{}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
