@@ -38,7 +38,8 @@ func LocalListener() (*grpc.Server, *bufconn.Listener, error) {
 	pipeLog.Infof("Binding gRPC to listener ...")
 	ln := bufconn.Listen(bufSize)
 	options := []grpc.ServerOption{
-		grpc.MaxSendMsgSize(ServerMaxReceiveMessageSize),
+		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
+		grpc.MaxSendMsgSize(ServerMaxMessageSize),
 	}
 	options = append(options, initLoggerMiddleware()...)
 	grpcServer := grpc.NewServer(options...)
