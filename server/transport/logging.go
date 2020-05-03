@@ -21,6 +21,7 @@ package transport
 import (
 	"context"
 
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/log"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
@@ -28,6 +29,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+)
+
+var (
+	serverConfig = configs.GetServerConfig()
 )
 
 // initLoggerMiddleware - Initialize middleware logger
@@ -41,19 +46,22 @@ func initLoggerMiddleware() []grpc.ServerOption {
 		grpc_middleware.WithUnaryServerChain(
 			grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 			grpc_logrus.UnaryServerInterceptor(logrusEntry, logrusOpts...),
-			grpc_logrus.PayloadUnaryServerInterceptor(logrusEntry, deciderAll),
+			grpc_logrus.PayloadUnaryServerInterceptor(logrusEntry, deciderUnary),
 		),
 		grpc_middleware.WithStreamServerChain(
 			grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 			grpc_logrus.StreamServerInterceptor(logrusEntry, logrusOpts...),
-			grpc_logrus.PayloadStreamServerInterceptor(logrusEntry, deciderAll),
+			grpc_logrus.PayloadStreamServerInterceptor(logrusEntry, deciderStream),
 		),
 	}
 }
 
-// deciderAll - Intercept all messages
-func deciderAll(_ context.Context, _ string, _ interface{}) bool {
-	return true
+func deciderUnary(_ context.Context, _ string, _ interface{}) bool {
+	return serverConfig.Logs.GRPCUnaryPayloads
+}
+
+func deciderStream(_ context.Context, _ string, _ interface{}) bool {
+	return serverConfig.Logs.GRPCStreamPayloads
 }
 
 // Maps a grpc response code to a logging level
