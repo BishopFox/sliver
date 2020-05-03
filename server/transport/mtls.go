@@ -33,6 +33,15 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+const (
+	kb = 1024
+	mb = kb * 1024
+	gb = mb * 1024
+
+	// ServerMaxReceiveMessageSize - Server-side max GRPC message size
+	ServerMaxReceiveMessageSize = 2 * gb
+)
+
 var (
 	mtlsLog = log.NamedLogger("transport", "mtls")
 )
@@ -47,7 +56,10 @@ func StartClientListener(host string, port uint16) (*grpc.Server, net.Listener, 
 		mtlsLog.Error(err)
 		return nil, nil, err
 	}
-	options := []grpc.ServerOption{grpc.Creds(creds)}
+	options := []grpc.ServerOption{
+		grpc.Creds(creds),
+		grpc.MaxSendMsgSize(ServerMaxReceiveMessageSize),
+	}
 	options = append(options, initLoggerMiddleware()...)
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
