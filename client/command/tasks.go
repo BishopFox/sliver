@@ -308,7 +308,6 @@ func sideload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf(Info+"Output:\n%s", sideload.GetResult())
 }
 
-// // spawnDll --process --export  PATH_TO_DLL Args...
 func spawnDll(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	session := ActiveSession.Get()
 	if session == nil {
