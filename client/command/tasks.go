@@ -20,13 +20,17 @@ package command
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"debug/pe"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
@@ -39,7 +43,6 @@ import (
 )
 
 func executeShellcode(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-
 	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
@@ -220,6 +223,144 @@ func migrate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf("\n"+Info+"Successfully migrated to %d\n", pid)
 }
 
+func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
+
+	if len(ctx.Args) < 1 {
+		fmt.Printf(Warn + "Please provide valid arguments.\n")
+		return
+	}
+	assemblyBytes, err := ioutil.ReadFile(ctx.Args[0])
+	if err != nil {
+		fmt.Printf(Warn+"%s", err.Error())
+		return
+	}
+
+	assemblyArgs := ""
+	if len(ctx.Args) == 2 {
+		assemblyArgs = ctx.Args[1]
+	}
+	process := ctx.Flags.String("process")
+
+	ctrl := make(chan bool)
+	go spin.Until("Executing assembly ...", ctrl)
+	executeAssembly, err := rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
+		Request:    ActiveSession.Request(ctx),
+		AmsiBypass: ctx.Flags.Bool("amsi"),
+		Process:    process,
+		Arguments:  assemblyArgs,
+		Assembly:   assemblyBytes,
+	})
+	ctrl <- true
+	<-ctrl
+
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
+
+	if executeAssembly.GetResponse().GetErr() != "" {
+		fmt.Printf(Warn+"Error: %s\n", executeAssembly.GetResponse().GetErr())
+		return
+	}
+	fmt.Printf(Info+"Assembly output:\n%s", executeAssembly.GetOutput())
+}
+
+func sideload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
+	binPath := ctx.Args[0]
+
+	entryPoint := ctx.Flags.String("entry-point")
+	processName := ctx.Flags.String("process")
+	args := ctx.Flags.String("args")
+
+	binData, err := ioutil.ReadFile(binPath)
+	if err != nil {
+		fmt.Printf(Warn+"%s", err.Error())
+		return
+	}
+	ctrl := make(chan bool)
+	go spin.Until(fmt.Sprintf("Sideloading %s ...", binPath), ctrl)
+	sideload, err := rpc.Sideload(context.Background(), &sliverpb.SideloadReq{
+		Request:    ActiveSession.Request(ctx),
+		Args:       args,
+		Data:       binData,
+		EntryPoint: entryPoint,
+		ProcName:   processName,
+	})
+	ctrl <- true
+	<-ctrl
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
+
+	if sideload.GetResponse().GetErr() != "" {
+		fmt.Printf(Warn+"Error: %s\n", sideload.GetResponse().GetErr())
+		return
+	}
+	fmt.Printf(Info+"Output:\n%s", sideload.GetResult())
+}
+
+// // spawnDll --process --export  PATH_TO_DLL Args...
+func spawnDll(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
+	var args string
+	if len(ctx.Args) < 1 {
+		fmt.Printf(Warn + "See `help spawndll` for usage.")
+		return
+	} else if len(ctx.Args) > 1 {
+		args = ctx.Args[1]
+	}
+
+	binPath := ctx.Args[0]
+	processName := ctx.Flags.String("process")
+	exportName := ctx.Flags.String("export")
+	offset, err := getExportOffset(binPath, exportName)
+	if err != nil {
+		fmt.Printf(Warn+"%s", err.Error())
+		return
+	}
+
+	binData, err := ioutil.ReadFile(binPath)
+	if err != nil {
+		fmt.Printf(Warn+"%s", err.Error())
+		return
+	}
+	ctrl := make(chan bool)
+	go spin.Until(fmt.Sprintf("Executing reflective dll %s", binPath), ctrl)
+	spawndll, err := rpc.SpawnDll(context.Background(), &sliverpb.SpawnDllReq{
+		Request:  ActiveSession.Request(ctx),
+		Args:     args,
+		Data:     binData,
+		ProcName: processName,
+		Offset:   offset,
+	})
+
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
+	ctrl <- true
+	<-ctrl
+	if spawndll.GetResponse().GetErr() != "" {
+		fmt.Printf(Warn+"Error: %s\n", spawndll.GetResponse().GetErr())
+		return
+	}
+	fmt.Printf(Info+"Output:\n%s", spawndll.GetResult())
+}
+
+// -------- Utility functions
+
 func getActiveSliverConfig() *clientpb.ImplantConfig {
 	session := ActiveSession.Get()
 	if session == nil {
@@ -245,237 +386,85 @@ func getActiveSliverConfig() *clientpb.ImplantConfig {
 	return config
 }
 
-// func executeAssembly(ctx *grumble.Context, rpc RPCServer) {
-// 	if ActiveSliver.Sliver == nil {
-// 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-// 		return
-// 	}
+// ExportDirectory - stores the Export data
+type ExportDirectory struct {
+	Characteristics       uint32
+	TimeDateStamp         uint32
+	MajorVersion          uint16
+	MinorVersion          uint16
+	Name                  uint32
+	Base                  uint32
+	NumberOfFunctions     uint32
+	NumberOfNames         uint32
+	AddressOfFunctions    uint32 // RVA from base of image
+	AddressOfNames        uint32 // RVA from base of image
+	AddressOfNameOrdinals uint32 // RVA from base of image
+}
 
-// 	if len(ctx.Args) < 1 {
-// 		fmt.Printf(Warn + "Please provide valid arguments.\n")
-// 		return
-// 	}
-// 	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
-// 	assemblyBytes, err := ioutil.ReadFile(ctx.Args[0])
-// 	if err != nil {
-// 		fmt.Printf(Warn+"%s", err.Error())
-// 		return
-// 	}
+func rvaToFoa(rva uint32, pefile *pe.File) uint32 {
+	var offset uint32
+	for _, section := range pefile.Sections {
+		if rva >= section.SectionHeader.VirtualAddress && rva <= section.SectionHeader.VirtualAddress+section.SectionHeader.Size {
+			offset = section.SectionHeader.Offset + (rva - section.SectionHeader.VirtualAddress)
+		}
+	}
+	return offset
+}
 
-// 	assemblyArgs := ""
-// 	if len(ctx.Args) == 2 {
-// 		assemblyArgs = ctx.Args[1]
-// 	}
-// 	process := ctx.Flags.String("process")
+func getFuncName(index uint32, rawData []byte, fpe *pe.File) string {
+	nameRva := binary.LittleEndian.Uint32(rawData[index:])
+	nameFOA := rvaToFoa(nameRva, fpe)
+	funcNameBytes, err := bytes.NewBuffer(rawData[nameFOA:]).ReadBytes(0)
+	if err != nil {
+		log.Fatal(err)
+		return ""
+	}
+	funcName := string(funcNameBytes[:len(funcNameBytes)-1])
+	return funcName
+}
 
-// 	ctrl := make(chan bool)
-// 	go spin.Until("Executing assembly ...", ctrl)
-// 	data, _ := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
-// 		SliverID:   ActiveSliver.Sliver.ID,
-// 		AmsiBypass: ctx.Flags.Bool("amsi"),
-// 		Arguments:  assemblyArgs,
-// 		Process:    process,
-// 		Assembly:   assemblyBytes,
-// 		HostingDll: []byte{},
-// 	})
+func getOrdinal(index uint32, rawData []byte, fpe *pe.File, funcArrayFoa uint32) uint32 {
+	ordRva := binary.LittleEndian.Uint16(rawData[index:])
+	funcArrayIndex := funcArrayFoa + uint32(ordRva)*8
+	funcRVA := binary.LittleEndian.Uint32(rawData[funcArrayIndex:])
+	funcOffset := rvaToFoa(funcRVA, fpe)
+	return funcOffset
+}
 
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Data: data,
-// 		Type: clientpb.MsgExecuteAssemblyReq,
-// 	}, cmdTimeout)
-// 	ctrl <- true
-// 	<-ctrl
-// 	execResp := &sliverpb.ExecuteAssembly{}
-// 	proto.Unmarshal(resp.Data, execResp)
-// 	if execResp.Error != "" {
-// 		fmt.Printf(Warn+"%s", execResp.Error)
-// 		return
-// 	}
-// 	fmt.Printf("\n"+Info+"Assembly output:\n%s", execResp.Output)
-// }
+func getExportOffset(filepath string, exportName string) (funcOffset uint32, err error) {
+	rawData, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return 0, err
+	}
+	handle, err := os.Open(filepath)
+	if err != nil {
+		return 0, err
+	}
+	defer handle.Close()
+	fpe, _ := pe.NewFile(handle)
+	exportDirectoryRVA := fpe.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
+	var offset = rvaToFoa(exportDirectoryRVA, fpe)
+	exportDir := ExportDirectory{}
+	buff := &bytes.Buffer{}
+	buff.Write(rawData[offset:])
+	err = binary.Read(buff, binary.LittleEndian, &exportDir)
+	if err != nil {
+		return 0, err
+	}
+	current := exportDir.AddressOfNames
+	nameArrayFOA := rvaToFoa(exportDir.AddressOfNames, fpe)
+	ordinalArrayFOA := rvaToFoa(exportDir.AddressOfNameOrdinals, fpe)
+	funcArrayFoa := rvaToFoa(exportDir.AddressOfFunctions, fpe)
 
-// // sideload --process --get-output PATH_TO_DLL EntryPoint Args...
-// func sideloadDll(ctx *grumble.Context, rpc RPCServer) {
-// 	if ActiveSliver.Sliver == nil {
-// 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-// 		return
-// 	}
+	for i := uint32(0); i < exportDir.NumberOfNames; i++ {
+		index := nameArrayFOA + i*8
+		name := getFuncName(index, rawData, fpe)
+		if strings.Contains(name, exportName) {
+			ordIndex := ordinalArrayFOA + i*2
+			funcOffset = getOrdinal(ordIndex, rawData, fpe, funcArrayFoa)
+		}
+		current += uint32(binary.Size(i))
+	}
 
-// 	binPath := ctx.Args[0]
-
-// 	entryPoint := ctx.Flags.String("entry-point")
-// 	processName := ctx.Flags.String("process")
-// 	args := ctx.Flags.String("args")
-
-// 	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
-// 	binData, err := ioutil.ReadFile(binPath)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"%s", err.Error())
-// 		return
-// 	}
-// 	ctrl := make(chan bool)
-// 	go spin.Until(fmt.Sprintf("Sideloading %s ...", binPath), ctrl)
-// 	data, _ := proto.Marshal(&clientpb.SideloadReq{
-// 		Data:       binData,
-// 		Args:       args,
-// 		ProcName:   processName,
-// 		EntryPoint: entryPoint,
-// 		SliverID:   ActiveSliver.Sliver.ID,
-// 	})
-
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Data: data,
-// 		Type: clientpb.MsgSideloadReq,
-// 	}, cmdTimeout)
-// 	ctrl <- true
-// 	<-ctrl
-// 	execResp := &sliverpb.Sideload{}
-// 	proto.Unmarshal(resp.Data, execResp)
-// 	if execResp.Error != "" {
-// 		fmt.Printf(Warn+"%s", execResp.Error)
-// 		return
-// 	}
-// 	if len(execResp.Result) > 0 {
-// 		fmt.Printf("\n"+Info+"Output:\n%s", execResp.Result)
-// 	}
-// }
-
-// // spawnDll --process --export  PATH_TO_DLL Args...
-// func spawnDll(ctx *grumble.Context, rpc RPCServer) {
-// 	if ActiveSliver.Sliver == nil {
-// 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-// 		return
-// 	}
-
-// 	var args string
-// 	if len(ctx.Args) < 1 {
-// 		fmt.Printf(Warn + "See `help spawndll` for usage.")
-// 		return
-// 	} else if len(ctx.Args) > 1 {
-// 		args = ctx.Args[1]
-// 	}
-
-// 	binPath := ctx.Args[0]
-// 	processName := ctx.Flags.String("process")
-// 	exportName := ctx.Flags.String("export")
-// 	offset, err := getExportOffset(binPath, exportName)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"%s", err.Error())
-// 		return
-// 	}
-
-// 	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
-// 	binData, err := ioutil.ReadFile(binPath)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"%s", err.Error())
-// 		return
-// 	}
-// 	ctrl := make(chan bool)
-// 	go spin.Until(fmt.Sprintf("Executing reflective dll %s", binPath), ctrl)
-// 	data, _ := proto.Marshal(&sliverpb.SpawnDllReq{
-// 		Data:     binData,
-// 		Args:     args,
-// 		ProcName: processName,
-// 		Offset:   offset,
-// 		SliverID: ActiveSliver.Sliver.ID,
-// 	})
-
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Data: data,
-// 		Type: sliverpb.MsgSpawnDllReq,
-// 	}, cmdTimeout)
-// 	ctrl <- true
-// 	<-ctrl
-// 	execResp := &sliverpb.SpawnDll{}
-// 	proto.Unmarshal(resp.Data, execResp)
-// 	if execResp.Error != "" {
-// 		fmt.Printf(Warn+"%s", execResp.Error)
-// 		return
-// 	}
-// 	if len(execResp.Result) > 0 {
-// 		fmt.Printf("\n"+Info+"Output:\n%s", execResp.Result)
-// 	}
-// }
-
-// // ExportDirectory - stores the Export data
-// type ExportDirectory struct {
-// 	Characteristics       uint32
-// 	TimeDateStamp         uint32
-// 	MajorVersion          uint16
-// 	MinorVersion          uint16
-// 	Name                  uint32
-// 	Base                  uint32
-// 	NumberOfFunctions     uint32
-// 	NumberOfNames         uint32
-// 	AddressOfFunctions    uint32 // RVA from base of image
-// 	AddressOfNames        uint32 // RVA from base of image
-// 	AddressOfNameOrdinals uint32 // RVA from base of image
-// }
-
-// func rvaToFoa(rva uint32, pefile *pe.File) uint32 {
-// 	var offset uint32
-// 	for _, section := range pefile.Sections {
-// 		if rva >= section.SectionHeader.VirtualAddress && rva <= section.SectionHeader.VirtualAddress+section.SectionHeader.Size {
-// 			offset = section.SectionHeader.Offset + (rva - section.SectionHeader.VirtualAddress)
-// 		}
-// 	}
-// 	return offset
-// }
-
-// func getFuncName(index uint32, rawData []byte, fpe *pe.File) string {
-// 	nameRva := binary.LittleEndian.Uint32(rawData[index:])
-// 	nameFOA := rvaToFoa(nameRva, fpe)
-// 	funcNameBytes, err := bytes.NewBuffer(rawData[nameFOA:]).ReadBytes(0)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 		return ""
-// 	}
-// 	funcName := string(funcNameBytes[:len(funcNameBytes)-1])
-// 	return funcName
-// }
-
-// func getOrdinal(index uint32, rawData []byte, fpe *pe.File, funcArrayFoa uint32) uint32 {
-// 	ordRva := binary.LittleEndian.Uint16(rawData[index:])
-// 	funcArrayIndex := funcArrayFoa + uint32(ordRva)*8
-// 	funcRVA := binary.LittleEndian.Uint32(rawData[funcArrayIndex:])
-// 	funcOffset := rvaToFoa(funcRVA, fpe)
-// 	return funcOffset
-// }
-
-// func getExportOffset(filepath string, exportName string) (funcOffset uint32, err error) {
-// 	rawData, err := ioutil.ReadFile(filepath)
-// 	if err != nil {
-// 		return 0, err
-// 	}
-// 	handle, err := os.Open(filepath)
-// 	if err != nil {
-// 		return 0, err
-// 	}
-// 	defer handle.Close()
-// 	fpe, _ := pe.NewFile(handle)
-// 	exportDirectoryRVA := fpe.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
-// 	var offset = rvaToFoa(exportDirectoryRVA, fpe)
-// 	exportDir := ExportDirectory{}
-// 	buff := &bytes.Buffer{}
-// 	buff.Write(rawData[offset:])
-// 	err = binary.Read(buff, binary.LittleEndian, &exportDir)
-// 	if err != nil {
-// 		return 0, err
-// 	}
-// 	current := exportDir.AddressOfNames
-// 	nameArrayFOA := rvaToFoa(exportDir.AddressOfNames, fpe)
-// 	ordinalArrayFOA := rvaToFoa(exportDir.AddressOfNameOrdinals, fpe)
-// 	funcArrayFoa := rvaToFoa(exportDir.AddressOfFunctions, fpe)
-
-// 	for i := uint32(0); i < exportDir.NumberOfNames; i++ {
-// 		index := nameArrayFOA + i*8
-// 		name := getFuncName(index, rawData, fpe)
-// 		if strings.Contains(name, exportName) {
-// 			ordIndex := ordinalArrayFOA + i*2
-// 			funcOffset = getOrdinal(ordIndex, rawData, fpe, funcArrayFoa)
-// 		}
-// 		current += uint32(binary.Size(i))
-// 	}
-
-// 	return
-// }
+	return
+}

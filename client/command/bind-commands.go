@@ -905,24 +905,24 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	// 		HelpGroup: consts.SliverWinHelpGroup,
 	// 	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:      consts.ExecuteAssemblyStr,
-	// 		Help:      "Loads and executes a .NET assembly in a child process (Windows Only)",
-	// 		LongHelp:  help.GetHelpFor(consts.ExecuteAssemblyStr),
-	// 		AllowArgs: true,
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			executeAssembly(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		Flags: func(f *grumble.Flags) {
-	// 			f.String("p", "process", "notepad.exe", "Hosting process to inject into")
-	// 			f.Bool("a", "amsi", true, "Use AMSI bypass")
-	// 			f.Int("t", "timeout", 30, "command timeout in seconds")
-	// 		},
-	// 		HelpGroup: consts.SliverWinHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:      consts.ExecuteAssemblyStr,
+		Help:      "Loads and executes a .NET assembly in a child process (Windows Only)",
+		LongHelp:  help.GetHelpFor(consts.ExecuteAssemblyStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			executeAssembly(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.String("p", "process", "notepad.exe", "Hosting process to inject into")
+			f.Bool("a", "amsi", true, "Use AMSI bypass")
+			f.Int("t", "timeout", 30, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
 
 	app.AddCommand(&grumble.Command{
 		Name:      consts.ExecuteShellcodeStr,
@@ -942,6 +942,45 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.SideloadStr,
+		Help:     "Load and execute a shared object (shared library/DLL) in a remote process",
+		LongHelp: help.GetHelpFor(consts.SideloadStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("a", "args", "", "Arguments for the shared library function")
+			f.String("e", "entry-point", "", "Entrypoint for the DLL (Windows only)")
+			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
+			f.Int("t", "timeout", 10, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		HelpGroup: consts.SliverHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			sideload(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.SpawnDllStr,
+		Help:     "Load and execute a Reflective DLL in a remote process",
+		LongHelp: help.GetHelpFor(consts.SpawnDllStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
+			f.String("e", "export", "ReflectiveLoader", "Entrypoint of the Reflective DLL")
+			f.Int("t", "timeout", 10, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			spawnDll(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -980,45 +1019,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	// 			return nil
 	// 		},
 	// 		HelpGroup: consts.GenericHelpGroup,
-	// 	})
-
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:     consts.SideloadStr,
-	// 		Help:     "Load and execute a shared object (shared library/DLL) in a remote process",
-	// 		LongHelp: help.GetHelpFor(consts.SideloadStr),
-	// 		Flags: func(f *grumble.Flags) {
-	// 			f.String("a", "args", "", "Arguments for the shared library function")
-	// 			f.String("e", "entry-point", "", "Entrypoint for the DLL (Windows only)")
-	// 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
-	// 			f.Int("t", "timeout", 10, "command timeout in seconds")
-	// 		},
-	// 		AllowArgs: true,
-	// 		HelpGroup: consts.SliverHelpGroup,
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			sideloadDll(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 	})
-
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:     consts.SpawnDllStr,
-	// 		Help:     "Load and execute a Reflective DLL in a remote process",
-	// 		LongHelp: help.GetHelpFor(consts.SpawnDllStr),
-	// 		Flags: func(f *grumble.Flags) {
-	// 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
-	// 			f.String("e", "export", "ReflectiveLoader", "Entrypoint of the Reflective DLL")
-	// 			f.Int("t", "timeout", 10, "command timeout in seconds")
-	// 		},
-	// 		AllowArgs: true,
-	// 		HelpGroup: consts.SliverWinHelpGroup,
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			spawnDll(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
 	// 	})
 
 	// 	app.AddCommand(&grumble.Command{
