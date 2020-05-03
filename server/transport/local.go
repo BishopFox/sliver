@@ -26,7 +26,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-const bufSize = 1024 * 1024
+const bufSize = 2 * mb
 
 var (
 	pipeLog = log.NamedLogger("transport", "pipe")
@@ -37,7 +37,10 @@ var (
 func LocalListener() (*grpc.Server, *bufconn.Listener, error) {
 	pipeLog.Infof("Binding gRPC to listener ...")
 	ln := bufconn.Listen(bufSize)
-	options := initLoggerMiddleware()
+	options := []grpc.ServerOption{
+		grpc.MaxSendMsgSize(ServerMaxReceiveMessageSize),
+	}
+	options = append(options, initLoggerMiddleware()...)
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
 	go func() {
