@@ -54,7 +54,7 @@ func sessions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			if err != nil {
 				fmt.Printf(Warn+"%s\n", err)
 			}
-			fmt.Printf(Info+"Killed %s (%d)\n", session.Name, session.ID)
+			fmt.Printf(Info+"\nKilled %s (%d)\n", session.Name, session.ID)
 		}
 		return
 	}
