@@ -36,9 +36,8 @@ func deciderAll(_ context.Context, _ string, _ interface{}) bool {
 // initLoggerMiddleware - Initialize middleware logger
 func initLoggerMiddleware() []grpc.ServerOption {
 	logrusEntry := log.NamedLogger("transport", "grpc")
-	var codeToLevel grpc_logrus.CodeToLevel
 	logrusOpts := []grpc_logrus.Option{
-		grpc_logrus.WithLevels(codeToLevel),
+		// grpc_logrus.WithLevels(toLevel),
 	}
 	grpc_logrus.ReplaceGrpcLogger(logrusEntry)
 	return []grpc.ServerOption{
