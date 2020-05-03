@@ -38,8 +38,8 @@ const (
 	mb = kb * 1024
 	gb = mb * 1024
 
-	// ServerMaxReceiveMessageSize - Server-side max GRPC message size
-	ServerMaxReceiveMessageSize = 2 * gb
+	// ServerMaxMessageSize - Server-side max GRPC message size
+	ServerMaxMessageSize = 2 * gb
 )
 
 var (
@@ -58,7 +58,8 @@ func StartClientListener(host string, port uint16) (*grpc.Server, net.Listener, 
 	}
 	options := []grpc.ServerOption{
 		grpc.Creds(creds),
-		grpc.MaxSendMsgSize(ServerMaxReceiveMessageSize),
+		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
+		grpc.MaxSendMsgSize(ServerMaxMessageSize),
 	}
 	options = append(options, initLoggerMiddleware()...)
 	grpcServer := grpc.NewServer(options...)
