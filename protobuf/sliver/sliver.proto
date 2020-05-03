@@ -175,6 +175,7 @@ message ProcessDump {
 
 message PersistReq {
   bytes Assembly = 1;
+  uint32 Minutes = 2;
 
   uint32 SliverID = 9;
 }

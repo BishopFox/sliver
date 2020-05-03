@@ -31,6 +31,7 @@ func persist(ctx *grumble.Context, rpc RPCServer) {
 	data, _ := proto.Marshal(&sliverpb.PersistReq{
 		SliverID: ActiveSliver.Sliver.ID,
 		Assembly: assembly,
+		Minutes:  uint32(ctx.Flags.Int("minutes")),
 	})
 	resp := <-rpc(&sliverpb.Envelope{
 		Type: sliverpb.MsgPersistReq,

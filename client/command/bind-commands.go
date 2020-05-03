@@ -769,6 +769,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.PersistStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("f", "filename", "", "file to execute")
+			f.Int("n", "minutes", 0, "execute every n minutes")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
