@@ -28,7 +28,9 @@ import (
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/console"
+	"github.com/bishopfox/sliver/server/daemon"
 )
 
 var (
@@ -60,7 +62,12 @@ func main() {
 
 	certs.SetupCAs()
 
-	console.Start()
+	serverConfig := configs.GetServerConfig()
+	if serverConfig.DaemonMode {
+		daemon.Start()
+	} else {
+		console.Start()
+	}
 }
 
 // Initialize logging
