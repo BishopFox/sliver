@@ -1057,4 +1057,20 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
+	app.AddCommand(&grumble.Command{
+		Name:      consts.LoadExtensionStr,
+		Help:      "Load a sliver extension",
+		LongHelp:  help.GetHelpFor(consts.LoadExtensionStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			load(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		// Flags: func(f *grumble.Flags) {
+		// 	f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		// },
+		HelpGroup: consts.GenericHelpGroup,
+	})
 }
