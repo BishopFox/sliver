@@ -107,10 +107,6 @@ const (
 	MsgInvokeGetSystemReq
 	// MsgGetSystem - Response to getsystem request
 	MsgGetSystem
-	// MsgElevateReq - Request to run a new sliver session in an elevated context
-	MsgElevateReq
-	//MsgElevate - Response to the elevation request
-	MsgElevate
 	// MsgExecuteAssemblyReq - Request to load and execute a .NET assembly
 	MsgExecuteAssemblyReq
 	// MsgExecuteAssembly - Output of the assembly execution
@@ -238,11 +234,6 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *GetSystem:
 		return MsgGetSystem
-
-	case *ElevateReq:
-		return MsgElevateReq
-	case *Elevate:
-		return MsgElevate
 
 	case *ExecuteAssemblyReq:
 		return MsgExecuteAssemblyReq
