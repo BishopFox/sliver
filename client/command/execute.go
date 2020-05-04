@@ -40,12 +40,12 @@ func execute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if len(ctx.Args) > 1 {
 		args = ctx.Args[1:]
 	}
-	output := ctx.Flags.Bool("output")
+	output := ctx.Flags.Bool("silent")
 	exec, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 		Request: ActiveSession.Request(ctx),
 		Path:    cmdPath,
 		Args:    args,
-		Output:  output,
+		Output:  !output,
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s", err)
