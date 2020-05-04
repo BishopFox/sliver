@@ -89,6 +89,9 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 
 	timeout := time.Duration(req.Request.Timeout)
 	data, err = session.Request(sliverpb.MsgInvokeGetSystemReq, timeout, data)
+	if err != nil {
+		return nil, err
+	}
 	getSystem := &sliverpb.GetSystem{}
 	err = proto.Unmarshal(data, getSystem)
 	if err != nil {
