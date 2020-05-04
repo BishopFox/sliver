@@ -20,7 +20,6 @@ package rpc
 
 import (
 	"context"
-	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -87,7 +86,7 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		return nil, err
 	}
 
-	timeout := time.Duration(req.Request.Timeout)
+	timeout := rpc.getTimeout(req)
 	data, err = session.Request(sliverpb.MsgInvokeGetSystemReq, timeout, data)
 	if err != nil {
 		return nil, err

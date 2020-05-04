@@ -245,7 +245,6 @@ message InvokeGetSystemReq {
 
 // GetSystem - The result of a InvokeGetSystemReq attempt
 message GetSystem {
-  string Output = 1;
 
   commonpb.Response Response = 9;
 }

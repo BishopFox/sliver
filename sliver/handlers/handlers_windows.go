@@ -40,7 +40,7 @@ var (
 		sliverpb.MsgProcessDumpReq:     dumpHandler,
 		sliverpb.MsgImpersonateReq:     impersonateHandler,
 		sliverpb.MsgRevToSelf:          revToSelfHandler,
-		sliverpb.MsgRunAs:              runAsHandler,
+		sliverpb.MsgRunAsReq:           runAsHandler,
 		sliverpb.MsgInvokeGetSystemReq: getsystemHandler,
 		sliverpb.MsgElevateReq:         elevateHandler,
 		sliverpb.MsgExecuteAssemblyReq: executeAssemblyHandler,
@@ -144,7 +144,6 @@ func getsystemHandler(data []byte, resp RPCResponse) {
 	err = priv.GetSystem(getSysReq.Data, getSysReq.HostingProcess)
 	getSys := &sliverpb.GetSystem{}
 	if err != nil {
-		getSys.Output = err.Error() // TODO: Probably don't need to send this twice
 		getSys.Response = &commonpb.Response{Err: err.Error()}
 	}
 	data, err = proto.Marshal(getSys)

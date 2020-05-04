@@ -97,6 +97,8 @@ const (
 	MsgImpersonateReq
 	// MsgImpersonate - Output of the impersonation command
 	MsgImpersonate
+	// MsgRunAsReq - Request to run process as user
+	MsgRunAsReq
 	// MsgRunAs - Run process as user
 	MsgRunAs
 	// MsgRevToSelf - Revert to self
@@ -218,6 +220,9 @@ func MsgNumber(request proto.Message) uint32 {
 	case *Impersonate:
 		return MsgImpersonate
 
+	case *RunAsReq:
+		return MsgRunAsReq
+
 	case *RunAs:
 		return MsgRunAs
 
@@ -226,6 +231,7 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *InvokeGetSystemReq:
 		return MsgInvokeGetSystemReq
+
 	case *GetSystem:
 		return MsgGetSystem
 
