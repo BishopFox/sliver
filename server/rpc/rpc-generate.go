@@ -67,12 +67,12 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 // Regenerate - Regenerate a previously generated implant
 func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) (*clientpb.Generate, error) {
 
-	config, err := generate.SliverConfigByName(req.ImplantName)
+	config, err := generate.ImplantConfigByName(req.ImplantName)
 	if err != nil {
 		return nil, err
 	}
 
-	fileData, err := generate.SliverFileByName(req.ImplantName)
+	fileData, err := generate.ImplantFileByName(req.ImplantName)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) 
 
 // ImplantBuilds - List existing implant builds
 func (rpc *Server) ImplantBuilds(ctx context.Context, _ *commonpb.Empty) (*clientpb.ImplantBuilds, error) {
-	configs, err := generate.SliverConfigMap()
+	configs, err := generate.ImplantConfigMap()
 	if err != nil {
 		return nil, err
 	}

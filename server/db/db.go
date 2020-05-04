@@ -41,7 +41,7 @@ const (
 
 var (
 	rootDB       = getRootDB()
-	dbLog        = log.NamedLogger("db", "")
+	dbLog        = log.NamedLogger("db", "badger")
 	dbCache      = &map[string]*Bucket{}
 	dbCacheMutex = &sync.Mutex{}
 )
@@ -186,7 +186,7 @@ func GetBucket(name string) (*Bucket, error) {
 	}
 	dbLog.Debugf("Loading db from %s", bucketDir)
 	opts := badger.DefaultOptions(bucketDir)
-	logger := log.NamedLogger("db", name)
+	logger := log.NamedLogger("db", fmt.Sprintf("badger:%s", name))
 	opts.Logger = logger
 	db, err := badger.Open(opts)
 	if err != nil {

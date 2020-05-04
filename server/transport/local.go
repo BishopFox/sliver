@@ -29,7 +29,7 @@ import (
 const bufSize = 2 * mb
 
 var (
-	pipeLog = log.NamedLogger("transport", "pipe")
+	pipeLog = log.NamedLogger("transport", "local")
 )
 
 // LocalListener - Bind gRPC server to an in-memory listener, which is

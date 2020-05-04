@@ -66,7 +66,7 @@ func GetRootAppDir() string {
 	}
 
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, os.ModePerm)
+		err = os.MkdirAll(dir, 0700)
 		if err != nil {
 			setupLog.Fatalf("Cannot write to sliver root dir %s", err)
 		}
@@ -234,19 +234,20 @@ func setupDataPath(appDir string) error {
 
 func unzipGoDependency(fileName string, targetPath string, assetsBox packr.Box) error {
 	setupLog.Infof("Unpacking go dependency %s -> %s", fileName, targetPath)
+
 	appDir := GetRootAppDir()
-	godep, err := assetsBox.Find(fileName)
+	goDep, err := assetsBox.Find(fileName)
 	if err != nil {
 		setupLog.Infof("static asset not found: %s", fileName)
 		return err
 	}
 
-	godepZipPath := path.Join(appDir, fileName)
-	defer os.Remove(godepZipPath)
-	ioutil.WriteFile(godepZipPath, godep, 0644)
-	_, err = unzip(godepZipPath, targetPath)
+	goDepZipPath := path.Join(appDir, fileName)
+	defer os.Remove(goDepZipPath)
+	ioutil.WriteFile(goDepZipPath, goDep, 0644)
+	_, err = unzip(goDepZipPath, targetPath)
 	if err != nil {
-		setupLog.Infof("Failed to unzip file %s -> %s", godepZipPath, appDir)
+		setupLog.Infof("Failed to unzip file %s -> %s", goDepZipPath, appDir)
 		return err
 	}
 
@@ -289,27 +290,24 @@ func unzip(src string, dest string) ([]string, error) {
 		}
 		defer rc.Close()
 
-		fpath := filepath.Join(dest, file.Name)
-		filenames = append(filenames, fpath)
+		fPath := filepath.Join(dest, file.Name)
+		filenames = append(filenames, fPath)
 
 		if file.FileInfo().IsDir() {
-			os.MkdirAll(fpath, os.ModePerm)
+			os.MkdirAll(fPath, 0700)
 		} else {
-			if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+			if err = os.MkdirAll(filepath.Dir(fPath), 0700); err != nil {
 				return filenames, err
 			}
-			outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+			outFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 			if err != nil {
 				return filenames, err
 			}
 			_, err = io.Copy(outFile, rc)
-
 			outFile.Close()
-
 			if err != nil {
 				return filenames, err
 			}
-
 		}
 	}
 	return filenames, nil

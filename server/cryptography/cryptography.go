@@ -40,7 +40,7 @@ const (
 	GCMNonceSize = 12
 )
 
-// AESKey - 128 bit key
+// AESKey - 256 bit key
 type AESKey [AESKeySize]byte
 
 // AESIV - 128 bit IV
