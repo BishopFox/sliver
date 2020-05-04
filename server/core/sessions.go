@@ -110,7 +110,7 @@ func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([
 	var respEnvelope *sliverpb.Envelope
 	select {
 	case respEnvelope = <-resp:
-	case <-time.After(timeout * time.Second):
+	case <-time.After(timeout):
 		return nil, errors.New("timeout")
 	}
 	return respEnvelope.Data, nil
