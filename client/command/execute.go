@@ -18,7 +18,6 @@ package command
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -31,22 +30,22 @@ func execute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 1 {
+	if len(ctx.Args) < 1 {
 		fmt.Printf(Warn + "Please provide a path. See `help execute` for more info.\n")
 		return
 	}
 
 	cmdPath := ctx.Args[0]
-	args := ctx.Flags.String("args")
-	if len(args) != 0 {
-		args = cmdPath + " " + args
+	var args []string
+	if len(ctx.Args) > 1 {
+		args = ctx.Args[1:]
 	}
-	output := ctx.Flags.Bool("output")
+	output := ctx.Flags.Bool("silent")
 	exec, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 		Request: ActiveSession.Request(ctx),
 		Path:    cmdPath,
-		Args:    strings.Split(args, " "),
-		Output:  output,
+		Args:    args,
+		Output:  !output,
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s", err)

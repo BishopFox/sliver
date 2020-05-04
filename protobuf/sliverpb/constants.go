@@ -97,6 +97,8 @@ const (
 	MsgImpersonateReq
 	// MsgImpersonate - Output of the impersonation command
 	MsgImpersonate
+	// MsgRunAsReq - Request to run process as user
+	MsgRunAsReq
 	// MsgRunAs - Run process as user
 	MsgRunAs
 	// MsgRevToSelf - Revert to self
@@ -105,10 +107,6 @@ const (
 	MsgInvokeGetSystemReq
 	// MsgGetSystem - Response to getsystem request
 	MsgGetSystem
-	// MsgElevateReq - Request to run a new sliver session in an elevated context
-	MsgElevateReq
-	//MsgElevate - Response to the elevation request
-	MsgElevate
 	// MsgExecuteAssemblyReq - Request to load and execute a .NET assembly
 	MsgExecuteAssemblyReq
 	// MsgExecuteAssembly - Output of the assembly execution
@@ -133,6 +131,10 @@ const (
 
 	// MsgExecuteReq - Execute a command on the remote system
 	MsgExecuteReq
+
+	// MsgTerminateReq - Request to kill a remote process
+	MsgTerminateReq
+
 	// MsgTerminate - Kill a remote process
 	MsgTerminate
 
@@ -218,6 +220,9 @@ func MsgNumber(request proto.Message) uint32 {
 	case *Impersonate:
 		return MsgImpersonate
 
+	case *RunAsReq:
+		return MsgRunAsReq
+
 	case *RunAs:
 		return MsgRunAs
 
@@ -226,13 +231,9 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *InvokeGetSystemReq:
 		return MsgInvokeGetSystemReq
+
 	case *GetSystem:
 		return MsgGetSystem
-
-	case *ElevateReq:
-		return MsgElevateReq
-	case *Elevate:
-		return MsgElevate
 
 	case *ExecuteAssemblyReq:
 		return MsgExecuteAssemblyReq
@@ -259,6 +260,9 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *ExecuteReq:
 		return MsgExecuteReq
+
+	case *TerminateReq:
+		return MsgTerminateReq
 
 	case *Terminate:
 		return MsgTerminate

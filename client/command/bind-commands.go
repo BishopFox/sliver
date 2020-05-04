@@ -289,23 +289,23 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
-	// app.AddCommand(&grumble.Command{
-	// 	Name:     consts.ExecuteStr,
-	// 	Help:     "Execute a program on the remote system",
-	// 	LongHelp: help.GetHelpFor(consts.ExecuteStr),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("a", "args", "", "command arguments")
-	// 		f.Bool("o", "output", false, "print the command output")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		execute(ctx, rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	AllowArgs: true,
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ExecuteStr,
+		Help:     "Execute a program on the remote system",
+		LongHelp: help.GetHelpFor(consts.ExecuteStr),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("s", "silent", false, "don't print the command output")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			execute(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		AllowArgs: true,
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.GenerateStr,
@@ -731,179 +731,181 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:      consts.CatStr,
-	// 		Help:      "Dump file to stdout",
-	// 		LongHelp:  help.GetHelpFor(consts.CatStr),
-	// 		AllowArgs: true,
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			cat(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		HelpGroup: consts.SliverHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:      consts.CatStr,
+		Help:      "Dump file to stdout",
+		LongHelp:  help.GetHelpFor(consts.CatStr),
+		AllowArgs: true,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			cat(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:     consts.DownloadStr,
-	// 		Help:     "Download a file",
-	// 		LongHelp: help.GetHelpFor(consts.DownloadStr),
-	// 		Flags: func(f *grumble.Flags) {
-	// 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		},
-	// 		AllowArgs: true,
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			download(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		HelpGroup: consts.SliverHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:     consts.DownloadStr,
+		Help:     "Download a file",
+		LongHelp: help.GetHelpFor(consts.DownloadStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			download(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:     consts.UploadStr,
-	// 		Help:     "Upload a file",
-	// 		LongHelp: help.GetHelpFor(consts.UploadStr),
-	// 		Flags: func(f *grumble.Flags) {
-	// 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		},
-	// 		AllowArgs: true,
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			upload(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		HelpGroup: consts.SliverHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:     consts.UploadStr,
+		Help:     "Upload a file",
+		LongHelp: help.GetHelpFor(consts.UploadStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			upload(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:     consts.IfconfigStr,
-	// 		Help:     "View network interface configurations",
-	// 		LongHelp: help.GetHelpFor(consts.IfconfigStr),
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			ifconfig(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		HelpGroup: consts.SliverHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:     consts.IfconfigStr,
+		Help:     "View network interface configurations",
+		LongHelp: help.GetHelpFor(consts.IfconfigStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			ifconfig(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:     consts.NetstatStr,
-	// 		Help:     "Print network connection information",
-	// 		LongHelp: help.GetHelpFor(consts.NetstatStr),
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			netstat(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		Flags: func(f *grumble.Flags) {
-	// 			f.Bool("t", "tcp", true, "display information about TCP sockets")
-	// 			f.Bool("u", "udp", false, "display information about UDP sockets")
-	// 			f.Bool("4", "ip4", true, "display information about IPv4 sockets")
-	// 			f.Bool("6", "ip6", false, "display information about IPv6 sockets")
-	// 			f.Bool("l", "listen", false, "display information about listening sockets")
-	// 		},
-	// 		HelpGroup: consts.SliverHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:     consts.NetstatStr,
+		Help:     "Print network connection information",
+		LongHelp: help.GetHelpFor(consts.NetstatStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			netstat(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("t", "tcp", true, "display information about TCP sockets")
+			f.Bool("u", "udp", false, "display information about UDP sockets")
+			f.Bool("4", "ip4", true, "display information about IPv4 sockets")
+			f.Bool("6", "ip6", false, "display information about IPv6 sockets")
+			f.Bool("l", "listen", false, "display information about listening sockets")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:     consts.ProcdumpStr,
-	// 		Help:     "Dump process memory",
-	// 		LongHelp: help.GetHelpFor(consts.ProcdumpStr),
-	// 		Flags: func(f *grumble.Flags) {
-	// 			f.Int("p", "pid", -1, "target pid")
-	// 			f.String("n", "name", "", "target process name")
-	// 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		},
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			procdump(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		HelpGroup: consts.SliverHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ProcdumpStr,
+		Help:     "Dump process memory",
+		LongHelp: help.GetHelpFor(consts.ProcdumpStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("p", "pid", -1, "target pid")
+			f.String("n", "name", "", "target process name")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			procdump(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:     consts.RunAsStr,
-	// 		Help:     "Run a new process in the context of the designated user (Windows Only)",
-	// 		LongHelp: help.GetHelpFor(consts.RunAsStr),
-	// 		Flags: func(f *grumble.Flags) {
-	// 			f.String("u", "username", "NT AUTHORITY\\SYSTEM", "user to impersonate")
-	// 			f.String("p", "process", "", "process to start")
-	// 			f.String("a", "args", "", "arguments for the process")
-	// 		},
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			runAs(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		HelpGroup: consts.SliverWinHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:     consts.RunAsStr,
+		Help:     "Run a new process in the context of the designated user (Windows Only)",
+		LongHelp: help.GetHelpFor(consts.RunAsStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("u", "username", "NT AUTHORITY\\SYSTEM", "user to impersonate")
+			f.String("p", "process", "", "process to start")
+			f.String("a", "args", "", "arguments for the process")
+			f.Int("t", "timeout", 30, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			runAs(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:      consts.ImpersonateStr,
-	// 		Help:      "Impersonate a logged in user.",
-	// 		LongHelp:  help.GetHelpFor(consts.ImpersonateStr),
-	// 		AllowArgs: true,
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			impersonate(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		HelpGroup: consts.SliverWinHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:      consts.ImpersonateStr,
+		Help:      "Impersonate a logged in user.",
+		LongHelp:  help.GetHelpFor(consts.ImpersonateStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			impersonate(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", 30, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:      consts.RevToSelfStr,
-	// 		Help:      "Revert to self: lose stolen Windows token",
-	// 		LongHelp:  help.GetHelpFor(consts.RevToSelfStr),
-	// 		AllowArgs: false,
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			revToSelf(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		HelpGroup: consts.SliverWinHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:      consts.RevToSelfStr,
+		Help:      "Revert to self: lose stolen Windows token",
+		LongHelp:  help.GetHelpFor(consts.RevToSelfStr),
+		AllowArgs: false,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			revToSelf(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", 30, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:     consts.ElevateStr,
-	// 		Help:     "Spawns a new sliver session as an elevated process (UAC bypass/Windows Only)",
-	// 		LongHelp: help.GetHelpFor(consts.ElevateStr),
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			elevate(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		HelpGroup: consts.SliverWinHelpGroup,
-	// 	})
-
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:     consts.GetSystemStr,
-	// 		Help:     "Spawns a new sliver session as the NT AUTHORITY\\SYSTEM user (Windows Only)",
-	// 		LongHelp: help.GetHelpFor(consts.GetSystemStr),
-	// 		Flags: func(f *grumble.Flags) {
-	// 			f.String("p", "process", "spoolsv.exe", "SYSTEM process to inject into")
-	// 		},
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			getsystem(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		HelpGroup: consts.SliverWinHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:     consts.GetSystemStr,
+		Help:     "Spawns a new sliver session as the NT AUTHORITY\\SYSTEM user (Windows Only)",
+		LongHelp: help.GetHelpFor(consts.GetSystemStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("p", "process", "spoolsv.exe", "SYSTEM process to inject into")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			getsystem(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
 
 	app.AddCommand(&grumble.Command{
 		Name:      consts.ExecuteAssemblyStr,
@@ -919,7 +921,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "process", "notepad.exe", "Hosting process to inject into")
 			f.Bool("a", "amsi", true, "Use AMSI bypass")
-			f.Int("t", "timeout", 30, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
@@ -952,7 +954,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("a", "args", "", "Arguments for the shared library function")
 			f.String("e", "entry-point", "", "Entrypoint for the DLL (Windows only)")
 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
-			f.Int("t", "timeout", 10, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		AllowArgs: true,
 		HelpGroup: consts.SliverHelpGroup,
@@ -971,7 +973,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
 			f.String("e", "export", "ReflectiveLoader", "Entrypoint of the Reflective DLL")
-			f.Int("t", "timeout", 10, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		AllowArgs: true,
 		HelpGroup: consts.SliverWinHelpGroup,
@@ -1021,32 +1023,51 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	// 		HelpGroup: consts.GenericHelpGroup,
 	// 	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:      consts.TerminateStr,
-	// 		Help:      "Kill a process",
-	// 		LongHelp:  help.GetHelpFor(consts.TerminateStr),
-	// 		AllowArgs: true,
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			terminate(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		HelpGroup: consts.GenericHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:      consts.TerminateStr,
+		Help:      "Kill a process",
+		LongHelp:  help.GetHelpFor(consts.TerminateStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			terminate(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:      consts.ScreenshotStr,
-	// 		Help:      "Take a screenshot",
-	// 		LongHelp:  help.GetHelpFor(consts.ScreenshotStr),
-	// 		AllowArgs: false,
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			screenshot(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		HelpGroup: consts.SliverHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:      consts.ScreenshotStr,
+		Help:      "Take a screenshot",
+		LongHelp:  help.GetHelpFor(consts.ScreenshotStr),
+		AllowArgs: false,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			screenshot(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
+	app.AddCommand(&grumble.Command{
+		Name:      consts.LoadExtensionStr,
+		Help:      "Load a sliver extension",
+		LongHelp:  help.GetHelpFor(consts.LoadExtensionStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			load(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 }

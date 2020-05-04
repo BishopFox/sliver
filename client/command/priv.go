@@ -1,196 +1,123 @@
 package command
 
-// func runAs(ctx *grumble.Context, rpc RPCServer) {
-// 	if ActiveSliver.Sliver == nil {
-// 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-// 		return
-// 	}
-// 	username := ctx.Flags.String("username")
-// 	process := ctx.Flags.String("process")
-// 	arguments := ctx.Flags.String("args")
+import (
+	"context"
+	"fmt"
 
-// 	if username == "" {
-// 		fmt.Printf(Warn + "please specify a username\n")
-// 		return
-// 	}
+	"github.com/bishopfox/sliver/client/spin"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/desertbit/grumble"
+)
 
-// 	if process == "" {
-// 		fmt.Printf(Warn + "please specify a process path\n")
-// 	}
+func runAs(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
+	username := ctx.Flags.String("username")
+	process := ctx.Flags.String("process")
+	arguments := ctx.Flags.String("args")
 
-// 	runAs, err := runProcessAsUser(username, process, arguments, rpc)
-// 	if err != nil {
-// 		fmt.Printf(err.Error())
-// 		return
-// 	}
-// 	if runAs.Err != "" {
-// 		fmt.Printf(Warn+"Error: %s\n", runAs.Err)
-// 		return
-// 	}
-// 	fmt.Printf(Info+"Sucessfully ran %s %s on %s\n", process, arguments, ActiveSliver.Sliver.Name)
-// }
+	if username == "" {
+		fmt.Printf(Warn + "please specify a username\n")
+		return
+	}
 
-// func impersonate(ctx *grumble.Context, rpc RPCServer) {
-// 	if ActiveSliver.Sliver == nil {
-// 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-// 		return
-// 	}
-// 	if len(ctx.Args) != 1 {
-// 		fmt.Printf(Warn + "You must provide a username. See `help impersonate`\n")
-// 		return
-// 	}
-// 	username := ctx.Args[0]
+	if process == "" {
+		fmt.Printf(Warn + "please specify a process path\n")
+		return
+	}
 
-// 	data, _ := proto.Marshal(&sliverpb.ImpersonateReq{
-// 		Username: username,
-// 		SliverID: ActiveSliver.Sliver.ID,
-// 	})
+	runAsResp, err := rpc.RunAs(context.Background(), &sliverpb.RunAsReq{
+		Request:     ActiveSession.Request(ctx),
+		Username:    username,
+		ProcessName: process,
+		Args:        arguments,
+	})
 
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: sliverpb.MsgImpersonate,
-// 		Data: data,
-// 	}, defaultTimeout)
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
 
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"Error: %s", resp.Err)
-// 		return
-// 	}
-// 	impResp := &sliverpb.Impersonate{}
-// 	err := proto.Unmarshal(resp.Data, impResp)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-// 	}
-// 	if impResp.Err != "" {
-// 		fmt.Printf(Warn+"Error: %s\n", impResp.Err)
-// 		return
-// 	}
-// 	fmt.Printf(Info+"Successfully impersonated %s\n", username)
-// }
+	if runAsResp.GetResponse().GetErr() != "" {
+		fmt.Printf(Warn+"Error: %s\n", runAsResp.GetResponse().GetErr())
+		return
+	}
 
-// func revToSelf(ctx *grumble.Context, rpc RPCServer) {
-// 	if ActiveSliver.Sliver == nil {
-// 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-// 		return
-// 	}
-// 	data, err := proto.Marshal(&sliverpb.RevToSelfReq{
-// 		SliverID: ActiveSliver.Sliver.ID,
-// 	})
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Error marshaling RevToSelfReq: %v\n", err)
-// 		return
-// 	}
+	fmt.Printf(Info+"Sucessfully ran %s %s on %s\n", process, arguments, session.GetName())
+}
 
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: sliverpb.MsgRevToSelf,
-// 		Data: data,
-// 	}, defaultTimeout)
+func impersonate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
+	if len(ctx.Args) != 1 {
+		fmt.Printf(Warn + "You must provide a username. See `help impersonate`\n")
+		return
+	}
+	username := ctx.Args[0]
+	impResp, err := rpc.Impersonate(context.Background(), &sliverpb.ImpersonateReq{
+		Request:  ActiveSession.Request(ctx),
+		Username: username,
+	})
 
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"Error from RPC server: %s", resp.Err)
-// 		return
-// 	}
-// 	rtsResp := &sliverpb.RevToSelf{}
-// 	err = proto.Unmarshal(resp.Data, rtsResp)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-// 	}
-// 	if rtsResp.Err != "" {
-// 		fmt.Printf(Warn+"Error: %s", resp.Err)
-// 		return
-// 	}
-// 	fmt.Printf(Info + "Back to self...")
-// }
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
+	if impResp.GetResponse().GetErr() != "" {
+		fmt.Printf(Warn+"Error: %s\n", impResp.GetResponse().GetErr())
+		return
+	}
+	fmt.Printf(Info+"Successfully impersonated %s\n", username)
+}
 
-// func getsystem(ctx *grumble.Context, rpc RPCServer) {
-// 	if ActiveSliver.Sliver == nil {
-// 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-// 		return
-// 	}
-// 	process := ctx.Flags.String("process")
-// 	config := getActiveSliverConfig()
-// 	ctrl := make(chan bool)
-// 	go spin.Until("Attempting to create a new sliver session as 'NT AUTHORITY\\SYSTEM'...", ctrl)
-// 	data, _ := proto.Marshal(&clientpb.GetSystemReq{
-// 		SliverID:       ActiveSliver.Sliver.ID,
-// 		Config:         config,
-// 		HostingProcess: process,
-// 	})
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: clientpb.MsgGetSystemReq,
-// 		Data: data,
-// 	}, 45*time.Minute)
-// 	ctrl <- true
-// 	<-ctrl
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"Error: %s", resp.Err)
-// 		return
-// 	}
-// 	gsResp := &sliverpb.GetSystem{}
-// 	err := proto.Unmarshal(resp.Data, gsResp)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-// 		return
-// 	}
-// 	if gsResp.Output != "" {
-// 		fmt.Printf("\n"+Warn+"Error: %s\n", gsResp.Output)
-// 		return
-// 	}
-// 	fmt.Printf("\n" + Info + "A new SYSTEM session should pop soon...\n")
-// }
+func revToSelf(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
+	_, err := rpc.RevToSelf(context.Background(), &sliverpb.RevToSelfReq{
+		Request: ActiveSession.Request(ctx),
+	})
 
-// func elevate(ctx *grumble.Context, rpc RPCServer) {
-// 	if ActiveSliver.Sliver == nil {
-// 		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-// 		return
-// 	}
-// 	ctrl := make(chan bool)
-// 	go spin.Until("Starting a new sliver session...", ctrl)
-// 	data, _ := proto.Marshal(&sliverpb.ElevateReq{SliverID: ActiveSliver.Sliver.ID})
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: sliverpb.MsgElevate,
-// 		Data: data,
-// 	}, defaultTimeout)
-// 	ctrl <- true
-// 	<-ctrl
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"Error: %s", resp.Err)
-// 		return
-// 	}
-// 	elevate := &sliverpb.Elevate{}
-// 	err := proto.Unmarshal(resp.Data, elevate)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-// 		return
-// 	}
-// 	if !elevate.Success {
-// 		fmt.Printf(Warn+"Elevation failed: %s\n", elevate.Err)
-// 		return
-// 	}
-// 	fmt.Printf(Info + "Elevation successful, a new sliver session should pop soon.")
-// }
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
+	fmt.Printf(Info + "Back to self...")
+}
 
-// // Utility functions
-// func runProcessAsUser(username, process, arguments string, rpc RPCServer) (runAs *sliverpb.RunAs, err error) {
-// 	data, _ := proto.Marshal(&sliverpb.RunAsReq{
-// 		Username: username,
-// 		Process:  process,
-// 		Args:     arguments,
-// 		SliverID: ActiveSliver.Sliver.ID,
-// 	})
+func getsystem(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
+	process := ctx.Flags.String("process")
+	config := getActiveSliverConfig()
+	ctrl := make(chan bool)
+	go spin.Until("Attempting to create a new sliver session as 'NT AUTHORITY\\SYSTEM'...", ctrl)
 
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: sliverpb.MsgRunAs,
-// 		Data: data,
-// 	}, defaultTimeout)
-// 	if resp.Err != "" {
-// 		err = fmt.Errorf(Warn+"Error: %s", resp.Err)
-// 		return
-// 	}
-// 	runAs = &sliverpb.RunAs{}
-// 	err = proto.Unmarshal(resp.Data, runAs)
-// 	if err != nil {
-// 		err = fmt.Errorf(Warn+"Unmarshaling envelope error: %v\n", err)
-// 		return
-// 	}
-// 	return
-// }
+	getsystemResp, err := rpc.GetSystem(context.Background(), &clientpb.GetSystemReq{
+		Request:        ActiveSession.Request(ctx),
+		Config:         config,
+		HostingProcess: process,
+	})
+
+	ctrl <- true
+	<-ctrl
+
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
+	if getsystemResp.GetResponse().GetErr() != "" {
+		fmt.Printf(Warn+"Error: %s\n", getsystemResp.GetResponse().GetErr())
+		return
+	}
+	fmt.Printf("\n" + Info + "A new SYSTEM session should pop soon...\n")
+}

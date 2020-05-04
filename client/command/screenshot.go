@@ -29,7 +29,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
-	// "github.com/golang/protobuf/proto"
 )
 
 func screenshot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -52,7 +51,7 @@ func screenshot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	timestamp := time.Now().Format("20060102150405")
-	tmpFileName := path.Base(fmt.Sprintf("screenshot_%s_%d_%s.png", session.Name, session.ID, timestamp))
+	tmpFileName := path.Base(fmt.Sprintf("screenshot_%s_%d_%s_*.png", session.Name, session.ID, timestamp))
 	tmpFile, err := ioutil.TempFile("", tmpFileName)
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)

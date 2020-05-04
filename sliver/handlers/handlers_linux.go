@@ -25,7 +25,7 @@ import (
 var (
 	linuxHandlers = map[uint32]RPCHandler{
 		sliverpb.MsgPsReq:         psHandler,
-		sliverpb.MsgTerminate:     terminateHandler,
+		sliverpb.MsgTerminateReq:  terminateHandler,
 		sliverpb.MsgPing:          pingHandler,
 		sliverpb.MsgLsReq:         dirListHandler,
 		sliverpb.MsgDownloadReq:   downloadHandler,

@@ -53,7 +53,6 @@ service SliverRPC {
     rpc Impersonate(sliverpb.ImpersonateReq) returns (sliverpb.Impersonate);
     rpc RevToSelf(sliverpb.RevToSelfReq) returns (sliverpb.RevToSelf);
     rpc GetSystem(clientpb.GetSystemReq) returns (sliverpb.GetSystem);
-    rpc Elevate(sliverpb.ElevateReq) returns (sliverpb.Elevate);
     rpc Task(sliverpb.TaskReq) returns (sliverpb.Task);
     rpc RemoteTask(sliverpb.RemoteTaskReq) returns (sliverpb.Task);
     rpc Msf(clientpb.MSFReq) returns (commonpb.Empty);
