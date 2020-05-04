@@ -1068,9 +1068,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			fmt.Println()
 			return nil
 		},
-		// Flags: func(f *grumble.Flags) {
-		// 	f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		// },
 		HelpGroup: consts.GenericHelpGroup,
 	})
 }
