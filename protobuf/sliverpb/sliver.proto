@@ -249,18 +249,6 @@ message GetSystem {
   commonpb.Response Response = 9;
 }
 
-message ElevateReq {
-  int32 Timeout = 1;
-
-  commonpb.Request Request = 9;
-}
-
-message Elevate {
-  bool Success = 1;
-
-  commonpb.Response Response = 9;
-}
-
 message TaskReq {
   string Encoder = 1;
   bool RWXPages = 2;

