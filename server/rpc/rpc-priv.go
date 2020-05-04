@@ -98,13 +98,3 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	}
 	return getSystem, nil
 }
-
-// Elevate - Attempt to elevate remote privileges
-func (rpc *Server) Elevate(ctx context.Context, req *sliverpb.ElevateReq) (*sliverpb.Elevate, error) {
-	resp := &sliverpb.Elevate{}
-	err := rpc.GenericHandler(req, resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
