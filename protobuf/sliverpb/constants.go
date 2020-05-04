@@ -135,6 +135,10 @@ const (
 
 	// MsgExecuteReq - Execute a command on the remote system
 	MsgExecuteReq
+
+	// MsgTerminateReq - Request to kill a remote process
+	MsgTerminateReq
+
 	// MsgTerminate - Kill a remote process
 	MsgTerminate
 
@@ -265,6 +269,9 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *ExecuteReq:
 		return MsgExecuteReq
+
+	case *TerminateReq:
+		return MsgTerminateReq
 
 	case *Terminate:
 		return MsgTerminate

