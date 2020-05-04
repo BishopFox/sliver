@@ -37,30 +37,30 @@ const (
 
 // OperatorClientGenerateCertificate - Generate a certificate signed with a given CA
 func OperatorClientGenerateCertificate(operator string) ([]byte, []byte, error) {
-	cert, key := GenerateECCCertificate(OperatorCA, operator, false, true)
-	err := SaveCertificate(OperatorCA, ECCKey, fmt.Sprintf("%s.%s", clientNamespace, operator), cert, key)
+	cert, key := GenerateRSACertificate(OperatorCA, operator, false, true)
+	err := SaveCertificate(OperatorCA, RSAKey, fmt.Sprintf("%s.%s", clientNamespace, operator), cert, key)
 	return cert, key, err
 }
 
 // OperatorClientGetCertificate - Helper function to fetch a client cert
 func OperatorClientGetCertificate(operator string) ([]byte, []byte, error) {
-	return GetCertificate(OperatorCA, ECCKey, fmt.Sprintf("%s.%s", clientNamespace, operator))
+	return GetCertificate(OperatorCA, RSAKey, fmt.Sprintf("%s.%s", clientNamespace, operator))
 }
 
 // OperatorClientRemoveCertificate - Helper function to remove a client cert
 func OperatorClientRemoveCertificate(operator string) error {
-	return RemoveCertificate(OperatorCA, ECCKey, fmt.Sprintf("%s.%s", clientNamespace, operator))
+	return RemoveCertificate(OperatorCA, RSAKey, fmt.Sprintf("%s.%s", clientNamespace, operator))
 }
 
 // OperatorServerGetCertificate - Helper function to fetch a client cert
 func OperatorServerGetCertificate(operator string) ([]byte, []byte, error) {
-	return GetCertificate(OperatorCA, ECCKey, fmt.Sprintf("%s.%s", serverNamespace, operator))
+	return GetCertificate(OperatorCA, RSAKey, fmt.Sprintf("%s.%s", serverNamespace, operator))
 }
 
 // OperatorServerGenerateCertificate - Generate a certificate signed with a given CA
 func OperatorServerGenerateCertificate(hostname string) ([]byte, []byte, error) {
-	cert, key := GenerateECCCertificate(OperatorCA, hostname, false, false)
-	err := SaveCertificate(OperatorCA, ECCKey, fmt.Sprintf("%s.%s", serverNamespace, hostname), cert, key)
+	cert, key := GenerateRSACertificate(OperatorCA, hostname, false, false)
+	err := SaveCertificate(OperatorCA, RSAKey, fmt.Sprintf("%s.%s", serverNamespace, hostname), cert, key)
 	return cert, key, err
 }
 
