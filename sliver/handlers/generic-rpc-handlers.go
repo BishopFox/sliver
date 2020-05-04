@@ -485,16 +485,17 @@ func executeHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	execResp := &sliverpb.Execute{}
-	cmd = exec.Command(execReq.Path)
+	if len(execReq.Args) != 0 {
+		cmd = exec.Command(execReq.Path, execReq.Args...)
+	} else {
+		cmd = exec.Command(execReq.Path)
+	}
 	//{{if eq .GOOS "windows"}}
 	cmd.SysProcAttr = &windows.SysProcAttr{
 		Token: syscall.Token(priv.CurrentToken),
 	}
 	//{{end}}
 
-	if len(execReq.Args) != 0 {
-		cmd.Args = execReq.Args
-	}
 	if execReq.Output {
 		res, err := cmd.Output()
 		//{{if .Debug}}

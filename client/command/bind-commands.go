@@ -289,23 +289,23 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
-	// app.AddCommand(&grumble.Command{
-	// 	Name:     consts.ExecuteStr,
-	// 	Help:     "Execute a program on the remote system",
-	// 	LongHelp: help.GetHelpFor(consts.ExecuteStr),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("a", "args", "", "command arguments")
-	// 		f.Bool("o", "output", false, "print the command output")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		execute(ctx, rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	AllowArgs: true,
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ExecuteStr,
+		Help:     "Execute a program on the remote system",
+		LongHelp: help.GetHelpFor(consts.ExecuteStr),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("o", "output", false, "print the command output")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			execute(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		AllowArgs: true,
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.GenerateStr,
