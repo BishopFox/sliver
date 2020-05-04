@@ -197,11 +197,16 @@ func generateCertificate(caType string, commonName string, isCA bool, isClient b
 	serialNumber, _ := rand.Int(rand.Reader, serialNumberLimit)
 	certsLog.Infof("Serial Number: %d", serialNumber)
 
+	var keyUsage x509.KeyUsage = x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
 	var extKeyUsage []x509.ExtKeyUsage
 
 	if isCA {
 		certsLog.Infof("Authority certificate")
-		extKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
+		keyUsage = x509.KeyUsageCertSign | x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
+		extKeyUsage = []x509.ExtKeyUsage{
+			x509.ExtKeyUsageServerAuth,
+			x509.ExtKeyUsageClientAuth,
+		}
 	} else if isClient {
 		certsLog.Infof("Client authentication certificate")
 		extKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
@@ -219,7 +224,7 @@ func generateCertificate(caType string, commonName string, isCA bool, isClient b
 		},
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		KeyUsage:              keyUsage,
 		ExtKeyUsage:           extKeyUsage,
 		BasicConstraintsValid: isCA,
 	}

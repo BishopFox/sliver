@@ -36,9 +36,9 @@ var (
 
 // Start - Start as daemon process
 func Start() {
-	daemonLog.Infof("Starting Sliver daemon ...")
 	host := serverConfig.DaemonConfig.Host
 	port := uint16(serverConfig.DaemonConfig.Port)
+	daemonLog.Infof("Starting Sliver daemon %s:%d ...", host, port)
 	_, ln, err := transport.StartClientListener(host, port)
 	if err != nil {
 		fmt.Printf("[!] Failed to start daemon %s", err)

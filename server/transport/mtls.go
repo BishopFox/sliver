@@ -104,7 +104,7 @@ func getOperatorServerTLSConfig(host string) *tls.Config {
 		ClientCAs:                caCertPool,
 		Certificates:             []tls.Certificate{cert},
 		PreferServerCipherSuites: true,
-		MinVersion:               tls.VersionTLS13,
+		MinVersion:               tls.VersionTLS12,
 	}
 	tlsConfig.BuildNameToCertificate()
 	return tlsConfig
