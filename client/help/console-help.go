@@ -69,7 +69,7 @@ var (
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
-	[[.Bold]]About:[[.Normal]] Manange jobs/listeners.`
+	[[.Bold]]About:[[.Normal]] Manage jobs/listeners.`
 
 	sessionsHelp = `[[.Bold]]Command:[[.Normal]] sessions <options>
 [[.Bold]]About:[[.Normal]] List Sliver sessions, and optionally interact or kill a session.`
@@ -246,14 +246,20 @@ Shellcode files should be binary encoded, you can generate Sliver shellcode file
 [[.Bold]][[.Underline]]++ Operations ++[[.Normal]]
 Operations are used to manage the content of each website and go at the end of the command.
 
-[[.Bold]]ls[[.Normal]] - List the contents of a website, specified with --website
+[[.Bold]]ls [[.Normal]] - List the contents of a website, specified with --website
 [[.Bold]]add[[.Normal]] - Add content to a website, specified with --website, --content, and --web-path
-[[.Bold]]rm[[.Normal]] - Remove content from a website, specified with --website and --web-path
+[[.Bold]]rm [[.Normal]] - Remove content from a website, specified with --website and --web-path
 
 [[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
 
 Add content to a website:
 	websites --website blog --web-path / --content ./index.html add
+	websites --website blog --web-path /public --content ./public --recursive add
+
+Delete content in a website:
+	websites --website blog --web-path /index.html rm
+	websites --website blog --web-path /public --recursive rm
+
 `
 	sideloadHelp = `[[.Bold]]Command:[[.Normal]] sideload <options> <filepath to DLL>
 [[.Bold]]About:[[.Normal]] Load and execute a shared library in memory in a remote process.
