@@ -118,20 +118,22 @@ func (rpc *Server) Canaries(ctx context.Context, _ *commonpb.Empty) (*clientpb.C
 	}, nil
 }
 
-// Profiles - List profiles
-func (rpc *Server) Profiles(ctx context.Context, _ *commonpb.Empty) (*clientpb.Profiles, error) {
-	profiles := &clientpb.Profiles{List: []*clientpb.Profile{}}
+// ImplantProfiles - List profiles
+func (rpc *Server) ImplantProfiles(ctx context.Context, _ *commonpb.Empty) (*clientpb.ImplantProfiles, error) {
+	implantProfiles := &clientpb.ImplantProfiles{
+		Profiles: []*clientpb.ImplantProfile{},
+	}
 	for name, config := range generate.Profiles() {
-		profiles.List = append(profiles.List, &clientpb.Profile{
+		implantProfiles.Profiles = append(implantProfiles.Profiles, &clientpb.ImplantProfile{
 			Name:   name,
 			Config: config.ToProtobuf(),
 		})
 	}
-	return profiles, nil
+	return implantProfiles, nil
 }
 
-// NewProfile - Save a new profile
-func (rpc *Server) NewProfile(ctx context.Context, profile *clientpb.Profile) (*clientpb.Profile, error) {
+// SaveImplantProfile - Save a new profile
+func (rpc *Server) SaveImplantProfile(ctx context.Context, profile *clientpb.ImplantProfile) (*clientpb.ImplantProfile, error) {
 	config := generate.ImplantConfigFromProtobuf(profile.Config)
 	profile.Name = path.Base(profile.Name)
 	if 0 < len(profile.Name) && profile.Name != "." {

@@ -99,13 +99,13 @@ message Canaries {
   repeated DNSCanary Canaries = 1;
 }
 
-message Profile {
+message ImplantProfile {
   string Name = 1;
   ImplantConfig Config = 2;
 }
 
-message Profiles {
-  repeated Profile List = 1;
+message ImplantProfiles {
+  repeated ImplantProfile Profiles = 1;
 }
 
 message RegenerateReq {

@@ -384,90 +384,99 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// app.AddCommand(&grumble.Command{
-	// 	Name:     consts.NewProfileStr,
-	// 	Help:     "Save a new sliver profile",
-	// 	LongHelp: help.GetHelpFor(consts.NewProfileStr),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("o", "os", "windows", "operating system")
-	// 		f.String("a", "arch", "amd64", "cpu architecture")
-	// 		f.Bool("d", "debug", false, "enable debug features")
-	// 		f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
+	app.AddCommand(&grumble.Command{
+		Name:     consts.NewProfileStr,
+		Help:     "Save a new sliver profile",
+		LongHelp: help.GetHelpFor(consts.NewProfileStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("o", "os", "windows", "operating system")
+			f.String("a", "arch", "amd64", "cpu architecture")
+			f.Bool("d", "debug", false, "enable debug features")
+			f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
 
-	// 		f.String("m", "mtls", "", "mtls domain(s)")
-	// 		f.String("t", "http", "", "http[s] domain(s)")
-	// 		f.String("n", "dns", "", "dns domain(s)")
+			f.String("m", "mtls", "", "mtls domain(s)")
+			f.String("t", "http", "", "http[s] domain(s)")
+			f.String("n", "dns", "", "dns domain(s)")
 
-	// 		f.String("c", "canary", "", "canary domain(s)")
+			f.String("c", "canary", "", "canary domain(s)")
 
-	// 		f.Int("j", "reconnect", defaultReconnect, "attempt to reconnect every n second(s)")
-	// 		f.Int("k", "max-errors", defaultMaxErrors, "max number of connection errors")
+			f.Int("j", "reconnect", defaultReconnect, "attempt to reconnect every n second(s)")
+			f.Int("k", "max-errors", defaultMaxErrors, "max number of connection errors")
 
-	// 		f.String("w", "limit-datetime", "", "limit execution to before datetime")
-	// 		f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
-	// 		f.String("y", "limit-username", "", "limit execution to specified username")
-	// 		f.String("z", "limit-hostname", "", "limit execution to specified hostname")
+			f.String("w", "limit-datetime", "", "limit execution to before datetime")
+			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
+			f.String("y", "limit-username", "", "limit execution to specified username")
+			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 
-	// 		f.String("r", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries) and 'shellcode' (windows only)")
+			f.String("r", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries) and 'shellcode' (windows only)")
 
-	// 		f.String("p", "name", "", "profile name")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		newProfile(ctx, rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+			f.String("p", "name", "", "profile name")
 
-	// app.AddCommand(&grumble.Command{
-	// 	Name:      consts.RegenerateStr,
-	// 	Help:      "Regenerate target sliver",
-	// 	LongHelp:  help.GetHelpFor(consts.RegenerateStr),
-	// 	AllowArgs: true,
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("s", "save", "", "directory/file to the binary to")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		regenerate(ctx, rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			newProfile(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// app.AddCommand(&grumble.Command{
-	// 	Name:     consts.ProfilesStr,
-	// 	Help:     "List existing profiles",
-	// 	LongHelp: help.GetHelpFor(consts.ProfilesStr),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		profiles(ctx, rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	app.AddCommand(&grumble.Command{
+		Name:      consts.RegenerateStr,
+		Help:      "Regenerate target sliver",
+		LongHelp:  help.GetHelpFor(consts.RegenerateStr),
+		AllowArgs: true,
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "save", "", "directory/file to the binary to")
 
-	// app.AddCommand(&grumble.Command{
-	// 	Name:     consts.ProfileGenerateStr,
-	// 	Help:     "Generate Sliver from a profile",
-	// 	LongHelp: help.GetHelpFor(consts.ProfileGenerateStr),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("p", "name", "", "profile name")
-	// 		f.String("s", "save", "", "directory/file to the binary to")
-	// 	},
-	// 	AllowArgs: true,
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		profileGenerate(ctx, rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			regenerate(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ProfilesStr,
+		Help:     "List existing profiles",
+		LongHelp: help.GetHelpFor(consts.ProfilesStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			profiles(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ProfileGenerateStr,
+		Help:     "Generate Sliver from a profile",
+		LongHelp: help.GetHelpFor(consts.ProfileGenerateStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("p", "name", "", "profile name")
+			f.String("s", "save", "", "directory/file to the binary to")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			profileGenerate(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.ListSliverBuildsStr,
@@ -485,22 +494,24 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 
-	// app.AddCommand(&grumble.Command{
-	// 	Name:     consts.ListCanariesStr,
-	// 	Help:     "List previously generated canaries",
-	// 	LongHelp: help.GetHelpFor(consts.ListCanariesStr),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Bool("b", "burned", false, "show only triggered/burned canaries")
-	// 	},
-	// 	AllowArgs: true,
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		canaries(ctx, rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	app.AddCommand(&grumble.Command{
+		Name:     consts.ListCanariesStr,
+		Help:     "List previously generated canaries",
+		LongHelp: help.GetHelpFor(consts.ListCanariesStr),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("b", "burned", false, "show only triggered/burned canaries")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			canaries(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.MsfStr,
@@ -512,6 +523,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("l", "lport", 4444, "listen port")
 			f.String("e", "encoder", "", "msf encoder")
 			f.Int("i", "iterations", 1, "iterations of the encoder")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {

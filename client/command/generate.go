@@ -20,6 +20,7 @@ package command
 
 import (
 	//"bytes"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -30,6 +31,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
 
 	"time"
 
@@ -37,6 +39,7 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/desertbit/grumble"
 )
@@ -427,22 +430,22 @@ func parseDNSc2(args string) []*clientpb.ImplantC2 {
 	return c2s
 }
 
-// func profileGenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-// 	name := ctx.Flags.String("name")
-// 	if name == "" && 1 <= len(ctx.Args) {
-// 		name = ctx.Args[0]
-// 	}
-// 	save := ctx.Flags.String("save")
-// 	if save == "" {
-// 		save, _ = os.Getwd()
-// 	}
-// 	profiles := getSliverProfiles(rpc)
-// 	if profile, ok := (*profiles)[name]; ok {
-// 		compile(profile.Config, save, rpc)
-// 	} else {
-// 		fmt.Printf(Warn+"No profile with name '%s'", name)
-// 	}
-// }
+func profileGenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	name := ctx.Flags.String("name")
+	if name == "" && 1 <= len(ctx.Args) {
+		name = ctx.Args[0]
+	}
+	save := ctx.Flags.String("save")
+	if save == "" {
+		save, _ = os.Getwd()
+	}
+	profiles := getSliverProfiles(rpc)
+	if profile, ok := (*profiles)[name]; ok {
+		compile(profile.Config, save, rpc)
+	} else {
+		fmt.Printf(Warn+"No profile with name '%s'", name)
+	}
+}
 
 func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCClient) error {
 
@@ -491,50 +494,50 @@ func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCCli
 	return nil
 }
 
-// func profiles(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-// 	profiles := getSliverProfiles(rpc)
-// 	if profiles == nil {
-// 		return
-// 	}
-// 	if len(*profiles) == 0 {
-// 		fmt.Printf(Info+"No profiles, create one with `%s`\n", consts.NewProfileStr)
-// 		return
-// 	}
-// 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-// 	fmt.Fprintf(table, "Name\tPlatform\tCommand & Control\tDebug\tLimitations\t\n")
-// 	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
-// 		strings.Repeat("=", len("Name")),
-// 		strings.Repeat("=", len("Platform")),
-// 		strings.Repeat("=", len("Command & Control")),
-// 		strings.Repeat("=", len("Debug")),
-// 		strings.Repeat("=", len("Limitations")))
+func profiles(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	profiles := getSliverProfiles(rpc)
+	if profiles == nil {
+		return
+	}
+	if len(*profiles) == 0 {
+		fmt.Printf(Info+"No profiles, create one with `%s`\n", consts.NewProfileStr)
+		return
+	}
+	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+	fmt.Fprintf(table, "Name\tPlatform\tCommand & Control\tDebug\tLimitations\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+		strings.Repeat("=", len("Name")),
+		strings.Repeat("=", len("Platform")),
+		strings.Repeat("=", len("Command & Control")),
+		strings.Repeat("=", len("Debug")),
+		strings.Repeat("=", len("Limitations")))
 
-// 	for name, profile := range *profiles {
-// 		config := profile.Config
-// 		if 0 < len(config.C2) {
-// 			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
-// 				name,
-// 				fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
-// 				fmt.Sprintf("[1] %s", config.C2[0].URL),
-// 				fmt.Sprintf("%v", config.Debug),
-// 				getLimitsString(config),
-// 			)
-// 		}
-// 		if 1 < len(config.C2) {
-// 			for index, c2 := range config.C2[1:] {
-// 				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
-// 					"",
-// 					"",
-// 					fmt.Sprintf("[%d] %s", index+2, c2.URL),
-// 					"",
-// 					"",
-// 				)
-// 			}
-// 		}
-// 		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n", "", "", "", "", "")
-// 	}
-// 	table.Flush()
-// }
+	for name, profile := range *profiles {
+		config := profile.Config
+		if 0 < len(config.C2) {
+			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
+				name,
+				fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
+				fmt.Sprintf("[1] %s", config.C2[0].URL),
+				fmt.Sprintf("%v", config.Debug),
+				getLimitsString(config),
+			)
+		}
+		if 1 < len(config.C2) {
+			for index, c2 := range config.C2[1:] {
+				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
+					"",
+					"",
+					fmt.Sprintf("[%d] %s", index+2, c2.URL),
+					"",
+					"",
+				)
+			}
+		}
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n", "", "", "", "", "")
+	}
+	table.Flush()
+}
 
 func getLimitsString(config *clientpb.ImplantConfig) string {
 	limits := []string{}
@@ -553,119 +556,98 @@ func getLimitsString(config *clientpb.ImplantConfig) string {
 	return strings.Join(limits, "; ")
 }
 
-// func newProfile(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-// 	name := ctx.Flags.String("name")
-// 	if name == "" {
-// 		fmt.Printf(Warn + "Invalid profile name\n")
-// 		return
-// 	}
+func newProfile(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	name := ctx.Flags.String("name")
+	if name == "" {
+		fmt.Printf(Warn + "Invalid profile name\n")
+		return
+	}
+	config := parseCompileFlags(ctx)
+	if config == nil {
+		return
+	}
+	profile := &clientpb.ImplantProfile{
+		Name:   name,
+		Config: config,
+	}
+	resp, err := rpc.SaveImplantProfile(context.Background(), profile)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+	} else {
+		fmt.Printf(Info+"Saved new profile %s\n", resp.Name)
+	}
+}
 
-// 	config := parseCompileFlags(ctx)
-// 	if config == nil {
-// 		return
-// 	}
+func getSliverProfiles(rpc rpcpb.SliverRPCClient) *map[string]*clientpb.ImplantProfile {
+	pbProfiles, err := rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"Error %s", err)
+		return nil
+	}
+	profiles := &map[string]*clientpb.ImplantProfile{}
+	for _, profile := range pbProfiles.Profiles {
+		(*profiles)[profile.Name] = profile
+	}
+	return profiles
+}
 
-// 	data, _ := proto.Marshal(&clientpb.Profile{
-// 		Name:   name,
-// 		Config: config,
-// 	})
+func canaries(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	canaries, err := rpc.Canaries(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"Failed to list canaries %s", err)
+		return
+	}
+	if 0 < len(canaries.Canaries) {
+		displayCanaries(canaries.Canaries, ctx.Flags.Bool("burned"))
+	} else {
+		fmt.Printf(Info + "No canaries in database\n")
+	}
+}
 
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: clientpb.MsgNewProfile,
-// 		Data: data,
-// 	}, defaultTimeout)
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"%s\n", resp.Err)
-// 	} else {
-// 		fmt.Printf(Info + "Saved new profile\n")
-// 	}
-// }
+func displayCanaries(canaries []*clientpb.DNSCanary, burnedOnly bool) {
 
-// func getSliverProfiles(rpc rpcpb.SliverRPCClient) *map[string]*clientpb.Profile {
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: clientpb.MsgProfiles,
-// 	}, defaultTimeout)
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"%s\n", resp.Err)
-// 		return nil
-// 	}
+	outputBuf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
-// 	pbProfiles := &clientpb.Profiles{}
-// 	err := proto.Unmarshal(resp.Data, pbProfiles)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Error %s", err)
-// 		return nil
-// 	}
+	fmt.Fprintf(table, "Sliver Name\tDomain\tTriggered\tFirst Trigger\tLatest Trigger\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+		strings.Repeat("=", len("Sliver Name")),
+		strings.Repeat("=", len("Domain")),
+		strings.Repeat("=", len("Triggered")),
+		strings.Repeat("=", len("First Trigger")),
+		strings.Repeat("=", len("Latest Trigger")),
+	)
 
-// 	profiles := &map[string]*clientpb.Profile{}
-// 	for _, profile := range pbProfiles.List {
-// 		(*profiles)[profile.Name] = profile
-// 	}
-// 	return profiles
-// }
+	lineColors := []string{}
+	for _, canary := range canaries {
+		if burnedOnly && !canary.Triggered {
+			continue
+		}
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+			canary.ImplantName,
+			canary.Domain,
+			fmt.Sprintf("%v", canary.Triggered),
+			canary.FirstTriggered,
+			canary.LatestTrigger,
+		)
+		if canary.Triggered {
+			lineColors = append(lineColors, bold+red)
+		} else {
+			lineColors = append(lineColors, normal)
+		}
+	}
+	table.Flush()
 
-// func canaries(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: clientpb.MsgListCanaries,
-// 	}, defaultTimeout)
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"%s\n", resp.Err)
-// 		return
-// 	}
-
-// 	canaries := &clientpb.Canaries{}
-// 	proto.Unmarshal(resp.Data, canaries)
-// 	if 0 < len(canaries.Canaries) {
-// 		displayCanaries(canaries.Canaries, ctx.Flags.Bool("burned"))
-// 	} else {
-// 		fmt.Printf(Info + "No canaries in database\n")
-// 	}
-// }
-
-// func displayCanaries(canaries []*clientpb.DNSCanary, burnedOnly bool) {
-
-// 	outputBuf := bytes.NewBufferString("")
-// 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
-
-// 	fmt.Fprintf(table, "Sliver Name\tDomain\tTriggered\tFirst Trigger\tLatest Trigger\t\n")
-// 	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
-// 		strings.Repeat("=", len("Sliver Name")),
-// 		strings.Repeat("=", len("Domain")),
-// 		strings.Repeat("=", len("Triggered")),
-// 		strings.Repeat("=", len("First Trigger")),
-// 		strings.Repeat("=", len("Latest Trigger")),
-// 	)
-
-// 	lineColors := []string{}
-// 	for _, canary := range canaries {
-// 		if burnedOnly && !canary.Triggered {
-// 			continue
-// 		}
-// 		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
-// 			canary.SliverName,
-// 			canary.Domain,
-// 			fmt.Sprintf("%v", canary.Triggered),
-// 			canary.FristTriggered,
-// 			canary.LatestTrigger,
-// 		)
-// 		if canary.Triggered {
-// 			lineColors = append(lineColors, bold+red)
-// 		} else {
-// 			lineColors = append(lineColors, normal)
-// 		}
-// 	}
-// 	table.Flush()
-
-// 	for index, line := range strings.Split(outputBuf.String(), "\n") {
-// 		if len(line) == 0 {
-// 			continue
-// 		}
-// 		// We need to account for the two rows of column headers
-// 		if 0 < len(line) && 2 <= index {
-// 			lineColor := lineColors[index-2]
-// 			fmt.Printf("%s%s%s\n", lineColor, line, normal)
-// 		} else {
-// 			fmt.Printf("%s\n", line)
-// 		}
-// 	}
-// }
+	for index, line := range strings.Split(outputBuf.String(), "\n") {
+		if len(line) == 0 {
+			continue
+		}
+		// We need to account for the two rows of column headers
+		if 0 < len(line) && 2 <= index {
+			lineColor := lineColors[index-2]
+			fmt.Printf("%s%s%s\n", lineColor, line, normal)
+		} else {
+			fmt.Printf("%s\n", line)
+		}
+	}
+}
