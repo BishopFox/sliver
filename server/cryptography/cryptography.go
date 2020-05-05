@@ -18,8 +18,8 @@ package cryptography
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 	---
-	This package contains wrappers around Golang's crypto package that make it easier to use
-	we manage things like the nonces/iv's
+	This package contains wrappers around Golang's crypto package that make
+	it easier to use we manage things like the nonces/iv's
 */
 
 import (
