@@ -216,7 +216,7 @@ func mkdirHandler(data []byte, resp RPCResponse) {
 	target, _ := filepath.Abs(mkdirReq.Path)
 	mkdir.Path = target
 
-	err = os.MkdirAll(target, os.ModePerm)
+	err = os.MkdirAll(target, 0700)
 	if err != nil {
 		mkdir.Response = &commonpb.Response{
 			Err: fmt.Sprintf("%v", err),

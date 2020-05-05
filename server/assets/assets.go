@@ -131,7 +131,7 @@ func setupGo(appDir string) error {
 		setupLog.Info("Removing old go root directory")
 		os.RemoveAll(goRootPath)
 	}
-	os.MkdirAll(goRootPath, os.ModePerm)
+	os.MkdirAll(goRootPath, 0700)
 
 	// Go compiler and stdlib
 	goZip, err := assetsBox.Find(path.Join(runtime.GOOS, "go.zip"))
@@ -172,7 +172,7 @@ func SetupGoPath(goPathSrc string) error {
 	// GOPATH setup
 	if _, err := os.Stat(goPathSrc); os.IsNotExist(err) {
 		setupLog.Infof("Creating GOPATH directory: %s", goPathSrc)
-		os.MkdirAll(goPathSrc, os.ModePerm)
+		os.MkdirAll(goPathSrc, 0700)
 	}
 
 	// Sliver PB
@@ -187,7 +187,7 @@ func SetupGoPath(goPathSrc string) error {
 		return err
 	}
 	sliverpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliverpb")
-	os.MkdirAll(sliverpbDir, os.ModePerm)
+	os.MkdirAll(sliverpbDir, 0700)
 	ioutil.WriteFile(path.Join(sliverpbDir, "constants.go"), sliverpbGoSrc, 0644)
 	ioutil.WriteFile(path.Join(sliverpbDir, "sliver.pb.go"), sliverpbConstSrc, 0644)
 
@@ -198,7 +198,7 @@ func SetupGoPath(goPathSrc string) error {
 		return err
 	}
 	commonpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "commonpb")
-	os.MkdirAll(commonpbDir, os.ModePerm)
+	os.MkdirAll(commonpbDir, 0700)
 	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0644)
 
 	// GOPATH 3rd party dependencies
@@ -221,7 +221,7 @@ func setupDataPath(appDir string) error {
 	dataDir := path.Join(appDir, dataDirName)
 	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
 		setupLog.Infof("Creating data directory: %s", dataDir)
-		os.MkdirAll(dataDir, os.ModePerm)
+		os.MkdirAll(dataDir, 0700)
 	}
 	hostingDll, err := assetsBox.Find("dll/HostingCLRx64.dll")
 	if err != nil {

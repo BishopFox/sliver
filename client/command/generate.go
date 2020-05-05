@@ -239,7 +239,7 @@ func saveLocation(save, defaultName string) (string, error) {
 // 		if fi.IsDir() {
 // 			saveTo = filepath.Join(saveTo, eggResp.Filename)
 // 		}
-// 		err = ioutil.WriteFile(saveTo, eggResp.Data, os.ModePerm)
+// 		err = ioutil.WriteFile(saveTo, eggResp.Data, 0700)
 // 		if err != nil {
 // 			fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
 // 			return

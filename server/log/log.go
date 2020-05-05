@@ -62,7 +62,7 @@ func GetRootAppDir() string {
 	}
 
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, os.ModePerm)
+		err = os.MkdirAll(dir, 0700)
 		if err != nil {
 			panic("Cannot write to sliver root dir")
 		}
@@ -74,14 +74,14 @@ func GetRootAppDir() string {
 func GetLogDir() string {
 	rootDir := GetRootAppDir()
 	if _, err := os.Stat(rootDir); os.IsNotExist(err) {
-		err = os.MkdirAll(rootDir, os.ModePerm)
+		err = os.MkdirAll(rootDir, 0700)
 		if err != nil {
 			panic(err)
 		}
 	}
 	logDir := path.Join(rootDir, "logs")
 	if _, err := os.Stat(logDir); os.IsNotExist(err) {
-		err = os.MkdirAll(logDir, os.ModePerm)
+		err = os.MkdirAll(logDir, 0700)
 		if err != nil {
 			panic(err)
 		}

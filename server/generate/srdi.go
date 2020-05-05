@@ -743,7 +743,6 @@ import (
 	"encoding/binary"
 	"io/ioutil"
 	"math"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -758,7 +757,7 @@ func ShellcodeRDIToFile(dllPath string, functionName string) (shellcodePath stri
 	dir := path.Dir(dllPath)
 	filename := strings.Replace(path.Base(dllPath), ".dll", ".bin", 1)
 	filepath := filepath.Join(dir, filename)
-	ioutil.WriteFile(filepath, shellcode, os.ModePerm)
+	ioutil.WriteFile(filepath, shellcode, 0700)
 	return filepath, nil
 }
 

@@ -127,7 +127,7 @@ func getRootDB() *badger.DB {
 	rootDir := assets.GetRootAppDir()
 	dbDir := path.Join(rootDir, dbDirName, rootDBDirName)
 	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
-		os.MkdirAll(dbDir, os.ModePerm)
+		os.MkdirAll(dbDir, 0700)
 	}
 	opts := badger.DefaultOptions(dbDir)
 	opts.Logger = log.NamedLogger("db", "root")
@@ -182,7 +182,7 @@ func GetBucket(name string) (*Bucket, error) {
 	// No open handle to database, open/create the bucket
 	bucketDir := path.Join(rootDir, dbDirName, bucketsDirName, bucketUUID)
 	if _, err := os.Stat(bucketDir); os.IsNotExist(err) {
-		os.MkdirAll(bucketDir, os.ModePerm)
+		os.MkdirAll(bucketDir, 0700)
 	}
 	dbLog.Debugf("Loading db from %s", bucketDir)
 	opts := badger.DefaultOptions(bucketDir)

@@ -50,7 +50,7 @@ func GetConfigDir() string {
 	rootDir, _ := filepath.Abs(GetRootAppDir())
 	dir := path.Join(rootDir, ConfigDirName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, os.ModePerm)
+		err = os.MkdirAll(dir, 0700)
 		if err != nil {
 			log.Fatal(err)
 		}
