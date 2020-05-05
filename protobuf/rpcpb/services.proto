@@ -37,6 +37,13 @@ service SliverRPC {
     rpc ImplantProfiles(commonpb.Empty) returns (clientpb.ImplantProfiles);
     rpc SaveImplantProfile(clientpb.ImplantProfile) returns (clientpb.ImplantProfile);
 
+    // *** Websites ***
+    rpc Websites(commonpb.Empty) returns (clientpb.Websites);
+    rpc Website(clientpb.Website) returns (clientpb.Website);
+    rpc WebsiteRemove(clientpb.Website) returns (commonpb.Empty);
+    rpc WebsiteAddContent(clientpb.WebsiteAddContent) returns (clientpb.Website);
+    rpc WebsiteRemoveContent(clientpb.WebsiteRemoveContent) returns (clientpb.Website);
+
     // *** Session Interactions ***
     rpc Ping(sliverpb.Ping) returns (sliverpb.Ping);
     rpc Ps(sliverpb.PsReq) returns (sliverpb.Ps);

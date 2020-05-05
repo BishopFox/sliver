@@ -425,7 +425,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 	app.AddCommand(&grumble.Command{
 		Name:      consts.RegenerateStr,
-		Help:      "Regenerate target sliver",
+		Help:      "Regenerate an implant",
 		LongHelp:  help.GetHelpFor(consts.RegenerateStr),
 		AllowArgs: true,
 		Flags: func(f *grumble.Flags) {
@@ -1014,26 +1014,28 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
-	// 	app.AddCommand(&grumble.Command{
-	// 		Name:     consts.WebsitesStr,
-	// 		Help:     "Host a static file on a website (used with HTTP C2)",
-	// 		LongHelp: help.GetHelpFor(consts.WebsitesStr),
-	// 		Flags: func(f *grumble.Flags) {
-	// 			f.String("w", "website", "", "website name")
-	// 			f.String("t", "content-type", "", "mime content-type (if blank use file ext.)")
-	// 			f.String("p", "web-path", "/", "http path to host file at")
-	// 			f.String("c", "content", "", "local file path/dir (must use --recursive for dir)")
-	// 			f.Bool("r", "recursive", false, "recursively add content from dir, --web-path is prefixed")
-	// 		},
-	// 		AllowArgs: true,
-	// 		Run: func(ctx *grumble.Context) error {
-	// 			fmt.Println()
-	// 			websites(ctx, rpc)
-	// 			fmt.Println()
-	// 			return nil
-	// 		},
-	// 		HelpGroup: consts.GenericHelpGroup,
-	// 	})
+	app.AddCommand(&grumble.Command{
+		Name:     consts.WebsitesStr,
+		Help:     "Host static content (used with HTTP C2), see extended help.",
+		LongHelp: help.GetHelpFor(consts.WebsitesStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("w", "website", "", "website name to identify content")
+			f.String("m", "content-type", "", "mime content-type (if blank use file ext.)")
+			f.String("p", "web-path", "/", "http path to host file at")
+			f.String("c", "content", "", "local file path/dir (must use --recursive for dir)")
+			f.Bool("r", "recursive", false, "recursively add/rm content")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			websites(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
 	app.AddCommand(&grumble.Command{
 		Name:      consts.TerminateStr,

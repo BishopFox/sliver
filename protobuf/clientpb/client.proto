@@ -318,11 +318,21 @@ message WebContent {
   bytes Content = 9;
 }
 
+message WebsiteAddContent {
+  string Name = 1;
+  map<string, WebContent> Contents = 2;
+}
+
+message WebsiteRemoveContent { 
+  string Name = 1;
+  repeated string Paths = 2;
+}
+
 message Website {
   string Name = 1;
-  map<string, WebContent> Content = 2;
+  map<string, WebContent> Contents = 2;
 }
 
 message Websites {
-  repeated Website Sites = 1;
+  repeated Website Websites = 1;
 }

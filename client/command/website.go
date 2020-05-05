@@ -18,237 +18,244 @@ package command
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// import (
-// 	"errors"
-// 	"fmt"
-// 	"io"
-// 	"io/ioutil"
-// 	"net/http"
-// 	"os"
-// 	"path"
-// 	"path/filepath"
-// 	"strings"
-// 	"text/tabwriter"
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"path"
+	"path/filepath"
+	"sort"
+	"strings"
+	"text/tabwriter"
 
-// 	"gopkg.in/AlecAivazis/survey.v1"
+	"gopkg.in/AlecAivazis/survey.v1"
 
-// 	"github.com/bishopfox/sliver/protobuf/clientpb"
-// 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-// 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-// 	"github.com/golang/protobuf/proto"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 
-// 	"github.com/desertbit/grumble"
-// )
+	"github.com/desertbit/grumble"
+)
 
-// const (
-// 	fileSampleSize  = 512
-// 	defaultMimeType = "application/octet-stream"
-// )
+const (
+	fileSampleSize  = 512
+	defaultMimeType = "application/octet-stream"
+)
 
-// func websites(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-// 	if len(ctx.Args) < 1 {
-// 		listWebsites(ctx, rpc)
-// 		return
-// 	}
-// 	if ctx.Flags.String("website") == "" {
-// 		fmt.Println(Warn + "Subcommand must specify a --website")
-// 		return
-// 	}
-// 	switch strings.ToLower(ctx.Args[0]) {
-// 	case "ls":
-// 		listWebsiteContent(ctx, rpc)
-// 	case "add":
-// 		addWebsiteContent(ctx, rpc)
-// 	case "rm":
-// 		removeWebsiteContent(ctx, rpc)
-// 	default:
-// 		fmt.Println(Warn + "Invalid subcommand, see 'help websites'")
-// 	}
-// }
+func websites(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	if len(ctx.Args) < 1 {
+		listWebsites(ctx, rpc)
+		return
+	}
+	if ctx.Flags.String("website") == "" {
+		fmt.Println(Warn + "Subcommand must specify a --website")
+		return
+	}
+	switch strings.ToLower(ctx.Args[0]) {
+	case "ls":
+		listWebsiteContent(ctx, rpc)
+	case "add":
+		addWebsiteContent(ctx, rpc)
+	case "rm":
+		removeWebsiteContent(ctx, rpc)
+	default:
+		fmt.Println(Warn + "Invalid subcommand, see 'help websites'")
+	}
+}
 
-// func listWebsites(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+func listWebsites(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	websites, err := rpc.Websites(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"Failed to list websites %s", err)
+		return
+	}
+	if len(websites.Websites) < 1 {
+		fmt.Printf(Info + "No websites\n")
+		return
+	}
+	fmt.Println("Websites")
+	fmt.Println(strings.Repeat("=", len("Websites")))
+	for _, site := range websites.Websites {
+		fmt.Printf("%s%s%s - %d page(s)\n", bold, site.Name, normal, len(site.Contents))
+	}
+}
 
-// 	websites := &clientpb.Websites{}
-// 	proto.Unmarshal(resp.Data, websites)
+func listWebsiteContent(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	name := ctx.Flags.String("website")
+	website, err := rpc.Website(context.Background(), &clientpb.Website{
+		Name: name,
+	})
+	if err != nil {
+		fmt.Printf(Warn+"Failed to list website content %s", err)
+		return
+	}
+	if 0 < len(website.Contents) {
+		displayWebsite(website)
+	} else {
+		fmt.Printf(Info+"No content for '%s'", name)
+	}
+}
 
-// 	if len(websites.Sites) < 1 {
-// 		fmt.Printf(Info + "No websites\n")
-// 		return
-// 	}
+func addWebsiteContent(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	websiteName := ctx.Flags.String("website")
+	webPath := ctx.Flags.String("web-path")
+	contentPath := ctx.Flags.String("content")
+	if contentPath == "" {
+		fmt.Println(Warn + "Must specify some --content")
+		return
+	}
+	contentPath, _ = filepath.Abs(contentPath)
+	contentType := ctx.Flags.String("content-type")
+	recursive := ctx.Flags.Bool("recursive")
 
-// 	fmt.Println("Websites")
-// 	fmt.Println(strings.Repeat("=", len("Websites")))
-// 	for _, site := range websites.Sites {
-// 		fmt.Printf("%s%s%s - %d page(s)\n", bold, site.Name, normal, len(site.Content))
-// 	}
-// }
+	fileInfo, err := os.Stat(contentPath)
+	if err != nil {
+		fmt.Printf(Warn+"Error adding content %s\n", err)
+		return
+	}
 
-// func listWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: clientpb.MsgWebsiteList,
-// 	}, defaultTimeout)
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"Error: %s\n", resp.Err)
-// 		return
-// 	}
+	addWeb := &clientpb.WebsiteAddContent{
+		Name:     websiteName,
+		Contents: map[string]*clientpb.WebContent{},
+	}
 
-// 	websites := &clientpb.Websites{}
-// 	proto.Unmarshal(resp.Data, websites)
-// 	websiteName := ctx.Flags.String("website")
-// 	for _, web := range websites.Sites {
-// 		if web.Name == websiteName {
-// 			webDisplay(web)
-// 		}
-// 	}
-// }
+	if fileInfo.IsDir() {
+		if !recursive && !confirmAddDirectory() {
+			return
+		}
+		webAddDirectory(addWeb, webPath, contentPath)
+	} else {
+		webAddFile(addWeb, webPath, contentType, contentPath)
+	}
 
-// func addWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
-// 	websiteName := ctx.Flags.String("website")
-// 	webPath := ctx.Flags.String("web-path")
-// 	contentPath := ctx.Flags.String("content")
-// 	if contentPath == "" {
-// 		fmt.Println(Warn + "Must specify some --content")
-// 		return
-// 	}
-// 	contentPath, _ = filepath.Abs(contentPath)
-// 	contentType := ctx.Flags.String("content-type")
-// 	recursive := ctx.Flags.Bool("recursive")
+	web, err := rpc.WebsiteAddContent(context.Background(), addWeb)
+	if err != nil {
+		fmt.Printf(Warn+"%s", err)
+		return
+	}
+	displayWebsite(web)
+}
 
-// 	addWebsite := &clientpb.Website{
-// 		Name:    websiteName,
-// 		Content: map[string]*clientpb.WebContent{},
-// 	}
+func removeWebsiteContent(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	name := ctx.Flags.String("website")
+	webPath := ctx.Flags.String("web-path")
+	recursive := ctx.Flags.Bool("recursive")
+	website, err := rpc.Website(context.Background(), &clientpb.Website{
+		Name: name,
+	})
+	if err != nil {
+		fmt.Printf(Warn+"%s", err)
+		return
+	}
 
-// 	fileInfo, err := os.Stat(contentPath)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Error adding content %s\n", err)
-// 		return
-// 	}
-// 	if fileInfo.IsDir() {
-// 		if !recursive && !confirmAddDirectory() {
-// 			return
-// 		}
-// 		webAddDirectory(addWebsite, webPath, contentPath)
-// 	} else {
-// 		webAddFile(addWebsite, webPath, contentType, contentPath)
-// 	}
+	rmWebContent := &clientpb.WebsiteRemoveContent{
+		Name:  name,
+		Paths: []string{},
+	}
+	if recursive {
+		for contentPath := range website.Contents {
+			if strings.HasPrefix(contentPath, webPath) {
+				rmWebContent.Paths = append(rmWebContent.Paths, contentPath)
+			}
+		}
+	} else {
+		rmWebContent.Paths = append(rmWebContent.Paths, webPath)
+	}
+	web, err := rpc.WebsiteRemoveContent(context.Background(), rmWebContent)
+	if err != nil {
+		fmt.Printf(Warn+"Failed to remove content %s", err)
+		return
+	}
+	displayWebsite(web)
+}
 
-// 	data, err := proto.Marshal(addWebsite)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Failed to marshal data %s\n", err)
-// 		return
-// 	}
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: clientpb.MsgWebsiteAddContent,
-// 		Data: data,
-// 	}, defaultTimeout)
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"Error: %s\n", resp.Err)
-// 		return
-// 	}
-// 	for _, content := range addWebsite.Content {
-// 		fmt.Printf(Info+"Content added (%s): %s \n", content.ContentType, content.Path)
-// 	}
-// }
+func displayWebsite(web *clientpb.Website) {
+	fmt.Println(Info + web.Name)
+	fmt.Println()
+	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+	fmt.Fprintf(table, "Path\tContent-type\tSize\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t\n",
+		strings.Repeat("=", len("Path")),
+		strings.Repeat("=", len("Content-type")),
+		strings.Repeat("=", len("Size")))
+	sortedContents := []*clientpb.WebContent{}
+	for _, content := range web.Contents {
+		sortedContents = append(sortedContents, content)
+	}
+	sort.SliceStable(sortedContents, func(i, j int) bool {
+		return sortedContents[i].Path < sortedContents[j].Path
+	})
+	for _, content := range sortedContents {
+		fmt.Fprintf(table, "%s\t%s\t%d\t\n", content.Path, content.ContentType, content.Size)
+	}
+	table.Flush()
+}
 
-// func removeWebsiteContent(ctx *grumble.Context, rpc RPCServer) {
-// 	rmWeb := &clientpb.Website{
-// 		Name:    ctx.Flags.String("website"),
-// 		Content: map[string]*clientpb.WebContent{},
-// 	}
-// 	webpath := ctx.Flags.String("web-path")
-// 	rmWeb.Content[webpath] = &clientpb.WebContent{}
+func webAddDirectory(web *clientpb.WebsiteAddContent, webpath string, contentPath string) {
+	fullLocalPath, _ := filepath.Abs(contentPath)
+	filepath.Walk(contentPath, func(localPath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			// localPath is the full absolute path to the file, so we cut it down
+			fullWebpath := path.Join(webpath, localPath[len(fullLocalPath):])
+			webAddFile(web, fullWebpath, "", localPath)
+		}
+		return nil
+	})
+}
 
-// 	data, _ := proto.Marshal(rmWeb)
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: clientpb.MsgWebsiteRemoveContent,
-// 		Data: data,
-// 	}, defaultTimeout)
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"Error: %s\n", resp.Err)
-// 		return
-// 	}
-// 	for webpath := range rmWeb.Content {
-// 		fmt.Printf(Info+"Removed %s\n", webpath)
-// 	}
-// }
+func webAddFile(web *clientpb.WebsiteAddContent, webpath string, contentType string, contentPath string) error {
 
-// func webDisplay(web *clientpb.Website) {
-// 	fmt.Println(Info + web.Name)
-// 	fmt.Println()
-// 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-// 	fmt.Fprintf(table, "Path\tContent-type\tSize\t\n")
-// 	fmt.Fprintf(table, "%s\t%s\t%s\t\n",
-// 		strings.Repeat("=", len("Path")),
-// 		strings.Repeat("=", len("Content-type")),
-// 		strings.Repeat("=", len("Size")))
-// 	for path, content := range web.Content {
-// 		fmt.Fprintf(table, "%s\t%s\t%d\t\n", path, content.ContentType, content.Size)
-// 	}
-// 	table.Flush()
-// }
+	fileInfo, err := os.Stat(contentPath)
+	if os.IsNotExist(err) {
+		return err // contentPath does not exist
+	}
+	if fileInfo.IsDir() {
+		return errors.New("file content path is directory")
+	}
 
-// func webAddDirectory(web *clientpb.Website, webpath string, contentPath string) {
-// 	fullLocalPath, _ := filepath.Abs(contentPath)
-// 	filepath.Walk(contentPath, func(localPath string, info os.FileInfo, err error) error {
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if !info.IsDir() {
-// 			// localPath is the full absolute path to the file, so we cut it down
-// 			fullWebpath := path.Join(webpath, localPath[len(fullLocalPath):])
-// 			webAddFile(web, fullWebpath, "", localPath)
-// 		}
-// 		return nil
-// 	})
-// }
+	file, err := os.Open(contentPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		return err
+	}
 
-// func webAddFile(web *clientpb.Website, webpath string, contentType string, contentPath string) error {
+	if contentType == "" {
+		contentType = sniffContentType(file)
+	}
 
-// 	fileInfo, err := os.Stat(contentPath)
-// 	if os.IsNotExist(err) {
-// 		return err // contentPath does not exist
-// 	}
-// 	if fileInfo.IsDir() {
-// 		return errors.New("file content path is directory")
-// 	}
+	web.Contents[webpath] = &clientpb.WebContent{
+		Path:        webpath,
+		ContentType: contentType,
+		Content:     data,
+	}
+	return nil
+}
 
-// 	file, err := os.Open(contentPath)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer file.Close()
-// 	data, err := ioutil.ReadAll(file)
-// 	if err != nil {
-// 		return err
-// 	}
+func confirmAddDirectory() bool {
+	confirm := false
+	prompt := &survey.Confirm{Message: "Recursively add entire directory?"}
+	survey.AskOne(prompt, &confirm, nil)
+	return confirm
+}
 
-// 	if contentType == "" {
-// 		contentType = sniffContentType(file)
-// 	}
-
-// 	web.Content[webpath] = &clientpb.WebContent{
-// 		Path:        webpath,
-// 		ContentType: contentType,
-// 		Content:     data,
-// 	}
-// 	return nil
-// }
-
-// func confirmAddDirectory() bool {
-// 	confirm := false
-// 	prompt := &survey.Confirm{Message: "Recursively add entire directory?"}
-// 	survey.AskOne(prompt, &confirm, nil)
-// 	return confirm
-// }
-
-// func sniffContentType(out *os.File) string {
-// 	out.Seek(0, io.SeekStart)
-// 	buffer := make([]byte, fileSampleSize)
-// 	_, err := out.Read(buffer)
-// 	if err != nil {
-// 		return defaultMimeType
-// 	}
-// 	contentType := http.DetectContentType(buffer)
-// 	return contentType
-// }
+func sniffContentType(out *os.File) string {
+	out.Seek(0, io.SeekStart)
+	buffer := make([]byte, fileSampleSize)
+	_, err := out.Read(buffer)
+	if err != nil {
+		return defaultMimeType
+	}
+	contentType := http.DetectContentType(buffer)
+	return contentType
+}
