@@ -171,7 +171,6 @@ func GetBucket(name string) (*Bucket, error) {
 	} else {
 		val, _ := item.ValueCopy(nil)
 		bucketUUID = string(val)
-		// dbLog.Debugf("Using bucket %#v (%s)", name, bucketUUID)
 	}
 
 	// We can only call open() once on each directory so we save references
