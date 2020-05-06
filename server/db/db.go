@@ -130,7 +130,7 @@ func getRootDB() *badger.DB {
 		os.MkdirAll(dbDir, 0700)
 	}
 	opts := badger.DefaultOptions(dbDir)
-	opts.Logger = log.NamedLogger("db", "root")
+	opts.Logger = log.NamedLogger("db", "badger:root")
 	db, err := badger.Open(opts)
 	if err != nil {
 		dbLog.Error(err)
