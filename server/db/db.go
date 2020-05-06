@@ -133,12 +133,15 @@ func getRootDB() *badger.DB {
 	opts.Logger = log.NamedLogger("db", "root")
 	db, err := badger.Open(opts)
 	if err != nil {
-		dbLog.Fatal(err)
+		dbLog.Error(err)
+		fmt.Printf("[!] %s\n", err)
+		fmt.Printf("Is there another server instance running?\n")
+		os.Exit(3)
 	}
 	return db
 }
 
-// GetBucket returns a namespaced database, names are mapped to directoires
+// GetBucket returns a namespaced database, names are mapped to directories
 // thru the rootDB which stores Name<->UUID pairs, this allows us to support
 // bucket names with arbitrary string values
 func GetBucket(name string) (*Bucket, error) {
