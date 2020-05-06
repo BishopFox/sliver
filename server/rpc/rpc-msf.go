@@ -89,7 +89,7 @@ func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*
 		return nil, err
 	}
 	data, _ := proto.Marshal(&sliverpb.RemoteTaskReq{
-		Pid:      req.PID,
+		Pid:      uint32(req.PID),
 		Encoder:  "raw",
 		Data:     rawPayload,
 		RWXPages: true,

@@ -148,9 +148,9 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 			return nil, err
 		}
 		data, err := proto.Marshal(&sliverpb.SideloadReq{
-			Request:  req.Request,
-			Data:     shellcode,
-			ProcName: req.ProcName,
+			Request:     req.Request,
+			Data:        shellcode,
+			ProcessName: req.ProcessName,
 		})
 		if err != nil {
 			return nil, err

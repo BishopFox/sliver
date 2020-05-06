@@ -110,9 +110,6 @@ message ImplantProfiles {
 
 message RegenerateReq {
   string ImplantName = 1;
-  commonpb.File File = 2;
-
-  commonpb.Request Request = 9;
 }
 
 message Job {
@@ -133,15 +130,11 @@ message Jobs {
 
 message KillJobReq {
   uint32 ID = 1;
-
-  commonpb.Request Request = 9;
 }
 
 message KillJob {
   uint32 ID = 1;
   bool Success = 2;
-
-  commonpb.Response Response = 9;
 }
 
 // [ Listeners ] ----------------------------------------
@@ -149,7 +142,6 @@ message MTLSListenerReq {
   string Host = 1;
   uint32 Port = 2;
 
-  commonpb.Request Request = 9;
 }
 
 message MTLSListener {
@@ -161,8 +153,6 @@ message DNSListenerReq {
   bool Canaries = 2;
   string Host = 3;
   uint32 Port = 4;
-
-  commonpb.Request Request = 9;
 }
 
 message DNSListener {
@@ -178,8 +168,6 @@ message HTTPListenerReq {
   bytes Cert = 6;
   bytes Key = 7;
   bool ACME = 8;
-
-  commonpb.Request Request = 9;
 }
 
 message HTTPListener {
@@ -193,8 +181,6 @@ message Sessions {
 
 message GenerateReq {
   ImplantConfig Config = 1;
-
-  commonpb.Request Request = 9;
 }
 
 message Generate {

@@ -84,4 +84,3 @@ service SliverRPC {
     // *** Events ***
     rpc Events(commonpb.Empty) returns (stream clientpb.Event);
 }
-  

@@ -222,11 +222,11 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			return
 		}
 		spawnDllResp, err := rpc.SpawnDll(context.Background(), &sliverpb.SpawnDllReq{
-			Request:  ActiveSession.Request(ctx),
-			Args:     strings.Trim(args, " "),
-			Data:     binData,
-			ProcName: processName,
-			Offset:   offset,
+			Request:     ActiveSession.Request(ctx),
+			Args:        strings.Trim(args, " "),
+			Data:        binData,
+			ProcessName: processName,
+			Offset:      offset,
 		})
 
 		if err != nil {
@@ -237,11 +237,11 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Info+"Output:\n%s", spawnDllResp.GetResult())
 	} else {
 		sideloadResp, err := rpc.Sideload(context.Background(), &sliverpb.SideloadReq{
-			Request:    ActiveSession.Request(ctx),
-			Args:       args,
-			Data:       binData,
-			EntryPoint: entryPoint,
-			ProcName:   processName,
+			Request:     ActiveSession.Request(ctx),
+			Args:        args,
+			Data:        binData,
+			EntryPoint:  entryPoint,
+			ProcessName: processName,
 		})
 
 		if err != nil {

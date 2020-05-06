@@ -260,8 +260,8 @@ message TaskReq {
 
 message RemoteTaskReq {
   string Encoder = 1;
-  int32 Pid = 2;
-  bool RWXPages = 3;
+  bool RWXPages = 2;
+  uint32 Pid = 3;
   bytes Data = 4;
 
   commonpb.Request Request = 9;
@@ -316,7 +316,7 @@ message Execute {
 
 message SideloadReq {
   bytes Data = 1;
-  string ProcName = 2;
+  string ProcessName = 2;
   string Args = 3;
   string EntryPoint = 4;
 
@@ -331,7 +331,7 @@ message Sideload {
 
 message SpawnDllReq {
   bytes Data = 1;
-  string ProcName = 2;
+  string ProcessName = 2;
   uint32 Offset = 3;
   string Args = 4;
 

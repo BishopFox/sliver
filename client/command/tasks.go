@@ -288,11 +288,11 @@ func sideload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	ctrl := make(chan bool)
 	go spin.Until(fmt.Sprintf("Sideloading %s ...", binPath), ctrl)
 	sideload, err := rpc.Sideload(context.Background(), &sliverpb.SideloadReq{
-		Request:    ActiveSession.Request(ctx),
-		Args:       args,
-		Data:       binData,
-		EntryPoint: entryPoint,
-		ProcName:   processName,
+		Request:     ActiveSession.Request(ctx),
+		Args:        args,
+		Data:        binData,
+		EntryPoint:  entryPoint,
+		ProcessName: processName,
 	})
 	ctrl <- true
 	<-ctrl
@@ -338,11 +338,11 @@ func spawnDll(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	ctrl := make(chan bool)
 	go spin.Until(fmt.Sprintf("Executing reflective dll %s", binPath), ctrl)
 	spawndll, err := rpc.SpawnDll(context.Background(), &sliverpb.SpawnDllReq{
-		Request:  ActiveSession.Request(ctx),
-		Args:     args,
-		Data:     binData,
-		ProcName: processName,
-		Offset:   offset,
+		Request:     ActiveSession.Request(ctx),
+		Args:        args,
+		Data:        binData,
+		ProcessName: processName,
+		Offset:      offset,
 	})
 
 	if err != nil {
