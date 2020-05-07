@@ -99,6 +99,9 @@ func (j *jobs) Remove(job *Job) {
 
 // Get - Get a Job
 func (j *jobs) Get(jobID int) *Job {
+	if jobID <= 0 {
+		return nil
+	}
 	j.mutex.RLock()
 	defer j.mutex.RUnlock()
 	return (*j.active)[jobID]

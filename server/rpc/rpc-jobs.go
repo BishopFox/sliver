@@ -69,12 +69,15 @@ func (rpc *Server) GetJobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.Jo
 // KillJob - Kill a server-side job
 func (rpc *Server) KillJob(ctx context.Context, kill *clientpb.KillJobReq) (*clientpb.KillJob, error) {
 	job := core.Jobs.Get(int(kill.ID))
-	killJob := &clientpb.KillJob{ID: uint32(job.ID)}
+	// killJob := &clientpb.KillJob{ID: uint32(job.ID)}
+	killJob := &clientpb.KillJob{}
 	var err error = nil
 	if job != nil {
 		job.JobCtrl <- true
+		killJob.ID = uint32(job.ID)
 		killJob.Success = true
 	} else {
+		killJob.ID = uint32(job.ID)
 		killJob.Success = false
 		err = errors.New("Invalid Job ID")
 	}
