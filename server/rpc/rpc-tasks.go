@@ -43,16 +43,6 @@ func (rpc *Server) Task(ctx context.Context, req *sliverpb.TaskReq) (*sliverpb.T
 	return resp, nil
 }
 
-// RemoteTask - Inject and execute shellcode in a remote process
-func (rpc *Server) RemoteTask(ctx context.Context, req *sliverpb.RemoteTaskReq) (*sliverpb.Task, error) {
-	resp := &sliverpb.Task{}
-	err := rpc.GenericHandler(req, resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
 // Migrate - Migrate to a new process on the remote system (Windows only)
 func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliverpb.Migrate, error) {
 	session := core.Sessions.Get(req.Request.SessionID)

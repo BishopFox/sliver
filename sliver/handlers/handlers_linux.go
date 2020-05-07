@@ -24,20 +24,19 @@ import (
 
 var (
 	linuxHandlers = map[uint32]RPCHandler{
-		sliverpb.MsgPsReq:         psHandler,
-		sliverpb.MsgTerminateReq:  terminateHandler,
-		sliverpb.MsgPing:          pingHandler,
-		sliverpb.MsgLsReq:         dirListHandler,
-		sliverpb.MsgDownloadReq:   downloadHandler,
-		sliverpb.MsgUploadReq:     uploadHandler,
-		sliverpb.MsgCdReq:         cdHandler,
-		sliverpb.MsgPwdReq:        pwdHandler,
-		sliverpb.MsgRmReq:         rmHandler,
-		sliverpb.MsgMkdirReq:      mkdirHandler,
-		sliverpb.MsgTaskReq:       taskHandler,
-		sliverpb.MsgRemoteTaskReq: remoteTaskHandler,
-		sliverpb.MsgIfconfigReq:   ifconfigHandler,
-		sliverpb.MsgExecuteReq:    executeHandler,
+		sliverpb.MsgPsReq:        psHandler,
+		sliverpb.MsgTerminateReq: terminateHandler,
+		sliverpb.MsgPing:         pingHandler,
+		sliverpb.MsgLsReq:        dirListHandler,
+		sliverpb.MsgDownloadReq:  downloadHandler,
+		sliverpb.MsgUploadReq:    uploadHandler,
+		sliverpb.MsgCdReq:        cdHandler,
+		sliverpb.MsgPwdReq:       pwdHandler,
+		sliverpb.MsgRmReq:        rmHandler,
+		sliverpb.MsgMkdirReq:     mkdirHandler,
+		sliverpb.MsgTaskReq:      taskHandler,
+		sliverpb.MsgIfconfigReq:  ifconfigHandler,
+		sliverpb.MsgExecuteReq:   executeHandler,
 
 		sliverpb.MsgScreenshotReq: screenshotHandler,
 

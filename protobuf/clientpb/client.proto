@@ -190,7 +190,7 @@ message Generate {
 message MSFReq {
   string Payload = 1;
   string LHost = 2;
-  int32 LPort = 3;
+  uint32 LPort = 3;
   string Encoder = 4;
   int32 Iterations = 5;
 
@@ -200,10 +200,10 @@ message MSFReq {
 message MSFRemoteReq {
   string Payload = 1;
   string LHost = 2;
-  int32 LPort = 3;
+  uint32 LPort = 3;
   string Encoder = 4;
   int32 Iterations = 5;
-  int32 PID = 8;
+  uint32 PID = 8;
 
   commonpb.Request Request = 9;
 }
