@@ -77,7 +77,6 @@ func (rpc *Server) KillJob(ctx context.Context, kill *clientpb.KillJobReq) (*cli
 		killJob.ID = uint32(job.ID)
 		killJob.Success = true
 	} else {
-		killJob.ID = uint32(job.ID)
 		killJob.Success = false
 		err = errors.New("Invalid Job ID")
 	}
