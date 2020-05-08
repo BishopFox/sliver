@@ -356,7 +356,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("p", "lport", 8443, "Listening port")
 			f.String("r", "protocol", "tcp", "Staging protocol (tcp|http|https)")
 			f.String("f", "format", "raw", "Output format (msfvenom formats)")
-			f.String("b", "badchars", "\x00", "Bytes to exclude from stage shellcode")
+			f.String("b", "badchars", "", "Bytes to exclude from stage shellcode")
 			f.String("s", "save", "", "directory to save the generated stager to")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},

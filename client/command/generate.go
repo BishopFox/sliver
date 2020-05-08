@@ -171,8 +171,10 @@ func generateStager(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	save := ctx.Flags.String("save")
 
 	bChars := make([]string, 0)
-	for _, b := range strings.Split(badchars, " ") {
-		bChars = append(bChars, fmt.Sprintf("\\x%s", b))
+	if len(badchars) > 0 {
+		for _, b := range strings.Split(badchars, " ") {
+			bChars = append(bChars, fmt.Sprintf("\\x%s", b))
+		}
 	}
 
 	switch proto {
@@ -413,13 +415,22 @@ func profileGenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 	profiles := getSliverProfiles(rpc)
 	if profile, ok := (*profiles)[name]; ok {
-		compile(profile.Config, save, rpc)
+		implantFile, err := compile(profile.Config, save, rpc)
+		if err != nil {
+			return
+		}
+		profile.Config.Name = buildImplantName(implantFile.Name)
+		_, err = rpc.SaveImplantProfile(context.Background(), profile)
+		if err != nil {
+			fmt.Printf(Warn+"could not update implant profile: %v\n", err)
+			return
+		}
 	} else {
 		fmt.Printf(Warn+"No profile with name '%s'", name)
 	}
 }
 
-func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCClient) error {
+func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCClient) (*commonpb.File, error) {
 
 	fmt.Printf(Info+"Generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
 
@@ -441,7 +452,7 @@ func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCCli
 	<-ctrl
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
-		return err
+		return nil, err
 	}
 
 	end := time.Now()
@@ -449,21 +460,21 @@ func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCCli
 	fmt.Printf(clearln+Info+"Build completed in %s\n", elapsed.Format("15:04:05"))
 	if len(generated.File.Data) == 0 {
 		fmt.Printf(Warn + "Build failed, no file data\n")
-		return errors.New("No file data")
+		return nil, errors.New("No file data")
 	}
 
 	saveTo, err := saveLocation(save, generated.File.Name)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = ioutil.WriteFile(saveTo, generated.File.Data, 0500)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
-		return err
+		return nil, err
 	}
 	fmt.Printf(Info+"Implant saved to %s\n", saveTo)
-	return nil
+	return generated.File, err
 }
 
 func profiles(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {

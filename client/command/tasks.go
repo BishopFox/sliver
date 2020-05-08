@@ -79,6 +79,10 @@ func executeShellcode(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	})
 	ctrl <- true
 	<-ctrl
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v\n", err)
+		return
+	}
 	if task.Response.GetErr() != "" {
 		fmt.Printf(Warn+"Error: %s\n", task.Response.GetErr())
 		return

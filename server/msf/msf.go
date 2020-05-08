@@ -199,6 +199,7 @@ func venomCmd(args []string) ([]byte, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
+	msfLog.Println(cmd.String())
 	if err != nil {
 		msfLog.Printf("--- stdout ---\n%s\n", stdout.String())
 		msfLog.Printf("--- stderr ---\n%s\n", stderr.String())

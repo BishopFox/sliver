@@ -225,6 +225,16 @@ message StagerListener {
   uint32 JobID = 1;
 }
 
+message ShellcodeRDIReq {
+  bytes Data = 1;
+  string FunctionName = 2;
+  string Arguments = 3;
+}
+
+message ShellcodeRDI {
+  bytes Data = 1;
+}
+
 message MsfStagerReq {
   string Arch = 1;
   string Format = 2;

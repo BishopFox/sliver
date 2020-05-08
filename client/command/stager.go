@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -66,36 +69,48 @@ func stageListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	switch stagingURL.Scheme {
 	case "http":
+		ctrl := make(chan bool)
+		go spin.Until("Starting HTTP staging listener...", ctrl)
 		stageListener, err := rpc.StartHTTPStagerListener(context.Background(), &clientpb.StagerListenerReq{
 			Protocol: clientpb.StageProtocol_HTTP,
 			Data:     stage2,
 			Host:     stagingURL.Hostname(),
 			Port:     uint32(stagingPort),
 		})
+		ctrl <- true
+		<-ctrl
 		if err != nil {
 			fmt.Printf(Warn+"Error starting HTTP staging listener: %v\n", err)
 			return
 		}
 		fmt.Printf(Info+"Job %d (http) started\n", stageListener.GetJobID())
 	case "https":
+		ctrl := make(chan bool)
+		go spin.Until("Starting HTTPS staging listener...", ctrl)
 		stageListener, err := rpc.StartHTTPStagerListener(context.Background(), &clientpb.StagerListenerReq{
 			Protocol: clientpb.StageProtocol_HTTPS,
 			Data:     stage2,
 			Host:     stagingURL.Hostname(),
 			Port:     uint32(stagingPort),
 		})
+		ctrl <- true
+		<-ctrl
 		if err != nil {
 			fmt.Printf(Warn+"Error starting HTTPS staging listener: %v\n", err)
 			return
 		}
 		fmt.Printf(Info+"Job %d (https) started\n", stageListener.GetJobID())
 	case "tcp":
+		ctrl := make(chan bool)
+		go spin.Until("Starting TCP staging listener...", ctrl)
 		stageListener, err := rpc.StartTCPStagerListener(context.Background(), &clientpb.StagerListenerReq{
 			Protocol: clientpb.StageProtocol_TCP,
 			Data:     stage2,
 			Host:     stagingURL.Hostname(),
 			Port:     uint32(stagingPort),
 		})
+		ctrl <- true
+		<-ctrl
 		if err != nil {
 			fmt.Printf(Warn+"Error starting TCP staging listener: %v\n", err)
 			return
@@ -113,33 +128,56 @@ func getSliverBinary(profile clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient)
 	// get implant builds
 	builds, err := rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(Warn+"%v\n", err)
 		return data, err
 	}
 
-	fmt.Printf(Info+"Sliver name for profile: %s\n", profile.GetConfig().GetName())
-	if _, ok := builds.GetConfigs()[profile.GetConfig().GetName()]; !ok {
+	implantName := buildImplantName(profile.GetConfig().GetName())
+	_, ok := builds.GetConfigs()[implantName]
+	if implantName == "" || !ok {
 		// no built implant found for profile, generate a new one
 		fmt.Printf(Info+"No builds found for profile %s, generating a new one\n", profile.GetName())
+		ctrl := make(chan bool)
+		go spin.Until("Compiling, please wait ...", ctrl)
 		generated, err := rpc.Generate(context.Background(), &clientpb.GenerateReq{
 			Config: profile.GetConfig(),
 		})
+		ctrl <- true
+		<-ctrl
 		if err != nil {
-			fmt.Printf(Warn+"Error: %v", err)
+			fmt.Println("Error generating implant")
 			return data, err
 		}
 		data = generated.GetFile().GetData()
+		profile.Config.Name = buildImplantName(generated.GetFile().GetName())
+		_, err = rpc.SaveImplantProfile(context.Background(), &profile)
+		if err != nil {
+			fmt.Println("Error updating implant profile")
+			return data, err
+		}
 	} else {
+		fmt.Printf(Info+"Sliver name for profile: %s\n", implantName)
 		// Found a build, reuse that one
 		regenerate, err := rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
-			ImplantName: profile.GetName(),
+			ImplantName: profile.GetConfig().GetName(),
 		})
 
 		if err != nil {
-			fmt.Printf(Warn+"Error: %v", err)
 			return data, err
 		}
-		data = regenerate.GetFile().GetData()
+		dllData := regenerate.GetFile().GetData()
+		sRDI, err := rpc.ShellcodeRDI(context.Background(), &clientpb.ShellcodeRDIReq{
+			Data:         dllData,
+			FunctionName: "RunSliver",
+		})
+
+		if err != nil {
+			return data, err
+		}
+		data = sRDI.GetData()
 	}
 	return data, err
+}
+
+func buildImplantName(name string) string {
+	return strings.TrimSuffix(name, filepath.Ext(name))
 }

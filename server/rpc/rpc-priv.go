@@ -68,7 +68,7 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	}
 
 	if sliverData, err := getPreviousSliverDll(req.Config.GetName()); err == nil {
-		shellcode, err = generate.ShellcodeRDIFromBytes(sliverData, "", "")
+		shellcode, err = generate.ShellcodeRDIFromBytes(sliverData, "RunSliver", "")
 	} else {
 		config := generate.ImplantConfigFromProtobuf(req.Config)
 		config.Format = clientpb.ImplantConfig_SHARED_LIB

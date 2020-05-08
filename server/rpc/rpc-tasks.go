@@ -51,7 +51,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		return nil, ErrInvalidSessionID
 	}
 	if sliverData, err := getPreviousSliverDll(req.Config.GetName()); err == nil {
-		shellcode, err = generate.ShellcodeRDIFromBytes(sliverData, "", "")
+		shellcode, err = generate.ShellcodeRDIFromBytes(sliverData, "RunSliver", "")
 	} else {
 		config := generate.ImplantConfigFromProtobuf(req.Config)
 		config.Format = clientpb.ImplantConfig_SHARED_LIB

@@ -47,7 +47,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		if err != nil {
 			return nil, err
 		}
-		fPath, err = generate.ShellcodeRDIToFile(fPath, "")
+		fPath, err = generate.ShellcodeRDIToFile(fPath, "RunSliver")
 		if err != nil {
 			return nil, err
 		}
@@ -145,4 +145,10 @@ func (rpc *Server) SaveImplantProfile(ctx context.Context, profile *clientpb.Imp
 		return profile, nil
 	}
 	return nil, errors.New("Invalid profile name")
+}
+
+// ShellcodeRDI - Generates a RDI shellcode from a given DLL
+func (rpc *Server) ShellcodeRDI(ctx context.Context, req *clientpb.ShellcodeRDIReq) (*clientpb.ShellcodeRDI, error) {
+	shellcode, err := generate.ShellcodeRDIFromBytes(req.GetData(), req.GetFunctionName(), req.GetArguments())
+	return &clientpb.ShellcodeRDI{Data: shellcode}, err
 }
