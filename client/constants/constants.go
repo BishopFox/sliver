@@ -63,7 +63,7 @@ const (
 	GenerateStr        = "generate"
 	RegenerateStr      = "regenerate"
 	ProfileGenerateStr = "generate-profile"
-	GenerateEggStr     = "generate-egg"
+	StagerStr          = "stager"
 	ProfilesStr        = "profiles"
 	NewProfileStr      = "new-profile"
 
@@ -115,6 +115,7 @@ const (
 	SideloadStr         = "sideload"
 	SpawnDllStr         = "spawndll"
 	LoadExtensionStr    = "load-extension"
+	StageListenerStr    = "stage-listener"
 
 	WebsitesStr = "websites"
 

@@ -208,27 +208,35 @@ message MSFRemoteReq {
   commonpb.Request Request = 9;
 }
 
-message EggConfig {
-  enum EggProtocol {
+enum StageProtocol {
     TCP = 0;
     HTTP = 1;
     HTTPS = 2;
-  }
-  EggProtocol Protocol = 1;
-  string Host = 2;
-  uint32 Port = 3;
-  string Arch = 4;
-  string Format = 5;
 }
 
-message EggReq {
-  ImplantConfig Config = 1;
-  EggConfig EConfig = 2;
+message StagerListenerReq {
+  StageProtocol Protocol = 1;
+  string Host = 2;
+  uint32 Port = 3;
+  bytes Data = 4;
 }
-message Egg {
-  bytes Data = 1;
-  string Filename = 2;
-  uint32 JobID = 3;
+
+message StagerListener {
+  uint32 JobID = 1;
+}
+
+message MsfStagerReq {
+  string Arch = 1;
+  string Format = 2;
+  uint32 Port = 3;
+  string Host = 4;
+  string OS = 5; // reserved for future usage
+  StageProtocol Protocol = 6;
+  repeated string BadChars = 7;
+}
+
+message MsfStager {
+  commonpb.File File = 1;
 }
 
 // GetSystemReq - Client request to the server which is translated into

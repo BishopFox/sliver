@@ -252,12 +252,6 @@ func GetSliversDir() string {
 	return sliversDir
 }
 
-// SliverEgg - Generates a sliver egg (stager) binary
-func SliverEgg(config ImplantConfig) (string, error) {
-
-	return "", nil
-}
-
 // -----------------------
 // Sliver Generation Code
 // -----------------------

