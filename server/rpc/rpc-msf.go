@@ -123,7 +123,6 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 		arch = "x86"
 	}
 
-	// TODO: change the hardcoded URI to something dynamically generated
 	switch req.Protocol {
 	case clientpb.StageProtocol_TCP:
 		payload = "meterpreter/reverse_tcp"
