@@ -36,10 +36,14 @@ BOOL WINAPI DllMain(
     return TRUE; // Successful.
 }
 #elif __linux__
+#include <stdlib.h>
+
 void RunSliver();
 
 static void init(int argc, char **argv, char **envp)
 {
+    unsetenv("LD_PRELOAD");
+    unsetenv("LD_PARAMS");
     RunSliver();
 }
 __attribute__((section(".init_array"), used)) static typeof(init) *init_p = init;
