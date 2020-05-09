@@ -236,7 +236,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	// .php = session
 	//  .js = poll
 	// .png = stop
-	// .ico = sliver shellcode
+	// .woff = sliver shellcode
 
 	router.HandleFunc("/{rpath:.*\\.txt$}", s.rsaKeyHandler).MatcherFunc(filterAgent).Methods(http.MethodGet)
 	router.HandleFunc("/{rpath:.*\\.css$}", s.startSessionHandler).MatcherFunc(filterAgent).Methods(http.MethodGet, http.MethodPost)
@@ -245,8 +245,8 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	router.HandleFunc("/{rpath:.*\\.png$}", s.stopHandler).MatcherFunc(filterAgent).Methods(http.MethodGet)
 	// Can't force the user agent on the stager payload
 	// Request from msf stager payload will look like:
-	// GET /login.do/B64_ENCODED_PAYLOAD_UUID
-	router.HandleFunc("/{rpath:.*\\.do/.*$}", s.stagerHander).Methods(http.MethodGet)
+	// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
+	router.HandleFunc("/{rpath:.*\\.woff/.*$}", s.stagerHander).Methods(http.MethodGet)
 
 	// Request does not match the C2 profile so we pass it to the static content or 404 handler
 	if s.Conf.Website != "" {

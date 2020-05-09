@@ -24,6 +24,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -255,6 +256,65 @@ func GetSliversDir() string {
 // -----------------------
 // Sliver Generation Code
 // -----------------------
+
+// SliverShellcode - Generates a sliver shellcode using sRDI
+func SliverShellcode(config *ImplantConfig) (string, error) {
+	// Compile go code
+	var crossCompiler string
+	appDir := assets.GetRootAppDir()
+	// Don't use a cross-compiler if the target bin is built on the same platform
+	// as the sliver-server.
+	if runtime.GOOS != config.GOOS {
+		crossCompiler = getCCompiler(config.GOARCH)
+		if crossCompiler == "" {
+			return "", errors.New("No cross-compiler (mingw) found")
+		}
+	}
+	goConfig := &gogo.GoConfig{
+		CGO:    "1",
+		CC:     crossCompiler,
+		GOOS:   config.GOOS,
+		GOARCH: config.GOARCH,
+		GOROOT: gogo.GetGoRootDir(appDir),
+	}
+	pkgPath, err := renderSliverGoCode(config, goConfig)
+	if err != nil {
+		return "", err
+	}
+
+	dest := path.Join(goConfig.GOPATH, "bin", config.Name)
+	dest += ".bin"
+
+	tags := []string{"netgo"}
+	ldflags := []string{"-s -w -buildid="}
+	if !config.Debug && goConfig.GOOS == WINDOWS {
+		ldflags[0] += " -H=windowsgui"
+	}
+	// Keep those for potential later use
+	gcflags := fmt.Sprintf("")
+	asmflags := fmt.Sprintf("")
+	// trimpath is now a separate flag since Go 1.13
+	trimpath := "-trimpath"
+	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags, gcflags, asmflags, trimpath)
+	config.FileName = path.Base(dest)
+	shellcode, err := ShellcodeRDI(dest, "RunSliver", "")
+	if err != nil {
+		return "", err
+	}
+	err = ioutil.WriteFile(dest, shellcode, 0755)
+	if err != nil {
+		return "", err
+	}
+	config.Format = clientpb.ImplantConfig_SHELLCODE
+	// Save to database
+	saveFileErr := ImplantFileSave(config.Name, dest)
+	saveCfgErr := ImplantConfigSave(config)
+	if saveFileErr != nil || saveCfgErr != nil {
+		buildLog.Errorf("Failed to save file to db %s %s", saveFileErr, saveCfgErr)
+	}
+	return dest, err
+
+}
 
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
 func SliverSharedLibrary(config *ImplantConfig) (string, error) {

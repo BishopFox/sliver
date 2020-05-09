@@ -67,9 +67,8 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		return nil, ErrInvalidSessionID
 	}
 
-	if sliverData, err := getPreviousSliverDll(req.Config.GetName()); err == nil {
-		shellcode, err = generate.ShellcodeRDIFromBytes(sliverData, "RunSliver", "")
-	} else {
+	shellcode, err := getPreviousSliverDll(req.Config.GetName())
+	if err != nil {
 		config := generate.ImplantConfigFromProtobuf(req.Config)
 		config.Format = clientpb.ImplantConfig_SHARED_LIB
 		config.ObfuscateSymbols = false

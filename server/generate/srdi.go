@@ -769,7 +769,7 @@ func ShellcodeRDI(dllPath string, functionName string, userdata string) (shellco
 
 	dllBytes, err := ioutil.ReadFile(dllPath)
 	if err != nil {
-		panic(err)
+		return []byte{}, err
 	}
 
 	// functionHash is 0x10 by default, otherwise get the hash and convert to bytes

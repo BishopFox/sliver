@@ -155,8 +155,8 @@ func getSliverBinary(profile clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient)
 			return data, err
 		}
 	} else {
-		fmt.Printf(Info+"Sliver name for profile: %s\n", implantName)
 		// Found a build, reuse that one
+		fmt.Printf(Info+"Sliver name for profile: %s\n", implantName)
 		regenerate, err := rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
 			ImplantName: profile.GetConfig().GetName(),
 		})
@@ -164,16 +164,7 @@ func getSliverBinary(profile clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient)
 		if err != nil {
 			return data, err
 		}
-		dllData := regenerate.GetFile().GetData()
-		sRDI, err := rpc.ShellcodeRDI(context.Background(), &clientpb.ShellcodeRDIReq{
-			Data:         dllData,
-			FunctionName: "RunSliver",
-		})
-
-		if err != nil {
-			return data, err
-		}
-		data = sRDI.GetData()
+		data = regenerate.GetFile().GetData()
 	}
 	return data, err
 }

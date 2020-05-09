@@ -43,25 +43,21 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	case clientpb.ImplantConfig_SHARED_LIB:
 		fPath, err = generate.SliverSharedLibrary(config)
 	case clientpb.ImplantConfig_SHELLCODE:
-		fPath, err = generate.SliverSharedLibrary(config)
-		if err != nil {
-			return nil, err
-		}
-		fPath, err = generate.ShellcodeRDIToFile(fPath, "RunSliver")
-		if err != nil {
-			return nil, err
-		}
+		fPath, err = generate.SliverShellcode(config)
 	}
 
 	filename := path.Base(fPath)
 	filedata, err := ioutil.ReadFile(fPath)
+	if err != nil {
+		return nil, err
+	}
 
 	return &clientpb.Generate{
 		File: &commonpb.File{
 			Name: filename,
 			Data: filedata,
 		},
-	}, nil
+	}, err
 }
 
 // Regenerate - Regenerate a previously generated implant

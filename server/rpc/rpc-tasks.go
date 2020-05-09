@@ -50,9 +50,8 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
-	if sliverData, err := getPreviousSliverDll(req.Config.GetName()); err == nil {
-		shellcode, err = generate.ShellcodeRDIFromBytes(sliverData, "RunSliver", "")
-	} else {
+	shellcode, err := getPreviousSliverDll(req.Config.GetName())
+	if err != nil {
 		config := generate.ImplantConfigFromProtobuf(req.Config)
 		config.Format = clientpb.ImplantConfig_SHARED_LIB
 		config.ObfuscateSymbols = false
@@ -192,7 +191,13 @@ func getPreviousSliverDll(name string) ([]byte, error) {
 
 	// get the implant with the same name
 	if conf, ok := configs[name]; ok {
-		if conf.Format == clientpb.ImplantConfig_SHARED_LIB || conf.Format == clientpb.ImplantConfig_SHELLCODE {
+		if conf.Format == clientpb.ImplantConfig_SHARED_LIB {
+			fileData, err := generate.ImplantFileByName(name)
+			if err != nil {
+				return data, err
+			}
+			data, err = generate.ShellcodeRDIFromBytes(fileData, "RunSliver", "")
+		} else if conf.Format == clientpb.ImplantConfig_SHELLCODE {
 			fileData, err := generate.ImplantFileByName(name)
 			if err != nil {
 				return data, err
