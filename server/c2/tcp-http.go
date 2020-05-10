@@ -264,17 +264,17 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	return router
 }
 
-// This filters requests that do not have the correct "User-agent" header
+// This filters requests that do not have a valid nonce
 func filterNonce(req *http.Request, rm *mux.RouteMatch) bool {
 	qNonce := req.URL.Query().Get("_")
 	nonce, err := strconv.Atoi(qNonce)
 	if err != nil {
-		httpLog.Debugf("Invalid nonce '%s' ignore request", qNonce)
+		httpLog.Warnf("Invalid nonce '%s' ignore request", qNonce)
 		return false // NaN
 	}
 	_, _, err = encoders.EncoderFromNonce(nonce)
 	if err != nil {
-		httpLog.Debugf("Invalid nonce (%d) ignore request", nonce)
+		httpLog.Warnf("Invalid nonce (%d) ignore request", nonce)
 		return false // Not a valid encoder
 	}
 	return true
@@ -282,15 +282,15 @@ func filterNonce(req *http.Request, rm *mux.RouteMatch) bool {
 
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		accessLog.Infof("%s - %s - %v", req.RemoteAddr, req.RequestURI, req.Header["User-Agent"])
+		accessLog.Infof("%s - %s - %v", req.RemoteAddr, req.RequestURI, req.Header.Get("User-Agent"))
 		next.ServeHTTP(resp, req)
 	})
 }
 
 func defaultRespHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		resp.Header().Set("Server", "Apache/2.4.9 (Unix)")
-		resp.Header().Set("X-Powered-By", "PHP/5.1.2-1+b1")
+		resp.Header().Set("Server", "Apache/2.4.43 (Unix)")
+		resp.Header().Set("X-Powered-By", "PHP/7.4.5")
 		resp.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 
 		switch uri := req.URL.Path; {
