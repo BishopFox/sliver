@@ -228,7 +228,7 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 	nonce, encoder := encoders.RandomEncoder()
 	req := s.newHTTPRequest(http.MethodGet, uri, nonce, nil)
 	// {{if .Debug}}
-	log.Printf("[http] POST -> %s", uri)
+	log.Printf("[http] GET -> %s", uri)
 	// {{end}}
 	resp, err := s.Client.Do(req)
 	if err != nil {
