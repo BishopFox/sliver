@@ -27,7 +27,9 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
+	insecureRand "math/rand"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -132,6 +134,24 @@ type SliverHTTPC2 struct {
 	HTTPSessions    *HTTPSessions
 	SliverShellcode []byte // Sliver shellcode to serve during staging process
 	Cleanup         func()
+
+	server    string
+	poweredBy string
+}
+
+func (s *SliverHTTPC2) getServerHeader() string {
+	if s.server == "" {
+		s.server = fmt.Sprintf("Apache/2.4.%d (Unix)", insecureRand.Intn(43))
+	}
+	return s.server
+}
+
+func (s *SliverHTTPC2) getPoweredByHeader() string {
+	if s.poweredBy == "" {
+		s.poweredBy = fmt.Sprintf("PHP/7.%d.%d",
+			insecureRand.Intn(3), insecureRand.Intn(17))
+	}
+	return s.poweredBy
 }
 
 // StartHTTPSListener - Start an HTTP(S) listener, this can be used to start both
@@ -259,7 +279,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	}
 
 	router.Use(loggingMiddleware)
-	router.Use(defaultRespHeaders)
+	router.Use(s.DefaultRespHeaders)
 
 	return router
 }
@@ -287,10 +307,11 @@ func loggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func defaultRespHeaders(next http.Handler) http.Handler {
+// DefaultRespHeaders - Configures default response headers
+func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		resp.Header().Set("Server", "Apache/2.4.43 (Unix)")
-		resp.Header().Set("X-Powered-By", "PHP/7.4.5")
+		resp.Header().Set("Server", s.getServerHeader())
+		resp.Header().Set("X-Powered-By", s.getPoweredByHeader())
 		resp.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 
 		switch uri := req.URL.Path; {
