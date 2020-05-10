@@ -122,7 +122,7 @@ func Version() (string, error) {
 func VenomPayload(config VenomConfig) ([]byte, error) {
 
 	// OS
-	if _, ok := ValidPayloads[config.Os]; !ok {
+	if _, ok := validPayloads[config.Os]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid operating system: %s", config.Os))
 	}
 	// Arch
@@ -130,7 +130,7 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid arch: %s", config.Arch))
 	}
 	// Payload
-	if _, ok := ValidPayloads[config.Os][config.Payload]; !ok {
+	if _, ok := validPayloads[config.Os][config.Payload]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid payload: %s", config.Payload))
 	}
 	// Encoder
