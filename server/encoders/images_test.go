@@ -21,31 +21,55 @@ package encoders
 import (
 	"bytes"
 	"testing"
+
+	implantEncoders "github.com/bishopfox/sliver/sliver/encoders"
 )
 
 var (
 	imageTests = []struct {
 		Input []byte
 	}{
-		{[]byte("abc")},   // byte count on image pixel allignment
-		{[]byte("abcde")}, // byte count offset of image pixel allignment
-		{randomData()},    // random binary data, will fail if contains leading/trailing nulls
+		{[]byte("abc")},   // byte count on image pixel alignment
+		{[]byte("abcde")}, // byte count offset of image pixel alignment
+		{randomData()},    // random binary data
+		{[]byte{0x0, 0x01, 0x02, 0x03, 0x04}},
+		{[]byte{0x01, 0x02, 0x03, 0x04, 0x0}},
 	}
 )
 
 func TestPNG(t *testing.T) {
+	pngEncoder := new(PNGEncoder)
 	for _, test := range imageTests {
-		png := new(PNG)
-		b := new(bytes.Buffer)
-		if err := png.Encode(b, test.Input); err != nil {
-			t.Errorf("png encode returned error: %q", err)
-		}
-		decodeOutput, err := png.Decode(b.Bytes())
+		buf := pngEncoder.Encode(test.Input)
+		decodeOutput, err := pngEncoder.Decode(buf)
 		if err != nil {
 			t.Errorf("png decode returned error: %q", err)
 		}
 		if !bytes.Equal(test.Input, decodeOutput) {
 			t.Errorf("png Decode(img) => %q, expected %q", decodeOutput, test.Input)
+		}
+	}
+
+	implantPNGEncoder := new(implantEncoders.PNGEncoder)
+	for _, test := range imageTests {
+		buf := implantPNGEncoder.Encode(test.Input)
+		decodeOutput, err := implantPNGEncoder.Decode(buf)
+		if err != nil {
+			t.Errorf("implant png decode returned error: %q", err)
+		}
+		if !bytes.Equal(test.Input, decodeOutput) {
+			t.Errorf("implant png Decode(img) => %q, expected %q", decodeOutput, test.Input)
+		}
+	}
+
+	for _, test := range imageTests {
+		buf := implantPNGEncoder.Encode(test.Input)
+		decodeOutput, err := pngEncoder.Decode(buf)
+		if err != nil {
+			t.Errorf("implant/server png decode returned error: %q", err)
+		}
+		if !bytes.Equal(test.Input, decodeOutput) {
+			t.Errorf("implant/server png Decode(img) => %q, expected %q", decodeOutput, test.Input)
 		}
 	}
 }

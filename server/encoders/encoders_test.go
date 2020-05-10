@@ -21,54 +21,91 @@ package encoders
 import (
 	"bytes"
 	"crypto/rand"
+	insecureRand "math/rand"
 	"testing"
+
+	implantEncoders "github.com/bishopfox/sliver/sliver/encoders"
 )
 
 func randomData() []byte {
-	buf := make([]byte, 128)
+	buf := make([]byte, insecureRand.Intn(1024))
 	rand.Read(buf)
 	return buf
 }
 
-func TestEnglish(t *testing.T) {
-	sample := randomData()
-	english := new(English)
-	encoded := english.Encode(sample)
-	data, err := english.Decode(encoded)
+func TestNopNonce(t *testing.T) {
+	nop := NopNonce()
+	_, _, err := EncoderFromNonce(nop)
 	if err != nil {
-		t.Error("Failed to encode sample data into english")
-		return
+		t.Errorf("Nop nonce returned error %s", err)
 	}
-	if !bytes.Equal(sample, data) {
-		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
+
+	nop2 := implantEncoders.NopNonce()
+	_, _, err = EncoderFromNonce(nop2)
+	if err != nil {
+		t.Errorf("Nop nonce returned error %s", err)
 	}
 }
 
-func TestHex(t *testing.T) {
-	sample := randomData()
-	x := new(Hex)
-	output := x.Encode(sample)
-	data, err := x.Decode(output)
-	if err != nil {
-		t.Errorf("hex decode returned an error %v", err)
-	}
-	if !bytes.Equal(sample, data) {
-		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-	}
-}
+func TestRandomEncoder(t *testing.T) {
+	for index := 0; index < 20; index++ {
+		sample := randomData()
 
-func TestBase64(t *testing.T) {
-	sample := randomData()
-	b64 := new(Base64)
-	output := b64.Encode(sample)
-	data, err := b64.Decode(output)
-	if err != nil {
-		t.Errorf("b64 decode returned an error %v", err)
-	}
-	if !bytes.Equal(sample, data) {
-		t.Logf("sample = %#v", sample)
-		t.Logf("output = %#v", output)
-		t.Logf("  data = %#v", data)
-		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
+		nonce, encoder := RandomEncoder()
+		_, encoder2, err := EncoderFromNonce(nonce)
+		if err != nil {
+			t.Errorf("RandomEncoder() nonce returned error %s", err)
+		}
+		output := encoder.Encode(sample)
+		data, err := encoder2.Decode(output)
+		if err != nil {
+			t.Errorf("RandomEncoder() encoder2 returned error %s", err)
+		}
+		if !bytes.Equal(sample, data) {
+			t.Errorf("RandomEncoder() encoder2 failed to decode encoder data %s", err)
+		}
+
+		nonce, encoder = implantEncoders.RandomEncoder()
+		_, encoder2, err = implantEncoders.EncoderFromNonce(nonce)
+		if err != nil {
+			t.Errorf("RandomEncoder() nonce returned error %s", err)
+		}
+		output = encoder.Encode(sample)
+		data, err = encoder2.Decode(output)
+		if err != nil {
+			t.Errorf("RandomEncoder() encoder2 returned error %s", err)
+		}
+		if !bytes.Equal(sample, data) {
+			t.Errorf("RandomEncoder() encoder2 failed to decode encoder data %s", err)
+		}
+
+		nonce, encoder = RandomEncoder()
+		_, encoder2, err = implantEncoders.EncoderFromNonce(nonce)
+		if err != nil {
+			t.Errorf("RandomEncoder() nonce returned error %s", err)
+		}
+		output = encoder.Encode(sample)
+		data, err = encoder2.Decode(output)
+		if err != nil {
+			t.Errorf("RandomEncoder() encoder2 returned error %s", err)
+		}
+		if !bytes.Equal(sample, data) {
+			t.Errorf("RandomEncoder() encoder2 failed to decode encoder data %s", err)
+		}
+
+		nonce, encoder = implantEncoders.RandomEncoder()
+		_, encoder2, err = EncoderFromNonce(nonce)
+		if err != nil {
+			t.Errorf("RandomEncoder() nonce returned error %s", err)
+		}
+		output = encoder.Encode(sample)
+		data, err = encoder2.Decode(output)
+		if err != nil {
+			t.Errorf("RandomEncoder() encoder2 returned error %s", err)
+		}
+		if !bytes.Equal(sample, data) {
+			t.Errorf("RandomEncoder() encoder2 failed to decode encoder data %s", err)
+		}
+
 	}
 }

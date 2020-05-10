@@ -50,7 +50,7 @@ var EncoderMap = map[int]Encoder{
 func EncoderFromNonce(nonce int) (int, Encoder, error) {
 	encoderID := nonce % EncoderModulus
 	if encoderID == 0 {
-		return 0, new(NoEncoder), nil
+		return 0, NoEncoder{}, nil
 	}
 	if encoder, ok := EncoderMap[encoderID]; ok {
 		return encoderID, encoder, nil
