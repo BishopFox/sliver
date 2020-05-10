@@ -331,11 +331,17 @@ func default404Handler(resp http.ResponseWriter, req *http.Request) {
 // [ HTTP Handlers ] ---------------------------------------------------------------
 
 func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
+	qNonce := req.URL.Query().Get("_")
+	nonce, err := strconv.Atoi(qNonce)
 	certPEM, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, s.Conf.Domain)
 	if err != nil {
 		httpLog.Infof("Failed to get server certificate for cn = '%s': %s", s.Conf.Domain, err)
 	}
-	resp.Write(certPEM)
+	_, encoder, err := encoders.EncoderFromNonce(nonce)
+	if err != nil {
+		httpLog.Infof("Failed to find encoder from nonce %d", nonce)
+	}
+	resp.Write(encoder.Encode(certPEM))
 }
 
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request) {
@@ -469,12 +475,16 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 		return
 	}
 
+	// We already know we have a valid nonce because of the middleware filter
+	nonce, _ := strconv.Atoi(req.URL.Query().Get("_"))
+	_, encoder, _ := encoders.EncoderFromNonce(nonce)
 	select {
 	case envelope := <-httpSession.Session.Send:
 		resp.WriteHeader(200)
 		envelopeData, _ := proto.Marshal(envelope)
 		data, _ := cryptography.GCMEncrypt(httpSession.Key, envelopeData)
-		resp.Write(data)
+		resp.Write(encoder.Encode(data))
+
 	case <-time.After(pollTimeout):
 		httpLog.Info("Poll time out")
 		resp.WriteHeader(201)

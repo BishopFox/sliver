@@ -19,7 +19,6 @@ package command
 */
 
 import (
-	//"bytes"
 	"bytes"
 	"context"
 	"errors"
@@ -214,7 +213,7 @@ func generateStager(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		if fi.IsDir() {
 			saveTo = filepath.Join(saveTo, stageFile.GetFile().GetName())
 		}
-		err = ioutil.WriteFile(saveTo, stageFile.GetFile().GetData(), os.ModePerm)
+		err = ioutil.WriteFile(saveTo, stageFile.GetFile().GetData(), 0700)
 		if err != nil {
 			fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
 			return
@@ -468,7 +467,7 @@ func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCCli
 		return nil, err
 	}
 
-	err = ioutil.WriteFile(saveTo, generated.File.Data, 0500)
+	err = ioutil.WriteFile(saveTo, generated.File.Data, 0700)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
 		return nil, err
