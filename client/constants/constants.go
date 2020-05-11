@@ -75,6 +75,8 @@ const (
 	DnsStr   = "dns"
 	HttpStr  = "http"
 	HttpsStr = "https"
+	NamedPipeStr  = "named-pipe"
+	TCPListenerStr = "tcp-pivot"
 
 	MsfStr       = "msf"
 	MsfInjectStr = "msf-inject"

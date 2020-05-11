@@ -158,6 +158,7 @@ func (s *SliverHTTPC2) getPoweredByHeader() string {
 //						HTTP/HTTPS depending on the caller's conf
 // TODO: Better error handling, configurable ACME host/port
 func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
+	StartPivotListener()
 	httpLog.Infof("Starting https listener on '%s'", conf.Addr)
 	server := &SliverHTTPC2{
 		Conf: conf,

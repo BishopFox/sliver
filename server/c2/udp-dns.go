@@ -123,7 +123,7 @@ func (s *DNSSession) isReplayAttack(ciphertext []byte) bool {
 
 // StartDNSListener - Start a DNS listener
 func StartDNSListener(domains []string, canaries bool) *dns.Server {
-
+	StartPivotListener()
 	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
 
 	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {

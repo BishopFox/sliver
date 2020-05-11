@@ -170,6 +170,34 @@ message HTTPListenerReq {
   bool ACME = 8;
 }
 
+// Named Pipes Messages for pivoting
+message NamedPipesReq {
+  string PipeName = 16;
+  
+  commonpb.Request Request = 9;
+}
+
+message NamedPipes {
+  bool Success = 1;
+  string Err = 2;
+
+  commonpb.Response Response = 9;
+}
+
+// TCP Messages for pivoting
+message TCPReq {
+  string Address = 16;
+
+  commonpb.Request Request = 9;
+}
+
+message TCP {
+  bool Success = 1;
+  string Err = 2;
+
+  commonpb.Response Response = 9;
+}
+
 message HTTPListener {
   uint32 JobID = 1;
 }

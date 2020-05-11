@@ -43,8 +43,17 @@ var (
 		sliverpb.MsgNetstatReq:  netstatHandler,
 		sliverpb.MsgSideloadReq: sideloadHandler,
 	}
+
+	linuxPivotHandlers = map[uint32]PivotHandler{
+	}
 )
 
+// GetSystemHandlers - Returns a map of the linux system handlers
 func GetSystemHandlers() map[uint32]RPCHandler {
 	return linuxHandlers
+}
+
+// GetSystemPivotHandlers - Returns a map of the linux system handlers
+func GetSystemPivotHandlers() map[uint32]PivotHandler {
+	return linuxPivotHandlers
 }

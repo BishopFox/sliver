@@ -102,6 +102,8 @@ type ImplantConfig struct {
 	HTTPc2Enabled bool        `json:"c2_http_enabled"`
 	DNSc2Enabled  bool        `json:"c2_dns_enabled"`
 	CanaryDomains []string    `json:"canary_domains"`
+	NamePipec2Enabled bool    `json:"c2_namedpipe_enabled"`
+	TCPPivotc2Enabled bool    `json:"c2_tcppivot_enabled"`
 
 	// Limits
 	LimitDomainJoined bool   `json:"limit_domainjoined"`
@@ -180,6 +182,8 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, cfg.C2)
 	cfg.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, cfg.C2)
 	cfg.DNSc2Enabled = isC2Enabled([]string{"dns"}, cfg.C2)
+	cfg.NamePipec2Enabled = isC2Enabled([]string{"namedpipe"}, cfg.C2)
+	cfg.TCPPivotc2Enabled = isC2Enabled([]string{"tcppivot"}, cfg.C2)
 
 	cfg.FileName = pbConfig.FileName
 	return cfg
@@ -430,6 +434,8 @@ func renderSliverGoCode(config *ImplantConfig, goConfig *gogo.GoConfig) (string,
 	config.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, config.C2)
 	config.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, config.C2)
 	config.DNSc2Enabled = isC2Enabled([]string{"dns"}, config.C2)
+	config.NamePipec2Enabled = isC2Enabled([]string{"namedpipe"}, config.C2)
+	config.TCPPivotc2Enabled = isC2Enabled([]string{"tcppivot"}, config.C2)
 
 	sliversDir := GetSliversDir() // ~/.sliver/slivers
 	projectGoPathDir := path.Join(sliversDir, config.GOOS, config.GOARCH, config.Name)
