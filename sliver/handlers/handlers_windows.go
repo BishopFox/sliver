@@ -250,7 +250,7 @@ func namedPipeListenerHandler(envelope *sliverpb.Envelope, connection *transport
 		// {{end}}
 		namedPipeResp := &sliverpb.NamedPipes{
 			Success: false,
-			Err:     err.Error(),
+			Response: &commonpb.Response{Err: err.Error()},
 		}
 		data, _ := proto.Marshal(namedPipeResp)
 		connection.Send <- &sliverpb.Envelope{
@@ -266,7 +266,7 @@ func namedPipeListenerHandler(envelope *sliverpb.Envelope, connection *transport
 		// {{end}}
 		namedPipeResp := &sliverpb.NamedPipes{
 			Success: false,
-			Err:     err.Error(),
+			Response: &commonpb.Response{Err: err.Error()},
 		}
 		data, _ := proto.Marshal(namedPipeResp)
 		connection.Send <- &sliverpb.Envelope{

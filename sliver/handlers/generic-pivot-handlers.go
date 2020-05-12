@@ -5,6 +5,7 @@ import (
   "log"
   // {{end}}
 
+  "github.com/bishopfox/sliver/protobuf/commonpb"
   "github.com/bishopfox/sliver/protobuf/sliverpb"
   "github.com/bishopfox/sliver/sliver/pivots"
   "github.com/bishopfox/sliver/sliver/transports"
@@ -51,7 +52,7 @@ func tcpListenerHandler(envelope *sliverpb.Envelope, connection *transports.Conn
 		// {{end}}
 		tcpPivotResp := &sliverpb.TCPPivot {
 	  		Success: false,
-	  		Err:     err.Error(),
+	  		Response: &commonpb.Response{Err: err.Error()},
 		}
 		data, _ := proto.Marshal(tcpPivotResp)
 		connection.Send <- &sliverpb.Envelope {
@@ -67,7 +68,7 @@ func tcpListenerHandler(envelope *sliverpb.Envelope, connection *transports.Conn
 		// {{end}}
 		tcpPivotResp := &sliverpb.TCPPivot {
 	  		Success: false,
-	  		Err:     err.Error(),
+	  		Response: &commonpb.Response{Err: err.Error()},
 		}
 		data, _ := proto.Marshal(tcpPivotResp)
 		connection.Send <- &sliverpb.Envelope {

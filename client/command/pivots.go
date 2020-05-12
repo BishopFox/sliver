@@ -46,7 +46,7 @@ func namedPipeListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	namedPipes, err := rpc.NamedPipes(context.Background(), &sliverpb.NamedPipesReq{
+	_, err := rpc.NamedPipes(context.Background(), &sliverpb.NamedPipesReq{
 		PipeName: pipeName,
 		Request: ActiveSession.Request(ctx),
 	})
@@ -56,11 +56,7 @@ func namedPipeListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if namedPipes.Err != "" {
-		fmt.Printf(Warn+"Error: %s", namedPipes.Err)
-	} else {
-		fmt.Printf(Info+"Listening on %s", "\\\\.\\pipe\\"+pipeName)
-	}
+	fmt.Printf(Info+"Listening on %s", "\\\\.\\pipe\\"+pipeName)
 }
 
 func tcpListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -73,7 +69,7 @@ func tcpListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	lport := uint16(ctx.Flags.Int("lport"))
 	address := fmt.Sprintf("%s:%d", server, lport)
 
-	tcpPivot, err := rpc.TCPListener(context.Background(), &sliverpb.TCPPivotReq{
+	_, err := rpc.TCPListener(context.Background(), &sliverpb.TCPPivotReq{
 		Address: address,
 		Request: ActiveSession.Request(ctx),
 	})
@@ -83,9 +79,5 @@ func tcpListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if tcpPivot.Err != "" {
-		fmt.Printf(Warn+"Error: %s", tcpPivot.Err)
-	} else {
-		fmt.Printf(Info+"Listening on tcp://%s", address)
-	}
+	fmt.Printf(Info+"Listening on tcp://%s", address)
 }

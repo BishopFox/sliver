@@ -432,12 +432,13 @@ message Shell{
 // Named Pipes Messages
 message NamedPipesReq {
   string PipeName = 16;
+  
   commonpb.Request Request = 9;
 }
 
 message NamedPipes {
   bool Success = 1;
-  string Err = 2;
+
   commonpb.Response Response = 9;
 }
 
@@ -450,8 +451,6 @@ message TCPPivotReq {
 
 message TCPPivot {
   bool Success = 1;
-  string Err = 2;
-
   commonpb.Response Response = 9;
 }
 
