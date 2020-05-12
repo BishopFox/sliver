@@ -44,10 +44,11 @@ import (
 )
 
 const (
-	defaultMTLSLPort  = 8888
-	defaultHTTPLPort  = 80
-	defaultHTTPSLPort = 443
-	defaultTCPPort    = 4444
+	defaultMTLSLPort    = 8888
+	defaultHTTPLPort    = 80
+	defaultHTTPSLPort   = 443
+	defaultTCPPort      = 4444
+	defaultTCPPivotPort = 9898
 
 	defaultReconnect = 60
 	defaultMaxErrors = 1000
@@ -322,6 +323,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("m", "mtls", "", "mtls connection strings")
 			f.String("t", "http", "", "http(s) connection strings")
 			f.String("n", "dns", "", "dns connection strings")
+			f.String("p", "named-pipe", "", "named-pipe connection strings")
+			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
 
 			f.Int("j", "reconnect", defaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("k", "max-errors", defaultMaxErrors, "max number of connection errors")

@@ -185,13 +185,13 @@ message NamedPipes {
 }
 
 // TCP Messages for pivoting
-message TCPReq {
+message TCPPivotReq {
   string Address = 16;
 
   commonpb.Request Request = 9;
 }
 
-message TCP {
+message TCPPivot {
   bool Success = 1;
   string Err = 2;
 

@@ -31,8 +31,8 @@ import (
 
 var (
   genericPivotHandlers = map[uint32]PivotHandler{
-	sliverpb.MsgPivotData: pivotDataHandler,
-	sliverpb.MsgTCPReq:    tcpListenerHandler,
+	sliverpb.MsgPivotData:   pivotDataHandler,
+	sliverpb.MsgTCPPivotReq: tcpListenerHandler,
   }
 )
 
@@ -43,13 +43,13 @@ func GetPivotHandlers() map[uint32]PivotHandler {
 
 func tcpListenerHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
 
-	tcpPivot := &sliverpb.TCPReq{}
+	tcpPivot := &sliverpb.TCPPivotReq{}
 	err := proto.Unmarshal(envelope.Data, tcpPivot)
 	if err != nil {
 		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
 		// {{end}}
-		tcpPivotResp := &sliverpb.TCP {
+		tcpPivotResp := &sliverpb.TCPPivot {
 	  		Success: false,
 	  		Err:     err.Error(),
 		}
@@ -65,7 +65,7 @@ func tcpListenerHandler(envelope *sliverpb.Envelope, connection *transports.Conn
 		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
 		// {{end}}
-		tcpPivotResp := &sliverpb.TCP {
+		tcpPivotResp := &sliverpb.TCPPivot {
 	  		Success: false,
 	  		Err:     err.Error(),
 		}
@@ -76,7 +76,7 @@ func tcpListenerHandler(envelope *sliverpb.Envelope, connection *transports.Conn
 	  	}
 		return
 	}
-	tcpResp := &sliverpb.TCP {
+	tcpResp := &sliverpb.TCPPivot {
 		Success: true,
 	}
 	data, _ := proto.Marshal(tcpResp)

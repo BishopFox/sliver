@@ -73,7 +73,7 @@ func tcpListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	lport := uint16(ctx.Flags.Int("lport"))
 	address := fmt.Sprintf("%s:%d", server, lport)
 
-	tcpPivot, err := rpc.TCPListener(context.Background(), &sliverpb.TCPReq{
+	tcpPivot, err := rpc.TCPListener(context.Background(), &sliverpb.TCPPivotReq{
 		Address: address,
 		Request: ActiveSession.Request(ctx),
 	})

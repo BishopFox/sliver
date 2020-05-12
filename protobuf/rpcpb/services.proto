@@ -78,7 +78,7 @@ service SliverRPC {
     rpc SpawnDll(sliverpb.SpawnDllReq) returns (sliverpb.SpawnDll);
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
     rpc NamedPipes(sliverpb.NamedPipesReq) returns (sliverpb.NamedPipes);
-    rpc TCPListener(sliverpb.TCPReq) returns (sliverpb.TCP);
+    rpc TCPListener(sliverpb.TCPPivotReq) returns (sliverpb.TCPPivot);
 
     // *** Realtime Commands ***
     rpc Shell(sliverpb.ShellReq) returns (sliverpb.Shell);

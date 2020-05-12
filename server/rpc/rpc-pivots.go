@@ -33,8 +33,8 @@ func (rpc *Server) NamedPipes(ctx context.Context, req *sliverpb.NamedPipesReq) 
 	return resp, nil
 }
 
-func (rpc *Server) TCPListener(ctx context.Context, req *sliverpb.TCPReq) (*sliverpb.TCP, error) {
-	resp := &sliverpb.TCP{}
+func (rpc *Server) TCPListener(ctx context.Context, req *sliverpb.TCPPivotReq) (*sliverpb.TCPPivot, error) {
+	resp := &sliverpb.TCPPivot{}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
