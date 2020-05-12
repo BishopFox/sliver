@@ -23,10 +23,9 @@ package transports
 // Procedural C2
 // ===============
 // .txt = rsakey
-// .jsp = start
+// .jsp = init
 // .php = session
 //  .js = poll
-// .png = stop
 
 import (
 	"bytes"
@@ -314,7 +313,7 @@ func (s *SliverHTTPClient) phpURL() string {
 
 func (s *SliverHTTPClient) txtURL() string {
 	curl, _ := url.Parse(s.Origin)
-	segments := []string{"static", "www", "assets", "textual", "docs", "sample"}
+	segments := []string{"static", "www", "assets", "text", "docs", "sample"}
 	filenames := []string{"robots.txt", "sample.txt", "info.txt", "example.txt"}
 	curl.Path = path.Join(s.randomPath(segments, filenames)...)
 	return curl.String()

@@ -505,9 +505,8 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 		envelopeData, _ := proto.Marshal(envelope)
 		data, _ := cryptography.GCMEncrypt(httpSession.Key, envelopeData)
 		resp.Write(encoder.Encode(data))
-
 	case <-time.After(pollTimeout):
-		httpLog.Info("Poll time out")
+		httpLog.Debug("Poll time out")
 		resp.WriteHeader(201)
 		resp.Write([]byte{})
 	}
