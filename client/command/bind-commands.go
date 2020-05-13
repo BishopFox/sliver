@@ -44,10 +44,11 @@ import (
 )
 
 const (
-	defaultMTLSLPort  = 8888
-	defaultHTTPLPort  = 80
-	defaultHTTPSLPort = 443
-	defaultTCPPort    = 4444
+	defaultMTLSLPort    = 8888
+	defaultHTTPLPort    = 80
+	defaultHTTPSLPort   = 443
+	defaultTCPPort      = 4444
+	defaultTCPPivotPort = 9898
 
 	defaultReconnect = 60
 	defaultMaxErrors = 1000
@@ -322,6 +323,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("m", "mtls", "", "mtls connection strings")
 			f.String("t", "http", "", "http(s) connection strings")
 			f.String("n", "dns", "", "dns connection strings")
+			f.String("p", "named-pipe", "", "named-pipe connection strings")
+			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
 
 			f.Int("j", "reconnect", defaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("k", "max-errors", defaultMaxErrors, "max number of connection errors")
@@ -1086,5 +1089,42 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			return nil
 		},
 		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.NamedPipeStr,
+		Help:     "Start a named pipe pivot listener",
+		LongHelp: help.GetHelpFor(consts.NamedPipeStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "name of the named pipe")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			namedPipeListener(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.TCPListenerStr,
+		Help:     "Start a TCP pivot listener",
+		LongHelp: help.GetHelpFor(consts.TCPListenerStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "server", "0.0.0.0", "interface to bind server to")
+			f.Int("l", "lport", defaultTCPPivotPort, "tcp listen port")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			tcpListener(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 }

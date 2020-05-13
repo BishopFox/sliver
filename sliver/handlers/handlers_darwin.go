@@ -46,9 +46,17 @@ var (
 
 		pb.MsgSideloadReq: sideloadHandler,
 	}
+
+	darwinPivotHandlers = map[uint32]PivotHandler{
+	}
 )
 
 // GetSystemHandlers - Returns a map of the darwin system handlers
 func GetSystemHandlers() map[uint32]RPCHandler {
 	return darwinHandlers
+}
+
+// GetSystemPivotHandlers - Returns a map of the darwin system handlers
+func GetSystemPivotHandlers() map[uint32]PivotHandler {
+	return darwinPivotHandlers
 }

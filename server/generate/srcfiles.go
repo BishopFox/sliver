@@ -47,6 +47,7 @@ var (
 
 		"handlers/generic-rpc-handlers.go",
 		"handlers/generic-tun-handlers.go",
+		"handlers/generic-pivot-handlers.go",
 		"handlers/special-handlers.go",
 		"handlers/handlers_darwin.go",
 		"handlers/handlers_linux.go",
@@ -106,6 +107,11 @@ var (
 		"priv/priv.go",
 		"priv/priv_windows.go",
 
+		"pivots/named-pipe.go",
+		"pivots/named-pipe_windows.go",
+		"pivots/tcp.go",
+		"pivots/pivots.go",
+
 		"sc/screenshot_darwin.go",
 		"sc/screenshot_linux.go",
 		"sc/screenshot_windows.go",
@@ -120,6 +126,8 @@ var (
 		"transports/tcp-mtls.go",
 		"transports/tcp-http.go",
 		"transports/udp-dns.go",
+		"transports/named-pipe.go",
+		"transports/tcp-pivot.go",
 		"transports/transports.go",
 
 		"version/version.go",
@@ -213,6 +221,13 @@ var (
 		"3rdparty/kbinani/screenshot/screenshot_go1.9_or_earlier_darwin.go",
 		"3rdparty/kbinani/screenshot/screenshot.go",
 
+		"3rdparty/winio/hvsock.go",
+		"3rdparty/winio/zsyscall_windows.go",
+		"3rdparty/winio/file.go",
+		"3rdparty/winio/pipe.go",
+		"3rdparty/winio/sd.go",
+		"3rdparty/winio/pkg/guid/guid.go",
+		
 		// "go.mod",
 
 	}

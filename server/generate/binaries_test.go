@@ -50,6 +50,18 @@ func TestSliverExecutableWindows(t *testing.T) {
 	httpExe(t, "windows", "amd64", true)
 	//httpExe(t, "windows", "386", true)
 
+	// PIVOT TCP C2
+	tcpPivotExe(t, "windows", "amd64", false)
+	//httpExe(t, "windows", "386", false)
+	tcpPivotExe(t, "windows", "amd64", true)
+	//httpExe(t, "windows", "386", true)
+
+	// Named Pipe C2
+	namedPipeExe(t, "windows", "amd64", false)
+	//namedPipeExe(t, "windows", "386", false)
+	namedPipeExe(t, "windows", "amd64", true)
+	//namedPipeExe(t, "windows", "386", true)
+
 	// Multiple C2s
 	multiExe(t, "windows", "amd64", true)
 	multiExe(t, "windows", "amd64", false)
@@ -67,11 +79,13 @@ func TestSliverSharedLibWindows(t *testing.T) {
 func TestSliverExecutableLinux(t *testing.T) {
 	multiExe(t, "linux", "amd64", true)
 	multiExe(t, "linux", "amd64", false)
+	tcpPivotExe(t, "linux", "amd64", false)
 }
 
 func TestSliverExecutableDarwin(t *testing.T) {
 	multiExe(t, "darwin", "amd64", true)
 	multiExe(t, "darwin", "amd64", false)
+	tcpPivotExe(t, "darwin", "amd64", false)
 }
 
 // func TestSymbolObfuscation(t *testing.T) {
@@ -153,6 +167,50 @@ func multiExe(t *testing.T, goos string, goarch string, debug bool) {
 		DNSc2Enabled:     true,
 		Debug:            debug,
 		ObfuscateSymbols: false,
+	}
+	_, err := SliverExecutable(config)
+	if err != nil {
+		t.Errorf(fmt.Sprintf("%v", err))
+	}
+}
+
+func tcpPivotExe(t *testing.T, goos string, goarch string, debug bool) {
+	t.Logf("[tcppivot] EXE %s/%s - debug: %v", goos, goarch, debug)
+	config := &ImplantConfig{
+		GOOS:   goos,
+		GOARCH: goarch,
+		C2: []ImplantC2{
+			ImplantC2{
+				Priority: 1,
+				URL:      "tcppivot://127.0.0.1:8080",
+				Options:  "asdf",
+			},
+		},
+		NamePipec2Enabled: true,
+		Debug:             debug,
+		ObfuscateSymbols:  false,
+	}
+	_, err := SliverExecutable(config)
+	if err != nil {
+		t.Errorf(fmt.Sprintf("%v", err))
+	}
+}
+
+func namedPipeExe(t *testing.T, goos string, goarch string, debug bool) {
+	t.Logf("[namedpipe] EXE %s/%s - debug: %v", goos, goarch, debug)
+	config := &ImplantConfig{
+		GOOS:   goos,
+		GOARCH: goarch,
+		C2: []ImplantC2{
+			ImplantC2{
+				Priority: 1,
+				URL:      "namedpipe://./pipe/test",
+				Options:  "asdf",
+			},
+		},
+		NamePipec2Enabled: true,
+		Debug:             debug,
+		ObfuscateSymbols:  false,
 	}
 	_, err := SliverExecutable(config)
 	if err != nil {

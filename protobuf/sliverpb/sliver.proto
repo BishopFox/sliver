@@ -428,3 +428,46 @@ message Shell{
   uint64 TunnelID = 8;
   commonpb.Response Response = 9;
 }
+
+// Named Pipes Messages
+message NamedPipesReq {
+  string PipeName = 16;
+  
+  commonpb.Request Request = 9;
+}
+
+message NamedPipes {
+  bool Success = 1;
+
+  commonpb.Response Response = 9;
+}
+
+// TCP Messages for pivoting
+message TCPPivotReq {
+  string Address = 16;
+
+  commonpb.Request Request = 9;
+}
+
+message TCPPivot {
+  bool Success = 1;
+  commonpb.Response Response = 9;
+}
+
+// Pivot transport
+message PivotOpen {
+  uint32 PivotID = 12;
+  string PivotType = 13;
+  string RemoteAddress = 14;
+  bytes  RegisterMsg = 15;
+}
+
+message PivotClose {
+  uint32 PivotID = 12;
+  string Err = 2;
+}
+
+message PivotData {
+  uint32 PivotID = 12;
+  bytes Data = 2;
+}

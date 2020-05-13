@@ -106,12 +106,13 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
 	// Column Headers
-	fmt.Fprintln(table, "ID\tName\tTransport\tRemote Address\tUsername\tOperating System\tLast Check-in\t")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+	fmt.Fprintln(table, "ID\tName\tTransport\tRemote Address\tHostname\tUsername\tOperating System\tLast Check-in\t")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("ID")),
 		strings.Repeat("=", len("Name")),
 		strings.Repeat("=", len("Transport")),
 		strings.Repeat("=", len("Remote Address")),
+		strings.Repeat("=", len("Hostname")),
 		strings.Repeat("=", len("Username")),
 		strings.Repeat("=", len("Operating System")),
 		strings.Repeat("=", len("Last Check-in")))
@@ -129,11 +130,12 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 		if ActiveSession.Get() != nil && ActiveSession.Get().ID == session.ID {
 			activeIndex = index + 2 // Two lines for the headers
 		}
-		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
 			session.ID,
 			session.Name,
 			session.Transport,
 			session.RemoteAddress,
+			session.Hostname,
 			session.Username,
 			fmt.Sprintf("%s/%s", session.OS, session.Arch),
 			session.LastCheckin,

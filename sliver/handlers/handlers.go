@@ -34,3 +34,6 @@ type SpecialHandler func([]byte, *transports.Connection) error
 
 // TunnelHandler - Tunnel related functionality for duplex connections
 type TunnelHandler func(*sliverpb.Envelope, *transports.Connection)
+
+// PivotHandler - Handler related to pivoting
+type PivotHandler func(*sliverpb.Envelope, *transports.Connection)
