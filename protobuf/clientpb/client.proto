@@ -13,13 +13,10 @@ message Version {
 
   string Commit = 4;
   bool Dirty = 5;
+  int64 CompiledAt = 6;
 
-  enum Component {
-    ConsoleClient = 0;
-    GUIClient = 1;
-    Server = 2;
-    Sliver = 3;
-  }
+  string OS = 7;
+  string Arch = 8;
 }
 
 // [ Core ] ----------------------------------------

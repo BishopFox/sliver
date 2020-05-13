@@ -21,6 +21,7 @@ package rpc
 import (
 	"context"
 	"errors"
+	"runtime"
 	"time"
 
 	"github.com/bishopfox/sliver/client/version"
@@ -71,12 +72,16 @@ func NewServer() *Server {
 func (rpc *Server) GetVersion(ctx context.Context, _ *commonpb.Empty) (*clientpb.Version, error) {
 	dirty := version.GitDirty != ""
 	semVer := version.SemanticVersion()
+	compiled, _ := version.Compiled()
 	return &clientpb.Version{
-		Major:  int32(semVer[0]),
-		Minor:  int32(semVer[1]),
-		Patch:  int32(semVer[2]),
-		Commit: version.GitCommit,
-		Dirty:  dirty,
+		Major:      int32(semVer[0]),
+		Minor:      int32(semVer[1]),
+		Patch:      int32(semVer[2]),
+		Commit:     version.GitCommit,
+		Dirty:      dirty,
+		CompiledAt: compiled.Unix(),
+		OS:         runtime.GOOS,
+		Arch:       runtime.GOARCH,
 	}, nil
 }
 

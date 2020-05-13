@@ -61,6 +61,39 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 	app.SetPrintHelp(helpCmd) // Responsible for display long-form help templates, etc.
 
+	app.AddCommand(&grumble.Command{
+		Name:     consts.UpdateStr,
+		Help:     "Check for updates",
+		LongHelp: help.GetHelpFor(consts.UpdateStr),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("p", "prereleases", false, "include pre-released (unstable) versions")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			updates(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.VersionStr,
+		Help:     "Display version information",
+		LongHelp: help.GetHelpFor(consts.VersionStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			verboseVersions(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
 	// [ Jobs ] -----------------------------------------------------------------
 	app.AddCommand(&grumble.Command{
 		Name:     consts.JobsStr,
@@ -392,7 +425,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.NewProfileStr,
-		Help:     "Save a new sliver profile",
+		Help:     "Save a new implant profile",
 		LongHelp: help.GetHelpFor(consts.NewProfileStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "os", "windows", "operating system")
@@ -466,7 +499,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.ProfileGenerateStr,
-		Help:     "Generate Sliver from a profile",
+		Help:     "Generate implant from a profile",
 		LongHelp: help.GetHelpFor(consts.ProfileGenerateStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "name", "", "profile name")

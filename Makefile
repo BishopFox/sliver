@@ -11,7 +11,7 @@ TAGS = -tags netgo
 # Prerequisites 
 #
 # https://stackoverflow.com/questions/5618615/check-if-a-program-exists-from-a-makefile
-EXECUTABLES = protoc protoc-gen-go packr uname sed git zip go
+EXECUTABLES = protoc protoc-gen-go packr uname sed git zip go date
 K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
 
@@ -27,10 +27,17 @@ endif
 # Version Information
 #
 VERSION = 1.0.0
+COMPILED_AT = $(shell date +%s)
+RELEASES_URL = https://api.github.com/repos/BishopFox/sliver/releases
 PKG = github.com/bishopfox/sliver/client/version
 GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
 GIT_COMMIT = $(shell git rev-parse HEAD)
-LDFLAGS = -ldflags "-s -w -X $(PKG).Version=$(VERSION) -X $(PKG).GitCommit=$(GIT_COMMIT) -X $(PKG).GitDirty=$(GIT_DIRTY)"
+LDFLAGS = -ldflags "-s -w \
+	-X $(PKG).Version=$(VERSION) \
+	-X $(PKG).CompiledAt=$(COMPILED_AT) \
+	-X $(PKG).GithubReleasesURL=$(RELEASES_URL) \
+	-X $(PKG).GitCommit=$(GIT_COMMIT) \
+	-X $(PKG).GitDirty=$(GIT_DIRTY)"
 
 
 #

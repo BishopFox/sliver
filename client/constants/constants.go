@@ -25,6 +25,9 @@ const (
 
 // Events
 const (
+	UpdateStr  = "update"
+	VersionStr = "version"
+
 	EventStr = "event"
 
 	ServerErrorStr = "server"
@@ -70,12 +73,12 @@ const (
 	ListSliverBuildsStr = "slivers"
 	ListCanariesStr     = "canaries"
 
-	JobsStr  = "jobs"
-	MtlsStr  = "mtls"
-	DnsStr   = "dns"
-	HttpStr  = "http"
-	HttpsStr = "https"
-	NamedPipeStr  = "named-pipe"
+	JobsStr        = "jobs"
+	MtlsStr        = "mtls"
+	DnsStr         = "dns"
+	HttpStr        = "http"
+	HttpsStr       = "https"
+	NamedPipeStr   = "named-pipe"
 	TCPListenerStr = "tcp-pivot"
 
 	MsfStr       = "msf"
