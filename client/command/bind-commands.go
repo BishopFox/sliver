@@ -436,6 +436,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("m", "mtls", "", "mtls domain(s)")
 			f.String("t", "http", "", "http[s] domain(s)")
 			f.String("n", "dns", "", "dns domain(s)")
+			f.String("e", "named-pipe", "", "named-pipe connection strings")
+			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
