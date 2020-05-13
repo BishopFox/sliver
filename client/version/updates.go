@@ -85,11 +85,11 @@ func CheckForUpdates(client *http.Client, prereleases bool) (*Release, error) {
 		if release.Prerelease && !prereleases {
 			continue
 		}
-		published, err := release.Published()
+		created, err := release.Created()
 		if err != nil {
 			continue
 		}
-		if published.After(compiled) {
+		if created.After(compiled.Add(time.Hour)) {
 			return release, nil
 		}
 	}
