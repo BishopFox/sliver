@@ -88,6 +88,7 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 	app.SetPrintASCIILogo(func(app *grumble.App) {
 		printLogo(app, rpc)
 	})
+	checkForUpdates()
 
 	cmd.BindCommands(app, rpc)
 	extraCmds(app, rpc)
@@ -104,6 +105,22 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 		log.Printf("Run loop returned error: %v", err)
 	}
 	return err
+}
+
+func checkForUpdates() {
+	now := time.Now()
+	lastUpdate := cmd.GetLastUpdateCheck()
+	compiledAt, err := version.Compiled()
+	if err != nil {
+		return
+	}
+
+	day := 24 * time.Hour
+	if compiledAt.Add(30 * day).Before(now) {
+		if lastUpdate == nil || lastUpdate.Add(30*day).Before(now) {
+			fmt.Printf(Info + "Check for updates with the 'update' command")
+		}
+	}
 }
 
 func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {

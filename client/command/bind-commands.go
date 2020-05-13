@@ -66,7 +66,10 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Help:     "Check for updates",
 		LongHelp: help.GetHelpFor(consts.UpdateStr),
 		Flags: func(f *grumble.Flags) {
-			f.Bool("p", "prereleases", false, "include pre-released (unstable) versions")
+			f.Bool("P", "prereleases", false, "include pre-released (unstable) versions")
+			f.String("p", "proxy", "", "specify a proxy url (e.g. http://localhost:8080)")
+			f.Bool("I", "insecure", false, "skip tls certificate validation")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
