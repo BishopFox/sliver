@@ -88,7 +88,6 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 	app.SetPrintASCIILogo(func(app *grumble.App) {
 		printLogo(app, rpc)
 	})
-	checkForUpdates()
 
 	cmd.BindCommands(app, rpc)
 	extraCmds(app, rpc)
@@ -105,22 +104,6 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 		log.Printf("Run loop returned error: %v", err)
 	}
 	return err
-}
-
-func checkForUpdates() {
-	now := time.Now()
-	lastUpdate := cmd.GetLastUpdateCheck()
-	compiledAt, err := version.Compiled()
-	if err != nil {
-		return
-	}
-
-	day := 24 * time.Hour
-	if compiledAt.Add(30 * day).Before(now) {
-		if lastUpdate == nil || lastUpdate.Add(30*day).Before(now) {
-			fmt.Printf(Info + "Check for updates with the 'update' command")
-		}
-	}
 }
 
 func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
@@ -212,6 +195,24 @@ func printLogo(sliverApp *grumble.App, rpc rpcpb.SliverRPCClient) {
 	fmt.Println()
 	if serverVer.Major != int32(version.SemanticVersion()[0]) {
 		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
+	}
+	checkLastUpdate()
+}
+
+func checkLastUpdate() {
+	now := time.Now()
+	lastUpdate := cmd.GetLastUpdateCheck()
+	compiledAt, err := version.Compiled()
+	if err != nil {
+		log.Printf("Failed to parse compiled at timestamp %s", err)
+		return
+	}
+
+	day := 24 * time.Hour
+	if compiledAt.Add(30 * day).Before(now) {
+		if lastUpdate == nil || lastUpdate.Add(30*day).Before(now) {
+			fmt.Printf(Info + "Check for updates with the 'update' command\n\n")
+		}
 	}
 }
 
