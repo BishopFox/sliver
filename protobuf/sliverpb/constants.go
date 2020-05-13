@@ -143,6 +143,23 @@ const (
 
 	// MsgNetstatReq - Netstat request
 	MsgNetstatReq
+
+	// MsgNamedPipesReq - Request to take create a new named pipe listener
+	MsgNamedPipesReq
+	// MsgNamedPipes - Response with the result
+	MsgNamedPipes
+
+	// MsgTCPPivotReq - Request to take create a new MTLS listener
+	MsgTCPPivotReq
+	// MsgTCPPivot - Response with the result
+	MsgTCPPivot
+
+	// MsgPivotOpen - Request to create a new pivot tunnel
+	MsgPivotOpen
+	// MsgPivotClose - Request to notify the closing of an existing pivot tunnel
+	MsgPivotClose
+	// MsgPivotData - Request that encapsulates and envelope form a sliver to the server though the pivot and viceversa
+	MsgPivotData
 )
 
 // MsgNumber - Get a message number of type
@@ -268,6 +285,23 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *NetstatReq:
 		return MsgNetstatReq
+	
+	case *NamedPipesReq:
+		return MsgNamedPipesReq
+	case *NamedPipes:
+		return MsgNamedPipes
+
+	case *TCPPivotReq:
+		return MsgTCPPivotReq
+	case *TCPPivot:
+		return MsgTCPPivot
+
+	case *PivotOpen:
+		return MsgPivotOpen
+	case *PivotClose:
+		return MsgPivotClose
+	case *PivotData:
+		return MsgPivotData
 
 	}
 	return uint32(0)

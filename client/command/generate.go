@@ -242,6 +242,12 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 	dnsC2 := parseDNSc2(ctx.Flags.String("dns"))
 	c2s = append(c2s, dnsC2...)
 
+	namedPipeC2 := parseNamedPipec2(ctx.Flags.String("named-pipe"))
+	c2s = append(c2s, namedPipeC2...)
+
+	tcpPivotC2 := parseTCPPivotc2(ctx.Flags.String("tcp-pivot"))
+	c2s = append(c2s, tcpPivotC2...)
+
 	var symbolObfuscation bool
 	if ctx.Flags.Bool("debug") {
 		symbolObfuscation = false
@@ -249,8 +255,8 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 		symbolObfuscation = !ctx.Flags.Bool("skip-symbols")
 	}
 
-	if len(mtlsC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 {
-		fmt.Printf(Warn + "Must specify at least one of --mtls, --http, or --dns\n")
+	if len(mtlsC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 && len(namedPipeC2) == 0 && len(tcpPivotC2) == 0 {
+		fmt.Printf(Warn + "Must specify at least one of --mtls, --http, --dns, --named-pipe, or --tcp-pivot\n")
 		return nil
 	}
 
@@ -306,6 +312,12 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 	if arch == "x86" || strings.HasPrefix(arch, "32") {
 		arch = "386"
 	}
+
+	if len(namedPipeC2) > 0 && targetOS != "windows" {
+		fmt.Printf(Warn + "Named pipe pivoting can only be used in Windows.")
+		return nil
+	}
+
 
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
@@ -395,6 +407,47 @@ func parseDNSc2(args string) []*clientpb.ImplantC2 {
 		}
 
 		uri.Host = arg
+		c2s = append(c2s, &clientpb.ImplantC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s
+}
+
+func parseNamedPipec2(args string) []*clientpb.ImplantC2 {
+	c2s := []*clientpb.ImplantC2{}
+	if args == "" {
+		return c2s
+	}
+	for index, arg := range strings.Split(args, ",") {
+		uri, err := url.Parse("namedpipe://" + arg)
+		if len(arg) < 1 {
+			continue
+		}
+		if err != nil {
+			return c2s
+		}
+		c2s = append(c2s, &clientpb.ImplantC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s
+}
+
+func parseTCPPivotc2(args string) []*clientpb.ImplantC2 {
+	c2s := []*clientpb.ImplantC2{}
+	if args == "" {
+		return c2s
+	}
+	for index, arg := range strings.Split(args, ",") {
+		
+		uri := url.URL{Scheme: "tcppivot"}
+		uri.Host = arg
+		if uri.Port() == "" {
+			uri.Host = fmt.Sprintf("%s:%d", uri.Host, defaultTCPPivotPort)
+		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
 			URL:      uri.String(),

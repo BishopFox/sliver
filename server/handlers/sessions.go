@@ -45,6 +45,12 @@ func GetSessionHandlers() map[uint32]interface{} {
 	return sessionHandlers
 }
 
+// AddSessionHandlers -  Adds a new handler to the map of server-side msg handlers
+func AddSessionHandlers(key uint32, value interface{}) {
+	sessionHandlers[key] = value
+}
+
+
 func registerSessionHandler(session *core.Session, data []byte) {
 	register := &sliverpb.Register{}
 	err := proto.Unmarshal(data, register)
@@ -52,6 +58,14 @@ func registerSessionHandler(session *core.Session, data []byte) {
 		handlerLog.Warnf("error decoding message: %v", err)
 		return
 	}
+
+	if session == nil {
+		return
+	}
+
+
+	handlerLog.Warnf("%v", session)
+	handlerLog.Warnf("%v", register)
 
 	session.Name = register.Name
 	session.Hostname = register.Hostname

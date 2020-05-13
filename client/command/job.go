@@ -116,9 +116,9 @@ func startMTLSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Port: uint32(lport),
 	})
 	if err != nil {
-		fmt.Printf(Warn+"%s\n", err)
+		fmt.Printf("\n"+Warn+"%s\n", err)
 	} else {
-		fmt.Printf(Info+"Successfully started job #%d\n", mtls.JobID)
+		fmt.Printf("\n"+Info+"Successfully started job #%d\n", mtls.JobID)
 	}
 }
 
@@ -137,9 +137,9 @@ func startDNSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Canaries: !ctx.Flags.Bool("no-canaries"),
 	})
 	if err != nil {
-		fmt.Printf(Warn+"%s\n", err)
+		fmt.Printf("\n"+Warn+"%s\n", err)
 	} else {
-		fmt.Printf(Info+"Successfully started job #%d\n", dns.JobID)
+		fmt.Printf("\n"+Info+"Successfully started job #%d\n", dns.JobID)
 	}
 }
 
@@ -150,7 +150,7 @@ func startHTTPSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	cert, key, err := getLocalCertificatePair(ctx)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to load local certificate %v", err)
+		fmt.Printf("\n"+Warn+"Failed to load local certificate %v", err)
 		return
 	}
 
@@ -165,9 +165,9 @@ func startHTTPSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		ACME:    ctx.Flags.Bool("lets-encrypt"),
 	})
 	if err != nil {
-		fmt.Printf(Warn+"%s\n", err)
+		fmt.Printf("\n"+Warn+"%s\n", err)
 	} else {
-		fmt.Printf(Info+"Successfully started job #%d\n", https.JobID)
+		fmt.Printf("\n"+Info+"Successfully started job #%d\n", https.JobID)
 	}
 }
 

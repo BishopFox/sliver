@@ -49,6 +49,7 @@ var (
 
 // StartMutualTLSListener - Start a mutual TLS listener
 func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error) {
+	StartPivotListener()
 	mtlsLog.Infof("Starting raw TCP/mTLS listener on %s:%d", bindIface, port)
 	host := bindIface
 	if host == "" {
