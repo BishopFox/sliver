@@ -541,10 +541,14 @@ func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) 
 
 // stagerHander - Serves the sliver shellcode to the stager requesting it
 func (s *SliverHTTPC2) stagerHander(resp http.ResponseWriter, req *http.Request) {
-	httpLog.Infof("Received staging request from %s", req.RemoteAddr)
-	resp.Write(s.SliverShellcode)
-	httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverShellcode), req.RemoteAddr)
-	resp.WriteHeader(200)
+	if len(s.SliverShellcode) != 0 {
+		httpLog.Infof("Received staging request from %s", req.RemoteAddr)
+		resp.Write(s.SliverShellcode)
+		httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverShellcode), req.RemoteAddr)
+		resp.WriteHeader(200)
+	} else {
+		resp.WriteHeader(404)
+	}
 }
 
 func (s *SliverHTTPC2) getHTTPSession(req *http.Request) *HTTPSession {
