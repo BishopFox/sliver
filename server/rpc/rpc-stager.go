@@ -96,7 +96,7 @@ func jobStartHTTPStagerListener(conf *c2.HTTPServerConfig, data []byte) (*core.J
 	if conf.Secure {
 		name = "https"
 	}
-	server.SliverShellcode = data
+	server.SliverStage = data
 	job := &core.Job{
 		ID:          core.NextJobID(),
 		Name:        name,
