@@ -129,11 +129,11 @@ type HTTPServerConfig struct {
 
 // SliverHTTPC2 - Holds refs to all the C2 objects
 type SliverHTTPC2 struct {
-	HTTPServer      *http.Server
-	Conf            *HTTPServerConfig
-	HTTPSessions    *HTTPSessions
-	SliverShellcode []byte // Sliver shellcode to serve during staging process
-	Cleanup         func()
+	HTTPServer   *http.Server
+	Conf         *HTTPServerConfig
+	HTTPSessions *HTTPSessions
+	SliverStage  []byte // Sliver shellcode to serve during staging process
+	Cleanup      func()
 
 	server    string
 	poweredBy string
@@ -541,10 +541,10 @@ func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) 
 
 // stagerHander - Serves the sliver shellcode to the stager requesting it
 func (s *SliverHTTPC2) stagerHander(resp http.ResponseWriter, req *http.Request) {
-	if len(s.SliverShellcode) != 0 {
+	if len(s.SliverStage) != 0 {
 		httpLog.Infof("Received staging request from %s", req.RemoteAddr)
-		resp.Write(s.SliverShellcode)
-		httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverShellcode), req.RemoteAddr)
+		resp.Write(s.SliverStage)
+		httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverStage), req.RemoteAddr)
 		resp.WriteHeader(200)
 	} else {
 		resp.WriteHeader(404)
