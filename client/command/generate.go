@@ -318,7 +318,6 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 		return nil
 	}
 
-
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
 		GOARCH:           arch,
@@ -442,7 +441,7 @@ func parseTCPPivotc2(args string) []*clientpb.ImplantC2 {
 		return c2s
 	}
 	for index, arg := range strings.Split(args, ",") {
-		
+
 		uri := url.URL{Scheme: "tcppivot"}
 		uri.Host = arg
 		if uri.Port() == "" {
@@ -539,37 +538,50 @@ func profiles(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintf(table, "Name\tPlatform\tCommand & Control\tDebug\tLimitations\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+	fmt.Fprintf(table, "Name\tPlatform\tCommand & Control\tDebug\tFormat\tObfuscation\tLimitations\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("Name")),
 		strings.Repeat("=", len("Platform")),
 		strings.Repeat("=", len("Command & Control")),
 		strings.Repeat("=", len("Debug")),
+		strings.Repeat("=", len("Format")),
+		strings.Repeat("=", len("Obfuscation")),
 		strings.Repeat("=", len("Limitations")))
 
 	for name, profile := range *profiles {
 		config := profile.Config
 		if 0 < len(config.C2) {
-			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
+			obfuscation := "strings only"
+			if config.ObfuscateSymbols {
+				obfuscation = "symbols obfuscation"
+			}
+			if config.Debug {
+				obfuscation = "none"
+			}
+			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 				name,
 				fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
 				fmt.Sprintf("[1] %s", config.C2[0].URL),
 				fmt.Sprintf("%v", config.Debug),
+				fmt.Sprintf("%v", config.Format),
+				fmt.Sprintf("%s", obfuscation),
 				getLimitsString(config),
 			)
 		}
 		if 1 < len(config.C2) {
 			for index, c2 := range config.C2[1:] {
-				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
+				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 					"",
 					"",
 					fmt.Sprintf("[%d] %s", index+2, c2.URL),
 					"",
 					"",
+					"",
+					"",
 				)
 			}
 		}
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n", "", "", "", "", "")
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "", "", "", "", "", "", "")
 	}
 	table.Flush()
 }
