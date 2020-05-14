@@ -188,6 +188,8 @@ func generateStager(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
+	ctrl := make(chan bool)
+	go spin.Until("Generating stager, please wait ...", ctrl)
 	stageFile, err := rpc.MsfStage(context.Background(), &clientpb.MsfStagerReq{
 		Arch:     arch,
 		BadChars: bChars,
@@ -197,6 +199,8 @@ func generateStager(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Protocol: stageProto,
 		OS:       stageOS,
 	})
+	ctrl <- true
+	<-ctrl
 
 	if err != nil {
 		fmt.Printf(Warn+"Error: %v", err)
@@ -207,7 +211,7 @@ func generateStager(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		saveTo, _ := filepath.Abs(save)
 		fi, err := os.Stat(saveTo)
 		if err != nil {
-			fmt.Printf(Warn+"Failed to generate sliver egg %v\n", err)
+			fmt.Printf(Warn+"Failed to generate sliver stager %v\n", err)
 			return
 		}
 		if fi.IsDir() {
@@ -218,7 +222,7 @@ func generateStager(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
 			return
 		}
-		fmt.Printf(Info+"Sliver egg saved to: %s\n", saveTo)
+		fmt.Printf(Info+"Sliver stager saved to: %s\n", saveTo)
 	} else {
 		fmt.Println(Info + "Here's your stager:")
 		fmt.Println(string(stageFile.GetFile().GetData()))
