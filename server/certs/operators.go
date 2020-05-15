@@ -38,7 +38,7 @@ const (
 // OperatorClientGenerateCertificate - Generate a certificate signed with a given CA
 func OperatorClientGenerateCertificate(operator string) ([]byte, []byte, error) {
 	cert, key := GenerateECCCertificate(OperatorCA, operator, false, true)
-	err := SaveCertificate(OperatorCA, RSAKey, fmt.Sprintf("%s.%s", clientNamespace, operator), cert, key)
+	err := SaveCertificate(OperatorCA, ECCKey, fmt.Sprintf("%s.%s", clientNamespace, operator), cert, key)
 	return cert, key, err
 }
 
