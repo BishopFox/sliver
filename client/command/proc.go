@@ -41,8 +41,10 @@ import (
 var (
 	// Stylizes known processes in the `ps` command
 	knownProcs = map[string]string{
-		"ccSvcHst.exe": red, // SEP
-		"cb.exe":       red, // Carbon Black
+		"ccSvcHst.exe":    red, // SEP
+		"cb.exe":          red, // Carbon Black
+		"MsMpEng.exe":     red, // Windows Defender
+		"smartscreen.exe": red, // Windows Defender Smart Screen
 	}
 )
 

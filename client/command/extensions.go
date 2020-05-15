@@ -27,6 +27,7 @@ import (
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
+	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
@@ -220,6 +221,9 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	if c.IsAssembly {
+		ctrl := make(chan bool)
+		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, args)
+		go spin.Until(msg, ctrl)
 		executeAssemblyResp, err := rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
 			Request:    ActiveSession.Request(ctx),
 			AmsiBypass: true,
@@ -227,7 +231,8 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			Assembly:   binData,
 			Process:    processName,
 		})
-
+		ctrl <- true
+		<-ctrl
 		if err != nil {
 			fmt.Printf(Warn+"Error: %v", err)
 			return
@@ -239,6 +244,9 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			fmt.Printf(Warn+"Error: %v\n", err)
 			return
 		}
+		ctrl := make(chan bool)
+		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, args)
+		go spin.Until(msg, ctrl)
 		spawnDllResp, err := rpc.SpawnDll(context.Background(), &sliverpb.SpawnDllReq{
 			Request:     ActiveSession.Request(ctx),
 			Args:        strings.Trim(args, " "),
@@ -246,6 +254,8 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			ProcessName: processName,
 			Offset:      offset,
 		})
+		ctrl <- true
+		<-ctrl
 
 		if err != nil {
 			fmt.Printf(Warn+"Error: %v", err)
@@ -254,6 +264,9 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 		fmt.Printf(Info+"Output:\n%s", spawnDllResp.GetResult())
 	} else {
+		ctrl := make(chan bool)
+		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, args)
+		go spin.Until(msg, ctrl)
 		sideloadResp, err := rpc.Sideload(context.Background(), &sliverpb.SideloadReq{
 			Request:     ActiveSession.Request(ctx),
 			Args:        args,
@@ -261,6 +274,8 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			EntryPoint:  entryPoint,
 			ProcessName: processName,
 		})
+		ctrl <- true
+		<-ctrl
 
 		if err != nil {
 			fmt.Printf(Warn+"Error: %v", err)
