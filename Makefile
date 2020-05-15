@@ -95,12 +95,33 @@ packr:
 	packr
 	cd ..
 
+release:
+	mkdir -p release-${VERSION}/linux
+	mkdir -p release-${VERSION}/macos
+	mkdir -p release-${VERSION}/windows
+
+	$(MAKE) linux
+	zip release-${VERSION}/linux/sliver-client_linux.zip ./sliver-client
+	$(MAKE) static-linux
+	zip release-${VERSION}/linux/sliver-server_linux.zip ./sliver-server
+
+	$(MAKE) macos
+	zip release-${VERSION}/macos/sliver-client_macos.zip ./sliver-client
+	$(MAKE) static-macos
+	zip release-${VERSION}/macos/sliver-server_macos.zip ./sliver-server
+
+	$(MAKE) windows
+	zip release-${VERSION}/windows/sliver-client_windows.zip ./sliver-client.exe
+	$(MAKE) static-windows
+	zip release-${VERSION}/windows/sliver-server_windows.zip ./sliver-server.exe
+
 .PHONY: clean-all
 clean-all: clean
 	rm -f ./assets/darwin/go.zip
 	rm -f ./assets/windows/go.zip
 	rm -f ./assets/linux/go.zip
 	rm -f ./assets/*.zip
+	rm -rf ./release-*
 
 .PHONY: clean
 clean:
