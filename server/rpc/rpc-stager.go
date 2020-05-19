@@ -21,6 +21,7 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"net"
 	"sync"
 
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -31,7 +32,11 @@ import (
 
 // StartTCPStagerListener starts a TCP stager listener
 func (rpc *Server) StartTCPStagerListener(ctx context.Context, req *clientpb.StagerListenerReq) (*clientpb.StagerListener, error) {
-	jobID, err := jobStartTCPStagerListener(req.GetHost(), uint16(req.GetPort()), req.GetData())
+	host := req.GetHost()
+	if !checkInterface(req.GetHost()) {
+		host = "0.0.0.0"
+	}
+	jobID, err := jobStartTCPStagerListener(host, uint16(req.GetPort()), req.GetData())
 	return &clientpb.StagerListener{JobID: uint32(jobID)}, err
 }
 
@@ -41,8 +46,12 @@ func (rpc *Server) StartHTTPStagerListener(ctx context.Context, req *clientpb.St
 	if req.GetProtocol() == clientpb.StageProtocol_HTTPS {
 		secure = true
 	}
+	host := req.GetHost()
+	if !checkInterface(req.GetHost()) {
+		host = "0.0.0.0"
+	}
 	conf := &c2.HTTPServerConfig{
-		Addr:   fmt.Sprintf("%s:%d", req.Host, req.Port),
+		Addr:   fmt.Sprintf("%s:%d", host, req.Port),
 		LPort:  uint16(req.Port),
 		Domain: req.Host,
 		Secure: secure,
@@ -100,7 +109,7 @@ func jobStartHTTPStagerListener(conf *c2.HTTPServerConfig, data []byte) (*core.J
 	job := &core.Job{
 		ID:          core.NextJobID(),
 		Name:        name,
-		Description: fmt.Sprintf("Egg handler %s for domain %s", name, conf.Domain),
+		Description: fmt.Sprintf("Stager handler %s for domain %s", name, conf.Domain),
 		Protocol:    "tcp",
 		Port:        uint16(conf.LPort),
 		JobCtrl:     make(chan bool),
@@ -142,4 +151,29 @@ func jobStartHTTPStagerListener(conf *c2.HTTPServerConfig, data []byte) (*core.J
 	}()
 
 	return job, nil
+}
+
+// checkInterface verifies if an IP address
+// is attached to an existing network interface
+func checkInterface(a string) bool {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return false
+	}
+	for _, i := range interfaces {
+		addresses, err := i.Addrs()
+		if err != nil {
+			return false
+		}
+		for _, netAddr := range addresses {
+			addr, err := net.ResolveTCPAddr("tcp", netAddr.String())
+			if err != nil {
+				return false
+			}
+			if addr.IP.String() == a {
+				return true
+			}
+		}
+	}
+	return false
 }
