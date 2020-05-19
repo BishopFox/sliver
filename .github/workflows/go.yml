@@ -2,6 +2,7 @@ name: Go
 on:
   push:
     branches: 
+      - master
       - test/*
 
 jobs:
@@ -61,4 +62,4 @@ jobs:
       run: export PATH=/home/runner/go/bin/:$PATH && make static-linux
 
     - name: Test
-      run: ls -l && ./sliver-server -unpack && ./go-tests.sh
+      run: ./sliver-server -unpack && ./go-tests.sh
