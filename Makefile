@@ -95,6 +95,7 @@ packr:
 	packr
 	cd ..
 
+.PHONY: release
 release:
 	mkdir -p release-${VERSION}/linux
 	mkdir -p release-${VERSION}/macos
@@ -128,6 +129,5 @@ clean:
 	packr clean
 	rm -f ./protobuf/client/*.pb.go
 	rm -f ./protobuf/sliver/*.pb.go
-	rm -f ./client/version/version.go
 	rm -f sliver-client sliver-server *.exe
 
