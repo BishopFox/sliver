@@ -1,12 +1,14 @@
-name: Go
+name: Unit Tests
 on:
   push:
     branches: 
       - master
+      - stage
       - test/*
   pull_request:
     branches:
       - master
+      - stage
 
 jobs:
 
@@ -56,5 +58,6 @@ jobs:
     - name: Make
       run: export PATH=/home/runner/go/bin/:$PATH && make static-linux
 
+  test:
     - name: Test
       run: ./sliver-server -unpack && ./go-tests.sh
