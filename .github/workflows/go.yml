@@ -59,5 +59,7 @@ jobs:
       run: export PATH=/home/runner/go/bin/:$PATH && make static-linux
 
   test:
+    steps:
     - name: Test
       run: ./sliver-server -unpack && ./go-tests.sh
+
