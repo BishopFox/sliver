@@ -31,7 +31,7 @@ jobs:
 
     - name: Protoc
       env:
-        PROTOC_VER: 3.7.1
+        PROTOC_VER: 3.11.4
       run: |
         wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip \
         && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
@@ -74,10 +74,10 @@ jobs:
 
     - name: Protoc
       env:
-        PROTOC_VER: 3.7.1
+        PROTOC_VER: 3.11.4
       run: |
-        wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip \
-        && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
+        wget -O protoc-${PROTOC_VER}-osx-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-osx-x86_64.zip \
+        && unzip protoc-${PROTOC_VER}-osx-x86_64.zip \
         && sudo cp -vv ./bin/protoc /usr/local/bin/protoc
 
     - name: Protoc-gen-go
@@ -98,8 +98,8 @@ jobs:
     - name: Go Assets
       run: ./go-assets.sh
 
-    - name: Go Assets
-      run: pwd && ls -lah
+    - name: Enum
+      run: pwd && ls -lah ~
 
     - name: Make
       run: export PATH=/Users/runner/go/bin/:$PATH && make static-macos
