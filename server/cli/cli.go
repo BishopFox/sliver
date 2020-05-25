@@ -23,6 +23,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/server/assets"
@@ -50,8 +51,8 @@ const (
 	saveFlagStr  = "save"
 
 	// Cert flags
-	pathFlagStr   = "path"
 	caTypeFlagStr = "type"
+	loadFlagStr   = "load"
 
 	logFileName = "console.log"
 )
@@ -81,12 +82,14 @@ func init() {
 	rootCmd.AddCommand(cmdOperator)
 
 	// Certs
-	cmdExportCA.Flags().StringP(pathFlagStr, "p", "", "export a ca")
-	cmdExportCA.Flags().StringP(caTypeFlagStr, "t", "", "ca type")
+	cmdExportCA.Flags().StringP(saveFlagStr, "s", "", "save CA to file ...")
+	cmdExportCA.Flags().StringP(caTypeFlagStr, "t", "",
+		fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
 	rootCmd.AddCommand(cmdExportCA)
 
-	cmdImportCA.Flags().StringP(pathFlagStr, "p", "", "export a ca")
-	cmdImportCA.Flags().StringP(caTypeFlagStr, "t", "", "ca type")
+	cmdImportCA.Flags().StringP(loadFlagStr, "l", "", "load CA from file ...")
+	cmdImportCA.Flags().StringP(caTypeFlagStr, "t", "",
+		fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
 	rootCmd.AddCommand(cmdImportCA)
 
 	// Version

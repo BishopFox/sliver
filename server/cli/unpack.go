@@ -33,7 +33,7 @@ var cmdUnpack = &cobra.Command{
 
 		force, err := cmd.Flags().GetBool(forceFlagStr)
 		if err != nil {
-			fmt.Printf("Failed to parse --%s flag %s", forceFlagStr, err)
+			fmt.Printf("Failed to parse --%s flag %s\n", forceFlagStr, err)
 			return
 		}
 
