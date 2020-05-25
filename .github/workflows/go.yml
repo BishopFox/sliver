@@ -59,7 +59,7 @@ jobs:
       run: export PATH=/home/runner/go/bin/:$PATH && make static-linux
 
     - name: Test
-      run: ./sliver-server -unpack && ./go-tests.sh
+      run: ./sliver-server unpack --force && ./go-tests.sh
 
     - name: Linux Artifact
       uses: actions/upload-artifact@v2
@@ -123,7 +123,7 @@ jobs:
       env:
         SLIVER_CC_32: /usr/local/bin/i686-w64-mingw32-gcc
         SLIVER_CC_64: /usr/local/bin/x86_64-w64-mingw32-gcc
-      run: ./sliver-server -unpack && ./go-tests.sh
+      run: ./sliver-server unpack --force && ./go-tests.sh
 
     - name: MacOS Artifact
       uses: actions/upload-artifact@v2
