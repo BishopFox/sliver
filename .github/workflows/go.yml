@@ -1,4 +1,4 @@
-name: Unit Tests
+name: Build & Test
 on:
   push:
     branches: 
@@ -12,8 +12,8 @@ on:
 
 jobs:
 
-  linux:
-    name: Linux Build
+  linux-windows-build:
+    name: Linux & Windows Build
     runs-on: ubuntu-latest
     steps:
 
@@ -76,8 +76,7 @@ jobs:
         name: sliver-server_windows.exe
         path: ./sliver-server.exe
 
-
-  macos:
+  macos-build:
     name: MacOS Build
     runs-on: macos-latest
     steps:
@@ -131,3 +130,16 @@ jobs:
       with:
         name: sliver-server_macos
         path: ./sliver-server
+
+#
+# > Integration Tests
+#
+
+  linux-ci:
+    needs: linux-windows-build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: sliver-server_linux
