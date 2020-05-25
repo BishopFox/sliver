@@ -60,10 +60,12 @@ jobs:
 
     - name: Test
       run: ./sliver-server -unpack && ./go-tests.sh
-    
+
+    - name: Static Build
+      run: make static-linux
+
     - Name: Linux Artifact
       uses: actions/upload-artifact@v2
-      run: make static-linux
       with:
         name: sliver-server_linux
         path: ./sliver-server
@@ -117,9 +119,11 @@ jobs:
         SLIVER_CC_64: /usr/local/bin/x86_64-w64-mingw32-gcc
       run: ./sliver-server -unpack && ./go-tests.sh
 
+    - name: Static Build
+      run: make static-macos
+
     - Name: MacOS Artifact
       uses: actions/upload-artifact@v2
-      run: make static-macos
       with:
         name: sliver-server_macos
         path: ./sliver-server
