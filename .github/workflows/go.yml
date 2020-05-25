@@ -60,6 +60,13 @@ jobs:
 
     - name: Test
       run: ./sliver-server -unpack && ./go-tests.sh
+    
+    - Name: Linux Artifact
+      uses: actions/upload-artifact@v2
+      run: make static-linux
+      with:
+        name: sliver-server_linux
+        path: ./sliver-server
 
   macos:
     name: MacOS Build
@@ -71,6 +78,9 @@ jobs:
       with:
         go-version: 1.14
       id: go
+
+    - name: Mingw
+      run: brew install mingw-w64
 
     - name: Protoc
       env:
@@ -98,8 +108,18 @@ jobs:
     - name: Go Assets
       run: ./go-assets.sh
 
-    - name: Enum
-      run: pwd && ls -lah ~
-
     - name: Make
       run: export PATH=/Users/runner/go/bin/:$PATH && make static-macos
+
+    - name: Test
+      env:
+        SLIVER_CC_32: /usr/local/bin/i686-w64-mingw32-gcc
+        SLIVER_CC_64: /usr/local/bin/x86_64-w64-mingw32-gcc
+      run: ./sliver-server -unpack && ./go-tests.sh
+
+    - Name: MacOS Artifact
+      uses: actions/upload-artifact@v2
+      run: make static-macos
+      with:
+        name: sliver-server_macos
+        path: ./sliver-server
