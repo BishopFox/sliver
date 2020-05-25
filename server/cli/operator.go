@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/console"
 	"github.com/spf13/cobra"
 )
@@ -69,6 +70,7 @@ var cmdOperator = &cobra.Command{
 			save, _ = os.Getwd()
 		}
 
+		certs.SetupCAs()
 		configJSON, err := console.NewPlayerConfig(name, lhost, lport)
 		if err != nil {
 			fmt.Printf("Failed: %s\n", err)

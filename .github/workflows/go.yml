@@ -136,15 +136,17 @@ jobs:
 #
 
   linux-ci:
-    name: Linux CI
     needs: linux-windows-build
     runs-on: ubuntu-latest
+    name: Linux CI
+
     steps:
-    - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2
       with:
         name: sliver-server_linux
+        path: sliver-server
 
     - uses: actions/checkout@master
       with:
         name: moloch--/sliver-ci
+

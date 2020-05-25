@@ -49,6 +49,10 @@ const (
 	lportFlagStr = "lport"
 	saveFlagStr  = "save"
 
+	// Cert flags
+	pathFlagStr   = "path"
+	caTypeFlagStr = "type"
+
 	logFileName = "console.log"
 )
 
@@ -75,6 +79,15 @@ func init() {
 	cmdOperator.Flags().Uint16P(lportFlagStr, "p", uint16(1337), "listener port")
 	cmdOperator.Flags().StringP(saveFlagStr, "s", "", "save file to ...")
 	rootCmd.AddCommand(cmdOperator)
+
+	// Certs
+	cmdExportCA.Flags().StringP(pathFlagStr, "p", "", "export a ca")
+	cmdExportCA.Flags().StringP(caTypeFlagStr, "t", "", "ca type")
+	rootCmd.AddCommand(cmdExportCA)
+
+	cmdImportCA.Flags().StringP(pathFlagStr, "p", "", "export a ca")
+	cmdImportCA.Flags().StringP(caTypeFlagStr, "t", "", "ca type")
+	rootCmd.AddCommand(cmdImportCA)
 
 	// Version
 	rootCmd.AddCommand(cmdVersion)
