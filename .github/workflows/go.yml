@@ -67,6 +67,16 @@ jobs:
         name: sliver-server_linux
         path: ./sliver-server
 
+    - name: Make Windows
+      run: export PATH=/home/runner/go/bin/:$PATH && make static-windows
+  
+    - name: Windows Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: sliver-server_windows.exe
+        path: ./sliver-server.exe
+
+
   macos:
     name: MacOS Build
     runs-on: macos-latest
