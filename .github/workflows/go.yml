@@ -64,7 +64,7 @@ jobs:
     - name: Static Build
       run: make static-linux
 
-    - Name: Linux Artifact
+    - name: Linux Artifact
       uses: actions/upload-artifact@v2
       with:
         name: sliver-server_linux
@@ -122,7 +122,7 @@ jobs:
     - name: Static Build
       run: make static-macos
 
-    - Name: MacOS Artifact
+    - name: MacOS Artifact
       uses: actions/upload-artifact@v2
       with:
         name: sliver-server_macos
