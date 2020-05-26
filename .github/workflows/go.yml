@@ -141,14 +141,14 @@ jobs:
     name: Linux CI
 
     steps:
+    - uses: actions/checkout@master
+      with:
+        repository: moloch--/sliver-ci
+
     - uses: actions/download-artifact@v2
       with:
         name: sliver-server_linux
         path: sliver-server
-
-    - uses: actions/checkout@master
-      with:
-        repository: moloch--/sliver-ci
 
     - name: Enum
       run: ls -lah
