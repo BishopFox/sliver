@@ -141,14 +141,21 @@ jobs:
     name: Linux CI
 
     steps:
+    - uses: actions/setup-node@v1
+      with:
+        node-version: '14'
+    - run: npm install -g ts-node typescript
+
     - uses: actions/checkout@master
       with:
         repository: moloch--/sliver-ci
+    - name: NPM Install
+      run: npm install
 
     - uses: actions/download-artifact@v2
       with:
         name: sliver-server_linux
         path: sliver-server
 
-    - name: Enum
-      run: ls -lah
+    - name: CI Tests
+      run: ts-node ./index.ts
