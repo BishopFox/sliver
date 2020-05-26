@@ -148,5 +148,7 @@ jobs:
 
     - uses: actions/checkout@master
       with:
-        name: moloch--/sliver-ci
+        repository: moloch--/sliver-ci
 
+    - name: Enum
+      run: ls -lah

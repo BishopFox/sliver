@@ -1,17 +1,5 @@
 package cli
 
-import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-
-	"github.com/bishopfox/sliver/server/certs"
-	"github.com/spf13/cobra"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -29,6 +17,18 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/bishopfox/sliver/server/certs"
+	"github.com/spf13/cobra"
+)
 
 var (
 	// CATypes - CA types
