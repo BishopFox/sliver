@@ -237,7 +237,7 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			fmt.Printf(Warn+"Error: %v", err)
 			return
 		}
-		fmt.Printf(Info+"Output:\n%s", executeAssemblyResp.GetOutput())
+		fmt.Printf(Info+"Output:\n%s", string(executeAssemblyResp.GetOutput()))
 	} else if c.IsReflective {
 		offset, err := getExportOffset(binPath, c.Entrypoint)
 		if err != nil {

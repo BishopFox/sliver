@@ -270,7 +270,7 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn+"Error: %s\n", executeAssembly.GetResponse().GetErr())
 		return
 	}
-	fmt.Printf(Info+"Assembly output:\n%s", executeAssembly.GetOutput())
+	fmt.Printf(Info+"Assembly output:\n%s", string(executeAssembly.GetOutput()))
 }
 
 func sideload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {

