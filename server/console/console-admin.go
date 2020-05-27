@@ -20,6 +20,7 @@ package console
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -62,6 +63,10 @@ const (
 	Woot = bold + green + "[$] " + normal
 )
 
+var (
+	namePattern = regexp.MustCompile("^[a-zA-Z0-9_]*$") // Only allow alphanumeric chars
+)
+
 // ClientConfig - Client JSON config
 type ClientConfig struct {
 	Operator      string `json:"operator"`
@@ -75,42 +80,20 @@ type ClientConfig struct {
 func newOperatorCmd(ctx *grumble.Context) {
 	operator := ctx.Flags.String("operator")
 	lhost := ctx.Flags.String("lhost")
-	lport := ctx.Flags.Int("lport")
+	lport := uint16(ctx.Flags.Int("lport"))
 	save := ctx.Flags.String("save")
-
-	regex, _ := regexp.Compile("[^A-Za-z0-9]+") // Only allow alphanumeric chars
-	operator = regex.ReplaceAllString(operator, "")
-
-	if operator == "" {
-		fmt.Printf(Warn + "Operator name required (--operator) \n")
-		return
-	}
-
-	if lhost == "" {
-		fmt.Printf(Warn + "Missing lhost (--lhost) \n")
-		return
-	}
 
 	if save == "" {
 		save, _ = os.Getwd()
 	}
 
 	fmt.Printf(Info + "Generating new client certificate, please wait ... \n")
-	publicKey, privateKey, err := certs.OperatorClientGenerateCertificate(operator)
+	configJSON, err := NewPlayerConfig(operator, lhost, lport)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to generate certificate %s", err)
+		fmt.Printf(Warn+"%s", err)
 		return
 	}
-	caCertPEM, _, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
-	config := ClientConfig{
-		Operator:      operator,
-		LHost:         lhost,
-		LPort:         lport,
-		CACertificate: string(caCertPEM),
-		PrivateKey:    string(privateKey),
-		Certificate:   string(publicKey),
-	}
-	configJSON, _ := json.Marshal(config)
+
 	saveTo, _ := filepath.Abs(save)
 	fi, err := os.Stat(saveTo)
 	if !os.IsNotExist(err) && !fi.IsDir() {
@@ -127,13 +110,47 @@ func newOperatorCmd(ctx *grumble.Context) {
 		return
 	}
 	fmt.Printf(Info+"Saved new client config to: %s \n", saveTo)
+
+}
+
+// NewPlayerConfig - Generate a new player/client/operator configuration
+func NewPlayerConfig(operatorName, lhost string, lport uint16) ([]byte, error) {
+
+	if !namePattern.MatchString(operatorName) {
+		return nil, errors.New("Invalid operator name (alphanumerics only)")
+	}
+
+	if operatorName == "" {
+		return nil, errors.New("Operator name required")
+	}
+
+	if lhost == "" {
+		return nil, errors.New("Invalid lhost")
+	}
+
+	publicKey, privateKey, err := certs.OperatorClientGenerateCertificate(operatorName)
+	if err != nil {
+		return nil, fmt.Errorf(Warn+"Failed to generate certificate %s", err)
+	}
+	caCertPEM, _, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
+	config := ClientConfig{
+		Operator:      operatorName,
+		LHost:         lhost,
+		LPort:         int(lport),
+		CACertificate: string(caCertPEM),
+		PrivateKey:    string(privateKey),
+		Certificate:   string(publicKey),
+	}
+	return json.Marshal(config)
 }
 
 func kickOperatorCmd(ctx *grumble.Context) {
 	operator := ctx.Flags.String("operator")
 
-	regex, _ := regexp.Compile("[^A-Za-z0-9]+") // Only allow alphanumeric chars
-	operator = regex.ReplaceAllString(operator, "")
+	if !namePattern.MatchString(operator) {
+		fmt.Println(Warn + "Invalid operator name (alphanumerics only)")
+		return
+	}
 
 	if operator == "" {
 		fmt.Printf(Warn + "Operator name required (--operator) \n")

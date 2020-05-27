@@ -69,7 +69,7 @@ RUN ./go-assets.sh
 ADD . /go/src/github.com/bishopfox/sliver/
 RUN make static-linux && cp -vv sliver-server /opt/sliver-server
 
-RUN ls -lah && /opt/sliver-server -unpack \
+RUN ls -lah && /opt/sliver-server unpack --force \
   && /go/src/github.com/bishopfox/sliver/go-tests.sh
 RUN make clean \
     && rm -rf /go/src/* \
