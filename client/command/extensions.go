@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path"
 	"strings"
 
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -164,6 +166,7 @@ func load(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			},
 			Flags: func(f *grumble.Flags) {
 				f.String("p", "process", "", "Path to process to host the shared object")
+				f.Bool("s", "save", false, "Save output to disk")
 				f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			},
 			HelpGroup: consts.ExtensionHelpGroup,
@@ -220,6 +223,11 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn+"%s", err.Error())
 		return
 	}
+	var outFilePath *os.File
+	if ctx.Flags.Bool("save") {
+		outFile := path.Base(fmt.Sprintf("%s_%s*.log", ctx.Command.Name, session.GetHostname()))
+		outFilePath, err = ioutil.TempFile("", outFile)
+	}
 	if c.IsAssembly {
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, args)
@@ -237,7 +245,11 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			fmt.Printf(Warn+"Error: %v", err)
 			return
 		}
-		fmt.Printf(Info+"Output:\n%s", executeAssemblyResp.GetOutput())
+		fmt.Printf(Info+"Output:\n%s", string(executeAssemblyResp.GetOutput()))
+		if outFilePath != nil {
+			outFilePath.Write(executeAssemblyResp.GetOutput())
+			fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
+		}
 	} else if c.IsReflective {
 		offset, err := getExportOffset(binPath, c.Entrypoint)
 		if err != nil {
@@ -263,6 +275,10 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		}
 
 		fmt.Printf(Info+"Output:\n%s", spawnDllResp.GetResult())
+		if outFilePath != nil {
+			outFilePath.Write([]byte(spawnDllResp.GetResult()))
+			fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
+		}
 	} else {
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, args)
@@ -283,6 +299,10 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		}
 
 		fmt.Printf(Info+"Output:\n%s", sideloadResp.GetResult())
+		if outFilePath != nil {
+			outFilePath.Write([]byte(sideloadResp.GetResult()))
+			fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
+		}
 	}
 }
 
