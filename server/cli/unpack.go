@@ -1,4 +1,4 @@
-package main
+package cli
 
 /*
 	Sliver Implant Framework
@@ -19,9 +19,24 @@ package main
 */
 
 import (
-	"github.com/bishopfox/sliver/server/cli"
+	"fmt"
+
+	"github.com/bishopfox/sliver/server/assets"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cli.Execute()
+var cmdUnpack = &cobra.Command{
+	Use:   "unpack",
+	Short: "Unpack assets and exit",
+	Long:  ``,
+	Run: func(cmd *cobra.Command, args []string) {
+
+		force, err := cmd.Flags().GetBool(forceFlagStr)
+		if err != nil {
+			fmt.Printf("Failed to parse --%s flag %s\n", forceFlagStr, err)
+			return
+		}
+
+		assets.Setup(force)
+	},
 }
