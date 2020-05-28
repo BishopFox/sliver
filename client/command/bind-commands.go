@@ -975,8 +975,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.String("p", "process", "notepad.exe", "Hosting process to inject into")
-			f.Bool("a", "amsi", true, "Use AMSI bypass")
+			f.String("p", "process", "notepad.exe", "hosting process to inject into")
+			f.Bool("a", "amsi", true, "use AMSI bypass")
+			f.Bool("s", "save", false, "save output to file")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
@@ -1010,6 +1011,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("a", "args", "", "Arguments for the shared library function")
 			f.String("e", "entry-point", "", "Entrypoint for the DLL (Windows only)")
 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
+			f.Bool("s", "save", false, "save output to file")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		AllowArgs: true,
@@ -1029,6 +1031,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
 			f.String("e", "export", "ReflectiveLoader", "Entrypoint of the Reflective DLL")
+			f.Bool("s", "save", false, "save output to file")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		AllowArgs: true,

@@ -29,6 +29,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 
@@ -270,7 +271,16 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn+"Error: %s\n", executeAssembly.GetResponse().GetErr())
 		return
 	}
+	var outFilePath *os.File
+	if ctx.Flags.Bool("save") {
+		outFile := path.Base(fmt.Sprintf("%s_%s*.log", ctx.Command.Name, session.GetHostname()))
+		outFilePath, err = ioutil.TempFile("", outFile)
+	}
 	fmt.Printf(Info+"Assembly output:\n%s", string(executeAssembly.GetOutput()))
+	if outFilePath != nil {
+		outFilePath.Write(executeAssembly.GetOutput())
+		fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
+	}
 }
 
 func sideload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -309,7 +319,16 @@ func sideload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn+"Error: %s\n", sideload.GetResponse().GetErr())
 		return
 	}
+	var outFilePath *os.File
+	if ctx.Flags.Bool("save") {
+		outFile := path.Base(fmt.Sprintf("%s_%s*.log", ctx.Command.Name, session.GetHostname()))
+		outFilePath, err = ioutil.TempFile("", outFile)
+	}
 	fmt.Printf(Info+"Output:\n%s", sideload.GetResult())
+	if outFilePath != nil {
+		outFilePath.Write([]byte(sideload.GetResult()))
+		fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
+	}
 }
 
 func spawnDll(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -359,7 +378,16 @@ func spawnDll(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn+"Error: %s\n", spawndll.GetResponse().GetErr())
 		return
 	}
+	var outFilePath *os.File
+	if ctx.Flags.Bool("save") {
+		outFile := path.Base(fmt.Sprintf("%s_%s*.log", ctx.Command.Name, session.GetHostname()))
+		outFilePath, err = ioutil.TempFile("", outFile)
+	}
 	fmt.Printf(Info+"Output:\n%s", spawndll.GetResult())
+	if outFilePath != nil {
+		outFilePath.Write([]byte(spawndll.GetResult()))
+		fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
+	}
 }
 
 // -------- Utility functions
