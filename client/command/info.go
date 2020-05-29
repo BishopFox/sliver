@@ -22,6 +22,8 @@ import (
 	"context"
 	"fmt"
 
+	insecureRand "math/rand"
+
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -61,7 +63,10 @@ func ping(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if session == nil {
 		return
 	}
+	nonce := insecureRand.Intn(999999)
+	fmt.Printf(Info+"Ping %d\n", nonce)
 	pong, err := rpc.Ping(context.Background(), &sliverpb.Ping{
+		Nonce:   int32(nonce),
 		Request: ActiveSession.Request(ctx),
 	})
 	if err != nil {
