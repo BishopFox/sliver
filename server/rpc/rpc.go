@@ -87,7 +87,11 @@ func (rpc *Server) GetVersion(ctx context.Context, _ *commonpb.Empty) (*clientpb
 
 // GenericHandler - Pass the request to the Sliver/Session
 func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error {
-	session := core.Sessions.Get(req.GetRequest().SessionID)
+	request := req.GetRequest()
+	if request == nil {
+		return errors.New("Missing session request field")
+	}
+	session := core.Sessions.Get(request.SessionID)
 	if session == nil {
 		return ErrInvalidSessionID
 	}

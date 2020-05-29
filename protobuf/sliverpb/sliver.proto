@@ -49,7 +49,7 @@ message Ping {
   int32 Nonce = 1;
 
   // Ping is special
-  commonpb.Request Response = 8;
+  commonpb.Response Response = 8;
   commonpb.Request Request = 9;
 }
 
