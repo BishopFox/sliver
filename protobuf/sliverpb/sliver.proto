@@ -273,7 +273,7 @@ message ExecuteAssemblyReq {
 }
 
 message ExecuteAssembly {
-  string Output = 1;
+  bytes Output = 1;
 
   commonpb.Response Response = 9;
 }
