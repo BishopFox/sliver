@@ -2,8 +2,6 @@ name: Build & Test
 on:
   push:
     branches: 
-      - master
-      - stage
       - test/*
   pull_request:
     branches:
