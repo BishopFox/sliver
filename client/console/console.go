@@ -142,8 +142,9 @@ func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 		case consts.SessionOpenedEvent:
 			session := event.Session
-			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s\n\n",
-				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
+			currentTime := time.Now().Format(time.RFC1123)
+			fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s - %v\n\n",
+				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 
 		case consts.SessionClosedEvent:
 			session := event.Session
