@@ -3,6 +3,9 @@ assets/darwin
 assets/linux
 assets/windows
 
+sliver-server
+sliver-server.exe
+
 gui/
 gui/*
 
