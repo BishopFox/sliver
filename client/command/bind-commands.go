@@ -976,7 +976,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "process", "notepad.exe", "hosting process to inject into")
-			f.Bool("a", "amsi", true, "use AMSI bypass")
+			f.Bool("a", "amsi", true, "use AMSI bypass (enabled by default)")
+			f.Bool("e", "etw", true, "patch EtwEventWrite function to avoid detection (enabled by default)")
 			f.Bool("s", "save", false, "save output to file")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},

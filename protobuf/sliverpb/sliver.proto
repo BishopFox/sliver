@@ -268,6 +268,8 @@ message ExecuteAssemblyReq {
   string Arguments = 3;
   string Process = 4;
   bool AmsiBypass = 5;
+  bool EtwBypass = 6;
+  uint32 Offset = 7;
 
   commonpb.Request Request = 9;
 }

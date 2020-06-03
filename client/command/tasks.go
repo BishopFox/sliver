@@ -258,6 +258,7 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Process:    process,
 		Arguments:  assemblyArgs,
 		Assembly:   assemblyBytes,
+		EtwBypass:  ctx.Flags.Bool("etw"),
 	})
 	ctrl <- true
 	<-ctrl

