@@ -6,8 +6,10 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.0.7
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
 	github.com/BurntSushi/xgb v0.0.0-20200324125942-20f126ea2843
+	github.com/VirusTotal/vt-go v0.0.0-20200128233257-c1b421c1d7ee
 	github.com/aws/aws-sdk-go v1.30.19
 	github.com/cloudflare/cloudflare-go v0.11.7
+	github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d
 	github.com/desertbit/closer/v3 v3.1.2 // indirect
 	github.com/desertbit/columnize v2.1.0+incompatible
 	github.com/desertbit/grumble v1.0.5

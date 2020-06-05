@@ -1169,4 +1169,16 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
+
+	app.AddCommand(&grumble.Command{
+		Name: "monitor",
+		Help: "Monitor threat intel platforms",
+		Run: func(c *grumble.Context) error {
+			fmt.Println()
+			monitor(c, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
 }

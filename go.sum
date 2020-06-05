@@ -16,6 +16,8 @@ github.com/Netflix/go-expect v0.0.0-20190729225929-0e00d9168667 h1:l2RCK7mjLhjfZ
 github.com/Netflix/go-expect v0.0.0-20190729225929-0e00d9168667/go.mod h1:oX5x61PbNXchhh0oikYAH+4Pcfw5LKv21+Jnpr6r6Pc=
 github.com/OneOfOne/xxhash v1.2.2 h1:KMrpdQIwFcEqXDklaen+P1axHaj9BSKzvpUUfnHldSE=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
+github.com/VirusTotal/vt-go v0.0.0-20200128233257-c1b421c1d7ee h1:lR6QdcCJbNEDt2WU+l8k04bnxVWJYc/cbjbNnLiKpEA=
+github.com/VirusTotal/vt-go v0.0.0-20200128233257-c1b421c1d7ee/go.mod h1:JYm6xWAu6hBrmIcmcEne7lmiE9PJ73kthTmrIpvGBu8=
 github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
 github.com/aws/aws-sdk-go v1.30.8 h1:4BHbh8K3qKmcnAgToZ2LShldRF9inoqIBccpCLNCy3I=
 github.com/aws/aws-sdk-go v1.30.8/go.mod h1:5zCpMtNQVjRREroY7sYe8lOMRSxkhG6MZveU8YkpAk0=
@@ -45,6 +47,8 @@ github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d h1:hmOGJg3cq5XK2aMs7R4kXXVSHqHMaC5hI5fwkX7V2zE=
+github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d/go.mod h1:q72QzdO6OUjwTqnLCFJczIQ7GsBa4ffzkQiQcq6rVTY=
 github.com/desertbit/closer/v3 v3.0.1 h1:mZORDd9VbXIgH8OrUyKrS+0sdvNwpR47JB5cgnBTc0I=
 github.com/desertbit/closer/v3 v3.0.1/go.mod h1:AAC4KRd8DC40nwvV967J/kDFhujMEiuwIKQfN0IDxXw=
 github.com/desertbit/closer/v3 v3.1.2 h1:a6+2DmwIcNygW04XXWYq+Qp2X9uIk9QbZCP9//qEkb0=

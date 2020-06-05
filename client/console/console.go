@@ -130,7 +130,13 @@ func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 				fmt.Printf(clearln+"\t🔥 Session #%d is affected\n", session.ID)
 			}
 			fmt.Println()
-
+		case consts.SnitchEvent:
+			fmt.Printf(clearln+Warn+bold+"WARNING: %s%s has been burned (%s)\n", normal, event.Session.Name, string(event.Data))
+			sessions := cmd.GetSessionsByName(event.Session.Name, rpc)
+			for _, session := range sessions {
+				fmt.Printf(clearln+"\t🔥 Session #%d is affected\n", session.ID)
+			}
+			fmt.Println()
 		case consts.JoinedEvent:
 			fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator.Name)
 		case consts.LeftEvent:

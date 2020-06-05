@@ -39,6 +39,7 @@ import (
 	"github.com/bishopfox/sliver/server/gobfuscate"
 	"github.com/bishopfox/sliver/server/gogo"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/server/snitch"
 	"github.com/bishopfox/sliver/util"
 
 	"github.com/gobuffalo/packr"
@@ -51,6 +52,7 @@ var (
 		"386":   "/usr/bin/i686-w64-mingw32-gcc",
 		"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
 	}
+	Monitor *snitch.Snitch
 )
 
 const (
@@ -97,13 +99,13 @@ type ImplantConfig struct {
 	ReconnectInterval   int    `json:"reconnect_interval"`
 	MaxConnectionErrors int    `json:"max_connection_errors"`
 
-	C2            []ImplantC2 `json:"c2s"`
-	MTLSc2Enabled bool        `json:"c2_mtls_enabled"`
-	HTTPc2Enabled bool        `json:"c2_http_enabled"`
-	DNSc2Enabled  bool        `json:"c2_dns_enabled"`
-	CanaryDomains []string    `json:"canary_domains"`
-	NamePipec2Enabled bool    `json:"c2_namedpipe_enabled"`
-	TCPPivotc2Enabled bool    `json:"c2_tcppivot_enabled"`
+	C2                []ImplantC2 `json:"c2s"`
+	MTLSc2Enabled     bool        `json:"c2_mtls_enabled"`
+	HTTPc2Enabled     bool        `json:"c2_http_enabled"`
+	DNSc2Enabled      bool        `json:"c2_dns_enabled"`
+	CanaryDomains     []string    `json:"canary_domains"`
+	NamePipec2Enabled bool        `json:"c2_namedpipe_enabled"`
+	TCPPivotc2Enabled bool        `json:"c2_tcppivot_enabled"`
 
 	// Limits
 	LimitDomainJoined bool   `json:"limit_domainjoined"`
@@ -316,6 +318,7 @@ func SliverShellcode(config *ImplantConfig) (string, error) {
 	if saveFileErr != nil || saveCfgErr != nil {
 		buildLog.Errorf("Failed to save file to db %s %s", saveFileErr, saveCfgErr)
 	}
+	Monitor.AddFromPath(config.Name, dest)
 	return dest, err
 
 }
@@ -373,6 +376,7 @@ func SliverSharedLibrary(config *ImplantConfig) (string, error) {
 	if saveFileErr != nil || saveCfgErr != nil {
 		buildLog.Errorf("Failed to save file to db %s %s", saveFileErr, saveCfgErr)
 	}
+	Monitor.AddFromPath(config.Name, dest)
 	return dest, err
 }
 
@@ -416,6 +420,7 @@ func SliverExecutable(config *ImplantConfig) (string, error) {
 	if saveFileErr != nil || saveCfgErr != nil {
 		buildLog.Errorf("Failed to save file to db %s %s", saveFileErr, saveCfgErr)
 	}
+	Monitor.AddFromPath(config.Name, dest)
 	return dest, err
 }
 
@@ -602,4 +607,8 @@ func randomObfuscationKey() string {
 	rand.Read(randBuf)
 	digest := sha256.Sum256(randBuf)
 	return fmt.Sprintf("%x", digest[:encryptKeySize])
+}
+
+func init() {
+	Monitor = snitch.NewSnitch()
 }

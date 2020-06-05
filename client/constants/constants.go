@@ -45,6 +45,8 @@ const (
 	// CanaryEvent - A DNS canary was triggered
 	CanaryEvent = "canary"
 
+	// SnitchEvent - A sliver has been found on a threat intel platform
+	SnitchEvent = "snitch"
 	// StartedEvent - Job was started
 	JobStartedEvent = "started"
 	// StoppedEvent - Job was stopped
