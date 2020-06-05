@@ -338,10 +338,6 @@ message Operator {
   string Name = 2;
 }
 
-message Monitor {
-  repeated string Provider = 1;
-}
-
 // [ websites ] ----------------------------------------
 message WebContent {
   string Path = 1;

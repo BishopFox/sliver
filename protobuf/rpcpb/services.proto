@@ -90,8 +90,4 @@ service SliverRPC {
 
     // *** Events ***
     rpc Events(commonpb.Empty) returns (stream clientpb.Event);
-
-    // *** Opsec ***
-    rpc StartMonitor(commonpb.Empty) returns (clientpb.Monitor);
-    rpc StopMonitor(commonpb.Empty) returns (commonpb.Response);
 }
