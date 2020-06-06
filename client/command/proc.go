@@ -156,7 +156,7 @@ func procdump(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	dump, err := rpc.ProcessDump(context.Background(), &sliverpb.ProcessDumpReq{
 		Request: ActiveSession.Request(ctx),
 		Pid:     int32(pid),
-		Timeout: int32(ctx.Flags.Int("timeout") + 1),
+		Timeout: int32(ctx.Flags.Int("timeout") - 1),
 	})
 	ctrl <- true
 	<-ctrl
@@ -195,6 +195,7 @@ func terminate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	terminated, err := rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
 		Request: ActiveSession.Request(ctx),
 		Pid:     int32(pid),
+		Force:   ctx.Flags.Bool("force"),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)

@@ -192,16 +192,26 @@ func rmHandler(data []byte, resp RPCResponse) {
 	rm.Path = target
 	_, err = os.Stat(target)
 	if err == nil {
-		err = os.RemoveAll(target)
-		if err != nil {
-			rm.Response = &commonpb.Response{
-				Err: fmt.Sprintf("%v", err),
+		if (target == "/" || target == "C:\\") && !rmReq.Force {
+			err = errors.New("Cowardly refusing to remove volume root without force")
+		}
+	}
+
+	rm.Response = &commonpb.Response{}
+	if err == nil {
+		if rmReq.Recursive {
+			err = os.RemoveAll(target)
+			if err != nil {
+				rm.Response.Err = err.Error()
+			}
+		} else {
+			err = os.Remove(target)
+			if err != nil {
+				rm.Response.Err = err.Error()
 			}
 		}
 	} else {
-		rm.Response = &commonpb.Response{
-			Err: fmt.Sprintf("%v", err),
-		}
+		rm.Response.Err = err.Error()
 	}
 
 	data, err = proto.Marshal(rm)
@@ -225,7 +235,7 @@ func mkdirHandler(data []byte, resp RPCResponse) {
 	err = os.MkdirAll(target, 0700)
 	if err != nil {
 		mkdir.Response = &commonpb.Response{
-			Err: fmt.Sprintf("%v", err),
+			Err: err.Error(),
 		}
 	}
 	data, err = proto.Marshal(mkdir)
@@ -274,7 +284,7 @@ func pwdHandler(data []byte, resp RPCResponse) {
 	pwd := &sliverpb.Pwd{Path: dir}
 	if err != nil {
 		pwd.Response = &commonpb.Response{
-			Err: fmt.Sprintf("%v", err),
+			Err: err.Error(),
 		}
 	}
 

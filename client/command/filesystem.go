@@ -86,8 +86,10 @@ func rm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	rm, err := rpc.Rm(context.Background(), &sliverpb.RmReq{
-		Request: ActiveSession.Request(ctx),
-		Path:    ctx.Args[0],
+		Request:   ActiveSession.Request(ctx),
+		Path:      ctx.Args[0],
+		Recursive: ctx.Flags.Bool("recursive"),
+		Force:     ctx.Flags.Bool("force"),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
