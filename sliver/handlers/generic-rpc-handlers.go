@@ -104,7 +104,7 @@ func psHandler(data []byte, resp RPCResponse) {
 }
 
 func terminateHandler(data []byte, resp RPCResponse) {
-	var errStr string
+
 	terminateReq := &sliverpb.TerminateReq{}
 	err := proto.Unmarshal(data, terminateReq)
 	if err != nil {
@@ -113,20 +113,26 @@ func terminateHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	err = ps.Kill(int(terminateReq.Pid))
-	if err != nil {
-		// {{if .Debug}}
-		log.Printf("failed to list processes %v", err)
-		// {{end}}
-		errStr = err.Error()
+
+	var errStr string
+	if int(terminateReq.Pid) <= 1 && !terminateReq.Force {
+		errStr = "Cowardly refusing to terminate process without force"
+	} else {
+		err = ps.Kill(int(terminateReq.Pid))
+		if err != nil {
+			// {{if .Debug}}
+			log.Printf("Failed to kill process %s", err)
+			// {{end}}
+			errStr = err.Error()
+		}
 	}
 
-	termResp := &sliverpb.Terminate{
+	data, err = proto.Marshal(&sliverpb.Terminate{
+		Pid: terminateReq.Pid,
 		Response: &commonpb.Response{
 			Err: errStr,
 		},
-	}
-	data, err = proto.Marshal(termResp)
+	})
 	resp(data, err)
 }
 

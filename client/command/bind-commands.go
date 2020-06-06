@@ -1087,7 +1087,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 	app.AddCommand(&grumble.Command{
 		Name:      consts.TerminateStr,
-		Help:      "Kill a process",
+		Help:      "Kill/terminate a process",
 		LongHelp:  help.GetHelpFor(consts.TerminateStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
@@ -1097,6 +1097,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
+			f.Bool("f", "force", false, "disregard safety and kill the PID")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,

@@ -189,7 +189,7 @@ func terminate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	pidStr := ctx.Args[0]
 	pid, err := strconv.Atoi(pidStr)
 	if err != nil {
-		fmt.Printf(Warn+"Error: %v\n", err)
+		fmt.Printf(Warn+"Error: %s\n", err)
 		return
 	}
 	terminated, err := rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
