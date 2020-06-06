@@ -26,6 +26,8 @@ message Envelope {
   uint64 ID = 1;   // Envelope ID used to track request/response
   uint32 Type = 2; // Message type
   bytes Data = 3;  // Actual message data
+
+  bool UnknownMessageType = 4; // Set if the implant did not understand the message
 }
 
 // Register - First message the implant sends to the server

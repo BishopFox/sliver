@@ -138,8 +138,6 @@ func procdump(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	pid := ctx.Flags.Int("pid")
 	name := ctx.Flags.String("name")
 
-	// cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
-
 	if pid == -1 && name != "" {
 		pid = getPIDByName(ctx, name, rpc)
 	}
@@ -158,10 +156,14 @@ func procdump(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	dump, err := rpc.ProcessDump(context.Background(), &sliverpb.ProcessDumpReq{
 		Request: ActiveSession.Request(ctx),
 		Pid:     int32(pid),
-		Timeout: int32(ctx.Flags.Int("timeout")),
+		Timeout: int32(ctx.Flags.Int("timeout") + 1),
 	})
 	ctrl <- true
 	<-ctrl
+	if err != nil {
+		fmt.Printf(Warn+"Error %s", err)
+		return
+	}
 
 	hostname := session.Hostname
 	tmpFileName := path.Base(fmt.Sprintf("procdump_%s_%d_*", hostname, pid))
