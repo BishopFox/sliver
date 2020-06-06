@@ -112,10 +112,10 @@ func (s *activeSession) Request(ctx *grumble.Context) *commonpb.Request {
 	if s.session == nil {
 		return nil
 	}
-	timeout := int64(ctx.Flags.Int("timeout"))
+	timeout := int(time.Second) * ctx.Flags.Int("timeout")
 	return &commonpb.Request{
 		SessionID: s.session.ID,
-		Timeout:   timeout,
+		Timeout:   int64(timeout),
 	}
 }
 

@@ -189,8 +189,6 @@ func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	// cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
-
 	if len(ctx.Args) < 1 {
 		fmt.Println(Warn + "Missing parameter(s), see `help download`\n")
 		return
