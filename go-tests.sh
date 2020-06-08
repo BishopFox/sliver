@@ -18,7 +18,24 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
+## Util
+
+# util 
+if go test ./util ; then
+    :
+else
+    exit 1
+fi
+
+# util / encoders
+if go test ./util/encoders ; then
+    :
+else
+    exit 1
+fi
+
 ## Server
+
 # server / db
 if go test ./server/db ; then
     :
@@ -29,14 +46,6 @@ fi
 
 # server / certs
 if go test ./server/certs ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi
-
-# server / encoders
-if go test ./server/encoders ; then
     :
 else
     cat ~/.sliver/logs/sliver.log

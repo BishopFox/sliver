@@ -21,6 +21,9 @@ package util
 import (
 	"bytes"
 	"crypto/rand"
+	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -30,17 +33,38 @@ func randomData() []byte {
 	return buf
 }
 
-func TestGzip(t *testing.T) {
+func TestCopyFileContents(t *testing.T) {
 	sample := randomData()
-	gzipData := bytes.NewBuffer([]byte{})
-	gz := new(Gzip)
-	gz.Encode(gzipData, sample)
-	data, err := gz.Decode(gzipData.Bytes())
+	tmpfile, err := ioutil.TempFile("", "sliver-unit-test")
 	if err != nil {
-		t.Errorf("gzip decode returned an error %v", err)
-		return
+		t.Error(err)
 	}
-	if !bytes.Equal(sample, data) {
-		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
+	defer os.Remove(tmpfile.Name()) // clean up
+	if _, err := tmpfile.Write(sample); err != nil {
+		t.Error(err)
 	}
+	err = tmpfile.Close()
+	if err != nil {
+		t.Error(err)
+	}
+
+	dst := fmt.Sprintf("%s.2", tmpfile.Name())
+	CopyFileContents(tmpfile.Name(), dst)
+
+	srcData, err := ioutil.ReadFile(tmpfile.Name())
+	if err != nil {
+		t.Error(err)
+	}
+	dstData, err := ioutil.ReadFile(dst)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !bytes.Equal(sample, srcData) {
+		t.Error(fmt.Errorf("Sample and src do not match:\nsample: %v\n src: %v", sample, srcData))
+	}
+	if !bytes.Equal(dstData, srcData) {
+		t.Error(fmt.Errorf("dst and src do not match:\ndst: %v\nsrc: %v", dstData, srcData))
+	}
+
 }

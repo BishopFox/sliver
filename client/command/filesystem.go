@@ -19,7 +19,6 @@ package command
 */
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -33,6 +32,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/bishopfox/sliver/util/encoders"
 	"gopkg.in/AlecAivazis/survey.v1"
 
 	"github.com/desertbit/grumble"
@@ -176,7 +176,7 @@ func cat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	if download.Encoder == "gzip" {
-		download.Data, err = new(util.Gzip).Decode(download.Data)
+		download.Data, err = new(encoders.Gzip).Decode(download.Data)
 		if err != nil {
 			fmt.Printf(Warn+"%s\n", err)
 			return
@@ -234,7 +234,11 @@ func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	if download.Encoder == "gzip" {
-		download.Data, _ = new(util.Gzip).Decode(download.Data)
+		download.Data, err = new(encoders.Gzip).Decode(download.Data)
+		if err != nil {
+			fmt.Printf(Warn+"Decoding failed %s", err)
+			return
+		}
 	}
 	dstFile, err := os.Create(dst)
 	if err != nil {
@@ -275,15 +279,14 @@ func upload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	dst := ctx.Args[1]
 
 	fileBuf, err := ioutil.ReadFile(src)
-	uploadGzip := bytes.NewBuffer([]byte{})
-	new(util.Gzip).Encode(uploadGzip, fileBuf)
+	uploadGzip := new(encoders.Gzip).Encode(fileBuf)
 
 	ctrl := make(chan bool)
 	go spin.Until(fmt.Sprintf("%s -> %s", src, dst), ctrl)
 	upload, err := rpc.Upload(context.Background(), &sliverpb.UploadReq{
 		Request: ActiveSession.Request(ctx),
 		Path:    dst,
-		Data:    uploadGzip.Bytes(),
+		Data:    uploadGzip,
 		Encoder: "gzip",
 	})
 	ctrl <- true
