@@ -59,13 +59,14 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	shellcode, err := getPreviousSliverDll(req.Config.GetName())
 	if err != nil {
 		config := generate.ImplantConfigFromProtobuf(req.Config)
+		config.Name = ""
 		config.Format = clientpb.ImplantConfig_SHARED_LIB
 		config.ObfuscateSymbols = false
-		dllPath, err := generate.SliverSharedLibrary(config)
+		shellcodePath, err := generate.SliverShellcode(config)
 		if err != nil {
 			return nil, err
 		}
-		shellcode, err = generate.ShellcodeRDI(dllPath, "", "")
+		shellcode, err = ioutil.ReadFile(shellcodePath)
 	}
 	reqData, err := proto.Marshal(&sliverpb.InvokeMigrateReq{
 		Request: req.Request,
