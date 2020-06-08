@@ -86,8 +86,10 @@ func rm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	rm, err := rpc.Rm(context.Background(), &sliverpb.RmReq{
-		Request: ActiveSession.Request(ctx),
-		Path:    ctx.Args[0],
+		Request:   ActiveSession.Request(ctx),
+		Path:      ctx.Args[0],
+		Recursive: ctx.Flags.Bool("recursive"),
+		Force:     ctx.Flags.Bool("force"),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
@@ -188,8 +190,6 @@ func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if session == nil {
 		return
 	}
-
-	// cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
 
 	if len(ctx.Args) < 1 {
 		fmt.Println(Warn + "Missing parameter(s), see `help download`\n")

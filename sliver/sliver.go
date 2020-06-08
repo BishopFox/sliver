@@ -28,7 +28,6 @@ import (
 	"os"
 	"os/user"
 	"runtime"
-	"time"
 
 	// {{if .Debug}}{{else}}
 	"io/ioutil"
@@ -40,9 +39,9 @@ import (
 	consts "github.com/bishopfox/sliver/sliver/constants"
 	"github.com/bishopfox/sliver/sliver/handlers"
 	"github.com/bishopfox/sliver/sliver/limits"
+	"github.com/bishopfox/sliver/sliver/pivots"
 	"github.com/bishopfox/sliver/sliver/transports"
 	"github.com/bishopfox/sliver/sliver/version"
-	"github.com/bishopfox/sliver/sliver/pivots"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -105,10 +104,6 @@ func main() {
 			break
 		}
 		mainLoop(connection)
-		// {{if .Debug}}
-		log.Printf("Lost connection, sleeping ...")
-		// {{end}}
-		time.Sleep(60 * time.Second) // TODO: Make configurable
 	}
 }
 
@@ -121,7 +116,7 @@ func mainLoop(connection *transports.Connection) {
 
 	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()
-	sysHandlers := handlers.GetSystemHandlers()	
+	sysHandlers := handlers.GetSystemHandlers()
 	sysPivotHandlers := handlers.GetSystemPivotHandlers()
 	specialHandlers := handlers.GetSpecialHandlers()
 
@@ -135,7 +130,7 @@ func mainLoop(connection *transports.Connection) {
 			// {{if .Debug}}
 			log.Printf("[recv] pivotHandler with type %d", envelope.Type)
 			// {{end}}
-			go handler(envelope, connection)	
+			go handler(envelope, connection)
 		} else if handler, ok := sysHandlers[envelope.Type]; ok {
 			// {{if .Debug}}
 			log.Printf("[recv] sysHandler %d", envelope.Type)
@@ -160,6 +155,11 @@ func mainLoop(connection *transports.Connection) {
 			// {{if .Debug}}
 			log.Printf("[recv] unknown envelope type %d", envelope.Type)
 			// {{end}}
+			connection.Send <- &sliverpb.Envelope{
+				ID:                 envelope.ID,
+				Data:               nil,
+				UnknownMessageType: true,
+			}
 		}
 	}
 }
