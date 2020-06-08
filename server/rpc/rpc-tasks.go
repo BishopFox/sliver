@@ -59,7 +59,6 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	shellcode, err := getPreviousSliverDll(req.Config.GetName())
 	if err != nil {
 		config := generate.ImplantConfigFromProtobuf(req.Config)
-		config.Name = ""
 		config.Format = clientpb.ImplantConfig_SHARED_LIB
 		config.ObfuscateSymbols = false
 		shellcodePath, err := generate.SliverShellcode(config)
