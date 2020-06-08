@@ -76,7 +76,7 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		if err != nil {
 			return nil, err
 		}
-		shellcode, err = generate.ShellcodeRDI(dllPath, "", "")
+		shellcode, err = generate.ShellcodeRDI(dllPath, "RunSliver", "")
 	}
 	data, err := proto.Marshal(&sliverpb.InvokeGetSystemReq{
 		Data:           shellcode,
