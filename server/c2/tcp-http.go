@@ -41,10 +41,10 @@ import (
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
-	"github.com/bishopfox/sliver/server/encoders"
 	sliverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/website"
+	"github.com/bishopfox/sliver/util/encoders"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"

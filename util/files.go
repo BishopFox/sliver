@@ -19,10 +19,7 @@ package util
 */
 
 import (
-	"bytes"
-	"compress/gzip"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -73,27 +70,4 @@ func ByteCountBinary(b int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
-}
-
-// Gzip - Gzip compression encoder
-type Gzip struct{}
-
-// Encode - Compress data with gzip
-func (g Gzip) Encode(w io.Writer, data []byte) error {
-	gw, _ := gzip.NewWriterLevel(w, gzip.BestSpeed)
-	defer gw.Close()
-	_, err := gw.Write(data)
-	return err
-}
-
-// Decode - Uncompressed data with gzip
-func (g Gzip) Decode(data []byte) ([]byte, error) {
-	bytes.NewReader(data)
-	reader, _ := gzip.NewReader(bytes.NewReader(data))
-	var buf bytes.Buffer
-	_, err := buf.ReadFrom(reader)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
 }
