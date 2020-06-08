@@ -40,6 +40,8 @@ var (
 
 	// ErrInvalidSessionID - Invalid Session ID in request
 	ErrInvalidSessionID = errors.New("Invalid session ID")
+	// ErrMissingRequestField - Returned when a request does not contain a commonpb.Request
+	ErrMissingRequestField = errors.New("Missing session request field")
 )
 
 const (
@@ -89,7 +91,7 @@ func (rpc *Server) GetVersion(ctx context.Context, _ *commonpb.Empty) (*clientpb
 func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error {
 	request := req.GetRequest()
 	if request == nil {
-		return errors.New("Missing session request field")
+		return ErrMissingRequestField
 	}
 	session := core.Sessions.Get(request.SessionID)
 	if session == nil {

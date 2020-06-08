@@ -414,7 +414,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Help:     "Start a stager listener",
 		LongHelp: help.GetHelpFor(consts.StageListenerStr),
 		Flags: func(f *grumble.Flags) {
-			f.String("p", "profile", "", "Sliver profile to link with the listener")
+			f.String("p", "profile", "", "Implant profile to link with the listener")
 			f.String("u", "url", "", "URL to which the stager will call back to")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -725,6 +725,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Help:     "Remove a file or directory",
 		LongHelp: help.GetHelpFor(consts.RmStr),
 		Flags: func(f *grumble.Flags) {
+			f.Bool("r", "recursive", false, "recursively remove files")
+			f.Bool("f", "force", false, "ignore safety and forcefully remove files")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		AllowArgs: true,
@@ -1087,7 +1090,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 	app.AddCommand(&grumble.Command{
 		Name:      consts.TerminateStr,
-		Help:      "Kill a process",
+		Help:      "Kill/terminate a process",
 		LongHelp:  help.GetHelpFor(consts.TerminateStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
@@ -1097,6 +1100,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
+			f.Bool("f", "force", false, "disregard safety and kill the PID")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,

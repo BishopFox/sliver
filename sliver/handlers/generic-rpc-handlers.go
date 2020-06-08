@@ -104,7 +104,7 @@ func psHandler(data []byte, resp RPCResponse) {
 }
 
 func terminateHandler(data []byte, resp RPCResponse) {
-	var errStr string
+
 	terminateReq := &sliverpb.TerminateReq{}
 	err := proto.Unmarshal(data, terminateReq)
 	if err != nil {
@@ -113,20 +113,26 @@ func terminateHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	err = ps.Kill(int(terminateReq.Pid))
-	if err != nil {
-		// {{if .Debug}}
-		log.Printf("failed to list processes %v", err)
-		// {{end}}
-		errStr = err.Error()
+
+	var errStr string
+	if int(terminateReq.Pid) <= 1 && !terminateReq.Force {
+		errStr = "Cowardly refusing to terminate process without force"
+	} else {
+		err = ps.Kill(int(terminateReq.Pid))
+		if err != nil {
+			// {{if .Debug}}
+			log.Printf("Failed to kill process %s", err)
+			// {{end}}
+			errStr = err.Error()
+		}
 	}
 
-	termResp := &sliverpb.Terminate{
+	data, err = proto.Marshal(&sliverpb.Terminate{
+		Pid: terminateReq.Pid,
 		Response: &commonpb.Response{
 			Err: errStr,
 		},
-	}
-	data, err = proto.Marshal(termResp)
+	})
 	resp(data, err)
 }
 
@@ -186,16 +192,26 @@ func rmHandler(data []byte, resp RPCResponse) {
 	rm.Path = target
 	_, err = os.Stat(target)
 	if err == nil {
-		err = os.RemoveAll(target)
-		if err != nil {
-			rm.Response = &commonpb.Response{
-				Err: fmt.Sprintf("%v", err),
+		if (target == "/" || target == "C:\\") && !rmReq.Force {
+			err = errors.New("Cowardly refusing to remove volume root without force")
+		}
+	}
+
+	rm.Response = &commonpb.Response{}
+	if err == nil {
+		if rmReq.Recursive {
+			err = os.RemoveAll(target)
+			if err != nil {
+				rm.Response.Err = err.Error()
+			}
+		} else {
+			err = os.Remove(target)
+			if err != nil {
+				rm.Response.Err = err.Error()
 			}
 		}
 	} else {
-		rm.Response = &commonpb.Response{
-			Err: fmt.Sprintf("%v", err),
-		}
+		rm.Response.Err = err.Error()
 	}
 
 	data, err = proto.Marshal(rm)
@@ -219,7 +235,7 @@ func mkdirHandler(data []byte, resp RPCResponse) {
 	err = os.MkdirAll(target, 0700)
 	if err != nil {
 		mkdir.Response = &commonpb.Response{
-			Err: fmt.Sprintf("%v", err),
+			Err: err.Error(),
 		}
 	}
 	data, err = proto.Marshal(mkdir)
@@ -268,7 +284,7 @@ func pwdHandler(data []byte, resp RPCResponse) {
 	pwd := &sliverpb.Pwd{Path: dir}
 	if err != nil {
 		pwd.Response = &commonpb.Response{
-			Err: fmt.Sprintf("%v", err),
+			Err: err.Error(),
 		}
 	}
 

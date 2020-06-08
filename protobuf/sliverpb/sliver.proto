@@ -26,6 +26,8 @@ message Envelope {
   uint64 ID = 1;   // Envelope ID used to track request/response
   uint32 Type = 2; // Message type
   bytes Data = 3;  // Actual message data
+
+  bool UnknownMessageType = 4; // Set if the implant did not understand the message
 }
 
 // Register - First message the implant sends to the server
@@ -74,6 +76,7 @@ message Ps {
 // TerminateReq - Request the implant terminate a remote processes
 message TerminateReq {
   int32 Pid = 1;
+  bool Force = 2;
 
   commonpb.Request Request = 9;
 }
@@ -139,6 +142,8 @@ message Pwd {
 
 message RmReq {
   string Path = 1;
+  bool Recursive = 2;
+  bool Force = 3;
 
   commonpb.Request Request = 9;
 }

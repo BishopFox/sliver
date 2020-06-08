@@ -36,6 +36,13 @@ var (
 		mutex:    &sync.RWMutex{},
 	}
 	hiveID = new(uint32)
+
+	// ErrUnknownMessateType - Returned if the implant did not understand the message for
+	//                         example when the command is not supported on the platform
+	ErrUnknownMessateType = errors.New("Unknown message type")
+
+	// ErrImplantTimeout - The implant did not respond prior to timeout deadline
+	ErrImplantTimeout = errors.New("Implant timeout")
 )
 
 // Session - Represents a connection to an implant
@@ -111,7 +118,10 @@ func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([
 	select {
 	case respEnvelope = <-resp:
 	case <-time.After(timeout):
-		return nil, errors.New("timeout")
+		return nil, ErrImplantTimeout
+	}
+	if respEnvelope.UnknownMessageType {
+		return nil, ErrUnknownMessateType
 	}
 	return respEnvelope.Data, nil
 }
