@@ -108,6 +108,7 @@ var rootCmd = &cobra.Command{
 		logFile := initLogging(appDir)
 		defer logFile.Close()
 
+		assets.Setup(false)
 		certs.SetupCAs()
 
 		serverConfig := configs.GetServerConfig()
