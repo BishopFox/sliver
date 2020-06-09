@@ -56,10 +56,11 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
-	shellcode, err := getPreviousSliverDll(req.Config.GetName())
+	shellcode, err := getSliverShellcode(req.Config.GetName())
 	if err != nil {
 		config := generate.ImplantConfigFromProtobuf(req.Config)
-		config.Format = clientpb.ImplantConfig_SHARED_LIB
+		config.Name = ""
+		config.Format = clientpb.ImplantConfig_SHELLCODE
 		config.ObfuscateSymbols = false
 		shellcodePath, err := generate.SliverShellcode(config)
 		if err != nil {
@@ -192,31 +193,23 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.SpawnDllReq) (*sl
 }
 
 // Utility functions
-
-func getPreviousSliverDll(name string) ([]byte, error) {
+func getSliverShellcode(name string) ([]byte, error) {
 	var data []byte
 	// get implants builds
 	configs, err := generate.ImplantConfigMap()
 	if err != nil {
 		return data, err
 	}
-
 	// get the implant with the same name
 	if conf, ok := configs[name]; ok {
-		if conf.Format == clientpb.ImplantConfig_SHARED_LIB {
-			fileData, err := generate.ImplantFileByName(name)
-			if err != nil {
-				return data, err
-			}
-			data, err = generate.ShellcodeRDIFromBytes(fileData, "RunSliver", "")
-		} else if conf.Format == clientpb.ImplantConfig_SHELLCODE {
+		if conf.Format == clientpb.ImplantConfig_SHELLCODE {
 			fileData, err := generate.ImplantFileByName(name)
 			if err != nil {
 				return data, err
 			}
 			data = fileData
 		} else {
-			err = fmt.Errorf("no existing DLL or shellcode found")
+			err = fmt.Errorf("no existing shellcode found")
 		}
 	} else {
 		err = fmt.Errorf("no sliver found with this name")
