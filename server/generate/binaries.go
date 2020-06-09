@@ -97,13 +97,13 @@ type ImplantConfig struct {
 	ReconnectInterval   int    `json:"reconnect_interval"`
 	MaxConnectionErrors int    `json:"max_connection_errors"`
 
-	C2            []ImplantC2 `json:"c2s"`
-	MTLSc2Enabled bool        `json:"c2_mtls_enabled"`
-	HTTPc2Enabled bool        `json:"c2_http_enabled"`
-	DNSc2Enabled  bool        `json:"c2_dns_enabled"`
-	CanaryDomains []string    `json:"canary_domains"`
-	NamePipec2Enabled bool    `json:"c2_namedpipe_enabled"`
-	TCPPivotc2Enabled bool    `json:"c2_tcppivot_enabled"`
+	C2                []ImplantC2 `json:"c2s"`
+	MTLSc2Enabled     bool        `json:"c2_mtls_enabled"`
+	HTTPc2Enabled     bool        `json:"c2_http_enabled"`
+	DNSc2Enabled      bool        `json:"c2_dns_enabled"`
+	CanaryDomains     []string    `json:"canary_domains"`
+	NamePipec2Enabled bool        `json:"c2_namedpipe_enabled"`
+	TCPPivotc2Enabled bool        `json:"c2_tcppivot_enabled"`
 
 	// Limits
 	LimitDomainJoined bool   `json:"limit_domainjoined"`

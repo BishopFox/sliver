@@ -26,7 +26,7 @@ endif
 #
 # Version Information
 #
-VERSION = 1.0.3
+VERSION = 1.0.6
 COMPILED_AT = $(shell date +%s)
 RELEASES_URL = https://api.github.com/repos/BishopFox/sliver/releases
 PKG = github.com/bishopfox/sliver/client/version
@@ -45,18 +45,18 @@ LDFLAGS = -ldflags "-s -w \
 #
 .PHONY: macos
 macos: clean pb
-	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
-	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-client ./client
+	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
+	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: linux
 linux: clean pb
-	GOOS=linux $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
-	GOOS=linux $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-client ./client
+	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
+	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: windows
 windows: clean pb
-	GOOS=windows $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
-	GOOS=windows $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-client.exe ./client
+	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
+	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client.exe ./client
 
 
 #
@@ -67,20 +67,20 @@ static-macos: clean pb packr
 	packr
 	$(SED_INPLACE) '/$*.windows\/go\.zip/d' ./server/assets/a_assets-packr.go
 	$(SED_INPLACE) '/$*.linux\/go\.zip/d' ./server/assets/a_assets-packr.go
-	GOOS=darwin $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
+	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
 
 .PHONY: static-windows
 static-windows: clean pb packr
 	packr
 	$(SED_INPLACE) '/$*.darwin\/go\.zip/d' ./server/assets/a_assets-packr.go
 	$(SED_INPLACE) '/$*.linux\/go\.zip/d' ./server/assets/a_assets-packr.go
-	GOOS=windows $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
+	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
 
 .PHONY: static-linux
 static-linux: clean pb packr
 	$(SED_INPLACE) '/$*.darwin\/go\.zip/d' ./server/assets/a_assets-packr.go
 	$(SED_INPLACE) '/$*.windows\/go\.zip/d' ./server/assets/a_assets-packr.go
-	GOOS=linux $(ENV) $(GO) build $(TAGS) $(LDFLAGS) -o sliver-server ./server
+	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
 
 .PHONY: pb
 pb:

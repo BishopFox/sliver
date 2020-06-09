@@ -100,6 +100,8 @@ const (
 	MsgRunAs
 	// MsgRevToSelf - Revert to self
 	MsgRevToSelf
+	// MsgRevToSelfReq - Request to revert to self
+	MsgRevToSelfReq
 	// MsgInvokeGetSystemReq - Elevate as SYSTEM user
 	MsgInvokeGetSystemReq
 	// MsgGetSystem - Response to getsystem request
@@ -237,8 +239,8 @@ func MsgNumber(request proto.Message) uint32 {
 	case *RunAs:
 		return MsgRunAs
 
-	case *RevToSelf:
-		return MsgRevToSelf
+	case *RevToSelfReq:
+		return MsgRevToSelfReq
 
 	case *InvokeGetSystemReq:
 		return MsgInvokeGetSystemReq
@@ -285,7 +287,7 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *NetstatReq:
 		return MsgNetstatReq
-	
+
 	case *NamedPipesReq:
 		return MsgNamedPipesReq
 	case *NamedPipes:

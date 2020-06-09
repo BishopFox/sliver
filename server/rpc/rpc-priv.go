@@ -20,6 +20,7 @@ package rpc
 
 import (
 	"context"
+	"io/ioutil"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -67,16 +68,17 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		return nil, ErrInvalidSessionID
 	}
 
-	shellcode, err := getPreviousSliverDll(req.Config.GetName())
+	shellcode, err := getSliverShellcode(req.Config.GetName())
 	if err != nil {
 		config := generate.ImplantConfigFromProtobuf(req.Config)
-		config.Format = clientpb.ImplantConfig_SHARED_LIB
+		config.Name = ""
+		config.Format = clientpb.ImplantConfig_SHELLCODE
 		config.ObfuscateSymbols = false
-		dllPath, err := generate.SliverSharedLibrary(config)
+		shellcodePath, err := generate.SliverShellcode(config)
 		if err != nil {
 			return nil, err
 		}
-		shellcode, err = generate.ShellcodeRDI(dllPath, "", "")
+		shellcode, err = ioutil.ReadFile(shellcodePath)
 	}
 	data, err := proto.Marshal(&sliverpb.InvokeGetSystemReq{
 		Data:           shellcode,

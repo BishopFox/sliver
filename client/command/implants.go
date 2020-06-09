@@ -50,21 +50,37 @@ func displayAllImplantBuilds(configs map[string]*clientpb.ImplantConfig) {
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
-	fmt.Fprintf(table, "Name\tOS/Arch\tDebug\tFormat\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
+	fmt.Fprintf(table, "Name\tOS/Arch\tDebug\tFormat\tCommand & Control\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("Name")),
 		strings.Repeat("=", len("OS/Arch")),
 		strings.Repeat("=", len("Debug")),
 		strings.Repeat("=", len("Format")),
+		strings.Repeat("=", len("Command & Control")),
 	)
 
 	for sliverName, config := range configs {
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
-			sliverName,
-			fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
-			fmt.Sprintf("%v", config.Debug),
-			config.Format,
-		)
+		if 0 < len(config.C2) {
+			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+				sliverName,
+				fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
+				fmt.Sprintf("%v", config.Debug),
+				config.Format,
+				fmt.Sprintf("[1] %s", config.C2[0].URL),
+			)
+		}
+		if 1 < len(config.C2) {
+			for index, c2 := range config.C2[1:] {
+				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+					"",
+					"",
+					"",
+					"",
+					fmt.Sprintf("[%d] %s", index+2, c2.URL),
+				)
+			}
+		}
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n", "", "", "", "", "")
 	}
 	table.Flush()
 	fmt.Printf(outputBuf.String())

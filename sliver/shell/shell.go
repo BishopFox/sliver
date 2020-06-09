@@ -92,11 +92,6 @@ func pipedShell(tunnelID uint64, command []string) *Shell {
 	}
 	//{{end}}
 
-	// {{if eq .GOOS "windows"}}
-	cmd.SysProcAttr = &windows.SysProcAttr{
-		HideWindow: true,
-	}
-	// {{end}}
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
 	// cmd.Start()
