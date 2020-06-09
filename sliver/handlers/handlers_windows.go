@@ -40,7 +40,7 @@ var (
 		sliverpb.MsgTaskReq:            taskHandler,
 		sliverpb.MsgProcessDumpReq:     dumpHandler,
 		sliverpb.MsgImpersonateReq:     impersonateHandler,
-		sliverpb.MsgRevToSelf:          revToSelfHandler,
+		sliverpb.MsgRevToSelfReq:       revToSelfHandler,
 		sliverpb.MsgRunAsReq:           runAsHandler,
 		sliverpb.MsgInvokeGetSystemReq: getsystemHandler,
 		sliverpb.MsgExecuteAssemblyReq: executeAssemblyHandler,
