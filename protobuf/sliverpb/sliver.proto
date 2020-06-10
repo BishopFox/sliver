@@ -406,6 +406,7 @@ message StartServiceReq {
   string ServiceDescription = 2;
   string BinPath = 3;
   string Hostname = 4;
+  string Arguments = 5;
   commonpb.Request Request = 9;
 }
 

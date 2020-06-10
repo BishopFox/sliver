@@ -100,6 +100,7 @@ func psExec(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Request:            ActiveSession.Request(ctx),
 		ServiceDescription: serviceDesc,
 		ServiceName:        serviceName,
+		Arguments:          serviceName,
 	})
 	serviceCtrl <- true
 	<-serviceCtrl
