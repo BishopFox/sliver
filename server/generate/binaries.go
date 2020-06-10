@@ -116,6 +116,7 @@ type ImplantConfig struct {
 
 	// For 	IsSharedLib bool `json:"is_shared_lib"`
 	IsSharedLib bool `json:"is_shared_lib"`
+	IsService   bool `json:"is_service"`
 
 	FileName string
 }
@@ -142,6 +143,7 @@ func (c *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		LimitUsername:     c.LimitUsername,
 
 		IsSharedLib: c.IsSharedLib,
+		IsService:   c.IsService,
 		Format:      c.Format,
 
 		FileName: c.FileName,
@@ -177,6 +179,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 
 	cfg.Format = pbConfig.Format
 	cfg.IsSharedLib = pbConfig.IsSharedLib
+	cfg.IsService = pbConfig.IsService
 
 	cfg.C2 = copyC2List(pbConfig.C2)
 	cfg.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, cfg.C2)

@@ -1174,4 +1174,25 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.PsExecStr,
+		Help:     "Start a sliver service on a remote target",
+		LongHelp: help.GetHelpFor(consts.PsExecStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("s", "service-name", "Sliver", "name that will be used to register the service")
+			f.String("d", "service-description", "Sliver implant", "description of the service")
+			f.String("p", "profile", "", "profile to use for service binary")
+			f.String("b", "binpath", "c:\\windows\\temp", "directory to which the executable will be uploaded")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			psExec(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+		AllowArgs: true,
+	})
 }

@@ -284,6 +284,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 	limitDatetime := ctx.Flags.String("limit-datetime")
 
 	isSharedLib := false
+	isService := false
 
 	format := ctx.Flags.String("format")
 	var configFormat clientpb.ImplantConfig_OutputFormat
@@ -296,6 +297,9 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 	case "shellcode":
 		configFormat = clientpb.ImplantConfig_SHELLCODE
 		isSharedLib = true
+	case "service":
+		configFormat = clientpb.ImplantConfig_SERVICE
+		isService = true
 	default:
 		// default to exe
 		configFormat = clientpb.ImplantConfig_EXECUTABLE
@@ -340,6 +344,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 
 		Format:      configFormat,
 		IsSharedLib: isSharedLib,
+		IsService:   isService,
 	}
 
 	return config

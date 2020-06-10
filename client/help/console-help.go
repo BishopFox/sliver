@@ -356,6 +356,9 @@ Each command will have the [[.Bold]]--process[[.Normal]] flag defined, which all
  - Linux: /bin/bash
  - Mac OS X: /Applications/Safari.app/Contents/MacOS/SafariForWebKitDevelopment
 `
+psExecHelp = `[[.Bold]]Command:[[.Normal]] psexec <target>
+[[.Bold]]About:[[.Normal]] Start a new sliver as a service on a remote target.
+`
 )
 
 const (

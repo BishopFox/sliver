@@ -401,6 +401,35 @@ message Screenshot {
   commonpb.Response Response = 9;
 }
 
+message StartServiceReq {
+  string ServiceName = 1;
+  string ServiceDescription = 2;
+  string BinPath = 3;
+  string Hostname = 4;
+  commonpb.Request Request = 9;
+}
+
+message ServiceInfo {
+  commonpb.Response Response = 9;
+}
+
+message ServiceInfoReq {
+  string ServiceName = 1;
+  string Hostname = 2;
+}
+
+message StopServiceReq {
+  ServiceInfoReq ServiceInfo = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message RemoveServiceReq {
+  ServiceInfoReq ServiceInfo = 1;
+
+  commonpb.Request Request = 9;
+}
+
 // Tunnel - Tunnel related messages
 
 message Tunnel {

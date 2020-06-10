@@ -38,8 +38,11 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		return nil, errors.New("Invalid implant config")
 	}
 	switch req.Config.Format {
+	case clientpb.ImplantConfig_SERVICE:
+		fallthrough
 	case clientpb.ImplantConfig_EXECUTABLE:
 		fPath, err = generate.SliverExecutable(config)
+		break
 	case clientpb.ImplantConfig_SHARED_LIB:
 		fPath, err = generate.SliverSharedLibrary(config)
 	case clientpb.ImplantConfig_SHELLCODE:

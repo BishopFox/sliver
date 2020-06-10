@@ -125,6 +125,7 @@ const (
 	WebsitesStr = "websites"
 
 	ScreenshotStr = "screenshot"
+	PsExecStr = "psexec"
 )
 
 // Groups

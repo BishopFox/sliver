@@ -70,11 +70,13 @@ message ImplantConfig {
     SHARED_LIB = 0;
     SHELLCODE = 1;
     EXECUTABLE = 2;
+    SERVICE = 3;
   }
   OutputFormat Format = 25;
   bool IsSharedLib = 26;
 
   string FileName = 27;
+  bool IsService = 28;
 }
 
 // Configs of previously built implants
