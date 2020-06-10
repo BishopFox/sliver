@@ -27,6 +27,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/sliver/pivots"
 	"github.com/bishopfox/sliver/sliver/priv"
+	"github.com/bishopfox/sliver/sliver/service"
 	"github.com/bishopfox/sliver/sliver/taskrunner"
 	"github.com/bishopfox/sliver/sliver/transports"
 
@@ -46,6 +47,9 @@ var (
 		sliverpb.MsgExecuteAssemblyReq: executeAssemblyHandler,
 		sliverpb.MsgInvokeMigrateReq:   migrateHandler,
 		sliverpb.MsgSpawnDllReq:        spawnDllHandler,
+		sliverpb.MsgStartServiceReq:    startService,
+		sliverpb.MsgStopServiceReq:     stopService,
+		sliverpb.MsgRemoveServiceReq:   removeService,
 
 		// Generic
 		sliverpb.MsgPsReq:        psHandler,
@@ -281,4 +285,55 @@ func namedPipeListenerHandler(envelope *sliverpb.Envelope, connection *transport
 		ID:   envelope.GetID(),
 		Data: data,
 	}
+}
+
+func startService(data []byte, resp RPCResponse) {
+	startService := &sliverpb.StartServiceReq{}
+	err := proto.Unmarshal(data, startService)
+	if err != nil {
+		return
+	}
+	err = service.StartService(startService.GetHostname(), startService.GetBinPath(), startService.GetServiceName(), startService.GetServiceDescription())
+	startServiceResp := &sliverpb.ServiceInfo{}
+	if err != nil {
+		startServiceResp.Response = &commonpb.Response{
+			Err: err.Error(),
+		}
+	}
+	data, err = proto.Marshal(startServiceResp)
+	resp(data, err)
+}
+
+func stopService(data []byte, resp RPCResponse) {
+	stopServiceReq := &sliverpb.StopServiceReq{}
+	err := proto.Unmarshal(data, stopServiceReq)
+	if err != nil {
+		return
+	}
+	err = service.StopService(stopServiceReq.ServiceInfo.Hostname, stopServiceReq.ServiceInfo.ServiceName)
+	svcInfo := &sliverpb.ServiceInfo{}
+	if err != nil {
+		svcInfo.Response = &commonpb.Response{
+			Err: err.Error(),
+		}
+	}
+	data, err = proto.Marshal(svcInfo)
+	resp(data, err)
+}
+
+func removeService(data []byte, resp RPCResponse) {
+	removeServiceReq := &sliverpb.RemoveServiceReq{}
+	err := proto.Unmarshal(data, removeServiceReq)
+	if err != nil {
+		return
+	}
+	err = service.RemoveService(removeServiceReq.ServiceInfo.Hostname, removeServiceReq.ServiceInfo.ServiceName)
+	svcInfo := &sliverpb.ServiceInfo{}
+	if err != nil {
+		svcInfo.Response = &commonpb.Response{
+			Err: err.Error(),
+		}
+	}
+	data, err = proto.Marshal(svcInfo)
+	resp(data, err)
 }

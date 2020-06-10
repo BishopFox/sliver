@@ -162,6 +162,14 @@ const (
 	MsgPivotClose
 	// MsgPivotData - Request that encapsulates and envelope form a sliver to the server though the pivot and viceversa
 	MsgPivotData
+	// MsgStartServiceReq - Request to start a service
+	MsgStartServiceReq
+	// MsgStartService - Response to start service request
+	MsgStartService
+	// MsgStopServiceReq - Request to stop a remote service
+	MsgStopServiceReq
+	// MsgRemoveServiceReq - Request to remove a remote service
+	MsgRemoveServiceReq
 )
 
 // MsgNumber - Get a message number of type
@@ -304,6 +312,12 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgPivotClose
 	case *PivotData:
 		return MsgPivotData
+	case *StartServiceReq:
+		return MsgStartServiceReq
+	case *StopServiceReq:
+		return MsgStopServiceReq
+	case *RemoveServiceReq:
+		return MsgRemoveServiceReq
 
 	}
 	return uint32(0)
