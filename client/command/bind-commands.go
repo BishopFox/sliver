@@ -1195,4 +1195,22 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverWinHelpGroup,
 		AllowArgs: true,
 	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.BackdoorStr,
+		Help:     "Infect a remote file with a sliver shellcode",
+		LongHelp: help.GetHelpFor(consts.BackdoorStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("p", "profile", "", "profile to use for service binary")
+		},
+		AllowArgs: true,
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			binject(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
 }

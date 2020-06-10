@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
-func StartService(hostname string, binPath string, serviceName string, serviceDesc string) error {
+func StartService(hostname string, binPath string, arguments string, serviceName string, serviceDesc string) error {
 	manager, err := mgr.ConnectRemote(hostname)
 	if err != nil {
 		return err
@@ -22,7 +22,7 @@ func StartService(hostname string, binPath string, serviceName string, serviceDe
 		DisplayName:    serviceName,
 		ServiceType:    windows.SERVICE_WIN32_OWN_PROCESS,
 		StartType:      mgr.StartManual,
-	}, serviceName)
+	}, arguments)
 
 	if err != nil {
 		return err
