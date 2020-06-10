@@ -19,7 +19,7 @@ import (
 func psExec(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	session := ActiveSession.Get()
 	if session == nil {
-		fmt.Printf(Warn + "")
+		fmt.Printf(Warn + "Please select an active session via `use`")
 		return
 	}
 
@@ -35,6 +35,14 @@ func psExec(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	serviceDesc := ctx.Flags.String("service-description")
 	binPath := ctx.Flags.String("binpath")
 	uploadPath := fmt.Sprintf(`\\%s\%s`, hostname, strings.ReplaceAll(strings.ToLower(ctx.Flags.String("binpath")), "c:", "C$"))
+
+	if serviceName == "Sliver" || serviceDesc == "Sliver implant" {
+		fmt.Printf(Warn+"Warning: you're going to deploy the following service:\n- Name: %s\n- Description: %s\n", serviceName, serviceDesc)
+		fmt.Println(Warn + "You might want to change that before going further...")
+		if !isUserAnAdult() {
+			return
+		}
+	}
 
 	if profile == "" {
 		fmt.Println(Warn + "you need to pass a profile name, see `help psexec` for more info")
