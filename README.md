@@ -7,7 +7,7 @@ Sliver is a general purpose cross-platform implant framework that supports C2 ov
 
 The server, client, and implant all support MacOS, Windows, and Linux (and possibly every Golang compiler target but we've not tested them all).
 
-![Go](https://github.com/BishopFox/sliver/workflows/Go/badge.svg?branch=master)
+![Go](https://github.com/BishopFox/sliver/workflows/Go/badge.svg?branch=master) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 ### Features
 
