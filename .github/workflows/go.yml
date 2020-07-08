@@ -160,7 +160,7 @@ jobs:
   security-checks:
     needs: linux-windows-build
     runs-on: ubuntu-latest
-    name: CodeQL Security Queries
+    name: CodeQL Security Checks
 
     steps:
     - uses: github/codeql-action/init@v1
