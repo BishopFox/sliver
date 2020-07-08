@@ -158,11 +158,11 @@ jobs:
       run: ts-node ./index.ts
 
   security-checks:
-    needs linux-windows-build
-    runs-on ubuntu-latest
+    needs: linux-windows-build
+    runs-on: ubuntu-latest
     name: CodeQL Security Queries
 
     steps:
     - uses: github/codeql-action/init@v1
       with:
-        config-file:./.github/codeql/codeql-config.yml
+        config-file: ./.github/codeql/codeql-config.yml
