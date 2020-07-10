@@ -93,6 +93,7 @@ type ImplantConfig struct {
 	Cert                string `json:"cert"`
 	Key                 string `json:"key"`
 	Debug               bool   `json:"debug"`
+	Evasion             bool   `json:"evasion"`
 	ObfuscateSymbols    bool   `json:"obfuscate_symbols"`
 	ReconnectInterval   int    `json:"reconnect_interval"`
 	MaxConnectionErrors int    `json:"max_connection_errors"`
@@ -131,6 +132,7 @@ func (c *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		Cert:             c.Cert,
 		Key:              c.Key,
 		Debug:            c.Debug,
+		Evasion:          c.Evasion,
 		ObfuscateSymbols: c.ObfuscateSymbols,
 		CanaryDomains:    c.CanaryDomains,
 
@@ -166,6 +168,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.Cert = pbConfig.Cert
 	cfg.Key = pbConfig.Key
 	cfg.Debug = pbConfig.Debug
+	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
 	cfg.CanaryDomains = pbConfig.CanaryDomains
 

@@ -34,10 +34,13 @@ import (
 	"unsafe"
 
 	"syscall"
-
+	// {{if .Evasion}}
 	"github.com/bishopfox/sliver/sliver/evasion"
-	"github.com/bishopfox/sliver/sliver/syscalls"
 	"github.com/bishopfox/sliver/sliver/version"
+
+	// {{end}}
+
+	"github.com/bishopfox/sliver/sliver/syscalls"
 	"golang.org/x/sys/windows"
 )
 
@@ -320,11 +323,11 @@ func Sideload(procName string, data []byte, args string) (string, error) {
 }
 
 // Util functions
-
 func refresh() error {
 	// Hotfix for #114
 	// Somehow this fucks up everything on Windows 8.1
 	// so we're skipping the RefreshPE calls.
+	// {{if .Evasion}}
 	if version.GetVersion() != "6.3 build 9600" {
 		err := evasion.RefreshPE(ntdllPath)
 		if err != nil {
@@ -341,6 +344,7 @@ func refresh() error {
 			return err
 		}
 	}
+	// {{end}}
 	return nil
 }
 

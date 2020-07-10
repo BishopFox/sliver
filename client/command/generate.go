@@ -330,6 +330,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 		GOOS:             targetOS,
 		GOARCH:           arch,
 		Debug:            ctx.Flags.Bool("debug"),
+		Evasion:          ctx.Flags.Bool("evasion"),
 		ObfuscateSymbols: symbolObfuscation,
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,
