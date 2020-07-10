@@ -404,10 +404,11 @@ func getActiveSliverConfig() *clientpb.ImplantConfig {
 		Priority: uint32(0),
 	})
 	config := &clientpb.ImplantConfig{
-		Name:   session.GetName(),
-		GOOS:   session.GetOS(),
-		GOARCH: session.GetArch(),
-		Debug:  true,
+		Name:    session.GetName(),
+		GOOS:    session.GetOS(),
+		GOARCH:  session.GetArch(),
+		Debug:   true,
+		Evasion: session.GetEvasion(),
 
 		MaxConnectionErrors: uint32(1000),
 		ReconnectInterval:   uint32(60),
