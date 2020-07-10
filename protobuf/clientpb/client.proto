@@ -36,6 +36,7 @@ message Session {
   string LastCheckin = 13;
   string ActiveC2 = 14;
   string Version = 15;
+  bool Evasion = 16;
 }
 
 message ImplantC2 {
