@@ -262,7 +262,9 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 	}
 	err = cmd.Process.Kill()
 	if err != nil {
-		log.Println("Error kill: %v", err)
+		// {{if .Debug}}
+		log.Println("Error kill: %v\n", err)
+		// {{end}}
 		return "", err
 	}
 	return stdoutBuf.String() + stderrBuf.String(), nil
