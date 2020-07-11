@@ -165,6 +165,10 @@ func load(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 				return nil
 			},
 			Flags: func(f *grumble.Flags) {
+				if extCmd.IsAssembly {
+					f.Bool("a", "amsi", false, "use AMSI bypass (disabled by default)")
+					f.Bool("e", "etw", false, "patch EtwEventWrite function to avoid detection (disabled by default)")
+				}
 				f.String("p", "process", "", "Path to process to host the shared object")
 				f.Bool("s", "save", false, "Save output to disk")
 				f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -234,7 +238,8 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		go spin.Until(msg, ctrl)
 		executeAssemblyResp, err := rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
 			Request:    ActiveSession.Request(ctx),
-			AmsiBypass: true,
+			AmsiBypass: ctx.Flags.Bool("amsi"),
+			EtwBypass:  ctx.Flags.Bool("etw"),
 			Arguments:  args,
 			Assembly:   binData,
 			Process:    processName,
