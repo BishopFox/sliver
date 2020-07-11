@@ -435,6 +435,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
+			f.Bool("e", "evasion", false, "enable evasion features")
 			f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
 
 			f.String("m", "mtls", "", "mtls domain(s)")
@@ -980,8 +981,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "process", "notepad.exe", "hosting process to inject into")
-			f.Bool("a", "amsi", true, "use AMSI bypass (enabled by default)")
-			f.Bool("e", "etw", true, "patch EtwEventWrite function to avoid detection (enabled by default)")
+			f.Bool("a", "amsi", false, "use AMSI bypass (disabled by default)")
+			f.Bool("e", "etw", false, "patch EtwEventWrite function to avoid detection (disabled by default)")
 			f.Bool("s", "save", false, "save output to file")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1002,6 +1003,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("r", "rwx-pages", false, "Use RWX permissions for memory pages")
 			f.Uint("p", "pid", 0, "Pid of process to inject into (0 means injection into ourselves)")
+			f.String("n", "process", `c:\windows\system32\notepad.exe`, "Process to inject into when running in interactive mode")
 			f.Bool("i", "interactive", false, "Inject into a new process and interact with it")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
