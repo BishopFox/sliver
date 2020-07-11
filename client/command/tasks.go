@@ -66,7 +66,7 @@ func executeShellcode(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	if interactive {
-		executeInteractive(ctx, `c:\windows\system32\notepad.exe`, shellcodeBin, ctx.Flags.Bool("rwx-pages"), rpc)
+		executeInteractive(ctx, ctx.Flags.String("process"), shellcodeBin, ctx.Flags.Bool("rwx-pages"), rpc)
 		return
 	}
 	ctrl := make(chan bool)

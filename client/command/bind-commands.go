@@ -1003,6 +1003,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("r", "rwx-pages", false, "Use RWX permissions for memory pages")
 			f.Uint("p", "pid", 0, "Pid of process to inject into (0 means injection into ourselves)")
+			f.String("n", "process", `c:\windows\system32\notepad.exe`, "Process to inject into when running in interactive mode")
 			f.Bool("i", "interactive", false, "Inject into a new process and interact with it")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
