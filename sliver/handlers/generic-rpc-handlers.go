@@ -316,6 +316,9 @@ func downloadHandler(data []byte, resp RPCResponse) {
 	if fi.IsDir() {
 		var dirData bytes.Buffer
 		err = compressDir(target, &dirData)
+		// {{if .Debug}}
+		log.Printf("error creating the archive: %v", err)
+		// {{end}}
 		rawData = dirData.Bytes()
 	} else {
 		rawData, err = ioutil.ReadFile(target)
@@ -676,11 +679,25 @@ func compressDir(path string, buf io.Writer) error {
 	tarWriter := tar.NewWriter(zipWriter)
 
 	filepath.Walk(path, func(file string, fi os.FileInfo, err error) error {
+		fileName := file
+		// If the file is a SymLink replace fileInfo and path with the symlink destination.
+		if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+			file, err = filepath.EvalSymlinks(file)
+			if err != nil {
+				return err
+			}
+
+			fi, err = os.Lstat(file)
+			if err != nil {
+				return err
+			}
+		}
 		header, err := tar.FileInfoHeader(fi, file)
 		if err != nil {
 			return err
 		}
-		header.Name = filepath.ToSlash(file)
+		// Keep the symlink file path for the header name.
+		header.Name = filepath.ToSlash(fileName)
 		if err := tarWriter.WriteHeader(header); err != nil {
 			return err
 		}
