@@ -18,8 +18,8 @@ Contributing to Sliver
 * _Never_ trust the user, applied in a common-sense way.
 * __Secure by default__, please ensure any contributed code follows this methodology to the best of your ability. It should be difficult to insecurely configure features/servers.
     - It is better to fail securely than operate in an insecure manner.
-* _Avoid_ incorporating user controlled values when constructing file/directory paths. Ensure any values that must be incorporated into paths are properly canolicalized.
-* _Never_ use homegrown or non-peer reveiwed encryption or random number generation algorithms.
+* _Avoid_ incorporating user controlled values when constructing file/directory paths. Ensure any values that must be incorporated into paths are properly canonicalized.
+* _Never_ use homegrown or non-peer reviewed encryption or random number generation algorithms.
 * Whenever possible, use the following algorithms/encryption modes:
     - AES-GCM-256
     - RSA-OAEP-2048 / RSA-OAEP-4096

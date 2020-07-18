@@ -1,0 +1,510 @@
+syntax = "proto3";
+package sliverpb;
+option go_package = "github.com/bishopfox/sliver/protobuf/sliverpb";
+
+import "commonpb/common.proto";
+
+/*
+  
+  >>> Reserved Numbers <<<
+
+    For tunnel messages:
+      uint64 TunnelID = 8;
+      uint32 SessionID = 9;
+
+    For request/response messages:
+      Request Request = 9;
+      Response Response = 9;
+  
+    - Request messages should be named with the suffix "Req"
+
+*/
+
+// Envelope - Used to encode implant<->server messages since we 
+//            cannot use gRPC due to the various transports used.
+message Envelope {
+  uint64 ID = 1;   // Envelope ID used to track request/response
+  uint32 Type = 2; // Message type
+  bytes Data = 3;  // Actual message data
+
+  bool UnknownMessageType = 4; // Set if the implant did not understand the message
+}
+
+// Register - First message the implant sends to the server
+message Register {
+  string Name = 1;
+  string Hostname = 2;
+  string Username = 3;
+  string Uid = 4;
+  string Gid = 5;
+  string Os = 6;
+  string Arch = 7;
+  int32 Pid = 8;
+  string Filename = 9;
+  string ActiveC2 = 10;
+  string Version = 11;
+}
+
+// Ping - Not ICMP, just sends a rount trip message to an implant to
+//        see if it's still responding.
+message Ping {
+  int32 Nonce = 1;
+
+  // Ping is special
+  commonpb.Response Response = 8;
+  commonpb.Request Request = 9;
+}
+
+// KillSessionReq - Request the implant to kill a session
+message KillSessionReq {
+  bool Force = 1;
+
+  commonpb.Request Request = 9;
+}
+
+// PsReq - Request the implant to list ses of a remote session.
+message PsReq {
+  commonpb.Request Request = 9;
+}
+
+message Ps {
+  repeated commonpb.Process Processes = 1;
+
+  commonpb.Response Response = 9;
+}
+
+// TerminateReq - Request the implant terminate a remote processes
+message TerminateReq {
+  int32 Pid = 1;
+  bool Force = 2;
+
+  commonpb.Request Request = 9;
+}
+
+message Terminate {
+  int32 Pid = 1;
+
+  commonpb.Response Response = 9;
+}
+
+// IfconfigReq - Request the implant to list network interfaces
+message IfconfigReq {
+  commonpb.Request Request = 9;
+}
+
+message Ifconfig {
+  repeated NetInterface NetInterfaces = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message NetInterface {
+  int32 Index = 1;
+  string Name = 2;
+  string MAC = 3;
+  repeated string IPAddresses = 4;
+}
+
+message LsReq {
+  string Path = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message Ls {
+  string Path = 1;
+  bool Exists = 2;
+  repeated FileInfo Files = 3;
+
+  commonpb.Response Response = 9;
+}
+
+message FileInfo {
+  string Name = 1;
+  bool IsDir = 2;
+  int64 Size = 3;
+}
+
+message CdReq {
+  string Path = 1;
+  commonpb.Request Request = 9;
+}
+
+message PwdReq {
+  commonpb.Request Request = 9;
+}
+
+message Pwd {
+  string Path = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message RmReq {
+  string Path = 1;
+  bool Recursive = 2;
+  bool Force = 3;
+
+  commonpb.Request Request = 9;
+}
+
+message Rm {
+  string Path = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message MkdirReq {
+  string Path = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message Mkdir {
+  string Path = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message DownloadReq {
+  string Path = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message Download {
+  string Path = 1;
+  string Encoder = 2;
+  bool Exists = 3;
+  bytes Data = 4;
+
+  commonpb.Response Response = 9;
+}
+
+message UploadReq {
+  string Path = 1;
+  string Encoder = 2;
+  bytes Data = 3;
+
+  commonpb.Request Request = 9;
+}
+
+message Upload {
+  string Path = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message ProcessDumpReq {
+  int32 Pid = 1;
+  int32 Timeout = 2;
+
+  commonpb.Request Request = 9;
+}
+
+message ProcessDump {
+  bytes Data = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message RunAsReq {
+  string Username = 1;
+  string ProcessName = 2;
+  string Args = 3;
+
+  commonpb.Request Request = 9;
+}
+
+message RunAs {
+  string Output = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message ImpersonateReq {
+  string Username = 1;
+  commonpb.Request Request = 9;
+}
+
+message Impersonate {
+  commonpb.Response Response = 9;
+}
+
+message RevToSelfReq {
+  commonpb.Request Request = 9;
+}
+
+message RevToSelf {
+  commonpb.Response Response = 9;
+}
+
+// InvokeGetSystemReq - Implant-side version of GetSystemReq, this message
+//                      contains the .Data based on the client's req.Config
+message InvokeGetSystemReq {
+  bytes Data = 1;
+  string HostingProcess = 2;
+
+  commonpb.Request Request = 9;
+}
+
+// GetSystem - The result of a InvokeGetSystemReq attempt
+message GetSystem {
+
+  commonpb.Response Response = 9;
+}
+
+message TaskReq {
+  string Encoder = 1;
+  bool RWXPages = 2;
+  uint32 Pid = 3;
+  bytes Data = 4;
+
+  commonpb.Request Request = 9;
+}
+
+message Task {
+  commonpb.Response Response = 9;
+}
+
+message ExecuteAssemblyReq {
+  bytes HostingDll = 1;
+  bytes Assembly = 2;
+  string Arguments = 3;
+  string Process = 4;
+  bool AmsiBypass = 5;
+  bool EtwBypass = 6;
+  uint32 Offset = 7;
+
+  commonpb.Request Request = 9;
+}
+
+message ExecuteAssembly {
+  bytes Output = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message InvokeMigrateReq {
+  uint32 Pid = 1;
+  bytes Data = 2;
+
+  commonpb.Request Request = 9;
+}
+
+message Migrate {
+  bool Success = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message ExecuteReq {
+  string Path = 1;
+  repeated string Args = 2;
+  bool Output = 3;
+
+  commonpb.Request Request = 9;
+}
+
+message Execute {
+  string Result = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message SideloadReq {
+  bytes Data = 1;
+  string ProcessName = 2;
+  string Args = 3;
+  string EntryPoint = 4;
+
+  commonpb.Request Request = 9;
+}
+
+message Sideload {
+  string Result = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message SpawnDllReq {
+  bytes Data = 1;
+  string ProcessName = 2;
+  uint32 Offset = 3;
+  string Args = 4;
+
+  commonpb.Request Request = 9;
+}
+
+message SpawnDll {
+  string Result = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message NetstatReq {
+  bool TCP = 1;
+  bool UDP = 2;
+  bool IP4 = 3;
+  bool IP6 = 5;
+  bool Listening = 6;
+
+  commonpb.Request Request = 9;
+}
+
+message SockTabEntry {
+  message SockAddr {
+    string Ip = 1;
+    uint32 Port = 2;
+  }
+  SockAddr LocalAddr = 1;
+  SockAddr RemoteAddr = 2;
+  string SkState = 3;
+  uint32 UID = 4;
+  commonpb.Process Process = 5;
+  string Protocol = 6;
+}
+
+message Netstat {
+  repeated SockTabEntry Entries = 1;
+
+  commonpb.Response Response = 9;
+}
+
+// DNS Specific messages
+message DNSSessionInit {
+  bytes Key = 1;
+}
+
+message DNSPoll {
+  repeated DNSBlockHeader blocks = 1;
+}
+
+message DNSBlockHeader {
+  string ID = 1;
+  uint32 Size = 2;
+}
+
+// HTTP Sepecific message
+message HTTPSessionInit {
+  bytes Key = 1;
+}
+
+// ScreenshotReq - Request the implant take a screenshot
+message ScreenshotReq {
+  commonpb.Request Request = 9;
+}
+
+message Screenshot {
+  bytes Data = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message StartServiceReq {
+  string ServiceName = 1;
+  string ServiceDescription = 2;
+  string BinPath = 3;
+  string Hostname = 4;
+  string Arguments = 5;
+  commonpb.Request Request = 9;
+}
+
+message ServiceInfo {
+  commonpb.Response Response = 9;
+}
+
+message ServiceInfoReq {
+  string ServiceName = 1;
+  string Hostname = 2;
+}
+
+message StopServiceReq {
+  ServiceInfoReq ServiceInfo = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message RemoveServiceReq {
+  ServiceInfoReq ServiceInfo = 1;
+
+  commonpb.Request Request = 9;
+}
+
+// Tunnel - Tunnel related messages
+
+message Tunnel {
+  uint64 TunnelID = 8;
+  uint32 SessionID = 9;
+}
+
+message TunnelData {
+  bytes Data  = 1;
+  bool Closed = 2;
+
+  uint64 TunnelID = 8;
+  uint32 SessionID = 9;
+}
+
+// ShellReq - Request the implant open a realtime shell tunnel
+message ShellReq{
+  string Path = 1;
+  bool EnablePTY = 2;
+  uint32 Pid = 3;
+
+  uint64 TunnelID = 8; // Bind to this tunnel
+  commonpb.Request Request = 9;
+}
+
+// Shell - Request the implant open a realtime shell tunnel
+message Shell{
+  string Path = 1;
+  bool EnablePTY = 2;
+  uint32 Pid = 3;
+
+  uint64 TunnelID = 8;
+  commonpb.Response Response = 9;
+}
+
+// Named Pipes Messages
+message NamedPipesReq {
+  string PipeName = 16;
+  
+  commonpb.Request Request = 9;
+}
+
+message NamedPipes {
+  bool Success = 1;
+
+  commonpb.Response Response = 9;
+}
+
+// TCP Messages for pivoting
+message TCPPivotReq {
+  string Address = 16;
+
+  commonpb.Request Request = 9;
+}
+
+message TCPPivot {
+  bool Success = 1;
+  commonpb.Response Response = 9;
+}
+
+// Pivot transport
+message PivotOpen {
+  uint32 PivotID = 12;
+  string PivotType = 13;
+  string RemoteAddress = 14;
+  bytes  RegisterMsg = 15;
+}
+
+message PivotClose {
+  uint32 PivotID = 12;
+  string Err = 2;
+}
+
+message PivotData {
+  uint32 PivotID = 12;
+  bytes Data = 2;
+}

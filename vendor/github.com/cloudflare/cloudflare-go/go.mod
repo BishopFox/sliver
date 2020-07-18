@@ -1,14 +1,14 @@
 module github.com/cloudflare/cloudflare-go
 
+go 1.11
+
 require (
-	github.com/codegangsta/cli v1.20.0
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/mattn/go-runewidth v0.0.3 // indirect
-	github.com/olekukonko/tablewriter v0.0.1
-	github.com/pkg/errors v0.8.0
-	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/stretchr/testify v1.2.2
-	golang.org/x/lint v0.0.0-20190301231843-5614ed5bae6f // indirect
-	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2
-	golang.org/x/tools v0.0.0-20190228203856-589c23e65e65 // indirect
+	github.com/olekukonko/tablewriter v0.0.4
+	github.com/pkg/errors v0.9.1
+	github.com/stretchr/testify v1.5.1
+	github.com/urfave/cli v1.22.4
+	github.com/urfave/cli/v2 v2.1.1 // indirect
+	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0
+	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1
 )

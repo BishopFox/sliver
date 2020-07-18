@@ -97,7 +97,7 @@ if __name__ == '__main__':
                         action='store_true')
 
     parser.add_argument('--rm-all', '-rma',
-                        help='rm all containers, imagaes, and volumes',
+                        help='rm all containers, images, and volumes',
                         dest='rm_all',
                         action='store_true')
     parser.add_argument('--rm-containers', '-rmc',

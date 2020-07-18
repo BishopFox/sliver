@@ -32,6 +32,7 @@ Valid IDs are:
   cache_by_device_type
   cache_deception_armor
   cache_level
+  cache_key_fields
   cache_on_cookie
   disable_apps
   disable_performance
@@ -75,6 +76,7 @@ var PageRuleActions = map[string]string{
 	"cache_by_device_type":        "Cache By Device Type",        // Value of type string
 	"cache_deception_armor":       "Cache Deception Armor",       // Value of type string
 	"cache_level":                 "Cache Level",                 // Value of type string
+	"cache_key_fields":            "Custom Cache Key",            // Value of type map[string]interface
 	"cache_on_cookie":             "Cache On Cookie",             // Value of type string
 	"disable_apps":                "Disable Apps",                // Value of type interface{}
 	"disable_performance":         "Disable Performance",         // Value of type interface{}
@@ -109,7 +111,7 @@ type PageRule struct {
 	Targets    []PageRuleTarget `json:"targets"`
 	Actions    []PageRuleAction `json:"actions"`
 	Priority   int              `json:"priority"`
-	Status     string           `json:"status"` // can be: active, paused
+	Status     string           `json:"status"`
 	ModifiedOn time.Time        `json:"modified_on,omitempty"`
 	CreatedOn  time.Time        `json:"created_on,omitempty"`
 }

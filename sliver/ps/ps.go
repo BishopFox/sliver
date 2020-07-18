@@ -1,5 +1,7 @@
 package ps
 
+import "os"
+
 // ps provides an API for finding and listing processes in a platform-agnostic
 // way.
 //
@@ -41,4 +43,13 @@ func Processes() ([]Process, error) {
 // not found.
 func FindProcess(pid int) (Process, error) {
 	return findProcess(pid)
+}
+
+// Kill finds a process from a PID and terminates it.
+func Kill(pid int) error {
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		return err
+	}
+	return p.Kill()
 }

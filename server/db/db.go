@@ -41,7 +41,7 @@ const (
 
 var (
 	rootDB       = getRootDB()
-	dbLog        = log.NamedLogger("db", "")
+	dbLog        = log.NamedLogger("db", "badger")
 	dbCache      = &map[string]*Bucket{}
 	dbCacheMutex = &sync.Mutex{}
 )
@@ -127,20 +127,21 @@ func getRootDB() *badger.DB {
 	rootDir := assets.GetRootAppDir()
 	dbDir := path.Join(rootDir, dbDirName, rootDBDirName)
 	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
-		os.MkdirAll(dbDir, os.ModePerm)
+		os.MkdirAll(dbDir, 0700)
 	}
-	opts := badger.DefaultOptions
-	opts.Dir = dbDir
-	opts.ValueDir = dbDir
-	opts.Logger = log.NamedLogger("db", "root")
+	opts := badger.DefaultOptions(dbDir)
+	opts.Logger = log.NamedLogger("db", "badger:root")
 	db, err := badger.Open(opts)
 	if err != nil {
-		dbLog.Fatal(err)
+		dbLog.Error(err)
+		fmt.Printf("[!] %s\n", err)
+		fmt.Printf("Is there another server instance running?\n")
+		os.Exit(3)
 	}
 	return db
 }
 
-// GetBucket returns a namespaced database, names are mapped to directoires
+// GetBucket returns a namespaced database, names are mapped to directories
 // thru the rootDB which stores Name<->UUID pairs, this allows us to support
 // bucket names with arbitrary string values
 func GetBucket(name string) (*Bucket, error) {
@@ -170,7 +171,6 @@ func GetBucket(name string) (*Bucket, error) {
 	} else {
 		val, _ := item.ValueCopy(nil)
 		bucketUUID = string(val)
-		// dbLog.Debugf("Using bucket %#v (%s)", name, bucketUUID)
 	}
 
 	// We can only call open() once on each directory so we save references
@@ -184,13 +184,11 @@ func GetBucket(name string) (*Bucket, error) {
 	// No open handle to database, open/create the bucket
 	bucketDir := path.Join(rootDir, dbDirName, bucketsDirName, bucketUUID)
 	if _, err := os.Stat(bucketDir); os.IsNotExist(err) {
-		os.MkdirAll(bucketDir, os.ModePerm)
+		os.MkdirAll(bucketDir, 0700)
 	}
 	dbLog.Debugf("Loading db from %s", bucketDir)
-	opts := badger.DefaultOptions
-	opts.Dir = bucketDir
-	opts.ValueDir = bucketDir
-	logger := log.NamedLogger("db", name)
+	opts := badger.DefaultOptions(bucketDir)
+	logger := log.NamedLogger("db", fmt.Sprintf("badger:%s", name))
 	opts.Logger = logger
 	db, err := badger.Open(opts)
 	if err != nil {

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
 
 	"github.com/pkg/errors"
 )
@@ -13,6 +15,17 @@ import (
 type WorkersKVNamespaceRequest struct {
 	Title string `json:"title"`
 }
+
+// WorkersKVPair is used in an array in the request to the bulk KV api
+type WorkersKVPair struct{
+	Key string `json:"key"`
+	Value string `json:"value"`
+	Expiration int `json:"expiration,omitempty"`
+	ExpirationTTL int `json:"expiration_ttl,omitempty"`
+}
+
+// WorkersKVBulkWriteRequest is the request to the bulk KV api
+type WorkersKVBulkWriteRequest []*WorkersKVPair
 
 // WorkersKVNamespaceResponse is the response received when creating storage namespaces
 type WorkersKVNamespaceResponse struct {
@@ -53,7 +66,7 @@ type ListStorageKeysResponse struct {
 //
 // API reference: https://api.cloudflare.com/#workers-kv-namespace-create-a-namespace
 func (api *API) CreateWorkersKVNamespace(ctx context.Context, req *WorkersKVNamespaceRequest) (WorkersKVNamespaceResponse, error) {
-	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces", api.OrganizationID)
+	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces", api.AccountID)
 	res, err := api.makeRequestContext(ctx, http.MethodPost, uri, req)
 	if err != nil {
 		return WorkersKVNamespaceResponse{}, errors.Wrap(err, errMakeRequestError)
@@ -70,26 +83,46 @@ func (api *API) CreateWorkersKVNamespace(ctx context.Context, req *WorkersKVName
 // ListWorkersKVNamespaces lists storage namespaces
 //
 // API reference: https://api.cloudflare.com/#workers-kv-namespace-list-namespaces
-func (api *API) ListWorkersKVNamespaces(ctx context.Context) (ListWorkersKVNamespacesResponse, error) {
-	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces", api.OrganizationID)
-	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
-	if err != nil {
-		return ListWorkersKVNamespacesResponse{}, errors.Wrap(err, errMakeRequestError)
+func (api *API) ListWorkersKVNamespaces(ctx context.Context) ([]WorkersKVNamespace, error) {
+	v := url.Values{}
+	v.Set("per_page", "100")
+
+	var namespaces []WorkersKVNamespace
+	page := 1
+
+	for {
+		v.Set("page", strconv.Itoa(page))
+		uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces?%s", api.AccountID, v.Encode())
+		res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
+		if err != nil {
+			return []WorkersKVNamespace{}, errors.Wrap(err, errMakeRequestError)
+		}
+
+		var p ListWorkersKVNamespacesResponse
+		if err := json.Unmarshal(res, &p); err != nil {
+			return []WorkersKVNamespace{}, errors.Wrap(err, errUnmarshalError)
+		}
+
+		if !p.Success {
+			return []WorkersKVNamespace{}, errors.New(errRequestNotSuccessful)
+		}
+
+		namespaces = append(namespaces, p.Result...)
+		if p.ResultInfo.Page >= p.ResultInfo.TotalPages {
+			break
+		}
+
+		page++
 	}
 
-	result := ListWorkersKVNamespacesResponse{}
-	if err := json.Unmarshal(res, &result); err != nil {
-		return result, errors.Wrap(err, errUnmarshalError)
-	}
-
-	return result, err
+	return namespaces, nil
 }
 
 // DeleteWorkersKVNamespace deletes the namespace corresponding to the given ID
 //
 // API reference: https://api.cloudflare.com/#workers-kv-namespace-remove-a-namespace
 func (api *API) DeleteWorkersKVNamespace(ctx context.Context, namespaceID string) (Response, error) {
-	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s", api.OrganizationID, namespaceID)
+	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s", api.AccountID, namespaceID)
 	res, err := api.makeRequestContext(ctx, http.MethodDelete, uri, nil)
 	if err != nil {
 		return Response{}, errors.Wrap(err, errMakeRequestError)
@@ -107,7 +140,7 @@ func (api *API) DeleteWorkersKVNamespace(ctx context.Context, namespaceID string
 //
 // API reference: https://api.cloudflare.com/#workers-kv-namespace-rename-a-namespace
 func (api *API) UpdateWorkersKVNamespace(ctx context.Context, namespaceID string, req *WorkersKVNamespaceRequest) (Response, error) {
-	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s", api.OrganizationID, namespaceID)
+	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s", api.AccountID, namespaceID)
 	res, err := api.makeRequestContext(ctx, http.MethodPut, uri, req)
 	if err != nil {
 		return Response{}, errors.Wrap(err, errMakeRequestError)
@@ -125,9 +158,30 @@ func (api *API) UpdateWorkersKVNamespace(ctx context.Context, namespaceID string
 //
 // API reference: https://api.cloudflare.com/#workers-kv-namespace-write-key-value-pair
 func (api *API) WriteWorkersKV(ctx context.Context, namespaceID, key string, value []byte) (Response, error) {
-	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/values/%s", api.OrganizationID, namespaceID, key)
+	key = url.PathEscape(key)
+	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/values/%s", api.AccountID, namespaceID, key)
 	res, err := api.makeRequestWithAuthTypeAndHeaders(
 		ctx, http.MethodPut, uri, value, api.authType, http.Header{"Content-Type": []string{"application/octet-stream"}},
+	)
+	if err != nil {
+		return Response{}, errors.Wrap(err, errMakeRequestError)
+	}
+
+	result := Response{}
+	if err := json.Unmarshal(res, &result); err != nil {
+		return result, errors.Wrap(err, errUnmarshalError)
+	}
+
+	return result, err
+}
+
+// WriteWorkersKVBulk writes multiple KVs at once.
+//
+// API reference: https://api.cloudflare.com/#workers-kv-namespace-write-multiple-key-value-pairs
+func (api *API) WriteWorkersKVBulk(ctx context.Context, namespaceID string, kvs WorkersKVBulkWriteRequest) (Response, error) {
+	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/bulk", api.AccountID, namespaceID)
+	res, err := api.makeRequestWithAuthTypeAndHeaders(
+		ctx, http.MethodPut, uri, kvs, api.authType, http.Header{"Content-Type": []string{"application/json"}},
 	)
 	if err != nil {
 		return Response{}, errors.Wrap(err, errMakeRequestError)
@@ -145,7 +199,8 @@ func (api *API) WriteWorkersKV(ctx context.Context, namespaceID, key string, val
 //
 // API reference: https://api.cloudflare.com/#workers-kv-namespace-read-key-value-pair
 func (api API) ReadWorkersKV(ctx context.Context, namespaceID, key string) ([]byte, error) {
-	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/values/%s", api.OrganizationID, namespaceID, key)
+	key = url.PathEscape(key)
+	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/values/%s", api.AccountID, namespaceID, key)
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, errMakeRequestError)
@@ -157,7 +212,8 @@ func (api API) ReadWorkersKV(ctx context.Context, namespaceID, key string) ([]by
 //
 // API reference: https://api.cloudflare.com/#workers-kv-namespace-delete-key-value-pair
 func (api API) DeleteWorkersKV(ctx context.Context, namespaceID, key string) (Response, error) {
-	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/values/%s", api.OrganizationID, namespaceID, key)
+	key = url.PathEscape(key)
+	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/values/%s", api.AccountID, namespaceID, key)
 	res, err := api.makeRequestContext(ctx, http.MethodDelete, uri, nil)
 	if err != nil {
 		return Response{}, errors.Wrap(err, errMakeRequestError)
@@ -174,7 +230,7 @@ func (api API) DeleteWorkersKV(ctx context.Context, namespaceID, key string) (Re
 //
 // API Reference: https://api.cloudflare.com/#workers-kv-namespace-list-a-namespace-s-keys
 func (api API) ListWorkersKVs(ctx context.Context, namespaceID string) (ListStorageKeysResponse, error) {
-	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/keys", api.OrganizationID, namespaceID)
+	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/keys", api.AccountID, namespaceID)
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return ListStorageKeysResponse{}, errors.Wrap(err, errMakeRequestError)

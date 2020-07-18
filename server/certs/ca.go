@@ -46,7 +46,7 @@ func getCertDir() string {
 	rootDir := assets.GetRootAppDir()
 	certDir := path.Join(rootDir, "certs")
 	if _, err := os.Stat(certDir); os.IsNotExist(err) {
-		err := os.MkdirAll(certDir, os.ModePerm)
+		err := os.MkdirAll(certDir, 0700)
 		if err != nil {
 			certsLog.Fatalf("Failed to create cert dir %s", err)
 		}
@@ -129,7 +129,7 @@ func SaveCertificateAuthority(caType string, cert []byte, key []byte) {
 
 	storageDir := getCertDir()
 	if _, err := os.Stat(storageDir); os.IsNotExist(err) {
-		os.MkdirAll(storageDir, os.ModePerm)
+		os.MkdirAll(storageDir, 0700)
 	}
 
 	// CAs get written to the filesystem since we control the names and makes them

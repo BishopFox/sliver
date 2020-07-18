@@ -10,6 +10,7 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 	gogo "github.com/bishopfox/sliver/server/gogo"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/util"
 )
 
 var (
@@ -40,9 +41,13 @@ func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath str
 	defer os.Setenv("GOROOT", "")
 	os.Setenv("GOPATH", config.GOPATH)
 	defer os.Setenv("GOPATH", "")
+	os.Setenv("CGO_ENABLED", config.CGO)
+	defer os.Setenv("CGO_ENABLED", "")
+	os.Setenv("GO111MODULE", "off")
+	defer os.Setenv("GO111MODULE", "")
 
 	newGopath := outPath
-	if err := os.Mkdir(newGopath, 0755); err != nil {
+	if err := os.Mkdir(newGopath, 0700); err != nil {
 		obfuscateLog.Errorf("Failed to create destination: %v", err)
 		return "", err
 	}
@@ -54,6 +59,11 @@ func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath str
 
 	if !CopyGopath(ctx, pkgName, newGopath, false) {
 		return "", errors.New("Failed to copy GOPATH")
+	}
+	err := util.ChmodR(newGopath, 0600, 0700)
+	if err != nil {
+		obfuscateLog.Errorf("fs perms: %v", err)
+		return "", err
 	}
 
 	obfuscateLog.Info("Obfuscating strings ...")

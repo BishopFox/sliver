@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
 )
 
@@ -42,7 +42,7 @@ var (
 
 // DNSCanary - DNS canary
 type DNSCanary struct {
-	SliverName    string `json:"sliver_name"`
+	ImplantName   string `json:"implant_name"`
 	Domain        string `json:"domain"`
 	Triggered     bool   `json:"triggered"`
 	FirstTrigger  string `json:"first_trigger"`
@@ -53,10 +53,10 @@ type DNSCanary struct {
 // ToProtobuf - Return a protobuf version of the struct
 func (c *DNSCanary) ToProtobuf() *clientpb.DNSCanary {
 	return &clientpb.DNSCanary{
-		SliverName:     c.SliverName,
+		ImplantName:    c.ImplantName,
 		Domain:         c.Domain,
 		Triggered:      c.Triggered,
-		FristTriggered: c.FirstTrigger,
+		FirstTriggered: c.FirstTrigger,
 		LatestTrigger:  c.LatestTrigger,
 		Count:          uint32(c.Count),
 	}
@@ -124,7 +124,7 @@ func UpdateCanary(canary *DNSCanary) error {
 
 // CanaryGenerator - Holds data related to canary generation
 type CanaryGenerator struct {
-	SliverName    string
+	ImplantName   string
 	ParentDomains []string
 }
 
@@ -158,10 +158,10 @@ func (g *CanaryGenerator) GenerateCanary() string {
 	canaryDomain := fmt.Sprintf("%s.%s", subdomain, parentDomain)
 	buildLog.Infof("Generated new canary domain %s", canaryDomain)
 	canary, err := json.Marshal(&DNSCanary{
-		SliverName: g.SliverName,
-		Domain:     canaryDomain,
-		Triggered:  false,
-		Count:      0,
+		ImplantName: g.ImplantName,
+		Domain:      canaryDomain,
+		Triggered:   false,
+		Count:       0,
 	})
 	if err != nil {
 		return ""

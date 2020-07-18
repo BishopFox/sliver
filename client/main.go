@@ -36,18 +36,18 @@ const (
 
 func main() {
 	displayVersion := flag.Bool("version", false, "print version number")
-	config := flag.String("config", "", "config file")
+	config := flag.String("import", "", "import config file to ~/.sliver-client/configs")
 	flag.Parse()
 
 	if *displayVersion {
-		fmt.Printf("v%s\n", version.ClientVersion)
+		fmt.Printf("%s\n", version.FullVersion())
 		os.Exit(0)
 	}
 
 	if *config != "" {
 		conf, err := assets.ReadConfig(*config)
 		if err != nil {
-			fmt.Printf("Error %s\n", err)
+			fmt.Printf("[!] %s\n", err)
 			os.Exit(3)
 		}
 		assets.SaveConfig(conf)
@@ -66,9 +66,9 @@ func main() {
 // Initialize logging
 func initLogging(appDir string) *os.File {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	if err != nil {
-		panic(fmt.Sprintf("Error opening file: %s", err))
+		panic(fmt.Sprintf("[!] Error opening file: %s", err))
 	}
 	log.SetOutput(logFile)
 	return logFile

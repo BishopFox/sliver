@@ -41,7 +41,7 @@ func GetACMEDir() string {
 	acmePath := path.Join(getCertDir(), ACMEDirName)
 	if _, err := os.Stat(acmePath); os.IsNotExist(err) {
 		acmeLog.Infof("[mkdir] %s", acmePath)
-		os.MkdirAll(acmePath, os.ModePerm)
+		os.MkdirAll(acmePath, 0700)
 	}
 	return acmePath
 }

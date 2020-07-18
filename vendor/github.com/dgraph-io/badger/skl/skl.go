@@ -34,11 +34,11 @@ package skl
 
 import (
 	"math"
-	"math/rand"
 	"sync/atomic"
 	"unsafe"
 
 	"github.com/dgraph-io/badger/y"
+	"github.com/dgraph-io/ristretto/z"
 )
 
 const (
@@ -97,9 +97,10 @@ func (s *Skiplist) DecrRef() {
 	// Indicate we are closed. Good for testing.  Also, lets GC reclaim memory. Race condition
 	// here would suggest we are accessing skiplist when we are supposed to have no reference!
 	s.arena = nil
+	// Since the head references the arena's buf, as long as the head is kept around
+	// GC can't release the buf.
+	s.head = nil
 }
-
-func (s *Skiplist) valid() bool { return s.arena != nil }
 
 func newNode(arena *Arena, key []byte, v y.ValueStruct, height int) *node {
 	// The base level is already allocated in the node struct.
@@ -164,9 +165,9 @@ func (s *node) casNextOffset(h int, old, val uint32) bool {
 //	return n != nil && y.CompareKeys(key, n.key) > 0
 //}
 
-func randomHeight() int {
+func (s *Skiplist) randomHeight() int {
 	h := 1
-	for h < maxHeight && rand.Uint32() <= heightIncrease {
+	for h < maxHeight && z.FastRand() <= heightIncrease {
 		h++
 	}
 	return h
@@ -299,7 +300,7 @@ func (s *Skiplist) Put(key []byte, v y.ValueStruct) {
 	}
 
 	// We do need to create a new node.
-	height := randomHeight()
+	height := s.randomHeight()
 	x := newNode(s.arena, key, v, height)
 
 	// Try to increase s.height via CAS.

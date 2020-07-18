@@ -27,8 +27,7 @@ import (
 	"net"
 	"sync"
 
-	consts "github.com/bishopfox/sliver/client/constants"
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
@@ -50,7 +49,8 @@ var (
 
 // StartMutualTLSListener - Start a mutual TLS listener
 func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error) {
-	mtlsLog.Infof("Starting Raw TCP/mTLS listener on %s:%d", bindIface, port)
+	StartPivotListener()
+	mtlsLog.Infof("Starting raw TCP/mTLS listener on %s:%d", bindIface, port)
 	host := bindIface
 	if host == "" {
 		host = defaultServerCert
@@ -86,27 +86,23 @@ func acceptSliverConnections(ln net.Listener) {
 func handleSliverConnection(conn net.Conn) {
 	mtlsLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
 
-	sliver := &core.Sliver{
-		ID:            core.GetHiveID(),
+	session := &core.Session{
+		ID:            core.NextSessionID(),
 		Transport:     "mtls",
 		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
-		Send:          make(chan *pb.Envelope),
+		Send:          make(chan *sliverpb.Envelope),
 		RespMutex:     &sync.RWMutex{},
-		Resp:          map[uint64]chan *pb.Envelope{},
+		Resp:          map[uint64]chan *sliverpb.Envelope{},
 	}
 
 	defer func() {
-		mtlsLog.Debugf("Cleaning up for %s", sliver.Name)
-		core.Hive.RemoveSliver(sliver)
+		mtlsLog.Debugf("Cleaning up for %s", session.Name)
+		core.Sessions.Remove(session.ID)
 		conn.Close()
-		core.EventBroker.Publish(core.Event{
-			EventType: consts.DisconnectedEvent,
-			Sliver:    sliver,
-		})
 	}()
 
 	go func() {
-		handlers := serverHandlers.GetSliverHandlers()
+		handlers := serverHandlers.GetSessionHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err != nil {
@@ -114,31 +110,31 @@ func handleSliverConnection(conn net.Conn) {
 				return
 			}
 			if envelope.ID != 0 {
-				sliver.RespMutex.RLock()
-				if resp, ok := sliver.Resp[envelope.ID]; ok {
+				session.RespMutex.RLock()
+				if resp, ok := session.Resp[envelope.ID]; ok {
 					resp <- envelope // Could deadlock, maybe want to investigate better solutions
 				}
-				sliver.RespMutex.RUnlock()
+				session.RespMutex.RUnlock()
 			} else if handler, ok := handlers[envelope.Type]; ok {
-				go handler.(func(*core.Sliver, []byte))(sliver, envelope.Data)
+				go handler.(func(*core.Session, []byte))(session, envelope.Data)
 			}
 		}
 	}()
 
-	for envelope := range sliver.Send {
+	for envelope := range session.Send {
 		err := socketWriteEnvelope(conn, envelope)
 		if err != nil {
 			mtlsLog.Errorf("Socket write failed %v", err)
 			return
 		}
 	}
-	mtlsLog.Infof("Closing connection to sliver %s", sliver.Name)
+	mtlsLog.Infof("Closing connection to session %s", session.Name)
 }
 
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message
-// e.g. [uint32 length|message] so the reciever can delimit messages properly
-func socketWriteEnvelope(connection net.Conn, envelope *pb.Envelope) error {
+// e.g. [uint32 length|message] so the receiver can delimit messages properly
+func socketWriteEnvelope(connection net.Conn, envelope *sliverpb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		mtlsLog.Errorf("Envelope marshaling error: %v", err)
@@ -153,7 +149,7 @@ func socketWriteEnvelope(connection net.Conn, envelope *pb.Envelope) error {
 
 // socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
 // returns messageType, message, and error
-func socketReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
+func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 
 	// Read the first four bytes to determine data length
 	dataLengthBuf := make([]byte, 4) // Size of uint32
@@ -191,10 +187,10 @@ func socketReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 		return nil, err
 	}
 	// Unmarshal the protobuf envelope
-	envelope := &pb.Envelope{}
+	envelope := &sliverpb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
-		mtlsLog.Errorf("unmarshaling envelope error: %v", err)
+		mtlsLog.Errorf("Un-marshaling envelope error: %v", err)
 		return nil, err
 	}
 	return envelope, nil
@@ -213,7 +209,7 @@ func getServerTLSConfig(host string) *tls.Config {
 
 	certPEM, keyPEM, err := certs.GetCertificate(certs.ServerCA, certs.ECCKey, host)
 	if err != nil {
-		mtlsLog.Errorf("Failed to generate or fecth certificate %s", err)
+		mtlsLog.Errorf("Failed to generate or fetch certificate %s", err)
 		return nil
 	}
 

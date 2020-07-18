@@ -28,6 +28,7 @@ import (
 	"net"
 	"sort"
 
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/generate"
 
 	"encoding/base32"
@@ -45,7 +46,6 @@ import (
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
@@ -99,10 +99,10 @@ type SendBlock struct {
 // DNSSession - Holds DNS session information
 type DNSSession struct {
 	ID          string
-	Sliver      *core.Sliver
+	Session     *core.Session
 	Key         cryptography.AESKey
 	LastCheckin time.Time
-	replay      map[string]bool // Sessions are mutex'd
+	replay      map[string]bool // Sessions are mutex 'd
 }
 
 func (s *DNSSession) isReplayAttack(ciphertext []byte) bool {
@@ -123,7 +123,7 @@ func (s *DNSSession) isReplayAttack(ciphertext []byte) bool {
 
 // StartDNSListener - Start a DNS listener
 func StartDNSListener(domains []string, canaries bool) *dns.Server {
-
+	StartPivotListener()
 	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
 
 	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {
@@ -208,12 +208,12 @@ func handleCanary(req *dns.Msg) *dns.Msg {
 	resp := new(dns.Msg)
 	resp.SetReply(req)
 	if canary != nil {
-		dnsLog.Warnf("DNS canary tripped for '%s'", canary.SliverName)
+		dnsLog.Warnf("DNS canary tripped for '%s'", canary.ImplantName)
 		if !canary.Triggered {
 			// Defer publishing the event until we're sure the db is sync'd
 			defer core.EventBroker.Publish(core.Event{
-				Sliver: &core.Sliver{
-					Name: canary.SliverName,
+				Session: &core.Session{
+					Name: canary.ImplantName,
 				},
 				Data:      []byte(canary.Domain),
 				EventType: consts.CanaryEvent,
@@ -337,7 +337,7 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 
 func getFieldMsgType(fields []string) (string, error) {
 	if len(fields) < 1 {
-		return "", errors.New("Invalid number of fields in session init message (nounce)")
+		return "", errors.New("Invalid number of fields in session init message (nonce)")
 	}
 	return fields[len(fields)-1], nil
 }
@@ -355,7 +355,7 @@ func getFieldSessionID(fields []string) (string, error) {
 
 func getFieldNonce(fields []string) (string, error) {
 	if len(fields) < 3 {
-		return "", errors.New("Invalid number of fields in session init message (nounce)")
+		return "", errors.New("Invalid number of fields in session init message (nonce)")
 	}
 	return fields[len(fields)-3], nil
 }
@@ -433,19 +433,19 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		return []string{"1"}, err
 	}
 
-	sessionInit := &pb.DNSSessionInit{}
+	sessionInit := &sliverpb.DNSSessionInit{}
 	proto.Unmarshal(sessionInitData, sessionInit)
 
 	dnsLog.Infof("Received new session in request")
 
 	checkin := time.Now()
-	sliver := &core.Sliver{
-		ID:            core.GetHiveID(),
+	session := &core.Session{
+		ID:            core.NextSessionID(),
 		Transport:     "dns",
 		RemoteAddress: "n/a",
-		Send:          make(chan *pb.Envelope, 16),
+		Send:          make(chan *sliverpb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
-		Resp:          map[uint64]chan *pb.Envelope{},
+		Resp:          map[uint64]chan *sliverpb.Envelope{},
 		LastCheckin:   &checkin,
 	}
 
@@ -455,7 +455,7 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 	dnsSessionsMutex.Lock()
 	(*dnsSessions)[sessionID] = &DNSSession{
 		ID:          sessionID,
-		Sliver:      sliver,
+		Session:     session,
 		Key:         aesKey,
 		LastCheckin: time.Now(),
 		replay:      map[string]bool{},
@@ -513,24 +513,24 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 		if err != nil {
 			return []string{"1"}, errors.New("Failed to decrypt DNS envelope")
 		}
-		envelope := &pb.Envelope{}
+		envelope := &sliverpb.Envelope{}
 		proto.Unmarshal(envelopeData, envelope)
 
 		dnsLog.Infof("Envelope Type = %#v RespID = %#v", envelope.Type, envelope.ID)
 
 		checkin := time.Now()
-		dnsSession.Sliver.LastCheckin = &checkin
+		dnsSession.Session.LastCheckin = &checkin
 
 		// Response Envelope or Handler
-		handlers := serverHandlers.GetSliverHandlers()
+		handlers := serverHandlers.GetSessionHandlers()
 		if envelope.ID != 0 {
-			dnsSession.Sliver.RespMutex.Lock()
-			defer dnsSession.Sliver.RespMutex.Unlock()
-			if resp, ok := dnsSession.Sliver.Resp[envelope.ID]; ok {
+			dnsSession.Session.RespMutex.Lock()
+			defer dnsSession.Session.RespMutex.Unlock()
+			if resp, ok := dnsSession.Session.Resp[envelope.ID]; ok {
 				resp <- envelope
 			}
 		} else if handler, ok := handlers[envelope.Type]; ok {
-			handler.(func(*core.Sliver, []byte))(dnsSession.Sliver, envelope.Data)
+			handler.(func(*core.Session, []byte))(dnsSession.Session, envelope.Data)
 		}
 		return []string{"0"}, nil
 	}
@@ -634,10 +634,10 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 	dnsSessionsMutex.Unlock()
 
 	isDrained := false
-	envelopes := []*pb.Envelope{}
+	envelopes := []*sliverpb.Envelope{}
 	for !isDrained {
 		select {
-		case envelope := <-dnsSession.Sliver.Send:
+		case envelope := <-dnsSession.Session.Send:
 			dnsLog.Infof("New message from send channel ...")
 			envelopes = append(envelopes, envelope)
 		default:
@@ -647,7 +647,7 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 
 	if 0 < len(envelopes) {
 		dnsLog.Infof("%d new message(s) for session id %#v", len(envelopes), sessionID)
-		dnsPoll := &pb.DNSPoll{}
+		dnsPoll := &sliverpb.DNSPoll{}
 		for _, envelope := range envelopes {
 			data, err := proto.Marshal(envelope)
 			if err != nil {
@@ -662,7 +662,7 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 			}
 
 			blockID, size := storeSendBlocks(encryptedEnvelopeData)
-			dnsPoll.Blocks = append(dnsPoll.Blocks, &pb.DNSBlockHeader{
+			dnsPoll.Blocks = append(dnsPoll.Blocks, &sliverpb.DNSBlockHeader{
 				ID:   blockID,
 				Size: uint32(size),
 			})
@@ -790,7 +790,7 @@ func dnsEncodeToString(input []byte) string {
 	return strings.TrimRight(sliverBase32.EncodeToString(input), "=")
 }
 
-// DecodeString decodes the given base32 encodeed bytes
+// DecodeString decodes the given base32 encoded bytes
 func dnsDecodeString(raw string) ([]byte, error) {
 	pad := 8 - (len(raw) % 8)
 	padded := []byte(raw)

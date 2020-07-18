@@ -19,18 +19,17 @@ package core
 */
 
 import (
-	"crypto/x509"
 	"sync"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
 var (
-	// Clients - Manages client connections
-	Clients = &clientConns{
-		Connections: &map[int]*Client{},
-		mutex:       &sync.RWMutex{},
+	// Clients - Manages client active
+	Clients = &clients{
+		active: &map[int]*Client{},
+		mutex:  &sync.RWMutex{},
 	}
 
 	clientID = new(int)
@@ -38,72 +37,62 @@ var (
 
 // Client - Single client connection
 type Client struct {
-	ID          int
-	Operator    string
-	Certificate *x509.Certificate
-	Send        chan *sliverpb.Envelope
-	Resp        map[uint64]chan *sliverpb.Envelope
-	mutex       *sync.RWMutex
+	ID       int
+	Operator *clientpb.Operator
+	// mutex    *sync.RWMutex
 }
 
 // ToProtobuf - Get the protobuf version of the object
 func (c *Client) ToProtobuf() *clientpb.Client {
 	return &clientpb.Client{
-		ID:       int32(c.ID),
+		ID:       uint32(c.ID),
 		Operator: c.Operator,
 	}
 }
 
-// Response - Drop an evelope into a response channel
-func (c *Client) Response(envelope *sliverpb.Envelope) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	if resp, ok := c.Resp[envelope.ID]; ok {
-		resp <- envelope
-	}
-}
-
-// clientConns - Manage client connections
-type clientConns struct {
-	mutex       *sync.RWMutex
-	Connections *map[int]*Client
+// clients - Manage active clients
+type clients struct {
+	mutex  *sync.RWMutex
+	active *map[int]*Client
 }
 
 // AddClient - Add a client struct atomically
-func (cc *clientConns) AddClient(client *Client) {
+func (cc *clients) Add(client *Client) {
 	cc.mutex.Lock()
 	defer cc.mutex.Unlock()
-	(*cc.Connections)[client.ID] = client
+	(*cc.active)[client.ID] = client
+	EventBroker.Publish(Event{
+		EventType: consts.JoinedEvent,
+		Client:    client,
+	})
 }
 
 // RemoveClient - Remove a client struct atomically
-func (cc *clientConns) RemoveClient(clientID int) {
+func (cc *clients) Remove(clientID int) {
 	cc.mutex.Lock()
 	defer cc.mutex.Unlock()
-	delete((*cc.Connections), clientID)
+	client := (*cc.active)[clientID]
+	delete((*cc.active), clientID)
+	EventBroker.Publish(Event{
+		EventType: consts.JoinedEvent,
+		Client:    client,
+	})
 }
 
-// GetClientID - Get a client ID
-func GetClientID() int {
+// nextClientID - Get a client ID
+func nextClientID() int {
 	newID := (*clientID) + 1
 	(*clientID)++
 	return newID
 }
 
-// GetClient - Create a new client object
-func GetClient(certificate *x509.Certificate) *Client {
-	var operator string
-	if certificate != nil {
-		operator = certificate.Subject.CommonName
-	} else {
-		operator = "server"
-	}
+// NewClient - Create a new client object
+func NewClient(operatorName string) *Client {
 	return &Client{
-		ID:          GetClientID(),
-		Operator:    operator,
-		Certificate: certificate,
-		mutex:       &sync.RWMutex{},
-		Send:        make(chan *sliverpb.Envelope),
-		Resp:        map[uint64]chan *sliverpb.Envelope{},
+		ID: nextClientID(),
+		Operator: &clientpb.Operator{
+			Name: operatorName,
+		},
+		// mutex: &sync.RWMutex{},
 	}
 }

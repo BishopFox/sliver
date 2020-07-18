@@ -1,0 +1,371 @@
+syntax = "proto3";
+package clientpb;
+option go_package = "github.com/bishopfox/sliver/protobuf/clientpb";
+
+import "commonpb/common.proto";
+
+
+// [ Version ] ----------------------------------------
+message Version {
+  int32 Major = 1;
+  int32 Minor = 2;
+  int32 Patch = 3;
+
+  string Commit = 4;
+  bool Dirty = 5;
+  int64 CompiledAt = 6;
+
+  string OS = 7;
+  string Arch = 8;
+}
+
+// [ Core ] ----------------------------------------
+message Session {
+  uint32 ID = 1;
+  string Name = 2;
+  string Hostname = 3;
+  string Username = 4;
+  string UID = 5;
+  string GID = 6;
+  string OS = 7;
+  string Arch = 8;
+  string Transport = 9;
+  string RemoteAddress = 10;
+  int32 PID = 11;
+  string Filename = 12; // Argv[0]
+  string LastCheckin = 13;
+  string ActiveC2 = 14;
+  string Version = 15;
+  bool Evasion = 16;
+}
+
+message ImplantC2 {
+  uint32 Priority = 1;
+  string URL = 2;
+  string Options = 3; // Protocol specific options
+}
+
+message ImplantConfig {
+  string GOOS = 1;
+  string GOARCH = 2;
+  string Name = 3;
+  string CACert = 4;
+  string Cert = 5;
+  string Key = 6;
+  bool Debug = 7;
+  bool Evasion = 31;
+  bool ObfuscateSymbols = 30;
+
+  uint32 ReconnectInterval = 8;
+  uint32 MaxConnectionErrors = 9;
+
+  // c2
+  repeated ImplantC2 C2 = 10;
+  repeated string CanaryDomains = 11;
+
+  bool LimitDomainJoined = 20;
+  string LimitDatetime = 21;
+  string LimitHostname = 22;
+  string LimitUsername = 23;
+
+  enum OutputFormat {
+    SHARED_LIB = 0;
+    SHELLCODE = 1;
+    EXECUTABLE = 2;
+    SERVICE = 3;
+  }
+  OutputFormat Format = 25;
+  bool IsSharedLib = 26;
+
+  string FileName = 27;
+  bool IsService = 28;
+}
+
+// Configs of previously built implants
+message ImplantBuilds {
+  map<string, ImplantConfig> Configs = 1;
+}
+
+// DNSCanary - Single canary and metadata
+message DNSCanary {
+  string ImplantName = 1;
+  string Domain = 2;
+  bool Triggered = 3;
+  string FirstTriggered = 4;
+  string LatestTrigger = 5;
+  uint32 Count = 6;
+}
+
+message Canaries {
+  repeated DNSCanary Canaries = 1;
+}
+
+message ImplantProfile {
+  string Name = 1;
+  ImplantConfig Config = 2;
+}
+
+message ImplantProfiles {
+  repeated ImplantProfile Profiles = 1;
+}
+
+message RegenerateReq {
+  string ImplantName = 1;
+}
+
+message Job {
+  uint32 ID = 1;
+  string Name = 2;
+  string Description = 3;
+  string Protocol = 4;
+  uint32 Port = 5;
+
+  repeated string Domains = 6;
+}
+
+
+// [ Jobs ]  ----------------------------------------
+message Jobs {
+  repeated Job Active = 1;
+}
+
+message KillJobReq {
+  uint32 ID = 1;
+}
+
+message KillJob {
+  uint32 ID = 1;
+  bool Success = 2;
+}
+
+// [ Listeners ] ----------------------------------------
+message MTLSListenerReq {
+  string Host = 1;
+  uint32 Port = 2;
+
+}
+
+message MTLSListener {
+  uint32 JobID = 1;
+}
+
+message DNSListenerReq {
+  repeated string Domains = 1;
+  bool Canaries = 2;
+  string Host = 3;
+  uint32 Port = 4;
+}
+
+message DNSListener {
+  uint32 JobID = 1;
+}
+
+message HTTPListenerReq {
+  string Domain = 1;
+  string Host = 2;
+  uint32 Port = 3;
+  bool Secure = 4; // Enable HTTPS
+  string Website = 5;
+  bytes Cert = 6;
+  bytes Key = 7;
+  bool ACME = 8;
+}
+
+// Named Pipes Messages for pivoting
+message NamedPipesReq {
+  string PipeName = 16;
+  
+  commonpb.Request Request = 9;
+}
+
+message NamedPipes {
+  bool Success = 1;
+  string Err = 2;
+
+  commonpb.Response Response = 9;
+}
+
+// TCP Messages for pivoting
+message TCPPivotReq {
+  string Address = 16;
+
+  commonpb.Request Request = 9;
+}
+
+message TCPPivot {
+  bool Success = 1;
+  string Err = 2;
+
+  commonpb.Response Response = 9;
+}
+
+message HTTPListener {
+  uint32 JobID = 1;
+}
+
+// [ commands ] ----------------------------------------
+message Sessions {
+  repeated Session Sessions = 1;
+}
+
+message GenerateReq {
+  ImplantConfig Config = 1;
+}
+
+message Generate {
+  commonpb.File File = 1;
+}
+
+message MSFReq {
+  string Payload = 1;
+  string LHost = 2;
+  uint32 LPort = 3;
+  string Encoder = 4;
+  int32 Iterations = 5;
+
+  commonpb.Request Request = 9;
+}
+
+message MSFRemoteReq {
+  string Payload = 1;
+  string LHost = 2;
+  uint32 LPort = 3;
+  string Encoder = 4;
+  int32 Iterations = 5;
+  uint32 PID = 8;
+
+  commonpb.Request Request = 9;
+}
+
+enum StageProtocol {
+    TCP = 0;
+    HTTP = 1;
+    HTTPS = 2;
+}
+
+message StagerListenerReq {
+  StageProtocol Protocol = 1;
+  string Host = 2;
+  uint32 Port = 3;
+  bytes Data = 4;
+}
+
+message StagerListener {
+  uint32 JobID = 1;
+}
+
+message ShellcodeRDIReq {
+  bytes Data = 1;
+  string FunctionName = 2;
+  string Arguments = 3;
+}
+
+message ShellcodeRDI {
+  bytes Data = 1;
+}
+
+message MsfStagerReq {
+  string Arch = 1;
+  string Format = 2;
+  uint32 Port = 3;
+  string Host = 4;
+  string OS = 5; // reserved for future usage
+  StageProtocol Protocol = 6;
+  repeated string BadChars = 7;
+}
+
+message MsfStager {
+  commonpb.File File = 1;
+}
+
+// GetSystemReq - Client request to the server which is translated into
+//                InvokeSystemReq when sending to the implant.
+message GetSystemReq {
+  string HostingProcess = 1;
+  ImplantConfig Config = 2;
+
+  commonpb.Request Request = 9;
+}
+
+// MigrateReq - Client request to the server which is translated into
+//              InvokeMigrateReq when sending to the implant.
+message MigrateReq {
+  uint32 Pid = 1;
+  ImplantConfig Config = 2;
+
+  commonpb.Request Request = 9;
+}
+
+
+// [ Tunnels ] ----------------------------------------
+message CreateTunnelReq {
+
+  commonpb.Request Request = 9;
+}
+
+message CreateTunnel {
+  uint32 SessionID = 1;
+
+  uint64 TunnelID = 8;
+}
+
+message CloseTunnelReq {
+  uint64 TunnelID = 8;
+
+  commonpb.Request Request = 9;
+}
+
+// [ events ] ----------------------------------------
+message Client {
+  uint32 ID = 1;
+  string Name = 2;
+
+  Operator Operator = 3;
+}
+
+message Event {
+  string EventType = 1;
+  Session Session = 2;
+  Job Job = 3;
+  Client Client = 4;
+  bytes Data = 5;
+
+  string Err = 6; // Can't trigger normal gRPC error
+}
+
+message Operators { 
+  repeated Operator Operators = 1;
+}
+
+message Operator {
+  bool Online = 1;
+  string Name = 2;
+}
+
+// [ websites ] ----------------------------------------
+message WebContent {
+  string Path = 1;
+  string ContentType = 2;
+  uint64 Size = 3;
+
+  bytes Content = 9;
+}
+
+message WebsiteAddContent {
+  string Name = 1;
+  map<string, WebContent> Contents = 2;
+}
+
+message WebsiteRemoveContent { 
+  string Name = 1;
+  repeated string Paths = 2;
+}
+
+message Website {
+  string Name = 1;
+  map<string, WebContent> Contents = 2;
+}
+
+message Websites {
+  repeated Website Websites = 1;
+}

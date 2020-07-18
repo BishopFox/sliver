@@ -91,7 +91,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOROOT=%s", config.GOROOT),
 		fmt.Sprintf("GOPATH=%s", config.GOPATH),
 		fmt.Sprintf("GOCACHE=%s", GetTempDir()),
-		fmt.Sprintf("PATH=%s/bin", config.GOROOT),
+		fmt.Sprintf("PATH=%s/bin:%s", config.GOROOT, os.Getenv("PATH")),
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -101,6 +101,10 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	gogoLog.Infof("go cmd: '%v'", cmd)
 	err := cmd.Run()
 	if err != nil {
+		gogoLog.Infof("--- env ---\n")
+		for _, envVar := range cmd.Env {
+			gogoLog.Infof("%s\n", envVar)
+		}
 		gogoLog.Infof("--- stdout ---\n%s\n", stdout.String())
 		gogoLog.Infof("--- stderr ---\n%s\n", stderr.String())
 		gogoLog.Info(err)

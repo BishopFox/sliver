@@ -1,9 +1,0 @@
-stdin hello.txt
-[exec:cat] exec cat
-stdout hello
-[exec:cat] exec cat
-! stdout hello
-
--- hello.txt --
-hello
-

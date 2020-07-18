@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 )
@@ -138,8 +138,8 @@ func ListContent(websiteName string) (*clientpb.Website, error) {
 		return nil, err
 	}
 	pbWebsite := &clientpb.Website{
-		Name:    websiteName,
-		Content: map[string]*clientpb.WebContent{},
+		Name:     websiteName,
+		Contents: map[string]*clientpb.WebContent{},
 	}
 	for key, contentRaw := range websiteContent {
 		webContent := &clientpb.WebContent{}
@@ -149,7 +149,7 @@ func ListContent(websiteName string) (*clientpb.Website, error) {
 		}
 		webContent.Content = []byte{} // Remove actual file contents
 		webContent.Path = key[len(fmt.Sprintf("%s.", websiteName)):]
-		pbWebsite.Content[webContent.Path] = webContent
+		pbWebsite.Contents[webContent.Path] = webContent
 	}
 	return pbWebsite, nil
 }

@@ -19,7 +19,7 @@ package command
 */
 
 import (
-	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -27,20 +27,20 @@ import (
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
-	"time"
 
 	"github.com/bishopfox/sliver/client/spin"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/bishopfox/sliver/util/encoders"
+	"gopkg.in/AlecAivazis/survey.v1"
 
-	"github.com/AlecAivazis/survey"
 	"github.com/desertbit/grumble"
-	"github.com/golang/protobuf/proto"
 )
 
-func ls(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func ls(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.GetInteractive()
+	if session == nil {
 		return
 	}
 
@@ -48,26 +48,15 @@ func ls(ctx *grumble.Context, rpc RPCServer) {
 		ctx.Args = append(ctx.Args, ".")
 	}
 
-	data, _ := proto.Marshal(&sliverpb.LsReq{
-		SliverID: ActiveSliver.Sliver.ID,
-		Path:     ctx.Args[0],
+	ls, err := rpc.Ls(context.Background(), &sliverpb.LsReq{
+		Request: ActiveSession.Request(ctx),
+		Path:    ctx.Args[0],
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgLsReq,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Err)
-		return
-	}
-
-	dirList := &sliverpb.Ls{}
-	err := proto.Unmarshal(resp.Data, dirList)
 	if err != nil {
-		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-		return
+		fmt.Printf(Warn+"%s\n", err)
+	} else {
+		printDirList(ls)
 	}
-	printDirList(dirList)
 }
 
 func printDirList(dirList *sliverpb.Ls) {
@@ -85,9 +74,9 @@ func printDirList(dirList *sliverpb.Ls) {
 	table.Flush()
 }
 
-func rm(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func rm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.GetInteractive()
+	if session == nil {
 		return
 	}
 
@@ -96,37 +85,22 @@ func rm(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	data, _ := proto.Marshal(&sliverpb.RmReq{
-		SliverID: ActiveSliver.Sliver.ID,
-		Path:     ctx.Args[0],
+	rm, err := rpc.Rm(context.Background(), &sliverpb.RmReq{
+		Request:   ActiveSession.Request(ctx),
+		Path:      ctx.Args[0],
+		Recursive: ctx.Flags.Bool("recursive"),
+		Force:     ctx.Flags.Bool("force"),
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgRmReq,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Err)
-		return
-	}
-
-	rm := &sliverpb.Rm{}
-	err := proto.Unmarshal(resp.Data, rm)
 	if err != nil {
-		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-		return
-	}
-	if rm.Success {
-		fmt.Printf(Info+"%s\n", rm.Path)
+		fmt.Printf(Warn+"%s\n", err)
 	} else {
-		fmt.Printf(Warn+"%s\n", rm.Err)
+		fmt.Printf(Info+"%s\n", rm.Path)
 	}
-
 }
 
-func mkdir(ctx *grumble.Context, rpc RPCServer) {
-
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func mkdir(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.GetInteractive()
+	if session == nil {
 		return
 	}
 
@@ -135,95 +109,56 @@ func mkdir(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	data, _ := proto.Marshal(&sliverpb.MkdirReq{
-		SliverID: ActiveSliver.Sliver.ID,
-		Path:     ctx.Args[0],
+	mkdir, err := rpc.Mkdir(context.Background(), &sliverpb.MkdirReq{
+		Request: ActiveSession.Request(ctx),
+		Path:    ctx.Args[0],
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgMkdirReq,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Err)
-		return
-	}
-
-	mkdir := &sliverpb.Mkdir{}
-	err := proto.Unmarshal(resp.Data, mkdir)
 	if err != nil {
-		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-		return
-	}
-	if mkdir.Success {
-		fmt.Printf(Info+"%s\n", mkdir.Path)
+		fmt.Printf(Warn+"%s\n", err)
 	} else {
-		fmt.Printf(Warn+"%s\n", mkdir.Err)
+		fmt.Printf(Info+"%s\n", mkdir.Path)
 	}
 }
 
-func cd(ctx *grumble.Context, rpc RPCServer) {
-
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func cd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.GetInteractive()
+	if session == nil {
 		return
 	}
-
 	if len(ctx.Args) < 1 {
 		ctx.Args = append(ctx.Args, ".")
 	}
 
-	data, _ := proto.Marshal(&sliverpb.CdReq{
-		SliverID: ActiveSliver.Sliver.ID,
-		Path:     ctx.Args[0],
+	pwd, err := rpc.Cd(context.Background(), &sliverpb.CdReq{
+		Request: ActiveSession.Request(ctx),
+		Path:    ctx.Args[0],
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgCdReq,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Err)
-		return
-	}
-
-	pwd := &sliverpb.Pwd{}
-	err := proto.Unmarshal(resp.Data, pwd)
 	if err != nil {
-		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-		return
+		fmt.Printf(Warn+"%s\n", err)
+	} else {
+		fmt.Printf(Info+"%s\n", pwd.Path)
 	}
-	fmt.Printf(Info+"%s\n", pwd.Path)
 }
 
-func pwd(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func pwd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.GetInteractive()
+	if session == nil {
 		return
 	}
 
-	data, _ := proto.Marshal(&sliverpb.PwdReq{
-		SliverID: ActiveSliver.Sliver.ID,
+	pwd, err := rpc.Pwd(context.Background(), &sliverpb.PwdReq{
+		Request: ActiveSession.Request(ctx),
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgPwdReq,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Err)
-		return
-	}
-
-	pwd := &sliverpb.Pwd{}
-	err := proto.Unmarshal(resp.Data, pwd)
 	if err != nil {
-		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-		return
+		fmt.Printf(Warn+"%s\n", err)
+	} else {
+		fmt.Printf(Info+"%s\n", pwd.Path)
 	}
-	fmt.Printf(Info+"%s\n", pwd.Path)
 }
 
-func cat(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func cat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.GetInteractive()
+	if session == nil {
 		return
 	}
 
@@ -232,34 +167,29 @@ func cat(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 
-	data, _ := proto.Marshal(&sliverpb.DownloadReq{
-		SliverID: ActiveSliver.Sliver.ID,
-		Path:     ctx.Args[0],
+	download, err := rpc.Download(context.Background(), &sliverpb.DownloadReq{
+		Request: ActiveSession.Request(ctx),
+		Path:    ctx.Args[0],
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgDownloadReq,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Err)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
-
-	download := &sliverpb.Download{}
-	proto.Unmarshal(resp.Data, download)
 	if download.Encoder == "gzip" {
-		download.Data, _ = new(util.Gzip).Decode(download.Data)
+		download.Data, err = new(encoders.Gzip).Decode(download.Data)
+		if err != nil {
+			fmt.Printf(Warn+"%s\n", err)
+			return
+		}
 	}
 	fmt.Printf(string(download.Data))
 }
 
-func download(ctx *grumble.Context, rpc RPCServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.GetInteractive()
+	if session == nil {
 		return
 	}
-
-	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
 
 	if len(ctx.Args) < 1 {
 		fmt.Println(Warn + "Missing parameter(s), see `help download`\n")
@@ -274,7 +204,7 @@ func download(ctx *grumble.Context, rpc RPCServer) {
 	dst, _ := filepath.Abs(ctx.Args[1])
 	fi, err := os.Stat(dst)
 	if err != nil {
-		fmt.Printf(Warn+"%v\n", err)
+		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
 	if fi.IsDir() {
@@ -292,56 +222,53 @@ func download(ctx *grumble.Context, rpc RPCServer) {
 
 	ctrl := make(chan bool)
 	go spin.Until(fmt.Sprintf("%s -> %s", fileName, dst), ctrl)
-	data, _ := proto.Marshal(&sliverpb.DownloadReq{
-		SliverID: ActiveSliver.Sliver.ID,
-		Path:     ctx.Args[0],
+	download, err := rpc.Download(context.Background(), &sliverpb.DownloadReq{
+		Request: ActiveSession.Request(ctx),
+		Path:    ctx.Args[0],
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgDownloadReq,
-		Data: data,
-	}, cmdTimeout)
 	ctrl <- true
 	<-ctrl
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Err)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
 
-	download := &sliverpb.Download{}
-	proto.Unmarshal(resp.Data, download)
 	if download.Encoder == "gzip" {
-		download.Data, _ = new(util.Gzip).Decode(download.Data)
+		download.Data, err = new(encoders.Gzip).Decode(download.Data)
+		if err != nil {
+			fmt.Printf(Warn+"Decoding failed %s", err)
+			return
+		}
 	}
-	f, err := os.Create(dst)
+	dstFile, err := os.Create(dst)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to open local file %s: %v\n", dst, err)
+		fmt.Printf(Warn+"Failed to open local file %s: %s\n", dst, err)
+		return
 	}
-	defer f.Close()
-	n, err := f.Write(download.Data)
+	defer dstFile.Close()
+	n, err := dstFile.Write(download.Data)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to write data %v\n", err)
 	} else {
-		fmt.Printf(Info+"Wrote %d bytes to %s\n", n, dst)
+		fmt.Printf(Info+"Wrote %d bytes to %s\n", n, dstFile.Name())
 	}
 }
 
-func upload(ctx *grumble.Context, rpc RPCServer) {
-
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func upload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.GetInteractive()
+	if session == nil {
 		return
 	}
+
 	if len(ctx.Args) < 1 {
-		fmt.Println(Warn + "Missing parameter, see `help upload`\n")
+		fmt.Printf(Warn + "Missing parameter, see `help upload`\n")
 		return
 	}
-
-	cmdTimeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
 
 	src, _ := filepath.Abs(ctx.Args[0])
 	_, err := os.Stat(src)
 	if err != nil {
-		fmt.Printf(Warn+"%v\n", err)
+		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
 
@@ -352,38 +279,21 @@ func upload(ctx *grumble.Context, rpc RPCServer) {
 	dst := ctx.Args[1]
 
 	fileBuf, err := ioutil.ReadFile(src)
-	uploadGzip := bytes.NewBuffer([]byte{})
-	new(util.Gzip).Encode(uploadGzip, fileBuf)
+	uploadGzip := new(encoders.Gzip).Encode(fileBuf)
 
 	ctrl := make(chan bool)
 	go spin.Until(fmt.Sprintf("%s -> %s", src, dst), ctrl)
-	data, _ := proto.Marshal(&sliverpb.UploadReq{
-		SliverID: ActiveSliver.Sliver.ID,
-		Path:     dst,
-		Data:     uploadGzip.Bytes(),
-		Encoder:  "gzip",
+	upload, err := rpc.Upload(context.Background(), &sliverpb.UploadReq{
+		Request: ActiveSession.Request(ctx),
+		Path:    dst,
+		Data:    uploadGzip,
+		Encoder: "gzip",
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: sliverpb.MsgUploadReq,
-		Data: data,
-	}, cmdTimeout)
 	ctrl <- true
 	<-ctrl
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Err)
-		return
-	}
-
-	upload := &sliverpb.Upload{}
-	err = proto.Unmarshal(resp.Data, upload)
 	if err != nil {
-		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
-		return
-	}
-	if upload.Success {
-		fmt.Printf(clearln+Info+"Written to %s\n", upload.Path)
+		fmt.Printf(Warn+"%s\n", err)
 	} else {
-		fmt.Printf(Warn+"Error %s\n", upload.Err)
+		fmt.Printf(clearln+Info+"Wrote file to %s\n", upload.Path)
 	}
-
 }

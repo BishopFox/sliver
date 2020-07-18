@@ -9,6 +9,7 @@ This directory contains the Sliver server implementation, and is strucutred as f
  * `console/` - Server specific console code, the majority of the Sliver console code is in `/client/console`
  * `core/` - Data structures and methods that manage connection state from implants, clients, etc.
  * `cryptography/` - Cryptography code and wrappers around a few of Go's standard `crypto` APIs
+ * `daemon/` - Method for starting the server as a daemon
  * `encoders/` - Data encoders and decoders
  * `generate/` - This package generates the implant executables and shared libraries
  * `gobfuscate/` - Compile-time obfuscation library

@@ -19,56 +19,80 @@ package rpc
 */
 
 import (
-	"time"
+	"context"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 
+	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/website"
-	"github.com/golang/protobuf/proto"
 )
 
-func rpcWebsiteList(_ []byte, _ time.Duration, resp RPCResponse) {
+var (
+	rpcWebsiteLog = log.NamedLogger("rpc", "website")
+)
+
+// Websites - List existing websites
+func (rpc *Server) Websites(ctx context.Context, _ *commonpb.Empty) (*clientpb.Websites, error) {
 	websiteNames, err := website.ListWebsites()
 	if err != nil {
-		return
+		rpcWebsiteLog.Warnf("Failed to find website %s", err)
+		return nil, err
 	}
-	websites := &clientpb.Websites{Sites: []*clientpb.Website{}}
+	websites := &clientpb.Websites{Websites: []*clientpb.Website{}}
 	for _, name := range websiteNames {
-		site, err := website.ListContent(name)
+		siteContent, err := website.ListContent(name)
 		if err != nil {
-			rpcLog.Errorf("Failed to list website content %s", err)
+			rpcWebsiteLog.Warnf("Failed to list website content %s", err)
 			continue
 		}
-		websites.Sites = append(websites.Sites, site)
+		websites.Websites = append(websites.Websites, siteContent)
 	}
-	data, err := proto.Marshal(websites)
-	resp(data, err)
+	return websites, nil
 }
 
-func rpcWebsiteAddContent(req []byte, _ time.Duration, resp RPCResponse) {
-	addWebsite := &clientpb.Website{}
-	err := proto.Unmarshal(req, addWebsite)
+// WebsiteRemove - Delete an entire website
+func (rpc *Server) WebsiteRemove(ctx context.Context, req *clientpb.Website) (*commonpb.Empty, error) {
+	web, err := website.ListContent(req.Name)
 	if err != nil {
-		resp([]byte{}, err)
+		return nil, err
 	}
-	for path, content := range addWebsite.Content {
-		rpcLog.Infof("Add website content (%s) %s -> %s", addWebsite.Name, path, content.ContentType)
-		err := website.AddContent(addWebsite.Name, path, content.ContentType, content.Content)
+	for path := range web.Contents {
+		err := website.RemoveContent(req.Name, path)
 		if err != nil {
-			rpcLog.Errorf("Failed to add website content %s", err)
+			rpcWebsiteLog.Errorf("Failed to remove content %s", err)
+			return nil, err
 		}
 	}
-	resp([]byte{}, nil)
+	return &commonpb.Empty{}, nil
 }
 
-func rpcWebsiteRemoveContent(req []byte, _ time.Duration, resp RPCResponse) {
-	rmWebsite := &clientpb.Website{}
-	err := proto.Unmarshal(req, rmWebsite)
-	if err != nil {
-		resp([]byte{}, err)
+// Website - Get one website
+func (rpc *Server) Website(ctx context.Context, req *clientpb.Website) (*clientpb.Website, error) {
+	return website.ListContent(req.Name)
+}
+
+// WebsiteAddContent - Add content to a website, the website is created if `name` does not exist
+func (rpc *Server) WebsiteAddContent(ctx context.Context, req *clientpb.WebsiteAddContent) (*clientpb.Website, error) {
+	for _, content := range req.Contents {
+		rpcLog.Infof("Add website content (%s) %s -> %s", req.Name, content.Path, content.ContentType)
+		err := website.AddContent(req.Name, content.Path, content.ContentType, content.Content)
+		if err != nil {
+			rpcWebsiteLog.Errorf("Failed to remove content %s", err)
+			return nil, err
+		}
 	}
-	for webpath := range rmWebsite.Content {
-		website.RemoveContent(rmWebsite.Name, webpath)
+	return website.ListContent(req.Name)
+}
+
+// WebsiteRemoveContent - Remove specific content from a website
+func (rpc *Server) WebsiteRemoveContent(ctx context.Context, req *clientpb.WebsiteRemoveContent) (*clientpb.Website, error) {
+	for _, path := range req.Paths {
+		err := website.RemoveContent(req.Name, path)
+		if err != nil {
+			rpcWebsiteLog.Errorf("Failed to remove content %s", err)
+			return nil, err
+		}
 	}
-	resp([]byte{}, nil)
+	return website.ListContent(req.Name)
 }

@@ -19,147 +19,48 @@ package transport
 */
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/binary"
 	"fmt"
-	"io"
 	"log"
 	"os"
-	"sync"
+	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
-
-	"github.com/golang/protobuf/proto"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 const (
-	readBufSize = 1024
-)
+	kb = 1024
+	mb = kb * 1024
+	gb = mb * 1024
 
-var (
-	once = &sync.Once{}
+	// ClientMaxReceiveMessageSize - Max gRPC message size ~2Gb
+	ClientMaxReceiveMessageSize = 2 * gb
+
+	defaultTimeout = time.Duration(10 * time.Second)
 )
 
 // MTLSConnect - Connect to the sliver server
-func MTLSConnect(config *assets.ClientConfig) (chan *pb.Envelope, chan *pb.Envelope, error) {
-	conn, err := tlsConnect(config.LHost, uint16(config.LPort), config)
+func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+	tlsConfig, err := getTLSConfig(config.CACertificate, config.Certificate, config.PrivateKey)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	send := make(chan *pb.Envelope)
-	recv := make(chan *pb.Envelope)
-
-	go func() {
-		defer once.Do(func() {
-			close(send)
-			close(recv)
-			conn.Close()
-		})
-
-		for envelope := range send {
-			err := socketWriteEnvelope(conn, envelope)
-			if err != nil {
-				return
-			}
-		}
-	}()
-
-	go func() {
-		defer once.Do(func() {
-			close(send)
-			close(recv)
-			conn.Close()
-		})
-		for {
-			envelope, err := socketReadEnvelope(conn)
-			if err == io.EOF {
-				log.Printf("Lost connection to server")
-				return
-			}
-			if envelope == nil {
-				log.Printf("Warning: nil envelope")
-				continue
-			}
-			if err == nil && envelope != nil {
-				recv <- envelope
-			}
-		}
-	}()
-
-	return send, recv, nil
-}
-
-// socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
-// which is a fancy way of saying we write the length of the message then the message
-// e.g. [uint32 length|message] so the reciever can delimit messages properly
-func socketWriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
-	data, err := proto.Marshal(envelope)
+	creds := credentials.NewTLS(tlsConfig)
+	options := []grpc.DialOption{
+		grpc.WithTimeout(defaultTimeout),
+		grpc.WithTransportCredentials(creds),
+		grpc.WithBlock(),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(ClientMaxReceiveMessageSize)),
+	}
+	connection, err := grpc.Dial(fmt.Sprintf("%s:%d", config.LHost, config.LPort), options...)
 	if err != nil {
-		log.Print("Envelope marshaling error: ", err)
-		return err
+		return nil, nil, err
 	}
-	dataLengthBuf := new(bytes.Buffer)
-	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
-	connection.Write(dataLengthBuf.Bytes())
-	connection.Write(data)
-	return nil
-}
-
-// socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
-func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
-	dataLengthBuf := make([]byte, 4) // Size of uint32
-
-	_, err := connection.Read(dataLengthBuf)
-	if err != nil {
-		log.Printf("Socket error (read msg-length): %v\n", err)
-		return nil, err
-	}
-	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
-
-	// Read the length of the data
-	readBuf := make([]byte, readBufSize)
-	dataBuf := make([]byte, 0)
-	totalRead := 0
-	for {
-		n, err := connection.Read(readBuf)
-		dataBuf = append(dataBuf, readBuf[:n]...)
-		totalRead += n
-		if totalRead == dataLength {
-			break
-		}
-		if err != nil {
-			log.Printf("Read error: %s\n", err)
-			break
-		}
-	}
-
-	// Unmarshal the protobuf envelope
-	envelope := &pb.Envelope{}
-	err = proto.Unmarshal(dataBuf, envelope)
-	if err != nil {
-		log.Printf("Unmarshaling envelope error: %v", err)
-		return &pb.Envelope{}, err
-	}
-
-	return envelope, nil
-}
-
-// tlsConnect - Get a TLS connection or die trying
-func tlsConnect(address string, port uint16, config *assets.ClientConfig) (*tls.Conn, error) {
-	tlsConfig, err := getTLSConfig(config.CACertificate, config.Certificate, config.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-	connection, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", address, port), tlsConfig)
-	if err != nil {
-		log.Printf("Unable to connect: %v", err)
-		return nil, err
-	}
-	return connection, nil
+	return rpcpb.NewSliverRPCClient(connection), connection, nil
 }
 
 func getTLSConfig(caCertificate string, certificate string, privateKey string) (*tls.Config, error) {
@@ -184,7 +85,6 @@ func getTLSConfig(caCertificate string, certificate string, privateKey string) (
 		},
 	}
 	tlsConfig.BuildNameToCertificate()
-
 	return tlsConfig, nil
 }
 

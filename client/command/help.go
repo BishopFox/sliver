@@ -33,21 +33,21 @@ func helpCmd(app *grumble.App, isShell bool) {
 	fmt.Println()
 }
 
-func printHelp(a *grumble.App) {
+func printHelp(app *grumble.App) {
 	config := columnize.DefaultConfig()
 	config.Delim = "|"
 	config.Glue = "  "
 	config.Prefix = "  "
 	// Group the commands by their help group if present.
 	groups := make(map[string]*grumble.Commands)
-	for _, c := range a.Commands().All() {
+	for _, c := range app.Commands().All() {
 		key := c.HelpGroup
-		if ActiveSliver.Sliver != nil {
-			if ActiveSliver.Sliver.GetOS() != "windows" && key == consts.SliverWinHelpGroup {
+		if ActiveSession.Get() != nil {
+			if ActiveSession.Get().GetOS() != "windows" && key == consts.SliverWinHelpGroup {
 				continue
 			}
 		} else {
-			if key == consts.SliverHelpGroup || key == consts.SliverWinHelpGroup {
+			if key == consts.SliverHelpGroup || key == consts.SliverWinHelpGroup || key == consts.ExtensionHelpGroup {
 				continue
 			}
 		}
@@ -85,7 +85,7 @@ func printHelp(a *grumble.App) {
 
 		if len(output) > 0 {
 			fmt.Println()
-			printHeadline(a.Config(), headline)
+			printHeadline(app.Config(), headline)
 			fmt.Printf("%s\n", columnize.Format(output, config))
 		}
 	}

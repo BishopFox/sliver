@@ -19,94 +19,133 @@ package rpc
 */
 
 import (
+	"context"
+	"errors"
+	"runtime"
 	"time"
 
+	"github.com/bishopfox/sliver/client/version"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
-
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/golang/protobuf/proto"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 )
 
 var (
 	rpcLog = log.NamedLogger("rpc", "server")
+
+	// ErrInvalidSessionID - Invalid Session ID in request
+	ErrInvalidSessionID = errors.New("Invalid session ID")
+	// ErrMissingRequestField - Returned when a request does not contain a commonpb.Request
+	ErrMissingRequestField = errors.New("Missing session request field")
 )
 
-// RPCResponse - Called with response data, mapped back to reqID
-type RPCResponse func([]byte, error)
-
-// RPCHandler - RPC handlers accept bytes and return bytes
-type RPCHandler func([]byte, time.Duration, RPCResponse)
-type TunnelHandler func(*core.Client, []byte, RPCResponse)
-
-var (
-	rpcHandlers = &map[uint32]RPCHandler{
-		clientpb.MsgJobs:    rpcJobs,
-		clientpb.MsgJobKill: rpcJobKill,
-		clientpb.MsgMtls:    rpcStartMTLSListener,
-		clientpb.MsgDns:     rpcStartDNSListener,
-		clientpb.MsgHttp:    rpcStartHTTPListener,
-		clientpb.MsgHttps:   rpcStartHTTPSListener,
-
-		clientpb.MsgWebsiteList:          rpcWebsiteList,
-		clientpb.MsgWebsiteAddContent:    rpcWebsiteAddContent,
-		clientpb.MsgWebsiteRemoveContent: rpcWebsiteRemoveContent,
-
-		clientpb.MsgSessions:         rpcSessions,
-		clientpb.MsgGenerate:         rpcGenerate,
-		clientpb.MsgRegenerate:       rpcRegenerate,
-		clientpb.MsgListSliverBuilds: rpcListSliverBuilds,
-		clientpb.MsgListCanaries:     rpcListCanaries,
-		clientpb.MsgProfiles:         rpcProfiles,
-		clientpb.MsgNewProfile:       rpcNewProfile,
-		clientpb.MsgPlayers:          rpcPlayers,
-
-		clientpb.MsgMsf:       rpcMsf,
-		clientpb.MsgMsfInject: rpcMsfInject,
-
-		clientpb.MsgGetSystemReq: rpcGetSystem,
-
-		clientpb.MsgEggReq:             rpcEgg,
-		clientpb.MsgExecuteAssemblyReq: rpcExecuteAssembly,
-
-		// "Req"s directly map to responses
-		sliverpb.MsgPsReq:          rpcPs,
-		sliverpb.MsgKill:           rpcKill,
-		sliverpb.MsgProcessDumpReq: rpcProcdump,
-
-		sliverpb.MsgElevate:     rpcElevate,
-		sliverpb.MsgImpersonate: rpcImpersonate,
-
-		sliverpb.MsgLsReq:       rpcLs,
-		sliverpb.MsgRmReq:       rpcRm,
-		sliverpb.MsgMkdirReq:    rpcMkdir,
-		sliverpb.MsgCdReq:       rpcCd,
-		sliverpb.MsgPwdReq:      rpcPwd,
-		sliverpb.MsgDownloadReq: rpcDownload,
-		sliverpb.MsgUploadReq:   rpcUpload,
-
-		sliverpb.MsgIfconfigReq: rpcIfconfig,
-
-		sliverpb.MsgShellReq:   rpcShell,
-		sliverpb.MsgExecuteReq: rpcExecute,
-
-		clientpb.MsgTask:    rpcLocalTask,
-		clientpb.MsgMigrate: rpcMigrate,
-	}
-
-	tunHandlers = &map[uint32]TunnelHandler{
-		clientpb.MsgTunnelCreate: tunnelCreate,
-		sliverpb.MsgTunnelData:   tunnelData,
-		sliverpb.MsgTunnelClose:  tunnelClose,
-	}
+const (
+	defaultTimeout = time.Duration(30 * time.Second)
 )
 
-// GetRPCHandlers - Returns a map of server-side msg handlers
-func GetRPCHandlers() *map[uint32]RPCHandler {
-	return rpcHandlers
+// Server - gRPC server
+type Server struct{}
+
+// GenericRequest - Generic request interface to use with generic handlers
+type GenericRequest interface {
+	Reset()
+	String() string
+	ProtoMessage()
+
+	GetRequest() *commonpb.Request
 }
 
-// GetTunnelHandlers - Returns a map of tunnel handlers
-func GetTunnelHandlers() *map[uint32]TunnelHandler {
-	return tunHandlers
+// GenericResponse - Generic response interface to use with generic handlers
+type GenericResponse interface {
+	GetResponse() *commonpb.Response
+}
+
+// NewServer - Create new server instance
+func NewServer() *Server {
+	return &Server{}
+}
+
+// GetVersion - Get the server version
+func (rpc *Server) GetVersion(ctx context.Context, _ *commonpb.Empty) (*clientpb.Version, error) {
+	dirty := version.GitDirty != ""
+	semVer := version.SemanticVersion()
+	compiled, _ := version.Compiled()
+	return &clientpb.Version{
+		Major:      int32(semVer[0]),
+		Minor:      int32(semVer[1]),
+		Patch:      int32(semVer[2]),
+		Commit:     version.GitCommit,
+		Dirty:      dirty,
+		CompiledAt: compiled.Unix(),
+		OS:         runtime.GOOS,
+		Arch:       runtime.GOARCH,
+	}, nil
+}
+
+// GenericHandler - Pass the request to the Sliver/Session
+func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error {
+	request := req.GetRequest()
+	if request == nil {
+		return ErrMissingRequestField
+	}
+	session := core.Sessions.Get(request.SessionID)
+	if session == nil {
+		return ErrInvalidSessionID
+	}
+
+	reqData, err := proto.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	data, err := session.Request(sliverpb.MsgNumber(req), rpc.getTimeout(req), reqData)
+	if err != nil {
+		return err
+	}
+	err = proto.Unmarshal(data, resp)
+	if err != nil {
+		return err
+	}
+	return rpc.getError(resp.(GenericResponse))
+}
+
+func (rpc *Server) getClientCommonName(ctx context.Context) string {
+	client, ok := peer.FromContext(ctx)
+	if !ok {
+		return ""
+	}
+	tlsAuth, ok := client.AuthInfo.(credentials.TLSInfo)
+	if !ok {
+		return ""
+	}
+	if len(tlsAuth.State.VerifiedChains) == 0 || len(tlsAuth.State.VerifiedChains[0]) == 0 {
+		return ""
+	}
+	if tlsAuth.State.VerifiedChains[0][0].Subject.CommonName != "" {
+		return tlsAuth.State.VerifiedChains[0][0].Subject.CommonName
+	}
+	return ""
+}
+
+// getTimeout - Get the specified timeout from the request or the default
+func (rpc *Server) getTimeout(req GenericRequest) time.Duration {
+	timeout := req.GetRequest().Timeout
+	if time.Duration(timeout) < time.Second {
+		return defaultTimeout
+	}
+	return time.Duration(timeout)
+}
+
+// getError - Check an implant's response for Err and convert it to an `error` type
+func (rpc *Server) getError(resp GenericResponse) error {
+	respHeader := resp.GetResponse()
+	if respHeader != nil && respHeader.Err != "" {
+		return errors.New(respHeader.Err)
+	}
+	return nil
 }

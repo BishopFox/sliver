@@ -19,6 +19,7 @@ package assets
 */
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -49,7 +50,7 @@ func GetConfigDir() string {
 	rootDir, _ := filepath.Abs(GetRootAppDir())
 	dir := path.Join(rootDir, ConfigDirName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, os.ModePerm)
+		err = os.MkdirAll(dir, 0700)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -75,7 +76,8 @@ func GetConfigs() map[string]*ClientConfig {
 		if err != nil {
 			continue
 		}
-		confs[conf.LHost] = conf
+		digest := sha256.Sum256([]byte(conf.Certificate))
+		confs[fmt.Sprintf("%s@%s (%x)", conf.Operator, conf.LHost, digest[:8])] = conf
 	}
 	return confs
 }

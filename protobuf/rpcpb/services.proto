@@ -1,0 +1,96 @@
+syntax = "proto3";
+package rpcpb;
+option go_package = "github.com/bishopfox/sliver/protobuf/rpcpb";
+
+import "commonpb/common.proto";
+import "sliverpb/sliver.proto";
+import "clientpb/client.proto";
+
+
+service SliverRPC {
+
+    // *** Version ***
+    rpc GetVersion(commonpb.Empty) returns (clientpb.Version);
+
+    // *** Operator Commands *** 
+    rpc GetOperators(commonpb.Empty) returns (clientpb.Operators);
+
+    // *** Sessions ***
+    rpc GetSessions(commonpb.Empty) returns (clientpb.Sessions);
+    rpc KillSession(sliverpb.KillSessionReq) returns (commonpb.Empty);
+    
+    // *** Jobs ***
+    rpc GetJobs(commonpb.Empty) returns (clientpb.Jobs);
+    rpc KillJob(clientpb.KillJobReq) returns (clientpb.KillJob);
+
+    // *** Listeners ***
+    rpc StartMTLSListener(clientpb.MTLSListenerReq) returns (clientpb.MTLSListener);
+    rpc StartDNSListener(clientpb.DNSListenerReq) returns (clientpb.DNSListener);
+    rpc StartHTTPSListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
+    rpc StartHTTPListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
+
+    // *** Stager Listener ***
+    rpc StartTCPStagerListener(clientpb.StagerListenerReq) returns(clientpb.StagerListener);
+    rpc StartHTTPStagerListener(clientpb.StagerListenerReq) returns(clientpb.StagerListener);
+    
+    // *** Implants ***
+    rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate);
+    rpc Regenerate(clientpb.RegenerateReq) returns (clientpb.Generate);
+    rpc ImplantBuilds(commonpb.Empty) returns (clientpb.ImplantBuilds);
+    rpc Canaries(commonpb.Empty) returns (clientpb.Canaries);
+    rpc ImplantProfiles(commonpb.Empty) returns (clientpb.ImplantProfiles);
+    rpc SaveImplantProfile(clientpb.ImplantProfile) returns (clientpb.ImplantProfile);
+    rpc MsfStage(clientpb.MsfStagerReq) returns (clientpb.MsfStager);
+    rpc ShellcodeRDI(clientpb.ShellcodeRDIReq) returns (clientpb.ShellcodeRDI);
+
+    // *** Websites ***
+    rpc Websites(commonpb.Empty) returns (clientpb.Websites);
+    rpc Website(clientpb.Website) returns (clientpb.Website);
+    rpc WebsiteRemove(clientpb.Website) returns (commonpb.Empty);
+    rpc WebsiteAddContent(clientpb.WebsiteAddContent) returns (clientpb.Website);
+    rpc WebsiteRemoveContent(clientpb.WebsiteRemoveContent) returns (clientpb.Website);
+
+    // *** Session Interactions ***
+    rpc Ping(sliverpb.Ping) returns (sliverpb.Ping);
+    rpc Ps(sliverpb.PsReq) returns (sliverpb.Ps);
+    rpc Terminate(sliverpb.TerminateReq) returns (sliverpb.Terminate);
+    rpc Ifconfig(sliverpb.IfconfigReq) returns (sliverpb.Ifconfig);
+    rpc Netstat(sliverpb.NetstatReq) returns (sliverpb.Netstat);
+    rpc Ls(sliverpb.LsReq) returns (sliverpb.Ls);
+    rpc Cd(sliverpb.CdReq) returns (sliverpb.Pwd);
+    rpc Pwd(sliverpb.PwdReq) returns (sliverpb.Pwd);
+    rpc Rm(sliverpb.RmReq) returns (sliverpb.Rm);
+    rpc Mkdir(sliverpb.MkdirReq) returns (sliverpb.Mkdir);
+    rpc Download(sliverpb.DownloadReq) returns (sliverpb.Download);
+    rpc Upload(sliverpb.UploadReq) returns (sliverpb.Upload);
+    rpc ProcessDump(sliverpb.ProcessDumpReq) returns (sliverpb.ProcessDump);
+    rpc RunAs(sliverpb.RunAsReq) returns (sliverpb.RunAs);
+    rpc Impersonate(sliverpb.ImpersonateReq) returns (sliverpb.Impersonate);
+    rpc RevToSelf(sliverpb.RevToSelfReq) returns (sliverpb.RevToSelf);
+    rpc GetSystem(clientpb.GetSystemReq) returns (sliverpb.GetSystem);
+    rpc Task(sliverpb.TaskReq) returns (sliverpb.Task);
+    rpc Msf(clientpb.MSFReq) returns (commonpb.Empty);
+    rpc MsfRemote(clientpb.MSFRemoteReq) returns (commonpb.Empty);
+    rpc ExecuteAssembly(sliverpb.ExecuteAssemblyReq) returns (sliverpb.ExecuteAssembly);
+    rpc Migrate(clientpb.MigrateReq) returns (sliverpb.Migrate);
+    rpc Execute(sliverpb.ExecuteReq) returns (sliverpb.Execute);
+    rpc Sideload(sliverpb.SideloadReq) returns (sliverpb.Sideload);
+    rpc SpawnDll(sliverpb.SpawnDllReq) returns (sliverpb.SpawnDll);
+    rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
+    rpc NamedPipes(sliverpb.NamedPipesReq) returns (sliverpb.NamedPipes);
+    rpc TCPListener(sliverpb.TCPPivotReq) returns (sliverpb.TCPPivot);
+    rpc StartService(sliverpb.StartServiceReq) returns (sliverpb.ServiceInfo);
+    rpc StopService(sliverpb.StopServiceReq) returns (sliverpb.ServiceInfo);
+    rpc RemoveService(sliverpb.RemoveServiceReq) returns (sliverpb.ServiceInfo);
+
+    // *** Realtime Commands ***
+    rpc Shell(sliverpb.ShellReq) returns (sliverpb.Shell);
+
+    // *** Tunnels ***
+    rpc CreateTunnel(sliverpb.Tunnel) returns (sliverpb.Tunnel);
+    rpc CloseTunnel(sliverpb.Tunnel) returns (commonpb.Empty);
+    rpc TunnelData(stream sliverpb.TunnelData) returns (stream sliverpb.TunnelData);
+
+    // *** Events ***
+    rpc Events(commonpb.Empty) returns (stream clientpb.Event);
+}

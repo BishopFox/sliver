@@ -19,37 +19,39 @@ package rpc
 */
 
 import (
+	"context"
 	"time"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
-
 	"github.com/golang/protobuf/proto"
 )
 
-func rpcKill(data []byte, timeout time.Duration, resp RPCResponse) {
-	killReq := &sliverpb.KillReq{}
-	err := proto.Unmarshal(data, killReq)
-	if err != nil {
-		resp([]byte{}, err)
+// GetSessions - Get a list of sessions
+func (rpc *Server) GetSessions(ctx context.Context, _ *commonpb.Empty) (*clientpb.Sessions, error) {
+	resp := &clientpb.Sessions{
+		Sessions: []*clientpb.Session{},
 	}
-	sliver := core.Hive.Sliver(killReq.SliverID)
-	data, err = sliver.Request(sliverpb.MsgKill, timeout, data)
-	core.Hive.RemoveSliver(sliver)
-	resp(data, err)
+	for _, session := range core.Sessions.All() {
+		resp.Sessions = append(resp.Sessions, session.ToProtobuf())
+	}
+	return resp, nil
 }
 
-func rpcSessions(_ []byte, timeout time.Duration, resp RPCResponse) {
-	sessions := &clientpb.Sessions{}
-	if 0 < len(*core.Hive.Slivers) {
-		for _, sliver := range *core.Hive.Slivers {
-			sessions.Slivers = append(sessions.Slivers, sliver.ToProtobuf())
-		}
+// KillSession - Kill a session
+func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillSessionReq) (*commonpb.Empty, error) {
+	session := core.Sessions.Get(kill.Request.SessionID)
+	if session == nil {
+		return &commonpb.Empty{}, ErrInvalidSessionID
 	}
-	data, err := proto.Marshal(sessions)
+	core.Sessions.Remove(session.ID)
+	data, err := proto.Marshal(kill)
 	if err != nil {
-		rpcLog.Errorf("Error encoding rpc response %v", err)
+		return nil, err
 	}
-	resp(data, err)
+	timeout := time.Duration(kill.Request.GetTimeout())
+	session.Request(sliverpb.MsgNumber(kill), timeout, data)
+	return &commonpb.Empty{}, nil
 }

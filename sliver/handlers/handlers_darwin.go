@@ -24,26 +24,39 @@ import (
 	// {{else}}
 	// {{end}}
 
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 var (
 	darwinHandlers = map[uint32]RPCHandler{
-		pb.MsgPsReq:       psHandler,
-		pb.MsgPing:        pingHandler,
-		pb.MsgLsReq:       dirListHandler,
-		pb.MsgDownloadReq: downloadHandler,
-		pb.MsgUploadReq:   uploadHandler,
-		pb.MsgCdReq:       cdHandler,
-		pb.MsgPwdReq:      pwdHandler,
-		pb.MsgRmReq:       rmHandler,
-		pb.MsgMkdirReq:    mkdirHandler,
-		pb.MsgIfconfigReq: ifconfigHandler,
-		pb.MsgExecuteReq:  executeHandler,
+		pb.MsgPsReq:        psHandler,
+		pb.MsgTerminateReq: terminateHandler,
+		pb.MsgPing:         pingHandler,
+		pb.MsgLsReq:        dirListHandler,
+		pb.MsgDownloadReq:  downloadHandler,
+		pb.MsgUploadReq:    uploadHandler,
+		pb.MsgCdReq:        cdHandler,
+		pb.MsgPwdReq:       pwdHandler,
+		pb.MsgRmReq:        rmHandler,
+		pb.MsgMkdirReq:     mkdirHandler,
+		pb.MsgIfconfigReq:  ifconfigHandler,
+		pb.MsgExecuteReq:   executeHandler,
+
+		pb.MsgScreenshotReq: screenshotHandler,
+
+		pb.MsgSideloadReq: sideloadHandler,
+	}
+
+	darwinPivotHandlers = map[uint32]PivotHandler{
 	}
 )
 
 // GetSystemHandlers - Returns a map of the darwin system handlers
 func GetSystemHandlers() map[uint32]RPCHandler {
 	return darwinHandlers
+}
+
+// GetSystemPivotHandlers - Returns a map of the darwin system handlers
+func GetSystemPivotHandlers() map[uint32]PivotHandler {
+	return darwinPivotHandlers
 }

@@ -19,14 +19,16 @@ package command
 */
 
 import (
-	"strconv"
+	"context"
+	"fmt"
 	"time"
 
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/desertbit/grumble"
 
-	"github.com/AlecAivazis/survey"
-	"github.com/golang/protobuf/proto"
+	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 const (
@@ -58,76 +60,110 @@ const (
 
 var (
 
-	// ActiveSliver - The current sliver we're interacting with
-	ActiveSliver = &activeSliver{
-		observers: []observer{},
+	// ActiveSession - The current sliver we're interacting with
+	ActiveSession = &activeSession{
+		observers:  map[int]Observer{},
+		observerID: 0,
 	}
 
-	defaultTimeout   = 30 * time.Second
 	stdinReadTimeout = 10 * time.Millisecond
 )
 
-// RPCServer - Function used to send/recv envelopes
-type RPCServer func(*sliverpb.Envelope, time.Duration) chan *sliverpb.Envelope
+// Observer - A function to call when the sessions changes
+type Observer func(*clientpb.Session)
 
-type observer func()
-
-type activeSliver struct {
-	Sliver    *clientpb.Sliver
-	observers []observer
+type activeSession struct {
+	session    *clientpb.Session
+	observers  map[int]Observer
+	observerID int
 }
 
-func (s *activeSliver) AddObserver(fn observer) {
-	s.observers = append(s.observers, fn)
+// GetInteractive - GetInteractive the active session
+func (s *activeSession) GetInteractive() *clientpb.Session {
+	if s.session == nil {
+		fmt.Printf(Warn + "Please select an active session via `use`\n")
+		return nil
+	}
+	return s.session
 }
 
-func (s *activeSliver) SetActiveSliver(sliver *clientpb.Sliver) {
-	s.Sliver = sliver
-	for _, fn := range s.observers {
-		fn()
+// Get - Same as Get() but doesn't print a warning
+func (s *activeSession) Get() *clientpb.Session {
+	if s.session == nil {
+		return nil
+	}
+	return s.session
+}
+
+// AddObserver - Observers to notify when the active session changes
+func (s *activeSession) AddObserver(observer Observer) int {
+	s.observerID++
+	s.observers[s.observerID] = observer
+	return s.observerID
+}
+
+func (s *activeSession) RemoveObserver(observerID int) {
+	if _, ok := s.observers[observerID]; ok {
+		delete(s.observers, observerID)
 	}
 }
 
-func (s *activeSliver) DisableActiveSliver() {
-	s.Sliver = nil
-	for _, fn := range s.observers {
-		fn()
+func (s *activeSession) Request(ctx *grumble.Context) *commonpb.Request {
+	if s.session == nil {
+		return nil
+	}
+	timeout := int(time.Second) * ctx.Flags.Int("timeout")
+	return &commonpb.Request{
+		SessionID: s.session.ID,
+		Timeout:   int64(timeout),
 	}
 }
 
-// Get Sliver by session ID or name
-func getSliver(arg string, rpc RPCServer) *clientpb.Sliver {
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgSessions,
-		Data: []byte{},
-	}, defaultTimeout)
-	sessions := &clientpb.Sessions{}
-	proto.Unmarshal((resp).Data, sessions)
+// Set - Change the active session
+func (s *activeSession) Set(session *clientpb.Session) {
+	s.session = session
+	for _, observer := range s.observers {
+		observer(s.session)
+	}
+}
 
-	for _, sliver := range sessions.Slivers {
-		if strconv.Itoa(int(sliver.ID)) == arg || sliver.Name == arg {
-			return sliver
+// Background - Background the active session
+func (s *activeSession) Background() {
+	s.session = nil
+	for _, observer := range s.observers {
+		observer(nil)
+	}
+}
+
+// GetSession - Get session by session ID or name
+func GetSession(arg string, rpc rpcpb.SliverRPCClient) *clientpb.Session {
+	sessions, err := rpc.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return nil
+	}
+	for _, session := range sessions.GetSessions() {
+		if session.Name == arg || fmt.Sprintf("%d", session.ID) == arg {
+			return session
 		}
 	}
 	return nil
 }
 
-// SliverSessionsByName - Return all sessions for a Sliver by name
-func SliverSessionsByName(name string, rpc RPCServer) []*clientpb.Sliver {
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgSessions,
-		Data: []byte{},
-	}, defaultTimeout)
-	allSessions := &clientpb.Sessions{}
-	proto.Unmarshal((resp).Data, allSessions)
-
-	sessions := []*clientpb.Sliver{}
-	for _, sliver := range allSessions.Slivers {
-		if sliver.Name == name {
-			sessions = append(sessions, sliver)
+// GetSessionsByName - Return all sessions for an Implant by name
+func GetSessionsByName(name string, rpc rpcpb.SliverRPCClient) []*clientpb.Session {
+	sessions, err := rpc.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return nil
+	}
+	matched := []*clientpb.Session{}
+	for _, session := range sessions.GetSessions() {
+		if session.Name == name {
+			matched = append(matched, session)
 		}
 	}
-	return sessions
+	return matched
 }
 
 // This should be called for any dangerous (OPSEC-wise) functions

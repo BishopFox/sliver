@@ -72,7 +72,7 @@ func CreateSyncedFile(filename string, sync bool) (*os.File, error) {
 	if sync {
 		flags |= datasyncFileFlag
 	}
-	return os.OpenFile(filename, flags, 0666)
+	return os.OpenFile(filename, flags, 0600)
 }
 
 // OpenSyncedFile creates the file if one doesn't exist.
@@ -81,7 +81,7 @@ func OpenSyncedFile(filename string, sync bool) (*os.File, error) {
 	if sync {
 		flags |= datasyncFileFlag
 	}
-	return os.OpenFile(filename, flags, 0666)
+	return os.OpenFile(filename, flags, 0600)
 }
 
 // OpenTruncFile opens the file with O_RDWR | O_CREATE | O_TRUNC
@@ -90,7 +90,7 @@ func OpenTruncFile(filename string, sync bool) (*os.File, error) {
 	if sync {
 		flags |= datasyncFileFlag
 	}
-	return os.OpenFile(filename, flags, 0666)
+	return os.OpenFile(filename, flags, 0600)
 }
 
 // SafeCopy does append(a[:0], src...).
@@ -236,9 +236,11 @@ func (lc *Closer) SignalAndWait() {
 // provides a mechanism to check for errors encountered by workers and wait for
 // them to finish.
 type Throttle struct {
-	wg    sync.WaitGroup
-	ch    chan struct{}
-	errCh chan error
+	once      sync.Once
+	wg        sync.WaitGroup
+	ch        chan struct{}
+	errCh     chan error
+	finishErr error
 }
 
 // NewThrottle creates a new throttle with a max number of workers.
@@ -280,16 +282,21 @@ func (t *Throttle) Done(err error) {
 	t.wg.Done()
 }
 
-// Finish waits until all workers have finished working. It would return any
-// error passed by Done.
+// Finish waits until all workers have finished working. It would return any error passed by Done.
+// If Finish is called multiple time, it will wait for workers to finish only once(first time).
+// From next calls, it will return same error as found on first call.
 func (t *Throttle) Finish() error {
-	t.wg.Wait()
-	close(t.ch)
-	close(t.errCh)
-	for err := range t.errCh {
-		if err != nil {
-			return err
+	t.once.Do(func() {
+		t.wg.Wait()
+		close(t.ch)
+		close(t.errCh)
+		for err := range t.errCh {
+			if err != nil {
+				t.finishErr = err
+				return
+			}
 		}
-	}
-	return nil
+	})
+
+	return t.finishErr
 }

@@ -20,6 +20,8 @@ package command
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -27,18 +29,18 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"text/tabwriter"
+
 	"time"
 
+	"github.com/AlecAivazis/survey/v2"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/spin"
-	clientpb "github.com/bishopfox/sliver/protobuf/client"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
-
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/desertbit/grumble"
-	"github.com/golang/protobuf/proto"
 )
 
 var validFormats = []string{
@@ -66,7 +68,7 @@ var validFormats = []string{
 	"vbscript",
 }
 
-func generate(ctx *grumble.Context, rpc RPCServer) {
+func generate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	config := parseCompileFlags(ctx)
 	if config == nil {
 		return
@@ -78,9 +80,9 @@ func generate(ctx *grumble.Context, rpc RPCServer) {
 	compile(config, save, rpc)
 }
 
-func regenerate(ctx *grumble.Context, rpc RPCServer) {
+func regenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if len(ctx.Args) < 1 {
-		fmt.Printf(Warn+"Invalid sliver name, see `help %s`\n", consts.RegenerateStr)
+		fmt.Printf(Warn+"Invalid implant name, see `help %s`\n", consts.RegenerateStr)
 		return
 	}
 	save := ctx.Flags.String("save")
@@ -88,153 +90,152 @@ func regenerate(ctx *grumble.Context, rpc RPCServer) {
 		save, _ = os.Getwd()
 	}
 
-	regenerateReq, _ := proto.Marshal(&clientpb.Regenerate{
-		SliverName: ctx.Args[0],
+	regenerate, err := rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
+		ImplantName: ctx.Args[0],
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgRegenerate,
-		Data: regenerateReq,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"%s\n", resp.Err)
-		return
-	}
-
-	regen := &clientpb.Regenerate{}
-	proto.Unmarshal(resp.Data, regen)
-
-	saveTo, _ := filepath.Abs(save)
-	fi, err := os.Stat(saveTo)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to regenerate sliver %s\n", err)
+		fmt.Printf(Warn+"Failed to regenerate implant %s\n", err)
 		return
 	}
-	if regen.File == nil {
-		fmt.Printf(Warn + "Failed to regenerate sliver (no data)\n")
+	if regenerate.File == nil {
+		fmt.Printf(Warn + "Failed to regenerate implant (no data)\n")
 		return
 	}
-
-	if fi.IsDir() {
-		var fileName string
-		if 0 < len(regen.File.Name) {
-			fileName = path.Base(regen.File.Name)
-		} else {
-			fileName = path.Base(ctx.Args[0])
-		}
-		saveTo = filepath.Join(saveTo, fileName)
+	saveTo, err := saveLocation(save, regenerate.File.Name)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
 	}
-	err = ioutil.WriteFile(saveTo, regen.File.Data, os.ModePerm)
+	err = ioutil.WriteFile(saveTo, regenerate.File.Data, 0500)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to write to %s\n", err)
 		return
 	}
-	fmt.Printf(Info+"Sliver binary saved to: %s\n", saveTo)
+	fmt.Printf(Info+"Implant binary saved to: %s\n", saveTo)
 }
 
-func generateEgg(ctx *grumble.Context, rpc RPCServer) {
-	outFmt := ctx.Flags.String("output-format")
-	validFmt := false
-	for _, f := range validFormats {
-		if f == outFmt {
-			validFmt = true
-			break
+func saveLocation(save, defaultName string) (string, error) {
+	var saveTo string
+	if save == "" {
+		save, _ = os.Getwd()
+	}
+	fi, err := os.Stat(save)
+	if os.IsNotExist(err) {
+		log.Printf("%s does not exist\n", save)
+		if strings.HasSuffix(save, "/") {
+			log.Printf("%s is dir\n", save)
+			os.MkdirAll(save, 0700)
+			saveTo, _ = filepath.Abs(path.Join(saveTo, defaultName))
+		} else {
+			log.Printf("%s is not dir\n", save)
+			saveDir := filepath.Dir(save)
+			_, err := os.Stat(saveTo)
+			if os.IsNotExist(err) {
+				os.MkdirAll(saveDir, 0700)
+			}
+			saveTo, _ = filepath.Abs(save)
+		}
+	} else {
+		log.Printf("%s does exist\n", save)
+		if fi.IsDir() {
+			log.Printf("%s is dir\n", save)
+			saveTo, _ = filepath.Abs(path.Join(save, defaultName))
+		} else {
+			log.Printf("%s is not dir\n", save)
+			prompt := &survey.Confirm{Message: "Overwrite existing file?"}
+			var confirm bool
+			survey.AskOne(prompt, &confirm)
+			if !confirm {
+				return "", errors.New("File already exists")
+			}
+			saveTo, _ = filepath.Abs(save)
 		}
 	}
-	if !validFmt {
-		fmt.Printf(Warn+"Invalid output format: %s", outFmt)
+	return saveTo, nil
+}
+
+func generateStager(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	var stageProto clientpb.StageProtocol
+	lhost := ctx.Flags.String("lhost")
+	if lhost == "" {
+		fmt.Println(Warn + "please specify a listening host")
 		return
 	}
-	stagingURL := ctx.Flags.String("listener-url")
-	if stagingURL == "" {
-		return
-	}
+	lport := ctx.Flags.Int("lport")
+	stageOS := ctx.Flags.String("os")
+	arch := ctx.Flags.String("arch")
+	proto := ctx.Flags.String("protocol")
+	format := ctx.Flags.String("format")
+	badchars := ctx.Flags.String("badchars")
 	save := ctx.Flags.String("save")
-	config := parseCompileFlags(ctx)
-	if config == nil {
-		return
+
+	bChars := make([]string, 0)
+	if len(badchars) > 0 {
+		for _, b := range strings.Split(badchars, " ") {
+			bChars = append(bChars, fmt.Sprintf("\\x%s", b))
+		}
 	}
-	config.Format = clientpb.SliverConfig_SHELLCODE
-	config.IsSharedLib = true
-	// Find job type (tcp / http)
-	u, err := url.Parse(stagingURL)
-	if err != nil {
-		fmt.Printf(Warn + "listener-url format not supported")
-		return
-	}
-	port, err := strconv.Atoi(u.Port())
-	if err != nil {
-		fmt.Printf(Warn+"Invalid port number: %s", err.Error())
-		return
-	}
-	eggConfig := &clientpb.EggConfig{
-		Host:   u.Hostname(),
-		Port:   uint32(port),
-		Arch:   config.GOARCH,
-		Format: outFmt,
-	}
-	switch u.Scheme {
+
+	switch proto {
 	case "tcp":
-		eggConfig.Protocol = clientpb.EggConfig_TCP
+		stageProto = clientpb.StageProtocol_TCP
 	case "http":
-		eggConfig.Protocol = clientpb.EggConfig_HTTP
+		stageProto = clientpb.StageProtocol_HTTP
 	case "https":
-		eggConfig.Protocol = clientpb.EggConfig_HTTPS
+		stageProto = clientpb.StageProtocol_HTTPS
 	default:
-		eggConfig.Protocol = clientpb.EggConfig_TCP
+		fmt.Printf(Warn+"%s staging protocol not supported\n", proto)
+		return
 	}
+
 	ctrl := make(chan bool)
-	go spin.Until("Creating stager shellcode...", ctrl)
-	data, _ := proto.Marshal(&clientpb.EggRequest{
-		EConfig: eggConfig,
-		Config:  config,
+	go spin.Until("Generating stager, please wait ...", ctrl)
+	stageFile, err := rpc.MsfStage(context.Background(), &clientpb.MsfStagerReq{
+		Arch:     arch,
+		BadChars: bChars,
+		Format:   format,
+		Host:     lhost,
+		Port:     uint32(lport),
+		Protocol: stageProto,
+		OS:       stageOS,
 	})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgEggReq,
-		Data: data,
-	}, 45*time.Minute)
 	ctrl <- true
-	if resp.Err != "" {
-		fmt.Printf(Warn+"%s", resp.Err)
-		return
-	}
-	eggResp := &clientpb.Egg{}
-	err = proto.Unmarshal(resp.Data, eggResp)
+	<-ctrl
+
 	if err != nil {
-		fmt.Printf(Warn+"Unmarshaling envelope error: %v\n", err)
+		fmt.Printf(Warn+"Error: %v", err)
 		return
 	}
-	// Don't display raw shellcode out stdout
-	if save != "" || outFmt == "raw" {
-		// Save it to disk
+
+	if save != "" || format == "raw" {
 		saveTo, _ := filepath.Abs(save)
 		fi, err := os.Stat(saveTo)
 		if err != nil {
-			fmt.Printf(Warn+"Failed to generate sliver egg %v\n", err)
+			fmt.Printf(Warn+"Failed to generate sliver stager %v\n", err)
 			return
 		}
 		if fi.IsDir() {
-			saveTo = filepath.Join(saveTo, eggResp.Filename)
+			saveTo = filepath.Join(saveTo, stageFile.GetFile().GetName())
 		}
-		err = ioutil.WriteFile(saveTo, eggResp.Data, os.ModePerm)
+		err = ioutil.WriteFile(saveTo, stageFile.GetFile().GetData(), 0700)
 		if err != nil {
 			fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
 			return
 		}
-		fmt.Printf(Info+"Sliver egg saved to: %s\n", saveTo)
+		fmt.Printf(Info+"Sliver stager saved to: %s\n", saveTo)
 	} else {
-		// Display shellcode to stdout
-		fmt.Println("\n" + Info + "Here's your Egg:")
-		fmt.Println(string(eggResp.Data))
+		fmt.Println(Info + "Here's your stager:")
+		fmt.Println(string(stageFile.GetFile().GetData()))
 	}
-	fmt.Printf("\n"+Info+"Successfully started job #%d\n", eggResp.JobID)
+
 }
 
 // Shared function that extracts the compile flags from the grumble context
-func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
+func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 	targetOS := strings.ToLower(ctx.Flags.String("os"))
 	arch := strings.ToLower(ctx.Flags.String("arch"))
 
-	c2s := []*clientpb.SliverC2{}
+	c2s := []*clientpb.ImplantC2{}
 
 	mtlsC2 := parseMTLSc2(ctx.Flags.String("mtls"))
 	c2s = append(c2s, mtlsC2...)
@@ -245,6 +246,12 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 	dnsC2 := parseDNSc2(ctx.Flags.String("dns"))
 	c2s = append(c2s, dnsC2...)
 
+	namedPipeC2 := parseNamedPipec2(ctx.Flags.String("named-pipe"))
+	c2s = append(c2s, namedPipeC2...)
+
+	tcpPivotC2 := parseTCPPivotc2(ctx.Flags.String("tcp-pivot"))
+	c2s = append(c2s, tcpPivotC2...)
+
 	var symbolObfuscation bool
 	if ctx.Flags.Bool("debug") {
 		symbolObfuscation = false
@@ -252,8 +259,8 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 		symbolObfuscation = !ctx.Flags.Bool("skip-symbols")
 	}
 
-	if len(mtlsC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 {
-		fmt.Printf(Warn + "Must specify at least one of --mtls, --http, or --dns\n")
+	if len(mtlsC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 && len(namedPipeC2) == 0 && len(tcpPivotC2) == 0 {
+		fmt.Printf(Warn + "Must specify at least one of --mtls, --http, --dns, --named-pipe, or --tcp-pivot\n")
 		return nil
 	}
 
@@ -268,7 +275,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 		}
 	}
 
-	reconnectInverval := ctx.Flags.Int("reconnect")
+	reconnectInterval := ctx.Flags.Int("reconnect")
 	maxConnectionErrors := ctx.Flags.Int("max-errors")
 
 	limitDomainJoined := ctx.Flags.Bool("limit-domainjoined")
@@ -277,30 +284,34 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 	limitDatetime := ctx.Flags.String("limit-datetime")
 
 	isSharedLib := false
+	isService := false
 
 	format := ctx.Flags.String("format")
-	var configFormat clientpb.SliverConfig_OutputFormat
+	var configFormat clientpb.ImplantConfig_OutputFormat
 	switch format {
 	case "exe":
-		configFormat = clientpb.SliverConfig_EXECUTABLE
+		configFormat = clientpb.ImplantConfig_EXECUTABLE
 	case "shared":
-		configFormat = clientpb.SliverConfig_SHARED_LIB
+		configFormat = clientpb.ImplantConfig_SHARED_LIB
 		isSharedLib = true
 	case "shellcode":
-		configFormat = clientpb.SliverConfig_SHELLCODE
+		configFormat = clientpb.ImplantConfig_SHELLCODE
 		isSharedLib = true
+	case "service":
+		configFormat = clientpb.ImplantConfig_SERVICE
+		isService = true
 	default:
 		// default to exe
-		configFormat = clientpb.SliverConfig_EXECUTABLE
+		configFormat = clientpb.ImplantConfig_EXECUTABLE
 	}
 	/* For UX we convert some synonymous terms */
-	if targetOS == "mac" || targetOS == "macos" || targetOS == "m" || targetOS == "osx" {
+	if targetOS == "darwin" || targetOS == "mac" || targetOS == "macos" || targetOS == "m" || targetOS == "osx" {
 		targetOS = "darwin"
 	}
-	if targetOS == "win" || targetOS == "w" || targetOS == "shit" {
+	if targetOS == "windows" || targetOS == "win" || targetOS == "w" || targetOS == "shit" {
 		targetOS = "windows"
 	}
-	if targetOS == "unix" || targetOS == "l" {
+	if targetOS == "linux" || targetOS == "unix" || targetOS == "l" {
 		targetOS = "linux"
 	}
 	if arch == "x64" || strings.HasPrefix(arch, "64") {
@@ -310,15 +321,21 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 		arch = "386"
 	}
 
-	config := &clientpb.SliverConfig{
+	if len(namedPipeC2) > 0 && targetOS != "windows" {
+		fmt.Printf(Warn + "Named pipe pivoting can only be used in Windows.")
+		return nil
+	}
+
+	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
 		GOARCH:           arch,
 		Debug:            ctx.Flags.Bool("debug"),
+		Evasion:          ctx.Flags.Bool("evasion"),
 		ObfuscateSymbols: symbolObfuscation,
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,
 
-		ReconnectInterval:   uint32(reconnectInverval),
+		ReconnectInterval:   uint32(reconnectInterval),
 		MaxConnectionErrors: uint32(maxConnectionErrors),
 
 		LimitDomainJoined: limitDomainJoined,
@@ -328,13 +345,14 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.SliverConfig {
 
 		Format:      configFormat,
 		IsSharedLib: isSharedLib,
+		IsService:   isService,
 	}
 
 	return config
 }
 
-func parseMTLSc2(args string) []*clientpb.SliverC2 {
-	c2s := []*clientpb.SliverC2{}
+func parseMTLSc2(args string) []*clientpb.ImplantC2 {
+	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
 		return c2s
 	}
@@ -344,7 +362,7 @@ func parseMTLSc2(args string) []*clientpb.SliverC2 {
 		if uri.Port() == "" {
 			uri.Host = fmt.Sprintf("%s:%d", uri.Host, defaultMTLSLPort)
 		}
-		c2s = append(c2s, &clientpb.SliverC2{
+		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
 			URL:      uri.String(),
 		})
@@ -352,8 +370,8 @@ func parseMTLSc2(args string) []*clientpb.SliverC2 {
 	return c2s
 }
 
-func parseHTTPc2(args string) []*clientpb.SliverC2 {
-	c2s := []*clientpb.SliverC2{}
+func parseHTTPc2(args string) []*clientpb.ImplantC2 {
+	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
 		return c2s
 	}
@@ -371,7 +389,7 @@ func parseHTTPc2(args string) []*clientpb.SliverC2 {
 			uri = &url.URL{Scheme: "https"} // HTTPS is the default, will fallback to HTTP
 			uri.Host = arg
 		}
-		c2s = append(c2s, &clientpb.SliverC2{
+		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
 			URL:      uri.String(),
 		})
@@ -379,8 +397,8 @@ func parseHTTPc2(args string) []*clientpb.SliverC2 {
 	return c2s
 }
 
-func parseDNSc2(args string) []*clientpb.SliverC2 {
-	c2s := []*clientpb.SliverC2{}
+func parseDNSc2(args string) []*clientpb.ImplantC2 {
+	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
 		return c2s
 	}
@@ -398,7 +416,7 @@ func parseDNSc2(args string) []*clientpb.SliverC2 {
 		}
 
 		uri.Host = arg
-		c2s = append(c2s, &clientpb.SliverC2{
+		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
 			URL:      uri.String(),
 		})
@@ -406,7 +424,48 @@ func parseDNSc2(args string) []*clientpb.SliverC2 {
 	return c2s
 }
 
-func profileGenerate(ctx *grumble.Context, rpc RPCServer) {
+func parseNamedPipec2(args string) []*clientpb.ImplantC2 {
+	c2s := []*clientpb.ImplantC2{}
+	if args == "" {
+		return c2s
+	}
+	for index, arg := range strings.Split(args, ",") {
+		uri, err := url.Parse("namedpipe://" + arg)
+		if len(arg) < 1 {
+			continue
+		}
+		if err != nil {
+			return c2s
+		}
+		c2s = append(c2s, &clientpb.ImplantC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s
+}
+
+func parseTCPPivotc2(args string) []*clientpb.ImplantC2 {
+	c2s := []*clientpb.ImplantC2{}
+	if args == "" {
+		return c2s
+	}
+	for index, arg := range strings.Split(args, ",") {
+
+		uri := url.URL{Scheme: "tcppivot"}
+		uri.Host = arg
+		if uri.Port() == "" {
+			uri.Host = fmt.Sprintf("%s:%d", uri.Host, defaultTCPPivotPort)
+		}
+		c2s = append(c2s, &clientpb.ImplantC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s
+}
+
+func profileGenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	name := ctx.Flags.String("name")
 	if name == "" && 1 <= len(ctx.Args) {
 		name = ctx.Args[0]
@@ -417,18 +476,28 @@ func profileGenerate(ctx *grumble.Context, rpc RPCServer) {
 	}
 	profiles := getSliverProfiles(rpc)
 	if profile, ok := (*profiles)[name]; ok {
-		compile(profile.Config, save, rpc)
+		implantFile, err := compile(profile.Config, save, rpc)
+		if err != nil {
+			return
+		}
+		profile.Config.Name = buildImplantName(implantFile.Name)
+		_, err = rpc.SaveImplantProfile(context.Background(), profile)
+		if err != nil {
+			fmt.Printf(Warn+"could not update implant profile: %v\n", err)
+			return
+		}
 	} else {
 		fmt.Printf(Warn+"No profile with name '%s'", name)
 	}
 }
 
-func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
+func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCClient) (*commonpb.File, error) {
 
-	fmt.Printf(Info+"Generating new %s/%s Sliver binary\n", config.GOOS, config.GOARCH)
+	fmt.Printf(Info+"Generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
 
 	if config.ObfuscateSymbols {
-		fmt.Printf(Info + "Symbol obfuscation is enabled, this process takes about 15 minutes\n")
+		fmt.Printf(Info+"%sSymbol obfuscation is enabled.%s\n", bold, normal)
+		fmt.Printf(Info + "This process can take awhile, and consumes significant amounts of CPU/Memory\n")
 	} else if !config.Debug {
 		fmt.Printf(Warn+"Symbol obfuscation is %sdisabled%s\n", bold, normal)
 	}
@@ -437,46 +506,39 @@ func compile(config *clientpb.SliverConfig, save string, rpc RPCServer) {
 	ctrl := make(chan bool)
 	go spin.Until("Compiling, please wait ...", ctrl)
 
-	generateReq, _ := proto.Marshal(&clientpb.GenerateReq{Config: config})
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgGenerate,
-		Data: generateReq,
-	}, 45*time.Minute)
+	generated, err := rpc.Generate(context.Background(), &clientpb.GenerateReq{
+		Config: config,
+	})
 	ctrl <- true
 	<-ctrl
-	if resp.Err != "" {
-		fmt.Printf(Warn+"%s\n", resp.Err)
-		return
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return nil, err
 	}
+
 	end := time.Now()
 	elapsed := time.Time{}.Add(end.Sub(start))
 	fmt.Printf(clearln+Info+"Build completed in %s\n", elapsed.Format("15:04:05"))
-
-	generated := &clientpb.Generate{}
-	proto.Unmarshal(resp.Data, generated)
-
-	saveTo, _ := filepath.Abs(save)
-	fi, err := os.Stat(saveTo)
-	if err != nil {
-		fmt.Printf(Warn+"Failed to generate sliver %v\n", err)
-		return
-	}
 	if len(generated.File.Data) == 0 {
 		fmt.Printf(Warn + "Build failed, no file data\n")
-		return
+		return nil, errors.New("No file data")
 	}
-	if fi.IsDir() {
-		saveTo = filepath.Join(saveTo, path.Base(generated.File.Name))
+
+	saveTo, err := saveLocation(save, generated.File.Name)
+	if err != nil {
+		return nil, err
 	}
-	err = ioutil.WriteFile(saveTo, generated.File.Data, os.ModePerm)
+
+	err = ioutil.WriteFile(saveTo, generated.File.Data, 0700)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to write to: %s\n", saveTo)
-		return
+		return nil, err
 	}
-	fmt.Printf(Info+"Sliver binary saved to: %s\n", saveTo)
+	fmt.Printf(Info+"Implant saved to %s\n", saveTo)
+	return generated.File, err
 }
 
-func profiles(ctx *grumble.Context, rpc RPCServer) {
+func profiles(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	profiles := getSliverProfiles(rpc)
 	if profiles == nil {
 		return
@@ -486,42 +548,55 @@ func profiles(ctx *grumble.Context, rpc RPCServer) {
 		return
 	}
 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintf(table, "Name\tPlatform\tCommand & Control\tDebug\tLimitations\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+	fmt.Fprintf(table, "Name\tPlatform\tCommand & Control\tDebug\tFormat\tObfuscation\tLimitations\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("Name")),
 		strings.Repeat("=", len("Platform")),
 		strings.Repeat("=", len("Command & Control")),
 		strings.Repeat("=", len("Debug")),
+		strings.Repeat("=", len("Format")),
+		strings.Repeat("=", len("Obfuscation")),
 		strings.Repeat("=", len("Limitations")))
 
 	for name, profile := range *profiles {
 		config := profile.Config
 		if 0 < len(config.C2) {
-			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
+			obfuscation := "strings only"
+			if config.ObfuscateSymbols {
+				obfuscation = "symbols obfuscation"
+			}
+			if config.Debug {
+				obfuscation = "none"
+			}
+			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 				name,
 				fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
 				fmt.Sprintf("[1] %s", config.C2[0].URL),
 				fmt.Sprintf("%v", config.Debug),
+				fmt.Sprintf("%v", config.Format),
+				fmt.Sprintf("%s", obfuscation),
 				getLimitsString(config),
 			)
 		}
 		if 1 < len(config.C2) {
 			for index, c2 := range config.C2[1:] {
-				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
+				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 					"",
 					"",
 					fmt.Sprintf("[%d] %s", index+2, c2.URL),
 					"",
 					"",
+					"",
+					"",
 				)
 			}
 		}
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n", "", "", "", "", "")
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "", "", "", "", "", "", "")
 	}
 	table.Flush()
 }
 
-func getLimitsString(config *clientpb.SliverConfig) string {
+func getLimitsString(config *clientpb.ImplantConfig) string {
 	limits := []string{}
 	if config.LimitDatetime != "" {
 		limits = append(limits, fmt.Sprintf("datetime=%s", config.LimitDatetime))
@@ -538,68 +613,47 @@ func getLimitsString(config *clientpb.SliverConfig) string {
 	return strings.Join(limits, "; ")
 }
 
-func newProfile(ctx *grumble.Context, rpc RPCServer) {
+func newProfile(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	name := ctx.Flags.String("name")
 	if name == "" {
 		fmt.Printf(Warn + "Invalid profile name\n")
 		return
 	}
-
 	config := parseCompileFlags(ctx)
 	if config == nil {
 		return
 	}
-
-	data, _ := proto.Marshal(&clientpb.Profile{
+	profile := &clientpb.ImplantProfile{
 		Name:   name,
 		Config: config,
-	})
-
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgNewProfile,
-		Data: data,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"%s\n", resp.Err)
+	}
+	resp, err := rpc.SaveImplantProfile(context.Background(), profile)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
 	} else {
-		fmt.Printf(Info + "Saved new profile\n")
+		fmt.Printf(Info+"Saved new profile %s\n", resp.Name)
 	}
 }
 
-func getSliverProfiles(rpc RPCServer) *map[string]*clientpb.Profile {
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgProfiles,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"%s\n", resp.Err)
-		return nil
-	}
-
-	pbProfiles := &clientpb.Profiles{}
-	err := proto.Unmarshal(resp.Data, pbProfiles)
+func getSliverProfiles(rpc rpcpb.SliverRPCClient) *map[string]*clientpb.ImplantProfile {
+	pbProfiles, err := rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(Warn+"Error %s", err)
 		return nil
 	}
-
-	profiles := &map[string]*clientpb.Profile{}
-	for _, profile := range pbProfiles.List {
+	profiles := &map[string]*clientpb.ImplantProfile{}
+	for _, profile := range pbProfiles.Profiles {
 		(*profiles)[profile.Name] = profile
 	}
 	return profiles
 }
 
-func canaries(ctx *grumble.Context, rpc RPCServer) {
-	resp := <-rpc(&sliverpb.Envelope{
-		Type: clientpb.MsgListCanaries,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"%s\n", resp.Err)
+func canaries(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	canaries, err := rpc.Canaries(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"Failed to list canaries %s", err)
 		return
 	}
-
-	canaries := &clientpb.Canaries{}
-	proto.Unmarshal(resp.Data, canaries)
 	if 0 < len(canaries.Canaries) {
 		displayCanaries(canaries.Canaries, ctx.Flags.Bool("burned"))
 	} else {
@@ -627,10 +681,10 @@ func displayCanaries(canaries []*clientpb.DNSCanary, burnedOnly bool) {
 			continue
 		}
 		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
-			canary.SliverName,
+			canary.ImplantName,
 			canary.Domain,
 			fmt.Sprintf("%v", canary.Triggered),
-			canary.FristTriggered,
+			canary.FirstTriggered,
 			canary.LatestTrigger,
 		)
 		if canary.Triggered {

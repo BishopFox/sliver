@@ -33,44 +33,6 @@ type AccessPolicy struct {
 	Require []interface{} `json:"require"`
 }
 
-// AccessPolicyEmail is used for managing access based on the email.
-// For example, restrict access to users with the email addresses
-// `test@example.com` or `someone@example.com`.
-type AccessPolicyEmail struct {
-	Email struct {
-		Email string `json:"email"`
-	} `json:"email"`
-}
-
-// AccessPolicyEmailDomain is used for managing access based on an email
-// domain domain such as `example.com` instead of individual addresses.
-type AccessPolicyEmailDomain struct {
-	EmailDomain struct {
-		Domain string `json:"domain"`
-	} `json:"email_domain"`
-}
-
-// AccessPolicyIP is used for managing access based in the IP. It
-// accepts individual IPs or CIDRs.
-type AccessPolicyIP struct {
-	IP struct {
-		IP string `json:"ip"`
-	} `json:"ip"`
-}
-
-// AccessPolicyEveryone is used for managing access to everyone.
-type AccessPolicyEveryone struct {
-	Everyone struct{} `json:"everyone"`
-}
-
-// AccessPolicyAccessGroup is used for managing access based on an
-// access group.
-type AccessPolicyAccessGroup struct {
-	Group struct {
-		ID string `json:"id"`
-	} `json:"group"`
-}
-
 // AccessPolicyListResponse represents the response from the list
 // access polciies endpoint.
 type AccessPolicyListResponse struct {

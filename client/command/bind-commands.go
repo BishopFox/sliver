@@ -37,26 +37,65 @@ import (
 	"fmt"
 
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/help"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 
 	"github.com/desertbit/grumble"
 )
 
 const (
-	defaultMTLSLPort  = 8888
-	defaultHTTPLPort  = 80
-	defaultHTTPSLPort = 443
-	defaultTCPPort    = 4444
+	defaultMTLSLPort    = 8888
+	defaultHTTPLPort    = 80
+	defaultHTTPSLPort   = 443
+	defaultTCPPort      = 4444
+	defaultTCPPivotPort = 9898
 
 	defaultReconnect = 60
 	defaultMaxErrors = 1000
+
+	defaultTimeout = 60
 )
 
 // BindCommands - Bind commands to a App
-func BindCommands(app *grumble.App, server *core.SliverServer) {
+func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 	app.SetPrintHelp(helpCmd) // Responsible for display long-form help templates, etc.
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.UpdateStr,
+		Help:     "Check for updates",
+		LongHelp: help.GetHelpFor(consts.UpdateStr),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("P", "prereleases", false, "include pre-released (unstable) versions")
+			f.String("p", "proxy", "", "specify a proxy url (e.g. http://localhost:8080)")
+			f.Bool("I", "insecure", false, "skip tls certificate validation")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			updates(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.VersionStr,
+		Help:     "Display version information",
+		LongHelp: help.GetHelpFor(consts.VersionStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			verboseVersions(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
 	// [ Jobs ] -----------------------------------------------------------------
 	app.AddCommand(&grumble.Command{
@@ -66,10 +105,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("k", "kill", -1, "kill a background job")
 			f.Bool("K", "kill-all", false, "kill all jobs")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			jobs(ctx, server.RPC)
+			jobs(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -83,10 +124,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "server", "", "interface to bind server to")
 			f.Int("l", "lport", defaultMTLSLPort, "tcp listen port")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			startMTLSListener(ctx, server.RPC)
+			startMTLSListener(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -100,10 +143,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domains", "", "parent domain(s) to use for DNS c2")
 			f.Bool("c", "no-canaries", false, "disable dns canary detection")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			startDNSListener(ctx, server.RPC)
+			startDNSListener(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -118,10 +163,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("d", "domain", "", "limit responses to specific domain")
 			f.String("w", "website", "", "website name (see websites cmd)")
 			f.Int("l", "lport", defaultHTTPLPort, "tcp listen port")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			startHTTPListener(ctx, server.RPC)
+			startHTTPListener(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -141,10 +188,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("k", "key", "", "PEM encoded private key file")
 
 			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			startHTTPSListener(ctx, server.RPC)
+			startHTTPSListener(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -153,11 +202,14 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.PlayersStr,
-		Help:     "List players",
+		Help:     "List operators",
 		LongHelp: help.GetHelpFor(consts.PlayersStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			playersCmd(ctx, server.RPC)
+			operatorsCmd(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -172,10 +224,14 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.SessionsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("i", "interact", "", "interact with a sliver")
+			f.String("k", "kill", "", "Kill the designated session")
+			f.Bool("K", "kill-all", false, "Kill all the sessions")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			sessions(ctx, server.RPC)
+			sessions(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -186,9 +242,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Name:     consts.BackgroundStr,
 		Help:     "Background an active session",
 		LongHelp: help.GetHelpFor(consts.BackgroundStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			background(ctx, server.RPC)
+			background(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -197,29 +256,34 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:      consts.KillStr,
-		Help:      "Kill a remote sliver process",
+		Help:      "Kill a session",
 		LongHelp:  help.GetHelpFor(consts.KillStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			kill(ctx, server.RPC)
+			kill(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Bool("f", "force", false, "Force kill,  does not clean up")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.InfoStr,
-		Help:      "Get info about sliver",
-		LongHelp:  help.GetHelpFor(consts.InfoStr),
+		Name:     consts.InfoStr,
+		Help:     "Get info about session",
+		LongHelp: help.GetHelpFor(consts.InfoStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			info(ctx, server.RPC)
+			info(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -227,13 +291,16 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.UseStr,
-		Help:      "Switch the active sliver",
-		LongHelp:  help.GetHelpFor(consts.UseStr),
+		Name:     consts.UseStr,
+		Help:     "Switch the active session",
+		LongHelp: help.GetHelpFor(consts.UseStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			use(ctx, server.RPC)
+			use(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -247,10 +314,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("y", "no-pty", false, "disable use of pty on macos/linux")
 			f.String("s", "shell-path", "", "path to shell interpreter")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			shell(ctx, server)
+			shell(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -262,12 +331,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Help:     "Execute a program on the remote system",
 		LongHelp: help.GetHelpFor(consts.ExecuteStr),
 		Flags: func(f *grumble.Flags) {
-			f.String("a", "args", "", "command arguments")
-			f.Bool("o", "output", false, "print the command output")
+			f.Bool("s", "silent", false, "don't print the command output")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			execute(ctx, server.RPC)
+			execute(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -275,7 +344,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
-	app.AddCommand(&grumble.Command{
+	generateCmd := &grumble.Command{
 		Name:     consts.GenerateStr,
 		Help:     "Generate a sliver binary",
 		LongHelp: help.GetHelpFor(consts.GenerateStr),
@@ -283,6 +352,7 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
+			f.Bool("e", "evasion", false, "enable evasion features")
 			f.Bool("b", "skip-symbols", false, "skip symbol obfuscation")
 
 			f.String("c", "canary", "", "canary domain(s)")
@@ -290,6 +360,8 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("m", "mtls", "", "mtls connection strings")
 			f.String("t", "http", "", "http(s) connection strings")
 			f.String("n", "dns", "", "dns connection strings")
+			f.String("p", "named-pipe", "", "named-pipe connection strings")
+			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
 
 			f.Int("j", "reconnect", defaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("k", "max-errors", defaultMaxErrors, "max number of connection errors")
@@ -302,48 +374,53 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("r", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries) and 'shellcode' (windows only)")
 
 			f.String("s", "save", "", "directory/file to the binary to")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			generate(ctx, server.RPC)
+			generate(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	generateCmd.AddCommand(&grumble.Command{
+		Name:     consts.StagerStr,
+		Help:     "Generate a sliver stager using MSF",
+		LongHelp: help.GetHelpFor(consts.StagerStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("o", "os", "windows", "operating system")
+			f.String("a", "arch", "amd64", "cpu architecture")
+			f.String("l", "lhost", "", "Listening host")
+			f.Int("p", "lport", 8443, "Listening port")
+			f.String("r", "protocol", "tcp", "Staging protocol (tcp/http/https)")
+			f.String("f", "format", "raw", "Output format (msfvenom formats, see `help generate stager` for the list)")
+			f.String("b", "badchars", "", "bytes to exclude from stage shellcode")
+			f.String("s", "save", "", "directory to save the generated stager to")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			generateStager(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+	app.AddCommand(generateCmd)
 
 	app.AddCommand(&grumble.Command{
-		Name:     consts.GenerateEggStr,
-		Help:     "Generate an egg shellcode (sliver stager)",
-		LongHelp: help.GetHelpFor(consts.GenerateEggStr),
+		Name:     consts.StageListenerStr,
+		Help:     "Start a stager listener",
+		LongHelp: help.GetHelpFor(consts.StageListenerStr),
 		Flags: func(f *grumble.Flags) {
-			f.String("o", "os", "windows", "operating system")
-			f.String("a", "arch", "amd64", "cpu architecture")
-			f.Bool("d", "debug", false, "enable debug features")
-
-			f.String("m", "mtls", "", "mtls connection strings")
-			f.String("t", "http", "", "http(s) connection strings")
-			f.String("n", "dns", "", "dns connection strings")
-
-			f.Int("j", "reconnect", 60, "attempt to reconnect every n second(s)")
-			f.Int("k", "max-errors", 1000, "max number of connection errors")
-
-			f.String("w", "limit-datetime", "", "limit execution to before datetime")
-			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
-			f.String("y", "limit-username", "", "limit execution to specified username")
-			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
-
-			f.String("r", "format", "shellcode", "Fixed to 'shellcode' - do not change") // TODO: find a better way to handle this
-
-			f.String("s", "save", "", "directory to save the egg to")
-			f.String("c", "listener-url", "", "URL to fetch the stage from (tcp://SLIVER_SERVER:PORT or http(s)://SLIVER_SERVER:PORT")
-			f.String("v", "output-format", "raw", "Output format (msfvenom's style). All msfvenom's transform formats are supported")
-			f.String("x", "canary", "", "canary domain(s)")
-			f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
+			f.String("p", "profile", "", "Implant profile to link with the listener")
+			f.String("u", "url", "", "URL to which the stager will call back to")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			generateEgg(ctx, server.RPC)
+			stageListener(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -352,17 +429,20 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.NewProfileStr,
-		Help:     "Save a new sliver profile",
+		Help:     "Save a new implant profile",
 		LongHelp: help.GetHelpFor(consts.NewProfileStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
+			f.Bool("e", "evasion", false, "enable evasion features")
 			f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
 
 			f.String("m", "mtls", "", "mtls domain(s)")
 			f.String("t", "http", "", "http[s] domain(s)")
 			f.String("n", "dns", "", "dns domain(s)")
+			f.String("e", "named-pipe", "", "named-pipe connection strings")
+			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
@@ -377,10 +457,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.String("r", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries) and 'shellcode' (windows only)")
 
 			f.String("p", "name", "", "profile name")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			newProfile(ctx, server.RPC)
+			newProfile(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -389,15 +471,17 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:      consts.RegenerateStr,
-		Help:      "Regenerate target sliver",
+		Help:      "Regenerate an implant",
 		LongHelp:  help.GetHelpFor(consts.RegenerateStr),
 		AllowArgs: true,
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "save", "", "directory/file to the binary to")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			regenerate(ctx, server.RPC)
+			regenerate(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -408,9 +492,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Name:     consts.ProfilesStr,
 		Help:     "List existing profiles",
 		LongHelp: help.GetHelpFor(consts.ProfilesStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			profiles(ctx, server.RPC)
+			profiles(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -419,16 +506,18 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.ProfileGenerateStr,
-		Help:     "Generate Sliver from a profile",
+		Help:     "Generate implant from a profile",
 		LongHelp: help.GetHelpFor(consts.ProfileGenerateStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "name", "", "profile name")
 			f.String("s", "save", "", "directory/file to the binary to")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			profileGenerate(ctx, server.RPC)
+			profileGenerate(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -437,11 +526,14 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.ListSliverBuildsStr,
-		Help:     "List old Sliver builds",
+		Help:     "List old implant builds",
 		LongHelp: help.GetHelpFor(consts.ListSliverBuildsStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			listSliverBuilds(ctx, server.RPC)
+			listImplantBuilds(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -454,11 +546,13 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.ListCanariesStr),
 		Flags: func(f *grumble.Flags) {
 			f.Bool("b", "burned", false, "show only triggered/burned canaries")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			canaries(ctx, server.RPC)
+			canaries(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -475,10 +569,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.Int("l", "lport", 4444, "listen port")
 			f.String("e", "encoder", "", "msf encoder")
 			f.Int("i", "iterations", 1, "iterations of the encoder")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			msf(ctx, server.RPC)
+			msf(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -496,10 +592,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.Int("l", "lport", 4444, "listen port")
 			f.String("e", "encoder", "", "msf encoder")
 			f.Int("i", "iterations", 1, "iterations of the encoder")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			msfInject(ctx, server.RPC)
+			msfInject(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -514,10 +612,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 			f.Int("p", "pid", -1, "filter based on pid")
 			f.String("e", "exe", "", "filter based on executable name")
 			f.String("o", "owner", "", "filter based on owner")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			ps(ctx, server.RPC)
+			ps(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -525,13 +625,16 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.PingStr,
-		Help:      "Test connection to Sliver (does not use ICMP)",
-		LongHelp:  help.GetHelpFor(consts.PingStr),
+		Name:     consts.PingStr,
+		Help:     "Send round trip message to implant (does not use ICMP)",
+		LongHelp: help.GetHelpFor(consts.PingStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			ping(ctx, server.RPC)
+			ping(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -540,11 +643,14 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.GetPIDStr,
-		Help:     "Get Sliver pid",
+		Help:     "Get session pid",
 		LongHelp: help.GetHelpFor(consts.GetPIDStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			getPID(ctx, server.RPC)
+			getPID(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -553,11 +659,14 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.GetUIDStr,
-		Help:     "Get Sliver process UID",
+		Help:     "Get session process UID",
 		LongHelp: help.GetHelpFor(consts.GetUIDStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			getUID(ctx, server.RPC)
+			getUID(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -566,11 +675,14 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.GetGIDStr,
-		Help:     "Get Sliver process GID",
+		Help:     "Get session process GID",
 		LongHelp: help.GetHelpFor(consts.GetGIDStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			getGID(ctx, server.RPC)
+			getGID(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -579,11 +691,14 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.WhoamiStr,
-		Help:     "Get Sliver user execution context",
+		Help:     "Get session user execution context",
 		LongHelp: help.GetHelpFor(consts.WhoamiStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			whoami(ctx, server.RPC)
+			whoami(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -591,13 +706,16 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.LsStr,
-		Help:      "List current directory",
-		LongHelp:  help.GetHelpFor(consts.LsStr),
+		Name:     consts.LsStr,
+		Help:     "List current directory",
+		LongHelp: help.GetHelpFor(consts.LsStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			ls(ctx, server.RPC)
+			ls(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -605,13 +723,19 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.RmStr,
-		Help:      "Remove a file or directory",
-		LongHelp:  help.GetHelpFor(consts.RmStr),
+		Name:     consts.RmStr,
+		Help:     "Remove a file or directory",
+		LongHelp: help.GetHelpFor(consts.RmStr),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("r", "recursive", false, "recursively remove files")
+			f.Bool("f", "force", false, "ignore safety and forcefully remove files")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			rm(ctx, server.RPC)
+			rm(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -619,13 +743,16 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.MkdirStr,
-		Help:      "Make a directory",
-		LongHelp:  help.GetHelpFor(consts.MkdirStr),
+		Name:     consts.MkdirStr,
+		Help:     "Make a directory",
+		LongHelp: help.GetHelpFor(consts.MkdirStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			mkdir(ctx, server.RPC)
+			mkdir(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -633,13 +760,16 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.CdStr,
-		Help:      "Change directory",
-		LongHelp:  help.GetHelpFor(consts.CdStr),
+		Name:     consts.CdStr,
+		Help:     "Change directory",
+		LongHelp: help.GetHelpFor(consts.CdStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			cd(ctx, server.RPC)
+			cd(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -650,9 +780,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Name:     consts.PwdStr,
 		Help:     "Print working directory",
 		LongHelp: help.GetHelpFor(consts.PwdStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			pwd(ctx, server.RPC)
+			pwd(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -664,9 +797,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Help:      "Dump file to stdout",
 		LongHelp:  help.GetHelpFor(consts.CatStr),
 		AllowArgs: true,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			cat(ctx, server.RPC)
+			cat(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -678,12 +814,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Help:     "Download a file",
 		LongHelp: help.GetHelpFor(consts.DownloadStr),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", 360, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			download(ctx, server.RPC)
+			download(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -695,12 +831,12 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Help:     "Upload a file",
 		LongHelp: help.GetHelpFor(consts.UploadStr),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", 360, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			upload(ctx, server.RPC)
+			upload(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -711,11 +847,35 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Name:     consts.IfconfigStr,
 		Help:     "View network interface configurations",
 		LongHelp: help.GetHelpFor(consts.IfconfigStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			ifconfig(ctx, server.RPC)
+			ifconfig(ctx, rpc)
 			fmt.Println()
 			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.NetstatStr,
+		Help:     "Print network connection information",
+		LongHelp: help.GetHelpFor(consts.NetstatStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			netstat(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("t", "tcp", true, "display information about TCP sockets")
+			f.Bool("u", "udp", false, "display information about UDP sockets")
+			f.Bool("4", "ip4", true, "display information about IPv4 sockets")
+			f.Bool("6", "ip6", false, "display information about IPv6 sockets")
+			f.Bool("l", "listen", false, "display information about listening sockets")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
@@ -727,11 +887,11 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("p", "pid", -1, "target pid")
 			f.String("n", "name", "", "target process name")
-			f.Int("t", "timeout", 360, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			procdump(ctx, server.RPC)
+			procdump(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -739,17 +899,18 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:     consts.ImpersonateStr,
+		Name:     consts.RunAsStr,
 		Help:     "Run a new process in the context of the designated user (Windows Only)",
-		LongHelp: help.GetHelpFor(consts.ImpersonateStr),
+		LongHelp: help.GetHelpFor(consts.RunAsStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("u", "username", "NT AUTHORITY\\SYSTEM", "user to impersonate")
 			f.String("p", "process", "", "process to start")
 			f.String("a", "args", "", "arguments for the process")
+			f.Int("t", "timeout", 30, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			impersonate(ctx, server.RPC)
+			runAs(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -757,14 +918,35 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:     consts.ElevateStr,
-		Help:     "Spawns a new sliver session as an elevated process (UAC bypass/Windows Only)",
-		LongHelp: help.GetHelpFor(consts.ElevateStr),
+		Name:      consts.ImpersonateStr,
+		Help:      "Impersonate a logged in user.",
+		LongHelp:  help.GetHelpFor(consts.ImpersonateStr),
+		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			elevate(ctx, server.RPC)
+			impersonate(ctx, rpc)
 			fmt.Println()
 			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", 30, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.RevToSelfStr,
+		Help:      "Revert to self: lose stolen Windows token",
+		LongHelp:  help.GetHelpFor(consts.RevToSelfStr),
+		AllowArgs: false,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			revToSelf(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", 30, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
@@ -775,10 +957,11 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		LongHelp: help.GetHelpFor(consts.GetSystemStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "process", "spoolsv.exe", "SYSTEM process to inject into")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			getsystem(ctx, server.RPC)
+			getsystem(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -792,13 +975,16 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			executeAssembly(ctx, server.RPC)
+			executeAssembly(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.String("p", "process", "notepad.exe", "Hosting process to inject into")
-			f.Int("t", "timeout", 30, "Time to wait before killing the hosting process (seconds)")
+			f.String("p", "process", "notepad.exe", "hosting process to inject into")
+			f.Bool("a", "amsi", false, "use AMSI bypass (disabled by default)")
+			f.Bool("e", "etw", false, "patch EtwEventWrite function to avoid detection (disabled by default)")
+			f.Bool("s", "save", false, "save output to file")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
@@ -810,14 +996,59 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			executeShellcode(ctx, server.RPC)
+			executeShellcode(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Bool("r", "rwx-pages", false, "Use RWX permissions for memory pages")
+			f.Uint("p", "pid", 0, "Pid of process to inject into (0 means injection into ourselves)")
+			f.String("n", "process", `c:\windows\system32\notepad.exe`, "Process to inject into when running in interactive mode")
+			f.Bool("i", "interactive", false, "Inject into a new process and interact with it")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.SideloadStr,
+		Help:     "Load and execute a shared object (shared library/DLL) in a remote process",
+		LongHelp: help.GetHelpFor(consts.SideloadStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("a", "args", "", "Arguments for the shared library function")
+			f.String("e", "entry-point", "", "Entrypoint for the DLL (Windows only)")
+			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
+			f.Bool("s", "save", false, "save output to file")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		HelpGroup: consts.SliverHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			sideload(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.SpawnDllStr,
+		Help:     "Load and execute a Reflective DLL in a remote process",
+		LongHelp: help.GetHelpFor(consts.SpawnDllStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
+			f.String("e", "export", "ReflectiveLoader", "Entrypoint of the Reflective DLL")
+			f.Bool("s", "save", false, "save output to file")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			spawnDll(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -827,32 +1058,162 @@ func BindCommands(app *grumble.App, server *core.SliverServer) {
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			migrate(ctx, server.RPC)
+			migrate(ctx, rpc)
 			fmt.Println()
 			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.WebsitesStr,
-		Help:     "Host a static file on a website (used with HTTP C2)",
+		Help:     "Host static content (used with HTTP C2), see extended help.",
 		LongHelp: help.GetHelpFor(consts.WebsitesStr),
 		Flags: func(f *grumble.Flags) {
-			f.String("w", "website", "", "website name")
-			f.String("t", "content-type", "", "mime content-type (if blank use file ext.)")
+			f.String("w", "website", "", "website name to identify content")
+			f.String("m", "content-type", "", "mime content-type (if blank use file ext.)")
 			f.String("p", "web-path", "/", "http path to host file at")
 			f.String("c", "content", "", "local file path/dir (must use --recursive for dir)")
-			f.Bool("r", "recursive", false, "recursively add content from dir, --web-path is prefixed")
+			f.Bool("r", "recursive", false, "recursively add/rm content")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			websites(ctx, server.RPC)
+			websites(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
 
+	app.AddCommand(&grumble.Command{
+		Name:      consts.TerminateStr,
+		Help:      "Kill/terminate a process",
+		LongHelp:  help.GetHelpFor(consts.TerminateStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			terminate(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("f", "force", false, "disregard safety and kill the PID")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.ScreenshotStr,
+		Help:      "Take a screenshot",
+		LongHelp:  help.GetHelpFor(consts.ScreenshotStr),
+		AllowArgs: false,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			screenshot(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.LoadExtensionStr,
+		Help:      "Load a sliver extension",
+		LongHelp:  help.GetHelpFor(consts.LoadExtensionStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			load(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.NamedPipeStr,
+		Help:     "Start a named pipe pivot listener",
+		LongHelp: help.GetHelpFor(consts.NamedPipeStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "name of the named pipe")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			namedPipeListener(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.TCPListenerStr,
+		Help:     "Start a TCP pivot listener",
+		LongHelp: help.GetHelpFor(consts.TCPListenerStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "server", "0.0.0.0", "interface to bind server to")
+			f.Int("l", "lport", defaultTCPPivotPort, "tcp listen port")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			tcpListener(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.PsExecStr,
+		Help:     "Start a sliver service on a remote target",
+		LongHelp: help.GetHelpFor(consts.PsExecStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("s", "service-name", "Sliver", "name that will be used to register the service")
+			f.String("d", "service-description", "Sliver implant", "description of the service")
+			f.String("p", "profile", "", "profile to use for service binary")
+			f.String("b", "binpath", "c:\\windows\\temp", "directory to which the executable will be uploaded")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			psExec(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+		AllowArgs: true,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.BackdoorStr,
+		Help:     "Infect a remote file with a sliver shellcode",
+		LongHelp: help.GetHelpFor(consts.BackdoorStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("p", "profile", "", "profile to use for service binary")
+		},
+		AllowArgs: true,
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			binject(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
 }

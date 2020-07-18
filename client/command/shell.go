@@ -19,16 +19,18 @@ package command
 */
 
 import (
+	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"os"
 
 	"github.com/bishopfox/sliver/client/core"
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
-	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -36,9 +38,9 @@ const (
 	windows = "windows"
 )
 
-func shell(ctx *grumble.Context, server *core.SliverServer) {
-	if ActiveSliver.Sliver == nil {
-		fmt.Printf(Warn + "Please select an active sliver via `use`\n")
+func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.GetInteractive()
+	if session == nil {
 		return
 	}
 
@@ -48,32 +50,45 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 
 	shellPath := ctx.Flags.String("shell-path")
 	noPty := ctx.Flags.Bool("no-pty")
-	if ActiveSliver.Sliver.OS == windows {
+	if ActiveSession.Get().OS == windows {
 		noPty = true // Windows of course doesn't have PTYs
 	}
+	runInteractive(ctx, shellPath, noPty, rpc)
+	fmt.Println("Shell exited")
+}
 
+func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf(Info + "Opening shell tunnel (EOF to exit) ...\n\n")
-
-	tunnel, err := server.CreateTunnel(ActiveSliver.Sliver.ID, defaultTimeout)
-	if err != nil {
-		log.Printf(Warn+"%s", err)
+	session := ActiveSession.Get()
+	if session == nil {
 		return
 	}
 
-	shellReqData, _ := proto.Marshal(&sliverpb.ShellReq{
-		SliverID:  ActiveSliver.Sliver.ID,
+	// Create an RPC tunnel, then start it before binding the shell to the newly created tunnel
+	rpcTunnel, err := rpc.CreateTunnel(context.Background(), &sliverpb.Tunnel{
+		SessionID: session.ID,
+	})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+	log.Printf("Created new tunnel with id: %d, binding to shell ...", rpcTunnel.TunnelID)
+
+	// Start() takes an RPC tunnel and creates a local Reader/Writer tunnel object
+	tunnel := core.Tunnels.Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
+
+	shell, err := rpc.Shell(context.Background(), &sliverpb.ShellReq{
+		Request:   ActiveSession.Request(ctx),
+		Path:      shellPath,
 		EnablePTY: !noPty,
 		TunnelID:  tunnel.ID,
-		Path:      shellPath,
 	})
-	resp := <-server.RPC(&sliverpb.Envelope{
-		Type: sliverpb.MsgShellReq,
-		Data: shellReqData,
-	}, defaultTimeout)
-	if resp.Err != "" {
-		fmt.Printf(Warn+"Error: %s", resp.Err)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
+	log.Printf("Bound remote shell pid %d to tunnel %d", shell.Pid, shell.TunnelID)
+	fmt.Printf(Info+"Started remote shell with pid %d\n\n", shell.Pid)
 
 	var oldState *terminal.State
 	if !noPty {
@@ -85,38 +100,33 @@ func shell(ctx *grumble.Context, server *core.SliverServer) {
 		}
 	}
 
-	readBuf := make([]byte, 128)
-
-	cleanup := func() {
-		log.Printf("[client] cleanup tunnel %d", tunnel.ID)
-		tunnelClose, _ := proto.Marshal(&sliverpb.ShellReq{
-			TunnelID: tunnel.ID,
-		})
-		server.RPC(&sliverpb.Envelope{
-			Type: sliverpb.MsgTunnelClose,
-			Data: tunnelClose,
-		}, defaultTimeout)
-		if !noPty {
-			log.Printf("Restoring old terminal state: %v", oldState)
-			terminal.Restore(0, oldState)
-		}
-	}
-
+	log.Printf("Starting stdin/stdout shell ...")
 	go func() {
-		defer cleanup()
-		for data := range tunnel.Recv {
-			log.Printf("[write] %v", string(data))
-			os.Stdout.Write(data)
+		n, err := io.Copy(os.Stdout, tunnel)
+		log.Printf("Wrote %d bytes to stdout", n)
+		if err != nil {
+			fmt.Printf(Warn+"Error writing to stdout: %v", err)
+			return
 		}
 	}()
-
 	for {
-		n, err := os.Stdin.Read(readBuf)
+		log.Printf("Reading from stdin ...")
+		n, err := io.Copy(tunnel, os.Stdin)
+		log.Printf("Read %d bytes from stdin", n)
 		if err == io.EOF {
 			break
 		}
-		if err == nil && 0 < n {
-			tunnel.Send(readBuf[:n])
+		if err != nil {
+			fmt.Printf(Warn+"Error reading from stdin: %v", err)
+			break
 		}
 	}
+
+	if !noPty {
+		log.Printf("Restoring terminal state ...")
+		terminal.Restore(0, oldState)
+	}
+
+	log.Printf("Exit interactive")
+	bufio.NewWriter(os.Stdout).Flush()
 }

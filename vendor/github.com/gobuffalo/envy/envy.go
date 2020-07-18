@@ -68,8 +68,9 @@ func loadEnv() {
 	}
 }
 
+// Mods always returns true, GOPATH isn't supported
 func Mods() bool {
-	return Get(GO111MODULE, "off") == "on"
+	return true
 }
 
 // Reload the ENV variables. Useful if
@@ -168,7 +169,7 @@ func Map() map[string]string {
 	for k, v := range env {
 		cp[k] = v
 	}
-	return env
+	return cp
 }
 
 // Temp makes a copy of the values and allows operation on
@@ -193,6 +194,16 @@ func GoPath() string {
 
 func GoBin() string {
 	return Get("GO_BIN", "go")
+}
+
+func InGoPath() bool {
+	pwd, _ := os.Getwd()
+	for _, p := range GoPaths() {
+		if strings.HasPrefix(pwd, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // GoPaths returns all possible GOPATHS that are set.

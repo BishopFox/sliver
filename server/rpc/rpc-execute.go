@@ -1,28 +1,17 @@
 package rpc
 
 import (
-	"time"
+	"context"
 
-	sliverpb "github.com/bishopfox/sliver/protobuf/sliver"
-	"github.com/bishopfox/sliver/server/core"
-	"github.com/golang/protobuf/proto"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-func rpcExecute(req []byte, timeout time.Duration, resp RPCResponse) {
-	execReq := &sliverpb.ExecuteReq{}
-
-	err := proto.Unmarshal(req, execReq)
+// Execute - Execute a remote process
+func (rpc *Server) Execute(ctx context.Context, req *sliverpb.ExecuteReq) (*sliverpb.Execute, error) {
+	resp := &sliverpb.Execute{}
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := core.Hive.Sliver(execReq.SliverID)
-
-	data, _ := proto.Marshal(&sliverpb.ExecuteReq{
-		Path:   execReq.Path,
-		Args:   execReq.Args,
-		Output: execReq.Output,
-	})
-	data, err = sliver.Request(sliverpb.MsgExecuteReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }

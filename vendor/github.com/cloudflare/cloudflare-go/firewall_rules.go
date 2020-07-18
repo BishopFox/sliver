@@ -19,6 +19,7 @@ type FirewallRule struct {
 	Action      string      `json:"action"`
 	Priority    interface{} `json:"priority"`
 	Filter      Filter      `json:"filter"`
+	Products    []string    `json:"products,omitempty"`
 	CreatedOn   time.Time   `json:"created_on,omitempty"`
 	ModifiedOn  time.Time   `json:"modified_on,omitempty"`
 }

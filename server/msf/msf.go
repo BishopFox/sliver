@@ -51,8 +51,8 @@ var (
 	}
 
 	// ValidPayloads - Valid payloads and OS combos
-	ValidPayloads = map[string]map[string]bool{
-		"windows": map[string]bool{
+	validPayloads = map[string]map[string]bool{
+		"windows": {
 			"meterpreter_reverse_http":  true,
 			"meterpreter_reverse_https": true,
 			"meterpreter_reverse_tcp":   true,
@@ -60,19 +60,19 @@ var (
 			"meterpreter/reverse_http":  true,
 			"meterpreter/reverse_https": true,
 		},
-		"linux": map[string]bool{
+		"linux": {
 			"meterpreter_reverse_http":  true,
 			"meterpreter_reverse_https": true,
 			"meterpreter_reverse_tcp":   true,
 		},
-		"osx": map[string]bool{
+		"osx": {
 			"meterpreter_reverse_http":  true,
 			"meterpreter_reverse_https": true,
 			"meterpreter_reverse_tcp":   true,
 		},
 	}
 
-	ValidFormats = map[string]bool{
+	validFormats = map[string]bool{
 		"bash":          true,
 		"c":             true,
 		"csharp":        true,
@@ -122,7 +122,7 @@ func Version() (string, error) {
 func VenomPayload(config VenomConfig) ([]byte, error) {
 
 	// OS
-	if _, ok := ValidPayloads[config.Os]; !ok {
+	if _, ok := validPayloads[config.Os]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid operating system: %s", config.Os))
 	}
 	// Arch
@@ -130,7 +130,7 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid arch: %s", config.Arch))
 	}
 	// Payload
-	if _, ok := ValidPayloads[config.Os][config.Payload]; !ok {
+	if _, ok := validPayloads[config.Os][config.Payload]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid payload: %s", config.Payload))
 	}
 	// Encoder
@@ -138,7 +138,7 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid encoder: %s", config.Encoder))
 	}
 	// Check format
-	if _, ok := ValidFormats[config.Format]; !ok {
+	if _, ok := validFormats[config.Format]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid format: %s", config.Format))
 	}
 
@@ -199,6 +199,7 @@ func venomCmd(args []string) ([]byte, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
+	msfLog.Println(cmd.String())
 	if err != nil {
 		msfLog.Printf("--- stdout ---\n%s\n", stdout.String())
 		msfLog.Printf("--- stderr ---\n%s\n", stderr.String())

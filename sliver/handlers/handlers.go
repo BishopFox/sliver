@@ -19,11 +19,21 @@ package handlers
 */
 
 import (
-	pb "github.com/bishopfox/sliver/protobuf/sliver"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/sliver/transports"
 )
 
+// RPCResponse - Request/response callback
 type RPCResponse func([]byte, error)
+
+// RPCHandler - Request handler
 type RPCHandler func([]byte, RPCResponse)
+
+// SpecialHandler - Handlers that need to interact directly with the transport
 type SpecialHandler func([]byte, *transports.Connection) error
-type TunnelHandler func(*pb.Envelope, *transports.Connection)
+
+// TunnelHandler - Tunnel related functionality for duplex connections
+type TunnelHandler func(*sliverpb.Envelope, *transports.Connection)
+
+// PivotHandler - Handler related to pivoting
+type PivotHandler func(*sliverpb.Envelope, *transports.Connection)
