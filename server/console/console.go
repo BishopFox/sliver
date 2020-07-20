@@ -83,8 +83,8 @@ func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
 		Help:     "Create a new player config file",
 		LongHelp: help.GetHelpFor(consts.NewPlayerStr),
 		Flags: func(f *grumble.Flags) {
-			f.String("h", "lhost", "", "listen host")
-			f.Int("l", "lport", 31337, "listen port")
+			f.String("l", "lhost", "", "listen host")
+			f.Int("p", "lport", 31337, "listen port")
 			f.String("s", "save", "", "directory/file to the binary to")
 			f.String("n", "operator", "", "operator name")
 		},
