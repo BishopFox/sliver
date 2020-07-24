@@ -565,7 +565,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		LongHelp: help.GetHelpFor(consts.MsfStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("m", "payload", "meterpreter_reverse_https", "msf payload")
-			f.String("l", "lhost", "", "listen host")
+			f.String("o", "lhost", "", "listen host")
 			f.Int("l", "lport", 4444, "listen port")
 			f.String("e", "encoder", "", "msf encoder")
 			f.Int("i", "iterations", 1, "iterations of the encoder")
@@ -588,7 +588,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("p", "pid", -1, "pid to inject into")
 			f.String("m", "payload", "meterpreter_reverse_https", "msf payload")
-			f.String("l", "lhost", "", "listen host")
+			f.String("o", "lhost", "", "listen host")
 			f.Int("l", "lport", 4444, "listen port")
 			f.String("e", "encoder", "", "msf encoder")
 			f.Int("i", "iterations", 1, "iterations of the encoder")
