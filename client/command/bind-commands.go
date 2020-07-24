@@ -799,6 +799,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		AllowArgs: true,
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("c", "colorize-output", false, "colorize output")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
