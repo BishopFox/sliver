@@ -42,10 +42,6 @@ func (rpc *Server) StartTCPStagerListener(ctx context.Context, req *clientpb.Sta
 
 // StartHTTPStagerListener starts a HTTP(S) stager listener
 func (rpc *Server) StartHTTPStagerListener(ctx context.Context, req *clientpb.StagerListenerReq) (*clientpb.StagerListener, error) {
-	var secure bool = false
-	if req.GetProtocol() == clientpb.StageProtocol_HTTPS {
-		secure = true
-	}
 	host := req.GetHost()
 	if !checkInterface(req.GetHost()) {
 		host = "0.0.0.0"
@@ -54,8 +50,13 @@ func (rpc *Server) StartHTTPStagerListener(ctx context.Context, req *clientpb.St
 		Addr:   fmt.Sprintf("%s:%d", host, req.Port),
 		LPort:  uint16(req.Port),
 		Domain: req.Host,
-		Secure: secure,
-		ACME:   false,
+		Secure: false,
+	}
+	if req.GetProtocol() == clientpb.StageProtocol_HTTPS {
+		conf.Secure = true
+		conf.Key = req.Key
+		conf.Cert = req.Cert
+		conf.ACME = req.ACME
 	}
 	job, err := jobStartHTTPStagerListener(conf, req.Data)
 	return &clientpb.StagerListener{JobID: uint32(job.ID)}, err

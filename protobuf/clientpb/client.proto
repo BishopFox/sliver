@@ -248,6 +248,9 @@ message StagerListenerReq {
   string Host = 2;
   uint32 Port = 3;
   bytes Data = 4;
+  bytes Cert = 5;
+  bytes Key = 6;
+  bool ACME = 7;
 }
 
 message StagerListener {
