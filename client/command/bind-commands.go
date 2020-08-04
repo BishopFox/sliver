@@ -417,6 +417,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "profile", "", "Implant profile to link with the listener")
 			f.String("u", "url", "", "URL to which the stager will call back to")
+			f.String("c", "cert", "", "path to PEM encoded certificate file (HTTPS only)")
+			f.String("k", "key", "", "path to PEM encoded private key file (HTTPS only)")
+			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate (HTTPS only)")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
