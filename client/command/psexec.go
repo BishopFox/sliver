@@ -89,7 +89,13 @@ func psExec(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	fmt.Printf(Info+"Uploaded service binary to %s\n", upload.GetPath())
-	time.Sleep(time.Second)
+	fmt.Println(Info + "Waiting a bit for the file to be analyzed ...")
+	// Looks like starting the service right away often fails
+	// because a process is already using the binary.
+	// I suspect that Defender on my lab is holding access
+	// while scanning, which often resulted in an error.
+	// Waiting 5 seconds seem to do the trick here.
+	time.Sleep(5 * time.Second)
 	// start service
 	binaryPath := fmt.Sprintf(`%s\%s.exe`, binPath, filename)
 	serviceCtrl := make(chan bool)
