@@ -79,6 +79,7 @@ message ImplantConfig {
 
   string FileName = 27;
   bool IsService = 28;
+  bool IsShellcode = 29;
 }
 
 // Configs of previously built implants

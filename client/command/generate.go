@@ -285,6 +285,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 
 	isSharedLib := false
 	isService := false
+	isShellcode := false
 
 	format := ctx.Flags.String("format")
 	var configFormat clientpb.ImplantConfig_OutputFormat
@@ -296,7 +297,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 		isSharedLib = true
 	case "shellcode":
 		configFormat = clientpb.ImplantConfig_SHELLCODE
-		isSharedLib = true
+		isShellcode = true
 	case "service":
 		configFormat = clientpb.ImplantConfig_SERVICE
 		isService = true
@@ -346,6 +347,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 		Format:      configFormat,
 		IsSharedLib: isSharedLib,
 		IsService:   isService,
+		IsShellcode: isShellcode,
 	}
 
 	return config

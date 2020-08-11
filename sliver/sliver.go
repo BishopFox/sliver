@@ -18,7 +18,7 @@ package main
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if .IsSharedLib}}
+// {{if or .IsSharedLib .IsShellcode}}
 //#include "sliver.h"
 import "C"
 
@@ -84,7 +84,7 @@ func (serv *sliverService) Execute(args []string, r <-chan svc.ChangeRequest, ch
 
 // {{end}}
 
-// {{if .IsSharedLib}}
+// {{if or .IsSharedLib .IsShellcode}}
 
 var isRunning bool = false
 

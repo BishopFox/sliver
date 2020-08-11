@@ -18,11 +18,13 @@ BOOL WINAPI DllMain(
     case DLL_PROCESS_ATTACH:
         // Initialize once for each new process.
         // Return FALSE to fail DLL load.
-        {
-            // HANDLE hThread = CreateThread(NULL, 0, Enjoy, NULL, 0, NULL);
-            // CreateThread() because otherwise DllMain() is highly likely to deadlock.
-        }
-        break;
+    {
+        // {{if .IsSharedLib}}
+        HANDLE hThread = CreateThread(NULL, 0, Enjoy, NULL, 0, NULL);
+        // CreateThread() because otherwise DllMain() is highly likely to deadlock.
+        // {{end}}
+    }
+    break;
     case DLL_PROCESS_DETACH:
         // Perform any necessary cleanup.
         break;
