@@ -22,6 +22,7 @@ import (
 	"errors"
 	"sync"
 	"time"
+	"math"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -65,6 +66,8 @@ type Session struct {
 	Resp          map[uint64]chan *sliverpb.Envelope
 	RespMutex     *sync.RWMutex
 	ActiveC2      string
+	IsDead		  bool
+	ReconnectInterval uint32
 }
 
 // ToProtobuf - Get the protobuf version of the object
@@ -75,6 +78,18 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 	} else {
 		lastCheckin = s.LastCheckin.Format(time.RFC1123)
 	}
+
+	// WIP Need to get actual Implant reconnect value to accurately determine status, otherwise it works.
+	// Currently statically checks default reconnect value of 60 seconds by calculating difference between now and last check in time.
+	var isDead bool
+	var timePassed = uint32(math.Abs(s.LastCheckin.Sub(time.Now()).Seconds()))
+
+	if timePassed > s.ReconnectInterval { 
+		isDead = true
+	} else {
+		isDead = false
+	}
+
 	return &clientpb.Session{
 		ID:            uint32(s.ID),
 		Name:          s.Name,
@@ -91,6 +106,8 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		Filename:      s.Filename,
 		LastCheckin:   lastCheckin,
 		ActiveC2:      s.ActiveC2,
+		IsDead:        isDead,
+		ReconnectInterval: s.ReconnectInterval,
 	}
 }
 
