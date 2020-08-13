@@ -148,10 +148,10 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 		}
 
 		var SessionHealth string
-		if session.IsDead{
-			SessionHealth = "[DEAD]"
+		if session.IsDead {
+			SessionHealth = bold + red + "[DEAD]" + normal
 		} else {
-			SessionHealth = "[ALIVE]"
+			SessionHealth = bold + green + "[ALIVE]" + normal
 		}
 
 		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",

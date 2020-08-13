@@ -20,9 +20,9 @@ package core
 
 import (
 	"errors"
+	"math"
 	"sync"
 	"time"
-	"math"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -48,25 +48,25 @@ var (
 
 // Session - Represents a connection to an implant
 type Session struct {
-	ID            uint32
-	Name          string
-	Hostname      string
-	Username      string
-	UID           string
-	GID           string
-	Os            string
-	Version       string
-	Arch          string
-	Transport     string
-	RemoteAddress string
-	PID           int32
-	Filename      string
-	LastCheckin   *time.Time
-	Send          chan *sliverpb.Envelope
-	Resp          map[uint64]chan *sliverpb.Envelope
-	RespMutex     *sync.RWMutex
-	ActiveC2      string
-	IsDead		  bool
+	ID                uint32
+	Name              string
+	Hostname          string
+	Username          string
+	UID               string
+	GID               string
+	Os                string
+	Version           string
+	Arch              string
+	Transport         string
+	RemoteAddress     string
+	PID               int32
+	Filename          string
+	LastCheckin       *time.Time
+	Send              chan *sliverpb.Envelope
+	Resp              map[uint64]chan *sliverpb.Envelope
+	RespMutex         *sync.RWMutex
+	ActiveC2          string
+	IsDead            bool
 	ReconnectInterval uint32
 }
 
@@ -79,34 +79,35 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		lastCheckin = s.LastCheckin.Format(time.RFC1123)
 	}
 
-	// WIP Need to get actual Implant reconnect value to accurately determine status, otherwise it works.
-	// Currently statically checks default reconnect value of 60 seconds by calculating difference between now and last check in time.
+	// Calculates how much time has passed in seconds and compares that to the ReconnectInterval+10 of the Implant.
+	// (ReconnectInterval+10 seconds is just abitrary padding to account for potential delays)
+	// If it hasn't checked in, flag it as DEAD.
 	var isDead bool
 	var timePassed = uint32(math.Abs(s.LastCheckin.Sub(time.Now()).Seconds()))
 
-	if timePassed > s.ReconnectInterval { 
+	if timePassed > (s.ReconnectInterval + 10) {
 		isDead = true
 	} else {
 		isDead = false
 	}
 
 	return &clientpb.Session{
-		ID:            uint32(s.ID),
-		Name:          s.Name,
-		Hostname:      s.Hostname,
-		Username:      s.Username,
-		UID:           s.UID,
-		GID:           s.GID,
-		OS:            s.Os,
-		Version:       s.Version,
-		Arch:          s.Arch,
-		Transport:     s.Transport,
-		RemoteAddress: s.RemoteAddress,
-		PID:           int32(s.PID),
-		Filename:      s.Filename,
-		LastCheckin:   lastCheckin,
-		ActiveC2:      s.ActiveC2,
-		IsDead:        isDead,
+		ID:                uint32(s.ID),
+		Name:              s.Name,
+		Hostname:          s.Hostname,
+		Username:          s.Username,
+		UID:               s.UID,
+		GID:               s.GID,
+		OS:                s.Os,
+		Version:           s.Version,
+		Arch:              s.Arch,
+		Transport:         s.Transport,
+		RemoteAddress:     s.RemoteAddress,
+		PID:               int32(s.PID),
+		Filename:          s.Filename,
+		LastCheckin:       lastCheckin,
+		ActiveC2:          s.ActiveC2,
+		IsDead:            isDead,
 		ReconnectInterval: s.ReconnectInterval,
 	}
 }

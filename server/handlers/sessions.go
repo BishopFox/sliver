@@ -50,7 +50,6 @@ func AddSessionHandlers(key uint32, value interface{}) {
 	sessionHandlers[key] = value
 }
 
-
 func registerSessionHandler(session *core.Session, data []byte) {
 	register := &sliverpb.Register{}
 	err := proto.Unmarshal(data, register)
@@ -62,7 +61,6 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	if session == nil {
 		return
 	}
-
 
 	handlerLog.Warnf("%v", session)
 	handlerLog.Warnf("%v", register)
