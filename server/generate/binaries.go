@@ -309,6 +309,7 @@ func SliverShellcode(config *ImplantConfig) (string, error) {
 	// trimpath is now a separate flag since Go 1.13
 	trimpath := "-trimpath"
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "pie", tags, ldflags, gcflags, asmflags, trimpath)
+	// _, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags, gcflags, asmflags, trimpath)
 	config.FileName = path.Base(dest)
 	shellcode, err := ShellcodeFromFile(dest, "x84", false, "", "", "")
 	// shellcode, err := ShellcodeRDI(dest, "RunSliver", "")
