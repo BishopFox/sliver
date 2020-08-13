@@ -54,7 +54,7 @@ var (
 
 	readBufSize       = 16 * 1024 // 16kb
 	maxErrors         = getMaxConnectionErrors()
-	reconnectInterval = getReconnectInterval()
+	reconnectInterval = GetReconnectInterval()
 
 	ccCounter = new(int)
 
@@ -249,7 +249,7 @@ func nextCCServer() *url.URL {
 	return uri
 }
 
-func getReconnectInterval() time.Duration {
+func GetReconnectInterval() time.Duration {
 	reconnect, err := strconv.Atoi(`{{.ReconnectInterval}}`)
 	if err != nil {
 		return 60 * time.Second
