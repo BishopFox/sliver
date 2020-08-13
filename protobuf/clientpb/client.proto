@@ -37,6 +37,8 @@ message Session {
   string ActiveC2 = 14;
   string Version = 15;
   bool Evasion = 16;
+  bool IsDead = 17;
+  uint32 ReconnectInterval = 18;
 }
 
 message ImplantC2 {
