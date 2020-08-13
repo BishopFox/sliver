@@ -87,7 +87,7 @@ func handleSliverConnection(conn net.Conn) {
 	mtlsLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
 
 	session := &core.Session{
-		ID:            core.NextSessionID(),
+		// ID:            core.NextSessionID(),
 		Transport:     "mtls",
 		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
 		Send:          make(chan *sliverpb.Envelope),

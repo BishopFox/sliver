@@ -167,11 +167,13 @@ func (s *sessions) Remove(sessionID uint32) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	session := (*s.sessions)[sessionID]
-	delete((*s.sessions), sessionID)
-	EventBroker.Publish(Event{
-		EventType: consts.SessionClosedEvent,
-		Session:   session,
-	})
+	if session != nil {
+		delete((*s.sessions), sessionID)
+		EventBroker.Publish(Event{
+			EventType: consts.SessionClosedEvent,
+			Session:   session,
+		})
+	}
 }
 
 // NextSessionID - Returns an incremental nonce as an id
