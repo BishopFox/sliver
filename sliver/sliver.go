@@ -241,18 +241,18 @@ func getRegisterSliver() *sliverpb.Envelope {
 		}
 	}
 	data, err := proto.Marshal(&sliverpb.Register{
-		Name:     consts.SliverName,
-		Hostname: hostname,
-		Username: currentUser.Username,
-		Uid:      currentUser.Uid,
-		Gid:      currentUser.Gid,
-		Os:       runtime.GOOS,
-		Version:  version.GetVersion(),
-		Arch:     runtime.GOARCH,
-		Pid:      int32(os.Getpid()),
-		Filename: filename,
-		ActiveC2: transports.GetActiveC2(),
-		ReconnectInterval: uint32(transports.GetReconnectInterval()/time.Second),
+		Name:              consts.SliverName,
+		Hostname:          hostname,
+		Username:          currentUser.Username,
+		Uid:               currentUser.Uid,
+		Gid:               currentUser.Gid,
+		Os:                runtime.GOOS,
+		Version:           version.GetVersion(),
+		Arch:              runtime.GOARCH,
+		Pid:               int32(os.Getpid()),
+		Filename:          filename,
+		ActiveC2:          transports.GetActiveC2(),
+		ReconnectInterval: uint32(transports.GetReconnectInterval() / time.Second),
 	})
 	if err != nil {
 		// {{if .Debug}}
