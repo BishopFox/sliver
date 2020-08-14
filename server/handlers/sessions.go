@@ -79,6 +79,7 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	session.Filename = register.Filename
 	session.ActiveC2 = register.ActiveC2
 	session.Version = register.Version
+	session.ReconnectInterval = register.ReconnectInterval
 	core.Sessions.Add(session)
 }
 

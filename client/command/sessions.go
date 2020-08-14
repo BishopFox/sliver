@@ -40,6 +40,7 @@ func sessions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	interact := ctx.Flags.String("interact")
 	kill := ctx.Flags.String("kill")
 	killAll := ctx.Flags.Bool("kill-all")
+	clean := ctx.Flags.Bool("clean")
 
 	sessions, err := rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -55,6 +56,20 @@ func sessions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 				fmt.Printf(Warn+"%s\n", err)
 			}
 			fmt.Printf(Info+"\nKilled %s (%d)\n", session.Name, session.ID)
+		}
+		return
+	}
+
+	if clean {
+		ActiveSession.Background()
+		for _, session := range sessions.Sessions {
+			if session.IsDead {
+				err := killSession(session, rpc)
+				if err != nil {
+					fmt.Printf(Warn+"%s\n", err)
+				}
+				fmt.Printf(Info+"\nKilled %s (%d)\n", session.Name, session.ID)
+			}
 		}
 		return
 	}
@@ -106,8 +121,8 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
 	// Column Headers
-	fmt.Fprintln(table, "ID\tName\tTransport\tRemote Address\tHostname\tUsername\tOperating System\tLast Check-in\t")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+	fmt.Fprintln(table, "ID\tName\tTransport\tRemote Address\tHostname\tUsername\tOperating System\tLast Check-in\tHealth\t")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("ID")),
 		strings.Repeat("=", len("Name")),
 		strings.Repeat("=", len("Transport")),
@@ -115,7 +130,8 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 		strings.Repeat("=", len("Hostname")),
 		strings.Repeat("=", len("Username")),
 		strings.Repeat("=", len("Operating System")),
-		strings.Repeat("=", len("Last Check-in")))
+		strings.Repeat("=", len("Last Check-in")),
+		strings.Repeat("=", len("Health")))
 
 	// Sort the keys because maps have a randomized order
 	var keys []int
@@ -130,7 +146,15 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 		if ActiveSession.Get() != nil && ActiveSession.Get().ID == session.ID {
 			activeIndex = index + 2 // Two lines for the headers
 		}
-		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+
+		var SessionHealth string
+		if session.IsDead {
+			SessionHealth = bold + red + "[DEAD]" + normal
+		} else {
+			SessionHealth = bold + green + "[ALIVE]" + normal
+		}
+
+		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
 			session.ID,
 			session.Name,
 			session.Transport,
@@ -139,6 +163,7 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 			session.Username,
 			fmt.Sprintf("%s/%s", session.OS, session.Arch),
 			session.LastCheckin,
+			SessionHealth,
 		)
 	}
 	table.Flush()
