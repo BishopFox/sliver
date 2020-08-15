@@ -69,8 +69,13 @@ type Session struct {
 
 // ToProtobuf - Get the protobuf version of the object
 func (s *Session) ToProtobuf() *clientpb.Session {
-	var lastCheckin string
+	var (
+		lastCheckin string
+		now         time.Time
+	)
 	if s.LastCheckin == nil {
+		now = time.Now()
+		s.LastCheckin = &now
 		lastCheckin = time.Now().Format(time.RFC1123) // Stateful connections have a nil .LastCheckin
 	} else {
 		lastCheckin = s.LastCheckin.Format(time.RFC1123)
