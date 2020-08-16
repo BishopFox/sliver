@@ -217,7 +217,7 @@ func getSliverShellcode(name string) ([]byte, error) {
 			if err != nil {
 				return data, err
 			}
-			data, err = generate.DonutShellcodeFromPE(fileData, "x84", false, "", "", "", donut.DONUT_MODULE_EXE)
+			data, err = generate.DonutShellcodeFromPE(fileData, conf.GOARCH, false, "", "", "", donut.DONUT_MODULE_EXE)
 			if err != nil {
 				rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
 				return data, err
