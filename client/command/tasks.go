@@ -289,6 +289,12 @@ func sideload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if session == nil {
 		return
 	}
+
+	if len(ctx.Args) < 1 {
+		fmt.Printf(Warn + "You must provide a shared object to load")
+		return
+	}
+
 	binPath := ctx.Args[0]
 
 	entryPoint := ctx.Flags.String("entry-point")

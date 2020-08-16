@@ -20,6 +20,7 @@ package core
 
 import (
 	"errors"
+	"math"
 	"sync"
 	"time"
 
@@ -47,50 +48,72 @@ var (
 
 // Session - Represents a connection to an implant
 type Session struct {
-	ID            uint32
-	Name          string
-	Hostname      string
-	Username      string
-	UID           string
-	GID           string
-	Os            string
-	Version       string
-	Arch          string
-	Transport     string
-	RemoteAddress string
-	PID           int32
-	Filename      string
-	LastCheckin   *time.Time
-	Send          chan *sliverpb.Envelope
-	Resp          map[uint64]chan *sliverpb.Envelope
-	RespMutex     *sync.RWMutex
-	ActiveC2      string
+	ID                uint32
+	Name              string
+	Hostname          string
+	Username          string
+	UID               string
+	GID               string
+	Os                string
+	Version           string
+	Arch              string
+	Transport         string
+	RemoteAddress     string
+	PID               int32
+	Filename          string
+	LastCheckin       *time.Time
+	Send              chan *sliverpb.Envelope
+	Resp              map[uint64]chan *sliverpb.Envelope
+	RespMutex         *sync.RWMutex
+	ActiveC2          string
+	IsDead            bool
+	ReconnectInterval uint32
 }
 
 // ToProtobuf - Get the protobuf version of the object
 func (s *Session) ToProtobuf() *clientpb.Session {
-	var lastCheckin string
+	var (
+		lastCheckin string
+		now         time.Time
+	)
 	if s.LastCheckin == nil {
+		now = time.Now()
+		s.LastCheckin = &now
 		lastCheckin = time.Now().Format(time.RFC1123) // Stateful connections have a nil .LastCheckin
 	} else {
 		lastCheckin = s.LastCheckin.Format(time.RFC1123)
 	}
+
+	// Calculates how much time has passed in seconds and compares that to the ReconnectInterval+10 of the Implant.
+	// (ReconnectInterval+10 seconds is just abitrary padding to account for potential delays)
+	// If it hasn't checked in, flag it as DEAD.
+	var isDead bool
+	var timePassed = uint32(math.Abs(s.LastCheckin.Sub(time.Now()).Seconds()))
+
+	if timePassed > (s.ReconnectInterval + 10) {
+		isDead = true
+	} else {
+		isDead = false
+	}
+
 	return &clientpb.Session{
-		ID:            uint32(s.ID),
-		Name:          s.Name,
-		Hostname:      s.Hostname,
-		Username:      s.Username,
-		UID:           s.UID,
-		GID:           s.GID,
-		OS:            s.Os,
-		Version:       s.Version,
-		Arch:          s.Arch,
-		Transport:     s.Transport,
-		RemoteAddress: s.RemoteAddress,
-		PID:           int32(s.PID),
-		Filename:      s.Filename,
-		LastCheckin:   lastCheckin,
-		ActiveC2:      s.ActiveC2,
+		ID:                uint32(s.ID),
+		Name:              s.Name,
+		Hostname:          s.Hostname,
+		Username:          s.Username,
+		UID:               s.UID,
+		GID:               s.GID,
+		OS:                s.Os,
+		Version:           s.Version,
+		Arch:              s.Arch,
+		Transport:         s.Transport,
+		RemoteAddress:     s.RemoteAddress,
+		PID:               int32(s.PID),
+		Filename:          s.Filename,
+		LastCheckin:       lastCheckin,
+		ActiveC2:          s.ActiveC2,
+		IsDead:            isDead,
+		ReconnectInterval: s.ReconnectInterval,
 	}
 }
 
@@ -167,11 +190,13 @@ func (s *sessions) Remove(sessionID uint32) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	session := (*s.sessions)[sessionID]
-	delete((*s.sessions), sessionID)
-	EventBroker.Publish(Event{
-		EventType: consts.SessionClosedEvent,
-		Session:   session,
-	})
+	if session != nil {
+		delete((*s.sessions), sessionID)
+		EventBroker.Publish(Event{
+			EventType: consts.SessionClosedEvent,
+			Session:   session,
+		})
+	}
 }
 
 // NextSessionID - Returns an incremental nonce as an id
