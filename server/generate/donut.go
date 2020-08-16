@@ -9,8 +9,8 @@ import (
 	"github.com/binject/go-donut/donut"
 )
 
-// ShellcodeFromFile returns a Donut shellcode for the given PE file
-func ShellcodeFromFile(filePath string, arch string, dotnet bool, params string, className string, method string) (data []byte, err error) {
+// DonutShellcodeFromFile returns a Donut shellcode for the given PE file
+func DonutShellcodeFromFile(filePath string, arch string, dotnet bool, params string, className string, method string) (data []byte, err error) {
 	pe, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return
@@ -36,11 +36,11 @@ func ShellcodeFromFile(filePath string, arch string, dotnet bool, params string,
 	case ".vbs":
 		donutType = donut.DONUT_MODULE_VBS
 	}
-	return ShellcodeFromPE(pe, arch, dotnet, params, className, method, donutType)
+	return DonutShellcodeFromPE(pe, arch, dotnet, params, className, method, donutType)
 }
 
-// ShellcodeFromPE returns a Donut shellcode for the given PE file
-func ShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, className string, method string, donutType donut.ModuleType) (data []byte, err error) {
+// DonutShellcodeFromPE returns a Donut shellcode for the given PE file
+func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, className string, method string, donutType donut.ModuleType) (data []byte, err error) {
 	var donutArch donut.DonutArch
 	switch strings.ToLower(arch) {
 	case "x32", "386":
@@ -65,7 +65,7 @@ func ShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, classNa
 		Arch:       donutArch,
 		Entropy:    0,         // 1=disable, 2=use random names, 3=random names + symmetric encryption (default)
 		Compress:   uint32(1), // 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman
-		Thread:     0,         // start a new thread
+		Thread:     1,         // start a new thread
 		ExitOpt:    1,         // exit thread
 		Unicode:    0,
 	}

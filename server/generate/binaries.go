@@ -311,7 +311,7 @@ func SliverShellcode(config *ImplantConfig) (string, error) {
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "pie", tags, ldflags, gcflags, asmflags, trimpath)
 	// _, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags, gcflags, asmflags, trimpath)
 	config.FileName = path.Base(dest)
-	shellcode, err := ShellcodeFromFile(dest, "x84", false, "", "", "")
+	shellcode, err := DonutShellcodeFromFile(dest, "x84", false, "", "", "")
 	// shellcode, err := ShellcodeRDI(dest, "RunSliver", "")
 	if err != nil {
 		return "", err
