@@ -68,8 +68,6 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 			return nil, err
 		}
 		shellcode, err = ioutil.ReadFile(shellcodePath)
-	} else {
-		rpcLog.Debugf("Got shellcode: len = %d\n", len(shellcode))
 	}
 	reqData, err := proto.Marshal(&sliverpb.InvokeMigrateReq{
 		Request: req.Request,
