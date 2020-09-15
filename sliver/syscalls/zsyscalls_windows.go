@@ -60,6 +60,7 @@ var (
 	procGetExitCodeThread                 = modkernel32.NewProc("GetExitCodeThread")
 	procMiniDumpWriteDump                 = modDbgHelp.NewProc("MiniDumpWriteDump")
 	procImpersonateLoggedOnUser           = modadvapi32.NewProc("ImpersonateLoggedOnUser")
+	procLogonUserW                        = modadvapi32.NewProc("LogonUserW")
 	procGetDC                             = modUser32.NewProc("GetDC")
 	procReleaseDC                         = modUser32.NewProc("ReleaseDC")
 	procCreateCompatibleDC                = modGdi32.NewProc("CreateCompatibleDC")
@@ -262,6 +263,18 @@ func MiniDumpWriteDump(hProcess windows.Handle, pid uint32, hFile uintptr, dumpT
 
 func ImpersonateLoggedOnUser(hToken windows.Token) (err error) {
 	r1, _, e1 := syscall.Syscall(procImpersonateLoggedOnUser.Addr(), 1, uintptr(hToken), 0, 0)
+	if r1 == 0 {
+		if e1 != 0 {
+			err = errnoErr(e1)
+		} else {
+			err = syscall.EINVAL
+		}
+	}
+	return
+}
+
+func LogonUser(lpszUsername *uint16, lpszDomain *uint16, lpszPassword *uint16, dwLogonType uint32, dwLogonProvider uint32, phToken *windows.Token) (err error) {
+	r1, _, e1 := syscall.Syscall6(procLogonUserW.Addr(), 6, uintptr(unsafe.Pointer(lpszUsername)), uintptr(unsafe.Pointer(lpszDomain)), uintptr(unsafe.Pointer(lpszPassword)), uintptr(dwLogonType), uintptr(dwLogonProvider), uintptr(unsafe.Pointer(phToken)))
 	if r1 == 0 {
 		if e1 != 0 {
 			err = errnoErr(e1)
