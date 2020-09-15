@@ -310,7 +310,12 @@ func downloadHandler(data []byte, resp RPCResponse) {
 		//{{if .Debug}}
 		log.Printf("stat failed on %s: %v", target, err)
 		//{{end}}
-		resp([]byte{}, err)
+		download := &sliverpb.Download{Path: target, Exists: false}
+		download.Response = &commonpb.Response{
+			Err: err.Error(),
+		}
+		data, err = proto.Marshal(download)
+		resp(data, err)
 		return
 	}
 	if fi.IsDir() {

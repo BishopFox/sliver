@@ -101,3 +101,13 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	}
 	return getSystem, nil
 }
+
+// MakeToken - Creates a new logon session to impersonate a user based on its credentials.
+func (rpc *Server) MakeToken(ctx context.Context, req *sliverpb.MakeTokenReq) (*sliverpb.MakeToken, error) {
+	resp := &sliverpb.MakeToken{}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

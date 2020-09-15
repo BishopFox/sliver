@@ -82,6 +82,7 @@ service SliverRPC {
     rpc StartService(sliverpb.StartServiceReq) returns (sliverpb.ServiceInfo);
     rpc StopService(sliverpb.StopServiceReq) returns (sliverpb.ServiceInfo);
     rpc RemoveService(sliverpb.RemoveServiceReq) returns (sliverpb.ServiceInfo);
+    rpc MakeToken(sliverpb.MakeTokenReq) returns (sliverpb.MakeToken);
 
     // *** Realtime Commands ***
     rpc Shell(sliverpb.ShellReq) returns (sliverpb.Shell);

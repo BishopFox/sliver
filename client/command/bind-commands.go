@@ -1221,4 +1221,24 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			return nil
 		},
 	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.MakeTokenStr,
+		Help:     "Create a new Logon Session with the specified credentials",
+		LongHelp: help.GetHelpFor(consts.MakeTokenStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("u", "username", "", "username of the user to impersonate")
+			f.String("p", "password", "", "password of the user to impersonate")
+			f.String("d", "domain", "", "domain of the user to impersonate")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: false,
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			makeToken(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
 }

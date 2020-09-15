@@ -70,6 +70,7 @@ var (
 
 		consts.WebsitesStr:   websitesHelp,
 		consts.ScreenshotStr: screenshotHelp,
+		consts.MakeTokenStr:  makeTokenHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -379,6 +380,9 @@ The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows u
 [[.Bold]]Example:[[.Normal]] backdoor --profile windows-shellcode "c:\windows\system32\calc.exe"
 
 [[.Bold]]Remark:[[.Normal]] you must first create a profile that will serve as your base shellcode, with the following command: new-profile --format shellcode --name whatever --http ab.cd
+`
+	makeTokenHelp = `[[.Bold]]Command:[[.Normal]] make-token -u USERNAME -d DOMAIN -p PASSWORD
+[[.Bold]]About:[[.Normal]] Creates a new Logon Session from the specified credentials and impersonate the resulting token.
 `
 )
 

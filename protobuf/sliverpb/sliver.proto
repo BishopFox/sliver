@@ -255,6 +255,18 @@ message GetSystem {
   commonpb.Response Response = 9;
 }
 
+message MakeTokenReq {
+  string Username = 1;
+  string Password = 2;
+  string Domain = 3;
+
+  commonpb.Request Request = 9;
+}
+
+message MakeToken {
+  commonpb.Response Response = 9;
+}
+
 message TaskReq {
   string Encoder = 1;
   bool RWXPages = 2;
