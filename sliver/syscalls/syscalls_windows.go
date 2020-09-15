@@ -19,6 +19,7 @@ package syscalls
 
 //sys MiniDumpWriteDump(hProcess windows.Handle, pid uint32, hFile uintptr, dumpType uint32, exceptionParam uintptr, userStreamParam uintptr, callbackParam uintptr) (err error) = DbgHelp.MiniDumpWriteDump
 //sys ImpersonateLoggedOnUser(hToken windows.Token) (err error) = advapi32.ImpersonateLoggedOnUser
+//sys LogonUser(lpszUsername *uint16, lpszDomain *uint16, lpszPassword *uint16, dwLogonType uint32, dwLogonProvider uint32, phToken *windows.Token) (err error) = advapi32.LogonUserW
 
 //sys GetDC(HWND windows.Handle) (HDC windows.Handle, err error) = User32.GetDC
 //sys ReleaseDC(hWnd windows.Handle, hDC windows.Handle) (int uint32, err error) = User32.ReleaseDC
