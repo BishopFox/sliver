@@ -247,6 +247,8 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	assemblyArgs := ""
 	if len(ctx.Args) == 2 {
 		assemblyArgs = ctx.Args[1]
+	} else if len(ctx.Args) < 2 {
+		assemblyArgs = " "
 	}
 	process := ctx.Flags.String("process")
 
