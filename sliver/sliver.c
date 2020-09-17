@@ -50,6 +50,7 @@ static void init(int argc, char **argv, char **envp)
 }
 __attribute__((section(".init_array"), used)) static typeof(init) *init_p = init;
 #elif __APPLE__
+#include <stdlib.h>
 void RunSliver();
 
 __attribute__((constructor)) static void init(int argc, char **argv, char **envp)
