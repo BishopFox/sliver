@@ -29,6 +29,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/tabwriter"
 
@@ -235,6 +236,16 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 	targetOS := strings.ToLower(ctx.Flags.String("os"))
 	arch := strings.ToLower(ctx.Flags.String("arch"))
 
+	name := strings.ToLower(ctx.Flags.String("name"))
+
+	if name != "" {
+		isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
+		if !isAlphanumeric(name) {
+			fmt.Printf(Warn + "Agent name must be only alphanumeric\n")
+			return nil
+		}
+	}
+
 	c2s := []*clientpb.ImplantC2{}
 
 	mtlsC2 := parseMTLSc2(ctx.Flags.String("mtls"))
@@ -330,6 +341,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
 		GOARCH:           arch,
+		Name:             name,
 		Debug:            ctx.Flags.Bool("debug"),
 		Evasion:          ctx.Flags.Bool("evasion"),
 		ObfuscateSymbols: symbolObfuscation,
