@@ -129,10 +129,14 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 				readArray := make([]byte, 1024)
 				bytesRead, err := tunnel.Read(readArray)
 				if err != nil {
-					fmt.Println(err)
+					fmt.Printf("Tunnel read error %s\n", err.Error())
 					break
 				} else if bytesRead != 0 {
-					socksConn.ClientConn.Write(readArray[:bytesRead])
+					_, err := socksConn.ClientConn.Write(readArray[:bytesRead])
+					if err != nil {
+						fmt.Printf("Client socket write error %s\n", err.Error())
+						break
+					}
 				}
 			}
 			socksConn.ClientConn.Close()
@@ -143,13 +147,19 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 				writeArray := make([]byte, 1024)
 				bytesToWrite, err := socksConn.ClientConn.Read(writeArray)
 				if err != nil {
-					fmt.Println(err)
+					fmt.Printf("Client socket read error %s\n", err.Error())
 					break
 				} else if bytesToWrite != 0 {
-					tunnel.Write(writeArray[:bytesToWrite])
+					_, err = tunnel.Write(writeArray[:bytesToWrite])
+					if err != nil {
+						fmt.Printf("Tunnel write error %s\n", err.Error())
+						break
+					}
 				}
 			}
 			socksConn.ClientConn.Close()
+			// TODO : Send a close tunnel message
+			// 			If the local client closes the connection then the implant will hold that connection
 		}()
 	} else {
 		socksConn.ReturnFailureConnectMessage()
