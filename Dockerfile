@@ -76,6 +76,6 @@ RUN make clean \
     && rm -rf /go/src/* \
     && rm -rf /home/sliver/.sliver
 
-USER root
+USER sliver
 WORKDIR /home/sliver/
 ENTRYPOINT [ "/opt/sliver-server" ]
