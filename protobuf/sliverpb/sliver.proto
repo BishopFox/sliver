@@ -502,6 +502,23 @@ message Shell{
   commonpb.Response Response = 9;
 }
 
+// TCPTunnelReq
+message TCPTunnelReq {
+  string RemoteHost = 1;
+  uint32 RemotePort = 2;
+
+  uint64 TunnelID = 8;
+  commonpb.Request Request = 9;
+}
+
+// TCPTunnelReq
+message TCPTunnel {
+  bool IsSuccess = 1;
+
+  uint64 TunnelID = 8;
+  commonpb.Request Request = 9;
+}
+
 // Named Pipes Messages
 message NamedPipesReq {
   string PipeName = 16;

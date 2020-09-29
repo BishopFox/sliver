@@ -56,6 +56,8 @@ const (
 	defaultMaxErrors = 1000
 
 	defaultTimeout = 60
+
+	defaultSocksPort = 1080
 )
 
 // BindCommands - Bind commands to a App
@@ -329,6 +331,24 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			shell(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.SocksStr,
+		Help:     "Start a socks listener",
+		LongHelp: help.GetHelpFor(consts.SocksStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("p", "port", defaultSocksPort, "local socks port")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			socks(ctx, rpc)
 			fmt.Println()
 			return nil
 		},

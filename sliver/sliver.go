@@ -27,6 +27,7 @@ import "C"
 import (
 	"os"
 	"os/user"
+	"reflect"
 	"runtime"
 	"time"
 
@@ -211,8 +212,10 @@ func mainLoop(connection *transports.Connection) {
 		} else if handler, ok := tunHandlers[envelope.Type]; ok {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] tunHandler %d", envelope.Type)
+			log.Printf("[recv] tunHandler-name %s", runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name())
 			// {{end}}
 			go handler(envelope, connection)
+
 		} else if handler, ok := sysPivotHandlers[envelope.Type]; ok {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] sysPivotHandlers with type %d", envelope.Type)

