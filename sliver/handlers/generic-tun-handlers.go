@@ -251,7 +251,6 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 	tcpTunnelReq := &sliverpb.TCPTunnelReq{}
 	err := proto.Unmarshal(envelope.Data, tcpTunnelReq)
 	if err != nil {
-		fmt.Println("Failed unmarshel request")
 		returnStatusCode(failedMessageUnmarshalErrorCode, connection)
 		return
 	}
@@ -261,17 +260,14 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 
 	remoteAddressString := fmt.Sprintf("%s:%d", remoteHost, remotePort)
 
-	fmt.Println(remoteAddressString)
 	remoteAddress, err := net.ResolveTCPAddr("tcp4", remoteAddressString)
 	if err != nil {
-		fmt.Println("Failed resolve tcp address")
 		returnStatusCode(failedTCPRemoteHostResolve, connection)
 		return
 	}
 
 	remoteConn, err := net.DialTCP("tcp4", nil, remoteAddress)
 	if err != nil {
-		fmt.Println("Failed connecting to remote tcp address")
 		returnStatusCode(failedTCPRemoteHostConnect, connection)
 		return
 	}
@@ -285,7 +281,7 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 	connection.AddTunnel(tunnel)
 
 	go func() {
-		for {
+		for connection.Tunnel(tunnel.ID) != nil {
 			tWriter := tunnelWriter{
 				tun:  tunnel,
 				conn: connection,
@@ -296,24 +292,27 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 			if bytesRead != 0 {
 				fmt.Printf("Read %d bytes from socket\n", bytesRead)
 				tWriter.Write(byteArrayRead[:bytesRead])
-			} else {
-				fmt.Println("Socket has closed (0 bytes read)")
 			}
+			// TODO : How to check if the socket is closed
 
 			if err != nil && err != io.ErrShortWrite {
 				fmt.Printf("Closing tunnel because of error %s\n", err.Error())
-				connection.RemoveTunnel(tunnel.ID)
-				tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
-					Closed:   true,
-					TunnelID: tunnel.ID,
-				})
-				connection.Send <- &sliverpb.Envelope{
-					Type: sliverpb.MsgTunnelClose,
-					Data: tunnelClose,
-				}
-				remoteConn.Close()
-				return
+				break
 			}
 		}
+
+		// Cleanup
+		fmt.Println("Closing tunnel")
+		connection.RemoveTunnel(tunnel.ID)
+		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
+			Closed:   true,
+			TunnelID: tunnel.ID,
+		})
+		connection.Send <- &sliverpb.Envelope{
+			Type: sliverpb.MsgTunnelClose,
+			Data: tunnelClose,
+		}
+		remoteConn.Close()
+		fmt.Println("Tunnel closed")
 	}()
 }

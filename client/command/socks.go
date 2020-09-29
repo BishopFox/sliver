@@ -139,11 +139,24 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 					}
 				}
 			}
+			// Close the client socket
 			socksConn.ClientConn.Close()
+
+			fmt.Printf("Closing tunnel %d\n", tunnel.ID)
+
+			// Send a message to close the tunnel
+			_, err := rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
+				TunnelID: rpcTunnel.TunnelID,
+			})
+			if err != nil {
+				fmt.Printf(Warn+"%s\n", err)
+				return
+			}
 		}()
 
 		go func() {
 			for tunnel.IsOpen {
+				fmt.Println("New iteration")
 				writeArray := make([]byte, 1024)
 				bytesToWrite, err := socksConn.ClientConn.Read(writeArray)
 				if err != nil {
@@ -157,9 +170,23 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 					}
 				}
 			}
+			// Close the client socket
 			socksConn.ClientConn.Close()
-			// TODO : Send a close tunnel message
-			// 			If the local client closes the connection then the implant will hold that connection
+
+			fmt.Printf("Closing tunnel %d\n", tunnel.ID)
+
+			// Send a message to close the tunnel
+			// BUGFIX : For some reason this doesn't call the closeTunnelHandler on the implant and the tunnel doesn't close
+			//			And Therefore the remote socket doesn't aswell
+			_, err := rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
+				TunnelID: tunnel.ID,
+			})
+			if err != nil {
+				fmt.Printf(Warn+"%s\n", err)
+				return
+			}
+
+			fmt.Println("Tunnel closed")
 		}()
 	} else {
 		socksConn.ReturnFailureConnectMessage()
