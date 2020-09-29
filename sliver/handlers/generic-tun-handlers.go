@@ -274,7 +274,6 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 		returnStatusCode(failedTCPRemoteHostConnect, connection)
 		return
 	}
-	remoteConn.Close()
 	returnStatusCode(successfulTCPTunnelReq, connection)
 
 	tunnel := &transports.Tunnel{
@@ -292,6 +291,7 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 			}
 			_, err := io.Copy(tWriter, tunnel.Reader)
 			if err != nil {
+				fmt.Println("Closing tunnel because of error %s", err.Error())
 				connection.RemoveTunnel(tunnel.ID)
 				tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
 					Closed:   true,
@@ -301,6 +301,7 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 					Type: sliverpb.MsgTunnelClose,
 					Data: tunnelClose,
 				}
+				remoteConn.Close()
 				return
 			}
 		}
