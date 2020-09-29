@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"io"
+	//"io"
 	"log"
 	"net"
 
@@ -123,8 +123,34 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 	if tcpTunnel.StatusCode == 0x00 {
 		socksConn.ReturnSuccessConnectMessage()
 		fmt.Println("Successfully opened tunnel to implant")
-		go io.Copy(tunnel, socksConn.ClientConn)
-		go io.Copy(socksConn.ClientConn, tunnel)
+
+		go func() {
+			for tunnel.IsOpen {
+				readArray := make([]byte, 1024)
+				bytesRead, err := tunnel.Read(readArray)
+				if err != nil {
+					fmt.Println(err)
+					break
+				} else if bytesRead != 0 {
+					socksConn.ClientConn.Write(readArray[:bytesRead])
+				}
+			}
+			socksConn.ClientConn.Close()
+		}()
+
+		go func() {
+			for tunnel.IsOpen {
+				writeArray := make([]byte, 1024)
+				bytesToWrite, err := socksConn.ClientConn.Read(writeArray)
+				if err != nil {
+					fmt.Println(err)
+					break
+				} else if bytesToWrite != 0 {
+					tunnel.Write(writeArray[:bytesToWrite])
+				}
+			}
+			socksConn.ClientConn.Close()
+		}()
 	} else {
 		socksConn.ReturnFailureConnectMessage()
 		fmt.Println("Could not open tunnel to implant")

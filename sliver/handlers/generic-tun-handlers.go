@@ -135,7 +135,8 @@ type tunnelWriter struct {
 	conn *transports.Connection
 }
 
-func (tw tunnelWriter) Write(data []byte) (n int, err error) {
+func (t tunnelWriter) Write(data []byte) (n int, err error) {
+	fmt.Printf("Writing %d bytes to the tunnel\n", len(data))
 	data, err = proto.Marshal(&sliverpb.TunnelData{
 		Sequence: tw.tun.WriteSequence, // The tunnel write sequence
 		TunnelID: tw.tun.ID,
@@ -289,9 +290,18 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 				tun:  tunnel,
 				conn: connection,
 			}
-			_, err := io.Copy(tWriter, tunnel.Reader)
-			if err != nil {
-				fmt.Println("Closing tunnel because of error %s", err.Error())
+			//bytesRead, err := io.Copy(tWriter, tunnel.Reader)
+			byteArrayRead := make([]byte, 1024)
+			bytesRead, err := tunnel.Reader.Read(byteArrayRead)
+			if bytesRead != 0 {
+				fmt.Printf("Read %d bytes from socket\n", bytesRead)
+				tWriter.Write(byteArrayRead[:bytesRead])
+			} else {
+				fmt.Println("Socket has closed (0 bytes read)")
+			}
+
+			if err != nil && err != io.ErrShortWrite {
+				fmt.Printf("Closing tunnel because of error %s\n", err.Error())
 				connection.RemoveTunnel(tunnel.ID)
 				tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
 					Closed:   true,
