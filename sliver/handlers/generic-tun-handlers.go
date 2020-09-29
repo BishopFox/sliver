@@ -277,15 +277,32 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 	remoteConn.Close()
 	returnStatusCode(successfulTCPTunnelReq, connection)
 
-	//
-	//tcpReadCloser := struct {
-	//	tcpSocket
-	//}
+	tunnel := &transports.Tunnel{
+		ID:     tcpTunnelReq.TunnelID,
+		Reader: remoteConn,
+		Writer: remoteConn,
+	}
+	connection.AddTunnel(tunnel)
 
-	//tunnel := &transports.tTunnel{
-	//	ID:     tcpTunnelReq.TunnelID,
-	//	Reader: ioutil.NopCloser(bufio.NewReader(remoteConn)),
-	//	Writer: remoteConn,
-	//}
-	//connection.AddTunnel(tunnel)
+	go func() {
+		for {
+			tWriter := tunnelWriter{
+				tun:  tunnel,
+				conn: connection,
+			}
+			_, err := io.Copy(tWriter, tunnel.Reader)
+			if err != nil {
+				connection.RemoveTunnel(tunnel.ID)
+				tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
+					Closed:   true,
+					TunnelID: tunnel.ID,
+				})
+				connection.Send <- &sliverpb.Envelope{
+					Type: sliverpb.MsgTunnelClose,
+					Data: tunnelClose,
+				}
+				return
+			}
+		}
+	}()
 }
