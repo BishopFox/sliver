@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	// {{if .Config.Debug}}
@@ -292,8 +293,11 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 			if bytesRead != 0 {
 				fmt.Printf("Read %d bytes from socket\n", bytesRead)
 				tWriter.Write(byteArrayRead[:bytesRead])
+			} else if err != nil && strings.Contains(err.Error(), "An existing connection was forcibly closed by the remote host") {
+				// Socket has been closed by remote host
+				// TODO : Find a better way to do this
+				break
 			}
-			// TODO : How to check if the socket is closed
 
 			if err != nil && err != io.ErrShortWrite {
 				fmt.Printf("Closing tunnel because of error %s\n", err.Error())
