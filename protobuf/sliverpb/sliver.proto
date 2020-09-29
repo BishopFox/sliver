@@ -511,12 +511,12 @@ message TCPTunnelReq {
   commonpb.Request Request = 9;
 }
 
-// TCPTunnelReq
+// TCPTunnel response
 message TCPTunnel {
-  bool IsSuccess = 1;
+  uint32 StatusCode = 1;
 
   uint64 TunnelID = 8;
-  commonpb.Request Request = 9;
+  commonpb.Response Response = 9;
 }
 
 // Named Pipes Messages

