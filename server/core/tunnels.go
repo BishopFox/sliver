@@ -22,7 +22,6 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -94,7 +93,6 @@ func (t *tunnels) Close(tunnelID uint64) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(tunnelClose)
 	data, err := proto.Marshal(&sliverpb.Envelope{
 		Type: sliverpb.MsgTunnelClose,
 		Data: tunnelClose,
