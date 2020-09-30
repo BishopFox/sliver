@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	//"io"
-	"log"
 	"net"
 
 	"github.com/bishopfox/sliver/client/core"
@@ -28,7 +26,7 @@ func startSocksServer(ctx *grumble.Context, port int, rpc rpcpb.SliverRPCClient)
 	fmt.Printf(Info + fmt.Sprintf("Starting socks server on port %d\n\n", port))
 	session := ActiveSession.Get()
 	if session == nil {
-		fmt.Println("Current session is none")
+		fmt.Printf(Warn+"%s\n", "Current session is nil")
 		return
 	}
 
@@ -44,14 +42,8 @@ func startSocksServer(ctx *grumble.Context, port int, rpc rpcpb.SliverRPCClient)
 		return
 	}
 
-	//defer listener.Close()
-
-	fmt.Println("Waiting for new connections")
-
 	for {
-		fmt.Println("Waiting for new connections in a loop")
 		conn, err := listener.AcceptTCP()
-		fmt.Println("Got new connection")
 		if err != nil {
 			fmt.Printf(Warn+"%s\n", err)
 			continue
@@ -59,12 +51,10 @@ func startSocksServer(ctx *grumble.Context, port int, rpc rpcpb.SliverRPCClient)
 		go handleConnection(ctx, conn, rpc)
 	}
 
-
+	listener.Close()
 }
 
 func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverRPCClient) {
-	fmt.Println("Handling new connection")
-
 	socksConn := new(SocksConn)
 	socksConn.ClientConn = conn
 
@@ -82,8 +72,6 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 		return
 	}
 
-	fmt.Printf("Requested tcp tunnel to %s:%d\n", socksConn.RemoteHost, socksConn.RemotePort)
-
 	session := ActiveSession.Get()
 	if session == nil {
 		return
@@ -97,7 +85,6 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
-	fmt.Printf("Created new tunnel with id: %d, binding to tcptunnel ...\n", rpcTunnel.TunnelID)
 
 	// Start() takes an RPC tunnel and creates a local Reader/Writer tunnel object
 	tunnel := core.Tunnels.Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
@@ -105,7 +92,6 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
-	log.Printf("Bound remote tcp tunnel to tunnel %d", tunnel.ID)
 
 	tcpTunnel, err := rpc.TCPTunnel(context.Background(), &sliverpb.TCPTunnelReq{
 		RemoteHost : socksConn.RemoteHost,
@@ -118,11 +104,8 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 		return
 	}
 
-	fmt.Println(tcpTunnel.StatusCode)
-
 	if tcpTunnel.StatusCode == 0x00 {
 		socksConn.ReturnSuccessConnectMessage()
-		fmt.Println("Successfully opened tunnel to implant")
 
 		go func() {
 			for tunnel.IsOpen {
@@ -142,8 +125,6 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 			// Close the client socket
 			socksConn.ClientConn.Close()
 
-			fmt.Printf("Closing tunnel %d\n", tunnel.ID)
-
 			// Send a message to close the tunnel
 			_, err := rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
 				TunnelID: rpcTunnel.TunnelID,
@@ -156,7 +137,6 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 
 		go func() {
 			for tunnel.IsOpen {
-				fmt.Println("New iteration")
 				writeArray := make([]byte, 1024)
 				bytesToWrite, err := socksConn.ClientConn.Read(writeArray)
 				if err != nil {
@@ -173,8 +153,6 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 			// Close the client socket
 			socksConn.ClientConn.Close()
 
-			fmt.Printf("Closing tunnel %d\n", tunnel.ID)
-
 			// Send a message to close the tunnel
 			// BUGFIX : For some reason this doesn't call the closeTunnelHandler on the implant and the tunnel doesn't close
 			//			And Therefore the remote socket doesn't aswell
@@ -185,11 +163,8 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 				fmt.Printf(Warn+"%s\n", err)
 				return
 			}
-
-			fmt.Println("Tunnel closed")
 		}()
 	} else {
 		socksConn.ReturnFailureConnectMessage()
-		fmt.Println("Could not open tunnel to implant")
 	}
 }

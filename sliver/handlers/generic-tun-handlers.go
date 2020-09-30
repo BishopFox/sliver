@@ -64,6 +64,8 @@ func GetTunnelHandlers() map[uint32]TunnelHandler {
 }
 
 func tunnelCloseHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+	fmt.Println("call to tunnelCloseHandler()")
+
 	tunnelClose := &sliverpb.TunnelData{
 		Closed: true,
 	}
