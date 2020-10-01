@@ -116,6 +116,12 @@ jobs:
     - name: Make
       run: export PATH=/Users/runner/go/bin/:$PATH && make static-macos
 
+    - name: CodeQL Analysis
+      uses: github/codeql-action/init@v1
+        with:
+          config-file: ./.github/codeql/codeql-config.yml
+          languages: go 
+
     - name: Test
       env:
         SLIVER_CC_32: /usr/local/bin/i686-w64-mingw32-gcc
@@ -156,14 +162,3 @@ jobs:
 
     - name: CI Tests
       run: ts-node ./index.ts
-
-  security-checks:
-    needs: linux-windows-build
-    runs-on: ubuntu-latest
-    name: CodeQL Security Checks
-
-    steps:
-    - uses: github/codeql-action/init@v1
-      with:
-        config-file: ./.github/codeql/codeql-config.yml
-        languages: go
