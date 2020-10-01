@@ -118,9 +118,9 @@ jobs:
 
     - name: CodeQL Analysis
       uses: github/codeql-action/init@v1
-        with:
-          config-file: ./.github/codeql/codeql-config.yml
-          languages: go 
+      with:
+        config-file: ./.github/codeql/codeql-config.yml
+        languages: go 
 
     - name: Test
       env:
