@@ -55,6 +55,12 @@ jobs:
     - name: Make
       run: export PATH=/home/runner/go/bin/:$PATH && make static-linux
 
+    - name: CodeQL Analysis
+      uses: github/codeql-action/init@v1
+      with:
+        config-file: ./.github/codeql/codeql-config.yml
+        languages: go 
+
     - name: Test
       run: ./sliver-server unpack --force && ./go-tests.sh
 
