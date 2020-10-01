@@ -1,0 +1,56 @@
+name: "Code Scanning"
+
+on:
+  push:
+    branches:
+      - test/*
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  CodeQL-Build:
+    # CodeQL runs on ubuntu-latest, windows-latest, and macos-latest
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # Setup go environment
+      - name: Go 1.15
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.15
+        id: go
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          # Must fetch at least the immediate parents so that if this is
+          # a pull request then we can checkout the head of the pull request.
+          # Only include this option if you are running this workflow on pull requests.
+          if: ${{ github.event_name == 'pull_request' }}
+          fetch-depth: 2
+
+      # If this run was triggered by a pull request event then checkout
+      # the head of the pull request instead of the merge commit.
+      # Only include this step if you are running this workflow on pull requests.
+      - run: git checkout HEAD^2
+        if: ${{ github.event_name == 'pull_request' }}
+
+      # Initializes the CodeQL tools for scanning.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v1
+        with:
+          config-file: ./.github/codeql/codeql-config.yml
+          languages: go 
+
+      # Setup os PATH to include protoc-gen-go and packr
+      - name: Update PATH
+        run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
+
+      # Build the server ... is this necessary though?
+      - run: |
+         make linux
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v1
