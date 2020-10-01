@@ -64,11 +64,12 @@ jobs:
     - name: Update PATH
       run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
 
-    - name: CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
 
     - name: Test
       run: ./sliver-server unpack --force && ./go-tests.sh
+
+    - name: CodeQL Analysis
+      uses: github/codeql-action/analyze@v1
 
     - name: Linux Artifact
       uses: actions/upload-artifact@v2
@@ -137,14 +138,14 @@ jobs:
     - name: Update PATH
       run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
 
-    - name: CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
-
     - name: Test
       env:
         SLIVER_CC_32: /usr/local/bin/i686-w64-mingw32-gcc
         SLIVER_CC_64: /usr/local/bin/x86_64-w64-mingw32-gcc
       run: ./sliver-server unpack --force && ./go-tests.sh
+
+    - name: CodeQL Analysis
+      uses: github/codeql-action/analyze@v1
 
     - name: MacOS Artifact
       uses: actions/upload-artifact@v2
