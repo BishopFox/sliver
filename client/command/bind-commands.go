@@ -226,6 +226,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("i", "interact", "", "interact with a sliver")
 			f.String("k", "kill", "", "Kill the designated session")
 			f.Bool("K", "kill-all", false, "Kill all the sessions")
+			f.Bool("C", "clean", false, "Clean out any sessions marked as [DEAD]")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -352,6 +353,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
+			f.Bool("e", "evasion", false, "enable evasion features")
 			f.Bool("b", "skip-symbols", false, "skip symbol obfuscation")
 
 			f.String("c", "canary", "", "canary domain(s)")
@@ -370,7 +372,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 
-			f.String("r", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries) and 'shellcode' (windows only)")
+			f.String("r", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 
 			f.String("s", "save", "", "directory/file to the binary to")
 
@@ -416,6 +418,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "profile", "", "Implant profile to link with the listener")
 			f.String("u", "url", "", "URL to which the stager will call back to")
+			f.String("c", "cert", "", "path to PEM encoded certificate file (HTTPS only)")
+			f.String("k", "key", "", "path to PEM encoded private key file (HTTPS only)")
+			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate (HTTPS only)")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -434,6 +439,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.Bool("d", "debug", false, "enable debug features")
+			f.Bool("e", "evasion", false, "enable evasion features")
 			f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
 
 			f.String("m", "mtls", "", "mtls domain(s)")
@@ -452,7 +458,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 
-			f.String("r", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries) and 'shellcode' (windows only)")
+			f.String("r", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 
 			f.String("p", "name", "", "profile name")
 
@@ -563,7 +569,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		LongHelp: help.GetHelpFor(consts.MsfStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("m", "payload", "meterpreter_reverse_https", "msf payload")
-			f.String("h", "lhost", "", "listen host")
+			f.String("o", "lhost", "", "listen host")
 			f.Int("l", "lport", 4444, "listen port")
 			f.String("e", "encoder", "", "msf encoder")
 			f.Int("i", "iterations", 1, "iterations of the encoder")
@@ -586,7 +592,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("p", "pid", -1, "pid to inject into")
 			f.String("m", "payload", "meterpreter_reverse_https", "msf payload")
-			f.String("h", "lhost", "", "listen host")
+			f.String("o", "lhost", "", "listen host")
 			f.Int("l", "lport", 4444, "listen port")
 			f.String("e", "encoder", "", "msf encoder")
 			f.Int("i", "iterations", 1, "iterations of the encoder")
@@ -797,6 +803,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		AllowArgs: true,
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("c", "colorize-output", false, "colorize output")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -979,8 +986,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "process", "notepad.exe", "hosting process to inject into")
-			f.Bool("a", "amsi", true, "use AMSI bypass (enabled by default)")
-			f.Bool("e", "etw", true, "patch EtwEventWrite function to avoid detection (enabled by default)")
+			f.Bool("a", "amsi", false, "use AMSI bypass (disabled by default)")
+			f.Bool("e", "etw", false, "patch EtwEventWrite function to avoid detection (disabled by default)")
 			f.Bool("s", "save", false, "save output to file")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1001,6 +1008,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("r", "rwx-pages", false, "Use RWX permissions for memory pages")
 			f.Uint("p", "pid", 0, "Pid of process to inject into (0 means injection into ourselves)")
+			f.String("n", "process", `c:\windows\system32\notepad.exe`, "Process to inject into when running in interactive mode")
 			f.Bool("i", "interactive", false, "Inject into a new process and interact with it")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1209,6 +1217,26 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			binject(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.MakeTokenStr,
+		Help:     "Create a new Logon Session with the specified credentials",
+		LongHelp: help.GetHelpFor(consts.MakeTokenStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("u", "username", "", "username of the user to impersonate")
+			f.String("p", "password", "", "password of the user to impersonate")
+			f.String("d", "domain", "", "domain of the user to impersonate")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: false,
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			makeToken(ctx, rpc)
 			fmt.Println()
 			return nil
 		},

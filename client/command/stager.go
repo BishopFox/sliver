@@ -103,6 +103,11 @@ func stageListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		}
 		fmt.Printf(Info+"Job %d (http) started\n", stageListener.GetJobID())
 	case "https":
+		cert, key, err := getLocalCertificatePair(ctx)
+		if err != nil {
+			fmt.Printf("\n"+Warn+"Failed to load local certificate %v", err)
+			return
+		}
 		ctrl := make(chan bool)
 		go spin.Until("Starting HTTPS staging listener...", ctrl)
 		stageListener, err := rpc.StartHTTPStagerListener(context.Background(), &clientpb.StagerListenerReq{
@@ -110,6 +115,9 @@ func stageListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			Data:     stage2,
 			Host:     stagingURL.Hostname(),
 			Port:     uint32(stagingPort),
+			Cert:     cert,
+			Key:      key,
+			ACME:     ctx.Flags.Bool("lets-encrypt"),
 		})
 		ctrl <- true
 		<-ctrl

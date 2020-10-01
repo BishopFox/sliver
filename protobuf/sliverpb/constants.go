@@ -170,6 +170,10 @@ const (
 	MsgStopServiceReq
 	// MsgRemoveServiceReq - Request to remove a remote service
 	MsgRemoveServiceReq
+	// MsgMakeTokenReq - Request for MakeToken
+	MsgMakeTokenReq
+	// MsgMakeToken - Response for MakeToken
+	MsgMakeToken
 )
 
 // MsgNumber - Get a message number of type
@@ -318,6 +322,10 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgStopServiceReq
 	case *RemoveServiceReq:
 		return MsgRemoveServiceReq
+	case *MakeTokenReq:
+		return MsgMakeTokenReq
+	case *MakeToken:
+		return MsgMakeToken
 
 	}
 	return uint32(0)

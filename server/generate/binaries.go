@@ -93,6 +93,7 @@ type ImplantConfig struct {
 	Cert                string `json:"cert"`
 	Key                 string `json:"key"`
 	Debug               bool   `json:"debug"`
+	Evasion             bool   `json:"evasion"`
 	ObfuscateSymbols    bool   `json:"obfuscate_symbols"`
 	ReconnectInterval   int    `json:"reconnect_interval"`
 	MaxConnectionErrors int    `json:"max_connection_errors"`
@@ -117,6 +118,7 @@ type ImplantConfig struct {
 	// For 	IsSharedLib bool `json:"is_shared_lib"`
 	IsSharedLib bool `json:"is_shared_lib"`
 	IsService   bool `json:"is_service"`
+	IsShellcode bool `json:"is_shellcode"`
 
 	FileName string
 }
@@ -131,6 +133,7 @@ func (c *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		Cert:             c.Cert,
 		Key:              c.Key,
 		Debug:            c.Debug,
+		Evasion:          c.Evasion,
 		ObfuscateSymbols: c.ObfuscateSymbols,
 		CanaryDomains:    c.CanaryDomains,
 
@@ -144,6 +147,7 @@ func (c *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 
 		IsSharedLib: c.IsSharedLib,
 		IsService:   c.IsService,
+		IsShellcode: c.IsShellcode,
 		Format:      c.Format,
 
 		FileName: c.FileName,
@@ -166,6 +170,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.Cert = pbConfig.Cert
 	cfg.Key = pbConfig.Key
 	cfg.Debug = pbConfig.Debug
+	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
 	cfg.CanaryDomains = pbConfig.CanaryDomains
 
@@ -180,6 +185,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.Format = pbConfig.Format
 	cfg.IsSharedLib = pbConfig.IsSharedLib
 	cfg.IsService = pbConfig.IsService
+	cfg.IsShellcode = pbConfig.IsShellcode
 
 	cfg.C2 = copyC2List(pbConfig.C2)
 	cfg.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, cfg.C2)
@@ -506,7 +512,7 @@ func renderSliverGoCode(config *ImplantConfig, goConfig *gogo.GoConfig) (string,
 		var fileName string
 		// Skip dllmain files for anything non windows
 		if boxName == "sliver.h" || boxName == "sliver.c" {
-			if !config.IsSharedLib {
+			if !config.IsSharedLib && !config.IsShellcode {
 				continue
 			}
 		}

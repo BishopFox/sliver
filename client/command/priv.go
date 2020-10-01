@@ -121,3 +121,43 @@ func getsystem(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 	fmt.Printf("\n" + Info + "A new SYSTEM session should pop soon...\n")
 }
+
+func makeToken(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
+	username := ctx.Flags.String("username")
+	password := ctx.Flags.String("password")
+	domain := ctx.Flags.String("domain")
+
+	if username == "" || password == "" {
+		fmt.Printf(Warn + "You must provide a username and password\n")
+		return
+	}
+
+	ctrl := make(chan bool)
+	go spin.Until("Creating new logon session ...", ctrl)
+
+	makeToken, err := rpc.MakeToken(context.Background(), &sliverpb.MakeTokenReq{
+		Request:  ActiveSession.Request(ctx),
+		Username: username,
+		Domain:   domain,
+		Password: password,
+	})
+
+	ctrl <- true
+	<-ctrl
+
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
+
+	if makeToken.GetResponse().GetErr() != "" {
+
+		fmt.Printf(Warn+"Error: %s\n", makeToken.GetResponse().GetErr())
+		return
+	}
+	fmt.Printf("\n"+Info+"Successfully impersonated %s\\%s. Use `rev2self` to revert to your previous token.", domain, username)
+}

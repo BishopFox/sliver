@@ -28,6 +28,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/alecthomas/chroma/formatters"
+	"github.com/alecthomas/chroma/lexers"
+	"github.com/alecthomas/chroma/styles"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -182,7 +185,44 @@ func cat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			return
 		}
 	}
-	fmt.Printf(string(download.Data))
+	if ctx.Flags.Bool("colorize-output") {
+		if err = colorize(download); err != nil {
+			fmt.Printf(string(download.Data))
+		}
+	} else {
+		fmt.Printf(string(download.Data))
+	}
+}
+
+func colorize(f *sliverpb.Download) error {
+	lexer := lexers.Match(f.GetPath())
+	if lexer == nil {
+		lexer = lexers.Analyse(string(f.GetData()))
+		if lexer == nil {
+			lexer = lexers.Fallback
+		}
+	}
+	style := styles.Get("monokai")
+	if style == nil {
+		style = styles.Fallback
+	}
+	formatter := formatters.Get("terminal16m")
+	if formatter == nil {
+		formatter = formatters.Fallback
+	}
+	if lexer != nil {
+		iterator, err := lexer.Tokenise(nil, string(f.GetData()))
+		if err != nil {
+			return err
+		}
+		err = formatter.Format(os.Stdout, style, iterator)
+		if err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("no lexer found")
+	}
+	return nil
 }
 
 func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {

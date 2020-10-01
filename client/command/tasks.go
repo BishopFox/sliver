@@ -66,7 +66,7 @@ func executeShellcode(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	if interactive {
-		executeInteractive(ctx, `c:\windows\system32\notepad.exe`, shellcodeBin, ctx.Flags.Bool("rwx-pages"), rpc)
+		executeInteractive(ctx, ctx.Flags.String("process"), shellcodeBin, ctx.Flags.Bool("rwx-pages"), rpc)
 		return
 	}
 	ctrl := make(chan bool)
@@ -247,6 +247,8 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	assemblyArgs := ""
 	if len(ctx.Args) == 2 {
 		assemblyArgs = ctx.Args[1]
+	} else if len(ctx.Args) < 2 {
+		assemblyArgs = " "
 	}
 	process := ctx.Flags.String("process")
 
@@ -289,6 +291,12 @@ func sideload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if session == nil {
 		return
 	}
+
+	if len(ctx.Args) < 1 {
+		fmt.Printf(Warn + "You must provide a shared object to load")
+		return
+	}
+
 	binPath := ctx.Args[0]
 
 	entryPoint := ctx.Flags.String("entry-point")
@@ -404,10 +412,11 @@ func getActiveSliverConfig() *clientpb.ImplantConfig {
 		Priority: uint32(0),
 	})
 	config := &clientpb.ImplantConfig{
-		Name:   session.GetName(),
-		GOOS:   session.GetOS(),
-		GOARCH: session.GetArch(),
-		Debug:  true,
+		Name:    session.GetName(),
+		GOOS:    session.GetOS(),
+		GOARCH:  session.GetArch(),
+		Debug:   true,
+		Evasion: session.GetEvasion(),
 
 		MaxConnectionErrors: uint32(1000),
 		ReconnectInterval:   uint32(60),

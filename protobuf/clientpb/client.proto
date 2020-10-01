@@ -36,6 +36,9 @@ message Session {
   string LastCheckin = 13;
   string ActiveC2 = 14;
   string Version = 15;
+  bool Evasion = 16;
+  bool IsDead = 17;
+  uint32 ReconnectInterval = 18;
 }
 
 message ImplantC2 {
@@ -52,6 +55,7 @@ message ImplantConfig {
   string Cert = 5;
   string Key = 6;
   bool Debug = 7;
+  bool Evasion = 31;
   bool ObfuscateSymbols = 30;
 
   uint32 ReconnectInterval = 8;
@@ -77,6 +81,7 @@ message ImplantConfig {
 
   string FileName = 27;
   bool IsService = 28;
+  bool IsShellcode = 29;
 }
 
 // Configs of previously built implants
@@ -246,6 +251,9 @@ message StagerListenerReq {
   string Host = 2;
   uint32 Port = 3;
   bytes Data = 4;
+  bytes Cert = 5;
+  bytes Key = 6;
+  bool ACME = 7;
 }
 
 message StagerListener {

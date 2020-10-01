@@ -50,7 +50,6 @@ func AddSessionHandlers(key uint32, value interface{}) {
 	sessionHandlers[key] = value
 }
 
-
 func registerSessionHandler(session *core.Session, data []byte) {
 	register := &sliverpb.Register{}
 	err := proto.Unmarshal(data, register)
@@ -63,10 +62,12 @@ func registerSessionHandler(session *core.Session, data []byte) {
 		return
 	}
 
-
 	handlerLog.Warnf("%v", session)
 	handlerLog.Warnf("%v", register)
 
+	if session.ID == 0 {
+		session.ID = core.NextSessionID()
+	}
 	session.Name = register.Name
 	session.Hostname = register.Hostname
 	session.Username = register.Username
@@ -78,6 +79,7 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	session.Filename = register.Filename
 	session.ActiveC2 = register.ActiveC2
 	session.Version = register.Version
+	session.ReconnectInterval = register.ReconnectInterval
 	core.Sessions.Add(session)
 }
 

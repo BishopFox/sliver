@@ -43,6 +43,7 @@ message Register {
   string Filename = 9;
   string ActiveC2 = 10;
   string Version = 11;
+  uint32 ReconnectInterval = 12;
 }
 
 // Ping - Not ICMP, just sends a rount trip message to an implant to
@@ -251,6 +252,18 @@ message InvokeGetSystemReq {
 // GetSystem - The result of a InvokeGetSystemReq attempt
 message GetSystem {
 
+  commonpb.Response Response = 9;
+}
+
+message MakeTokenReq {
+  string Username = 1;
+  string Password = 2;
+  string Domain = 3;
+
+  commonpb.Request Request = 9;
+}
+
+message MakeToken {
   commonpb.Response Response = 9;
 }
 
