@@ -1,0 +1,89 @@
+name: "Code Scanning"
+
+on:
+  push:
+    branches:
+      - test/*
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  CodeQL-Build:
+    name: CodeQL Security Scan
+    # CodeQL runs on ubuntu-latest, windows-latest, and macos-latest
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # Setup go environment
+      - name: Go 1.15
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.15
+        id: go
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          # Must fetch at least the immediate parents so that if this is
+          # a pull request then we can checkout the head of the pull request.
+          # Only include this option if you are running this workflow on pull requests.
+          if: ${{ github.event_name == 'pull_request' }}
+          fetch-depth: 2
+
+      # If this run was triggered by a pull request event then checkout
+      # the head of the pull request instead of the merge commit.
+      # Only include this step if you are running this workflow on pull requests.
+      - run: git checkout HEAD^2
+        if: ${{ github.event_name == 'pull_request' }}
+
+      - name: OS Packages 
+        run: |
+          sudo apt-get update --fix-missing && sudo apt-get -y install \
+          git build-essential zlib1g zlib1g-dev wget zip unzip \
+          mingw-w64 binutils-mingw-w64 g++-mingw-w64
+
+      - name: Protoc
+        env:
+          PROTOC_VER: 3.11.4
+        run: |
+          wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip \
+          && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
+          && sudo cp -vv ./bin/protoc /usr/local/bin/protoc
+
+      - name: Protoc-gen-go
+        env:
+          PROTOC_GEN_GO_VER: 1.3.5
+        run: |
+          wget -O protoc-gen-go.tar.gz https://github.com/golang/protobuf/archive/v${PROTOC_GEN_GO_VER}.tar.gz \
+          && tar xvf protoc-gen-go.tar.gz \
+          && cd protobuf-${PROTOC_GEN_GO_VER} \
+          && make install
+
+      - name: Packr
+        run: go get -u github.com/gobuffalo/packr/packr
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Go Assets
+        run: ./go-assets.sh
+
+      # Initializes the CodeQL tools for scanning.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v1
+        with:
+          config-file: ./.github/codeql/codeql-config.yml
+          languages: go 
+
+      # Setup os PATH to include protoc-gen-go and packr
+      - name: Update PATH
+        run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
+
+      # Build the server ... is this necessary though?
+      - run: |
+         make linux
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v1

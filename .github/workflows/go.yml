@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - name: Go 1.14
+    - name: Go 1.15
       uses: actions/setup-go@v1
       with:
-        go-version: 1.14
+        go-version: 1.15
       id: go
     
     - name: OS Packages 
@@ -54,6 +54,9 @@ jobs:
 
     - name: Make
       run: export PATH=/home/runner/go/bin/:$PATH && make static-linux
+    
+    - name: Update PATH
+      run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
 
     - name: Test
       run: ./sliver-server unpack --force && ./go-tests.sh
@@ -78,10 +81,10 @@ jobs:
     runs-on: macos-latest
     steps:
 
-    - name: Go 1.14
+    - name: Go 1.15
       uses: actions/setup-go@v1
       with:
-        go-version: 1.14
+        go-version: 1.15
       id: go
 
     - name: Mingw
@@ -115,6 +118,9 @@ jobs:
 
     - name: Make
       run: export PATH=/Users/runner/go/bin/:$PATH && make static-macos
+    
+    - name: Update PATH
+      run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
 
     - name: Test
       env:

@@ -6,6 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.0.7
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
 	github.com/BurntSushi/xgb v0.0.0-20200324125942-20f126ea2843
+	github.com/Microsoft/go-winio v0.4.14
 	github.com/alecthomas/chroma v0.7.3
 	github.com/aws/aws-sdk-go v1.30.19
 	github.com/cloudflare/cloudflare-go v0.11.7
@@ -24,6 +25,7 @@ require (
 	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/miekg/dns v1.1.29
 	github.com/moloch--/binjection v0.0.0-20200528125518-b8c64539fa3b
+	github.com/pkg/errors v0.9.1
 	github.com/rogpeppe/go-internal v1.5.2 // indirect
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v0.0.5
