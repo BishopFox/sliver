@@ -59,6 +59,12 @@ func (rpc *Server) StartHTTPStagerListener(ctx context.Context, req *clientpb.St
 		conf.ACME = req.ACME
 	}
 	job, err := jobStartHTTPStagerListener(conf, req.Data)
+	if err != nil {
+		return nil, err
+	}
+	if job == nil {
+		return nil, fmt.Errorf("job is nil")
+	}
 	return &clientpb.StagerListener{JobID: uint32(job.ID)}, err
 }
 
