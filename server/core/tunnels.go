@@ -38,6 +38,8 @@ var (
 
 	// ErrInvalidTunnelID - Invalid tunnel ID value
 	ErrInvalidTunnelID = errors.New("Invalid tunnel ID")
+	// ErrInvalidSessionID - Session id does not exists
+	ErrInvalidSessionID = errors.New("Invalid session id")
 )
 
 // Tunnel  - Essentially just a mapping between a specific client and sliver
@@ -85,6 +87,12 @@ func (t *tunnels) Close(tunnelID uint64) error {
 	if tunnel == nil {
 		return ErrInvalidTunnelID
 	}
+
+	session := Sessions.Get(tunnel.SessionID)
+	if session == nil {
+		return ErrInvalidSessionID
+	}
+
 	tunnelClose, err := proto.Marshal(&sliverpb.TunnelData{
 		TunnelID:  tunnel.ID,
 		SessionID: tunnel.SessionID,
@@ -93,15 +101,11 @@ func (t *tunnels) Close(tunnelID uint64) error {
 	if err != nil {
 		return err
 	}
-	data, err := proto.Marshal(&sliverpb.Envelope{
+	session.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgTunnelClose,
 		Data: tunnelClose,
-	})
-	if err != nil {
-		return err
 	}
-	tunnel.ToImplant <- data // Send an in-band close to implant
-	delete(t.tunnels, tunnelID)
+	delete(*t.tunnels, tunnelID)
 	close(tunnel.ToImplant)
 	close(tunnel.FromImplant)
 	return nil
