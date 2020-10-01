@@ -3,8 +3,3 @@ name: "CodeQL Security Checks"
 queries:
   - name: Security and Quality
     uses: security-and-quality
-
-paths:
-  - '/server'
-  - '/sliver' 
-  - '/client'
