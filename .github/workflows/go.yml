@@ -61,7 +61,7 @@ jobs:
     - name: Make
       run: export PATH=/home/runner/go/bin/:$PATH && make static-linux
     
-    -name: Update PATH
+    - name: Update PATH
       run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
 
     - name: CodeQL Analysis
@@ -133,9 +133,8 @@ jobs:
 
     - name: Make
       run: export PATH=/Users/runner/go/bin/:$PATH && make static-macos
-
     
-    -name: Update PATH
+    - name: Update PATH
       run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
 
     - name: CodeQL Analysis
