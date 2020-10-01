@@ -10,6 +10,7 @@ on:
 
 jobs:
   CodeQL-Build:
+    name: CodeQL Security Scan
     # CodeQL runs on ubuntu-latest, windows-latest, and macos-latest
     runs-on: ubuntu-latest
 
