@@ -451,9 +451,7 @@ func renderSliverGoCode(config *ImplantConfig, goConfig *gogo.GoConfig) (string,
 	if _, err := os.Stat(projectGoPathDir); os.IsNotExist(err) {
 		os.MkdirAll(projectGoPathDir, 0700)
 	} else {
-		msg := fmt.Sprintf("Agent already exist with name '%s'", config.Name)
-		buildLog.Error(msg)
-		return "", fmt.Errorf(msg)
+
 	}
 	goConfig.GOPATH = projectGoPathDir
 
