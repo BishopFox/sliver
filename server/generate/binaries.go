@@ -450,9 +450,8 @@ func renderSliverGoCode(config *ImplantConfig, goConfig *gogo.GoConfig) (string,
 	projectGoPathDir := path.Join(sliversDir, config.GOOS, config.GOARCH, config.Name)
 	if _, err := os.Stat(projectGoPathDir); os.IsNotExist(err) {
 		os.MkdirAll(projectGoPathDir, 0700)
-	} else {
-
 	}
+
 	goConfig.GOPATH = projectGoPathDir
 
 	// Cert PEM encoded certificates
