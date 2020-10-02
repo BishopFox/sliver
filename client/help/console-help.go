@@ -153,7 +153,7 @@ And like this for multiple bytes:
 generate stager -b '00 0a cc'
 
 [[.Bold]][[.Underline]]++ Output Formats ++[[.Normal]]
-You can use the --output-format flag to print out the shellcode to stdout, in one of the following transform formats:
+You can use the --format flag to print out the shellcode to stdout, in one of the following transform formats:
 [[.Bold]]bash c csharp dw dword hex java js_be js_le num perl pl powershell ps1 py python raw rb ruby sh vbapplication vbscript[[.Normal]]
 `
 	stageListenerHelp = `[[.Bold]]Command:[[.Normal]] stage-listener <options>
