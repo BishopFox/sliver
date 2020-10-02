@@ -1242,4 +1242,20 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			return nil
 		},
 	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.SetStr,
+		Help:     "Set agent option",
+		LongHelp: help.GetHelpFor(consts.SetStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "agent name to change to")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			setCmd(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 }

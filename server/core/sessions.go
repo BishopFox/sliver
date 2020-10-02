@@ -205,3 +205,14 @@ func NextSessionID() uint32 {
 	(*hiveID)++
 	return newID
 }
+
+func (s *sessions) UpdateSession(session *Session) *Session {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	(*s.sessions)[session.ID] = session
+	EventBroker.Publish(Event{
+		EventType: consts.SessionUpdateEvent,
+		Session:   session,
+	})
+	return session
+}

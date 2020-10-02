@@ -36,6 +36,8 @@ const (
 	SessionOpenedEvent = "connected"
 	// DisconnectedEvent - Sliver disconnected
 	SessionClosedEvent = "disconnected"
+	// UpdateEvent - Sliver updated
+	SessionUpdateEvent = "updated"
 
 	// JoinedEvent - Player joined the game
 	JoinedEvent = "joined"
@@ -62,6 +64,7 @@ const (
 	BackgroundStr = "background"
 	InfoStr       = "info"
 	UseStr        = "use"
+	SetStr        = "set"
 
 	GenerateStr        = "generate"
 	RegenerateStr      = "regenerate"
