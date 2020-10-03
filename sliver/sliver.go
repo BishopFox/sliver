@@ -27,7 +27,6 @@ import "C"
 import (
 	"os"
 	"os/user"
-	"reflect"
 	"runtime"
 	"time"
 
