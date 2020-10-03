@@ -104,8 +104,25 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 		return
 	}
 
+	// TODO : Disable write and read messages popping up on screen
+
 	if tcpTunnel.StatusCode == 0x00 {
 		socksConn.ReturnSuccessConnectMessage()
+
+		cleanup := func() {
+			// Close the client socket
+			_ = socksConn.ClientConn.Close()
+
+			// TODO : Check if the tunnel is closed
+			// Send a message to close the tunnel
+			_, err := rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
+				TunnelID: tunnel.ID,
+			})
+			if err != nil {
+				fmt.Printf(Warn+"%s\n", err)
+				return
+			}
+		}
 
 		go func() {
 			for tunnel.IsOpen {
@@ -113,25 +130,14 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 				bytesRead, err := tunnel.Read(readArray)
 				if err != nil {
 					fmt.Printf("Tunnel read error %s\n", err.Error())
-					break
+					cleanup()
 				} else if bytesRead != 0 {
 					_, err := socksConn.ClientConn.Write(readArray[:bytesRead])
 					if err != nil {
 						fmt.Printf("Client socket write error %s\n", err.Error())
-						break
+						cleanup()
 					}
 				}
-			}
-			// Close the client socket
-			socksConn.ClientConn.Close()
-
-			// Send a message to close the tunnel
-			_, err := rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
-				TunnelID: rpcTunnel.TunnelID,
-			})
-			if err != nil {
-				fmt.Printf(Warn+"%s\n", err)
-				return
 			}
 		}()
 
@@ -141,27 +147,14 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 				bytesToWrite, err := socksConn.ClientConn.Read(writeArray)
 				if err != nil {
 					fmt.Printf("Client socket read error %s\n", err.Error())
-					break
+					cleanup()
 				} else if bytesToWrite != 0 {
 					_, err = tunnel.Write(writeArray[:bytesToWrite])
 					if err != nil {
 						fmt.Printf("Tunnel write error %s\n", err.Error())
-						break
+						cleanup()
 					}
 				}
-			}
-			// Close the client socket
-			socksConn.ClientConn.Close()
-
-			// Send a message to close the tunnel
-			// BUGFIX : For some reason this doesn't call the closeTunnelHandler on the implant and the tunnel doesn't close
-			//			And Therefore the remote socket doesn't aswell
-			_, err := rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
-				TunnelID: tunnel.ID,
-			})
-			if err != nil {
-				fmt.Printf(Warn+"%s\n", err)
-				return
 			}
 		}()
 	} else {
