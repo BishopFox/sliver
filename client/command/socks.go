@@ -129,12 +129,10 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 				readArray := make([]byte, 1024)
 				bytesRead, err := tunnel.Read(readArray)
 				if err != nil {
-					fmt.Printf("Tunnel read error %s\n", err.Error())
 					cleanup()
 				} else if bytesRead != 0 {
 					_, err := socksConn.ClientConn.Write(readArray[:bytesRead])
 					if err != nil {
-						fmt.Printf("Client socket write error %s\n", err.Error())
 						cleanup()
 					}
 				}
@@ -146,12 +144,10 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 				writeArray := make([]byte, 1024)
 				bytesToWrite, err := socksConn.ClientConn.Read(writeArray)
 				if err != nil {
-					fmt.Printf("Client socket read error %s\n", err.Error())
 					cleanup()
 				} else if bytesToWrite != 0 {
 					_, err = tunnel.Write(writeArray[:bytesToWrite])
 					if err != nil {
-						fmt.Printf("Tunnel write error %s\n", err.Error())
 						cleanup()
 					}
 				}

