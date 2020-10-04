@@ -158,7 +158,11 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 		return MSFStage, err
 	}
 	MSFStage.File.Data = stage
-	MSFStage.File.Name = generate.GetCodename()
+	name, err := generate.GetCodename()
+	if err != nil {
+		return MSFStage, err
+	}
+	MSFStage.File.Name = name
 	return MSFStage, nil
 }
 

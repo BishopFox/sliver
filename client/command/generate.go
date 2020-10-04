@@ -307,6 +307,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 	limitHostname := ctx.Flags.String("limit-hostname")
 	limitUsername := ctx.Flags.String("limit-username")
 	limitDatetime := ctx.Flags.String("limit-datetime")
+	limitFileExists := ctx.Flags.String("limit-fileexists")
 
 	isSharedLib := false
 	isService := false
@@ -369,6 +370,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 		LimitHostname:     limitHostname,
 		LimitUsername:     limitUsername,
 		LimitDatetime:     limitDatetime,
+		LimitFileExists:   limitFileExists,
 
 		Format:      configFormat,
 		IsSharedLib: isSharedLib,
@@ -637,6 +639,9 @@ func getLimitsString(config *clientpb.ImplantConfig) string {
 	}
 	if config.LimitHostname != "" {
 		limits = append(limits, fmt.Sprintf("hostname=%s", config.LimitHostname))
+	}
+	if config.LimitFileExists != "" {
+		limits = append(limits, fmt.Sprintf("fileexists=%s", config.LimitFileExists))
 	}
 	return strings.Join(limits, "; ")
 }
