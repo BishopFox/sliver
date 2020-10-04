@@ -49,6 +49,10 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		fPath, err = generate.SliverShellcode(config)
 	}
 
+	if err != nil {
+		return nil, err
+	}
+
 	filename := path.Base(fPath)
 	filedata, err := ioutil.ReadFile(fPath)
 	if err != nil {

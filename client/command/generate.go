@@ -29,6 +29,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/tabwriter"
 
@@ -40,6 +41,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	server "github.com/bishopfox/sliver/server/generate"
 	"github.com/desertbit/grumble"
 )
 
@@ -235,6 +237,29 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 	targetOS := strings.ToLower(ctx.Flags.String("os"))
 	arch := strings.ToLower(ctx.Flags.String("arch"))
 
+	name := strings.ToLower(ctx.Flags.String("name"))
+
+	if name != "" {
+		isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
+		if !isAlphanumeric(name) {
+			fmt.Printf(Warn + "Agent's name must be in alphanumeric only\n")
+			return nil
+		}
+
+		sliversDir := server.GetSliversDir() // ~/.sliver/slivers
+		projectGoPathDir := path.Join(sliversDir, targetOS, arch, name)
+
+		if _, err := os.Stat(projectGoPathDir); !os.IsNotExist(err) {
+			prompt := &survey.Confirm{Message: "Agent already exists with this name. Overwrite existing file?"}
+			var confirm bool
+			survey.AskOne(prompt, &confirm)
+			if !confirm {
+				fmt.Printf(Warn + "File exists\n")
+				return nil
+			}
+		}
+	}
+
 	c2s := []*clientpb.ImplantC2{}
 
 	mtlsC2 := parseMTLSc2(ctx.Flags.String("mtls"))
@@ -330,6 +355,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
 		GOARCH:           arch,
+		Name:             name,
 		Debug:            ctx.Flags.Bool("debug"),
 		Evasion:          ctx.Flags.Bool("evasion"),
 		ObfuscateSymbols: symbolObfuscation,

@@ -47,9 +47,11 @@ func Gobfuscate(config gogo.GoConfig, encKey string, pkgName string, outPath str
 	defer os.Setenv("GO111MODULE", "")
 
 	newGopath := outPath
-	if err := os.Mkdir(newGopath, 0700); err != nil {
-		obfuscateLog.Errorf("Failed to create destination: %v", err)
-		return "", err
+	if _, err := os.Stat(newGopath); os.IsNotExist(err) {
+		if err := os.Mkdir(newGopath, 0700); err != nil {
+			obfuscateLog.Errorf("Failed to create destination: %v", err)
+			return "", err
+		}
 	}
 
 	obfuscateLog.Infof("Copying GOPATH (%s) ...\n", ctx.GOPATH)
