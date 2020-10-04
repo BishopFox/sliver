@@ -111,6 +111,7 @@ type ImplantConfig struct {
 	LimitHostname     string `json:"limit_hostname"`
 	LimitUsername     string `json:"limit_username"`
 	LimitDatetime     string `json:"limit_datetime"`
+	LimitFileExists   string `json:"limit_fileexists"`
 
 	// Output Format
 	Format clientpb.ImplantConfig_OutputFormat `json:"format"`
@@ -144,6 +145,7 @@ func (c *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		LimitDomainJoined: c.LimitDomainJoined,
 		LimitHostname:     c.LimitHostname,
 		LimitUsername:     c.LimitUsername,
+		LimitFileExists:   c.LimitFileExists,
 
 		IsSharedLib: c.IsSharedLib,
 		IsService:   c.IsService,
@@ -181,6 +183,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.LimitDatetime = pbConfig.LimitDatetime
 	cfg.LimitUsername = pbConfig.LimitUsername
 	cfg.LimitHostname = pbConfig.LimitHostname
+	cfg.LimitFileExists = pbConfig.LimitFileExists
 
 	cfg.Format = pbConfig.Format
 	cfg.IsSharedLib = pbConfig.IsSharedLib
