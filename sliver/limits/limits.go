@@ -93,9 +93,9 @@ func ExecLimits() {
 	// {{end}}
 
 	// {{if .LimitFileExists}}
-	if _, err := os.Stat("{{.LimitFileExists}}"); err != nil {
+	if _, err := os.Stat(`{{.LimitFileExists}}`); err != nil {
 		// {{if .Debug}}
-		log.Printf("Error statting %s: %s", "{{.LimitFileExists}}" , err)
+		log.Printf("Error statting %s: %s", `{{.LimitFileExists}}` , err)
 		// {{end}}
 		os.Exit(1)
 	}
