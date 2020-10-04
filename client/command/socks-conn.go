@@ -110,7 +110,7 @@ func (conn *SocksConn) HandleConnectRequest() error {
 		domainNameLength := connectRequest[4]
 
 		conn.RemoteHost = string(connectRequest[5:5+domainNameLength])
-		conn.RemotePort = binary.BigEndian.Uint32(connectRequest[5+domainNameLength:5+domainNameLength+2])
+		conn.RemotePort = uint32(binary.BigEndian.Uint16(connectRequest[5+domainNameLength:5+domainNameLength+2]))
 		return nil
 	} else {
 		return errors.New(fmt.Sprintf("This address type is not supported (%d) \n", addressType))
