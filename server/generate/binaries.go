@@ -436,7 +436,11 @@ func renderSliverGoCode(config *ImplantConfig, goConfig *gogo.GoConfig) (string,
 	}
 
 	if config.Name == "" {
-		config.Name = GetCodename()
+		name, err := GetCodename()
+		if err != nil {
+			return "", err
+		}
+		config.Name = name
 	}
 	buildLog.Infof("Generating new sliver binary '%s'", config.Name)
 
