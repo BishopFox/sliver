@@ -352,6 +352,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
+			f.String("n", "name", "", "agent name")
 			f.Bool("d", "debug", false, "enable debug features")
 			f.Bool("e", "evasion", false, "enable evasion features")
 			f.Bool("b", "skip-symbols", false, "skip symbol obfuscation")
@@ -371,6 +372,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
+			f.String("f", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
 
 			f.String("r", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 
@@ -457,6 +459,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
+			f.String("f", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
 
 			f.String("r", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 
@@ -1240,5 +1243,21 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			fmt.Println()
 			return nil
 		},
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.SetStr,
+		Help:     "Set agent option",
+		LongHelp: help.GetHelpFor(consts.SetStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "agent name to change to")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			setCmd(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 }

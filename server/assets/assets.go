@@ -256,7 +256,16 @@ func unzipGoDependency(fileName string, targetPath string, assetsBox packr.Box) 
 
 func setupCodenames(appDir string) error {
 	nouns, err := assetsBox.Find("nouns.txt")
+	if err != nil {
+		setupLog.Infof("nouns.txt asset not found")
+		return err
+	}
+
 	adjectives, err := assetsBox.Find("adjectives.txt")
+	if err != nil {
+		setupLog.Infof("adjectives.txt asset not found")
+		return err
+	}
 
 	err = ioutil.WriteFile(path.Join(appDir, "nouns.txt"), nouns, 0600)
 	if err != nil {

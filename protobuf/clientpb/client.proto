@@ -69,6 +69,7 @@ message ImplantConfig {
   string LimitDatetime = 21;
   string LimitHostname = 22;
   string LimitUsername = 23;
+  string LimitFileExists = 32;
 
   enum OutputFormat {
     SHARED_LIB = 0;
