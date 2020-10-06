@@ -42,14 +42,14 @@ func setCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 func setName(name string) {
 
-	isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
+	isAlphanumeric := regexp.MustCompile(`^[[:ascii:]]+$`).MatchString
 	if !isAlphanumeric(name) {
 		fmt.Printf(Warn + "Name must be in alphanumeric only\n")
 		return
 	}
 
-	activeSessionId := ActiveSession.session.ID
-	currentSession := core.Sessions.Get(activeSessionId)
+	activeSessionID := ActiveSession.session.ID
+	currentSession := core.Sessions.Get(activeSessionID)
 	currentSession.Name = name
 
 	core.Sessions.UpdateSession(currentSession)
