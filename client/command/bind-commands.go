@@ -463,7 +463,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 			f.String("r", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 
-			f.String("p", "name", "", "profile name")
+			f.String("p", "profile-name", "", "profile name")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},

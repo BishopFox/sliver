@@ -42,7 +42,7 @@ func setCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 func setName(name string) {
 
-	isAlphanumeric := regexp.MustCompile(`^[[:ascii:]]+$`).MatchString
+	isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
 	if !isAlphanumeric(name) {
 		fmt.Printf(Warn + "Name must be in alphanumeric only\n")
 		return
