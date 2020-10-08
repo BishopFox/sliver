@@ -74,26 +74,21 @@ type Session struct {
 func (s *Session) ToProtobuf() *clientpb.Session {
 	var (
 		lastCheckin string
-		now         time.Time
+		isDead      bool
 	)
-	if s.LastCheckin == nil {
-		now = time.Now()
-		s.LastCheckin = &now
-		lastCheckin = time.Now().Format(time.RFC1123) // Stateful connections have a nil .LastCheckin
-	} else {
+	if s.LastCheckin != nil {
 		lastCheckin = s.LastCheckin.Format(time.RFC1123)
-	}
 
-	// Calculates how much time has passed in seconds and compares that to the ReconnectInterval+10 of the Implant.
-	// (ReconnectInterval+10 seconds is just abitrary padding to account for potential delays)
-	// If it hasn't checked in, flag it as DEAD.
-	var isDead bool
-	var timePassed = uint32(math.Abs(s.LastCheckin.Sub(time.Now()).Seconds()))
+		// Calculates how much time has passed in seconds and compares that to the ReconnectInterval+10 of the Implant.
+		// (ReconnectInterval+10 seconds is just abitrary padding to account for potential delays)
+		// If it hasn't checked in, flag it as DEAD.
+		var timePassed = uint32(math.Abs(s.LastCheckin.Sub(time.Now()).Seconds()))
 
-	if timePassed > (s.ReconnectInterval + 10) {
-		isDead = true
-	} else {
-		isDead = false
+		if timePassed > (s.ReconnectInterval + 10) {
+			isDead = true
+		} else {
+			isDead = false
+		}
 	}
 
 	return &clientpb.Session{
@@ -146,7 +141,13 @@ func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([
 	if respEnvelope.UnknownMessageType {
 		return nil, ErrUnknownMessateType
 	}
+	s.UpdateCheckin()
 	return respEnvelope.Data, nil
+}
+
+func (s *Session) UpdateCheckin() {
+	now := time.Now()
+	s.LastCheckin = &now
 }
 
 // sessions - Manages the slivers, provides atomic access
