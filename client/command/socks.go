@@ -104,8 +104,6 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 		return
 	}
 
-	// TODO : Disable write and read messages popping up on screen
-
 	if tcpTunnel.StatusCode == 0x00 {
 		socksConn.ReturnSuccessConnectMessage()
 
@@ -113,7 +111,7 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 			// Close the client socket
 			_ = socksConn.ClientConn.Close()
 
-			// TODO : Check if the tunnel is closed
+			// TODO : Check if the tunnel is still alive before trying to close it
 			// Send a message to close the tunnel
 			_, err := rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
 				TunnelID: tunnel.ID,
@@ -132,6 +130,7 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 					cleanup()
 				} else if bytesRead != 0 {
 					_, err := socksConn.ClientConn.Write(readArray[:bytesRead])
+					fmt.Printf("[tunnel] Read %d bytes from tunnel\n", bytesRead)
 					if err != nil {
 						cleanup()
 					}
@@ -147,6 +146,7 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 					cleanup()
 				} else if bytesToWrite != 0 {
 					_, err = tunnel.Write(writeArray[:bytesToWrite])
+					fmt.Printf("[tunnel] Write %d bytes to tunnel\n", bytesToWrite)
 					if err != nil {
 						cleanup()
 					}
