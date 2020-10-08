@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"net"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -42,12 +43,33 @@ func startSocksServer(ctx *grumble.Context, port int, rpc rpcpb.SliverRPCClient)
 		return
 	}
 
+	var socksConnList []*net.TCPConn
+
+	// If session is closed then close the socks server
+	go func(implantSessionID uint32) {
+		// Continuously check if the connection to the implant that opened the socks server is still alive
+		for GetSession(fmt.Sprintf("%d", implantSessionID), rpc) != nil {}
+
+		fmt.Println(Warn+" Closing all socks connections")
+		for _, conn := range socksConnList {
+			_ = conn.Close()
+		}
+
+		fmt.Println(Warn+" Killing socks server")
+		listener.Close()
+	}(session.ID)
+
 	for {
 		conn, err := listener.AcceptTCP()
 		if err != nil {
-			fmt.Printf(Warn+"%s\n", err)
-			continue
+			if strings.Contains(err.Error(), "use of closed network connection") {
+				break
+			} else {
+				fmt.Printf(Warn+"%s\n", err)
+			}
 		}
+		
+		socksConnList = append(socksConnList, conn)
 		go handleConnection(ctx, conn, rpc)
 	}
 
@@ -111,14 +133,15 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 			// Close the client socket
 			_ = socksConn.ClientConn.Close()
 
-			// TODO : Check if the tunnel is still alive before trying to close it
-			// Send a message to close the tunnel
-			_, err := rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
-				TunnelID: tunnel.ID,
-			})
-			if err != nil {
-				fmt.Printf(Warn+"%s\n", err)
-				return
+			if core.Tunnels.Get(tunnel.ID) != nil {
+				// Send a message to close the tunnel
+				_, err := rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
+					TunnelID: tunnel.ID,
+				})
+				if err != nil {
+					fmt.Printf(Warn+"%s\n", err)
+					return
+				}
 			}
 		}
 
