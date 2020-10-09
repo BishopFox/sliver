@@ -126,6 +126,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("l", "lport", defaultMTLSLPort, "tcp listen port")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -145,6 +146,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Bool("c", "no-canaries", false, "disable dns canary detection")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -165,6 +167,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("l", "lport", defaultHTTPLPort, "tcp listen port")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -190,6 +193,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
