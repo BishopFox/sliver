@@ -26,6 +26,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/c2"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 )
 
@@ -62,13 +63,15 @@ func (rpc *Server) GetJobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.Jo
 // KillJob - Kill a server-side job
 func (rpc *Server) KillJob(ctx context.Context, kill *clientpb.KillJobReq) (*clientpb.KillJob, error) {
 	job := core.Jobs.Get(int(kill.ID))
-	// killJob := &clientpb.KillJob{ID: uint32(job.ID)}
 	killJob := &clientpb.KillJob{}
 	var err error = nil
 	if job != nil {
 		job.JobCtrl <- true
 		killJob.ID = uint32(job.ID)
 		killJob.Success = true
+		if job.PersistentID != "" {
+			configs.GetServerConfig().RemoveJob(job.PersistentID)
+		}
 	} else {
 		killJob.Success = false
 		err = errors.New("Invalid Job ID")
@@ -87,12 +90,21 @@ func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSList
 		listenPort = uint16(req.Port)
 	}
 
-	jobID, err := c2.StartMTLSListenerJob(req.Host, listenPort)
+	job, err := c2.StartMTLSListenerJob(req.Host, listenPort)
 	if err != nil {
 		return nil, err
 	}
 
-	return &clientpb.MTLSListener{JobID: uint32(jobID)}, nil
+	if req.Persistent {
+		cfg := &configs.MTLSJobConfig{
+			Host: req.Host,
+			Port: listenPort,
+		}
+		configs.GetServerConfig().AddMTLSJob(cfg)
+		job.PersistentID = cfg.JobID
+	}
+
+	return &clientpb.MTLSListener{JobID: uint32(job.ID)}, nil
 }
 
 // StartDNSListener - Start a DNS listener TODO: respect request's Host specification
@@ -104,11 +116,24 @@ func (rpc *Server) StartDNSListener(ctx context.Context, req *clientpb.DNSListen
 	if req.Port != 0 {
 		listenPort = uint16(req.Port)
 	}
-	jobID, err := c2.StartDNSListenerJob(req.Domains, req.Canaries, listenPort)
+
+	job, err := c2.StartDNSListenerJob(req.Domains, req.Canaries, listenPort)
 	if err != nil {
 		return nil, err
 	}
-	return &clientpb.DNSListener{JobID: uint32(jobID)}, nil
+
+	if req.Persistent {
+		cfg := &configs.DNSJobConfig{
+			Domains:  req.Domains,
+			Port:     listenPort,
+			Canaries: req.Canaries,
+			Host:     req.Host,
+		}
+		configs.GetServerConfig().AddDNSJob(cfg)
+		job.PersistentID = cfg.JobID
+	}
+
+	return &clientpb.DNSListener{JobID: uint32(job.ID)}, nil
 }
 
 // StartHTTPSListener - Start an HTTPS listener
@@ -136,6 +161,22 @@ func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPLis
 	if err != nil {
 		return nil, err
 	}
+
+	if req.Persistent {
+		cfg := &configs.HTTPJobConfig{
+			Domain:  req.Domain,
+			Host:    req.Host,
+			Port:    listenPort,
+			Secure:  true,
+			Website: req.Website,
+			Cert:    req.Cert,
+			Key:     req.Key,
+			ACME:    req.ACME,
+		}
+		configs.GetServerConfig().AddHTTPJob(cfg)
+		job.PersistentID = cfg.JobID
+	}
+
 	return &clientpb.HTTPListener{JobID: uint32(job.ID)}, nil
 }
 
@@ -161,5 +202,18 @@ func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPList
 	if err != nil {
 		return nil, err
 	}
+
+	if req.Persistent {
+		cfg := &configs.HTTPJobConfig{
+			Domain:  req.Domain,
+			Host:    req.Host,
+			Port:    listenPort,
+			Secure:  false,
+			Website: req.Website,
+		}
+		configs.GetServerConfig().AddHTTPJob(cfg)
+		job.PersistentID = cfg.JobID
+	}
+
 	return &clientpb.HTTPListener{JobID: uint32(job.ID)}, nil
 }

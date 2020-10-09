@@ -27,6 +27,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/console"
@@ -112,6 +113,7 @@ var rootCmd = &cobra.Command{
 		certs.SetupCAs()
 
 		serverConfig := configs.GetServerConfig()
+		c2.StartPersistentJobs(serverConfig)
 		if serverConfig.DaemonMode {
 			daemon.Start()
 		} else {

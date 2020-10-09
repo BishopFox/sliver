@@ -28,6 +28,7 @@ import (
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
 )
@@ -36,11 +37,11 @@ var (
 	jobLog = log.NamedLogger("c2", "jobs")
 )
 
-func StartMTLSListenerJob(host string, listenPort uint16) (int, error) {
+func StartMTLSListenerJob(host string, listenPort uint16) (*core.Job, error) {
 	bind := fmt.Sprintf("%s:%d", host, listenPort)
 	ln, err := StartMutualTLSListener(host, listenPort)
 	if err != nil {
-		return 0, err // If we fail to bind don't setup the Job
+		return nil, err // If we fail to bind don't setup the Job
 	}
 
 	job := &core.Job{
@@ -60,10 +61,10 @@ func StartMTLSListenerJob(host string, listenPort uint16) (int, error) {
 	}()
 	core.Jobs.Add(job)
 
-	return job.ID, nil
+	return job, nil
 }
 
-func StartDNSListenerJob(domains []string, canaries bool, listenPort uint16) (int, error) {
+func StartDNSListenerJob(domains []string, canaries bool, listenPort uint16) (*core.Job, error) {
 	server := StartDNSListener(domains, canaries)
 	description := fmt.Sprintf("%s (canaries %v)", strings.Join(domains, " "), canaries)
 	job := &core.Job{
@@ -102,7 +103,7 @@ func StartDNSListenerJob(domains []string, canaries bool, listenPort uint16) (in
 		}
 	}()
 
-	return job.ID, nil
+	return job, nil
 }
 
 func StartHTTPListenerJob(conf *HTTPServerConfig) (*core.Job, error) {
@@ -164,10 +165,10 @@ func StartHTTPListenerJob(conf *HTTPServerConfig) (*core.Job, error) {
 }
 
 // Start a TCP staging payload listener
-func StartTCPStagerListenerJob(host string, port uint16, shellcode []byte) (int, error) {
+func StartTCPStagerListenerJob(host string, port uint16, shellcode []byte) (*core.Job, error) {
 	ln, err := StartTCPListener(host, port, shellcode)
 	if err != nil {
-		return -1, err // If we fail to bind don't setup the Job
+		return nil, err // If we fail to bind don't setup the Job
 	}
 
 	job := &core.Job{
@@ -194,7 +195,7 @@ func StartTCPStagerListenerJob(host string, port uint16, shellcode []byte) (int,
 
 	core.Jobs.Add(job)
 
-	return job.ID, nil
+	return job, nil
 }
 
 // StartHTTPStagerListener - Start an HTTP(S) stager payload listener
@@ -253,6 +254,49 @@ func StartHTTPStagerListenerJob(conf *HTTPServerConfig, data []byte) (*core.Job,
 	}()
 
 	return job, nil
+}
+
+// Start persistent jobs
+func StartPersistentJobs(cfg *configs.ServerConfig) error {
+	if cfg.Jobs == nil {
+		return nil
+	}
+
+	for _, j := range cfg.Jobs.MTLS {
+		job, err := StartMTLSListenerJob(j.Host, j.Port)
+		if err != nil {
+			return err
+		}
+		job.PersistentID = j.JobID
+	}
+
+	for _, j := range cfg.Jobs.DNS {
+		job, err := StartDNSListenerJob(j.Domains, j.Canaries, j.Port)
+		if err != nil {
+			return err
+		}
+		job.PersistentID = j.JobID
+	}
+
+	for _, j := range cfg.Jobs.HTTP {
+		cfg := &HTTPServerConfig{
+			Addr:    fmt.Sprintf("%s:%d", j.Host, j.Port),
+			LPort:   j.Port,
+			Secure:  j.Secure,
+			Domain:  j.Domain,
+			Website: j.Website,
+			Cert:    j.Cert,
+			Key:     j.Key,
+			ACME:    j.ACME,
+		}
+		job, err := StartHTTPListenerJob(cfg)
+		if err != nil {
+			return err
+		}
+		job.PersistentID = j.JobID
+	}
+
+	return nil
 }
 
 // checkInterface verifies if an IP address
