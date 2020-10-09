@@ -20,19 +20,13 @@ package rpc
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
-	"net"
-	"net/http"
-	"strings"
-	"sync"
-	"time"
 
-	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/c2"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 )
 
@@ -69,13 +63,15 @@ func (rpc *Server) GetJobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.Jo
 // KillJob - Kill a server-side job
 func (rpc *Server) KillJob(ctx context.Context, kill *clientpb.KillJobReq) (*clientpb.KillJob, error) {
 	job := core.Jobs.Get(int(kill.ID))
-	// killJob := &clientpb.KillJob{ID: uint32(job.ID)}
 	killJob := &clientpb.KillJob{}
 	var err error = nil
 	if job != nil {
 		job.JobCtrl <- true
 		killJob.ID = uint32(job.ID)
 		killJob.Success = true
+		if job.PersistentID != "" {
+			configs.GetServerConfig().RemoveJob(job.PersistentID)
+		}
 	} else {
 		killJob.Success = false
 		err = errors.New("Invalid Job ID")
@@ -94,28 +90,20 @@ func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSList
 		listenPort = uint16(req.Port)
 	}
 
-	bind := fmt.Sprintf("%s:%d", req.Host, listenPort)
-	ln, err := c2.StartMutualTLSListener(req.Host, listenPort)
+	job, err := c2.StartMTLSListenerJob(req.Host, listenPort)
 	if err != nil {
-		return nil, err // If we fail to bind don't setup the Job
+		return nil, err
 	}
 
-	job := &core.Job{
-		ID:          core.NextJobID(),
-		Name:        "mtls",
-		Description: fmt.Sprintf("mutual tls listener %s", bind),
-		Protocol:    "tcp",
-		Port:        listenPort,
-		JobCtrl:     make(chan bool),
+	if req.Persistent {
+		cfg := &configs.MTLSJobConfig{
+			Host: req.Host,
+			Port: listenPort,
+		}
+		configs.GetServerConfig().AddMTLSJob(cfg)
+		job.PersistentID = cfg.JobID
 	}
 
-	go func() {
-		<-job.JobCtrl
-		rpcLog.Infof("Stopping mTLS listener (%d) ...", job.ID)
-		ln.Close() // Kills listener GoRoutines in StartMutualTLSListener() but NOT connections
-		core.Jobs.Remove(job)
-	}()
-	core.Jobs.Add(job)
 	return &clientpb.MTLSListener{JobID: uint32(job.ID)}, nil
 }
 
@@ -128,54 +116,24 @@ func (rpc *Server) StartDNSListener(ctx context.Context, req *clientpb.DNSListen
 	if req.Port != 0 {
 		listenPort = uint16(req.Port)
 	}
-	jobID, err := jobStartDNSListener(req.Domains, req.Canaries, listenPort)
+
+	job, err := c2.StartDNSListenerJob(req.Domains, req.Canaries, listenPort)
 	if err != nil {
 		return nil, err
 	}
-	return &clientpb.DNSListener{JobID: uint32(jobID)}, nil
-}
 
-func jobStartDNSListener(domains []string, canaries bool, listenPort uint16) (int, error) {
-
-	server := c2.StartDNSListener(domains, canaries)
-	description := fmt.Sprintf("%s (canaries %v)", strings.Join(domains, " "), canaries)
-	job := &core.Job{
-		ID:          core.NextJobID(),
-		Name:        "dns",
-		Description: description,
-		Protocol:    "udp",
-		Port:        listenPort,
-		JobCtrl:     make(chan bool),
-		Domains:     domains,
+	if req.Persistent {
+		cfg := &configs.DNSJobConfig{
+			Domains:  req.Domains,
+			Port:     listenPort,
+			Canaries: req.Canaries,
+			Host:     req.Host,
+		}
+		configs.GetServerConfig().AddDNSJob(cfg)
+		job.PersistentID = cfg.JobID
 	}
 
-	go func() {
-		<-job.JobCtrl
-		rpcLog.Infof("Stopping DNS listener (%d) ...", job.ID)
-		server.Shutdown()
-		core.Jobs.Remove(job)
-		core.EventBroker.Publish(core.Event{
-			Job:       job,
-			EventType: consts.JobStoppedEvent,
-		})
-	}()
-
-	core.Jobs.Add(job)
-
-	// There is no way to call DNS' ListenAndServe() without blocking
-	// but we also need to check the error in the case the server
-	// fails to start at all, so we setup all the Job mechanics
-	// then kick off the server and if it fails we kill the job
-	// ourselves.
-	go func() {
-		err := server.ListenAndServe()
-		if err != nil {
-			rpcLog.Errorf("DNS listener error %v", err)
-			job.JobCtrl <- true
-		}
-	}()
-
-	return job.ID, nil
+	return &clientpb.DNSListener{JobID: uint32(job.ID)}, nil
 }
 
 // StartHTTPSListener - Start an HTTPS listener
@@ -199,10 +157,26 @@ func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPLis
 		Key:     req.Key,
 		ACME:    req.ACME,
 	}
-	job, err := jobStartHTTPListener(conf)
+	job, err := c2.StartHTTPListenerJob(conf)
 	if err != nil {
 		return nil, err
 	}
+
+	if req.Persistent {
+		cfg := &configs.HTTPJobConfig{
+			Domain:  req.Domain,
+			Host:    req.Host,
+			Port:    listenPort,
+			Secure:  true,
+			Website: req.Website,
+			Cert:    req.Cert,
+			Key:     req.Key,
+			ACME:    req.ACME,
+		}
+		configs.GetServerConfig().AddHTTPJob(cfg)
+		job.PersistentID = cfg.JobID
+	}
+
 	return &clientpb.HTTPListener{JobID: uint32(job.ID)}, nil
 }
 
@@ -224,116 +198,22 @@ func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPList
 		Secure:  false,
 		ACME:    false,
 	}
-	job, err := jobStartHTTPListener(conf)
+	job, err := c2.StartHTTPListenerJob(conf)
 	if err != nil {
 		return nil, err
 	}
+
+	if req.Persistent {
+		cfg := &configs.HTTPJobConfig{
+			Domain:  req.Domain,
+			Host:    req.Host,
+			Port:    listenPort,
+			Secure:  false,
+			Website: req.Website,
+		}
+		configs.GetServerConfig().AddHTTPJob(cfg)
+		job.PersistentID = cfg.JobID
+	}
+
 	return &clientpb.HTTPListener{JobID: uint32(job.ID)}, nil
-}
-
-func jobStartHTTPListener(conf *c2.HTTPServerConfig) (*core.Job, error) {
-	server, err := c2.StartHTTPSListener(conf)
-	if err != nil {
-		return nil, err
-	}
-	name := "http"
-	if conf.Secure {
-		name = "https"
-	}
-
-	job := &core.Job{
-		ID:          core.NextJobID(),
-		Name:        name,
-		Description: fmt.Sprintf("%s for domain %s", name, conf.Domain),
-		Protocol:    "tcp",
-		Port:        uint16(conf.LPort),
-		JobCtrl:     make(chan bool),
-		Domains:     []string{conf.Domain},
-	}
-	core.Jobs.Add(job)
-
-	cleanup := func(err error) {
-		server.Cleanup()
-		core.Jobs.Remove(job)
-		core.EventBroker.Publish(core.Event{
-			Job:       job,
-			EventType: consts.JobStoppedEvent,
-			Err:       err,
-		})
-	}
-	once := &sync.Once{}
-
-	go func() {
-		var err error
-		if server.Conf.Secure {
-			if server.Conf.ACME {
-				err = server.HTTPServer.ListenAndServeTLS("", "") // ACME manager pulls the certs under the hood
-			} else {
-				err = listenAndServeTLS(server.HTTPServer, conf.Cert, conf.Key)
-			}
-		} else {
-			err = server.HTTPServer.ListenAndServe()
-		}
-		if err != nil {
-			rpcLog.Errorf("%s listener error %v", name, err)
-			once.Do(func() { cleanup(err) })
-			job.JobCtrl <- true // Cleanup other goroutine
-		}
-	}()
-
-	go func() {
-		<-job.JobCtrl
-		once.Do(func() { cleanup(nil) })
-	}()
-
-	return job, nil
-}
-
-// Fuck'in Go - https://stackoverflow.com/questions/30815244/golang-https-server-passing-certfile-and-kyefile-in-terms-of-byte-array
-// basically the same as server.ListenAndServerTLS() but we can pass in byte slices instead of file paths
-func listenAndServeTLS(srv *http.Server, certPEMBlock, keyPEMBlock []byte) error {
-	addr := srv.Addr
-	if addr == "" {
-		addr = ":https"
-	}
-	config := &tls.Config{}
-	if srv.TLSConfig != nil {
-		*config = *srv.TLSConfig
-	}
-	if config.NextProtos == nil {
-		config.NextProtos = []string{"http/1.1"}
-	}
-
-	var err error
-	config.Certificates = make([]tls.Certificate, 1)
-	config.Certificates[0], err = tls.X509KeyPair(certPEMBlock, keyPEMBlock)
-	if err != nil {
-		return err
-	}
-
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
-	}
-
-	tlsListener := tls.NewListener(tcpKeepAliveListener{ln.(*net.TCPListener)}, config)
-	return srv.Serve(tlsListener)
-}
-
-// tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
-// connections. It's used by ListenAndServe and ListenAndServeTLS so
-// dead TCP connections (e.g. closing laptop mid-download) eventually
-// go away.
-type tcpKeepAliveListener struct {
-	*net.TCPListener
-}
-
-func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
-	tc, err := ln.AcceptTCP()
-	if err != nil {
-		return
-	}
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(3 * time.Minute)
-	return tc, nil
 }

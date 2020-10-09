@@ -112,8 +112,9 @@ func startMTLSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	fmt.Printf(Info + "Starting mTLS listener ...\n")
 	mtls, err := rpc.StartMTLSListener(context.Background(), &clientpb.MTLSListenerReq{
-		Host: server,
-		Port: uint32(lport),
+		Host:       server,
+		Port:       uint32(lport),
+		Persistent: ctx.Flags.Bool("persistent"),
 	})
 	if err != nil {
 		fmt.Printf("\n"+Warn+"%s\n", err)
@@ -133,8 +134,9 @@ func startDNSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	fmt.Printf(Info+"Starting DNS listener with parent domain(s) %v ...\n", domains)
 	dns, err := rpc.StartDNSListener(context.Background(), &clientpb.DNSListenerReq{
-		Domains:  domains,
-		Canaries: !ctx.Flags.Bool("no-canaries"),
+		Domains:    domains,
+		Canaries:   !ctx.Flags.Bool("no-canaries"),
+		Persistent: ctx.Flags.Bool("persistent"),
 	})
 	if err != nil {
 		fmt.Printf("\n"+Warn+"%s\n", err)
@@ -156,13 +158,14 @@ func startHTTPSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	fmt.Printf(Info+"Starting HTTPS %s:%d listener ...\n", domain, lport)
 	https, err := rpc.StartHTTPSListener(context.Background(), &clientpb.HTTPListenerReq{
-		Domain:  domain,
-		Website: website,
-		Port:    uint32(lport),
-		Secure:  true,
-		Cert:    cert,
-		Key:     key,
-		ACME:    ctx.Flags.Bool("lets-encrypt"),
+		Domain:     domain,
+		Website:    website,
+		Port:       uint32(lport),
+		Secure:     true,
+		Cert:       cert,
+		Key:        key,
+		ACME:       ctx.Flags.Bool("lets-encrypt"),
+		Persistent: ctx.Flags.Bool("persistent"),
 	})
 	if err != nil {
 		fmt.Printf("\n"+Warn+"%s\n", err)
@@ -192,10 +195,11 @@ func startHTTPListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	fmt.Printf(Info+"Starting HTTP %s:%d listener ...\n", domain, lport)
 	http, err := rpc.StartHTTPListener(context.Background(), &clientpb.HTTPListenerReq{
-		Domain:  domain,
-		Website: ctx.Flags.String("website"),
-		Port:    uint32(lport),
-		Secure:  false,
+		Domain:     domain,
+		Website:    ctx.Flags.String("website"),
+		Port:       uint32(lport),
+		Secure:     false,
+		Persistent: ctx.Flags.Bool("persistent"),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)

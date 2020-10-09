@@ -146,7 +146,7 @@ message KillJob {
 message MTLSListenerReq {
   string Host = 1;
   uint32 Port = 2;
-
+  bool Persistent = 3;
 }
 
 message MTLSListener {
@@ -158,6 +158,7 @@ message DNSListenerReq {
   bool Canaries = 2;
   string Host = 3;
   uint32 Port = 4;
+  bool Persistent = 5;
 }
 
 message DNSListener {
@@ -173,12 +174,13 @@ message HTTPListenerReq {
   bytes Cert = 6;
   bytes Key = 7;
   bool ACME = 8;
+  bool Persistent = 9;
 }
 
 // Named Pipes Messages for pivoting
 message NamedPipesReq {
   string PipeName = 16;
-  
+
   commonpb.Request Request = 9;
 }
 

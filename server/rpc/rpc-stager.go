@@ -22,12 +22,9 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"sync"
 
-	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/c2"
-	"github.com/bishopfox/sliver/server/core"
 )
 
 // StartTCPStagerListener starts a TCP stager listener
@@ -36,8 +33,8 @@ func (rpc *Server) StartTCPStagerListener(ctx context.Context, req *clientpb.Sta
 	if !checkInterface(req.GetHost()) {
 		host = "0.0.0.0"
 	}
-	jobID, err := jobStartTCPStagerListener(host, uint16(req.GetPort()), req.GetData())
-	return &clientpb.StagerListener{JobID: uint32(jobID)}, err
+	job, err := c2.StartTCPStagerListenerJob(host, uint16(req.GetPort()), req.GetData())
+	return &clientpb.StagerListener{JobID: uint32(job.ID)}, err
 }
 
 // StartHTTPStagerListener starts a HTTP(S) stager listener
@@ -58,7 +55,7 @@ func (rpc *Server) StartHTTPStagerListener(ctx context.Context, req *clientpb.St
 		conf.Cert = req.Cert
 		conf.ACME = req.ACME
 	}
-	job, err := jobStartHTTPStagerListener(conf, req.Data)
+	job, err := c2.StartHTTPStagerListenerJob(conf, req.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -66,98 +63,6 @@ func (rpc *Server) StartHTTPStagerListener(ctx context.Context, req *clientpb.St
 		return nil, fmt.Errorf("job is nil")
 	}
 	return &clientpb.StagerListener{JobID: uint32(job.ID)}, err
-}
-
-// jobStartTCPStagerListener - Start a TCP staging payload listener
-func jobStartTCPStagerListener(host string, port uint16, shellcode []byte) (int, error) {
-	ln, err := c2.StartTCPListener(host, port, shellcode)
-	if err != nil {
-		return -1, err // If we fail to bind don't setup the Job
-	}
-
-	job := &core.Job{
-		ID:          core.NextJobID(),
-		Name:        "TCP",
-		Description: "Raw TCP listener (stager only)",
-		Protocol:    "tcp",
-		Port:        port,
-		JobCtrl:     make(chan bool),
-	}
-
-	go func() {
-		<-job.JobCtrl
-		rpcLog.Infof("Stopping TCP listener (%d) ...", job.ID)
-		ln.Close() // Kills listener GoRoutines in startMutualTLSListener() but NOT connections
-
-		core.Jobs.Remove(job)
-
-		core.EventBroker.Publish(core.Event{
-			Job:       job,
-			EventType: consts.JobStoppedEvent,
-		})
-	}()
-
-	core.Jobs.Add(job)
-
-	return job.ID, nil
-}
-
-// jobStartHTTPStagerListener - Start an HTTP(S) stager payload listener
-func jobStartHTTPStagerListener(conf *c2.HTTPServerConfig, data []byte) (*core.Job, error) {
-	server, err := c2.StartHTTPSListener(conf)
-	if err != nil {
-		return nil, err
-	}
-	name := "http"
-	if conf.Secure {
-		name = "https"
-	}
-	server.SliverStage = data
-	job := &core.Job{
-		ID:          core.NextJobID(),
-		Name:        name,
-		Description: fmt.Sprintf("Stager handler %s for domain %s", name, conf.Domain),
-		Protocol:    "tcp",
-		Port:        uint16(conf.LPort),
-		JobCtrl:     make(chan bool),
-	}
-	core.Jobs.Add(job)
-
-	cleanup := func(err error) {
-		server.Cleanup()
-		core.Jobs.Remove(job)
-		core.EventBroker.Publish(core.Event{
-			Job:       job,
-			EventType: consts.JobStoppedEvent,
-			Err:       err,
-		})
-	}
-	once := &sync.Once{}
-
-	go func() {
-		var err error
-		if server.Conf.Secure {
-			if server.Conf.ACME {
-				err = server.HTTPServer.ListenAndServeTLS("", "") // ACME manager pulls the certs under the hood
-			} else {
-				err = listenAndServeTLS(server.HTTPServer, conf.Cert, conf.Key)
-			}
-		} else {
-			err = server.HTTPServer.ListenAndServe()
-		}
-		if err != nil {
-			rpcLog.Errorf("%s listener error %v", name, err)
-			once.Do(func() { cleanup(err) })
-			job.JobCtrl <- true // Cleanup other goroutine
-		}
-	}()
-
-	go func() {
-		<-job.JobCtrl
-		once.Do(func() { cleanup(nil) })
-	}()
-
-	return job, nil
 }
 
 // checkInterface verifies if an IP address
