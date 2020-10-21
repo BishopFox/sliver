@@ -98,11 +98,10 @@ type SendBlock struct {
 
 // DNSSession - Holds DNS session information
 type DNSSession struct {
-	ID          string
-	Session     *core.Session
-	Key         cryptography.AESKey
-	LastCheckin time.Time
-	replay      map[string]bool // Sessions are mutex 'd
+	ID      string
+	Session *core.Session
+	Key     cryptography.AESKey
+	replay  map[string]bool // Sessions are mutex 'd
 }
 
 func (s *DNSSession) isReplayAttack(ciphertext []byte) bool {
@@ -438,7 +437,6 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 
 	dnsLog.Infof("Received new session in request")
 
-	checkin := time.Now()
 	session := &core.Session{
 		ID:            core.NextSessionID(),
 		Transport:     "dns",
@@ -446,19 +444,18 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		Send:          make(chan *sliverpb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
-		LastCheckin:   &checkin,
 	}
+	session.UpdateCheckin()
 
 	aesKey, _ := cryptography.AESKeyFromBytes(sessionInit.Key)
 	sessionID := dnsSessionID()
 	dnsLog.Infof("Starting new DNS session with id = %s", sessionID)
 	dnsSessionsMutex.Lock()
 	(*dnsSessions)[sessionID] = &DNSSession{
-		ID:          sessionID,
-		Session:     session,
-		Key:         aesKey,
-		LastCheckin: time.Now(),
-		replay:      map[string]bool{},
+		ID:      sessionID,
+		Session: session,
+		Key:     aesKey,
+		replay:  map[string]bool{},
 	}
 	dnsSessionsMutex.Unlock()
 
@@ -518,8 +515,7 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 
 		dnsLog.Infof("Envelope Type = %#v RespID = %#v", envelope.Type, envelope.ID)
 
-		checkin := time.Now()
-		dnsSession.Session.LastCheckin = &checkin
+		dnsSession.Session.UpdateCheckin()
 
 		// Response Envelope or Handler
 		handlers := serverHandlers.GetSessionHandlers()

@@ -59,6 +59,9 @@ func socketWriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
 // socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
 func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4) // Size of uint32
+	if len(dataLengthBuf) == 0 || connection == nil {
+		panic("[[GenerateCanary]]")
+	}
 	_, err := connection.Read(dataLengthBuf)
 	if err != nil {
 		// {{if .Debug}}

@@ -93,6 +93,7 @@ func handleSliverConnection(conn net.Conn) {
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
 	}
+	session.UpdateCheckin()
 
 	defer func() {
 		mtlsLog.Debugf("Cleaning up for %s", session.Name)
@@ -108,6 +109,7 @@ func handleSliverConnection(conn net.Conn) {
 				mtlsLog.Errorf("Socket read error %v", err)
 				return
 			}
+			session.UpdateCheckin()
 			if envelope.ID != 0 {
 				session.RespMutex.RLock()
 				if resp, ok := session.Resp[envelope.ID]; ok {

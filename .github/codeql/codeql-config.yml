@@ -1,0 +1,5 @@
+name: "CodeQL Security Checks"
+
+queries:
+  - name: Security and Quality
+    uses: security-extended

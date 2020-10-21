@@ -152,6 +152,11 @@ func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			}
 
+		case consts.SessionUpdateEvent:
+			session := event.Session
+			currentTime := time.Now().Format(time.RFC1123)
+			fmt.Printf(clearln+Info+"Session #%d has been updated - %v\n", session.ID, currentTime)
+
 		case consts.SessionClosedEvent:
 			session := event.Session
 			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",

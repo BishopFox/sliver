@@ -408,7 +408,6 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 	httpSession := newHTTPSession()
 	httpSession.Key, _ = cryptography.AESKeyFromBytes(sessionInit.Key)
-	checkin := time.Now()
 	httpSession.Session = core.Sessions.Add(&core.Session{
 		ID:            core.NextSessionID(),
 		Transport:     "http(s)",
@@ -416,8 +415,8 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		Send:          make(chan *sliverpb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
-		LastCheckin:   &checkin,
 	})
+	httpSession.Session.UpdateCheckin()
 	s.HTTPSessions.Add(httpSession)
 	httpLog.Infof("Started new session with http session id: %s", httpSession.ID)
 
@@ -556,8 +555,7 @@ func (s *SliverHTTPC2) getHTTPSession(req *http.Request) *HTTPSession {
 		if cookie.Name == sessionCookieName {
 			httpSession := s.HTTPSessions.Get(cookie.Value)
 			if httpSession != nil {
-				checkin := time.Now()
-				httpSession.Session.LastCheckin = &checkin
+				httpSession.Session.UpdateCheckin()
 				return httpSession
 			}
 			return nil

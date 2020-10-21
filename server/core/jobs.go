@@ -37,13 +37,14 @@ var (
 
 // Job - Manages background jobs
 type Job struct {
-	ID          int
-	Name        string
-	Description string
-	Protocol    string
-	Port        uint16
-	Domains     []string
-	JobCtrl     chan bool
+	ID           int
+	Name         string
+	Description  string
+	Protocol     string
+	Port         uint16
+	Domains      []string
+	JobCtrl      chan bool
+	PersistentID string
 }
 
 // ToProtobuf - Get the protobuf version of the object

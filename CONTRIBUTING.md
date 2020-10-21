@@ -6,6 +6,7 @@ Contributing to Sliver
 * Contributions to core code must be GPLv3 (but not libraries)
 * If you'd like to work on a feature, please open a ticket and assign it to yourself
 * Changes should be made in a new branch
+* Commits [must be signed](https://docs.github.com/en/github/authenticating-to-github/signing-commits) for any PR to master
 * Please provide meaningful commit messages
 * Ensure code passes existing unit tests, or provide updated test(s)
 * `gofmt` your code

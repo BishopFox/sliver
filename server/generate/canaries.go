@@ -164,6 +164,7 @@ func (g *CanaryGenerator) GenerateCanary() string {
 		Count:       0,
 	})
 	if err != nil {
+		buildLog.Errorf("Failed to marshal canary data: %v", err)
 		return ""
 	}
 	err = bucket.Set(canaryDomain, canary)
