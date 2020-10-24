@@ -93,6 +93,10 @@ const (
 	WorkerKvNamespaceBindingType WorkerBindingType = "kv_namespace"
 	// WorkerWebAssemblyBindingType is the type for Web Assembly module bindings
 	WorkerWebAssemblyBindingType WorkerBindingType = "wasm_module"
+	// WorkerSecretTextBindingType is the type for secret text bindings
+	WorkerSecretTextBindingType WorkerBindingType = "secret_text"
+	// WorkerPlainTextBindingType is the type for plain text bindings
+	WorkerPlainTextBindingType WorkerBindingType = "plain_text"
 )
 
 // WorkerBindingListItem a struct representing an individual binding in a list of bindings
@@ -212,6 +216,54 @@ func (b WorkerWebAssemblyBinding) serialize(bindingName string) (workerBindingMe
 		"type": b.Type(),
 		"part": partName,
 	}, bodyWriter, nil
+}
+
+// WorkerPlainTextBinding is a binding to plain text
+//
+// https://developers.cloudflare.com/workers/tooling/api/scripts/#add-a-plain-text-binding
+type WorkerPlainTextBinding struct {
+	Text string
+}
+
+// Type returns the type of the binding
+func (b WorkerPlainTextBinding) Type() WorkerBindingType {
+	return WorkerPlainTextBindingType
+}
+
+func (b WorkerPlainTextBinding) serialize(bindingName string) (workerBindingMeta, workerBindingBodyWriter, error) {
+	if b.Text == "" {
+		return nil, nil, errors.Errorf(`Text for binding "%s" cannot be empty`, bindingName)
+	}
+
+	return workerBindingMeta{
+		"name": bindingName,
+		"type": b.Type(),
+		"text": b.Text,
+	}, nil, nil
+}
+
+// WorkerSecretTextBinding is a binding to secret text
+//
+// https://developers.cloudflare.com/workers/tooling/api/scripts/#add-a-secret-text-binding
+type WorkerSecretTextBinding struct {
+	Text string
+}
+
+// Type returns the type of the binding
+func (b WorkerSecretTextBinding) Type() WorkerBindingType {
+	return WorkerSecretTextBindingType
+}
+
+func (b WorkerSecretTextBinding) serialize(bindingName string) (workerBindingMeta, workerBindingBodyWriter, error) {
+	if b.Text == "" {
+		return nil, nil, errors.Errorf(`Text for binding "%s" cannot be empty`, bindingName)
+	}
+
+	return workerBindingMeta{
+		"name": bindingName,
+		"type": b.Type(),
+		"text": b.Text,
+	}, nil, nil
 }
 
 // Each binding that adds a part to the multipart form body will need
@@ -356,6 +408,13 @@ func (api *API) ListWorkerBindings(requestParams *WorkerRequestParams) (WorkerBi
 					bindingName:   name,
 				},
 			}
+		case WorkerPlainTextBindingType:
+			text := jsonBinding["text"].(string)
+			bindingListItem.Binding = WorkerPlainTextBinding{
+				Text: text,
+			}
+		case WorkerSecretTextBindingType:
+			bindingListItem.Binding = WorkerSecretTextBinding{}
 		default:
 			bindingListItem.Binding = WorkerInheritBinding{}
 		}
@@ -662,7 +721,7 @@ func getRouteEndpoint(api *API, route WorkerRoute) (string, error) {
 		return "", errors.New("Only `Script` or `Enabled` may be specified for a WorkerRoute, not both")
 	}
 
-	// For backwards-compatability, fallback to the deprecated filter
+	// For backwards-compatibility, fallback to the deprecated filter
 	// endpoint if Enabled == true
 	// https://api.cloudflare.com/#worker-filters-deprecated--properties
 	if route.Enabled == true {

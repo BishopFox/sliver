@@ -207,7 +207,7 @@ type RailgunDiagnosis struct {
 	CFCacheStatus string `json:"cf-cache-status"`
 }
 
-// railgunDiagnosisResponse represents the response from the Test Railgun Connection enpoint.
+// railgunDiagnosisResponse represents the response from the Test Railgun Connection endpoint.
 type railgunDiagnosisResponse struct {
 	Response
 	Result RailgunDiagnosis `json:"result"`

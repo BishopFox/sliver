@@ -41,6 +41,10 @@ func newCompleter(commands *Commands) *completer {
 }
 
 func (c *completer) Do(line []rune, pos int) (newLine [][]rune, length int) {
+	// Discard anything after the cursor position.
+	// This is similar behaviour to shell/bash.
+	line = line[:pos]
+
 	var words []string
 	if w, err := shlex.Split(string(line), true); err == nil {
 		words = w
@@ -49,7 +53,7 @@ func (c *completer) Do(line []rune, pos int) (newLine [][]rune, length int) {
 	}
 
 	prefix := ""
-	if len(words) > 0 && line[pos-1] != ' ' {
+	if len(words) > 0 && pos >= 1 && line[pos-1] != ' ' {
 		prefix = words[len(words)-1]
 		words = words[:len(words)-1]
 	}

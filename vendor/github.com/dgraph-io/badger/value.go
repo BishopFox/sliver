@@ -365,7 +365,7 @@ func (vlog *valueLog) rewrite(f *logFile, tr trace.Trace) error {
 		if err != nil {
 			return err
 		}
-		if discardEntry(e, vs) {
+		if discardEntry(e, vs, vlog.db) {
 			return nil
 		}
 
@@ -411,6 +411,11 @@ func (vlog *valueLog) rewrite(f *logFile, tr trace.Trace) error {
 
 			ne.Value = append([]byte{}, e.Value...)
 			es := int64(ne.estimateSize(vlog.opt.ValueThreshold))
+			// Consider size of value as well while considering the total size
+			// of the batch. There have been reports of high memory usage in
+			// rewrite because we don't consider the value size. See #1292.
+			es += int64(len(e.Value))
+
 			// Ensure length and size of wb is within transaction limits.
 			if int64(len(wb)+1) >= vlog.opt.maxBatchCount ||
 				size+es >= vlog.opt.maxBatchSize {
@@ -756,10 +761,22 @@ func (vlog *valueLog) createVlogFile(fid uint32) (*logFile, error) {
 	if lf.fd, err = y.CreateSyncedFile(path, vlog.opt.SyncWrites); err != nil {
 		return nil, errFile(err, lf.path, "Create value log file")
 	}
+
+	removeFile := func() {
+		// Remove the file so that we don't get an error when createVlogFile is
+		// called for the same fid, again. This could happen if there is an
+		// transient error because of which we couldn't create a new file
+		// and the second attempt to create the file succeeds.
+		y.Check(os.Remove(lf.fd.Name()))
+	}
+
 	if err = syncDir(vlog.dirPath); err != nil {
+		removeFile()
 		return nil, errFile(err, vlog.dirPath, "Sync value log dir")
 	}
+
 	if err = lf.mmap(2 * vlog.opt.ValueLogFileSize); err != nil {
+		removeFile()
 		return nil, errFile(err, lf.path, "Mmap value log file")
 	}
 
@@ -1319,7 +1336,7 @@ func (vlog *valueLog) pickLog(head valuePointer, tr trace.Trace) (files []*logFi
 	return files
 }
 
-func discardEntry(e Entry, vs y.ValueStruct) bool {
+func discardEntry(e Entry, vs y.ValueStruct, db *DB) bool {
 	if vs.Version != y.ParseTs(e.Key) {
 		// Version not found. Discard.
 		return true
@@ -1334,6 +1351,16 @@ func discardEntry(e Entry, vs y.ValueStruct) bool {
 	if (vs.Meta & bitFinTxn) > 0 {
 		// Just a txn finish entry. Discard.
 		return true
+	}
+	if bytes.HasPrefix(e.Key, badgerMove) {
+		// Verify the actual key entry without the badgerPrefix has not been deleted.
+		// If this is not done the badgerMove entry will be kept forever moving from
+		// vlog to vlog during rewrites.
+		avs, err := db.get(e.Key[len(badgerMove):])
+		if err != nil {
+			return false
+		}
+		return avs.Version == 0
 	}
 	return false
 }
@@ -1407,7 +1434,7 @@ func (vlog *valueLog) doRunGC(lf *logFile, discardRatio float64, tr trace.Trace)
 		if err != nil {
 			return err
 		}
-		if discardEntry(e, vs) {
+		if discardEntry(e, vs, vlog.db) {
 			r.discard += esz
 			return nil
 		}

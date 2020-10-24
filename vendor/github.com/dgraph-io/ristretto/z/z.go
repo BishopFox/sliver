@@ -36,8 +36,7 @@ func KeyToHash(key interface{}) (uint64, uint64) {
 	case uint64:
 		return k, 0
 	case string:
-		raw := []byte(k)
-		return MemHash(raw), xxhash.Sum64(raw)
+		return MemHashString(k), xxhash.Sum64String(k)
 	case []byte:
 		return MemHash(k), xxhash.Sum64(k)
 	case byte:

@@ -89,8 +89,12 @@ func (i *Input) Prompt(config *PromptConfig) (interface{}, error) {
 		return i.Default, err
 	}
 
+	lineStr := string(line)
+
+	i.AppendRenderedText(lineStr)
+
 	// we're done
-	return string(line), err
+	return lineStr, err
 }
 
 func (i *Input) Cleanup(config *PromptConfig, val interface{}) error {

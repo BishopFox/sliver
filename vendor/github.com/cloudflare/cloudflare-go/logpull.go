@@ -6,29 +6,29 @@ import (
 	"github.com/pkg/errors"
 )
 
-// LogpullRentionConfiguration describes a the structure of a Logpull Rention
+// LogpullRetentionConfiguration describes a the structure of a Logpull Retention
 // payload.
-type LogpullRentionConfiguration struct {
+type LogpullRetentionConfiguration struct {
 	Flag bool `json:"flag"`
 }
 
-// LogpullRentionConfigurationResponse is the API response, containing the
-// Logpull rentention result.
-type LogpullRentionConfigurationResponse struct {
+// LogpullRetentionConfigurationResponse is the API response, containing the
+// Logpull retention result.
+type LogpullRetentionConfigurationResponse struct {
 	Response
-	Result LogpullRentionConfiguration `json:"result"`
+	Result LogpullRetentionConfiguration `json:"result"`
 }
 
-// GetLogpullRentionFlag gets the current setting flag.
+// GetLogpullRetentionFlag gets the current setting flag.
 //
 // API reference: https://developers.cloudflare.com/logs/logpull-api/enabling-log-retention/
-func (api *API) GetLogpullRentionFlag(zoneID string) (*LogpullRentionConfiguration, error) {
+func (api *API) GetLogpullRetentionFlag(zoneID string) (*LogpullRetentionConfiguration, error) {
 	uri := "/zones/" + zoneID + "/logs/control/retention/flag"
 	res, err := api.makeRequest("GET", uri, nil)
 	if err != nil {
-		return &LogpullRentionConfiguration{}, errors.Wrap(err, errMakeRequestError)
+		return &LogpullRetentionConfiguration{}, errors.Wrap(err, errMakeRequestError)
 	}
-	var r LogpullRentionConfigurationResponse
+	var r LogpullRetentionConfigurationResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
 		return nil, errors.Wrap(err, errUnmarshalError)
@@ -36,21 +36,21 @@ func (api *API) GetLogpullRentionFlag(zoneID string) (*LogpullRentionConfigurati
 	return &r.Result, nil
 }
 
-// SetLogpullRentionFlag updates the retention flag to the defined boolean.
+// SetLogpullRetentionFlag updates the retention flag to the defined boolean.
 //
 // API reference: https://developers.cloudflare.com/logs/logpull-api/enabling-log-retention/
-func (api *API) SetLogpullRentionFlag(zoneID string, enabled bool) (*LogpullRentionConfiguration, error) {
+func (api *API) SetLogpullRetentionFlag(zoneID string, enabled bool) (*LogpullRetentionConfiguration, error) {
 	uri := "/zones/" + zoneID + "/logs/control/retention/flag"
-	flagPayload := LogpullRentionConfiguration{Flag: enabled}
+	flagPayload := LogpullRetentionConfiguration{Flag: enabled}
 
 	res, err := api.makeRequest("POST", uri, flagPayload)
 	if err != nil {
-		return &LogpullRentionConfiguration{}, errors.Wrap(err, errMakeRequestError)
+		return &LogpullRetentionConfiguration{}, errors.Wrap(err, errMakeRequestError)
 	}
-	var r LogpullRentionConfigurationResponse
+	var r LogpullRetentionConfigurationResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return &LogpullRentionConfiguration{}, errors.Wrap(err, errMakeRequestError)
+		return &LogpullRetentionConfiguration{}, errors.Wrap(err, errMakeRequestError)
 	}
 	return &r.Result, nil
 }

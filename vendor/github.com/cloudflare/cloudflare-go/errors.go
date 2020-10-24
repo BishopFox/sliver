@@ -2,12 +2,14 @@ package cloudflare
 
 // Error messages
 const (
-	errEmptyCredentials     = "invalid credentials: key & email must not be empty"
-	errEmptyAPIToken        = "invalid credentials: API Token must not be empty"
-	errMakeRequestError     = "error from makeRequest"
-	errUnmarshalError       = "error unmarshalling the JSON response"
-	errRequestNotSuccessful = "error reported by API"
-	errMissingAccountID     = "account ID is empty and must be provided"
+	errEmptyCredentials          = "invalid credentials: key & email must not be empty"
+	errEmptyAPIToken             = "invalid credentials: API Token must not be empty"
+	errMakeRequestError          = "error from makeRequest"
+	errUnmarshalError            = "error unmarshalling the JSON response"
+	errRequestNotSuccessful      = "error reported by API"
+	errMissingAccountID          = "account ID is empty and must be provided"
+	errOperationStillRunning     = "bulk operation did not finish before timeout"
+	errOperationUnexpectedStatus = "bulk operation returned an unexpected status"
 )
 
 var _ Error = &UserError{}

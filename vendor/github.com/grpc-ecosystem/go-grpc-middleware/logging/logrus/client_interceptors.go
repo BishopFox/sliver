@@ -8,6 +8,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
@@ -19,7 +20,8 @@ func UnaryClientInterceptor(entry *logrus.Entry, opts ...Option) grpc.UnaryClien
 		fields := newClientLoggerFields(ctx, method)
 		startTime := time.Now()
 		err := invoker(ctx, method, req, reply, cc, opts...)
-		logFinalClientLine(o, entry.WithFields(fields), startTime, err, "finished client unary call")
+		newCtx := ctxlogrus.ToContext(ctx, entry.WithFields(fields))
+		logFinalClientLine(newCtx, o, startTime, err, "finished client unary call")
 		return err
 	}
 }
@@ -31,12 +33,13 @@ func StreamClientInterceptor(entry *logrus.Entry, opts ...Option) grpc.StreamCli
 		fields := newClientLoggerFields(ctx, method)
 		startTime := time.Now()
 		clientStream, err := streamer(ctx, desc, cc, method, opts...)
-		logFinalClientLine(o, entry.WithFields(fields), startTime, err, "finished client streaming call")
+		newCtx := ctxlogrus.ToContext(ctx, entry.WithFields(fields))
+		logFinalClientLine(newCtx, o, startTime, err, "finished client streaming call")
 		return clientStream, err
 	}
 }
 
-func logFinalClientLine(o *options, entry *logrus.Entry, startTime time.Time, err error, msg string) {
+func logFinalClientLine(ctx context.Context, o *options, startTime time.Time, err error, msg string) {
 	code := o.codeFunc(err)
 	level := o.levelFunc(code)
 	durField, durVal := o.durationFunc(time.Now().Sub(startTime))
@@ -44,13 +47,7 @@ func logFinalClientLine(o *options, entry *logrus.Entry, startTime time.Time, er
 		"grpc.code": code.String(),
 		durField:    durVal,
 	}
-	if err != nil {
-		fields[logrus.ErrorKey] = err
-	}
-	levelLogf(
-		entry.WithFields(fields),
-		level,
-		msg)
+	o.messageFunc(ctx, msg, level, code, err, fields)
 }
 
 func newClientLoggerFields(ctx context.Context, fullMethodString string) logrus.Fields {

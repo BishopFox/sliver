@@ -21,7 +21,7 @@ type VirtualDNS struct {
 	ModifiedOn           string   `json:"modified_on"`
 }
 
-// VirtualDNSAnalyticsMetrics respresents a group of aggregated Virtual DNS metrics.
+// VirtualDNSAnalyticsMetrics represents a group of aggregated Virtual DNS metrics.
 type VirtualDNSAnalyticsMetrics struct {
 	QueryCount         *int64   `json:"queryCount"`
 	UncachedCount      *int64   `json:"uncachedCount"`

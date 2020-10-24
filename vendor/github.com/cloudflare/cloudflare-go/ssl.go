@@ -45,11 +45,11 @@ type zoneCustomSSLsResponse struct {
 // ZoneCustomSSLOptions represents the parameters to create or update an existing
 // custom SSL configuration.
 type ZoneCustomSSLOptions struct {
-	Certificate     string                       `json:"certificate"`
-	PrivateKey      string                       `json:"private_key"`
-	BundleMethod    string                       `json:"bundle_method,omitempty"`
-	GeoRestrictions ZoneCustomSSLGeoRestrictions `json:"geo_restrictions,omitempty"`
-	Type            string                       `json:"type,omitempty"`
+	Certificate     string                        `json:"certificate"`
+	PrivateKey      string                        `json:"private_key"`
+	BundleMethod    string                        `json:"bundle_method,omitempty"`
+	GeoRestrictions *ZoneCustomSSLGeoRestrictions `json:"geo_restrictions,omitempty"`
+	Type            string                        `json:"type,omitempty"`
 }
 
 // ZoneCustomSSLPriority represents a certificate's ID and priority. It is a
