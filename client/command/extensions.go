@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -166,8 +167,11 @@ func load(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			},
 			Flags: func(f *grumble.Flags) {
 				if extCmd.IsAssembly {
-					f.Bool("a", "amsi", false, "use AMSI bypass (disabled by default)")
-					f.Bool("e", "etw", false, "patch EtwEventWrite function to avoid detection (disabled by default)")
+					f.Bool("b", "bypass", false, "Bypass AMSI/WLDP (disabled by default)")
+					f.String("m", "method", "", "Optional method (a method is required for a .NET DLL)")
+					f.String("c", "class", "", "Optional class name (required for .NET DLL)")
+					f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
+					f.String("a", "arch", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
 				}
 				f.String("p", "process", "", "Path to process to host the shared object")
 				f.Bool("s", "save", false, "Save output to disk")
@@ -221,7 +225,10 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			return
 		}
 	}
-
+	isDLL := false
+	if filepath.Ext(binPath) == ".dll" {
+		isDLL = true
+	}
 	binData, err := ioutil.ReadFile(binPath)
 	if err != nil {
 		fmt.Printf(Warn+"%s", err.Error())
@@ -237,12 +244,16 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, args)
 		go spin.Until(msg, ctrl)
 		executeAssemblyResp, err := rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
-			Request:    ActiveSession.Request(ctx),
-			AmsiBypass: ctx.Flags.Bool("amsi"),
-			EtwBypass:  ctx.Flags.Bool("etw"),
-			Arguments:  args,
-			Assembly:   binData,
-			Process:    processName,
+			Request:   ActiveSession.Request(ctx),
+			IsDLL:     isDLL,
+			Process:   processName,
+			Arguments: args,
+			Assembly:  binData,
+			Arch:      ctx.Flags.String("arch"),
+			Method:    ctx.Flags.String("method"),
+			ClassName: ctx.Flags.String("class"),
+			AppDomain: ctx.Flags.String("app-domain"),
+			Bypass:    ctx.Flags.Bool("bypass"),
 		})
 		ctrl <- true
 		<-ctrl

@@ -30,6 +30,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -238,7 +239,18 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn + "Please provide valid arguments.\n")
 		return
 	}
-	assemblyBytes, err := ioutil.ReadFile(ctx.Args[0])
+	filePath := ctx.Args[0]
+	isDLL := false
+	if filepath.Ext(filePath) == ".dll" {
+		isDLL = true
+	}
+	if isDLL {
+		if ctx.Flags.String("class") == "" || ctx.Flags.String("method") == "" {
+			fmt.Printf(Warn + "Please provide a class name (namespace.class) and method\n")
+			return
+		}
+	}
+	assemblyBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		fmt.Printf(Warn+"%s", err.Error())
 		return
@@ -255,12 +267,16 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	ctrl := make(chan bool)
 	go spin.Until("Executing assembly ...", ctrl)
 	executeAssembly, err := rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
-		Request:    ActiveSession.Request(ctx),
-		AmsiBypass: ctx.Flags.Bool("amsi"),
-		Process:    process,
-		Arguments:  assemblyArgs,
-		Assembly:   assemblyBytes,
-		EtwBypass:  ctx.Flags.Bool("etw"),
+		Request:   ActiveSession.Request(ctx),
+		IsDLL:     isDLL,
+		Process:   process,
+		Arguments: assemblyArgs,
+		Assembly:  assemblyBytes,
+		Arch:      ctx.Flags.String("arch"),
+		Method:    ctx.Flags.String("method"),
+		ClassName: ctx.Flags.String("class"),
+		AppDomain: ctx.Flags.String("app-domain"),
+		Bypass:    ctx.Flags.Bool("bypass"),
 	})
 	ctrl <- true
 	<-ctrl

