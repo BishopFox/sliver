@@ -132,9 +132,12 @@ func startDNSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		}
 	}
 
+	lport := uint16(ctx.Flags.Int("lport"))
+
 	fmt.Printf(Info+"Starting DNS listener with parent domain(s) %v ...\n", domains)
 	dns, err := rpc.StartDNSListener(context.Background(), &clientpb.DNSListenerReq{
 		Domains:    domains,
+		Port:       uint32(lport),
 		Canaries:   !ctx.Flags.Bool("no-canaries"),
 		Persistent: ctx.Flags.Bool("persistent"),
 	})
