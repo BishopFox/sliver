@@ -44,6 +44,7 @@ var (
 
 		consts.MsfStr:              msfHelp,
 		consts.MsfInjectStr:        msfInjectHelp,
+		consts.PersistStr:          persistHelp,
 		consts.PsStr:               psHelp,
 		consts.PingStr:             pingHelp,
 		consts.KillStr:             killHelp,
@@ -188,6 +189,9 @@ settings, but will still have per-binary certificates/obfuscation/etc. This comm
 
 	msfInjectHelp = `[[.Bold]]Command:[[.Normal]] inject [--pid] [--lhost] <options>
 [[.Bold]]About:[[.Normal]] Execute a metasploit payload in a remote process.`
+
+	persistHelp = `[[.Bold]]Command:[[.Normal]] persist [-u]
+[[.Bold]]About:[[.Normal]] Persist a sliver accross reboots on remote system.`
 
 	psHelp = `[[.Bold]]Command:[[.Normal]] ps <options>
 [[.Bold]]About:[[.Normal]] List processes on remote system.`

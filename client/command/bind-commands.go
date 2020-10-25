@@ -636,6 +636,25 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
+		Name:     consts.PersistStr,
+		Help:     "Persist a sliver across reboots",
+		LongHelp: help.GetHelpFor(consts.PersistStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "sliver", "", "Sliver to persist")
+			f.Bool("u", "unload", false, "Unload persistence")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			persist(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
 		Name:     consts.PingStr,
 		Help:     "Send round trip message to implant (does not use ICMP)",
 		LongHelp: help.GetHelpFor(consts.PingStr),
