@@ -276,7 +276,6 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Method:    ctx.Flags.String("method"),
 		ClassName: ctx.Flags.String("class"),
 		AppDomain: ctx.Flags.String("app-domain"),
-		Bypass:    ctx.Flags.Bool("bypass"),
 	})
 	ctrl <- true
 	<-ctrl

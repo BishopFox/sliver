@@ -995,7 +995,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "process", "notepad.exe", "hosting process to inject into")
-			f.Bool("b", "bypass", false, "Bypass AMSI/WLDP (disabled by default)")
 			f.String("m", "method", "", "Optional method (a method is required for a .NET DLL)")
 			f.String("c", "class", "", "Optional class name (required for .NET DLL)")
 			f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")

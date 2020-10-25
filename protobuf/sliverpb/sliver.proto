@@ -284,13 +284,12 @@ message ExecuteAssemblyReq {
   bytes Assembly = 1;
   string Arguments = 2;
   string Process = 3;
-  bool Bypass = 4;
-  bool IsDLL = 5;
-  string Arch = 6;
-  string ClassName = 7;
-  string Method = 8;
+  bool IsDLL = 4;
+  string Arch = 5;
+  string ClassName = 6;
+  string Method = 7;
+  string AppDomain = 8;
   commonpb.Request Request = 9;
-  string AppDomain = 10;
 }
 
 message InvokeExecuteAssemblyReq {

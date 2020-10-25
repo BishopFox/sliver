@@ -2,8 +2,6 @@ package generate
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -44,33 +42,25 @@ func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, cl
 }
 
 // DonutFromAssembly - Generate a donut shellcode from a .NET assembly
-func DonutFromAssembly(assembly []byte, isDLL bool, bypass bool, arch string, params string, method string, className string, appDomain string) ([]byte, error) {
+func DonutFromAssembly(assembly []byte, isDLL bool, arch string, params string, method string, className string, appDomain string) ([]byte, error) {
 	ext := ".exe"
 	if isDLL {
 		ext = ".dll"
 	}
-	bp := 3
-	if !bypass {
-		bp = 1
-	}
 	donutArch := getDonutArch(arch)
 	config := donut.DefaultConfig()
 	config.DotNetMode = true
-	config.Bypass = bp
-	config.Runtime = "v4.0.30319"
+	config.Bypass = 3
+	config.Runtime = "v4.0.30319" // we might want to make this configurable
 	config.Format = 1
 	config.Arch = donutArch
 	config.Class = className
 	config.Parameters = params
 	config.Domain = appDomain
 	config.Method = method
-	// config.Thread = 1
-	// config.ExitOpt = 1
 	config.Entropy = 3
 	config.Unicode = 0
 	config.Type = getDonutType(ext, true)
-	s, _ := json.MarshalIndent(config, "", "\t")
-	fmt.Print(string(s))
 	return getDonut(assembly, config)
 }
 

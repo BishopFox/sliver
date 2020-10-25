@@ -97,7 +97,6 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 	shellcode, err := generate.DonutFromAssembly(
 		req.Assembly,
 		req.IsDLL,
-		req.Bypass,
 		req.Arch,
 		req.Arguments,
 		req.Method,

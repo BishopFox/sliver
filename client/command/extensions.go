@@ -167,7 +167,6 @@ func load(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			},
 			Flags: func(f *grumble.Flags) {
 				if extCmd.IsAssembly {
-					f.Bool("b", "bypass", false, "Bypass AMSI/WLDP (disabled by default)")
 					f.String("m", "method", "", "Optional method (a method is required for a .NET DLL)")
 					f.String("c", "class", "", "Optional class name (required for .NET DLL)")
 					f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
@@ -253,7 +252,6 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			Method:    ctx.Flags.String("method"),
 			ClassName: ctx.Flags.String("class"),
 			AppDomain: ctx.Flags.String("app-domain"),
-			Bypass:    ctx.Flags.Bool("bypass"),
 		})
 		ctrl <- true
 		<-ctrl
