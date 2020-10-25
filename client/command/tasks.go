@@ -256,11 +256,9 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	assemblyArgs := ""
+	var assemblyArgs []string
 	if len(ctx.Args) == 2 {
-		assemblyArgs = ctx.Args[1]
-	} else if len(ctx.Args) < 2 {
-		assemblyArgs = " "
+		assemblyArgs = ctx.Args[1:]
 	}
 	process := ctx.Flags.String("process")
 
@@ -270,7 +268,7 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Request:   ActiveSession.Request(ctx),
 		IsDLL:     isDLL,
 		Process:   process,
-		Arguments: assemblyArgs,
+		Arguments: strings.Join(assemblyArgs, " "),
 		Assembly:  assemblyBytes,
 		Arch:      ctx.Flags.String("arch"),
 		Method:    ctx.Flags.String("method"),
