@@ -108,7 +108,10 @@ func rootLogger() *logrus.Logger {
 // RootLogger - Returns the root logger
 func txtLogger() *logrus.Logger {
 	txtLogger := logrus.New()
-	txtLogger.Formatter = &logrus.TextFormatter{ForceColors: true}
+	txtLogger.Formatter = &logrus.TextFormatter{
+		ForceColors: true,
+		FullTimestamp: true,
+	}
 	txtFilePath := path.Join(GetLogDir(), "sliver.log")
 	txtFile, err := os.OpenFile(txtFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
