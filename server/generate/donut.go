@@ -57,6 +57,7 @@ func DonutFromAssembly(assembly []byte, isDLL bool, bypass bool, arch string, pa
 	config := donut.DefaultConfig()
 	config.DotNetMode = true
 	config.Bypass = bp
+	config.Runtime = "v4.0.30319"
 	config.Format = 1
 	config.Arch = donutArch
 	config.Class = className
