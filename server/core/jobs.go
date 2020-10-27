@@ -29,10 +29,10 @@ import (
 var (
 	// Jobs - Holds pointers to all the current jobs
 	Jobs = &jobs{
-		active: &map[int]*Job{},
+		active: map[int]*Job{},
 		mutex:  &sync.RWMutex{},
 	}
-	jobID = new(int)
+	jobID = 0
 )
 
 // Job - Manages background jobs
@@ -61,7 +61,7 @@ func (j *Job) ToProtobuf() *clientpb.Job {
 
 // jobs - Holds refs to all active jobs
 type jobs struct {
-	active *map[int]*Job
+	active map[int]*Job
 	mutex  *sync.RWMutex
 }
 
@@ -70,7 +70,7 @@ func (j *jobs) All() []*Job {
 	j.mutex.RLock()
 	defer j.mutex.RUnlock()
 	all := []*Job{}
-	for _, job := range *j.active {
+	for _, job := range j.active {
 		all = append(all, job)
 	}
 	return all
@@ -80,7 +80,7 @@ func (j *jobs) All() []*Job {
 func (j *jobs) Add(job *Job) {
 	j.mutex.Lock()
 	defer j.mutex.Unlock()
-	(*j.active)[job.ID] = job
+	j.active[job.ID] = job
 	EventBroker.Publish(Event{
 		Job:       job,
 		EventType: consts.JobStartedEvent,
@@ -91,7 +91,7 @@ func (j *jobs) Add(job *Job) {
 func (j *jobs) Remove(job *Job) {
 	j.mutex.Lock()
 	defer j.mutex.Unlock()
-	delete((*j.active), job.ID)
+	delete(j.active, job.ID)
 	EventBroker.Publish(Event{
 		Job:       job,
 		EventType: consts.JobStoppedEvent,
@@ -105,12 +105,12 @@ func (j *jobs) Get(jobID int) *Job {
 	}
 	j.mutex.RLock()
 	defer j.mutex.RUnlock()
-	return (*j.active)[jobID]
+	return j.active[jobID]
 }
 
 // NextJobID - Returns an incremental nonce as an id
 func NextJobID() int {
-	newID := (*jobID) + 1
-	(*jobID)++
+	newID := jobID + 1
+	jobID++
 	return newID
 }

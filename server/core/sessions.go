@@ -33,10 +33,10 @@ import (
 var (
 	// Sessions - Manages implant connections
 	Sessions = &sessions{
-		sessions: &map[uint32]*Session{},
+		sessions: map[uint32]*Session{},
 		mutex:    &sync.RWMutex{},
 	}
-	hiveID = new(uint32)
+	hiveID = uint32(0)
 
 	// ErrUnknownMessateType - Returned if the implant did not understand the message for
 	//                         example when the command is not supported on the platform
@@ -153,7 +153,7 @@ func (s *Session) UpdateCheckin() {
 // sessions - Manages the slivers, provides atomic access
 type sessions struct {
 	mutex    *sync.RWMutex
-	sessions *map[uint32]*Session
+	sessions map[uint32]*Session
 }
 
 // All - Return a list of all sessions
@@ -161,7 +161,7 @@ func (s *sessions) All() []*Session {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	all := []*Session{}
-	for _, session := range *s.sessions {
+	for _, session := range s.sessions {
 		all = append(all, session)
 	}
 	return all
@@ -171,14 +171,14 @@ func (s *sessions) All() []*Session {
 func (s *sessions) Get(sessionID uint32) *Session {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return (*s.sessions)[sessionID]
+	return s.sessions[sessionID]
 }
 
 // Add - Add a sliver to the hive (atomically)
 func (s *sessions) Add(session *Session) *Session {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	(*s.sessions)[session.ID] = session
+	s.sessions[session.ID] = session
 	EventBroker.Publish(Event{
 		EventType: consts.SessionOpenedEvent,
 		Session:   session,
@@ -190,9 +190,9 @@ func (s *sessions) Add(session *Session) *Session {
 func (s *sessions) Remove(sessionID uint32) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	session := (*s.sessions)[sessionID]
+	session := s.sessions[sessionID]
 	if session != nil {
-		delete((*s.sessions), sessionID)
+		delete(s.sessions, sessionID)
 		EventBroker.Publish(Event{
 			EventType: consts.SessionClosedEvent,
 			Session:   session,
@@ -202,15 +202,15 @@ func (s *sessions) Remove(sessionID uint32) {
 
 // NextSessionID - Returns an incremental nonce as an id
 func NextSessionID() uint32 {
-	newID := (*hiveID) + 1
-	(*hiveID)++
+	newID := hiveID + 1
+	hiveID++
 	return newID
 }
 
 func (s *sessions) UpdateSession(session *Session) *Session {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	(*s.sessions)[session.ID] = session
+	s.sessions[session.ID] = session
 	EventBroker.Publish(Event{
 		EventType: consts.SessionUpdateEvent,
 		Session:   session,
