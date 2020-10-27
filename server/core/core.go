@@ -23,9 +23,9 @@ import (
 	"encoding/binary"
 )
 
-// EnvelopeID - Generate random ID of randomIDSize bytes
+// EnvelopeID - Generate random ID of 8 bytes
 func EnvelopeID() uint64 {
-	randBuf := make([]byte, 8) // 64 bytes of randomness
+	randBuf := make([]byte, 8) // 64 bits of randomness
 	rand.Read(randBuf)
 	return binary.LittleEndian.Uint64(randBuf)
 }
