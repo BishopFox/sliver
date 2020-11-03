@@ -391,6 +391,16 @@ message Netstat {
   commonpb.Response Response = 9;
 }
 
+message EnvReq {
+  string Name = 1;
+  commonpb.Request Request = 9;
+}
+
+message EnvInfo {
+  repeated commonpb.EnvVar Variables = 1;
+  commonpb.Response Response = 9;
+}
+
 // DNS Specific messages
 message DNSSessionInit {
   bytes Key = 1;

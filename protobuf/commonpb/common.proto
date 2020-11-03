@@ -36,3 +36,9 @@ message Process {
   string Executable = 3;
   string Owner = 4;
 }
+
+// EnvVar - Environment variable K/V
+message EnvVar {
+  string Key = 1;
+  string Value = 2;
+}

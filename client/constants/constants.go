@@ -131,6 +131,7 @@ const (
 	PsExecStr     = "psexec"
 	BackdoorStr   = "backdoor"
 	MakeTokenStr  = "make-token"
+	GetEnvStr     = "getenv"
 )
 
 // Groups

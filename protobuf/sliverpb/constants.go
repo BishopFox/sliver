@@ -176,6 +176,10 @@ const (
 	MsgMakeTokenReq
 	// MsgMakeToken - Response for MakeToken
 	MsgMakeToken
+	// MsgEnvReq - Request to get environment variables
+	MsgEnvReq
+	// MsgEnvInfo - Response to environment variable request
+	MsgEnvInfo
 )
 
 // MsgNumber - Get a message number of type
@@ -332,6 +336,10 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgMakeTokenReq
 	case *MakeToken:
 		return MsgMakeToken
+	case *EnvReq:
+		return MsgEnvReq
+	case *EnvInfo:
+		return MsgEnvInfo
 
 	}
 	return uint32(0)

@@ -28,18 +28,17 @@ import (
 var (
 	// Clients - Manages client active
 	Clients = &clients{
-		active: &map[int]*Client{},
-		mutex:  &sync.RWMutex{},
+		active: map[int]*Client{},
+		mutex:  &sync.Mutex{},
 	}
 
-	clientID = new(int)
+	clientID = 0
 )
 
 // Client - Single client connection
 type Client struct {
 	ID       int
 	Operator *clientpb.Operator
-	// mutex    *sync.RWMutex
 }
 
 // ToProtobuf - Get the protobuf version of the object
@@ -52,15 +51,15 @@ func (c *Client) ToProtobuf() *clientpb.Client {
 
 // clients - Manage active clients
 type clients struct {
-	mutex  *sync.RWMutex
-	active *map[int]*Client
+	mutex  *sync.Mutex
+	active map[int]*Client
 }
 
 // AddClient - Add a client struct atomically
 func (cc *clients) Add(client *Client) {
 	cc.mutex.Lock()
 	defer cc.mutex.Unlock()
-	(*cc.active)[client.ID] = client
+	cc.active[client.ID] = client
 	EventBroker.Publish(Event{
 		EventType: consts.JoinedEvent,
 		Client:    client,
@@ -71,8 +70,8 @@ func (cc *clients) Add(client *Client) {
 func (cc *clients) Remove(clientID int) {
 	cc.mutex.Lock()
 	defer cc.mutex.Unlock()
-	client := (*cc.active)[clientID]
-	delete((*cc.active), clientID)
+	client := cc.active[clientID]
+	delete(cc.active, clientID)
 	EventBroker.Publish(Event{
 		EventType: consts.JoinedEvent,
 		Client:    client,
@@ -81,8 +80,8 @@ func (cc *clients) Remove(clientID int) {
 
 // nextClientID - Get a client ID
 func nextClientID() int {
-	newID := (*clientID) + 1
-	(*clientID)++
+	newID := clientID + 1
+	clientID++
 	return newID
 }
 

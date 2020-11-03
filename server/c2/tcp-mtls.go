@@ -101,7 +101,12 @@ func handleSliverConnection(conn net.Conn) {
 		conn.Close()
 	}()
 
+	done := make(chan bool)
+
 	go func() {
+		defer func() {
+			done <- true
+		}()
 		handlers := serverHandlers.GetSessionHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
@@ -122,11 +127,17 @@ func handleSliverConnection(conn net.Conn) {
 		}
 	}()
 
-	for envelope := range session.Send {
-		err := socketWriteEnvelope(conn, envelope)
-		if err != nil {
-			mtlsLog.Errorf("Socket write failed %v", err)
-			return
+Loop:
+	for {
+		select {
+		case envelope := <-session.Send:
+			err := socketWriteEnvelope(conn, envelope)
+			if err != nil {
+				mtlsLog.Errorf("Socket write failed %v", err)
+				break Loop
+			}
+		case <-done:
+			break Loop
 		}
 	}
 	mtlsLog.Infof("Closing connection to session %s", session.Name)
