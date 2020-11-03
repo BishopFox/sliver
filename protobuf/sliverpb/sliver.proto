@@ -167,6 +167,42 @@ message Mkdir {
   commonpb.Response Response = 9;
 }
 
+message DbDeleteReq {
+  string Bucket = 1;
+  string Key = 2;
+
+  commonpb.Request Request = 9;
+}
+
+message DbDelete {
+  commonpb.Response Response = 9;
+}
+
+message DbGetReq {
+  string Bucket = 1;
+  string Key = 2;
+
+  commonpb.Request Request = 9;
+}
+
+message DbGet {
+  bytes Value = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message DbSetReq {
+  string Bucket = 1;
+  string Key = 2;
+  bytes Value = 3;
+
+  commonpb.Request Request = 9;
+}
+
+message DbSet {
+  commonpb.Response Response = 9;
+}
+
 message DownloadReq {
   string Path = 1;
 
