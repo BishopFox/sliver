@@ -71,6 +71,7 @@ var (
 		consts.WebsitesStr:   websitesHelp,
 		consts.ScreenshotStr: screenshotHelp,
 		consts.MakeTokenStr:  makeTokenHelp,
+		consts.GetEnvStr:     getEnvHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -384,6 +385,11 @@ The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows u
 	makeTokenHelp = `[[.Bold]]Command:[[.Normal]] make-token -u USERNAME -d DOMAIN -p PASSWORD
 [[.Bold]]About:[[.Normal]] Creates a new Logon Session from the specified credentials and impersonate the resulting token.
 `
+
+	getEnvHelp = `[[.Bold]]Command:[[.Normal]] getenv [name]
+[[.Bold]]About:[[.Normal]] Retrieve the environment variables for the current session. If no variable name is provided, lists all the environment variables.
+[[.Bold]]Example:[[.Normal]] getenv SHELL
+	`
 )
 
 const (

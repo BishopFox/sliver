@@ -55,3 +55,16 @@ func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillSessionRe
 	session.Request(sliverpb.MsgNumber(kill), timeout, data)
 	return &commonpb.Empty{}, nil
 }
+
+// UpdateSession - Update a session
+func (rpc *Server) UpdateSession(ctx context.Context, update *clientpb.UpdateSession) (*clientpb.Session, error) {
+	resp := &clientpb.Session{}
+	session := core.Sessions.Get(update.SessionID)
+	if session == nil {
+		return resp, ErrInvalidSessionID
+	}
+	session.Name = update.Name
+	core.Sessions.UpdateSession(session)
+	resp = session.ToProtobuf()
+	return resp, nil
+}

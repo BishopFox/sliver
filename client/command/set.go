@@ -19,12 +19,13 @@ package command
 */
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 
 	//consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/server/core"
 
 	"github.com/desertbit/grumble"
 )
@@ -34,25 +35,26 @@ func setCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	// Option to change the agent name
 	name := ctx.Flags.String("name")
 
-	if name != "" {
-		setName(name)
+	if name == "" {
+		fmt.Printf(Warn + "please provide a session name\n")
+		return
 	}
-
-}
-
-func setName(name string) {
-
 	isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
 	if !isAlphanumeric(name) {
 		fmt.Printf(Warn + "Name must be in alphanumeric only\n")
 		return
 	}
 
-	activeSessionID := ActiveSession.session.ID
-	currentSession := core.Sessions.Get(activeSessionID)
-	currentSession.Name = name
+	session, err := rpc.UpdateSession(context.Background(), &clientpb.UpdateSession{
+		SessionID: ActiveSession.session.ID,
+		Name:      name,
+	})
 
-	core.Sessions.UpdateSession(currentSession)
-	ActiveSession.Set(currentSession.ToProtobuf())
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
+
+	ActiveSession.Set(session)
 
 }

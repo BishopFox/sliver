@@ -18,6 +18,7 @@ service SliverRPC {
     // *** Sessions ***
     rpc GetSessions(commonpb.Empty) returns (clientpb.Sessions);
     rpc KillSession(sliverpb.KillSessionReq) returns (commonpb.Empty);
+    rpc UpdateSession(clientpb.UpdateSession) returns (clientpb.Session);
     
     // *** Jobs ***
     rpc GetJobs(commonpb.Empty) returns (clientpb.Jobs);
@@ -83,6 +84,7 @@ service SliverRPC {
     rpc StopService(sliverpb.StopServiceReq) returns (sliverpb.ServiceInfo);
     rpc RemoveService(sliverpb.RemoveServiceReq) returns (sliverpb.ServiceInfo);
     rpc MakeToken(sliverpb.MakeTokenReq) returns (sliverpb.MakeToken);
+    rpc GetEnv(sliverpb.EnvReq) returns (sliverpb.EnvInfo);
 
     // *** Realtime Commands ***
     rpc Shell(sliverpb.ShellReq) returns (sliverpb.Shell);

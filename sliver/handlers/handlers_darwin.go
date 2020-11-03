@@ -24,6 +24,7 @@ import (
 	// {{else}}
 	// {{end}}
 
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -41,14 +42,14 @@ var (
 		pb.MsgMkdirReq:     mkdirHandler,
 		pb.MsgIfconfigReq:  ifconfigHandler,
 		pb.MsgExecuteReq:   executeHandler,
+		sliverpb.MsgEnvReq: getEnvHandler,
 
 		pb.MsgScreenshotReq: screenshotHandler,
 
 		pb.MsgSideloadReq: sideloadHandler,
 	}
 
-	darwinPivotHandlers = map[uint32]PivotHandler{
-	}
+	darwinPivotHandlers = map[uint32]PivotHandler{}
 )
 
 // GetSystemHandlers - Returns a map of the darwin system handlers
