@@ -30,10 +30,9 @@ require (
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.5.1
-	github.com/trashhalo/imgcat v1.0.2 // indirect
-	golang.org/x/crypto v0.0.0-20201012173705-84dcc777aaee
+	golang.org/x/crypto v0.0.0-20200429183012-4b2356b1ed79
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
-	golang.org/x/sys v0.0.0-20201009025420-dfb3f7c4e634
+	golang.org/x/sys v0.0.0-20200610111108-226ff32320da
 	golang.org/x/tools v0.0.0-20200501205727-542909fd9944
 	google.golang.org/grpc v1.29.1
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
