@@ -50,6 +50,7 @@ var (
 		sliverpb.MsgStartServiceReq:    startService,
 		sliverpb.MsgStopServiceReq:     stopService,
 		sliverpb.MsgRemoveServiceReq:   removeService,
+		sliverpb.MsgEnvReq:             getEnvHandler,
 
 		// Generic
 		sliverpb.MsgPsReq:        psHandler,

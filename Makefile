@@ -16,10 +16,12 @@ K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
 
 SED_INPLACE := sed -i
+STATIC_TARGET := static-linux
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
 	SED_INPLACE := sed -i ''
+	STATIC_TARGET := static-macos
 endif
 
 
@@ -43,6 +45,11 @@ LDFLAGS = -ldflags "-s -w \
 #
 # Targets
 #
+.PHONY: default
+default: clean pb
+	$(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
+	$(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client ./client
+
 .PHONY: macos
 macos: clean pb
 	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
@@ -62,6 +69,9 @@ windows: clean pb
 #
 # Static Targets
 #
+.PHONY: static
+static: $(STATIC_TARGET)
+
 .PHONY: static-macos
 static-macos: clean pb packr
 	packr

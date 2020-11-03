@@ -214,6 +214,11 @@ message Sessions {
   repeated Session Sessions = 1;
 }
 
+message UpdateSession {
+  uint32 SessionID = 1;
+  string Name = 2;
+}
+
 message GenerateReq {
   ImplantConfig Config = 1;
 }

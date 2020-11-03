@@ -133,6 +133,7 @@ const (
 	MakeTokenStr  = "make-token"
 
 	PersistStr = "persist"
+	GetEnvStr  = "getenv"
 )
 
 // Groups

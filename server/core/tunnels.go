@@ -32,8 +32,8 @@ import (
 var (
 	// Tunnels - Interating with duplex tunnels
 	Tunnels = tunnels{
-		tunnels: &map[uint64]*Tunnel{},
-		mutex:   &sync.RWMutex{},
+		tunnels: map[uint64]*Tunnel{},
+		mutex:   &sync.Mutex{},
 	}
 
 	// ErrInvalidTunnelID - Invalid tunnel ID value
@@ -52,8 +52,8 @@ type Tunnel struct {
 }
 
 type tunnels struct {
-	tunnels *map[uint64]*Tunnel
-	mutex   *sync.RWMutex
+	tunnels map[uint64]*Tunnel
+	mutex   *sync.Mutex
 }
 
 func (t *tunnels) Create(sessionID uint32) *Tunnel {
@@ -67,7 +67,7 @@ func (t *tunnels) Create(sessionID uint32) *Tunnel {
 	}
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	(*t.tunnels)[tunnel.ID] = tunnel
+	t.tunnels[tunnel.ID] = tunnel
 
 	return tunnel
 }
@@ -76,7 +76,7 @@ func (t *tunnels) Close(tunnelID uint64) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	tunnel := (*t.tunnels)[tunnelID]
+	tunnel := t.tunnels[tunnelID]
 	if tunnel == nil {
 		return ErrInvalidTunnelID
 	}
@@ -96,7 +96,7 @@ func (t *tunnels) Close(tunnelID uint64) error {
 		return err
 	}
 	tunnel.ToImplant <- data // Send an in-band close to implant
-	delete(*t.tunnels, tunnelID)
+	delete(t.tunnels, tunnelID)
 	close(tunnel.ToImplant)
 	close(tunnel.FromImplant)
 	return nil
@@ -106,7 +106,7 @@ func (t *tunnels) Close(tunnelID uint64) error {
 func (t *tunnels) Get(tunnelID uint64) *Tunnel {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	return (*t.tunnels)[tunnelID]
+	return t.tunnels[tunnelID]
 }
 
 // NewTunnelID - New 64-bit identifier

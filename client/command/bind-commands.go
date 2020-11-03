@@ -47,6 +47,7 @@ const (
 	defaultMTLSLPort    = 8888
 	defaultHTTPLPort    = 80
 	defaultHTTPSLPort   = 443
+	defaultDNSLPort     = 53
 	defaultTCPPort      = 4444
 	defaultTCPPivotPort = 9898
 
@@ -144,6 +145,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domains", "", "parent domain(s) to use for DNS c2")
 			f.Bool("c", "no-canaries", false, "disable dns canary detection")
+			f.Int("l", "lport", defaultDNSLPort, "udp listen port")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("p", "persistent", false, "make persistent across restarts")
@@ -1282,5 +1284,22 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.GetEnvStr,
+		Help:      "List environment variables",
+		LongHelp:  help.GetHelpFor(consts.GetEnvStr),
+		AllowArgs: true,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			getEnv(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
 }
