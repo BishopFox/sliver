@@ -18,6 +18,7 @@ service SliverRPC {
     // *** Sessions ***
     rpc GetSessions(commonpb.Empty) returns (clientpb.Sessions);
     rpc KillSession(sliverpb.KillSessionReq) returns (commonpb.Empty);
+    rpc UpdateSession(clientpb.UpdateSession) returns (clientpb.Session);
     
     // *** Jobs ***
     rpc GetJobs(commonpb.Empty) returns (clientpb.Jobs);

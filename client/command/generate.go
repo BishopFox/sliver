@@ -41,7 +41,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	server "github.com/bishopfox/sliver/server/generate"
 	"github.com/desertbit/grumble"
 )
 
@@ -246,19 +245,6 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 			if !isAlphanumeric(name) {
 				fmt.Printf(Warn + "Agent's name must be in alphanumeric only\n")
 				return nil
-			}
-
-			sliversDir := server.GetSliversDir() // ~/.sliver/slivers
-			projectGoPathDir := path.Join(sliversDir, targetOS, arch, name)
-
-			if _, err := os.Stat(projectGoPathDir); !os.IsNotExist(err) {
-				prompt := &survey.Confirm{Message: "Agent already exists with this name. Overwrite existing file?"}
-				var confirm bool
-				survey.AskOne(prompt, &confirm)
-				if !confirm {
-					fmt.Printf(Warn + "File exists\n")
-					return nil
-				}
 			}
 		}
 	}
