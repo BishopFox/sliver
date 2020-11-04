@@ -86,6 +86,11 @@ service SliverRPC {
     rpc MakeToken(sliverpb.MakeTokenReq) returns (sliverpb.MakeToken);
     rpc GetEnv(sliverpb.EnvReq) returns (sliverpb.EnvInfo);
 
+    // *** Database Helpers ***
+    rpc DbDelete(sliverpb.DbDeleteReq) returns (sliverpb.DbDelete);
+    rpc DbGet(sliverpb.DbGetReq) returns (sliverpb.DbGet);
+    rpc DbSet(sliverpb.DbSetReq) returns (sliverpb.DbSet);
+
     // *** Realtime Commands ***
     rpc Shell(sliverpb.ShellReq) returns (sliverpb.Shell);
 

