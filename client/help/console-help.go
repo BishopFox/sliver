@@ -191,7 +191,7 @@ settings, but will still have per-binary certificates/obfuscation/etc. This comm
 	msfInjectHelp = `[[.Bold]]Command:[[.Normal]] inject [--pid] [--lhost] <options>
 [[.Bold]]About:[[.Normal]] Execute a metasploit payload in a remote process.`
 
-	persistHelp = `[[.Bold]]Command:[[.Normal]] persist [-u]
+	persistHelp = `[[.Bold]]Command:[[.Normal]] persist [-u] [-p <path>] [-s <sliver>]
 [[.Bold]]About:[[.Normal]] Persist a sliver accross reboots on remote system.`
 
 	psHelp = `[[.Bold]]Command:[[.Normal]] ps <options>
