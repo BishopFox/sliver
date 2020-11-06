@@ -190,7 +190,7 @@ func cat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			fmt.Printf(string(download.Data))
 		}
 	} else {
-		fmt.Printf(string(download.Data))
+		fmt.Println(string(download.Data))
 	}
 }
 
