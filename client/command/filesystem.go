@@ -187,7 +187,7 @@ func cat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 	if ctx.Flags.Bool("colorize-output") {
 		if err = colorize(download); err != nil {
-			fmt.Printf(string(download.Data))
+			fmt.Println(string(download.Data))
 		}
 	} else {
 		fmt.Println(string(download.Data))
