@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/url"
 	"os"
 	"path"
@@ -161,6 +162,30 @@ func generateStager(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if lhost == "" {
 		fmt.Println(Warn + "please specify a listening host")
 		return
+	}
+	match, err := regexp.MatchString(`[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+`, lhost)
+	if err != nil {
+		return
+	}
+	if !match {
+		addr, err := net.LookupHost(lhost)
+		if err != nil {
+			fmt.Printf(Warn+"Error resolving %s: %v\n", lhost, err)
+			return
+		}
+		if len(addr) > 1 {
+			prompt := &survey.Select{
+				Message: "Select an address",
+				Options: addr,
+			}
+			err := survey.AskOne(prompt, &lhost)
+			if err != nil {
+				fmt.Printf(Warn+"Error: %v\n", err)
+				return
+			}
+		} else {
+			lhost = addr[0]
+		}
 	}
 	lport := ctx.Flags.Int("lport")
 	stageOS := ctx.Flags.String("os")
