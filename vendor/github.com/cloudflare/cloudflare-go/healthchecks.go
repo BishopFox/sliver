@@ -61,7 +61,7 @@ type HealthcheckListResponse struct {
 	ResultInfo `json:"result_info"`
 }
 
-// HealthcheckResponse is the API response, containting a single healthcheck.
+// HealthcheckResponse is the API response, containing a single healthcheck.
 type HealthcheckResponse struct {
 	Response
 	Result Healthcheck `json:"result"`

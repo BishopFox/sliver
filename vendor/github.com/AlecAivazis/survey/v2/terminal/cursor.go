@@ -184,7 +184,7 @@ func (c *Cursor) Size(buf *bytes.Buffer) (*Coord, error) {
 
 	// show the cursor
 	c.Show()
-	// sice the bottom was calcuated in the lower right corner, it
+	// since the bottom was calculated in the lower right corner, it
 	// is the dimensions we are looking for
 	return bottom, nil
 }

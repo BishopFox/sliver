@@ -17,11 +17,13 @@ type WorkersKVNamespaceRequest struct {
 }
 
 // WorkersKVPair is used in an array in the request to the bulk KV api
-type WorkersKVPair struct{
-	Key string `json:"key"`
-	Value string `json:"value"`
-	Expiration int `json:"expiration,omitempty"`
-	ExpirationTTL int `json:"expiration_ttl,omitempty"`
+type WorkersKVPair struct {
+	Key           string      `json:"key"`
+	Value         string      `json:"value"`
+	Expiration    int         `json:"expiration,omitempty"`
+	ExpirationTTL int         `json:"expiration_ttl,omitempty"`
+	Metadata      interface{} `json:"metadata,omitempty"`
+	Base64        bool        `json:"base64,omitempty"`
 }
 
 // WorkersKVBulkWriteRequest is the request to the bulk KV api
@@ -49,7 +51,16 @@ type ListWorkersKVNamespacesResponse struct {
 
 // StorageKey is a key name used to identify a storage value
 type StorageKey struct {
-	Name string `json:"name"`
+	Name       string      `json:"name"`
+	Expiration int         `json:"expiration"`
+	Metadata   interface{} `json:"metadata"`
+}
+
+// ListWorkersKVsOptions contains optional parameters for listing a namespace's keys
+type ListWorkersKVsOptions struct {
+	Limit  *int
+	Cursor *string
+	Prefix *string
 }
 
 // ListStorageKeysResponse contains a slice of keys belonging to a storage namespace,
@@ -160,8 +171,8 @@ func (api *API) UpdateWorkersKVNamespace(ctx context.Context, namespaceID string
 func (api *API) WriteWorkersKV(ctx context.Context, namespaceID, key string, value []byte) (Response, error) {
 	key = url.PathEscape(key)
 	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/values/%s", api.AccountID, namespaceID, key)
-	res, err := api.makeRequestWithAuthTypeAndHeaders(
-		ctx, http.MethodPut, uri, value, api.authType, http.Header{"Content-Type": []string{"application/octet-stream"}},
+	res, err := api.makeRequestWithHeaders(
+		http.MethodPut, uri, value, http.Header{"Content-Type": []string{"application/octet-stream"}},
 	)
 	if err != nil {
 		return Response{}, errors.Wrap(err, errMakeRequestError)
@@ -180,8 +191,8 @@ func (api *API) WriteWorkersKV(ctx context.Context, namespaceID, key string, val
 // API reference: https://api.cloudflare.com/#workers-kv-namespace-write-multiple-key-value-pairs
 func (api *API) WriteWorkersKVBulk(ctx context.Context, namespaceID string, kvs WorkersKVBulkWriteRequest) (Response, error) {
 	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/bulk", api.AccountID, namespaceID)
-	res, err := api.makeRequestWithAuthTypeAndHeaders(
-		ctx, http.MethodPut, uri, kvs, api.authType, http.Header{"Content-Type": []string{"application/json"}},
+	res, err := api.makeRequestWithHeaders(
+		http.MethodPut, uri, kvs, http.Header{"Content-Type": []string{"application/json"}},
 	)
 	if err != nil {
 		return Response{}, errors.Wrap(err, errMakeRequestError)
@@ -226,11 +237,63 @@ func (api API) DeleteWorkersKV(ctx context.Context, namespaceID, key string) (Re
 	return result, err
 }
 
+// DeleteWorkersKVBulk deletes multiple KVs at once.
+//
+// API reference: https://api.cloudflare.com/#workers-kv-namespace-delete-multiple-key-value-pairs
+func (api *API) DeleteWorkersKVBulk(ctx context.Context, namespaceID string, keys []string) (Response, error) {
+	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/bulk", api.AccountID, namespaceID)
+	res, err := api.makeRequestWithHeaders(
+		http.MethodDelete, uri, keys, http.Header{"Content-Type": []string{"application/json"}},
+	)
+	if err != nil {
+		return Response{}, errors.Wrap(err, errMakeRequestError)
+	}
+
+	result := Response{}
+	if err := json.Unmarshal(res, &result); err != nil {
+		return result, errors.Wrap(err, errUnmarshalError)
+	}
+
+	return result, err
+}
+
 // ListWorkersKVs lists a namespace's keys
 //
 // API Reference: https://api.cloudflare.com/#workers-kv-namespace-list-a-namespace-s-keys
 func (api API) ListWorkersKVs(ctx context.Context, namespaceID string) (ListStorageKeysResponse, error) {
 	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/keys", api.AccountID, namespaceID)
+	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
+	if err != nil {
+		return ListStorageKeysResponse{}, errors.Wrap(err, errMakeRequestError)
+	}
+
+	result := ListStorageKeysResponse{}
+	if err := json.Unmarshal(res, &result); err != nil {
+		return result, errors.Wrap(err, errUnmarshalError)
+	}
+	return result, err
+}
+
+// encode encodes non-nil fields into URL encoded form.
+func (o ListWorkersKVsOptions) encode() string {
+	v := url.Values{}
+	if o.Limit != nil {
+		v.Set("limit", strconv.Itoa(*o.Limit))
+	}
+	if o.Cursor != nil {
+		v.Set("cursor", *o.Cursor)
+	}
+	if o.Prefix != nil {
+		v.Set("prefix", *o.Prefix)
+	}
+	return v.Encode()
+}
+
+// ListWorkersKVsWithOptions lists a namespace's keys with optional parameters
+//
+// API Reference: https://api.cloudflare.com/#workers-kv-namespace-list-a-namespace-s-keys
+func (api API) ListWorkersKVsWithOptions(ctx context.Context, namespaceID string, o ListWorkersKVsOptions) (ListStorageKeysResponse, error) {
+	uri := fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/keys?%s", api.AccountID, namespaceID, o.encode())
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return ListStorageKeysResponse{}, errors.Wrap(err, errMakeRequestError)

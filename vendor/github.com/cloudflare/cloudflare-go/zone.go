@@ -577,8 +577,15 @@ func (api *API) PurgeEverything(zoneID string) (PurgeCacheResponse, error) {
 //
 // API reference: https://api.cloudflare.com/#zone-purge-individual-files-by-url-and-cache-tags
 func (api *API) PurgeCache(zoneID string, pcr PurgeCacheRequest) (PurgeCacheResponse, error) {
+	return api.PurgeCacheContext(context.TODO(), zoneID, pcr)
+}
+
+// PurgeCacheContext purges the cache using the given PurgeCacheRequest (zone/url/tag).
+//
+// API reference: https://api.cloudflare.com/#zone-purge-individual-files-by-url-and-cache-tags
+func (api *API) PurgeCacheContext(ctx context.Context, zoneID string, pcr PurgeCacheRequest) (PurgeCacheResponse, error) {
 	uri := "/zones/" + zoneID + "/purge_cache"
-	res, err := api.makeRequest("POST", uri, pcr)
+	res, err := api.makeRequestContext(ctx, "POST", uri, pcr)
 	if err != nil {
 		return PurgeCacheResponse{}, errors.Wrap(err, errMakeRequestError)
 	}

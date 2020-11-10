@@ -61,9 +61,9 @@ type LogpushGetOwnershipChallengeRequest struct {
 	DestinationConf string `json:"destination_conf"`
 }
 
-// LogpushOwnershipChallangeValidationResponse is the API response,
+// LogpushOwnershipChallengeValidationResponse is the API response,
 // containing a ownership challenge validation result.
-type LogpushOwnershipChallangeValidationResponse struct {
+type LogpushOwnershipChallengeValidationResponse struct {
 	Response
 	Result struct {
 		Valid bool `json:"valid"`
@@ -225,6 +225,11 @@ func (api *API) GetLogpushOwnershipChallenge(zoneID, destinationConf string) (*L
 	if err != nil {
 		return nil, errors.Wrap(err, errUnmarshalError)
 	}
+
+	if !r.Result.Valid {
+		return nil, errors.New(r.Result.Message)
+	}
+
 	return &r.Result, nil
 }
 

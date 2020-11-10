@@ -56,20 +56,21 @@ type LoadBalancerMonitor struct {
 
 // LoadBalancer represents a load balancer's properties.
 type LoadBalancer struct {
-	ID             string              `json:"id,omitempty"`
-	CreatedOn      *time.Time          `json:"created_on,omitempty"`
-	ModifiedOn     *time.Time          `json:"modified_on,omitempty"`
-	Description    string              `json:"description"`
-	Name           string              `json:"name"`
-	TTL            int                 `json:"ttl,omitempty"`
-	FallbackPool   string              `json:"fallback_pool"`
-	DefaultPools   []string            `json:"default_pools"`
-	RegionPools    map[string][]string `json:"region_pools"`
-	PopPools       map[string][]string `json:"pop_pools"`
-	Proxied        bool                `json:"proxied"`
-	Enabled        *bool               `json:"enabled,omitempty"`
-	Persistence    string              `json:"session_affinity,omitempty"`
-	PersistenceTTL int                 `json:"session_affinity_ttl,omitempty"`
+	ID                        string                     `json:"id,omitempty"`
+	CreatedOn                 *time.Time                 `json:"created_on,omitempty"`
+	ModifiedOn                *time.Time                 `json:"modified_on,omitempty"`
+	Description               string                     `json:"description"`
+	Name                      string                     `json:"name"`
+	TTL                       int                        `json:"ttl,omitempty"`
+	FallbackPool              string                     `json:"fallback_pool"`
+	DefaultPools              []string                   `json:"default_pools"`
+	RegionPools               map[string][]string        `json:"region_pools"`
+	PopPools                  map[string][]string        `json:"pop_pools"`
+	Proxied                   bool                       `json:"proxied"`
+	Enabled                   *bool                      `json:"enabled,omitempty"`
+	Persistence               string                     `json:"session_affinity,omitempty"`
+	PersistenceTTL            int                        `json:"session_affinity_ttl,omitempty"`
+	SessionAffinityAttributes *SessionAffinityAttributes `json:"session_affinity_attributes,omitempty"`
 
 	// SteeringPolicy controls pool selection logic.
 	// "off" select pools in DefaultPools order
@@ -78,6 +79,12 @@ type LoadBalancer struct {
 	// "random" selects pools in a random order
 	// "" maps to "geo" if RegionPools or PopPools have entries otherwise "off"
 	SteeringPolicy string `json:"steering_policy,omitempty"`
+}
+
+// SessionAffinityAttributes represents the fields used to set attributes in a load balancer session affinity cookie.
+type SessionAffinityAttributes struct {
+	SameSite string `json:"samesite,omitempty"`
+	Secure   string `json:"secure,omitempty"`
 }
 
 // LoadBalancerOriginHealth represents the health of the origin.
@@ -147,7 +154,7 @@ type loadBalancerPoolHealthResponse struct {
 
 // CreateLoadBalancerPool creates a new load balancer pool.
 //
-// API reference: https://api.cloudflare.com/#load-balancer-pools-create-a-pool
+// API reference: https://api.cloudflare.com/#load-balancer-pools-create-pool
 func (api *API) CreateLoadBalancerPool(pool LoadBalancerPool) (LoadBalancerPool, error) {
 	uri := api.userBaseURL("/user") + "/load_balancers/pools"
 	res, err := api.makeRequest("POST", uri, pool)
@@ -195,7 +202,7 @@ func (api *API) LoadBalancerPoolDetails(poolID string) (LoadBalancerPool, error)
 
 // DeleteLoadBalancerPool disables and deletes a load balancer pool.
 //
-// API reference: https://api.cloudflare.com/#load-balancer-pools-delete-a-pool
+// API reference: https://api.cloudflare.com/#load-balancer-pools-delete-pool
 func (api *API) DeleteLoadBalancerPool(poolID string) error {
 	uri := api.userBaseURL("/user") + "/load_balancers/pools/" + poolID
 	if _, err := api.makeRequest("DELETE", uri, nil); err != nil {
@@ -206,7 +213,7 @@ func (api *API) DeleteLoadBalancerPool(poolID string) error {
 
 // ModifyLoadBalancerPool modifies a configured load balancer pool.
 //
-// API reference: https://api.cloudflare.com/#load-balancer-pools-modify-a-pool
+// API reference: https://api.cloudflare.com/#load-balancer-pools-update-pool
 func (api *API) ModifyLoadBalancerPool(pool LoadBalancerPool) (LoadBalancerPool, error) {
 	uri := api.userBaseURL("/user") + "/load_balancers/pools/" + pool.ID
 	res, err := api.makeRequest("PUT", uri, pool)
@@ -222,7 +229,7 @@ func (api *API) ModifyLoadBalancerPool(pool LoadBalancerPool) (LoadBalancerPool,
 
 // CreateLoadBalancerMonitor creates a new load balancer monitor.
 //
-// API reference: https://api.cloudflare.com/#load-balancer-monitors-create-a-monitor
+// API reference: https://api.cloudflare.com/#load-balancer-monitors-create-monitor
 func (api *API) CreateLoadBalancerMonitor(monitor LoadBalancerMonitor) (LoadBalancerMonitor, error) {
 	uri := api.userBaseURL("/user") + "/load_balancers/monitors"
 	res, err := api.makeRequest("POST", uri, monitor)
@@ -270,7 +277,7 @@ func (api *API) LoadBalancerMonitorDetails(monitorID string) (LoadBalancerMonito
 
 // DeleteLoadBalancerMonitor disables and deletes a load balancer monitor.
 //
-// API reference: https://api.cloudflare.com/#load-balancer-monitors-delete-a-monitor
+// API reference: https://api.cloudflare.com/#load-balancer-monitors-delete-monitor
 func (api *API) DeleteLoadBalancerMonitor(monitorID string) error {
 	uri := api.userBaseURL("/user") + "/load_balancers/monitors/" + monitorID
 	if _, err := api.makeRequest("DELETE", uri, nil); err != nil {
@@ -281,7 +288,7 @@ func (api *API) DeleteLoadBalancerMonitor(monitorID string) error {
 
 // ModifyLoadBalancerMonitor modifies a configured load balancer monitor.
 //
-// API reference: https://api.cloudflare.com/#load-balancer-monitors-modify-a-monitor
+// API reference: https://api.cloudflare.com/#load-balancer-monitors-update-monitor
 func (api *API) ModifyLoadBalancerMonitor(monitor LoadBalancerMonitor) (LoadBalancerMonitor, error) {
 	uri := api.userBaseURL("/user") + "/load_balancers/monitors/" + monitor.ID
 	res, err := api.makeRequest("PUT", uri, monitor)
@@ -297,7 +304,7 @@ func (api *API) ModifyLoadBalancerMonitor(monitor LoadBalancerMonitor) (LoadBala
 
 // CreateLoadBalancer creates a new load balancer.
 //
-// API reference: https://api.cloudflare.com/#load-balancers-create-a-load-balancer
+// API reference: https://api.cloudflare.com/#load-balancers-create-load-balancer
 func (api *API) CreateLoadBalancer(zoneID string, lb LoadBalancer) (LoadBalancer, error) {
 	uri := "/zones/" + zoneID + "/load_balancers"
 	res, err := api.makeRequest("POST", uri, lb)
@@ -345,7 +352,7 @@ func (api *API) LoadBalancerDetails(zoneID, lbID string) (LoadBalancer, error) {
 
 // DeleteLoadBalancer disables and deletes a load balancer.
 //
-// API reference: https://api.cloudflare.com/#load-balancers-delete-a-load-balancer
+// API reference: https://api.cloudflare.com/#load-balancers-delete-load-balancer
 func (api *API) DeleteLoadBalancer(zoneID, lbID string) error {
 	uri := "/zones/" + zoneID + "/load_balancers/" + lbID
 	if _, err := api.makeRequest("DELETE", uri, nil); err != nil {
@@ -356,7 +363,7 @@ func (api *API) DeleteLoadBalancer(zoneID, lbID string) error {
 
 // ModifyLoadBalancer modifies a configured load balancer.
 //
-// API reference: https://api.cloudflare.com/#load-balancers-modify-a-load-balancer
+// API reference: https://api.cloudflare.com/#load-balancers-update-load-balancer
 func (api *API) ModifyLoadBalancer(zoneID string, lb LoadBalancer) (LoadBalancer, error) {
 	uri := "/zones/" + zoneID + "/load_balancers/" + lb.ID
 	res, err := api.makeRequest("PUT", uri, lb)
