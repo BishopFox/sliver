@@ -80,7 +80,18 @@ type AccessServiceTokensUpdateDetailResponse struct {
 //
 // API reference: https://api.cloudflare.com/#access-service-tokens-list-access-service-tokens
 func (api *API) AccessServiceTokens(accountID string) ([]AccessServiceToken, ResultInfo, error) {
-	uri := "/accounts/" + accountID + "/access/service_tokens"
+	return api.accessServiceTokens(accountID, AccountRouteRoot)
+}
+
+// ZoneLevelAccessServiceTokens returns all Access Service Tokens for a zone.
+//
+// API reference: https://api.cloudflare.com/#zone-level-access-service-tokens-list-access-service-tokens
+func (api *API) ZoneLevelAccessServiceTokens(zoneID string) ([]AccessServiceToken, ResultInfo, error) {
+	return api.accessServiceTokens(zoneID, ZoneRouteRoot)
+}
+
+func (api *API) accessServiceTokens(id string, routeRoot RouteRoot) ([]AccessServiceToken, ResultInfo, error) {
+	uri := fmt.Sprintf("/%s/%s/access/service_tokens", routeRoot, id)
 
 	res, err := api.makeRequest("GET", uri, nil)
 	if err != nil {
@@ -100,7 +111,18 @@ func (api *API) AccessServiceTokens(accountID string) ([]AccessServiceToken, Res
 //
 // API reference: https://api.cloudflare.com/#access-service-tokens-create-access-service-token
 func (api *API) CreateAccessServiceToken(accountID, name string) (AccessServiceTokenCreateResponse, error) {
-	uri := "/accounts/" + accountID + "/access/service_tokens"
+	return api.createAccessServiceToken(accountID, name, AccountRouteRoot)
+}
+
+// CreateZoneLevelAccessServiceToken creates a new Access Service Token for a zone.
+//
+// API reference: https://api.cloudflare.com/#zone-level-access-service-tokens-create-access-service-token
+func (api *API) CreateZoneLevelAccessServiceToken(zoneID, name string) (AccessServiceTokenCreateResponse, error) {
+	return api.createAccessServiceToken(zoneID, name, ZoneRouteRoot)
+}
+
+func (api *API) createAccessServiceToken(id, name string, routeRoot RouteRoot) (AccessServiceTokenCreateResponse, error) {
+	uri := fmt.Sprintf("/%s/%s/access/service_tokens", routeRoot, id)
 	marshalledName, _ := json.Marshal(struct {
 		Name string `json:"name"`
 	}{name})
@@ -125,7 +147,19 @@ func (api *API) CreateAccessServiceToken(accountID, name string) (AccessServiceT
 //
 // API reference: https://api.cloudflare.com/#access-service-tokens-update-access-service-token
 func (api *API) UpdateAccessServiceToken(accountID, uuid, name string) (AccessServiceTokenUpdateResponse, error) {
-	uri := fmt.Sprintf("/accounts/%s/access/service_tokens/%s", accountID, uuid)
+	return api.updateAccessServiceToken(accountID, uuid, name, AccountRouteRoot)
+}
+
+// UpdateZoneLevelAccessServiceToken updates an existing Access Service Token for a
+// zone.
+//
+// API reference: https://api.cloudflare.com/#zone-level-access-service-tokens-update-access-service-token
+func (api *API) UpdateZoneLevelAccessServiceToken(zoneID, uuid, name string) (AccessServiceTokenUpdateResponse, error) {
+	return api.updateAccessServiceToken(zoneID, uuid, name, ZoneRouteRoot)
+}
+
+func (api *API) updateAccessServiceToken(id, uuid, name string, routeRoot RouteRoot) (AccessServiceTokenUpdateResponse, error) {
+	uri := fmt.Sprintf("/%s/%s/access/service_tokens/%s", routeRoot, id, uuid)
 
 	marshalledName, _ := json.Marshal(struct {
 		Name string `json:"name"`
@@ -150,7 +184,19 @@ func (api *API) UpdateAccessServiceToken(accountID, uuid, name string) (AccessSe
 //
 // API reference: https://api.cloudflare.com/#access-service-tokens-delete-access-service-token
 func (api *API) DeleteAccessServiceToken(accountID, uuid string) (AccessServiceTokenUpdateResponse, error) {
-	uri := fmt.Sprintf("/accounts/%s/access/service_tokens/%s", accountID, uuid)
+	return api.deleteAccessServiceToken(accountID, uuid, AccountRouteRoot)
+}
+
+// DeleteZoneLevelAccessServiceToken removes an existing Access Service Token for a
+// zone.
+//
+// API reference: https://api.cloudflare.com/#zone-level-access-service-tokens-delete-access-service-token
+func (api *API) DeleteZoneLevelAccessServiceToken(zoneID, uuid string) (AccessServiceTokenUpdateResponse, error) {
+	return api.deleteAccessServiceToken(zoneID, uuid, ZoneRouteRoot)
+}
+
+func (api *API) deleteAccessServiceToken(id, uuid string, routeRoot RouteRoot) (AccessServiceTokenUpdateResponse, error) {
+	uri := fmt.Sprintf("/%s/%s/access/service_tokens/%s", routeRoot, id, uuid)
 
 	res, err := api.makeRequest("DELETE", uri, nil)
 	if err != nil {

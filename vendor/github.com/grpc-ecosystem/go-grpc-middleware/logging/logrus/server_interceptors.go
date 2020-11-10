@@ -7,7 +7,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -44,11 +44,7 @@ func UnaryServerInterceptor(entry *logrus.Entry, opts ...Option) grpc.UnaryServe
 			fields[logrus.ErrorKey] = err
 		}
 
-		levelLogf(
-			ctxlogrus.Extract(newCtx).WithFields(fields), // re-extract logger from newCtx, as it may have extra fields that changed in the holder.
-			level,
-			"finished unary call with code "+code.String())
-
+		o.messageFunc(newCtx, "finished unary call with code "+code.String(), level, code, err, fields)
 		return resp, err
 	}
 }
@@ -74,33 +70,9 @@ func StreamServerInterceptor(entry *logrus.Entry, opts ...Option) grpc.StreamSer
 			"grpc.code": code.String(),
 			durField:    durVal,
 		}
-		if err != nil {
-			fields[logrus.ErrorKey] = err
-		}
 
-		levelLogf(
-			ctxlogrus.Extract(newCtx).WithFields(fields), // re-extract logger from newCtx, as it may have extra fields that changed in the holder.
-			level,
-			"finished streaming call with code "+code.String())
-
+		o.messageFunc(newCtx, "finished streaming call with code "+code.String(), level, code, err, fields)
 		return err
-	}
-}
-
-func levelLogf(entry *logrus.Entry, level logrus.Level, format string, args ...interface{}) {
-	switch level {
-	case logrus.DebugLevel:
-		entry.Debugf(format, args...)
-	case logrus.InfoLevel:
-		entry.Infof(format, args...)
-	case logrus.WarnLevel:
-		entry.Warningf(format, args...)
-	case logrus.ErrorLevel:
-		entry.Errorf(format, args...)
-	case logrus.FatalLevel:
-		entry.Fatalf(format, args...)
-	case logrus.PanicLevel:
-		entry.Panicf(format, args...)
 	}
 }
 

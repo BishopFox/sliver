@@ -12,7 +12,7 @@ type KeylessSSL struct {
 	Enabled     bool      `json:"enabled"`
 	Permissions []string  `json:"permissions"`
 	CreatedOn   time.Time `json:"created_on"`
-	ModifiedOn  time.Time `json:"modifed_on"`
+	ModifiedOn  time.Time `json:"modified_on"`
 }
 
 // KeylessSSLResponse represents the response from the Keyless SSL endpoint.

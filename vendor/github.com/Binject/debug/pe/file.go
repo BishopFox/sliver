@@ -17,7 +17,10 @@ import (
 )
 
 // Avoid use of post-Go 1.4 io features, to make safe for toolchain bootstrap.
-const seekStart = 0
+const (
+	seekStart   = 0
+	seekCurrent = 1
+)
 
 // A File represents an open PE file.
 type File struct {
@@ -73,8 +76,19 @@ var (
 
 // TODO(brainman): add Load function, as a replacement for NewFile, that does not call removeAuxSymbols (for performance)
 
-// NewFile creates a new File for accessing a PE binary in an underlying reader.
+// NewFile creates a new pe.File for accessing a PE binary file in an underlying reader.
 func NewFile(r io.ReaderAt) (*File, error) {
+	return newFileInternal(r, false)
+}
+
+// NewFileFromMemory creates a new pe.File for accessing a PE binary in-memory image in an underlying reader.
+func NewFileFromMemory(r io.ReaderAt) (*File, error) {
+	return newFileInternal(r, true)
+}
+
+// NewFile creates a new File for accessing a PE binary in an underlying reader.
+func newFileInternal(r io.ReaderAt, memoryMode bool) (*File, error) {
+
 	f := new(File)
 	sr := io.NewSectionReader(r, 0, 1<<63-1)
 
@@ -125,6 +139,30 @@ func NewFile(r io.ReaderAt) (*File, error) {
 	}
 
 	var err error
+
+	if memoryMode {
+		//get strings table location - offset is wrong in the header because we are in memory mode. Can we fix it? Yes we can!
+		restore, err := sr.Seek(0, seekCurrent)
+		if err != nil {
+			return nil, fmt.Errorf("Had a bad time getting restore point: ", err)
+		}
+		//seek to table start (skip the headers)
+		sr.Seek(peHeaderOffset+int64(binary.Size(f.FileHeader))+int64(f.FileHeader.SizeOfOptionalHeader), seekStart)
+
+		//iterate through the sections to find the raw offset value that matches the original symbol table value
+		for i := 0; i < int(f.FileHeader.NumberOfSections); i++ {
+			sh := new(SectionHeader32)
+			if err := binary.Read(sr, binary.LittleEndian, sh); err != nil {
+				return nil, err
+			}
+			//original offset matches the pointer to the symbol table, update the header so other things can reference it good again
+			if sh.PointerToRawData == f.FileHeader.PointerToSymbolTable {
+				f.FileHeader.PointerToSymbolTable = sh.VirtualAddress
+			}
+		}
+		//restore the original location of sr (this shouldn't actually be required, but just in case)
+		sr.Seek(restore, seekStart)
+	}
 
 	// Read string table.
 	f.StringTable, err = readStringTable(&f.FileHeader, sr)
@@ -195,7 +233,11 @@ func NewFile(r io.ReaderAt) (*File, error) {
 		if sh.PointerToRawData == 0 { // .bss must have all 0s
 			r2 = zeroReaderAt{}
 		}
-		s.sr = io.NewSectionReader(r2, int64(s.SectionHeader.Offset), int64(s.SectionHeader.Size))
+		if !memoryMode {
+			s.sr = io.NewSectionReader(r2, int64(s.SectionHeader.Offset), int64(s.SectionHeader.Size))
+		} else {
+			s.sr = io.NewSectionReader(r2, int64(s.SectionHeader.VirtualAddress), int64(s.SectionHeader.Size))
+		}
 		s.ReaderAt = s.sr
 		f.Sections[i] = s
 	}
@@ -481,4 +523,31 @@ type FormatError struct {
 
 func (e *FormatError) Error() string {
 	return "unknown error"
+}
+
+//RVAToFileOffset Converts a Relative offset to the actual offset in the file.
+func (f *File) RVAToFileOffset(rva uint32) uint32 {
+	var offset uint32
+	for _, section := range f.Sections {
+		if rva >= section.SectionHeader.VirtualAddress && rva <= section.SectionHeader.VirtualAddress+section.SectionHeader.Size {
+			offset = section.SectionHeader.Offset + (rva - section.SectionHeader.VirtualAddress)
+		}
+	}
+	return offset
+}
+
+//IsManaged returns true if the loaded PE file references the CLR header (aka is a .net exe)
+func (f *File) IsManaged() bool {
+	switch v := f.OptionalHeader.(type) {
+	case *OptionalHeader32:
+		if v.DataDirectory[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress != 0 {
+			return true
+		}
+	case *OptionalHeader64:
+		if v.DataDirectory[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress != 0 {
+			return true
+		}
+	}
+
+	return false
 }

@@ -137,6 +137,10 @@ func (db *DB) replayFunction() func(Entry, valuePointer) error {
 			vp.Encode(nv)
 			meta = meta | bitValuePointer
 		}
+		// Update vhead. If the crash happens while replay was in progess
+		// and the head is not updated, we will end up replaying all the
+		// files starting from file zero, again.
+		db.updateHead([]valuePointer{vp})
 
 		v := y.ValueStruct{
 			Value:     nv,
@@ -550,6 +554,8 @@ func (db *DB) get(key []byte) (y.ValueStruct, error) {
 	return db.lc.get(key, maxVs)
 }
 
+// updateHead should not be called without the db.Lock() since db.vhead is used
+// by the writer go routines and memtable flushing goroutine.
 func (db *DB) updateHead(ptrs []valuePointer) {
 	var ptr valuePointer
 	for i := len(ptrs) - 1; i >= 0; i-- {
@@ -563,8 +569,6 @@ func (db *DB) updateHead(ptrs []valuePointer) {
 		return
 	}
 
-	db.Lock()
-	defer db.Unlock()
 	y.AssertTrue(!ptr.Less(db.vhead))
 	db.vhead = ptr
 }
@@ -591,8 +595,12 @@ func (db *DB) writeToLSM(b *request) error {
 		if db.shouldWriteValueToLSM(*entry) { // Will include deletion / tombstone case.
 			db.mt.Put(entry.Key,
 				y.ValueStruct{
-					Value:     entry.Value,
-					Meta:      entry.meta,
+					Value: entry.Value,
+					// Ensure value pointer flag is removed. Otherwise, the value will fail
+					// to be retrieved during iterator prefetch. `bitValuePointer` is only
+					// known to be set in write to LSM when the entry is loaded from a backup
+					// with lower ValueThreshold and its value was stored in the value log.
+					Meta:      entry.meta &^ bitValuePointer,
 					UserMeta:  entry.UserMeta,
 					ExpiresAt: entry.ExpiresAt,
 				})
@@ -658,7 +666,9 @@ func (db *DB) writeRequests(reqs []*request) error {
 			done(err)
 			return errors.Wrap(err, "writeRequests")
 		}
+		db.Lock()
 		db.updateHead(b.Ptrs)
+		db.Unlock()
 	}
 	done(nil)
 	db.elog.Printf("%d entries written", count)
@@ -846,7 +856,7 @@ func writeLevel0Table(ft flushTask, f io.Writer) error {
 	b := table.NewTableBuilder()
 	defer b.Close()
 	for iter.SeekToFirst(); iter.Valid(); iter.Next() {
-		if len(ft.dropPrefix) > 0 && bytes.HasPrefix(iter.Key(), ft.dropPrefix) {
+		if len(ft.dropPrefixes) > 0 && hasAnyPrefixes(iter.Key(), ft.dropPrefixes) {
 			continue
 		}
 		b.Add(iter.Key(), iter.Value())
@@ -856,22 +866,19 @@ func writeLevel0Table(ft flushTask, f io.Writer) error {
 }
 
 type flushTask struct {
-	mt         *skl.Skiplist
-	vptr       valuePointer
-	dropPrefix []byte
+	mt           *skl.Skiplist
+	vptr         valuePointer
+	dropPrefixes [][]byte
 }
 
-// handleFlushTask must be run serially.
-func (db *DB) handleFlushTask(ft flushTask) error {
-	// There can be a scnerio, when empty memtable is flushed. For example, memtable is empty and
-	// after writing request to value log, rotation count exceeds db.LogRotatesToFlush.
-	if ft.mt.Empty() {
-		return nil
+func (db *DB) pushHead(ft flushTask) error {
+	// Ensure we never push a zero valued head pointer.
+	if ft.vptr.IsZero() {
+		return errors.New("Head should not be zero")
 	}
 
 	// Store badger head even if vptr is zero, need it for readTs
 	db.opt.Debugf("Storing value log head: %+v\n", ft.vptr)
-	db.elog.Printf("Storing offset: %+v\n", ft.vptr)
 	offset := make([]byte, vptrSize)
 	ft.vptr.Encode(offset)
 
@@ -879,6 +886,21 @@ func (db *DB) handleFlushTask(ft flushTask) error {
 	// commits.
 	headTs := y.KeyWithTs(head, db.orc.nextTs())
 	ft.mt.Put(headTs, y.ValueStruct{Value: offset})
+
+	return nil
+}
+
+// handleFlushTask must be run serially.
+func (db *DB) handleFlushTask(ft flushTask) error {
+	// There can be a scenario, when empty memtable is flushed. For example, memtable is empty and
+	// after writing request to value log, rotation count exceeds db.LogRotatesToFlush.
+	if ft.mt.Empty() {
+		return nil
+	}
+
+	if err := db.pushHead(ft); err != nil {
+		return err
+	}
 
 	fileID := db.lc.reserveFileID()
 	fd, err := y.CreateSyncedFile(table.NewFilename(fileID, db.opt.Dir), true)
@@ -1106,9 +1128,26 @@ func (seq *Sequence) Release() error {
 	seq.Lock()
 	defer seq.Unlock()
 	err := seq.db.Update(func(txn *Txn) error {
-		var buf [8]byte
-		binary.BigEndian.PutUint64(buf[:], seq.next)
-		return txn.SetEntry(NewEntry(seq.key, buf[:]))
+		item, err := txn.Get(seq.key)
+		if err != nil {
+			return err
+		}
+
+		var num uint64
+		if err := item.Value(func(v []byte) error {
+			num = binary.BigEndian.Uint64(v)
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		if num == seq.leased {
+			var buf [8]byte
+			binary.BigEndian.PutUint64(buf[:], seq.next)
+			return txn.SetEntry(NewEntry(seq.key, buf[:]))
+		}
+
+		return nil
 	})
 	if err != nil {
 		return err
@@ -1425,7 +1464,8 @@ func (db *DB) dropAll() (func(), error) {
 // - Compact L0->L1, skipping over Kp.
 // - Compact rest of the levels, Li->Li, picking tables which have Kp.
 // - Resume memtable flushes, compactions and writes.
-func (db *DB) DropPrefix(prefix []byte) error {
+func (db *DB) DropPrefix(prefixes ...[]byte) error {
+	db.opt.Infof("DropPrefix Called")
 	f := db.prepareToDrop()
 	defer f()
 	// Block all foreign interactions with memory tables.
@@ -1441,8 +1481,8 @@ func (db *DB) DropPrefix(prefix []byte) error {
 		task := flushTask{
 			mt: memtable,
 			// Ensure that the head of value log gets persisted to disk.
-			vptr:       db.vhead,
-			dropPrefix: prefix,
+			vptr:         db.vhead,
+			dropPrefixes: prefixes,
 		}
 		db.opt.Debugf("Flushing memtable")
 		if err := db.handleFlushTask(task); err != nil {
@@ -1457,7 +1497,7 @@ func (db *DB) DropPrefix(prefix []byte) error {
 	db.mt = skl.NewSkiplist(arenaSize(db.opt))
 
 	// Drop prefixes from the levels.
-	if err := db.lc.dropPrefix(prefix); err != nil {
+	if err := db.lc.dropPrefixes(prefixes); err != nil {
 		return err
 	}
 	db.opt.Infof("DropPrefix done")

@@ -67,7 +67,7 @@ func reflectMessageTags(msg interface{}, existingMap map[string]interface{}, tag
 		if kind == reflect.Ptr && field.CanInterface() {
 			reflectMessageTags(field.Interface(), existingMap, tagName)
 		}
-		// In case of arrays/splices (repeated fields) go down to the concrete type.
+		// In case of arrays/slices (repeated fields) go down to the concrete type.
 		if kind == reflect.Array || kind == reflect.Slice {
 			if field.Len() == 0 {
 				continue
