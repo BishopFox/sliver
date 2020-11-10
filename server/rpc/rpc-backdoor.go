@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/Binject/binjection/bj"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/util/encoders"
-	"github.com/moloch--/binjection/bj"
 )
 
 // Backdoor - Inject a sliver payload in a file on the remote system
