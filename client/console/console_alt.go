@@ -19,12 +19,27 @@ package console
 */
 
 import (
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	"path"
+
 	"github.com/maxlandon/readline"
+
+	"github.com/BishopFox/sliver/client/assets"
 )
 
 var (
 	// Console - The client console object
 	Console = newConsole()
+
+	// Flags - Used by main function for various details
+	displayVersion = flag.Bool("version", false, "print version number")
+)
+
+const (
+	logFileName = "sliver-client.log"
 )
 
 // newConsole - Instantiates a new console with some default behavior.
@@ -75,6 +90,11 @@ func (c *console) Setup() (err error) {
 // Start - The console calls connection and setup functions, and starts the input loop.
 func (c *console) Start() {
 
+	// Print banner and version information
+
+	// Initialize console logging (in textfile)
+	initLogging()
+
 	// Connect to server and authenticate
 
 	// Setup console elements
@@ -98,4 +118,17 @@ func (c *console) Start() {
 // sanitizeInput - Trims spaces and other unwished elements from the input line.
 func sanitizeInput(line string) (sanitized []string, empty bool) {
 	return
+}
+
+// Initialize logging
+func initLogging() {
+	appDir := assets.GetRootAppDir()
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+	if err != nil {
+		panic(fmt.Sprintf("[!] Error opening file: %s", err))
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
+	return logFile
 }

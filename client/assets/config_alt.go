@@ -1,7 +1,5 @@
 package assets
 
-import "gopkg.in/AlecAivazis/survey.v1"
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -20,39 +18,65 @@ import "gopkg.in/AlecAivazis/survey.v1"
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// This file contains a build-time server configuration (address, certificates, user, etc)
-// When a console is compiled from the server, it may decide which values to inject.
+import (
+	"flag"
+	"fmt"
+	"os"
 
-// HasBuiltinServer - If this is different from the template
-// string below, it means we use the builtin values.
-var HasBuiltinServer = `{{.HasBuiltinServer}}`
+	"gopkg.in/AlecAivazis/survey.v1"
+)
 
-// ServerLHost - Host of server
-var ServerLHost = `{{.LHost}}`
+var (
+	// Variables used as build-time server configuration (address, certificates, user, etc)
+	// When a console is compiled from the server, it may decide which values to inject.
 
-// ServerLPort - Port on which to contact server
-var ServerLPort = `{{.LPort}}`
+	// HasBuiltinServer - If this is different from the template
+	// string below, it means we use the builtin values.
+	HasBuiltinServer = `{{.HasBuiltinServer}}`
 
-// ServerUser - Username
-var ServerUser = `{{.User}}`
+	// ServerLHost - Host of server
+	ServerLHost = `{{.LHost}}`
 
-// ServerCACertificate - CA Certificate
-var ServerCACertificate = `{{.CACertificate}}`
+	// ServerLPort - Port on which to contact server
+	ServerLPort = `{{.LPort}}`
 
-// ServerCertificate - CA Certificate
-var ServerCertificate = `{{.Certificate}}`
+	// ServerUser - Username
+	ServerUser = `{{.User}}`
 
-// ServerPrivateKey - Private key
-var ServerPrivateKey = `{{.PrivateKey}}`
+	// ServerCACertificate - CA Certificate
+	ServerCACertificate = `{{.CACertificate}}`
 
-// Token - A unique number for this client binary
-var Token = `{{.Token}}`
+	// ServerCertificate - CA Certificate
+	ServerCertificate = `{{.Certificate}}`
+
+	// ServerPrivateKey - Private key
+	ServerPrivateKey = `{{.PrivateKey}}`
+
+	// Token - A unique number for this client binary
+	Token = `{{.Token}}`
+)
+
+var (
+	// config - add config files not yet in configs directory
+	config = flag.String("import", "", "import config file to ~/.sliver-client/configs")
+)
 
 // LoadServerConfig - Determines if this console has either builtin server configuration or if it needs to use a textfile configuration.
 // Depending on this, it loads all configuration values and makes them accessible to all packages/components of the client console.
 func LoadServerConfig() error {
 
 	// We first check that we have builtin values. If yes, load them.
+
+	// Check if we have imported a config with os.Flags passed to sliver-client executable.
+	// This flag has been parsed when executing main(), before anything else.
+	if *config != "" {
+		conf, err := readConfig(*config)
+		if err != nil {
+			fmt.Printf("[!] %s\n", err)
+			os.Exit(3)
+		}
+		assets.SaveConfig(conf)
+	}
 
 	// Then check if we have textfile configs. If yes, go on.
 
