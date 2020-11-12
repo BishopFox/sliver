@@ -19,16 +19,19 @@ package console
 */
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/commands"
+	"github.com/bishopfox/sliver/client/completers"
 	"github.com/bishopfox/sliver/client/connection"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 )
@@ -92,6 +95,9 @@ func (c *console) setup() (err error) {
 	c.initPrompt()
 
 	// Completions, hints and syntax highlighting
+	c.Shell.TabCompleter = completers.TabCompleter
+	c.Shell.HintText = completers.HintCompleter
+	c.Shell.SyntaxHighlighter = completers.SyntaxHighlighter
 
 	// History (client and user-wide)
 
@@ -128,16 +134,30 @@ func (c *console) Start() (err error) {
 	// Start input loop
 	for {
 		// Recompute prompt each time, before anything.
+		Prompt.ComputePrompt()
 
 		// Read input line
+		line, _ := c.Readline()
 
 		// Split and sanitize input
+		sanitized, empty := sanitizeInput(line)
+		if empty {
+			continue
+		}
 
 		// Process various tokens on input (environment variables, paths, etc.)
 
 		// Execute the command input: all input is passed to the current
 		// context parser, which will deal with it on its own.
+		c.ExecuteCommand(sanitized)
 	}
+}
+
+// Readline - Add an empty line between input line and command output.
+func (c *console) Readline() (line string, err error) {
+	line, err = c.Shell.Readline()
+	fmt.Println()
+	return
 }
 
 // sanitizeInput - Trims spaces and other unwished elements from the input line.
@@ -155,5 +175,20 @@ func initLogging() {
 	}
 	defer logFile.Close()
 	log.SetOutput(logFile)
-	return logFile
+	return
+}
+
+// exit - Kill the current client console
+func (c *console) exit() {
+
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Confirm exit (Y/y): ")
+	text, _ := reader.ReadString('\n')
+	answer := strings.TrimSpace(text)
+
+	if (answer == "Y") || (answer == "y") {
+		os.Exit(0)
+	}
+
+	fmt.Println()
 }
