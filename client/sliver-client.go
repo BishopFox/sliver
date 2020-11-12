@@ -19,6 +19,7 @@ package main
 */
 
 import (
+	"github.com/BishopFox/sliver/client/assets"
 	client "github.com/BishopFox/sliver/client/console"
 )
 
@@ -30,7 +31,8 @@ func mainBis() {
 	// TLS security, console configuration, etc.). This function automatically
 	// determines if the console binary has a builtin server configuration or not,
 	// and forges a configuration depending on this.
-	// The configuration is accessible to all client packages.
+	// The configuration is then accessible to all client packages.
+	assets.LoadServerConfig()
 
 	// Start the client console. The latter automatically performs server
 	// connection, prompt/command/completion setup, event loop listening, etc.
