@@ -19,22 +19,26 @@ package main
 */
 
 import (
+	"flag"
+
 	"github.com/BishopFox/sliver/client/assets"
 	client "github.com/BishopFox/sliver/client/console"
 )
 
-func mainBis() {
+func main() {
 
-	// Flag processing and client-side log init.
+	// Process flags passed to this binary (os.Flags). All flag variables are
+	// in their respective files (but, of course, in this package only).
+	flag.Parse()
 
-	// Load all necessary configurations (server connection details,
-	// TLS security, console configuration, etc.). This function automatically
-	// determines if the console binary has a builtin server configuration or not,
-	// and forges a configuration depending on this.
-	// The configuration is then accessible to all client packages.
+	// Load all necessary configurations (server connection details, TLS security,
+	// console configuration, etc.). This function automatically determines if the
+	// console binary has a builtin server configuration or not, and forges a configuration
+	// depending on this. The configuration is then accessible to all client packages.
 	assets.LoadServerConfig()
 
-	// Start the client console. The latter automatically performs server
-	// connection, prompt/command/completion setup, event loop listening, etc.
+	// Start the client console. The latter automatically performs server connection,
+	// prompt/command/completion setup, event loop listening, etc. Any critical error
+	// is handled from within this function, so we don't process the return error here.
 	client.Console.Start()
 }

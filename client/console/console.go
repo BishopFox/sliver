@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	insecureRand "math/rand"
 	"os"
 	"path"
 
@@ -32,7 +31,6 @@ import (
 	cmd "github.com/bishopfox/sliver/client/command"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
-	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -182,106 +180,4 @@ func getPrompt() string {
 	}
 	prompt += " > "
 	return prompt
-}
-
-func printLogo(sliverApp *grumble.App, rpc rpcpb.SliverRPCClient) {
-	serverVer, err := rpc.GetVersion(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		panic(err.Error())
-	}
-	dirty := ""
-	if serverVer.Dirty {
-		dirty = fmt.Sprintf(" - %sDirty%s", bold, normal)
-	}
-	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
-
-	insecureRand.Seed(time.Now().Unix())
-	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
-	fmt.Println(logo)
-	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
-	fmt.Printf(Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
-	if version.GitCommit != serverVer.Commit {
-		fmt.Printf(Info+"Client v%s\n", version.FullVersion())
-	}
-	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
-	fmt.Println()
-	if serverVer.Major != int32(version.SemanticVersion()[0]) {
-		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
-	}
-	checkLastUpdate()
-}
-
-func checkLastUpdate() {
-	now := time.Now()
-	lastUpdate := cmd.GetLastUpdateCheck()
-	compiledAt, err := version.Compiled()
-	if err != nil {
-		log.Printf("Failed to parse compiled at timestamp %s", err)
-		return
-	}
-
-	day := 24 * time.Hour
-	if compiledAt.Add(30 * day).Before(now) {
-		if lastUpdate == nil || lastUpdate.Add(30*day).Before(now) {
-			fmt.Printf(Info + "Check for updates with the 'update' command\n\n")
-		}
-	}
-}
-
-var abilities = []string{
-	"first strike",
-	"vigilance",
-	"haste",
-	"indestructible",
-	"hexproof",
-	"deathtouch",
-	"fear",
-	"epic",
-	"ninjitsu",
-	"recover",
-	"persist",
-	"conspire",
-	"reinforce",
-	"exalted",
-	"annihilator",
-	"infect",
-	"undying",
-	"living weapon",
-	"miracle",
-	"scavenge",
-	"cipher",
-	"evolve",
-	"dethrone",
-	"hidden agenda",
-	"prowess",
-	"dash",
-	"exploit",
-	"renown",
-	"skulk",
-	"improvise",
-	"assist",
-	"jump-start",
-}
-
-var asciiLogos = []string{
-	red + `
- 	  ██████  ██▓     ██▓ ██▒   █▓▓█████  ██▀███
-	▒██    ▒ ▓██▒    ▓██▒▓██░   █▒▓█   ▀ ▓██ ▒ ██▒
-	░ ▓██▄   ▒██░    ▒██▒ ▓██  █▒░▒███   ▓██ ░▄█ ▒
-	  ▒   ██▒▒██░    ░██░  ▒██ █░░▒▓█  ▄ ▒██▀▀█▄
-	▒██████▒▒░██████▒░██░   ▒▀█░  ░▒████▒░██▓ ▒██▒
-	▒ ▒▓▒ ▒ ░░ ▒░▓  ░░▓     ░ ▐░  ░░ ▒░ ░░ ▒▓ ░▒▓░
-	░ ░▒  ░ ░░ ░ ▒  ░ ▒ ░   ░ ░░   ░ ░  ░  ░▒ ░ ▒░
-	░  ░  ░    ░ ░    ▒ ░     ░░     ░     ░░   ░
-		  ░      ░  ░ ░        ░     ░  ░   ░
-` + normal,
-
-	green + `
-    ███████╗██╗     ██╗██╗   ██╗███████╗██████╗
-    ██╔════╝██║     ██║██║   ██║██╔════╝██╔══██╗
-    ███████╗██║     ██║██║   ██║█████╗  ██████╔╝
-    ╚════██║██║     ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗
-    ███████║███████╗██║ ╚████╔╝ ███████╗██║  ██║
-    ╚══════╝╚══════╝╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
-` + normal,
 }
