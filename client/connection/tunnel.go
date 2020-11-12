@@ -1,17 +1,5 @@
 package transport
 
-import (
-	"bytes"
-	"context"
-	"fmt"
-	"io"
-	"log"
-	"sync"
-
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -29,6 +17,18 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"log"
+	"sync"
+
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+)
 
 const (
 	randomIDSize = 16 // 64bits

@@ -25,11 +25,12 @@ import (
 	"os"
 	"path"
 
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/maxlandon/readline"
 
-	"github.com/BishopFox/sliver/client/assets"
-	"github.com/BishopFox/sliver/client/connection"
+	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/commands"
+	"github.com/bishopfox/sliver/client/connection"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 )
 
 var (
@@ -61,9 +62,9 @@ type console struct {
 	Shell *readline.Instance // Provides input loop and completion system.
 }
 
-// Connect - The console connects to the server and authenticates. Note that all
+// connect - The console connects to the server and authenticates. Note that all
 // config information (access points and security details) have been loaded already.
-func (c *console) Connect() (err error) {
+func (c *console) connect() (err error) {
 
 	// Connect to server (performs TLS authentication)
 	conn, err = connection.ConnectTLS()
@@ -82,11 +83,13 @@ func (c *console) Connect() (err error) {
 	return
 }
 
-// Setup - The console sets up various elements such as the completion system, hints,
+// setup - The console sets up various elements such as the completion system, hints,
 // syntax highlighting, prompt system, commands binding, and client environment loading.
-func (c *console) Setup() (err error) {
+func (c *console) setup() (err error) {
 
-	// Prompt
+	// Prompt. This computes all callbacks and base prompt strings
+	// for the first time, and then binds it to the readline console.
+	c.initPrompt()
 
 	// Completions, hints and syntax highlighting
 
@@ -94,7 +97,8 @@ func (c *console) Setup() (err error) {
 
 	// Client-side environment
 
-	// Commands binding
+	// Commands binding. Per-context parsers are setup here.
+	err = commands.BindCommands()
 
 	return
 }
@@ -110,12 +114,16 @@ func (c *console) Start() (err error) {
 	initLogging()
 
 	// Connect to server and authenticate
-	err = c.Connect()
+	err = c.connect()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Setup console elements
+	err = c.setup()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Start input loop
 	for {

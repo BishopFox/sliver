@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/maxlandon/wiregost/client/assets"
 	"gopkg.in/AlecAivazis/survey.v1"
 )
 
@@ -66,7 +65,7 @@ var (
 // Depending on this, it loads all configuration values and makes them accessible to all packages/components of the client console.
 func LoadServerConfig() error {
 
-	// We first check that we have builtin values. If yes, load them.
+	// We first check that we have builtin values. If yes, print message and load them.
 
 	// Check if we have imported a config with os.Flags passed to sliver-client executable.
 	// This flag has been parsed when executing main(), before anything else.
@@ -76,7 +75,7 @@ func LoadServerConfig() error {
 			fmt.Printf("[!] %s\n", err)
 			os.Exit(3)
 		}
-		SaveConfig(conf)
+		saveConfig(conf)
 	}
 
 	// Then check if we have textfile configs. If yes, go on.
@@ -102,7 +101,7 @@ func getConfigs() (configs map[string]*ClientConfig) {
 }
 
 // getPromptForConfigs - Prompt user to choose config
-func getPromptForConfigs(configs map[string]*assets.ClientConfig) []*survey.Question {
+func getPromptForConfigs(configs map[string]*ClientConfig) []*survey.Question {
 	return nil
 }
 
