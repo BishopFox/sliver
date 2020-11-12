@@ -25,9 +25,11 @@ import (
 	"os"
 	"path"
 
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/maxlandon/readline"
 
 	"github.com/BishopFox/sliver/client/assets"
+	"github.com/BishopFox/sliver/client/connection"
 )
 
 var (
@@ -63,9 +65,19 @@ type console struct {
 // config information (access points and security details) have been loaded already.
 func (c *console) Connect() (err error) {
 
-	// Connect to server (performs password-based and TLS authentication)
+	// Connect to server (performs TLS authentication)
+	conn, err = connection.ConnectTLS()
 
-	// Listen for incoming server/implant events.
+	// Register RPC Service Client.
+	connection.RPC = rpcpb.NewSliverRPCClient(conn)
+	// Return fatal if nil
+
+	// Listen for incoming server/implant events. If an error occurs in this
+	// loop, the console will exit after logging it.
+	go c.startEventHandler()
+
+	// Start message tunnel loop.
+	go connection.TunnelLoop()
 
 	return
 }
@@ -88,19 +100,24 @@ func (c *console) Setup() (err error) {
 }
 
 // Start - The console calls connection and setup functions, and starts the input loop.
-func (c *console) Start() {
+func (c *console) Start() (err error) {
 
-	// Print banner and version information
+	// Print banner and version information.
+	// This will also check the last update time.
+	printLogo()
 
 	// Initialize console logging (in textfile)
 	initLogging()
 
 	// Connect to server and authenticate
+	err = c.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Setup console elements
 
 	// Start input loop
-
 	for {
 		// Recompute prompt each time, before anything.
 

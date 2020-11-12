@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/maxlandon/wiregost/client/assets"
 	"gopkg.in/AlecAivazis/survey.v1"
 )
 
@@ -75,7 +76,7 @@ func LoadServerConfig() error {
 			fmt.Printf("[!] %s\n", err)
 			os.Exit(3)
 		}
-		assets.SaveConfig(conf)
+		SaveConfig(conf)
 	}
 
 	// Then check if we have textfile configs. If yes, go on.

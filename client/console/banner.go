@@ -19,46 +19,50 @@ package console
 */
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
+	"github.com/bishopfox/sliver/client/connection"
 	"github.com/bishopfox/sliver/client/version"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-// func printLogo(sliverApp *grumble.App, rpc rpcpb.SliverRPCClient) {
-//         serverVer, err := rpc.GetVersion(context.Background(), &commonpb.Empty{})
-//         if err != nil {
-//                 panic(err.Error())
-//         }
-//         dirty := ""
-//         if serverVer.Dirty {
-//                 dirty = fmt.Sprintf(" - %sDirty%s", bold, normal)
-//         }
-//         serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
-//
-//         insecureRand.Seed(time.Now().Unix())
-//         logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
-//
-//         // Added here to clear main()
-//         if *displayVersion {
-//                 fmt.Printf("%s\n", version.FullVersion())
-//                 os.Exit(0)
-//         }
-//
-//         fmt.Println(logo)
-//         fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
-//         fmt.Printf(Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
-//         if version.GitCommit != serverVer.Commit {
-//                 fmt.Printf(Info+"Client v%s\n", version.FullVersion())
-//         }
-//         fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
-//         fmt.Println()
-//         if serverVer.Major != int32(version.SemanticVersion()[0]) {
-//                 fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
-//         }
-//         checkLastUpdate()
-// }
+func printLogo() {
+	serverVer, err := connection.RPC.GetVersion(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		panic(err.Error())
+	}
+	dirty := ""
+	if serverVer.Dirty {
+		dirty = fmt.Sprintf(" - %sDirty%s", bold, normal)
+	}
+	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
+
+	insecureRand.Seed(time.Now().Unix())
+	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
+
+	// Added here to clear main()
+	if *displayVersion {
+		fmt.Printf("%s\n", version.FullVersion())
+		os.Exit(0)
+	}
+
+	fmt.Println(logo)
+	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
+	fmt.Printf(Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
+	if version.GitCommit != serverVer.Commit {
+		fmt.Printf(Info+"Client v%s\n", version.FullVersion())
+	}
+	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
+	fmt.Println()
+	if serverVer.Major != int32(version.SemanticVersion()[0]) {
+		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
+	}
+	checkLastUpdate()
+}
 
 func checkLastUpdate() {
 	now := time.Now()
