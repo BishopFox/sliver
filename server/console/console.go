@@ -30,6 +30,7 @@ import (
 	client "github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
+	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/server/transport"
 )
 
@@ -56,27 +57,31 @@ func Start() {
 	}
 	conn, err := grpc.DialContext(context.Background(), "bufnet", options...)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to dial bufnet: %s", err)
+		fmt.Printf(util.Warn+"Failed to dial bufnet: %s", err)
 		return
 	}
 	defer conn.Close()
+
+	// Bind admin commands to the client console.
+	// NOTE: it's normal that this is called before the console is instantiated:
+	// it's because command parsers have a life of their own.
+	// This needs to be called now, as the call just next is a blocking one.
+	addServerAdminCommands()
 
 	// We use a custom version of the client.Console.Start()
 	// function, accomodating for needs server-side.
 	client.Console.StartServerConsole(conn)
 
-	// Bind admin commands to this console.
-	addServerAdminCommands()
 }
 
 // addServerAdminCommands - We bind commands only available to the server admin to the console command parser.
 func addServerAdminCommands() (err error) {
 
-	np, err := commands.Server.AddCommand(constants.MultiplayerModeStr, "Create a new player config file",
-		help.GetHelpFor(constants.MultiplayerModeStr), &NewOperator{})
+	np, err := commands.Server.AddCommand(constants.NewPlayerStr, "Create a new player config file",
+		help.GetHelpFor(constants.NewPlayerStr), &NewOperator{})
 	np.Namespace = "Admin"
 	if err != nil {
-		fmt.Println(Warn + err.Error())
+		fmt.Println(util.Warn + err.Error())
 		os.Exit(3)
 	}
 
@@ -84,7 +89,7 @@ func addServerAdminCommands() (err error) {
 		help.GetHelpFor(constants.KickPlayerStr), &KickOperator{})
 	kp.Namespace = "Admin"
 	if err != nil {
-		fmt.Println(Warn + err.Error())
+		fmt.Println(util.Warn + err.Error())
 		os.Exit(3)
 	}
 
@@ -92,7 +97,7 @@ func addServerAdminCommands() (err error) {
 		help.GetHelpFor(constants.MultiplayerModeStr), &MultiplayerMode{})
 	mm.Namespace = "Admin"
 	if err != nil {
-		fmt.Println(Warn + err.Error())
+		fmt.Println(util.Warn + err.Error())
 		os.Exit(3)
 	}
 

@@ -36,7 +36,7 @@ func SyntaxHighlighter(input []rune) (line string) {
 	var remain = args
 
 	// Detect base command automatically
-	var command = detectedCommand(args, "contexthere")
+	var command = detectedCommand(args)
 
 	// Return input as is
 	if noCommandOrEmpty(remain, last, command) {

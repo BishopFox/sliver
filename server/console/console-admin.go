@@ -30,36 +30,10 @@ import (
 
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/transport"
-)
-
-const (
-	// ANSI Colors
-	normal    = "\033[0m"
-	black     = "\033[30m"
-	red       = "\033[31m"
-	green     = "\033[32m"
-	orange    = "\033[33m"
-	blue      = "\033[34m"
-	purple    = "\033[35m"
-	cyan      = "\033[36m"
-	gray      = "\033[37m"
-	bold      = "\033[1m"
-	clearln   = "\r\x1b[2K"
-	upN       = "\033[%dA"
-	downN     = "\033[%dB"
-	underline = "\033[4m"
-
-	// Info - Display colorful information
-	Info = bold + cyan + "[*] " + normal
-	// Warn - Warn a user
-	Warn = bold + red + "[!] " + normal
-	// Debug - Display debug information
-	Debug = bold + purple + "[-] " + normal
-	// Woot - Display success
-	Woot = bold + green + "[$] " + normal
 )
 
 var (
@@ -86,17 +60,17 @@ func (n NewOperator) Execute(args []string) (err error) {
 		n.Options.Save, _ = os.Getwd()
 	}
 
-	fmt.Printf(Info + "Generating new client certificate, please wait ... \n")
+	fmt.Printf(util.Info + "Generating new client certificate, please wait ... \n")
 	configJSON, err := NewPlayerConfig(n.Options.Operator, n.Options.LHost, uint16(n.Options.LPort))
 	if err != nil {
-		fmt.Printf(Warn+"%s", err)
+		fmt.Printf(util.Warn+"%s", err)
 		return
 	}
 
 	saveTo, _ := filepath.Abs(n.Options.Save)
 	fi, err := os.Stat(saveTo)
 	if !os.IsNotExist(err) && !fi.IsDir() {
-		fmt.Printf(Warn+"File already exists %v\n", err)
+		fmt.Printf(util.Warn+"File already exists %v\n", err)
 		return
 	}
 	if !os.IsNotExist(err) && fi.IsDir() {
@@ -105,10 +79,10 @@ func (n NewOperator) Execute(args []string) (err error) {
 	}
 	err = ioutil.WriteFile(saveTo, configJSON, 0600)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to write config to: %s (%v) \n", saveTo, err)
+		fmt.Printf(util.Warn+"Failed to write config to: %s (%v) \n", saveTo, err)
 		return
 	}
-	fmt.Printf(Info+"Saved new client config to: %s \n", saveTo)
+	fmt.Printf(util.Info+"Saved new client config to: %s \n", saveTo)
 
 	return
 }
@@ -130,7 +104,7 @@ func NewPlayerConfig(operatorName, lhost string, lport uint16) ([]byte, error) {
 
 	publicKey, privateKey, err := certs.OperatorClientGenerateCertificate(operatorName)
 	if err != nil {
-		return nil, fmt.Errorf(Warn+"Failed to generate certificate %s", err)
+		return nil, fmt.Errorf(util.Warn+"Failed to generate certificate %s", err)
 	}
 	caCertPEM, _, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
 	config := assets.ClientConfig{
@@ -157,21 +131,21 @@ func (k *KickOperator) Execute(args []string) (err error) {
 	operator := k.Positional.Operator
 
 	if !namePattern.MatchString(operator) {
-		fmt.Println(Warn + "Invalid operator name (alphanumerics only)")
+		fmt.Println(util.Warn + "Invalid operator name (alphanumerics only)")
 		return
 	}
 
 	if operator == "" {
-		fmt.Printf(Warn + "Operator name required (--operator) \n")
+		fmt.Printf(util.Warn + "Operator name required (--operator) \n")
 		return
 	}
-	fmt.Printf(Info+"Removing client certificate for operator %s, please wait ... \n", operator)
+	fmt.Printf(util.Info+"Removing client certificate for operator %s, please wait ... \n", operator)
 	err = certs.OperatorClientRemoveCertificate(operator)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to remove the operator certificate: %v \n", err)
+		fmt.Printf(util.Warn+"Failed to remove the operator certificate: %v \n", err)
 		return
 	}
-	fmt.Printf(Info+"Operator %s kicked out. \n", operator)
+	fmt.Printf(util.Info+"Operator %s kicked out. \n", operator)
 
 	return
 }
@@ -192,9 +166,9 @@ func (m *MultiplayerMode) Execute(args []string) (err error) {
 
 	_, err = jobStartClientListener(m.Options.LHost, uint16(m.Options.LPort))
 	if err == nil {
-		fmt.Printf(Info + "Multiplayer mode enabled!\n")
+		fmt.Printf(util.Info + "Multiplayer mode enabled!\n")
 	} else {
-		fmt.Printf(Warn+"Failed to start job %v\n", err)
+		fmt.Printf(util.Warn+"Failed to start job %v\n", err)
 	}
 	return
 }

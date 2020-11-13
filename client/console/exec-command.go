@@ -24,33 +24,27 @@ import (
 	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
 
+	"github.com/bishopfox/sliver/client/commands"
+	"github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/util"
 )
 
 // ExecuteCommand - Dispatches an input line to its appropriate command.
 func (c *console) ExecuteCommand(args []string) (err error) {
 
-	// ctx := context.Context // The Console Context
+	ctx := context.Context // The Console Context
 
 	// We redirect the input to the appropriate parser, depending on the console menu.
 	// The error returned might be several things, so we handle some cases later,
 	// like special commands
 	var parserErr error
-	// switch ctx.Menu {
 
-	// case context.MainMenu:
-	//         _, parserErr = commands.Main.ParseArgs(args)
-	//
-	// case context.ModuleMenu:
-	//         _, parserErr = commands.Module.ParseArgs(args)
-	//
-	// case context.CompilerMenu:
-	//         _, parserErr = commands.Compiler.ParseArgs(args)
-	//
-	// case context.GhostMenu:
-	//         _, parserErr = commands.Ghost.ParseArgs(args)
-	// default:
-	// }
+	switch ctx.Menu {
+	case context.Server:
+		_, parserErr = commands.Server.ParseArgs(args)
+	case context.Sliver:
+		_, parserErr = commands.Sliver.ParseArgs(args)
+	}
 
 	// All errors that might go out of parsers are handled here
 	if parserErr != nil {
@@ -89,17 +83,14 @@ func (c *console) HandleParserErrors(in error, args []string) (err error) {
 func (c *console) executeSpecialCommand(args []string) error {
 
 	// Check context for availability
-	// switch context.Context.Menu {
-	// case context.MainMenu, context.ModuleMenu:
-	switch args[0] {
-	case "exit":
-		c.exit()
-		return nil
-	default:
-		// Fallback: Use the system shell through the console
-		return util.Shell(args)
+	switch context.Context.Menu {
+	case context.Server:
+		switch args[0] {
+		default:
+			// Fallback: Use the system shell through the console
+			return util.Shell(args)
+		}
 	}
-	// }
 
 	// We should not get here, so we print an error-like message
 	fmt.Printf(CommandError+"Invalid command: %s%s \n", tui.YELLOW, args[0])

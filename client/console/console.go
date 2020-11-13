@@ -19,7 +19,6 @@ package console
 */
 
 import (
-	"bufio"
 	"errors"
 	"flag"
 	"fmt"
@@ -34,6 +33,7 @@ import (
 	"github.com/bishopfox/sliver/client/commands"
 	"github.com/bishopfox/sliver/client/completers"
 	"github.com/bishopfox/sliver/client/connection"
+	"github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 )
@@ -93,6 +93,10 @@ func (c *console) connect() (err error) {
 // setup - The console sets up various elements such as the completion system, hints,
 // syntax highlighting, prompt system, commands binding, and client environment loading.
 func (c *console) setup() (err error) {
+
+	// Init console context. This context object will hold
+	// some state about the console (which implant we're interacting, jobs, etc.)
+	context.Initialize()
 
 	// Prompt. This computes all callbacks and base prompt strings
 	// for the first time, and then binds it to the readline console.
@@ -176,6 +180,26 @@ func (c *console) Readline() (line string, err error) {
 
 // sanitizeInput - Trims spaces and other unwished elements from the input line.
 func sanitizeInput(line string) (sanitized []string, empty bool) {
+
+	// Assume the input is not empty
+	empty = false
+
+	// Trim border spaces
+	trimmed := strings.TrimSpace(line)
+	if len(line) < 1 {
+		empty = true
+		return
+	}
+
+	unfiltered := strings.Split(trimmed, " ")
+
+	// Catch any eventual empty items
+	for _, arg := range unfiltered {
+		if arg != "" {
+			sanitized = append(sanitized, arg)
+		}
+	}
+
 	return
 }
 
@@ -190,19 +214,4 @@ func initLogging() {
 	defer logFile.Close()
 	log.SetOutput(logFile)
 	return
-}
-
-// exit - Kill the current client console
-func (c *console) exit() {
-
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Confirm exit (Y/y): ")
-	text, _ := reader.ReadString('\n')
-	answer := strings.TrimSpace(text)
-
-	if (answer == "Y") || (answer == "y") {
-		os.Exit(0)
-	}
-
-	fmt.Println()
 }

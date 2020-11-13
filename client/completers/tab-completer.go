@@ -25,6 +25,9 @@ import (
 	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
 	"github.com/maxlandon/readline"
+
+	"github.com/bishopfox/sliver/client/commands"
+	"github.com/bishopfox/sliver/client/context"
 )
 
 // TabCompleter - Entrypoint to all tab completions in the Wiregost console.
@@ -37,12 +40,8 @@ func TabCompleter(line []rune, pos int) (prefix string, completions []*readline.
 	args, last, lastWord := FormatInput(line)
 	prefix = lastWord
 
-	// The completions groups is always at least populated of one empty group,
-	// for avoiding any nil pointer in readline (for now)
-	// completions = []*readline.CompletionGroup{&readline.CompletionGroup{}}
-
 	// Detect base command automatically
-	var command = detectedCommand(args, "contexthere")
+	var command = detectedCommand(args)
 
 	// Propose commands
 	if noCommandOrEmpty(args, last, command) {
@@ -59,7 +58,7 @@ func TabCompleter(line []rune, pos int) (prefix string, completions []*readline.
 
 		// If user asks for completions with "-" / "--", show command options
 		if optionsAsked(args, lastWord, command) {
-
+			return CompleteCommandOptions(args, lastWord, command)
 		}
 
 		// Check environment variables again
@@ -68,7 +67,7 @@ func TabCompleter(line []rune, pos int) (prefix string, completions []*readline.
 		}
 
 		// Propose argument completion before anything, and if needed
-		if _, yes := argumentRequired(lastWord, args, "", command, false); yes { // add *commands.Context.Menu in the string here
+		if _, yes := argumentRequired(lastWord, args, command, false); yes { // add *commands.Context.Menu in the string here
 
 		}
 
@@ -99,14 +98,12 @@ func CompleteMenuCommands(lastWord string, pos int) (prefix string, completions 
 	var parser *flags.Parser // Current context parser
 
 	// Gather all root commands bound to current menu context
-	// switch context.Context.Menu {
-	// case context.MainMenu:
-	//         parser = commands.Main
-	// case context.ModuleMenu:
-	//         parser = commands.Module
-	// case context.GhostMenu:
-	//         parser = commands.Ghost
-	// }
+	switch context.Context.Menu {
+	case context.Server:
+		parser = commands.Server
+	case context.Sliver:
+		parser = commands.Sliver
+	}
 
 	// Check their namespace (which should be their "group" (like utils, core, Jobs, etc))
 	for _, cmd := range parser.Commands() {
@@ -196,7 +193,7 @@ func HandleSubCommand(line []rune, pos int, command *flags.Command) (lastWord st
 	// }
 
 	// If command has non-filled arguments, propose them first
-	if _, yes := argumentRequired(lastWord, args, "contexthere", command, true); yes {
+	if _, yes := argumentRequired(lastWord, args, command, true); yes {
 		// if arg, yes := argumentRequired(lastWord, args, context.Context.Menu, command, true); yes {
 		// _, suggestions, listSuggestions, tabType = CompleteCommandArguments(command, arg, line, pos)
 	}

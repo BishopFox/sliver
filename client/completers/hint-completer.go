@@ -30,7 +30,7 @@ func HintCompleter(line []rune, pos int) (hint []rune) {
 	args, last, lastWord := FormatInput(line)
 
 	// Detect base command automatically
-	var command = detectedCommand(args, "") // add *commands.Context.Menu in the string here
+	var command = detectedCommand(args)
 
 	// Menu hints (command line is empty, or nothing recognized)
 	if noCommandOrEmpty(args, last, command) {
@@ -51,7 +51,7 @@ func HintCompleter(line []rune, pos int) (hint []rune) {
 		}
 
 		// If command has args, hint for args
-		if _, yes := argumentRequired(lastWord, args, "", command, false); yes { // add *commands.Context.Menu in the string here
+		if _, yes := argumentRequired(lastWord, args, command, false); yes { // add *commands.Context.Menu in the string here
 		}
 
 		// Brief subcommand hint

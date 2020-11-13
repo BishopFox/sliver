@@ -79,5 +79,4 @@ func (c *console) StartServerConsole(conn *grpc.ClientConn) (err error) {
 		// We should not have to exit the console because of an error here.
 		c.ExecuteCommand(parsed)
 	}
-	return
 }

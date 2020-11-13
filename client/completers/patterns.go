@@ -25,6 +25,9 @@ import (
 	"unicode"
 
 	"github.com/jessevdk/go-flags"
+
+	"github.com/bishopfox/sliver/client/commands"
+	"github.com/bishopfox/sliver/client/context"
 )
 
 // These functions are just shorthands for checking various conditions on the input line.
@@ -41,32 +44,19 @@ func noCommandOrEmpty(args []string, last []rune, command *flags.Command) bool {
 
 // [ Commands ]
 // detectedCommand - Returns the base command from parser if detected, depending on context
-func detectedCommand(args []string, menu string) (command *flags.Command) {
+func detectedCommand(args []string) (command *flags.Command) {
 
 	// The args we receive have been treated by the syntax highlighter:
 	// Therefore the command has leading and trailing color codes, tui.BOLD and tui.RESET
 	// We add these codes for all command names being compared, so that we don't miss them.
+	menu := context.Context.Menu
 
-	// switch menu {
-	// case context.MainMenu:
-	//         for _, cmd := range commands.Main.Commands() {
-	//                 if cmd.Name == args[0] {
-	//                         return cmd
-	//                 }
-	//         }
-	// case context.ModuleMenu:
-	// case context.CompilerMenu:
-	// case context.GhostMenu:
-	//         // case commands.MAIN_CONTEXT, commands.MODULE_CONTEXT:
-	//         //         cmds := commands.CommandsByContext() // Need for context here
-	//         //         for _, cmd := range cmds {
-	//         //                 if cmd.Name == args[0] {
-	//         //                         command = cmd
-	//         //                 }
-	//         //         }
-	//         // case commands.GHOST_CONTEXT:
-	//         //         command = commands.GhostParser.Find(args[0])
-	// }
+	switch menu {
+	case context.Server:
+		command = commands.Server.Find(args[0])
+	case context.Sliver:
+		command = commands.Sliver.Find(args[0])
+	}
 
 	return
 }
@@ -152,7 +142,7 @@ func hasArgs(command *flags.Command) bool {
 }
 
 // argumentRequired - Analyses input and sends back the next argument name to provide completion for
-func argumentRequired(lastWord string, args []string, context string, command *flags.Command, isSub bool) (name string, yes bool) {
+func argumentRequired(lastWord string, args []string, command *flags.Command, isSub bool) (name string, yes bool) {
 
 	// Trim command and subcommand args
 	var remain []string
@@ -162,7 +152,7 @@ func argumentRequired(lastWord string, args []string, context string, command *f
 		remain = args[1:]
 	}
 
-	remain = filterOptions(remain, context, command)
+	remain = filterOptions(remain, command)
 
 	// We get the number of argument fields in command struct
 	switch length := len(command.Args()); {
@@ -348,7 +338,7 @@ func envVarAsked(args []string, lastWord string) bool {
 }
 
 // filterOptions - Check various elements of an option and return a list
-func filterOptions(args []string, context string, command *flags.Command) (processed []string) {
+func filterOptions(args []string, command *flags.Command) (processed []string) {
 
 	// for i := 0; i < len(args); i++ {
 	//         arg := args[i]
