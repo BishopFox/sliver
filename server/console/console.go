@@ -22,14 +22,14 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 
-	"github.com/desertbit/grumble"
 	"google.golang.org/grpc"
 
+	"github.com/bishopfox/sliver/client/commands"
 	client "github.com/bishopfox/sliver/client/console"
-	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/transport"
 )
 
@@ -61,64 +61,40 @@ func Start() {
 	}
 	defer conn.Close()
 
+	// We use a custom version of the client.Console.Start()
+	// function, accomodating for needs server-side.
 	client.Console.StartServerConsole(conn)
+
+	// Bind admin commands to this console.
+	addServerAdminCommands()
 }
 
-// ServerOnlyCmds - Server only commands
-func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
+// addServerAdminCommands - We bind commands only available to the server admin to the console command parser.
+func addServerAdminCommands() (err error) {
 
-	// [ Multiplayer ] -----------------------------------------------------------------
+	np, err := commands.Server.AddCommand(constants.MultiplayerModeStr, "Create a new player config file",
+		help.GetHelpFor(constants.MultiplayerModeStr), &NewOperator{})
+	np.Namespace = "Admin"
+	if err != nil {
+		fmt.Println(Warn + err.Error())
+		os.Exit(3)
+	}
 
-	app.AddCommand(&grumble.Command{
-		Name:     consts.MultiplayerModeStr,
-		Help:     "Enable multiplayer mode",
-		LongHelp: help.GetHelpFor(consts.MultiplayerModeStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("s", "server", "", "interface to bind server to")
-			f.Int("l", "lport", 31337, "tcp listen port")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			startMultiplayerModeCmd(ctx)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.MultiplayerHelpGroup,
-	})
+	kp, err := commands.Server.AddCommand(constants.KickPlayerStr, "Kick a player from the server",
+		help.GetHelpFor(constants.KickPlayerStr), &KickOperator{})
+	kp.Namespace = "Admin"
+	if err != nil {
+		fmt.Println(Warn + err.Error())
+		os.Exit(3)
+	}
 
-	app.AddCommand(&grumble.Command{
-		Name:     consts.NewPlayerStr,
-		Help:     "Create a new player config file",
-		LongHelp: help.GetHelpFor(consts.NewPlayerStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("l", "lhost", "", "listen host")
-			f.Int("p", "lport", 31337, "listen port")
-			f.String("s", "save", "", "directory/file to the binary to")
-			f.String("n", "operator", "", "operator name")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			newOperatorCmd(ctx)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.MultiplayerHelpGroup,
-	})
+	mm, err := commands.Server.AddCommand(constants.MultiplayerModeStr, "Enable multiplayer mode on this server",
+		help.GetHelpFor(constants.MultiplayerModeStr), &MultiplayerMode{})
+	mm.Namespace = "Admin"
+	if err != nil {
+		fmt.Println(Warn + err.Error())
+		os.Exit(3)
+	}
 
-	app.AddCommand(&grumble.Command{
-		Name:     consts.KickPlayerStr,
-		Help:     "Kick a player from the server",
-		LongHelp: help.GetHelpFor(consts.KickPlayerStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("o", "operator", "", "operator name")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			kickOperatorCmd(ctx)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.MultiplayerHelpGroup,
-	})
-
+	return
 }
