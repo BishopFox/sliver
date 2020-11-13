@@ -38,7 +38,7 @@ func main() {
 	assets.LoadServerConfig()
 
 	// Start the client console. The latter automatically performs server connection,
-	// prompt/command/completion setup, event loop listening, etc. Any critical error
+	// prompt/command/completion setup, event loop listening, logging, etc. Any critical error
 	// is handled from within this function, so we don't process the return error here.
 	client.Console.Start()
 }

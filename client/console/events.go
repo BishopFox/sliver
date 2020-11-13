@@ -19,7 +19,18 @@ package console
 */
 
 import (
-	"github.com/BishopFox/sliver/protobuf/clientpb"
+	"bufio"
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"time"
+
+	cmd "github.com/bishopfox/sliver/client/command"
+	"github.com/bishopfox/sliver/client/connection"
+	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
 // startEventHandler - Handle all events coming from the server.
@@ -33,6 +44,102 @@ func (c *console) startEventHandler() (err error) {
 		// because each type of event may trigger different console behavior.
 	}
 }
+
+func eventLoop() {
+	eventStream, err := connection.RPC.Events(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+	stdout := bufio.NewWriter(os.Stdout)
+
+	for {
+		event, err := eventStream.Recv()
+		if err == io.EOF || event == nil {
+			return
+		}
+
+		// Trigger event based on type
+		switch event.EventType {
+
+		case consts.CanaryEvent:
+			fmt.Printf(clearln+Warn+bold+"WARNING: %s%s has been burned (DNS Canary)\n", normal, event.Session.Name)
+			sessions := cmd.GetSessionsByName(event.Session.Name, connection.RPC)
+			for _, session := range sessions {
+				fmt.Printf(clearln+"\t🔥 Session #%d is affected\n", session.ID)
+			}
+			fmt.Println()
+
+		case consts.JoinedEvent:
+			fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator.Name)
+		case consts.LeftEvent:
+			fmt.Printf(clearln+Info+"%s left the game\n\n", event.Client.Operator)
+
+		case consts.JobStoppedEvent:
+			job := event.Job
+			fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
+
+		case consts.SessionOpenedEvent:
+			session := event.Session
+			// The HTTP session handling is performed in two steps:
+			// - first we add an "empty" session
+			// - then we complete the session info when we receive the Register message from the Sliver
+			// This check is here to avoid displaying two sessions events for the same session
+			if session.OS != "" {
+				currentTime := time.Now().Format(time.RFC1123)
+				fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s - %v\n\n",
+					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
+			}
+
+		case consts.SessionUpdateEvent:
+			session := event.Session
+			currentTime := time.Now().Format(time.RFC1123)
+			fmt.Printf(clearln+Info+"Session #%d has been updated - %v\n", session.ID, currentTime)
+
+		case consts.SessionClosedEvent:
+			session := event.Session
+			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
+				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
+			activeSession := cmd.ActiveSession.Get()
+			if activeSession != nil && activeSession.ID == session.ID {
+				cmd.ActiveSession.Set(nil)
+				// app.SetPrompt(getPrompt())
+				fmt.Printf(Warn + " Active session disconnected\n")
+			}
+			fmt.Println()
+		}
+
+		fmt.Printf(getPrompt())
+		stdout.Flush()
+	}
+}
+
+const (
+	// ANSI Colors
+	normal    = "\033[0m"
+	black     = "\033[30m"
+	red       = "\033[31m"
+	green     = "\033[32m"
+	orange    = "\033[33m"
+	blue      = "\033[34m"
+	purple    = "\033[35m"
+	cyan      = "\033[36m"
+	gray      = "\033[37m"
+	bold      = "\033[1m"
+	clearln   = "\r\x1b[2K"
+	upN       = "\033[%dA"
+	downN     = "\033[%dB"
+	underline = "\033[4m"
+
+	// Info - Display colorful information
+	Info = bold + cyan + "[*] " + normal
+	// Warn - Warn a user
+	Warn = bold + red + "[!] " + normal
+	// Debug - Display debug information
+	Debug = bold + purple + "[-] " + normal
+	// Woot - Display success
+	Woot = bold + green + "[$] " + normal
+)
 
 // ServerEvent - Events that concern only the server and its client, not implants.
 func serverEvent(event clientpb.Event) {}

@@ -20,164 +20,187 @@ package console
 
 import (
 	"bufio"
-	"context"
+	"errors"
+	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path"
+	"strings"
+
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/assets"
-	cmd "github.com/bishopfox/sliver/client/command"
-	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/core"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/client/commands"
+	"github.com/bishopfox/sliver/client/completers"
+	"github.com/bishopfox/sliver/client/connection"
+	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+)
 
-	"time"
+var (
+	// Console - The client console object
+	Console = newConsole()
 
-	"github.com/desertbit/grumble"
-	"github.com/fatih/color"
+	// Flags - Used by main function for various details
+	displayVersion = flag.Bool("version", false, "print version number")
 )
 
 const (
-	// ANSI Colors
-	normal    = "\033[0m"
-	black     = "\033[30m"
-	red       = "\033[31m"
-	green     = "\033[32m"
-	orange    = "\033[33m"
-	blue      = "\033[34m"
-	purple    = "\033[35m"
-	cyan      = "\033[36m"
-	gray      = "\033[37m"
-	bold      = "\033[1m"
-	clearln   = "\r\x1b[2K"
-	upN       = "\033[%dA"
-	downN     = "\033[%dB"
-	underline = "\033[4m"
-
-	// Info - Display colorful information
-	Info = bold + cyan + "[*] " + normal
-	// Warn - Warn a user
-	Warn = bold + red + "[!] " + normal
-	// Debug - Display debug information
-	Debug = bold + purple + "[-] " + normal
-	// Woot - Display success
-	Woot = bold + green + "[$] " + normal
+	logFileName = "sliver-client.log"
 )
 
-// ExtraCmds - Bind extra commands to the app object
-type ExtraCmds func(*grumble.App, rpcpb.SliverRPCClient)
+// newConsole - Instantiates a new console with some default behavior.
+// We modify/add elements of behavior later in setup.
+func newConsole() *console {
 
-// Start - Console entrypoint
-func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
-	app := grumble.New(&grumble.Config{
-		Name:                  "Sliver",
-		Description:           "Sliver Client",
-		HistoryFile:           path.Join(assets.GetRootAppDir(), "history"),
-		Prompt:                getPrompt(),
-		PromptColor:           color.New(),
-		HelpHeadlineColor:     color.New(),
-		HelpHeadlineUnderline: true,
-		HelpSubCommands:       true,
-	})
-	app.SetPrintASCIILogo(func(app *grumble.App) {
-		printLogo(app, rpc)
-	})
-
-	cmd.BindCommands(app, rpc)
-	extraCmds(app, rpc)
-
-	cmd.ActiveSession.AddObserver(func(_ *clientpb.Session) {
-		app.SetPrompt(getPrompt())
-	})
-
-	go eventLoop(app, rpc)
-	go core.TunnelLoop(rpc)
-
-	err := app.Run()
-	if err != nil {
-		log.Printf("Run loop returned error: %v", err)
+	console := &console{
+		Shell: readline.NewInstance(),
 	}
-	return err
+
+	return console
 }
 
-func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
-	eventStream, err := rpc.Events(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		fmt.Printf(Warn+"%s\n", err)
-		return
-	}
-	stdout := bufio.NewWriter(os.Stdout)
+// console - Central object of the client UI. Only one instance of this object
+// lives in the client executable (instantiated with newConsole() above).
+type console struct {
+	Shell *readline.Instance // Provides input loop and completion system.
+}
 
+// connect - The console connects to the server and authenticates. Note that all
+// config information (access points and security details) have been loaded already.
+func (c *console) connect() (err error) {
+
+	// Connect to server (performs TLS authentication)
+	conn, err = connection.ConnectTLS()
+
+	// Register RPC Service Client.
+	connection.RPC = rpcpb.NewSliverRPCClient(conn)
+	if connection.RPC == nil {
+		return errors.New("Could not register gRPC Client, instance is nil.")
+	}
+
+	// Listen for incoming server/implant events. If an error occurs in this
+	// loop, the console will exit after logging it.
+	go c.startEventHandler()
+
+	// Start message tunnel loop.
+	go connection.TunnelLoop()
+
+	return
+}
+
+// setup - The console sets up various elements such as the completion system, hints,
+// syntax highlighting, prompt system, commands binding, and client environment loading.
+func (c *console) setup() (err error) {
+
+	// Prompt. This computes all callbacks and base prompt strings
+	// for the first time, and then binds it to the readline console.
+	c.initPrompt()
+
+	// Completions, hints and syntax highlighting
+	c.Shell.TabCompleter = completers.TabCompleter
+	c.Shell.HintText = completers.HintCompleter
+	c.Shell.SyntaxHighlighter = completers.SyntaxHighlighter
+
+	// History (client and user-wide)
+
+	// Client-side environment
+	err = util.LoadClientEnv()
+	if err != nil {
+		fmt.Errorf("could not load client OS env (%s)", err)
+	}
+
+	// Commands binding. Per-context parsers are setup here.
+	err = commands.BindCommands()
+
+	return
+}
+
+// Start - The console calls connection and setup functions, and starts the input loop.
+func (c *console) Start() (err error) {
+
+	// Print banner and version information.
+	// This will also check the last update time.
+	printLogo()
+
+	// Initialize console logging (in textfile)
+	initLogging()
+
+	// Connect to server and authenticate
+	err = c.connect()
+	if err != nil {
+		log.Fatalf(Error+"Connection to server failed: %v", err)
+	}
+
+	// Setup console elements
+	err = c.setup()
+	if err != nil {
+		log.Fatalf(Error+"Console setup failed: %s", err)
+	}
+
+	// Start input loop
 	for {
-		event, err := eventStream.Recv()
-		if err == io.EOF || event == nil {
-			return
+		// Recompute prompt each time, before anything.
+		Prompt.ComputePrompt()
+
+		// Read input line
+		line, _ := c.Readline()
+
+		// Split and sanitize input
+		sanitized, empty := sanitizeInput(line)
+		if empty {
+			continue
 		}
 
-		// Trigger event based on type
-		switch event.EventType {
+		// Process various tokens on input (environment variables, paths, etc.)
+		parsed, _ := util.ParseEnvironmentVariables(sanitized)
 
-		case consts.CanaryEvent:
-			fmt.Printf(clearln+Warn+bold+"WARNING: %s%s has been burned (DNS Canary)\n", normal, event.Session.Name)
-			sessions := cmd.GetSessionsByName(event.Session.Name, rpc)
-			for _, session := range sessions {
-				fmt.Printf(clearln+"\t🔥 Session #%d is affected\n", session.ID)
-			}
-			fmt.Println()
-
-		case consts.JoinedEvent:
-			fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator.Name)
-		case consts.LeftEvent:
-			fmt.Printf(clearln+Info+"%s left the game\n\n", event.Client.Operator)
-
-		case consts.JobStoppedEvent:
-			job := event.Job
-			fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
-
-		case consts.SessionOpenedEvent:
-			session := event.Session
-			// The HTTP session handling is performed in two steps:
-			// - first we add an "empty" session
-			// - then we complete the session info when we receive the Register message from the Sliver
-			// This check is here to avoid displaying two sessions events for the same session
-			if session.OS != "" {
-				currentTime := time.Now().Format(time.RFC1123)
-				fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s - %v\n\n",
-					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
-			}
-
-		case consts.SessionUpdateEvent:
-			session := event.Session
-			currentTime := time.Now().Format(time.RFC1123)
-			fmt.Printf(clearln+Info+"Session #%d has been updated - %v\n", session.ID, currentTime)
-
-		case consts.SessionClosedEvent:
-			session := event.Session
-			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
-				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
-			activeSession := cmd.ActiveSession.Get()
-			if activeSession != nil && activeSession.ID == session.ID {
-				cmd.ActiveSession.Set(nil)
-				app.SetPrompt(getPrompt())
-				fmt.Printf(Warn + " Active session disconnected\n")
-			}
-			fmt.Println()
-		}
-
-		fmt.Printf(getPrompt())
-		stdout.Flush()
+		// Execute the command input: all input is passed to the current
+		// context parser, which will deal with it on its own. We never return
+		// errors from this call, as any of them happening follows a certain
+		// number of fallbacks (special commands, error printing, etc.).
+		// We should not have to exit the console because of an error here.
+		c.ExecuteCommand(parsed)
 	}
 }
 
-func getPrompt() string {
-	prompt := underline + "sliver" + normal
-	if cmd.ActiveSession.Get() != nil {
-		prompt += fmt.Sprintf(bold+red+" (%s)%s", cmd.ActiveSession.Get().Name, normal)
+// Readline - Add an empty line between input line and command output.
+func (c *console) Readline() (line string, err error) {
+	line, err = c.Shell.Readline()
+	fmt.Println()
+	return
+}
+
+// sanitizeInput - Trims spaces and other unwished elements from the input line.
+func sanitizeInput(line string) (sanitized []string, empty bool) {
+	return
+}
+
+// Initialize logging
+func initLogging() {
+	appDir := assets.GetRootAppDir()
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+	if err != nil {
+		panic(fmt.Sprintf("[!] Error opening file: %s", err))
 	}
-	prompt += " > "
-	return prompt
+	defer logFile.Close()
+	log.SetOutput(logFile)
+	return
+}
+
+// exit - Kill the current client console
+func (c *console) exit() {
+
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Confirm exit (Y/y): ")
+	text, _ := reader.ReadString('\n')
+	answer := strings.TrimSpace(text)
+
+	if (answer == "Y") || (answer == "y") {
+		os.Exit(0)
+	}
+
+	fmt.Println()
 }

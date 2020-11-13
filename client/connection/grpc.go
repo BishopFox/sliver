@@ -24,5 +24,6 @@ import (
 
 var (
 	// RPC - The RPC client used by the console to make RPC calls to the server.
+	// It is also used by the commands and completers package to make calls to the server.
 	RPC = rpcpb.SliverRPCClient
 )

@@ -21,6 +21,7 @@ package console
 import (
 	"fmt"
 
+	"github.com/bishopfox/sliver/client/util"
 	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
 )
@@ -95,7 +96,7 @@ func (c *console) executeSpecialCommand(args []string) error {
 			return nil
 		default:
 			// Fallback: Use the system shell through the console
-			// return util.Shell(args)
+			return util.Shell(args)
 		}
 	}
 
