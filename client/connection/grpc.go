@@ -19,11 +19,11 @@ package connection
 */
 
 import (
-	"github.com/BishopFox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 )
 
 var (
 	// RPC - The RPC client used by the console to make RPC calls to the server.
 	// It is also used by the commands and completers package to make calls to the server.
-	RPC = rpcpb.SliverRPCClient
+	RPC rpcpb.SliverRPCClient
 )

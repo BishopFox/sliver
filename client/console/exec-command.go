@@ -21,9 +21,10 @@ package console
 import (
 	"fmt"
 
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
+
+	"github.com/bishopfox/sliver/client/util"
 )
 
 // ExecuteCommand - Dispatches an input line to its appropriate command.
@@ -88,17 +89,17 @@ func (c *console) HandleParserErrors(in error, args []string) (err error) {
 func (c *console) executeSpecialCommand(args []string) error {
 
 	// Check context for availability
-	switch context.Context.Menu {
-	case context.MainMenu, context.ModuleMenu:
-		switch args[0] {
-		case "exit":
-			c.exit()
-			return nil
-		default:
-			// Fallback: Use the system shell through the console
-			return util.Shell(args)
-		}
+	// switch context.Context.Menu {
+	// case context.MainMenu, context.ModuleMenu:
+	switch args[0] {
+	case "exit":
+		c.exit()
+		return nil
+	default:
+		// Fallback: Use the system shell through the console
+		return util.Shell(args)
 	}
+	// }
 
 	// We should not get here, so we print an error-like message
 	fmt.Printf(CommandError+"Invalid command: %s%s \n", tui.YELLOW, args[0])

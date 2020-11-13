@@ -21,8 +21,8 @@ package main
 import (
 	"flag"
 
-	"github.com/BishopFox/sliver/client/assets"
-	client "github.com/BishopFox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/assets"
+	client "github.com/bishopfox/sliver/client/console"
 )
 
 func main() {

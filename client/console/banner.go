@@ -22,9 +22,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	insecureRand "math/rand"
 	"os"
 	"time"
 
+	cmd "github.com/bishopfox/sliver/client/command"
 	"github.com/bishopfox/sliver/client/connection"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"

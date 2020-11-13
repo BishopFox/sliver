@@ -24,14 +24,22 @@ import (
 	"net"
 
 	"github.com/desertbit/grumble"
+	"google.golang.org/grpc"
 
-	clientconsole "github.com/bishopfox/sliver/client/console"
+	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
-	clienttransport "github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/transport"
-	"google.golang.org/grpc"
+)
+
+const (
+	kb = 1024
+	mb = kb * 1024
+	gb = mb * 1024
+
+	// ClientMaxReceiveMessageSize - Max gRPC message size ~2Gb
+	ClientMaxReceiveMessageSize = 2 * gb
 )
 
 // Start - Starts the server console
@@ -44,7 +52,7 @@ func Start() {
 	options := []grpc.DialOption{
 		ctxDialer,
 		grpc.WithInsecure(), // This is an in-memory listener, no need for secure transport
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(clienttransport.ClientMaxReceiveMessageSize)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(ClientMaxReceiveMessageSize)),
 	}
 	conn, err := grpc.DialContext(context.Background(), "bufnet", options...)
 	if err != nil {
@@ -52,8 +60,8 @@ func Start() {
 		return
 	}
 	defer conn.Close()
-	localRPC := rpcpb.NewSliverRPCClient(conn)
-	clientconsole.Start(localRPC, serverOnlyCmds)
+
+	client.Console.StartServerConsole(conn)
 }
 
 // ServerOnlyCmds - Server only commands

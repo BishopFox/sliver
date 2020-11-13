@@ -26,9 +26,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/BishopFox/sliver/client/assets"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	"github.com/bishopfox/sliver/client/assets"
 )
 
 const (
@@ -50,6 +51,9 @@ func ConnectTLS() (conn *grpc.ClientConn, err error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println(assets.ServerCACertificate)
+	fmt.Println(assets.ServerCertificate)
+	fmt.Println(assets.ServerPrivateKey)
 
 	// Set gRPC options
 	creds := credentials.NewTLS(tlsConfig)
@@ -61,10 +65,11 @@ func ConnectTLS() (conn *grpc.ClientConn, err error) {
 	}
 
 	// Dial server with these certificates
-	server := fmt.Sprintf("%s:%d", assets.ServerLHost, assets.ServerLPort)
+	server := fmt.Sprintf("%s:%s", assets.ServerLHost, assets.ServerLPort)
 	conn, err = grpc.Dial(server, options...)
 	if err != nil {
-		fmt.Println("Failed to connect to gRPC")
+		err = fmt.Errorf("Failed to connect to gRPC: %s", err)
+		fmt.Printf("Failed to connect to gRPC: %s", err)
 	}
 
 	return

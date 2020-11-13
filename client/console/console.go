@@ -72,7 +72,7 @@ type console struct {
 func (c *console) connect() (err error) {
 
 	// Connect to server (performs TLS authentication)
-	conn, err = connection.ConnectTLS()
+	conn, err := connection.ConnectTLS()
 
 	// Register RPC Service Client.
 	connection.RPC = rpcpb.NewSliverRPCClient(conn)
@@ -104,11 +104,13 @@ func (c *console) setup() (err error) {
 	c.Shell.SyntaxHighlighter = completers.SyntaxHighlighter
 
 	// History (client and user-wide)
+	c.Shell.History = ClientHist
+	c.Shell.AltHistory = UserHist
 
 	// Client-side environment
 	err = util.LoadClientEnv()
 	if err != nil {
-		fmt.Errorf("could not load client OS env (%s)", err)
+		return fmt.Errorf("could not load client OS env (%s)", err)
 	}
 
 	// Commands binding. Per-context parsers are setup here.
@@ -120,18 +122,18 @@ func (c *console) setup() (err error) {
 // Start - The console calls connection and setup functions, and starts the input loop.
 func (c *console) Start() (err error) {
 
-	// Print banner and version information.
-	// This will also check the last update time.
-	printLogo()
-
 	// Initialize console logging (in textfile)
 	initLogging()
 
 	// Connect to server and authenticate
 	err = c.connect()
 	if err != nil {
-		log.Fatalf(Error+"Connection to server failed: %v", err)
+		log.Fatalf(Error+"Connection to server failed: %s", err)
 	}
+
+	// Print banner and version information.
+	// This will also check the last update time.
+	printLogo()
 
 	// Setup console elements
 	err = c.setup()
@@ -142,7 +144,7 @@ func (c *console) Start() (err error) {
 	// Start input loop
 	for {
 		// Recompute prompt each time, before anything.
-		Prompt.ComputePrompt()
+		Prompt.Compute()
 
 		// Read input line
 		line, _ := c.Readline()

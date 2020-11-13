@@ -109,7 +109,7 @@ func eventLoop() {
 			fmt.Println()
 		}
 
-		fmt.Printf(getPrompt())
+		// fmt.Printf(getPrompt())
 		stdout.Flush()
 	}
 }
@@ -132,13 +132,13 @@ const (
 	underline = "\033[4m"
 
 	// Info - Display colorful information
-	Info = bold + cyan + "[*] " + normal
+	// Info = bold + cyan + "[*] " + normal
 	// Warn - Warn a user
-	Warn = bold + red + "[!] " + normal
+	// Warn = bold + red + "[!] " + normal
 	// Debug - Display debug information
-	Debug = bold + purple + "[-] " + normal
+	// Debug = bold + purple + "[-] " + normal
 	// Woot - Display success
-	Woot = bold + green + "[$] " + normal
+	// Woot = bold + green + "[$] " + normal
 )
 
 // ServerEvent - Events that concern only the server and its client, not implants.
