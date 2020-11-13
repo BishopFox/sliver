@@ -60,6 +60,10 @@ linux: clean pb
 	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
 	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client ./client
 
+.PHONY: console-linux
+console-linux: clean pb
+	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client ./client
+
 .PHONY: windows
 windows: clean pb
 	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server

@@ -75,11 +75,13 @@ func Start() {
 }
 
 // addServerAdminCommands - We bind commands only available to the server admin to the console command parser.
+// Unfortunately we have to use, for each command, its Aliases field where we register its "namespace".
+// There is a namespace field, however it messes up with the option printing/detection/parsing.
 func addServerAdminCommands() (err error) {
 
 	np, err := commands.Server.AddCommand(constants.NewPlayerStr, "Create a new player config file",
 		help.GetHelpFor(constants.NewPlayerStr), &NewOperator{})
-	np.Namespace = "Admin"
+	np.Aliases = []string{"Admin"}
 	if err != nil {
 		fmt.Println(util.Warn + err.Error())
 		os.Exit(3)
@@ -87,7 +89,7 @@ func addServerAdminCommands() (err error) {
 
 	kp, err := commands.Server.AddCommand(constants.KickPlayerStr, "Kick a player from the server",
 		help.GetHelpFor(constants.KickPlayerStr), &KickOperator{})
-	kp.Namespace = "Admin"
+	kp.Aliases = []string{"Admin"}
 	if err != nil {
 		fmt.Println(util.Warn + err.Error())
 		os.Exit(3)
@@ -95,7 +97,7 @@ func addServerAdminCommands() (err error) {
 
 	mm, err := commands.Server.AddCommand(constants.MultiplayerModeStr, "Enable multiplayer mode on this server",
 		help.GetHelpFor(constants.MultiplayerModeStr), &MultiplayerMode{})
-	mm.Namespace = "Admin"
+	mm.Aliases = []string{"Admin"}
 	if err != nil {
 		fmt.Println(util.Warn + err.Error())
 		os.Exit(3)
