@@ -20,6 +20,8 @@ package commands
 
 import (
 	"github.com/jessevdk/go-flags"
+
+	"github.com/bishopfox/sliver/client/constants"
 )
 
 var (
@@ -48,6 +50,10 @@ func BindCommands() (err error) {
 
 // All commands concerning the server and/or the console itself are bound in this function.
 func bindServerCommands() (err error) {
+
+	ex, err := Server.AddCommand(constants.ExitStr, "Exit from the client/server console",
+		"Exit from the client/server console", &Exit{})
+	ex.Namespace = "Core"
 	return
 }
 

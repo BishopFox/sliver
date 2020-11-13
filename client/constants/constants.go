@@ -27,6 +27,7 @@ const (
 const (
 	UpdateStr  = "update"
 	VersionStr = "version"
+	ExitStr    = "exit"
 
 	EventStr = "event"
 

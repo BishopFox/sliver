@@ -1,5 +1,7 @@
 package console
 
+import "fmt"
+
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -18,8 +20,44 @@ package console
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+var (
+	// Prompt - The prompt singleton object used by the console.
+	Prompt *prompt
+)
+
 // prompt - The prompt object is in charge of computing values, refreshing and printing them.
 type prompt struct{}
+
+// initPrompt - Sets up the console root prompt system and binds it to readline.
+func (c *console) initPrompt() {
+
+	// Prompt settings (Vim-mode and stuff)
+	c.Shell.Multiline = true   // spaceship-like prompt (2-line)
+	c.Shell.ShowVimMode = true // with Vim mode status
+
+	Prompt = &prompt{
+		// Add Main (with callbacks)
+		// Add Sliver (with callbacks)
+	}
+
+	c.Shell.SetPrompt(Prompt.Render())
+}
+
+// ComputePrompt - Recompute prompt. This function may trigger some complex behavior:
+// It reads various things on the current console context, and refreshes the prompt
+// sometimes in a special way (like overwriting it fully or partly).
+func (p *prompt) Compute() {
+	line := p.Render()
+	Console.Shell.SetPrompt(line)
+
+	// Live a line between output and next prompt
+	fmt.Println()
+
+	// Check for refresh
+	// if context.Context.NeedsCommandRefresh {
+	//         p.RefreshOnCommand()
+	// }
+}
 
 // Render - The prompt determines in which context we currently are (core or sliver), and asks
 // the corresponding 'sub-prompt' to compute itself and return its string.
@@ -28,7 +66,7 @@ func (p *prompt) Render() (prompt string) {
 }
 
 // applyCallbacks - For each '{value}' in the prompt string, compute value and replace it.
-func (p *prompt) applyCallbacks(in string) (p string, length int) {
+func (p *prompt) applyCallbacks(in string) (out string, length int) {
 	return
 }
 
@@ -42,7 +80,7 @@ func (p *prompt) getPromptPad(total, base, module, context int) (pad string) {
 type promptCore struct{}
 
 // render - The core prompt computes all necessary values, forges a prompt string
-// and returns it for being prompted by the shell.
+// and returns it for being printed by the shell.
 func (p *promptCore) render() (prompt string) {
 
 	// We need the terminal width: the prompt sometimes
@@ -64,7 +102,7 @@ func (p *promptCore) render() (prompt string) {
 
 // computeBase - Computes the base prompt (left-side) with potential custom prompt given.
 // Returns the width of the computed string, for correct aggregation of all strings.
-func (p promptCore) computeBase() (p string, width int) {
+func (p promptCore) computeBase() (prompt string, width int) {
 	return
 }
 
