@@ -24,7 +24,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/sliver/transports"
 
-	// {{if .IsSharedLib}}
+	// {{if or .IsSharedLib .IsShellcode}}
 	// {{if eq .GOOS "windows"}}
 	"runtime"
 	"syscall"
