@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 )
 
 const (
@@ -42,19 +43,19 @@ func ProfileSave(name string, config *ImplantConfig) error {
 }
 
 // ProfileByName - Fetch a single profile from the database
-func ProfileByName(name string) (*ImplantConfig, error) {
+func ProfileByName(name string) (*models.ImplantConfig, error) {
 	bucket, err := db.GetBucket(profilesBucketName)
 	if err != nil {
 		return nil, err
 	}
 	rawProfile, err := bucket.Get(name)
-	config := &ImplantConfig{}
+	config := &models.ImplantConfig{}
 	err = json.Unmarshal(rawProfile, config)
 	return config, err
 }
 
 // Profiles - Fetch a map of name<->profiles current in the database
-func Profiles() map[string]*ImplantConfig {
+func Profiles() map[string]*models.ImplantConfig {
 	bucket, err := db.GetBucket(profilesBucketName)
 	if err != nil {
 		return nil

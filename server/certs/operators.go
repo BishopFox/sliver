@@ -69,7 +69,11 @@ func OperatorClientListCertificates() []*x509.Certificate {
 
 	operatorCerts := []*models.Certificate{}
 	dbSession := db.Session()
-	dbSession.Where(&models.Certificate{CAType: OperatorCA}).Take(&operatorCerts)
+	result := dbSession.Where(&models.Certificate{CAType: OperatorCA}).Find(&operatorCerts)
+	if result.Error != nil {
+		certsLog.Error(result.Error)
+		return []*x509.Certificate{}
+	}
 
 	certsLog.Infof("Found %d operator certs ...", len(operatorCerts))
 

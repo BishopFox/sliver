@@ -9,8 +9,10 @@ import (
 
 // Certificate - Certificate database model
 type Certificate struct {
-	ID             uuid.UUID `gorm:"gorm:"->;<-:create;type:uuid;unique;"`
-	CreatedAt      time.Time `gorm:"gorm:"->;<-:create;"`
+	gorm.Model
+
+	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;index:unique;"`
+	CreatedAt      time.Time `gorm:"->;<-:create;"`
 	CommonName     string    `gorm:"index:unique;"`
 	CAType         string
 	KeyType        string
