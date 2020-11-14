@@ -20,11 +20,11 @@ package certs
 
 import (
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 )
 
 const (
@@ -66,31 +66,16 @@ func OperatorServerGenerateCertificate(hostname string) ([]byte, []byte, error) 
 
 // OperatorClientListCertificates - Get all client certificates
 func OperatorClientListCertificates() []*x509.Certificate {
-	bucket, err := db.GetBucket(OperatorCA)
-	if err != nil {
-		return []*x509.Certificate{}
-	}
 
-	// The key structure is: <key type>_<namespace>.<operator name>
-	operators, err := bucket.List(fmt.Sprintf("%s_%s", ECCKey, clientNamespace))
-	if err != nil {
-		return []*x509.Certificate{}
-	}
-	certsLog.Infof("Found %d operator certs ...", len(operators))
+	operatorCerts := []*models.CertificateModel{}
+	dbSession := db.Session()
+	dbSession.Where(&models.CertificateModel{CAType: OperatorCA}).Take(&operatorCerts)
+
+	certsLog.Infof("Found %d operator certs ...", len(operatorCerts))
 
 	certs := []*x509.Certificate{}
-	for _, operator := range operators {
-
-		certsLog.Infof("Operator = %v", operator)
-		keypairRaw, err := bucket.Get(operator)
-		if err != nil {
-			certsLog.Warnf("Failed to fetch operator keypair %v", err)
-			continue
-		}
-		keypair := &CertificateKeyPair{}
-		json.Unmarshal(keypairRaw, keypair)
-
-		block, _ := pem.Decode(keypair.Certificate)
+	for _, operator := range operatorCerts {
+		block, _ := pem.Decode([]byte(operator.CertificatePEM))
 		if block == nil {
 			certsLog.Warn("failed to parse certificate PEM")
 			continue

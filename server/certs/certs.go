@@ -27,7 +27,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/binary"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -36,9 +35,8 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
-
-	"github.com/dgraph-io/badger"
 )
 
 const (
@@ -62,13 +60,6 @@ var (
 	ErrCertDoesNotExist = errors.New("Certificate does not exist")
 )
 
-// CertificateKeyPair - Single struct with KeyType/Cert/PrivateKey
-type CertificateKeyPair struct {
-	KeyType     string `json:"key_type"`
-	Certificate []byte `json:"certificate"`
-	PrivateKey  []byte `json:"private_key"`
-}
-
 // SaveCertificate - Save the certificate and the key to the filesystem
 func SaveCertificate(caType string, keyType string, commonName string, cert []byte, key []byte) error {
 
@@ -76,21 +67,20 @@ func SaveCertificate(caType string, keyType string, commonName string, cert []by
 		return fmt.Errorf("Invalid key type '%s'", keyType)
 	}
 
-	bucket, err := db.GetBucket(caType)
-	if err != nil {
-		return err
+	certsLog.Infof("Saving certificate for cn = '%s'", commonName)
+
+	certModel := &models.CertificateModel{
+		CommonName:     commonName,
+		CAType:         caType,
+		KeyType:        keyType,
+		CertificatePEM: string(cert),
+		PrivateKeyPEM:  string(key),
 	}
-	bucket.Log.Infof("Saving certificate for cn = '%s'", commonName)
-	keyPair, err := json.Marshal(CertificateKeyPair{
-		KeyType:     keyType,
-		Certificate: cert,
-		PrivateKey:  key,
-	})
-	if err != nil {
-		bucket.Log.Errorf("Failed to marshal key pair %s", err)
-		return err
-	}
-	return bucket.Set(fmt.Sprintf("%s_%s", keyType, commonName), keyPair)
+
+	dbSession := db.Session()
+	result := dbSession.Create(&certModel)
+
+	return result.Error
 }
 
 // GetECCCertificate - Get an ECC certificate
@@ -111,23 +101,16 @@ func GetCertificate(caType string, keyType string, commonName string) ([]byte, [
 	}
 
 	certsLog.Infof("Getting certificate ca type = %s, cn = '%s'", caType, commonName)
-	bucket, err := db.GetBucket(caType)
-	if err != nil {
-		return nil, nil, err
-	}
-	rawKeyPair, err := bucket.Get(fmt.Sprintf("%s_%s", keyType, commonName))
-	if err == badger.ErrKeyNotFound {
-		return nil, nil, ErrCertDoesNotExist
-	}
-	if err != nil {
-		return nil, nil, err
-	}
-	keyPair := &CertificateKeyPair{}
-	err = json.Unmarshal(rawKeyPair, keyPair)
-	if err != nil {
-		return nil, nil, err
-	}
-	return keyPair.Certificate, keyPair.PrivateKey, nil
+
+	certModel := &models.CertificateModel{}
+	dbSession := db.Session()
+	dbSession.Where(&models.CertificateModel{
+		CAType:     caType,
+		KeyType:    keyType,
+		CommonName: commonName,
+	}).First(&certModel)
+
+	return []byte(certModel.CertificatePEM), []byte(certModel.PrivateKeyPEM), nil
 }
 
 // RemoveCertificate - Remove a certificate from the cert store
@@ -136,12 +119,7 @@ func RemoveCertificate(caType string, keyType string, commonName string) error {
 		return fmt.Errorf("Invalid key type '%s'", keyType)
 	}
 
-	bucket, err := db.GetBucket(caType)
-	if err != nil {
-		return err
-	}
-
-	return bucket.Delete(fmt.Sprintf("%s_%s", keyType, commonName))
+	return nil
 }
 
 // --------------------------------
