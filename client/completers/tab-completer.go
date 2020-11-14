@@ -56,11 +56,6 @@ func TabCompleter(line []rune, pos int) (prefix string, completions []*readline.
 	// Base command has been identified
 	if commandFound(command) {
 
-		// If user asks for completions with "-" / "--", show command options
-		if optionsAsked(args, lastWord, command) {
-			return CompleteCommandOptions(args, lastWord, command)
-		}
-
 		// Check environment variables again
 		if envVarAsked(args, lastWord) {
 
@@ -79,6 +74,12 @@ func TabCompleter(line []rune, pos int) (prefix string, completions []*readline.
 		// Handle subcommand if found (maybe we should rewrite this function and use it also for base command)
 		if sub, ok := subCommandFound(lastWord, args, command); ok {
 			return HandleSubCommand(line, pos, sub)
+		}
+
+		// If user asks for completions with "-" / "--", show command options.
+		// We ask this here, after having ensured there is no subcommand invoked.
+		if commandOptionsAsked(args, lastWord, command) {
+			return CompleteCommandOptions(args, lastWord, command)
 		}
 	}
 
@@ -196,7 +197,7 @@ func HandleSubCommand(line []rune, pos int, command *flags.Command) (lastWord st
 	}
 
 	// If user asks for completions with "-" or "--". (Note: This takes precedence on arguments, as it is evaluated after arguments)
-	if optionsAsked(args, lastWord, command) {
+	if subCommandOptionsAsked(args, lastWord, command) {
 		return CompleteCommandOptions(args, lastWord, command)
 	}
 
