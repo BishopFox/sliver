@@ -2,6 +2,7 @@ package db
 
 import (
 	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -18,13 +19,18 @@ var (
 // newDBClient - Initialize the db client
 func newDBClient() *gorm.DB {
 	dbConfig := configs.GetDatabaseConfig()
+
+	var dbClient *gorm.DB
 	switch dbConfig.Dialect {
 	case configs.Sqlite:
-		return sqliteClient(dbConfig)
+		dbClient = sqliteClient(dbConfig)
 	case configs.Postgres:
-		return postgresClient(dbConfig)
+		dbClient = postgresClient(dbConfig)
 	}
-	panic("Invalid database configuration")
+
+	dbClient.AutoMigrate(&models.Certificate{})
+
+	return dbClient
 }
 
 func sqliteClient(dbConfig *configs.DatabaseConfig) *gorm.DB {

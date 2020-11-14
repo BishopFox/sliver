@@ -6,8 +6,8 @@ import (
 	"github.com/gofrs/uuid"
 )
 
-// CertificateModel - Certificate database model
-type CertificateModel struct {
+// Certificate - Certificate database model
+type Certificate struct {
 	ID             uuid.UUID `gorm:"->;type:uuid;"`
 	CreatedAt      time.Time `gorm:"->;"`
 	CommonName     string

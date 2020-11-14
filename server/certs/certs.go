@@ -69,7 +69,7 @@ func SaveCertificate(caType string, keyType string, commonName string, cert []by
 
 	certsLog.Infof("Saving certificate for cn = '%s'", commonName)
 
-	certModel := &models.CertificateModel{
+	certModel := &models.Certificate{
 		CommonName:     commonName,
 		CAType:         caType,
 		KeyType:        keyType,
@@ -102,9 +102,9 @@ func GetCertificate(caType string, keyType string, commonName string) ([]byte, [
 
 	certsLog.Infof("Getting certificate ca type = %s, cn = '%s'", caType, commonName)
 
-	certModel := &models.CertificateModel{}
+	certModel := &models.Certificate{}
 	dbSession := db.Session()
-	dbSession.Where(&models.CertificateModel{
+	dbSession.Where(&models.Certificate{
 		CAType:     caType,
 		KeyType:    keyType,
 		CommonName: commonName,

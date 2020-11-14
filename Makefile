@@ -3,7 +3,7 @@
 #
 
 GO ?= go
-ENV = CGO_ENABLED=0
+ENV = CGO_ENABLED=1
 TAGS = -tags netgo
 
 
