@@ -108,7 +108,7 @@ func (g *Generate) Execute(args []string) (err error) {
 type Regenerate struct {
 	Positional struct {
 		Name string `description:"Name of Sliver implant to recompile"`
-	} `required:"true"`
+	} `positional-args:"yes" required:"yes"`
 	Save    string `long:"save" description:"Directory/file where to save binary"`
 	Timeout int    `long:"timeout" description:"Command timeout in seconds"`
 }

@@ -155,10 +155,25 @@ func bindServerCommands() (err error) {
 		help.GetHelpFor(constants.ListCanariesStr), &Canaries{})
 	c.Aliases = []string{"Implants"}
 
+	// Session management ---------------
+	i, err := Server.AddCommand(constants.InteractStr, "Interact with an implant",
+		help.GetHelpFor(constants.InteractStr), &Interact{})
+	i.Aliases = []string{"Sessions"}
+
 	return
 }
 
 // All commands for controlling sliver implants are bound in this function.
 func bindSliverCommands() (err error) {
+
+	// Session management
+	i, err := Sliver.AddCommand(constants.InteractStr, "Interact with an implant",
+		help.GetHelpFor(constants.InteractStr), &Interact{})
+	i.Aliases = []string{"Session"}
+
+	b, err := Sliver.AddCommand(constants.BackgroundStr, "Background an active session",
+		help.GetHelpFor(constants.BackgroundStr), &Background{})
+	b.Aliases = []string{"Session"}
+
 	return
 }

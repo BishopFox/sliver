@@ -77,7 +77,7 @@ func (c *console) connect() (err error) {
 	// Register RPC Service Client.
 	connection.RPC = rpcpb.NewSliverRPCClient(conn)
 	if connection.RPC == nil {
-		return errors.New("Could not register gRPC Client, instance is nil.")
+		return errors.New("could not register gRPC Client, instance is nil")
 	}
 
 	// Listen for incoming server/implant events. If an error occurs in this
@@ -165,8 +165,8 @@ func (c *console) Start() (err error) {
 		// Execute the command input: all input is passed to the current
 		// context parser, which will deal with it on its own. We never return
 		// errors from this call, as any of them happening follows a certain
-		// number of fallbacks (special commands, error printing, etc.).
-		// We should not have to exit the console because of an error here.
+		// number of fallback paths (special commands, error printing, etc.).
+		// We should not have to exit the console because of an error here, anyway.
 		c.ExecuteCommand(parsed)
 	}
 }

@@ -9,7 +9,7 @@ package console
 	the Free Software Foundation, either version 3 of the License, or
 	(at your option) any later version.
 
-	This program is distributed in the hope that it will be useful,
+	oThis program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU General Public License for more details.
@@ -37,11 +37,35 @@ import (
 func (c *console) startEventHandler() (err error) {
 
 	// Listen for events on the RPC stream.
+	eventStream, err := connection.RPC.Events(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Errorf+"%s\n", err)
+		return
+	}
 
 	for {
 		// Few things to note:
 		// 1 - Change the EventTypes or regroup them in the functions below,
 		// because each type of event may trigger different console behavior.
+		event, err := eventStream.Recv()
+		if err == io.EOF || event == nil {
+			fmt.Printf(Errorf+"%s\n", err)
+			return err
+		}
+
+		switch event.EventType {
+		case consts.SessionOpenedEvent:
+			session := event.Session
+			// The HTTP session handling is performed in two steps:
+			// - first we add an "empty" session
+			// - then we complete the session info when we receive the Register message from the Sliver
+			// This check is here to avoid displaying two sessions events for the same session
+			if session.OS != "" {
+				currentTime := time.Now().Format(time.RFC1123)
+				fmt.Printf(Info+"Session #%d %s - %s (%s) - %s/%s - %v\n",
+					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
+			}
+		}
 	}
 }
 

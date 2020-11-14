@@ -65,6 +65,7 @@ const (
 	BackgroundStr = "background"
 	InfoStr       = "info"
 	UseStr        = "use"
+	InteractStr   = "interact"
 	SetStr        = "set"
 
 	GenerateStr        = "generate"

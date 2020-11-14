@@ -20,6 +20,10 @@ package context
 
 import (
 	"sync"
+	"time"
+
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
 var (
@@ -38,11 +42,31 @@ const (
 
 // ConsoleContext - Stores all variables needed for console context
 type ConsoleContext struct {
-	Menu                string // Current shell menu
-	Jobs                int    // Number of jobs
-	Ghosts              int    // Number of connected implants
-	NeedsCommandRefresh bool   // A command might or has set this to true.
+	Menu                string   // Current shell menu
+	Sliver              *Session // The current implant we're interacting with
+	Jobs                int      // Number of jobs
+	Slivers             int      // Number of connected implants
+	NeedsCommandRefresh bool     // A command might or has set this to true.
 	mutex               *sync.Mutex
+}
+
+// Session - An implant session we are interacting with.
+// This is a wrapper for some utility methods.
+type Session struct {
+	*clientpb.Session
+	WorkingDir string // The implant working directory, stored to limit calls.
+}
+
+// Request - Prepare a RPC request for the current Session.
+func (s *Session) Request(timeOut int) *commonpb.Request {
+	if s.Session == nil {
+		return nil
+	}
+	timeout := int(time.Second) * timeOut
+	return &commonpb.Request{
+		SessionID: s.ID,
+		Timeout:   int64(timeout),
+	}
 }
 
 // Initialize - The console calls to initialize a new context object, to be shared by
