@@ -22,13 +22,32 @@ import (
 	"github.com/jessevdk/go-flags"
 
 	"github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/help"
+)
+
+const (
+	// ANSI Colors
+	normal    = "\033[0m"
+	black     = "\033[30m"
+	red       = "\033[31m"
+	green     = "\033[32m"
+	orange    = "\033[33m"
+	blue      = "\033[34m"
+	purple    = "\033[35m"
+	cyan      = "\033[36m"
+	gray      = "\033[37m"
+	bold      = "\033[1m"
+	clearln   = "\r\x1b[2K"
+	upN       = "\033[%dA"
+	downN     = "\033[%dB"
+	underline = "\033[4m"
 )
 
 var (
 	// Server - All commands available in the main (server) menu are processed
 	// by this Server parser. This is the basis of context separation for various
 	// completions, hints, prompt system, etc.
-	Server = flags.NewNamedParser("server", flags.None)
+	Server = flags.NewNamedParser("server", flags.IgnoreUnknown)
 
 	// Sliver - The parser used to process all commands directed at sliver implants.
 	Sliver = flags.NewNamedParser("sliver", flags.None)
@@ -49,11 +68,69 @@ func BindCommands() (err error) {
 }
 
 // All commands concerning the server and/or the console itself are bound in this function.
+// Unfortunately we have to use, for each command, its Aliases field where we register its "namespace".
+// There is a namespace field, however it messes up with the option printing/detection/parsing.
 func bindServerCommands() (err error) {
 
+	// Core console -------------------------
 	ex, err := Server.AddCommand(constants.ExitStr, "Exit from the client/server console",
 		"Exit from the client/server console", &Exit{})
-	ex.Namespace = "Core"
+	ex.Aliases = []string{"Core"}
+
+	up, err := Server.AddCommand(constants.UpdateStr, "Check for newer Sliver console/server releases",
+		help.GetHelpFor(constants.UpdateStr), &Updates{})
+	up.Aliases = []string{"Core"}
+
+	op, err := Server.AddCommand(constants.PlayersStr, "List operators and their status",
+		help.GetHelpFor(constants.PlayersStr), &Operators{})
+	op.Aliases = []string{"Core"}
+
+	// Jobs -------------------------
+	j, err := Server.AddCommand(constants.JobsStr, "Job management commands",
+		help.GetHelpFor(constants.JobsStr), &Jobs{})
+	j.Aliases = []string{"Core"}
+	j.SubcommandsOptional = true
+
+	_, err = j.AddCommand(constants.JobsKillStr, "Kill job given an ID",
+		"", &JobsKill{})
+
+	_, err = j.AddCommand(constants.JobsKillAllStr, "Kill all active jobs on server",
+		"", &JobsKillAll{})
+
+	// Transports --------------------
+	m, err := Server.AddCommand(constants.MtlsStr, "Start an mTLS listener on server",
+		help.GetHelpFor(constants.MtlsStr), &MTLSListener{})
+	m.Aliases = []string{"Transports"}
+
+	d, err := Server.AddCommand(constants.DnsStr, "Start a DNS listener",
+		help.GetHelpFor(constants.DnsStr), &DNSListener{})
+	d.Aliases = []string{"Transports"}
+
+	hs, err := Server.AddCommand(constants.HttpsStr, "Start an HTTP(S) listener",
+		help.GetHelpFor(constants.HttpsStr), &HTTPSListener{})
+	hs.Aliases = []string{"Transports"}
+
+	h, err := Server.AddCommand(constants.HttpStr, "Start an HTTP listener",
+		help.GetHelpFor(constants.HttpStr), &HTTPListener{})
+	h.Aliases = []string{"Transports"}
+
+	s, err := Server.AddCommand(constants.StagerStr, "Start a stating listener (TCP/HTTP/HTTPS)",
+		help.GetHelpFor(constants.StagerStr), &StageListener{})
+	s.Aliases = []string{"Transports"}
+
+	// Implant generation --------------
+	g, err := Server.AddCommand(constants.GenerateStr, "Configure and compile an implant (staged or stager)",
+		help.GetHelpFor(constants.GenerateStr), &Generate{})
+	g.Aliases = []string{"Implants"}
+	g.SubcommandsOptional = true
+
+	_, err = g.AddCommand(constants.StagerStr, "Generate a stager payload using MSFVenom",
+		help.GetHelpFor(constants.StagerStr), &GenerateStager{})
+
+	p, err := Server.AddCommand(constants.NewProfileStr, "Configure and save a new (stage) implant profile",
+		help.GetHelpFor(constants.NewProfileStr), &NewProfile{})
+	p.Aliases = []string{"Implants"}
+
 	return
 }
 

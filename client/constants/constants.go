@@ -78,6 +78,8 @@ const (
 	ListCanariesStr     = "canaries"
 
 	JobsStr        = "jobs"
+	JobsKillStr    = "kill"
+	JobsKillAllStr = "kill-all"
 	MtlsStr        = "mtls"
 	DnsStr         = "dns"
 	HttpStr        = "http"
