@@ -153,6 +153,15 @@ func GetLastUpdateCheck() *time.Time {
 	return &lastUpdate
 }
 
+// Version - Display version information
+type Version struct{}
+
+// Execute - Display version information
+func (v *Version) Execute(args []string) (err error) {
+	verboseVersions()
+	return
+}
+
 func verboseVersions() {
 	clientVer := version.FullVersion()
 	serverVer, err := connection.RPC.GetVersion(context.Background(), &commonpb.Empty{})

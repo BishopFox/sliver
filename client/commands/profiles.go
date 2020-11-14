@@ -21,8 +21,12 @@ package commands
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
+	"text/tabwriter"
 
 	"github.com/bishopfox/sliver/client/connection"
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -62,6 +66,103 @@ func (p *NewProfile) Execute(args []string) (err error) {
 	return
 }
 
+// Profiles - List saved implant profiles.
+type Profiles struct{}
+
+// Execute - List saved implant profiles.
+func (p *Profiles) Execute(args []string) (err error) {
+	profiles := getSliverProfiles()
+	if profiles == nil {
+		return
+	}
+	if len(*profiles) == 0 {
+		fmt.Printf(util.Info+"No profiles, create one with `%s`\n", constants.NewProfileStr)
+		return
+	}
+	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+	fmt.Fprintf(table, "Name\tPlatform\tCommand & Control\tDebug\tFormat\tObfuscation\tLimitations\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+		strings.Repeat("=", len("Name")),
+		strings.Repeat("=", len("Platform")),
+		strings.Repeat("=", len("Command & Control")),
+		strings.Repeat("=", len("Debug")),
+		strings.Repeat("=", len("Format")),
+		strings.Repeat("=", len("Obfuscation")),
+		strings.Repeat("=", len("Limitations")))
+
+	for name, profile := range *profiles {
+		config := profile.Config
+		if 0 < len(config.C2) {
+			obfuscation := "strings only"
+			if config.ObfuscateSymbols {
+				obfuscation = "symbols obfuscation"
+			}
+			if config.Debug {
+				obfuscation = "none"
+			}
+			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				name,
+				fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
+				fmt.Sprintf("[1] %s", config.C2[0].URL),
+				fmt.Sprintf("%v", config.Debug),
+				fmt.Sprintf("%v", config.Format),
+				fmt.Sprintf("%s", obfuscation),
+				getLimitsString(config),
+			)
+		}
+		if 1 < len(config.C2) {
+			for index, c2 := range config.C2[1:] {
+				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					"",
+					"",
+					fmt.Sprintf("[%d] %s", index+2, c2.URL),
+					"",
+					"",
+					"",
+					"",
+				)
+			}
+		}
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "", "", "", "", "", "", "")
+	}
+	table.Flush()
+	return
+}
+
+// ProfileGenerate - Generate implant from a profile given as argment (completed)
+type ProfileGenerate struct {
+	Positional struct {
+		Profile string `description:"Name of profile to use"`
+	} `required:"true"`
+	Save    string `long:"save" description:"Directory/file where to save binary"`
+	Timeout int    `long:"timeout" description:"Command timeout in seconds"`
+}
+
+// Execute - Generate implant from a profile given as argment (completed)
+func (p *ProfileGenerate) Execute(args []string) (err error) {
+	name := p.Positional.Profile
+	save := p.Save
+	if save == "" {
+		save, _ = os.Getwd()
+	}
+	profiles := getSliverProfiles()
+	if profile, ok := (*profiles)[name]; ok {
+		implantFile, err := compile(profile.Config, save)
+		if err != nil {
+			return err
+		}
+		profile.Config.Name = buildImplantName(implantFile.Name)
+		_, err = connection.RPC.SaveImplantProfile(context.Background(), profile)
+		if err != nil {
+			fmt.Printf(util.Error+"could not update implant profile: %v\n", err)
+			return err
+		}
+	} else {
+		fmt.Printf(util.Error+"No profile with name '%s'", name)
+	}
+	return
+}
+
 func getSliverProfiles() *map[string]*clientpb.ImplantProfile {
 	pbProfiles, err := connection.RPC.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -73,4 +174,24 @@ func getSliverProfiles() *map[string]*clientpb.ImplantProfile {
 		(*profiles)[profile.Name] = profile
 	}
 	return profiles
+}
+
+func getLimitsString(config *clientpb.ImplantConfig) string {
+	limits := []string{}
+	if config.LimitDatetime != "" {
+		limits = append(limits, fmt.Sprintf("datetime=%s", config.LimitDatetime))
+	}
+	if config.LimitDomainJoined {
+		limits = append(limits, fmt.Sprintf("domainjoined=%v", config.LimitDomainJoined))
+	}
+	if config.LimitUsername != "" {
+		limits = append(limits, fmt.Sprintf("username=%s", config.LimitUsername))
+	}
+	if config.LimitHostname != "" {
+		limits = append(limits, fmt.Sprintf("hostname=%s", config.LimitHostname))
+	}
+	if config.LimitFileExists != "" {
+		limits = append(limits, fmt.Sprintf("fileexists=%s", config.LimitFileExists))
+	}
+	return strings.Join(limits, "; ")
 }

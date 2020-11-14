@@ -77,6 +77,10 @@ func bindServerCommands() (err error) {
 		"Exit from the client/server console", &Exit{})
 	ex.Aliases = []string{"Core"}
 
+	v, err := Server.AddCommand(constants.VersionStr, "Display version information",
+		help.GetHelpFor(constants.VersionStr), &Version{})
+	v.Aliases = []string{"Core"}
+
 	up, err := Server.AddCommand(constants.UpdateStr, "Check for newer Sliver console/server releases",
 		help.GetHelpFor(constants.UpdateStr), &Updates{})
 	up.Aliases = []string{"Core"}
@@ -114,7 +118,7 @@ func bindServerCommands() (err error) {
 		help.GetHelpFor(constants.HttpStr), &HTTPListener{})
 	h.Aliases = []string{"Transports"}
 
-	s, err := Server.AddCommand(constants.StagerStr, "Start a stating listener (TCP/HTTP/HTTPS)",
+	s, err := Server.AddCommand(constants.StagerStr, "Start a staging listener (TCP/HTTP/HTTPS)",
 		help.GetHelpFor(constants.StagerStr), &StageListener{})
 	s.Aliases = []string{"Transports"}
 
@@ -130,6 +134,26 @@ func bindServerCommands() (err error) {
 	p, err := Server.AddCommand(constants.NewProfileStr, "Configure and save a new (stage) implant profile",
 		help.GetHelpFor(constants.NewProfileStr), &NewProfile{})
 	p.Aliases = []string{"Implants"}
+
+	r, err := Server.AddCommand(constants.RegenerateStr, "Recompile an implant by name, passed as argument (completed)",
+		help.GetHelpFor(constants.RegenerateStr), &Regenerate{})
+	r.Aliases = []string{"Implants"}
+
+	pr, err := Server.AddCommand(constants.ProfilesStr, "List existing implant profiles",
+		help.GetHelpFor(constants.ProfilesStr), &Profiles{})
+	pr.Aliases = []string{"Implants"}
+
+	pg, err := Server.AddCommand(constants.ProfileGenerateStr, "Compile an implant based on a profile, passed as argument (completed)",
+		help.GetHelpFor(constants.ProfileGenerateStr), &ProfileGenerate{})
+	pg.Aliases = []string{"Implants"}
+
+	b, err := Server.AddCommand(constants.ListSliverBuildsStr, "List old implant builds",
+		help.GetHelpFor(constants.ListSliverBuildsStr), &Builds{})
+	b.Aliases = []string{"Implants"}
+
+	c, err := Server.AddCommand(constants.ListCanariesStr, "List previously generated DNS canaries",
+		help.GetHelpFor(constants.ListCanariesStr), &Canaries{})
+	c.Aliases = []string{"Implants"}
 
 	return
 }

@@ -10,10 +10,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/client/connection"
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -53,6 +55,7 @@ type StageOptions struct {
 		Arch    string `long:"arch" description:"Target host CPU architecture (default: amd64)" default:"amd64"`
 		Format  string `long:"format" description:"Specifies output formats ('exe', 'shared' (DLL), 'service' (see 'psexec' for more info), 'shellcode' (Windows only)" default:"exe"`
 		Profile string `long:"profile-name" description:"Implant profile name to use"`
+		Name    string `long:"name" description:"Implant name to use (overrides random name generation)"`
 		Save    string `long:"save" description:"Directory/file where to save binary"`
 		Debug   bool   `long:"debug" description:"Enable debug features (incompatible with obfuscation, and prevailing)"`
 	} `group:"Core options"`
@@ -101,23 +104,69 @@ func (g *Generate) Execute(args []string) (err error) {
 	return
 }
 
+// Regenerate - Recompile an implant by name, passed as argument (completed)
+type Regenerate struct {
+	Positional struct {
+		Name string `description:"Name of Sliver implant to recompile"`
+	} `required:"true"`
+	Save    string `long:"save" description:"Directory/file where to save binary"`
+	Timeout int    `long:"timeout" description:"Command timeout in seconds"`
+}
+
+// Execute - Recompile an implant with a given profile
+func (r *Regenerate) Execute(args []string) (err error) {
+	if r.Positional.Name == "" {
+		fmt.Printf(util.Error+"Invalid implant name, see `help %s`\n", constants.RegenerateStr)
+		return
+	}
+	save := r.Save
+	if save == "" {
+		save, _ = os.Getwd()
+	}
+
+	regenerate, err := connection.RPC.Regenerate(context.Background(), &clientpb.RegenerateReq{
+		ImplantName: r.Positional.Name,
+	})
+	if err != nil {
+		fmt.Printf(util.RPCError+"Failed to regenerate implant %s\n", err)
+		return
+	}
+	if regenerate.File == nil {
+		fmt.Printf(util.Error + "Failed to regenerate implant (no data)\n")
+		return
+	}
+	saveTo, err := saveLocation(save, regenerate.File.Name)
+	if err != nil {
+		fmt.Printf(util.Error+"%s\n", err)
+		return
+	}
+	err = ioutil.WriteFile(saveTo, regenerate.File.Data, 0500)
+	if err != nil {
+		fmt.Printf(util.Error+"Failed to write to %s\n", err)
+		return
+	}
+	fmt.Printf(util.Error+"Implant binary saved to: %s\n", saveTo)
+
+	return
+}
+
 // Shared function that extracts the compile flags from a StageOptions struct above, and returns a configuration.
 func parseCompileFlags(g StageOptions) *clientpb.ImplantConfig {
-	var name string
 	targetOS := strings.ToLower(g.CoreOptions.OS)
 	arch := strings.ToLower(g.CoreOptions.Arch)
 
-	// if ctx.Flags["name"] != nil {
-	//         name = strings.ToLower(ctx.Flags.String("name"))
-	//
-	//         if name != "" {
-	//                 isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
-	//                 if !isAlphanumeric(name) {
-	//                         fmt.Printf(Warn + "Agent's name must be in alphanumeric only\n")
-	//                         return nil
-	//                 }
-	//         }
-	// }
+	var name string
+	if g.CoreOptions.Name != "" {
+		name = strings.ToLower(g.CoreOptions.Name)
+
+		if name != "" {
+			isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
+			if !isAlphanumeric(name) {
+				fmt.Printf(util.Error + "Agent's name must be in alphanumeric only\n")
+				return nil
+			}
+		}
+	}
 
 	c2s := []*clientpb.ImplantC2{}
 
