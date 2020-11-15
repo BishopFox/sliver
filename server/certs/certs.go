@@ -102,13 +102,16 @@ func GetCertificate(caType string, keyType string, commonName string) ([]byte, [
 
 	certsLog.Infof("Getting certificate ca type = %s, cn = '%s'", caType, commonName)
 
-	certModel := &models.Certificate{}
+	certModel := models.Certificate{}
 	dbSession := db.Session()
-	dbSession.Where(&models.Certificate{
+	result := dbSession.Where(&models.Certificate{
 		CAType:     caType,
 		KeyType:    keyType,
 		CommonName: commonName,
 	}).First(&certModel)
+	if result.Error != nil {
+		return nil, nil, result.Error
+	}
 
 	return []byte(certModel.CertificatePEM), []byte(certModel.PrivateKeyPEM), nil
 }
