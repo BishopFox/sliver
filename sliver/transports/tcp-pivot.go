@@ -1,16 +1,16 @@
 package transports
 
 import (
-	"net"
 	"bytes"
 	"encoding/binary"
+	"net"
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
-	"github.com/golang/protobuf/proto"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -21,7 +21,7 @@ const (
 func tcpPivoteWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Print("[tcppivot] Marshaling error: ", err)
 		// {{end}}
 		return err
@@ -30,7 +30,7 @@ func tcpPivoteWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
 	_, err = (*conn).Write(dataLengthBuf.Bytes())
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[tcppivot] Error %v and %d\n", err, dataLengthBuf)
 		// {{end}}
 	}
@@ -39,7 +39,7 @@ func tcpPivoteWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 		n, err2 := (*conn).Write(data[totalWritten : totalWritten+writeBufSizeTCP])
 		totalWritten += n
 		if err2 != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[tcppivot] Error %v\n", err)
 			// {{end}}
 		}
@@ -48,7 +48,7 @@ func tcpPivoteWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 		missing := len(data) - totalWritten
 		_, err := (*conn).Write(data[totalWritten : totalWritten+missing])
 		if err != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[tcppivot] Error %v\n", err)
 			// {{end}}
 		}
@@ -60,7 +60,7 @@ func tcpPivotReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4)
 	_, err := (*conn).Read(dataLengthBuf)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[tcppivot] Error (read msg-length): %v\n", err)
 		// {{end}}
 		return nil, err
@@ -77,7 +77,7 @@ func tcpPivotReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 			break
 		}
 		if err != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("read error: %s\n", err)
 			// {{end}}
 			break
@@ -86,7 +86,7 @@ func tcpPivotReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 	envelope := &sliverpb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[tcppivot] Unmarshaling envelope error: %v", err)
 		// {{end}}
 		return &sliverpb.Envelope{}, err

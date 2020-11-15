@@ -464,14 +464,17 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		buildLog.Infof("[render] %s -> %s", boxName, sliverCodePath)
 
 		// Render code
-		sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
-		sliverCodeTmpl.Execute(buf, struct {
+		sliverCodeTmpl := template.Must(template.New("sliver").Parse(sliverGoCode))
+		err = sliverCodeTmpl.Execute(buf, struct {
 			Name   string
 			Config *models.ImplantConfig
 		}{
 			name,
 			config,
 		})
+		if err != nil {
+			buildLog.Error(err)
+		}
 
 		// Render canaries
 		buildLog.Infof("Canary domain(s): %v", config.CanaryDomains)

