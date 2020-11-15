@@ -4,7 +4,7 @@
 
 GO ?= go
 ENV = CGO_ENABLED=1
-TAGS = -tags netgo
+TAGS = -tags osusergo,netgo,sqlite_omit_load_extension
 
 
 #
@@ -28,7 +28,7 @@ endif
 #
 # Version Information
 #
-VERSION = 1.0.9
+VERSION = 1.1.0
 COMPILED_AT = $(shell date +%s)
 RELEASES_URL = https://api.github.com/repos/BishopFox/sliver/releases
 PKG = github.com/bishopfox/sliver/client/version

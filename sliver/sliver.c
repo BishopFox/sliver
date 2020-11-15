@@ -19,7 +19,7 @@ BOOL WINAPI DllMain(
         // Initialize once for each new process.
         // Return FALSE to fail DLL load.
     {
-        // {{if .IsSharedLib}}
+        // {{if .Config.IsSharedLib}}
         HANDLE hThread = CreateThread(NULL, 0, Enjoy, NULL, 0, NULL);
         // CreateThread() because otherwise DllMain() is highly likely to deadlock.
         // {{end}}

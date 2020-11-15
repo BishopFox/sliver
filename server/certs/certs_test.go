@@ -82,7 +82,7 @@ func TestOperatorGenerateCertificate(t *testing.T) {
 func TestGenerateServerCertificate(t *testing.T) {
 	GenerateCertificateAuthority(ServerCA)
 	ServerGenerateECCCertificate("test3.com")
-	_, _, err := ServerGenerateRSACertificate("test3.com")
+	_, _, err := ServerGenerateRSACertificate("test4.com")
 	if err != nil {
 		t.Errorf("Failed to generate server rsa certificate")
 		return

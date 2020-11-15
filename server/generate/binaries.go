@@ -307,7 +307,7 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 // SliverExecutable - Generates a sliver executable binary
 func SliverExecutable(name string, config *models.ImplantConfig) (string, error) {
 
-	buildLog.Debugf("Name: %s, ImplantConfig: %s", name, config)
+	// buildLog.Debugf("Name: %s, ImplantConfig: %s", name, config)
 
 	// Compile go code
 	appDir := assets.GetRootAppDir()
