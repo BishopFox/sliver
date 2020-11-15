@@ -117,9 +117,34 @@ func AddContent(websiteName string, path string, contentType string, content []b
 }
 
 // RemoveContent - Remove website content for a path
-func RemoveContent(website string, path string) error {
-	// TODO
-	return nil
+func RemoveContent(websiteName string, path string) error {
+	website, err := db.WebsiteByName(websiteName)
+	if err != nil {
+		return err
+	}
+	dbSession := db.Session()
+	content := models.WebContent{}
+	result := dbSession.Where(&models.WebContent{
+		WebsiteID: website.ID,
+		Path:      path,
+	}).First(&content)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	// Delete file
+	webContentsDir, err := getWebContentDir()
+	if err != nil {
+		return err
+	}
+	err = os.Remove(filepath.Join(webContentsDir, content.ID.String()))
+	if err != nil {
+		return err
+	}
+
+	// Delete row
+	result = dbSession.Delete(&content)
+	return result.Error
 }
 
 // Names - List all websites
