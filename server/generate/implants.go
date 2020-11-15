@@ -31,38 +31,29 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
-	"gorm.io/gorm"
 )
 
 var (
 	storageLog = log.NamedLogger("generate", "storage")
 
-	// ErrImplantNotFound - More descriptive 'key not found' error
-	ErrImplantNotFound = errors.New("Implant not found")
+	// ErrImplantBuildFileNotFound - More descriptive 'key not found' error
+	ErrImplantBuildFileNotFound = errors.New("Implant build file not found")
 )
 
-// ImplantConfigByName - Get a implant's config by it's codename
-func ImplantConfigByName(name string) (*models.ImplantConfig, error) {
-	config := &models.ImplantConfig{}
-	dbSession := db.Session()
-	result := dbSession.Where(&models.ImplantConfig{Name: name}).First(&config)
-	return config, result.Error
-}
-
-// ImplantConfigSave - Save a configuration to the database
-func ImplantConfigSave(config *models.ImplantConfig) error {
-	dbSession := db.Session()
-	var result *gorm.DB
-	if config.ID != "" {
-		result = dbSession.Save(&config)
-	} else {
-		result = dbSession.Create(&config)
+func getBuildsDir() (string, error) {
+	buildsDir := filepath.Join(assets.GetRootAppDir(), "builds")
+	storageLog.Debugf("Builds dir: %s", buildsDir)
+	if _, err := os.Stat(buildsDir); os.IsNotExist(err) {
+		err = os.MkdirAll(buildsDir, 0700)
+		if err != nil {
+			return "", err
+		}
 	}
-	return result.Error
+	return buildsDir, nil
 }
 
 // ImplantBuildSave - Saves a binary file into the database
-func ImplantBuildSave(config *models.ImplantConfig, fPath string) error {
+func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) error {
 
 	rootAppDir, _ := filepath.Abs(assets.GetRootAppDir())
 	fPath, _ = filepath.Abs(fPath)
@@ -75,15 +66,10 @@ func ImplantBuildSave(config *models.ImplantConfig, fPath string) error {
 		return err
 	}
 
-	buildsDir := filepath.Join(GetRootAppDir(), "builds")
-	storageLog.Debugf("Builds dir: %s", buildsDir)
-	if _, err := os.Stat(buildsDir); os.IsNotExist(err) {
-		err = os.MkdirAll(buildsDir, 0700)
-		if err != nil {
-			return err
-		}
+	buildsDir, err := getBuildsDir()
+	if err != nil {
+		return err
 	}
-
 	dbSession := db.Session()
 	implantBuild := &models.ImplantBuild{
 		Name:          name,
@@ -93,18 +79,26 @@ func ImplantBuildSave(config *models.ImplantConfig, fPath string) error {
 	if result.Error != nil {
 		return result.Error
 	}
-	storageLog.Infof("%s -> %s", implantBuild.name, implantBuild.Name)
-	return ioutil.WriteFile(path.Join(buildsDir, implantBuild.ID), data, 0600)
+	storageLog.Infof("%s -> %s", implantBuild.ID, implantBuild.Name)
+	return ioutil.WriteFile(path.Join(buildsDir, implantBuild.ID.String()), data, 0600)
 }
 
-// ImplantFileByName - Saves a binary file into the database
-func ImplantFileByName(name string) ([]byte, error) {
-
-	return nil, ErrImplantNotFound
+// ImplantFileFromBuild - Saves a binary file into the database
+func ImplantFileFromBuild(build *models.ImplantBuild) ([]byte, error) {
+	buildsDir, err := getBuildsDir()
+	if err != nil {
+		return nil, err
+	}
+	buildFilePath := path.Join(buildsDir, build.ID.String())
+	if _, err := os.Stat(buildFilePath); os.IsNotExist(err) {
+		return nil, ErrImplantBuildFileNotFound
+	}
+	return ioutil.ReadFile(buildFilePath)
 }
 
 // ImplantFiles - List all sliver files
 func ImplantFiles() ([]string, error) {
 	names := []string{}
+	// TODO
 	return names, nil
 }

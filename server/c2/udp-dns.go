@@ -218,9 +218,9 @@ func handleCanary(req *dns.Msg) *dns.Msg {
 				EventType: consts.CanaryEvent,
 			})
 			canary.Triggered = true
-			canary.FirstTrigger = time.Now().Format(time.RFC1123)
+			canary.FirstTrigger = time.Now()
 		}
-		canary.LatestTrigger = time.Now().Format(time.RFC1123)
+		canary.LatestTrigger = time.Now()
 		canary.Count++
 		generate.UpdateCanary(canary)
 	}

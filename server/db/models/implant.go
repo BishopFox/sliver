@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/db"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
@@ -49,29 +48,6 @@ func (ib *ImplantBuild) BeforeCreate(tx *gorm.DB) (err error) {
 	return nil
 }
 
-// ByName - Fetch implant build by name
-func (ib ImplantBuild) ByName(name string) (*ImplantBuild, error) {
-	dbSession := db.Session()
-	build := &ImplantBuild{}
-	result := dbSession.Where(&ImplantBuild{Name: name}).First(&build)
-	return build, result.Error
-}
-
-// Names - Fetch a list of all build names
-func (ib ImplantBuild) Names() ([]string, error) {
-	dbSession := db.Session()
-	builds := []*ImplantBuild{}
-	result := dbSession.Where(&ImplantBuild{}).Find(&builds)
-	if result.Error != nil {
-		return []string{}, result.Error
-	}
-	names := []string{}
-	for _, build := range builds {
-		names = append(names, build.Name)
-	}
-	return names, result.Error
-}
-
 // ImplantConfig - An implant build configuration
 type ImplantConfig struct {
 	gorm.Model
@@ -94,10 +70,12 @@ type ImplantConfig struct {
 	ReconnectInterval   uint32
 	MaxConnectionErrors uint32
 
-	C2                []*ImplantC2
-	MTLSc2Enabled     bool
-	HTTPc2Enabled     bool
-	DNSc2Enabled      bool
+	C2 []*ImplantC2
+
+	MTLSc2Enabled bool
+	HTTPc2Enabled bool
+	DNSc2Enabled  bool
+
 	CanaryDomains     []string
 	NamePipec2Enabled bool
 	TCPPivotc2Enabled bool
@@ -133,9 +111,9 @@ func (ic *ImplantConfig) BeforeCreate(tx *gorm.DB) (err error) {
 // ToProtobuf - Convert ImplantConfig to protobuf equiv
 func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 	config := &clientpb.ImplantConfig{
-		GOOS:             ic.GOOS,
-		GOARCH:           ic.GOARCH,
-		Name:             ic.Name,
+		GOOS:   ic.GOOS,
+		GOARCH: ic.GOARCH,
+		// Name:             ic.Name,
 		CACert:           ic.CACert,
 		Cert:             ic.Cert,
 		Key:              ic.Key,
@@ -211,27 +189,4 @@ func (ip *ImplantProfile) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 	ip.CreatedAt = time.Now()
 	return nil
-}
-
-// ByName - Fetch implant build by name
-func (ip ImplantProfile) ByName(name string) (*ImplantProfile, error) {
-	dbSession := db.Session()
-	profile := &ImplantProfile{}
-	result := dbSession.Where(&ImplantProfile{Name: name}).First(&profile)
-	return profile, result.Error
-}
-
-// Names - Fetch a list of all build names
-func (ip ImplantProfile) Names() ([]string, error) {
-	dbSession := db.Session()
-	profiles := []*ImplantProfile{}
-	result := dbSession.Where(&ImplantProfile{}).Find(&profiles)
-	if result.Error != nil {
-		return []string{}, result.Error
-	}
-	names := []string{}
-	for _, build := range profiles {
-		names = append(names, build.Name)
-	}
-	return names, result.Error
 }

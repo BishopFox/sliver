@@ -64,8 +64,9 @@ func CheckCanary(domain string) (*models.DNSCanary, error) {
 
 // UpdateCanary - Update an existing canary
 func UpdateCanary(canary *models.DNSCanary) error {
-	// TODO
-	return nil
+	dbSession := db.Session()
+	result := dbSession.Save(&canary)
+	return result.Error
 }
 
 // CanaryGenerator - Holds data related to canary generation

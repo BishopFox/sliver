@@ -19,60 +19,34 @@ package generate
 */
 
 import (
-	"encoding/json"
-
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
+	"gorm.io/gorm"
 )
 
 const (
 	profilesBucketName = "profiles"
 )
 
-// ProfileSave - Save a sliver profile to disk
-func ProfileSave(name string, config *ImplantConfig) error {
-	bucket, err := db.GetBucket(profilesBucketName)
+// SaveImplantProfile - Save a sliver profile to disk
+func SaveImplantProfile(name string, config *models.ImplantConfig) error {
+	exists, err := db.ImplantProfileByName(name)
+	dbSession := db.Session()
 	if err != nil {
 		return err
 	}
-	configJSON, err := json.Marshal(config)
-	if err != nil {
-		return err
+	var result *gorm.DB
+	if exists != nil {
+		result = dbSession.Save(&models.ImplantProfile{
+			ID:            exists.ID,
+			Name:          name,
+			ImplantConfig: config,
+		})
+	} else {
+		result = dbSession.Create(&models.ImplantProfile{
+			Name:          name,
+			ImplantConfig: config,
+		})
 	}
-	return bucket.Set(name, configJSON)
-}
-
-// ProfileByName - Fetch a single profile from the database
-func ProfileByName(name string) (*models.ImplantConfig, error) {
-	bucket, err := db.GetBucket(profilesBucketName)
-	if err != nil {
-		return nil, err
-	}
-	rawProfile, err := bucket.Get(name)
-	config := &models.ImplantConfig{}
-	err = json.Unmarshal(rawProfile, config)
-	return config, err
-}
-
-// Profiles - Fetch a map of name<->profiles current in the database
-func Profiles() map[string]*models.ImplantConfig {
-	bucket, err := db.GetBucket(profilesBucketName)
-	if err != nil {
-		return nil
-	}
-	rawProfiles, err := bucket.Map("")
-	if err != nil {
-		return nil
-	}
-
-	profiles := map[string]*ImplantConfig{}
-	for name, rawProfile := range rawProfiles {
-		config := &ImplantConfig{}
-		err := json.Unmarshal(rawProfile, config)
-		if err != nil {
-			continue // We should probably log these failures ...
-		}
-		profiles[name] = config
-	}
-	return profiles
+	return result.Error
 }
