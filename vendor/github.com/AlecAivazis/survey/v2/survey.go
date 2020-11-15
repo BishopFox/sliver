@@ -19,8 +19,9 @@ func defaultAskOptions() *AskOptions {
 			Err: os.Stderr,
 		},
 		PromptConfig: PromptConfig{
-			PageSize:  7,
-			HelpInput: "?",
+			PageSize:     7,
+			HelpInput:    "?",
+			SuggestInput: "tab",
 			Icons: IconSet{
 				Error: Icon{
 					Text:   "X",
@@ -107,11 +108,12 @@ type Question struct {
 
 // PromptConfig holds the global configuration for a prompt
 type PromptConfig struct {
-	PageSize   int
-	Icons      IconSet
-	HelpInput  string
-	Filter     func(filter string, option string, index int) bool
-	KeepFilter bool
+	PageSize     int
+	Icons        IconSet
+	HelpInput    string
+	SuggestInput string
+	Filter       func(filter string, option string, index int) bool
+	KeepFilter   bool
 }
 
 // Prompt is the primary interface for the objects that can take user input

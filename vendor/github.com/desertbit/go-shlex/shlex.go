@@ -89,8 +89,8 @@ func (l *Lexer) Split() ([]string, error) {
 	result := make([]string, 0)
 	for {
 		token, err := l.readToken()
-		if token != "" {
-			result = append(result, token)
+		if token != nil {
+			result = append(result, string(token))
 		}
 
 		if err == io.EOF {
@@ -102,9 +102,8 @@ func (l *Lexer) Split() ([]string, error) {
 	return result, nil
 }
 
-func (l *Lexer) readToken() (string, error) {
+func (l *Lexer) readToken() (token []rune, err error) {
 	t := l.tokenizer
-	token := ""
 	quoted := false
 	state := ' '
 	escapedState := ' '
@@ -129,18 +128,18 @@ scanning:
 				escapedState = 'a'
 				state = next
 			case t.IsWord(next):
-				token += string(next)
+				token = append(token, next)
 				state = 'a'
 			case t.IsQuote(next):
 				if !l.posix {
-					token += string(next)
+					token = append(token, next)
 				}
 				state = next
 			default:
-				token = string(next)
+				token = []rune{next}
 				if l.whitespaceSplit {
 					state = 'a'
-				} else if token != "" || (l.posix && quoted) {
+				} else if token != nil || (l.posix && quoted) {
 					break scanning
 				}
 			}
@@ -149,27 +148,30 @@ scanning:
 			switch {
 			case next == state:
 				if !l.posix {
-					token += string(next)
+					token = append(token, next)
 					break scanning
 				} else {
+					if token == nil {
+						token = []rune{}
+					}
 					state = 'a'
 				}
 			case l.posix && t.IsEscape(next) && t.IsEscapedQuote(state):
 				escapedState = state
 				state = next
 			default:
-				token += string(next)
+				token = append(token, next)
 			}
 		case t.IsEscape(state):
 			if t.IsQuote(escapedState) && next != state && next != escapedState {
-				token += string(state)
+				token = append(token, state)
 			}
-			token += string(next)
+			token = append(token, next)
 			state = escapedState
 		case t.IsWord(state):
 			switch {
 			case t.IsWhitespace(next):
-				if token != "" || (l.posix && quoted) {
+				if token != nil || (l.posix && quoted) {
 					break scanning
 				}
 			case l.posix && t.IsQuote(next):
@@ -178,11 +180,11 @@ scanning:
 				escapedState = 'a'
 				state = next
 			case t.IsWord(next) || t.IsQuote(next):
-				token += string(next)
+				token = append(token, next)
 			default:
 				if l.whitespaceSplit {
-					token += string(next)
-				} else if token != "" {
+					token = append(token, next)
+				} else if token != nil {
 					l.reader.UnreadRune()
 					break scanning
 				}

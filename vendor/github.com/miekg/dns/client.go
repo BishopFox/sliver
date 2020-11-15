@@ -34,7 +34,7 @@ type Client struct {
 	Dialer    *net.Dialer // a net.Dialer used to set local address, timeouts and more
 	// Timeout is a cumulative timeout for dial, write and read, defaults to 0 (disabled) - overrides DialTimeout, ReadTimeout,
 	// WriteTimeout when non-zero. Can be overridden with net.Dialer.Timeout (see Client.ExchangeWithDialer and
-	// Client.Dialer) or context.Context.Deadline (see the deprecated ExchangeContext)
+	// Client.Dialer) or context.Context.Deadline (see ExchangeContext)
 	Timeout        time.Duration
 	DialTimeout    time.Duration     // net.DialTimeout, defaults to 2 seconds, or net.Dialer.Timeout if expiring earlier - overridden by Timeout when that value is non-zero
 	ReadTimeout    time.Duration     // net.Conn.SetReadTimeout value for connections, defaults to 2 seconds - overridden by Timeout when that value is non-zero
@@ -106,7 +106,7 @@ func (c *Client) Dial(address string) (conn *Conn, err error) {
 	if err != nil {
 		return nil, err
 	}
-
+	conn.UDPSize = c.UDPSize
 	return conn, nil
 }
 
@@ -124,15 +124,38 @@ func (c *Client) Dial(address string) (conn *Conn, err error) {
 // of 512 bytes
 // To specify a local address or a timeout, the caller has to set the `Client.Dialer`
 // attribute appropriately
+
 func (c *Client) Exchange(m *Msg, address string) (r *Msg, rtt time.Duration, err error) {
+	co, err := c.Dial(address)
+
+	if err != nil {
+		return nil, 0, err
+	}
+	defer co.Close()
+	return c.ExchangeWithConn(m, co)
+}
+
+// ExchangeWithConn has the same behavior as Exchange, just with a predetermined connection
+// that will be used instead of creating a new one.
+// Usage pattern with a *dns.Client:
+//	c := new(dns.Client)
+//	// connection management logic goes here
+//
+//	conn := c.Dial(address)
+//	in, rtt, err := c.ExchangeWithConn(message, conn)
+//
+//  This allows users of the library to implement their own connection management,
+//  as opposed to Exchange, which will always use new connections and incur the added overhead
+//  that entails when using "tcp" and especially "tcp-tls" clients.
+func (c *Client) ExchangeWithConn(m *Msg, conn *Conn) (r *Msg, rtt time.Duration, err error) {
 	if !c.SingleInflight {
-		return c.exchange(m, address)
+		return c.exchange(m, conn)
 	}
 
 	q := m.Question[0]
 	key := fmt.Sprintf("%s:%d:%d", q.Name, q.Qtype, q.Qclass)
 	r, rtt, err, shared := c.group.Do(key, func() (*Msg, time.Duration, error) {
-		return c.exchange(m, address)
+		return c.exchange(m, conn)
 	})
 	if r != nil && shared {
 		r = r.Copy()
@@ -141,15 +164,7 @@ func (c *Client) Exchange(m *Msg, address string) (r *Msg, rtt time.Duration, er
 	return r, rtt, err
 }
 
-func (c *Client) exchange(m *Msg, a string) (r *Msg, rtt time.Duration, err error) {
-	var co *Conn
-
-	co, err = c.Dial(a)
-
-	if err != nil {
-		return nil, 0, err
-	}
-	defer co.Close()
+func (c *Client) exchange(m *Msg, co *Conn) (r *Msg, rtt time.Duration, err error) {
 
 	opt := m.IsEdns0()
 	// If EDNS0 is used use that for size.
@@ -170,9 +185,20 @@ func (c *Client) exchange(m *Msg, a string) (r *Msg, rtt time.Duration, err erro
 	}
 
 	co.SetReadDeadline(time.Now().Add(c.getTimeoutForRequest(c.readTimeout())))
-	r, err = co.ReadMsg()
-	if err == nil && r.Id != m.Id {
-		err = ErrId
+	if _, ok := co.Conn.(net.PacketConn); ok {
+		for {
+			r, err = co.ReadMsg()
+			// Ignore replies with mismatched IDs because they might be
+			// responses to earlier queries that timed out.
+			if err != nil || r.Id == m.Id {
+				break
+			}
+		}
+	} else {
+		r, err = co.ReadMsg()
+		if err == nil && r.Id != m.Id {
+			err = ErrId
+		}
 	}
 	rtt = time.Since(t)
 	return r, rtt, err

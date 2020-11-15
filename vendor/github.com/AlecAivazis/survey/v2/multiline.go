@@ -93,7 +93,7 @@ func (i *Multiline) Prompt(config *PromptConfig) (interface{}, error) {
 		return i.Default, err
 	}
 
-	// we're done
+	i.AppendRenderedText(val)
 	return val, err
 }
 
