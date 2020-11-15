@@ -28,12 +28,12 @@ import (
 
 // Website - Colletions of content to serve from HTTP(S)
 type Website struct {
-	gorm.Model
+	// gorm.Model
 
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;index:unique;"`
+	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
-	Name string `gorm:"index:unique"` // Website Name
+	Name string `gorm:"unique;"` // Website Name
 
 	WebContents []WebContent
 }
@@ -58,11 +58,12 @@ func (w *Website) ToProtobuf() *clientpb.Website {
 
 // WebContent - One piece of content mapped to a path
 type WebContent struct {
-	gorm.Model
+	// gorm.Model
 
-	ID uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;index:unique;"`
+	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	WebsiteID uuid.UUID
 
-	Path        string `gorm:"index:unique"`
+	Path        string `gorm:"unique;"`
 	Size        uint64
 	ContentType string
 	Content     []byte

@@ -46,7 +46,16 @@ func newDBClient() *gorm.DB {
 		dbClient = postgresClient(dbConfig)
 	}
 
-	dbClient.AutoMigrate(&models.Certificate{})
+	dbClient.AutoMigrate(
+		&models.DNSCanary{},
+		&models.Certificate{},
+		&models.ImplantC2{},
+		&models.ImplantConfig{},
+		&models.ImplantBuild{},
+		&models.ImplantProfile{},
+		&models.WebContent{},
+		&models.Website{},
+	)
 
 	return dbClient
 }

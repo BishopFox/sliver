@@ -28,9 +28,9 @@ import (
 
 // DNSCanary - Colletions of content to serve from HTTP(S)
 type DNSCanary struct {
-	gorm.Model
+	// gorm.Model
 
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;index:unique;"`
+	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	ImplantName   string

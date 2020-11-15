@@ -94,7 +94,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.Debug = pbConfig.Debug
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
-	cfg.CanaryDomains = pbConfig.CanaryDomains
+	// cfg.CanaryDomains = pbConfig.CanaryDomains
 
 	cfg.ReconnectInterval = pbConfig.ReconnectInterval
 	cfg.MaxConnectionErrors = pbConfig.MaxConnectionErrors
@@ -110,6 +110,14 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.IsService = pbConfig.IsService
 	cfg.IsShellcode = pbConfig.IsShellcode
 
+	cfg.CanaryDomains = []models.CanaryDomain{}
+	for _, pbCanary := range pbConfig.CanaryDomains {
+		cfg.CanaryDomains = append(cfg.CanaryDomains, models.CanaryDomain{
+			Domain: pbCanary,
+		})
+	}
+
+	// Copy C2
 	cfg.C2 = copyC2List(pbConfig.C2)
 	cfg.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, cfg.C2)
 	cfg.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, cfg.C2)
@@ -122,15 +130,15 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	return path.Base(pbConfig.Name), cfg
 }
 
-func copyC2List(src []*clientpb.ImplantC2) []*models.ImplantC2 {
-	c2s := []*models.ImplantC2{}
+func copyC2List(src []*clientpb.ImplantC2) []models.ImplantC2 {
+	c2s := []models.ImplantC2{}
 	for _, srcC2 := range src {
 		c2URL, err := url.Parse(srcC2.URL)
 		if err != nil {
 			buildLog.Warnf("Failed to parse c2 url %v", err)
 			continue
 		}
-		c2s = append(c2s, &models.ImplantC2{
+		c2s = append(c2s, models.ImplantC2{
 			Priority: srcC2.Priority,
 			URL:      c2URL.String(),
 			Options:  srcC2.Options,
@@ -139,7 +147,7 @@ func copyC2List(src []*clientpb.ImplantC2) []*models.ImplantC2 {
 	return c2s
 }
 
-func isC2Enabled(schemes []string, c2s []*models.ImplantC2) bool {
+func isC2Enabled(schemes []string, c2s []models.ImplantC2) bool {
 	for _, c2 := range c2s {
 		c2URL, err := url.Parse(c2.URL)
 		if err != nil {
@@ -456,7 +464,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		canaryTmpl := template.New("canary").Delims("[[", "]]")
 		canaryGenerator := &CanaryGenerator{
 			ImplantName:   name,
-			ParentDomains: config.CanaryDomains,
+			ParentDomains: config.CanaryDomainsList(),
 		}
 		canaryTmpl, err := canaryTmpl.Funcs(template.FuncMap{
 			"GenerateCanary": canaryGenerator.GenerateCanary,

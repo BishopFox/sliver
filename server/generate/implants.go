@@ -73,7 +73,7 @@ func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) e
 	dbSession := db.Session()
 	implantBuild := &models.ImplantBuild{
 		Name:          name,
-		ImplantConfig: config,
+		ImplantConfig: (*config),
 	}
 	result := dbSession.Create(&implantBuild)
 	if result.Error != nil {
