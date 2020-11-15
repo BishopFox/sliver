@@ -71,3 +71,30 @@ func ProfileByName(name string) (*models.ImplantProfile, error) {
 	result := dbSession.Where(&models.ImplantProfile{Name: name}).Find(&dbProfile)
 	return dbProfile, result.Error
 }
+
+// ListCanaries - List of all embedded canaries
+func ListCanaries() ([]*models.DNSCanary, error) {
+	canaries := []*models.DNSCanary{}
+	dbSession := Session()
+	result := dbSession.Where(&models.DNSCanary{}).Find(&canaries)
+	return canaries, result.Error
+}
+
+// CanaryByDomain - Check if a canary exists
+func CanaryByDomain(domain string) (*models.DNSCanary, error) {
+	dbSession := Session()
+	canary := models.DNSCanary{}
+	result := dbSession.Where(&models.DNSCanary{Domain: domain}).First(&canary)
+	return &canary, result.Error
+}
+
+// WebsiteByName - Get website by name
+func WebsiteByName(name string) (*models.Website, error) {
+	website := models.Website{}
+	dbSession := Session()
+	result := dbSession.Where(&models.Website{Name: name}).First(&website)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &website, nil
+}

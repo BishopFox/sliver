@@ -95,10 +95,3 @@ func ImplantFileFromBuild(build *models.ImplantBuild) ([]byte, error) {
 	}
 	return ioutil.ReadFile(buildFilePath)
 }
-
-// ImplantFiles - List all sliver files
-func ImplantFiles() ([]string, error) {
-	names := []string{}
-	// TODO
-	return names, nil
-}

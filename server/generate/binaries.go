@@ -295,8 +295,6 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags, gcflags, asmflags, trimpath)
 	config.FileName = path.Base(dest)
 
-	// saveFileErr := ImplantFileSave(config.Name, dest)
-	// saveCfgErr := ImplantConfigSave(config)
 	err = ImplantBuildSave(name, config, dest)
 	if err != nil {
 		buildLog.Errorf("Failed to save build: %s", err)
@@ -341,9 +339,6 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 	trimpath := "-trimpath"
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcflags, asmflags, trimpath)
 	config.FileName = path.Base(dest)
-
-	// saveFileErr := ImplantFileSave(name, dest)
-	// saveCfgErr := ImplantConfigSave(config)
 
 	err = ImplantBuildSave(name, config, dest)
 

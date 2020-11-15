@@ -50,18 +50,6 @@ func canarySubDomain() string {
 	return string(subdomain)
 }
 
-// ListCanaries - List of all embedded canaries
-func ListCanaries() ([]*models.DNSCanary, error) {
-	// TODO
-	return []*models.DNSCanary{}, nil
-}
-
-// CheckCanary - Check if a canary exists
-func CheckCanary(domain string) (*models.DNSCanary, error) {
-	// TODO
-	return nil, nil
-}
-
 // UpdateCanary - Update an existing canary
 func UpdateCanary(canary *models.DNSCanary) error {
 	dbSession := db.Session()

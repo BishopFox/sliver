@@ -29,6 +29,7 @@ import (
 	"sort"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 
 	"encoding/base32"
@@ -199,7 +200,7 @@ func handleCanary(req *dns.Msg) *dns.Msg {
 		reqDomain += "." // Ensure we have the FQDN
 	}
 
-	canary, err := generate.CheckCanary(reqDomain)
+	canary, err := db.CanaryByDomain(reqDomain)
 	if err != nil {
 		return nil
 	}

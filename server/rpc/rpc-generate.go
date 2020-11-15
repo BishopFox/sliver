@@ -113,14 +113,14 @@ func (rpc *Server) ImplantBuilds(ctx context.Context, _ *commonpb.Empty) (*clien
 
 // Canaries - List existing canaries
 func (rpc *Server) Canaries(ctx context.Context, _ *commonpb.Empty) (*clientpb.Canaries, error) {
-	jsonCanaries, err := generate.ListCanaries()
+	dbCanaries, err := db.ListCanaries()
 	if err != nil {
 		return nil, err
 	}
 
-	rpcLog.Infof("Found %d canaries", len(jsonCanaries))
+	rpcLog.Infof("Found %d canaries", len(dbCanaries))
 	canaries := []*clientpb.DNSCanary{}
-	for _, canary := range jsonCanaries {
+	for _, canary := range dbCanaries {
 		canaries = append(canaries, canary.ToProtobuf())
 	}
 
