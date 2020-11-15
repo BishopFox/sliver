@@ -125,9 +125,15 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.NamePipec2Enabled = isC2Enabled([]string{"namedpipe"}, cfg.C2)
 	cfg.TCPPivotc2Enabled = isC2Enabled([]string{"tcppivot"}, cfg.C2)
 
-	cfg.FileName = path.Base(pbConfig.FileName)
+	if pbConfig.FileName != "" {
+		cfg.FileName = path.Base(pbConfig.FileName)
+	}
 
-	return path.Base(pbConfig.Name), cfg
+	name := ""
+	if pbConfig.Name != "" {
+		name = path.Base(pbConfig.Name)
+	}
+	return name, cfg
 }
 
 func copyC2List(src []*clientpb.ImplantC2) []models.ImplantC2 {
@@ -301,6 +307,8 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 // SliverExecutable - Generates a sliver executable binary
 func SliverExecutable(name string, config *models.ImplantConfig) (string, error) {
 
+	buildLog.Debugf("Name: %s, ImplantConfig: %s", name, config)
+
 	// Compile go code
 	appDir := assets.GetRootAppDir()
 	cgo := "0"
@@ -457,7 +465,13 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 
 		// Render code
 		sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
-		sliverCodeTmpl.Execute(buf, config)
+		sliverCodeTmpl.Execute(buf, struct {
+			Name   string
+			Config *models.ImplantConfig
+		}{
+			name,
+			config,
+		})
 
 		// Render canaries
 		buildLog.Infof("Canary domain(s): %v", config.CanaryDomains)
