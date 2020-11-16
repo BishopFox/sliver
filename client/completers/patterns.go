@@ -158,7 +158,8 @@ func argumentRequired(lastWord string, args []string, command *flags.Command, is
 	switch length := len(command.Args()); {
 	case length == 1:
 		arg := command.Args()[0]
-		if arg.Required == 1 && arg.RequiredMaximum == 1 && len(remain) == 1 {
+		// if arg.Required == 1 && len(remain) == 0 {
+		if arg.Required == 1 && arg.RequiredMaximum == 1 && len(remain) == 0 {
 			return arg.Name, true
 		}
 		if len(remain) == 1 {
@@ -349,22 +350,22 @@ func envVarAsked(args []string, lastWord string) bool {
 // filterOptions - Check various elements of an option and return a list
 func filterOptions(args []string, command *flags.Command) (processed []string) {
 
-	// for i := 0; i < len(args); i++ {
-	//         arg := args[i]
-	//         if strings.HasPrefix(arg, "-") || strings.HasPrefix(arg, "--") {
-	//                 name := strings.TrimPrefix(arg, "--")
-	//                 name = strings.TrimPrefix(arg, "-")
-	//                 if opt := commands.OptionByName(context, command.Name, "", name); opt != nil {
-	//                         var boolean = true
-	//                         if opt.Field().Type == reflect.TypeOf(boolean) {
-	//                                 continue
-	//                         }
-	//                 }
-	//                 i++
-	//                 continue
-	//         }
-	//         processed = append(processed, arg)
-	// }
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if strings.HasPrefix(arg, "-") || strings.HasPrefix(arg, "--") {
+			name := strings.TrimPrefix(arg, "--")
+			name = strings.TrimPrefix(arg, "-")
+			if opt := commands.OptionByName(context.Context.Menu, command.Name, "", name); opt != nil {
+				var boolean = true
+				if opt.Field().Type == reflect.TypeOf(boolean) {
+					continue
+				}
+			}
+			i++
+			continue
+		}
+		processed = append(processed, arg)
+	}
 
 	return
 }
