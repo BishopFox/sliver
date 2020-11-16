@@ -31,14 +31,13 @@ import (
 )
 
 // TabCompleter - Entrypoint to all tab completions in the Wiregost console.
-func TabCompleter(line []rune, pos int) (prefix string, completions []*readline.CompletionGroup) {
+func TabCompleter(line []rune, pos int) (lastWord string, completions []*readline.CompletionGroup) {
 
 	// Format and sanitize input
 	// @args     => All items of the input line
 	// @last     => The last word detected in input line as []rune
 	// @lastWord => The last word detected in input as string
 	args, last, lastWord := FormatInput(line)
-	prefix = lastWord
 
 	// Detect base command automatically
 	var command = detectedCommand(args)
@@ -50,25 +49,24 @@ func TabCompleter(line []rune, pos int) (prefix string, completions []*readline.
 
 	// Check environment variables
 	if envVarAsked(args, lastWord) {
-
+		completeEnvironmentVariables(lastWord)
 	}
 
 	// Base command has been identified
 	if commandFound(command) {
-
 		// Check environment variables again
 		if envVarAsked(args, lastWord) {
-
+			return completeEnvironmentVariables(lastWord)
 		}
 
 		// Propose argument completion before anything, and if needed
-		if _, yes := argumentRequired(lastWord, args, command, false); yes { // add *commands.Context.Menu in the string here
-
+		if arg, yes := argumentRequired(lastWord, args, command, false); yes { // add *commands.Context.Menu in the string here
+			return completeCommandArguments(command, arg, lastWord)
 		}
 
 		// Then propose subcommands. We don't return from here, otherwise it always skips the next steps.
 		if hasSubCommands(command, args) {
-			prefix, completions = CompleteSubCommands(args, lastWord, command)
+			completions = CompleteSubCommands(args, lastWord, command)
 		}
 
 		// Handle subcommand if found (maybe we should rewrite this function and use it also for base command)
@@ -145,20 +143,9 @@ func CompleteMenuCommands(lastWord string, pos int) (prefix string, completions 
 	return
 }
 
-// CompleteCommandArguments - Completes all values for arguments to a command. Arguments here are different from command options (--option).
-// Many categories, from multiple sources in multiple contexts
-func CompleteCommandArguments(cmd *flags.Command, arg string, line []rune, pos int) (lastWord string, completions []*readline.CompletionGroup) {
-
-	_, _, lastWord = FormatInput(line)
-
-	return
-}
-
 // CompleteSubCommands - Takes subcommands and gives them as suggestions
 // One category, from one source (a parent command).
-func CompleteSubCommands(args []string, lastWord string, command *flags.Command) (prefix string, completions []*readline.CompletionGroup) {
-
-	prefix = lastWord // We only return the PREFIX for readline to correctly show suggestions.
+func CompleteSubCommands(args []string, lastWord string, command *flags.Command) (completions []*readline.CompletionGroup) {
 
 	group := &readline.CompletionGroup{
 		Name:         command.Name,
@@ -210,14 +197,14 @@ func CompleteCommandOptions(args []string, lastWord string, cmd *flags.Command) 
 
 	prefix = lastWord // We only return the PREFIX for readline to correctly show suggestions.
 
-	// Get all option groups
+	// Get all (root) option groups.
 	groups := cmd.Groups()
 
 	// For each group, build completions
 	for _, grp := range groups {
 
 		compGrp := &readline.CompletionGroup{
-			Name:         grp.LongDescription,
+			Name:         grp.ShortDescription,
 			Descriptions: map[string]string{},
 			DisplayType:  readline.TabDisplayList,
 		}
@@ -245,8 +232,12 @@ func CompleteCommandOptions(args []string, lastWord string, cmd *flags.Command) 
 			}
 		}
 
-		completions = append(completions, compGrp)
+		// No need to add empty groups, will screw the completion system.
+		if len(compGrp.Suggestions) > 0 {
+			completions = append(completions, compGrp)
+		}
 	}
+	// fmt.Println(completions[1].Suggestions)
 
 	return
 }
