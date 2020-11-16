@@ -70,13 +70,17 @@ func (c *console) StartServerConsole(conn *grpc.ClientConn) (err error) {
 		}
 
 		// Process various tokens on input (environment variables, paths, etc.)
-		parsed, _ := util.ParseEnvironmentVariables(sanitized)
+		envParsed, _ := util.ParseEnvironmentVariables(sanitized)
+
+		// Other types of tokens, needed by commands who expect a certain type
+		// of arguments, such as paths with spaces.
+		tokenParsed := c.parseTokens(envParsed)
 
 		// Execute the command input: all input is passed to the current
 		// context parser, which will deal with it on its own. We never return
 		// errors from this call, as any of them happening follows a certain
-		// number of fallbacks (special commands, error printing, etc.).
-		// We should not have to exit the console because of an error here.
-		c.ExecuteCommand(parsed)
+		// number of fallback paths (special commands, error printing, etc.).
+		// We should not have to exit the console because of an error here, anyway.
+		c.ExecuteCommand(tokenParsed)
 	}
 }

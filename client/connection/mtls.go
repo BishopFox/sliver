@@ -51,9 +51,6 @@ func ConnectTLS() (conn *grpc.ClientConn, err error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(assets.ServerCACertificate)
-	fmt.Println(assets.ServerCertificate)
-	fmt.Println(assets.ServerPrivateKey)
 
 	// Set gRPC options
 	creds := credentials.NewTLS(tlsConfig)
@@ -68,7 +65,6 @@ func ConnectTLS() (conn *grpc.ClientConn, err error) {
 	server := fmt.Sprintf("%s:%s", assets.ServerLHost, assets.ServerLPort)
 	conn, err = grpc.Dial(server, options...)
 	if err != nil {
-		err = fmt.Errorf("Failed to connect to gRPC: %s", err)
 		fmt.Printf("Failed to connect to gRPC: %s", err)
 	}
 
@@ -124,7 +120,7 @@ func rootOnlyVerifyCertificate(caCertificate string, rawCerts [][]byte) error {
 	options := x509.VerifyOptions{
 		Roots: roots,
 		// Needs to specify key usage here, otherwise the server rejects verification.
-		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		// KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 	}
 	if _, err := cert.Verify(options); err != nil {
 		log.Printf("Failed to verify certificate: " + err.Error())
