@@ -17,7 +17,6 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
-	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
 	github.com/mattn/go-sqlite3 v1.14.4
 	github.com/miekg/dns v1.1.35
 	github.com/moloch--/binjection v0.0.0-20200528125518-b8c64539fa3b
@@ -29,13 +28,12 @@ require (
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/crypto v0.0.0-20201112155050-0c6587e931a9
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
-	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9 // indirect
 	golang.org/x/sys v0.0.0-20201113233024-12cec1faf1ba
 	golang.org/x/tools v0.0.0-20201114224030-61ea331ec02b
 	google.golang.org/grpc v1.33.2
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
-	gopkg.in/yaml.v2 v2.3.0 // indirect
+	gorm.io/driver/mysql v1.0.3
 	gorm.io/driver/postgres v1.0.5
 	gorm.io/driver/sqlite v1.1.3
 	gorm.io/gorm v1.20.6

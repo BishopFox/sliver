@@ -19,9 +19,12 @@ package db
 */
 
 import (
+	"time"
+
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
+	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -31,7 +34,7 @@ import (
 )
 
 var (
-	sqlLog = log.NamedLogger("db", "sql")
+	clientLog = log.NamedLogger("db", "client")
 )
 
 // newDBClient - Initialize the db client
@@ -44,9 +47,11 @@ func newDBClient() *gorm.DB {
 		dbClient = sqliteClient(dbConfig)
 	case configs.Postgres:
 		dbClient = postgresClient(dbConfig)
+	case configs.MySQL:
+		dbClient = mySQLClient(dbConfig)
 	}
 
-	dbClient.AutoMigrate(
+	err := dbClient.AutoMigrate(
 		&models.DNSCanary{},
 		&models.Certificate{},
 		&models.ImplantC2{},
@@ -56,6 +61,24 @@ func newDBClient() *gorm.DB {
 		&models.WebContent{},
 		&models.Website{},
 	)
+	if err != nil {
+		clientLog.Error(err)
+	}
+
+	// Get generic database object sql.DB to use its functions
+	sqlDB, err := dbClient.DB()
+	if err != nil {
+		clientLog.Error(err)
+	}
+
+	// SetMaxIdleConns sets the maximum number of connections in the idle connection pool.
+	sqlDB.SetMaxIdleConns(dbConfig.MaxIdleConns)
+
+	// SetMaxOpenConns sets the maximum number of open connections to the database.
+	sqlDB.SetMaxOpenConns(dbConfig.MaxOpenConns)
+
+	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
+	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	return dbClient
 }
@@ -65,9 +88,11 @@ func sqliteClient(dbConfig *configs.DatabaseConfig) *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
-	sqlLog.Infof("sqlite -> %s", dsn)
+	clientLog.Infof("sqlite -> %s", dsn)
+
 	dbClient, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		PrepareStmt: true,
+		Logger:      getGormLogger(dbConfig),
 	})
 	if err != nil {
 		panic(err)
@@ -80,8 +105,27 @@ func postgresClient(dbConfig *configs.DatabaseConfig) *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
-	sqlLog.Infof("postgres -> %s", dsn)
-	dbClient, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	clientLog.Infof("postgres -> %s", dsn)
+	dbClient, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		PrepareStmt: true,
+		Logger:      getGormLogger(dbConfig),
+	})
+	if err != nil {
+		panic(err)
+	}
+	return dbClient
+}
+
+func mySQLClient(dbConfig *configs.DatabaseConfig) *gorm.DB {
+	dsn, err := dbConfig.DSN()
+	if err != nil {
+		panic(err)
+	}
+	clientLog.Infof("mysql -> %s", dsn)
+	dbClient, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		PrepareStmt: true,
+		Logger:      getGormLogger(dbConfig),
+	})
 	if err != nil {
 		panic(err)
 	}

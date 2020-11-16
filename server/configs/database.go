@@ -65,11 +65,16 @@ type DatabaseConfig struct {
 	Password string `json:"password"`
 	Host     string `json:"host"`
 	Port     uint16 `json:"port"`
-	Params   map[string]string
+
+	Params map[string]string `json:"params"`
+
+	MaxIdleConns int `json:"max_idle_conns"`
+	MaxOpenConns int `json:"max_open_conns"`
+
+	LogLevel string `json:"log_level"`
 }
 
 // DSN - Get the db connections string
-// file:ent?mode=memory&cache=shared&_fk=1
 // https://github.com/go-sql-driver/mysql#examples
 func (c *DatabaseConfig) DSN() (string, error) {
 	switch c.Dialect {
@@ -140,6 +145,14 @@ func GetDatabaseConfig() *DatabaseConfig {
 	} else {
 		databaseConfigLog.Warnf("Config file does not exist, using defaults")
 	}
+
+	if config.MaxIdleConns < 1 {
+		config.MaxIdleConns = 1
+	}
+	if config.MaxOpenConns < 1 {
+		config.MaxOpenConns = 1
+	}
+
 	err := config.Save() // This updates the config with any missing fields
 	if err != nil {
 		databaseConfigLog.Errorf("Failed to save default config %s", err)
@@ -149,6 +162,10 @@ func GetDatabaseConfig() *DatabaseConfig {
 
 func getDefaultDatabaseConfig() *DatabaseConfig {
 	return &DatabaseConfig{
-		Dialect: Sqlite,
+		Dialect:      Sqlite,
+		MaxIdleConns: 10,
+		MaxOpenConns: 100,
+
+		LogLevel: "warn",
 	}
 }
