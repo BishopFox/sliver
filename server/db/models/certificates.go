@@ -13,7 +13,7 @@ type Certificate struct {
 
 	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt      time.Time `gorm:"->;<-:create;"`
-	CommonName     string    `gorm:"index:unique;"`
+	CommonName     string
 	CAType         string
 	KeyType        string
 	CertificatePEM string

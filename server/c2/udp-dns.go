@@ -412,7 +412,7 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		return []string{"1"}, err
 	}
 
-	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, domain)
+	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
 	if err != nil {
 		dnsLog.Infof("Failed to fetch RSA private key")
 		return []string{"1"}, err
@@ -587,11 +587,11 @@ func dnsSegment(fields []string) ([]string, error) {
 
 // TODO: Avoid double-fetch
 func getDomainKeyFor(domain string) ([]string, error) {
-	_, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, domain)
+	_, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
 	if err != nil {
-		certs.ServerGenerateRSACertificate(domain)
+		certs.C2ServerGenerateRSACertificate(domain)
 	}
-	certPEM, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, domain)
+	certPEM, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
 	if err != nil {
 		return nil, err
 	}

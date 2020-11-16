@@ -37,6 +37,7 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
+	"gorm.io/gorm"
 )
 
 const (
@@ -60,8 +61,8 @@ var (
 	ErrCertDoesNotExist = errors.New("Certificate does not exist")
 )
 
-// SaveCertificate - Save the certificate and the key to the filesystem
-func SaveCertificate(caType string, keyType string, commonName string, cert []byte, key []byte) error {
+// saveCertificate - Save the certificate and the key to the filesystem
+func saveCertificate(caType string, keyType string, commonName string, cert []byte, key []byte) error {
 
 	if keyType != ECCKey && keyType != RSAKey {
 		return fmt.Errorf("Invalid key type '%s'", keyType)
@@ -85,12 +86,12 @@ func SaveCertificate(caType string, keyType string, commonName string, cert []by
 
 // GetECCCertificate - Get an ECC certificate
 func GetECCCertificate(caType string, commonName string) ([]byte, []byte, error) {
-	return GetCertificate(caType, commonName, ECCKey)
+	return GetCertificate(caType, ECCKey, commonName)
 }
 
 // GetRSACertificate - Get an RSA certificate
 func GetRSACertificate(caType string, commonName string) ([]byte, []byte, error) {
-	return GetCertificate(caType, commonName, RSAKey)
+	return GetCertificate(caType, RSAKey, commonName)
 }
 
 // GetCertificate - Get the PEM encoded certificate & key for a host
@@ -109,6 +110,9 @@ func GetCertificate(caType string, keyType string, commonName string) ([]byte, [
 		KeyType:    keyType,
 		CommonName: commonName,
 	}).First(&certModel)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil, ErrCertDoesNotExist
+	}
 	if result.Error != nil {
 		return nil, nil, result.Error
 	}

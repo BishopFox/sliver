@@ -24,13 +24,13 @@ import (
 )
 
 func TestSliverGenerateECCCertificate(t *testing.T) {
-	GenerateCertificateAuthority(SliverCA)
-	eccCert1, eccKey1, err := SliverGenerateECCCertificate("test1")
+	GenerateCertificateAuthority(ImplantCA)
+	eccCert1, eccKey1, err := ImplantGenerateECCCertificate("test1")
 	if err != nil {
 		t.Errorf("Failed to generate ecc certificate %v", err)
 		return
 	}
-	eccCert2, eccKey2, err := GetCertificate(SliverCA, ECCKey, "test1")
+	eccCert2, eccKey2, err := GetCertificate(ImplantCA, ECCKey, "test1")
 	if err != nil {
 		t.Errorf("Failed to get certificate %v", err)
 		return
@@ -43,12 +43,12 @@ func TestSliverGenerateECCCertificate(t *testing.T) {
 }
 
 func TestSliverGenerateRSACertificate(t *testing.T) {
-	rsaCert1, rsaKey1, err := SliverGenerateRSACertificate("test2")
+	rsaCert1, rsaKey1, err := ImplantGenerateRSACertificate("test2")
 	if err != nil {
 		t.Errorf("Failed to generate rsa certificate %v", err)
 		return
 	}
-	rsaCert2, rsaKey2, err := GetCertificate(SliverCA, RSAKey, "test2")
+	rsaCert2, rsaKey2, err := GetCertificate(ImplantCA, RSAKey, "test2")
 	if err != nil {
 		t.Errorf("Failed to get certificate %v", err)
 		return
@@ -80,9 +80,9 @@ func TestOperatorGenerateCertificate(t *testing.T) {
 }
 
 func TestGenerateServerCertificate(t *testing.T) {
-	GenerateCertificateAuthority(ServerCA)
-	ServerGenerateECCCertificate("test3.com")
-	_, _, err := ServerGenerateRSACertificate("test4.com")
+	GenerateCertificateAuthority(C2ServerCA)
+	C2ServerGenerateECCCertificate("test3.com")
+	_, _, err := C2ServerGenerateRSACertificate("test4.com")
 	if err != nil {
 		t.Errorf("Failed to generate server rsa certificate")
 		return
