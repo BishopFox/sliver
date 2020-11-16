@@ -1,5 +1,28 @@
 package db
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2020  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	----------------------------------------------------------------------
+
+    IMPORTANT: These should be read-only functions and cannot rely on any
+               packages outside of /db/models/
+
+*/
+
 import (
 	"github.com/bishopfox/sliver/server/db/models"
 	"gorm.io/gorm"
@@ -41,11 +64,11 @@ func ImplantBuildNames() ([]string, error) {
 	return names, result.Error
 }
 
-// Profiles - Fetch a map of name<->profiles current in the database
-func Profiles() ([]*models.ImplantProfile, error) {
+// ImplantProfiles - Fetch a map of name<->profiles current in the database
+func ImplantProfiles() ([]*models.ImplantProfile, error) {
 	profiles := []*models.ImplantProfile{}
 	dbSession := Session()
-	result := dbSession.Where(&models.ImplantProfile{}).Find(&profiles)
+	result := dbSession.Where(&models.ImplantProfile{}).Preload("ImplantConfig").Find(&profiles)
 	return profiles, result.Error
 }
 

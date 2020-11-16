@@ -19,34 +19,32 @@ package generate
 */
 
 import (
+	"errors"
+
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
-	"gorm.io/gorm"
-)
-
-const (
-	profilesBucketName = "profiles"
 )
 
 // SaveImplantProfile - Save a sliver profile to disk
 func SaveImplantProfile(name string, config *models.ImplantConfig) error {
-	exists, err := db.ImplantProfileByName(name)
-	dbSession := db.Session()
-	if err != nil {
+
+	profile, err := db.ImplantProfileByName(name)
+	if err != nil && !errors.Is(err, db.ErrRecordNotFound) {
 		return err
 	}
-	var result *gorm.DB
-	if exists != nil {
-		result = dbSession.Save(&models.ImplantProfile{
-			ID:            exists.ID,
+
+	dbSession := db.Session()
+	if errors.Is(err, db.ErrRecordNotFound) {
+		err = dbSession.Create(&models.ImplantProfile{
 			Name:          name,
 			ImplantConfig: config,
-		})
+		}).Error
 	} else {
-		result = dbSession.Create(&models.ImplantProfile{
+		err = dbSession.Save(&models.ImplantProfile{
+			ID:            profile.ID,
 			Name:          name,
 			ImplantConfig: config,
-		})
+		}).Error
 	}
-	return result.Error
+	return err
 }

@@ -134,7 +134,7 @@ func (rpc *Server) ImplantProfiles(ctx context.Context, _ *commonpb.Empty) (*cli
 	implantProfiles := &clientpb.ImplantProfiles{
 		Profiles: []*clientpb.ImplantProfile{},
 	}
-	dbProfiles, err := db.Profiles()
+	dbProfiles, err := db.ImplantProfiles()
 	if err != nil {
 		return implantProfiles, err
 	}
