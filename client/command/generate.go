@@ -268,7 +268,7 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 		if name != "" {
 			isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
 			if !isAlphanumeric(name) {
-				fmt.Printf(Warn + "Agent's name must be in alphanumeric only\n")
+				fmt.Printf(Warn + "Implant's name must be in alphanumeric only\n")
 				return nil
 			}
 		}

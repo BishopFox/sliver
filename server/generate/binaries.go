@@ -29,6 +29,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"text/template"
@@ -131,7 +132,10 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 
 	name := ""
 	if pbConfig.Name != "" {
-		name = path.Base(pbConfig.Name)
+		// Only allow user-provided alpha/numeric names
+		if regexp.MustCompile(`^[[:alnum:]]+$`).MatchString(pbConfig.Name) {
+			name = pbConfig.Name
+		}
 	}
 	return name, cfg
 }
