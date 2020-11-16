@@ -81,7 +81,7 @@ func addServerAdminCommands() (err error) {
 
 	np, err := commands.Server.AddCommand(constants.NewPlayerStr, "Create a new player config file",
 		help.GetHelpFor(constants.NewPlayerStr), &NewOperator{})
-	np.Aliases = []string{"Admin"}
+	np.Aliases = []string{"admin"}
 	if err != nil {
 		fmt.Println(util.Warn + err.Error())
 		os.Exit(3)
@@ -89,7 +89,7 @@ func addServerAdminCommands() (err error) {
 
 	kp, err := commands.Server.AddCommand(constants.KickPlayerStr, "Kick a player from the server",
 		help.GetHelpFor(constants.KickPlayerStr), &KickOperator{})
-	kp.Aliases = []string{"Admin"}
+	kp.Aliases = []string{"admin"}
 	if err != nil {
 		fmt.Println(util.Warn + err.Error())
 		os.Exit(3)
@@ -97,7 +97,7 @@ func addServerAdminCommands() (err error) {
 
 	mm, err := commands.Server.AddCommand(constants.MultiplayerModeStr, "Enable multiplayer mode on this server",
 		help.GetHelpFor(constants.MultiplayerModeStr), &MultiplayerMode{})
-	mm.Aliases = []string{"Admin"}
+	mm.Aliases = []string{"admin"}
 	if err != nil {
 		fmt.Println(util.Warn + err.Error())
 		os.Exit(3)

@@ -108,7 +108,7 @@ func (c *console) setup() (err error) {
 	c.Shell.SyntaxHighlighter = completers.SyntaxHighlighter
 
 	// History (client and user-wide)
-	c.Shell.History = ClientHist
+	// c.Shell.History = ClientHist
 	c.Shell.AltHistory = UserHist
 
 	// Client-side environment
@@ -160,14 +160,18 @@ func (c *console) Start() (err error) {
 		}
 
 		// Process various tokens on input (environment variables, paths, etc.)
-		parsed, _ := util.ParseEnvironmentVariables(sanitized)
+		envParsed, _ := util.ParseEnvironmentVariables(sanitized)
+
+		// Other types of tokens, needed by commands who expect a certain type
+		// of arguments, such as paths with spaces.
+		tokenParsed := c.parseTokens(envParsed)
 
 		// Execute the command input: all input is passed to the current
 		// context parser, which will deal with it on its own. We never return
 		// errors from this call, as any of them happening follows a certain
 		// number of fallback paths (special commands, error printing, etc.).
 		// We should not have to exit the console because of an error here, anyway.
-		c.ExecuteCommand(parsed)
+		c.ExecuteCommand(tokenParsed)
 	}
 }
 
@@ -175,6 +179,38 @@ func (c *console) Start() (err error) {
 func (c *console) Readline() (line string, err error) {
 	line, err = c.Shell.Readline()
 	fmt.Println()
+	return
+}
+
+// parseTokens - Parse and process any special tokens that are not treated by environment-like parsers.
+func (c *console) parseTokens(sanitized []string) (parsed []string) {
+
+	// PATH SPACE TOKENS
+	// Catch \ tokens, which have been introduced in paths where some directories have spaces in name.
+	// For each of these splits, we concatenate them with the next string.
+	// This will also inspect commands/options/arguments, but there is no reason why a backlash should be present in them.
+	var pathAdjusted []string
+	var roll bool
+	var arg string
+	for i := range sanitized {
+		if strings.HasSuffix(sanitized[i], "\\") {
+			// If we find a suffix, replace with a space. Go on with next input
+			arg += strings.TrimSuffix(sanitized[i], "\\") + " "
+			roll = true
+		} else if roll {
+			// No suffix but part of previous input. Add it and go on.
+			arg += sanitized[i]
+			pathAdjusted = append(pathAdjusted, arg)
+			arg = ""
+			roll = false
+		} else {
+			// Default, we add our path and go on.
+			pathAdjusted = append(pathAdjusted, sanitized[i])
+		}
+	}
+	parsed = pathAdjusted
+
+	// Add new function here, act on parsed []string from now on, not sanitized
 	return
 }
 
