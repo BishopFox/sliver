@@ -56,10 +56,14 @@ var (
 
 // BindCommands - Binds all commands to their appropriate parsers, which have been instantiated already.
 func BindCommands() (err error) {
+
+	Server = flags.NewNamedParser("server", flags.IgnoreUnknown)
 	err = bindServerCommands()
 	if err != nil {
 		return
 	}
+
+	Sliver = flags.NewNamedParser("sliver", flags.None)
 	err = bindSliverCommands()
 	if err != nil {
 		return

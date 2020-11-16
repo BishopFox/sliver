@@ -51,7 +51,15 @@ func (c *console) ExecuteCommand(args []string) (err error) {
 		err = c.HandleParserErrors(parserErr, args)
 	}
 
-	// END: Reset variables for command options (go-flags)
+	// IMPORTANT: Reset all commands.
+	// This is because the go-flags library assumes binary "single-runs" from the shell,
+	// and therefore keeps tracks of all values in the program, without offering a mean to
+	// reset them. Therefore we just wipe the command instances and rewrite new, blank ones.
+	// Applies to command arguments and options.
+	err = commands.BindCommands()
+	if err != nil {
+		fmt.Print(util.CommandError + tui.Red("could not reset commands: "+err.Error()+"\n"))
+	}
 
 	return nil
 }

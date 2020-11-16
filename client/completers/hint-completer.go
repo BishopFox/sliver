@@ -19,6 +19,10 @@ package completers
 */
 
 import (
+	"strings"
+
+	"github.com/bishopfox/sliver/client/commands"
+	"github.com/bishopfox/sliver/client/util"
 	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
 )
@@ -34,10 +38,12 @@ func HintCompleter(line []rune, pos int) (hint []rune) {
 
 	// Menu hints (command line is empty, or nothing recognized)
 	if noCommandOrEmpty(args, last, command) {
+		hint = MenuHint(args, last)
 	}
 
 	// Check environment variables
 	if envVarAsked(args, lastWord) {
+		return envVarHint(args, last)
 	}
 
 	// Command Hint
@@ -48,28 +54,29 @@ func HintCompleter(line []rune, pos int) (hint []rune) {
 
 		// Check environment variables
 		if envVarAsked(args, lastWord) {
+			return envVarHint(args, last)
 		}
 
 		// If command has args, hint for args
-		if _, yes := argumentRequired(lastWord, args, command, false); yes { // add *commands.Context.Menu in the string here
+		if arg, yes := argumentRequired(lastWord, args, command, false); yes { // add *commands.Context.Menu in the string here
+			hint = []rune(CommandArgumentHints(args, last, command, arg))
 		}
 
 		// Brief subcommand hint
 		if lastIsSubCommand(lastWord, command) {
+			hint = []rune(commandHint + command.Find(string(last)).ShortDescription)
 		}
 
 		// Handle subcommand if found
-		if _, ok := subCommandFound(lastWord, args, command); ok {
+		if sub, ok := subCommandFound(lastWord, args, command); ok {
+			return HandleSubcommandHints(args, last, sub)
 		}
 
-	}
-
-	// Handle special Wiregost commands
-	if isSpecialCommand(args, command) {
 	}
 
 	// Handle system binaries, shell commands, etc...
 	if commandFoundInPath(args[0]) {
+		// hint = []rune(exeHint + util.ParseSummary(util.GetManPages(args[0])))
 	}
 
 	return
@@ -82,11 +89,40 @@ func CommandHint(command *flags.Command) (hint []rune) {
 
 // HandleSubcommandHints - Handles hints for a subcommand and its arguments, options, etc.
 func HandleSubcommandHints(args []string, last []rune, command *flags.Command) (hint []rune) {
+
+	// If command has args, hint for args
+	if arg, yes := argumentRequired(string(last), args, command, true); yes {
+		hint = []rune(CommandArgumentHints(args, last, command, arg))
+		return
+	}
+
+	// Environment variables
+	if envVarAsked(args, string(last)) {
+		hint = envVarHint(args, last)
+	}
+
+	// If the last word in input is an option --name, yield argument hint if needed
+	if len(command.Groups()) != 0 {
+		if opt, yes := optionArgRequired(args, last, command.Groups()[0]); yes {
+			hint = OptionArgumentHint(args, last, opt)
+		}
+	}
+
+	// If user asks for completions with "-" or "--". (Note: This takes precedence on any argument hints, as it is evaluated after them)
+	if commandOptionsAsked(args, string(last), command) {
+		return OptionHints(args, last, command)
+	}
+
 	return
 }
 
 // CommandArgumentHints - Yields hints for arguments to commands if they have some
 func CommandArgumentHints(args []string, last []rune, command *flags.Command, arg string) (hint []rune) {
+
+	found := commands.ArgumentByName(command, arg)
+	// Base Hint is just a description of the command argument
+	hint = []rune(argHint + found.Description)
+
 	return
 }
 
@@ -102,12 +138,13 @@ func OptionHints(args []string, last []rune, command *flags.Command) (hint []run
 
 // OptionArgumentHint - Yields hints for arguments to an option (generally the last word in input)
 func OptionArgumentHint(args []string, last []rune, opt *flags.Option) (hint []rune) {
+	return []rune(valueHint + opt.Description)
 	return
 }
 
 // MenuHint - Returns the Hint for a given menu context
 func MenuHint(args []string, current []rune) (hint []rune) {
-	return current
+	return
 }
 
 // SpecialCommandHint - Shows hints for Wiregost special commands
@@ -117,16 +154,31 @@ func SpecialCommandHint(args []string, current []rune) (hint []rune) {
 
 // envVarHint - Yields hints for environment variables
 func envVarHint(args []string, last []rune) (hint []rune) {
+	// Trim last in case its a path with multiple vars
+	allVars := strings.Split(string(last), "/")
+	lastVar := allVars[len(allVars)-1]
+
+	// Base hint
+	hint = []rune(envHint + lastVar)
+
+	envVar := strings.TrimPrefix(lastVar, "$")
+
+	if v, ok := util.ClientEnv[envVar]; ok {
+		if v != "" {
+			hintStr := string(hint) + " => " + util.ClientEnv[envVar]
+			hint = []rune(hintStr)
+		}
+	}
 	return
 }
 
 var (
 	// Hint signs
-	menuHint    = tui.RESET + tui.DIM + tui.BOLD + " Menu  " + tui.RESET                              // Dim
-	envHint     = tui.RESET + tui.GREEN + tui.BOLD + " Env  " + tui.RESET + tui.DIM + tui.GREEN       // Green
-	commandHint = "\033[38;5;223m" + tui.BOLD + " Command  " + tui.RESET + tui.DIM + "\033[38;5;223m" // Cream
-	exeHint     = tui.RESET + tui.DIM + tui.BOLD + " Shell " + tui.RESET + tui.DIM                    // Dim
-	optionHint  = "\033[38;5;222m" + tui.BOLD + " Options  " + tui.RESET + tui.DIM + "\033[38;5;222m" // Cream-Yellow
-	valueHint   = "\033[38;5;217m" + tui.BOLD + " Value  " + tui.RESET + tui.DIM + "\033[38;5;217m"   // Pink-Cream
-	argHint     = "\033[38;5;217m" + tui.BOLD + " Arg  " + tui.RESET + tui.DIM + "\033[38;5;217m"     // Pink-Cream
+	menuHint    = tui.RESET + tui.DIM + tui.BOLD + " Menu  " + tui.RESET                                    // Dim
+	envHint     = tui.RESET + tui.GREEN + tui.BOLD + " Env  " + tui.RESET + tui.DIM + tui.GREEN             // Green
+	commandHint = tui.RESET + tui.DIM + tui.BOLD + " Command  " + tui.RESET + tui.DIM + "\033[38;5;244m"    // Cream
+	exeHint     = tui.RESET + tui.DIM + tui.BOLD + " Shell " + tui.RESET + tui.DIM                          // Dim
+	optionHint  = "\033[38;5;222m" + tui.BOLD + " Options  " + tui.RESET + tui.DIM + "\033[38;5;222m"       // Cream-Yellow
+	valueHint   = "\033[38;5;217m" + tui.BOLD + " Value  " + tui.RESET + tui.DIM + "\033[38;5;244m"         // Pink-Cream
+	argHint     = tui.DIM + "\033[38;5;217m" + tui.BOLD + " Arg  " + tui.RESET + tui.DIM + "\033[38;5;244m" // Pink-Cream
 )
