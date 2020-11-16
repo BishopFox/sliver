@@ -52,6 +52,14 @@ else
     exit 1
 fi
 
+# server / cryptography
+if go test ./server/cryptography ; then
+    :
+else
+    cat ~/.sliver/logs/sliver.log
+    exit 1
+fi
+
 # server / gogo
 if go test ./server/gogo ; then
     :
