@@ -20,6 +20,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/bishopfox/sliver/client/connection"
@@ -27,6 +28,7 @@ import (
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -87,4 +89,41 @@ func GetSession(arg string) *clientpb.Session {
 		}
 	}
 	return nil
+}
+
+// Kill - Kill the active session.
+// Therefore this command is different from the one in Sessions struct.
+type Kill struct {
+	Force   bool `long:"force" description:"Force kill, does not clean up"`
+	Timeout int  `long:"timeout" description:"Command timeout in seconds"`
+}
+
+// Execute - Kill the active session.
+func (k *Kill) Execute(args []string) (err error) {
+
+	session := cctx.Context.Sliver.Session
+	err = killSession(session, connection.RPC)
+	if err != nil {
+		fmt.Printf(util.RPCError+"%s\n", err)
+		return
+	}
+	// Change context
+	cctx.Context.Menu = cctx.Server // Coming back to server main menu
+	cctx.Context.Sliver = nil
+
+	fmt.Printf(util.Info+"Killed %s (%d)\n", session.Name, session.ID)
+	return
+}
+
+func killSession(session *clientpb.Session, rpc rpcpb.SliverRPCClient) error {
+	if session == nil {
+		return errors.New("Session does not exist")
+	}
+	_, err := rpc.KillSession(context.Background(), &sliverpb.KillSessionReq{
+		Request: &commonpb.Request{
+			SessionID: session.ID,
+		},
+		Force: true,
+	})
+	return err
 }
