@@ -19,6 +19,7 @@ package website
 */
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -89,22 +90,33 @@ func GetContent(websiteName string, path string) (string, []byte, error) {
 
 // AddContent - Add website content for a path
 func AddContent(websiteName string, path string, contentType string, content []byte) error {
+	dbSession := db.Session()
 
 	website, err := db.WebsiteByName(websiteName)
+	if errors.Is(err, db.ErrRecordNotFound) {
+		website = &models.Website{Name: websiteName}
+		err = dbSession.Create(&website).Error
+	}
 	if err != nil {
 		return err
 	}
 
-	// Add the content to the model
-	addContent := models.WebContent{
-		Path:        path,
-		ContentType: contentType,
+	webContent, err := webContentByPath(website, path)
+	if errors.Is(err, db.ErrRecordNotFound) {
+		webContent = &models.WebContent{
+			WebsiteID:   website.ID,
+			Path:        path,
+			ContentType: contentType,
+			Size:        len(content),
+		}
+		err = dbSession.Create(webContent).Error
+	} else {
+		webContent.ContentType = contentType
+		webContent.Size = len(content)
+		err = dbSession.Save(webContent).Error
 	}
-	website.WebContents = append(website.WebContents, addContent)
-	dbSession := db.Session()
-	result := dbSession.Save(website)
-	if result.Error != nil {
-		return result.Error
+	if err != nil {
+		return err
 	}
 
 	// Write content to disk
@@ -112,8 +124,18 @@ func AddContent(websiteName string, path string, contentType string, content []b
 	if err != nil {
 		return err
 	}
-	webContentPath := filepath.Join(webContentDir, addContent.ID.String())
+	webContentPath := filepath.Join(webContentDir, webContent.ID.String())
 	return ioutil.WriteFile(webContentPath, content, 0600)
+}
+
+func webContentByPath(website *models.Website, path string) (*models.WebContent, error) {
+	dbSession := db.Session()
+	webContent := models.WebContent{}
+	err := dbSession.Where(&models.WebContent{
+		WebsiteID: website.ID,
+		Path:      path,
+	}).First(&webContent).Error
+	return &webContent, err
 }
 
 // RemoveContent - Remove website content for a path
@@ -176,8 +198,17 @@ func MapContent(websiteName string) (*clientpb.Website, error) {
 		Contents: map[string]*clientpb.WebContent{},
 	}
 
+	webContentDir, err := getWebContentDir()
+	if err != nil {
+		return nil, err
+	}
 	for _, content := range website.WebContents {
-		pbWebsite.Contents[content.Path] = content.ToProtobuf()
+		data, err := ioutil.ReadFile(filepath.Join(webContentDir, content.ID.String()))
+		if err != nil {
+			websiteLog.Error(err)
+			continue
+		}
+		pbWebsite.Contents[content.Path] = content.ToProtobuf(data)
 	}
 
 	return pbWebsite, nil

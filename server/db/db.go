@@ -27,5 +27,7 @@ var Client = newDBClient()
 
 // Session - Database session
 func Session() *gorm.DB {
-	return Client.Session(&gorm.Session{})
+	return Client.Session(&gorm.Session{
+		FullSaveAssociations: true,
+	})
 }

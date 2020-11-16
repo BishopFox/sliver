@@ -63,10 +63,9 @@ type WebContent struct {
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	WebsiteID uuid.UUID
 
-	Path        string `gorm:"unique;"`
-	Size        uint64
+	Path        string `gorm:"primaryKey"`
+	Size        int
 	ContentType string
-	Content     []byte
 }
 
 // BeforeCreate - GORM hook to automatically set values
@@ -76,11 +75,11 @@ func (wc *WebContent) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 // ToProtobuf - Converts to protobuf object
-func (wc *WebContent) ToProtobuf() *clientpb.WebContent {
+func (wc *WebContent) ToProtobuf(content []byte) *clientpb.WebContent {
 	return &clientpb.WebContent{
 		Path:        wc.Path,
-		Size:        wc.Size,
+		Size:        uint64(wc.Size),
 		ContentType: wc.ContentType,
-		Content:     wc.Content,
+		Content:     content,
 	}
 }

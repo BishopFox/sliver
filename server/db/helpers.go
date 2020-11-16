@@ -1,6 +1,14 @@
 package db
 
-import "github.com/bishopfox/sliver/server/db/models"
+import (
+	"github.com/bishopfox/sliver/server/db/models"
+	"gorm.io/gorm"
+)
+
+var (
+	// ErrRecordNotFound - Record not found error
+	ErrRecordNotFound = gorm.ErrRecordNotFound
+)
 
 // ImplantBuilds - Return all implant builds
 func ImplantBuilds() ([]*models.ImplantBuild, error) {

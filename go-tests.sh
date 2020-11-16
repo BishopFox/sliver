@@ -36,8 +36,8 @@ fi
 
 ## Server
 
-# server / db
-if go test ./server/db ; then
+# server / website
+if go test ./server/website ; then
     :
 else
     cat ~/.sliver/logs/sliver.log

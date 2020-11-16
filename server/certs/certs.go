@@ -37,7 +37,6 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
-	"gorm.io/gorm"
 )
 
 const (
@@ -110,7 +109,7 @@ func GetCertificate(caType string, keyType string, commonName string) ([]byte, [
 		KeyType:    keyType,
 		CommonName: commonName,
 	}).First(&certModel)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	if errors.Is(result.Error, db.ErrRecordNotFound) {
 		return nil, nil, ErrCertDoesNotExist
 	}
 	if result.Error != nil {
