@@ -21,9 +21,11 @@ package website
 import (
 	"bytes"
 	"crypto/rand"
+	"errors"
 	insecureRand "math/rand"
 	"testing"
 
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 )
 
@@ -43,7 +45,7 @@ var (
 )
 
 func randomData() []byte {
-	buf := make([]byte, insecureRand.Intn(1024))
+	buf := make([]byte, insecureRand.Intn(256))
 	rand.Read(buf)
 	return buf
 }
@@ -97,4 +99,80 @@ func TestGetContent(t *testing.T) {
 	if !bytes.Equal(content, data2) {
 		t.Errorf("Content does not match sample")
 	}
+}
+
+func TestContentMap(t *testing.T) {
+	err := AddContent(website1, "/data1", contentType1, data1)
+	if err != nil {
+		t.Error(err)
+	}
+	err = AddContent(website1, "/data2", contentType2, data2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	contentMap, err := MapContent(website1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	content := contentMap.Contents["/data1"].GetContent()
+	if !bytes.Equal(content, data1) {
+		t.Errorf("Content map %v does not match sample %v != %v", contentMap, content, data1)
+	}
+
+}
+
+func contains(haystack []string, needle string) bool {
+	for _, elem := range haystack {
+		if elem == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func TestNames(t *testing.T) {
+	err := AddContent(website1, "/data1", contentType1, data1)
+	if err != nil {
+		t.Error(err)
+	}
+	err = AddContent(website1, "/data2", contentType2, data2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	names, err := Names()
+	if err != nil {
+		t.Error(err)
+	}
+	if !contains(names, website1) {
+		t.Errorf("Names returned an incomplete list of websites")
+	}
+}
+
+func TestRemoveContent(t *testing.T) {
+	err := AddContent(website1, "/data1", contentType1, data1)
+	if err != nil {
+		t.Error(err)
+	}
+	err = AddContent(website1, "/data2", contentType2, data2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, _, err = GetContent(website1, "/data1")
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = RemoveContent(website1, "/data1")
+	if err != nil {
+		t.Error(err)
+	}
+	_, _, err = GetContent(website1, "/data1")
+	if !errors.Is(err, db.ErrRecordNotFound) {
+		t.Errorf("Expected ErrRecordNotFound, but got %v", err)
+	}
+
 }

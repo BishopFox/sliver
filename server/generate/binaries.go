@@ -236,7 +236,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	err = ioutil.WriteFile(dest, shellcode, 0755)
+	err = ioutil.WriteFile(dest, shellcode, 0600)
 	if err != nil {
 		return "", err
 	}

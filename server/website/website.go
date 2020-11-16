@@ -42,7 +42,7 @@ var (
 
 func getWebContentDir() (string, error) {
 	webContentDir := filepath.Join(assets.GetRootAppDir(), "web")
-	websiteLog.Debugf("Web content dir: %s", webContentDir)
+	// websiteLog.Debugf("Web content dir: %s", webContentDir)
 	if _, err := os.Stat(webContentDir); os.IsNotExist(err) {
 		err = os.MkdirAll(webContentDir, 0700)
 		if err != nil {
@@ -188,13 +188,15 @@ func Names() ([]string, error) {
 func MapContent(websiteName string) (*clientpb.Website, error) {
 	website := models.Website{}
 	dbSession := db.Session()
-	result := dbSession.Where(&models.Website{Name: websiteName}).Find(&website)
+	result := dbSession.Where(&models.Website{
+		Name: websiteName,
+	}).Preload("WebContents").Find(&website)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 
 	pbWebsite := &clientpb.Website{
-		Name:     websiteName,
+		Name:     website.Name,
 		Contents: map[string]*clientpb.WebContent{},
 	}
 
@@ -202,8 +204,10 @@ func MapContent(websiteName string) (*clientpb.Website, error) {
 	if err != nil {
 		return nil, err
 	}
+	websiteLog.Debugf("%d WebContent(s)", len(website.WebContents))
 	for _, content := range website.WebContents {
 		data, err := ioutil.ReadFile(filepath.Join(webContentDir, content.ID.String()))
+		websiteLog.Debugf("Read %d bytes of content", len(data))
 		if err != nil {
 			websiteLog.Error(err)
 			continue
