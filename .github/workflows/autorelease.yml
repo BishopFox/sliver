@@ -9,6 +9,7 @@ jobs:
 
   linux-windows-build:
     name: Linux & Windows Build
+    if: startsWith( github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
 
@@ -77,6 +78,7 @@ jobs:
 
   macos-build:
     name: MacOS Build
+    if: startsWith( github.ref, 'refs/tags/v')
     runs-on: macos-latest
     steps:
 
