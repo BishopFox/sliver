@@ -9,7 +9,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/desertbit/closer/v3 v3.0.1
 	github.com/desertbit/columnize v2.1.0+incompatible
-	github.com/desertbit/go-shlex v0.1.0
+	github.com/desertbit/go-shlex v0.1.1
 	github.com/desertbit/readline v1.5.1
 	github.com/fatih/color v1.7.0
 	github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c // indirect
