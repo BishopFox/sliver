@@ -139,7 +139,7 @@ jobs:
     - name: Package Linux
       run: |
         zip ./release/sliver-server_linux.zip ./artifacts/linux/sliver-server
-        zip ./release/sliver-client_linux.zip ./artifacts/sliver-client
+        zip ./release/sliver-client_linux.zip ./artifacts/linux/sliver-client
 
     # Windows
     - name: Package Windows
