@@ -1041,6 +1041,7 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 	secureDelete := "DEFAULT"
 	synchronousMode := "NORMAL"
 	writableSchema := -1
+	vfsName := ""
 
 	pos := strings.IndexRune(dsn, '?')
 	if pos >= 1 {
@@ -1364,6 +1365,10 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 			}
 		}
 
+		if val := params.Get("vfs"); val != "" {
+			vfsName = val
+		}
+
 		if !strings.HasPrefix(dsn, "file:") {
 			dsn = dsn[:pos]
 		}
@@ -1372,9 +1377,14 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 	var db *C.sqlite3
 	name := C.CString(dsn)
 	defer C.free(unsafe.Pointer(name))
+	var vfs *C.char
+	if vfsName != "" {
+		vfs = C.CString(vfsName)
+		defer C.free(unsafe.Pointer(vfs))
+	}
 	rv := C._sqlite3_open_v2(name, &db,
 		mutex|C.SQLITE_OPEN_READWRITE|C.SQLITE_OPEN_CREATE,
-		nil)
+		vfs)
 	if rv != 0 {
 		// Save off the error _before_ closing the database.
 		// This is safe even if db is nil.
