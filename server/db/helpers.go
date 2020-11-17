@@ -68,15 +68,41 @@ func ImplantBuildNames() ([]string, error) {
 func ImplantProfiles() ([]*models.ImplantProfile, error) {
 	profiles := []*models.ImplantProfile{}
 	dbSession := Session()
-	result := dbSession.Where(&models.ImplantProfile{}).Preload("ImplantConfig").Find(&profiles)
-	return profiles, result.Error
+	err := dbSession.Where(&models.ImplantProfile{}).Preload("ImplantConfig").Find(&profiles).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, profile := range profiles {
+		c2s := []models.ImplantC2{}
+		err := dbSession.Where(&models.ImplantC2{
+			ImplantConfigID: profile.ImplantConfig.ID,
+		}).Find(&c2s).Error
+		if err != nil {
+			return nil, err
+		}
+		profile.ImplantConfig.C2 = c2s
+	}
+	return profiles, nil
 }
 
 // ImplantProfileByName - Fetch implant build by name
 func ImplantProfileByName(name string) (*models.ImplantProfile, error) {
 	dbSession := Session()
 	profile := models.ImplantProfile{}
-	result := dbSession.Where(&models.ImplantProfile{Name: name}).First(&profile)
+	result := dbSession.Where(&models.ImplantProfile{
+		Name: name,
+	}).Preload("ImplantConfig").First(&profile)
+
+	c2s := []models.ImplantC2{}
+	err := dbSession.Where(&models.ImplantC2{
+		ImplantConfigID: profile.ImplantConfig.ID,
+	}).Find(&c2s).Error
+	if err != nil {
+		return nil, err
+	}
+	profile.ImplantConfig.C2 = c2s
+
 	return &profile, result.Error
 }
 
