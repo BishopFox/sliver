@@ -19,7 +19,7 @@ package db
 	----------------------------------------------------------------------
 
     IMPORTANT: These should be read-only functions and cannot rely on any
-               packages outside of /db/models/
+               packages outside of /server/db/models
 
 */
 
@@ -35,126 +35,142 @@ var (
 
 // ImplantBuilds - Return all implant builds
 func ImplantBuilds() ([]*models.ImplantBuild, error) {
-	dbSession := Session()
 	builds := []*models.ImplantBuild{}
-	result := dbSession.Where(&models.ImplantBuild{}).Find(&builds)
-	return builds, result.Error
+	err := Session().Where(&models.ImplantBuild{}).Preload("ImplantConfig").Find(&builds).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, build := range builds {
+		err = loadC2s(&build.ImplantConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return builds, err
 }
 
 // ImplantBuildByName - Fetch implant build by name
 func ImplantBuildByName(name string) (*models.ImplantBuild, error) {
-	dbSession := Session()
 	build := models.ImplantBuild{}
-	result := dbSession.Where(&models.ImplantBuild{Name: name}).First(&build)
-	return &build, result.Error
+	err := Session().Where(&models.ImplantBuild{
+		Name: name,
+	}).Preload("ImplantConfig").First(&build).Error
+	if err != nil {
+		return nil, err
+	}
+	err = loadC2s(&build.ImplantConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &build, err
 }
 
 // ImplantBuildNames - Fetch a list of all build names
 func ImplantBuildNames() ([]string, error) {
-	dbSession := Session()
 	builds := []*models.ImplantBuild{}
-	result := dbSession.Where(&models.ImplantBuild{}).Find(&builds)
-	if result.Error != nil {
-		return []string{}, result.Error
+	err := Session().Where(&models.ImplantBuild{}).Find(&builds).Error
+	if err != nil {
+		return []string{}, err
 	}
 	names := []string{}
 	for _, build := range builds {
 		names = append(names, build.Name)
 	}
-	return names, result.Error
+	return names, nil
 }
 
 // ImplantProfiles - Fetch a map of name<->profiles current in the database
 func ImplantProfiles() ([]*models.ImplantProfile, error) {
 	profiles := []*models.ImplantProfile{}
-	dbSession := Session()
-	err := dbSession.Where(&models.ImplantProfile{}).Preload("ImplantConfig").Find(&profiles).Error
+	err := Session().Where(&models.ImplantProfile{}).Preload("ImplantConfig").Find(&profiles).Error
 	if err != nil {
 		return nil, err
 	}
 
 	for _, profile := range profiles {
-		c2s := []models.ImplantC2{}
-		err := dbSession.Where(&models.ImplantC2{
-			ImplantConfigID: profile.ImplantConfig.ID,
-		}).Find(&c2s).Error
+		err = loadC2s(profile.ImplantConfig)
 		if err != nil {
 			return nil, err
 		}
-		profile.ImplantConfig.C2 = c2s
 	}
 	return profiles, nil
 }
 
 // ImplantProfileByName - Fetch implant build by name
 func ImplantProfileByName(name string) (*models.ImplantProfile, error) {
-	dbSession := Session()
 	profile := models.ImplantProfile{}
-	err := dbSession.Where(&models.ImplantProfile{
+	err := Session().Where(&models.ImplantProfile{
 		Name: name,
 	}).Preload("ImplantConfig").First(&profile).Error
 	if err != nil {
 		return nil, err
 	}
 
-	c2s := []models.ImplantC2{}
-	err = dbSession.Where(&models.ImplantC2{
-		ImplantConfigID: profile.ImplantConfig.ID,
-	}).Find(&c2s).Error
+	err = loadC2s(profile.ImplantConfig)
 	if err != nil {
 		return nil, err
 	}
-	profile.ImplantConfig.C2 = c2s
 
 	return &profile, err
 }
 
+// C2s are not eager-loaded, this will load them for a given ImplantConfig
+// I wasn't able to get GORM's nested loading to work, so I went with this.
+func loadC2s(config *models.ImplantConfig) error {
+	c2s := []models.ImplantC2{}
+	err := Session().Where(&models.ImplantC2{
+		ImplantConfigID: config.ID,
+	}).Find(&c2s).Error
+	if err != nil {
+		return err
+	}
+	config.C2 = c2s
+	return nil
+}
+
 // ImplantProfileNames - Fetch a list of all build names
 func ImplantProfileNames() ([]string, error) {
-	dbSession := Session()
 	profiles := []*models.ImplantProfile{}
-	result := dbSession.Where(&models.ImplantProfile{}).Find(&profiles)
-	if result.Error != nil {
-		return []string{}, result.Error
+	err := Session().Where(&models.ImplantProfile{}).Find(&profiles).Error
+	if err != nil {
+		return []string{}, err
 	}
 	names := []string{}
 	for _, build := range profiles {
 		names = append(names, build.Name)
 	}
-	return names, result.Error
+	return names, nil
 }
 
 // ProfileByName - Fetch a single profile from the database
 func ProfileByName(name string) (*models.ImplantProfile, error) {
 	dbProfile := &models.ImplantProfile{}
-	dbSession := Session()
-	result := dbSession.Where(&models.ImplantProfile{Name: name}).Find(&dbProfile)
-	return dbProfile, result.Error
+	err := Session().Where(&models.ImplantProfile{Name: name}).Find(&dbProfile).Error
+	return dbProfile, err
 }
 
 // ListCanaries - List of all embedded canaries
 func ListCanaries() ([]*models.DNSCanary, error) {
 	canaries := []*models.DNSCanary{}
-	dbSession := Session()
-	result := dbSession.Where(&models.DNSCanary{}).Find(&canaries)
-	return canaries, result.Error
+	err := Session().Where(&models.DNSCanary{}).Find(&canaries).Error
+	return canaries, err
 }
 
 // CanaryByDomain - Check if a canary exists
 func CanaryByDomain(domain string) (*models.DNSCanary, error) {
 	dbSession := Session()
 	canary := models.DNSCanary{}
-	result := dbSession.Where(&models.DNSCanary{Domain: domain}).First(&canary)
-	return &canary, result.Error
+	err := dbSession.Where(&models.DNSCanary{Domain: domain}).First(&canary).Error
+	return &canary, err
 }
 
 // WebsiteByName - Get website by name
 func WebsiteByName(name string) (*models.Website, error) {
 	website := models.Website{}
-	dbSession := Session()
-	result := dbSession.Where(&models.Website{Name: name}).First(&website)
-	if result.Error != nil {
-		return nil, result.Error
+	err := Session().Where(&models.Website{Name: name}).First(&website).Error
+	if err != nil {
+		return nil, err
 	}
 	return &website, nil
 }
