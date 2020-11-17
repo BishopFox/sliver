@@ -120,8 +120,8 @@ jobs:
     - name: Make
       run: export PATH=/Users/runner/go/bin/:$PATH && make macos && make static-macos
     
-    - name: Update PATH
-      run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
+    - name: Debug Log
+      run: ls -alh
 
     - name: MacOS Artifact
       uses: actions/upload-artifact@v2
@@ -144,6 +144,8 @@ jobs:
     - uses: actions/download-artifact@v2
       with:
         path: ./artifacts
+
+    - run: ls -lah ./artifacts && ls -lah ./artifacts/linux/
 
     # Linux
     - run: zip ./release/sliver-server_linux.zip ./artifacts/linux/sliver-server
