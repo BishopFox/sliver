@@ -21,11 +21,7 @@ STATIC_TARGET := static-linux
 UNAME_S := $(shell uname -s)
 
 # If the target is Windows from Linux/Darwin, check for mingw
-define check_cross_compilers
-	CROSS_COMPILERS = x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++
-	K := $(foreach exec,$(CROSS_COMPILERS),\
-			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
-endef
+CROSS_COMPILERS = x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++
 
 # *** Start Darwin ***
 ifeq ($(UNAME_S),Darwin)
@@ -33,9 +29,13 @@ ifeq ($(UNAME_S),Darwin)
 	STATIC_TARGET := static-macos
 
 ifeq ($(MAKECMDGOALS), windows)
+	K := $(foreach exec,$(CROSS_COMPILERS),\
+			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
 	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
 endif
 ifeq ($(MAKECMDGOALS), static-windows)
+	K := $(foreach exec,$(CROSS_COMPILERS),\
+			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
 	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
 endif
 
@@ -46,11 +46,13 @@ endif
 ifeq ($(UNAME_S),Linux)
 
 ifeq ($(MAKECMDGOALS), windows)
-	$(call check_cross_compilers)
+	K := $(foreach exec,$(CROSS_COMPILERS),\
+			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
 	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
 endif
 ifeq ($(MAKECMDGOALS), static-windows)
-	$(call check_cross_compilers)
+	K := $(foreach exec,$(CROSS_COMPILERS),\
+			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
 	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
 endif
 
