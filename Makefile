@@ -19,11 +19,43 @@ SED_INPLACE := sed -i
 STATIC_TARGET := static-linux
 
 UNAME_S := $(shell uname -s)
+
+# If the target is Windows from Linux/Darwin, check for mingw
+define check_cross_compilers
+	CROSS_COMPILERS = x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++
+	K := $(foreach exec,$(CROSS_COMPILERS),\
+			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
+endef
+
+# *** Start Darwin ***
 ifeq ($(UNAME_S),Darwin)
 	SED_INPLACE := sed -i ''
 	STATIC_TARGET := static-macos
+
+ifeq ($(MAKECMDGOALS), windows)
+	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
+endif
+ifeq ($(MAKECMDGOALS), static-windows)
+	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
 endif
 
+endif
+# *** End Darwin ***
+
+# *** Start Linux ***
+ifeq ($(UNAME_S),Linux)
+
+ifeq ($(MAKECMDGOALS), windows)
+	$(call check_cross_compilers)
+	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
+endif
+ifeq ($(MAKECMDGOALS), static-windows)
+	$(call check_cross_compilers)
+	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
+endif
+
+endif 
+# *** End Linux ***
 
 #
 # Version Information
