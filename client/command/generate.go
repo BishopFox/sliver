@@ -108,7 +108,7 @@ func regenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
-	err = ioutil.WriteFile(saveTo, regenerate.File.Data, 0500)
+	err = ioutil.WriteFile(saveTo, regenerate.File.Data, 0700)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to write to %s\n", err)
 		return
