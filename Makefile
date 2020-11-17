@@ -112,6 +112,7 @@ static-macos: clean pb packr
 	$(SED_INPLACE) '/$*.windows\/go\.zip/d' ./server/assets/a_assets-packr.go
 	$(SED_INPLACE) '/$*.linux\/go\.zip/d' ./server/assets/a_assets-packr.go
 	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
+	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: static-windows
 static-windows: clean pb packr
@@ -119,12 +120,14 @@ static-windows: clean pb packr
 	$(SED_INPLACE) '/$*.darwin\/go\.zip/d' ./server/assets/a_assets-packr.go
 	$(SED_INPLACE) '/$*.linux\/go\.zip/d' ./server/assets/a_assets-packr.go
 	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
+	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client.exe ./client
 
 .PHONY: static-linux
 static-linux: clean pb packr
 	$(SED_INPLACE) '/$*.darwin\/go\.zip/d' ./server/assets/a_assets-packr.go
 	$(SED_INPLACE) '/$*.windows\/go\.zip/d' ./server/assets/a_assets-packr.go
 	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
+	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: pb
 pb:

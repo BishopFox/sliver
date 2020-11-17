@@ -52,7 +52,7 @@ jobs:
       run: ./go-assets.sh
 
     - name: Make
-      run: export PATH=/home/runner/go/bin/:$PATH && make linux && make static-linux
+      run: export PATH=/home/runner/go/bin/:$PATH && make static-linux
   
     - name: Linux Client Artifact
       uses: actions/upload-artifact@v2
@@ -67,7 +67,7 @@ jobs:
         path: ./sliver-server
 
     - name: Make Windows
-      run: export PATH=/home/runner/go/bin/:$PATH && make windows && make static-windows
+      run: export PATH=/home/runner/go/bin/:$PATH && make static-windows
 
     - name: Windows Client Artifact
       uses: actions/upload-artifact@v2
@@ -124,7 +124,7 @@ jobs:
       run: ./go-assets.sh
 
     - name: Make
-      run: export PATH=/Users/runner/go/bin/:$PATH && make macos && make static-macos
+      run: export PATH=/Users/runner/go/bin/:$PATH && make static-macos
     
     - name: MacOS Client Artifact
       uses: actions/upload-artifact@v2
