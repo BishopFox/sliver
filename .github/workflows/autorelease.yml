@@ -54,24 +54,20 @@ jobs:
     - name: Make
       run: export PATH=/home/runner/go/bin/:$PATH && make static-linux
   
-    - name: Linux Client Artifact
+    - name: Linux Artifacts
       uses: actions/upload-artifact@v2
       with:
         name: linux
-        path: |
-          ./sliver-client
-          ./sliver-server
+        path: ./sliver-*
 
     - name: Make Windows
       run: export PATH=/home/runner/go/bin/:$PATH && make static-windows
 
-    - name: Windows Client Artifact
+    - name: Windows Artifacts
       uses: actions/upload-artifact@v2
       with:
         name: windows
-        path: |
-          ./sliver-client.exe
-          ./sliver-server.exe
+        path:  ./sliver-*
 
   macos-build:
     name: MacOS Build
@@ -121,10 +117,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: macos
-        path: |
-         ./sliver-client
-         ./sliver-server
-
+        path: ./sliver-*
 
   tagged-release:
 
