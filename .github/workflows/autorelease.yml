@@ -153,6 +153,8 @@ jobs:
       with:
         path: ./artifacts
 
+    - run: ls -lah ./artifacts
+
     # Linux
     - name: Package Linux
       run: |
