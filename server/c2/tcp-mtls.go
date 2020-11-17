@@ -55,9 +55,9 @@ func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error)
 	if host == "" {
 		host = defaultServerCert
 	}
-	_, _, err := certs.GetCertificate(certs.ServerCA, certs.ECCKey, host)
+	_, _, err := certs.GetCertificate(certs.C2ServerCA, certs.ECCKey, host)
 	if err != nil {
-		certs.ServerGenerateECCCertificate(host)
+		certs.C2ServerGenerateECCCertificate(host)
 	}
 	tlsConfig := getServerTLSConfig(host)
 	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", bindIface, port), tlsConfig)
@@ -212,14 +212,14 @@ func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 // to specify any TLS paramters, we choose sensible defaults instead
 func getServerTLSConfig(host string) *tls.Config {
 
-	sliverCACert, _, err := certs.GetCertificateAuthority(certs.SliverCA)
+	sliverCACert, _, err := certs.GetCertificateAuthority(certs.ImplantCA)
 	if err != nil {
-		mtlsLog.Fatalf("Failed to find ca type (%s)", certs.SliverCA)
+		mtlsLog.Fatalf("Failed to find ca type (%s)", certs.ImplantCA)
 	}
 	sliverCACertPool := x509.NewCertPool()
 	sliverCACertPool.AddCert(sliverCACert)
 
-	certPEM, keyPEM, err := certs.GetCertificate(certs.ServerCA, certs.ECCKey, host)
+	certPEM, keyPEM, err := certs.GetCertificate(certs.C2ServerCA, certs.ECCKey, host)
 	if err != nil {
 		mtlsLog.Errorf("Failed to generate or fetch certificate %s", err)
 		return nil

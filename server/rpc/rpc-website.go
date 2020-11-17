@@ -34,14 +34,14 @@ var (
 
 // Websites - List existing websites
 func (rpc *Server) Websites(ctx context.Context, _ *commonpb.Empty) (*clientpb.Websites, error) {
-	websiteNames, err := website.ListWebsites()
+	websiteNames, err := website.Names()
 	if err != nil {
 		rpcWebsiteLog.Warnf("Failed to find website %s", err)
 		return nil, err
 	}
 	websites := &clientpb.Websites{Websites: []*clientpb.Website{}}
 	for _, name := range websiteNames {
-		siteContent, err := website.ListContent(name)
+		siteContent, err := website.MapContent(name)
 		if err != nil {
 			rpcWebsiteLog.Warnf("Failed to list website content %s", err)
 			continue
@@ -53,7 +53,7 @@ func (rpc *Server) Websites(ctx context.Context, _ *commonpb.Empty) (*clientpb.W
 
 // WebsiteRemove - Delete an entire website
 func (rpc *Server) WebsiteRemove(ctx context.Context, req *clientpb.Website) (*commonpb.Empty, error) {
-	web, err := website.ListContent(req.Name)
+	web, err := website.MapContent(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (rpc *Server) WebsiteRemove(ctx context.Context, req *clientpb.Website) (*c
 
 // Website - Get one website
 func (rpc *Server) Website(ctx context.Context, req *clientpb.Website) (*clientpb.Website, error) {
-	return website.ListContent(req.Name)
+	return website.MapContent(req.Name)
 }
 
 // WebsiteAddContent - Add content to a website, the website is created if `name` does not exist
@@ -82,7 +82,7 @@ func (rpc *Server) WebsiteAddContent(ctx context.Context, req *clientpb.WebsiteA
 			return nil, err
 		}
 	}
-	return website.ListContent(req.Name)
+	return website.MapContent(req.Name)
 }
 
 // WebsiteRemoveContent - Remove specific content from a website
@@ -94,5 +94,5 @@ func (rpc *Server) WebsiteRemoveContent(ctx context.Context, req *clientpb.Websi
 			return nil, err
 		}
 	}
-	return website.ListContent(req.Name)
+	return website.MapContent(req.Name)
 }

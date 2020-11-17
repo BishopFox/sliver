@@ -538,9 +538,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:     consts.ListSliverBuildsStr,
+		Name:     consts.ListImplantBuildsStr,
 		Help:     "List old implant builds",
-		LongHelp: help.GetHelpFor(consts.ListSliverBuildsStr),
+		LongHelp: help.GetHelpFor(consts.ListImplantBuildsStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},

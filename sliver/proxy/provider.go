@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
@@ -199,7 +199,7 @@ Returns:
 func (p *provider) readConfigFileProxy(protocol string) Proxy {
 	proxyJson, err := p.unmarshalProxyConfigFile()
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[proxy.Provider.readConfigFileProxy]: %s\n", err)
 		// {{end}}
 		return nil
@@ -214,7 +214,7 @@ func (p *provider) readConfigFileProxy(protocol string) Proxy {
 		uProxy, uErr = NewProxy(uUrl, srcConfigurationFile)
 	}
 	if uErr != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[proxy.Provider.readConfigFileProxy]: invalid config file proxy, skipping \"%s\": \"%s\"\n", protocol, uStr)
 		// {{end}}
 		return nil
@@ -289,7 +289,7 @@ K:
 		proxy, err := p.parseEnvProxy(key)
 		if err != nil {
 			if !isNotFound(err) {
-				// {{if .Debug}}
+				// {{if .Config.Debug}}
 				log.Printf("[proxy.Provider.readSystemEnvProxy]: failed to parse \"%s\" value: %s\n", key, err)
 				// {{end}}
 			}
@@ -301,7 +301,7 @@ K:
 				continue
 			}
 			bypass = p.isProxyBypass(targetUrl, proxyBypass, ",")
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[proxy.Provider.readSystemEnvProxy]: \"%s\"=\"%s\", targetUrl=%s, bypass=%t", noProxyKey, proxyBypass, targetUrl, bypass)
 			// {{end}}
 			noProxyKey = noProxyKey // Avoid unused variable

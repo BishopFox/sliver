@@ -29,6 +29,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"text/template"
@@ -36,6 +37,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/gobfuscate"
 	"github.com/bishopfox/sliver/server/gogo"
 	"github.com/bishopfox/sliver/server/log"
@@ -81,103 +83,22 @@ const (
 	SliverCC32EnvVar = "SLIVER_CC_32"
 )
 
-// ImplantConfig - Parameters when generating a implant
-type ImplantConfig struct {
-	// Go
-	GOOS   string `json:"go_os"`
-	GOARCH string `json:"go_arch"`
-
-	// Standard
-	Name                string `json:"name"`
-	CACert              string `json:"ca_cert"`
-	Cert                string `json:"cert"`
-	Key                 string `json:"key"`
-	Debug               bool   `json:"debug"`
-	Evasion             bool   `json:"evasion"`
-	ObfuscateSymbols    bool   `json:"obfuscate_symbols"`
-	ReconnectInterval   int    `json:"reconnect_interval"`
-	MaxConnectionErrors int    `json:"max_connection_errors"`
-
-	C2                []ImplantC2 `json:"c2s"`
-	MTLSc2Enabled     bool        `json:"c2_mtls_enabled"`
-	HTTPc2Enabled     bool        `json:"c2_http_enabled"`
-	DNSc2Enabled      bool        `json:"c2_dns_enabled"`
-	CanaryDomains     []string    `json:"canary_domains"`
-	NamePipec2Enabled bool        `json:"c2_namedpipe_enabled"`
-	TCPPivotc2Enabled bool        `json:"c2_tcppivot_enabled"`
-
-	// Limits
-	LimitDomainJoined bool   `json:"limit_domainjoined"`
-	LimitHostname     string `json:"limit_hostname"`
-	LimitUsername     string `json:"limit_username"`
-	LimitDatetime     string `json:"limit_datetime"`
-	LimitFileExists   string `json:"limit_fileexists"`
-
-	// Output Format
-	Format clientpb.ImplantConfig_OutputFormat `json:"format"`
-
-	// For 	IsSharedLib bool `json:"is_shared_lib"`
-	IsSharedLib bool `json:"is_shared_lib"`
-	IsService   bool `json:"is_service"`
-	IsShellcode bool `json:"is_shellcode"`
-
-	FileName string
-}
-
-// ToProtobuf - Convert ImplantConfig to protobuf equiv
-func (c *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
-	config := &clientpb.ImplantConfig{
-		GOOS:             c.GOOS,
-		GOARCH:           c.GOARCH,
-		Name:             c.Name,
-		CACert:           c.CACert,
-		Cert:             c.Cert,
-		Key:              c.Key,
-		Debug:            c.Debug,
-		Evasion:          c.Evasion,
-		ObfuscateSymbols: c.ObfuscateSymbols,
-		CanaryDomains:    c.CanaryDomains,
-
-		ReconnectInterval:   uint32(c.ReconnectInterval),
-		MaxConnectionErrors: uint32(c.MaxConnectionErrors),
-
-		LimitDatetime:     c.LimitDatetime,
-		LimitDomainJoined: c.LimitDomainJoined,
-		LimitHostname:     c.LimitHostname,
-		LimitUsername:     c.LimitUsername,
-		LimitFileExists:   c.LimitFileExists,
-
-		IsSharedLib: c.IsSharedLib,
-		IsService:   c.IsService,
-		IsShellcode: c.IsShellcode,
-		Format:      c.Format,
-
-		FileName: c.FileName,
-	}
-	config.C2 = []*clientpb.ImplantC2{}
-	for _, c2 := range c.C2 {
-		config.C2 = append(config.C2, c2.ToProtobuf())
-	}
-	return config
-}
-
 // ImplantConfigFromProtobuf - Create a native config struct from Protobuf
-func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig {
-	cfg := &ImplantConfig{}
+func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *models.ImplantConfig) {
+	cfg := &models.ImplantConfig{}
 
 	cfg.GOOS = pbConfig.GOOS
 	cfg.GOARCH = pbConfig.GOARCH
-	cfg.Name = pbConfig.Name
 	cfg.CACert = pbConfig.CACert
 	cfg.Cert = pbConfig.Cert
 	cfg.Key = pbConfig.Key
 	cfg.Debug = pbConfig.Debug
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
-	cfg.CanaryDomains = pbConfig.CanaryDomains
+	// cfg.CanaryDomains = pbConfig.CanaryDomains
 
-	cfg.ReconnectInterval = int(pbConfig.ReconnectInterval)
-	cfg.MaxConnectionErrors = int(pbConfig.MaxConnectionErrors)
+	cfg.ReconnectInterval = pbConfig.ReconnectInterval
+	cfg.MaxConnectionErrors = pbConfig.MaxConnectionErrors
 
 	cfg.LimitDomainJoined = pbConfig.LimitDomainJoined
 	cfg.LimitDatetime = pbConfig.LimitDatetime
@@ -190,6 +111,14 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.IsService = pbConfig.IsService
 	cfg.IsShellcode = pbConfig.IsShellcode
 
+	cfg.CanaryDomains = []models.CanaryDomain{}
+	for _, pbCanary := range pbConfig.CanaryDomains {
+		cfg.CanaryDomains = append(cfg.CanaryDomains, models.CanaryDomain{
+			Domain: pbCanary,
+		})
+	}
+
+	// Copy C2
 	cfg.C2 = copyC2List(pbConfig.C2)
 	cfg.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, cfg.C2)
 	cfg.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, cfg.C2)
@@ -197,19 +126,29 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.NamePipec2Enabled = isC2Enabled([]string{"namedpipe"}, cfg.C2)
 	cfg.TCPPivotc2Enabled = isC2Enabled([]string{"tcppivot"}, cfg.C2)
 
-	cfg.FileName = pbConfig.FileName
-	return cfg
+	if pbConfig.FileName != "" {
+		cfg.FileName = path.Base(pbConfig.FileName)
+	}
+
+	name := ""
+	if pbConfig.Name != "" {
+		// Only allow user-provided alpha/numeric names
+		if regexp.MustCompile(`^[[:alnum:]]+$`).MatchString(pbConfig.Name) {
+			name = pbConfig.Name
+		}
+	}
+	return name, cfg
 }
 
-func copyC2List(src []*clientpb.ImplantC2) []ImplantC2 {
-	c2s := []ImplantC2{}
+func copyC2List(src []*clientpb.ImplantC2) []models.ImplantC2 {
+	c2s := []models.ImplantC2{}
 	for _, srcC2 := range src {
 		c2URL, err := url.Parse(srcC2.URL)
 		if err != nil {
 			buildLog.Warnf("Failed to parse c2 url %v", err)
 			continue
 		}
-		c2s = append(c2s, ImplantC2{
+		c2s = append(c2s, models.ImplantC2{
 			Priority: srcC2.Priority,
 			URL:      c2URL.String(),
 			Options:  srcC2.Options,
@@ -218,7 +157,7 @@ func copyC2List(src []*clientpb.ImplantC2) []ImplantC2 {
 	return c2s
 }
 
-func isC2Enabled(schemes []string, c2s []ImplantC2) bool {
+func isC2Enabled(schemes []string, c2s []models.ImplantC2) bool {
 	for _, c2 := range c2s {
 		c2URL, err := url.Parse(c2.URL)
 		if err != nil {
@@ -233,26 +172,6 @@ func isC2Enabled(schemes []string, c2s []ImplantC2) bool {
 	}
 	buildLog.Debugf("No %v URLs found in %v", schemes, c2s)
 	return false
-}
-
-// ImplantC2 - C2 struct
-type ImplantC2 struct {
-	Priority uint32 `json:"priority"`
-	URL      string `json:"url"`
-	Options  string `json:"options"`
-}
-
-// ToProtobuf - Convert to protobuf version
-func (s ImplantC2) ToProtobuf() *clientpb.ImplantC2 {
-	return &clientpb.ImplantC2{
-		Priority: s.Priority,
-		URL:      s.URL,
-		Options:  s.Options,
-	}
-}
-
-func (s ImplantC2) String() string {
-	return s.URL
 }
 
 // GetSliversDir - Get the binary directory
@@ -274,7 +193,7 @@ func GetSliversDir() string {
 // -----------------------
 
 // SliverShellcode - Generates a sliver shellcode using sRDI
-func SliverShellcode(config *ImplantConfig) (string, error) {
+func SliverShellcode(name string, config *models.ImplantConfig) (string, error) {
 	// Compile go code
 	var crossCompiler string
 	appDir := assets.GetRootAppDir()
@@ -293,12 +212,12 @@ func SliverShellcode(config *ImplantConfig) (string, error) {
 		GOARCH: config.GOARCH,
 		GOROOT: gogo.GetGoRootDir(appDir),
 	}
-	pkgPath, err := renderSliverGoCode(config, goConfig)
+	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
 		return "", err
 	}
 
-	dest := path.Join(goConfig.GOPATH, "bin", config.Name)
+	dest := path.Join(goConfig.GOPATH, "bin", path.Base(name))
 	dest += ".bin"
 
 	tags := []string{"netgo"}
@@ -317,23 +236,22 @@ func SliverShellcode(config *ImplantConfig) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	err = ioutil.WriteFile(dest, shellcode, 0755)
+	err = ioutil.WriteFile(dest, shellcode, 0600)
 	if err != nil {
 		return "", err
 	}
 	config.Format = clientpb.ImplantConfig_SHELLCODE
 	// Save to database
-	saveFileErr := ImplantFileSave(config.Name, dest)
-	saveCfgErr := ImplantConfigSave(config)
-	if saveFileErr != nil || saveCfgErr != nil {
-		buildLog.Errorf("Failed to save file to db %s %s", saveFileErr, saveCfgErr)
+	saveBuildErr := ImplantBuildSave(name, config, dest)
+	if saveBuildErr != nil {
+		buildLog.Errorf("Failed to save build: %s", saveBuildErr)
 	}
 	return dest, err
 
 }
 
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
-func SliverSharedLibrary(config *ImplantConfig) (string, error) {
+func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, error) {
 	// Compile go code
 	var crossCompiler string
 	appDir := assets.GetRootAppDir()
@@ -352,12 +270,12 @@ func SliverSharedLibrary(config *ImplantConfig) (string, error) {
 		GOARCH: config.GOARCH,
 		GOROOT: gogo.GetGoRootDir(appDir),
 	}
-	pkgPath, err := renderSliverGoCode(config, goConfig)
+	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
 		return "", err
 	}
 
-	dest := path.Join(goConfig.GOPATH, "bin", config.Name)
+	dest := path.Join(goConfig.GOPATH, "bin", path.Base(name))
 	if goConfig.GOOS == WINDOWS {
 		dest += ".dll"
 	}
@@ -380,16 +298,18 @@ func SliverSharedLibrary(config *ImplantConfig) (string, error) {
 	trimpath := "-trimpath"
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags, gcflags, asmflags, trimpath)
 	config.FileName = path.Base(dest)
-	saveFileErr := ImplantFileSave(config.Name, dest)
-	saveCfgErr := ImplantConfigSave(config)
-	if saveFileErr != nil || saveCfgErr != nil {
-		buildLog.Errorf("Failed to save file to db %s %s", saveFileErr, saveCfgErr)
+
+	err = ImplantBuildSave(name, config, dest)
+	if err != nil {
+		buildLog.Errorf("Failed to save build: %s", err)
 	}
 	return dest, err
 }
 
 // SliverExecutable - Generates a sliver executable binary
-func SliverExecutable(config *ImplantConfig) (string, error) {
+func SliverExecutable(name string, config *models.ImplantConfig) (string, error) {
+
+	// buildLog.Debugf("Name: %s, ImplantConfig: %s", name, config)
 
 	// Compile go code
 	appDir := assets.GetRootAppDir()
@@ -403,12 +323,12 @@ func SliverExecutable(config *ImplantConfig) (string, error) {
 		GOARCH: config.GOARCH,
 		GOROOT: gogo.GetGoRootDir(appDir),
 	}
-	pkgPath, err := renderSliverGoCode(config, goConfig)
+	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
 		return "", err
 	}
 
-	dest := path.Join(goConfig.GOPATH, "bin", config.Name)
+	dest := path.Join(goConfig.GOPATH, "bin", path.Base(name))
 	if goConfig.GOOS == WINDOWS {
 		dest += ".exe"
 	}
@@ -423,29 +343,24 @@ func SliverExecutable(config *ImplantConfig) (string, error) {
 	trimpath := "-trimpath"
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcflags, asmflags, trimpath)
 	config.FileName = path.Base(dest)
-	saveFileErr := ImplantFileSave(config.Name, dest)
-	saveCfgErr := ImplantConfigSave(config)
-	if saveFileErr != nil || saveCfgErr != nil {
-		buildLog.Errorf("Failed to save file to db %s %s", saveFileErr, saveCfgErr)
+
+	err = ImplantBuildSave(name, config, dest)
+
+	if err != nil {
+		buildLog.Errorf("Failed to save build: %s", err)
 	}
 	return dest, err
 }
 
 // This function is a little too long, we should probably refactor it as some point
-func renderSliverGoCode(config *ImplantConfig, goConfig *gogo.GoConfig) (string, error) {
+func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gogo.GoConfig) (string, error) {
+
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := gogo.ValidCompilerTargets[target]; !ok {
 		return "", fmt.Errorf("Invalid compiler target: %s", target)
 	}
 
-	if config.Name == "" {
-		name, err := GetCodename()
-		if err != nil {
-			return "", err
-		}
-		config.Name = name
-	}
-	buildLog.Infof("Generating new sliver binary '%s'", config.Name)
+	buildLog.Infof("Generating new sliver binary '%s'", name)
 
 	config.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, config.C2)
 	config.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, config.C2)
@@ -454,7 +369,7 @@ func renderSliverGoCode(config *ImplantConfig, goConfig *gogo.GoConfig) (string,
 	config.TCPPivotc2Enabled = isC2Enabled([]string{"tcppivot"}, config.C2)
 
 	sliversDir := GetSliversDir() // ~/.sliver/slivers
-	projectGoPathDir := path.Join(sliversDir, config.GOOS, config.GOARCH, config.Name)
+	projectGoPathDir := path.Join(sliversDir, config.GOOS, config.GOARCH, path.Base(name))
 	if _, err := os.Stat(projectGoPathDir); os.IsNotExist(err) {
 		os.MkdirAll(projectGoPathDir, 0700)
 	}
@@ -462,8 +377,8 @@ func renderSliverGoCode(config *ImplantConfig, goConfig *gogo.GoConfig) (string,
 	goConfig.GOPATH = projectGoPathDir
 
 	// Cert PEM encoded certificates
-	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.ServerCA)
-	sliverCert, sliverKey, err := certs.SliverGenerateECCCertificate(config.Name)
+	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
+	sliverCert, sliverKey, err := certs.ImplantGenerateECCCertificate(name)
 	if err != nil {
 		return "", err
 	}
@@ -548,15 +463,24 @@ func renderSliverGoCode(config *ImplantConfig, goConfig *gogo.GoConfig) (string,
 		buildLog.Infof("[render] %s -> %s", boxName, sliverCodePath)
 
 		// Render code
-		sliverCodeTmpl, _ := template.New("sliver").Parse(sliverGoCode)
-		sliverCodeTmpl.Execute(buf, config)
+		sliverCodeTmpl := template.Must(template.New("sliver").Parse(sliverGoCode))
+		err = sliverCodeTmpl.Execute(buf, struct {
+			Name   string
+			Config *models.ImplantConfig
+		}{
+			name,
+			config,
+		})
+		if err != nil {
+			buildLog.Error(err)
+		}
 
 		// Render canaries
 		buildLog.Infof("Canary domain(s): %v", config.CanaryDomains)
 		canaryTmpl := template.New("canary").Delims("[[", "]]")
 		canaryGenerator := &CanaryGenerator{
-			ImplantName:   config.Name,
-			ParentDomains: config.CanaryDomains,
+			ImplantName:   name,
+			ParentDomains: config.CanaryDomainsList(),
 		}
 		canaryTmpl, err := canaryTmpl.Funcs(template.FuncMap{
 			"GenerateCanary": canaryGenerator.GenerateCanary,

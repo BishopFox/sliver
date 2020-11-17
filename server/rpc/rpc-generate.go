@@ -26,6 +26,7 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 )
 
@@ -33,7 +34,14 @@ import (
 func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.Generate, error) {
 	var fPath string
 	var err error
-	config := generate.ImplantConfigFromProtobuf(req.Config)
+	name, config := generate.ImplantConfigFromProtobuf(req.Config)
+	if name == "" {
+		name, err = generate.GetCodename()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if config == nil {
 		return nil, errors.New("Invalid implant config")
 	}
@@ -41,12 +49,12 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	case clientpb.ImplantConfig_SERVICE:
 		fallthrough
 	case clientpb.ImplantConfig_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(config)
+		fPath, err = generate.SliverExecutable(name, config)
 		break
 	case clientpb.ImplantConfig_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(config)
+		fPath, err = generate.SliverSharedLibrary(name, config)
 	case clientpb.ImplantConfig_SHELLCODE:
-		fPath, err = generate.SliverShellcode(config)
+		fPath, err = generate.SliverShellcode(name, config)
 	}
 
 	if err != nil {
@@ -70,19 +78,19 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 // Regenerate - Regenerate a previously generated implant
 func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) (*clientpb.Generate, error) {
 
-	config, err := generate.ImplantConfigByName(req.ImplantName)
+	build, err := db.ImplantBuildByName(req.ImplantName)
 	if err != nil {
 		return nil, err
 	}
 
-	fileData, err := generate.ImplantFileByName(req.ImplantName)
+	fileData, err := generate.ImplantFileFromBuild(build)
 	if err != nil {
 		return nil, err
 	}
 
 	return &clientpb.Generate{
 		File: &commonpb.File{
-			Name: config.FileName,
+			Name: build.ImplantConfig.FileName,
 			Data: fileData,
 		},
 	}, nil
@@ -90,29 +98,29 @@ func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) 
 
 // ImplantBuilds - List existing implant builds
 func (rpc *Server) ImplantBuilds(ctx context.Context, _ *commonpb.Empty) (*clientpb.ImplantBuilds, error) {
-	configs, err := generate.ImplantConfigMap()
+	dbBuilds, err := db.ImplantBuilds()
 	if err != nil {
 		return nil, err
 	}
-	builds := &clientpb.ImplantBuilds{
+	pbBuilds := &clientpb.ImplantBuilds{
 		Configs: map[string]*clientpb.ImplantConfig{},
 	}
-	for name, config := range configs {
-		builds.Configs[name] = config.ToProtobuf()
+	for _, dbBuild := range dbBuilds {
+		pbBuilds.Configs[dbBuild.Name] = dbBuild.ImplantConfig.ToProtobuf()
 	}
-	return builds, nil
+	return pbBuilds, nil
 }
 
 // Canaries - List existing canaries
 func (rpc *Server) Canaries(ctx context.Context, _ *commonpb.Empty) (*clientpb.Canaries, error) {
-	jsonCanaries, err := generate.ListCanaries()
+	dbCanaries, err := db.ListCanaries()
 	if err != nil {
 		return nil, err
 	}
 
-	rpcLog.Infof("Found %d canaries", len(jsonCanaries))
+	rpcLog.Infof("Found %d canaries", len(dbCanaries))
 	canaries := []*clientpb.DNSCanary{}
-	for _, canary := range jsonCanaries {
+	for _, canary := range dbCanaries {
 		canaries = append(canaries, canary.ToProtobuf())
 	}
 
@@ -126,10 +134,14 @@ func (rpc *Server) ImplantProfiles(ctx context.Context, _ *commonpb.Empty) (*cli
 	implantProfiles := &clientpb.ImplantProfiles{
 		Profiles: []*clientpb.ImplantProfile{},
 	}
-	for name, config := range generate.Profiles() {
+	dbProfiles, err := db.ImplantProfiles()
+	if err != nil {
+		return implantProfiles, err
+	}
+	for _, dbProfile := range dbProfiles {
 		implantProfiles.Profiles = append(implantProfiles.Profiles, &clientpb.ImplantProfile{
-			Name:   name,
-			Config: config.ToProtobuf(),
+			Name:   dbProfile.Name,
+			Config: dbProfile.ImplantConfig.ToProtobuf(),
 		})
 	}
 	return implantProfiles, nil
@@ -137,11 +149,11 @@ func (rpc *Server) ImplantProfiles(ctx context.Context, _ *commonpb.Empty) (*cli
 
 // SaveImplantProfile - Save a new profile
 func (rpc *Server) SaveImplantProfile(ctx context.Context, profile *clientpb.ImplantProfile) (*clientpb.ImplantProfile, error) {
-	config := generate.ImplantConfigFromProtobuf(profile.Config)
+	_, config := generate.ImplantConfigFromProtobuf(profile.Config)
 	profile.Name = path.Base(profile.Name)
 	if 0 < len(profile.Name) && profile.Name != "." {
 		rpcLog.Infof("Saving new profile with name %#v", profile.Name)
-		err := generate.ProfileSave(profile.Name, config)
+		err := generate.SaveImplantProfile(profile.Name, config)
 		if err != nil {
 			return nil, err
 		}

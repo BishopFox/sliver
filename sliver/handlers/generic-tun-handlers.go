@@ -22,7 +22,7 @@ import (
 	"io"
 	"time"
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
@@ -58,7 +58,7 @@ func tunnelCloseHandler(envelope *sliverpb.Envelope, connection *transports.Conn
 	proto.Unmarshal(envelope.Data, tunnelClose)
 	tunnel := connection.Tunnel(tunnelClose.TunnelID)
 	if tunnel != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[tunnel] Closing tunnel with id %d", tunnel.ID)
 		// {{end}}
 		connection.RemoveTunnel(tunnel.ID)
@@ -72,12 +72,12 @@ func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 	proto.Unmarshal(envelope.Data, data)
 	tunnel := connection.Tunnel(data.TunnelID)
 	if tunnel != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[tunnel] Write %d bytes to tunnel %d", len(data.Data), tunnel.ID)
 		// {{end}}
 		tunnel.Writer.Write(data.Data)
 	} else {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Data for nil tunnel %d", data.TunnelID)
 		// {{end}}
 	}
@@ -138,7 +138,7 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 
 	// Cleanup function with arguments
 	cleanup := func(reason string) {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Closing tunnel %d (%s)", tunnel.ID, reason)
 		// {{end}}
 		connection.RemoveTunnel(tunnel.ID)
@@ -172,7 +172,7 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		}
 	}()
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("Started shell with tunnel ID %d", tunnel.ID)
 	// {{end}}
 

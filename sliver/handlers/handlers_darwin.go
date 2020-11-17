@@ -19,7 +19,7 @@ package handlers
 */
 
 import (
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 
 	// {{else}}
 	// {{end}}

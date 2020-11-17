@@ -19,59 +19,32 @@ package generate
 */
 
 import (
-	"encoding/json"
+	"errors"
 
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 )
 
-const (
-	profilesBucketName = "profiles"
-)
+// SaveImplantProfile - Save a sliver profile to disk
+func SaveImplantProfile(name string, config *models.ImplantConfig) error {
 
-// ProfileSave - Save a sliver profile to disk
-func ProfileSave(name string, config *ImplantConfig) error {
-	bucket, err := db.GetBucket(profilesBucketName)
-	if err != nil {
+	profile, err := db.ImplantProfileByName(name)
+	if err != nil && !errors.Is(err, db.ErrRecordNotFound) {
 		return err
 	}
-	configJSON, err := json.Marshal(config)
-	if err != nil {
-		return err
-	}
-	return bucket.Set(name, configJSON)
-}
 
-// ProfileByName - Fetch a single profile from the database
-func ProfileByName(name string) (*ImplantConfig, error) {
-	bucket, err := db.GetBucket(profilesBucketName)
-	if err != nil {
-		return nil, err
+	dbSession := db.Session()
+	if errors.Is(err, db.ErrRecordNotFound) {
+		err = dbSession.Create(&models.ImplantProfile{
+			Name:          name,
+			ImplantConfig: config,
+		}).Error
+	} else {
+		err = dbSession.Save(&models.ImplantProfile{
+			ID:            profile.ID,
+			Name:          name,
+			ImplantConfig: config,
+		}).Error
 	}
-	rawProfile, err := bucket.Get(name)
-	config := &ImplantConfig{}
-	err = json.Unmarshal(rawProfile, config)
-	return config, err
-}
-
-// Profiles - Fetch a map of name<->profiles current in the database
-func Profiles() map[string]*ImplantConfig {
-	bucket, err := db.GetBucket(profilesBucketName)
-	if err != nil {
-		return nil
-	}
-	rawProfiles, err := bucket.Map("")
-	if err != nil {
-		return nil
-	}
-
-	profiles := map[string]*ImplantConfig{}
-	for name, rawProfile := range rawProfiles {
-		config := &ImplantConfig{}
-		err := json.Unmarshal(rawProfile, config)
-		if err != nil {
-			continue // We should probably log these failures ...
-		}
-		profiles[name] = config
-	}
-	return profiles
+	return err
 }

@@ -18,7 +18,7 @@ package transports
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if .MTLSc2Enabled}}
+// {{if .Config.MTLSc2Enabled}}
 
 import (
 	"bytes"
@@ -27,7 +27,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
@@ -44,7 +44,7 @@ import (
 func socketWriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Print("Envelope marshaling error: ", err)
 		// {{end}}
 		return err
@@ -64,7 +64,7 @@ func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
 	}
 	_, err := connection.Read(dataLengthBuf)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Socket error (read msg-length): %v\n", err)
 		// {{end}}
 		return nil, err
@@ -83,7 +83,7 @@ func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
 			break
 		}
 		if err != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("Read error: %s\n", err)
 			// {{end}}
 			break
@@ -94,7 +94,7 @@ func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
 	envelope := &pb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Unmarshaling envelope error: %v", err)
 		// {{end}}
 		return &pb.Envelope{}, err
@@ -108,7 +108,7 @@ func tlsConnect(address string, port uint16) (*tls.Conn, error) {
 	tlsConfig := getTLSConfig()
 	connection, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", address, port), tlsConfig)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Unable to connect: %v", err)
 		// {{end}}
 		return nil, err
@@ -120,7 +120,7 @@ func getTLSConfig() *tls.Config {
 
 	certPEM, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Cannot load sliver certificate: %v", err)
 		// {{end}}
 		os.Exit(5)

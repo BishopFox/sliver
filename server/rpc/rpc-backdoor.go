@@ -56,8 +56,8 @@ func (rpc *Server) Backdoor(ctx context.Context, req *sliverpb.BackdoorReq) (*sl
 		return nil, fmt.Errorf("please select a profile targeting a shellcode format")
 	}
 
-	config := generate.ImplantConfigFromProtobuf(p.Config)
-	fPath, err := generate.SliverShellcode(config)
+	name, config := generate.ImplantConfigFromProtobuf(p.Config)
+	fPath, err := generate.SliverShellcode(name, config)
 
 	if err != nil {
 		return nil, err

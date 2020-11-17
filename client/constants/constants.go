@@ -73,8 +73,8 @@ const (
 	ProfilesStr        = "profiles"
 	NewProfileStr      = "new-profile"
 
-	ListSliverBuildsStr = "slivers"
-	ListCanariesStr     = "canaries"
+	ListImplantBuildsStr = "implants"
+	ListCanariesStr      = "canaries"
 
 	JobsStr        = "jobs"
 	MtlsStr        = "mtls"

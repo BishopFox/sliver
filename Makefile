@@ -3,8 +3,8 @@
 #
 
 GO ?= go
-ENV = CGO_ENABLED=0
-TAGS = -tags netgo
+ENV = CGO_ENABLED=1
+TAGS = -tags osusergo,netgo,sqlite_omit_load_extension
 
 
 #
@@ -19,16 +19,50 @@ SED_INPLACE := sed -i
 STATIC_TARGET := static-linux
 
 UNAME_S := $(shell uname -s)
+
+# If the target is Windows from Linux/Darwin, check for mingw
+CROSS_COMPILERS = x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++
+
+# *** Start Darwin ***
 ifeq ($(UNAME_S),Darwin)
 	SED_INPLACE := sed -i ''
 	STATIC_TARGET := static-macos
+
+ifeq ($(MAKECMDGOALS), windows)
+	K := $(foreach exec,$(CROSS_COMPILERS),\
+			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
+	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
+endif
+ifeq ($(MAKECMDGOALS), static-windows)
+	K := $(foreach exec,$(CROSS_COMPILERS),\
+			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
+	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
 endif
 
+endif
+# *** End Darwin ***
+
+# *** Start Linux ***
+ifeq ($(UNAME_S),Linux)
+
+ifeq ($(MAKECMDGOALS), windows)
+	K := $(foreach exec,$(CROSS_COMPILERS),\
+			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
+	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
+endif
+ifeq ($(MAKECMDGOALS), static-windows)
+	K := $(foreach exec,$(CROSS_COMPILERS),\
+			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
+	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
+endif
+
+endif 
+# *** End Linux ***
 
 #
 # Version Information
 #
-VERSION = 1.0.9
+VERSION = 1.1.0
 COMPILED_AT = $(shell date +%s)
 RELEASES_URL = https://api.github.com/repos/BishopFox/sliver/releases
 PKG = github.com/bishopfox/sliver/client/version

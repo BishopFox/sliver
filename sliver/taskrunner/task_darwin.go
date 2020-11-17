@@ -24,7 +24,7 @@ import (
 	"io/ioutil"
 	"sync"
 
-	//{{if .Debug}}
+	//{{if .Config.Debug}}
 	"log"
 	//{{end}}
 	"os"
@@ -79,7 +79,7 @@ func Sideload(procName string, data []byte, args string) (string, error) {
 	cmd.Env = env
 	cmd.Stdout = &stdOut
 	cmd.Stderr = &stdErr
-	//{{if .Debug}}
+	//{{if .Config.Debug}}
 	log.Printf("Starting %s\n", cmd.String())
 	//{{end}}
 	wg.Add(1)
@@ -92,7 +92,7 @@ func Sideload(procName string, data []byte, args string) (string, error) {
 	if len(stdErr.Bytes()) > 0 {
 		return "", fmt.Errorf(stdErr.String())
 	}
-	//{{if .Debug}}
+	//{{if .Config.Debug}}
 	log.Printf("Done, stdout: %s\n", stdOut.String())
 	log.Printf("Done, stderr: %s\n", stdErr.String())
 	//{{end}}

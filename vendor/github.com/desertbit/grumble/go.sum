@@ -18,6 +18,8 @@ github.com/desertbit/columnize v2.1.0+incompatible h1:h55rYmdrWoTj7w9aAnCkxzM3C2
 github.com/desertbit/columnize v2.1.0+incompatible/go.mod h1:5kPrzQwKbQ8E5D28nvTVPqIBJyj+8jvJzwt6HXZvXgI=
 github.com/desertbit/go-shlex v0.1.0 h1:HapoSxMl/xT59s1Z+RR6ScBuH2H8vr4HcgERVjBTJ8s=
 github.com/desertbit/go-shlex v0.1.0/go.mod h1:Qbb+mJNud5AypgHZ81EL8syOGaWlwvAOTqS7XmWI4pQ=
+github.com/desertbit/go-shlex v0.1.1 h1:c65HnbgX1QyC6kPL1dMzUpZ4puNUE6ai/eVucWNLNsk=
+github.com/desertbit/go-shlex v0.1.1/go.mod h1:Qbb+mJNud5AypgHZ81EL8syOGaWlwvAOTqS7XmWI4pQ=
 github.com/desertbit/readline v0.0.0-20171208011716-f6d7a1f6fbf3 h1:PLbrJOpAtk8ros5avAt8am0GJvPuD08FVLV+ffmG0Jo=
 github.com/desertbit/readline v0.0.0-20171208011716-f6d7a1f6fbf3/go.mod h1:AayRnEOr0ttSh4kgOlHBBtJufZMMW/1BVCdV5oFs8t0=
 github.com/desertbit/readline v1.5.1 h1:/wOIZkWYl1s+IvJm/5bOknfUgs6MhS9svRNZpFM53Os=
