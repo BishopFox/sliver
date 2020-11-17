@@ -53,28 +53,34 @@ jobs:
 
     - name: Make
       run: export PATH=/home/runner/go/bin/:$PATH && make linux && make static-linux
-    
-    - name: Update PATH
-      run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
-
-    - name: Linux Artifacts
+  
+    - name: Linux Client Artifact
       uses: actions/upload-artifact@v2
       with:
-        name: linux
-        path: |
-          ./sliver-server
-          ./sliver-client
+        name: sliver-client_linux
+        path: ./sliver-client
+
+    - name: Linux Server Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: sliver-server_linux
+        path: ./sliver-server
 
     - name: Make Windows
       run: export PATH=/home/runner/go/bin/:$PATH && make windows && make static-windows
-  
-    - name: Windows Artifacts
+
+    - name: Windows Client Artifact
       uses: actions/upload-artifact@v2
       with:
-        name: windows
-        path: |
-          ./sliver-server.exe
-          ./sliver-client.exe
+        name: sliver-client_windows.exe
+        path: ./sliver-client.exe
+
+    - name: Windows Server Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: sliver-server_windows.exe
+        path: ./sliver-server.exe
+
 
   macos-build:
     name: MacOS Build
@@ -120,16 +126,18 @@ jobs:
     - name: Make
       run: export PATH=/Users/runner/go/bin/:$PATH && make macos && make static-macos
     
-    - name: Debug Log
-      run: ls -alh
-
-    - name: MacOS Artifact
+    - name: MacOS Client Artifact
       uses: actions/upload-artifact@v2
       with:
-        name: macos
-        path: |
-          ./sliver-server
-          ./sliver-client
+        name: sliver-client_macos
+        path: ./sliver-client
+
+    - name: MacOS Server Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: sliver-server_macos
+        path: ./sliver-server
+
 
   tagged-release:
 
@@ -145,20 +153,33 @@ jobs:
       with:
         path: ./artifacts
 
-    - run: ls -lah ./artifacts && ls -lah ./artifacts/linux/
-
     # Linux
-    - run: zip ./release/sliver-server_linux.zip ./artifacts/linux/sliver-server
-    - run: zip ./release/sliver-client_linux.zip ./artifacts/linux/sliver-client
+    - name: Package Linux
+      run: |
+        mkdir -p /tmp/linux
+        cp ./artifacts/sliver-server_linux /tmp/linux/sliver-server
+        cp ./artifacts/sliver-client_linux /tmp/linux/sliver-client
+        zip ./release/sliver-server_linux.zip /tmp/linux/sliver-server
+        zip ./release/sliver-client_linux.zip /tmp/linux/sliver-client
 
     # Windows
-    - run: zip ./release/sliver-server_windows.zip ./artifacts/windows/sliver-server.exe
-    - run: zip ./release/sliver-client_windows.zip ./artifacts/windows/sliver-client.exe
+    - name: Package Windows
+      run: |
+        mkdir -p /tmp/windows
+        cp ./artifacts/sliver-server_windows /tmp/windows/sliver-server.exe
+        cp ./artifacts/sliver-client_windows /tmp/windows/sliver-client.exe
+        zip ./release/sliver-server_windows.zip /tmp/windows/sliver-server.exe
+        zip ./release/sliver-client_windows.zip /tmp/windows/sliver-client.exe
 
     # MacOS
-    - run: zip ./release/sliver-server_macos.zip ./artifacts/macos/sliver-server
-    - run: zip ./release/sliver-client_macos.zip ./artifacts/macos/sliver-client
-
+    - name: Package MacOS
+      run: |
+        mkdir -p /tmp/macos
+        cp ./artifacts/sliver-server_macos /tmp/macos/sliver-server
+        cp ./artifacts/sliver-client_macos /tmp/macos/sliver-client
+        zip ./release/sliver-server_macos.zip /tmp/macos/sliver-server
+        zip ./release/sliver-client_macos.zip /tmp/macos/sliver-client
+  
     - name: "Publish Release"
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
