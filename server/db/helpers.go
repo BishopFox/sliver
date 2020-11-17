@@ -90,12 +90,15 @@ func ImplantProfiles() ([]*models.ImplantProfile, error) {
 func ImplantProfileByName(name string) (*models.ImplantProfile, error) {
 	dbSession := Session()
 	profile := models.ImplantProfile{}
-	result := dbSession.Where(&models.ImplantProfile{
+	err := dbSession.Where(&models.ImplantProfile{
 		Name: name,
-	}).Preload("ImplantConfig").First(&profile)
+	}).Preload("ImplantConfig").First(&profile).Error
+	if err != nil {
+		return nil, err
+	}
 
 	c2s := []models.ImplantC2{}
-	err := dbSession.Where(&models.ImplantC2{
+	err = dbSession.Where(&models.ImplantC2{
 		ImplantConfigID: profile.ImplantConfig.ID,
 	}).Find(&c2s).Error
 	if err != nil {
@@ -103,7 +106,7 @@ func ImplantProfileByName(name string) (*models.ImplantProfile, error) {
 	}
 	profile.ImplantConfig.C2 = c2s
 
-	return &profile, result.Error
+	return &profile, err
 }
 
 // ImplantProfileNames - Fetch a list of all build names
