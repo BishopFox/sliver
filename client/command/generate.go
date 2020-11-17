@@ -163,7 +163,7 @@ func generateStager(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Println(Warn + "please specify a listening host")
 		return
 	}
-	match, err := regexp.MatchString(`[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+`, lhost)
+	match, err := regexp.MatchString(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`, lhost)
 	if err != nil {
 		return
 	}

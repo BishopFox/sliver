@@ -156,11 +156,11 @@ func (elfFile *File) Bytes() ([]byte, error) {
 	//sort.Slice(sortedSections, func(a, b int) bool { return elfFile.Sections[a].Link < elfFile.Sections[b].Link })
 	for _, s := range sortedSections {
 
-		log.Printf("Writing section: %s type: %+v\n", s.Name, s.Type)
-		log.Printf("written: %x offset: %x\n", bytesWritten, s.Offset)
+		//log.Printf("Writing section: %s type: %+v\n", s.Name, s.Type)
+		//log.Printf("written: %x offset: %x\n", bytesWritten, s.Offset)
 
 		if s.Type == SHT_NULL || s.Type == SHT_NOBITS || s.FileSize == 0 {
-			log.Println("continuing...")
+			//log.Println("continuing...")
 			continue
 		}
 
@@ -171,7 +171,7 @@ func (elfFile *File) Bytes() ([]byte, error) {
 		if s.Offset != 0 && bytesWritten < s.Offset {
 			pad := make([]byte, s.Offset-bytesWritten)
 			w.Write(pad)
-			log.Printf("Padding before section %s at %x: length:%x to:%x\n", s.Name, bytesWritten, len(pad), s.Offset)
+			//log.Printf("Padding before section %s at %x: length:%x to:%x\n", s.Name, bytesWritten, len(pad), s.Offset)
 			bytesWritten += uint64(len(pad))
 		}
 
@@ -198,7 +198,7 @@ func (elfFile *File) Bytes() ([]byte, error) {
 			}
 			binary.Write(w, elfFile.ByteOrder, section)
 			slen = len(section)
-			log.Printf("Wrote %s section at %x, length %x\n", s.Name, bytesWritten, slen)
+			//log.Printf("Wrote %s section at %x, length %x\n", s.Name, bytesWritten, slen)
 			bytesWritten += uint64(slen)
 		}
 
@@ -214,7 +214,7 @@ func (elfFile *File) Bytes() ([]byte, error) {
 	if bytesWritten < uint64(elfFile.FileHeader.SHTOffset) {
 		pad := make([]byte, uint64(elfFile.FileHeader.SHTOffset)-bytesWritten)
 		w.Write(pad)
-		log.Printf("Padding before SHT at %x: length:%x to:%x\n", bytesWritten, len(pad), elfFile.FileHeader.SHTOffset)
+		//log.Printf("Padding before SHT at %x: length:%x to:%x\n", bytesWritten, len(pad), elfFile.FileHeader.SHTOffset)
 		bytesWritten += uint64(len(pad))
 	}
 

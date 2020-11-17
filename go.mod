@@ -4,8 +4,9 @@ go 1.13
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.2
+	github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
+	github.com/Binject/debug v0.0.0-20201108185608-2b8504217eb5 // indirect
 	github.com/BurntSushi/xgb v0.0.0-20201008132610-5f9e7b3c49cd
-	github.com/Microsoft/go-winio v0.4.15
 	github.com/alecthomas/chroma v0.8.1
 	github.com/desertbit/closer/v3 v3.1.2 // indirect
 	github.com/desertbit/columnize v2.1.0+incompatible
@@ -19,7 +20,6 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 	github.com/mattn/go-sqlite3 v1.14.4
 	github.com/miekg/dns v1.1.35
-	github.com/moloch--/binjection v0.0.0-20200528125518-b8c64539fa3b
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/rogpeppe/go-internal v1.6.2 // indirect
