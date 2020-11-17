@@ -133,7 +133,7 @@ jobs:
       with:
         path: ./artifacts
 
-    - run: ls -lah ./artifacts
+    - run: ls -lah ./artifacts && ls -alh ./artifacts/linux/
 
     # Linux
     - name: Package Linux
