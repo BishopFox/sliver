@@ -52,7 +52,7 @@ jobs:
       run: ./go-assets.sh
 
     - name: Make
-      run: export PATH=/home/runner/go/bin/:$PATH && make static-linux
+      run: export PATH=/home/runner/go/bin/:$PATH && make linux && make static-linux
     
     - name: Update PATH
       run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
@@ -66,7 +66,7 @@ jobs:
           ./sliver-client
 
     - name: Make Windows
-      run: export PATH=/home/runner/go/bin/:$PATH && make static-windows
+      run: export PATH=/home/runner/go/bin/:$PATH && make windows && make static-windows
   
     - name: Windows Artifacts
       uses: actions/upload-artifact@v2
@@ -118,7 +118,7 @@ jobs:
       run: ./go-assets.sh
 
     - name: Make
-      run: export PATH=/Users/runner/go/bin/:$PATH && make static-macos
+      run: export PATH=/Users/runner/go/bin/:$PATH && make macos && make static-macos
     
     - name: Update PATH
       run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
