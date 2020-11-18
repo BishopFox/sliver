@@ -25,12 +25,13 @@ import (
 	"path"
 	"strings"
 
+	client "github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
-	"github.com/bishopfox/sliver/server/console"
+
 	"github.com/bishopfox/sliver/server/daemon"
 
 	"github.com/spf13/cobra"
@@ -118,7 +119,8 @@ var rootCmd = &cobra.Command{
 			daemon.Start()
 		} else {
 			os.Args = os.Args[:1] // Hide cli from grumble console
-			console.Start()
+			var admin = true
+			client.Console.Start(admin)
 		}
 
 	},

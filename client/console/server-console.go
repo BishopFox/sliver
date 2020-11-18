@@ -22,10 +22,11 @@ import (
 	"errors"
 	"log"
 
+	"google.golang.org/grpc"
+
 	"github.com/bishopfox/sliver/client/connection"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"google.golang.org/grpc"
 )
 
 // StartServerConsole - This function is called by the server binary, which also and obviously needs a full
@@ -35,7 +36,7 @@ func (c *console) StartServerConsole(conn *grpc.ClientConn) (err error) {
 	// Register RPC Service Client through local conn parameter
 	connection.RPC = rpcpb.NewSliverRPCClient(conn)
 	if connection.RPC == nil {
-		return errors.New("Could not register gRPC Client, instance is nil.")
+		return errors.New("could not register gRPC Client, instance is nil")
 	}
 
 	// Listen for incoming server/implant events. If an error occurs in this

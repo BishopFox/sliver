@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/maxlandon/readline"
+	"google.golang.org/grpc"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/commands"
@@ -65,19 +66,24 @@ func newConsole() *console {
 // lives in the client executable (instantiated with newConsole() above).
 type console struct {
 	Shell *readline.Instance // Provides input loop and completion system.
+	admin bool               // Are we an admin console running a server.
 }
 
 // connect - The console connects to the server and authenticates. Note that all
 // config information (access points and security details) have been loaded already.
-func (c *console) connect() (err error) {
+func (c *console) connect(admin bool) (conn *grpc.ClientConn, err error) {
 
 	// Connect to server (performs TLS authentication)
-	conn, err := connection.ConnectTLS()
+	if admin {
+		conn, err = connection.ConnectLocal()
+	} else {
+		conn, err = connection.ConnectTLS()
+	}
 
 	// Register RPC Service Client.
 	connection.RPC = rpcpb.NewSliverRPCClient(conn)
 	if connection.RPC == nil {
-		return errors.New("could not register gRPC Client, instance is nil")
+		return nil, errors.New("could not register gRPC Client, instance is nil")
 	}
 
 	// Listen for incoming server/implant events. If an error occurs in this
@@ -94,12 +100,14 @@ func (c *console) connect() (err error) {
 // syntax highlighting, prompt system, commands binding, and client environment loading.
 func (c *console) setup() (err error) {
 
-	// Init console context. This context object will hold
-	// some state about the console (which implant we're interacting, jobs, etc.)
+	initLogging() // textfile log
+
+	// This context object will hold some state about the
+	// console (which implant we're interacting, jobs, etc.)
 	context.Initialize()
 
-	// Prompt. This computes all callbacks and base prompt strings
-	// for the first time, and then binds it to the readline console.
+	// This computes all callbacks and base prompt strings
+	// for the first time, and then binds it to the console.
 	c.initPrompt()
 
 	// Completions, hints and syntax highlighting
@@ -117,33 +125,33 @@ func (c *console) setup() (err error) {
 		return fmt.Errorf("could not load client OS env (%s)", err)
 	}
 
-	// Commands binding. Per-context parsers are setup here.
-	err = commands.BindCommands()
-
 	return
 }
 
 // Start - The console calls connection and setup functions, and starts the input loop.
-func (c *console) Start() (err error) {
+func (c *console) Start(admin bool) (err error) {
 
-	// Initialize console logging (in textfile)
-	initLogging()
+	c.admin = admin // Set server admin mode.
 
 	// Connect to server and authenticate
-	err = c.connect()
+	conn, err := c.connect(admin)
 	if err != nil {
 		log.Fatalf(Error+"Connection to server failed: %s", err)
 	}
-
-	// Print banner and version information.
-	// This will also check the last update time.
-	printLogo()
+	defer conn.Close()
 
 	// Setup console elements
 	err = c.setup()
 	if err != nil {
 		log.Fatalf(Error+"Console setup failed: %s", err)
 	}
+
+	// Commands binding. Per-context parsers are setup here.
+	err = commands.BindCommands(admin)
+
+	// Print banner and version information.
+	// This will also check the last update time.
+	printLogo()
 
 	// Start input loop
 	for {
@@ -182,6 +190,30 @@ func (c *console) Readline() (line string, err error) {
 	return
 }
 
+// sanitizeInput - Trims spaces and other unwished elements from the input line.
+func sanitizeInput(line string) (sanitized []string, empty bool) {
+
+	// Assume the input is not empty
+	empty = false
+
+	// Trim border spaces
+	trimmed := strings.TrimSpace(line)
+	if len(line) < 1 {
+		empty = true
+		return
+	}
+	unfiltered := strings.Split(trimmed, " ")
+
+	// Catch any eventual empty items
+	for _, arg := range unfiltered {
+		if arg != "" {
+			sanitized = append(sanitized, arg)
+		}
+	}
+
+	return
+}
+
 // parseTokens - Parse and process any special tokens that are not treated by environment-like parsers.
 func (c *console) parseTokens(sanitized []string) (parsed []string) {
 
@@ -211,31 +243,6 @@ func (c *console) parseTokens(sanitized []string) (parsed []string) {
 	parsed = pathAdjusted
 
 	// Add new function here, act on parsed []string from now on, not sanitized
-	return
-}
-
-// sanitizeInput - Trims spaces and other unwished elements from the input line.
-func sanitizeInput(line string) (sanitized []string, empty bool) {
-
-	// Assume the input is not empty
-	empty = false
-
-	// Trim border spaces
-	trimmed := strings.TrimSpace(line)
-	if len(line) < 1 {
-		empty = true
-		return
-	}
-
-	unfiltered := strings.Split(trimmed, " ")
-
-	// Catch any eventual empty items
-	for _, arg := range unfiltered {
-		if arg != "" {
-			sanitized = append(sanitized, arg)
-		}
-	}
-
 	return
 }
 

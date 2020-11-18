@@ -19,11 +19,15 @@ package commands
 */
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/jessevdk/go-flags"
 
 	"github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/help"
+	"github.com/bishopfox/sliver/client/util"
+	server "github.com/bishopfox/sliver/server/console"
 )
 
 const (
@@ -55,9 +59,15 @@ var (
 )
 
 // BindCommands - Binds all commands to their appropriate parsers, which have been instantiated already.
-func BindCommands() (err error) {
+func BindCommands(admin bool) (err error) {
 
 	Server = flags.NewNamedParser("server", flags.IgnoreUnknown)
+	if admin {
+		err = bindServerAdminCommands()
+		if err != nil {
+			return
+		}
+	}
 	err = bindServerCommands()
 	if err != nil {
 		return
@@ -88,40 +98,56 @@ func ArgumentByName(command *flags.Command, name string) *flags.Arg {
 }
 
 // OptionByName - Returns an option for a command or a subcommand, identified by name
-func OptionByName(ctx string, command, subCommand, option string) *flags.Option {
+func OptionByName(cmd *flags.Command, option string) *flags.Option {
 
-	var cmd *flags.Command
-
-	switch ctx {
-	case context.Server:
-		cmd = Server.Find(command)
-	case context.Sliver:
-		cmd = Sliver.Find(command)
+	if cmd == nil {
+		return nil
 	}
+	// Get all (root) option groups.
+	groups := cmd.Groups()
 
-	// Base command is found
-	if cmd != nil {
-		// If options are for a subcommand
-		if subCommand != "" && len(cmd.Commands()) != 0 {
-			sub := cmd.Find(subCommand)
-			if sub != nil {
-				for _, opt := range sub.Options() {
-					if opt.LongName == option {
-						return opt
-					}
-				}
-				return nil
-			}
-			return nil
-		}
-		// If subcommand is not asked, return opt for base
-		for _, opt := range cmd.Options() {
+	// For each group, build completions
+	for _, grp := range groups {
+		// Add each option to completion group
+		for _, opt := range grp.Options() {
 			if opt.LongName == option {
 				return opt
 			}
 		}
 	}
 	return nil
+}
+
+// bindServerAdminCommands - We bind commands only available to the server admin to the console command parser.
+// Unfortunately we have to use, for each command, its Aliases field where we register its "namespace".
+// There is a namespace field, however it messes up with the option printing/detection/parsing.
+func bindServerAdminCommands() (err error) {
+
+	np, err := Server.AddCommand(constants.NewPlayerStr, "Create a new player config file",
+		help.GetHelpFor(constants.NewPlayerStr), &server.NewOperator{})
+	np.Aliases = []string{"admin"}
+	if err != nil {
+		fmt.Println(util.Warn + err.Error())
+		os.Exit(3)
+	}
+
+	kp, err := Server.AddCommand(constants.KickPlayerStr, "Kick a player from the server",
+		help.GetHelpFor(constants.KickPlayerStr), &server.KickOperator{})
+	kp.Aliases = []string{"admin"}
+	if err != nil {
+		fmt.Println(util.Warn + err.Error())
+		os.Exit(3)
+	}
+
+	mm, err := Server.AddCommand(constants.MultiplayerModeStr, "Enable multiplayer mode on this server",
+		help.GetHelpFor(constants.MultiplayerModeStr), &server.MultiplayerMode{})
+	mm.Aliases = []string{"admin"}
+	if err != nil {
+		fmt.Println(util.Warn + err.Error())
+		os.Exit(3)
+	}
+
+	return
 }
 
 // All commands concerning the server and/or the console itself are bound in this function.
@@ -147,11 +173,11 @@ func bindServerCommands() (err error) {
 	op.Aliases = []string{"core"}
 
 	cd, err := Server.AddCommand(constants.CdStr, "Change client working directory",
-		"Change client working directory", &ChangeDirectory{})
+		"Change client working directory", &ChangeClientDirectory{})
 	cd.Aliases = []string{"core"}
 
 	ls, err := Server.AddCommand(constants.LsStr, "List directory contents",
-		"List directory contents", &ListDirectories{})
+		"List directory contents", &ListClientDirectories{})
 	ls.Aliases = []string{"core"}
 
 	// Jobs -------------------------
@@ -192,13 +218,23 @@ func bindServerCommands() (err error) {
 		help.GetHelpFor(constants.GenerateStr), &Generate{})
 	g.Aliases = []string{"implants"}
 	g.SubcommandsOptional = true
+	// Option arguments mapping
+	g.FindOptionByLongName("os").Choices = implantOS
+	g.FindOptionByLongName("arch").Choices = implantArch
+	g.FindOptionByLongName("format").Choices = implantFmt
 
-	_, err = g.AddCommand(constants.StagerStr, "Generate a stager payload using MSFVenom",
+	gs, err := g.AddCommand(constants.StagerStr, "Generate a stager payload using MSFVenom",
 		help.GetHelpFor(constants.StagerStr), &GenerateStager{})
+	g.FindOptionByLongName("os").Choices = implantOS
+	g.FindOptionByLongName("arch").Choices = implantArch
+	gs.FindOptionByLongName("format").Choices = msfTransformFormats
 
 	p, err := Server.AddCommand(constants.NewProfileStr, "Configure and save a new (stage) implant profile",
 		help.GetHelpFor(constants.NewProfileStr), &NewProfile{})
 	p.Aliases = []string{"implants"}
+	// Option arguments mapping
+	p.FindOptionByLongName("os").Choices = implantOS
+	p.FindOptionByLongName("arch").Choices = implantArch
 
 	r, err := Server.AddCommand(constants.RegenerateStr, "Recompile an implant by name, passed as argument (completed)",
 		help.GetHelpFor(constants.RegenerateStr), &Regenerate{})
@@ -243,5 +279,11 @@ func bindSliverCommands() (err error) {
 	k, err := Sliver.AddCommand(constants.KillStr, "Kill this session",
 		help.GetHelpFor(constants.KillStr), &Kill{})
 	k.Aliases = []string{"session"}
+
+	// Filesystem
+	cd, err := Sliver.AddCommand(constants.CdStr, "Change session working directory",
+		"Change session working directory", &ChangeDirectory{})
+	cd.Aliases = []string{"filesystem"}
+
 	return
 }

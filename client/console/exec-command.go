@@ -56,7 +56,7 @@ func (c *console) ExecuteCommand(args []string) (err error) {
 	// and therefore keeps tracks of all values in the program, without offering a mean to
 	// reset them. Therefore we just wipe the command instances and rewrite new, blank ones.
 	// Applies to command arguments and options.
-	err = commands.BindCommands()
+	err = commands.BindCommands(c.admin)
 	if err != nil {
 		fmt.Print(util.CommandError + tui.Red("could not reset commands: "+err.Error()+"\n"))
 	}

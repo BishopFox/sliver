@@ -25,6 +25,9 @@ import (
 	client "github.com/bishopfox/sliver/client/console"
 )
 
+// admin - We are starting a console client which will reach back to a remote server.
+var admin = false
+
 func main() {
 
 	// Process flags passed to this binary (os.Flags). All flag variables are
@@ -40,5 +43,5 @@ func main() {
 	// Start the client console. The latter automatically performs server connection,
 	// prompt/command/completion setup, event loop listening, logging, etc. Any critical error
 	// is handled from within this function, so we don't process the return error here.
-	client.Console.Start()
+	client.Console.Start(false)
 }

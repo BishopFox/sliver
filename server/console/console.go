@@ -22,14 +22,9 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 
 	"google.golang.org/grpc"
 
-	"github.com/bishopfox/sliver/client/commands"
-	client "github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/help"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/server/transport"
 )
@@ -62,46 +57,38 @@ func Start() {
 	}
 	defer conn.Close()
 
-	// Bind admin commands to the client console.
-	// NOTE: it's normal that this is called before the console is instantiated:
-	// it's because command parsers have a life of their own.
-	// This needs to be called now, as the call just next is a blocking one.
-	addServerAdminCommands()
-
-	// We use a custom version of the client.Console.Start()
-	// function, accomodating for needs server-side.
-	client.Console.StartServerConsole(conn)
-
+	// client.Console.StartServerConsole(conn)
 }
 
-// addServerAdminCommands - We bind commands only available to the server admin to the console command parser.
-// Unfortunately we have to use, for each command, its Aliases field where we register its "namespace".
-// There is a namespace field, however it messes up with the option printing/detection/parsing.
-func addServerAdminCommands() (err error) {
-
-	np, err := commands.Server.AddCommand(constants.NewPlayerStr, "Create a new player config file",
-		help.GetHelpFor(constants.NewPlayerStr), &NewOperator{})
-	np.Aliases = []string{"admin"}
-	if err != nil {
-		fmt.Println(util.Warn + err.Error())
-		os.Exit(3)
-	}
-
-	kp, err := commands.Server.AddCommand(constants.KickPlayerStr, "Kick a player from the server",
-		help.GetHelpFor(constants.KickPlayerStr), &KickOperator{})
-	kp.Aliases = []string{"admin"}
-	if err != nil {
-		fmt.Println(util.Warn + err.Error())
-		os.Exit(3)
-	}
-
-	mm, err := commands.Server.AddCommand(constants.MultiplayerModeStr, "Enable multiplayer mode on this server",
-		help.GetHelpFor(constants.MultiplayerModeStr), &MultiplayerMode{})
-	mm.Aliases = []string{"admin"}
-	if err != nil {
-		fmt.Println(util.Warn + err.Error())
-		os.Exit(3)
-	}
-
-	return
-}
+//
+// // BindServerAdminCommands - We bind commands only available to the server admin to the console command parser.
+// // Unfortunately we have to use, for each command, its Aliases field where we register its "namespace".
+// // There is a namespace field, however it messes up with the option printing/detection/parsing.
+// func BindServerAdminCommands() (err error) {
+//
+//         np, err := commands.Server.AddCommand(constants.NewPlayerStr, "Create a new player config file",
+//                 help.GetHelpFor(constants.NewPlayerStr), &NewOperator{})
+//         np.Aliases = []string{"admin"}
+//         if err != nil {
+//                 fmt.Println(util.Warn + err.Error())
+//                 os.Exit(3)
+//         }
+//
+//         kp, err := commands.Server.AddCommand(constants.KickPlayerStr, "Kick a player from the server",
+//                 help.GetHelpFor(constants.KickPlayerStr), &KickOperator{})
+//         kp.Aliases = []string{"admin"}
+//         if err != nil {
+//                 fmt.Println(util.Warn + err.Error())
+//                 os.Exit(3)
+//         }
+//
+//         mm, err := commands.Server.AddCommand(constants.MultiplayerModeStr, "Enable multiplayer mode on this server",
+//                 help.GetHelpFor(constants.MultiplayerModeStr), &MultiplayerMode{})
+//         mm.Aliases = []string{"admin"}
+//         if err != nil {
+//                 fmt.Println(util.Warn + err.Error())
+//                 os.Exit(3)
+//         }
+//
+//         return
+// }
