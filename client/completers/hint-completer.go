@@ -57,8 +57,14 @@ func HintCompleter(line []rune, pos int) (hint []rune) {
 			return envVarHint(args, last)
 		}
 
+		if len(command.Groups()) != 0 {
+			if opt, yes := optionArgRequired(args, last, command.Groups()[0]); yes {
+				hint = OptionArgumentHint(args, last, opt)
+			}
+		}
+
 		// If command has args, hint for args
-		if arg, yes := argumentRequired(lastWord, args, command, false); yes { // add *commands.Context.Menu in the string here
+		if arg, yes := commandArgumentRequired(lastWord, args, command, false); yes { // add *commands.Context.Menu in the string here
 			hint = []rune(CommandArgumentHints(args, last, command, arg))
 		}
 
@@ -91,7 +97,7 @@ func CommandHint(command *flags.Command) (hint []rune) {
 func HandleSubcommandHints(args []string, last []rune, command *flags.Command) (hint []rune) {
 
 	// If command has args, hint for args
-	if arg, yes := argumentRequired(string(last), args, command, true); yes {
+	if arg, yes := commandArgumentRequired(string(last), args, command, true); yes {
 		hint = []rune(CommandArgumentHints(args, last, command, arg))
 		return
 	}

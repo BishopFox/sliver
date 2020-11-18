@@ -59,8 +59,12 @@ func TabCompleter(line []rune, pos int) (lastWord string, completions []*readlin
 			return completeEnvironmentVariables(lastWord)
 		}
 
+		if opt, yes := optionArgRequired(args, last, command.Groups()[0]); yes {
+			return completeOptionArguments(command, opt, lastWord)
+		}
+
 		// Propose argument completion before anything, and if needed
-		if arg, yes := argumentRequired(lastWord, args, command, false); yes { // add *commands.Context.Menu in the string here
+		if arg, yes := commandArgumentRequired(lastWord, args, command, false); yes { // add *commands.Context.Menu in the string here
 			return completeCommandArguments(command, arg, lastWord)
 		}
 
@@ -170,17 +174,20 @@ func CompleteSubCommands(args []string, lastWord string, command *flags.Command)
 // Many categories, from many sources: this function calls the same functions as the ones previously called for completing its parent command.
 func HandleSubCommand(line []rune, pos int, command *flags.Command) (lastWord string, completions []*readline.CompletionGroup) {
 
-	args, _, lastWord := FormatInput(line)
+	args, last, lastWord := FormatInput(line)
 
 	// Check environment variables
-	// if envVarAsked(args, last) {
-	//         return CompleteEnvironmentVariables(line, pos)
-	// }
+	if envVarAsked(args, lastWord) {
+		completeEnvironmentVariables(lastWord)
+	}
+
+	if opt, yes := optionArgRequired(args, last, command.Groups()[0]); yes {
+		return completeOptionArguments(command, opt, lastWord)
+	}
 
 	// If command has non-filled arguments, propose them first
-	if _, yes := argumentRequired(lastWord, args, command, true); yes {
-		// if arg, yes := argumentRequired(lastWord, args, context.Context.Menu, command, true); yes {
-		// _, suggestions, listSuggestions, tabType = CompleteCommandArguments(command, arg, line, pos)
+	if arg, yes := commandArgumentRequired(lastWord, args, command, true); yes {
+		return completeCommandArguments(command, arg, lastWord)
 	}
 
 	// If user asks for completions with "-" or "--". (Note: This takes precedence on arguments, as it is evaluated after arguments)
@@ -237,7 +244,6 @@ func CompleteCommandOptions(args []string, lastWord string, cmd *flags.Command) 
 			completions = append(completions, compGrp)
 		}
 	}
-	// fmt.Println(completions[1].Suggestions)
 
 	return
 }

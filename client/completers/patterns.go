@@ -141,8 +141,8 @@ func hasArgs(command *flags.Command) bool {
 	return false
 }
 
-// argumentRequired - Analyses input and sends back the next argument name to provide completion for
-func argumentRequired(lastWord string, args []string, command *flags.Command, isSub bool) (name string, yes bool) {
+// commandArgumentRequired - Analyses input and sends back the next argument name to provide completion for
+func commandArgumentRequired(lastWord string, args []string, command *flags.Command, isSub bool) (name string, yes bool) {
 
 	// Trim command and subcommand args
 	var remain []string
@@ -355,7 +355,7 @@ func filterOptions(args []string, command *flags.Command) (processed []string) {
 		if strings.HasPrefix(arg, "-") || strings.HasPrefix(arg, "--") {
 			name := strings.TrimPrefix(arg, "--")
 			name = strings.TrimPrefix(arg, "-")
-			if opt := commands.OptionByName(context.Context.Menu, command.Name, "", name); opt != nil {
+			if opt := commands.OptionByName(command, name); opt != nil {
 				var boolean = true
 				if opt.Field().Type == reflect.TypeOf(boolean) {
 					continue

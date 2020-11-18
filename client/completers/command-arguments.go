@@ -36,7 +36,10 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 	found := commands.ArgumentByName(cmd, arg)
 	var comp *readline.CompletionGroup // This group is used as a buffer, to add groups to final completions
 
-	// Depends first on the current menu context
+	// Depends first on the current menu context.
+	// Sometimes, because some commands/options may need completions that are usually part of another context (ex: I am in an implant context,
+	// and I want to download a file to path ~/here/my/console/dir, I need local client completion).
+	// Because, in addition, some commands/option arguments might not be explicit enough, we need to add special cases.
 	switch context.Context.Menu {
 	case context.Server:
 		// For any argument with a path in it, we look for the current context' filesystem, and refine results based on a specific command.
