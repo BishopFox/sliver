@@ -147,5 +147,118 @@ func completeRemotePath(last string) (string, *readline.CompletionGroup) {
 	}
 
 	return lastPath, completion
+}
 
+func completeRemotePathAndFiles(last string) (string, *readline.CompletionGroup) {
+	// Completions
+	completion := &readline.CompletionGroup{
+		Name:        "(console) local directory/files)",
+		MaxLength:   5,
+		DisplayType: readline.TabDisplayGrid,
+	}
+
+	// 1) Get the absolute path. There are two cases:
+	//      - The path is "rounded" with a slash: no filter to keep.
+	//      - The path is not a slash: a filter to keep for later.
+	// We keep a boolean for remembering which case we found
+	linePath := ""
+	lastPath := ""
+	switch cctx.Context.Sliver.OS {
+	case "windows":
+		if strings.HasSuffix(last, "\\") {
+			linePath = last // Trim the non needed slash
+		} else if last == "" {
+			linePath = "."
+		} else {
+			splitPath := strings.Split(last, "\\")
+			linePath = strings.Join(splitPath[:len(splitPath)-1], "\\") + "\\"
+			lastPath = splitPath[len(splitPath)-1]
+		}
+	default:
+		if strings.HasSuffix(last, "/") {
+			// If the the line is just "/", it means we start from filesystem root
+			if last == "/" {
+				linePath = "/"
+			} else if last == "~/" {
+				// If we look for "~", we need to build the path manually
+				linePath = filepath.Join("/home", cctx.Context.Sliver.Username)
+
+			} else if strings.HasPrefix(last, "~/") && last != "~/" {
+				// If we used the "~" at the beginning, we still need to build the path
+				homePath := filepath.Join("/home", cctx.Context.Sliver.Username)
+				linePath = filepath.Join(homePath, strings.TrimPrefix(last, "~/"))
+			} else {
+				// Trim the non needed slash
+				linePath = strings.TrimSuffix(last, "/")
+			}
+		} else if strings.HasPrefix(last, "~/") && last != "~/" {
+			// If we used the "~" at the beginning, we still need to build the path
+			homePath := filepath.Join("/home", cctx.Context.Sliver.Username)
+			linePath = filepath.Join(homePath, filepath.Dir(strings.TrimPrefix(last, "~/")))
+			lastPath = filepath.Base(last)
+
+		} else if last == "" {
+			linePath = "."
+		} else {
+			// linePath = last
+			linePath = filepath.Dir(last)
+			lastPath = filepath.Base(last)
+		}
+	}
+
+	dirList, err := connection.RPC.Ls(context.Background(), &sliverpb.LsReq{
+		Request: &commonpb.Request{
+			SessionID: cctx.Context.Sliver.ID,
+		},
+		Path: linePath,
+	})
+	if err != nil {
+		fmt.Printf(util.RPCError+"%s\n", err)
+	}
+
+	switch lastPath {
+	case "":
+		for _, f := range dirList.Files {
+			tokenized := addSpaceTokens(f.Name)
+			search := ""
+			if f.IsDir {
+				if cctx.Context.Sliver.OS == "windows" {
+					search = tokenized + "\\"
+				} else {
+					search = tokenized + "/"
+				}
+			} else {
+				search = tokenized
+			}
+			if strings.HasPrefix(search, lastPath) {
+				completion.Suggestions = append(completion.Suggestions, search)
+			}
+		}
+	default:
+		filtered := []*sliverpb.FileInfo{}
+		for _, f := range dirList.Files {
+			if strings.HasPrefix(f.Name, lastPath) {
+				filtered = append(filtered, f)
+			}
+		}
+
+		for _, f := range filtered {
+			tokenized := addSpaceTokens(f.Name)
+			search := ""
+			if f.IsDir {
+				if cctx.Context.Sliver.OS == "windows" {
+					search = tokenized + "\\"
+				} else {
+					search = tokenized + "/"
+				}
+			} else {
+				search = tokenized
+			}
+			if strings.HasPrefix(search, lastPath) {
+				completion.Suggestions = append(completion.Suggestions, search)
+			}
+		}
+	}
+
+	return lastPath, completion
 }
