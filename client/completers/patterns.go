@@ -266,6 +266,11 @@ func optionArgRequired(args []string, last []rune, group *flags.Group) (opt *fla
 	var lastOption string
 	var option *flags.Option
 
+	// If there is argument required we must have 1) command 2) --option inputs at least.
+	if len(args) <= 2 {
+		return nil, false
+	}
+
 	// Check for last two arguments in input
 	if strings.HasPrefix(args[len(args)-2], "-") || strings.HasPrefix(args[len(args)-2], "--") {
 		lastOption = strings.TrimPrefix(args[len(args)-2], "--")

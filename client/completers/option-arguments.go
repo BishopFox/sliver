@@ -36,7 +36,14 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 	// First of all: some options, no matter their contexts and subject, have default values.
 	// When we have such an option, we don't bother analyzing context, we just build completions and return.
 	if len(opt.Choices) > 0 {
-
+		comp = &readline.CompletionGroup{
+			Name:        opt.LongName,
+			DisplayType: readline.TabDisplayGrid,
+		}
+		for i := range opt.Choices {
+			comp.Suggestions = append(comp.Suggestions, opt.Choices[i]+" ")
+		}
+		completions = append(completions, comp)
 		return
 	}
 
@@ -90,6 +97,13 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 				prefix, comp = completeLocalPathAndFiles(lastWord)
 				completions = append(completions, comp)
 			}
+		}
+
+		// Host addresses
+		if strings.Contains(opt.Field().Name, "LHost") || strings.Contains(opt.Field().Name, "RHost") {
+			// Locally, we add IPv4/IPv6 interfaces (check for option value-name for ip6)
+
+			// If implants on, ask them their interfaces, and add a group for each implant.
 		}
 
 		// case commands.GHOST_CONTEXT:
