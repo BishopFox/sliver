@@ -1,5 +1,17 @@
 package commands
 
+import (
+	"context"
+	"fmt"
+	"path/filepath"
+
+	"github.com/bishopfox/sliver/client/connection"
+	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/util"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+)
+
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -17,3 +29,34 @@ package commands
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+// ChangeDirectory - Change the working directory of the client console
+type ChangeDirectory struct {
+	Positional struct {
+		Path string `description:"Local path" required:"1"`
+	} `positional-args:"yes" required:"yes"`
+}
+
+// Execute - Handler for ChangeDirectory
+func (cd *ChangeDirectory) Execute(args []string) (err error) {
+
+	path := cd.Positional.Path
+	if (path == "~" || path == "~/") && cctx.Context.Sliver.OS == "linux" {
+		path = filepath.Join("/home", cctx.Context.Sliver.Username)
+	}
+
+	pwd, err := connection.RPC.Cd(context.Background(), &sliverpb.CdReq{
+		Request: &commonpb.Request{
+			SessionID: cctx.Context.Sliver.ID,
+		},
+		Path: path,
+	})
+	if err != nil {
+		fmt.Printf(util.RPCError+"%s\n", err)
+	} else {
+		fmt.Printf(util.Info+"%s\n", pwd.Path)
+		cctx.Context.Sliver.WorkingDir = pwd.Path
+	}
+
+	return
+}

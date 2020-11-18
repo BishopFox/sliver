@@ -1,13 +1,5 @@
 package completers
 
-import (
-	"strings"
-
-	"github.com/bishopfox/sliver/client/context"
-	"github.com/jessevdk/go-flags"
-	"github.com/maxlandon/readline"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -26,6 +18,14 @@ import (
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	"strings"
+
+	"github.com/bishopfox/sliver/client/context"
+	"github.com/jessevdk/go-flags"
+	"github.com/maxlandon/readline"
+)
+
 // completeOptionArguments - Completes all values for arguments to a command. Arguments here are different from command options (--option).
 // Many categories, from multiple sources in multiple contexts
 func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord string) (prefix string, completions []*readline.CompletionGroup) {
@@ -37,7 +37,7 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 	// When we have such an option, we don't bother analyzing context, we just build completions and return.
 	if len(opt.Choices) > 0 {
 		comp = &readline.CompletionGroup{
-			Name:        opt.LongName,
+			Name:        opt.ValueName, // Value names are specified in struct metadata fields
 			DisplayType: readline.TabDisplayGrid,
 		}
 		for i := range opt.Choices {
@@ -105,28 +105,6 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 
 			// If implants on, ask them their interfaces, and add a group for each implant.
 		}
-
-		// case commands.GHOST_CONTEXT:
-		//         switch found.Name {
-		//         case "Path", "OtherPath", "RemotePath":
-		//                 // Completion might differ slightly depending on the command
-		//                 switch cmd.Name {
-		//                 case constants.GhostCd, constants.GhostLs, constants.GhostMkdir:
-		//                         return CompleteRemotePath(line, pos)
-		//                 case constants.GhostCat, constants.GhostDownload, constants.GhostUpload, constants.GhostRm:
-		//                         return CompleteRemotePathAndFiles(line, pos)
-		//                 }
-		//         case "LocalPath":
-		//                 switch cmd.Name {
-		//                 case constants.GhostUpload:
-		//                         return completeLocalPathAndFiles(line, pos)
-		//                 case constants.GhostDownload:
-		//                         return CompleteLocalPath(line, pos)
-		//                 }
-		//         case "PID":
-		//                 commands.Context.Shell.MaxTabCompleterRows = 10
-		//                 return CompleteProcesses(line, pos)
-		//         default: // If name is empty, return
 	}
 	return
 }

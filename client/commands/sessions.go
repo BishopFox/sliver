@@ -22,9 +22,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/bishopfox/sliver/client/connection"
 	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -36,20 +38,20 @@ import (
 // context, with different commands and completions.
 type Interact struct {
 	Positional struct {
-		Implant string `description:"Session ID or name"` // Name or ID, command will say.
+		ImplantID string `description:"Session ID"` // Name or ID, command will say.
 	} `positional-args:"yes" required:"yes"`
 }
 
 // Execute - Interact with a Sliver implant.
 func (i *Interact) Execute(args []string) (err error) {
 
-	session := GetSession(i.Positional.Implant)
+	session := GetSession(i.Positional.ImplantID)
 	if session != nil {
 		cctx.Context.Sliver = &cctx.Session{Session: session} // This will be noticed by all components in need.
 		cctx.Context.Menu = cctx.Sliver                       // Except this one.
 		fmt.Printf(util.Info+"Active session %s (%d)\n", session.Name, session.ID)
 	} else {
-		fmt.Printf(util.Error+"Invalid session name or session number '%s'\n", i.Positional.Implant)
+		fmt.Printf(util.Error+"Invalid session name or session number '%s'\n", i.Positional.ImplantID)
 	}
 
 	// For the moment, we ask the current working directory to implant...
@@ -84,7 +86,8 @@ func GetSession(arg string) *clientpb.Session {
 		return nil
 	}
 	for _, session := range sessions.GetSessions() {
-		if session.Name == arg || fmt.Sprintf("%d", session.ID) == arg {
+		if fmt.Sprintf("%d", session.ID) == arg {
+			// if session.Name == arg || fmt.Sprintf("%d", session.ID) == arg {
 			return session
 		}
 	}
@@ -112,6 +115,12 @@ func (k *Kill) Execute(args []string) (err error) {
 	cctx.Context.Sliver = nil
 
 	fmt.Printf(util.Info+"Killed %s (%d)\n", session.Name, session.ID)
+	// fmt.Printf(util.Info + "Waiting for confirmation...\n")
+	ctrl := make(chan bool)
+	go spin.Until(util.Info+"Waiting for confirmation...", ctrl)
+	time.Sleep(time.Second * 1)
+	ctrl <- true
+	<-ctrl
 	return
 }
 

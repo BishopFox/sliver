@@ -47,15 +47,15 @@ func (e *Exit) Execute(args []string) (err error) {
 	return
 }
 
-// ChangeDirectory - Change the working directory of the client console
-type ChangeDirectory struct {
+// ChangeClientDirectory - Change the working directory of the client console
+type ChangeClientDirectory struct {
 	Positional struct {
 		Path string `description:"Local path" required:"1"`
 	} `positional-args:"yes" required:"yes"`
 }
 
 // Execute - Handler for ChangeDirectory
-func (cd *ChangeDirectory) Execute(args []string) (err error) {
+func (cd *ChangeClientDirectory) Execute(args []string) (err error) {
 
 	dir, err := fs.Expand(cd.Positional.Path)
 
@@ -69,8 +69,8 @@ func (cd *ChangeDirectory) Execute(args []string) (err error) {
 	return
 }
 
-// ListDirectories - List directory contents
-type ListDirectories struct {
+// ListClientDirectories - List directory contents
+type ListClientDirectories struct {
 	Positional struct {
 		Path      string   `description:"Local directory/file"`
 		OtherPath []string `description:"Local directory/file" `
@@ -78,7 +78,7 @@ type ListDirectories struct {
 }
 
 // Execute - Command
-func (ls *ListDirectories) Execute(args []string) error {
+func (ls *ListClientDirectories) Execute(args []string) error {
 
 	base := []string{"ls", "--color", "-l"}
 

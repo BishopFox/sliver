@@ -51,9 +51,9 @@ type Generate struct {
 type StageOptions struct {
 	// CoreOptions - All options about OS/arch, files to save, debugs, etc.
 	CoreOptions struct {
-		OS      string `long:"os" description:"Target host operating system (default: windows)" default:"windows"`
-		Arch    string `long:"arch" description:"Target host CPU architecture (default: amd64)" default:"amd64"`
-		Format  string `long:"format" description:"Specifies output formats ('exe', 'shared' (DLL), 'service' (see 'psexec' for more info), 'shellcode' (Windows only)" default:"exe"`
+		OS      string `long:"os" description:"Target host operating system (default: windows)" default:"windows" value-name:"stage OS"`
+		Arch    string `long:"arch" description:"Target host CPU architecture (default: amd64)" default:"amd64" value-name:"stage architectures"`
+		Format  string `long:"format" description:"Specifies output formats ('exe', 'shared' (DLL), 'service' (see 'psexec' for more info), 'shellcode' (Windows only)" default:"exe" value-name:"stage formats"`
 		Profile string `long:"profile-name" description:"Implant profile name to use"`
 		Name    string `long:"name" description:"Implant name to use (overrides random name generation)"`
 		Save    string `long:"save" description:"Directory/file where to save binary"`
