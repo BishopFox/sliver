@@ -59,16 +59,16 @@ func (m *MTLSListener) Execute(args []string) (err error) {
 		lport = defaultMTLSLPort
 	}
 
-	fmt.Printf(util.Info + "Starting mTLS listener ...\n")
+	fmt.Printf(util.Info + "Starting mTLS listener ...")
 	mtls, err := connection.RPC.StartMTLSListener(context.Background(), &clientpb.MTLSListenerReq{
 		Host:       server,
 		Port:       uint32(lport),
 		Persistent: m.Options.Persistent,
 	})
 	if err != nil {
-		fmt.Printf("\n"+util.RPCError+"%s\n", err)
+		fmt.Printf(util.RPCError+"%s\n", err)
 	} else {
-		fmt.Printf("\n"+util.Info+"Successfully started job #%d\n", mtls.JobID)
+		fmt.Printf(util.Info+"Successfully started job #%d\n", mtls.JobID)
 	}
 
 	return
@@ -101,7 +101,7 @@ func (m *DNSListener) Execute(args []string) (err error) {
 		lport = defaultDNSLPort
 	}
 
-	fmt.Printf(util.Info+"Starting DNS listener with parent domain(s) %v ...\n", domains)
+	fmt.Printf(util.Info+"Starting DNS listener with parent domain(s) %v ...", domains)
 	dns, err := connection.RPC.StartDNSListener(context.Background(), &clientpb.DNSListenerReq{
 		Domains:    domains,
 		Port:       uint32(lport),
@@ -109,9 +109,9 @@ func (m *DNSListener) Execute(args []string) (err error) {
 		Persistent: m.Options.Persistent,
 	})
 	if err != nil {
-		fmt.Printf("\n"+util.RPCError+"%s\n", err)
+		fmt.Printf(util.RPCError+"%s\n", err)
 	} else {
-		fmt.Printf("\n"+util.Info+"Successfully started job #%d\n", dns.JobID)
+		fmt.Printf(util.Info+"Successfully started job #%d\n", dns.JobID)
 	}
 
 	return
@@ -146,7 +146,7 @@ func (m *HTTPSListener) Execute(args []string) (err error) {
 		return
 	}
 
-	fmt.Printf(util.Info+"Starting HTTPS %s:%d listener ...\n", domain, lport)
+	fmt.Printf(util.Info+"Starting HTTPS %s:%d listener ...", domain, lport)
 	https, err := connection.RPC.StartHTTPSListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:     domain,
 		Website:    website,
@@ -158,9 +158,9 @@ func (m *HTTPSListener) Execute(args []string) (err error) {
 		Persistent: m.Options.Persistent,
 	})
 	if err != nil {
-		fmt.Printf("\n"+util.Warn+"%s\n", err)
+		fmt.Printf(util.Warn+"%s\n", err)
 	} else {
-		fmt.Printf("\n"+util.Info+"Successfully started job #%d\n", https.JobID)
+		fmt.Printf(util.Info+"Successfully started job #%d\n", https.JobID)
 	}
 
 	return
@@ -200,7 +200,7 @@ func (m *HTTPListener) Execute(args []string) (err error) {
 		lport = uint16(defaultHTTPSLPort)
 	}
 
-	fmt.Printf(util.Info+"Starting HTTP %s:%d listener ...\n", domain, lport)
+	fmt.Printf(util.Info+"Starting HTTP %s:%d listener ...", domain, lport)
 	http, err := connection.RPC.StartHTTPListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:     domain,
 		Website:    m.Options.Website,
