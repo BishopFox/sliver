@@ -62,7 +62,7 @@ endif
 #
 # Version Information
 #
-VERSION = 1.1.0
+VERSION = 1.1.2
 COMPILED_AT = $(shell date +%s)
 RELEASES_URL = https://api.github.com/repos/BishopFox/sliver/releases
 PKG = github.com/bishopfox/sliver/client/version
