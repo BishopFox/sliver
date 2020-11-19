@@ -49,10 +49,14 @@ func execute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s", err)
-		if exec != nil && exec.Result != "" {
-			fmt.Printf(Warn+"Output:\n%s\n", exec.Result)
-		}
 	} else if !output {
-		fmt.Printf(Info+"Output:\n%s\n", exec.Result)
+		if exec.Status != 0 {
+			fmt.Printf(Warn+"Exited with status %d!\n", exec.Status)
+			if exec.Result != "" {
+				fmt.Printf(Info+"Output:\n%s\n", exec.Result)
+			}
+		} else {
+			fmt.Printf(Info+"Output:\n%s\n", exec.Result)
+		}
 	}
 }

@@ -511,8 +511,13 @@ func executeHandler(data []byte, resp RPCResponse) {
 		log.Println(string(res))
 		//{{end}}
 		if err != nil {
-			execResp.Response = &commonpb.Response{
-				Err: fmt.Sprintf("%s", err),
+			// Exit errors are not a failure of the RPC, but of the command.
+			if exiterr, ok := err.(os.ExitError); ok {
+				execResp.Status = uint32(exiterr.ExitCode())
+			} else {
+				execResp.Response = &commonpb.Response{
+					Err: fmt.Sprintf("%s", err),
+				}
 			}
 		}
 		execResp.Result = string(res)
