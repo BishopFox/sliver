@@ -38,9 +38,9 @@ var (
 	}
 	hiveID = uint32(0)
 
-	// ErrUnknownMessateType - Returned if the implant did not understand the message for
+	// ErrUnknownMessageType - Returned if the implant did not understand the message for
 	//                         example when the command is not supported on the platform
-	ErrUnknownMessateType = errors.New("Unknown message type")
+	ErrUnknownMessageType = errors.New("Unknown message type")
 
 	// ErrImplantTimeout - The implant did not respond prior to timeout deadline
 	ErrImplantTimeout = errors.New("Implant timeout")
@@ -139,7 +139,7 @@ func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([
 		return nil, ErrImplantTimeout
 	}
 	if respEnvelope.UnknownMessageType {
-		return nil, ErrUnknownMessateType
+		return nil, ErrUnknownMessageType
 	}
 	s.UpdateCheckin()
 	return respEnvelope.Data, nil
