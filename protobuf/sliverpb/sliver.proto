@@ -321,6 +321,7 @@ message ExecuteReq {
 
 message Execute {
   string Result = 1;
+  uint32 Status = 2;
 
   commonpb.Response Response = 9;
 }

