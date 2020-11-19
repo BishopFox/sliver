@@ -512,7 +512,7 @@ func executeHandler(data []byte, resp RPCResponse) {
 		//{{end}}
 		if err != nil {
 			// Exit errors are not a failure of the RPC, but of the command.
-			if exiterr, ok := err.(*os.ExitError); ok {
+			if exiterr, ok := err.(*exec.ExitError); ok {
 				execResp.Status = uint32(exiterr.ExitCode())
 			} else {
 				execResp.Response = &commonpb.Response{
