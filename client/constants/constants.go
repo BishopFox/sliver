@@ -30,27 +30,29 @@ const (
 
 	EventStr = "event"
 
-	ServerErrorStr = "server"
+	ServerErrorStr = "server-error"
 
 	// ConnectedEvent - Sliver Connected
-	SessionOpenedEvent = "connected"
+	SessionOpenedEvent = "session-connected"
 	// DisconnectedEvent - Sliver disconnected
-	SessionClosedEvent = "disconnected"
+	SessionClosedEvent = "session-disconnected"
 	// UpdateEvent - Sliver updated
-	SessionUpdateEvent = "updated"
+	SessionUpdateEvent = "session-updated"
 
 	// JoinedEvent - Player joined the game
-	JoinedEvent = "joined"
+	JoinedEvent = "client-joined"
 	// LeftEvent - Player left the game
-	LeftEvent = "left"
+	LeftEvent = "client-left"
 
 	// CanaryEvent - A DNS canary was triggered
 	CanaryEvent = "canary"
 
 	// StartedEvent - Job was started
-	JobStartedEvent = "started"
+	JobStartedEvent = "job-started"
 	// StoppedEvent - Job was stopped
-	JobStoppedEvent = "stopped"
+	JobStoppedEvent = "job-stopped"
+
+	BuildCompletedEvent = "build-completed"
 )
 
 // Commands

@@ -80,7 +80,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		lastCheckin = s.LastCheckin.Format(time.RFC1123)
 
 		// Calculates how much time has passed in seconds and compares that to the ReconnectInterval+10 of the Implant.
-		// (ReconnectInterval+10 seconds is just abitrary padding to account for potential delays)
+		// (ReconnectInterval+10 seconds is just arbitrary padding to account for potential delays)
 		// If it hasn't checked in, flag it as DEAD.
 		var timePassed = uint32(math.Abs(s.LastCheckin.Sub(time.Now()).Seconds()))
 
@@ -145,6 +145,7 @@ func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([
 	return respEnvelope.Data, nil
 }
 
+// UpdateCheckin - Update a session's checkin time
 func (s *Session) UpdateCheckin() {
 	now := time.Now()
 	s.LastCheckin = &now
