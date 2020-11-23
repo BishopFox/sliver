@@ -134,6 +134,8 @@ const (
 	BackdoorStr   = "backdoor"
 	MakeTokenStr  = "make-token"
 	GetEnvStr     = "getenv"
+
+	LicensesStr = "licenses"
 )
 
 // Groups
