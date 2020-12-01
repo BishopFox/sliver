@@ -38,6 +38,7 @@ import (
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
+	"github.com/bishopfox/sliver/client/licenses"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 
 	"github.com/desertbit/grumble"
@@ -1278,6 +1279,19 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			getEnv(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:     consts.LicensesStr,
+		Help:     "Open source licenses",
+		LongHelp: help.GetHelpFor(consts.LicensesStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			fmt.Println(licenses.All)
 			fmt.Println()
 			return nil
 		},
