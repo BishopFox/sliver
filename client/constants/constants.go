@@ -52,7 +52,11 @@ const (
 	// StoppedEvent - Job was stopped
 	JobStoppedEvent = "job-stopped"
 
+	// BuildCompletedEvent - Fires when a build completes
 	BuildCompletedEvent = "build-completed"
+
+	// ProfileEvent - Fires whenever there's a change to profiles
+	ProfileEvent = "profile"
 )
 
 // Commands
