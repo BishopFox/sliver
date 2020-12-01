@@ -21,11 +21,14 @@ package rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"path"
 
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 )
@@ -66,6 +69,11 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	if err != nil {
 		return nil, err
 	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.BuildCompletedEvent,
+		Data:      []byte(fmt.Sprintf("%s build completed", filename)),
+	})
 
 	return &clientpb.Generate{
 		File: &commonpb.File{
@@ -157,6 +165,10 @@ func (rpc *Server) SaveImplantProfile(ctx context.Context, profile *clientpb.Imp
 		if err != nil {
 			return nil, err
 		}
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.ProfileEvent,
+			Data:      []byte(fmt.Sprintf("%s", profile.Name)),
+		})
 		return profile, nil
 	}
 	return nil, errors.New("Invalid profile name")
