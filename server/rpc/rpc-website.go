@@ -48,7 +48,7 @@ func (rpc *Server) Websites(ctx context.Context, _ *commonpb.Empty) (*clientpb.W
 	}
 	websites := &clientpb.Websites{Websites: []*clientpb.Website{}}
 	for _, name := range websiteNames {
-		siteContent, err := website.MapContent(name)
+		siteContent, err := website.MapContent(name, false)
 		if err != nil {
 			rpcWebsiteLog.Warnf("Failed to list website content %s", err)
 			continue
@@ -60,7 +60,7 @@ func (rpc *Server) Websites(ctx context.Context, _ *commonpb.Empty) (*clientpb.W
 
 // WebsiteRemove - Delete an entire website
 func (rpc *Server) WebsiteRemove(ctx context.Context, req *clientpb.Website) (*commonpb.Empty, error) {
-	web, err := website.MapContent(req.Name)
+	web, err := website.MapContent(req.Name, false)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (rpc *Server) WebsiteRemove(ctx context.Context, req *clientpb.Website) (*c
 
 // Website - Get one website
 func (rpc *Server) Website(ctx context.Context, req *clientpb.Website) (*clientpb.Website, error) {
-	return website.MapContent(req.Name)
+	return website.MapContent(req.Name, false)
 }
 
 // WebsiteAddContent - Add content to a website, the website is created if `name` does not exist
@@ -110,7 +110,7 @@ func (rpc *Server) WebsiteAddContent(ctx context.Context, req *clientpb.WebsiteA
 		Data:      []byte(fmt.Sprintf("%s", req.Name)),
 	})
 
-	return website.MapContent(req.Name)
+	return website.MapContent(req.Name, false)
 }
 
 // WebsiteUpdateContent - Update specific content from a website, currently you can only the update Content-type field
@@ -137,7 +137,7 @@ func (rpc *Server) WebsiteUpdateContent(ctx context.Context, req *clientpb.Websi
 		Data:      []byte(fmt.Sprintf("%s", req.Name)),
 	})
 
-	return website.MapContent(req.Name)
+	return website.MapContent(req.Name, false)
 }
 
 // WebsiteRemoveContent - Remove specific content from a website
@@ -155,5 +155,5 @@ func (rpc *Server) WebsiteRemoveContent(ctx context.Context, req *clientpb.Websi
 		Data:      []byte(fmt.Sprintf("%s", req.Name)),
 	})
 
-	return website.MapContent(req.Name)
+	return website.MapContent(req.Name, false)
 }
