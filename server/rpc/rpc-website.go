@@ -20,10 +20,17 @@ package rpc
 
 import (
 	"context"
+	"fmt"
+	"mime"
+	"path/filepath"
 
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/website"
 )
@@ -64,6 +71,12 @@ func (rpc *Server) WebsiteRemove(ctx context.Context, req *clientpb.Website) (*c
 			return nil, err
 		}
 	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.WebsiteEvent,
+		Data:      []byte(fmt.Sprintf("%s", req.Name)),
+	})
+
 	return &commonpb.Empty{}, nil
 }
 
@@ -75,6 +88,15 @@ func (rpc *Server) Website(ctx context.Context, req *clientpb.Website) (*clientp
 // WebsiteAddContent - Add content to a website, the website is created if `name` does not exist
 func (rpc *Server) WebsiteAddContent(ctx context.Context, req *clientpb.WebsiteAddContent) (*clientpb.Website, error) {
 	for _, content := range req.Contents {
+
+		// If no content-type was specified by the client we try to detect the mime based on path ext
+		if content.ContentType == "" {
+			content.ContentType = mime.TypeByExtension(filepath.Ext(content.Path))
+			if content.ContentType == "" {
+				content.ContentType = "text/html; charset=utf-8" // Default mime
+			}
+		}
+
 		rpcLog.Infof("Add website content (%s) %s -> %s", req.Name, content.Path, content.ContentType)
 		err := website.AddContent(req.Name, content.Path, content.ContentType, content.Content)
 		if err != nil {
@@ -82,6 +104,39 @@ func (rpc *Server) WebsiteAddContent(ctx context.Context, req *clientpb.WebsiteA
 			return nil, err
 		}
 	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.WebsiteEvent,
+		Data:      []byte(fmt.Sprintf("%s", req.Name)),
+	})
+
+	return website.MapContent(req.Name)
+}
+
+// WebsiteUpdateContent - Update specific content from a website, currently you can only the update Content-type field
+func (rpc *Server) WebsiteUpdateContent(ctx context.Context, req *clientpb.WebsiteAddContent) (*clientpb.Website, error) {
+	dbWebsite, err := db.WebsiteByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	for _, content := range req.Contents {
+		dbContent := models.WebContent{}
+		err := db.Session().Where(&models.WebContent{
+			WebsiteID: dbWebsite.ID,
+			Path:      content.Path,
+		}).Find(&dbContent).Error
+		if err != nil {
+			return nil, err
+		}
+		dbContent.ContentType = content.ContentType
+		db.Session().Save(dbContent)
+	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.WebsiteEvent,
+		Data:      []byte(fmt.Sprintf("%s", req.Name)),
+	})
+
 	return website.MapContent(req.Name)
 }
 
@@ -94,5 +149,11 @@ func (rpc *Server) WebsiteRemoveContent(ctx context.Context, req *clientpb.Websi
 			return nil, err
 		}
 	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.WebsiteEvent,
+		Data:      []byte(fmt.Sprintf("%s", req.Name)),
+	})
+
 	return website.MapContent(req.Name)
 }

@@ -54,7 +54,6 @@ func getBuildsDir() (string, error) {
 
 // ImplantBuildSave - Saves a binary file into the database
 func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) error {
-
 	rootAppDir, _ := filepath.Abs(assets.GetRootAppDir())
 	fPath, _ = filepath.Abs(fPath)
 	if !strings.HasPrefix(fPath, rootAppDir) {
@@ -94,4 +93,17 @@ func ImplantFileFromBuild(build *models.ImplantBuild) ([]byte, error) {
 		return nil, ErrImplantBuildFileNotFound
 	}
 	return ioutil.ReadFile(buildFilePath)
+}
+
+// ImplantFileDelete - Delete the implant from the file system
+func ImplantFileDelete(build *models.ImplantBuild) error {
+	buildsDir, err := getBuildsDir()
+	if err != nil {
+		return err
+	}
+	buildFilePath := path.Join(buildsDir, build.ID.String())
+	if _, err := os.Stat(buildFilePath); os.IsNotExist(err) {
+		return ErrImplantBuildFileNotFound
+	}
+	return os.Remove(buildFilePath)
 }

@@ -174,6 +174,30 @@ func (rpc *Server) SaveImplantProfile(ctx context.Context, profile *clientpb.Imp
 	return nil, errors.New("Invalid profile name")
 }
 
+// DeleteImplantProfile - Delete an implant profile
+func (rpc *Server) DeleteImplantProfile(ctx context.Context, req *clientpb.DeleteReq) (*commonpb.Empty, error) {
+	profile, err := db.ProfileByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Session().Delete(profile).Error
+	return &commonpb.Empty{}, err
+}
+
+// DeleteImplantBuild - Delete an implant build
+func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteReq) (*commonpb.Empty, error) {
+	build, err := db.ImplantBuildByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Session().Delete(build).Error
+	if err != nil {
+		return nil, err
+	}
+	err = generate.ImplantFileDelete(build)
+	return &commonpb.Empty{}, err
+}
+
 // ShellcodeRDI - Generates a RDI shellcode from a given DLL
 func (rpc *Server) ShellcodeRDI(ctx context.Context, req *clientpb.ShellcodeRDIReq) (*clientpb.ShellcodeRDI, error) {
 	shellcode, err := generate.ShellcodeRDIFromBytes(req.GetData(), req.GetFunctionName(), req.GetArguments())

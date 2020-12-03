@@ -502,7 +502,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 
-	app.AddCommand(&grumble.Command{
+	profilesCmd := &grumble.Command{
 		Name:     consts.ProfilesStr,
 		Help:     "List existing profiles",
 		LongHelp: help.GetHelpFor(consts.ProfilesStr),
@@ -516,7 +516,24 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			return nil
 		},
 		HelpGroup: consts.GenericHelpGroup,
+	}
+	profilesCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove a profile",
+		LongHelp: help.GetHelpFor(fmt.Sprintf("%s.%s", consts.ProfilesStr, consts.RmStr)),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			rmProfile(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
+	app.AddCommand(profilesCmd)
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.ProfileGenerateStr,
@@ -538,10 +555,10 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 
-	app.AddCommand(&grumble.Command{
-		Name:     consts.ListImplantBuildsStr,
-		Help:     "List old implant builds",
-		LongHelp: help.GetHelpFor(consts.ListImplantBuildsStr),
+	implantBuildsCmd := &grumble.Command{
+		Name:     consts.ImplantBuildsStr,
+		Help:     "List implant builds",
+		LongHelp: help.GetHelpFor(consts.ImplantBuildsStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -552,7 +569,24 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			return nil
 		},
 		HelpGroup: consts.GenericHelpGroup,
+	}
+	implantBuildsCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove implant build",
+		LongHelp: help.GetHelpFor(fmt.Sprintf("%s.%s", consts.ImplantBuildsStr, consts.RmStr)),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			rmImplantBuild(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
+	app.AddCommand(implantBuildsCmd)
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.ListCanariesStr,
@@ -1083,17 +1117,11 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
-	app.AddCommand(&grumble.Command{
+	websitesCmd := &grumble.Command{
 		Name:     consts.WebsitesStr,
-		Help:     "Host static content (used with HTTP C2), see extended help.",
+		Help:     "Host static content (used with HTTP C2)",
 		LongHelp: help.GetHelpFor(consts.WebsitesStr),
 		Flags: func(f *grumble.Flags) {
-			f.String("w", "website", "", "website name to identify content")
-			f.String("m", "content-type", "", "mime content-type (if blank use file ext.)")
-			f.String("p", "web-path", "/", "http path to host file at")
-			f.String("c", "content", "", "local file path/dir (must use --recursive for dir)")
-			f.Bool("r", "recursive", false, "recursively add/rm content")
-
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		AllowArgs: true,
@@ -1104,7 +1132,83 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			return nil
 		},
 		HelpGroup: consts.GenericHelpGroup,
+	}
+	websitesCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove an entire website",
+		LongHelp: help.GetHelpFor(fmt.Sprintf("%s.%s", consts.WebsitesStr, consts.RmStr)),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			removeWebsite(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
+	websitesCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmWebContentStr,
+		Help:     "Remove content from a website",
+		LongHelp: help.GetHelpFor(fmt.Sprintf("%s.%s", consts.WebsitesStr, consts.RmWebContentStr)),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("r", "recursive", false, "recursively add/rm content")
+			f.String("w", "website", "", "website name")
+			f.String("p", "web-path", "", "http path to host file at")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			removeWebsiteContent(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	websitesCmd.AddCommand(&grumble.Command{
+		Name:     consts.AddWebContentStr,
+		Help:     "Add content to a website",
+		LongHelp: help.GetHelpFor(fmt.Sprintf("%s.%s", consts.WebsitesStr, consts.RmWebContentStr)),
+		Flags: func(f *grumble.Flags) {
+			f.String("w", "website", "", "website name")
+			f.String("m", "content-type", "", "mime content-type (if blank use file ext.)")
+			f.String("p", "web-path", "/", "http path to host file at")
+			f.String("c", "content", "", "local file path/dir (must use --recursive for dir)")
+			f.Bool("r", "recursive", false, "recursively add/rm content")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			addWebsiteContent(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	websitesCmd.AddCommand(&grumble.Command{
+		Name:     consts.WebContentTypeStr,
+		Help:     "Update a path's content-type",
+		LongHelp: help.GetHelpFor(fmt.Sprintf("%s.%s", consts.WebsitesStr, consts.WebContentTypeStr)),
+		Flags: func(f *grumble.Flags) {
+			f.String("w", "website", "", "website name")
+			f.String("m", "content-type", "", "mime content-type (if blank use file ext.)")
+			f.String("p", "web-path", "/", "http path to host file at")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			updateWebsiteContent(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	app.AddCommand(websitesCmd)
 
 	app.AddCommand(&grumble.Command{
 		Name:      consts.TerminateStr,

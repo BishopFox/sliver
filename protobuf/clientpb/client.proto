@@ -90,6 +90,10 @@ message ImplantBuilds {
   map<string, ImplantConfig> Configs = 1;
 }
 
+message DeleteReq {
+  string Name = 1;
+}
+
 // DNSCanary - Single canary and metadata
 message DNSCanary {
   string ImplantName = 1;
