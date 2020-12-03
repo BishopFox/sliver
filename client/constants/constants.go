@@ -57,6 +57,9 @@ const (
 
 	// ProfileEvent - Fires whenever there's a change to profiles
 	ProfileEvent = "profile"
+
+	// WebsiteEvent - Fires whenever there's a change to websites
+	WebsiteEvent = "website"
 )
 
 // Commands
@@ -79,8 +82,8 @@ const (
 	ProfilesStr        = "profiles"
 	NewProfileStr      = "new-profile"
 
-	ListImplantBuildsStr = "implants"
-	ListCanariesStr      = "canaries"
+	ImplantBuildsStr = "implants"
+	ListCanariesStr  = "canaries"
 
 	JobsStr        = "jobs"
 	MtlsStr        = "mtls"
@@ -131,7 +134,10 @@ const (
 	LoadExtensionStr    = "load-extension"
 	StageListenerStr    = "stage-listener"
 
-	WebsitesStr = "websites"
+	WebsitesStr       = "websites"
+	RmWebContentStr   = "rm-content"
+	AddWebContentStr  = "add-content"
+	WebContentTypeStr = "content-type"
 
 	ScreenshotStr = "screenshot"
 	PsExecStr     = "psexec"
