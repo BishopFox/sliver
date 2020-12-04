@@ -90,6 +90,10 @@ message ImplantBuilds {
   map<string, ImplantConfig> Configs = 1;
 }
 
+message DeleteReq {
+  string Name = 1;
+}
+
 // DNSCanary - Single canary and metadata
 message DNSCanary {
   string ImplantName = 1;
@@ -382,4 +386,34 @@ message Website {
 
 message Websites {
   repeated Website Websites = 1;
+}
+
+// [ users ] -------------------------------------------
+message UserAttributeSetReq {
+  string UUID = 1;
+  string UID = 2;
+  string Attribute = 3;
+  string Value = 4;
+}
+
+message UserAttributeSet {
+}
+
+message UserAttributeGetReq {
+  string UUID = 1;
+  string UID = 2;
+  string Attribute = 3;
+}
+
+message UserAttributeGet {
+  string Value = 1;
+}
+
+message UserAttributeDeleteReq {
+  string UUID = 1;
+  string UID = 2;
+  string Attribute = 3;
+}
+
+message UserAttributeDelete {
 }

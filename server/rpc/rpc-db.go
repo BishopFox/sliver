@@ -20,48 +20,107 @@ package rpc
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 )
 
-// DbSet Set a Key in a Bucket to a Value
-func (rpc *Server) DbSet(ctx context.Context, req *sliverpb.DbSetReq) (*sliverpb.DbSet, error) {
-	resp := &sliverpb.DbSet{}
-	bucket, err := db.GetBucket(req.Bucket)
+func userSave(user models.User) error {
+	err := db.Session().Save(&user).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func findUser(uuid string, uid string) (*models.User, error) {
+	user := models.User{}
+	err := db.Session().Where(&models.User{UUID: uuid, UID: uid}).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
-	err = bucket.Set(req.Key, req.Value)
+	return &user, err
+}
+
+func (rpc *Server) UserAttributeSet(ctx context.Context, req *clientpb.UserAttributeSetReq) (*clientpb.UserAttributeSet, error) {
+	resp := &clientpb.UserAttributeSet{}
+	ua, err := findUser(req.UUID, req.UID)
+	if err != nil {
+		attributes := make(map[string]string)
+		attributes[req.Attribute] = req.Value
+		marshal, err := json.Marshal(attributes)
+		if err != nil {
+			return nil, err
+		}
+		userSave(models.User{
+			UUID:       req.UUID,
+			UID:        req.UID,
+			Attributes: string(marshal),
+		})
+		ua, err = findUser(req.UUID, req.UID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var attributes map[string]string
+	err = json.Unmarshal([]byte(ua.Attributes), &attributes)
+	if err != nil {
+		return nil, err
+	}
+	attributes[req.Attribute] = req.Value
+	marshal, err := json.Marshal(attributes)
+	if err != nil {
+		return nil, err
+	}
+	ua.Attributes = string(marshal)
+	err = db.Session().Save(ua).Error
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
-// DbGet Get the Value of a Key in a Bucket
-func (rpc *Server) DbGet(ctx context.Context, req *sliverpb.DbGetReq) (*sliverpb.DbGet, error) {
-	resp := &sliverpb.DbGet{}
-	bucket, err := db.GetBucket(req.Bucket)
+func (rpc *Server) UserAttributeGet(ctx context.Context, req *clientpb.UserAttributeGetReq) (*clientpb.UserAttributeGet, error) {
+	resp := &clientpb.UserAttributeGet{}
+	ua, err := findUser(req.UUID, req.UID)
 	if err != nil {
 		return nil, err
 	}
-	value, err := bucket.Get(req.Key)
+	var attributes map[string]string
+	err = json.Unmarshal([]byte(ua.Attributes), &attributes)
 	if err != nil {
 		return nil, err
+	}
+	value, ok := attributes[req.Attribute]
+	if !ok {
+		return nil, errors.New("Attribute Not Found")
 	}
 	resp.Value = value
 	return resp, nil
 }
 
-// DbDelete Delete a Key and Value in a Bucket
-func (rpc *Server) DbDelete(ctx context.Context, req *sliverpb.DbDeleteReq) (*sliverpb.DbDelete, error) {
-	resp := &sliverpb.DbDelete{}
-	bucket, err := db.GetBucket(req.Bucket)
+func (rpc *Server) UserAttributeDelete(ctx context.Context, req *clientpb.UserAttributeDeleteReq) (*clientpb.UserAttributeDelete, error) {
+	resp := &clientpb.UserAttributeDelete{}
+	ua, err := findUser(req.UUID, req.UID)
 	if err != nil {
 		return nil, err
 	}
-	err = bucket.Delete(req.Key)
+	var attributes map[string]string
+	err = json.Unmarshal([]byte(ua.Attributes), &attributes)
+	if err != nil {
+		return nil, err
+	}
+	delete(attributes, req.Attribute)
+	marshal, err := json.Marshal(attributes)
+	if err != nil {
+		return nil, err
+	}
+	ua.Attributes = string(marshal)
+	err = db.Session().Save(ua).Error
 	if err != nil {
 		return nil, err
 	}

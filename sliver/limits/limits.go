@@ -19,25 +19,25 @@ package limits
 */
 
 import (
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 	"os"
 
-	// {{if .LimitUsername}}
+	// {{if .Config.LimitUsername}}
 	"runtime"
 	// {{end}}
 
-	// {{if .LimitUsername}}
+	// {{if .Config.LimitUsername}}
 	"os/user"
 
 	// {{end}}
 
-	// {{if .LimitDatetime}}
+	// {{if .Config.LimitDatetime}}
 	"time"
 	// {{end}}
 
-	// {{if or .LimitHostname .LimitUsername}}
+	// {{if or .Config.LimitHostname .Config.LimitUsername}}
 	"strings"
 	// {{else}}{{end}}
 )
@@ -45,63 +45,66 @@ import (
 // ExecLimits - Checks for execution limitations (domain, hostname, etc)
 func ExecLimits() {
 
+	// {{if not .Config.Debug}}
+	// Disable debugger check in debug mode, so we can attach to the process
 	PlatformLimits() // Anti-debug & other platform specific evasion
+	// {{end}}
 
-	// {{if .LimitDomainJoined}}
+	// {{if .Config.LimitDomainJoined}}
 	ok, err := isDomainJoined()
 	if err == nil && !ok {
 		os.Exit(1)
 	}
 	// {{end}}
 
-	// {{if .LimitHostname}}
+	// {{if .Config.LimitHostname}}
 	hostname, err := os.Hostname()
 	if err == nil && strings.ToLower(hostname) != strings.ToLower("{{.LimitHostname}}") {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("%#v != %#v", strings.ToLower(hostname), strings.ToLower("{{.LimitHostname}}"))
 		// {{end}}
 		os.Exit(1)
 	}
 	// {{end}}
 
-	// {{if .LimitUsername}}
+	// {{if .Config.LimitUsername}}
 	currentUser, _ := user.Current()
 	if runtime.GOOS == "windows" {
 		username := strings.Split(currentUser.Username, "\\")
 		if len(username) == 2 && username[1] != "{{.LimitUsername}}" {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("%#v != %#v", currentUser.Name, "{{.LimitUsername}}")
 			// {{end}}
 			os.Exit(1)
 		}
 	} else if currentUser.Name != "{{.LimitUsername}}" {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("%#v != %#v", currentUser.Name, "{{.LimitUsername}}")
 		// {{end}}
 		os.Exit(1)
 	}
 	// {{end}}
 
-	// {{if .LimitDatetime}} "2014-11-12T11:45:26.371Z"
+	// {{if .Config.LimitDatetime}} "2014-11-12T11:45:26.371Z"
 	expiresAt, err := time.Parse(time.RFC3339, "{{.LimitDatetime}}")
 	if err == nil && time.Now().After(expiresAt) {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Timelimit %#v expired", "{{.LimitDatetime}}")
 		// {{end}}
 		os.Exit(1)
 	}
 	// {{end}}
 
-	// {{if .LimitFileExists}}
+	// {{if .Config.LimitFileExists}}
 	if _, err := os.Stat(`{{.LimitFileExists}}`); err != nil {
-		// {{if .Debug}}
-		log.Printf("Error statting %s: %s", `{{.LimitFileExists}}` , err)
+		// {{if .Config.Debug}}
+		log.Printf("Error statting %s: %s", `{{.Config.LimitFileExists}}`, err)
 		// {{end}}
 		os.Exit(1)
 	}
 	// {{end}}
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("Limit checks completed")
 	// {{end}}
 

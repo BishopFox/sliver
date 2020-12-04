@@ -13,15 +13,16 @@
 package proxy
 
 import (
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	"reflect"
 
 	// {{end}}
 
 	"net/url"
-	"github.com/bishopfox/sliver/sliver/winhttp"
 	"strings"
+
+	"github.com/bishopfox/sliver/sliver/winhttp"
 )
 
 /*
@@ -130,7 +131,7 @@ func (p *providerWindows) readWinHttpProxy(protocol string, targetUrl *url.URL) 
 	// Internet Options
 	ieProxyConfig, err := p.getIeProxyConfigCurrentUser()
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[proxy.Provider.readWinHttpProxy] Failed to read IE proxy config: %s\n", err)
 		// {{end}}
 	} else {
@@ -140,7 +141,7 @@ func (p *providerWindows) readWinHttpProxy(protocol string, targetUrl *url.URL) 
 			if err == nil {
 				return proxy
 			} else if !isNotFound(err) {
-				// {{if .Debug}}
+				// {{if .Config.Debug}}
 				log.Printf("[proxy.Provider.readWinHttpProxy] No proxy discovered via AutoDetect: %s\n", err)
 				// {{end}}
 			}
@@ -150,7 +151,7 @@ func (p *providerWindows) readWinHttpProxy(protocol string, targetUrl *url.URL) 
 			if err == nil {
 				return proxy
 			} else if !isNotFound(err) {
-				// {{if .Debug}}
+				// {{if .Config.Debug}}
 				log.Printf("[proxy.Provider.readWinHttpProxy] No proxy discovered via AutoConfigUrl, %s: %s\n", autoConfigUrl, err)
 				// {{end}}
 			}
@@ -159,7 +160,7 @@ func (p *providerWindows) readWinHttpProxy(protocol string, targetUrl *url.URL) 
 		if err == nil {
 			return proxy
 		} else if !isNotFound(err) {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[proxy.Provider.readWinHttpProxy] Failed to parse named proxy: %s\n", err)
 			// {{end}}
 		}
@@ -169,7 +170,7 @@ func (p *providerWindows) readWinHttpProxy(protocol string, targetUrl *url.URL) 
 	if err == nil {
 		return proxy
 	} else if !isNotFound(err) {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[proxy.Provider.readWinHttpProxy] Failed to parse WinHttp default proxy info: %s\n", err)
 		// {{end}}
 	}
@@ -328,7 +329,7 @@ func (p *providerWindows) parseProxyInfo(src string, protocol string, targetUrl 
 	proxyBypass := winhttp.LpwstrToString(lpszProxyBypass)
 	if proxyBypass != "" {
 		bypass := p.isLpszProxyBypass(targetUrl, proxyBypass)
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[proxy.Provider.parseProxyInfo]: lpszProxyBypass=\"%s\", targetUrl=%s, bypass=%t", proxyBypass, targetUrl, bypass)
 		// {{end}}
 		if bypass {
@@ -393,7 +394,7 @@ Params:
 */
 func (p *providerWindows) closeHandle(h winhttp.HInternet) {
 	if err := winhttp.CloseHandle(h); err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[proxy.Provider.closeHandle] Failed to close handle \"%d\": %s\n", h, err)
 		// {{end}}
 	}
@@ -409,7 +410,7 @@ func (p *providerWindows) freeWinHttpResource(r winhttp.Allocated) {
 		return
 	}
 	if err := r.Free(); err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[proxy.Provider.readWinHttp] Failed to free struct \"%s\": %s\n", reflect.TypeOf(r), err)
 		// {{end}}
 	}

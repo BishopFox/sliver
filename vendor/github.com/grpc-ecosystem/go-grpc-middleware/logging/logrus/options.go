@@ -4,9 +4,11 @@
 package grpc_logrus
 
 import (
+	"context"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging"
+	grpc_logging "github.com/grpc-ecosystem/go-grpc-middleware/logging"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 )
@@ -17,6 +19,7 @@ var (
 		shouldLog:    grpc_logging.DefaultDeciderMethod,
 		codeFunc:     grpc_logging.DefaultErrorToCode,
 		durationFunc: DefaultDurationToField,
+		messageFunc:  DefaultMessageProducer,
 	}
 )
 
@@ -25,6 +28,7 @@ type options struct {
 	shouldLog    grpc_logging.Decider
 	codeFunc     grpc_logging.ErrorToCode
 	durationFunc DurationToField
+	messageFunc  MessageProducer
 }
 
 func evaluateServerOpt(opts []Option) *options {
@@ -80,6 +84,13 @@ func WithCodes(f grpc_logging.ErrorToCode) Option {
 func WithDurationField(f DurationToField) Option {
 	return func(o *options) {
 		o.durationFunc = f
+	}
+}
+
+// WithMessageProducer customizes the function for message formation.
+func WithMessageProducer(f MessageProducer) Option {
+	return func(o *options) {
+		o.messageFunc = f
 	}
 }
 
@@ -182,4 +193,29 @@ func DurationToDurationField(duration time.Duration) (key string, value interfac
 
 func durationToMilliseconds(duration time.Duration) float32 {
 	return float32(duration.Nanoseconds()/1000) / 1000
+}
+
+// MessageProducer produces a user defined log message
+type MessageProducer func(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields)
+
+// DefaultMessageProducer writes the default message
+func DefaultMessageProducer(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
+	if err != nil {
+		fields[logrus.ErrorKey] = err
+	}
+	entry := ctxlogrus.Extract(ctx).WithContext(ctx).WithFields(fields)
+	switch level {
+	case logrus.DebugLevel:
+		entry.Debugf(format)
+	case logrus.InfoLevel:
+		entry.Infof(format)
+	case logrus.WarnLevel:
+		entry.Warningf(format)
+	case logrus.ErrorLevel:
+		entry.Errorf(format)
+	case logrus.FatalLevel:
+		entry.Fatalf(format)
+	case logrus.PanicLevel:
+		entry.Panicf(format)
+	}
 }

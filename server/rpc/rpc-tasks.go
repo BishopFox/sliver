@@ -34,6 +34,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 
 	"github.com/golang/protobuf/proto"
@@ -56,13 +57,19 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
-	shellcode, err := getSliverShellcode(req.Config.GetName())
+	name := path.Base(req.Config.GetName())
+	shellcode, err := getSliverShellcode(name)
 	if err != nil {
-		config := generate.ImplantConfigFromProtobuf(req.Config)
-		config.Name = ""
+		name, config := generate.ImplantConfigFromProtobuf(req.Config)
+		if name == "" {
+			name, err = generate.GetCodename()
+			if err != nil {
+				return nil, err
+			}
+		}
 		config.Format = clientpb.ImplantConfig_SHELLCODE
 		config.ObfuscateSymbols = false
-		shellcodePath, err := generate.SliverShellcode(config)
+		shellcodePath, err := generate.SliverShellcode(name, config)
 		if err != nil {
 			return nil, err
 		}
@@ -194,27 +201,19 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.SpawnDllReq) (*sl
 
 // Utility functions
 func getSliverShellcode(name string) ([]byte, error) {
-	var data []byte
-	// get implants builds
-	configs, err := generate.ImplantConfigMap()
+	build, err := db.ImplantBuildByName(name)
 	if err != nil {
-		return data, err
+		return nil, err
 	}
-	// get the implant with the same name
-	if conf, ok := configs[name]; ok {
-		if conf.Format == clientpb.ImplantConfig_SHELLCODE {
-			fileData, err := generate.ImplantFileByName(name)
-			if err != nil {
-				return data, err
-			}
-			data = fileData
-		} else {
-			err = fmt.Errorf("no existing shellcode found")
+
+	if build.ImplantConfig.Format == clientpb.ImplantConfig_SHELLCODE {
+		fileData, err := generate.ImplantFileFromBuild(build)
+		if err != nil {
+			return nil, err
 		}
-	} else {
-		err = fmt.Errorf("no sliver found with this name")
+		return fileData, nil
 	}
-	return data, err
+	return nil, fmt.Errorf("no existing shellcode found")
 }
 
 // ExportDirectory - stores the Export data

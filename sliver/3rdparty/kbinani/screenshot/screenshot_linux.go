@@ -2,7 +2,7 @@ package screenshot
 
 import (
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{else}}{{end}}
 	"image"
@@ -14,7 +14,7 @@ import (
 // x and y represent distance from the upper-left corner of main display.
 // Y-axis is downward direction. This means coordinates system is similar to Windows OS.
 func Capture(x, y, width, height int) (*image.RGBA, error) {
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("Capture()")
 	// {{else}}{{end}}
 	return xwindow.Capture(x, y, width, height)
@@ -22,7 +22,7 @@ func Capture(x, y, width, height int) (*image.RGBA, error) {
 
 // NumActiveDisplays returns the number of active displays.
 func NumActiveDisplays() int {
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("NumActiveDisplays()")
 	// {{else}}{{end}}
 	return xwindow.NumActiveDisplays()
@@ -31,7 +31,7 @@ func NumActiveDisplays() int {
 // GetDisplayBounds returns the bounds of displayIndex'th display.
 // The main display is displayIndex = 0.
 func GetDisplayBounds(displayIndex int) image.Rectangle {
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("GetDisplayBounds()")
 	// {{else}}{{end}}
 	return xwindow.GetDisplayBounds(displayIndex)

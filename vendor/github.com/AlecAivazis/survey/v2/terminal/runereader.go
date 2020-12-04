@@ -302,7 +302,7 @@ func (rr *RuneReader) ReadLine(mask rune) ([]rune, error) {
 				// restore the position of the cursor horizontally
 				cursor.Restore()
 				// restore the position of the cursor vertically
-				cursor.Up(1)
+				cursor.PreviousLine(1)
 			} else {
 				// restore cursor
 				cursor.Restore()

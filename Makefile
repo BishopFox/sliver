@@ -3,8 +3,24 @@
 #
 
 GO ?= go
-ENV = CGO_ENABLED=0
-TAGS = -tags netgo
+ENV = CGO_ENABLED=1
+TAGS = -tags osusergo,netgo,sqlite_omit_load_extension
+
+#
+# Version Information
+#
+VERSION = 1.1.3
+COMPILED_AT = $(shell date +%s)
+RELEASES_URL = https://api.github.com/repos/BishopFox/sliver/releases
+PKG = github.com/bishopfox/sliver/client/version
+GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
+GIT_COMMIT = $(shell git rev-parse HEAD)
+LDFLAGS = -ldflags "-s -w \
+	-X $(PKG).Version=$(VERSION) \
+	-X $(PKG).CompiledAt=$(COMPILED_AT) \
+	-X $(PKG).GithubReleasesURL=$(RELEASES_URL) \
+	-X $(PKG).GitCommit=$(GIT_COMMIT) \
+	-X $(PKG).GitDirty=$(GIT_DIRTY)"
 
 
 #
@@ -19,28 +35,45 @@ SED_INPLACE := sed -i
 STATIC_TARGET := static-linux
 
 UNAME_S := $(shell uname -s)
+
+# If the target is Windows from Linux/Darwin, check for mingw
+CROSS_COMPILERS = x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++
+
+# *** Start Darwin ***
 ifeq ($(UNAME_S),Darwin)
 	SED_INPLACE := sed -i ''
 	STATIC_TARGET := static-macos
+
+ifeq ($(MAKECMDGOALS), windows)
+	K := $(foreach exec,$(CROSS_COMPILERS),\
+			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
+	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
+endif
+ifeq ($(MAKECMDGOALS), static-windows)
+	K := $(foreach exec,$(CROSS_COMPILERS),\
+			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
+	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
 endif
 
+endif
+# *** End Darwin ***
 
-#
-# Version Information
-#
-VERSION = 1.0.9
-COMPILED_AT = $(shell date +%s)
-RELEASES_URL = https://api.github.com/repos/BishopFox/sliver/releases
-PKG = github.com/bishopfox/sliver/client/version
-GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
-GIT_COMMIT = $(shell git rev-parse HEAD)
-LDFLAGS = -ldflags "-s -w \
-	-X $(PKG).Version=$(VERSION) \
-	-X $(PKG).CompiledAt=$(COMPILED_AT) \
-	-X $(PKG).GithubReleasesURL=$(RELEASES_URL) \
-	-X $(PKG).GitCommit=$(GIT_COMMIT) \
-	-X $(PKG).GitDirty=$(GIT_DIRTY)"
+# *** Start Linux ***
+ifeq ($(UNAME_S),Linux)
 
+ifeq ($(MAKECMDGOALS), windows)
+	K := $(foreach exec,$(CROSS_COMPILERS),\
+			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
+	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
+endif
+ifeq ($(MAKECMDGOALS), static-windows)
+	K := $(foreach exec,$(CROSS_COMPILERS),\
+			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
+	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
+endif
+
+endif 
+# *** End Linux ***
 
 #
 # Targets
@@ -78,6 +111,9 @@ static-macos: clean pb packr
 	$(SED_INPLACE) '/$*.windows\/go\.zip/d' ./server/assets/a_assets-packr.go
 	$(SED_INPLACE) '/$*.linux\/go\.zip/d' ./server/assets/a_assets-packr.go
 	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
+	# TODO: For some reason the server packr code gets built into the clients, even though it's not imported ...
+	rm -f ./server/assets/*-packr.go
+	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: static-windows
 static-windows: clean pb packr
@@ -85,12 +121,18 @@ static-windows: clean pb packr
 	$(SED_INPLACE) '/$*.darwin\/go\.zip/d' ./server/assets/a_assets-packr.go
 	$(SED_INPLACE) '/$*.linux\/go\.zip/d' ./server/assets/a_assets-packr.go
 	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
+	# TODO: For some reason the server packr code gets built into the clients, even though it's not imported ...
+	rm -f ./server/assets/*-packr.go
+	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o ./sliver-client.exe ./client
 
 .PHONY: static-linux
 static-linux: clean pb packr
 	$(SED_INPLACE) '/$*.darwin\/go\.zip/d' ./server/assets/a_assets-packr.go
 	$(SED_INPLACE) '/$*.windows\/go\.zip/d' ./server/assets/a_assets-packr.go
 	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
+	# TODO: For some reason the server packr code gets built into the clients, even though it's not imported ...
+	rm -f ./server/assets/*-packr.go
+	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: pb
 pb:
@@ -105,34 +147,12 @@ packr:
 	packr
 	cd ..
 
-.PHONY: release
-release:
-	mkdir -p release-${VERSION}/linux
-	mkdir -p release-${VERSION}/macos
-	mkdir -p release-${VERSION}/windows
-
-	$(MAKE) linux
-	zip release-${VERSION}/linux/sliver-client_linux.zip ./sliver-client
-	$(MAKE) static-linux
-	zip release-${VERSION}/linux/sliver-server_linux.zip ./sliver-server
-
-	$(MAKE) macos
-	zip release-${VERSION}/macos/sliver-client_macos.zip ./sliver-client
-	$(MAKE) static-macos
-	zip release-${VERSION}/macos/sliver-server_macos.zip ./sliver-server
-
-	$(MAKE) windows
-	zip release-${VERSION}/windows/sliver-client_windows.zip ./sliver-client.exe
-	$(MAKE) static-windows
-	zip release-${VERSION}/windows/sliver-server_windows.zip ./sliver-server.exe
-
 .PHONY: clean-all
 clean-all: clean
 	rm -f ./assets/darwin/go.zip
 	rm -f ./assets/windows/go.zip
 	rm -f ./assets/linux/go.zip
 	rm -f ./assets/*.zip
-	rm -rf ./release-*
 
 .PHONY: clean
 clean:

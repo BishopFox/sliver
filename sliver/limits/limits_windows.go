@@ -19,18 +19,18 @@ package limits
 */
 
 import (
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{else}}{{end}}
 	"os"
 	"syscall"
 
-	// {{if .LimitDomainJoined}}
+	// {{if .Config.LimitDomainJoined}}
 	"unsafe"
 	// {{else}}{{end}}
 )
 
-// {{if .LimitDomainJoined}}
+// {{if .Config.LimitDomainJoined}}
 
 func isDomainJoined() (bool, error) {
 	var domain *uint16
@@ -50,7 +50,7 @@ func PlatformLimits() {
 	isDebuggerPresent := kernel32.MustFindProc("IsDebuggerPresent")
 	var nargs uintptr = 0
 	ret, _, _ := isDebuggerPresent.Call(nargs)
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("IsDebuggerPresent = %#v\n", int32(ret))
 	// {{end}}
 	if int32(ret) != 0 {

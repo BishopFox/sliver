@@ -167,32 +167,6 @@ message Mkdir {
   commonpb.Response Response = 9;
 }
 
-message DbDeleteReq {
-  string Bucket = 1;
-  string Key = 2;
-}
-
-message DbDelete {
-}
-
-message DbGetReq {
-  string Bucket = 1;
-  string Key = 2;
-}
-
-message DbGet {
-  bytes Value = 1;
-}
-
-message DbSetReq {
-  string Bucket = 1;
-  string Key = 2;
-  bytes Value = 3;
-}
-
-message DbSet {
-}
-
 message DownloadReq {
   string Path = 1;
 
@@ -347,6 +321,7 @@ message ExecuteReq {
 
 message Execute {
   string Result = 1;
+  uint32 Status = 2;
 
   commonpb.Response Response = 9;
 }
@@ -478,6 +453,17 @@ message RemoveServiceReq {
   ServiceInfoReq ServiceInfo = 1;
 
   commonpb.Request Request = 9;
+}
+
+message BackdoorReq {
+  string FilePath = 1;
+  string ProfileName = 2;
+
+  commonpb.Request Request = 9;
+}
+
+message Backdoor {
+  commonpb.Response Response = 9;
 }
 
 // Tunnel - Tunnel related messages

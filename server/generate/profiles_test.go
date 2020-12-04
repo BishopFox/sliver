@@ -17,28 +17,3 @@ package generate
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-
-import (
-	"testing"
-)
-
-func TestProfileByName(t *testing.T) {
-	name := "foobar"
-	config := &ImplantConfig{
-		GOOS:   "windows",
-		GOARCH: "amd64",
-	}
-	err := ProfileSave(name, config)
-	if err != nil {
-		t.Errorf("%v", err)
-	}
-
-	profile, err := ProfileByName(name)
-	if err != nil {
-		t.Errorf("%v", err)
-	}
-
-	if profile.GOOS != config.GOOS {
-		t.Errorf("Fetched data does not match saved data")
-	}
-}

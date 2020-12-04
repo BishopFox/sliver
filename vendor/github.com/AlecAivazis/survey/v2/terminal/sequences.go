@@ -23,6 +23,7 @@ const (
 	SpecialKeyEnd      = '\x11'
 	SpecialKeyDelete   = '\x12'
 	IgnoreKey          = '\000'
+	KeyTab             = '\t'
 )
 
 func soundBell(out io.Writer) {

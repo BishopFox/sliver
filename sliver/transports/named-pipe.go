@@ -18,22 +18,22 @@ package transports
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if .NamePipec2Enabled}}
+// {{if .Config.NamePipec2Enabled}}
 
 import (
+	"bytes"
+	"encoding/binary"
 	"net"
 	"net/url"
 	"strings"
-	"bytes"
-	"encoding/binary"
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
-	"github.com/golang/protobuf/proto"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/sliver/3rdparty/winio"
+	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -45,7 +45,7 @@ func namePipeDial(uri *url.URL) (net.Conn, error) {
 	address := uri.String()
 	address = strings.ReplaceAll(address, "namedpipe://", "")
 	address = "\\\\" + strings.ReplaceAll(address, "/", "\\")
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Print("Named pipe address: ", address)
 	// {{end}}
 	return winio.DialPipe(address, nil)
@@ -54,7 +54,7 @@ func namePipeDial(uri *url.URL) (net.Conn, error) {
 func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Print("[namedpipe] Marshaling error: ", err)
 		// {{end}}
 		return err
@@ -63,7 +63,7 @@ func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
 	_, err = (*conn).Write(dataLengthBuf.Bytes())
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[namedpipe] Error %v and %d\n", err, dataLengthBuf)
 		// {{end}}
 	}
@@ -72,7 +72,7 @@ func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 		n, err2 := (*conn).Write(data[totalWritten : totalWritten+writeBufSizeNamedPipe])
 		totalWritten += n
 		if err2 != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[namedpipe] Error %v\n", err)
 			// {{end}}
 		}
@@ -81,7 +81,7 @@ func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 		missing := len(data) - totalWritten
 		_, err := (*conn).Write(data[totalWritten : totalWritten+missing])
 		if err != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[namedpipe] Error %v\n", err)
 			// {{end}}
 		}
@@ -93,7 +93,7 @@ func namedPipeReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4)
 	_, err := (*conn).Read(dataLengthBuf)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[namedpipe] Error (read msg-length): %v\n", err)
 		// {{end}}
 		return nil, err
@@ -110,7 +110,7 @@ func namedPipeReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 			break
 		}
 		if err != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("read error: %s\n", err)
 			// {{end}}
 			break
@@ -119,7 +119,7 @@ func namedPipeReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 	envelope := &sliverpb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[namedpipe] Unmarshaling envelope error: %v", err)
 		// {{end}}
 		return &sliverpb.Envelope{}, err

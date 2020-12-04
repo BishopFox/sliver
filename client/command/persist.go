@@ -82,9 +82,10 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	// Fixup path
 	if path == "" {
-		resp, err := rpc.DbGet(context.Background(), &sliverpb.DbGetReq{
-			Bucket: "persist",
-			Key:    sliver,
+		resp, err := rpc.UserAttributeGet(context.Background(), &clientpb.UserAttributeGetReq{
+			UUID:      session.UUID,
+			UID:       session.UID,
+			Attribute: "persist",
 		})
 		if err != nil {
 			// Key Not Found
@@ -145,10 +146,11 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	_, err := rpc.DbSet(context.Background(), &sliverpb.DbSetReq{
-		Bucket: "persist",
-		Key:    sliver,
-		Value:  []byte(path),
+	_, err := rpc.UserAttributeSet(context.Background(), &clientpb.UserAttributeSetReq{
+		UUID:      session.UUID,
+		UID:       session.UID,
+		Attribute: "persist",
+		Value:     path,
 	})
 	if err != nil {
 		fmt.Printf(Warn+"Error: %v\n", err)
