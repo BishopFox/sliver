@@ -476,6 +476,7 @@ message Tunnel {
 message TunnelData {
   bytes Data  = 1;
   bool Closed = 2;
+  uint64 Sequence = 3;
 
   uint64 TunnelID = 8;
   uint32 SessionID = 9;
