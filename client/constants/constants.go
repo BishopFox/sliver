@@ -52,6 +52,9 @@ const (
 	// StoppedEvent - Job was stopped
 	JobStoppedEvent = "job-stopped"
 
+	// BuildEvent - Fires on change to builds
+	BuildEvent = "build"
+
 	// BuildCompletedEvent - Fires when a build completes
 	BuildCompletedEvent = "build-completed"
 

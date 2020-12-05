@@ -181,6 +181,12 @@ func (rpc *Server) DeleteImplantProfile(ctx context.Context, req *clientpb.Delet
 		return nil, err
 	}
 	err = db.Session().Delete(profile).Error
+	if err == nil {
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.ProfileEvent,
+			Data:      []byte(fmt.Sprintf("%s", profile.Name)),
+		})
+	}
 	return &commonpb.Empty{}, err
 }
 
@@ -195,6 +201,12 @@ func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteR
 		return nil, err
 	}
 	err = generate.ImplantFileDelete(build)
+	if err == nil {
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.BuildEvent,
+			Data:      []byte(fmt.Sprintf("%s", build.Name)),
+		})
+	}
 	return &commonpb.Empty{}, err
 }
 
