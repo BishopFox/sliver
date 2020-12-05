@@ -89,7 +89,7 @@ func tunnelDataHandler(session *core.Session, data []byte) {
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
 	if tunnel != nil {
 		if session.ID == tunnel.SessionID {
-			tunnel.FromImplant <- tunnelData.GetData()
+			tunnel.FromImplant <- tunnelData
 		} else {
 			handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
 		}
