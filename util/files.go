@@ -20,7 +20,6 @@ package util
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -37,25 +36,6 @@ func ChmodR(path string, filePerm, dirPerm os.FileMode) error {
 		}
 		return err
 	})
-}
-
-// CopyFileContents - Copy/overwrite src to dst
-func CopyFileContents(src string, dst string) error {
-	// Calling f.Sync() should be necessary as long as the
-	// returned err is properly checked. The only reason
-	// this would fail implicitly (meaning the file isn't
-	// available to a Stat() called immediately after calling
-	// this function) would be because the kernel or filesystem
-	// is inherently broken.
-	contents, err := ioutil.ReadFile(filepath.Clean(src))
-	if err != nil {
-		return err
-	}
-	stat, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(filepath.Clean(dst), contents, stat.Mode())
 }
 
 // ByteCountBinary - Pretty print byte size
