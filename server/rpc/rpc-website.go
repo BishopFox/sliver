@@ -149,6 +149,11 @@ func (rpc *Server) WebsiteRemoveContent(ctx context.Context, req *clientpb.Websi
 			return nil, err
 		}
 	}
+	dbWebsite, err := db.WebsiteByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	db.Session().Delete(dbWebsite)
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.WebsiteEvent,
