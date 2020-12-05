@@ -96,20 +96,26 @@ func (rpc *Server) Website(ctx context.Context, req *clientpb.Website) (*clientp
 
 // WebsiteAddContent - Add content to a website, the website is created if `name` does not exist
 func (rpc *Server) WebsiteAddContent(ctx context.Context, req *clientpb.WebsiteAddContent) (*clientpb.Website, error) {
-	for _, content := range req.Contents {
 
-		// If no content-type was specified by the client we try to detect the mime based on path ext
-		if content.ContentType == "" {
-			content.ContentType = mime.TypeByExtension(filepath.Ext(content.Path))
+	if 0 < len(req.Contents) {
+		for _, content := range req.Contents {
+			// If no content-type was specified by the client we try to detect the mime based on path ext
 			if content.ContentType == "" {
-				content.ContentType = "text/html; charset=utf-8" // Default mime
+				content.ContentType = mime.TypeByExtension(filepath.Ext(content.Path))
+				if content.ContentType == "" {
+					content.ContentType = "text/html; charset=utf-8" // Default mime
+				}
+			}
+			rpcLog.Infof("Add website content (%s) %s -> %s", req.Name, content.Path, content.ContentType)
+			err := website.AddContent(req.Name, content.Path, content.ContentType, content.Content)
+			if err != nil {
+				rpcWebsiteLog.Errorf("Failed to remove content %s", err)
+				return nil, err
 			}
 		}
-
-		rpcLog.Infof("Add website content (%s) %s -> %s", req.Name, content.Path, content.ContentType)
-		err := website.AddContent(req.Name, content.Path, content.ContentType, content.Content)
+	} else {
+		_, err := website.AddWebsite(req.Name)
 		if err != nil {
-			rpcWebsiteLog.Errorf("Failed to remove content %s", err)
 			return nil, err
 		}
 	}

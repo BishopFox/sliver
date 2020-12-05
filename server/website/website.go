@@ -88,6 +88,17 @@ func GetContent(websiteName string, path string) (string, []byte, error) {
 	return content.ContentType, data, err
 }
 
+// AddWebsite - Add website with no content
+func AddWebsite(websiteName string) (*models.Website, error) {
+	dbSession := db.Session()
+	website, err := db.WebsiteByName(websiteName)
+	if errors.Is(err, db.ErrRecordNotFound) {
+		website = &models.Website{Name: websiteName}
+		err = dbSession.Create(&website).Error
+	}
+	return website, err
+}
+
 // AddContent - Add website content for a path
 func AddContent(websiteName string, path string, contentType string, content []byte) error {
 	dbSession := db.Session()
