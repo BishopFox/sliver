@@ -242,8 +242,18 @@ func updateAvailable(client *http.Client, release *version.Release, saveTo strin
 	}
 	survey.AskOne(prompt, &confirm)
 	if confirm {
-		downloadAsset(client, serverAsset, saveTo)
-		downloadAsset(client, clientAsset, saveTo)
+		fmt.Printf("Please wait ...")
+		err := downloadAsset(client, serverAsset, saveTo)
+		if err != nil {
+			fmt.Printf(clearln+Warn+"%s\n", err)
+			return
+		}
+		err = downloadAsset(client, clientAsset, saveTo)
+		if err != nil {
+			fmt.Printf(clearln+Warn+"%s\n", err)
+			return
+		}
+		fmt.Printf(clearln+"\n"+Info+"Saved updates to: %s\n", saveTo)
 	}
 }
 
