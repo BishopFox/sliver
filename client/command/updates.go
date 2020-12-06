@@ -22,14 +22,19 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"os/user"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -37,6 +42,8 @@ import (
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/util"
+	"github.com/cheggaaa/pb/v3"
 	"github.com/desertbit/grumble"
 )
 
@@ -102,8 +109,12 @@ func updates(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	if release != nil {
-		fmt.Printf("New version available: %s\n", release.TagName)
-		fmt.Println(release.HTMLURL)
+		saveTo, err := updateSavePath(ctx)
+		if err != nil {
+			fmt.Printf(Warn+"%s\n", err)
+			return
+		}
+		updateAvailable(client, release, saveTo)
 	} else {
 		fmt.Printf(Info + "No new releases.\n")
 	}
@@ -143,7 +154,7 @@ func verboseVersions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	fmt.Printf(Info+"Client v%s - %s/%s\n", clientVer, runtime.GOOS, runtime.GOARCH)
+	fmt.Printf(Info+"Client %s - %s/%s\n", clientVer, runtime.GOOS, runtime.GOARCH)
 	clientCompiledAt, _ := version.Compiled()
 	fmt.Printf("    Compiled at %s\n\n", clientCompiledAt)
 
@@ -153,4 +164,110 @@ func verboseVersions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		serverVer.OS, serverVer.Arch)
 	serverCompiledAt := time.Unix(serverVer.CompiledAt, 0)
 	fmt.Printf("    Compiled at %s\n", serverCompiledAt)
+}
+
+func updateSavePath(ctx *grumble.Context) (string, error) {
+	saveTo := ctx.Flags.String("save")
+	if saveTo != "" {
+		fi, err := os.Stat(saveTo)
+		if err != nil {
+			return "", err
+		}
+		if !fi.Mode().IsDir() {
+			return "", fmt.Errorf("'%s' is not a directory", saveTo)
+		}
+		return saveTo, nil
+	}
+	user, err := user.Current()
+	if err != nil {
+		return os.TempDir(), nil
+	}
+	if fi, err := os.Stat(filepath.Join(user.HomeDir, "Downloads")); !os.IsNotExist(err) {
+		if fi.Mode().IsDir() {
+			return filepath.Join(user.HomeDir, "Downloads"), nil
+		}
+	}
+	return user.HomeDir, nil
+}
+
+func findAssetFor(prefix string, suffix string, assets []version.Asset) *version.Asset {
+	for _, asset := range assets {
+		downloadURL, err := url.Parse(asset.BrowserDownloadURL)
+		if err != nil {
+			continue
+		}
+		assetFileName := filepath.Base(downloadURL.Path)
+		if strings.HasPrefix(assetFileName, prefix) && strings.HasSuffix(assetFileName, suffix) {
+			return &asset
+		}
+	}
+	return nil
+}
+
+func serverAssetForGOOS(assets []version.Asset) *version.Asset {
+	suffix := fmt.Sprintf("_%s.zip", runtime.GOOS)
+	if runtime.GOOS == "darwin" {
+		suffix = "_macos.zip"
+	}
+	prefix := "sliver-server"
+	return findAssetFor(prefix, suffix, assets)
+}
+
+func clientAssetForGOOS(assets []version.Asset) *version.Asset {
+	suffix := fmt.Sprintf("_%s.zip", runtime.GOOS)
+	if runtime.GOOS == "darwin" {
+		suffix = "_macos.zip"
+	}
+	prefix := "sliver-client"
+	return findAssetFor(prefix, suffix, assets)
+}
+
+func updateAvailable(client *http.Client, release *version.Release, saveTo string) {
+
+	serverAsset := serverAssetForGOOS(release.Assets)
+	clientAsset := clientAssetForGOOS(release.Assets)
+
+	fmt.Printf("New version available %s\n", release.TagName)
+	if serverAsset != nil {
+		fmt.Printf(" - Server: %s\n", util.ByteCountBinary(int64(serverAsset.Size)))
+	}
+	if clientAsset != nil {
+		fmt.Printf(" - Client: %s\n", util.ByteCountBinary(int64(clientAsset.Size)))
+	}
+	fmt.Println()
+
+	confirm := false
+	prompt := &survey.Confirm{
+		Message: "Download update?",
+	}
+	survey.AskOne(prompt, &confirm)
+	if confirm {
+		downloadAsset(client, serverAsset, saveTo)
+		downloadAsset(client, clientAsset, saveTo)
+	}
+}
+
+func downloadAsset(client *http.Client, asset *version.Asset, saveTo string) error {
+	downloadURL, err := url.Parse(asset.BrowserDownloadURL)
+	if err != nil {
+		return err
+	}
+	assetFileName := filepath.Base(downloadURL.Path)
+
+	limit := int64(asset.Size)
+	writer, err := os.Create(filepath.Join(saveTo, assetFileName))
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.Get(asset.BrowserDownloadURL)
+	if err != nil {
+		return err
+	}
+
+	bar := pb.Full.Start64(limit)
+	barReader := bar.NewProxyReader(resp.Body)
+	io.Copy(writer, barReader)
+	bar.Finish()
+	return nil
 }
