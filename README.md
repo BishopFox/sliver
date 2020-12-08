@@ -5,7 +5,7 @@ Sliver
 
 Sliver is a general purpose cross-platform implant framework that supports C2 over Mutual-TLS, HTTP(S), and DNS. Implants are dynamically compiled with unique X.509 certificates signed by a per-instance certificate authority generated when you first run the binary.
 
-The server, client, and implant all support MacOS, Windows, and Linux (and possibly every Golang compiler target but we've not tested them all).
+The server and client support MacOS, Windows, and Linux. Implants are support also supported on MacOS, Windows, and Linux (as well as possibly every Golang compiler target but we've not tested them all).
 
 ![Go](https://github.com/BishopFox/sliver/workflows/Go/badge.svg?branch=master) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
@@ -31,7 +31,7 @@ Download the latest [release](https://github.com/BishopFox/sliver/releases) and 
 
 ### Help!
 
-Please checkout the [wiki](https://github.com/BishopFox/sliver/wiki), or join the #golang Slack channel on the [Bloodhound Gang](https://bloodhoundgang.herokuapp.com/) server.
+Please checkout the [wiki](https://github.com/BishopFox/sliver/wiki), or start a [GitHub discussion](https://github.com/BishopFox/sliver/discussions). We also tend to hang out in the #golang Slack channel on the [Bloodhound Gang](https://bloodhoundgang.herokuapp.com/) server.
 
 ### Compile From Source
 
