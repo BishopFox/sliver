@@ -324,11 +324,11 @@ message CreateTunnelReq {
 message CreateTunnel {
   uint32 SessionID = 1;
 
-  uint64 TunnelID = 8;
+  uint64 TunnelID = 8 [jstype = JS_STRING];
 }
 
 message CloseTunnelReq {
-  uint64 TunnelID = 8;
+  uint64 TunnelID = 8 [jstype = JS_STRING];
 
   commonpb.Request Request = 9;
 }
@@ -364,7 +364,7 @@ message Operator {
 message WebContent {
   string Path = 1;
   string ContentType = 2;
-  uint64 Size = 3;
+  uint64 Size = 3 [jstype = JS_STRING];
 
   bytes Content = 9;
 }
