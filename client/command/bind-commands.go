@@ -70,6 +70,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("P", "prereleases", false, "include pre-released (unstable) versions")
 			f.String("p", "proxy", "", "specify a proxy url (e.g. http://localhost:8080)")
+			f.String("s", "save", "", "save downloaded files to specific directory (default user home dir)")
 			f.Bool("I", "insecure", false, "skip tls certificate validation")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
