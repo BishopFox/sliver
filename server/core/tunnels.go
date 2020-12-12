@@ -105,7 +105,7 @@ func (t *tunnels) Close(tunnelID uint64) error {
 		Type: sliverpb.MsgTunnelClose,
 		Data: tunnelClose,
 	}
-	delete(*t.tunnels, tunnelID)
+	delete(t.tunnels, tunnelID)
 	close(tunnel.ToImplant)
 	close(tunnel.FromImplant)
 	return nil
