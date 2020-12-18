@@ -18,7 +18,6 @@
 
 
 # Creates the static go asset archives
-# You'll need curl, tar, and unzip commands
 
 GO_VER="1.16beta1"
 GO_ARCH_1="amd64"
@@ -28,9 +27,7 @@ BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIB
 PROTOBUF_COMMIT=347cf4a86c1cb8d262994d8ef5924d4576c5b331
 GOLANG_SYS_COMMIT=669c56c373c468cbe0f0c12b7939832b26088d33
 
-
 if ! [ -x "$(command -v curl)" ]; then
-  echo 'Error: curl is not installed.' >&2
   exit 1
 fi
 
@@ -50,7 +47,6 @@ if ! [ -x "$(command -v tar)" ]; then
 fi
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-OUTPUT_DIR="$REPO_DIR/server/assets/fs"
 WORK_DIR=`mktemp -d`
 
 echo "-----------------------------------------------------------------"
@@ -80,27 +76,6 @@ cp -vv darwin-go.zip $OUTPUT_DIR/darwin/$GO_ARCH_1/go.zip
 rm -rf ./go
 rm -f darwin-go.zip go$GO_VER.darwin-$GO_ARCH_1.tar.gz
 
-# --- Darwin (arm64) --- 
-curl --output go$GO_VER.darwin-$GO_ARCH_2.tar.gz https://dl.google.com/go/go$GO_VER.darwin-$GO_ARCH_2.tar.gz
-tar xvf go$GO_VER.darwin-$GO_ARCH_2.tar.gz
-
-cd go
-rm -rf $BLOAT_FILES
-zip -r ../src.zip ./src  # Zip up /src we only need to do this once
-rm -rf ./src
-rm -f ./pkg/tool/darwin_$GO_ARCH_2/doc
-rm -f ./pkg/tool/darwin_$GO_ARCH_2/tour
-rm -f ./pkg/tool/darwin_$GO_ARCH_2/test2json
-cd ..
-cp -vv src.zip $OUTPUT_DIR/src.zip
-rm -f src.zip
-
-zip -r darwin-go.zip ./go
-mkdir -p $OUTPUT_DIR/darwin/$GO_ARCH_2
-cp -vv darwin-go.zip $OUTPUT_DIR/darwin/$GO_ARCH_2/go.zip
-
-rm -rf ./go
-rm -f darwin-go.zip go$GO_VER.darwin-$GO_ARCH_2.tar.gz
 
 # --- Linux --- 
 curl --output go$GO_VER.linux-amd64.tar.gz https://dl.google.com/go/go$GO_VER.linux-$GO_ARCH_1.tar.gz
