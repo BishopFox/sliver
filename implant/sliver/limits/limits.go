@@ -45,7 +45,10 @@ import (
 // ExecLimits - Checks for execution limitations (domain, hostname, etc)
 func ExecLimits() {
 
+	// {{if not .Config.Debug}}
+	// Disable debugger check in debug mode, so we can attach to the process
 	PlatformLimits() // Anti-debug & other platform specific evasion
+	// {{end}}
 
 	// {{if .Config.LimitDomainJoined}}
 	ok, err := isDomainJoined()

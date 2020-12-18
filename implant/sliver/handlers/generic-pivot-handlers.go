@@ -1,17 +1,5 @@
 package handlers
 
-import (
-	// {{if .Config.Debug}}
-	"log"
-	// {{end}}
-
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/pivots"
-	"github.com/bishopfox/sliver/sliver/transports"
-	"github.com/golang/protobuf/proto"
-)
-
 /*
   Sliver Implant Framework
   Copyright (C) 2019  Bishop Fox
@@ -29,6 +17,18 @@ import (
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/sliver/pivots"
+	"github.com/bishopfox/sliver/sliver/transports"
+	"github.com/golang/protobuf/proto"
+)
 
 var (
 	genericPivotHandlers = map[uint32]PivotHandler{

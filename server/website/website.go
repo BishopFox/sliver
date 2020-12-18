@@ -88,6 +88,17 @@ func GetContent(websiteName string, path string) (string, []byte, error) {
 	return content.ContentType, data, err
 }
 
+// AddWebsite - Add website with no content
+func AddWebsite(websiteName string) (*models.Website, error) {
+	dbSession := db.Session()
+	website, err := db.WebsiteByName(websiteName)
+	if errors.Is(err, db.ErrRecordNotFound) {
+		website = &models.Website{Name: websiteName}
+		err = dbSession.Create(&website).Error
+	}
+	return website, err
+}
+
 // AddContent - Add website content for a path
 func AddContent(websiteName string, path string, contentType string, content []byte) error {
 	dbSession := db.Session()
@@ -185,7 +196,7 @@ func Names() ([]string, error) {
 }
 
 // MapContent - List the content of a specific site, returns map of path->json(content-type/size)
-func MapContent(websiteName string) (*clientpb.Website, error) {
+func MapContent(websiteName string, eagerLoadContents bool) (*clientpb.Website, error) {
 	website := models.Website{}
 	dbSession := db.Session()
 	result := dbSession.Where(&models.Website{
@@ -206,13 +217,17 @@ func MapContent(websiteName string) (*clientpb.Website, error) {
 	}
 	websiteLog.Debugf("%d WebContent(s)", len(website.WebContents))
 	for _, content := range website.WebContents {
-		data, err := ioutil.ReadFile(filepath.Join(webContentDir, content.ID.String()))
-		websiteLog.Debugf("Read %d bytes of content", len(data))
-		if err != nil {
-			websiteLog.Error(err)
-			continue
+		if eagerLoadContents {
+			data, err := ioutil.ReadFile(filepath.Join(webContentDir, content.ID.String()))
+			websiteLog.Debugf("Read %d bytes of content", len(data))
+			if err != nil {
+				websiteLog.Error(err)
+				continue
+			}
+			pbWebsite.Contents[content.Path] = content.ToProtobuf(data)
+		} else {
+			pbWebsite.Contents[content.Path] = content.ToProtobuf([]byte{})
 		}
-		pbWebsite.Contents[content.Path] = content.ToProtobuf(data)
 	}
 
 	return pbWebsite, nil

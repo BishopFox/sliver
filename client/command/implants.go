@@ -25,6 +25,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -42,6 +43,20 @@ func listImplantBuilds(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		displayAllImplantBuilds(builds.Configs)
 	} else {
 		fmt.Printf(Info + "No implant builds\n")
+	}
+}
+
+func rmImplantBuild(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	if len(ctx.Args) < 1 {
+		fmt.Printf(Warn+"Invalid implant name, see `%s %s --help`\n", consts.ImplantBuildsStr, consts.RmStr)
+		return
+	}
+	_, err := rpc.DeleteImplantBuild(context.Background(), &clientpb.DeleteReq{
+		Name: ctx.Args[0],
+	})
+	if err != nil {
+		fmt.Printf(Warn+"Failed to delete implant %s\n", err)
+		return
 	}
 }
 
