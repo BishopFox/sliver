@@ -34,6 +34,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/bishopfox/sliver/implant"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/certs"
@@ -42,8 +43,6 @@ import (
 	"github.com/bishopfox/sliver/server/gogo"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
-
-	"github.com/gobuffalo/packr"
 )
 
 var (
@@ -403,7 +402,6 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	os.MkdirAll(sliverPkgDir, 0700)
 
 	// Load code template
-	sliverBox := packr.NewBox("../../sliver")
 	for index, boxName := range srcFiles {
 
 		// Gobfuscate doesn't handle all the platform specific code
@@ -426,7 +424,12 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 			}
 		}
 
-		sliverGoCode, _ := sliverBox.FindString(boxName)
+		sliverGoCodeRaw, err := implant.FS.ReadFile(path.Join("sliver", boxName))
+		if err != nil {
+			buildLog.Warnf("Failed to read %s: %s", boxName, err)
+			continue
+		}
+		sliverGoCode := string(sliverGoCodeRaw)
 
 		// We need to correct for the "github.com/bishopfox/sliver/sliver/foo" imports, since Go
 		// doesn't allow relative imports and "sliver" is a subdirectory of
@@ -482,7 +485,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 			ImplantName:   name,
 			ParentDomains: config.CanaryDomainsList(),
 		}
-		canaryTmpl, err := canaryTmpl.Funcs(template.FuncMap{
+		canaryTmpl, err = canaryTmpl.Funcs(template.FuncMap{
 			"GenerateCanary": canaryGenerator.GenerateCanary,
 		}).Parse(buf.String())
 		if err != nil {

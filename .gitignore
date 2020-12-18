@@ -38,6 +38,4 @@ sliver-server-windows.zip
 
 *.pb.go
 
-*-packr.go
-
 .DS_Store

@@ -20,7 +20,7 @@ package generate
 
 // These files get rendered as part of the build process.
 
-// If you add a file to `sliver/` it won't be automatically included
+// If you add a file to `implant/sliver/` it won't be automatically included
 // as part of the build by the server, you have to add it here.
 
 var (
@@ -230,7 +230,7 @@ var (
 		"3rdparty/winio/pipe.go",
 		"3rdparty/winio/sd.go",
 		"3rdparty/winio/pkg/guid/guid.go",
-		
+
 		// "go.mod",
 
 	}

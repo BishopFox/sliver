@@ -109,7 +109,7 @@ func Setup(force bool) {
 
 // English - Extracts the english dictionary for the english encoder
 func English() []string {
-	rawEnglish, err := assetsFs.ReadFile("english.txt")
+	rawEnglish, err := assetsFs.ReadFile("fs/english.txt")
 	if err != nil {
 		return []string{}
 	}
@@ -130,7 +130,7 @@ func setupGo(appDir string) error {
 	os.MkdirAll(goRootPath, 0700)
 
 	// Go compiler and stdlib
-	goZipFSPath := path.Join(runtime.GOOS, runtime.GOARCH, "go.zip")
+	goZipFSPath := path.Join("fs", runtime.GOOS, runtime.GOARCH, "go.zip")
 	goZip, err := assetsFs.ReadFile(goZipFSPath)
 	if err != nil {
 		setupLog.Errorf("static asset not found: %s", goZipFSPath)
@@ -146,7 +146,7 @@ func setupGo(appDir string) error {
 		return err
 	}
 
-	goSrcZip, err := assetsFs.ReadFile("src.zip")
+	goSrcZip, err := assetsFs.ReadFile("fs/src.zip")
 	if err != nil {
 		setupLog.Info("static asset not found: src.zip")
 		return err
@@ -200,12 +200,12 @@ func SetupGoPath(goPathSrc string) error {
 
 	// GOPATH 3rd party dependencies
 	protobufPath := path.Join(goPathSrc, "github.com", "golang")
-	err = unzipGoDependency("protobuf.zip", protobufPath)
+	err = unzipGoDependency("fs/protobuf.zip", protobufPath)
 	if err != nil {
 		setupLog.Fatalf("Failed to unzip go dependency: %v", err)
 	}
 	golangXPath := path.Join(goPathSrc, "golang.org", "x")
-	err = unzipGoDependency("golang_x_sys.zip", golangXPath)
+	err = unzipGoDependency("fs/golang_x_sys.zip", golangXPath)
 	if err != nil {
 		setupLog.Fatalf("Failed to unzip go dependency: %v", err)
 	}
@@ -220,7 +220,7 @@ func setupDataPath(appDir string) error {
 		setupLog.Infof("Creating data directory: %s", dataDir)
 		os.MkdirAll(dataDir, 0700)
 	}
-	hostingDll, err := assetsFs.ReadFile("dll/HostingCLRx64.dll")
+	hostingDll, err := assetsFs.ReadFile("fs/dll/HostingCLRx64.dll")
 	if err != nil {
 		setupLog.Info("failed to find the dll")
 		return err
@@ -229,19 +229,19 @@ func setupDataPath(appDir string) error {
 	return err
 }
 
-func unzipGoDependency(fileName string, targetPath string) error {
-	setupLog.Infof("Unpacking go dependency %s -> %s", fileName, targetPath)
+func unzipGoDependency(fsPath string, targetPath string) error {
+	setupLog.Infof("Unpacking go dependency %s -> %s", fsPath, targetPath)
 
 	appDir := GetRootAppDir()
-	goDep, err := assetsFs.ReadFile(fileName)
+	goDep, err := assetsFs.ReadFile(fsPath)
 	if err != nil {
-		setupLog.Infof("static asset not found: %s", fileName)
+		setupLog.Infof("static asset not found: %s", fsPath)
 		return err
 	}
 
-	goDepZipPath := path.Join(appDir, fileName)
+	goDepZipPath := path.Join(appDir, path.Base(fsPath))
 	defer os.Remove(goDepZipPath)
-	ioutil.WriteFile(goDepZipPath, goDep, 0644)
+	ioutil.WriteFile(goDepZipPath, goDep, 0600)
 	_, err = unzip(goDepZipPath, targetPath)
 	if err != nil {
 		setupLog.Infof("Failed to unzip file %s -> %s", goDepZipPath, appDir)
@@ -252,13 +252,13 @@ func unzipGoDependency(fileName string, targetPath string) error {
 }
 
 func setupCodenames(appDir string) error {
-	nouns, err := assetsFs.ReadFile("nouns.txt")
+	nouns, err := assetsFs.ReadFile("fs/nouns.txt")
 	if err != nil {
 		setupLog.Infof("nouns.txt asset not found")
 		return err
 	}
 
-	adjectives, err := assetsFs.ReadFile("adjectives.txt")
+	adjectives, err := assetsFs.ReadFile("fs/adjectives.txt")
 	if err != nil {
 		setupLog.Infof("adjectives.txt asset not found")
 		return err
