@@ -31,9 +31,8 @@ import (
 	"strings"
 
 	ver "github.com/bishopfox/sliver/client/version"
+	protobufs "github.com/bishopfox/sliver/protobuf"
 	"github.com/bishopfox/sliver/server/log"
-
-	"github.com/gobuffalo/packr"
 )
 
 const (
@@ -47,9 +46,6 @@ const (
 
 var (
 	setupLog = log.NamedLogger("assets", "setup")
-
-	assetsBox   = packr.NewBox("../../assets")
-	protobufBox = packr.NewBox("../../protobuf")
 )
 
 // GetRootAppDir - Get the Sliver app dir, default is: ~/.sliver/
@@ -113,7 +109,7 @@ func Setup(force bool) {
 
 // English - Extracts the english dictionary for the english encoder
 func English() []string {
-	rawEnglish, err := assetsBox.Find("english.txt")
+	rawEnglish, err := assetsFs.ReadFile("english.txt")
 	if err != nil {
 		return []string{}
 	}
@@ -134,9 +130,10 @@ func setupGo(appDir string) error {
 	os.MkdirAll(goRootPath, 0700)
 
 	// Go compiler and stdlib
-	goZip, err := assetsBox.Find(path.Join(runtime.GOOS, "go.zip"))
+	goZipFSPath := path.Join(runtime.GOOS, runtime.GOARCH, "go.zip")
+	goZip, err := assetsFs.ReadFile(goZipFSPath)
 	if err != nil {
-		setupLog.Info("static asset not found: go.zip")
+		setupLog.Errorf("static asset not found: %s", goZipFSPath)
 		return err
 	}
 
@@ -149,7 +146,7 @@ func setupGo(appDir string) error {
 		return err
 	}
 
-	goSrcZip, err := assetsBox.Find("src.zip")
+	goSrcZip, err := assetsFs.ReadFile("src.zip")
 	if err != nil {
 		setupLog.Info("static asset not found: src.zip")
 		return err
@@ -176,12 +173,12 @@ func SetupGoPath(goPathSrc string) error {
 	}
 
 	// Sliver PB
-	sliverpbGoSrc, err := protobufBox.Find("sliverpb/sliver.pb.go")
+	sliverpbGoSrc, err := protobufs.FS.ReadFile("sliverpb/sliver.pb.go")
 	if err != nil {
 		setupLog.Info("static asset not found: sliver.pb.go")
 		return err
 	}
-	sliverpbConstSrc, err := protobufBox.Find("sliverpb/constants.go")
+	sliverpbConstSrc, err := protobufs.FS.ReadFile("sliverpb/constants.go")
 	if err != nil {
 		setupLog.Info("static asset not found: constants.go")
 		return err
@@ -192,7 +189,7 @@ func SetupGoPath(goPathSrc string) error {
 	ioutil.WriteFile(path.Join(sliverpbDir, "sliver.pb.go"), sliverpbConstSrc, 0644)
 
 	// Common PB
-	commonpbSrc, err := protobufBox.Find("commonpb/common.pb.go")
+	commonpbSrc, err := protobufs.FS.ReadFile("commonpb/common.pb.go")
 	if err != nil {
 		setupLog.Info("static asset not found: common.pb.go")
 		return err
@@ -203,12 +200,12 @@ func SetupGoPath(goPathSrc string) error {
 
 	// GOPATH 3rd party dependencies
 	protobufPath := path.Join(goPathSrc, "github.com", "golang")
-	err = unzipGoDependency("protobuf.zip", protobufPath, assetsBox)
+	err = unzipGoDependency("protobuf.zip", protobufPath)
 	if err != nil {
 		setupLog.Fatalf("Failed to unzip go dependency: %v", err)
 	}
 	golangXPath := path.Join(goPathSrc, "golang.org", "x")
-	err = unzipGoDependency("golang_x_sys.zip", golangXPath, assetsBox)
+	err = unzipGoDependency("golang_x_sys.zip", golangXPath)
 	if err != nil {
 		setupLog.Fatalf("Failed to unzip go dependency: %v", err)
 	}
@@ -223,7 +220,7 @@ func setupDataPath(appDir string) error {
 		setupLog.Infof("Creating data directory: %s", dataDir)
 		os.MkdirAll(dataDir, 0700)
 	}
-	hostingDll, err := assetsBox.Find("dll/HostingCLRx64.dll")
+	hostingDll, err := assetsFs.ReadFile("dll/HostingCLRx64.dll")
 	if err != nil {
 		setupLog.Info("failed to find the dll")
 		return err
@@ -232,11 +229,11 @@ func setupDataPath(appDir string) error {
 	return err
 }
 
-func unzipGoDependency(fileName string, targetPath string, assetsBox packr.Box) error {
+func unzipGoDependency(fileName string, targetPath string) error {
 	setupLog.Infof("Unpacking go dependency %s -> %s", fileName, targetPath)
 
 	appDir := GetRootAppDir()
-	goDep, err := assetsBox.Find(fileName)
+	goDep, err := assetsFs.ReadFile(fileName)
 	if err != nil {
 		setupLog.Infof("static asset not found: %s", fileName)
 		return err
@@ -255,13 +252,13 @@ func unzipGoDependency(fileName string, targetPath string, assetsBox packr.Box) 
 }
 
 func setupCodenames(appDir string) error {
-	nouns, err := assetsBox.Find("nouns.txt")
+	nouns, err := assetsFs.ReadFile("nouns.txt")
 	if err != nil {
 		setupLog.Infof("nouns.txt asset not found")
 		return err
 	}
 
-	adjectives, err := assetsBox.Find("adjectives.txt")
+	adjectives, err := assetsFs.ReadFile("adjectives.txt")
 	if err != nil {
 		setupLog.Infof("adjectives.txt asset not found")
 		return err

@@ -30,7 +30,8 @@ require (
 	golang.org/x/crypto v0.0.0-20201116153603-4be66e5b6582
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
 	golang.org/x/sys v0.0.0-20201116194326-cc9327a14d48
-	golang.org/x/tools v0.0.0-20201116182000-1d699438d2cf
+	golang.org/x/tools v0.0.0-20201217163546-c88dec5c6b05
+	golang.org/x/tools/gopls v0.6.1 // indirect
 	google.golang.org/grpc v1.33.2
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect

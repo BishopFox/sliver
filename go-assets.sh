@@ -50,13 +50,13 @@ if ! [ -x "$(command -v tar)" ]; then
 fi
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+OUTPUT_DIR="$REPO_DIR/server/assets/fs"
 WORK_DIR=`mktemp -d`
 
 echo "-----------------------------------------------------------------"
 echo $WORK_DIR
 echo "-----------------------------------------------------------------"
 cd $WORK_DIR
-mkdir -p $REPO_DIR/assets/
 
 # --- Darwin (amd64) --- 
 curl --output go$GO_VER.darwin-$GO_ARCH_1.tar.gz https://dl.google.com/go/go$GO_VER.darwin-$GO_ARCH_1.tar.gz
@@ -70,12 +70,12 @@ rm -f ./pkg/tool/darwin_$GO_ARCH_1/doc
 rm -f ./pkg/tool/darwin_$GO_ARCH_1/tour
 rm -f ./pkg/tool/darwin_$GO_ARCH_1/test2json
 cd ..
-cp -vv src.zip $REPO_DIR/assets/src.zip
+cp -vv src.zip $OUTPUT_DIR/src.zip
 rm -f src.zip
 
 zip -r darwin-go.zip ./go
-mkdir -p $REPO_DIR/assets/darwin/$GO_ARCH_1
-cp -vv darwin-go.zip $REPO_DIR/assets/darwin/$GO_ARCH_1/go.zip
+mkdir -p $OUTPUT_DIR/darwin/$GO_ARCH_1
+cp -vv darwin-go.zip $OUTPUT_DIR/darwin/$GO_ARCH_1/go.zip
 
 rm -rf ./go
 rm -f darwin-go.zip go$GO_VER.darwin-$GO_ARCH_1.tar.gz
@@ -92,12 +92,12 @@ rm -f ./pkg/tool/darwin_$GO_ARCH_2/doc
 rm -f ./pkg/tool/darwin_$GO_ARCH_2/tour
 rm -f ./pkg/tool/darwin_$GO_ARCH_2/test2json
 cd ..
-cp -vv src.zip $REPO_DIR/assets/src.zip
+cp -vv src.zip $OUTPUT_DIR/src.zip
 rm -f src.zip
 
 zip -r darwin-go.zip ./go
-mkdir -p $REPO_DIR/assets/darwin/$GO_ARCH_2
-cp -vv darwin-go.zip $REPO_DIR/assets/darwin/$GO_ARCH_2/go.zip
+mkdir -p $OUTPUT_DIR/darwin/$GO_ARCH_2
+cp -vv darwin-go.zip $OUTPUT_DIR/darwin/$GO_ARCH_2/go.zip
 
 rm -rf ./go
 rm -f darwin-go.zip go$GO_VER.darwin-$GO_ARCH_2.tar.gz
@@ -113,8 +113,8 @@ rm -f ./pkg/tool/linux_$GO_ARCH_1/tour
 rm -f ./pkg/tool/linux_$GO_ARCH_1/test2json
 cd ..
 zip -r linux-go.zip ./go
-mkdir -p $REPO_DIR/assets/linux/$GO_ARCH_1
-cp -vv linux-go.zip $REPO_DIR/assets/linux/$GO_ARCH_1/go.zip
+mkdir -p $OUTPUT_DIR/linux/$GO_ARCH_1
+cp -vv linux-go.zip $OUTPUT_DIR/linux/$GO_ARCH_1/go.zip
 rm -rf ./go
 rm -f linux-go.zip go$GO_VER.linux-$GO_ARCH_1.tar.gz
 
@@ -129,8 +129,8 @@ rm -f ./pkg/tool/windows_$GO_ARCH_1/tour.exe
 rm -f ./pkg/tool/windows_$GO_ARCH_1/test2json.exe
 cd ..
 zip -r windows-go.zip ./go
-mkdir -p $REPO_DIR/assets/windows/$GO_ARCH_1
-cp -vv windows-go.zip $REPO_DIR/assets/windows/$GO_ARCH_1/go.zip
+mkdir -p $OUTPUT_DIR/windows/$GO_ARCH_1
+cp -vv windows-go.zip $OUTPUT_DIR/windows/$GO_ARCH_1/go.zip
 rm -rf ./go
 rm -f windows-go.zip go$GO_VER.windows-$GO_ARCH_1.zip
 
@@ -145,13 +145,13 @@ unzip $PROTOBUF_COMMIT.zip
 rm -f $PROTOBUF_COMMIT.zip
 mv protobuf-$PROTOBUF_COMMIT protobuf
 zip -r protobuf.zip ./protobuf
-cp -vv protobuf.zip $REPO_DIR/assets/protobuf.zip
+cp -vv protobuf.zip $OUTPUT_DIR/protobuf.zip
 
 curl -L --output $GOLANG_SYS_COMMIT.tar.gz https://github.com/golang/sys/archive/$GOLANG_SYS_COMMIT.tar.gz
 tar xfv $GOLANG_SYS_COMMIT.tar.gz
 rm -f $GOLANG_SYS_COMMIT.tar.gz
 mv sys-$GOLANG_SYS_COMMIT sys
-zip -r $REPO_DIR/assets/golang_x_sys.zip sys
+zip -r $OUTPUT_DIR/golang_x_sys.zip sys
 
 # end
 echo -e "clean up: $WORK_DIR"
