@@ -47,10 +47,11 @@ if ! [ -x "$(command -v tar)" ]; then
 fi
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+OUTPUT_DIR=$REPO_DIR/server/assets/fs
 WORK_DIR=`mktemp -d`
 
 echo "-----------------------------------------------------------------"
-echo $WORK_DIR
+echo "$WORK_DIR (Output: $OUTPUT_DIR)"
 echo "-----------------------------------------------------------------"
 cd $WORK_DIR
 
