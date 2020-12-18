@@ -22,9 +22,10 @@ sliver-server-windows.zip
 
 # Large static assets
 assets/*.zip
-assets/darwin/*.zip
-assets/linux/*.zip
-assets/windows/*.zip
+assets/darwin/amd64/
+assets/darwin/arm64/
+assets/linux/amd64/
+assets/windows/amd64/
 
 # Binaries for programs and plugins
 *.exe

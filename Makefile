@@ -150,9 +150,10 @@ packr:
 
 .PHONY: clean-all
 clean-all: clean
-	rm -f ./assets/darwin/go.zip
-	rm -f ./assets/windows/go.zip
-	rm -f ./assets/linux/go.zip
+	rm -rf ./assets/darwin/amd64
+	rm -rf ./assets/darwin/arm64
+	rm -rf ./assets/windows/amd64
+	rm -rf ./assets/linux/amd64
 	rm -f ./assets/*.zip
 
 .PHONY: clean
