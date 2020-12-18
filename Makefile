@@ -6,6 +6,22 @@ GO ?= go
 ENV = CGO_ENABLED=1
 TAGS = -tags osusergo,netgo,sqlite_omit_load_extension
 
+#
+# Version Information
+#
+VERSION = $(shell git describe --abbrev=0)
+COMPILED_AT = $(shell date +%s)
+RELEASES_URL = https://api.github.com/repos/BishopFox/sliver/releases
+PKG = github.com/bishopfox/sliver/client/version
+GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
+GIT_COMMIT = $(shell git rev-parse HEAD)
+LDFLAGS = -ldflags "-s -w \
+	-X $(PKG).Version=$(VERSION) \
+	-X $(PKG).CompiledAt=$(COMPILED_AT) \
+	-X $(PKG).GithubReleasesURL=$(RELEASES_URL) \
+	-X $(PKG).GitCommit=$(GIT_COMMIT) \
+	-X $(PKG).GitDirty=$(GIT_DIRTY)"
+
 
 #
 # Prerequisites 
@@ -58,23 +74,6 @@ endif
 
 endif 
 # *** End Linux ***
-
-#
-# Version Information
-#
-VERSION = 1.1.2
-COMPILED_AT = $(shell date +%s)
-RELEASES_URL = https://api.github.com/repos/BishopFox/sliver/releases
-PKG = github.com/bishopfox/sliver/client/version
-GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
-GIT_COMMIT = $(shell git rev-parse HEAD)
-LDFLAGS = -ldflags "-s -w \
-	-X $(PKG).Version=$(VERSION) \
-	-X $(PKG).CompiledAt=$(COMPILED_AT) \
-	-X $(PKG).GithubReleasesURL=$(RELEASES_URL) \
-	-X $(PKG).GitCommit=$(GIT_COMMIT) \
-	-X $(PKG).GitDirty=$(GIT_DIRTY)"
-
 
 #
 # Targets

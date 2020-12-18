@@ -682,6 +682,20 @@ func newProfile(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 }
 
+func rmProfile(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	if len(ctx.Args) < 1 {
+		fmt.Printf(Warn+"Invalid implant name, see `%s %s --help`\n", consts.ProfilesStr, consts.RmStr)
+		return
+	}
+	_, err := rpc.DeleteImplantProfile(context.Background(), &clientpb.DeleteReq{
+		Name: ctx.Args[0],
+	})
+	if err != nil {
+		fmt.Printf(Warn+"Failed to delete profile %s\n", err)
+		return
+	}
+}
+
 func getImplantProfiles(rpc rpcpb.SliverRPCClient) []*clientpb.ImplantProfile {
 	pbProfiles, err := rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {

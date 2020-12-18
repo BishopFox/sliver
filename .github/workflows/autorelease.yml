@@ -48,6 +48,9 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
 
+    - name: Git Fetch Tags
+      run: git fetch --prune --unshallow --tags -f
+
     - name: Go Assets
       run: ./go-assets.sh
 
@@ -107,6 +110,9 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
 
+    - name: Git Fetch Tags
+      run: git fetch --prune --unshallow --tags -f
+
     - name: Go Assets
       run: ./go-assets.sh
 
@@ -133,25 +139,23 @@ jobs:
       with:
         path: ./artifacts
 
-    - run: ls -lah ./artifacts && ls -alh ./artifacts/linux/
-
     # Linux
     - name: Package Linux
       run: |
-        zip ./release/sliver-server_linux.zip ./artifacts/linux/sliver-server
-        zip ./release/sliver-client_linux.zip ./artifacts/linux/sliver-client
+        zip -j ./release/sliver-server_linux.zip ./artifacts/linux/sliver-server
+        zip -j ./release/sliver-client_linux.zip ./artifacts/linux/sliver-client
 
     # Windows
     - name: Package Windows
       run: |
-        zip ./release/sliver-server_windows.zip ./artifacts/windows/sliver-server.exe
-        zip ./release/sliver-client_windows.zip ./artifacts/windows/sliver-client.exe
+        zip -j ./release/sliver-server_windows.zip ./artifacts/windows/sliver-server.exe
+        zip -j ./release/sliver-client_windows.zip ./artifacts/windows/sliver-client.exe
 
     # MacOS
     - name: Package MacOS
       run: |
-        zip ./release/sliver-server_macos.zip ./artifacts/macos/sliver-server
-        zip ./release/sliver-client_macos.zip ./artifacts/macos/sliver-client
+        zip -j ./release/sliver-server_macos.zip ./artifacts/macos/sliver-server
+        zip -j ./release/sliver-client_macos.zip ./artifacts/macos/sliver-client
   
     - name: "Publish Release"
       uses: "marvinpinto/action-automatic-releases@latest"

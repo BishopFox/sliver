@@ -72,7 +72,13 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	name := path.Base(req.Config.GetName())
 	shellcode, err := getSliverShellcode(name)
 	if err != nil {
-		_, config := generate.ImplantConfigFromProtobuf(req.Config)
+		name, config := generate.ImplantConfigFromProtobuf(req.Config)
+		if name == "" {
+			name, err = generate.GetCodename()
+			if err != nil {
+				return nil, err
+			}
+		}
 		config.Format = clientpb.ImplantConfig_SHELLCODE
 		config.ObfuscateSymbols = false
 		shellcodePath, err := generate.SliverShellcode(name, config)

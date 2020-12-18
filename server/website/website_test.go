@@ -111,7 +111,7 @@ func TestContentMap(t *testing.T) {
 		t.Error(err)
 	}
 
-	contentMap, err := MapContent(website1)
+	contentMap, err := MapContent(website1, true)
 	if err != nil {
 		t.Error(err)
 	}

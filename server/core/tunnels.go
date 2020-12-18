@@ -44,11 +44,16 @@ var (
 // with an identifier, these tunnels are full duplex. The server doesn't really
 // care what data gets passed back and forth it just facilitates the connection
 type Tunnel struct {
-	ID          uint64
-	SessionID   uint32
-	ToImplant   chan []byte
-	FromImplant chan []byte
-	Client      rpcpb.SliverRPC_TunnelDataServer
+	ID        uint64
+	SessionID uint32
+
+	ToImplant         chan []byte
+	ToImplantSequence uint64
+
+	FromImplant         chan *sliverpb.TunnelData
+	FromImplantSequence uint64
+
+	Client rpcpb.SliverRPC_TunnelDataServer
 }
 
 type tunnels struct {
@@ -63,7 +68,7 @@ func (t *tunnels) Create(sessionID uint32) *Tunnel {
 		ID:          tunnelID,
 		SessionID:   session.ID,
 		ToImplant:   make(chan []byte),
-		FromImplant: make(chan []byte),
+		FromImplant: make(chan *sliverpb.TunnelData),
 	}
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
