@@ -1,3 +1,5 @@
+// +build server
+
 package assets
 
 import "embed"

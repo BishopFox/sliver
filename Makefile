@@ -32,7 +32,7 @@ K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
 
 SED_INPLACE := sed -i
-STATIC_TARGET := static-linux
+STATIC_TARGET := linux
 
 UNAME_S := $(shell uname -s)
 UNAME_P := $(shell uname -p)
@@ -43,17 +43,13 @@ CROSS_COMPILERS = x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++
 # *** Start Darwin ***
 ifeq ($(UNAME_S),Darwin)
 	SED_INPLACE := sed -i ''
-	STATIC_TARGET := static-macos
+	STATIC_TARGET := macos
+
 ifeq ($(UNAME_P),arm)
 	ENV += GOARCH=arm64
 endif
 
 ifeq ($(MAKECMDGOALS), windows)
-	K := $(foreach exec,$(CROSS_COMPILERS),\
-			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
-	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
-endif
-ifeq ($(MAKECMDGOALS), static-windows)
 	K := $(foreach exec,$(CROSS_COMPILERS),\
 			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
 	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
@@ -64,19 +60,12 @@ endif
 
 # *** Start Linux ***
 ifeq ($(UNAME_S),Linux)
-
 ifeq ($(MAKECMDGOALS), windows)
 	K := $(foreach exec,$(CROSS_COMPILERS),\
 			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
 	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
 endif
-ifeq ($(MAKECMDGOALS), static-windows)
-	K := $(foreach exec,$(CROSS_COMPILERS),\
-			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
-	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
 endif
-
-endif 
 # *** End Linux ***
 
 #
@@ -84,45 +73,23 @@ endif
 #
 .PHONY: default
 default: clean pb
-	$(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
-	$(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client ./client
+	$(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
+	$(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: macos
 macos: clean pb
-	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
-	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client ./client
+	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
+	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: linux
 linux: clean pb
-	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
-	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client ./client
+	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
+	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: windows
 windows: clean pb
-	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
-	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client.exe ./client
-
-
-#
-# Static Targets
-#
-.PHONY: static
-static: $(STATIC_TARGET)
-
-.PHONY: static-macos
-static-macos: clean pb
-	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
-	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client ./client
-
-.PHONY: static-windows
-static-windows: clean pb
-	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server.exe ./server
-	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o ./sliver-client.exe ./client
-
-.PHONY: static-linux
-static-linux: clean pb
-	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-server ./server
-	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS) $(LDFLAGS) -o sliver-client ./client
+	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server.exe ./server
+	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client.exe ./client
 
 .PHONY: pb
 pb:
