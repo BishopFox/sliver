@@ -37,7 +37,7 @@ import (
 	// {{if eq .Config.GOOS "windows"}}
 	"syscall"
 
-	"github.com/bishopfox/sliver/sliver/priv"
+	"github.com/bishopfox/sliver/implant/sliver/priv"
 	"golang.org/x/sys/windows"
 
 	// {{end}}
@@ -45,13 +45,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/bishopfox/sliver/implant/sliver/netstat"
+	"github.com/bishopfox/sliver/implant/sliver/procdump"
+	"github.com/bishopfox/sliver/implant/sliver/ps"
+	screen "github.com/bishopfox/sliver/implant/sliver/sc"
+	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/netstat"
-	"github.com/bishopfox/sliver/sliver/procdump"
-	"github.com/bishopfox/sliver/sliver/ps"
-	screen "github.com/bishopfox/sliver/sliver/sc"
-	"github.com/bishopfox/sliver/sliver/taskrunner"
 
 	"github.com/golang/protobuf/proto"
 )

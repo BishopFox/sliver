@@ -21,8 +21,8 @@ package handlers
 import (
 	"os"
 
+	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/transports"
 
 	// {{if .Config.IsSharedLib}}
 	// {{if eq .Config.GOOS "windows"}}

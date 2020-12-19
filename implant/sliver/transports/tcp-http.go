@@ -51,9 +51,9 @@ import (
 	"path"
 	"time"
 
+	"github.com/bishopfox/sliver/implant/sliver/encoders"
+	"github.com/bishopfox/sliver/implant/sliver/proxy"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/encoders"
-	"github.com/bishopfox/sliver/sliver/proxy"
 	"github.com/golang/protobuf/proto"
 )
 

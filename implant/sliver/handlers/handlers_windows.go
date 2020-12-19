@@ -23,13 +23,13 @@ import (
 	"log"
 	// {{end}}
 
+	"github.com/bishopfox/sliver/implant/sliver/pivots"
+	"github.com/bishopfox/sliver/implant/sliver/priv"
+	"github.com/bishopfox/sliver/implant/sliver/service"
+	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
+	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/pivots"
-	"github.com/bishopfox/sliver/sliver/priv"
-	"github.com/bishopfox/sliver/sliver/service"
-	"github.com/bishopfox/sliver/sliver/taskrunner"
-	"github.com/bishopfox/sliver/sliver/transports"
 
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/sys/windows"

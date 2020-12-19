@@ -35,12 +35,12 @@ import (
 
 	"syscall"
 	// {{if .Config.Evasion}}
-	"github.com/bishopfox/sliver/sliver/evasion"
-	"github.com/bishopfox/sliver/sliver/version"
+	"github.com/bishopfox/sliver/implant/sliver/evasion"
+	"github.com/bishopfox/sliver/implant/sliver/version"
 
 	// {{end}}
 
-	"github.com/bishopfox/sliver/sliver/syscalls"
+	"github.com/bishopfox/sliver/implant/sliver/syscalls"
 	"golang.org/x/sys/windows"
 )
 

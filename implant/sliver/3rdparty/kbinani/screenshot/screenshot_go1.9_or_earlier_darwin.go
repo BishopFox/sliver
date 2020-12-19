@@ -11,7 +11,7 @@ import (
 	"image"
 	"unsafe"
 
-	"github.com/bishopfox/sliver/sliver/3rdparty/kbinani/screenshot/internal/util"
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/kbinani/screenshot/internal/util"
 )
 
 func Capture(x, y, width, height int) (*image.RGBA, error) {

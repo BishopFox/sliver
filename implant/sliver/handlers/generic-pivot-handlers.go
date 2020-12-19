@@ -23,10 +23,10 @@ import (
 	"log"
 	// {{end}}
 
+	"github.com/bishopfox/sliver/implant/sliver/pivots"
+	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/pivots"
-	"github.com/bishopfox/sliver/sliver/transports"
 	"github.com/golang/protobuf/proto"
 )
 

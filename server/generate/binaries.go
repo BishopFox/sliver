@@ -438,7 +438,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		}
 		sliverGoCode := string(sliverGoCodeRaw)
 
-		// We need to correct for the "github.com/bishopfox/sliver/sliver/foo" imports, since Go
+		// We need to correct for the "github.com/bishopfox/sliver/implant/sliver/foo" imports, since Go
 		// doesn't allow relative imports and "sliver" is a subdirectory of
 		// the main "sliver" repo we need to fake this when coping the code
 		// to our per-compile "GOPATH"
@@ -458,7 +458,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		}
 		if dirName != "." {
 			// Add an extra "sliver" dir
-			dirPath := path.Join(sliverPkgDir, "sliver", dirName)
+			dirPath := path.Join(sliverPkgDir, "implant", "sliver", dirName)
 			if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 				buildLog.Infof("[mkdir] %#v", dirPath)
 				os.MkdirAll(dirPath, 0700)

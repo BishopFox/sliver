@@ -25,7 +25,7 @@ import (
 	//{{if .Config.Debug}}
 	"log"
 	//{{end}}
-	screen "github.com/bishopfox/sliver/sliver/3rdparty/kbinani/screenshot"
+	screen "github.com/bishopfox/sliver/implant/sliver/3rdparty/kbinani/screenshot"
 )
 
 // Capture - Retrieve the screenshot of the active displays

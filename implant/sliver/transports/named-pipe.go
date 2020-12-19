@@ -31,8 +31,8 @@ import (
 	"log"
 	// {{end}}
 
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/winio"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/3rdparty/winio"
 	"github.com/golang/protobuf/proto"
 )
 

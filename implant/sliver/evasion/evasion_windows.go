@@ -1,7 +1,7 @@
 package evasion
 
 import (
-	"github.com/bishopfox/sliver/sliver/syscalls"
+	"github.com/bishopfox/sliver/implant/sliver/syscalls"
 	"golang.org/x/sys/windows"
 
 	//{{if .Config.Debug}}

@@ -2,16 +2,15 @@ package screenshot
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"syscall"
-	"fmt"
 
 	"unsafe"
 
-	"github.com/bishopfox/sliver/sliver/3rdparty/kbinani/screenshot/internal/util"
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/kbinani/screenshot/internal/util"
 
-	
-	"github.com/bishopfox/sliver/sliver/syscalls"
+	"github.com/bishopfox/sliver/implant/sliver/syscalls"
 	"golang.org/x/sys/windows"
 )
 
@@ -34,7 +33,7 @@ func Capture(x, y, width, height int) (*image.RGBA, error) {
 	if hdc == 0 {
 		return nil, errors.New("GetDC failed")
 	}
-	defer syscalls.ReleaseDC(hwnd, hdc)  
+	defer syscalls.ReleaseDC(hwnd, hdc)
 
 	memory_device, _ := syscalls.CreateCompatibleDC(hdc)
 	if memory_device == 0 {
@@ -45,17 +44,17 @@ func Capture(x, y, width, height int) (*image.RGBA, error) {
 	bitmap, _ := syscalls.CreateCompatibleBitmap(hdc, width, height)
 
 	if bitmap == 0 {
-		msg := fmt.Sprintf("CreateCompatibleBitmap failed: %d %d %d",hdc,width,height)
+		msg := fmt.Sprintf("CreateCompatibleBitmap failed: %d %d %d", hdc, width, height)
 		return nil, errors.New(msg)
 	}
 	defer syscalls.DeleteObject(windows.Handle(bitmap))
 
 	var header syscalls.BITMAPINFOHEADER
-	header.BiSize = uint32(unsafe.Sizeof(header))	
+	header.BiSize = uint32(unsafe.Sizeof(header))
 	header.BiPlanes = 1
 	header.BiBitCount = 32
 	header.BiWidth = int32(width)
-	header.BiHeight = int32(-height)		
+	header.BiHeight = int32(-height)
 	header.BiCompression = 0
 	header.BiSizeImage = 0
 
@@ -74,7 +73,7 @@ func Capture(x, y, width, height int) (*image.RGBA, error) {
 	}
 	defer syscalls.SelectObject(memory_device, old)
 
-	ret, _ := syscalls.BitBlt(memory_device, 0, 0, uint32(width), uint32(height), hdc, uint32(x), uint32(y), syscalls.SRCCOPY) 
+	ret, _ := syscalls.BitBlt(memory_device, 0, 0, uint32(width), uint32(height), hdc, uint32(x), uint32(y), syscalls.SRCCOPY)
 	if ret == 0 {
 		return nil, errors.New("BitBlt failed")
 	}
@@ -118,7 +117,6 @@ func GetDisplayBounds(displayIndex int) image.Rectangle {
 		int(ctx.Rect.Left), int(ctx.Rect.Top),
 		int(ctx.Rect.Right), int(ctx.Rect.Bottom))
 }
-
 
 func enumDisplayMonitors(hdc windows.Handle, lprcClip *syscalls.RECT, lpfnEnum uintptr, dwData uintptr) bool {
 	ret, _, _ := syscall.Syscall6(funcEnumDisplayMonitors, 4,

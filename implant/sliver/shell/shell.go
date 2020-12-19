@@ -31,13 +31,13 @@ import (
 	// {{if ne .Config.GOOS "windows"}}
 	"runtime"
 
-	"github.com/bishopfox/sliver/sliver/shell/pty"
+	"github.com/bishopfox/sliver/implant/sliver/shell/pty"
 	// {{end}}
 
 	// {{if eq .Config.GOOS "windows"}}
 	"syscall"
 
-	"github.com/bishopfox/sliver/sliver/priv"
+	"github.com/bishopfox/sliver/implant/sliver/priv"
 	"golang.org/x/sys/windows"
 	// {{end}}
 )

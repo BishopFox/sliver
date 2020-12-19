@@ -3,7 +3,7 @@ package screenshot
 import (
 	"image"
 
-	"github.com/bishopfox/sliver/sliver/3rdparty/kbinani/screenshot/internal/xwindow"
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/kbinani/screenshot/internal/xwindow"
 )
 
 // Capture returns screen capture of specified desktop region.

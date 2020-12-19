@@ -28,13 +28,13 @@ import (
 
 	// {{if .Config.Evasion}}
 	// {{if eq .Config.GOARCH "amd64"}}
-	"github.com/bishopfox/sliver/sliver/evasion"
+	"github.com/bishopfox/sliver/implant/sliver/evasion"
 	// {{end}}
 	// {{end}}
 	"os"
 
-	"github.com/bishopfox/sliver/sliver/priv"
-	"github.com/bishopfox/sliver/sliver/syscalls"
+	"github.com/bishopfox/sliver/implant/sliver/priv"
+	"github.com/bishopfox/sliver/implant/sliver/syscalls"
 	"golang.org/x/sys/windows"
 )
 

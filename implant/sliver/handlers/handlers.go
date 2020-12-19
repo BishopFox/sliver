@@ -19,8 +19,8 @@ package handlers
 */
 
 import (
+	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/transports"
 )
 
 // RPCResponse - Request/response callback

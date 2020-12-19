@@ -26,9 +26,9 @@ import (
 	"log"
 	// {{end}}
 
+	"github.com/bishopfox/sliver/implant/sliver/shell"
+	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/shell"
-	"github.com/bishopfox/sliver/sliver/transports"
 
 	"github.com/golang/protobuf/proto"
 )

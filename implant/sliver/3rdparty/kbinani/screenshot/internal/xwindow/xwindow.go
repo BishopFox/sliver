@@ -5,12 +5,12 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/bishopfox/sliver/sliver/3rdparty/BurntSushi/xgb"
-	mshm "github.com/bishopfox/sliver/sliver/3rdparty/BurntSushi/xgb/shm"
-	"github.com/bishopfox/sliver/sliver/3rdparty/BurntSushi/xgb/xinerama"
-	"github.com/bishopfox/sliver/sliver/3rdparty/BurntSushi/xgb/xproto"
-	"github.com/bishopfox/sliver/sliver/3rdparty/gen2brain/shm"
-	"github.com/bishopfox/sliver/sliver/3rdparty/kbinani/screenshot/internal/util"
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/BurntSushi/xgb"
+	mshm "github.com/bishopfox/sliver/implant/sliver/3rdparty/BurntSushi/xgb/shm"
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/BurntSushi/xgb/xinerama"
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/BurntSushi/xgb/xproto"
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/gen2brain/shm"
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/kbinani/screenshot/internal/util"
 )
 
 func Capture(x, y, width, height int) (img *image.RGBA, e error) {
