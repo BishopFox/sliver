@@ -5,6 +5,6 @@ package assets
 import "embed"
 
 var (
-	//go:embed fs/empty.txt
+	//go:embed fs/english.txt
 	assetsFs embed.FS
 )
