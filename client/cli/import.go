@@ -1,8 +1,8 @@
-package main
+package cli
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2020  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -19,9 +19,29 @@ package main
 */
 
 import (
-	"github.com/bishopfox/sliver/client/cli"
+	"fmt"
+	"os"
+
+	"github.com/bishopfox/sliver/client/assets"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cli.Execute()
+var cmdImport = &cobra.Command{
+	Use:   "import",
+	Short: "Import a client configuration file",
+	Long:  `import [config files]`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if 0 < len(args) {
+			for _, arg := range args {
+				conf, err := assets.ReadConfig(arg)
+				if err != nil {
+					fmt.Printf("[!] %s\n", err)
+					os.Exit(3)
+				}
+				assets.SaveConfig(conf)
+			}
+		} else {
+			fmt.Printf("Missing config file path, see --help")
+		}
+	},
 }

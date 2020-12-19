@@ -1,8 +1,8 @@
-package main
+package cli
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2020  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -19,9 +19,17 @@ package main
 */
 
 import (
-	"github.com/bishopfox/sliver/client/cli"
+	"fmt"
+
+	"github.com/bishopfox/sliver/client/version"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cli.Execute()
+var cmdVersion = &cobra.Command{
+	Use:   "version",
+	Short: "Print version and exit",
+	Long:  ``,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("%s\n", version.FullVersion())
+	},
 }
