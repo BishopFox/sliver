@@ -77,6 +77,27 @@ cp -vv darwin-go.zip $OUTPUT_DIR/darwin/$GO_ARCH_1/go.zip
 rm -rf ./go
 rm -f darwin-go.zip go$GO_VER.darwin-$GO_ARCH_1.tar.gz
 
+# --- Darwin (arm64) --- 
+curl --output go$GO_VER.darwin-$GO_ARCH_2.tar.gz https://dl.google.com/go/go$GO_VER.darwin-$GO_ARCH_2.tar.gz
+tar xvf go$GO_VER.darwin-$GO_ARCH_2.tar.gz
+
+cd go
+rm -rf $BLOAT_FILES
+zip -r ../src.zip ./src  # Zip up /src we only need to do this once
+rm -rf ./src
+rm -f ./pkg/tool/darwin_$GO_ARCH_2/doc
+rm -f ./pkg/tool/darwin_$GO_ARCH_2/tour
+rm -f ./pkg/tool/darwin_$GO_ARCH_2/test2json
+cd ..
+cp -vv src.zip $OUTPUT_DIR/src.zip
+rm -f src.zip
+
+zip -r darwin-go.zip ./go
+mkdir -p $OUTPUT_DIR/darwin/$GO_ARCH_2
+cp -vv darwin-go.zip $OUTPUT_DIR/darwin/$GO_ARCH_2/go.zip
+
+rm -rf ./go
+rm -f darwin-go.zip go$GO_VER.darwin-$GO_ARCH_2.tar.gz
 
 # --- Linux --- 
 curl --output go$GO_VER.linux-amd64.tar.gz https://dl.google.com/go/go$GO_VER.linux-$GO_ARCH_1.tar.gz
