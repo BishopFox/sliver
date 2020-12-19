@@ -87,13 +87,6 @@ github.com/dlclark/regexp2/syntax
 github.com/fatih/color
 # github.com/go-sql-driver/mysql v1.5.0
 github.com/go-sql-driver/mysql
-# github.com/gobuffalo/envy v1.9.0
-github.com/gobuffalo/envy
-# github.com/gobuffalo/packd v0.3.0
-github.com/gobuffalo/packd
-github.com/gobuffalo/packd/internal/takeon/github.com/markbates/errx
-# github.com/gobuffalo/packr v1.30.1
-github.com/gobuffalo/packr
 # github.com/gofrs/uuid v3.3.0+incompatible
 github.com/gofrs/uuid
 # github.com/golang/protobuf v1.4.3
@@ -141,8 +134,6 @@ github.com/jackc/pgx/v4/stdlib
 github.com/jinzhu/inflection
 # github.com/jinzhu/now v1.1.1
 github.com/jinzhu/now
-# github.com/joho/godotenv v1.3.0
-github.com/joho/godotenv
 # github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 github.com/kballard/go-shellquote
 # github.com/mattn/go-colorable v0.1.8
@@ -161,10 +152,6 @@ github.com/miekg/dns
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
-# github.com/rogpeppe/go-internal v1.6.2
-github.com/rogpeppe/go-internal/modfile
-github.com/rogpeppe/go-internal/module
-github.com/rogpeppe/go-internal/semver
 # github.com/sirupsen/logrus v1.7.0
 github.com/sirupsen/logrus
 # github.com/spf13/cobra v1.1.1
@@ -216,7 +203,7 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
-# golang.org/x/tools v0.0.0-20201116182000-1d699438d2cf
+# golang.org/x/tools v0.0.0-20201217163546-c88dec5c6b05
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/buildutil
 golang.org/x/tools/go/internal/cgo
