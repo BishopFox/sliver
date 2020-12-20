@@ -48,9 +48,15 @@ import (
 var (
 	buildLog = log.NamedLogger("generate", "build")
 	// Fix #67: use an arch specific compiler
-	defaultMingwPath = map[string]string{
-		"386":   "/usr/bin/i686-w64-mingw32-gcc",
-		"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
+	defaultMingwPath = map[string]map[string]string{
+		"linux": {
+			"386":   "/usr/bin/i686-w64-mingw32-gcc",
+			"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
+		},
+		"darwin": {
+			"386":   "/usr/local/bin/i686-w64-mingw32-gcc",
+			"amd64": "/usr/local/bin/x86_64-w64-mingw32-gcc",
+		},
 	}
 	// SupportedCompilerTargets - Supported compiler targets
 	SupportedCompilerTargets = map[string]bool{
@@ -468,9 +474,9 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		}
 		sliverGoCode := string(sliverGoCodeRaw)
 
-		// We need to correct for the "github.com/bishopfox/sliver/implant/sliver/foo" imports, since Go
-		// doesn't allow relative imports and "sliver" is a subdirectory of
-		// the main "sliver" repo we need to fake this when coping the code
+		// We need to correct for the "github.com/bishopfox/sliver/implant/sliver/foo" imports,
+		// since Go doesn't allow relative imports and "sliver" is a subdirectory of
+		// the main "sliver" repo we need to fake this when copying the code
 		// to our per-compile "GOPATH"
 		var sliverCodePath string
 		dirName := filepath.Dir(boxName)
@@ -568,8 +574,10 @@ func getCCompiler(arch string) string {
 		compiler = os.Getenv(SliverCC32EnvVar)
 	}
 	if compiler == "" {
-		if compiler, found = defaultMingwPath[arch]; !found {
-			compiler = defaultMingwPath["amd64"] // should not happen, but just in case ...
+		if _, ok := defaultMingwPath[runtime.GOOS]; ok {
+			if compiler, found = defaultMingwPath[runtime.GOOS][arch]; !found {
+				buildLog.Warnf("No default for arch %s on %s", arch, runtime.GOOS)
+			}
 		}
 	}
 	if _, err := os.Stat(compiler); os.IsNotExist(err) {
