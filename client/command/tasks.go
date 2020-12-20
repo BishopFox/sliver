@@ -214,13 +214,12 @@ func migrate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Config:  config,
 		Request: ActiveSession.Request(ctx),
 	})
-
+	ctrl <- true
+	<-ctrl
 	if err != nil {
 		fmt.Printf(Warn+"Error: %v", err)
 		return
 	}
-	ctrl <- true
-	<-ctrl
 	if !migrate.Success {
 		fmt.Printf(Warn+"%s\n", migrate.GetResponse().GetErr())
 		return
