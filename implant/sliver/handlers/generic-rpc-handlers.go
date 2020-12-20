@@ -29,10 +29,6 @@ import (
 	"log"
 	// {{end}}
 
-	// {{if eq .Config.GOOS "windows"}}
-
-	// {{end}}
-
 	"os"
 
 	"github.com/bishopfox/sliver/implant/sliver/netstat"

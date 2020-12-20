@@ -340,7 +340,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Help:     "Execute a program on the remote system",
 		LongHelp: help.GetHelpFor(consts.ExecuteStr),
 		Flags: func(f *grumble.Flags) {
+			f.Bool("T", "token", false, "execute command with current token (windows only)")
 			f.Bool("s", "silent", false, "don't print the command output")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {

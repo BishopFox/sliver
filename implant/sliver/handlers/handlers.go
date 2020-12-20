@@ -28,10 +28,6 @@ import (
 	"io/ioutil"
 	"os/exec"
 
-	//{{if eq .Config.GOOS "windows"}}
-	"syscall"
-	//{{end}}
-
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
@@ -348,12 +344,6 @@ func executeHandler(data []byte, resp RPCResponse) {
 
 	execResp := &sliverpb.Execute{}
 	cmd := exec.Command(execReq.Path, execReq.Args...)
-
-	//{{if eq .Config.GOOS "windows"}}
-	cmd.SysProcAttr = &windows.SysProcAttr{
-		Token: syscall.Token(priv.CurrentToken),
-	}
-	//{{end}}
 
 	if execReq.Output {
 		res, err := cmd.CombinedOutput()

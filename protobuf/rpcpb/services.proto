@@ -78,6 +78,7 @@ service SliverRPC {
     rpc ExecuteAssembly(sliverpb.ExecuteAssemblyReq) returns (sliverpb.ExecuteAssembly);
     rpc Migrate(clientpb.MigrateReq) returns (sliverpb.Migrate);
     rpc Execute(sliverpb.ExecuteReq) returns (sliverpb.Execute);
+    rpc ExecuteToken(sliverpb.ExecuteTokenReq) returns (sliverpb.Execute);
     rpc Sideload(sliverpb.SideloadReq) returns (sliverpb.Sideload);
     rpc SpawnDll(sliverpb.SpawnDllReq) returns (sliverpb.SpawnDll);
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);

