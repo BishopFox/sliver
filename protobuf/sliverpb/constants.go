@@ -178,6 +178,33 @@ const (
 	MsgEnvReq
 	// MsgEnvInfo - Response to environment variable request
 	MsgEnvInfo
+
+	// MsgHandlerStartReq - Request to start a handler on an implant.
+	MsgHandlerStartReq
+	// MsgHandlerStart - Response
+	MsgHandlerStart
+	// MsgHandlerCloseReq - Request to close a handler on an implant.
+	MsgHandlerCloseReq
+	// MsgHandlerStop - Response
+	MsgHandlerClose
+
+	// MsgRoutesReq - Get all active network routes.
+	MsgRoutesReq
+	// MsgAddRouteReq - Add a network route.
+	MsgAddRouteReq
+	// MsgRmRouteReq - Remove an active network route.
+	MsgRmRouteReq
+
+	// MsgMuxTunnelReq - Open a multiplexing tunnel through the session RPC.
+	MsgMuxTunnelOpenReq
+	// MsgMuxTunnel - Response
+	MsgMuxTunnelOpen
+	// MsgMuxTunnelData - Data passed in the mux tunnel
+	MsgMuxTunnelData
+	// MsgMuxTunnelCloseReq - Close the mux tunnel
+	MsgMuxTunnelCloseReq
+	// MsgMuxTunnelClose - Response
+	MsgMuxTunnelClose
 )
 
 // MsgNumber - Get a message number of type
@@ -335,6 +362,32 @@ func MsgNumber(request proto.Message) uint32 {
 	case *EnvInfo:
 		return MsgEnvInfo
 
+	case *HandlerStartReq:
+		return MsgHandlerStartReq
+	case *HandlerStart:
+		return MsgHandlerStart
+	case *HandlerCloseReq:
+		return MsgHandlerCloseReq
+	case *HandlerClose:
+		return MsgHandlerClose
+
+	case *RoutesReq:
+		return MsgRoutesReq
+	case *AddRouteReq:
+		return MsgAddRouteReq
+	case *RmRouteReq:
+		return MsgRmRouteReq
+
+	case *MuxTunnelOpenReq:
+		return MsgMuxTunnelOpenReq
+	case *MuxTunnelOpen:
+		return MsgMuxTunnelOpen
+	case *MuxTunnelData:
+		return MsgMuxTunnelData
+	case *MuxTunnelCloseReq:
+		return MsgMuxTunnelCloseReq
+	case *MuxTunnelClose:
+		return MsgMuxTunnelClose
 	}
 	return uint32(0)
 }

@@ -148,6 +148,11 @@ const (
 	MakeTokenStr  = "make-token"
 	GetEnvStr     = "getenv"
 
+	RouteStr       = "route"
+	RoutePrintStr  = "print"
+	RouteAddStr    = "add"
+	RouteRemoveStr = "remove"
+
 	LicensesStr = "licenses"
 )
 

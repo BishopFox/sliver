@@ -1402,4 +1402,71 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+
+	// app.AddCommand(&grumble.Command{
+	route := &grumble.Command{
+		Name:     consts.RouteStr,
+		Help:     "Manage network routes",
+		LongHelp: help.GetHelpFor(consts.RouteStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			routes(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+
+	route.AddCommand(&grumble.Command{
+		Name:     consts.RouteAddStr,
+		Help:     "Add a network route",
+		LongHelp: help.GetHelpFor(consts.RouteStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "network", "", "IP network in CIDR notation (ex: 192.168.1.1/24)")
+			f.String("m", "netmask", "", "(Optional) Precise network mask (ex: 255.255.255.0)")
+			f.String("s", "session-id", "", "(Optional) Bind this route network to a precise implant, in case two routes might collide.")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			addRoute(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	route.AddCommand(&grumble.Command{
+		Name:     consts.RouteRemoveStr,
+		Help:     "Remove one or more network routes (with filters)",
+		LongHelp: help.GetHelpFor(consts.RouteStr),
+		Flags: func(f *grumble.Flags) {
+			f.StringL("network", "", "IP or CIDR to filter")
+			f.StringL("id", "", "Route ID")
+			f.Bool("a", "active", false, "Show only active routes")
+			f.BoolL("close", false, "Close all connections forwarded through the route")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			removeRoute(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	route.AddCommand(&grumble.Command{
+		Name:     consts.RoutePrintStr,
+		Help:     "Print network routes (with filters)",
+		LongHelp: help.GetHelpFor(consts.RouteStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "network", "", "IP or CIDR to filter")
+			f.Bool("a", "active", false, "Show only active routes")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			routes(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	app.AddCommand(route)
 }

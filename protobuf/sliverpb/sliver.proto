@@ -544,3 +544,180 @@ message PivotData {
   uint32 PivotID = 12;
   bytes Data = 2;
 }
+
+
+// Handlers --------------------------------------------------------------------
+
+// Handler direction
+enum HandlerType {
+        Bind = 0;
+        Reverse = 1;
+}
+
+// Application-layer protocol of traffic
+enum ApplicationProtocol {
+        HTTP = 0;
+        HTTPS = 1;
+        DNS = 2;
+        QUIC = 3; 
+        NamedPipe = 4;
+        FTP = 5;
+        SMTP = 6;
+        Socks5 = 7;
+        MTLS = 10;
+}
+
+// Transport-layer protocol of traffic
+enum TransportProtocol {
+        IP = 0;
+        TCP = 1;
+        UDP = 2;
+}
+
+// A network handler that is being used by implants to get necessary
+// handler information, including more specific details. This helps reducing the
+// number of handlers to add for an implant, and only a packge will handle these.
+message Handler {
+  HandlerType Type = 1;
+  TransportProtocol Transport = 2;
+  ApplicationProtocol Application = 3;
+
+  string RHost = 4;
+  int32 RPort = 5;
+  string LHost = 6;
+  int32 LPort = 7;
+
+  string ID = 8; // A handler always has at least one ID 
+
+  HandlerSecurity Security = 9;
+}
+
+// Any security details, such as encryption keys and auth.
+message HandlerSecurity {
+  bytes CACertPEM = 4;
+  bytes CertPEM = 5;
+  bytes KeyPEM = 6;
+}
+
+// The server requests an implant/the server to start a handler.
+message HandlerStartReq {
+  Handler Handler = 1;
+  commonpb.Request Request = 9;
+}
+
+// Response
+message HandlerStart {
+  bool Success = 1;
+  bool IsPlatformCompatible = 2;
+  commonpb.Response Response = 9;
+}
+
+// The server requests an implant/the server to stop a handler.
+message HandlerCloseReq {
+  Handler Handler = 1;
+  commonpb.Request Request = 9;
+}
+
+// Response
+message HandlerClose {
+  bool Success = 1;
+  bool IsPlatformCompatible = 2;
+  commonpb.Response Response = 9;
+}
+
+
+// Network Routes --------------------------------------------------------------
+
+message Route {
+  string ID = 1;
+  string IP = 2;
+  string IPNet = 3;
+  string Mask = 4;
+  Node Gateway = 5;
+  repeated Node Nodes = 6;
+  repeated ConnectionInfo Connections = 7;
+  uint32 SessionID = 8; // Used by consoles to specify.
+  string Timeout = 9;
+}
+
+// ConnectionInfo - network/src/dst of a connection routed/to be routed.
+message ConnectionInfo {
+  string ID = 1;
+  TransportProtocol Transport = 2;
+  ApplicationProtocol Application = 3;
+  string RHost = 4;
+  int32 RPort = 5;
+  string LHost = 6;
+  int32 LPort = 7;
+  int32  Timeout = 8;
+}
+
+message Node {
+  uint32 ID = 1;
+  string Name = 2;
+  string Host = 3;
+  string Hostname = 4;
+}
+
+message  RoutesReq {
+  string Addr = 1;
+  commonpb.Request Request = 9;
+}
+
+message Routes {
+  repeated Route Active = 1;    
+}
+
+message AddRouteReq {
+  Route Route = 1;
+  commonpb.Request Request = 9;
+}
+
+message AddRoute {
+  bool Success = 1;
+  commonpb.Response Response = 9;
+}
+
+message RmRouteReq {
+  Route Route = 1; 
+  bool Close = 2;
+  commonpb.Request Request = 9;
+}
+
+message RmRoute {
+  bool Success = 1;
+  string CloseError = 2;
+  commonpb.Response Response = 9;
+}
+
+
+// Comm routing & multiplexing ------------------------------------------------
+
+message CommTunnelOpenReq {
+  uint64 TunnelID = 1;
+  commonpb.Request Request = 9;
+}
+
+message CommTunnelOpen {
+  bool Success = 1;
+  commonpb.Response Response = 9;
+}
+
+message CommTunnelData {
+  bytes Data  = 1;
+  bool Closed = 2;
+  uint64 Sequence = 3;
+
+  uint64 TunnelID = 8 [jstype = JS_STRING];
+  uint32 SessionID = 9;
+}
+
+message CommTunnelCloseReq {
+  uint64 TunnelID = 1;
+  commonpb.Request Request = 9;
+}
+
+message CommTunnelClose {
+  bool Success = 1;
+  commonpb.Response Response = 9;
+}

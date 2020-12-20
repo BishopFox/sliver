@@ -72,6 +72,8 @@ var (
 		consts.ScreenshotStr: screenshotHelp,
 		consts.MakeTokenStr:  makeTokenHelp,
 		consts.GetEnvStr:     getEnvHelp,
+
+		consts.RouteStr: routesHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -393,6 +395,28 @@ The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows u
 [[.Bold]]About:[[.Normal]] Retrieve the environment variables for the current session. If no variable name is provided, lists all the environment variables.
 [[.Bold]]Example:[[.Normal]] getenv SHELL
 	`
+	routesHelp = `[[.Bold]]Command:[[.Normal]] route print|add|delete --options
+[[.Bold]]About:[[.Normal]] Manage network routes in use by the server and implants. 
+
+Commands:
+    print --filters  - Print active network routes information.
+    add  --opts      - Add a network route 
+    delete --opts    - Remove a network route.
+
+Print filters:
+    --network       - IP or CIDR to filter.
+    --active        - Show only active routes
+
+Add filters:
+    --network       - IP network in CIDR notation (ex: 192.168.1.1/24)
+    --netmask       - (Optional) Precise network mask (ex: 255.255.255.0)
+    --session-id    - (Optional) Bind this route network to a precise implant, in case two routes might collide.
+
+Delete filters:
+    --network       - IP network in CIDR notation (ex: 192.168.1.1/24)
+    --session-id    - (Optional) Bind this route network to a precise implant, in case two routes might collide.
+    --close         - Close all connections forwarded through this route (not portfwds, and handlers).
+`
 )
 
 const (

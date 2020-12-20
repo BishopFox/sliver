@@ -100,4 +100,10 @@ service SliverRPC {
 
     // *** Events ***
     rpc Events(commonpb.Empty) returns (stream clientpb.Event);
+
+    // *** Routes ***
+    rpc Routes(sliverpb.RoutesReq) returns (sliverpb.Routes);
+    rpc AddRoute(sliverpb.AddRouteReq) returns (sliverpb.AddRoute);
+    rpc RemoveRoute(sliverpb.RmRouteReq) returns (sliverpb.RmRoute);
+
 }
