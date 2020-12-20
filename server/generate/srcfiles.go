@@ -230,8 +230,42 @@ var (
 		"3rdparty/winio/pipe.go",
 		"3rdparty/winio/sd.go",
 		"3rdparty/winio/pkg/guid/guid.go",
+	}
 
-		// "go.mod",
+	// PURE GO only - For compiling to unsupported platforms
+	genericSrcFiles = []string{
+		"constants/constants.go",
 
+		"encoders/base64.go",
+		"encoders/combos.go",
+		"encoders/encoders.go",
+		"encoders/english-words.go",
+		"encoders/english.go",
+		"encoders/gzip.go",
+		"encoders/hex.go",
+		"encoders/images.go",
+
+		"handlers/handlers_default.go",
+		"handlers/handlers.go",
+
+		"limits/limits.go",
+		"limits/limits_default.go",
+
+		"pivots/named-pipe.go",
+		"pivots/tcp.go",
+		"pivots/pivots.go",
+
+		"transports/crypto.go",
+		"transports/tcp-mtls.go",
+		"transports/tcp-http.go",
+		"transports/udp-dns.go",
+		"transports/named-pipe.go",
+		"transports/tcp-pivot.go",
+		"transports/transports.go",
+
+		"version/version_default.go",
+		"version/version.go",
+
+		"sliver.go",
 	}
 )

@@ -52,6 +52,15 @@ var (
 		"386":   "/usr/bin/i686-w64-mingw32-gcc",
 		"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
 	}
+	// SupportedCompilerTargets - Supported compiler targets
+	SupportedCompilerTargets = map[string]bool{
+		"darwin/amd64":  true,
+		"darwin/arm64":  true,
+		"linux/386":     true,
+		"linux/amd64":   true,
+		"windows/386":   true,
+		"windows/amd64": true,
+	}
 )
 
 const (
@@ -75,6 +84,9 @@ const (
 	DefaultMTLSLPort = 8888
 	// DefaultHTTPLPort - Default HTTP listen port
 	DefaultHTTPLPort = 443 // Assume SSL, it'll fallback
+
+	// DefaultSuffix - Indicates a platform independent src file
+	DefaultSuffix = "_default.go"
 
 	// SliverCC64EnvVar - Environment variable that can specify the 64 bit mingw path
 	SliverCC64EnvVar = "SLIVER_CC_64"
@@ -409,7 +421,13 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	os.MkdirAll(sliverPkgDir, 0700)
 
 	// Load code template
-	for index, boxName := range srcFiles {
+	renderFiles := srcFiles
+	_, isSupportedTarget := SupportedCompilerTargets[fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)]
+	if !isSupportedTarget {
+		buildLog.Warnf("Unsupported compiler target, using generic src files ...")
+		renderFiles = genericSrcFiles
+	}
+	for index, boxName := range renderFiles {
 
 		// Gobfuscate doesn't handle all the platform specific code
 		// well and the renamer can get confused when symbols for a
@@ -419,15 +437,27 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		if strings.Contains(boxName, "_") {
 			fileNameParts := strings.Split(boxName, "_")
 			suffix = "_" + fileNameParts[len(fileNameParts)-1]
+
+			// Test files get skipped
 			if strings.HasSuffix(boxName, "_test.go") {
 				buildLog.Infof("Skipping (test): %s", boxName)
 				continue
 			}
-			osSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOOS))
-			archSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOARCH))
-			if !strings.HasSuffix(boxName, osSuffix) && !strings.HasSuffix(boxName, archSuffix) {
-				buildLog.Infof("Skipping file wrong os/arch: %s", boxName)
+
+			// We only include "_default.go" files for "unsupported" platforms i.e., not windows/darwin/linux
+			if suffix == DefaultSuffix && isSupportedTarget {
+				buildLog.Infof("Skipping default file (target is supported): %s", boxName)
 				continue
+			}
+
+			// Only include code for our target goos/goarch
+			if isSupportedTarget {
+				osSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOOS))
+				archSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOARCH))
+				if !strings.HasSuffix(boxName, osSuffix) && !strings.HasSuffix(boxName, archSuffix) {
+					buildLog.Infof("Skipping file wrong os/arch: %s", boxName)
+					continue
+				}
 			}
 		}
 
