@@ -255,6 +255,11 @@ var (
 		"pivots/tcp.go",
 		"pivots/pivots.go",
 
+		"proxy/provider.go",
+		"proxy/provider_default.go",
+		"proxy/proxy.go",
+		"proxy/url.go",
+
 		"transports/crypto.go",
 		"transports/tcp-mtls.go",
 		"transports/tcp-http.go",
