@@ -3,9 +3,11 @@ Sliver
 
 ⚠️ __Warning:__ Sliver is currently in __beta__, you've been warned :) and please consider [contributing](/CONTRIBUTING.md)
 
-Sliver is a general purpose cross-platform implant framework that supports C2 over Mutual-TLS, HTTP(S), and DNS. Implants are dynamically compiled with unique X.509 certificates signed by a per-instance certificate authority generated when you first run the binary.
+Sliver is an open source, cross-platform adversary simulation/red team platform, it can be used by organizations of all sizes and budgets to perform security testing.
 
-The server and client support MacOS, Windows, and Linux. Implants are support also supported on MacOS, Windows, and Linux (as well as possibly every Golang compiler target but we've not tested them all).
+Sliver's implants support C2 over Mutual-TLS, HTTP(S), and DNS. Implants are dynamically compiled with unique X.509 certificates signed by a per-instance certificate authority generated when you first run the binary.
+
+The server and client support MacOS, Windows, and Linux. Implants are supported on MacOS, Windows, and Linux (and possibly every Golang compiler target but we've not tested them all).
 
 ![Go](https://github.com/BishopFox/sliver/workflows/Go/badge.svg?branch=master) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
