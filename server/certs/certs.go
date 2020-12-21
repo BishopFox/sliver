@@ -60,6 +60,24 @@ var (
 	ErrCertDoesNotExist = errors.New("Certificate does not exist")
 )
 
+// GetImplantHostCertificateKeyPairs - Given an implant we want to contact (bind/reverse), we may need its credentials
+// for various things: TLS details, SSH Comm encryption & authentication, etc. Also returns the CA in case needed.
+func GetImplantHostCertificateKeyPairs(host string) (caCert []byte, cert []byte, key []byte) {
+
+	sliverCACert, _, err := GetCertificateAuthorityPEM(ImplantCA)
+	if err != nil {
+		certsLog.Fatalf("Failed to find ca type (%s)", ImplantCA)
+	}
+
+	certPEM, keyPEM, err := GetCertificate(C2ServerCA, ECCKey, host)
+	if err != nil {
+		certsLog.Errorf("Failed to generate or fetch certificate %s", err)
+		return nil, nil, nil
+	}
+
+	return sliverCACert, certPEM, keyPEM
+}
+
 // saveCertificate - Save the certificate and the key to the filesystem
 func saveCertificate(caType string, keyType string, commonName string, cert []byte, key []byte) error {
 

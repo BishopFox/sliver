@@ -327,8 +327,8 @@ func registerSliver() *sliverpb.Envelope {
 		ActiveC2:          GetActiveC2(),
 		ReconnectInterval: uint32(GetReconnectInterval() / time.Second),
 		// Network & transport information.
-		Transport:  Transports.Server.URL.Scheme,
-		RemoteAddr: Transports.Server.Conn.LocalAddr().String(),
+		Transport: Transports.Server.URL.Scheme,
+		// RemoteAddr: Transports.Server.Conn.LocalAddr().String(),
 	})
 	if err != nil {
 		// {{if .Config.Debug}}

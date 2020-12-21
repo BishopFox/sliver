@@ -23,7 +23,10 @@ package handlers
 */
 
 import (
+	"net/url"
+
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
@@ -83,10 +86,30 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	session.ActiveC2 = register.ActiveC2
 	session.Version = register.Version
 	session.ReconnectInterval = register.ReconnectInterval
+
 	// Add protocol & network fields
 	session.Transport = register.Transport
 	session.RemoteAddress = register.RemoteAddr
+
 	core.Sessions.Add(session)
+
+	// After having sent confirmation, we regiter the Comm system.
+	// Obviously, we only perform this for some Transport stacks, found in the URI below.
+	uri, _ := url.Parse(register.ActiveC2)
+	switch uri.Scheme {
+	case "mtls":
+		return
+	}
+
+	// Get the server's private key for the SSH layer
+	_, _, key := certs.GetImplantHostCertificateKeyPairs(uri.Hostname())
+
+	// Instantiate and start the Comms, which will build a Tunnel over the Session RPC.
+	commSystem := comm.NewComm()
+	_, err = commSystem.Init(nil, session, key)
+	if err != nil {
+		handlerLog.Errorf("Comm init failed: %v", err)
+	}
 }
 
 func tunnelDataHandler(session *core.Session, data []byte) {

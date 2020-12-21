@@ -24,11 +24,14 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/core"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
@@ -79,19 +82,35 @@ func acceptSliverConnections(ln net.Listener) {
 			mtlsLog.Errorf("Accept failed: %v", err)
 			continue
 		}
-		go handleSliverConnection(conn)
+
+		// Instert Comm layer on the physical net.Conn brought by the listener, before registering session:
+		// The Comm system will give us back a stream over which we do our normal RPC registration stuff.
+
+		// Get a key for the SSH layer
+		_, _, key := certs.GetImplantHostCertificateKeyPairs(strings.Split(ln.Addr().String(), ":")[0])
+
+		// Instantiate and start the Comms
+		commSystem := comm.NewComm()
+		c2stream, err := commSystem.Init(conn, nil, key)
+		if err != nil {
+			mtlsLog.Errorf("Comm init failed: %v", err)
+			break
+		}
+
+		// Handle the properly-speaking C2 Session with the dedicated stream.
+		go handleSliverConnection(c2stream)
 	}
 }
 
-func handleSliverConnection(conn net.Conn) {
-	mtlsLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
+func handleSliverConnection(conn io.ReadWriteCloser) {
+	// mtlsLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
 
 	session := &core.Session{
-		Transport:     "mtls",
-		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
-		Send:          make(chan *sliverpb.Envelope),
-		RespMutex:     &sync.RWMutex{},
-		Resp:          map[uint64]chan *sliverpb.Envelope{},
+		Transport: "mtls",
+		// RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
+		Send:      make(chan *sliverpb.Envelope),
+		RespMutex: &sync.RWMutex{},
+		Resp:      map[uint64]chan *sliverpb.Envelope{},
 	}
 	session.UpdateCheckin()
 
@@ -146,7 +165,7 @@ Loop:
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message
 // e.g. [uint32 length|message] so the receiver can delimit messages properly
-func socketWriteEnvelope(connection net.Conn, envelope *sliverpb.Envelope) error {
+func socketWriteEnvelope(connection io.ReadWriteCloser, envelope *sliverpb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		mtlsLog.Errorf("Envelope marshaling error: %v", err)
@@ -161,7 +180,7 @@ func socketWriteEnvelope(connection net.Conn, envelope *sliverpb.Envelope) error
 
 // socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
 // returns messageType, message, and error
-func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
+func socketReadEnvelope(connection io.ReadWriteCloser) (*sliverpb.Envelope, error) {
 
 	// Read the first four bytes to determine data length
 	dataLengthBuf := make([]byte, 4) // Size of uint32
