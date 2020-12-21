@@ -48,6 +48,7 @@ var (
 		"handlers/generic-rpc-handlers.go",
 		"handlers/generic-tun-handlers.go",
 		"handlers/generic-pivot-handlers.go",
+		"handlers/generic-route-handlers.go",
 		"handlers/special-handlers.go",
 		"handlers/handlers_darwin.go",
 		"handlers/handlers_linux.go",

@@ -44,6 +44,10 @@ func GetSystemRouteHandlers() map[uint32]RouteHandler {
 
 func addRouteHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
 
+	// {{if .Config.Debug}}
+	log.Printf("Entered route handler")
+	// {{end}}
+
 	// Request / Response
 	addRouteReq := &sliverpb.AddRouteReq{}
 	err := proto.Unmarshal(envelope.Data, addRouteReq)
@@ -64,6 +68,9 @@ func addRouteHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		ID:   envelope.GetID(),
 		Data: data,
 	}
+	// {{if .Config.Debug}}
+	log.Printf("Returned route response")
+	// {{end}}
 }
 
 func removeRouteHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {

@@ -134,9 +134,7 @@ zip -r $REPO_DIR/assets/golang_x_sys.zip sys
 
 wget -O $GOLANG_CRYPTO_SSH_COMMIT.tar.gz https://github.com/golang/crypto/archive/$GOLANG_CRYPTO_SSH_COMMIT.tar.gz
 tar xfv $GOLANG_CRYPTO_SSH_COMMIT.tar.gz
-rm -f $GOLANG_CRYPTO_SSH_COMMIT.tar.gz
 mv crypto-$GOLANG_CRYPTO_SSH_COMMIT crypto
-mv crypto/ssh ./ssh && rm -rf crypto && mkdir crypto && mv ssh crypto # Just keep the ssh package.
 zip -r $REPO_DIR/assets/golang_x_crypto_ssh.zip crypto
 
 # end

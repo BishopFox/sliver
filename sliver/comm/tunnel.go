@@ -76,7 +76,7 @@ func NewTunnel(id uint64, toServer chan *sliverpb.Envelope) *MuxTunnel {
 
 // Read - Implements net.Conn Read(), by reading from the tunnel buffer,
 // which is being continuously filled in the background. Blocks when buffer is empty.
-func (t MuxTunnel) Read(data []byte) (n int, err error) {
+func (t *MuxTunnel) Read(data []byte) (n int, err error) {
 	n, err = t.Reader.Read(data)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -90,7 +90,7 @@ func (t MuxTunnel) Read(data []byte) (n int, err error) {
 }
 
 // Write - Implements net.Conn Write(), by sending data back to the server through the Session's RPC tunnels.
-func (t MuxTunnel) Write(data []byte) (n int, err error) {
+func (t *MuxTunnel) Write(data []byte) (n int, err error) {
 	sdata, _ := proto.Marshal(&sliverpb.CommTunnelData{
 		Sequence: t.ToServerSequence,
 		TunnelID: t.ID,
@@ -170,10 +170,6 @@ func (t *MuxTunnel) SetWriteDeadline(wd time.Time) error {
 // handleFromServer - Receives all tunnel data and write it to the buffer in the good order.
 func (t *MuxTunnel) handleFromServer() {
 	for data := range t.FromServer {
-		// {{if .Config.Debug}}
-		log.Printf("[tunnel] From server %d byte(s)", len(data.Data))
-		// {{end}}
-
 		// {{if .Config.Debug}}
 		log.Printf("[tunnel] Cache tunnel %d (seq: %d)", t.ID, data.Sequence)
 		// {{end}}

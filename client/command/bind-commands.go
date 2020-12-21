@@ -1424,7 +1424,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("n", "network", "", "IP network in CIDR notation (ex: 192.168.1.1/24)")
 			f.String("m", "netmask", "", "(Optional) Precise network mask (ex: 255.255.255.0)")
-			f.String("s", "session-id", "", "(Optional) Bind this route network to a precise implant, in case two routes might collide.")
+			f.Uint("s", "session-id", 0, "(Optional) Bind this route network to a precise implant, in case two routes might collide.")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()

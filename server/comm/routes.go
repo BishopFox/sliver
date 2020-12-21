@@ -166,22 +166,28 @@ func buildRouteToSession(sess *core.Session, new *Route) (*Route, error) {
 		}
 	}
 
-	// We add to the new route:
-	new.Nodes = append(new.Nodes, existing.Nodes...) // The found route nodes
-	new.Nodes = append(new.Nodes, existing.Gateway)  // The gateway, itself becoming a node
-	new.Gateway = sess                               // Our session is the new gateway.
+	// If we have an existing route on which to build the new one, add its nodes.
+	if existing != nil {
+		// Else we add to the new route:
+		new.Nodes = append(new.Nodes, existing.Nodes...) // The found route nodes
+		new.Nodes = append(new.Nodes, existing.Gateway)  // The gateway, itself becoming a node
+	}
+
+	// Our session is the new gateway.
+	new.Gateway = sess
 
 	// Reference the first node/gateway SSH Comm object
 	if len(new.Nodes) > 0 {
-		for _, comm := range Comms.active {
+		for _, comm := range Comms.Active {
 			if comm.SessionID == new.Nodes[0].ID {
 				new.comm = comm
 			}
 		}
 	}
+
 	// Or with gateway if one hop
 	if new.Gateway != nil {
-		for _, comm := range Comms.active {
+		for _, comm := range Comms.Active {
 			if comm.SessionID == new.Gateway.ID {
 				new.comm = comm
 			}

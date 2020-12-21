@@ -190,10 +190,16 @@ const (
 
 	// MsgRoutesReq - Get all active network routes.
 	MsgRoutesReq
+	// MsgRoutes - Response
+	MsgRoutes
 	// MsgAddRouteReq - Add a network route.
 	MsgAddRouteReq
+	// MsgAddRoute - Response
+	MsgAddRoute
 	// MsgRmRouteReq - Remove an active network route.
 	MsgRmRouteReq
+	// MsgRmRoute - Response
+	MsgRmRoute
 
 	// MsgCommTunnelReq - Open a multiplexing tunnel through the session RPC.
 	MsgCommTunnelOpenReq
@@ -373,10 +379,16 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *RoutesReq:
 		return MsgRoutesReq
+	case *Routes:
+		return MsgRoutes
 	case *AddRouteReq:
 		return MsgAddRouteReq
+	case *AddRoute:
+		return MsgAddRoute
 	case *RmRouteReq:
 		return MsgRmRouteReq
+	case *RmRoute:
+		return MsgRmRoute
 
 	case *CommTunnelOpenReq:
 		return MsgCommTunnelOpenReq

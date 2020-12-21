@@ -41,7 +41,7 @@ func routes(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	// Add filters here
 
 	if len(routes.Active) == 0 {
-		fmt.Printf("No registered / active network routes")
+		fmt.Printf("No registered / active network routes\n")
 		return
 	}
 
@@ -49,15 +49,15 @@ func routes(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func addRoute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	if ctx.Flags.String("subnet") == "" {
-		fmt.Printf(Warn + "Missing subnet flag for route\n")
+	if ctx.Flags.String("network") == "" {
+		fmt.Printf(Warn + "Missing network flag for route\n")
 		return
 	}
 
 	// For now we don't process or get an implantID for this route.
 	routeAdd, err := rpc.AddRoute(context.Background(), &sliverpb.AddRouteReq{
 		Route: &sliverpb.Route{
-			IPNet:     ctx.Flags.String("subnet"),
+			IPNet:     ctx.Flags.String("network"),
 			Mask:      ctx.Flags.String("netmask"),
 			SessionID: uint32(ctx.Flags.Uint("session-id")),
 		},
@@ -67,7 +67,7 @@ func addRoute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	} else if routeAdd.Response.Err != "" {
 		fmt.Printf(Warn+"%s\n", routeAdd.Response.Err)
 	} else {
-		fmt.Printf(Info+"Successfully added route %s", ctx.Flags.String("subnet"))
+		fmt.Printf(Info+"Successfully added route %s\n", ctx.Flags.String("network"))
 	}
 }
 
@@ -117,7 +117,7 @@ func removeRoute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		} else if !deleted.Success {
 			fmt.Printf(Warn+"%s\n", deleted.Response.Err)
 		} else {
-			fmt.Printf(Info+"Removed route to network %s (Session: %s)", route.IPNet, route.Gateway.Name)
+			fmt.Printf(Info+"Removed route to network %s (Session: %s)\n", route.IPNet, route.Gateway.Name)
 		}
 		if deleted.CloseError != "" {
 			fmt.Printf(Warn+"Warning route connection closed: %s\n", deleted.Response.Err)
@@ -168,5 +168,6 @@ func printRoutes(routes []*sliverpb.Route) {
 			route.ID,
 		)
 	}
+	table.Flush()
 	fmt.Printf(outputBuf.String())
 }

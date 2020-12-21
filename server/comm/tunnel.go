@@ -19,9 +19,11 @@ package comm
 */
 
 import (
+	"fmt"
 	"net"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -51,6 +53,8 @@ type tunnel struct {
 	ConnBuf buffer.Buffer
 	Reader  *nio.PipeReader
 	Writer  *nio.PipeWriter
+
+	mutex *sync.RWMutex
 }
 
 // newTunnel - Setup and start a Comm tunnel
@@ -61,13 +65,18 @@ func newTunnel(conn *core.Session) (t *tunnel, err error) {
 		FromImplant: make(chan *sliverpb.CommTunnelData),
 		ToImplant:   make(chan []byte, 100),
 		cache:       map[uint64]*sliverpb.CommTunnelData{},
+		mutex:       &sync.RWMutex{},
 	}
 	t.ConnBuf = buffer.New(32 * 1024)
 	t.Reader, t.Writer = nio.Pipe(t.ConnBuf)
 
+	// Add tunnels to map, so we can receive data
+	Tunnels.AddTunnel(t)
+
 	// Ask implant to start tunnel.
 	err = t.startRemote()
 	if err != nil {
+		Tunnels.RemoveTunnel(t.ID)
 		return
 	}
 
@@ -79,7 +88,7 @@ func newTunnel(conn *core.Session) (t *tunnel, err error) {
 
 // Read - Implements net.Conn Read(), by reading from the tunnel buffer,
 // which is being continuously filled in the background. Blocks when buffer is empty.
-func (t tunnel) Read(data []byte) (n int, err error) {
+func (t *tunnel) Read(data []byte) (n int, err error) {
 	rLog.Debugf("SSH called Read() on tunnel")
 	n, err = t.Reader.Read(data)
 	rLog.Debugf("SSH read %d bytes from tunnel", len(data))
@@ -87,8 +96,8 @@ func (t tunnel) Read(data []byte) (n int, err error) {
 }
 
 // Write - Implements net.Conn Write(), by sending data through the Session's RPC tunnels.
-func (t tunnel) Write(data []byte) (n int, err error) {
-	sdata, _ := proto.Marshal(&sliverpb.TunnelData{
+func (t *tunnel) Write(data []byte) (n int, err error) {
+	sdata, _ := proto.Marshal(&sliverpb.CommTunnelData{
 		Sequence:  t.ToImplantSequence,
 		TunnelID:  t.ID,
 		SessionID: t.Sess.ID,
@@ -96,6 +105,7 @@ func (t tunnel) Write(data []byte) (n int, err error) {
 		Closed:    false,
 	})
 	t.ToImplantSequence++
+	rLog.Debugf("[tunnel] Sequence: %d ", t.ToImplantSequence)
 	t.Sess.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgCommTunnelData,
 		Data: sdata,
@@ -107,14 +117,14 @@ func (t tunnel) Write(data []byte) (n int, err error) {
 // Close - Implements net.Conn Close(), by sending a request to the implant to end the tunnel.
 func (t *tunnel) Close() error {
 	rLog.Debugf("Closing tunnel %d (To Client)", t.ID)
-	data, _ := proto.Marshal(&sliverpb.TunnelData{
+	data, _ := proto.Marshal(&sliverpb.CommTunnelData{
 		TunnelID:  t.ID,
 		SessionID: t.Sess.ID,
 		Data:      make([]byte, 0),
 		Closed:    true,
 	})
 	t.Sess.Send <- &sliverpb.Envelope{
-		Type: sliverpb.MsgTunnelData,
+		Type: sliverpb.MsgCommTunnelData,
 		Data: data,
 	}
 	return nil
@@ -165,11 +175,11 @@ func (t *tunnel) SetDeadline(d time.Time) error {
 	return nil
 }
 
-func (t *tunnel) SetReadDeadline(rd time.Time) error {
+func (t tunnel) SetReadDeadline(rd time.Time) error {
 	return nil
 }
 
-func (t *tunnel) SetWriteDeadline(rwd time.Time) error {
+func (t tunnel) SetWriteDeadline(rwd time.Time) error {
 	return nil
 }
 
@@ -181,7 +191,7 @@ func (t *tunnel) startRemote() (err error) {
 	}
 	reqData, _ := proto.Marshal(muxOpenReq)
 
-	data, err := t.Sess.Request(sliverpb.MsgNumber(muxOpenReq), 10*time.Second, reqData)
+	data, err := t.Sess.Request(sliverpb.MsgNumber(muxOpenReq), 60*time.Second, reqData)
 	if err != nil {
 		return
 	}
@@ -191,7 +201,7 @@ func (t *tunnel) startRemote() (err error) {
 		return
 	}
 	if !resp.Success {
-		return
+		return fmt.Errorf("Error starting remote tunnel end: %s", resp.Response.Err)
 	}
 	return
 }
@@ -213,6 +223,7 @@ func (t *tunnel) handleFromImplant() {
 			delete(t.cache, t.FromImplantSequence)
 			t.FromImplantSequence++
 			rLog.Debugf("[tunnel] wrote %d bytes to comm tunnel buffer", len(recv.Data))
+			rLog.Debugf("[tunnel] Sequence: %d ", t.FromImplantSequence)
 		}
 	}
 }

@@ -29,13 +29,13 @@ import (
 var (
 	// Comms - All multiplexers currently running in Sliver, providing connection routing.
 	Comms = &comms{
-		active: map[uint32]*Comm{},
+		Active: map[uint32]*Comm{},
 		mutex:  &sync.RWMutex{},
 	}
 )
 
 type comms struct {
-	active map[uint32]*Comm
+	Active map[uint32]*Comm
 	mutex  *sync.RWMutex
 }
 
@@ -43,14 +43,14 @@ type comms struct {
 func (c *comms) Get(commID uint32) *Comm {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	return c.active[commID]
+	return c.Active[commID]
 }
 
 // Add - Add a sliver to the hive (atomically)
 func (c *comms) Add(mux *Comm) *Comm {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.active[mux.ID] = mux
+	c.Active[mux.ID] = mux
 	return mux
 }
 
@@ -58,9 +58,9 @@ func (c *comms) Add(mux *Comm) *Comm {
 func (c *comms) Remove(commID uint32) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	mux := c.active[commID]
+	mux := c.Active[commID]
 	if mux != nil {
-		delete(c.active, commID)
+		delete(c.Active, commID)
 	}
 }
 

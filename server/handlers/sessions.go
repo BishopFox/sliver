@@ -98,6 +98,12 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	uri, _ := url.Parse(register.ActiveC2)
 	switch uri.Scheme {
 	case "mtls":
+		// We assume that any Comm with SessionID == 0 is the one we're looking for
+		for _, com := range comm.Comms.Active {
+			if com.SessionID == 0 {
+				com.SessionID = session.ID
+			}
+		}
 		return
 	}
 
@@ -109,7 +115,10 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	_, err = commSystem.Init(nil, session, key)
 	if err != nil {
 		handlerLog.Errorf("Comm init failed: %v", err)
+		return
 	}
+	// Register the Session ID for this comm, will be used by Routes later.
+	commSystem.SessionID = session.ID
 }
 
 func tunnelDataHandler(session *core.Session, data []byte) {

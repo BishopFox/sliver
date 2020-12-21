@@ -148,8 +148,6 @@ func (r *Route) ToProtobuf() *sliverpb.Route {
 // or matching certain routes. Function is non blocking as it handles everything in the background,
 // or waits to be called later .
 func (r *Route) init() (err error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
 	full := r.ToProtobuf()
 

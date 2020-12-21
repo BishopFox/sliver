@@ -71,9 +71,14 @@ func (comm *Comm) Init(conn net.Conn, sess *core.Session, key []byte) (sessionSt
 
 	// If no conn given, we setup a conn based on a tunnel.
 	if conn == nil {
-		// Forge tunnel
+		// Create a tunnel, which also asks the remote implant to create the tunnel's other end.
+		conn, err = newTunnel(sess)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create tunnel: %s", err.Error())
+		}
 
-		// Forge connection
+		// Map this Comm to the session
+		comm.SessionID = sess.ID
 	}
 
 	// Pepare the SSH conn/security, and set keepalive policies/handlers.
@@ -226,6 +231,7 @@ func (comm *Comm) initSessionStream() (stream io.ReadWriteCloser, err error) {
 	dst, reqs, err := comm.sshConn.OpenChannel("session", data)
 	if err != nil {
 		rLog.Errorf("Failed to open Session RPC channel: %s", err.Error())
+		return
 	}
 	go ssh.DiscardRequests(reqs)
 

