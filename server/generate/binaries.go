@@ -46,8 +46,7 @@ import (
 )
 
 var (
-	buildLog = log.NamedLogger("generate", "build")
-	// Fix #67: use an arch specific compiler
+	buildLog         = log.NamedLogger("generate", "build")
 	defaultMingwPath = map[string]map[string]string{
 		"linux": {
 			"386":   "/usr/bin/i686-w64-mingw32-gcc",
@@ -325,9 +324,6 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 
 // SliverExecutable - Generates a sliver executable binary
 func SliverExecutable(name string, config *models.ImplantConfig) (string, error) {
-
-	// buildLog.Debugf("Name: %s, ImplantConfig: %s", name, config)
-
 	// Compile go code
 	appDir := assets.GetRootAppDir()
 	cgo := "0"
@@ -378,7 +374,7 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 
 // This function is a little too long, we should probably refactor it as some point
 func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gogo.GoConfig) (string, error) {
-
+	var err error
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := gogo.ValidCompilerTargets[target]; !ok {
 		return "", fmt.Errorf("Invalid compiler target: %s", target)
@@ -424,7 +420,10 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	}
 
 	sliverPkgDir := path.Join(srcDir, "github.com", "bishopfox", "sliver") // "main"
-	os.MkdirAll(sliverPkgDir, 0700)
+	err = os.MkdirAll(sliverPkgDir, 0700)
+	if err != nil {
+		return "", nil
+	}
 
 	// Load code template
 	renderFiles := srcFiles
@@ -497,14 +496,20 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 			dirPath := path.Join(sliverPkgDir, "implant", "sliver", dirName)
 			if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 				buildLog.Infof("[mkdir] %#v", dirPath)
-				os.MkdirAll(dirPath, 0700)
+				err = os.MkdirAll(dirPath, 0700)
+				if err != nil {
+					return "", err
+				}
 			}
 			sliverCodePath = path.Join(dirPath, fileName)
 		} else {
 			sliverCodePath = path.Join(sliverPkgDir, fileName)
 		}
 
-		fSliver, _ := os.Create(sliverCodePath)
+		fSliver, err := os.Create(sliverCodePath)
+		if err != nil {
+			return "", err
+		}
 		buf := bytes.NewBuffer([]byte{})
 		buildLog.Infof("[render] %s -> %s", boxName, sliverCodePath)
 
@@ -519,6 +524,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		})
 		if err != nil {
 			buildLog.Error(err)
+			return "", err
 		}
 
 		// Render canaries
@@ -542,6 +548,32 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		}
 	}
 
+	// Render GoMod
+	buildLog.Info("Rendering go.mod file ...")
+	goModBuf := bytes.NewBuffer([]byte{})
+	goModTmpl := template.Must(template.New("sliver").Parse(implant.GoMod))
+	err = goModTmpl.Execute(goModBuf, struct {
+		Name   string
+		PkgDir string
+		Config *models.ImplantConfig
+	}{
+		name,
+		sliverPkgDir,
+		config,
+	})
+	if err != nil {
+		buildLog.Error(err)
+		return "", err
+	}
+	goModPath := path.Join(sliverPkgDir, "go.mod")
+	ioutil.WriteFile(goModPath, goModBuf.Bytes(), 0600)
+	buildLog.Infof("Created %s", goModPath)
+	output, err := gogo.GoMod((*goConfig), sliverPkgDir, []string{"tidy"})
+	if err != nil {
+		buildLog.Errorf("Go mod tidy failed:\n%s", output)
+		return "", err
+	}
+
 	if !config.Debug {
 		buildLog.Infof("Obfuscating source code ...")
 		obfgoPath := path.Join(projectGoPathDir, "obfuscated")
@@ -560,6 +592,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	}
 	if err != nil {
 		buildLog.Errorf("Failed to save sliver config %s", err)
+		return "", err
 	}
 	return sliverPkgDir, nil
 }

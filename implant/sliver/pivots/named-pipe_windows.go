@@ -28,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bishopfox/sliver/implant/sliver/3rdparty/winio"
+	"github.com/Microsoft/go-winio"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 

@@ -25,7 +25,7 @@ import (
 	//{{if .Config.Debug}}
 	"log"
 	//{{end}}
-	screen "github.com/bishopfox/sliver/implant/sliver/3rdparty/kbinani/screenshot"
+	screen "github.com/kbinani/screenshot"
 )
 
 // Capture - Retrieve the screenshot of the active displays
@@ -33,18 +33,15 @@ func Capture() []byte {
 	nDisplays := screen.NumActiveDisplays()
 
 	var height, width int = 0, 0
-
 	for i := 0; i < nDisplays; i++ {
 		rect := screen.GetDisplayBounds(i)
 		if rect.Dy() > height {
 			height = rect.Dy()
 		}
-
 		width += rect.Dx()
-
 	}
-
 	img, err := screen.Capture(0, 0, width, height)
+
 	//{{if .Config.Debug}}
 	log.Printf("Error Capture: %s", err)
 	//{{end}}
@@ -55,10 +52,8 @@ func Capture() []byte {
 		log.Println("Capture Error")
 		//{{end}}
 		return buf.Bytes()
-
 	}
 
 	png.Encode(&buf, img)
 	return buf.Bytes()
-
 }

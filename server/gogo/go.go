@@ -129,7 +129,6 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOROOT=%s", config.GOROOT),
 		fmt.Sprintf("GOPATH=%s", config.GOPATH),
 		fmt.Sprintf("GOCACHE=%s", GetTempDir()),
-		fmt.Sprintf("GO111MODULE=off"),
 		fmt.Sprintf("PATH=%s/bin:%s", config.GOROOT, os.Getenv("PATH")),
 	}
 	var stdout bytes.Buffer
@@ -176,6 +175,13 @@ func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []
 		goCommand = append(goCommand, fmt.Sprintf("-buildmode=%s", buildmode))
 	}
 	goCommand = append(goCommand, []string{"-o", dest, "."}...)
+	return GoCmd(config, src, goCommand)
+}
+
+// GoMod - Execute go module commands in src dir
+func GoMod(config GoConfig, src string, args []string) ([]byte, error) {
+	goCommand := []string{"mod"}
+	goCommand = append(goCommand, args...)
 	return GoCmd(config, src, goCommand)
 }
 
