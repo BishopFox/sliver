@@ -13,6 +13,7 @@ require (
 	github.com/desertbit/closer/v3 v3.1.2 // indirect
 	github.com/desertbit/columnize v2.1.0+incompatible
 	github.com/desertbit/grumble v1.0.8
+	github.com/djherbis/buffer v1.1.0
 	github.com/fatih/color v1.10.0
 	github.com/gobuffalo/envy v1.9.0 // indirect
 	github.com/gobuffalo/packr v1.30.1
@@ -20,8 +21,8 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
-	github.com/hashicorp/yamux v0.0.0-20200609203250-aecfd211c9ce
-	github.com/mattn/go-sqlite3 v1.14.5
+	github.com/mattn/go-runewidth v0.0.8 // indirect
+	github.com/mattn/go-sqlite3 v2.0.1+incompatible
 	github.com/miekg/dns v1.1.35
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pkg/errors v0.9.1
@@ -29,6 +30,7 @@ require (
 	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.6.1
+	github.com/yl2chen/cidranger v1.0.2
 	golang.org/x/crypto v0.0.0-20201116153603-4be66e5b6582
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
 	golang.org/x/sys v0.0.0-20201116194326-cc9327a14d48
@@ -36,6 +38,8 @@ require (
 	google.golang.org/grpc v1.33.2
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
+	gopkg.in/djherbis/buffer.v1 v1.1.0
+	gopkg.in/djherbis/nio.v2 v2.0.3
 	gorm.io/driver/mysql v1.0.3
 	gorm.io/driver/postgres v1.0.5
 	gorm.io/driver/sqlite v1.1.3

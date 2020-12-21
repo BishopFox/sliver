@@ -95,12 +95,6 @@ func (r *routes) Add(new *sliverpb.Route) (route *Route, err error) {
 
 	// Here, add server interfaces check. Not now for tests.
 
-	// If the session is currently running via a non-muxable transport, return error
-	if !isMux(lastNodeSession) {
-		return nil, fmt.Errorf("Error adding route: Session %s transport (%s) cannot be multiplexed",
-			lastNodeSession.Name, lastNodeSession.ActiveC2)
-	}
-
 	// We should not have an empty last node session.
 	if lastNodeSession == nil {
 		return nil, errors.New("Error adding route: last node' session is nil, after checking all interfaces")

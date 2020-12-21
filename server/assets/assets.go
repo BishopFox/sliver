@@ -212,6 +212,11 @@ func SetupGoPath(goPathSrc string) error {
 	if err != nil {
 		setupLog.Fatalf("Failed to unzip go dependency: %v", err)
 	}
+	golangXCryptoSSHPath := path.Join(goPathSrc, "golang.org", "x")
+	err = unzipGoDependency("golang_x_crypto_ssh.zip", golangXCryptoSSHPath, assetsBox)
+	if err != nil {
+		setupLog.Fatalf("Failed to unzip go dependency: %v", err)
+	}
 
 	return nil
 }

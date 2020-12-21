@@ -19,8 +19,7 @@ package comm
 */
 
 import (
-	"crypto/rand"
-	"encoding/binary"
+	"io"
 	"sync"
 )
 
@@ -29,18 +28,19 @@ import (
 var (
 	// Comms - All multiplexers currently running in Sliver, providing connection routing.
 	Comms = &comms{
-		active: map[uint32]*Comm{},
+		active: map[string]*Comm{},
 		mutex:  &sync.RWMutex{},
 	}
+	commID = uint32(0)
 )
 
 type comms struct {
-	active map[uint32]*Comm
+	active map[string]*Comm
 	mutex  *sync.RWMutex
 }
 
 // Get - Get a session by ID
-func (c *comms) Get(commID uint32) *Comm {
+func (c *comms) Get(commID string) *Comm {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return c.active[commID]
@@ -50,12 +50,12 @@ func (c *comms) Get(commID uint32) *Comm {
 func (c *comms) Add(mux *Comm) *Comm {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.active[mux.ID] = mux
+	c.active[mux.RemoteAddress] = mux
 	return mux
 }
 
 // Remove - Remove a sliver from the hive (atomically)
-func (c *comms) Remove(commID uint32) {
+func (c *comms) Remove(commID string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	mux := c.active[commID]
@@ -69,25 +69,25 @@ func (c *comms) Remove(commID uint32) {
 var (
 	// Tunnels - Stores all Tunnels used by the Comm system to route traffic.
 	Tunnels = &tunnels{
-		tunnels: map[uint64]*tunnel{},
+		tunnels: map[uint64]*MuxTunnel{},
 		mutex:   &sync.RWMutex{},
 	}
 )
 
 type tunnels struct {
-	tunnels map[uint64]*tunnel
+	tunnels map[uint64]*MuxTunnel
 	mutex   *sync.RWMutex
 }
 
 // Tunnel - Add tunnel to mapping
-func (c *tunnels) Tunnel(ID uint64) *tunnel {
+func (c *tunnels) Tunnel(ID uint64) *MuxTunnel {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return c.tunnels[ID]
 }
 
 // AddTunnel - Add tunnel to mapping
-func (c *tunnels) AddTunnel(tun *tunnel) {
+func (c *tunnels) AddTunnel(tun *MuxTunnel) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.tunnels[tun.ID] = tun
@@ -100,50 +100,61 @@ func (c *tunnels) RemoveTunnel(ID uint64) {
 	delete(c.tunnels, ID)
 }
 
-// newTunnelID - New 64-bit identifier
-func newTunnelID() uint64 {
-	randBuf := make([]byte, 8)
-	rand.Read(randBuf)
-	return binary.LittleEndian.Uint64(randBuf)
+// newID- Returns an incremental nonce as an id
+func newID() uint32 {
+	newID := commID + 1
+	commID++
+	return newID
 }
 
-// Listeners ----------------------------------------------------------------------------
+// Piping & Utils ------------------------------------------------------------
+
+func transport(rw1, rw2 io.ReadWriter) error {
+	errc := make(chan error, 1)
+	go func() {
+		errc <- copyBuffer(rw1, rw2)
+	}()
+
+	go func() {
+		errc <- copyBuffer(rw2, rw1)
+	}()
+
+	err := <-errc
+	if err != nil && err == io.EOF {
+		err = nil
+	}
+	return err
+}
+
+func copyBuffer(dst io.Writer, src io.Reader) error {
+	buf := lPool.Get().([]byte)
+	defer lPool.Put(buf)
+
+	_, err := io.CopyBuffer(dst, src, buf)
+	return err
+}
 
 var (
-	// listeners - All instantiated active connection listeners. These listeners
-	// are either tied to a listener running on an implant host, or the C2 server.
-	listeners = &commListeners{
-		active: map[string]*listener{},
-		mutex:  &sync.RWMutex{},
+	sPool = sync.Pool{
+		New: func() interface{} {
+			return make([]byte, smallBufferSize)
+		},
+	}
+	mPool = sync.Pool{
+		New: func() interface{} {
+			return make([]byte, mediumBufferSize)
+		},
+	}
+	lPool = sync.Pool{
+		New: func() interface{} {
+			return make([]byte, largeBufferSize)
+		},
 	}
 )
 
-type commListeners struct {
-	active map[string]*listener
-	mutex  *sync.RWMutex
-}
-
-// Get - Get a session by ID
-func (c *commListeners) Get(id string) *listener {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-	return c.active[id]
-}
-
-// Add - Add a sliver to the hive (atomically)
-func (c *commListeners) Add(l *listener) *listener {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	c.active[l.id] = l
-	return l
-}
-
-// Remove - Remove a sliver from the hive (atomically)
-func (c *commListeners) Remove(id string) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	l := c.active[id]
-	if l != nil {
-		delete(c.active, id)
-	}
-}
+var (
+	tinyBufferSize   = 512
+	smallBufferSize  = 2 * 1024  // 2KB small buffer
+	mediumBufferSize = 8 * 1024  // 8KB medium buffer
+	largeBufferSize  = 32 * 1024 // 32KB large buffer
+)

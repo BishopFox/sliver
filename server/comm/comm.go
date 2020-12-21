@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/url"
 	"sync"
 	"time"
 
@@ -44,9 +43,9 @@ var (
 type Comm struct {
 	// Core
 	ID        uint32
+	SessionID uint32            // Any multiplexer's physical connection is tied to an implant.
 	sshConn   ssh.Conn          // SSH Connection, that we will mux
 	sshConfig *ssh.ServerConfig // Encryption details.
-	SessionID uint32            // Any multiplexer's physical connection is tied to an implant.
 
 	// Connection management
 	requests <-chan *ssh.Request   // Keep alive, close, etc.
@@ -246,8 +245,6 @@ func (comm *Comm) serveRequests() {
 				rLog.Errorf("Error replying to request")
 			}
 		}
-
-		// If latency,
 	}
 }
 
@@ -260,17 +257,6 @@ func (comm *Comm) checkLatency() {
 		return
 	}
 	rLog.Infof("Latency: %s", time.Since(t0))
-}
-
-func isMux(session *core.Session) bool {
-	uri, _ := url.Parse(session.ActiveC2)
-	switch uri.Scheme {
-	case "dns", "https", "http":
-		return false
-	case "mtls", "tcp":
-		return true
-	}
-	return false
 }
 
 // newID- Returns an incremental nonce as an id

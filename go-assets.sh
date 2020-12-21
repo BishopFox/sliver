@@ -26,6 +26,7 @@ BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIB
 
 PROTOBUF_COMMIT=347cf4a86c1cb8d262994d8ef5924d4576c5b331
 GOLANG_SYS_COMMIT=669c56c373c468cbe0f0c12b7939832b26088d33
+GOLANG_CRYPTO_SSH_COMMIT=4be66e5b658251a93e17d931a68d9c0ecba9f83a
 
 
 if ! [ -x "$(command -v wget)" ]; then
@@ -130,6 +131,13 @@ tar xfv $GOLANG_SYS_COMMIT.tar.gz
 rm -f $GOLANG_SYS_COMMIT.tar.gz
 mv sys-$GOLANG_SYS_COMMIT sys
 zip -r $REPO_DIR/assets/golang_x_sys.zip sys
+
+wget -O $GOLANG_CRYPTO_SSH_COMMIT.tar.gz https://github.com/golang/crypto/archive/$GOLANG_CRYPTO_SSH_COMMIT.tar.gz
+tar xfv $GOLANG_CRYPTO_SSH_COMMIT.tar.gz
+rm -f $GOLANG_CRYPTO_SSH_COMMIT.tar.gz
+mv crypto-$GOLANG_CRYPTO_SSH_COMMIT crypto
+mv crypto/ssh ./ssh && rm -rf crypto && mkdir crypto && mv ssh crypto # Just keep the ssh package.
+zip -r $REPO_DIR/assets/golang_x_crypto_ssh.zip crypto
 
 # end
 echo -e "clean up: $WORK_DIR"

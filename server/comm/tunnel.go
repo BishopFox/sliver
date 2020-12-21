@@ -77,6 +77,15 @@ func newTunnel(conn *core.Session) (t *tunnel, err error) {
 	return
 }
 
+// Read - Implements net.Conn Read(), by reading from the tunnel buffer,
+// which is being continuously filled in the background. Blocks when buffer is empty.
+func (t tunnel) Read(data []byte) (n int, err error) {
+	rLog.Debugf("SSH called Read() on tunnel")
+	n, err = t.Reader.Read(data)
+	rLog.Debugf("SSH read %d bytes from tunnel", len(data))
+	return
+}
+
 // Write - Implements net.Conn Write(), by sending data through the Session's RPC tunnels.
 func (t tunnel) Write(data []byte) (n int, err error) {
 	sdata, _ := proto.Marshal(&sliverpb.TunnelData{
@@ -91,17 +100,8 @@ func (t tunnel) Write(data []byte) (n int, err error) {
 		Type: sliverpb.MsgCommTunnelData,
 		Data: sdata,
 	}
-	rLog.Debugf("Tunnel %d: To implant %d byte(s)", t.ID, len(data))
+	rLog.Debugf("[tunnel] To implant %d byte(s)", len(data))
 	return len(data), err
-}
-
-// Read - Implements net.Conn Read(), by reading from the tunnel buffer,
-// which is being continuously filled in the background. Blocks when buffer is empty.
-func (t tunnel) Read(data []byte) (n int, err error) {
-	rLog.Debugf("SSH called Read() on tunnel")
-	n, err = t.Reader.Read(data)
-	rLog.Debugf("SSH read %d bytes from tunnel ID %d", len(data), t.ID)
-	return
 }
 
 // Close - Implements net.Conn Close(), by sending a request to the implant to end the tunnel.

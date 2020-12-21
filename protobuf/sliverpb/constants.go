@@ -195,16 +195,16 @@ const (
 	// MsgRmRouteReq - Remove an active network route.
 	MsgRmRouteReq
 
-	// MsgMuxTunnelReq - Open a multiplexing tunnel through the session RPC.
-	MsgMuxTunnelOpenReq
-	// MsgMuxTunnel - Response
-	MsgMuxTunnelOpen
-	// MsgMuxTunnelData - Data passed in the mux tunnel
-	MsgMuxTunnelData
-	// MsgMuxTunnelCloseReq - Close the mux tunnel
-	MsgMuxTunnelCloseReq
-	// MsgMuxTunnelClose - Response
-	MsgMuxTunnelClose
+	// MsgCommTunnelReq - Open a multiplexing tunnel through the session RPC.
+	MsgCommTunnelOpenReq
+	// MsgCommTunnel - Response
+	MsgCommTunnelOpen
+	// MsgCommTunnelData - Data passed in the mux tunnel
+	MsgCommTunnelData
+	// MsgCommTunnelCloseReq - Close the mux tunnel
+	MsgCommTunnelCloseReq
+	// MsgCommTunnelClose - Response
+	MsgCommTunnelClose
 )
 
 // MsgNumber - Get a message number of type
@@ -378,16 +378,16 @@ func MsgNumber(request proto.Message) uint32 {
 	case *RmRouteReq:
 		return MsgRmRouteReq
 
-	case *MuxTunnelOpenReq:
-		return MsgMuxTunnelOpenReq
-	case *MuxTunnelOpen:
-		return MsgMuxTunnelOpen
-	case *MuxTunnelData:
-		return MsgMuxTunnelData
-	case *MuxTunnelCloseReq:
-		return MsgMuxTunnelCloseReq
-	case *MuxTunnelClose:
-		return MsgMuxTunnelClose
+	case *CommTunnelOpenReq:
+		return MsgCommTunnelOpenReq
+	case *CommTunnelOpen:
+		return MsgCommTunnelOpen
+	case *CommTunnelData:
+		return MsgCommTunnelData
+	case *CommTunnelCloseReq:
+		return MsgCommTunnelCloseReq
+	case *CommTunnelClose:
+		return MsgCommTunnelClose
 	}
 	return uint32(0)
 }
