@@ -77,7 +77,7 @@ func Init(conn net.Conn, sess *core.Session, serverCAKey, implantKey []byte) (ss
 	}
 
 	// If no conn given, we setup a conn based on a tunnel.
-	// Also asks the remote implant to create the other end
+	// Also asks the remote implant to create the other end.
 	// Map the Session ID to this comm, will be used by Routes later.
 	if conn == nil {
 		conn, err = newTunnelTo(sess)
