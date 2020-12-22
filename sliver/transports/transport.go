@@ -51,7 +51,7 @@ import (
 // Some transports use an underlying "physical connection" that is not/does not yield a
 // net.Conn stream, and are therefore unable to use much of the Transport infrastructure.
 type Transport struct {
-	ID  uint64
+	ID  uint32
 	URL *url.URL // URL is used by Sliver's code for CC servers.
 
 	// conn - A physical connection initiated by/on behalf of this transport.
@@ -207,7 +207,7 @@ func (t *Transport) setupComm(isSwitch bool) (sessionStream io.ReadWriteCloser, 
 
 	// Else, we have a net.Conn from the underlying transport connection, and register over it.
 	if !isSwitch && t.Conn != nil {
-		sessionStream, err = comm.NewComm().InitClient(t.Conn, false, []byte(keyPEM))
+		sessionStream, err = comm.InitClient(t.Conn, false, []byte(keyPEM))
 	}
 
 	return

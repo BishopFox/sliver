@@ -93,12 +93,12 @@ func registerSessionHandler(session *core.Session, data []byte) {
 
 	core.Sessions.Add(session)
 
-	// After having sent confirmation, we regiter the Comm system.
-	// Obviously, we only perform this for some Transport stacks, found in the URI below.
+	// Some transports (all the ones yielding a net.Conn) do not need to setup their Comms here.
 	uri, _ := url.Parse(register.ActiveC2)
 	switch uri.Scheme {
 	case "mtls":
-		// We assume that any Comm with SessionID == 0 is the one we're looking for
+		// We assume that any Comm with SessionID == 0 is the one we're
+		// looking for, there can't be two Comms pending at the same time.
 		for _, com := range comm.Comms.Active {
 			if com.SessionID == 0 {
 				com.SessionID = session.ID
@@ -107,18 +107,16 @@ func registerSessionHandler(session *core.Session, data []byte) {
 		return
 	}
 
-	// Get the server's private key for the SSH layer
-	_, _, key := certs.GetImplantHostCertificateKeyPairs(uri.Hostname())
+	// Get the implant's private key for fingerprinting the SSH layer, and get the ServerCA private key as well.
+	_, implantKey, _ := certs.GetECCCertificate(certs.ImplantCA, register.Name)
+	_, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
 
 	// Instantiate and start the Comms, which will build a Tunnel over the Session RPC.
-	commSystem := comm.NewComm()
-	_, err = commSystem.Init(nil, session, key)
+	_, err = comm.Init(nil, session, serverCAKey, implantKey)
 	if err != nil {
 		handlerLog.Errorf("Comm init failed: %v", err)
 		return
 	}
-	// Register the Session ID for this comm, will be used by Routes later.
-	commSystem.SessionID = session.ID
 }
 
 func tunnelDataHandler(session *core.Session, data []byte) {
@@ -155,6 +153,7 @@ func tunnelCloseHandler(session *core.Session, data []byte) {
 	}
 }
 
+// commTunnelDataHandler - Handle Comm tunnel data coming from the server.
 func commTunnelDataHandler(session *core.Session, data []byte) {
 	tunnelData := &sliverpb.CommTunnelData{}
 	proto.Unmarshal(data, tunnelData)

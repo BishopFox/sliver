@@ -19,12 +19,12 @@ package comm
 */
 
 import (
-	"crypto/x509"
-	"encoding/pem"
+	"crypto/sha256"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -32,7 +32,6 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
 )
@@ -46,10 +45,11 @@ var (
 // Therefore, a Comm may serve multiple network Routes concurrently.
 type Comm struct {
 	// Core
-	ID        uint32
-	SessionID uint32            // Any multiplexer's physical connection is tied to an implant.
-	sshConn   ssh.Conn          // SSH Connection, that we will mux
-	sshConfig *ssh.ServerConfig // Encryption details.
+	ID          uint32
+	SessionID   uint32            // Any multiplexer's physical connection is tied to an implant.
+	sshConn     ssh.Conn          // SSH Connection, that we will mux
+	sshConfig   *ssh.ServerConfig // Encryption details.
+	fingerprint string            // A key fingerprint to authenticate the implant.
 
 	// Connection management
 	requests <-chan *ssh.Request   // Keep alive, close, etc.
@@ -59,37 +59,32 @@ type Comm struct {
 	// Keep alives, maximum buffers depending on latency.
 }
 
-// NewComm - Creates a SSH-based connection multiplexer.
-func NewComm() (mux *Comm) {
-	mux = &Comm{
-		ID:        newID(),
-		sshConfig: &ssh.ServerConfig{},
-		mutex:     &sync.RWMutex{},
-	}
-	return
-}
-
 // Init - Sets up the Comm system (SSH session) around a physical connection or a RPC tunnel connection.
 // The function may return (optionally) the stream over which the session will register its RPC handlers.
-func (comm *Comm) Init(conn net.Conn, sess *core.Session, key []byte) (sessionStream io.ReadWriteCloser, err error) {
+func Init(conn net.Conn, sess *core.Session, serverCAKey, implantKey []byte) (ss io.ReadWriteCloser, err error) {
 
-	// If no conn given, we setup a conn based on a tunnel.
-	if conn == nil {
-		// Create a tunnel, which also asks the remote implant to create the tunnel's other end.
-		conn, err = newTunnel(sess)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create tunnel: %s", err.Error())
-		}
-
-		// Map this Comm to the session
-		comm.SessionID = sess.ID
+	// New Comm SSH multiplexer
+	comm := &Comm{
+		ID:    newID(),
+		mutex: &sync.RWMutex{},
 	}
 
 	// Pepare the SSH conn/security, and set keepalive policies/handlers.
-	err = comm.Setup(key)
+	err = comm.setupServerAuth(serverCAKey, implantKey)
 	if err != nil {
 		rLog.Errorf("failed to setup SSH client connection: %s", err.Error())
 		return nil, err
+	}
+
+	// If no conn given, we setup a conn based on a tunnel.
+	// Also asks the remote implant to create the other end
+	// Map the Session ID to this comm, will be used by Routes later.
+	if conn == nil {
+		conn, err = newTunnelTo(sess)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create tunnel: %s", err.Error())
+		}
+		comm.SessionID = sess.ID
 	}
 
 	// Start server connection.
@@ -101,87 +96,80 @@ func (comm *Comm) Init(conn net.Conn, sess *core.Session, key []byte) (sessionSt
 	}
 	rLog.Infof("Done")
 
-	// Serve pings & requests with keepalive policies.
-	go comm.serveRequests()
-
 	// Send additional requests for keepalive policies.
-
-	// Get latency for this tunnel.
-	comm.checkLatency()
+	go comm.serveRequests() // Serve pings & requests with keepalive policies.
+	comm.checkLatency()     // Get latency for this tunnel.
 
 	// Get a stream for the session, if not through a tunnel.
 	if sess == nil {
-		// Get the first stream for registering the Session
-		sessionStream, err = comm.initSessionStream()
+		ss, err = comm.initSessionStream()
 		if err != nil {
 			return
 		}
 	}
 
-	// Everything is up and running, register the mux.
-	Comms.Add(comm)
-
-	// Handle requests (pings) and incoming connections in the background.
-	go comm.serve()
+	Comms.Add(comm) // Everything is up and running, register the mux.
+	go comm.serve() // Handle requests (pings) and incoming connections in the background.
 
 	return
 }
 
-// Setup - The Comm prepares SSH code and security details.
-func (comm *Comm) Setup(key []byte) (err error) {
+// SetupAuth - The Comm prepares SSH code and security details.
+func (comm *Comm) setupServerAuth(serverCAKey []byte, implantKey []byte) (err error) {
+
+	// Get implant fingerprint from its private key.
+	implantSigner, _ := ssh.ParsePrivateKey(implantKey)
+	iKeyBytes := sha256.Sum256(implantSigner.PublicKey().Marshal())
+	comm.fingerprint = base64.StdEncoding.EncodeToString(iKeyBytes[:])
+	rLog.Infof("Waiting key with fingerprint: %s", comm.fingerprint)
 
 	// Private key of the Server
-	signer, err := ssh.ParsePrivateKey(key)
+	signer, err := ssh.ParsePrivateKey(serverCAKey)
 	if err != nil {
 		rLog.Errorf("SSH failed to parse Private Key: %s", err.Error())
 		return
 	}
-	comm.sshConfig.AddHostKey(signer)
-	comm.sshConfig.MaxAuthTries = 3
 
-	// We verify the implant's public key and name against the ImplantCA.
-	comm.sshConfig.PublicKeyCallback = func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
-
-		pubKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key))) // Trimmed public key in PEM format
-		user := conn.User()                                                // This is the name of implant
-
-		// Get the Certificates root chain, and verify the cert against it.
-		sliverCACert, _, err := certs.GetCertificateAuthority(certs.ImplantCA)
-		if err != nil {
-			rLog.Fatalf("Failed to find ca type (%s)", certs.ImplantCA)
-		}
-		sliverCACertPool := x509.NewCertPool()
-		sliverCACertPool.AddCert(sliverCACert)
-
-		block, _ := pem.Decode([]byte(pubKey))
-		if block == nil {
-			return nil, fmt.Errorf("Failed to parse Certificate PEM")
-		}
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to parse Certificate: %v", err)
-		}
-
-		opts := x509.VerifyOptions{
-			DNSName: user,
-			Roots:   sliverCACertPool,
-		}
-
-		// Verify the provided certificate.
-		if _, err := cert.Verify(opts); err != nil {
-			return nil, fmt.Errorf("Failed to verify certificate: %v", err)
-		}
-
-		perms := &ssh.Permissions{
-			Extensions: map[string]string{"session": ""},
-		}
-
-		return perms, nil
+	// Config
+	comm.sshConfig = &ssh.ServerConfig{
+		MaxAuthTries:      3,
+		PublicKeyCallback: comm.verifyImplant,
 	}
-
-	// Keep-alives and other
+	comm.sshConfig.AddHostKey(signer)
 
 	return
+}
+
+// verifyImplant - Check the implant's host key fingerprint.
+func (comm *Comm) verifyImplant(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+
+	expect := comm.fingerprint
+	if expect == "" {
+		return nil, errors.New("No server key fingerprint")
+	}
+
+	// calculate the SHA256 hash of an SSH public key
+	bytes := sha256.Sum256(key.Marshal())
+	got := base64.StdEncoding.EncodeToString(bytes[:])
+
+	_, err := base64.StdEncoding.DecodeString(expect)
+	if _, ok := err.(base64.CorruptInputError); ok {
+		return nil, fmt.Errorf("MD5 fingerprint (%s), update to SHA256 fingerprint: %s", expect, got)
+	} else if err != nil {
+		return nil, fmt.Errorf("Error decoding fingerprint: %w", err)
+	}
+	if got != expect {
+		return nil, fmt.Errorf("Invalid fingerprint (%s)", got)
+	}
+
+	rLog.Infof("Fingerprint %s", got)
+
+	perms := &ssh.Permissions{
+		Extensions: map[string]string{"session": ""},
+	}
+
+	return perms, nil
+
 }
 
 // serve - concurrently serves all incoming (server <- implant and outgoing (server -> implant) connections.
@@ -241,7 +229,7 @@ func (comm *Comm) handleReverse(ch ssh.NewChannel) {
 	rLog.Infof("Processed inbound stream: %s <-- %s", conn.lAddr.String(), conn.rAddr.String())
 }
 
-// dial - Take a stream coming from the server/clients and forward it to an implant node.
+// dial - Take a stream coming from the server/clients and forward it to the implant.
 func (comm *Comm) dial(info *sliverpb.ConnectionInfo) (conn net.Conn, err error) {
 	data, _ := proto.Marshal(info)
 
@@ -308,62 +296,3 @@ func (comm *Comm) checkLatency() {
 	}
 	rLog.Infof("Latency: %s", time.Since(t0))
 }
-
-// newID- Returns an incremental nonce as an id
-func newID() uint32 {
-	newID := transportID + 1
-	transportID++
-	return newID
-}
-
-var transportID = uint32(0)
-
-func transport(rw1, rw2 io.ReadWriter) error {
-	errc := make(chan error, 1)
-	go func() {
-		errc <- copyBuffer(rw1, rw2)
-	}()
-
-	go func() {
-		errc <- copyBuffer(rw2, rw1)
-	}()
-
-	err := <-errc
-	if err != nil && err == io.EOF {
-		err = nil
-	}
-	return err
-}
-
-func copyBuffer(dst io.Writer, src io.Reader) error {
-	buf := lPool.Get().([]byte)
-	defer lPool.Put(buf)
-
-	_, err := io.CopyBuffer(dst, src, buf)
-	return err
-}
-
-var (
-	sPool = sync.Pool{
-		New: func() interface{} {
-			return make([]byte, smallBufferSize)
-		},
-	}
-	mPool = sync.Pool{
-		New: func() interface{} {
-			return make([]byte, mediumBufferSize)
-		},
-	}
-	lPool = sync.Pool{
-		New: func() interface{} {
-			return make([]byte, largeBufferSize)
-		},
-	}
-)
-
-var (
-	tinyBufferSize   = 512
-	smallBufferSize  = 2 * 1024  // 2KB small buffer
-	mediumBufferSize = 8 * 1024  // 8KB medium buffer
-	largeBufferSize  = 32 * 1024 // 32KB large buffer
-)

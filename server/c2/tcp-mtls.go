@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strings"
 	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -83,15 +82,13 @@ func acceptSliverConnections(ln net.Listener) {
 			continue
 		}
 
+		// Get the implant's private key for fingerprinting the SSH layer, and get the ServerCA private key as well.
+		_, implantKey, _ := certs.GetECCCertificate(certs.ImplantCA, "") // THIS WILL NEED TO BE CHANGED & SOLVED !!
+		_, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
+
 		// Instert Comm layer on the physical net.Conn brought by the listener, before registering session:
 		// The Comm system will give us back a stream over which we do our normal RPC registration stuff.
-
-		// Get a key for the SSH layer
-		_, _, key := certs.GetImplantHostCertificateKeyPairs(strings.Split(ln.Addr().String(), ":")[0])
-
-		// Instantiate and start the Comms
-		commSystem := comm.NewComm()
-		c2stream, err := commSystem.Init(conn, nil, key)
+		c2stream, err := comm.Init(conn, nil, serverCAKey, implantKey)
 		if err != nil {
 			mtlsLog.Errorf("Comm init failed: %v", err)
 			break

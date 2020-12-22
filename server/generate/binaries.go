@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -42,6 +43,7 @@ import (
 	"github.com/bishopfox/sliver/server/gogo"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/gobuffalo/packr"
 )
@@ -384,11 +386,17 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	goConfig.GOPATH = projectGoPathDir
 
 	// Cert PEM encoded certificates
-	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
+	serverCACert, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
 	sliverCert, sliverKey, err := certs.ImplantGenerateECCCertificate(name)
 	if err != nil {
 		return "", err
 	}
+	// Make a fingerprint of the implant's private key, for SSH-layer authentication
+	signer, _ := ssh.ParsePrivateKey(serverCAKey)
+	keyBytes := sha256.Sum256(signer.PublicKey().Marshal())
+	fingerprint := base64.StdEncoding.EncodeToString(keyBytes[:])
+	config.ServerFingerprint = fingerprint
+
 	config.CACert = string(serverCACert)
 	config.Cert = string(sliverCert)
 	config.Key = string(sliverKey)

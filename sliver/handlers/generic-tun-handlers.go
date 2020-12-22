@@ -238,14 +238,15 @@ func commTunnelHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 	log.Printf("[tunnel] Received Comm Tunnel request (ID %d)", data.TunnelID)
 	// {{end}}
 
-	// Security
-	caCert := transports.GetImplantCACert()
+	// Create and start a Tunnel. It is already wired up to its transports.Connection.
+	tunnel := comm.NewTunnel(data.TunnelID, transports.Transports.Server.C2.Send)
+
+	// Private key used to decrypt server Comm data
 	key := transports.GetImplantPrivateKey()
 
-	// Tunnel & Comm setup. This is goes on in the background, as the server needs a confirmation
-	// and will start sending traffic, handled by the handler just below.
-	tunnel := comm.NewTunnel(data.TunnelID, transports.Transports.Server.C2.Send)
-	go comm.NewComm().InitClient(tunnel, true, caCert, key)
+	// Comm setup. This is goes on in the background, because we need
+	// to end this handler, (otherwise it blocks and the tunnel will stay dry)
+	go comm.InitClient(tunnel, true, key)
 
 	muxResp, _ := proto.Marshal(&sliverpb.CommTunnelOpen{
 		Success:  true,
@@ -262,7 +263,6 @@ func commTunnelHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 func commTunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
 	data := &sliverpb.CommTunnelData{}
 	proto.Unmarshal(envelope.Data, data)
-	log.Printf("Received %d bytes from server", len(data.Data))
 	tunnel := comm.Tunnels.Tunnel(data.TunnelID)
 	if tunnel != nil {
 		tunnel.FromServer <- data

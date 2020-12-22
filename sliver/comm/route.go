@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io"
 	"sync"
-	"time"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
@@ -36,10 +35,6 @@ var (
 		Active: map[string]*route{},
 		mutex:  &sync.Mutex{},
 	}
-)
-
-const (
-	defaultNetTimeout = time.Second * 60
 )
 
 type route struct {
@@ -100,31 +95,31 @@ func (r *routes) Remove(routeID string) (err error) {
 }
 
 // routeForwardConn - Given an ID (route/handler) and source:remote address, give this stream to the appropriate transport.
-func routeForwardConn(route *route, info *sliverpb.ConnectionInfo, stream io.ReadWriteCloser) {
+func routeForwardConn(route *route, cc *sliverpb.ConnectionInfo, stream io.ReadWriteCloser) {
 	// {{if .Config.Debug}}
-	log.Printf("Forwarding inbound stream: %s:%d <--> %s:%d", info.LHost, info.LPort, info.RHost, info.RPort)
+	log.Printf("Forwarding inbound stream: %s:%d --> %s:%d", cc.LHost, cc.LPort, cc.RHost, cc.RPort)
 	// {{end}}
 
 	// If we are the gateway to this route, directly dial hosts on the network and pipe.
 	if route.IsGateway {
-		switch info.Transport {
+		switch cc.Transport {
 		case sliverpb.TransportProtocol_TCP:
 			// case "tcp", "mtls", "http", "https", "socks", "socks5":
-			err := handleTCP(info, stream)
+			err := handleTCP(cc, stream)
 			if err != nil {
 				// {{if .Config.Debug}}
-				log.Printf("Error dialing TCP: %s:%d -> %s:%d", info.LHost, info.LPort, info.RHost, info.RPort)
+				log.Printf("Error dialing TCP: %s:%d -> %s:%d", cc.LHost, cc.LPort, cc.RHost, cc.RPort)
 				// {{end}}
 				return
 			}
 
 		case sliverpb.TransportProtocol_UDP:
 			// case "udp", "dns", "named_pipe":
-			hostPort := fmt.Sprintf("%s:%d", info.RHost, info.RPort)
+			hostPort := fmt.Sprintf("%s:%d", cc.RHost, cc.RPort)
 			err := handleUDP(stream, hostPort)
 			if err != nil {
 				// {{if .Config.Debug}}
-				log.Printf("Error dialing TCP: %s:%d -> %s:%d", info.LHost, info.LPort, info.RHost, info.RPort)
+				log.Printf("Error dialing TCP: %s:%d -> %s:%d", cc.LHost, cc.LPort, cc.RHost, cc.RPort)
 				// {{end}}
 				return
 			}

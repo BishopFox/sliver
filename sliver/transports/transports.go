@@ -23,8 +23,6 @@ import (
 	"log"
 	// {{end}}
 
-	"crypto/rand"
-	"encoding/binary"
 	"errors"
 	"net/url"
 	"strconv"
@@ -59,7 +57,7 @@ var (
 var (
 	// Transports - All active transports on this implant.
 	Transports = &transports{
-		Available: map[uint64]*Transport{},
+		Available: map[uint32]*Transport{},
 		CommID:    make(chan uint64),
 		mutex:     &sync.Mutex{},
 	}
@@ -68,7 +66,7 @@ var (
 // transports - Holds all active transports for this implant.
 // This is consumed by some handlers & listeners, as well as the routing system.
 type transports struct {
-	Available map[uint64]*Transport // All transports available (compiled in) to this implant
+	Available map[uint32]*Transport // All transports available (compiled in) to this implant
 	Server    *Transport            // The transport tied to the C2 server (active connection)
 
 	// CommID - A blocking channel over which a transport receives a tunnel ID.
@@ -131,7 +129,7 @@ func (t *transports) Add(tp *Transport) (err error) {
 }
 
 // Remove - A transport has terminated its connection, and we remove it.
-func (t *transports) Remove(ID uint64) (err error) {
+func (t *transports) Remove(ID uint32) (err error) {
 	t.mutex.Lock()
 	delete(t.Available, ID)
 	t.mutex.Unlock()
@@ -139,13 +137,13 @@ func (t *transports) Remove(ID uint64) (err error) {
 }
 
 // Get - Returns an active Transport given an ID.
-func (t *transports) Get(ID uint64) (tp *Transport) {
+func (t *transports) Get(ID uint32) (tp *Transport) {
 	tp, _ = t.Available[ID]
 	return
 }
 
 // Switch - Dynamically switch the active transport, if multiple are available.
-func (t *transports) Switch(ID uint64, force bool) (err error) {
+func (t *transports) Switch(ID uint32, force bool) (err error) {
 
 	// Everything in the transport is set up and running, including RPC layer.
 	// We now either send a registration envelope, or anything.
@@ -154,12 +152,6 @@ func (t *transports) Switch(ID uint64, force bool) (err error) {
 
 	// t.Server = t // The transport tied to the server
 	return
-}
-
-func newID() uint64 {
-	randBuf := make([]byte, 8)
-	rand.Read(randBuf)
-	return binary.LittleEndian.Uint64(randBuf)
 }
 
 // Sould not be needed anymore, or translated for transports.
@@ -207,3 +199,12 @@ func getMaxConnectionErrors() int {
 	}
 	return maxConnectionErrors
 }
+
+// newID- Returns an incremental nonce as an id
+func newID() uint32 {
+	newID := transportID + 1
+	transportID++
+	return newID
+}
+
+var transportID = uint32(0)

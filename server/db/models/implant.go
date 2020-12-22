@@ -67,6 +67,7 @@ type ImplantConfig struct {
 	CACert              string
 	Cert                string
 	Key                 string
+	ServerFingerprint   string
 	Debug               bool
 	Evasion             bool
 	ObfuscateSymbols    bool

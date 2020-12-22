@@ -33,6 +33,7 @@ When a handler/listener is started on a pivot and upon registration of the pivot
 session on top of the pivoted net.Conn, or we just reverse forward the RPC messages (DNS/HTTPS). This would give, briefly:
 
 
+```
            |--------DNS 1 (route 3)--------------> |               |--------DNS 1 (route 3)--------------> | IMPLANT (route 3)
 **C2 Server**|--------TCPConn 1 (route 1)----------> |               
            |--------UDPConn 1 (route 4)----------> | PIVOT_IMPLANT |--------TCPConn 1 (route 1)----------> | IMPLANT (route 1 & 4)
@@ -40,7 +41,7 @@ session on top of the pivoted net.Conn, or we just reverse forward the RPC messa
            |--------TCP/HTTP 1 (route 2)---------> |                                   
                                                                    |--------TCPConn 2 (route 2)----------> | IMPLANT (route 2)
                                                                    |--------TCP/HTTP 1 (route 2)---------> |
-
+```
 
 The import point of this crappy diagram is to show that we do not create SSH session inside of an SSH session, inside another, etc...
 This might happen, however, when the route being considered has a session gateway whose C2 stack mandates us to use a `Tunnel` object.

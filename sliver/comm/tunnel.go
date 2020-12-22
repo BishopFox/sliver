@@ -53,6 +53,7 @@ type MuxTunnel struct {
 	mutex      *sync.RWMutex
 }
 
+// NewTunnel - Instantiates and starts a Comm Tunnel. It listens on its corresponding Session.
 func NewTunnel(id uint64, toServer chan *sliverpb.Envelope) *MuxTunnel {
 	tunnel := &MuxTunnel{
 		ID:         id,

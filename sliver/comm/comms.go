@@ -21,6 +21,11 @@ package comm
 import (
 	"io"
 	"sync"
+	"time"
+)
+
+const (
+	defaultNetTimeout = time.Second * 60
 )
 
 // Comms - (SSH-multiplexing) ------------------------------------------------------------
@@ -98,13 +103,6 @@ func (c *tunnels) RemoveTunnel(ID uint64) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	delete(c.tunnels, ID)
-}
-
-// newID- Returns an incremental nonce as an id
-func newID() uint32 {
-	newID := commID + 1
-	commID++
-	return newID
 }
 
 // Piping & Utils ------------------------------------------------------------

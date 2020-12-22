@@ -57,8 +57,8 @@ type tunnel struct {
 	mutex *sync.RWMutex
 }
 
-// newTunnel - Setup and start a Comm tunnel
-func newTunnel(conn *core.Session) (t *tunnel, err error) {
+// newTunnelTo - Setup and start a Comm tunnel
+func newTunnelTo(conn *core.Session) (t *tunnel, err error) {
 	t = &tunnel{
 		ID:          newTunnelID(),
 		Sess:        conn,

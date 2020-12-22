@@ -21,6 +21,7 @@ package comm
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"io"
 	"sync"
 )
 
@@ -147,3 +148,62 @@ func (c *commListeners) Remove(id string) {
 		delete(c.active, id)
 	}
 }
+
+// newID- Returns an incremental nonce as an id
+func newID() uint32 {
+	newID := transportID + 1
+	transportID++
+	return newID
+}
+
+var transportID = uint32(0)
+
+func transport(rw1, rw2 io.ReadWriter) error {
+	errc := make(chan error, 1)
+	go func() {
+		errc <- copyBuffer(rw1, rw2)
+	}()
+
+	go func() {
+		errc <- copyBuffer(rw2, rw1)
+	}()
+
+	err := <-errc
+	if err != nil && err == io.EOF {
+		err = nil
+	}
+	return err
+}
+
+func copyBuffer(dst io.Writer, src io.Reader) error {
+	buf := lPool.Get().([]byte)
+	defer lPool.Put(buf)
+
+	_, err := io.CopyBuffer(dst, src, buf)
+	return err
+}
+
+var (
+	sPool = sync.Pool{
+		New: func() interface{} {
+			return make([]byte, smallBufferSize)
+		},
+	}
+	mPool = sync.Pool{
+		New: func() interface{} {
+			return make([]byte, mediumBufferSize)
+		},
+	}
+	lPool = sync.Pool{
+		New: func() interface{} {
+			return make([]byte, largeBufferSize)
+		},
+	}
+)
+
+var (
+	tinyBufferSize   = 512
+	smallBufferSize  = 2 * 1024  // 2KB small buffer
+	mediumBufferSize = 8 * 1024  // 8KB medium buffer
+	largeBufferSize  = 32 * 1024 // 32KB large buffer
+)
