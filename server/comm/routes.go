@@ -64,7 +64,7 @@ func (r *routes) Add(new *sliverpb.Route) (route *Route, err error) {
 	}
 
 	// Create a blank route based on request parsing
-	route = newRoute(subnet)
+	route = newRouteTo(subnet)
 
 	// Make sure the IP is not contained in one of the active routes' destination subnet.
 	err = checkExistingRoutes(route, new.SessionID)
@@ -73,35 +73,20 @@ func (r *routes) Add(new *sliverpb.Route) (route *Route, err error) {
 	}
 
 	// This session will be the last node of the route, which will dial endpoint on its host subnet.
-	var lastNodeSession *core.Session
-
-	// This should be rewritten, especially the else part
-	if new.SessionID != 0 {
-		// If an implant ID is given in the request, we directly check its interfaces.
-		// The new.ID is normally (and later) used for the route, but we use it as a filter for now.
-		lastNodeSession = core.Sessions.Get(new.SessionID)
-		err = checkSessionNetIfaces(ip, lastNodeSession)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// If no, get interfaces for all implants and verify no doublons.
-		// For each implant, check network interfaces. Stop at the first one valid.
-		lastNodeSession, err = checkAllSessionIfaces(subnet)
-		if err != nil {
-			return nil, fmt.Errorf("Error adding route: %s", err.Error())
-		}
+	targetSession, err := getSessionForSubnet(new.SessionID, route)
+	if err != nil {
+		return nil, fmt.Errorf("Error getting session for network %s: %s", route.IPNet.String(), err.Error())
 	}
 
 	// Here, add server interfaces check. Not now for tests.
 
 	// We should not have an empty last node session.
-	if lastNodeSession == nil {
+	if targetSession == nil {
 		return nil, errors.New("Error adding route: last node' session is nil, after checking all interfaces")
 	}
 
 	// We build the full route to this last node session. Check that route is not nil, in case...
-	route, err = buildRouteToSession(lastNodeSession, route)
+	route, err = buildRouteToSession(targetSession, route)
 	if err != nil {
 		return nil, err
 	}
@@ -144,6 +129,31 @@ func (r *routes) Remove(routeID string, close bool) (err error) {
 	r.mutex.Lock()
 	delete(r.Registered, route.ID.String())
 	r.mutex.Unlock()
+
+	return
+}
+
+// Given a route (with its target network), we find the session that has access to it.
+// If the sessionID is different from 0, we only check against this session, otherwise we go across all of them.
+func getSessionForSubnet(sessionID uint32, route *Route) (session *core.Session, err error) {
+
+	// This should be rewritten, especially the else part
+	if sessionID != 0 {
+		// If an implant ID is given in the request, we directly check its interfaces.
+		// The new.ID is normally (and later) used for the route, but we use it as a filter for now.
+		session = core.Sessions.Get(sessionID)
+		err = checkSessionNetIfaces(route.IPNet.IP, session)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// If no, get interfaces for all implants and verify no doublons.
+		// For each implant, check network interfaces. Stop at the first one valid.
+		session, err = checkAllSessionIfaces(&route.IPNet)
+		if err != nil {
+			return nil, fmt.Errorf("Error adding route: %s", err.Error())
+		}
+	}
 
 	return
 }

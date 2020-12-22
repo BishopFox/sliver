@@ -51,7 +51,7 @@ type Route struct {
 }
 
 // newRoute - Create a new route based on an address in CIDR notation, or an address with a netmask provided.
-func newRoute(subnet *net.IPNet) *Route {
+func newRouteTo(subnet *net.IPNet) *Route {
 
 	id, _ := uuid.NewGen().NewV1() // New route always has a new UUID.
 	route := &Route{
@@ -130,6 +130,12 @@ func (r *Route) ToProtobuf() *sliverpb.Route {
 			RPort: int32(rPort),
 			LHost: lHost,
 			LPort: int32(lPort),
+		}
+		if cc.RemoteAddr().Network() == "tcp" {
+			connInfo.Transport = sliverpb.TransportProtocol_TCP
+		}
+		if cc.RemoteAddr().Network() == "udp" {
+			connInfo.Transport = sliverpb.TransportProtocol_UDP
 		}
 
 		switch cc.RemoteAddr().Network() {
