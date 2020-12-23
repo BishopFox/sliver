@@ -32,6 +32,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
 )
@@ -46,10 +47,10 @@ var (
 type Comm struct {
 	// Core
 	ID          uint32
-	SessionID   uint32            // Any multiplexer's physical connection is tied to an implant.
+	Session     *core.Session     // The session at the other end
 	sshConn     ssh.Conn          // SSH Connection, that we will mux
 	sshConfig   *ssh.ServerConfig // Encryption details.
-	fingerprint string            // A key fingerprint to authenticate the implant.
+	fingerprint string            // Implant key fingerprint
 
 	// Connection management
 	requests <-chan *ssh.Request   // Keep alive, close, etc.
@@ -59,32 +60,27 @@ type Comm struct {
 	// Keep alives, maximum buffers depending on latency.
 }
 
-// Init - Sets up the Comm system (SSH session) around a physical connection or a RPC tunnel connection.
-// The function may return (optionally) the stream over which the session will register its RPC handlers.
-func Init(conn net.Conn, sess *core.Session, serverCAKey, implantKey []byte) (ss io.ReadWriteCloser, err error) {
+// Init - Sets up the Comm system (SSH session) around a RPC tunnel connection.
+func Init(sess *core.Session) (err error) {
 
 	// New Comm SSH multiplexer
 	comm := &Comm{
-		ID:    newID(),
-		mutex: &sync.RWMutex{},
+		ID:      newID(),
+		Session: sess,
+		mutex:   &sync.RWMutex{},
 	}
 
 	// Pepare the SSH conn/security, and set keepalive policies/handlers.
-	err = comm.setupServerAuth(serverCAKey, implantKey)
+	err = comm.setupServerAuth()
 	if err != nil {
 		rLog.Errorf("failed to setup SSH client connection: %s", err.Error())
-		return nil, err
+		return err
 	}
 
-	// If no conn given, we setup a conn based on a tunnel.
-	// Also asks the remote implant to create the other end.
-	// Map the Session ID to this comm, will be used by Routes later.
-	if conn == nil {
-		conn, err = newTunnelTo(sess)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create tunnel: %s", err.Error())
-		}
-		comm.SessionID = sess.ID
+	// Create a new tunnel (net.Conn): this asks the remote implant to create the other end.
+	conn, err := newTunnelTo(sess)
+	if err != nil {
+		return fmt.Errorf("failed to create tunnel: %s", err.Error())
 	}
 
 	// Start server connection.
@@ -100,14 +96,6 @@ func Init(conn net.Conn, sess *core.Session, serverCAKey, implantKey []byte) (ss
 	go comm.serveRequests() // Serve pings & requests with keepalive policies.
 	comm.checkLatency()     // Get latency for this tunnel.
 
-	// Get a stream for the session, if not through a tunnel.
-	if sess == nil {
-		ss, err = comm.initSessionStream()
-		if err != nil {
-			return
-		}
-	}
-
 	Comms.Add(comm) // Everything is up and running, register the mux.
 	go comm.serve() // Handle requests (pings) and incoming connections in the background.
 
@@ -115,15 +103,17 @@ func Init(conn net.Conn, sess *core.Session, serverCAKey, implantKey []byte) (ss
 }
 
 // SetupAuth - The Comm prepares SSH code and security details.
-func (comm *Comm) setupServerAuth(serverCAKey []byte, implantKey []byte) (err error) {
+func (comm *Comm) setupServerAuth() (err error) {
 
-	// Get implant fingerprint from its private key.
+	// Get the implant's private key for fingerprinting its public key,
+	_, implantKey, _ := certs.GetECCCertificate(certs.ImplantCA, comm.Session.Name)
 	implantSigner, _ := ssh.ParsePrivateKey(implantKey)
 	iKeyBytes := sha256.Sum256(implantSigner.PublicKey().Marshal())
 	comm.fingerprint = base64.StdEncoding.EncodeToString(iKeyBytes[:])
 	rLog.Infof("Waiting key with fingerprint: %s", comm.fingerprint)
 
-	// Private key of the Server
+	// Private key of the Server, for authenticating us and encryption.
+	_, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
 	signer, err := ssh.ParsePrivateKey(serverCAKey)
 	if err != nil {
 		rLog.Errorf("SSH failed to parse Private Key: %s", err.Error())

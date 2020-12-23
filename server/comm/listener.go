@@ -104,5 +104,20 @@ func (t *listener) Addr() net.Addr {
 
 // Listen - Returns a listener accepting connections from wherever in the Comms.
 func Listen(network, host string) (ln net.Listener, err error) {
+
+	// Check routes and interfaces
+
+	// If implant, send request
+
+	// map abstracted listener,
+
+	// Return the listener
+
+	// ELSE if SERVER
+
+	// IF tcp return tcp listener
+
+	// IF udp return udp listener
+
 	return
 }

@@ -97,6 +97,7 @@ func (t *tunnel) Read(data []byte) (n int, err error) {
 
 // Write - Implements net.Conn Write(), by sending data through the Session's RPC tunnels.
 func (t *tunnel) Write(data []byte) (n int, err error) {
+	t.mutex.RLock() // Look as soon as now, we never know if the ToImplantSequence might change before being written.
 	sdata, _ := proto.Marshal(&sliverpb.CommTunnelData{
 		Sequence:  t.ToImplantSequence,
 		TunnelID:  t.ID,
@@ -104,13 +105,15 @@ func (t *tunnel) Write(data []byte) (n int, err error) {
 		Data:      data,
 		Closed:    false,
 	})
-	t.ToImplantSequence++
+	rLog.Debugf("[tunnel] To implant %d byte(s)", len(data))
 	rLog.Debugf("[tunnel] Sequence: %d ", t.ToImplantSequence)
+
+	t.ToImplantSequence++
+	t.mutex.RUnlock()
 	t.Sess.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgCommTunnelData,
 		Data: sdata,
 	}
-	rLog.Debugf("[tunnel] To implant %d byte(s)", len(data))
 	return len(data), err
 }
 
@@ -211,7 +214,9 @@ func (t *tunnel) handleFromImplant() {
 	for data := range t.FromImplant {
 		rLog.Debugf("[tunnel] From implant %d byte(s)", len(data.Data))
 
+		t.mutex.RLock()
 		t.cache[data.Sequence] = data
+		t.mutex.RUnlock()
 
 		for recv, ok := t.cache[t.FromImplantSequence]; ok; recv, ok = t.cache[t.FromImplantSequence] {
 
@@ -220,10 +225,13 @@ func (t *tunnel) handleFromImplant() {
 				rLog.Debugf("[tunnel] Error writing %d bytes to tunnel %d", len(recv.Data))
 			}
 
-			delete(t.cache, t.FromImplantSequence)
-			t.FromImplantSequence++
 			rLog.Debugf("[tunnel] wrote %d bytes to comm tunnel buffer", len(recv.Data))
 			rLog.Debugf("[tunnel] Sequence: %d ", t.FromImplantSequence)
+
+			t.mutex.RLock()
+			delete(t.cache, t.FromImplantSequence)
+			t.FromImplantSequence++
+			t.mutex.RUnlock()
 		}
 	}
 }

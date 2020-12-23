@@ -23,10 +23,7 @@ package handlers
 */
 
 import (
-	"net/url"
-
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
@@ -93,26 +90,8 @@ func registerSessionHandler(session *core.Session, data []byte) {
 
 	core.Sessions.Add(session)
 
-	// Some transports (all the ones yielding a net.Conn) do not need to setup their Comms here.
-	uri, _ := url.Parse(register.ActiveC2)
-	switch uri.Scheme {
-	case "mtls":
-		// We assume that any Comm with SessionID == 0 is the one we're
-		// looking for, there can't be two Comms pending at the same time.
-		for _, com := range comm.Comms.Active {
-			if com.SessionID == 0 {
-				com.SessionID = session.ID
-			}
-		}
-		return
-	}
-
-	// Get the implant's private key for fingerprinting the SSH layer, and get the ServerCA private key as well.
-	_, implantKey, _ := certs.GetECCCertificate(certs.ImplantCA, register.Name)
-	_, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
-
 	// Instantiate and start the Comms, which will build a Tunnel over the Session RPC.
-	_, err = comm.Init(nil, session, serverCAKey, implantKey)
+	err = comm.Init(session)
 	if err != nil {
 		handlerLog.Errorf("Comm init failed: %v", err)
 		return

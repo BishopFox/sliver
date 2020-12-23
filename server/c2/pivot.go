@@ -141,7 +141,7 @@ func HandlePivotOpen(session *core.Session, data []byte) {
 	_, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
 
 	// Instantiate and start the Comms, which will build a Tunnel over the Session RPC.
-	_, err = comm.Init(nil, session, serverCAKey, implantKey)
+	_, err = comm.Init(nil, sliverPivoted, serverCAKey, implantKey)
 	if err != nil {
 		pivotLog.Errorf("Comm init failed: %v", err)
 		return

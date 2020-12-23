@@ -133,5 +133,8 @@ func tcpPivotConnectionHandler(conn *net.Conn, pivotID uint32) {
 				Data: data2,
 			}
 		}
+		// {{if .Config.Debug}}
+		log.Println(len(pivotData.Data))
+		// {{end}}
 	}
 }

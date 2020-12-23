@@ -264,14 +264,31 @@ func commTunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.C
 	data := &sliverpb.CommTunnelData{}
 	proto.Unmarshal(envelope.Data, data)
 	tunnel := comm.Tunnels.Tunnel(data.TunnelID)
-	if tunnel != nil {
-		tunnel.FromServer <- data
-		// {{if .Config.Debug}}
-		log.Printf("[tunnel] From server %d bytes", len(data.Data))
-		// {{end}}
-	} else {
-		// {{if .Config.Debug}}
-		log.Printf("Data for nil tunnel %d", data.TunnelID)
-		// {{end}}
+	for {
+		switch {
+		case tunnel != nil:
+			tunnel.FromServer <- data
+			// {{if .Config.Debug}}
+			log.Printf("[tunnel] From server %d bytes", len(data.Data))
+			// {{end}}
+			return
+		default:
+			// {{if .Config.Debug}}
+			log.Printf("[tunnel] No tunnel found for ID %d (Seq: %d)", data.TunnelID, data.Sequence)
+			// {{end}}
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
 	}
+
+	// if tunnel != nil {
+	//         tunnel.FromServer <- data
+	//         // {{if .Config.Debug}}
+	//         log.Printf("[tunnel] From server %d bytes", len(data.Data))
+	//         // {{end}}
+	// } else {
+	//         // {{if .Config.Debug}}
+	//         log.Printf("Data for nil tunnel %d", data.TunnelID)
+	//         // {{end}}
+	// }
 }

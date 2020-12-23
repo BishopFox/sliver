@@ -30,7 +30,6 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/core"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
@@ -82,20 +81,7 @@ func acceptSliverConnections(ln net.Listener) {
 			continue
 		}
 
-		// Get the implant's private key for fingerprinting the SSH layer, and get the ServerCA private key as well.
-		_, implantKey, _ := certs.GetECCCertificate(certs.ImplantCA, "") // THIS WILL NEED TO BE CHANGED & SOLVED !!
-		_, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
-
-		// Instert Comm layer on the physical net.Conn brought by the listener, before registering session:
-		// The Comm system will give us back a stream over which we do our normal RPC registration stuff.
-		c2stream, err := comm.Init(conn, nil, serverCAKey, implantKey)
-		if err != nil {
-			mtlsLog.Errorf("Comm init failed: %v", err)
-			break
-		}
-
-		// Handle the properly-speaking C2 Session with the dedicated stream.
-		go handleSliverConnection(c2stream)
+		go handleSliverConnection(conn)
 	}
 }
 

