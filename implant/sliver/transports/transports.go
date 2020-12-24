@@ -319,7 +319,10 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 			if err == io.EOF {
 				break
 			}
-			if err == nil {
+			if err != io.EOF && err != nil {
+				break
+			}
+			if envelope != nil {
 				recv <- envelope
 			}
 		}

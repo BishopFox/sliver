@@ -40,7 +40,7 @@ import (
 
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message
-// e.g. [uint32 length|message] so the reciever can delimit messages properly
+// e.g. [uint32 length|message] so the receiver can delimit messages properly
 func socketWriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
@@ -97,7 +97,7 @@ func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
 		// {{if .Config.Debug}}
 		log.Printf("Unmarshaling envelope error: %v", err)
 		// {{end}}
-		return &pb.Envelope{}, err
+		return nil, err
 	}
 
 	return envelope, nil
