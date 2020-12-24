@@ -30,6 +30,7 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/core"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
@@ -47,6 +48,56 @@ const (
 var (
 	mtlsLog = log.NamedLogger("c2", "mtls")
 )
+
+// StartMutualTLSListenerComm - Start a mutual TLS listener working with the Comm system.
+func StartMutualTLSListenerComm(bindIface string, port uint16) (ln net.Listener, err error) {
+	StartPivotListener()
+
+	host := bindIface
+	if host == "" {
+		host = defaultServerCert
+	}
+	_, _, err = certs.GetCertificate(certs.C2ServerCA, certs.ECCKey, host)
+	if err != nil {
+		certs.C2ServerGenerateECCCertificate(host)
+	}
+	tlsConfig := getServerTLSConfig(host)
+
+	mtlsLog.Infof("Starting routed TCP/mTLS listener on %s:%d", bindIface, port)
+
+	// Get a TCP listner from the comm system.
+	ln, err = comm.ListenTCP("tcp", fmt.Sprintf("%s:%d", bindIface, port))
+	if err != nil {
+		mtlsLog.Error(err)
+		return nil, err
+	}
+
+	go acceptSliverConnectionsRoute(ln, tlsConfig)
+
+	return ln, nil
+}
+
+func acceptSliverConnectionsRoute(ln net.Listener, config *tls.Config) {
+	for {
+		// Accept a normal TCP connection
+		conn, err := ln.Accept()
+		if err != nil {
+			if errType, ok := err.(*net.OpError); ok && errType.Op == "accept" {
+				break
+			}
+			mtlsLog.Errorf("Accept failed: %v", err)
+			continue
+		}
+
+		// Upgrade to Mutual TLS
+		tlsConn := tls.Client(conn, config)
+		if tlsConn == nil {
+			mtlsLog.Errorf("Upgrade to Mutual TLS failed: %s", err.Error())
+		}
+
+		go handleSliverConnection(tlsConn)
+	}
+}
 
 // StartMutualTLSListener - Start a mutual TLS listener
 func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error) {
@@ -66,12 +117,13 @@ func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error)
 		mtlsLog.Error(err)
 		return nil, err
 	}
-	go acceptSliverConnections(ln)
+	go acceptSliverConnections(ln, tlsConfig)
 	return ln, nil
 }
 
 func acceptSliverConnections(ln net.Listener) {
 	for {
+		// Accept a normal TCP connection
 		conn, err := ln.Accept()
 		if err != nil {
 			if errType, ok := err.(*net.OpError); ok && errType.Op == "accept" {

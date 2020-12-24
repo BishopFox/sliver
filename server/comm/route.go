@@ -221,6 +221,11 @@ func (r *Route) Close() {
 	}
 }
 
+// String - Forges a string of this route target network.
+func (r *Route) String() string {
+	return fmt.Sprintf("[via %s]", r.Gateway.RemoteAddress)
+}
+
 // InitReverse - The route adds an ID to reverse route any matching connection coming from the last session.
 func (r *Route) InitReverse() (id string, err error) {
 	return
@@ -228,4 +233,22 @@ func (r *Route) InitReverse() (id string, err error) {
 
 // Connect - A conn needs to be forwarded, send it through first node, concurrently.
 func (r *Route) Connect(addr url.URL, conn net.Conn) {
+}
+
+// SetCommString - Get a string for a host given a route. If route is nil simply returns host.
+func SetCommString(session *core.Session) string {
+
+	// The session object already has an address in its RemoteAddr field:
+	// HTTP/DNS/mTLS handlers have populated it. Make a copy of this field.
+	addr := session.RemoteAddress
+
+	// Given the remote address, check all existing routes,
+	// and if any contains the given address, use this route.
+	host := strings.Split(addr, ":")[0]
+	route, err := ResolveAddress(host)
+	if err != nil || route == nil {
+		return addr
+	}
+
+	return route.String() + " " + addr
 }

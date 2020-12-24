@@ -23,12 +23,12 @@ package handlers
 */
 
 import (
+	"github.com/golang/protobuf/proto"
+
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
-
-	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -84,11 +84,9 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	session.Version = register.Version
 	session.ReconnectInterval = register.ReconnectInterval
 
-	// Add protocol & network fields
+	// Add protocol, network and route-adjusted address fields
 	session.Transport = register.Transport
-	session.RemoteAddress = register.RemoteAddr
-
-	core.Sessions.Add(session)
+	session.RemoteAddress = comm.SetCommString(session)
 
 	// Instantiate and start the Comms, which will build a Tunnel over the Session RPC.
 	err = comm.Init(session)
@@ -96,6 +94,9 @@ func registerSessionHandler(session *core.Session, data []byte) {
 		handlerLog.Errorf("Comm init failed: %v", err)
 		return
 	}
+
+	// All fields are correct, we can register the session.
+	core.Sessions.Add(session)
 }
 
 func tunnelDataHandler(session *core.Session, data []byte) {

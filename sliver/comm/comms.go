@@ -41,6 +41,7 @@ var (
 
 type comms struct {
 	active map[string]*Comm
+	server *Comm
 	mutex  *sync.RWMutex
 }
 
@@ -56,6 +57,9 @@ func (c *comms) Add(mux *Comm) *Comm {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.active[mux.RemoteAddress] = mux
+	if c.server == nil {
+		c.server = mux
+	}
 	return mux
 }
 

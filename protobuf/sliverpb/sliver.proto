@@ -590,7 +590,7 @@ message Handler {
   string LHost = 6;
   int32 LPort = 7;
 
-  string ID = 8; // A handler always has at least one ID 
+  string ID = 8; // A handler always has at least one ID , provided by the server.
 
   HandlerSecurity Security = 9;
 }
