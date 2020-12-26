@@ -150,64 +150,6 @@ func (r *Route) ToProtobuf() *sliverpb.Route {
 	return rt
 }
 
-// init - The route sends requests to all nodes to handle connections prefixed with a certain ID,
-// or matching certain routes. Function is non blocking as it handles everything in the background,
-// or waits to be called later .
-func (r *Route) init() (err error) {
-
-	full := r.ToProtobuf()
-
-	// Send request to implant
-	for i := range r.Nodes {
-		err = sendNodeAdd(r.Nodes[i], full)
-		if err != nil {
-			for j := range r.Nodes[:i] {
-				err = sendNodeDel(r.Nodes[j], r.ToProtobuf())
-				rLog.Errorf("Error cancelling orphaned route: %s", err.Error())
-			}
-		}
-		// After each node, cut the chain, and send only the remainder.
-		if len(full.Nodes) > 1 {
-			full.Nodes = full.Nodes[1:]
-		} else if len(full.Nodes) == 1 {
-			full.Nodes = append(full.Nodes, full.Gateway)
-		}
-		return
-	}
-
-	// Finally notify the gateway session
-	full.Nodes = nil
-	err = sendNodeAdd(r.Gateway, full)
-	if err != nil {
-		return r.remove() // This will notify all other nodes.
-	}
-
-	r.Active = true // Everything is fine, route is active
-	return
-}
-
-// kill - The route notifies all nodes and the gateway to remove the route.
-func (r *Route) remove() (err error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	// Nodes
-	for i := range r.Nodes {
-		err = sendNodeDel(r.Nodes[i], r.ToProtobuf())
-		if err != nil {
-			rLog.Errorf("Error cancelling route (node: %d): %s", r.Nodes[i].ID, err.Error())
-		}
-	}
-	// Gateway
-	err = sendNodeDel(r.Gateway, r.ToProtobuf())
-	if err != nil {
-		rLog.Errorf("Error cancelling route (Gateway): %s", err.Error())
-	}
-
-	r.Active = false
-	return
-}
-
 // Close - Closes all connections that being actively monitored by this route.
 // This does not includes active port forwards, and connections linked to handlers.
 func (r *Route) Close() {
@@ -224,31 +166,4 @@ func (r *Route) Close() {
 // String - Forges a string of this route target network.
 func (r *Route) String() string {
 	return fmt.Sprintf("[via %s]", r.Gateway.RemoteAddress)
-}
-
-// InitReverse - The route adds an ID to reverse route any matching connection coming from the last session.
-func (r *Route) InitReverse() (id string, err error) {
-	return
-}
-
-// Connect - A conn needs to be forwarded, send it through first node, concurrently.
-func (r *Route) Connect(addr url.URL, conn net.Conn) {
-}
-
-// SetCommString - Get a string for a host given a route. If route is nil simply returns host.
-func SetCommString(session *core.Session) string {
-
-	// The session object already has an address in its RemoteAddr field:
-	// HTTP/DNS/mTLS handlers have populated it. Make a copy of this field.
-	addr := session.RemoteAddress
-
-	// Given the remote address, check all existing routes,
-	// and if any contains the given address, use this route.
-	host := strings.Split(addr, ":")[0]
-	route, err := ResolveAddress(host)
-	if err != nil || route == nil {
-		return addr
-	}
-
-	return route.String() + " " + addr
 }

@@ -74,35 +74,11 @@ func StartMutualTLSListenerComm(bindIface string, port uint16) (ln net.Listener,
 		return nil, err
 	}
 
+	// Wrap this listener into a TLS listener.
 	l := tls.NewListener(ln, tlsConfig)
 
-	go acceptSliverConnectionsRoute(l, tlsConfig)
-
+	go acceptSliverConnections(l)
 	return ln, nil
-}
-
-// acceptSliverConnectionsRoute - Wraps a raw TCP connection into a Mutual TLS connection.
-func acceptSliverConnectionsRoute(ln net.Listener, config *tls.Config) {
-	for {
-		// Accept a normal TCP connection
-		conn, err := ln.Accept()
-		if err != nil {
-			if errType, ok := err.(*net.OpError); ok && errType.Op == "accept" {
-				break
-			}
-			mtlsLog.Errorf("Accept failed: %v", err)
-			continue
-		}
-		// Upgrade to Mutual TLS
-		// tlsConn := tls.Client(conn, config)
-		// if tlsConn == nil {
-		//         mtlsLog.Errorf("Upgrade to Mutual TLS failed: %s", err.Error())
-		// }
-
-		// Handle the sliver connection as usual
-		go handleSliverConnection(conn)
-		// go handleSliverConnection(tlsConn)
-	}
 }
 
 // StartMutualTLSListener - Start a mutual TLS listener
@@ -298,7 +274,7 @@ func getServerTLSConfig(host string) *tls.Config {
 		CipherSuites:             []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384},
 		PreferServerCipherSuites: true,
 		MinVersion:               tls.VersionTLS12,
-		ServerName:               "localhost",
+		// ServerName:               "localhost",// Find a way to solve this.
 	}
 	tlsConfig.BuildNameToCertificate()
 	return tlsConfig

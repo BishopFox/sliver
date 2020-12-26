@@ -22,8 +22,33 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"io"
+	"strings"
 	"sync"
+
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/golang/protobuf/proto"
 )
+
+// Utils - (package-wide) ----------------------------------------------------------------
+
+// SetCommString - Get a string for a host given a route. If route is nil simply returns host.
+func SetCommString(session *core.Session) string {
+
+	// The session object already has an address in its RemoteAddr field:
+	// HTTP/DNS/mTLS handlers have populated it. Make a copy of this field.
+	addr := session.RemoteAddress
+
+	// Given the remote address, check all existing routes,
+	// and if any contains the given address, use this route.
+	host := strings.Split(addr, ":")[0]
+	route, err := ResolveAddress(host)
+	if err != nil || route == nil {
+		return addr
+	}
+
+	return route.String() + " " + addr
+}
 
 // Comms - (SSH-multiplexing) ------------------------------------------------------------
 
@@ -108,47 +133,6 @@ func newTunnelID() uint64 {
 	return binary.LittleEndian.Uint64(randBuf)
 }
 
-// Listeners ----------------------------------------------------------------------------
-
-var (
-	// listeners - All instantiated active connection listeners. These listeners
-	// are either tied to a listener running on an implant host, or the C2 server.
-	listeners = &commListeners{
-		active: map[string]*listener{},
-		mutex:  &sync.RWMutex{},
-	}
-)
-
-type commListeners struct {
-	active map[string]*listener
-	mutex  *sync.RWMutex
-}
-
-// Get - Get a session by ID
-func (c *commListeners) Get(id string) *listener {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-	return c.active[id]
-}
-
-// Add - Add a sliver to the hive (atomically)
-func (c *commListeners) Add(l *listener) *listener {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	c.active[l.id] = l
-	return l
-}
-
-// Remove - Remove a sliver from the hive (atomically)
-func (c *commListeners) Remove(id string) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	l := c.active[id]
-	if l != nil {
-		delete(c.active, id)
-	}
-}
-
 // newID- Returns an incremental nonce as an id
 func newID() uint32 {
 	newID := transportID + 1
@@ -157,6 +141,8 @@ func newID() uint32 {
 }
 
 var transportID = uint32(0)
+
+// Stream piping ----------------------------------------------------------------------------
 
 func transport(rw1, rw2 io.ReadWriter) error {
 	errc := make(chan error, 1)
@@ -207,3 +193,22 @@ var (
 	mediumBufferSize = 8 * 1024  // 8KB medium buffer
 	largeBufferSize  = 32 * 1024 // 32KB large buffer
 )
+
+// Handler requests/responses ----------------------------------------------------------------
+
+// remoteHandlerRequest - Send a protobuf request to gateway session and get response.
+func remoteHandlerRequest(sess *core.Session, req, resp proto.Message) (err error) {
+	reqData, err := proto.Marshal(req)
+	if err != nil {
+		return err
+	}
+	data, err := sess.Request(sliverpb.MsgNumber(req), defaultNetTimeout, reqData)
+	if err != nil {
+		return err
+	}
+	err = proto.Unmarshal(data, resp)
+	if err != nil {
+		return err
+	}
+	return nil
+}

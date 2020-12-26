@@ -91,13 +91,6 @@ func (r *routes) Add(new *sliverpb.Route) (route *Route, err error) {
 		return nil, err
 	}
 
-	// Send a C2 request to each implant node in the chain. If any error arises
-	// from a node, the route will automatically cancel successful nodes.
-	err = route.init()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to init route (currently being cancelled): %s", err)
-	}
-
 	// Add to Routes map
 	r.mutex.Lock()
 	r.Registered[route.ID.String()] = route
@@ -115,11 +108,6 @@ func (r *routes) Remove(routeID string, close bool) (err error) {
 		return fmt.Errorf("Provided route ID (%s) does not exist", routeID)
 	}
 
-	// Send request to remove route to all implant nodes.
-	err = route.remove()
-	if err != nil {
-		return fmt.Errorf("Error removing route: %s", err.Error())
-	}
 	// Close all active connections (forwarded ones, not listeners and portforwards)
 	if close {
 		route.Close()

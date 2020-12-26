@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/url"
 	"time"
 )
 
@@ -28,23 +27,7 @@ func (d *Dialer) DialContext(ctx context.Context, network string, host string) (
 		return nil, fmt.Errorf("Address lookup failed: %s", err.Error())
 	}
 
-	// Get RHost/RPort
-	uri, _ := url.Parse(fmt.Sprintf("%s://%s", network, host))
-	if uri == nil {
-		return nil, fmt.Errorf("Address parsing failed: %s", host)
-	}
-
-	return d.dialContext(ctx, uri)
-}
-
-// dialContext - Actually dial and get the conn.
-func (d *Dialer) dialContext(ctx context.Context, uri *url.URL) (conn net.Conn, err error) {
-
-	info := newConnInfo(uri, d.route)                       // Prepare connection info
-	conn, err = d.route.comm.dial(info)                     // Instantiate connection over Comms
-	d.route.Connections = append(d.route.Connections, conn) // Add connection to active
-
-	return
+	return d.route.DialContext(ctx, network, host)
 }
 
 // DialerDefault - A dialer with default connection options. Most use cases.

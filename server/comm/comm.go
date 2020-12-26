@@ -162,7 +162,7 @@ func (comm *Comm) verifyImplant(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.
 
 }
 
-// serve - concurrently serves all incoming (server <- implant and outgoing (server -> implant) connections.
+// serve - concurrently serves all incoming (server <- implant) connections.
 func (comm *Comm) serve() {
 	defer func() {
 		rLog.Infof("Closing SSH server connection (Comm ID: %d)...", comm.ID)
@@ -192,12 +192,25 @@ func (comm *Comm) handleReverse(ch ssh.NewChannel) {
 		return
 	}
 
+	switch info.Transport {
+	case sliverpb.TransportProtocol_TCP:
+		comm.handleReverseTCP(info, ch)
+
+	case sliverpb.TransportProtocol_UDP:
+		comm.handleReverseUDP(info, ch)
+	}
+}
+
+// handleReverseTCP - A non-blocking function that pushes a Comm stream (transformed
+// into a net.Conn) onto an abstracted TCP listener pending connections.
+func (comm *Comm) handleReverseTCP(info *sliverpb.ConnectionInfo, ch ssh.NewChannel) {
+
 	// The listener that will take on the stream.
-	ln := listeners.Get(info.ID)
+	ln := listenersTCP.Get(info.ID)
 	if ln == nil {
 		err := ch.Reject(ssh.Prohibited, "NOID")
 		if err != nil {
-			rLog.Errorf("Error: rejecting stream: %s", err)
+			rLog.Errorf("Error: rejecting TCP stream: %s", err)
 		}
 		rLog.Errorf("rejected stream: could not find associated abstract handler (ID: %s)", info.ID)
 		return
@@ -211,12 +224,37 @@ func (comm *Comm) handleReverse(ch ssh.NewChannel) {
 	}
 	go ssh.DiscardRequests(reqs)
 
-	// Populate the connection with comm properties
-	conn := newConn(info, io.ReadWriteCloser(sshChan))
+	conn := newConn(info, io.ReadWriteCloser(sshChan)) // Forge a conn with info (implements net.Conn)
+	ln.pending <- conn                                 // Push the stream to its listener (non-blocking)
+	rLog.Infof("Processed TCP inbound stream: %s <-- %s", conn.lAddr.String(), conn.rAddr.String())
+}
 
-	// Add conn stats.
-	ln.pending <- conn // We push the stream to its listener (non-blocking)
-	rLog.Infof("Processed inbound stream: %s <-- %s", conn.lAddr.String(), conn.rAddr.String())
+// handleReverseUDP - A slightly-different, because blocking, function that acquires a Comm UDP
+// stream, finds its associated abstracted UDP listener, and waits for it to handle the stream.
+func (comm *Comm) handleReverseUDP(info *sliverpb.ConnectionInfo, ch ssh.NewChannel) {
+
+	// The UDP listener that will take on the stream.
+	ln := listenersUDP.Get(info.ID)
+	if ln == nil {
+		err := ch.Reject(ssh.Prohibited, "NOID")
+		if err != nil {
+			rLog.Errorf("Error: rejecting TCP stream: %s", err)
+		}
+		rLog.Errorf("rejected stream: could not find associated abstract handler (ID: %s)", info.ID)
+		return
+	}
+
+	// Accept the stream and make it a conn.
+	sshChan, reqs, err := ch.Accept()
+	if err != nil {
+		rLog.Errorf("failed to accept stream (%s)", string(ch.ExtraData()))
+		return
+	}
+	go ssh.DiscardRequests(reqs)
+
+	// Push the stream to its listener. This is blocking, because the udpListener is
+	// actually just a UDPConn, which needs to be wired up and working.
+	ln.pending <- sshChan
 }
 
 // dial - Take a stream coming from the server/clients and forward it to the implant.
@@ -235,30 +273,6 @@ func (comm *Comm) dial(info *sliverpb.ConnectionInfo) (conn net.Conn, err error)
 	conn = newConn(info, io.ReadWriteCloser(dst))
 
 	return
-}
-
-// initSessionStream - The multiplexer has just been created and set up, and we need to register
-// the implant session for this physical connection. We create a dedicated stream and return it.
-func (comm *Comm) initSessionStream() (stream io.ReadWriteCloser, err error) {
-	if comm.sshConn == nil {
-		rLog.Errorf("Tried to open channel on nil SSH connection")
-		return
-	}
-
-	info := &sliverpb.ConnectionInfo{
-		ID: "REGISTRATION",
-	}
-	data, _ := proto.Marshal(info)
-
-	dst, reqs, err := comm.sshConn.OpenChannel("session", data)
-	if err != nil {
-		rLog.Errorf("Failed to open Session RPC channel: %s", err.Error())
-		return
-	}
-	go ssh.DiscardRequests(reqs)
-
-	rLog.Infof("Opened Session stream")
-	return dst, nil
 }
 
 // serverRequests - Handles all requests coming from the implant comm. (latency checks, close requests, etc.)

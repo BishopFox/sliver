@@ -140,6 +140,8 @@ var (
 		"comm/comm.go",
 		"comm/comms.go",
 		"comm/listener.go",
+		"comm/named_pipe.go",
+		"comm/named_pipe_windows.go",
 		"comm/route.go",
 		"comm/tunnel.go",
 		"comm/tcp.go",

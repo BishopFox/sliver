@@ -49,18 +49,8 @@ func newConn(info *sliverpb.ConnectionInfo, stream io.ReadWriteCloser) *conn {
 	lhost := net.ParseIP(info.LHost)
 	rhost := net.ParseIP(info.RHost)
 
-	// Set protocol, as well as some (bit of precise) type inference.
-	switch info.Transport {
-	case sliverpb.TransportProtocol_TCP:
-		conn.rAddr = &net.TCPAddr{IP: rhost, Port: int(info.RPort)}
-		conn.lAddr = &net.TCPAddr{IP: lhost, Port: int(info.LPort)}
-	case sliverpb.TransportProtocol_UDP:
-		conn.rAddr = &net.UDPAddr{IP: rhost, Port: int(info.RPort)}
-		conn.lAddr = &net.UDPAddr{IP: lhost, Port: int(info.LPort)}
-	case sliverpb.TransportProtocol_IP:
-		conn.rAddr = &net.IPAddr{IP: rhost} // Add IPv6 zone if possible
-		conn.lAddr = &net.IPAddr{IP: lhost}
-	}
+	conn.rAddr = &net.TCPAddr{IP: rhost, Port: int(info.RPort)}
+	conn.lAddr = &net.TCPAddr{IP: lhost, Port: int(info.LPort)}
 
 	// Maybe add eventual more precise branching with info.Application protocol.
 
@@ -98,14 +88,14 @@ func newConnInfo(uri *url.URL, route *Route) *sliverpb.ConnectionInfo {
 			info.Application = sliverpb.ApplicationProtocol_FTP
 		case "smtp":
 			info.Application = sliverpb.ApplicationProtocol_SMTP
+		case "named_pipe", "named_pipes", "namedpipe", "pipe":
+			info.Application = sliverpb.ApplicationProtocol_NamedPipe
 		}
-	case "dns", "udp", "quic", "named_pipe", "namedpipe", "named_pipes":
+	case "dns", "udp", "quic":
 		// Transport
 		info.Transport = sliverpb.TransportProtocol_UDP
 		// Application
 		switch uri.Scheme {
-		case "named_pipe", "named_pipes", "namedpipe":
-			info.Application = sliverpb.ApplicationProtocol_NamedPipe
 		case "dns":
 			info.Application = sliverpb.ApplicationProtocol_DNS
 		case "quic":
@@ -142,6 +132,6 @@ func (c *conn) SetWriteDeadline(t time.Time) error {
 }
 
 // Close - Implements net.Conn
-func (c *conn) Close() error {
-	return nil
-}
+// func (c *conn) Close() error {
+//         return c.ReadWriteCloser.Close()
+// }
