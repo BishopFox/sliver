@@ -39,7 +39,8 @@ var (
 
 func StartMTLSListenerJob(host string, listenPort uint16) (*core.Job, error) {
 	bind := fmt.Sprintf("%s:%d", host, listenPort)
-	ln, err := StartMutualTLSListener(host, listenPort)
+	// ln, err := StartMutualTLSListener(host, listenPort)
+	ln, err := StartMutualTLSListenerComm(host, listenPort)
 	if err != nil {
 		return nil, err // If we fail to bind don't setup the Job
 	}
@@ -47,10 +48,11 @@ func StartMTLSListenerJob(host string, listenPort uint16) (*core.Job, error) {
 	job := &core.Job{
 		ID:          core.NextJobID(),
 		Name:        "mtls",
-		Description: fmt.Sprintf("mutual tls listener %s", bind),
-		Protocol:    "tcp",
-		Port:        listenPort,
-		JobCtrl:     make(chan bool),
+		Description: fmt.Sprintf("Comm-abstracted Mutual tls listener %s", bind),
+		// Description: fmt.Sprintf("Mutual tls listener %s", bind),
+		Protocol: "tcp",
+		Port:     listenPort,
+		JobCtrl:  make(chan bool),
 	}
 
 	go func() {

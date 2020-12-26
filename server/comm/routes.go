@@ -189,7 +189,7 @@ func buildRouteToSession(sess *core.Session, new *Route) (*Route, error) {
 	// Reference the first node/gateway SSH Comm object
 	if len(new.Nodes) > 0 {
 		for _, comm := range Comms.Active {
-			if comm.SessionID == new.Nodes[0].ID {
+			if comm.Session.ID == new.Nodes[0].ID {
 				new.comm = comm
 			}
 		}
@@ -198,7 +198,7 @@ func buildRouteToSession(sess *core.Session, new *Route) (*Route, error) {
 	// Or with gateway if one hop
 	if new.Gateway != nil {
 		for _, comm := range Comms.Active {
-			if comm.SessionID == new.Gateway.ID {
+			if comm.Session.ID == new.Gateway.ID {
 				new.comm = comm
 			}
 		}

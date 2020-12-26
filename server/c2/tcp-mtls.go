@@ -65,18 +65,23 @@ func StartMutualTLSListenerComm(bindIface string, port uint16) (ln net.Listener,
 
 	mtlsLog.Infof("Starting routed TCP/mTLS listener on %s:%d", bindIface, port)
 
-	// Get a TCP listner from the comm system.
+	// Get a TCP listner from the comm system. This listener is abstracted,
+	// so it could be listening either on the server interfaces, or it could
+	// be handling connections initiated by implants and routed back.
 	ln, err = comm.ListenTCP("tcp", fmt.Sprintf("%s:%d", bindIface, port))
 	if err != nil {
 		mtlsLog.Error(err)
 		return nil, err
 	}
 
-	go acceptSliverConnectionsRoute(ln, tlsConfig)
+	l := tls.NewListener(ln, tlsConfig)
+
+	go acceptSliverConnectionsRoute(l, tlsConfig)
 
 	return ln, nil
 }
 
+// acceptSliverConnectionsRoute - Wraps a raw TCP connection into a Mutual TLS connection.
 func acceptSliverConnectionsRoute(ln net.Listener, config *tls.Config) {
 	for {
 		// Accept a normal TCP connection
@@ -88,14 +93,15 @@ func acceptSliverConnectionsRoute(ln net.Listener, config *tls.Config) {
 			mtlsLog.Errorf("Accept failed: %v", err)
 			continue
 		}
-
 		// Upgrade to Mutual TLS
-		tlsConn := tls.Client(conn, config)
-		if tlsConn == nil {
-			mtlsLog.Errorf("Upgrade to Mutual TLS failed: %s", err.Error())
-		}
+		// tlsConn := tls.Client(conn, config)
+		// if tlsConn == nil {
+		//         mtlsLog.Errorf("Upgrade to Mutual TLS failed: %s", err.Error())
+		// }
 
-		go handleSliverConnection(tlsConn)
+		// Handle the sliver connection as usual
+		go handleSliverConnection(conn)
+		// go handleSliverConnection(tlsConn)
 	}
 }
 
@@ -117,7 +123,7 @@ func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error)
 		mtlsLog.Error(err)
 		return nil, err
 	}
-	go acceptSliverConnections(ln, tlsConfig)
+	go acceptSliverConnections(ln)
 	return ln, nil
 }
 
@@ -292,6 +298,7 @@ func getServerTLSConfig(host string) *tls.Config {
 		CipherSuites:             []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384},
 		PreferServerCipherSuites: true,
 		MinVersion:               tls.VersionTLS12,
+		ServerName:               "localhost",
 	}
 	tlsConfig.BuildNameToCertificate()
 	return tlsConfig

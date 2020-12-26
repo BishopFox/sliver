@@ -191,22 +191,23 @@ func ListenTCP(network, host string) (ln net.Listener, err error) {
 		Request: &commonpb.Request{SessionID: route.Gateway.ID},
 	}
 
-	// We firs register the abstracted listener, because we don't know how fast
+	// We first register the abstracted listener, because we don't know how fast
 	// the implant comm might send us a connection back. We deregister if failure.
 	listeners.Add(tcpLn)
 
+	// We request to the implant to start its listener.
 	lnRes := &sliverpb.HandlerStart{}
 	err = remoteHandlerRequest(route.Gateway, lnReq, lnRes)
 	if err != nil {
 		listeners.Remove(tcpLn.id)
-		return nil, errors.New("comm listener: RPC error")
+		return nil, fmt.Errorf("comm listener RPC error: %s", err.Error())
 	}
 	if !lnRes.Success {
 		listeners.Remove(tcpLn.id)
 		return nil, fmt.Errorf("comm listener: %s", lnRes.Response.Err)
 	}
 
-	// Return the tcp listner, which will be fed by the comm system.
+	// Return the tcp listener, which will be fed by the comm system.
 	return tcpLn, nil
 }
 
@@ -216,7 +217,7 @@ func remoteHandlerRequest(sess *core.Session, req, resp proto.Message) (err erro
 	if err != nil {
 		return err
 	}
-	data, err := sess.Request(sliverpb.MsgNumber(req), 10, reqData)
+	data, err := sess.Request(sliverpb.MsgNumber(req), defaultNetTimeout, reqData)
 	if err != nil {
 		return err
 	}

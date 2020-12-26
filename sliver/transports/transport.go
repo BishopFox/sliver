@@ -24,7 +24,6 @@ import (
 	// {{end}}
 
 	"fmt"
-	"io"
 	"net"
 	"net/url"
 	"os"
@@ -39,7 +38,6 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/comm"
 	consts "github.com/bishopfox/sliver/sliver/constants"
 	"github.com/bishopfox/sliver/sliver/version"
 )
@@ -174,59 +172,9 @@ ConnLoop:
 		}
 	}
 
-	// Set up the Comm subsystem over this transports (either Session tunnel or physical connection)
-	c2stream, err := t.setupComm(isSwitch)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Error during Comm init: %s", err.Error())
-		// {{end}}
-		err = t.phyConnFallBack()
-	}
-
-	// Comms over a physical net.Conn have not registered the Session yet.
-	if c2stream != nil {
-		t.C2, err = setupSessionRPC(c2stream)
-	}
-
 	// {{if .Config.Debug}}
 	log.Printf("Transport %d set up and running (%s)", t.ID, t.URL)
 	// {{end}}
-	return
-}
-
-// setupComm - Set up the Comm subsystem over this transports (either Session tunnel or physical connection)
-// In the case of a physical connection we yield a dedicated stream over which the implant will speak RPC.
-func (t *Transport) setupComm(isSwitch bool) (sessionStream io.ReadWriteCloser, err error) {
-
-	// {{if .Config.Debug}}
-	log.Printf("Setting up Comm system")
-	// {{end}}
-
-	// If we have a started RPC Connection and no net.Conn, we must register the
-	// Session before oppening any tunnel. After this we setup RPC-based Comms.
-	if !isSwitch && t.Conn == nil && t.C2 != nil && t.C2.IsOpen {
-	}
-
-	// Else, we have a net.Conn from the underlying transport connection, and register over it.
-	if !isSwitch && t.Conn != nil {
-		sessionStream, err = comm.InitClient(t.Conn, false, []byte(keyPEM))
-	}
-
-	return
-}
-
-// In case we failed to use multiplexing infrastructure, we call here
-// to downgrade to RPC over the transport's physical connection.
-func (t *Transport) phyConnFallBack() (err error) {
-	// {{if .Config.Debug}}
-	log.Printf("[mux] falling back on RPC around physical conn")
-	// {{end}}
-
-	if t.Conn != nil {
-		// Wrap RPC layer around physical conn.
-		t.C2, err = setupSessionRPC(t.Conn)
-	}
-
 	return
 }
 

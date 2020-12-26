@@ -19,7 +19,6 @@ package comm
 */
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -71,14 +70,14 @@ func ResolveAddress(addr string) (route *Route, err error) {
 
 	// Parse address into a URL.
 	uri, err := url.Parse(addr)
-	if err != nil {
+	if err != nil || uri == nil {
 		return nil, fmt.Errorf("Error parsing address %s (to URL) for route: %s", addr, err.Error())
 	}
 
 	// Directly parse addr as an IP. Using hostname ensures we don't take the port into this.
 	ip := net.ParseIP(uri.Hostname())
 	if ip == nil {
-		return nil, fmt.Errorf("Error parsing host %s (to IP) for route: %s", uri.Hostname(), err.Error())
+		return nil, fmt.Errorf("Error parsing host %s (to IP) for route", uri.Hostname())
 	}
 
 	// Then check for each route that the IP is contained.
@@ -94,29 +93,4 @@ func ResolveAddress(addr string) (route *Route, err error) {
 	}
 
 	return nil, nil
-}
-
-// ListenHandlerID - A module or a handler has sent a request to its gateway session, with a given handler ID.
-// We pass this ID and the route, initialize nodes, create a new tracker and return an abstracted listener.
-//
-// @id      => A unique ID for this handler, used by all nodes to keep track of associated connections.
-// @network => The type of protocol (transport: "tcp/udp/unix", or application: "https/dns/named_pipe/etc.")
-//             This is just for helping the Comm system to populate listener and connection informations,
-//             and it will NOT output connections with a transport like "h2+ssh+myass". This just determines
-//              if outgoing connections are either TCP/UDP/Unix connections, and we treat them as such.
-// @host    => The listener host:port adress.
-// @route   => Gives the nodes in the route.
-func ListenHandlerID(id, network, host string, route *Route) (ln net.Listener, err error) {
-	// If route is not nil
-	if route == nil {
-		return nil, errors.New("tried to create abstracted listener on nil route")
-	}
-
-	// Create abstracted listener, with chans, and register it.
-	tracker := newListener(id, network, host)
-	listeners.Add(tracker)
-
-	// Maybe send id to all nodes in route.
-
-	return tracker, nil
 }

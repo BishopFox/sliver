@@ -166,7 +166,7 @@ func mainLoop(connection *transports.Connection) {
 	sysHandlers := handlers.GetSystemHandlers()
 	sysPivotHandlers := handlers.GetSystemPivotHandlers()
 	specialHandlers := handlers.GetSpecialHandlers()
-	routeHandlers := handlers.GetSystemRouteHandlers()
+	commHandlers := handlers.GetCommHandlers()
 
 	for envelope := range connection.Recv {
 		if handler, ok := specialHandlers[envelope.Type]; ok {
@@ -216,9 +216,9 @@ func mainLoop(connection *transports.Connection) {
 			log.Printf("[recv] sysPivotHandlers with type %d", envelope.Type)
 			// {{end}}
 			go handler(envelope, connection)
-		} else if handler, ok := routeHandlers[envelope.Type]; ok {
+		} else if handler, ok := commHandlers[envelope.Type]; ok {
 			// {{if .Config.Debug}}
-			log.Printf("[recv] sysPivotHandlers with type %d", envelope.Type)
+			log.Printf("[recv] commHandler with type %d", envelope.Type)
 			// {{end}}
 			go handler(envelope, connection)
 		} else {
