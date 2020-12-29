@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.2
 	github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
-	github.com/Binject/debug v0.0.0-20201108185608-2b8504217eb5 // indirect
+	github.com/Binject/debug v0.0.0-20201108185608-2b8504217eb5
 	github.com/BurntSushi/xgb v0.0.0-20201008132610-5f9e7b3c49cd
 	github.com/Microsoft/go-winio v0.4.15
 	github.com/alecthomas/chroma v0.8.1

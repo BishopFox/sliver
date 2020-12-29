@@ -341,6 +341,15 @@ message Sideload {
   commonpb.Response Response = 9;
 }
 
+message InvokeSpawnDllReq {
+  bytes Data = 1;
+  string ProcessName = 2;
+  string Args = 3;
+  string EntryPoint = 4;
+
+  commonpb.Request Request = 9;
+}
+
 message SpawnDllReq {
   bytes Data = 1;
   string ProcessName = 2;
