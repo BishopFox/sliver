@@ -38,12 +38,13 @@ var (
 )
 
 // Comm - Wrapper around a net.Conn, adding SSH infrastructure for encryption and tunneling.
-// This object is only used when the implant connection is directly tied to the server (not through a pivot).
-// Therefore, a Comm may serve multiple network Routes concurrently.
+// This object needs a correctly working net.Conn object, and will setup everything needed on top.
+// It can be tied either to an implant, or to a client console. Depending on this, different
+// mehod sets are used to handle traffic.
 type Comm struct {
 	// Core
 	ID      uint32
-	session *core.Session // The session at the other end
+	session *core.Session // The session at the other end, nil if console client.
 	mutex   *sync.RWMutex // Concurrency management.
 
 	// Duplex connection SSH

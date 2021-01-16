@@ -10,7 +10,7 @@ The client `comm` is similar with the server `comm` package in these aspects:
 However, it is different from it in in these aspects:
 - The `Comm` is always in a client position.
 - Abstracted dialers/listeners are actually wrapped into Port Forwarders, usable with console commands.
-- The client does not need really advanced connection wrapping an dmonitoring other than for PacketConns.
+- The client does not need really advanced connection wrapping and monitoring other than for PacketConns.
 
 This package goes hand-in-hand with the `commpb` Protobuf package, where all messages and types used are 
 defined, and with the following other `comm` packages: 

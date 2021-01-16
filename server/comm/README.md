@@ -14,6 +14,7 @@ This package goes hand-in-hand with the `commpb` Protobuf package, where all mes
 Links to the other `comm` packages: 
 - [Client](https://github.com/maxlandon/sliver/tree/Comm/client/comm)
 - [Implant](https://github.com/maxlandon/sliver/tree/Comm/sliver/comm)
+- [Protobuf Definitions](https://github.com/maxlandon/sliver/tree/Comm/protobuf/commpb)
 
 
 -----

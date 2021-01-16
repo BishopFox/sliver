@@ -46,7 +46,3 @@ assets/windows/*.zip
 *-packr.go
 
 .DS_Store
-
-# TODO notes Vim
-todo.md
-todo-complete.md
