@@ -84,9 +84,13 @@ func (c *Connection) Cleanup() {
 
 // Tunnel - Duplex byte read/write
 type Tunnel struct {
-	ID     uint64
-	Reader io.ReadCloser
-	Writer io.WriteCloser
+	ID uint64
+
+	Reader       io.ReadCloser
+	ReadSequence uint64
+
+	Writer        io.WriteCloser
+	WriteSequence uint64
 }
 
 // Tunnel - Add tunnel to mapping
@@ -100,6 +104,7 @@ func (c *Connection) Tunnel(ID uint64) *Tunnel {
 func (c *Connection) AddTunnel(tun *Tunnel) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+
 	(*c.tunnels)[tun.ID] = tun
 }
 

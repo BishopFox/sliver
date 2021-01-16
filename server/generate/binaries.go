@@ -339,8 +339,15 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 	}
 	gcflags := fmt.Sprintf("")
 	asmflags := fmt.Sprintf("")
+	if config.Debug {
+		gcflags = "all=-N -l"
+		ldflags = []string{}
+	}
 	// trimpath is now a separate flag since Go 1.13
-	trimpath := "-trimpath"
+	trimpath := ""
+	if !config.Debug {
+		trimpath = "-trimpath"
+	}
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcflags, asmflags, trimpath)
 	config.FileName = path.Base(dest)
 

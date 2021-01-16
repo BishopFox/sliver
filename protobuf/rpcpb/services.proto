@@ -38,8 +38,10 @@ service SliverRPC {
     rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate);
     rpc Regenerate(clientpb.RegenerateReq) returns (clientpb.Generate);
     rpc ImplantBuilds(commonpb.Empty) returns (clientpb.ImplantBuilds);
+    rpc DeleteImplantBuild(clientpb.DeleteReq) returns (commonpb.Empty);
     rpc Canaries(commonpb.Empty) returns (clientpb.Canaries);
     rpc ImplantProfiles(commonpb.Empty) returns (clientpb.ImplantProfiles);
+    rpc DeleteImplantProfile(clientpb.DeleteReq) returns (commonpb.Empty);
     rpc SaveImplantProfile(clientpb.ImplantProfile) returns (clientpb.ImplantProfile);
     rpc MsfStage(clientpb.MsfStagerReq) returns (clientpb.MsfStager);
     rpc ShellcodeRDI(clientpb.ShellcodeRDIReq) returns (clientpb.ShellcodeRDI);
@@ -49,6 +51,7 @@ service SliverRPC {
     rpc Website(clientpb.Website) returns (clientpb.Website);
     rpc WebsiteRemove(clientpb.Website) returns (commonpb.Empty);
     rpc WebsiteAddContent(clientpb.WebsiteAddContent) returns (clientpb.Website);
+    rpc WebsiteUpdateContent(clientpb.WebsiteAddContent) returns (clientpb.Website);
     rpc WebsiteRemoveContent(clientpb.WebsiteRemoveContent) returns (clientpb.Website);
 
     // *** Session Interactions ***
@@ -76,7 +79,7 @@ service SliverRPC {
     rpc Migrate(clientpb.MigrateReq) returns (sliverpb.Migrate);
     rpc Execute(sliverpb.ExecuteReq) returns (sliverpb.Execute);
     rpc Sideload(sliverpb.SideloadReq) returns (sliverpb.Sideload);
-    rpc SpawnDll(sliverpb.SpawnDllReq) returns (sliverpb.SpawnDll);
+    rpc SpawnDll(sliverpb.InvokeSpawnDllReq) returns (sliverpb.SpawnDll);
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
     rpc NamedPipes(sliverpb.NamedPipesReq) returns (sliverpb.NamedPipes);
     rpc TCPListener(sliverpb.TCPPivotReq) returns (sliverpb.TCPPivot);

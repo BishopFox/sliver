@@ -44,6 +44,9 @@ var (
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,
 	}
+
+	// TunnelID -> Sequence Number -> Data
+	tunnelDataCache = map[uint64]map[uint64]*sliverpb.TunnelData{}
 )
 
 // GetTunnelHandlers - Returns a map of tunnel handlers
@@ -64,36 +67,77 @@ func tunnelCloseHandler(envelope *sliverpb.Envelope, connection *transports.Conn
 		connection.RemoveTunnel(tunnel.ID)
 		tunnel.Reader.Close()
 		tunnel.Writer.Close()
+		if _, ok := tunnelDataCache[tunnel.ID]; ok {
+			delete(tunnelDataCache, tunnel.ID)
+		}
 	}
 }
 
 func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
-	data := &sliverpb.TunnelData{}
-	proto.Unmarshal(envelope.Data, data)
-	tunnel := connection.Tunnel(data.TunnelID)
+	tunnelData := &sliverpb.TunnelData{}
+	proto.Unmarshal(envelope.Data, tunnelData)
+	tunnel := connection.Tunnel(tunnelData.TunnelID)
 	if tunnel != nil {
+
+		if _, ok := tunnelDataCache[tunnelData.TunnelID]; !ok {
+			tunnelDataCache[tunnelData.TunnelID] = map[uint64]*sliverpb.TunnelData{}
+		}
+
+		// Since we have no guarantees that we will receive tunnel data in the correct order, we need
+		// to ensure we write the data back to the reader in the correct order. The server will ensure
+		// that TunnelData protobuf objects are numbered in the correct order using the Sequence property.
+		// Similarly we ensure that any data we write-back to the server is also numbered correctly. To
+		// reassemble the data, we just dump it into the cache and then advance the writer until we no longer
+		// have sequential data. So we can receive `n` number of incorrectly ordered Protobuf objects and
+		// correctly write them back to the reader.
+
 		// {{if .Config.Debug}}
-		log.Printf("[tunnel] Write %d bytes to tunnel %d", len(data.Data), tunnel.ID)
+		log.Printf("[tunnel] Cache tunnel %d (seq: %d)", tunnel.ID, tunnelData.Sequence)
 		// {{end}}
-		tunnel.Writer.Write(data.Data)
+		tunnelDataCache[tunnel.ID][tunnelData.Sequence] = tunnelData
+
+		// NOTE: The read/write semantics can be a little mind boggling, just remember we're reading
+		// from the server and writing to the tunnel's reader (e.g. stdout), so that's why ReadSequence
+		// is use here whereas WriteSequence is used for data written back to the server
+
+		// Go through cache and write all sequential data to the reader
+		cache := tunnelDataCache[tunnel.ID]
+		for recv, ok := cache[tunnel.ReadSequence]; ok; recv, ok = cache[tunnel.ReadSequence] {
+			// {{if .Config.Debug}}
+			log.Printf("[tunnel] Write %d bytes to tunnel %d (read seq: %d)", len(recv.Data), recv.TunnelID, recv.Sequence)
+			// {{end}}
+			tunnel.Writer.Write(recv.Data)
+
+			// Delete the entry we just wrote from the cache
+			delete(cache, tunnel.ReadSequence)
+			tunnel.ReadSequence++ // Increment sequence counter
+		}
+
 	} else {
 		// {{if .Config.Debug}}
-		log.Printf("Data for nil tunnel %d", data.TunnelID)
+		log.Printf("Received data for nil tunnel %d", tunnelData.TunnelID)
 		// {{end}}
 	}
 }
 
+// tunnelWriter - Sends data back to the server based on data read()
+// I know the reader/writer stuff is a little hard to keep track of
 type tunnelWriter struct {
 	tun  *transports.Tunnel
 	conn *transports.Connection
 }
 
-func (t tunnelWriter) Write(data []byte) (n int, err error) {
+func (tw tunnelWriter) Write(data []byte) (n int, err error) {
 	data, err = proto.Marshal(&sliverpb.TunnelData{
-		TunnelID: t.tun.ID,
+		Sequence: tw.tun.WriteSequence, // The tunnel write sequence
+		TunnelID: tw.tun.ID,
 		Data:     data,
 	})
-	t.conn.Send <- &sliverpb.Envelope{
+	// {{if .Config.Debug}}
+	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d)", len(data), tw.tun.WriteSequence)
+	// {{end}}
+	tw.tun.WriteSequence++ // Increment write sequence
+	tw.conn.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgTunnelData,
 		Data: data,
 	}

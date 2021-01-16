@@ -21,7 +21,6 @@ package rpc
 import (
 	"bytes"
 	"context"
-	"debug/pe"
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
@@ -29,6 +28,8 @@ import (
 	"os"
 	"path"
 	"strings"
+
+	"github.com/Binject/debug/pe"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -60,7 +61,13 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	name := path.Base(req.Config.GetName())
 	shellcode, err := getSliverShellcode(name)
 	if err != nil {
-		_, config := generate.ImplantConfigFromProtobuf(req.Config)
+		name, config := generate.ImplantConfigFromProtobuf(req.Config)
+		if name == "" {
+			name, err = generate.GetCodename()
+			if err != nil {
+				return nil, err
+			}
+		}
 		config.Format = clientpb.ImplantConfig_SHELLCODE
 		config.ObfuscateSymbols = false
 		shellcodePath, err := generate.SliverShellcode(name, config)
@@ -103,7 +110,7 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 	if err != nil {
 		return nil, err
 	}
-	offset, err := getExportOffset(hostingDllPath, "ReflectiveLoader")
+	offset, err := getExportOffsetFromFile(hostingDllPath, "ReflectiveLoader")
 	if err != nil {
 		return nil, err
 	}
@@ -184,13 +191,31 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 }
 
 // SpawnDll - Spawn a DLL on the remote system (Windows only)
-func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.SpawnDllReq) (*sliverpb.SpawnDll, error) {
+func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq) (*sliverpb.SpawnDll, error) {
+	session := core.Sessions.Get(req.Request.SessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
+	}
+
 	resp := &sliverpb.SpawnDll{}
-	err := rpc.GenericHandler(req, resp)
+	offset, err := getExportOffsetFromMemory(req.Data, req.EntryPoint)
 	if err != nil {
 		return nil, err
 	}
-	return resp, nil
+	timeout := rpc.getTimeout(req)
+	data, err := proto.Marshal(&sliverpb.SpawnDllReq{
+		Data:        req.Data,
+		Offset:      offset,
+		ProcessName: req.ProcessName,
+		Args:        req.Args,
+		Request:     req.Request,
+	})
+	if err != nil {
+		return nil, err
+	}
+	respData, err := session.Request(sliverpb.MsgSpawnDllReq, timeout, data)
+	err = proto.Unmarshal(respData, resp)
+	return resp, err
 }
 
 // Utility functions
@@ -255,7 +280,7 @@ func getOrdinal(index uint32, rawData []byte, fpe *pe.File, funcArrayFoa uint32)
 	return funcOffset
 }
 
-func getExportOffset(filepath string, exportName string) (funcOffset uint32, err error) {
+func getExportOffsetFromFile(filepath string, exportName string) (funcOffset uint32, err error) {
 	rawData, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return 0, err
@@ -266,6 +291,40 @@ func getExportOffset(filepath string, exportName string) (funcOffset uint32, err
 	}
 	defer handle.Close()
 	fpe, _ := pe.NewFile(handle)
+	exportDirectoryRVA := fpe.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
+	var offset = rvaToFoa(exportDirectoryRVA, fpe)
+	exportDir := ExportDirectory{}
+	buff := &bytes.Buffer{}
+	buff.Write(rawData[offset:])
+	err = binary.Read(buff, binary.LittleEndian, &exportDir)
+	if err != nil {
+		return 0, err
+	}
+	current := exportDir.AddressOfNames
+	nameArrayFOA := rvaToFoa(exportDir.AddressOfNames, fpe)
+	ordinalArrayFOA := rvaToFoa(exportDir.AddressOfNameOrdinals, fpe)
+	funcArrayFoa := rvaToFoa(exportDir.AddressOfFunctions, fpe)
+
+	for i := uint32(0); i < exportDir.NumberOfNames; i++ {
+		index := nameArrayFOA + i*8
+		name := getFuncName(index, rawData, fpe)
+		if strings.Contains(name, exportName) {
+			ordIndex := ordinalArrayFOA + i*2
+			funcOffset = getOrdinal(ordIndex, rawData, fpe, funcArrayFoa)
+		}
+		current += uint32(binary.Size(i))
+	}
+
+	return
+}
+
+func getExportOffsetFromMemory(rawData []byte, exportName string) (funcOffset uint32, err error) {
+	peReader := bytes.NewReader(rawData)
+	fpe, err := pe.NewFileFromMemory(peReader)
+	if err != nil {
+		return 0, err
+	}
+
 	exportDirectoryRVA := fpe.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
 	var offset = rvaToFoa(exportDirectoryRVA, fpe)
 	exportDir := ExportDirectory{}

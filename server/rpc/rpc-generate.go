@@ -21,11 +21,14 @@ package rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"path"
 
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 )
@@ -66,6 +69,11 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	if err != nil {
 		return nil, err
 	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.BuildCompletedEvent,
+		Data:      []byte(fmt.Sprintf("%s build completed", filename)),
+	})
 
 	return &clientpb.Generate{
 		File: &commonpb.File{
@@ -157,9 +165,49 @@ func (rpc *Server) SaveImplantProfile(ctx context.Context, profile *clientpb.Imp
 		if err != nil {
 			return nil, err
 		}
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.ProfileEvent,
+			Data:      []byte(fmt.Sprintf("%s", profile.Name)),
+		})
 		return profile, nil
 	}
 	return nil, errors.New("Invalid profile name")
+}
+
+// DeleteImplantProfile - Delete an implant profile
+func (rpc *Server) DeleteImplantProfile(ctx context.Context, req *clientpb.DeleteReq) (*commonpb.Empty, error) {
+	profile, err := db.ProfileByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Session().Delete(profile).Error
+	if err == nil {
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.ProfileEvent,
+			Data:      []byte(fmt.Sprintf("%s", profile.Name)),
+		})
+	}
+	return &commonpb.Empty{}, err
+}
+
+// DeleteImplantBuild - Delete an implant build
+func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteReq) (*commonpb.Empty, error) {
+	build, err := db.ImplantBuildByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Session().Delete(build).Error
+	if err != nil {
+		return nil, err
+	}
+	err = generate.ImplantFileDelete(build)
+	if err == nil {
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.BuildEvent,
+			Data:      []byte(fmt.Sprintf("%s", build.Name)),
+		})
+	}
+	return &commonpb.Empty{}, err
 }
 
 // ShellcodeRDI - Generates a RDI shellcode from a given DLL

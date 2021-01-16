@@ -23,6 +23,8 @@ package handlers
 */
 
 import (
+	"sync"
+
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
@@ -38,6 +40,8 @@ var (
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,
 	}
+
+	tunnelHandlerMutex = &sync.Mutex{}
 )
 
 // GetSessionHandlers - Returns a map of server-side msg handlers
@@ -83,13 +87,18 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	core.Sessions.Add(session)
 }
 
+// The handler mutex prevents a send on a closed channel, without it
+// two handlers calls may race when a tunnel is quickly created and closed.
 func tunnelDataHandler(session *core.Session, data []byte) {
+	tunnelHandlerMutex.Lock()
+	defer tunnelHandlerMutex.Unlock()
+
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
 	if tunnel != nil {
 		if session.ID == tunnel.SessionID {
-			tunnel.FromImplant <- tunnelData.GetData()
+			tunnel.FromImplant <- tunnelData
 		} else {
 			handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
 		}
@@ -99,6 +108,9 @@ func tunnelDataHandler(session *core.Session, data []byte) {
 }
 
 func tunnelCloseHandler(session *core.Session, data []byte) {
+	tunnelHandlerMutex.Lock()
+	defer tunnelHandlerMutex.Unlock()
+
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
 	if !tunnelData.Closed {
