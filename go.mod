@@ -21,9 +21,11 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
+	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/mattn/go-runewidth v0.0.8 // indirect
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible
 	github.com/miekg/dns v1.1.35
+	github.com/mitchellh/go-grpc-net-conn v0.0.0-20200427190222-eb030e4876f0
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/rogpeppe/go-internal v1.6.2 // indirect
