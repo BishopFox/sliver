@@ -57,6 +57,13 @@ message Conn {
   int64 Timeout = 8;
 }
 
+// Transport-layer protocol of traffic
+enum Transport {
+        IP = 0;     // IP is put here as it may be treated as a PacketConn just like UDP.
+        TCP = 1;
+        UDP = 2;
+}
+
 // Application-layer protocol of traffic
 enum Application {
         HTTP = 0;
@@ -70,13 +77,6 @@ enum Application {
         MTLS = 10;
 
         None = 11;
-}
-
-// Transport-layer protocol of traffic
-enum Transport {
-        IP = 0;     // IP is put here as it may be treated as a PacketConn just like UDP.
-        TCP = 1;
-        UDP = 2;
 }
 
 // Comm-internal Requests ------------------------------------------------------
@@ -95,15 +95,15 @@ enum Request {
 
 // Handlers --------------------------------------------------------------------
 
-// Handler direction
-enum HandlerType {
-        Bind = 0;
-        Reverse = 1;
-}
-
 // A network handler that is being used by implants to get necessary
 // handler information, including more specific details. This helps reducing the
 // number of handlers to add for an implant, and only a packge will handle these.
+//
+// The handler is used in several cases: 
+// - To start reverse/bind port forwarders,
+// - API-used listeners/dialers.
+// Consequently this type is used across client/server/implant packages, even
+// if the client considers it "a port forwarder", when the implant has no such notion.
 message Handler {
   string ID = 1;                // Always has an ID , provided by the server.
   HandlerType Type = 2;         // May be used also for portfwds
@@ -116,6 +116,12 @@ message Handler {
   int32 LPort = 8;
 
   Certificates Certificates = 9; // Any certificates needed by the handler.
+}
+
+// Handler direction
+enum HandlerType {
+        Bind = 0;
+        Reverse = 1;
 }
 
 // Any security details, such as encryption keys and auth.
