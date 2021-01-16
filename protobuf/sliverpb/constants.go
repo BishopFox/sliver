@@ -1,6 +1,7 @@
 package sliverpb
 
 import (
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	proto "github.com/golang/protobuf/proto"
 )
 
@@ -196,14 +197,14 @@ const (
 	MsgAddRouteReq
 	// MsgAddRoute - Response
 	MsgAddRoute
-	// MsgRmRouteReq - Remove an active network route.
-	MsgRmRouteReq
-	// MsgRmRoute - Response
-	MsgRmRoute
+	// MsgRouteDeleteReq - Remove an active network route.
+	MsgRouteDeleteReq
+	// MsgRouteDelete - Response
+	MsgRouteDelete
 
-	// MsgCommTunnelReq - Open a multiplexing tunnel through the session RPC.
+	// MsgCommTunnelOpenReq - Open a multiplexing tunnel through the session RPC.
 	MsgCommTunnelOpenReq
-	// MsgCommTunnel - Response
+	// MsgCommTunnelOpen - Response
 	MsgCommTunnelOpen
 	// MsgCommTunnelData - Data passed in the mux tunnel
 	MsgCommTunnelData
@@ -211,6 +212,26 @@ const (
 	MsgCommTunnelCloseReq
 	// MsgCommTunnelClose - Response
 	MsgCommTunnelClose
+
+	// MsgTransportsReq - Get available transports for implant
+	MsgTransportsReq
+	// MsgTransports - Response
+	MsgTransports
+
+	// MsgAddTransportReq - Add a new transport
+	MsgAddTransportReq
+	// MsgAddTransport - Response
+	MsgAddTransport
+
+	// MsgDeleteTransportReq - Remove a transport
+	MsgDeleteTransportReq
+	// MsgDeleteTransport - Response
+	MsgDeleteTransport
+
+	// MsgSwitchTransportReq - Switch the current active transport
+	MsgSwitchTransportReq
+	// MsgSwitchTransport - Response
+	MsgSwitchTransport
 )
 
 // MsgNumber - Get a message number of type
@@ -368,38 +389,55 @@ func MsgNumber(request proto.Message) uint32 {
 	case *EnvInfo:
 		return MsgEnvInfo
 
-	case *HandlerStartReq:
+	case *commpb.HandlerStartReq:
 		return MsgHandlerStartReq
-	case *HandlerStart:
+	case *commpb.HandlerStart:
 		return MsgHandlerStart
-	case *HandlerCloseReq:
+	case *commpb.HandlerCloseReq:
 		return MsgHandlerCloseReq
-	case *HandlerClose:
+	case *commpb.HandlerClose:
 		return MsgHandlerClose
 
-	case *RoutesReq:
+	case *commpb.RoutesReq:
 		return MsgRoutesReq
-	case *Routes:
+	case *commpb.Routes:
 		return MsgRoutes
-	case *AddRouteReq:
+	case *commpb.RouteAddReq:
 		return MsgAddRouteReq
-	case *AddRoute:
+	case *commpb.RouteAdd:
 		return MsgAddRoute
-	case *RmRouteReq:
-		return MsgRmRouteReq
-	case *RmRoute:
-		return MsgRmRoute
+	case *commpb.RouteDeleteReq:
+		return MsgRouteDeleteReq
+	case *commpb.RouteDelete:
+		return MsgRouteDelete
 
-	case *CommTunnelOpenReq:
+	case *commpb.TunnelOpenReq:
 		return MsgCommTunnelOpenReq
-	case *CommTunnelOpen:
+	case *commpb.TunnelOpen:
 		return MsgCommTunnelOpen
-	case *CommTunnelData:
+	case *commpb.TunnelData:
 		return MsgCommTunnelData
-	case *CommTunnelCloseReq:
+	case *commpb.TunnelCloseReq:
 		return MsgCommTunnelCloseReq
-	case *CommTunnelClose:
+	case *commpb.TunnelClose:
 		return MsgCommTunnelClose
+
+	case *commpb.TransportsReq:
+		return MsgTransportsReq
+	case *commpb.Transports:
+		return MsgTransports
+	case *commpb.TransportAddReq:
+		return MsgAddTransportReq
+	case *commpb.TransportAdd:
+		return MsgAddTransport
+	case *commpb.TransportDeleteReq:
+		return MsgDeleteTransportReq
+	case *commpb.TransportDelete:
+		return MsgDeleteTransport
+	case *commpb.TransportSwitchReq:
+		return MsgSwitchTransportReq
+	case *commpb.TransportSwitch:
+		return MsgSwitchTransport
 	}
 	return uint32(0)
 }

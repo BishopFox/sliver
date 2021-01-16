@@ -3,6 +3,7 @@ package clientpb;
 option go_package = "github.com/bishopfox/sliver/protobuf/clientpb";
 
 import "commonpb/common.proto";
+import "commpb/comm.proto";
 
 
 // [ Version ] ----------------------------------------
@@ -64,6 +65,7 @@ message ImplantConfig {
   // c2
   repeated ImplantC2 C2 = 10;
   repeated string CanaryDomains = 11;
+  repeated commpb.Application Transports = 12;
 
   bool LimitDomainJoined = 20;
   string LimitDatetime = 21;
