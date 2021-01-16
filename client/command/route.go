@@ -27,18 +27,17 @@ import (
 
 	"github.com/desertbit/grumble"
 
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 func routes(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
-	routes, err := rpc.Routes(context.Background(), &sliverpb.RoutesReq{})
+	routes, err := rpc.GetRoutes(context.Background(), &commpb.RoutesReq{})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
-	// Add filters here
 
 	if len(routes.Active) == 0 {
 		fmt.Printf("No registered / active network routes\n")
@@ -55,8 +54,8 @@ func addRoute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	// For now we don't process or get an implantID for this route.
-	routeAdd, err := rpc.AddRoute(context.Background(), &sliverpb.AddRouteReq{
-		Route: &sliverpb.Route{
+	routeAdd, err := rpc.AddRoute(context.Background(), &commpb.RouteAddReq{
+		Route: &commpb.Route{
 			IPNet:     ctx.Flags.String("network"),
 			Mask:      ctx.Flags.String("netmask"),
 			SessionID: uint32(ctx.Flags.Uint("session-id")),
@@ -74,14 +73,14 @@ func addRoute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 func removeRoute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	// Get routes
-	routes, err := rpc.Routes(context.Background(), &sliverpb.RoutesReq{})
+	routes, err := rpc.GetRoutes(context.Background(), &commpb.RoutesReq{})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
 
 	// List of routes we will delete
-	toDelete := []*sliverpb.Route{}
+	toDelete := []*commpb.Route{}
 
 	// For now, just catch exactly matching networks.
 	network := ctx.Flags.String("network")
@@ -103,14 +102,13 @@ func removeRoute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		}
 	}
 
-	// Add active filter
-
+	// All routes matching the above filters are deleted/closed.
 	for _, route := range toDelete {
-		deleteReq := &sliverpb.RmRouteReq{
+		deleteReq := &commpb.RouteDeleteReq{
 			Route: route,
 			Close: ctx.Flags.Bool("close"),
 		}
-		deleted, err := rpc.RemoveRoute(context.Background(), deleteReq)
+		deleted, err := rpc.DeleteRoute(context.Background(), deleteReq)
 		if err != nil {
 			fmt.Printf(Warn+"%s\n", err)
 			return
@@ -125,7 +123,7 @@ func removeRoute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 }
 
-func printRoutes(routes []*sliverpb.Route) {
+func printRoutes(routes []*commpb.Route) {
 
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
@@ -145,10 +143,10 @@ func printRoutes(routes []*sliverpb.Route) {
 		var tcp int
 		var udp int
 		for _, c := range route.Connections {
-			if c.Transport == sliverpb.TransportProtocol_TCP {
+			if c.Transport == commpb.Transport_TCP {
 				tcp++
 			}
-			if c.Transport == sliverpb.TransportProtocol_UDP {
+			if c.Transport == commpb.Transport_UDP {
 				udp++
 			}
 		}

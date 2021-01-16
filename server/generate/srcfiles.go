@@ -143,7 +143,6 @@ var (
 		"comm/dial-udp.go",
 		"comm/listen-tcp.go",
 		"comm/listen-udp.go",
-		"comm/listener.go",
 		"comm/named-pipe.go",
 		"comm/named-pipe_windows.go",
 		"comm/tunnel.go",

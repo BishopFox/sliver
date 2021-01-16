@@ -11,23 +11,62 @@ import (
 // This dialer may be assigned a specific Resolver, but generally it uses the Comm system to get the
 // appropriate route.
 type Dialer struct {
-	*net.Dialer        // Gives us most fields used by the Comms.
-	route       *Route // The dialer uses a route for getting to its host target.
+	*net.Dialer                 // Gives us most fields used by the Comms.
+	*Route                      // The dialer uses a route for getting to its host target.
+	ctx         context.Context // The context used to dial destinations with timeoutes, deadlines, etc
+	cancel      context.CancelFunc
 }
 
-// Dial - Get a network connection to a host in the Comm system. Available networks are tcp/udp/unix/ip
+// Dial - Get a network connection to a host in the Comm system.
+// Available stream networks are "tcp", "tcp4", "tcp6".
+// Available packet networks are "udp", "udp4", "udp6".
 func (d *Dialer) Dial(network string, host string) (conn net.Conn, err error) {
-	return d.DialContext(context.Background(), network, host)
+	if d.ctx == nil {
+		d.ctx, d.cancel = context.WithTimeout(context.Background(), d.Timeout)
+		defer d.cancel()
+	}
+	return d.DialContext(d.ctx, network, host)
 }
 
-// DialContext - Get a network connection to a host, with a Context. Available networks are tcp/udp/unix/ip
+// DialContext - Get a network connection to a host in the Comm system, with a Context.
+// Available stream networks are "tcp", "tcp4", "tcp6".
+// Available packet networks are "udp", "udp4", "udp6".
 func (d *Dialer) DialContext(ctx context.Context, network string, host string) (conn net.Conn, err error) {
-	d.route, err = ResolveAddress(host)
+	defer d.cancel()
+
+	// Parse the context and setup the dialer with it.
+	// This overwrites any context set up in any of the dialers below.
+	if deadline, exists := ctx.Deadline(); exists {
+		timeout := time.Until(deadline)
+		d.ctx, d.cancel = context.WithTimeout(ctx, timeout)
+	}
+
+	// Get a route to the address.
+	d.Route, err = ResolveAddress(host)
 	if err != nil {
 		return nil, fmt.Errorf("Address lookup failed: %s", err.Error())
 	}
 
-	return d.route.DialContext(ctx, network, host)
+	// If no route and no error, dial on the server's interfaces.
+	if d.Route == nil {
+		return net.Dial(network, host)
+	}
+
+	// Dial the appropriate network
+	switch network {
+	case "tcp", "tcp4", "tcp6":
+		return d.Route.comm.dialContextTCP(ctx, network, host)
+	case "udp", "udp4", "udp6":
+		uc, err := d.Route.comm.dialContextUDP(ctx, network, host)
+		if err != nil {
+			return nil, err
+		}
+		// Cast the packet conn into our custom udpConn, which satisfies net.Conn.
+		conn, _ = uc.(*udpConn)
+		return conn, nil
+	default:
+		return d.Route.comm.dialContextTCP(ctx, network, host)
+	}
 }
 
 // DialerDefault - A dialer with default connection options. Most use cases.
@@ -37,9 +76,12 @@ func DialerDefault() (dialer *Dialer) {
 			KeepAlive: 30 * time.Second, // Should be 15 on OS, do a bit less.
 			Timeout:   10 * time.Second,
 		},
-		nil, // No routes found yet
+		nil,
+		context.Background(),
+		nil,
 	}
 
+	dialer.ctx, dialer.cancel = context.WithTimeout(dialer.ctx, dialer.Timeout)
 	return
 }
 
@@ -52,8 +94,11 @@ func DialerStealthy() (dialer *Dialer) {
 			KeepAlive: -1,              // Disabled
 			Timeout:   3 * time.Second, // plenty enough on modern network.
 		},
-		nil, // No routes found yet
+		nil,
+		context.Background(),
+		nil,
 	}
+	dialer.ctx, dialer.cancel = context.WithTimeout(dialer.ctx, dialer.Timeout)
 	return
 }
 
@@ -64,8 +109,11 @@ func DialerTight() (dialer *Dialer) {
 			KeepAlive: 10 * time.Second, // A bit slighter than OS default.
 			Timeout:   3 * time.Second,
 		},
-		nil, // No routes found yet
+		nil,
+		context.Background(),
+		nil,
 	}
+	dialer.ctx, dialer.cancel = context.WithTimeout(dialer.ctx, dialer.Timeout)
 	return
 }
 
@@ -76,7 +124,12 @@ func DialerScan() (dialer *Dialer) {
 			KeepAlive: -1,               // Disabled by default because the scan is working.
 			Timeout:   10 * time.Second, // More time if scan is running in bad conditions.
 		},
-		nil, // No routes found yet
+		nil,
+		context.Background(),
+		nil,
 	}
+
+	dialer.ctx, dialer.cancel = context.WithTimeout(dialer.ctx, dialer.Timeout)
+
 	return
 }

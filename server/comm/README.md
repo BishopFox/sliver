@@ -1,24 +1,67 @@
 Comm 
 ======
 
-The `comm` package contains the code for the Comm System. This comprises, briefly:
-- An SSH multiplexer (Comm).
-- Network routes, made of session nodes, gateways and of an entry multiplexer.
-- Abstracted listeners, which track listeners started on implant hosts (reverse)
-- Abstracted dialers, for the same purpose but by dialing (bind)
+The `comm` package contains the code for the server-side Comm System. This comprises, briefly:
+- An SSH multiplexer (wrapped inside a `Comm` type), used by implants and client consoles.
 - Tunnels, which are used to produce net.Conns out of Sliver custom RPC transport stacks (DNS/HTTPS)
-- And utilities
+- Network routes, made of session nodes, gateways and of a `Comm` multiplexer.
+- Abstracted listeners (TCP/UDP), which track listeners started on implant hosts (reverse)
+- Abstracted dialers (TCP/UDP), for the same purpose but by dialing (bind)
+- Direct/reverse TCP/UDP port forwarders mapped to their console clients.
+- And utilities...
+
+This package goes hand-in-hand with the `commpb` Protobuf package, where all messages and types used are defined.
 
 
-### Routes
+-----
+# Package Structure & Files
+-----
 
-Similar to Metasploit, the Comm system allows to route (forward, by nature) connections to networks that are only
-accessible to implants' hosts. Routes are independent of the Transport/Application protocol stack used by implants.
+The following structured list should hopefully summarize the structure of the Server's `comm` package, and
+indicate briefly the role of each of its components. (Files do not exactly match alphabetical orderings...)
+It is advised to read this list before digging further in the package code, and to come back any time needed.
 
-This will allow us to route TCP/UDP/IP traffic through our implants, so any application-layer traffic as well, theoretically.
-Some possible use cases: scans, exploits, automatic host detection of any dialer/listener (bind/reverse handler in Metasploit words).
+### Core
+`comm.go`       - The `Comm` object is used both by implant sessions and by console clients. They use different methods.
+`client.go`     - All methods of the `Comm` used by a client console, for handling proxied/forwarded connections.
+`implant.go`    - Most methods of the `Comm` used by an implant session to handle routed connections.
+`comms.go`      - Thread-safe map of the Comms, and utility functions for piping streams (TCP) or packet (UDP) connections.
+`tunnel.go`     - Pseudo net.Conn used by the implant's RPC layer (Sliver RPC) to set up and run its Comm system (on top of it).
+`interfaces.go` - Utility functions check for checking implant host interfaces
 
-### Multiplexing
+### Protocol-specific
+`conn_tcp.go`     - Stream connections coming back from the implant are generally wrapped into a net.Conn (here a pseudo TCPConn)
+`conn_udp.go`     - UDP connections from/to the implant are generally wrapped with the UDP connection is this file.
+`dial_tcp.go`     - API-exposed methods to Dial TCP anywhere (server/implant) and the implant `Comm` method associated.
+`dial_udp.go`     - API-exposed methods to Dial UDP anywhere (server/implant) and the implant `Comm` method associated.
+`listen_tcp`      - TCP-like listener type, and API-exposed functions.
+`listen_udp`      - UDP connection as listener (streams are handled slightly differently if dial or listen), and API-exposed functions.
+
+### The Comm system as library
+`dialers.go`      - Generic dialers that may be used depending on circumstances, in conjunction with routes or the other available Dial funcs.
+`listen.go`       - When used as a library, the Comm system yields TCP-like (stream) listeners, or Packet/UDP connections treated as such.
+
+### Client Consoles port forwarders
+`portfwd.go`          - All clients' port forwarders have a server mapping/handler. The `forwarder` type is a little interface for this.
+`portfwd_direct_tcp`  - Direct TCP port forwarder
+`portfwd_direct_udp`  - Direct UDP port forwarder
+`portfwd_reverse_tcp` - Reverse TCP port forwarder
+`portfwd_reverse_udp` - Reverse UDP port forwarder
+
+### Network routes
+`route.go`        - The `Route` type maps a network to an implant Comm system.
+`routes.go`       - Route add/remove functions, and the global `routes` map.
+`revolver.go`     - Given current network routes, resolve addresses, IPs, or URLS and return the appropriate route `Comm`.
+
+
+-----
+# Components Descriptions
+-----
+
+The sections below include a more precise description of the `comm` package components.
+
+----
+## Multiplexing
 
 The routing of connections is possible thanks an SSH session put on top of a `net.Conn` (more fundamentally, an `io.ReadWriteCloser`).
 It brings additional encryption, multiplexing capacities and out-of-band request/responses (both at the session level and individual stream level).
@@ -27,26 +70,17 @@ There are two ways of getting this `net.Conn`/`io.ReadWriteCloser` object:
 - For any implant whose active C2 connection is directly tied to the server (not pivoted) and able to yield a `net.Conn` (TCP, UDP, Named_Pipes, mTLS, QUIC, etc), we use this connection.
 - For any implant which C2 stack is custom DNS / HTTPS, we set up a speciall `Tunnel` object, directly tied to some Session RPC handlers.
 
-### Pivots
+----
+## Routes
 
-When a handler/listener is started on a pivot and upon registration of the pivoted imlant, depending on transport used, we either setup an SSH
-session on top of the pivoted net.Conn, or we just reverse forward the RPC messages (DNS/HTTPS). This would give, briefly:
+Similar to Metasploit, the Comm system allows to route (forward, by nature) connections to networks that are only
+accessible to implants' hosts. Routes are independent of the Transport/Application protocol stack used by implants.
 
+This will allow us to route TCP/UDP/IP traffic through our implants, so any application-layer traffic as well, theoretically.
+Some possible use cases: scans, exploits, automatic host detection of any dialer/listener (bind/reverse handler in Metasploit words).
 
-```
-           |--------DNS 1 (route 3)--------------> |               |--------DNS 1 (route 3)--------------> | IMPLANT (route 3)
-**C2 Server**|--------TCPConn 1 (route 1)----------> |               
-           |--------UDPConn 1 (route 4)----------> | PIVOT_IMPLANT |--------TCPConn 1 (route 1)----------> | IMPLANT (route 1 & 4)
-           |--------TCPConn 2 (route 2)----------> |               |--------UDPConn 1 (route 4)----------> |
-           |--------TCP/HTTP 1 (route 2)---------> |                                   
-                                                                   |--------TCPConn 2 (route 2)----------> | IMPLANT (route 2)
-                                                                   |--------TCP/HTTP 1 (route 2)---------> |
-```
-
-The import point of this crappy diagram is to show that we do not create SSH session inside of an SSH session, inside another, etc...
-This might happen, however, when the route being considered has a session gateway whose C2 stack mandates us to use a `Tunnel` object.
-
-### Dialers / Listeners
+----
+## Dialers / Listeners
 
 The Comm system thus gives access to some Dial methods (or/and predefined Dialers, with specific timeouts & keepalives depending on use)
 These dialers obtain a connection (always transport-level, like TCP/UDP/IP) that has been routed all the way to its destination address, as resolved
@@ -57,20 +91,10 @@ and that all connections they accept and reverse route back to the server are ta
 
 Use cases of listeners, for instance, are the portfwd commands, handlers (dialers/listeners) modules, etc.
 
+----
+## Concurrency, Connection Closing & Error handling
 
------
-## Files
 
-A brief explanation of the package files.
+----
+## Pivots
 
-- `comm.go`         - All code for the `Comm` type, an SSH multiplexer (setup, start, serve, etc.)
-- `comms.go`        - Gathers the global `Comms`, `Tunnels`, and `Listeners` maps, and their Add(), Remove(), Get() methods.
-- `connection.go`   - All streams that come out of a Comm are only io.ReadWriteClosers. Based on their attached info, forge a net.Conn with specifics.
-- `dialers.go`      - Dialers and Dial() methods to be used by handlers, portforwards and/or routes.
-- `interfaces.go`   - Checks network interfaces for implants.
-- `listener.go`     - Abstracted listeners that get their connections from the routing system.
-- `nodes.go`        - Methods for sending route requests to node Sessions.
-- `resolver.go`     - Methods for getting a network route to an address (string, net.IP, or url.URL types)  
-- `route.go`        - Defines the Route object, with init(), remove(), close(), and other setup methods.
-- `routes.go`       - Glocal map of network routes, and code to add a new Route, or delete an active one.
-- `tunnel.go`       - A specific tunnel used as a basis for multiplexing DNS/HTTPS based Sliver connections.

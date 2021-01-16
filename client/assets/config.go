@@ -37,12 +37,13 @@ const (
 
 // ClientConfig - Client JSON config
 type ClientConfig struct {
-	Operator      string `json:"operator"` // This value is actually ignored for the most part (cert CN is used instead)
-	LHost         string `json:"lhost"`
-	LPort         int    `json:"lport"`
-	CACertificate string `json:"ca_certificate"`
-	PrivateKey    string `json:"private_key"`
-	Certificate   string `json:"certificate"`
+	Operator          string `json:"operator"` // This value is actually ignored for the most part (cert CN is used instead)
+	LHost             string `json:"lhost"`
+	LPort             int    `json:"lport"`
+	CACertificate     string `json:"ca_certificate"`
+	PrivateKey        string `json:"private_key"`
+	Certificate       string `json:"certificate"`
+	ServerFingerprint string `json:"server_fingerprint"`
 }
 
 // GetConfigDir - Returns the path to the config dir

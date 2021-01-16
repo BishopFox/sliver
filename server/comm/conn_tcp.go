@@ -25,113 +25,110 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/commpb"
 )
 
-// conn - An abstracted connection that implements the net.Conn interface.
+// ------------------------------------------------------------------------------------------------------------
+// Inbound Connections:
+// A stream is routed from the implant back to the server, which needs to see it as a normal net.Conn
+// ------------------------------------------------------------------------------------------------------------
+
+// tcpConn - An abstracted connection that implements the net.Conn interface.
 // The remote and local addresses are set from the payload info attached in the SSH Channel.
-type conn struct {
+type tcpConn struct {
 	io.ReadWriteCloser
-	rAddr    net.Addr
-	lAddr    net.Addr
-	errClose chan error // The connection has been closed by one of its users.
+	lAddr net.Addr
+	rAddr net.Addr
 }
 
-// newConn can produce more specialized types of connections. Eventually the type returned
+// newConnInboundTCP can produce more specialized types of connections. Eventually the type returned
 // should not be the connection but an interface net.Conn, net.TCPConn, or whatever.
-func newConn(info *sliverpb.ConnectionInfo, stream io.ReadWriteCloser) *conn {
-	conn := &conn{
-		stream,
-		nil,
-		nil,
-		make(chan error, 1)}
+func newConnInboundTCP(info *commpb.Conn, stream io.ReadWriteCloser) *tcpConn {
 
 	lhost := net.ParseIP(info.LHost)
 	rhost := net.ParseIP(info.RHost)
 
-	conn.rAddr = &net.TCPAddr{IP: rhost, Port: int(info.RPort)}
-	conn.lAddr = &net.TCPAddr{IP: lhost, Port: int(info.LPort)}
-
-	// Maybe add eventual more precise branching with info.Application protocol.
+	conn := &tcpConn{
+		stream,
+		&net.TCPAddr{IP: lhost, Port: int(info.LPort)},
+		&net.TCPAddr{IP: rhost, Port: int(info.RPort)},
+	}
 
 	return conn
 }
 
-// newConnInfo - Populate a ConnectionInfo message to be used by the routing system along with a connection stream.
-func newConnInfo(uri *url.URL, route *Route) *sliverpb.ConnectionInfo {
-
-	info := &sliverpb.ConnectionInfo{
-		ID: route.ID.String(),
-	}
-	// Get RHost/RPort
-	info.RHost = uri.Hostname()
-	rport, _ := strconv.Atoi(uri.Port())
-	if rport != 0 {
-		info.RPort = int32(rport)
-	}
-	// Transport / Application protocols
-	switch uri.Scheme {
-	case "mtls", "http", "https", "socks", "socks5", "ftp", "smtp":
-		// Transport
-		info.Transport = sliverpb.TransportProtocol_TCP
-		// Application
-		switch uri.Scheme {
-		case "mtls":
-			info.Application = sliverpb.ApplicationProtocol_MTLS
-		case "http":
-			info.Application = sliverpb.ApplicationProtocol_HTTP
-		case "https":
-			info.Application = sliverpb.ApplicationProtocol_HTTPS
-		case "socks", "socks5":
-			info.Application = sliverpb.ApplicationProtocol_Socks5
-		case "ftp":
-			info.Application = sliverpb.ApplicationProtocol_FTP
-		case "smtp":
-			info.Application = sliverpb.ApplicationProtocol_SMTP
-		case "named_pipe", "named_pipes", "namedpipe", "pipe":
-			info.Application = sliverpb.ApplicationProtocol_NamedPipe
-		}
-	case "dns", "udp", "quic":
-		// Transport
-		info.Transport = sliverpb.TransportProtocol_UDP
-		// Application
-		switch uri.Scheme {
-		case "dns":
-			info.Application = sliverpb.ApplicationProtocol_DNS
-		case "quic":
-			info.Application = sliverpb.ApplicationProtocol_QUIC
-		}
-	}
-
-	return info
-}
-
 // RemoteAddr - Implements net.Conn, returns specialized addr type
-func (c *conn) RemoteAddr() net.Addr {
+func (c *tcpConn) RemoteAddr() net.Addr {
 	return c.rAddr
 }
 
 // LocalAddr - Implements net.Conn, returns specialized addr type
-func (c *conn) LocalAddr() net.Addr {
+func (c *tcpConn) LocalAddr() net.Addr {
 	return c.lAddr
 }
 
 // SetDeadline- Implements net.Conn
-func (c *conn) SetDeadline(t time.Time) error {
+func (c *tcpConn) SetDeadline(t time.Time) error {
 	return nil
 }
 
 // SetReadDeadline - Implements net.Conn
-func (c *conn) SetReadDeadline(t time.Time) error {
+func (c *tcpConn) SetReadDeadline(t time.Time) error {
 	return nil
 }
 
 // SetWriteDeadline - Implements net.Conn
-func (c *conn) SetWriteDeadline(t time.Time) error {
+func (c *tcpConn) SetWriteDeadline(t time.Time) error {
 	return nil
 }
 
 // Close - Implements net.Conn
-// func (c *conn) Close() error {
-//         return c.ReadWriteCloser.Close()
-// }
+func (c *tcpConn) Close() error {
+	if c.ReadWriteCloser != nil {
+		return c.ReadWriteCloser.Close()
+	}
+	return nil
+}
+
+// ------------------------------------------------------------------------------------------------------------
+// Outbound Connections:
+// Connections (generally satisfying net.Conn) routed TO the implant, need to pass some information to Comms
+// ------------------------------------------------------------------------------------------------------------
+
+func newConnOutboundTCP(uri *url.URL) *commpb.Conn {
+
+	conn := &commpb.Conn{
+		RHost:     uri.Hostname(),
+		Transport: commpb.Transport_TCP,
+	}
+
+	// Port
+	rport, _ := strconv.Atoi(uri.Port())
+	if rport != 0 {
+		conn.RPort = int32(rport)
+	}
+
+	// Transport / Application protocols. Used in case handlers at the implant must verify details
+	// and fields, or for clearer logging when debugging heavy traffic. Also, sometimes we may
+	// directly dial TCP from the Comm system, but handled by the implant slightly differently.
+	switch uri.Scheme {
+	case "mtls":
+		conn.Application = commpb.Application_MTLS
+	case "http":
+		conn.Application = commpb.Application_HTTP
+	case "https":
+		conn.Application = commpb.Application_HTTPS
+	case "socks", "socks5":
+		conn.Application = commpb.Application_Socks5
+	case "ftp":
+		conn.Application = commpb.Application_FTP
+	case "smtp":
+		conn.Application = commpb.Application_SMTP
+	case "named_pipe", "named_pipes", "namedpipe", "pipe":
+		conn.Application = commpb.Application_NamedPipe
+	default:
+		conn.Application = commpb.Application_None
+	}
+
+	return conn
+}

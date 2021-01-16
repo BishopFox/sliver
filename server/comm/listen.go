@@ -20,6 +20,11 @@ package comm
 
 import (
 	"net"
+	"sync"
+
+	"golang.org/x/crypto/ssh"
+
+	"github.com/bishopfox/sliver/protobuf/commpb"
 )
 
 // Listen - Returns a listener started on a valid network address anywhere in either the server interfaces,
@@ -32,4 +37,55 @@ func Listen(network, host string) (ln net.Listener, err error) {
 // connection/listener in either the server interfaces, or any implant's interface. Valid networks are "udp".
 func ListenPacket(network, host string) (conn net.PacketConn, err error) {
 	return ListenUDP(network, host)
+}
+
+// listener - All abstracted listeners, regardless of the protocols they handle,
+// can receive, process and push a connection request coming from an implant Comm.
+type listener interface {
+	base() *commpb.Handler                                    // Handler information
+	comms() *Comm                                             // The implant comm
+	handleReverse(info *commpb.Conn, ch ssh.NewChannel) error // connection handling
+	Close() error                                             // Internally close when implant disconnected.
+}
+
+var (
+	// listeners - All abstracted listeners active in the Server Comms. Excludes clients' port forwarders
+	listeners = &commListeners{
+		active: map[string]listener{},
+		mutex:  &sync.RWMutex{},
+	}
+)
+
+type commListeners struct {
+	active map[string]listener
+	mutex  *sync.RWMutex
+}
+
+// Get - Get a listener by ID
+func (c *commListeners) Get(id string) listener {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	f, found := c.active[id]
+	if !found {
+		return nil
+	}
+	return f
+}
+
+// Add - Add a listener to the map (now reachable by reverese connections)
+func (c *commListeners) Add(l listener) listener {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.active[l.base().ID] = l
+	return l
+}
+
+// Remove - Remove a listener from the map (listener closed)
+func (c *commListeners) Remove(id string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	l := c.active[id]
+	if l != nil {
+		delete(c.active, id)
+	}
 }

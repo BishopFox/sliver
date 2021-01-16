@@ -22,14 +22,14 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/server/comm"
 )
 
-// Routes - Get active network routes
-func (rpc *Server) Routes(ctx context.Context, req *sliverpb.RoutesReq) (*sliverpb.Routes, error) {
+// GetRoutes - Get active network routes
+func (rpc *Server) GetRoutes(ctx context.Context, req *commpb.RoutesReq) (*commpb.Routes, error) {
 
-	resp := &sliverpb.Routes{}
+	resp := &commpb.Routes{}
 	for _, route := range comm.Routes.Registered {
 		resp.Active = append(resp.Active, route.ToProtobuf())
 	}
@@ -38,9 +38,9 @@ func (rpc *Server) Routes(ctx context.Context, req *sliverpb.RoutesReq) (*sliver
 }
 
 // AddRoute - Add a network route.
-func (rpc *Server) AddRoute(ctx context.Context, req *sliverpb.AddRouteReq) (*sliverpb.AddRoute, error) {
+func (rpc *Server) AddRoute(ctx context.Context, req *commpb.RouteAddReq) (*commpb.RouteAdd, error) {
 
-	resp := &sliverpb.AddRoute{Response: &commonpb.Response{}}
+	resp := &commpb.RouteAdd{Response: &commonpb.Response{}}
 
 	// Task server to setup route and request nodes to implement it
 	route, err := comm.Routes.Add(req.Route)
@@ -61,10 +61,10 @@ func (rpc *Server) AddRoute(ctx context.Context, req *sliverpb.AddRouteReq) (*sl
 	return resp, nil
 }
 
-// RemoveRoute - Delete an active network route.
-func (rpc *Server) RemoveRoute(ctx context.Context, req *sliverpb.RmRouteReq) (*sliverpb.RmRoute, error) {
+// DeleteRoute - Delete an active network route.
+func (rpc *Server) DeleteRoute(ctx context.Context, req *commpb.RouteDeleteReq) (*commpb.RouteDelete, error) {
 
-	resp := &sliverpb.RmRoute{Response: &commonpb.Response{}}
+	resp := &commpb.RouteDelete{Response: &commonpb.Response{}}
 
 	err := comm.Routes.Remove(req.Route.ID, req.Close)
 	if err != nil {

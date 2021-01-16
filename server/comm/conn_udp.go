@@ -23,13 +23,29 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/commpb"
 )
+
+// udpConn - A Packet listener that is actually a PacketConn, either tied
+// to a UDP listener running on the server's interfaces, or on one of the implants.
+// Because this udpConn is actually a PacketConn, its implementation of the
+// PacketConn interface is in conn_udp. Only the instantiation is found below.
+type udpConn struct {
+	info    *commpb.Handler
+	comm    *Comm
+	stream  *udpStream
+	pending chan io.ReadWriteCloser
+	sent    int64
+	recv    int64
+	laddr   *net.UDPAddr
+	raddr   *net.UDPAddr
+}
 
 // ReadFrom - Implements PacketConn ReadFrom(). Parses a UDP address and encodes the packet
 // to the Comm stream bound to this UDP listener/connection.
@@ -38,11 +54,11 @@ import (
 // the n > 0 bytes returned before considering the error err.
 // ReadFrom can be made to time out and return an error after a
 // fixed time limit; see SetDeadline and SetReadDeadline.
-func (ln *udpListener) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+func (cc *udpConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 
 	// Wait for a packet from the Comm stream
 	packet := &udpPacket{}
-	ln.stream.decode(packet)
+	cc.stream.decode(packet)
 
 	// Forge source addr for this packet
 	host := strings.Split(packet.Src, ":")[0]
@@ -55,58 +71,91 @@ func (ln *udpListener) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 	addr = &net.UDPAddr{IP: ip, Port: port}
 
 	// Copy payload in buffer.
-	copy(p[:], packet.Payload)
+	n = copy(p[:], packet.Payload)
+	if n == 0 {
+		return n, addr, io.EOF
+	}
 
-	return len(packet.Payload), addr, nil
+	return n, addr, nil
+}
+
+// Read - Implements net.Conn Read(p []byte)
+func (cc *udpConn) Read(p []byte) (n int, err error) {
+	n, _, err = cc.ReadFrom(p)
+	return
 }
 
 // WriteTo writes a packet with payload p to addr.
 // WriteTo can be made to time out and return an Error after a
 // fixed time limit; see SetDeadline and SetWriteDeadline.
 // On packet-oriented connections, write timeouts are rare.
-func (ln *udpListener) WriteTo(p []byte, addr net.Addr) (n int, err error) {
-	err = ln.stream.encode(addr.String(), p)
+func (cc *udpConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
+	err = cc.stream.encode(addr.String(), p)
 	if err != nil {
 		return 0, fmt.Errorf("failed to encode UDP packet to stream: %v", err)
 	}
 	return len(p), nil
 }
 
+// Write - Implements net.Conn Write(p []byte). This can only be used when dialing a destination,
+// with Dial("udp", "localhost:53"), and not with ListenUDP(), which returns a PacketConn.
+// This is consistent with the behavior of Go's net package' UDP sockets.
+func (cc *udpConn) Write(p []byte) (n int, err error) {
+	if cc.raddr != nil {
+		return cc.WriteTo(p, cc.raddr)
+
+	}
+	return 0, nil
+}
+
 // Close closes the connection.
 // Any blocked ReadFrom or WriteTo operations will be unblocked and return errors.
 // This function also closes the Comm stream that wires the abstract and the real listener.
-func (ln *udpListener) Close() error {
+func (cc *udpConn) Close() error {
 	// Notify callers that the listener is closed.
 
 	// Send request to implant to close the actual listener, and log errors.
-	if ln.sess != nil {
-		lnReq := &sliverpb.HandlerCloseReq{
-			Handler: ln.info,
-			Request: &commonpb.Request{SessionID: ln.sess.ID},
+	if cc.comm.session != nil {
+		lnReq := &commpb.HandlerCloseReq{
+			Handler: cc.info,
+			Request: &commonpb.Request{SessionID: cc.comm.session.ID},
 		}
-		lnRes := &sliverpb.HandlerClose{}
-		err := remoteHandlerRequest(ln.sess, lnReq, lnRes)
+		lnRes := &commpb.HandlerClose{}
+		err := remoteHandlerRequest(cc.comm.session, lnReq, lnRes)
 		if err != nil {
-			rLog.Errorf("Listener (ID: %s) failed to close its remote peer (RPC error): %s", ln.info.ID, err.Error())
+			rLog.Errorf("Listener (ID: %s) failed to close its remote peer (RPC error): %s",
+				cc.info.ID, err.Error())
 		}
 		if !lnRes.Success {
-			rLog.Errorf("Listener (ID: %s) failed to close its remote peer: %s", ln.info.ID, err.Error())
+			rLog.Errorf("Listener (ID: %s) failed to close its remote peer: %s",
+				cc.info.ID, err.Error())
 		}
 
 	}
 
 	// Close Comm stream.
-	err := ln.stream.c.Close()
+	err := cc.stream.c.Close()
 	if err != nil {
 		return err
 	}
+
+	// Remove from all listeners maps
+	listeners.Remove(cc.info.ID)
 
 	return nil
 }
 
 // LocalAddr returns the local network address.
-func (ln *udpListener) LocalAddr() (addr net.Addr) {
-	return ln.addr
+func (cc *udpConn) LocalAddr() (addr net.Addr) {
+	return cc.laddr
+}
+
+// RemoteAddr returns the remote network address.
+func (cc *udpConn) RemoteAddr() (addr net.Addr) {
+	if cc.raddr != nil {
+		return cc.raddr
+	}
+	return nil
 }
 
 // SetDeadline sets the read and write deadlines associated
@@ -130,14 +179,14 @@ func (ln *udpListener) LocalAddr() (addr net.Addr) {
 // the deadline after successful ReadFrom or WriteTo calls.
 //
 // A zero value for t means I/O operations will not time out.
-func (ln *udpListener) SetDeadline(t time.Time) error {
+func (cc *udpConn) SetDeadline(t time.Time) error {
 	return nil
 }
 
 // SetReadDeadline sets the deadline for future ReadFrom calls
 // and any currently-blocked ReadFrom call.
 // A zero value for t means ReadFrom will not time out.
-func (ln *udpListener) SetReadDeadline(t time.Time) error {
+func (cc *udpConn) SetReadDeadline(t time.Time) error {
 	return nil
 }
 
@@ -146,7 +195,7 @@ func (ln *udpListener) SetReadDeadline(t time.Time) error {
 // Even if write times out, it may return n > 0, indicating that
 // some of the data was successfully written.
 // A zero value for t means WriteTo will not time out.
-func (ln *udpListener) SetWriteDeadline(t time.Time) error {
+func (cc *udpConn) SetWriteDeadline(t time.Time) error {
 	return nil
 }
 
@@ -173,4 +222,36 @@ func (o *udpStream) decode(p *udpPacket) error {
 type udpPacket struct {
 	Src     string
 	Payload []byte
+}
+
+// ------------------------------------------------------------------------------------------------------------
+// Outbound Connections:
+// Connections (generally satisfying net.Conn) routed TO the implant, need to pass some information to Comms
+// ------------------------------------------------------------------------------------------------------------
+
+func newConnOutboundUDP(uri *url.URL) *commpb.Conn {
+
+	conn := &commpb.Conn{
+		RHost:     uri.Hostname(),
+		Transport: commpb.Transport_UDP,
+	}
+
+	// Port
+	rport, _ := strconv.Atoi(uri.Port())
+	if rport != 0 {
+		conn.RPort = int32(rport)
+	}
+
+	// Application protocols. Used in case handlers at the implant
+	// must verify details and fields, or for clearer logging when debugging heavy traffic.
+	switch uri.Scheme {
+	case "dns":
+		conn.Application = commpb.Application_DNS
+	case "quic":
+		conn.Application = commpb.Application_QUIC
+	default:
+		conn.Application = commpb.Application_None
+	}
+
+	return conn
 }

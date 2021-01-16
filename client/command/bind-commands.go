@@ -1403,7 +1403,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 
-	// app.AddCommand(&grumble.Command{
 	route := &grumble.Command{
 		Name:     consts.RouteStr,
 		Help:     "Manage network routes",
@@ -1416,6 +1415,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	}
+	app.AddCommand(route)
 
 	route.AddCommand(&grumble.Command{
 		Name:     consts.RouteAddStr,
@@ -1441,7 +1441,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.StringL("network", "", "IP or CIDR to filter")
 			f.StringL("id", "", "Route ID")
-			f.Bool("a", "active", false, "Show only active routes")
 			f.BoolL("close", false, "Close all connections forwarded through the route")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -1458,7 +1457,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		LongHelp: help.GetHelpFor(consts.RouteStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("n", "network", "", "IP or CIDR to filter")
-			f.Bool("a", "active", false, "Show only active routes")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1468,5 +1466,66 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 	})
 
-	app.AddCommand(route)
+	portfwd := &grumble.Command{
+		Name: consts.PortfwdStr,
+		Help: "Manage port forwarders for sessions, or the active one (empty: print active port forwards)",
+	}
+	app.AddCommand(portfwd)
+
+	portfwd.AddCommand(&grumble.Command{
+		Name: consts.PortfwdPrintStr,
+		Help: "Print active port forwarders, for all sessions, or the active one",
+		Flags: func(f *grumble.Flags) {
+			f.BoolL("tcp", false, "Show only TCP forwarders")
+			f.BoolL("udp", false, "Show only UDP forwarders")
+			f.BoolL("direct", false, "Show direct port forwarders only")
+			f.BoolL("reverse", false, "Show reverse port forwarders only")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			printPortForwarders(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	portfwd.AddCommand(&grumble.Command{
+		Name: consts.PortfwdOpenStr,
+		Help: "Start a new port forwarder for the active session, or by specifying a session ID",
+		Flags: func(f *grumble.Flags) {
+			f.StringL("protocol", "tcp", "Transport protocol: tcp or udp")
+			f.BoolL("reverse", false, "Reverse port fowarding: traffic at remote host is forwarded back to console host")
+			f.StringL("lhost", "0.0.0.0", "Console host address to bind to")
+			f.UintL("lport", 2008, "Console port number to bind to")
+			f.StringL("rhost", "0.0.0.0", "Remote host address to dial")
+			f.UintL("rport", 0, "Remote port number")
+			f.StringL("srchost", "", "(Direct only, optional) Source address to use when dialing remote")
+			f.UintL("srcport", 0, "(Direct only, optional) Source port to use when dialing remote")
+			f.UintL("session-id", 0, "Start the forwarder on a specific session")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			addPortForward(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
+	portfwd.AddCommand(&grumble.Command{
+		Name: consts.PortfwdCloseStr,
+		Help: "Close one or more port forwarders, for the active session or all.",
+		Flags: func(f *grumble.Flags) {
+			f.StringL("id", "", "Port forwarder ID")
+			f.BoolL("reverse", false, "Close all reverse port forwarders for the session")
+			f.BoolL("direct", false, "Close all direct port forwarders for the session")
+			f.BoolL("close-conns", false, "Close all connections currently handled by the forwarder (TCP only)")
+			f.UintL("session-id", 0, "Close all forwarders for a given session")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			closePortForwarder(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
 }

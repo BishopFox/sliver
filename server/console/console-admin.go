@@ -19,6 +19,8 @@ package console
 */
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,6 +34,7 @@ import (
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/transport"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/desertbit/grumble"
 )
@@ -69,12 +72,13 @@ var (
 
 // ClientConfig - Client JSON config
 type ClientConfig struct {
-	Operator      string `json:"operator"`
-	LHost         string `json:"lhost"`
-	LPort         int    `json:"lport"`
-	CACertificate string `json:"ca_certificate"`
-	PrivateKey    string `json:"private_key"`
-	Certificate   string `json:"certificate"`
+	Operator          string `json:"operator"`
+	LHost             string `json:"lhost"`
+	LPort             int    `json:"lport"`
+	CACertificate     string `json:"ca_certificate"`
+	PrivateKey        string `json:"private_key"`
+	Certificate       string `json:"certificate"`
+	ServerFingerprint string `json:"server_fingerprint"`
 }
 
 func newOperatorCmd(ctx *grumble.Context) {
@@ -132,14 +136,21 @@ func NewPlayerConfig(operatorName, lhost string, lport uint16) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf(Warn+"Failed to generate certificate %s", err)
 	}
-	caCertPEM, _, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
+	caCertPEM, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
+
+	// Make a fingerprint of the implant's private key, for SSH-layer authentication
+	signer, _ := ssh.ParsePrivateKey(serverCAKey)
+	keyBytes := sha256.Sum256(signer.PublicKey().Marshal())
+	fingerprint := base64.StdEncoding.EncodeToString(keyBytes[:])
+
 	config := ClientConfig{
-		Operator:      operatorName,
-		LHost:         lhost,
-		LPort:         int(lport),
-		CACertificate: string(caCertPEM),
-		PrivateKey:    string(privateKey),
-		Certificate:   string(publicKey),
+		Operator:          operatorName,
+		LHost:             lhost,
+		LPort:             int(lport),
+		CACertificate:     string(caCertPEM),
+		PrivateKey:        string(privateKey),
+		Certificate:       string(publicKey),
+		ServerFingerprint: fingerprint,
 	}
 	return json.Marshal(config)
 }

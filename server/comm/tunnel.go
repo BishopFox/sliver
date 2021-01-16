@@ -31,6 +31,7 @@ import (
 	"gopkg.in/djherbis/nio.v2"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 )
@@ -43,11 +44,11 @@ type tunnel struct {
 	Sess *core.Session
 
 	// Implant conn
-	FromImplant         chan *sliverpb.CommTunnelData
+	FromImplant         chan *commpb.TunnelData
 	FromImplantSequence uint64
 	ToImplant           chan []byte
 	ToImplantSequence   uint64
-	cache               map[uint64]*sliverpb.CommTunnelData
+	cache               map[uint64]*commpb.TunnelData
 
 	// Read/Write & buffer
 	ConnBuf buffer.Buffer
@@ -62,9 +63,9 @@ func newTunnelTo(conn *core.Session) (t *tunnel, err error) {
 	t = &tunnel{
 		ID:          newTunnelID(),
 		Sess:        conn,
-		FromImplant: make(chan *sliverpb.CommTunnelData),
+		FromImplant: make(chan *commpb.TunnelData),
 		ToImplant:   make(chan []byte, 100),
-		cache:       map[uint64]*sliverpb.CommTunnelData{},
+		cache:       map[uint64]*commpb.TunnelData{},
 		mutex:       &sync.RWMutex{},
 	}
 	t.ConnBuf = buffer.New(32 * 1024)
@@ -98,7 +99,7 @@ func (t *tunnel) Read(data []byte) (n int, err error) {
 // Write - Implements net.Conn Write(), by sending data through the Session's RPC tunnels.
 func (t *tunnel) Write(data []byte) (n int, err error) {
 	t.mutex.RLock() // Look as soon as now, we never know if the ToImplantSequence might change before being written.
-	sdata, _ := proto.Marshal(&sliverpb.CommTunnelData{
+	sdata, _ := proto.Marshal(&commpb.TunnelData{
 		Sequence:  t.ToImplantSequence,
 		TunnelID:  t.ID,
 		SessionID: t.Sess.ID,
@@ -120,7 +121,7 @@ func (t *tunnel) Write(data []byte) (n int, err error) {
 // Close - Implements net.Conn Close(), by sending a request to the implant to end the tunnel.
 func (t *tunnel) Close() error {
 	rLog.Debugf("Closing tunnel %d (To Client)", t.ID)
-	data, _ := proto.Marshal(&sliverpb.CommTunnelData{
+	data, _ := proto.Marshal(&commpb.TunnelData{
 		TunnelID:  t.ID,
 		SessionID: t.Sess.ID,
 		Data:      make([]byte, 0),
@@ -188,7 +189,7 @@ func (t tunnel) SetWriteDeadline(rwd time.Time) error {
 
 // startRemote - Request to create and start tunnel
 func (t *tunnel) startRemote() (err error) {
-	muxOpenReq := &sliverpb.CommTunnelOpenReq{
+	muxOpenReq := &commpb.TunnelOpenReq{
 		TunnelID: t.ID,
 		Request:  &commonpb.Request{SessionID: t.Sess.ID},
 	}
@@ -198,7 +199,7 @@ func (t *tunnel) startRemote() (err error) {
 	if err != nil {
 		return
 	}
-	resp := &sliverpb.CommTunnelOpen{}
+	resp := &commpb.TunnelOpen{}
 	err = proto.Unmarshal(data, resp)
 	if err != nil {
 		return

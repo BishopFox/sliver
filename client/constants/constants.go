@@ -153,6 +153,11 @@ const (
 	RouteAddStr    = "add"
 	RouteRemoveStr = "remove"
 
+	PortfwdStr      = "portfwd"
+	PortfwdPrintStr = "print"
+	PortfwdOpenStr  = "open"
+	PortfwdCloseStr = "close"
+
 	LicensesStr = "licenses"
 )
 

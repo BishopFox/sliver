@@ -21,16 +21,16 @@ package comm
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"strconv"
-	"sync"
 
 	"github.com/gofrs/uuid"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/protobuf/commpb"
 )
 
 // ListenTCP - Returns a TCP listener started on a valid network address anywhere in either
@@ -45,6 +45,11 @@ func ListenTCP(network, host string) (ln net.Listener, err error) {
 	// At this level, we need a port, we don't intend to contact the application layer of a URL.
 	if addr.Port() == "" || addr.Port() == "0" {
 		return nil, fmt.Errorf("comm listener: invalid port number (nil or 0)")
+	}
+
+	// Prevent localhost panics
+	if addr.Hostname() == "localhost" {
+		addr.Host = "127.0.0.1" + ":" + addr.Port()
 	}
 
 	// Check routes and interfaces
@@ -73,8 +78,8 @@ func ListenTCP(network, host string) (ln net.Listener, err error) {
 
 // tcpListener - An abstract tcpListener tied to an implant and listening for any incoming connection.
 type tcpListener struct {
-	info     *sliverpb.Handler
-	sess     *core.Session
+	info     *commpb.Handler
+	comm     *Comm
 	pending  chan net.Conn // Processed streams, out as net.Conn
 	errClose chan error
 	addr     net.Addr
@@ -91,14 +96,14 @@ func newListenerTCP(uri *url.URL, route *Route) (*tcpListener, error) {
 
 	// Listener object.
 	ln := &tcpListener{
-		info: &sliverpb.Handler{
+		info: &commpb.Handler{
 			ID:        id.String(),
-			Type:      sliverpb.HandlerType_Reverse,
-			Transport: sliverpb.TransportProtocol_TCP,
-			LHost:     uri.Hostname(),
-			LPort:     int32(port),
+			Type:      commpb.HandlerType_Reverse,
+			Transport: commpb.Transport_TCP,
+			RHost:     uri.Hostname(), // We use RHost, the implant knows (portfwd compatibility)
+			RPort:     int32(port),    // We use RPort, the implant knows (portfwd compatibility)
 		},
-		sess:     route.Gateway,
+		comm:     route.comm,
 		pending:  make(chan net.Conn, 100),
 		errClose: make(chan error, 1),
 		addr:     &net.TCPAddr{IP: ip, Port: port},
@@ -107,36 +112,38 @@ func newListenerTCP(uri *url.URL, route *Route) (*tcpListener, error) {
 	// Application Protocol
 	switch uri.Scheme {
 	case "mtls":
-		ln.info.Application = sliverpb.ApplicationProtocol_MTLS
+		ln.info.Application = commpb.Application_MTLS
 	case "http":
-		ln.info.Application = sliverpb.ApplicationProtocol_HTTP
+		ln.info.Application = commpb.Application_HTTP
 	case "https":
-		ln.info.Application = sliverpb.ApplicationProtocol_HTTPS
+		ln.info.Application = commpb.Application_HTTPS
 	case "socks5":
-		ln.info.Application = sliverpb.ApplicationProtocol_Socks5
+		ln.info.Application = commpb.Application_Socks5
 	case "pipe":
-		ln.info.Application = sliverpb.ApplicationProtocol_NamedPipe
+		ln.info.Application = commpb.Application_NamedPipe
+	default:
+		ln.info.Application = commpb.Application_None
 	}
 
 	// We first register the abstracted listener: we don't know how fast the implant
 	// comm might send us a connection back. We deregister if failure.
-	listenersTCP.Add(ln)
+	listeners.Add(ln)
 
 	// Forge request to implant.
-	req := &sliverpb.HandlerStartReq{
+	req := &commpb.HandlerStartReq{
 		Handler: ln.info,
 		Request: &commonpb.Request{SessionID: route.Gateway.ID},
 	}
 
 	// We request to the implant to start its listener.
-	res := &sliverpb.HandlerStart{}
+	res := &commpb.HandlerStart{}
 	err := remoteHandlerRequest(route.Gateway, req, res)
 	if err != nil {
-		listenersTCP.Remove(ln.info.ID)
+		listeners.Remove(ln.info.ID)
 		return nil, fmt.Errorf("comm listener RPC error: %s", err.Error())
 	}
 	if !res.Success {
-		listenersTCP.Remove(ln.info.ID)
+		listeners.Remove(ln.info.ID)
 		return nil, fmt.Errorf("comm listener: %s", res.Response.Err)
 	}
 
@@ -147,17 +154,12 @@ func newListenerTCP(uri *url.URL, route *Route) (*tcpListener, error) {
 func (t *tcpListener) Accept() (conn net.Conn, err error) {
 	var ok bool
 	select {
-	case conn = <-t.pending:
-	case err, ok = <-t.errClose:
+	case conn, ok = <-t.pending:
 		if !ok {
-			if err.Error() == "closed" {
-				err = errors.New("accept on closed listener")
-				return
-			}
-			return
+			return nil, errors.New("accept on closed listener")
 		}
 	}
-	return
+	return conn, nil
 }
 
 // Addr - Implements net.Listener Addr().
@@ -168,9 +170,9 @@ func (t *tcpListener) Addr() net.Addr {
 // Close - Implements net.Listener Close(), and closes the remote handler working on the implant.
 func (t *tcpListener) Close() (err error) {
 
-	// Does not accept more connections and notify callers the listener is closed.
+	// Does not accept more connections and
+	// notify callers the listener is closed.
 	close(t.pending)
-	t.errClose <- errors.New("closed")
 
 	// Close all pending connections
 	for cc := range t.pending {
@@ -181,14 +183,15 @@ func (t *tcpListener) Close() (err error) {
 		}
 	}
 
-	// Send request to implant to close the actual listener, and log errors.
-	if t.sess != nil {
-		lnReq := &sliverpb.HandlerCloseReq{
+	// Send request to implant to close
+	// the actual listener, and log errors.
+	if t.comm.session != nil {
+		lnReq := &commpb.HandlerCloseReq{
 			Handler: t.info,
-			Request: &commonpb.Request{SessionID: t.sess.ID},
+			Request: &commonpb.Request{SessionID: t.comm.session.ID},
 		}
-		lnRes := &sliverpb.HandlerClose{}
-		err = remoteHandlerRequest(t.sess, lnReq, lnRes)
+		lnRes := &commpb.HandlerClose{}
+		err = remoteHandlerRequest(t.comm.session, lnReq, lnRes)
 		if err != nil {
 			rLog.Errorf("Listener (ID: %s) failed to close its remote peer (RPC error): %s",
 				t.info.ID, err.Error())
@@ -199,46 +202,39 @@ func (t *tcpListener) Close() (err error) {
 		}
 
 	}
-	// Remove from trackers map
-	listenersTCP.Remove(t.info.ID)
+	// Remove from listeners map
+	listeners.Remove(t.info.ID)
 	return
 }
 
-var (
-	// listenersTCP - All instantiated active connection listenersTCP. These listenersTCP
-	// are either tied to a listener running on an implant host, or the C2 server.
-	listenersTCP = &tcpListeners{
-		active: map[string]*tcpListener{},
-		mutex:  &sync.RWMutex{},
+// handleReverse - The listener is being fed a connection by the implant Comm, so it forges a
+// pseudo-net.Conn and pushes it to its channel of pending connections, processed with ln.Accept()
+func (t *tcpListener) handleReverse(info *commpb.Conn, ch ssh.NewChannel) error {
+
+	// Accept the stream
+	sshChan, reqs, err := ch.Accept()
+	if err != nil {
+		rLog.Errorf("failed to accept stream (%s)", string(ch.ExtraData()))
+		return err
 	}
-)
+	go ssh.DiscardRequests(reqs)
 
-type tcpListeners struct {
-	active map[string]*tcpListener
-	mutex  *sync.RWMutex
+	// Forge a conn with info (implements net.Conn)
+	conn := newConnInboundTCP(info, io.ReadWriteCloser(sshChan))
+
+	// Push the stream to its listener (non-blocking)
+	t.pending <- conn
+	rLog.Infof("Processed TCP inbound stream: %s <-- %s", conn.lAddr.String(), conn.rAddr.String())
+
+	return nil
 }
 
-// Get - Get a session by ID
-func (c *tcpListeners) Get(id string) *tcpListener {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-	return c.active[id]
+// base - Implements listener base()
+func (t *tcpListener) base() *commpb.Handler {
+	return t.info
 }
 
-// Add - Add a sliver to the hive (atomically)
-func (c *tcpListeners) Add(l *tcpListener) *tcpListener {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	c.active[l.info.ID] = l
-	return l
-}
-
-// Remove - Remove a sliver from the hive (atomically)
-func (c *tcpListeners) Remove(id string) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	l := c.active[id]
-	if l != nil {
-		delete(c.active, id)
-	}
+// comms - Implements listener comms()
+func (t *tcpListener) comms() *Comm {
+	return t.comm
 }

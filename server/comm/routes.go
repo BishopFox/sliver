@@ -26,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/server/core"
 )
 
@@ -48,19 +48,24 @@ type routes struct {
 
 // Add - A user has requested to open a route. Send requests to all nodes in the route chain,
 // so they know how to handle traffic directed at a certain address, and register the route.
-// For each implant node, we cut the sliverpb.Route it directly send it through its C2 RPC channel.
-func (r *routes) Add(new *sliverpb.Route) (route *Route, err error) {
+// For each implant node, we cut the commpb.Route it directly send it through its C2 RPC channel.
+func (r *routes) Add(new *commpb.Route) (route *Route, err error) {
 
 	// Check address / netmask / etc provided in new. Process values if needed
 	ip, subnet, err := net.ParseCIDR(new.IPNet)
 	if err != nil {
 		ip = net.ParseIP(new.IP)
 		if ip == nil {
-			return nil, fmt.Errorf("Error parsing route subnet: %s", err)
+			return nil, fmt.Errorf("(Error parsing route subnet: %s)", err)
 		}
 		m := subnet.Mask
 		mask := net.IPv4Mask(m[0], m[1], m[2], m[3])
 		subnet = &net.IPNet{IP: ip, Mask: mask}
+	}
+
+	// If there are no registered sessions, we cannot add any route.
+	if len(core.Sessions.All()) == 0 {
+		return nil, errors.New("Not active or registered sessions: cannot add any network route")
 	}
 
 	// Create a blank route based on request parsing
@@ -69,20 +74,20 @@ func (r *routes) Add(new *sliverpb.Route) (route *Route, err error) {
 	// Make sure the IP is not contained in one of the active routes' destination subnet.
 	err = checkExistingRoutes(route, new.SessionID)
 	if err != nil {
-		return nil, fmt.Errorf("Error adding route: %s", err.Error())
+		return nil, err
 	}
 
 	// This session will be the last node of the route, which will dial endpoint on its host subnet.
 	targetSession, err := getSessionForSubnet(new.SessionID, route)
 	if err != nil {
-		return nil, fmt.Errorf("Error getting session for network %s: %s", route.IPNet.String(), err.Error())
+		return nil, err
 	}
 
 	// Here, add server interfaces check. Not now for tests.
 
 	// We should not have an empty last node session.
 	if targetSession == nil {
-		return nil, errors.New("Error adding route: last node' session is nil, after checking all interfaces")
+		return nil, errors.New("last node session is nil, after checking all interfaces")
 	}
 
 	// We build the full route to this last node session. Check that route is not nil, in case...
@@ -139,7 +144,7 @@ func getSessionForSubnet(sessionID uint32, route *Route) (session *core.Session,
 		// For each implant, check network interfaces. Stop at the first one valid.
 		session, err = checkAllSessionIfaces(&route.IPNet)
 		if err != nil {
-			return nil, fmt.Errorf("Error adding route: %s", err.Error())
+			return nil, err
 		}
 	}
 
@@ -177,7 +182,7 @@ func buildRouteToSession(sess *core.Session, new *Route) (*Route, error) {
 	// Reference the first node/gateway SSH Comm object
 	if len(new.Nodes) > 0 {
 		for _, comm := range Comms.Active {
-			if comm.Session.ID == new.Nodes[0].ID {
+			if comm.session.ID == new.Nodes[0].ID {
 				new.comm = comm
 			}
 		}
@@ -186,7 +191,7 @@ func buildRouteToSession(sess *core.Session, new *Route) (*Route, error) {
 	// Or with gateway if one hop
 	if new.Gateway != nil {
 		for _, comm := range Comms.Active {
-			if comm.Session.ID == new.Gateway.ID {
+			if comm.session.ID == new.Gateway.ID {
 				new.comm = comm
 			}
 		}
@@ -199,13 +204,23 @@ func buildRouteToSession(sess *core.Session, new *Route) (*Route, error) {
 // a route without messing with the others. Some subnets might overlap but sessionID might enable more precise routing.
 func checkExistingRoutes(route *Route, sessionID uint32) error {
 
+	// Only check the implant hasn't two identical routes.
 	if sessionID != 0 {
+		for _, rt := range Routes.Registered {
+			if rt.comm.session.ID == sessionID && rt.IPNet.Contains(route.IPNet.IP) {
+				return fmt.Errorf("Route %s (Mask: %d, ID:%s) [via %s(%d) at %s] is colliding",
+					rt.IPNet.IP.String(), route.IPNet.Mask, rt.ID.String(),
+					rt.Gateway.Name, rt.Gateway.ID, rt.Gateway.RemoteAddress)
+			}
+		}
 	}
 
+	// Else check all routes.
 	for _, rt := range Routes.Registered {
 		if rt.IPNet.Contains(route.IPNet.IP) {
-			return fmt.Errorf("Active route %s (Mask: %s, ID:%d) via (%s(%d) at %s) is colliding",
-				rt.IPNet.IP.String(), route.IPNet.Mask.String(), rt.ID, rt.Gateway.Name, rt.Gateway.ID, rt.Gateway.RemoteAddress)
+			return fmt.Errorf("Route %s (Mask: %d, ID:%s) [via %s(%d) at %s] is colliding",
+				rt.IPNet.IP.String(), route.IPNet.Mask, rt.ID.String(),
+				rt.Gateway.Name, rt.Gateway.ID, rt.Gateway.RemoteAddress)
 		}
 	}
 

@@ -25,6 +25,7 @@ package handlers
 import (
 	"github.com/golang/protobuf/proto"
 
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/core"
@@ -89,7 +90,7 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	session.RemoteAddress = comm.SetCommString(session)
 
 	// Instantiate and start the Comms, which will build a Tunnel over the Session RPC.
-	err = comm.Init(session)
+	err = comm.InitSession(session)
 	if err != nil {
 		handlerLog.Errorf("Comm init failed: %v", err)
 		return
@@ -135,7 +136,7 @@ func tunnelCloseHandler(session *core.Session, data []byte) {
 
 // commTunnelDataHandler - Handle Comm tunnel data coming from the server.
 func commTunnelDataHandler(session *core.Session, data []byte) {
-	tunnelData := &sliverpb.CommTunnelData{}
+	tunnelData := &commpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
 	tunnel := comm.Tunnels.Tunnel(tunnelData.TunnelID)
 	if tunnel != nil {
@@ -148,22 +149,3 @@ func commTunnelDataHandler(session *core.Session, data []byte) {
 		handlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
 	}
 }
-
-// func muxTunnelCloseHandler(session *core.Session, data []byte) {
-//         tunnelData := &sliverpb.TunnelData{}
-//         proto.Unmarshal(data, tunnelData)
-//         if !tunnelData.Closed {
-//                 return
-//         }
-//         tunnel := core.Tunnels.Get(tunnelData.TunnelID)
-//         if tunnel != nil {
-//                 if session.ID == tunnel.SessionID {
-//                         handlerLog.Infof("Closing tunnel %d", tunnel.ID)
-//                         core.Tunnels.Close(tunnel.ID)
-//                 } else {
-//                         handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
-//                 }
-//         } else {
-//                 handlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
-//         }
-// }

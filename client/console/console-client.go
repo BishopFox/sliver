@@ -47,5 +47,5 @@ func StartClientConsole() error {
 		return nil
 	}
 	defer ln.Close()
-	return Start(rpc, func(*grumble.App, rpcpb.SliverRPCClient) {})
+	return Start(rpc, func(*grumble.App, rpcpb.SliverRPCClient) {}, []byte(config.PrivateKey), config.ServerFingerprint)
 }

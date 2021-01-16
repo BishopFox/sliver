@@ -29,13 +29,20 @@ import (
 	"path"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/comm"
 	cmd "github.com/bishopfox/sliver/client/command"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+
+	// Comm System dependencies
+	"github.com/golang/protobuf/proto"
+	grpcConn "github.com/mitchellh/go-grpc-net-conn"
+	"google.golang.org/grpc"
 
 	"time"
 
@@ -74,7 +81,7 @@ const (
 type ExtraCmds func(*grumble.App, rpcpb.SliverRPCClient)
 
 // Start - Console entrypoint
-func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
+func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds, key []byte, commFingerprint string) error {
 	app := grumble.New(&grumble.Config{
 		Name:                  "Sliver",
 		Description:           "Sliver Client",
@@ -99,11 +106,44 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 	go eventLoop(app, rpc)
 	go core.TunnelLoop(rpc)
 
-	err := app.Run()
+	// Setup the Client Comm system (console proxies & port forwarders)
+	err := initComm(rpc, key, commFingerprint)
+	if err != nil {
+		fmt.Printf(Warn+"Comm Error: %v \n", err)
+	}
+
+	err = app.Run()
 	if err != nil {
 		log.Printf("Run loop returned error: %v", err)
 	}
 	return err
+}
+
+func initComm(rpc rpcpb.SliverRPCClient, key []byte, fingerprint string) error {
+
+	stream, err := rpc.InitComm(context.Background(), &grpc.EmptyCallOption{})
+	if err != nil {
+		return err
+	}
+
+	// We need to create a callback so the conn knows how to decode/encode
+	// arbitrary byte slices for our proto type.
+	fieldFunc := func(msg proto.Message) *[]byte {
+		return &msg.(*commpb.Bytes).Data
+	}
+
+	// Wrap our conn around the response.
+	conn := &grpcConn.Conn{
+		Stream:   stream,
+		Request:  &commpb.Bytes{},
+		Response: &commpb.Bytes{},
+		Encode:   grpcConn.SimpleEncoder(fieldFunc),
+		Decode:   grpcConn.SimpleDecoder(fieldFunc),
+	}
+
+	// The connection is a valid net.Conn upon which we can setup SSH.
+	// We pass the commonName for SSH public key fingerprinting.
+	return comm.InitClient(conn, key, fingerprint)
 }
 
 func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {

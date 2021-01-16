@@ -30,7 +30,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/yl2chen/cidranger"
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/server/core"
 )
 
@@ -46,8 +46,6 @@ type Route struct {
 	Connections []net.Conn       // All active connections. We don't keep their ID, and timeouts are set.
 	comm        *Comm            // The multiplexer to which we pass connections.
 	mutex       *sync.RWMutex
-
-	// Add specific, cascading keepalives, like context, and pass them to commands.
 }
 
 // newRoute - Create a new route based on an address in CIDR notation, or an address with a netmask provided.
@@ -67,35 +65,32 @@ func newRouteTo(subnet *net.IPNet) *Route {
 	return route
 }
 
-// Dial - Get a network connection to a host in this route. Available networks are tcp/udp/unix/ip
-func (r *Route) Dial(network string, host string) (conn net.Conn, err error) {
-	return r.DialContext(context.Background(), network, host)
+// DialTCP - Get a network connection to a host in this route. Valid networks are tcp, tcp4, tcp6.
+func (r *Route) DialTCP(network string, host string) (conn net.Conn, err error) {
+	return r.DialContextTCP(context.Background(), network, host)
 }
 
-// DialContext - Get a network connection to a host in this route, with a Context. See Dial() for networks.
-func (r *Route) DialContext(ctx context.Context, network string, host string) (conn net.Conn, err error) {
+// DialContextTCP - Get a network connection to a host in this route, with a Context. See Dial() for networks.
+func (r *Route) DialContextTCP(ctx context.Context, network string, host string) (conn net.Conn, err error) {
+	return r.comm.dialContextTCP(ctx, network, host)
+}
 
-	// Get RHost/RPort
-	uri, _ := url.Parse(fmt.Sprintf("%s://%s", network, host))
-	if uri == nil {
-		return nil, fmt.Errorf("Address parsing failed: %s", host)
-	}
+// DialUDP - Get a UDP connection to a host in this route. Valid networks are udp, udp4, udp6
+func (r *Route) DialUDP(network string, host string) (conn net.PacketConn, err error) {
+	return r.DialContextUDP(context.Background(), network, host)
+}
 
-	info := newConnInfo(uri, r)                 // Prepare connection info with route elements.
-	conn, err = r.comm.dial(info)               // Instantiate connection over Comms
-	r.Connections = append(r.Connections, conn) // Add connection to active
-
-	rLog.Infof("[route] Dialing (%s/%s) %s --> %s (ID: %s)", info.Transport.String(), info.Application.String(),
-		conn.LocalAddr().String(), conn.RemoteAddr().String(), info.ID)
-	return
+// DialContextUDP - Get a UDP connection to a host in this route, with a Context. Valid networks are udp, udp4, udp6
+func (r *Route) DialContextUDP(ctx context.Context, network string, host string) (conn net.PacketConn, err error) {
+	return r.comm.dialContextUDP(ctx, network, host)
 }
 
 // ToProtobuf - Returns the protobuf information of this route, used for requests to implant nodes.
-func (r *Route) ToProtobuf() *sliverpb.Route {
+func (r *Route) ToProtobuf() *commpb.Route {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	// Info
-	rt := &sliverpb.Route{
+	rt := &commpb.Route{
 		ID:    r.ID.String(),
 		IP:    r.IPNet.IP.String(),
 		IPNet: r.IPNet.String(),
@@ -103,7 +98,7 @@ func (r *Route) ToProtobuf() *sliverpb.Route {
 	}
 	// Nodes
 	for _, node := range r.Nodes {
-		n := &sliverpb.Node{
+		n := &commpb.Node{
 			ID:       node.ID,
 			Name:     node.Name,
 			Host:     node.RemoteAddress,
@@ -112,7 +107,7 @@ func (r *Route) ToProtobuf() *sliverpb.Route {
 		rt.Nodes = append(rt.Nodes, n)
 	}
 	// Gateway session
-	rt.Gateway = &sliverpb.Node{
+	rt.Gateway = &commpb.Node{
 		ID:       r.Gateway.ID,
 		Name:     r.Gateway.Name,
 		Host:     r.Gateway.RemoteAddress,
@@ -125,23 +120,20 @@ func (r *Route) ToProtobuf() *sliverpb.Route {
 		lHost := strings.Split(cc.LocalAddr().String(), ":")[0]
 		lPort, _ := strconv.Atoi(strings.Split(cc.LocalAddr().String(), ":")[1])
 
-		connInfo := &sliverpb.ConnectionInfo{
+		connInfo := &commpb.Conn{
 			RHost: rHost,
 			RPort: int32(rPort),
 			LHost: lHost,
 			LPort: int32(lPort),
 		}
-		if cc.RemoteAddr().Network() == "tcp" {
-			connInfo.Transport = sliverpb.TransportProtocol_TCP
-		}
-		if cc.RemoteAddr().Network() == "udp" {
-			connInfo.Transport = sliverpb.TransportProtocol_UDP
-		}
 
 		switch cc.RemoteAddr().Network() {
 		case "tcp", "tcp4", "tcp6":
-		case "udp":
+			connInfo.Transport = commpb.Transport_TCP
+		case "udp", "udp4", "udp6":
+			connInfo.Transport = commpb.Transport_UDP
 		case "ip":
+			connInfo.Transport = commpb.Transport_IP
 		}
 
 		rt.Connections = append(rt.Connections, connInfo)
@@ -165,5 +157,15 @@ func (r *Route) Close() {
 
 // String - Forges a string of this route target network.
 func (r *Route) String() string {
-	return fmt.Sprintf("[via %s]", r.Gateway.RemoteAddress)
+	host := "scheme://" + r.Gateway.RemoteAddress
+	addr, _ := url.Parse(host)
+
+	// Check if we can get an IP (either v4 or v6)
+	ip := net.ParseIP(addr.Hostname())
+	if ip != nil {
+		return fmt.Sprintf("[via %s]", ip.String())
+	}
+
+	// Else give the hostname of the gateway (per our Sliver C2 connection)
+	return fmt.Sprintf("[via %s]", addr.Hostname())
 }

@@ -20,6 +20,8 @@ package console
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"os"
@@ -27,6 +29,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/desertbit/grumble"
+	"golang.org/x/crypto/ssh"
 
 	clientconsole "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -34,6 +37,7 @@ import (
 	clienttransport "github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/transport"
 	"google.golang.org/grpc"
 )
@@ -58,7 +62,15 @@ func Start() {
 	defer conn.Close()
 	localRPC := rpcpb.NewSliverRPCClient(conn)
 	checkForLegacyDB()
-	clientconsole.Start(localRPC, serverOnlyCmds)
+
+	// Make a fingerprint of the implant's private key, for SSH-layer authentication
+	_, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
+	signer, _ := ssh.ParsePrivateKey(serverCAKey)
+	keyBytes := sha256.Sum256(signer.PublicKey().Marshal())
+	fingerprint := base64.StdEncoding.EncodeToString(keyBytes[:])
+
+	// Start the console locally with appropriate SSH credentials (server)
+	clientconsole.Start(localRPC, serverOnlyCmds, serverCAKey, fingerprint)
 }
 
 func checkForLegacyDB() {

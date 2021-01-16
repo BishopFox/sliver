@@ -139,6 +139,7 @@ pb:
 	protoc -I protobuf/ protobuf/commonpb/common.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/sliverpb/sliver.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/clientpb/client.proto --go_out=paths=source_relative:protobuf/
+	protoc -I protobuf/ protobuf/commpb/comm.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/rpcpb/services.proto --go_out=plugins=grpc,paths=source_relative:protobuf/
 
 .PHONY: packr

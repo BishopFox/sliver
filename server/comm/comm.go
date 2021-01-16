@@ -24,15 +24,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
 )
@@ -46,92 +42,26 @@ var (
 // Therefore, a Comm may serve multiple network Routes concurrently.
 type Comm struct {
 	// Core
-	ID          uint32
-	Session     *core.Session     // The session at the other end
+	ID      uint32
+	session *core.Session // The session at the other end
+	mutex   *sync.RWMutex // Concurrency management.
+
+	// Duplex connection SSH
+	tunnel      *tunnel           // Tunnel (duplex connection on top of implant RPC loop)
 	sshConn     ssh.Conn          // SSH Connection, that we will mux
 	sshConfig   *ssh.ServerConfig // Encryption details.
 	fingerprint string            // Implant key fingerprint
 
 	// Connection management
-	requests <-chan *ssh.Request   // Keep alive, close, etc.
-	inbound  <-chan ssh.NewChannel // Inbound mux requests
-	mutex    *sync.RWMutex         // Concurrency management.
+	requests <-chan *ssh.Request   // Reverse handlers open/close, latency, etc.
+	inbound  <-chan ssh.NewChannel // Inbound connections (bind handlers)
+	active   []io.ReadWriteCloser  // All connections (bind/reverse) goind through
 
 	// Keep alives, maximum buffers depending on latency.
 }
 
-// Init - Sets up the Comm system (SSH session) around a RPC tunnel connection.
-func Init(sess *core.Session) (err error) {
-
-	// New Comm SSH multiplexer
-	comm := &Comm{
-		ID:      newID(),
-		Session: sess,
-		mutex:   &sync.RWMutex{},
-	}
-
-	// Pepare the SSH conn/security, and set keepalive policies/handlers.
-	err = comm.setupServerAuth()
-	if err != nil {
-		rLog.Errorf("failed to setup SSH client connection: %s", err.Error())
-		return err
-	}
-
-	// Create a new tunnel (net.Conn): this asks the remote implant to create the other end.
-	conn, err := newTunnelTo(sess)
-	if err != nil {
-		return fmt.Errorf("failed to create tunnel: %s", err.Error())
-	}
-
-	// Start server connection.
-	rLog.Infof("Starting SSH server connection...")
-	comm.sshConn, comm.inbound, comm.requests, err = ssh.NewServerConn(conn, comm.sshConfig)
-	if err != nil {
-		rLog.Errorf("failed to initiate SSH client connection: %s", err.Error())
-		return
-	}
-	rLog.Infof("Done")
-
-	// Send additional requests for keepalive policies.
-	go comm.serveRequests() // Serve pings & requests with keepalive policies.
-	comm.checkLatency()     // Get latency for this tunnel.
-
-	Comms.Add(comm) // Everything is up and running, register the mux.
-	go comm.serve() // Handle requests (pings) and incoming connections in the background.
-
-	return
-}
-
-// SetupAuth - The Comm prepares SSH code and security details.
-func (comm *Comm) setupServerAuth() (err error) {
-
-	// Get the implant's private key for fingerprinting its public key,
-	_, implantKey, _ := certs.GetECCCertificate(certs.ImplantCA, comm.Session.Name)
-	implantSigner, _ := ssh.ParsePrivateKey(implantKey)
-	iKeyBytes := sha256.Sum256(implantSigner.PublicKey().Marshal())
-	comm.fingerprint = base64.StdEncoding.EncodeToString(iKeyBytes[:])
-	rLog.Infof("Waiting key with fingerprint: %s", comm.fingerprint)
-
-	// Private key of the Server, for authenticating us and encryption.
-	_, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
-	signer, err := ssh.ParsePrivateKey(serverCAKey)
-	if err != nil {
-		rLog.Errorf("SSH failed to parse Private Key: %s", err.Error())
-		return
-	}
-
-	// Config
-	comm.sshConfig = &ssh.ServerConfig{
-		MaxAuthTries:      3,
-		PublicKeyCallback: comm.verifyImplant,
-	}
-	comm.sshConfig.AddHostKey(signer)
-
-	return
-}
-
-// verifyImplant - Check the implant's host key fingerprint.
-func (comm *Comm) verifyImplant(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+// verifyPeer - Check the other end's key fingerprint (implant, or client console)
+func (comm *Comm) verifyPeer(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 
 	expect := comm.fingerprint
 	if expect == "" {
@@ -160,134 +90,6 @@ func (comm *Comm) verifyImplant(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.
 
 	return perms, nil
 
-}
-
-// serve - concurrently serves all incoming (server <- implant) connections.
-func (comm *Comm) serve() {
-	defer func() {
-		rLog.Infof("Closing SSH server connection (Comm ID: %d)...", comm.ID)
-		err := comm.sshConn.Close()
-		if err != nil {
-			rLog.Errorf("Error closing SSH connection: %s", err.Error())
-		}
-		// Remove this multiplexer from our active sockets.
-		Comms.Remove(comm.ID)
-	}()
-
-	// For each incoming stream request, process concurrently.
-	for in := range comm.inbound {
-		go comm.handleReverse(in)
-	}
-}
-
-// handleReverse - Handle, validate and pipe a single logical connection coming from an implant.
-func (comm *Comm) handleReverse(ch ssh.NewChannel) {
-
-	// Parse incoming connection request details:
-	info := &sliverpb.ConnectionInfo{}
-	err := proto.Unmarshal(ch.ExtraData(), info)
-
-	if info.ID == "" && err != nil {
-		rLog.Errorf("rejected connection: (bad info payload: %s)", string(ch.ExtraData()))
-		return
-	}
-
-	switch info.Transport {
-	case sliverpb.TransportProtocol_TCP:
-		comm.handleReverseTCP(info, ch)
-
-	case sliverpb.TransportProtocol_UDP:
-		comm.handleReverseUDP(info, ch)
-	}
-}
-
-// handleReverseTCP - A non-blocking function that pushes a Comm stream (transformed
-// into a net.Conn) onto an abstracted TCP listener pending connections.
-func (comm *Comm) handleReverseTCP(info *sliverpb.ConnectionInfo, ch ssh.NewChannel) {
-
-	// The listener that will take on the stream.
-	ln := listenersTCP.Get(info.ID)
-	if ln == nil {
-		err := ch.Reject(ssh.Prohibited, "NOID")
-		if err != nil {
-			rLog.Errorf("Error: rejecting TCP stream: %s", err)
-		}
-		rLog.Errorf("rejected stream: could not find associated abstract handler (ID: %s)", info.ID)
-		return
-	}
-
-	// Accept the stream and make it a conn.
-	sshChan, reqs, err := ch.Accept()
-	if err != nil {
-		rLog.Errorf("failed to accept stream (%s)", string(ch.ExtraData()))
-		return
-	}
-	go ssh.DiscardRequests(reqs)
-
-	conn := newConn(info, io.ReadWriteCloser(sshChan)) // Forge a conn with info (implements net.Conn)
-	ln.pending <- conn                                 // Push the stream to its listener (non-blocking)
-	rLog.Infof("Processed TCP inbound stream: %s <-- %s", conn.lAddr.String(), conn.rAddr.String())
-}
-
-// handleReverseUDP - A slightly-different, because blocking, function that acquires a Comm UDP
-// stream, finds its associated abstracted UDP listener, and waits for it to handle the stream.
-func (comm *Comm) handleReverseUDP(info *sliverpb.ConnectionInfo, ch ssh.NewChannel) {
-
-	// The UDP listener that will take on the stream.
-	ln := listenersUDP.Get(info.ID)
-	if ln == nil {
-		err := ch.Reject(ssh.Prohibited, "NOID")
-		if err != nil {
-			rLog.Errorf("Error: rejecting TCP stream: %s", err)
-		}
-		rLog.Errorf("rejected stream: could not find associated abstract handler (ID: %s)", info.ID)
-		return
-	}
-
-	// Accept the stream and make it a conn.
-	sshChan, reqs, err := ch.Accept()
-	if err != nil {
-		rLog.Errorf("failed to accept stream (%s)", string(ch.ExtraData()))
-		return
-	}
-	go ssh.DiscardRequests(reqs)
-
-	// Push the stream to its listener. This is blocking, because the udpListener is
-	// actually just a UDPConn, which needs to be wired up and working.
-	ln.pending <- sshChan
-}
-
-// dial - Take a stream coming from the server/clients and forward it to the implant.
-func (comm *Comm) dial(info *sliverpb.ConnectionInfo) (conn net.Conn, err error) {
-	data, _ := proto.Marshal(info)
-
-	// Create muxed channel and pipe.
-	dst, reqs, err := comm.sshConn.OpenChannel("route", data)
-	if err != nil {
-		rLog.Errorf("Failed to open channel: %s", err.Error())
-		return nil, fmt.Errorf("Connection failed: %s", err.Error())
-	}
-	go ssh.DiscardRequests(reqs)
-
-	// Populate the connection with comm properties
-	conn = newConn(info, io.ReadWriteCloser(dst))
-
-	return
-}
-
-// serverRequests - Handles all requests coming from the implant comm. (latency checks, close requests, etc.)
-func (comm *Comm) serveRequests() {
-
-	for req := range comm.requests {
-
-		// If ping, respond keepalive
-		if req.Type == "keepalive" {
-			err := req.Reply(true, []byte{})
-			if err != nil {
-				rLog.Errorf("Error replying to request")
-			}
-		}
-	}
 }
 
 // checkLatency - get latency for this tunnel.

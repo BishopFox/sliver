@@ -76,13 +76,13 @@ type ImplantConfig struct {
 
 	C2 []ImplantC2
 
-	MTLSc2Enabled bool
-	HTTPc2Enabled bool
-	DNSc2Enabled  bool
-
-	CanaryDomains     []CanaryDomain
+	MTLSc2Enabled     bool
+	HTTPc2Enabled     bool
+	DNSc2Enabled      bool
 	NamePipec2Enabled bool
 	TCPPivotc2Enabled bool
+
+	CanaryDomains []CanaryDomain
 
 	// Limits
 	LimitDomainJoined bool

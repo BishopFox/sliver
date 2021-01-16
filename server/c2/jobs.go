@@ -28,6 +28,8 @@ import (
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/commpb"
+	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
@@ -39,6 +41,7 @@ var (
 
 func StartMTLSListenerJob(host string, listenPort uint16) (*core.Job, error) {
 	bind := fmt.Sprintf("%s:%d", host, listenPort)
+
 	// ln, err := StartMutualTLSListener(host, listenPort)
 	ln, err := StartMutualTLSListenerComm(host, listenPort)
 	if err != nil {
@@ -47,13 +50,21 @@ func StartMTLSListenerJob(host string, listenPort uint16) (*core.Job, error) {
 
 	job := &core.Job{
 		ID:          core.NextJobID(),
-		Name:        "mtls",
-		Description: fmt.Sprintf("Comm-abstracted Mutual tls listener %s", bind),
-		// Description: fmt.Sprintf("Mutual tls listener %s", bind),
-		Protocol: "tcp",
-		Port:     listenPort,
-		JobCtrl:  make(chan bool),
+		Protocol:    fmt.Sprintf("%s/%s", commpb.Transport_TCP.String(), commpb.Application_MTLS.String()),
+		Name:        comm.SetHandlerCommString(bind),
+		Port:        listenPort,
+		Description: fmt.Sprintf("Comm-abstracted Mutual TLS listener %s", bind),
+		JobCtrl:     make(chan bool),
 	}
+
+	// job := &core.Job{
+	//         ID:   core.NextJobID(),
+	//         Name:        "mtls",
+	//         Description: fmt.Sprintf("Mutual tls listener %s", bind),
+	//         Protocol: "tcp",
+	//         Port:    listenPort,
+	//         JobCtrl: make(chan bool),
+	// }
 
 	go func() {
 		<-job.JobCtrl

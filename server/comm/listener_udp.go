@@ -28,10 +28,10 @@ import (
 	"sync"
 
 	"github.com/gofrs/uuid"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/protobuf/commpb"
 )
 
 // ListenUDP - Returns a UDP listener/conn started on a valid network address anywhere in either the
@@ -66,7 +66,7 @@ func ListenUDP(network, host string) (conn net.PacketConn, err error) {
 
 	// Else, get an abstracted UDP listener. This is blocking until when the
 	// listener receives a stream from the Comm system to pass data into.
-	conn, err = newListenerUDP(addr, route)
+	conn, err = newListenerUDP(addr, route.comm)
 	if err != nil {
 		return nil, fmt.Errorf("comm listener: %s", err.Error())
 	}
@@ -74,57 +74,38 @@ func ListenUDP(network, host string) (conn net.PacketConn, err error) {
 	return
 }
 
-// udpListener - A Packet listener that is actually a PacketConn, either tied
-// to a UDP listener running on the server's interfaces, or on one of the implants.
-// Because this udpListener is actually a PacketConn, its implementation of the
-// PacketConn interface is in conn_udp. Only the instantiation is found below.
-type udpListener struct {
-	info    *sliverpb.Handler
-	sess    *core.Session
-	stream  *udpStream
-	pending chan io.ReadWriteCloser
-	sent    int64
-	recv    int64
-	addr    *net.UDPAddr
-}
-
 // newListenerUDP - Creates a new listener tied to an ID, and with basic network/address information.
 // This listener is tied to an implant listener, and the latter feeds the former with connections
 // that are routed back to the server. Also able to stop the remote listener like server jobs.
-func newListenerUDP(uri *url.URL, route *Route) (ln *udpListener, err error) {
+func newListenerUDP(uri *url.URL, comm *Comm) (ln *udpConn, err error) {
 
 	id, _ := uuid.NewGen().NewV1()
 	ip := net.ParseIP(uri.Hostname())
 	port, _ := strconv.Atoi(uri.Port())
 
 	// Listener object.
-	ln = &udpListener{
-		info: &sliverpb.Handler{
+	ln = &udpConn{
+		info: &commpb.Handler{
 			ID:        id.String(),
-			Type:      sliverpb.HandlerType_Reverse,
+			Type:      commpb.HandlerType_Reverse,
 			LHost:     uri.Hostname(),
 			LPort:     int32(port),
-			Transport: sliverpb.TransportProtocol_UDP,
+			Transport: commpb.Transport_UDP,
 		},
-		sess:    route.Gateway,
+		comm:    comm,
 		pending: make(chan io.ReadWriteCloser),
-		addr:    &net.UDPAddr{IP: ip, Port: port},
-	}
-
-	// Application Protocol
-	switch uri.Scheme {
-	case "dns":
-		ln.info.Application = sliverpb.ApplicationProtocol_DNS
+		laddr:   &net.UDPAddr{IP: ip, Port: port},
+		// No raddr, because we are listening UDP, not dialing.
 	}
 
 	// We first register the abstracted listener: we don't know how fast the implant
 	// comm might send us a connection back. We deregister if failure.
-	listenersUDP.Add(ln)
+	listeners.Add(ln)
 
 	// Forge request to implant.
-	req := &sliverpb.HandlerStartReq{
+	req := &commpb.HandlerStartReq{
 		Handler: ln.info,
-		Request: &commonpb.Request{SessionID: route.Gateway.ID},
+		Request: &commonpb.Request{SessionID: comm.session.ID},
 	}
 
 	// Start waiting for the Comm system to return us the stream  that
@@ -146,59 +127,48 @@ func newListenerUDP(uri *url.URL, route *Route) (ln *udpListener, err error) {
 	}()
 
 	// We now request to the implant to start its listener.
-	res := &sliverpb.HandlerStart{}
-	err = remoteHandlerRequest(route.Gateway, req, res)
+	res := &commpb.HandlerStart{}
+	err = remoteHandlerRequest(comm.session, req, res)
 	if err != nil {
-		listenersTCP.Remove(ln.info.ID)
+		listeners.Remove(ln.info.ID)
 		return nil, fmt.Errorf("comm listener RPC error: %s", err.Error())
 	}
 	if !res.Success {
-		listenersTCP.Remove(ln.info.ID)
+		listeners.Remove(ln.info.ID)
 		return nil, fmt.Errorf("comm listener: %s", res.Response.Err)
 	}
 
 	// Wait for the listener to aquire its stream from the Comm system.
 	wg.Wait()
-	rLog.Infof("Bound UDP inbound stream: server <-- %s", ln.addr.String())
+	rLog.Infof("Bound UDP inbound stream: server <-- %s", ln.laddr.String())
 
 	return ln, nil
 }
 
-var (
-	// listeners - All instantiated active connection listeners. These listeners
-	// are either tied to a listener running on an implant host, or the C2 server.
-	listenersUDP = &udpListeners{
-		active: map[string]*udpListener{},
-		mutex:  &sync.RWMutex{},
+// handleReverse - The UDP connection needs to satisfy our listener interface,
+// when we listen UDP via the Comm library, or with client reverse port forwarders.
+func (c *udpConn) handleReverse(info *commpb.Conn, ch ssh.NewChannel) error {
+
+	// Accept the stream and make it a conn.
+	stream, reqs, err := ch.Accept()
+	if err != nil {
+		rLog.Errorf("failed to accept stream (%s)", string(ch.ExtraData()))
+		return err
 	}
-)
+	go ssh.DiscardRequests(reqs)
 
-type udpListeners struct {
-	active map[string]*udpListener
-	mutex  *sync.RWMutex
+	// Push the stream to its listener. This is blocking, because the udpListener is
+	// actually just a UDPConn, which needs to be wired up and working.
+	c.pending <- stream
+	return nil
 }
 
-// Get - Get a session by ID
-func (c *udpListeners) Get(id string) *udpListener {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-	return c.active[id]
+// base - Implements the listener interface.
+func (c *udpConn) base() *commpb.Handler {
+	return c.info
 }
 
-// Add - Add a sliver to the hive (atomically)
-func (c *udpListeners) Add(l *udpListener) *udpListener {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	c.active[l.info.ID] = l
-	return l
-}
-
-// Remove - Remove a sliver from the hive (atomically)
-func (c *udpListeners) Remove(id string) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	l := c.active[id]
-	if l != nil {
-		delete(c.active, id)
-	}
+// comms - Implements the listener comms()
+func (c *udpConn) comms() *Comm {
+	return c.comm
 }
