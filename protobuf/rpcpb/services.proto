@@ -80,7 +80,7 @@ service SliverRPC {
     rpc Migrate(clientpb.MigrateReq) returns (sliverpb.Migrate);
     rpc Execute(sliverpb.ExecuteReq) returns (sliverpb.Execute);
     rpc Sideload(sliverpb.SideloadReq) returns (sliverpb.Sideload);
-    rpc SpawnDll(sliverpb.SpawnDllReq) returns (sliverpb.SpawnDll);
+    rpc SpawnDll(sliverpb.InvokeSpawnDllReq) returns (sliverpb.SpawnDll);
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
     rpc NamedPipes(sliverpb.NamedPipesReq) returns (sliverpb.NamedPipes);
     rpc TCPListener(sliverpb.TCPPivotReq) returns (sliverpb.TCPPivot);
@@ -119,8 +119,4 @@ service SliverRPC {
     rpc AddTransport(commpb.TransportAddReq) returns (commpb.TransportAdd);
     rpc DeleteTransport(commpb.TransportDeleteReq) returns (commpb.TransportDelete);
     rpc SwitchTransport(commpb.TransportSwitchReq) returns (commpb.TransportSwitch);
-
-    // *** Port Forwarding ***
-    // rpc PortfwdStart(commpb.PortfwdOpenReq) returns (commpb.PortfwdOpen);
-    // rpc PortfwdStop(commpb.PortfwdCloseReq) returns (commpb.PortfwdClose);
 }

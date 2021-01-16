@@ -23,9 +23,12 @@ package handlers
 */
 
 import (
+	"sync"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/bishopfox/sliver/protobuf/commpb"
+
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/core"
@@ -42,6 +45,8 @@ var (
 
 		sliverpb.MsgCommTunnelData: commTunnelDataHandler,
 	}
+
+	tunnelHandlerMutex = &sync.Mutex{}
 )
 
 // GetSessionHandlers - Returns a map of server-side msg handlers
@@ -100,7 +105,12 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	core.Sessions.Add(session)
 }
 
+// The handler mutex prevents a send on a closed channel, without it
+// two handlers calls may race when a tunnel is quickly created and closed.
 func tunnelDataHandler(session *core.Session, data []byte) {
+	tunnelHandlerMutex.Lock()
+	defer tunnelHandlerMutex.Unlock()
+
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
@@ -116,6 +126,9 @@ func tunnelDataHandler(session *core.Session, data []byte) {
 }
 
 func tunnelCloseHandler(session *core.Session, data []byte) {
+	tunnelHandlerMutex.Lock()
+	defer tunnelHandlerMutex.Unlock()
+
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
 	if !tunnelData.Closed {
