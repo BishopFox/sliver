@@ -3,6 +3,7 @@ module github.com/bishopfox/sliver
 go 1.13
 
 require (
+	github.com/AlecAivazis/survey/v2 v2.0.5
 	github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
 	github.com/Binject/debug v0.0.0-20201108185608-2b8504217eb5 // indirect
 	github.com/BurntSushi/xgb v0.0.0-20201008132610-5f9e7b3c49cd
@@ -29,9 +30,9 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
 	github.com/jessevdk/go-flags v1.4.0
-	github.com/lmorg/readline v0.0.0-20190310235027-80486cdafb40
+	github.com/lmorg/readline v0.0.0-20190310235027-80486cdafb40 // indirect
 	github.com/maxlandon/readline v0.0.0-20201115221939-748705d16fec
-	github.com/maxlandon/wiregost v0.4.0-alpha
+	github.com/maxlandon/wiregost v0.4.0-alpha // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/miekg/dns v1.1.35
 	github.com/pkg/errors v0.9.1
@@ -46,7 +47,7 @@ require (
 	golang.org/x/tools v0.0.0-20201110030525-169ad6d6ecb2
 	google.golang.org/genproto v0.0.0-20201109203340-2640f1f9cdfb // indirect
 	google.golang.org/grpc v1.33.2
-	google.golang.org/protobuf v1.25.0
+	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 )
