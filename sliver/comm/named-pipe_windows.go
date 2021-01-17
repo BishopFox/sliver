@@ -40,7 +40,7 @@ func DialNamedPipe(info *commpb.Conn, ch ssh.NewChannel) error {
 	// {{end}}
 
 	// Get a conn and pipe -->
-	dst, err := winio.DialPipe("\\\\.\\pipe\\"+pipeName, defaultNetTimeout)
+	dst, err := winio.DialPipe("\\\\.\\pipe\\"+pipeName, nil) // Problem passing defaultNetTimeout
 	if err != nil {
 		// We should return an error to the server.
 		return err
@@ -57,8 +57,13 @@ func DialNamedPipe(info *commpb.Conn, ch ssh.NewChannel) error {
 	}
 	go ssh.DiscardRequests(reqs)
 
-	// Blocks
-	transport(src, dst)
+	// Pipe connections. Blocking until EOF or any other error
+	transportConn(src, dst)
+
+	// Close connections once we're done, with a delay left so our
+	// custom RPC tunnel has time to transmit the remaining data.
+	closeConnections(src, dst)
+
 	return nil
 }
 

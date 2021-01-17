@@ -20,11 +20,10 @@ package comm
 
 import (
 	// {{if .Config.Debug}}
-	"context"
 	"log"
-
 	// {{end}}
 
+	"context"
 	"fmt"
 	"io"
 	"sync"
