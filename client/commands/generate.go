@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bishopfox/sliver/client/connection"
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/spin"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -65,10 +65,10 @@ type StageOptions struct {
 		MTLS      []string `long:"mtls" description:"mTLS C2 domain(s), comma-separated (ex: mtls://host:port)" env-delim:","`
 		DNS       []string `long:"dns" description:"DNS C2 domain(s), comma-separated (ex: dns://mydomain.com)" env-delim:","`
 		HTTP      []string `long:"http" description:"HTTP(S) C2 domain(s)" env-delim:","`
-		NamedPipe []string `long:"named-pipe" description:"Named pipe connection strings, comma-separated" env-delim:","`
-		TCPPivot  []string `long:"tcp-pivot" description:"TCP pivot connection strings, comma-separated" env-delim:","`
+		NamedPipe []string `long:"named-pipe" description:"Named pipe transport strings, comma-separated" env-delim:","`
+		TCPPivot  []string `long:"tcp-pivot" description:"TCP pivot transport strings, comma-separated" env-delim:","`
 		Reconnect int      `long:"reconnect" description:"Attempt to reconnect every n second(s)"`
-		MaxErrors int      `long:"max-errors" description:"Max number of connection errors"`
+		MaxErrors int      `long:"max-errors" description:"Max number of transport errors"`
 		Timeout   int      `long:"timeout" description:"Command timeout in seconds"`
 	} `group:"Transport options"`
 
@@ -124,7 +124,7 @@ func (r *Regenerate) Execute(args []string) (err error) {
 		save, _ = os.Getwd()
 	}
 
-	regenerate, err := connection.RPC.Regenerate(context.Background(), &clientpb.RegenerateReq{
+	regenerate, err := transport.RPC.Regenerate(context.Background(), &clientpb.RegenerateReq{
 		ImplantName: r.Positional.Name,
 	})
 	if err != nil {
@@ -417,7 +417,7 @@ func compile(config *clientpb.ImplantConfig, save string) (*commonpb.File, error
 	ctrl := make(chan bool)
 	go spin.Until("Compiling, please wait ...", ctrl)
 
-	generated, err := connection.RPC.Generate(context.Background(), &clientpb.GenerateReq{
+	generated, err := transport.RPC.Generate(context.Background(), &clientpb.GenerateReq{
 		Config: config,
 	})
 	ctrl <- true

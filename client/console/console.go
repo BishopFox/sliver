@@ -19,6 +19,7 @@ package console
 */
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -27,16 +28,24 @@ import (
 	"path"
 	"strings"
 
+	"github.com/desertbit/grumble"
 	"github.com/maxlandon/readline"
-	"google.golang.org/grpc"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/comm"
 	"github.com/bishopfox/sliver/client/commands"
 	"github.com/bishopfox/sliver/client/completers"
-	"github.com/bishopfox/sliver/client/connection"
-	"github.com/bishopfox/sliver/client/context"
+	consoleContext "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
+
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+
+	// Comm System dependencies
+	"github.com/golang/protobuf/proto"
+	grpcConn "github.com/mitchellh/go-grpc-net-conn"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -58,9 +67,50 @@ func newConsole() *console {
 	console := &console{
 		Shell: readline.NewInstance(),
 	}
-
 	return console
 }
+
+// ExtraCmds - Bind extra commands to the app object
+type ExtraCmds func(*grumble.App, rpcpb.SliverRPCClient)
+
+// Start - Console entrypoint
+// func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds, key []byte, commFingerprint string) error {
+//         app := grumble.New(&grumble.Config{
+//                 Name:        "Sliver",
+//                 Description: "Sliver Client",
+//                 HistoryFile: path.Join(assets.GetRootAppDir(), "history"),
+//                 // Prompt:                getPrompt(),
+//                 PromptColor:           color.New(),
+//                 HelpHeadlineColor:     color.New(),
+//                 HelpHeadlineUnderline: true,
+//                 HelpSubCommands:       true,
+//         })
+//         app.SetPrintASCIILogo(func(app *grumble.App) {
+//                 // printLogo(app, rpc)
+//         })
+//
+//         cmd.BindCommands(app, rpc)
+//         extraCmds(app, rpc)
+//
+//         cmd.ActiveSession.AddObserver(func(_ *clientpb.Session) {
+//                 // app.SetPrompt(getPrompt())
+//         })
+//
+//         // go eventLoop(app, rpc)
+//         go core.TunnelLoop(rpc)
+//
+//         // Setup the Client Comm system (console proxies & port forwarders)
+//         err := initComm(rpc, key, commFingerprint)
+//         if err != nil {
+//                 fmt.Printf(Warn+"Comm Error: %v \n", err)
+//         }
+//
+//         err = app.Run()
+//         if err != nil {
+//                 log.Printf("Run loop returned error: %v", err)
+//         }
+//         return err
+// }
 
 // console - Central object of the client UI. Only one instance of this object
 // lives in the client executable (instantiated with newConsole() above).
@@ -69,20 +119,47 @@ type console struct {
 	admin bool               // Are we an admin console running a server.
 }
 
+func initComm(rpc rpcpb.SliverRPCClient, key []byte, fingerprint string) error {
+
+	stream, err := rpc.InitComm(context.Background(), &grpc.EmptyCallOption{})
+	if err != nil {
+		return err
+	}
+
+	// We need to create a callback so the conn knows how to decode/encode
+	// arbitrary byte slices for our proto type.
+	fieldFunc := func(msg proto.Message) *[]byte {
+		return &msg.(*commpb.Bytes).Data
+	}
+
+	// Wrap our conn around the response.
+	conn := &grpcConn.Conn{
+		Stream:   stream,
+		Request:  &commpb.Bytes{},
+		Response: &commpb.Bytes{},
+		Encode:   grpcConn.SimpleEncoder(fieldFunc),
+		Decode:   grpcConn.SimpleDecoder(fieldFunc),
+	}
+
+	// The connection is a valid net.Conn upon which we can setup SSH.
+	// We pass the commonName for SSH public key fingerprinting.
+	return comm.InitClient(conn, key, fingerprint)
+}
+
 // connect - The console connects to the server and authenticates. Note that all
 // config information (access points and security details) have been loaded already.
 func (c *console) connect(admin bool) (conn *grpc.ClientConn, err error) {
 
 	// Connect to server (performs TLS authentication)
 	if admin {
-		conn, err = connection.ConnectLocal()
+		conn, err = transport.ConnectLocal()
 	} else {
-		conn, err = connection.ConnectTLS()
+		conn, err = transport.ConnectTLS()
 	}
 
 	// Register RPC Service Client.
-	connection.RPC = rpcpb.NewSliverRPCClient(conn)
-	if connection.RPC == nil {
+	transport.RPC = rpcpb.NewSliverRPCClient(conn)
+	if transport.RPC == nil {
 		return nil, errors.New("could not register gRPC Client, instance is nil")
 	}
 
@@ -91,7 +168,13 @@ func (c *console) connect(admin bool) (conn *grpc.ClientConn, err error) {
 	go c.startEventHandler()
 
 	// Start message tunnel loop.
-	go connection.TunnelLoop()
+	go transport.TunnelLoop()
+
+	// Setup the Client Comm system (console proxies & port forwarders)
+	err = initComm(transport.RPC, []byte(assets.ServerPrivateKey), assets.CommFingerprint)
+	if err != nil {
+		fmt.Printf(Warn+"Comm Error: %v \n", err)
+	}
 
 	return
 }
@@ -104,7 +187,7 @@ func (c *console) setup() (err error) {
 
 	// This context object will hold some state about the
 	// console (which implant we're interacting, jobs, etc.)
-	context.Initialize()
+	consoleContext.Initialize()
 
 	// This computes all callbacks and base prompt strings
 	// for the first time, and then binds it to the console.

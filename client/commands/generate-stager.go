@@ -30,8 +30,8 @@ import (
 
 	"gopkg.in/AlecAivazis/survey.v1"
 
-	"github.com/bishopfox/sliver/client/connection"
 	"github.com/bishopfox/sliver/client/spin"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
@@ -114,7 +114,7 @@ func (g *GenerateStager) Execute(args []string) (err error) {
 
 	ctrl := make(chan bool)
 	go spin.Until("Generating stager, please wait ...", ctrl)
-	stageFile, err := connection.RPC.MsfStage(context.Background(), &clientpb.MsfStagerReq{
+	stageFile, err := transport.RPC.MsfStage(context.Background(), &clientpb.MsfStagerReq{
 		Arch:     arch,
 		BadChars: bChars,
 		Format:   format,

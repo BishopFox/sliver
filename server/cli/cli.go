@@ -25,12 +25,12 @@ import (
 	"path"
 	"strings"
 
-	client "github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/server/console"
 
 	"github.com/bishopfox/sliver/server/daemon"
 
@@ -62,7 +62,7 @@ const (
 // Initialize logging
 func initLogging(appDir string) *os.File {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	logFile, err := os.OpenFile(path.Join(appDir, "logs", logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile(path.Join(appDir, "logs", logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	if err != nil {
 		log.Fatalf("Error opening file: %v", err)
 	}
@@ -119,8 +119,9 @@ var rootCmd = &cobra.Command{
 			daemon.Start()
 		} else {
 			os.Args = os.Args[:1] // Hide cli from grumble console
-			var admin = true
-			client.Console.Start(admin)
+
+			console.StartAlt()
+			// client.Console.Start(admin)
 		}
 
 	},

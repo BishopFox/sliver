@@ -5,6 +5,7 @@ option go_package = "github.com/bishopfox/sliver/protobuf/rpcpb";
 import "commonpb/common.proto";
 import "sliverpb/sliver.proto";
 import "clientpb/client.proto";
+import "commpb/comm.proto";
 
 
 service SliverRPC {
@@ -38,8 +39,10 @@ service SliverRPC {
     rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate);
     rpc Regenerate(clientpb.RegenerateReq) returns (clientpb.Generate);
     rpc ImplantBuilds(commonpb.Empty) returns (clientpb.ImplantBuilds);
+    rpc DeleteImplantBuild(clientpb.DeleteReq) returns (commonpb.Empty);
     rpc Canaries(commonpb.Empty) returns (clientpb.Canaries);
     rpc ImplantProfiles(commonpb.Empty) returns (clientpb.ImplantProfiles);
+    rpc DeleteImplantProfile(clientpb.DeleteReq) returns (commonpb.Empty);
     rpc SaveImplantProfile(clientpb.ImplantProfile) returns (clientpb.ImplantProfile);
     rpc MsfStage(clientpb.MsfStagerReq) returns (clientpb.MsfStager);
     rpc ShellcodeRDI(clientpb.ShellcodeRDIReq) returns (clientpb.ShellcodeRDI);
@@ -49,6 +52,7 @@ service SliverRPC {
     rpc Website(clientpb.Website) returns (clientpb.Website);
     rpc WebsiteRemove(clientpb.Website) returns (commonpb.Empty);
     rpc WebsiteAddContent(clientpb.WebsiteAddContent) returns (clientpb.Website);
+    rpc WebsiteUpdateContent(clientpb.WebsiteAddContent) returns (clientpb.Website);
     rpc WebsiteRemoveContent(clientpb.WebsiteRemoveContent) returns (clientpb.Website);
 
     // *** Session Interactions ***
@@ -76,7 +80,7 @@ service SliverRPC {
     rpc Migrate(clientpb.MigrateReq) returns (sliverpb.Migrate);
     rpc Execute(sliverpb.ExecuteReq) returns (sliverpb.Execute);
     rpc Sideload(sliverpb.SideloadReq) returns (sliverpb.Sideload);
-    rpc SpawnDll(sliverpb.SpawnDllReq) returns (sliverpb.SpawnDll);
+    rpc SpawnDll(sliverpb.InvokeSpawnDllReq) returns (sliverpb.SpawnDll);
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
     rpc NamedPipes(sliverpb.NamedPipesReq) returns (sliverpb.NamedPipes);
     rpc TCPListener(sliverpb.TCPPivotReq) returns (sliverpb.TCPPivot);
@@ -97,4 +101,22 @@ service SliverRPC {
 
     // *** Events ***
     rpc Events(commonpb.Empty) returns (stream clientpb.Event);
+
+
+    // Comm System ------------------------------------------------------------------
+
+    // InitComm - The client console sets a stream over which it and the server
+    // will set up a Comm layer for using portfwds and proxies.
+    rpc InitComm(stream commpb.Bytes) returns (stream commpb.Bytes);
+
+    // *** Routes ***
+    rpc GetRoutes(commpb.RoutesReq) returns (commpb.Routes);
+    rpc AddRoute(commpb.RouteAddReq) returns (commpb.RouteAdd);
+    rpc DeleteRoute(commpb.RouteDeleteReq) returns (commpb.RouteDelete);
+
+    // **** Transports ****
+    rpc GetTransports(commpb.TransportsReq) returns (commpb.Transports);
+    rpc AddTransport(commpb.TransportAddReq) returns (commpb.TransportAdd);
+    rpc DeleteTransport(commpb.TransportDeleteReq) returns (commpb.TransportDelete);
+    rpc SwitchTransport(commpb.TransportSwitchReq) returns (commpb.TransportSwitch);
 }

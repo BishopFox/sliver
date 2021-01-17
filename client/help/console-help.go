@@ -72,6 +72,8 @@ var (
 		consts.ScreenshotStr: screenshotHelp,
 		consts.MakeTokenStr:  makeTokenHelp,
 		consts.GetEnvStr:     getEnvHelp,
+
+		consts.RouteStr: routesHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -257,22 +259,25 @@ Shellcode files should be binary encoded, you can generate Sliver shellcode file
 	websitesHelp = `[[.Bold]]Command:[[.Normal]] websites <options> <operation>
 [[.Bold]]About:[[.Normal]] Add content to HTTP(S) C2 websites to make them look more legit.
 
-[[.Bold]][[.Underline]]++ Operations ++[[.Normal]]
-Operations are used to manage the content of each website and go at the end of the command.
-
-[[.Bold]]ls [[.Normal]] - List the contents of a website, specified with --website
-[[.Bold]]add[[.Normal]] - Add content to a website, specified with --website, --content, and --web-path
-[[.Bold]]rm [[.Normal]] - Remove content from a website, specified with --website and --web-path
+Websites can be thought of as a collection of content identified by a name, Sliver can store any number of
+websites, and each website can host any amount of static content mapped to arbitrary paths. For example, you
+could create a 'blog' website and 'corp' website each with its own collection of content. When starting an
+HTTP(S) C2 listener you can specify which collection of content to host on the C2 endpoint.
 
 [[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
+List websites:
+	websites
+
+List the contents of a website:
+	websites [name]
 
 Add content to a website:
-	websites --website blog --web-path / --content ./index.html add
-	websites --website blog --web-path /public --content ./public --recursive add
+	websites add-content --website blog --web-path / --content ./index.html
+	websites add-content --website blog --web-path /public --content ./public --recursive
 
-Delete content in a website:
-	websites --website blog --web-path /index.html rm
-	websites --website blog --web-path /public --recursive rm
+Delete content from a website:
+	websites rm-content --website blog --web-path /index.html
+	websites rm-content --website blog --web-path /public --recursive
 
 `
 	sideloadHelp = `[[.Bold]]Command:[[.Normal]] sideload <options> <filepath to DLL>
@@ -390,6 +395,28 @@ The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows u
 [[.Bold]]About:[[.Normal]] Retrieve the environment variables for the current session. If no variable name is provided, lists all the environment variables.
 [[.Bold]]Example:[[.Normal]] getenv SHELL
 	`
+	routesHelp = `[[.Bold]]Command:[[.Normal]] route print|add|delete --options
+[[.Bold]]About:[[.Normal]] Manage network routes in use by the server and implants. 
+
+Commands:
+    print --filters  - Print active network routes information.
+    add  --opts      - Add a network route 
+    delete --opts    - Remove a network route.
+
+Print filters:
+    --network       - IP or CIDR to filter.
+    --active        - Show only active routes
+
+Add filters:
+    --network       - IP network in CIDR notation (ex: 192.168.1.1/24)
+    --netmask       - (Optional) Precise network mask (ex: 255.255.255.0)
+    --session-id    - (Optional) Bind this route network to a precise implant, in case two routes might collide.
+
+Delete filters:
+    --network       - IP network in CIDR notation (ex: 192.168.1.1/24)
+    --session-id    - (Optional) Bind this route network to a precise implant, in case two routes might collide.
+    --close         - Close all connections forwarded through this route (not portfwds, and handlers).
+`
 )
 
 const (

@@ -19,15 +19,10 @@ package commands
 */
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/jessevdk/go-flags"
 
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
-	"github.com/bishopfox/sliver/client/util"
-	server "github.com/bishopfox/sliver/server/console"
 )
 
 const (
@@ -123,29 +118,29 @@ func OptionByName(cmd *flags.Command, option string) *flags.Option {
 // There is a namespace field, however it messes up with the option printing/detection/parsing.
 func bindServerAdminCommands() (err error) {
 
-	np, err := Server.AddCommand(constants.NewPlayerStr, "Create a new player config file",
-		help.GetHelpFor(constants.NewPlayerStr), &server.NewOperator{})
-	np.Aliases = []string{"admin"}
-	if err != nil {
-		fmt.Println(util.Warn + err.Error())
-		os.Exit(3)
-	}
-
-	kp, err := Server.AddCommand(constants.KickPlayerStr, "Kick a player from the server",
-		help.GetHelpFor(constants.KickPlayerStr), &server.KickOperator{})
-	kp.Aliases = []string{"admin"}
-	if err != nil {
-		fmt.Println(util.Warn + err.Error())
-		os.Exit(3)
-	}
-
-	mm, err := Server.AddCommand(constants.MultiplayerModeStr, "Enable multiplayer mode on this server",
-		help.GetHelpFor(constants.MultiplayerModeStr), &server.MultiplayerMode{})
-	mm.Aliases = []string{"admin"}
-	if err != nil {
-		fmt.Println(util.Warn + err.Error())
-		os.Exit(3)
-	}
+	// np, err := Server.AddCommand(constants.NewPlayerStr, "Create a new player config file",
+	//         help.GetHelpFor(constants.NewPlayerStr), &server.NewOperator{})
+	// np.Aliases = []string{"admin"}
+	// if err != nil {
+	//         fmt.Println(util.Warn + err.Error())
+	//         os.Exit(3)
+	// }
+	//
+	// kp, err := Server.AddCommand(constants.KickPlayerStr, "Kick a player from the server",
+	//         help.GetHelpFor(constants.KickPlayerStr), &server.KickOperator{})
+	// kp.Aliases = []string{"admin"}
+	// if err != nil {
+	//         fmt.Println(util.Warn + err.Error())
+	//         os.Exit(3)
+	// }
+	//
+	// mm, err := Server.AddCommand(constants.MultiplayerModeStr, "Enable multiplayer mode on this server",
+	//         help.GetHelpFor(constants.MultiplayerModeStr), &server.MultiplayerMode{})
+	// mm.Aliases = []string{"admin"}
+	// if err != nil {
+	//         fmt.Println(util.Warn + err.Error())
+	//         os.Exit(3)
+	// }
 
 	return
 }
@@ -248,8 +243,8 @@ func bindServerCommands() (err error) {
 		help.GetHelpFor(constants.ProfileGenerateStr), &ProfileGenerate{})
 	pg.Aliases = []string{"implants"}
 
-	b, err := Server.AddCommand(constants.ListSliverBuildsStr, "List old implant builds",
-		help.GetHelpFor(constants.ListSliverBuildsStr), &Builds{})
+	b, err := Server.AddCommand(constants.ImplantBuildsStr, "List old implant builds",
+		help.GetHelpFor(constants.ImplantBuildsStr), &Builds{})
 	b.Aliases = []string{"implants"}
 
 	c, err := Server.AddCommand(constants.ListCanariesStr, "List previously generated DNS canaries",

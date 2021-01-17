@@ -7,7 +7,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/bishopfox/sliver/client/connection"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -37,7 +37,7 @@ type Builds struct{}
 // Execute - List saved implant builds (binaries)
 func (b *Builds) Execute(args []string) (err error) {
 
-	builds, err := connection.RPC.ImplantBuilds(context.Background(), &commonpb.Empty{})
+	builds, err := transport.RPC.ImplantBuilds(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(util.RPCError+"%s\n", err)
 		return

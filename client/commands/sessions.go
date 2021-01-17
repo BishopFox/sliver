@@ -24,9 +24,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bishopfox/sliver/client/connection"
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/spin"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -55,7 +55,7 @@ func (i *Interact) Execute(args []string) (err error) {
 	}
 
 	// For the moment, we ask the current working directory to implant...
-	pwd, err := connection.RPC.Pwd(context.Background(), &sliverpb.PwdReq{
+	pwd, err := transport.RPC.Pwd(context.Background(), &sliverpb.PwdReq{
 		Request: cctx.Context.Sliver.Request(10),
 	})
 	if err != nil {
@@ -80,7 +80,7 @@ func (b *Background) Execute(args []string) (err error) {
 
 // GetSession - Get session by session ID or name
 func GetSession(arg string) *clientpb.Session {
-	sessions, err := connection.RPC.GetSessions(context.Background(), &commonpb.Empty{})
+	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(util.Error+"%s\n", err)
 		return nil
@@ -105,7 +105,7 @@ type Kill struct {
 func (k *Kill) Execute(args []string) (err error) {
 
 	session := cctx.Context.Sliver.Session
-	err = killSession(session, connection.RPC)
+	err = killSession(session, transport.RPC)
 	if err != nil {
 		fmt.Printf(util.RPCError+"%s\n", err)
 		return

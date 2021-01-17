@@ -29,9 +29,9 @@ import (
 	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/commands"
-	"github.com/bishopfox/sliver/client/connection"
 	"github.com/bishopfox/sliver/client/constants"
 	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
@@ -70,7 +70,7 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 
 		// Jobs
 		if strings.Contains(found.Name, "JobID") {
-			jobs, err := connection.RPC.GetJobs(context.Background(), &commonpb.Empty{})
+			jobs, err := transport.RPC.GetJobs(context.Background(), &commonpb.Empty{})
 			if err != nil {
 				fmt.Printf(util.RPCError+"%s", err)
 				return
@@ -119,7 +119,7 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 
 	// Sessions
 	if strings.Contains(found.Name, "ImplantID") {
-		sessions, err := connection.RPC.GetSessions(context.Background(), &commonpb.Empty{})
+		sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
 		if err != nil {
 			fmt.Printf(util.RPCError+"%s", err)
 			return

@@ -33,7 +33,7 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/client/connection"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -62,7 +62,7 @@ func (u *Updates) Execute(args []string) (err error) {
 	insecure := u.Options.Insecure
 	if insecure {
 		fmt.Println()
-		fmt.Println(util.Warn + "You're trying to update over an insecure connection, this is a really bad idea!")
+		fmt.Println(util.Warn + "You're trying to update over an insecure transport, this is a really bad idea!")
 		confirm := false
 		prompt := &survey.Confirm{Message: "Recklessly update?"}
 		survey.AskOne(prompt, &confirm, nil)
@@ -164,7 +164,7 @@ func (v *Version) Execute(args []string) (err error) {
 
 func verboseVersions() {
 	clientVer := version.FullVersion()
-	serverVer, err := connection.RPC.GetVersion(context.Background(), &commonpb.Empty{})
+	serverVer, err := transport.RPC.GetVersion(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(util.Warn+"Failed to check server version %s", err)
 		return

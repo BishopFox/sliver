@@ -24,7 +24,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/bishopfox/sliver/client/connection"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 )
@@ -34,8 +34,8 @@ import (
 func (c *console) StartServerConsole(conn *grpc.ClientConn) (err error) {
 
 	// Register RPC Service Client through local conn parameter
-	connection.RPC = rpcpb.NewSliverRPCClient(conn)
-	if connection.RPC == nil {
+	transport.RPC = rpcpb.NewSliverRPCClient(conn)
+	if transport.RPC == nil {
 		return errors.New("could not register gRPC Client, instance is nil")
 	}
 
@@ -44,7 +44,7 @@ func (c *console) StartServerConsole(conn *grpc.ClientConn) (err error) {
 	go c.startEventHandler()
 
 	// Start message tunnel loop.
-	go connection.TunnelLoop()
+	go transport.TunnelLoop()
 
 	// Print banner and version information.
 	// This will also check the last update time.

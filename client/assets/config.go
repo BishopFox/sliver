@@ -63,6 +63,9 @@ var (
 
 	// Token - A unique number for this client binary
 	Token = `{{.Token}}`
+
+	// CommFingerprint - Used to authenticate the client Comm system.
+	CommFingerprint = `{{.ServerFingerprint}}`
 )
 
 var (
@@ -77,12 +80,13 @@ const (
 
 // ClientConfig - Client JSON config
 type ClientConfig struct {
-	Operator      string `json:"operator"` // This value is actually ignored for the most part (cert CN is used instead)
-	LHost         string `json:"lhost"`
-	LPort         int    `json:"lport"`
-	CACertificate string `json:"ca_certificate"`
-	PrivateKey    string `json:"private_key"`
-	Certificate   string `json:"certificate"`
+	Operator          string `json:"operator"` // This value is actually ignored for the most part (cert CN is used instead)
+	LHost             string `json:"lhost"`
+	LPort             int    `json:"lport"`
+	CACertificate     string `json:"ca_certificate"`
+	PrivateKey        string `json:"private_key"`
+	Certificate       string `json:"certificate"`
+	ServerFingerprint string `json:"server_fingerprint"`
 }
 
 // LoadServerConfig - Determines if this console has either builtin server configuration or if it needs to use a textfile configuration.
@@ -106,7 +110,7 @@ func LoadServerConfig() (err error) {
 	}
 
 	// Then check if we have textfile configs. If yes, go on.
-	configs := getConfigs()
+	configs := GetConfigs()
 	if len(configs) > 0 {
 		fmt.Println("[-] Found text-file server configuration(s)")
 	}
@@ -143,8 +147,8 @@ func LoadServerConfig() (err error) {
 	return nil
 }
 
-// getConfigDir - Returns the path to the config dir
-func getConfigDir() string {
+// GetConfigDir - Returns the path to the config dir
+func GetConfigDir() string {
 	rootDir, _ := filepath.Abs(GetRootAppDir())
 	dir := path.Join(rootDir, ConfigDirName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -156,9 +160,9 @@ func getConfigDir() string {
 	return dir
 }
 
-// getConfigs - Returns all available server configurations.
-func getConfigs() (configs map[string]*ClientConfig) {
-	configDir := getConfigDir()
+// GetConfigs - Returns all available server configurations.
+func GetConfigs() (configs map[string]*ClientConfig) {
+	configDir := GetConfigDir()
 	configFiles, err := ioutil.ReadDir(configDir)
 	if err != nil {
 		log.Printf("No configs found %v", err)
@@ -209,7 +213,7 @@ func saveConfig(config *ClientConfig) error {
 	if config.LHost == "" || config.Operator == "" {
 		return errors.New("Empty config")
 	}
-	configDir := getConfigDir()
+	configDir := GetConfigDir()
 	filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(config.Operator), filepath.Base(config.LHost))
 	saveTo, _ := filepath.Abs(path.Join(configDir, filename))
 	configJSON, _ := json.Marshal(config)
@@ -255,6 +259,7 @@ func selectConfig(configs map[string]*ClientConfig) (err error) {
 	ServerCACertificate = conf.CACertificate
 	ServerCertificate = conf.Certificate
 	ServerPrivateKey = conf.PrivateKey
+	CommFingerprint = conf.ServerFingerprint
 
 	log.Printf("Loaded configuration values for server at %s:%s (operator %s)", ServerLHost, ServerLPort, ServerUser)
 	return

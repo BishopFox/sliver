@@ -47,7 +47,11 @@ var (
 // SemanticVersion - Get the structured sematic version
 func SemanticVersion() []int {
 	semVer := []int{}
-	for _, part := range strings.Split(Version, ".") {
+	version := Version
+	if strings.HasPrefix(version, "v") {
+		version = version[1:]
+	}
+	for _, part := range strings.Split(version, ".") {
 		number, _ := strconv.Atoi(part)
 		semVer = append(semVer, number)
 	}

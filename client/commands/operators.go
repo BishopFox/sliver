@@ -25,7 +25,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/bishopfox/sliver/client/connection"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -38,7 +38,7 @@ type Operators struct{}
 // Execute - List operators and their current status.
 func (o *Operators) Execute(args []string) (err error) {
 
-	operators, err := connection.RPC.GetOperators(context.Background(), &commonpb.Empty{})
+	operators, err := transport.RPC.GetOperators(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(util.RPCError+"%s\n", err)
 	} else if 0 < len(operators.Operators) {

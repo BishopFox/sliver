@@ -25,8 +25,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/bishopfox/sliver/client/connection"
 	"github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -55,7 +55,7 @@ func (p *NewProfile) Execute(args []string) (err error) {
 		Name:   name,
 		Config: config,
 	}
-	resp, err := connection.RPC.SaveImplantProfile(context.Background(), profile)
+	resp, err := transport.RPC.SaveImplantProfile(context.Background(), profile)
 
 	if err != nil {
 		fmt.Printf(util.Error+"%s\n", err)
@@ -152,7 +152,7 @@ func (p *ProfileGenerate) Execute(args []string) (err error) {
 			return err
 		}
 		profile.Config.Name = buildImplantName(implantFile.Name)
-		_, err = connection.RPC.SaveImplantProfile(context.Background(), profile)
+		_, err = transport.RPC.SaveImplantProfile(context.Background(), profile)
 		if err != nil {
 			fmt.Printf(util.Error+"could not update implant profile: %v\n", err)
 			return err
@@ -164,7 +164,7 @@ func (p *ProfileGenerate) Execute(args []string) (err error) {
 }
 
 func getSliverProfiles() *map[string]*clientpb.ImplantProfile {
-	pbProfiles, err := connection.RPC.ImplantProfiles(context.Background(), &commonpb.Empty{})
+	pbProfiles, err := transport.RPC.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(util.Error+"Error %s", err)
 		return nil

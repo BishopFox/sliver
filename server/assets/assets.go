@@ -201,6 +201,16 @@ func SetupGoPath(goPathSrc string) error {
 	os.MkdirAll(commonpbDir, 0700)
 	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0644)
 
+	// Comm PB
+	commpbSrc, err := protobufBox.Find("commpb/comm.pb.go")
+	if err != nil {
+		setupLog.Info("static asset not found: comm.pb.go")
+		return err
+	}
+	commpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "commpb")
+	os.MkdirAll(commpbDir, 0700)
+	ioutil.WriteFile(path.Join(commpbDir, "comm.pb.go"), commpbSrc, 0644)
+
 	// GOPATH 3rd party dependencies
 	protobufPath := path.Join(goPathSrc, "github.com", "golang")
 	err = unzipGoDependency("protobuf.zip", protobufPath, assetsBox)
@@ -210,6 +220,11 @@ func SetupGoPath(goPathSrc string) error {
 
 	golangXPath := path.Join(goPathSrc, "golang.org", "x")
 	err = unzipGoDependency("golang_x_sys.zip", golangXPath, assetsBox)
+	if err != nil {
+		setupLog.Fatalf("Failed to unzip go dependency: %v", err)
+	}
+	golangXCryptoSSHPath := path.Join(goPathSrc, "golang.org", "x")
+	err = unzipGoDependency("golang_x_crypto_ssh.zip", golangXCryptoSSHPath, assetsBox)
 	if err != nil {
 		setupLog.Fatalf("Failed to unzip go dependency: %v", err)
 	}

@@ -3,6 +3,7 @@ package clientpb;
 option go_package = "github.com/bishopfox/sliver/protobuf/clientpb";
 
 import "commonpb/common.proto";
+import "commpb/comm.proto";
 
 
 // [ Version ] ----------------------------------------
@@ -64,6 +65,7 @@ message ImplantConfig {
   // c2
   repeated ImplantC2 C2 = 10;
   repeated string CanaryDomains = 11;
+  repeated commpb.Application Transports = 12;
 
   bool LimitDomainJoined = 20;
   string LimitDatetime = 21;
@@ -88,6 +90,10 @@ message ImplantConfig {
 // Configs of previously built implants
 message ImplantBuilds {
   map<string, ImplantConfig> Configs = 1;
+}
+
+message DeleteReq {
+  string Name = 1;
 }
 
 // DNSCanary - Single canary and metadata
@@ -320,11 +326,11 @@ message CreateTunnelReq {
 message CreateTunnel {
   uint32 SessionID = 1;
 
-  uint64 TunnelID = 8;
+  uint64 TunnelID = 8 [jstype = JS_STRING];
 }
 
 message CloseTunnelReq {
-  uint64 TunnelID = 8;
+  uint64 TunnelID = 8 [jstype = JS_STRING];
 
   commonpb.Request Request = 9;
 }
@@ -360,7 +366,7 @@ message Operator {
 message WebContent {
   string Path = 1;
   string ContentType = 2;
-  uint64 Size = 3;
+  uint64 Size = 3 [jstype = JS_STRING];
 
   bytes Content = 9;
 }

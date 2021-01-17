@@ -19,6 +19,8 @@ package console
 */
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,12 +30,41 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"golang.org/x/crypto/ssh"
+
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/transport"
+)
+
+const (
+	// ANSI Colors
+	normal    = "\033[0m"
+	black     = "\033[30m"
+	red       = "\033[31m"
+	green     = "\033[32m"
+	orange    = "\033[33m"
+	blue      = "\033[34m"
+	purple    = "\033[35m"
+	cyan      = "\033[36m"
+	gray      = "\033[37m"
+	bold      = "\033[1m"
+	clearln   = "\r\x1b[2K"
+	upN       = "\033[%dA"
+	downN     = "\033[%dB"
+	underline = "\033[4m"
+
+	// Info - Display colorful information
+	Info = bold + cyan + "[*] " + normal
+	// Warn - Warn a user
+	Warn = bold + red + "[!] " + normal
+	// Debug - Display debug information
+	Debug = bold + purple + "[-] " + normal
+	// Woot - Display success
+	Woot = bold + green + "[$] " + normal
 )
 
 var (
@@ -43,6 +74,17 @@ var (
 // NewOperator - Command for creating a new operator user.
 type NewOperator struct {
 	Options OperatorOptions `group:"Operator options"`
+}
+
+// ClientConfig - Client JSON config
+type ClientConfig struct {
+	Operator          string `json:"operator"`
+	LHost             string `json:"lhost"`
+	LPort             int    `json:"lport"`
+	CACertificate     string `json:"ca_certificate"`
+	PrivateKey        string `json:"private_key"`
+	Certificate       string `json:"certificate"`
+	ServerFingerprint string `json:"server_fingerprint"`
 }
 
 // OperatorOptions - Options for operator creation.
@@ -106,14 +148,22 @@ func NewPlayerConfig(operatorName, lhost string, lport uint16) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf(util.Warn+"Failed to generate certificate %s", err)
 	}
-	caCertPEM, _, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
+
+	caCertPEM, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
+
+	// Make a fingerprint of the implant's private key, for SSH-layer authentication
+	signer, _ := ssh.ParsePrivateKey(serverCAKey)
+	keyBytes := sha256.Sum256(signer.PublicKey().Marshal())
+	fingerprint := base64.StdEncoding.EncodeToString(keyBytes[:])
+
 	config := assets.ClientConfig{
-		Operator:      operatorName,
-		LHost:         lhost,
-		LPort:         int(lport),
-		CACertificate: string(caCertPEM),
-		PrivateKey:    string(privateKey),
-		Certificate:   string(publicKey),
+		Operator:          operatorName,
+		LHost:             lhost,
+		LPort:             int(lport),
+		CACertificate:     string(caCertPEM),
+		PrivateKey:        string(privateKey),
+		Certificate:       string(publicKey),
+		ServerFingerprint: fingerprint,
 	}
 	return json.Marshal(config)
 }

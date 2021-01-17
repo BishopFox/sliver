@@ -34,8 +34,8 @@ var (
 	// CATypes - CA types
 	CATypes = map[string]string{
 		"operator":    certs.OperatorCA,
-		"grpc-server": certs.ServerCA,
-		"implant":     certs.SliverCA,
+		"grpc-server": certs.C2ServerCA,
+		"implant":     certs.ImplantCA,
 		"https":       certs.HTTPSCA,
 	}
 )

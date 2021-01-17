@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/bishopfox/sliver/client/connection"
 	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -45,7 +45,7 @@ func (cd *ChangeDirectory) Execute(args []string) (err error) {
 		path = filepath.Join("/home", cctx.Context.Sliver.Username)
 	}
 
-	pwd, err := connection.RPC.Cd(context.Background(), &sliverpb.CdReq{
+	pwd, err := transport.RPC.Cd(context.Background(), &sliverpb.CdReq{
 		Request: &commonpb.Request{
 			SessionID: cctx.Context.Sliver.ID,
 		},

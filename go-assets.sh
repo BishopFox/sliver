@@ -20,12 +20,13 @@
 # Creates the static go asset archives
 # You'll need wget, tar, and unzip commands
 
-GO_VER="1.15"
+GO_VER="1.15.6"
 GO_ARCH="amd64"
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
 
 PROTOBUF_COMMIT=347cf4a86c1cb8d262994d8ef5924d4576c5b331
 GOLANG_SYS_COMMIT=669c56c373c468cbe0f0c12b7939832b26088d33
+GOLANG_CRYPTO_SSH_COMMIT=4be66e5b658251a93e17d931a68d9c0ecba9f83a
 
 
 if ! [ -x "$(command -v wget)" ]; then
@@ -130,6 +131,11 @@ tar xfv $GOLANG_SYS_COMMIT.tar.gz
 rm -f $GOLANG_SYS_COMMIT.tar.gz
 mv sys-$GOLANG_SYS_COMMIT sys
 zip -r $REPO_DIR/assets/golang_x_sys.zip sys
+
+wget -O $GOLANG_CRYPTO_SSH_COMMIT.tar.gz https://github.com/golang/crypto/archive/$GOLANG_CRYPTO_SSH_COMMIT.tar.gz
+tar xfv $GOLANG_CRYPTO_SSH_COMMIT.tar.gz
+mv crypto-$GOLANG_CRYPTO_SSH_COMMIT crypto
+zip -r $REPO_DIR/assets/golang_x_crypto_ssh.zip crypto
 
 # end
 echo -e "clean up: $WORK_DIR"

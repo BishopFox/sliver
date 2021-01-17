@@ -29,6 +29,7 @@ import (
 	"sort"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 
 	"encoding/base32"
@@ -199,7 +200,7 @@ func handleCanary(req *dns.Msg) *dns.Msg {
 		reqDomain += "." // Ensure we have the FQDN
 	}
 
-	canary, err := generate.CheckCanary(reqDomain)
+	canary, err := db.CanaryByDomain(reqDomain)
 	if err != nil {
 		return nil
 	}
@@ -218,9 +219,9 @@ func handleCanary(req *dns.Msg) *dns.Msg {
 				EventType: consts.CanaryEvent,
 			})
 			canary.Triggered = true
-			canary.FirstTrigger = time.Now().Format(time.RFC1123)
+			canary.FirstTrigger = time.Now()
 		}
-		canary.LatestTrigger = time.Now().Format(time.RFC1123)
+		canary.LatestTrigger = time.Now()
 		canary.Count++
 		generate.UpdateCanary(canary)
 	}
@@ -411,7 +412,7 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		return []string{"1"}, err
 	}
 
-	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, domain)
+	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
 	if err != nil {
 		dnsLog.Infof("Failed to fetch RSA private key")
 		return []string{"1"}, err
@@ -586,11 +587,11 @@ func dnsSegment(fields []string) ([]string, error) {
 
 // TODO: Avoid double-fetch
 func getDomainKeyFor(domain string) ([]string, error) {
-	_, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, domain)
+	_, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
 	if err != nil {
-		certs.ServerGenerateRSACertificate(domain)
+		certs.C2ServerGenerateRSACertificate(domain)
 	}
-	certPEM, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, domain)
+	certPEM, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
 	if err != nil {
 		return nil, err
 	}

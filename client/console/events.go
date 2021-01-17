@@ -27,9 +27,9 @@ import (
 	"time"
 
 	cmd "github.com/bishopfox/sliver/client/command"
-	"github.com/bishopfox/sliver/client/connection"
 	consts "github.com/bishopfox/sliver/client/constants"
 	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/evilsocket/islazy/tui"
@@ -39,7 +39,7 @@ import (
 func (c *console) startEventHandler() (err error) {
 
 	// Listen for events on the RPC stream.
-	eventStream, err := connection.RPC.Events(context.Background(), &commonpb.Empty{})
+	eventStream, err := transport.RPC.Events(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(Errorf+"%s\n", err)
 		return
@@ -59,7 +59,7 @@ func (c *console) startEventHandler() (err error) {
 		case consts.CanaryEvent:
 			fmt.Printf("\n\n") // Clear screen a bit before announcing shitty news
 			fmt.Printf(util.Warn+tui.BOLD+"WARNING: %s%s has been burned (DNS Canary)\n", normal, event.Session.Name)
-			sessions := cmd.GetSessionsByName(event.Session.Name, connection.RPC)
+			sessions := cmd.GetSessionsByName(event.Session.Name, transport.RPC)
 			for _, session := range sessions {
 				fmt.Printf("\t🔥 Session #%d is affected\n", session.ID)
 			}
@@ -111,7 +111,7 @@ func (c *console) startEventHandler() (err error) {
 }
 
 func eventLoop() {
-	eventStream, err := connection.RPC.Events(context.Background(), &commonpb.Empty{})
+	eventStream, err := transport.RPC.Events(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
 		return

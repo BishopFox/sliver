@@ -7,7 +7,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/bishopfox/sliver/client/connection"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -39,7 +39,7 @@ type Canaries struct {
 // Execute - List previously generated canaries
 func (c *Canaries) Execute(args []string) (err error) {
 
-	canaries, err := connection.RPC.Canaries(context.Background(), &commonpb.Empty{})
+	canaries, err := transport.RPC.Canaries(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(util.RPCError+"Failed to list canaries %s", err)
 		return

@@ -95,3 +95,12 @@ func NewClient(operatorName string) *Client {
 		// mutex: &sync.RWMutex{},
 	}
 }
+
+func (cc *clients) GetClientOperator(id int) string {
+	for _, c := range cc.active {
+		if c.ID == id {
+			return c.Operator.Name
+		}
+	}
+	return ""
+}

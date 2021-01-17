@@ -19,13 +19,16 @@ package website
 */
 
 import (
-	"encoding/json"
-	"fmt"
+	"errors"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 )
 
@@ -36,6 +39,18 @@ const (
 var (
 	websiteLog = log.NamedLogger("website", "content")
 )
+
+func getWebContentDir() (string, error) {
+	webContentDir := filepath.Join(assets.GetRootAppDir(), "web")
+	// websiteLog.Debugf("Web content dir: %s", webContentDir)
+	if _, err := os.Stat(webContentDir); os.IsNotExist(err) {
+		err = os.MkdirAll(webContentDir, 0700)
+		if err != nil {
+			return "", err
+		}
+	}
+	return webContentDir, nil
+}
 
 func normalizePath(path string) string {
 	if !strings.HasSuffix(path, "/") {
@@ -50,106 +65,170 @@ func normalizePath(path string) string {
 
 // GetContent - Get static content for a given path
 func GetContent(websiteName string, path string) (string, []byte, error) {
-	bucket, err := db.GetBucket(websiteBucketName)
+	website, err := db.WebsiteByName(websiteName)
 	if err != nil {
 		return "", []byte{}, err
 	}
 
-	path = normalizePath(path)
-	webContentRaw, err := bucket.Get(fmt.Sprintf("%s.%s", websiteName, path))
-	if err != nil {
-		return "", []byte{}, err
+	dbSession := db.Session()
+	content := models.WebContent{}
+	result := dbSession.Where(&models.WebContent{
+		WebsiteID: website.ID,
+		Path:      path,
+	}).First(&content)
+	if result.Error != nil {
+		return "", []byte{}, result.Error
 	}
 
-	webContent := &clientpb.WebContent{}
-	err = json.Unmarshal(webContentRaw, webContent)
+	webContentDir, err := getWebContentDir()
 	if err != nil {
 		return "", []byte{}, err
 	}
-	return webContent.ContentType, webContent.Content, nil
+	data, err := ioutil.ReadFile(filepath.Join(webContentDir, content.ID.String()))
+	return content.ContentType, data, err
+}
+
+// AddWebsite - Add website with no content
+func AddWebsite(websiteName string) (*models.Website, error) {
+	dbSession := db.Session()
+	website, err := db.WebsiteByName(websiteName)
+	if errors.Is(err, db.ErrRecordNotFound) {
+		website = &models.Website{Name: websiteName}
+		err = dbSession.Create(&website).Error
+	}
+	return website, err
 }
 
 // AddContent - Add website content for a path
 func AddContent(websiteName string, path string, contentType string, content []byte) error {
-	bucket, err := db.GetBucket(websiteBucketName)
+	dbSession := db.Session()
+
+	website, err := db.WebsiteByName(websiteName)
+	if errors.Is(err, db.ErrRecordNotFound) {
+		website = &models.Website{Name: websiteName}
+		err = dbSession.Create(&website).Error
+	}
 	if err != nil {
 		return err
 	}
-	webContent, err := json.Marshal(&clientpb.WebContent{
-		ContentType: contentType,
-		Content:     content,
-		Size:        uint64(len(content)),
-	})
+
+	webContent, err := webContentByPath(website, path)
+	if errors.Is(err, db.ErrRecordNotFound) {
+		webContent = &models.WebContent{
+			WebsiteID:   website.ID,
+			Path:        path,
+			ContentType: contentType,
+			Size:        len(content),
+		}
+		err = dbSession.Create(webContent).Error
+	} else {
+		webContent.ContentType = contentType
+		webContent.Size = len(content)
+		err = dbSession.Save(webContent).Error
+	}
 	if err != nil {
 		return err
 	}
-	path = normalizePath(path)
-	key := fmt.Sprintf("%s.%s", websiteName, path)
-	websiteLog.Infof("[add] %s", key)
-	bucket.Set(key, webContent)
-	return nil
+
+	// Write content to disk
+	webContentDir, err := getWebContentDir()
+	if err != nil {
+		return err
+	}
+	webContentPath := filepath.Join(webContentDir, webContent.ID.String())
+	return ioutil.WriteFile(webContentPath, content, 0600)
+}
+
+func webContentByPath(website *models.Website, path string) (*models.WebContent, error) {
+	dbSession := db.Session()
+	webContent := models.WebContent{}
+	err := dbSession.Where(&models.WebContent{
+		WebsiteID: website.ID,
+		Path:      path,
+	}).First(&webContent).Error
+	return &webContent, err
 }
 
 // RemoveContent - Remove website content for a path
-func RemoveContent(website string, path string) error {
-	bucket, err := db.GetBucket(websiteBucketName)
+func RemoveContent(websiteName string, path string) error {
+	website, err := db.WebsiteByName(websiteName)
 	if err != nil {
 		return err
 	}
-	path = normalizePath(path)
-	key := fmt.Sprintf("%s.%s", website, path)
-	websiteLog.Infof("[delete] %s", key)
-	return bucket.Delete(key)
+	dbSession := db.Session()
+	content := models.WebContent{}
+	result := dbSession.Where(&models.WebContent{
+		WebsiteID: website.ID,
+		Path:      path,
+	}).First(&content)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	// Delete file
+	webContentsDir, err := getWebContentDir()
+	if err != nil {
+		return err
+	}
+	err = os.Remove(filepath.Join(webContentsDir, content.ID.String()))
+	if err != nil {
+		return err
+	}
+
+	// Delete row
+	result = dbSession.Delete(&content)
+	return result.Error
 }
 
-// ListWebsites - List all websites
-func ListWebsites() ([]string, error) {
-	bucket, err := db.GetBucket(websiteBucketName)
-	if err != nil {
-		return nil, err
+// Names - List all websites
+func Names() ([]string, error) {
+	websites := []*models.Website{}
+	dbSession := db.Session()
+	result := dbSession.Where(&models.Website{}).Find(&websites)
+	if result.Error != nil {
+		return nil, result.Error
 	}
-
-	keys, err := bucket.Map("")
-	if err != nil {
-		return nil, err
+	names := []string{}
+	for _, website := range websites {
+		names = append(names, website.Name)
 	}
-
-	// Because Go doesn't have a generic Keys()
-	websites := make(map[string]bool)
-	for key := range keys {
-		name := strings.Split(key, ".")[0] // Split on '.' and take the zero'th
-		websites[name] = true
-	}
-	websiteNames := make([]string, 0, len(websites))
-	for k := range websites {
-		websiteNames = append(websiteNames, k)
-	}
-	return websiteNames, nil
+	return names, nil
 }
 
-// ListContent - List the content of a specific site, returns map of path->json(content-type/size)
-func ListContent(websiteName string) (*clientpb.Website, error) {
-	bucket, err := db.GetBucket(websiteBucketName)
-	if err != nil {
-		return nil, err
+// MapContent - List the content of a specific site, returns map of path->json(content-type/size)
+func MapContent(websiteName string, eagerLoadContents bool) (*clientpb.Website, error) {
+	website := models.Website{}
+	dbSession := db.Session()
+	result := dbSession.Where(&models.Website{
+		Name: websiteName,
+	}).Preload("WebContents").Find(&website)
+	if result.Error != nil {
+		return nil, result.Error
 	}
-	websiteContent, err := bucket.Map(fmt.Sprintf("%s.", websiteName))
-	if err != nil {
-		return nil, err
-	}
+
 	pbWebsite := &clientpb.Website{
-		Name:     websiteName,
+		Name:     website.Name,
 		Contents: map[string]*clientpb.WebContent{},
 	}
-	for key, contentRaw := range websiteContent {
-		webContent := &clientpb.WebContent{}
-		err := json.Unmarshal(contentRaw, webContent)
-		if err != nil {
-			continue
-		}
-		webContent.Content = []byte{} // Remove actual file contents
-		webContent.Path = key[len(fmt.Sprintf("%s.", websiteName)):]
-		pbWebsite.Contents[webContent.Path] = webContent
+
+	webContentDir, err := getWebContentDir()
+	if err != nil {
+		return nil, err
 	}
+	websiteLog.Debugf("%d WebContent(s)", len(website.WebContents))
+	for _, content := range website.WebContents {
+		if eagerLoadContents {
+			data, err := ioutil.ReadFile(filepath.Join(webContentDir, content.ID.String()))
+			websiteLog.Debugf("Read %d bytes of content", len(data))
+			if err != nil {
+				websiteLog.Error(err)
+				continue
+			}
+			pbWebsite.Contents[content.Path] = content.ToProtobuf(data)
+		} else {
+			pbWebsite.Contents[content.Path] = content.ToProtobuf([]byte{})
+		}
+	}
+
 	return pbWebsite, nil
 }

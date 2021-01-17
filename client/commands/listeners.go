@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/bishopfox/sliver/client/connection"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
@@ -60,7 +60,7 @@ func (m *MTLSListener) Execute(args []string) (err error) {
 	}
 
 	fmt.Printf(util.Info + "Starting mTLS listener ...")
-	mtls, err := connection.RPC.StartMTLSListener(context.Background(), &clientpb.MTLSListenerReq{
+	mtls, err := transport.RPC.StartMTLSListener(context.Background(), &clientpb.MTLSListenerReq{
 		Host:       server,
 		Port:       uint32(lport),
 		Persistent: m.Options.Persistent,
@@ -102,7 +102,7 @@ func (m *DNSListener) Execute(args []string) (err error) {
 	}
 
 	fmt.Printf(util.Info+"Starting DNS listener with parent domain(s) %v ...", domains)
-	dns, err := connection.RPC.StartDNSListener(context.Background(), &clientpb.DNSListenerReq{
+	dns, err := transport.RPC.StartDNSListener(context.Background(), &clientpb.DNSListenerReq{
 		Domains:    domains,
 		Port:       uint32(lport),
 		Canaries:   !m.Options.NoCanaries,
@@ -147,7 +147,7 @@ func (m *HTTPSListener) Execute(args []string) (err error) {
 	}
 
 	fmt.Printf(util.Info+"Starting HTTPS %s:%d listener ...", domain, lport)
-	https, err := connection.RPC.StartHTTPSListener(context.Background(), &clientpb.HTTPListenerReq{
+	https, err := transport.RPC.StartHTTPSListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:     domain,
 		Website:    website,
 		Port:       uint32(lport),
@@ -201,7 +201,7 @@ func (m *HTTPListener) Execute(args []string) (err error) {
 	}
 
 	fmt.Printf(util.Info+"Starting HTTP %s:%d listener ...", domain, lport)
-	http, err := connection.RPC.StartHTTPListener(context.Background(), &clientpb.HTTPListenerReq{
+	http, err := transport.RPC.StartHTTPListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:     domain,
 		Website:    m.Options.Website,
 		Port:       uint32(lport),

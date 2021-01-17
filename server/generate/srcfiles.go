@@ -48,6 +48,7 @@ var (
 		"handlers/generic-rpc-handlers.go",
 		"handlers/generic-tun-handlers.go",
 		"handlers/generic-pivot-handlers.go",
+		"handlers/generic-comm-handlers.go",
 		"handlers/special-handlers.go",
 		"handlers/handlers_darwin.go",
 		"handlers/handlers_linux.go",
@@ -125,13 +126,26 @@ var (
 		"syscalls/types_windows.go",
 		"syscalls/zsyscalls_windows.go",
 
+		"transports/connection.go",
 		"transports/crypto.go",
-		"transports/tcp-mtls.go",
-		"transports/tcp-http.go",
-		"transports/udp-dns.go",
 		"transports/named-pipe.go",
+		"transports/rpc.go",
+		"transports/tcp-http.go",
+		"transports/tcp-mtls.go",
 		"transports/tcp-pivot.go",
+		"transports/udp-dns.go",
+		"transports/transport.go",
 		"transports/transports.go",
+
+		"comm/comm.go",
+		"comm/comms.go",
+		"comm/dial-tcp.go",
+		"comm/dial-udp.go",
+		"comm/listen-tcp.go",
+		"comm/listen-udp.go",
+		"comm/named-pipe.go",
+		"comm/named-pipe_windows.go",
+		"comm/tunnel.go",
 
 		"version/version.go",
 		"version/version_windows.go",
@@ -230,7 +244,35 @@ var (
 		"3rdparty/winio/pipe.go",
 		"3rdparty/winio/sd.go",
 		"3rdparty/winio/pkg/guid/guid.go",
-		
+
+		// Comm system (buffers & pipes)
+		"3rdparty/djherbis/nio.v2/nio.go",
+		"3rdparty/djherbis/nio.v2/nio_test.go",
+		"3rdparty/djherbis/nio.v2/sync.go",
+
+		"3rdparty/djherbis/buffer.v1/limio/limit.go",
+		"3rdparty/djherbis/buffer.v1/limio/limit_test.go",
+
+		"3rdparty/djherbis/buffer.v1/wrapio/limitwrap.go",
+		"3rdparty/djherbis/buffer.v1/wrapio/wrap.go",
+		"3rdparty/djherbis/buffer.v1/wrapio/wrapio_test.go",
+
+		"3rdparty/djherbis/buffer.v1/buffer.go",
+		"3rdparty/djherbis/buffer.v1/buffer_test.go",
+		"3rdparty/djherbis/buffer.v1/discard.go",
+		"3rdparty/djherbis/buffer.v1/file.go",
+		"3rdparty/djherbis/buffer.v1/list.go",
+		"3rdparty/djherbis/buffer.v1/list_at.go",
+		"3rdparty/djherbis/buffer.v1/mem.go",
+		"3rdparty/djherbis/buffer.v1/multi.go",
+		"3rdparty/djherbis/buffer.v1/partition.go",
+		"3rdparty/djherbis/buffer.v1/partition_at.go",
+		"3rdparty/djherbis/buffer.v1/pool.go",
+		"3rdparty/djherbis/buffer.v1/pool_at.go",
+		"3rdparty/djherbis/buffer.v1/ring.go",
+		"3rdparty/djherbis/buffer.v1/spill.go",
+		"3rdparty/djherbis/buffer.v1/swap.go",
+
 		// "go.mod",
 
 	}

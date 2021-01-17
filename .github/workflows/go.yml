@@ -61,21 +61,9 @@ jobs:
     - name: Test
       run: ./sliver-server unpack --force && ./go-tests.sh
 
-    - name: Linux Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: sliver-server_linux
-        path: ./sliver-server
-
     - name: Make Windows
       run: export PATH=/home/runner/go/bin/:$PATH && make static-windows
   
-    - name: Windows Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: sliver-server_windows.exe
-        path: ./sliver-server.exe
-
   macos-build:
     name: MacOS Build
     runs-on: macos-latest
@@ -127,38 +115,3 @@ jobs:
         SLIVER_CC_32: /usr/local/bin/i686-w64-mingw32-gcc
         SLIVER_CC_64: /usr/local/bin/x86_64-w64-mingw32-gcc
       run: ./sliver-server unpack --force && ./go-tests.sh
-
-    - name: MacOS Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: sliver-server_macos
-        path: ./sliver-server
-
-#
-# > Integration Tests
-#
-
-  linux-ci:
-    needs: linux-windows-build
-    runs-on: ubuntu-latest
-    name: Linux CI
-
-    steps:
-    - uses: actions/setup-node@v1
-      with:
-        node-version: '14'
-    - run: npm install -g ts-node typescript
-
-    - uses: actions/checkout@master
-      with:
-        repository: moloch--/sliver-ci
-    - name: NPM Install
-      run: npm install
-
-    - uses: actions/download-artifact@v2
-      with:
-        name: sliver-server_linux
-        path: sliver-server
-
-    - name: CI Tests
-      run: ts-node ./index.ts

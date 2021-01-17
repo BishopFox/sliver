@@ -36,8 +36,8 @@ fi
 
 ## Server
 
-# server / db
-if go test ./server/db ; then
+# server / website
+if go test ./server/website ; then
     :
 else
     cat ~/.sliver/logs/sliver.log
@@ -46,6 +46,14 @@ fi
 
 # server / certs
 if go test ./server/certs ; then
+    :
+else
+    cat ~/.sliver/logs/sliver.log
+    exit 1
+fi
+
+# server / cryptography
+if go test ./server/cryptography ; then
     :
 else
     cat ~/.sliver/logs/sliver.log

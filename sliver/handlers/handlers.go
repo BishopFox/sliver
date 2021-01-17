@@ -37,3 +37,6 @@ type TunnelHandler func(*sliverpb.Envelope, *transports.Connection)
 
 // PivotHandler - Handler related to pivoting
 type PivotHandler func(*sliverpb.Envelope, *transports.Connection)
+
+// CommHandler - Handler for managing network routes
+type CommHandler func(*sliverpb.Envelope, *transports.Connection)

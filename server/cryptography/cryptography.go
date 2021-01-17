@@ -40,6 +40,11 @@ const (
 	GCMNonceSize = 12
 )
 
+var (
+	// ErrInvalidKeyLength - Invalid key length
+	ErrInvalidKeyLength = errors.New("Invalid length")
+)
+
 // AESKey - 256 bit key
 type AESKey [AESKeySize]byte
 
@@ -59,7 +64,7 @@ func RandomAESKey() AESKey {
 // AESKeyFromBytes - Convert byte slice to AESKey
 func AESKeyFromBytes(data []byte) (AESKey, error) {
 	if len(data) != AESKeySize {
-		return AESKey{}, errors.New("Invalid length")
+		return AESKey{}, ErrInvalidKeyLength
 	}
 	var key AESKey
 	copy(key[:], data[:AESKeySize])
@@ -96,7 +101,10 @@ func RSADecrypt(ciphertext []byte, privateKey *rsa.PrivateKey) ([]byte, error) {
 
 // GCMEncrypt - Encrypt using AES GCM
 func GCMEncrypt(key AESKey, plaintext []byte) ([]byte, error) {
-	block, _ := aes.NewCipher(key[:])
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		return nil, err
+	}
 	nonce := make([]byte, GCMNonceSize)
 	if _, err := io.ReadFull(secureRand.Reader, nonce); err != nil {
 		return nil, err
@@ -114,8 +122,14 @@ func GCMEncrypt(key AESKey, plaintext []byte) ([]byte, error) {
 
 // GCMDecrypt - Decrypt GCM ciphertext
 func GCMDecrypt(key AESKey, ciphertext []byte) ([]byte, error) {
-	block, _ := aes.NewCipher(key[:])
-	aesgcm, _ := cipher.NewGCM(block)
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		return nil, err
+	}
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
 	plaintext, err := aesgcm.Open(nil, ciphertext[:GCMNonceSize], ciphertext[GCMNonceSize:], nil)
 	if err != nil {
 		return nil, err

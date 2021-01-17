@@ -26,7 +26,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/bishopfox/sliver/client/connection"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -38,7 +38,7 @@ type Jobs struct{}
 // Execute - Root jobs command.
 func (j *Jobs) Execute(args []string) (err error) {
 
-	jobs, err := connection.RPC.GetJobs(context.Background(), &commonpb.Empty{})
+	jobs, err := transport.RPC.GetJobs(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(util.RPCError+"%s", err)
 		return
@@ -67,7 +67,7 @@ type JobsKill struct {
 func (j *JobsKill) Execute(args []string) (err error) {
 	jobID := j.Positional.JobID
 	fmt.Printf(util.Info+"Killing job #%d ...", jobID)
-	jobKill, err := connection.RPC.KillJob(context.Background(), &clientpb.KillJobReq{
+	jobKill, err := transport.RPC.KillJob(context.Background(), &clientpb.KillJobReq{
 		ID: jobID,
 	})
 	if err != nil {
@@ -83,7 +83,7 @@ type JobsKillAll struct{}
 
 // Execute - Kill all active server jobs
 func (j *JobsKillAll) Execute(args []string) (err error) {
-	jobs, err := connection.RPC.GetJobs(context.Background(), &commonpb.Empty{})
+	jobs, err := transport.RPC.GetJobs(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(util.RPCError+"%s\n", err)
 		return
@@ -96,7 +96,7 @@ func (j *JobsKillAll) Execute(args []string) (err error) {
 
 func killJob(jobID uint32) {
 	fmt.Printf(util.Info+"Killing job #%d ...\n", jobID)
-	jobKill, err := connection.RPC.KillJob(context.Background(), &clientpb.KillJobReq{
+	jobKill, err := transport.RPC.KillJob(context.Background(), &clientpb.KillJobReq{
 		ID: jobID,
 	})
 	if err != nil {

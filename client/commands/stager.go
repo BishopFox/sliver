@@ -26,9 +26,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bishopfox/sliver/client/connection"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/spin"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -51,7 +51,7 @@ type StageListener struct {
 // Execute - Start a staging listener.
 func (s *StageListener) Execute(args []string) (err error) {
 
-	rpc := connection.RPC
+	rpc := transport.RPC
 
 	var implantProfile *clientpb.ImplantProfile
 	profileName := s.Options.Profile

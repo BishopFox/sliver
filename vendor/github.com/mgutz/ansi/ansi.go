@@ -24,11 +24,9 @@ const (
 	highIntensityBG   = 100
 
 	start         = "\033["
-	normal        = "0;"
 	bold          = "1;"
-	dim           = "2;"
-	underline     = "4;"
 	blink         = "5;"
+	underline     = "4;"
 	inverse       = "7;"
 	strikethrough = "9;"
 
@@ -166,13 +164,9 @@ func colorCode(style string) *bytes.Buffer {
 
 	buf.WriteString(start)
 	base := normalIntensityFG
-	buf.WriteString(normal) // reset any previous style
 	if len(fgStyle) > 0 {
 		if strings.Contains(fgStyle, "b") {
 			buf.WriteString(bold)
-		}
-		if strings.Contains(fgStyle, "d") {
-			buf.WriteString(dim)
 		}
 		if strings.Contains(fgStyle, "B") {
 			buf.WriteString(blink)

