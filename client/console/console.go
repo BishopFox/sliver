@@ -139,7 +139,7 @@ func (c *console) setup() (err error) {
 	c.Shell.SyntaxHighlighter = completers.SyntaxHighlighter
 
 	// History (client and user-wide)
-	// c.Shell.History = ClientHist
+	c.Shell.History = ClientHist
 	c.Shell.AltHistory = UserHist
 
 	// Client-side environment

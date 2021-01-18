@@ -434,3 +434,34 @@ message RemovePlayer {
 
   commonpb.Response Response = 9;
 }
+
+// [ History commands ] ----------------------------------------
+
+// AddCmdHistoryRequest - Consoles send their commands each time
+message AddCmdHistoryRequest {
+  string Line = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message AddCmdHistory {
+  bool Doublon = 1; // Do not increment index, item is doublon
+
+  commonpb.Response Response = 9;
+}
+
+// HistoryRequest - A console wants a command history.
+message HistoryRequest {
+  bool AllConsoles = 1; // One merged history for all user consoles
+  int32 Index = 2;      // The maximum number of entries wished
+        
+  commonpb.Request Request = 9;
+}
+
+// History - Command history content.
+message History {
+  string Line = 1;
+  int32 HistLength = 2;
+
+  commonpb.Response Response = 9;
+}

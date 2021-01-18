@@ -18,6 +18,13 @@ package console
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	"context"
+
+	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+)
+
 // "github.com/maxlandon/wiregost/client/connection"
 // clientpb "github.com/maxlandon/wiregost/proto/v1/gen/go/client"
 
@@ -35,49 +42,38 @@ var (
 // ClientHistory - Writes and queries only the Client's history
 type ClientHistory struct {
 	LinesSinceStart int // Keeps count of line since session
+	items           []string
 }
 
 // Write - Sends the last command to the server for saving
 func (h *ClientHistory) Write(s string) (int, error) {
 
-	// res, err := connection.ConnectionRPC.AddToHistory(context.Background(),
-	//         &clientpb.AddCmdHistoryRequest{Line: s, Client: cctx.Client})
-	// if err != nil {
-	//         return 0, err
-	// }
+	_, err := transport.RPC.AddToHistory(context.Background(),
+		&clientpb.AddCmdHistoryRequest{Line: s})
+	if err != nil {
+		return 0, err
+	}
 
-	// if !res.Doublon {
-	//         h.LinesSinceStart++
-	// }
-	return h.LinesSinceStart, nil
+	h.items = append(h.items, s)
+	return len(h.items), nil
 }
 
 // GetLine returns a line from history
 func (h *ClientHistory) GetLine(i int) (string, error) {
-
-	// res, err := connection.ConnectionRPC.GetHistory(context.Background(),
-	//         &clientpb.HistoryRequest{
-	//                 AllConsoles: false,
-	//                 Index:       int32(i),
-	//                 Client:      cctx.Client,
-	//         })
-	// if err != nil {
-	//         return "", err
-	// }
-	// h.LinesSinceStart = int(res.HistLength)
-	//
-	// return res.Line, nil
-	return "", nil
+	if len(h.items) == 0 {
+		return "", nil
+	}
+	return h.items[i], nil
 }
 
 // Len returns the number of lines in history
 func (h *ClientHistory) Len() int {
-	return h.LinesSinceStart
+	return len(h.items)
 }
 
 // Dump returns the entire history
 func (h *ClientHistory) Dump() interface{} {
-	return nil
+	return h.items
 }
 
 // UserHistory - Only in charge of queries for the User's history
@@ -86,26 +82,34 @@ type UserHistory struct {
 }
 
 func (h *UserHistory) Write(s string) (int, error) {
-	h.LinesSinceStart++
+
+	res, err := transport.RPC.AddToHistory(context.Background(),
+		&clientpb.AddCmdHistoryRequest{Line: s})
+	if err != nil {
+		return 0, err
+	}
+
+	if !res.Doublon {
+		h.LinesSinceStart++
+	}
 	return h.LinesSinceStart, nil
 }
 
 // GetLine returns a line from history
 func (h *UserHistory) GetLine(i int) (string, error) {
 
-	// res, err := connection.ConnectionRPC.GetHistory(context.Background(),
-	//         &clientpb.HistoryRequest{
-	//                 AllConsoles: true,
-	//                 Index:       int32(i),
-	//                 Client:      cctx.Client,
-	//         })
-	// if err != nil {
-	//         return "", err
-	// }
-	// h.LinesSinceStart = int(res.HistLength)
-	//
-	// return res.Line, nil
-	return "", nil
+	res, err := transport.RPC.GetHistory(context.Background(),
+		&clientpb.HistoryRequest{
+			AllConsoles: true,
+			Index:       int32(i),
+			// Client:      cctx.Client,
+		})
+	if err != nil {
+		return "", err
+	}
+	h.LinesSinceStart = int(res.HistLength)
+
+	return res.Line, nil
 }
 
 // Len returns the number of lines in history

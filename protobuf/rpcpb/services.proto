@@ -20,6 +20,10 @@ service SliverRPC {
     // *** Version ***
     rpc GetVersion(commonpb.Empty) returns (clientpb.Version);
 
+    // *** Command History (client and/or user-wide) *** 
+    rpc GetHistory(clientpb.HistoryRequest) returns (clientpb.History);
+    rpc AddToHistory(clientpb.AddCmdHistoryRequest) returns (clientpb.AddCmdHistory);
+
     // *** Operator Commands *** 
     rpc GetOperators(commonpb.Empty) returns (clientpb.Operators);
 
