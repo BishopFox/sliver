@@ -21,15 +21,15 @@ package commands
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
+	"strconv"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/evilsocket/islazy/tui"
 )
 
 // Jobs - Root jobs command.
@@ -107,23 +107,150 @@ func killJob(jobID uint32) {
 }
 
 func printJobs(jobs map[uint32]*clientpb.Job) {
-	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintf(table, "ID\tName\tProtocol\tPort\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
-		strings.Repeat("=", len("ID")),
-		strings.Repeat("=", len("Name")),
-		strings.Repeat("=", len("Protocol")),
-		strings.Repeat("=", len("Port")))
 
+	// Filter jobs based on their types.
+	var handlers = map[uint32]*clientpb.Job{} // C2 Handlers
+	var servers = map[uint32]*clientpb.Job{}  // gRPC servers
+	var others = map[uint32]*clientpb.Job{}   // Others
+	var next bool                             // Controls new lines
+
+	// Sort keys
 	var keys []int
 	for _, job := range jobs {
 		keys = append(keys, int(job.ID))
 	}
-	sort.Ints(keys) // Fucking Go can't sort int32's, so we convert to/from int's
+	sort.Ints(keys)
 
 	for _, k := range keys {
 		job := jobs[uint32(k)]
-		fmt.Fprintf(table, "%d\t%s\t%s\t%d\t\n", job.ID, job.Name, job.Protocol, job.Port)
+		if job.Name == "grpc" {
+			servers[job.ID] = job
+			continue
+		}
+
+		if strings.Contains(job.Name, "server") || strings.Contains(job.Name, "via") {
+			handlers[job.ID] = job
+			continue
+		}
+
+		others[job.ID] = job
 	}
-	table.Flush()
+
+	// Print handler jobs
+	if len(handlers) > 0 {
+		// Sort keys
+		var keys []int
+		for _, job := range handlers {
+			keys = append(keys, int(job.ID))
+		}
+		sort.Ints(keys)
+
+		table := util.NewTable(tui.Bold(tui.Yellow("Handlers")))
+		headers := []string{"ID", "Protocol", "Domain(s)", "Port", "Description"}
+		headLen := []int{2, 10, 0, 5, 0}
+		table.SetColumns(headers, headLen)
+
+		for _, k := range keys {
+			job := handlers[uint32(k)]
+
+			// Some host address might be scattered
+			// between names and domain values.
+			var domains string
+			if len(job.Domains) != 0 {
+				strings.Join(job.Domains, ",")
+			} else {
+				domains = job.Name
+			}
+
+			// Append elements
+			table.AppendRow([]string{
+				strconv.Itoa(int(job.ID)),
+				job.Protocol,
+				domains,
+				strconv.Itoa(int(job.Port)),
+				job.Description,
+			})
+		}
+
+		// Print table
+		table.Output()
+		next = true
+	}
+
+	// Print server jobs
+	if len(servers) > 0 {
+		if next {
+			fmt.Println()
+		}
+
+		// Sort keys
+		var keys []int
+		for _, job := range servers {
+			keys = append(keys, int(job.ID))
+		}
+		sort.Ints(keys)
+
+		table := util.NewTable(tui.Bold(tui.Yellow("gRPC servers")))
+		headers := []string{"ID", "Domain", "Port"}
+		headLen := []int{2, 10, 5}
+		table.SetColumns(headers, headLen)
+
+		for _, k := range keys {
+			job := servers[uint32(k)]
+
+			// Some host address might be scattered
+			// between names and domain values.
+			var domains string
+			if len(job.Domains) != 0 {
+				strings.Join(job.Domains, ",")
+			} else {
+				domains = job.Name
+			}
+
+			// Append elements
+			table.AppendRow([]string{
+				strconv.Itoa(int(job.ID)),
+				domains,
+				strconv.Itoa(int(job.Port)),
+			})
+		}
+
+		// Print table
+		table.Output()
+		next = true
+	}
+
+	// Print other jobs
+	if len(others) > 0 {
+		if next {
+			fmt.Println()
+		}
+
+		// Sort keys
+		var keys []int
+		for _, job := range others {
+			keys = append(keys, int(job.ID))
+		}
+		sort.Ints(keys)
+
+		table := util.NewTable(tui.Bold(tui.Yellow("Others")))
+		headers := []string{"ID", "Name", "Description"}
+		headLen := []int{2, 0, 0}
+		table.SetColumns(headers, headLen)
+
+		for _, k := range keys {
+			job := others[uint32(k)]
+
+			// Append elements
+			table.AppendRow([]string{
+				strconv.Itoa(int(job.ID)),
+				job.Name,
+				job.Description,
+			})
+		}
+
+		// Print table
+		table.Output()
+		next = true
+	}
 }

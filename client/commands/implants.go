@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/evilsocket/islazy/tui"
 )
 
 /*
@@ -44,7 +46,7 @@ func (b *Builds) Execute(args []string) (err error) {
 	}
 
 	if 0 < len(builds.Configs) {
-		displayAllImplantBuilds(builds.Configs)
+		printImplantBuilds(builds.Configs)
 	} else {
 		fmt.Printf(util.Info + "No implant builds\n")
 	}
@@ -91,4 +93,80 @@ func displayAllImplantBuilds(configs map[string]*clientpb.ImplantConfig) {
 	}
 	table.Flush()
 	fmt.Printf(outputBuf.String())
+}
+
+func printImplantBuilds(configs map[string]*clientpb.ImplantConfig) {
+
+	// Sort keys
+	var keys []string
+	for k := range configs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	table := util.NewTable(tui.Bold(tui.Yellow("Implant Builds")))
+	headers := []string{"Name", "OS/Arch", "Format", "C2 Transports", "Debug/Obfsc/Evasion", "Limits", "MaxErrs/Timeout"}
+	headLen := []int{0, 0, 0, 15, 0, 15, 0}
+	table.SetColumns(headers, headLen)
+
+	for _, k := range keys {
+		config := configs[k]
+
+		osArch := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
+
+		// Get a formated C2s string
+		var c2s string
+		if 0 < len(config.C2) {
+			for index, c2 := range config.C2[0:] {
+				c2s += fmt.Sprintf("[%d] %s \n", index+1, c2.URL)
+			}
+		}
+
+		// Security
+		var debug, obfs, evas string
+		if config.Debug {
+			debug = tui.Yellow(" yes ")
+		} else {
+			debug = tui.Dim(" no ")
+		}
+		if config.ObfuscateSymbols {
+			obfs = tui.Green(" yes ")
+		} else {
+			obfs = tui.Yellow(" no ")
+		}
+		if config.Evasion {
+			evas = tui.Green(" yes ")
+		} else {
+			evas = tui.Yellow(" no ")
+		}
+		sec := fmt.Sprintf("%s %s %s", debug, obfs, evas)
+
+		// Limits
+		var user, domainJoin, dateTime, hostname, file string
+		if config.LimitUsername != "" {
+			user = tui.Bold("User: ") + config.LimitUsername + "\n"
+		}
+		if config.LimitHostname != "" {
+			hostname = tui.Bold("Hostname: ") + config.LimitHostname + "\n"
+		}
+		if config.LimitFileExists != "" {
+			file = tui.Bold("File: ") + config.LimitFileExists + "\n"
+		}
+		if config.LimitDatetime != "" {
+			dateTime = tui.Bold("DateTime: ") + config.LimitDatetime + "\n"
+		}
+		if config.LimitDomainJoined == true {
+			domainJoin = tui.Bold("Domain joined: ") + config.LimitDatetime + "\n"
+		}
+		limits := user + hostname + file + domainJoin + dateTime
+
+		// Timeouts
+		timeouts := fmt.Sprintf("%d / %ds", config.MaxConnectionErrors, config.ReconnectInterval)
+
+		// Add row
+		table.AppendRow([]string{k, osArch, config.Format.String(), c2s, sec, limits, timeouts})
+	}
+
+	// Print table
+	table.Output()
 }
