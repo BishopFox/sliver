@@ -38,7 +38,7 @@ import (
 // StageListener - Start a staging listener.
 type StageListener struct {
 	Options struct {
-		URL         string `long:"url" description:"Listener URL [tcp://ip:port or http(s)://ip:port ]" required:"true"`
+		URL         string `long:"url" description:"Listener URL [tcp://ip:port or http(s)://ip:port ]" required:"true" value-name:"stage URL"`
 		Profile     string `long:"profile" description:"Implant profile to link with the listener"`
 		LetsEncrypt bool   `long:"lets-encrypt" description:"Attempt to provision a let's encrypt certificate (HTTPS only)"`
 		Certificate string `long:"certificate" description:"PEM encoded certificate file (HTTPS only)"`

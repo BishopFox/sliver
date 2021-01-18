@@ -39,16 +39,16 @@ import (
 // GenerateStager - Generate a stager payload using MSFVenom
 type GenerateStager struct {
 	PayloadOptions struct {
-		OS       string `long:"os" description:"Target host operating system (default: windows)" default:"windows" value-name:"stage OS"`
-		Arch     string `long:"arch" description:"Target host CPU architecture (default: amd64)" default:"amd64" value-name:"stage architectures"`
-		Format   string `long:"format" description:"Output format (MSF Venom formats). List is auto-completed (default: raw)" default:"raw" value-name:"MSF Venom transform formats"`
-		BadChars string `long:"badchars" description:"Bytes to exclude from stagee shellcode"`
+		OS       string `long:"os" description:"Target host operating system" default:"windows" value-name:"stage OS"`
+		Arch     string `long:"arch" description:"Target host CPU architecture" default:"amd64" value-name:"stage architectures"`
+		Format   string `long:"format" description:"Output format (MSF Venom formats). List is auto-completed" default:"raw" value-name:"MSF Venom transform formats"`
+		BadChars string `long:"badchars" description:"Bytes to exclude from stage shellcode"`
 		Save     string `long:"save" description:"Directory to save the generated stager to"`
 	} `group:"Payload options"`
 	TransportOptions struct {
 		LHost    string `long:"lhost" description:"Listening host address" required:"true"`
 		LPort    int    `long:"lport" description:"Listening host port" default:"8443"`
-		Protocol string `long:"protocol" description:"Staging protocol (TCP/HTTP/HTTPS) (default: tcp)" default:"tcp"`
+		Protocol string `long:"protocol" description:"Staging protocol (tcp/http/https)" default:"tcp"`
 		Timeout  int    `long:"timeout" description:"Command timeout in seconds"`
 	} `group:"Transport options"`
 }

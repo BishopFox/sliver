@@ -38,7 +38,7 @@ import (
 // context, with different commands and completions.
 type Interact struct {
 	Positional struct {
-		ImplantID string `description:"Session ID"` // Name or ID, command will say.
+		ImplantID string `description:"Session ID, Name or Name/ID"` // Name or ID, command will say.
 	} `positional-args:"yes" required:"yes"`
 }
 
@@ -98,7 +98,7 @@ func GetSession(arg string) *clientpb.Session {
 // Therefore this command is different from the one in Sessions struct.
 type Kill struct {
 	Force   bool `long:"force" description:"Force kill, does not clean up"`
-	Timeout int  `long:"timeout" description:"Command timeout in seconds"`
+	Timeout int  `long:"timeout" description:"Command timeout in seconds" default:"60"`
 }
 
 // Execute - Kill the active session.

@@ -154,7 +154,8 @@ func bindServerAdminCommands() (err error) {
 // There is a namespace field, however it messes up with the option printing/detection/parsing.
 func bindServerCommands() (err error) {
 
-	// core console -------------------------
+	// core console
+	// --------------------------------------------------------------------------------------------------------------------------------------
 	ex, err := Server.AddCommand(constants.ExitStr, "Exit from the client/server console",
 		"Exit from the client/server console", &Exit{})
 	ex.Aliases = []string{"core"}
@@ -179,7 +180,7 @@ func bindServerCommands() (err error) {
 		"List directory contents", &ListClientDirectories{})
 	ls.Aliases = []string{"core"}
 
-	// Jobs -------------------------
+	// Jobs
 	j, err := Server.AddCommand(constants.JobsStr, "Job management commands",
 		help.GetHelpFor(constants.JobsStr), &Jobs{})
 	j.Aliases = []string{"core"}
@@ -191,7 +192,8 @@ func bindServerCommands() (err error) {
 	_, err = j.AddCommand(constants.JobsKillAllStr, "Kill all active jobs on server",
 		"", &JobsKillAll{})
 
-	// transports --------------------
+	// transports
+	// --------------------------------------------------------------------------------------------------------------------------------------
 	m, err := Server.AddCommand(constants.MtlsStr, "Start an mTLS listener on server",
 		help.GetHelpFor(constants.MtlsStr), &MTLSListener{})
 	m.Aliases = []string{"transports"}
@@ -211,11 +213,14 @@ func bindServerCommands() (err error) {
 	s, err := Server.AddCommand(constants.StageListenerStr, "Start a staging listener (TCP/HTTP/HTTPS), bound to a Sliver profile",
 		help.GetHelpFor(constants.StageListenerStr), &StageListener{})
 	s.Aliases = []string{"transports"}
+	// Option arguments mapping
+	s.FindOptionByLongName("url").Choices = stageListenerProtocols
 
-	// Implant generation --------------
+	// Implant generation
+	// --------------------------------------------------------------------------------------------------------------------------------------
 	g, err := Server.AddCommand(constants.GenerateStr, "Configure and compile an implant (staged or stager)",
 		help.GetHelpFor(constants.GenerateStr), &Generate{})
-	g.Aliases = []string{"implants"}
+	g.Aliases = []string{"builds"}
 	g.SubcommandsOptional = true
 	// Option arguments mapping
 	g.FindOptionByLongName("os").Choices = implantOS
@@ -226,36 +231,38 @@ func bindServerCommands() (err error) {
 		help.GetHelpFor(constants.StagerStr), &GenerateStager{})
 	g.FindOptionByLongName("os").Choices = implantOS
 	g.FindOptionByLongName("arch").Choices = implantArch
+	gs.FindOptionByLongName("protocol").Choices = msfStagerProtocols
 	gs.FindOptionByLongName("format").Choices = msfTransformFormats
 
 	p, err := Server.AddCommand(constants.NewProfileStr, "Configure and save a new (stage) implant profile",
 		help.GetHelpFor(constants.NewProfileStr), &NewProfile{})
-	p.Aliases = []string{"implants"}
+	p.Aliases = []string{"builds"}
 	// Option arguments mapping
 	p.FindOptionByLongName("os").Choices = implantOS
 	p.FindOptionByLongName("arch").Choices = implantArch
 
 	r, err := Server.AddCommand(constants.RegenerateStr, "Recompile an implant by name, passed as argument (completed)",
 		help.GetHelpFor(constants.RegenerateStr), &Regenerate{})
-	r.Aliases = []string{"implants"}
+	r.Aliases = []string{"builds"}
 
 	pr, err := Server.AddCommand(constants.ProfilesStr, "List existing implant profiles",
 		help.GetHelpFor(constants.ProfilesStr), &Profiles{})
-	pr.Aliases = []string{"implants"}
+	pr.Aliases = []string{"builds"}
 
 	pg, err := Server.AddCommand(constants.ProfileGenerateStr, "Compile an implant based on a profile, passed as argument (completed)",
 		help.GetHelpFor(constants.ProfileGenerateStr), &ProfileGenerate{})
-	pg.Aliases = []string{"implants"}
+	pg.Aliases = []string{"builds"}
 
 	b, err := Server.AddCommand(constants.ImplantBuildsStr, "List old implant builds",
 		help.GetHelpFor(constants.ImplantBuildsStr), &Builds{})
-	b.Aliases = []string{"implants"}
+	b.Aliases = []string{"builds"}
 
 	c, err := Server.AddCommand(constants.ListCanariesStr, "List previously generated DNS canaries",
 		help.GetHelpFor(constants.ListCanariesStr), &Canaries{})
-	c.Aliases = []string{"implants"}
+	c.Aliases = []string{"builds"}
 
-	// Session management ---------------
+	// Session management
+	// --------------------------------------------------------------------------------------------------------------------------------------
 	i, err := Server.AddCommand(constants.InteractStr, "Interact with an implant",
 		help.GetHelpFor(constants.InteractStr), &Interact{})
 	i.Aliases = []string{"sessions"}

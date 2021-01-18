@@ -37,8 +37,8 @@ type NewOperator struct {
 // OperatorOptions - Options for operator creation.
 type OperatorOptions struct {
 	Operator string `long:"operator" description:"Name of operator" required:"true"`
-	LHost    string `long:"lhost" description:"Server listening host (default: localhost)" default:"localhost"`
-	LPort    int    `long:"lport" description:"Server listening port (default: 31337)" default:"31337"`
+	LHost    string `long:"lhost" description:"Server listening host" default:"localhost"`
+	LPort    int    `long:"lport" description:"Server listening port" default:"31337"`
 	Save     string `long:"save" description:"Directory/file to save configuration file"`
 }
 
@@ -102,8 +102,8 @@ type MultiplayerMode struct {
 
 // MultiplayerOptions - Available to server multiplayer mode.
 type MultiplayerOptions struct {
-	LHost string `long:"lhost" description:"Server listening host (default: localhost)" default:"localhost"`
-	LPort int    `long:"lport" description:"Server listening port (default: 31337)" default:"31337"`
+	LHost string `long:"lhost" description:"Server listening host" default:"localhost"`
+	LPort int    `long:"lport" description:"Server listening port" default:"31337"`
 }
 
 // Execute - Start multiplayer mode.

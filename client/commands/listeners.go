@@ -59,7 +59,7 @@ func (m *MTLSListener) Execute(args []string) (err error) {
 		lport = defaultMTLSLPort
 	}
 
-	fmt.Printf(util.Info + "Starting mTLS listener ...")
+	fmt.Printf(util.Info+"Starting mTLS listener (%s:%d)...\n", m.Options.LHost, m.Options.LPort)
 	mtls, err := transport.RPC.StartMTLSListener(context.Background(), &clientpb.MTLSListenerReq{
 		Host:       server,
 		Port:       uint32(lport),
@@ -101,7 +101,7 @@ func (m *DNSListener) Execute(args []string) (err error) {
 		lport = defaultDNSLPort
 	}
 
-	fmt.Printf(util.Info+"Starting DNS listener with parent domain(s) %v ...", domains)
+	fmt.Printf(util.Info+"Starting DNS listener with parent domain(s) %v ...\n", domains)
 	dns, err := transport.RPC.StartDNSListener(context.Background(), &clientpb.DNSListenerReq{
 		Domains:    domains,
 		Port:       uint32(lport),
@@ -146,7 +146,7 @@ func (m *HTTPSListener) Execute(args []string) (err error) {
 		return
 	}
 
-	fmt.Printf(util.Info+"Starting HTTPS %s:%d listener ...", domain, lport)
+	fmt.Printf(util.Info+"Starting HTTPS %s:%d listener ...\n", domain, lport)
 	https, err := transport.RPC.StartHTTPSListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:     domain,
 		Website:    website,
@@ -200,7 +200,7 @@ func (m *HTTPListener) Execute(args []string) (err error) {
 		lport = uint16(defaultHTTPSLPort)
 	}
 
-	fmt.Printf(util.Info+"Starting HTTP %s:%d listener ...", domain, lport)
+	fmt.Printf(util.Info+"Starting HTTP %s:%d listener ...\n", domain, lport)
 	http, err := transport.RPC.StartHTTPListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:     domain,
 		Website:    m.Options.Website,

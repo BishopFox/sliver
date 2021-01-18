@@ -24,6 +24,9 @@ var (
 	implantArch = []string{"amd64", "x86"}
 	implantFmt  = []string{"exe", "shared", "service", "shellcode"}
 
+	stageListenerProtocols = []string{"tcp", "http", "https"}
+
+	msfStagerProtocols  = []string{"tcp", "http", "https"}
 	msfTransformFormats = []string{
 		"bash",
 		"c",
@@ -48,4 +51,7 @@ var (
 		"vbapplication",
 		"vbscript",
 	}
+
+	transportProtocols   = []string{"tcp", "udp", "ip"}
+	applicationProtocols = []string{"http", "https", "mtls", "quic", "http3", "dns", "named_pipe"}
 )
