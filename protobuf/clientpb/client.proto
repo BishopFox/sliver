@@ -389,3 +389,48 @@ message Website {
 message Websites {
   repeated Website Websites = 1;
 }
+
+// [ admin (server-only) ] ----------------------------------------
+
+// Create a new player, with its configuration.
+message NewPlayerReq {
+  string Name = 1;
+  string LHost = 2;
+  uint32 LPort = 3;
+  string Save = 4;
+
+  commonpb.Request Request = 9;
+}
+
+message NewPlayer {
+  bool Success = 1;
+
+  commonpb.Response Response = 9;
+}
+
+// Start listening for remote client consoles.
+message MultiplayerReq {
+  string LHost = 1;
+  uint32 LPort = 2;
+
+  commonpb.Request Request = 9;
+}
+
+message Multiplayer {
+  bool Success = 1;
+
+  commonpb.Response Response = 9;
+}
+
+// Remove a user from the server.
+message RemovePlayerReq {
+  string Name = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message RemovePlayer {
+  bool Success = 1;
+
+  commonpb.Response Response = 9;
+}

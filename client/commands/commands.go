@@ -19,10 +19,14 @@ package commands
 */
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/jessevdk/go-flags"
 
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
+	"github.com/bishopfox/sliver/client/util"
 )
 
 const (
@@ -118,29 +122,29 @@ func OptionByName(cmd *flags.Command, option string) *flags.Option {
 // There is a namespace field, however it messes up with the option printing/detection/parsing.
 func bindServerAdminCommands() (err error) {
 
-	// np, err := Server.AddCommand(constants.NewPlayerStr, "Create a new player config file",
-	//         help.GetHelpFor(constants.NewPlayerStr), &server.NewOperator{})
-	// np.Aliases = []string{"admin"}
-	// if err != nil {
-	//         fmt.Println(util.Warn + err.Error())
-	//         os.Exit(3)
-	// }
-	//
-	// kp, err := Server.AddCommand(constants.KickPlayerStr, "Kick a player from the server",
-	//         help.GetHelpFor(constants.KickPlayerStr), &server.KickOperator{})
-	// kp.Aliases = []string{"admin"}
-	// if err != nil {
-	//         fmt.Println(util.Warn + err.Error())
-	//         os.Exit(3)
-	// }
-	//
-	// mm, err := Server.AddCommand(constants.MultiplayerModeStr, "Enable multiplayer mode on this server",
-	//         help.GetHelpFor(constants.MultiplayerModeStr), &server.MultiplayerMode{})
-	// mm.Aliases = []string{"admin"}
-	// if err != nil {
-	//         fmt.Println(util.Warn + err.Error())
-	//         os.Exit(3)
-	// }
+	np, err := Server.AddCommand(constants.NewPlayerStr, "Create a new player config file",
+		help.GetHelpFor(constants.NewPlayerStr), &NewOperator{})
+	np.Aliases = []string{"admin"}
+	if err != nil {
+		fmt.Println(util.Warn + err.Error())
+		os.Exit(3)
+	}
+
+	kp, err := Server.AddCommand(constants.KickPlayerStr, "Kick a player from the server",
+		help.GetHelpFor(constants.KickPlayerStr), &KickOperator{})
+	kp.Aliases = []string{"admin"}
+	if err != nil {
+		fmt.Println(util.Warn + err.Error())
+		os.Exit(3)
+	}
+
+	mm, err := Server.AddCommand(constants.MultiplayerModeStr, "Enable multiplayer mode on this server",
+		help.GetHelpFor(constants.MultiplayerModeStr), &MultiplayerMode{})
+	mm.Aliases = []string{"admin"}
+	if err != nil {
+		fmt.Println(util.Warn + err.Error())
+		os.Exit(3)
+	}
 
 	return
 }

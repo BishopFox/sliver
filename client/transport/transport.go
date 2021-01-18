@@ -30,6 +30,20 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+)
+
+var (
+	// RPC - The RPC client used by the console to make RPC calls to the server.
+	// It is also used by the commands and completers package to make calls to the server.
+	RPC rpcpb.SliverRPCClient
+
+	// The AdminRPC contains all functions restricted to the server console.
+	AdminRPC rpcpb.SliverAdminRPCClient
+
+	// grpcConn - Reference to the current console gRPC connection, that we need
+	// when exiting with command "exit"
+	grpcConn *grpc.ClientConn
 )
 
 const (
@@ -44,7 +58,7 @@ const (
 )
 
 // ConnectTLS - Establishes a TLS connection on which we will register gRPC clients
-func ConnectTLS() (conn *grpc.ClientConn, err error) {
+func ConnectTLS() (*grpc.ClientConn, error) {
 
 	// Setup TLS
 	tlsConfig, err := getTLSConfig(assets.ServerCACertificate, assets.ServerCertificate, assets.ServerPrivateKey)
@@ -63,12 +77,15 @@ func ConnectTLS() (conn *grpc.ClientConn, err error) {
 
 	// Dial server with these certificates
 	server := fmt.Sprintf("%s:%s", assets.ServerLHost, assets.ServerLPort)
-	conn, err = grpc.Dial(server, options...)
+	conn, err := grpc.Dial(server, options...)
 	if err != nil {
 		fmt.Printf("Failed to connect to gRPC: %s", err)
 	}
 
-	return
+	// Keep a reference to this connection
+	grpcConn = conn
+
+	return conn, nil
 }
 
 func getTLSConfig(caCertificate string, certificate string, privateKey string) (*tls.Config, error) {
@@ -128,4 +145,14 @@ func rootOnlyVerifyCertificate(caCertificate string, rawCerts [][]byte) error {
 	}
 
 	return nil
+}
+
+// SetClientConnGRPC - Keep a reference to the gRPC connection, to be used by some commands.
+func SetClientConnGRPC(conn *grpc.ClientConn) {
+	grpcConn = conn
+}
+
+// CloseClientConnGRPC - The client exists, and we disconnect the gRPC transport.
+func CloseClientConnGRPC() error {
+	return grpcConn.Close()
 }

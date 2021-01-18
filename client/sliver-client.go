@@ -20,9 +20,11 @@ package main
 
 import (
 	"flag"
+	"os"
 
 	"github.com/bishopfox/sliver/client/assets"
 	client "github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/transport"
 )
 
 // admin - We are starting a console client which will reach back to a remote server.
@@ -40,8 +42,17 @@ func main() {
 	// depending on this. The configuration is then accessible to all client packages.
 	assets.LoadServerConfig()
 
+	// Get a gRPC client connection (in-memory listener)
+	grpcConn, err := transport.ConnectTLS()
+	if err != nil {
+		os.Exit(1)
+	}
+
+	// Register RPC service clients, monitor incoming events and start the client's Comm System.
+	client.Console.Connect(grpcConn, false)
+
 	// Start the client console. The latter automatically performs server connection,
 	// prompt/command/completion setup, event loop listening, logging, etc. Any critical error
 	// is handled from within this function, so we don't process the return error here.
-	client.Console.Start(false)
+	client.Console.Start()
 }

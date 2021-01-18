@@ -24,13 +24,11 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/log"
-	"github.com/bishopfox/sliver/server/rpc"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/log"
 )
 
 const (
@@ -61,14 +59,9 @@ func StartClientListener(host string, port uint16) (*grpc.Server, net.Listener, 
 		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
 		grpc.MaxSendMsgSize(ServerMaxMessageSize),
 	}
-	options = append(options, initLoggerMiddleware()...)
+	options = append(options, InitLoggerMiddleware()...)
 	grpcServer := grpc.NewServer(options...)
-	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
-	go func() {
-		if err := grpcServer.Serve(ln); err != nil {
-			mtlsLog.Warnf("gRPC server exited with error: %v", err)
-		}
-	}()
+
 	return grpcServer, ln, nil
 }
 

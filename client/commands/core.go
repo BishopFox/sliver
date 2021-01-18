@@ -24,6 +24,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/evilsocket/islazy/fs"
 )
@@ -40,6 +41,7 @@ func (e *Exit) Execute(args []string) (err error) {
 	answer := strings.TrimSpace(text)
 
 	if (answer == "Y") || (answer == "y") {
+		transport.CloseClientConnGRPC()
 		os.Exit(0)
 	}
 

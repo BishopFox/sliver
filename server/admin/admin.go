@@ -1,4 +1,4 @@
-package transport
+package admin
 
 /*
 	Sliver Implant Framework
@@ -17,13 +17,3 @@ package transport
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-
-import (
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-)
-
-var (
-	// RPC - The RPC client used by the console to make RPC calls to the server.
-	// It is also used by the commands and completers package to make calls to the server.
-	RPC rpcpb.SliverRPCClient
-)

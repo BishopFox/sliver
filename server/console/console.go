@@ -31,7 +31,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	clientAssets "github.com/bishopfox/sliver/client/assets"
-	clientconsole "github.com/bishopfox/sliver/client/console"
+	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -40,15 +40,33 @@ import (
 )
 
 const (
-	kb = 1024
-	mb = kb * 1024
-	gb = mb * 1024
+	// ANSI Colors
+	normal    = "\033[0m"
+	black     = "\033[30m"
+	red       = "\033[31m"
+	green     = "\033[32m"
+	orange    = "\033[33m"
+	blue      = "\033[34m"
+	purple    = "\033[35m"
+	cyan      = "\033[36m"
+	gray      = "\033[37m"
+	bold      = "\033[1m"
+	clearln   = "\r\x1b[2K"
+	upN       = "\033[%dA"
+	downN     = "\033[%dB"
+	underline = "\033[4m"
 
-	// ClientMaxReceiveMessageSize - Max gRPC message size ~2Gb
-	ClientMaxReceiveMessageSize = 2 * gb
+	// Info - Display colorful information
+	Info = bold + cyan + "[*] " + normal
+	// Warn - Warn a user
+	Warn = bold + red + "[!] " + normal
+	// Debug - Display debug information
+	Debug = bold + purple + "[-] " + normal
+	// Woot - Display success
+	Woot = bold + green + "[$] " + normal
 )
 
-func StartAlt() {
+func Start() {
 	// Process flags passed to this binary (os.Flags). All flag variables are
 	// in their respective files (but, of course, in this package only).
 	flag.Parse()
@@ -59,52 +77,23 @@ func StartAlt() {
 	keyBytes := sha256.Sum256(signer.PublicKey().Marshal())
 	fingerprint := base64.StdEncoding.EncodeToString(keyBytes[:])
 
+	// Load only needed fields in the client assets (config) package.
 	clientAssets.ServerPrivateKey = string(serverCAKey)
 	clientAssets.CommFingerprint = fingerprint
 
-	// Load all necessary configurations (server connection details, TLS security,
-	// console configuration, etc.). This function automatically determines if the
-	// console binary has a builtin server configuration or not, and forges a configuration
-	// depending on this. The configuration is then accessible to all client packages.
-	// clientAssets.LoadServerConfig()
+	// Get a gRPC client connection (in-memory listener)
+	grpcConn, err := connectLocal()
+	if err != nil {
+		os.Exit(1)
+	}
+
+	// Register RPC service clients, monitor incoming events and start the client's Comm System.
+	client.Console.Connect(grpcConn, true)
 
 	// Start the client console. The latter automatically performs server connection,
-	// prompt/command/completion setup, event loop listening, logging, etc. Any critical error
-	// is handled from within this function, so we don't process the return error here.
-	clientconsole.Console.Start(true)
+	// prompt/command/completion setup, event loop listening, logging, etc. We start as admin = true
+	client.Console.Start()
 }
-
-// Start - Starts the server console
-// func Start() {
-//         _, ln, _ := transport.LocalListener()
-//         ctxDialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-//                 return ln.Dial()
-//         })
-//
-//         options := []grpc.DialOption{
-//                 ctxDialer,
-//                 grpc.WithInsecure(), // This is an in-memory listener, no need for secure transport
-//                 grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(ClientMaxReceiveMessageSize)),
-//         }
-//         conn, err := grpc.DialContext(context.Background(), "bufnet", options...)
-//         if err != nil {
-//                 fmt.Printf(util.Warn+"Failed to dial bufnet: %s", err)
-//                 return
-//         }
-//         defer conn.Close()
-//         // localRPC := rpcpb.NewSliverRPCClient(conn)
-//         checkForLegacyDB()
-//
-//         // Make a fingerprint of the implant's private key, for SSH-layer authentication
-//         _, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
-//         signer, _ := ssh.ParsePrivateKey(serverCAKey)
-//         keyBytes := sha256.Sum256(signer.PublicKey().Marshal())
-//         fingerprint := base64.StdEncoding.EncodeToString(keyBytes[:])
-//
-//         // Start the console locally with appropriate SSH credentials (server)
-//         // clientconsole.Start(localRPC, serverOnlyCmds, serverCAKey, fingerprint)
-//         // clientconsole.Start(localRPC, serverOnlyCmds, serverCAKey, fingerprint)
-// }
 
 func checkForLegacyDB() {
 	legacyDBPath := filepath.Join(assets.GetRootAppDir(), "db")
@@ -184,36 +173,3 @@ func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
 
 	// client.Console.StartServerConsole(conn)
 }
-
-//
-// // BindServerAdminCommands - We bind commands only available to the server admin to the console command parser.
-// // Unfortunately we have to use, for each command, its Aliases field where we register its "namespace".
-// // There is a namespace field, however it messes up with the option printing/detection/parsing.
-// func BindServerAdminCommands() (err error) {
-//
-//         np, err := commands.Server.AddCommand(constants.NewPlayerStr, "Create a new player config file",
-//                 help.GetHelpFor(constants.NewPlayerStr), &NewOperator{})
-//         np.Aliases = []string{"admin"}
-//         if err != nil {
-//                 fmt.Println(util.Warn + err.Error())
-//                 os.Exit(3)
-//         }
-//
-//         kp, err := commands.Server.AddCommand(constants.KickPlayerStr, "Kick a player from the server",
-//                 help.GetHelpFor(constants.KickPlayerStr), &KickOperator{})
-//         kp.Aliases = []string{"admin"}
-//         if err != nil {
-//                 fmt.Println(util.Warn + err.Error())
-//                 os.Exit(3)
-//         }
-//
-//         mm, err := commands.Server.AddCommand(constants.MultiplayerModeStr, "Enable multiplayer mode on this server",
-//                 help.GetHelpFor(constants.MultiplayerModeStr), &MultiplayerMode{})
-//         mm.Aliases = []string{"admin"}
-//         if err != nil {
-//                 fmt.Println(util.Warn + err.Error())
-//                 os.Exit(3)
-//         }
-//
-//         return
-// }

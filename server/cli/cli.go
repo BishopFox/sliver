@@ -120,8 +120,7 @@ var rootCmd = &cobra.Command{
 		} else {
 			os.Args = os.Args[:1] // Hide cli from grumble console
 
-			console.StartAlt()
-			// client.Console.Start(admin)
+			console.Start()
 		}
 
 	},

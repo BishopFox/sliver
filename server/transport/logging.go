@@ -35,8 +35,8 @@ var (
 	serverConfig = configs.GetServerConfig()
 )
 
-// initLoggerMiddleware - Initialize middleware logger
-func initLoggerMiddleware() []grpc.ServerOption {
+// InitLoggerMiddleware - Initialize middleware logger
+func InitLoggerMiddleware() []grpc.ServerOption {
 	logrusEntry := log.NamedLogger("transport", "grpc")
 	logrusOpts := []grpc_logrus.Option{
 		grpc_logrus.WithLevels(codeToLevel),

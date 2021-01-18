@@ -73,94 +73,34 @@ func newConsole() *console {
 // ExtraCmds - Bind extra commands to the app object
 type ExtraCmds func(*grumble.App, rpcpb.SliverRPCClient)
 
-// Start - Console entrypoint
-// func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds, key []byte, commFingerprint string) error {
-//         app := grumble.New(&grumble.Config{
-//                 Name:        "Sliver",
-//                 Description: "Sliver Client",
-//                 HistoryFile: path.Join(assets.GetRootAppDir(), "history"),
-//                 // Prompt:                getPrompt(),
-//                 PromptColor:           color.New(),
-//                 HelpHeadlineColor:     color.New(),
-//                 HelpHeadlineUnderline: true,
-//                 HelpSubCommands:       true,
-//         })
-//         app.SetPrintASCIILogo(func(app *grumble.App) {
-//                 // printLogo(app, rpc)
-//         })
-//
-//         cmd.BindCommands(app, rpc)
-//         extraCmds(app, rpc)
-//
-//         cmd.ActiveSession.AddObserver(func(_ *clientpb.Session) {
-//                 // app.SetPrompt(getPrompt())
-//         })
-//
-//         // go eventLoop(app, rpc)
-//         go core.TunnelLoop(rpc)
-//
-//         // Setup the Client Comm system (console proxies & port forwarders)
-//         err := initComm(rpc, key, commFingerprint)
-//         if err != nil {
-//                 fmt.Printf(Warn+"Comm Error: %v \n", err)
-//         }
-//
-//         err = app.Run()
-//         if err != nil {
-//                 log.Printf("Run loop returned error: %v", err)
-//         }
-//         return err
-// }
-
 // console - Central object of the client UI. Only one instance of this object
 // lives in the client executable (instantiated with newConsole() above).
 type console struct {
 	Shell *readline.Instance // Provides input loop and completion system.
 	admin bool               // Are we an admin console running a server.
-}
-
-func initComm(rpc rpcpb.SliverRPCClient, key []byte, fingerprint string) error {
-
-	stream, err := rpc.InitComm(context.Background(), &grpc.EmptyCallOption{})
-	if err != nil {
-		return err
-	}
-
-	// We need to create a callback so the conn knows how to decode/encode
-	// arbitrary byte slices for our proto type.
-	fieldFunc := func(msg proto.Message) *[]byte {
-		return &msg.(*commpb.Bytes).Data
-	}
-
-	// Wrap our conn around the response.
-	conn := &grpcConn.Conn{
-		Stream:   stream,
-		Request:  &commpb.Bytes{},
-		Response: &commpb.Bytes{},
-		Encode:   grpcConn.SimpleEncoder(fieldFunc),
-		Decode:   grpcConn.SimpleDecoder(fieldFunc),
-	}
-
-	// The connection is a valid net.Conn upon which we can setup SSH.
-	// We pass the commonName for SSH public key fingerprinting.
-	return comm.InitClient(conn, key, fingerprint)
+	conn  *grpc.ClientConn   // The current raw gRPC client connection to the server.
 }
 
 // connect - The console connects to the server and authenticates. Note that all
 // config information (access points and security details) have been loaded already.
-func (c *console) connect(admin bool) (conn *grpc.ClientConn, err error) {
+func (c *console) Connect(conn *grpc.ClientConn, admin bool) (*grpc.ClientConn, error) {
 
-	// Connect to server (performs TLS authentication)
-	if admin {
-		conn, err = transport.ConnectLocal()
-	} else {
-		conn, err = transport.ConnectTLS()
-	}
+	// Bind this connection as the current console client gRPC connection
+	c.conn = conn
 
 	// Register RPC Service Client.
 	transport.RPC = rpcpb.NewSliverRPCClient(conn)
 	if transport.RPC == nil {
 		return nil, errors.New("could not register gRPC Client, instance is nil")
+	}
+
+	// If this client is the server itself, register the admin RPC functions.
+	c.admin = admin
+	if c.admin {
+		transport.AdminRPC = rpcpb.NewSliverAdminRPCClient(conn)
+		if transport.AdminRPC == nil {
+			return nil, errors.New("could not register gRPC Admin Client, instance is nil")
+		}
 	}
 
 	// Listen for incoming server/implant events. If an error occurs in this
@@ -171,12 +111,12 @@ func (c *console) connect(admin bool) (conn *grpc.ClientConn, err error) {
 	go transport.TunnelLoop()
 
 	// Setup the Client Comm system (console proxies & port forwarders)
-	err = initComm(transport.RPC, []byte(assets.ServerPrivateKey), assets.CommFingerprint)
+	err := initComm(transport.RPC, []byte(assets.ServerPrivateKey), assets.CommFingerprint)
 	if err != nil {
 		fmt.Printf(Warn+"Comm Error: %v \n", err)
 	}
 
-	return
+	return conn, nil
 }
 
 // setup - The console sets up various elements such as the completion system, hints,
@@ -212,16 +152,10 @@ func (c *console) setup() (err error) {
 }
 
 // Start - The console calls connection and setup functions, and starts the input loop.
-func (c *console) Start(admin bool) (err error) {
+func (c *console) Start() (err error) {
 
-	c.admin = admin // Set server admin mode.
-
-	// Connect to server and authenticate
-	conn, err := c.connect(admin)
-	if err != nil {
-		log.Fatalf(Error+"Connection to server failed: %s", err)
-	}
-	defer conn.Close()
+	// When we will exit this loop, disconnect gracefully from the server.
+	defer c.conn.Close()
 
 	// Setup console elements
 	err = c.setup()
@@ -230,7 +164,7 @@ func (c *console) Start(admin bool) (err error) {
 	}
 
 	// Commands binding. Per-context parsers are setup here.
-	err = commands.BindCommands(admin)
+	err = commands.BindCommands(c.admin)
 
 	// Print banner and version information.
 	// This will also check the last update time.
@@ -340,4 +274,32 @@ func initLogging() {
 	defer logFile.Close()
 	log.SetOutput(logFile)
 	return
+}
+
+// initComm - Connect the Client Comm system to the server.
+func initComm(rpc rpcpb.SliverRPCClient, key []byte, fingerprint string) error {
+
+	stream, err := rpc.InitComm(context.Background(), &grpc.EmptyCallOption{})
+	if err != nil {
+		return err
+	}
+
+	// We need to create a callback so the conn knows how to decode/encode
+	// arbitrary byte slices for our proto type.
+	fieldFunc := func(msg proto.Message) *[]byte {
+		return &msg.(*commpb.Bytes).Data
+	}
+
+	// Wrap our conn around the response.
+	conn := &grpcConn.Conn{
+		Stream:   stream,
+		Request:  &commpb.Bytes{},
+		Response: &commpb.Bytes{},
+		Encode:   grpcConn.SimpleEncoder(fieldFunc),
+		Decode:   grpcConn.SimpleDecoder(fieldFunc),
+	}
+
+	// The connection is a valid net.Conn upon which we can setup SSH.
+	// We pass the commonName for SSH public key fingerprinting.
+	return comm.InitClient(conn, key, fingerprint)
 }
