@@ -51,16 +51,16 @@ var (
 	// Server - All commands available in the main (server) menu are processed
 	// by this Server parser. This is the basis of context separation for various
 	// completions, hints, prompt system, etc.
-	Server = flags.NewNamedParser("server", flags.IgnoreUnknown)
+	Server = flags.NewNamedParser("server", flags.HelpFlag)
 
 	// Sliver - The parser used to process all commands directed at sliver implants.
-	Sliver = flags.NewNamedParser("sliver", flags.None)
+	Sliver = flags.NewNamedParser("sliver", flags.HelpFlag)
 )
 
 // BindCommands - Binds all commands to their appropriate parsers, which have been instantiated already.
 func BindCommands(admin bool) (err error) {
 
-	Server = flags.NewNamedParser("server", flags.IgnoreUnknown)
+	Server = flags.NewNamedParser("server", flags.HelpFlag)
 	if admin {
 		err = bindServerAdminCommands()
 		if err != nil {
@@ -72,7 +72,7 @@ func BindCommands(admin bool) (err error) {
 		return
 	}
 
-	Sliver = flags.NewNamedParser("sliver", flags.None)
+	Sliver = flags.NewNamedParser("sliver", flags.HelpFlag)
 	err = bindSliverCommands()
 	if err != nil {
 		return
@@ -208,8 +208,8 @@ func bindServerCommands() (err error) {
 		help.GetHelpFor(constants.HttpStr), &HTTPListener{})
 	h.Aliases = []string{"transports"}
 
-	s, err := Server.AddCommand(constants.StagerStr, "Start a staging listener (TCP/HTTP/HTTPS)",
-		help.GetHelpFor(constants.StagerStr), &StageListener{})
+	s, err := Server.AddCommand(constants.StageListenerStr, "Start a staging listener (TCP/HTTP/HTTPS), bound to a Sliver profile",
+		help.GetHelpFor(constants.StageListenerStr), &StageListener{})
 	s.Aliases = []string{"transports"}
 
 	// Implant generation --------------
@@ -222,7 +222,7 @@ func bindServerCommands() (err error) {
 	g.FindOptionByLongName("arch").Choices = implantArch
 	g.FindOptionByLongName("format").Choices = implantFmt
 
-	gs, err := g.AddCommand(constants.StagerStr, "Generate a stager payload using MSFVenom",
+	gs, err := g.AddCommand(constants.StagerStr, "Generate a stager shellcode payload using MSFVenom, (to file: --save, to stdout: --format",
 		help.GetHelpFor(constants.StagerStr), &GenerateStager{})
 	g.FindOptionByLongName("os").Choices = implantOS
 	g.FindOptionByLongName("arch").Choices = implantArch

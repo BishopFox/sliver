@@ -26,6 +26,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/commands"
 	"github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/help"
 	"github.com/bishopfox/sliver/client/util"
 )
 
@@ -34,21 +35,22 @@ func (c *console) ExecuteCommand(args []string) (err error) {
 
 	ctx := context.Context // The Console Context
 
-	// We redirect the input to the appropriate parser, depending on the console menu.
-	// The error returned might be several things, so we handle some cases later,
-	// like special commands
-	var parserErr error
-
+	// If any error arises from the parser executing the command,
+	// we handle this error with the parser that has thrown it.
+	// Errors can be help flags raised by the parser, or logic errors.
 	switch ctx.Menu {
-	case context.Server:
-		_, parserErr = commands.Server.ParseArgs(args)
-	case context.Sliver:
-		_, parserErr = commands.Sliver.ParseArgs(args)
-	}
 
-	// All errors that might go out of parsers are handled here
-	if parserErr != nil {
-		err = c.HandleParserErrors(parserErr, args)
+	// Server context: we do not have an active session.
+	case context.Server:
+		if _, parserErr := commands.Server.ParseArgs(args); parserErr != nil {
+			err = c.HandleParserErrors(commands.Server, parserErr, args)
+		}
+
+	// Sliver context: we are using an active session.
+	case context.Sliver:
+		if _, parserErr := commands.Sliver.ParseArgs(args); parserErr != nil {
+			err = c.HandleParserErrors(commands.Sliver, parserErr, args)
+		}
 	}
 
 	// IMPORTANT: Reset all commands.
@@ -65,23 +67,34 @@ func (c *console) ExecuteCommand(args []string) (err error) {
 }
 
 // HandleParserErrors - The parsers may return various types of Errors, handle them in this function.
-func (c *console) HandleParserErrors(in error, args []string) (err error) {
+func (c *console) HandleParserErrors(parser *flags.Parser, in error, args []string) (err error) {
 
 	// If there is an error, cast it to a parser error, else return
 	var parserErr *flags.Error
 	if in == nil {
 		return
 	}
-	parserErr = in.(*flags.Error) // We convert to a flag error
+	parserErr = in.(*flags.Error)
+	if parserErr == nil {
+		return
+	}
 
-	// Handle errors on a case-by-case basis -------------------
-
-	// If command is not found, handle special
+	// If command is not found, handle special (either through OS shell, or exits, etc.)
 	if parserErr.Type == flags.ErrUnknownCommand {
 		return c.executeSpecialCommand(args)
 	}
 
-	// Else, we print the parser error
+	// If the error type is a detected -h, --help flag, print custom help.
+	if parserErr.Type == flags.ErrHelp {
+		cmd := c.findHelpCommand(args, parser)
+		if cmd == nil {
+			return
+		}
+		help.PrintCommandHelp(cmd)
+		return
+	}
+
+	// Else, we print the raw parser error
 	fmt.Println(ParserError + parserErr.Error())
 
 	return
@@ -102,6 +115,41 @@ func (c *console) executeSpecialCommand(args []string) error {
 
 	// We should not get here, so we print an error-like message
 	fmt.Printf(CommandError+"Invalid command: %s%s \n", tui.YELLOW, args[0])
+
+	return nil
+}
+
+// findHelpCommand - A -h, --help flag was invoked in the output.
+// Find the root or any subcommand.
+func (c *console) findHelpCommand(args []string, parser *flags.Parser) *flags.Command {
+
+	var root *flags.Command
+	for _, cmd := range parser.Commands() {
+		if cmd.Name == args[0] {
+			root = cmd
+		}
+	}
+	if root == nil {
+		return nil
+	}
+	if len(args) == 1 || len(root.Commands()) == 0 {
+		return root
+	}
+
+	var sub *flags.Command
+	if len(args) > 1 {
+		for _, s := range root.Commands() {
+			if s.Name == args[1] {
+				sub = s
+			}
+		}
+	}
+	if sub == nil {
+		return root
+	}
+	if len(args) == 2 || len(sub.Commands()) == 0 {
+		return sub
+	}
 
 	return nil
 }

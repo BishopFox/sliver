@@ -24,9 +24,13 @@ package help
 
 import (
 	"bytes"
+	"fmt"
+	"strconv"
 	"text/template"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/evilsocket/islazy/tui"
+	"github.com/jessevdk/go-flags"
 )
 
 var (
@@ -72,8 +76,6 @@ var (
 		consts.ScreenshotStr: screenshotHelp,
 		consts.MakeTokenStr:  makeTokenHelp,
 		consts.GetEnvStr:     getEnvHelp,
-
-		consts.RouteStr: routesHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -91,12 +93,10 @@ var (
 	useHelp = `[[.Bold]]Command:[[.Normal]] use [sliver name/session]
 [[.Bold]]About:[[.Normal]] Switch the active Sliver, a valid name must be provided (see sessions).`
 
-	generateHelp = `[[.Bold]]Command:[[.Normal]] generate <options>
-[[.Bold]]About:[[.Normal]] Generate a new sliver binary and saves the output to the cwd or a path specified with --save.
-
-[[.Bold]][[.Underline]]++ Command and Control ++[[.Normal]]
-You must specificy at least one c2 endpoint when generating an implant, this can be one or more of --mtls, --http, or --dns, --named-pipe, or --tcp-pivot.
-The command requires at least one use of --mtls, --http, or --dns, --named-pipe, or --tcp-pivot.
+	generateHelp = `
+[[.Orange]][[.Underline]]++ Command and Control ++[[.Normal]]
+You must specificy at least one c2 endpoint when generating an implant, 
+this can be one or more of --mtls, --http, or --dns, --named-pipe, or --tcp-pivot.
 
 The follow command is used to generate a sliver Windows executable (PE) file, that will connect back to the server using mutual-TLS:
 	generate --mtls foo.example.com 
@@ -105,7 +105,7 @@ You can also stack the C2 configuration with multiple protocols:
 	generate --os linux --mtls example.com,domain.com --http bar1.evil.com,bar2.attacker.com --dns baz.bishopfox.com
 
 
-[[.Bold]][[.Underline]]++ Formats ++[[.Normal]]
+[[.Orange]][[.Underline]]++ Formats ++[[.Normal]]
 Supported output formats are Windows PE, Windows DLL, Windows Shellcode (SRDI), Mach-O, and ELF. The output format is controlled
 with the --os and --format flags.
 
@@ -123,7 +123,7 @@ To output a Linux ELF executable file, the following command would be used:
 	generate --os linux --mtls foo.example.com 
 
 
-[[.Bold]][[.Underline]]++ DNS Canaries ++[[.Normal]]
+[[.Orange]][[.Underline]]++ DNS Canaries ++[[.Normal]]
 DNS canaries are unique per-binary domains that are deliberately NOT obfuscated during the compilation process. 
 This is done so that these unique domains show up if someone runs 'strings' on the binary, if they then attempt 
 to probe the endpoint or otherwise resolve the domain you'll be alerted that your implant has been discovered, 
@@ -135,18 +135,15 @@ Unique canary subdomains are automatically generated and inserted using the --ca
 canaries and their status using the "canaries" command:
 	generate --mtls foo.example.com --canary 1.foobar.com
 
-[[.Bold]][[.Underline]]++ Execution Limits ++[[.Normal]]
+[[.Orange]][[.Underline]]++ Execution Limits ++[[.Normal]]
 Execution limits can be used to restrict the execution of a Sliver implant to machines with specific configurations.
 
-[[.Bold]][[.Underline]]++ Profiles ++[[.Normal]]
+[[.Orange]][[.Underline]]++ Profiles ++[[.Normal]]
 Due to the large number of options and C2s this can be a lot of typing. If you'd like to have a reusable a Sliver config
 see 'help new-profile'. All "generate" flags can be saved into a profile, you can view existing profiles with the "profiles"
 command.
 `
-	generateStagerHelp = `[[.Bold]]Command:[[.Normal]] generate stager <options>
-[[.Bold]]About:[[.Normal]] Generate a new sliver stager shellcode and saves the output to the cwd or a path specified with --save, or to stdout using --format.
-
-[[.Bold]][[.Underline]]++ Bad Characters ++[[.Normal]]
+	generateStagerHelp = `[[.Orange]][[.Underline]]++ Bad Characters ++[[.Normal]]
 Bad characters must be specified like this for single bytes:
 
 generate stager -b 00
@@ -155,14 +152,11 @@ And like this for multiple bytes:
 
 generate stager -b '00 0a cc'
 
-[[.Bold]][[.Underline]]++ Output Formats ++[[.Normal]]
+[[.Orange]][[.Underline]]++ Output Formats ++[[.Normal]]
 You can use the --format flag to print out the shellcode to stdout, in one of the following transform formats:
 [[.Bold]]bash c csharp dw dword hex java js_be js_le num perl pl powershell ps1 py python raw rb ruby sh vbapplication vbscript[[.Normal]]
 `
-	stageListenerHelp = `[[.Bold]]Command:[[.Normal]] stage-listener <options>
-[[.Bold]]About:[[.Normal]] Starts a stager listener bound to a Sliver profile.
-[[.Bold]]Examples:[[.Normal]] 
-
+	stageListenerHelp = `[[.Orange]]Examples:[[.Normal]] 
 The following command will start a TCP listener on 1.2.3.4:8080, and link the [[.Bold]]my-sliver-profile[[.Normal]] profile to it.
 When a stager calls back to this URL, a sliver corresponding to the said profile will be sent.
 
@@ -173,10 +167,8 @@ To create a profile, use the [[.Bold]]new-profile[[.Normal]] command. A common s
 new-profile --profile-name windows-shellcode --format shellcode --mtls 1.2.3.4 --skip-symbols
 `
 
-	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new-profile [--profile-name] <options>
-[[.Bold]]About:[[.Normal]] Create a new profile with a given name and options, a name is required.
-
-[[.Bold]][[.Underline]]++ Profiles ++[[.Normal]]
+	newProfileHelp = `
+[[.Orange]][[.Underline]]++ Profiles ++[[.Normal]]
 Profiles are an easy way to save a sliver configurate and easily generate multiple copies of the binary with the same
 settings, but will still have per-binary certificates/obfuscation/etc. This command is used with generate-profile:
 	new-profile --profile-name mtls-profile  --mtls foo.example.com --canary 1.foobar.com
@@ -395,28 +387,6 @@ The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows u
 [[.Bold]]About:[[.Normal]] Retrieve the environment variables for the current session. If no variable name is provided, lists all the environment variables.
 [[.Bold]]Example:[[.Normal]] getenv SHELL
 	`
-	routesHelp = `[[.Bold]]Command:[[.Normal]] route print|add|delete --options
-[[.Bold]]About:[[.Normal]] Manage network routes in use by the server and implants. 
-
-Commands:
-    print --filters  - Print active network routes information.
-    add  --opts      - Add a network route 
-    delete --opts    - Remove a network route.
-
-Print filters:
-    --network       - IP or CIDR to filter.
-    --active        - Show only active routes
-
-Add filters:
-    --network       - IP network in CIDR notation (ex: 192.168.1.1/24)
-    --netmask       - (Optional) Precise network mask (ex: 255.255.255.0)
-    --session-id    - (Optional) Bind this route network to a precise implant, in case two routes might collide.
-
-Delete filters:
-    --network       - IP network in CIDR notation (ex: 192.168.1.1/24)
-    --session-id    - (Optional) Bind this route network to a precise implant, in case two routes might collide.
-    --close         - Close all connections forwarded through this route (not portfwds, and handlers).
-`
 )
 
 const (
@@ -477,4 +447,114 @@ func FormatHelpTmpl(helpStr string) string {
 		Gray:      gray,
 	})
 	return outputBuf.String()
+}
+
+// PrintCommandHelp - This function is called by all command structs, either because
+// there are no optional arguments, or because flags are passed.
+func PrintCommandHelp(cmd *flags.Command) {
+
+	// We first print a short description
+	var subs string
+	if len(cmd.Commands()) > 0 {
+		subs = " ["
+		for i, sub := range cmd.Commands() {
+			subs += " " + tui.Bold(sub.Name)
+			if i < (len(cmd.Commands()) - 1) {
+				subs += " |"
+			}
+		}
+		subs += " ]"
+	}
+	var options string
+	if len(cmd.Options()) > 0 || len(cmd.Groups()) > 0 {
+		options = " --options"
+	}
+	fmt.Println(tui.Yellow("Usage") + ": " + tui.Bold(cmd.Name) + options + subs)
+	fmt.Println(tui.Yellow("Description") + ": " + cmd.ShortDescription)
+
+	// Sub Commands
+	if len(cmd.Commands()) > 0 {
+		fmt.Println()
+		fmt.Println(tui.Bold(tui.Blue("Sub Commands")))
+	}
+
+	maxLen := 0
+	for _, sub := range cmd.Commands() {
+		cmdLen := len(sub.Name)
+		if cmdLen > maxLen {
+			maxLen = cmdLen
+		}
+	}
+	for _, sub := range cmd.Commands() {
+		pad := fmt.Sprintf(tui.Bold("%-"+strconv.Itoa(maxLen)+"s"), sub.Name)
+		fmt.Printf(" "+pad+" : %s\n", sub.ShortDescription)
+	}
+
+	// Grouped flag options
+	for _, grp := range cmd.Groups() {
+		printOptionGroup(grp)
+	}
+
+	// Then additional descriptions
+	if additional := GetHelpFor(cmd.Name); additional != "" {
+		fmt.Println("\n" + GetHelpFor(cmd.Name))
+	}
+	return
+}
+
+func printOptionGroup(grp *flags.Group) {
+	fmt.Println("\n    " + tui.Bold(tui.Green(grp.ShortDescription)))
+
+	grpOptLen := 0
+	for _, opt := range grp.Options() {
+		len := len("--" + opt.LongName)
+		if len > grpOptLen {
+			grpOptLen = len
+		}
+	}
+
+	typeLen := 0
+	for _, opt := range grp.Options() {
+		var optName string
+		if opt.Field().Type.Name() != "" {
+			optName = opt.Field().Type.Name()
+		} else {
+			optName = fmt.Sprintf("%s", opt.Field().Type)
+		}
+
+		len := len("--" + optName)
+		if len > typeLen {
+			typeLen = len
+		}
+	}
+
+	// Print lign for each option
+	for _, opt := range grp.Options() {
+		// --flag
+		optForm := "--" + opt.LongName
+		nameDesc := fmt.Sprintf("%-"+strconv.Itoa(grpOptLen)+"s", optForm)
+
+		// type
+		var optName string
+		if opt.Field().Type.Name() != "" {
+			optName = opt.Field().Type.Name()
+		} else {
+			optName = fmt.Sprintf("%s", opt.Field().Type)
+		}
+		optType := fmt.Sprintf("%-"+strconv.Itoa(typeLen)+"s", optName)
+
+		// Description & defaults
+		var defaults string
+		if len(opt.Default) > 0 {
+			defaults = tui.DIM + " (default: "
+			for i, def := range opt.Default {
+				defaults += def
+				if i < (len(opt.Default) - 1) {
+					defaults += " ,"
+				}
+			}
+			defaults += ")" + tui.RESET
+		}
+		fmt.Printf("     %s  %s  %s %s\n", nameDesc, tui.Dim(optType), opt.Description, defaults)
+	}
 }
