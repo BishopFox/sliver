@@ -23,7 +23,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"strings"
@@ -36,6 +35,7 @@ import (
 	"github.com/bishopfox/sliver/client/commands"
 	"github.com/bishopfox/sliver/client/completers"
 	consoleContext "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/log"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 
@@ -110,12 +110,6 @@ func (c *console) Connect(conn *grpc.ClientConn, admin bool) (*grpc.ClientConn, 
 	// Start message tunnel loop.
 	go transport.TunnelLoop()
 
-	// Setup the Client Comm system (console proxies & port forwarders)
-	err := initComm(transport.RPC, []byte(assets.ServerPrivateKey), assets.CommFingerprint)
-	if err != nil {
-		fmt.Printf(Warn+"Comm Error: %v \n", err)
-	}
-
 	return conn, nil
 }
 
@@ -153,6 +147,18 @@ func (c *console) setup() (err error) {
 
 // Start - The console calls connection and setup functions, and starts the input loop.
 func (c *console) Start() (err error) {
+
+	// Start monitoring all logs from the server and the client.
+	err = log.InitClientLogger()
+	if err != nil {
+		return fmt.Errorf("Failed to start log monitor (%s)", err.Error())
+	}
+
+	// Setup the Client Comm system (console proxies & port forwarders)
+	err = initComm(transport.RPC, []byte(assets.ServerPrivateKey), assets.CommFingerprint)
+	if err != nil {
+		fmt.Printf(Warn+"Comm Error: %v \n", err)
+	}
 
 	// When we will exit this loop, disconnect gracefully from the server.
 	defer c.conn.Close()
