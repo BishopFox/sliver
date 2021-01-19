@@ -36,7 +36,7 @@ func completeRemotePath(last string) (string, *readline.CompletionGroup) {
 
 	// Completions
 	completion := &readline.CompletionGroup{
-		Name:        "(sliver) local path",
+		Name:        "remote path",
 		MaxLength:   5,
 		DisplayType: readline.TabDisplayGrid,
 	}
@@ -152,7 +152,7 @@ func completeRemotePath(last string) (string, *readline.CompletionGroup) {
 func completeRemotePathAndFiles(last string) (string, *readline.CompletionGroup) {
 	// Completions
 	completion := &readline.CompletionGroup{
-		Name:        "(console) local directory/files)",
+		Name:        "remote path/files",
 		MaxLength:   5,
 		DisplayType: readline.TabDisplayGrid,
 	}

@@ -289,16 +289,6 @@ func optionArgRequired(args []string, last []rune, group *flags.Group) (opt *fla
 			return nil, false
 		}
 
-		// Check this recursion and its effects !!!!!
-		if len(group.Groups()) != 0 {
-			for _, grp := range group.Groups() {
-				opt, found := optionArgRequired(args, last, grp)
-				if found {
-					return opt, found
-				}
-			}
-			return nil, false
-		}
 		return option, true
 	}
 

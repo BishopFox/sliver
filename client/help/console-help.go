@@ -36,7 +36,6 @@ import (
 var (
 	cmdHelp = map[string]string{
 		consts.JobsStr:            jobsHelp,
-		consts.SessionsStr:        sessionsHelp,
 		consts.BackgroundStr:      backgroundHelp,
 		consts.InfoStr:            infoHelp,
 		consts.UseStr:             useHelp,
@@ -80,9 +79,6 @@ var (
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
 	[[.Bold]]About:[[.Normal]] Manage jobs/listeners.`
-
-	sessionsHelp = `[[.Bold]]Command:[[.Normal]] sessions <options>
-[[.Bold]]About:[[.Normal]] List Sliver sessions, and optionally interact or kill a session.`
 
 	backgroundHelp = `[[.Bold]]Command:[[.Normal]] background
 [[.Bold]]About:[[.Normal]] Background the active Sliver.`

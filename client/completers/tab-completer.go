@@ -59,17 +59,28 @@ func TabCompleter(line []rune, pos int) (lastWord string, completions []*readlin
 			return completeEnvironmentVariables(lastWord)
 		}
 
-		// We must check both for options in this command, and ALSO, that we are not currently in a subcommand context:
-		if _, ok := subCommandFound(lastWord, args, command); !ok {
-			if len(command.Groups()) > 0 {
-				if opt, yes := optionArgRequired(args, last, command.Groups()[0]); yes {
+		// If options are asked for root command, return commpletions.
+		if len(command.Groups()) > 0 {
+			for _, grp := range command.Groups() {
+				if opt, yes := optionArgRequired(args, last, grp); yes {
 					return completeOptionArguments(command, opt, lastWord)
 				}
 			}
 		}
 
+		// We must check both for options in this command, and ALSO, that we are not currently in a subcommand context:
+		if sub, ok := subCommandFound(lastWord, args, command); ok {
+			if len(sub.Groups()) > 0 {
+				for _, grp := range sub.Groups() {
+					if opt, yes := optionArgRequired(args, last, grp); yes {
+						return completeOptionArguments(sub, opt, lastWord)
+					}
+				}
+			}
+		}
+
 		// Propose argument completion before anything, and if needed
-		if arg, yes := commandArgumentRequired(lastWord, args, command, false); yes { // add *commands.Context.Menu in the string here
+		if arg, yes := commandArgumentRequired(lastWord, args, command, false); yes {
 			return completeCommandArguments(command, arg, lastWord)
 		}
 

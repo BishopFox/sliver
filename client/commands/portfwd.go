@@ -15,13 +15,120 @@ package commands
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	"fmt"
+
+	"github.com/bishopfox/sliver/client/comm"
+	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/util"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commpb"
+	"github.com/evilsocket/islazy/tui"
+)
+
 // Portfwd - Manage port forwarders on the client
-type Portfwd struct{}
+type Portfwd struct {
+	Options struct {
+		Protocol  string `long:"protocol" description:"Show only for given protocol"`
+		Direct    bool   `long:"direct" description:"Show only direct forwarders"`
+		Reverse   bool   `long:"reverse" description:"Show only reverse forwarders"`
+		SessionID uint32 `long:"session-id" description:"Show only forwarders on a given session"`
+	} `group:"print filters"`
+}
 
 // Execute - Print the port forwarders by default
 func (p *Portfwd) Execute(args []string) (err error) {
+	// If no port forwards return anyway
+	forwarders := comm.Forwarders.All()
+	if len(forwarders) == 0 {
+		fmt.Println(util.Info + "No active port forwarders running on this console client")
+		return
+	}
+
+	// Filter direct/reverse forwarders
+	var direct = map[string]comm.Forwarder{}
+	var reverse = map[string]comm.Forwarder{}
+	for id, f := range forwarders {
+		switch f.Info().Type {
+		case commpb.HandlerType_Bind:
+			direct[id] = f
+		case commpb.HandlerType_Reverse:
+			reverse[id] = f
+		}
+	}
+
+	// If we are in an active session, we print the portForwarders
+	// for this session first, then the next sessions, if any.
+	session := cctx.Context.Sliver
+	var info *clientpb.Session
+	if session != nil {
+		info = session.Session
+	}
+
+	// If no direction filters, print all forwarders, maybe filtered by session, or protocol
+	if !p.Options.Direct && !p.Options.Reverse {
+		p.printForwarders(true, direct, info)
+		p.printForwarders(false, reverse, info)
+		return
+	}
+
+	// Else, check for each direction
+	if p.Options.Direct {
+		p.printForwarders(true, direct, info)
+	}
+	if p.Options.Reverse {
+		p.printForwarders(false, reverse, info)
+	}
 
 	return
+}
+
+// printReverseForwarders - We don't have an optional dial source address.
+func (p *Portfwd) printForwarders(direct bool, forwarders map[string]comm.Forwarder, session *clientpb.Session) {
+	var title string
+	if direct {
+		title = " Direct"
+	} else {
+		title = "\n Reverse"
+	}
+	if len(forwarders) == 0 {
+		fmt.Printf("\n"+util.Info+"No active %s forwarders (all sessions) \n", title)
+		return
+	}
+
+	table := util.NewTable(tui.Bold(tui.Yellow(title)))
+	headers := []string{"ID", "Protocol", "Local Address", "   ", "Remote Address", "Conn Stats", "Session"}
+	headLen := []int{0, 0, 0, 0, 0, 0, 0}
+	table.SetColumns(headers, headLen)
+
+	// Add each forwarder to table
+	for _, f := range forwarders {
+
+		// Check remaining filters
+		if p.Options.Protocol == "udp" && f.Info().Transport == commpb.Transport_TCP {
+			continue
+		}
+		if p.Options.Protocol == "tcp" && f.Info().Transport == commpb.Transport_UDP {
+			continue
+		}
+
+		rhost := fmt.Sprintf("%s:%d", f.Info().RHost, f.Info().RPort)
+		sessID := fmt.Sprintf("%d", f.SessionID())
+		var dir string
+		if direct {
+			dir = "-->"
+		} else {
+			dir = "<--"
+		}
+		row := []string{"", f.Info().Transport.String(), f.LocalAddr(), dir, rhost, f.ConnStats(), sessID}
+
+		if session != nil && f.SessionID() == session.ID {
+			row = table.ApplyCurrentRowColor(row, fmt.Sprintf("%s%s", tui.DIM, tui.YELLOW))
+		}
+
+		table.AppendRow(row)
+	}
+	table.Output()
 }
 
 // PortfwdOpen - Start a client-implant port forwarder
@@ -30,26 +137,109 @@ type PortfwdOpen struct {
 		Protocol  string `long:"protocol" description:"Transport protocol" default:"tcp"`
 		Reverse   bool   `long:"reverse" description:"Reverse forwards from Rhost (implant) to LHost (client)"`
 		LHost     string `long:"lhost" description:"Console address to dial/listen on" default:"127.0.0.1"`
-		LPort     int    `long:"lport" description:"Console listen port" default:"2020"`
+		LPort     int32  `long:"lport" description:"Console listen port" default:"2020"`
 		RHost     string `long:"rhost" description:"Remote host address to dial/listen on" default:"0.0.0.0"`
-		RPort     int    `long:"rport" description:"Remote port number" required:"true"`
+		RPort     int32  `long:"rport" description:"Remote port number" required:"true"`
 		SessionID uint32 `long:"session-id" description:"Start the forwarder on a specific session"`
 	} `group:"forwarder options"`
 }
 
 // Execute -  Start a client-implant port forwarder
 func (p *PortfwdOpen) Execute(args []string) (err error) {
+
+	// Check a session is targeted (active or with option)
+	session := cctx.Context.Sliver
+	if session == nil && p.Options.SessionID == 0 {
+		fmt.Println(util.Error + "No active session or session specified with --session-id")
+		return
+	}
+	var sessID uint32
+	if session != nil {
+		sessID = session.ID
+	} else {
+		sessID = p.Options.SessionID
+	}
+
+	// User must always specify at least the remote port.
+	if p.Options.RPort == 0 {
+		fmt.Println(util.Error + "Missing remote port number (--rport) \n")
+		return
+	}
+
+	// Handler information, completed at startup by the port forwarder.
+	info := &commpb.Handler{
+		LHost: p.Options.LHost,
+		LPort: p.Options.LPort,
+		RHost: p.Options.RHost,
+		RPort: p.Options.RPort,
+	}
+
+	// Host:port to listen/dial locally (console client)
+	lhost := p.Options.LHost
+	lport := uint(p.Options.LPort)
+
+	// Elements to print after starting the port forwarder
+	var dir string
+	var portfwdErr error
+	lAddr := fmt.Sprintf("%s:%d", lhost, lport)
+	rAddr := fmt.Sprintf("%s:%d", info.RHost, info.RPort)
+
+	// Start the port forwarder with the appropriate call, depending on direction and protocol.
+	switch p.Options.Protocol {
+	case "tcp":
+		if p.Options.Reverse {
+			dir = "<--"
+			portfwdErr = comm.PortfwdReverseTCP(sessID, info)
+		} else {
+			dir = "-->"
+			// Direct TCP: We specify the optional remote source TCP address in place
+			// of the client listener which is being specified here, after info
+			info.LHost = lhost
+			info.LPort = int32(lport)
+
+			// Create and start the forwarder
+			portfwdErr = comm.PortfwdDirectTCP(sessID, info, lhost, int(lport))
+		}
+	case "udp":
+		if p.Options.Reverse {
+			dir = "<--"
+			portfwdErr = comm.PortfwdReverseUDP(sessID, info)
+
+		} else {
+			dir = "-->"
+			// Direct UDP : We specify the optional remote source UDP address in place
+			// of the client listener which is being specified here, after info
+			info.LHost = lhost
+			info.LPort = int32(lport)
+
+			portfwdErr = comm.PortfwdDirectUDP(sessID, info, lhost, int(lport))
+		}
+	default:
+		fmt.Printf(util.Error+"Invalid transport protocol (must be tcp or udp): %s\n", p.Options.Protocol)
+		return
+	}
+
+	// Catch the error that might arise from starting the forwarder, no matter type/protocol
+	if portfwdErr != nil {
+		fmt.Printf(util.Error+"Failed to start %s %s port forwarder: %v \n",
+			info.Type.String(), info.Transport.String(), portfwdErr)
+		return
+	}
+
+	// Else print success
+	fmt.Printf(util.Info+"Started %s %s port forwarder (%s %s %s) [Session ID: %d] \n",
+		info.Type.String(), info.Transport.String(), lAddr, dir, rAddr, sessID)
 	return
 }
 
 // PortfwdClose - Stop a port forwarder
 type PortfwdClose struct {
 	Options struct {
-		ID         []string `long:"id" description:"Forwarder IDs, comma-separated" env-delim:","`
-		Protocol   string   `long:"protocol" description:"Close only for given transport"`
-		Reverse    bool     `long:"reverse" description:"Close only if reverse"`
-		SessionID  uint32   `long:"session-id" description:"Close if forwarder belongs to session"`
-		CloseConns bool     `long:"close-conns" description:"Close active connections initiated by forwarder (TCP-only)"`
+		ForwarderID []string `long:"id" description:"Forwarder IDs, comma-separated" env-delim:","`
+		Protocol    string   `long:"protocol" description:"Close only for given transport"`
+		Reverse     bool     `long:"reverse" description:"Close only if reverse"`
+		SessionID   uint32   `long:"session-id" description:"Close if forwarder belongs to session"`
+		CloseConns  bool     `long:"close-conns" description:"Close active connections initiated by forwarder (TCP-only)"`
 	} `group:"forwarder options"`
 }
 

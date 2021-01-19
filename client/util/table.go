@@ -159,6 +159,14 @@ func (t *Table) SetColumns(names []string, widths []int) error {
 	return nil
 }
 
+// ApplyCurrentRowColor - We want to signal this row is of importance in a given context.
+func (t *Table) ApplyCurrentRowColor(items []string, color string) (colored []string) {
+	for _, item := range items {
+		colored = append(colored, fmt.Sprintf("%s%s", color, item))
+	}
+	return
+}
+
 // AppendRow - Add a row of items. Each of them is being applied against
 // its column settings and/or any callbacks, before being added.
 func (t *Table) AppendRow(items []string) error {

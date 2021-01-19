@@ -70,73 +70,79 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 
 		// Jobs
 		if strings.Contains(found.Name, "JobID") {
-			jobs, err := transport.RPC.GetJobs(context.Background(), &commonpb.Empty{})
-			if err != nil {
-				fmt.Printf(util.RPCError+"%s", err)
-				return
-			}
-			comp = &readline.CompletionGroup{
-				Name:         "jobs",
-				Descriptions: map[string]string{},
-				DisplayType:  readline.TabDisplayList,
-			}
-			for _, job := range jobs.Active {
-				jobID := strconv.Itoa(int(job.ID))
-				comp.Suggestions = append(comp.Suggestions, jobID+" ")
-				comp.Descriptions[jobID+" "] = tui.DIM + job.Description + tui.RESET
-			}
-			completions = append(completions, comp)
+			completions = append(completions, jobIDs())
 		}
 
+	// When using a session, some paths are on the remote system, and some are the client console.
 	case cctx.Sliver:
-		if strings.Contains(found.Name, "Path") {
+		if strings.Contains(found.Name, "RemotePath") || strings.Contains(found.Name, "Path") || strings.Contains(found.Name, "OtherPath") {
 			switch cmd.Name {
-			case constants.CdStr, constants.LsStr, constants.MkdirStr:
+			case constants.CdStr, constants.MkdirStr:
 				prefix, comp = completeRemotePath(lastWord)
 				completions = append(completions, comp)
-				// case constants.GhostCat, constants.GhostDownload, constants.GhostUpload, constants.GhostRm:
-				//         return CompleteRemotePathAndFiles(line, pos)
+			case constants.LsStr, constants.RmStr, constants.CatStr, constants.DownloadStr, constants.UploadStr:
+				prefix, comp = completeRemotePathAndFiles(lastWord)
+				completions = append(completions, comp)
 			}
 		}
-		// case commands.GHOST_CONTEXT:
-		// switch found.Name {
-		// case "Path", "OtherPath", "RemotePath":
-		// Completion might differ slightly depending on the command
-		//         case "LocalPath":
-		//                 switch cmd.Name {
-		//                 case constants.GhostUpload:
-		//                         return completeLocalPathAndFiles(line, pos)
-		//                 case constants.GhostDownload:
-		//                         return CompleteLocalPath(line, pos)
-		//                 }
-		//         case "PID":
-		//                 commands.Context.Shell.MaxTabCompleterRows = 10
-		//                 return CompleteProcesses(line, pos)
-		//         default: // If name is empty, return
+		if strings.Contains(found.Name, "LocalPath") {
+			switch cmd.Name {
+			case constants.DownloadStr, constants.UploadStr:
+				prefix, comp = completeLocalPathAndFiles(lastWord)
+				completions = append(completions, comp)
+			}
+		}
 	}
 
 	// Completions that do not depend on context, and that should either be unique, or be appended to the comp list by default.
 
 	// Sessions
 	if strings.Contains(found.Name, "ImplantID") || strings.Contains(found.Name, "SessionID") {
-		sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
-		if err != nil {
-			fmt.Printf(util.RPCError+"%s", err)
-			return
-		}
-		comp = &readline.CompletionGroup{
-			Name:         "sessions",
-			Descriptions: map[string]string{},
-			DisplayType:  readline.TabDisplayList,
-		}
-		for _, s := range sessions.Sessions {
-			sessionID := strconv.Itoa(int(s.ID))
-			comp.Suggestions = append(comp.Suggestions, sessionID+" ")
-			desc := fmt.Sprintf("[%s] - %s@%s - %s", s.Name, s.Username, s.Hostname, s.RemoteAddress)
-			comp.Descriptions[sessionID+" "] = tui.DIM + desc + tui.RESET
-		}
-		completions = append(completions, comp)
+		completions = append(completions, sessionIDs())
 	}
 
+	return
+}
+
+func jobIDs() (comp *readline.CompletionGroup) {
+	comp = &readline.CompletionGroup{
+		Name:         "jobs",
+		Descriptions: map[string]string{},
+		DisplayType:  readline.TabDisplayList,
+	}
+
+	jobs, err := transport.RPC.GetJobs(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(util.RPCError+"%s", err)
+		return
+	}
+	for _, job := range jobs.Active {
+		jobID := strconv.Itoa(int(job.ID))
+		comp.Suggestions = append(comp.Suggestions, jobID+" ")
+		comp.Descriptions[jobID+" "] = tui.DIM + job.Name + fmt.Sprintf(" (%s)", job.Description) + tui.RESET
+	}
+
+	return
+}
+
+func sessionIDs() (comp *readline.CompletionGroup) {
+
+	comp = &readline.CompletionGroup{
+		Name:         "sessions",
+		Descriptions: map[string]string{},
+		DisplayType:  readline.TabDisplayList,
+	}
+
+	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(util.RPCError+"%s", err)
+		return
+	}
+	for _, s := range sessions.Sessions {
+		sessionID := strconv.Itoa(int(s.ID))
+		comp.Suggestions = append(comp.Suggestions, sessionID+" ")
+		desc := fmt.Sprintf("[%s] - %s@%s - %s", s.Name, s.Username, s.Hostname, s.RemoteAddress)
+		comp.Descriptions[sessionID+" "] = tui.DIM + desc + tui.RESET
+	}
 	return
 }

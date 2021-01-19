@@ -74,7 +74,10 @@ func (c *console) HandleParserErrors(parser *flags.Parser, in error, args []stri
 	if in == nil {
 		return
 	}
-	parserErr = in.(*flags.Error)
+	parserErr, ok := in.(*flags.Error)
+	if !ok {
+		return
+	}
 	if parserErr == nil {
 		return
 	}

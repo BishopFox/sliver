@@ -1,17 +1,5 @@
 package commands
 
-import (
-	"context"
-	"fmt"
-	"path/filepath"
-
-	cctx "github.com/bishopfox/sliver/client/context"
-	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -30,6 +18,24 @@ import (
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/alecthomas/chroma/formatters"
+	"github.com/alecthomas/chroma/lexers"
+	"github.com/alecthomas/chroma/styles"
+	"github.com/evilsocket/islazy/tui"
+
+	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/client/util"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/util/encoders"
+)
+
 // ChangeDirectory - Change the working directory of the client console
 type ChangeDirectory struct {
 	Positional struct {
@@ -46,10 +52,8 @@ func (cd *ChangeDirectory) Execute(args []string) (err error) {
 	}
 
 	pwd, err := transport.RPC.Cd(context.Background(), &sliverpb.CdReq{
-		Request: &commonpb.Request{
-			SessionID: cctx.Context.Sliver.ID,
-		},
-		Path: path,
+		Path:    path,
+		Request: ContextRequest(cctx.Context.Sliver.Session),
 	})
 	if err != nil {
 		fmt.Printf(util.RPCError+"%s\n", err)
@@ -58,5 +62,304 @@ func (cd *ChangeDirectory) Execute(args []string) (err error) {
 		cctx.Context.Sliver.WorkingDir = pwd.Path
 	}
 
+	return
+}
+
+// ListSessionDirectories - List directory contents
+type ListSessionDirectories struct {
+	Positional struct {
+		Path      string   `description:"Session directory/file"`
+		OtherPath []string `description:"Session directory/file" `
+	} `positional-args:"yes"`
+}
+
+// Execute - Command
+func (ls *ListSessionDirectories) Execute(args []string) error {
+
+	path := ls.Positional.Path
+	if (path == "~" || path == "~/") && cctx.Context.Sliver.OS == "linux" {
+		path = filepath.Join("/home", cctx.Context.Sliver.Username)
+	}
+	if ls.Positional.Path == "" {
+		path = "."
+	}
+
+	// "Mandatory" argument
+	resp, err := transport.RPC.Ls(context.Background(), &sliverpb.LsReq{
+		Path:    path,
+		Request: ContextRequest(cctx.Context.Sliver.Session),
+	})
+	if err != nil {
+		fmt.Printf(util.Error+"%s\n", err)
+	} else {
+		printDirList(resp)
+	}
+
+	// Other paths/files
+	for _, other := range ls.Positional.OtherPath {
+		if (other == "~" || other == "~/") && cctx.Context.Sliver.OS == "linux" {
+			other = filepath.Join("/home", cctx.Context.Sliver.Username)
+		}
+		resp, err := transport.RPC.Ls(context.Background(), &sliverpb.LsReq{
+			Path:    other,
+			Request: ContextRequest(cctx.Context.Sliver.Session),
+		})
+		if err != nil {
+			fmt.Printf(util.Error+"%s\n", err)
+		} else {
+			printDirList(resp)
+		}
+	}
+
+	return nil
+}
+
+func printDirList(dirList *sliverpb.Ls) {
+	title := fmt.Sprintf("%s%s%s%s", tui.BOLD, tui.BLUE, dirList.Path, tui.RESET)
+
+	table := util.NewTable(title)
+	headers := []string{"Name", "Size"}
+	headLen := []int{0, 0}
+	table.SetColumns(headers, headLen)
+
+	for _, fileInfo := range dirList.Files {
+		var row []string
+		if fileInfo.IsDir {
+			row = []string{tui.Blue(fileInfo.Name), ""}
+		} else {
+			row = []string{fileInfo.Name, util.ByteCountBinary(fileInfo.Size)}
+		}
+		table.AppendRow(row)
+	}
+	table.Output()
+	fmt.Println()
+}
+
+// Rm - Remove a one or more files/directories from the implant target host.
+type Rm struct {
+	Positional struct {
+		Path      string   `description:"Session directory/file" required:"yes"`
+		OtherPath []string `description:"Session directory/file" `
+	} `positional-args:"yes"`
+	Options struct {
+		Recursive bool `short:"r" description:"Recursively remove directory contents"`
+		Force     bool `short:"f" description:"ignore nonexistent files, never prompt"`
+	} `group:"rm options"`
+}
+
+// Execute - Command
+func (rm *Rm) Execute(args []string) (err error) {
+
+	// Mandatory field
+	res, err := transport.RPC.Rm(context.Background(), &sliverpb.RmReq{
+		Path:      rm.Positional.Path,
+		Recursive: rm.Options.Recursive,
+		Force:     rm.Options.Force,
+		Request:   ContextRequest(cctx.Context.Sliver.Session),
+	})
+	if err != nil {
+		fmt.Printf(util.Error+"%s\n", err)
+	} else {
+		fmt.Printf(util.Info+"Removed %s\n", res.Path)
+	}
+
+	// Other paths/files
+	for _, other := range rm.Positional.OtherPath {
+		res, err := transport.RPC.Rm(context.Background(), &sliverpb.RmReq{
+			Path:      other,
+			Recursive: rm.Options.Recursive,
+			Force:     rm.Options.Force,
+			Request:   ContextRequest(cctx.Context.Sliver.Session),
+		})
+		if err != nil {
+			fmt.Printf(util.Error+"%s\n", err)
+		} else {
+			fmt.Printf(util.Info+"Removed %s\n", res.Path)
+		}
+	}
+	return
+}
+
+// Mkdir - Create one or more directories on the implant's host.
+type Mkdir struct {
+	Positional struct {
+		Path      string   `description:"directory name" required:"yes"`
+		OtherPath []string `description:"directory name"`
+	} `positional-args:"yes"`
+}
+
+// Execute - Command
+func (md *Mkdir) Execute(args []string) (err error) {
+
+	// Mandatory field
+	mkdir, err := transport.RPC.Mkdir(context.Background(), &sliverpb.MkdirReq{
+		Path:    md.Positional.Path,
+		Request: ContextRequest(cctx.Context.Sliver.Session),
+	})
+	if err != nil {
+		fmt.Printf(util.Error+"%s\n", err)
+	} else {
+		fmt.Printf(util.Info+"%s\n", mkdir.Path)
+	}
+
+	// Other paths/files
+	for _, other := range md.Positional.OtherPath {
+		mkdir, err := transport.RPC.Mkdir(context.Background(), &sliverpb.MkdirReq{
+			Path:    other,
+			Request: ContextRequest(cctx.Context.Sliver.Session),
+		})
+		if err != nil {
+			fmt.Printf(util.Error+"%s\n", err)
+		} else {
+			fmt.Printf(util.Info+"%s\n", mkdir.Path)
+		}
+	}
+
+	return
+}
+
+// Pwd - Print the session current working directory.
+type Pwd struct{}
+
+// Execute - Command
+func (p *Pwd) Execute(args []string) (err error) {
+
+	pwd, err := transport.RPC.Pwd(context.Background(), &sliverpb.PwdReq{
+		Request: ContextRequest(cctx.Context.Sliver.Session),
+	})
+	if err != nil {
+		fmt.Printf(util.Error+"%s\n", err)
+	} else {
+		fmt.Printf(util.Info+"%s\n", pwd.Path)
+	}
+
+	return
+}
+
+// Cat - Print one or more files to screen
+type Cat struct {
+	Positional struct {
+		Path      string   `description:"Remote file name" required:"yes"`
+		OtherPath []string `description:"Remote file name"`
+	} `positional-args:"yes"`
+	Options struct {
+		Colorize bool `short:"c" long:"colorize" description:"Colorize output according to file extension"`
+	} `group:"rm options"`
+}
+
+// Execute - Command
+func (c *Cat) Execute(args []string) (err error) {
+
+	// Mandatory file
+	download, err := transport.RPC.Download(context.Background(), &sliverpb.DownloadReq{
+		Path: c.Positional.Path,
+	})
+	if err != nil {
+		fmt.Printf(util.Error+"%s\n", err)
+		return
+	}
+	if download.Encoder == "gzip" {
+		download.Data, err = new(encoders.Gzip).Decode(download.Data)
+		if err != nil {
+			fmt.Printf(util.Error+"Encoder error: %s\n", err)
+			return
+		}
+	}
+	if c.Options.Colorize {
+		if err = colorize(download); err != nil {
+			fmt.Println(string(download.Data))
+		}
+	} else {
+		fmt.Println(string(download.Data))
+	}
+
+	// Other files
+	for _, other := range c.Positional.OtherPath {
+		download, err = transport.RPC.Download(context.Background(), &sliverpb.DownloadReq{
+			Path: other,
+		})
+		if err != nil {
+			fmt.Printf(util.Error+"%s\n", err)
+			continue
+		}
+		if download.Encoder == "gzip" {
+			download.Data, err = new(encoders.Gzip).Decode(download.Data)
+			if err != nil {
+				fmt.Printf(util.Error+"Encoder error: %s\n", err)
+				return
+			}
+		}
+		if c.Options.Colorize {
+			if err = colorize(download); err != nil {
+				fmt.Println(string(download.Data))
+			}
+		} else {
+			fmt.Println(string(download.Data))
+		}
+	}
+
+	return
+}
+
+func colorize(f *sliverpb.Download) error {
+	lexer := lexers.Match(f.GetPath())
+	if lexer == nil {
+		lexer = lexers.Analyse(string(f.GetData()))
+		if lexer == nil {
+			lexer = lexers.Fallback
+		}
+	}
+	style := styles.Get("monokai")
+	if style == nil {
+		style = styles.Fallback
+	}
+	formatter := formatters.Get("terminal16m")
+	if formatter == nil {
+		formatter = formatters.Fallback
+	}
+	if lexer != nil {
+		iterator, err := lexer.Tokenise(nil, string(f.GetData()))
+		if err != nil {
+			return err
+		}
+		err = formatter.Format(os.Stdout, style, iterator)
+		if err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("no lexer found")
+	}
+	return nil
+}
+
+// Download - Download one or more files from the target to the client.
+type Download struct {
+	Positional struct {
+		LocalPath  string   `description:"Console path (save)" required:"yes"`
+		RemotePath []string `description:"Remote directory name" required:"1"`
+	} `positional-args:"yes"`
+}
+
+// Execute - Command.
+// Behavior is similar to Linu rm: any number of files arguments will be moved into
+// the last, mandary path. The latter can be a file path if file arguments == 1,
+// or a directory where everything will be moved when file arguments > 1
+func (c *Download) Execute(args []string) (err error) {
+	return
+}
+
+// Upload - Upload one or more files from the client to the target filesystem.
+type Upload struct {
+	Positional struct {
+		RemotePath string   `description:"Remote directory/file to save in/as" required:"yes"`
+		LocalPath  []string `description:"directory name" required:"1"`
+	} `positional-args:"yes"`
+}
+
+// Execute - Command.
+// Behavior is similar to Linu rm: any number of files arguments will be moved into
+// the last, mandary path. The latter can be a file path if file arguments == 1,
+// or a directory where everything will be moved when file arguments > 1
+func (c *Upload) Execute(args []string) (err error) {
 	return
 }

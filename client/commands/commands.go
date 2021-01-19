@@ -27,6 +27,8 @@ import (
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
 	"github.com/bishopfox/sliver/client/util"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
 const (
@@ -115,6 +117,19 @@ func OptionByName(cmd *flags.Command, option string) *flags.Option {
 		}
 	}
 	return nil
+}
+
+func ContextRequest(sess *clientpb.Session) (req *commonpb.Request) {
+	req = &commonpb.Request{}
+	if sess == nil {
+		return req
+	}
+	req.SessionID = sess.ID
+
+	// Get command timeout option flag
+	req.Timeout = 60
+
+	return
 }
 
 // bindServerAdminCommands - We bind commands only available to the server admin to the console command parser.
@@ -279,6 +294,18 @@ func bindServerCommands() (err error) {
 	_, err = se.AddCommand("clean", "Clean sessions marked Dead",
 		"", &SessionsClean{})
 
+	// Comm system
+	// --------------------------------------------------------------------------------------------------------------------------------------
+	pf, err := Server.AddCommand(constants.PortfwdStr,
+		"Manage port forwarders for sessions, or the active one (empty: print active port forwards",
+		"", &Portfwd{})
+	pf.Aliases = []string{"comm"}
+	pf.SubcommandsOptional = true
+
+	_, err = pf.AddCommand(constants.PortfwdOpenStr,
+		"Start a new port forwarder for the active session, or by specifying a session ID",
+		"", &PortfwdOpen{})
+
 	return
 }
 
@@ -286,22 +313,76 @@ func bindServerCommands() (err error) {
 func bindSliverCommands() (err error) {
 
 	// Session management
+	// --------------------------------------------------------------------------------------------------------------------------------------
+	b, err := Sliver.AddCommand(constants.BackgroundStr, "Background the current session",
+		help.GetHelpFor(constants.BackgroundStr), &Background{})
+	b.Aliases = []string{"slivers"}
+
+	k, err := Sliver.AddCommand(constants.KillStr, "Kill the current session",
+		help.GetHelpFor(constants.KillStr), &Kill{})
+	k.Aliases = []string{"slivers"}
+
 	i, err := Sliver.AddCommand(constants.UseStr, "Interact with an implant",
 		help.GetHelpFor(constants.UseStr), &Interact{})
-	i.Aliases = []string{"session"}
+	i.Aliases = []string{"slivers"}
 
-	b, err := Sliver.AddCommand(constants.BackgroundStr, "Background an active session",
-		help.GetHelpFor(constants.BackgroundStr), &Background{})
-	b.Aliases = []string{"session"}
+	se, err := Sliver.AddCommand(constants.SessionsStr, "Session management (all contexts)",
+		help.GetHelpFor(constants.SessionsStr), &Sessions{})
+	se.Aliases = []string{"slivers"}
+	se.SubcommandsOptional = true
 
-	k, err := Sliver.AddCommand(constants.KillStr, "Kill this session",
-		help.GetHelpFor(constants.KillStr), &Kill{})
-	k.Aliases = []string{"session"}
+	_, err = se.AddCommand(constants.KillStr, "Kill one or more implant sessions",
+		"", &SessionsKill{})
+	_, err = se.AddCommand(constants.JobsKillAllStr, "Kill all registered sessions",
+		"", &SessionsKillAll{})
+	_, err = se.AddCommand("clean", "Clean sessions marked Dead",
+		"", &SessionsClean{})
 
 	// Filesystem
+	// --------------------------------------------------------------------------------------------------------------------------------------
 	cd, err := Sliver.AddCommand(constants.CdStr, "Change session working directory",
 		"Change session working directory", &ChangeDirectory{})
 	cd.Aliases = []string{"filesystem"}
+
+	ls, err := Sliver.AddCommand(constants.LsStr, "List session directory contents",
+		"", &ListSessionDirectories{})
+	ls.Aliases = []string{"filesystem"}
+
+	rm, err := Sliver.AddCommand(constants.RmStr, "Remove directory/file contents from the session's host",
+		"", &Rm{})
+	rm.Aliases = []string{"filesystem"}
+
+	mkd, err := Sliver.AddCommand(constants.MkdirStr, "Create one or more directories on the implant's host",
+		"", &Mkdir{})
+	mkd.Aliases = []string{"filesystem"}
+
+	pwd, err := Sliver.AddCommand(constants.PwdStr, "Print the session current working directory",
+		"", &Pwd{})
+	pwd.Aliases = []string{"filesystem"}
+
+	cat, err := Sliver.AddCommand(constants.CatStr, "Print one or more files to screen",
+		"", &Cat{})
+	cat.Aliases = []string{"filesystem"}
+
+	dl, err := Sliver.AddCommand(constants.DownloadStr, "Download one or more files from the target to the client",
+		"", &Download{})
+	dl.Aliases = []string{"filesystem"}
+
+	ul, err := Sliver.AddCommand(constants.UploadStr, "Upload one or more files from the client to the target filesystem",
+		"", &Upload{})
+	ul.Aliases = []string{"filesystem"}
+
+	// Comm system
+	// --------------------------------------------------------------------------------------------------------------------------------------
+	pf, err := Sliver.AddCommand(constants.PortfwdStr,
+		"Manage port forwarders for sessions, or the active one (empty: print active port forwards",
+		"", &Portfwd{})
+	pf.Aliases = []string{"comm"}
+	pf.SubcommandsOptional = true
+
+	_, err = pf.AddCommand(constants.PortfwdOpenStr,
+		"Start a new port forwarder for the active session, or by specifying a session ID",
+		"", &PortfwdOpen{})
 
 	return
 }

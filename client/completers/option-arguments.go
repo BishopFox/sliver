@@ -21,6 +21,7 @@ package completers
 import (
 	"strings"
 
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/context"
 	"github.com/jessevdk/go-flags"
 	"github.com/maxlandon/readline"
@@ -30,7 +31,9 @@ import (
 // Many categories, from multiple sources in multiple contexts
 func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord string) (prefix string, completions []*readline.CompletionGroup) {
 
-	// opt := commands.OptionByName(cmd, arg)
+	// By default the last word is the prefix
+	prefix = lastWord
+
 	var comp *readline.CompletionGroup // This group is used as a buffer, to add groups to final completions
 
 	// First of all: some options, no matter their contexts and subject, have default values.
@@ -48,25 +51,36 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 	}
 
 	// Depends first on the current menu context.
-	// We have a different problem here than for command arguments: options may pertain to different contexts, no matter the context
-	// in which we are when using this option (module options, for instance). Therefore the filtering is a bit different, involved.
-	//
+	// We have a different problem here than for command arguments: options
+	// may pertain to different contexts, no matter the context in which we
+	// are when using this option (module options, for instance).
+	// Therefore the filtering is a bit different, involved.
 	// We have 3 words, potentially different, with which we can filter:
 	//
 	// 1) '--option-name' is the string typed as input.
 	// 2) 'OptionName' is the name of the struct/type for this option.
 	// 3) 'ValueName' is the name of the value we expect.
-	//
+	var match = func(name string) bool {
+		if strings.Contains(opt.Field().Name, name) {
+			return true
+		}
+		return false
+	}
+
 	switch context.Context.Menu {
 	case context.Server:
-		// Any arguments with a path name
-		if strings.Contains(opt.Field().Name, "Path") {
-			// Then we refine with value name, which might include words as 'binary', 'sliver', etc.
+		// Sessions
+		if match("ImplantID") || match("SessionID") {
+			completions = append(completions, sessionIDs())
+		}
+
+		// Any arguments with a path name. Often we "save" files that need paths, certificates, etc
+		if match("Path") || match("Save") || match("Certificate") || match("PrivateKey") {
 			switch opt.ValueName {
-			case "local-path":
+			case "local-path", "path":
 				prefix, comp = completeLocalPath(lastWord)
 				completions = append(completions, comp)
-			case "local-file":
+			case "local-file", "file":
 				prefix, comp = completeLocalPathAndFiles(lastWord)
 				completions = append(completions, comp)
 			default:
@@ -76,35 +90,55 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 			}
 		}
 
-		// Often we "save" files that need paths
-		if strings.Contains(opt.Field().Name, "Save") {
-			// Then we refine with value name, which might include words as 'binary', 'sliver', etc.
-			switch opt.ValueName {
-			default:
-				// We always have a default searching for files, locally
-				prefix, comp = completeLocalPathAndFiles(lastWord)
-				completions = append(completions, comp)
-			}
+		// Local host: client/server interfaces, routed implant interfaces
+		// We include generate --c2 protocolr strings (ex: --mtls)
+		if match("LHost") || match("MTLS") || match("HTTP") || match("DNS") || match("NamedPipe") {
+			// Locally, we add IPv4/IPv6 interfaces
+			completions = append(completions, clientInterfaceAddrs(lastWord))
+
+			// All implant host addresses reachable through a route.
+			completions = append(completions, routedSessionIfaceAddrs(lastWord, 0)...)
 		}
 
-		// Certificate and key files
-		if strings.Contains(opt.Field().Name, "Certificate") || strings.Contains(opt.Field().Name, "PrivateKey") {
-			if strings.Contains(opt.ValueName, "path") {
-				prefix, comp = completeLocalPath(lastWord)
-				completions = append(completions, comp)
+		// Remote hosts: server interfaces, implant local and public
+		if match("RHost") {
+			completions = append(completions, allSessionIfaceAddrs(lastWord, 0)...)
+		}
+
+		// Network/CIDR:
+		if match("Network") || match("CIDR") || match("Subnet") {
+			completions = append(completions, allSessionsIfaceNetworks(lastWord, 0)...)
+		}
+
+	case context.Sliver:
+		sliverID := context.Context.Sliver.Session.ID
+
+		// Sessions
+		if match("ImplantID") || match("SessionID") {
+			completions = append(completions, sessionIDs())
+		}
+
+		if match("LHost") {
+			// Client IPv4/IPv6 interfaces for port forwarders
+			if cmd.Name == constants.PortfwdOpenStr {
+				completions = append(completions, clientInterfaceAddrs(lastWord))
 			} else {
-				// We always have a default searching for files
-				prefix, comp = completeLocalPathAndFiles(lastWord)
-				completions = append(completions, comp)
+				// Else we are starting a handler, or something like. Separate group for active session
+				completions = append(completions, sessionIfaceAddrs(lastWord, context.Context.Sliver.Session))
 			}
+
+			// Remaining routed implants
+			completions = append(completions, routedSessionIfaceAddrs(lastWord, sliverID)...)
 		}
 
-		// Host addresses
-		if strings.Contains(opt.Field().Name, "LHost") || strings.Contains(opt.Field().Name, "RHost") {
-			// Locally, we add IPv4/IPv6 interfaces (check for option value-name for ip6)
+		if match("RHost") {
+			// Separate group for active session
+			completions = append(completions, sessionIfaceAddrs(lastWord, context.Context.Sliver.Session))
 
-			// If implants on, ask them their interfaces, and add a group for each implant.
+			// This might be used by port forwarders (need local loopbacks)
+			completions = append(completions, allSessionIfaceAddrs(lastWord, sliverID)...)
 		}
+
 	}
 	return
 }

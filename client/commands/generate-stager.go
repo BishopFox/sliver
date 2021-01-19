@@ -48,7 +48,7 @@ type GenerateStager struct {
 	TransportOptions struct {
 		LHost    string `long:"lhost" description:"Listening host address" required:"true"`
 		LPort    int    `long:"lport" description:"Listening host port" default:"8443"`
-		Protocol string `long:"protocol" description:"Staging protocol (tcp/http/https)" default:"tcp"`
+		Protocol string `long:"protocol" description:"Staging protocol (tcp/http/https)" default:"tcp" value-name:"stager protocol"`
 		Timeout  int    `long:"timeout" description:"Command timeout in seconds"`
 	} `group:"Transport options"`
 }

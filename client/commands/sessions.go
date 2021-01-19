@@ -87,6 +87,10 @@ func (sk *SessionsKill) Execute(args []string) (err error) {
 	for _, session := range sessions.GetSessions() {
 		sessionsMap[session.ID] = session
 	}
+	if len(sessionsMap) == 0 {
+		fmt.Printf(util.Info + "No sessions \n")
+		return
+	}
 
 	// Kill each ID
 	for _, id := range sk.Positional.SessionID {
@@ -123,6 +127,10 @@ func (ka *SessionsKillAll) Execute(args []string) (err error) {
 	sessionsMap := map[uint32]*clientpb.Session{}
 	for _, session := range sessions.GetSessions() {
 		sessionsMap[session.ID] = session
+	}
+	if len(sessionsMap) == 0 {
+		fmt.Printf(util.Info + "No sessions \n")
+		return
 	}
 
 	// Kill all IDs
@@ -161,6 +169,10 @@ func (ka *SessionsClean) Execute(args []string) (err error) {
 	sessionsMap := map[uint32]*clientpb.Session{}
 	for _, session := range sessions.GetSessions() {
 		sessionsMap[session.ID] = session
+	}
+	if len(sessionsMap) == 0 {
+		fmt.Printf(util.Info + "No sessions \n")
+		return
 	}
 
 	// Kill all IDs
@@ -204,6 +216,7 @@ func (i *Interact) Execute(args []string) (err error) {
 		fmt.Printf(util.Info+"Active session %s (%d)\n", session.Name, session.ID)
 	} else {
 		fmt.Printf(util.Error+"Invalid session name or session number '%s'\n", i.Positional.ImplantID)
+		return
 	}
 
 	// For the moment, we ask the current working directory to implant...
@@ -276,7 +289,6 @@ func GetSession(arg string) *clientpb.Session {
 	}
 	for _, session := range sessions.GetSessions() {
 		if fmt.Sprintf("%d", session.ID) == arg {
-			// if session.Name == arg || fmt.Sprintf("%d", session.ID) == arg {
 			return session
 		}
 	}
