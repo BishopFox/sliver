@@ -229,8 +229,8 @@ func bindServerCommands() (err error) {
 
 	gs, err := g.AddCommand(constants.StagerStr, "Generate a stager shellcode payload using MSFVenom, (to file: --save, to stdout: --format",
 		help.GetHelpFor(constants.StagerStr), &GenerateStager{})
-	g.FindOptionByLongName("os").Choices = implantOS
-	g.FindOptionByLongName("arch").Choices = implantArch
+	gs.FindOptionByLongName("os").Choices = implantOS
+	gs.FindOptionByLongName("arch").Choices = implantArch
 	gs.FindOptionByLongName("protocol").Choices = msfStagerProtocols
 	gs.FindOptionByLongName("format").Choices = msfTransformFormats
 
@@ -263,9 +263,21 @@ func bindServerCommands() (err error) {
 
 	// Session management
 	// --------------------------------------------------------------------------------------------------------------------------------------
-	i, err := Server.AddCommand(constants.InteractStr, "Interact with an implant",
-		help.GetHelpFor(constants.InteractStr), &Interact{})
-	i.Aliases = []string{"sessions"}
+	i, err := Server.AddCommand(constants.UseStr, "Interact with an implant",
+		help.GetHelpFor(constants.UseStr), &Interact{})
+	i.Aliases = []string{"slivers"}
+
+	se, err := Server.AddCommand(constants.SessionsStr, "Session management (all contexts)",
+		help.GetHelpFor(constants.SessionsStr), &Sessions{})
+	se.Aliases = []string{"slivers"}
+	se.SubcommandsOptional = true
+
+	_, err = se.AddCommand(constants.KillStr, "Kill one or more implant sessions",
+		"", &SessionsKill{})
+	_, err = se.AddCommand(constants.JobsKillAllStr, "Kill all registered sessions",
+		"", &SessionsKillAll{})
+	_, err = se.AddCommand("clean", "Clean sessions marked Dead",
+		"", &SessionsClean{})
 
 	return
 }
@@ -274,8 +286,8 @@ func bindServerCommands() (err error) {
 func bindSliverCommands() (err error) {
 
 	// Session management
-	i, err := Sliver.AddCommand(constants.InteractStr, "Interact with an implant",
-		help.GetHelpFor(constants.InteractStr), &Interact{})
+	i, err := Sliver.AddCommand(constants.UseStr, "Interact with an implant",
+		help.GetHelpFor(constants.UseStr), &Interact{})
 	i.Aliases = []string{"session"}
 
 	b, err := Sliver.AddCommand(constants.BackgroundStr, "Background an active session",

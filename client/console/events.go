@@ -95,11 +95,16 @@ func (c *console) startEventHandler() (err error) {
 		case consts.SessionClosedEvent:
 			session := event.Session
 			// We print a message here if its not about a session we killed ourselves, and adapt prompt
-			if session.ID != cctx.Context.Sliver.ID {
+			if cctx.Context.Sliver != nil && session.ID != cctx.Context.Sliver.ID {
 				fmt.Printf("\n\n") // Clear screen a bit before announcing the king
 				fmt.Printf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
 				c.Shell.RefreshMultiline(Prompt.Render(), 0, false)
+
+			} else if cctx.Context.Sliver == nil {
+				fmt.Printf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
+					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
+				// c.Shell.RefreshMultiline(Prompt.Render(), 0, false)
 			} else {
 				// If we have disconnected our own context, we have a 1 sec timelapse to wait for this message.
 				time.Sleep(time.Millisecond * 200)

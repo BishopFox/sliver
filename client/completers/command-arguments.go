@@ -118,7 +118,7 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 	// Completions that do not depend on context, and that should either be unique, or be appended to the comp list by default.
 
 	// Sessions
-	if strings.Contains(found.Name, "ImplantID") {
+	if strings.Contains(found.Name, "ImplantID") || strings.Contains(found.Name, "SessionID") {
 		sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
 		if err != nil {
 			fmt.Printf(util.RPCError+"%s", err)

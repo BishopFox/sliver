@@ -102,18 +102,22 @@ func (t *Table) SetColumns(names []string, widths []int) error {
 			statusCb := func(status string) tablewriter.Colors {
 				switch status {
 				case "ALIVE", "Alive":
-					return tablewriter.Colors{tablewriter.FgGreenColor}
+					return tablewriter.Colors{tablewriter.Normal, tablewriter.FgGreenColor}
 				case "DEAD", "Dead":
-					return tablewriter.Colors{tablewriter.FgRedColor}
+					return tablewriter.Colors{tablewriter.Normal, tablewriter.FgRedColor}
 				case "PENDING", "Pending":
-					return tablewriter.Colors{tablewriter.FgYellowColor}
+					return tablewriter.Colors{tablewriter.Normal, tablewriter.FgYellowColor}
 				case "ASLEEP", "Asleep":
-					return tablewriter.Colors{tablewriter.FgCyanColor}
+					return tablewriter.Colors{tablewriter.Normal, tablewriter.FgCyanColor}
 				default:
 					return tablewriter.Colors{tablewriter.Italic, tablewriter.FgHiBlackColor}
 				}
 			}
 			t.callbacks[name] = statusCb
+
+			columnColors = append(columnColors, tablewriter.Colors{
+				tablewriter.Normal,
+			})
 
 		case "Value":
 			// All module/extension values are bolded
@@ -141,6 +145,7 @@ func (t *Table) SetColumns(names []string, widths []int) error {
 			})
 		}
 	}
+	t.Table.SetColumnColor(columnColors...)
 
 	// Length: in order to optimize printing
 	for i, width := range widths {
@@ -161,21 +166,18 @@ func (t *Table) AppendRow(items []string) error {
 	var rowColors []tablewriter.Colors // Item coloring
 	var rowItems []string              //Processed items
 
-	// For each item (column) apply:
-	// - Coloring
-	// - Wrapping
+	// For each item (column) apply coloring and wrapping
 	for i, item := range items {
 
 		// Check for a callback first and apply it if found.
 		if cb, ok := t.callbacks[t.headers[i]]; ok {
 			rowColors = append(rowColors, cb(item))
-			continue
+		} else {
+			// By default colum contents are normal
+			rowColors = append(rowColors, tablewriter.Colors{
+				tablewriter.Normal,
+			})
 		}
-
-		// By default colum contents are normal
-		rowColors = append(rowColors, tablewriter.Colors{
-			tablewriter.Normal,
-		})
 
 		// Wrapping
 		if len(item) > t.maxColumnWidth {
