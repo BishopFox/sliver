@@ -30,6 +30,7 @@ import (
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/evilsocket/islazy/tui"
 )
 
 // NewProfile - Configure and save a new implant profile.
@@ -194,4 +195,27 @@ func getLimitsString(config *clientpb.ImplantConfig) string {
 		limits = append(limits, fmt.Sprintf("fileexists=%s", config.LimitFileExists))
 	}
 	return strings.Join(limits, "; ")
+}
+
+// ProfileDelete - Delete one or more profiles from the server
+type ProfileDelete struct {
+	Positional struct {
+		Profiles []string `description:"Name of profile to delete" required:"1"`
+	} `positional-args:"yes" required:"true"`
+}
+
+// Execute - Command
+func (pd *ProfileDelete) Execute(args []string) (err error) {
+	for _, p := range pd.Positional.Profiles {
+		_, err := transport.RPC.DeleteImplantProfile(context.Background(), &clientpb.DeleteReq{
+			Name: p,
+		})
+		if err != nil {
+			fmt.Printf(util.Warn+"Failed to delete profile %s\n", err)
+			continue
+		} else {
+			fmt.Printf(util.Info+"Delete profile %s\n", tui.Bold(p))
+		}
+	}
+	return
 }

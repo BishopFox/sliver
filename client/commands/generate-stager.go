@@ -41,7 +41,7 @@ type GenerateStager struct {
 	PayloadOptions struct {
 		OS       string `long:"os" description:"Target host operating system" default:"windows" value-name:"stage OS"`
 		Arch     string `long:"arch" description:"Target host CPU architecture" default:"amd64" value-name:"stage architectures"`
-		Format   string `long:"format" description:"Output format (MSF Venom formats). List is auto-completed" default:"raw" value-name:"MSF Venom transform formats"`
+		Format   string `long:"msf-format" description:"Output format (MSF Venom formats). List is auto-completed" default:"raw" value-name:"MSF Venom transform formats"`
 		BadChars string `long:"badchars" description:"Bytes to exclude from stage shellcode"`
 		Save     string `long:"save" description:"Directory to save the generated stager to"`
 	} `group:"Payload options"`

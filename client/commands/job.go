@@ -59,21 +59,23 @@ func (j *Jobs) Execute(args []string) (err error) {
 // JobsKill - Kill a job given an ID
 type JobsKill struct {
 	Positional struct {
-		JobID uint32 `description:"Active job ID" `
+		JobID []uint32 `description:"Active job ID" required:"1"`
 	} `positional-args:"yes" required:"true"`
 }
 
 // Execute - Kill a job given an ID
 func (j *JobsKill) Execute(args []string) (err error) {
-	jobID := j.Positional.JobID
-	fmt.Printf(util.Info+"Killing job #%d ...", jobID)
-	jobKill, err := transport.RPC.KillJob(context.Background(), &clientpb.KillJobReq{
-		ID: jobID,
-	})
-	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
-	} else {
-		fmt.Printf(util.Info+"Successfully killed job #%d\n", jobKill.ID)
+
+	for _, jobID := range j.Positional.JobID {
+		fmt.Printf(util.Info+"Killing job #%d ...", jobID)
+		jobKill, err := transport.RPC.KillJob(context.Background(), &clientpb.KillJobReq{
+			ID: jobID,
+		})
+		if err != nil {
+			fmt.Printf(util.Error+"%s\n", err)
+		} else {
+			fmt.Printf(util.Info+"Successfully killed job #%d\n", jobKill.ID)
+		}
 	}
 	return
 }

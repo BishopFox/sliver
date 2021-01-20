@@ -64,7 +64,7 @@ func HintCompleter(line []rune, pos int) (hint []rune) {
 		}
 
 		// If command has args, hint for args
-		if arg, yes := commandArgumentRequired(lastWord, args, command, false); yes { // add *commands.Context.Menu in the string here
+		if arg, yes := commandArgumentRequired(lastWord, args, command); yes { // add *commands.Context.Menu in the string here
 			hint = []rune(CommandArgumentHints(args, last, command, arg))
 		}
 
@@ -97,7 +97,7 @@ func CommandHint(command *flags.Command) (hint []rune) {
 func HandleSubcommandHints(args []string, last []rune, command *flags.Command) (hint []rune) {
 
 	// If command has args, hint for args
-	if arg, yes := commandArgumentRequired(string(last), args, command, true); yes {
+	if arg, yes := commandArgumentRequired(string(last), args, command); yes {
 		hint = []rune(CommandArgumentHints(args, last, command, arg))
 		return
 	}

@@ -70,7 +70,7 @@ func (s *Sessions) Execute(args []string) (err error) {
 // SessionsKill - Kill one or more sessions that are not mandatorily the current one.
 type SessionsKill struct {
 	Positional struct {
-		SessionID []uint32 `description:"Session ID (multiple values accepted)" `
+		SessionID []uint32 `description:"Session ID (multiple values accepted)" required:"1"`
 	} `positional-args:"yes" required:"true"`
 }
 
@@ -298,8 +298,10 @@ func GetSession(arg string) *clientpb.Session {
 // Kill - Kill the active session.
 // Therefore this command is different from the one in Sessions struct.
 type Kill struct {
-	Force   bool `long:"force" description:"Force kill, does not clean up"`
-	Timeout int  `long:"timeout" description:"Command timeout in seconds" default:"60"`
+	Options struct {
+		Force   bool `long:"force" description:"Force kill, does not clean up"`
+		Timeout int  `long:"timeout" description:"Command timeout in seconds" default:"60"`
+	} `group:"kill options"`
 }
 
 // Execute - Kill the active session.

@@ -142,43 +142,94 @@ func hasArgs(command *flags.Command) bool {
 }
 
 // commandArgumentRequired - Analyses input and sends back the next argument name to provide completion for
-func commandArgumentRequired(lastWord string, args []string, command *flags.Command, isSub bool) (name string, yes bool) {
+func commandArgumentRequired(lastWord string, args []string, command *flags.Command) (name string, yes bool) {
 
 	// Trim command and subcommand args
 	var remain []string
-	if isSub {
-		remain = args[2:]
-	} else {
+	if args[0] == command.Name {
 		remain = args[1:]
 	}
-
-	remain = filterOptions(remain, command)
-
-	// We get the number of argument fields in command struct
-	switch length := len(command.Args()); {
-	case length == 1:
-		arg := command.Args()[0]
-		// if arg.Required == 1 && len(remain) == 0 {
-		if arg.Required == 1 && arg.RequiredMaximum == 1 && len(remain) == 0 {
-			return arg.Name, true
-		}
-		if len(remain) == 1 {
-			return arg.Name, true
-		}
-
-	case length == 2:
-		arg1 := command.Args()[0]
-		arg2 := command.Args()[1]
-		if len(remain) == 1 {
-			return arg1.Name, true
-		}
-		if len(remain) == 2 {
-			return arg2.Name, true
-		}
-	default:
+	if len(args) > 1 && args[1] == command.Name {
+		remain = args[2:]
 	}
 
-	return
+	// The remain may include a "" as a last element,
+	// which we don't consider as a real remain, so we move it away
+	if lastWord == "" {
+		if len(remain) > 1 {
+			remain = remain[:]
+		}
+		if len(remain) == 1 { // Avoid index error
+			remain = []string{}
+		}
+	}
+
+	// Trim all --option flags and their arguments if they have
+	remain = filterOptions(remain, command)
+
+	// For each argument, check if needs completion. If not continue, if yes return.
+	// The arguments remainder is popped according to the number of values expected.
+	for i, arg := range command.Args() {
+
+		// If it's required and has one argument, check filled.
+		if arg.Required == 1 && arg.RequiredMaximum == 1 {
+
+			// If filed and last arg,
+			if len(remain) == 1 && i == (len(command.Args())-1) {
+				// return only if lastWord is a space, because we might be completing
+				// a path, or any value that has its own dynamic completer.
+				if lastWord == "" {
+					break
+				} else {
+					return arg.Name, true
+				}
+			}
+
+			// If filed and we are not last arg, continue
+			if len(remain) > 1 && i < (len(command.Args())-1) {
+				remain = remain[1:]
+				continue
+			}
+
+			// If not filed and we are last arg, complete
+			if len(remain) == 0 && i == (len(command.Args())-1) {
+				return arg.Name, true
+			}
+		}
+
+		// If we need more than one value, either return or pop the remain.
+		if arg.Required > 0 && arg.RequiredMaximum > 1 {
+			// Pop the corresponding amount of arguments.
+			var found int
+			for i := 0; i < len(remain) && i < arg.RequiredMaximum; i++ {
+				remain = remain[1:]
+				found++
+			}
+
+			// If we still need values:
+			if len(remain) == 0 && found <= arg.RequiredMaximum {
+				if lastWord == "" { // We are done, no more completions.
+					break
+				} else {
+					return arg.Name, true
+				}
+			}
+			// Else go on with the next argument
+			continue
+		}
+
+		// Else, if no requirements
+		// NOTE: This block is after because we always use []type arguments
+		// AFTER individual argument fields.
+		if arg.Required == -1 {
+			return arg.Name, true
+		}
+	}
+
+	// Once we exited the loop, it means that none of the arguments require completion:
+	// They are all either optional, or fullfiled according to their required numbers.
+	// Thus we return none
+	return "", false
 }
 
 // getRemainingArgs - Filters the input slice from commands and detected option:value pairs, and returns args
@@ -355,8 +406,9 @@ func filterOptions(args []string, command *flags.Command) (processed []string) {
 				if opt.Field().Type == reflect.TypeOf(boolean) {
 					continue
 				}
+				// Else skip the option argument (next item)
+				i++
 			}
-			i++
 			continue
 		}
 		processed = append(processed, arg)

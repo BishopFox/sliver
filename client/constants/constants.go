@@ -85,6 +85,7 @@ const (
 	ProfileGenerateStr = "generate-profile"
 	StagerStr          = "stager"
 	ProfilesStr        = "profiles"
+	ProfilesDeleteStr  = "delete"
 	NewProfileStr      = "new-profile"
 
 	ImplantBuildsStr = "implants"

@@ -74,8 +74,7 @@ func (cd *ChangeClientDirectory) Execute(args []string) (err error) {
 // ListClientDirectories - List directory contents
 type ListClientDirectories struct {
 	Positional struct {
-		Path      string   `description:"Local directory/file"`
-		OtherPath []string `description:"Local directory/file" `
+		Path []string `description:"Local directory/file"`
 	} `positional-args:"yes"`
 }
 
@@ -84,22 +83,16 @@ func (ls *ListClientDirectories) Execute(args []string) error {
 
 	base := []string{"ls", "--color", "-l"}
 
-	var fullPath string
-	if ls.Positional.Path == "" {
-		wd, _ := os.Getwd()
-		fullPath, _ = fs.Expand(wd)
-	} else {
-		fullPath, _ = fs.Expand(ls.Positional.Path)
+	if len(ls.Positional.Path) == 0 {
+		ls.Positional.Path = []string{"."}
 	}
 
-	base = append(base, fullPath)
-
-	fullOtherPaths := []string{}
-	for _, path := range ls.Positional.OtherPath {
+	fullPaths := []string{}
+	for _, path := range ls.Positional.Path {
 		full, _ := fs.Expand(path)
-		fullOtherPaths = append(fullOtherPaths, full)
+		fullPaths = append(fullPaths, full)
 	}
-	base = append(base, fullOtherPaths...)
+	base = append(base, fullPaths...)
 
 	err := util.Shell(base)
 	if err != nil {
