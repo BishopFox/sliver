@@ -222,7 +222,7 @@ func commandArgumentRequired(lastWord string, args []string, command *flags.Comm
 		// NOTE: This block is after because we always use []type arguments
 		// AFTER individual argument fields.
 		if arg.Required == -1 {
-			return arg.Name, true
+			continue
 		}
 	}
 

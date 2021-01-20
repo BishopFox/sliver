@@ -277,7 +277,7 @@ func bindServerCommands() (err error) {
 	s.FindOptionByLongName("url").Choices = stageListenerProtocols
 
 	ws, err := Server.AddCommand(constants.WebsitesStr,
-		"Manage websites (used with HTTP C2)", "",
+		"Manage websites (used with HTTP C2) (prints website name argument by default)", "",
 		&Websites{})
 	ws.Aliases = []string{"transports"}
 	ws.SubcommandsOptional = true
