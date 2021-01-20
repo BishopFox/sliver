@@ -27,8 +27,10 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/bishopfox/sliver/client/log"
 	"github.com/bishopfox/sliver/protobuf/commpb"
 )
 
@@ -41,6 +43,7 @@ type Comm struct {
 	ssh           ssh.Conn          // SSH Connection, that we will mux
 	config        *ssh.ClientConfig // We are the talking to the C2 server.
 	fingerprint   string            // A key fingerprint to authenticate the server/pivot.
+	Log           *logrus.Logger    // Client logger, passed around to subcomponents
 
 	// Connection management
 	requests <-chan *ssh.Request   // Keep alive
@@ -60,6 +63,9 @@ func InitClient(conn net.Conn, key []byte, fingerprint string) (err error) {
 	comm := &Comm{
 		fingerprint: fingerprint,
 		mutex:       &sync.RWMutex{}}
+
+	// Register the client logger. The comm field will be overriden.
+	comm.Log = log.NewClientLogger("comm")
 
 	// Pepare the SSH conn/security, and set keepalive policies/handlers.
 	err = comm.setupAuthClient(key, "")
@@ -122,6 +128,7 @@ func (comm *Comm) verifyServer(hostname string, remote net.Addr, key ssh.PublicK
 	if got != expect {
 		return fmt.Errorf("Invalid fingerprint (%s)", got)
 	}
+	comm.Log.Debugf("Server SSH fingerprint: %s", got)
 
 	return nil
 }
@@ -175,7 +182,7 @@ func (comm *Comm) serveRequests() {
 			if forwarder != nil {
 				err := forwarder.Close(true)
 				if err == nil {
-					fmt.Printf("[*] %s %s forwarder closed (session disconnect)\n",
+					comm.Log.Errorf("%s %s forwarder closed (session disconnect)\n",
 						forwarder.Info().Type.String(), forwarder.Info().Transport.String())
 				}
 			}

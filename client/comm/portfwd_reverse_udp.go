@@ -28,6 +28,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/golang/protobuf/proto"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -45,6 +46,7 @@ type reverseForwarderUDP struct {
 	info      *commpb.Handler
 	sessionID uint32
 	pending   chan io.ReadWriteCloser
+	log       *logrus.Entry
 	// UDP
 	inbound  *udpStream
 	outbound *udpConns
@@ -63,6 +65,7 @@ func newReverseForwarderUDP(info *commpb.Handler) (f *reverseForwarderUDP, err e
 			m: map[string]*udpConn{},
 		},
 		pending: make(chan io.ReadWriteCloser),
+		log:     ClientComm.Log.WithField("comm", "portfwd"),
 	}
 	id, _ := uuid.NewGen().NewV1()
 	f.info.ID = id.String()

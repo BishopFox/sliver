@@ -27,6 +27,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/golang/protobuf/proto"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -43,6 +44,7 @@ type directForwarderTCP struct {
 	inbound     net.Listener
 	connections map[string]net.Conn
 	localAddr   string
+	log         *logrus.Entry
 }
 
 // newListenerTCP - Creates a new listener tied to an ID, with complete network/address information.
@@ -54,6 +56,7 @@ func newDirectForwarderTCP(info *commpb.Handler, lhost string, lport int) (f *di
 	f = &directForwarderTCP{
 		info:        info,
 		connections: map[string]net.Conn{},
+		log:         ClientComm.Log.WithField("comm", "portfwd"),
 	}
 	id, _ := uuid.NewGen().NewV1()
 	f.info.ID = id.String()
@@ -80,6 +83,7 @@ func newDirectForwarderTCP(info *commpb.Handler, lhost string, lport int) (f *di
 	if err != nil {
 		return nil, fmt.Errorf("listen: %s", err)
 	}
+	f.log.Debugf("listening TCP on %s", f.localAddr)
 
 	// We first register the abstracted listener: we don't know how fast the implant
 	// comm might send us a connection back. We deregister if failure.
@@ -119,9 +123,11 @@ func (f *directForwarderTCP) serve() {
 		if err != nil {
 			// If the error arises from the accepted connection
 			if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+				f.log.Warn("listener accept failed: timeout")
 				continue
 			}
 			// Else the error is likely to be a closed listener, so return.
+			f.log.Warn("listener done serving")
 			return
 		}
 		go f.handle(conn)
@@ -130,6 +136,7 @@ func (f *directForwarderTCP) serve() {
 
 // handle - Make some info with the connection and its handler, and send through Comm. Server will dispatch.
 func (f *directForwarderTCP) handle(conn net.Conn) (err error) {
+	f.log.Tracef("handling (tcp) %s --> %s", conn.RemoteAddr(), conn.LocalAddr())
 
 	uri, _ := url.Parse(fmt.Sprintf("%s://%s", conn.LocalAddr().Network(), conn.LocalAddr().String()))
 	if uri == nil {
@@ -154,13 +161,16 @@ func (f *directForwarderTCP) handle(conn net.Conn) (err error) {
 	f.connections[conn.LocalAddr().String()+conn.RemoteAddr().String()] = conn
 
 	// Pipe
+	f.log.Debugf("handling (tcp) %s --> %s", conn.RemoteAddr(), conn.LocalAddr())
 	err = transportConn(conn, dst)
 	if err != nil {
+		f.log.Errorf("Pipe error: %s (%s --> %s)", conn.RemoteAddr(), conn.LocalAddr(), err)
 		return err
 	}
 
 	// Close connections once we're done
 	closeConnections(conn, dst)
+	f.log.Tracef("Closed TCP %s --> %s", conn.RemoteAddr(), conn.LocalAddr())
 
 	// Remove connection from list, if still there
 	if conn != nil {
@@ -171,18 +181,19 @@ func (f *directForwarderTCP) handle(conn net.Conn) (err error) {
 }
 
 // Close - Close the port forwarder, and optionally connections for TCP forwarders
-func (ln *directForwarderTCP) Close(activeConns bool) (err error) {
+func (f *directForwarderTCP) Close(activeConns bool) (err error) {
+	f.log.Debugf("Closing forwarder ID %s", f.info.ID)
 
 	// Close the listener on the client
-	err = ln.inbound.Close()
+	err = f.inbound.Close()
 	if err != nil {
 		return fmt.Errorf("TCP listener error: %s", err.Error())
 	}
 
 	// Remove the listener mapping on the server
 	req := &commpb.PortfwdCloseReq{
-		Handler: ln.info,
-		Request: &commonpb.Request{SessionID: ln.sessionID},
+		Handler: f.info,
+		Request: &commonpb.Request{SessionID: f.sessionID},
 	}
 	data, _ := proto.Marshal(req)
 
@@ -193,6 +204,7 @@ func (ln *directForwarderTCP) Close(activeConns bool) (err error) {
 	}
 	res := &commpb.PortfwdClose{}
 	proto.Unmarshal(resp, res)
+	f.log.Tracef("Closed server-side forwarder")
 
 	// The server might give us an error
 	if !res.Success {
@@ -200,12 +212,13 @@ func (ln *directForwarderTCP) Close(activeConns bool) (err error) {
 	}
 
 	// Else remove the forwarder from the map
-	Forwarders.Remove(ln.info.ID)
+	Forwarders.Remove(f.info.ID)
 
 	// Close connections if asked so
-	if activeConns && len(ln.connections) > 0 {
-		for _, conn := range ln.connections {
+	if activeConns && len(f.connections) > 0 {
+		for _, conn := range f.connections {
 			if conn != nil {
+				f.log.Debugf("Closing conn %s --> %s", conn.RemoteAddr(), conn.LocalAddr())
 				conn.Close()
 			}
 		}

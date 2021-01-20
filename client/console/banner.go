@@ -59,7 +59,6 @@ func printLogo() {
 		fmt.Printf(Info+"Client v%s\n", version.FullVersion())
 	}
 	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
-	fmt.Println()
 	if serverVer.Major != int32(version.SemanticVersion()[0]) {
 		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
 	}

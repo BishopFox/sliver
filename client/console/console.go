@@ -23,11 +23,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"strings"
 
-	"github.com/desertbit/grumble"
 	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -35,7 +35,7 @@ import (
 	"github.com/bishopfox/sliver/client/commands"
 	"github.com/bishopfox/sliver/client/completers"
 	consoleContext "github.com/bishopfox/sliver/client/context"
-	"github.com/bishopfox/sliver/client/log"
+	clientLog "github.com/bishopfox/sliver/client/log"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 
@@ -63,15 +63,11 @@ const (
 // newConsole - Instantiates a new console with some default behavior.
 // We modify/add elements of behavior later in setup.
 func newConsole() *console {
-
 	console := &console{
 		Shell: readline.NewInstance(),
 	}
 	return console
 }
-
-// ExtraCmds - Bind extra commands to the app object
-type ExtraCmds func(*grumble.App, rpcpb.SliverRPCClient)
 
 // console - Central object of the client UI. Only one instance of this object
 // lives in the client executable (instantiated with newConsole() above).
@@ -102,10 +98,6 @@ func (c *console) Connect(conn *grpc.ClientConn, admin bool) (*grpc.ClientConn, 
 			return nil, errors.New("could not register gRPC Admin Client, instance is nil")
 		}
 	}
-
-	// Listen for incoming server/implant events. If an error occurs in this
-	// loop, the console will exit after logging it.
-	go c.startEventHandler()
 
 	// Start message tunnel loop.
 	go transport.TunnelLoop()
@@ -148,8 +140,14 @@ func (c *console) setup() (err error) {
 // Start - The console calls connection and setup functions, and starts the input loop.
 func (c *console) Start() (err error) {
 
+	// Setup console elements
+	err = c.setup()
+	if err != nil {
+		return fmt.Errorf("Console setup failed: %s", err)
+	}
+
 	// Start monitoring all logs from the server and the client.
-	err = log.InitClientLogger()
+	err = clientLog.Init(c.Shell, Prompt.Render, transport.RPC)
 	if err != nil {
 		return fmt.Errorf("Failed to start log monitor (%s)", err.Error())
 	}
@@ -163,17 +161,10 @@ func (c *console) Start() (err error) {
 	// When we will exit this loop, disconnect gracefully from the server.
 	defer c.conn.Close()
 
-	// Setup console elements
-	err = c.setup()
-	if err != nil {
-		log.Fatalf(Error+"Console setup failed: %s", err)
-	}
-
 	// Commands binding. Per-context parsers are setup here.
 	err = commands.BindCommands(c.admin)
 
-	// Print banner and version information.
-	// This will also check the last update time.
+	// Print banner and version information. (checks last updates)
 	printLogo()
 
 	// Start input loop

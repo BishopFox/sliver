@@ -83,6 +83,9 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 			case constants.LsStr, constants.RmStr, constants.CatStr, constants.DownloadStr, constants.UploadStr:
 				prefix, comp = completeRemotePathAndFiles(lastWord)
 				completions = append(completions, comp)
+			case constants.LcdStr:
+				prefix, comp = completeLocalPathAndFiles(lastWord)
+				completions = append(completions, comp)
 			}
 		}
 		if strings.Contains(found.Name, "LocalPath") {

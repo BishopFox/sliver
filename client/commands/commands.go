@@ -207,6 +207,11 @@ func bindServerCommands() (err error) {
 	_, err = j.AddCommand(constants.JobsKillAllStr, "Kill all active jobs on server",
 		"", &JobsKillAll{})
 
+	// Log
+	log, err := Server.AddCommand(constants.LogStr, "Manage log levels of one or more components",
+		"", &Log{})
+	log.Aliases = []string{"core"}
+
 	// transports
 	// --------------------------------------------------------------------------------------------------------------------------------------
 	m, err := Server.AddCommand(constants.MtlsStr, "Start an mTLS listener on server",
@@ -311,6 +316,14 @@ func bindServerCommands() (err error) {
 
 // All commands for controlling sliver implants are bound in this function.
 func bindSliverCommands() (err error) {
+
+	// Log
+	lcd, err := Sliver.AddCommand(constants.LcdStr, "Change the client working directory",
+		"", &ChangeClientDirectory{})
+	lcd.Aliases = []string{"core"}
+	log, err := Sliver.AddCommand(constants.LogStr, "Manage log levels of one or more components",
+		"", &Log{})
+	log.Aliases = []string{"core"}
 
 	// Session management
 	// --------------------------------------------------------------------------------------------------------------------------------------

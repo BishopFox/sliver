@@ -32,6 +32,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/golang/protobuf/proto"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -47,6 +48,7 @@ type directForwarderUDP struct {
 	closed    context.CancelFunc // Notify goroutines the forwader is closed
 	mutex     sync.Mutex
 	sessionID uint32
+	log       *logrus.Entry
 	// Direct
 	localAddr string
 	// UDP
@@ -64,6 +66,7 @@ func newDirectForwarderUDP(info *commpb.Handler, lhost string, lport int) (f *di
 	// Listener object, kept for printing current port forwards.
 	f = &directForwarderUDP{
 		info:  info,
+		log:   ClientComm.Log.WithField("comm", "portfwd"),
 		mutex: sync.Mutex{},
 	}
 	// Additional fields

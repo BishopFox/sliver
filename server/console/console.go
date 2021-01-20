@@ -62,6 +62,7 @@ const (
 	Woot = bold + green + "[$] " + normal
 )
 
+// Start - Start a server console (locally connected)
 func Start() {
 	// Process flags passed to this binary (os.Flags). All flag variables are
 	// in their respective files (but, of course, in this package only).
@@ -88,7 +89,10 @@ func Start() {
 
 	// Start the client console. The latter automatically performs server connection,
 	// prompt/command/completion setup, event loop listening, logging, etc. We start as admin = true
-	client.Console.Start()
+	err = client.Console.Start()
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func checkForLegacyDB() {

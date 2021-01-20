@@ -100,6 +100,8 @@ const (
 	NamedPipeStr   = "named-pipe"
 	TCPListenerStr = "tcp-pivot"
 
+	LogStr = "log"
+
 	MsfStr       = "msf"
 	MsfInjectStr = "msf-inject"
 
@@ -120,6 +122,7 @@ const (
 	RmStr       = "rm"
 	MkdirStr    = "mkdir"
 	CdStr       = "cd"
+	LcdStr      = "lcd"
 	PwdStr      = "pwd"
 	CatStr      = "cat"
 	DownloadStr = "download"

@@ -24,6 +24,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/golang/protobuf/proto"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -37,6 +38,7 @@ type reverseForwarderTCP struct {
 	sessionID   uint32
 	pending     chan ssh.NewChannel
 	connections map[string]net.Conn
+	log         *logrus.Entry
 }
 
 // newReverseForwarderTCP - Creates a new listener tied to an ID, and with basic network/address information.
@@ -49,6 +51,7 @@ func newReverseForwarderTCP(info *commpb.Handler) (f *reverseForwarderTCP, err e
 		info:        info,
 		pending:     make(chan ssh.NewChannel),
 		connections: map[string]net.Conn{},
+		log:         ClientComm.Log.WithField("comm", "portfwd"),
 	}
 
 	id, _ := uuid.NewGen().NewV1()
