@@ -116,7 +116,7 @@ func handleServerLogs(rpc rpcpb.SliverRPCClient) {
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			fmt.Printf("\n\n") // Clear screen a bit before announcing the king
+			fmt.Printf("\n") // Clear screen a bit before announcing the king
 			fmt.Printf(util.Info+"Session #%d has been updated - %v\n\n", session.ID, currentTime)
 			shell.RefreshMultiline(promptRender(), 0, false)
 

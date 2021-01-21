@@ -19,14 +19,17 @@ package commands
 */
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/jessevdk/go-flags"
+	"gopkg.in/AlecAivazis/survey.v1"
 
 	"github.com/bishopfox/sliver/client/constants"
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/help"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -79,7 +82,7 @@ func BindCommands(admin bool) (err error) {
 			return
 		}
 
-		// Session commands, with per-OS filtering
+	// Session commands, with per-OS filtering
 	case cctx.Sliver:
 		Sliver = flags.NewNamedParser("sliver", flags.HelpFlag)
 
@@ -95,6 +98,11 @@ func BindCommands(admin bool) (err error) {
 			if err != nil {
 				return
 			}
+		}
+
+		// Bind previously loaded extensions.
+		for _, extensionBind := range LoadedExtensions {
+			extensionBind()
 		}
 	}
 
@@ -137,6 +145,21 @@ func OptionByName(cmd *flags.Command, option string) *flags.Option {
 	return nil
 }
 
+// GetSession - Get session by session ID or name
+func GetSession(arg string) *clientpb.Session {
+	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(util.Error+"%s\n", err)
+		return nil
+	}
+	for _, session := range sessions.GetSessions() {
+		if fmt.Sprintf("%d", session.ID) == arg {
+			return session
+		}
+	}
+	return nil
+}
+
 // ContextRequest - Forge a Request Protobuf metadata to be sent in a RPC request.
 func ContextRequest(sess *clientpb.Session) (req *commonpb.Request) {
 	req = &commonpb.Request{}
@@ -149,6 +172,14 @@ func ContextRequest(sess *clientpb.Session) (req *commonpb.Request) {
 	req.Timeout = 60
 
 	return
+}
+
+// This should be called for any dangerous (OPSEC-wise) functions
+func isUserAnAdult() bool {
+	confirm := false
+	prompt := &survey.Confirm{Message: "This action is bad OPSEC, are you an adult?"}
+	survey.AskOne(prompt, &confirm, nil)
+	return confirm
 }
 
 // bindServerAdminCommands - We bind commands only available to the server admin to the console command parser.
@@ -189,7 +220,7 @@ func bindServerAdminCommands() (err error) {
 func bindServerCommands() (err error) {
 
 	// core console
-	// --------------------------------------------------------------------------------------------------------------------------------------
+	// ----------------------------------------------------------------------------------------
 	ex, err := Server.AddCommand(constants.ExitStr, // Command string
 		"Exit from the client/server console", // Description (completions, help usage)
 		"",                                    // Long description
@@ -201,6 +232,11 @@ func bindServerCommands() (err error) {
 		help.GetHelpFor(constants.VersionStr),
 		&Version{})
 	v.Aliases = []string{"core"}
+
+	li, err := Server.AddCommand(constants.LicensesStr,
+		"Display project licenses (core & libraries)", "",
+		&Licenses{})
+	li.Aliases = []string{"core"}
 
 	up, err := Server.AddCommand(constants.UpdateStr,
 		"Check for newer Sliver console/server releases",
@@ -252,21 +288,29 @@ func bindServerCommands() (err error) {
 	log.Aliases = []string{"core"}
 
 	// transports
-	// --------------------------------------------------------------------------------------------------------------------------------------
-	m, err := Server.AddCommand(constants.MtlsStr, "Start an mTLS listener on server",
-		help.GetHelpFor(constants.MtlsStr), &MTLSListener{})
+	// ----------------------------------------------------------------------------------------
+	m, err := Server.AddCommand(constants.MtlsStr,
+		"Start an mTLS listener on server",
+		help.GetHelpFor(constants.MtlsStr),
+		&MTLSListener{})
 	m.Aliases = []string{"transports"}
 
-	d, err := Server.AddCommand(constants.DnsStr, "Start a DNS listener",
-		help.GetHelpFor(constants.DnsStr), &DNSListener{})
+	d, err := Server.AddCommand(constants.DnsStr,
+		"Start a DNS listener",
+		help.GetHelpFor(constants.DnsStr),
+		&DNSListener{})
 	d.Aliases = []string{"transports"}
 
-	hs, err := Server.AddCommand(constants.HttpsStr, "Start an HTTP(S) listener",
-		help.GetHelpFor(constants.HttpsStr), &HTTPSListener{})
+	hs, err := Server.AddCommand(constants.HttpsStr,
+		"Start an HTTP(S) listener",
+		help.GetHelpFor(constants.HttpsStr),
+		&HTTPSListener{})
 	hs.Aliases = []string{"transports"}
 
-	h, err := Server.AddCommand(constants.HttpStr, "Start an HTTP listener",
-		help.GetHelpFor(constants.HttpStr), &HTTPListener{})
+	h, err := Server.AddCommand(constants.HttpStr,
+		"Start an HTTP listener",
+		help.GetHelpFor(constants.HttpStr),
+		&HTTPListener{})
 	h.Aliases = []string{"transports"}
 
 	s, err := Server.AddCommand(constants.StageListenerStr,
@@ -296,8 +340,9 @@ func bindServerCommands() (err error) {
 		&WebsiteType{})
 
 	// Implant generation
-	// --------------------------------------------------------------------------------------------------------------------------------------
-	g, err := Server.AddCommand(constants.GenerateStr, "Configure and compile an implant (staged or stager)",
+	// ----------------------------------------------------------------------------------------
+	g, err := Server.AddCommand(constants.GenerateStr,
+		"Configure and compile an implant (staged or stager)",
 		help.GetHelpFor(constants.GenerateStr), &Generate{})
 	g.Aliases = []string{"builds"}
 	g.SubcommandsOptional = true
@@ -306,25 +351,32 @@ func bindServerCommands() (err error) {
 	g.FindOptionByLongName("arch").Choices = implantArch
 	g.FindOptionByLongName("format").Choices = implantFmt
 
-	gs, err := g.AddCommand(constants.StagerStr, "Generate a stager shellcode payload using MSFVenom, (to file: --save, to stdout: --format",
-		help.GetHelpFor(constants.StagerStr), &GenerateStager{})
+	gs, err := g.AddCommand(constants.StagerStr,
+		"Generate a stager shellcode payload using MSFVenom, (to file: --save, to stdout: --format",
+		help.GetHelpFor(constants.StagerStr),
+		&GenerateStager{})
 	gs.FindOptionByLongName("os").Choices = implantOS
 	gs.FindOptionByLongName("arch").Choices = implantArch
 	gs.FindOptionByLongName("protocol").Choices = msfStagerProtocols
 	gs.FindOptionByLongName("msf-format").Choices = msfTransformFormats
 
-	p, err := Server.AddCommand(constants.NewProfileStr, "Configure and save a new (stage) implant profile",
-		help.GetHelpFor(constants.NewProfileStr), &NewProfile{})
+	p, err := Server.AddCommand(constants.NewProfileStr,
+		"Configure and save a new (stage) implant profile",
+		help.GetHelpFor(constants.NewProfileStr),
+		&NewProfile{})
 	p.Aliases = []string{"builds"}
 	// Option arguments mapping
 	p.FindOptionByLongName("os").Choices = implantOS
 	p.FindOptionByLongName("arch").Choices = implantArch
 
-	r, err := Server.AddCommand(constants.RegenerateStr, "Recompile an implant by name, passed as argument (completed)",
-		help.GetHelpFor(constants.RegenerateStr), &Regenerate{})
+	r, err := Server.AddCommand(constants.RegenerateStr,
+		"Recompile an implant by name, passed as argument (completed)",
+		help.GetHelpFor(constants.RegenerateStr),
+		&Regenerate{})
 	r.Aliases = []string{"builds"}
 
-	pr, err := Server.AddCommand(constants.ProfilesStr, "List existing implant profiles",
+	pr, err := Server.AddCommand(constants.ProfilesStr,
+		"List existing implant profiles",
 		help.GetHelpFor(constants.ProfilesStr), &Profiles{})
 	pr.Aliases = []string{"builds"}
 
@@ -332,38 +384,57 @@ func bindServerCommands() (err error) {
 		"Delte one or more existing implant profiles", "",
 		&ProfileDelete{})
 
-	pg, err := Server.AddCommand(constants.ProfileGenerateStr, "Compile an implant based on a profile, passed as argument (completed)",
-		help.GetHelpFor(constants.ProfileGenerateStr), &ProfileGenerate{})
+	pg, err := Server.AddCommand(constants.ProfileGenerateStr,
+		"Compile an implant based on a profile, passed as argument (completed)",
+		help.GetHelpFor(constants.ProfileGenerateStr),
+		&ProfileGenerate{})
 	pg.Aliases = []string{"builds"}
 
-	b, err := Server.AddCommand(constants.ImplantBuildsStr, "List old implant builds",
-		help.GetHelpFor(constants.ImplantBuildsStr), &Builds{})
+	b, err := Server.AddCommand(constants.ImplantBuildsStr,
+		"List old implant builds",
+		help.GetHelpFor(constants.ImplantBuildsStr),
+		&Builds{})
 	b.Aliases = []string{"builds"}
 
-	c, err := Server.AddCommand(constants.ListCanariesStr, "List previously generated DNS canaries",
-		help.GetHelpFor(constants.ListCanariesStr), &Canaries{})
+	c, err := Server.AddCommand(constants.ListCanariesStr,
+		"List previously generated DNS canaries",
+		help.GetHelpFor(constants.ListCanariesStr),
+		&Canaries{})
 	c.Aliases = []string{"builds"}
 
 	// Session management
-	// --------------------------------------------------------------------------------------------------------------------------------------
-	i, err := Server.AddCommand(constants.UseStr, "Interact with an implant",
-		help.GetHelpFor(constants.UseStr), &Interact{})
+	// ----------------------------------------------------------------------------------------
+	i, err := Server.AddCommand(constants.UseStr,
+		"Interact with an implant",
+		help.GetHelpFor(constants.UseStr),
+		&Interact{})
 	i.Aliases = []string{"slivers"}
 
-	se, err := Server.AddCommand(constants.SessionsStr, "Session management (all contexts)",
-		help.GetHelpFor(constants.SessionsStr), &Sessions{})
+	se, err := Server.AddCommand(constants.SessionsStr,
+		"Session management (all contexts)",
+		help.GetHelpFor(constants.SessionsStr),
+		&Sessions{})
 	se.Aliases = []string{"slivers"}
 	se.SubcommandsOptional = true
 
-	_, err = se.AddCommand(constants.KillStr, "Kill one or more implant sessions",
-		"", &SessionsKill{})
-	_, err = se.AddCommand(constants.JobsKillAllStr, "Kill all registered sessions",
-		"", &SessionsKillAll{})
-	_, err = se.AddCommand("clean", "Clean sessions marked Dead",
-		"", &SessionsClean{})
+	_, err = se.AddCommand(constants.KillStr,
+		"Kill one or more implant sessions", "",
+		&SessionsKill{})
+	_, err = se.AddCommand(constants.JobsKillAllStr,
+		"Kill all registered sessions", "",
+		&SessionsKillAll{})
+	_, err = se.AddCommand("clean",
+		"Clean sessions marked Dead", "",
+		&SessionsClean{})
+
+	info, err := Server.AddCommand(constants.InfoStr,
+		"Show session information", "",
+		&Info{})
+	info.Aliases = []string{"slivers"}
 
 	// Comm system
-	// --------------------------------------------------------------------------------------------------------------------------------------
+	// ----------------------------------------------------------------------------------------
+	// Port forwarders
 	pf, err := Server.AddCommand(constants.PortfwdStr,
 		"Manage port forwarders for sessions, or the active one",
 		"", &Portfwd{})
@@ -371,8 +442,25 @@ func bindServerCommands() (err error) {
 	pf.SubcommandsOptional = true
 
 	_, err = pf.AddCommand(constants.PortfwdOpenStr,
-		"Start a new port forwarder for the active session, or by specifying a session ID",
-		"", &PortfwdOpen{})
+		"Start a new port forwarder for the active session, or by specifying a session ID", "",
+		&PortfwdOpen{})
+	_, err = pf.AddCommand(constants.PortfwdCloseStr,
+		"Close one or more port forwarders, for the active session or all, with filters", "",
+		&PortfwdClose{})
+
+	// Network Routes
+	rt, err := Server.AddCommand(constants.RouteStr,
+		"Manage network routes (prints them by default)", "",
+		&Route{})
+	rt.Aliases = []string{"comm"}
+	rt.SubcommandsOptional = true
+
+	_, err = rt.AddCommand(constants.RouteAddStr,
+		"Add a network route (routes client proxies and C2 handlers)", "",
+		&RouteAdd{})
+	_, err = rt.AddCommand(constants.RouteRemoveStr,
+		"Remove one or more network routes", "",
+		&RouteRemove{})
 
 	return
 }
@@ -381,7 +469,7 @@ func bindServerCommands() (err error) {
 func bindSliverCommands() (err error) {
 
 	// Core
-	// --------------------------------------------------------------------------------------------------------------------------------------
+	// ----------------------------------------------------------------------------------------
 	lcd, err := Sliver.AddCommand(constants.LcdStr,
 		"Change the client working directory", "",
 		&ChangeClientDirectory{})
@@ -391,8 +479,33 @@ func bindSliverCommands() (err error) {
 		&Log{})
 	log.Aliases = []string{"core"}
 
+	set, err := Sliver.AddCommand(constants.SetStr,
+		"Set a value for the current session", "",
+		&Set{})
+	set.Aliases = []string{"core"}
+
+	env, err := Sliver.AddCommand(constants.GetEnvStr,
+		"Get one or more host environment variables", "",
+		&SessionEnv{})
+	env.Aliases = []string{"core"}
+
+	sh, err := Sliver.AddCommand(constants.ShellStr,
+		"Start an interactive shell on the session host (not opsec!)", "",
+		&Shell{})
+	sh.Aliases = []string{"core"}
+
+	exec, err := Sliver.AddCommand(constants.ExecuteStr,
+		"Execute a program on the remote system", "",
+		&Execute{})
+	exec.Aliases = []string{"core"}
+
+	ext, err := Sliver.AddCommand(constants.LoadExtensionStr,
+		"Load an extension through the current Sliver session", "",
+		&LoadExtension{})
+	ext.Aliases = []string{"core"}
+
 	// Session management
-	// --------------------------------------------------------------------------------------------------------------------------------------
+	// ----------------------------------------------------------------------------------------
 	b, err := Sliver.AddCommand(constants.BackgroundStr,
 		"Background the current session",
 		help.GetHelpFor(constants.BackgroundStr),
@@ -429,7 +542,11 @@ func bindSliverCommands() (err error) {
 		&SessionsClean{})
 
 	// Info
-	// --------------------------------------------------------------------------------------------------------------------------------------
+	// ----------------------------------------------------------------------------------------
+	info, err := Sliver.AddCommand(constants.InfoStr,
+		"Show session information", "",
+		&Info{})
+	info.Aliases = []string{"info"}
 	uid, err := Sliver.AddCommand(constants.GetUIDStr,
 		"Get session User ID", "",
 		&UID{})
@@ -466,55 +583,88 @@ func bindSliverCommands() (err error) {
 	ping.Aliases = []string{"info"}
 
 	// Filesystem
-	// --------------------------------------------------------------------------------------------------------------------------------------
-	cd, err := Sliver.AddCommand(constants.CdStr, "Change session working directory",
-		"Change session working directory", &ChangeDirectory{})
+	// ----------------------------------------------------------------------------------------
+	cd, err := Sliver.AddCommand(constants.CdStr,
+		"Change session working directory", "",
+		&ChangeDirectory{})
 	cd.Aliases = []string{"filesystem"}
 
-	ls, err := Sliver.AddCommand(constants.LsStr, "List session directory contents",
-		"", &ListSessionDirectories{})
+	ls, err := Sliver.AddCommand(constants.LsStr,
+		"List session directory contents", "",
+		&ListSessionDirectories{})
 	ls.Aliases = []string{"filesystem"}
 
-	rm, err := Sliver.AddCommand(constants.RmStr, "Remove directory/file contents from the session's host",
-		"", &Rm{})
+	rm, err := Sliver.AddCommand(constants.RmStr,
+		"Remove directory/file contents from the session's host", "",
+		&Rm{})
 	rm.Aliases = []string{"filesystem"}
 
-	mkd, err := Sliver.AddCommand(constants.MkdirStr, "Create one or more directories on the implant's host",
-		"", &Mkdir{})
+	mkd, err := Sliver.AddCommand(constants.MkdirStr,
+		"Create one or more directories on the implant's host", "",
+		&Mkdir{})
 	mkd.Aliases = []string{"filesystem"}
 
-	pwd, err := Sliver.AddCommand(constants.PwdStr, "Print the session current working directory",
-		"", &Pwd{})
+	pwd, err := Sliver.AddCommand(constants.PwdStr,
+		"Print the session current working directory", "",
+		&Pwd{})
 	pwd.Aliases = []string{"filesystem"}
 
-	cat, err := Sliver.AddCommand(constants.CatStr, "Print one or more files to screen",
-		"", &Cat{})
+	cat, err := Sliver.AddCommand(constants.CatStr,
+		"Print one or more files to screen", "",
+		&Cat{})
 	cat.Aliases = []string{"filesystem"}
 
-	dl, err := Sliver.AddCommand(constants.DownloadStr, "Download one or more files from the target to the client",
-		"", &Download{})
+	dl, err := Sliver.AddCommand(constants.DownloadStr,
+		"Download one or more files from the target to the client", "",
+		&Download{})
 	dl.Aliases = []string{"filesystem"}
 
-	ul, err := Sliver.AddCommand(constants.UploadStr, "Upload one or more files from the client to the target filesystem",
-		"", &Upload{})
+	ul, err := Sliver.AddCommand(constants.UploadStr,
+		"Upload one or more files from the client to the target filesystem", "",
+		&Upload{})
 	ul.Aliases = []string{"filesystem"}
 
 	// Comm system
-	// --------------------------------------------------------------------------------------------------------------------------------------
+	// ----------------------------------------------------------------------------------------
 	pf, err := Sliver.AddCommand(constants.PortfwdStr,
-		"Manage port forwarders for sessions, or the active one",
-		"", &Portfwd{})
+		"Manage port forwarders for sessions, or the active one", "",
+		&Portfwd{})
 	pf.Aliases = []string{"comm"}
 	pf.SubcommandsOptional = true
 
 	_, err = pf.AddCommand(constants.PortfwdOpenStr,
-		"Start a new port forwarder for the active session, or by specifying a session ID",
-		"", &PortfwdOpen{})
+		"Start a new port forwarder for the active session, or by specifying a session ID", "",
+		&PortfwdOpen{})
+
+	// Proc
+	// ----------------------------------------------------------------------------------------
+
+	// Execution
+	// ----------------------------------------------------------------------------------------
+	msf, err := Sliver.AddCommand(constants.MsfStr,
+		"Execute an MSF payload in the current process", "",
+		&MSF{})
+	msf.Aliases = []string{"execution"}
+
+	msfi, err := Sliver.AddCommand(constants.MsfInjectStr,
+		"Inject an MSF payload into a process (ID as argument)", "",
+		&MSFInject{})
+	msfi.Aliases = []string{"execution"}
 
 	return
 }
 
 // bindWindowsCommands - Commands available only to Windows sessions.
 func bindWindowsCommands() (err error) {
+
+	// Proc
+	// ----------------------------------------------------------------------------------------
+
+	// Priv
+	// ----------------------------------------------------------------------------------------
+
+	// Execution
+	// ----------------------------------------------------------------------------------------
+
 	return
 }

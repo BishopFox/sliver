@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"time"
@@ -202,7 +203,7 @@ func (ka *SessionsClean) Execute(args []string) (err error) {
 // context, with different commands and completions.
 type Interact struct {
 	Positional struct {
-		ImplantID string `description:"Session ID, Name or Name/ID"` // Name or ID, command will say.
+		ImplantID string `description:"Session ID, Name or Name/ID" required:"1-1"` // Name or ID, command will say.
 	} `positional-args:"yes" required:"yes"`
 }
 
@@ -280,19 +281,40 @@ func (b *Background) Execute(args []string) (err error) {
 	return
 }
 
-// GetSession - Get session by session ID or name
-func GetSession(arg string) *clientpb.Session {
-	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
+// Set - Set an environment value for the current session.
+type Set struct {
+	Options struct {
+		Name string `long:"name" description:"set agent name"`
+	} `group:"session values"`
+}
+
+// Execute - Set an environment value for the current session.
+func (s *Set) Execute(args []string) (err error) {
+
+	// Option to change the agent name
+	name := s.Options.Name
+
+	if name == "" {
+		fmt.Printf(util.Error + "please provide a session name\n")
+		return
+	}
+	isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
+	if !isAlphanumeric(name) {
+		fmt.Printf(util.Error + "Name must be in alphanumeric only\n")
+		return
+	}
+
+	session, err := transport.RPC.UpdateSession(context.Background(), &clientpb.UpdateSession{
+		SessionID: cctx.Context.Sliver.ID,
+		Name:      name,
+	})
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
-		return nil
+		fmt.Printf(util.Error+"Error: %v", err)
+		return
 	}
-	for _, session := range sessions.GetSessions() {
-		if fmt.Sprintf("%d", session.ID) == arg {
-			return session
-		}
-	}
-	return nil
+	cctx.Context.Sliver = &cctx.Session{Session: session} // Will be noticed by all components in need.
+
+	return
 }
 
 // Kill - Kill the active session.

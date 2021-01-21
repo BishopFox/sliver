@@ -21,15 +21,19 @@ package commands
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
 	"github.com/evilsocket/islazy/tui"
+	"gopkg.in/AlecAivazis/survey.v1"
 
 	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -39,7 +43,7 @@ import (
 // ChangeDirectory - Change the working directory of the client console
 type ChangeDirectory struct {
 	Positional struct {
-		Path string `description:"Local path" required:"1"`
+		Path string `description:"remote path" required:"1-1"`
 	} `positional-args:"yes" required:"yes"`
 }
 
@@ -268,9 +272,9 @@ func colorize(f *sliverpb.Download) error {
 // Download - Download one or more files from the target to the client.
 type Download struct {
 	Positional struct {
-		LocalPath  string   `description:"Console path (save)" required:"yes"`
+		LocalPath  string   `description:"Console path (save)" required:"1-1"`
 		RemotePath []string `description:"Remote directory name" required:"1"`
-	} `positional-args:"yes"`
+	} `positional-args:"yes" required:"yes"`
 }
 
 // Execute - Command.
@@ -278,15 +282,110 @@ type Download struct {
 // the last, mandary path. The latter can be a file path if file arguments == 1,
 // or a directory where everything will be moved when file arguments > 1
 func (c *Download) Execute(args []string) (err error) {
+
+	session := cctx.Context.Sliver.Session
+	if session == nil {
+		return
+	}
+
+	// Local destination
+	dlDst, _ := filepath.Abs(c.Positional.LocalPath)
+	fi, err := os.Stat(dlDst)
+	if err != nil && !os.IsNotExist(err) {
+		fmt.Printf(util.Error+"%s\n", err)
+		return nil
+	}
+
+	// If we have more than one file to download, the destination must be a directory.
+	if len(c.Positional.RemotePath) > 1 && !fi.IsDir() {
+		fmt.Printf(util.Error+"%s is not a directory (must be if you download multiple files)\n", dlDst)
+		return nil
+	}
+
+	// This fucntion verifies that files are not directly overwritten
+	var checkDestination = func(src, dst string) (dstFile string, err error) {
+		// If our destination is a directory, adjust path
+		if fi.IsDir() {
+			fileName := filepath.Base(src)
+			dst = path.Join(dst, fileName)
+			if _, err := os.Stat(dst); err == nil {
+				overwrite := false
+				prompt := &survey.Confirm{Message: "Overwrite local file?"}
+				survey.AskOne(prompt, &overwrite, nil)
+				if !overwrite {
+					return "", err
+				}
+			}
+			return dst, nil
+		}
+		// Else directly check and prompt
+		if _, err := os.Stat(dst); err == nil {
+			overwrite := false
+			prompt := &survey.Confirm{Message: "Overwrite local file?"}
+			survey.AskOne(prompt, &overwrite, nil)
+			if !overwrite {
+				return "", err
+			}
+		}
+		return dst, nil
+	}
+
+	// Prepare a download function & spinner to be used multiple times.
+	var downloadFile = func(src string, dst string) {
+		fileName := filepath.Base(src)
+
+		ctrl := make(chan bool)
+		go spin.Until(fmt.Sprintf("%s -> %s", fileName, dst), ctrl)
+		download, err := transport.RPC.Download(context.Background(), &sliverpb.DownloadReq{
+			Path:    src,
+			Request: ContextRequest(session),
+		})
+		ctrl <- true
+		<-ctrl
+		if err != nil {
+			fmt.Printf(util.Error+"%s\n", err)
+			return
+		}
+
+		if download.Encoder == "gzip" {
+			download.Data, err = new(encoders.Gzip).Decode(download.Data)
+			if err != nil {
+				fmt.Printf(util.Warn+"Decoding failed %s", err)
+				return
+			}
+		}
+		dstFile, err := os.Create(dst)
+		if err != nil {
+			fmt.Printf(util.Warn+"Failed to open local file %s: %s\n", dst, err)
+			return
+		}
+		defer dstFile.Close()
+		n, err := dstFile.Write(download.Data)
+		if err != nil {
+			fmt.Printf(util.Error+"Failed to write data %v\n", err)
+		} else {
+			fmt.Printf(util.Info+"Wrote %d bytes to %s\n", n, dstFile.Name())
+		}
+	}
+
+	// For each file in the positional arguments, download
+	for _, src := range c.Positional.RemotePath {
+		dst, err := checkDestination(src, dlDst)
+		if err != nil {
+			continue
+		}
+		downloadFile(src, dst)
+	}
+
 	return
 }
 
 // Upload - Upload one or more files from the client to the target filesystem.
 type Upload struct {
 	Positional struct {
-		RemotePath string   `description:"Remote directory/file to save in/as" required:"yes"`
+		RemotePath string   `description:"Remote directory/file to save in/as" required:"1-1"`
 		LocalPath  []string `description:"directory name" required:"1"`
-	} `positional-args:"yes"`
+	} `positional-args:"yes" required:"yes"`
 }
 
 // Execute - Command.
@@ -294,5 +393,60 @@ type Upload struct {
 // the last, mandary path. The latter can be a file path if file arguments == 1,
 // or a directory where everything will be moved when file arguments > 1
 func (c *Upload) Execute(args []string) (err error) {
+
+	session := cctx.Context.Sliver.Session
+	if session == nil {
+		return
+	}
+
+	// If multile files to be uploaded, check destination is a directory.
+	var dst string // Absolute path of destination directory, resolved below.
+	if len(c.Positional.LocalPath) > 1 {
+		resp, err := transport.RPC.Ls(context.Background(), &sliverpb.LsReq{
+			Path:    c.Positional.RemotePath,
+			Request: ContextRequest(session),
+		})
+		if err != nil {
+			fmt.Printf(util.Error+" %s\n", err)
+			return nil
+		}
+		if !resp.Exists {
+			fmt.Printf(util.Error+" %s does not exists or is not a directory\n", c.Positional.RemotePath)
+			return nil
+		}
+		dst = resp.Path
+	}
+
+	// For each file to upload, send data
+	for _, file := range c.Positional.LocalPath {
+		src, _ := filepath.Abs(file)
+		_, err := os.Stat(src)
+		if err != nil {
+			fmt.Printf(util.Error+"%s\n", err)
+			continue
+		}
+		fileBuf, err := ioutil.ReadFile(src)
+		uploadGzip := new(encoders.Gzip).Encode(fileBuf)
+
+		// Adjust dest with filename
+		fileDst := filepath.Join(dst, filepath.Base(src))
+
+		ctrl := make(chan bool)
+		go spin.Until(fmt.Sprintf("%s -> %s", src, dst), ctrl)
+		upload, err := transport.RPC.Upload(context.Background(), &sliverpb.UploadReq{
+			Path:    fileDst,
+			Data:    uploadGzip,
+			Encoder: "gzip",
+			Request: ContextRequest(session),
+		})
+		ctrl <- true
+		<-ctrl
+		if err != nil {
+			fmt.Printf(util.Error+"Upload error: %s\n", err)
+		} else {
+			fmt.Printf(util.Info+"Wrote file to %s\n", upload.Path)
+		}
+	}
+
 	return
 }

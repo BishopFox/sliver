@@ -235,8 +235,9 @@ func (p *PortfwdOpen) Execute(args []string) (err error) {
 // PortfwdClose - Stop a port forwarder
 type PortfwdClose struct {
 	Options struct {
-		ForwarderID []string `long:"id" description:"Forwarder IDs, comma-separated" env-delim:","`
-		Protocol    string   `long:"protocol" description:"Close only for given transport"`
+		ForwarderID []string `long:"id" description:"Forwarder IDs, comma-separated" env-delim:" "`
+		Protocol    string   `long:"protocol" description:"Close only for given transport protocol"`
+		Direct      bool     `long:"direct" description:"Close only if direct"`
 		Reverse     bool     `long:"reverse" description:"Close only if reverse"`
 		SessionID   uint32   `long:"session-id" description:"Close if forwarder belongs to session"`
 		CloseConns  bool     `long:"close-conns" description:"Close active connections initiated by forwarder (TCP-only)"`
@@ -245,5 +246,146 @@ type PortfwdClose struct {
 
 // Execute -  Start a client-implant port forwarder
 func (p *PortfwdClose) Execute(args []string) (err error) {
+
+	// Check a session is targeted (active or with option)
+	session := cctx.Context.Sliver.Session
+	if session == nil && p.Options.SessionID == 0 {
+		fmt.Println(util.Error + "No active session or session specified with --session-id")
+		return
+	}
+
+	// If none of the flags are set, return
+	if len(p.Options.ForwarderID) == 0 && p.Options.SessionID == 0 && session == nil &&
+		!p.Options.Reverse && !p.Options.Direct {
+		fmt.Printf(util.Error + "You must specifiy at least one option/filter to close one or more forwarders.\n")
+	}
+
+	// Check if we have to close active connections for these forwarders to be closed.
+	var closeActive = false
+	if p.Options.CloseConns {
+		closeActive = true
+	}
+
+	// If an ID is given, close this forwarder
+	for _, id := range p.Options.ForwarderID {
+
+		if id != "" {
+			f := comm.Forwarders.Get(id)
+			if f != nil {
+				err := f.Close(closeActive)
+				if err != nil {
+					fmt.Printf(util.Error+"Failed to close %s %s port forwarder: %v \n",
+						f.Info().Type.String(), f.Info().Transport.String(), err)
+				}
+
+				// Else print success
+				var dir string
+				switch f.Info().Type {
+				case commpb.HandlerType_Bind:
+					dir = "-->"
+				case commpb.HandlerType_Reverse:
+					dir = "<--"
+				}
+				rAddr := fmt.Sprintf("%s:%d", f.Info().RHost, f.Info().RPort)
+				fmt.Printf(util.Info+"Closed %s %s port forwarder (%s %s %s) [Session ID: %d] \n",
+					f.Info().Type.String(), f.Info().Transport.String(), f.LocalAddr(),
+					dir, rAddr, f.SessionID())
+			}
+		}
+	}
+
+	// If there is a Session ID, close all portForwarders for this session
+	if p.Options.SessionID != 0 {
+		forwarders := comm.Forwarders.All()
+		for _, f := range forwarders {
+			if f.SessionID() == p.Options.SessionID {
+
+				err := f.Close(closeActive)
+				if err != nil {
+					fmt.Printf(util.Error+"Failed to close %s %s port forwarder: %v \n",
+						f.Info().Type.String(), f.Info().Transport.String(), err)
+				}
+
+				// Else print success
+				var dir string
+				switch f.Info().Type {
+				case commpb.HandlerType_Bind:
+					dir = "-->"
+				case commpb.HandlerType_Reverse:
+					dir = "<--"
+				}
+				rAddr := fmt.Sprintf("%s:%d", f.Info().RHost, f.Info().RPort)
+				fmt.Printf(util.Info+"Closed %s %s port forwarder (%s %s %s) [Session ID: %d] \n",
+					f.Info().Type.String(), f.Info().Transport.String(), f.LocalAddr(),
+					dir, rAddr, f.SessionID())
+
+			}
+		}
+	}
+
+	// If all direct are selected and we have an active session, close all direct for this session.
+	if p.Options.Direct {
+		forwarders := comm.Forwarders.All()
+		for _, f := range forwarders {
+			if f.Info().Type == commpb.HandlerType_Bind {
+
+				// If we are in a session, we only close the ones belonging to it, otherwise close all.
+				if (session != nil && f.SessionID() == session.ID) || session == nil {
+
+					err := f.Close(closeActive)
+					if err != nil {
+						fmt.Printf(util.Error+"Failed to close %s %s port forwarder: %v \n",
+							f.Info().Type.String(), f.Info().Transport.String(), err)
+					}
+
+					// Else print success
+					var dir string
+					switch f.Info().Type {
+					case commpb.HandlerType_Bind:
+						dir = "-->"
+					case commpb.HandlerType_Reverse:
+						dir = "<--"
+					}
+					rAddr := fmt.Sprintf("%s:%d", f.Info().RHost, f.Info().RPort)
+					fmt.Printf(util.Info+"Closed %s %s port forwarder (%s %s %s) [Session ID: %d] \n",
+						f.Info().Type.String(), f.Info().Transport.String(), f.LocalAddr(),
+						dir, rAddr, f.SessionID())
+				}
+			}
+		}
+	}
+
+	// If all reverse are selected and we have an active session, close all reverse for this session.
+	if p.Options.Reverse {
+		forwarders := comm.Forwarders.All()
+		for _, f := range forwarders {
+			if f.Info().Type == commpb.HandlerType_Reverse {
+
+				// If we are in a session, we only close the ones belonging to it, otherwise close all.
+				if (session != nil && f.SessionID() == session.ID) || session == nil {
+
+					err := f.Close(closeActive)
+					if err != nil {
+						fmt.Printf(util.Error+"Failed to close %s %s port forwarder: %v \n",
+							f.Info().Type.String(), f.Info().Transport.String(), err)
+					}
+
+					// Else print success
+					var dir string
+					switch f.Info().Type {
+					case commpb.HandlerType_Bind:
+						dir = "-->"
+					case commpb.HandlerType_Reverse:
+						dir = "<--"
+					}
+					rAddr := fmt.Sprintf("%s:%d", f.Info().RHost, f.Info().RPort)
+					lAddr := f.LocalAddr()
+					fmt.Printf(util.Info+"Closed %s %s port forwarder (%s %s %s) [Session ID: %d] \n",
+						f.Info().Type.String(), f.Info().Transport.String(), lAddr,
+						dir, rAddr, f.SessionID())
+				}
+			}
+		}
+	}
 	return
 }

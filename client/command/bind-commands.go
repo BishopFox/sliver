@@ -38,7 +38,6 @@ import (
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
-	"github.com/bishopfox/sliver/client/licenses"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 
 	"github.com/desertbit/grumble"
@@ -64,88 +63,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	app.SetPrintHelp(helpCmd) // Responsible for display long-form help templates, etc.
 
 	app.AddCommand(&grumble.Command{
-		Name:     consts.ShellStr,
-		Help:     "Start an interactive shell",
-		LongHelp: help.GetHelpFor(consts.ShellStr),
-		Flags: func(f *grumble.Flags) {
-			f.Bool("y", "no-pty", false, "disable use of pty on macos/linux")
-			f.String("s", "shell-path", "", "path to shell interpreter")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			shell(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.SliverHelpGroup,
-	})
-
-	app.AddCommand(&grumble.Command{
-		Name:     consts.ExecuteStr,
-		Help:     "Execute a program on the remote system",
-		LongHelp: help.GetHelpFor(consts.ExecuteStr),
-		Flags: func(f *grumble.Flags) {
-			f.Bool("s", "silent", false, "don't print the command output")
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			execute(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		AllowArgs: true,
-		HelpGroup: consts.SliverHelpGroup,
-	})
-
-	app.AddCommand(&grumble.Command{
-		Name:     consts.MsfStr,
-		Help:     "Execute an MSF payload in the current process",
-		LongHelp: help.GetHelpFor(consts.MsfStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("m", "payload", "meterpreter_reverse_https", "msf payload")
-			f.String("o", "lhost", "", "listen host")
-			f.Int("l", "lport", 4444, "listen port")
-			f.String("e", "encoder", "", "msf encoder")
-			f.Int("i", "iterations", 1, "iterations of the encoder")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			msf(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.SliverHelpGroup,
-	})
-
-	app.AddCommand(&grumble.Command{
-		Name:     consts.MsfInjectStr,
-		Help:     "Inject an MSF payload into a process",
-		LongHelp: help.GetHelpFor(consts.MsfInjectStr),
-		Flags: func(f *grumble.Flags) {
-			f.Int("p", "pid", -1, "pid to inject into")
-			f.String("m", "payload", "meterpreter_reverse_https", "msf payload")
-			f.String("o", "lhost", "", "listen host")
-			f.Int("l", "lport", 4444, "listen port")
-			f.String("e", "encoder", "", "msf encoder")
-			f.Int("i", "iterations", 1, "iterations of the encoder")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			msfInject(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.SliverHelpGroup,
-	})
-
-	app.AddCommand(&grumble.Command{
 		Name:     consts.PsStr,
 		Help:     "List remote processes",
 		LongHelp: help.GetHelpFor(consts.PsStr),
@@ -159,40 +76,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			ps(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.SliverHelpGroup,
-	})
-
-	app.AddCommand(&grumble.Command{
-		Name:     consts.DownloadStr,
-		Help:     "Download a file",
-		LongHelp: help.GetHelpFor(consts.DownloadStr),
-		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		AllowArgs: true,
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			download(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.SliverHelpGroup,
-	})
-
-	app.AddCommand(&grumble.Command{
-		Name:     consts.UploadStr,
-		Help:     "Upload a file",
-		LongHelp: help.GetHelpFor(consts.UploadStr),
-		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		AllowArgs: true,
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			upload(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -387,99 +270,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
 
-	websitesCmd := &grumble.Command{
-		Name:     consts.WebsitesStr,
-		Help:     "Host static content (used with HTTP C2)",
-		LongHelp: help.GetHelpFor(consts.WebsitesStr),
-		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		AllowArgs: true,
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			websites(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	}
-	websitesCmd.AddCommand(&grumble.Command{
-		Name:     consts.RmStr,
-		Help:     "Remove an entire website",
-		LongHelp: help.GetHelpFor(fmt.Sprintf("%s.%s", consts.WebsitesStr, consts.RmStr)),
-		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		AllowArgs: true,
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			removeWebsite(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	})
-	websitesCmd.AddCommand(&grumble.Command{
-		Name:     consts.RmWebContentStr,
-		Help:     "Remove content from a website",
-		LongHelp: help.GetHelpFor(fmt.Sprintf("%s.%s", consts.WebsitesStr, consts.RmWebContentStr)),
-		Flags: func(f *grumble.Flags) {
-			// f.Bool("r", "recursive", false, "recursively add/rm content")
-			// f.String("w", "website", "", "website name")
-			// f.String("p", "web-path", "", "http path to host file at")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			removeWebsiteContent(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	})
-	websitesCmd.AddCommand(&grumble.Command{
-		Name:     consts.AddWebContentStr,
-		Help:     "Add content to a website",
-		LongHelp: help.GetHelpFor(fmt.Sprintf("%s.%s", consts.WebsitesStr, consts.RmWebContentStr)),
-		Flags: func(f *grumble.Flags) {
-			// f.String("w", "website", "", "website name")
-			// f.String("m", "content-type", "", "mime content-type (if blank use file ext.)")
-			// f.String("p", "web-path", "/", "http path to host file at")
-			// f.String("c", "content", "", "local file path/dir (must use --recursive for dir)")
-			// f.Bool("r", "recursive", false, "recursively add/rm content")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			addWebsiteContent(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	})
-	websitesCmd.AddCommand(&grumble.Command{
-		Name:     consts.WebContentTypeStr,
-		Help:     "Update a path's content-type",
-		LongHelp: help.GetHelpFor(fmt.Sprintf("%s.%s", consts.WebsitesStr, consts.WebContentTypeStr)),
-		Flags: func(f *grumble.Flags) {
-			// f.String("w", "website", "", "website name")
-			// f.String("m", "content-type", "", "mime content-type (if blank use file ext.)")
-			// f.String("p", "web-path", "/", "http path to host file at")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			updateWebsiteContent(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	})
-	app.AddCommand(websitesCmd)
-
 	app.AddCommand(&grumble.Command{
 		Name:      consts.TerminateStr,
 		Help:      "Kill/terminate a process",
@@ -514,20 +304,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
-
-	app.AddCommand(&grumble.Command{
-		Name:      consts.LoadExtensionStr,
-		Help:      "Load a sliver extension",
-		LongHelp:  help.GetHelpFor(consts.LoadExtensionStr),
-		AllowArgs: true,
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			load(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -621,156 +397,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			makeToken(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-	})
-
-	app.AddCommand(&grumble.Command{
-		Name:     consts.SetStr,
-		Help:     "Set agent option",
-		LongHelp: help.GetHelpFor(consts.SetStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("n", "name", "", "agent name to change to")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			setCmd(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.SliverHelpGroup,
-	})
-
-	app.AddCommand(&grumble.Command{
-		Name:      consts.GetEnvStr,
-		Help:      "List environment variables",
-		LongHelp:  help.GetHelpFor(consts.GetEnvStr),
-		AllowArgs: true,
-		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			getEnv(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	})
-
-	app.AddCommand(&grumble.Command{
-		Name:     consts.LicensesStr,
-		Help:     "Open source licenses",
-		LongHelp: help.GetHelpFor(consts.LicensesStr),
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			fmt.Println(licenses.All)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	})
-
-	route := &grumble.Command{
-		Name:     consts.RouteStr,
-		Help:     "Manage network routes",
-		LongHelp: help.GetHelpFor(consts.RouteStr),
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			routes(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	}
-	app.AddCommand(route)
-
-	route.AddCommand(&grumble.Command{
-		Name:     consts.RouteAddStr,
-		Help:     "Add a network route",
-		LongHelp: help.GetHelpFor(consts.RouteStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("n", "network", "", "IP network in CIDR notation (ex: 192.168.1.1/24)")
-			f.String("m", "netmask", "", "(Optional) Precise network mask (ex: 255.255.255.0)")
-			f.Uint("s", "session-id", 0, "(Optional) Bind this route network to a precise implant, in case two routes might collide.")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			addRoute(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-	})
-
-	route.AddCommand(&grumble.Command{
-		Name:     consts.RouteRemoveStr,
-		Help:     "Remove one or more network routes (with filters)",
-		LongHelp: help.GetHelpFor(consts.RouteStr),
-		Flags: func(f *grumble.Flags) {
-			f.StringL("network", "", "IP or CIDR to filter")
-			f.StringL("id", "", "Route ID")
-			f.BoolL("close", false, "Close all connections forwarded through the route")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			removeRoute(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-	})
-
-	route.AddCommand(&grumble.Command{
-		Name:     consts.RoutePrintStr,
-		Help:     "Print network routes (with filters)",
-		LongHelp: help.GetHelpFor(consts.RouteStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("n", "network", "", "IP or CIDR to filter")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			routes(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-	})
-
-	portfwd := &grumble.Command{
-		Name: consts.PortfwdStr,
-		Help: "Manage port forwarders for sessions, or the active one (empty: print active port forwards)",
-	}
-	app.AddCommand(portfwd)
-
-	portfwd.AddCommand(&grumble.Command{
-		Name: consts.PortfwdPrintStr,
-		Help: "Print active port forwarders, for all sessions, or the active one",
-		Flags: func(f *grumble.Flags) {
-			f.BoolL("tcp", false, "Show only TCP forwarders")
-			f.BoolL("udp", false, "Show only UDP forwarders")
-			f.BoolL("direct", false, "Show direct port forwarders only")
-			f.BoolL("reverse", false, "Show reverse port forwarders only")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			printPortForwarders(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-	})
-
-	portfwd.AddCommand(&grumble.Command{
-		Name: consts.PortfwdCloseStr,
-		Help: "Close one or more port forwarders, for the active session or all.",
-		Flags: func(f *grumble.Flags) {
-			f.StringL("id", "", "Port forwarder ID")
-			f.BoolL("reverse", false, "Close all reverse port forwarders for the session")
-			f.BoolL("direct", false, "Close all direct port forwarders for the session")
-			f.BoolL("close-conns", false, "Close all connections currently handled by the forwarder (TCP only)")
-			f.UintL("session-id", 0, "Close all forwarders for a given session")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			closePortForwarder(ctx, rpc)
 			fmt.Println()
 			return nil
 		},

@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/licenses"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/client/version"
@@ -180,4 +181,15 @@ func verboseVersions() {
 		serverVer.OS, serverVer.Arch)
 	serverCompiledAt := time.Unix(serverVer.CompiledAt, 0)
 	fmt.Printf("    Compiled at %s\n", serverCompiledAt)
+}
+
+// Licenses - Display licenses
+type Licenses struct{}
+
+// Execute - Display version information
+func (l *Licenses) Execute(args []string) (err error) {
+	fmt.Println()
+	fmt.Println(licenses.All)
+	fmt.Println()
+	return
 }

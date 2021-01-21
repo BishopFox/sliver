@@ -206,14 +206,14 @@ func HandleSubCommand(line []rune, pos int, command *flags.Command) (lastWord st
 		}
 	}
 
+	// If user asks for completions with "-" or "--". This must take precedence on arguments.
+	if subCommandOptionsAsked(args, lastWord, command) {
+		return CompleteCommandOptions(args, lastWord, command)
+	}
+
 	// If command has non-filled arguments, propose them first
 	if arg, yes := commandArgumentRequired(lastWord, args, command); yes {
 		return completeCommandArguments(command, arg, lastWord)
-	}
-
-	// If user asks for completions with "-" or "--". (Note: This takes precedence on arguments, as it is evaluated after arguments)
-	if subCommandOptionsAsked(args, lastWord, command) {
-		return CompleteCommandOptions(args, lastWord, command)
 	}
 
 	return

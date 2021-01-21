@@ -174,30 +174,21 @@ func commandArgumentRequired(lastWord string, args []string, command *flags.Comm
 		// If it's required and has one argument, check filled.
 		if arg.Required == 1 && arg.RequiredMaximum == 1 {
 
-			// If filed and last arg,
-			if len(remain) == 1 && i == (len(command.Args())-1) {
-				// return only if lastWord is a space, because we might be completing
-				// a path, or any value that has its own dynamic completer.
-				if lastWord == "" {
-					break
-				} else {
-					return arg.Name, true
-				}
+			// If last word is the argument, and we are
+			// last arg in line keep completing.
+			if len(remain) <= 1 && i <= (len(command.Args())-1) {
+				return arg.Name, true
 			}
 
 			// If filed and we are not last arg, continue
-			if len(remain) > 1 && i < (len(command.Args())-1) {
+			if len(remain) > 0 && i < (len(command.Args())-1) {
 				remain = remain[1:]
 				continue
 			}
-
-			// If not filed and we are last arg, complete
-			if len(remain) == 0 && i == (len(command.Args())-1) {
-				return arg.Name, true
-			}
 		}
 
-		// If we need more than one value, either return or pop the remain.
+		// If we need more than one value and we knwo the maximum,
+		// either return or pop the remain.
 		if arg.Required > 0 && arg.RequiredMaximum > 1 {
 			// Pop the corresponding amount of arguments.
 			var found int
@@ -218,11 +209,23 @@ func commandArgumentRequired(lastWord string, args []string, command *flags.Comm
 			continue
 		}
 
-		// Else, if no requirements
-		// NOTE: This block is after because we always use []type arguments
-		// AFTER individual argument fields.
-		if arg.Required == -1 {
+		// If have required arguments, with no limit of needs, return true
+		if arg.Required > 0 && arg.RequiredMaximum == -1 {
+			return arg.Name, true
+		}
+
+		// Else, if no requirements and the command has subcommands,
+		// return so that we complete subcommands
+		if arg.Required == -1 && len(command.Commands()) > 0 {
 			continue
+		}
+
+		// Else, return this argument
+		// NOTE: This block is after because we always use []type arguments
+		// AFTER individual argument fields. Thus blocks any args that have
+		// not been processed.
+		if arg.Required == -1 {
+			return arg.Name, true
 		}
 	}
 
