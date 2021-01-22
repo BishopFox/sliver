@@ -29,8 +29,8 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -108,7 +108,7 @@ func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte,
 		return
 	}
 
-	tunnel := core.Tunnels.Start(rpcTunnel.GetTunnelID(), rpcTunnel.GetSessionID())
+	tunnel := transport.Tunnels.Start(rpcTunnel.GetTunnelID(), rpcTunnel.GetSessionID())
 
 	shell, err := rpc.Shell(context.Background(), &sliverpb.ShellReq{
 		Request:   ActiveSession.Request(ctx),

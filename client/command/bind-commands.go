@@ -63,44 +63,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	app.SetPrintHelp(helpCmd) // Responsible for display long-form help templates, etc.
 
 	app.AddCommand(&grumble.Command{
-		Name:     consts.PsStr,
-		Help:     "List remote processes",
-		LongHelp: help.GetHelpFor(consts.PsStr),
-		Flags: func(f *grumble.Flags) {
-			f.Int("p", "pid", -1, "filter based on pid")
-			f.String("e", "exe", "", "filter based on executable name")
-			f.String("o", "owner", "", "filter based on owner")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			ps(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.SliverHelpGroup,
-	})
-
-	app.AddCommand(&grumble.Command{
-		Name:     consts.ProcdumpStr,
-		Help:     "Dump process memory",
-		LongHelp: help.GetHelpFor(consts.ProcdumpStr),
-		Flags: func(f *grumble.Flags) {
-			f.Int("p", "pid", -1, "target pid")
-			f.String("n", "name", "", "target process name")
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			procdump(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.SliverHelpGroup,
-	})
-
-	app.AddCommand(&grumble.Command{
 		Name:     consts.RunAsStr,
 		Help:     "Run a new process in the context of the designated user (Windows Only)",
 		LongHelp: help.GetHelpFor(consts.RunAsStr),
@@ -268,25 +230,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
-	})
-
-	app.AddCommand(&grumble.Command{
-		Name:      consts.TerminateStr,
-		Help:      "Kill/terminate a process",
-		LongHelp:  help.GetHelpFor(consts.TerminateStr),
-		AllowArgs: true,
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			terminate(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		Flags: func(f *grumble.Flags) {
-			f.Bool("f", "force", false, "disregard safety and kill the PID")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	app.AddCommand(&grumble.Command{
