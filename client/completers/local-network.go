@@ -35,7 +35,7 @@ import (
 )
 
 // clientInterfaceAddrs - All addresses of the client host
-func clientInterfaceAddrs(last string) (comp *readline.CompletionGroup) {
+func clientInterfaceAddrs(last string, alone bool) (comp *readline.CompletionGroup) {
 
 	// Completions
 	comp = &readline.CompletionGroup{
@@ -57,9 +57,13 @@ func clientInterfaceAddrs(last string) (comp *readline.CompletionGroup) {
 			if err != nil {
 				continue
 			}
-
 			if strings.HasPrefix(ip.String(), last) {
-				suggestions = append(suggestions, ip.String())
+				if alone {
+					suggestions = append(suggestions, ip.String()+" ")
+
+				} else {
+					suggestions = append(suggestions, ip.String())
+				}
 			}
 		}
 	}
@@ -69,7 +73,7 @@ func clientInterfaceAddrs(last string) (comp *readline.CompletionGroup) {
 }
 
 // clientInterfaceNetworks - All network to which client belongs.
-func clientInterfaceNetworks(last string) (comp *readline.CompletionGroup) {
+func clientInterfaceNetworks(last string, alone bool) (comp *readline.CompletionGroup) {
 
 	// Completions
 	comp = &readline.CompletionGroup{
@@ -88,7 +92,11 @@ func clientInterfaceNetworks(last string) (comp *readline.CompletionGroup) {
 		for _, a := range addrs {
 
 			if strings.HasPrefix(a.String(), last) {
-				suggestions = append(suggestions, a.String())
+				if alone {
+					suggestions = append(suggestions, a.String()+" ")
+				} else {
+					suggestions = append(suggestions, a.String())
+				}
 			}
 		}
 	}
@@ -98,7 +106,7 @@ func clientInterfaceNetworks(last string) (comp *readline.CompletionGroup) {
 }
 
 // sessionIfacePublicNetworks - Get all non-loopback addresses for a session host.
-func sessionIfacePublicNetworks(last string, sess *clientpb.Session) (comp *readline.CompletionGroup) {
+func sessionIfacePublicNetworks(last string, sess *clientpb.Session, alone bool) (comp *readline.CompletionGroup) {
 	comp = &readline.CompletionGroup{
 		Name:        fmt.Sprintf("networks (session %d)", sess.ID),
 		MaxLength:   5,
@@ -132,9 +140,17 @@ func sessionIfacePublicNetworks(last string, sess *clientpb.Session) (comp *read
 			}
 
 			if 0 < subnet && subnet <= 32 && !isLoopback(ip) {
-				suggestions = append(suggestions, ip)
+				if alone {
+					suggestions = append(suggestions, ip+" ")
+				} else {
+					suggestions = append(suggestions, ip)
+				}
 			} else if 32 < subnet && !isLoopback(ip) {
-				suggestions = append(suggestions, ip)
+				if alone {
+					suggestions = append(suggestions, ip+" ")
+				} else {
+					suggestions = append(suggestions, ip)
+				}
 			}
 		}
 	}
@@ -144,7 +160,7 @@ func sessionIfacePublicNetworks(last string, sess *clientpb.Session) (comp *read
 }
 
 // sessionIfaceAddrs - Get all available addresses (including loopback) for an implant host
-func sessionIfaceAddrs(last string, sess *clientpb.Session) (comp *readline.CompletionGroup) {
+func sessionIfaceAddrs(last string, sess *clientpb.Session, alone bool) (comp *readline.CompletionGroup) {
 	comp = &readline.CompletionGroup{
 		Name:        fmt.Sprintf("addresses (session %d)", sess.ID),
 		MaxLength:   5,
@@ -171,7 +187,13 @@ func sessionIfaceAddrs(last string, sess *clientpb.Session) (comp *readline.Comp
 				continue
 			}
 			if ip != nil {
-				suggestions = append(suggestions, ip.String())
+				if alone {
+					suggestions = append(suggestions, ip.String()+" ")
+
+				} else {
+					suggestions = append(suggestions, ip.String())
+
+				}
 			}
 		}
 	}
@@ -181,15 +203,14 @@ func sessionIfaceAddrs(last string, sess *clientpb.Session) (comp *readline.Comp
 }
 
 // Returns all interfaces on implants that are reachable via a route.
-func routedSessionIfaceAddrs(last string, except uint32) (comps []*readline.CompletionGroup) {
+func routedSessionIfaceAddrs(last string, except uint32, alone bool) (comps []*readline.CompletionGroup) {
 	// If except is 0, do not include the matching session
 
 	return
 }
 
 // Returns all available IPs, for each registered/active implant (each has a group)
-func allSessionIfaceAddrs(last string, except uint32) (comps []*readline.CompletionGroup) {
-	// If except is 0, do not include the matching session
+func allSessionIfaceAddrs(last string, except uint32, alone bool) (comps []*readline.CompletionGroup) {
 	// If except is 0, do not include the matching session
 	sessions := GetAllSessions()
 	if len(sessions) == 0 {
@@ -200,14 +221,14 @@ func allSessionIfaceAddrs(last string, except uint32) (comps []*readline.Complet
 	}
 
 	for _, sess := range sessions {
-		comps = append(comps, sessionIfaceAddrs(last, sess))
+		comps = append(comps, sessionIfaceAddrs(last, sess, alone))
 	}
 
 	return
 }
 
 // Returns all networks to which implants belong
-func allSessionsIfaceNetworks(last string, except uint32) (comps []*readline.CompletionGroup) {
+func allSessionsIfaceNetworks(last string, except uint32, alone bool) (comps []*readline.CompletionGroup) {
 	// If except is 0, do not include the matching session
 	sessions := GetAllSessions()
 	if len(sessions) == 0 {
@@ -218,7 +239,7 @@ func allSessionsIfaceNetworks(last string, except uint32) (comps []*readline.Com
 	}
 
 	for _, sess := range sessions {
-		comps = append(comps, sessionIfacePublicNetworks(last, sess))
+		comps = append(comps, sessionIfacePublicNetworks(last, sess, alone))
 	}
 
 	return

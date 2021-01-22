@@ -52,6 +52,40 @@ var (
 		"vbscript",
 	}
 
+	msfEncoders = []string{
+		"x86/shikata_ga_nai",
+		"x64/xor_dynamic",
+	}
+
+	msfPayloadNames = []string{
+		"meterpreter_reverse_tcp",
+		"meterpreter_reverse_http",
+		"meterpreter_reverse_https",
+		"meterpreter_bind_tcp",
+	}
+
+	// ValidPayloads - Valid payloads and OS combos
+	validPayloads = map[string]map[string]bool{
+		"windows": {
+			"meterpreter_reverse_http":  true,
+			"meterpreter_reverse_https": true,
+			"meterpreter_reverse_tcp":   true,
+			"meterpreter/reverse_tcp":   true,
+			"meterpreter/reverse_http":  true,
+			"meterpreter/reverse_https": true,
+		},
+		"linux": {
+			"meterpreter_reverse_http":  true,
+			"meterpreter_reverse_https": true,
+			"meterpreter_reverse_tcp":   true,
+		},
+		"osx": {
+			"meterpreter_reverse_http":  true,
+			"meterpreter_reverse_https": true,
+			"meterpreter_reverse_tcp":   true,
+		},
+	}
+
 	transportProtocols   = []string{"tcp", "udp", "ip"}
 	applicationProtocols = []string{"http", "https", "mtls", "quic", "http3", "dns", "named_pipe"}
 )

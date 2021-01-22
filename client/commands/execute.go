@@ -47,7 +47,7 @@ func (e *Execute) Execute(args []string) (err error) {
 	cmdPath := e.Positional.Args[0]
 	var cArgs []string
 	if len(e.Positional.Args) > 1 {
-		args = e.Positional.Args[1:]
+		cArgs = e.Positional.Args[1:]
 	}
 	output := e.Options.Silent
 	exec, err := transport.RPC.Execute(context.Background(), &sliverpb.ExecuteReq{
@@ -65,7 +65,7 @@ func (e *Execute) Execute(args []string) (err error) {
 				fmt.Printf(util.Info+"Output:\n%s\n", exec.Result)
 			}
 		} else {
-			fmt.Printf(util.Info+"Output:\n%s\n", exec.Result)
+			fmt.Printf(util.Info+"Output:\n%s", exec.Result)
 		}
 	}
 	return

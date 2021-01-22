@@ -162,7 +162,7 @@ func (c *console) Start() (err error) {
 	defer c.conn.Close()
 
 	// Commands binding. Per-context parsers are setup here.
-	err = commands.BindCommands(c.admin)
+	err = commands.BindCommands(c.admin, completers.LoadCompsAdditional)
 
 	// Print banner and version information. (checks last updates)
 	printLogo()

@@ -248,7 +248,7 @@ type PortfwdClose struct {
 func (p *PortfwdClose) Execute(args []string) (err error) {
 
 	// Check a session is targeted (active or with option)
-	session := cctx.Context.Sliver.Session
+	session := cctx.Context.Sliver
 	if session == nil && p.Options.SessionID == 0 {
 		fmt.Println(util.Error + "No active session or session specified with --session-id")
 		return

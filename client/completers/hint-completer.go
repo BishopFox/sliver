@@ -145,7 +145,6 @@ func OptionHints(args []string, last []rune, command *flags.Command) (hint []run
 // OptionArgumentHint - Yields hints for arguments to an option (generally the last word in input)
 func OptionArgumentHint(args []string, last []rune, opt *flags.Option) (hint []rune) {
 	return []rune(valueHint + opt.Description)
-	return
 }
 
 // MenuHint - Returns the Hint for a given menu context

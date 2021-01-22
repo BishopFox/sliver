@@ -34,6 +34,7 @@ import (
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 // CompleteCommandArguments - Completes all values for arguments to a command.
@@ -52,9 +53,11 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 	// we need to add special cases.
 	switch cctx.Context.Menu {
 	case cctx.Server:
-		// For any argument with a path in it, we look for the current context'
-		// filesystem, and refine results based on a specific command.
+
+		// Paths
 		if strings.Contains(found.Name, "Path") {
+			// For any argument with a path in it, we look for the current context'
+			// filesystem, and refine results based on a specific command.
 			switch cmd.Name {
 			case constants.CdStr:
 				prefix, comp = completeLocalPath(lastWord)
@@ -62,6 +65,9 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 			case constants.LsStr, "cat":
 				prefix, comp = completeLocalPathAndFiles(lastWord)
 				completions = append(completions, comp)
+
+			case constants.WebContentTypeStr, constants.WebUpdateStr, constants.AddWebContentStr, constants.RmWebContentStr:
+				// Make an exception for WebPath option in websites commands.
 			default:
 				prefix, comp = completeLocalPathAndFiles(lastWord)
 				completions = append(completions, comp)
@@ -70,12 +76,13 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 
 		// Jobs
 		if strings.Contains(found.Name, "JobID") {
-			completions = append(completions, jobIDs())
+			completions = append(completions, jobIDs(lastWord))
 		}
 
 	// When using a session, some paths are on the remote system, and some are the client console.
 	case cctx.Sliver:
-		if strings.Contains(found.Name, "RemotePath") || strings.Contains(found.Name, "Path") || strings.Contains(found.Name, "OtherPath") {
+		if strings.Contains(found.Name, "RemotePath") || strings.Contains(found.Name, "OtherPath") {
+			// if strings.Contains(found.Name, "RemotePath") || strings.Contains(found.Name, "Path") || strings.Contains(found.Name, "OtherPath") {
 			switch cmd.Name {
 			case constants.CdStr, constants.MkdirStr:
 				prefix, comp = completeRemotePath(lastWord)
@@ -95,19 +102,45 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 				completions = append(completions, comp)
 			}
 		}
+
+		// Execute command
+		if strings.Contains(found.Name, "Args") {
+			prefix, comp = completeRemotePathAndFiles(lastWord)
+			completions = append(completions, comp)
+		}
+
+		// Load Extensions
+		if strings.Contains(found.Name, "Path") && cmd.Name == constants.LoadExtensionStr {
+			prefix, comp = completeLocalPathAndFiles(lastWord)
+			completions = append(completions, comp)
+		}
+
+		// Processes
+		if strings.Contains(found.Name, "PID") {
+			completions = append(completions, processes(lastWord))
+
+		}
 	}
 
 	// Completions that do not depend on context, and that should either be unique, or be appended to the comp list by default.
 
 	// Sessions
 	if strings.Contains(found.Name, "ImplantID") || strings.Contains(found.Name, "SessionID") {
-		completions = append(completions, sessionIDs())
+		completions = append(completions, sessionIDs(lastWord))
+	}
+
+	// Logs
+	if strings.Contains(found.Name, "Level") {
+		completions = append(completions, completeLogLevels(lastWord))
+	}
+	if strings.Contains(found.Name, "Components") {
+		completions = append(completions, completeLoggers(lastWord))
 	}
 
 	return
 }
 
-func jobIDs() (comp *readline.CompletionGroup) {
+func jobIDs(lastWord string) (comp *readline.CompletionGroup) {
 	comp = &readline.CompletionGroup{
 		Name:         "jobs",
 		Descriptions: map[string]string{},
@@ -121,14 +154,46 @@ func jobIDs() (comp *readline.CompletionGroup) {
 	}
 	for _, job := range jobs.Active {
 		jobID := strconv.Itoa(int(job.ID))
-		comp.Suggestions = append(comp.Suggestions, jobID+" ")
-		comp.Descriptions[jobID+" "] = tui.DIM + job.Name + fmt.Sprintf(" (%s)", job.Description) + tui.RESET
+		if strings.HasPrefix(jobID, lastWord) {
+			jobID := strconv.Itoa(int(job.ID))
+			comp.Suggestions = append(comp.Suggestions, jobID+" ")
+			comp.Descriptions[jobID+" "] = tui.DIM + job.Name + fmt.Sprintf(" (%s)", job.Description) + tui.RESET
+		}
 	}
 
 	return
 }
 
-func sessionIDs() (comp *readline.CompletionGroup) {
+func completeLogLevels(lastWord string) (comp *readline.CompletionGroup) {
+	comp = &readline.CompletionGroup{
+		Name:         "levels",
+		Descriptions: map[string]string{},
+		DisplayType:  readline.TabDisplayGrid,
+	}
+	for _, lvl := range logLevels {
+		if strings.HasPrefix(lvl, lastWord) {
+			comp.Suggestions = append(comp.Suggestions, lvl+" ")
+		}
+	}
+
+	return
+}
+func completeLoggers(lastWord string) (comp *readline.CompletionGroup) {
+	comp = &readline.CompletionGroup{
+		Name:         "loggers",
+		Descriptions: map[string]string{},
+		DisplayType:  readline.TabDisplayGrid,
+	}
+	for _, logger := range loggers {
+		if strings.HasPrefix(logger, lastWord) {
+			comp.Suggestions = append(comp.Suggestions, logger+" ")
+		}
+	}
+
+	return
+}
+
+func sessionIDs(lastWord string) (comp *readline.CompletionGroup) {
 
 	comp = &readline.CompletionGroup{
 		Name:         "sessions",
@@ -143,9 +208,45 @@ func sessionIDs() (comp *readline.CompletionGroup) {
 	}
 	for _, s := range sessions.Sessions {
 		sessionID := strconv.Itoa(int(s.ID))
-		comp.Suggestions = append(comp.Suggestions, sessionID+" ")
-		desc := fmt.Sprintf("[%s] - %s@%s - %s", s.Name, s.Username, s.Hostname, s.RemoteAddress)
-		comp.Descriptions[sessionID+" "] = tui.DIM + desc + tui.RESET
+		if strings.HasPrefix(sessionID, lastWord) {
+			comp.Suggestions = append(comp.Suggestions, sessionID+" ")
+			desc := fmt.Sprintf("[%s] - %s@%s - %s", s.Name, s.Username, s.Hostname, s.RemoteAddress)
+			comp.Descriptions[sessionID+" "] = tui.DIM + desc + tui.RESET
+		}
 	}
+	return
+}
+
+func processes(lastWord string) (comp *readline.CompletionGroup) {
+	comp = &readline.CompletionGroup{
+		Name:         "host processes",
+		Descriptions: map[string]string{},
+		DisplayType:  readline.TabDisplayList,
+	}
+
+	session := cctx.Context.Sliver
+	if session == nil {
+		return
+	}
+
+	ps, err := transport.RPC.Ps(context.Background(), &sliverpb.PsReq{
+		Request: commands.ContextRequest(session.Session)})
+	if err != nil {
+		fmt.Printf(util.Error+"%s\n", err)
+		return
+	}
+	for _, proc := range ps.Processes {
+		pid := strconv.Itoa(int(proc.Pid))
+		if strings.HasPrefix(pid, lastWord) {
+			comp.Suggestions = append(comp.Suggestions, pid+" ")
+			var color string
+			if session != nil && proc.Pid == session.PID {
+				color = tui.GREEN
+			}
+			desc := fmt.Sprintf("%s(PPID: %d, Owner: %s)  %s", color, proc.Ppid, proc.Owner, proc.Executable)
+			comp.Descriptions[pid+" "] = tui.DIM + desc + tui.RESET
+		}
+	}
+
 	return
 }

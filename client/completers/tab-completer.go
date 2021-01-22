@@ -79,11 +79,6 @@ func TabCompleter(line []rune, pos int) (lastWord string, completions []*readlin
 			}
 		}
 
-		// Propose argument completion before anything, and if needed
-		if arg, yes := commandArgumentRequired(lastWord, args, command); yes {
-			return completeCommandArguments(command, arg, lastWord)
-		}
-
 		// Then propose subcommands. We don't return from here, otherwise it always skips the next steps.
 		if hasSubCommands(command, args) {
 			completions = CompleteSubCommands(args, lastWord, command)
@@ -96,9 +91,16 @@ func TabCompleter(line []rune, pos int) (lastWord string, completions []*readlin
 
 		// If user asks for completions with "-" / "--", show command options.
 		// We ask this here, after having ensured there is no subcommand invoked.
+		// This prevails over command arguments, even if they are required.
 		if commandOptionsAsked(args, lastWord, command) {
 			return CompleteCommandOptions(args, lastWord, command)
 		}
+
+		// Propose argument completion before anything, and if needed
+		if arg, yes := commandArgumentRequired(lastWord, args, command); yes {
+			return completeCommandArguments(command, arg, lastWord)
+		}
+
 	}
 
 	return

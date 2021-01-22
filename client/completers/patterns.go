@@ -176,7 +176,7 @@ func commandArgumentRequired(lastWord string, args []string, command *flags.Comm
 
 			// If last word is the argument, and we are
 			// last arg in line keep completing.
-			if len(remain) <= 1 && i <= (len(command.Args())-1) {
+			if len(remain) <= 1 && i == (len(command.Args())-1) {
 				return arg.Name, true
 			}
 
@@ -401,9 +401,22 @@ func filterOptions(args []string, command *flags.Command) (processed []string) {
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		if strings.HasPrefix(arg, "-") || strings.HasPrefix(arg, "--") {
+		// --long-name options
+		if strings.HasPrefix(arg, "--") {
 			name := strings.TrimPrefix(arg, "--")
-			name = strings.TrimPrefix(arg, "-")
+			if opt := commands.OptionByName(command, name); opt != nil {
+				var boolean = true
+				if opt.Field().Type == reflect.TypeOf(boolean) {
+					continue
+				}
+				// Else skip the option argument (next item)
+				i++
+			}
+			continue
+		}
+		// -s short options
+		if strings.HasPrefix(arg, "-") {
+			name := strings.TrimPrefix(arg, "-")
 			if opt := commands.OptionByName(command, name); opt != nil {
 				var boolean = true
 				if opt.Field().Type == reflect.TypeOf(boolean) {

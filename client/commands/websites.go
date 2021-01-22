@@ -48,25 +48,23 @@ const (
 
 // WebsiteOptions - General website options
 type WebsiteOptions struct {
-	ContentOptions struct {
-		Website     string `long:"website" description:"Website name" required:"true"`
-		WebPath     string `long:"web-path" description:"HTTP path to host file at" default:"/" required:"true"`
-		Content     string `long:"content" description:"local file path/dir (must use --recursive if dir)"`
-		ContentType string `long:"content-type" description:"MIME content-type (if blank, use file ext.)"`
-		Recursive   bool   `long:"recursive" description:"Apply command (delete/add) recursively"`
-	} `group:"content options"`
+	Website     string `long:"website" description:"Website name" required:"true"`
+	WebPath     string `long:"web-path" description:"HTTP path to host file at" required:"true"`
+	Content     string `long:"content" description:"local file path/dir (must use --recursive if dir)"`
+	ContentType string `long:"content-type" description:"MIME content-type (if blank, use file ext.)"`
+	Recursive   bool   `long:"recursive" description:"Apply command (delete/add) recursively"`
 }
 
 // Websites - All websites management commands
 type Websites struct {
-	Positional struct {
-		Name string `description:"website content name to display"`
-	} `positional-args:"yes"`
+	Options struct {
+		Name string `long:"website" description:"Website name"`
+	} `group:"website options"`
 }
 
 // Execute - Command
 func (w *Websites) Execute(args []string) (err error) {
-	if w.Positional.Name != "" {
+	if w.Options.Name != "" {
 		listWebsiteContent(w, transport.RPC)
 	} else {
 		listWebsites(w, transport.RPC)
@@ -92,11 +90,11 @@ func listWebsites(w *Websites, rpc rpcpb.SliverRPCClient) {
 }
 
 func listWebsiteContent(w *Websites, rpc rpcpb.SliverRPCClient) {
-	if w.Positional.Name == "" {
+	if w.Options.Name == "" {
 		return
 	}
 	website, err := rpc.Website(context.Background(), &clientpb.Website{
-		Name: w.Positional.Name,
+		Name: w.Options.Name,
 	})
 	if err != nil {
 		fmt.Printf(util.Error+"Failed to list website content %s\n", err)
@@ -105,7 +103,7 @@ func listWebsiteContent(w *Websites, rpc rpcpb.SliverRPCClient) {
 	if 0 < len(website.Contents) {
 		displayWebsite(website)
 	} else {
-		fmt.Printf(util.Info+"No content for '%s'\n", w.Positional.Name)
+		fmt.Printf(util.Info+"No content for '%s'\n", w.Options.Name)
 	}
 }
 
@@ -157,14 +155,14 @@ func (w *WebsitesDelete) Execute(args []string) (err error) {
 
 // WebsitesDeleteContent - Remove content from a website
 type WebsitesDeleteContent struct {
-	WebsiteOptions
+	WebsiteOptions `group:"content options"`
 }
 
 // Execute - Command
 func (w *WebsitesDeleteContent) Execute(args []string) (err error) {
-	name := w.ContentOptions.Website
-	webPath := w.ContentOptions.WebPath
-	recursive := w.ContentOptions.Recursive
+	name := w.Website
+	webPath := w.WebPath
+	recursive := w.Recursive
 
 	if name == "" {
 		fmt.Printf(util.Error + "Must specify a website name via --website, see --help\n")
@@ -207,29 +205,29 @@ func (w *WebsitesDeleteContent) Execute(args []string) (err error) {
 
 // WebsitesAddContent - Add content to a website
 type WebsitesAddContent struct {
-	WebsiteOptions
+	WebsiteOptions `group:"content options"`
 }
 
 // Execute - Command
 func (w *WebsitesAddContent) Execute(args []string) (err error) {
-	websiteName := w.ContentOptions.Website
+	websiteName := w.Website
 	if websiteName == "" {
 		fmt.Printf(util.Error + "Must specify a website name via --website, see --help\n")
 		return
 	}
-	webPath := w.ContentOptions.WebPath
+	webPath := w.WebPath
 	if webPath == "" {
 		fmt.Printf(util.Error + "Must specify a web path via --web-path, see --help\n")
 		return
 	}
-	contentPath := w.ContentOptions.Content
+	contentPath := w.Content
 	if contentPath == "" {
 		fmt.Println(util.Error + "Must specify some --content\n")
 		return
 	}
 	contentPath, _ = filepath.Abs(contentPath)
-	contentType := w.ContentOptions.ContentType
-	recursive := w.ContentOptions.Recursive
+	contentType := w.ContentType
+	recursive := w.Recursive
 
 	fileInfo, err := os.Stat(contentPath)
 	if err != nil {
@@ -327,22 +325,22 @@ func sniffContentType(out *os.File) string {
 
 // WebsiteType - Update a path's content-type
 type WebsiteType struct {
-	WebsiteOptions
+	WebsiteOptions `group:"content options"`
 }
 
 // Execute - Command
 func (w *WebsiteType) Execute(args []string) (err error) {
-	websiteName := w.ContentOptions.Website
+	websiteName := w.WebsiteOptions.Website
 	if websiteName == "" {
 		fmt.Printf(util.Error + "Must specify a website name via --website, see --help\n")
 		return
 	}
-	webPath := w.ContentOptions.WebPath
+	webPath := w.WebsiteOptions.WebPath
 	if webPath == "" {
 		fmt.Printf(util.Error + "Must specify a web path via --web-path, see --help\n")
 		return
 	}
-	contentType := w.ContentOptions.ContentType
+	contentType := w.WebsiteOptions.ContentType
 	if contentType == "" {
 		fmt.Println(util.Error + "Must specify a new --content-type, see --help\n")
 		return

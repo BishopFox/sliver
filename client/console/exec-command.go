@@ -25,6 +25,7 @@ import (
 	"github.com/jessevdk/go-flags"
 
 	"github.com/bishopfox/sliver/client/commands"
+	"github.com/bishopfox/sliver/client/completers"
 	"github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/help"
 	"github.com/bishopfox/sliver/client/util"
@@ -58,7 +59,7 @@ func (c *console) ExecuteCommand(args []string) (err error) {
 	// and therefore keeps tracks of all values in the program, without offering a mean to
 	// reset them. Therefore we just wipe the command instances and rewrite new, blank ones.
 	// Applies to command arguments and options.
-	err = commands.BindCommands(c.admin)
+	err = commands.BindCommands(c.admin, completers.LoadCompsAdditional)
 	if err != nil {
 		fmt.Print(util.CommandError + tui.Red("could not reset commands: "+err.Error()+"\n"))
 	}

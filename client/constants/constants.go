@@ -149,6 +149,7 @@ const (
 	RmWebContentStr   = "rm-content"
 	AddWebContentStr  = "add-content"
 	WebContentTypeStr = "content-type"
+	WebUpdateStr      = "update"
 
 	ScreenshotStr = "screenshot"
 	PsExecStr     = "psexec"
