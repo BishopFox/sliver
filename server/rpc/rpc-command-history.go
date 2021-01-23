@@ -97,9 +97,12 @@ func (c *Server) AddToHistory(in context.Context, req *pb.AddCmdHistoryRequest) 
 	return &pb.AddCmdHistory{Response: &commonpb.Response{}}, nil
 }
 
-// A list of commands that are useless to save if they are strictly as short as in the list
+// A list of commands that are useless to save if they are STRICTLY as short as in the list
 var uselessCmds = []string{
 	"exit",
+	"players",
+	"-h",
+	"--help",
 	"cd",
 	"ls",
 	"cat",

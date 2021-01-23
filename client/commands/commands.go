@@ -73,12 +73,16 @@ func BindCommands(admin bool, completions func(parser *flags.Parser)) (err error
 	// Server commands
 	case cctx.Server:
 		Server = flags.NewNamedParser("server", flags.HelpFlag)
+
+		// If this client console is the server itself, bind admin commands.
 		if admin {
 			err = bindServerAdminCommands()
 			if err != nil {
 				return
 			}
 		}
+
+		// Bind normal commands
 		err = bindServerCommands()
 		if err != nil {
 			return
@@ -97,7 +101,7 @@ func BindCommands(admin bool, completions func(parser *flags.Parser)) (err error
 			return
 		}
 
-		// If session is Windows, bind commands
+		// If session is Windows, bind Windows commands
 		if cctx.Context.Sliver.OS == "windows" {
 			err = bindWindowsCommands()
 			if err != nil {
@@ -325,8 +329,6 @@ func bindServerCommands() (err error) {
 		"Start a staging listener (TCP/HTTP/HTTPS), bound to a Sliver profile",
 		help.GetHelpFor(constants.StageListenerStr), &StageListener{})
 	s.Aliases = []string{"transports"}
-	// Option arguments mapping
-	s.FindOptionByLongName("url").Choices = stageListenerProtocols
 
 	ws, err := Server.AddCommand(constants.WebsitesStr,
 		"Manage websites (used with HTTP C2) (prints website name argument by default)", "",
@@ -354,29 +356,17 @@ func bindServerCommands() (err error) {
 		help.GetHelpFor(constants.GenerateStr), &Generate{})
 	g.Aliases = []string{"builds"}
 	g.SubcommandsOptional = true
-	// Option arguments mapping
-	// g.FindOptionByLongName("os").Choices = implantOS
-	// g.FindOptionByLongName("arch").Choices = implantArch
-	// g.FindOptionByLongName("format").Choices = implantFmt
 
 	_, err = g.AddCommand(constants.StagerStr,
-		// gs, err := g.AddCommand(constants.StagerStr,
 		"Generate a stager shellcode payload using MSFVenom, (to file: --save, to stdout: --format",
 		help.GetHelpFor(constants.StagerStr),
 		&GenerateStager{})
-	// gs.FindOptionByLongName("os").Choices = implantOS
-	// gs.FindOptionByLongName("arch").Choices = implantArch
-	// gs.FindOptionByLongName("protocol").Choices = msfStagerProtocols
-	// gs.FindOptionByLongName("msf-format").Choices = msfTransformFormats
 
 	p, err := Server.AddCommand(constants.NewProfileStr,
 		"Configure and save a new (stage) implant profile",
 		help.GetHelpFor(constants.NewProfileStr),
 		&NewProfile{})
 	p.Aliases = []string{"builds"}
-	// Option arguments mapping
-	// p.FindOptionByLongName("os").Choices = implantOS
-	// p.FindOptionByLongName("arch").Choices = implantArch
 
 	r, err := Server.AddCommand(constants.RegenerateStr,
 		"Recompile an implant by name, passed as argument (completed)",

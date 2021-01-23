@@ -91,9 +91,15 @@ func (c *console) HandleParserErrors(parser *flags.Parser, in error, args []stri
 	// If the error type is a detected -h, --help flag, print custom help.
 	if parserErr.Type == flags.ErrHelp {
 		cmd := c.findHelpCommand(args, parser)
+
+		// If command is nil, it means the help was requested as
+		// the menu help: print all commands for the context.
 		if cmd == nil {
+			help.PrintMenuHelp(parser)
 			return
 		}
+
+		// Else print the help for a specific command
 		help.PrintCommandHelp(cmd)
 		return
 	}

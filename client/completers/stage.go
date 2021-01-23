@@ -119,6 +119,10 @@ func LoadCompsAdditional(parser *flags.Parser) {
 // Additional completion mappings for command in the server context
 func serverCompsAddtional(parser *flags.Parser) {
 
+	// Staging listener
+	s := parser.Find(constants.StageListenerStr)
+	s.FindOptionByLongName("url").Choices = stageListenerProtocols
+
 	// Stage options
 	g := parser.Find(constants.GenerateStr)
 	g.FindOptionByLongName("os").Choices = implantOS

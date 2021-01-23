@@ -445,6 +445,56 @@ func FormatHelpTmpl(helpStr string) string {
 	return outputBuf.String()
 }
 
+// PrintMenuHelp - Prints all commands (per category)
+// and a brief description when help is asked from the menu.
+func PrintMenuHelp(parser *flags.Parser) {
+
+	// First print menu title and summary
+	switch parser.Name {
+	case "server":
+		fmt.Println(tui.Bold(tui.Blue(" Main Menu Commands\n")))
+	case "sliver":
+		fmt.Println(tui.Bold(tui.Blue(" Sliver Menu Commands \n")))
+	}
+
+	// Get all command and push themm in their categories
+	var cmdCats = map[string][]*flags.Command{}
+	for _, cmd := range parser.Commands() {
+		if len(cmd.Aliases) > 0 {
+			cmdCats[cmd.Aliases[0]] = append(cmdCats[cmd.Aliases[0]], cmd)
+		}
+	}
+
+	for name, cat := range cmdCats {
+		fmt.Println(tui.Yellow(" " + name)) // Title category
+
+		maxLen := 0
+		for _, sub := range cat {
+			cmdLen := len(sub.Name)
+			if cmdLen > maxLen {
+				maxLen = cmdLen
+			}
+		}
+
+		for _, sub := range cat {
+			pad := fmt.Sprintf("%-"+strconv.Itoa(maxLen)+"s", sub.Name)
+			fmt.Printf("    "+pad+"  %s\n", tui.Dim(sub.ShortDescription))
+		}
+
+		// Space before next category
+		fmt.Println()
+	}
+}
+
+func stringInSlice(a string, list *[]string) bool {
+	for _, b := range *list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
 // PrintCommandHelp - This function is called by all command structs, either because
 // there are no optional arguments, or because flags are passed.
 func PrintCommandHelp(cmd *flags.Command) {
