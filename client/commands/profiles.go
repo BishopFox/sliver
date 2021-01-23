@@ -135,8 +135,8 @@ type ProfileGenerate struct {
 	Positional struct {
 		Profile string `description:"Name of profile to use"`
 	} `required:"true"`
-	Save    string `long:"save" description:"Directory/file where to save binary"`
-	Timeout int    `long:"timeout" description:"Command timeout in seconds"`
+	Save    string `long:"save" short:"s" description:"Directory/file where to save binary"`
+	Timeout int    `long:"timeout" short:"t" description:"Command timeout in seconds"`
 }
 
 // Execute - Generate implant from a profile given as argment (completed)

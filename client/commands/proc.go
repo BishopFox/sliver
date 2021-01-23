@@ -48,9 +48,9 @@ var (
 // PS - List session host processes.
 type PS struct {
 	Options struct {
-		PID   int32  `long:"pid" description:"process ID" default:"-1"`
-		Exe   string `long:"exe" description:"string pattern in executable name"`
-		Owner string `long:"owner" description:"user-owned processes"`
+		PID   int32  `long:"pid" short:"p" description:"process ID" default:"-1"`
+		Exe   string `long:"exe" short:"e" description:"string pattern in executable name"`
+		Owner string `long:"owner" short:"o" description:"user-owned processes"`
 	} `group:"process filters"`
 }
 
@@ -124,7 +124,7 @@ type ProcDump struct {
 		PID int32 `description:"process ID to dump memory from" required:"1-1"`
 	} `positional-args:"yes"`
 	Options struct {
-		Name string `long:"name" description:"target process name"`
+		Name string `long:"name" short:"n" description:"target process name"`
 	} `group:"process filters"`
 }
 
@@ -198,7 +198,7 @@ type Terminate struct {
 		PID []int32 `description:"process ID to dump memory from" required:"1"`
 	} `positional-args:"yes" required:"yes"`
 	Options struct {
-		Force bool `long:"force" description:"disregard safety and kill the PID"`
+		Force bool `long:"force" short:"f" description:"disregard safety and kill the PID"`
 	} `group:"kill options"`
 }
 

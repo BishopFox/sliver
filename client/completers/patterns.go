@@ -285,7 +285,6 @@ func getRemainingArgs(args []string, last []rune, command *flags.Command) (remai
 // commandOptionsAsked - Does the user asks for options in a root command ?
 func commandOptionsAsked(args []string, lastWord string, command *flags.Command) bool {
 	if len(args) >= 2 && (strings.HasPrefix(lastWord, "-") || strings.HasPrefix(lastWord, "--")) {
-		// if len(args) == 2 && (strings.HasPrefix(lastWord, "-") || strings.HasPrefix(lastWord, "--")) {
 		return true
 	}
 	return false
@@ -332,12 +331,22 @@ func optionArgRequired(args []string, last []rune, group *flags.Group) (opt *fla
 
 	// Check for last two arguments in input
 	if strings.HasPrefix(args[len(args)-2], "-") || strings.HasPrefix(args[len(args)-2], "--") {
-		lastOption = strings.TrimPrefix(args[len(args)-2], "--")
-		lastOption = strings.TrimPrefix(lastOption, "-")
 
-		if opt := group.FindOptionByLongName(lastOption); opt != nil {
-			option = opt
+		// Long opts
+		if strings.HasPrefix(args[len(args)-2], "--") {
+			lastOption = strings.TrimPrefix(args[len(args)-2], "--")
+			if opt := group.FindOptionByLongName(lastOption); opt != nil {
+				option = opt
+			}
+
+			// Short opts
+		} else if strings.HasPrefix(args[len(args)-2], "-") {
+			lastOption = strings.TrimPrefix(args[len(args)-2], "-")
+			if opt := group.FindOptionByShortName(rune(lastOption[0])); opt != nil {
+				option = opt
+			}
 		}
+
 	}
 
 	// If option is found, and we still are in writing the argument
@@ -355,14 +364,22 @@ func optionArgRequired(args []string, last []rune, group *flags.Group) (opt *fla
 	if lastItem != "" && option == nil {
 		if strings.HasPrefix(args[len(args)-2], "-") || strings.HasPrefix(args[len(args)-2], "--") {
 
-			lastOption = strings.TrimPrefix(args[len(args)-2], "--")
-			lastOption = strings.TrimPrefix(lastOption, "-")
+			// Long opts
+			if strings.HasPrefix(args[len(args)-2], "--") {
+				lastOption = strings.TrimPrefix(args[len(args)-2], "--")
+				if opt := group.FindOptionByLongName(lastOption); opt != nil {
+					option = opt
+					return option, true
+				}
 
-			if opt := group.FindOptionByLongName(lastOption); opt != nil {
-				option = opt
-				return option, true
+				// Short opts
+			} else if strings.HasPrefix(args[len(args)-2], "-") {
+				lastOption = strings.TrimPrefix(args[len(args)-2], "-")
+				if opt := group.FindOptionByShortName(rune(lastOption[0])); opt != nil {
+					option = opt
+					return option, true
+				}
 			}
-
 		}
 	}
 

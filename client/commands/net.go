@@ -82,11 +82,11 @@ func isLoopback(ip string) bool {
 // Netstat - Print session active sockets
 type Netstat struct {
 	Options struct {
-		TCP    bool `long:"tcp" description:"Exclude TCP connections"`
-		UDP    bool `long:"udp" description:"Include UDP connections"`
-		IPv4   bool `long:"ip4" description:"Exclude IPv4 address sockets"`
-		IPv6   bool `long:"ip6" description:"Include IPv6 address sockets"`
-		Listen bool `long:"listen" description:"Include listening sockets"`
+		TCP    bool `long:"tcp" short:"t" description:"Exclude TCP connections"`
+		UDP    bool `long:"udp" short:"u" description:"Include UDP connections"`
+		IPv4   bool `long:"ip4" short:"4" description:"Exclude IPv4 address sockets"`
+		IPv6   bool `long:"ip6" short:"6" description:"Include IPv6 address sockets"`
+		Listen bool `long:"listen" short:"l" description:"Include listening sockets"`
 	} `group:"netstat options"`
 }
 

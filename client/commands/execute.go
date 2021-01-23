@@ -32,8 +32,8 @@ type Execute struct {
 		Args []string `description:"command arguments" required:"1"`
 	} `positional-args:"yes" required:"yes"`
 	Options struct {
-		Silent  bool `long:"silent" description:"don't print the command output"`
-		Timeout int  `long:"timeout" description:"command timeout in seconds"`
+		Silent  bool `long:"silent" short:"s" description:"don't print the command output"`
+		Timeout int  `long:"timeout" short:"t" description:"command timeout in seconds"`
 	} `group:"execute options"`
 }
 

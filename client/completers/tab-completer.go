@@ -230,27 +230,40 @@ func CompleteCommandOptions(args []string, lastWord string, cmd *flags.Command) 
 	// Get all (root) option groups.
 	groups := cmd.Groups()
 
+	// Append command options not gathered in groups
+	groups = append(groups, cmd.Group)
+
 	// For each group, build completions
 	for _, grp := range groups {
 
 		compGrp := &readline.CompletionGroup{
-			Name:         grp.ShortDescription,
-			Descriptions: map[string]string{},
-			DisplayType:  readline.TabDisplayList,
+			Name:           grp.ShortDescription,
+			Descriptions:   map[string]string{},
+			DisplayType:    readline.TabDisplayList,
+			SuggestionsAlt: map[string]string{},
 		}
 
 		// Add each option to completion group
 		for _, opt := range grp.Options() {
 
 			// Check if option is already set, next option if yes
-			if optionNotRepeatable(opt) && optionIsAlreadySet(args, lastWord, opt) {
-				continue
-			}
+			// if optionNotRepeatable(opt) && optionIsAlreadySet(args, lastWord, opt) {
+			//         continue
+			// }
 
+			// Depending on the current last word, either build a group with option longs only, or with shorts
 			if strings.HasPrefix("--"+opt.LongName, lastWord) {
 				optName := "--" + opt.LongName
 				compGrp.Suggestions = append(compGrp.Suggestions, optName+" ")
 
+				// Add short if there is, and that the prefix is only one dash
+				if strings.HasPrefix("-", lastWord) {
+					if opt.ShortName != 0 {
+						compGrp.SuggestionsAlt[optName+" "] = "-" + string(opt.ShortName) + " "
+					}
+				}
+
+				// Option default value if any
 				var def string
 				if len(opt.Default) > 0 {
 					def = " (default:"
@@ -262,9 +275,9 @@ func CompleteCommandOptions(args []string, lastWord string, cmd *flags.Command) 
 				}
 				var desc string
 				if opt.Required {
-					desc = fmt.Sprintf("%s%sR%s %s%s%s%s", tui.RED, tui.DIM, tui.RESET, tui.DIM, opt.Description, def, tui.RESET)
+					desc = fmt.Sprintf("%s%s R%s %s%s%s%s", tui.RED, tui.DIM, tui.RESET, tui.DIM, opt.Description, def, tui.RESET)
 				} else {
-					desc = fmt.Sprintf("%s%sO%s %s%s%s%s", tui.GREEN, tui.DIM, tui.RESET, tui.DIM, opt.Description, def, tui.RESET)
+					desc = fmt.Sprintf("%s%s O%s %s%s%s%s", tui.GREEN, tui.DIM, tui.RESET, tui.DIM, opt.Description, def, tui.RESET)
 				}
 
 				compGrp.Descriptions[optName+" "] = desc

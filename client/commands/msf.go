@@ -32,11 +32,11 @@ import (
 
 // MSFOptions - Options applying to all msf-related execution commands.
 type MSFOptions struct {
-	Payload    string `long:"payload" description:"payload type (auto-completed)" default:"meterpreter_reverse_https" value-name:"compatible payloads"`
-	LHost      string `long:"lhost" description:"listen host" required:"yes"`
-	LPort      int    `long:"lport" description:"listen port" default:"4444"`
-	Encoder    string `long:"encoder" description:"MSF encoder" value-name:"msf encoders"`
-	Iterations int    `long:"iterations" description:"iterations of the encoder" default:"1"`
+	Payload    string `long:"payload" short:"P" description:"payload type (auto-completed)" default:"meterpreter_reverse_https" value-name:"compatible payloads"`
+	LHost      string `long:"lhost" short:"l" description:"listen host" required:"yes"`
+	LPort      int    `long:"lport" short:"p" description:"listen port" default:"4444"`
+	Encoder    string `long:"encoder" short:"e" description:"MSF encoder" value-name:"msf encoders"`
+	Iterations int    `long:"iterations" short:"i" description:"iterations of the encoder" default:"1"`
 }
 
 // MSF - Execute an MSF payload in the current process.

@@ -41,9 +41,9 @@ const (
 // Shell - Start an interactive system shell on the session host.
 type Shell struct {
 	Options struct {
-		NoPty   bool   `long:"no-pty" description:"disable use of pty on macos/linux"`
-		Path    string `long:"shell-path" description:"path to shell interpreter"`
-		Timeout int    `long:"timeout" description:"command timeout in seconds" default:"60"`
+		NoPty   bool   `long:"no-pty" short:"y" description:"disable use of pty on macos/linux"`
+		Path    string `long:"shell-path" short:"s" description:"path to shell interpreter"`
+		Timeout int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 	} `group:"shell options"`
 }
 

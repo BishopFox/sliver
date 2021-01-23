@@ -321,8 +321,8 @@ func (s *Set) Execute(args []string) (err error) {
 // Therefore this command is different from the one in Sessions struct.
 type Kill struct {
 	Options struct {
-		Force   bool `long:"force" description:"Force kill, does not clean up"`
-		Timeout int  `long:"timeout" description:"Command timeout in seconds" default:"60"`
+		Force   bool `long:"force" short:"f" description:"Force kill, does not clean up"`
+		Timeout int  `long:"timeout" short:"t" description:"Command timeout in seconds" default:"60"`
 	} `group:"kill options"`
 }
 

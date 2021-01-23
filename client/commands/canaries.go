@@ -33,7 +33,7 @@ import (
 
 // Canaries - List previously generated canaries
 type Canaries struct {
-	Burned bool `long:"burned" description:"Include canaries who have sang already"`
+	Burned bool `long:"burned" short:"b" description:"Include canaries who have sang already"`
 }
 
 // Execute - List previously generated canaries

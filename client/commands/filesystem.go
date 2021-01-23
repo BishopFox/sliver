@@ -129,8 +129,8 @@ type Rm struct {
 		Path []string `description:"Session directory/file" required:"1"`
 	} `positional-args:"yes" required:"yes"`
 	Options struct {
-		Recursive bool `short:"r" description:"Recursively remove directory contents"`
-		Force     bool `short:"f" description:"ignore nonexistent files, never prompt"`
+		Recursive bool `long:"recursive " short:"r" description:"Recursively remove directory contents"`
+		Force     bool `long:"force" short:"f" description:"ignore nonexistent files, never prompt"`
 	} `group:"rm options"`
 }
 

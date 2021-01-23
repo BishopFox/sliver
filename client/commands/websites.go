@@ -48,11 +48,11 @@ const (
 
 // WebsiteOptions - General website options
 type WebsiteOptions struct {
-	Website     string `long:"website" description:"Website name" required:"true"`
-	WebPath     string `long:"web-path" description:"HTTP path to host file at" required:"true"`
-	Content     string `long:"content" description:"local file path/dir (must use --recursive if dir)"`
-	ContentType string `long:"content-type" description:"MIME content-type (if blank, use file ext.)"`
-	Recursive   bool   `long:"recursive" description:"Apply command (delete/add) recursively"`
+	Website     string `long:"website" short:"w" description:"Website name" required:"true"`
+	WebPath     string `long:"web-path" short:"p" description:"HTTP path to host file at" default:"/"`
+	Content     string `long:"content" short:"c" description:"local file path/dir (must use --recursive if dir)"`
+	ContentType string `long:"content-type" short:"C" description:"MIME content-type (if blank, use file ext.)"`
+	Recursive   bool   `long:"recursive" short:"r" description:"Apply command (delete/add) recursively"`
 }
 
 // Websites - All websites management commands

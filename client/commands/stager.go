@@ -38,13 +38,13 @@ import (
 // StageListener - Start a staging listener.
 type StageListener struct {
 	Options struct {
-		URL         string `long:"url" description:"Listener URL (tcp://ip:port or http(s)://ip:port)" required:"true" value-name:"stage URL"`
-		Profile     string `long:"profile" description:"Implant profile to link with the listener"`
+		URL         string `long:"url" short:"u" description:"Listener URL (tcp://ip:port or http(s)://ip:port)" required:"true" value-name:"stage URL"`
+		Profile     string `long:"profile"  short:"p" description:"Implant profile to link with the listener"`
 		LetsEncrypt bool   `long:"lets-encrypt" description:"Attempt to provision a let's encrypt certificate (HTTPS only)"`
-		Certificate string `long:"certificate" description:"PEM encoded certificate file (HTTPS only)"`
-		PrivateKey  string `long:"key" description:"PEM encoded private key file (HTTPS only)"`
-		Timeout     int    `long:"timeout" description:"Command timeout in seconds" default:"60"`
-		Persistent  bool   `long:"persistent" description:"Make listener persistent across server restarts"`
+		Certificate string `long:"certificate" short:"c" description:"PEM encoded certificate file (HTTPS only)"`
+		PrivateKey  string `long:"key" short:"k" description:"PEM encoded private key file (HTTPS only)"`
+		Timeout     int    `long:"timeout" short:"t" description:"Command timeout in seconds" default:"60"`
+		Persistent  bool   `long:"persistent" short:"P" description:"Make listener persistent across server restarts"`
 	} `group:"Staging listener options"`
 }
 

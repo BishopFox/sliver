@@ -31,8 +31,8 @@ var (
 	ClientLogger = NewClientLogger("")
 )
 
-// NewClientLogger - A text logger being passed to any
-// component the client binary (only) for logging events/info.
+// NewClientLogger - A text logger being passed to any component
+// running on the client binary (only) for logging events/info.
 func NewClientLogger(name string) *logrus.Logger {
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
@@ -46,7 +46,7 @@ func NewClientLogger(name string) *logrus.Logger {
 
 // Client Components use this hook to get their logs dispatched.
 type clientHook struct {
-	name string // The name of the component (comm, module, etc.)
+	name string // (comm, module, etc.)
 }
 
 // All logs happening within the client binary use a classic text logger,

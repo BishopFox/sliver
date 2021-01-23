@@ -51,41 +51,41 @@ type Generate struct {
 type StageOptions struct {
 	// CoreOptions - All options about OS/arch, files to save, debugs, etc.
 	CoreOptions struct {
-		OS      string `long:"os" description:"Target host operating system" default:"windows" value-name:"stage OS"`
-		Arch    string `long:"arch" description:"Target host CPU architecture" default:"amd64" value-name:"stage architectures"`
-		Format  string `long:"format" description:"Output formats (exe, shared (DLL), service (see 'psexec' for info), shellcode (Windows only)" default:"exe" value-name:"stage formats"`
-		Profile string `long:"profile-name" description:"Implant profile name to use"`
-		Name    string `long:"name" description:"Implant name to use (overrides random name generation)"`
-		Save    string `long:"save" description:"Directory/file where to save binary"`
-		Debug   bool   `long:"debug" description:"Enable debug features (incompatible with obfuscation, and prevailing)"`
+		OS      string `long:"os" short:"o" description:"Target host operating system" default:"windows" value-name:"stage OS"`
+		Arch    string `long:"arch" short:"a" description:"Target host CPU architecture" default:"amd64" value-name:"stage architectures"`
+		Format  string `long:"format" short:"f" description:"Output formats (exe, shared (DLL), service (see 'psexec' for info), shellcode (Windows only)" default:"exe" value-name:"stage formats"`
+		Profile string `long:"profile-name" description:"Implant profile name to use (use with generate-profile)"`
+		Name    string `long:"name" short:"N" description:"Implant name to use (overrides random name generation)"`
+		Save    string `long:"save" short:"s" description:"Directory/file where to save binary"`
+		Debug   bool   `long:"debug" short:"d" description:"Enable debug features (incompatible with obfuscation, and prevailing)"`
 	} `group:"Core options"`
 
 	// TransportOptions - All options pertaining to transport/RPC matters
 	TransportOptions struct {
-		MTLS      []string `long:"mtls" description:"mTLS C2 domain(s), comma-separated (ex: mtls://host:port)" env-delim:","`
-		DNS       []string `long:"dns" description:"DNS C2 domain(s), comma-separated (ex: dns://mydomain.com)" env-delim:","`
-		HTTP      []string `long:"http" description:"HTTP(S) C2 domain(s)" env-delim:","`
-		NamedPipe []string `long:"named-pipe" description:"Named pipe transport strings, comma-separated" env-delim:","`
-		TCPPivot  []string `long:"tcp-pivot" description:"TCP pivot transport strings, comma-separated" env-delim:","`
-		Reconnect int      `long:"reconnect" description:"Attempt to reconnect every n second(s)" default:"60"`
-		MaxErrors int      `long:"max-errors" description:"Max number of transport errors" default:"10"`
-		Timeout   int      `long:"timeout" description:"Command timeout in seconds" default:"60"`
+		MTLS      []string `long:"mtls" short:"m" description:"mTLS C2 domain(s), comma-separated (ex: mtls://host:port)" env-delim:","`
+		DNS       []string `long:"dns" short:"n" description:"DNS C2 domain(s), comma-separated (ex: dns://mydomain.com)" env-delim:","`
+		HTTP      []string `long:"http" short:"h" description:"HTTP(S) C2 domain(s)" env-delim:","`
+		NamedPipe []string `long:"named-pipe" short:"p" description:"Named pipe transport strings, comma-separated" env-delim:","`
+		TCPPivot  []string `long:"tcp-pivot" short:"i" description:"TCP pivot transport strings, comma-separated" env-delim:","`
+		Reconnect int      `long:"reconnect" short:"j" description:"Attempt to reconnect every n second(s)" default:"60"`
+		MaxErrors int      `long:"max-errors" short:"k" description:"Max number of transport errors" default:"10"`
+		Timeout   int      `long:"timeout" short:"t" description:"Command timeout in seconds" default:"60"`
 	} `group:"Transport options"`
 
 	// SecurityOptions - All security-oriented options like restrictions.
 	SecurityOptions struct {
-		LimitDatetime  string `long:"limit-datetime" description:"Limit execution to before datetime"`
-		LimitDomain    bool   `long:"limit-domain-joined" description:"Limit execution to domain joined machines"`
-		LimitUsername  string `long:"limit-username" description:"Limit execution to specified username"`
-		LimitHosname   string `long:"limit-hostname" description:"Limit execution to specified hostname"`
-		LimitFileExits string `long:"limit-file-exists" description:"Limit execution to hosts with this file in the filesystem"`
+		LimitDatetime  string `long:"limit-datetime" short:"w" description:"Limit execution to before datetime"`
+		LimitDomain    bool   `long:"limit-domain-joined" short:"D" description:"Limit execution to domain joined machines"`
+		LimitUsername  string `long:"limit-username" short:"U" description:"Limit execution to specified username"`
+		LimitHosname   string `long:"limit-hostname" short:"H" description:"Limit execution to specified hostname"`
+		LimitFileExits string `long:"limit-file-exists" short:"F" description:"Limit execution to hosts with this file in the filesystem"`
 	} `group:"Security options"`
 
 	// EvasionOptions - All proactive security options (obfuscation, evasion, etc)
 	EvasionOptions struct {
-		Canary      []string `long:"canary" description:"DNS canary domain strings, comma-separated" env-delim:","`
-		SkipSymbols bool     `long:"skip-obfuscation" description:"Skip binary/symbol obfuscation"`
-		Evasion     bool     `long:"evasion" description:"Enable evasion features"`
+		Canary      []string `long:"canary" short:"c" description:"DNS canary domain strings, comma-separated" env-delim:","`
+		SkipSymbols bool     `long:"skip-obfuscation" short:"b" description:"Skip binary/symbol obfuscation"`
+		Evasion     bool     `long:"evasion" short:"e" description:"Enable evasion features"`
 	} `group:"Evasion options"`
 }
 
@@ -109,8 +109,8 @@ type Regenerate struct {
 	Positional struct {
 		Name string `description:"Name of Sliver implant to recompile"`
 	} `positional-args:"yes" required:"yes"`
-	Save    string `long:"save" description:"Directory/file where to save binary"`
-	Timeout int    `long:"timeout" description:"Command timeout in seconds"`
+	Save    string `long:"save" short:"s" description:"Directory/file where to save binary"`
+	Timeout int    `long:"timeout" short:"t" description:"Command timeout in seconds"`
 }
 
 // Execute - Recompile an implant with a given profile
