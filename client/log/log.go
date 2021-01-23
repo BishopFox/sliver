@@ -92,12 +92,12 @@ func handleServerLogs(rpc rpcpb.SliverRPCClient) {
 				fmt.Printf("\t🔥 Session #%d is affected\n", session.ID)
 			}
 			fmt.Println()
-			shell.RefreshMultiline(promptRender(), 0, false)
+			shell.RefreshMultiline(promptRender(), true, 0, false)
 
 		case consts.JobStoppedEvent:
 			job := event.Job
 			fmt.Printf(util.Info+"Job #%d stopped (%s/%s)\n", job.ID, job.Protocol, job.Name)
-			shell.RefreshMultiline(promptRender(), 0, false)
+			shell.RefreshMultiline(promptRender(), true, 0, false)
 
 		case consts.SessionOpenedEvent:
 			session := event.Session
@@ -111,14 +111,14 @@ func handleServerLogs(rpc rpcpb.SliverRPCClient) {
 				fmt.Printf(util.Info+"Session #%d %s - %s (%s) - %s/%s - %v\n\n",
 					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			}
-			shell.RefreshMultiline(promptRender(), 0, false)
+			shell.RefreshMultiline(promptRender(), true, 0, false)
 
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
 			fmt.Printf("\n") // Clear screen a bit before announcing the king
 			fmt.Printf(util.Info+"Session #%d has been updated - %v\n\n", session.ID, currentTime)
-			shell.RefreshMultiline(promptRender(), 0, false)
+			shell.RefreshMultiline(promptRender(), true, 0, false)
 
 		case consts.SessionClosedEvent:
 			session := event.Session
@@ -127,7 +127,7 @@ func handleServerLogs(rpc rpcpb.SliverRPCClient) {
 				fmt.Printf("\n\n") // Clear screen a bit before announcing the king
 				fmt.Printf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
-				shell.RefreshMultiline(promptRender(), 0, false)
+				shell.RefreshMultiline(promptRender(), true, 0, false)
 
 			} else if cctx.Context.Sliver == nil {
 				fmt.Printf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",

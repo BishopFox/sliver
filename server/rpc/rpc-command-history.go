@@ -69,6 +69,11 @@ func (c *Server) AddToHistory(in context.Context, req *pb.AddCmdHistoryRequest) 
 		return &pb.AddCmdHistory{Doublon: true, Response: &commonpb.Response{}}, nil
 	}
 
+	// If input is empty or full of spaces, skip
+	if strings.TrimSpace(req.Line) == "" {
+		return &pb.AddCmdHistory{Doublon: true, Response: &commonpb.Response{}}, nil
+	}
+
 	// Find file data, cut it and process it. If the name is empty,
 	// we are the server and we write to a dedicated file.
 	var filename string

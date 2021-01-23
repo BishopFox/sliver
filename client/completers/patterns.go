@@ -175,13 +175,18 @@ func commandArgumentRequired(lastWord string, args []string, command *flags.Comm
 		if arg.Required == 1 && arg.RequiredMaximum == 1 {
 
 			// If last word is the argument, and we are
-			// last arg in line keep completing.
-			if len(remain) <= 1 && i == (len(command.Args())-1) {
+			// last arg in: line keep completing.
+			if len(remain) <= 1 {
 				return arg.Name, true
 			}
+			// If last word is the argument, and we are
+			// last arg in line keep completing.
+			// if len(remain) <= 1 && i == (len(command.Args())-1) {
+			//         return arg.Name, true
+			// }
 
 			// If filed and we are not last arg, continue
-			if len(remain) > 0 && i < (len(command.Args())-1) {
+			if len(remain) > 1 && i < (len(command.Args())-1) {
 				remain = remain[1:]
 				continue
 			}

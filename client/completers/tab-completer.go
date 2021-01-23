@@ -251,11 +251,20 @@ func CompleteCommandOptions(args []string, lastWord string, cmd *flags.Command) 
 				optName := "--" + opt.LongName
 				compGrp.Suggestions = append(compGrp.Suggestions, optName+" ")
 
+				var def string
+				if len(opt.Default) > 0 {
+					def = " (default:"
+					for _, d := range opt.Default {
+						def += " " + d + ","
+					}
+					def = strings.TrimSuffix(def, ",")
+					def += ")"
+				}
 				var desc string
 				if opt.Required {
-					desc = fmt.Sprintf("%s%sR%s %s%s%s", tui.RED, tui.DIM, tui.RESET, tui.DIM, opt.Description, tui.RESET)
+					desc = fmt.Sprintf("%s%sR%s %s%s%s%s", tui.RED, tui.DIM, tui.RESET, tui.DIM, opt.Description, def, tui.RESET)
 				} else {
-					desc = fmt.Sprintf("%s%sO%s %s%s%s", tui.GREEN, tui.DIM, tui.RESET, tui.DIM, opt.Description, tui.RESET)
+					desc = fmt.Sprintf("%s%sO%s %s%s%s%s", tui.GREEN, tui.DIM, tui.RESET, tui.DIM, opt.Description, def, tui.RESET)
 				}
 
 				compGrp.Descriptions[optName+" "] = desc

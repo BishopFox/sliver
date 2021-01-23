@@ -367,6 +367,14 @@ github.com/mattn/go-sqlite3 v2.0.1+incompatible/go.mod h1:FPy6KqzDD04eiIsT53CuJW
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/maxlandon/readline v0.0.0-20201115221939-748705d16fec h1:c/n2nnXn+LslSfdOio0kvZ0nLwdlHXacByf5bl2qYTU=
 github.com/maxlandon/readline v0.0.0-20201115221939-748705d16fec/go.mod h1:Fd3zHLkCoj29Gv00EyoKO3oiX0Yqj8FlTUpLZw/93eg=
+github.com/maxlandon/readline v0.0.0-20210123033723-6e7484159d3f h1:u2nvhzv/FffhtZsMXXaTPVscgo+znyY5rnIbTHxmyEk=
+github.com/maxlandon/readline v0.0.0-20210123033723-6e7484159d3f/go.mod h1:Fd3zHLkCoj29Gv00EyoKO3oiX0Yqj8FlTUpLZw/93eg=
+github.com/maxlandon/readline v0.0.0-20210123151512-1f0a3700d75e h1:kPMr7xEtGQUaq3sfO1SogVHeV6t57HvQ5Qk48ap0aws=
+github.com/maxlandon/readline v0.0.0-20210123151512-1f0a3700d75e/go.mod h1:Fd3zHLkCoj29Gv00EyoKO3oiX0Yqj8FlTUpLZw/93eg=
+github.com/maxlandon/readline v0.0.0-20210123152653-32ff00653808 h1:UL90w1twBxozCTeXL9NtM7tRWvy5MG9vWaHLRmP1LVc=
+github.com/maxlandon/readline v0.0.0-20210123152653-32ff00653808/go.mod h1:Fd3zHLkCoj29Gv00EyoKO3oiX0Yqj8FlTUpLZw/93eg=
+github.com/maxlandon/readline v0.0.0-20210123154022-cdcee2856d3a h1:LNKPWVy9X/odn9Hvee8oXPsDRr6nGlzUWg48CKpzBHA=
+github.com/maxlandon/readline v0.0.0-20210123154022-cdcee2856d3a/go.mod h1:Fd3zHLkCoj29Gv00EyoKO3oiX0Yqj8FlTUpLZw/93eg=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b/go.mod h1:01TrycV0kFyexm33Z7vhZRXopbI8J3TDReVlkTgMUxE=
 github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d h1:5PJl274Y63IEHC+7izoQE9x6ikvDFZS2mDVS3drnohI=
 github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d/go.mod h1:01TrycV0kFyexm33Z7vhZRXopbI8J3TDReVlkTgMUxE=

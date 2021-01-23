@@ -71,12 +71,19 @@ func (l *clientHook) Fire(log *logrus.Entry) (err error) {
 		line += fmt.Sprintf("%s%-10v %s-%s ", tui.DIM, component, tui.DIM, tui.RESET)
 	}
 
+	// Refresh the prompt without actually printing it.
+	shell.RefreshMultiline(promptRender(), false, 2, true)
+
 	// Add the message and print
 	line += log.Message
 	fmt.Println(line)
 
-	// By default, refresh the prompt
-	// shell.RefreshMultiline(promptRender(), 0, false)
+	// Additional line makes messages not overlapping because of refreshes
+	fmt.Println()
+
+	// Then, refresh the prompt. The overall effect is to have the logs being
+	// printed just above the prompt, so that it does not bother the user.
+	shell.RefreshMultiline(promptRender(), true, 0, false)
 
 	return nil
 }

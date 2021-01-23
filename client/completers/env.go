@@ -42,8 +42,7 @@ func completeEnvironmentVariables(lastWord string) (last string, completions []*
 
 	for k, v := range util.ClientEnv {
 		if strings.HasPrefix("$"+k, lastVar) {
-			grp.Suggestions = append(grp.Suggestions, k+"/")
-			// grp.Suggestions = append(grp.Suggestions, k[(len(lastVar)-1):]+"/")
+			grp.Suggestions = append(grp.Suggestions, "$"+k+"/")
 			evaluated[k] = v
 		}
 	}

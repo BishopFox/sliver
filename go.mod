@@ -30,7 +30,7 @@ require (
 	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/mattn/go-runewidth v0.0.8 // indirect
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible
-	github.com/maxlandon/readline v0.0.0-20201115221939-748705d16fec
+	github.com/maxlandon/readline v0.0.0-20210123154022-cdcee2856d3a
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/miekg/dns v1.1.35
 	github.com/mitchellh/go-grpc-net-conn v0.0.0-20200427190222-eb030e4876f0

@@ -42,6 +42,9 @@ import (
 // Many categories, from multiple sources in multiple contexts
 func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (prefix string, completions []*readline.CompletionGroup) {
 
+	// the prefix is the last word, by default
+	prefix = lastWord
+
 	found := commands.ArgumentByName(cmd, arg)
 	var comp *readline.CompletionGroup // This group is used as a buffer, to add groups to final completions
 
@@ -81,7 +84,7 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 
 	// When using a session, some paths are on the remote system, and some are the client console.
 	case cctx.Sliver:
-		if strings.Contains(found.Name, "RemotePath") || strings.Contains(found.Name, "OtherPath") {
+		if strings.Contains(found.Name, "RemotePath") || strings.Contains(found.Name, "OtherPath") || found.Name == "Path" {
 			// if strings.Contains(found.Name, "RemotePath") || strings.Contains(found.Name, "Path") || strings.Contains(found.Name, "OtherPath") {
 			switch cmd.Name {
 			case constants.CdStr, constants.MkdirStr:
