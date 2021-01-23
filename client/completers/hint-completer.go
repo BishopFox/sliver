@@ -31,6 +31,9 @@ import (
 func HintCompleter(line []rune, pos int) (hint []rune) {
 
 	// Format and sanitize input
+	// @args     => All items of the input line
+	// @last     => The last word detected in input line as []rune
+	// @lastWord => The last word detected in input as string
 	args, last, lastWord := FormatInput(line)
 
 	// Detect base command automatically
@@ -57,14 +60,17 @@ func HintCompleter(line []rune, pos int) (hint []rune) {
 			return envVarHint(args, last)
 		}
 
-		if len(command.Groups()) != 0 {
-			if opt, yes := optionArgRequired(args, last, command.Groups()[0]); yes {
-				hint = OptionArgumentHint(args, last, opt)
+		// If options are asked for root command, return commpletions.
+		if len(command.Groups()) > 0 {
+			for _, grp := range command.Groups() {
+				if opt, yes := optionArgRequired(args, last, grp); yes {
+					hint = OptionArgumentHint(args, last, opt)
+				}
 			}
 		}
 
 		// If command has args, hint for args
-		if arg, yes := commandArgumentRequired(lastWord, args, command); yes { // add *commands.Context.Menu in the string here
+		if arg, yes := commandArgumentRequired(lastWord, args, command); yes {
 			hint = []rune(CommandArgumentHints(args, last, command, arg))
 		}
 
@@ -108,13 +114,16 @@ func HandleSubcommandHints(args []string, last []rune, command *flags.Command) (
 	}
 
 	// If the last word in input is an option --name, yield argument hint if needed
-	if len(command.Groups()) != 0 {
-		if opt, yes := optionArgRequired(args, last, command.Groups()[0]); yes {
-			hint = OptionArgumentHint(args, last, opt)
+	if len(command.Groups()) > 0 {
+		for _, grp := range command.Groups() {
+			if opt, yes := optionArgRequired(args, last, grp); yes {
+				hint = OptionArgumentHint(args, last, opt)
+			}
 		}
 	}
 
-	// If user asks for completions with "-" or "--". (Note: This takes precedence on any argument hints, as it is evaluated after them)
+	// If user asks for completions with "-" or "--".
+	// (Note: This takes precedence on any argument hints, as it is evaluated after them)
 	if commandOptionsAsked(args, string(last), command) {
 		return OptionHints(args, last, command)
 	}
@@ -179,11 +188,12 @@ func envVarHint(args []string, last []rune) (hint []rune) {
 
 var (
 	// Hint signs
-	menuHint    = tui.RESET + tui.DIM + tui.BOLD + " Menu  " + tui.RESET                                    // Dim
-	envHint     = tui.RESET + tui.GREEN + tui.BOLD + " Env  " + tui.RESET + tui.DIM + tui.GREEN             // Green
-	commandHint = tui.RESET + tui.DIM + tui.BOLD + " Command  " + tui.RESET + tui.DIM + "\033[38;5;244m"    // Cream
-	exeHint     = tui.RESET + tui.DIM + tui.BOLD + " Shell " + tui.RESET + tui.DIM                          // Dim
-	optionHint  = "\033[38;5;222m" + tui.BOLD + " Options  " + tui.RESET + tui.DIM + "\033[38;5;222m"       // Cream-Yellow
-	valueHint   = "\033[38;5;217m" + tui.BOLD + " Value  " + tui.RESET + tui.DIM + "\033[38;5;244m"         // Pink-Cream
-	argHint     = tui.DIM + "\033[38;5;217m" + tui.BOLD + " Arg  " + tui.RESET + tui.DIM + "\033[38;5;244m" // Pink-Cream
+	menuHint    = tui.RESET + tui.DIM + tui.BOLD + " menu  " + tui.RESET                                 // Dim
+	envHint     = tui.RESET + tui.GREEN + tui.BOLD + " env  " + tui.RESET + tui.DIM + tui.GREEN          // Green
+	commandHint = tui.RESET + tui.DIM + tui.BOLD + " command  " + tui.RESET + tui.DIM + "\033[38;5;244m" // Cream
+	exeHint     = tui.RESET + tui.DIM + tui.BOLD + " shell " + tui.RESET + tui.DIM                       // Dim
+	optionHint  = "\033[38;5;222m" + tui.BOLD + " options  " + tui.RESET + tui.DIM + "\033[38;5;222m"    // Cream-Yellow
+	valueHint   = tui.RESET + tui.DIM + tui.BOLD + " value  " + tui.RESET + tui.DIM + "\033[38;5;244m"   // Pink-Cream
+	// valueHint   = "\033[38;5;217m" + tui.BOLD + " Value  " + tui.RESET + tui.DIM + "\033[38;5;244m"         // Pink-Cream
+	argHint = tui.DIM + "\033[38;5;217m" + tui.BOLD + " arg  " + tui.RESET + tui.DIM + "\033[38;5;244m" // Pink-Cream
 )

@@ -51,14 +51,14 @@ type Generate struct {
 type StageOptions struct {
 	// CoreOptions - All options about OS/arch, files to save, debugs, etc.
 	CoreOptions struct {
-		OS      string `long:"os" short:"o" description:"Target host operating system" default:"windows" value-name:"stage OS"`
-		Arch    string `long:"arch" short:"a" description:"Target host CPU architecture" default:"amd64" value-name:"stage architectures"`
-		Format  string `long:"format" short:"f" description:"Output formats (exe, shared (DLL), service (see 'psexec' for info), shellcode (Windows only)" default:"exe" value-name:"stage formats"`
-		Profile string `long:"profile-name" description:"Implant profile name to use (use with generate-profile)"`
-		Name    string `long:"name" short:"N" description:"Implant name to use (overrides random name generation)"`
-		Save    string `long:"save" short:"s" description:"Directory/file where to save binary"`
-		Debug   bool   `long:"debug" short:"d" description:"Enable debug features (incompatible with obfuscation, and prevailing)"`
-	} `group:"Core options"`
+		OS      string `long:"os" short:"o" description:"target host operating system" default:"windows" value-name:"stage OS"`
+		Arch    string `long:"arch" short:"a" description:"target host CPU architecture" default:"amd64" value-name:"stage architectures"`
+		Format  string `long:"format" short:"f" description:"output formats (exe, shared (DLL), service (see 'psexec' for info), shellcode (Windows only)" default:"exe" value-name:"stage formats"`
+		Profile string `long:"profile-name" description:"implant profile name to use (use with generate-profile)"`
+		Name    string `long:"name" short:"N" description:"implant name to use (overrides random name generation)"`
+		Save    string `long:"save" short:"s" description:"directory/file where to save binary"`
+		Debug   bool   `long:"debug" short:"d" description:"enable debug features (incompatible with obfuscation, and prevailing)"`
+	} `group:"core options"`
 
 	// TransportOptions - All options pertaining to transport/RPC matters
 	TransportOptions struct {
@@ -67,26 +67,26 @@ type StageOptions struct {
 		HTTP      []string `long:"http" short:"h" description:"HTTP(S) C2 domain(s)" env-delim:","`
 		NamedPipe []string `long:"named-pipe" short:"p" description:"Named pipe transport strings, comma-separated" env-delim:","`
 		TCPPivot  []string `long:"tcp-pivot" short:"i" description:"TCP pivot transport strings, comma-separated" env-delim:","`
-		Reconnect int      `long:"reconnect" short:"j" description:"Attempt to reconnect every n second(s)" default:"60"`
-		MaxErrors int      `long:"max-errors" short:"k" description:"Max number of transport errors" default:"10"`
-		Timeout   int      `long:"timeout" short:"t" description:"Command timeout in seconds" default:"60"`
-	} `group:"Transport options"`
+		Reconnect int      `long:"reconnect" short:"j" description:"attempt to reconnect every n second(s)" default:"60"`
+		MaxErrors int      `long:"max-errors" short:"k" description:"max number of transport errors" default:"10"`
+		Timeout   int      `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
+	} `group:"transport options"`
 
 	// SecurityOptions - All security-oriented options like restrictions.
 	SecurityOptions struct {
-		LimitDatetime  string `long:"limit-datetime" short:"w" description:"Limit execution to before datetime"`
-		LimitDomain    bool   `long:"limit-domain-joined" short:"D" description:"Limit execution to domain joined machines"`
-		LimitUsername  string `long:"limit-username" short:"U" description:"Limit execution to specified username"`
-		LimitHosname   string `long:"limit-hostname" short:"H" description:"Limit execution to specified hostname"`
-		LimitFileExits string `long:"limit-file-exists" short:"F" description:"Limit execution to hosts with this file in the filesystem"`
-	} `group:"Security options"`
+		LimitDatetime  string `long:"limit-datetime" short:"w" description:"limit execution to before datetime"`
+		LimitDomain    bool   `long:"limit-domain-joined" short:"D" description:"limit execution to domain joined machines"`
+		LimitUsername  string `long:"limit-username" short:"U" description:"limit execution to specified username"`
+		LimitHosname   string `long:"limit-hostname" short:"H" description:"limit execution to specified hostname"`
+		LimitFileExits string `long:"limit-file-exists" short:"F" description:"limit execution to hosts with this file in the filesystem"`
+	} `group:"security options"`
 
 	// EvasionOptions - All proactive security options (obfuscation, evasion, etc)
 	EvasionOptions struct {
 		Canary      []string `long:"canary" short:"c" description:"DNS canary domain strings, comma-separated" env-delim:","`
-		SkipSymbols bool     `long:"skip-obfuscation" short:"b" description:"Skip binary/symbol obfuscation"`
-		Evasion     bool     `long:"evasion" short:"e" description:"Enable evasion features"`
-	} `group:"Evasion options"`
+		SkipSymbols bool     `long:"skip-obfuscation" short:"b" description:"skip binary/symbol obfuscation"`
+		Evasion     bool     `long:"evasion" short:"e" description:"enable evasion features"`
+	} `group:"evasion options"`
 }
 
 // Execute - Configure and compile an implant
@@ -107,7 +107,7 @@ func (g *Generate) Execute(args []string) (err error) {
 // Regenerate - Recompile an implant by name, passed as argument (completed)
 type Regenerate struct {
 	Positional struct {
-		Name string `description:"Name of Sliver implant to recompile"`
+		ImplantName string `description:"Name of Sliver implant to recompile" required:"1-1"`
 	} `positional-args:"yes" required:"yes"`
 	Save    string `long:"save" short:"s" description:"Directory/file where to save binary"`
 	Timeout int    `long:"timeout" short:"t" description:"Command timeout in seconds"`
@@ -115,7 +115,7 @@ type Regenerate struct {
 
 // Execute - Recompile an implant with a given profile
 func (r *Regenerate) Execute(args []string) (err error) {
-	if r.Positional.Name == "" {
+	if r.Positional.ImplantName == "" {
 		fmt.Printf(util.Error+"Invalid implant name, see `help %s`\n", constants.RegenerateStr)
 		return
 	}
@@ -125,7 +125,7 @@ func (r *Regenerate) Execute(args []string) (err error) {
 	}
 
 	regenerate, err := transport.RPC.Regenerate(context.Background(), &clientpb.RegenerateReq{
-		ImplantName: r.Positional.Name,
+		ImplantName: r.Positional.ImplantName,
 	})
 	if err != nil {
 		fmt.Printf(util.RPCError+"Failed to regenerate implant %s\n", err)

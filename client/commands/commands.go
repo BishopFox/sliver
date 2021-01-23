@@ -388,9 +388,10 @@ func bindServerCommands() (err error) {
 		"List existing implant profiles",
 		help.GetHelpFor(constants.ProfilesStr), &Profiles{})
 	pr.Aliases = []string{"builds"}
+	pr.SubcommandsOptional = true
 
 	_, err = pr.AddCommand(constants.ProfilesDeleteStr,
-		"Delte one or more existing implant profiles", "",
+		"Delete one or more existing implant profiles", "",
 		&ProfileDelete{})
 
 	pg, err := Server.AddCommand(constants.ProfileGenerateStr,

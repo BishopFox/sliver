@@ -27,8 +27,8 @@ import (
 // Log - Log management commands. Sets log level by default.
 type Log struct {
 	Positional struct {
-		Level      string   `description:"Log level to filter by" required:"1-1"`
-		Components []string `description:"Components on which to apply log filter" required:"1"`
+		Level      string   `description:"log level to filter by" required:"1-1"`
+		Components []string `description:"components on which to apply log filter" required:"1"`
 	} `positional-args:"yes" required:"true"`
 }
 

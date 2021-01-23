@@ -342,8 +342,10 @@ func optionArgRequired(args []string, last []rune, group *flags.Group) (opt *fla
 			// Short opts
 		} else if strings.HasPrefix(args[len(args)-2], "-") {
 			lastOption = strings.TrimPrefix(args[len(args)-2], "-")
-			if opt := group.FindOptionByShortName(rune(lastOption[0])); opt != nil {
-				option = opt
+			if len(lastOption) > 0 {
+				if opt := group.FindOptionByShortName(rune(lastOption[0])); opt != nil {
+					option = opt
+				}
 			}
 		}
 

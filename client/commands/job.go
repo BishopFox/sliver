@@ -59,7 +59,7 @@ func (j *Jobs) Execute(args []string) (err error) {
 // JobsKill - Kill a job given an ID
 type JobsKill struct {
 	Positional struct {
-		JobID []uint32 `description:"Active job ID" required:"1"`
+		JobID []uint32 `description:"active job ID" required:"1"`
 	} `positional-args:"yes" required:"true"`
 }
 

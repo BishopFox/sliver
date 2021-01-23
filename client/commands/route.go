@@ -91,8 +91,8 @@ func printRoutes(routes []*commpb.Route) {
 type RouteAdd struct {
 	Options struct {
 		CIDR      string `long:"cidr" description:"IP network in CIDR notation (ex: 192.168.1.1/24)"`
-		Mask      string `long:"mask" description:"(Optional) Specify network mask"`
-		SessionID uint32 `long:"session-id" description:"(Optional) Bind this route network to a precise implant, in case two routes collide"`
+		Mask      string `long:"mask" description:"(optional) specify network mask"`
+		SessionID uint32 `long:"session-id" description:"(optional) bind this route network to a precise implant, in case two routes collide"`
 	} `group:"route options"`
 }
 
@@ -129,8 +129,8 @@ type RouteRemove struct {
 	} `positional-args:"yes"`
 
 	Options struct {
-		CIDR      string `long:"cidr" description:"Close routes matching this network"`
-		SessionID uint32 `long:"session-id" description:"Close routes matching this session"`
+		CIDR      string `long:"cidr" description:"close routes matching this network"`
+		SessionID uint32 `long:"session-id" description:"close routes matching this session"`
 		Close     bool   `long:"close-conns" description:"close all active connections going route(s)"`
 	} `group:"route options"`
 }

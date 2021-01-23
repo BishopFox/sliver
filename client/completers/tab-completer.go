@@ -68,17 +68,6 @@ func TabCompleter(line []rune, pos int) (lastWord string, completions []*readlin
 			}
 		}
 
-		// We must check both for options in this command and any of its subcommands options.
-		if sub, ok := subCommandFound(lastWord, args, command); ok {
-			if len(sub.Groups()) > 0 {
-				for _, grp := range sub.Groups() {
-					if opt, yes := optionArgRequired(args, last, grp); yes {
-						return completeOptionArguments(sub, opt, lastWord)
-					}
-				}
-			}
-		}
-
 		// Then propose subcommands. We don't return from here, otherwise it always skips the next steps.
 		if hasSubCommands(command, args) {
 			completions = CompleteSubCommands(args, lastWord, command)

@@ -33,6 +33,7 @@ import (
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
@@ -58,7 +59,7 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 	case cctx.Server:
 
 		// Paths
-		if strings.Contains(found.Name, "Path") {
+		if strings.Contains(found.Name, "Path") || strings.Contains(found.Name, "Save") {
 			// For any argument with a path in it, we look for the current context'
 			// filesystem, and refine results based on a specific command.
 			switch cmd.Name {
@@ -121,7 +122,6 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 		// Processes
 		if strings.Contains(found.Name, "PID") {
 			completions = append(completions, processes(lastWord))
-
 		}
 	}
 
@@ -138,6 +138,14 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 	}
 	if strings.Contains(found.Name, "Components") {
 		completions = append(completions, completeLoggers(lastWord))
+	}
+
+	// Implant builds & profiles
+	if strings.Contains(found.Name, "Profile") {
+		completions = append(completions, implantProfiles(lastWord))
+	}
+	if strings.Contains(found.Name, "ImplantName") {
+		completions = append(completions, implantNames(lastWord))
 	}
 
 	return
@@ -196,6 +204,64 @@ func completeLoggers(lastWord string) (comp *readline.CompletionGroup) {
 	return
 }
 
+func implantProfiles(lastWord string) (comp *readline.CompletionGroup) {
+	comp = &readline.CompletionGroup{
+		Name:         "implant profiles",
+		Descriptions: map[string]string{},
+		DisplayType:  readline.TabDisplayList,
+		MaxLength:    20,
+	}
+	profiles := getSliverProfiles()
+	for _, profile := range *profiles {
+		if strings.HasPrefix(profile.Name, lastWord) {
+			conf := profile.Config
+			comp.Suggestions = append(comp.Suggestions, profile.Name+" ")
+			desc := fmt.Sprintf(" %s [%s/%s] -> %d C2s", conf.Format.String(), conf.GOOS, conf.GOARCH, len(conf.GetC2()))
+			comp.Descriptions[profile.Name+" "] = tui.DIM + desc
+		}
+	}
+
+	return
+}
+
+func getSliverProfiles() *map[string]*clientpb.ImplantProfile {
+	pbProfiles, err := transport.RPC.ImplantProfiles(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(util.Error+"Error %s", err)
+		return nil
+	}
+	profiles := &map[string]*clientpb.ImplantProfile{}
+	for _, profile := range pbProfiles.Profiles {
+		(*profiles)[profile.Name] = profile
+	}
+	return profiles
+}
+
+func implantNames(lastWord string) (comp *readline.CompletionGroup) {
+	comp = &readline.CompletionGroup{
+		Name:         "implants",
+		Descriptions: map[string]string{},
+		DisplayType:  readline.TabDisplayList,
+		MaxLength:    20,
+	}
+
+	builds, err := transport.RPC.ImplantBuilds(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(util.RPCError+"%s\n", err)
+		return
+	}
+
+	for name, implant := range builds.Configs {
+		if strings.HasPrefix(implant.Name, lastWord) {
+			comp.Suggestions = append(comp.Suggestions, name+" ")
+			desc := fmt.Sprintf(" %s [%s/%s] -> %d C2s", implant.Format.String(), implant.GOOS, implant.GOARCH, len(implant.GetC2()))
+			comp.Descriptions[name+" "] = tui.DIM + desc
+		}
+	}
+
+	return
+}
+
 func sessionIDs(lastWord string) (comp *readline.CompletionGroup) {
 
 	comp = &readline.CompletionGroup{
@@ -246,7 +312,7 @@ func processes(lastWord string) (comp *readline.CompletionGroup) {
 			if session != nil && proc.Pid == session.PID {
 				color = tui.GREEN
 			}
-			desc := fmt.Sprintf("%s(PPID: %d, Owner: %s)  %s", color, proc.Ppid, proc.Owner, proc.Executable)
+			desc := fmt.Sprintf("%s(%d - %s)  %s", color, proc.Ppid, proc.Owner, proc.Executable)
 			comp.Descriptions[pid+" "] = tui.DIM + desc + tui.RESET
 		}
 	}

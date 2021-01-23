@@ -39,18 +39,18 @@ import (
 // GenerateStager - Generate a stager payload using MSFVenom
 type GenerateStager struct {
 	PayloadOptions struct {
-		OS       string `long:"os" short:"o" description:"Target host operating system" default:"windows" value-name:"stage OS"`
-		Arch     string `long:"arch" short:"a" description:"Target host CPU architecture" default:"amd64" value-name:"stage architectures"`
-		Format   string `long:"msf-format" short:"f" description:"Output format (MSF Venom formats). List is auto-completed" default:"raw" value-name:"MSF Venom transform formats"`
-		BadChars string `long:"badchars" short:"b" description:"Bytes to exclude from stage shellcode"`
-		Save     string `long:"save" short:"s" description:"Directory to save the generated stager to"`
-	} `group:"Payload options"`
+		OS       string `long:"os" short:"o" description:"target host operating system" default:"windows" value-name:"stage OS"`
+		Arch     string `long:"arch" short:"a" description:"target host CPU architecture" default:"amd64" value-name:"stage architectures"`
+		Format   string `long:"msf-format" short:"f" description:"output format (MSF Venom formats). List is auto-completed" default:"raw" value-name:"MSF Venom transform formats"`
+		BadChars string `long:"badchars" short:"b" description:"bytes to exclude from stage shellcode"`
+		Save     string `long:"save" short:"s" description:"directory to save the generated stager to"`
+	} `group:"payload options"`
 	TransportOptions struct {
-		LHost    string `long:"lhost" short:"l" description:"Listening host address" required:"true"`
-		LPort    int    `long:"lport" short:"p" description:"Listening host port" default:"8443"`
-		Protocol string `long:"protocol" short:"P" description:"Staging protocol (tcp/http/https)" default:"tcp" value-name:"stager protocol"`
-		Timeout  int    `long:"timeout" short:"t" description:"Command timeout in seconds"`
-	} `group:"Transport options"`
+		LHost    string `long:"lhost" short:"l" description:"listening host address" required:"true"`
+		LPort    int    `long:"lport" short:"p" description:"listening host port" default:"8443"`
+		Protocol string `long:"protocol" short:"P" description:"staging protocol (tcp/http/https)" default:"tcp" value-name:"stager protocol"`
+		Timeout  int    `long:"timeout" short:"t" description:"command timeout in seconds"`
+	} `group:"transport options"`
 }
 
 // Execute - Generate a stager payload using MSFVenom

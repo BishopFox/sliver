@@ -72,7 +72,7 @@ func (cd *ChangeDirectory) Execute(args []string) (err error) {
 // ListSessionDirectories - List directory contents
 type ListSessionDirectories struct {
 	Positional struct {
-		Path []string `description:"Session directory/file"`
+		Path []string `description:"session directory/file"`
 	} `positional-args:"yes"`
 }
 
@@ -126,10 +126,10 @@ func printDirList(dirList *sliverpb.Ls) {
 // Rm - Remove a one or more files/directories from the implant target host.
 type Rm struct {
 	Positional struct {
-		Path []string `description:"Session directory/file" required:"1"`
+		Path []string `description:"session directory/file" required:"1"`
 	} `positional-args:"yes" required:"yes"`
 	Options struct {
-		Recursive bool `long:"recursive " short:"r" description:"Recursively remove directory contents"`
+		Recursive bool `long:"recursive " short:"r" description:"recursively remove directory contents"`
 		Force     bool `long:"force" short:"f" description:"ignore nonexistent files, never prompt"`
 	} `group:"rm options"`
 }
@@ -199,10 +199,10 @@ func (p *Pwd) Execute(args []string) (err error) {
 // Cat - Print one or more files to screen
 type Cat struct {
 	Positional struct {
-		Path []string `description:"Remote file name" required:"1"`
+		Path []string `description:"remote file name" required:"1"`
 	} `positional-args:"yes" required:"yes"`
 	Options struct {
-		Colorize bool `short:"c" long:"colorize" description:"Colorize output according to file extension"`
+		Colorize bool `short:"c" long:"colorize" description:"colorize output according to file extension"`
 	} `group:"rm options"`
 }
 
@@ -272,8 +272,8 @@ func colorize(f *sliverpb.Download) error {
 // Download - Download one or more files from the target to the client.
 type Download struct {
 	Positional struct {
-		LocalPath  string   `description:"Console path (save)" required:"1-1"`
-		RemotePath []string `description:"Remote directory name" required:"1"`
+		LocalPath  string   `description:"console directory/file to save in/as" required:"1-1"`
+		RemotePath []string `description:"remote directory name" required:"1"`
 	} `positional-args:"yes" required:"yes"`
 }
 
@@ -383,7 +383,7 @@ func (c *Download) Execute(args []string) (err error) {
 // Upload - Upload one or more files from the client to the target filesystem.
 type Upload struct {
 	Positional struct {
-		RemotePath string   `description:"Remote directory/file to save in/as" required:"1-1"`
+		RemotePath string   `description:"remote directory/file to save in/as" required:"1-1"`
 		LocalPath  []string `description:"directory name" required:"1"`
 	} `positional-args:"yes" required:"yes"`
 }

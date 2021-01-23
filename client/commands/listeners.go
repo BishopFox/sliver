@@ -43,10 +43,10 @@ const (
 // MTLSListener - Start a mTLS listener
 type MTLSListener struct {
 	Options struct {
-		LHost      string `long:"lhost" short:"l" description:"Interface address to bind mTLS listener to" default:"localhost"`
-		LPort      int    `long:"lport" short:"p" description:"Listener TCP listen port" default:"1789"`
-		Timeout    int    `long:"timeout" short:"t" description:"Command timeout in seconds" default:"60"`
-		Persistent bool   `long:"persistent" short:"P" description:"Make listener persistent across server restarts"`
+		LHost      string `long:"lhost" short:"l" description:"interface address to bind mTLS listener to" default:"localhost"`
+		LPort      int    `long:"lport" short:"p" description:"listener TCP listen port" default:"1789"`
+		Timeout    int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
+		Persistent bool   `long:"persistent" short:"P" description:"make listener persistent across server restarts"`
 	} `group:"mTLS listener options"`
 }
 
@@ -77,11 +77,11 @@ func (m *MTLSListener) Execute(args []string) (err error) {
 // DNSListener - Start a DNS listener
 type DNSListener struct {
 	Options struct {
-		Domains    []string `long:"domains" short:"d" description:"Comma-separated list of DNS C2 domains to callback" env-delim:"," required:"true"`
-		LPort      int      `long:"lport" short:"p" description:"Listener UDP listen port"`
-		Timeout    int      `long:"timeout" short:"t" description:"Command timeout in seconds" default:"60"`
-		NoCanaries bool     `long:"no-canaries" short:"c" description:"Disable DNS canary detection for this listener"`
-		Persistent bool     `long:"persistent" short:"P" description:"Make listener persistent across server restarts"`
+		Domains    []string `long:"domains" short:"d" description:"comma-separated list of DNS C2 domains to callback" env-delim:"," required:"true"`
+		LPort      int      `long:"lport" short:"p" description:"listener UDP listen port"`
+		Timeout    int      `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
+		NoCanaries bool     `long:"no-canaries" short:"c" description:"disable DNS canary detection for this listener"`
+		Persistent bool     `long:"persistent" short:"P" description:"make listener persistent across server restarts"`
 	} `group:"DNS listener options"`
 }
 
@@ -121,13 +121,13 @@ func (m *DNSListener) Execute(args []string) (err error) {
 type HTTPSListener struct {
 	Options struct {
 		Domain      string `long:"domain" short:"d" description:"HTTPS C2 domain to callback (conversely, limit responses to specific domain)" required:"true"`
-		LPort       int    `long:"lport" short:"p" description:"Listener TCP listen port" default:"8443"`
-		Timeout     int    `long:"timeout" short:"t" description:"Command timeout in seconds" default:"60"`
-		LetsEncrypt bool   `long:"lets-encrypt" description:"Attempt to provision a let's encrypt certificate"`
+		LPort       int    `long:"lport" short:"p" description:"listener TCP listen port" default:"8443"`
+		Timeout     int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
+		LetsEncrypt bool   `long:"lets-encrypt" description:"attempt to provision a let's encrypt certificate"`
 		Website     string `long:"website" short:"w" description:"website name (see 'websites' command)"`
 		Certificate string `long:"certificate" description:"PEM encoded certificate file"`
 		PrivateKey  string `long:"key" description:"PEM encoded private key file"`
-		Persistent  bool   `long:"persistent" short:"P" description:"Make listener persistent across server restarts"`
+		Persistent  bool   `long:"persistent" short:"P" description:"make listener persistent across server restarts"`
 	} `group:"HTTP(S) listener options"`
 }
 
@@ -185,10 +185,10 @@ func getLocalCertificatePair(certPath, keyPath string) ([]byte, []byte, error) {
 type HTTPListener struct {
 	Options struct {
 		Domain     string `long:"domain" short:"d" description:"HTTP C2 domain to callback (conversely, limit responses to specific domain)" required:"true"`
-		LPort      int    `long:"lport" short:"p" description:"Listener TCP listen port" default:"8080"`
-		Timeout    int    `long:"timeout" short:"t" description:"Command timeout in seconds" default:"60"`
+		LPort      int    `long:"lport" short:"p" description:"listener TCP listen port" default:"8080"`
+		Timeout    int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 		Website    string `long:"website" short:"w" description:"website name (see 'websites' command)"`
-		Persistent bool   `long:"persistent" short:"P" description:"Make listener persistent across server restarts"`
+		Persistent bool   `long:"persistent" short:"P" description:"make listener persistent across server restarts"`
 	} `group:"HTTP listener options"`
 }
 

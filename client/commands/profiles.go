@@ -133,10 +133,10 @@ func (p *Profiles) Execute(args []string) (err error) {
 // ProfileGenerate - Generate implant from a profile given as argment (completed)
 type ProfileGenerate struct {
 	Positional struct {
-		Profile string `description:"Name of profile to use"`
+		Profile string `description:"name of profile to use"`
 	} `required:"true"`
-	Save    string `long:"save" short:"s" description:"Directory/file where to save binary"`
-	Timeout int    `long:"timeout" short:"t" description:"Command timeout in seconds"`
+	Save    string `long:"save" short:"s" description:"directory/file where to save binary"`
+	Timeout int    `long:"timeout" short:"t" description:"command timeout in seconds"`
 }
 
 // Execute - Generate implant from a profile given as argment (completed)
@@ -200,7 +200,7 @@ func getLimitsString(config *clientpb.ImplantConfig) string {
 // ProfileDelete - Delete one or more profiles from the server
 type ProfileDelete struct {
 	Positional struct {
-		Profiles []string `description:"Name of profile to delete" required:"1"`
+		Profiles []string `description:"name of profile to delete" required:"1"`
 	} `positional-args:"yes" required:"true"`
 }
 

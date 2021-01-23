@@ -152,7 +152,7 @@ func (p *promptCore) computeBase() (ps string, width int) {
 	// If we don't have any LHost value loaded, it means we did not load a config
 	// and that therefore we are the server.
 	if assets.ServerLHost == "{{.LHost}}" {
-		ps += "{bddg}@{local_ip} {y}[server] {reset}"
+		ps += "{bddg}{y} server {fw}@{local_ip} {reset}"
 	} else {
 		ps += "{bddg}@{server_ip}{reset}"
 	}

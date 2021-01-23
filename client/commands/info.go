@@ -35,7 +35,7 @@ import (
 // Info - Show Session information
 type Info struct {
 	Positional struct {
-		SessionID string `description:"Session ID"`
+		SessionID string `description:"session ID"`
 	} `positional-args:"yes"`
 }
 

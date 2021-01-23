@@ -29,10 +29,10 @@ import (
 // Portfwd - Manage port forwarders on the client
 type Portfwd struct {
 	Options struct {
-		Protocol  string `long:"protocol" description:"Show only for given protocol"`
-		Direct    bool   `long:"direct" description:"Show only direct forwarders"`
-		Reverse   bool   `long:"reverse" description:"Show only reverse forwarders"`
-		SessionID uint32 `long:"session-id" description:"Show only forwarders on a given session"`
+		Protocol  string `long:"protocol" short:"P" description:"show only for given protocol"`
+		Direct    bool   `long:"direct" short:"d" description:"show only direct forwarders"`
+		Reverse   bool   `long:"reverse" short:"R" description:"show only reverse forwarders"`
+		SessionID uint32 `long:"session-id" short:"s" description:"show only forwarders on a given session"`
 	} `group:"print filters"`
 }
 
@@ -134,13 +134,13 @@ func (p *Portfwd) printForwarders(direct bool, forwarders map[string]comm.Forwar
 // PortfwdOpen - Start a client-implant port forwarder
 type PortfwdOpen struct {
 	Options struct {
-		Protocol  string `long:"protocol" description:"Transport protocol" default:"tcp"`
-		Reverse   bool   `long:"reverse" description:"Reverse forwards from Rhost (implant) to LHost (client)"`
-		LHost     string `long:"lhost" description:"Console address to dial/listen on" default:"127.0.0.1"`
-		LPort     int32  `long:"lport" description:"Console listen port" default:"2020"`
-		RHost     string `long:"rhost" description:"Remote host address to dial/listen on" default:"0.0.0.0"`
-		RPort     int32  `long:"rport" description:"Remote port number" required:"true"`
-		SessionID uint32 `long:"session-id" description:"Start the forwarder on a specific session"`
+		Protocol  string `long:"protocol" short:"P" description:"transport protocol" default:"tcp"`
+		Reverse   bool   `long:"reverse" short:"R" description:"reverse forwards from Rhost (implant) to LHost (client)"`
+		LHost     string `long:"lhost" short:"l" description:"console address to dial/listen on" default:"127.0.0.1"`
+		LPort     int32  `long:"lport" short:"p" description:"console listen port" default:"2020"`
+		RHost     string `long:"rhost" short:"r" description:"remote host address to dial/listen on" default:"0.0.0.0"`
+		RPort     int32  `long:"rport" short:"o" description:"remote port number" required:"true"`
+		SessionID uint32 `long:"session-id" short:"s" description:"start the forwarder on a specific session"`
 	} `group:"forwarder options"`
 }
 
@@ -235,12 +235,12 @@ func (p *PortfwdOpen) Execute(args []string) (err error) {
 // PortfwdClose - Stop a port forwarder
 type PortfwdClose struct {
 	Options struct {
-		ForwarderID []string `long:"id" description:"Forwarder IDs, comma-separated" env-delim:" "`
-		Protocol    string   `long:"protocol" description:"Close only for given transport protocol"`
-		Direct      bool     `long:"direct" description:"Close only if direct"`
-		Reverse     bool     `long:"reverse" description:"Close only if reverse"`
-		SessionID   uint32   `long:"session-id" description:"Close if forwarder belongs to session"`
-		CloseConns  bool     `long:"close-conns" description:"Close active connections initiated by forwarder (TCP-only)"`
+		ForwarderID []string `long:"id" short:"i" description:"forwarder IDs, comma-separated" env-delim:" "`
+		Protocol    string   `long:"protocol" short:"P" description:"close only for given transport protocol"`
+		Direct      bool     `long:"direct" short:"D" description:"close only if direct"`
+		Reverse     bool     `long:"reverse" short:"R" description:"close only if reverse"`
+		SessionID   uint32   `long:"session-id" short:"s" description:"close if forwarder belongs to session"`
+		CloseConns  bool     `long:"close-conns" short:"c" description:"close active connections initiated by forwarder (TCP-only)"`
 	} `group:"forwarder options"`
 }
 

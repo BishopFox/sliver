@@ -71,7 +71,7 @@ func (s *Sessions) Execute(args []string) (err error) {
 // SessionsKill - Kill one or more sessions that are not mandatorily the current one.
 type SessionsKill struct {
 	Positional struct {
-		SessionID []uint32 `description:"Session ID (multiple values accepted)" required:"1"`
+		SessionID []uint32 `description:"session ID (multiple values accepted)" required:"1"`
 	} `positional-args:"yes" required:"true"`
 }
 
@@ -203,7 +203,7 @@ func (ka *SessionsClean) Execute(args []string) (err error) {
 // context, with different commands and completions.
 type Interact struct {
 	Positional struct {
-		ImplantID string `description:"Session ID, Name or Name/ID" required:"1-1"` // Name or ID, command will say.
+		ImplantID string `description:"session ID" required:"1-1"` // Name or ID, command will say.
 	} `positional-args:"yes" required:"yes"`
 }
 
@@ -321,8 +321,8 @@ func (s *Set) Execute(args []string) (err error) {
 // Therefore this command is different from the one in Sessions struct.
 type Kill struct {
 	Options struct {
-		Force   bool `long:"force" short:"f" description:"Force kill, does not clean up"`
-		Timeout int  `long:"timeout" short:"t" description:"Command timeout in seconds" default:"60"`
+		Force   bool `long:"force" short:"f" description:"force kill, does not clean up"`
+		Timeout int  `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 	} `group:"kill options"`
 }
 

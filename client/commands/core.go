@@ -52,7 +52,7 @@ func (e *Exit) Execute(args []string) (err error) {
 // ChangeClientDirectory - Change the working directory of the client console
 type ChangeClientDirectory struct {
 	Positional struct {
-		Path string `description:"Local path" required:"1"`
+		Path string `description:"local path" required:"1-1"`
 	} `positional-args:"yes" required:"yes"`
 }
 
@@ -74,7 +74,7 @@ func (cd *ChangeClientDirectory) Execute(args []string) (err error) {
 // ListClientDirectories - List directory contents
 type ListClientDirectories struct {
 	Positional struct {
-		Path []string `description:"Local directory/file"`
+		Path []string `description:"local directory/file"`
 	} `positional-args:"yes"`
 }
 

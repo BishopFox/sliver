@@ -52,18 +52,18 @@ type ExtensionArgs struct {
 	Args []string `description:"(optional) command arguments"`
 }
 
-// ExtensionOptions - Base options for an extension command
+// ExtensionOptions - Base options for loading an extension command
 type ExtensionOptions struct {
-	Path    string `long:"process" description:"path to process to host the shared object"`
-	Save    bool   `long:"save" description:"save command output to disk"`
-	Timeout int    `long:"timeout" description:"command timeout in seconds"`
+	Path    string `long:"process" short:"p" description:"path to process to host the shared object"`
+	Save    bool   `long:"save" short:"s" description:"save command output to disk"`
+	Timeout int    `long:"timeout" short:"t" description:"command timeout in seconds"`
 }
 
 // ExtensionLibraryOptions - The extension is an assembly library.
 // This option group is dynamically loaded by an extension command.
 type ExtensionLibraryOptions struct {
-	AMSI          bool `long:"amsi" description:"use AMSI bypass (disabled by default)"`
-	EtwEventWrite bool `long:"etw" description:"patch EtwEventWrite function to avoid detection (disabled by default)"`
+	AMSI          bool `long:"amsi" short:"a" description:"use AMSI bypass (disabled by default)"`
+	EtwEventWrite bool `long:"etw" short:"e" description:"patch EtwEventWrite function to avoid detection (disabled by default)"`
 }
 
 // Execute - The extension command works like a normal command.

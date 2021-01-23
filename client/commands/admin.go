@@ -31,15 +31,15 @@ import (
 
 // NewOperator - Command for creating a new operator user.
 type NewOperator struct {
-	Options OperatorOptions `group:"Operator options"`
+	Options OperatorOptions `group:"operator options"`
 }
 
 // OperatorOptions - Options for operator creation.
 type OperatorOptions struct {
-	Operator string `long:"operator" description:"Name of operator" required:"true"`
-	LHost    string `long:"lhost" description:"Server listening host" default:"localhost"`
-	LPort    int    `long:"lport" description:"Server listening port" default:"31337"`
-	Save     string `long:"save" description:"Directory/file to save configuration file"`
+	Operator string `long:"operator" short:"o" description:"name of operator" required:"true"`
+	LHost    string `long:"lhost" short:"l" description:"server listening host" default:"localhost"`
+	LPort    int    `long:"lport" short:"p" description:"server listening port" default:"31337"`
+	Save     string `long:"save" short:"s" description:"directory/file to save configuration file"`
 }
 
 // Execute - Create new operator user.
@@ -70,7 +70,7 @@ func (n NewOperator) Execute(args []string) (err error) {
 // KickOperator - Kick an operator out of server and remove certificates.
 type KickOperator struct {
 	Positional struct {
-		Operator string `description:"Name of operator to kick off"`
+		Operator string `description:"name of operator to kick off"`
 	} `positional-args:"yes"`
 }
 
@@ -97,13 +97,13 @@ func (k *KickOperator) Execute(args []string) (err error) {
 
 // MultiplayerMode - Enable team playing on server
 type MultiplayerMode struct {
-	Options MultiplayerOptions `group:"Multiplayer options"`
+	Options MultiplayerOptions `group:"multiplayer options"`
 }
 
 // MultiplayerOptions - Available to server multiplayer mode.
 type MultiplayerOptions struct {
-	LHost string `long:"lhost" description:"Server listening host" default:"localhost"`
-	LPort int    `long:"lport" description:"Server listening port" default:"31337"`
+	LHost string `long:"lhost" short:"l" description:"server listening host" default:"localhost"`
+	LPort int    `long:"lport" short:"p" description:"server listening port" default:"31337"`
 }
 
 // Execute - Start multiplayer mode.

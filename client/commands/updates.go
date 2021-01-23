@@ -48,8 +48,8 @@ const (
 // Updates - Check for newer Sliver console/server releases.
 type Updates struct {
 	Options struct {
-		Insecure    bool   `long:"insecure" short:"I" description:"Check for newer Sliver console/server releases"`
-		Timeout     int    `long:"timeout" short:"t" description:"Command timeout in seconds (default: 10)" default:"10"`
+		Insecure    bool   `long:"insecure" short:"I" description:"check for newer Sliver console/server releases"`
+		Timeout     int    `long:"timeout" short:"t" description:"command timeout in seconds (default: 10)" default:"10"`
 		PreReleases bool   `long:"prereleases" short:"P" description:"include pre-released (unstable) versions"`
 		Proxy       string `long:"proxy" short:"p" description:"specify a proxy url (e.g. http://localhost:8080)"`
 	} `group:"Update Check options"`
