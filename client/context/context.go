@@ -19,16 +19,27 @@ package context
 */
 
 import (
+	"context"
+	"fmt"
 	"sync"
 	"time"
 
+	"github.com/evilsocket/islazy/tui"
+	"google.golang.org/grpc"
+
+	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 )
 
 var (
 	// Context - The console context object
 	Context *ConsoleContext
+
+	// Config - The console configuration.
+	Config *ConsoleConfig
 )
 
 // Menu Contexts
@@ -50,6 +61,34 @@ type ConsoleContext struct {
 	mutex               *sync.Mutex
 }
 
+// Initialize - The console calls to initialize a new context object, to be shared by
+// many components of the console system (completion, command dispatch, prompt, etc.)
+func Initialize(rpc rpcpb.SliverRPCClient) {
+	Context = &ConsoleContext{
+		Menu:  Server,
+		mutex: &sync.Mutex{},
+	}
+
+	// Normally the config should have been loaded, but if any errors arised
+	// the config should still be nil: initialize it with default values.
+	if Config == nil {
+		loadDefaultConsoleConfig()
+	}
+
+	// Get several values from the server.
+	// Jobs
+	req := &commonpb.Empty{}
+	res, _ := rpc.GetJobs(context.Background(), req, grpc.EmptyCallOption{})
+	Context.Jobs = len(res.Active)
+
+	// Sessions
+	sReq := &commonpb.Empty{}
+	sRes, _ := rpc.GetSessions(context.Background(), sReq, grpc.EmptyCallOption{})
+	Context.Slivers = len(sRes.Sessions)
+
+	return
+}
+
 // Session - An implant session we are interacting with.
 // This is a wrapper for some utility methods.
 type Session struct {
@@ -69,12 +108,102 @@ func (s *Session) Request(timeOut int) *commonpb.Request {
 	}
 }
 
-// Initialize - The console calls to initialize a new context object, to be shared by
-// many components of the console system (completion, command dispatch, prompt, etc.)
-func Initialize() {
-	Context = &ConsoleContext{
-		Menu:  Server,
-		mutex: &sync.Mutex{},
+// ConsoleConfig - The console configuration (prompts, hints, modes, etc)
+type ConsoleConfig struct {
+	ServerPrompt struct { // server prompt
+		Right string
+		Left  string
 	}
+	SliverPrompt struct { // session prompt
+		Right string
+		Left  string
+	}
+	Hints bool // Show hints ?
+	Vim   bool // Input mode
+}
+
+// ToProtobuf - The config is exchanged between the client and the server via RPC
+func (cc *ConsoleConfig) ToProtobuf() *clientpb.ConsoleConfig {
+	conf := &clientpb.ConsoleConfig{
+		ServerPromptRight: cc.ServerPrompt.Right,
+		ServerPromptLeft:  cc.ServerPrompt.Left,
+		SliverPromptRight: cc.SliverPrompt.Right,
+		SliverPromptLeft:  cc.SliverPrompt.Left,
+		Hints:             cc.Hints,
+		Vim:               cc.Vim,
+	}
+	return conf
+}
+
+// LoadConsoleConfig - Once the client is connected, it receives a console
+// configuration from the server, according to the user profile.
+func LoadConsoleConfig(rpc rpcpb.SliverRPCClient) (err error) {
+
+	req := &clientpb.GetConsoleConfigReq{}
+	res, err := rpc.LoadConsoleConfig(context.Background(), req, grpc.EmptyCallOption{})
+	if err != nil {
+		return fmt.Errorf("RPC Error: %s", err.Error())
+	}
+	if res.Response.Err != "" {
+		return fmt.Errorf("%s", res.Response.Err)
+	}
+	conf := res.Config
+
+	// Populate the configuration
+	Config = &ConsoleConfig{
+		ServerPrompt: struct {
+			Right string
+			Left  string
+		}{
+			Right: conf.ServerPromptRight,
+			Left:  conf.ServerPromptLeft,
+		},
+		SliverPrompt: struct {
+			Right string
+			Left  string
+		}{
+			Right: conf.SliverPromptRight,
+			Left:  conf.SliverPromptLeft,
+		},
+		Hints: conf.Hints,
+		Vim:   conf.Vim,
+	}
+	fmt.Printf(util.Info + "Loaded console configuration from server\n")
+
 	return
+}
+
+// Initialize a console configuration with default values
+func loadDefaultConsoleConfig() {
+
+	// Make little adjustements to default server prompt, depending on server/client
+	var ps string
+	ps += tui.RESET
+	if assets.ServerLHost == "{{.LHost}}" {
+		ps += "{bddg}{y} server {fw}@{local_ip} {reset}"
+	} else {
+		ps += "{bddg}@{server_ip}{reset}"
+	}
+	// Current working directory
+	ps += " {dim}in {bold}{b}{cwd}"
+	ps += tui.RESET
+
+	Config = &ConsoleConfig{
+		ServerPrompt: struct {
+			Right string
+			Left  string
+		}{
+			Left:  ps,
+			Right: "{dim}[{reset}{y}{jobs}{fw} jobs, {b}{sessions}{fw} sessions{dim}]",
+		},
+		SliverPrompt: struct {
+			Right string
+			Left  string
+		}{
+			Left:  "{bddg} {fr}{session_name} {reset}{bold} {user}{dim}@{reset}{bold}{host}{reset}{dim}in{reset} {bold}{b}{cwd}",
+			Right: "{dim}[{reset}{y}{bold}{platform}{reset}, {bold}{g}{address}{fw}{reset}{dim}]",
+		},
+		Hints: true,
+		Vim:   false,
+	}
 }

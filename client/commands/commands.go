@@ -284,6 +284,32 @@ func bindServerCommands() (err error) {
 		&ListClientDirectories{})
 	ls.Aliases = []string{"core"}
 
+	// Console configuration management
+	conf, err := Server.AddCommand(constants.ConfigStr,
+		"Console configuration commands", "",
+		&Config{})
+	conf.Aliases = []string{"core"}
+	conf.SubcommandsOptional = true
+
+	_, err = conf.AddCommand(constants.ConfigSaveStr,
+		"Save the current console configuration, to be used by all user clients", "",
+		&SaveConfig{})
+	_, err = conf.AddCommand(constants.ConfigPromptServerStr,
+		"Set the server context right/left prompt (items/colors completed)", "",
+		&PromptServer{})
+	_, err = conf.AddCommand(constants.ConfigPromptSliverStr,
+		"Set the sliver context right/left prompt (items/colors completed)", "",
+		&PromptSliver{})
+	_, err = conf.AddCommand(constants.ConfigHintsStr,
+		"Show/hide console hints", "",
+		&Hints{})
+	_, err = conf.AddCommand(constants.ConfigVimStr,
+		"Set the console input mode to Vim editing mode", "",
+		&Vim{})
+	_, err = conf.AddCommand(constants.ConfigEmacsStr,
+		"Set the console input mode to Emacs editing mode", "",
+		&Emacs{})
+
 	// Jobs
 	j, err := Server.AddCommand(constants.JobsStr,
 		"Job management commands",
@@ -654,6 +680,13 @@ func bindSliverCommands() (err error) {
 		&Route{})
 	rt.Aliases = []string{"comm"}
 	rt.SubcommandsOptional = true
+
+	_, err = rt.AddCommand(constants.RouteAddStr,
+		"Add a network route (routes client proxies and C2 handlers)", "",
+		&RouteAdd{})
+	_, err = rt.AddCommand(constants.RouteRemoveStr,
+		"Remove one or more network routes", "",
+		&RouteRemove{})
 
 	// transports
 	// ----------------------------------------------------------------------------------------

@@ -24,6 +24,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -121,6 +122,8 @@ func (m *MultiplayerMode) Execute(args []string) (err error) {
 	}
 
 	if resp.Success {
+		// Temporary: increase jobs counter
+		cctx.Context.Jobs++
 		fmt.Printf(util.Info+"Started Client gRPC listener at %s:%d \n", req.LHost, req.LPort)
 	} else {
 		fmt.Printf(util.Warn+"Failed to start gRPC client listener: %s \n", resp.Response.Err)

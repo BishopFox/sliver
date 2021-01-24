@@ -34,7 +34,7 @@ import (
 	"github.com/bishopfox/sliver/client/comm"
 	"github.com/bishopfox/sliver/client/commands"
 	"github.com/bishopfox/sliver/client/completers"
-	consoleContext "github.com/bishopfox/sliver/client/context"
+	cctx "github.com/bishopfox/sliver/client/context"
 	clientLog "github.com/bishopfox/sliver/client/log"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
@@ -111,18 +111,29 @@ func (c *console) setup() (err error) {
 
 	initLogging() // textfile log
 
+	// Get the user's console configuration from the server
+	err = cctx.LoadConsoleConfig(transport.RPC)
+	if err != nil {
+		fmt.Printf(util.Error + "Failed to load console configuration from server.\n")
+		fmt.Printf(util.Info + "Defaulting to builtin values.\n")
+	}
+
 	// This context object will hold some state about the
 	// console (which implant we're interacting, jobs, etc.)
-	consoleContext.Initialize()
+	cctx.Initialize(transport.RPC)
 
 	// This computes all callbacks and base prompt strings
 	// for the first time, and then binds it to the console.
 	c.initPrompt()
 
-	// Completions, hints and syntax highlighting
+	// Completions and syntax highlighting
 	c.Shell.TabCompleter = completers.TabCompleter
-	c.Shell.HintText = completers.HintCompleter
 	c.Shell.SyntaxHighlighter = completers.SyntaxHighlighter
+
+	// Hints are configurable and can deactivated
+	if cctx.Config.Hints {
+		c.Shell.HintText = completers.HintCompleter
+	}
 
 	// History (client and user-wide)
 	c.Shell.History = ClientHist
@@ -137,7 +148,8 @@ func (c *console) setup() (err error) {
 	return
 }
 
-// Start - The console calls connection and setup functions, and starts the input loop.
+// Start - The console has a working RPC connection: we setup all
+// things pertaining to the console itself, and start the input loop.
 func (c *console) Start() (err error) {
 
 	// Setup console elements
@@ -169,6 +181,10 @@ func (c *console) Start() (err error) {
 
 	// Start input loop
 	for {
+
+		// Some commands allow to change the input mode.
+		c.setInputMode()
+
 		// Recompute prompt each time, before anything.
 		Prompt.Compute()
 
@@ -192,8 +208,17 @@ func (c *console) Start() (err error) {
 		// context parser, which will deal with it on its own. We never return
 		// errors from this call, as any of them happening follows a certain
 		// number of fallback paths (special commands, error printing, etc.).
-		// We should not have to exit the console because of an error here, anyway.
 		c.ExecuteCommand(tokenParsed)
+	}
+}
+
+// Some commands allow to change the input mode, the console
+// looks some values and sets this mode accordingly.
+func (c *console) setInputMode() {
+	if !cctx.Config.Vim {
+		c.Shell.ShowVimMode = false
+	} else {
+		c.Shell.ShowVimMode = true
 	}
 }
 

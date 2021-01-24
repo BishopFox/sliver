@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"strings"
 
+	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -68,6 +69,8 @@ func (m *MTLSListener) Execute(args []string) (err error) {
 	if err != nil {
 		fmt.Printf(util.RPCError+"%s\n", err)
 	} else {
+		// Temporary: increase jobs counter
+		cctx.Context.Jobs++
 		fmt.Printf(util.Info+"Successfully started job #%d\n", mtls.JobID)
 	}
 
@@ -111,6 +114,8 @@ func (m *DNSListener) Execute(args []string) (err error) {
 	if err != nil {
 		fmt.Printf(util.RPCError+"%s\n", err)
 	} else {
+		// Temporary: increase jobs counter
+		cctx.Context.Jobs++
 		fmt.Printf(util.Info+"Successfully started job #%d\n", dns.JobID)
 	}
 
@@ -160,6 +165,8 @@ func (m *HTTPSListener) Execute(args []string) (err error) {
 	if err != nil {
 		fmt.Printf(util.Warn+"%s\n", err)
 	} else {
+		// Temporary: increase jobs counter
+		cctx.Context.Jobs++
 		fmt.Printf(util.Info+"Successfully started job #%d\n", https.JobID)
 	}
 
@@ -211,6 +218,8 @@ func (m *HTTPListener) Execute(args []string) (err error) {
 	if err != nil {
 		fmt.Printf(util.RPCError+"%s\n", err)
 	} else {
+		// Temporary: increase jobs counter
+		cctx.Context.Jobs++
 		fmt.Printf(util.Info+"Successfully started job #%d\n", http.JobID)
 	}
 

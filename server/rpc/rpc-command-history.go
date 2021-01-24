@@ -44,7 +44,7 @@ func (c *Server) GetHistory(in context.Context, req *pb.HistoryRequest) (res *pb
 	if name == "" {
 		filename = filepath.Join(assets.GetRootAppDir(), ".history")
 	} else {
-		path := assets.GetUserHistoryDir(name)
+		path := assets.GetUserDirectory(name)
 		filename = filepath.Join(path, ".history")
 	}
 
@@ -80,11 +80,11 @@ func (c *Server) AddToHistory(in context.Context, req *pb.AddCmdHistoryRequest) 
 	if name == "" {
 		filename = filepath.Join(assets.GetRootAppDir(), ".history")
 	} else {
-		path := assets.GetUserHistoryDir(name)
+		path := assets.GetUserDirectory(name)
 		filename = filepath.Join(path, ".history")
 	}
 
-	// Write to client console file
+	// Write to client history file
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		return nil, errors.New("server could not find your client when requesting history: " + err.Error())

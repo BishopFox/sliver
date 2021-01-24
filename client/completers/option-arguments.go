@@ -165,6 +165,11 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 			completions = append(completions, implantProfiles(lastWord))
 		}
 
+		// Network/CIDR:
+		if match("Network") || match("CIDR") || match("Subnet") {
+			completions = append(completions, allSessionsIfaceNetworks(lastWord, 0, true)...)
+		}
+
 	}
 	return
 }

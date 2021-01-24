@@ -83,10 +83,27 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 			completions = append(completions, jobIDs(lastWord))
 		}
 
+		// Prompt configuration
+		if strings.Contains(found.Name, "Prompt") {
+			switch cmd.Name {
+			case constants.ConfigPromptServerStr:
+				completions = append(completions, promptServerItems(lastWord)...)
+			case constants.ConfigPromptSliverStr:
+				completions = append(completions, promptSliverItems(lastWord)...)
+			}
+		}
+		if strings.Contains(found.Name, "Display") {
+			comp := &readline.CompletionGroup{
+				Name:        "hint verbosity",
+				Suggestions: hints,
+				DisplayType: readline.TabDisplayGrid,
+			}
+			completions = append(completions, comp)
+		}
+
 	// When using a session, some paths are on the remote system, and some are the client console.
 	case cctx.Sliver:
 		if strings.Contains(found.Name, "RemotePath") || strings.Contains(found.Name, "OtherPath") || found.Name == "Path" {
-			// if strings.Contains(found.Name, "RemotePath") || strings.Contains(found.Name, "Path") || strings.Contains(found.Name, "OtherPath") {
 			switch cmd.Name {
 			case constants.CdStr, constants.MkdirStr:
 				prefix, comp = completeRemotePath(lastWord)
@@ -102,6 +119,9 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 		if strings.Contains(found.Name, "LocalPath") {
 			switch cmd.Name {
 			case constants.DownloadStr, constants.UploadStr:
+				prefix, comp = completeLocalPathAndFiles(lastWord)
+				completions = append(completions, comp)
+			default:
 				prefix, comp = completeLocalPathAndFiles(lastWord)
 				completions = append(completions, comp)
 			}

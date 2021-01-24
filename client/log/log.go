@@ -95,11 +95,13 @@ func handleServerLogs(rpc rpcpb.SliverRPCClient) {
 			shell.RefreshMultiline(promptRender(), true, 0, false)
 
 		case consts.JobStoppedEvent:
+			cctx.Context.Jobs-- // Decrease context jobs counter
 			job := event.Job
 			fmt.Printf(util.Info+"Job #%d stopped (%s/%s)\n", job.ID, job.Protocol, job.Name)
 			shell.RefreshMultiline(promptRender(), true, 0, false)
 
 		case consts.SessionOpenedEvent:
+			cctx.Context.Slivers++ // Decrease context slivers counter
 			session := event.Session
 			// The HTTP session handling is performed in two steps:
 			// - first we add an "empty" session
@@ -121,6 +123,7 @@ func handleServerLogs(rpc rpcpb.SliverRPCClient) {
 			shell.RefreshMultiline(promptRender(), true, 0, false)
 
 		case consts.SessionClosedEvent:
+			cctx.Context.Slivers-- // Decrease context slivers counter
 			session := event.Session
 			// We print a message here if its not about a session we killed ourselves, and adapt prompt
 			if cctx.Context.Sliver != nil && session.ID != cctx.Context.Sliver.ID {

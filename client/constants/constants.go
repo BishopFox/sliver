@@ -101,6 +101,14 @@ const (
 	NamedPipeStr   = "named-pipe"
 	TCPListenerStr = "tcp-pivot"
 
+	ConfigStr             = "config"
+	ConfigSaveStr         = "save"
+	ConfigPromptServerStr = "prompt-server"
+	ConfigPromptSliverStr = "prompt-sliver"
+	ConfigVimStr          = "vim"
+	ConfigEmacsStr        = "emacs"
+	ConfigHintsStr        = "hints"
+
 	LogStr = "log"
 
 	MsfStr       = "msf"

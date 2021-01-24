@@ -277,7 +277,7 @@ func (ea *ExecuteAssembly) Execute(args []string) (err error) {
 // Sideload - Load and execute a shared object (shared library/DLL) in a remote process
 type Sideload struct {
 	Positional struct {
-		Path string   `description:"path to shared object" required:"1-1"`
+		LocalPath string   `description:"path to shared object" required:"1-1"`
 		Args []string `description:"(optional) arguments for the shared library function"`
 	} `positional-args:"yes" required:"yes"`
 
@@ -296,7 +296,7 @@ func (s *Sideload) Execute(args []string) (err error) {
 		return
 	}
 
-	binPath := s.Positional.Path
+	binPath := s.Positional.LocalPath
 
 	entryPoint := s.Options.Entrypoint
 	processName := s.Options.RemotePath

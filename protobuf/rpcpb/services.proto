@@ -24,6 +24,10 @@ service SliverRPC {
     rpc GetHistory(clientpb.HistoryRequest) returns (clientpb.History);
     rpc AddToHistory(clientpb.AddCmdHistoryRequest) returns (clientpb.AddCmdHistory);
 
+    // *** Console configuration management
+    rpc LoadConsoleConfig(clientpb.GetConsoleConfigReq) returns (clientpb.GetConsoleConfig);
+    rpc SaveUserConsoleConfig(clientpb.SaveConsoleConfigReq) returns (clientpb.SaveConsoleConfig);
+
     // *** Operator Commands *** 
     rpc GetOperators(commonpb.Empty) returns (clientpb.Operators);
 

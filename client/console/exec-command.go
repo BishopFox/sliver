@@ -58,7 +58,6 @@ func (c *console) ExecuteCommand(args []string) (err error) {
 	// This is because the go-flags library assumes binary "single-runs" from the shell,
 	// and therefore keeps tracks of all values in the program, without offering a mean to
 	// reset them. Therefore we just wipe the command instances and rewrite new, blank ones.
-	// Applies to command arguments and options.
 	err = commands.BindCommands(c.admin, completers.LoadCompsAdditional)
 	if err != nil {
 		fmt.Print(util.CommandError + tui.Red("could not reset commands: "+err.Error()+"\n"))
@@ -67,7 +66,7 @@ func (c *console) ExecuteCommand(args []string) (err error) {
 	return nil
 }
 
-// HandleParserErrors - The parsers may return various types of Errors, handle them in this function.
+// HandleParserErrors - The parsers may return various types of Errors, this function handles them.
 func (c *console) HandleParserErrors(parser *flags.Parser, in error, args []string) (err error) {
 
 	// If there is an error, cast it to a parser error, else return

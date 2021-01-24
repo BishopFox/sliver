@@ -465,3 +465,40 @@ message History {
 
   commonpb.Response Response = 9;
 }
+
+// [ Console configuration ] ----------------------------------------
+
+// ConsoleConfig - The console configuration elements,
+// saved for each user and the server default.
+message ConsoleConfig {
+  string ServerPromptRight = 1;
+  string ServerPromptLeft = 2;
+  string SliverPromptRight = 3;
+  string SliverPromptLeft = 4;
+  bool Hints = 5;
+  bool Vim = 6;
+}
+
+// Ask for config
+message GetConsoleConfigReq {
+  commonpb.Request Request = 9;
+}
+
+// Get config
+message GetConsoleConfig {
+  ConsoleConfig Config = 1;
+
+  commonpb.Response Response = 9;
+}
+
+// Save the config
+message SaveConsoleConfigReq {
+  ConsoleConfig Config = 1;
+
+  commonpb.Request Request = 9;
+}
+
+// Saved
+message SaveConsoleConfig {
+  commonpb.Response Response = 9;
+}

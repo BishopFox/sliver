@@ -459,24 +459,29 @@ func PrintMenuHelp(parser *flags.Parser) {
 
 	// Get all command and push themm in their categories
 	var cmdCats = map[string][]*flags.Command{}
+	var cats []string
 	for _, cmd := range parser.Commands() {
 		if len(cmd.Aliases) > 0 {
+			if !stringInSlice(cmd.Aliases[0], &cats) {
+				cats = append(cats, cmd.Aliases[0])
+			}
 			cmdCats[cmd.Aliases[0]] = append(cmdCats[cmd.Aliases[0]], cmd)
 		}
 	}
 
-	for name, cat := range cmdCats {
-		fmt.Println(tui.Yellow(" " + name)) // Title category
+	for _, cat := range cats {
+
+		fmt.Println(tui.Yellow(" " + cat)) // Title category
 
 		maxLen := 0
-		for _, sub := range cat {
+		for _, sub := range cmdCats[cat] {
 			cmdLen := len(sub.Name)
 			if cmdLen > maxLen {
 				maxLen = cmdLen
 			}
 		}
 
-		for _, sub := range cat {
+		for _, sub := range cmdCats[cat] {
 			pad := fmt.Sprintf("%-"+strconv.Itoa(maxLen)+"s", sub.Name)
 			fmt.Printf("    "+pad+"  %s\n", tui.Dim(sub.ShortDescription))
 		}
