@@ -39,6 +39,7 @@ message Session {
   bool Evasion = 16;
   bool IsDead = 17;
   uint32 ReconnectInterval = 18;
+  string ProxyURL = 19;
 }
 
 message ImplantC2 {
