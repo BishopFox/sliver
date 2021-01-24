@@ -84,6 +84,7 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	session.ActiveC2 = register.ActiveC2
 	session.Version = register.Version
 	session.ReconnectInterval = register.ReconnectInterval
+	session.ProxyURL = register.ProxyURL
 	core.Sessions.Add(session)
 }
 
