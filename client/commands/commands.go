@@ -74,6 +74,11 @@ func BindCommands(admin bool, completions func(parser *flags.Parser)) (err error
 	case cctx.Server:
 		Server = flags.NewNamedParser("server", flags.HelpFlag)
 
+		// Stack up parsing options :
+		// 1 - Add help options to all commands
+		// 2 - Ignore unknown options (some commands needs args that are flags, ex: sideload)
+		Server.Options = flags.IgnoreUnknown | flags.HelpFlag
+
 		// If this client console is the server itself, bind admin commands.
 		if admin {
 			err = bindServerAdminCommands()
@@ -94,6 +99,11 @@ func BindCommands(admin bool, completions func(parser *flags.Parser)) (err error
 	// Session commands, with per-OS filtering
 	case cctx.Sliver:
 		Sliver = flags.NewNamedParser("sliver", flags.HelpFlag)
+
+		// Stack up parsing options :
+		// 1 - Add help options to all commands
+		// 2 - Ignore unknown options (some commands needs args that are flags, ex: sideload)
+		Sliver.Options = flags.IgnoreUnknown | flags.HelpFlag
 
 		// Base commands apply to all sessions
 		err = bindSliverCommands()
@@ -567,6 +577,11 @@ func bindSliverCommands() (err error) {
 		&Whoami{})
 	w.Aliases = []string{"info"}
 
+	sc, err := Sliver.AddCommand(constants.ScreenshotStr,
+		"Take a screenshot", "",
+		&Screenshot{})
+	sc.Aliases = []string{"info"}
+
 	// Filesystem
 	// ----------------------------------------------------------------------------------------
 	cd, err := Sliver.AddCommand(constants.CdStr,
@@ -640,6 +655,13 @@ func bindSliverCommands() (err error) {
 	rt.Aliases = []string{"comm"}
 	rt.SubcommandsOptional = true
 
+	// transports
+	// ----------------------------------------------------------------------------------------
+	tp, err := Sliver.AddCommand(constants.TCPListenerStr,
+		"Start a TCP pivot listener (unencrypted!)", "",
+		&TCPPivot{})
+	tp.Aliases = []string{"transports"}
+
 	// Proc
 	// ----------------------------------------------------------------------------------------
 	ps, err := Sliver.AddCommand(constants.PsStr,
@@ -674,20 +696,86 @@ func bindSliverCommands() (err error) {
 		&MSFInject{})
 	msfi.Aliases = []string{"execution"}
 
+	es, err := Sliver.AddCommand(constants.ExecuteShellcodeStr,
+		"Executes the given shellcode in the sliver process", "",
+		&ExecuteShellcode{})
+	es.Aliases = []string{"execution"}
+
+	sd, err := Sliver.AddCommand(constants.SideloadStr,
+		"Load and execute a shared object (shared library/DLL) in a remote process", "",
+		&Sideload{})
+	sd.Aliases = []string{"execution"}
+
 	return
 }
 
 // bindWindowsCommands - Commands available only to Windows sessions.
 func bindWindowsCommands() (err error) {
 
+	// transports
+	// ----------------------------------------------------------------------------------------
+	np, err := Sliver.AddCommand(constants.NamedPipeStr,
+		"Start a named pipe pivot listener", "",
+		&NamedPipePivot{})
+	np.Aliases = []string{"transports"}
+
 	// Proc
 	// ----------------------------------------------------------------------------------------
+	m, err := Sliver.AddCommand(constants.MigrateStr,
+		"Migrate into a remote host process", "",
+		&Migrate{})
+	m.Aliases = []string{"proc"}
 
 	// Priv
 	// ----------------------------------------------------------------------------------------
+	i, err := Sliver.AddCommand(constants.ImpersonateStr,
+		"Impersonate a logged in user", "",
+		&Impersonate{})
+	i.Aliases = []string{"priv"}
+
+	rs, err := Sliver.AddCommand(constants.RevToSelfStr,
+		"Revert to self: lose stolen Windows token", "",
+		&Rev2Self{})
+	rs.Aliases = []string{"priv"}
+
+	gs, err := Sliver.AddCommand(constants.GetSystemStr,
+		"Spawns a new sliver session as the NT AUTHORITY\\SYSTEM user ", "",
+		&GetSystem{})
+	gs.Aliases = []string{"priv"}
+
+	mt, err := Sliver.AddCommand(constants.MakeTokenStr,
+		"Create a new Logon Session with the specified credentials", "",
+		&MakeToken{})
+	mt.Aliases = []string{"priv"}
 
 	// Execution
 	// ----------------------------------------------------------------------------------------
+	ea, err := Sliver.AddCommand(constants.ExecuteAssemblyStr,
+		"Loads and executes a .NET assembly in a child process", "",
+		&ExecuteAssembly{})
+	ea.Aliases = []string{"execution"}
+
+	sd, err := Sliver.AddCommand(constants.SpawnDllStr,
+		"Load and execute a Reflective DLL in a remote process", "",
+		&SpawnDLL{})
+	sd.Aliases = []string{"execution"}
+
+	ra, err := Sliver.AddCommand(constants.RunAsStr,
+		"Run a new process in the context of the designated user", "",
+		&RunAs{})
+	ra.Aliases = []string{"execution"}
+
+	// Persistence
+	// ----------------------------------------------------------------------------------------
+	ss, err := Sliver.AddCommand(constants.PsExecStr,
+		"Start a sliver service on the session target", "",
+		&Service{})
+	ss.Aliases = []string{"persistence"}
+
+	bi, err := Sliver.AddCommand(constants.BackdoorStr,
+		"Infect a remote file with a sliver shellcode", "",
+		&Backdoor{})
+	bi.Aliases = []string{"persistence"}
 
 	return
 }

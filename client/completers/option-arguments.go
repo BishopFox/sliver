@@ -160,6 +160,11 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 			completions = append(completions, allSessionIfaceAddrs(lastWord, sliverID, true)...)
 		}
 
+		// Implant builds & profiles
+		if match("Profile") {
+			completions = append(completions, implantProfiles(lastWord))
+		}
+
 	}
 	return
 }

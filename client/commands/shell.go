@@ -112,7 +112,7 @@ func runInteractive(shellPath string, noPty bool, rpc rpcpb.SliverRPCClient) {
 		}
 	}
 
-	log.ClientLogger.Printf("Starting stdin/stdout shell ...")
+	log.ClientLogger.Tracef("Starting stdin/stdout shell ...")
 	go func() {
 		n, err := io.Copy(os.Stdout, tunnel)
 		log.ClientLogger.Tracef("Wrote %d bytes to stdout", n)

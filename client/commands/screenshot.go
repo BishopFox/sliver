@@ -1,4 +1,4 @@
-package command
+package commands
 
 /*
 	Sliver Implant Framework
@@ -25,28 +25,32 @@ import (
 	"path"
 	"time"
 
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-
-	"github.com/desertbit/grumble"
 )
 
-func screenshot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.GetInteractive()
+// Screenshot - Take a screenshot
+type Screenshot struct{}
+
+// Execute - Take a screenshot
+func (s *Screenshot) Execute(args []string) (err error) {
+	session := cctx.Context.Sliver.Session
 	if session == nil {
 		return
 	}
 
 	if session.OS != "windows" && session.OS != "linux" {
-		fmt.Printf(Warn+"Not implemented for %s\n", session.OS)
+		fmt.Printf(util.Error+"Not implemented for %s\n", session.OS)
 		return
 	}
 
-	screenshot, err := rpc.Screenshot(context.Background(), &sliverpb.ScreenshotReq{
-		Request: ActiveSession.Request(ctx),
+	screenshot, err := transport.RPC.Screenshot(context.Background(), &sliverpb.ScreenshotReq{
+		Request: ContextRequest(session),
 	})
 	if err != nil {
-		fmt.Printf(Warn+"%s\n", err)
+		fmt.Printf(util.Error+"%s\n", err)
 		return
 	}
 
@@ -54,13 +58,14 @@ func screenshot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	tmpFileName := path.Base(fmt.Sprintf("screenshot_%s_%d_%s_*.png", session.Name, session.ID, timestamp))
 	tmpFile, err := ioutil.TempFile("", tmpFileName)
 	if err != nil {
-		fmt.Printf(Warn+"%s\n", err)
+		fmt.Printf(util.Error+"%s\n", err)
 		return
 	}
 	err = ioutil.WriteFile(tmpFile.Name(), screenshot.Data, 0600)
 	if err != nil {
-		fmt.Printf(Warn+"Error writting file: %s\n", err)
+		fmt.Printf(util.Error+"Error writting file: %s\n", err)
 		return
 	}
 	fmt.Printf(bold+"Screenshot written to %s\n", tmpFile.Name())
+	return
 }

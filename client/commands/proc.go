@@ -146,7 +146,7 @@ func (p *ProcDump) Execute(args []string) (err error) {
 		return
 	}
 	// if ctx.Flags.Int("timeout") < 1 {
-	//         fmt.Printf(Warn + "Invalid timeout argument\n")
+	//         fmt.Printf(util.Error + "Invalid timeout argument\n")
 	//         return
 	// }
 
@@ -223,4 +223,73 @@ func (t *Terminate) Execute(args []string) (err error) {
 		}
 	}
 	return
+}
+
+// Migrate - Migrate into a remote process
+type Migrate struct {
+	Positional struct {
+		PID uint32 `description:"PID of process to migrate into" required:"1-1"`
+	} `positional-args:"yes" required:"yes"`
+}
+
+// Execute - Migrate into a remote process
+func (m *Migrate) Execute(args []string) (err error) {
+	session := cctx.Context.Sliver.Session
+	if session == nil {
+		return
+	}
+
+	pid := m.Positional.PID
+	if err != nil {
+		fmt.Printf(util.Error+"Error: %v", err)
+	}
+	config := getActiveSliverConfig()
+	ctrl := make(chan bool)
+	msg := fmt.Sprintf("Migrating into %d ...", pid)
+	go spin.Until(msg, ctrl)
+	migrate, err := transport.RPC.Migrate(context.Background(), &clientpb.MigrateReq{
+		Pid:     pid,
+		Config:  config,
+		Request: ContextRequest(session),
+	})
+
+	if err != nil {
+		fmt.Printf(util.Error+"Error: %v", err)
+		return
+	}
+	ctrl <- true
+	<-ctrl
+	if !migrate.Success {
+		fmt.Printf(util.Error+"%s\n", migrate.GetResponse().GetErr())
+		return
+	}
+	fmt.Printf("\n"+util.Info+"Successfully migrated to %d\n", pid)
+	return
+}
+
+func getActiveSliverConfig() *clientpb.ImplantConfig {
+	session := cctx.Context.Sliver.Session
+	if session == nil {
+		return nil
+	}
+	c2s := []*clientpb.ImplantC2{}
+	c2s = append(c2s, &clientpb.ImplantC2{
+		URL:      session.GetActiveC2(),
+		Priority: uint32(0),
+	})
+	config := &clientpb.ImplantConfig{
+		Name:    session.GetName(),
+		GOOS:    session.GetOS(),
+		GOARCH:  session.GetArch(),
+		Debug:   true,
+		Evasion: session.GetEvasion(),
+
+		MaxConnectionErrors: uint32(1000),
+		ReconnectInterval:   uint32(60),
+
+		Format:      clientpb.ImplantConfig_SHELLCODE,
+		IsSharedLib: true,
+		C2:          c2s,
+	}
+	return config
 }
