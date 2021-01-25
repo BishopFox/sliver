@@ -35,6 +35,10 @@ import (
 
 var (
 	cmdHelp = map[string]string{
+		consts.ConfigStr:             configPromptHelp,
+		consts.ConfigPromptServerStr: configPromptHelp,
+		consts.ConfigPromptSliverStr: configPromptHelp,
+
 		consts.JobsStr:            jobsHelp,
 		consts.BackgroundStr:      backgroundHelp,
 		consts.InfoStr:            infoHelp,
@@ -79,6 +83,10 @@ var (
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
 	[[.Bold]]About:[[.Normal]] Manage jobs/listeners.`
+
+	configPromptHelp = `A few notes on the prompt setup commands:
+- You can deactivate any prompt (right of left side) by entering config prompt-server "" (or prompt-sliver, with --right or --left options)
+- You also (unfortunately) need to escape EVERY space you might want to add with \ (because the shell parses args into a space-trimmed list)`
 
 	backgroundHelp = `[[.Bold]]Command:[[.Normal]] background
 [[.Bold]]About:[[.Normal]] Background the active Sliver.`

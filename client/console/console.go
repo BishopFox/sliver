@@ -130,11 +130,6 @@ func (c *console) setup() (err error) {
 	c.Shell.TabCompleter = completers.TabCompleter
 	c.Shell.SyntaxHighlighter = completers.SyntaxHighlighter
 
-	// Hints are configurable and can deactivated
-	if cctx.Config.Hints {
-		c.Shell.HintText = completers.HintCompleter
-	}
-
 	// History (client and user-wide)
 	c.Shell.History = ClientHist
 	c.Shell.AltHistory = UserHist
@@ -223,9 +218,11 @@ func (c *console) setConfiguredShell() {
 		c.Shell.ShowVimMode = true
 	}
 
-	// Hints
+	// Hints are configurable and can deactivated
 	if !cctx.Config.Hints {
 		c.Shell.HintText = nil
+	} else {
+		c.Shell.HintText = completers.HintCompleter
 	}
 }
 

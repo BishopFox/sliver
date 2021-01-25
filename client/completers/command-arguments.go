@@ -101,6 +101,15 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 			completions = append(completions, comp)
 		}
 
+		// URLs
+		if strings.Contains(found.Name, "URL") {
+			urlPrefix, comps := completeURL(lastWord, false)
+			completions = append(completions, comps...)
+
+			// We return this prefix because it is aware of paths lengths, etc...
+			return urlPrefix, completions
+		}
+
 	// When using a session, some paths are on the remote system, and some are the client console.
 	case cctx.Sliver:
 		if strings.Contains(found.Name, "RemotePath") || strings.Contains(found.Name, "OtherPath") || found.Name == "Path" {
@@ -142,6 +151,15 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 		// Processes
 		if strings.Contains(found.Name, "PID") {
 			completions = append(completions, processes(lastWord))
+		}
+
+		// URL completer
+		if strings.Contains(found.Name, "URL") {
+			urlPrefix, comps := completeURL(lastWord, true)
+			completions = append(completions, comps...)
+
+			// We return this prefix because it is aware of paths lengths, etc...
+			return urlPrefix, completions
 		}
 	}
 

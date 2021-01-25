@@ -131,6 +131,15 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 			completions = append(completions, comp)
 		}
 
+		// URL completer
+		if match("URL") {
+			urlPrefix, comps := completeURL(lastWord, false)
+			completions = append(completions, comps...)
+
+			// We return this prefix because it is aware of paths lengths, etc...
+			return urlPrefix, completions
+		}
+
 	case context.Sliver:
 		sliverID := context.Context.Sliver.Session.ID
 
@@ -168,6 +177,15 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 		// Network/CIDR:
 		if match("Network") || match("CIDR") || match("Subnet") {
 			completions = append(completions, allSessionsIfaceNetworks(lastWord, 0, true)...)
+		}
+
+		// URL completer
+		if match("URL") {
+			urlPrefix, comps := completeURL(lastWord, true)
+			completions = append(completions, comps...)
+
+			// We return this prefix because it is aware of paths lengths, etc...
+			return urlPrefix, completions
 		}
 
 	}
