@@ -69,8 +69,17 @@ func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 
 		case consts.JobStoppedEvent:
 			cctx.Context.Jobs-- // Decrease context jobs counter
+
+			// Refresh the prompt without actually printing it.
+			c.Shell.RefreshMultiline(Prompt.Render(), false, 2, true)
+
 			job := event.Job
 			fmt.Printf(util.Info+"Job #%d stopped (%s/%s)\n", job.ID, job.Protocol, job.Name)
+
+			// Additional line makes messages not overlapping because of refreshes
+			fmt.Println()
+
+			// Then refresh the prompt
 			c.Shell.RefreshMultiline(Prompt.Render(), true, 0, false)
 
 		case consts.SessionOpenedEvent:
