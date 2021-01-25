@@ -28,7 +28,6 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -168,7 +167,6 @@ func LoadConsoleConfig(rpc rpcpb.SliverRPCClient) (err error) {
 		Hints: conf.Hints,
 		Vim:   conf.Vim,
 	}
-	fmt.Printf(util.Info + "Loaded console configuration from server\n")
 
 	return
 }

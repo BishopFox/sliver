@@ -582,31 +582,31 @@ func bindSliverCommands() (err error) {
 	info, err := Sliver.AddCommand(constants.InfoStr,
 		"Show session information", "",
 		&Info{})
-	info.Aliases = []string{"info"}
+	info.Aliases = []string{"information"}
 	uid, err := Sliver.AddCommand(constants.GetUIDStr,
 		"Get session User ID", "",
 		&UID{})
-	uid.Aliases = []string{"info"}
+	uid.Aliases = []string{"information"}
 
 	gid, err := Sliver.AddCommand(constants.GetGIDStr,
 		"Get session User group ID", "",
 		&GID{})
-	gid.Aliases = []string{"info"}
+	gid.Aliases = []string{"information"}
 
 	pid, err := Sliver.AddCommand(constants.GetPIDStr,
 		"Get session Process ID", "",
 		&PID{})
-	pid.Aliases = []string{"info"}
+	pid.Aliases = []string{"information"}
 
 	w, err := Sliver.AddCommand(constants.WhoamiStr,
 		"Get session username", "",
 		&Whoami{})
-	w.Aliases = []string{"info"}
+	w.Aliases = []string{"information"}
 
 	sc, err := Sliver.AddCommand(constants.ScreenshotStr,
 		"Take a screenshot", "",
 		&Screenshot{})
-	sc.Aliases = []string{"info"}
+	sc.Aliases = []string{"information"}
 
 	// Filesystem
 	// ----------------------------------------------------------------------------------------

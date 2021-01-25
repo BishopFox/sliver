@@ -182,8 +182,9 @@ func (c *console) Start() (err error) {
 	// Start input loop
 	for {
 
-		// Some commands allow to change the input mode.
-		c.setInputMode()
+		// Some commands can act on the shell properties via the console
+		// context package, so we check values and set everything up.
+		c.setConfiguredShell()
 
 		// Recompute prompt each time, before anything.
 		Prompt.Compute()
@@ -212,13 +213,19 @@ func (c *console) Start() (err error) {
 	}
 }
 
-// Some commands allow to change the input mode, the console
-// looks some values and sets this mode accordingly.
-func (c *console) setInputMode() {
+// live refresh of console properties (input, hints, etc)
+func (c *console) setConfiguredShell() {
+
+	// Input
 	if !cctx.Config.Vim {
 		c.Shell.ShowVimMode = false
 	} else {
 		c.Shell.ShowVimMode = true
+	}
+
+	// Hints
+	if !cctx.Config.Hints {
+		c.Shell.HintText = nil
 	}
 }
 
