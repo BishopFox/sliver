@@ -85,7 +85,7 @@ var (
 	[[.Bold]]About:[[.Normal]] Manage jobs/listeners.`
 
 	configPromptHelp = `A few notes on the prompt setup commands:
-- You can deactivate any prompt (right of left side) by entering config prompt-server "" (or prompt-sliver, with --right or --left options)
+- You can deactivate any prompt (right or left side) by entering config prompt-server "" (or prompt-sliver, with --right or --left options)
 - You also (unfortunately) need to escape EVERY space you might want to add with \ (because the shell parses args into a space-trimmed list)`
 
 	backgroundHelp = `[[.Bold]]Command:[[.Normal]] background
@@ -528,7 +528,23 @@ func PrintCommandHelp(cmd *flags.Command) {
 	if len(cmd.Options()) > 0 || len(cmd.Groups()) > 0 {
 		options = " --options"
 	}
-	fmt.Println(tui.Yellow("Usage") + ": " + tui.Bold(cmd.Name) + options + subs)
+
+	// Command arguments
+	var args string
+	if len(cmd.Args()) > 0 {
+		for _, arg := range cmd.Args() {
+			if arg.Required == 1 && arg.RequiredMaximum == 1 {
+				args += " " + arg.Name
+			}
+			if arg.Required > 0 && arg.RequiredMaximum == -1 {
+				args += " " + arg.Name + "1" + " [" + arg.Name + "2]" + " [" + arg.Name + "3]"
+			}
+			if arg.Required == -1 {
+				args += fmt.Sprintf(" [%s]", arg.Name)
+			}
+		}
+	}
+	fmt.Println(tui.Yellow("Usage") + ": " + tui.Bold(cmd.Name) + options + subs + args)
 	fmt.Println(tui.Yellow("Description") + ": " + cmd.ShortDescription)
 
 	// Sub Commands
@@ -536,7 +552,6 @@ func PrintCommandHelp(cmd *flags.Command) {
 		fmt.Println()
 		fmt.Println(tui.Bold(tui.Blue("Sub Commands")))
 	}
-
 	maxLen := 0
 	for _, sub := range cmd.Commands() {
 		cmdLen := len(sub.Name)

@@ -461,7 +461,6 @@ message HistoryRequest {
 
 // History - Command history content.
 message History {
-  string Line = 1;
   repeated string Lines = 2;
   int32 HistLength = 3;
 
