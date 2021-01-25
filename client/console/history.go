@@ -20,13 +20,11 @@ package console
 
 import (
 	"context"
+	"errors"
 
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
-
-// "github.com/maxlandon/wiregost/client/connection"
-// clientpb "github.com/maxlandon/wiregost/proto/v1/gen/go/client"
 
 var (
 	// ClientHist - Client console history
@@ -34,10 +32,6 @@ var (
 	// UserHist - User history
 	UserHist = &UserHistory{LinesSinceStart: 1}
 )
-
-// This file manages all command history flux for this console. The user can request
-// 2 different lists of commands: the history for this console only (identified by its
-// unique ID) with Ctrl-r, or the history for all the user's consoles, with Ctrl-R.
 
 // ClientHistory - Writes and queries only the Client's history
 type ClientHistory struct {
@@ -48,11 +42,16 @@ type ClientHistory struct {
 // Write - Sends the last command to the server for saving
 func (h *ClientHistory) Write(s string) (int, error) {
 
-	_, err := transport.RPC.AddToHistory(context.Background(),
+	res, err := transport.RPC.AddToHistory(context.Background(),
 		&clientpb.AddCmdHistoryRequest{Line: s})
 	if err != nil {
 		return 0, err
 	}
+
+	// The server sent us back the whole user history,
+	// so we give it to the user history (the latter never
+	// actually uses its Write() method.
+	UserHist.cache = res.Lines
 
 	h.items = append(h.items, s)
 	return len(h.items), nil
@@ -79,8 +78,29 @@ func (h *ClientHistory) Dump() interface{} {
 // UserHistory - Only in charge of queries for the User's history
 type UserHistory struct {
 	LinesSinceStart int // Keeps count of line since session
+
+	// cache - In order to avoid making hundreds of
+	// requests to the server, we cache the user history.
+	// This cache is refreshed each time we request the history.
+	cache []string
 }
 
+// getUserHistory - On console startup, request
+// the user-wide hitory and keep it in the cache.
+func getUserHistory() {
+	res, err := transport.RPC.GetHistory(context.Background(),
+		&clientpb.HistoryRequest{
+			AllConsoles: true,
+		})
+	if err != nil {
+		return
+	}
+	UserHist.cache = res.Lines
+}
+
+// Write - Adds a line to user-wide command history.
+// Due to readline functioning, this function is actually never
+// called, and every new command is added through the client history.
 func (h *UserHistory) Write(s string) (int, error) {
 
 	res, err := transport.RPC.AddToHistory(context.Background(),
@@ -89,27 +109,23 @@ func (h *UserHistory) Write(s string) (int, error) {
 		return 0, err
 	}
 
+	// The server sent us back the whole user history,
+	// which we cache for reading when GetLine()
+	h.cache = res.Lines
+
 	if !res.Doublon {
 		h.LinesSinceStart++
 	}
 	return h.LinesSinceStart, nil
 }
 
-// GetLine returns a line from history
+// GetLine returns a line from user-wide history, directly read from the cache
 func (h *UserHistory) GetLine(i int) (string, error) {
-
-	res, err := transport.RPC.GetHistory(context.Background(),
-		&clientpb.HistoryRequest{
-			AllConsoles: true,
-			Index:       int32(i),
-			// Client:      cctx.Client,
-		})
-	if err != nil {
-		return "", err
+	h.LinesSinceStart = len(h.cache)
+	if i > len(h.cache) {
+		return "", errors.New("index out of range")
 	}
-	h.LinesSinceStart = int(res.HistLength)
-
-	return res.Line, nil
+	return h.cache[i], nil
 }
 
 // Len returns the number of lines in history

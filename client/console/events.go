@@ -119,7 +119,7 @@ func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 				// Reset the current session and refresh
 				cctx.Context.Menu = cctx.Server
 				cctx.Context.Sliver = nil
-				c.Shell.RefreshMultiline(Prompt.Render(), true, 0, true)
+				// c.Shell.RefreshMultiline(Prompt.Render(), true, 0, true)
 			}
 
 			// In any case, delete the completion data cache for the session, if any.

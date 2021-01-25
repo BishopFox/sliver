@@ -26,7 +26,6 @@ import (
 
 	"github.com/maxlandon/readline"
 
-	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
@@ -40,7 +39,7 @@ func sessionIfacePublicNetworks(last string, sess *clientpb.Session, alone bool)
 	var suggestions []string
 
 	// Get the session completions cache
-	sessCache := Cache.GetSessionCache(cctx.Context.Sliver.ID)
+	sessCache := Cache.GetSessionCache(sess.ID)
 	if sessCache == nil {
 		return
 	}
@@ -99,7 +98,7 @@ func sessionIfaceAddrs(last string, sess *clientpb.Session, alone bool) (comp *r
 	var suggestions []string
 
 	// Get the session completions cache
-	sessCache := Cache.GetSessionCache(cctx.Context.Sliver.ID)
+	sessCache := Cache.GetSessionCache(sess.ID)
 	if sessCache == nil {
 		return
 	}

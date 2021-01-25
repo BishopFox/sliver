@@ -52,13 +52,15 @@ func (c *Server) GetHistory(in context.Context, req *pb.HistoryRequest) (res *pb
 	if err != nil {
 		return &pb.History{Response: &commonpb.Response{Err: err.Error()}}, nil
 	}
-	lines := strings.Split(string(data), "\n") // For all returns we have a new line
+	lines := strings.Split(string(data), "\n")
 
-	return &pb.History{Line: lines[req.Index], HistLength: int32(len(lines))}, nil
+	return &pb.History{Lines: lines, HistLength: int32(len(lines))}, nil
 }
 
 // AddToHistory - A client has sent a new command input line to be saved.
 func (c *Server) AddToHistory(in context.Context, req *pb.AddCmdHistoryRequest) (res *pb.AddCmdHistory, err error) {
+
+	res = &pb.AddCmdHistory{Response: &commonpb.Response{}}
 
 	// Get an ID/operator name for this client, so that the Comms system knows
 	// where to route back connections that are meant for this client proxy/portfwd utilities.
@@ -66,12 +68,12 @@ func (c *Server) AddToHistory(in context.Context, req *pb.AddCmdHistoryRequest) 
 
 	// Filter various useless commands
 	if stringInSlice(strings.TrimSpace(req.Line), uselessCmds) {
-		return &pb.AddCmdHistory{Doublon: true, Response: &commonpb.Response{}}, nil
+		res.Doublon = true
 	}
 
 	// If input is empty or full of spaces, skip
 	if strings.TrimSpace(req.Line) == "" {
-		return &pb.AddCmdHistory{Doublon: true, Response: &commonpb.Response{}}, nil
+		res.Doublon = true
 	}
 
 	// Find file data, cut it and process it. If the name is empty,
@@ -84,17 +86,26 @@ func (c *Server) AddToHistory(in context.Context, req *pb.AddCmdHistoryRequest) 
 		filename = filepath.Join(path, ".history")
 	}
 
-	// Write to client history file
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-	if err != nil {
-		return nil, errors.New("server could not find your client when requesting history: " + err.Error())
+	// Write to client history file if command is not empty, or doublon.
+	if !res.Doublon {
+		f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+		if err != nil {
+			return nil, errors.New("server could not find your client when requesting history: " + err.Error())
+		}
+		if _, err = f.WriteString(req.Line + "\n"); err != nil {
+			return nil, errors.New("server could not find your client when requesting history: " + err.Error())
+		}
+		f.Close()
 	}
-	if _, err = f.WriteString(req.Line + "\n"); err != nil {
-		return nil, errors.New("server could not find your client when requesting history: " + err.Error())
-	}
-	f.Close()
 
-	return &pb.AddCmdHistory{Response: &commonpb.Response{}}, nil
+	// Send back the user history anyway
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return &pb.AddCmdHistory{Response: &commonpb.Response{Err: err.Error()}}, nil
+	}
+	lines := strings.Split(string(data), "\n")
+
+	return &pb.AddCmdHistory{Lines: lines, Response: &commonpb.Response{}}, nil
 }
 
 // A list of commands that are useless to save if they are STRICTLY as short as in the list

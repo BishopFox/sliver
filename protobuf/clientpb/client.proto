@@ -445,7 +445,8 @@ message AddCmdHistoryRequest {
 }
 
 message AddCmdHistory {
-  bool Doublon = 1; // Do not increment index, item is doublon
+  bool Doublon = 1;          // Do not increment index, item is doublon
+  repeated string Lines = 2; // The full user history sent back.
 
   commonpb.Response Response = 9;
 }
@@ -461,7 +462,8 @@ message HistoryRequest {
 // History - Command history content.
 message History {
   string Line = 1;
-  int32 HistLength = 2;
+  repeated string Lines = 2;
+  int32 HistLength = 3;
 
   commonpb.Response Response = 9;
 }

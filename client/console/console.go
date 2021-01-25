@@ -134,6 +134,9 @@ func (c *console) setup() (err error) {
 	c.Shell.History = ClientHist
 	c.Shell.AltHistory = UserHist
 
+	// Request the user history to server and cache it
+	getUserHistory()
+
 	// Client-side environment
 	err = util.LoadClientEnv()
 	if err != nil {
