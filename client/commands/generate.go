@@ -69,7 +69,6 @@ type StageOptions struct {
 		TCPPivot  []string `long:"tcp-pivot" short:"i" description:"TCP pivot transport strings, comma-separated" env-delim:","`
 		Reconnect int      `long:"reconnect" short:"j" description:"attempt to reconnect every n second(s)" default:"60"`
 		MaxErrors int      `long:"max-errors" short:"k" description:"max number of transport errors" default:"10"`
-		Timeout   int      `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 	} `group:"transport options"`
 
 	// SecurityOptions - All security-oriented options like restrictions.
@@ -109,8 +108,7 @@ type Regenerate struct {
 	Positional struct {
 		ImplantName string `description:"Name of Sliver implant to recompile" required:"1-1"`
 	} `positional-args:"yes" required:"yes"`
-	Save    string `long:"save" short:"s" description:"Directory/file where to save binary"`
-	Timeout int    `long:"timeout" short:"t" description:"Command timeout in seconds"`
+	Save string `long:"save" short:"s" description:"Directory/file where to save binary"`
 }
 
 // Execute - Recompile an implant with a given profile

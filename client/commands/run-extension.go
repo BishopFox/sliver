@@ -54,9 +54,8 @@ type ExtensionArgs struct {
 
 // ExtensionOptions - Base options for loading an extension command
 type ExtensionOptions struct {
-	Path    string `long:"process" short:"p" description:"path to process to host the shared object"`
-	Save    bool   `long:"save" short:"s" description:"save command output to disk"`
-	Timeout int    `long:"timeout" short:"t" description:"command timeout in seconds"`
+	Path string `long:"process" short:"p" description:"path to process to host the shared object"`
+	Save bool   `long:"save" short:"s" description:"save command output to disk"`
 }
 
 // ExtensionLibraryOptions - The extension is an assembly library.

@@ -79,6 +79,9 @@ func BindCommands(admin bool, completions func(parser *flags.Parser)) (err error
 		// 2 - Ignore unknown options (some commands needs args that are flags, ex: sideload)
 		Server.Options = flags.IgnoreUnknown | flags.HelpFlag
 
+		// Add global options, applying to all commands
+		Server.AddGroup("global options", "these options are available to every command", &GlobalOptions{})
+
 		// If this client console is the server itself, bind admin commands.
 		if admin {
 			err = bindServerAdminCommands()
@@ -104,6 +107,9 @@ func BindCommands(admin bool, completions func(parser *flags.Parser)) (err error
 		// 1 - Add help options to all commands
 		// 2 - Ignore unknown options (some commands needs args that are flags, ex: sideload)
 		Sliver.Options = flags.IgnoreUnknown | flags.HelpFlag
+
+		// Add global options, applying to all commands
+		Sliver.AddGroup("global options", "these options are available to every command", &GlobalOptions{})
 
 		// Base commands apply to all sessions
 		err = bindSliverCommands()
@@ -185,13 +191,27 @@ func GetSession(arg string) *clientpb.Session {
 // ContextRequest - Forge a Request Protobuf metadata to be sent in a RPC request.
 func ContextRequest(sess *clientpb.Session) (req *commonpb.Request) {
 	req = &commonpb.Request{}
-	if sess == nil {
-		return req
-	}
-	req.SessionID = sess.ID
 
-	// Get command timeout option flag
-	req.Timeout = 60
+	if sess != nil {
+		req.SessionID = sess.ID
+	}
+
+	// Get the timeout of the active command for the appropriate parser
+	var parser *flags.Parser
+	switch cctx.Context.Menu {
+	case cctx.Server:
+		parser = Server
+	case cctx.Sliver:
+		parser = Sliver
+	}
+
+	// Get timeout
+	if opt := parser.FindOptionByLongName("timeout"); opt != nil {
+		// All timeout options are int64
+		if val, ok := opt.Value().(int64); ok {
+			req.Timeout = val
+		}
+	}
 
 	return
 }
@@ -202,6 +222,12 @@ func isUserAnAdult() bool {
 	prompt := &survey.Confirm{Message: "This action is bad OPSEC, are you an adult?"}
 	survey.AskOne(prompt, &confirm, nil)
 	return confirm
+}
+
+// GlobalOptions - Options appended directly to a command parser. These options will not explicitely
+// be shown in option completions, but they are still available for use.
+type GlobalOptions struct {
+	Timeout int64 `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 }
 
 // bindServerAdminCommands - We bind commands only available to the server admin to the console command parser.

@@ -34,6 +34,11 @@ import (
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+const (
+	// ensure that nothing remains when we refresh the prompt
+	seqClearScreenBelow = "\x1b[0J"
+)
+
 // handleServerEvents - Print events coming from the server
 func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 
@@ -77,6 +82,9 @@ func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 			// Create a new session data cache for completions
 			completers.Cache.AddSessionCache(session)
 
+			// Clear the screen
+			fmt.Print(seqClearScreenBelow)
+
 			// The HTTP session handling is performed in two steps:
 			// - first we add an "empty" session
 			// - then we complete the session info when we receive the Register message from the Sliver
@@ -112,20 +120,26 @@ func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 				// l.shell.RefreshMultiline(l.promptRender(), 0, false)
 			} else {
 
+				// Refresh the prompt without actually printing it.
+				c.Shell.RefreshMultiline(Prompt.Render(), false, 1, true)
+
 				// If we have disconnected our own context, we have a 1 sec timelapse to wait for this message.
 				time.Sleep(time.Millisecond * 200)
-				fmt.Printf("\n" + util.Warn + " Active session disconnected")
+				fmt.Printf("\n" + util.Warn + " Active session disconnected\n\n")
+
+				// Clear the screen
+				fmt.Print(seqClearScreenBelow)
 
 				// Reset the current session and refresh
 				cctx.Context.Menu = cctx.Server
 				cctx.Context.Sliver = nil
-				// c.Shell.RefreshMultiline(Prompt.Render(), true, 0, true)
+				c.Shell.RefreshMultiline(Prompt.Render(), true, 0, false)
 			}
 
 			// In any case, delete the completion data cache for the session, if any.
 			completers.Cache.RemoveSessionData(session)
 
-			fmt.Println()
+			// fmt.Println()
 		}
 	}
 }

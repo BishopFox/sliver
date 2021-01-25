@@ -31,9 +31,8 @@ import (
 // TCPPivot - Start a TCP pivot listener
 type TCPPivot struct {
 	Options struct {
-		LHost   string `long:"lhost" short:"l" description:"interface address to bind listener to" default:"localhost"`
-		LPort   int    `long:"lport" short:"p" description:"listener TCP listen port" default:"1789"`
-		Timeout int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
+		LHost string `long:"lhost" short:"l" description:"interface address to bind listener to" default:"localhost"`
+		LPort int    `long:"lport" short:"p" description:"listener TCP listen port" default:"1789"`
 	} `group:"mTLS listener options"`
 }
 

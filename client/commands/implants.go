@@ -61,7 +61,7 @@ func printImplantBuilds(configs map[string]*clientpb.ImplantConfig) {
 	sort.Strings(keys)
 
 	table := util.NewTable(tui.Bold(tui.Yellow("Implant Builds")))
-	headers := []string{"Name", "OS/Arch", "Format", "C2 Transports", "Debug/Obfsc/Evasion", "Limits", "MaxErrs/Timeout"}
+	headers := []string{"Name", "OS/Arch", "Format", "C2 Transports", "Debug/Obfsc/Evasion", "Limits", "Errs/Timeout"}
 	headLen := []int{0, 0, 0, 15, 0, 15, 0}
 	table.SetColumns(headers, headLen)
 
@@ -91,9 +91,9 @@ func printImplantBuilds(configs map[string]*clientpb.ImplantConfig) {
 			obfs = tui.Yellow(" no ")
 		}
 		if config.Evasion {
-			evas = tui.Green(" yes ")
+			evas = tui.Green("  yes ")
 		} else {
-			evas = tui.Yellow(" no ")
+			evas = tui.Yellow("  no ")
 		}
 		sec := fmt.Sprintf("%s %s %s", debug, obfs, evas)
 

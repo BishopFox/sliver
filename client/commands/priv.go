@@ -40,7 +40,6 @@ type RunAs struct {
 	Options struct {
 		Username   string `long:"username" short:"u" description:"user to impersonate" default:"NT AUTHORITY\\SYSTEM"`
 		RemotePath string `long:"process" short:"p" description:"process to start" required:"yes"`
-		Timeout    int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 	} `group:"run-as options"`
 }
 
@@ -136,7 +135,6 @@ func (rs *Rev2Self) Execute(args []string) (err error) {
 type GetSystem struct {
 	Options struct {
 		RemotePath string `long:"process" short:"p" description:"SYSTEM process to inject into" default:"spoolsv.exe"`
-		Timeout    int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 	} `group:"getsystem options"`
 }
 
@@ -180,7 +178,6 @@ type MakeToken struct {
 		Username string `long:"username" short:"u" description:"user to impersonate" required:"yes"`
 		Password string `long:"password" short:"p" description:"password of user to impersonate" required:"yes"`
 		Domain   string `long:"domain" short:"d" description:"domain of the user to impersonate"`
-		Timeout  int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 	} `group:"token options"`
 }
 

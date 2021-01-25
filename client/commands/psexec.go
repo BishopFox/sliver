@@ -47,7 +47,6 @@ type Service struct {
 		Description string `long:"service-description" short:"d" description:"description of the service" default:"Sliver implant"`
 		Profile     string `long:"profile" short:"p" description:"implant profile to use for service binary" required:"yes"`
 		RemotePath  string `long:"binpath" short:"b" description:"directory to which the executable will be uploaded" default:"c:\\windows\\temp"`
-		Timeout     int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 	} `group:"service options"`
 }
 

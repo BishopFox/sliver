@@ -49,7 +49,6 @@ type ExecuteShellcode struct {
 		PID         uint32 `long:"pid" short:"p" description:"PID of process to inject into (0 means injection into ourselves)"`
 		RemotePath  string `long:"process" short:"n" description:"path to process to inject into when running in interactive mode" default:"c:\\windows\\system32\\notepad.exe"`
 		Interactive bool   `long:"interactive" short:"i" description:"inject into a new process and interact with it"`
-		Timeout     int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 	} `group:"shellcode options"`
 }
 
@@ -214,7 +213,6 @@ type ExecuteAssembly struct {
 		ETW        bool   `long:"etw" short:"e" description:"patch EtwEventWrite function to avoid detection (disabled by default)"`
 		RemotePath string `long:"process" short:"p" description:"hosting process to inject into" default:"c:\\windows\\system32\\notepad.exe"`
 		Save       bool   `long:"save" short:"s" description:"save output to file"`
-		Timeout    int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 	} `group:"assembly options"`
 }
 
@@ -278,14 +276,13 @@ func (ea *ExecuteAssembly) Execute(args []string) (err error) {
 type Sideload struct {
 	Positional struct {
 		LocalPath string   `description:"path to shared object" required:"1-1"`
-		Args []string `description:"(optional) arguments for the shared library function"`
+		Args      []string `description:"(optional) arguments for the shared library function"`
 	} `positional-args:"yes" required:"yes"`
 
 	Options struct {
 		Entrypoint string `long:"entry-point" short:"e" description:"entrypoint for the DLL (Windows only)"`
 		RemotePath string `long:"process" short:"p" description:"path to process to host the shellcode"`
 		Save       bool   `long:"save" short:"s" description:"save output to file"`
-		Timeout    int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 	} `group:"sideload options"`
 }
 
@@ -352,7 +349,6 @@ type SpawnDLL struct {
 		Export     string `long:"export" short:"e" description:"entrypoint of the reflective DLL" default:"ReflectiveLoader"`
 		RemotePath string `long:"process" short:"p" description:"path to process to host the DLL" default:"c:\\windows\\system32\\notepad.exe"`
 		Save       bool   `long:"save" short:"s" description:"save output to file"`
-		Timeout    int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 	} `group:"dll options"`
 }
 

@@ -43,7 +43,6 @@ type StageListener struct {
 		LetsEncrypt bool   `long:"lets-encrypt" description:"attempt to provision a let's encrypt certificate (HTTPS only)"`
 		Certificate string `long:"certificate" short:"c" description:"PEM encoded certificate file (HTTPS only)"`
 		PrivateKey  string `long:"key" short:"k" description:"PEM encoded private key file (HTTPS only)"`
-		Timeout     int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 		Persistent  bool   `long:"persistent" short:"P" description:"make listener persistent across server restarts"`
 	} `group:"staging listener options"`
 }

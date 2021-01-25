@@ -37,7 +37,6 @@ type Backdoor struct {
 
 	Options struct {
 		Profile string `long:"profile" short:"p" description:"implant profile to use for service binary" required:"yes"`
-		Timeout int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
 	} `group:"backdoor options"`
 }
 
