@@ -19,7 +19,6 @@ package completers
 */
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -27,83 +26,9 @@ import (
 
 	"github.com/maxlandon/readline"
 
-	"github.com/bishopfox/sliver/client/commands"
-	"github.com/bishopfox/sliver/client/transport"
+	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
-
-// clientInterfaceAddrs - All addresses of the client host
-func clientInterfaceAddrs(last string, alone bool) (comp *readline.CompletionGroup) {
-
-	// Completions
-	comp = &readline.CompletionGroup{
-		Name:        "client addresses",
-		MaxLength:   5,
-		DisplayType: readline.TabDisplayGrid,
-	}
-	var suggestions []string
-
-	ifaces, _ := net.Interfaces()
-	for _, i := range ifaces {
-		addrs, err := i.Addrs()
-		if err != nil {
-			continue
-		}
-
-		for _, a := range addrs {
-			ip, _, err := net.ParseCIDR(a.String())
-			if err != nil {
-				continue
-			}
-			if strings.HasPrefix(ip.String(), last) {
-				if alone {
-					suggestions = append(suggestions, ip.String()+" ")
-
-				} else {
-					suggestions = append(suggestions, ip.String())
-				}
-			}
-		}
-	}
-
-	comp.Suggestions = suggestions
-	return
-}
-
-// clientInterfaceNetworks - All network to which client belongs.
-func clientInterfaceNetworks(last string, alone bool) (comp *readline.CompletionGroup) {
-
-	// Completions
-	comp = &readline.CompletionGroup{
-		Name:        "client networks",
-		MaxLength:   5,
-		DisplayType: readline.TabDisplayGrid,
-	}
-	var suggestions []string
-
-	ifaces, _ := net.Interfaces()
-	for _, i := range ifaces {
-		addrs, err := i.Addrs()
-		if err != nil {
-			continue
-		}
-		for _, a := range addrs {
-
-			if strings.HasPrefix(a.String(), last) {
-				if alone {
-					suggestions = append(suggestions, a.String()+" ")
-				} else {
-					suggestions = append(suggestions, a.String())
-				}
-			}
-		}
-	}
-
-	comp.Suggestions = suggestions
-	return
-}
 
 // sessionIfacePublicNetworks - Get all non-loopback addresses for a session host.
 func sessionIfacePublicNetworks(last string, sess *clientpb.Session, alone bool) (comp *readline.CompletionGroup) {
@@ -114,10 +39,14 @@ func sessionIfacePublicNetworks(last string, sess *clientpb.Session, alone bool)
 	}
 	var suggestions []string
 
-	ifconfig, err := transport.RPC.Ifconfig(context.Background(), &sliverpb.IfconfigReq{
-		Request: commands.ContextRequest(sess),
-	})
-	if err != nil {
+	// Get the session completions cache
+	sessCache := Cache.GetSessionCache(cctx.Context.Sliver.ID)
+	if sessCache == nil {
+		return
+	}
+
+	ifconfig := sessCache.GetNetInterfaces()
+	if ifconfig == nil {
 		return
 	}
 
@@ -130,6 +59,7 @@ func sessionIfacePublicNetworks(last string, sess *clientpb.Session, alone bool)
 
 			// Try to find local IPs and colorize them
 			subnet := -1
+			var err error
 			if strings.Contains(ip, "/") {
 				parts := strings.Split(ip, "/")
 				subnetStr := parts[len(parts)-1]
@@ -168,10 +98,14 @@ func sessionIfaceAddrs(last string, sess *clientpb.Session, alone bool) (comp *r
 	}
 	var suggestions []string
 
-	ifconfig, err := transport.RPC.Ifconfig(context.Background(), &sliverpb.IfconfigReq{
-		Request: commands.ContextRequest(sess),
-	})
-	if err != nil {
+	// Get the session completions cache
+	sessCache := Cache.GetSessionCache(cctx.Context.Sliver.ID)
+	if sessCache == nil {
+		return
+	}
+
+	ifconfig := sessCache.GetNetInterfaces()
+	if ifconfig == nil {
 		return
 	}
 
@@ -243,25 +177,4 @@ func allSessionsIfaceNetworks(last string, except uint32, alone bool) (comps []*
 	}
 
 	return
-}
-
-// GetAllSessions - Get a map of all sessions
-func GetAllSessions() (sessionsMap map[uint32]*clientpb.Session) {
-	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		return
-	}
-	sessionsMap = map[uint32]*clientpb.Session{}
-	for _, session := range sessions.GetSessions() {
-		sessionsMap[session.ID] = session
-	}
-
-	return
-}
-
-func isLoopback(ip string) bool {
-	if strings.HasPrefix(ip, "127") || strings.HasPrefix(ip, "::1") {
-		return true
-	}
-	return false
 }

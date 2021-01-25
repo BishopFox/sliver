@@ -111,9 +111,15 @@ func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
 				// l.shell.RefreshMultiline(l.promptRender(), 0, false)
 			} else {
+
 				// If we have disconnected our own context, we have a 1 sec timelapse to wait for this message.
 				time.Sleep(time.Millisecond * 200)
 				fmt.Printf("\n" + util.Warn + " Active session disconnected")
+
+				// Reset the current session and refresh
+				cctx.Context.Menu = cctx.Server
+				cctx.Context.Sliver = nil
+				c.Shell.RefreshMultiline(Prompt.Render(), true, 0, true)
 			}
 
 			// In any case, delete the completion data cache for the session, if any.

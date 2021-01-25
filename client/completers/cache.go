@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bishopfox/sliver/client/commands"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -90,7 +91,7 @@ type SessionCompCache struct {
 	sess *clientpb.Session
 
 	// Network
-	Interfaces      []*sliverpb.NetInterface
+	Interfaces      *sliverpb.Ifconfig
 	ifaceLastUpdate time.Time
 
 	// Processes. Usually we request to implant if processes have
@@ -133,6 +134,26 @@ func (sc *SessionCompCache) GetDirectoryContents(path string) (files *sliverpb.L
 	return dirList
 }
 
+// GetNetInterfaces - Returns the net interfaces for an implant, either cached or requested.
+func (sc *SessionCompCache) GetNetInterfaces() (ifaces *sliverpb.Ifconfig) {
+
+	if sc.Interfaces != nil {
+		return sc.Interfaces
+	}
+
+	ifconfig, err := transport.RPC.Ifconfig(context.Background(), &sliverpb.IfconfigReq{
+		Request: commands.ContextRequest(sc.sess),
+	})
+	if err != nil {
+		return
+	}
+
+	// Cache data
+	sc.Interfaces = ifconfig
+
+	return ifconfig
+}
+
 // Reset - The session completion cache resets all or most of its items.
 // This function is usually called at the end of each input command, because
 // we might have modified the filesystem, processes may have new IDs pretty fast, etc...
@@ -147,6 +168,6 @@ func (sc *SessionCompCache) Reset(all bool) {
 
 	// More stable (usually) values are only cleared if all is true
 	if all {
-		sc.Interfaces = []*sliverpb.NetInterface{}
+		sc.Interfaces = &sliverpb.Ifconfig{}
 	}
 }
