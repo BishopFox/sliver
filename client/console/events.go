@@ -1,4 +1,20 @@
-package log
+package console
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/bishopfox/sliver/client/completers"
+	consts "github.com/bishopfox/sliver/client/constants"
+	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/client/util"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/evilsocket/islazy/tui"
+)
 
 /*
 	Sliver Implant Framework
@@ -18,56 +34,8 @@ package log
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import (
-	"context"
-	"errors"
-	"fmt"
-	"time"
-
-	"github.com/evilsocket/islazy/tui"
-	"github.com/maxlandon/readline"
-	"github.com/sirupsen/logrus"
-
-	consts "github.com/bishopfox/sliver/client/constants"
-	cctx "github.com/bishopfox/sliver/client/context"
-	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-)
-
-const (
-	eventBufferDefault = 200
-)
-
-var (
-	// References to console components, used by all loggers.
-	shell        *readline.Instance
-	promptRender func() string
-)
-
-// Init - The client starts monitoring all event logs coming from itself, or the server
-func Init(sh *readline.Instance, render func() string, rpc rpcpb.SliverRPCClient) error {
-	if sh == nil || render == nil {
-		return errors.New("missing shell instance or prompt rendering function")
-	}
-	if transport.RPC == nil {
-		return errors.New("No connected RPC client")
-	}
-	// Keep references for loggers
-	shell = sh
-	promptRender = render
-
-	// Here all client text loggers will work out of the box.
-	// Now we start monitoring server events in a separate loop
-	// go handleServerLogs(rpc)
-
-	return nil
-}
-
 // handleServerEvents - Print events coming from the server
-func handleServerLogs(rpc rpcpb.SliverRPCClient) {
+func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 
 	// Call the server events stream.
 	events, err := rpc.Events(context.Background(), &commonpb.Empty{})
@@ -92,13 +60,13 @@ func handleServerLogs(rpc rpcpb.SliverRPCClient) {
 				fmt.Printf("\t🔥 Session #%d is affected\n", session.ID)
 			}
 			fmt.Println()
-			shell.RefreshMultiline(promptRender(), true, 0, false)
+			c.Shell.RefreshMultiline(Prompt.Render(), true, 0, false)
 
 		case consts.JobStoppedEvent:
 			cctx.Context.Jobs-- // Decrease context jobs counter
 			job := event.Job
 			fmt.Printf(util.Info+"Job #%d stopped (%s/%s)\n", job.ID, job.Protocol, job.Name)
-			shell.RefreshMultiline(promptRender(), true, 0, false)
+			c.Shell.RefreshMultiline(Prompt.Render(), true, 0, false)
 
 		case consts.SessionOpenedEvent:
 			session := event.Session
@@ -107,7 +75,7 @@ func handleServerLogs(rpc rpcpb.SliverRPCClient) {
 			cctx.Context.Slivers++
 
 			// Create a new session data cache for completions
-			// completers.Cache.AddSessionCache(session)
+			completers.Cache.AddSessionCache(session)
 
 			// The HTTP session handling is performed in two steps:
 			// - first we add an "empty" session
@@ -119,14 +87,14 @@ func handleServerLogs(rpc rpcpb.SliverRPCClient) {
 				fmt.Printf(util.Info+"Session #%d %s - %s (%s) - %s/%s - %v\n\n",
 					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			}
-			shell.RefreshMultiline(promptRender(), true, 0, false)
+			c.Shell.RefreshMultiline(Prompt.Render(), true, 0, false)
 
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
 			fmt.Printf("\n") // Clear screen a bit before announcing the king
 			fmt.Printf(util.Info+"Session #%d has been updated - %v\n\n", session.ID, currentTime)
-			shell.RefreshMultiline(promptRender(), true, 0, false)
+			c.Shell.RefreshMultiline(Prompt.Render(), true, 0, false)
 
 		case consts.SessionClosedEvent:
 			cctx.Context.Slivers-- // Decrease context slivers counter
@@ -136,7 +104,7 @@ func handleServerLogs(rpc rpcpb.SliverRPCClient) {
 				fmt.Printf("\n\n")
 				fmt.Printf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
-				shell.RefreshMultiline(promptRender(), true, 0, false)
+				c.Shell.RefreshMultiline(Prompt.Render(), true, 0, false)
 
 			} else if cctx.Context.Sliver == nil {
 				fmt.Printf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
@@ -147,17 +115,13 @@ func handleServerLogs(rpc rpcpb.SliverRPCClient) {
 				time.Sleep(time.Millisecond * 200)
 				fmt.Printf("\n" + util.Warn + " Active session disconnected")
 			}
+
+			// In any case, delete the completion data cache for the session, if any.
+			completers.Cache.RemoveSessionData(session)
+
 			fmt.Println()
 		}
 	}
-}
-
-var logrusPrintLevels = map[logrus.Level]string{
-	logrus.TraceLevel: fmt.Sprintf("%s[t] %s", tui.DIM, tui.RESET),
-	logrus.DebugLevel: fmt.Sprintf("%s%s[_] %s", tui.DIM, tui.BLUE, tui.RESET),
-	logrus.InfoLevel:  util.Info,
-	logrus.WarnLevel:  util.Warn,
-	logrus.ErrorLevel: util.Error,
 }
 
 func isDone(ctx context.Context) bool {

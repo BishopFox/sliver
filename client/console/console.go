@@ -159,6 +159,9 @@ func (c *console) Start() (err error) {
 		return fmt.Errorf("Failed to start log monitor (%s)", err.Error())
 	}
 
+	// Start monitoring incoming events
+	go c.handleServerLogs(transport.RPC)
+
 	// Setup the Client Comm system (console proxies & port forwarders)
 	err = initComm(transport.RPC, []byte(assets.ServerPrivateKey), assets.CommFingerprint)
 	if err != nil {
@@ -180,6 +183,9 @@ func (c *console) Start() (err error) {
 		// Some commands can act on the shell properties via the console
 		// context package, so we check values and set everything up.
 		c.setConfiguredShell()
+
+		// Reset the completion data cache for all registered sessions.
+		completers.Cache.Reset()
 
 		// Recompute prompt each time, before anything.
 		Prompt.Compute()

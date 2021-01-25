@@ -1,20 +1,5 @@
 package completers
 
-import (
-	"context"
-	"fmt"
-	"path/filepath"
-	"strings"
-
-	"github.com/maxlandon/readline"
-
-	cctx "github.com/bishopfox/sliver/client/context"
-	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -32,6 +17,16 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"path/filepath"
+	"strings"
+
+	"github.com/maxlandon/readline"
+
+	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+)
 
 func completeRemotePath(last string) (string, *readline.CompletionGroup) {
 
@@ -94,14 +89,16 @@ func completeRemotePath(last string) (string, *readline.CompletionGroup) {
 	// 2) We take the absolute path we found, and get all dirs in it.
 	var dirs []string
 
-	dirList, err := transport.RPC.Ls(context.Background(), &sliverpb.LsReq{
-		Request: &commonpb.Request{
-			SessionID: cctx.Context.Sliver.ID,
-		},
-		Path: linePath,
-	})
-	if err != nil {
-		fmt.Printf(util.RPCError+"%s\n", err)
+	// Get the session completions cache
+	sessCache := Cache.GetSessionCache(cctx.Context.Sliver.ID)
+	if sessCache == nil {
+		return lastPath, completion
+	}
+
+	// Get files either from the cache itself, or through it requesting the implant.
+	dirList := sessCache.GetDirectoryContents(linePath)
+	if dirList == nil {
+		return lastPath, completion
 	}
 
 	for _, fileInfo := range dirList.Files {
@@ -110,6 +107,7 @@ func completeRemotePath(last string) (string, *readline.CompletionGroup) {
 		}
 	}
 
+	// 3) Return only the items that match the current processed input line.
 	switch lastPath {
 	case "":
 		for _, dir := range dirs {
@@ -207,14 +205,19 @@ func completeRemotePathAndFiles(last string) (string, *readline.CompletionGroup)
 		}
 	}
 
-	dirList, err := transport.RPC.Ls(context.Background(), &sliverpb.LsReq{
-		Request: &commonpb.Request{
-			SessionID: cctx.Context.Sliver.ID,
-		},
-		Path: linePath,
-	})
-	if err != nil {
-		fmt.Printf(util.RPCError+"%s\n", err)
+	// Get the session completions cache
+	sessCache := Cache.GetSessionCache(cctx.Context.Sliver.ID)
+	if sessCache == nil {
+		return lastPath, completion
+	}
+
+	// Get files either from the cache itself, or through it requesting the implant.
+	dirList := sessCache.GetDirectoryContents(linePath)
+	if dirList == nil {
+		return lastPath, completion
+	}
+	if dirList == nil {
+		return lastPath, completion
 	}
 
 	switch lastPath {
