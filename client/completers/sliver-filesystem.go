@@ -6,12 +6,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/maxlandon/readline"
+
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/maxlandon/readline"
 )
 
 /*
@@ -228,7 +229,7 @@ func completeRemotePathAndFiles(last string) (string, *readline.CompletionGroup)
 					search = tokenized + "/"
 				}
 			} else {
-				search = tokenized
+				search = tokenized + " "
 			}
 			if strings.HasPrefix(search, lastPath) {
 				completion.Suggestions = append(completion.Suggestions, search)
@@ -252,7 +253,7 @@ func completeRemotePathAndFiles(last string) (string, *readline.CompletionGroup)
 					search = tokenized + "/"
 				}
 			} else {
-				search = tokenized
+				search = tokenized + " "
 			}
 			if strings.HasPrefix(search, lastPath) {
 				completion.Suggestions = append(completion.Suggestions, search)

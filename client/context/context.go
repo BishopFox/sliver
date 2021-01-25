@@ -200,7 +200,7 @@ func loadDefaultConsoleConfig() {
 			Right string
 			Left  string
 		}{
-			Left:  "{bddg} {fr}{session_name} {reset}{bold} {user}{dim}@{reset}{bold}{host}{reset}{dim}in{reset} {bold}{b}{cwd}",
+			Left:  "{bddg} {fr}{session_name} {reset}{bold} {user}{dim}@{reset}{bold}{host}{reset}{dim} in{reset} {bold}{b}{cwd}",
 			Right: "{dim}[{reset}{y}{bold}{platform}{reset}, {bold}{g}{address}{fw}{reset}{dim}]",
 		},
 		Hints: true,
