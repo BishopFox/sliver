@@ -225,60 +225,79 @@ func CompleteCommandOptions(args []string, lastWord string, cmd *flags.Command) 
 	// For each group, build completions
 	for _, grp := range groups {
 
-		compGrp := &readline.CompletionGroup{
-			Name:           grp.ShortDescription,
-			Descriptions:   map[string]string{},
-			DisplayType:    readline.TabDisplayList,
-			SuggestionsAlt: map[string]string{},
-		}
-
-		// Add each option to completion group
-		for _, opt := range grp.Options() {
-
-			// Check if option is already set, next option if yes
-			// if optionNotRepeatable(opt) && optionIsAlreadySet(args, lastWord, opt) {
-			//         continue
-			// }
-
-			// Depending on the current last word, either build a group with option longs only, or with shorts
-			if strings.HasPrefix("--"+opt.LongName, lastWord) {
-				optName := "--" + opt.LongName
-				compGrp.Suggestions = append(compGrp.Suggestions, optName+" ")
-
-				// Add short if there is, and that the prefix is only one dash
-				if strings.HasPrefix("-", lastWord) {
-					if opt.ShortName != 0 {
-						compGrp.SuggestionsAlt[optName+" "] = "-" + string(opt.ShortName) + " "
-					}
-				}
-
-				// Option default value if any
-				var def string
-				if len(opt.Default) > 0 {
-					def = " (default:"
-					for _, d := range opt.Default {
-						def += " " + d + ","
-					}
-					def = strings.TrimSuffix(def, ",")
-					def += ")"
-				}
-				var desc string
-				if opt.Required {
-					desc = fmt.Sprintf("%s%s R%s %s%s%s%s", tui.RED, tui.DIM, tui.RESET, tui.DIM, opt.Description, def, tui.RESET)
-				} else {
-					desc = fmt.Sprintf("%s%s O%s %s%s%s%s", tui.GREEN, tui.DIM, tui.RESET, tui.DIM, opt.Description, def, tui.RESET)
-				}
-
-				compGrp.Descriptions[optName+" "] = desc
-			}
-		}
+		_, comp := completeOptionGroup(lastWord, grp, "")
 
 		// No need to add empty groups, will screw the completion system.
-		if len(compGrp.Suggestions) > 0 {
-			completions = append(completions, compGrp)
+		if len(comp.Suggestions) > 0 {
+			completions = append(completions, comp)
 		}
 	}
 
+	// Do the same for global options, which are not part of any group "per-se"
+	_, gcomp := completeOptionGroup(lastWord, cmd.Group, "global options")
+	if len(gcomp.Suggestions) > 0 {
+		completions = append(completions, gcomp)
+	}
+
+	return
+}
+
+// completeOptionGroup - make completions for a single group of options. Title is optional, not used if empty.
+func completeOptionGroup(lastWord string, grp *flags.Group, title string) (prefix string, compGrp *readline.CompletionGroup) {
+
+	compGrp = &readline.CompletionGroup{
+		Name:           grp.ShortDescription,
+		Descriptions:   map[string]string{},
+		DisplayType:    readline.TabDisplayList,
+		SuggestionsAlt: map[string]string{},
+	}
+
+	// An optional title for this comp group.
+	// Used by global flag options, added to all commands.
+	if title != "" {
+		compGrp.Name = title
+	}
+
+	// Add each option to completion group
+	for _, opt := range grp.Options() {
+
+		// Check if option is already set, next option if yes
+		// if optionNotRepeatable(opt) && optionIsAlreadySet(args, lastWord, opt) {
+		//         continue
+		// }
+
+		// Depending on the current last word, either build a group with option longs only, or with shorts
+		if strings.HasPrefix("--"+opt.LongName, lastWord) {
+			optName := "--" + opt.LongName
+			compGrp.Suggestions = append(compGrp.Suggestions, optName+" ")
+
+			// Add short if there is, and that the prefix is only one dash
+			if strings.HasPrefix("-", lastWord) {
+				if opt.ShortName != 0 {
+					compGrp.SuggestionsAlt[optName+" "] = "-" + string(opt.ShortName) + " "
+				}
+			}
+
+			// Option default value if any
+			var def string
+			if len(opt.Default) > 0 {
+				def = " (default:"
+				for _, d := range opt.Default {
+					def += " " + d + ","
+				}
+				def = strings.TrimSuffix(def, ",")
+				def += ")"
+			}
+			var desc string
+			if opt.Required {
+				desc = fmt.Sprintf("%s%s R%s %s%s%s%s", tui.RED, tui.DIM, tui.RESET, tui.DIM, opt.Description, def, tui.RESET)
+			} else {
+				desc = fmt.Sprintf("%s%s O%s %s%s%s%s", tui.GREEN, tui.DIM, tui.RESET, tui.DIM, opt.Description, def, tui.RESET)
+			}
+
+			compGrp.Descriptions[optName+" "] = desc
+		}
+	}
 	return
 }
 

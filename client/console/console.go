@@ -305,7 +305,9 @@ func initLogging() {
 	return
 }
 
-// initComm - Connect the Client Comm system to the server.
+// initComm - Connect the Client Comm system to the server. This function
+// could be moved to the comm package: I kept it here for uniformity of Init()
+// function signatures between client/server/implant comm packages.
 func initComm(rpc rpcpb.SliverRPCClient, key []byte, fingerprint string) error {
 
 	stream, err := rpc.InitComm(context.Background(), &grpc.EmptyCallOption{})
