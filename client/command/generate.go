@@ -45,30 +45,42 @@ import (
 	"github.com/desertbit/grumble"
 )
 
-var validFormats = []string{
-	"bash",
-	"c",
-	"csharp",
-	"dw",
-	"dword",
-	"hex",
-	"java",
-	"js_be",
-	"js_le",
-	"num",
-	"perl",
-	"pl",
-	"powershell",
-	"ps1",
-	"py",
-	"python",
-	"raw",
-	"rb",
-	"ruby",
-	"sh",
-	"vbapplication",
-	"vbscript",
-}
+var (
+	// SupportedCompilerTargets - Supported compiler targets
+	SupportedCompilerTargets = map[string]bool{
+		"darwin/amd64":  true,
+		"darwin/arm64":  true,
+		"linux/386":     true,
+		"linux/amd64":   true,
+		"windows/386":   true,
+		"windows/amd64": true,
+	}
+
+	validFormats = []string{
+		"bash",
+		"c",
+		"csharp",
+		"dw",
+		"dword",
+		"hex",
+		"java",
+		"js_be",
+		"js_le",
+		"num",
+		"perl",
+		"pl",
+		"powershell",
+		"ps1",
+		"py",
+		"python",
+		"raw",
+		"rb",
+		"ruby",
+		"sh",
+		"vbapplication",
+		"vbscript",
+	}
+)
 
 func generate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	config := parseCompileFlags(ctx)
@@ -259,9 +271,6 @@ func generateStager(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 // Shared function that extracts the compile flags from the grumble context
 func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 	var name string
-	targetOS := strings.ToLower(ctx.Flags.String("os"))
-	arch := strings.ToLower(ctx.Flags.String("arch"))
-
 	if ctx.Flags["name"] != nil {
 		name = strings.ToLower(ctx.Flags.String("name"))
 
@@ -345,21 +354,12 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 		// default to exe
 		configFormat = clientpb.ImplantConfig_EXECUTABLE
 	}
-	/* For UX we convert some synonymous terms */
-	if targetOS == "darwin" || targetOS == "mac" || targetOS == "macos" || targetOS == "m" || targetOS == "osx" {
-		targetOS = "darwin"
-	}
-	if targetOS == "windows" || targetOS == "win" || targetOS == "w" || targetOS == "shit" {
-		targetOS = "windows"
-	}
-	if targetOS == "linux" || targetOS == "unix" || targetOS == "l" {
-		targetOS = "linux"
-	}
-	if arch == "x64" || strings.HasPrefix(arch, "64") {
-		arch = "amd64"
-	}
-	if arch == "x86" || strings.HasPrefix(arch, "32") {
-		arch = "386"
+
+	targetOS := strings.ToLower(ctx.Flags.String("os"))
+	arch := strings.ToLower(ctx.Flags.String("arch"))
+	targetOS, arch = getTargets(targetOS, arch)
+	if targetOS == "" || arch == "" {
+		return nil
 	}
 
 	if len(namedPipeC2) > 0 && targetOS != "windows" {
@@ -393,6 +393,41 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 	}
 
 	return config
+}
+
+func getTargets(targetOS string, targetArch string) (string, string) {
+
+	/* For UX we convert some synonymous terms */
+	if targetOS == "darwin" || targetOS == "mac" || targetOS == "macos" || targetOS == "osx" {
+		targetOS = "darwin"
+	}
+	if targetOS == "windows" || targetOS == "win" || targetOS == "shit" {
+		targetOS = "windows"
+	}
+	if targetOS == "linux" || targetOS == "lin" {
+		targetOS = "linux"
+	}
+
+	if targetArch == "x64" || strings.HasPrefix(targetArch, "64") {
+		targetArch = "amd64"
+	}
+	if targetArch == "x86" || strings.HasPrefix(targetArch, "32") {
+		targetArch = "386"
+	}
+
+	target := fmt.Sprintf("%s/%s", targetOS, targetArch)
+	if _, ok := SupportedCompilerTargets[target]; !ok {
+		prompt := &survey.Confirm{
+			Message: fmt.Sprintf("Unsupported compiler target %s, try to build anyways?", target),
+		}
+		var confirm bool
+		survey.AskOne(prompt, &confirm)
+		if !confirm {
+			return "", ""
+		}
+	}
+
+	return targetOS, targetArch
 }
 
 func parseMTLSc2(args string) []*clientpb.ImplantC2 {

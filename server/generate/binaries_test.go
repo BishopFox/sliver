@@ -36,33 +36,25 @@ func TestSliverExecutableWindows(t *testing.T) {
 
 	// mTLS C2
 	mtlsExe(t, "windows", "amd64", false)
-	//mtlsExe(t, "windows", "386", false)
+	mtlsExe(t, "windows", "386", false)
 	mtlsExe(t, "windows", "amd64", true)
-	//mtlsExe(t, "windows", "386", true)
+	mtlsExe(t, "windows", "386", true)
 
 	// DNS C2
 	dnsExe(t, "windows", "amd64", false)
-	//dnsExe(t, "windows", "386", false)
 	dnsExe(t, "windows", "amd64", true)
-	//dnsExe(t, "windows", "386", true)
 
 	// HTTP C2
 	httpExe(t, "windows", "amd64", false)
-	//httpExe(t, "windows", "386", false)
 	httpExe(t, "windows", "amd64", true)
-	//httpExe(t, "windows", "386", true)
 
 	// PIVOT TCP C2
 	tcpPivotExe(t, "windows", "amd64", false)
-	//httpExe(t, "windows", "386", false)
 	tcpPivotExe(t, "windows", "amd64", true)
-	//httpExe(t, "windows", "386", true)
 
 	// Named Pipe C2
 	namedPipeExe(t, "windows", "amd64", false)
-	//namedPipeExe(t, "windows", "386", false)
 	namedPipeExe(t, "windows", "amd64", true)
-	//namedPipeExe(t, "windows", "386", true)
 
 	// Multiple C2s
 	multiExe(t, "windows", "amd64", true)
@@ -88,6 +80,16 @@ func TestSliverExecutableDarwin(t *testing.T) {
 	multiExe(t, "darwin", "amd64", true)
 	multiExe(t, "darwin", "amd64", false)
 	tcpPivotExe(t, "darwin", "amd64", false)
+}
+
+func TestSliverDefaultBuild(t *testing.T) {
+	mtlsExe(t, "linux", "arm", true)
+	mtlsExe(t, "linux", "arm", false)
+	httpExe(t, "freebsd", "amd64", false)
+	httpExe(t, "freebsd", "amd64", true)
+	dnsExe(t, "plan9", "amd64", false)
+	dnsExe(t, "plan9", "amd64", true)
+
 }
 
 // func TestSymbolObfuscation(t *testing.T) {

@@ -323,6 +323,14 @@ message ExecuteReq {
   commonpb.Request Request = 9;
 }
 
+message ExecuteTokenReq {
+  string Path = 1;
+  repeated string Args = 2;
+  bool Output = 3;
+
+  commonpb.Request Request = 9;
+}
+
 message Execute {
   string Result = 1;
   uint32 Status = 2;
