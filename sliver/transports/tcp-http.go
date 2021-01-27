@@ -175,6 +175,7 @@ func HTTPStartSession(address string) (*SliverHTTPClient, error) {
 type SliverHTTPClient struct {
 	Origin     string
 	Client     *http.Client
+	ProxyURL   string
 	SessionKey *AESKey
 	SessionID  string
 }
@@ -450,6 +451,7 @@ func httpClient(address string, useProxy bool) *SliverHTTPClient {
 			log.Printf("Proxy URL = '%s'\n", proxyURL)
 			// {{end}}
 			httpTransport.Proxy = http.ProxyURL(proxyURL)
+			client.ProxyURL = proxyURL.String()
 		}
 	}
 	return client
@@ -485,6 +487,7 @@ func httpsClient(address string, useProxy bool) *SliverHTTPClient {
 			log.Printf("Proxy URL = '%s'\n", proxyURL)
 			// {{end}}
 			netTransport.Proxy = http.ProxyURL(proxyURL)
+			client.ProxyURL = proxyURL.String()
 		}
 	}
 	return client

@@ -48,6 +48,8 @@ var (
 
 	ccCounter = new(int)
 
+	proxyURL string
+
 	// All server URLs compiled in the implant. For now this also determines
 	// which transport stacks are available...
 	ccServers = []string{
@@ -183,6 +185,14 @@ func (t *transports) Switch(ID uint32) (err error) {
 // GetActiveC2 returns the URL of the C2 in use
 func GetActiveC2() string {
 	return Transports.Server.URL.String()
+}
+
+// GetProxyURL return the URL of the current proxy in use
+func GetProxyURL() string {
+	if proxyURL == "" {
+		return "none"
+	}
+	return proxyURL
 }
 
 // GetActiveConnection returns the Connection of the C2 in use

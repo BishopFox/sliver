@@ -68,6 +68,7 @@ type Session struct {
 	ActiveC2          string
 	IsDead            bool
 	ReconnectInterval uint32
+	ProxyURL          string
 }
 
 // ToProtobuf - Get the protobuf version of the object
@@ -109,6 +110,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		ActiveC2:          s.ActiveC2,
 		IsDead:            isDead,
 		ReconnectInterval: s.ReconnectInterval,
+		ProxyURL:          s.ProxyURL,
 	}
 }
 

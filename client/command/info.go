@@ -53,6 +53,7 @@ func info(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(bold+"       Version: %s%s\n", normal, session.Version)
 		fmt.Printf(bold+"          Arch: %s%s\n", normal, session.Arch)
 		fmt.Printf(bold+"Remote Address: %s%s\n", normal, session.RemoteAddress)
+		fmt.Printf(bold+"     Proxy URL: %s%s\n", normal, session.ProxyURL)
 	} else {
 		fmt.Printf(Warn+"No target session, see `help %s`\n", consts.InfoStr)
 	}
