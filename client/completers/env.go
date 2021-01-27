@@ -1,12 +1,5 @@
 package completers
 
-import (
-	"strings"
-
-	"github.com/bishopfox/sliver/client/util"
-	"github.com/maxlandon/readline"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -24,6 +17,15 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"strings"
+
+	// "github.com/maxlandon/readline"
+	"github.com/bishopfox/sliver/client/readline"
+
+	"github.com/bishopfox/sliver/client/util"
+)
 
 // completeEnvironmentVariables - Returns all environment variables as suggestions
 func completeEnvironmentVariables(lastWord string) (last string, completions []*readline.CompletionGroup) {

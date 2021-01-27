@@ -1,6 +1,0 @@
-github.com/evilsocket/islazy v1.10.6 h1:MFq000a1ByoumoJWlytqg0qon0KlBeUfPsDjY0hK0bo=
-github.com/evilsocket/islazy v1.10.6/go.mod h1:OrwQGYg3DuZvXUfmH+KIZDjwTCbrjy48T24TUpGqVVw=
-github.com/lmorg/readline v0.0.0-20190310235027-80486cdafb40 h1:znStRE2xOeEi9Dx0V5bN9HKqyYDZwA8Gilo2Ym5Z3Hw=
-github.com/lmorg/readline v0.0.0-20190310235027-80486cdafb40/go.mod h1:Nev5yti2InXJ5YtQNnHLvbx4fS5gUijIcgTWe8KtmH0=
-golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1 h1:sIky/MyNRSHTrdxfsiUSS4WIAMvInbeXljJz+jDjeYE=
-golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=

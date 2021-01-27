@@ -28,9 +28,10 @@ import (
 	"strconv"
 	"text/template"
 
-	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
+
+	consts "github.com/bishopfox/sliver/client/constants"
 )
 
 var (

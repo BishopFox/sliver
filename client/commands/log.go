@@ -18,10 +18,11 @@ package commands
 import (
 	"fmt"
 
-	"github.com/bishopfox/sliver/client/comm"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/evilsocket/islazy/tui"
 	"github.com/sirupsen/logrus"
+
+	"github.com/bishopfox/sliver/client/comm"
+	"github.com/bishopfox/sliver/client/util"
 )
 
 // Log - Log management commands. Sets log level by default.

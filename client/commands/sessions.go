@@ -27,6 +27,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/evilsocket/islazy/tui"
+
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
@@ -35,7 +37,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/evilsocket/islazy/tui"
 )
 
 // Main & Sliver context available commands

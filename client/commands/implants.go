@@ -1,17 +1,5 @@
 package commands
 
-import (
-	"context"
-	"fmt"
-	"sort"
-
-	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/evilsocket/islazy/tui"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -29,6 +17,19 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"context"
+	"fmt"
+	"sort"
+
+	"github.com/evilsocket/islazy/tui"
+
+	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/client/util"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+)
 
 // Builds - List saved implant builds (binaries)
 type Builds struct{}

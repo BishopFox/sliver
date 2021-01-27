@@ -26,7 +26,8 @@ import (
 	"time"
 
 	"github.com/evilsocket/islazy/tui"
-	"github.com/maxlandon/readline"
+	// "github.com/maxlandon/readline"
+	"github.com/bishopfox/sliver/client/readline"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/context"

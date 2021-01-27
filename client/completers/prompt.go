@@ -5,7 +5,8 @@ import (
 	"strings"
 
 	"github.com/evilsocket/islazy/tui"
-	"github.com/maxlandon/readline"
+	// "github.com/maxlandon/readline"
+	"github.com/bishopfox/sliver/client/readline"
 )
 
 /*

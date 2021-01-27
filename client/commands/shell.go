@@ -1,21 +1,5 @@
 package commands
 
-import (
-	"bufio"
-	"context"
-	"fmt"
-	"io"
-	"os"
-
-	cctx "github.com/bishopfox/sliver/client/context"
-	"github.com/bishopfox/sliver/client/log"
-	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"golang.org/x/crypto/ssh/terminal"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -33,6 +17,23 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"io"
+	"os"
+
+	"golang.org/x/crypto/ssh/terminal"
+
+	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/log"
+	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/client/util"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+)
 
 const (
 	windows = "windows"

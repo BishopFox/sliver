@@ -23,13 +23,14 @@ import (
 	"fmt"
 	insecureRand "math/rand"
 
+	"github.com/evilsocket/islazy/tui"
+
 	consts "github.com/bishopfox/sliver/client/constants"
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/evilsocket/islazy/tui"
 )
 
 // Info - Show Session information

@@ -23,10 +23,11 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/bishopfox/sliver/client/help"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
+
+	"github.com/bishopfox/sliver/client/help"
+	"github.com/bishopfox/sliver/client/util"
 )
 
 // LoadExtension - Load an extension onto the current session host.

@@ -18,12 +18,13 @@ package commands
 import (
 	"fmt"
 
+	"github.com/evilsocket/islazy/tui"
+
 	"github.com/bishopfox/sliver/client/comm"
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commpb"
-	"github.com/evilsocket/islazy/tui"
 )
 
 // Portfwd - Manage port forwarders on the client

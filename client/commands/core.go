@@ -24,9 +24,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/evilsocket/islazy/fs"
+
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
-	"github.com/evilsocket/islazy/fs"
 )
 
 // Exit - Kill the current client console

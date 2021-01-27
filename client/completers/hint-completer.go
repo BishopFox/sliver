@@ -21,10 +21,11 @@ package completers
 import (
 	"strings"
 
-	"github.com/bishopfox/sliver/client/commands"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
+
+	"github.com/bishopfox/sliver/client/commands"
+	"github.com/bishopfox/sliver/client/util"
 )
 
 // HintCompleter - Entrypoint to all hints in the Wiregost console

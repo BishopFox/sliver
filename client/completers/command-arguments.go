@@ -26,7 +26,9 @@ import (
 
 	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
-	"github.com/maxlandon/readline"
+
+	// "github.com/maxlandon/readline"
+	"github.com/bishopfox/sliver/client/readline"
 
 	"github.com/bishopfox/sliver/client/commands"
 	"github.com/bishopfox/sliver/client/constants"

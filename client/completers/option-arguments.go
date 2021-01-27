@@ -21,10 +21,12 @@ package completers
 import (
 	"strings"
 
+	// "github.com/maxlandon/readline"
+	"github.com/bishopfox/sliver/client/readline"
+	"github.com/jessevdk/go-flags"
+
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/context"
-	"github.com/jessevdk/go-flags"
-	"github.com/maxlandon/readline"
 )
 
 // completeOptionArguments - Completes all values for arguments to a command. Arguments here are different from command options (--option).

@@ -25,12 +25,13 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/evilsocket/islazy/tui"
+
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/evilsocket/islazy/tui"
 )
 
 // NewProfile - Configure and save a new implant profile.

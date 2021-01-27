@@ -24,9 +24,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bishopfox/sliver/client/util"
+	// "github.com/maxlandon/readline"
+	"github.com/bishopfox/sliver/client/readline"
 	"github.com/evilsocket/islazy/fs"
-	"github.com/maxlandon/readline"
+
+	"github.com/bishopfox/sliver/client/util"
 )
 
 func completeLocalPath(last string) (string, *readline.CompletionGroup) {

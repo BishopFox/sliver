@@ -32,13 +32,14 @@ import (
 	"strconv"
 	"time"
 
+	"gopkg.in/AlecAivazis/survey.v1"
+
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/licenses"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 const (

@@ -1,18 +1,5 @@
 package commands
 
-import (
-	"bytes"
-	"context"
-	"fmt"
-	"strings"
-	"text/tabwriter"
-
-	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -30,6 +17,19 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"strings"
+	"text/tabwriter"
+
+	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/client/util"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+)
 
 // Canaries - List previously generated canaries
 type Canaries struct {

@@ -28,6 +28,8 @@ import (
 	"path"
 	"strings"
 
+	"golang.org/x/crypto/ssh/terminal"
+
 	"github.com/bishopfox/sliver/client/constants"
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/log"
@@ -35,7 +37,6 @@ import (
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 // ExecuteShellcode - Executes the given shellcode in the sliver process

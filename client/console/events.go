@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/evilsocket/islazy/tui"
+
 	"github.com/bishopfox/sliver/client/completers"
 	consts "github.com/bishopfox/sliver/client/constants"
 	cctx "github.com/bishopfox/sliver/client/context"
@@ -13,7 +15,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/evilsocket/islazy/tui"
 )
 
 /*
