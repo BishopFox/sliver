@@ -46,6 +46,8 @@ var (
 	maxErrors         = getMaxConnectionErrors()
 	reconnectInterval = GetReconnectInterval()
 
+	proxyURL string
+
 	ccCounter = new(int)
 
 	// All server URLs compiled in the implant. For now this also determines
@@ -214,6 +216,13 @@ func getMaxConnectionErrors() int {
 		return 1000
 	}
 	return maxConnectionErrors
+}
+
+func GetProxyURL() string {
+	if proxyURL == "" {
+		return "none"
+	}
+	return proxyURL
 }
 
 // newID- Returns an incremental nonce as an id

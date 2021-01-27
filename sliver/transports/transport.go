@@ -355,6 +355,8 @@ func (t *Transport) registerSliver() *sliverpb.Envelope {
 		Filename:          filename,
 		ActiveC2:          t.URL.String(),
 		ReconnectInterval: uint32(GetReconnectInterval() / time.Second),
+		ProxyURL:          GetProxyURL(),
+
 		// Network & transport information.
 		Transport:  t.URL.Scheme,
 		RemoteAddr: remoteAddr,
