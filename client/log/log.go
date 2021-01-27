@@ -24,8 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bishopfox/sliver/client/readline"
 	"github.com/evilsocket/islazy/tui"
-	"github.com/maxlandon/readline"
 	"github.com/sirupsen/logrus"
 
 	consts "github.com/bishopfox/sliver/client/constants"
