@@ -56,6 +56,11 @@ func (rl *Instance) viDeleteByAdjust(adjust int) {
 		backOne bool
 	)
 
+	// Avoid doing anything if input line is empty.
+	if len(rl.line) == 0 {
+		return
+	}
+
 	switch {
 	case adjust == 0:
 		rl.viUndoSkipAppend = true

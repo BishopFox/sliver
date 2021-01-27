@@ -152,7 +152,7 @@ func (rl *Instance) moveCursorByAdjust(adjust int) {
 		rl.pos += adjust
 	}
 
-	if rl.modeViMode != vimInsert && rl.pos == len(rl.line) {
+	if rl.modeViMode != vimInsert && rl.pos == len(rl.line) && len(rl.line) > 0 {
 		moveCursorBackwards(1)
 		rl.pos--
 	}
