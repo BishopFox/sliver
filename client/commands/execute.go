@@ -19,8 +19,10 @@ package commands
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -49,12 +51,17 @@ func (e *Execute) Execute(args []string) (err error) {
 		cArgs = e.Positional.Args[1:]
 	}
 	output := e.Options.Silent
+	ctrl := make(chan bool)
+	msg := fmt.Sprintf("Executing %s %s...", cmdPath, strings.Join(cArgs, " "))
+	go spin.Until(msg, ctrl)
 	exec, err := transport.RPC.Execute(context.Background(), &sliverpb.ExecuteReq{
 		Path:    cmdPath,
 		Args:    cArgs,
 		Output:  !output,
 		Request: ContextRequest(session),
 	})
+	ctrl <- true
+	<-ctrl
 	if err != nil {
 		fmt.Printf(util.Error+"%s", err)
 	} else if !output {
