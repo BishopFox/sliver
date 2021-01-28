@@ -20,7 +20,7 @@ package generate
 
 // These files get rendered as part of the build process.
 
-// If you add a file to `sliver/` it won't be automatically included
+// If you add a file to `implant/sliver/` it won't be automatically included
 // as part of the build by the server, you have to add it here.
 
 var (
@@ -129,6 +129,7 @@ var (
 		"transports/connection.go",
 		"transports/crypto.go",
 		"transports/named-pipe.go",
+		"transports/named-pipe_windows.go",
 		"transports/rpc.go",
 		"transports/tcp-http.go",
 		"transports/tcp-mtls.go",
@@ -274,6 +275,59 @@ var (
 		"3rdparty/djherbis/buffer/swap.go",
 
 		// "go.mod",
+	}
 
+	// PURE GO only - For compiling to unsupported platforms
+	genericSrcFiles = []string{
+		"constants/constants.go",
+
+		"encoders/base64.go",
+		"encoders/combos.go",
+		"encoders/encoders.go",
+		"encoders/english-words.go",
+		"encoders/english.go",
+		"encoders/gzip.go",
+		"encoders/hex.go",
+		"encoders/images.go",
+
+		"handlers/handlers_default.go",
+		"handlers/handlers.go",
+
+		"limits/limits.go",
+		"limits/limits_default.go",
+
+		"pivots/named-pipe.go",
+		"pivots/tcp.go",
+		"pivots/pivots.go",
+
+		"proxy/provider.go",
+		"proxy/provider_default.go",
+		"proxy/proxy.go",
+		"proxy/url.go",
+
+		"transports/connection.go",
+		"transports/crypto.go",
+		"transports/named-pipe.go",
+		"transports/rpc.go",
+		"transports/tcp-http.go",
+		"transports/tcp-mtls.go",
+		"transports/tcp-pivot.go",
+		"transports/udp-dns.go",
+		"transports/transport.go",
+		"transports/transports.go",
+
+		"comm/comm.go",
+		"comm/comms.go",
+		"comm/dial-tcp.go",
+		"comm/dial-udp.go",
+		"comm/listen-tcp.go",
+		"comm/listen-udp.go",
+		"comm/named-pipe.go",
+		"comm/tunnel.go",
+
+		"version/version_default.go",
+		"version/version.go",
+
+		"sliver.go",
 	}
 )
