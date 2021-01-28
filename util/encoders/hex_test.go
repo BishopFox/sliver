@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	implantEncoders "github.com/bishopfox/sliver/sliver/encoders"
+	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 )
 
 /*
