@@ -198,8 +198,8 @@ func SetupGoPath(goPathSrc string) error {
 	os.MkdirAll(commonpbDir, 0700)
 	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0644)
 
-	// Comm PB
-	commpbSrc, err := protobufBox.Find("commpb/comm.pb.go")
+	// Common PB
+	commpbSrc, err := protobufs.FS.ReadFile("commpb/comm.pb.go")
 	if err != nil {
 		setupLog.Info("static asset not found: comm.pb.go")
 		return err
@@ -220,7 +220,7 @@ func SetupGoPath(goPathSrc string) error {
 		setupLog.Fatalf("Failed to unzip go dependency: %v", err)
 	}
 	golangXCryptoSSHPath := path.Join(goPathSrc, "golang.org", "x")
-	err = unzipGoDependency("golang_x_crypto_ssh.zip", golangXCryptoSSHPath, assetsBox)
+	err = unzipGoDependency("golang_x_crypto_ssh.zip", golangXCryptoSSHPath)
 	if err != nil {
 		setupLog.Fatalf("Failed to unzip go dependency: %v", err)
 	}
