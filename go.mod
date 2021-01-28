@@ -13,14 +13,13 @@ require (
 	github.com/desertbit/closer/v3 v3.1.2 // indirect
 	github.com/desertbit/columnize v2.1.0+incompatible
 	github.com/desertbit/grumble v1.0.8
-	github.com/djherbis/buffer v1.1.0
+	github.com/djherbis/buffer v1.1.0 // indirect
 	github.com/fatih/color v1.10.0
 	github.com/gofrs/uuid v3.3.0+incompatible
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.1 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
-	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/mattn/go-runewidth v0.0.8 // indirect
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible
 	github.com/miekg/dns v1.1.35
