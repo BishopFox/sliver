@@ -185,8 +185,8 @@ func SetupGoPath(goPathSrc string) error {
 	}
 	sliverpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliverpb")
 	os.MkdirAll(sliverpbDir, 0700)
-	ioutil.WriteFile(path.Join(sliverpbDir, "constants.go"), sliverpbGoSrc, 0644)
-	ioutil.WriteFile(path.Join(sliverpbDir, "sliver.pb.go"), sliverpbConstSrc, 0644)
+	ioutil.WriteFile(path.Join(sliverpbDir, "constants.go"), sliverpbConstSrc, 0644)
+	ioutil.WriteFile(path.Join(sliverpbDir, "sliver.pb.go"), sliverpbGoSrc, 0644)
 
 	// Common PB
 	commonpbSrc, err := protobufs.FS.ReadFile("commonpb/common.pb.go")
