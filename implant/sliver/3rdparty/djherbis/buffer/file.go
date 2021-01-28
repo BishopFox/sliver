@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bishopfox/sliver/implant/sliver/3rdparty/djherbis/buffer.v1/wrapio"
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/djherbis/buffer/wrapio"
 )
 
 // File is used as the backing resource for a the NewFile BufferAt.

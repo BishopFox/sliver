@@ -32,24 +32,23 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net/url"
-
-	// {{if .Config.Debug}}
-	"log"
-	// {{end}}
-
 	insecureRand "math/rand"
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
+	"github.com/golang/protobuf/proto"
+
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
-
-	"github.com/golang/protobuf/proto"
 )
 
 const (

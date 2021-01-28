@@ -4,7 +4,7 @@ import (
 	"encoding/gob"
 	"io"
 
-	"github.com/bishopfox/sliver/implant/sliver/3rdparty/djherbis/buffer.v1/limio"
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/djherbis/buffer/limio"
 )
 
 // ReadWriterAt implements io.ReaderAt and io.WriterAt

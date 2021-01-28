@@ -28,11 +28,11 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
+	"github.com/bishopfox/sliver/implant/sliver/comm"
+	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/comm"
-	"github.com/bishopfox/sliver/sliver/transports"
 )
 
 var commHandlers = map[uint32]CommHandler{

@@ -30,8 +30,9 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/3rdparty/djherbis/buffer.v1"
-	"github.com/bishopfox/sliver/sliver/3rdparty/djherbis/nio.v2"
+
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/djherbis/buffer"
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/djherbis/nio"
 )
 
 // Tunnel - An ordered stream used by a Comm to run an SSH multiplexing session.

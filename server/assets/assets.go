@@ -198,7 +198,7 @@ func SetupGoPath(goPathSrc string) error {
 	os.MkdirAll(commonpbDir, 0700)
 	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0644)
 
-	// Common PB
+	// Comm PB
 	commpbSrc, err := protobufs.FS.ReadFile("commpb/comm.pb.go")
 	if err != nil {
 		setupLog.Info("static asset not found: comm.pb.go")

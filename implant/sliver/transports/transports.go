@@ -30,7 +30,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bishopfox/sliver/sliver/comm"
+	"github.com/bishopfox/sliver/implant/sliver/comm"
 )
 
 const (

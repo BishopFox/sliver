@@ -35,9 +35,9 @@ import (
 	"log"
 	// {{end}}
 
-	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
-
 	"github.com/golang/protobuf/proto"
+
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 // mtlsConnect - Reverse Mutual TLS implant transport.

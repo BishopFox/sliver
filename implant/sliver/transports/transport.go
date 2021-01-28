@@ -37,9 +37,10 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/comm"
-	consts "github.com/bishopfox/sliver/sliver/constants"
-	"github.com/bishopfox/sliver/sliver/version"
+
+	"github.com/bishopfox/sliver/implant/sliver/comm"
+	consts "github.com/bishopfox/sliver/implant/sliver/constants"
+	"github.com/bishopfox/sliver/implant/sliver/version"
 )
 
 // Transport - A wrapper around a physical connection, embedding what is necessary to perform

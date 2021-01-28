@@ -26,19 +26,20 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
+	"path/filepath"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
-	"os"
-	"path/filepath"
+	"github.com/golang/protobuf/proto"
 
-	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/golang/protobuf/proto"
+
+	"github.com/bishopfox/sliver/implant/sliver/transports"
 )
 
 // RPCResponse - Request/response callback

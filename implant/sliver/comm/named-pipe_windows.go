@@ -28,7 +28,8 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/bishopfox/sliver/protobuf/commpb"
-	"github.com/bishopfox/sliver/sliver/3rdparty/winio"
+
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/winio"
 )
 
 // DialNamedPipe - A connection coming from the server, that needs to be routed via a Named Pipe

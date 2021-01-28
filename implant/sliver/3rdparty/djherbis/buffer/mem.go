@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/bishopfox/sliver/implant/sliver/3rdparty/djherbis/buffer.v1/limio"
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/djherbis/buffer/limio"
 )
 
 type memory struct {

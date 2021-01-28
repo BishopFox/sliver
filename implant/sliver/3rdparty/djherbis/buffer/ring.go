@@ -4,7 +4,7 @@ import (
 	"io"
 	"math"
 
-	"github.com/bishopfox/sliver/implant/sliver/3rdparty/djherbis/buffer.v1/wrapio"
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/djherbis/buffer/wrapio"
 )
 
 type ring struct {

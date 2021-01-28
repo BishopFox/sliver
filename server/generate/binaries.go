@@ -35,6 +35,8 @@ import (
 	"strings"
 	"text/template"
 
+	"golang.org/x/crypto/ssh"
+
 	"github.com/bishopfox/sliver/implant"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commpb"
@@ -45,7 +47,6 @@ import (
 	"github.com/bishopfox/sliver/server/gogo"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
-	"golang.org/x/crypto/ssh"
 )
 
 var (

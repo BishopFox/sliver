@@ -11,7 +11,7 @@ import (
 
 	"time"
 
-	"github.com/bishopfox/sliver/implant/sliver/3rdparty/djherbis/buffer.v1"
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/djherbis/buffer"
 )
 
 func TestCopy(t *testing.T) {

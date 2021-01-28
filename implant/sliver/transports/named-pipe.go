@@ -35,11 +35,11 @@ import (
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/implant/sliver/3rdparty/winio"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/sliver/3rdparty/winio"
 	"github.com/golang/protobuf/proto"
+
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+
+	"github.com/bishopfox/sliver/implant/sliver/3rdparty/winio"
 )
 
 const (
@@ -162,7 +162,7 @@ func handleNamePipeConnection(conn net.Conn) (*Connection, error) {
 	return connection, nil
 }
 
-func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
+func namedPipeWriteEnvelope(conn *net.Conn, envelope *pb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -200,7 +200,7 @@ func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	return nil
 }
 
-func namedPipeReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
+func namedPipeReadEnvelope(conn *net.Conn) (*pb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4)
 	_, err := (*conn).Read(dataLengthBuf)
 	if err != nil {
@@ -227,13 +227,13 @@ func namedPipeReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 			break
 		}
 	}
-	envelope := &sliverpb.Envelope{}
+	envelope := &pb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[namedpipe] Unmarshaling envelope error: %v", err)
 		// {{end}}
-		return &sliverpb.Envelope{}, err
+		return &pb.Envelope{}, err
 	}
 	return envelope, nil
 }

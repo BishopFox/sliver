@@ -39,7 +39,8 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/commpb"
-	"github.com/bishopfox/sliver/sliver/constants"
+
+	"github.com/bishopfox/sliver/implant/sliver/constants"
 )
 
 var (

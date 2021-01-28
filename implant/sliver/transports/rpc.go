@@ -29,9 +29,9 @@ import (
 	"log"
 	// {{end}}
 
-	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
-
 	"github.com/golang/protobuf/proto"
+
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 // setupSessionRPC - Adds the RPC layer to the Transport, so that implant can talk to C2 server.
