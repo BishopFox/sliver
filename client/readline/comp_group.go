@@ -28,11 +28,10 @@ type CompletionGroup struct {
 	tcMaxLength    int // Used when display is map/list, for determining message width
 	tcMaxLengthAlt int // Same as tcMaxLength but for SuggestionsAlt.
 
-	// allowCycle - is true if we want to cycle through suggestions because they overflow MaxLength
+	allowCycle bool // is true if we want to cycle through suggestions because they overflow MaxLength
 	// This is set by the shell when it has detected this group is alone in the suggestions.
 	// Might be the case of things like remote processes .
-	allowCycle bool
-	isCurrent  bool // This is to say we are currently cycling through this group, for highlighting choice
+	isCurrent bool // This is to say we are currently cycling through this group, for highlighting choice
 }
 
 // updateTabFind - When searching through all completion groups (whether it be command history or not),
