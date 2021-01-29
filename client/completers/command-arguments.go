@@ -331,6 +331,7 @@ func processes(lastWord string) (comp *readline.CompletionGroup) {
 		Name:         "host processes",
 		Descriptions: map[string]string{},
 		DisplayType:  readline.TabDisplayList,
+		MaxLength:    20,
 	}
 
 	session := cctx.Context.Sliver

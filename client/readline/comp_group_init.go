@@ -108,9 +108,16 @@ func (g *CompletionGroup) readyList(rl *Instance) {
 		}
 	}
 
+	// Max values depend on if we have alternative suggestions
+	if len(g.SuggestionsAlt) == 0 {
+		g.tcMaxX = 1
+		g.tcMaxY = g.MaxLength
+	} else {
+		g.tcMaxX = 2
+		g.tcMaxY = len(g.Suggestions) // cannot restrict to MaxLength
+	}
+
 	g.tcPosX = 1
 	g.tcPosY = 1
 	g.tcOffset = 0
-	g.tcMaxX = 2                  // we have alternative suggs, so 2 columns
-	g.tcMaxY = len(g.Suggestions) // cannot restrict to MaxLength
 }

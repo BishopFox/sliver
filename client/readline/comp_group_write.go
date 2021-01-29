@@ -152,19 +152,19 @@ func (g *CompletionGroup) writeList(rl *Instance) (comp string) {
 
 	// Add the equivalent of this group's size to final screen clearing
 	// Cannot be set with MaxLength when printing lists
-	rl.tcUsedY += len(g.Suggestions) + 1
+	// rl.tcUsedY += len(g.Suggestions) + 1
 
 	// Add the equivalent of this group's size to final screen clearing
 	// Can be set and used only if no alterative completions have been given.
-	// if len(g.SuggestionsAlt) == 0 {
-	//         if len(g.Suggestions) > g.MaxLength {
-	//                 rl.tcUsedY += g.MaxLength + 2 // Do is required for lists
-	//         } else {
-	//                 rl.tcUsedY += len(g.Suggestions) + 1
-	//         }
-	// } else {
-	//         rl.tcUsedY += len(g.Suggestions) + 1
-	// }
+	if len(g.SuggestionsAlt) == 0 {
+		if len(g.Suggestions) > g.MaxLength {
+			rl.tcUsedY += g.MaxLength + 1 // Do is required for lists
+		} else {
+			rl.tcUsedY += len(g.Suggestions) + 1
+		}
+	} else {
+		rl.tcUsedY += len(g.Suggestions) + 1
+	}
 
 	// Special case: history search handles titles differently.
 	if rl.modeAutoFind && rl.modeTabFind && rl.searchMode == HistoryFind {
