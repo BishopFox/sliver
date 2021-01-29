@@ -24,9 +24,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bishopfox/sliver/client/readline"
 	"github.com/evilsocket/islazy/tui"
 	"github.com/sirupsen/logrus"
+
+	// "github.com/maxlandon/readline"
+	"github.com/bishopfox/sliver/client/readline"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	cctx "github.com/bishopfox/sliver/client/context"

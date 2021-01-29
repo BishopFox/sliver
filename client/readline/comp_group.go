@@ -91,9 +91,15 @@ func (g *CompletionGroup) checkMaxLength(rl *Instance) {
 // depending on its display type and its different parameters
 func (g *CompletionGroup) getCurrentCell() string {
 
+	// Because the group might have no current candidate (we just entered completions),
+	// we return if coordinates indicate so.
+	if g.tcPosY == 0 {
+		return ""
+	}
+
 	switch g.DisplayType {
 	case TabDisplayGrid, TabDisplayMap:
-		// x & y coodinates
+		// x & y coordinates
 		cell := (g.tcMaxX * (g.tcPosY - 1)) + g.tcOffset + g.tcPosX - 1
 		if cell < len(g.Suggestions) {
 			return g.Suggestions[cell]

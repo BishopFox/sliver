@@ -82,6 +82,12 @@ func (rl *Instance) computePrompt() (prompt []rune) {
 		prompt = append(prompt, rl.mlnArrow...)
 	}
 
+	// If prompt is still nil (because we don't want Vim mode),
+	// we set a normal prompt string without status.
+	if !rl.ShowVimMode {
+		prompt = append(prompt, rl.mlnArrow...)
+	}
+
 	rl.mlnPrompt = prompt
 	rl.promptLen = len(rl.mlnPrompt)
 
@@ -136,6 +142,8 @@ func moveCursorToLinePos(rl *Instance) {
 	if rl.ShowVimMode {
 		length += 3                // 3 for [N]
 		length += len(rl.mlnArrow) // 3: ' > '
+	} else {
+		length += len(rl.mlnArrow)
 	}
 
 	// move the cursor
@@ -242,7 +250,12 @@ func (rl *Instance) echo() {
 
 	default:
 		print(string(rl.mlnPrompt))
-		print(rl.SyntaxHighlighter(rl.line) + " ")
+
+		if string(rl.lineComp) > string(rl.line) {
+			print(rl.SyntaxHighlighter(rl.lineComp) + " ")
+		} else {
+			print(rl.SyntaxHighlighter(rl.line) + " ")
+		}
 	}
 
 	moveCursorBackwards(len(rl.line) - rl.pos)

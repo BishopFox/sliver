@@ -21,9 +21,10 @@ package completers
 import (
 	"strings"
 
+	"github.com/jessevdk/go-flags"
+
 	// "github.com/maxlandon/readline"
 	"github.com/bishopfox/sliver/client/readline"
-	"github.com/jessevdk/go-flags"
 
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/context"

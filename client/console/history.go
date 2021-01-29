@@ -130,7 +130,8 @@ func (h *UserHistory) GetLine(i int) (string, error) {
 
 // Len returns the number of lines in history
 func (h *UserHistory) Len() int {
-	return h.LinesSinceStart
+	return len(h.cache)
+	// return h.LinesSinceStart
 }
 
 // Dump returns the entire history

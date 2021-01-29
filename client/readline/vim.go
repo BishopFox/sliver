@@ -264,6 +264,24 @@ func (rl *Instance) colorizeVimPrompt(p []rune) (cp []rune) {
 		return []rune(fmt.Sprintf("%s%s%s", tui.BOLD, string(p), tui.RESET))
 	}
 
+	if rl.VimModeColorize {
+		switch string(p) {
+		case "[I]":
+			return []rune(fmt.Sprintf("%s%s%s%s", tui.BOLD, tui.YELLOW, string(p), tui.RESET))
+		case "[N]":
+			return []rune(fmt.Sprintf("%s%s%s%s", tui.BOLD, tui.BLUE, string(p), tui.RESET))
+		case "[D]":
+			return []rune(fmt.Sprintf("%s%s%s%s%s", tui.BOLD, tui.DIM, tui.BLUE, string(p), tui.RESET))
+		case "[V]":
+			return []rune(fmt.Sprintf("%s%s%s%s", tui.BOLD, tui.BLUE, string(p), tui.RESET))
+		case "[R]":
+			return []rune(fmt.Sprintf("%s%s%s", tui.BOLD, string(p), tui.RESET))
+		default:
+			return []rune(fmt.Sprintf("%s%s%s", tui.BOLD, string(p), tui.RESET))
+		}
+
+	}
+
 	return
 }
 

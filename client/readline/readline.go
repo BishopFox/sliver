@@ -27,20 +27,25 @@ func (rl *Instance) Readline() (string, error) {
 		rl.HideNextPrompt = false // Immediately reset this. Its a one-time shot.
 	}
 
+	// Input line defaults
 	rl.line = []rune{}
-	rl.viUndoHistory = []undoItem{{line: "", pos: 0}}
 	rl.pos = 0
+	rl.lineComp = []rune{}
+
+	// Vim
+	rl.modeViMode = vimInsert
+	rl.viUndoHistory = []undoItem{{line: "", pos: 0}}
+
+	// Choose the correct history for key up/down navigation.
 	if rl.mainHist {
 		rl.histPos = rl.History.Len()
 	} else if rl.AltHistory != nil {
 		rl.histPos = rl.AltHistory.Len()
 	}
-	rl.modeViMode = vimInsert
+	rl.histPos = rl.History.Len() // last command, so we can access it quickly
 
-	// We need this set to the last command, so that we can access it quickly
-	rl.histPos = rl.History.Len()
-
-	rl.computePrompt() // initialise the prompt for first print
+	// initialise the prompt for first print
+	rl.computePrompt()
 
 	rl.resetHintText()
 	rl.resetTabCompletion()
@@ -192,6 +197,18 @@ func (rl *Instance) Readline() (string, error) {
 				rl.getTabCompletion()
 			}
 
+			// Once we have a completion candidate, insert it in the virtual
+			// input line: this will thus not filter further candidates.
+			cur := rl.getCurrentGroup()
+			if cur != nil {
+				completion := cur.getCurrentCell()
+				prefix := len(rl.tcPrefix)
+
+				if len(completion) >= prefix {
+					rl.ainsert([]rune(completion[prefix:]))
+				}
+			}
+
 			rl.renderHelpers()
 			rl.viUndoSkipAppend = true
 
@@ -206,43 +223,45 @@ func (rl *Instance) Readline() (string, error) {
 			rl.getHintText()
 			rl.renderHelpers()
 
+		case charCtrlG:
+			if rl.modeTabFind {
+				rl.modeTabFind = false
+				rl.modeAutoFind = false // Added, because otherwise it gets stuck on search completions
+
+				rl.clearHelpers()
+				rl.getTabCompletion()
+				rl.renderHelpers()
+			}
+
 		case '\r':
 			fallthrough
 		case '\n':
 			if rl.modeTabCompletion {
 				// if rl.modeTabCompletion && !rl.modeTabFind {
 				cur := rl.getCurrentGroup()
+
 				// Check that there is a group indeed, as we might have no completions.
-				// NOTE: When we find that there are neither available groups, empty groups or
-				// nil objects of some sort, it means we don't have completion, and we return calmly
-				// from this, so that the user is still able to use input without noticing anything.
 				if cur == nil {
 					rl.clearHelpers()
 					rl.resetTabCompletion()
 					rl.renderHelpers()
 					continue
 				}
-
 				completion := cur.getCurrentCell()
 				prefix := len(rl.tcPrefix)
 
-				// Else we have added len([tl.tcPrefix]) so that we don't have to
-				// deal with input/completion indexing in the client application.
-				rl.insert([]rune(completion[prefix:]))
+				// If we have a prefix and completions printed, but
+				// no candidate (in which case the completion is "")
+				// we immedialy return
+				if prefix > len(completion) {
+					rl.carridgeReturn()
+					return string(rl.line), nil
+				}
 
-				// OLD DETECTION --------------
-				// cell := (cur.tcMaxX * (cur.tcPosY - 1)) + cur.tcOffset + cur.tcPosX - 1
-				//
-				// // We have added a few checks here, because sometimes the suggestions
-				// // don't catch up and we have a runtime error: index out of range [0] with length 0
-				// // This means we have no suggestions to select, or that the suggestion is an empty string.
-				// if len(cur.Suggestions) == 0 || len(cur.Suggestions[cell]) == 0 {
-				//         continue
-				// }
-				// // Else we have added len([tl.tcPrefix]) so that we don't have to
-				// // deal with input/completion indexing in the client application.
-				// rl.insert([]rune(cur.Suggestions[cell][len(rl.tcPrefix):]))
+				// Else we insert completion candidate virtually.
+				rl.insertVirtual(completion)
 
+				// Then we render everything.
 				rl.clearHelpers()
 				rl.resetTabCompletion()
 				rl.renderHelpers()
@@ -287,21 +306,12 @@ func (rl *Instance) Readline() (string, error) {
 			rl.renderHelpers()
 			continue
 		}
-		// cell := (cur.tcMaxX * (cur.tcPosY - 1)) + cur.tcOffset + cur.tcPosX - 1
-		//
-		// // We have added a few checks here, because sometimes the suggestions
-		// // don't catch up and we have a runtime error: index out of range [0] with length 0
-		// // This means we have no suggestions to select, or that the suggestion is an empty string.
-		// if len(cur.Suggestions) == 0 || len(cur.Suggestions[cell]) == 0 {
-		//         rl.clearHelpers()
-		//         rl.resetTabCompletion()
-		//         rl.renderHelpers()
-		//         continue
+
+		// if string(rl.line) != string(rl.lineComp) {
+		//         rl.line = rl.line
+		//         rl.echo()
 		// }
 
-		//if !rl.viUndoSkipAppend {
-		//	rl.viUndoHistory = append(rl.viUndoHistory, rl.line)
-		//}
 		rl.undoAppendHistory()
 	}
 }

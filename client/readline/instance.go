@@ -86,12 +86,18 @@ type Instance struct {
 	// then readline will just use the current line.
 	GetMultiLine func([]rune) []rune
 
-	// readline operating parameters
-	mlnPrompt     []rune // Our multiline prompt, different from multiline below
-	mlnArrow      []rune
-	promptLen     int    //= 4
-	line          []rune // This is the input line, with entered text: full line = mlnPrompt + line
-	pos           int
+	// readline operating parameters ---------------------------------------------
+
+	// Prompt
+	mlnPrompt []rune // Our multiline prompt, different from multiline below
+	mlnArrow  []rune
+	promptLen int //= 4
+
+	// Input line
+	line     []rune // This is the input line, with entered text: full line = mlnPrompt + line
+	lineComp []rune // Line used to load completions onto the input, without actually considering them as such
+	pos      int
+
 	multiline     []byte
 	multisplit    []string
 	skipStdinRead bool
