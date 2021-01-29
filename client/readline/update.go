@@ -82,9 +82,8 @@ func (rl *Instance) computePrompt() (prompt []rune) {
 		prompt = append(prompt, rl.mlnArrow...)
 	}
 
-	// If prompt is still nil (because we don't want Vim mode),
-	// we set a normal prompt string without status.
-	if !rl.ShowVimMode {
+	// Else, if in emacs mode and no custom prompt, show arrow
+	if !rl.ShowVimMode && rl.MultilinePrompt == "" {
 		prompt = append(prompt, rl.mlnArrow...)
 	}
 
@@ -143,7 +142,7 @@ func moveCursorToLinePos(rl *Instance) {
 		length += 3                // 3 for [N]
 		length += len(rl.mlnArrow) // 3: ' > '
 	} else {
-		length += len(rl.mlnArrow)
+		length += len(rl.mlnArrow) // 3: ' > '
 	}
 
 	// move the cursor
@@ -250,12 +249,7 @@ func (rl *Instance) echo() {
 
 	default:
 		print(string(rl.mlnPrompt))
-
-		if string(rl.lineComp) > string(rl.line) {
-			print(rl.SyntaxHighlighter(rl.lineComp) + " ")
-		} else {
-			print(rl.SyntaxHighlighter(rl.line) + " ")
-		}
+		print(rl.SyntaxHighlighter(rl.line) + " ")
 	}
 
 	moveCursorBackwards(len(rl.line) - rl.pos)

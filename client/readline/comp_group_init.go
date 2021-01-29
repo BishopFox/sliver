@@ -12,17 +12,17 @@ func (g *CompletionGroup) init(rl *Instance) {
 	switch g.DisplayType {
 
 	case TabDisplayGrid:
-		g.initGrid(rl)
+		g.readyGrid(rl)
 	case TabDisplayMap:
-		g.initMap(rl)
+		g.readyMap(rl)
 	case TabDisplayList:
-		g.initList(rl)
+		g.readyList(rl)
 	}
 }
 
-// initGrid - Grid display details. Called each time we want to be sure to have
+// readyGrid - Grid display details. Called each time we want to be sure to have
 // a working completion group either immediately, or later on. Generally defered.
-func (g *CompletionGroup) initGrid(rl *Instance) {
+func (g *CompletionGroup) readyGrid(rl *Instance) {
 
 	// Compute size of each completion item box
 	tcMaxLength := 1
@@ -47,9 +47,9 @@ func (g *CompletionGroup) initGrid(rl *Instance) {
 
 }
 
-// initMap - Map display details. Called each time we want to be sure to have
+// readyMap - Map display details. Called each time we want to be sure to have
 // a working completion group either immediately, or later on. Generally defered.
-func (g *CompletionGroup) initMap(rl *Instance) {
+func (g *CompletionGroup) readyMap(rl *Instance) {
 
 	// We make the map anyway, especially if we need to use it later
 	if g.Descriptions == nil {
@@ -69,7 +69,6 @@ func (g *CompletionGroup) initMap(rl *Instance) {
 	g.tcOffset = 0
 
 	// Number of lines allowed to be printed for group
-	g.tcMaxX = 1
 	if len(g.Suggestions) > g.MaxLength {
 		g.tcMaxY = g.MaxLength
 	} else {
@@ -77,9 +76,13 @@ func (g *CompletionGroup) initMap(rl *Instance) {
 	}
 }
 
-// initList - List display details. Because of the way alternative completions
+// readyList - List display details. Because of the way alternative completions
 // are handled, MaxLength cannot be set when there are alternative completions.
-func (g *CompletionGroup) initList(rl *Instance) {
+func (g *CompletionGroup) readyList(rl *Instance) {
+
+	// We may only ever have two different
+	// columns: (suggestions, and alternatives)
+	g.tcMaxX = 2
 
 	// We make the list anyway, especially if we need to use it later
 	if g.Descriptions == nil {
@@ -105,22 +108,9 @@ func (g *CompletionGroup) initList(rl *Instance) {
 		}
 	}
 
-	// If we have alternative suggestions, we need two columns
-	if len(g.SuggestionsAlt) > 0 {
-		g.tcMaxX = 2
-	} else {
-		g.tcMaxX = 1
-	}
-
-	// Also, if alternatives, we cannot use offset list (rolling)
-	if len(g.SuggestionsAlt) > 0 {
-		g.tcMaxY = len(g.Suggestions)
-	} else {
-		g.tcMaxY = g.MaxLength
-	}
-
-	// These values don't change anyway.
 	g.tcPosX = 1
 	g.tcPosY = 1
 	g.tcOffset = 0
+	g.tcMaxX = 2                  // we have alternative suggs, so 2 columns
+	g.tcMaxY = len(g.Suggestions) // cannot restrict to MaxLength
 }

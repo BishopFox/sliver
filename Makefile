@@ -2,7 +2,8 @@
 # Makefile for Sliver
 #
 
-GO ?= go
+GO ?= /home/user/go/bin/go1.16beta1
+# GO ?= go
 ENV = CGO_ENABLED=1
 TAGS = -tags osusergo,netgo,sqlite_omit_load_extension
 
