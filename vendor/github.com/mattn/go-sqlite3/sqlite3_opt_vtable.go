@@ -288,13 +288,10 @@ type InfoOrderBy struct {
 }
 
 func constraints(info *C.sqlite3_index_info) []InfoConstraint {
-	slice := *(*[]C.struct_sqlite3_index_constraint)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: uintptr(unsafe.Pointer(info.aConstraint)),
-		Len:  int(info.nConstraint),
-		Cap:  int(info.nConstraint),
-	}))
+	l := info.nConstraint
+	slice := (*[1 << 30]C.struct_sqlite3_index_constraint)(unsafe.Pointer(info.aConstraint))[:l:l]
 
-	cst := make([]InfoConstraint, 0, len(slice))
+	cst := make([]InfoConstraint, 0, l)
 	for _, c := range slice {
 		var usable bool
 		if c.usable > 0 {
@@ -310,13 +307,10 @@ func constraints(info *C.sqlite3_index_info) []InfoConstraint {
 }
 
 func orderBys(info *C.sqlite3_index_info) []InfoOrderBy {
-	slice := *(*[]C.struct_sqlite3_index_orderby)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: uintptr(unsafe.Pointer(info.aOrderBy)),
-		Len:  int(info.nOrderBy),
-		Cap:  int(info.nOrderBy),
-	}))
+	l := info.nOrderBy
+	slice := (*[1 << 30]C.struct_sqlite3_index_orderby)(unsafe.Pointer(info.aOrderBy))[:l:l]
 
-	ob := make([]InfoOrderBy, 0, len(slice))
+	ob := make([]InfoOrderBy, 0, l)
 	for _, c := range slice {
 		var desc bool
 		if c.desc > 0 {
@@ -353,7 +347,7 @@ func mPrintf(format, arg string) *C.char {
 
 //export goMInit
 func goMInit(db, pClientData unsafe.Pointer, argc C.int, argv **C.char, pzErr **C.char, isCreate C.int) C.uintptr_t {
-	m := lookupHandle(pClientData).(*sqliteModule)
+	m := lookupHandle(uintptr(pClientData)).(*sqliteModule)
 	if m.c.db != (*C.sqlite3)(db) {
 		*pzErr = mPrintf("%s", "Inconsistent db handles")
 		return 0
@@ -379,12 +373,12 @@ func goMInit(db, pClientData unsafe.Pointer, argc C.int, argv **C.char, pzErr **
 	}
 	vt := sqliteVTab{m, vTab}
 	*pzErr = nil
-	return C.uintptr_t(uintptr(newHandle(m.c, &vt)))
+	return C.uintptr_t(newHandle(m.c, &vt))
 }
 
 //export goVRelease
 func goVRelease(pVTab unsafe.Pointer, isDestroy C.int) *C.char {
-	vt := lookupHandle(pVTab).(*sqliteVTab)
+	vt := lookupHandle(uintptr(pVTab)).(*sqliteVTab)
 	var err error
 	if isDestroy == 1 {
 		err = vt.vTab.Destroy()
@@ -399,7 +393,7 @@ func goVRelease(pVTab unsafe.Pointer, isDestroy C.int) *C.char {
 
 //export goVOpen
 func goVOpen(pVTab unsafe.Pointer, pzErr **C.char) C.uintptr_t {
-	vt := lookupHandle(pVTab).(*sqliteVTab)
+	vt := lookupHandle(uintptr(pVTab)).(*sqliteVTab)
 	vTabCursor, err := vt.vTab.Open()
 	if err != nil {
 		*pzErr = mPrintf("%s", err.Error())
@@ -407,12 +401,12 @@ func goVOpen(pVTab unsafe.Pointer, pzErr **C.char) C.uintptr_t {
 	}
 	vtc := sqliteVTabCursor{vt, vTabCursor}
 	*pzErr = nil
-	return C.uintptr_t(uintptr(newHandle(vt.module.c, &vtc)))
+	return C.uintptr_t(newHandle(vt.module.c, &vtc))
 }
 
 //export goVBestIndex
 func goVBestIndex(pVTab unsafe.Pointer, icp unsafe.Pointer) *C.char {
-	vt := lookupHandle(pVTab).(*sqliteVTab)
+	vt := lookupHandle(uintptr(pVTab)).(*sqliteVTab)
 	info := (*C.sqlite3_index_info)(icp)
 	csts := constraints(info)
 	res, err := vt.vTab.BestIndex(csts, orderBys(info))
@@ -424,17 +418,13 @@ func goVBestIndex(pVTab unsafe.Pointer, icp unsafe.Pointer) *C.char {
 	}
 
 	// Get a pointer to constraint_usage struct so we can update in place.
-
-	slice := *(*[]C.struct_sqlite3_index_constraint_usage)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: uintptr(unsafe.Pointer(info.aConstraintUsage)),
-		Len:  int(info.nConstraint),
-		Cap:  int(info.nConstraint),
-	}))
+	l := info.nConstraint
+	s := (*[1 << 30]C.struct_sqlite3_index_constraint_usage)(unsafe.Pointer(info.aConstraintUsage))[:l:l]
 	index := 1
-	for i := range slice {
+	for i := C.int(0); i < info.nConstraint; i++ {
 		if res.Used[i] {
-			slice[i].argvIndex = C.int(index)
-			slice[i].omit = C.uchar(1)
+			s[i].argvIndex = C.int(index)
+			s[i].omit = C.uchar(1)
 			index++
 		}
 	}
@@ -455,7 +445,7 @@ func goVBestIndex(pVTab unsafe.Pointer, icp unsafe.Pointer) *C.char {
 
 //export goVClose
 func goVClose(pCursor unsafe.Pointer) *C.char {
-	vtc := lookupHandle(pCursor).(*sqliteVTabCursor)
+	vtc := lookupHandle(uintptr(pCursor)).(*sqliteVTabCursor)
 	err := vtc.vTabCursor.Close()
 	if err != nil {
 		return mPrintf("%s", err.Error())
@@ -465,13 +455,13 @@ func goVClose(pCursor unsafe.Pointer) *C.char {
 
 //export goMDestroy
 func goMDestroy(pClientData unsafe.Pointer) {
-	m := lookupHandle(pClientData).(*sqliteModule)
+	m := lookupHandle(uintptr(pClientData)).(*sqliteModule)
 	m.module.DestroyModule()
 }
 
 //export goVFilter
 func goVFilter(pCursor unsafe.Pointer, idxNum C.int, idxName *C.char, argc C.int, argv **C.sqlite3_value) *C.char {
-	vtc := lookupHandle(pCursor).(*sqliteVTabCursor)
+	vtc := lookupHandle(uintptr(pCursor)).(*sqliteVTabCursor)
 	args := (*[(math.MaxInt32 - 1) / unsafe.Sizeof((*C.sqlite3_value)(nil))]*C.sqlite3_value)(unsafe.Pointer(argv))[:argc:argc]
 	vals := make([]interface{}, 0, argc)
 	for _, v := range args {
@@ -490,7 +480,7 @@ func goVFilter(pCursor unsafe.Pointer, idxNum C.int, idxName *C.char, argc C.int
 
 //export goVNext
 func goVNext(pCursor unsafe.Pointer) *C.char {
-	vtc := lookupHandle(pCursor).(*sqliteVTabCursor)
+	vtc := lookupHandle(uintptr(pCursor)).(*sqliteVTabCursor)
 	err := vtc.vTabCursor.Next()
 	if err != nil {
 		return mPrintf("%s", err.Error())
@@ -500,7 +490,7 @@ func goVNext(pCursor unsafe.Pointer) *C.char {
 
 //export goVEof
 func goVEof(pCursor unsafe.Pointer) C.int {
-	vtc := lookupHandle(pCursor).(*sqliteVTabCursor)
+	vtc := lookupHandle(uintptr(pCursor)).(*sqliteVTabCursor)
 	err := vtc.vTabCursor.EOF()
 	if err {
 		return 1
@@ -510,7 +500,7 @@ func goVEof(pCursor unsafe.Pointer) C.int {
 
 //export goVColumn
 func goVColumn(pCursor, cp unsafe.Pointer, col C.int) *C.char {
-	vtc := lookupHandle(pCursor).(*sqliteVTabCursor)
+	vtc := lookupHandle(uintptr(pCursor)).(*sqliteVTabCursor)
 	c := (*SQLiteContext)(cp)
 	err := vtc.vTabCursor.Column(c, int(col))
 	if err != nil {
@@ -521,7 +511,7 @@ func goVColumn(pCursor, cp unsafe.Pointer, col C.int) *C.char {
 
 //export goVRowid
 func goVRowid(pCursor unsafe.Pointer, pRowid *C.sqlite3_int64) *C.char {
-	vtc := lookupHandle(pCursor).(*sqliteVTabCursor)
+	vtc := lookupHandle(uintptr(pCursor)).(*sqliteVTabCursor)
 	rowid, err := vtc.vTabCursor.Rowid()
 	if err != nil {
 		return mPrintf("%s", err.Error())
@@ -532,7 +522,7 @@ func goVRowid(pCursor unsafe.Pointer, pRowid *C.sqlite3_int64) *C.char {
 
 //export goVUpdate
 func goVUpdate(pVTab unsafe.Pointer, argc C.int, argv **C.sqlite3_value, pRowid *C.sqlite3_int64) *C.char {
-	vt := lookupHandle(pVTab).(*sqliteVTab)
+	vt := lookupHandle(uintptr(pVTab)).(*sqliteVTab)
 
 	var tname string
 	if n, ok := vt.vTab.(interface {
@@ -652,7 +642,7 @@ func (c *SQLiteConn) CreateModule(moduleName string, module Module) error {
 	mname := C.CString(moduleName)
 	defer C.free(unsafe.Pointer(mname))
 	udm := sqliteModule{c, moduleName, module}
-	rv := C._sqlite3_create_module(c.db, mname, C.uintptr_t(uintptr(newHandle(c, &udm))))
+	rv := C._sqlite3_create_module(c.db, mname, C.uintptr_t(newHandle(c, &udm)))
 	if rv != C.SQLITE_OK {
 		return c.lastError()
 	}
