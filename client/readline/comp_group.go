@@ -91,13 +91,17 @@ func (g *CompletionGroup) checkMaxLength(rl *Instance) {
 func (g *CompletionGroup) getCurrentCell() string {
 
 	switch g.DisplayType {
-	case TabDisplayGrid, TabDisplayMap:
+	case TabDisplayGrid:
 		// x & y coodinates
 		cell := (g.tcMaxX * (g.tcPosY - 1)) + g.tcOffset + g.tcPosX - 1
 		if cell < len(g.Suggestions) {
 			return g.Suggestions[cell]
 		}
 		return ""
+
+	case TabDisplayMap:
+		sugg := g.Suggestions[g.tcOffset+g.tcPosY-1]
+		return sugg
 
 	case TabDisplayList:
 		// The current y gives us the correct key, at least
