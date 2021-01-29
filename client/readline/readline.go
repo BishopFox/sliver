@@ -325,20 +325,23 @@ func (rl *Instance) escapeSeq(r []rune) {
 			rl.renderHelpers()
 
 		default:
-			if rl.pos == len(rl.line) && len(rl.line) > 0 {
-				rl.pos--
-				moveCursorBackwards(1)
+			// If we are in Vim mode, the escape key has its usage.
+			// Otherwise in emacs mode the escape key does nothing.
+			if rl.ShowVimMode {
+				if rl.pos == len(rl.line) && len(rl.line) > 0 {
+					rl.pos--
+					moveCursorBackwards(1)
+				}
+
+				rl.modeViMode = vimKeys
+				rl.viIteration = ""
+				rl.refreshVimStatus()
+
+				// This refreshed and actually prints the new Vim status
+				rl.clearHelpers()
+				rl.renderHelpers()
 			}
 
-			rl.modeViMode = vimKeys
-			rl.viIteration = ""
-			rl.refreshVimStatus()
-
-			// Added by me, to refresh Vim status in prompt
-			rl.clearHelpers()
-			rl.renderHelpers()
-			//rl.viHintVimKeys()
-			// rl.viHintMessage()
 		}
 		rl.viUndoSkipAppend = true
 
