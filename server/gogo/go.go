@@ -91,6 +91,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOROOT=%s", config.GOROOT),
 		fmt.Sprintf("GOPATH=%s", config.GOPATH),
 		fmt.Sprintf("GOCACHE=%s", GetTempDir()),
+		fmt.Sprintf("GO111MODULE=off"),
 		fmt.Sprintf("PATH=%s/bin:%s", config.GOROOT, os.Getenv("PATH")),
 	}
 	var stdout bytes.Buffer
