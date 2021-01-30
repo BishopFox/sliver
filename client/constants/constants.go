@@ -79,6 +79,7 @@ const (
 	UseStr        = "use"
 	InteractStr   = "interact"
 	SetStr        = "set"
+	HelpStr       = "help"
 
 	GenerateStr        = "generate"
 	RegenerateStr      = "regenerate"

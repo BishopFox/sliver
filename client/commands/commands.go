@@ -275,6 +275,11 @@ func bindServerCommands() (err error) {
 		&Exit{})                               // Command implementation
 	ex.Aliases = []string{"core"}
 
+	hl, err := Server.AddCommand(constants.HelpStr,
+		"", "Print commands help for the current menu",
+		&Help{})
+	hl.Aliases = []string{"core"}
+
 	v, err := Server.AddCommand(constants.VersionStr,
 		"Display version information",
 		help.GetHelpFor(constants.VersionStr),
@@ -532,6 +537,11 @@ func bindSliverCommands() (err error) {
 
 	// Core
 	// ----------------------------------------------------------------------------------------
+
+	h, err := Sliver.AddCommand(constants.HelpStr,
+		"", "Print commands help for the current menu",
+		&Help{})
+	h.Aliases = []string{"core"}
 
 	b, err := Sliver.AddCommand(constants.BackgroundStr,
 		"Background the current session",
