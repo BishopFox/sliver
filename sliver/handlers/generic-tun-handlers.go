@@ -47,7 +47,7 @@ const (
 
 var (
 	tunnelHandlers = map[uint32]TunnelHandler{
-		sliverpb.MsgShellReq: shellReqHandler,
+		sliverpb.MsgShellReq:     shellReqHandler,
 		sliverpb.MsgTCPTunnelReq: tcpTunnelReqHandler,
 
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
@@ -87,7 +87,7 @@ func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 	proto.Unmarshal(envelope.Data, tunnelData)
 	tunnel := connection.Tunnel(tunnelData.TunnelID)
 	if tunnel != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		fmt.Printf("[tunnel] Read %d bytes from tunnel %d\n", len(data.Data), tunnel.ID)
 		// {{end}}
 		tunnelDataCache[tunnel.ID][tunnelData.Sequence] = tunnelData
@@ -124,7 +124,7 @@ type tunnelWriter struct {
 }
 
 func (t tunnelWriter) Write(data []byte) (n int, err error) {
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	fmt.Printf("[tunnel] Write %d bytes to tunnel %d\n", len(data), t.tun.ID)
 	// {{end}}
 	data, err = proto.Marshal(&sliverpb.TunnelData{
@@ -223,14 +223,14 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 
 func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
 	returnStatusCode := func(statusCode byte, connection *transports.Connection) {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Returning status code for tcptunnel %d\n", statusCode)
 		// {{end}}
 		tcpTunnelResp, _ := proto.Marshal(&sliverpb.TCPTunnel{
 			StatusCode: uint32(statusCode),
 		})
 		connection.Send <- &sliverpb.Envelope{
-			ID: envelope.ID,
+			ID:   envelope.ID,
 			Data: tcpTunnelResp,
 		}
 	}
@@ -285,7 +285,7 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 			}
 
 			if err != nil && err != io.ErrShortWrite {
-				// {{if .Debug}}
+				// {{if .Config.Debug}}
 				log.Printf("Closing tunnel because of error %s\n", err.Error())
 				// {{end}}
 				break
