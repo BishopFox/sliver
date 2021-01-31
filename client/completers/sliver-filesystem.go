@@ -36,6 +36,7 @@ func completeRemotePath(last string) (string, *readline.CompletionGroup) {
 		Name:        "remote path",
 		MaxLength:   5,
 		DisplayType: readline.TabDisplayGrid,
+		TrimSlash:   true,
 	}
 
 	// 1) Get the absolute path. There are two cases:
@@ -155,6 +156,7 @@ func completeRemotePathAndFiles(last string) (string, *readline.CompletionGroup)
 		Name:        "remote path/files",
 		MaxLength:   5,
 		DisplayType: readline.TabDisplayGrid,
+		TrimSlash:   true,
 	}
 
 	// 1) Get the absolute path. There are two cases:

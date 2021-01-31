@@ -199,13 +199,11 @@ func (rl *Instance) insert(r []rune) {
 }
 
 func (rl *Instance) backspace() {
-	// fmt.Println(rl.pos)
 	if len(rl.line) == 0 || rl.pos == 0 {
 		return
 	}
 
 	moveCursorBackwards(1)
-	// fmt.Println(len(rl.line))
 	rl.pos--
 	rl.delete()
 }
@@ -249,10 +247,19 @@ func (rl *Instance) echo() {
 
 	default:
 		print(string(rl.mlnPrompt))
-		print(rl.SyntaxHighlighter(rl.line) + " ")
+
+		// Depending on the presence of a virtually completed item,
+		// print either the virtual line or the real one.
+		if len(rl.lineComp) > len(rl.line) {
+			print(rl.SyntaxHighlighter(rl.lineComp) + " ")
+			// moveCursorBackwards(len(rl.lineComp) - rl.pos)
+		} else {
+			print(rl.SyntaxHighlighter(rl.line) + " ")
+			moveCursorBackwards(len(rl.line) - rl.pos)
+		}
 	}
 
-	moveCursorBackwards(len(rl.line) - rl.pos)
+	// moveCursorBackwards(len(rl.line) - rl.pos)
 }
 
 func (rl *Instance) clearLine() {
@@ -260,12 +267,24 @@ func (rl *Instance) clearLine() {
 		return
 	}
 
-	moveCursorBackwards(rl.pos)
-	print(strings.Repeat(" ", len(rl.line)))
-	moveCursorBackwards(len(rl.line))
+	var lineLen int
+	if len(rl.lineComp) > len(rl.line) {
+		lineLen = len(rl.lineComp)
+	} else {
+		lineLen = len(rl.line)
+	}
 
+	moveCursorBackwards(rl.pos)
+	print(strings.Repeat(" ", lineLen))
+	moveCursorBackwards(lineLen)
+
+	// Real input line
 	rl.line = []rune{}
 	rl.pos = 0
+
+	// Completions are also reset, obviously.
+	rl.lineComp = []rune{}
+	rl.currentComp = []rune{}
 }
 
 func (rl *Instance) resetHelpers() {
@@ -279,6 +298,10 @@ func (rl *Instance) clearHelpers() {
 	print("\r\n" + seqClearScreenBelow)
 	moveCursorUp(1)
 	moveCursorToLinePos(rl)
+
+	// Reset some values
+	rl.lineComp = []rune{}
+	rl.currentComp = []rune{}
 }
 
 func (rl *Instance) renderHelpers() {

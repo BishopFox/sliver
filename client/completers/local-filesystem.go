@@ -39,6 +39,7 @@ func completeLocalPath(last string) (string, *readline.CompletionGroup) {
 		Name:        "(console) local path",
 		MaxLength:   5,
 		DisplayType: readline.TabDisplayGrid,
+		TrimSlash:   true,
 	}
 	var suggestions []string
 
@@ -130,6 +131,7 @@ func completeLocalPathAndFiles(last string) (string, *readline.CompletionGroup) 
 		Name:        "(console) local directory/files)",
 		MaxLength:   5,
 		DisplayType: readline.TabDisplayGrid,
+		TrimSlash:   true,
 	}
 	var suggestions []string
 

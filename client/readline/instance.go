@@ -116,6 +116,8 @@ type Instance struct {
 	tcMaxY            int
 	tcUsedY           int
 	tcMaxLength       int
+	currentComp       []rune // The currently selected item, not yet a real part of the input line.
+	lineComp          []rune // Same as rl.line, but with the currentComp inserted.
 
 	// Tab Find
 	modeTabFind  bool           // This does not change, because we will search in all options, no matter the group
@@ -134,7 +136,6 @@ type Instance struct {
 	viYankBuffer     string
 
 	// event
-
 	evtKeyPress map[string]func(string, []rune, int) *EventReturn
 }
 

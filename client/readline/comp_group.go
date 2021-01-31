@@ -19,6 +19,10 @@ type CompletionGroup struct {
 	// Index is Suggestion
 	SuggestionsAlt map[string]string
 
+	// When this is true, the completion is inserted really (not virtually) without
+	// the trailing slash, if any. This is used when we want to complete paths
+	TrimSlash bool
+
 	// Values used by the shell
 	tcPosX         int
 	tcPosY         int
