@@ -104,7 +104,7 @@ func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		cache := tunnelDataCache[tunnel.ID]
 		for recv, ok := cache[tunnel.ReadSequence]; ok; recv, ok = cache[tunnel.ReadSequence] {
 			// {{if .Config.Debug}}
-			log.Printf("[tunnel] Write %d bytes to tunnel %d (read seq: %d)", len(recv.Data), recv.TunnelID, recv.Sequence)
+			log.Printf("[tunnel] Write %d bytes to tunnel %d (read seq: %d)", recv.TunnelID, recv.Sequence)
 			// {{end}}
 			tunnel.Writer.Write(recv.Data)
 
