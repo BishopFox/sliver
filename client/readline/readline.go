@@ -269,6 +269,7 @@ func (rl *Instance) Readline() (string, error) {
 
 				// Else, we insert the completion candidate in the real input line.
 				// This is in fact nothing more than assigning the virtual input line.
+				rl.compAddSpace = true // By default we add a space, unless completion group asks otherwise.
 				rl.updateVirtualCompletion()
 
 				rl.clearHelpers()

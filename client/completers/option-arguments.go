@@ -48,7 +48,7 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 		}
 		for _, choice := range opt.Choices {
 			if strings.HasPrefix(choice, lastWord) {
-				comp.Suggestions = append(comp.Suggestions, choice+" ")
+				comp.Suggestions = append(comp.Suggestions, choice)
 			}
 		}
 		completions = append(completions, comp)

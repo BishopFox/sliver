@@ -87,41 +87,60 @@ func (rl *Instance) updateVirtualCompletion() {
 	// If the current candidate is also already inserted, actualize it and return
 	if completion == string(rl.currentComp) {
 		if cur.TrimSlash {
-			trimmed := trimTrailing(completion)
+			trimmed, hadSlash := trimTrailing(completion)
+			if !hadSlash && rl.compAddSpace {
+				trimmed = trimmed + " "
+			}
 			rl.insertVirtual([]rune(trimmed[prefix:]))
+		} else {
+			if rl.compAddSpace {
+				completion = completion + " "
+			}
+			rl.insertVirtual([]rune(completion[prefix:]))
 		}
 
 		// Reset all relevant values
 		rl.line = rl.lineComp
 		rl.lineComp = []rune{}
 		rl.currentComp = []rune{}
+		rl.compAddSpace = false
 		return
 	}
 
+	// Else, if candidate not yet inserted, insert as usual.
 	if cur.TrimSlash {
-		trimmed := trimTrailing(completion)
+		trimmed, hadSlash := trimTrailing(completion)
+		if !hadSlash && rl.compAddSpace {
+			trimmed = trimmed + " "
+		}
 		rl.insertVirtual([]rune(trimmed[prefix:]))
+	} else {
+		if rl.compAddSpace {
+			completion = completion + " "
+		}
+		rl.insertVirtual([]rune(completion[prefix:]))
 	}
 
 	// Reset all relevant values
 	rl.line = rl.lineComp
 	rl.lineComp = []rune{}
 	rl.currentComp = []rune{}
+	rl.compAddSpace = false
 }
 
 // trimTrailing - When the group to which the current candidate
 // belongs has TrimSlash enabled, we process the candidate.
 // This is used when the completions are directory/file paths.
-func trimTrailing(comp string) string {
+func trimTrailing(comp string) (trimmed string, hadSlash bool) {
 	// Unix paths
 	if strings.HasSuffix(comp, "/") {
-		return strings.TrimSuffix(comp, "/")
+		return strings.TrimSuffix(comp, "/"), true
 	}
 	// Windows paths
 	if strings.HasSuffix(comp, "\\") {
-		return strings.TrimSuffix(comp, "\\")
+		return strings.TrimSuffix(comp, "\\"), true
 	}
-	return comp
+	return comp, false
 }
 
 // viDeleteByAdjustVirtual - Same as viDeleteByAdjust, but for our virtually completed input line.

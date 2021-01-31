@@ -234,8 +234,6 @@ func completeRemotePathAndFiles(last string) (string, *readline.CompletionGroup)
 				} else {
 					search = tokenized + "/"
 				}
-			} else {
-				search = tokenized + " "
 			}
 			if strings.HasPrefix(search, lastPath) {
 				completion.Suggestions = append(completion.Suggestions, search)
@@ -258,8 +256,6 @@ func completeRemotePathAndFiles(last string) (string, *readline.CompletionGroup)
 				} else {
 					search = tokenized + "/"
 				}
-			} else {
-				search = tokenized + " "
 			}
 			if strings.HasPrefix(search, lastPath) {
 				completion.Suggestions = append(completion.Suggestions, search)

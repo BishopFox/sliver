@@ -207,8 +207,8 @@ func jobIDs(lastWord string) (comp *readline.CompletionGroup) {
 		jobID := strconv.Itoa(int(job.ID))
 		if strings.HasPrefix(jobID, lastWord) {
 			jobID := strconv.Itoa(int(job.ID))
-			comp.Suggestions = append(comp.Suggestions, jobID+" ")
-			comp.Descriptions[jobID+" "] = tui.DIM + job.Name + fmt.Sprintf(" (%s)", job.Description) + tui.RESET
+			comp.Suggestions = append(comp.Suggestions, jobID)
+			comp.Descriptions[jobID] = tui.DIM + job.Name + fmt.Sprintf(" (%s)", job.Description) + tui.RESET
 		}
 	}
 
@@ -223,7 +223,7 @@ func completeLogLevels(lastWord string) (comp *readline.CompletionGroup) {
 	}
 	for _, lvl := range logLevels {
 		if strings.HasPrefix(lvl, lastWord) {
-			comp.Suggestions = append(comp.Suggestions, lvl+" ")
+			comp.Suggestions = append(comp.Suggestions, lvl)
 		}
 	}
 
@@ -237,7 +237,7 @@ func completeLoggers(lastWord string) (comp *readline.CompletionGroup) {
 	}
 	for _, logger := range loggers {
 		if strings.HasPrefix(logger, lastWord) {
-			comp.Suggestions = append(comp.Suggestions, logger+" ")
+			comp.Suggestions = append(comp.Suggestions, logger)
 		}
 	}
 
@@ -255,9 +255,9 @@ func implantProfiles(lastWord string) (comp *readline.CompletionGroup) {
 	for _, profile := range *profiles {
 		if strings.HasPrefix(profile.Name, lastWord) {
 			conf := profile.Config
-			comp.Suggestions = append(comp.Suggestions, profile.Name+" ")
+			comp.Suggestions = append(comp.Suggestions, profile.Name)
 			desc := fmt.Sprintf(" %s [%s/%s] -> %d C2s", conf.Format.String(), conf.GOOS, conf.GOARCH, len(conf.GetC2()))
-			comp.Descriptions[profile.Name+" "] = tui.DIM + desc
+			comp.Descriptions[profile.Name] = tui.DIM + desc
 		}
 	}
 
@@ -293,9 +293,9 @@ func implantNames(lastWord string) (comp *readline.CompletionGroup) {
 
 	for name, implant := range builds.Configs {
 		if strings.HasPrefix(implant.Name, lastWord) {
-			comp.Suggestions = append(comp.Suggestions, name+" ")
+			comp.Suggestions = append(comp.Suggestions, name)
 			desc := fmt.Sprintf(" %s [%s/%s] -> %d C2s", implant.Format.String(), implant.GOOS, implant.GOARCH, len(implant.GetC2()))
-			comp.Descriptions[name+" "] = tui.DIM + desc
+			comp.Descriptions[name] = tui.DIM + desc
 		}
 	}
 
@@ -318,9 +318,9 @@ func sessionIDs(lastWord string) (comp *readline.CompletionGroup) {
 	for _, s := range sessions.Sessions {
 		sessionID := strconv.Itoa(int(s.ID))
 		if strings.HasPrefix(sessionID, lastWord) {
-			comp.Suggestions = append(comp.Suggestions, sessionID+" ")
+			comp.Suggestions = append(comp.Suggestions, sessionID)
 			desc := fmt.Sprintf("[%s] - %s@%s - %s", s.Name, s.Username, s.Hostname, s.RemoteAddress)
-			comp.Descriptions[sessionID+" "] = tui.DIM + desc + tui.RESET
+			comp.Descriptions[sessionID] = tui.DIM + desc + tui.RESET
 		}
 	}
 	return
@@ -348,13 +348,13 @@ func processes(lastWord string) (comp *readline.CompletionGroup) {
 	for _, proc := range ps.Processes {
 		pid := strconv.Itoa(int(proc.Pid))
 		if strings.HasPrefix(pid, lastWord) {
-			comp.Suggestions = append(comp.Suggestions, pid+" ")
+			comp.Suggestions = append(comp.Suggestions, pid)
 			var color string
 			if session != nil && proc.Pid == session.PID {
 				color = tui.GREEN
 			}
 			desc := fmt.Sprintf("%s(%d - %s)  %s", color, proc.Ppid, proc.Owner, proc.Executable)
-			comp.Descriptions[pid+" "] = tui.DIM + desc + tui.RESET
+			comp.Descriptions[pid] = tui.DIM + desc + tui.RESET
 		}
 	}
 

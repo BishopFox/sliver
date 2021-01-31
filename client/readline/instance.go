@@ -116,8 +116,10 @@ type Instance struct {
 	tcMaxY            int
 	tcUsedY           int
 	tcMaxLength       int
-	currentComp       []rune // The currently selected item, not yet a real part of the input line.
-	lineComp          []rune // Same as rl.line, but with the currentComp inserted.
+	// Virtual completion
+	currentComp  []rune // The currently selected item, not yet a real part of the input line.
+	lineComp     []rune // Same as rl.line, but with the currentComp inserted.
+	compAddSpace bool   // When this is true, any insertion of a candidate into the real line is done with an added space.
 
 	// Tab Find
 	modeTabFind  bool           // This does not change, because we will search in all options, no matter the group

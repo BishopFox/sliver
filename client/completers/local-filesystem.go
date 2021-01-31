@@ -182,7 +182,7 @@ func completeLocalPathAndFiles(last string) (string, *readline.CompletionGroup) 
 				if file.IsDir() {
 					suggestions = append(suggestions, file.Name()+"/")
 				} else {
-					suggestions = append(suggestions, file.Name()+" ")
+					suggestions = append(suggestions, file.Name())
 				}
 			}
 		}
@@ -199,7 +199,7 @@ func completeLocalPathAndFiles(last string) (string, *readline.CompletionGroup) 
 				if file.IsDir() {
 					suggestions = append(suggestions, file.Name()+"/")
 				} else {
-					suggestions = append(suggestions, file.Name()+" ")
+					suggestions = append(suggestions, file.Name())
 				}
 			}
 		}

@@ -56,8 +56,8 @@ func clientInterfaceAddrs(last string, alone bool) (comp *readline.CompletionGro
 			}
 			if strings.HasPrefix(ip.String(), last) {
 				if alone {
-					suggestions = append(suggestions, ip.String()+" ")
-
+					suggestions = append(suggestions, ip.String())
+					// suggestions = append(suggestions, ip.String()+" ")
 				} else {
 					suggestions = append(suggestions, ip.String())
 				}
@@ -90,7 +90,8 @@ func clientInterfaceNetworks(last string, alone bool) (comp *readline.Completion
 
 			if strings.HasPrefix(a.String(), last) {
 				if alone {
-					suggestions = append(suggestions, a.String()+" ")
+					suggestions = append(suggestions, a.String())
+					// suggestions = append(suggestions, a.String()+" ")
 				} else {
 					suggestions = append(suggestions, a.String())
 				}
