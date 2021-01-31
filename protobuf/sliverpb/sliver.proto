@@ -44,6 +44,7 @@ message Register {
   string ActiveC2 = 10;
   string Version = 11;
   uint32 ReconnectInterval = 12;
+  string ProxyURL = 13;
 }
 
 // Ping - Not ICMP, just sends a rount trip message to an implant to
@@ -339,6 +340,15 @@ message Sideload {
   string Result = 1;
 
   commonpb.Response Response = 9;
+}
+
+message InvokeSpawnDllReq {
+  bytes Data = 1;
+  string ProcessName = 2;
+  string Args = 3;
+  string EntryPoint = 4;
+
+  commonpb.Request Request = 9;
 }
 
 message SpawnDllReq {
