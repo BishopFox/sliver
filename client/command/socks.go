@@ -3,9 +3,10 @@ package command
 import (
 	"context"
 	"fmt"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"net"
 	"strings"
+
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -48,14 +49,15 @@ func startSocksServer(ctx *grumble.Context, port int, rpc rpcpb.SliverRPCClient)
 	// If session is closed then close the socks server
 	go func(implantSessionID uint32) {
 		// Continuously check if the connection to the implant that opened the socks server is still alive
-		for GetSession(fmt.Sprintf("%d", implantSessionID), rpc) != nil {}
+		for GetSession(fmt.Sprintf("%d", implantSessionID), rpc) != nil {
+		}
 
-		fmt.Println(Warn+" Closing all socks connections")
+		fmt.Println(Warn + " Closing all socks connections")
 		for _, conn := range socksConnList {
 			_ = conn.Close()
 		}
 
-		fmt.Println(Warn+" Killing socks server")
+		fmt.Println(Warn + " Killing socks server")
 		listener.Close()
 	}(session.ID)
 
@@ -68,7 +70,7 @@ func startSocksServer(ctx *grumble.Context, port int, rpc rpcpb.SliverRPCClient)
 				fmt.Printf(Warn+"%s\n", err)
 			}
 		}
-		
+
 		socksConnList = append(socksConnList, conn)
 		go handleConnection(ctx, conn, rpc)
 	}
@@ -116,10 +118,10 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 	}
 
 	tcpTunnel, err := rpc.TCPTunnel(context.Background(), &sliverpb.TCPTunnelReq{
-		RemoteHost : socksConn.RemoteHost,
-		RemotePort : socksConn.RemotePort,
-		Request:   ActiveSession.Request(ctx),
-		TunnelID:  tunnel.ID,
+		RemoteHost: socksConn.RemoteHost,
+		RemotePort: socksConn.RemotePort,
+		Request:    ActiveSession.Request(ctx),
+		TunnelID:   tunnel.ID,
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
@@ -139,7 +141,9 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 					TunnelID: tunnel.ID,
 				})
 				if err != nil {
+					// {{if .Config.Debug}}
 					fmt.Printf(Warn+"%s\n", err)
+					// {{end}}
 					return
 				}
 			}
@@ -153,7 +157,9 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 					cleanup()
 				} else if bytesRead != 0 {
 					_, err := socksConn.ClientConn.Write(readArray[:bytesRead])
+					// {{if .Config.Debug}}
 					fmt.Printf("[tunnel] Read %d bytes from tunnel\n", bytesRead)
+					// {{end}}
 					if err != nil {
 						cleanup()
 					}
@@ -169,7 +175,9 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 					cleanup()
 				} else if bytesToWrite != 0 {
 					_, err = tunnel.Write(writeArray[:bytesToWrite])
+					// {{if .Config.Debug}}
 					fmt.Printf("[tunnel] Write %d bytes to tunnel\n", bytesToWrite)
+					// {{end}}
 					if err != nil {
 						cleanup()
 					}

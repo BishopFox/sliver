@@ -87,8 +87,12 @@ func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 	proto.Unmarshal(envelope.Data, tunnelData)
 	tunnel := connection.Tunnel(tunnelData.TunnelID)
 	if tunnel != nil {
+		if _, ok := tunnelDataCache[tunnelData.TunnelID]; !ok {
+			tunnelDataCache[tunnelData.TunnelID] = map[uint64]*sliverpb.TunnelData{}
+		}
+
 		// {{if .Config.Debug}}
-		fmt.Printf("[tunnel] Read %d bytes from tunnel %d\n", len(data.Data), tunnel.ID)
+		fmt.Printf("[tunnel] Read %d bytes from tunnel %d\n", len(tunnelData.Data), tunnel.ID)
 		// {{end}}
 		tunnelDataCache[tunnel.ID][tunnelData.Sequence] = tunnelData
 
@@ -123,9 +127,9 @@ type tunnelWriter struct {
 	conn *transports.Connection
 }
 
-func (t tunnelWriter) Write(data []byte) (n int, err error) {
+func (tw tunnelWriter) Write(data []byte) (n int, err error) {
 	// {{if .Config.Debug}}
-	fmt.Printf("[tunnel] Write %d bytes to tunnel %d\n", len(data), t.tun.ID)
+	fmt.Printf("[tunnel] Write %d bytes to tunnel %d\n", len(data), tw.tun.ID)
 	// {{end}}
 	data, err = proto.Marshal(&sliverpb.TunnelData{
 		Sequence: tw.tun.WriteSequence, // The tunnel write sequence
