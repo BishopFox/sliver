@@ -40,44 +40,66 @@ func (rl *Instance) getTabCompletion() {
 	// Populate for completion search if in this mode
 	if rl.searchMode == CompletionFind {
 		rl.getTabSearchCompletion()
-	}
-
-	// Not in either search mode, just yield completions
-	if !rl.modeAutoFind {
-		rl.getNormalCompletion()
+		return
 	}
 
 	// Populate for History search if in this mode
 	if rl.modeAutoFind && rl.searchMode == HistoryFind {
 		rl.getHistorySearchCompletion()
+		return
 	}
 
-	// If no completions available, return
+	// Else, yield normal completions
+	rl.getNormalCompletion()
+}
+
+// getNormalCompletion - Populates and sets up completion for normal comp mode
+func (rl *Instance) getNormalCompletion() {
+	rl.tcPrefix, rl.tcGroups = rl.TabCompleter(rl.line, rl.pos)
 	if len(rl.tcGroups) == 0 {
 		return
 	}
 	rl.tcGroups = checkNilItems(rl.tcGroups) // Avoid nil maps in groups
 
-	// Init/Setup all groups with their priting details
-	for _, group := range rl.tcGroups {
+	for i, group := range rl.tcGroups {
 		group.init(rl)
+		if i != 0 {
+			group.tcPosY = 1
+		}
 	}
 }
 
 // writeTabCompletion - Prints all completion groups and their items
 func (rl *Instance) writeTabCompletion() {
 
+	// The final completions string to print.
+	var completions string
+
 	// This stablizes the completion printing just beyond the input line
 	rl.tcUsedY = 0
 
+	// Safecheck
 	if !rl.modeTabCompletion {
 		return
 	}
 
-	// Each group produces its own string, added to the main one
-	var completions string
-	for _, group := range rl.tcGroups {
-		completions += group.writeCompletion(rl)
+	// If we are not yet in tab completion mode, this means we just want
+	// to print all suggestions, without selecting a candidate yet.
+	if !rl.tabCompletionSelect {
+		for i, group := range rl.tcGroups {
+			if i != 0 {
+				group.tcPosY = 1
+			}
+			completions += group.writeCompletion(rl)
+		}
+	}
+
+	// Else, we already have some completions printed, and we just want to update.
+	// Each group produces its own string, added to the main one.
+	if rl.tabCompletionSelect {
+		for _, group := range rl.tcGroups {
+			completions += group.writeCompletion(rl)
+		}
 	}
 
 	// Because some completion groups might have more suggestions
@@ -131,16 +153,6 @@ func (rl *Instance) getHistorySearchCompletion() {
 	}
 }
 
-// getNormalCompletion - Populates and sets up completion for normal comp mode
-func (rl *Instance) getNormalCompletion() {
-	rl.tcPrefix, rl.tcGroups = rl.TabCompleter(rl.line, rl.pos)
-	if len(rl.tcGroups) == 0 {
-		return
-	}
-	rl.tcGroups = checkNilItems(rl.tcGroups) // Avoid nil maps in groups
-	rl.getCurrentGroup()                     // Make sure there is a current group
-}
-
 func (rl *Instance) getCurrentGroup() (group *CompletionGroup) {
 	for _, g := range rl.tcGroups {
 		if g.isCurrent && len(g.Suggestions) > 0 {
@@ -153,7 +165,7 @@ func (rl *Instance) getCurrentGroup() (group *CompletionGroup) {
 		// Find first group that has list > 0, as another checkup
 		for _, g := range rl.tcGroups {
 			if len(g.Suggestions) > 0 {
-				g.isCurrent = true // Might be used by code not calling here.
+				g.isCurrent = true
 				return g
 			}
 		}
@@ -163,6 +175,7 @@ func (rl *Instance) getCurrentGroup() (group *CompletionGroup) {
 
 func (rl *Instance) resetTabCompletion() {
 	rl.modeTabCompletion = false
+	rl.tabCompletionSelect = false
 	rl.tcOffset = 0
 	rl.tcUsedY = 0
 	rl.modeTabFind = false

@@ -64,6 +64,7 @@ func (g *CompletionGroup) writeGrid(rl *Instance) (comp string) {
 		if (x == g.tcPosX && y == g.tcPosY) && (g.isCurrent) {
 			comp += seqCtermFg255 + seqFgBlackBright
 		}
+
 		comp += fmt.Sprintf("%-"+cellWidth+"s %s", g.Suggestions[i], seqReset)
 	}
 
@@ -99,7 +100,7 @@ func (g *CompletionGroup) writeList(rl *Instance) (comp string) {
 	cellWidth := strconv.Itoa(maxLength)
 
 	// Alternative suggestion cells dimensions
-	maxLengthAlt := g.tcMaxLengthAlt
+	maxLengthAlt := g.tcMaxLengthAlt + 2
 	if maxLengthAlt > termWidth-9 {
 		maxLengthAlt = termWidth - 9
 	}
@@ -129,12 +130,12 @@ func (g *CompletionGroup) writeList(rl *Instance) (comp string) {
 		if len(item) > maxLength {
 			item = item[:maxLength-3] + "..."
 		}
-		sugg := fmt.Sprintf("\r\n%s%-"+cellWidth+"s", highlight(y, 1), item)
+		sugg := fmt.Sprintf("\r\n%s%-"+cellWidth+"s", highlight(y, 0), item)
 
 		// Alt suggestion
 		alt, ok := g.SuggestionsAlt[item]
 		if ok {
-			alt = fmt.Sprintf(" %s%"+cellWidthAlt+"s", highlight(y, 2), alt)
+			alt = fmt.Sprintf(" %s%"+cellWidthAlt+"s", highlight(y, 1), alt)
 		} else {
 			// Else, make an empty cell
 			alt = strings.Repeat(" ", maxLengthAlt+2) // + 2 to keep account of spaces

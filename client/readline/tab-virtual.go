@@ -72,42 +72,17 @@ func (rl *Instance) updateVirtualCompletion() {
 	if cur == nil {
 		return
 	}
-	completion := cur.getCurrentCell()
-	// if completion == "" {
-	//         rl.line = rl.lineComp
-	//         // Reset values
-	//         rl.lineComp = []rune{}
-	//         rl.currentComp = []rune{}
-	//         return
-	// }
+	completion := cur.getCurrentCell(rl)
+	// Avoid problems with empty completions
+	if completion == "" {
+		rl.resetVirtualComp()
+		return
+	}
 
 	// We will only insert the net difference between prefix and completion.
 	prefix := len(rl.tcPrefix)
 
-	// If the current candidate is also already inserted, actualize it and return
-	if completion == string(rl.currentComp) {
-		if cur.TrimSlash {
-			trimmed, hadSlash := trimTrailing(completion)
-			if !hadSlash && rl.compAddSpace {
-				trimmed = trimmed + " "
-			}
-			rl.insertVirtual([]rune(trimmed[prefix:]))
-		} else {
-			if rl.compAddSpace {
-				completion = completion + " "
-			}
-			rl.insertVirtual([]rune(completion[prefix:]))
-		}
-
-		// Reset all relevant values
-		rl.line = rl.lineComp
-		rl.lineComp = []rune{}
-		rl.currentComp = []rune{}
-		rl.compAddSpace = false
-		return
-	}
-
-	// Else, if candidate not yet inserted, insert as usual.
+	// Insert the current candidate
 	if cur.TrimSlash {
 		trimmed, hadSlash := trimTrailing(completion)
 		if !hadSlash && rl.compAddSpace {
@@ -121,11 +96,8 @@ func (rl *Instance) updateVirtualCompletion() {
 		rl.insertVirtual([]rune(completion[prefix:]))
 	}
 
-	// Reset all relevant values
-	rl.line = rl.lineComp
-	rl.lineComp = []rune{}
-	rl.currentComp = []rune{}
-	rl.compAddSpace = false
+	// Reset virtual
+	rl.resetVirtualComp()
 }
 
 // trimTrailing - When the group to which the current candidate
@@ -210,4 +182,13 @@ func (rl *Instance) viJumpEVirtual(tokeniser func([]rune, int) ([]string, int, i
 		adjust = len(word) - pos - 1
 	}
 	return
+}
+
+// We are done with the current virtual completion candidate.
+// Get ready for the next one
+func (rl *Instance) resetVirtualComp() {
+	rl.line = rl.lineComp
+	rl.lineComp = []rune{}
+	rl.currentComp = []rune{}
+	rl.compAddSpace = false
 }

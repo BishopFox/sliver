@@ -34,7 +34,7 @@ func completeRemotePath(last string) (string, *readline.CompletionGroup) {
 	// Completions
 	completion := &readline.CompletionGroup{
 		Name:        "remote path",
-		MaxLength:   5,
+		MaxLength:   10, // The grid system is not yet able to roll on comps if > MaxLength
 		DisplayType: readline.TabDisplayGrid,
 		TrimSlash:   true,
 	}
@@ -154,7 +154,7 @@ func completeRemotePathAndFiles(last string) (string, *readline.CompletionGroup)
 	// Completions
 	completion := &readline.CompletionGroup{
 		Name:        "remote path/files",
-		MaxLength:   5,
+		MaxLength:   10, // The grid system is not yet able to roll on comps if > MaxLength
 		DisplayType: readline.TabDisplayGrid,
 		TrimSlash:   true,
 	}

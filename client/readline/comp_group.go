@@ -92,35 +92,50 @@ func (g *CompletionGroup) checkMaxLength(rl *Instance) {
 
 // getCurrentCell - The completion groups computes the current cell value,
 // depending on its display type and its different parameters
-func (g *CompletionGroup) getCurrentCell() string {
+func (g *CompletionGroup) getCurrentCell(rl *Instance) string {
 
 	switch g.DisplayType {
 	case TabDisplayGrid:
-		// x & y coodinates
+		// x & y coodinates + safety check
 		cell := (g.tcMaxX * (g.tcPosY - 1)) + g.tcOffset + g.tcPosX - 1
+		if cell < 0 {
+			cell = 0
+		}
+
 		if cell < len(g.Suggestions) {
 			return g.Suggestions[cell]
 		}
 		return ""
 
 	case TabDisplayMap:
-		sugg := g.Suggestions[g.tcOffset+g.tcPosY-1]
+		// x & y coodinates + safety check
+		cell := g.tcOffset + g.tcPosY - 1
+		if cell < 0 {
+			cell = 0
+		}
+
+		sugg := g.Suggestions[cell]
 		return sugg
 
 	case TabDisplayList:
-		// The current y gives us the correct key, at least
-		sugg := g.Suggestions[g.tcOffset+g.tcPosY-1]
+		// x & y coodinates + safety check
+		cell := g.tcOffset + g.tcPosY - 1
+		if cell < 0 {
+			cell = 0
+		}
+
+		sugg := g.Suggestions[cell]
 
 		// If we are in the alt suggestions column, check key and return
-		if g.tcPosX == 2 {
+		if g.tcPosX == 1 {
 			if alt, ok := g.SuggestionsAlt[sugg]; ok {
 				return alt
 			}
-			return sugg // return key in case of failure
+			return sugg
 		}
-		return sugg // Else return the suggestion itself
+		return sugg
 	}
 
-	// We should NEVER get here
+	// We should never get here
 	return ""
 }

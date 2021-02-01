@@ -106,16 +106,17 @@ type Instance struct {
 	hintText []rune
 
 	// tab completion
-	tcGroups          []*CompletionGroup // All of our suggestions tree is in here
-	modeTabCompletion bool
-	tcPrefix          string
-	tcOffset          int
-	tcPosX            int
-	tcPosY            int
-	tcMaxX            int
-	tcMaxY            int
-	tcUsedY           int
-	tcMaxLength       int
+	tcGroups            []*CompletionGroup // All of our suggestions tree is in here
+	modeTabCompletion   bool
+	tabCompletionSelect bool // We may have completions, printed, but do we want to select a candidate ?
+	tcPrefix            string
+	tcOffset            int
+	tcPosX              int
+	tcPosY              int
+	tcMaxX              int
+	tcMaxY              int
+	tcUsedY             int
+	tcMaxLength         int
 	// Virtual completion
 	currentComp  []rune // The currently selected item, not yet a real part of the input line.
 	lineComp     []rune // Same as rl.line, but with the currentComp inserted.

@@ -196,9 +196,13 @@ func (rl *Instance) Readline() (string, error) {
 
 		case charTab:
 			if rl.modeTabCompletion {
+				rl.tabCompletionSelect = true
 				rl.moveTabCompletionHighlight(1, 0)
 			} else {
 				rl.getTabCompletion()
+				rl.renderHelpers()
+				rl.viUndoSkipAppend = true
+				continue
 			}
 
 			// Once we have a completion candidate, insert it in the virtual input line.
@@ -208,9 +212,10 @@ func (rl *Instance) Readline() (string, error) {
 
 				// If the total number of completions is one, automatically insert it.
 				if len(rl.tcGroups) == 1 && len(cur.Suggestions) == 1 {
-					completion := cur.getCurrentCell()
+					completion := cur.getCurrentCell(rl)
 					prefix := len(rl.tcPrefix)
 
+					// Ensure no indexing error happens with prefix
 					if len(completion) >= prefix {
 						rl.insert([]rune(completion[prefix:]))
 					}
@@ -221,7 +226,7 @@ func (rl *Instance) Readline() (string, error) {
 				}
 
 				// Else, insert the current candidate
-				completion := cur.getCurrentCell()
+				completion := cur.getCurrentCell(rl)
 				prefix := len(rl.tcPrefix)
 
 				if len(completion) >= prefix {
@@ -260,7 +265,7 @@ func (rl *Instance) Readline() (string, error) {
 
 				// IF we have a prefix and completions printed, but no candidate
 				// (in which case the completion is ""), we immediately return.
-				completion := cur.getCurrentCell()
+				completion := cur.getCurrentCell(rl)
 				prefix := len(rl.tcPrefix)
 				if prefix > len(completion) {
 					rl.carridgeReturn()
@@ -269,9 +274,11 @@ func (rl *Instance) Readline() (string, error) {
 
 				// Else, we insert the completion candidate in the real input line.
 				// This is in fact nothing more than assigning the virtual input line.
-				rl.compAddSpace = true // By default we add a space, unless completion group asks otherwise.
+				// By default we add a space, unless completion group asks otherwise.
+				rl.compAddSpace = true
 				rl.updateVirtualCompletion()
 
+				// Reset completions and update input line
 				rl.clearHelpers()
 				rl.resetTabCompletion()
 				rl.renderHelpers()
@@ -342,6 +349,7 @@ func (rl *Instance) escapeSeq(r []rune) {
 
 		case rl.modeTabFind:
 			rl.resetTabFind()
+			rl.resetTabCompletion()
 
 		case rl.modeTabCompletion:
 			rl.clearHelpers()

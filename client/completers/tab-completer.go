@@ -123,8 +123,6 @@ func CompleteMenuCommands(lastWord string, pos int) (prefix string, completions 
 			for _, grp := range completions {
 				if grp.Name == cmd.Aliases[0] {
 					found = true
-					// grp.Suggestions = append(grp.Suggestions, cmd.Name+" ")
-					// grp.Descriptions[cmd.Name+" "] = tui.Dim(cmd.ShortDescription)
 					grp.Suggestions = append(grp.Suggestions, cmd.Name)
 					grp.Descriptions[cmd.Name] = tui.Dim(cmd.ShortDescription)
 				}
@@ -132,10 +130,7 @@ func CompleteMenuCommands(lastWord string, pos int) (prefix string, completions 
 			// Add a new group if not found
 			if !found {
 				grp := &readline.CompletionGroup{
-					Name: cmd.Aliases[0],
-					// Suggestions: []string{cmd.Name + " "},
-					// Descriptions: map[string]string{
-					//         cmd.Name + " ": tui.Dim(cmd.ShortDescription),
+					Name:        cmd.Aliases[0],
 					Suggestions: []string{cmd.Name},
 					Descriptions: map[string]string{
 						cmd.Name: tui.Dim(cmd.ShortDescription),
@@ -174,8 +169,6 @@ func CompleteSubCommands(args []string, lastWord string, command *flags.Command)
 
 	for _, sub := range command.Commands() {
 		if strings.HasPrefix(sub.Name, lastWord) {
-			// group.Suggestions = append(group.Suggestions, sub.Name+" ")
-			// group.Descriptions[sub.Name+" "] = tui.DIM + sub.ShortDescription + tui.RESET
 			group.Suggestions = append(group.Suggestions, sub.Name)
 			group.Descriptions[sub.Name] = tui.DIM + sub.ShortDescription + tui.RESET
 		}

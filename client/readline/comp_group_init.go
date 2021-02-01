@@ -32,8 +32,8 @@ func (g *CompletionGroup) readyGrid(rl *Instance) {
 		}
 	}
 
-	g.tcPosX = 1
-	g.tcPosY = 1
+	g.tcPosX = 0
+	g.tcPosY = 0
 	g.tcOffset = 0
 
 	g.tcMaxX = GetTermWidth() / (tcMaxLength + 2)
@@ -64,8 +64,8 @@ func (g *CompletionGroup) readyMap(rl *Instance) {
 		}
 	}
 
-	g.tcPosX = 1
-	g.tcPosY = 1
+	g.tcPosX = 0
+	g.tcPosY = 0
 	g.tcOffset = 0
 
 	// Number of lines allowed to be printed for group
@@ -117,7 +117,7 @@ func (g *CompletionGroup) readyList(rl *Instance) {
 		g.tcMaxY = len(g.Suggestions) // cannot restrict to MaxLength
 	}
 
-	g.tcPosX = 1
-	g.tcPosY = 1
+	g.tcPosX = 0
+	g.tcPosY = 0
 	g.tcOffset = 0
 }
