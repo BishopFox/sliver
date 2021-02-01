@@ -200,6 +200,13 @@ func (rl *Instance) Readline() (string, error) {
 				rl.moveTabCompletionHighlight(1, 0)
 			} else {
 				rl.getTabCompletion()
+
+				// Also here, if only one candidate is available, automatically
+				// insert it and don't bother printing completions.
+				if rl.hasOneCandidate() {
+					rl.insertCandidate()
+				}
+
 				rl.renderHelpers()
 				rl.viUndoSkipAppend = true
 				continue
@@ -210,23 +217,16 @@ func (rl *Instance) Readline() (string, error) {
 			cur := rl.getCurrentGroup()
 			if cur != nil {
 
+				completion := cur.getCurrentCell(rl)
+				prefix := len(rl.tcPrefix)
+
 				// If the total number of completions is one, automatically insert it.
-				if len(rl.tcGroups) == 1 && len(cur.Suggestions) == 1 {
-					completion := cur.getCurrentCell(rl)
-					prefix := len(rl.tcPrefix)
-
-					// Ensure no indexing error happens with prefix
-					if len(completion) >= prefix {
-						rl.insert([]rune(completion[prefix:]))
-					}
+				if rl.hasOneCandidate() {
+					rl.insertCandidate()
 				} else {
-					// Else, insert the current candidate
-					completion := cur.getCurrentCell(rl)
-					prefix := len(rl.tcPrefix)
-
-					// Ensure no indexing error happens with prefix
+					// Or insert it virtually.
 					if len(completion) >= prefix {
-						rl.insertVirtual([]rune(completion[prefix:]))
+						rl.insertCandidateVirtual([]rune(completion[prefix:]))
 					}
 				}
 			}

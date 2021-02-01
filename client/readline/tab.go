@@ -226,3 +226,49 @@ func checkNilItems(groups []*CompletionGroup) (checked []*CompletionGroup) {
 
 	return
 }
+
+func (rl *Instance) hasOneCandidate() bool {
+	cur := rl.getCurrentGroup()
+
+	// If one group and one option, obvious
+	if len(rl.tcGroups) == 1 && len(cur.Suggestions) == 1 {
+		return true
+	}
+
+	// If many groups but only one option overall
+	if len(rl.tcGroups) > 1 {
+		var count int
+		for _, group := range rl.tcGroups {
+			for range group.Suggestions {
+				count++
+			}
+		}
+		if count == 1 {
+			return true
+		}
+		return false
+	}
+
+	return false
+}
+
+// Insert the current completion candidate into the input line.
+// This candidate might either be the currently selected one (white frame),
+// or the only candidate available, if the total number of candidates is 1.
+func (rl *Instance) insertCandidate() {
+
+	cur := rl.getCurrentGroup()
+
+	if cur != nil {
+		completion := cur.getCurrentCell(rl)
+		prefix := len(rl.tcPrefix)
+
+		// Ensure no indexing error happens with prefix
+		if len(completion) >= prefix {
+			rl.insert([]rune(completion[prefix:]))
+			if !cur.TrimSlash {
+				rl.insert([]rune(" "))
+			}
+		}
+	}
+}

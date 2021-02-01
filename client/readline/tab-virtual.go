@@ -4,10 +4,10 @@ import (
 	"strings"
 )
 
-// insertVirtual - When a completion candidate is selected, we insert it virtually in the input line:
+// insertCandidateVirtual - When a completion candidate is selected, we insert it virtually in the input line:
 // this will not trigger further firltering against the other candidates. Each time this function
 // is called, any previous candidate is dropped, after being used for moving the cursor around.
-func (rl *Instance) insertVirtual(candidate []rune) {
+func (rl *Instance) insertCandidateVirtual(candidate []rune) {
 	for {
 		// I don't really understand why `0` is creaping in at the end of the
 		// array but it only happens with unicode characters.
@@ -94,12 +94,12 @@ func (rl *Instance) updateVirtualCompletion() {
 		if !hadSlash && rl.compAddSpace {
 			trimmed = trimmed + " "
 		}
-		rl.insertVirtual([]rune(trimmed[prefix:]))
+		rl.insertCandidateVirtual([]rune(trimmed[prefix:]))
 	} else {
 		if rl.compAddSpace {
 			completion = completion + " "
 		}
-		rl.insertVirtual([]rune(completion[prefix:]))
+		rl.insertCandidateVirtual([]rune(completion[prefix:]))
 	}
 
 	// Reset virtual
