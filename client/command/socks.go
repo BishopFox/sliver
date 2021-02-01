@@ -21,10 +21,11 @@ func socks(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	port := ctx.Flags.Int("port")
-	go startSocksServer(ctx, port, rpc)
+	addr := ctx.Flags.String("addr")
+	go startSocksServer(ctx, port, addr, rpc)
 }
 
-func startSocksServer(ctx *grumble.Context, port int, rpc rpcpb.SliverRPCClient) {
+func startSocksServer(ctx *grumble.Context, port int, listenaddr string, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf(Info + fmt.Sprintf("Starting socks server on port %d\n\n", port))
 	session := ActiveSession.Get()
 	if session == nil {
@@ -32,7 +33,7 @@ func startSocksServer(ctx *grumble.Context, port int, rpc rpcpb.SliverRPCClient)
 		return
 	}
 
-	netAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("0.0.0.0:%d", port))
+	netAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", listenaddr, port))
 	if err != nil {
 		return
 	}

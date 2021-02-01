@@ -58,6 +58,7 @@ const (
 	defaultTimeout = 60
 
 	defaultSocksPort = 1080
+	defaultSocksAddr = "0.0.0.0"
 )
 
 // BindCommands - Bind commands to a App
@@ -343,6 +344,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		LongHelp: help.GetHelpFor(consts.SocksStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("p", "port", defaultSocksPort, "local socks port")
+			f.String("a", "addr", defaultSocksAddr, "local listen port")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
