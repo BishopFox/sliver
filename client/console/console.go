@@ -225,9 +225,9 @@ func (c *console) setConfiguredShell() {
 
 	// Input
 	if !cctx.Config.Vim {
-		c.Shell.ShowVimMode = false
+		c.Shell.InputMode = readline.Emacs
 	} else {
-		c.Shell.ShowVimMode = true
+		c.Shell.InputMode = readline.Vim
 	}
 
 	// Hints are configurable and can deactivated

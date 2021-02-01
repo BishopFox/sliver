@@ -8,6 +8,16 @@ import (
 	"github.com/evilsocket/islazy/tui"
 )
 
+// InputMode - The shell input mode
+type InputMode int
+
+const (
+	// Vim - Vim editing mode
+	Vim = iota
+	// Emacs - Emacs (classic) editing mode
+	Emacs
+)
+
 type viMode int
 
 const (

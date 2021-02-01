@@ -61,7 +61,7 @@ func (rl *Instance) computePrompt() (prompt []rune) {
 	}
 
 	// If ModeVimEnabled, append it.
-	if rl.ShowVimMode {
+	if rl.InputMode == Vim && rl.ShowVimMode {
 
 		switch rl.modeViMode {
 		case vimKeys:
@@ -83,7 +83,7 @@ func (rl *Instance) computePrompt() (prompt []rune) {
 	}
 
 	// Else, if in emacs mode and no custom prompt, show arrow
-	if !rl.ShowVimMode && rl.MultilinePrompt == "" {
+	if rl.InputMode == Emacs && rl.MultilinePrompt == "" {
 		prompt = append(prompt, rl.mlnArrow...)
 	}
 
@@ -137,12 +137,14 @@ func moveCursorToLinePos(rl *Instance) {
 		length = len(rl.MultilinePrompt)
 	}
 
-	// If the user wants Vim status
-	if rl.ShowVimMode {
-		length += 3                // 3 for [N]
-		length += len(rl.mlnArrow) // 3: ' > '
-	} else {
-		length += len(rl.mlnArrow) // 3: ' > '
+	// If the user wants Vim status, in Vim editing mode
+	if rl.InputMode == Vim {
+		if rl.ShowVimMode {
+			length += 3                // 3 for [N]
+			length += len(rl.mlnArrow) // 3: ' > '
+		} else {
+			length += len(rl.mlnArrow) // 3: ' > '
+		}
 	}
 
 	// move the cursor
@@ -250,13 +252,23 @@ func (rl *Instance) echo() {
 
 		// Depending on the presence of a virtually completed item,
 		// print either the virtual line or the real one.
-		if len(rl.lineComp) > len(rl.line) {
+		if len(rl.currentComp) > 0 {
 			print(rl.SyntaxHighlighter(rl.lineComp) + " ")
 			// moveCursorBackwards(len(rl.lineComp) - rl.pos)
 		} else {
 			print(rl.SyntaxHighlighter(rl.line) + " ")
 			moveCursorBackwards(len(rl.line) - rl.pos)
 		}
+
+		// Depending on the presence of a virtually completed item,
+		// print either the virtual line or the real one.
+		// if len(rl.lineComp) > len(rl.line) {
+		//         print(rl.SyntaxHighlighter(rl.lineComp) + " ")
+		//         // moveCursorBackwards(len(rl.lineComp) - rl.pos)
+		// } else {
+		//         print(rl.SyntaxHighlighter(rl.line) + " ")
+		//         moveCursorBackwards(len(rl.line) - rl.pos)
+		// }
 	}
 
 	// moveCursorBackwards(len(rl.line) - rl.pos)

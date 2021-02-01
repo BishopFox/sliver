@@ -10,13 +10,17 @@ import (
 // captures without having to repeatedly unload configuration.
 type Instance struct {
 
-	// Public Prompt and Vim parameters/functions
+	// Public Prompt
 	Multiline       bool   // If set to true, the shell will have a two-line prompt.
 	prompt          string // If Multiline is true, this is the first line of the prompt
 	MultilinePrompt string // The second line of the prompt, where input follows.
-	HideNextPrompt  bool   // When true, the next occurence of Instance.Readline will
+	HideNextPrompt  bool   // When true, the next occurence of the shell will
 	// not show the first line of the prompt (if multiline mode)
 
+	// InputMode - The shell can be used in Vim editing mode, or Emacs (classic).
+	InputMode InputMode
+
+	// Vim parameters/functions
 	// ShowVimMode - If set to true, a string '[i] >' or '[N] >' indicating the
 	// current Vim mode will be appended to the prompt variable, therefore added to
 	// the user's custom prompt is set. Applies for both single and multiline prompts
@@ -142,22 +146,29 @@ type Instance struct {
 	evtKeyPress map[string]func(string, []rune, int) *EventReturn
 }
 
-// NewInstance is used to create a readline instance and initialise it with sane
-// defaults.
+// NewInstance is used to create a readline instance and initialise it with sane defaults.
 func NewInstance() *Instance {
 	rl := new(Instance)
 
-	//GetTermWidth()
-
-	rl.History = new(ExampleHistory) // In-memory history by default.
-	rl.HistoryAutoWrite = true
-	rl.MaxTabCompleterRows = 100
+	// Prompt
 	rl.prompt = ">>> "
 	rl.promptLen = len(rl.computePrompt())
 	rl.mlnArrow = []rune{' ', '>', ' '}
+
+	// Input Editing
+	rl.InputMode = Emacs
+	rl.ShowVimMode = true // In case the user sets input mode to Vim, everything is ready.
+
+	// Completion
+	rl.MaxTabCompleterRows = 100
+
+	// History
+	rl.History = new(ExampleHistory) // In-memory history by default.
+	rl.HistoryAutoWrite = true
+
+	// Others
 	rl.HintFormatting = seqFgBlue
 	rl.evtKeyPress = make(map[string]func(string, []rune, int) *EventReturn)
-
 	rl.TempDirectory = os.TempDir()
 
 	return rl

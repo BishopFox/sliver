@@ -53,9 +53,29 @@ func (rl *Instance) getTabCompletion() {
 	rl.getNormalCompletion()
 }
 
+// We pass a special subset of the current input line, so that
+// completions are available no matter where the cursor is.
+func (rl *Instance) getCompletionLine() (line []rune, pos int) {
+	switch {
+	case rl.pos == len(rl.line):
+		pos = rl.pos - len(rl.currentComp)
+		return rl.line, pos
+
+	case rl.pos < len(rl.line):
+		pos = rl.pos - len(rl.currentComp)
+		line = rl.line[:pos]
+		return
+
+	default:
+		pos = rl.pos - len(rl.currentComp)
+		return rl.line, pos
+	}
+}
+
 // getNormalCompletion - Populates and sets up completion for normal comp mode
 func (rl *Instance) getNormalCompletion() {
-	rl.tcPrefix, rl.tcGroups = rl.TabCompleter(rl.line, rl.pos)
+	rl.tcPrefix, rl.tcGroups = rl.TabCompleter(rl.getCompletionLine())
+	// rl.tcPrefix, rl.tcGroups = rl.TabCompleter(rl.line, rl.pos)
 	if len(rl.tcGroups) == 0 {
 		return
 	}

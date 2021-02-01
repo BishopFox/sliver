@@ -20,7 +20,8 @@ func (rl *Instance) insertVirtual(candidate []rune) {
 
 	// We place the cursor back at the beginning of the previous virtual candidate
 	rl.pos -= len(rl.currentComp)
-	moveCursorBackwards(len(rl.currentComp) - 1)
+	moveCursorBackwards(len(rl.currentComp))
+	// moveCursorBackwards(len(rl.currentComp) - 1)
 
 	// We clear the current line
 	print(strings.Repeat(" ", len(rl.lineComp)))

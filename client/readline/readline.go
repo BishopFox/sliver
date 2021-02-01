@@ -359,7 +359,7 @@ func (rl *Instance) escapeSeq(r []rune) {
 		default:
 			// If we are in Vim mode, the escape key has its usage.
 			// Otherwise in emacs mode the escape key does nothing.
-			if rl.ShowVimMode {
+			if rl.InputMode == Vim {
 				if rl.pos == len(rl.line) && len(rl.line) > 0 {
 					rl.pos--
 					moveCursorBackwards(1)
