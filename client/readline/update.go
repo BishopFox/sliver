@@ -245,7 +245,17 @@ func (rl *Instance) echo() {
 
 	case rl.SyntaxHighlighter == nil:
 		print(string(rl.mlnPrompt))
-		print(string(rl.line) + " ")
+
+		// Depending on the presence of a virtually completed item,
+		// print either the virtual line or the real one.
+		if len(rl.currentComp) > 0 {
+			line := rl.lineComp[:rl.pos]
+			line = append(line, rl.lineRemain...)
+			print(string(line) + " ")
+		} else {
+			print(string(rl.line) + " ")
+			moveCursorBackwards(len(rl.line) - rl.pos)
+		}
 
 	default:
 		print(string(rl.mlnPrompt))
@@ -253,22 +263,13 @@ func (rl *Instance) echo() {
 		// Depending on the presence of a virtually completed item,
 		// print either the virtual line or the real one.
 		if len(rl.currentComp) > 0 {
-			print(rl.SyntaxHighlighter(rl.lineComp) + " ")
-			// moveCursorBackwards(len(rl.lineComp) - rl.pos)
+			line := rl.lineComp[:rl.pos]
+			line = append(line, rl.lineRemain...)
+			print(rl.SyntaxHighlighter(line) + " ")
 		} else {
 			print(rl.SyntaxHighlighter(rl.line) + " ")
 			moveCursorBackwards(len(rl.line) - rl.pos)
 		}
-
-		// Depending on the presence of a virtually completed item,
-		// print either the virtual line or the real one.
-		// if len(rl.lineComp) > len(rl.line) {
-		//         print(rl.SyntaxHighlighter(rl.lineComp) + " ")
-		//         // moveCursorBackwards(len(rl.lineComp) - rl.pos)
-		// } else {
-		//         print(rl.SyntaxHighlighter(rl.line) + " ")
-		//         moveCursorBackwards(len(rl.line) - rl.pos)
-		// }
 	}
 
 	// moveCursorBackwards(len(rl.line) - rl.pos)
@@ -294,9 +295,8 @@ func (rl *Instance) clearLine() {
 	rl.line = []rune{}
 	rl.pos = 0
 
-	// Completions are also reset, obviously.
-	rl.lineComp = []rune{}
-	rl.currentComp = []rune{}
+	// Completions are also reset
+	rl.resetVirtualComp()
 }
 
 func (rl *Instance) resetHelpers() {

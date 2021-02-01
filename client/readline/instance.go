@@ -124,6 +124,7 @@ type Instance struct {
 	// Virtual completion
 	currentComp  []rune // The currently selected item, not yet a real part of the input line.
 	lineComp     []rune // Same as rl.line, but with the currentComp inserted.
+	lineRemain   []rune // When we complete in the middle of a line, we cut and keep the remain.
 	compAddSpace bool   // When this is true, any insertion of a candidate into the real line is done with an added space.
 
 	// Tab Find

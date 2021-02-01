@@ -219,18 +219,15 @@ func (rl *Instance) Readline() (string, error) {
 					if len(completion) >= prefix {
 						rl.insert([]rune(completion[prefix:]))
 					}
+				} else {
+					// Else, insert the current candidate
+					completion := cur.getCurrentCell(rl)
+					prefix := len(rl.tcPrefix)
 
-					rl.renderHelpers()
-					rl.viUndoSkipAppend = true
-					continue
-				}
-
-				// Else, insert the current candidate
-				completion := cur.getCurrentCell(rl)
-				prefix := len(rl.tcPrefix)
-
-				if len(completion) >= prefix {
-					rl.insertVirtual([]rune(completion[prefix:]))
+					// Ensure no indexing error happens with prefix
+					if len(completion) >= prefix {
+						rl.insertVirtual([]rune(completion[prefix:]))
+					}
 				}
 			}
 
@@ -489,19 +486,16 @@ func (rl *Instance) editorInput(r []rune) {
 	switch rl.modeViMode {
 	case vimKeys:
 		rl.vi(r[0])
-		// rl.viHintMessage()
 		rl.refreshVimStatus()
 
 	case vimDelete:
 		rl.vimDelete(r)
-		// rl.viHintMessage()
 		rl.refreshVimStatus()
 
 	case vimReplaceOnce:
 		rl.modeViMode = vimKeys
 		rl.delete()
 		rl.insert([]rune{r[0]})
-		// rl.viHintMessage()
 		rl.refreshVimStatus()
 
 	case vimReplaceMany:
@@ -509,7 +503,6 @@ func (rl *Instance) editorInput(r []rune) {
 			rl.delete()
 			rl.insert([]rune{char})
 		}
-		// rl.viHintMessage()
 		rl.refreshVimStatus()
 
 	default:
