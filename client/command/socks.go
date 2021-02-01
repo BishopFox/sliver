@@ -34,13 +34,12 @@ func startSocksServer(ctx *grumble.Context, port int, rpc rpcpb.SliverRPCClient)
 
 	netAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
-		fmt.Printf(Warn+"[0x07] %s\n", err)
 		return
 	}
 
 	listener, err := net.ListenTCP("tcp4", netAddr)
 	if err != nil {
-		fmt.Printf(Warn+"[0x08] %s\n", err)
+		fmt.Printf(Warn+"Failed starting tcp server : %s\n", err)
 		return
 	}
 
@@ -66,8 +65,6 @@ func startSocksServer(ctx *grumble.Context, port int, rpc rpcpb.SliverRPCClient)
 		if err != nil {
 			if strings.Contains(err.Error(), "use of closed network connection") {
 				break
-			} else {
-				fmt.Printf(Warn+"[0x09] %s\n", err)
 			}
 		}
 
@@ -85,14 +82,14 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 	// Negotiate authentication
 	err := socksConn.HandleAuthRequest()
 	if err != nil {
-		fmt.Printf("[0x01] %s\n", err)
+		fmt.Printf("Failed socks authentication %s\n", err)
 		return
 	}
 
 	// Handle socks connection request
 	err = socksConn.HandleConnectRequest()
 	if err != nil {
-		fmt.Printf("[0x02] %s\n", err)
+		fmt.Printf("Failed handling socks connection request %s\n", err)
 		return
 	}
 
@@ -106,14 +103,14 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 		SessionID: session.ID,
 	})
 	if err != nil {
-		fmt.Printf(Warn+"[0x03] %s\n", err)
+		fmt.Printf(Warn+"Failed starting sliver tunnel %s\n", err)
 		return
 	}
 
 	// Start() takes an RPC tunnel and creates a local Reader/Writer tunnel object
 	tunnel := core.Tunnels.Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
 	if err != nil {
-		fmt.Printf(Warn+"[0x04] %s\n", err)
+		fmt.Printf(Warn+"Failed getting tunnel object %s\n", err)
 		return
 	}
 
@@ -124,7 +121,7 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 		TunnelID:   tunnel.ID,
 	})
 	if err != nil {
-		fmt.Printf(Warn+"[0x05] %s\n", err)
+		fmt.Printf(Warn+"Failed starting tcp tunnel %s\n", err)
 		return
 	}
 
@@ -141,9 +138,6 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 					TunnelID: tunnel.ID,
 				})
 				if err != nil {
-					// {{if .Config.Debug}}
-					// fmt.Printf(Warn+"[0x06] %s\n", err)
-					// {{end}}
 					return
 				}
 			}
@@ -157,9 +151,6 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 					cleanup()
 				} else if bytesRead != 0 {
 					_, err := socksConn.ClientConn.Write(readArray[:bytesRead])
-					// {{if .Config.Debug}}
-					fmt.Printf("[tunnel] Read %d bytes from tunnel\n", bytesRead)
-					// {{end}}
 					if err != nil {
 						cleanup()
 					}
@@ -175,9 +166,6 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 					cleanup()
 				} else if bytesToWrite != 0 {
 					_, err = tunnel.Write(writeArray[:bytesToWrite])
-					// {{if .Config.Debug}}
-					fmt.Printf("[tunnel] Write %d bytes to tunnel\n", bytesToWrite)
-					// {{end}}
 					if err != nil {
 						cleanup()
 					}
