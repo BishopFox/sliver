@@ -6,9 +6,6 @@ import (
 	"github.com/evilsocket/islazy/tui"
 )
 
-// This file gathers all alterative tab completion functions, therefore is not separated in files like
-// tabgrid.go, tabmap.go, etc., because in this new setup such a structure and distinction is now irrelevant.
-
 // TabDisplayType defines how the autocomplete suggestions display
 type TabDisplayType int
 
@@ -86,6 +83,44 @@ func (rl *Instance) getNormalCompletion() {
 		if i != 0 {
 			group.tcPosY = 1
 		}
+	}
+}
+
+// moveTabCompletionHighlight - This function is in charge of highlighting the current completion item.
+func (rl *Instance) moveTabCompletionHighlight(x, y int) {
+
+	g := rl.getCurrentGroup()
+
+	// If there is no current group, we leave any current completion mode.
+	if g == nil || g.Suggestions == nil {
+		rl.modeTabCompletion = false
+		return
+	}
+
+	// Get the next group that has availbale suggestions
+	if len(g.Suggestions) == 0 {
+		rl.cycleNextGroup()
+		g = rl.getCurrentGroup()
+	}
+
+	// This is triggered when we need to cycle through the next group
+	var done bool
+
+	// Depending on the display, we only keep track of x or (x and y)
+	switch g.DisplayType {
+	case TabDisplayGrid:
+		done = g.moveTabGridHighlight(rl, x, y)
+
+	case TabDisplayList:
+		done = g.moveTabListHighlight(x, y)
+
+	case TabDisplayMap:
+		done = g.moveTabMapHighlight(x, y)
+	}
+
+	// Cycle to next group: we tell them who is the next one to handle highlighting
+	if done {
+		rl.cycleNextGroup()
 	}
 }
 
@@ -193,46 +228,44 @@ func (rl *Instance) getCurrentGroup() (group *CompletionGroup) {
 	return
 }
 
-func (rl *Instance) resetTabCompletion() {
-	rl.modeTabCompletion = false
-	rl.tabCompletionSelect = false
-	rl.tcOffset = 0
-	rl.tcUsedY = 0
-	rl.modeTabFind = false
-	rl.modeAutoFind = false
-	rl.tfLine = []rune{}
-
-	// Reset tab highlighting
-	if len(rl.tcGroups) > 0 {
-		for _, g := range rl.tcGroups {
+// cycleNextGroup - Finds either the first non-empty group,
+// or the next non-empty group after the current one.
+func (rl *Instance) cycleNextGroup() {
+	for i, g := range rl.tcGroups {
+		if g.isCurrent {
 			g.isCurrent = false
+			if i == len(rl.tcGroups)-1 {
+				rl.tcGroups[0].isCurrent = true
+			} else {
+				rl.tcGroups[i+1].isCurrent = true
+				// Here, we check if the cycled group is not empty.
+				// If yes, cycle to next one now.
+				new := rl.getCurrentGroup()
+				if len(new.Suggestions) == 0 {
+					rl.cycleNextGroup()
+				}
+			}
+			break
 		}
-		rl.tcGroups[0].isCurrent = true
 	}
 }
 
-// checkNilItems - For each completion group we avoid nil maps and possibly other items
-func checkNilItems(groups []*CompletionGroup) (checked []*CompletionGroup) {
-
-	for _, grp := range groups {
-		if grp.Descriptions == nil || len(grp.Descriptions) == 0 {
-			grp.Descriptions = make(map[string]string)
-		}
-		if grp.SuggestionsAlt == nil || len(grp.SuggestionsAlt) == 0 {
-			grp.SuggestionsAlt = make(map[string]string)
-		}
-		checked = append(checked, grp)
-	}
-
-	return
-}
-
+// Check if we have a single completion candidate
 func (rl *Instance) hasOneCandidate() bool {
-	cur := rl.getCurrentGroup()
+	if len(rl.tcGroups) == 0 {
+		return false
+	}
 
 	// If one group and one option, obvious
-	if len(rl.tcGroups) == 1 && len(cur.Suggestions) == 1 {
-		return true
+	if len(rl.tcGroups) == 1 {
+		cur := rl.getCurrentGroup()
+		if cur == nil {
+			return false
+		}
+		if len(cur.Suggestions) == 1 {
+			return true
+		}
+		return false
 	}
 
 	// If many groups but only one option overall
@@ -270,5 +303,23 @@ func (rl *Instance) insertCandidate() {
 				rl.insert([]rune(" "))
 			}
 		}
+	}
+}
+
+func (rl *Instance) resetTabCompletion() {
+	rl.modeTabCompletion = false
+	rl.tabCompletionSelect = false
+	rl.tcOffset = 0
+	rl.tcUsedY = 0
+	rl.modeTabFind = false
+	rl.modeAutoFind = false
+	rl.tfLine = []rune{}
+
+	// Reset tab highlighting
+	if len(rl.tcGroups) > 0 {
+		for _, g := range rl.tcGroups {
+			g.isCurrent = false
+		}
+		rl.tcGroups[0].isCurrent = true
 	}
 }

@@ -32,10 +32,31 @@ type CompletionGroup struct {
 	tcMaxLength    int // Used when display is map/list, for determining message width
 	tcMaxLengthAlt int // Same as tcMaxLength but for SuggestionsAlt.
 
-	allowCycle bool // is true if we want to cycle through suggestions because they overflow MaxLength
-	// This is set by the shell when it has detected this group is alone in the suggestions.
-	// Might be the case of things like remote processes .
-	isCurrent bool // This is to say we are currently cycling through this group, for highlighting choice
+	// true if we want to cycle through suggestions because they overflow MaxLength
+	allowCycle bool
+
+	// This is to say we are currently cycling through this group, for highlighting choice
+	isCurrent bool
+}
+
+// init - The completion group computes and sets all its values, and is then ready to work.
+func (g *CompletionGroup) init(rl *Instance) {
+
+	// Details common to all displays
+	rl.modeTabCompletion = true
+	g.checkCycle(rl) // Based on the number of groups given to the shell, allows cycling or not
+	g.checkMaxLength(rl)
+
+	// Details specific to tab display modes
+	switch g.DisplayType {
+
+	case TabDisplayGrid:
+		g.initGrid(rl)
+	case TabDisplayMap:
+		g.initMap(rl)
+	case TabDisplayList:
+		g.initList(rl)
+	}
 }
 
 // updateTabFind - When searching through all completion groups (whether it be command history or not),
@@ -88,6 +109,52 @@ func (g *CompletionGroup) checkMaxLength(rl *Instance) {
 			g.MaxLength = 20
 		}
 	}
+}
+
+// checkNilItems - For each completion group we avoid nil maps and possibly other items
+func checkNilItems(groups []*CompletionGroup) (checked []*CompletionGroup) {
+
+	for _, grp := range groups {
+		if grp.Descriptions == nil || len(grp.Descriptions) == 0 {
+			grp.Descriptions = make(map[string]string)
+		}
+		if grp.SuggestionsAlt == nil || len(grp.SuggestionsAlt) == 0 {
+			grp.SuggestionsAlt = make(map[string]string)
+		}
+		checked = append(checked, grp)
+	}
+
+	return
+}
+
+// writeCompletion - This function produces a formatted string containing all appropriate items
+// and according to display settings. This string is then appended to the main completion string.
+func (g *CompletionGroup) writeCompletion(rl *Instance) (comp string) {
+
+	// Avoids empty groups in suggestions
+	if len(g.Suggestions) == 0 {
+		return
+	}
+
+	// Depending on display type we produce the approriate string
+	switch g.DisplayType {
+
+	case TabDisplayGrid:
+		comp += g.writeGrid(rl)
+	case TabDisplayMap:
+		comp += g.writeMap(rl)
+	case TabDisplayList:
+		comp += g.writeList(rl)
+	}
+
+	// If at the end, for whatever reason, we have a string consisting
+	// only of the group's name/description, we don't append it to
+	// completions and therefore return ""
+	if comp == "" {
+		return ""
+	}
+
+	return
 }
 
 // getCurrentCell - The completion groups computes the current cell value,
