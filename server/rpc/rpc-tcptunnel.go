@@ -20,7 +20,6 @@ package rpc
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
@@ -29,8 +28,6 @@ import (
 
 // TCPTunnel - Open a tunnel to a remote endpoint via the implant
 func (s *Server) TCPTunnel(ctx context.Context, req *sliverpb.TCPTunnelReq) (*sliverpb.TCPTunnel, error) {
-	fmt.Println("A Call to TCPTunnel()")
-
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
