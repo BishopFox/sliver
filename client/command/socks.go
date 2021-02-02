@@ -150,10 +150,12 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 				bytesRead, err := tunnel.Read(readArray)
 				if err != nil {
 					cleanup()
+					return
 				} else if bytesRead != 0 {
 					_, err := socksConn.ClientConn.Write(readArray[:bytesRead])
 					if err != nil {
 						cleanup()
+						return
 					}
 				}
 			}
@@ -165,10 +167,12 @@ func handleConnection(ctx *grumble.Context, conn *net.TCPConn, rpc rpcpb.SliverR
 				bytesToWrite, err := socksConn.ClientConn.Read(writeArray)
 				if err != nil {
 					cleanup()
+					return
 				} else if bytesToWrite != 0 {
 					_, err = tunnel.Write(writeArray[:bytesToWrite])
 					if err != nil {
 						cleanup()
+						return
 					}
 				}
 			}
