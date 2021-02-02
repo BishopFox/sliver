@@ -26,16 +26,16 @@ const (
 )
 
 // getTabCompletion - This root function sets up all completion items and engines,
-// dealing with all search and completion modes.
+// dealing with all search and completion modes. But it does not perform printing.
 func (rl *Instance) getTabCompletion() {
 	rl.tcOffset = 0
 
 	if rl.TabCompleter == nil {
-		return // No completions to offer
+		return
 	}
 
 	// Populate for completion search if in this mode
-	if rl.searchMode == CompletionFind {
+	if rl.modeAutoFind && rl.searchMode == CompletionFind {
 		rl.getTabSearchCompletion()
 		return
 	}
@@ -177,6 +177,11 @@ func (rl *Instance) getTabSearchCompletion() {
 
 	for _, g := range rl.tcGroups {
 		g.updateTabFind(rl)
+	}
+
+	// If total number of matches is zero, we directly change the hint, and return
+	if comps, _ := rl.getCompletionCount(); comps == 0 {
+		rl.hintText = append(rl.hintText, []rune(": no matches (Ctrl-G to cancel)")...)
 	}
 }
 

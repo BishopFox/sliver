@@ -314,7 +314,11 @@ func (rl *Instance) renderHelpers() {
 	// If we are waiting for confirmation (too many comps),
 	// do not overwrite the confirmation question hint.
 	if !rl.compConfirmWait {
-		rl.getHintText()
+		// We also don't overwrite if in tab find mode, which has a special hint.
+		if !rl.modeAutoFind {
+			rl.getHintText()
+		}
+		// We write the hint anyway
 		rl.writeHintText()
 	}
 

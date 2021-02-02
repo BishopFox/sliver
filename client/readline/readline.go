@@ -151,6 +151,10 @@ func (rl *Instance) Readline() (string, error) {
 		case charCtrlF:
 			rl.updateVirtualCompletion()
 
+			if !rl.modeTabCompletion {
+				rl.modeTabCompletion = true
+			}
+
 			// Both these settings apply to when we already
 			// are in completion mode and when we are not.
 			rl.searchMode = CompletionFind
@@ -189,6 +193,13 @@ func (rl *Instance) Readline() (string, error) {
 			rl.modeTabFind = true
 			rl.updateTabFind([]rune{})
 			rl.viUndoSkipAppend = true
+
+		case charCtrlG:
+			if rl.modeAutoFind {
+				// rl.modeAutoFind = false
+				rl.resetTabFind()
+				// rl.resetTabCompletion()
+			}
 
 		case charCtrlU:
 			rl.updateVirtualCompletion()
@@ -326,6 +337,7 @@ func (rl *Instance) Readline() (string, error) {
 			// Not sure that CompletionFind is useful, nor one of the other two
 			if rl.modeAutoFind || rl.modeTabFind && rl.searchMode == CompletionFind {
 				rl.updateTabFind(r[:i])
+				rl.renderHelpers()
 				rl.viUndoSkipAppend = true
 			} else {
 				rl.editorInput(r[:i])
@@ -338,13 +350,13 @@ func (rl *Instance) Readline() (string, error) {
 		// Check if completions are nil and that we currently are in modeTabCompletion.
 		// If both conditions are true, we should not wait to reset the tab completion engine,
 		// or ensure it does not bother any user input going on.
-		cur := rl.getCurrentGroup()
-		if cur == nil {
-			rl.clearHelpers()
-			rl.resetTabCompletion()
-			rl.renderHelpers()
-			continue
-		}
+		// cur := rl.getCurrentGroup()
+		// if cur == nil {
+		//         rl.clearHelpers()
+		//         rl.resetTabCompletion()
+		//         rl.renderHelpers()
+		//         continue
+		// }
 
 		// if !rl.viUndoSkipAppend {
 		//         rl.viUndoHistory = append(rl.viUndoHistory, rl.line)

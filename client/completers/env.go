@@ -40,6 +40,7 @@ func completeEnvironmentVariables(lastWord string) (last string, completions []*
 		Name:        "console OS environment",
 		MaxLength:   5, // Should be plenty enough
 		DisplayType: readline.TabDisplayGrid,
+		TrimSlash:   true, // Some variables can be paths
 	}
 
 	for k, v := range util.ClientEnv {

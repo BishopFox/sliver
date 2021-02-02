@@ -46,7 +46,6 @@ func (rl *Instance) updateTabFind(r []rune) {
 	rl.regexSearch, err = regexp.Compile("(?i)" + string(rl.tfLine))
 	if err != nil {
 		rl.hintText = []rune(tui.Red("Failed to match search regexp"))
-		// return
 	}
 
 	rl.clearHelpers()
@@ -66,6 +65,7 @@ func (rl *Instance) resetTabFind() {
 	rl.modeAutoFind = false // Added, because otherwise it gets stuck on search completions
 
 	rl.clearHelpers()
-	rl.getTabCompletion()
+	rl.resetTabCompletion()
+	// rl.getTabCompletion()
 	rl.renderHelpers()
 }
