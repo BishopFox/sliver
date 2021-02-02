@@ -21,15 +21,22 @@ func (g *CompletionGroup) initGrid(rl *Instance) {
 	g.tcPosY = 0
 	g.tcOffset = 0
 
+	// Max number of columns
 	g.tcMaxX = GetTermWidth() / (tcMaxLength + 2)
 	if g.tcMaxX < 1 {
 		g.tcMaxX = 1 // avoid a divide by zero error
 	}
-	if g.MaxLength == 0 {
-		g.MaxLength = 10 // Handle default value if not set
-	}
-	g.tcMaxY = g.MaxLength
 
+	// Maximum number of lines
+	maxY := len(g.Suggestions) / g.tcMaxX
+	if maxY == 0 {
+		maxY = 1
+	}
+	if maxY > g.MaxLength {
+		g.tcMaxY = g.MaxLength
+	} else {
+		g.tcMaxY = maxY
+	}
 }
 
 // moveTabGridHighlight - Moves the highlighting for currently selected completion item (grid display)
@@ -57,7 +64,13 @@ func (g *CompletionGroup) moveTabGridHighlight(rl *Instance, x, y int) (done boo
 		return true
 	}
 
-	if (g.tcMaxX*(g.tcPosY-1))+g.tcPosX > len(g.Suggestions) {
+	// Real max number of suggestions.
+	max := g.tcMaxX * g.tcMaxY
+	if max > len(g.Suggestions) {
+		max = len(g.Suggestions)
+	}
+
+	if (g.tcMaxX*(g.tcPosY-1))+g.tcPosX > max {
 		if x < 0 {
 			g.tcPosX = len(g.Suggestions) - (g.tcMaxX * (g.tcPosY - 1))
 		}
