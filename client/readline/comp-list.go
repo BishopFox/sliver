@@ -25,15 +25,17 @@ func (g *CompletionGroup) initList(rl *Instance) {
 	}
 
 	// Compute size of each completion item box. Group independent
-	g.tcMaxLength = 1
-	for i := range g.Suggestions {
-		if len(g.Suggestions[i]) > g.tcMaxLength {
-			g.tcMaxLength = len([]rune(g.Suggestions[i]))
-		}
-	}
+	g.tcMaxLength = rl.getListPad()
+	// g.tcMaxLength = 1
+	// for i := range g.Suggestions {
+	//         if len(g.Suggestions[i]) > g.tcMaxLength {
+	//                 g.tcMaxLength = len([]rune(g.Suggestions[i]))
+	//         }
+	// }
 
 	// Same for suggestions alt
-	g.tcMaxLengthAlt = 1
+	g.tcMaxLengthAlt = 0
+	// g.tcMaxLengthAlt = 1
 	for i := range g.Suggestions {
 		if len(g.Suggestions[i]) > g.tcMaxLength {
 			g.tcMaxLength = len([]rune(g.Suggestions[i]))
@@ -210,7 +212,7 @@ func (g *CompletionGroup) writeList(rl *Instance) (comp string) {
 		// Description
 		description := g.Descriptions[g.Suggestions[i]]
 		if len(description) > maxDescWidth {
-			description = description[:maxDescWidth-3] + "..."
+			description = description[:maxDescWidth-3] + "..." + tui.RESET
 		}
 
 		// Total completion line
@@ -232,6 +234,20 @@ func (g *CompletionGroup) writeList(rl *Instance) (comp string) {
 	// Special case: history search handles titles differently.
 	if rl.modeAutoFind && rl.modeTabFind && rl.searchMode == HistoryFind {
 		rl.tcUsedY--
+	}
+
+	return
+}
+
+func (rl *Instance) getListPad() (pad int) {
+	for _, group := range rl.tcGroups {
+		if group.DisplayType == TabDisplayList {
+			for i := range group.Suggestions {
+				if len(group.Suggestions[i]) > pad {
+					pad = len([]rune(group.Suggestions[i]))
+				}
+			}
+		}
 	}
 
 	return

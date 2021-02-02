@@ -216,11 +216,9 @@ func (rl *Instance) Readline() (string, error) {
 					rl.compConfirmWait = true
 					rl.viUndoSkipAppend = true
 					continue
-				} else {
-					// Reload completions so that confirming
-					// does not yield the first comp immedialty
-					rl.getTabCompletion()
 				}
+				rl.compConfirmWait = false
+				rl.modeTabCompletion = true
 
 				// Also here, if only one candidate is available, automatically
 				// insert it and don't bother printing completions.
@@ -228,7 +226,6 @@ func (rl *Instance) Readline() (string, error) {
 					rl.insertCandidate()
 				}
 
-				rl.compConfirmWait = false
 				rl.renderHelpers()
 				rl.viUndoSkipAppend = true
 				continue

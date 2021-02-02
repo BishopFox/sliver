@@ -229,7 +229,6 @@ func (rl *Instance) echo() {
 	// We move the cursor back to the very beginning of the line:
 	// prompt + cursor position
 	moveCursorBackwards(rl.promptLen + rl.pos)
-	// moveCursorBackwards(len(rl.mlnPrompt) + rl.pos)
 
 	switch {
 	case rl.PasswordMask > 0:
@@ -310,22 +309,45 @@ func (rl *Instance) clearHelpers() {
 
 func (rl *Instance) renderHelpers() {
 
-	rl.echo() // Added by me, so that prompt always appear when new line
+	rl.echo()
 
-	// If we are waiting for confirmation (too many comps), do not overwrite the hints.
+	// If we are waiting for confirmation (too many comps),
+	// do not overwrite the confirmation question hint.
 	if !rl.compConfirmWait {
 		rl.getHintText()
 		rl.writeHintText()
-		moveCursorUp(rl.hintY)
 	}
 
 	rl.writeTabCompletion()
-
 	moveCursorUp(rl.tcUsedY)
+
+	if !rl.compConfirmWait {
+		moveCursorUp(rl.hintY)
+	}
 	moveCursorBackwards(GetTermWidth())
 
 	moveCursorToLinePos(rl)
 }
+
+// This one has the advantage of not stacking hints and completions, pretty balanced.
+// However there is a problem with it when we use completion while being in the middle of the line.
+// func (rl *Instance) renderHelpers() {
+//
+//         rl.echo() // Added by me, so that prompt always appear when new line
+//
+//         // If we are waiting for confirmation (too many comps), do not overwrite the hints.
+//         if !rl.compConfirmWait {
+//                 rl.getHintText()
+//                 rl.writeHintText()
+//                 moveCursorUp(rl.hintY)
+//         }
+//
+//         rl.writeTabCompletion()
+//         moveCursorUp(rl.tcUsedY)
+
+//         moveCursorBackwards(GetTermWidth())
+//         moveCursorToLinePos(rl)
+// }
 
 func (rl *Instance) updateHelpers() {
 	rl.tcOffset = 0

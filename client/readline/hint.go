@@ -6,7 +6,11 @@ func (rl *Instance) getHintText() {
 		return
 	}
 
-	rl.hintText = rl.HintText(rl.line, rl.pos)
+	// The hint text also works with the virtual completion line system.
+	// This way, the hint is also refreshed depending on what we are pointing
+	// at with our cursor.
+	rl.hintText = rl.HintText(rl.getCompletionLine())
+	// rl.hintText = rl.HintText(rl.line, rl.pos)
 }
 
 func (rl *Instance) writeHintText() {

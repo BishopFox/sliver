@@ -123,8 +123,7 @@ type Instance struct {
 	tcMaxLength         int
 
 	// When too many completions, we ask the user to confirm with another Tab keypress.
-	compConfirmWait     bool
-	completionConfirmed bool
+	compConfirmWait bool
 
 	// Virtual completion
 	currentComp  []rune // The currently selected item, not yet a real part of the input line.
