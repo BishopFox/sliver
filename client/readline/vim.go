@@ -269,12 +269,11 @@ func (rl *Instance) refreshVimStatus() {
 }
 
 func (rl *Instance) colorizeVimPrompt(p []rune) (cp []rune) {
-
-	if !rl.VimModeColorize {
+	if rl.VimModeColorize {
 		return []rune(fmt.Sprintf("%s%s%s", tui.BOLD, string(p), tui.RESET))
 	}
 
-	return
+	return []rune(fmt.Sprintf("%s%s%s", tui.BOLD, string(p), tui.RESET))
 }
 
 func (rl *Instance) viHintMessage() {

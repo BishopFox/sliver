@@ -55,12 +55,16 @@ func (rl *Instance) RefreshMultiline(prompt string, printPrompt bool, offset int
 // computePrompt - At any moment, returns prompt actualized with Vim status
 func (rl *Instance) computePrompt() (prompt []rune) {
 
-	// Add custom prompt string if provided by user
-	if rl.MultilinePrompt != "" {
-		prompt = append(prompt, []rune(rl.MultilinePrompt)...)
+	// If single line prompt, and the prompt is not nil, the user has set it,
+	// so we put up everything together, compute legnths and return.
+	if rl.prompt != "" && !rl.Multiline {
+		rl.mlnPrompt = []rune(rl.prompt)
+		rl.promptLen = len(rl.mlnPrompt)
+		return rl.mlnPrompt
 	}
 
-	// If ModeVimEnabled, append it.
+	// If ModeVimEnabled, append it and compute details.
+	var colorPromptOffset int
 	if rl.InputMode == Vim && rl.ShowVimMode {
 
 		switch rl.modeViMode {
@@ -76,19 +80,25 @@ func (rl *Instance) computePrompt() (prompt []rune) {
 			prompt = append(prompt, []rune(vimDeleteStr)...)
 		}
 
-		// Process colors
+		// Process colors, and get offset for correct cursor position
+		bwPromptLen := len(prompt)
 		prompt = rl.colorizeVimPrompt(prompt)
-		// Add the arrow
+
+		colorPromptLen := len(prompt)
+		colorPromptOffset = colorPromptLen - bwPromptLen
+	}
+
+	// Add custom multiline prompt string if provided by user
+	if rl.MultilinePrompt != "" {
+		prompt = append(prompt, []rune(rl.MultilinePrompt)...)
+	} else {
+		// Else add the default arrow
 		prompt = append(prompt, rl.mlnArrow...)
 	}
 
-	// Else, if in emacs mode and no custom prompt, show arrow
-	if rl.InputMode == Emacs && rl.MultilinePrompt == "" {
-		prompt = append(prompt, rl.mlnArrow...)
-	}
-
+	// We have our prompt, adjust for any coloring
 	rl.mlnPrompt = prompt
-	rl.promptLen = len(rl.mlnPrompt)
+	rl.promptLen = len(rl.mlnPrompt) - colorPromptOffset
 
 	return
 }
@@ -128,27 +138,8 @@ func moveCursorBackwards(i int) {
 // moveCursorToLinePos - Must calculate the length of the prompt, realtime
 // and for all contexts/needs, and move the cursor appropriately
 func moveCursorToLinePos(rl *Instance) {
-	var length int
-
-	// We use either the normal prompt, or the multiline one
-	if !rl.Multiline {
-		length = len(rl.prompt)
-	} else {
-		length = len(rl.MultilinePrompt)
-	}
-
-	// If the user wants Vim status, in Vim editing mode
-	if rl.InputMode == Vim {
-		if rl.ShowVimMode {
-			length += 3                // 3 for [N]
-			length += len(rl.mlnArrow) // 3: ' > '
-		} else {
-			length += len(rl.mlnArrow) // 3: ' > '
-		}
-	}
-
-	// move the cursor
-	moveCursorForwards(length + rl.pos)
+	moveCursorForwards(rl.promptLen + rl.pos)
+	return
 }
 
 func (rl *Instance) moveCursorByAdjust(adjust int) {
@@ -237,7 +228,8 @@ func (rl *Instance) echo() {
 
 	// We move the cursor back to the very beginning of the line:
 	// prompt + cursor position
-	moveCursorBackwards(len(rl.mlnPrompt) + rl.pos)
+	moveCursorBackwards(rl.promptLen + rl.pos)
+	// moveCursorBackwards(len(rl.mlnPrompt) + rl.pos)
 
 	switch {
 	case rl.PasswordMask > 0:
@@ -310,6 +302,7 @@ func (rl *Instance) clearHelpers() {
 	print("\r\n" + seqClearScreenBelow)
 	moveCursorUp(1)
 	moveCursorToLinePos(rl)
+	// moveCursorToLinePos(rl)
 
 	// Reset some values
 	rl.lineComp = []rune{}
@@ -326,6 +319,7 @@ func (rl *Instance) renderHelpers() {
 	moveCursorBackwards(GetTermWidth())
 
 	moveCursorToLinePos(rl)
+	// moveCursorToLinePos(rl)
 }
 
 func (rl *Instance) updateHelpers() {

@@ -33,7 +33,7 @@ var (
 
 // prompt - The prompt object is in charge of computing values, refreshing and printing them.
 type prompt struct {
-	Server *promptServer   // Main menu
+	Server *promptServer // Main menu
 	Sliver *promptSliver // Sliver session menu
 }
 
