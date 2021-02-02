@@ -3,8 +3,6 @@ package readline
 import (
 	"fmt"
 	"strconv"
-
-	"github.com/evilsocket/islazy/tui"
 )
 
 // initMap - Map display details. Called each time we want to be sure to have
@@ -74,12 +72,12 @@ func (g *CompletionGroup) writeMap(rl *Instance) (comp string) {
 	// Title is not printed for history
 	if rl.modeAutoFind && rl.modeTabFind && rl.searchMode == HistoryFind {
 		if len(g.Suggestions) == 0 {
-			rl.hintText = []rune(fmt.Sprintf("\n%s%s%s %s", tui.DIM, tui.RED,
-				"No command history source, or empty", tui.RESET))
+			rl.hintText = []rune(fmt.Sprintf("\n%s%s%s %s", DIM, RED,
+				"No command history source, or empty", RESET))
 		}
 	} else {
 		// Print group title (changes with line returns depending on type)
-		comp += fmt.Sprintf("\n %s%s%s %s", tui.BOLD, tui.YELLOW, g.Name, tui.RESET)
+		comp += fmt.Sprintf("\n %s%s%s %s", BOLD, YELLOW, g.Name, RESET)
 	}
 
 	termWidth := GetTermWidth()

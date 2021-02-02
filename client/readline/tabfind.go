@@ -2,8 +2,6 @@ package readline
 
 import (
 	"regexp"
-
-	"github.com/evilsocket/islazy/tui"
 )
 
 // FindMode defines how the autocomplete suggestions display
@@ -36,7 +34,7 @@ func (rl *Instance) updateTabFind(r []rune) {
 	switch rl.searchMode {
 	case HistoryFind:
 		rl.hintText = append([]rune("\033[38;5;183m"+string(rl.histHint)), rl.tfLine...)
-		rl.hintText = append(rl.hintText, []rune(tui.RESET)...)
+		rl.hintText = append(rl.hintText, []rune(RESET)...)
 	case CompletionFind:
 		rl.hintText = append([]rune("Completion search: "), rl.tfLine...)
 	}
@@ -45,7 +43,7 @@ func (rl *Instance) updateTabFind(r []rune) {
 	var err error
 	rl.regexSearch, err = regexp.Compile("(?i)" + string(rl.tfLine))
 	if err != nil {
-		rl.hintText = []rune(tui.Red("Failed to match search regexp"))
+		rl.hintText = []rune(Red("Failed to match search regexp"))
 	}
 
 	rl.clearHelpers()

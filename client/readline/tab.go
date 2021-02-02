@@ -2,8 +2,6 @@ package readline
 
 import (
 	"fmt"
-
-	"github.com/evilsocket/islazy/tui"
 )
 
 // TabDisplayType defines how the autocomplete suggestions display
@@ -195,7 +193,7 @@ func (rl *Instance) getHistorySearchCompletion() {
 	rl.getCurrentGroup()                     // Make sure there is a current group
 
 	if len(rl.tcGroups[0].Suggestions) == 0 {
-		rl.histHint = []rune(fmt.Sprintf("%s%s%s %s", tui.DIM, tui.RED, "No command history source, or empty", tui.RESET))
+		rl.histHint = []rune(fmt.Sprintf("%s%s%s %s", DIM, RED, "No command history source, or empty", RESET))
 		rl.hintText = rl.histHint
 		return
 	}

@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/evilsocket/islazy/tui"
 )
 
 // initList - List display details. Because of the way alternative completions
@@ -151,7 +149,7 @@ func (g *CompletionGroup) moveTabListHighlight(x, y int) (done bool) {
 func (g *CompletionGroup) writeList(rl *Instance) (comp string) {
 
 	// Print group title (changes with line returns depending on type)
-	comp += fmt.Sprintf("\n %s%s%s %s", tui.BOLD, tui.YELLOW, g.Name, tui.RESET)
+	comp += fmt.Sprintf("\n %s%s%s %s", BOLD, YELLOW, g.Name, RESET)
 
 	termWidth := GetTermWidth()
 	if termWidth < 20 {
@@ -212,7 +210,7 @@ func (g *CompletionGroup) writeList(rl *Instance) (comp string) {
 		// Description
 		description := g.Descriptions[g.Suggestions[i]]
 		if len(description) > maxDescWidth {
-			description = description[:maxDescWidth-3] + "..." + tui.RESET
+			description = description[:maxDescWidth-3] + "..." + RESET
 		}
 
 		// Total completion line

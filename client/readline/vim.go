@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/evilsocket/islazy/tui"
 )
 
 // InputMode - The shell input mode
@@ -270,10 +268,10 @@ func (rl *Instance) refreshVimStatus() {
 
 func (rl *Instance) colorizeVimPrompt(p []rune) (cp []rune) {
 	if rl.VimModeColorize {
-		return []rune(fmt.Sprintf("%s%s%s", tui.BOLD, string(p), tui.RESET))
+		return []rune(fmt.Sprintf("%s%s%s", BOLD, string(p), RESET))
 	}
 
-	return []rune(fmt.Sprintf("%s%s%s", tui.BOLD, string(p), tui.RESET))
+	return []rune(fmt.Sprintf("%s%s%s", BOLD, string(p), RESET))
 }
 
 func (rl *Instance) viHintMessage() {

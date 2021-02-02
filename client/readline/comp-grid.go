@@ -3,8 +3,6 @@ package readline
 import (
 	"fmt"
 	"strconv"
-
-	"github.com/evilsocket/islazy/tui"
 )
 
 // initGrid - Grid display details. Called each time we want to be sure to have
@@ -87,7 +85,7 @@ func (g *CompletionGroup) moveTabGridHighlight(rl *Instance, x, y int) (done boo
 func (g *CompletionGroup) writeGrid(rl *Instance) (comp string) {
 
 	// Print group title
-	comp += fmt.Sprintf("\n %s%s%s %s\n", tui.BOLD, tui.YELLOW, g.Name, tui.RESET)
+	comp += fmt.Sprintf("\n %s%s%s %s\n", BOLD, YELLOW, g.Name, RESET)
 
 	cellWidth := strconv.Itoa((GetTermWidth() / g.tcMaxX) - 2)
 	x := 0

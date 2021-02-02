@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-
-	"github.com/evilsocket/islazy/tui"
 )
 
 var rxMultiline = regexp.MustCompile(`[\r\n]+`)
@@ -218,7 +216,7 @@ func (rl *Instance) Readline() (string, error) {
 				comps, lines := rl.getCompletionCount()
 				if lines >= 70 && !rl.compConfirmWait {
 					sentence := fmt.Sprintf("%s show all %d completions (%d lines) ?",
-						tui.FOREWHITE, comps, lines)
+						FOREWHITE, comps, lines)
 					rl.hintText = []rune(sentence)
 					rl.writeHintText()
 					moveCursorUp(rl.hintY)
