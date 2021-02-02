@@ -302,7 +302,6 @@ func (rl *Instance) clearHelpers() {
 	print("\r\n" + seqClearScreenBelow)
 	moveCursorUp(1)
 	moveCursorToLinePos(rl)
-	// moveCursorToLinePos(rl)
 
 	// Reset some values
 	rl.lineComp = []rune{}
@@ -312,14 +311,20 @@ func (rl *Instance) clearHelpers() {
 func (rl *Instance) renderHelpers() {
 
 	rl.echo() // Added by me, so that prompt always appear when new line
-	rl.writeHintText()
+
+	// If we are waiting for confirmation (too many comps), do not overwrite the hints.
+	if !rl.compConfirmWait {
+		rl.getHintText()
+		rl.writeHintText()
+		moveCursorUp(rl.hintY)
+	}
+
 	rl.writeTabCompletion()
 
-	moveCursorUp(rl.hintY + rl.tcUsedY)
+	moveCursorUp(rl.tcUsedY)
 	moveCursorBackwards(GetTermWidth())
 
 	moveCursorToLinePos(rl)
-	// moveCursorToLinePos(rl)
 }
 
 func (rl *Instance) updateHelpers() {

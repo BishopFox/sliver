@@ -121,6 +121,11 @@ type Instance struct {
 	tcMaxY              int
 	tcUsedY             int
 	tcMaxLength         int
+
+	// When too many completions, we ask the user to confirm with another Tab keypress.
+	compConfirmWait     bool
+	completionConfirmed bool
+
 	// Virtual completion
 	currentComp  []rune // The currently selected item, not yet a real part of the input line.
 	lineComp     []rune // Same as rl.line, but with the currentComp inserted.

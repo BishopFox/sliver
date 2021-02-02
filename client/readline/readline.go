@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+
+	"github.com/evilsocket/islazy/tui"
 )
 
 var rxMultiline = regexp.MustCompile(`[\r\n]+`)
@@ -195,11 +197,30 @@ func (rl *Instance) Readline() (string, error) {
 			rl.resetHelpers()
 
 		case charTab:
-			if rl.modeTabCompletion {
+			if rl.modeTabCompletion && !rl.compConfirmWait {
 				rl.tabCompletionSelect = true
 				rl.moveTabCompletionHighlight(1, 0)
 			} else {
 				rl.getTabCompletion()
+
+				// If too many completions and no yet confirmed, ask user for completion
+				comps, lines := rl.getCompletionCount()
+				if lines >= 70 && !rl.compConfirmWait {
+					sentence := fmt.Sprintf("%s show all %d completions (%d lines) ?",
+						tui.FOREWHITE, comps, lines)
+					rl.hintText = []rune(sentence)
+					rl.writeHintText()
+					moveCursorUp(rl.hintY)
+					moveCursorBackwards(GetTermWidth())
+					moveCursorToLinePos(rl)
+					rl.compConfirmWait = true
+					rl.viUndoSkipAppend = true
+					continue
+				} else {
+					// Reload completions so that confirming
+					// does not yield the first comp immedialty
+					rl.getTabCompletion()
+				}
 
 				// Also here, if only one candidate is available, automatically
 				// insert it and don't bother printing completions.
@@ -207,6 +228,7 @@ func (rl *Instance) Readline() (string, error) {
 					rl.insertCandidate()
 				}
 
+				rl.compConfirmWait = false
 				rl.renderHelpers()
 				rl.viUndoSkipAppend = true
 				continue

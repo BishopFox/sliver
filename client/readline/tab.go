@@ -72,7 +72,6 @@ func (rl *Instance) getCompletionLine() (line []rune, pos int) {
 // getNormalCompletion - Populates and sets up completion for normal comp mode
 func (rl *Instance) getNormalCompletion() {
 	rl.tcPrefix, rl.tcGroups = rl.TabCompleter(rl.getCompletionLine())
-	// rl.tcPrefix, rl.tcGroups = rl.TabCompleter(rl.line, rl.pos)
 	if len(rl.tcGroups) == 0 {
 		return
 	}
@@ -285,6 +284,18 @@ func (rl *Instance) hasOneCandidate() bool {
 	return false
 }
 
+func (rl *Instance) getCompletionCount() (comps int, lines int) {
+	for _, group := range rl.tcGroups {
+		comps += len(group.Suggestions)
+		if group.tcMaxY > len(group.Suggestions) {
+			lines += len(group.Suggestions)
+		} else {
+			lines += group.tcMaxY
+		}
+	}
+	return
+}
+
 // Insert the current completion candidate into the input line.
 // This candidate might either be the currently selected one (white frame),
 // or the only candidate available, if the total number of candidates is 1.
@@ -309,6 +320,7 @@ func (rl *Instance) insertCandidate() {
 func (rl *Instance) resetTabCompletion() {
 	rl.modeTabCompletion = false
 	rl.tabCompletionSelect = false
+	rl.compConfirmWait = false
 	rl.tcOffset = 0
 	rl.tcUsedY = 0
 	rl.modeTabFind = false
