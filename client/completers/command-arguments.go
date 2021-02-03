@@ -68,10 +68,6 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 			case constants.CdStr:
 				prefix, comp = completeLocalPath(lastWord)
 				completions = append(completions, comp)
-				// TEST
-				prefix, comp = completeLocalPathAndFiles(lastWord)
-				completions = append(completions, comp)
-				// END TESt
 			case constants.LsStr, "cat":
 				prefix, comp = completeLocalPathAndFiles(lastWord)
 				completions = append(completions, comp)
