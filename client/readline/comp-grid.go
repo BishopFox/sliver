@@ -18,7 +18,7 @@ func (g *CompletionGroup) initGrid(rl *Instance) {
 	}
 
 	g.tcPosX = 0
-	g.tcPosY = 0
+	g.tcPosY = 1
 	g.tcOffset = 0
 
 	// Max number of columns
@@ -29,8 +29,9 @@ func (g *CompletionGroup) initGrid(rl *Instance) {
 
 	// Maximum number of lines
 	maxY := len(g.Suggestions) / g.tcMaxX
-	if maxY == 0 {
-		maxY = 1
+	rest := len(g.Suggestions) % g.tcMaxX
+	if rest != 0 && maxY != 1 {
+		maxY++
 	}
 	if maxY > g.MaxLength {
 		g.tcMaxY = g.MaxLength
@@ -40,28 +41,31 @@ func (g *CompletionGroup) initGrid(rl *Instance) {
 }
 
 // moveTabGridHighlight - Moves the highlighting for currently selected completion item (grid display)
-func (g *CompletionGroup) moveTabGridHighlight(rl *Instance, x, y int) (done bool) {
+func (g *CompletionGroup) moveTabGridHighlight(rl *Instance, x, y int) (done bool, next bool) {
 
 	g.tcPosX += x
 	g.tcPosY += y
 
 	// Columns
 	if g.tcPosX < 1 {
-		g.tcPosX = g.tcMaxX
-		g.tcPosY--
+		if g.tcPosY == 1 && rl.tabCompletionReverse {
+			g.tcPosX = 1
+			g.tcPosY = 0
+		} else {
+			// This is when multiple ligns, not yet on first one.
+			g.tcPosX = g.tcMaxX
+			g.tcPosY--
+		}
 	}
+	if g.tcPosY > g.tcMaxY {
+		g.tcPosY = 1
+		return true, true
+	}
+
+	// If we must move to next line in same group
 	if g.tcPosX > g.tcMaxX {
 		g.tcPosX = 1
 		g.tcPosY++
-	}
-
-	// Lines
-	if g.tcPosY < 1 {
-		g.tcPosY = rl.tcUsedY
-	}
-	if g.tcPosY > rl.tcUsedY {
-		g.tcPosY = 1
-		return true
 	}
 
 	// Real max number of suggestions.
@@ -70,35 +74,32 @@ func (g *CompletionGroup) moveTabGridHighlight(rl *Instance, x, y int) (done boo
 		max = len(g.Suggestions)
 	}
 
+	// We arrived at the end of suggestions. This condition can never be triggered
+	// while going in the reverse order, only forward, so no further checks in it.
 	if (g.tcMaxX*(g.tcPosY-1))+g.tcPosX > max {
-		if x < 0 {
-			g.tcPosX = len(g.Suggestions) - (g.tcMaxX * (g.tcPosY - 1))
-		}
-
-		if x > 0 {
-			g.tcPosX = 1
-			g.tcPosY = 1
-		}
-
-		if y < 0 {
-			g.tcPosY--
-		}
-
-		if y > 0 {
-			g.tcPosY = 1
-		}
-
-		return true
+		return true, true
 	}
 
-	return false
+	// In case we are reverse cycling and currently selecting the first item,
+	// we adjust the coordinates to point to the last item and return
+	// We set g.tcPosY because the printer needs to get the a candidate nonetheless.
+	if rl.tabCompletionReverse && g.tcPosX == 1 && g.tcPosY == 0 {
+		g.tcPosY = 1
+		return true, false
+	}
+
+	// By default, come back to this group for next item.
+	return false, false
 }
 
 // writeGrid - A grid completion string
 func (g *CompletionGroup) writeGrid(rl *Instance) (comp string) {
 
-	// Print group title
-	comp += fmt.Sprintf("\n %s%s%s %s\n", BOLD, YELLOW, g.Name, RESET)
+	// If group title, print it and adjust offset.
+	if g.Name != "" {
+		comp += fmt.Sprintf("\n %s%s%s %s\n", BOLD, YELLOW, g.Name, RESET)
+		rl.tcUsedY++
+	}
 
 	cellWidth := strconv.Itoa((GetTermWidth() / g.tcMaxX) - 2)
 	x := 0
@@ -127,9 +128,9 @@ func (g *CompletionGroup) writeGrid(rl *Instance) (comp string) {
 	// Add the equivalent of this group's size to final screen clearing.
 	// This is either the max allowed print size for this group, or its actual size if inferior.
 	if g.MaxLength < y {
-		rl.tcUsedY += g.MaxLength + 1 // + 1 for title
+		rl.tcUsedY += g.MaxLength
 	} else {
-		rl.tcUsedY += y + 1
+		rl.tcUsedY += y
 	}
 
 	return

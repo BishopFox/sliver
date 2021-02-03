@@ -194,9 +194,7 @@ func (rl *Instance) Readline() (string, error) {
 
 		case charCtrlG:
 			if rl.modeAutoFind {
-				// rl.modeAutoFind = false
 				rl.resetTabFind()
-				// rl.resetTabCompletion()
 			}
 
 		case charCtrlU:
@@ -325,7 +323,11 @@ func (rl *Instance) Readline() (string, error) {
 			}
 
 		case charEscape:
-			rl.updateVirtualCompletion()
+			// We always refresh the completion candidates, except if we are
+			// cycling the other way, because then it would just append the candidate.
+			if string(r[:i]) != seqShiftTab {
+				rl.updateVirtualCompletion()
+			}
 
 			rl.escapeSeq(r[:i])
 
@@ -468,9 +470,35 @@ func (rl *Instance) escapeSeq(r []rune) {
 		rl.viUndoSkipAppend = true
 
 	case seqShiftTab:
-		if rl.modeTabCompletion {
+		if rl.modeTabCompletion && !rl.compConfirmWait {
+
+			rl.tabCompletionReverse = true // The group will use this to know how to index.
+
 			rl.moveTabCompletionHighlight(-1, 0)
+			// Once we have a completion candidate, insert it in the virtual input line.
+			// This will thus not filter other candidates, despite printing the current one.
+
+			cur := rl.getCurrentGroup()
+			if cur != nil {
+
+				completion := cur.getCurrentCell(rl)
+				prefix := len(rl.tcPrefix)
+
+				// If the total number of completions is one, automatically insert it.
+				if rl.hasOneCandidate() {
+					rl.insertCandidate()
+				} else {
+					// Or insert it virtually.
+					if len(completion) >= prefix {
+						rl.insertCandidateVirtual([]rune(completion[prefix:]))
+					}
+				}
+			}
+
+			rl.tabCompletionReverse = false
 			rl.renderHelpers()
+			rl.viUndoSkipAppend = true
+
 			return
 		}
 

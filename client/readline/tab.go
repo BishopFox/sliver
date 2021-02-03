@@ -94,30 +94,43 @@ func (rl *Instance) moveTabCompletionHighlight(x, y int) {
 		return
 	}
 
-	// Get the next group that has availbale suggestions
-	if len(g.Suggestions) == 0 {
+	// Get the next group that has available suggestions
+	if (x > 0 || y > 0) && (len(g.Suggestions) == 0) {
 		rl.cycleNextGroup()
 		g = rl.getCurrentGroup()
 	}
+	// Or get the previous group, when going reverse
+	if (x < 0 || y < 0) && (len(g.Suggestions) == 0) {
+		rl.cyclePreviousGroup()
+		g = rl.getCurrentGroup()
+	}
 
-	// This is triggered when we need to cycle through the next group
-	var done bool
+	// done means we need to find the next/previous group.
+	// next determines if we need to get the next OR previous group.
+	var done, next bool
 
 	// Depending on the display, we only keep track of x or (x and y)
 	switch g.DisplayType {
 	case TabDisplayGrid:
-		done = g.moveTabGridHighlight(rl, x, y)
-
+		done, next = g.moveTabGridHighlight(rl, x, y)
 	case TabDisplayList:
-		done = g.moveTabListHighlight(x, y)
+		done, next = g.moveTabListHighlight(rl, x, y)
 
 	case TabDisplayMap:
 		done = g.moveTabMapHighlight(x, y)
 	}
 
-	// Cycle to next group: we tell them who is the next one to handle highlighting
+	// Cycle to next/previous group, if done with current one.
 	if done {
-		rl.cycleNextGroup()
+		if next {
+			rl.cycleNextGroup()
+			nextGroup := rl.getCurrentGroup()
+			nextGroup.goFirstCell()
+		} else {
+			rl.cyclePreviousGroup()
+			prevGroup := rl.getCurrentGroup()
+			prevGroup.goLastCell()
+		}
 	}
 }
 
@@ -139,8 +152,13 @@ func (rl *Instance) writeTabCompletion() {
 	// to print all suggestions, without selecting a candidate yet.
 	if !rl.tabCompletionSelect {
 		for i, group := range rl.tcGroups {
-			if i != 0 {
-				group.tcPosY = 1
+			if i > 0 {
+				switch group.DisplayType {
+				case TabDisplayGrid:
+					group.tcPosX = 1
+				case TabDisplayList, TabDisplayMap:
+					group.tcPosY = 1
+				}
 			}
 			completions += group.writeCompletion(rl)
 		}
@@ -245,6 +263,25 @@ func (rl *Instance) cycleNextGroup() {
 				new := rl.getCurrentGroup()
 				if len(new.Suggestions) == 0 {
 					rl.cycleNextGroup()
+				}
+			}
+			break
+		}
+	}
+}
+
+// cyclePreviousGroup - Same as cycleNextGroup but reverse
+func (rl *Instance) cyclePreviousGroup() {
+	for i, g := range rl.tcGroups {
+		if g.isCurrent {
+			g.isCurrent = false
+			if i == 0 {
+				rl.tcGroups[len(rl.tcGroups)-1].isCurrent = true
+			} else {
+				rl.tcGroups[i-1].isCurrent = true
+				new := rl.getCurrentGroup()
+				if len(new.Suggestions) == 0 {
+					rl.cyclePreviousGroup()
 				}
 			}
 			break

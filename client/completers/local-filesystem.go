@@ -128,7 +128,7 @@ func completeLocalPathAndFiles(last string) (string, *readline.CompletionGroup) 
 
 	// Completions
 	completion := &readline.CompletionGroup{
-		Name:        "(console) local directory/files)",
+		Name:        "(console) local directory/files",
 		MaxLength:   10, // The grid system is not yet able to roll on comps if > MaxLength
 		DisplayType: readline.TabDisplayGrid,
 		TrimSlash:   true,

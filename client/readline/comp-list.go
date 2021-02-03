@@ -56,7 +56,7 @@ func (g *CompletionGroup) initList(rl *Instance) {
 
 // moveTabListHighlight - Moves the highlighting for currently selected completion item (list display)
 // We don't care about the x, because only can have 2 columns of selectable choices (--long and -s)
-func (g *CompletionGroup) moveTabListHighlight(x, y int) (done bool) {
+func (g *CompletionGroup) moveTabListHighlight(rl *Instance, x, y int) (done bool, next bool) {
 
 	// We dont' pass to x, because not managed by callers
 	g.tcPosY += x
@@ -73,8 +73,12 @@ func (g *CompletionGroup) moveTabListHighlight(x, y int) (done bool) {
 
 	// Lines
 	if g.tcPosY < 0 {
-		g.tcPosY = 0
-		g.tcOffset--
+		if rl.tabCompletionReverse {
+			return true, true
+		} else {
+			g.tcPosY = 0
+			g.tcOffset--
+		}
 	}
 	if g.tcPosY > g.tcMaxY {
 		g.tcPosY--
@@ -89,7 +93,7 @@ func (g *CompletionGroup) moveTabListHighlight(x, y int) (done bool) {
 			g.tcPosX++
 			g.tcPosY = 1
 			g.tcOffset = 0
-			return false
+			return false, false
 		}
 
 		// Else no alternatives, return for next group.
@@ -97,7 +101,7 @@ func (g *CompletionGroup) moveTabListHighlight(x, y int) (done bool) {
 		g.tcPosX = 0 // First column
 		g.tcPosY = 1 // first row
 		g.tcOffset = 0
-		return true
+		return true, true
 	}
 
 	// Here we must check, in x == 1, that the current choice
@@ -108,13 +112,13 @@ func (g *CompletionGroup) moveTabListHighlight(x, y int) (done bool) {
 		for i, su := range g.Suggestions[g.tcPosY-1:] {
 			if _, ok := g.SuggestionsAlt[su]; ok {
 				g.tcPosY += i
-				return false
+				return false, false
 			}
 		}
 	}
 
 	// Setup offset if needs to be.
-	// TODO: should rewrited to conditionally process rolling menus with alternatives
+	// TODO: should be rewrited to conditionally process rolling menus with alternatives
 	if g.tcOffset+g.tcPosY < 1 && len(g.Suggestions) > 0 {
 		g.tcPosY = g.tcMaxY
 		g.tcOffset = len(g.Suggestions) - g.tcMaxY
@@ -142,7 +146,7 @@ func (g *CompletionGroup) moveTabListHighlight(x, y int) (done bool) {
 	//         g.tcPosY = 1
 	//         return true
 	// }
-	return false
+	return false, false
 }
 
 // writeList - A list completion string
@@ -250,3 +254,94 @@ func (rl *Instance) getListPad() (pad int) {
 
 	return
 }
+
+// moveTabListHighlight - Moves the highlighting for currently selected completion item (list display)
+// We don't care about the x, because only can have 2 columns of selectable choices (--long and -s)
+// func (g *CompletionGroup) moveTabListHighlight(x, y int) (done bool) {
+//
+//         // We dont' pass to x, because not managed by callers
+//         g.tcPosY += x
+//
+//         // Columns (alternative suggestions)
+//         if g.tcPosX < 0 {
+//                 g.tcPosX = 0
+//                 g.tcPosY--
+//         }
+//         if g.tcPosX > g.tcMaxX {
+//                 g.tcPosX = 0
+//                 g.tcPosY++
+//         }
+//
+//         // Lines
+//         if g.tcPosY < 0 {
+//                 g.tcPosY = 0
+//                 g.tcOffset--
+//         }
+//         if g.tcPosY > g.tcMaxY {
+//                 g.tcPosY--
+//                 g.tcOffset++
+//         }
+//
+//         // Once we get to the end of choices: check which column we were selecting.
+//         if g.tcOffset+g.tcPosY > len(g.Suggestions) {
+//                 // If we have alternative options and that we are not yet
+//                 // completing them, start on top of their column
+//                 if g.tcPosX == 0 && len(g.SuggestionsAlt) > 0 {
+//                         g.tcPosX++
+//                         g.tcPosY = 1
+//                         g.tcOffset = 0
+//                         return false
+//                 }
+//
+//                 // Else no alternatives, return for next group.
+//                 // Reset all values, in case we pass on them again.
+//                 g.tcPosX = 0 // First column
+//                 g.tcPosY = 1 // first row
+//                 g.tcOffset = 0
+//                 return true
+//         }
+//
+//         // Here we must check, in x == 1, that the current choice
+//         // is not empty. If it is, directly return after setting y value.
+//         sugg := g.Suggestions[g.tcPosY-1]
+//         _, ok := g.SuggestionsAlt[sugg]
+//         if !ok && g.tcPosX == 1 {
+//                 for i, su := range g.Suggestions[g.tcPosY-1:] {
+//                         if _, ok := g.SuggestionsAlt[su]; ok {
+//                                 g.tcPosY += i
+//                                 return false
+//                         }
+//                 }
+//         }
+//
+//         // Setup offset if needs to be.
+//         // TODO: should rewrited to conditionally process rolling menus with alternatives
+//         if g.tcOffset+g.tcPosY < 1 && len(g.Suggestions) > 0 {
+//                 g.tcPosY = g.tcMaxY
+//                 g.tcOffset = len(g.Suggestions) - g.tcMaxY
+//         }
+//         if g.tcOffset < 0 {
+//                 g.tcOffset = 0
+//         }
+//
+//         // MIGHT BE NEEDED IF PROBLEMS WIHT ROLLING COMPLETIONS
+//         // ------------------------------------------------------------------------------
+//         // Once we get to the end of choices: check which column we were selecting.
+//         // We use +1 because we may have a single suggestion, and we just want "a ratio"
+//         // if g.tcOffset+g.tcPosY > len(g.Suggestions) {
+//         //
+//         //         // If we have alternative options and that we are not yet
+//         //         // completing them, start on top of their column
+//         //         if g.tcPosX == 1 && len(g.SuggestionsAlt) > 0 {
+//         //                 g.tcPosX++
+//         //                 g.tcPosY = 1
+//         //                 g.tcOffset = 0
+//         //                 return false
+//         //         }
+//         //
+//         //         // Else no alternatives, return for next group.
+//         //         g.tcPosY = 1
+//         //         return true
+//         // }
+//         return false
+// }

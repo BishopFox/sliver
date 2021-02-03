@@ -110,17 +110,18 @@ type Instance struct {
 	hintText []rune
 
 	// tab completion
-	tcGroups            []*CompletionGroup // All of our suggestions tree is in here
-	modeTabCompletion   bool
-	tabCompletionSelect bool // We may have completions, printed, but do we want to select a candidate ?
-	tcPrefix            string
-	tcOffset            int
-	tcPosX              int
-	tcPosY              int
-	tcMaxX              int
-	tcMaxY              int
-	tcUsedY             int
-	tcMaxLength         int
+	tcGroups             []*CompletionGroup // All of our suggestions tree is in here
+	modeTabCompletion    bool
+	tabCompletionSelect  bool // We may have completions, printed, but do we want to select a candidate ?
+	tcPrefix             string
+	tcOffset             int
+	tcPosX               int
+	tcPosY               int
+	tcMaxX               int
+	tcMaxY               int
+	tcUsedY              int
+	tcMaxLength          int
+	tabCompletionReverse bool // Groups sometimes use this indicator to know how they should handle their index
 
 	// When too many completions, we ask the user to confirm with another Tab keypress.
 	compConfirmWait bool

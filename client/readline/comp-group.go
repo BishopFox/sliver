@@ -84,11 +84,9 @@ func (g *CompletionGroup) updateTabFind(rl *Instance) {
 
 // checkCycle - Based on the number of groups given to the shell, allows cycling or not
 func (g *CompletionGroup) checkCycle(rl *Instance) {
-
 	if len(rl.tcGroups) == 1 {
 		g.allowCycle = true
 	}
-
 	if len(rl.tcGroups) >= 10 {
 		g.allowCycle = false
 	}
@@ -145,14 +143,6 @@ func (g *CompletionGroup) writeCompletion(rl *Instance) (comp string) {
 	case TabDisplayList:
 		comp += g.writeList(rl)
 	}
-
-	// If at the end, for whatever reason, we have a string consisting
-	// only of the group's name/description, we don't append it to
-	// completions and therefore return ""
-	if comp == "" {
-		return ""
-	}
-
 	return
 }
 
@@ -204,4 +194,47 @@ func (g *CompletionGroup) getCurrentCell(rl *Instance) string {
 
 	// We should never get here
 	return ""
+}
+
+func (g *CompletionGroup) goFirstCell() {
+	switch g.DisplayType {
+	case TabDisplayGrid:
+		g.tcPosX = 1
+		g.tcPosY = 1
+
+	case TabDisplayList:
+
+	case TabDisplayMap:
+	}
+
+}
+
+func (g *CompletionGroup) goLastCell() {
+	switch g.DisplayType {
+	case TabDisplayGrid:
+		g.tcPosY = g.tcMaxY
+
+		restX := len(g.Suggestions) % g.tcMaxX
+		if restX != 0 {
+			g.tcPosX = restX
+		} else {
+			g.tcPosX = g.tcMaxX
+		}
+
+		// We need to adjust the X position depending
+		// on the interpretation of the remainder with
+		// respect to the group's MaxLength.
+		restY := len(g.Suggestions) % g.tcMaxY
+		maxY := len(g.Suggestions) / g.tcMaxX
+		if restY == 0 && maxY > g.MaxLength {
+			g.tcPosX = g.tcMaxX
+		}
+		if restY != 0 && maxY > g.MaxLength-1 {
+			g.tcPosX = g.tcMaxX
+		}
+
+	case TabDisplayList:
+
+	case TabDisplayMap:
+	}
 }
