@@ -287,7 +287,7 @@ func (rl *Instance) clearLine() {
 	rl.pos = 0
 
 	// Completions are also reset
-	rl.resetVirtualComp()
+	rl.clearVirtualComp()
 }
 
 func (rl *Instance) resetHelpers() {

@@ -61,10 +61,30 @@ func (rl *Instance) insertCandidateVirtual(candidate []rune) {
 	rl.pos += len(candidate)
 }
 
-// updateVirtualCompletion - This function is called before most of our readline key handlers,
+// updateVirtualComp - Either insert the current completion candidate virtually, or on the real line.
+func (rl *Instance) updateVirtualComp() {
+	cur := rl.getCurrentGroup()
+	if cur != nil {
+
+		completion := cur.getCurrentCell(rl)
+		prefix := len(rl.tcPrefix)
+
+		// If the total number of completions is one, automatically insert it.
+		if rl.hasOneCandidate() {
+			rl.insertCandidate()
+		} else {
+			// Or insert it virtually.
+			if len(completion) >= prefix {
+				rl.insertCandidateVirtual([]rune(completion[prefix:]))
+			}
+		}
+	}
+}
+
+// resetVirtualComp - This function is called before most of our readline key handlers,
 // and makes sure that the current completion (virtually inserted) is either inserted or dropped,
 // and that all related parameters are reinitialized.
-func (rl *Instance) updateVirtualCompletion() {
+func (rl *Instance) resetVirtualComp() {
 
 	// If we don't have a current virtual completion, there's nothing to do.
 	// IMPORTANT: this MUST be first, to avoid nil problems with empty comps.
@@ -81,7 +101,7 @@ func (rl *Instance) updateVirtualCompletion() {
 	completion := cur.getCurrentCell(rl)
 	// Avoid problems with empty completions
 	if completion == "" {
-		rl.resetVirtualComp()
+		rl.clearVirtualComp()
 		return
 	}
 
@@ -103,7 +123,7 @@ func (rl *Instance) updateVirtualCompletion() {
 	}
 
 	// Reset virtual
-	rl.resetVirtualComp()
+	rl.clearVirtualComp()
 }
 
 // trimTrailing - When the group to which the current candidate
@@ -215,7 +235,7 @@ func (rl *Instance) deleteVirtual() {
 
 // We are done with the current virtual completion candidate.
 // Get ready for the next one
-func (rl *Instance) resetVirtualComp() {
+func (rl *Instance) clearVirtualComp() {
 	rl.line = rl.lineComp
 	rl.lineComp = []rune{}
 	rl.lineRemain = []rune{}

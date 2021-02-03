@@ -106,6 +106,12 @@ func (g *CompletionGroup) checkMaxLength(rl *Instance) {
 			g.MaxLength = 20
 		}
 	}
+
+	// Lists that have a alternative completions are not allowed to have
+	// MaxLength set, because rolling does not work yet.
+	if g.DisplayType == TabDisplayList {
+		g.MaxLength = 1000 // Should be enough not to trigger anything related.
+	}
 }
 
 // checkNilItems - For each completion group we avoid nil maps and possibly other items
