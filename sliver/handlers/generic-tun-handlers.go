@@ -318,7 +318,6 @@ func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Con
 				tun:  tunnel,
 				conn: connection,
 			}
-			//bytesRead, err := io.Copy(tWriter, tunnel.Reader)
 			byteArrayRead := make([]byte, 1024)
 			bytesRead, err := tunnel.Reader.Read(byteArrayRead)
 			if bytesRead != 0 {
