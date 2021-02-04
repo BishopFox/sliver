@@ -214,6 +214,9 @@ func (g *CompletionGroup) goFirstCell() {
 		g.tcOffset = 0
 
 	case TabDisplayMap:
+		g.tcPosX = 0
+		g.tcPosY = 1
+		g.tcOffset = 0
 	}
 
 }
@@ -243,7 +246,6 @@ func (g *CompletionGroup) goLastCell() {
 		}
 
 	case TabDisplayList:
-
 		// By default, the last item is at maxY
 		g.tcPosY = g.tcMaxY
 
@@ -257,5 +259,16 @@ func (g *CompletionGroup) goLastCell() {
 		g.tcPosX = 0
 
 	case TabDisplayMap:
+		// By default, the last item is at maxY
+		g.tcPosY = g.tcMaxY
+
+		// If the max length is smaller than the number
+		// of suggestions, we need to adjust the offset.
+		if len(g.Suggestions) > g.MaxLength {
+			g.tcOffset = len(g.Suggestions) - g.tcMaxY
+		}
+
+		// We do not take into account the alternative suggestions
+		g.tcPosX = 0
 	}
 }

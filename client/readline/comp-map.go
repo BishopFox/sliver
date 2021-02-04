@@ -35,15 +35,21 @@ func (g *CompletionGroup) initMap(rl *Instance) {
 }
 
 // moveTabMapHighlight - Moves the highlighting for currently selected completion item (map display)
-func (g *CompletionGroup) moveTabMapHighlight(x, y int) (done bool) {
+func (g *CompletionGroup) moveTabMapHighlight(rl *Instance, x, y int) (done bool, next bool) {
 
 	g.tcPosY += x
 	g.tcPosY += y
 
 	// Lines
 	if g.tcPosY < 1 {
-		g.tcPosY = 1 // We had suppressed it for some time, don't know why.
-		g.tcOffset--
+		if rl.tabCompletionReverse {
+			if g.tcOffset > 0 {
+				g.tcPosY = 1
+				g.tcOffset--
+			} else {
+				return true, false
+			}
+		}
 	}
 	if g.tcPosY > g.tcMaxY {
 		g.tcPosY--
@@ -59,11 +65,9 @@ func (g *CompletionGroup) moveTabMapHighlight(x, y int) (done bool) {
 	}
 
 	if g.tcOffset+g.tcPosY > len(g.Suggestions) {
-		g.tcPosY = 1
-		g.tcOffset = 0
-		return true
+		return true, true
 	}
-	return false
+	return false, false
 }
 
 // writeMap - A map or list completion string
