@@ -72,7 +72,7 @@ func (l *clientHook) Fire(log *logrus.Entry) (err error) {
 	}
 
 	// Refresh the prompt without actually printing it.
-	shell.RefreshMultiline(promptRender(), false, 2, true)
+	shell.RefreshMultiline(promptRender(), 2, true)
 
 	// Add the message and print
 	line += log.Message
@@ -83,7 +83,8 @@ func (l *clientHook) Fire(log *logrus.Entry) (err error) {
 
 	// Then, refresh the prompt. The overall effect is to have the logs being
 	// printed just above the prompt, so that it does not bother the user.
-	shell.RefreshMultiline(promptRender(), true, 0, false)
+	shell.HideNextPrompt = true
+	shell.RefreshMultiline(promptRender(), 0, false)
 
 	return nil
 }

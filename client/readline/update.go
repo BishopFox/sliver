@@ -6,12 +6,11 @@ import (
 	"strings"
 )
 
-// RefreshMultiline - This function can be called by the user program to refresh the first line of the prompt,
-// if the latter is a 2-line (multiline) prompt. This function should refresh the prompt "in place", which
-// means it renders it directly where it was: it does not print a new one below.
-// The offset param can be used to adjust the number of lines to clear upward, in case there are things the
-// shell cannot know. Set offset to 0 if you don't use it.
-func (rl *Instance) RefreshMultiline(prompt string, printPrompt bool, offset int, clearLine bool) (err error) {
+// RefreshMultiline - Reprints the prompt considering several parameters:
+// @prompt      => If not nil (""), will use this prompt instead of the currently set prompt.
+// @offset      => Used to set the number of lines to go upward, before reprinting. Set to 0 if not used.
+// @clearLine   => If true, will clean the current input line on the next refresh.
+func (rl *Instance) RefreshMultiline(prompt string, offset int, clearLine bool) (err error) {
 
 	if !rl.Multiline {
 		return errors.New("readline error: refresh cannot happen, prompt is not multiline")
@@ -29,16 +28,19 @@ func (rl *Instance) RefreshMultiline(prompt string, printPrompt bool, offset int
 	// Add user-provided offset
 	rl.tcUsedY += offset
 
-	print(seqClearLine) // Clear the current line, which might be longer than what's overwritten
+	// Clear the input line and everything below
+	print(seqClearLine)
 	moveCursorUp(rl.hintY + rl.tcUsedY)
 	moveCursorBackwards(GetTermWidth())
-	print("\r\n" + seqClearScreenBelow) // We add this to clear everything below offset.
+	print("\r\n" + seqClearScreenBelow)
 
-	// Print first line of prompt if asked to
+	// Update the prompt if a special has been passed.
 	if prompt != "" {
 		rl.prompt = prompt
 	}
-	if printPrompt {
+
+	// Only print the prompt if we have not been instructed to hide it.
+	if !rl.HideNextPrompt {
 		fmt.Println(rl.prompt)
 		rl.renderHelpers()
 	}

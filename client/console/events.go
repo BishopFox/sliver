@@ -66,13 +66,14 @@ func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 				fmt.Printf("\t🔥 Session #%d is affected\n", session.ID)
 			}
 			fmt.Println()
-			c.Shell.RefreshMultiline(Prompt.Render(), true, 0, false)
+			c.Shell.HideNextPrompt = true
+			c.Shell.RefreshMultiline(Prompt.Render(), 0, false)
 
 		case consts.JobStoppedEvent:
 			cctx.Context.Jobs-- // Decrease context jobs counter
 
 			// Refresh the prompt without actually printing it.
-			c.Shell.RefreshMultiline(Prompt.Render(), false, 2, true)
+			c.Shell.RefreshMultiline(Prompt.Render(), 2, true)
 
 			job := event.Job
 			fmt.Printf(util.Info+"Job #%d stopped (%s/%s)\n", job.ID, job.Protocol, job.Name)
@@ -81,7 +82,8 @@ func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 			fmt.Println()
 
 			// Then refresh the prompt
-			c.Shell.RefreshMultiline(Prompt.Render(), true, 0, false)
+			c.Shell.HideNextPrompt = true
+			c.Shell.RefreshMultiline(Prompt.Render(), 0, false)
 
 		case consts.SessionOpenedEvent:
 			session := event.Session
@@ -105,14 +107,16 @@ func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 				fmt.Printf(util.Info+"Session #%d %s - %s (%s) - %s/%s - %v\n\n",
 					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			}
-			c.Shell.RefreshMultiline(Prompt.Render(), true, 0, false)
+			c.Shell.HideNextPrompt = true
+			c.Shell.RefreshMultiline(Prompt.Render(), 0, false)
 
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
 			fmt.Printf("\n") // Clear screen a bit before announcing the king
 			fmt.Printf(util.Info+"Session #%d has been updated - %v\n\n", session.ID, currentTime)
-			c.Shell.RefreshMultiline(Prompt.Render(), true, 0, false)
+			c.Shell.HideNextPrompt = true
+			c.Shell.RefreshMultiline(Prompt.Render(), 0, false)
 
 		case consts.SessionClosedEvent:
 			cctx.Context.Slivers-- // Decrease context slivers counter
@@ -122,7 +126,8 @@ func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 				fmt.Printf("\n\n")
 				fmt.Printf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
-				c.Shell.RefreshMultiline(Prompt.Render(), true, 0, false)
+				c.Shell.HideNextPrompt = true
+				c.Shell.RefreshMultiline(Prompt.Render(), 0, false)
 
 			} else if cctx.Context.Sliver == nil {
 				fmt.Printf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
@@ -131,7 +136,7 @@ func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 			} else {
 
 				// Refresh the prompt without actually printing it.
-				c.Shell.RefreshMultiline(Prompt.Render(), false, 1, true)
+				c.Shell.RefreshMultiline(Prompt.Render(), 1, true)
 
 				// If we have disconnected our own context, we have a 1 sec timelapse to wait for this message.
 				time.Sleep(time.Millisecond * 200)
@@ -143,7 +148,8 @@ func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 				// Reset the current session and refresh
 				cctx.Context.Menu = cctx.Server
 				cctx.Context.Sliver = nil
-				c.Shell.RefreshMultiline(Prompt.Render(), true, 0, false)
+				c.Shell.HideNextPrompt = true
+				c.Shell.RefreshMultiline(Prompt.Render(), 0, false)
 			}
 
 			// In any case, delete the completion data cache for the session, if any.
