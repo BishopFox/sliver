@@ -99,16 +99,12 @@ func (g *CompletionGroup) moveTabListHighlight(rl *Instance, x, y int) (done boo
 	_, ok := g.SuggestionsAlt[sugg]
 	if !ok && g.tcPosX == 1 {
 		if rl.tabCompletionReverse {
-			var found bool
 			for i := len(g.Suggestions[:g.tcPosY-1]); i > 0; i-- {
 				su := g.Suggestions[i]
 				if _, ok := g.SuggestionsAlt[su]; ok {
-					found = true
-					g.tcPosY -= (len(g.Suggestions[:g.tcPosY-1]) - 1) - i
+					g.tcPosY -= (len(g.Suggestions[:g.tcPosY-1])) - i
+					return false, false
 				}
-			}
-			if found {
-				return false, false
 			}
 			g.tcPosX = 0
 			g.tcPosY = g.tcMaxY

@@ -218,9 +218,8 @@ func (rl *Instance) getHistorySearchCompletion() {
 	}
 	rl.histHint = []rune(rl.tcGroups[0].Name)
 
-	// if rl.regexSearch.String() != "(?i)" {
-	rl.tcGroups[0].updateTabFind(rl) // Refresh filtered candidates
-	// }
+	// Refresh filtered candidates
+	rl.tcGroups[0].updateTabFind(rl)
 
 	// If no items matched history, add hint text that we failed to search
 	if len(rl.tcGroups[0].Suggestions) == 0 {
