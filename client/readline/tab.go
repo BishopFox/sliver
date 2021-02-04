@@ -188,6 +188,7 @@ func (rl *Instance) getTabSearchCompletion() {
 	if len(rl.tcGroups) == 0 {
 		return
 	}
+
 	rl.tcGroups = checkNilItems(rl.tcGroups) // Avoid nil maps in groups
 	rl.getCurrentGroup()                     // Make sure there is a current group
 

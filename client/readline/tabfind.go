@@ -46,6 +46,12 @@ func (rl *Instance) updateTabFind(r []rune) {
 		rl.hintText = []rune(Red("Failed to match search regexp"))
 	}
 
+	// we always clear the line first, so that changing the
+	// search pattern does not screw everything.
+	rl.clearLine()
+	rl.clearVirtualComp()
+
+	// Then we update and print
 	rl.clearHelpers()
 	rl.getTabCompletion()
 	rl.renderHelpers()
