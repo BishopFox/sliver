@@ -19,7 +19,7 @@
 
 # Creates the static go asset archives
 
-GO_VER="1.16beta1"
+GO_VER="1.16rc1"
 GO_ARCH_1="amd64"
 GO_ARCH_2="arm64"
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
