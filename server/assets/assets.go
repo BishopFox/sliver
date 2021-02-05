@@ -37,10 +37,11 @@ import (
 
 const (
 	// GoDirName - The directory to store the go compiler/toolchain files in
-	GoDirName       = "go"
+	GoDirName   = "go"
+	dataDirName = "data"
+
 	goPathDirName   = "gopath"
 	versionFileName = "version"
-	dataDirName     = "data"
 	envVarName      = "SLIVER_ROOT_DIR"
 )
 
@@ -215,7 +216,7 @@ func SetupGoPath(goPathSrc string) error {
 
 // setupDataPath - Sets the data directory up
 func setupDataPath(appDir string) error {
-	dataDir := path.Join(appDir, dataDirName)
+	dataDir := GetDataDir()
 	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
 		setupLog.Infof("Creating data directory: %s", dataDir)
 		os.MkdirAll(dataDir, 0700)
@@ -225,7 +226,7 @@ func setupDataPath(appDir string) error {
 		setupLog.Info("failed to find the dll")
 		return err
 	}
-	err = ioutil.WriteFile(dataDir+"/HostingCLRx64.dll", hostingDll, 0644)
+	err = ioutil.WriteFile(path.Join(dataDir, "HostingCLRx64.dll"), hostingDll, 0644)
 	return err
 }
 
