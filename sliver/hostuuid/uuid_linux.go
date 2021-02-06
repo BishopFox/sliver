@@ -26,10 +26,16 @@ import (
 )
 
 func GetUUID() string {
-	uuid, err := ioutil.ReadFile("/var/lib/dbus/machine-id")
-	if err != nil {
-		panic(err)
+	uuid, err := ioutil.ReadFile("/etc/machine-id")
+	// UUID length is 32 plus newline
+	if (err != nil) || (len(uuid) != 33) {
+		uuid, err = ioutil.ReadFile("/var/lib/dbus/machine-id")
+		if (err != nil) || (len(uuid) != 33) {
+			// Randomized on the server
+			return ""
+		}
 	}
+
 	return fmt.Sprintf("%s-%s-%s-%s-%s",
 		uuid[0:8],
 		uuid[8:12], uuid[12:16], uuid[16:20],
