@@ -40,7 +40,7 @@ struct timespec {
 
 import (
 	"fmt"
-	"golang.org/x/sys/unix"
+	"syscall"
 	"unsafe"
 )
 
@@ -58,10 +58,14 @@ type timespec struct {
 	tv_nsec int32
 }
 
+// Darwin syscall:
+// int gethostuuid(unsigned char *uuid_buf, const struct timespec *timeoutp);
+const gethostuuid = 142
+
 func GetUUID() string {
 	uuid := uuid_t{}
 	timespec := timespec{tv_sec: 5, tv_nsec: 0}
-	unix.Syscall(142,
+	syscall.Syscall(gethostuuid,
 		uintptr(unsafe.Pointer(&uuid)),
 		uintptr(unsafe.Pointer(&timespec)),
 		uintptr(0),
