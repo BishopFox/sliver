@@ -126,6 +126,8 @@ func (c *console) setup() (err error) {
 	// This computes all callbacks and base prompt strings
 	// for the first time, and then binds it to the console.
 	c.initPrompt()
+	c.Shell.Multiline = true
+	c.Shell.ShowVimMode = true
 
 	// Completions and syntax highlighting
 	c.Shell.TabCompleter = completers.TabCompleter
@@ -134,8 +136,6 @@ func (c *console) setup() (err error) {
 	// History (client and user-wide)
 	c.Shell.History = UserHist
 	c.Shell.AltHistory = ClientHist
-	// c.Shell.History = ClientHist
-	// c.Shell.AltHistory = UserHist
 
 	// Request the user history to server and cache it
 	getUserHistory()
@@ -185,7 +185,6 @@ func (c *console) Start() (err error) {
 
 	// Start input loop
 	for {
-
 		// Some commands can act on the shell properties via the console
 		// context package, so we check values and set everything up.
 		c.setConfiguredShell()
@@ -196,7 +195,10 @@ func (c *console) Start() (err error) {
 		// Recompute prompt each time, before anything.
 		Prompt.Compute()
 
-		// Read input line
+		// Reset the log synchroniser.
+		clientLog.ResetLogSynchroniser()
+
+		// Read input line (blocking)
 		line, _ := c.Readline()
 
 		// Split and sanitize input

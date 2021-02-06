@@ -1,7 +1,6 @@
 package readline
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 )
@@ -264,14 +263,6 @@ func (rl *Instance) refreshVimStatus() {
 	rl.computePrompt()
 	rl.clearHelpers()
 	rl.renderHelpers()
-}
-
-func (rl *Instance) colorizeVimPrompt(p []rune) (cp []rune) {
-	if rl.VimModeColorize {
-		return []rune(fmt.Sprintf("%s%s%s", BOLD, string(p), RESET))
-	}
-
-	return []rune(fmt.Sprintf("%s%s%s", BOLD, string(p), RESET))
 }
 
 func (rl *Instance) viHintMessage() {

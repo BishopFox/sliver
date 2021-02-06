@@ -27,6 +27,7 @@ import (
 
 	"github.com/evilsocket/islazy/tui"
 
+	"github.com/bishopfox/sliver/client/log"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -67,15 +68,15 @@ type JobsKill struct {
 // Execute - Kill a job given an ID
 func (j *JobsKill) Execute(args []string) (err error) {
 
+	log.SynchronizeLogs("jobs")
+
 	for _, jobID := range j.Positional.JobID {
-		fmt.Printf(util.Info+"Killing job #%d ...", jobID)
-		jobKill, err := transport.RPC.KillJob(context.Background(), &clientpb.KillJobReq{
+		fmt.Printf(util.Info+"Killing job #%d ... \n", jobID)
+		_, err := transport.RPC.KillJob(context.Background(), &clientpb.KillJobReq{
 			ID: jobID,
 		})
 		if err != nil {
 			fmt.Printf(util.Error+"%s\n", err)
-		} else {
-			fmt.Printf(util.Info+"Successfully killed job #%d\n", jobKill.ID)
 		}
 	}
 	return
@@ -86,6 +87,9 @@ type JobsKillAll struct{}
 
 // Execute - Kill all active server jobs
 func (j *JobsKillAll) Execute(args []string) (err error) {
+
+	log.SynchronizeLogs("jobs")
+
 	jobs, err := transport.RPC.GetJobs(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(util.RPCError+"%s\n", err)

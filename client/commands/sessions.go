@@ -30,6 +30,7 @@ import (
 	"github.com/evilsocket/islazy/tui"
 
 	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/log"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
@@ -79,6 +80,8 @@ type SessionsKill struct {
 // Execute - Kill one or more sessions.
 func (sk *SessionsKill) Execute(args []string) (err error) {
 
+	log.SynchronizeLogs("client")
+
 	// Get a map of all sessions
 	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -104,12 +107,8 @@ func (sk *SessionsKill) Execute(args []string) (err error) {
 		// Kill session
 		err = killSession(sess, transport.RPC)
 
-		// Change context if we are killing the current session
-		active := cctx.Context.Sliver
-		if active != nil && sess.ID == active.ID {
-			cctx.Context.Menu = cctx.Server
-			cctx.Context.Sliver = nil
-		}
+		// The context will be updated as soon
+		// as we receive confirmation from the server
 	}
 	return
 }
@@ -119,6 +118,8 @@ type SessionsKillAll struct{}
 
 // Execute - Kill all sessions
 func (ka *SessionsKillAll) Execute(args []string) (err error) {
+
+	log.SynchronizeLogs("client")
 
 	// Get a map of all sessions
 	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
@@ -145,12 +146,8 @@ func (ka *SessionsKillAll) Execute(args []string) (err error) {
 		// Kill session
 		err = killSession(sess, transport.RPC)
 
-		// Change context if we are killing the current session
-		active := cctx.Context.Sliver
-		if active != nil && sess.ID == active.ID {
-			cctx.Context.Menu = cctx.Server
-			cctx.Context.Sliver = nil
-		}
+		// The context will be updated as soon
+		// as we receive confirmation from the server
 	}
 
 	return
@@ -161,6 +158,8 @@ type SessionsClean struct{}
 
 // Execute - Clean sessions marked dead
 func (ka *SessionsClean) Execute(args []string) (err error) {
+
+	log.SynchronizeLogs("client")
 
 	// Get a map of all sessions
 	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
@@ -292,6 +291,8 @@ type Set struct {
 // Execute - Set an environment value for the current session.
 func (s *Set) Execute(args []string) (err error) {
 
+	log.SynchronizeLogs("session")
+
 	// Option to change the agent name
 	name := s.Options.Name
 
@@ -356,13 +357,12 @@ func killSession(session *clientpb.Session, rpc rpcpb.SliverRPCClient) error {
 		return err
 	}
 
-	fmt.Printf(util.Info+"Killed %s (%d)\n", session.Name, session.ID)
-	// fmt.Printf(util.Info + "Waiting for confirmation...\n")
 	ctrl := make(chan bool)
 	go spin.Until(util.Info+"Waiting for confirmation...", ctrl)
 	time.Sleep(time.Second * 1)
 	ctrl <- true
 	<-ctrl
+	fmt.Printf(util.Info+"Killed %s (%d)\n", session.Name, session.ID)
 
 	return nil
 }

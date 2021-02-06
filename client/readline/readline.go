@@ -27,6 +27,7 @@ func (rl *Instance) Readline() (string, error) {
 		rl.HideNextPrompt = false // Immediately reset this. Its a one-time shot.
 	}
 
+	rl.stillOnRefresh = false
 	rl.line = []rune{}
 	rl.currentComp = []rune{} // No virtual completion yet
 	rl.lineComp = []rune{}    // So no virtual line either
@@ -556,7 +557,7 @@ func (rl *Instance) editorInput(r []rune) {
 // escape codes.
 func (rl *Instance) SetPrompt(s string) {
 	rl.prompt = s
-	rl.promptLen = strLen(s)
+	// rl.promptLen = strLen(s)
 }
 
 func (rl *Instance) carridgeReturn() {

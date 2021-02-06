@@ -22,6 +22,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/comm"
 	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/log"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commpb"
@@ -148,6 +149,9 @@ type PortfwdOpen struct {
 // Execute -  Start a client-implant port forwarder
 func (p *PortfwdOpen) Execute(args []string) (err error) {
 
+	// Synchronize the log system for this command
+	log.SynchronizeLogs("comm")
+
 	// Check a session is targeted (active or with option)
 	session := cctx.Context.Sliver
 	if session == nil && p.Options.SessionID == 0 {
@@ -247,6 +251,9 @@ type PortfwdClose struct {
 
 // Execute -  Start a client-implant port forwarder
 func (p *PortfwdClose) Execute(args []string) (err error) {
+
+	// Synchronize the log system for this command
+	log.SynchronizeLogs("comm")
 
 	// Check a session is targeted (active or with option)
 	session := cctx.Context.Sliver

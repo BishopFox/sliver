@@ -10,6 +10,7 @@ import (
 	"github.com/bishopfox/sliver/client/completers"
 	consts "github.com/bishopfox/sliver/client/constants"
 	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/log"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -62,28 +63,22 @@ func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 			fmt.Printf("\n\n") // Clear screen a bit before announcing shitty news
 			fmt.Printf(util.Warn+tui.BOLD+"WARNING: %s%s has been burned (DNS Canary)\n", tui.RESET, event.Session.Name)
 			sessions := getSessionsByName(event.Session.Name, transport.RPC)
+			var alert string
 			for _, session := range sessions {
-				fmt.Printf("\t🔥 Session #%d is affected\n", session.ID)
+				alert += fmt.Sprintf("\t🔥 Session #%d is affected\n", session.ID)
 			}
-			fmt.Println()
-			c.Shell.HideNextPrompt = true
-			c.Shell.RefreshMultiline(Prompt.Render(), 0, false)
+			c.Shell.RefreshPromptLog(alert)
 
 		case consts.JobStoppedEvent:
 			cctx.Context.Jobs-- // Decrease context jobs counter
-
-			// Refresh the prompt without actually printing it.
-			c.Shell.RefreshMultiline(Prompt.Render(), 2, true)
-
 			job := event.Job
-			fmt.Printf(util.Info+"Job #%d stopped (%s/%s)\n", job.ID, job.Protocol, job.Name)
+			line := fmt.Sprintf(util.Info+"Job #%d stopped (%s/%s)\n", job.ID, job.Protocol, job.Name)
 
-			// Additional line makes messages not overlapping because of refreshes
-			fmt.Println()
-
-			// Then refresh the prompt
-			c.Shell.HideNextPrompt = true
-			c.Shell.RefreshMultiline(Prompt.Render(), 0, false)
+			if log.IsSynchronized() {
+				fmt.Print(line)
+			} else {
+				c.Shell.RefreshPromptLog(line)
+			}
 
 		case consts.SessionOpenedEvent:
 			session := event.Session
@@ -101,61 +96,76 @@ func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 			// - first we add an "empty" session
 			// - then we complete the session info when we receive the Register message from the Sliver
 			// This check is here to avoid displaying two sessions events for the same session
+			var news string
 			if session.OS != "" {
 				currentTime := time.Now().Format(time.RFC1123)
-				fmt.Printf("\n\n") // Clear screen a bit before announcing the king
-				fmt.Printf(util.Info+"Session #%d %s - %s (%s) - %s/%s - %v\n\n",
+				news += fmt.Sprintf("\n\n") // Clear screen a bit before announcing the king
+				news += fmt.Sprintf(util.Info+"Session #%d %s - %s (%s) - %s/%s - %v\n",
 					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
+				if log.IsSynchronized() {
+					fmt.Println(news)
+				} else {
+					fmt.Println(news)
+					c.Shell.RefreshPromptCustom(Prompt.Render(), 0, false)
+				}
 			}
-			c.Shell.HideNextPrompt = true
-			c.Shell.RefreshMultiline(Prompt.Render(), 0, false)
 
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			fmt.Printf("\n") // Clear screen a bit before announcing the king
-			fmt.Printf(util.Info+"Session #%d has been updated - %v\n\n", session.ID, currentTime)
-			c.Shell.HideNextPrompt = true
-			c.Shell.RefreshMultiline(Prompt.Render(), 0, false)
+			updated := fmt.Sprintf(util.Info+"Session #%d has been updated - %v\n", session.ID, currentTime)
+			if cctx.Context.Sliver != nil && session.ID == cctx.Context.Sliver.ID {
+				if log.IsSynchronized() {
+					fmt.Print(updated)
+				} else {
+					fmt.Print(updated)
+					c.Shell.RefreshPromptInPlace(Prompt.Render())
+				}
+			} else {
+				if log.IsSynchronized() {
+					fmt.Print(updated)
+				} else {
+					c.Shell.RefreshPromptLog(updated)
+				}
+
+			}
 
 		case consts.SessionClosedEvent:
 			cctx.Context.Slivers-- // Decrease context slivers counter
 			session := event.Session
-			// We print a message here if its not about a session we killed ourselves, and adapt prompt
-			if cctx.Context.Sliver != nil && session.ID != cctx.Context.Sliver.ID {
-				fmt.Printf("\n\n")
-				fmt.Printf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
-					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
-				c.Shell.HideNextPrompt = true
-				c.Shell.RefreshMultiline(Prompt.Render(), 0, false)
+			var lost string
 
-			} else if cctx.Context.Sliver == nil {
-				fmt.Printf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
-					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
-				// l.shell.RefreshMultiline(l.promptRender(), 0, false)
-			} else {
-
-				// Refresh the prompt without actually printing it.
-				c.Shell.RefreshMultiline(Prompt.Render(), 1, true)
-
-				// If we have disconnected our own context, we have a 1 sec timelapse to wait for this message.
-				time.Sleep(time.Millisecond * 200)
-				fmt.Printf("\n" + util.Warn + " Active session disconnected\n\n")
-
-				// Clear the screen
-				fmt.Print(seqClearScreenBelow)
+			// If the session is our current session, handle this case
+			if cctx.Context.Sliver != nil && session.ID == cctx.Context.Sliver.ID {
 
 				// Reset the current session and refresh
 				cctx.Context.Menu = cctx.Server
 				cctx.Context.Sliver = nil
-				c.Shell.HideNextPrompt = true
-				c.Shell.RefreshMultiline(Prompt.Render(), 0, false)
+
+				lost += fmt.Sprintf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
+					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
+				if log.IsSynchronized() {
+					fmt.Print(lost)
+				} else {
+					fmt.Println(lost)
+					c.Shell.RefreshPromptCustom("", 0, false)
+				}
+
+			} else {
+				// We print a message here if its not about a session we killed ourselves, and adapt prompt
+				lost += fmt.Sprintf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
+					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
+
+				if log.IsSynchronized() {
+					fmt.Print(lost)
+				} else {
+					fmt.Print(lost)
+					c.Shell.RefreshPromptLog(lost)
+				}
 			}
 
 			// In any case, delete the completion data cache for the session, if any.
 			completers.Cache.RemoveSessionData(session)
-
-			// fmt.Println()
 		}
 	}
 }

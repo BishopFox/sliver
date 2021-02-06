@@ -18,8 +18,8 @@ func (g *CompletionGroup) initList(rl *Instance) {
 	if g.Descriptions == nil {
 		g.Descriptions = make(map[string]string)
 	}
-	if g.SuggestionsAlt == nil {
-		g.SuggestionsAlt = make(map[string]string)
+	if g.Aliases == nil {
+		g.Aliases = make(map[string]string)
 	}
 
 	// Compute size of each completion item box. Group independent
@@ -34,7 +34,7 @@ func (g *CompletionGroup) initList(rl *Instance) {
 	}
 
 	// Max values depend on if we have alternative suggestions
-	if len(g.SuggestionsAlt) == 0 {
+	if len(g.Aliases) == 0 {
 		g.tcMaxX = 1
 	} else {
 		g.tcMaxX = 2
@@ -78,7 +78,7 @@ func (g *CompletionGroup) moveTabListHighlight(rl *Instance, x, y int) (done boo
 	if g.tcOffset+g.tcPosY > len(g.Suggestions) {
 		// If we have alternative options and that we are not yet
 		// completing them, start on top of their column
-		if g.tcPosX == 0 && len(g.SuggestionsAlt) > 0 {
+		if g.tcPosX == 0 && len(g.Aliases) > 0 {
 			g.tcPosX++
 			g.tcPosY = 1
 			g.tcOffset = 0
@@ -96,12 +96,12 @@ func (g *CompletionGroup) moveTabListHighlight(rl *Instance, x, y int) (done boo
 	// Here we must check, in x == 1, that the current choice
 	// is not empty. Handle for both reverse and forward movements.
 	sugg := g.Suggestions[g.tcPosY-1]
-	_, ok := g.SuggestionsAlt[sugg]
+	_, ok := g.Aliases[sugg]
 	if !ok && g.tcPosX == 1 {
 		if rl.tabCompletionReverse {
 			for i := len(g.Suggestions[:g.tcPosY-1]); i > 0; i-- {
 				su := g.Suggestions[i]
-				if _, ok := g.SuggestionsAlt[su]; ok {
+				if _, ok := g.Aliases[su]; ok {
 					g.tcPosY -= (len(g.Suggestions[:g.tcPosY-1])) - i
 					return false, false
 				}
@@ -111,7 +111,7 @@ func (g *CompletionGroup) moveTabListHighlight(rl *Instance, x, y int) (done boo
 
 		} else {
 			for i, su := range g.Suggestions[g.tcPosY-1:] {
-				if _, ok := g.SuggestionsAlt[su]; ok {
+				if _, ok := g.Aliases[su]; ok {
 					g.tcPosY += i
 					return false, false
 				}
@@ -208,7 +208,7 @@ func (g *CompletionGroup) writeList(rl *Instance) (comp string) {
 		sugg := fmt.Sprintf("\r\n%s%-"+cellWidth+"s", highlight(y, 0), item)
 
 		// Alt suggestion
-		alt, ok := g.SuggestionsAlt[item]
+		alt, ok := g.Aliases[item]
 		if ok {
 			alt = fmt.Sprintf(" %s%"+cellWidthAlt+"s", highlight(y, 1), alt)
 		} else {
@@ -228,7 +228,7 @@ func (g *CompletionGroup) writeList(rl *Instance) (comp string) {
 
 	// Add the equivalent of this group's size to final screen clearing
 	// Can be set and used only if no alterative completions have been given.
-	if len(g.SuggestionsAlt) == 0 {
+	if len(g.Aliases) == 0 {
 		if len(g.Suggestions) > g.MaxLength {
 			rl.tcUsedY += g.MaxLength
 		} else {

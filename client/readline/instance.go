@@ -3,6 +3,7 @@ package readline
 import (
 	"os"
 	"regexp"
+	"strings"
 )
 
 // Instance is used to encapsulate the parameter group and run time of any given
@@ -91,14 +92,15 @@ type Instance struct {
 	GetMultiLine func([]rune) []rune
 
 	// readline operating parameters
-	mlnPrompt     []rune // Our multiline prompt, different from multiline below
-	mlnArrow      []rune
-	promptLen     int    //= 4
-	line          []rune // This is the input line, with entered text: full line = mlnPrompt + line
-	pos           int
-	multiline     []byte
-	multisplit    []string
-	skipStdinRead bool
+	mlnPrompt      []rune // Our multiline prompt, different from multiline below
+	mlnArrow       []rune
+	promptLen      int    //= 4
+	line           []rune // This is the input line, with entered text: full line = mlnPrompt + line
+	pos            int
+	multiline      []byte
+	multisplit     []string
+	skipStdinRead  bool
+	stillOnRefresh bool // This means some logs have asynchronously printed since the last loop.
 
 	// history
 	lineBuf    string
@@ -157,9 +159,9 @@ func NewInstance() *Instance {
 	rl := new(Instance)
 
 	// Prompt
-	rl.prompt = ">>> "
-	rl.promptLen = len(rl.computePrompt())
+	rl.Multiline = false
 	rl.mlnArrow = []rune{' ', '>', ' '}
+	rl.computePrompt()
 
 	// Input Editing
 	rl.InputMode = Emacs
@@ -178,4 +180,30 @@ func NewInstance() *Instance {
 	rl.TempDirectory = os.TempDir()
 
 	return rl
+}
+
+// WrapText - Wraps a text given a specified width, and returns the formatted
+// string as well the number of lines it will occupy
+func WrapText(text string, lineWidth int) (wrapped string, lines int) {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return
+	}
+	wrapped = words[0]
+	spaceLeft := lineWidth - len(wrapped)
+	// There must be at least a line
+	if text != "" {
+		lines++
+	}
+	for _, word := range words[1:] {
+		if len(word)+1 > spaceLeft {
+			lines++
+			wrapped += "\n" + word
+			spaceLeft = lineWidth - len(word)
+		} else {
+			wrapped += " " + word
+			spaceLeft -= 1 + len(word)
+		}
+	}
+	return
 }

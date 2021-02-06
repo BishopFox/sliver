@@ -66,25 +66,20 @@ func (l *clientHook) Fire(log *logrus.Entry) (err error) {
 
 	// Print the component name in red if error
 	if log.Level == logrus.ErrorLevel {
-		line += fmt.Sprintf("%s%-10v %s-%s ", tui.RED, component, tui.DIM, tui.RESET)
+		line += fmt.Sprintf("%s%-10v %s-%s %s \n", tui.RED, component, tui.DIM, tui.RESET, log.Message)
 	} else {
-		line += fmt.Sprintf("%s%-10v %s-%s ", tui.DIM, component, tui.DIM, tui.RESET)
+		line += fmt.Sprintf("%s%-10v %s-%s %s \n", tui.DIM, component, tui.DIM, tui.RESET, log.Message)
 	}
 
-	// Refresh the prompt without actually printing it.
-	shell.RefreshMultiline(promptRender(), 2, true)
+	// If we are in the middle of a command, we just print the log without refreshing prompt
+	if isSynchronized {
+		fmt.Print(line)
+	}
 
-	// Add the message and print
-	line += log.Message
-	fmt.Println(line)
-
-	// Additional line makes messages not overlapping because of refreshes
-	fmt.Println()
-
-	// Then, refresh the prompt. The overall effect is to have the logs being
-	// printed just above the prompt, so that it does not bother the user.
-	shell.HideNextPrompt = true
-	shell.RefreshMultiline(promptRender(), 0, false)
+	// Else, we pass the log to the shell, which will handle wrapping computing, and so on.
+	if !isSynchronized {
+		shell.RefreshPromptLog(line)
+	}
 
 	return nil
 }

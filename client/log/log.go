@@ -22,7 +22,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/evilsocket/islazy/tui"
 	"github.com/sirupsen/logrus"
@@ -30,8 +29,6 @@ import (
 	// "github.com/maxlandon/readline"
 	"github.com/bishopfox/sliver/client/readline"
 
-	consts "github.com/bishopfox/sliver/client/constants"
-	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -47,6 +44,8 @@ var (
 	// References to console components, used by all loggers.
 	shell        *readline.Instance
 	promptRender func() string
+
+	isSynchronized bool // If true, the log printing beahvior will vary
 )
 
 // Init - The client starts monitoring all event logs coming from itself, or the server
@@ -68,95 +67,21 @@ func Init(sh *readline.Instance, render func() string, rpc rpcpb.SliverRPCClient
 	return nil
 }
 
-// handleServerEvents - Print events coming from the server
-func handleServerLogs(rpc rpcpb.SliverRPCClient) {
+// SynchronizeLogs - A command has to be executed, and we don't want any refresh of the prompt
+// while waiting for it finish execution. We pass the component that might produce such logs.
+func SynchronizeLogs(component string) {
+	isSynchronized = true
+}
 
-	// Call the server events stream.
-	events, err := rpc.Events(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		fmt.Printf(util.RPCError+"%s\n", err)
-		return
-	}
+// ResetLogSynchroniser - Log are again printed with a prompt refresh each time.
+func ResetLogSynchroniser() {
+	isSynchronized = false
+}
 
-	for !isDone(events.Context()) {
-		event, err := events.Recv()
-		if err != nil {
-			fmt.Printf(util.RPCError + tui.Dim(" server ") + tui.Red(err.Error()) + "\n")
-			continue
-		}
-
-		switch event.EventType {
-		case consts.CanaryEvent:
-			fmt.Printf("\n\n") // Clear screen a bit before announcing shitty news
-			fmt.Printf(util.Warn+tui.BOLD+"WARNING: %s%s has been burned (DNS Canary)\n", tui.RESET, event.Session.Name)
-			sessions := getSessionsByName(event.Session.Name, transport.RPC)
-			for _, session := range sessions {
-				fmt.Printf("\t🔥 Session #%d is affected\n", session.ID)
-			}
-			fmt.Println()
-			shell.HideNextPrompt = true
-			shell.RefreshMultiline(promptRender(), 0, false)
-
-		case consts.JobStoppedEvent:
-			cctx.Context.Jobs-- // Decrease context jobs counter
-			job := event.Job
-			fmt.Printf(util.Info+"Job #%d stopped (%s/%s)\n", job.ID, job.Protocol, job.Name)
-			shell.HideNextPrompt = true
-			shell.RefreshMultiline(promptRender(), 0, false)
-
-		case consts.SessionOpenedEvent:
-			session := event.Session
-
-			// Increase context slivers counter
-			cctx.Context.Slivers++
-
-			// Create a new session data cache for completions
-			// completers.Cache.AddSessionCache(session)
-
-			// The HTTP session handling is performed in two steps:
-			// - first we add an "empty" session
-			// - then we complete the session info when we receive the Register message from the Sliver
-			// This check is here to avoid displaying two sessions events for the same session
-			if session.OS != "" {
-				currentTime := time.Now().Format(time.RFC1123)
-				fmt.Printf("\n\n") // Clear screen a bit before announcing the king
-				fmt.Printf(util.Info+"Session #%d %s - %s (%s) - %s/%s - %v\n\n",
-					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
-			}
-			shell.HideNextPrompt = true
-			shell.RefreshMultiline(promptRender(), 0, false)
-
-		case consts.SessionUpdateEvent:
-			session := event.Session
-			currentTime := time.Now().Format(time.RFC1123)
-			fmt.Printf("\n") // Clear screen a bit before announcing the king
-			fmt.Printf(util.Info+"Session #%d has been updated - %v\n\n", session.ID, currentTime)
-			shell.HideNextPrompt = true
-			shell.RefreshMultiline(promptRender(), 0, false)
-
-		case consts.SessionClosedEvent:
-			cctx.Context.Slivers-- // Decrease context slivers counter
-			session := event.Session
-			// We print a message here if its not about a session we killed ourselves, and adapt prompt
-			if cctx.Context.Sliver != nil && session.ID != cctx.Context.Sliver.ID {
-				fmt.Printf("\n\n")
-				fmt.Printf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
-					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
-				shell.HideNextPrompt = true
-				shell.RefreshMultiline(promptRender(), 0, false)
-
-			} else if cctx.Context.Sliver == nil {
-				fmt.Printf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
-					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
-				// l.shell.RefreshMultiline(l.promptRender(), 0, false)
-			} else {
-				// If we have disconnected our own context, we have a 1 sec timelapse to wait for this message.
-				time.Sleep(time.Millisecond * 200)
-				fmt.Printf("\n" + util.Warn + " Active session disconnected")
-			}
-			fmt.Println()
-		}
-	}
+// IsSynchronized - Before the console prints some stuffs not handled by the logger,
+// it checks if it needs to refresh the prompt on its own.
+func IsSynchronized() bool {
+	return isSynchronized
 }
 
 var logrusPrintLevels = map[logrus.Level]string{
