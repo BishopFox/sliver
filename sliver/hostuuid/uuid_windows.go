@@ -1,4 +1,4 @@
-//+ build windows
+// +build windows
 
 package hostuuid
 
@@ -22,11 +22,10 @@ package hostuuid
 
 import (
 	"bytes"
-	"fmt"
 	"os/exec"
 )
 
-func gethostuuid() string {
+func GetUUID() string {
 	cmd := exec.Command("wmic.exe", "csproduct", "get", "UUID")
 	var out bytes.Buffer
 	cmd.Stdout = &out

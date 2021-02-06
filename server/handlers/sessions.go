@@ -74,6 +74,7 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	}
 	session.Name = register.Name
 	session.Hostname = register.Hostname
+	session.UUID = register.Uuid
 	session.Username = register.Username
 	session.UID = register.Uid
 	session.GID = register.Gid

@@ -45,6 +45,7 @@ func info(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(bold+"            ID: %s%d\n", normal, session.ID)
 		fmt.Printf(bold+"          Name: %s%s\n", normal, session.Name)
 		fmt.Printf(bold+"      Hostname: %s%s\n", normal, session.Hostname)
+		fmt.Printf(bold+"          UUID: %s%s\n", normal, session.UUID)
 		fmt.Printf(bold+"      Username: %s%s\n", normal, session.Username)
 		fmt.Printf(bold+"           UID: %s%s\n", normal, session.UID)
 		fmt.Printf(bold+"           GID: %s%s\n", normal, session.GID)

@@ -24,9 +24,9 @@ message Session {
   uint32 ID = 1;
   string Name = 2;
   string Hostname = 3;
-  string Username = 4;
-  string UID = 5;
-  string Uuid = 6;
+  string UUID = 4;
+  string Username = 5;
+  string UID = 6;
   string GID = 7;
   string OS = 8;
   string Arch = 9;

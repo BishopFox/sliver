@@ -54,6 +54,11 @@ var (
 		"handlers/handlers_windows.go",
 		"handlers/handlers.go",
 
+		"hostuuid/uuid.go",
+		"hostuuid/uuid_windows.go",
+		"hostuuid/uuid_darwin.go",
+		"hostuuid/uuid_linux.go",
+
 		"limits/limits.go",
 		"limits/limits_windows.go",
 		"limits/limits_darwin.go",
@@ -212,6 +217,12 @@ var (
 		"3rdparty/gen2brain/shm/shm_solaris.go",
 		"3rdparty/gen2brain/shm/shm_linux_amd64.go",
 
+		"3rdparty/google/uuid/uuid.go",
+		"3rdparty/google/uuid/util.go",
+		"3rdparty/google/uuid/marshal.go",
+		"3rdparty/google/uuid/hash.go",
+		"3rdparty/google/uuid/version4.go",
+
 		"3rdparty/kbinani/screenshot/screenshot_openbsd.go",
 		"3rdparty/kbinani/screenshot/screenshot_darwin.go",
 		"3rdparty/kbinani/screenshot/internal/xwindow/xwindow.go",
@@ -230,7 +241,7 @@ var (
 		"3rdparty/winio/pipe.go",
 		"3rdparty/winio/sd.go",
 		"3rdparty/winio/pkg/guid/guid.go",
-		
+
 		// "go.mod",
 
 	}

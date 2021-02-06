@@ -24,12 +24,13 @@ var defaultStrObfuscationCodeGens = []strObfuscationCodeGen{
 type xorStringData struct {
 	Mask      string
 	MaskedStr string
+	StrLen    int
 }
 
 var xorStringTmpl = `(func() string {
 	mask := []byte("{{.Mask}}")
 	masked := []byte("{{.MaskedStr}}")
-	result := make([]byte, len(mask))
+	result := make([]byte, {{.StrLen}})
 	for i, m := range mask {
 		result[i] = m ^ masked[i]
 	}
@@ -38,8 +39,8 @@ var xorStringTmpl = `(func() string {
 
 // simple string xor mask obfuscation
 func xorStringObfuscator(str string) []byte {
-	xorStr := xorStringData{Mask: "", MaskedStr: ""}
-	mask := make([]byte, len(str))
+	xorStr := xorStringData{Mask: "", MaskedStr: "", StrLen: len(str)}
+	mask := make([]byte, xorStr.StrLen)
 	for i := range mask {
 		mask[i] = byte(insecureRand.Intn(256))
 		xorStr.Mask += fmt.Sprintf("\\x%02x", mask[i])

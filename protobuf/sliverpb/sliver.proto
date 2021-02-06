@@ -34,9 +34,9 @@ message Envelope {
 message Register {
   string Name = 1;
   string Hostname = 2;
-  string Username = 3;
-  string Uid = 4;
-  string Uuid = 5;
+  string Uuid = 3;
+  string Username = 4;
+  string Uid = 5;
   string Gid = 6;
   string Os = 7;
   string Arch = 8;

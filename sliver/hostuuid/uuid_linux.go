@@ -1,4 +1,4 @@
-//+ build linux
+// +build linux
 
 package hostuuid
 
@@ -25,7 +25,7 @@ import (
 	"io/ioutil"
 )
 
-func gethostuuid() string {
+func GetUUID() string {
 	uuid, err := ioutil.ReadFile("/var/lib/dbus/machine-id")
 	if err != nil {
 		panic(err)
