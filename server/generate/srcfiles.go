@@ -217,12 +217,6 @@ var (
 		"3rdparty/gen2brain/shm/shm_solaris.go",
 		"3rdparty/gen2brain/shm/shm_linux_amd64.go",
 
-		"3rdparty/google/uuid/uuid.go",
-		"3rdparty/google/uuid/util.go",
-		"3rdparty/google/uuid/marshal.go",
-		"3rdparty/google/uuid/hash.go",
-		"3rdparty/google/uuid/version4.go",
-
 		"3rdparty/kbinani/screenshot/screenshot_openbsd.go",
 		"3rdparty/kbinani/screenshot/screenshot_darwin.go",
 		"3rdparty/kbinani/screenshot/internal/xwindow/xwindow.go",
