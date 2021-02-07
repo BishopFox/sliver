@@ -52,6 +52,7 @@ type Session struct {
 	Name              string
 	Hostname          string
 	Username          string
+	UUID              string
 	UID               string
 	GID               string
 	Os                string
@@ -97,6 +98,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		Name:              s.Name,
 		Hostname:          s.Hostname,
 		Username:          s.Username,
+		UUID:              s.UUID,
 		UID:               s.UID,
 		GID:               s.GID,
 		OS:                s.Os,

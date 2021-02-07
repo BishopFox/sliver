@@ -54,6 +54,11 @@ var (
 		"handlers/handlers_windows.go",
 		"handlers/handlers.go",
 
+		"hostuuid/uuid.go",
+		"hostuuid/uuid_windows.go",
+		"hostuuid/uuid_darwin.go",
+		"hostuuid/uuid_linux.go",
+
 		"limits/limits.go",
 		"limits/limits_windows.go",
 		"limits/limits_darwin.go",
@@ -230,7 +235,7 @@ var (
 		"3rdparty/winio/pipe.go",
 		"3rdparty/winio/sd.go",
 		"3rdparty/winio/pkg/guid/guid.go",
-		
+
 		// "go.mod",
 
 	}

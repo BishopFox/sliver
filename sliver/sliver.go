@@ -46,6 +46,7 @@ import (
 
 	// {{end}}
 
+	"github.com/bishopfox/sliver/sliver/hostuuid"
 	"github.com/bishopfox/sliver/sliver/limits"
 	"github.com/bishopfox/sliver/sliver/pivots"
 	"github.com/bishopfox/sliver/sliver/transports"
@@ -264,9 +265,17 @@ func getRegisterSliver() *sliverpb.Envelope {
 			filename = "<< error >>"
 		}
 	}
+
+	// Retrieve UUID
+	uuid := hostuuid.GetUUID()
+	// {{if .Config.Debug}}
+	log.Printf("Uuid: %s", uuid)
+	// {{end}}
+
 	data, err := proto.Marshal(&sliverpb.Register{
 		Name:              consts.SliverName,
 		Hostname:          hostname,
+		Uuid:              uuid,
 		Username:          currentUser.Username,
 		Uid:               currentUser.Uid,
 		Gid:               currentUser.Gid,
