@@ -21,18 +21,23 @@ package hostuuid
 */
 
 import (
-	"bytes"
-	"os/exec"
+	"golang.org/x/sys/windows/registry"
 )
 
+// Stored Format: {U-U-I-D}
+const uuid_keypath = "HKEY_LOCAL_MACHINE\\SYSTEM\\HardwareConfig"
+const uuid_key = "LastConfig"
+
 func GetUUID() string {
-	cmd := exec.Command("wmic.exe", "csproduct", "get", "UUID")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	err := cmd.Run()
+	key, err := registry.OpenKey(registry.CURRENT_USER, uuid_keypath, registry.QUERY_VALUE)
 	if err != nil {
 		return ""
 	}
-	str := out.String()
-	return str[41:77]
+
+	str, _, err := key.GetStringValue(uuid_key)
+	if err != nil {
+		return ""
+	}
+
+	return str[1:37]
 }
