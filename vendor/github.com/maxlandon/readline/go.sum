@@ -1,0 +1,6 @@
+github.com/evilsocket/islazy v1.10.6 h1:MFq000a1ByoumoJWlytqg0qon0KlBeUfPsDjY0hK0bo=
+github.com/evilsocket/islazy v1.10.6/go.mod h1:OrwQGYg3DuZvXUfmH+KIZDjwTCbrjy48T24TUpGqVVw=
+github.com/jessevdk/go-flags v1.4.0 h1:4IU2WS7AumrZ/40jfhf4QVDMsQwqA7VEHozFRrGARJA=
+github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
+golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c h1:VwygUrnw9jn88c4u8GD3rZQbqrP/tgas88tPUbBxQrk=
+golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
