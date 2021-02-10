@@ -276,7 +276,7 @@ func bindServerCommands() (err error) {
 	ex.Aliases = []string{"core"}
 
 	hl, err := Server.AddCommand(constants.HelpStr,
-		"", "Print commands help for the current menu",
+		"Print commands help for the current menu", "",
 		&Help{})
 	hl.Aliases = []string{"core"}
 
@@ -539,7 +539,7 @@ func bindSliverCommands() (err error) {
 	// ----------------------------------------------------------------------------------------
 
 	h, err := Sliver.AddCommand(constants.HelpStr,
-		"", "Print commands help for the current menu",
+		"Print commands help for the current menu", "",
 		&Help{})
 	h.Aliases = []string{"core"}
 

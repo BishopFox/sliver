@@ -78,6 +78,7 @@ func (l *clientHook) Fire(log *logrus.Entry) (err error) {
 
 	// Else, we pass the log to the shell, which will handle wrapping computing, and so on.
 	if !isSynchronized {
+		// line += "\n"
 		shell.RefreshPromptLog(line)
 	}
 

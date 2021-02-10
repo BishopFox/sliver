@@ -1,23 +1,5 @@
 package console
 
-import (
-	"context"
-	"fmt"
-	"time"
-
-	"github.com/evilsocket/islazy/tui"
-
-	"github.com/bishopfox/sliver/client/completers"
-	consts "github.com/bishopfox/sliver/client/constants"
-	cctx "github.com/bishopfox/sliver/client/context"
-	"github.com/bishopfox/sliver/client/log"
-	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -35,6 +17,24 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/evilsocket/islazy/tui"
+
+	"github.com/bishopfox/sliver/client/completers"
+	consts "github.com/bishopfox/sliver/client/constants"
+	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/log"
+	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/client/util"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+)
 
 const (
 	// ensure that nothing remains when we refresh the prompt

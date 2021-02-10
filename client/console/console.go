@@ -28,8 +28,7 @@ import (
 	"path"
 	"strings"
 
-	// "github.com/maxlandon/readline"
-	"github.com/bishopfox/sliver/client/readline"
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/comm"

@@ -23,8 +23,7 @@ import (
 	"net"
 	"strings"
 
-	// "github.com/maxlandon/readline"
-	"github.com/bishopfox/sliver/client/readline"
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/clientpb"

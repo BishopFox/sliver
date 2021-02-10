@@ -123,15 +123,14 @@ func (f *reverseForwarderTCP) close() (err error) {
 		Handler: f.info,
 		Request: &commonpb.Request{SessionID: f.implant.session.ID},
 	}
-	lnRes := &commpb.HandlerClose{}
+	lnRes := &commpb.HandlerClose{Response: &commonpb.Response{}}
 	err = remoteHandlerRequest(f.implant.session, lnReq, lnRes)
 	if err != nil {
 		rLog.Errorf("Listener (ID: %s) failed to close its remote peer (RPC error): %s",
 			f.info.ID, err.Error())
-	}
-	if !lnRes.Success {
+	} else if !lnRes.Success && lnRes.Response.Err != "" {
 		rLog.Errorf("Listener (ID: %s) failed to close its remote peer: %s",
-			f.info.ID, err.Error())
+			f.info.ID, lnRes.Response.Err)
 	}
 
 	// Remove from the forwarders map

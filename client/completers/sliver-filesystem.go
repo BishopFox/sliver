@@ -22,8 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	// "github.com/maxlandon/readline"
-	"github.com/bishopfox/sliver/client/readline"
+	"github.com/maxlandon/readline"
 
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -121,8 +120,9 @@ func completeRemotePath(last string) (string, *readline.CompletionGroup) {
 				search = tokenized + "/"
 			}
 			if strings.HasPrefix(search, lastPath) {
-				tokenized := addSpaceTokens(search)
-				completion.Suggestions = append(completion.Suggestions, tokenized)
+				// tokenized := addSpaceTokens(search)
+				// completion.Suggestions = append(completion.Suggestions, tokenized)
+				completion.Suggestions = append(completion.Suggestions, search)
 			}
 		}
 	default:
@@ -142,7 +142,9 @@ func completeRemotePath(last string) (string, *readline.CompletionGroup) {
 				search = tokenized + "/"
 			}
 			if strings.HasPrefix(search, lastPath) {
-				completion.Suggestions = append(completion.Suggestions, tokenized)
+				// tokenized := addSpaceTokens(search)
+				// completion.Suggestions = append(completion.Suggestions, tokenized)
+				completion.Suggestions = append(completion.Suggestions, search)
 			}
 		}
 	}
@@ -234,6 +236,8 @@ func completeRemotePathAndFiles(last string) (string, *readline.CompletionGroup)
 				} else {
 					search = tokenized + "/"
 				}
+			} else {
+				search = tokenized
 			}
 			if strings.HasPrefix(search, lastPath) {
 				completion.Suggestions = append(completion.Suggestions, search)
@@ -256,6 +260,8 @@ func completeRemotePathAndFiles(last string) (string, *readline.CompletionGroup)
 				} else {
 					search = tokenized + "/"
 				}
+			} else {
+				search = tokenized
 			}
 			if strings.HasPrefix(search, lastPath) {
 				completion.Suggestions = append(completion.Suggestions, search)
