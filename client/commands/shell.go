@@ -121,17 +121,12 @@ func runInteractive(shellPath string, noPty bool, rpc rpcpb.SliverRPCClient) {
 			return
 		}
 	}()
-	for {
-		log.ClientLogger.Debugf("Reading from stdin ...")
-		n, err := io.Copy(tunnel, os.Stdin)
-		log.ClientLogger.Tracef("Read %d bytes from stdin", n)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			fmt.Printf(util.Error+"Error reading from stdin: %v", err)
-			break
-		}
+
+	log.ClientLogger.Debugf("Reading from stdin ...")
+	n, err := io.Copy(tunnel, os.Stdin)
+	log.ClientLogger.Tracef("Read %d bytes from stdin", n)
+	if err != nil && err != io.EOF {
+		fmt.Printf(util.Error+"Error reading from stdin: %v", err)
 	}
 
 	if !noPty {
