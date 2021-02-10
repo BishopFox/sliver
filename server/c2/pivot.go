@@ -108,7 +108,7 @@ func HandlePivotOpen(session *core.Session, data []byte) {
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
 		Name:          register.Name,
 		Hostname:      register.Hostname,
-		UUID:          register.UUID,
+		UUID:          register.Uuid,
 		Username:      register.Username,
 		UID:           register.Uid,
 		GID:           register.Gid,

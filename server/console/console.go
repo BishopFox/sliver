@@ -68,6 +68,10 @@ func Start() {
 	// in their respective files (but, of course, in this package only).
 	flag.Parse()
 
+	// Declare an Config for the server-as-client, because its Comm system needs a
+	// fingerprint value as well for authenticating to itself.
+	clientAssets.Config = new(clientAssets.ClientConfig)
+
 	// Make a fingerprint of the implant's private key, for SSH-layer authentication
 	_, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
 	signer, _ := ssh.ParsePrivateKey(serverCAKey)
