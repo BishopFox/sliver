@@ -26,6 +26,7 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/uuid"
 
 	"github.com/bishopfox/sliver/protobuf/commpb"
 
@@ -77,8 +78,16 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	if session.ID == 0 {
 		session.ID = core.NextSessionID()
 	}
+
+	// Parse Register UUID
+	session_uuid, err := uuid.Parse(register.Uuid)
+	if err != nil {
+		// Generate random UUID
+		session_uuid = uuid.New()
+	}
 	session.Name = register.Name
 	session.Hostname = register.Hostname
+	session.UUID = session_uuid.String()
 	session.Username = register.Username
 	session.UID = register.Uid
 	session.GID = register.Gid

