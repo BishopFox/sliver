@@ -75,8 +75,8 @@ func Start() {
 	fingerprint := base64.StdEncoding.EncodeToString(keyBytes[:])
 
 	// Load only needed fields in the client assets (config) package.
-	clientAssets.ServerPrivateKey = string(serverCAKey)
-	clientAssets.CommFingerprint = fingerprint
+	clientAssets.Config.PrivateKey = string(serverCAKey)
+	clientAssets.Config.ServerFingerprint = fingerprint
 
 	// Get a gRPC client connection (in-memory listener)
 	grpcConn, err := connectLocal()

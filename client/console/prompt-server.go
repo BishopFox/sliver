@@ -135,7 +135,7 @@ var (
 		},
 		// Server IP
 		"{server_ip}": func() string {
-			return assets.ServerLHost
+			return assets.Config.LHost
 		},
 		// Local IP address
 		"{local_ip}": func() string {

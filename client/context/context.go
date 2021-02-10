@@ -177,7 +177,7 @@ func loadDefaultConsoleConfig() {
 	// Make little adjustements to default server prompt, depending on server/client
 	var ps string
 	ps += tui.RESET
-	if assets.ServerLHost == "{{.LHost}}" {
+	if assets.Config.LHost == "" {
 		ps += "{bddg}{y} server {fw}@{local_ip} {reset}"
 	} else {
 		ps += "{bddg}@{server_ip}{reset}"

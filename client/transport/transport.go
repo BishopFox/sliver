@@ -60,8 +60,10 @@ const (
 // ConnectTLS - Establishes a TLS connection on which we will register gRPC clients
 func ConnectTLS() (*grpc.ClientConn, error) {
 
+	conf := assets.Config
+
 	// Setup TLS
-	tlsConfig, err := getTLSConfig(assets.ServerCACertificate, assets.ServerCertificate, assets.ServerPrivateKey)
+	tlsConfig, err := getTLSConfig(conf.CACertificate, conf.Certificate, conf.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +78,7 @@ func ConnectTLS() (*grpc.ClientConn, error) {
 	}
 
 	// Dial server with these certificates
-	server := fmt.Sprintf("%s:%s", assets.ServerLHost, assets.ServerLPort)
+	server := fmt.Sprintf("%s:%d", conf.LHost, conf.LPort)
 	conn, err := grpc.Dial(server, options...)
 	if err != nil {
 		fmt.Printf("Failed to connect to gRPC: %s", err)

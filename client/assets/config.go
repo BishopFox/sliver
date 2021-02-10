@@ -30,47 +30,16 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
-	"strconv"
 
 	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 var (
-	// Variables used as build-time server configuration (address, certificates, user, etc)
-	// When a console is compiled from the server, it may decide which values to inject.
-
-	// HasBuiltinServer - If this is different from the template
-	// string below, it means we use the builtin values.
-	HasBuiltinServer = `{{.HasBuiltinServer}}`
-
-	// ServerLHost - Host of server
-	ServerLHost = `{{.LHost}}`
-
-	// ServerLPort - Port on which to contact server
-	ServerLPort = `{{.LPort}}`
-
-	// ServerUser - Username
-	ServerUser = `{{.User}}`
-
-	// ServerCACertificate - CA Certificate
-	ServerCACertificate = `{{.CACertificate}}`
-
-	// ServerCertificate - CA Certificate
-	ServerCertificate = `{{.Certificate}}`
-
-	// ServerPrivateKey - Private key
-	ServerPrivateKey = `{{.PrivateKey}}`
-
-	// Token - A unique number for this client binary
-	Token = `{{.Token}}`
-
-	// CommFingerprint - Used to authenticate the client Comm system.
-	CommFingerprint = `{{.ServerFingerprint}}`
-)
-
-var (
 	// config - add config files not yet in configs directory
 	config = flag.String("import", "", "import config file to ~/.sliver-client/configs")
+
+	// Config - The configuration for the server to which the client is connected.
+	Config *ClientConfig
 )
 
 const (
@@ -93,11 +62,6 @@ type ClientConfig struct {
 // Depending on this, it loads all configuration values and makes them accessible to all packages/components of the client console.
 func LoadServerConfig() (err error) {
 
-	// We first check that we have builtin values. If yes, print message and load them.
-	if HasBuiltinServer == "true" {
-		fmt.Println("[-] Found compile-time server configuration")
-	}
-
 	// Check if we have imported a config with os.Flags passed to sliver-client executable.
 	// This flag has been parsed when executing main(), before anything else.
 	if *config != "" {
@@ -115,22 +79,7 @@ func LoadServerConfig() (err error) {
 		fmt.Println("[-] Found text-file server configuration(s)")
 	}
 
-	// If we have only builtin values at our disposal, return: they are available already.
-	if HasBuiltinServer == "true" && len(configs) == 0 {
-		fmt.Println("[-] Using compile-time values (no textfile configs found)")
-		return
-	}
-
-	// If we have both types of configs, prompt user for choice: use builtin or text files ?
-	if HasBuiltinServer == "true" && len(configs) > 0 {
-		useBuiltin := promptBuiltinOrTextFile()
-		if useBuiltin {
-			return
-		}
-
-	}
-
-	// Here, textfile is chosen: prompt user for which config.
+	// prompt user for which config.
 	// We should not have an error here, so we must exit.
 	err = selectConfig(configs)
 	if err != nil {
@@ -138,10 +87,11 @@ func LoadServerConfig() (err error) {
 		os.Exit(3)
 	}
 
-	// Check a value to see if config is correctly loaded.
-	if ServerCertificate == "{{.Certificate}}" {
-		fmt.Printf("[!] Error at config values checkup: still having {{.Certificate}}")
+	// We should have a config
+	if Config == nil {
+		fmt.Printf("[!] Error with config loading: config is nil\n")
 		os.Exit(3)
+		return
 	}
 
 	return nil
@@ -230,8 +180,6 @@ func saveConfig(config *ClientConfig) error {
 // selectConfig - Prompt user to choose which server configuration to load/use.
 func selectConfig(configs map[string]*ClientConfig) (err error) {
 
-	var conf *ClientConfig
-
 	if len(configs) == 0 {
 		return nil
 	}
@@ -239,7 +187,7 @@ func selectConfig(configs map[string]*ClientConfig) (err error) {
 	// If only config, load values, else prompt user.
 	if len(configs) == 1 {
 		for i := range configs {
-			conf = configs[i]
+			Config = configs[i]
 		}
 	} else {
 		answer := struct{ Config string }{}
@@ -249,19 +197,9 @@ func selectConfig(configs map[string]*ClientConfig) (err error) {
 			fmt.Println(err.Error())
 			return err
 		}
-		conf = configs[answer.Config]
+		Config = configs[answer.Config]
 	}
 
-	// Load values for config choice.
-	ServerLHost = conf.LHost
-	ServerLPort = strconv.Itoa(int(conf.LPort))
-	ServerUser = conf.Operator
-	ServerCACertificate = conf.CACertificate
-	ServerCertificate = conf.Certificate
-	ServerPrivateKey = conf.PrivateKey
-	CommFingerprint = conf.ServerFingerprint
-
-	log.Printf("Loaded configuration values for server at %s:%s (operator %s)", ServerLHost, ServerLPort, ServerUser)
 	return
 }
 
@@ -284,35 +222,4 @@ func getPromptForConfigs(configs map[string]*ClientConfig) []*survey.Question {
 			},
 		},
 	}
-}
-
-// promptBuiltinOrTextFile - Asks user if he wants to use builtin values or textfile configs.
-func promptBuiltinOrTextFile() (builtin bool) {
-
-	choices := []string{"builtin", "text-file"}
-
-	message := "Both compile-time (builtin) and textfile configuration are available. Please choose:"
-	question := []*survey.Question{
-		{
-			Name: "config type",
-			Prompt: &survey.Select{
-				Message: message,
-				Options: choices,
-				Default: choices[0],
-			},
-		},
-	}
-
-	answer := struct{ Choice string }{}
-	err := survey.Ask(question, &answer)
-	if err != nil {
-		fmt.Println("[!] Falling back to builtin due to errors: " + err.Error())
-		return true // If we have an error, don't bother and use builtin.
-	}
-
-	if answer.Choice == "textfile" {
-		return false
-	}
-
-	return true
 }

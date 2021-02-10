@@ -42,13 +42,15 @@ func main() {
 	// depending on this. The configuration is then accessible to all client packages.
 	assets.LoadServerConfig()
 
-	// Get a gRPC client connection (in-memory listener)
+	// Get a gRPC client connection (Mutual TLS)
 	grpcConn, err := transport.ConnectTLS()
 	if err != nil {
 		os.Exit(1)
 	}
 
-	// Register RPC service clients, monitor incoming events and start the client's Comm System.
+	// Register RPC service clients. This function is called here because both the server
+	// and the client binary use the same function, but the server binary uses an in-memory
+	// gRPC connection, contrary to this client.
 	client.Console.Connect(grpcConn, false)
 
 	// Start the client console. The latter automatically performs server connection,

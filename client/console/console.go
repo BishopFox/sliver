@@ -152,6 +152,8 @@ func (c *console) setup() (err error) {
 // things pertaining to the console itself, and start the input loop.
 func (c *console) Start() (err error) {
 
+	conf := assets.Config
+
 	// Setup console elements
 	err = c.setup()
 	if err != nil {
@@ -168,7 +170,7 @@ func (c *console) Start() (err error) {
 	go c.handleServerLogs(transport.RPC)
 
 	// Setup the Client Comm system (console proxies & port forwarders)
-	err = initComm(transport.RPC, []byte(assets.ServerPrivateKey), assets.CommFingerprint)
+	err = initComm(transport.RPC, []byte(conf.PrivateKey), conf.ServerFingerprint)
 	if err != nil {
 		fmt.Printf(Warn+"Comm Error: %v \n", err)
 	}
