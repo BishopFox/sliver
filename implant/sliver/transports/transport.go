@@ -40,6 +40,7 @@ import (
 
 	"github.com/bishopfox/sliver/implant/sliver/comm"
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
+	"github.com/bishopfox/sliver/implant/sliver/hostuuid"
 	"github.com/bishopfox/sliver/implant/sliver/version"
 )
 

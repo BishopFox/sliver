@@ -155,7 +155,7 @@ curl -L --output $GOLANG_CRYPTO_SSH_COMMIT.tar.gz https://github.com/golang/cryp
 tar xfv $GOLANG_CRYPTO_SSH_COMMIT.tar.gz
 rm -f $GOLANG_CRYPTO_SSH_COMMIT.tar.gz
 mv crypto-$GOLANG_CRYPTO_SSH_COMMIT crypto
-zip -r $OUTPUT_DIR/assets/golang_x_crypto_ssh.zip crypto
+zip -r $OUTPUT_DIR/golang_x_crypto_ssh.zip crypto
 
 # end
 echo -e "clean up: $WORK_DIR"
