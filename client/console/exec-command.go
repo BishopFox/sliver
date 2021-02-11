@@ -25,7 +25,6 @@ import (
 	"github.com/jessevdk/go-flags"
 
 	"github.com/bishopfox/sliver/client/commands"
-	"github.com/bishopfox/sliver/client/completers"
 	"github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/help"
 	"github.com/bishopfox/sliver/client/util"
@@ -52,15 +51,6 @@ func (c *console) ExecuteCommand(args []string) (err error) {
 		if _, parserErr := commands.Sliver.ParseArgs(args); parserErr != nil {
 			err = c.HandleParserErrors(commands.Sliver, parserErr, args)
 		}
-	}
-
-	// IMPORTANT: Reset all commands.
-	// This is because the go-flags library assumes binary "single-runs" from the shell,
-	// and therefore keeps tracks of all values in the program, without offering a mean to
-	// reset them. Therefore we just wipe the command instances and rewrite new, blank ones.
-	err = commands.BindCommands(c.admin, completers.LoadCompsAdditional)
-	if err != nil {
-		fmt.Print(util.CommandError + tui.Red("could not reset commands: "+err.Error()+"\n"))
 	}
 
 	return nil

@@ -28,6 +28,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/evilsocket/islazy/tui"
 	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -127,6 +128,7 @@ func (c *console) setup() (err error) {
 	c.initPrompt()
 	c.Shell.Multiline = true
 	c.Shell.ShowVimMode = true
+	c.Shell.VimModeColorize = true
 
 	// Completions and syntax highlighting
 	c.Shell.TabCompleter = completers.TabCompleter
@@ -178,9 +180,6 @@ func (c *console) Start() (err error) {
 	// When we will exit this loop, disconnect gracefully from the server.
 	defer c.conn.Close()
 
-	// Commands binding. Per-context parsers are setup here.
-	err = commands.BindCommands(c.admin, completers.LoadCompsAdditional)
-
 	// Print banner and version information. (checks last updates)
 	printLogo()
 
@@ -196,8 +195,18 @@ func (c *console) Start() (err error) {
 		// Recompute prompt each time, before anything.
 		Prompt.Compute()
 
-		// Reset the log synchroniser.
+		// Reset the log synchroniser, before rebinding the commands, so that
+		// if anyone is to use the parser.Active command, it will work until
+		// just before rebinding the parser and its commands.
 		clientLog.ResetLogSynchroniser()
+
+		// Bind the command parser (and its commands), for the appropriate context.
+		// This is before calling the console readline, because the latter needs
+		// to be fed a parser for completions, hints, and syntax.
+		err = commands.BindCommands(c.admin, completers.LoadCompsAdditional)
+		if err != nil {
+			fmt.Print(util.CommandError + tui.Red("could not reset commands: "+err.Error()+"\n"))
+		}
 
 		// Read input line (blocking)
 		line, _ := c.Readline()
