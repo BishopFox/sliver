@@ -183,7 +183,7 @@ func getPathFromPid(pid int) (path string, err error) {
 	buf := make([]byte, bufSize)
 
 	// https://opensource.apple.com/source/xnu/xnu-1504.3.12/bsd/kern/syscalls.master
-	//336	AUE_PROCINFO	ALL	{ int proc_info(int32_t callnum,int32_t pid,uint32_t flavor, uint64_t arg,user_addr_t buffer,int32_t buffersize) NO_SYSCALL_STUB; }
+	// int proc_info(int32_t callnum,int32_t pid,uint32_t flavor, uint64_t arg,user_addr_t buffer,int32_t buffersize)
 	_, _, err = syscall.Syscall6(
 		syscall.SYS_PROC_INFO,
 		PROC_INFO_CALL_PIDINFO,
