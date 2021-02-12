@@ -68,10 +68,14 @@ func processes() ([]Process, error) {
 
 	darwinProcs := make([]Process, len(procs))
 	for i, p := range procs {
+		binPath, err := getPathFromPid(int(p.Pid))
+		if err != nil {
+			binPath = darwinCstring(p.Comm)
+		}
 		darwinProcs[i] = &DarwinProcess{
 			pid:    int(p.Pid),
 			ppid:   int(p.PPid),
-			binary: darwinCstring(p.Comm),
+			binary: binPath,
 			owner:  "",
 		}
 	}
@@ -127,10 +131,14 @@ func darwinSyscall() (*bytes.Buffer, error) {
 }
 
 const (
-	_CTRL_KERN         = 1
-	_KERN_PROC         = 14
-	_KERN_PROC_ALL     = 0
-	_KINFO_STRUCT_SIZE = 648
+	_CTRL_KERN               = 1
+	_KERN_PROC               = 14
+	_KERN_PROC_ALL           = 0
+	_KINFO_STRUCT_SIZE       = 648
+	MAXPATHLEN               = 1024
+	PROC_PIDPATHINFO_MAXSIZE = MAXPATHLEN * 4
+	PROC_INFO_CALL_PIDINFO   = 0x2
+	PROC_PIDPATHINFO         = 11
 )
 
 type kinfoProc struct {
@@ -141,4 +149,55 @@ type kinfoProc struct {
 	_    [301]byte
 	PPid int32
 	_    [84]byte
+}
+
+func errnoErr(e syscall.Errno) error {
+	switch e {
+	case 0:
+		return nil
+	case syscall.EAGAIN:
+		return syscall.EAGAIN
+	case syscall.EINVAL:
+		return syscall.EINVAL
+	case syscall.ENOENT:
+		return syscall.ENOENT
+	}
+	return e
+
+}
+
+func readCString(data []byte) string {
+	i := 0
+	for _, b := range data {
+		if b != 0 {
+			i++
+		} else {
+			break
+		}
+	}
+	return string(data[:i])
+}
+
+func getPathFromPid(pid int) (path string, err error) {
+	bufSize := PROC_PIDPATHINFO_MAXSIZE
+	buf := make([]byte, bufSize)
+
+	// https://opensource.apple.com/source/xnu/xnu-1504.3.12/bsd/kern/syscalls.master
+	//336	AUE_PROCINFO	ALL	{ int proc_info(int32_t callnum,int32_t pid,uint32_t flavor, uint64_t arg,user_addr_t buffer,int32_t buffersize) NO_SYSCALL_STUB; }
+	_, _, err = syscall.Syscall6(
+		syscall.SYS_PROC_INFO,
+		PROC_INFO_CALL_PIDINFO,
+		uintptr(pid),
+		PROC_PIDPATHINFO,
+		uintptr(uint64(0)),
+		uintptr(unsafe.Pointer(&buf[0])),
+		uintptr(bufSize),
+	)
+	if errno, ok := err.(syscall.Errno); ok {
+		if err = errnoErr(errno); err != nil {
+			return
+		}
+	}
+	path = readCString(buf)
+	return
 }
