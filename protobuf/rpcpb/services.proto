@@ -92,6 +92,7 @@ service SliverRPC {
 
     // *** Realtime Commands ***
     rpc Shell(sliverpb.ShellReq) returns (sliverpb.Shell);
+    rpc TCPTunnel(sliverpb.TCPTunnelReq) returns (sliverpb.TCPTunnel);
 
     // *** Tunnels ***
     rpc CreateTunnel(sliverpb.Tunnel) returns (sliverpb.Tunnel);

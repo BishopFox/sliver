@@ -112,6 +112,8 @@ const (
 	ShellStr   = "shell"
 	ExecuteStr = "execute"
 
+	SocksStr   = "socks"
+
 	LsStr       = "ls"
 	RmStr       = "rm"
 	MkdirStr    = "mkdir"

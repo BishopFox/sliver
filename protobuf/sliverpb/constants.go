@@ -81,6 +81,11 @@ const (
 	// MsgShell - Response on starting shell
 	MsgShell
 
+	// MsgTCPTunnelReq - Request to open a tcp tunnel
+	MsgTCPTunnelReq
+	// MsgTCPTunnel - Repsonse on starting a tcp tunnel
+	MsgTCPTunnel
+
 	// MsgTunnelData - Data for duplex tunnels
 	MsgTunnelData
 	// MsgTunnelClose - Close a duplex tunnel
@@ -238,6 +243,11 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgShellReq
 	case *Shell:
 		return MsgShell
+
+	case *TCPTunnelReq:
+		return MsgTCPTunnelReq
+	case *TCPTunnel:
+		return MsgTCPTunnel
 
 	case *ProcessDumpReq:
 		return MsgProcessDumpReq

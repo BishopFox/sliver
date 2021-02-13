@@ -41,6 +41,9 @@ assets/windows/*.zip
 # Project-local glide cache, RE: https://github.com/Masterminds/glide/issues/736
 .glide/
 
+# JetBrains idea folder
+.idea/*
+
 *.pb.go
 
 *-packr.go

