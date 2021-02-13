@@ -93,7 +93,6 @@ func localListener() (*grpc.Server, *bufconn.Listener, error) {
 	// Register both normal and admin server.
 	rpcServer := rpc.NewServer()
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpcServer)
-	rpcpb.RegisterSliverAdminRPCServer(grpcServer, rpcServer)
 
 	// Monitoring the coming connection in the background.
 	go func() {

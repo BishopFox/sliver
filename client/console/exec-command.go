@@ -31,7 +31,7 @@ import (
 )
 
 // ExecuteCommand - Dispatches an input line to its appropriate command.
-func (c *console) ExecuteCommand(args []string) (err error) {
+func (c *Client) ExecuteCommand(args []string) (err error) {
 
 	// Get the current command parser, holding all commands for the current context.
 	var parser = cctx.Commands.GetCommands()
@@ -48,7 +48,7 @@ func (c *console) ExecuteCommand(args []string) (err error) {
 }
 
 // HandleParserErrors - The parsers may return various types of Errors, this function handles them.
-func (c *console) HandleParserErrors(parser *flags.Parser, in error, args []string) (err error) {
+func (c *Client) HandleParserErrors(parser *flags.Parser, in error, args []string) (err error) {
 
 	// If there is an error, cast it to a parser error, else return
 	var parserErr *flags.Error
@@ -96,7 +96,7 @@ func (c *console) HandleParserErrors(parser *flags.Parser, in error, args []stri
 }
 
 // executeSpecialCommand - Handles all commands not registered to command parsers.
-func (c *console) executeSpecialCommand(args []string) error {
+func (c *Client) executeSpecialCommand(args []string) error {
 
 	// Check context for availability
 	switch context.Context.Menu {
@@ -116,7 +116,7 @@ func (c *console) executeSpecialCommand(args []string) error {
 
 // findHelpCommand - A -h, --help flag was invoked in the output.
 // Find the root or any subcommand.
-func (c *console) findHelpCommand(args []string, parser *flags.Parser) *flags.Command {
+func (c *Client) findHelpCommand(args []string, parser *flags.Parser) *flags.Command {
 
 	var root *flags.Command
 	for _, cmd := range parser.Commands() {

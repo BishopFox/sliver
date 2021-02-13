@@ -42,7 +42,7 @@ const (
 )
 
 // handleServerEvents - Print events coming from the server
-func (c *console) handleServerLogs(rpc rpcpb.SliverRPCClient) {
+func (c *Client) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 
 	// Call the server events stream.
 	events, err := rpc.Events(context.Background(), &commonpb.Empty{})

@@ -38,9 +38,6 @@ var (
 	// It is also used by the commands and completers package to make calls to the server.
 	RPC rpcpb.SliverRPCClient
 
-	// The AdminRPC contains all functions restricted to the server console.
-	AdminRPC rpcpb.SliverAdminRPCClient
-
 	// grpcConn - Reference to the current console gRPC connection, that we need
 	// when exiting with command "exit"
 	grpcConn *grpc.ClientConn

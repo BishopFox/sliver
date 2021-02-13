@@ -8,13 +8,6 @@ import "clientpb/client.proto";
 import "commpb/comm.proto";
 
 
-// SliverAdminRPC - RPC functions reserved to the admin (server) console.
-service SliverAdminRPC {
-        rpc CreatePlayer(clientpb.NewPlayerReq) returns (clientpb.NewPlayer);
-        rpc StartMultiplayer(clientpb.MultiplayerReq) returns (clientpb.Multiplayer);
-        rpc KickPlayer(clientpb.RemovePlayerReq) returns (clientpb.RemovePlayer);
-}
-
 service SliverRPC {
 
     // *** Version ***

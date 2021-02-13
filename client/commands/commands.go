@@ -49,7 +49,7 @@ const (
 // BindCommands - Passes along a go-flags Command Parser, to which are bound commands
 // depending on the current context, OS-specific session commands, etc. This parser
 // is returned because the console might need it to load additional things, like completions.
-func BindCommands(admin bool) (parser *flags.Parser, err error) {
+func BindCommands() (parser *flags.Parser, err error) {
 
 	// Not fundamentally useful, but might be clearer sometimes.
 	switch cctx.Context.Menu {
@@ -100,38 +100,6 @@ func isUserAnAdult() bool {
 // be shown in option completions, but they are still available for use.
 type GlobalOptions struct {
 	Timeout int64 `long:"timeout" short:"t" description:"command timeout in seconds" default:"60"`
-}
-
-// bindServerAdminCommands - We bind commands only available to the server admin to the console command parser.
-// Unfortunately we have to use, for each command, its Aliases field where we register its "namespace".
-// There is a namespace field, however it messes up with the option printing/detection/parsing.
-func bindServerAdminCommands() (err error) {
-
-	// np, err := Server.AddCommand(constants.NewPlayerStr, "Create a new player config file",
-	//         help.GetHelpFor(constants.NewPlayerStr), &NewOperator{})
-	// np.Aliases = []string{"admin"}
-	// if err != nil {
-	//         fmt.Println(util.Warn + err.Error())
-	//         os.Exit(3)
-	// }
-	//
-	// kp, err := Server.AddCommand(constants.KickPlayerStr, "Kick a player from the server",
-	//         help.GetHelpFor(constants.KickPlayerStr), &KickOperator{})
-	// kp.Aliases = []string{"admin"}
-	// if err != nil {
-	//         fmt.Println(util.Warn + err.Error())
-	//         os.Exit(3)
-	// }
-	//
-	// mm, err := Server.AddCommand(constants.MultiplayerModeStr, "Enable multiplayer mode on this server",
-	//         help.GetHelpFor(constants.MultiplayerModeStr), &MultiplayerMode{})
-	// mm.Aliases = []string{"admin"}
-	// if err != nil {
-	//         fmt.Println(util.Warn + err.Error())
-	//         os.Exit(3)
-	// }
-
-	return
 }
 
 // All commands concerning the server and/or the console itself are bound in this function.

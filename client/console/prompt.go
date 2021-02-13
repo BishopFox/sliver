@@ -38,7 +38,7 @@ type prompt struct {
 }
 
 // initPrompt - Sets up the console root prompt system and binds it to readline.
-func (c *console) initPrompt() {
+func (c *Client) initPrompt() {
 
 	// Prompt settings (Vim-mode and stuff)
 	c.Shell.Multiline = true   // spaceship-like prompt (2-line)

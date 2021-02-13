@@ -63,41 +63,31 @@ const (
 
 // newConsole - Instantiates a new console with some default behavior.
 // We modify/add elements of behavior later in setup.
-func newConsole() *console {
-	console := &console{
+func newConsole() *Client {
+	console := &Client{
 		Shell: readline.NewInstance(),
 	}
 	return console
 }
 
-// console - Central object of the client UI. Only one instance of this object
+// Client - Central object of the client UI. Only one instance of this object
 // lives in the client executable (instantiated with newConsole() above).
-type console struct {
+type Client struct {
 	Shell *readline.Instance // Provides input loop and completion system.
-	admin bool               // Are we an admin console running a server.
-	conn  *grpc.ClientConn   // The current raw gRPC client connection to the server.
+	Conn  *grpc.ClientConn   // The current raw gRPC client connection to the server.
 }
 
-// connect - The console connects to the server and authenticates. Note that all
+// Connect - The console connects to the server and authenticates. Note that all
 // config information (access points and security details) have been loaded already.
-func (c *console) Connect(conn *grpc.ClientConn, admin bool) (*grpc.ClientConn, error) {
+func (c *Client) Connect(conn *grpc.ClientConn) (*grpc.ClientConn, error) {
 
 	// Bind this connection as the current console client gRPC connection
-	c.conn = conn
+	c.Conn = conn
 
 	// Register RPC Service Client.
 	transport.RPC = rpcpb.NewSliverRPCClient(conn)
 	if transport.RPC == nil {
 		return nil, errors.New("could not register gRPC Client, instance is nil")
-	}
-
-	// If this client is the server itself, register the admin RPC functions.
-	c.admin = admin
-	if c.admin {
-		transport.AdminRPC = rpcpb.NewSliverAdminRPCClient(conn)
-		if transport.AdminRPC == nil {
-			return nil, errors.New("could not register gRPC Admin Client, instance is nil")
-		}
 	}
 
 	// Start message tunnel loop.
@@ -108,7 +98,7 @@ func (c *console) Connect(conn *grpc.ClientConn, admin bool) (*grpc.ClientConn, 
 
 // setup - The console sets up various elements such as the completion system, hints,
 // syntax highlighting, prompt system, commands binding, and client environment loading.
-func (c *console) setup() (err error) {
+func (c *Client) setup() (err error) {
 
 	initLogging() // textfile log
 
@@ -150,9 +140,9 @@ func (c *console) setup() (err error) {
 	return
 }
 
-// Start - The console has a working RPC connection: we setup all
-// things pertaining to the console itself, and start the input loop.
-func (c *console) Start() (err error) {
+// Init - The console has a working RPC connection: we setup all
+// things pertaining to the console itself, before calling the Run() function.
+func (c *Client) Init() (err error) {
 
 	conf := assets.Config
 
@@ -177,17 +167,23 @@ func (c *console) Start() (err error) {
 		fmt.Printf(Warn+"Comm Error: %v \n", err)
 	}
 
-	// When we will exit this loop, disconnect gracefully from the server.
-	defer c.conn.Close()
-
 	// Print banner and version information. (checks last updates)
 	printLogo()
 
-	// Start input loop
+	return
+}
+
+// Run - Start the actual readline input loop, required
+// per-loop console setup details, and command execution.
+func (c *Client) Run() {
+
+	// When we will exit this loop, disconnect gracefully from the server.
+	defer c.Conn.Close()
+
 	for {
 		// Some commands can act on the shell properties via the console
 		// context package, so we check values and set everything up.
-		c.setConfiguredShell()
+		c.SetConfiguredShell()
 
 		// Reset the completion data cache for all registered sessions.
 		completers.Cache.Reset()
@@ -203,7 +199,7 @@ func (c *console) Start() (err error) {
 		// Bind the command parser (and its commands), for the appropriate context.
 		// This is before calling the console readline, because the latter needs
 		// to be fed a parser for completions, hints, and syntax.
-		cmds, err := commands.BindCommands(c.admin)
+		cmds, err := commands.BindCommands()
 		if err != nil {
 			fmt.Print(util.CommandError + tui.Red("could not reset commands: "+err.Error()+"\n"))
 		}
@@ -217,7 +213,7 @@ func (c *console) Start() (err error) {
 		line, _ := c.Readline()
 
 		// Split and sanitize input
-		sanitized, empty := sanitizeInput(line)
+		sanitized, empty := c.SanitizeInput(line)
 		if empty {
 			continue
 		}
@@ -227,7 +223,7 @@ func (c *console) Start() (err error) {
 
 		// Other types of tokens, needed by commands who expect a certain type
 		// of arguments, such as paths with spaces.
-		tokenParsed := c.parseTokens(envParsed)
+		tokenParsed := c.ParseTokens(envParsed)
 
 		// Execute the command input: all input is passed to the current
 		// context parser, which will deal with it on its own. We never return
@@ -237,8 +233,9 @@ func (c *console) Start() (err error) {
 	}
 }
 
-// live refresh of console properties (input, hints, etc)
-func (c *console) setConfiguredShell() {
+// SetConfiguredShell - Live refresh of console properties (input, hints, etc),
+// following some commands (confi, usually) that may have changed some settings.
+func (c *Client) SetConfiguredShell() {
 
 	// Input
 	if !cctx.Config.Vim {
@@ -256,14 +253,14 @@ func (c *console) setConfiguredShell() {
 }
 
 // Readline - Add an empty line between input line and command output.
-func (c *console) Readline() (line string, err error) {
+func (c *Client) Readline() (line string, err error) {
 	line, err = c.Shell.Readline()
 	fmt.Println()
 	return
 }
 
-// sanitizeInput - Trims spaces and other unwished elements from the input line.
-func sanitizeInput(line string) (sanitized []string, empty bool) {
+// SanitizeInput - Trims spaces and other unwished elements from the input line.
+func (c *Client) SanitizeInput(line string) (sanitized []string, empty bool) {
 
 	// Assume the input is not empty
 	empty = false
@@ -286,8 +283,8 @@ func sanitizeInput(line string) (sanitized []string, empty bool) {
 	return
 }
 
-// parseTokens - Parse and process any special tokens that are not treated by environment-like parsers.
-func (c *console) parseTokens(sanitized []string) (parsed []string) {
+// ParseTokens - Parse and process any special tokens that are not treated by environment-like parsers.
+func (c *Client) ParseTokens(sanitized []string) (parsed []string) {
 
 	// PATH SPACE TOKENS
 	// Catch \ tokens, which have been introduced in paths where some directories have spaces in name.

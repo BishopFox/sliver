@@ -77,7 +77,7 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 			break
 		}
 		if err != nil {
-			rpcLog.Warn("Error on stream recv %s", err)
+			rpcLog.Warn("Error on stream recv %s", err.Error())
 			return err
 		}
 		tunnelLog.Debugf("Tunnel %d: From client %d byte(s)",

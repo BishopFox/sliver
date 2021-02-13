@@ -51,10 +51,11 @@ func main() {
 	// Register RPC service clients. This function is called here because both the server
 	// and the client binary use the same function, but the server binary uses an in-memory
 	// gRPC connection, contrary to this client.
-	client.Console.Connect(grpcConn, false)
+	client.Console.Connect(grpcConn)
 
-	// Start the client console. The latter automatically performs server connection,
-	// prompt/command/completion setup, event loop listening, logging, etc. Any critical error
-	// is handled from within this function, so we don't process the return error here.
-	client.Console.Start()
+	// Setup prompt/command/completion, event loop listening, logging, etc.
+	client.Console.Init()
+
+	// Run the console. Any error is handled internally
+	client.Console.Run()
 }
