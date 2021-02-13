@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bishopfox/sliver/client/commands"
+	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -142,7 +142,7 @@ func (sc *SessionCompCache) GetNetInterfaces() (ifaces *sliverpb.Ifconfig) {
 	}
 
 	ifconfig, err := transport.RPC.Ifconfig(context.Background(), &sliverpb.IfconfigReq{
-		Request: commands.ContextRequest(sc.sess),
+		Request: cctx.Request(sc.sess),
 	})
 	if err != nil {
 		return

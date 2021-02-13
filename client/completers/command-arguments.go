@@ -337,7 +337,7 @@ func processes(lastWord string) (comp *readline.CompletionGroup) {
 	}
 
 	ps, err := transport.RPC.Ps(context.Background(), &sliverpb.PsReq{
-		Request: commands.ContextRequest(session.Session)})
+		Request: cctx.Request(session.Session)})
 	if err != nil {
 		fmt.Printf(util.Error+"%s\n", err)
 		return

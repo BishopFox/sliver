@@ -1,5 +1,16 @@
 package commands
 
+import (
+	"context"
+	"fmt"
+
+	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/client/util"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/jessevdk/go-flags"
+)
+
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -89,3 +100,54 @@ var (
 	transportProtocols   = []string{"tcp", "udp", "ip"}
 	applicationProtocols = []string{"http", "https", "mtls", "quic", "http3", "dns", "named_pipe"}
 )
+
+// ArgumentByName Get the name of a detected command's argument
+func ArgumentByName(command *flags.Command, name string) *flags.Arg {
+	args := command.Args()
+	for _, arg := range args {
+		if arg.Name == name {
+			return arg
+		}
+	}
+
+	// Maybe we can check for aliases, later...
+	// Might sometimes push interesting things...
+
+	return nil
+}
+
+// OptionByName - Returns an option for a command or a subcommand, identified by name
+func OptionByName(cmd *flags.Command, option string) *flags.Option {
+
+	if cmd == nil {
+		return nil
+	}
+	// Get all (root) option groups.
+	groups := cmd.Groups()
+
+	// For each group, build completions
+	for _, grp := range groups {
+		// Add each option to completion group
+		for _, opt := range grp.Options() {
+			if opt.LongName == option {
+				return opt
+			}
+		}
+	}
+	return nil
+}
+
+// GetSession - Get session by session ID or name
+func GetSession(arg string) *clientpb.Session {
+	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(util.Error+"%s\n", err)
+		return nil
+	}
+	for _, session := range sessions.GetSessions() {
+		if fmt.Sprintf("%d", session.ID) == arg {
+			return session
+		}
+	}
+	return nil
+}

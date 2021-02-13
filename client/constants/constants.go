@@ -187,3 +187,38 @@ const (
 	MultiplayerHelpGroup = "Multiplayer:"
 	ExtensionHelpGroup   = "Sliver - 3rd Party extensions:"
 )
+
+// Command categories
+const (
+	AdminGroup      = "admin"
+	CoreServerGroup = "core (server)"
+	BuildsGroup     = "implants"
+	TransportsGroup = "transports"
+	SessionsGroup   = "sessions"
+	CommGroup       = "comm"
+
+	// Session only
+	CoreSessionGroup = "core (session)"
+	FilesystemGroup  = "filesystem"
+	InfoGroup        = "information"
+	ProcGroup        = "process"
+	PrivGroup        = "priv"
+	ExecuteGroup     = "execution"
+	PersistenceGroup = "persistence"
+	ExtensionsGroup  = "extensions"
+)
+
+// C2 default values
+const (
+	DefaultMTLSLPort    = 8888
+	DefaultHTTPLPort    = 80
+	DefaultHTTPSLPort   = 443
+	DefaultDNSLPort     = 53
+	DefaultTCPLPort     = 4444
+	DefaultTCPPivotPort = 9898
+
+	DefaultReconnect = 60
+	DefaultMaxErrors = 1000
+
+	DefaultTimeout = 60
+)

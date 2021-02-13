@@ -27,8 +27,7 @@ import (
 
 	"github.com/maxlandon/readline"
 
-	"github.com/bishopfox/sliver/client/commands"
-	"github.com/bishopfox/sliver/client/context"
+	cctx "github.com/bishopfox/sliver/client/context"
 )
 
 // TabCompleter - Entrypoint to all tab completions in the Wiregost console.
@@ -102,16 +101,9 @@ func TabCompleter(line []rune, pos int) (lastWord string, completions []*readlin
 // Many categories, all from command parsers.
 func CompleteMenuCommands(lastWord string, pos int) (prefix string, completions []*readline.CompletionGroup) {
 
-	prefix = lastWord        // We only return the PREFIX for readline to correctly show suggestions.
-	var parser *flags.Parser // Current context parser
-
-	// Gather all root commands bound to current menu context
-	switch context.Context.Menu {
-	case context.Server:
-		parser = commands.Server
-	case context.Sliver:
-		parser = commands.Sliver
-	}
+	prefix = lastWord                                // readline needs this to correctly show suggestions.
+	_, _, parser := cctx.Commands.GetCommandGroups() // The current parser and the command groups
+	// groups, cmds, parser := cctx.Commands.GetCommandGroups() // The current parser and the command groups
 
 	// Check their namespace (which should be their "group" (like utils, core, Jobs, etc))
 	for _, cmd := range parser.Commands() {
@@ -120,7 +112,7 @@ func CompleteMenuCommands(lastWord string, pos int) (prefix string, completions 
 			// Check command group: add to existing group if found
 			var found bool
 			for _, grp := range completions {
-				if grp.Name == cmd.Aliases[0] {
+				if grp.Name == cctx.Commands.GetCommandGroup(cmd) {
 					found = true
 					grp.Suggestions = append(grp.Suggestions, cmd.Name)
 					grp.Descriptions[cmd.Name] = tui.Dim(cmd.ShortDescription)
@@ -129,7 +121,8 @@ func CompleteMenuCommands(lastWord string, pos int) (prefix string, completions 
 			// Add a new group if not found
 			if !found {
 				grp := &readline.CompletionGroup{
-					Name:        cmd.Aliases[0],
+					Name:        cctx.Commands.GetCommandGroup(cmd),
+					DisplayType: readline.TabDisplayList,
 					Suggestions: []string{cmd.Name},
 					Descriptions: map[string]string{
 						cmd.Name: tui.Dim(cmd.ShortDescription),

@@ -26,7 +26,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/bishopfox/sliver/client/commands"
+	serverCmds "github.com/bishopfox/sliver/client/commands/server"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -67,7 +67,7 @@ func printLogo() {
 
 func checkLastUpdate() {
 	now := time.Now()
-	lastUpdate := commands.GetLastUpdateCheck()
+	lastUpdate := serverCmds.GetLastUpdateCheck()
 	compiledAt, err := version.Compiled()
 	if err != nil {
 		log.Printf("Failed to parse compiled at timestamp %s", err)

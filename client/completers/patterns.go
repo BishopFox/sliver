@@ -27,7 +27,7 @@ import (
 	"github.com/jessevdk/go-flags"
 
 	"github.com/bishopfox/sliver/client/commands"
-	"github.com/bishopfox/sliver/client/context"
+	cctx "github.com/bishopfox/sliver/client/context"
 )
 
 // These functions are just shorthands for checking various conditions on the input line.
@@ -45,19 +45,7 @@ func noCommandOrEmpty(args []string, last []rune, command *flags.Command) bool {
 // [ Commands ]
 // detectedCommand - Returns the base command from parser if detected, depending on context
 func detectedCommand(args []string) (command *flags.Command) {
-
-	// The args we receive have been treated by the syntax highlighter:
-	// Therefore the command has leading and trailing color codes, tui.BOLD and tui.RESET
-	// We add these codes for all command names being compared, so that we don't miss them.
-	menu := context.Context.Menu
-
-	switch menu {
-	case context.Server:
-		command = commands.Server.Find(args[0])
-	case context.Sliver:
-		command = commands.Sliver.Find(args[0])
-	}
-
+	command = cctx.Commands.GetCommands().Find(args[0])
 	return
 }
 

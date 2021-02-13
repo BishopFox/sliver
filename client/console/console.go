@@ -121,7 +121,7 @@ func (c *console) setup() (err error) {
 
 	// This context object will hold some state about the
 	// console (which implant we're interacting, jobs, etc.)
-	cctx.Initialize(transport.RPC)
+	cctx.InitializeConsole(transport.RPC)
 
 	// This computes all callbacks and base prompt strings
 	// for the first time, and then binds it to the console.
@@ -203,10 +203,15 @@ func (c *console) Start() (err error) {
 		// Bind the command parser (and its commands), for the appropriate context.
 		// This is before calling the console readline, because the latter needs
 		// to be fed a parser for completions, hints, and syntax.
-		err = commands.BindCommands(c.admin, completers.LoadCompsAdditional)
+		cmds, err := commands.BindCommands(c.admin)
 		if err != nil {
 			fmt.Print(util.CommandError + tui.Red("could not reset commands: "+err.Error()+"\n"))
 		}
+
+		// Register the commands for additional completions. Some of these may
+		// also add restrained choices to some commands, so this function may
+		// actually end up refining even more the parsing granularity of our shell.
+		completers.LoadCompsAdditional(cmds)
 
 		// Read input line (blocking)
 		line, _ := c.Readline()

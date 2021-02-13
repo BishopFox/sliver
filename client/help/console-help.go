@@ -32,6 +32,7 @@ import (
 	"github.com/jessevdk/go-flags"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	cctx "github.com/bishopfox/sliver/client/context"
 )
 
 var (
@@ -456,43 +457,49 @@ func FormatHelpTmpl(helpStr string) string {
 
 // PrintMenuHelp - Prints all commands (per category)
 // and a brief description when help is asked from the menu.
-func PrintMenuHelp(parser *flags.Parser) {
+func PrintMenuHelp(context string) {
 
-	// First print menu title and summary
-	switch parser.Name {
-	case "server":
+	// Commands and an ordered list of the groups
+	var groups []string
+	var cmds map[string][]*flags.Command
+
+	// The user can specify the menu help he wants. If none is
+	// given or recognized, we default on the current console context.
+	switch context {
+	case cctx.Server:
+		groups, cmds = cctx.Commands.GetServerGroups()
 		fmt.Println(tui.Bold(tui.Blue(" Main Menu Commands\n")))
-	case "sliver":
+	case cctx.Sliver:
+		groups, cmds = cctx.Commands.GetSliverGroups()
 		fmt.Println(tui.Bold(tui.Blue(" Sliver Menu Commands \n")))
-	}
 
-	// Get all command and push themm in their categories
-	var cmdCats = map[string][]*flags.Command{}
-	var cats []string
-	for _, cmd := range parser.Commands() {
-		if len(cmd.Aliases) > 0 {
-			if !stringInSlice(cmd.Aliases[0], &cats) {
-				cats = append(cats, cmd.Aliases[0])
-			}
-			cmdCats[cmd.Aliases[0]] = append(cmdCats[cmd.Aliases[0]], cmd)
+	default:
+		// As default use the current context
+		switch cctx.Context.Menu {
+		case cctx.Server:
+			groups, cmds = cctx.Commands.GetServerGroups()
+			fmt.Println(tui.Bold(tui.Blue(" Main Menu Commands\n")))
+		case cctx.Sliver:
+			groups, cmds = cctx.Commands.GetSliverGroups()
+			fmt.Println(tui.Bold(tui.Blue(" Sliver Menu Commands \n")))
 		}
 	}
 
-	for _, cat := range cats {
-
-		fmt.Println(tui.Yellow(" " + cat)) // Title category
+	// Print help for each command group
+	for _, group := range groups {
+		fmt.Println(tui.Yellow(" " + group)) // Title category
 
 		maxLen := 0
-		for _, sub := range cmdCats[cat] {
-			cmdLen := len(sub.Name)
+		for _, cmd := range cmds[group] {
+			cmdLen := len(cmd.Name)
 			if cmdLen > maxLen {
 				maxLen = cmdLen
 			}
 		}
 
-		for _, sub := range cmdCats[cat] {
-			pad := fmt.Sprintf("%-"+strconv.Itoa(maxLen)+"s", sub.Name)
-			fmt.Printf("    "+pad+"  %s\n", tui.Dim(sub.ShortDescription))
+		for _, cmd := range cmds[group] {
+			pad := fmt.Sprintf("%-"+strconv.Itoa(maxLen)+"s", cmd.Name)
+			fmt.Printf("    "+pad+"  %s\n", tui.Dim(cmd.ShortDescription))
 		}
 
 		// Space before next category

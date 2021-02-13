@@ -24,8 +24,8 @@ import (
 	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
 
-	"github.com/bishopfox/sliver/client/commands"
 	"github.com/bishopfox/sliver/client/context"
+	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/help"
 	"github.com/bishopfox/sliver/client/util"
 )
@@ -33,25 +33,16 @@ import (
 // ExecuteCommand - Dispatches an input line to its appropriate command.
 func (c *console) ExecuteCommand(args []string) (err error) {
 
-	ctx := context.Context // The Console Context
+	// Get the current command parser, holding all commands for the current context.
+	var parser = cctx.Commands.GetCommands()
 
-	// If any error arises from the parser executing the command,
-	// we handle this error with the parser that has thrown it.
-	// Errors can be help flags raised by the parser, or logic errors.
-	switch ctx.Menu {
-
-	// Server context: we do not have an active session.
-	case context.Server:
-		if _, parserErr := commands.Server.ParseArgs(args); parserErr != nil {
-			err = c.HandleParserErrors(commands.Server, parserErr, args)
-		}
-
-	// Sliver context: we are using an active session.
-	case context.Sliver:
-		if _, parserErr := commands.Sliver.ParseArgs(args); parserErr != nil {
-			err = c.HandleParserErrors(commands.Sliver, parserErr, args)
-		}
+	if _, parserErr := parser.ParseArgs(args); parserErr != nil {
+		err = c.HandleParserErrors(parser, parserErr, args)
 	}
+
+	// Reset the current command groups, they will be bound
+	// and computed again on the next readline loop.
+	cctx.Commands.ResetGroups()
 
 	return nil
 }
@@ -84,7 +75,12 @@ func (c *console) HandleParserErrors(parser *flags.Parser, in error, args []stri
 		// If command is nil, it means the help was requested as
 		// the menu help: print all commands for the context.
 		if cmd == nil {
-			help.PrintMenuHelp(parser)
+			switch cctx.Context.Menu {
+			case cctx.Server:
+				help.PrintMenuHelp(cctx.Server)
+			case cctx.Sliver:
+				help.PrintMenuHelp(cctx.Server)
+			}
 			return
 		}
 
