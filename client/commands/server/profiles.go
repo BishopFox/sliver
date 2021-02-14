@@ -135,15 +135,17 @@ func (p *Profiles) Execute(args []string) (err error) {
 // ProfileGenerate - Generate implant from a profile given as argment (completed)
 type ProfileGenerate struct {
 	Positional struct {
-		Profile string `description:"name of profile to use"`
-	} `required:"true"`
-	Save string `long:"save" short:"s" description:"directory/file where to save binary"`
+		Profile string `description:"name of profile to use" required:"1-1"`
+	} `positional-args:"true" required:"true"`
+	Options struct {
+		Save string `long:"save" short:"s" description:"directory/file where to save binary"`
+	} `group:"profile options"`
 }
 
 // Execute - Generate implant from a profile given as argment (completed)
 func (p *ProfileGenerate) Execute(args []string) (err error) {
 	name := p.Positional.Profile
-	save := p.Save
+	save := p.Options.Save
 	if save == "" {
 		save, _ = os.Getwd()
 	}

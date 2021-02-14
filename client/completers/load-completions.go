@@ -25,83 +25,6 @@ import (
 	cctx "github.com/bishopfox/sliver/client/context"
 )
 
-// Command/option argument choices
-var (
-	// Logs & components
-	logLevels = []string{"trace", "debug", "info", "warning", "error"}
-	loggers   = []string{"client", "comm"}
-
-	// Stages / Stagers
-	implantOS   = []string{"windows", "linux", "darwin"}
-	implantArch = []string{"amd64", "x86"}
-	implantFmt  = []string{"exe", "shared", "service", "shellcode"}
-
-	stageListenerProtocols = []string{"tcp", "http", "https"}
-
-	// MSF
-	msfStagerProtocols  = []string{"tcp", "http", "https"}
-	msfTransformFormats = []string{
-		"bash",
-		"c",
-		"csharp",
-		"dw",
-		"dword",
-		"hex",
-		"java",
-		"js_be",
-		"js_le",
-		"num",
-		"perl",
-		"pl",
-		"powershell",
-		"ps1",
-		"py",
-		"python",
-		"raw",
-		"rb",
-		"ruby",
-		"sh",
-		"vbapplication",
-		"vbscript",
-	}
-
-	msfEncoders = []string{
-		"x86/shikata_ga_nai",
-		"x64/xor_dynamic",
-	}
-
-	msfPayloads = map[string][]string{
-		"windows": windowsMsfPayloads,
-		"linux":   linuxMsfPayloads,
-		"osx":     osxMsfPayloads,
-	}
-
-	// ValidPayloads - Valid payloads and OS combos
-	windowsMsfPayloads = []string{
-		"meterpreter_reverse_http",
-		"meterpreter_reverse_https",
-		"meterpreter_reverse_tcp",
-		"meterpreter/reverse_tcp",
-		"meterpreter/reverse_http",
-		"meterpreter/reverse_https",
-	}
-	linuxMsfPayloads = []string{
-		"meterpreter_reverse_http",
-		"meterpreter_reverse_https",
-		"meterpreter_reverse_tcp",
-	}
-	osxMsfPayloads = []string{
-		"meterpreter_reverse_http",
-		"meterpreter_reverse_https",
-		"meterpreter_reverse_tcp",
-	}
-
-	// Comm network protocols
-	portfwdProtocols     = []string{"tcp", "udp"}
-	transportProtocols   = []string{"tcp", "udp", "ip"}
-	applicationProtocols = []string{"http", "https", "mtls", "quic", "http3", "dns", "named_pipe"}
-)
-
 // LoadCompsAdditional - This func is stored and called at each
 // command parser loop, for managing fixed-choice completions for some commands.
 func LoadCompsAdditional(parser *flags.Parser) {
@@ -118,10 +41,6 @@ func LoadCompsAdditional(parser *flags.Parser) {
 
 // Additional completion mappings for command in the server context
 func serverCompsAddtional(parser *flags.Parser) {
-
-	// Staging listener
-	s := parser.Find(constants.StageListenerStr)
-	s.FindOptionByLongName("url").Choices = stageListenerProtocols
 
 	// Stage options
 	g := parser.Find(constants.GenerateStr)

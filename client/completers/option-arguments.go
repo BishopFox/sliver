@@ -133,9 +133,21 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 			completions = append(completions, comp)
 		}
 
-		// URL completer
-		if match("URL") {
-			urlPrefix, comps := completeURL(lastWord, false)
+		// Implant profiles
+		if match("Profile") && cmd.Name != constants.NewProfileStr {
+			completions = append(completions, implantProfiles(lastWord))
+		}
+
+		// URL completer (we only pass valid schemes for a given command)
+		if match("URL") && cmd.Name != constants.StageListenerStr {
+			urlPrefix, comps := completeURL(lastWord, false, urlShemes)
+			completions = append(completions, comps...)
+
+			// We return this prefix because it is aware of paths lengths, etc...
+			return urlPrefix, completions
+
+		} else if match("URL") && cmd.Name == constants.StageListenerStr {
+			urlPrefix, comps := completeURL(lastWord, false, stageListenerProtocols)
 			completions = append(completions, comps...)
 
 			// We return this prefix because it is aware of paths lengths, etc...
@@ -181,9 +193,14 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 			completions = append(completions, allSessionsIfaceNetworks(lastWord, 0, true)...)
 		}
 
+		// Implant profiles
+		if match("Profile") && cmd.Name != constants.NewProfileStr {
+			completions = append(completions, implantProfiles(lastWord))
+		}
+
 		// URL completer
 		if match("URL") {
-			urlPrefix, comps := completeURL(lastWord, true)
+			urlPrefix, comps := completeURL(lastWord, true, urlShemes)
 			completions = append(completions, comps...)
 
 			// We return this prefix because it is aware of paths lengths, etc...

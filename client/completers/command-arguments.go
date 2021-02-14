@@ -104,7 +104,7 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 
 		// URLs
 		if strings.Contains(found.Name, "URL") {
-			urlPrefix, comps := completeURL(lastWord, false)
+			urlPrefix, comps := completeURL(lastWord, false, urlShemes)
 			completions = append(completions, comps...)
 
 			// We return this prefix because it is aware of paths lengths, etc...
@@ -154,7 +154,7 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 
 		// URL completer
 		if strings.Contains(found.Name, "URL") {
-			urlPrefix, comps := completeURL(lastWord, true)
+			urlPrefix, comps := completeURL(lastWord, true, urlShemes)
 			completions = append(completions, comps...)
 
 			// We return this prefix because it is aware of paths lengths, etc...

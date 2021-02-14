@@ -40,7 +40,7 @@ var (
 
 // A user wants to input a URL. We complete shemes and hosts. We pass an indication
 // about the current context, so as to refine the list of hosts we give.
-func completeURL(last string, sliverContext bool) (prefix string, completions []*readline.CompletionGroup) {
+func completeURL(last string, sliverContext bool, validSchemes []string) (prefix string, completions []*readline.CompletionGroup) {
 
 	// Normally, when we enter the function the last input should be nil
 	// because we don't "append" a URL to anything  without a space (usually).
@@ -51,7 +51,7 @@ func completeURL(last string, sliverContext bool) (prefix string, completions []
 			MaxLength:   5,
 			DisplayType: readline.TabDisplayGrid,
 		}
-		for _, sch := range urlShemes {
+		for _, sch := range validSchemes {
 			completion.Suggestions = append(completion.Suggestions, sch+"://")
 		}
 		return last, []*readline.CompletionGroup{completion}
