@@ -64,7 +64,10 @@ func (c *CompletionCache) AddSessionCache(sess *clientpb.Session) {
 func (c *CompletionCache) GetSessionCache(ID uint32) (cache *SessionCompCache) {
 	cache, found := c.Sessions[ID]
 	if !found {
-		return nil
+		// Create a new cache if it does not exist
+		c.AddSessionCache(GetAllSessions()[ID])
+		cache, found = c.Sessions[ID]
+		return cache
 	}
 	return cache
 }

@@ -148,7 +148,7 @@ func (sc *Server) Run() {
 		completers.Cache.Reset()
 
 		// Recompute prompt each time, before anything.
-		console.Prompt.Compute()
+		sc.ComputePrompt()
 
 		// Reset the log synchroniser, before rebinding the commands, so that
 		// if anyone is to use the parser.Active command, it will work until

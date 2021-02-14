@@ -35,6 +35,7 @@ func LoadCompsAdditional(parser *flags.Parser) {
 	case "server":
 		serverCompsAddtional(parser)
 	case "sliver":
+		serverCompsAddtional(parser)
 		sliverCompsAdditional(parser)
 	}
 }

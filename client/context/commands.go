@@ -128,7 +128,6 @@ func (c *commands) RegisterServerCommand(err error, cmd *flags.Command, group st
 	if g, exists := (*c.ServerGroups)[group]; exists {
 		(*c.ServerGroups)[group] = append(g, cmd)
 	} else if group == "" {
-		// fmt.Println("nil")
 		if others, exist := (*c.ServerGroups)["others"]; exist {
 			others = append(others, cmd)
 		} else {
@@ -136,7 +135,6 @@ func (c *commands) RegisterServerCommand(err error, cmd *flags.Command, group st
 			c.serverGroupList = append(c.serverGroupList, "others")
 		}
 	} else {
-		// fmt.Println("here")
 		(*c.ServerGroups)[group] = []*flags.Command{cmd}
 		c.serverGroupList = append(c.serverGroupList, group)
 	}

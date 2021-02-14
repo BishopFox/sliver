@@ -26,11 +26,6 @@ import (
 	"github.com/bishopfox/sliver/client/context"
 )
 
-var (
-	// Prompt - The prompt singleton object used by the console.
-	Prompt *prompt
-)
-
 // prompt - The prompt object is in charge of computing values, refreshing and printing them.
 type prompt struct {
 	Server *promptServer // Main menu
@@ -41,10 +36,8 @@ type prompt struct {
 func (c *Client) initPrompt() {
 
 	// Prompt settings (Vim-mode and stuff)
-	c.Shell.Multiline = true   // spaceship-like prompt (2-line)
-	c.Shell.ShowVimMode = true // with Vim mode status
 
-	Prompt = &prompt{
+	c.Prompt = &prompt{
 		Server: &promptServer{
 			Callbacks: serverCallbacks,
 			Colors:    serverColorCallbacks,
@@ -55,23 +48,19 @@ func (c *Client) initPrompt() {
 		},
 	}
 
-	c.Shell.SetPrompt(Prompt.Render())
+	line := c.Prompt.Render()
+	c.Shell.SetPrompt(line)
 }
 
 // ComputePrompt - Recompute prompt. This function may trigger some complex behavior:
 // It reads various things on the current console context, and refreshes the prompt
 // sometimes in a special way (like overwriting it fully or partly).
-func (p *prompt) Compute() {
-	line := p.Render()
-	Console.Shell.SetPrompt(line)
+func (c *Client) ComputePrompt() {
+	line := c.Prompt.Render()
+	c.Shell.SetPrompt(line)
 
 	// Live a line between output and next prompt
 	fmt.Println()
-
-	// Check for refresh
-	// if context.Context.NeedsCommandRefresh {
-	//         p.RefreshOnCommand()
-	// }
 }
 
 // Render - The prompt determines in which context we currently are (core or sliver), and asks

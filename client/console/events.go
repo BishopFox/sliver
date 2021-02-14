@@ -106,7 +106,7 @@ func (c *Client) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 					fmt.Println(news)
 				} else {
 					fmt.Println(news)
-					c.Shell.RefreshPromptCustom(Prompt.Render(), 0, false)
+					c.Shell.RefreshPromptCustom(c.Prompt.Render(), 0, false)
 				}
 			}
 
@@ -119,7 +119,7 @@ func (c *Client) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 					fmt.Print(updated)
 				} else {
 					fmt.Print(updated)
-					c.Shell.RefreshPromptInPlace(Prompt.Render())
+					c.Shell.RefreshPromptInPlace(c.Prompt.Render())
 				}
 			} else {
 				if log.IsSynchronized() {

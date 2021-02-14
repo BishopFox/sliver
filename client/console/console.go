@@ -73,8 +73,9 @@ func newConsole() *Client {
 // Client - Central object of the client UI. Only one instance of this object
 // lives in the client executable (instantiated with newConsole() above).
 type Client struct {
-	Shell *readline.Instance // Provides input loop and completion system.
-	Conn  *grpc.ClientConn   // The current raw gRPC client connection to the server.
+	Shell  *readline.Instance // Provides input loop and completion system.
+	Conn   *grpc.ClientConn   // The current raw gRPC client connection to the server.
+	Prompt *prompt            // The prompt for all contexts
 }
 
 // Connect - The console connects to the server and authenticates. Note that all
@@ -153,7 +154,7 @@ func (c *Client) Init() (err error) {
 	}
 
 	// Start monitoring all logs from the server and the client.
-	err = clientLog.Init(c.Shell, Prompt.Render, transport.RPC)
+	err = clientLog.Init(c.Shell, c.Prompt.Render, transport.RPC)
 	if err != nil {
 		return fmt.Errorf("Failed to start log monitor (%s)", err.Error())
 	}
@@ -189,7 +190,7 @@ func (c *Client) Run() {
 		completers.Cache.Reset()
 
 		// Recompute prompt each time, before anything.
-		Prompt.Compute()
+		c.ComputePrompt()
 
 		// Reset the log synchroniser, before rebinding the commands, so that
 		// if anyone is to use the parser.Active command, it will work until
@@ -236,6 +237,9 @@ func (c *Client) Run() {
 // SetConfiguredShell - Live refresh of console properties (input, hints, etc),
 // following some commands (confi, usually) that may have changed some settings.
 func (c *Client) SetConfiguredShell() {
+
+	c.Shell.Multiline = true   // spaceship-like prompt (2-line)
+	c.Shell.ShowVimMode = true // with Vim mode status
 
 	// Input
 	if !cctx.Config.Vim {

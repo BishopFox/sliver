@@ -19,14 +19,18 @@ package server
 */
 
 import (
+	"fmt"
+
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/help"
+	"github.com/bishopfox/sliver/client/util"
+	"github.com/maxlandon/readline"
 )
 
 // Help - Print help for the current context (lists all commands)
 type Help struct {
 	Positional struct {
-		Component string
+		Component string `description:"(optional) command to print help for"`
 	} `positional-args:"true"`
 }
 
@@ -45,6 +49,11 @@ func (h *Help) Execute(args []string) (err error) {
 		return
 	}
 	if h.Positional.Component == cctx.Sliver {
+		if cctx.Context.Menu == cctx.Server {
+			fmt.Printf(util.Error + "The console command model forbids showing menu help for commands outside their context...\n")
+			fmt.Printf("    Please interact with an implant first, to show Session menu help\n")
+			return
+		}
 		help.PrintMenuHelp(cctx.Sliver)
 		return
 	}
@@ -52,10 +61,16 @@ func (h *Help) Execute(args []string) (err error) {
 	parser := cctx.Commands.GetCommands()
 
 	// If a command is asked for
+	var found bool
 	for _, cmd := range parser.Commands() {
 		if cmd.Name == h.Positional.Component {
+			found = true
 			help.PrintCommandHelp(cmd)
 		}
+	}
+	if !found {
+		fmt.Printf(util.Error+"Invalid command: %s%s%s\n",
+			readline.BOLD, h.Positional.Component, readline.RESET)
 	}
 
 	return

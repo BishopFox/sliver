@@ -86,10 +86,10 @@ func TabCompleter(line []rune, pos int) (lastWord string, completions []*readlin
 		}
 
 		// Propose argument completion before anything, and if needed
+		// This includes optional arguments, which are evaulated as a last resort
 		if arg, yes := commandArgumentRequired(lastWord, args, command); yes {
 			return completeCommandArguments(command, arg, lastWord)
 		}
-
 	}
 
 	return

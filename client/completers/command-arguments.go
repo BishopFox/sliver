@@ -111,6 +111,11 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 			return urlPrefix, completions
 		}
 
+		// Help
+		if strings.Contains(found.Name, "Component") {
+			completions = append(completions, completeServerCommands(lastWord))
+		}
+
 	// When using a session, some paths are on the remote system, and some are the client console.
 	case cctx.Sliver:
 		if strings.Contains(found.Name, "RemotePath") || strings.Contains(found.Name, "OtherPath") || found.Name == "Path" {
@@ -160,6 +165,12 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 			// We return this prefix because it is aware of paths lengths, etc...
 			return urlPrefix, completions
 		}
+
+		// Help
+		if strings.Contains(found.Name, "Component") {
+			completions = append(completions, completeServerCommands(lastWord))
+			completions = append(completions, completeSliverCommands(lastWord))
+		}
 	}
 
 	// Completions that do not depend on context, and that should either be unique, or be appended to the comp list by default.
@@ -185,6 +196,42 @@ func completeCommandArguments(cmd *flags.Command, arg string, lastWord string) (
 		completions = append(completions, implantNames(lastWord))
 	}
 
+	return
+}
+
+func completeServerCommands(lastWord string) (comp *readline.CompletionGroup) {
+	comp = &readline.CompletionGroup{
+		Name:        "server commands",
+		DisplayType: readline.TabDisplayGrid,
+		MaxLength:   10,
+	}
+
+	groups, cmds := cctx.Commands.GetServerGroups()
+	for _, group := range groups {
+		for _, cmd := range cmds[group] {
+			if strings.HasPrefix(cmd.Name, lastWord) {
+				comp.Suggestions = append(comp.Suggestions, cmd.Name)
+			}
+		}
+	}
+	return
+}
+
+func completeSliverCommands(lastWord string) (comp *readline.CompletionGroup) {
+	comp = &readline.CompletionGroup{
+		Name:        "session commands",
+		DisplayType: readline.TabDisplayGrid,
+		MaxLength:   10,
+	}
+
+	groups, cmds := cctx.Commands.GetSliverGroups()
+	for _, group := range groups {
+		for _, cmd := range cmds[group] {
+			if strings.HasPrefix(cmd.Name, lastWord) {
+				comp.Suggestions = append(comp.Suggestions, cmd.Name)
+			}
+		}
+	}
 	return
 }
 

@@ -75,9 +75,6 @@ func LoadServerConfig() (err error) {
 
 	// Then check if we have textfile configs. If yes, go on.
 	configs := GetConfigs()
-	if len(configs) > 0 {
-		fmt.Println("[-] Found text-file server configuration(s)")
-	}
 
 	// prompt user for which config.
 	// We should not have an error here, so we must exit.
@@ -115,14 +112,12 @@ func GetConfigs() (configs map[string]*ClientConfig) {
 	configDir := GetConfigDir()
 	configFiles, err := ioutil.ReadDir(configDir)
 	if err != nil {
-		log.Printf("No configs found %v", err)
 		return map[string]*ClientConfig{}
 	}
 
 	configs = map[string]*ClientConfig{}
 	for _, confFile := range configFiles {
 		confFilePath := path.Join(configDir, confFile.Name())
-		log.Printf("Parsing config %s", confFilePath)
 
 		conf, err := readConfig(confFilePath)
 		if err != nil {
