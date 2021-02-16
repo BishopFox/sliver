@@ -253,6 +253,8 @@ var (
 		"handlers/handlers_default.go",
 		"handlers/handlers.go",
 
+		"hostuuid/uuid_default.go",
+
 		"limits/limits.go",
 		"limits/limits_default.go",
 
