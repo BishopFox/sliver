@@ -34,17 +34,18 @@ message Envelope {
 message Register {
   string Name = 1;
   string Hostname = 2;
-  string Username = 3;
-  string Uid = 4;
-  string Gid = 5;
-  string Os = 6;
-  string Arch = 7;
-  int32 Pid = 8;
-  string Filename = 9;
-  string ActiveC2 = 10;
-  string Version = 11;
-  uint32 ReconnectInterval = 12;
-  string ProxyURL = 13;
+  string Uuid = 3;
+  string Username = 4;
+  string Uid = 5;
+  string Gid = 6;
+  string Os = 7;
+  string Arch = 8;
+  int32 Pid = 9;
+  string Filename = 10;
+  string ActiveC2 = 11;
+  string Version = 12;
+  uint32 ReconnectInterval = 13;
+  string ProxyURL = 14;
 }
 
 // Ping - Not ICMP, just sends a rount trip message to an implant to
