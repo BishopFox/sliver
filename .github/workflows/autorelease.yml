@@ -16,7 +16,7 @@ jobs:
     - name: Go 1.16
       uses: actions/setup-go@v1
       with:
-        go-version: 1.16beta1
+        go-version: 1.16
       id: go
     
     - name: OS Packages 
@@ -78,7 +78,7 @@ jobs:
     - name: Go 1.16
       uses: actions/setup-go@v1
       with:
-        go-version: 1.16beta1
+        go-version: 1.16
       id: go
 
     - name: Mingw
@@ -145,8 +145,8 @@ jobs:
         zip -j ./release/sliver-server_windows.zip ./artifacts/windows/sliver-server.exe
         zip -j ./release/sliver-client_windows.zip ./artifacts/windows/sliver-client.exe
 
-    # MacOS
-    - name: Package MacOS
+    # MacOS AMD64
+    - name: Package MacOS AMD64
       run: |
         zip -j ./release/sliver-server_macos.zip ./artifacts/macos/sliver-server
         zip -j ./release/sliver-client_macos.zip ./artifacts/macos/sliver-client
