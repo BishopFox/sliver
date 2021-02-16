@@ -169,7 +169,7 @@ func NewInstance() *Instance {
 	rl.ShowVimMode = true // In case the user sets input mode to Vim, everything is ready.
 
 	// Completion
-	rl.MaxTabCompleterRows = 100
+	rl.MaxTabCompleterRows = 50
 
 	// History
 	rl.History = new(ExampleHistory) // In-memory history by default.

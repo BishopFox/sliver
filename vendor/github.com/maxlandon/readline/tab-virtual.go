@@ -85,6 +85,12 @@ func (rl *Instance) updateVirtualComp() {
 		// If the total number of completions is one, automatically insert it.
 		if rl.hasOneCandidate() {
 			rl.insertCandidate()
+			// Quit the tab completion mode to avoid asking to the user to press
+			// Enter twice to actually run the command
+			// Refresh first, and then quit the completion mode
+			rl.renderHelpers()
+			rl.viUndoSkipAppend = true
+			rl.resetTabCompletion()
 		} else {
 			// Or insert it virtually.
 			if len(completion) >= prefix {
@@ -121,16 +127,22 @@ func (rl *Instance) resetVirtualComp() {
 	// We will only insert the net difference between prefix and completion.
 	prefix := len(rl.tcPrefix)
 
-	// Insert the current candidate
+	// Insert the current candidate. A bit of processing happens:
+	// - We trim the trailing slash if needed
+	// - We add a space only if the group has not explicitely specified not to add one.
 	if cur.TrimSlash {
 		trimmed, hadSlash := trimTrailing(completion)
 		if !hadSlash && rl.compAddSpace {
-			trimmed = trimmed + " "
+			if !cur.NoSpace {
+				trimmed = trimmed + " "
+			}
 		}
 		rl.insertCandidateVirtual([]rune(trimmed[prefix:]))
 	} else {
 		if rl.compAddSpace {
-			completion = completion + " "
+			if !cur.NoSpace {
+				completion = completion + " "
+			}
 		}
 		rl.insertCandidateVirtual([]rune(completion[prefix:]))
 	}

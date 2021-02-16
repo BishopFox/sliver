@@ -101,6 +101,7 @@ github.com/go-logfmt/logfmt v0.4.0/go.mod h1:3RMwSq7FuexP4Kalkev3ejPJsZTpXXBr9+V
 github.com/go-sql-driver/mysql v1.5.0 h1:ozyZYNQW3x3HtqT1jira07DN2PArx2v7/mN66gGcHOs=
 github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
+github.com/go-test/deep v1.0.6 h1:UHSEyLZUwX9Qoi99vVwvewiMC8mM2bf7XEM2nqvzEn8=
 github.com/go-test/deep v1.0.6/go.mod h1:QV8Hv/iy04NyLBxAdO9njL0iVPN1S4d/A3NVv1V36o8=
 github.com/gofrs/uuid v3.2.0+incompatible/go.mod h1:b2aQJv3Z4Fp6yNu3cdSllBxTCLRxnplIgP/c0N/04lM=
 github.com/gofrs/uuid v3.3.0+incompatible h1:8K4tyRfvU1CYPgJsveYFQMhpFd/wXNM7iK6rR7UHz84=
@@ -281,10 +282,6 @@ github.com/mattn/go-sqlite3 v1.14.3/go.mod h1:WVKg1VTActs4Qso6iwGbiFih2UIHo0ENGw
 github.com/mattn/go-sqlite3 v2.0.1+incompatible h1:xQ15muvnzGBHpIpdrNi1DA5x0+TcBZzsIDwmw9uTHzw=
 github.com/mattn/go-sqlite3 v2.0.1+incompatible/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOqkbpncsNc=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
-github.com/maxlandon/readline v0.1.0-beta h1:Mznv2Zpz7vm/5tUr/zewbktuSkYPuh8UPwm5UMe/Zug=
-github.com/maxlandon/readline v0.1.0-beta/go.mod h1:2WW8jIUJ3T9/SwznDIYynqTTj4T5g/x+0EQv9B8oks4=
-github.com/maxlandon/readline v0.1.0-beta.0.20210216203758-3e23bcf4ac21 h1:jQ7qmftfmBhG9hM28jaurr0KhqIrBumZcAZGHTQaQuI=
-github.com/maxlandon/readline v0.1.0-beta.0.20210216203758-3e23bcf4ac21/go.mod h1:2WW8jIUJ3T9/SwznDIYynqTTj4T5g/x+0EQv9B8oks4=
 github.com/maxlandon/readline v0.1.0-beta.0.20210216210650-79508fb108c6 h1:N/oAVap5Y2bOxlgUdSvRfL1Pk6unbAIprwOSB5lewhY=
 github.com/maxlandon/readline v0.1.0-beta.0.20210216210650-79508fb108c6/go.mod h1:qqndpPBB/fwqWinuB+gXhITlav/BI3pqeeguA1cJlYg=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b h1:j7+1HpAFS1zy5+Q4qx1fWh90gTKwiN4QCGoY9TWyyO4=

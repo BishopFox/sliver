@@ -324,6 +324,20 @@ func (rl *Instance) hasOneCandidate() bool {
 	return false
 }
 
+// When the completions are either longer than:
+// - The user-specified max completion length
+// - The terminal lengh
+// we use this function to prompt for confirmation before printing comps.
+func (rl *Instance) promptCompletionConfirm(sentence string) {
+	rl.hintText = []rune(sentence)
+	rl.writeHintText()
+	moveCursorUp(rl.hintY)
+	moveCursorBackwards(GetTermWidth())
+	moveCursorToLinePos(rl)
+	rl.compConfirmWait = true
+	rl.viUndoSkipAppend = true
+}
+
 func (rl *Instance) getCompletionCount() (comps int, lines int) {
 	for _, group := range rl.tcGroups {
 		comps += len(group.Suggestions)

@@ -5,6 +5,8 @@ import (
 	"os"
 	"regexp"
 	"unicode/utf8"
+
+	"github.com/olekukonko/ts"
 )
 
 // GetTermWidth returns the width of Stdout or 80 if the width cannot be established
@@ -15,6 +17,18 @@ func GetTermWidth() (termWidth int) {
 	if err != nil {
 		termWidth = 80
 	}
+
+	return
+}
+
+// GetTermLength returns the length of the terminal
+// (Y length), or 80 if it cannot be established
+func GetTermLength() (termLength int) {
+	size, err := ts.GetSize()
+	if err != nil || size.Row() == 0 {
+		return 80
+	}
+	termLength = size.Row()
 
 	return
 }

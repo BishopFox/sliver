@@ -100,9 +100,8 @@ The complete documentation for this library can be found in the repo's [Wiki](ht
 
 #### Command & Completion utilities
 * [ Interfacing with the go-flags library](https://github.com/maxlandon/readline/wiki/Interfacing-With-Go-Flags)
-* [ Default Completion Engine (with go-flags) ](https://github.com/maxlandon/readline/wiki/Default-Completion-Engine)
+* [ Declaring go-flags commands](https://github.com/maxlandon/readline/wiki/Declaring-Commands)
 * [ Colors/Effects Usage ](https://github.com/maxlandon/readline/wiki/Colors-&-Effects-Usage)
-
 
 
 ## Project Status & Support

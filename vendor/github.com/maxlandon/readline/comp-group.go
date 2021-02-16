@@ -18,6 +18,9 @@ type CompletionGroup struct {
 	// When this is true, the completion is inserted really (not virtually) without
 	// the trailing slash, if any. This is used when we want to complete paths.
 	TrimSlash bool
+	// When this is true, we don't add a space after entering the candidate.
+	// Can be used for multi-stage completions, like URLS (scheme:// + host)
+	NoSpace bool
 
 	// Values used by the shell
 	tcPosX         int
