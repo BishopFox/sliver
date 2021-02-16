@@ -14,10 +14,9 @@ jobs:
     steps:
 
     - name: Go 1.16
-    - uses: actions/setup-go@v2
+      uses: actions/setup-go@v2
       with:
         go-version: '^1.16'
-      id: go
     
     - name: OS Packages 
       run: |
@@ -76,10 +75,9 @@ jobs:
     steps:
 
     - name: Go 1.16
-    - uses: actions/setup-go@v2
+      uses: actions/setup-go@v2
       with:
         go-version: '^1.16'
-      id: go
 
     - name: Mingw
       run: brew install mingw-w64
