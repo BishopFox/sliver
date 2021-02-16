@@ -1,6 +1,6 @@
 module github.com/bishopfox/sliver
 
-go 1.13
+go 1.16
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.2
@@ -25,7 +25,7 @@ require (
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/mattn/go-runewidth v0.0.8 // indirect
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible
-	github.com/maxlandon/readline v0.1.0-beta.0.20210216203758-3e23bcf4ac21
+	github.com/maxlandon/readline v0.1.0-beta.0.20210216210650-79508fb108c6
 	github.com/miekg/dns v1.1.35
 	github.com/mitchellh/go-grpc-net-conn v0.0.0-20200427190222-eb030e4876f0
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect

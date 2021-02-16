@@ -37,7 +37,7 @@ type Exit struct{}
 func (e *Exit) Execute(args []string) (err error) {
 
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Confirm exit (Y/y): ")
+	fmt.Print("Confirm exit (Y/y, or Ctrl-C): ")
 	text, _ := reader.ReadString('\n')
 	answer := strings.TrimSpace(text)
 

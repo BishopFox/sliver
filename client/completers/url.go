@@ -39,7 +39,9 @@ var (
 )
 
 // A user wants to input a URL. We complete shemes and hosts. We pass an indication
-// about the current context, so as to refine the list of hosts we give.
+// about the current context, so as to refine the list of hosts we give, and we also
+// pass in a list of valid shemes for this precise completion: some commands will be
+// compatible with only a handful of URL schemes, like meterpreter stagers.
 func completeURL(last string, sliverContext bool, validSchemes []string) (prefix string, completions []*readline.CompletionGroup) {
 
 	// Normally, when we enter the function the last input should be nil
