@@ -109,7 +109,9 @@ type Regenerate struct {
 	Positional struct {
 		ImplantName string `description:"Name of Sliver implant to recompile" required:"1-1"`
 	} `positional-args:"yes" required:"yes"`
-	Save string `long:"save" short:"s" description:"Directory/file where to save binary"`
+	Options struct {
+		Save string `long:"save" short:"s" description:"directory/file where to save binary"`
+	} `group:"profile options"`
 }
 
 // Execute - Recompile an implant with a given profile
@@ -118,7 +120,7 @@ func (r *Regenerate) Execute(args []string) (err error) {
 		fmt.Printf(util.Error+"Invalid implant name, see `help %s`\n", constants.RegenerateStr)
 		return
 	}
-	save := r.Save
+	save := r.Options.Save
 	if save == "" {
 		save, _ = os.Getwd()
 	}

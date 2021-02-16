@@ -103,7 +103,6 @@ func CompleteMenuCommands(lastWord string, pos int) (prefix string, completions 
 
 	prefix = lastWord                                // readline needs this to correctly show suggestions.
 	_, _, parser := cctx.Commands.GetCommandGroups() // The current parser and the command groups
-	// groups, cmds, parser := cctx.Commands.GetCommandGroups() // The current parser and the command groups
 
 	// Check their namespace (which should be their "group" (like utils, core, Jobs, etc))
 	for _, cmd := range parser.Commands() {

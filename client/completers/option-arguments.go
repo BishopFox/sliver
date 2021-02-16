@@ -157,6 +157,27 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 	case context.Sliver:
 		sliverID := context.Context.Sliver.Session.ID
 
+		// Any arguments with a path name. Often we "save" files that need paths, certificates, etc
+		if match("Save") {
+			switch cmd.Name {
+			case constants.WebContentTypeStr, constants.WebUpdateStr, constants.AddWebContentStr, constants.RmWebContentStr:
+				// Make an exception for WebPath option in websites commands.
+			default:
+				switch opt.ValueName {
+				case "local-path", "path":
+					prefix, comp = completeLocalPath(lastWord)
+					completions = append(completions, comp)
+				case "local-file", "file":
+					prefix, comp = completeLocalPathAndFiles(lastWord)
+					completions = append(completions, comp)
+				default:
+					// We always have a default searching for files, locally
+					prefix, comp = completeLocalPathAndFiles(lastWord)
+					completions = append(completions, comp)
+				}
+			}
+		}
+
 		// Sessions
 		if match("ImplantID") || match("SessionID") {
 			completions = append(completions, sessionIDs(lastWord))

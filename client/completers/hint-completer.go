@@ -75,11 +75,6 @@ func HintCompleter(line []rune, pos int) (hint []rune) {
 			hint = []rune(CommandArgumentHints(args, last, command, arg))
 		}
 
-		// Brief subcommand hint
-		if lastIsSubCommand(lastWord, command) {
-			hint = []rune(commandHint + command.Find(string(last)).ShortDescription)
-		}
-
 		// Handle subcommand if found
 		if sub, ok := subCommandFound(lastWord, args, command); ok {
 			return HandleSubcommandHints(args, last, sub)
@@ -102,6 +97,9 @@ func CommandHint(command *flags.Command) (hint []rune) {
 
 // HandleSubcommandHints - Handles hints for a subcommand and its arguments, options, etc.
 func HandleSubcommandHints(args []string, last []rune, command *flags.Command) (hint []rune) {
+
+	// By default, we show the hint for the subcommand
+	hint = []rune(commandHint + command.ShortDescription)
 
 	// If command has args, hint for args
 	if arg, yes := commandArgumentRequired(string(last), args, command); yes {
