@@ -39,8 +39,10 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	// {{if eq .Config.GOOS "windows"}}
-
+	"github.com/bishopfox/sliver/implant/sliver/priv"
+	"github.com/bishopfox/sliver/implant/sliver/syscalls"
 	// {{end}}
+
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
 	"github.com/bishopfox/sliver/implant/sliver/handlers"
 	"github.com/bishopfox/sliver/implant/sliver/hostuuid"
