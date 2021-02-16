@@ -14,6 +14,7 @@ require (
 	github.com/djherbis/buffer v1.1.0 // indirect
 	github.com/evilsocket/islazy v1.10.6
 	github.com/fatih/color v1.10.0 // indirect
+	github.com/go-cmd/cmd v1.3.0
 	github.com/gofrs/uuid v3.3.0+incompatible
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.1 // indirect

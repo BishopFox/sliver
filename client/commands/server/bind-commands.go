@@ -283,11 +283,11 @@ func BindCommands(parser *flags.Parser, registerGroup func(err error, cmd *flags
 			&ChangeClientDirectory{})
 		registerGroup(err, cd, constants.CoreServerGroup)
 
-		ls, err := parser.AddCommand(constants.LsStr,
-			"List directory contents",
-			"",
-			&ListClientDirectories{})
-		registerGroup(err, ls, constants.CoreServerGroup)
+		// ls, err := parser.AddCommand(constants.LsStr,
+		//         "List directory contents",
+		//         "",
+		//         &ListClientDirectories{})
+		// registerGroup(err, ls, constants.CoreServerGroup)
 
 		// The info command is a session management one
 		// in server context, but a core one in session context.

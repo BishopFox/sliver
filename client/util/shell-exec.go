@@ -23,41 +23,72 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/evilsocket/islazy/str"
+	"github.com/go-cmd/cmd"
 )
 
 // Shell - Use the system shell transparently through the console
 func Shell(args []string) error {
-	out, err := Exec(args[0], args[1:])
+	err := ShellExec(args[0], args[1:])
 	if err != nil {
 		fmt.Printf(CommandError+"%s \n", err.Error())
 		return nil
 	}
-
-	// Print output
-	fmt.Println(out)
-
 	return nil
 }
 
-// Exec - Execute a program
-func Exec(executable string, args []string) (string, error) {
+// ShellExec - Execute a program via OS, with realtime output
+func ShellExec(executable string, args []string) (err error) {
+
+	// Check executable exists
 	path, err := exec.LookPath(executable)
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	cmd := exec.Command(path, args...)
+	// No output buffering, enable streaming (print output in real time)
+	cmdOptions := cmd.Options{
+		Buffered:  false,
+		Streaming: true,
+	}
+
+	// Prepare the command
+	runCmd := cmd.NewCmdOptions(cmdOptions, path, args...)
 
 	// Load OS environment
-	cmd.Env = os.Environ()
+	runCmd.Env = os.Environ()
 
-	out, err := cmd.CombinedOutput()
+	// Print Stdout & Stderr lines in real time
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		// Done when both channels have been closed.
+		// https://dave.cheney.net/2013/04/30/curious-channels
+		for runCmd.Stdout != nil || runCmd.Stderr != nil {
+			select {
+			case line, open := <-runCmd.Stdout:
+				if !open {
+					runCmd.Stdout = nil
+					continue
+				}
+				fmt.Println(line)
+			case line, open := <-runCmd.Stderr:
+				if !open {
+					runCmd.Stderr = nil
+					continue
+				}
+				fmt.Println(line)
+				// fmt.Fprintln(os.Stderr, line)
+			}
+		}
+	}()
 
-	if err != nil {
-		return "", err
-	}
-	return str.Trim(string(out)), nil
+	// Run and wait for command to return, discard exit status
+	<-runCmd.Start()
+
+	// Wait for goroutine to print everything
+	<-done
+
+	return
 }
 
 // inputIsBinary - Check if first input is a system program

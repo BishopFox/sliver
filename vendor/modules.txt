@@ -79,6 +79,8 @@ github.com/evilsocket/islazy/str
 github.com/evilsocket/islazy/tui
 # github.com/fatih/color v1.10.0
 github.com/fatih/color
+# github.com/go-cmd/cmd v1.3.0
+github.com/go-cmd/cmd
 # github.com/go-sql-driver/mysql v1.5.0
 github.com/go-sql-driver/mysql
 # github.com/gofrs/uuid v3.3.0+incompatible
