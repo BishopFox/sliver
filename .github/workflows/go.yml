@@ -52,16 +52,13 @@ jobs:
       run: ./go-assets.sh
 
     - name: Make
-      run: export PATH=/home/runner/go/bin/:$PATH && make linux
-    
-    - name: Update PATH
-      run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
+      run: make linux
 
     - name: Test
       run: ./sliver-server unpack --force && ./go-tests.sh
 
     - name: Make Windows
-      run: export PATH=/home/runner/go/bin/:$PATH && make windows
+      run: make windows
   
   macos-build:
     name: MacOS Build
@@ -100,10 +97,7 @@ jobs:
       run: ./go-assets.sh
 
     - name: Make
-      run: export PATH=/Users/runner/go/bin/:$PATH && make macos
-    
-    - name: Update PATH
-      run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
+      run: make macos
 
     - name: Test
       env:
