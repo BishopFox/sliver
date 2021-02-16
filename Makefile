@@ -75,23 +75,23 @@ endif
 #
 .PHONY: default
 default: clean pb
-	$(ENV) $(GO) build -mod vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
-	$(ENV) $(GO) build -mod vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
+	$(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
+	$(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: macos
 macos: clean pb
-	GOOS=darwin $(ENV) $(GO) build -mod vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
-	GOOS=darwin $(ENV) $(GO) build -mod vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
+	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
+	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: linux
 linux: clean pb
-	GOOS=linux $(ENV) $(GO) build -mod vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
-	GOOS=linux $(ENV) $(GO) build -mod vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
+	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
+	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: windows
 windows: clean pb
-	GOOS=windows $(ENV) $(GO) build -mod vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server.exe ./server
-	GOOS=windows $(ENV) $(GO) build -mod vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client.exe ./client
+	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server.exe ./server
+	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client.exe ./client
 
 .PHONY: pb
 pb:
