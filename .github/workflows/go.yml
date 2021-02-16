@@ -46,7 +46,7 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Git Fetch Tags
-      run: git fetch --prune --unshallow --tags -f && ls -alh && git branch
+      run: git fetch --prune --unshallow --tags -f && pwd && ls -alh && git branch
 
     - name: Go Assets
       run: ./go-assets.sh
