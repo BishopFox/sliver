@@ -149,7 +149,7 @@ func (tun *Tunnel) Read(data []byte) (int, error) {
 // TunnelLoop - Parses incoming tunnel messages and distributes them
 //              to session/tunnel objects
 func TunnelLoop() error {
-	log.Println("Starting tunnel data loop ...")
+	// log.Println("Starting tunnel data loop ...")
 	defer log.Printf("Warning: TunnelLoop exited")
 	stream, err := RPC.TunnelData(context.Background())
 	if err != nil {
@@ -162,7 +162,7 @@ func TunnelLoop() error {
 	}
 	for {
 
-		log.Printf("Waiting for TunnelData ...")
+		// log.Printf("Waiting for TunnelData ...")
 		incoming, err := stream.Recv()
 		log.Printf("Recv stream msg: %v", incoming)
 		if err == io.EOF {

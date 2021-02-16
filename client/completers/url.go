@@ -45,11 +45,14 @@ func completeURL(last string, sliverContext bool, validSchemes []string) (prefix
 	// Normally, when we enter the function the last input should be nil
 	// because we don't "append" a URL to anything  without a space (usually).
 	// If its the case, just return schemes with ://
+	// Also, we ask the shell not to add a space when inserting the completion
+	// because we are not done with the URL yet.
 	if last == "" || last == " " {
 		completion := &readline.CompletionGroup{
-			Name:        "(console) local path",
+			Name:        "stager protocol",
 			MaxLength:   5,
 			DisplayType: readline.TabDisplayGrid,
+			NoSpace:     true,
 		}
 		for _, sch := range validSchemes {
 			completion.Suggestions = append(completion.Suggestions, sch+"://")
