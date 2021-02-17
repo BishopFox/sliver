@@ -156,7 +156,8 @@ func verboseVersions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	fmt.Printf(Info+"Client %s - %s/%s\n", clientVer, runtime.GOOS, runtime.GOARCH)
 	clientCompiledAt, _ := version.Compiled()
-	fmt.Printf("    Compiled at %s\n\n", clientCompiledAt)
+	fmt.Printf("    Compiled at %s\n", clientCompiledAt)
+	fmt.Printf("    Compiled with %s\n\n", version.GoVersion)
 
 	fmt.Println()
 	fmt.Printf(Info+"Server v%d.%d.%d - %s - %s/%s\n",

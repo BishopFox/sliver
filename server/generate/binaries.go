@@ -34,6 +34,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/bishopfox/sliver/implant"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/certs"
@@ -42,16 +43,29 @@ import (
 	"github.com/bishopfox/sliver/server/gogo"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
-
-	"github.com/gobuffalo/packr"
 )
 
 var (
 	buildLog = log.NamedLogger("generate", "build")
 	// Fix #67: use an arch specific compiler
-	defaultMingwPath = map[string]string{
-		"386":   "/usr/bin/i686-w64-mingw32-gcc",
-		"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
+	defaultMingwPath = map[string]map[string]string{
+		"linux": {
+			"386":   "/usr/bin/i686-w64-mingw32-gcc",
+			"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
+		},
+		"darwin": {
+			"386":   "/usr/local/bin/i686-w64-mingw32-gcc",
+			"amd64": "/usr/local/bin/x86_64-w64-mingw32-gcc",
+		},
+	}
+	// SupportedCompilerTargets - Supported compiler targets
+	SupportedCompilerTargets = map[string]bool{
+		"darwin/amd64":  true,
+		"darwin/arm64":  true,
+		"linux/386":     true,
+		"linux/amd64":   true,
+		"windows/386":   true,
+		"windows/amd64": true,
 	}
 )
 
@@ -76,6 +90,9 @@ const (
 	DefaultMTLSLPort = 8888
 	// DefaultHTTPLPort - Default HTTP listen port
 	DefaultHTTPLPort = 443 // Assume SSL, it'll fallback
+
+	// DefaultSuffix - Indicates a platform independent src file
+	DefaultSuffix = "_default.go"
 
 	// SliverCC64EnvVar - Environment variable that can specify the 64 bit mingw path
 	SliverCC64EnvVar = "SLIVER_CC_64"
@@ -410,8 +427,13 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	os.MkdirAll(sliverPkgDir, 0700)
 
 	// Load code template
-	sliverBox := packr.NewBox("../../sliver")
-	for index, boxName := range srcFiles {
+	renderFiles := srcFiles
+	_, isSupportedTarget := SupportedCompilerTargets[fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)]
+	if !isSupportedTarget {
+		buildLog.Warnf("Unsupported compiler target, using generic src files ...")
+		renderFiles = genericSrcFiles
+	}
+	for index, boxName := range renderFiles {
 
 		// Gobfuscate doesn't handle all the platform specific code
 		// well and the renamer can get confused when symbols for a
@@ -421,23 +443,40 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		if strings.Contains(boxName, "_") {
 			fileNameParts := strings.Split(boxName, "_")
 			suffix = "_" + fileNameParts[len(fileNameParts)-1]
+
+			// Test files get skipped
 			if strings.HasSuffix(boxName, "_test.go") {
 				buildLog.Infof("Skipping (test): %s", boxName)
 				continue
 			}
-			osSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOOS))
-			archSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOARCH))
-			if !strings.HasSuffix(boxName, osSuffix) && !strings.HasSuffix(boxName, archSuffix) {
-				buildLog.Infof("Skipping file wrong os/arch: %s", boxName)
+
+			// We only include "_default.go" files for "unsupported" platforms i.e., not windows/darwin/linux
+			if suffix == DefaultSuffix && isSupportedTarget {
+				buildLog.Infof("Skipping default file (target is supported): %s", boxName)
 				continue
+			}
+
+			// Only include code for our target goos/goarch
+			if isSupportedTarget {
+				osSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOOS))
+				archSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOARCH))
+				if !strings.HasSuffix(boxName, osSuffix) && !strings.HasSuffix(boxName, archSuffix) {
+					buildLog.Infof("Skipping file wrong os/arch: %s", boxName)
+					continue
+				}
 			}
 		}
 
-		sliverGoCode, _ := sliverBox.FindString(boxName)
+		sliverGoCodeRaw, err := implant.FS.ReadFile(path.Join("sliver", boxName))
+		if err != nil {
+			buildLog.Warnf("Failed to read %s: %s", boxName, err)
+			continue
+		}
+		sliverGoCode := string(sliverGoCodeRaw)
 
-		// We need to correct for the "github.com/bishopfox/sliver/sliver/foo" imports, since Go
-		// doesn't allow relative imports and "sliver" is a subdirectory of
-		// the main "sliver" repo we need to fake this when coping the code
+		// We need to correct for the "github.com/bishopfox/sliver/implant/sliver/foo" imports,
+		// since Go doesn't allow relative imports and "sliver" is a subdirectory of
+		// the main "sliver" repo we need to fake this when copying the code
 		// to our per-compile "GOPATH"
 		var sliverCodePath string
 		dirName := filepath.Dir(boxName)
@@ -455,7 +494,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		}
 		if dirName != "." {
 			// Add an extra "sliver" dir
-			dirPath := path.Join(sliverPkgDir, "sliver", dirName)
+			dirPath := path.Join(sliverPkgDir, "implant", "sliver", dirName)
 			if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 				buildLog.Infof("[mkdir] %#v", dirPath)
 				os.MkdirAll(dirPath, 0700)
@@ -489,7 +528,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 			ImplantName:   name,
 			ParentDomains: config.CanaryDomainsList(),
 		}
-		canaryTmpl, err := canaryTmpl.Funcs(template.FuncMap{
+		canaryTmpl, err = canaryTmpl.Funcs(template.FuncMap{
 			"GenerateCanary": canaryGenerator.GenerateCanary,
 		}).Parse(buf.String())
 		if err != nil {
@@ -535,8 +574,10 @@ func getCCompiler(arch string) string {
 		compiler = os.Getenv(SliverCC32EnvVar)
 	}
 	if compiler == "" {
-		if compiler, found = defaultMingwPath[arch]; !found {
-			compiler = defaultMingwPath["amd64"] // should not happen, but just in case ...
+		if _, ok := defaultMingwPath[runtime.GOOS]; ok {
+			if compiler, found = defaultMingwPath[runtime.GOOS][arch]; !found {
+				buildLog.Warnf("No default for arch %s on %s", arch, runtime.GOOS)
+			}
 		}
 	}
 	if _, err := os.Stat(compiler); os.IsNotExist(err) {

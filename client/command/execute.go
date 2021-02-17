@@ -18,9 +18,7 @@ package command
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
@@ -43,17 +41,25 @@ func execute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		args = ctx.Args[1:]
 	}
 	output := ctx.Flags.Bool("silent")
-	ctrl := make(chan bool)
-	msg := fmt.Sprintf("Executing %s %s...", cmdPath, strings.Join(args, " "))
-	go spin.Until(msg, ctrl)
-	exec, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-		Request: ActiveSession.Request(ctx),
-		Path:    cmdPath,
-		Args:    args,
-		Output:  !output,
-	})
-	ctrl <- true
-	<-ctrl
+	token := ctx.Flags.Bool("token")
+	var exec *sliverpb.Execute
+	var err error
+	if token {
+		exec, err = rpc.ExecuteToken(context.Background(), &sliverpb.ExecuteTokenReq{
+			Request: ActiveSession.Request(ctx),
+			Path:    cmdPath,
+			Args:    args,
+			Output:  !output,
+		})
+	} else {
+		exec, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+			Request: ActiveSession.Request(ctx),
+			Path:    cmdPath,
+			Args:    args,
+			Output:  !output,
+		})
+	}
+
 	if err != nil {
 		fmt.Printf(Warn+"%s", err)
 	} else if !output {

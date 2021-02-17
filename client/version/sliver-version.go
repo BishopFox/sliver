@@ -34,6 +34,9 @@ var (
 	// Version - The semantic version in string form
 	Version string
 
+	// GoVersion - Go compiler version
+	GoVersion string
+
 	// GitCommit - The commit id at compile time
 	GitCommit string
 

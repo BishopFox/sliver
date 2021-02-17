@@ -3,7 +3,7 @@ Client
 
 This directory contains the client implementation, pretty much all of this code is also used by the server console. 
 
-__Important:__ No code in this directory import any code from `server/`.
+__Important:__ No code in this directory can import any code from `server/`.
 
  * `assets/` - Static asset files and management code (e.g. client configs)
  * `command/` - Command implementations
