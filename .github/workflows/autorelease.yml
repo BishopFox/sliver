@@ -117,8 +117,8 @@ jobs:
     - name: Make AMD64
       run: make macos
     
-    - name: Make ARM64
-      run: make macos-arm64
+    # - name: Make ARM64
+    #   run: make macos-arm64
 
     - name: MacOS Artifacts
       uses: actions/upload-artifact@v2
