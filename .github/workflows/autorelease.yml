@@ -159,10 +159,10 @@ jobs:
         zip -j ./release/sliver-client_macos.zip ./artifacts/macos/sliver-client
   
     # MacOS ARM64
-    - name: Package MacOS ARM64
-      run: |
-        zip -j ./release/sliver-server_macos-arm64.zip ./artifacts/macos/sliver-server_arm64
-        zip -j ./release/sliver-client_macos-arm64.zip ./artifacts/macos/sliver-client_arm64
+    # - name: Package MacOS ARM64
+    #   run: |
+    #     zip -j ./release/sliver-server_macos-arm64.zip ./artifacts/macos/sliver-server_arm64
+    #     zip -j ./release/sliver-client_macos-arm64.zip ./artifacts/macos/sliver-client_arm64
 
     - name: "Publish Release"
       uses: "marvinpinto/action-automatic-releases@latest"
