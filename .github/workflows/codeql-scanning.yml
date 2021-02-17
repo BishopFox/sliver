@@ -18,10 +18,10 @@ jobs:
 
       # Setup go environment
       - name: Go 1.16
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v2
         with:
-          go-version: 1.16beta1
-        id: go
+          go-version: '^1.16'
+      
 
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -67,16 +67,15 @@ jobs:
       - name: Go Assets
         run: ./go-assets.sh
 
+      - name: Remove Vendor
+        run: rm -rf ./vendor/
+
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v1
         with:
           config-file: ./.github/codeql/codeql-config.yml
           languages: go 
-
-      # Setup os PATH to include protoc-gen-go and packr
-      - name: Update PATH
-        run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
 
       # Build the server ... is this necessary though?
       - run: |
