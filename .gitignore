@@ -1,4 +1,5 @@
 .vscode/*
+.devcontainer
 
 release-*
 
@@ -20,11 +21,6 @@ sliver-server-linux.zip
 sliver-server-macos.zip
 sliver-server-windows.zip
 
-# Large static assets
-assets/*.zip
-assets/darwin/*.zip
-assets/linux/*.zip
-assets/windows/*.zip
 
 # Binaries for programs and plugins
 *.exe
@@ -42,7 +38,5 @@ assets/windows/*.zip
 .glide/
 
 *.pb.go
-
-*-packr.go
 
 .DS_Store

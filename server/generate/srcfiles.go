@@ -20,7 +20,7 @@ package generate
 
 // These files get rendered as part of the build process.
 
-// If you add a file to `sliver/` it won't be automatically included
+// If you add a file to `implant/sliver/` it won't be automatically included
 // as part of the build by the server, you have to add it here.
 
 var (
@@ -53,6 +53,11 @@ var (
 		"handlers/handlers_linux.go",
 		"handlers/handlers_windows.go",
 		"handlers/handlers.go",
+
+		"hostuuid/uuid.go",
+		"hostuuid/uuid_windows.go",
+		"hostuuid/uuid_darwin.go",
+		"hostuuid/uuid_linux.go",
 
 		"limits/limits.go",
 		"limits/limits_windows.go",
@@ -230,8 +235,49 @@ var (
 		"3rdparty/winio/pipe.go",
 		"3rdparty/winio/sd.go",
 		"3rdparty/winio/pkg/guid/guid.go",
-		
-		// "go.mod",
+	}
 
+	// PURE GO only - For compiling to unsupported platforms
+	genericSrcFiles = []string{
+		"constants/constants.go",
+
+		"encoders/base64.go",
+		"encoders/combos.go",
+		"encoders/encoders.go",
+		"encoders/english-words.go",
+		"encoders/english.go",
+		"encoders/gzip.go",
+		"encoders/hex.go",
+		"encoders/images.go",
+
+		"handlers/handlers_default.go",
+		"handlers/handlers.go",
+
+		"hostuuid/uuid_default.go",
+
+		"limits/limits.go",
+		"limits/limits_default.go",
+
+		"pivots/named-pipe.go",
+		"pivots/tcp.go",
+		"pivots/pivots.go",
+
+		"proxy/provider.go",
+		"proxy/provider_default.go",
+		"proxy/proxy.go",
+		"proxy/url.go",
+
+		"transports/crypto.go",
+		"transports/tcp-mtls.go",
+		"transports/tcp-http.go",
+		"transports/udp-dns.go",
+		"transports/named-pipe.go",
+		"transports/tcp-pivot.go",
+		"transports/transports.go",
+
+		"version/version_default.go",
+		"version/version.go",
+
+		"sliver.go",
 	}
 )

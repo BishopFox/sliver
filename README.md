@@ -1,11 +1,11 @@
 Sliver
 ======
 
-⚠️ __Warning:__ Sliver is currently in __beta__, you've been warned :) and please consider [contributing](/CONTRIBUTING.md)
+⚠️ __Notice:__ Sliver is currently in __beta__, you've been warned :) and please consider [contributing](/CONTRIBUTING.md)
 
-Sliver is a general purpose cross-platform implant framework that supports C2 over Mutual-TLS, HTTP(S), and DNS. Implants are dynamically compiled with unique X.509 certificates signed by a per-instance certificate authority generated when you first run the binary.
+Sliver is an open source, cross-platform adversary simulation/red team platform, it can be used by organizations of all sizes to perform security testing. Sliver's implants support C2 over Mutual-TLS, HTTP(S), and DNS. Implants are dynamically compiled with unique X.509 certificates signed by a per-instance certificate authority generated when you first run the binary.
 
-The server, client, and implant all support MacOS, Windows, and Linux (and possibly every Golang compiler target but we've not tested them all).
+The server and client support MacOS, Windows, and Linux. Implants are supported on MacOS, Windows, and Linux (and possibly every Golang compiler target but we've not tested them all).
 
 ![Go](https://github.com/BishopFox/sliver/workflows/Go/badge.svg?branch=master) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
@@ -14,6 +14,7 @@ The server, client, and implant all support MacOS, Windows, and Linux (and possi
 * Dynamic code generation
 * Compile-time obfuscation
 * Multiplayer-mode
+* Staged and Stageless payloads
 * [Procedurally generated C2](https://github.com/BishopFox/sliver/wiki/HTTP(S)-C2#under-the-hood) over HTTP(S)
 * [DNS canary](https://github.com/BishopFox/sliver/wiki/DNS-C2#dns-canaries) blue team detection
 * [Secure C2](https://github.com/BishopFox/sliver/wiki/Transport-Encryption) over mTLS, HTTP(S), and DNS
@@ -31,7 +32,7 @@ Download the latest [release](https://github.com/BishopFox/sliver/releases) and 
 
 ### Help!
 
-Please checkout the [wiki](https://github.com/BishopFox/sliver/wiki), or join the #golang Slack channel on the [Bloodhound Gang](https://bloodhoundgang.herokuapp.com/) server.
+Please checkout the [wiki](https://github.com/BishopFox/sliver/wiki), or start a [GitHub discussion](https://github.com/BishopFox/sliver/discussions). We also tend to hang out in the #golang Slack channel on the [Bloodhound Gang](https://bloodhoundgang.herokuapp.com/) server.
 
 ### Compile From Source
 

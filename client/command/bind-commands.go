@@ -70,6 +70,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("P", "prereleases", false, "include pre-released (unstable) versions")
 			f.String("p", "proxy", "", "specify a proxy url (e.g. http://localhost:8080)")
+			f.String("s", "save", "", "save downloaded files to specific directory (default user home dir)")
 			f.Bool("I", "insecure", false, "skip tls certificate validation")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -339,7 +340,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Help:     "Execute a program on the remote system",
 		LongHelp: help.GetHelpFor(consts.ExecuteStr),
 		Flags: func(f *grumble.Flags) {
+			f.Bool("T", "token", false, "execute command with current token (windows only)")
 			f.Bool("s", "silent", false, "don't print the command output")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {

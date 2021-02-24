@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -22,17 +24,29 @@ var (
 // Release - A single Github release object
 // https://developer.github.com/v3/repos/releases/
 type Release struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	URL         string `json:"url"`
-	HTMLURL     string `json:"html_url"`
-	TagName     string `json:"tag_name"`
-	Body        string `json:"body"`
-	Prerelease  bool   `json:"prerelease"`
-	TarballURL  string `json"tarball_url"`
-	ZipballURL  string `json"zipball_url"`
-	CreatedAt   string `json:"created_at"`
-	PublishedAt string `json:"published_at"`
+	ID          int     `json:"id"`
+	Name        string  `json:"name"`
+	URL         string  `json:"url"`
+	HTMLURL     string  `json:"html_url"`
+	TagName     string  `json:"tag_name"`
+	Body        string  `json:"body"`
+	Prerelease  bool    `json:"prerelease"`
+	TarballURL  string  `json:"tarball_url"`
+	ZipballURL  string  `json:"zipball_url"`
+	CreatedAt   string  `json:"created_at"`
+	PublishedAt string  `json:"published_at"`
+	Assets      []Asset `json:"assets"`
+}
+
+// Asset - Asset from a release
+// https://developer.github.com/v3/repos/releases/
+type Asset struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	URL  string `json:"url"`
+	Size int    `json:"size"`
+
+	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
 // Created - Get the time the release was created
@@ -76,22 +90,42 @@ func CheckForUpdates(client *http.Client, prereleases bool) (*Release, error) {
 		return nil, err
 	}
 
-	compiled, err := Compiled()
-	if err != nil {
-		return nil, err
-	}
-
+	mySemVer := SemanticVersion()
 	for _, release := range *releases {
 		if release.Prerelease && !prereleases {
 			continue
 		}
-		created, err := release.Created()
-		if err != nil {
-			continue
-		}
-		if created.After(compiled.Add(time.Hour)) {
-			return release, nil
+		releaseSemVer := parseGitTag(release.TagName)
+		for index, myVer := range mySemVer {
+			if index < len(releaseSemVer) {
+				if releaseSemVer[index] == myVer {
+					continue
+				}
+				if releaseSemVer[index] < myVer {
+					break
+				}
+				if myVer < releaseSemVer[index] {
+					return release, nil
+				}
+			}
 		}
 	}
 	return nil, nil
+}
+
+// parseGitTag - Get the structured sematic version
+func parseGitTag(tag string) []int {
+	semVer := []int{}
+	version := tag
+	if strings.Contains(version, "-") {
+		version = strings.Split(version, "-")[0]
+	}
+	if strings.HasPrefix(version, "v") {
+		version = version[1:]
+	}
+	for _, part := range strings.Split(version, ".") {
+		number, _ := strconv.Atoi(part)
+		semVer = append(semVer, number)
+	}
+	return semVer
 }

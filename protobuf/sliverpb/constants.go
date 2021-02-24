@@ -178,6 +178,9 @@ const (
 	MsgEnvReq
 	// MsgEnvInfo - Response to environment variable request
 	MsgEnvInfo
+
+	// MsgExecuteTokenReq - Execute request executed with the current (Windows) token
+	MsgExecuteTokenReq
 )
 
 // MsgNumber - Get a message number of type
@@ -268,6 +271,8 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgExecuteAssemblyReq
 	case *ExecuteAssembly:
 		return MsgExecuteAssembly
+	case *ExecuteTokenReq:
+		return MsgExecuteTokenReq
 
 	case *InvokeMigrateReq:
 		return MsgInvokeMigrateReq

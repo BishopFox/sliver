@@ -14,11 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - name: Go 1.15
-      uses: actions/setup-go@v1
+    - name: Go 1.16
+      uses: actions/setup-go@v2
       with:
-        go-version: 1.15
-      id: go
+        go-version: '^1.16'
     
     - name: OS Packages 
       run: |
@@ -43,37 +42,36 @@ jobs:
         && cd protobuf-${PROTOC_GEN_GO_VER} \
         && make install
 
-    - name: Packr
-      run: go get -u github.com/gobuffalo/packr/packr
-
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
+
+    - name: Git Fetch Tags
+      run: git fetch --prune --unshallow --tags -f
 
     - name: Go Assets
       run: ./go-assets.sh
 
+    - name: Remove Vendor
+      run: rm -rf ./vendor/
+
     - name: Make
-      run: export PATH=/home/runner/go/bin/:$PATH && make static-linux
-    
-    - name: Update PATH
-      run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
+      run: make linux
 
     - name: Test
       run: ./sliver-server unpack --force && ./go-tests.sh
 
     - name: Make Windows
-      run: export PATH=/home/runner/go/bin/:$PATH && make static-windows
+      run: make windows
   
   macos-build:
     name: MacOS Build
     runs-on: macos-latest
     steps:
 
-    - name: Go 1.15
-      uses: actions/setup-go@v1
+    - name: Go 1.16
+      uses: actions/setup-go@v2
       with:
-        go-version: 1.15
-      id: go
+        go-version: '^1.16'
 
     - name: Mingw
       run: brew install mingw-w64
@@ -95,20 +93,20 @@ jobs:
         && cd protobuf-${PROTOC_GEN_GO_VER} \
         && make install
 
-    - name: Packr
-      run: go get -u github.com/gobuffalo/packr/packr
-
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
+
+    - name: Git Fetch Tags
+      run: git fetch --prune --unshallow --tags -f
 
     - name: Go Assets
       run: ./go-assets.sh
 
+    - name: Remove Vendor
+      run: rm -rf ./vendor/
+
     - name: Make
-      run: export PATH=/Users/runner/go/bin/:$PATH && make static-macos
-    
-    - name: Update PATH
-      run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
+      run: make macos
 
     - name: Test
       env:

@@ -13,11 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - name: Go 1.15
-      uses: actions/setup-go@v1
+    - name: Go 1.16
+      uses: actions/setup-go@v2
       with:
-        go-version: 1.15
-      id: go
+        go-version: '^1.16'
     
     - name: OS Packages 
       run: |
@@ -42,17 +41,20 @@ jobs:
         && cd protobuf-${PROTOC_GEN_GO_VER} \
         && make install
 
-    - name: Packr
-      run: go get -u github.com/gobuffalo/packr/packr
-
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
 
+    - name: Git Fetch Tags
+      run: git fetch --prune --unshallow --tags -f
+
     - name: Go Assets
       run: ./go-assets.sh
+    
+    - name: Remove Vendor
+      run: rm -rf ./vendor/
 
     - name: Make
-      run: export PATH=/home/runner/go/bin/:$PATH && make static-linux
+      run: export PATH=/home/runner/go/bin/:$PATH && make linux
   
     - name: Linux Artifacts
       uses: actions/upload-artifact@v2
@@ -61,7 +63,7 @@ jobs:
         path: ./sliver-*
 
     - name: Make Windows
-      run: export PATH=/home/runner/go/bin/:$PATH && make static-windows
+      run: export PATH=/home/runner/go/bin/:$PATH && make windows
 
     - name: Windows Artifacts
       uses: actions/upload-artifact@v2
@@ -75,11 +77,10 @@ jobs:
     runs-on: macos-latest
     steps:
 
-    - name: Go 1.15
-      uses: actions/setup-go@v1
+    - name: Go 1.16
+      uses: actions/setup-go@v2
       with:
-        go-version: 1.15
-      id: go
+        go-version: '^1.16'
 
     - name: Mingw
       run: brew install mingw-w64
@@ -101,18 +102,24 @@ jobs:
         && cd protobuf-${PROTOC_GEN_GO_VER} \
         && make install
 
-    - name: Packr
-      run: go get -u github.com/gobuffalo/packr/packr
-
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
+
+    - name: Git Fetch Tags
+      run: git fetch --prune --unshallow --tags -f
 
     - name: Go Assets
       run: ./go-assets.sh
 
-    - name: Make
-      run: export PATH=/Users/runner/go/bin/:$PATH && make static-macos
+    - name: Remove Vendor
+      run: rm -rf ./vendor/
+
+    - name: Make AMD64
+      run: make macos
     
+    # - name: Make ARM64
+    #   run: make macos-arm64
+
     - name: MacOS Artifacts
       uses: actions/upload-artifact@v2
       with:
@@ -133,26 +140,30 @@ jobs:
       with:
         path: ./artifacts
 
-    - run: ls -lah ./artifacts && ls -alh ./artifacts/linux/
-
     # Linux
     - name: Package Linux
       run: |
-        zip ./release/sliver-server_linux.zip ./artifacts/linux/sliver-server
-        zip ./release/sliver-client_linux.zip ./artifacts/linux/sliver-client
+        zip -j ./release/sliver-server_linux.zip ./artifacts/linux/sliver-server
+        zip -j ./release/sliver-client_linux.zip ./artifacts/linux/sliver-client
 
     # Windows
     - name: Package Windows
       run: |
-        zip ./release/sliver-server_windows.zip ./artifacts/windows/sliver-server.exe
-        zip ./release/sliver-client_windows.zip ./artifacts/windows/sliver-client.exe
+        zip -j ./release/sliver-server_windows.zip ./artifacts/windows/sliver-server.exe
+        zip -j ./release/sliver-client_windows.zip ./artifacts/windows/sliver-client.exe
 
-    # MacOS
-    - name: Package MacOS
+    # MacOS AMD64
+    - name: Package MacOS AMD64
       run: |
-        zip ./release/sliver-server_macos.zip ./artifacts/macos/sliver-server
-        zip ./release/sliver-client_macos.zip ./artifacts/macos/sliver-client
+        zip -j ./release/sliver-server_macos.zip ./artifacts/macos/sliver-server
+        zip -j ./release/sliver-client_macos.zip ./artifacts/macos/sliver-client
   
+    # MacOS ARM64
+    # - name: Package MacOS ARM64
+    #   run: |
+    #     zip -j ./release/sliver-server_macos-arm64.zip ./artifacts/macos/sliver-server_arm64
+    #     zip -j ./release/sliver-client_macos-arm64.zip ./artifacts/macos/sliver-client_arm64
+
     - name: "Publish Release"
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
