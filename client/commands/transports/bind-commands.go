@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jessevdk/go-flags"
-	"github.com/maxlandon/readline"
+	"github.com/bishopfox/sliver/client/readline"
 	"gopkg.in/AlecAivazis/survey.v1"
 
 	"github.com/bishopfox/sliver/client/constants"

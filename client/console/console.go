@@ -28,8 +28,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/readline"
 	"github.com/evilsocket/islazy/tui"
-	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/comm"
@@ -126,8 +126,8 @@ func (c *Client) setup() (err error) {
 	c.Shell.SyntaxHighlighter = completers.SyntaxHighlighter
 
 	// History (client and user-wide)
-	c.Shell.History = UserHist
-	c.Shell.AltHistory = ClientHist
+	c.Shell.SetHistoryCtrlE("client history", ClientHist)
+	c.Shell.SetHistoryCtrlR("user-wise history", UserHist)
 
 	// Request the user history to server and cache it
 	getUserHistory()

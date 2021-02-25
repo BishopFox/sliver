@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jessevdk/go-flags"
-	"github.com/maxlandon/readline"
+	"github.com/bishopfox/sliver/client/readline"
 
 	windowsCmds "github.com/bishopfox/sliver/client/commands/windows"
 	"github.com/bishopfox/sliver/client/constants"

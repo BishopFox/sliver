@@ -142,13 +142,10 @@ func commandArgumentRequired(lastWord string, raw []string, command *flags.Comma
 
 	// The remain may include a "" as a last element,
 	// which we don't consider as a real remain, so we move it away
-	if lastWord == "" {
-		if len(remain) > 1 {
-			remain = remain[:]
-		}
-		if len(remain) == 1 { // Avoid index error
-			remain = []string{}
-		}
+	switch lastWord {
+	case "":
+	case command.Name:
+		return "", false
 	}
 
 	// Trim all --option flags and their arguments if they have
@@ -163,20 +160,24 @@ func commandArgumentRequired(lastWord string, raw []string, command *flags.Comma
 
 			// If last word is the argument, and we are
 			// last arg in: line keep completing.
-			if len(remain) <= 1 {
+			if len(remain) < 1 {
 				return arg.Name, true
 			}
-			// If last word is the argument, and we are
-			// last arg in line keep completing.
-			// if len(remain) <= 1 && i == (len(command.Args())-1) {
-			//         return arg.Name, true
-			// }
+
+			// If the we are still writing the argument
+			if len(remain) == 1 {
+				if lastWord != "" {
+					return arg.Name, true
+				}
+			}
 
 			// If filed and we are not last arg, continue
 			if len(remain) > 1 && i < (len(command.Args())-1) {
 				remain = remain[1:]
 				continue
 			}
+
+			continue
 		}
 
 		// If we need more than one value and we knwo the maximum,
@@ -201,7 +202,7 @@ func commandArgumentRequired(lastWord string, raw []string, command *flags.Comma
 			continue
 		}
 
-		// If have required arguments, with no limit of needs, return true
+		// If has required arguments, with no limit of needs, return true
 		if arg.Required > 0 && arg.RequiredMaximum == -1 {
 			return arg.Name, true
 		}
@@ -225,47 +226,6 @@ func commandArgumentRequired(lastWord string, raw []string, command *flags.Comma
 	// They are all either optional, or fullfiled according to their required numbers.
 	// Thus we return none
 	return "", false
-}
-
-// getRemainingArgs - Filters the input slice from commands and detected option:value pairs, and returns args
-func getRemainingArgs(args []string, last []rune, command *flags.Command) (remain []string) {
-
-	var input []string
-	// Clean subcommand name
-	if args[0] == command.Name && len(args) >= 2 {
-		input = args[1:]
-	} else if len(args) == 1 {
-		input = args
-	}
-
-	// For each each argument
-	for i := 0; i < len(input); i++ {
-		// Check option prefix
-		if strings.HasPrefix(input[i], "-") || strings.HasPrefix(input[i], "--") {
-			// Clean it
-			cur := strings.TrimPrefix(input[i], "--")
-			cur = strings.TrimPrefix(cur, "-")
-
-			// Check if option matches any command option
-			if opt := command.FindOptionByLongName(cur); opt != nil {
-				boolean := true
-				if opt.Field().Type == reflect.TypeOf(boolean) {
-					continue // If option is boolean, don't skip an argument
-				}
-				i++ // Else skip next arg in input
-				continue
-			}
-		}
-
-		// Safety check
-		if input[i] == "" || input[i] == " " {
-			continue
-		}
-
-		remain = append(remain, input[i])
-	}
-
-	return
 }
 
 // [ Options ]
@@ -305,37 +265,64 @@ func optionNotRepeatable(opt *flags.Option) bool {
 
 // [ Option Values ]
 // Is the last input word an option name (--option) ?
-func optionArgRequired(args []string, last []rune, group *flags.Group) (opt *flags.Option, yes bool) {
+func optionArgRequired(raw []string, last []rune, group *flags.Group) (opt *flags.Option, yes bool) {
 
-	var lastItem string
+	// First, filter redundant spaces. This does not modify the actual line
+	args := ignoreRedundantSpaces(raw)
+
+	var lastItem = raw[len(raw)-1]
 	var lastOption string
 	var option *flags.Option
 
 	// If there is argument required we must have 1) command 2) --option inputs at least.
-	if len(args) <= 2 {
+	if len(args) <= 1 {
 		return nil, false
 	}
 
-	// Check for last two arguments in input
-	if strings.HasPrefix(args[len(args)-2], "-") || strings.HasPrefix(args[len(args)-2], "--") {
+	// Check for previous argument, not the wrote we are writing
+	if lastItem != "" {
+		if strings.HasPrefix(args[len(args)-2], "-") || strings.HasPrefix(args[len(args)-2], "--") {
 
-		// Long opts
-		if strings.HasPrefix(args[len(args)-2], "--") {
-			lastOption = strings.TrimPrefix(args[len(args)-2], "--")
-			if opt := group.FindOptionByLongName(lastOption); opt != nil {
-				option = opt
-			}
+			// Long opts
+			if strings.HasPrefix(args[len(args)-2], "--") {
+				lastOption = strings.TrimPrefix(args[len(args)-2], "--")
+				if opt := group.FindOptionByLongName(lastOption); opt != nil {
+					option = opt
+					// return option, true
+				}
 
-			// Short opts
-		} else if strings.HasPrefix(args[len(args)-2], "-") {
-			lastOption = strings.TrimPrefix(args[len(args)-2], "-")
-			if len(lastOption) > 0 {
+				// Short opts
+			} else if strings.HasPrefix(args[len(args)-2], "-") {
+				lastOption = strings.TrimPrefix(args[len(args)-2], "-")
 				if opt := group.FindOptionByShortName(rune(lastOption[0])); opt != nil {
 					option = opt
+					// return option, true
 				}
 			}
 		}
+	}
 
+	// Else, check the very last one having been curated
+	if lastItem == "" {
+		if strings.HasPrefix(args[len(args)-1], "-") || strings.HasPrefix(args[len(args)-1], "--") {
+
+			// Long opts
+			if strings.HasPrefix(args[len(args)-1], "--") {
+				lastOption = strings.TrimPrefix(args[len(args)-1], "--")
+				if opt := group.FindOptionByLongName(lastOption); opt != nil {
+					option = opt
+				}
+
+				// Short opts
+			} else if strings.HasPrefix(args[len(args)-1], "-") {
+				lastOption = strings.TrimPrefix(args[len(args)-1], "-")
+				if len(lastOption) > 0 {
+					if opt := group.FindOptionByShortName(rune(lastOption[0])); opt != nil {
+						option = opt
+					}
+				}
+			}
+		}
 	}
 
 	// If option is found, and we still are in writing the argument
@@ -347,29 +334,6 @@ func optionArgRequired(args []string, last []rune, group *flags.Group) (opt *fla
 		}
 
 		return option, true
-	}
-
-	// Check for previous argument
-	if lastItem != "" && option == nil {
-		if strings.HasPrefix(args[len(args)-2], "-") || strings.HasPrefix(args[len(args)-2], "--") {
-
-			// Long opts
-			if strings.HasPrefix(args[len(args)-2], "--") {
-				lastOption = strings.TrimPrefix(args[len(args)-2], "--")
-				if opt := group.FindOptionByLongName(lastOption); opt != nil {
-					option = opt
-					return option, true
-				}
-
-				// Short opts
-			} else if strings.HasPrefix(args[len(args)-2], "-") {
-				lastOption = strings.TrimPrefix(args[len(args)-2], "-")
-				if opt := group.FindOptionByShortName(rune(lastOption[0])); opt != nil {
-					option = opt
-					return option, true
-				}
-			}
-		}
 	}
 
 	return nil, false

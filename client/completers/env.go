@@ -21,7 +21,7 @@ package completers
 import (
 	"strings"
 
-	"github.com/maxlandon/readline"
+	"github.com/bishopfox/sliver/client/readline"
 
 	"github.com/bishopfox/sliver/client/util"
 )

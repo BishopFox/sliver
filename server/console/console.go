@@ -29,7 +29,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
-	"github.com/maxlandon/readline"
+	"github.com/bishopfox/sliver/client/readline"
 	"golang.org/x/crypto/ssh"
 
 	clientAssets "github.com/bishopfox/sliver/client/assets"

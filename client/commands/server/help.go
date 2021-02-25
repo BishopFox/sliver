@@ -24,7 +24,7 @@ import (
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/help"
 	"github.com/bishopfox/sliver/client/util"
-	"github.com/maxlandon/readline"
+	"github.com/bishopfox/sliver/client/readline"
 )
 
 // Help - Print help for the current context (lists all commands)
