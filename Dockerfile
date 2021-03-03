@@ -1,4 +1,4 @@
-FROM golang:1.16beta1
+FROM golang:1.16
 
 #
 # IMPORTANT: This Dockerfile is used for testing, I do not recommend deploying
@@ -8,7 +8,6 @@ FROM golang:1.16beta1
 
 ENV PROTOC_VER 3.11.4
 ENV PROTOC_GEN_GO_VER 1.3.5
-ENV PACKR_VER 1.30.1
 
 # Base packages
 RUN apt-get update --fix-missing && apt-get -y install \

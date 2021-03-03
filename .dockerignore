@@ -3,8 +3,13 @@ assets/darwin
 assets/linux
 assets/windows
 
+server/assets/fs/**.zip
+
 sliver-server
 sliver-server.exe
+
+sliver-client
+sliver-client.exe
 
 gui/
 gui/*

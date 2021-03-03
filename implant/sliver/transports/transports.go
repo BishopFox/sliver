@@ -60,6 +60,7 @@ var (
 
 	activeC2         string
 	activeConnection *Connection
+	proxyURL         string
 )
 
 // Connection - Abstract connection to the server
@@ -240,6 +241,14 @@ func GetActiveC2() string {
 	return activeC2
 }
 
+// GetProxyURL return the URL of the current proxy in use
+func GetProxyURL() string {
+	if proxyURL == "" {
+		return "none"
+	}
+	return proxyURL
+}
+
 // GetActiveConnection returns the Connection of the C2 in use
 func GetActiveConnection() *Connection {
 	return activeConnection
@@ -319,7 +328,10 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 			if err == io.EOF {
 				break
 			}
-			if err == nil {
+			if err != io.EOF && err != nil {
+				break
+			}
+			if envelope != nil {
 				recv <- envelope
 			}
 		}
@@ -344,6 +356,7 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 		// {{end}}
 		return nil, err
 	}
+	proxyURL = client.ProxyURL
 
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)

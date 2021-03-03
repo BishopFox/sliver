@@ -33,6 +33,7 @@ import (
 var (
 	tunnelLog = log.NamedLogger("rpc", "tunnel")
 
+	// SessionID->Tunnels[TunnelID]->Tunnel->Cache
 	fromImplantCache = map[uint64]map[uint64]*sliverpb.TunnelData{}
 )
 

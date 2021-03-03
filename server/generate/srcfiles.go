@@ -54,6 +54,11 @@ var (
 		"handlers/handlers_windows.go",
 		"handlers/handlers.go",
 
+		"hostuuid/uuid.go",
+		"hostuuid/uuid_windows.go",
+		"hostuuid/uuid_darwin.go",
+		"hostuuid/uuid_linux.go",
+
 		"limits/limits.go",
 		"limits/limits_windows.go",
 		"limits/limits_darwin.go",
@@ -158,6 +163,8 @@ var (
 
 		"handlers/handlers_default.go",
 		"handlers/handlers.go",
+
+		"hostuuid/uuid_default.go",
 
 		"limits/limits.go",
 		"limits/limits_default.go",

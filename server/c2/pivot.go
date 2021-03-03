@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	pivotLog        = log.NamedLogger("c2", "pivot")
+	pivotLog = log.NamedLogger("c2", "pivot")
 
 	// Pivots - holds the pivots, provides atomic access
 	Pivots = &PivotsMap{
@@ -106,17 +106,18 @@ func HandlePivotOpen(session *core.Session, data []byte) {
 		Send:          make(chan *sliverpb.Envelope),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
-		Name: 		   register.Name,
-		Hostname: 	   register.Hostname,
-		Username: 	   register.Username,
-		UID: 		   register.Uid,
-		GID: 		   register.Gid,
-		Os: 		   register.Os,
-		Arch: 		   register.Arch,
-		PID: 		   register.Pid,
-		Filename:	   register.Filename,
-		ActiveC2: 	   register.ActiveC2,
-		Version: 	   register.Version,
+		Name:          register.Name,
+		Hostname:      register.Hostname,
+		UUID:          register.Uuid,
+		Username:      register.Username,
+		UID:           register.Uid,
+		GID:           register.Gid,
+		Os:            register.Os,
+		Arch:          register.Arch,
+		PID:           register.Pid,
+		Filename:      register.Filename,
+		ActiveC2:      register.ActiveC2,
+		Version:       register.Version,
 	}
 	go func() {
 		for envelope := range sliverPivoted.Send {

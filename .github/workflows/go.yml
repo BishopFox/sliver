@@ -15,10 +15,9 @@ jobs:
     steps:
 
     - name: Go 1.16
-      uses: actions/setup-go@v1
+      uses: actions/setup-go@v2
       with:
-        go-version: 1.16beta1
-      id: go
+        go-version: '^1.16'
     
     - name: OS Packages 
       run: |
@@ -46,20 +45,23 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
 
+    - name: Git Fetch Tags
+      run: git fetch --prune --unshallow --tags -f
+
     - name: Go Assets
       run: ./go-assets.sh
 
+    - name: Remove Vendor
+      run: rm -rf ./vendor/
+
     - name: Make
-      run: export PATH=/home/runner/go/bin/:$PATH && make linux
-    
-    - name: Update PATH
-      run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
+      run: make linux
 
     - name: Test
       run: ./sliver-server unpack --force && ./go-tests.sh
 
     - name: Make Windows
-      run: export PATH=/home/runner/go/bin/:$PATH && make windows
+      run: make windows
   
   macos-build:
     name: MacOS Build
@@ -67,10 +69,9 @@ jobs:
     steps:
 
     - name: Go 1.16
-      uses: actions/setup-go@v1
+      uses: actions/setup-go@v2
       with:
-        go-version: 1.16beta1
-      id: go
+        go-version: '^1.16'
 
     - name: Mingw
       run: brew install mingw-w64
@@ -95,14 +96,17 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
 
+    - name: Git Fetch Tags
+      run: git fetch --prune --unshallow --tags -f
+
     - name: Go Assets
       run: ./go-assets.sh
 
+    - name: Remove Vendor
+      run: rm -rf ./vendor/
+
     - name: Make
-      run: export PATH=/Users/runner/go/bin/:$PATH && make macos
-    
-    - name: Update PATH
-      run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
+      run: make macos
 
     - name: Test
       env:

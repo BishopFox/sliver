@@ -1,12 +1,12 @@
 module github.com/bishopfox/sliver
 
-go 1.13
+go 1.16
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.2
 	github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
-	github.com/Binject/debug v0.0.0-20201108185608-2b8504217eb5 // indirect
-	github.com/BurntSushi/xgb v0.0.0-20201008132610-5f9e7b3c49cd
+	github.com/Binject/debug v0.0.0-20201108185608-2b8504217eb5
+	github.com/BurntSushi/xgb v0.0.0-20201008132610-5f9e7b3c49cd // indirect
 	github.com/Microsoft/go-winio v0.4.15
 	github.com/alecthomas/chroma v0.8.1
 	github.com/cheggaaa/pb/v3 v3.0.5
@@ -14,15 +14,19 @@ require (
 	github.com/desertbit/columnize v2.1.0+incompatible
 	github.com/desertbit/grumble v1.0.8
 	github.com/fatih/color v1.10.0
+	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
 	github.com/gofrs/uuid v3.3.0+incompatible
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.1 // indirect
+	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
+	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
+	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mattn/go-sqlite3 v1.14.5
 	github.com/miekg/dns v1.1.35
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
-	github.com/pkg/errors v0.9.1
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/cobra v1.1.1

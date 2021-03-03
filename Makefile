@@ -80,8 +80,13 @@ default: clean pb
 
 .PHONY: macos
 macos: clean pb
-	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
-	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
+	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
+	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
+
+.PHONY: macos-arm64
+macos-arm64: clean pb
+	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_arm64 ./server
+	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_arm64 ./client
 
 .PHONY: linux
 linux: clean pb
