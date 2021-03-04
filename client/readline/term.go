@@ -33,12 +33,6 @@ func GetTermLength() (termLength int) {
 	return
 }
 
-// GetCursorLine return the Y value of the cursor
-func GetCursorLine() (line int) {
-	size, _ := ts.GetSize()
-	return size.PosY()
-}
-
 func printf(format string, a ...interface{}) {
 	s := fmt.Sprintf(format, a...)
 	print(s)

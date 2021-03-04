@@ -42,7 +42,7 @@ import (
 // ExecuteShellcode - Executes the given shellcode in the sliver process
 type ExecuteShellcode struct {
 	Positional struct {
-		Path string `description:"path to shellcode to inject" required:"1-1"`
+		LocalPath string `description:"path to shellcode to inject" required:"1-1"`
 	} `positional-args:"yes" required:"yes"`
 
 	Options struct {
@@ -62,7 +62,7 @@ func (es *ExecuteShellcode) Execute(args []string) (err error) {
 
 	interactive := es.Options.Interactive
 	pid := es.Options.PID
-	shellcodePath := es.Positional.Path
+	shellcodePath := es.Positional.LocalPath
 	shellcodeBin, err := ioutil.ReadFile(shellcodePath)
 	if err != nil {
 		fmt.Printf(util.Error+"Error: %s\n", err.Error())

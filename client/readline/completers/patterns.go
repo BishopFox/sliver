@@ -57,7 +57,8 @@ func noCommandOrEmpty(args []string, last []rune, command *flags.Command) bool {
 // [ Commands ] -------------------------------------------------------------------------------------
 // detectedCommand - Returns the base command from parser if detected, depending on context
 func (c *CommandCompleter) detectedCommand(args []string) (command *flags.Command) {
-	command = c.parser.Find(args[0])
+	arg := strings.TrimSpace(args[0])
+	command = c.parser.Find(arg)
 	return
 }
 
@@ -111,7 +112,10 @@ func hasSubCommands(command *flags.Command, args []string) bool {
 }
 
 // Does the input has a subcommand in it ?
-func subCommandFound(lastWord string, args []string, command *flags.Command) (sub *flags.Command, ok bool) {
+func subCommandFound(lastWord string, raw []string, command *flags.Command) (sub *flags.Command, ok bool) {
+	// First, filter redundant spaces. This does not modify the actual line
+	args := ignoreRedundantSpaces(raw)
+
 	if len(args) <= 1 || command == nil {
 		return nil, false
 	}
@@ -142,7 +146,10 @@ func hasArgs(command *flags.Command) bool {
 }
 
 // commandArgumentRequired - Analyses input and sends back the next argument name to provide completion for
-func commandArgumentRequired(lastWord string, args []string, command *flags.Command) (name string, yes bool) {
+func commandArgumentRequired(lastWord string, raw []string, command *flags.Command) (name string, yes bool) {
+
+	// First, filter redundant spaces. This does not modify the actual line
+	args := ignoreRedundantSpaces(raw)
 
 	// Trim command and subcommand args
 	var remain []string
@@ -155,13 +162,10 @@ func commandArgumentRequired(lastWord string, args []string, command *flags.Comm
 
 	// The remain may include a "" as a last element,
 	// which we don't consider as a real remain, so we move it away
-	if lastWord == "" {
-		if len(remain) > 1 {
-			remain = remain[:]
-		}
-		if len(remain) == 1 { // Avoid index error
-			remain = []string{}
-		}
+	switch lastWord {
+	case "":
+	case command.Name:
+		return "", false
 	}
 
 	// Trim all --option flags and their arguments if they have
@@ -176,20 +180,24 @@ func commandArgumentRequired(lastWord string, args []string, command *flags.Comm
 
 			// If last word is the argument, and we are
 			// last arg in: line keep completing.
-			if len(remain) <= 1 {
+			if len(remain) < 1 {
 				return arg.Name, true
 			}
-			// If last word is the argument, and we are
-			// last arg in line keep completing.
-			// if len(remain) <= 1 && i == (len(command.Args())-1) {
-			//         return arg.Name, true
-			// }
+
+			// If the we are still writing the argument
+			if len(remain) == 1 {
+				if lastWord != "" {
+					return arg.Name, true
+				}
+			}
 
 			// If filed and we are not last arg, continue
 			if len(remain) > 1 && i < (len(command.Args())-1) {
 				remain = remain[1:]
 				continue
 			}
+
+			continue
 		}
 
 		// If we need more than one value and we knwo the maximum,
@@ -214,7 +222,7 @@ func commandArgumentRequired(lastWord string, args []string, command *flags.Comm
 			continue
 		}
 
-		// If have required arguments, with no limit of needs, return true
+		// If has required arguments, with no limit of needs, return true
 		if arg.Required > 0 && arg.RequiredMaximum == -1 {
 			return arg.Name, true
 		}
@@ -464,6 +472,48 @@ func formatInput(line []rune) (args []string, last []rune, lastWord string) {
 	args = strings.Split(string(line), " ")         // The readline input as a []string
 	last = trimSpaceLeft([]rune(args[len(args)-1])) // The last char in input
 	lastWord = string(last)
+	return
+}
+
+// FormatInput - Formats & sanitize the command line input
+func formatInputHighlighter(line []rune) (args []string, last []rune, lastWord string) {
+	args = strings.SplitN(string(line), " ", -1)
+	last = trimSpaceLeft([]rune(args[len(args)-1])) // The last char in input
+	lastWord = string(last)
+	return
+}
+
+// ignoreRedundantSpaces - We might have several spaces between each real arguments.
+// However these indivual spaces are counted as args themselves.
+// For each space arg found, verify that no space args follow,
+// and if some are found, delete them.
+func ignoreRedundantSpaces(raw []string) (args []string) {
+
+	for i := 0; i < len(raw); i++ {
+		// Catch a space argument.
+		if raw[i] == "" {
+			// The arg evaulated is always kept, because we just adjusted
+			// the indexing to avoid the ones we don't need
+			// args = append(args, raw[i])
+
+			for y, next := range raw[i:] {
+				if next != "" {
+					i += y - 1
+					break
+				}
+				// If we come to the end while not breaking
+				// we push the outer loop straight to the end.
+				if y == len(raw[i:])-1 {
+					i += y
+				}
+			}
+		} else {
+			// The arg evaulated is always kept, because we just adjusted
+			// the indexing to avoid the ones we don't need
+			args = append(args, raw[i])
+		}
+	}
+
 	return
 }
 

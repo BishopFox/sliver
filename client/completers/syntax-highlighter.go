@@ -30,7 +30,7 @@ import (
 func SyntaxHighlighter(input []rune) (line string) {
 
 	// Format and sanitize input
-	args, last, lastWord := FormatInput(input)
+	args, last, lastWord := formatInputHighlighter(input)
 
 	// Remain is all arguments that have not been highlighted, we need it for completing long commands
 	var remain = args
@@ -61,14 +61,14 @@ func SyntaxHighlighter(input []rune) (line string) {
 }
 
 func highlightCommand(args []string, command *flags.Command) (line string, remain []string) {
-	line = tui.BOLD + command.Name + tui.RESET + " "
+	line = tui.BOLD + args[0] + tui.RESET + " "
 	remain = args[1:]
 	return
 }
 
 func highlightSubCommand(input string, args []string, command *flags.Command) (line string, remain []string) {
 	line = input
-	line += tui.BOLD + command.Name + tui.RESET + " "
+	line += tui.BOLD + args[0] + tui.RESET + " "
 	remain = args[1:]
 	return
 }

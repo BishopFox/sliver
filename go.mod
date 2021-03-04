@@ -23,7 +23,6 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 	github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c // indirect
 	github.com/jessevdk/go-flags v1.4.0
-	github.com/lunixbochs/vtclean v1.0.0
 	github.com/mattn/go-runewidth v0.0.8 // indirect
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible
 	github.com/miekg/dns v1.1.35

@@ -214,14 +214,11 @@ func (rl *Instance) Readline() (string, error) {
 
 				// If too many completions and no yet confirmed, ask user for completion
 				comps, lines := rl.getCompletionCount()
-				if lines > rl.MaxTabCompleterRows && !rl.compConfirmWait {
+				if rl.compConfirmWait {
+				}
+				if ((lines > GetTermLength()) || (lines > rl.MaxTabCompleterRows)) && !rl.compConfirmWait {
 					sentence := fmt.Sprintf("%s show all %d completions (%d lines) ?",
 						FOREWHITE, comps, lines)
-					rl.promptCompletionConfirm(sentence)
-					continue
-				} else if lines > GetTermLength()-GetCursorLine() && !rl.compConfirmWait {
-					sentence := fmt.Sprintf("%s completions are longer than screen (%d lines). Show anyway ?",
-						FOREWHITE, lines)
 					rl.promptCompletionConfirm(sentence)
 					continue
 				}
@@ -326,6 +323,11 @@ func (rl *Instance) Readline() (string, error) {
 					string(r[:i]) != seqUp && string(r[:i]) != seqDown {
 					rl.resetVirtualComp()
 				}
+			}
+
+			// If we are in a prompt completion confirm, we escape it
+			if rl.compConfirmWait {
+				rl.compConfirmWait = false
 			}
 
 			rl.escapeSeq(r[:i])

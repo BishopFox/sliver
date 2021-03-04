@@ -60,7 +60,7 @@ func serverCompsAddtional(parser *flags.Parser) {
 	p := parser.Find(constants.NewProfileStr)
 	p.FindOptionByLongName("os").Choices = implantOS
 	p.FindOptionByLongName("arch").Choices = implantArch
-	g.FindOptionByLongName("format").Choices = implantFmt
+	p.FindOptionByLongName("format").Choices = implantFmt
 
 	// Portfwd protocols
 	pfwd := parser.Find(constants.PortfwdStr)

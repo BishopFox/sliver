@@ -110,24 +110,35 @@ func (rl *Instance) renderHelpers() {
 	if !rl.compConfirmWait {
 		rl.getHintText()
 		if len(rl.hintText) > 0 {
-			moveCursorDown(1)
+			print("\n")
+			// moveCursorDown(1)
 		}
 		rl.writeHintText()
 		moveCursorBackwards(GetTermWidth())
+
+		// Print completions and go back to beginning of this line
+		print("\n")
+		// moveCursorDown(1)
+		rl.writeTabCompletion()
+		moveCursorBackwards(GetTermWidth())
+		moveCursorUp(rl.tcUsedY - 1)
 	}
 
-	// Print completions and go back to beginning of this line
-	moveCursorDown(1)
-	rl.writeTabCompletion()
-	moveCursorBackwards(GetTermWidth())
-	moveCursorUp(rl.tcUsedY - 1)
+	// If we are still waiting for the user to confirm too long completions
+	if rl.compConfirmWait {
+		print("\n")
+		// moveCursorDown(1)
+		rl.writeHintText()
+		moveCursorBackwards(GetTermWidth())
+		print("\n")
+		// moveCursorDown(1)
+	}
 
-	if !rl.compConfirmWait {
-		if len(rl.hintText) > 0 {
-			moveCursorUp(rl.hintY)
-		} else {
-			moveCursorUp(1)
-		}
+	// Anyway, compensate for hint printout
+	if len(rl.hintText) > 0 {
+		moveCursorUp(rl.hintY)
+	} else {
+		moveCursorUp(1)
 	}
 
 	// Go back to current cursor position

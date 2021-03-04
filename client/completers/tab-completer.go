@@ -136,7 +136,7 @@ func CompleteMenuCommands(lastWord string, pos int) (prefix string, completions 
 	for _, grp := range completions {
 		// If the length of suggestions is too long and we have
 		// many groups, use grid display.
-		if len(completions) >= 10 && len(grp.Suggestions) >= 10 {
+		if len(completions) >= 10 && len(grp.Suggestions) >= 7 {
 			grp.DisplayType = readline.TabDisplayGrid
 		} else {
 			// By default, we use a map of command to descriptions

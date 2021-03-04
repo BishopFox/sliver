@@ -178,6 +178,18 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 			}
 		}
 
+		// Remote paths
+		if match("RemotePath") {
+			switch cmd.Name {
+			case constants.ExecuteShellcodeStr:
+				prefix, comp = completeRemotePathAndFiles(lastWord)
+				completions = append(completions, comp)
+			default:
+				prefix, comp = completeRemotePathAndFiles(lastWord)
+				completions = append(completions, comp)
+			}
+		}
+
 		// Sessions
 		if match("ImplantID") || match("SessionID") {
 			completions = append(completions, sessionIDs(lastWord))
@@ -226,6 +238,11 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 
 			// We return this prefix because it is aware of paths lengths, etc...
 			return urlPrefix, completions
+		}
+
+		// Processes
+		if match("PID") {
+			completions = append(completions, processes(lastWord))
 		}
 
 	}

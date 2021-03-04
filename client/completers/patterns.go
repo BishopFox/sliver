@@ -45,7 +45,8 @@ func noCommandOrEmpty(args []string, last []rune, command *flags.Command) bool {
 // [ Commands ]
 // detectedCommand - Returns the base command from parser if detected, depending on context
 func detectedCommand(args []string) (command *flags.Command) {
-	command = cctx.Commands.GetCommands().Find(args[0])
+	arg := strings.TrimSpace(args[0])
+	command = cctx.Commands.GetCommands().Find(arg)
 	return
 }
 
@@ -413,6 +414,14 @@ func filterOptions(args []string, command *flags.Command) (processed []string) {
 // FormatInput - Formats & sanitize the command line input
 func FormatInput(line []rune) (args []string, last []rune, lastWord string) {
 	args = strings.Split(string(line), " ")         // The readline input as a []string
+	last = trimSpaceLeft([]rune(args[len(args)-1])) // The last char in input
+	lastWord = string(last)
+	return
+}
+
+// FormatInput - Formats & sanitize the command line input
+func formatInputHighlighter(line []rune) (args []string, last []rune, lastWord string) {
+	args = strings.SplitN(string(line), " ", -1)
 	last = trimSpaceLeft([]rune(args[len(args)-1])) // The last char in input
 	lastWord = string(last)
 	return

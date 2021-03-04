@@ -346,12 +346,10 @@ func (rl *Instance) hasOneCandidate() bool {
 func (rl *Instance) promptCompletionConfirm(sentence string) {
 	rl.hintText = []rune(sentence)
 
-	moveCursorDown(rl.fullY - rl.posY)
-	moveCursorBackwards(GetTermWidth())
-	rl.writeHintText()
-
 	rl.compConfirmWait = true
 	rl.viUndoSkipAppend = true
+
+	rl.renderHelpers()
 }
 
 func (rl *Instance) getCompletionCount() (comps int, lines int) {

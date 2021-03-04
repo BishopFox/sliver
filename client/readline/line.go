@@ -92,7 +92,6 @@ func (rl *Instance) delete() {
 		rl.pos--
 		rl.line = rl.line[:rl.pos]
 	default:
-		rl.pos--
 		rl.line = append(rl.line[:rl.pos], rl.line[rl.pos+1:]...)
 	}
 
