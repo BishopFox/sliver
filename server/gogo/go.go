@@ -97,7 +97,8 @@ type GoConfig struct {
 	CGO     string
 	CC      string
 
-	Garble bool
+	Garble    bool
+	GOPRIVATE string
 }
 
 // GetGoRootDir - Get the path to GOROOT
@@ -137,6 +138,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOROOT=%s", config.GOROOT),
 		fmt.Sprintf("GOPATH=%s", config.GOPATH),
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
+		fmt.Sprintf("GOPRIVATE=%s", config.GOPRIVATE),
 		fmt.Sprintf("PATH=%s/bin:%s", config.GOROOT, os.Getenv("PATH")),
 	}
 	var stdout bytes.Buffer

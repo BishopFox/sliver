@@ -77,6 +77,9 @@ const (
 	// LINUX OS
 	LINUX = "linux"
 
+	// GoPrivate - The default Go private arg to garble when obfuscation is enabled
+	GoPrivate = "github.com/*"
+
 	clientsDirName = "clients"
 	sliversDirName = "slivers"
 
@@ -227,6 +230,9 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 		GOARCH:  config.GOARCH,
 		GOCACHE: gogo.GetGoCache(appDir),
 		GOROOT:  gogo.GetGoRootDir(appDir),
+
+		Garble:    config.ObfuscateSymbols,
+		GOPRIVATE: GoPrivate,
 	}
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
@@ -286,6 +292,9 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 		GOARCH:  config.GOARCH,
 		GOCACHE: gogo.GetGoCache(appDir),
 		GOROOT:  gogo.GetGoRootDir(appDir),
+
+		Garble:    config.ObfuscateSymbols,
+		GOPRIVATE: GoPrivate,
 	}
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
@@ -338,7 +347,8 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 		GOROOT:  gogo.GetGoRootDir(appDir),
 		GOCACHE: gogo.GetGoCache(appDir),
 
-		Garble: config.ObfuscateSymbols,
+		Garble:    config.ObfuscateSymbols,
+		GOPRIVATE: GoPrivate,
 	}
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
