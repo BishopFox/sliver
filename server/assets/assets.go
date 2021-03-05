@@ -37,8 +37,8 @@ import (
 
 const (
 	// GoDirName - The directory to store the go compiler/toolchain files in
-	GoDirName   = "go"
-	dataDirName = "data"
+	GoDirName  = "go"
+	dllDirName = "dll"
 
 	goPathDirName   = "gopath"
 	versionFileName = "version"
@@ -71,9 +71,9 @@ func GetRootAppDir() string {
 	return dir
 }
 
-// GetDataDir - Returns the full path to the data directory
-func GetDataDir() string {
-	dir := path.Join(GetRootAppDir(), dataDirName)
+// GetDllDir - Returns the full path to the data directory
+func GetDllDir() string {
+	dir := path.Join(GetRootAppDir(), dllDirName)
 	return dir
 }
 
@@ -103,7 +103,7 @@ func Setup(force bool) {
 		fmt.Printf("Unpacking assets ...\n")
 		setupGo(appDir)
 		setupCodenames(appDir)
-		setupDataPath(appDir)
+		setupDllPath(appDir)
 		saveAssetVersion(appDir)
 	}
 }
@@ -164,13 +164,13 @@ func setupGo(appDir string) error {
 	garbleAssetPath := path.Join("fs", runtime.GOOS, runtime.GOARCH, "garble")
 	garbleFile, err := assetsFs.ReadFile(garbleAssetPath)
 	if err != nil {
-		setupLog.Errorf("static asset not found: %s", garbleFile)
+		setupLog.Errorf("Static asset not found: %s", garbleFile)
 		return err
 	}
 	garbleLocalPath := path.Join(appDir, "go", "bin", "garble")
 	err = ioutil.WriteFile(garbleLocalPath, garbleFile, 0755)
 	if err != nil {
-		setupLog.Errorf("failed to write garble %s", err)
+		setupLog.Errorf("Failed to write garble %s", err)
 		return err
 	}
 
@@ -189,12 +189,12 @@ func SetupGoPath(goPathSrc string) error {
 	// Sliver PB
 	sliverpbGoSrc, err := protobufs.FS.ReadFile("sliverpb/sliver.pb.go")
 	if err != nil {
-		setupLog.Info("static asset not found: sliver.pb.go")
+		setupLog.Info("Static asset not found: sliver.pb.go")
 		return err
 	}
 	sliverpbConstSrc, err := protobufs.FS.ReadFile("sliverpb/constants.go")
 	if err != nil {
-		setupLog.Info("static asset not found: constants.go")
+		setupLog.Info("Static asset not found: constants.go")
 		return err
 	}
 	sliverpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliverpb")
@@ -205,7 +205,7 @@ func SetupGoPath(goPathSrc string) error {
 	// Common PB
 	commonpbSrc, err := protobufs.FS.ReadFile("commonpb/common.pb.go")
 	if err != nil {
-		setupLog.Info("static asset not found: common.pb.go")
+		setupLog.Info("Static asset not found: common.pb.go")
 		return err
 	}
 	commonpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "commonpb")
@@ -227,14 +227,14 @@ func SetupGoPath(goPathSrc string) error {
 	return nil
 }
 
-// setupDataPath - Sets the data directory up
-func setupDataPath(appDir string) error {
-	dataDir := GetDataDir()
+// setupDllPath - Sets the data directory up
+func setupDllPath(appDir string) error {
+	dataDir := GetDllDir()
 	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
 		setupLog.Infof("Creating data directory: %s", dataDir)
 		os.MkdirAll(dataDir, 0700)
 	}
-	hostingDll, err := assetsFs.ReadFile("fs/dll/HostingCLRx64.dll")
+	hostingDll, err := assetsFs.ReadFile(path.Join("fs", "dll", "HostingCLRx64.dll"))
 	if err != nil {
 		setupLog.Info("failed to find the dll")
 		return err

@@ -105,7 +105,7 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 	}
 
 	// We have to add the hosting DLL to the request before forwarding it to the implant
-	hostingDllPath := path.Join(assets.GetDataDir(), "HostingCLRx64.dll")
+	hostingDllPath := path.Join(assets.GetDllDir(), "HostingCLRx64.dll")
 	hostingDllBytes, err := ioutil.ReadFile(hostingDllPath)
 	if err != nil {
 		return nil, err
