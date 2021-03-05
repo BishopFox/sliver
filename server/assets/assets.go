@@ -161,6 +161,19 @@ func setupGo(appDir string) error {
 		return err
 	}
 
+	garbleAssetPath := path.Join("fs", runtime.GOOS, runtime.GOARCH, "garble")
+	garbleFile, err := assetsFs.ReadFile(garbleAssetPath)
+	if err != nil {
+		setupLog.Errorf("static asset not found: %s", garbleFile)
+		return err
+	}
+	garbleLocalPath := path.Join(appDir, "go", "bin", "garble")
+	err = ioutil.WriteFile(garbleLocalPath, garbleFile, 0755)
+	if err != nil {
+		setupLog.Errorf("failed to write garble %s", err)
+		return err
+	}
+
 	return nil
 }
 
