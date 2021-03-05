@@ -20,6 +20,8 @@
 # Creates the static go asset archives
 
 GO_VER="1.16"
+GARBLE_VER="1.16.1"
+
 GO_ARCH_1="amd64"
 GO_ARCH_2="arm64"
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
@@ -131,6 +133,13 @@ cp -vv windows-go.zip $OUTPUT_DIR/windows/$GO_ARCH_1/go.zip
 rm -rf ./go
 rm -f windows-go.zip go$GO_VER.windows-$GO_ARCH_1.zip
 
+echo "-----------------------------------------------------------------"
+echo " Garble"
+echo "-----------------------------------------------------------------"
+curl -L --output $OUTPUT_DIR/linux/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux
+curl -L --output $OUTPUT_DIR/windows/$GO_ARCH_1/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows.exe
+curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_1
+curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_2/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_2
 
 echo "-----------------------------------------------------------------"
 echo " 3rd Party Assets"
