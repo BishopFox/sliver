@@ -175,8 +175,6 @@ github.com/mgutz/ansi
 github.com/miekg/dns
 # github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
 ## explicit
-# github.com/pkg/errors v0.9.1
-## explicit
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
 # github.com/sergi/go-diff v1.1.0
@@ -213,6 +211,8 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/trace
+# golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+## explicit
 # golang.org/x/sys v0.0.0-20201116194326-cc9327a14d48
 ## explicit
 golang.org/x/sys/internal/unsafeheader
@@ -238,16 +238,8 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
-# golang.org/x/tools v0.0.0-20201217163546-c88dec5c6b05
-## explicit
-golang.org/x/tools/go/ast/astutil
-golang.org/x/tools/go/buildutil
-golang.org/x/tools/go/internal/cgo
-golang.org/x/tools/go/loader
-golang.org/x/tools/go/types/typeutil
-golang.org/x/tools/refactor/importgraph
-golang.org/x/tools/refactor/satisfy
 # golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
+## explicit
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
 # google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
