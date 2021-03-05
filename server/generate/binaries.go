@@ -39,7 +39,6 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/db/models"
-	"github.com/bishopfox/sliver/server/gobfuscate"
 	"github.com/bishopfox/sliver/server/gogo"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
@@ -222,11 +221,12 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 		}
 	}
 	goConfig := &gogo.GoConfig{
-		CGO:    "1",
-		CC:     crossCompiler,
-		GOOS:   config.GOOS,
-		GOARCH: config.GOARCH,
-		GOROOT: gogo.GetGoRootDir(appDir),
+		CGO:     "1",
+		CC:      crossCompiler,
+		GOOS:    config.GOOS,
+		GOARCH:  config.GOARCH,
+		GOCACHE: gogo.GetGoCache(appDir),
+		GOROOT:  gogo.GetGoRootDir(appDir),
 	}
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
@@ -280,11 +280,12 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 		}
 	}
 	goConfig := &gogo.GoConfig{
-		CGO:    "1",
-		CC:     crossCompiler,
-		GOOS:   config.GOOS,
-		GOARCH: config.GOARCH,
-		GOROOT: gogo.GetGoRootDir(appDir),
+		CGO:     "1",
+		CC:      crossCompiler,
+		GOOS:    config.GOOS,
+		GOARCH:  config.GOARCH,
+		GOCACHE: gogo.GetGoCache(appDir),
+		GOROOT:  gogo.GetGoRootDir(appDir),
 	}
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
@@ -331,10 +332,13 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 		cgo = "1"
 	}
 	goConfig := &gogo.GoConfig{
-		CGO:    cgo,
-		GOOS:   config.GOOS,
-		GOARCH: config.GOARCH,
-		GOROOT: gogo.GetGoRootDir(appDir),
+		CGO:     cgo,
+		GOOS:    config.GOOS,
+		GOARCH:  config.GOARCH,
+		GOROOT:  gogo.GetGoRootDir(appDir),
+		GOCACHE: gogo.GetGoCache(appDir),
+
+		Garble: config.ObfuscateSymbols,
 	}
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
@@ -574,22 +578,22 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		return "", err
 	}
 
-	if !config.Debug {
-		buildLog.Infof("Obfuscating source code ...")
-		obfgoPath := path.Join(projectGoPathDir, "obfuscated")
-		pkgName := "github.com/bishopfox/sliver"
-		obfSymbols := config.ObfuscateSymbols
-		obfKey := randomObfuscationKey()
-		obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, obfKey, pkgName, obfgoPath, obfSymbols)
-		if err != nil {
-			buildLog.Infof("Error while obfuscating sliver %v", err)
-			return "", err
-		}
-		goConfig.GOPATH = obfgoPath
-		buildLog.Infof("Obfuscated GOPATH = %s", obfgoPath)
-		buildLog.Infof("Obfuscated sliver package: %s", obfuscatedPkg)
-		sliverPkgDir = path.Join(obfgoPath, "src", obfuscatedPkg) // new "main"
-	}
+	// if !config.Debug {
+	// 	buildLog.Infof("Obfuscating source code ...")
+	// 	obfgoPath := path.Join(projectGoPathDir, "obfuscated")
+	// 	pkgName := "github.com/bishopfox/sliver"
+	// 	obfSymbols := config.ObfuscateSymbols
+	// 	obfKey := randomObfuscationKey()
+	// 	obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, obfKey, pkgName, obfgoPath, obfSymbols)
+	// 	if err != nil {
+	// 		buildLog.Infof("Error while obfuscating sliver %v", err)
+	// 		return "", err
+	// 	}
+	// 	goConfig.GOPATH = obfgoPath
+	// 	buildLog.Infof("Obfuscated GOPATH = %s", obfgoPath)
+	// 	buildLog.Infof("Obfuscated sliver package: %s", obfuscatedPkg)
+	// 	sliverPkgDir = path.Join(obfgoPath, "src", obfuscatedPkg) // new "main"
+	// }
 	if err != nil {
 		buildLog.Errorf("Failed to save sliver config %s", err)
 		return "", err
