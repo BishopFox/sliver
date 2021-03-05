@@ -89,10 +89,12 @@ var (
 
 // GoConfig - Env variables for Go compiler
 type GoConfig struct {
-	GOOS    string
-	GOARCH  string
-	GOROOT  string
-	GOPATH  string
+	ProjectDir string
+
+	GOOS   string
+	GOARCH string
+	GOROOT string
+	// GOPATH  string
 	GOCACHE string
 	CGO     string
 	CC      string
@@ -135,11 +137,10 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
 		fmt.Sprintf("GOOS=%s", config.GOOS),
 		fmt.Sprintf("GOARCH=%s", config.GOARCH),
-		fmt.Sprintf("GOROOT=%s", config.GOROOT),
-		fmt.Sprintf("GOPATH=%s", config.GOPATH),
+		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
 		fmt.Sprintf("GOPRIVATE=%s", config.GOPRIVATE),
-		fmt.Sprintf("PATH=%s/bin:%s", config.GOROOT, os.Getenv("PATH")),
+		fmt.Sprintf("PATH=%s:%s", path.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -175,10 +176,9 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
 		fmt.Sprintf("GOOS=%s", config.GOOS),
 		fmt.Sprintf("GOARCH=%s", config.GOARCH),
-		fmt.Sprintf("GOROOT=%s", config.GOROOT),
-		fmt.Sprintf("GOPATH=%s", config.GOPATH),
+		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
-		fmt.Sprintf("PATH=%s/bin:%s", config.GOROOT, os.Getenv("PATH")),
+		fmt.Sprintf("PATH=%s", path.Join(config.GOROOT, "bin")),
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

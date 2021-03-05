@@ -120,10 +120,10 @@ var (
 		"pivots/tcp.go",
 		"pivots/pivots.go",
 
-		"sc/screenshot_darwin.go",
-		"sc/screenshot_linux.go",
-		"sc/screenshot_windows.go",
-		"sc/screenshot.go",
+		"screen/screen.go",
+		"screen/screenshot_darwin.go",
+		"screen/screenshot_linux.go",
+		"screen/screenshot_windows.go",
 
 		"syscalls/syscalls.go",
 		"syscalls/syscalls_windows.go",

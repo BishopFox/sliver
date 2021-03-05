@@ -92,9 +92,11 @@ func TestSliverDefaultBuild(t *testing.T) {
 
 }
 
-// func TestSymbolObfuscation(t *testing.T) {
-// 	symbolObfuscation(t, "windows", "amd64")
-// }
+func TestSymbolObfuscation(t *testing.T) {
+	symbolObfuscation(t, "windows", "amd64")
+	symbolObfuscation(t, "linux", "amd64")
+	symbolObfuscation(t, "darwin", "amd64")
+}
 
 func mtlsExe(t *testing.T, goos string, goarch string, debug bool) {
 	t.Logf("[mtls] EXE %s/%s - debug: %v", goos, goarch, debug)

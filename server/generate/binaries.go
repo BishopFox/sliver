@@ -20,8 +20,6 @@ package generate
 
 import (
 	"bytes"
-	"crypto/rand"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -239,7 +237,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 		return "", err
 	}
 
-	dest := path.Join(goConfig.GOPATH, "bin", path.Base(name))
+	dest := path.Join(goConfig.ProjectDir, "bin", path.Base(name))
 	dest += ".bin"
 
 	tags := []string{"netgo"}
@@ -301,7 +299,7 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 		return "", err
 	}
 
-	dest := path.Join(goConfig.GOPATH, "bin", path.Base(name))
+	dest := path.Join(goConfig.ProjectDir, "bin", path.Base(name))
 	if goConfig.GOOS == WINDOWS {
 		dest += ".dll"
 	}
@@ -340,6 +338,7 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 	if config.IsSharedLib {
 		cgo = "1"
 	}
+
 	goConfig := &gogo.GoConfig{
 		CGO:     cgo,
 		GOOS:    config.GOOS,
@@ -350,12 +349,13 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 		Garble:    config.ObfuscateSymbols,
 		GOPRIVATE: GoPrivate,
 	}
+
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
 		return "", err
 	}
 
-	dest := path.Join(goConfig.GOPATH, "bin", path.Base(name))
+	dest := path.Join(goConfig.ProjectDir, "bin", path.Base(name))
 	if goConfig.GOOS == WINDOWS {
 		dest += ".exe"
 	}
@@ -408,7 +408,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		os.MkdirAll(projectGoPathDir, 0700)
 	}
 
-	goConfig.GOPATH = projectGoPathDir
+	goConfig.ProjectDir = projectGoPathDir
 
 	// Cert PEM encoded certificates
 	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
@@ -620,11 +620,4 @@ func getCCompiler(arch string) string {
 	}
 	buildLog.Infof("CC = %v", compiler)
 	return compiler
-}
-
-func randomObfuscationKey() string {
-	randBuf := make([]byte, 64) // 64 bytes of randomness
-	rand.Read(randBuf)
-	digest := sha256.Sum256(randBuf)
-	return fmt.Sprintf("%x", digest[:encryptKeySize])
 }

