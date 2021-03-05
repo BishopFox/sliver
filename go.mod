@@ -26,15 +26,15 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.5
 	github.com/miekg/dns v1.1.35
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/crypto v0.0.0-20201116153603-4be66e5b6582
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9 // indirect
 	golang.org/x/sys v0.0.0-20201116194326-cc9327a14d48
-	golang.org/x/tools v0.0.0-20201217163546-c88dec5c6b05
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/grpc v1.33.2
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect

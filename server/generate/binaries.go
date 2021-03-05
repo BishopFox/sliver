@@ -588,22 +588,6 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		return "", err
 	}
 
-	// if !config.Debug {
-	// 	buildLog.Infof("Obfuscating source code ...")
-	// 	obfgoPath := path.Join(projectGoPathDir, "obfuscated")
-	// 	pkgName := "github.com/bishopfox/sliver"
-	// 	obfSymbols := config.ObfuscateSymbols
-	// 	obfKey := randomObfuscationKey()
-	// 	obfuscatedPkg, err := gobfuscate.Gobfuscate(*goConfig, obfKey, pkgName, obfgoPath, obfSymbols)
-	// 	if err != nil {
-	// 		buildLog.Infof("Error while obfuscating sliver %v", err)
-	// 		return "", err
-	// 	}
-	// 	goConfig.GOPATH = obfgoPath
-	// 	buildLog.Infof("Obfuscated GOPATH = %s", obfgoPath)
-	// 	buildLog.Infof("Obfuscated sliver package: %s", obfuscatedPkg)
-	// 	sliverPkgDir = path.Join(obfgoPath, "src", obfuscatedPkg) // new "main"
-	// }
 	if err != nil {
 		buildLog.Errorf("Failed to save sliver config %s", err)
 		return "", err
