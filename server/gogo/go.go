@@ -31,8 +31,7 @@ import (
 )
 
 const (
-	goDirName     = "go"
-	goPathDirName = "gopath"
+	goDirName = "go"
 )
 
 var (
@@ -91,16 +90,16 @@ var (
 type GoConfig struct {
 	ProjectDir string
 
-	GOOS   string
-	GOARCH string
-	GOROOT string
-	// GOPATH  string
-	GOCACHE string
-	CGO     string
-	CC      string
+	GOOS       string
+	GOARCH     string
+	GOROOT     string
+	GOCACHE    string
+	GOMODCACHE string
+	CGO        string
+	CC         string
 
-	Garble    bool
-	GOPRIVATE string
+	Obfuscation bool
+	GOPRIVATE   string
 }
 
 // GetGoRootDir - Get the path to GOROOT
@@ -111,6 +110,13 @@ func GetGoRootDir(appDir string) string {
 // GetGoCache - Get the OS temp dir (used for GOCACHE)
 func GetGoCache(appDir string) string {
 	cachePath := path.Join(GetGoRootDir(appDir), "cache")
+	os.MkdirAll(cachePath, 0700)
+	return cachePath
+}
+
+// GetGoModCache - Get the GoMod cache dir
+func GetGoModCache(appDir string) string {
+	cachePath := path.Join(GetGoRootDir(appDir), "modcache")
 	os.MkdirAll(cachePath, 0700)
 	return cachePath
 }
@@ -139,6 +145,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOARCH=%s", config.GOARCH),
 		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
+		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
 		fmt.Sprintf("GOPRIVATE=%s", config.GOPRIVATE),
 		fmt.Sprintf("PATH=%s:%s", path.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
 	}
@@ -178,6 +185,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOARCH=%s", config.GOARCH),
 		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
+		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
 		fmt.Sprintf("PATH=%s", path.Join(config.GOROOT, "bin")),
 	}
 	var stdout bytes.Buffer
@@ -224,7 +232,7 @@ func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []
 		goCommand = append(goCommand, fmt.Sprintf("-buildmode=%s", buildmode))
 	}
 	goCommand = append(goCommand, []string{"-o", dest, "."}...)
-	if config.Garble {
+	if config.Obfuscation {
 		return GarbleCmd(config, src, goCommand)
 	}
 	return GoCmd(config, src, goCommand)

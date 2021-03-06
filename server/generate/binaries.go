@@ -222,15 +222,16 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 		}
 	}
 	goConfig := &gogo.GoConfig{
-		CGO:     "1",
-		CC:      crossCompiler,
-		GOOS:    config.GOOS,
-		GOARCH:  config.GOARCH,
-		GOCACHE: gogo.GetGoCache(appDir),
-		GOROOT:  gogo.GetGoRootDir(appDir),
+		CGO:        "1",
+		CC:         crossCompiler,
+		GOOS:       config.GOOS,
+		GOARCH:     config.GOARCH,
+		GOCACHE:    gogo.GetGoCache(appDir),
+		GOMODCACHE: gogo.GetGoModCache(appDir),
+		GOROOT:     gogo.GetGoRootDir(appDir),
 
-		Garble:    config.ObfuscateSymbols,
-		GOPRIVATE: GoPrivate,
+		Obfuscation: config.ObfuscateSymbols,
+		GOPRIVATE:   GoPrivate,
 	}
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
@@ -284,15 +285,16 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 		}
 	}
 	goConfig := &gogo.GoConfig{
-		CGO:     "1",
-		CC:      crossCompiler,
-		GOOS:    config.GOOS,
-		GOARCH:  config.GOARCH,
-		GOCACHE: gogo.GetGoCache(appDir),
-		GOROOT:  gogo.GetGoRootDir(appDir),
+		CGO:        "1",
+		CC:         crossCompiler,
+		GOOS:       config.GOOS,
+		GOARCH:     config.GOARCH,
+		GOCACHE:    gogo.GetGoCache(appDir),
+		GOMODCACHE: gogo.GetGoModCache(appDir),
+		GOROOT:     gogo.GetGoRootDir(appDir),
 
-		Garble:    config.ObfuscateSymbols,
-		GOPRIVATE: GoPrivate,
+		Obfuscation: config.ObfuscateSymbols,
+		GOPRIVATE:   GoPrivate,
 	}
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
@@ -340,14 +342,15 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 	}
 
 	goConfig := &gogo.GoConfig{
-		CGO:     cgo,
-		GOOS:    config.GOOS,
-		GOARCH:  config.GOARCH,
-		GOROOT:  gogo.GetGoRootDir(appDir),
-		GOCACHE: gogo.GetGoCache(appDir),
+		CGO:        cgo,
+		GOOS:       config.GOOS,
+		GOARCH:     config.GOARCH,
+		GOROOT:     gogo.GetGoRootDir(appDir),
+		GOCACHE:    gogo.GetGoCache(appDir),
+		GOMODCACHE: gogo.GetGoModCache(appDir),
 
-		Garble:    config.ObfuscateSymbols,
-		GOPRIVATE: GoPrivate,
+		Obfuscation: config.ObfuscateSymbols,
+		GOPRIVATE:   GoPrivate,
 	}
 
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
