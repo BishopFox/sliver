@@ -19,11 +19,6 @@ package handlers
 */
 
 import (
-	// {{if .Config.Debug}}
-
-	// {{else}}
-	// {{end}}
-
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )

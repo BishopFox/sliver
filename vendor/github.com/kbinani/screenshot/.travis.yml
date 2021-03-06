@@ -1,0 +1,41 @@
+language: cpp
+env:
+  global:
+    - GOARCH=amd64
+matrix:
+  include:
+    - os: osx
+      env: GOOS=darwin
+           GO_VERSION=1.11
+    - os: osx
+      env: GOOS=darwin
+           GO_VERSION=1.10
+    - os: osx
+      env: GOOS=darwin
+           GO_VERSION=1.9.4
+    - os: linux
+      env: GOOS=linux
+           GO_VERSION=1.9.4
+    - os: linux
+      env: GOOS=freebsd
+           GO_VERSION=1.9.4
+    - os: linux
+      env: GOOS=windows
+           GO_VERSION=1.9.4
+    - os: linux
+      env: GOOS=openbsd
+           GO_VERSION=1.9.4
+    - os: linux
+      env: GOOS=netbsd
+           GO_VERSION=1.9.4
+    #- os: linux
+      #env: GOOS=solaris
+           #GO_VERSION=1.9.4
+branches:
+  only:
+  - master
+install: ./.travis/install-go.sh
+script: ./.travis/build.sh
+cache:
+  directories:
+  - $HOME/cache/$TRAVIS_REPO_SLUG

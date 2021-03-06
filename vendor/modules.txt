@@ -17,21 +17,13 @@ github.com/Binject/shellcode/api
 # github.com/BurntSushi/xgb v0.0.0-20201008132610-5f9e7b3c49cd
 ## explicit
 github.com/BurntSushi/xgb
-github.com/BurntSushi/xgb/randr
-github.com/BurntSushi/xgb/render
-github.com/BurntSushi/xgb/shape
 github.com/BurntSushi/xgb/shm
-github.com/BurntSushi/xgb/xfixes
 github.com/BurntSushi/xgb/xinerama
 github.com/BurntSushi/xgb/xproto
-github.com/BurntSushi/xgb/xv
 # github.com/Microsoft/go-winio v0.4.15
 ## explicit
 github.com/Microsoft/go-winio
-github.com/Microsoft/go-winio/pkg/etw
 github.com/Microsoft/go-winio/pkg/guid
-github.com/Microsoft/go-winio/wim
-github.com/Microsoft/go-winio/wim/lzx
 # github.com/VividCortex/ewma v1.1.1
 github.com/VividCortex/ewma
 # github.com/alecthomas/chroma v0.8.1
@@ -96,6 +88,9 @@ github.com/dlclark/regexp2/syntax
 # github.com/fatih/color v1.10.0
 ## explicit
 github.com/fatih/color
+# github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5
+## explicit
+github.com/gen2brain/shm
 # github.com/go-sql-driver/mysql v1.5.0
 github.com/go-sql-driver/mysql
 # github.com/gofrs/uuid v3.3.0+incompatible
@@ -156,6 +151,14 @@ github.com/jinzhu/inflection
 github.com/jinzhu/now
 # github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 github.com/kballard/go-shellquote
+# github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
+## explicit
+github.com/kbinani/screenshot
+github.com/kbinani/screenshot/internal/util
+github.com/kbinani/screenshot/internal/xwindow
+# github.com/lxn/win v0.0.0-20210218163916-a377121e959e
+## explicit
+github.com/lxn/win
 # github.com/mattn/go-colorable v0.1.8
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.12
@@ -172,9 +175,6 @@ github.com/mgutz/ansi
 github.com/miekg/dns
 # github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
 ## explicit
-# github.com/pkg/errors v0.9.1
-## explicit
-github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
 # github.com/sergi/go-diff v1.1.0
@@ -211,6 +211,8 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/trace
+# golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+## explicit
 # golang.org/x/sys v0.0.0-20201116194326-cc9327a14d48
 ## explicit
 golang.org/x/sys/internal/unsafeheader
@@ -236,16 +238,8 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
-# golang.org/x/tools v0.0.0-20201217163546-c88dec5c6b05
-## explicit
-golang.org/x/tools/go/ast/astutil
-golang.org/x/tools/go/buildutil
-golang.org/x/tools/go/internal/cgo
-golang.org/x/tools/go/loader
-golang.org/x/tools/go/types/typeutil
-golang.org/x/tools/refactor/importgraph
-golang.org/x/tools/refactor/satisfy
 # golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
+## explicit
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
 # google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013

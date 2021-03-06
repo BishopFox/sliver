@@ -43,6 +43,7 @@ var (
 		sliverpb.MsgRegister:    registerSessionHandler,
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,
+		sliverpb.MsgPing:        pingHandler,
 	}
 
 	tunnelHandlerMutex = &sync.Mutex{}
@@ -156,4 +157,8 @@ func tunnelCloseHandler(session *core.Session, data []byte) {
 	} else {
 		handlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
 	}
+}
+
+func pingHandler(session *core.Session, data []byte) {
+	handlerLog.Infof("ping from session %d", session.ID)
 }
