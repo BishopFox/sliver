@@ -567,23 +567,16 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 
 	// Render GoMod
 	buildLog.Info("Rendering go.mod file ...")
-	goModBuf := bytes.NewBuffer([]byte{})
-	goModTmpl := template.Must(template.New("sliver").Parse(implant.GoMod))
-	err = goModTmpl.Execute(goModBuf, struct {
-		Name   string
-		PkgDir string
-		Config *models.ImplantConfig
-	}{
-		name,
-		sliverPkgDir,
-		config,
-	})
+	goModPath := path.Join(sliverPkgDir, "go.mod")
+	err = ioutil.WriteFile(goModPath, []byte(implant.GoMod), 0600)
 	if err != nil {
-		buildLog.Error(err)
 		return "", err
 	}
-	goModPath := path.Join(sliverPkgDir, "go.mod")
-	ioutil.WriteFile(goModPath, goModBuf.Bytes(), 0600)
+	goSumPath := path.Join(sliverPkgDir, "go.sum")
+	err = ioutil.WriteFile(goSumPath, []byte(implant.GoSum), 0600)
+	if err != nil {
+		return "", err
+	}
 	buildLog.Infof("Created %s", goModPath)
 	output, err := gogo.GoMod((*goConfig), sliverPkgDir, []string{"tidy"})
 	if err != nil {

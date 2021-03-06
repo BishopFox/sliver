@@ -25,7 +25,11 @@ var (
 	//go:embed sliver/**
 	FS embed.FS
 
-	// GoMod - Templated go module file for implant builds
+	// GoMod - Templated go.mod module file for implant builds
 	//go:embed go-mod
 	GoMod string
+
+	// GoSum - Templated go.sum module file for implant builds
+	//go:embed go-sum
+	GoSum string
 )

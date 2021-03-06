@@ -44,10 +44,8 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
-
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
-
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/golang/protobuf/proto"
 )
 
