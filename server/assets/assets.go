@@ -212,18 +212,6 @@ func SetupGoPath(goPathSrc string) error {
 	os.MkdirAll(commonpbDir, 0700)
 	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0644)
 
-	// GOPATH 3rd party dependencies
-	protobufPath := path.Join(goPathSrc, "github.com", "golang")
-	err = unzipGoDependency("fs/protobuf.zip", protobufPath)
-	if err != nil {
-		setupLog.Fatalf("Failed to unzip go dependency: %v", err)
-	}
-	golangXPath := path.Join(goPathSrc, "golang.org", "x")
-	err = unzipGoDependency("fs/golang_x_sys.zip", golangXPath)
-	if err != nil {
-		setupLog.Fatalf("Failed to unzip go dependency: %v", err)
-	}
-
 	return nil
 }
 

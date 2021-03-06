@@ -141,24 +141,6 @@ curl -L --output $OUTPUT_DIR/windows/$GO_ARCH_1/garble.exe https://github.com/mo
 curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_1
 curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_2/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_2
 
-echo "-----------------------------------------------------------------"
-echo " 3rd Party Assets"
-echo "-----------------------------------------------------------------"
-cd $WORK_DIR
-
-curl -L --output $PROTOBUF_COMMIT.zip https://github.com/golang/protobuf/archive/$PROTOBUF_COMMIT.zip
-unzip $PROTOBUF_COMMIT.zip
-rm -f $PROTOBUF_COMMIT.zip
-mv protobuf-$PROTOBUF_COMMIT protobuf
-zip -r protobuf.zip ./protobuf
-cp -vv protobuf.zip $OUTPUT_DIR/protobuf.zip
-
-curl -L --output $GOLANG_SYS_COMMIT.tar.gz https://github.com/golang/sys/archive/$GOLANG_SYS_COMMIT.tar.gz
-tar xfv $GOLANG_SYS_COMMIT.tar.gz
-rm -f $GOLANG_SYS_COMMIT.tar.gz
-mv sys-$GOLANG_SYS_COMMIT sys
-zip -r $OUTPUT_DIR/golang_x_sys.zip sys
-
 # end
 echo -e "clean up: $WORK_DIR"
 rm -rf $WORK_DIR
