@@ -192,7 +192,7 @@ type procFd struct {
 	p     *Process
 }
 
-const sockPrefix = "socket:["
+var sockPrefix = "socket:["
 
 func getProcName(s []byte) string {
 	i := bytes.Index(s, []byte("("))
@@ -251,7 +251,7 @@ func (p *procFd) iterFdDir() {
 }
 
 func extractProcInfo(sktab []SockTabEntry) {
-	const basedir = "/proc"
+	var basedir = "/proc"
 	fi, err := ioutil.ReadDir(basedir)
 	if err != nil {
 		return

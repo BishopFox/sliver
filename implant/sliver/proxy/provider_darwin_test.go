@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
+var (
 	ScutilDataHttpsHttp = "ScutilDataHttpsHttp"
 	ScutilDataHttps     = "ScutilDataHttps"
 	ScutilDataHttp      = "ScutilDataHttp"
 )
 
-const (
+var (
 	ScutilBypassTest1 = "localhost"
 	ScutilBypassTest2 = "myorg1.com"
 	ScutilBypassTest3 = "endpoint.myorg2.com"
