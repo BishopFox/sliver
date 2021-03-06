@@ -27,7 +27,7 @@ import (
 	"log"
 	// {{end}}
 
-	//{{end}}
+	//{{end}} - End Shared Lib
 
 	// {{if .Config.IsSharedLib}}
 	screen "github.com/kbinani/screenshot"

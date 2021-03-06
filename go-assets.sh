@@ -26,9 +26,6 @@ GO_ARCH_1="amd64"
 GO_ARCH_2="arm64"
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
 
-PROTOBUF_COMMIT=347cf4a86c1cb8d262994d8ef5924d4576c5b331
-GOLANG_SYS_COMMIT=669c56c373c468cbe0f0c12b7939832b26088d33
-
 if ! [ -x "$(command -v curl)" ]; then
   exit 1
 fi

