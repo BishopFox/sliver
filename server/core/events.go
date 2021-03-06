@@ -1,7 +1,5 @@
 package core
 
-import "sync"
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -19,10 +17,6 @@ import "sync"
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-
-var (
-	brokerMutex *sync.Mutex = &sync.Mutex{}
-)
 
 const (
 	// Size is arbitrary, just want to avoid weird cases where we'd block on channel sends
@@ -55,26 +49,18 @@ func (broker *eventBroker) Start() {
 	for {
 		select {
 		case <-broker.stop:
-			brokerMutex.Lock()
 			for sub := range subscribers {
 				close(sub)
 			}
-			brokerMutex.Unlock()
 			return
 		case sub := <-broker.subscribe:
-			brokerMutex.Lock()
 			subscribers[sub] = struct{}{}
-			brokerMutex.Unlock()
 		case sub := <-broker.unsubscribe:
-			brokerMutex.Lock()
 			delete(subscribers, sub)
-			brokerMutex.Unlock()
 		case event := <-broker.publish:
-			brokerMutex.Lock()
 			for sub := range subscribers {
 				sub <- event
 			}
-			brokerMutex.Unlock()
 		}
 	}
 }
