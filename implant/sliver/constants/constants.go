@@ -20,6 +20,7 @@ package constants
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+// Do not use an actual `const` or the string won't be obfuscated
 var (
 	SliverName = `{{.Name}}`
 )
