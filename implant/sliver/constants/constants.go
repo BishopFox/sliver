@@ -2,8 +2,6 @@ package constants
 
 import "reflect"
 
-// Ironically not consts, becuase our string obfuscator only works on `var`s
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -22,7 +20,7 @@ import "reflect"
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// Do not use an actual `const` or the string won't be obfuscated
+// Ironically not consts to ensure the string obfuscator hits this value
 var (
 	SliverName = `{{.Name}}`
 )
