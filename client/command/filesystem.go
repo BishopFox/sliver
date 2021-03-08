@@ -243,11 +243,11 @@ func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	fileName := filepath.Base(src)
 	dst, _ := filepath.Abs(ctx.Args[1])
 	fi, err := os.Stat(dst)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
-	if fi.IsDir() {
+	if err == nil && fi.IsDir() {
 		dst = path.Join(dst, fileName)
 	}
 

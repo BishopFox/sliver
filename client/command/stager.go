@@ -58,18 +58,18 @@ func stageListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	// get profile
-	profiles := getSliverProfiles(rpc)
-	if profiles == nil {
+	profiles := getImplantProfiles(rpc)
+	if len(profiles) == 0 {
 		return
 	}
 
-	if len(*profiles) == 0 {
+	if len(profiles) == 0 {
 		fmt.Printf(Info+"No profiles, create one with `%s`\n", consts.NewProfileStr)
 		return
 	}
 
-	for name, profile := range *profiles {
-		if name == profileName {
+	for _, profile := range profiles {
+		if profileName == profile.Name {
 			implantProfile = profile
 		}
 	}

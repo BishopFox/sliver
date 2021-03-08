@@ -144,7 +144,7 @@ func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 	}
 	for {
 
-		log.Printf("Waiting for TunnelData ...")
+		// log.Printf("Waiting for TunnelData ...")
 		incoming, err := stream.Recv()
 		log.Printf("Recv stream msg: %v", incoming)
 		if err == io.EOF {
@@ -155,7 +155,7 @@ func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 			log.Printf("Tunnel data read error: %s", err)
 			return err
 		}
-		log.Printf("Received TunnelData for tunnel %d", incoming.TunnelID)
+		// log.Printf("Received TunnelData for tunnel %d", incoming.TunnelID)
 		tunnel := Tunnels.Get(incoming.TunnelID)
 		if tunnel != nil {
 			if !incoming.Closed {

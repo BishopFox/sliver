@@ -21,6 +21,7 @@ package rpc
 import (
 	"context"
 	"io/ioutil"
+	"path"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -68,13 +69,19 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		return nil, ErrInvalidSessionID
 	}
 
-	shellcode, err := getSliverShellcode(req.Config.GetName())
+	name := path.Base(req.Config.GetName())
+	shellcode, err := getSliverShellcode(name)
 	if err != nil {
-		config := generate.ImplantConfigFromProtobuf(req.Config)
-		config.Name = ""
+		name, config := generate.ImplantConfigFromProtobuf(req.Config)
+		if name == "" {
+			name, err = generate.GetCodename()
+			if err != nil {
+				return nil, err
+			}
+		}
 		config.Format = clientpb.ImplantConfig_SHELLCODE
 		config.ObfuscateSymbols = false
-		shellcodePath, err := generate.SliverShellcode(config)
+		shellcodePath, err := generate.SliverShellcode(name, config)
 		if err != nil {
 			return nil, err
 		}

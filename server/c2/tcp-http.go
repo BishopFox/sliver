@@ -208,9 +208,12 @@ func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 			}
 		}
 	}
-	_, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, conf.Domain)
+
+	c, k, err := certs.C2ServerGetRSACertificate(conf.Domain)
+	httpLog.Infof("C2-Server: %v %v %v", c, k, err)
 	if err == certs.ErrCertDoesNotExist {
-		_, _, err := certs.ServerGenerateRSACertificate(conf.Domain)
+		httpLog.Infof("Generating C2 server certificate ...")
+		_, _, err := certs.C2ServerGenerateRSACertificate(conf.Domain)
 		if err != nil {
 			httpLog.Errorf("Failed to generate server rsa certificate %s", err)
 			return nil, err
@@ -355,7 +358,7 @@ func default404Handler(resp http.ResponseWriter, req *http.Request) {
 func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
 	qNonce := req.URL.Query().Get("_")
 	nonce, err := strconv.Atoi(qNonce)
-	certPEM, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, s.Conf.Domain)
+	certPEM, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, s.Conf.Domain)
 	if err != nil {
 		httpLog.Infof("Failed to get server certificate for cn = '%s': %s", s.Conf.Domain, err)
 	}
@@ -369,7 +372,7 @@ func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request) {
 
 	// Note: these are the c2 certificates NOT the certificates/keys used for SSL/TLS
-	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, s.Conf.Domain)
+	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, s.Conf.Domain)
 	if err != nil {
 		httpLog.Info("Failed to fetch rsa private key")
 		resp.WriteHeader(404)

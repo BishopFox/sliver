@@ -109,17 +109,11 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcp
 			return
 		}
 	}()
-	for {
-		log.Printf("Reading from stdin ...")
-		n, err := io.Copy(tunnel, os.Stdin)
-		log.Printf("Read %d bytes from stdin", n)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			fmt.Printf(Warn+"Error reading from stdin: %v", err)
-			break
-		}
+	log.Printf("Reading from stdin ...")
+	n, err := io.Copy(tunnel, os.Stdin)
+	log.Printf("Read %d bytes from stdin", n)
+	if err != nil && err != io.EOF {
+		fmt.Printf(Warn+"Error reading from stdin: %v\n", err)
 	}
 
 	if !noPty {

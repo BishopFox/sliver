@@ -23,6 +23,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"runtime/debug"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/version"
@@ -61,7 +62,7 @@ const (
 // Initialize logging
 func initLogging(appDir string) *os.File {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	logFile, err := os.OpenFile(path.Join(appDir, "logs", logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile(path.Join(appDir, "logs", logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	if err != nil {
 		log.Fatalf("Error opening file: %v", err)
 	}
@@ -108,6 +109,14 @@ var rootCmd = &cobra.Command{
 		appDir := assets.GetRootAppDir()
 		logFile := initLogging(appDir)
 		defer logFile.Close()
+
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("panic:\n%s", debug.Stack())
+				fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
+				os.Exit(99)
+			}
+		}()
 
 		assets.Setup(false)
 		certs.SetupCAs()

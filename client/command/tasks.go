@@ -20,10 +20,7 @@ package command
 
 import (
 	"bufio"
-	"bytes"
 	"context"
-	"debug/pe"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -32,7 +29,6 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
@@ -215,13 +211,12 @@ func migrate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Config:  config,
 		Request: ActiveSession.Request(ctx),
 	})
-
+	ctrl <- true
+	<-ctrl
 	if err != nil {
 		fmt.Printf(Warn+"Error: %v", err)
 		return
 	}
-	ctrl <- true
-	<-ctrl
 	if !migrate.Success {
 		fmt.Printf(Warn+"%s\n", migrate.GetResponse().GetErr())
 		return
@@ -369,11 +364,6 @@ func spawnDll(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	binPath := ctx.Args[0]
 	processName := ctx.Flags.String("process")
 	exportName := ctx.Flags.String("export")
-	offset, err := getExportOffset(binPath, exportName)
-	if err != nil {
-		fmt.Printf(Warn+"%s", err.Error())
-		return
-	}
 
 	binData, err := ioutil.ReadFile(binPath)
 	if err != nil {
@@ -382,12 +372,12 @@ func spawnDll(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 	ctrl := make(chan bool)
 	go spin.Until(fmt.Sprintf("Executing reflective dll %s", binPath), ctrl)
-	spawndll, err := rpc.SpawnDll(context.Background(), &sliverpb.SpawnDllReq{
-		Request:     ActiveSession.Request(ctx),
-		Args:        args,
+	spawndll, err := rpc.SpawnDll(context.Background(), &sliverpb.InvokeSpawnDllReq{
 		Data:        binData,
 		ProcessName: processName,
-		Offset:      offset,
+		Args:        args,
+		EntryPoint:  exportName,
+		Request:     ActiveSession.Request(ctx),
 	})
 
 	if err != nil {
@@ -439,87 +429,4 @@ func getActiveSliverConfig() *clientpb.ImplantConfig {
 		C2:          c2s,
 	}
 	return config
-}
-
-// ExportDirectory - stores the Export data
-type ExportDirectory struct {
-	Characteristics       uint32
-	TimeDateStamp         uint32
-	MajorVersion          uint16
-	MinorVersion          uint16
-	Name                  uint32
-	Base                  uint32
-	NumberOfFunctions     uint32
-	NumberOfNames         uint32
-	AddressOfFunctions    uint32 // RVA from base of image
-	AddressOfNames        uint32 // RVA from base of image
-	AddressOfNameOrdinals uint32 // RVA from base of image
-}
-
-func rvaToFoa(rva uint32, pefile *pe.File) uint32 {
-	var offset uint32
-	for _, section := range pefile.Sections {
-		if rva >= section.SectionHeader.VirtualAddress && rva <= section.SectionHeader.VirtualAddress+section.SectionHeader.Size {
-			offset = section.SectionHeader.Offset + (rva - section.SectionHeader.VirtualAddress)
-		}
-	}
-	return offset
-}
-
-func getFuncName(index uint32, rawData []byte, fpe *pe.File) string {
-	nameRva := binary.LittleEndian.Uint32(rawData[index:])
-	nameFOA := rvaToFoa(nameRva, fpe)
-	funcNameBytes, err := bytes.NewBuffer(rawData[nameFOA:]).ReadBytes(0)
-	if err != nil {
-		log.Fatal(err)
-		return ""
-	}
-	funcName := string(funcNameBytes[:len(funcNameBytes)-1])
-	return funcName
-}
-
-func getOrdinal(index uint32, rawData []byte, fpe *pe.File, funcArrayFoa uint32) uint32 {
-	ordRva := binary.LittleEndian.Uint16(rawData[index:])
-	funcArrayIndex := funcArrayFoa + uint32(ordRva)*8
-	funcRVA := binary.LittleEndian.Uint32(rawData[funcArrayIndex:])
-	funcOffset := rvaToFoa(funcRVA, fpe)
-	return funcOffset
-}
-
-func getExportOffset(filepath string, exportName string) (funcOffset uint32, err error) {
-	rawData, err := ioutil.ReadFile(filepath)
-	if err != nil {
-		return 0, err
-	}
-	handle, err := os.Open(filepath)
-	if err != nil {
-		return 0, err
-	}
-	defer handle.Close()
-	fpe, _ := pe.NewFile(handle)
-	exportDirectoryRVA := fpe.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
-	var offset = rvaToFoa(exportDirectoryRVA, fpe)
-	exportDir := ExportDirectory{}
-	buff := &bytes.Buffer{}
-	buff.Write(rawData[offset:])
-	err = binary.Read(buff, binary.LittleEndian, &exportDir)
-	if err != nil {
-		return 0, err
-	}
-	current := exportDir.AddressOfNames
-	nameArrayFOA := rvaToFoa(exportDir.AddressOfNames, fpe)
-	ordinalArrayFOA := rvaToFoa(exportDir.AddressOfNameOrdinals, fpe)
-	funcArrayFoa := rvaToFoa(exportDir.AddressOfFunctions, fpe)
-
-	for i := uint32(0); i < exportDir.NumberOfNames; i++ {
-		index := nameArrayFOA + i*8
-		name := getFuncName(index, rawData, fpe)
-		if strings.Contains(name, exportName) {
-			ordIndex := ordinalArrayFOA + i*2
-			funcOffset = getOrdinal(ordIndex, rawData, fpe, funcArrayFoa)
-		}
-		current += uint32(binary.Size(i))
-	}
-
-	return
 }

@@ -41,15 +41,35 @@ func execute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		args = ctx.Args[1:]
 	}
 	output := ctx.Flags.Bool("silent")
-	exec, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-		Request: ActiveSession.Request(ctx),
-		Path:    cmdPath,
-		Args:    args,
-		Output:  !output,
-	})
+	token := ctx.Flags.Bool("token")
+	var exec *sliverpb.Execute
+	var err error
+	if token {
+		exec, err = rpc.ExecuteToken(context.Background(), &sliverpb.ExecuteTokenReq{
+			Request: ActiveSession.Request(ctx),
+			Path:    cmdPath,
+			Args:    args,
+			Output:  !output,
+		})
+	} else {
+		exec, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+			Request: ActiveSession.Request(ctx),
+			Path:    cmdPath,
+			Args:    args,
+			Output:  !output,
+		})
+	}
+
 	if err != nil {
 		fmt.Printf(Warn+"%s", err)
 	} else if !output {
-		fmt.Printf(Info+"Output:\n%s\n", exec.Result)
+		if exec.Status != 0 {
+			fmt.Printf(Warn+"Exited with status %d!\n", exec.Status)
+			if exec.Result != "" {
+				fmt.Printf(Info+"Output:\n%s\n", exec.Result)
+			}
+		} else {
+			fmt.Printf(Info+"Output:\n%s\n", exec.Result)
+		}
 	}
 }

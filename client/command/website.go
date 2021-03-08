@@ -49,21 +49,8 @@ const (
 func websites(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if len(ctx.Args) < 1 {
 		listWebsites(ctx, rpc)
-		return
-	}
-	if ctx.Flags.String("website") == "" {
-		fmt.Println(Warn + "Subcommand must specify a --website")
-		return
-	}
-	switch strings.ToLower(ctx.Args[0]) {
-	case "ls":
+	} else {
 		listWebsiteContent(ctx, rpc)
-	case "add":
-		addWebsiteContent(ctx, rpc)
-	case "rm":
-		removeWebsiteContent(ctx, rpc)
-	default:
-		fmt.Println(Warn + "Invalid subcommand, see 'help websites'")
 	}
 }
 
@@ -85,9 +72,11 @@ func listWebsites(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func listWebsiteContent(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	name := ctx.Flags.String("website")
+	if len(ctx.Args) < 1 {
+		return
+	}
 	website, err := rpc.Website(context.Background(), &clientpb.Website{
-		Name: name,
+		Name: ctx.Args[0],
 	})
 	if err != nil {
 		fmt.Printf(Warn+"Failed to list website content %s", err)
@@ -96,13 +85,21 @@ func listWebsiteContent(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if 0 < len(website.Contents) {
 		displayWebsite(website)
 	} else {
-		fmt.Printf(Info+"No content for '%s'", name)
+		fmt.Printf(Info+"No content for '%s'", ctx.Args[0])
 	}
 }
 
 func addWebsiteContent(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	websiteName := ctx.Flags.String("website")
+	if websiteName == "" {
+		fmt.Printf(Warn + "Must specify a website name via --website, see --help\n")
+		return
+	}
 	webPath := ctx.Flags.String("web-path")
+	if webPath == "" {
+		fmt.Printf(Warn + "Must specify a web path via --web-path, see --help\n")
+		return
+	}
 	contentPath := ctx.Flags.String("content")
 	if contentPath == "" {
 		fmt.Println(Warn + "Must specify some --content")
@@ -140,10 +137,66 @@ func addWebsiteContent(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	displayWebsite(web)
 }
 
+func updateWebsiteContent(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	websiteName := ctx.Flags.String("website")
+	if websiteName == "" {
+		fmt.Printf(Warn + "Must specify a website name via --website, see --help\n")
+		return
+	}
+	webPath := ctx.Flags.String("web-path")
+	if webPath == "" {
+		fmt.Printf(Warn + "Must specify a web path via --web-path, see --help\n")
+		return
+	}
+	contentType := ctx.Flags.String("content-type")
+	if contentType == "" {
+		fmt.Printf(Warn + "Must specify a new --content-type, see --help\n")
+		return
+	}
+
+	updateWeb := &clientpb.WebsiteAddContent{
+		Name:     websiteName,
+		Contents: map[string]*clientpb.WebContent{},
+	}
+	updateWeb.Contents[webPath] = &clientpb.WebContent{
+		ContentType: contentType,
+	}
+
+	web, err := rpc.WebsiteUpdateContent(context.Background(), updateWeb)
+	if err != nil {
+		fmt.Printf(Warn+"%s", err)
+		return
+	}
+	displayWebsite(web)
+}
+
+func removeWebsite(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	if len(ctx.Args) < 1 {
+		return
+	}
+	_, err := rpc.WebsiteRemove(context.Background(), &clientpb.Website{
+		Name: ctx.Args[0],
+	})
+	if err != nil {
+		fmt.Printf(Warn+"Failed to remove website %s", err)
+		return
+	}
+}
+
 func removeWebsiteContent(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	name := ctx.Flags.String("website")
 	webPath := ctx.Flags.String("web-path")
 	recursive := ctx.Flags.Bool("recursive")
+
+	if name == "" {
+		fmt.Printf(Warn + "Must specify a website name via --website, see --help\n")
+		return
+	}
+	if webPath == "" {
+		fmt.Printf(Warn + "Must specify a web path via --web-path, see --help\n")
+		return
+	}
+
 	website, err := rpc.Website(context.Background(), &clientpb.Website{
 		Name: name,
 	})
@@ -174,7 +227,7 @@ func removeWebsiteContent(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func displayWebsite(web *clientpb.Website) {
-	fmt.Println(Info + web.Name)
+	fmt.Println(clearln + Info + web.Name)
 	fmt.Println()
 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
 	fmt.Fprintf(table, "Path\tContent-type\tSize\t\n")

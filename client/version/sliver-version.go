@@ -34,6 +34,9 @@ var (
 	// Version - The semantic version in string form
 	Version string
 
+	// GoVersion - Go compiler version
+	GoVersion string
+
 	// GitCommit - The commit id at compile time
 	GitCommit string
 
@@ -47,7 +50,11 @@ var (
 // SemanticVersion - Get the structured sematic version
 func SemanticVersion() []int {
 	semVer := []int{}
-	for _, part := range strings.Split(Version, ".") {
+	version := Version
+	if strings.HasPrefix(version, "v") {
+		version = version[1:]
+	}
+	for _, part := range strings.Split(version, ".") {
 		number, _ := strconv.Atoi(part)
 		semVer = append(semVer, number)
 	}

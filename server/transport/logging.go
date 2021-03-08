@@ -20,6 +20,8 @@ package transport
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/log"
@@ -44,6 +46,7 @@ func initLoggerMiddleware() []grpc.ServerOption {
 	grpc_logrus.ReplaceGrpcLogger(logrusEntry)
 	return []grpc.ServerOption{
 		grpc_middleware.WithUnaryServerChain(
+			auditLogUnaryServerInterceptor(),
 			grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 			grpc_logrus.UnaryServerInterceptor(logrusEntry, logrusOpts...),
 			grpc_logrus.PayloadUnaryServerInterceptor(logrusEntry, deciderUnary),
@@ -103,5 +106,32 @@ func codeToLevel(code codes.Code) logrus.Level {
 		return logrus.ErrorLevel
 	default:
 		return logrus.ErrorLevel
+	}
+}
+
+type auditUnaryLogMsg struct {
+	Request string `json:"request"`
+	Method  string `json:"method"`
+}
+
+func auditLogUnaryServerInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, err error) {
+		var request string
+		rawRequest, err := json.Marshal(req)
+		if err != nil {
+			log.AuditLogger.Errorf("Failed to serialize %s", err)
+			request = fmt.Sprintf("%v", req)
+		} else {
+			request = string(rawRequest)
+		}
+
+		msg, _ := json.Marshal(&auditUnaryLogMsg{
+			Request: request,
+			Method:  info.FullMethod,
+		})
+		log.AuditLogger.Info(string(msg))
+
+		resp, err := handler(ctx, req)
+		return resp, err
 	}
 }

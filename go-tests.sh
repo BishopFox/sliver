@@ -20,24 +20,23 @@
 
 ## Util
 
-# util 
-if go test ./util ; then
+# util / encoders
+if go test -tags=server ./util/encoders ; then
+    :
+else
+    exit 1
+fi
+if go test -tags=client ./util/encoders ; then
     :
 else
     exit 1
 fi
 
-# util / encoders
-if go test ./util/encoders ; then
-    :
-else
-    exit 1
-fi
 
 ## Server
 
-# server / db
-if go test ./server/db ; then
+# server / website
+if go test -tags=server ./server/website ; then
     :
 else
     cat ~/.sliver/logs/sliver.log
@@ -45,7 +44,15 @@ else
 fi
 
 # server / certs
-if go test ./server/certs ; then
+if go test -tags=server ./server/certs ; then
+    :
+else
+    cat ~/.sliver/logs/sliver.log
+    exit 1
+fi
+
+# server / cryptography
+if go test -tags=server ./server/cryptography ; then
     :
 else
     cat ~/.sliver/logs/sliver.log
@@ -53,7 +60,7 @@ else
 fi
 
 # server / gogo
-if go test ./server/gogo ; then
+if go test -tags=server ./server/gogo ; then
     :
 else
     cat ~/.sliver/logs/sliver.log
@@ -61,7 +68,7 @@ else
 fi
 
 # server / c2
-if go test ./server/c2 ; then
+if go test -tags=server ./server/c2 ; then
     :
 else
     cat ~/.sliver/logs/sliver.log
@@ -69,7 +76,7 @@ else
 fi
 
 # server / generate
-if go test ./server/generate -timeout 6h ; then
+if go test -tags=server ./server/generate -timeout 6h ; then
     :
 else
     cat ~/.sliver/logs/sliver.log

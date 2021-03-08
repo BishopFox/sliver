@@ -265,20 +265,15 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
 		}
 	} else if c.IsReflective {
-		offset, err := getExportOffset(binPath, c.Entrypoint)
-		if err != nil {
-			fmt.Printf(Warn+"Error: %v\n", err)
-			return
-		}
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, args)
 		go spin.Until(msg, ctrl)
-		spawnDllResp, err := rpc.SpawnDll(context.Background(), &sliverpb.SpawnDllReq{
+		spawnDllResp, err := rpc.SpawnDll(context.Background(), &sliverpb.InvokeSpawnDllReq{
 			Request:     ActiveSession.Request(ctx),
 			Args:        strings.Trim(args, " "),
 			Data:        binData,
 			ProcessName: processName,
-			Offset:      offset,
+			EntryPoint:  c.Entrypoint,
 		})
 		ctrl <- true
 		<-ctrl

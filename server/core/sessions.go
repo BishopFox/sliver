@@ -38,9 +38,9 @@ var (
 	}
 	hiveID = uint32(0)
 
-	// ErrUnknownMessateType - Returned if the implant did not understand the message for
+	// ErrUnknownMessageType - Returned if the implant did not understand the message for
 	//                         example when the command is not supported on the platform
-	ErrUnknownMessateType = errors.New("Unknown message type")
+	ErrUnknownMessageType = errors.New("Unknown message type")
 
 	// ErrImplantTimeout - The implant did not respond prior to timeout deadline
 	ErrImplantTimeout = errors.New("Implant timeout")
@@ -52,6 +52,7 @@ type Session struct {
 	Name              string
 	Hostname          string
 	Username          string
+	UUID              string
 	UID               string
 	GID               string
 	Os                string
@@ -68,6 +69,7 @@ type Session struct {
 	ActiveC2          string
 	IsDead            bool
 	ReconnectInterval uint32
+	ProxyURL          string
 }
 
 // ToProtobuf - Get the protobuf version of the object
@@ -80,7 +82,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		lastCheckin = s.LastCheckin.Format(time.RFC1123)
 
 		// Calculates how much time has passed in seconds and compares that to the ReconnectInterval+10 of the Implant.
-		// (ReconnectInterval+10 seconds is just abitrary padding to account for potential delays)
+		// (ReconnectInterval+10 seconds is just arbitrary padding to account for potential delays)
 		// If it hasn't checked in, flag it as DEAD.
 		var timePassed = uint32(math.Abs(s.LastCheckin.Sub(time.Now()).Seconds()))
 
@@ -96,6 +98,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		Name:              s.Name,
 		Hostname:          s.Hostname,
 		Username:          s.Username,
+		UUID:              s.UUID,
 		UID:               s.UID,
 		GID:               s.GID,
 		OS:                s.Os,
@@ -109,6 +112,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		ActiveC2:          s.ActiveC2,
 		IsDead:            isDead,
 		ReconnectInterval: s.ReconnectInterval,
+		ProxyURL:          s.ProxyURL,
 	}
 }
 
@@ -139,12 +143,13 @@ func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([
 		return nil, ErrImplantTimeout
 	}
 	if respEnvelope.UnknownMessageType {
-		return nil, ErrUnknownMessateType
+		return nil, ErrUnknownMessageType
 	}
 	s.UpdateCheckin()
 	return respEnvelope.Data, nil
 }
 
+// UpdateCheckin - Update a session's checkin time
 func (s *Session) UpdateCheckin() {
 	now := time.Now()
 	s.LastCheckin = &now
