@@ -24,7 +24,6 @@ func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, cl
 	donutArch := getDonutArch(arch)
 	config := donut.DonutConfig{
 		Type:       donutType,
-		DotNetMode: dotnet,
 		InstType:   donut.DONUT_INSTANCE_PIC,
 		Parameters: params,
 		Class:      className,
@@ -49,7 +48,6 @@ func DonutFromAssembly(assembly []byte, isDLL bool, arch string, params string, 
 	}
 	donutArch := getDonutArch(arch)
 	config := donut.DefaultConfig()
-	config.DotNetMode = true
 	config.Bypass = 3
 	config.Runtime = "v4.0.30319" // we might want to make this configurable
 	config.Format = 1
