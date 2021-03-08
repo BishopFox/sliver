@@ -125,7 +125,7 @@ func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) (windo
 	attr := new(windows.SecurityAttributes)
 	var lpThreadId uint32
 	threadHandle, err = syscalls.CreateRemoteThread(processHandle, attr, uint32(0), remoteAddr, 0, 0, &lpThreadId)
-	// {{if .Debug}}
+	// {{if .Config.Debug}}
 	log.Printf("createremotethread returned:  err = %v", err)
 	// {{end}}
 	if err != nil {
@@ -184,7 +184,7 @@ func LocalTask(data []byte, rwxPages bool) error {
 	var lpThreadId uint32
 	_, err = syscalls.CreateThread(nil, 0, addr, uintptr(0), 0, &lpThreadId)
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("CreateThread failed: %v\n", err)
 		// {{end}}
 	}
@@ -218,7 +218,7 @@ func ExecuteAssembly(data []byte, process string) (string, error) {
 	}
 	err = cmd.Process.Kill()
 	if err != nil {
-		// {{if .Debug}}
+		// {{if .Config.Debug}}
 		log.Printf("Kill failed: %s\n", err.Error())
 		// {{end}}
 	}

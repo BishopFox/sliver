@@ -380,7 +380,7 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 	if !config.Debug {
 		trimpath = "-trimpath"
 	}
-	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcflags, asmflags, trimpath)
+	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "pie", tags, ldflags, gcflags, asmflags, trimpath)
 	config.FileName = path.Base(dest)
 
 	err = ImplantBuildSave(name, config, dest)

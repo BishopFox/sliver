@@ -68,7 +68,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 			}
 		}
 		config.Format = clientpb.ImplantConfig_SHELLCODE
-		config.ObfuscateSymbols = false
+		config.ObfuscateSymbols = true
 		shellcodePath, err := generate.SliverShellcode(name, config)
 		if err != nil {
 			return nil, err
@@ -255,7 +255,7 @@ func getSliverShellcode(name string) ([]byte, error) {
 	default:
 		err = fmt.Errorf("no existing shellcode found")
 	}
-	return nil, err
+	return data, err
 }
 
 // ExportDirectory - stores the Export data
