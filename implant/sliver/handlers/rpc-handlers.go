@@ -23,13 +23,10 @@ package handlers
 import (
 	"fmt"
 	"net"
-	"strings"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
-
-	"os"
 
 	"github.com/bishopfox/sliver/implant/sliver/netstat"
 	"github.com/bishopfox/sliver/implant/sliver/procdump"
@@ -301,39 +298,6 @@ func netstatHandler(data []byte, resp RPCResponse) {
 		data, err := proto.Marshal(result)
 		resp(data, err)
 	}
-}
-
-func getEnvHandler(data []byte, resp RPCResponse) {
-	envReq := &sliverpb.EnvReq{}
-	err := proto.Unmarshal(data, envReq)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("error decoding message: %v\n", err)
-		// {{end}}
-		return
-	}
-	variables := os.Environ()
-	var envVars []*commonpb.EnvVar
-	envInfo := sliverpb.EnvInfo{}
-	if envReq.Name != "" {
-		envVars = make([]*commonpb.EnvVar, 1)
-		envVars[0] = &commonpb.EnvVar{
-			Key:   envReq.Name,
-			Value: os.Getenv(envReq.Name),
-		}
-	} else {
-		envVars = make([]*commonpb.EnvVar, len(variables))
-		for i, e := range variables {
-			pair := strings.SplitN(e, "=", 2)
-			envVars[i] = &commonpb.EnvVar{
-				Key:   pair[0],
-				Value: pair[1],
-			}
-		}
-	}
-	envInfo.Variables = envVars
-	data, err = proto.Marshal(&envInfo)
-	resp(data, err)
 }
 
 func buildEntries(proto string, s []netstat.SockTabEntry) []*sliverpb.SockTabEntry {

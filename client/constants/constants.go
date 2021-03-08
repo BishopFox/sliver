@@ -147,6 +147,7 @@ const (
 	BackdoorStr   = "backdoor"
 	MakeTokenStr  = "make-token"
 	GetEnvStr     = "getenv"
+	SetEnvStr     = "setenv"
 
 	LicensesStr = "licenses"
 )

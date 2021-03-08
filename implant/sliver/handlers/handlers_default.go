@@ -41,6 +41,8 @@ var (
 		sliverpb.MsgRmReq:       rmHandler,
 		sliverpb.MsgMkdirReq:    mkdirHandler,
 		sliverpb.MsgExecuteReq:  executeHandler,
+		sliverpb.MsgSetEnvReq:   setEnvHandler,
+		sliverpb.MsgEnvReq:      getEnvHandler,
 	}
 )
 

@@ -57,6 +57,7 @@ var (
 		sliverpb.MsgStopServiceReq:     stopService,
 		sliverpb.MsgRemoveServiceReq:   removeService,
 		sliverpb.MsgEnvReq:             getEnvHandler,
+		sliverpb.MsgSetEnvReq:          setEnvHandler,
 		sliverpb.MsgExecuteTokenReq:    executeTokenHandler,
 
 		// Platform specific

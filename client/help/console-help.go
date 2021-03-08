@@ -72,6 +72,7 @@ var (
 		consts.ScreenshotStr: screenshotHelp,
 		consts.MakeTokenStr:  makeTokenHelp,
 		consts.GetEnvStr:     getEnvHelp,
+		consts.SetEnvStr:     setEnvHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -392,6 +393,10 @@ The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows u
 	getEnvHelp = `[[.Bold]]Command:[[.Normal]] getenv [name]
 [[.Bold]]About:[[.Normal]] Retrieve the environment variables for the current session. If no variable name is provided, lists all the environment variables.
 [[.Bold]]Example:[[.Normal]] getenv SHELL
+	`
+	setEnvHelp = `[[.Bold]]Command:[[.Normal]] setenv [name]
+[[.Bold]]About:[[.Normal]] Set an environment variable in the current process.
+[[.Bold]]Example:[[.Normal]] setenv SHELL /bin/bash
 	`
 )
 
