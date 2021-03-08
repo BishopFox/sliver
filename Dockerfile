@@ -59,7 +59,7 @@ ADD ./go-assets.sh /go/src/github.com/bishopfox/sliver/go-assets.sh
 RUN ./go-assets.sh
 
 ADD . /go/src/github.com/bishopfox/sliver/
-RUN make linux && cp -vv sliver-server /opt/sliver-server
+RUN go mod vendor && make linux && cp -vv sliver-server /opt/sliver-server
 
 RUN ls -lah && /opt/sliver-server unpack --force \
     && /go/src/github.com/bishopfox/sliver/go-tests.sh
