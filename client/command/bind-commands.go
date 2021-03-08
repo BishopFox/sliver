@@ -1033,8 +1033,10 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "process", "notepad.exe", "hosting process to inject into")
-			f.Bool("a", "amsi", false, "use AMSI bypass (disabled by default)")
-			f.Bool("e", "etw", false, "patch EtwEventWrite function to avoid detection (disabled by default)")
+			f.String("m", "method", "", "Optional method (a method is required for a .NET DLL)")
+			f.String("c", "class", "", "Optional class name (required for .NET DLL)")
+			f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
+			f.String("a", "arch", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
 			f.Bool("s", "save", false, "save output to file")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},

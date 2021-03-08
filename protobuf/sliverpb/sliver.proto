@@ -283,13 +283,20 @@ message Task {
 }
 
 message ExecuteAssemblyReq {
-  bytes HostingDll = 1;
-  bytes Assembly = 2;
-  string Arguments = 3;
-  string Process = 4;
-  bool AmsiBypass = 5;
-  bool EtwBypass = 6;
-  uint32 Offset = 7;
+  bytes Assembly = 1;
+  string Arguments = 2;
+  string Process = 3;
+  bool IsDLL = 4;
+  string Arch = 5;
+  string ClassName = 6;
+  string Method = 7;
+  string AppDomain = 8;
+  commonpb.Request Request = 9;
+}
+
+message InvokeExecuteAssemblyReq {
+  bytes Data = 1;
+  string process = 2;
 
   commonpb.Request Request = 9;
 }

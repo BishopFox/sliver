@@ -5,10 +5,11 @@ go 1.16
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.2
 	github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
-	github.com/Binject/debug v0.0.0-20201108185608-2b8504217eb5
+	github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2
 	github.com/BurntSushi/xgb v0.0.0-20201008132610-5f9e7b3c49cd // indirect
 	github.com/Microsoft/go-winio v0.4.15
 	github.com/alecthomas/chroma v0.8.1
+	github.com/binject/go-donut v0.0.0-20201215224200-d947cf4d090d
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/desertbit/closer/v3 v3.1.2 // indirect
 	github.com/desertbit/columnize v2.1.0+incompatible
@@ -18,7 +19,7 @@ require (
 	github.com/gofrs/uuid v3.3.0+incompatible
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.1 // indirect
-	github.com/google/uuid v1.1.2
+	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f

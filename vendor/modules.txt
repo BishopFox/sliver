@@ -6,7 +6,7 @@ github.com/AlecAivazis/survey/v2/terminal
 # github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
 ## explicit
 github.com/Binject/binjection/bj
-# github.com/Binject/debug v0.0.0-20201108185608-2b8504217eb5
+# github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2
 ## explicit
 github.com/Binject/debug/elf
 github.com/Binject/debug/macho
@@ -61,6 +61,9 @@ github.com/alecthomas/chroma/lexers/x
 github.com/alecthomas/chroma/lexers/y
 github.com/alecthomas/chroma/lexers/z
 github.com/alecthomas/chroma/styles
+# github.com/binject/go-donut v0.0.0-20201215224200-d947cf4d090d
+## explicit
+github.com/binject/go-donut/donut
 # github.com/cheggaaa/pb/v3 v3.0.5
 ## explicit
 github.com/cheggaaa/pb/v3
@@ -106,7 +109,7 @@ github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
 # github.com/google/go-cmp v0.5.1
 ## explicit
-# github.com/google/uuid v1.1.2
+# github.com/google/uuid v1.2.0
 ## explicit
 github.com/google/uuid
 # github.com/gorilla/mux v1.8.0

@@ -106,6 +106,8 @@ const (
 	MsgInvokeGetSystemReq
 	// MsgGetSystem - Response to getsystem request
 	MsgGetSystem
+	// MsgInvokeExecuteAssemblyReq - Request to load and execute a .NET assembly
+	MsgInvokeExecuteAssemblyReq
 	// MsgExecuteAssemblyReq - Request to load and execute a .NET assembly
 	MsgExecuteAssemblyReq
 	// MsgExecuteAssembly - Output of the assembly execution
@@ -272,6 +274,10 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *ExecuteAssemblyReq:
 		return MsgExecuteAssemblyReq
+
+	case *InvokeExecuteAssemblyReq:
+		return MsgInvokeExecuteAssemblyReq
+
 	case *ExecuteAssembly:
 		return MsgExecuteAssembly
 	case *ExecuteTokenReq:
