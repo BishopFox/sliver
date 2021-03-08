@@ -1395,6 +1395,23 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
+		Name:      consts.SetEnvStr,
+		Help:      "Set environment variables",
+		LongHelp:  help.GetHelpFor(consts.SetEnvStr),
+		AllowArgs: true,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			setEnv(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
 		Name:     consts.LicensesStr,
 		Help:     "Open source licenses",
 		LongHelp: help.GetHelpFor(consts.LicensesStr),

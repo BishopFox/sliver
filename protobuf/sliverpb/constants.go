@@ -180,7 +180,10 @@ const (
 	MsgEnvReq
 	// MsgEnvInfo - Response to environment variable request
 	MsgEnvInfo
-
+	// MsgSetEnvReq
+	MsgSetEnvReq
+	// MsgSetEnv
+	MsgSetEnv
 	// MsgExecuteTokenReq - Execute request executed with the current (Windows) token
 	MsgExecuteTokenReq
 )
@@ -345,6 +348,10 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgEnvReq
 	case *EnvInfo:
 		return MsgEnvInfo
+	case *SetEnvReq:
+		return MsgSetEnvReq
+	case *SetEnv:
+		return MsgSetEnv
 
 	}
 	return uint32(0)

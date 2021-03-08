@@ -89,6 +89,7 @@ service SliverRPC {
     rpc RemoveService(sliverpb.RemoveServiceReq) returns (sliverpb.ServiceInfo);
     rpc MakeToken(sliverpb.MakeTokenReq) returns (sliverpb.MakeToken);
     rpc GetEnv(sliverpb.EnvReq) returns (sliverpb.EnvInfo);
+    rpc SetEnv(sliverpb.SetEnvReq) returns (sliverpb.SetEnv);
     rpc Backdoor(sliverpb.BackdoorReq) returns (sliverpb.Backdoor);
 
     // *** Realtime Commands ***
