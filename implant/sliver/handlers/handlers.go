@@ -27,6 +27,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os/exec"
+	"strings"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -370,6 +371,60 @@ func executeHandler(data []byte, resp RPCResponse) {
 		}
 	}
 	data, err = proto.Marshal(execResp)
+	resp(data, err)
+}
+
+func getEnvHandler(data []byte, resp RPCResponse) {
+	envReq := &sliverpb.EnvReq{}
+	err := proto.Unmarshal(data, envReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v\n", err)
+		// {{end}}
+		return
+	}
+	variables := os.Environ()
+	var envVars []*commonpb.EnvVar
+	envInfo := sliverpb.EnvInfo{}
+	if envReq.Name != "" {
+		envVars = make([]*commonpb.EnvVar, 1)
+		envVars[0] = &commonpb.EnvVar{
+			Key:   envReq.Name,
+			Value: os.Getenv(envReq.Name),
+		}
+	} else {
+		envVars = make([]*commonpb.EnvVar, len(variables))
+		for i, e := range variables {
+			pair := strings.SplitN(e, "=", 2)
+			envVars[i] = &commonpb.EnvVar{
+				Key:   pair[0],
+				Value: pair[1],
+			}
+		}
+	}
+	envInfo.Variables = envVars
+	data, err = proto.Marshal(&envInfo)
+	resp(data, err)
+}
+
+func setEnvHandler(data []byte, resp RPCResponse) {
+	envReq := &sliverpb.SetEnvReq{}
+	err := proto.Unmarshal(data, envReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v\n", err)
+		// {{end}}
+		return
+	}
+
+	err = os.Setenv(envReq.Variable.Key, envReq.Variable.Value)
+	setEnvResp := &sliverpb.SetEnv{
+		Response: &commonpb.Response{},
+	}
+	if err != nil {
+		setEnvResp.Response.Err = err.Error()
+	}
+	data, err = proto.Marshal(setEnvResp)
 	resp(data, err)
 }
 

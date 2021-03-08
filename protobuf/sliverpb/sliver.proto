@@ -414,6 +414,15 @@ message EnvInfo {
   commonpb.Response Response = 9;
 }
 
+message SetEnvReq {
+  commonpb.EnvVar Variable = 1;
+  commonpb.Request Request = 9;
+}
+
+message SetEnv {
+  commonpb.Response Response = 9;
+}
+
 // DNS Specific messages
 message DNSSessionInit {
   bytes Key = 1;
