@@ -186,7 +186,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
 		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
-		fmt.Sprintf("PATH=%s", path.Join(config.GOROOT, "bin")),
+		fmt.Sprintf("PATH=%s:%s", path.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
