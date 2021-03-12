@@ -410,3 +410,7 @@ func removeService(data []byte, resp RPCResponse) {
 	data, err = proto.Marshal(svcInfo)
 	resp(data, err)
 }
+
+func regWriteHandler(data []byte, resp RPCResponse) {
+	// registry write string PATH key value
+}

@@ -19,16 +19,35 @@ var hives = map[string]registry.Key{
 	"HKCC": registry.CURRENT_CONFIG,
 }
 
-func ReadKey(hive string, path string, key string) (string, error) {
+func openKey(hostname string, hive string, path string, access uint32) (*registry.Key, error) {
+	var (
+		key registry.Key
+		err error
+	)
+	hiveKey, found := hives[hive]
+	if !found {
+		return nil, fmt.Errorf("could not find hive %s", hive)
+	}
+	localKey, err := registry.OpenKey(hiveKey, path, access)
+	if hostname != "" {
+		key, err = registry.OpenRemoteKey(hostname, localKey)
+	} else {
+		key = localKey
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &key, nil
+}
+
+// ReadKey reads a registry key value and returns it as a string
+func ReadKey(hostname string, hive string, path string, key string) (string, error) {
 	var (
 		buf    []byte
 		result string
 	)
-	hiveKey, found := hives[hive]
-	if !found {
-		return "", fmt.Errorf("could not find hive %s", hive)
-	}
-	k, err := registry.OpenKey(hiveKey, path, registry.QUERY_VALUE)
+
+	k, err := openKey(hostname, hive, path, registry.QUERY_VALUE)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("could not open key %s: %s\n", path, err.Error())
@@ -42,6 +61,11 @@ func ReadKey(hive string, path string, key string) (string, error) {
 	}
 	switch valType {
 	case registry.BINARY:
+		val, _, err := k.GetBinaryValue(key)
+		if err != nil {
+			return "", err
+		}
+		result = fmt.Sprintf("%v", val)
 	case registry.SZ:
 		fallthrough
 	case registry.EXPAND_SZ:
@@ -70,19 +94,67 @@ func ReadKey(hive string, path string, key string) (string, error) {
 	return result, nil
 }
 
-func WriteKey(hive string, path string, key string) error {
-	hiveKey, ok := hives[hive]
-	if !ok {
-		return fmt.Errorf("could not find hive %s", hive)
-	}
-	keyPath := fmt.Sprintf(`%s\%s`, path, key)
-	_, err := registry.OpenKey(hiveKey, keyPath, registry.QUERY_VALUE|registry.SET_VALUE|registry.WRITE)
+// WriteKey writes a value to an existing key.
+// If the key does not exists, it gets created.
+// If the key exists and the new type is different than the existing one,
+// the new type overrides the old one.
+func WriteKey(hostname string, hive string, path string, key string, value interface{}) error {
+	k, err := openKey(hostname, hive, path, registry.QUERY_VALUE|registry.SET_VALUE|registry.WRITE)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("could not open key %s: %s\n", keyPath, err.Error())
+		log.Printf("could not open key %s: %s\n", path, err.Error())
 		// {{end}}
 		return err
 	}
 
-	return nil
+	switch v := value.(type) {
+	case uint32:
+		err = k.SetDWordValue(key, v)
+	case uint64:
+		err = k.SetQWordValue(key, v)
+	case string:
+		err = k.SetStringValue(key, v)
+	case []byte:
+		err = k.SetBinaryValue(key, v)
+	default:
+		return fmt.Errorf("unknow type")
+	}
+
+	return err
+}
+
+// ListSubKeys returns all the subkeys for the provided path
+func ListSubKeys(hostname string, hive string, path string) (results []string, err error) {
+	k, err := openKey(hostname, hive, path, registry.READ|registry.RESOURCE_LIST|registry.FULL_RESOURCE_DESCRIPTOR)
+	if err != nil {
+		return
+	}
+	kInfo, err := k.Stat()
+	if err != nil {
+		return
+	}
+	return k.ReadSubKeyNames(int(kInfo.SubKeyCount))
+}
+
+// ListValues returns all the value names for a subkey path
+func ListValues(hostname string, hive string, path string) (results []string, err error) {
+	k, err := openKey(hostname, hive, path, registry.READ|registry.RESOURCE_LIST|registry.FULL_RESOURCE_DESCRIPTOR)
+	if err != nil {
+		return
+	}
+	kInfo, err := k.Stat()
+	if err != nil {
+		return
+	}
+	return k.ReadValueNames(int(kInfo.ValueCount))
+}
+
+// CreateSubKey creates a new subkey
+func CreateSubKey(hostname string, hive string, path string, keyName string) error {
+	k, err := openKey(hostname, hive, path, registry.ALL_ACCESS)
+	if err != nil {
+		return err
+	}
+	_, _, err := registry.CreateKey(k, keyName, registry.ALL_ACCESS)
+	return err
 }
