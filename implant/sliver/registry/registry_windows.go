@@ -155,6 +155,6 @@ func CreateSubKey(hostname string, hive string, path string, keyName string) err
 	if err != nil {
 		return err
 	}
-	_, _, err := registry.CreateKey(k, keyName, registry.ALL_ACCESS)
+	_, _, err = registry.CreateKey(*k, keyName, registry.ALL_ACCESS)
 	return err
 }

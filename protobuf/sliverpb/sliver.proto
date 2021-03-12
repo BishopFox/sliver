@@ -501,6 +501,56 @@ message Backdoor {
   commonpb.Response Response = 9;
 }
 
+enum RegistryType {
+  BINARY = 0;
+  STRING = 1;
+  DWORD = 2;
+  QWORD = 3;
+}
+
+message RegistryReadReq {
+  string Hive = 1;
+  string Path = 2;
+  string Key = 3;
+  string Hostname = 4;
+  commonpb.Request Request = 9;
+}
+
+message RegistryRead {
+  string Value = 1;
+  commonpb.Response Response = 9;
+}
+
+message RegistryWriteReq {
+  string Hive = 1;
+  string Path = 2;
+  string Key = 3;
+  string Hostname = 4;
+  string StringValue = 5;
+  bytes ByteValue = 6;
+  uint32 DWordValue = 7;
+  uint64 QWordValue = 8;
+  RegistryType Type = 10;
+
+  commonpb.Request Request = 9;
+}
+
+message RegistryWrite {
+  commonpb.Response Response = 9;
+}
+
+message RegistryCreateKeyReq {
+  string Hive = 1;
+  string Path = 2; 
+  string Key = 3;
+  string Hostname = 4;
+  commonpb.Request Request = 9;
+}
+
+message RegistryCreateKey {
+  commonpb.Response Response = 9;
+}
+
 // Tunnel - Tunnel related messages
 
 message Tunnel {
