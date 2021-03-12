@@ -358,7 +358,7 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			// User persistence (schtasks)
 			resp, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 				Path:    systemroot + "\\System32\\schtasks.exe",
-				Args:    []string{"/create", "/tn", sliver, "/tr", path, "/sc", "onlogon", "/f"},
+				Args:    []string{"/create", "/tn", sliver, "/tr", path, "/sc", "onlogon", "/u", session.Username, "/f"},
 				Output:  false,
 				Request: ActiveSession.Request(ctx),
 			})
