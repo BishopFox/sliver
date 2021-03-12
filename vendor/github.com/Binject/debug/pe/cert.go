@@ -11,6 +11,10 @@ import (
 const CERTIFICATE_TABLE = 4
 
 func readCertTable(f *File, r io.ReadSeeker) ([]byte, error) {
+	if f.OptionalHeader == nil { // Optional header is optional, might not exist
+		return nil, nil
+	}
+
 	var certTableOffset, certTableSize uint32
 
 	switch f.FileHeader.Machine {

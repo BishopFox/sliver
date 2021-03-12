@@ -362,7 +362,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
-			f.String("n", "name", "", "agent name")
+			f.String("N", "name", "", "agent name")
 			f.Bool("d", "debug", false, "enable debug features")
 			f.Bool("e", "evasion", false, "enable evasion features")
 			f.Bool("b", "skip-symbols", false, "skip symbol obfuscation")
@@ -1053,8 +1053,10 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "process", "notepad.exe", "hosting process to inject into")
-			f.Bool("a", "amsi", false, "use AMSI bypass (disabled by default)")
-			f.Bool("e", "etw", false, "patch EtwEventWrite function to avoid detection (disabled by default)")
+			f.String("m", "method", "", "Optional method (a method is required for a .NET DLL)")
+			f.String("c", "class", "", "Optional class name (required for .NET DLL)")
+			f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
+			f.String("a", "arch", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
 			f.Bool("s", "save", false, "save output to file")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1406,6 +1408,23 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			getEnv(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.SetEnvStr,
+		Help:      "Set environment variables",
+		LongHelp:  help.GetHelpFor(consts.SetEnvStr),
+		AllowArgs: true,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			setEnv(ctx, rpc)
 			fmt.Println()
 			return nil
 		},

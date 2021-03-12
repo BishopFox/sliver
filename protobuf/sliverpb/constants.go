@@ -106,6 +106,8 @@ const (
 	MsgInvokeGetSystemReq
 	// MsgGetSystem - Response to getsystem request
 	MsgGetSystem
+	// MsgInvokeExecuteAssemblyReq - Request to load and execute a .NET assembly
+	MsgInvokeExecuteAssemblyReq
 	// MsgExecuteAssemblyReq - Request to load and execute a .NET assembly
 	MsgExecuteAssemblyReq
 	// MsgExecuteAssembly - Output of the assembly execution
@@ -178,7 +180,10 @@ const (
 	MsgEnvReq
 	// MsgEnvInfo - Response to environment variable request
 	MsgEnvInfo
-
+	// MsgSetEnvReq
+	MsgSetEnvReq
+	// MsgSetEnv
+	MsgSetEnv
 	// MsgExecuteTokenReq - Execute request executed with the current (Windows) token
 	MsgExecuteTokenReq
 )
@@ -269,6 +274,10 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *ExecuteAssemblyReq:
 		return MsgExecuteAssemblyReq
+
+	case *InvokeExecuteAssemblyReq:
+		return MsgInvokeExecuteAssemblyReq
+
 	case *ExecuteAssembly:
 		return MsgExecuteAssembly
 	case *ExecuteTokenReq:
@@ -339,6 +348,10 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgEnvReq
 	case *EnvInfo:
 		return MsgEnvInfo
+	case *SetEnvReq:
+		return MsgSetEnvReq
+	case *SetEnv:
+		return MsgSetEnv
 
 	}
 	return uint32(0)

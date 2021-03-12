@@ -117,5 +117,6 @@ clean-all: clean
 clean:
 	rm -f ./protobuf/client/*.pb.go
 	rm -f ./protobuf/sliver/*.pb.go
+	rm -f sliver-client_arm64 sliver-server_arm64
 	rm -f sliver-client sliver-server *.exe
 
