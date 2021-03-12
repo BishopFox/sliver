@@ -30,7 +30,11 @@ func openKey(hostname string, hive string, path string, access uint32) (*registr
 	}
 	localKey, err := registry.OpenKey(hiveKey, path, access)
 	if hostname != "" {
-		key, err = registry.OpenRemoteKey(hostname, localKey)
+		remKey, err := registry.OpenRemoteKey(hostname, hiveKey)
+		if err != nil {
+			return nil, err
+		}
+		key, err = registry.OpenKey(remKey, path, access)
 	} else {
 		key = localKey
 	}
