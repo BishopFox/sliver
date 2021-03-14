@@ -42,6 +42,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/desertbit/grumble"
 )
 
@@ -288,6 +289,9 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 	mtlsC2 := parseMTLSc2(ctx.Flags.String("mtls"))
 	c2s = append(c2s, mtlsC2...)
 
+	wgC2 := parseWGc2(ctx.Flags.String("wg"))
+	c2s = append(c2s, wgC2...)
+
 	httpC2 := parseHTTPc2(ctx.Flags.String("http"))
 	c2s = append(c2s, httpC2...)
 
@@ -307,8 +311,8 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 		symbolObfuscation = !ctx.Flags.Bool("skip-symbols")
 	}
 
-	if len(mtlsC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 && len(namedPipeC2) == 0 && len(tcpPivotC2) == 0 {
-		fmt.Printf(Warn + "Must specify at least one of --mtls, --http, --dns, --named-pipe, or --tcp-pivot\n")
+	if len(mtlsC2) == 0 && len(wgC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 && len(namedPipeC2) == 0 && len(tcpPivotC2) == 0 {
+		fmt.Printf(Warn + "Must specify at least one of --mtls, --wg, --http, --dns, --named-pipe, or --tcp-pivot\n")
 		return nil
 	}
 
@@ -367,6 +371,16 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 		return nil
 	}
 
+	var tunIP net.IP
+	var err error
+	if wg := ctx.Flags.String("wg"); wg != "" {
+		tunIP, err = GenUniqueIP()
+		if err != nil {
+			fmt.Printf(Warn + "Failed to generate unique ip for wg peer tun interface")
+			return nil
+		}
+	}
+
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
 		GOARCH:           arch,
@@ -376,6 +390,8 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 		ObfuscateSymbols: symbolObfuscation,
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,
+
+		WGPeerTunIP: tunIP.String(),
 
 		ReconnectInterval:   uint32(reconnectInterval),
 		MaxConnectionErrors: uint32(maxConnectionErrors),
@@ -440,6 +456,26 @@ func parseMTLSc2(args string) []*clientpb.ImplantC2 {
 		uri.Host = arg
 		if uri.Port() == "" {
 			uri.Host = fmt.Sprintf("%s:%d", uri.Host, defaultMTLSLPort)
+		}
+		c2s = append(c2s, &clientpb.ImplantC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s
+}
+
+func parseWGc2(args string) []*clientpb.ImplantC2 {
+	c2s := []*clientpb.ImplantC2{}
+	if args == "" {
+		return c2s
+	}
+	for index, arg := range strings.Split(args, ",") {
+		arg = strings.ToLower(arg)
+		uri := url.URL{Scheme: "wg"}
+		uri.Host = arg
+		if uri.Port() == "" {
+			uri.Host = fmt.Sprintf("%s:%d", uri.Host, defaultWGLPort)
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
@@ -813,4 +849,75 @@ func displayCanaries(canaries []*clientpb.DNSCanary, burnedOnly bool) {
 			fmt.Printf("%s\n", line)
 		}
 	}
+}
+
+func GenUniqueIP() (net.IP, error) {
+	peersTunIps, err := db.WGPeerTunIPs()
+	if err != nil {
+		fmt.Printf(Warn+"Failed to retrieve list WG Peers IPs %s", err)
+		return nil, err
+	}
+
+	// Use the 100.64.0.1/16 range for TUN ips.
+	// This range chosen due to Tailscale also using it (Cut down to /16 instead of /10)
+	// https://tailscale.com/kb/1015/100.x-addresses
+	addressPool, err := Hosts("100.64.0.1/16")
+	if err != nil {
+		fmt.Printf(Warn+"Failed to generate host address pool for WG Peers IPs %s", err)
+		return nil, err
+	}
+
+	for _, address := range addressPool {
+		for _, peerTunIp := range peersTunIps {
+			if peerTunIp == address {
+				addressPool = remove(addressPool, []string{peerTunIp})
+				break
+			}
+		}
+	}
+
+	return net.ParseIP(addressPool[0]), nil
+}
+
+// Prevent use of 100.64.0.{0|1} in ips assigned  to peers
+var reservedAddresses = []string{"100.64.0.0", "100.64.0.1"}
+
+func Hosts(cidr string) ([]string, error) {
+	ip, ipnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return nil, err
+	}
+
+	var ips []string
+	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
+		ips = append(ips, ip.String())
+	}
+
+	ips = remove(ips, reservedAddresses)
+	return ips, nil
+}
+
+func inc(ip net.IP) {
+	for j := len(ip) - 1; j >= 0; j-- {
+		ip[j]++
+		if ip[j] > 0 {
+			break
+		}
+	}
+}
+
+func remove(s []string, r []string) []string {
+	var result []string
+	for _, v := range s {
+		shouldAppend := true
+		for _, value := range r {
+			if v == value {
+				shouldAppend = false
+			}
+		}
+		if shouldAppend {
+			result = append(result, v)
+		}
+	}
+	return result
 }

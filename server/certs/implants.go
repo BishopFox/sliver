@@ -23,6 +23,21 @@ const (
 	ImplantCA = "sliver"
 )
 
+// ImplantGenerateWGKeys - Generate WG keys for implant
+func ImplantGenerateWGKeys(wgPeerTunIP string) (string, string, error) {
+	isPeer := true
+	privKey, pubKey, err := GenerateWGKeys(isPeer, wgPeerTunIP)
+
+	if err != nil {
+		wgKeysLog.Errorf("Error generating WG keys for peer: ", err)
+		wgKeysLog.Errorf("priv:  ", privKey)
+		wgKeysLog.Errorf("pub:  ", pubKey)
+		return "", "", err
+	}
+
+	return privKey, pubKey, nil
+}
+
 // ImplantGenerateECCCertificate - Generate a certificate signed with a given CA
 func ImplantGenerateECCCertificate(sliverName string) ([]byte, []byte, error) {
 	cert, key := GenerateECCCertificate(ImplantCA, sliverName, false, true)

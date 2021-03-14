@@ -26,6 +26,7 @@ service SliverRPC {
 
     // *** Listeners ***
     rpc StartMTLSListener(clientpb.MTLSListenerReq) returns (clientpb.MTLSListener);
+    rpc StartWGListener(clientpb.WGListenerReq) returns (clientpb.WGListener);
     rpc StartDNSListener(clientpb.DNSListenerReq) returns (clientpb.DNSListener);
     rpc StartHTTPSListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
     rpc StartHTTPListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);

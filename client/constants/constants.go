@@ -90,6 +90,7 @@ const (
 
 	JobsStr        = "jobs"
 	MtlsStr        = "mtls"
+	WGStr          = "wg"
 	DnsStr         = "dns"
 	HttpStr        = "http"
 	HttpsStr       = "https"

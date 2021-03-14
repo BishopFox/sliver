@@ -60,6 +60,10 @@ message ImplantConfig {
   bool Evasion = 31;
   bool ObfuscateSymbols = 30;
 
+  string WGImplantPrivKey = 33;
+  string WGServerPubKey = 34;
+  string WGPeerTunIP = 35;
+
   uint32 ReconnectInterval = 8;
   uint32 MaxConnectionErrors = 9;
 
@@ -156,6 +160,17 @@ message MTLSListenerReq {
 }
 
 message MTLSListener {
+  uint32 JobID = 1;
+}
+
+message WGListenerReq {
+  uint32 Port = 1;
+  string TunIP = 2;
+  uint32 NPort = 3;
+  bool Persistent = 4;
+}
+
+message WGListener {
   uint32 JobID = 1;
 }
 
