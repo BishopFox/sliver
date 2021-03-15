@@ -20,6 +20,7 @@ package generate
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -81,10 +82,12 @@ func TestSliverExecutableLinux(t *testing.T) {
 }
 
 func TestSliverSharedLibraryLinux(t *testing.T) {
-	multiLibrary(t, "linux", "amd64", true)
-	multiLibrary(t, "linux", "amd64", false)
-	multiLibrary(t, "linux", "386", true)
-	multiLibrary(t, "linux", "386", false)
+	if runtime.GOOS == "linux" {
+		multiLibrary(t, "linux", "amd64", true)
+		multiLibrary(t, "linux", "amd64", false)
+		multiLibrary(t, "linux", "386", true)
+		multiLibrary(t, "linux", "386", false)
+	}
 }
 
 func TestSliverExecutableDarwin(t *testing.T) {
