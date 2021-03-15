@@ -20,7 +20,7 @@ RUN apt-get update --fix-missing && apt-get -y install \
   libapr1 libaprutil1 libsvn1 \
   libpcap-dev libsqlite3-dev libgmp3-dev \
   zip unzip mingw-w64 binutils-mingw-w64 g++-mingw-w64 \
-  nasm
+  nasm gcc-multilib
 
 #
 # > User
