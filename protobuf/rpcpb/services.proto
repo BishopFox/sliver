@@ -91,6 +91,9 @@ service SliverRPC {
     rpc GetEnv(sliverpb.EnvReq) returns (sliverpb.EnvInfo);
     rpc SetEnv(sliverpb.SetEnvReq) returns (sliverpb.SetEnv);
     rpc Backdoor(sliverpb.BackdoorReq) returns (sliverpb.Backdoor);
+    rpc RegistryRead(sliverpb.RegistryReadReq) returns (sliverpb.RegistryRead);
+    rpc RegistryWrite(sliverpb.RegistryWriteReq) returns (sliverpb.RegistryWrite);
+    rpc RegistryCreateKey(sliverpb.RegistryCreateKeyReq) returns (sliverpb.RegistryCreateKey);
 
     // *** Realtime Commands ***
     rpc Shell(sliverpb.ShellReq) returns (sliverpb.Shell);

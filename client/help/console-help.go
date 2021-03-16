@@ -68,11 +68,14 @@ var (
 		consts.PsExecStr:           psExecHelp,
 		consts.BackdoorStr:         backdoorHelp,
 
-		consts.WebsitesStr:   websitesHelp,
-		consts.ScreenshotStr: screenshotHelp,
-		consts.MakeTokenStr:  makeTokenHelp,
-		consts.GetEnvStr:     getEnvHelp,
-		consts.SetEnvStr:     setEnvHelp,
+		consts.WebsitesStr:          websitesHelp,
+		consts.ScreenshotStr:        screenshotHelp,
+		consts.MakeTokenStr:         makeTokenHelp,
+		consts.GetEnvStr:            getEnvHelp,
+		consts.SetEnvStr:            setEnvHelp,
+		consts.RegistryWriteStr:     regWriteHelp,
+		consts.RegistryReadStr:      regReadHelp,
+		consts.RegistryCreateKeyStr: regCreateKeyHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -397,6 +400,31 @@ The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows u
 	setEnvHelp = `[[.Bold]]Command:[[.Normal]] setenv [name]
 [[.Bold]]About:[[.Normal]] Set an environment variable in the current process.
 [[.Bold]]Example:[[.Normal]] setenv SHELL /bin/bash
+	`
+	regReadHelp = `[[.Bold]]Command:[[.Normal]] registry read PATH [name]
+[[.Bold]]About:[[.Normal]] Read a value from the windows registry
+[[.Bold]]Example:[[.Normal]] registry read --hive HKLM "software\\google\\chrome\\BLBeacon\\version"
+	`
+	regWriteHelp = `[[.Bold]]Command:[[.Normal]] registry write PATH value [name]
+[[.Bold]]About:[[.Normal]] Write a value to the windows registry
+[[.Bold]]Example:[[.Normal]] registry write --hive HKLM --type dword "software\\google\\chrome\\BLBeacon\\version" 1234
+
+The type flag can take the following values:
+
+- string (regular string)
+- dword (uint32)
+- qword (uint64)
+- binary
+
+When using the binary type, you must either:
+
+- pass the value as an hex encoded string: registry write --type binary --hive HKCU "software\\bla\\key\\val" 0d0a90124f
+- use the --path flag to provide a filepath containg the payload you want to write: registry write --type binary --path /tmp/payload.bin --hive HKCU "software\\bla\\key\\val"
+
+	`
+	regCreateKeyHelp = `[[.Bold]]Command:[[.Normal]] registry create PATH [name]
+[[.Bold]]About:[[.Normal]] Read a value from the windows registry
+[[.Bold]]Example:[[.Normal]] registry create --hive HKLM "software\\google\\chrome\\BLBeacon\\version"
 	`
 )
 

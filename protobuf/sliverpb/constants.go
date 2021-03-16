@@ -186,6 +186,12 @@ const (
 	MsgSetEnv
 	// MsgExecuteTokenReq - Execute request executed with the current (Windows) token
 	MsgExecuteTokenReq
+	// MsgRegistryReadReq
+	MsgRegistryReadReq
+	// MsgRegistryWriteReq
+	MsgRegistryWriteReq
+	// MsgRegistryCreateKeyReq
+	MsgRegistryCreateKeyReq
 )
 
 // MsgNumber - Get a message number of type
@@ -352,7 +358,12 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgSetEnvReq
 	case *SetEnv:
 		return MsgSetEnv
-
+	case *RegistryReadReq:
+		return MsgRegistryReadReq
+	case *RegistryWriteReq:
+		return MsgRegistryWriteReq
+	case *RegistryCreateKeyReq:
+		return MsgRegistryCreateKeyReq
 	}
 	return uint32(0)
 }
