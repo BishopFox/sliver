@@ -22,7 +22,7 @@ jobs:
       run: |
         sudo apt-get update --fix-missing && sudo apt-get -y install \
         git build-essential zlib1g zlib1g-dev wget zip unzip \
-        mingw-w64 binutils-mingw-w64 g++-mingw-w64
+        mingw-w64 binutils-mingw-w64 g++-mingw-w64 gcc-multilib
 
     - name: Protoc
       env:
