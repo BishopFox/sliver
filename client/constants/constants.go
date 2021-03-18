@@ -142,14 +142,20 @@ const (
 	AddWebContentStr  = "add-content"
 	WebContentTypeStr = "content-type"
 
-	ScreenshotStr = "screenshot"
-	PsExecStr     = "psexec"
-	BackdoorStr   = "backdoor"
-	MakeTokenStr  = "make-token"
+	ScreenshotStr         = "screenshot"
+	PsExecStr             = "psexec"
+	BackdoorStr           = "backdoor"
+	MakeTokenStr          = "make-token"
+	GetEnvStr             = "getenv"
+	SetEnvStr             = "setenv"
+	RegistryStr           = "registry"
+	RegistryReadStr       = "read"
+	RegistryWriteStr      = "write"
+	RegistryListSubStr    = "list-subkeys"
+	RegistryListValuesStr = "list-values"
+	RegistryCreateKeyStr  = "create"
 
 	PersistStr = "persist"
-	GetEnvStr  = "getenv"
-	SetEnvStr  = "setenv"
 
 	LicensesStr = "licenses"
 )

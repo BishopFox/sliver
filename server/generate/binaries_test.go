@@ -20,6 +20,7 @@ package generate
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -61,6 +62,10 @@ func TestSliverExecutableWindows(t *testing.T) {
 	multiExe(t, "windows", "amd64", false)
 	multiExe(t, "windows", "386", false)
 	multiExe(t, "windows", "386", false)
+
+	// Service
+	multiWindowsService(t, "windows", "amd64", true)
+	multiWindowsService(t, "windows", "amd64", false)
 }
 
 func TestSliverSharedLibWindows(t *testing.T) {
@@ -76,6 +81,15 @@ func TestSliverExecutableLinux(t *testing.T) {
 	tcpPivotExe(t, "linux", "amd64", false)
 }
 
+func TestSliverSharedLibraryLinux(t *testing.T) {
+	if runtime.GOOS == "linux" {
+		multiLibrary(t, "linux", "amd64", true)
+		multiLibrary(t, "linux", "amd64", false)
+		multiLibrary(t, "linux", "386", true)
+		multiLibrary(t, "linux", "386", false)
+	}
+}
+
 func TestSliverExecutableDarwin(t *testing.T) {
 	multiExe(t, "darwin", "amd64", true)
 	multiExe(t, "darwin", "amd64", false)
@@ -89,7 +103,6 @@ func TestSliverDefaultBuild(t *testing.T) {
 	httpExe(t, "freebsd", "amd64", true)
 	dnsExe(t, "plan9", "amd64", false)
 	dnsExe(t, "plan9", "amd64", true)
-
 }
 
 func TestSymbolObfuscation(t *testing.T) {
@@ -186,6 +199,32 @@ func multiExe(t *testing.T, goos string, goarch string, debug bool) {
 	}
 	nonce++
 	_, err := SliverExecutable(fmt.Sprintf("multi_test%d", nonce), config)
+	if err != nil {
+		t.Errorf(fmt.Sprintf("%v", err))
+	}
+}
+
+func multiWindowsService(t *testing.T, goos string, goarch string, debug bool) {
+	t.Logf("[multi] %s/%s - debug: %v", goos, goarch, debug)
+	config := &models.ImplantConfig{
+		GOOS:   goos,
+		GOARCH: goarch,
+		Format: clientpb.ImplantConfig_SERVICE,
+
+		C2: []models.ImplantC2{
+			{URL: "mtls://1.example.com"},
+			{URL: "mtls://2.example.com", Options: "asdf"},
+			{URL: "https://3.example.com"},
+			{Priority: 3, URL: "dns://4.example.com"},
+		},
+		MTLSc2Enabled:    true,
+		HTTPc2Enabled:    true,
+		DNSc2Enabled:     true,
+		Debug:            debug,
+		ObfuscateSymbols: false,
+	}
+	nonce++
+	_, err := SliverExecutable(fmt.Sprintf("service_test%d", nonce), config)
 	if err != nil {
 		t.Errorf(fmt.Sprintf("%v", err))
 	}

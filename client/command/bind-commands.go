@@ -1443,4 +1443,72 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+
+	registryCmd := &grumble.Command{
+		Name:     consts.RegistryStr,
+		Help:     "Windows registry operations",
+		LongHelp: help.GetHelpFor(consts.RegistryStr),
+		Run: func(ctx *grumble.Context) error {
+			return nil
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	}
+
+	registryCmd.AddCommand(&grumble.Command{
+		Name:     consts.RegistryReadStr,
+		Help:     "Read values from the Windows registry",
+		LongHelp: help.GetHelpFor(consts.RegistryReadStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			registryReadCmd(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		AllowArgs: true,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("H", "hive", "HKCU", "egistry hive")
+			f.String("o", "hostname", "", "remote host to read values from")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+	registryCmd.AddCommand(&grumble.Command{
+		Name:      consts.RegistryWriteStr,
+		Help:      "Write values to the Windows registry",
+		LongHelp:  help.GetHelpFor(consts.RegistryWriteStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			registryWriteCmd(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("H", "hive", "HKCU", "registry hive")
+			f.String("o", "hostname", "", "remote host to write values to")
+			f.String("T", "type", "string", "type of the value to write (string, dword, qword, binary). If binary, you must provide a path to a file with --path")
+			f.String("p", "path", "", "path to the binary file to write")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+	registryCmd.AddCommand(&grumble.Command{
+		Name:      consts.RegistryCreateKeyStr,
+		Help:      "Create a registry key",
+		LongHelp:  help.GetHelpFor(consts.RegistryCreateKeyStr),
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			regCreateKeyCmd(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("H", "hive", "HKCU", "registry hive")
+			f.String("o", "hostname", "", "remote host to write values to")
+		},
+	})
+	app.AddCommand(registryCmd)
+
 }

