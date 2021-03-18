@@ -33,6 +33,7 @@ import (
 	ver "github.com/bishopfox/sliver/client/version"
 	protobufs "github.com/bishopfox/sliver/protobuf"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/util"
 )
 
 const (
@@ -126,7 +127,15 @@ func setupGo(appDir string) error {
 	setupLog.Infof("GOPATH = %s", goRootPath)
 	if _, err := os.Stat(goRootPath); !os.IsNotExist(err) {
 		setupLog.Info("Removing old go root directory")
-		os.RemoveAll(goRootPath)
+		os.Chmod(goRootPath, 0700)
+		err = util.ChmodR(goRootPath, 0600, 0700) // Make sure everything is writable before we try to rm
+		if err != nil {
+			setupLog.Warnf("Failed to modify file system permissions of old go root directory %s", err)
+		}
+		err = os.RemoveAll(goRootPath)
+		if err != nil {
+			setupLog.Warnf("Failed to cleanup old go root directory %s", err)
+		}
 	}
 	os.MkdirAll(goRootPath, 0700)
 
@@ -140,7 +149,7 @@ func setupGo(appDir string) error {
 
 	goZipPath := path.Join(appDir, "go.zip")
 	defer os.Remove(goZipPath)
-	ioutil.WriteFile(goZipPath, goZip, 0644)
+	ioutil.WriteFile(goZipPath, goZip, 0600)
 	_, err = unzip(goZipPath, appDir)
 	if err != nil {
 		setupLog.Infof("Failed to unzip file %s -> %s", goZipPath, appDir)
@@ -154,7 +163,7 @@ func setupGo(appDir string) error {
 	}
 	goSrcZipPath := path.Join(appDir, "src.zip")
 	defer os.Remove(goSrcZipPath)
-	ioutil.WriteFile(goSrcZipPath, goSrcZip, 0644)
+	ioutil.WriteFile(goSrcZipPath, goSrcZip, 0600)
 	_, err = unzip(goSrcZipPath, goRootPath)
 	if err != nil {
 		setupLog.Infof("Failed to unzip file %s -> %s/go", goSrcZipPath, appDir)
@@ -172,7 +181,7 @@ func setupGo(appDir string) error {
 		return err
 	}
 	garbleLocalPath := path.Join(appDir, "go", "bin", garbleFileName)
-	err = ioutil.WriteFile(garbleLocalPath, garbleFile, 0755)
+	err = ioutil.WriteFile(garbleLocalPath, garbleFile, 0700)
 	if err != nil {
 		setupLog.Errorf("Failed to write garble %s", err)
 		return err
@@ -203,8 +212,8 @@ func SetupGoPath(goPathSrc string) error {
 	}
 	sliverpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliverpb")
 	os.MkdirAll(sliverpbDir, 0700)
-	ioutil.WriteFile(path.Join(sliverpbDir, "constants.go"), sliverpbGoSrc, 0644)
-	ioutil.WriteFile(path.Join(sliverpbDir, "sliver.pb.go"), sliverpbConstSrc, 0644)
+	ioutil.WriteFile(path.Join(sliverpbDir, "constants.go"), sliverpbGoSrc, 0600)
+	ioutil.WriteFile(path.Join(sliverpbDir, "sliver.pb.go"), sliverpbConstSrc, 0600)
 
 	// Common PB
 	commonpbSrc, err := protobufs.FS.ReadFile("commonpb/common.pb.go")
@@ -214,7 +223,7 @@ func SetupGoPath(goPathSrc string) error {
 	}
 	commonpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "commonpb")
 	os.MkdirAll(commonpbDir, 0700)
-	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0644)
+	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0600)
 
 	return nil
 }
@@ -231,7 +240,7 @@ func setupDllPath(appDir string) error {
 		setupLog.Info("failed to find the dll")
 		return err
 	}
-	err = ioutil.WriteFile(path.Join(dataDir, "HostingCLRx64.dll"), hostingDll, 0644)
+	err = ioutil.WriteFile(path.Join(dataDir, "HostingCLRx64.dll"), hostingDll, 0600)
 	return err
 }
 
