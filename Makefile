@@ -17,7 +17,6 @@ PKG = github.com/bishopfox/sliver/client/version
 GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
 GIT_COMMIT = $(shell git rev-parse HEAD)
 LDFLAGS = -ldflags "-s -w \
-	-extldflags '-static' \
 	-X $(PKG).Version=$(VERSION) \
 	-X \"$(PKG).GoVersion=$(GO_VERSION)\" \
 	-X $(PKG).CompiledAt=$(COMPILED_AT) \
@@ -68,6 +67,17 @@ ifeq ($(MAKECMDGOALS), windows)
 			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
 	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
 endif
+endif
+
+ifeq ($(MAKECMDGOALS), linux)
+	LDFLAGS = -ldflags "-s -w \
+		-extldflags '-static' \
+		-X $(PKG).Version=$(VERSION) \
+		-X \"$(PKG).GoVersion=$(GO_VERSION)\" \
+		-X $(PKG).CompiledAt=$(COMPILED_AT) \
+		-X $(PKG).GithubReleasesURL=$(RELEASES_URL) \
+		-X $(PKG).GitCommit=$(GIT_COMMIT) \
+		-X $(PKG).GitDirty=$(GIT_DIRTY)"
 endif
 # *** End Linux ***
 
