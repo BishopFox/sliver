@@ -68,6 +68,18 @@ ifeq ($(MAKECMDGOALS), windows)
 	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
 endif
 endif
+
+ifeq ($(MAKECMDGOALS), linux)
+	# Redefine LDFLAGS to add the static part
+	LDFLAGS = -ldflags "-s -w \
+		-extldflags '-static' \
+		-X $(PKG).Version=$(VERSION) \
+		-X \"$(PKG).GoVersion=$(GO_VERSION)\" \
+		-X $(PKG).CompiledAt=$(COMPILED_AT) \
+		-X $(PKG).GithubReleasesURL=$(RELEASES_URL) \
+		-X $(PKG).GitCommit=$(GIT_COMMIT) \
+		-X $(PKG).GitDirty=$(GIT_DIRTY)"
+endif
 # *** End Linux ***
 
 #
