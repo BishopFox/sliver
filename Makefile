@@ -70,6 +70,7 @@ endif
 endif
 
 ifeq ($(MAKECMDGOALS), linux)
+	# Redefine LDFLAGS to add the static part
 	LDFLAGS = -ldflags "-s -w \
 		-extldflags '-static' \
 		-X $(PKG).Version=$(VERSION) \
