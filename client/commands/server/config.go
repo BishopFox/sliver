@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 	"google.golang.org/grpc"
 
 	cctx "github.com/bishopfox/sliver/client/context"
@@ -39,9 +39,9 @@ type Config struct{}
 func (c *Config) Execute(args []string) (err error) {
 	conf := cctx.Config
 
-	fmt.Println(tui.Bold(tui.Blue(" Console configuration\n")))
+	fmt.Println(readline.Bold(readline.Blue(" Console configuration\n")))
 
-	fmt.Println(tui.Yellow("Prompts"))
+	fmt.Println(readline.Yellow("Prompts"))
 	pad := fmt.Sprintf("%-15s", "server (right)")
 	fmt.Printf(" "+pad+" :  %s\n", conf.ServerPrompt.Right)
 	pad = fmt.Sprintf("%-15s", "server (left)")
@@ -51,15 +51,15 @@ func (c *Config) Execute(args []string) (err error) {
 	pad = fmt.Sprintf("%-15s", "sliver (left)")
 	fmt.Printf(" "+pad+" :  %s\n", conf.SliverPrompt.Left)
 
-	fmt.Println(tui.Yellow("\nOthers"))
+	fmt.Println(readline.Yellow("\nOthers"))
 	pad = fmt.Sprintf("%-15s", "console hints")
 	fmt.Printf(" "+pad+" :  %t\n", conf.Hints)
 
 	var input string
 	if conf.Vim {
-		input = tui.Bold("Vim")
+		input = readline.Bold("Vim")
 	} else {
-		input = tui.Bold("Emacs")
+		input = readline.Bold("Emacs")
 	}
 	pad = fmt.Sprintf("%-15s", "input mode")
 	fmt.Printf(" "+pad+" :  %s\n", input)
@@ -129,9 +129,9 @@ type PromptServer struct {
 // Execute - Modify the right-side prompt
 func (c *PromptServer) Execute(args []string) (err error) {
 	if len(args) > 0 {
-		fmt.Printf(util.Warn+"Detected undesired remaining arguments: %s\n", tui.Bold(strings.Join(args, " ")))
+		fmt.Printf(util.Warn+"Detected undesired remaining arguments: %s\n", readline.Bold(strings.Join(args, " ")))
 		fmt.Printf("    Please use \\ dashes for each space in prompt string (input readline doesn't detect them)\n")
-		fmt.Printf(tui.Yellow("    The current value has therefore not been saved.\n"))
+		fmt.Printf(readline.Yellow("    The current value has therefore not been saved.\n"))
 		return
 	}
 
@@ -158,7 +158,7 @@ func (c *PromptServer) Execute(args []string) (err error) {
 	}
 
 	*prompt = c.Positional.Prompt // Set the prompt string
-	fmt.Printf(util.Info+"Server prompt %s : %s\n", side, tui.Bold(c.Positional.Prompt))
+	fmt.Printf(util.Info+"Server prompt %s : %s\n", side, readline.Bold(c.Positional.Prompt))
 
 	return
 }
@@ -177,9 +177,9 @@ type PromptSliver struct {
 // Execute - Modify the right-side prompt
 func (c *PromptSliver) Execute(args []string) (err error) {
 	if len(args) > 0 {
-		fmt.Printf(util.Warn+"Detected undesired remaining arguments: %s\n", tui.Bold(strings.Join(args, " ")))
+		fmt.Printf(util.Warn+"Detected undesired remaining arguments: %s\n", readline.Bold(strings.Join(args, " ")))
 		fmt.Printf("    Please use \\ dashes for each space in prompt string (input readline doesn't detect them)\n")
-		fmt.Printf(tui.Yellow("    The current value has therefore not been saved.\n"))
+		fmt.Printf(readline.Yellow("    The current value has therefore not been saved.\n"))
 		return
 	}
 
@@ -206,7 +206,7 @@ func (c *PromptSliver) Execute(args []string) (err error) {
 	}
 
 	*prompt = c.Positional.Prompt // Set the prompt string
-	fmt.Printf(util.Info+"Sliver prompt %s : %s\n", side, tui.Bold(c.Positional.Prompt))
+	fmt.Printf(util.Info+"Sliver prompt %s : %s\n", side, readline.Bold(c.Positional.Prompt))
 
 	return
 }
@@ -224,10 +224,10 @@ func (c *Hints) Execute(args []string) (err error) {
 	switch c.Positional.Display {
 	case "show", "on":
 		cctx.Config.Hints = true
-		fmt.Printf(util.Info+"Console hints: %s\n", tui.Yellow(c.Positional.Display))
+		fmt.Printf(util.Info+"Console hints: %s\n", readline.Yellow(c.Positional.Display))
 	case "hide", "off":
 		cctx.Config.Hints = false
-		fmt.Printf(util.Info+"Console hints: %s\n", tui.Yellow(c.Positional.Display))
+		fmt.Printf(util.Info+"Console hints: %s\n", readline.Yellow(c.Positional.Display))
 	default:
 		fmt.Printf(util.Error+"Invalid argument: %s (must be 'hide' or 'show')\n", c.Positional.Display)
 		return nil
@@ -241,7 +241,7 @@ type Vim struct{}
 // Execute - Set the console input mode to Vim
 func (c *Vim) Execute(args []string) (err error) {
 	cctx.Config.Vim = true
-	fmt.Printf(util.Info+"Console input mode: %s\n", tui.Yellow("Vim"))
+	fmt.Printf(util.Info+"Console input mode: %s\n", readline.Yellow("Vim"))
 	return
 }
 
@@ -251,6 +251,6 @@ type Emacs struct{}
 // Execute - Set the console input mode to Emacs
 func (c *Emacs) Execute(args []string) (err error) {
 	cctx.Config.Vim = false
-	fmt.Printf(util.Info+"Console input mode: %s\n", tui.Yellow("Emacs"))
+	fmt.Printf(util.Info+"Console input mode: %s\n", readline.Yellow("Emacs"))
 	return
 }

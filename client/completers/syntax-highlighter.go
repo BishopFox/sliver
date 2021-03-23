@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
+	"github.com/maxlandon/readline"
 )
 
 // SyntaxHighlighter - Entrypoint to all input syntax highlighting in the Wiregost console
@@ -61,14 +61,14 @@ func SyntaxHighlighter(input []rune) (line string) {
 }
 
 func highlightCommand(args []string, command *flags.Command) (line string, remain []string) {
-	line = tui.BOLD + args[0] + tui.RESET + " "
+	line = readline.BOLD + args[0] + readline.RESET + " "
 	remain = args[1:]
 	return
 }
 
 func highlightSubCommand(input string, args []string, command *flags.Command) (line string, remain []string) {
 	line = input
-	line += tui.BOLD + args[0] + tui.RESET + " "
+	line += readline.BOLD + args[0] + readline.RESET + " "
 	remain = args[1:]
 	return
 }
@@ -102,12 +102,12 @@ func processEnvVars(input string, remain []string) (line string) {
 				for _, a := range args {
 					fmt.Println(a)
 					if strings.HasPrefix(a, "$") && a != " " { // It is an env var.
-						processed = append(processed, "\033[38;5;108m"+tui.DIM+a+tui.RESET)
+						processed = append(processed, "\033[38;5;108m"+readline.DIM+a+readline.RESET)
 						continue
 					}
 				}
 			}
-			processed = append(processed, "\033[38;5;108m"+tui.DIM+arg+tui.RESET)
+			processed = append(processed, "\033[38;5;108m"+readline.DIM+arg+readline.RESET)
 			continue
 		}
 		processed = append(processed, arg)
@@ -123,7 +123,7 @@ func processEnvVars(input string, remain []string) (line string) {
 			args := strings.Split(arg, "/")
 			if len(args) == 1 {
 				if strings.HasPrefix(args[0], "$") && args[0] != "" && args[0] != "$" { // It is an env var.
-					full += "\033[38;5;108m" + tui.DIM + args[0] + tui.RESET
+					full += "\033[38;5;108m" + readline.DIM + args[0] + readline.RESET
 					continue
 				}
 			}
@@ -133,12 +133,12 @@ func processEnvVars(input string, remain []string) (line string) {
 					// If var is an env var
 					if strings.HasPrefix(arg, "$") && arg != "" && arg != "$" {
 						if counter < len(args)-1 {
-							full += "\033[38;5;108m" + tui.DIM + args[0] + tui.RESET + "/"
+							full += "\033[38;5;108m" + readline.DIM + args[0] + readline.RESET + "/"
 							counter++
 							continue
 						}
 						if counter == len(args)-1 {
-							full += "\033[38;5;108m" + tui.DIM + args[0] + tui.RESET
+							full += "\033[38;5;108m" + readline.DIM + args[0] + readline.RESET
 							counter++
 							continue
 						}

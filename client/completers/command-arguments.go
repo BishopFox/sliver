@@ -24,10 +24,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
-
-	"github.com/bishopfox/sliver/client/readline"
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/commands"
 	"github.com/bishopfox/sliver/client/constants"
@@ -252,7 +250,7 @@ func jobIDs(lastWord string) (comp *readline.CompletionGroup) {
 		if strings.HasPrefix(jobID, lastWord) {
 			jobID := strconv.Itoa(int(job.ID))
 			comp.Suggestions = append(comp.Suggestions, jobID)
-			comp.Descriptions[jobID] = tui.DIM + job.Name + fmt.Sprintf(" (%s)", job.Description) + tui.RESET
+			comp.Descriptions[jobID] = readline.DIM + job.Name + fmt.Sprintf(" (%s)", job.Description) + readline.RESET
 		}
 	}
 
@@ -301,7 +299,7 @@ func implantProfiles(lastWord string) (comp *readline.CompletionGroup) {
 			conf := profile.Config
 			comp.Suggestions = append(comp.Suggestions, profile.Name)
 			desc := fmt.Sprintf(" %s [%s/%s] -> %d C2s", conf.Format.String(), conf.GOOS, conf.GOARCH, len(conf.GetC2()))
-			comp.Descriptions[profile.Name] = tui.DIM + desc
+			comp.Descriptions[profile.Name] = readline.DIM + desc
 		}
 	}
 
@@ -339,7 +337,7 @@ func implantNames(lastWord string) (comp *readline.CompletionGroup) {
 		if strings.HasPrefix(implant.Name, lastWord) {
 			comp.Suggestions = append(comp.Suggestions, name)
 			desc := fmt.Sprintf(" %s [%s/%s] -> %d C2s", implant.Format.String(), implant.GOOS, implant.GOARCH, len(implant.GetC2()))
-			comp.Descriptions[name] = tui.DIM + desc
+			comp.Descriptions[name] = readline.DIM + desc
 		}
 	}
 
@@ -364,7 +362,7 @@ func sessionIDs(lastWord string) (comp *readline.CompletionGroup) {
 		if strings.HasPrefix(sessionID, lastWord) {
 			comp.Suggestions = append(comp.Suggestions, sessionID)
 			desc := fmt.Sprintf("[%s] - %s@%s - %s", s.Name, s.Username, s.Hostname, s.RemoteAddress)
-			comp.Descriptions[sessionID] = tui.DIM + desc + tui.RESET
+			comp.Descriptions[sessionID] = readline.DIM + desc + readline.RESET
 		}
 	}
 	return
@@ -395,10 +393,10 @@ func processes(lastWord string) (comp *readline.CompletionGroup) {
 			comp.Suggestions = append(comp.Suggestions, pid)
 			var color string
 			if session != nil && proc.Pid == session.PID {
-				color = tui.GREEN
+				color = readline.GREEN
 			}
 			desc := fmt.Sprintf("%s(%d - %s)  %s", color, proc.Ppid, proc.Owner, proc.Executable)
-			comp.Descriptions[pid] = tui.DIM + desc + tui.RESET
+			comp.Descriptions[pid] = readline.DIM + desc + readline.RESET
 		}
 	}
 

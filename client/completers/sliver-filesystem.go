@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bishopfox/sliver/client/readline"
+	"github.com/maxlandon/readline"
 
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"

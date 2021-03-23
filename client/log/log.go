@@ -23,10 +23,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 	"github.com/sirupsen/logrus"
-
-	"github.com/bishopfox/sliver/client/readline"
 
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
@@ -84,8 +82,8 @@ func IsSynchronized() bool {
 }
 
 var logrusPrintLevels = map[logrus.Level]string{
-	logrus.TraceLevel: fmt.Sprintf("%s[t] %s", tui.DIM, tui.RESET),
-	logrus.DebugLevel: fmt.Sprintf("%s%s[_] %s", tui.DIM, tui.BLUE, tui.RESET),
+	logrus.TraceLevel: fmt.Sprintf("%s[t] %s", readline.DIM, readline.RESET),
+	logrus.DebugLevel: fmt.Sprintf("%s%s[_] %s", readline.DIM, readline.BLUE, readline.RESET),
 	logrus.InfoLevel:  util.Info,
 	logrus.WarnLevel:  util.Warn,
 	logrus.ErrorLevel: util.Error,

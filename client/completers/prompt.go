@@ -4,8 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/evilsocket/islazy/tui"
-	"github.com/bishopfox/sliver/client/readline"
+	"github.com/maxlandon/readline"
 )
 
 /*
@@ -101,7 +100,7 @@ func promptServerItems(lastWord string) (comps []*readline.CompletionGroup) {
 		if strings.HasPrefix(item, lastWord) {
 			desc := serverPromptItems[item]
 			sComp.Suggestions = append(sComp.Suggestions, item)
-			sComp.Descriptions[item] = tui.Dim(desc)
+			sComp.Descriptions[item] = readline.Dim(desc)
 		}
 	}
 	comps = append(comps, sComp)
@@ -122,7 +121,7 @@ func promptServerItems(lastWord string) (comps []*readline.CompletionGroup) {
 		if strings.HasPrefix(item, lastWord) {
 			desc := promptEffects[item]
 			cComp.Suggestions = append(cComp.Suggestions, item)
-			cComp.Descriptions[item] = tui.Dim(desc)
+			cComp.Descriptions[item] = readline.Dim(desc)
 		}
 	}
 	comps = append(comps, cComp)
@@ -151,7 +150,7 @@ func promptSliverItems(lastWord string) (comps []*readline.CompletionGroup) {
 		if strings.HasPrefix(item, lastWord) {
 			desc := sliverPromptItems[item]
 			sComp.Suggestions = append(sComp.Suggestions, item)
-			sComp.Descriptions[item] = tui.Dim(desc)
+			sComp.Descriptions[item] = readline.Dim(desc)
 		}
 	}
 	comps = append(comps, sComp)

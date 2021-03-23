@@ -86,7 +86,6 @@ github.com/dlclark/regexp2/syntax
 # github.com/evilsocket/islazy v1.10.6
 ## explicit
 github.com/evilsocket/islazy/fs
-github.com/evilsocket/islazy/str
 github.com/evilsocket/islazy/tui
 # github.com/fatih/color v1.10.0
 ## explicit
@@ -146,7 +145,7 @@ github.com/jackc/pgtype
 github.com/jackc/pgx/v4
 github.com/jackc/pgx/v4/internal/sanitize
 github.com/jackc/pgx/v4/stdlib
-# github.com/jessevdk/go-flags v1.4.0
+# github.com/jessevdk/go-flags v1.5.0
 ## explicit
 github.com/jessevdk/go-flags
 # github.com/jinzhu/inflection v1.0.0
@@ -155,8 +154,6 @@ github.com/jinzhu/inflection
 github.com/jinzhu/now
 # github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 github.com/kballard/go-shellquote
-# github.com/lunixbochs/vtclean v1.0.0
-## explicit
 # github.com/mattn/go-colorable v0.1.8
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.12
@@ -167,6 +164,9 @@ github.com/mattn/go-runewidth
 # github.com/mattn/go-sqlite3 v2.0.1+incompatible
 ## explicit
 github.com/mattn/go-sqlite3
+# github.com/maxlandon/readline v0.1.0-beta.0.20210323134646-e127d57a9b11
+## explicit
+github.com/maxlandon/readline
 # github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 github.com/mgutz/ansi
 # github.com/miekg/dns v1.1.35
@@ -181,7 +181,6 @@ github.com/mitchellh/go-grpc-net-conn
 ## explicit
 github.com/olekukonko/tablewriter
 # github.com/olekukonko/ts v0.0.0-20171002115256-78ecb04241c0
-## explicit
 github.com/olekukonko/ts
 # github.com/pkg/errors v0.9.1
 ## explicit
@@ -233,7 +232,7 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/trace
-# golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c
+# golang.org/x/sys v0.0.0-20210320140829-1e4c9ba3b0c4
 ## explicit
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader

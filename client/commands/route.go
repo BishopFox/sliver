@@ -24,7 +24,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
@@ -54,16 +54,16 @@ func (r *Route) Execute(args []string) (err error) {
 
 func printRoutes(routes []*commpb.Route) {
 
-	table := util.NewTable(tui.Bold(tui.Yellow("Network Routes")))
+	table := util.NewTable(readline.Bold(readline.Yellow("Network Routes")))
 	headers := []string{"Network CIDR", "Gateway Session", "Connections", "Node IDs", "ID"}
 	headLen := []int{0, 0, 0, 0, 0}
 	table.SetColumns(headers, headLen)
 
 	for _, route := range routes {
-		id := tui.Dim(route.ID)
-		network := tui.Bold(route.IPNet)
+		id := readline.Dim(route.ID)
+		network := readline.Bold(route.IPNet)
 
-		gateway := fmt.Sprintf("%s - %s%d%s", route.Gateway.Name, tui.BLUE, route.Gateway.ID, tui.RESET)
+		gateway := fmt.Sprintf("%s - %s%d%s", route.Gateway.Name, readline.BLUE, route.Gateway.ID, readline.RESET)
 		var tcp int
 		var udp int
 		for _, c := range route.Connections {
@@ -116,7 +116,7 @@ func (r *RouteAdd) Execute(args []string) (err error) {
 	} else if routeAdd.Response.Err != "" {
 		fmt.Printf(util.Error+"%s\n", routeAdd.Response.Err)
 	} else {
-		fmt.Printf(util.Info+"Added new route (%s)\n", tui.Yellow(r.Options.CIDR))
+		fmt.Printf(util.Info+"Added new route (%s)\n", readline.Yellow(r.Options.CIDR))
 	}
 
 	return

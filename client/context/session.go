@@ -19,8 +19,12 @@ package context
 */
 
 import (
+	"context"
+	"fmt"
 	"time"
 
+	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
@@ -42,4 +46,19 @@ func (s *Session) Request(timeOut int) *commonpb.Request {
 		SessionID: s.ID,
 		Timeout:   int64(timeout),
 	}
+}
+
+// GetSession - Get session by session ID or name
+func GetSession(arg string) *clientpb.Session {
+	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(util.Error+"%s\n", err)
+		return nil
+	}
+	for _, session := range sessions.GetSessions() {
+		if fmt.Sprintf("%d", session.ID) == arg {
+			return session
+		}
+	}
+	return nil
 }

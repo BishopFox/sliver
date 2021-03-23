@@ -19,7 +19,6 @@ package console
 */
 
 import (
-	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -28,8 +27,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/bishopfox/sliver/client/readline"
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/comm"
@@ -40,12 +38,10 @@ import (
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 
-	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 
 	// Comm System dependencies
-	"github.com/golang/protobuf/proto"
-	grpcConn "github.com/mitchellh/go-grpc-net-conn"
+
 	"google.golang.org/grpc"
 )
 
@@ -163,7 +159,7 @@ func (c *Client) Init() (err error) {
 	go c.handleServerLogs(transport.RPC)
 
 	// Setup the Client Comm system (console proxies & port forwarders)
-	err = initComm(transport.RPC, []byte(conf.PrivateKey), conf.ServerFingerprint)
+	err = comm.Start(transport.RPC, []byte(conf.PrivateKey), conf.ServerFingerprint)
 	if err != nil {
 		fmt.Printf(Warn+"Comm Error: %v \n", err)
 	}
@@ -179,12 +175,13 @@ func (c *Client) Init() (err error) {
 func (c *Client) Run() {
 
 	// When we will exit this loop, disconnect gracefully from the server.
+	// The latter will take care of notifying other clients/players if needed.
 	defer c.Conn.Close()
 
 	for {
 		// Some commands can act on the shell properties via the console
 		// context package, so we check values and set everything up.
-		c.SetConfiguredShell()
+		c.ResetShell()
 
 		// Reset the completion data cache for all registered sessions.
 		completers.Cache.Reset()
@@ -202,13 +199,13 @@ func (c *Client) Run() {
 		// to be fed a parser for completions, hints, and syntax.
 		cmds, err := commands.BindCommands()
 		if err != nil {
-			fmt.Print(util.CommandError + tui.Red("could not reset commands: "+err.Error()+"\n"))
+			fmt.Print(util.CommandError + readline.Red("could not reset commands: "+err.Error()+"\n"))
 		}
 
 		// Register the commands for additional completions. Some of these may
 		// also add restrained choices to some commands, so this function may
 		// actually end up refining even more the parsing granularity of our shell.
-		completers.LoadCompsAdditional(cmds)
+		completers.LoadAdditionalCompletions(cmds)
 
 		// Read input line (blocking)
 		line, _ := c.Readline()
@@ -234,9 +231,9 @@ func (c *Client) Run() {
 	}
 }
 
-// SetConfiguredShell - Live refresh of console properties (input, hints, etc),
+// ResetShell - Live refresh of console properties (input, hints, etc),
 // following some commands (confi, usually) that may have changed some settings.
-func (c *Client) SetConfiguredShell() {
+func (c *Client) ResetShell() {
 
 	c.Shell.Multiline = true   // spaceship-like prompt (2-line)
 	c.Shell.ShowVimMode = true // with Vim mode status
@@ -330,34 +327,4 @@ func initLogging() {
 	defer logFile.Close()
 	log.SetOutput(logFile)
 	return
-}
-
-// initComm - Connect the Client Comm system to the server. This function
-// could be moved to the comm package: I kept it here for uniformity of Init()
-// function signatures between client/server/implant comm packages.
-func initComm(rpc rpcpb.SliverRPCClient, key []byte, fingerprint string) error {
-
-	stream, err := rpc.InitComm(context.Background(), &grpc.EmptyCallOption{})
-	if err != nil {
-		return err
-	}
-
-	// We need to create a callback so the conn knows how to decode/encode
-	// arbitrary byte slices for our proto type.
-	fieldFunc := func(msg proto.Message) *[]byte {
-		return &msg.(*commpb.Bytes).Data
-	}
-
-	// Wrap our conn around the response.
-	conn := &grpcConn.Conn{
-		Stream:   stream,
-		Request:  &commpb.Bytes{},
-		Response: &commpb.Bytes{},
-		Encode:   grpcConn.SimpleEncoder(fieldFunc),
-		Decode:   grpcConn.SimpleDecoder(fieldFunc),
-	}
-
-	// The connection is a valid net.Conn upon which we can setup SSH.
-	// We pass the commonName for SSH public key fingerprinting.
-	return comm.InitClient(conn, key, fingerprint)
 }

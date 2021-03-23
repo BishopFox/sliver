@@ -25,8 +25,7 @@ import (
 	"strings"
 
 	"github.com/evilsocket/islazy/fs"
-
-	"github.com/bishopfox/sliver/client/readline"
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/util"
 )

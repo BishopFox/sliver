@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 	"github.com/sirupsen/logrus"
 )
 
@@ -66,9 +66,9 @@ func (l *clientHook) Fire(log *logrus.Entry) (err error) {
 
 	// Print the component name in red if error
 	if log.Level == logrus.ErrorLevel {
-		line += fmt.Sprintf("%s%-10v %s-%s %s \n", tui.RED, component, tui.DIM, tui.RESET, log.Message)
+		line += fmt.Sprintf("%s%-10v %s-%s %s \n", readline.RED, component, readline.DIM, readline.RESET, log.Message)
 	} else {
-		line += fmt.Sprintf("%s%-10v %s-%s %s \n", tui.DIM, component, tui.DIM, tui.RESET, log.Message)
+		line += fmt.Sprintf("%s%-10v %s-%s %s \n", readline.DIM, component, readline.DIM, readline.RESET, log.Message)
 	}
 
 	// If we are in the middle of a command, we just print the log without refreshing prompt

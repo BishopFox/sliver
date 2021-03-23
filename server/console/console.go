@@ -27,9 +27,8 @@ import (
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
-	"github.com/bishopfox/sliver/client/readline"
+	"github.com/maxlandon/readline"
 	"golang.org/x/crypto/ssh"
 
 	clientAssets "github.com/bishopfox/sliver/client/assets"
@@ -116,8 +115,8 @@ func Start() {
 }
 
 // Server - The server console needs to have access to admin commands,
-// and we cannot make those accessible through RPC for obvious reasons.
-// This type is therefore a wrapper around the client console, with a Run()
+// and we cannot make those accessible through RPC for obvious security reasons.
+// This type is therefore a wrapper around the client console, with a custom Run()
 // function that simply adds the admin commands to the shell.
 type Server struct {
 	*console.Client
@@ -142,7 +141,7 @@ func (sc *Server) Run() {
 	for {
 		// Some commands can act on the shell properties via the console
 		// context package, so we check values and set everything up.
-		sc.SetConfiguredShell()
+		sc.ResetShell()
 
 		// Reset the completion data cache for all registered sessions.
 		completers.Cache.Reset()
@@ -160,7 +159,7 @@ func (sc *Server) Run() {
 		// to be fed a parser for completions, hints, and syntax.
 		cmds, err := commands.BindCommands()
 		if err != nil {
-			fmt.Print(util.CommandError + tui.Red("could not reset commands: "+err.Error()+"\n"))
+			fmt.Print(util.CommandError + readline.Red("could not reset commands: "+err.Error()+"\n"))
 		}
 
 		// SERVER-ONLY: bind admin commands to the parser
@@ -169,7 +168,7 @@ func (sc *Server) Run() {
 		// Register the commands for additional completions. Some of these may
 		// also add restrained choices to some commands, so this function may
 		// actually end up refining even more the parsing granularity of our shell.
-		completers.LoadCompsAdditional(cmds)
+		completers.LoadAdditionalCompletions(cmds)
 
 		// Read input line (blocking)
 		line, err := sc.Readline()

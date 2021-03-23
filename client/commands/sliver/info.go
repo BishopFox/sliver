@@ -47,7 +47,7 @@ func (i *Info) Execute(args []string) (err error) {
 	if cctx.Context.Sliver != nil {
 		session = cctx.Context.Sliver.Session
 	} else if i.Positional.SessionID != "" {
-		session = GetSession(i.Positional.SessionID)
+		session = cctx.GetSession(i.Positional.SessionID)
 	}
 
 	if session != nil {

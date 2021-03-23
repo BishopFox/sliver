@@ -25,9 +25,9 @@ import (
 	cctx "github.com/bishopfox/sliver/client/context"
 )
 
-// LoadCompsAdditional - This func is stored and called at each
+// LoadAdditionalCompletions - This func is stored and called at each
 // command parser loop, for managing fixed-choice completions for some commands.
-func LoadCompsAdditional(parser *flags.Parser) {
+func LoadAdditionalCompletions(parser *flags.Parser) {
 	if parser == nil {
 		return
 	}

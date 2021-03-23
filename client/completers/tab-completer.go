@@ -22,16 +22,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
-
-	"github.com/bishopfox/sliver/client/readline"
+	"github.com/maxlandon/readline"
 
 	cctx "github.com/bishopfox/sliver/client/context"
 )
 
 // TabCompleter - Entrypoint to all tab completions in the Wiregost console.
-func TabCompleter(line []rune, pos int) (lastWord string, completions []*readline.CompletionGroup) {
+func TabCompleter(line []rune, pos int, dtc readline.DelayedTabContext) (lastWord string, completions []*readline.CompletionGroup) {
 
 	// Format and sanitize input
 	// @args     => All items of the input line
@@ -114,7 +112,7 @@ func CompleteMenuCommands(lastWord string, pos int) (prefix string, completions 
 				if grp.Name == cctx.Commands.GetCommandGroup(cmd) {
 					found = true
 					grp.Suggestions = append(grp.Suggestions, cmd.Name)
-					grp.Descriptions[cmd.Name] = tui.Dim(cmd.ShortDescription)
+					grp.Descriptions[cmd.Name] = readline.Dim(cmd.ShortDescription)
 				}
 			}
 			// Add a new group if not found
@@ -124,7 +122,7 @@ func CompleteMenuCommands(lastWord string, pos int) (prefix string, completions 
 					DisplayType: readline.TabDisplayList,
 					Suggestions: []string{cmd.Name},
 					Descriptions: map[string]string{
-						cmd.Name: tui.Dim(cmd.ShortDescription),
+						cmd.Name: readline.Dim(cmd.ShortDescription),
 					},
 				}
 				completions = append(completions, grp)
@@ -161,7 +159,7 @@ func CompleteSubCommands(args []string, lastWord string, command *flags.Command)
 	for _, sub := range command.Commands() {
 		if strings.HasPrefix(sub.Name, lastWord) {
 			group.Suggestions = append(group.Suggestions, sub.Name)
-			group.Descriptions[sub.Name] = tui.DIM + sub.ShortDescription + tui.RESET
+			group.Descriptions[sub.Name] = readline.DIM + sub.ShortDescription + readline.RESET
 		}
 	}
 
@@ -283,9 +281,9 @@ func completeOptionGroup(lastWord string, grp *flags.Group, title string) (prefi
 			}
 			var desc string
 			if opt.Required {
-				desc = fmt.Sprintf("%s%s R%s %s%s%s%s", tui.RED, tui.DIM, tui.RESET, tui.DIM, opt.Description, def, tui.RESET)
+				desc = fmt.Sprintf("%s%s R%s %s%s%s%s", readline.RED, readline.DIM, readline.RESET, readline.DIM, opt.Description, def, readline.RESET)
 			} else {
-				desc = fmt.Sprintf("%s%s O%s %s%s%s%s", tui.GREEN, tui.DIM, tui.RESET, tui.DIM, opt.Description, def, tui.RESET)
+				desc = fmt.Sprintf("%s%s O%s %s%s%s%s", readline.GREEN, readline.DIM, readline.RESET, readline.DIM, opt.Description, def, readline.RESET)
 			}
 
 			compGrp.Descriptions[optName] = desc

@@ -21,8 +21,8 @@ package console
 import (
 	"fmt"
 
-	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/context"
 	cctx "github.com/bishopfox/sliver/client/context"
@@ -109,7 +109,7 @@ func (c *Client) executeSpecialCommand(args []string) error {
 	}
 
 	// We should not get here, so we print an error-like message
-	fmt.Printf(CommandError+"Invalid command: %s%s \n", tui.YELLOW, args[0])
+	fmt.Printf(CommandError+"Invalid command: %s%s \n", readline.YELLOW, args[0])
 
 	return nil
 }

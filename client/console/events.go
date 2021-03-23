@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/completers"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -54,14 +54,14 @@ func (c *Client) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 	for !isDone(events.Context()) {
 		event, err := events.Recv()
 		if err != nil {
-			fmt.Printf(util.RPCError + tui.Dim(" server ") + tui.Red(err.Error()) + "\n")
+			fmt.Printf(util.RPCError + readline.Dim(" server ") + readline.Red(err.Error()) + "\n")
 			continue
 		}
 
 		switch event.EventType {
 		case consts.CanaryEvent:
 			fmt.Printf("\n\n") // Clear screen a bit before announcing shitty news
-			fmt.Printf(util.Warn+tui.BOLD+"WARNING: %s%s has been burned (DNS Canary)\n", tui.RESET, event.Session.Name)
+			fmt.Printf(util.Warn+readline.BOLD+"WARNING: %s%s has been burned (DNS Canary)\n", readline.RESET, event.Session.Name)
 			sessions := getSessionsByName(event.Session.Name, transport.RPC)
 			var alert string
 			for _, session := range sessions {

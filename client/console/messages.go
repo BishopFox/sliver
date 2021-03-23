@@ -21,24 +21,24 @@ package console
 import (
 	"fmt"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 )
 
 var (
-	Info    = fmt.Sprintf("%s[-]%s ", tui.BLUE, tui.RESET)   // Info - All normal messages
-	Warn    = fmt.Sprintf("%s[!]%s ", tui.YELLOW, tui.RESET) // Warn - Errors in parameters, notifiable events in modules/sessions
-	Error   = fmt.Sprintf("%s[!]%s ", tui.RED, tui.RESET)    // Error - Error in commands, filters, modules and implants.
-	Success = fmt.Sprintf("%s[*]%s ", tui.GREEN, tui.RESET)  // Success - Success events
+	Info    = fmt.Sprintf("%s[-]%s ", readline.BLUE, readline.RESET)   // Info - All normal messages
+	Warn    = fmt.Sprintf("%s[!]%s ", readline.YELLOW, readline.RESET) // Warn - Errors in parameters, notifiable events in modules/sessions
+	Error   = fmt.Sprintf("%s[!]%s ", readline.RED, readline.RESET)    // Error - Error in commands, filters, modules and implants.
+	Success = fmt.Sprintf("%s[*]%s ", readline.GREEN, readline.RESET)  // Success - Success events
 
-	Infof   = fmt.Sprintf("%s[-] ", tui.BLUE)   // Infof - formatted
-	Warnf   = fmt.Sprintf("%s[!] ", tui.YELLOW) // Warnf - formatted
-	Errorf  = fmt.Sprintf("%s[!] ", tui.RED)    // Errorf - formatted
-	Sucessf = fmt.Sprintf("%s[*] ", tui.GREEN)  // Sucessf - formatted
+	Infof   = fmt.Sprintf("%s[-] ", readline.BLUE)   // Infof - formatted
+	Warnf   = fmt.Sprintf("%s[!] ", readline.YELLOW) // Warnf - formatted
+	Errorf  = fmt.Sprintf("%s[!] ", readline.RED)    // Errorf - formatted
+	Sucessf = fmt.Sprintf("%s[*] ", readline.GREEN)  // Sucessf - formatted
 
-	RPCError     = fmt.Sprintf("%s[RPC Error]%s ", tui.RED, tui.RESET)     // RPCError - Errors from the server
-	CommandError = fmt.Sprintf("%s[Command Error]%s ", tui.RED, tui.RESET) // CommandError - Command input error
-	ParserError  = fmt.Sprintf("%s[Parser Error]%s ", tui.RED, tui.RESET)  // ParserError - Failed to parse some tokens in the input
-	DBError      = fmt.Sprintf("%s[DB Error]%s ", tui.RED, tui.RESET)      // DBError - Data Service error
+	RPCError     = fmt.Sprintf("%s[RPC Error]%s ", readline.RED, readline.RESET)     // RPCError - Errors from the server
+	CommandError = fmt.Sprintf("%s[Command Error]%s ", readline.RED, readline.RESET) // CommandError - Command input error
+	ParserError  = fmt.Sprintf("%s[Parser Error]%s ", readline.RED, readline.RESET)  // ParserError - Failed to parse some tokens in the input
+	DBError      = fmt.Sprintf("%s[DB Error]%s ", readline.RED, readline.RESET)      // DBError - Data Service error
 )
 
 const (

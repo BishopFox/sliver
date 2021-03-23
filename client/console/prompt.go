@@ -36,6 +36,7 @@ type prompt struct {
 func (c *Client) initPrompt() {
 
 	// Prompt settings (Vim-mode and stuff)
+	c.Shell.MultilinePrompt = " > "
 
 	c.Prompt = &prompt{
 		Server: &promptServer{

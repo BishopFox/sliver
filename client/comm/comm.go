@@ -19,6 +19,7 @@ package comm
 */
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -27,11 +28,14 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	grpcConn "github.com/mitchellh/go-grpc-net-conn"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
+	"google.golang.org/grpc"
 
 	"github.com/bishopfox/sliver/client/log"
 	"github.com/bishopfox/sliver/protobuf/commpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 )
 
 // Comm - The network subsystem of the client console. Equivalent to an implant Comm.
@@ -52,8 +56,38 @@ type Comm struct {
 	pending  int                   // Number of actively processed connections.
 }
 
+// Start - Connect the Client Comm system to the server. This function
+// could be moved to the comm package: I kept it here for uniformity of Init()
+// function signatures between client/server/implant comm packages.
+func Start(rpc rpcpb.SliverRPCClient, key []byte, fingerprint string) error {
+
+	stream, err := rpc.InitComm(context.Background(), &grpc.EmptyCallOption{})
+	if err != nil {
+		return err
+	}
+
+	// We need to create a callback so the conn knows how to decode/encode
+	// arbitrary byte slices for our proto type.
+	fieldFunc := func(msg proto.Message) *[]byte {
+		return &msg.(*commpb.Bytes).Data
+	}
+
+	// Wrap our conn around the response.
+	conn := &grpcConn.Conn{
+		Stream:   stream,
+		Request:  &commpb.Bytes{},
+		Response: &commpb.Bytes{},
+		Encode:   grpcConn.SimpleEncoder(fieldFunc),
+		Decode:   grpcConn.SimpleDecoder(fieldFunc),
+	}
+
+	// The connection is a valid net.Conn upon which we can setup SSH.
+	// We pass the commonName for SSH public key fingerprinting.
+	return initClient(conn, key, fingerprint)
+}
+
 // InitClient - Sets up and start a SSH connection (multiplexer) around a logical connection/stream, or a Session RPC.
-func InitClient(conn net.Conn, key []byte, fingerprint string) (err error) {
+func initClient(conn net.Conn, key []byte, fingerprint string) (err error) {
 	// Return if we don't have what we need.
 	if conn == nil {
 		return errors.New("net.Conn is nil, cannot init Comm")

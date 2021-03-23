@@ -68,16 +68,16 @@ func BindCommands() (parser *flags.Parser, err error) {
 	parser.AddGroup("global options", "these options are available to every command", &GlobalOptions{})
 
 	// First register all server commands if in server context
-	server.BindCommands(parser, cctx.Commands.RegisterServerCommand)
+	server.BindCommands(parser)
 
 	// Register the transports: the commands bound will
 	// be if the current server or sliver supports them.
-	transports.BindCommands(parser, cctx.Commands.RegisterServerCommand)
+	transports.BindCommands(parser)
 
 	// Add sliver commands if in sliver context. This will also
 	// automatically bind OS-specific commands if there are some.
 	if cctx.Context.Menu == cctx.Sliver {
-		sliver.BindCommands(parser, cctx.Commands.RegisterSliverCommand)
+		sliver.BindCommands(parser)
 	}
 
 	// Pass the parser to the context package: some commands will
@@ -118,35 +118,6 @@ func bindServerCommands() (err error) {
 	// ----------------------------------------------------------------------------------------
 	// Network Routes
 	// rt, err := Server.AddCommand(constants.RouteStr,
-	//         "Manage network routes (prints them by default)", "",
-	//         &Route{})
-	// rt.Aliases = []string{"comm"}
-	// rt.SubcommandsOptional = true
-	//
-	// _, err = rt.AddCommand(constants.RouteAddStr,
-	//         "Add a network route (routes client proxies and C2 handlers)", "",
-	//         &RouteAdd{})
-	// _, err = rt.AddCommand(constants.RouteRemoveStr,
-	//         "Remove one or more network routes", "",
-	//         &RouteRemove{})
-
-	return
-}
-
-// All commands for controlling sliver implants are bound in this function.
-func bindSliverCommands() (err error) {
-
-	// Core
-	// ----------------------------------------------------------------------------------------
-
-	// h, err := Sliver.AddCommand(constants.HelpStr,
-	//         "Print commands help for the current menu", "",
-	//         &Help{})
-	// h.Aliases = []string{"core"}
-
-	// Comm & Network
-	// ----------------------------------------------------------------------------------------
-	// rt, err := Sliver.AddCommand(constants.RouteStr,
 	//         "Manage network routes (prints them by default)", "",
 	//         &Route{})
 	// rt.Aliases = []string{"comm"}

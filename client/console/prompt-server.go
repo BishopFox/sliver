@@ -25,8 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evilsocket/islazy/tui"
-	"github.com/bishopfox/sliver/client/readline"
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/context"
@@ -74,14 +73,14 @@ func (p *promptServer) render() (prompt string) {
 // computeBase - Computes the base prompt (left-side) with potential custom prompt given.
 // Returns the width of the computed string, for correct aggregation of all strings.
 func (p *promptServer) computeBase() (ps string, width int) {
-	ps += tui.RESET
+	ps += readline.RESET
 
 	// The prompt string is stored in the context package, to be accessed by
 	// console configuration commands.
 	ps += context.Config.ServerPrompt.Left
 
 	// Ensure colors do not screw up the next input.
-	ps += tui.RESET
+	ps += readline.RESET
 
 	// Compute callback values
 	for ok, cb := range p.Callbacks {
@@ -100,14 +99,14 @@ func (p *promptServer) computeBase() (ps string, width int) {
 // Because it is the right-most part of the prompt, and that the screen might be small,
 // we categorize default (assumed) screen sizes and we adapt the output consequently.
 func (p *promptServer) computeContext(sWidth int) (ps string, width int) {
-	ps += tui.RESET
+	ps += readline.RESET
 
 	// The prompt string is stored in the context package, to be accessed by
 	// console configuration commands.
 	ps += context.Config.ServerPrompt.Right
 
 	// Ensure colors do not screw up the next input.
-	ps += tui.RESET
+	ps += readline.RESET
 
 	// Callbacks
 	for ok, cb := range p.Callbacks {
@@ -164,21 +163,21 @@ var (
 
 	// serverColorCallbacks - All colors and effects needed in the main menu
 	serverColorCallbacks = map[string]string{
-		// Base tui colors
+		// Base readline colors
 		"{blink}": "\033[5m", // blinking
-		"{bold}":  tui.BOLD,
-		"{dim}":   tui.DIM,
-		"{fr}":    tui.RED,
-		"{g}":     tui.GREEN,
-		"{b}":     tui.BLUE,
-		"{y}":     tui.YELLOW,
-		"{fw}":    tui.FOREWHITE,
-		"{bdg}":   tui.BACKDARKGRAY,
-		"{br}":    tui.BACKRED,
-		"{bg}":    tui.BACKGREEN,
-		"{by}":    tui.BACKYELLOW,
-		"{blb}":   tui.BACKLIGHTBLUE,
-		"{reset}": tui.RESET,
+		"{bold}":  readline.BOLD,
+		"{dim}":   readline.DIM,
+		"{fr}":    readline.RED,
+		"{g}":     readline.GREEN,
+		"{b}":     readline.BLUE,
+		"{y}":     readline.YELLOW,
+		"{fw}":    readline.FOREWHITE,
+		"{bdg}":   readline.BACKDARKGRAY,
+		"{br}":    readline.BACKRED,
+		"{bg}":    readline.BACKGREEN,
+		"{by}":    readline.BACKYELLOW,
+		"{blb}":   readline.BACKLIGHTBLUE,
+		"{reset}": readline.RESET,
 		// Custom colors
 		"{ly}":   "\033[38;5;187m",
 		"{lb}":   "\033[38;5;117m", // like VSCode var keyword
