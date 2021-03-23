@@ -17,6 +17,7 @@ PKG = github.com/bishopfox/sliver/client/version
 GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
 GIT_COMMIT = $(shell git rev-parse HEAD)
 LDFLAGS = -ldflags "-s -w \
+	-extldflags '-static' \
 	-X $(PKG).Version=$(VERSION) \
 	-X \"$(PKG).GoVersion=$(GO_VERSION)\" \
 	-X $(PKG).CompiledAt=$(COMPILED_AT) \
