@@ -21,6 +21,7 @@ package completers
 import (
 	"github.com/jessevdk/go-flags"
 
+	"github.com/bishopfox/sliver/client/commands/sliver/windows"
 	"github.com/bishopfox/sliver/client/constants"
 	cctx "github.com/bishopfox/sliver/client/context"
 )
@@ -78,6 +79,8 @@ func sliverCompsAdditional(parser *flags.Parser) {
 		return // Don't screw up for completions.
 	}
 
+	// Extensions
+
 	// MSF execution
 	msf := parser.Find(constants.MsfStr)
 	msf.FindOptionByLongName("payload").Choices = msfPayloads[session.OS]
@@ -95,4 +98,12 @@ func sliverCompsAdditional(parser *flags.Parser) {
 	pfwdOpen.FindOptionByLongName("protocol").Choices = portfwdProtocols
 	pfwdClose := pfwd.Find(constants.PortfwdCloseStr)
 	pfwdClose.FindOptionByLongName("protocol").Choices = portfwdProtocols
+
+	// Windows only
+	if session.OS == "windows" {
+		// Registry
+		reg := parser.Find(constants.RegistryStr)
+		regWrite := reg.Find(constants.RegistryWriteStr)
+		regWrite.FindOptionByLongName("type").Choices = windows.ValidTypes
+	}
 }

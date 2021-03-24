@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	cctx "github.com/bishopfox/sliver/client/context"
@@ -62,8 +63,10 @@ type ExtensionOptions struct {
 // ExtensionLibraryOptions - The extension is an assembly library.
 // This option group is dynamically loaded by an extension command.
 type ExtensionLibraryOptions struct {
-	AMSI          bool `long:"amsi" short:"a" description:"use AMSI bypass (disabled by default)"`
-	EtwEventWrite bool `long:"etw" short:"e" description:"patch EtwEventWrite function to avoid detection (disabled by default)"`
+	Method    string `long:"method" short:"m" description:"optional method (a method is required for a .NET DLL)"`
+	Class     string `long:"class" short:"c" description:"optional class name (required for .NET DLL)"`
+	AppDomain string `long:"app-domain" short:"d" description:"AppDomain name to create for .NET assembly. Randomly generated if not set"`
+	Arch      string `long:"arch" short:"a" description:"Assembly target architecture (x86, x64, x84 - x86+x64)"`
 }
 
 // Execute - The extension command works like a normal command.
@@ -107,6 +110,10 @@ func (ext *ExtensionCommand) Execute(cArgs []string) (err error) {
 		}
 	}
 
+	var isDLL = false
+	if filepath.Ext(binPath) == ".dll" {
+		isDLL = true
+	}
 	binData, err := ioutil.ReadFile(binPath)
 	if err != nil {
 		fmt.Printf(util.Error+"%s", err.Error())
@@ -123,26 +130,19 @@ func (ext *ExtensionCommand) Execute(cArgs []string) (err error) {
 
 	// Assembly injection
 	if ext.sub.IsAssembly {
-		// Get specific options
-		// var amsi, etw bool
-		// amsiOpt := sub.FindOptionByLongName("amsi")
-		// if amsiOpt != nil && save.Value().(bool) == true {
-		//         amsi = true
-		// }
-		// etwOpt := sub.FindOptionByLongName("etw")
-		// if etwOpt != nil && etwOpt.Value().(bool) == true {
-		//         etw = true
-		// }
-
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", ext.sub.Name, args)
 		go spin.Until(msg, ctrl)
 		executeAssemblyResp, err := transport.RPC.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
-			// AmsiBypass: amsi,
-			// EtwBypass:  etw,
+			IsDLL: isDLL,
+
+			Process:   processName,
 			Arguments: args,
 			Assembly:  binData,
-			Process:   processName,
+			Arch:      sub.FindOptionByLongName("arch").Value().(string),
+			Method:    sub.FindOptionByLongName("method").Value().(string),
+			ClassName: sub.FindOptionByLongName("class").Value().(string),
+			AppDomain: sub.FindOptionByLongName("app-domain").Value().(string),
 			Request:   cctx.Request(session),
 		})
 		ctrl <- true

@@ -19,7 +19,10 @@ package comm
 */
 
 import (
+	// {{if .Config.Debug}}
 	"log"
+	// {{end}}
+
 	"net"
 	"net/url"
 	"strconv"

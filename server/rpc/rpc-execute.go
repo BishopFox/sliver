@@ -33,3 +33,13 @@ func (rpc *Server) Execute(ctx context.Context, req *sliverpb.ExecuteReq) (*sliv
 	}
 	return resp, nil
 }
+
+// ExecuteToken - Execute a remote process with the current token (Windows only)
+func (rpc *Server) ExecuteToken(ctx context.Context, req *sliverpb.ExecuteTokenReq) (*sliverpb.Execute, error) {
+	resp := &sliverpb.Execute{}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

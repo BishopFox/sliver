@@ -5,6 +5,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/constants"
 	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/help"
 )
 
 const (
@@ -87,5 +88,31 @@ func BindCommands(parser *flags.Parser) {
 		&Backdoor{})
 	register(err, bi, constants.PersistenceGroup)
 
+	reg, err := parser.AddCommand(constants.RegistryStr,
+		"Windows Registry management commands",
+		help.GetHelpFor(constants.RegistryStr),
+		&Registry{})
+	register(err, reg, constants.PersistenceGroup)
+
+	if reg != nil {
+		_, err := reg.AddCommand(constants.RegistryReadStr,
+			"Read values from the Windows Registry",
+			help.GetHelpFor(constants.RegistryReadStr),
+			&RegistryRead{})
+		register(err, nil, constants.PersistenceGroup)
+
+		_, err = reg.AddCommand(constants.RegistryWriteStr,
+			"Write values to the Windows Registry",
+			help.GetHelpFor(constants.RegistryWriteStr),
+			&RegistryWrite{})
+		register(err, nil, constants.PersistenceGroup)
+
+		_, err = reg.AddCommand(constants.RegistryCreateKeyStr,
+			"Create a Registry key",
+			help.GetHelpFor(constants.RegistryCreateKeyStr),
+			&RegistryCreateKey{})
+		register(err, nil, constants.PersistenceGroup)
+
+	}
 	return
 }

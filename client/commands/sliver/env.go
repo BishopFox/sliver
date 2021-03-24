@@ -25,18 +25,19 @@ import (
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// SessionEnv - Get the session's environment variables
-type SessionEnv struct {
+// GetEnv - Get the session's environment variables
+type GetEnv struct {
 	Positional struct {
 		Vars []string `description:"environment variable name" required:"1"`
 	} `positional-args:"yes" required:"yes"`
 }
 
 // Execute - Get the session's environment variables
-func (e *SessionEnv) Execute(args []string) (err error) {
+func (e *GetEnv) Execute(args []string) (err error) {
 	session := cctx.Context.Sliver.Session
 	if session == nil {
 		return
@@ -57,5 +58,40 @@ func (e *SessionEnv) Execute(args []string) (err error) {
 			fmt.Printf(" %s=%s\n", envVar.Key, envVar.Value)
 		}
 	}
+	return
+}
+
+// SetEnv - Set an environment variable on the target host
+type SetEnv struct {
+	Positional struct {
+		Key string `description:"environment variable name" required:"1"`
+		Value    string `description:"environment variable value" required:"1"`
+	} `positional-args:"yes" required:"yes"`
+}
+
+// Execute - Set an environment variable on the target host
+func (e *SetEnv) Execute(args []string) (err error) {
+	session := cctx.Context.Sliver.Session
+	if session == nil {
+		return
+	}
+
+	envInfo, err := transport.RPC.SetEnv(context.Background(), &sliverpb.SetEnvReq{
+		Variable: &commonpb.EnvVar{
+			Key:   e.Positional.Key,
+			Value: e.Positional.Value,
+		},
+		Request: cctx.Request(session),
+	})
+	if err != nil {
+		fmt.Printf(util.Warn+"Error: %v", err)
+		return
+	}
+	if envInfo.Response != nil && envInfo.Response.Err != "" {
+		fmt.Printf(util.Warn+"Error: %s", envInfo.Response.Err)
+		return
+	}
+	fmt.Printf(util.Info+"set %s to %s\n", e.Positional.Key, e.Positional.Value)
+
 	return
 }

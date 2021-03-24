@@ -31,6 +31,9 @@ var (
 
 	stageListenerProtocols = []string{"tcp", "http", "https"}
 
+	// Extensions
+	extensionArch = []string{"x64", "x86", "x84"}
+
 	// MSF
 	msfStagerProtocols  = []string{"tcp", "http", "https"}
 	msfTransformFormats = []string{

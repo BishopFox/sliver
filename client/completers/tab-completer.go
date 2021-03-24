@@ -281,9 +281,11 @@ func completeOptionGroup(lastWord string, grp *flags.Group, title string) (prefi
 			}
 			var desc string
 			if opt.Required {
-				desc = fmt.Sprintf("%s%s R%s %s%s%s%s", readline.RED, readline.DIM, readline.RESET, readline.DIM, opt.Description, def, readline.RESET)
+				desc = fmt.Sprintf("%s%s R%s %s%s%s%s",
+					readline.RED, readline.DIM, readline.RESET, readline.DIM, opt.Description, def, readline.RESET)
 			} else {
-				desc = fmt.Sprintf("%s%s O%s %s%s%s%s", readline.GREEN, readline.DIM, readline.RESET, readline.DIM, opt.Description, def, readline.RESET)
+				desc = fmt.Sprintf("%s%s O%s %s%s%s%s",
+					readline.GREEN, readline.DIM, readline.RESET, readline.DIM, opt.Description, def, readline.RESET)
 			}
 
 			compGrp.Descriptions[optName] = desc

@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/constants"
@@ -42,9 +43,11 @@ type ExecuteAssembly struct {
 	} `positional-args:"yes" required:"yes"`
 
 	Options struct {
-		AMSI       bool   `long:"amsi" short:"a" description:"use AMSI bypass (disabled by default)"`
-		ETW        bool   `long:"etw" short:"e" description:"patch EtwEventWrite function to avoid detection (disabled by default)"`
 		RemotePath string `long:"process" short:"p" description:"hosting process to inject into" default:"c:\\windows\\system32\\notepad.exe"`
+		Method     string `long:"method" short:"m" description:"optional method (a method is required for a .NET DLL)"`
+		Class      string `long:"class" short:"c" description:"optional class name (required for .NET DLL)"`
+		AppDomain  string `long:"app-domain" short:"d" description:"AppDomain name to create for .NET assembly. Randomly generated if not set"`
+		Arch       string `long:"arch" short:"a" description:"Assembly target architecture (x86, x64, x84 - x86+x64)"`
 		Save       bool   `long:"save" short:"s" description:"save output to file"`
 	} `group:"assembly options"`
 }
@@ -54,6 +57,17 @@ func (ea *ExecuteAssembly) Execute(args []string) (err error) {
 	session := cctx.Context.Sliver.Session
 	if session == nil {
 		return
+	}
+
+	var isDLL = false
+	if filepath.Ext(ea.Positional.Path) == ".dll" {
+		isDLL = true
+	}
+	if isDLL {
+		if ea.Options.Class == "" || ea.Options.Method == "" {
+			fmt.Printf(util.Error + "Please provide a class name (namespace.class) and method")
+			return
+		}
 	}
 
 	assemblyBytes, err := ioutil.ReadFile(ea.Positional.Path)
@@ -73,12 +87,15 @@ func (ea *ExecuteAssembly) Execute(args []string) (err error) {
 	ctrl := make(chan bool)
 	go spin.Until("Executing assembly ...", ctrl)
 	executeAssembly, err := transport.RPC.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
-		// AmsiBypass: ea.Options.AMSI,
+		IsDLL:     isDLL,
 		Process:   process,
 		Arguments: assemblyArgs,
 		Assembly:  assemblyBytes,
-		// EtwBypass:  ea.Options.ETW,
-		Request: cctx.Request(session),
+		Arch:      ea.Options.Arch,
+		ClassName: ea.Options.Class,
+		Method:    ea.Options.Method,
+		AppDomain: ea.Options.AppDomain,
+		Request:   cctx.Request(session),
 	})
 	ctrl <- true
 	<-ctrl

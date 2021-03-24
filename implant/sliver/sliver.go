@@ -32,7 +32,10 @@ import (
 
 	"log"
 
-	consts "github.com/bishopfox/sliver/implant/sliver/constants"
+	// {{if .Config.Debug}}
+	"github.com/bishopfox/sliver/implant/sliver/constants"
+	// {{end}}
+
 	"github.com/bishopfox/sliver/implant/sliver/handlers"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
@@ -135,7 +138,7 @@ func main() {
 	// {{end}}
 
 	// {{if .Config.Debug}}
-	log.Printf("Hello my name is %s", consts.SliverName)
+	log.Printf("Hello my name is %s", constants.SliverName)
 	// {{end}}
 
 	limits.ExecLimits() // Check to see if we should execute

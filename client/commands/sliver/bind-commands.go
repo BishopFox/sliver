@@ -59,8 +59,14 @@ func BindCommands(parser *flags.Parser) {
 
 	env, err := parser.AddCommand(constants.GetEnvStr,
 		"Get one or more host environment variables", "",
-		&SessionEnv{})
+		&GetEnv{})
 	register(err, env, constants.CoreSessionGroup)
+
+	setenv, err := parser.AddCommand(constants.SetEnvStr,
+		"Set an environment variable",
+		help.GetHelpFor(constants.SetEnvStr),
+		&SetEnv{})
+	register(err, setenv, constants.CoreSessionGroup)
 
 	ping, err := parser.AddCommand(constants.PingStr,
 		"Send round trip message to implant (does not use ICMP)", "",

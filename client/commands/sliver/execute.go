@@ -35,6 +35,7 @@ type Execute struct {
 	} `positional-args:"yes" required:"yes"`
 	Options struct {
 		Silent bool `long:"silent" short:"s" description:"don't print the command output"`
+		Token  bool `long:"token" short:"T" description:"execute command with current token (Windows only)"`
 	} `group:"execute options"`
 }
 
@@ -52,14 +53,26 @@ func (e *Execute) Execute(args []string) (err error) {
 	}
 	output := e.Options.Silent
 	ctrl := make(chan bool)
+	var exec *sliverpb.Execute
 	msg := fmt.Sprintf("Executing %s %s...", cmdPath, strings.Join(cArgs, " "))
 	go spin.Until(msg, ctrl)
-	exec, err := transport.RPC.Execute(context.Background(), &sliverpb.ExecuteReq{
-		Path:    cmdPath,
-		Args:    cArgs,
-		Output:  !output,
-		Request: cctx.Request(session),
-	})
+
+	if e.Options.Token {
+		exec, err = transport.RPC.ExecuteToken(context.Background(), &sliverpb.ExecuteTokenReq{
+			Request: cctx.Request(session),
+			Path:    cmdPath,
+			Args:    args,
+			Output:  !output,
+		})
+	} else {
+		exec, err = transport.RPC.Execute(context.Background(), &sliverpb.ExecuteReq{
+			Request: cctx.Request(session),
+			Path:    cmdPath,
+			Args:    args,
+			Output:  !output,
+		})
+	}
+
 	ctrl <- true
 	<-ctrl
 	if err != nil {
