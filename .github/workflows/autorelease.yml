@@ -13,18 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-<<<<<<< HEAD
-    - name: Go 1.15
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.15
-      id: go
-=======
     - name: Go 1.16
       uses: actions/setup-go@v2
       with:
         go-version: '^1.16'
->>>>>>> BishopFox/master
     
     - name: OS Packages 
       run: |
@@ -88,18 +80,10 @@ jobs:
     runs-on: macos-latest
     steps:
 
-<<<<<<< HEAD
-    - name: Go 1.15
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.15
-      id: go
-=======
     - name: Go 1.16
       uses: actions/setup-go@v2
       with:
         go-version: '^1.16'
->>>>>>> BishopFox/master
 
     - name: Mingw
       run: brew install mingw-w64
@@ -133,16 +117,8 @@ jobs:
     - name: Go Assets
       run: ./go-assets.sh
 
-<<<<<<< HEAD
-    - name: Make
-      run: export PATH=/Users/runner/go/bin/:$PATH && make static-macos
-=======
-    - name: Remove Vendor
-      run: rm -rf ./vendor/
-
     - name: Make AMD64
       run: make macos
->>>>>>> BishopFox/master
     
     # - name: Make ARM64
     #   run: make macos-arm64
