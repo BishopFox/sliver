@@ -76,20 +76,15 @@ func (rl *Instance) viDeleteByAdjust(adjust int) {
 		newLine = append(rl.line[:rl.pos], rl.line[rl.pos+adjust:]...)
 	}
 
-	moveCursorBackwards(rl.pos)
-	print(strings.Repeat(" ", len(rl.line)))
-	moveCursorBackwards(len(rl.line) - rl.pos)
-
 	rl.line = newLine
 
-	rl.echo()
+	rl.updateHelpers()
 
 	if adjust < 0 {
 		rl.moveCursorByAdjust(adjust)
 	}
 
 	if backOne {
-		moveCursorBackwards(1)
 		rl.pos--
 	}
 }
@@ -107,18 +102,11 @@ func (rl *Instance) vimDeleteToken(r rune) bool {
 		return false
 	}
 
-	moveCursorBackwards(rl.pos)
-	print(strings.Repeat(" ", len(rl.line)))
-	moveCursorBackwards(len(rl.line) - rl.pos)
-
 	rl.line = []rune(newLine)
 
-	rl.echo()
+	rl.updateHelpers()
 
 	if rl.pos > len(rl.line) {
-		moveCursorBackwards(GetTermWidth())
-		moveCursorForwards(rl.promptLen + len(rl.line) - 1)
-		// ^ this is lazy
 		rl.pos = len(rl.line) - 1
 	}
 

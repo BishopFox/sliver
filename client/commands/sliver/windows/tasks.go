@@ -73,12 +73,12 @@ func (ea *ExecuteAssembly) Execute(args []string) (err error) {
 	ctrl := make(chan bool)
 	go spin.Until("Executing assembly ...", ctrl)
 	executeAssembly, err := transport.RPC.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
-		AmsiBypass: ea.Options.AMSI,
-		Process:    process,
-		Arguments:  assemblyArgs,
-		Assembly:   assemblyBytes,
-		EtwBypass:  ea.Options.ETW,
-		Request:    cctx.Request(session),
+		// AmsiBypass: ea.Options.AMSI,
+		Process:   process,
+		Arguments: assemblyArgs,
+		Assembly:  assemblyBytes,
+		// EtwBypass:  ea.Options.ETW,
+		Request: cctx.Request(session),
 	})
 	ctrl <- true
 	<-ctrl

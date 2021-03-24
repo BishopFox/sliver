@@ -124,26 +124,26 @@ func (ext *ExtensionCommand) Execute(cArgs []string) (err error) {
 	// Assembly injection
 	if ext.sub.IsAssembly {
 		// Get specific options
-		var amsi, etw bool
-		amsiOpt := sub.FindOptionByLongName("amsi")
-		if amsiOpt != nil && save.Value().(bool) == true {
-			amsi = true
-		}
-		etwOpt := sub.FindOptionByLongName("etw")
-		if etwOpt != nil && etwOpt.Value().(bool) == true {
-			etw = true
-		}
+		// var amsi, etw bool
+		// amsiOpt := sub.FindOptionByLongName("amsi")
+		// if amsiOpt != nil && save.Value().(bool) == true {
+		//         amsi = true
+		// }
+		// etwOpt := sub.FindOptionByLongName("etw")
+		// if etwOpt != nil && etwOpt.Value().(bool) == true {
+		//         etw = true
+		// }
 
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", ext.sub.Name, args)
 		go spin.Until(msg, ctrl)
 		executeAssemblyResp, err := transport.RPC.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
-			AmsiBypass: amsi,
-			EtwBypass:  etw,
-			Arguments:  args,
-			Assembly:   binData,
-			Process:    processName,
-			Request:    cctx.Request(session),
+			// AmsiBypass: amsi,
+			// EtwBypass:  etw,
+			Arguments: args,
+			Assembly:  binData,
+			Process:   processName,
+			Request:   cctx.Request(session),
 		})
 		ctrl <- true
 		<-ctrl

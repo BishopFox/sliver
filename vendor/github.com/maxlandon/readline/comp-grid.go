@@ -30,7 +30,8 @@ func (g *CompletionGroup) initGrid(rl *Instance) {
 	// Maximum number of lines
 	maxY := len(g.Suggestions) / g.tcMaxX
 	rest := len(g.Suggestions) % g.tcMaxX
-	if rest != 0 && maxY != 1 {
+	if rest != 0 {
+		// if rest != 0 && maxY != 1 {
 		maxY++
 	}
 	if maxY > g.MaxLength {

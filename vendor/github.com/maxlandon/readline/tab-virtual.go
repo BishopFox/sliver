@@ -20,24 +20,6 @@ func (rl *Instance) insertCandidateVirtual(candidate []rune) {
 
 	// We place the cursor back at the beginning of the previous virtual candidate
 	rl.pos -= len(rl.currentComp)
-	moveCursorBackwards(len(rl.currentComp))
-
-	// We clear the current line, veryfying we just go the end of the first line
-	// TODO: Support for the first line, we'll sove when multiple ones
-	// rl.lineRemain = rl.lineComp[rl.pos:]
-	maxClearLength := GetTermWidth() - rl.promptLen - rl.pos
-	var offset int
-	if len(rl.lineRemain) > 0 && len(rl.lineRemain) > maxClearLength {
-		offset = maxClearLength
-	} else if len(rl.lineRemain) > 0 {
-		offset = len(rl.lineRemain)
-	} else if len(rl.lineComp) < maxClearLength {
-		offset = len(rl.lineComp)
-	} else {
-		offset = len(rl.currentComp)
-	}
-	print(strings.Repeat(" ", offset))
-	moveCursorBackwards(offset)
 
 	// We delete the previous virtual completion, just
 	// like we would delete a word in vim editing mode.
@@ -63,15 +45,33 @@ func (rl *Instance) insertCandidateVirtual(candidate []rune) {
 	case rl.pos < len(rl.lineComp):
 		r := append(candidate, rl.lineComp[rl.pos:]...)
 		rl.lineComp = append(rl.lineComp[:rl.pos], r...)
-
-		// Keep the remainder of the line, to be appended when refreshing
-		rl.lineRemain = rl.lineComp[rl.pos+len(candidate):]
 	default:
 		rl.lineComp = append(rl.lineComp, candidate...)
 	}
 
 	// We place the cursor at the end of our new virtually completed item
 	rl.pos += len(candidate)
+}
+
+// Insert the current completion candidate into the input line.
+// This candidate might either be the currently selected one (white frame),
+// or the only candidate available, if the total number of candidates is 1.
+func (rl *Instance) insertCandidate() {
+
+	cur := rl.getCurrentGroup()
+
+	if cur != nil {
+		completion := cur.getCurrentCell(rl)
+		prefix := len(rl.tcPrefix)
+
+		// Ensure no indexing error happens with prefix
+		if len(completion) >= prefix {
+			rl.insert([]rune(completion[prefix:]))
+			if !cur.TrimSlash {
+				rl.insert([]rune(" "))
+			}
+		}
+	}
 }
 
 // updateVirtualComp - Either insert the current completion candidate virtually, or on the real line.
@@ -85,6 +85,11 @@ func (rl *Instance) updateVirtualComp() {
 		// If the total number of completions is one, automatically insert it.
 		if rl.hasOneCandidate() {
 			rl.insertCandidate()
+			// Quit the tab completion mode to avoid asking to the user to press
+			// Enter twice to actually run the command
+			// Refresh first, and then quit the completion mode
+			rl.viUndoSkipAppend = true
+			rl.resetTabCompletion()
 		} else {
 			// Or insert it virtually.
 			if len(completion) >= prefix {
@@ -121,16 +126,22 @@ func (rl *Instance) resetVirtualComp() {
 	// We will only insert the net difference between prefix and completion.
 	prefix := len(rl.tcPrefix)
 
-	// Insert the current candidate
+	// Insert the current candidate. A bit of processing happens:
+	// - We trim the trailing slash if needed
+	// - We add a space only if the group has not explicitely specified not to add one.
 	if cur.TrimSlash {
 		trimmed, hadSlash := trimTrailing(completion)
 		if !hadSlash && rl.compAddSpace {
-			trimmed = trimmed + " "
+			if !cur.NoSpace {
+				trimmed = trimmed + " "
+			}
 		}
 		rl.insertCandidateVirtual([]rune(trimmed[prefix:]))
 	} else {
 		if rl.compAddSpace {
-			completion = completion + " "
+			if !cur.NoSpace {
+				completion = completion + " "
+			}
 		}
 		rl.insertCandidateVirtual([]rune(completion[prefix:]))
 	}
@@ -181,20 +192,15 @@ func (rl *Instance) viDeleteByAdjustVirtual(adjust int) {
 		newLine = append(rl.lineComp[:rl.pos], rl.lineComp[rl.pos+adjust:]...)
 	}
 
-	moveCursorBackwards(rl.pos)
-	print(strings.Repeat(" ", len(rl.lineComp)))
-	moveCursorBackwards(len(rl.lineComp) - rl.pos)
-
+	// We have our new line completed
 	rl.lineComp = newLine
-
-	// rl.echo() // Messes up with current rl.pos, not yet adjusted for candidate length.
 
 	if adjust < 0 {
 		rl.moveCursorByAdjust(adjust)
 	}
 
 	if backOne {
-		moveCursorBackwards(1)
+		// moveCursorBackwards(1)
 		rl.pos--
 	}
 }
@@ -229,29 +235,22 @@ func (rl *Instance) deleteVirtual() {
 		return
 	case rl.pos == 0:
 		rl.lineComp = rl.lineComp[1:]
-		// rl.echo()
-		moveCursorBackwards(1)
+		// moveCursorBackwards(1)
 	case rl.pos > len(rl.lineComp):
-		rl.backspace()
+		// rl.backspace()
 	case rl.pos == len(rl.lineComp):
 		rl.lineComp = rl.lineComp[:rl.pos]
-		// rl.echo()
-		moveCursorBackwards(1)
+		// moveCursorBackwards(1)
 	default:
 		rl.lineComp = append(rl.lineComp[:rl.pos], rl.lineComp[rl.pos+1:]...)
-		// rl.echo()
-		moveCursorBackwards(1)
+		// moveCursorBackwards(1)
 	}
-
-	// rl.updateHelpers()
 }
 
 // We are done with the current virtual completion candidate.
 // Get ready for the next one
 func (rl *Instance) clearVirtualComp() {
 	rl.line = rl.lineComp
-	rl.lineComp = []rune{}
-	rl.lineRemain = []rune{}
 	rl.currentComp = []rune{}
 	rl.compAddSpace = false
 }

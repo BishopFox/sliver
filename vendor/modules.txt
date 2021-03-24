@@ -23,6 +23,8 @@ github.com/BurntSushi/xgb/xproto
 ## explicit
 github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/pkg/guid
+# github.com/Netflix/go-expect v0.0.0-20190729225929-0e00d9168667
+## explicit
 # github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
 ## explicit
 github.com/acarl005/stripansi
@@ -68,17 +70,6 @@ github.com/binject/go-donut/donut
 github.com/danwakefield/fnmatch
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
-# github.com/desertbit/closer/v3 v3.1.2
-github.com/desertbit/closer/v3
-# github.com/desertbit/columnize v2.1.0+incompatible
-github.com/desertbit/columnize
-# github.com/desertbit/go-shlex v0.1.1
-github.com/desertbit/go-shlex
-# github.com/desertbit/grumble v1.1.1
-## explicit
-github.com/desertbit/grumble
-# github.com/desertbit/readline v1.5.1
-github.com/desertbit/readline
 # github.com/djherbis/buffer v1.1.0
 ## explicit
 github.com/djherbis/buffer/limio
@@ -91,6 +82,7 @@ github.com/dlclark/regexp2/syntax
 github.com/evilsocket/islazy/fs
 github.com/evilsocket/islazy/tui
 # github.com/fatih/color v1.10.0
+## explicit
 github.com/fatih/color
 # github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5
 ## explicit
@@ -124,10 +116,8 @@ github.com/grpc-ecosystem/go-grpc-middleware/logging
 github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus
 github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus
 github.com/grpc-ecosystem/go-grpc-middleware/tags
-# github.com/hashicorp/errwrap v1.1.0
-github.com/hashicorp/errwrap
-# github.com/hashicorp/go-multierror v1.1.0
-github.com/hashicorp/go-multierror
+# github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
+## explicit
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
 # github.com/jackc/chunkreader/v2 v2.0.1
@@ -176,7 +166,7 @@ github.com/mattn/go-runewidth
 # github.com/mattn/go-sqlite3 v1.14.6
 ## explicit
 github.com/mattn/go-sqlite3
-# github.com/maxlandon/readline v0.1.0-beta
+# github.com/maxlandon/readline v0.1.0-beta.0.20210323134646-e127d57a9b11
 ## explicit
 github.com/maxlandon/readline
 # github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
@@ -190,6 +180,8 @@ github.com/mitchellh/go-grpc-net-conn
 # github.com/olekukonko/tablewriter v0.0.5
 ## explicit
 github.com/olekukonko/tablewriter
+# github.com/olekukonko/ts v0.0.0-20171002115256-78ecb04241c0
+github.com/olekukonko/ts
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors

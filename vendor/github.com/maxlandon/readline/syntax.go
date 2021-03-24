@@ -1,5 +1,7 @@
 package readline
 
+// syntaxCompletion - applies syntax highlighting to the current input line.
+// nothing special to note here, nor any changes envisioned.
 func (rl *Instance) syntaxCompletion() {
 	if rl.SyntaxCompleter == nil {
 		return
@@ -13,8 +15,6 @@ func (rl *Instance) syntaxCompletion() {
 	newPos++
 
 	rl.line = newLine
-	rl.echo()
-	moveCursorForwards(newPos - rl.pos - 1)
-	moveCursorBackwards(rl.pos - newPos + 1)
 	rl.pos = newPos
+	rl.renderHelpers()
 }

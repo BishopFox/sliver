@@ -2,7 +2,6 @@ package readline
 
 import (
 	"strconv"
-	"strings"
 )
 
 // InputMode - The shell input mode
@@ -33,12 +32,15 @@ const (
 	vimKeysStr        = "[N]"
 )
 
+// vi - Apply a key to a Vi action. Note that as in the rest of the code, all cursor movements
+// have been moved away, and only the rl.pos is adjusted: when echoing the input line, the shell
+// will compute the new cursor pos accordingly.
 func (rl *Instance) vi(r rune) {
 
 	switch r {
 	case 'a':
 		if len(rl.line) > 0 {
-			moveCursorForwards(1)
+			// moveCursorForwards(1)
 			rl.pos++
 		}
 		rl.modeViMode = vimInsert
@@ -47,7 +49,7 @@ func (rl *Instance) vi(r rune) {
 
 	case 'A':
 		if len(rl.line) > 0 {
-			moveCursorForwards(len(rl.line) - rl.pos)
+			// moveCursorForwards(len(rl.line) - rl.pos)
 			rl.pos = len(rl.line)
 		}
 		rl.modeViMode = vimInsert
@@ -73,15 +75,16 @@ func (rl *Instance) vi(r rune) {
 		rl.viUndoSkipAppend = true
 
 	case 'D':
-		moveCursorBackwards(rl.pos)
-		print(strings.Repeat(" ", len(rl.line)))
+		// moveCursorBackwards(rl.pos)
+		// print(strings.Repeat(" ", len(rl.line)))
 
-		moveCursorBackwards(len(rl.line) - rl.pos)
+		// moveCursorBackwards(len(rl.line) - rl.pos)
 		rl.line = rl.line[:rl.pos]
-		rl.echo()
+		// rl.echo()
 
-		moveCursorBackwards(2)
+		// moveCursorBackwards(2)
 		rl.pos--
+		rl.updateHelpers()
 		rl.viIteration = ""
 
 	case 'e':
@@ -100,7 +103,7 @@ func (rl *Instance) vi(r rune) {
 
 	case 'h':
 		if rl.pos > 0 {
-			moveCursorBackwards(1)
+			// moveCursorBackwards(1)
 			rl.pos--
 		}
 		rl.viUndoSkipAppend = true
@@ -114,13 +117,13 @@ func (rl *Instance) vi(r rune) {
 		rl.modeViMode = vimInsert
 		rl.viIteration = ""
 		rl.viUndoSkipAppend = true
-		moveCursorBackwards(rl.pos)
+		// moveCursorBackwards(rl.pos)
 		rl.pos = 0
 
 	case 'l':
 		if (rl.modeViMode == vimInsert && rl.pos < len(rl.line)) ||
 			(rl.modeViMode != vimInsert && rl.pos < len(rl.line)-1) {
-			moveCursorForwards(1)
+			// moveCursorForwards(1)
 			rl.pos++
 		}
 		rl.viUndoSkipAppend = true
@@ -129,13 +132,13 @@ func (rl *Instance) vi(r rune) {
 		// paste after
 		rl.viUndoSkipAppend = true
 		rl.pos++
-		moveCursorForwards(1)
+		// moveCursorForwards(1)
 		vii := rl.getViIterations()
 		for i := 1; i <= vii; i++ {
 			rl.insert([]rune(rl.viYankBuffer))
 		}
 		rl.pos--
-		moveCursorBackwards(1)
+		// moveCursorBackwards(1)
 
 	case 'P':
 		// paste before
@@ -205,7 +208,7 @@ func (rl *Instance) vi(r rune) {
 			rl.delete()
 		}
 		if rl.pos == len(rl.line) && len(rl.line) > 0 {
-			moveCursorBackwards(1)
+			// moveCursorBackwards(1)
 			rl.pos--
 		}
 
@@ -222,7 +225,7 @@ func (rl *Instance) vi(r rune) {
 		rl.moveCursorByAdjust(rl.viJumpNextBrace())
 
 	case '$':
-		moveCursorForwards(len(rl.line) - rl.pos)
+		// moveCursorForwards(len(rl.line) - rl.pos)
 		rl.pos = len(rl.line)
 		rl.viUndoSkipAppend = true
 
@@ -233,11 +236,11 @@ func (rl *Instance) vi(r rune) {
 	case 'j':
 		// Set the main history as the one we navigate, by default
 		rl.mainHist = true
-		rl.walkHistory(1)
+		rl.walkHistory(-1)
 	case 'k':
 		// Set the main history as the one we navigate, by default
 		rl.mainHist = true
-		rl.walkHistory(-1)
+		rl.walkHistory(1)
 	default:
 		if r <= '9' && '0' <= r {
 			rl.viIteration += string(r)
@@ -256,15 +259,13 @@ func (rl *Instance) getViIterations() int {
 }
 
 func (rl *Instance) refreshVimStatus() {
-
-	if !rl.ShowVimMode {
-		return
-	}
 	rl.computePrompt()
 	rl.clearHelpers()
 	rl.renderHelpers()
 }
 
+// viHintMessage - lmorg's way of showing Vim status is to overwrite the hint.
+// Currently not used, as there is a possibility to show the current Vim mode in the prompt.
 func (rl *Instance) viHintMessage() {
 	switch rl.modeViMode {
 	case vimKeys:

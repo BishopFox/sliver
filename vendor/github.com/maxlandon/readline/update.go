@@ -1,265 +1,146 @@
 package readline
 
-import (
-	"strings"
-)
-
-func moveCursorUp(i int) {
-	if i < 1 {
-		return
-	}
-
-	printf("\x1b[%dA", i)
-}
-
-func moveCursorDown(i int) {
-	if i < 1 {
-		return
-	}
-
-	printf("\x1b[%dB", i)
-}
-
-func moveCursorForwards(i int) {
-	if i < 1 {
-		return
-	}
-
-	printf("\x1b[%dC", i)
-}
-
-func moveCursorBackwards(i int) {
-	if i < 1 {
-		return
-	}
-
-	printf("\x1b[%dD", i)
-}
-
-// moveCursorToLinePos - Must calculate the length of the prompt, realtime
-// and for all contexts/needs, and move the cursor appropriately
-func moveCursorToLinePos(rl *Instance) {
-	moveCursorForwards(rl.promptLen + rl.pos)
-	return
-}
-
-func (rl *Instance) moveCursorByAdjust(adjust int) {
-	switch {
-	case adjust > 0:
-		moveCursorForwards(adjust)
-		rl.pos += adjust
-	case adjust < 0:
-		moveCursorBackwards(adjust * -1)
-		rl.pos += adjust
-	}
-
-	if rl.modeViMode != vimInsert && rl.pos == len(rl.line) && len(rl.line) > 0 {
-		moveCursorBackwards(1)
-		rl.pos--
-	}
-}
-
-func (rl *Instance) insert(r []rune) {
-	for {
-		// I don't really understand why `0` is creaping in at the end of the
-		// array but it only happens with unicode characters.
-		if len(r) > 1 && r[len(r)-1] == 0 {
-			r = r[:len(r)-1]
-			continue
-		}
-		break
-	}
-
-	switch {
-	case len(rl.line) == 0:
-		rl.line = r
-	case rl.pos == 0:
-		rl.line = append(r, rl.line...)
-	case rl.pos < len(rl.line):
-		r := append(r, rl.line[rl.pos:]...)
-		rl.line = append(rl.line[:rl.pos], r...)
-	default:
-		rl.line = append(rl.line, r...)
-	}
-
-	rl.echo()
-
-	rl.pos += len(r)
-	moveCursorForwards(len(r) - 1)
-
-	if rl.modeViMode == vimInsert {
-		rl.updateHelpers()
-	}
-}
-
-func (rl *Instance) backspace() {
-	if len(rl.line) == 0 || rl.pos == 0 {
-		return
-	}
-
-	moveCursorBackwards(1)
-	rl.pos--
-	rl.delete()
-}
-
-func (rl *Instance) delete() {
-	switch {
-	case len(rl.line) == 0:
-		return
-	case rl.pos == 0:
-		rl.line = rl.line[1:]
-		rl.echo()
-		moveCursorBackwards(1)
-	case rl.pos > len(rl.line):
-		rl.backspace()
-	case rl.pos == len(rl.line):
-		rl.line = rl.line[:rl.pos]
-		rl.echo()
-		moveCursorBackwards(1)
-	default:
-		rl.line = append(rl.line[:rl.pos], rl.line[rl.pos+1:]...)
-		rl.echo()
-		moveCursorBackwards(1)
-	}
-
-	rl.updateHelpers()
-}
-
-func (rl *Instance) echo() {
-
-	// We move the cursor back to the very beginning of the line:
-	// prompt + cursor position
-	moveCursorBackwards(rl.promptLen + rl.pos)
-
-	switch {
-	case rl.PasswordMask > 0:
-		print(strings.Repeat(string(rl.PasswordMask), len(rl.line)) + " ")
-
-	case rl.SyntaxHighlighter == nil:
-		print(string(rl.mlnPrompt))
-
-		// Depending on the presence of a virtually completed item,
-		// print either the virtual line or the real one.
-		if len(rl.currentComp) > 0 {
-			line := rl.lineComp[:rl.pos]
-			line = append(line, rl.lineRemain...)
-			print(string(line) + " ")
-		} else {
-			print(string(rl.line) + " ")
-			moveCursorBackwards(len(rl.line) - rl.pos)
-		}
-
-	default:
-		print(string(rl.mlnPrompt))
-
-		// Depending on the presence of a virtually completed item,
-		// print either the virtual line or the real one.
-		if len(rl.currentComp) > 0 {
-			line := rl.lineComp[:rl.pos]
-			line = append(line, rl.lineRemain...)
-			print(rl.SyntaxHighlighter(line) + " ")
-		} else {
-			print(rl.SyntaxHighlighter(rl.line) + " ")
-			moveCursorBackwards(len(rl.line) - rl.pos)
-		}
-	}
-
-	// moveCursorBackwards(len(rl.line) - rl.pos)
-}
-
-func (rl *Instance) clearLine() {
-	if len(rl.line) == 0 {
-		return
-	}
-
-	var lineLen int
-	if len(rl.lineComp) > len(rl.line) {
-		lineLen = len(rl.lineComp)
-	} else {
-		lineLen = len(rl.line)
-	}
-
-	moveCursorBackwards(rl.pos)
-	print(strings.Repeat(" ", lineLen))
-	moveCursorBackwards(lineLen)
-
-	// Real input line
-	rl.line = []rune{}
-	rl.pos = 0
-
-	// Completions are also reset
-	rl.clearVirtualComp()
-}
-
-func (rl *Instance) resetHelpers() {
-	rl.modeAutoFind = false
-	rl.clearHelpers()
-	rl.resetHintText()
-	rl.resetTabCompletion()
-}
-
-func (rl *Instance) clearHelpers() {
-	print("\r\n" + seqClearScreenBelow)
-	moveCursorUp(1)
-	moveCursorToLinePos(rl)
-
-	// Reset some values
-	rl.lineComp = []rune{}
-	rl.currentComp = []rune{}
-}
-
-func (rl *Instance) renderHelpers() {
-
-	rl.echo()
-
-	// If we are waiting for confirmation (too many comps),
-	// do not overwrite the confirmation question hint.
-	if !rl.compConfirmWait {
-		// We also don't overwrite if in tab find mode, which has a special hint.
-		if !rl.modeAutoFind {
-			rl.getHintText()
-		}
-		// We write the hint anyway
-		rl.writeHintText()
-	}
-
-	rl.writeTabCompletion()
-	moveCursorUp(rl.tcUsedY)
-
-	if !rl.compConfirmWait {
-		moveCursorUp(rl.hintY)
-	}
-	moveCursorBackwards(GetTermWidth())
-
-	moveCursorToLinePos(rl)
-}
-
-// This one has the advantage of not stacking hints and completions, pretty balanced.
-// However there is a problem with it when we use completion while being in the middle of the line.
-// func (rl *Instance) renderHelpers() {
-//
-//         rl.echo() // Added by me, so that prompt always appear when new line
-//
-//         // If we are waiting for confirmation (too many comps), do not overwrite the hints.
-//         if !rl.compConfirmWait {
-//                 rl.getHintText()
-//                 rl.writeHintText()
-//                 moveCursorUp(rl.hintY)
-//         }
-//
-//         rl.writeTabCompletion()
-//         moveCursorUp(rl.tcUsedY)
-
-//         moveCursorBackwards(GetTermWidth())
-//         moveCursorToLinePos(rl)
-// }
-
+// updateHelpers is a key part of the whole refresh process:
+// it should coordinate reprinting the input line, any hints and completions
+// and manage to get back to the current (computed) cursor coordinates
 func (rl *Instance) updateHelpers() {
-	rl.tcOffset = 0
+
+	// Load all hints & completions before anything.
+	// Thus overwrites anything having been dirtily added/forced/modified, like rl.SetHintText()
 	rl.getHintText()
 	if rl.modeTabCompletion {
 		rl.getTabCompletion()
 	}
+
+	// We clear everything
 	rl.clearHelpers()
+
+	// We are at the prompt line (with the latter
+	// not printed yet), then reprint everything
 	rl.renderHelpers()
+}
+
+// Update reference should be called only once in a "loop" (not Readline(), but key control loop)
+func (rl *Instance) updateReferences() {
+
+	// We always need to work with clean data,
+	// since we will have incrementers all around
+	rl.posX = 0
+	rl.fullX = 0
+	rl.posY = 0
+	rl.fullY = 0
+
+	var fullLine, cPosLine int
+	if len(rl.currentComp) > 0 {
+		fullLine = len(rl.lineComp)
+		cPosLine = len(rl.lineComp[:rl.pos])
+	} else {
+		fullLine = len(rl.line)
+		cPosLine = len(rl.line[:rl.pos])
+	}
+
+	// We need the X offset of the whole line
+	toEndLine := rl.promptLen + fullLine
+	fullOffset := toEndLine / GetTermWidth()
+	rl.fullY = fullOffset
+	fullRest := toEndLine % GetTermWidth()
+	rl.fullX = fullRest
+
+	// Use rl.pos value to get the offset to go TO/FROM the CURRENT POSITION
+	lineToCursorPos := rl.promptLen + cPosLine
+	offsetToCursor := lineToCursorPos / GetTermWidth()
+	cPosRest := lineToCursorPos % GetTermWidth()
+
+	// If we are at the end of line
+	if fullLine == rl.pos {
+		rl.posY = fullOffset
+
+		if fullRest == 0 {
+			rl.posX = 0
+		} else if fullRest > 0 {
+			rl.posX = fullRest
+		}
+	} else if rl.pos < fullLine {
+		// If we are somewhere in the middle of the line
+		rl.posY = offsetToCursor
+
+		if cPosRest == 0 {
+		} else if cPosRest > 0 {
+			rl.posX = cPosRest
+		}
+	}
+}
+
+func (rl *Instance) resetHelpers() {
+	rl.modeAutoFind = false
+
+	// Now reset all below-input helpers
+	rl.resetHintText()
+	rl.resetTabCompletion()
+}
+
+// clearHelpers - Clears everything: prompt, input, hints & comps,
+// and comes back at the prompt.
+func (rl *Instance) clearHelpers() {
+
+	// Now go down to the last line of input
+	moveCursorDown(rl.fullY - rl.posY)
+	moveCursorBackwards(rl.posX)
+	moveCursorForwards(rl.fullX)
+
+	// Clear everything below
+	print(seqClearScreenBelow)
+
+	// Go back to current cursor position
+	moveCursorBackwards(GetTermWidth())
+	moveCursorUp(rl.fullY - rl.posY)
+	moveCursorForwards(rl.posX)
+}
+
+// renderHelpers - pritns all components (prompt, line, hints & comps)
+// and replaces the cursor to its current position. This function never
+// computes or refreshes any value, except from inside the echo function.
+func (rl *Instance) renderHelpers() {
+
+	// Optional, because neutral on placement
+	rl.echo()
+
+	// Go at beginning of first line after input remainder
+	moveCursorDown(rl.fullY - rl.posY)
+	moveCursorBackwards(GetTermWidth())
+
+	// Print hints, check for any confirmation hint current.
+	// (do not overwrite the confirmation question hint)
+	if !rl.compConfirmWait {
+		if len(rl.hintText) > 0 {
+			print("\n")
+		}
+		rl.writeHintText()
+		moveCursorBackwards(GetTermWidth())
+
+		// Print completions and go back to beginning of this line
+		print("\n")
+		rl.writeTabCompletion()
+		moveCursorBackwards(GetTermWidth())
+		moveCursorUp(rl.tcUsedY - 1)
+	}
+
+	// If we are still waiting for the user to confirm too long completions
+	if rl.compConfirmWait {
+		print("\n")
+		rl.writeHintText()
+		moveCursorBackwards(GetTermWidth())
+		print("\n")
+	}
+
+	// Anyway, compensate for hint printout
+	if len(rl.hintText) > 0 {
+		moveCursorUp(rl.hintY)
+	} else {
+		moveCursorUp(1)
+	}
+
+	// Go back to current cursor position
+	moveCursorUp(rl.fullY - rl.posY)
+	moveCursorForwards(rl.posX)
 }

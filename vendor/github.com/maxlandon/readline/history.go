@@ -28,6 +28,28 @@ type History interface {
 	Dump() interface{}
 }
 
+// SetHistoryCtrlR - Set the history source triggered with Ctrl-R combination
+func (rl *Instance) SetHistoryCtrlR(name string, history History) {
+	rl.mainHistName = name
+	rl.mainHistory = history
+}
+
+// GetHistoryCtrlE - Returns the history source triggered by CtrlE
+func (rl *Instance) GetHistoryCtrlR() History {
+	return rl.mainHistory
+}
+
+// SetHistoryCtrlE - Set the history source triggered with Ctrl-E combination
+func (rl *Instance) SetHistoryCtrlE(name string, history History) {
+	rl.altHistName = name
+	rl.altHistory = history
+}
+
+// GetHistoryCtrlE - Returns the history source triggered by CtrlE
+func (rl *Instance) GetHistoryCtrlE() History {
+	return rl.altHistory
+}
+
 // ExampleHistory is an example of a LineHistory interface:
 type ExampleHistory struct {
 	items []string
@@ -80,50 +102,61 @@ func (h *NullHistory) Dump() interface{} {
 
 // Browse historic lines:
 func (rl *Instance) walkHistory(i int) {
-	// Switch to correct history
+	var (
+		old, new string
+		dedup    bool
+		err      error
+	)
+
+	// Work with correct history source (depends on CtrlR/CtrlE)
 	var history History
 	if !rl.mainHist {
-		history = rl.AltHistory
+		history = rl.altHistory
 	} else {
-		history = rl.History
+		history = rl.mainHistory
+	}
+
+	// When we are exiting the current line buffer to move around
+	// the history, we make buffer the current line
+	if rl.histPos == 0 && (rl.histPos+i) == 1 {
+		rl.lineBuf = string(rl.line)
 	}
 
 	switch rl.histPos + i {
-	case -1, history.Len() + 1:
-		return
-
-	case history.Len():
-		rl.clearLine()
-		rl.histPos += i
+	case 0, history.Len() + 1:
+		rl.histPos = 0
 		rl.line = []rune(rl.lineBuf)
-
+		rl.pos = len(rl.lineBuf)
+		return
+	case -1:
+		rl.histPos = 0
+		rl.lineBuf = string(rl.line)
+		// return
 	default:
-		s, err := history.GetLine(rl.histPos + i)
+		dedup = true
+		old = string(rl.line)
+		new, err = history.GetLine(history.Len() - rl.histPos - 1)
 		if err != nil {
 			rl.resetHelpers()
 			print("\r\n" + err.Error() + "\r\n")
-			print(rl.prompt)
+			print(rl.mainPrompt)
 			return
-		}
-
-		if rl.histPos == history.Len() {
-			rl.lineBuf = string(rl.line)
 		}
 
 		rl.clearLine()
 		rl.histPos += i
-		rl.line = []rune(s)
+		rl.line = []rune(new)
+		rl.pos = len(rl.line)
 	}
 
-	rl.echo()
-	rl.pos = len(rl.line)
-	if rl.pos > 1 {
-		moveCursorForwards(rl.pos - 1)
-	} else if rl.pos == 0 {
-		moveCursorBackwards(1)
-	}
-
+	// Update the line, and any helpers
 	rl.updateHelpers()
+
+	// In order to avoid having to type j/k twice each time for history navigation,
+	// we walk once again. This only ever happens when we aren't out of bounds.
+	if dedup && old == new {
+		rl.walkHistory(i)
+	}
 }
 
 // completeHistory - Populates a CompletionGroup with history and returns it the shell
@@ -139,19 +172,17 @@ func (rl *Instance) completeHistory() (hist []*CompletionGroup) {
 	// Switch to completion flux first
 	var history History
 	if !rl.mainHist {
-		if rl.AltHistory == nil {
+		if rl.altHistory == nil {
 			return
 		}
-		history = rl.AltHistory
-		hist[0].Name = "User history (all clients)"
-		hist[0].Description = "All commands entered by the user, in all its consoles."
+		history = rl.altHistory
+		rl.histHint = []rune(rl.altHistName + ": ")
 	} else {
-		if rl.History == nil {
+		if rl.mainHistory == nil {
 			return
 		}
-		history = rl.History
-		hist[0].Name = "Console history"
-		hist[0].Description = "All commands for this console only (identified by its ID)."
+		history = rl.mainHistory
+		rl.histHint = []rune(rl.mainHistName + ": ")
 	}
 
 	hist[0].init(rl)
@@ -164,7 +195,7 @@ func (rl *Instance) completeHistory() (hist []*CompletionGroup) {
 
 	rl.tcPrefix = string(rl.line) // We use the current full line for filtering
 
-	for i := history.Len() - 1; i >= 0; i-- {
+	for i := history.Len() - 2; i >= 1; i-- {
 		line, err = history.GetLine(i)
 		if err != nil {
 			continue
@@ -174,7 +205,7 @@ func (rl *Instance) completeHistory() (hist []*CompletionGroup) {
 			continue
 		}
 
-		line = strings.Replace(line, "\n", ` `, -1)[len(rl.line):]
+		line = strings.Replace(line, "\n", ` `, -1)
 
 		if hist[0].Descriptions[line] != "" {
 			continue

@@ -1,9 +1,5 @@
 package readline
 
-import (
-	"strings"
-)
-
 type undoItem struct {
 	line string
 	pos  int
@@ -25,7 +21,6 @@ func (rl *Instance) undoAppendHistory() {
 func (rl *Instance) undoLast() {
 	var undo undoItem
 	for {
-		// fmt.Println("|", len(rl.viUndoHistory), "|")
 		if len(rl.viUndoHistory) == 0 {
 			return
 		}
@@ -36,21 +31,13 @@ func (rl *Instance) undoLast() {
 		}
 	}
 
-	rl.clearHelpers()
-
-	moveCursorBackwards(rl.pos)
-	print(strings.Repeat(" ", len(rl.line)))
-	moveCursorBackwards(len(rl.line))
-	moveCursorForwards(undo.pos)
-
 	rl.line = []rune(undo.line)
 	rl.pos = undo.pos
 
-	rl.echo()
+	rl.updateHelpers()
 
 	if rl.modeViMode != vimInsert && len(rl.line) > 0 && rl.pos == len(rl.line) {
 		rl.pos--
-		moveCursorBackwards(1)
 	}
 
 }

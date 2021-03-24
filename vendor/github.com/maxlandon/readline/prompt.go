@@ -4,6 +4,12 @@ import (
 	"fmt"
 )
 
+// SetPrompt will define the readline prompt string.
+// It also calculates the runes in the string as well as any non-printable escape codes.
+func (rl *Instance) SetPrompt(s string) {
+	rl.mainPrompt = s
+}
+
 // RefreshPromptLog - A simple function to print a string message (a log, or more broadly,
 // an asynchronous event) without bothering the user, and by "pushing" the prompt below the message.
 func (rl *Instance) RefreshPromptLog(log string) (err error) {
@@ -44,11 +50,11 @@ func (rl *Instance) RefreshPromptLog(log string) (err error) {
 	// Print the prompt
 	if rl.Multiline {
 		rl.tcUsedY += 3
-		fmt.Println(rl.prompt)
+		fmt.Println(rl.mainPrompt)
 
 	} else {
 		rl.tcUsedY += 2
-		fmt.Print(rl.prompt)
+		fmt.Print(rl.mainPrompt)
 	}
 
 	// Refresh the line
@@ -73,7 +79,7 @@ func (rl *Instance) RefreshPromptInPlace(prompt string) (err error) {
 
 	// Update the prompt if a special has been passed.
 	if prompt != "" {
-		rl.prompt = prompt
+		rl.mainPrompt = prompt
 	}
 
 	if rl.Multiline {
@@ -88,10 +94,10 @@ func (rl *Instance) RefreshPromptInPlace(prompt string) (err error) {
 
 	// Add a new line if needed
 	if rl.Multiline {
-		fmt.Println(rl.prompt)
+		fmt.Println(rl.mainPrompt)
 
 	} else {
-		fmt.Print(rl.prompt)
+		fmt.Print(rl.mainPrompt)
 	}
 
 	// Refresh the line
@@ -104,7 +110,6 @@ func (rl *Instance) RefreshPromptInPlace(prompt string) (err error) {
 // @prompt      => If not nil (""), will use this prompt instead of the currently set prompt.
 // @offset      => Used to set the number of lines to go upward, before reprinting. Set to 0 if not used.
 // @clearLine   => If true, will clean the current input line on the next refresh.
-// Please check the Instance.HideNextPrompt variable and its effects on this function !
 func (rl *Instance) RefreshPromptCustom(prompt string, offset int, clearLine bool) (err error) {
 
 	// We adjust cursor movement, depending on which mode we're currently in.
@@ -127,15 +132,15 @@ func (rl *Instance) RefreshPromptCustom(prompt string, offset int, clearLine boo
 
 	// Update the prompt if a special has been passed.
 	if prompt != "" {
-		rl.prompt = prompt
+		rl.mainPrompt = prompt
 	}
 
 	// Add a new line if needed
 	if rl.Multiline && prompt == "" {
 	} else if rl.Multiline {
-		fmt.Println(rl.prompt)
+		fmt.Println(rl.mainPrompt)
 	} else {
-		fmt.Print(rl.prompt)
+		fmt.Print(rl.mainPrompt)
 	}
 
 	// Refresh the line
@@ -163,9 +168,11 @@ func (rl *Instance) computePrompt() (prompt []rune) {
 }
 
 func (rl *Instance) computePromptVim() {
-	var vimStatus []rune
-	var colorPromptOffset int
-	// Compute Vim status
+
+	var vimStatus []rune      // Here we use this as a temporary prompt string
+	var colorPromptOffset int // We may have to adjust for effective length
+
+	// Compute Vim status string first
 	if rl.ShowVimMode {
 		switch rl.modeViMode {
 		case vimKeys:
@@ -191,52 +198,52 @@ func (rl *Instance) computePromptVim() {
 	// Append any optional prompts for multiline mode
 	if rl.Multiline {
 		if rl.MultilinePrompt != "" {
-			rl.mlnPrompt = append(vimStatus, []rune(rl.MultilinePrompt)...)
+			rl.realPrompt = append(vimStatus, []rune(rl.MultilinePrompt)...)
 		} else {
-			rl.mlnPrompt = vimStatus
-			rl.mlnPrompt = append(rl.mlnPrompt, rl.mlnArrow...)
+			rl.realPrompt = vimStatus
+			rl.realPrompt = append(rl.realPrompt, rl.defaultPrompt...)
 		}
 	}
 	// Equivalent for non-multiline
 	if !rl.Multiline {
-		if rl.prompt != "" {
-			rl.mlnPrompt = append(vimStatus, []rune(" "+rl.prompt)...)
+		if rl.mainPrompt != "" {
+			rl.realPrompt = append(vimStatus, []rune(" "+rl.mainPrompt)...)
 		} else {
-			rl.mlnPrompt = append(rl.mlnPrompt, vimStatus...)
+			rl.realPrompt = append(rl.realPrompt, vimStatus...)
 		}
 		if rl.MultilinePrompt != "" {
-			rl.mlnPrompt = append(rl.mlnPrompt, []rune(rl.MultilinePrompt)...)
-		} else {
-			rl.mlnPrompt = append(rl.mlnPrompt, rl.mlnArrow...)
+			rl.realPrompt = append(rl.realPrompt, []rune(rl.MultilinePrompt)...)
+			// } else {
+			//         rl.realPrompt = append(rl.realPrompt, rl.defaultPrompt...)
 		}
 	}
 
 	// Compute lengths and return
-	rl.promptLen = len(rl.mlnPrompt) - colorPromptOffset
+	rl.promptLen = len(rl.realPrompt) - colorPromptOffset
 }
 
 func (rl *Instance) computePromptEmacs() {
 	if rl.Multiline {
 		if rl.MultilinePrompt != "" {
-			rl.mlnPrompt = []rune(rl.MultilinePrompt)
+			rl.realPrompt = []rune(rl.MultilinePrompt)
 		} else {
-			rl.mlnPrompt = rl.mlnArrow
+			rl.realPrompt = rl.defaultPrompt
 		}
 
 	}
 	if !rl.Multiline {
-		if rl.prompt != "" {
-			rl.mlnPrompt = append([]rune(rl.prompt), rl.mlnArrow...)
+		if rl.mainPrompt != "" {
+			rl.realPrompt = append([]rune(rl.mainPrompt), rl.defaultPrompt...)
 		}
 		if rl.MultilinePrompt != "" {
-			rl.mlnPrompt = append(rl.mlnPrompt, []rune(rl.MultilinePrompt)...)
+			rl.realPrompt = append(rl.realPrompt, []rune(rl.MultilinePrompt)...)
 		} else {
-			rl.mlnPrompt = append(rl.mlnPrompt, rl.mlnArrow...)
+			rl.realPrompt = append(rl.realPrompt, rl.defaultPrompt...)
 		}
 	}
 
 	// Compute lengths and return
-	rl.promptLen = len(rl.mlnPrompt)
+	rl.promptLen = len(rl.realPrompt)
 }
 
 func (rl *Instance) colorizeVimPrompt(p []rune) (cp []rune) {
