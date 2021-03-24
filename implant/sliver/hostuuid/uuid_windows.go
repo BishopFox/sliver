@@ -25,8 +25,8 @@ import (
 )
 
 // Stored Format: {U-U-I-D}
-const uuid_keypath = "HKEY_LOCAL_MACHINE\\SYSTEM\\HardwareConfig"
-const uuid_key = "LastConfig"
+var uuid_keypath = "HKEY_LOCAL_MACHINE\\SYSTEM\\HardwareConfig"
+var uuid_key = "LastConfig"
 
 func GetUUID() string {
 	key, err := registry.OpenKey(registry.CURRENT_USER, uuid_keypath, registry.QUERY_VALUE)

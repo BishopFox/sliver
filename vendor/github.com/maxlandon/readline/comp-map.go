@@ -73,11 +73,19 @@ func (g *CompletionGroup) moveTabMapHighlight(rl *Instance, x, y int) (done bool
 // writeMap - A map or list completion string
 func (g *CompletionGroup) writeMap(rl *Instance) (comp string) {
 
-	comp += "\n"
-	if g.Name != "" {
-		// Print group title (changes with line returns depending on type)
-		comp += fmt.Sprintf(" %s%s%s %s", BOLD, YELLOW, g.Name, RESET)
-		rl.tcUsedY++
+	// Title is not printed for history
+	if rl.modeAutoFind && rl.modeTabFind && rl.searchMode == HistoryFind {
+		if len(g.Suggestions) == 0 {
+			rl.hintText = []rune(fmt.Sprintf("\n%s%s%s %s", DIM, RED,
+				"No command history source, or empty", RESET))
+		}
+	} else {
+		comp += "\n"
+		if g.Name != "" {
+			// Print group title (changes with line returns depending on type)
+			comp += fmt.Sprintf(" %s%s%s %s", BOLD, YELLOW, g.Name, RESET)
+			rl.tcUsedY++
+		}
 	}
 
 	termWidth := GetTermWidth()
@@ -125,7 +133,7 @@ func (g *CompletionGroup) writeMap(rl *Instance) (comp string) {
 			description = description[:maxLength-3] + "..."
 		}
 
-		comp += fmt.Sprintf("\r%-"+cellWidth+"s %s %-"+itemWidth+"s %s\n",
+		comp += fmt.Sprintf("\r\n%-"+cellWidth+"s %s %-"+itemWidth+"s %s",
 			description, highlight(y), item, seqReset)
 	}
 
@@ -134,6 +142,11 @@ func (g *CompletionGroup) writeMap(rl *Instance) (comp string) {
 		rl.tcUsedY += g.MaxLength + 1
 	} else {
 		rl.tcUsedY += len(g.Suggestions) + 1
+	}
+
+	// Special case: history search handles titles differently.
+	if rl.modeAutoFind && rl.modeTabFind && rl.searchMode == HistoryFind {
+		rl.tcUsedY--
 	}
 
 	return

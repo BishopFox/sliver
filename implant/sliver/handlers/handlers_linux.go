@@ -38,6 +38,7 @@ var (
 		sliverpb.MsgIfconfigReq:  ifconfigHandler,
 		sliverpb.MsgExecuteReq:   executeHandler,
 		sliverpb.MsgEnvReq:       getEnvHandler,
+		sliverpb.MsgSetEnvReq:    setEnvHandler,
 
 		sliverpb.MsgScreenshotReq: screenshotHandler,
 

@@ -173,7 +173,7 @@ func TunnelLoop() error {
 			log.Printf("Tunnel data read error: %s", err)
 			return err
 		}
-		log.Printf("Received TunnelData for tunnel %d", incoming.TunnelID)
+		// log.Printf("Received TunnelData for tunnel %d", incoming.TunnelID)
 		tunnel := Tunnels.Get(incoming.TunnelID)
 		if tunnel != nil {
 			if !incoming.Closed {

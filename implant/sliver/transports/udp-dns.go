@@ -32,6 +32,11 @@ import (
 	"errors"
 	"fmt"
 	"math"
+
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
 	insecureRand "math/rand"
 	"net"
 	"net/url"

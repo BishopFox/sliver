@@ -1,6 +1,6 @@
 package constants
 
-// Ironically not consts, becuase our string obfuscator only works on `var`s
+import "reflect"
 
 /*
 	Sliver Implant Framework
@@ -20,6 +20,15 @@ package constants
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+// Ironically not consts to ensure the string obfuscator hits this value
 var (
 	SliverName = `{{.Name}}`
 )
+
+// Message - Fake message for embedding canaries
+type Message struct {
+	Command string `c2:"[[GenerateCanary]]"`
+}
+
+// never obfuscate the Message type
+var _ = reflect.TypeOf(Message{})

@@ -29,7 +29,7 @@ func SetupUpdateReflectValue(db *gorm.DB) {
 }
 
 func BeforeUpdate(db *gorm.DB) {
-	if db.Error == nil && db.Statement.Schema != nil && !db.Statement.UpdatingColumn && (db.Statement.Schema.BeforeSave || db.Statement.Schema.BeforeUpdate) {
+	if db.Error == nil && db.Statement.Schema != nil && !db.Statement.SkipHooks && (db.Statement.Schema.BeforeSave || db.Statement.Schema.BeforeUpdate) {
 		callMethod(db, func(value interface{}, tx *gorm.DB) (called bool) {
 			if db.Statement.Schema.BeforeSave {
 				if i, ok := value.(BeforeSaveInterface); ok {
@@ -87,7 +87,7 @@ func Update(db *gorm.DB) {
 }
 
 func AfterUpdate(db *gorm.DB) {
-	if db.Error == nil && db.Statement.Schema != nil && !db.Statement.UpdatingColumn && (db.Statement.Schema.AfterSave || db.Statement.Schema.AfterUpdate) {
+	if db.Error == nil && db.Statement.Schema != nil && !db.Statement.SkipHooks && (db.Statement.Schema.AfterSave || db.Statement.Schema.AfterUpdate) {
 		callMethod(db, func(value interface{}, tx *gorm.DB) (called bool) {
 			if db.Statement.Schema.AfterSave {
 				if i, ok := value.(AfterSaveInterface); ok {
@@ -198,11 +198,11 @@ func ConvertToAssignments(stmt *gorm.Statement) (set clause.Set) {
 			}
 		}
 
-		if !stmt.UpdatingColumn && stmt.Schema != nil {
+		if !stmt.SkipHooks && stmt.Schema != nil {
 			for _, dbName := range stmt.Schema.DBNames {
 				field := stmt.Schema.LookUpField(dbName)
 				if field.AutoUpdateTime > 0 && value[field.Name] == nil && value[field.DBName] == nil {
-					if v, ok := selectColumns[field.DBName]; (ok && v) || (!ok && !restricted) {
+					if v, ok := selectColumns[field.DBName]; (ok && v) || !ok {
 						now := stmt.DB.NowFunc()
 						assignValue(field, now)
 
@@ -226,21 +226,19 @@ func ConvertToAssignments(stmt *gorm.Statement) (set clause.Set) {
 			for _, dbName := range stmt.Schema.DBNames {
 				field := stmt.Schema.LookUpField(dbName)
 				if !field.PrimaryKey || (!updatingValue.CanAddr() || stmt.Dest != stmt.Model) {
-					if v, ok := selectColumns[field.DBName]; (ok && v) || (!ok && !restricted) {
+					if v, ok := selectColumns[field.DBName]; (ok && v) || (!ok && (!restricted || (!stmt.SkipHooks && field.AutoUpdateTime > 0))) {
 						value, isZero := field.ValueOf(updatingValue)
-						if !stmt.UpdatingColumn {
-							if field.AutoUpdateTime > 0 {
-								if field.AutoUpdateTime == schema.UnixNanosecond {
-									value = stmt.DB.NowFunc().UnixNano()
-								} else if field.AutoUpdateTime == schema.UnixMillisecond {
-									value = stmt.DB.NowFunc().UnixNano() / 1e6
-								} else if field.GORMDataType == schema.Time {
-									value = stmt.DB.NowFunc()
-								} else {
-									value = stmt.DB.NowFunc().Unix()
-								}
-								isZero = false
+						if !stmt.SkipHooks && field.AutoUpdateTime > 0 {
+							if field.AutoUpdateTime == schema.UnixNanosecond {
+								value = stmt.DB.NowFunc().UnixNano()
+							} else if field.AutoUpdateTime == schema.UnixMillisecond {
+								value = stmt.DB.NowFunc().UnixNano() / 1e6
+							} else if field.GORMDataType == schema.Time {
+								value = stmt.DB.NowFunc()
+							} else {
+								value = stmt.DB.NowFunc().Unix()
 							}
+							isZero = false
 						}
 
 						if ok || !isZero {

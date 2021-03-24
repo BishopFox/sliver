@@ -14,8 +14,13 @@ import (
 	"gorm.io/gorm/schema"
 )
 
+// DriverName is the default driver name for SQLite.
+const DriverName = "sqlite3"
+
 type Dialector struct {
-	DSN string
+	DriverName string
+	DSN        string
+	Conn       gorm.ConnPool
 }
 
 func Open(dsn string) gorm.Dialector {
@@ -27,11 +32,23 @@ func (dialector Dialector) Name() string {
 }
 
 func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
+	if dialector.DriverName == "" {
+		dialector.DriverName = DriverName
+	}
+
 	// register callbacks
 	callbacks.RegisterDefaultCallbacks(db, &callbacks.Config{
 		LastInsertIDReversed: true,
 	})
-	db.ConnPool, err = sql.Open("sqlite3", dialector.DSN)
+
+	if dialector.Conn != nil {
+		db.ConnPool = dialector.Conn
+	} else {
+		db.ConnPool, err = sql.Open(dialector.DriverName, dialector.DSN)
+		if err != nil {
+			return err
+		}
+	}
 
 	for k, v := range dialector.ClauseBuilders() {
 		db.ClauseBuilders[k] = v
@@ -76,6 +93,13 @@ func (dialector Dialector) ClauseBuilders() map[string]clause.ClauseBuilder {
 					builder.WriteString(strconv.Itoa(limit.Offset))
 				}
 			}
+		},
+		"FOR": func(c clause.Clause, builder clause.Builder) {
+			if _, ok := c.Expression.(clause.Locking); ok {
+				// SQLite3 does not support row-level locking.
+				return
+			}
+			c.Build(builder)
 		},
 	}
 }

@@ -66,6 +66,17 @@ func (cc *clients) Add(client *Client) {
 	})
 }
 
+// AddClient - Add a client struct atomically
+func (cc *clients) ActiveOperators() []string {
+	cc.mutex.Lock()
+	defer cc.mutex.Unlock()
+	operators := []string{}
+	for _, client := range cc.active {
+		operators = append(operators, client.Operator.Name)
+	}
+	return operators
+}
+
 // RemoveClient - Remove a client struct atomically
 func (cc *clients) Remove(clientID int) {
 	cc.mutex.Lock()
@@ -73,7 +84,7 @@ func (cc *clients) Remove(clientID int) {
 	client := cc.active[clientID]
 	delete(cc.active, clientID)
 	EventBroker.Publish(Event{
-		EventType: consts.JoinedEvent,
+		EventType: consts.LeftEvent,
 		Client:    client,
 	})
 }

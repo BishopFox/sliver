@@ -168,14 +168,13 @@ func (c *Conn) dial(display string) error {
 	// Connect to server
 	if len(socket) != 0 {
 		c.conn, err = net.Dial("unix", socket+":"+c.display)
-	} else if len(c.host) != 0 && c.host != "unix" {
+	} else if len(c.host) != 0 {
 		if protocol == "" {
 			protocol = "tcp"
 		}
 		c.conn, err = net.Dial(protocol,
 			c.host+":"+strconv.Itoa(6000+c.DisplayNumber))
 	} else {
-		c.host = ""
 		c.conn, err = net.Dial("unix", "/tmp/.X11-unix/X"+c.display)
 	}
 

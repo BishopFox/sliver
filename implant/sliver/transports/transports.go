@@ -38,6 +38,8 @@ const (
 )
 
 var (
+	mtlsPingInterval = 30 * time.Second
+
 	keyPEM    = `{{.Config.Key}}`
 	certPEM   = `{{.Config.Cert}}`
 	caCertPEM = `{{.Config.CACert}}`
@@ -210,6 +212,7 @@ func GetImplantCACert() []byte {
 	return []byte(caCertPEM)
 }
 
+// GetReconnectInterval - Parse the reconnect interval inserted at compile-time
 func GetReconnectInterval() time.Duration {
 	reconnect, err := strconv.Atoi(`{{.Config.ReconnectInterval}}`)
 	if err != nil {

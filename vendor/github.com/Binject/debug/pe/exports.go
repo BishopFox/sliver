@@ -26,6 +26,7 @@ type Export struct {
 	Ordinal        uint32
 	Name           string
 	VirtualAddress uint32
+	Forward        string
 }
 
 // Exports - gets exports
@@ -95,20 +96,22 @@ func (f *File) Exports() ([]Export, error) {
 
 	dt.DllName, _ = getString(d, int(dt.NameRVA-ds.VirtualAddress))
 
-	// seek to ordinal table
-	dno := d[dt.OrdinalTableAddr-ds.VirtualAddress:]
-	// seek to names table
-	dnn := d[dt.NameTableAddr-ds.VirtualAddress:]
-
-	// build whole ordinal->name table
 	ordinalTable := make(map[uint16]uint32)
-	for n := uint32(0); n < dt.NumberOfNames; n++ {
-		ord := binary.LittleEndian.Uint16(dno[n*2 : (n*2)+2])
-		nameRVA := binary.LittleEndian.Uint32(dnn[n*4 : (n*4)+4])
-		ordinalTable[ord] = nameRVA
+	if dt.OrdinalTableAddr > ds.VirtualAddress && dt.NameTableAddr > ds.VirtualAddress {
+		// seek to ordinal table
+		dno := d[dt.OrdinalTableAddr-ds.VirtualAddress:]
+		// seek to names table
+		dnn := d[dt.NameTableAddr-ds.VirtualAddress:]
+
+		// build whole ordinal->name table
+		for n := uint32(0); n < dt.NumberOfNames; n++ {
+			ord := binary.LittleEndian.Uint16(dno[n*2 : (n*2)+2])
+			nameRVA := binary.LittleEndian.Uint32(dnn[n*4 : (n*4)+4])
+			ordinalTable[ord] = nameRVA
+		}
+		dno = nil
+		dnn = nil
 	}
-	dno = nil
-	dnn = nil
 
 	// seek to ordinal table
 	dna := d[dt.AddressTableAddr-ds.VirtualAddress:]
@@ -119,6 +122,12 @@ func (f *File) Exports() ([]Export, error) {
 		export.VirtualAddress =
 			binary.LittleEndian.Uint32(dna[i*4 : (i*4)+4])
 		export.Ordinal = dt.OrdinalBase + i
+
+		// if this address is inside the export section, this export is a Forwarder RVA
+		if ds.VirtualAddress <= export.VirtualAddress &&
+			export.VirtualAddress < ds.VirtualAddress+ds.VirtualSize {
+			export.Forward, _ = getString(d, int(export.VirtualAddress-ds.VirtualAddress))
+		}
 
 		// check the entire ordinal table looking for this index to see if we have a name
 		_, ok := ordinalTable[uint16(i)]

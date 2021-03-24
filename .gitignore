@@ -1,4 +1,5 @@
 .vscode/*
+.devcontainer
 
 release-*
 
@@ -11,9 +12,11 @@ server/assets/version.go
 
 # Binaries
 sliver-server
+sliver-server_arm64
 sliver.exe
 
 sliver-client
+sliver-client_arm64
 sliver-client.exe
 
 sliver-server-linux.zip

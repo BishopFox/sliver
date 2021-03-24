@@ -23,6 +23,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"runtime/debug"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/version"
@@ -109,6 +110,14 @@ var rootCmd = &cobra.Command{
 		appDir := assets.GetRootAppDir()
 		logFile := initLogging(appDir)
 		defer logFile.Close()
+
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("panic:\n%s", debug.Stack())
+				fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
+				os.Exit(99)
+			}
+		}()
 
 		assets.Setup(false)
 		certs.SetupCAs()

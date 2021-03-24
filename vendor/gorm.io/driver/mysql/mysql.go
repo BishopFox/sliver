@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
@@ -22,9 +23,11 @@ type Config struct {
 	Conn                      gorm.ConnPool
 	SkipInitializeWithVersion bool
 	DefaultStringSize         uint
+	DefaultDatetimePrecision  *int
 	DisableDatetimePrecision  bool
 	DontSupportRenameIndex    bool
 	DontSupportRenameColumn   bool
+	DontSupportForShareClause bool
 }
 
 type Dialector struct {
@@ -43,6 +46,19 @@ func (dialector Dialector) Name() string {
 	return "mysql"
 }
 
+func (dialector Dialector) Apply(config *gorm.Config) error {
+	if config.NowFunc == nil {
+		if dialector.DefaultDatetimePrecision == nil {
+			var defaultDatetimePrecision = 3
+			dialector.DefaultDatetimePrecision = &defaultDatetimePrecision
+		}
+
+		round := time.Second / time.Duration(math.Pow10(*dialector.DefaultDatetimePrecision))
+		config.NowFunc = func() time.Time { return time.Now().Local().Round(round) }
+	}
+	return nil
+}
+
 func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
 	ctx := context.Background()
 
@@ -53,6 +69,11 @@ func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
 
 	if dialector.DriverName == "" {
 		dialector.DriverName = "mysql"
+	}
+
+	if dialector.DefaultDatetimePrecision == nil {
+		var defaultDatetimePrecision = 3
+		dialector.DefaultDatetimePrecision = &defaultDatetimePrecision
 	}
 
 	if dialector.Conn != nil {
@@ -74,15 +95,19 @@ func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
 		if strings.Contains(version, "MariaDB") {
 			dialector.Config.DontSupportRenameIndex = true
 			dialector.Config.DontSupportRenameColumn = true
+			dialector.Config.DontSupportForShareClause = true
 		} else if strings.HasPrefix(version, "5.6.") {
 			dialector.Config.DontSupportRenameIndex = true
 			dialector.Config.DontSupportRenameColumn = true
+			dialector.Config.DontSupportForShareClause = true
 		} else if strings.HasPrefix(version, "5.7.") {
 			dialector.Config.DontSupportRenameColumn = true
+			dialector.Config.DontSupportForShareClause = true
 		} else if strings.HasPrefix(version, "5.") {
 			dialector.Config.DisableDatetimePrecision = true
 			dialector.Config.DontSupportRenameIndex = true
 			dialector.Config.DontSupportRenameColumn = true
+			dialector.Config.DontSupportForShareClause = true
 		}
 	}
 
@@ -93,7 +118,7 @@ func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
 }
 
 func (dialector Dialector) ClauseBuilders() map[string]clause.ClauseBuilder {
-	return map[string]clause.ClauseBuilder{
+	clauseBuilders := map[string]clause.ClauseBuilder{
 		"ON CONFLICT": func(c clause.Clause, builder clause.Builder) {
 			if onConflict, ok := c.Expression.(clause.OnConflict); ok {
 				builder.WriteString("ON DUPLICATE KEY UPDATE ")
@@ -142,6 +167,18 @@ func (dialector Dialector) ClauseBuilders() map[string]clause.ClauseBuilder {
 			c.Build(builder)
 		},
 	}
+
+	if dialector.Config.DontSupportForShareClause {
+		clauseBuilders["FOR"] = func(c clause.Clause, builder clause.Builder) {
+			if values, ok := c.Expression.(clause.Locking); ok && strings.EqualFold(values.Strength, "SHARE") {
+				builder.WriteString("LOCK IN SHARE MODE")
+				return
+			}
+			c.Build(builder)
+		}
+	}
+
+	return clauseBuilders
 }
 
 func (dialector Dialector) DefaultValueOf(field *schema.Field) clause.Expression {
@@ -243,14 +280,12 @@ func (dialector Dialector) DataTypeOf(field *schema.Field) string {
 	case schema.Time:
 		precision := ""
 
-		if !dialector.DisableDatetimePrecision {
-			if field.Precision == 0 {
-				field.Precision = 3
-			}
+		if !dialector.DisableDatetimePrecision && field.Precision == 0 {
+			field.Precision = *dialector.DefaultDatetimePrecision
+		}
 
-			if field.Precision > 0 {
-				precision = fmt.Sprintf("(%d)", field.Precision)
-			}
+		if field.Precision > 0 {
+			precision = fmt.Sprintf("(%d)", field.Precision)
 		}
 
 		if field.NotNull || field.PrimaryKey {

@@ -217,6 +217,11 @@ func (src *Float8Array) AssignTo(dst interface{}) error {
 			}
 		}
 
+		// Try to convert to something AssignTo can use directly.
+		if nextDst, retry := GetAssignToDstType(dst); retry {
+			return src.AssignTo(nextDst)
+		}
+
 		// Fallback to reflection if an optimised match was not found.
 		// The reflection is necessary for arrays and multidimensional slices,
 		// but it comes with a 20-50% performance penalty for large arrays/slices
@@ -224,11 +229,18 @@ func (src *Float8Array) AssignTo(dst interface{}) error {
 		if value.Kind() == reflect.Ptr {
 			value = value.Elem()
 		}
-		if !value.CanSet() {
-			if nextDst, retry := GetAssignToDstType(dst); retry {
-				return src.AssignTo(nextDst)
+
+		switch value.Kind() {
+		case reflect.Array, reflect.Slice:
+		default:
+			return errors.Errorf("cannot assign %T to %T", src, dst)
+		}
+
+		if len(src.Elements) == 0 {
+			if value.Kind() == reflect.Slice {
+				value.Set(reflect.MakeSlice(value.Type(), 0, 0))
+				return nil
 			}
-			return errors.Errorf("unable to assign to %T", dst)
 		}
 
 		elementCount, err := src.assignToRecursive(value, 0, 0)
@@ -313,7 +325,7 @@ func (dst *Float8Array) DecodeText(ci *ConnInfo, src []byte) error {
 		for i, s := range uta.Elements {
 			var elem Float8
 			var elemSrc []byte
-			if s != "NULL" {
+			if s != "NULL" || uta.Quoted[i] {
 				elemSrc = []byte(s)
 			}
 			err = elem.DecodeText(ci, elemSrc)

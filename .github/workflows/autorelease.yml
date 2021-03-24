@@ -13,17 +13,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+<<<<<<< HEAD
     - name: Go 1.15
       uses: actions/setup-go@v1
       with:
         go-version: 1.15
       id: go
+=======
+    - name: Go 1.16
+      uses: actions/setup-go@v2
+      with:
+        go-version: '^1.16'
+>>>>>>> BishopFox/master
     
     - name: OS Packages 
       run: |
         sudo apt-get update --fix-missing && sudo apt-get -y install \
         git build-essential zlib1g zlib1g-dev wget zip unzip \
-        mingw-w64 binutils-mingw-w64 g++-mingw-w64
+        mingw-w64 binutils-mingw-w64 g++-mingw-w64 gcc-multilib
 
     - name: Protoc
       env:
@@ -53,6 +60,9 @@ jobs:
 
     - name: Go Assets
       run: ./go-assets.sh
+    
+    - name: Remove Vendor
+      run: rm -rf ./vendor/
 
     - name: Make
       run: export PATH=/home/runner/go/bin/:$PATH && make static-linux
@@ -78,11 +88,18 @@ jobs:
     runs-on: macos-latest
     steps:
 
+<<<<<<< HEAD
     - name: Go 1.15
       uses: actions/setup-go@v1
       with:
         go-version: 1.15
       id: go
+=======
+    - name: Go 1.16
+      uses: actions/setup-go@v2
+      with:
+        go-version: '^1.16'
+>>>>>>> BishopFox/master
 
     - name: Mingw
       run: brew install mingw-w64
@@ -116,9 +133,20 @@ jobs:
     - name: Go Assets
       run: ./go-assets.sh
 
+<<<<<<< HEAD
     - name: Make
       run: export PATH=/Users/runner/go/bin/:$PATH && make static-macos
+=======
+    - name: Remove Vendor
+      run: rm -rf ./vendor/
+
+    - name: Make AMD64
+      run: make macos
+>>>>>>> BishopFox/master
     
+    # - name: Make ARM64
+    #   run: make macos-arm64
+
     - name: MacOS Artifacts
       uses: actions/upload-artifact@v2
       with:
@@ -151,12 +179,18 @@ jobs:
         zip -j ./release/sliver-server_windows.zip ./artifacts/windows/sliver-server.exe
         zip -j ./release/sliver-client_windows.zip ./artifacts/windows/sliver-client.exe
 
-    # MacOS
-    - name: Package MacOS
+    # MacOS AMD64
+    - name: Package MacOS AMD64
       run: |
         zip -j ./release/sliver-server_macos.zip ./artifacts/macos/sliver-server
         zip -j ./release/sliver-client_macos.zip ./artifacts/macos/sliver-client
   
+    # MacOS ARM64
+    # - name: Package MacOS ARM64
+    #   run: |
+    #     zip -j ./release/sliver-server_macos-arm64.zip ./artifacts/macos/sliver-server_arm64
+    #     zip -j ./release/sliver-client_macos-arm64.zip ./artifacts/macos/sliver-client_arm64
+
     - name: "Publish Release"
       uses: "marvinpinto/action-automatic-releases@latest"
       with:

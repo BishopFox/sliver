@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-type State struct {
+type state struct {
 	mode uint32
 }
 
@@ -20,10 +20,7 @@ func isTerminal(fd int) bool {
 	return err == nil
 }
 
-// MakeRaw put the terminal connected to the given file descriptor into raw
-// mode and returns the previous state of the terminal so that it can be
-// restored.
-func MakeRaw(fd int) (*State, error) {
+func makeRaw(fd int) (*State, error) {
 	var st uint32
 	if err := windows.GetConsoleMode(windows.Handle(fd), &st); err != nil {
 		return nil, err
@@ -32,29 +29,22 @@ func MakeRaw(fd int) (*State, error) {
 	if err := windows.SetConsoleMode(windows.Handle(fd), raw); err != nil {
 		return nil, err
 	}
-	return &State{st}, nil
+	return &State{state{st}}, nil
 }
 
-// GetState returns the current state of a terminal which may be useful to
-// restore the terminal after a signal.
-func GetState(fd int) (*State, error) {
+func getState(fd int) (*State, error) {
 	var st uint32
 	if err := windows.GetConsoleMode(windows.Handle(fd), &st); err != nil {
 		return nil, err
 	}
-	return &State{st}, nil
+	return &State{state{st}}, nil
 }
 
-// Restore restores the terminal connected to the given file descriptor to a
-// previous state.
-func Restore(fd int, state *State) error {
+func restore(fd int, state *State) error {
 	return windows.SetConsoleMode(windows.Handle(fd), state.mode)
 }
 
-// GetSize returns the visible dimensions of the given terminal.
-//
-// These dimensions don't include any scrollback buffer height.
-func GetSize(fd int) (width, height int, err error) {
+func getSize(fd int) (width, height int, err error) {
 	var info windows.ConsoleScreenBufferInfo
 	if err := windows.GetConsoleScreenBufferInfo(windows.Handle(fd), &info); err != nil {
 		return 0, 0, err
@@ -62,10 +52,7 @@ func GetSize(fd int) (width, height int, err error) {
 	return int(info.Window.Right - info.Window.Left + 1), int(info.Window.Bottom - info.Window.Top + 1), nil
 }
 
-// ReadPassword reads a line of input from a terminal without local echo.  This
-// is commonly used for inputting passwords and other sensitive data. The slice
-// returned does not include the \n.
-func ReadPassword(fd int) ([]byte, error) {
+func readPassword(fd int) ([]byte, error) {
 	var st uint32
 	if err := windows.GetConsoleMode(windows.Handle(fd), &st); err != nil {
 		return nil, err

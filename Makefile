@@ -68,6 +68,18 @@ ifeq ($(MAKECMDGOALS), windows)
 	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
 endif
 endif
+
+ifeq ($(MAKECMDGOALS), linux)
+	# Redefine LDFLAGS to add the static part
+	LDFLAGS = -ldflags "-s -w \
+		-extldflags '-static' \
+		-X $(PKG).Version=$(VERSION) \
+		-X \"$(PKG).GoVersion=$(GO_VERSION)\" \
+		-X $(PKG).CompiledAt=$(COMPILED_AT) \
+		-X $(PKG).GithubReleasesURL=$(RELEASES_URL) \
+		-X $(PKG).GitCommit=$(GIT_COMMIT) \
+		-X $(PKG).GitDirty=$(GIT_DIRTY)"
+endif
 # *** End Linux ***
 
 #
@@ -80,8 +92,13 @@ default: clean pb
 
 .PHONY: macos
 macos: clean pb
-	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
-	GOOS=darwin $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
+	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
+	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
+
+.PHONY: macos-arm64
+macos-arm64: clean pb
+	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_arm64 ./server
+	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_arm64 ./client
 
 .PHONY: linux
 linux: clean pb
@@ -113,5 +130,6 @@ clean-all: clean
 clean:
 	rm -f ./protobuf/client/*.pb.go
 	rm -f ./protobuf/sliver/*.pb.go
+	rm -f sliver-client_arm64 sliver-server_arm64
 	rm -f sliver-client sliver-server *.exe
 

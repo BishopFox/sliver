@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/maxlandon/readline"
+	"google.golang.org/grpc"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/comm"
@@ -37,12 +38,7 @@ import (
 	clientLog "github.com/bishopfox/sliver/client/log"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
-
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-
-	// Comm System dependencies
-
-	"google.golang.org/grpc"
 )
 
 var (

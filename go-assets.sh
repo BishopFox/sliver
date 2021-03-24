@@ -19,14 +19,12 @@
 
 # Creates the static go asset archives
 
-GO_VER="1.16beta1"
+GO_VER="1.16.2"
+GARBLE_VER="1.16.2"
+
 GO_ARCH_1="amd64"
 GO_ARCH_2="arm64"
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
-
-PROTOBUF_COMMIT=347cf4a86c1cb8d262994d8ef5924d4576c5b331
-GOLANG_SYS_COMMIT=669c56c373c468cbe0f0c12b7939832b26088d33
-GOLANG_CRYPTO_SSH_COMMIT=4be66e5b658251a93e17d931a68d9c0ecba9f83a
 
 if ! [ -x "$(command -v curl)" ]; then
   exit 1
@@ -132,30 +130,13 @@ cp -vv windows-go.zip $OUTPUT_DIR/windows/$GO_ARCH_1/go.zip
 rm -rf ./go
 rm -f windows-go.zip go$GO_VER.windows-$GO_ARCH_1.zip
 
-
 echo "-----------------------------------------------------------------"
-echo " 3rd Party Assets"
+echo " Garble"
 echo "-----------------------------------------------------------------"
-cd $WORK_DIR
-
-curl -L --output $PROTOBUF_COMMIT.zip https://github.com/golang/protobuf/archive/$PROTOBUF_COMMIT.zip
-unzip $PROTOBUF_COMMIT.zip
-rm -f $PROTOBUF_COMMIT.zip
-mv protobuf-$PROTOBUF_COMMIT protobuf
-zip -r protobuf.zip ./protobuf
-cp -vv protobuf.zip $OUTPUT_DIR/protobuf.zip
-
-curl -L --output $GOLANG_SYS_COMMIT.tar.gz https://github.com/golang/sys/archive/$GOLANG_SYS_COMMIT.tar.gz
-tar xfv $GOLANG_SYS_COMMIT.tar.gz
-rm -f $GOLANG_SYS_COMMIT.tar.gz
-mv sys-$GOLANG_SYS_COMMIT sys
-zip -r $OUTPUT_DIR/golang_x_sys.zip sys
-
-curl -L --output $GOLANG_CRYPTO_SSH_COMMIT.tar.gz https://github.com/golang/crypto/archive/$GOLANG_CRYPTO_SSH_COMMIT.tar.gz
-tar xfv $GOLANG_CRYPTO_SSH_COMMIT.tar.gz
-rm -f $GOLANG_CRYPTO_SSH_COMMIT.tar.gz
-mv crypto-$GOLANG_CRYPTO_SSH_COMMIT crypto
-zip -r $OUTPUT_DIR/golang_x_crypto_ssh.zip crypto
+curl -L --output $OUTPUT_DIR/linux/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux
+curl -L --output $OUTPUT_DIR/windows/$GO_ARCH_1/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows.exe
+curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_1
+curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_2/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_2
 
 # end
 echo -e "clean up: $WORK_DIR"

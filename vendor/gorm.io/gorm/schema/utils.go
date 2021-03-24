@@ -61,7 +61,7 @@ func removeSettingFromTag(tag reflect.StructTag, names ...string) reflect.Struct
 // GetRelationsValues get relations's values from a reflect value
 func GetRelationsValues(reflectValue reflect.Value, rels []*Relationship) (reflectResults reflect.Value) {
 	for _, rel := range rels {
-		reflectResults = reflect.MakeSlice(reflect.SliceOf(reflect.PtrTo(rel.FieldSchema.ModelType)), 0, 0)
+		reflectResults = reflect.MakeSlice(reflect.SliceOf(reflect.PtrTo(rel.FieldSchema.ModelType)), 0, 1)
 
 		appendToResults := func(value reflect.Value) {
 			if _, isZero := rel.Field.ValueOf(value); !isZero {
@@ -142,7 +142,7 @@ func GetIdentityFieldValuesMap(reflectValue reflect.Value, fields []*Field) (map
 			if notZero {
 				dataKey := utils.ToStringKey(fieldValues...)
 				if _, ok := dataResults[dataKey]; !ok {
-					results = append(results, fieldValues[:])
+					results = append(results, fieldValues)
 					dataResults[dataKey] = []reflect.Value{elem}
 				} else {
 					dataResults[dataKey] = append(dataResults[dataKey], elem)

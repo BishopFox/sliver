@@ -104,7 +104,9 @@ func (sd SoftDeleteDeleteClause) MergeClause(*clause.Clause) {
 
 func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *Statement) {
 	if stmt.SQL.String() == "" {
-		stmt.AddClause(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: stmt.DB.NowFunc()}})
+		curTime := stmt.DB.NowFunc()
+		stmt.AddClause(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: curTime}})
+		stmt.SetColumn(sd.Field.DBName, curTime, true)
 
 		if stmt.Schema != nil {
 			_, queryValues := schema.GetIdentityFieldValuesMap(stmt.ReflectValue, stmt.Schema.PrimaryFields)
@@ -127,7 +129,7 @@ func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *Statement) {
 		if _, ok := stmt.Clauses["WHERE"]; !stmt.DB.AllowGlobalUpdate && !ok {
 			stmt.DB.AddError(ErrMissingWhereClause)
 		} else {
-			SoftDeleteQueryClause{Field: sd.Field}.ModifyStatement(stmt)
+			SoftDeleteQueryClause(sd).ModifyStatement(stmt)
 		}
 
 		stmt.AddClauseIfNotExists(clause.Update{})

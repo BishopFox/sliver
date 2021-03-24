@@ -1,10 +1,5 @@
 package encoders
 
-import (
-	"bytes"
-	"compress/gzip"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -22,6 +17,11 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"bytes"
+	"compress/gzip"
+)
 
 // GzipEncoderID - EncoderID
 const GzipEncoderID = 49

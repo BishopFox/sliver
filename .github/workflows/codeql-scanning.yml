@@ -4,9 +4,9 @@ on:
   push:
     branches:
       - test/*
-  pull_request:
-    branches:
-      - master
+  # pull_request:
+  #   branches:
+  #     - master
 
 jobs:
   CodeQL-Build:
@@ -17,12 +17,20 @@ jobs:
     steps:
 
       # Setup go environment
+<<<<<<< HEAD
       - name: Go 1.15
         uses: actions/setup-go@v1
         with:
           go-version: 1.15
         id: go
 
+=======
+      - name: Go 1.16
+        uses: actions/setup-go@v2
+        with:
+          go-version: '^1.16'
+      
+>>>>>>> BishopFox/master
       - name: Checkout repository
         uses: actions/checkout@v2
         with:
@@ -70,16 +78,15 @@ jobs:
       - name: Go Assets
         run: ./go-assets.sh
 
+      - name: Remove Vendor
+        run: rm -rf ./vendor/
+
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v1
         with:
           config-file: ./.github/codeql/codeql-config.yml
           languages: go 
-
-      # Setup os PATH to include protoc-gen-go and packr
-      - name: Update PATH
-        run: echo "/home/runner/go/bin/" >> $GITHUB_PATH
 
       # Build the server ... is this necessary though?
       - run: |

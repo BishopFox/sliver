@@ -1,3 +1,22 @@
+# 1.6.2 (December 3, 2020)
+
+* Fix panic on assigning empty array to non-slice or array
+* Fix text array parsing disambiguates NULL and "NULL"
+* Fix Timestamptz.DecodeText with too short text
+
+# 1.6.1 (October 31, 2020)
+
+* Fix simple protocol empty array support
+
+# 1.6.0 (October 24, 2020)
+
+* Fix AssignTo pointer to pointer to slice and named types.
+* Fix zero length array assignment (Simo Haasanen)
+* Add float64, float32 convert to int2, int4, int8 (lqu3j)
+* Support setting infinite timestamps (Erik Agsjö)
+* Polygon improvements (duohedron)
+* Fix Inet.Set with nil (Tomas Volf)
+
 # 1.5.0 (September 26, 2020)
 
 * Add slice of slice mapping to multi-dimensional arrays (Simo Haasanen)

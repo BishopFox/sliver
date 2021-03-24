@@ -33,6 +33,7 @@ import (
 var (
 	tunnelLog = log.NamedLogger("rpc", "tunnel")
 
+	// SessionID->Tunnels[TunnelID]->Tunnel->Cache
 	fromImplantCache = map[uint64]map[uint64]*sliverpb.TunnelData{}
 )
 
@@ -77,7 +78,7 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 			break
 		}
 		if err != nil {
-			rpcLog.Warn("Error on stream recv %s", err.Error())
+			rpcLog.Warnf("Error on stream recv %s", err)
 			return err
 		}
 		tunnelLog.Debugf("Tunnel %d: From client %d byte(s)",

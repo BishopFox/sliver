@@ -3,6 +3,7 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -95,7 +96,7 @@ func (m Migrator) HasIndex(value interface{}, name string) bool {
 		}
 
 		return m.DB.Raw(
-			"SELECT count(*) FROM pg_indexes WHERE tablename = ? AND indexname = ? AND schemaname = CURRENT_SCHEMA()", stmt.Table, name,
+			"SELECT count(*) FROM pg_indexes WHERE tablename = ? AND indexname = ? AND schemaname = ?", stmt.Table, name, m.CurrentSchema(stmt),
 		).Row().Scan(&count)
 	})
 
@@ -106,7 +107,7 @@ func (m Migrator) CreateIndex(value interface{}, name string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		if idx := stmt.Schema.LookIndex(name); idx != nil {
 			opts := m.BuildIndexOptions(idx.Fields, stmt)
-			values := []interface{}{clause.Column{Name: idx.Name}, clause.Table{Name: stmt.Table}, opts}
+			values := []interface{}{clause.Column{Name: idx.Name}, m.CurrentTable(stmt), opts}
 
 			createIndexSQL := "CREATE "
 			if idx.Class != "" {
@@ -152,10 +153,34 @@ func (m Migrator) DropIndex(value interface{}, name string) error {
 	})
 }
 
+func (m Migrator) CreateTable(values ...interface{}) (err error) {
+	if err = m.Migrator.CreateTable(values...); err != nil {
+		return
+	}
+	for _, value := range m.ReorderModels(values, false) {
+		if err = m.RunWithValue(value, func(stmt *gorm.Statement) error {
+			for _, field := range stmt.Schema.FieldsByDBName {
+				if field.Comment != "" {
+					if err := m.DB.Exec(
+						"COMMENT ON COLUMN ?.? IS ?",
+						m.CurrentTable(stmt), clause.Column{Name: field.DBName}, gorm.Expr(m.Migrator.Dialector.Explain("$1", field.Comment)),
+					).Error; err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		}); err != nil {
+			return
+		}
+	}
+	return
+}
+
 func (m Migrator) HasTable(value interface{}) bool {
 	var count int64
 	m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		return m.DB.Raw("SELECT count(*) FROM information_schema.tables WHERE table_schema =  CURRENT_SCHEMA() AND table_name = ? AND table_type = ?", stmt.Table, "BASE TABLE").Row().Scan(&count)
+		return m.DB.Raw("SELECT count(*) FROM information_schema.tables WHERE table_schema = ? AND table_name = ? AND table_type = ?", m.CurrentSchema(stmt), stmt.Table, "BASE TABLE").Row().Scan(&count)
 	})
 
 	return count > 0
@@ -166,12 +191,31 @@ func (m Migrator) DropTable(values ...interface{}) error {
 	tx := m.DB.Session(&gorm.Session{})
 	for i := len(values) - 1; i >= 0; i-- {
 		if err := m.RunWithValue(values[i], func(stmt *gorm.Statement) error {
-			return tx.Exec("DROP TABLE IF EXISTS ? CASCADE", clause.Table{Name: stmt.Table}).Error
+			return tx.Exec("DROP TABLE IF EXISTS ? CASCADE", m.CurrentTable(stmt)).Error
 		}); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (m Migrator) AddColumn(value interface{}, field string) error {
+	if err := m.Migrator.AddColumn(value, field); err != nil {
+		return err
+	}
+	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		if field := stmt.Schema.LookUpField(field); field != nil {
+			if field.Comment != "" {
+				if err := m.DB.Exec(
+					"COMMENT ON COLUMN ?.? IS ?",
+					m.CurrentTable(stmt), clause.Column{Name: field.DBName}, gorm.Expr(m.Migrator.Dialector.Explain("$1", field.Comment)),
+				).Error; err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
 }
 
 func (m Migrator) HasColumn(value interface{}, field string) bool {
@@ -183,20 +227,55 @@ func (m Migrator) HasColumn(value interface{}, field string) bool {
 		}
 
 		return m.DB.Raw(
-			"SELECT count(*) FROM INFORMATION_SCHEMA.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = ? AND column_name = ?",
-			stmt.Table, name,
+			"SELECT count(*) FROM INFORMATION_SCHEMA.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?",
+			m.CurrentSchema(stmt), stmt.Table, name,
 		).Row().Scan(&count)
 	})
 
 	return count > 0
 }
 
+func (m Migrator) MigrateColumn(value interface{}, field *schema.Field, columnType gorm.ColumnType) error {
+	if err := m.Migrator.MigrateColumn(value, field, columnType); err != nil {
+		return err
+	}
+	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		var description string
+		values := []interface{}{stmt.Table, field.DBName, stmt.Table, m.CurrentSchema(stmt)}
+		checkSQL := "SELECT description FROM pg_catalog.pg_description "
+		checkSQL += "WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_name = ? AND column_name = ?) "
+		checkSQL += "AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = ? AND relnamespace = "
+		checkSQL += "(SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = ?))"
+		m.DB.Raw(checkSQL, values...).Scan(&description)
+		comment := field.Comment
+		if comment != "" {
+			comment = comment[1 : len(comment)-1]
+		}
+		if field.Comment != "" && comment != description {
+			if err := m.DB.Exec(
+				"COMMENT ON COLUMN ?.? IS ?",
+				m.CurrentTable(stmt), clause.Column{Name: field.DBName}, gorm.Expr(m.Migrator.Dialector.Explain("$1", field.Comment)),
+			).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func (m Migrator) HasConstraint(value interface{}, name string) bool {
 	var count int64
 	m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		constraint, chk, table := m.GuessConstraintAndTable(stmt, name)
+		if constraint != nil {
+			name = constraint.Name
+		} else if chk != nil {
+			name = chk.Name
+		}
+
 		return m.DB.Raw(
-			"SELECT count(*) FROM INFORMATION_SCHEMA.table_constraints WHERE table_schema = CURRENT_SCHEMA() AND table_name = ? AND constraint_name = ?",
-			stmt.Table, name,
+			"SELECT count(*) FROM INFORMATION_SCHEMA.table_constraints WHERE table_schema = ? AND table_name = ? AND constraint_name = ?",
+			m.CurrentSchema(stmt), table, name,
 		).Row().Scan(&count)
 	})
 
@@ -207,11 +286,12 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 	columnTypes = make([]gorm.ColumnType, 0)
 	err = m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		currentDatabase := m.DB.Migrator().CurrentDatabase()
+		currentSchema := m.CurrentSchema(stmt)
 		columns, err := m.DB.Raw(
 			"SELECT column_name, is_nullable, udt_name, character_maximum_length, "+
 				"numeric_precision, numeric_precision_radix, numeric_scale, datetime_precision "+
-				"FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() and table_catalog = ? AND table_name = ?",
-			currentDatabase, stmt.Table).Rows()
+				"FROM information_schema.columns WHERE table_catalog = ? AND table_schema = ? AND table_name = ?",
+			currentDatabase, currentSchema, stmt.Table).Rows()
 		if err != nil {
 			return err
 		}
@@ -238,4 +318,13 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 		return err
 	})
 	return
+}
+
+func (m Migrator) CurrentSchema(stmt *gorm.Statement) interface{} {
+	if stmt.TableExpr != nil {
+		if tables := strings.Split(stmt.TableExpr.SQL, `"."`); len(tables) == 2 {
+			return strings.TrimPrefix(tables[0], `"`)
+		}
+	}
+	return clause.Expr{SQL: "CURRENT_SCHEMA()"}
 }

@@ -37,55 +37,58 @@ const (
 )
 
 type Field struct {
-	Name                  string
-	DBName                string
-	BindNames             []string
-	DataType              DataType
-	GORMDataType          DataType
-	PrimaryKey            bool
-	AutoIncrement         bool
-	Creatable             bool
-	Updatable             bool
-	Readable              bool
-	HasDefaultValue       bool
-	AutoCreateTime        TimeType
-	AutoUpdateTime        TimeType
-	DefaultValue          string
-	DefaultValueInterface interface{}
-	NotNull               bool
-	Unique                bool
-	Comment               string
-	Size                  int
-	Precision             int
-	Scale                 int
-	FieldType             reflect.Type
-	IndirectFieldType     reflect.Type
-	StructField           reflect.StructField
-	Tag                   reflect.StructTag
-	TagSettings           map[string]string
-	Schema                *Schema
-	EmbeddedSchema        *Schema
-	OwnerSchema           *Schema
-	ReflectValueOf        func(reflect.Value) reflect.Value
-	ValueOf               func(reflect.Value) (value interface{}, zero bool)
-	Set                   func(reflect.Value, interface{}) error
+	Name                   string
+	DBName                 string
+	BindNames              []string
+	DataType               DataType
+	GORMDataType           DataType
+	PrimaryKey             bool
+	AutoIncrement          bool
+	AutoIncrementIncrement int64
+	Creatable              bool
+	Updatable              bool
+	Readable               bool
+	HasDefaultValue        bool
+	AutoCreateTime         TimeType
+	AutoUpdateTime         TimeType
+	DefaultValue           string
+	DefaultValueInterface  interface{}
+	NotNull                bool
+	Unique                 bool
+	Comment                string
+	Size                   int
+	Precision              int
+	Scale                  int
+	FieldType              reflect.Type
+	IndirectFieldType      reflect.Type
+	StructField            reflect.StructField
+	Tag                    reflect.StructTag
+	TagSettings            map[string]string
+	Schema                 *Schema
+	EmbeddedSchema         *Schema
+	OwnerSchema            *Schema
+	ReflectValueOf         func(reflect.Value) reflect.Value
+	ValueOf                func(reflect.Value) (value interface{}, zero bool)
+	Set                    func(reflect.Value, interface{}) error
+	IgnoreMigration        bool
 }
 
 func (schema *Schema) ParseField(fieldStruct reflect.StructField) *Field {
 	var err error
 
 	field := &Field{
-		Name:              fieldStruct.Name,
-		BindNames:         []string{fieldStruct.Name},
-		FieldType:         fieldStruct.Type,
-		IndirectFieldType: fieldStruct.Type,
-		StructField:       fieldStruct,
-		Creatable:         true,
-		Updatable:         true,
-		Readable:          true,
-		Tag:               fieldStruct.Tag,
-		TagSettings:       ParseTagSetting(fieldStruct.Tag.Get("gorm"), ";"),
-		Schema:            schema,
+		Name:                   fieldStruct.Name,
+		BindNames:              []string{fieldStruct.Name},
+		FieldType:              fieldStruct.Type,
+		IndirectFieldType:      fieldStruct.Type,
+		StructField:            fieldStruct,
+		Creatable:              true,
+		Updatable:              true,
+		Readable:               true,
+		Tag:                    fieldStruct.Tag,
+		TagSettings:            ParseTagSetting(fieldStruct.Tag.Get("gorm"), ";"),
+		Schema:                 schema,
+		AutoIncrementIncrement: 1,
 	}
 
 	for field.IndirectFieldType.Kind() == reflect.Ptr {
@@ -149,6 +152,10 @@ func (schema *Schema) ParseField(fieldStruct reflect.StructField) *Field {
 		field.HasDefaultValue = true
 	}
 
+	if num, ok := field.TagSettings["AUTOINCREMENTINCREMENT"]; ok {
+		field.AutoIncrementIncrement, _ = strconv.ParseInt(num, 10, 64)
+	}
+
 	if v, ok := field.TagSettings["DEFAULT"]; ok {
 		field.HasDefaultValue = true
 		field.DefaultValue = v
@@ -183,6 +190,7 @@ func (schema *Schema) ParseField(fieldStruct reflect.StructField) *Field {
 	}
 
 	// default value is function or null or blank (primary keys)
+	field.DefaultValue = strings.TrimSpace(field.DefaultValue)
 	skipParseDefaultValue := strings.Contains(field.DefaultValue, "(") &&
 		strings.Contains(field.DefaultValue, ")") || strings.ToLower(field.DefaultValue) == "null" || field.DefaultValue == ""
 	switch reflect.Indirect(fieldValue).Kind() {
@@ -289,11 +297,23 @@ func (schema *Schema) ParseField(fieldStruct reflect.StructField) *Field {
 	}
 
 	// setup permission
-	if _, ok := field.TagSettings["-"]; ok {
-		field.Creatable = false
-		field.Updatable = false
-		field.Readable = false
-		field.DataType = ""
+	if val, ok := field.TagSettings["-"]; ok {
+		val = strings.ToLower(strings.TrimSpace(val))
+		switch val {
+		case "-":
+			field.Creatable = false
+			field.Updatable = false
+			field.Readable = false
+			field.DataType = ""
+		case "all":
+			field.Creatable = false
+			field.Updatable = false
+			field.Readable = false
+			field.DataType = ""
+			field.IgnoreMigration = true
+		case "migration":
+			field.IgnoreMigration = true
+		}
 	}
 
 	if v, ok := field.TagSettings["->"]; ok {
@@ -330,7 +350,7 @@ func (schema *Schema) ParseField(fieldStruct reflect.StructField) *Field {
 
 			cacheStore := &sync.Map{}
 			cacheStore.Store(embeddedCacheKey, true)
-			if field.EmbeddedSchema, err = Parse(fieldValue.Interface(), cacheStore, embeddedNamer{Table: schema.Table, Namer: schema.namer}); err != nil {
+			if field.EmbeddedSchema, err = getOrParse(fieldValue.Interface(), cacheStore, embeddedNamer{Table: schema.Table, Namer: schema.namer}); err != nil {
 				schema.err = err
 			}
 
