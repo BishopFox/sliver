@@ -105,5 +105,9 @@ func sliverCompsAdditional(parser *flags.Parser) {
 		reg := parser.Find(constants.RegistryStr)
 		regWrite := reg.Find(constants.RegistryWriteStr)
 		regWrite.FindOptionByLongName("type").Choices = windows.ValidTypes
+
+		// Assembly architectures
+		exass := parser.Find(constants.ExecuteAssemblyStr)
+		exass.FindOptionByLongName("arch").Choices = extensionArch
 	}
 }
