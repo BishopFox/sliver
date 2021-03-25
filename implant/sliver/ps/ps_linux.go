@@ -68,7 +68,8 @@ func getProcessOwner(pid int) (string, error) {
 	}
 	usr, err := user.LookupId(fmt.Sprintf("%d", uid))
 	if err != nil {
-		return "", err
+		// return the UID in case LookupId fails
+		return fmt.Sprintf("%d", uid), nil
 	}
 	return usr.Username, err
 }
@@ -151,12 +152,7 @@ func processes() ([]Process, error) {
 			}
 			p.owner, err = getProcessOwner(int(pid))
 			if err != nil {
-				uid, err := getProcessOwnerUid(int(pid))
-				if err != nil {
-					p.owner = ""
-				} else {
-					p.owner = fmt.Sprintf("%d", uid)
-				}
+				continue
 			}
 			results = append(results, p)
 		}
