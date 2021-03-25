@@ -325,6 +325,7 @@ func sideload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Data:        binData,
 		EntryPoint:  entryPoint,
 		ProcessName: processName,
+		Kill:        !ctx.Flags.Bool("keep-alive"),
 	})
 	ctrl <- true
 	<-ctrl
@@ -379,6 +380,7 @@ func spawnDll(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Args:        args,
 		EntryPoint:  exportName,
 		Request:     ActiveSession.Request(ctx),
+		Kill:        !ctx.Flags.Bool("keep-alive"),
 	})
 
 	if err != nil {
