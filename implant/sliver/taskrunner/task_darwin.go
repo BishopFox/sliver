@@ -58,7 +58,7 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 }
 
 // Sideload - Side load a library and return its output
-func Sideload(procName string, data []byte, args string) (string, error) {
+func Sideload(procName string, data []byte, args string, kill bool) (string, error) {
 	var (
 		stdOut bytes.Buffer
 		stdErr bytes.Buffer

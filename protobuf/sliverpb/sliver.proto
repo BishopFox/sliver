@@ -348,6 +348,7 @@ message SideloadReq {
   string ProcessName = 2;
   string Args = 3;
   string EntryPoint = 4;
+  bool Kill = 5;
 
   commonpb.Request Request = 9;
 }
@@ -363,6 +364,7 @@ message InvokeSpawnDllReq {
   string ProcessName = 2;
   string Args = 3;
   string EntryPoint = 4;
+  bool Kill = 5;
 
   commonpb.Request Request = 9;
 }
@@ -372,6 +374,7 @@ message SpawnDllReq {
   string ProcessName = 2;
   uint32 Offset = 3;
   string Args = 4;
+  bool Kill = 5;
 
   commonpb.Request Request = 9;
 }

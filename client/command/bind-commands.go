@@ -1074,6 +1074,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
 			f.Bool("s", "save", false, "save output to file")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("k", "keep-alive", false, "don't terminate host process once the execution completes")
 		},
 		AllowArgs: true,
 		HelpGroup: consts.SliverHelpGroup,
@@ -1094,6 +1095,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("e", "export", "ReflectiveLoader", "Entrypoint of the Reflective DLL")
 			f.Bool("s", "save", false, "save output to file")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("k", "keep-alive", false, "don't terminate host process once the execution completes")
 		},
 		AllowArgs: true,
 		HelpGroup: consts.SliverWinHelpGroup,

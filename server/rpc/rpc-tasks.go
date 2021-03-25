@@ -157,6 +157,7 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 			Request:     req.Request,
 			Data:        shellcode,
 			ProcessName: req.ProcessName,
+			Kill:        req.Kill,
 		})
 		if err != nil {
 			return nil, err
@@ -204,6 +205,7 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq
 		ProcessName: req.ProcessName,
 		Args:        req.Args,
 		Request:     req.Request,
+		Kill:        req.Kill,
 	})
 	if err != nil {
 		return nil, err

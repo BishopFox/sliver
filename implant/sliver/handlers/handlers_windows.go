@@ -291,7 +291,7 @@ func spawnDllHandler(data []byte, resp RPCResponse) {
 	//{{if .Config.Debug}}
 	log.Printf("ProcName: %s\tOffset:%x\tArgs:%s\n", spawnReq.GetProcessName(), spawnReq.GetOffset(), spawnReq.GetArgs())
 	//{{end}}
-	result, err := taskrunner.SpawnDll(spawnReq.GetProcessName(), spawnReq.GetData(), spawnReq.GetOffset(), spawnReq.GetArgs())
+	result, err := taskrunner.SpawnDll(spawnReq.GetProcessName(), spawnReq.GetData(), spawnReq.GetOffset(), spawnReq.GetArgs(), spawnReq.Kill)
 	spawnResp := &sliverpb.SpawnDll{Result: result}
 	if err != nil {
 		spawnResp.Response = &commonpb.Response{

@@ -153,7 +153,7 @@ func sideloadHandler(data []byte, resp RPCResponse) {
 	if err != nil {
 		return
 	}
-	result, err := taskrunner.Sideload(sideloadReq.GetProcessName(), sideloadReq.GetData(), sideloadReq.GetArgs())
+	result, err := taskrunner.Sideload(sideloadReq.GetProcessName(), sideloadReq.GetData(), sideloadReq.GetArgs(), sideloadReq.Kill)
 	errStr := ""
 	if err != nil {
 		errStr = err.Error()
