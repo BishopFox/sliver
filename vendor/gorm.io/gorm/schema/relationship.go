@@ -3,6 +3,7 @@ package schema
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/jinzhu/inflection"
@@ -17,7 +18,6 @@ const (
 	HasMany   RelationshipType = "has_many"     // HasManyRel has many relationship
 	BelongsTo RelationshipType = "belongs_to"   // BelongsToRel belongs to relationship
 	Many2Many RelationshipType = "many_to_many" // Many2ManyRel many to many relationship
-	has       RelationshipType = "has"
 )
 
 type Relationships struct {
@@ -53,7 +53,7 @@ type Reference struct {
 	OwnPrimaryKey bool
 }
 
-func (schema *Schema) parseRelation(field *Field) *Relationship {
+func (schema *Schema) parseRelation(field *Field) {
 	var (
 		err        error
 		fieldValue = reflect.New(field.IndirectFieldType).Interface()
@@ -67,10 +67,13 @@ func (schema *Schema) parseRelation(field *Field) *Relationship {
 	)
 
 	cacheStore := schema.cacheStore
+	if field.OwnerSchema != nil {
+		cacheStore = field.OwnerSchema.cacheStore
+	}
 
-	if relation.FieldSchema, err = getOrParse(fieldValue, cacheStore, schema.namer); err != nil {
+	if relation.FieldSchema, err = Parse(fieldValue, cacheStore, schema.namer); err != nil {
 		schema.err = err
-		return nil
+		return
 	}
 
 	if polymorphic := field.TagSettings["POLYMORPHIC"]; polymorphic != "" {
@@ -80,7 +83,7 @@ func (schema *Schema) parseRelation(field *Field) *Relationship {
 	} else {
 		switch field.IndirectFieldType.Kind() {
 		case reflect.Struct:
-			schema.guessRelation(relation, field, guessGuess)
+			schema.guessRelation(relation, field, guessBelongs)
 		case reflect.Slice:
 			schema.guessRelation(relation, field, guessHas)
 		default:
@@ -88,9 +91,8 @@ func (schema *Schema) parseRelation(field *Field) *Relationship {
 		}
 	}
 
-	if relation.Type == has {
-		// don't add relations to embeded schema, which might be shared
-		if relation.FieldSchema != relation.Schema && relation.Polymorphic == nil && field.OwnerSchema == nil {
+	if relation.Type == "has" {
+		if relation.FieldSchema != relation.Schema && relation.Polymorphic == nil {
 			relation.FieldSchema.Relationships.Relations["_"+relation.Schema.Name+"_"+relation.Name] = relation
 		}
 
@@ -115,8 +117,6 @@ func (schema *Schema) parseRelation(field *Field) *Relationship {
 			schema.Relationships.Many2Many = append(schema.Relationships.Many2Many, relation)
 		}
 	}
-
-	return relation
 }
 
 // User has many Toys, its `Polymorphic` is `Owner`, Pet has one Toy, its `Polymorphic` is `Owner`
@@ -176,7 +176,7 @@ func (schema *Schema) buildPolymorphicRelation(relation *Relationship, field *Fi
 		})
 	}
 
-	relation.Type = has
+	relation.Type = "has"
 }
 
 func (schema *Schema) buildMany2ManyRelation(relation *Relationship, field *Field, many2many string) {
@@ -219,7 +219,7 @@ func (schema *Schema) buildMany2ManyRelation(relation *Relationship, field *Fiel
 	}
 
 	for idx, ownField := range ownForeignFields {
-		joinFieldName := strings.Title(schema.Name) + ownField.Name
+		joinFieldName := schema.Name + ownField.Name
 		if len(joinForeignKeys) > idx {
 			joinFieldName = strings.Title(joinForeignKeys[idx])
 		}
@@ -258,7 +258,7 @@ func (schema *Schema) buildMany2ManyRelation(relation *Relationship, field *Fiel
 	}
 
 	joinTableFields = append(joinTableFields, reflect.StructField{
-		Name: strings.Title(schema.Name) + field.Name,
+		Name: schema.Name + field.Name,
 		Type: schema.ModelType,
 		Tag:  `gorm:"-"`,
 	})
@@ -340,32 +340,20 @@ func (schema *Schema) buildMany2ManyRelation(relation *Relationship, field *Fiel
 type guessLevel int
 
 const (
-	guessGuess guessLevel = iota
-	guessBelongs
+	guessBelongs guessLevel = iota
 	guessEmbeddedBelongs
 	guessHas
 	guessEmbeddedHas
 )
 
-func (schema *Schema) guessRelation(relation *Relationship, field *Field, cgl guessLevel) {
+func (schema *Schema) guessRelation(relation *Relationship, field *Field, gl guessLevel) {
 	var (
 		primaryFields, foreignFields []*Field
 		primarySchema, foreignSchema = schema, relation.FieldSchema
-		gl                           = cgl
 	)
 
-	if gl == guessGuess {
-		if field.Schema == relation.FieldSchema {
-			gl = guessBelongs
-		} else {
-			gl = guessHas
-		}
-	}
-
 	reguessOrErr := func() {
-		switch cgl {
-		case guessGuess:
-			schema.guessRelation(relation, field, guessBelongs)
+		switch gl {
 		case guessBelongs:
 			schema.guessRelation(relation, field, guessEmbeddedBelongs)
 		case guessEmbeddedBelongs:
@@ -374,7 +362,7 @@ func (schema *Schema) guessRelation(relation *Relationship, field *Field, cgl gu
 			schema.guessRelation(relation, field, guessEmbeddedHas)
 		// case guessEmbeddedHas:
 		default:
-			schema.err = fmt.Errorf("invalid field found for struct %v's field %v, need to define a valid foreign key for relations or it need to implement the Valuer/Scanner interface", schema, field.Name)
+			schema.err = fmt.Errorf("invalid field found for struct %v's field %v, need to define a foreign key for relations or it need to implement the Valuer/Scanner interface", schema, field.Name)
 		}
 	}
 
@@ -408,35 +396,15 @@ func (schema *Schema) guessRelation(relation *Relationship, field *Field, cgl gu
 			}
 		}
 	} else {
-		var primaryFields []*Field
-
-		if len(relation.primaryKeys) > 0 {
-			for _, primaryKey := range relation.primaryKeys {
-				if f := primarySchema.LookUpField(primaryKey); f != nil {
-					primaryFields = append(primaryFields, f)
-				}
-			}
-		} else {
-			primaryFields = primarySchema.PrimaryFields
-		}
-
-		for _, primaryField := range primaryFields {
+		for _, primaryField := range primarySchema.PrimaryFields {
 			lookUpName := primarySchema.Name + primaryField.Name
 			if gl == guessBelongs {
 				lookUpName = field.Name + primaryField.Name
 			}
 
-			lookUpNames := []string{lookUpName}
-			if len(primaryFields) == 1 {
-				lookUpNames = append(lookUpNames, strings.TrimSuffix(lookUpName, primaryField.Name)+"ID", strings.TrimSuffix(lookUpName, primaryField.Name)+"Id", schema.namer.ColumnName(foreignSchema.Table, strings.TrimSuffix(lookUpName, primaryField.Name)+"ID"))
-			}
-
-			for _, name := range lookUpNames {
-				if f := foreignSchema.LookUpField(name); f != nil {
-					foreignFields = append(foreignFields, f)
-					primaryFields = append(primaryFields, primaryField)
-					break
-				}
+			if f := foreignSchema.LookUpField(lookUpName); f != nil {
+				foreignFields = append(foreignFields, f)
+				primaryFields = append(primaryFields, primaryField)
 			}
 		}
 	}
@@ -459,7 +427,7 @@ func (schema *Schema) guessRelation(relation *Relationship, field *Field, cgl gu
 			}
 		}
 	} else if len(primaryFields) == 0 {
-		if len(foreignFields) == 1 && primarySchema.PrioritizedPrimaryField != nil {
+		if len(foreignFields) == 1 {
 			primaryFields = append(primaryFields, primarySchema.PrioritizedPrimaryField)
 		} else if len(primarySchema.PrimaryFields) == len(foreignFields) {
 			primaryFields = append(primaryFields, primarySchema.PrimaryFields...)
@@ -486,7 +454,7 @@ func (schema *Schema) guessRelation(relation *Relationship, field *Field, cgl gu
 	}
 
 	if gl == guessHas || gl == guessEmbeddedHas {
-		relation.Type = has
+		relation.Type = "has"
 	} else {
 		relation.Type = BelongsTo
 	}
@@ -509,35 +477,13 @@ func (rel *Relationship) ParseConstraint() *Constraint {
 		return nil
 	}
 
-	if rel.Type == BelongsTo {
-		for _, r := range rel.FieldSchema.Relationships.Relations {
-			if r.FieldSchema == rel.Schema && len(rel.References) == len(r.References) {
-				matched := true
-				for idx, ref := range r.References {
-					if !(rel.References[idx].PrimaryKey == ref.PrimaryKey && rel.References[idx].ForeignKey == ref.ForeignKey &&
-						rel.References[idx].PrimaryValue == ref.PrimaryValue) {
-						matched = false
-					}
-				}
-
-				if matched {
-					return nil
-				}
-			}
-		}
-	}
-
 	var (
 		name     string
 		idx      = strings.Index(str, ",")
 		settings = ParseTagSetting(str, ",")
 	)
 
-	// optimize match english letters and midline
-	// The following code is basically called in for.
-	// In order to avoid the performance problems caused by repeated compilation of regular expressions,
-	// it only needs to be done once outside, so optimization is done here.
-	if idx != -1 && regEnLetterAndMidline.MatchString(str[0:idx]) {
+	if idx != -1 && regexp.MustCompile("^[A-Za-z-_]+$").MatchString(str[0:idx]) {
 		name = str[0:idx]
 	} else {
 		name = rel.Schema.namer.RelationshipFKName(*rel)
@@ -551,7 +497,7 @@ func (rel *Relationship) ParseConstraint() *Constraint {
 	}
 
 	for _, ref := range rel.References {
-		if ref.PrimaryKey != nil && (rel.JoinTable == nil || ref.OwnPrimaryKey) {
+		if ref.PrimaryKey != nil {
 			constraint.ForeignKeys = append(constraint.ForeignKeys, ref.ForeignKey)
 			constraint.References = append(constraint.References, ref.PrimaryKey)
 
@@ -563,6 +509,10 @@ func (rel *Relationship) ParseConstraint() *Constraint {
 				constraint.ReferenceSchema = ref.PrimaryKey.Schema
 			}
 		}
+	}
+
+	if rel.JoinTable != nil {
+		return nil
 	}
 
 	return &constraint

@@ -25,7 +25,7 @@ require (
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
-	github.com/mattn/go-sqlite3 v1.14.6
+	github.com/mattn/go-sqlite3 v1.14.5
 	github.com/maxlandon/readline v0.1.0-beta.0.20210323134646-e127d57a9b11
 	github.com/miekg/dns v1.1.41
 	github.com/mitchellh/go-grpc-net-conn v0.0.0-20200427190222-eb030e4876f0
@@ -41,8 +41,8 @@ require (
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gopkg.in/djherbis/buffer.v1 v1.1.0
 	gopkg.in/djherbis/nio.v2 v2.0.3
-	gorm.io/driver/mysql v1.0.5
-	gorm.io/driver/postgres v1.0.8
-	gorm.io/driver/sqlite v1.1.4
-	gorm.io/gorm v1.21.4
+	gorm.io/driver/mysql v1.0.3
+	gorm.io/driver/postgres v1.0.5
+	gorm.io/driver/sqlite v1.1.3
+	gorm.io/gorm v1.20.6
 )

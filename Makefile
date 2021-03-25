@@ -140,12 +140,13 @@ clean:
 development: assets tests clean pb
 
 .PHONY: assets
-assets:
-
+assets: clean
+	./go-assets.sh
 
 .PHONY: tests
 tests: 
 	# Server 
+	./sliver-server unpack --force
 	./go-tests.sh $(ENV) $(GO) -$(TAGS),server $(LDFLAGS)
 	# Client
 

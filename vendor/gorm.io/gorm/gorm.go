@@ -3,6 +3,7 @@ package gorm
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -11,9 +12,6 @@ import (
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
 )
-
-// for Config.cacheStore store PreparedStmtDB key
-const preparedStmtDBKey = "preparedStmt"
 
 // Config GORM config
 type Config struct {
@@ -36,14 +34,8 @@ type Config struct {
 	DisableAutomaticPing bool
 	// DisableForeignKeyConstraintWhenMigrating
 	DisableForeignKeyConstraintWhenMigrating bool
-	// DisableNestedTransaction disable nested transaction
-	DisableNestedTransaction bool
 	// AllowGlobalUpdate allow global update
 	AllowGlobalUpdate bool
-	// QueryFields executes the SQL query with all fields of the table
-	QueryFields bool
-	// CreateBatchSize default create batch size
-	CreateBatchSize int
 
 	// ClauseBuilders clause builder
 	ClauseBuilders map[string]clause.ClauseBuilder
@@ -58,29 +50,6 @@ type Config struct {
 	cacheStore *sync.Map
 }
 
-func (c *Config) Apply(config *Config) error {
-	if config != c {
-		*config = *c
-	}
-	return nil
-}
-
-func (c *Config) AfterInitialize(db *DB) error {
-	if db != nil {
-		for _, plugin := range c.Plugins {
-			if err := plugin.Initialize(db); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-type Option interface {
-	Apply(*Config) error
-	AfterInitialize(*DB) error
-}
-
 // DB GORM DB definition
 type DB struct {
 	*Config
@@ -92,40 +61,21 @@ type DB struct {
 
 // Session session config when create session with Session() method
 type Session struct {
-	DryRun                   bool
-	PrepareStmt              bool
-	NewDB                    bool
-	SkipHooks                bool
-	SkipDefaultTransaction   bool
-	DisableNestedTransaction bool
-	AllowGlobalUpdate        bool
-	FullSaveAssociations     bool
-	QueryFields              bool
-	Context                  context.Context
-	Logger                   logger.Interface
-	NowFunc                  func() time.Time
-	CreateBatchSize          int
+	DryRun                 bool
+	PrepareStmt            bool
+	WithConditions         bool
+	SkipDefaultTransaction bool
+	AllowGlobalUpdate      bool
+	FullSaveAssociations   bool
+	Context                context.Context
+	Logger                 logger.Interface
+	NowFunc                func() time.Time
 }
 
 // Open initialize db session based on dialector
-func Open(dialector Dialector, opts ...Option) (db *DB, err error) {
-	config := &Config{}
-
-	for _, opt := range opts {
-		if opt != nil {
-			if err := opt.Apply(config); err != nil {
-				return nil, err
-			}
-			defer func() {
-				opt.AfterInitialize(db)
-			}()
-		}
-	}
-
-	if d, ok := dialector.(interface{ Apply(*Config) error }); ok {
-		if err = d.Apply(config); err != nil {
-			return
-		}
+func Open(dialector Dialector, config *Config) (db *DB, err error) {
+	if config == nil {
+		config = &Config{}
 	}
 
 	if config.NamingStrategy == nil {
@@ -166,11 +116,11 @@ func Open(dialector Dialector, opts ...Option) (db *DB, err error) {
 
 	preparedStmt := &PreparedStmtDB{
 		ConnPool:    db.ConnPool,
-		Stmts:       map[string]Stmt{},
+		Stmts:       map[string]*sql.Stmt{},
 		Mux:         &sync.RWMutex{},
 		PreparedSQL: make([]string, 0, 100),
 	}
-	db.cacheStore.Store(preparedStmtDBKey, preparedStmt)
+	db.cacheStore.Store("preparedStmt", preparedStmt)
 
 	if config.PrepareStmt {
 		db.ConnPool = preparedStmt
@@ -203,13 +153,9 @@ func (db *DB) Session(config *Session) *DB {
 		tx       = &DB{
 			Config:    &txConfig,
 			Statement: db.Statement,
-			Error:     db.Error,
 			clone:     1,
 		}
 	)
-	if config.CreateBatchSize > 0 {
-		tx.Config.CreateBatchSize = config.CreateBatchSize
-	}
 
 	if config.SkipDefaultTransaction {
 		tx.Config.SkipDefaultTransaction = true
@@ -223,17 +169,15 @@ func (db *DB) Session(config *Session) *DB {
 		txConfig.FullSaveAssociations = true
 	}
 
-	if config.Context != nil || config.PrepareStmt || config.SkipHooks {
+	if config.Context != nil {
 		tx.Statement = tx.Statement.clone()
 		tx.Statement.DB = tx
-	}
-
-	if config.Context != nil {
 		tx.Statement.Context = config.Context
 	}
 
 	if config.PrepareStmt {
-		if v, ok := db.cacheStore.Load(preparedStmtDBKey); ok {
+		if v, ok := db.cacheStore.Load("preparedStmt"); ok {
+			tx.Statement = tx.Statement.clone()
 			preparedStmt := v.(*PreparedStmtDB)
 			tx.Statement.ConnPool = &PreparedStmtDB{
 				ConnPool: db.Config.ConnPool,
@@ -245,24 +189,12 @@ func (db *DB) Session(config *Session) *DB {
 		}
 	}
 
-	if config.SkipHooks {
-		tx.Statement.SkipHooks = true
-	}
-
-	if config.DisableNestedTransaction {
-		txConfig.DisableNestedTransaction = true
-	}
-
-	if !config.NewDB {
+	if config.WithConditions {
 		tx.clone = 2
 	}
 
 	if config.DryRun {
 		tx.Config.DryRun = true
-	}
-
-	if config.QueryFields {
-		tx.Config.QueryFields = true
 	}
 
 	if config.Logger != nil {
@@ -278,13 +210,14 @@ func (db *DB) Session(config *Session) *DB {
 
 // WithContext change current instance db's context to ctx
 func (db *DB) WithContext(ctx context.Context) *DB {
-	return db.Session(&Session{Context: ctx})
+	return db.Session(&Session{WithConditions: true, Context: ctx})
 }
 
 // Debug start debug mode
 func (db *DB) Debug() (tx *DB) {
 	return db.Session(&Session{
-		Logger: db.Logger.LogMode(logger.Info),
+		WithConditions: true,
+		Logger:         db.Logger.LogMode(logger.Info),
 	})
 }
 
@@ -339,7 +272,7 @@ func (db *DB) DB() (*sql.DB, error) {
 		return sqldb, nil
 	}
 
-	return nil, ErrInvaildDB
+	return nil, errors.New("invalid db")
 }
 
 func (db *DB) getInstance() *DB {
@@ -353,7 +286,6 @@ func (db *DB) getInstance() *DB {
 				ConnPool: db.Statement.ConnPool,
 				Context:  db.Statement.Context,
 				Clauses:  map[string]clause.Clause{},
-				Vars:     make([]interface{}, 0, 8),
 			}
 		} else {
 			// with clone statement
@@ -419,14 +351,15 @@ func (db *DB) SetupJoinTable(model interface{}, field string, joinTable interfac
 	return nil
 }
 
-func (db *DB) Use(plugin Plugin) error {
+func (db *DB) Use(plugin Plugin) (err error) {
 	name := plugin.Name()
-	if _, ok := db.Plugins[name]; ok {
+	if _, ok := db.Plugins[name]; !ok {
+		if err = plugin.Initialize(db); err == nil {
+			db.Plugins[name] = plugin
+		}
+	} else {
 		return ErrRegistered
 	}
-	if err := plugin.Initialize(db); err != nil {
-		return err
-	}
-	db.Plugins[name] = plugin
-	return nil
+
+	return err
 }

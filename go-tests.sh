@@ -63,46 +63,45 @@ if testDir ./server/website ; then
     :
 else
     # cat ~/.sliver/logs/sliver.log
-    echo $@
     exit 1
 fi
 
 # server / certs
-if go test ./server/certs ; then
+if testDir ./server/certs ; then
     :
 else
-    cat ~/.sliver/logs/sliver.log
+    # cat ~/.sliver/logs/sliver.log
     exit 1
 fi
 
 # server / cryptography
-if go test ./server/cryptography ; then
+if testDir ./server/cryptography ; then
     :
 else
-    cat ~/.sliver/logs/sliver.log
+    # cat ~/.sliver/logs/sliver.log
     exit 1
 fi
 
 # server / gogo
-if go test ./server/gogo ; then
+if testDir ./server/gogo ; then
     :
 else
-    cat ~/.sliver/logs/sliver.log
+    # cat ~/.sliver/logs/sliver.log
     exit 1
 fi
 
 # server / c2
-if go test ./server/c2 ; then
+if testDir ./server/c2 ; then
     :
 else
-    cat ~/.sliver/logs/sliver.log
+    # cat ~/.sliver/logs/sliver.log
     exit 1
 fi
 
 # server / generate
-if go test ./server/generate -timeout 6h ; then
+if testDir ./server/generate -timeout 6h ; then
     :
 else
-    cat ~/.sliver/logs/sliver.log
+    # cat ~/.sliver/logs/sliver.log
     exit 1
 fi

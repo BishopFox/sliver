@@ -10,7 +10,7 @@ import (
 )
 
 func BeforeCreate(db *gorm.DB) {
-	if db.Error == nil && db.Statement.Schema != nil && !db.Statement.SkipHooks && (db.Statement.Schema.BeforeSave || db.Statement.Schema.BeforeCreate) {
+	if db.Error == nil && db.Statement.Schema != nil && (db.Statement.Schema.BeforeSave || db.Statement.Schema.BeforeCreate) {
 		callMethod(db, func(value interface{}, tx *gorm.DB) (called bool) {
 			if db.Statement.Schema.BeforeSave {
 				if i, ok := value.(BeforeSaveInterface); ok {
@@ -55,10 +55,9 @@ func Create(config *Config) func(db *gorm.DB) {
 
 					if err == nil {
 						db.RowsAffected, _ = result.RowsAffected()
-
 						if db.RowsAffected > 0 {
 							if db.Statement.Schema != nil && db.Statement.Schema.PrioritizedPrimaryField != nil && db.Statement.Schema.PrioritizedPrimaryField.HasDefaultValue {
-								if insertID, err := result.LastInsertId(); err == nil && insertID > 0 {
+								if insertID, err := result.LastInsertId(); err == nil {
 									switch db.Statement.ReflectValue.Kind() {
 									case reflect.Slice, reflect.Array:
 										if config.LastInsertIDReversed {
@@ -71,7 +70,7 @@ func Create(config *Config) func(db *gorm.DB) {
 												_, isZero := db.Statement.Schema.PrioritizedPrimaryField.ValueOf(rv)
 												if isZero {
 													db.Statement.Schema.PrioritizedPrimaryField.Set(rv, insertID)
-													insertID -= db.Statement.Schema.PrioritizedPrimaryField.AutoIncrementIncrement
+													insertID--
 												}
 											}
 										} else {
@@ -83,13 +82,16 @@ func Create(config *Config) func(db *gorm.DB) {
 
 												if _, isZero := db.Statement.Schema.PrioritizedPrimaryField.ValueOf(rv); isZero {
 													db.Statement.Schema.PrioritizedPrimaryField.Set(rv, insertID)
-													insertID += db.Statement.Schema.PrioritizedPrimaryField.AutoIncrementIncrement
+													insertID++
 												}
 											}
 										}
 									case reflect.Struct:
-										if _, isZero := db.Statement.Schema.PrioritizedPrimaryField.ValueOf(db.Statement.ReflectValue); isZero {
-											db.Statement.Schema.PrioritizedPrimaryField.Set(db.Statement.ReflectValue, insertID)
+										if insertID > 0 {
+											if _, isZero := db.Statement.Schema.PrioritizedPrimaryField.ValueOf(db.Statement.ReflectValue); isZero {
+
+												db.Statement.Schema.PrioritizedPrimaryField.Set(db.Statement.ReflectValue, insertID)
+											}
 										}
 									}
 								} else {
@@ -139,7 +141,6 @@ func CreateWithReturning(db *gorm.DB) {
 			}
 
 			if !db.DryRun && db.Error == nil {
-				db.RowsAffected = 0
 				rows, err := db.Statement.ConnPool.QueryContext(db.Statement.Context, db.Statement.SQL.String(), db.Statement.Vars...)
 
 				if err == nil {
@@ -203,7 +204,7 @@ func CreateWithReturning(db *gorm.DB) {
 }
 
 func AfterCreate(db *gorm.DB) {
-	if db.Error == nil && db.Statement.Schema != nil && !db.Statement.SkipHooks && (db.Statement.Schema.AfterSave || db.Statement.Schema.AfterCreate) {
+	if db.Error == nil && db.Statement.Schema != nil && (db.Statement.Schema.AfterSave || db.Statement.Schema.AfterCreate) {
 		callMethod(db, func(value interface{}, tx *gorm.DB) (called bool) {
 			if db.Statement.Schema.AfterSave {
 				if i, ok := value.(AfterSaveInterface); ok {
@@ -244,7 +245,7 @@ func ConvertToCreateValues(stmt *gorm.Statement) (values clause.Values) {
 
 		for _, db := range stmt.Schema.DBNames {
 			if field := stmt.Schema.FieldsByDBName[db]; !field.HasDefaultValue || field.DefaultValueInterface != nil {
-				if v, ok := selectColumns[db]; (ok && v) || (!ok && (!restricted || field.AutoCreateTime > 0 || field.AutoUpdateTime > 0)) {
+				if v, ok := selectColumns[db]; (ok && v) || (!ok && !restricted) {
 					values.Columns = append(values.Columns, clause.Column{Name: db})
 				}
 			}
@@ -252,7 +253,7 @@ func ConvertToCreateValues(stmt *gorm.Statement) (values clause.Values) {
 
 		switch stmt.ReflectValue.Kind() {
 		case reflect.Slice, reflect.Array:
-			stmt.SQL.Grow(stmt.ReflectValue.Len() * 18)
+			stmt.SQL.Grow(stmt.ReflectValue.Len() * 15)
 			values.Values = make([][]interface{}, stmt.ReflectValue.Len())
 			defaultValueFieldsHavingValue := map[*schema.Field][]interface{}{}
 			if stmt.ReflectValue.Len() == 0 {
@@ -275,11 +276,6 @@ func ConvertToCreateValues(stmt *gorm.Statement) (values clause.Values) {
 							values.Values[i][idx] = field.DefaultValueInterface
 							field.Set(rv, field.DefaultValueInterface)
 						} else if field.AutoCreateTime > 0 || field.AutoUpdateTime > 0 {
-							field.Set(rv, curTime)
-							values.Values[i][idx], _ = field.ValueOf(rv)
-						}
-					} else if field.AutoUpdateTime > 0 {
-						if _, ok := stmt.DB.InstanceGet("gorm:update_track_time"); ok {
 							field.Set(rv, curTime)
 							values.Values[i][idx], _ = field.ValueOf(rv)
 						}
@@ -320,11 +316,6 @@ func ConvertToCreateValues(stmt *gorm.Statement) (values clause.Values) {
 						field.Set(stmt.ReflectValue, curTime)
 						values.Values[0][idx], _ = field.ValueOf(stmt.ReflectValue)
 					}
-				} else if field.AutoUpdateTime > 0 {
-					if _, ok := stmt.DB.InstanceGet("gorm:update_track_time"); ok {
-						field.Set(stmt.ReflectValue, curTime)
-						values.Values[0][idx], _ = field.ValueOf(stmt.ReflectValue)
-					}
 				}
 			}
 
@@ -341,28 +332,26 @@ func ConvertToCreateValues(stmt *gorm.Statement) (values clause.Values) {
 		}
 	}
 
-	if c, ok := stmt.Clauses["ON CONFLICT"]; ok {
-		if onConflict, _ := c.Expression.(clause.OnConflict); onConflict.UpdateAll {
-			if stmt.Schema != nil && len(values.Columns) > 1 {
-				columns := make([]string, 0, len(values.Columns)-1)
-				for _, column := range values.Columns {
-					if field := stmt.Schema.LookUpField(column.Name); field != nil {
-						if !field.PrimaryKey && (!field.HasDefaultValue || field.DefaultValueInterface != nil) && field.AutoCreateTime == 0 {
-							columns = append(columns, column.Name)
-						}
+	if stmt.UpdatingColumn {
+		if stmt.Schema != nil && len(values.Columns) > 1 {
+			columns := make([]string, 0, len(values.Columns)-1)
+			for _, column := range values.Columns {
+				if field := stmt.Schema.LookUpField(column.Name); field != nil {
+					if !field.PrimaryKey && !field.HasDefaultValue && field.AutoCreateTime == 0 {
+						columns = append(columns, column.Name)
 					}
 				}
-
-				onConflict.DoUpdates = clause.AssignmentColumns(columns)
-
-				// use primary fields as default OnConflict columns
-				if len(onConflict.Columns) == 0 {
-					for _, field := range stmt.Schema.PrimaryFields {
-						onConflict.Columns = append(onConflict.Columns, clause.Column{Name: field.DBName})
-					}
-				}
-				stmt.AddClause(onConflict)
 			}
+
+			onConflict := clause.OnConflict{
+				Columns:   make([]clause.Column, len(stmt.Schema.PrimaryFieldDBNames)),
+				DoUpdates: clause.AssignmentColumns(columns),
+			}
+
+			for idx, field := range stmt.Schema.PrimaryFields {
+				onConflict.Columns[idx] = clause.Column{Name: field.DBName}
+			}
+			stmt.AddClause(onConflict)
 		}
 	}
 
