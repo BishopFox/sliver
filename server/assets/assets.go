@@ -223,7 +223,7 @@ func SetupGoPath(goPathSrc string) error {
 	}
 	commonpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "commonpb")
 	os.MkdirAll(commonpbDir, 0700)
-	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0644)
+	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0600)
 
 	// Comm PB
 	commpbSrc, err := protobufs.FS.ReadFile("commpb/comm.pb.go")
@@ -233,7 +233,7 @@ func SetupGoPath(goPathSrc string) error {
 	}
 	commpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "commpb")
 	os.MkdirAll(commpbDir, 0700)
-	ioutil.WriteFile(path.Join(commpbDir, "comm.pb.go"), commpbSrc, 0644)
+	ioutil.WriteFile(path.Join(commpbDir, "comm.pb.go"), commpbSrc, 0600)
 
 	return nil
 }
