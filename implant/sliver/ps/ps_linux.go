@@ -46,16 +46,27 @@ func (p *UnixProcess) Owner() string {
 	return p.owner
 }
 
-func getProcessOwner(pid int) (string, error) {
+func getProcessOwnerUid(pid int) (uint32, error) {
 	filename := fmt.Sprintf("/proc/%d/task", pid)
-	f, _ := os.Open(filename)
+	f, err := os.Open(filename)
+	if err != nil {
+		return 0, err
+	}
 	defer f.Close()
 	fileStat := &syscall.Stat_t{}
-	err := syscall.Fstat(int(f.Fd()), fileStat)
+	err = syscall.Fstat(int(f.Fd()), fileStat)
+	if err != nil {
+		return 0, err
+	}
+	return fileStat.Uid, nil
+}
+
+func getProcessOwner(pid int) (string, error) {
+	uid, err := getProcessOwnerUid(pid)
 	if err != nil {
 		return "", err
 	}
-	usr, err := user.LookupId(fmt.Sprintf("%d", fileStat.Uid))
+	usr, err := user.LookupId(fmt.Sprintf("%d", uid))
 	if err != nil {
 		return "", err
 	}
@@ -140,7 +151,12 @@ func processes() ([]Process, error) {
 			}
 			p.owner, err = getProcessOwner(int(pid))
 			if err != nil {
-				continue
+				uid, err := getProcessOwnerUid(int(pid))
+				if err != nil {
+					p.owner = ""
+				} else {
+					p.owner = fmt.Sprintf("%d", uid)
+				}
 			}
 			results = append(results, p)
 		}
