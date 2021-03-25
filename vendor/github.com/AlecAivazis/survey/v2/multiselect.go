@@ -113,8 +113,7 @@ func (m *MultiSelect) OnChange(key rune, config *PromptConfig) {
 		m.filter = ""
 	} else if key == terminal.KeyDelete || key == terminal.KeyBackspace {
 		if m.filter != "" {
-			runeFilter := []rune(m.filter)
-			m.filter = string(runeFilter[0 : len(runeFilter)-1])
+			m.filter = m.filter[0 : len(m.filter)-1]
 		}
 	} else if key >= terminal.KeySpace {
 		m.filter += string(key)
@@ -274,10 +273,7 @@ func (m *MultiSelect) Prompt(config *PromptConfig) (interface{}, error) {
 
 	// start waiting for input
 	for {
-		r, _, err := rr.ReadRune()
-		if err != nil {
-			return "", err
-		}
+		r, _, _ := rr.ReadRune()
 		if r == '\r' || r == '\n' {
 			break
 		}

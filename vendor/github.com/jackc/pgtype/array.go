@@ -82,7 +82,6 @@ func (src ArrayHeader) EncodeBinary(ci *ConnInfo, buf []byte) []byte {
 
 type UntypedTextArray struct {
 	Elements   []string
-	Quoted     []bool
 	Dimensions []ArrayDimension
 }
 
@@ -197,14 +196,13 @@ func ParseUntypedTextArray(src string) (*UntypedTextArray, error) {
 			}
 		default:
 			buf.UnreadRune()
-			value, quoted, err := arrayParseValue(buf)
+			value, err := arrayParseValue(buf)
 			if err != nil {
 				return nil, errors.Errorf("invalid array value: %v", err)
 			}
 			if currentDim == counterDim {
 				implicitDimensions[currentDim].Length++
 			}
-			dst.Quoted = append(dst.Quoted, quoted)
 			dst.Elements = append(dst.Elements, value)
 		}
 
@@ -241,10 +239,10 @@ func skipWhitespace(buf *bytes.Buffer) {
 	}
 }
 
-func arrayParseValue(buf *bytes.Buffer) (string, bool, error) {
+func arrayParseValue(buf *bytes.Buffer) (string, error) {
 	r, _, err := buf.ReadRune()
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 	if r == '"' {
 		return arrayParseQuotedValue(buf)
@@ -256,41 +254,41 @@ func arrayParseValue(buf *bytes.Buffer) (string, bool, error) {
 	for {
 		r, _, err := buf.ReadRune()
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		switch r {
 		case ',', '}':
 			buf.UnreadRune()
-			return s.String(), false, nil
+			return s.String(), nil
 		}
 
 		s.WriteRune(r)
 	}
 }
 
-func arrayParseQuotedValue(buf *bytes.Buffer) (string, bool, error) {
+func arrayParseQuotedValue(buf *bytes.Buffer) (string, error) {
 	s := &bytes.Buffer{}
 
 	for {
 		r, _, err := buf.ReadRune()
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		switch r {
 		case '\\':
 			r, _, err = buf.ReadRune()
 			if err != nil {
-				return "", false, err
+				return "", err
 			}
 		case '"':
 			r, _, err = buf.ReadRune()
 			if err != nil {
-				return "", false, err
+				return "", err
 			}
 			buf.UnreadRune()
-			return s.String(), true, nil
+			return s.String(), nil
 		}
 		s.WriteRune(r)
 	}

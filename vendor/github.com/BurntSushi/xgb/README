@@ -20,7 +20,7 @@ BurntSushi's Fork
 I've forked the XGB repository from Google Code due to inactivty upstream.
 
 Godoc documentation can be found here:
-http://godoc.burntsushi.net/pkg/github.com/BurntSushi/xgb/
+https://godoc.org/github.com/BurntSushi/xgb
 
 Much of the code has been rewritten in an effort to support thread safety
 and multiple extensions. Namely, go_client.py has been thrown away in favor

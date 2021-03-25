@@ -1,4 +1,4 @@
-# github.com/AlecAivazis/survey/v2 v2.2.9
+# github.com/AlecAivazis/survey/v2 v2.2.2
 ## explicit
 github.com/AlecAivazis/survey/v2
 github.com/AlecAivazis/survey/v2/core
@@ -6,7 +6,7 @@ github.com/AlecAivazis/survey/v2/terminal
 # github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
 ## explicit
 github.com/Binject/binjection/bj
-# github.com/Binject/debug v0.0.0-20210312092933-6277045c2fdf
+# github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2
 ## explicit
 github.com/Binject/debug/elf
 github.com/Binject/debug/macho
@@ -14,12 +14,13 @@ github.com/Binject/debug/pe
 # github.com/Binject/shellcode v0.0.0-20191101084904-a8a90e7d4563
 github.com/Binject/shellcode
 github.com/Binject/shellcode/api
-# github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802
+# github.com/BurntSushi/xgb v0.0.0-20201008132610-5f9e7b3c49cd
+## explicit
 github.com/BurntSushi/xgb
 github.com/BurntSushi/xgb/shm
 github.com/BurntSushi/xgb/xinerama
 github.com/BurntSushi/xgb/xproto
-# github.com/Microsoft/go-winio v0.4.16
+# github.com/Microsoft/go-winio v0.4.15
 ## explicit
 github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/pkg/guid
@@ -28,7 +29,7 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
 ## explicit
 github.com/acarl005/stripansi
-# github.com/alecthomas/chroma v0.8.2
+# github.com/alecthomas/chroma v0.8.1
 ## explicit
 github.com/alecthomas/chroma
 github.com/alecthomas/chroma/formatters
@@ -92,10 +93,10 @@ github.com/gen2brain/shm
 github.com/go-cmd/cmd
 # github.com/go-sql-driver/mysql v1.5.0
 github.com/go-sql-driver/mysql
-# github.com/gofrs/uuid v4.0.0+incompatible
+# github.com/gofrs/uuid v3.3.0+incompatible
 ## explicit
 github.com/gofrs/uuid
-# github.com/golang/protobuf v1.5.1
+# github.com/golang/protobuf v1.4.3
 ## explicit
 github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
@@ -103,6 +104,8 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
+# github.com/google/go-cmp v0.5.1
+## explicit
 # github.com/google/uuid v1.2.0
 ## explicit
 github.com/google/uuid
@@ -122,7 +125,7 @@ github.com/grpc-ecosystem/go-grpc-middleware/tags
 github.com/inconshreveable/mousetrap
 # github.com/jackc/chunkreader/v2 v2.0.1
 github.com/jackc/chunkreader/v2
-# github.com/jackc/pgconn v1.8.0
+# github.com/jackc/pgconn v1.7.0
 github.com/jackc/pgconn
 github.com/jackc/pgconn/internal/ctxwatch
 github.com/jackc/pgconn/stmtcache
@@ -130,13 +133,13 @@ github.com/jackc/pgconn/stmtcache
 github.com/jackc/pgio
 # github.com/jackc/pgpassfile v1.0.0
 github.com/jackc/pgpassfile
-# github.com/jackc/pgproto3/v2 v2.0.6
+# github.com/jackc/pgproto3/v2 v2.0.5
 github.com/jackc/pgproto3/v2
 # github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b
 github.com/jackc/pgservicefile
-# github.com/jackc/pgtype v1.6.2
+# github.com/jackc/pgtype v1.5.0
 github.com/jackc/pgtype
-# github.com/jackc/pgx/v4 v4.10.1
+# github.com/jackc/pgx/v4 v4.9.0
 github.com/jackc/pgx/v4
 github.com/jackc/pgx/v4/internal/sanitize
 github.com/jackc/pgx/v4/stdlib
@@ -163,7 +166,7 @@ github.com/mattn/go-colorable
 github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.9
 github.com/mattn/go-runewidth
-# github.com/mattn/go-sqlite3 v1.14.6
+# github.com/mattn/go-sqlite3 v1.14.5
 ## explicit
 github.com/mattn/go-sqlite3
 # github.com/maxlandon/readline v0.1.0-beta.0.20210323134646-e127d57a9b11
@@ -171,12 +174,14 @@ github.com/mattn/go-sqlite3
 github.com/maxlandon/readline
 # github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 github.com/mgutz/ansi
-# github.com/miekg/dns v1.1.41
+# github.com/miekg/dns v1.1.35
 ## explicit
 github.com/miekg/dns
 # github.com/mitchellh/go-grpc-net-conn v0.0.0-20200427190222-eb030e4876f0
 ## explicit
 github.com/mitchellh/go-grpc-net-conn
+# github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
+## explicit
 # github.com/olekukonko/tablewriter v0.0.5
 ## explicit
 github.com/olekukonko/tablewriter
@@ -187,22 +192,24 @@ github.com/olekukonko/ts
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
-# github.com/sirupsen/logrus v1.8.1
+# github.com/sergi/go-diff v1.1.0
+## explicit
+# github.com/sirupsen/logrus v1.7.0
 ## explicit
 github.com/sirupsen/logrus
-# github.com/spf13/cobra v1.1.3
+# github.com/spf13/cobra v1.1.1
 ## explicit
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.7.0
+# github.com/stretchr/testify v1.6.1
 ## explicit
 github.com/stretchr/testify/assert
 # github.com/yl2chen/cidranger v1.0.2
 ## explicit
 github.com/yl2chen/cidranger
 github.com/yl2chen/cidranger/net
-# golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+# golang.org/x/crypto v0.0.0-20201116153603-4be66e5b6582
 ## explicit
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
@@ -217,7 +224,8 @@ golang.org/x/crypto/poly1305
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
+# golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+## explicit
 golang.org/x/net/bpf
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
@@ -229,7 +237,9 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/trace
-# golang.org/x/sys v0.0.0-20210324051608-47abb6519492
+# golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+## explicit
+# golang.org/x/sys v0.0.0-20210320140829-1e4c9ba3b0c4
 ## explicit
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
@@ -239,7 +249,7 @@ golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
 golang.org/x/sys/windows/svc
 golang.org/x/sys/windows/svc/mgr
-# golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
+# golang.org/x/term v0.0.0-20201113234701-d7a72108b828
 golang.org/x/term
 # golang.org/x/text v0.3.3
 golang.org/x/text/cases
@@ -255,12 +265,13 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
-# golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
+# golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
+## explicit
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
 # google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.36.0
+# google.golang.org/grpc v1.33.2
 ## explicit
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -288,16 +299,12 @@ google.golang.org/grpc/internal/grpclog
 google.golang.org/grpc/internal/grpcrand
 google.golang.org/grpc/internal/grpcsync
 google.golang.org/grpc/internal/grpcutil
-google.golang.org/grpc/internal/metadata
-google.golang.org/grpc/internal/resolver
 google.golang.org/grpc/internal/resolver/dns
 google.golang.org/grpc/internal/resolver/passthrough
-google.golang.org/grpc/internal/resolver/unix
 google.golang.org/grpc/internal/serviceconfig
 google.golang.org/grpc/internal/status
 google.golang.org/grpc/internal/syscall
 google.golang.org/grpc/internal/transport
-google.golang.org/grpc/internal/transport/networktype
 google.golang.org/grpc/keepalive
 google.golang.org/grpc/metadata
 google.golang.org/grpc/peer
@@ -307,7 +314,7 @@ google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
 google.golang.org/grpc/test/bufconn
-# google.golang.org/protobuf v1.26.0
+# google.golang.org/protobuf v1.25.0
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
@@ -320,23 +327,22 @@ google.golang.org/protobuf/internal/encoding/messageset
 google.golang.org/protobuf/internal/encoding/tag
 google.golang.org/protobuf/internal/encoding/text
 google.golang.org/protobuf/internal/errors
+google.golang.org/protobuf/internal/fieldsort
 google.golang.org/protobuf/internal/filedesc
 google.golang.org/protobuf/internal/filetype
 google.golang.org/protobuf/internal/flags
 google.golang.org/protobuf/internal/genid
 google.golang.org/protobuf/internal/impl
-google.golang.org/protobuf/internal/order
+google.golang.org/protobuf/internal/mapsort
 google.golang.org/protobuf/internal/pragma
 google.golang.org/protobuf/internal/set
 google.golang.org/protobuf/internal/strs
 google.golang.org/protobuf/internal/version
 google.golang.org/protobuf/proto
-google.golang.org/protobuf/reflect/protodesc
 google.golang.org/protobuf/reflect/protoreflect
 google.golang.org/protobuf/reflect/protoregistry
 google.golang.org/protobuf/runtime/protoiface
 google.golang.org/protobuf/runtime/protoimpl
-google.golang.org/protobuf/types/descriptorpb
 google.golang.org/protobuf/types/known/anypb
 google.golang.org/protobuf/types/known/durationpb
 google.golang.org/protobuf/types/known/timestamppb
@@ -345,6 +351,8 @@ google.golang.org/protobuf/types/known/timestamppb
 gopkg.in/AlecAivazis/survey.v1
 gopkg.in/AlecAivazis/survey.v1/core
 gopkg.in/AlecAivazis/survey.v1/terminal
+# gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b
+## explicit
 # gopkg.in/djherbis/buffer.v1 v1.1.0
 ## explicit
 gopkg.in/djherbis/buffer.v1
@@ -353,16 +361,16 @@ gopkg.in/djherbis/buffer.v1
 gopkg.in/djherbis/nio.v2
 # gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 gopkg.in/yaml.v3
-# gorm.io/driver/mysql v1.0.5
+# gorm.io/driver/mysql v1.0.3
 ## explicit
 gorm.io/driver/mysql
-# gorm.io/driver/postgres v1.0.8
+# gorm.io/driver/postgres v1.0.5
 ## explicit
 gorm.io/driver/postgres
-# gorm.io/driver/sqlite v1.1.4
+# gorm.io/driver/sqlite v1.1.3
 ## explicit
 gorm.io/driver/sqlite
-# gorm.io/gorm v1.21.4
+# gorm.io/gorm v1.20.6
 ## explicit
 gorm.io/gorm
 gorm.io/gorm/callbacks

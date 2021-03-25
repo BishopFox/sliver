@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build aix darwin dragonfly freebsd linux netbsd openbsd zos
+// +build aix darwin dragonfly freebsd linux,!appengine netbsd openbsd zos
 
 package term
 
@@ -10,7 +10,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type state struct {
+// State contains the state of a terminal.
+type State struct {
 	termios unix.Termios
 }
 
@@ -19,13 +20,16 @@ func isTerminal(fd int) bool {
 	return err == nil
 }
 
-func makeRaw(fd int) (*State, error) {
+// MakeRaw put the terminal connected to the given file descriptor into raw
+// mode and returns the previous state of the terminal so that it can be
+// restored.
+func MakeRaw(fd int) (*State, error) {
 	termios, err := unix.IoctlGetTermios(fd, ioctlReadTermios)
 	if err != nil {
 		return nil, err
 	}
 
-	oldState := State{state{termios: *termios}}
+	oldState := State{termios: *termios}
 
 	// This attempts to replicate the behaviour documented for cfmakeraw in
 	// the termios(3) manpage.
@@ -43,20 +47,25 @@ func makeRaw(fd int) (*State, error) {
 	return &oldState, nil
 }
 
-func getState(fd int) (*State, error) {
+// GetState returns the current state of a terminal which may be useful to
+// restore the terminal after a signal.
+func GetState(fd int) (*State, error) {
 	termios, err := unix.IoctlGetTermios(fd, ioctlReadTermios)
 	if err != nil {
 		return nil, err
 	}
 
-	return &State{state{termios: *termios}}, nil
+	return &State{termios: *termios}, nil
 }
 
-func restore(fd int, state *State) error {
+// Restore restores the terminal connected to the given file descriptor to a
+// previous state.
+func Restore(fd int, state *State) error {
 	return unix.IoctlSetTermios(fd, ioctlWriteTermios, &state.termios)
 }
 
-func getSize(fd int) (width, height int, err error) {
+// GetSize returns the dimensions of the given terminal.
+func GetSize(fd int) (width, height int, err error) {
 	ws, err := unix.IoctlGetWinsize(fd, unix.TIOCGWINSZ)
 	if err != nil {
 		return -1, -1, err
@@ -71,7 +80,10 @@ func (r passwordReader) Read(buf []byte) (int, error) {
 	return unix.Read(int(r), buf)
 }
 
-func readPassword(fd int) ([]byte, error) {
+// ReadPassword reads a line of input from a terminal without local echo.  This
+// is commonly used for inputting passwords and other sensitive data. The slice
+// returned does not include the \n.
+func ReadPassword(fd int) ([]byte, error) {
 	termios, err := unix.IoctlGetTermios(fd, ioctlReadTermios)
 	if err != nil {
 		return nil, err

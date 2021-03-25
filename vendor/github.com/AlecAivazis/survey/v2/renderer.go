@@ -148,15 +148,8 @@ func (r *Renderer) countLines(buf bytes.Buffer) int {
 			delim = len(bufBytes) // no new line found, read rest of text
 		}
 
-		if lineWidth := utf8.RuneCount(bufBytes[curr:delim]); lineWidth > w {
-			// account for word wrapping
-			count += lineWidth / w
-			if (lineWidth % w) == 0 {
-				// content whose width is exactly a multiplier of available width should not
-				// count as having wrapped on the last line
-				count -= 1
-			}
-		}
+		// account for word wrapping
+		count += int(utf8.RuneCount(bufBytes[curr:delim]) / w)
 		curr = delim + 1
 	}
 

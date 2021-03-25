@@ -7,7 +7,6 @@ package protojson
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -107,11 +106,13 @@ func (e encoder) marshalAny(m pref.Message) error {
 	fdType := fds.ByNumber(genid.Any_TypeUrl_field_number)
 	fdValue := fds.ByNumber(genid.Any_Value_field_number)
 
+	// Start writing the JSON object.
+	e.StartObject()
+	defer e.EndObject()
+
 	if !m.Has(fdType) {
 		if !m.Has(fdValue) {
 			// If message is empty, marshal out empty JSON object.
-			e.StartObject()
-			e.EndObject()
 			return nil
 		} else {
 			// Return error if type_url field is not set, but value is set.
@@ -122,8 +123,14 @@ func (e encoder) marshalAny(m pref.Message) error {
 	typeVal := m.Get(fdType)
 	valueVal := m.Get(fdValue)
 
-	// Resolve the type in order to unmarshal value field.
+	// Marshal out @type field.
 	typeURL := typeVal.String()
+	e.WriteName("@type")
+	if err := e.WriteString(typeURL); err != nil {
+		return err
+	}
+
+	// Resolve the type in order to unmarshal value field.
 	emt, err := e.opts.Resolver.FindMessageByURL(typeURL)
 	if err != nil {
 		return errors.New("%s: unable to resolve %q: %v", genid.Any_message_fullname, typeURL, err)
@@ -142,21 +149,12 @@ func (e encoder) marshalAny(m pref.Message) error {
 	// with corresponding custom JSON encoding of the embedded message as a
 	// field.
 	if marshal := wellKnownTypeMarshaler(emt.Descriptor().FullName()); marshal != nil {
-		e.StartObject()
-		defer e.EndObject()
-
-		// Marshal out @type field.
-		e.WriteName("@type")
-		if err := e.WriteString(typeURL); err != nil {
-			return err
-		}
-
 		e.WriteName("value")
 		return marshal(e, em)
 	}
 
 	// Else, marshal out the embedded message's fields in this Any object.
-	if err := e.marshalMessage(em, typeURL); err != nil {
+	if err := e.marshalFields(em); err != nil {
 		return err
 	}
 
@@ -496,11 +494,6 @@ func (e encoder) marshalKnownValue(m pref.Message) error {
 	if fd == nil {
 		return errors.New("%s: none of the oneof fields is set", genid.Value_message_fullname)
 	}
-	if fd.Number() == genid.Value_NumberValue_field_number {
-		if v := m.Get(fd).Float(); math.IsNaN(v) || math.IsInf(v, 0) {
-			return errors.New("%s: invalid %v value", genid.Value_NumberValue_field_fullname, v)
-		}
-	}
 	return e.marshalSingular(m.Get(fd), fd)
 }
 
@@ -611,11 +604,14 @@ func (e encoder) marshalDuration(m pref.Message) error {
 	}
 	// Generated output always contains 0, 3, 6, or 9 fractional digits,
 	// depending on required precision, followed by the suffix "s".
-	var sign string
-	if secs < 0 || nanos < 0 {
-		sign, secs, nanos = "-", -1*secs, -1*nanos
+	f := "%d.%09d"
+	if nanos < 0 {
+		nanos = -nanos
+		if secs == 0 {
+			f = "-%d.%09d"
+		}
 	}
-	x := fmt.Sprintf("%s%d.%09d", sign, secs, nanos)
+	x := fmt.Sprintf(f, secs, nanos)
 	x = strings.TrimSuffix(x, "000")
 	x = strings.TrimSuffix(x, "000")
 	x = strings.TrimSuffix(x, ".000")

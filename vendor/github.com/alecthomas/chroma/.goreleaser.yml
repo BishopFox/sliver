@@ -6,8 +6,6 @@ release:
 brews:
   -
     install: bin.install "chroma"
-env:
-  - CGO_ENABLED=0
 builds:
 - goos:
     - linux

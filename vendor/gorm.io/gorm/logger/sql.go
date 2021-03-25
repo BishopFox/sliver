@@ -13,12 +13,6 @@ import (
 	"gorm.io/gorm/utils"
 )
 
-const (
-	tmFmtWithMS = "2006-01-02 15:04:05.999"
-	tmFmtZero   = "0000-00-00 00:00:00"
-	nullStr     = "NULL"
-)
-
 func isPrintable(s []byte) bool {
 	for _, r := range s {
 		if !unicode.IsPrint(rune(r)) {
@@ -40,19 +34,26 @@ func ExplainSQL(sql string, numericPlaceholder *regexp.Regexp, escaper string, a
 			vars[idx] = strconv.FormatBool(v)
 		case time.Time:
 			if v.IsZero() {
-				vars[idx] = escaper + tmFmtZero + escaper
+				vars[idx] = escaper + "0000-00-00 00:00:00" + escaper
 			} else {
-				vars[idx] = escaper + v.Format(tmFmtWithMS) + escaper
+				vars[idx] = escaper + v.Format("2006-01-02 15:04:05.999") + escaper
 			}
 		case *time.Time:
 			if v != nil {
 				if v.IsZero() {
-					vars[idx] = escaper + tmFmtZero + escaper
+					vars[idx] = escaper + "0000-00-00 00:00:00" + escaper
 				} else {
-					vars[idx] = escaper + v.Format(tmFmtWithMS) + escaper
+					vars[idx] = escaper + v.Format("2006-01-02 15:04:05.999") + escaper
 				}
 			} else {
-				vars[idx] = nullStr
+				vars[idx] = "NULL"
+			}
+		case fmt.Stringer:
+			reflectValue := reflect.ValueOf(v)
+			if v != nil && reflectValue.IsValid() && ((reflectValue.Kind() == reflect.Ptr && !reflectValue.IsNil()) || reflectValue.Kind() != reflect.Ptr) {
+				vars[idx] = escaper + strings.Replace(fmt.Sprintf("%v", v), escaper, "\\"+escaper, -1) + escaper
+			} else {
+				vars[idx] = "NULL"
 			}
 		case driver.Valuer:
 			reflectValue := reflect.ValueOf(v)
@@ -60,14 +61,7 @@ func ExplainSQL(sql string, numericPlaceholder *regexp.Regexp, escaper string, a
 				r, _ := v.Value()
 				convertParams(r, idx)
 			} else {
-				vars[idx] = nullStr
-			}
-		case fmt.Stringer:
-			reflectValue := reflect.ValueOf(v)
-			if v != nil && reflectValue.IsValid() && ((reflectValue.Kind() == reflect.Ptr && !reflectValue.IsNil()) || reflectValue.Kind() != reflect.Ptr) {
-				vars[idx] = escaper + strings.Replace(fmt.Sprintf("%v", v), escaper, "\\"+escaper, -1) + escaper
-			} else {
-				vars[idx] = nullStr
+				vars[idx] = "NULL"
 			}
 		case []byte:
 			if isPrintable(v) {
@@ -84,7 +78,7 @@ func ExplainSQL(sql string, numericPlaceholder *regexp.Regexp, escaper string, a
 		default:
 			rv := reflect.ValueOf(v)
 			if v == nil || !rv.IsValid() || rv.Kind() == reflect.Ptr && rv.IsNil() {
-				vars[idx] = nullStr
+				vars[idx] = "NULL"
 			} else if valuer, ok := v.(driver.Valuer); ok {
 				v, _ = valuer.Value()
 				convertParams(v, idx)

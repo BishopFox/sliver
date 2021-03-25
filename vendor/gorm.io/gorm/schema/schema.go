@@ -38,7 +38,6 @@ type Schema struct {
 	BeforeSave, AfterSave     bool
 	AfterFind                 bool
 	err                       error
-	initialized               chan struct{}
 	namer                     Namer
 	cacheStore                *sync.Map
 }
@@ -51,7 +50,7 @@ func (schema Schema) String() string {
 }
 
 func (schema Schema) MakeSlice() reflect.Value {
-	slice := reflect.MakeSlice(reflect.SliceOf(reflect.PtrTo(schema.ModelType)), 0, 20)
+	slice := reflect.MakeSlice(reflect.SliceOf(reflect.PtrTo(schema.ModelType)), 0, 0)
 	results := reflect.New(slice.Type())
 	results.Elem().Set(slice)
 	return results
@@ -90,9 +89,7 @@ func Parse(dest interface{}, cacheStore *sync.Map, namer Namer) (*Schema, error)
 	}
 
 	if v, ok := cacheStore.Load(modelType); ok {
-		s := v.(*Schema)
-		<-s.initialized
-		return s, s.err
+		return v.(*Schema), nil
 	}
 
 	modelValue := reflect.New(modelType)
@@ -113,7 +110,6 @@ func Parse(dest interface{}, cacheStore *sync.Map, namer Namer) (*Schema, error)
 		Relationships:  Relationships{Relations: map[string]*Relationship{}},
 		cacheStore:     cacheStore,
 		namer:          namer,
-		initialized:    make(chan struct{}),
 	}
 
 	defer func() {
@@ -161,7 +157,7 @@ func Parse(dest interface{}, cacheStore *sync.Map, namer Namer) (*Schema, error)
 			}
 		}
 
-		if of, ok := schema.FieldsByName[field.Name]; !ok || of.TagSettings["-"] == "-" {
+		if _, ok := schema.FieldsByName[field.Name]; !ok {
 			schema.FieldsByName[field.Name] = field
 		}
 
@@ -223,61 +219,34 @@ func Parse(dest interface{}, cacheStore *sync.Map, namer Namer) (*Schema, error)
 		}
 	}
 
-	if v, loaded := cacheStore.LoadOrStore(modelType, schema); loaded {
-		s := v.(*Schema)
-		<-s.initialized
-		return s, s.err
-	}
-
-	defer close(schema.initialized)
-	if _, embedded := schema.cacheStore.Load(embeddedCacheKey); !embedded {
-		for _, field := range schema.Fields {
-			if field.DataType == "" && (field.Creatable || field.Updatable || field.Readable) {
-				if schema.parseRelation(field); schema.err != nil {
-					return schema, schema.err
-				} else {
-					schema.FieldsByName[field.Name] = field
+	if _, loaded := cacheStore.LoadOrStore(modelType, schema); !loaded {
+		if _, embedded := schema.cacheStore.Load(embeddedCacheKey); !embedded {
+			for _, field := range schema.Fields {
+				if field.DataType == "" && (field.Creatable || field.Updatable || field.Readable) {
+					if schema.parseRelation(field); schema.err != nil {
+						return schema, schema.err
+					}
 				}
-			}
 
-			fieldValue := reflect.New(field.IndirectFieldType)
-			if fc, ok := fieldValue.Interface().(CreateClausesInterface); ok {
-				field.Schema.CreateClauses = append(field.Schema.CreateClauses, fc.CreateClauses(field)...)
-			}
+				fieldValue := reflect.New(field.IndirectFieldType)
+				if fc, ok := fieldValue.Interface().(CreateClausesInterface); ok {
+					field.Schema.CreateClauses = append(field.Schema.CreateClauses, fc.CreateClauses(field)...)
+				}
 
-			if fc, ok := fieldValue.Interface().(QueryClausesInterface); ok {
-				field.Schema.QueryClauses = append(field.Schema.QueryClauses, fc.QueryClauses(field)...)
-			}
+				if fc, ok := fieldValue.Interface().(QueryClausesInterface); ok {
+					field.Schema.QueryClauses = append(field.Schema.QueryClauses, fc.QueryClauses(field)...)
+				}
 
-			if fc, ok := fieldValue.Interface().(UpdateClausesInterface); ok {
-				field.Schema.UpdateClauses = append(field.Schema.UpdateClauses, fc.UpdateClauses(field)...)
-			}
+				if fc, ok := fieldValue.Interface().(UpdateClausesInterface); ok {
+					field.Schema.UpdateClauses = append(field.Schema.UpdateClauses, fc.UpdateClauses(field)...)
+				}
 
-			if fc, ok := fieldValue.Interface().(DeleteClausesInterface); ok {
-				field.Schema.DeleteClauses = append(field.Schema.DeleteClauses, fc.DeleteClauses(field)...)
+				if fc, ok := fieldValue.Interface().(DeleteClausesInterface); ok {
+					field.Schema.DeleteClauses = append(field.Schema.DeleteClauses, fc.DeleteClauses(field)...)
+				}
 			}
 		}
 	}
 
 	return schema, schema.err
-}
-
-func getOrParse(dest interface{}, cacheStore *sync.Map, namer Namer) (*Schema, error) {
-	modelType := reflect.ValueOf(dest).Type()
-	for modelType.Kind() == reflect.Slice || modelType.Kind() == reflect.Array || modelType.Kind() == reflect.Ptr {
-		modelType = modelType.Elem()
-	}
-
-	if modelType.Kind() != reflect.Struct {
-		if modelType.PkgPath() == "" {
-			return nil, fmt.Errorf("%w: %+v", ErrUnsupportedDataType, dest)
-		}
-		return nil, fmt.Errorf("%w: %v.%v", ErrUnsupportedDataType, modelType.PkgPath(), modelType.Name())
-	}
-
-	if v, ok := cacheStore.Load(modelType); ok {
-		return v.(*Schema), nil
-	}
-
-	return Parse(dest, cacheStore, namer)
 }

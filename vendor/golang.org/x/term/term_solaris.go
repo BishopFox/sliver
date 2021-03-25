@@ -12,7 +12,7 @@ import (
 )
 
 // State contains the state of a terminal.
-type state struct {
+type State struct {
 	termios unix.Termios
 }
 
@@ -21,7 +21,10 @@ func isTerminal(fd int) bool {
 	return err == nil
 }
 
-func readPassword(fd int) ([]byte, error) {
+// ReadPassword reads a line of input from a terminal without local echo.  This
+// is commonly used for inputting passwords and other sensitive data. The slice
+// returned does not include the \n.
+func ReadPassword(fd int) ([]byte, error) {
 	// see also: http://src.illumos.org/source/xref/illumos-gate/usr/src/lib/libast/common/uwin/getpass.c
 	val, err := unix.IoctlGetTermios(fd, unix.TCGETS)
 	if err != nil {
@@ -65,14 +68,17 @@ func readPassword(fd int) ([]byte, error) {
 	return ret, nil
 }
 
-func makeRaw(fd int) (*State, error) {
-	// see http://cr.illumos.org/~webrev/andy_js/1060/
+// MakeRaw puts the terminal connected to the given file descriptor into raw
+// mode and returns the previous state of the terminal so that it can be
+// restored.
+// see http://cr.illumos.org/~webrev/andy_js/1060/
+func MakeRaw(fd int) (*State, error) {
 	termios, err := unix.IoctlGetTermios(fd, unix.TCGETS)
 	if err != nil {
 		return nil, err
 	}
 
-	oldState := State{state{termios: *termios}}
+	oldState := State{termios: *termios}
 
 	termios.Iflag &^= unix.IGNBRK | unix.BRKINT | unix.PARMRK | unix.ISTRIP | unix.INLCR | unix.IGNCR | unix.ICRNL | unix.IXON
 	termios.Oflag &^= unix.OPOST
@@ -89,20 +95,25 @@ func makeRaw(fd int) (*State, error) {
 	return &oldState, nil
 }
 
-func restore(fd int, oldState *State) error {
+// Restore restores the terminal connected to the given file descriptor to a
+// previous state.
+func Restore(fd int, oldState *State) error {
 	return unix.IoctlSetTermios(fd, unix.TCSETS, &oldState.termios)
 }
 
-func getState(fd int) (*State, error) {
+// GetState returns the current state of a terminal which may be useful to
+// restore the terminal after a signal.
+func GetState(fd int) (*State, error) {
 	termios, err := unix.IoctlGetTermios(fd, unix.TCGETS)
 	if err != nil {
 		return nil, err
 	}
 
-	return &State{state{termios: *termios}}, nil
+	return &State{termios: *termios}, nil
 }
 
-func getSize(fd int) (width, height int, err error) {
+// GetSize returns the dimensions of the given terminal.
+func GetSize(fd int) (width, height int, err error) {
 	ws, err := unix.IoctlGetWinsize(fd, unix.TIOCGWINSZ)
 	if err != nil {
 		return 0, 0, err

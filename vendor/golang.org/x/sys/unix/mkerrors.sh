@@ -56,7 +56,6 @@ includes_Darwin='
 #define _DARWIN_C_SOURCE
 #define KERNEL
 #define _DARWIN_USE_64_BIT_INODE
-#define __APPLE_USE_RFC_3542
 #include <stdint.h>
 #include <sys/attr.h>
 #include <sys/clonefile.h>

@@ -1,6 +1,7 @@
 package gorm
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -65,9 +66,7 @@ func (association *Association) Append(values ...interface{}) error {
 func (association *Association) Replace(values ...interface{}) error {
 	if association.Error == nil {
 		// save associations
-		if association.saveAssociation( /*clear*/ true, values...); association.Error != nil {
-			return association.Error
-		}
+		association.saveAssociation( /*clear*/ true, values...)
 
 		// set old associations's foreign key to null
 		reflectValue := association.DB.Statement.ReflectValue
@@ -119,7 +118,7 @@ func (association *Association) Replace(values ...interface{}) error {
 
 			if _, pvs := schema.GetIdentityFieldValuesMap(reflectValue, primaryFields); len(pvs) > 0 {
 				column, values := schema.ToQueryValues(rel.FieldSchema.Table, foreignKeys, pvs)
-				association.Error = tx.Where(clause.IN{Column: column, Values: values}).UpdateColumns(updateMap).Error
+				tx.Where(clause.IN{Column: column, Values: values}).UpdateColumns(updateMap)
 			}
 		case schema.Many2Many:
 			var (
@@ -155,7 +154,7 @@ func (association *Association) Replace(values ...interface{}) error {
 				tx.Where(clause.Not(clause.IN{Column: relColumn, Values: relValues}))
 			}
 
-			association.Error = tx.Delete(modelValue).Error
+			tx.Delete(modelValue)
 		}
 	}
 	return association.Error
@@ -379,41 +378,11 @@ func (association *Association) saveAssociation(clear bool, values ...interface{
 	}
 
 	selectedSaveColumns := []string{association.Relationship.Name}
-	omitColumns := []string{}
-	selectColumns, _ := association.DB.Statement.SelectAndOmitColumns(true, false)
-	for name, ok := range selectColumns {
-		columnName := ""
-		if strings.HasPrefix(name, association.Relationship.Name) {
-			if columnName = strings.TrimPrefix(name, association.Relationship.Name); columnName == ".*" {
-				columnName = name
-			}
-		} else if strings.HasPrefix(name, clause.Associations) {
-			columnName = name
-		}
-
-		if columnName != "" {
-			if ok {
-				selectedSaveColumns = append(selectedSaveColumns, columnName)
-			} else {
-				omitColumns = append(omitColumns, columnName)
-			}
-		}
-	}
-
 	for _, ref := range association.Relationship.References {
 		if !ref.OwnPrimaryKey {
 			selectedSaveColumns = append(selectedSaveColumns, ref.ForeignKey.Name)
 		}
 	}
-
-	associationDB := association.DB.Session(&Session{}).Model(nil)
-	if !association.DB.FullSaveAssociations {
-		associationDB.Select(selectedSaveColumns)
-	}
-	if len(omitColumns) > 0 {
-		associationDB.Omit(omitColumns...)
-	}
-	associationDB = associationDB.Session(&Session{})
 
 	switch reflectValue.Kind() {
 	case reflect.Slice, reflect.Array:
@@ -440,7 +409,7 @@ func (association *Association) saveAssociation(clear bool, values ...interface{
 				break
 			}
 
-			association.Error = ErrInvalidValueOfLength
+			association.Error = errors.New("invalid association values, length doesn't match")
 			return
 		}
 
@@ -448,7 +417,7 @@ func (association *Association) saveAssociation(clear bool, values ...interface{
 			appendToRelations(reflectValue.Index(i), reflect.Indirect(reflect.ValueOf(values[i])), clear)
 
 			// TODO support save slice data, sql with case?
-			association.Error = associationDB.Updates(reflectValue.Index(i).Addr().Interface()).Error
+			association.Error = association.DB.Session(&Session{}).Select(selectedSaveColumns).Model(nil).Updates(reflectValue.Index(i).Addr().Interface()).Error
 		}
 	case reflect.Struct:
 		// clear old data
@@ -470,7 +439,7 @@ func (association *Association) saveAssociation(clear bool, values ...interface{
 		}
 
 		if len(values) > 0 {
-			association.Error = associationDB.Updates(reflectValue.Addr().Interface()).Error
+			association.Error = association.DB.Session(&Session{}).Select(selectedSaveColumns).Model(nil).Updates(reflectValue.Addr().Interface()).Error
 		}
 	}
 
@@ -501,7 +470,7 @@ func (association *Association) buildCondition() *DB {
 			tx.Clauses(clause.Expr{SQL: strings.Replace(joinStmt.SQL.String(), "WHERE ", "", 1), Vars: joinStmt.Vars})
 		}
 
-		tx = tx.Session(&Session{QueryFields: true}).Clauses(clause.From{Joins: []clause.Join{{
+		tx.Clauses(clause.From{Joins: []clause.Join{{
 			Table: clause.Table{Name: association.Relationship.JoinTable.Table},
 			ON:    clause.Where{Exprs: queryConds},
 		}}})

@@ -114,9 +114,8 @@ func (s *Select) OnChange(key rune, config *PromptConfig) bool {
 	} else if key == terminal.KeyDelete || key == terminal.KeyBackspace {
 		// if there is content in the filter to delete
 		if s.filter != "" {
-			runeFilter := []rune(s.filter)
 			// subtract a line from the current filter
-			s.filter = string(runeFilter[0 : len(runeFilter)-1])
+			s.filter = s.filter[0 : len(s.filter)-1]
 			// we removed the last value in the filter
 		}
 	} else if key >= terminal.KeySpace {

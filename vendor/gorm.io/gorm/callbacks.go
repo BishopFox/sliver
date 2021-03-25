@@ -72,10 +72,8 @@ func (cs *callbacks) Raw() *processor {
 }
 
 func (p *processor) Execute(db *DB) {
-	var (
-		curTime = time.Now()
-		stmt    = db.Statement
-	)
+	curTime := time.Now()
+	stmt := db.Statement
 
 	if stmt.Model == nil {
 		stmt.Model = stmt.Dest
@@ -96,24 +94,10 @@ func (p *processor) Execute(db *DB) {
 	if stmt.Dest != nil {
 		stmt.ReflectValue = reflect.ValueOf(stmt.Dest)
 		for stmt.ReflectValue.Kind() == reflect.Ptr {
-			if stmt.ReflectValue.IsNil() && stmt.ReflectValue.CanAddr() {
-				stmt.ReflectValue.Set(reflect.New(stmt.ReflectValue.Type().Elem()))
-				break
-			}
-
 			stmt.ReflectValue = stmt.ReflectValue.Elem()
 		}
 		if !stmt.ReflectValue.IsValid() {
-			db.AddError(ErrInvalidValue)
-		}
-	}
-
-	// call scopes
-	for len(stmt.scopes) > 0 {
-		scopes := stmt.scopes
-		stmt.scopes = nil
-		for _, scope := range scopes {
-			db = scope(db)
+			db.AddError(fmt.Errorf("invalid value"))
 		}
 	}
 
