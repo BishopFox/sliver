@@ -29,7 +29,6 @@ shift
 FLAGS="$@"
 
 echo "Testing with build command:"
-echo "-------------------------------------------------------"
 echo $ENV $GO test $TAGS  $LDFLAGS \"$FLAGS\"
 
 ## Util

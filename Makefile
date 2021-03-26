@@ -145,8 +145,7 @@ assets: clean
 
 .PHONY: tests
 tests: 
-	# Server 
+	# Server only
 	./sliver-server unpack --force
-	./go-tests.sh $(ENV) $(GO) -$(TAGS),server $(LDFLAGS)
-	# Client
-
+	# ./go-tests.sh server
+	# ./go-tests.sh $(ENV) $(GO) -$(TAGS),server $(LDFLAGS)
