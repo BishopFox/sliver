@@ -21,6 +21,7 @@ package rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -31,15 +32,32 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 )
 
-// GetHistory - A console requests a command history line.
+// GetHistory - A console requests a command history list, for the user or also a Session.
 func (c *Server) GetHistory(in context.Context, req *pb.HistoryRequest) (res *pb.History, err error) {
 
-	// Get an ID/operator name for this client, so that the Comms system knows
-	// where to route back connections that are meant for this client proxy/portfwd utilities.
+	hist := &pb.History{Response: &commonpb.Response{}}
+
+	// Get user name, and set responses
 	name := c.getClientCommonName(in)
 
-	// Find file data, cut it and process it. If the name is empty,
-	// we are the server and we write to a dedicated file.
+	// We always send the user/server history.
+	hist.User, hist.UserHistLength, err = getUserHistory(name)
+	if err != nil {
+		hist.Response.Err = err.Error()
+	}
+
+	// Also send the session history file if there is a current implant being used
+	if req.Session != nil {
+		hist.Sliver, hist.SliverHistLength, err = getSessionHistory(req.Session)
+		if err != nil {
+			hist.Response.Err = err.Error()
+		}
+	}
+
+	return hist, nil
+}
+
+func getUserHistory(name string) (lines []string, length int32, err error) {
 	var filename string
 	if name == "" {
 		filename = filepath.Join(assets.GetRootAppDir(), ".history")
@@ -47,14 +65,34 @@ func (c *Server) GetHistory(in context.Context, req *pb.HistoryRequest) (res *pb
 		path := assets.GetUserDirectory(name)
 		filename = filepath.Join(path, ".history")
 	}
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return
+	}
+	lines = strings.Split(string(data), "\n")
+	length = int32(len(lines))
+
+	return
+}
+
+func getSessionHistory(sess *pb.Session) (lines []string, length int32, err error) {
+	sliverPath := assets.GetSliverDirectory(sess)
+
+	// The same history is shared by all sessions who have the same target user,
+	// and the same UUID. (mostly machine identifiers, except for Windows where there's more)
+	histFile := fmt.Sprintf("%s_%s.history", sess.Username, sess.UUID)
+
+	// Make the whole
+	filename := filepath.Join(sliverPath, histFile)
 
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return &pb.History{Response: &commonpb.Response{Err: err.Error()}}, nil
+		return
 	}
-	lines := strings.Split(string(data), "\n")
+	lines = strings.Split(string(data), "\n")
+	length = int32(len(lines))
 
-	return &pb.History{Lines: lines, HistLength: int32(len(lines))}, nil
+	return
 }
 
 // AddToHistory - A client has sent a new command input line to be saved.
@@ -66,18 +104,49 @@ func (c *Server) AddToHistory(in context.Context, req *pb.AddCmdHistoryRequest) 
 	// where to route back connections that are meant for this client proxy/portfwd utilities.
 	name := c.getClientCommonName(in)
 
-	// Filter various useless commands
-	if stringInSlice(strings.TrimSpace(req.Line), uselessCmds) {
+	// Filter various useless commands, depending on the context (user or session)
+	// Always do it for the server, anyway. Do not save any empty line.
+	if req.Session != nil {
+		if commandBanned(strings.TrimSpace(req.Line), uselessCmdsSession) {
+			res.Doublon = true
+		}
+	}
+	if commandBanned(strings.TrimSpace(req.Line), uselessCmdsServer) {
 		res.Doublon = true
 	}
-
-	// If input is empty or full of spaces, skip
 	if strings.TrimSpace(req.Line) == "" {
 		res.Doublon = true
 	}
 
-	// Find file data, cut it and process it. If the name is empty,
-	// we are the server and we write to a dedicated file.
+	// If there are no doublons, we check to which history file we need to save.
+	if !res.Doublon {
+		if req.Session != nil {
+			err = writeSessionHistory(req.Session, req.Line)
+			if err != nil {
+				res.Response.Err = err.Error()
+			}
+		} else {
+			err = writeUserHistory(name, req.Line)
+		}
+
+	}
+
+	// Send back updated history sources
+	res.User, _, err = getUserHistory(name)
+	if err != nil {
+		res.Response.Err = err.Error()
+	}
+	if req.Session != nil {
+		res.Sliver, _, err = getSessionHistory(req.Session)
+		if err != nil {
+			res.Response.Err = err.Error()
+		}
+	}
+
+	return res, nil
+}
+
+func writeUserHistory(name string, line string) (err error) {
 	var filename string
 	if name == "" {
 		filename = filepath.Join(assets.GetRootAppDir(), ".history")
@@ -86,30 +155,44 @@ func (c *Server) AddToHistory(in context.Context, req *pb.AddCmdHistoryRequest) 
 		filename = filepath.Join(path, ".history")
 	}
 
-	// Write to client history file if command is not empty, or doublon.
-	if !res.Doublon {
-		f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-		if err != nil {
-			return nil, errors.New("server could not find your client when requesting history: " + err.Error())
-		}
-		if _, err = f.WriteString(req.Line + "\n"); err != nil {
-			return nil, errors.New("server could not find your client when requesting history: " + err.Error())
-		}
-		f.Close()
-	}
-
-	// Send back the user history anyway
-	data, err := ioutil.ReadFile(filename)
+	// Write to client history file
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
-		return &pb.AddCmdHistory{Response: &commonpb.Response{Err: err.Error()}}, nil
+		return errors.New("server could not find your client when requesting history: " + err.Error())
 	}
-	lines := strings.Split(string(data), "\n")
+	if _, err = f.WriteString(line + "\n"); err != nil {
+		return errors.New("server could not find your client when requesting history: " + err.Error())
+	}
+	f.Close()
 
-	return &pb.AddCmdHistory{Lines: lines, Response: &commonpb.Response{}}, nil
+	return
 }
 
-// A list of commands that are useless to save if they are STRICTLY as short as in the list
-var uselessCmds = []string{
+func writeSessionHistory(sess *pb.Session, line string) (err error) {
+	sliverPath := assets.GetSliverDirectory(sess)
+
+	// The same history is shared by all sessions who have the same target user,
+	// and the same UUID. (mostly machine identifiers, except for Windows where there's more)
+	histFile := fmt.Sprintf("%s_%s.history", sess.Username, sess.UUID)
+
+	// Make the whole
+	filename := filepath.Join(sliverPath, histFile)
+
+	// Write to session history file
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return errors.New("server could not find your client when requesting history: " + err.Error())
+	}
+	if _, err = f.WriteString(line + "\n"); err != nil {
+		return errors.New("server could not find your client when requesting history: " + err.Error())
+	}
+	f.Close()
+
+	return
+}
+
+// If any of these patterns are found in a command line, they are dropped, for user/server history.
+var uselessCmdsServer = []string{
 	"exit",
 	"players",
 	"-h",
@@ -120,17 +203,28 @@ var uselessCmds = []string{
 	"jobs",
 	"pwd",
 	"use",
-	"clear",
-	"back",
-	"pop",
-	"push",
-	"stack",
 	"config",
 }
 
-func stringInSlice(a string, list []string) bool {
+// If any of these patterns are found in a command line, they are dropped, for session history.
+var uselessCmdsSession = []string{
+	"exit",
+	"players",
+	"-h",
+	"--help",
+	"help",
+	"ls",
+	"cat",
+	"jobs",
+	"pwd",
+	"use",
+	"config",
+	"background",
+}
+
+func commandBanned(a string, list []string) bool {
 	for _, b := range list {
-		if b == a {
+		if strings.Contains(a, b) {
 			return true
 		}
 	}

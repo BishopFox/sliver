@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/user"
 	"path"
@@ -32,7 +33,8 @@ import (
 
 	ver "github.com/bishopfox/sliver/client/version"
 	protobufs "github.com/bishopfox/sliver/protobuf"
-	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	sliverLog "github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
 )
 
@@ -44,10 +46,13 @@ const (
 	goPathDirName   = "gopath"
 	versionFileName = "version"
 	envVarName      = "SLIVER_ROOT_DIR"
+
+	// User-related data
+	userDirPath = "users"
 )
 
 var (
-	setupLog = log.NamedLogger("assets", "setup")
+	setupLog = sliverLog.NamedLogger("assets", "setup")
 )
 
 // GetRootAppDir - Get the Sliver app dir, default is: ~/.sliver/
@@ -70,6 +75,49 @@ func GetRootAppDir() string {
 		}
 	}
 	return dir
+}
+
+// GetUserDirectory - Each user has its own directory.
+func GetUserDirectory(name string) (dir string) {
+
+	dir = path.Join(GetRootAppDir(), userDirPath, name)
+
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err = os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			log.Fatalf("Cannot write to Wiregost Data Service directory %s", err)
+		}
+	}
+	return
+}
+
+// Given a session, find the appropriate directory for it.
+func GetSliverDirectory(sess *clientpb.Session) (dir string) {
+
+	dir = path.Join(GetRootAppDir(), "slivers", sess.OS,
+		sess.Arch, sess.Name)
+
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err = os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			log.Fatalf("Cannot write to Wiregost Data Service directory %s", err)
+		}
+	}
+	return
+}
+
+// GetUserHistoryDir - Directory where all history files for a user are stored.
+func GetUserHistoryDir(name string) (dir string) {
+
+	dir = path.Join(GetUserDirectory(name), ".history")
+
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err = os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			log.Fatalf("Cannot write to Wiregost Data Service directory %s", err)
+		}
+	}
+	return
 }
 
 // GetDllDir - Returns the full path to the data directory

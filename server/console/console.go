@@ -133,21 +133,25 @@ func newServer() *Server {
 
 // Run - The server console simply adds the admin commands
 // at each readline loop, everything else remains identical
-func (sc *Server) Run() {
+func (c *Server) Run() {
 
 	// When we will exit this loop, disconnect gracefully from the server.
-	defer sc.Conn.Close()
+	// The latter will take care of notifying other clients/players if needed.
+	defer c.Conn.Close()
 
 	for {
 		// Some commands can act on the shell properties via the console
 		// context package, so we check values and set everything up.
-		sc.ResetShell()
+		c.ResetShell()
 
 		// Reset the completion data cache for all registered sessions.
 		completers.Cache.Reset()
 
 		// Recompute prompt each time, before anything.
-		sc.ComputePrompt()
+		c.ComputePrompt()
+
+		// Set the different sources of history, depending on context, session.
+		c.SetHistory()
 
 		// Reset the log synchroniser, before rebinding the commands, so that
 		// if anyone is to use the parser.Active command, it will work until
@@ -171,13 +175,10 @@ func (sc *Server) Run() {
 		completers.LoadAdditionalCompletions(cmds)
 
 		// Read input line (blocking)
-		line, err := sc.Readline()
-		if err != nil {
-			continue
-		}
+		line, _ := c.Readline()
 
-		// Split and sanitize input
-		sanitized, empty := sc.SanitizeInput(line)
+		// Split and sanitize the user-entered command line input.
+		sanitized, empty := c.SanitizeInput(line)
 		if empty {
 			continue
 		}
@@ -187,13 +188,13 @@ func (sc *Server) Run() {
 
 		// Other types of tokens, needed by commands who expect a certain type
 		// of arguments, such as paths with spaces.
-		tokenParsed := sc.ParseTokens(envParsed)
+		tokenParsed := c.ParseTokens(envParsed)
 
 		// Execute the command input: all input is passed to the current
 		// context parser, which will deal with it on its own. We never return
 		// errors from this call, as any of them happening follows a certain
 		// number of fallback paths (special commands, error printing, etc.).
-		sc.ExecuteCommand(tokenParsed)
+		c.ExecuteCommand(tokenParsed)
 	}
 }
 

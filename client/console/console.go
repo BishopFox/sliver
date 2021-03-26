@@ -89,6 +89,39 @@ func (c *Client) Connect(conn *grpc.ClientConn) (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
+// Init - The console has a working RPC connection: we setup all
+// things pertaining to the console itself, before calling the Run() function.
+func (c *Client) Init() (err error) {
+
+	conf := assets.Config
+
+	// Setup console elements
+	err = c.setup()
+	if err != nil {
+		return fmt.Errorf("Console setup failed: %s", err)
+	}
+
+	// Start monitoring all logs from the server and the client.
+	err = clientLog.Init(c.Shell, c.Prompt.Render, transport.RPC)
+	if err != nil {
+		return fmt.Errorf("Failed to start log monitor (%s)", err.Error())
+	}
+
+	// Start monitoring incoming events
+	go c.handleServerLogs(transport.RPC)
+
+	// Setup the Client Comm system (console proxies & port forwarders)
+	err = comm.Start(transport.RPC, []byte(conf.PrivateKey), conf.ServerFingerprint)
+	if err != nil {
+		fmt.Printf(Warn+"Comm Error: %v \n", err)
+	}
+
+	// Print banner and version information. (checks last updates)
+	printLogo()
+
+	return
+}
+
 // setup - The console sets up various elements such as the completion system, hints,
 // syntax highlighting, prompt system, commands binding, and client environment loading.
 func (c *Client) setup() (err error) {
@@ -133,39 +166,6 @@ func (c *Client) setup() (err error) {
 	return
 }
 
-// Init - The console has a working RPC connection: we setup all
-// things pertaining to the console itself, before calling the Run() function.
-func (c *Client) Init() (err error) {
-
-	conf := assets.Config
-
-	// Setup console elements
-	err = c.setup()
-	if err != nil {
-		return fmt.Errorf("Console setup failed: %s", err)
-	}
-
-	// Start monitoring all logs from the server and the client.
-	err = clientLog.Init(c.Shell, c.Prompt.Render, transport.RPC)
-	if err != nil {
-		return fmt.Errorf("Failed to start log monitor (%s)", err.Error())
-	}
-
-	// Start monitoring incoming events
-	go c.handleServerLogs(transport.RPC)
-
-	// Setup the Client Comm system (console proxies & port forwarders)
-	err = comm.Start(transport.RPC, []byte(conf.PrivateKey), conf.ServerFingerprint)
-	if err != nil {
-		fmt.Printf(Warn+"Comm Error: %v \n", err)
-	}
-
-	// Print banner and version information. (checks last updates)
-	printLogo()
-
-	return
-}
-
 // Run - Start the actual readline input loop, required
 // per-loop console setup details, and command execution.
 func (c *Client) Run() {
@@ -184,6 +184,9 @@ func (c *Client) Run() {
 
 		// Recompute prompt each time, before anything.
 		c.ComputePrompt()
+
+		// Set the different sources of history, depending on context, session.
+		c.SetHistory()
 
 		// Reset the log synchroniser, before rebinding the commands, so that
 		// if anyone is to use the parser.Active command, it will work until
@@ -206,7 +209,7 @@ func (c *Client) Run() {
 		// Read input line (blocking)
 		line, _ := c.Readline()
 
-		// Split and sanitize input
+		// Split and sanitize the user-entered command line input.
 		sanitized, empty := c.SanitizeInput(line)
 		if empty {
 			continue
@@ -224,6 +227,19 @@ func (c *Client) Run() {
 		// errors from this call, as any of them happening follows a certain
 		// number of fallback paths (special commands, error printing, etc.).
 		c.ExecuteCommand(tokenParsed)
+	}
+}
+
+// Depending on the context, the alternative history
+// source becomes the current Session one.
+func (c *Client) SetHistory() {
+
+	// If we are interacting with an implant, set the correct history source
+	if cctx.Context.Menu == cctx.Sliver && cctx.Context.Sliver != nil {
+		c.Shell.SetHistoryCtrlE("session history", SessionHist)
+		getSessionHistory()
+	} else {
+		c.Shell.SetHistoryCtrlE("client history", ClientHist)
 	}
 }
 

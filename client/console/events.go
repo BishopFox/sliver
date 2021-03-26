@@ -141,6 +141,8 @@ func (c *Client) handleServerLogs(rpc rpcpb.SliverRPCClient) {
 				// Reset the current session and refresh
 				cctx.Context.Menu = cctx.Server
 				cctx.Context.Sliver = nil
+				// Use the per-client history again, for avoind nil panics when triggering it.
+				c.Shell.SetHistoryCtrlE("client history", ClientHist)
 
 				lost += fmt.Sprintf(util.Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
