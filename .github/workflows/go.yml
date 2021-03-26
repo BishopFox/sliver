@@ -61,7 +61,8 @@ jobs:
       run: make linux
 
     - name: Test
-      run: ./sliver-server unpack --force && ./go-tests.sh
+      run: make tests 
+      # run: ./sliver-server unpack --force && ./go-tests.sh
 
     - name: Make Windows
       run: make windows
@@ -118,4 +119,5 @@ jobs:
       env:
         SLIVER_CC_32: /usr/local/bin/i686-w64-mingw32-gcc
         SLIVER_CC_64: /usr/local/bin/x86_64-w64-mingw32-gcc
-      run: ./sliver-server unpack --force && ./go-tests.sh
+      run: make tests 
+      # run: ./sliver-server unpack --force && ./go-tests.sh

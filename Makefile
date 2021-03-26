@@ -133,3 +133,19 @@ clean:
 	rm -f sliver-client_arm64 sliver-server_arm64
 	rm -f sliver-client sliver-server *.exe
 
+#
+# Developers
+#
+.PHONY: development
+development: assets tests clean pb
+
+.PHONY: assets
+assets: clean
+	./go-assets.sh
+
+.PHONY: tests
+tests: 
+	# Server only
+	./sliver-server unpack --force
+	# ./go-tests.sh server
+	# ./go-tests.sh $(ENV) $(GO) -$(TAGS),server $(LDFLAGS)
