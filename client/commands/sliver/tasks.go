@@ -213,6 +213,7 @@ type Sideload struct {
 		Entrypoint string `long:"entry-point" short:"e" description:"entrypoint for the DLL (Windows only)"`
 		RemotePath string `long:"process" short:"p" description:"path to process to host the shellcode"`
 		Save       bool   `long:"save" short:"s" description:"save output to file"`
+		KeepAlive  bool   `long:"keep-alive" short:"k" description:"don't terminate host process once the execution completes"`
 	} `group:"sideload options"`
 }
 
@@ -241,6 +242,7 @@ func (s *Sideload) Execute(args []string) (err error) {
 		Data:        binData,
 		EntryPoint:  entryPoint,
 		ProcessName: processName,
+		Kill:        !s.Options.KeepAlive,
 		Request:     cctx.Request(session),
 	})
 	ctrl <- true

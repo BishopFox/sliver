@@ -133,6 +133,7 @@ type SpawnDLL struct {
 		Export     string `long:"export" short:"e" description:"entrypoint of the reflective DLL" default:"ReflectiveLoader"`
 		RemotePath string `long:"process" short:"p" description:"path to process to host the DLL" default:"c:\\windows\\system32\\notepad.exe"`
 		Save       bool   `long:"save" short:"s" description:"save output to file"`
+		KeepAlive  bool   `long:"keep-alive" short:"k" description:"don't terminate host process once the execution completes"`
 	} `group:"dll options"`
 }
 
@@ -161,6 +162,7 @@ func (s *SpawnDLL) Execute(cargs []string) (err error) {
 		ProcessName: processName,
 		Args:        args,
 		EntryPoint:  exportName,
+		Kill:        !s.Options.KeepAlive,
 		Request:     cctx.Request(session),
 	})
 
