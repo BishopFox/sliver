@@ -1,0 +1,294 @@
+syntax = "proto3";
+package commpb;
+option go_package = "github.com/bishopfox/sliver/protobuf/commpb";
+
+import "commonpb/common.proto";
+
+// Tunnels & Connection information  ------------------------------------------
+
+// Bytes - Data passed inside of a Comm tunnel between a client console and the server.
+message Bytes {
+  bytes Data = 1;
+}
+
+// Start a tunnel between the Server and an Implant, through the session RPC stack
+// (DNS/HTTPS/MTLS/anything), inside of which to set the Comm system.
+message TunnelOpenReq {
+  uint64 TunnelID = 1;
+  commonpb.Request Request = 9;
+}
+
+message TunnelOpen {
+  bool Success = 1;
+  commonpb.Response Response = 9;
+}
+
+// Pass data inside of a Comm tunnel
+message TunnelData {
+  bytes Data  = 1;
+  bool Closed = 2;
+  uint64 Sequence = 3;
+
+  uint64 TunnelID = 8 [jstype = JS_STRING];
+  uint32 SessionID = 9;
+}
+
+// Close a Comm tunnel (a Comm, by extension)
+message TunnelCloseReq {
+  uint64 TunnelID = 1;
+  commonpb.Request Request = 9;
+}
+
+message TunnelClose {
+  bool Success = 1;
+  commonpb.Response Response = 9;
+}
+
+// Conn - Each connection to be routed forward/reverse in the Comms is passed
+// in a stream, the latter passes along all information pertaining to this connection.
+message Conn {
+  string ID = 1;
+  Transport Transport = 2;
+  Application Application = 3;
+  string RHost = 4;
+  int32 RPort = 5;
+  string LHost = 6;
+  int32 LPort = 7;
+  int64 Timeout = 8;
+}
+
+// Transport-layer protocol of traffic
+enum Transport {
+        IP = 0;     // IP is put here as it may be treated as a PacketConn just like UDP.
+        TCP = 1;
+        UDP = 2;
+}
+
+// Application-layer protocol of traffic
+enum Application {
+        HTTP = 0;
+        HTTPS = 1;
+        DNS = 2;
+        QUIC = 3; 
+        NamedPipe = 4;
+        FTP = 5;
+        SMTP = 6;
+        Socks5 = 7;
+        MTLS = 10;
+
+        None = 11;
+}
+
+// Comm-internal Requests ------------------------------------------------------
+
+// Request - The Comm system can internally make requests to either:
+// - Open channels (streams), which yield one if accepted.
+// - Asynchronously request the server-side Comm to setup a port forwarder or any handler.
+enum Request {
+        RouteConn = 0;      // Client wants a stream to be routed.
+        PortfwdStream = 1;  // Client wants to route a stream through a forwarder
+        PortfwdStart = 2;   // (No stream) client wants to add a forwarder.
+        PortfwdStop = 3;    // (No stream) client wants to close a forwarder.
+        HandlerOpen = 4;    // Reverse handlers (TCP/UDP listener on implant)
+        HandlerStop = 5;    // Kill revers handler
+}
+
+// Handlers --------------------------------------------------------------------
+
+// A network handler that is being used by implants to get necessary
+// handler information, including more specific details. This helps reducing the
+// number of handlers to add for an implant, and only a packge will handle these.
+//
+// The handler is used in several cases: 
+// - To start reverse/bind port forwarders,
+// - API-used listeners/dialers.
+// Consequently this type is used across client/server/implant packages, even
+// if the client considers it "a port forwarder", when the implant has no such notion.
+message Handler {
+  string ID = 1;                // Always has an ID , provided by the server.
+  HandlerType Type = 2;         // May be used also for portfwds
+  Transport Transport = 3;      // Transport-layer protocol
+  Application Application = 4;  // Application-layer protocol, may be empty.
+
+  string RHost = 5;         
+  int32 RPort = 6;
+  string LHost = 7;
+  int32 LPort = 8;
+
+  Certificates Certificates = 9; // Any certificates needed by the handler.
+}
+
+// Handler direction
+enum HandlerType {
+        Bind = 0;
+        Reverse = 1;
+}
+
+// Any security details, such as encryption keys and auth.
+message Certificates {
+  bytes CACertPEM = 4;
+  bytes CertPEM = 5;
+  bytes KeyPEM = 6;
+}
+
+// The server requests an implant/the server to start a handler.
+message HandlerStartReq {
+  Handler Handler = 1;
+  commonpb.Request Request = 9;
+}
+
+message HandlerStart {
+  bool Success = 1;
+  bool IsPlatformCompatible = 2;
+  commonpb.Response Response = 9;
+}
+
+// The server requests an implant/the server to stop a handler.
+message HandlerCloseReq {
+  Handler Handler = 1;
+  commonpb.Request Request = 9;
+}
+
+message HandlerClose {
+  bool Success = 1;
+  bool IsPlatformCompatible = 2;
+  commonpb.Response Response = 9;
+}
+
+
+// Comm Network Routing ------------------------------------------------
+
+// Route - A network route that is/could be available to an implant session.
+message Route {
+  string ID = 1;
+  string IP = 2;
+  string IPNet = 3;
+  string Mask = 4;
+  Node Gateway = 5;
+  repeated Node Nodes = 6;
+  repeated Conn Connections = 7;
+  uint32 SessionID = 8; // Used by consoles to specify.
+  int64 Timeout = 9;
+}
+
+message Node {
+  uint32 ID = 1;
+  string Name = 2;
+  string Host = 3;
+  string Hostname = 4;
+}
+
+// Get the network routes 
+message  RoutesReq {
+  string Addr = 1;
+  commonpb.Request Request = 9;
+}
+
+message Routes {
+  repeated Route Active = 1;    
+}
+
+// Add a network route
+message RouteAddReq {
+  Route Route = 1;
+  commonpb.Request Request = 9;
+}
+
+message RouteAdd {
+  bool Success = 1;
+  commonpb.Response Response = 9;
+}
+
+// Remove a network route
+message RouteDeleteReq {
+  Route Route = 1; 
+  bool Close = 2;
+  commonpb.Request Request = 9;
+}
+
+message RouteDelete {
+  bool Success = 1;
+  string CloseError = 2;
+  commonpb.Response Response = 9;
+}
+
+
+// Port forwarding -----------------------------------------------------------------
+
+// In all portfwd requests sent to the server, we simply include a handler and 
+// its information: fundamentally, a portfwd is nothing more than a handler.
+
+// These messages are therefore not destined to implants, as they just see
+// handler start/stop requests from client to the server, and conversely.
+
+message PortfwdOpenReq {
+  Handler Handler = 1;
+  commonpb.Request Request = 9;
+}
+
+message PortfwdOpen {
+  bool Success = 1;
+  commonpb.Response Response = 9;
+}
+
+message PortfwdCloseReq {
+  Handler Handler = 1;
+  commonpb.Request Request = 9;
+}
+
+message PortfwdClose {
+  bool Success = 1;
+  commonpb.Response Response = 9;
+}
+
+
+// Transports --------------------------------------------------------------------------
+
+message TransportC2 {
+  uint32 ID = 1;
+  string URL = 2;
+  uint32 Priority = 3;
+  string Options = 4; // Protocol specific options
+}
+
+message TransportsReq {
+  commonpb.Request Request = 9;
+}
+
+message Transports {
+  repeated TransportC2 Available = 1;
+  commonpb.Response Response = 9;
+}
+
+message TransportAddReq {
+  string URL = 1;
+  int32 Priority = 2;
+  commonpb.Request Request = 9;
+}
+
+message TransportAdd {
+  bool Success = 1;
+  commonpb.Response Response = 9;
+}
+
+message TransportDeleteReq {
+  uint32 ID = 1;
+  string URL = 2;
+  commonpb.Request Request = 9;
+}
+
+message TransportDelete {
+  bool Success = 1;
+  commonpb.Response Response = 9;
+}
+
+message TransportSwitchReq {
+  uint32 ID = 1;
+  string URL = 2;
+  commonpb.Request Request = 9;
+}
+
+message TransportSwitch {
+  bool Success = 1;
+  commonpb.Response Response = 9;
+}

@@ -23,12 +23,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/core"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
@@ -47,10 +50,82 @@ var (
 	mtlsLog = log.NamedLogger("c2", "mtls")
 )
 
-// StartMutualTLSListener - Start a mutual TLS listener
+// DialSliverMTLS - Get a C2 implant session over Mutual TLS by dialing a destination.
+func DialSliverMTLS(bindIface string, port uint16) (err error) {
+	StartPivotListener()
+
+	host := bindIface
+	if host == "" {
+		host = defaultServerCert
+	}
+
+	// Certificates should already be available because we compiled the implant, but in case...
+	_, _, err = certs.GetCertificate(certs.C2ServerCA, certs.ECCKey, host)
+	if err != nil {
+		certs.C2ServerGenerateECCCertificate(host)
+	}
+
+	// Load appropriate client MTLS configuration.
+	creds := newCredentialsTLS()
+	tlsConfig := creds.ClientConfig(host)
+
+	// Get a TCP connection from the comm system.
+	conn, err := comm.DialTCP("tcp", fmt.Sprintf("%s:%d", host, port))
+	if err != nil {
+		mtlsLog.Error(err)
+		return err
+	}
+
+	// Wrap the TCP connection into a Mutual TLS one.
+	tlsConn := tls.Client(conn, tlsConfig)
+	if tlsConn == nil {
+		return errors.New("Failed to wrap TCP comm connection into Mutual TLS")
+	}
+
+	// Else, handle the implant session in the background
+	go handleSliverConnection(tlsConn)
+
+	return
+}
+
+// StartMutualTLSListenerComm - Start a mutual TLS listener working with the Comm system.
+func StartMutualTLSListenerComm(bindIface string, port uint16) (ln net.Listener, err error) {
+	StartPivotListener()
+
+	host := bindIface
+	if host == "" {
+		host = defaultServerCert
+	}
+	_, _, err = certs.GetCertificate(certs.C2ServerCA, certs.ECCKey, host)
+	if err != nil {
+		certs.C2ServerGenerateECCCertificate(host)
+	}
+
+	// Load the TLS configuration for a server position.
+	tlsConfig := newCredentialsTLS().ServerConfig(host)
+
+	mtlsLog.Infof("Starting routed TCP/mTLS listener on %s:%d", bindIface, port)
+
+	// Get a TCP listner from the comm system. This listener is abstracted,
+	// so it could be listening either on the server interfaces, or it could
+	// be handling connections initiated by implants and routed back.
+	ln, err = comm.ListenTCP("mtls", fmt.Sprintf("%s:%d", bindIface, port))
+	if err != nil {
+		mtlsLog.Error(err)
+		return nil, err
+	}
+
+	// Wrap this listener into a TLS listener.
+	l := tls.NewListener(ln, tlsConfig)
+
+	go acceptSliverConnections(l)
+	return ln, nil
+}
+
+// StartMutualTLSListener - Start a mutual TLS listener, on the server only (no implant routes used).
 func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error) {
 	StartPivotListener()
-	mtlsLog.Infof("Starting raw TCP/mTLS listener on %s:%d", bindIface, port)
+
 	host := bindIface
 	if host == "" {
 		host = defaultServerCert
@@ -59,7 +134,12 @@ func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error)
 	if err != nil {
 		certs.C2ServerGenerateECCCertificate(host)
 	}
-	tlsConfig := getServerTLSConfig(host)
+
+	// Load the TLS configuration for a server position.
+	tlsConfig := newCredentialsTLS().ServerConfig(host)
+
+	mtlsLog.Infof("Starting raw TCP/mTLS listener on %s:%d", bindIface, port)
+
 	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", bindIface, port), tlsConfig)
 	if err != nil {
 		mtlsLog.Error(err)
@@ -71,27 +151,36 @@ func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error)
 
 func acceptSliverConnections(ln net.Listener) {
 	for {
+		// Accept a normal TCP connection
 		conn, err := ln.Accept()
 		if err != nil {
 			if errType, ok := err.(*net.OpError); ok && errType.Op == "accept" {
+				mtlsLog.Errorf("Accept failed: %v", err)
 				break
 			}
-			mtlsLog.Errorf("Accept failed: %v", err)
 			continue
 		}
+
+		// For some reason when closing the listener
+		// from the Comm system returns a nil connection...
+		if conn == nil {
+			mtlsLog.Errorf("Accepted a nil conn: %v", err)
+			break
+		}
+
 		go handleSliverConnection(conn)
 	}
 }
 
 func handleSliverConnection(conn net.Conn) {
-	mtlsLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
+	// mtlsLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
 
 	session := &core.Session{
 		Transport:     "mtls",
-		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
 		Send:          make(chan *sliverpb.Envelope),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
+		RemoteAddress: conn.RemoteAddr().String(),
 	}
 	session.UpdateCheckin()
 
@@ -146,7 +235,7 @@ Loop:
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message
 // e.g. [uint32 length|message] so the receiver can delimit messages properly
-func socketWriteEnvelope(connection net.Conn, envelope *sliverpb.Envelope) error {
+func socketWriteEnvelope(connection io.ReadWriteCloser, envelope *sliverpb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		mtlsLog.Errorf("Envelope marshaling error: %v", err)
@@ -161,7 +250,7 @@ func socketWriteEnvelope(connection net.Conn, envelope *sliverpb.Envelope) error
 
 // socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
 // returns messageType, message, and error
-func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
+func socketReadEnvelope(connection io.ReadWriteCloser) (*sliverpb.Envelope, error) {
 
 	// Read the first four bytes to determine data length
 	dataLengthBuf := make([]byte, 4) // Size of uint32
@@ -208,10 +297,19 @@ func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 	return envelope, nil
 }
 
-// getServerTLSConfig - Generate the TLS configuration, we do now allow the end user
-// to specify any TLS paramters, we choose sensible defaults instead
-func getServerTLSConfig(host string) *tls.Config {
+// tlsConfig - A wrapper around several elements needed to produce a TLS config for either
+// a server or a client, depending on the direction of the connection to the implant.
+type tlsConfig struct {
+	ca   *x509.CertPool
+	cert tls.Certificate
+	key  []byte
+}
 
+// newCredentialsTLS - Generates a new custom tlsConfig loaded with the Slivers Certificate Authority.
+// It may thus load and export any TLS configuration for talking with an implant, bind or reverse.
+func newCredentialsTLS() (creds *tlsConfig) {
+
+	// The Certificate Authority is needed by all TLS configs, whether server or client.
 	sliverCACert, _, err := certs.GetCertificateAuthority(certs.ImplantCA)
 	if err != nil {
 		mtlsLog.Fatalf("Failed to find ca type (%s)", certs.ImplantCA)
@@ -219,26 +317,92 @@ func getServerTLSConfig(host string) *tls.Config {
 	sliverCACertPool := x509.NewCertPool()
 	sliverCACertPool.AddCert(sliverCACert)
 
+	creds = &tlsConfig{
+		ca: sliverCACertPool,
+	}
+
+	return creds
+}
+
+// ClientConfig - TLS config used when we dial an implant over Mutual TLS.
+// This makes use of a custom function for skipping (only) hostname validation,
+// because the tlsConfig verifies the peer only against its own Certificate Authority.
+func (t *tlsConfig) ClientConfig(host string) (c *tls.Config) {
+
+	// The host is the address of the host on which the implant is listening.
 	certPEM, keyPEM, err := certs.GetCertificate(certs.C2ServerCA, certs.ECCKey, host)
 	if err != nil {
 		mtlsLog.Errorf("Failed to generate or fetch certificate %s", err)
 		return nil
 	}
 
-	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	t.cert, err = tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		mtlsLog.Fatalf("Error loading server certificate: %v", err)
 	}
 
-	tlsConfig := &tls.Config{
-		RootCAs:                  sliverCACertPool,
+	// Client config with custom certificate validation routine
+	c = &tls.Config{
+		Certificates:          []tls.Certificate{t.cert},
+		RootCAs:               t.ca,
+		InsecureSkipVerify:    true, // Don't worry I sorta know what I'm doing
+		VerifyPeerCertificate: t.rootOnlyVerifyCertificate,
+	}
+	c.BuildNameToCertificate()
+
+	return c
+}
+
+// ServerConfig - TLS config used when we listen for incoming Mutual TLS implant connections.
+func (t *tlsConfig) ServerConfig(host string) (c *tls.Config) {
+
+	// The host is either the server host, or a host on which an implant is listening.
+	// If the host is one of an implant's, the server acts as if it ways this host.
+	certPEM, keyPEM, err := certs.GetCertificate(certs.C2ServerCA, certs.ECCKey, host)
+	if err != nil {
+		mtlsLog.Errorf("Failed to generate or fetch certificate %s", err)
+		return nil
+	}
+
+	t.cert, err = tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		mtlsLog.Fatalf("Error loading server certificate: %v", err)
+	}
+
+	// Server configuration
+	c = &tls.Config{
+		RootCAs:                  t.ca,
 		ClientAuth:               tls.RequireAndVerifyClientCert,
-		ClientCAs:                sliverCACertPool,
-		Certificates:             []tls.Certificate{cert},
+		ClientCAs:                t.ca,
+		Certificates:             []tls.Certificate{t.cert},
 		CipherSuites:             []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384},
 		PreferServerCipherSuites: true,
 		MinVersion:               tls.VersionTLS12,
 	}
-	tlsConfig.BuildNameToCertificate()
-	return tlsConfig
+	c.BuildNameToCertificate()
+
+	return
+}
+
+// rootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so
+// we have to disable all of the fucking certificate validation and re-implement everything.
+// https://github.com/golang/go/issues/21971
+func (t *tlsConfig) rootOnlyVerifyCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+
+	cert, err := x509.ParseCertificate(rawCerts[0]) // We should only get one cert
+	if err != nil {
+		return err
+	}
+
+	// Basically we only care if the certificate was signed by our authority
+	// Go selects sensible defaults for time and EKU, basically we're only
+	// skipping the hostname check, I think?
+	options := x509.VerifyOptions{
+		Roots: t.ca,
+	}
+	if _, err := cert.Verify(options); err != nil {
+		return err
+	}
+
+	return nil
 }

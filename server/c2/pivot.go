@@ -134,6 +134,17 @@ func HandlePivotOpen(session *core.Session, data []byte) {
 	}()
 	core.Sessions.Add(sliverPivoted)
 	Pivots.AddSession(pivotOpen.GetPivotID(), sliverPivoted)
+
+	// Get the implant's private key for fingerprinting the SSH layer, and get the ServerCA private key as well.
+	// _, implantKey, _ := certs.GetECCCertificate(certs.ImplantCA, sliverPivoted.Name)
+	// _, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
+	//
+	// // Instantiate and start the Comms, which will build a Tunnel over the Session RPC.
+	// _, err = comm.Init(nil, sliverPivoted, serverCAKey, implantKey)
+	// if err != nil {
+	//         pivotLog.Errorf("Comm init failed: %v", err)
+	//         return
+	// }
 }
 
 // HandlePivotClose - Handles a PivotClose message

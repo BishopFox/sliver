@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+FROM golang:1.15.6
+=======
 FROM golang:1.16.2
+>>>>>>> BishopFox/master
 
 #
 # IMPORTANT: This Dockerfile is used for testing, I do not recommend deploying
@@ -48,6 +52,12 @@ RUN wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuf
     && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
     && cp -vv ./bin/protoc /usr/local/bin
 
+# go get utils
+RUN wget -O packr.tar.gz https://github.com/gobuffalo/packr/archive/v${PACKR_VER}.tar.gz \
+  && tar xvf packr.tar.gz \
+  && cd packr-${PACKR_VER} \
+  && make install
+
 RUN wget -O protoc-gen-go.tar.gz https://github.com/golang/protobuf/archive/v${PROTOC_GEN_GO_VER}.tar.gz \
     && tar xvf protoc-gen-go.tar.gz \
     && cd protobuf-${PROTOC_GEN_GO_VER} \
@@ -59,7 +69,11 @@ ADD ./go-assets.sh /go/src/github.com/bishopfox/sliver/go-assets.sh
 RUN ./go-assets.sh
 
 ADD . /go/src/github.com/bishopfox/sliver/
+<<<<<<< HEAD
+RUN make static-linux && cp -vv sliver-server /opt/sliver-server
+=======
 RUN go mod vendor && make linux && cp -vv sliver-server /opt/sliver-server
+>>>>>>> BishopFox/master
 
 RUN ls -lah && /opt/sliver-server unpack --force \
     && /go/src/github.com/bishopfox/sliver/go-tests.sh

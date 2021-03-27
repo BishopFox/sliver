@@ -7,6 +7,6 @@ import (
 var (
 
 	// FS - Embedded FS access to proto files
-	//go:embed commonpb/* sliverpb/*
+	//go:embed commonpb/* sliverpb/* commpb/*
 	FS embed.FS
 )

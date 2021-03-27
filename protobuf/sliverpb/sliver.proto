@@ -45,7 +45,11 @@ message Register {
   string ActiveC2 = 11;
   string Version = 12;
   uint32 ReconnectInterval = 13;
-  string ProxyURL = 14;
+
+  // Network & transport information.
+  string Transport = 14; 
+  string RemoteAddr = 15;
+  string ProxyURL = 16;
 }
 
 // Ping - Not ICMP, just sends a rount trip message to an implant to

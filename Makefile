@@ -115,6 +115,7 @@ pb:
 	protoc -I protobuf/ protobuf/commonpb/common.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/sliverpb/sliver.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/clientpb/client.proto --go_out=paths=source_relative:protobuf/
+	protoc -I protobuf/ protobuf/commpb/comm.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/rpcpb/services.proto --go_out=plugins=grpc,paths=source_relative:protobuf/
 
 .PHONY: clean-all
@@ -132,3 +133,18 @@ clean:
 	rm -f sliver-client_arm64 sliver-server_arm64
 	rm -f sliver-client sliver-server *.exe
 
+#
+# Developers
+#
+.PHONY: development
+development: assets tests clean pb
+
+.PHONY: assets
+assets: clean
+	./go-assets.sh
+
+.PHONY: tests
+tests: 
+	# Server only
+	./sliver-server unpack --force
+	./go-tests.sh $(ENV) $(GO) -$(TAGS),server $(LDFLAGS)

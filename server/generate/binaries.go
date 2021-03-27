@@ -32,6 +32,13 @@ import (
 	"strings"
 	"text/template"
 
+	// SSH Comms
+	"crypto/sha256"
+	"encoding/base64"
+
+	"github.com/bishopfox/sliver/protobuf/commpb"
+	"golang.org/x/crypto/ssh"
+
 	"github.com/bishopfox/sliver/implant"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
@@ -76,7 +83,7 @@ const (
 	LINUX = "linux"
 
 	// GoPrivate - The default Go private arg to garble when obfuscation is enabled
-	GoPrivate = "github.com/*,golang.org/*"
+	GoPrivate = "github.com/*,golang.org/*,gopkg.in/*"
 
 	clientsDirName = "clients"
 	sliversDirName = "slivers"
@@ -98,6 +105,20 @@ const (
 	// SliverCC32EnvVar - Environment variable that can specify the 32 bit mingw path
 	SliverCC32EnvVar = "SLIVER_CC_32"
 )
+
+// getCompiledTransports - In addition to startup time C2 addresses, we may add additional transport stack.
+func getCompiledTransports(config *models.ImplantConfig, pb *clientpb.ImplantConfig) {
+
+	for _, transport := range pb.Transports {
+		switch transport {
+		case commpb.Application_MTLS:
+		case commpb.Application_HTTPS:
+		case commpb.Application_HTTP:
+		case commpb.Application_DNS:
+		case commpb.Application_NamedPipe:
+		}
+	}
+}
 
 // ImplantConfigFromProtobuf - Create a native config struct from Protobuf
 func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *models.ImplantConfig) {
@@ -416,11 +437,17 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	goConfig.ProjectDir = projectGoPathDir
 
 	// Cert PEM encoded certificates
-	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
+	serverCACert, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
 	sliverCert, sliverKey, err := certs.ImplantGenerateECCCertificate(name)
 	if err != nil {
 		return "", err
 	}
+	// Make a fingerprint of the implant's private key, for SSH-layer authentication
+	signer, _ := ssh.ParsePrivateKey(serverCAKey)
+	keyBytes := sha256.Sum256(signer.PublicKey().Marshal())
+	fingerprint := base64.StdEncoding.EncodeToString(keyBytes[:])
+	config.ServerFingerprint = fingerprint
+
 	config.CACert = string(serverCACert)
 	config.Cert = string(sliverCert)
 	config.Key = string(sliverKey)

@@ -26,24 +26,26 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/google/uuid"
+
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
-
-	"github.com/golang/protobuf/proto"
-
-	"github.com/google/uuid"
 )
 
 var (
 	handlerLog = log.NamedLogger("handlers", "sessions")
 
 	sessionHandlers = map[uint32]interface{}{
-		sliverpb.MsgRegister:    registerSessionHandler,
-		sliverpb.MsgTunnelData:  tunnelDataHandler,
-		sliverpb.MsgTunnelClose: tunnelCloseHandler,
-		sliverpb.MsgPing:        pingHandler,
+		sliverpb.MsgRegister:       registerSessionHandler,
+		sliverpb.MsgTunnelData:     tunnelDataHandler,
+		sliverpb.MsgTunnelClose:    tunnelCloseHandler,
+		sliverpb.MsgPing:           pingHandler,
+		sliverpb.MsgCommTunnelData: commTunnelDataHandler,
 	}
 
 	tunnelHandlerMutex = &sync.Mutex{}
@@ -96,6 +98,19 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	session.Version = register.Version
 	session.ReconnectInterval = register.ReconnectInterval
 	session.ProxyURL = register.ProxyURL
+
+	// Add protocol, network and route-adjusted address fields
+	session.Transport = register.Transport
+	session.RemoteAddress = comm.SetCommString(session)
+
+	// Instantiate and start the Comms, which will build a Tunnel over the Session RPC.
+	err = comm.InitSession(session)
+	if err != nil {
+		handlerLog.Errorf("Comm init failed: %v", err)
+		return
+	}
+
+	// All fields are correct, we can register the session.
 	core.Sessions.Add(session)
 	go auditLogSession(session, register)
 }
@@ -161,4 +176,21 @@ func tunnelCloseHandler(session *core.Session, data []byte) {
 
 func pingHandler(session *core.Session, data []byte) {
 	handlerLog.Infof("ping from session %d", session.ID)
+}
+
+// commTunnelDataHandler - Handle Comm tunnel data coming from the server.
+func commTunnelDataHandler(session *core.Session, data []byte) {
+	tunnelData := &commpb.TunnelData{}
+	proto.Unmarshal(data, tunnelData)
+	tunnel := comm.Tunnels.Tunnel(tunnelData.TunnelID)
+	if tunnel != nil {
+		if session.ID == tunnel.Sess.ID {
+			tunnel.FromImplant <- tunnelData
+		} else {
+			handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
+		}
+	} else {
+		handlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
+	}
+
 }

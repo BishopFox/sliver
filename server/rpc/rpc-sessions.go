@@ -25,6 +25,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/golang/protobuf/proto"
 )
@@ -46,6 +47,21 @@ func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillSessionRe
 	if session == nil {
 		return &commonpb.Empty{}, ErrInvalidSessionID
 	}
+
+	// Comm System
+	// Before killing the session underlying C2, we shutdown its Comm system gracefully first.
+	// In the end, from our C2 RPC point-of-view, it is just looks like closing a Shell tunnel.
+	sessionComm := comm.Comms.GetBySession(session.ID)
+	if sessionComm != nil {
+		err := sessionComm.ShutdownImplant()
+		if err != nil {
+			rpcLog.Errorf("Error shuting down Session Comm: %s", err)
+		} else {
+			rpcLog.Infof("Gracefully shut down Session Comm")
+		}
+	}
+
+	// Then remove the Session
 	core.Sessions.Remove(session.ID)
 	data, err := proto.Marshal(kill)
 	if err != nil {
