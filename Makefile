@@ -147,5 +147,4 @@ assets: clean
 tests: 
 	# Server only
 	./sliver-server unpack --force
-	# ./go-tests.sh server
 	./go-tests.sh $(ENV) $(GO) -$(TAGS),server $(LDFLAGS)
