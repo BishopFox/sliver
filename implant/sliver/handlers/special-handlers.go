@@ -26,7 +26,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
-	// {{if .Config.IsSharedLib}}
+	// {{if or .Config.IsSharedLib .Config.IsShellcode}}
 	// {{if eq .Config.GOOS "windows"}}
 	"runtime"
 	"syscall"
@@ -55,22 +55,23 @@ func killHandler(data []byte, connection *transports.Connection) error {
 	if err != nil {
 		return err
 	}
-	// {{if .Config.IsSharedLib}}
 	// {{if eq .Config.GOOS "windows"}}
+	// {{if or .Config.IsSharedLib .Config.IsShellcode}}
 	if runtime.GOOS == "windows" {
 		// Windows only: ExitThread() instead of os.Exit() for DLL/shellcode slivers
 		// so that the parent process is not killed
-		exitFunc := syscall.MustLoadDLL("kernel32.dll").MustFindProc("ExitThread")
+		var exitFunc *syscall.Proc
+		if killReq.Force {
+			exitFunc = syscall.MustLoadDLL("kernel32.dll").MustFindProc("ExitProcess")
+		} else {
+			exitFunc = syscall.MustLoadDLL("kernel32.dll").MustFindProc("ExitThread")
+		}
 		exitFunc.Call(uintptr(0))
 		return nil
 	}
-	// {{end}}
 	// {{else}}
-	// Exit now if we've received a force request
-	if killReq.Force {
-		os.Exit(0)
-	}
-	//{{end}}
+	// {{end}}
+	// {{end}}
 	// Cleanup connection
 	connection.Cleanup()
 	// {{if .Config.Debug}}
