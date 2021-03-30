@@ -217,6 +217,7 @@ var uselessCmdsSession = []string{
 	"use",
 	"config",
 	"background",
+	"info",
 }
 
 // commandBanned - If any of the words above apppear in a command, ON THEIR OWN (we don't match patterns),

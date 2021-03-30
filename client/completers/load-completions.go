@@ -80,12 +80,12 @@ func sliverCompsAdditional(parser *flags.Parser) {
 
 	// MSF execution
 	msf := parser.Find(constants.MsfStr)
-	msf.FindOptionByLongName("payload").Choices = msfPayloads[session.OS]
+	// msf.FindOptionByLongName("payload").Choices = msfPayloads[session.OS]
 	msf.FindOptionByLongName("encoder").Choices = msfEncoders
 
 	// MSF injection
 	inj := parser.Find(constants.MsfInjectStr)
-	inj.FindOptionByLongName("payload").Choices = msfPayloads[session.OS]
+	// inj.FindOptionByLongName("payload").Choices = msfPayloads[session.OS]
 	inj.FindOptionByLongName("encoder").Choices = msfEncoders
 
 	// Portfwd protocols

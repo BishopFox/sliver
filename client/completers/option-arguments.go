@@ -245,6 +245,11 @@ func completeOptionArguments(cmd *flags.Command, opt *flags.Option, lastWord str
 			completions = append(completions, processes(lastWord))
 		}
 
+		// MsfVeom payloads
+		if match("Payload") {
+			completions = append(completions, completeMsfVenomPayloads(lastWord))
+		}
+
 	}
 	return
 }
