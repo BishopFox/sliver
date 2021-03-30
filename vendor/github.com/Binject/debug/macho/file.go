@@ -180,6 +180,12 @@ func (s *Section) Data() ([]byte, error) {
 // Open returns a new ReadSeeker reading the Mach-O section.
 func (s *Section) Open() io.ReadSeeker { return io.NewSectionReader(s.sr, 0, 1<<63-1) }
 
+// A Dylinker represents a Mach-O load dynamic library command.
+type Dylinker struct {
+	LoadBytes
+	Name string
+}
+
 // A Dylib represents a Mach-O load dynamic library command.
 type Dylib struct {
 	LoadBytes
@@ -269,9 +275,19 @@ func (f *File) Close() error {
 	return err
 }
 
-// NewFile creates a new File for accessing a Mach-O binary in an underlying reader.
-// The Mach-O binary is expected to start at position 0 in the ReaderAt.
+// NewFile creates a new macho.File for accessing a Mach-o binary file in an underlying reader.
 func NewFile(r io.ReaderAt) (*File, error) {
+	return newFileInternal(r, false)
+}
+
+// NewFileFromMemory creates a new macho.File for accessing a Mach-O binary in-memory image in an underlying reader.
+func NewFileFromMemory(r io.ReaderAt) (*File, error) {
+	return newFileInternal(r, true)
+}
+
+// NewFile creates a new File for accessing a PE binary in an underlying reader.
+func newFileInternal(r io.ReaderAt, memoryMode bool) (*File, error) {
+
 	f := new(File)
 	sr := io.NewSectionReader(r, 0, 1<<63-1)
 
@@ -342,6 +358,20 @@ func NewFile(r io.ReaderAt) (*File, error) {
 			l.LoadBytes = LoadBytes(cmddat)
 			f.Loads[i] = l
 
+		case LoadCmdDylinker:
+			var hdr DylinkerCmd
+			b := bytes.NewReader(cmddat)
+			if err := binary.Read(b, bo, &hdr); err != nil {
+				return nil, err
+			}
+			l := new(Dylinker)
+			if hdr.Name >= uint32(len(cmddat)) {
+				return nil, &FormatError{offset, "invalid name in dynamic library command", hdr.Name}
+			}
+			l.Name = cstring(cmddat[hdr.Name:])
+			l.LoadBytes = LoadBytes(cmddat)
+			f.Loads[i] = l
+
 		case LoadCmdDylib:
 			var hdr DylibCmd
 			b := bytes.NewReader(cmddat)
@@ -366,9 +396,34 @@ func NewFile(r io.ReaderAt) (*File, error) {
 				return nil, err
 			}
 			strtab := make([]byte, hdr.Strsize)
-			if _, err := r.ReadAt(strtab, int64(hdr.Stroff)); err != nil {
-				return nil, err
+
+			var linkeditAddr, textAddr, linkeditOffset int64
+			if !memoryMode {
+				if _, err := r.ReadAt(strtab, int64(hdr.Stroff)); err != nil {
+					return nil, err
+				}
+			} else {
+				// in memory, we have to translate the file offsets for strtab/symtab into offsets into LINKEDIT segment
+				for _, load := range f.Loads {
+					switch segment := load.(type) {
+					case *Segment:
+						if segment == nil {
+							continue
+						}
+						if segment.Name == "__LINKEDIT" {
+							linkeditAddr = int64(segment.Addr)
+							linkeditOffset = int64(segment.Offset)
+						} else if segment.Name == "__TEXT" {
+							textAddr = int64(segment.Addr)
+						}
+					}
+				}
+				strtabAddr := (linkeditAddr - textAddr) + (int64(hdr.Stroff) - linkeditOffset)
+				if _, err := r.ReadAt(strtab, strtabAddr); err != nil {
+					return nil, err
+				}
 			}
+
 			var symsz int
 			if f.Magic == Magic64 {
 				symsz = 16
@@ -376,9 +431,17 @@ func NewFile(r io.ReaderAt) (*File, error) {
 				symsz = 12
 			}
 			symdat := make([]byte, int(hdr.Nsyms)*symsz)
-			if _, err := r.ReadAt(symdat, int64(hdr.Symoff)); err != nil {
-				return nil, err
+
+			if !memoryMode {
+				if _, err := r.ReadAt(symdat, int64(hdr.Symoff)); err != nil {
+					return nil, err
+				}
+			} else {
+				if _, err := r.ReadAt(symdat, (linkeditAddr-textAddr)+(int64(hdr.Symoff)-linkeditOffset)); err != nil {
+					return nil, err
+				}
 			}
+
 			st, err := f.parseSymtab(symdat, strtab, cmddat, &hdr, offset)
 			if err != nil {
 				return nil, err
@@ -453,53 +516,63 @@ func NewFile(r io.ReaderAt) (*File, error) {
 			var dylinkInfo DylinkInfo
 			// Rebase deets
 			if dylinkInfoCmd.Rebasesize > 0 {
-				rebase := make([]byte, dylinkInfoCmd.Rebasesize)
-				if _, err := r.ReadAt(rebase, int64(dylinkInfoCmd.Rebaseoff)); err != nil {
-					return nil, err
+				if !memoryMode { // this data is in LINKEDIT already
+					rebase := make([]byte, dylinkInfoCmd.Rebasesize)
+					if _, err := r.ReadAt(rebase, int64(dylinkInfoCmd.Rebaseoff)); err != nil {
+						return nil, err
+					}
+					dylinkInfo.RebaseDat = rebase
 				}
 				dylinkInfo.RebaseLen = dylinkInfoCmd.Rebasesize
 				dylinkInfo.RebaseOffset = uint64(dylinkInfoCmd.Rebaseoff)
-				dylinkInfo.RebaseDat = rebase
 			}
 			// BindingInfo deets
 			if dylinkInfoCmd.Bindinginfosize > 0 {
-				binding := make([]byte, dylinkInfoCmd.Bindinginfosize)
-				if _, err := r.ReadAt(binding, int64(dylinkInfoCmd.Bindinginfooff)); err != nil {
-					return nil, err
+				if !memoryMode { // this data is in LINKEDIT already
+					binding := make([]byte, dylinkInfoCmd.Bindinginfosize)
+					if _, err := r.ReadAt(binding, int64(dylinkInfoCmd.Bindinginfooff)); err != nil {
+						return nil, err
+					}
+					dylinkInfo.BindingInfoDat = binding
 				}
 				dylinkInfo.BindingInfoLen = dylinkInfoCmd.Bindinginfosize
 				dylinkInfo.BindingInfoOffset = uint64(dylinkInfoCmd.Bindinginfooff)
-				dylinkInfo.BindingInfoDat = binding
 			}
 			// Weak deets
 			if dylinkInfoCmd.Weakbindingsize > 0 {
-				weak := make([]byte, dylinkInfoCmd.Weakbindingsize)
-				if _, err := r.ReadAt(weak, int64(dylinkInfoCmd.Weakbindingoff)); err != nil {
-					return nil, err
+				if !memoryMode { // this data is in LINKEDIT already
+					weak := make([]byte, dylinkInfoCmd.Weakbindingsize)
+					if _, err := r.ReadAt(weak, int64(dylinkInfoCmd.Weakbindingoff)); err != nil {
+						return nil, err
+					}
+					dylinkInfo.WeakBindingDat = weak
 				}
 				dylinkInfo.WeakBindingLen = dylinkInfoCmd.Weakbindingsize
 				dylinkInfo.WeakBindingOffset = uint64(dylinkInfoCmd.Weakbindingoff)
-				dylinkInfo.WeakBindingDat = weak
 			}
 			// Lazy deets
 			if dylinkInfoCmd.Lazybindingsize > 0 {
-				lazy := make([]byte, dylinkInfoCmd.Lazybindingsize)
-				if _, err := r.ReadAt(lazy, int64(dylinkInfoCmd.Lazybindingoff)); err != nil {
-					return nil, err
+				if !memoryMode { // this data is in LINKEDIT already
+					lazy := make([]byte, dylinkInfoCmd.Lazybindingsize)
+					if _, err := r.ReadAt(lazy, int64(dylinkInfoCmd.Lazybindingoff)); err != nil {
+						return nil, err
+					}
+					dylinkInfo.LazyBindingDat = lazy
 				}
 				dylinkInfo.LazyBindingLen = dylinkInfoCmd.Lazybindingsize
 				dylinkInfo.LazyBindingOffset = uint64(dylinkInfoCmd.Lazybindingoff)
-				dylinkInfo.LazyBindingDat = lazy
 			}
 			// ExportInfo deets
 			if dylinkInfoCmd.Exportinfosize > 0 {
-				export := make([]byte, dylinkInfoCmd.Exportinfosize)
-				if _, err := r.ReadAt(export, int64(dylinkInfoCmd.Exportinfooff)); err != nil {
-					return nil, err
+				if !memoryMode { // this data is in LINKEDIT already
+					export := make([]byte, dylinkInfoCmd.Exportinfosize)
+					if _, err := r.ReadAt(export, int64(dylinkInfoCmd.Exportinfooff)); err != nil {
+						return nil, err
+					}
+					dylinkInfo.ExportInfoDat = export
 				}
 				dylinkInfo.ExportInfoLen = dylinkInfoCmd.Exportinfosize
 				dylinkInfo.ExportInfoOffset = uint64(dylinkInfoCmd.Exportinfooff)
-				dylinkInfo.ExportInfoDat = export
 			}
 			// Finalize the object
 			f.DylinkInfo = &dylinkInfo
@@ -623,10 +696,14 @@ func NewFile(r io.ReaderAt) (*File, error) {
 			if err := binary.Read(b, bo, &entryPoint); err != nil {
 				return nil, err
 			}
-			f.EntryPoint = entryPoint.entryoff
+			f.EntryPoint = entryPoint.EntryOff
 		}
 		if s != nil {
-			s.sr = io.NewSectionReader(r, int64(s.Offset), int64(s.Filesz))
+			if !memoryMode {
+				s.sr = io.NewSectionReader(r, int64(s.Offset), int64(s.Filesz))
+			} else {
+				s.sr = io.NewSectionReader(r, int64(s.Addr), int64(s.Filesz))
+			}
 			s.ReaderAt = s.sr
 		}
 	}

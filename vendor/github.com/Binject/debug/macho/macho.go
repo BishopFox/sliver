@@ -200,6 +200,13 @@ type (
 		Nlocrel        uint32
 	}
 
+	// DylinkerCmd is a load command to identify the dynamic linker
+	DylinkerCmd struct {
+		Cmd  LoadCmd
+		Len  uint32
+		Name uint32
+	}
+
 	// A DylibCmd is a Mach-O load dynamic library command.
 	DylibCmd struct {
 		Cmd            LoadCmd
@@ -259,10 +266,10 @@ type (
 
 	// A EntryPointCmd is a Mach-O entry point command.
 	EntryPointCmd struct {
-		cmd       uint32 /* LC_MAIN only used in MH_EXECUTE filetypes */
-		cmdsize   uint32 /* 24 */
-		entryoff  uint64 /* file (__TEXT) offset of main() */
-		stacksize uint64 /* if not zero, initial stack size */
+		Cmd       uint32 /* LC_MAIN only used in MH_EXECUTE filetypes */
+		CmdSize   uint32 /* 24 */
+		EntryOff  uint64 /* file (__TEXT) offset of main() */
+		StackSize uint64 /* if not zero, initial stack size */
 	}
 )
 

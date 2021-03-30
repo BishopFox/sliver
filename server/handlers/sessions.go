@@ -23,22 +23,29 @@ package handlers
 */
 
 import (
+	"encoding/json"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/google/uuid"
+
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/comm"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
-
-	"github.com/golang/protobuf/proto"
 )
 
 var (
 	handlerLog = log.NamedLogger("handlers", "sessions")
 
 	sessionHandlers = map[uint32]interface{}{
-		sliverpb.MsgRegister:    registerSessionHandler,
-		sliverpb.MsgTunnelData:  tunnelDataHandler,
-		sliverpb.MsgTunnelClose: tunnelCloseHandler,
+		sliverpb.MsgRegister:       registerSessionHandler,
+		sliverpb.MsgTunnelData:     tunnelDataHandler,
+		sliverpb.MsgTunnelClose:    tunnelCloseHandler,
+		sliverpb.MsgPing:           pingHandler,
+		sliverpb.MsgCommTunnelData: commTunnelDataHandler,
 	}
 
 	tunnelHandlerMutex = &sync.Mutex{}
@@ -66,14 +73,20 @@ func registerSessionHandler(session *core.Session, data []byte) {
 		return
 	}
 
-	handlerLog.Warnf("%v", session)
-	handlerLog.Warnf("%v", register)
-
 	if session.ID == 0 {
 		session.ID = core.NextSessionID()
 	}
+
+	// Parse Register UUID
+	sessionUUID, err := uuid.Parse(register.Uuid)
+	if err != nil {
+		// Generate Random UUID
+		sessionUUID = uuid.New()
+	}
+
 	session.Name = register.Name
 	session.Hostname = register.Hostname
+	session.UUID = sessionUUID.String()
 	session.Username = register.Username
 	session.UID = register.Uid
 	session.GID = register.Gid
@@ -84,7 +97,39 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	session.ActiveC2 = register.ActiveC2
 	session.Version = register.Version
 	session.ReconnectInterval = register.ReconnectInterval
+	session.ProxyURL = register.ProxyURL
+
+	// Add protocol, network and route-adjusted address fields
+	session.Transport = register.Transport
+	session.RemoteAddress = comm.SetCommString(session)
+
+	// Instantiate and start the Comms, which will build a Tunnel over the Session RPC.
+	err = comm.InitSession(session)
+	if err != nil {
+		handlerLog.Errorf("Comm init failed: %v", err)
+		return
+	}
+
+	// All fields are correct, we can register the session.
 	core.Sessions.Add(session)
+	go auditLogSession(session, register)
+}
+
+type auditLogNewSessionMsg struct {
+	Session  *clientpb.Session
+	Register *sliverpb.Register
+}
+
+func auditLogSession(session *core.Session, register *sliverpb.Register) {
+	msg, err := json.Marshal(auditLogNewSessionMsg{
+		Session:  session.ToProtobuf(),
+		Register: register,
+	})
+	if err != nil {
+		handlerLog.Errorf("Failed to log new session to audit log %s", err)
+	} else {
+		log.AuditLogger.Warn(string(msg))
+	}
 }
 
 // The handler mutex prevents a send on a closed channel, without it
@@ -127,4 +172,25 @@ func tunnelCloseHandler(session *core.Session, data []byte) {
 	} else {
 		handlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
 	}
+}
+
+func pingHandler(session *core.Session, data []byte) {
+	handlerLog.Infof("ping from session %d", session.ID)
+}
+
+// commTunnelDataHandler - Handle Comm tunnel data coming from the server.
+func commTunnelDataHandler(session *core.Session, data []byte) {
+	tunnelData := &commpb.TunnelData{}
+	proto.Unmarshal(data, tunnelData)
+	tunnel := comm.Tunnels.Tunnel(tunnelData.TunnelID)
+	if tunnel != nil {
+		if session.ID == tunnel.Sess.ID {
+			tunnel.FromImplant <- tunnelData
+		} else {
+			handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
+		}
+	} else {
+		handlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
+	}
+
 }

@@ -1,6 +1,7 @@
 package sliverpb
 
 import (
+	"github.com/bishopfox/sliver/protobuf/commpb"
 	proto "github.com/golang/protobuf/proto"
 )
 
@@ -106,6 +107,8 @@ const (
 	MsgInvokeGetSystemReq
 	// MsgGetSystem - Response to getsystem request
 	MsgGetSystem
+	// MsgInvokeExecuteAssemblyReq - Request to load and execute a .NET assembly
+	MsgInvokeExecuteAssemblyReq
 	// MsgExecuteAssemblyReq - Request to load and execute a .NET assembly
 	MsgExecuteAssemblyReq
 	// MsgExecuteAssembly - Output of the assembly execution
@@ -178,6 +181,71 @@ const (
 	MsgEnvReq
 	// MsgEnvInfo - Response to environment variable request
 	MsgEnvInfo
+	// MsgSetEnvReq
+	MsgSetEnvReq
+	// MsgSetEnv
+	MsgSetEnv
+	// MsgExecuteTokenReq - Execute request executed with the current (Windows) token
+	MsgExecuteTokenReq
+	// MsgRegistryReadReq
+	MsgRegistryReadReq
+	// MsgRegistryWriteReq
+	MsgRegistryWriteReq
+	// MsgRegistryCreateKeyReq
+	MsgRegistryCreateKeyReq
+
+	// MsgHandlerStartReq - Request to start a handler on an implant.
+	MsgHandlerStartReq
+	// MsgHandlerStart - Response
+	MsgHandlerStart
+	// MsgHandlerCloseReq - Request to close a handler on an implant.
+	MsgHandlerCloseReq
+	// MsgHandlerStop - Response
+	MsgHandlerClose
+
+	// MsgRoutesReq - Get all active network routes.
+	MsgRoutesReq
+	// MsgRoutes - Response
+	MsgRoutes
+	// MsgAddRouteReq - Add a network route.
+	MsgAddRouteReq
+	// MsgAddRoute - Response
+	MsgAddRoute
+	// MsgRouteDeleteReq - Remove an active network route.
+	MsgRouteDeleteReq
+	// MsgRouteDelete - Response
+	MsgRouteDelete
+
+	// MsgCommTunnelOpenReq - Open a multiplexing tunnel through the session RPC.
+	MsgCommTunnelOpenReq
+	// MsgCommTunnelOpen - Response
+	MsgCommTunnelOpen
+	// MsgCommTunnelData - Data passed in the mux tunnel
+	MsgCommTunnelData
+	// MsgCommTunnelCloseReq - Close the mux tunnel
+	MsgCommTunnelCloseReq
+	// MsgCommTunnelClose - Response
+	MsgCommTunnelClose
+
+	// MsgTransportsReq - Get available transports for implant
+	MsgTransportsReq
+	// MsgTransports - Response
+	MsgTransports
+
+	// MsgAddTransportReq - Add a new transport
+	MsgAddTransportReq
+	// MsgAddTransport - Response
+	MsgAddTransport
+
+	// MsgDeleteTransportReq - Remove a transport
+	MsgDeleteTransportReq
+	// MsgDeleteTransport - Response
+	MsgDeleteTransport
+
+	// MsgSwitchTransportReq - Switch the current active transport
+	MsgSwitchTransportReq
+	// MsgSwitchTransport - Response
+	MsgSwitchTransport
 )
 
 // MsgNumber - Get a message number of type
@@ -266,8 +334,14 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *ExecuteAssemblyReq:
 		return MsgExecuteAssemblyReq
+
+	case *InvokeExecuteAssemblyReq:
+		return MsgInvokeExecuteAssemblyReq
+
 	case *ExecuteAssembly:
 		return MsgExecuteAssembly
+	case *ExecuteTokenReq:
+		return MsgExecuteTokenReq
 
 	case *InvokeMigrateReq:
 		return MsgInvokeMigrateReq
@@ -334,7 +408,66 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgEnvReq
 	case *EnvInfo:
 		return MsgEnvInfo
+	case *SetEnvReq:
+		return MsgSetEnvReq
+	case *SetEnv:
+		return MsgSetEnv
+	case *RegistryReadReq:
+		return MsgRegistryReadReq
+	case *RegistryWriteReq:
+		return MsgRegistryWriteReq
+	case *RegistryCreateKeyReq:
+		return MsgRegistryCreateKeyReq
 
+	case *commpb.HandlerStartReq:
+		return MsgHandlerStartReq
+	case *commpb.HandlerStart:
+		return MsgHandlerStart
+	case *commpb.HandlerCloseReq:
+		return MsgHandlerCloseReq
+	case *commpb.HandlerClose:
+		return MsgHandlerClose
+
+	case *commpb.RoutesReq:
+		return MsgRoutesReq
+	case *commpb.Routes:
+		return MsgRoutes
+	case *commpb.RouteAddReq:
+		return MsgAddRouteReq
+	case *commpb.RouteAdd:
+		return MsgAddRoute
+	case *commpb.RouteDeleteReq:
+		return MsgRouteDeleteReq
+	case *commpb.RouteDelete:
+		return MsgRouteDelete
+
+	case *commpb.TunnelOpenReq:
+		return MsgCommTunnelOpenReq
+	case *commpb.TunnelOpen:
+		return MsgCommTunnelOpen
+	case *commpb.TunnelData:
+		return MsgCommTunnelData
+	case *commpb.TunnelCloseReq:
+		return MsgCommTunnelCloseReq
+	case *commpb.TunnelClose:
+		return MsgCommTunnelClose
+
+	case *commpb.TransportsReq:
+		return MsgTransportsReq
+	case *commpb.Transports:
+		return MsgTransports
+	case *commpb.TransportAddReq:
+		return MsgAddTransportReq
+	case *commpb.TransportAdd:
+		return MsgAddTransport
+	case *commpb.TransportDeleteReq:
+		return MsgDeleteTransportReq
+	case *commpb.TransportDelete:
+		return MsgDeleteTransport
+	case *commpb.TransportSwitchReq:
+		return MsgSwitchTransportReq
+	case *commpb.TransportSwitch:
+		return MsgSwitchTransport
 	}
 	return uint32(0)
 }

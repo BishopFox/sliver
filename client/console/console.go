@@ -19,269 +19,323 @@ package console
 */
 
 import (
-	"bufio"
-	"context"
+	"errors"
+	"flag"
 	"fmt"
-	"io"
 	"log"
-	insecureRand "math/rand"
 	"os"
 	"path"
+	"strings"
+
+	"github.com/maxlandon/readline"
+	"google.golang.org/grpc"
 
 	"github.com/bishopfox/sliver/client/assets"
-	cmd "github.com/bishopfox/sliver/client/command"
-	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/core"
-	"github.com/bishopfox/sliver/client/version"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/client/comm"
+	"github.com/bishopfox/sliver/client/commands"
+	"github.com/bishopfox/sliver/client/completers"
+	cctx "github.com/bishopfox/sliver/client/context"
+	clientLog "github.com/bishopfox/sliver/client/log"
+	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+)
 
-	"time"
+var (
+	// Console - The client console object
+	Console = newConsole()
 
-	"github.com/desertbit/grumble"
-	"github.com/fatih/color"
+	// Flags - Used by main function for various details
+	displayVersion = flag.Bool("version", false, "print version number")
 )
 
 const (
-	// ANSI Colors
-	normal    = "\033[0m"
-	black     = "\033[30m"
-	red       = "\033[31m"
-	green     = "\033[32m"
-	orange    = "\033[33m"
-	blue      = "\033[34m"
-	purple    = "\033[35m"
-	cyan      = "\033[36m"
-	gray      = "\033[37m"
-	bold      = "\033[1m"
-	clearln   = "\r\x1b[2K"
-	upN       = "\033[%dA"
-	downN     = "\033[%dB"
-	underline = "\033[4m"
-
-	// Info - Display colorful information
-	Info = bold + cyan + "[*] " + normal
-	// Warn - Warn a user
-	Warn = bold + red + "[!] " + normal
-	// Debug - Display debug information
-	Debug = bold + purple + "[-] " + normal
-	// Woot - Display success
-	Woot = bold + green + "[$] " + normal
+	logFileName = "sliver-client.log"
 )
 
-// ExtraCmds - Bind extra commands to the app object
-type ExtraCmds func(*grumble.App, rpcpb.SliverRPCClient)
-
-// Start - Console entrypoint
-func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
-	app := grumble.New(&grumble.Config{
-		Name:                  "Sliver",
-		Description:           "Sliver Client",
-		HistoryFile:           path.Join(assets.GetRootAppDir(), "history"),
-		Prompt:                getPrompt(),
-		PromptColor:           color.New(),
-		HelpHeadlineColor:     color.New(),
-		HelpHeadlineUnderline: true,
-		HelpSubCommands:       true,
-	})
-	app.SetPrintASCIILogo(func(app *grumble.App) {
-		printLogo(app, rpc)
-	})
-
-	cmd.BindCommands(app, rpc)
-	extraCmds(app, rpc)
-
-	cmd.ActiveSession.AddObserver(func(_ *clientpb.Session) {
-		app.SetPrompt(getPrompt())
-	})
-
-	go eventLoop(app, rpc)
-	go core.TunnelLoop(rpc)
-
-	err := app.Run()
-	if err != nil {
-		log.Printf("Run loop returned error: %v", err)
+// newConsole - Instantiates a new console with some default behavior.
+// We modify/add elements of behavior later in setup.
+func newConsole() *Client {
+	console := &Client{
+		Shell: readline.NewInstance(),
 	}
-	return err
+	return console
 }
 
-func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
-	eventStream, err := rpc.Events(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		fmt.Printf(Warn+"%s\n", err)
-		return
+// Client - Central object of the client UI. Only one instance of this object
+// lives in the client executable (instantiated with newConsole() above).
+type Client struct {
+	Shell  *readline.Instance // Provides input loop and completion system.
+	Conn   *grpc.ClientConn   // The current raw gRPC client connection to the server.
+	Prompt *prompt            // The prompt for all contexts
+}
+
+// Connect - The console connects to the server and authenticates. Note that all
+// config information (access points and security details) have been loaded already.
+func (c *Client) Connect(conn *grpc.ClientConn) (*grpc.ClientConn, error) {
+
+	// Bind this connection as the current console client gRPC connection
+	c.Conn = conn
+
+	// Register RPC Service Client.
+	transport.RPC = rpcpb.NewSliverRPCClient(conn)
+	if transport.RPC == nil {
+		return nil, errors.New("could not register gRPC Client, instance is nil")
 	}
-	stdout := bufio.NewWriter(os.Stdout)
+
+	// Start message tunnel loop.
+	go transport.TunnelLoop()
+
+	return conn, nil
+}
+
+// Init - The console has a working RPC connection: we setup all
+// things pertaining to the console itself, before calling the Run() function.
+func (c *Client) Init() (err error) {
+
+	// Setup console elements
+	err = c.setup()
+	if err != nil {
+		return fmt.Errorf("Console setup failed: %s", err)
+	}
+
+	// Start monitoring all logs from the server and the client.
+	err = clientLog.Init(c.Shell, c.Prompt.Render, transport.RPC)
+	if err != nil {
+		return fmt.Errorf("Failed to start log monitor (%s)", err.Error())
+	}
+
+	// Start monitoring incoming events
+	go c.handleServerLogs(transport.RPC)
+
+	// Setup the Client Comm system (console proxies & port forwarders)
+	conf := assets.Config
+	err = comm.Start(transport.RPC, []byte(conf.PrivateKey), conf.ServerFingerprint)
+	if err != nil {
+		fmt.Printf(Warn+"Comm Error: %v \n", err)
+	}
+
+	// Print banner and version information. (checks last updates)
+	printLogo()
+
+	return
+}
+
+// setup - The console sets up various elements such as the completion system, hints,
+// syntax highlighting, prompt system, commands binding, and client environment loading.
+func (c *Client) setup() (err error) {
+
+	initLogging() // textfile log
+
+	// Get the user's console configuration from the server
+	err = cctx.LoadConsoleConfig(transport.RPC)
+	if err != nil {
+		fmt.Printf(util.Error + "Failed to load console configuration from server.\n")
+		fmt.Printf(util.Info + "Defaulting to builtin values.\n")
+	}
+
+	// This context object will hold some state about the
+	// console (which implant we're interacting, jobs, etc.)
+	cctx.InitializeConsole(transport.RPC)
+
+	// This computes all callbacks and base prompt strings
+	// for the first time, and then binds it to the console.
+	c.initPrompt()
+	c.Shell.Multiline = true
+	c.Shell.ShowVimMode = true
+	c.Shell.VimModeColorize = true
+
+	// Completions and syntax highlighting
+	c.Shell.TabCompleter = completers.TabCompleter
+	c.Shell.SyntaxHighlighter = completers.SyntaxHighlighter
+
+	// History (client and user-wide)
+	c.Shell.SetHistoryCtrlE("client history", ClientHist)
+	c.Shell.SetHistoryCtrlR("user-wise history", UserHist)
+
+	// Request the user history to server and cache it
+	getUserHistory()
+
+	// Client-side environment
+	err = util.LoadClientEnv()
+	if err != nil {
+		return fmt.Errorf("could not load client OS env (%s)", err)
+	}
+
+	return
+}
+
+// Run - Start the actual readline input loop, required
+// per-loop console setup details, and command execution.
+func (c *Client) Run() {
+
+	// When we will exit this loop, disconnect gracefully from the server.
+	// The latter will take care of notifying other clients/players if needed.
+	defer c.Conn.Close()
 
 	for {
-		event, err := eventStream.Recv()
-		if err == io.EOF || event == nil {
-			return
+		// Some commands can act on the shell properties via the console
+		// context package, so we check values and set everything up.
+		c.ResetShell()
+
+		// Reset the completion data cache for all registered sessions.
+		completers.Cache.Reset()
+
+		// Recompute prompt each time, before anything.
+		c.ComputePrompt()
+
+		// Set the different sources of history, depending on context, session.
+		c.SetHistory()
+
+		// Reset the log synchroniser, before rebinding the commands, so that
+		// if anyone is to use the parser.Active command, it will work until
+		// just before rebinding the parser and its commands.
+		clientLog.ResetLogSynchroniser()
+
+		// Bind the command parser (and its commands), for the appropriate context.
+		// This is before calling the console readline, because the latter needs
+		// to be fed a parser for completions, hints, and syntax.
+		cmds, err := commands.BindCommands()
+		if err != nil {
+			fmt.Print(util.CommandError + readline.Red("could not reset commands: "+err.Error()+"\n"))
 		}
 
-		// Trigger event based on type
-		switch event.EventType {
+		// Register the commands for additional completions. Some of these may
+		// also add restrained choices to some commands, so this function may
+		// actually end up refining even more the parsing granularity of our shell.
+		completers.LoadAdditionalCompletions(cmds)
 
-		case consts.CanaryEvent:
-			fmt.Printf(clearln+Warn+bold+"WARNING: %s%s has been burned (DNS Canary)\n", normal, event.Session.Name)
-			sessions := cmd.GetSessionsByName(event.Session.Name, rpc)
-			for _, session := range sessions {
-				fmt.Printf(clearln+"\t🔥 Session #%d is affected\n", session.ID)
-			}
-			fmt.Println()
+		// Read input line (blocking)
+		line, _ := c.Readline()
 
-		case consts.JoinedEvent:
-			fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator.Name)
-		case consts.LeftEvent:
-			fmt.Printf(clearln+Info+"%s left the game\n\n", event.Client.Operator)
-
-		case consts.JobStoppedEvent:
-			job := event.Job
-			fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
-
-		case consts.SessionOpenedEvent:
-			session := event.Session
-			// The HTTP session handling is performed in two steps:
-			// - first we add an "empty" session
-			// - then we complete the session info when we receive the Register message from the Sliver
-			// This check is here to avoid displaying two sessions events for the same session
-			if session.OS != "" {
-				currentTime := time.Now().Format(time.RFC1123)
-				fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s - %v\n\n",
-					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
-			}
-
-		case consts.SessionUpdateEvent:
-			session := event.Session
-			currentTime := time.Now().Format(time.RFC1123)
-			fmt.Printf(clearln+Info+"Session #%d has been updated - %v\n", session.ID, currentTime)
-
-		case consts.SessionClosedEvent:
-			session := event.Session
-			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
-				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
-			activeSession := cmd.ActiveSession.Get()
-			if activeSession != nil && activeSession.ID == session.ID {
-				cmd.ActiveSession.Set(nil)
-				app.SetPrompt(getPrompt())
-				fmt.Printf(Warn + " Active session disconnected\n")
-			}
-			fmt.Println()
+		// Split and sanitize the user-entered command line input.
+		sanitized, empty := c.SanitizeInput(line)
+		if empty {
+			continue
 		}
 
-		fmt.Printf(getPrompt())
-		stdout.Flush()
+		// Process various tokens on input (environment variables, paths, etc.)
+		envParsed, _ := util.ParseEnvironmentVariables(sanitized)
+
+		// Other types of tokens, needed by commands who expect a certain type
+		// of arguments, such as paths with spaces.
+		tokenParsed := c.ParseTokens(envParsed)
+
+		// Execute the command input: all input is passed to the current
+		// context parser, which will deal with it on its own. We never return
+		// errors from this call, as any of them happening follows a certain
+		// number of fallback paths (special commands, error printing, etc.).
+		c.ExecuteCommand(tokenParsed)
 	}
 }
 
-func getPrompt() string {
-	prompt := underline + "sliver" + normal
-	if cmd.ActiveSession.Get() != nil {
-		prompt += fmt.Sprintf(bold+red+" (%s)%s", cmd.ActiveSession.Get().Name, normal)
+// SetHistory - Depending on the context, the alternative history
+// source becomes the current Session one.
+func (c *Client) SetHistory() {
+
+	// If we are interacting with an implant, set the correct history source
+	if cctx.Context.Menu == cctx.Sliver && cctx.Context.Sliver != nil {
+		c.Shell.SetHistoryCtrlE("session history", SessionHist)
+		getSessionHistory()
+	} else {
+		c.Shell.SetHistoryCtrlE("client history", ClientHist)
 	}
-	prompt += " > "
-	return prompt
 }
 
-func printLogo(sliverApp *grumble.App, rpc rpcpb.SliverRPCClient) {
-	serverVer, err := rpc.GetVersion(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		panic(err.Error())
-	}
-	dirty := ""
-	if serverVer.Dirty {
-		dirty = fmt.Sprintf(" - %sDirty%s", bold, normal)
-	}
-	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
+// ResetShell - Live refresh of console properties (input, hints, etc),
+// following some commands (confi, usually) that may have changed some settings.
+func (c *Client) ResetShell() {
 
-	insecureRand.Seed(time.Now().Unix())
-	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
-	fmt.Println(logo)
-	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
-	fmt.Printf(Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
-	if version.GitCommit != serverVer.Commit {
-		fmt.Printf(Info+"Client v%s\n", version.FullVersion())
+	c.Shell.Multiline = true   // spaceship-like prompt (2-line)
+	c.Shell.ShowVimMode = true // with Vim mode status
+
+	// Input
+	if !cctx.Config.Vim {
+		c.Shell.InputMode = readline.Emacs
+	} else {
+		c.Shell.InputMode = readline.Vim
 	}
-	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
+
+	// Hints are configurable and can deactivated
+	if !cctx.Config.Hints {
+		c.Shell.HintText = nil
+	} else {
+		c.Shell.HintText = completers.HintCompleter
+	}
+}
+
+// Readline - Add an empty line between input line and command output.
+func (c *Client) Readline() (line string, err error) {
+	line, err = c.Shell.Readline()
 	fmt.Println()
-	if serverVer.Major != int32(version.SemanticVersion()[0]) {
-		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
-	}
-	checkLastUpdate()
+	return
 }
 
-func checkLastUpdate() {
-	now := time.Now()
-	lastUpdate := cmd.GetLastUpdateCheck()
-	compiledAt, err := version.Compiled()
-	if err != nil {
-		log.Printf("Failed to parse compiled at timestamp %s", err)
+// SanitizeInput - Trims spaces and other unwished elements from the input line.
+func (c *Client) SanitizeInput(line string) (sanitized []string, empty bool) {
+
+	// Assume the input is not empty
+	empty = false
+
+	// Trim border spaces
+	trimmed := strings.TrimSpace(line)
+	if len(line) < 1 {
+		empty = true
 		return
 	}
+	unfiltered := strings.Split(trimmed, " ")
 
-	day := 24 * time.Hour
-	if compiledAt.Add(30 * day).Before(now) {
-		if lastUpdate == nil || lastUpdate.Add(30*day).Before(now) {
-			fmt.Printf(Info + "Check for updates with the 'update' command\n\n")
+	// Catch any eventual empty items
+	for _, arg := range unfiltered {
+		if arg != "" {
+			sanitized = append(sanitized, arg)
 		}
 	}
+
+	return
 }
 
-var abilities = []string{
-	"first strike",
-	"vigilance",
-	"haste",
-	"indestructible",
-	"hexproof",
-	"deathtouch",
-	"fear",
-	"epic",
-	"ninjitsu",
-	"recover",
-	"persist",
-	"conspire",
-	"reinforce",
-	"exalted",
-	"annihilator",
-	"infect",
-	"undying",
-	"living weapon",
-	"miracle",
-	"scavenge",
-	"cipher",
-	"evolve",
-	"dethrone",
-	"hidden agenda",
-	"prowess",
-	"dash",
-	"exploit",
-	"renown",
-	"skulk",
-	"improvise",
-	"assist",
-	"jump-start",
+// ParseTokens - Parse and process any special tokens that are not treated by environment-like parsers.
+func (c *Client) ParseTokens(sanitized []string) (parsed []string) {
+
+	// PATH SPACE TOKENS
+	// Catch \ tokens, which have been introduced in paths where some directories have spaces in name.
+	// For each of these splits, we concatenate them with the next string.
+	// This will also inspect commands/options/arguments, but there is no reason why a backlash should be present in them.
+	var pathAdjusted []string
+	var roll bool
+	var arg string
+	for i := range sanitized {
+		if strings.HasSuffix(sanitized[i], "\\") {
+			// If we find a suffix, replace with a space. Go on with next input
+			arg += strings.TrimSuffix(sanitized[i], "\\") + " "
+			roll = true
+		} else if roll {
+			// No suffix but part of previous input. Add it and go on.
+			arg += sanitized[i]
+			pathAdjusted = append(pathAdjusted, arg)
+			arg = ""
+			roll = false
+		} else {
+			// Default, we add our path and go on.
+			pathAdjusted = append(pathAdjusted, sanitized[i])
+		}
+	}
+	parsed = pathAdjusted
+
+	// Add new function here, act on parsed []string from now on, not sanitized
+	return
 }
 
-var asciiLogos = []string{
-	red + `
- 	  ██████  ██▓     ██▓ ██▒   █▓▓█████  ██▀███
-	▒██    ▒ ▓██▒    ▓██▒▓██░   █▒▓█   ▀ ▓██ ▒ ██▒
-	░ ▓██▄   ▒██░    ▒██▒ ▓██  █▒░▒███   ▓██ ░▄█ ▒
-	  ▒   ██▒▒██░    ░██░  ▒██ █░░▒▓█  ▄ ▒██▀▀█▄
-	▒██████▒▒░██████▒░██░   ▒▀█░  ░▒████▒░██▓ ▒██▒
-	▒ ▒▓▒ ▒ ░░ ▒░▓  ░░▓     ░ ▐░  ░░ ▒░ ░░ ▒▓ ░▒▓░
-	░ ░▒  ░ ░░ ░ ▒  ░ ▒ ░   ░ ░░   ░ ░  ░  ░▒ ░ ▒░
-	░  ░  ░    ░ ░    ▒ ░     ░░     ░     ░░   ░
-		  ░      ░  ░ ░        ░     ░  ░   ░
-` + normal,
-
-	green + `
-    ███████╗██╗     ██╗██╗   ██╗███████╗██████╗
-    ██╔════╝██║     ██║██║   ██║██╔════╝██╔══██╗
-    ███████╗██║     ██║██║   ██║█████╗  ██████╔╝
-    ╚════██║██║     ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗
-    ███████║███████╗██║ ╚████╔╝ ███████╗██║  ██║
-    ╚══════╝╚══════╝╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
-` + normal,
+// Initialize logging
+func initLogging() {
+	appDir := assets.GetRootAppDir()
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+	if err != nil {
+		panic(fmt.Sprintf("[!] Error opening file: %s", err))
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
+	return
 }

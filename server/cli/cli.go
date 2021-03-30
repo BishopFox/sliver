@@ -23,6 +23,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"runtime/debug"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/version"
@@ -31,6 +32,7 @@ import (
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/console"
+
 	"github.com/bishopfox/sliver/server/daemon"
 
 	"github.com/spf13/cobra"
@@ -109,6 +111,14 @@ var rootCmd = &cobra.Command{
 		logFile := initLogging(appDir)
 		defer logFile.Close()
 
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("panic:\n%s", debug.Stack())
+				fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
+				os.Exit(99)
+			}
+		}()
+
 		assets.Setup(false)
 		certs.SetupCAs()
 
@@ -118,6 +128,7 @@ var rootCmd = &cobra.Command{
 			daemon.Start()
 		} else {
 			os.Args = os.Args[:1] // Hide cli from grumble console
+
 			console.Start()
 		}
 

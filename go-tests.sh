@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # Sliver Implant Framework
 # Copyright (C) 2019  Bishop Fox
 
@@ -17,18 +16,40 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+# Variables passed as  arguments to the script, from Makefile caller.
+# See ".PHONY: tests" in the Makefile for arguments passed to it.
+ENV=$1
+GO=$2
+TAGS="$3 $4"
+
+# All remaining are ldflags
+shift 4
+LDFLAGS="$1"
+shift
+FLAGS="$@"
+
+echo "Testing with build command:"
+echo $ENV $GO test $TAGS  $LDFLAGS \"$FLAGS\"
 
 ## Util
 
+function testDir() {
+        $GO test $1 -trimpath $TAGS,server 
+        return
+}
+
+# comm= $(ENV) $(GO) test -trimpath $(TAGS),server $(LDFLAGS)
+
 # util 
-if go test ./util ; then
+if testDir ./util ; then
+# if go test ./util ; then
     :
 else
     exit 1
 fi
 
 # util / encoders
-if go test ./util/encoders ; then
+if testDir ./util/encoders ; then
     :
 else
     exit 1
@@ -37,49 +58,49 @@ fi
 ## Server
 
 # server / website
-if go test ./server/website ; then
+if testDir ./server/website ; then
     :
 else
-    cat ~/.sliver/logs/sliver.log
+    # cat ~/.sliver/logs/sliver.log
     exit 1
 fi
 
 # server / certs
-if go test ./server/certs ; then
+if testDir ./server/certs ; then
     :
 else
-    cat ~/.sliver/logs/sliver.log
+    # cat ~/.sliver/logs/sliver.log
     exit 1
 fi
 
 # server / cryptography
-if go test ./server/cryptography ; then
+if testDir ./server/cryptography ; then
     :
 else
-    cat ~/.sliver/logs/sliver.log
+    # cat ~/.sliver/logs/sliver.log
     exit 1
 fi
 
 # server / gogo
-if go test ./server/gogo ; then
+if testDir ./server/gogo ; then
     :
 else
-    cat ~/.sliver/logs/sliver.log
+    # cat ~/.sliver/logs/sliver.log
     exit 1
 fi
 
 # server / c2
-if go test ./server/c2 ; then
+if testDir ./server/c2 ; then
     :
 else
-    cat ~/.sliver/logs/sliver.log
+    # cat ~/.sliver/logs/sliver.log
     exit 1
 fi
 
 # server / generate
-if go test ./server/generate -timeout 6h ; then
+if testDir ./server/generate -timeout 6h ; then
     :
 else
-    cat ~/.sliver/logs/sliver.log
+    # cat ~/.sliver/logs/sliver.log
     exit 1
 fi

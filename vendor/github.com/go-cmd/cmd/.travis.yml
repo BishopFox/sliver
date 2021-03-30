@@ -1,0 +1,19 @@
+language: go
+sudo: false
+
+os:
+  - linux
+  - windows
+
+go:
+  - "1.13"
+  - "1.14"
+
+env:
+  - GO111MODULE=on
+
+before_install:
+  - go mod vendor
+  - go get github.com/mattn/goveralls
+script:
+  - $GOPATH/bin/goveralls -service=travis-ci -race -show -package github.com/go-cmd/cmd
