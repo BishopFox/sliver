@@ -74,6 +74,9 @@ type SessionsKill struct {
 	Positional struct {
 		SessionID []uint32 `description:"session ID (multiple values accepted)" required:"1"`
 	} `positional-args:"yes" required:"true"`
+	Options struct {
+		Force bool `long:"force" short:"f" description:"Force the session to close"`
+	} `group:"kill options"`
 }
 
 // Execute - Kill one or more sessions.
@@ -104,7 +107,7 @@ func (sk *SessionsKill) Execute(args []string) (err error) {
 		}
 
 		// Kill session
-		err = killSession(sess, transport.RPC)
+		err = killSession(sess, sk.Options.Force, transport.RPC)
 
 		// The context will be updated as soon
 		// as we receive confirmation from the server
@@ -143,7 +146,7 @@ func (ka *SessionsKillAll) Execute(args []string) (err error) {
 		}
 
 		// Kill session
-		err = killSession(sess, transport.RPC)
+		err = killSession(sess, true, transport.RPC)
 
 		// The context will be updated as soon
 		// as we receive confirmation from the server
@@ -184,7 +187,7 @@ func (ka *SessionsClean) Execute(args []string) (err error) {
 
 		if sess.IsDead {
 			// Kill session
-			err = killSession(sess, transport.RPC)
+			err = killSession(sess, true, transport.RPC)
 
 			// Change context if we are killing the current session
 			active := cctx.Context.Sliver
@@ -264,7 +267,7 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 	table.Output()
 }
 
-func killSession(session *clientpb.Session, rpc rpcpb.SliverRPCClient) error {
+func killSession(session *clientpb.Session, force bool, rpc rpcpb.SliverRPCClient) error {
 	if session == nil {
 		return errors.New("Session does not exist")
 	}
@@ -272,7 +275,7 @@ func killSession(session *clientpb.Session, rpc rpcpb.SliverRPCClient) error {
 		Request: &commonpb.Request{
 			SessionID: session.ID,
 		},
-		Force: true,
+		Force: force,
 	})
 	if err != nil {
 		return err
