@@ -19,19 +19,15 @@ package console
 */
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
-	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/jessevdk/go-flags"
 	"github.com/maxlandon/readline"
-	"golang.org/x/crypto/ssh"
 
-	clientAssets "github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/commands"
 	"github.com/bishopfox/sliver/client/completers"
 	"github.com/bishopfox/sliver/client/console"
@@ -41,7 +37,7 @@ import (
 	clientLog "github.com/bishopfox/sliver/client/log"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/server/assets"
-	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/comm"
 )
 
 const (
@@ -73,41 +69,29 @@ const (
 
 // Start - Start a server console (locally connected)
 func Start() {
-	// Process flags passed to this binary (os.Flags). All flag variables are
-	// in their respective files (but, of course, in this package only).
-	flag.Parse()
-
-	// Declare an Config for the server-as-client, because its Comm system needs a
-	// fingerprint value as well for authenticating to itself.
-	clientAssets.Config = new(clientAssets.ClientConfig)
-
-	// Make a fingerprint of the implant's private key, for SSH-layer authentication
-	_, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
-	signer, _ := ssh.ParsePrivateKey(serverCAKey)
-	keyBytes := sha256.Sum256(signer.PublicKey().Marshal())
-	fingerprint := base64.StdEncoding.EncodeToString(keyBytes[:])
-
-	// Load only needed fields in the client assets (config) package.
-	clientAssets.Config.PrivateKey = string(serverCAKey)
-	clientAssets.Config.ServerFingerprint = fingerprint
-
-	// Create a new server console
-	serverConsole := newServer()
 
 	// Get a gRPC client connection (in-memory listener)
-	grpcConn, err := connectLocal()
+	conn, err := connectLocal()
 	if err != nil {
 		os.Exit(1)
 	}
 
-	// Register RPC service clients, monitor incoming
-	// events and start the client's Comm System.
-	serverConsole.Connect(grpcConn)
+	// Load a few server configuration details needed to connect
+	// a local Comm client on top of the gRPC connection.
+	comm.LoadServerLocalCommConfig()
+
+	// Create a new server console, with a special run loop.
+	// It embeds a client console so everything else remains the same.
+	serverConsole := newServer()
 
 	// Setup the server console
-	err = serverConsole.Init()
+	// Register gRPC services, monitor events, setup the
+	// console, logging, prompt/command/completion, etc.
+	// This function is specific to the server binary,
+	// because it needs to register flag commands (non-RPC, binary only)
+	err = serverConsole.Init(conn)
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal(err)
 	}
 
 	// Run the console loop (blocking)

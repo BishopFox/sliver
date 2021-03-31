@@ -43,7 +43,7 @@ import (
 
 var (
 	// Console - The client console object
-	Console = newConsole()
+	Console = newClient()
 
 	// Flags - Used by main function for various details
 	displayVersion = flag.Bool("version", false, "print version number")
@@ -53,15 +53,6 @@ const (
 	logFileName = "sliver-client.log"
 )
 
-// newConsole - Instantiates a new console with some default behavior.
-// We modify/add elements of behavior later in setup.
-func newConsole() *Client {
-	console := &Client{
-		Shell: readline.NewInstance(),
-	}
-	return console
-}
-
 // Client - Central object of the client UI. Only one instance of this object
 // lives in the client executable (instantiated with newConsole() above).
 type Client struct {
@@ -70,28 +61,22 @@ type Client struct {
 	Prompt *prompt            // The prompt for all contexts
 }
 
-// Connect - The console connects to the server and authenticates. Note that all
-// config information (access points and security details) have been loaded already.
-func (c *Client) Connect(conn *grpc.ClientConn) (*grpc.ClientConn, error) {
-
-	// Bind this connection as the current console client gRPC connection
-	c.Conn = conn
-
-	// Register RPC Service Client.
-	transport.RPC = rpcpb.NewSliverRPCClient(conn)
-	if transport.RPC == nil {
-		return nil, errors.New("could not register gRPC Client, instance is nil")
+// newClient - Instantiates a new console with some default behavior.
+// We modify/add elements of behavior later in setup.
+func newClient() *Client {
+	console := &Client{
+		Shell: readline.NewInstance(),
 	}
-
-	// Start message tunnel loop.
-	go transport.TunnelLoop()
-
-	return conn, nil
+	return console
 }
 
 // Init - The console has a working RPC connection: we setup all
 // things pertaining to the console itself, before calling the Run() function.
-func (c *Client) Init() (err error) {
+func (c *Client) Init(conn *grpc.ClientConn) (err error) {
+
+	// Register RPC service clients. This function is called here because both the server
+	// and the client binary use the same function, but the server binary
+	c.connect(conn)
 
 	// Setup console elements
 	err = c.setup()
@@ -119,6 +104,25 @@ func (c *Client) Init() (err error) {
 	printLogo()
 
 	return
+}
+
+// connect - The console connects to the server and authenticates. Note that all server
+// config information (access points and security details) have been loaded already.
+func (c *Client) connect(conn *grpc.ClientConn) (*grpc.ClientConn, error) {
+
+	// Bind this connection as the current console client gRPC connection
+	c.Conn = conn
+
+	// Register RPC Service Client.
+	transport.RPC = rpcpb.NewSliverRPCClient(conn)
+	if transport.RPC == nil {
+		return nil, errors.New("could not register gRPC Client, instance is nil")
+	}
+
+	// Start message tunnel loop.
+	go transport.TunnelLoop()
+
+	return conn, nil
 }
 
 // setup - The console sets up various elements such as the completion system, hints,

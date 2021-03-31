@@ -65,12 +65,12 @@ func LoadServerConfig() (err error) {
 	// Check if we have imported a config with os.Flags passed to sliver-client executable.
 	// This flag has been parsed when executing main(), before anything else.
 	if *config != "" {
-		conf, err := readConfig(*config)
+		conf, err := ReadConfig(*config)
 		if err != nil {
 			fmt.Printf("[!] %s\n", err)
 			os.Exit(3)
 		}
-		saveConfig(conf)
+		SaveConfig(conf)
 	}
 
 	// Then check if we have textfile configs. If yes, go on.
@@ -119,7 +119,7 @@ func GetConfigs() (configs map[string]*ClientConfig) {
 	for _, confFile := range configFiles {
 		confFilePath := path.Join(configDir, confFile.Name())
 
-		conf, err := readConfig(confFilePath)
+		conf, err := ReadConfig(confFilePath)
 		if err != nil {
 			continue
 		}
@@ -129,10 +129,10 @@ func GetConfigs() (configs map[string]*ClientConfig) {
 	return
 }
 
-// readConfig - Loads the contents of a config file into the above gloval variables.
+// ReadConfig - Loads the contents of a config file into the above gloval variables.
 // This possibly overwrite default builtin values, but we have previously prompted the user
 // to choose between builtin and textfile config values.
-func readConfig(confFilePath string) (*ClientConfig, error) {
+func ReadConfig(confFilePath string) (*ClientConfig, error) {
 	confFile, err := os.Open(confFilePath)
 	defer confFile.Close()
 	if err != nil {
@@ -153,8 +153,8 @@ func readConfig(confFilePath string) (*ClientConfig, error) {
 	return conf, nil
 }
 
-// saveConfig - Save a config to disk
-func saveConfig(config *ClientConfig) error {
+// SaveConfig - Save a config to disk
+func SaveConfig(config *ClientConfig) error {
 	if config.LHost == "" || config.Operator == "" {
 		return errors.New("Empty config")
 	}
