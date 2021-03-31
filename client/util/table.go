@@ -172,7 +172,7 @@ func (t *Table) ApplyCurrentRowColor(items []string, color string) (colored []st
 func (t *Table) AppendRow(items []string) error {
 
 	var rowColors []tablewriter.Colors // Item coloring
-	var rowItems []string              //Processed items
+	var rowItems []string              // Processed items
 
 	// For each item (column) apply coloring and wrapping
 	for i, item := range items {
@@ -188,11 +188,11 @@ func (t *Table) AppendRow(items []string) error {
 		}
 
 		// Wrapping
-		if len(item) > t.maxColumnWidth {
-			rowItems = append(rowItems, Wrap(item, t.maxColumnWidth))
-		} else {
-			rowItems = append(rowItems, item)
-		}
+		// if len(item) > t.maxColumnWidth {
+		// rowItems = append(rowItems, Wrap(item, t.maxColumnWidth))
+		// } else {
+		rowItems = append(rowItems, item)
+		// }
 	}
 
 	// Push to table buffer

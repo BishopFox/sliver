@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/evilsocket/islazy/tui"
 
@@ -63,9 +64,10 @@ func printImplantBuilds(configs map[string]*clientpb.ImplantConfig) {
 
 	table := util.NewTable(tui.Bold(tui.Yellow("Implant Builds")))
 	headers := []string{"Name", "OS/Arch", "Format", "C2 Transports", "Debug/Obfsc/Evasion", "Limits", "Errs/Timeout"}
-	headLen := []int{0, 0, 0, 15, 0, 15, 0}
+	headLen := []int{0, 0, 0, 15, 15, 7, 0}
 	table.SetColumns(headers, headLen)
 
+	// Populate the table with builds
 	for _, k := range keys {
 		config := configs[k]
 
@@ -74,10 +76,13 @@ func printImplantBuilds(configs map[string]*clientpb.ImplantConfig) {
 		// Get a formated C2s string
 		var c2s string
 		if 0 < len(config.C2) {
-			for index, c2 := range config.C2[0:] {
-				c2s += fmt.Sprintf("[%d] %s \n", index+1, c2.URL)
+			for index, c2 := range config.C2 {
+				// for index, c2 := range config.C2[0:] {
+				endpoint := fmt.Sprintf("[%d] %s \n", index+1, c2.URL)
+				c2s += endpoint
 			}
 		}
+		c2s = strings.TrimSuffix(c2s, "\n")
 
 		// Security
 		var debug, obfs, evas string
