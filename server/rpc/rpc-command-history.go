@@ -224,7 +224,7 @@ var uselessCmdsSession = []string{
 // we do not save the corresponding input line in the history source.
 func commandBanned(a string, list []string) bool {
 	for _, b := range list {
-		if strings.Contains(a, " "+b+" ") {
+		if strings.Contains(a, " "+b+" ") || strings.TrimSpace(a) == b {
 			return true
 		}
 	}
