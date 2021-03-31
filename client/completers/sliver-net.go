@@ -70,13 +70,13 @@ func sessionIfacePublicNetworks(last string, sess *clientpb.Session, alone bool)
 
 			if 0 < subnet && subnet <= 32 && !isLoopback(ip) {
 				if alone {
-					suggestions = append(suggestions, ip+" ")
+					suggestions = append(suggestions, ip)
 				} else {
 					suggestions = append(suggestions, ip)
 				}
 			} else if 32 < subnet && !isLoopback(ip) {
 				if alone {
-					suggestions = append(suggestions, ip+" ")
+					suggestions = append(suggestions, ip)
 				} else {
 					suggestions = append(suggestions, ip)
 				}
@@ -121,7 +121,7 @@ func sessionIfaceAddrs(last string, sess *clientpb.Session, alone bool) (comp *r
 			}
 			if ip != nil {
 				if alone {
-					suggestions = append(suggestions, ip.String()+" ")
+					suggestions = append(suggestions, ip.String())
 
 				} else {
 					suggestions = append(suggestions, ip.String())
