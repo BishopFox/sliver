@@ -152,34 +152,32 @@ jobs:
     # Linux
     - name: Linux AMD64
       run: |
-        cp ./artifacts/linux/sliver-server ./release/sliver-server_linux-amd64
-        cp ./artifacts/linux/sliver-client ./release/sliver-client_linux-amd64
-        gpg --default-key 4449039C --output ./release/sliver-server_linux-amd64.sig --detach-sig ./release/sliver-server_linux-amd64
-        gpg --default-key 4449039C --output ./release/sliver-client_linux-amd64.sig --detach-sig ./release/sliver-client_linux-amd64
+        zip -j ./release/sliver-server_linux.zip ./artifacts/linux/sliver-server
+        zip -j ./release/sliver-client_linux.zip ./artifacts/linux/sliver-client
+        gpg --default-key 4449039C --output ./release/sliver-server_linux.zip.sig --detach-sig ./release/sliver-server_linux.zip
+        gpg --default-key 4449039C --output ./release/sliver-client_linux.zip.sig --detach-sig ./release/sliver-client_linux.zip
 
     # Windows
     - name: Windows AMD64
       run: |
-        cp ./artifacts/windows/sliver-server.exe ./release/sliver-server_windows-amd64.exe
-        cp ./artifacts/windows/sliver-client.exe ./release/sliver-client_windows-amd64.exe
-        gpg --default-key 4449039C --output ./release/sliver-server_windows-amd64.exe.sig --detach-sig ./release/sliver-server_windows-amd64.exe
-        gpg --default-key 4449039C --output ./release/sliver-client_windows-amd64.exe.sig --detach-sig ./release/sliver-client_windows-amd64.exe
+        zip -j ./release/sliver-server_windows.zip ./artifacts/windows/sliver-server.exe
+        zip -j ./release/sliver-client_windows.zip ./artifacts/windows/sliver-client.exe
+        gpg --default-key 4449039C --output ./release/sliver-server_windows.zip.sig --detach-sig ./release/sliver-server_windows.zip
+        gpg --default-key 4449039C --output ./release/sliver-client_windows.zip.sig --detach-sig ./release/sliver-client_windows.zip
 
     # MacOS AMD64
     - name: MacOS AMD64
       run: |
-        cp ./artifacts/macos/sliver-server ./release/sliver-server_macos-amd64
-        cp ./artifacts/macos/sliver-client ./release/sliver-client_macos-amd64
-        gpg --default-key 4449039C --output ./release/sliver-server_macos-amd64.sig --detach-sig ./release/sliver-server_macos-amd64
-        gpg --default-key 4449039C --output ./release/sliver-client_macos-amd64.sig --detach-sig ./release/sliver-client_macos-amd64
+        zip -j ./release/sliver-server_macos.zip ./artifacts/macos/sliver-server
+        zip -j ./release/sliver-client_macos.zip ./artifacts/macos/sliver-client
+        gpg --default-key 4449039C --output ./release/sliver-server_macos.zip.sig --detach-sig ./release/sliver-server_macos.zip
+        gpg --default-key 4449039C --output ./release/sliver-client_macos.zip.sig --detach-sig ./release/sliver-client_macos.zip
 
     # MacOS ARM64
-    # - name: MacOS ARM64
+    # - name: Package MacOS ARM64
     #   run: |
-    #     cp ./artifacts/macos/sliver-server ./release/sliver-server_macos-arm64
-    #     cp ./artifacts/macos/sliver-client ./release/sliver-client_macos-arm64
-    #     gpg --default-key 4449039C --output ./release/sliver-server_macos-arm64.sig --detach-sig ./release/sliver-server_macos-arm64
-    #     gpg --default-key 4449039C --output ./release/sliver-client_macos-arm64.sig --detach-sig ./release/sliver-client_macos-arm64
+    #     zip -j ./release/sliver-server_macos-arm64.zip ./artifacts/macos/sliver-server_arm64
+    #     zip -j ./release/sliver-client_macos-arm64.zip ./artifacts/macos/sliver-client_arm64
 
     - name: "Publish Release"
       uses: "marvinpinto/action-automatic-releases@latest"
