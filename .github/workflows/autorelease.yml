@@ -140,24 +140,39 @@ jobs:
       with:
         path: ./artifacts
 
+    - id: install-secret-key
+      name: GPG Key(s)
+      run: |
+        cat <(echo -e "${{ secrets.SLIVER_GPG }}") | gpg --batch --import
+        gpg --list-secret-keys --keyid-format LONG
+
+    - name: Release
+      run: mkdir -p ./release
+
     # Linux
-    - name: Package Linux
+    - name: Linux AMD64
       run: |
         zip -j ./release/sliver-server_linux.zip ./artifacts/linux/sliver-server
         zip -j ./release/sliver-client_linux.zip ./artifacts/linux/sliver-client
+        gpg --default-key 4449039C --output ./release/sliver-server_linux.zip.sig --detach-sig ./release/sliver-server_linux.zip
+        gpg --default-key 4449039C --output ./release/sliver-client_linux.zip.sig --detach-sig ./release/sliver-client_linux.zip
 
     # Windows
-    - name: Package Windows
+    - name: Windows AMD64
       run: |
         zip -j ./release/sliver-server_windows.zip ./artifacts/windows/sliver-server.exe
         zip -j ./release/sliver-client_windows.zip ./artifacts/windows/sliver-client.exe
+        gpg --default-key 4449039C --output ./release/sliver-server_windows.zip.sig --detach-sig ./release/sliver-server_windows.zip
+        gpg --default-key 4449039C --output ./release/sliver-client_windows.zip.sig --detach-sig ./release/sliver-client_windows.zip
 
     # MacOS AMD64
-    - name: Package MacOS AMD64
+    - name: MacOS AMD64
       run: |
         zip -j ./release/sliver-server_macos.zip ./artifacts/macos/sliver-server
         zip -j ./release/sliver-client_macos.zip ./artifacts/macos/sliver-client
-  
+        gpg --default-key 4449039C --output ./release/sliver-server_macos.zip.sig --detach-sig ./release/sliver-server_macos.zip
+        gpg --default-key 4449039C --output ./release/sliver-client_macos.zip.sig --detach-sig ./release/sliver-client_macos.zip
+
     # MacOS ARM64
     # - name: Package MacOS ARM64
     #   run: |
@@ -170,4 +185,4 @@ jobs:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         prerelease: false
         files: |
-          ./release/*.zip
+          ./release/*
