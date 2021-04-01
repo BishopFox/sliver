@@ -146,6 +146,9 @@ jobs:
         cat <(echo -e "${{ secrets.SLIVER_GPG }}") | gpg --batch --import
         gpg --list-secret-keys --keyid-format LONG
 
+    - name: Release
+      run: mkdir -p ./release
+
     # Linux
     - name: Linux AMD64
       run: |
