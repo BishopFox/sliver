@@ -22,11 +22,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/golang/protobuf/proto"
 )
 
 // GetSessions - Get a list of sessions
@@ -46,6 +47,8 @@ func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillSessionRe
 	if session == nil {
 		return &commonpb.Empty{}, ErrInvalidSessionID
 	}
+
+	// Then remove the Session
 	core.Sessions.Remove(session.ID)
 	data, err := proto.Marshal(kill)
 	if err != nil {

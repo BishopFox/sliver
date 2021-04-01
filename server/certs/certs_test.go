@@ -24,7 +24,7 @@ import (
 )
 
 func TestSliverGenerateECCCertificate(t *testing.T) {
-	GenerateCertificateAuthority(ImplantCA)
+	GenerateCertificateAuthority(ImplantCA, "")
 	eccCert1, eccKey1, err := ImplantGenerateECCCertificate("test1")
 	if err != nil {
 		t.Errorf("Failed to generate ecc certificate %v", err)
@@ -60,7 +60,7 @@ func TestSliverGenerateRSACertificate(t *testing.T) {
 }
 
 func TestOperatorGenerateCertificate(t *testing.T) {
-	GenerateCertificateAuthority(OperatorCA)
+	GenerateCertificateAuthority(OperatorCA, "")
 	cert1, key1, err := OperatorClientGenerateCertificate("test3")
 	if err != nil {
 		t.Errorf("Failed to store ecc certificate %v", err)
@@ -80,7 +80,7 @@ func TestOperatorGenerateCertificate(t *testing.T) {
 }
 
 func TestGenerateServerCertificate(t *testing.T) {
-	GenerateCertificateAuthority(C2ServerCA)
+	GenerateCertificateAuthority(C2ServerCA, "")
 	C2ServerGenerateECCCertificate("test3.com")
 	_, _, err := C2ServerGenerateRSACertificate("test4.com")
 	if err != nil {

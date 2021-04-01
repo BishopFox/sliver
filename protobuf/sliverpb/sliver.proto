@@ -34,16 +34,22 @@ message Envelope {
 message Register {
   string Name = 1;
   string Hostname = 2;
-  string Username = 3;
-  string Uid = 4;
-  string Gid = 5;
-  string Os = 6;
-  string Arch = 7;
-  int32 Pid = 8;
-  string Filename = 9;
-  string ActiveC2 = 10;
-  string Version = 11;
-  uint32 ReconnectInterval = 12;
+  string Uuid = 3;
+  string Username = 4;
+  string Uid = 5;
+  string Gid = 6;
+  string Os = 7;
+  string Arch = 8;
+  int32 Pid = 9;
+  string Filename = 10;
+  string ActiveC2 = 11;
+  string Version = 12;
+  uint32 ReconnectInterval = 13;
+
+  // Network & transport information.
+  string Transport = 14; 
+  string RemoteAddr = 15;
+  string ProxyURL = 16;
 }
 
 // Ping - Not ICMP, just sends a rount trip message to an implant to
@@ -281,13 +287,20 @@ message Task {
 }
 
 message ExecuteAssemblyReq {
-  bytes HostingDll = 1;
-  bytes Assembly = 2;
-  string Arguments = 3;
-  string Process = 4;
-  bool AmsiBypass = 5;
-  bool EtwBypass = 6;
-  uint32 Offset = 7;
+  bytes Assembly = 1;
+  string Arguments = 2;
+  string Process = 3;
+  bool IsDLL = 4;
+  string Arch = 5;
+  string ClassName = 6;
+  string Method = 7;
+  string AppDomain = 8;
+  commonpb.Request Request = 9;
+}
+
+message InvokeExecuteAssemblyReq {
+  bytes Data = 1;
+  string process = 2;
 
   commonpb.Request Request = 9;
 }
@@ -319,6 +332,14 @@ message ExecuteReq {
   commonpb.Request Request = 9;
 }
 
+message ExecuteTokenReq {
+  string Path = 1;
+  repeated string Args = 2;
+  bool Output = 3;
+
+  commonpb.Request Request = 9;
+}
+
 message Execute {
   string Result = 1;
   uint32 Status = 2;
@@ -331,6 +352,7 @@ message SideloadReq {
   string ProcessName = 2;
   string Args = 3;
   string EntryPoint = 4;
+  bool Kill = 5;
 
   commonpb.Request Request = 9;
 }
@@ -346,6 +368,7 @@ message InvokeSpawnDllReq {
   string ProcessName = 2;
   string Args = 3;
   string EntryPoint = 4;
+  bool Kill = 5;
 
   commonpb.Request Request = 9;
 }
@@ -355,6 +378,7 @@ message SpawnDllReq {
   string ProcessName = 2;
   uint32 Offset = 3;
   string Args = 4;
+  bool Kill = 5;
 
   commonpb.Request Request = 9;
 }
@@ -401,6 +425,15 @@ message EnvReq {
 
 message EnvInfo {
   repeated commonpb.EnvVar Variables = 1;
+  commonpb.Response Response = 9;
+}
+
+message SetEnvReq {
+  commonpb.EnvVar Variable = 1;
+  commonpb.Request Request = 9;
+}
+
+message SetEnv {
   commonpb.Response Response = 9;
 }
 
@@ -472,6 +505,56 @@ message BackdoorReq {
 }
 
 message Backdoor {
+  commonpb.Response Response = 9;
+}
+
+enum RegistryType {
+  BINARY = 0;
+  STRING = 1;
+  DWORD = 2;
+  QWORD = 3;
+}
+
+message RegistryReadReq {
+  string Hive = 1;
+  string Path = 2;
+  string Key = 3;
+  string Hostname = 4;
+  commonpb.Request Request = 9;
+}
+
+message RegistryRead {
+  string Value = 1;
+  commonpb.Response Response = 9;
+}
+
+message RegistryWriteReq {
+  string Hive = 1;
+  string Path = 2;
+  string Key = 3;
+  string Hostname = 4;
+  string StringValue = 5;
+  bytes ByteValue = 6;
+  uint32 DWordValue = 7;
+  uint64 QWordValue = 8;
+  RegistryType Type = 10;
+
+  commonpb.Request Request = 9;
+}
+
+message RegistryWrite {
+  commonpb.Response Response = 9;
+}
+
+message RegistryCreateKeyReq {
+  string Hive = 1;
+  string Path = 2; 
+  string Key = 3;
+  string Hostname = 4;
+  commonpb.Request Request = 9;
+}
+
+message RegistryCreateKey {
   commonpb.Response Response = 9;
 }
 

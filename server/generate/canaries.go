@@ -97,5 +97,5 @@ func (g *CanaryGenerator) GenerateCanary() string {
 	dbSession := db.Session()
 	dbSession.Create(&canary)
 
-	return fmt.Sprintf("%s%s", canaryPrefix, canaryDomain)
+	return canaryDomain
 }

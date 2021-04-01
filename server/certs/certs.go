@@ -124,7 +124,6 @@ func RemoveCertificate(caType string, keyType string, commonName string) error {
 	if keyType != ECCKey && keyType != RSAKey {
 		return fmt.Errorf("Invalid key type '%s'", keyType)
 	}
-
 	return nil
 }
 
@@ -147,8 +146,10 @@ func GenerateECCCertificate(caType string, commonName string, isCA bool, isClien
 	if err != nil {
 		certsLog.Fatalf("Failed to generate private key: %s", err)
 	}
-
-	return generateCertificate(caType, commonName, isCA, isClient, privateKey)
+	subject := pkix.Name{
+		CommonName: commonName,
+	}
+	return generateCertificate(caType, subject, isCA, isClient, privateKey)
 }
 
 // GenerateRSACertificate - Generates a 2048 bit RSA Certificate
@@ -164,10 +165,13 @@ func GenerateRSACertificate(caType string, commonName string, isCA bool, isClien
 	if err != nil {
 		certsLog.Fatalf("Failed to generate private key %s", err)
 	}
-	return generateCertificate(caType, commonName, isCA, isClient, privateKey)
+	subject := pkix.Name{
+		CommonName: commonName,
+	}
+	return generateCertificate(caType, subject, isCA, isClient, privateKey)
 }
 
-func generateCertificate(caType string, commonName string, isCA bool, isClient bool, privateKey interface{}) ([]byte, []byte) {
+func generateCertificate(caType string, subject pkix.Name, isCA bool, isClient bool, privateKey interface{}) ([]byte, []byte) {
 
 	// Valid times, subtract random days from .Now()
 	notBefore := time.Now()
@@ -202,10 +206,8 @@ func generateCertificate(caType string, commonName string, isCA bool, isClient b
 
 	// Certificate template
 	template := x509.Certificate{
-		SerialNumber: serialNumber,
-		Subject: pkix.Name{
-			Organization: []string{""},
-		},
+		SerialNumber:          serialNumber,
+		Subject:               subject,
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
 		KeyUsage:              keyUsage,
@@ -215,16 +217,15 @@ func generateCertificate(caType string, commonName string, isCA bool, isClient b
 
 	if !isClient {
 		// Host or IP address
-		if ip := net.ParseIP(commonName); ip != nil {
+		if ip := net.ParseIP(subject.CommonName); ip != nil {
 			certsLog.Infof("Certificate authenticates IP address: %v", ip)
 			template.IPAddresses = append(template.IPAddresses, ip)
 		} else {
-			certsLog.Infof("Certificate authenticates host: %v", commonName)
-			template.DNSNames = append(template.DNSNames, commonName)
+			certsLog.Infof("Certificate authenticates host: %v", subject.CommonName)
+			template.DNSNames = append(template.DNSNames, subject.CommonName)
 		}
 	} else {
-		certsLog.Infof("Client certificate authenticates CN: %v", commonName)
-		template.Subject.CommonName = commonName
+		certsLog.Infof("Client certificate authenticates CN: %v", subject.CommonName)
 	}
 
 	// Sign certificate or self-sign if CA

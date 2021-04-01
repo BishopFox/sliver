@@ -130,9 +130,9 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid arch: %s", config.Arch))
 	}
 	// Payload
-	if _, ok := validPayloads[config.Os][config.Payload]; !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("Invalid payload: %s", config.Payload))
-	}
+	// if _, ok := validPayloads[config.Os][config.Payload]; !ok {
+	//         return nil, fmt.Errorf(fmt.Sprintf("Invalid payload: %s", config.Payload))
+	// }
 	// Encoder
 	if _, ok := ValidEncoders[config.Encoder]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid encoder: %s", config.Encoder))

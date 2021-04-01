@@ -12,6 +12,14 @@ service SliverRPC {
     // *** Version ***
     rpc GetVersion(commonpb.Empty) returns (clientpb.Version);
 
+    // *** Command History (client and/or user-wide) *** 
+    rpc GetHistory(clientpb.HistoryRequest) returns (clientpb.History);
+    rpc AddToHistory(clientpb.AddCmdHistoryRequest) returns (clientpb.AddCmdHistory);
+
+    // *** Console configuration management
+    rpc LoadConsoleConfig(clientpb.GetConsoleConfigReq) returns (clientpb.GetConsoleConfig);
+    rpc SaveUserConsoleConfig(clientpb.SaveConsoleConfigReq) returns (clientpb.SaveConsoleConfig);
+
     // *** Operator Commands *** 
     rpc GetOperators(commonpb.Empty) returns (clientpb.Operators);
 
@@ -78,6 +86,7 @@ service SliverRPC {
     rpc ExecuteAssembly(sliverpb.ExecuteAssemblyReq) returns (sliverpb.ExecuteAssembly);
     rpc Migrate(clientpb.MigrateReq) returns (sliverpb.Migrate);
     rpc Execute(sliverpb.ExecuteReq) returns (sliverpb.Execute);
+    rpc ExecuteToken(sliverpb.ExecuteTokenReq) returns (sliverpb.Execute);
     rpc Sideload(sliverpb.SideloadReq) returns (sliverpb.Sideload);
     rpc SpawnDll(sliverpb.InvokeSpawnDllReq) returns (sliverpb.SpawnDll);
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
@@ -88,7 +97,11 @@ service SliverRPC {
     rpc RemoveService(sliverpb.RemoveServiceReq) returns (sliverpb.ServiceInfo);
     rpc MakeToken(sliverpb.MakeTokenReq) returns (sliverpb.MakeToken);
     rpc GetEnv(sliverpb.EnvReq) returns (sliverpb.EnvInfo);
+    rpc SetEnv(sliverpb.SetEnvReq) returns (sliverpb.SetEnv);
     rpc Backdoor(sliverpb.BackdoorReq) returns (sliverpb.Backdoor);
+    rpc RegistryRead(sliverpb.RegistryReadReq) returns (sliverpb.RegistryRead);
+    rpc RegistryWrite(sliverpb.RegistryWriteReq) returns (sliverpb.RegistryWrite);
+    rpc RegistryCreateKey(sliverpb.RegistryCreateKeyReq) returns (sliverpb.RegistryCreateKey);
 
     // *** Realtime Commands ***
     rpc Shell(sliverpb.ShellReq) returns (sliverpb.Shell);

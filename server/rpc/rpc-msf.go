@@ -138,7 +138,7 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 
 	// We only support windows at the moment
 	if req.GetOS() != "windows" {
-		return MSFStage, fmt.Errorf("%s is currently not suppoprted", req.GetOS())
+		return MSFStage, fmt.Errorf("%s is currently not supported", req.GetOS())
 	}
 
 	venomConfig := msf.VenomConfig{
