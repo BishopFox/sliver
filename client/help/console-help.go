@@ -97,8 +97,8 @@ var (
 [[.Bold]]About:[[.Normal]] Generate a new sliver binary and saves the output to the cwd or a path specified with --save.
 
 [[.Bold]][[.Underline]]++ Command and Control ++[[.Normal]]
-You must specificy at least one c2 endpoint when generating an implant, this can be one or more of --mtls, --http, or --dns, --named-pipe, or --tcp-pivot.
-The command requires at least one use of --mtls, --http, or --dns, --named-pipe, or --tcp-pivot.
+You must specificy at least one c2 endpoint when generating an implant, this can be one or more of --mtls, --wg, --http, or --dns, --named-pipe, or --tcp-pivot.
+The command requires at least one use of --mtls, --wg, --http, or --dns, --named-pipe, or --tcp-pivot.
 
 The follow command is used to generate a sliver Windows executable (PE) file, that will connect back to the server using mutual-TLS:
 	generate --mtls foo.example.com 

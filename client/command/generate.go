@@ -374,8 +374,9 @@ func parseCompileFlags(ctx *grumble.Context) *clientpb.ImplantConfig {
 	var tunIP net.IP
 	var err error
 	if wg := ctx.Flags.String("wg"); wg != "" {
-		tunIP, err = GenUniqueIP()
+		tunIP, err = GenerateUniqueIP()
 		if err != nil {
+
 			fmt.Printf(Warn + "Failed to generate unique ip for wg peer tun interface")
 			return nil
 		}
@@ -851,8 +852,10 @@ func displayCanaries(canaries []*clientpb.DNSCanary, burnedOnly bool) {
 	}
 }
 
-func GenUniqueIP() (net.IP, error) {
-	peersTunIps, err := db.WGPeerTunIPs()
+// GenerateUniqueIP generates and returns an available IP which can then
+// be assigned to a Wireguard interface
+func GenerateUniqueIP() (net.IP, error) {
+	peersTunIps, err := db.WGPeerIPs()
 	if err != nil {
 		fmt.Printf(Warn+"Failed to retrieve list WG Peers IPs %s", err)
 		return nil, err
@@ -861,7 +864,7 @@ func GenUniqueIP() (net.IP, error) {
 	// Use the 100.64.0.1/16 range for TUN ips.
 	// This range chosen due to Tailscale also using it (Cut down to /16 instead of /10)
 	// https://tailscale.com/kb/1015/100.x-addresses
-	addressPool, err := Hosts("100.64.0.1/16")
+	addressPool, err := hosts("100.64.0.1/16")
 	if err != nil {
 		fmt.Printf(Warn+"Failed to generate host address pool for WG Peers IPs %s", err)
 		return nil, err
@@ -879,17 +882,17 @@ func GenUniqueIP() (net.IP, error) {
 	return net.ParseIP(addressPool[0]), nil
 }
 
-// Prevent use of 100.64.0.{0|1} in ips assigned  to peers
+// Reserve use of 100.64.0.{0|1} addresses
 var reservedAddresses = []string{"100.64.0.0", "100.64.0.1"}
 
-func Hosts(cidr string) ([]string, error) {
+func hosts(cidr string) ([]string, error) {
 	ip, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return nil, err
 	}
 
 	var ips []string
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
+	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); incrementIP(ip) {
 		ips = append(ips, ip.String())
 	}
 
@@ -897,7 +900,7 @@ func Hosts(cidr string) ([]string, error) {
 	return ips, nil
 }
 
-func inc(ip net.IP) {
+func incrementIP(ip net.IP) {
 	for j := len(ip) - 1; j >= 0; j-- {
 		ip[j]++
 		if ip[j] > 0 {
@@ -906,11 +909,11 @@ func inc(ip net.IP) {
 	}
 }
 
-func remove(s []string, r []string) []string {
+func remove(stringSlice []string, remove []string) []string {
 	var result []string
-	for _, v := range s {
+	for _, v := range stringSlice {
 		shouldAppend := true
-		for _, value := range r {
+		for _, value := range remove {
 			if v == value {
 				shouldAppend = false
 			}

@@ -29,7 +29,7 @@ func ImplantGenerateWGKeys(wgPeerTunIP string) (string, string, error) {
 	privKey, pubKey, err := GenerateWGKeys(isPeer, wgPeerTunIP)
 
 	if err != nil {
-		wgKeysLog.Errorf("Error generating WG keys for peer: %s", err)
+		wgKeysLog.Errorf("Error generating wg keys for peer: %s", err)
 		wgKeysLog.Errorf("priv:  %s", privKey)
 		wgKeysLog.Errorf("pub:  %s", pubKey)
 		return "", "", err

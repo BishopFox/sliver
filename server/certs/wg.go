@@ -14,8 +14,8 @@ import (
 var (
 	wgKeysLog = log.NamedLogger("certs", "wg-keys")
 
-	ErrWGPeerDoesNotExist     = errors.New("WG peer does not exist")
-	ErrWGServerKeysDoNotExist = errors.New("WG server keys do not exist")
+	ErrWGPeerDoesNotExist     = errors.New("wg peer does not exist")
+	ErrWGServerKeysDoNotExist = errors.New("wg server keys do not exist")
 )
 
 func SetupWGKeys() {
@@ -25,7 +25,7 @@ func SetupWGKeys() {
 	}
 }
 
-// GetWGSPeers - Get the WG peers
+// GetWGSPeers - Get a map of Pubkey:TunIP for existing wg peers
 func GetWGPeers() (map[string]string, error) {
 
 	peers := make(map[string]string)
@@ -45,10 +45,10 @@ func GetWGPeers() (map[string]string, error) {
 	return peers, nil
 }
 
-// GetWGServerKeys - Get the WG server keys
+// GetWGServerKeys - Get existing wg server keys
 func GetWGServerKeys() (string, string, error) {
 
-	wgKeysLog.Infof("Getting WG keys for tun server")
+	wgKeysLog.Infof("Getting wg keys for wg server")
 
 	wgKeysModel := models.WGKeys{}
 	dbSession := db.Session()
@@ -63,18 +63,19 @@ func GetWGServerKeys() (string, string, error) {
 	return wgKeysModel.PrivKey, wgKeysModel.PubKey, nil
 }
 
+// GenerateWGKeys - Generates and saves new wg keys
 func GenerateWGKeys(isPeer bool, wgPeerTunIP string) (string, string, error) {
 	privKey, pubKey := genWGKeys()
 
 	if err := saveWGKeys(isPeer, wgPeerTunIP, privKey, pubKey); err != nil {
-		wgKeysLog.Error("Error Saving WG keys: ", err)
+		wgKeysLog.Error("Error Saving wg keys: ", err)
 		return "", "", err
 	}
 	return privKey, pubKey, nil
 }
 
 func genWGKeys() (string, string) {
-	wgKeysLog.Infof("Generating WG keys")
+	wgKeysLog.Infof("Generating wg keys")
 
 	privateKey, err := wgtypes.GeneratePrivateKey()
 	if err != nil {
@@ -84,10 +85,10 @@ func genWGKeys() (string, string) {
 	return hex.EncodeToString(privateKey[:]), hex.EncodeToString(publicKey[:])
 }
 
-// saveWGKeys - Save WG keys to the database
+// saveWGKeys - Saves wg keys to the database
 func saveWGKeys(isPeer bool, wgPeerTunIP string, privKey string, pubKey string) error {
 
-	wgKeysLog.Infof("Saving WG keys")
+	wgKeysLog.Infof("Saving wg keys")
 	dbSession := db.Session()
 
 	var result *gorm.DB

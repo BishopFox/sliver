@@ -75,7 +75,9 @@ const (
 	// LINUX OS
 	LINUX = "linux"
 
-	// GoPrivate - The default Go private arg to garble when obfuscation is enabled
+	// GoPrivate - The default Go private arg to garble when obfuscation is enabled.
+	// Wireguard dependencies prevent the use of wildcard github.com/* and golang.org/*.
+	// The current packages below aren't definitive and need to be tidied up.
 	GoPrivate = "github.com/bishopfox/*,github.com/Microsoft/*,github.com/burntsushi/*,github.com/kbinani/*,github.com/lxn/*,github.com/golang/*,github.com/shm/*"
 
 	clientsDirName = "clients"
@@ -430,7 +432,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	config.Cert = string(sliverCert)
 	config.Key = string(sliverKey)
 
-	// WG Keys
+	// Generate wg Keys as needed
 	if config.WGc2Enabled {
 		implantPrivKey, _, err := certs.ImplantGenerateWGKeys(config.WGPeerTunIP)
 		_, serverPubKey, err := certs.GetWGServerKeys()

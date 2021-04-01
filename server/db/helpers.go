@@ -175,8 +175,8 @@ func WebsiteByName(name string) (*models.Website, error) {
 	return &website, nil
 }
 
-// WGPeerTunIPs - Fetch a list of all wg peers tunnel ips
-func WGPeerTunIPs() ([]string, error) {
+// WGPeerIPs - Fetch a list of ips for all wireguard peers
+func WGPeerIPs() ([]string, error) {
 	wgPeers := []*models.WGPeer{}
 	err := Session().Where(&models.WGPeer{}).Find(&wgPeers).Error
 	if err != nil {

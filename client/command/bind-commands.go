@@ -144,13 +144,11 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.WGStr,
-		Help:     "Start wireguard listener",
+		Help:     "Start a Wireguard listener",
 		LongHelp: help.GetHelpFor(consts.WGStr),
 		Flags: func(f *grumble.Flags) {
-			f.Int("l", "lport", defaultWGLPort, "wg server UDP listen port")
-
-			f.Int("n", "nport", defaultWGNPort, "server tun interface listen port")
-
+			f.Int("l", "lport", defaultWGLPort, "udp listen port")
+			f.Int("n", "nport", defaultWGNPort, "virtual tun interface listen port")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
