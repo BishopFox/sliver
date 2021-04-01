@@ -116,8 +116,8 @@ func (rl *Instance) delete() {
 	case rl.pos > len(rl.line):
 		rl.backspace() // There is an infite loop going on here...
 	case rl.pos == len(rl.line):
-		rl.line = rl.line[:rl.pos]
 		rl.pos--
+		rl.line = rl.line[:rl.pos]
 	default:
 		rl.pos--
 		rl.line = append(rl.line[:rl.pos], rl.line[rl.pos+1:]...)

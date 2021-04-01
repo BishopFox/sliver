@@ -27,7 +27,7 @@ require (
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mattn/go-sqlite3 v1.14.5
-	github.com/maxlandon/readline v0.1.0-beta.0.20210401195544-e1b5495aba4a
+	github.com/maxlandon/readline v0.1.0-beta.0.20210401200535-fc31fd078486
 	github.com/miekg/dns v1.1.35
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/olekukonko/tablewriter v0.0.5
