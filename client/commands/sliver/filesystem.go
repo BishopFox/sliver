@@ -29,7 +29,7 @@ import (
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 	"gopkg.in/AlecAivazis/survey.v1"
 
 	cctx "github.com/bishopfox/sliver/client/context"
@@ -103,7 +103,7 @@ func (ls *ListSessionDirectories) Execute(args []string) error {
 }
 
 func printDirList(dirList *sliverpb.Ls) {
-	title := fmt.Sprintf("%s%s%s%s", tui.BOLD, tui.BLUE, dirList.Path, tui.RESET)
+	title := fmt.Sprintf("%s%s%s%s", readline.BOLD, readline.BLUE, dirList.Path, readline.RESET)
 
 	table := util.NewTable(title)
 	headers := []string{"Name", "Size"}
@@ -113,7 +113,7 @@ func printDirList(dirList *sliverpb.Ls) {
 	for _, fileInfo := range dirList.Files {
 		var row []string
 		if fileInfo.IsDir {
-			row = []string{tui.Blue(fileInfo.Name), ""}
+			row = []string{readline.Blue(fileInfo.Name), ""}
 		} else {
 			row = []string{fileInfo.Name, util.ByteCountBinary(fileInfo.Size)}
 		}

@@ -124,11 +124,14 @@ func (rl *Instance) RefreshPromptCustom(prompt string, offset int, clearLine boo
 	// Add user-provided offset
 	rl.tcUsedY += offset
 
-	// Clear the input line and everything below
-	print(seqClearLine)
-	moveCursorUp(rl.hintY + rl.tcUsedY)
+	// Go back to prompt position, then up to the user provided offset.
 	moveCursorBackwards(GetTermWidth())
-	print("\r\n" + seqClearScreenBelow)
+	moveCursorUp(rl.posY)
+	moveCursorUp(offset)
+
+	// Then clear everything below our new position
+	print(seqClearScreenBelow)
+	// print("\r\n" + seqClearScreenBelow)
 
 	// Update the prompt if a special has been passed.
 	if prompt != "" {

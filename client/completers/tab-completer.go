@@ -102,9 +102,8 @@ func CompleteMenuCommands(lastWord string, pos int) (prefix string, completions 
 	prefix = lastWord                                // readline needs this to correctly show suggestions.
 	_, _, parser := cctx.Commands.GetCommandGroups() // The current parser and the command groups
 
-	// Check their namespace (which should be their "group" (like utils, core, Jobs, etc))
+	// Check their namespace (which should be their "group" (like utils, core, sessions, etc))
 	for _, cmd := range parser.Commands() {
-		// If command matches readline input
 		if strings.HasPrefix(cmd.Name, lastWord) {
 			// Check command group: add to existing group if found
 			var found bool
@@ -134,7 +133,7 @@ func CompleteMenuCommands(lastWord string, pos int) (prefix string, completions 
 	for _, grp := range completions {
 		// If the length of suggestions is too long and we have
 		// many groups, use grid display.
-		if len(completions) >= 10 && len(grp.Suggestions) >= 7 {
+		if len(completions) >= 10 && len(grp.Suggestions) >= 10 {
 			grp.DisplayType = readline.TabDisplayGrid
 		} else {
 			// By default, we use a map of command to descriptions

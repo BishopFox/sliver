@@ -25,7 +25,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/spin"
@@ -95,10 +95,10 @@ func (p *PS) Execute(args []string) (err error) {
 			lineColor = printProcInfo(proc, session)
 		}
 
-		pid := fmt.Sprintf("%s%d%s", lineColor, proc.Pid, tui.RESET)
-		ppid := fmt.Sprintf("%s%d%s", lineColor, proc.Ppid, tui.RESET)
-		exe := fmt.Sprintf("%s%s%s", lineColor, proc.Executable, tui.RESET)
-		owner := fmt.Sprintf("%s%s%s", lineColor, proc.Owner, tui.RESET)
+		pid := fmt.Sprintf("%s%d%s", lineColor, proc.Pid, readline.RESET)
+		ppid := fmt.Sprintf("%s%d%s", lineColor, proc.Ppid, readline.RESET)
+		exe := fmt.Sprintf("%s%s%s", lineColor, proc.Executable, readline.RESET)
+		owner := fmt.Sprintf("%s%s%s", lineColor, proc.Owner, readline.RESET)
 
 		table.AppendRow([]string{pid, ppid, exe, owner})
 	}
@@ -114,7 +114,7 @@ func printProcInfo(proc *commonpb.Process, session *clientpb.Session) string {
 		color = modifyColor
 	}
 	if session != nil && proc.Pid == session.PID {
-		color = tui.GREEN
+		color = readline.GREEN
 	}
 	return color
 }

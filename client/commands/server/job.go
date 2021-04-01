@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/log"
 	"github.com/bishopfox/sliver/client/transport"
@@ -152,7 +152,7 @@ func printJobs(jobs map[uint32]*clientpb.Job) {
 		}
 		sort.Ints(keys)
 
-		table := util.NewTable(tui.Bold(tui.Yellow("Handlers")))
+		table := util.NewTable(readline.Bold(readline.Yellow("Handlers")))
 		headers := []string{"ID", "Protocol", "Domain(s)", "Port", "Description"}
 		headLen := []int{2, 10, 0, 5, 0}
 		table.SetColumns(headers, headLen)
@@ -197,7 +197,7 @@ func printJobs(jobs map[uint32]*clientpb.Job) {
 		}
 		sort.Ints(keys)
 
-		table := util.NewTable(tui.Bold(tui.Yellow("gRPC servers")))
+		table := util.NewTable(readline.Bold(readline.Yellow("gRPC servers")))
 		headers := []string{"ID", "Domain", "Port"}
 		headLen := []int{2, 10, 5}
 		table.SetColumns(headers, headLen)
@@ -240,7 +240,7 @@ func printJobs(jobs map[uint32]*clientpb.Job) {
 		}
 		sort.Ints(keys)
 
-		table := util.NewTable(tui.Bold(tui.Yellow("Others")))
+		table := util.NewTable(readline.Bold(readline.Yellow("Others")))
 		headers := []string{"ID", "Name", "Description"}
 		headLen := []int{2, 0, 0}
 		table.SetColumns(headers, headLen)

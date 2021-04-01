@@ -23,7 +23,7 @@ import (
 	"fmt"
 	insecureRand "math/rand"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	cctx "github.com/bishopfox/sliver/client/context"
@@ -115,7 +115,7 @@ func (u *UID) Execute(args []string) (err error) {
 	if session == nil {
 		return
 	}
-	fmt.Printf(util.Info+"User ID: %s\n", tui.Bold(session.UID))
+	fmt.Printf(util.Info+"User ID: %s\n", readline.Bold(session.UID))
 	return
 }
 
@@ -128,7 +128,7 @@ func (p *GID) Execute(args []string) (err error) {
 	if session == nil {
 		return
 	}
-	fmt.Printf(util.Info+"User group ID: %s\n", tui.Bold(session.GID))
+	fmt.Printf(util.Info+"User group ID: %s\n", readline.Bold(session.GID))
 	return
 }
 
@@ -141,6 +141,6 @@ func (w *Whoami) Execute(args []string) (err error) {
 	if session == nil {
 		return
 	}
-	fmt.Printf(util.Info+"User: %s\n", tui.Bold(session.Username))
+	fmt.Printf(util.Info+"User: %s\n", readline.Bold(session.Username))
 	return
 }

@@ -143,6 +143,7 @@ func (c *Client) setup() (err error) {
 
 	// Completions and syntax highlighting
 	c.Shell.TabCompleter = completers.TabCompleter
+	c.Shell.MaxTabCompleterRows = 30
 	c.Shell.SyntaxHighlighter = completers.SyntaxHighlighter
 
 	// History (client and user-wide)

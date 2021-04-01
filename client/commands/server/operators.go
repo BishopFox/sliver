@@ -25,7 +25,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
@@ -67,7 +67,7 @@ func displayOperators(operators []*clientpb.Operator) {
 	for _, operator := range operators {
 		fmt.Fprintf(table, "%s\t%s\t\n", operator.Name, status(operator.Online))
 		if operator.Online {
-			colorRow = append(colorRow, tui.BOLD+tui.GREEN)
+			colorRow = append(colorRow, readline.BOLD+readline.GREEN)
 		} else {
 			colorRow = append(colorRow, "")
 		}
@@ -80,7 +80,7 @@ func displayOperators(operators []*clientpb.Operator) {
 		if len(line) == 0 {
 			continue
 		}
-		fmt.Printf("%s%s%s\n", colorRow[lineNumber], line, tui.FOREWHITE)
+		fmt.Printf("%s%s%s\n", colorRow[lineNumber], line, readline.FOREWHITE)
 	}
 }
 

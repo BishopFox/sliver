@@ -18,7 +18,7 @@ package server
 import (
 	"fmt"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 	"github.com/sirupsen/logrus"
 
 	"github.com/bishopfox/sliver/client/util"
@@ -43,7 +43,7 @@ func (l *Log) Execute(args []string) (err error) {
 
 	for _, comp := range l.Positional.Components {
 		if comp == "client" {
-			fmt.Println(util.Info + "Default Client log level: " + tui.Yellow(level.String()))
+			fmt.Println(util.Info + "Default Client log level: " + readline.Yellow(level.String()))
 		}
 	}
 

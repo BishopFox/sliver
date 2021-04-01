@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 
 	cctx "github.com/bishopfox/sliver/client/context"
 	"github.com/bishopfox/sliver/client/log"
@@ -244,7 +244,7 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 	}
 	sort.Ints(keys)
 
-	table := util.NewTable(tui.Bold(tui.Yellow("Sessions")))
+	table := util.NewTable(readline.Bold(readline.Yellow("Sessions")))
 	headers := []string{"ID", "Name", "OS/Arch", "Remote Address", "User", "Hostname", "Last Check-in", "Status"}
 	headLen := []int{0, 0, 0, 15, 0, 0, 0, 0}
 	table.SetColumns(headers, headLen)

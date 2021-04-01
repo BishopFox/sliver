@@ -31,7 +31,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 	"gopkg.in/AlecAivazis/survey.v1"
 
 	"github.com/bishopfox/sliver/client/transport"
@@ -82,10 +82,10 @@ func listWebsites(w *Websites, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(util.Info + "No websites\n")
 		return
 	}
-	fmt.Println(tui.Bold(tui.Yellow("Websites")))
+	fmt.Println(readline.Bold(readline.Yellow("Websites")))
 	fmt.Println(strings.Repeat("=", len("Websites")))
 	for _, site := range websites.Websites {
-		fmt.Printf("%s%s%s - %d page(s)\n", tui.BOLD, site.Name, tui.RESET, len(site.Contents))
+		fmt.Printf("%s%s%s - %d page(s)\n", readline.BOLD, site.Name, readline.RESET, len(site.Contents))
 	}
 }
 
@@ -109,7 +109,7 @@ func listWebsiteContent(w *Websites, rpc rpcpb.SliverRPCClient) {
 
 func displayWebsite(web *clientpb.Website) {
 
-	table := util.NewTable(tui.Bold(tui.Yellow(web.Name)))
+	table := util.NewTable(readline.Bold(readline.Yellow(web.Name)))
 	headers := []string{"Path", "Content-Type", "Size"}
 	headLen := []int{0, 10, 0}
 	table.SetColumns(headers, headLen)
@@ -123,8 +123,8 @@ func displayWebsite(web *clientpb.Website) {
 	})
 
 	for _, content := range sortedContents {
-		size := tui.Dim(fmt.Sprintf("%d", content.Size))
-		path := tui.Bold(content.Path)
+		size := readline.Dim(fmt.Sprintf("%d", content.Size))
+		path := readline.Bold(content.Path)
 		table.AppendRow([]string{path, content.ContentType, size})
 	}
 	table.Output()
@@ -147,7 +147,7 @@ func (w *WebsitesDelete) Execute(args []string) (err error) {
 		if err != nil {
 			fmt.Printf(util.Error+"Failed to remove website %s\n", err)
 		} else {
-			fmt.Printf(util.Info+"Removed website %s%s%s\n", tui.YELLOW, name, tui.RESET)
+			fmt.Printf(util.Info+"Removed website %s%s%s\n", readline.YELLOW, name, readline.RESET)
 		}
 	}
 	return

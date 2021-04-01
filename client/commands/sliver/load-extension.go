@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/evilsocket/islazy/tui"
 	"github.com/jessevdk/go-flags"
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/constants"
 	cctx "github.com/bishopfox/sliver/client/context"
@@ -72,7 +72,7 @@ func (l *LoadExtension) Execute(args []string) (err error) {
 	for _, c := range parser.Commands() {
 		if ext.Name == c.Name {
 			fmt.Printf(util.Error+"Error loading extension: another command has name %s\n",
-				tui.Yellow(ext.Name))
+				readline.Yellow(ext.Name))
 			return nil
 		}
 	}

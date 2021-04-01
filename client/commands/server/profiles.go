@@ -26,7 +26,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/transport"
@@ -217,7 +217,7 @@ func (pd *ProfileDelete) Execute(args []string) (err error) {
 			fmt.Printf(util.Warn+"Failed to delete profile %s\n", err)
 			continue
 		} else {
-			fmt.Printf(util.Info+"Delete profile %s\n", tui.Bold(p))
+			fmt.Printf(util.Info+"Delete profile %s\n", readline.Bold(p))
 		}
 	}
 	return

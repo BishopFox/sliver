@@ -71,10 +71,6 @@ github.com/binject/go-donut/donut
 github.com/danwakefield/fnmatch
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
-# github.com/djherbis/buffer v1.1.0
-## explicit
-github.com/djherbis/buffer/limio
-github.com/djherbis/buffer/wrapio
 # github.com/dlclark/regexp2 v1.2.0
 github.com/dlclark/regexp2
 github.com/dlclark/regexp2/syntax
@@ -169,7 +165,7 @@ github.com/mattn/go-runewidth
 # github.com/mattn/go-sqlite3 v1.14.5
 ## explicit
 github.com/mattn/go-sqlite3
-# github.com/maxlandon/readline v0.1.0-beta.0.20210323134646-e127d57a9b11
+# github.com/maxlandon/readline v0.1.0-beta.0.20210401195544-e1b5495aba4a
 ## explicit
 github.com/maxlandon/readline
 # github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
@@ -177,9 +173,6 @@ github.com/mgutz/ansi
 # github.com/miekg/dns v1.1.35
 ## explicit
 github.com/miekg/dns
-# github.com/mitchellh/go-grpc-net-conn v0.0.0-20200427190222-eb030e4876f0
-## explicit
-github.com/mitchellh/go-grpc-net-conn
 # github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
 ## explicit
 # github.com/olekukonko/tablewriter v0.0.5
@@ -187,9 +180,6 @@ github.com/mitchellh/go-grpc-net-conn
 github.com/olekukonko/tablewriter
 # github.com/olekukonko/ts v0.0.0-20171002115256-78ecb04241c0
 github.com/olekukonko/ts
-# github.com/pkg/errors v0.9.1
-## explicit
-github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
 # github.com/sergi/go-diff v1.1.0
@@ -205,10 +195,6 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.6.1
 ## explicit
 github.com/stretchr/testify/assert
-# github.com/yl2chen/cidranger v1.0.2
-## explicit
-github.com/yl2chen/cidranger
-github.com/yl2chen/cidranger/net
 # golang.org/x/crypto v0.0.0-20201116153603-4be66e5b6582
 ## explicit
 golang.org/x/crypto/acme
@@ -353,12 +339,6 @@ gopkg.in/AlecAivazis/survey.v1/core
 gopkg.in/AlecAivazis/survey.v1/terminal
 # gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b
 ## explicit
-# gopkg.in/djherbis/buffer.v1 v1.1.0
-## explicit
-gopkg.in/djherbis/buffer.v1
-# gopkg.in/djherbis/nio.v2 v2.0.3
-## explicit
-gopkg.in/djherbis/nio.v2
 # gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 gopkg.in/yaml.v3
 # gorm.io/driver/mysql v1.0.3

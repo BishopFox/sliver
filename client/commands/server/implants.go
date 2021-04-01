@@ -24,7 +24,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/evilsocket/islazy/tui"
+	"github.com/maxlandon/readline"
 
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
@@ -62,7 +62,7 @@ func printImplantBuilds(configs map[string]*clientpb.ImplantConfig) {
 	}
 	sort.Strings(keys)
 
-	table := util.NewTable(tui.Bold(tui.Yellow("Implant Builds")))
+	table := util.NewTable(readline.Bold(readline.Yellow("Implant Builds")))
 	headers := []string{"Name", "OS/Arch", "Format", "C2 Transports", "Debug/Obfsc/Evasion", "Limits", "Errs/Timeout"}
 	headLen := []int{0, 0, 0, 15, 15, 7, 0}
 	table.SetColumns(headers, headLen)
@@ -87,38 +87,38 @@ func printImplantBuilds(configs map[string]*clientpb.ImplantConfig) {
 		// Security
 		var debug, obfs, evas string
 		if config.Debug {
-			debug = tui.Yellow(" yes ")
+			debug = readline.Yellow(" yes ")
 		} else {
-			debug = tui.Dim(" no ")
+			debug = readline.Dim(" no ")
 		}
 		if config.ObfuscateSymbols {
-			obfs = tui.Green(" yes ")
+			obfs = readline.Green(" yes ")
 		} else {
-			obfs = tui.Yellow(" no ")
+			obfs = readline.Yellow(" no ")
 		}
 		if config.Evasion {
-			evas = tui.Green("  yes ")
+			evas = readline.Green("  yes ")
 		} else {
-			evas = tui.Yellow("  no ")
+			evas = readline.Yellow("  no ")
 		}
 		sec := fmt.Sprintf("%s %s %s", debug, obfs, evas)
 
 		// Limits
 		var user, domainJoin, dateTime, hostname, file string
 		if config.LimitUsername != "" {
-			user = tui.Bold("User: ") + config.LimitUsername + "\n"
+			user = readline.Bold("User: ") + config.LimitUsername + "\n"
 		}
 		if config.LimitHostname != "" {
-			hostname = tui.Bold("Hostname: ") + config.LimitHostname + "\n"
+			hostname = readline.Bold("Hostname: ") + config.LimitHostname + "\n"
 		}
 		if config.LimitFileExists != "" {
-			file = tui.Bold("File: ") + config.LimitFileExists + "\n"
+			file = readline.Bold("File: ") + config.LimitFileExists + "\n"
 		}
 		if config.LimitDatetime != "" {
-			dateTime = tui.Bold("DateTime: ") + config.LimitDatetime + "\n"
+			dateTime = readline.Bold("DateTime: ") + config.LimitDatetime + "\n"
 		}
 		if config.LimitDomainJoined == true {
-			domainJoin = tui.Bold("Domain joined: ") + config.LimitDatetime + "\n"
+			domainJoin = readline.Bold("Domain joined: ") + config.LimitDatetime + "\n"
 		}
 		limits := user + hostname + file + domainJoin + dateTime
 

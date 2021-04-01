@@ -260,8 +260,9 @@ func (rl *Instance) getViIterations() int {
 
 func (rl *Instance) refreshVimStatus() {
 	rl.computePrompt()
-	rl.clearHelpers()
-	rl.renderHelpers()
+	// rl.clearHelpers()
+	rl.updateHelpers()
+	// rl.renderHelpers()
 }
 
 // viHintMessage - lmorg's way of showing Vim status is to overwrite the hint.
