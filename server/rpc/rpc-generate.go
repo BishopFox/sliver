@@ -21,11 +21,15 @@ package rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"path"
 
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 )
 
@@ -33,53 +37,68 @@ import (
 func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.Generate, error) {
 	var fPath string
 	var err error
-	config := generate.ImplantConfigFromProtobuf(req.Config)
-	if config == nil {
-		return nil, errors.New("Invalid implant config")
-	}
-	switch req.Config.Format {
-	case clientpb.ImplantConfig_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(config)
-	case clientpb.ImplantConfig_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(config)
-	case clientpb.ImplantConfig_SHELLCODE:
-		fPath, err = generate.SliverSharedLibrary(config)
-		if err != nil {
-			return nil, err
-		}
-		fPath, err = generate.ShellcodeRDIToFile(fPath, "")
+	name, config := generate.ImplantConfigFromProtobuf(req.Config)
+	if name == "" {
+		name, err = generate.GetCodename()
 		if err != nil {
 			return nil, err
 		}
 	}
 
+	if config == nil {
+		return nil, errors.New("Invalid implant config")
+	}
+	switch req.Config.Format {
+	case clientpb.ImplantConfig_SERVICE:
+		fallthrough
+	case clientpb.ImplantConfig_EXECUTABLE:
+		fPath, err = generate.SliverExecutable(name, config)
+		break
+	case clientpb.ImplantConfig_SHARED_LIB:
+		fPath, err = generate.SliverSharedLibrary(name, config)
+	case clientpb.ImplantConfig_SHELLCODE:
+		fPath, err = generate.SliverShellcode(name, config)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
 	filename := path.Base(fPath)
 	filedata, err := ioutil.ReadFile(fPath)
+	if err != nil {
+		return nil, err
+	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.BuildCompletedEvent,
+		Data:      []byte(fmt.Sprintf("%s build completed", filename)),
+	})
 
 	return &clientpb.Generate{
 		File: &commonpb.File{
 			Name: filename,
 			Data: filedata,
 		},
-	}, nil
+	}, err
 }
 
 // Regenerate - Regenerate a previously generated implant
 func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) (*clientpb.Generate, error) {
 
-	config, err := generate.SliverConfigByName(req.ImplantName)
+	build, err := db.ImplantBuildByName(req.ImplantName)
 	if err != nil {
 		return nil, err
 	}
 
-	fileData, err := generate.SliverFileByName(req.ImplantName)
+	fileData, err := generate.ImplantFileFromBuild(build)
 	if err != nil {
 		return nil, err
 	}
 
 	return &clientpb.Generate{
 		File: &commonpb.File{
-			Name: config.FileName,
+			Name: build.ImplantConfig.FileName,
 			Data: fileData,
 		},
 	}, nil
@@ -87,29 +106,29 @@ func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) 
 
 // ImplantBuilds - List existing implant builds
 func (rpc *Server) ImplantBuilds(ctx context.Context, _ *commonpb.Empty) (*clientpb.ImplantBuilds, error) {
-	configs, err := generate.SliverConfigMap()
+	dbBuilds, err := db.ImplantBuilds()
 	if err != nil {
 		return nil, err
 	}
-	builds := &clientpb.ImplantBuilds{
+	pbBuilds := &clientpb.ImplantBuilds{
 		Configs: map[string]*clientpb.ImplantConfig{},
 	}
-	for name, config := range configs {
-		builds.Configs[name] = config.ToProtobuf()
+	for _, dbBuild := range dbBuilds {
+		pbBuilds.Configs[dbBuild.Name] = dbBuild.ImplantConfig.ToProtobuf()
 	}
-	return builds, nil
+	return pbBuilds, nil
 }
 
 // Canaries - List existing canaries
 func (rpc *Server) Canaries(ctx context.Context, _ *commonpb.Empty) (*clientpb.Canaries, error) {
-	jsonCanaries, err := generate.ListCanaries()
+	dbCanaries, err := db.ListCanaries()
 	if err != nil {
 		return nil, err
 	}
 
-	rpcLog.Infof("Found %d canaries", len(jsonCanaries))
+	rpcLog.Infof("Found %d canaries", len(dbCanaries))
 	canaries := []*clientpb.DNSCanary{}
-	for _, canary := range jsonCanaries {
+	for _, canary := range dbCanaries {
 		canaries = append(canaries, canary.ToProtobuf())
 	}
 
@@ -118,29 +137,81 @@ func (rpc *Server) Canaries(ctx context.Context, _ *commonpb.Empty) (*clientpb.C
 	}, nil
 }
 
-// Profiles - List profiles
-func (rpc *Server) Profiles(ctx context.Context, _ *commonpb.Empty) (*clientpb.Profiles, error) {
-	profiles := &clientpb.Profiles{List: []*clientpb.Profile{}}
-	for name, config := range generate.Profiles() {
-		profiles.List = append(profiles.List, &clientpb.Profile{
-			Name:   name,
-			Config: config.ToProtobuf(),
+// ImplantProfiles - List profiles
+func (rpc *Server) ImplantProfiles(ctx context.Context, _ *commonpb.Empty) (*clientpb.ImplantProfiles, error) {
+	implantProfiles := &clientpb.ImplantProfiles{
+		Profiles: []*clientpb.ImplantProfile{},
+	}
+	dbProfiles, err := db.ImplantProfiles()
+	if err != nil {
+		return implantProfiles, err
+	}
+	for _, dbProfile := range dbProfiles {
+		implantProfiles.Profiles = append(implantProfiles.Profiles, &clientpb.ImplantProfile{
+			Name:   dbProfile.Name,
+			Config: dbProfile.ImplantConfig.ToProtobuf(),
 		})
 	}
-	return profiles, nil
+	return implantProfiles, nil
 }
 
-// NewProfile - Save a new profile
-func (rpc *Server) NewProfile(ctx context.Context, profile *clientpb.Profile) (*clientpb.Profile, error) {
-	config := generate.ImplantConfigFromProtobuf(profile.Config)
+// SaveImplantProfile - Save a new profile
+func (rpc *Server) SaveImplantProfile(ctx context.Context, profile *clientpb.ImplantProfile) (*clientpb.ImplantProfile, error) {
+	_, config := generate.ImplantConfigFromProtobuf(profile.Config)
 	profile.Name = path.Base(profile.Name)
 	if 0 < len(profile.Name) && profile.Name != "." {
 		rpcLog.Infof("Saving new profile with name %#v", profile.Name)
-		err := generate.ProfileSave(profile.Name, config)
+		err := generate.SaveImplantProfile(profile.Name, config)
 		if err != nil {
 			return nil, err
 		}
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.ProfileEvent,
+			Data:      []byte(fmt.Sprintf("%s", profile.Name)),
+		})
 		return profile, nil
 	}
 	return nil, errors.New("Invalid profile name")
+}
+
+// DeleteImplantProfile - Delete an implant profile
+func (rpc *Server) DeleteImplantProfile(ctx context.Context, req *clientpb.DeleteReq) (*commonpb.Empty, error) {
+	profile, err := db.ProfileByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Session().Delete(profile).Error
+	if err == nil {
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.ProfileEvent,
+			Data:      []byte(fmt.Sprintf("%s", profile.Name)),
+		})
+	}
+	return &commonpb.Empty{}, err
+}
+
+// DeleteImplantBuild - Delete an implant build
+func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteReq) (*commonpb.Empty, error) {
+	build, err := db.ImplantBuildByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Session().Delete(build).Error
+	if err != nil {
+		return nil, err
+	}
+	err = generate.ImplantFileDelete(build)
+	if err == nil {
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.BuildEvent,
+			Data:      []byte(fmt.Sprintf("%s", build.Name)),
+		})
+	}
+	return &commonpb.Empty{}, err
+}
+
+// ShellcodeRDI - Generates a RDI shellcode from a given DLL
+func (rpc *Server) ShellcodeRDI(ctx context.Context, req *clientpb.ShellcodeRDIReq) (*clientpb.ShellcodeRDI, error) {
+	shellcode, err := generate.ShellcodeRDIFromBytes(req.GetData(), req.GetFunctionName(), req.GetArguments())
+	return &clientpb.ShellcodeRDI{Data: shellcode}, err
 }

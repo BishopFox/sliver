@@ -32,9 +32,6 @@ const (
 	// MsgTaskReq - A local shellcode injection task
 	MsgTaskReq
 
-	// MsgRemoteTaskReq - Remote thread injection task
-	MsgRemoteTaskReq
-
 	// MsgPing - Confirm connection is open used as req/resp
 	MsgPing
 
@@ -79,7 +76,7 @@ const (
 	// MsgPs - List processes resp
 	MsgPs
 
-	// MsgShellReq - Starts an interactive shell
+	// MsgShellReq - Request to open a shell tunnel
 	MsgShellReq
 	// MsgShell - Response on starting shell
 	MsgShell
@@ -97,18 +94,20 @@ const (
 	MsgImpersonateReq
 	// MsgImpersonate - Output of the impersonation command
 	MsgImpersonate
+	// MsgRunAsReq - Request to run process as user
+	MsgRunAsReq
 	// MsgRunAs - Run process as user
 	MsgRunAs
 	// MsgRevToSelf - Revert to self
 	MsgRevToSelf
+	// MsgRevToSelfReq - Request to revert to self
+	MsgRevToSelfReq
 	// MsgInvokeGetSystemReq - Elevate as SYSTEM user
 	MsgInvokeGetSystemReq
 	// MsgGetSystem - Response to getsystem request
 	MsgGetSystem
-	// MsgElevateReq - Request to run a new sliver session in an elevated context
-	MsgElevateReq
-	//MsgElevate - Response to the elevation request
-	MsgElevate
+	// MsgInvokeExecuteAssemblyReq - Request to load and execute a .NET assembly
+	MsgInvokeExecuteAssemblyReq
 	// MsgExecuteAssemblyReq - Request to load and execute a .NET assembly
 	MsgExecuteAssemblyReq
 	// MsgExecuteAssembly - Output of the assembly execution
@@ -133,6 +132,10 @@ const (
 
 	// MsgExecuteReq - Execute a command on the remote system
 	MsgExecuteReq
+
+	// MsgTerminateReq - Request to kill a remote process
+	MsgTerminateReq
+
 	// MsgTerminate - Kill a remote process
 	MsgTerminate
 
@@ -144,6 +147,104 @@ const (
 
 	// MsgNetstatReq - Netstat request
 	MsgNetstatReq
+
+	// MsgNamedPipesReq - Request to take create a new named pipe listener
+	MsgNamedPipesReq
+	// MsgNamedPipes - Response with the result
+	MsgNamedPipes
+
+	// MsgTCPPivotReq - Request to take create a new MTLS listener
+	MsgTCPPivotReq
+	// MsgTCPPivot - Response with the result
+	MsgTCPPivot
+
+	// MsgPivotOpen - Request to create a new pivot tunnel
+	MsgPivotOpen
+	// MsgPivotClose - Request to notify the closing of an existing pivot tunnel
+	MsgPivotClose
+	// MsgPivotData - Request that encapsulates and envelope form a sliver to the server though the pivot and viceversa
+	MsgPivotData
+	// MsgStartServiceReq - Request to start a service
+	MsgStartServiceReq
+	// MsgStartService - Response to start service request
+	MsgStartService
+	// MsgStopServiceReq - Request to stop a remote service
+	MsgStopServiceReq
+	// MsgRemoveServiceReq - Request to remove a remote service
+	MsgRemoveServiceReq
+	// MsgMakeTokenReq - Request for MakeToken
+	MsgMakeTokenReq
+	// MsgMakeToken - Response for MakeToken
+	MsgMakeToken
+	// MsgEnvReq - Request to get environment variables
+	MsgEnvReq
+	// MsgEnvInfo - Response to environment variable request
+	MsgEnvInfo
+	// MsgSetEnvReq
+	MsgSetEnvReq
+	// MsgSetEnv
+	MsgSetEnv
+	// MsgExecuteTokenReq - Execute request executed with the current (Windows) token
+	MsgExecuteTokenReq
+	// MsgRegistryReadReq
+	MsgRegistryReadReq
+	// MsgRegistryWriteReq
+	MsgRegistryWriteReq
+	// MsgRegistryCreateKeyReq
+	MsgRegistryCreateKeyReq
+
+	// MsgHandlerStartReq - Request to start a handler on an implant.
+	MsgHandlerStartReq
+	// MsgHandlerStart - Response
+	MsgHandlerStart
+	// MsgHandlerCloseReq - Request to close a handler on an implant.
+	MsgHandlerCloseReq
+	// MsgHandlerStop - Response
+	MsgHandlerClose
+
+	// MsgRoutesReq - Get all active network routes.
+	MsgRoutesReq
+	// MsgRoutes - Response
+	MsgRoutes
+	// MsgAddRouteReq - Add a network route.
+	MsgAddRouteReq
+	// MsgAddRoute - Response
+	MsgAddRoute
+	// MsgRouteDeleteReq - Remove an active network route.
+	MsgRouteDeleteReq
+	// MsgRouteDelete - Response
+	MsgRouteDelete
+
+	// MsgCommTunnelOpenReq - Open a multiplexing tunnel through the session RPC.
+	MsgCommTunnelOpenReq
+	// MsgCommTunnelOpen - Response
+	MsgCommTunnelOpen
+	// MsgCommTunnelData - Data passed in the mux tunnel
+	MsgCommTunnelData
+	// MsgCommTunnelCloseReq - Close the mux tunnel
+	MsgCommTunnelCloseReq
+	// MsgCommTunnelClose - Response
+	MsgCommTunnelClose
+
+	// MsgTransportsReq - Get available transports for implant
+	MsgTransportsReq
+	// MsgTransports - Response
+	MsgTransports
+
+	// MsgAddTransportReq - Add a new transport
+	MsgAddTransportReq
+	// MsgAddTransport - Response
+	MsgAddTransport
+
+	// MsgDeleteTransportReq - Remove a transport
+	MsgDeleteTransportReq
+	// MsgDeleteTransport - Response
+	MsgDeleteTransport
+
+	// MsgSwitchTransportReq - Switch the current active transport
+	MsgSwitchTransportReq
+	// MsgSwitchTransport - Response
+	MsgSwitchTransport
 )
 
 // MsgNumber - Get a message number of type
@@ -155,9 +256,6 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *TaskReq:
 		return MsgTaskReq
-
-	case *RemoteTaskReq:
-		return MsgRemoteTaskReq
 
 	case *Ping:
 		return MsgPing
@@ -208,11 +306,6 @@ func MsgNumber(request proto.Message) uint32 {
 	case *Shell:
 		return MsgShell
 
-	case *TunnelData:
-		return MsgTunnelData
-	case *TunnelClose:
-		return MsgTunnelClose
-
 	case *ProcessDumpReq:
 		return MsgProcessDumpReq
 	case *ProcessDump:
@@ -223,26 +316,31 @@ func MsgNumber(request proto.Message) uint32 {
 	case *Impersonate:
 		return MsgImpersonate
 
+	case *RunAsReq:
+		return MsgRunAsReq
+
 	case *RunAs:
 		return MsgRunAs
 
-	case *RevToSelf:
-		return MsgRevToSelf
+	case *RevToSelfReq:
+		return MsgRevToSelfReq
 
 	case *InvokeGetSystemReq:
 		return MsgInvokeGetSystemReq
+
 	case *GetSystem:
 		return MsgGetSystem
 
-	case *ElevateReq:
-		return MsgElevateReq
-	case *Elevate:
-		return MsgElevate
-
 	case *ExecuteAssemblyReq:
 		return MsgExecuteAssemblyReq
+
+	case *InvokeExecuteAssemblyReq:
+		return MsgInvokeExecuteAssemblyReq
+
 	case *ExecuteAssembly:
 		return MsgExecuteAssembly
+	case *ExecuteTokenReq:
+		return MsgExecuteTokenReq
 
 	case *InvokeMigrateReq:
 		return MsgInvokeMigrateReq
@@ -265,6 +363,9 @@ func MsgNumber(request proto.Message) uint32 {
 	case *ExecuteReq:
 		return MsgExecuteReq
 
+	case *TerminateReq:
+		return MsgTerminateReq
+
 	case *Terminate:
 		return MsgTerminate
 
@@ -276,6 +377,46 @@ func MsgNumber(request proto.Message) uint32 {
 	case *NetstatReq:
 		return MsgNetstatReq
 
+	case *NamedPipesReq:
+		return MsgNamedPipesReq
+	case *NamedPipes:
+		return MsgNamedPipes
+
+	case *TCPPivotReq:
+		return MsgTCPPivotReq
+	case *TCPPivot:
+		return MsgTCPPivot
+
+	case *PivotOpen:
+		return MsgPivotOpen
+	case *PivotClose:
+		return MsgPivotClose
+	case *PivotData:
+		return MsgPivotData
+	case *StartServiceReq:
+		return MsgStartServiceReq
+	case *StopServiceReq:
+		return MsgStopServiceReq
+	case *RemoveServiceReq:
+		return MsgRemoveServiceReq
+	case *MakeTokenReq:
+		return MsgMakeTokenReq
+	case *MakeToken:
+		return MsgMakeToken
+	case *EnvReq:
+		return MsgEnvReq
+	case *EnvInfo:
+		return MsgEnvInfo
+	case *SetEnvReq:
+		return MsgSetEnvReq
+	case *SetEnv:
+		return MsgSetEnv
+	case *RegistryReadReq:
+		return MsgRegistryReadReq
+	case *RegistryWriteReq:
+		return MsgRegistryWriteReq
+	case *RegistryCreateKeyReq:
+		return MsgRegistryCreateKeyReq
 	}
 	return uint32(0)
 }

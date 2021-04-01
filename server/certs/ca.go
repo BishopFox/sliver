@@ -36,17 +36,17 @@ import (
 
 // SetupCAs - Creates directories for certs
 func SetupCAs() {
-	GenerateCertificateAuthority(ServerCA)
-	GenerateCertificateAuthority(SliverCA)
-	GenerateCertificateAuthority(OperatorCA)
-	GenerateCertificateAuthority(HTTPSCA)
+	GenerateCertificateAuthority(C2ServerCA, "")
+	GenerateCertificateAuthority(ImplantCA, "")
+	GenerateCertificateAuthority(OperatorCA, "operators")
+	GenerateCertificateAuthority(HTTPSCA, "")
 }
 
 func getCertDir() string {
 	rootDir := assets.GetRootAppDir()
 	certDir := path.Join(rootDir, "certs")
 	if _, err := os.Stat(certDir); os.IsNotExist(err) {
-		err := os.MkdirAll(certDir, os.ModePerm)
+		err := os.MkdirAll(certDir, 0700)
 		if err != nil {
 			certsLog.Fatalf("Failed to create cert dir %s", err)
 		}
@@ -55,12 +55,12 @@ func getCertDir() string {
 }
 
 // GenerateCertificateAuthority - Creates a new CA cert for a given type
-func GenerateCertificateAuthority(caType string) (*x509.Certificate, *ecdsa.PrivateKey) {
+func GenerateCertificateAuthority(caType string, commonName string) (*x509.Certificate, *ecdsa.PrivateKey) {
 	storageDir := getCertDir()
 	certFilePath := path.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
 	if _, err := os.Stat(certFilePath); os.IsNotExist(err) {
 		certsLog.Infof("Generating certificate authority for '%s'", caType)
-		cert, key := GenerateECCCertificate(caType, "", true, false)
+		cert, key := GenerateECCCertificate(caType, commonName, true, false)
 		SaveCertificateAuthority(caType, cert, key)
 	}
 	cert, key, err := GetCertificateAuthority(caType)
@@ -129,7 +129,7 @@ func SaveCertificateAuthority(caType string, cert []byte, key []byte) {
 
 	storageDir := getCertDir()
 	if _, err := os.Stat(storageDir); os.IsNotExist(err) {
-		os.MkdirAll(storageDir, os.ModePerm)
+		os.MkdirAll(storageDir, 0700)
 	}
 
 	// CAs get written to the filesystem since we control the names and makes them

@@ -21,14 +21,18 @@ package rpc
 import (
 	"context"
 	"errors"
+	"runtime"
 	"time"
 
+	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/golang/protobuf/proto"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 )
 
 var (
@@ -36,6 +40,12 @@ var (
 
 	// ErrInvalidSessionID - Invalid Session ID in request
 	ErrInvalidSessionID = errors.New("Invalid session ID")
+	// ErrMissingRequestField - Returned when a request does not contain a commonpb.Request
+	ErrMissingRequestField = errors.New("Missing session request field")
+)
+
+const (
+	defaultTimeout = time.Duration(30 * time.Second)
 )
 
 // Server - gRPC server
@@ -62,37 +72,28 @@ func NewServer() *Server {
 
 // GetVersion - Get the server version
 func (rpc *Server) GetVersion(ctx context.Context, _ *commonpb.Empty) (*clientpb.Version, error) {
-	// clientVer := version.ClientVersion()
+	dirty := version.GitDirty != ""
+	semVer := version.SemanticVersion()
+	compiled, _ := version.Compiled()
 	return &clientpb.Version{
-		Major: 0,
-		Minor: 0,
-		Patch: 7,
-		// Commit: version.GitVersion,
-		// Dirty:  version.GitDirty,
+		Major:      int32(semVer[0]),
+		Minor:      int32(semVer[1]),
+		Patch:      int32(semVer[2]),
+		Commit:     version.GitCommit,
+		Dirty:      dirty,
+		CompiledAt: compiled.Unix(),
+		OS:         runtime.GOOS,
+		Arch:       runtime.GOARCH,
 	}, nil
-}
-
-// Ping - Try to send a round trip message to the implant
-func (rpc *Server) Ping(ctx context.Context, req *sliverpb.Ping) (*sliverpb.Ping, error) {
-	resp := &sliverpb.Ping{}
-	err := rpc.GenericHandler(req, resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-// CheckErr - Check an implant's response for Err and convert it to an `error` type
-func (rpc *Server) CheckErr(resp GenericResponse) error {
-	if resp.GetResponse().Err != "" {
-		return errors.New(resp.GetResponse().Err)
-	}
-	return nil
 }
 
 // GenericHandler - Pass the request to the Sliver/Session
 func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error {
-	session := core.Sessions.Get(req.GetRequest().SessionID)
+	request := req.GetRequest()
+	if request == nil {
+		return ErrMissingRequestField
+	}
+	session := core.Sessions.Get(request.SessionID)
 	if session == nil {
 		return ErrInvalidSessionID
 	}
@@ -102,8 +103,7 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error 
 		return err
 	}
 
-	timeout := time.Duration(req.GetRequest().Timeout)
-	data, err := session.Request(sliverpb.MsgNumber(req), timeout, reqData)
+	data, err := session.Request(sliverpb.MsgNumber(req), rpc.getTimeout(req), reqData)
 	if err != nil {
 		return err
 	}
@@ -111,10 +111,41 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error 
 	if err != nil {
 		return err
 	}
+	return rpc.getError(resp.(GenericResponse))
+}
 
-	if resp.(GenericResponse).GetResponse().Err != "" {
-		return errors.New(resp.(GenericResponse).GetResponse().Err)
+func (rpc *Server) getClientCommonName(ctx context.Context) string {
+	client, ok := peer.FromContext(ctx)
+	if !ok {
+		return ""
 	}
+	tlsAuth, ok := client.AuthInfo.(credentials.TLSInfo)
+	if !ok {
+		return ""
+	}
+	if len(tlsAuth.State.VerifiedChains) == 0 || len(tlsAuth.State.VerifiedChains[0]) == 0 {
+		return ""
+	}
+	if tlsAuth.State.VerifiedChains[0][0].Subject.CommonName != "" {
+		return tlsAuth.State.VerifiedChains[0][0].Subject.CommonName
+	}
+	return ""
+}
 
+// getTimeout - Get the specified timeout from the request or the default
+func (rpc *Server) getTimeout(req GenericRequest) time.Duration {
+	timeout := req.GetRequest().Timeout
+	if time.Duration(timeout) < time.Second {
+		return defaultTimeout
+	}
+	return time.Duration(timeout)
+}
+
+// getError - Check an implant's response for Err and convert it to an `error` type
+func (rpc *Server) getError(resp GenericResponse) error {
+	respHeader := resp.GetResponse()
+	if respHeader != nil && respHeader.Err != "" {
+		return errors.New(respHeader.Err)
+	}
 	return nil
 }

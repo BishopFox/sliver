@@ -9,7 +9,7 @@ import "commonpb/common.proto";
   >>> Reserved Numbers <<<
 
     For tunnel messages:
-      uint64 TunnelID = 8;
+      uint64 TunnelID = 8 [jstype = JS_STRING]; // JS can't represent a uint64
       uint32 SessionID = 9;
 
     For request/response messages:
@@ -26,21 +26,30 @@ message Envelope {
   uint64 ID = 1;   // Envelope ID used to track request/response
   uint32 Type = 2; // Message type
   bytes Data = 3;  // Actual message data
+
+  bool UnknownMessageType = 4; // Set if the implant did not understand the message
 }
 
 // Register - First message the implant sends to the server
 message Register {
   string Name = 1;
   string Hostname = 2;
-  string Username = 3;
-  string Uid = 4;
-  string Gid = 5;
-  string Os = 6;
-  string Arch = 7;
-  int32 Pid = 8;
-  string Filename = 9;
-  string ActiveC2 = 10;
-  string Version = 11;
+  string Uuid = 3;
+  string Username = 4;
+  string Uid = 5;
+  string Gid = 6;
+  string Os = 7;
+  string Arch = 8;
+  int32 Pid = 9;
+  string Filename = 10;
+  string ActiveC2 = 11;
+  string Version = 12;
+  uint32 ReconnectInterval = 13;
+
+  // Network & transport information.
+  string Transport = 14; 
+  string RemoteAddr = 15;
+  string ProxyURL = 16;
 }
 
 // Ping - Not ICMP, just sends a rount trip message to an implant to
@@ -49,7 +58,7 @@ message Ping {
   int32 Nonce = 1;
 
   // Ping is special
-  commonpb.Request Response = 8;
+  commonpb.Response Response = 8;
   commonpb.Request Request = 9;
 }
 
@@ -74,6 +83,7 @@ message Ps {
 // TerminateReq - Request the implant terminate a remote processes
 message TerminateReq {
   int32 Pid = 1;
+  bool Force = 2;
 
   commonpb.Request Request = 9;
 }
@@ -139,13 +149,14 @@ message Pwd {
 
 message RmReq {
   string Path = 1;
+  bool Recursive = 2;
+  bool Force = 3;
 
   commonpb.Request Request = 9;
 }
 
 message Rm {
-  bool Success = 1;
-  string Path = 2;
+  string Path = 1;
 
   commonpb.Response Response = 9;
 }
@@ -157,8 +168,7 @@ message MkdirReq {
 }
 
 message Mkdir {
-  bool Success = 1;
-  string Path = 2;
+  string Path = 1;
 
   commonpb.Response Response = 9;
 }
@@ -188,7 +198,6 @@ message UploadReq {
 
 message Upload {
   string Path = 1;
-  bool Success = 2;
 
   commonpb.Response Response = 9;
 }
@@ -248,20 +257,19 @@ message InvokeGetSystemReq {
 
 // GetSystem - The result of a InvokeGetSystemReq attempt
 message GetSystem {
-  string Output = 1;
 
   commonpb.Response Response = 9;
 }
 
-message ElevateReq {
-  int32 Timeout = 1;
+message MakeTokenReq {
+  string Username = 1;
+  string Password = 2;
+  string Domain = 3;
 
   commonpb.Request Request = 9;
 }
 
-message Elevate {
-  bool Success = 1;
-
+message MakeToken {
   commonpb.Response Response = 9;
 }
 
@@ -274,28 +282,31 @@ message TaskReq {
   commonpb.Request Request = 9;
 }
 
-message RemoteTaskReq {
-  string Encoder = 1;
-  int32 Pid = 2;
-  bool RWXPages = 3;
-  bytes Data = 4;
+message Task {
+  commonpb.Response Response = 9;
+}
 
+message ExecuteAssemblyReq {
+  bytes Assembly = 1;
+  string Arguments = 2;
+  string Process = 3;
+  bool IsDLL = 4;
+  string Arch = 5;
+  string ClassName = 6;
+  string Method = 7;
+  string AppDomain = 8;
   commonpb.Request Request = 9;
 }
 
-
-message ExecuteAssemblyReq {
-  bytes HostingDll = 1;
-  bytes Assembly = 2;
-  string Arguments = 3;
-  string Process = 4;
-  bool AmsiBypass = 5;
+message InvokeExecuteAssemblyReq {
+  bytes Data = 1;
+  string process = 2;
 
   commonpb.Request Request = 9;
 }
 
 message ExecuteAssembly {
-  string Output = 1;
+  bytes Output = 1;
 
   commonpb.Response Response = 9;
 }
@@ -321,17 +332,27 @@ message ExecuteReq {
   commonpb.Request Request = 9;
 }
 
+message ExecuteTokenReq {
+  string Path = 1;
+  repeated string Args = 2;
+  bool Output = 3;
+
+  commonpb.Request Request = 9;
+}
+
 message Execute {
   string Result = 1;
+  uint32 Status = 2;
 
   commonpb.Response Response = 9;
 }
 
 message SideloadReq {
   bytes Data = 1;
-  string ProcName = 2;
+  string ProcessName = 2;
   string Args = 3;
   string EntryPoint = 4;
+  bool Kill = 5;
 
   commonpb.Request Request = 9;
 }
@@ -342,11 +363,22 @@ message Sideload {
   commonpb.Response Response = 9;
 }
 
+message InvokeSpawnDllReq {
+  bytes Data = 1;
+  string ProcessName = 2;
+  string Args = 3;
+  string EntryPoint = 4;
+  bool Kill = 5;
+
+  commonpb.Request Request = 9;
+}
+
 message SpawnDllReq {
   bytes Data = 1;
-  string ProcName = 2;
+  string ProcessName = 2;
   uint32 Offset = 3;
   string Args = 4;
+  bool Kill = 5;
 
   commonpb.Request Request = 9;
 }
@@ -386,6 +418,25 @@ message Netstat {
   commonpb.Response Response = 9;
 }
 
+message EnvReq {
+  string Name = 1;
+  commonpb.Request Request = 9;
+}
+
+message EnvInfo {
+  repeated commonpb.EnvVar Variables = 1;
+  commonpb.Response Response = 9;
+}
+
+message SetEnvReq {
+  commonpb.EnvVar Variable = 1;
+  commonpb.Request Request = 9;
+}
+
+message SetEnv {
+  commonpb.Response Response = 9;
+}
+
 // DNS Specific messages
 message DNSSessionInit {
   bytes Key = 1;
@@ -405,37 +456,6 @@ message HTTPSessionInit {
   bytes Key = 1;
 }
 
-// Tunnels, shells, and port fwds
-message TunnelData {
-  bytes Data = 1;
-  bool Close = 2;
-
-  uint64 TunnelID = 8;
-  uint32 SessionID = 9;
-}
-
-message TunnelClose {
-  uint64 TunnelID = 8;
-  uint32 SessionID = 9;
-}
-
-// ShellReq - Request the implant open a realtime shell tunnel
-message ShellReq {
-  string Path = 1;
-  bool EnablePTY = 2;
-
-  commonpb.Request Request = 9;
-}
-
-message Shell {
-  bool Success = 1;
-  string Err = 2;
-  uint32 Pid = 3;
-
-  uint64 TunnelID = 8;
-  uint32 SessionID = 9;
-}
-
 // ScreenshotReq - Request the implant take a screenshot
 message ScreenshotReq {
   commonpb.Request Request = 9;
@@ -445,4 +465,174 @@ message Screenshot {
   bytes Data = 1;
 
   commonpb.Response Response = 9;
+}
+
+message StartServiceReq {
+  string ServiceName = 1;
+  string ServiceDescription = 2;
+  string BinPath = 3;
+  string Hostname = 4;
+  string Arguments = 5;
+  commonpb.Request Request = 9;
+}
+
+message ServiceInfo {
+  commonpb.Response Response = 9;
+}
+
+message ServiceInfoReq {
+  string ServiceName = 1;
+  string Hostname = 2;
+}
+
+message StopServiceReq {
+  ServiceInfoReq ServiceInfo = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message RemoveServiceReq {
+  ServiceInfoReq ServiceInfo = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message BackdoorReq {
+  string FilePath = 1;
+  string ProfileName = 2;
+
+  commonpb.Request Request = 9;
+}
+
+message Backdoor {
+  commonpb.Response Response = 9;
+}
+
+enum RegistryType {
+  BINARY = 0;
+  STRING = 1;
+  DWORD = 2;
+  QWORD = 3;
+}
+
+message RegistryReadReq {
+  string Hive = 1;
+  string Path = 2;
+  string Key = 3;
+  string Hostname = 4;
+  commonpb.Request Request = 9;
+}
+
+message RegistryRead {
+  string Value = 1;
+  commonpb.Response Response = 9;
+}
+
+message RegistryWriteReq {
+  string Hive = 1;
+  string Path = 2;
+  string Key = 3;
+  string Hostname = 4;
+  string StringValue = 5;
+  bytes ByteValue = 6;
+  uint32 DWordValue = 7;
+  uint64 QWordValue = 8;
+  RegistryType Type = 10;
+
+  commonpb.Request Request = 9;
+}
+
+message RegistryWrite {
+  commonpb.Response Response = 9;
+}
+
+message RegistryCreateKeyReq {
+  string Hive = 1;
+  string Path = 2; 
+  string Key = 3;
+  string Hostname = 4;
+  commonpb.Request Request = 9;
+}
+
+message RegistryCreateKey {
+  commonpb.Response Response = 9;
+}
+
+// Tunnel - Tunnel related messages
+
+message Tunnel {
+  uint64 TunnelID = 8 [jstype = JS_STRING];
+  uint32 SessionID = 9;
+}
+
+message TunnelData {
+  bytes Data  = 1;
+  bool Closed = 2;
+  uint64 Sequence = 3;
+
+  uint64 TunnelID = 8 [jstype = JS_STRING];
+  uint32 SessionID = 9;
+}
+
+// ShellReq - Request the implant open a realtime shell tunnel
+message ShellReq{
+  string Path = 1;
+  bool EnablePTY = 2;
+  uint32 Pid = 3;
+
+  uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
+  commonpb.Request Request = 9;
+}
+
+// Shell - Request the implant open a realtime shell tunnel
+message Shell{
+  string Path = 1;
+  bool EnablePTY = 2;
+  uint32 Pid = 3;
+
+  uint64 TunnelID = 8 [jstype = JS_STRING];
+  commonpb.Response Response = 9;
+}
+
+// Named Pipes Messages
+message NamedPipesReq {
+  string PipeName = 16;
+  
+  commonpb.Request Request = 9;
+}
+
+message NamedPipes {
+  bool Success = 1;
+
+  commonpb.Response Response = 9;
+}
+
+// TCP Messages for pivoting
+message TCPPivotReq {
+  string Address = 16;
+
+  commonpb.Request Request = 9;
+}
+
+message TCPPivot {
+  bool Success = 1;
+  commonpb.Response Response = 9;
+}
+
+// Pivot transport
+message PivotOpen {
+  uint32 PivotID = 12;
+  string PivotType = 13;
+  string RemoteAddress = 14;
+  bytes  RegisterMsg = 15;
+}
+
+message PivotClose {
+  uint32 PivotID = 12;
+  string Err = 2;
+}
+
+message PivotData {
+  uint32 PivotID = 12;
+  bytes Data = 2;
 }

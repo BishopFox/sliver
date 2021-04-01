@@ -27,7 +27,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/binary"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -36,9 +35,8 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
-
-	"github.com/dgraph-io/badger"
 )
 
 const (
@@ -62,45 +60,37 @@ var (
 	ErrCertDoesNotExist = errors.New("Certificate does not exist")
 )
 
-// CertificateKeyPair - Single struct with KeyType/Cert/PrivateKey
-type CertificateKeyPair struct {
-	KeyType     string `json:"key_type"`
-	Certificate []byte `json:"certificate"`
-	PrivateKey  []byte `json:"private_key"`
-}
-
-// SaveCertificate - Save the certificate and the key to the filesystem
-func SaveCertificate(caType string, keyType string, commonName string, cert []byte, key []byte) error {
+// saveCertificate - Save the certificate and the key to the filesystem
+func saveCertificate(caType string, keyType string, commonName string, cert []byte, key []byte) error {
 
 	if keyType != ECCKey && keyType != RSAKey {
 		return fmt.Errorf("Invalid key type '%s'", keyType)
 	}
 
-	bucket, err := db.GetBucket(caType)
-	if err != nil {
-		return err
+	certsLog.Infof("Saving certificate for cn = '%s'", commonName)
+
+	certModel := &models.Certificate{
+		CommonName:     commonName,
+		CAType:         caType,
+		KeyType:        keyType,
+		CertificatePEM: string(cert),
+		PrivateKeyPEM:  string(key),
 	}
-	bucket.Log.Infof("Saving certificate for cn = '%s'", commonName)
-	keyPair, err := json.Marshal(CertificateKeyPair{
-		KeyType:     keyType,
-		Certificate: cert,
-		PrivateKey:  key,
-	})
-	if err != nil {
-		bucket.Log.Errorf("Failed to marshal key pair %s", err)
-		return err
-	}
-	return bucket.Set(fmt.Sprintf("%s_%s", keyType, commonName), keyPair)
+
+	dbSession := db.Session()
+	result := dbSession.Create(&certModel)
+
+	return result.Error
 }
 
 // GetECCCertificate - Get an ECC certificate
 func GetECCCertificate(caType string, commonName string) ([]byte, []byte, error) {
-	return GetCertificate(caType, commonName, ECCKey)
+	return GetCertificate(caType, ECCKey, commonName)
 }
 
 // GetRSACertificate - Get an RSA certificate
 func GetRSACertificate(caType string, commonName string) ([]byte, []byte, error) {
-	return GetCertificate(caType, commonName, RSAKey)
+	return GetCertificate(caType, RSAKey, commonName)
 }
 
 // GetCertificate - Get the PEM encoded certificate & key for a host
@@ -111,23 +101,22 @@ func GetCertificate(caType string, keyType string, commonName string) ([]byte, [
 	}
 
 	certsLog.Infof("Getting certificate ca type = %s, cn = '%s'", caType, commonName)
-	bucket, err := db.GetBucket(caType)
-	if err != nil {
-		return nil, nil, err
-	}
-	rawKeyPair, err := bucket.Get(fmt.Sprintf("%s_%s", keyType, commonName))
-	if err == badger.ErrKeyNotFound {
+
+	certModel := models.Certificate{}
+	dbSession := db.Session()
+	result := dbSession.Where(&models.Certificate{
+		CAType:     caType,
+		KeyType:    keyType,
+		CommonName: commonName,
+	}).First(&certModel)
+	if errors.Is(result.Error, db.ErrRecordNotFound) {
 		return nil, nil, ErrCertDoesNotExist
 	}
-	if err != nil {
-		return nil, nil, err
+	if result.Error != nil {
+		return nil, nil, result.Error
 	}
-	keyPair := &CertificateKeyPair{}
-	err = json.Unmarshal(rawKeyPair, keyPair)
-	if err != nil {
-		return nil, nil, err
-	}
-	return keyPair.Certificate, keyPair.PrivateKey, nil
+
+	return []byte(certModel.CertificatePEM), []byte(certModel.PrivateKeyPEM), nil
 }
 
 // RemoveCertificate - Remove a certificate from the cert store
@@ -135,13 +124,7 @@ func RemoveCertificate(caType string, keyType string, commonName string) error {
 	if keyType != ECCKey && keyType != RSAKey {
 		return fmt.Errorf("Invalid key type '%s'", keyType)
 	}
-
-	bucket, err := db.GetBucket(caType)
-	if err != nil {
-		return err
-	}
-
-	return bucket.Delete(fmt.Sprintf("%s_%s", keyType, commonName))
+	return nil
 }
 
 // --------------------------------
@@ -163,8 +146,10 @@ func GenerateECCCertificate(caType string, commonName string, isCA bool, isClien
 	if err != nil {
 		certsLog.Fatalf("Failed to generate private key: %s", err)
 	}
-
-	return generateCertificate(caType, commonName, isCA, isClient, privateKey)
+	subject := pkix.Name{
+		CommonName: commonName,
+	}
+	return generateCertificate(caType, subject, isCA, isClient, privateKey)
 }
 
 // GenerateRSACertificate - Generates a 2048 bit RSA Certificate
@@ -180,10 +165,13 @@ func GenerateRSACertificate(caType string, commonName string, isCA bool, isClien
 	if err != nil {
 		certsLog.Fatalf("Failed to generate private key %s", err)
 	}
-	return generateCertificate(caType, commonName, isCA, isClient, privateKey)
+	subject := pkix.Name{
+		CommonName: commonName,
+	}
+	return generateCertificate(caType, subject, isCA, isClient, privateKey)
 }
 
-func generateCertificate(caType string, commonName string, isCA bool, isClient bool, privateKey interface{}) ([]byte, []byte) {
+func generateCertificate(caType string, subject pkix.Name, isCA bool, isClient bool, privateKey interface{}) ([]byte, []byte) {
 
 	// Valid times, subtract random days from .Now()
 	notBefore := time.Now()
@@ -197,11 +185,16 @@ func generateCertificate(caType string, commonName string, isCA bool, isClient b
 	serialNumber, _ := rand.Int(rand.Reader, serialNumberLimit)
 	certsLog.Infof("Serial Number: %d", serialNumber)
 
+	var keyUsage x509.KeyUsage = x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
 	var extKeyUsage []x509.ExtKeyUsage
 
 	if isCA {
 		certsLog.Infof("Authority certificate")
-		extKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
+		keyUsage = x509.KeyUsageCertSign | x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
+		extKeyUsage = []x509.ExtKeyUsage{
+			x509.ExtKeyUsageServerAuth,
+			x509.ExtKeyUsageClientAuth,
+		}
 	} else if isClient {
 		certsLog.Infof("Client authentication certificate")
 		extKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
@@ -213,41 +206,38 @@ func generateCertificate(caType string, commonName string, isCA bool, isClient b
 
 	// Certificate template
 	template := x509.Certificate{
-		SerialNumber: serialNumber,
-		Subject: pkix.Name{
-			Organization: []string{""},
-		},
+		SerialNumber:          serialNumber,
+		Subject:               subject,
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		KeyUsage:              keyUsage,
 		ExtKeyUsage:           extKeyUsage,
 		BasicConstraintsValid: isCA,
 	}
 
 	if !isClient {
 		// Host or IP address
-		if ip := net.ParseIP(commonName); ip != nil {
+		if ip := net.ParseIP(subject.CommonName); ip != nil {
 			certsLog.Infof("Certificate authenticates IP address: %v", ip)
 			template.IPAddresses = append(template.IPAddresses, ip)
 		} else {
-			certsLog.Infof("Certificate authenticates host: %v", commonName)
-			template.DNSNames = append(template.DNSNames, commonName)
+			certsLog.Infof("Certificate authenticates host: %v", subject.CommonName)
+			template.DNSNames = append(template.DNSNames, subject.CommonName)
 		}
 	} else {
-		certsLog.Infof("Client certificate authenticates CN: %v", commonName)
-		template.Subject.CommonName = commonName
+		certsLog.Infof("Client certificate authenticates CN: %v", subject.CommonName)
 	}
 
 	// Sign certificate or self-sign if CA
 	var err error
 	var derBytes []byte
 	if isCA {
-		certsLog.Infof("Ceritificate is an AUTHORITY")
+		certsLog.Infof("Certificate is an AUTHORITY")
 		template.IsCA = true
 		template.KeyUsage |= x509.KeyUsageCertSign
 		derBytes, err = x509.CreateCertificate(rand.Reader, &template, &template, publicKey(privateKey), privateKey)
 	} else {
-		caCert, caKey, err := GetCertificateAuthority(caType) // Sign the new ceritificate with our CA
+		caCert, caKey, err := GetCertificateAuthority(caType) // Sign the new certificate with our CA
 		if err != nil {
 			certsLog.Fatalf("Invalid ca type (%s): %v", caType, err)
 		}

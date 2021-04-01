@@ -41,10 +41,11 @@ var (
 )
 
 // readlines - Read lines of a text file into a slice
-func readlines(path string) []string {
-	file, err := os.Open(path)
+func readlines(fpath string) ([]string, error) {
+	file, err := os.Open(fpath)
 	if err != nil {
-		codenameLog.Fatal(err)
+		codenameLog.Errorf("Error opening %s: %v", fpath, err)
+		return nil, err
 	}
 	defer file.Close()
 
@@ -55,34 +56,49 @@ func readlines(path string) []string {
 	}
 
 	if err := scanner.Err(); err != nil {
-		codenameLog.Fatal(err)
+		codenameLog.Errorf("Error scanning: %v", err)
+		return nil, err
 	}
 
-	return words
+	return words, nil
+}
+
+// getRandomWord - Get a random word from a file, not cryptographically secure
+func getRandomWord(fpath string) (string, error) {
+	insecureRand.Seed(time.Now().UnixNano())
+	appDir := assets.GetRootAppDir()
+	words, err := readlines(path.Join(appDir, fpath))
+	if err != nil {
+		return "", err
+	}
+	wordsLen := len(words)
+	if wordsLen == 0 {
+		return "", fmt.Errorf("No words found in %s", fpath)
+	}
+	word := words[insecureRand.Intn(wordsLen-1)]
+	return strings.TrimSpace(word), nil
 }
 
 // getRandomAdjective - Get a random noun, not cryptographically secure
-func getRandomAdjective() string {
-	insecureRand.Seed(time.Now().UnixNano())
-	appDir := assets.GetRootAppDir()
-	words := readlines(path.Join(appDir, "adjectives.txt"))
-	word := words[insecureRand.Intn(len(words)-1)]
-	return strings.TrimSpace(word)
+func getRandomAdjective() (string, error) {
+	return getRandomWord("adjectives.txt")
 }
 
 // getRandomNoun - Get a random noun, not cryptographically secure
-func getRandomNoun() string {
-	insecureRand.Seed(time.Now().UnixNano())
-	appDir := assets.GetRootAppDir()
-	words := readlines(path.Join(appDir, "nouns.txt"))
-	word := words[insecureRand.Intn(len(words)-1)]
-	return strings.TrimSpace(word)
+func getRandomNoun() (string, error) {
+	return getRandomWord("nouns.txt")
 }
 
 // GetCodename - Returns a randomly generated 'codename'
-func GetCodename() string {
-	adjective := strings.ToUpper(getRandomAdjective())
-	noun := strings.ToUpper(getRandomNoun())
-	codename := fmt.Sprintf("%s_%s", adjective, noun)
-	return strings.ReplaceAll(codename, " ", "-")
+func GetCodename() (string, error) {
+	adjective, err := getRandomAdjective()
+	if err != nil {
+		return "", err
+	}
+	noun, err := getRandomNoun()
+	if err != nil {
+		return "", err
+	}
+	codename := fmt.Sprintf("%s_%s", strings.ToUpper(adjective), strings.ToUpper(noun))
+	return strings.ReplaceAll(codename, " ", "-"), nil
 }

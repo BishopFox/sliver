@@ -35,7 +35,7 @@ func GetRootAppDir() string {
 	user, _ := user.Current()
 	dir := path.Join(user.HomeDir, SliverClientDirName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, os.ModePerm)
+		err = os.MkdirAll(dir, 0700)
 		if err != nil {
 			log.Fatal(err)
 		}

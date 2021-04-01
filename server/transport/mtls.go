@@ -23,14 +23,24 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"runtime/debug"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/rpc"
+)
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
+const (
+	kb = 1024
+	mb = kb * 1024
+	gb = mb * 1024
+
+	// ServerMaxMessageSize - Server-side max GRPC message size
+	ServerMaxMessageSize = 2 * gb
 )
 
 var (
@@ -42,21 +52,35 @@ func StartClientListener(host string, port uint16) (*grpc.Server, net.Listener, 
 	mtlsLog.Infof("Starting gRPC  listener on %s:%d", host, port)
 	tlsConfig := getOperatorServerTLSConfig(host)
 	creds := credentials.NewTLS(tlsConfig)
-	options := []grpc.ServerOption{grpc.Creds(creds)}
-
-	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", host, port), tlsConfig)
+	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		mtlsLog.Error(err)
 		return nil, nil, err
 	}
-
+	options := []grpc.ServerOption{
+		grpc.Creds(creds),
+		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
+		grpc.MaxSendMsgSize(ServerMaxMessageSize),
+	}
+	options = append(options, InitLoggerMiddleware()...)
 	grpcServer := grpc.NewServer(options...)
+
+	// Register services and handle serve errors
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
 	go func() {
+		panicked := true
+		defer func() {
+			if panicked {
+				mtlsLog.Errorf("stacktrace from panic: %s", string(debug.Stack()))
+			}
+		}()
 		if err := grpcServer.Serve(ln); err != nil {
 			mtlsLog.Warnf("gRPC server exited with error: %v", err)
+		} else {
+			panicked = false
 		}
 	}()
+
 	return grpcServer, ln, nil
 }
 
@@ -91,9 +115,8 @@ func getOperatorServerTLSConfig(host string) *tls.Config {
 		ClientAuth:               tls.RequireAndVerifyClientCert,
 		ClientCAs:                caCertPool,
 		Certificates:             []tls.Certificate{cert},
-		CipherSuites:             []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384},
 		PreferServerCipherSuites: true,
-		MinVersion:               tls.VersionTLS12,
+		MinVersion:               tls.VersionTLS13,
 	}
 	tlsConfig.BuildNameToCertificate()
 	return tlsConfig

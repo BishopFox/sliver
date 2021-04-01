@@ -29,6 +29,7 @@ import (
 	"sort"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 
 	"encoding/base32"
@@ -98,11 +99,10 @@ type SendBlock struct {
 
 // DNSSession - Holds DNS session information
 type DNSSession struct {
-	ID          string
-	Session     *core.Session
-	Key         cryptography.AESKey
-	LastCheckin time.Time
-	replay      map[string]bool // Sessions are mutex 'd
+	ID      string
+	Session *core.Session
+	Key     cryptography.AESKey
+	replay  map[string]bool // Sessions are mutex 'd
 }
 
 func (s *DNSSession) isReplayAttack(ciphertext []byte) bool {
@@ -123,7 +123,7 @@ func (s *DNSSession) isReplayAttack(ciphertext []byte) bool {
 
 // StartDNSListener - Start a DNS listener
 func StartDNSListener(domains []string, canaries bool) *dns.Server {
-
+	StartPivotListener()
 	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
 
 	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {
@@ -200,7 +200,7 @@ func handleCanary(req *dns.Msg) *dns.Msg {
 		reqDomain += "." // Ensure we have the FQDN
 	}
 
-	canary, err := generate.CheckCanary(reqDomain)
+	canary, err := db.CanaryByDomain(reqDomain)
 	if err != nil {
 		return nil
 	}
@@ -219,9 +219,9 @@ func handleCanary(req *dns.Msg) *dns.Msg {
 				EventType: consts.CanaryEvent,
 			})
 			canary.Triggered = true
-			canary.FirstTrigger = time.Now().Format(time.RFC1123)
+			canary.FirstTrigger = time.Now()
 		}
-		canary.LatestTrigger = time.Now().Format(time.RFC1123)
+		canary.LatestTrigger = time.Now()
 		canary.Count++
 		generate.UpdateCanary(canary)
 	}
@@ -412,7 +412,7 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		return []string{"1"}, err
 	}
 
-	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, domain)
+	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
 	if err != nil {
 		dnsLog.Infof("Failed to fetch RSA private key")
 		return []string{"1"}, err
@@ -438,7 +438,6 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 
 	dnsLog.Infof("Received new session in request")
 
-	checkin := time.Now()
 	session := &core.Session{
 		ID:            core.NextSessionID(),
 		Transport:     "dns",
@@ -446,19 +445,18 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		Send:          make(chan *sliverpb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
-		LastCheckin:   &checkin,
 	}
+	session.UpdateCheckin()
 
 	aesKey, _ := cryptography.AESKeyFromBytes(sessionInit.Key)
 	sessionID := dnsSessionID()
 	dnsLog.Infof("Starting new DNS session with id = %s", sessionID)
 	dnsSessionsMutex.Lock()
 	(*dnsSessions)[sessionID] = &DNSSession{
-		ID:          sessionID,
-		Session:     session,
-		Key:         aesKey,
-		LastCheckin: time.Now(),
-		replay:      map[string]bool{},
+		ID:      sessionID,
+		Session: session,
+		Key:     aesKey,
+		replay:  map[string]bool{},
 	}
 	dnsSessionsMutex.Unlock()
 
@@ -518,11 +516,10 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 
 		dnsLog.Infof("Envelope Type = %#v RespID = %#v", envelope.Type, envelope.ID)
 
-		checkin := time.Now()
-		dnsSession.Session.LastCheckin = &checkin
+		dnsSession.Session.UpdateCheckin()
 
 		// Response Envelope or Handler
-		handlers := serverHandlers.GetSliverHandlers()
+		handlers := serverHandlers.GetSessionHandlers()
 		if envelope.ID != 0 {
 			dnsSession.Session.RespMutex.Lock()
 			defer dnsSession.Session.RespMutex.Unlock()
@@ -590,11 +587,11 @@ func dnsSegment(fields []string) ([]string, error) {
 
 // TODO: Avoid double-fetch
 func getDomainKeyFor(domain string) ([]string, error) {
-	_, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, domain)
+	_, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
 	if err != nil {
-		certs.ServerGenerateRSACertificate(domain)
+		certs.C2ServerGenerateRSACertificate(domain)
 	}
-	certPEM, _, err := certs.GetCertificate(certs.ServerCA, certs.RSAKey, domain)
+	certPEM, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
 	if err != nil {
 		return nil, err
 	}

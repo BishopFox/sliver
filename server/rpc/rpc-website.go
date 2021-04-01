@@ -18,57 +18,157 @@ package rpc
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// import (
-// 	"time"
+import (
+	"context"
+	"fmt"
+	"mime"
+	"path/filepath"
 
-// 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 
-// 	"github.com/bishopfox/sliver/server/website"
-// 	"github.com/golang/protobuf/proto"
-// )
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/server/website"
+)
 
-// func rpcWebsiteList(_ []byte, _ time.Duration, resp RPCResponse) {
-// 	websiteNames, err := website.ListWebsites()
-// 	if err != nil {
-// 		return
-// 	}
-// 	websites := &clientpb.Websites{Sites: []*clientpb.Website{}}
-// 	for _, name := range websiteNames {
-// 		site, err := website.ListContent(name)
-// 		if err != nil {
-// 			rpcLog.Errorf("Failed to list website content %s", err)
-// 			continue
-// 		}
-// 		websites.Sites = append(websites.Sites, site)
-// 	}
-// 	data, err := proto.Marshal(websites)
-// 	resp(data, err)
-// }
+var (
+	rpcWebsiteLog = log.NamedLogger("rpc", "website")
+)
 
-// func rpcWebsiteAddContent(req []byte, _ time.Duration, resp RPCResponse) {
-// 	addWebsite := &clientpb.Website{}
-// 	err := proto.Unmarshal(req, addWebsite)
-// 	if err != nil {
-// 		resp([]byte{}, err)
-// 	}
-// 	for path, content := range addWebsite.Content {
-// 		rpcLog.Infof("Add website content (%s) %s -> %s", addWebsite.Name, path, content.ContentType)
-// 		err := website.AddContent(addWebsite.Name, path, content.ContentType, content.Content)
-// 		if err != nil {
-// 			rpcLog.Errorf("Failed to add website content %s", err)
-// 		}
-// 	}
-// 	resp([]byte{}, nil)
-// }
+// Websites - List existing websites
+func (rpc *Server) Websites(ctx context.Context, _ *commonpb.Empty) (*clientpb.Websites, error) {
+	websiteNames, err := website.Names()
+	if err != nil {
+		rpcWebsiteLog.Warnf("Failed to find website %s", err)
+		return nil, err
+	}
+	websites := &clientpb.Websites{Websites: []*clientpb.Website{}}
+	for _, name := range websiteNames {
+		siteContent, err := website.MapContent(name, false)
+		if err != nil {
+			rpcWebsiteLog.Warnf("Failed to list website content %s", err)
+			continue
+		}
+		websites.Websites = append(websites.Websites, siteContent)
+	}
+	return websites, nil
+}
 
-// func rpcWebsiteRemoveContent(req []byte, _ time.Duration, resp RPCResponse) {
-// 	rmWebsite := &clientpb.Website{}
-// 	err := proto.Unmarshal(req, rmWebsite)
-// 	if err != nil {
-// 		resp([]byte{}, err)
-// 	}
-// 	for webpath := range rmWebsite.Content {
-// 		website.RemoveContent(rmWebsite.Name, webpath)
-// 	}
-// 	resp([]byte{}, nil)
-// }
+// WebsiteRemove - Delete an entire website
+func (rpc *Server) WebsiteRemove(ctx context.Context, req *clientpb.Website) (*commonpb.Empty, error) {
+	web, err := website.MapContent(req.Name, false)
+	if err != nil {
+		return nil, err
+	}
+	for path := range web.Contents {
+		err := website.RemoveContent(req.Name, path)
+		if err != nil {
+			rpcWebsiteLog.Errorf("Failed to remove content %s", err)
+			return nil, err
+		}
+	}
+
+	dbWebsite, err := db.WebsiteByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Session().Delete(dbWebsite).Error
+	if err != nil {
+		return nil, err
+	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.WebsiteEvent,
+		Data:      []byte(fmt.Sprintf("%s", req.Name)),
+	})
+
+	return &commonpb.Empty{}, nil
+}
+
+// Website - Get one website
+func (rpc *Server) Website(ctx context.Context, req *clientpb.Website) (*clientpb.Website, error) {
+	return website.MapContent(req.Name, false)
+}
+
+// WebsiteAddContent - Add content to a website, the website is created if `name` does not exist
+func (rpc *Server) WebsiteAddContent(ctx context.Context, req *clientpb.WebsiteAddContent) (*clientpb.Website, error) {
+
+	if 0 < len(req.Contents) {
+		for _, content := range req.Contents {
+			// If no content-type was specified by the client we try to detect the mime based on path ext
+			if content.ContentType == "" {
+				content.ContentType = mime.TypeByExtension(filepath.Ext(content.Path))
+				if content.ContentType == "" {
+					content.ContentType = "text/html; charset=utf-8" // Default mime
+				}
+			}
+			rpcLog.Infof("Add website content (%s) %s -> %s", req.Name, content.Path, content.ContentType)
+			err := website.AddContent(req.Name, content.Path, content.ContentType, content.Content)
+			if err != nil {
+				rpcWebsiteLog.Errorf("Failed to remove content %s", err)
+				return nil, err
+			}
+		}
+	} else {
+		_, err := website.AddWebsite(req.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.WebsiteEvent,
+		Data:      []byte(fmt.Sprintf("%s", req.Name)),
+	})
+
+	return website.MapContent(req.Name, false)
+}
+
+// WebsiteUpdateContent - Update specific content from a website, currently you can only the update Content-type field
+func (rpc *Server) WebsiteUpdateContent(ctx context.Context, req *clientpb.WebsiteAddContent) (*clientpb.Website, error) {
+	dbWebsite, err := db.WebsiteByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	for _, content := range req.Contents {
+		dbContent := models.WebContent{}
+		err := db.Session().Where(&models.WebContent{
+			WebsiteID: dbWebsite.ID,
+			Path:      content.Path,
+		}).Find(&dbContent).Error
+		if err != nil {
+			return nil, err
+		}
+		dbContent.ContentType = content.ContentType
+		db.Session().Save(dbContent)
+	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.WebsiteEvent,
+		Data:      []byte(fmt.Sprintf("%s", req.Name)),
+	})
+
+	return website.MapContent(req.Name, false)
+}
+
+// WebsiteRemoveContent - Remove specific content from a website
+func (rpc *Server) WebsiteRemoveContent(ctx context.Context, req *clientpb.WebsiteRemoveContent) (*clientpb.Website, error) {
+	for _, path := range req.Paths {
+		err := website.RemoveContent(req.Name, path)
+		if err != nil {
+			rpcWebsiteLog.Errorf("Failed to remove content %s", err)
+			return nil, err
+		}
+	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.WebsiteEvent,
+		Data:      []byte(fmt.Sprintf("%s", req.Name)),
+	})
+
+	return website.MapContent(req.Name, false)
+}

