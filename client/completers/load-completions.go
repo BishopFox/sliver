@@ -61,14 +61,6 @@ func serverCompsAddtional(parser *flags.Parser) {
 	p := parser.Find(constants.NewProfileStr)
 	p.FindOptionByLongName("platform").Choices = osArchs
 	p.FindOptionByLongName("format").Choices = implantFmt
-
-	// Portfwd protocols
-	pfwd := parser.Find(constants.PortfwdStr)
-	pfwd.FindOptionByLongName("protocol").Choices = portfwdProtocols
-	pfwdOpen := pfwd.Find(constants.PortfwdOpenStr)
-	pfwdOpen.FindOptionByLongName("protocol").Choices = portfwdProtocols
-	pfwdClose := pfwd.Find(constants.PortfwdCloseStr)
-	pfwdClose.FindOptionByLongName("protocol").Choices = portfwdProtocols
 }
 
 // Additional completion mappings for command in the Sliver session context
@@ -80,21 +72,11 @@ func sliverCompsAdditional(parser *flags.Parser) {
 
 	// MSF execution
 	msf := parser.Find(constants.MsfStr)
-	// msf.FindOptionByLongName("payload").Choices = msfPayloads[session.OS]
 	msf.FindOptionByLongName("encoder").Choices = msfEncoders
 
 	// MSF injection
 	inj := parser.Find(constants.MsfInjectStr)
-	// inj.FindOptionByLongName("payload").Choices = msfPayloads[session.OS]
 	inj.FindOptionByLongName("encoder").Choices = msfEncoders
-
-	// Portfwd protocols
-	pfwd := parser.Find(constants.PortfwdStr)
-	pfwd.FindOptionByLongName("protocol").Choices = portfwdProtocols
-	pfwdOpen := pfwd.Find(constants.PortfwdOpenStr)
-	pfwdOpen.FindOptionByLongName("protocol").Choices = portfwdProtocols
-	pfwdClose := pfwd.Find(constants.PortfwdCloseStr)
-	pfwdClose.FindOptionByLongName("protocol").Choices = portfwdProtocols
 
 	// Windows only
 	if session.OS == "windows" {

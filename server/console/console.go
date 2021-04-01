@@ -28,6 +28,7 @@ import (
 	"github.com/jessevdk/go-flags"
 	"github.com/maxlandon/readline"
 
+	clientAssets "github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/commands"
 	"github.com/bishopfox/sliver/client/completers"
 	"github.com/bishopfox/sliver/client/console"
@@ -68,6 +69,10 @@ const (
 
 // Start - Start a server console (locally connected)
 func Start() {
+
+	// Declare an Config for the server-as-client, because its Comm system needs a
+	// fingerprint value as well for authenticating to itself.
+	clientAssets.Config = new(clientAssets.ClientConfig)
 
 	// Get a gRPC client connection (in-memory listener)
 	conn, err := connectLocal()
