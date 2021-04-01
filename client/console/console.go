@@ -124,7 +124,7 @@ func (c *Client) setup() (err error) {
 	initLogging() // textfile log
 
 	// Get the user's console configuration from the server
-	err = cctx.LoadConsoleConfig(transport.RPC)
+	err = assets.LoadConsoleConfig(transport.RPC)
 	if err != nil {
 		fmt.Printf(util.Error + "Failed to load console configuration from server.\n")
 		fmt.Printf(util.Info + "Defaulting to builtin values.\n")
@@ -247,14 +247,14 @@ func (c *Client) ResetShell() {
 	c.Shell.ShowVimMode = true // with Vim mode status
 
 	// Input
-	if !cctx.Config.Vim {
+	if !assets.ClientConfig.Vim {
 		c.Shell.InputMode = readline.Emacs
 	} else {
 		c.Shell.InputMode = readline.Vim
 	}
 
 	// Hints are configurable and can deactivated
-	if !cctx.Config.Hints {
+	if !assets.ClientConfig.Hints {
 		c.Shell.HintText = nil
 	} else {
 		c.Shell.HintText = completers.HintCompleter

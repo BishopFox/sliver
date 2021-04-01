@@ -26,7 +26,7 @@ import (
 	"github.com/maxlandon/readline"
 	"google.golang.org/grpc"
 
-	cctx "github.com/bishopfox/sliver/client/context"
+	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -37,7 +37,7 @@ type Config struct{}
 
 // Execute - Manage console configuration. Prints current by default
 func (c *Config) Execute(args []string) (err error) {
-	conf := cctx.Config
+	conf := assets.ClientConfig
 
 	fmt.Println(readline.Bold(readline.Blue(" Console configuration\n")))
 
@@ -97,7 +97,7 @@ type SaveConfig struct{}
 // Execute - Save the current console configuration.
 func (c *SaveConfig) Execute(args []string) (err error) {
 
-	currentConf := cctx.Config.ToProtobuf()
+	currentConf := assets.ClientConfig.ToProtobuf()
 	req := &clientpb.SaveConsoleConfigReq{
 		Config: currentConf,
 	}
@@ -140,15 +140,15 @@ func (c *PromptServer) Execute(args []string) (err error) {
 	var prompt *string
 	if c.Options.Right {
 		side = "(right)"
-		prompt = &cctx.Config.ServerPrompt.Right
+		prompt = &assets.ClientConfig.ServerPrompt.Right
 	}
 	if c.Options.Left {
 		side = "(left)"
-		prompt = &cctx.Config.ServerPrompt.Left
+		prompt = &assets.ClientConfig.ServerPrompt.Left
 	}
 	if !c.Options.Left && !c.Options.Right {
 		side = "(left)"
-		prompt = &cctx.Config.ServerPrompt.Left
+		prompt = &assets.ClientConfig.ServerPrompt.Left
 	}
 
 	if c.Positional.Prompt == "\"\"" || c.Positional.Prompt == "''" {
@@ -188,15 +188,15 @@ func (c *PromptSliver) Execute(args []string) (err error) {
 	var prompt *string
 	if c.Options.Right {
 		side = "(right)"
-		prompt = &cctx.Config.SliverPrompt.Right
+		prompt = &assets.ClientConfig.SliverPrompt.Right
 	}
 	if c.Options.Left {
 		side = "(left)"
-		prompt = &cctx.Config.SliverPrompt.Left
+		prompt = &assets.ClientConfig.SliverPrompt.Left
 	}
 	if !c.Options.Left && !c.Options.Right {
 		side = "(left)"
-		prompt = &cctx.Config.SliverPrompt.Left
+		prompt = &assets.ClientConfig.SliverPrompt.Left
 	}
 
 	if c.Positional.Prompt == "" {
@@ -223,10 +223,10 @@ func (c *Hints) Execute(args []string) (err error) {
 
 	switch c.Positional.Display {
 	case "show", "on":
-		cctx.Config.Hints = true
+		assets.ClientConfig.Hints = true
 		fmt.Printf(util.Info+"Console hints: %s\n", readline.Yellow(c.Positional.Display))
 	case "hide", "off":
-		cctx.Config.Hints = false
+		assets.ClientConfig.Hints = false
 		fmt.Printf(util.Info+"Console hints: %s\n", readline.Yellow(c.Positional.Display))
 	default:
 		fmt.Printf(util.Error+"Invalid argument: %s (must be 'hide' or 'show')\n", c.Positional.Display)
@@ -240,7 +240,7 @@ type Vim struct{}
 
 // Execute - Set the console input mode to Vim
 func (c *Vim) Execute(args []string) (err error) {
-	cctx.Config.Vim = true
+	assets.ClientConfig.Vim = true
 	fmt.Printf(util.Info+"Console input mode: %s\n", readline.Yellow("Vim"))
 	return
 }
@@ -250,7 +250,7 @@ type Emacs struct{}
 
 // Execute - Set the console input mode to Emacs
 func (c *Emacs) Execute(args []string) (err error) {
-	cctx.Config.Vim = false
+	assets.ClientConfig.Vim = false
 	fmt.Printf(util.Info+"Console input mode: %s\n", readline.Yellow("Emacs"))
 	return
 }

@@ -72,7 +72,7 @@ func Start() {
 
 	// Declare an Config for the server-as-client, because its Comm system needs a
 	// fingerprint value as well for authenticating to itself.
-	clientAssets.Config = new(clientAssets.ClientConfig)
+	clientAssets.Config = new(clientAssets.ServerConfig)
 
 	// Get a gRPC client connection (in-memory listener)
 	conn, err := connectLocal()

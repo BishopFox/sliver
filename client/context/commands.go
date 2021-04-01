@@ -43,7 +43,9 @@ var (
 // commands - The go-flags library only support option grouping, not commands.
 // We need to structure these groups for completion & help printing.
 type commands struct {
-	parser *flags.Parser // Holds all commands for a given context
+	// The parser is being passed around, (even to other packages)
+	// Holds all commands for a given context, but lacks a bit of classification.
+	parser *flags.Parser
 
 	// All groups of commands available in Server context
 	ServerGroups    *map[string][]*flags.Command

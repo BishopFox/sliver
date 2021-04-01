@@ -39,7 +39,7 @@ var (
 	config = flag.String("import", "", "import config file to ~/.sliver-client/configs")
 
 	// Config - The configuration for the server to which the client is connected.
-	Config *ClientConfig
+	Config *ServerConfig
 )
 
 const (
@@ -47,8 +47,8 @@ const (
 	ConfigDirName = "configs"
 )
 
-// ClientConfig - Client JSON config
-type ClientConfig struct {
+// ServerConfig - Client JSON config
+type ServerConfig struct {
 	Operator          string `json:"operator"` // This value is actually ignored for the most part (cert CN is used instead)
 	LHost             string `json:"lhost"`
 	LPort             int    `json:"lport"`
@@ -108,14 +108,14 @@ func GetConfigDir() string {
 }
 
 // GetConfigs - Returns all available server configurations.
-func GetConfigs() (configs map[string]*ClientConfig) {
+func GetConfigs() (configs map[string]*ServerConfig) {
 	configDir := GetConfigDir()
 	configFiles, err := ioutil.ReadDir(configDir)
 	if err != nil {
-		return map[string]*ClientConfig{}
+		return map[string]*ServerConfig{}
 	}
 
-	configs = map[string]*ClientConfig{}
+	configs = map[string]*ServerConfig{}
 	for _, confFile := range configFiles {
 		confFilePath := path.Join(configDir, confFile.Name())
 
@@ -132,7 +132,7 @@ func GetConfigs() (configs map[string]*ClientConfig) {
 // ReadConfig - Loads the contents of a config file into the above gloval variables.
 // This possibly overwrite default builtin values, but we have previously prompted the user
 // to choose between builtin and textfile config values.
-func ReadConfig(confFilePath string) (*ClientConfig, error) {
+func ReadConfig(confFilePath string) (*ServerConfig, error) {
 	confFile, err := os.Open(confFilePath)
 	defer confFile.Close()
 	if err != nil {
@@ -144,7 +144,7 @@ func ReadConfig(confFilePath string) (*ClientConfig, error) {
 		log.Printf("Read failed %v", err)
 		return nil, err
 	}
-	conf := &ClientConfig{}
+	conf := &ServerConfig{}
 	err = json.Unmarshal(data, conf)
 	if err != nil {
 		log.Printf("Parse failed %v", err)
@@ -154,7 +154,7 @@ func ReadConfig(confFilePath string) (*ClientConfig, error) {
 }
 
 // SaveConfig - Save a config to disk
-func SaveConfig(config *ClientConfig) error {
+func SaveConfig(config *ServerConfig) error {
 	if config.LHost == "" || config.Operator == "" {
 		return errors.New("Empty config")
 	}
@@ -173,7 +173,7 @@ func SaveConfig(config *ClientConfig) error {
 }
 
 // selectConfig - Prompt user to choose which server configuration to load/use.
-func selectConfig(configs map[string]*ClientConfig) (err error) {
+func selectConfig(configs map[string]*ServerConfig) (err error) {
 
 	if len(configs) == 0 {
 		return nil
@@ -199,7 +199,7 @@ func selectConfig(configs map[string]*ClientConfig) (err error) {
 }
 
 // getPromptForConfigs - Prompt user to choose config
-func getPromptForConfigs(configs map[string]*ClientConfig) []*survey.Question {
+func getPromptForConfigs(configs map[string]*ServerConfig) []*survey.Question {
 
 	keys := []string{}
 	for k := range configs {

@@ -77,7 +77,7 @@ func (p *promptServer) computeBase() (ps string, width int) {
 
 	// The prompt string is stored in the context package, to be accessed by
 	// console configuration commands.
-	ps += context.Config.ServerPrompt.Left
+	ps += assets.ClientConfig.ServerPrompt.Left
 
 	// Ensure colors do not screw up the next input.
 	ps += readline.RESET
@@ -103,7 +103,7 @@ func (p *promptServer) computeContext(sWidth int) (ps string, width int) {
 
 	// The prompt string is stored in the context package, to be accessed by
 	// console configuration commands.
-	ps += context.Config.ServerPrompt.Right
+	ps += assets.ClientConfig.ServerPrompt.Right
 
 	// Ensure colors do not screw up the next input.
 	ps += readline.RESET

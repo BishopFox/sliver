@@ -7,6 +7,7 @@ import (
 
 	"github.com/maxlandon/readline"
 
+	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/context"
 )
 
@@ -74,7 +75,7 @@ func (p *promptSliver) computeBase() (ps string, width int) {
 
 	// The prompt string is stored in the context package, to be accessed by
 	// console configuration commands.
-	ps += context.Config.SliverPrompt.Left
+	ps += assets.ClientConfig.SliverPrompt.Left
 
 	ps += readline.RESET
 
@@ -107,7 +108,7 @@ func (p *promptSliver) computeContext(sWidth int) (ps string, width int) {
 
 	// The prompt string is stored in the context package, to be accessed by
 	// console configuration commands.
-	ps += context.Config.SliverPrompt.Right
+	ps += assets.ClientConfig.SliverPrompt.Right
 
 	ps += readline.RESET // Always at end of prompt line
 

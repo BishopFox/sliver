@@ -133,7 +133,7 @@ func newPlayerConfig(operatorName, lhost string, lport uint16) ([]byte, error) {
 	keyBytes := sha256.Sum256(signer.PublicKey().Marshal())
 	fingerprint := base64.StdEncoding.EncodeToString(keyBytes[:])
 
-	config := assets.ClientConfig{
+	config := assets.ServerConfig{
 		Operator:          operatorName,
 		LHost:             lhost,
 		LPort:             int(lport),
