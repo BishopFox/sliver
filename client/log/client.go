@@ -27,7 +27,8 @@ import (
 )
 
 var (
-	// ClientLogger - Logger used by console binary components only
+	// ClientLogger - Logger used by console binary components only,
+	// like the client-specific part of shell tunnels.
 	ClientLogger = NewClientLogger("")
 )
 
@@ -66,9 +67,11 @@ func (l *clientHook) Fire(log *logrus.Entry) (err error) {
 
 	// Print the component name in red if error
 	if log.Level == logrus.ErrorLevel {
-		line += fmt.Sprintf("%s%-10v %s-%s %s \n", readline.RED, component, readline.DIM, readline.RESET, log.Message)
+		line += fmt.Sprintf("%s%-10v %s-%s %s \n",
+			readline.RED, component, readline.DIM, readline.RESET, log.Message)
 	} else {
-		line += fmt.Sprintf("%s%-10v %s-%s %s \n", readline.DIM, component, readline.DIM, readline.RESET, log.Message)
+		line += fmt.Sprintf("%s%-10v %s-%s %s \n",
+			readline.DIM, component, readline.DIM, readline.RESET, log.Message)
 	}
 
 	// If we are in the middle of a command, we just print the log without refreshing prompt
@@ -78,7 +81,6 @@ func (l *clientHook) Fire(log *logrus.Entry) (err error) {
 
 	// Else, we pass the log to the shell, which will handle wrapping computing, and so on.
 	if !isSynchronized {
-		// line += "\n"
 		shell.RefreshPromptLog(line)
 	}
 

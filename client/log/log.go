@@ -42,7 +42,7 @@ var (
 	shell        *readline.Instance
 	promptRender func() string
 
-	isSynchronized bool // If true, the log printing beahvior will vary
+	isSynchronized bool // If true, the log printing behavior will vary
 )
 
 // Init - The client starts monitoring all event logs coming from itself, or the server
@@ -65,7 +65,7 @@ func Init(sh *readline.Instance, render func() string, rpc rpcpb.SliverRPCClient
 }
 
 // SynchronizeLogs - A command has to be executed, and we don't want any refresh of the prompt
-// while waiting for it finish execution. We pass the component that might produce such logs.
+// while waiting for it to finish execution. We pass the component that might produce such logs.
 func SynchronizeLogs(component string) {
 	isSynchronized = true
 }
