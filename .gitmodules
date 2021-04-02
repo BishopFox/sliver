@@ -1,3 +1,0 @@
-[submodule "sliver/shell/pty"]
-	path = sliver/shell/pty
-	url = https://github.com/kr/pty.git

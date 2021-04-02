@@ -1,81 +1,50 @@
 package generate
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"log"
-	"os"
-	"path"
-	"path/filepath"
-	"sliver/server/assets"
+	"errors"
+
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 )
 
-const (
-	profilesDirName = "profiles"
-)
+// SaveImplantProfile - Save a sliver profile to disk
+func SaveImplantProfile(name string, config *models.ImplantConfig) error {
 
-func getProfileDir() string {
-	appDir := assets.GetRootAppDir()
-	profilesDir := path.Join(appDir, profilesDirName)
-	if _, err := os.Stat(profilesDir); os.IsNotExist(err) {
-		log.Printf("Creating bin directory: %s", profilesDir)
-		err = os.MkdirAll(profilesDir, os.ModePerm)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	return profilesDir
-}
-
-// SaveProfile - Save a sliver profile to disk
-func SaveProfile(name string, config *SliverConfig) error {
-	filename := fmt.Sprintf("%s", filepath.Base(name))
-	porfileDir := getProfileDir()
-	saveTo, _ := filepath.Abs(path.Join(porfileDir, filename))
-	configJSON, _ := json.Marshal(config)
-	err := ioutil.WriteFile(saveTo, configJSON, 0644)
-	if err != nil {
-		log.Printf("Failed to write config to: %s (%v)", saveTo, err)
+	profile, err := db.ImplantProfileByName(name)
+	if err != nil && !errors.Is(err, db.ErrRecordNotFound) {
 		return err
 	}
-	log.Printf("Saved profile to: %s", saveTo)
-	return nil
-}
 
-// GetProfiles - List existing profile names
-func GetProfiles() map[string]*SliverConfig {
-
-	profileDir := getProfileDir()
-	profileFiles, err := ioutil.ReadDir(profileDir)
-	if err != nil {
-		log.Printf("No profiles found %v", err)
-		return map[string]*SliverConfig{}
+	dbSession := db.Session()
+	if errors.Is(err, db.ErrRecordNotFound) {
+		err = dbSession.Create(&models.ImplantProfile{
+			Name:          name,
+			ImplantConfig: config,
+		}).Error
+	} else {
+		err = dbSession.Save(&models.ImplantProfile{
+			ID:            profile.ID,
+			Name:          name,
+			ImplantConfig: config,
+		}).Error
 	}
-
-	profiles := map[string]*SliverConfig{}
-	for _, porfileFileInfo := range profileFiles {
-		profilePath := path.Join(profileDir, porfileFileInfo.Name())
-		log.Printf("Parsing profile %s", profilePath)
-		profileFile, err := os.Open(profilePath)
-		if err != nil {
-			log.Printf("Open failed %v", err)
-			continue
-		}
-		data, err := ioutil.ReadAll(profileFile)
-		if err != nil {
-			log.Printf("Read failed %v", err)
-			continue
-		}
-		config := SliverConfig{}
-		err = json.Unmarshal(data, &config)
-		if err != nil {
-			log.Printf("Failed to parse profile %v", err)
-			continue
-		}
-		profiles[porfileFileInfo.Name()] = &config
-		profileFile.Close()
-	}
-
-	return profiles
+	return err
 }

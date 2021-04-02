@@ -1,128 +1,95 @@
 package rpc
 
-import (
-	sliverpb "sliver/protobuf/sliver"
-	"sliver/server/core"
-	"time"
+/*
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
 
-	"github.com/golang/protobuf/proto"
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+import (
+	"context"
+
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-func rpcLs(req []byte, resp RPCResponse) {
-	dirList := &sliverpb.LsReq{}
-	err := proto.Unmarshal(req, dirList)
+// Ls - List a directory
+func (rpc *Server) Ls(ctx context.Context, req *sliverpb.LsReq) (*sliverpb.Ls, error) {
+	resp := &sliverpb.Ls{}
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := core.Hive.Sliver(dirList.SliverID)
-
-	timeout := 30 * time.Second
-	data, _ := proto.Marshal(&sliverpb.LsReq{
-		Path: dirList.Path,
-	})
-	data, err = sliver.Request(sliverpb.MsgLsReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }
 
-func rpcRm(req []byte, resp RPCResponse) {
-	rmReq := &sliverpb.RmReq{}
-	err := proto.Unmarshal(req, rmReq)
+// Rm - Remove file or directory
+func (rpc *Server) Rm(ctx context.Context, req *sliverpb.RmReq) (*sliverpb.Rm, error) {
+	resp := &sliverpb.Rm{}
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := core.Hive.Sliver(rmReq.SliverID)
-
-	timeout := 30 * time.Second
-	data, _ := proto.Marshal(&sliverpb.RmReq{
-		Path: rmReq.Path,
-	})
-	data, err = sliver.Request(sliverpb.MsgRmReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }
 
-func rpcMkdir(req []byte, resp RPCResponse) {
-	mkdirReq := &sliverpb.MkdirReq{}
-	err := proto.Unmarshal(req, mkdirReq)
+// Mkdir - Make a directory
+func (rpc *Server) Mkdir(ctx context.Context, req *sliverpb.MkdirReq) (*sliverpb.Mkdir, error) {
+	resp := &sliverpb.Mkdir{}
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := core.Hive.Sliver(mkdirReq.SliverID)
-
-	timeout := 30 * time.Second
-	data, _ := proto.Marshal(&sliverpb.MkdirReq{
-		Path: mkdirReq.Path,
-	})
-	data, err = sliver.Request(sliverpb.MsgMkdirReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }
 
-func rpcCd(req []byte, resp RPCResponse) {
-	cdReq := &sliverpb.CdReq{}
-	err := proto.Unmarshal(req, cdReq)
+// Cd - Change directory
+func (rpc *Server) Cd(ctx context.Context, req *sliverpb.CdReq) (*sliverpb.Pwd, error) {
+	resp := &sliverpb.Pwd{}
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := core.Hive.Sliver(cdReq.SliverID)
-
-	timeout := 30 * time.Second
-	data, _ := proto.Marshal(&sliverpb.CdReq{
-		Path: cdReq.Path,
-	})
-	data, err = sliver.Request(sliverpb.MsgCdReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }
 
-func rpcPwd(req []byte, resp RPCResponse) {
-	pwdReq := &sliverpb.PwdReq{}
-	err := proto.Unmarshal(req, pwdReq)
+// Pwd - Change directory
+func (rpc *Server) Pwd(ctx context.Context, req *sliverpb.PwdReq) (*sliverpb.Pwd, error) {
+	resp := &sliverpb.Pwd{}
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := (*core.Hive.Slivers)[pwdReq.SliverID]
-
-	timeout := 30 * time.Second
-	data, _ := proto.Marshal(&sliverpb.PwdReq{})
-	data, err = sliver.Request(sliverpb.MsgPwdReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }
 
-func rpcDownload(req []byte, resp RPCResponse) {
-	downloadReq := &sliverpb.DownloadReq{}
-	err := proto.Unmarshal(req, downloadReq)
+// Download - Download a file from the remote file system
+func (rpc *Server) Download(ctx context.Context, req *sliverpb.DownloadReq) (*sliverpb.Download, error) {
+	resp := &sliverpb.Download{}
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := core.Hive.Sliver(downloadReq.SliverID)
-
-	timeout := 30 * time.Second
-	data, _ := proto.Marshal(&sliverpb.DownloadReq{
-		Path: downloadReq.Path,
-	})
-	data, err = sliver.Request(sliverpb.MsgDownloadReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }
 
-func rpcUpload(req []byte, resp RPCResponse) {
-	uploadReq := &sliverpb.UploadReq{}
-	err := proto.Unmarshal(req, uploadReq)
+// Upload - Upload a file from the remote file system
+func (rpc *Server) Upload(ctx context.Context, req *sliverpb.UploadReq) (*sliverpb.Upload, error) {
+	resp := &sliverpb.Upload{}
+	err := rpc.GenericHandler(req, resp)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
 	}
-	sliver := core.Hive.Sliver(uploadReq.SliverID)
-
-	timeout := 30 * time.Second
-	data, _ := proto.Marshal(&sliverpb.UploadReq{
-		Encoder: uploadReq.Encoder,
-		Path:    uploadReq.Path,
-		Data:    uploadReq.Data,
-	})
-	data, err = sliver.Request(sliverpb.MsgUploadReq, timeout, data)
-	resp(data, err)
+	return resp, nil
 }

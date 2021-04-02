@@ -1,9 +1,25 @@
 package cryptography
 
 /*
-	This package contains wrappers around Golang's crypto package that make it easier to use
-	we manage things like the nonces/iv's. The preferred choice is to always use GCM but for
-	saving space we also have CTR mode available but it does not provide integrity checks.
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+	---
+	This package contains wrappers around Golang's crypto package that make
+	it easier to use we manage things like the nonces/iv's
 */
 
 import (
@@ -24,7 +40,12 @@ const (
 	GCMNonceSize = 12
 )
 
-// AESKey - 128 bit key
+var (
+	// ErrInvalidKeyLength - Invalid key length
+	ErrInvalidKeyLength = errors.New("Invalid length")
+)
+
+// AESKey - 256 bit key
 type AESKey [AESKeySize]byte
 
 // AESIV - 128 bit IV
@@ -43,7 +64,7 @@ func RandomAESKey() AESKey {
 // AESKeyFromBytes - Convert byte slice to AESKey
 func AESKeyFromBytes(data []byte) (AESKey, error) {
 	if len(data) != AESKeySize {
-		return AESKey{}, errors.New("Invalid length")
+		return AESKey{}, ErrInvalidKeyLength
 	}
 	var key AESKey
 	copy(key[:], data[:AESKeySize])
@@ -78,30 +99,12 @@ func RSADecrypt(ciphertext []byte, privateKey *rsa.PrivateKey) ([]byte, error) {
 	return plaintext, nil
 }
 
-// CTREncrypt - AES CTR Encrypt
-func CTREncrypt(key AESKey, plaintext []byte) []byte {
-	block, _ := aes.NewCipher(key[:])
-	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
-	iv := RandomAESIV()
-	copy(ciphertext[:aes.BlockSize], iv[:])
-	stream := cipher.NewCTR(block, iv[:])
-	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
-	return ciphertext
-}
-
-// CTRDecrypt - AES CTR Decrypt
-func CTRDecrypt(key AESKey, ciphertext []byte) []byte {
-	plaintext := make([]byte, len(ciphertext)-aes.BlockSize)
-	block, _ := aes.NewCipher(key[:])
-	iv := ciphertext[:aes.BlockSize]
-	stream := cipher.NewCTR(block, iv)
-	stream.XORKeyStream(plaintext, ciphertext[aes.BlockSize:])
-	return plaintext
-}
-
 // GCMEncrypt - Encrypt using AES GCM
 func GCMEncrypt(key AESKey, plaintext []byte) ([]byte, error) {
-	block, _ := aes.NewCipher(key[:])
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		return nil, err
+	}
 	nonce := make([]byte, GCMNonceSize)
 	if _, err := io.ReadFull(secureRand.Reader, nonce); err != nil {
 		return nil, err
@@ -119,8 +122,14 @@ func GCMEncrypt(key AESKey, plaintext []byte) ([]byte, error) {
 
 // GCMDecrypt - Decrypt GCM ciphertext
 func GCMDecrypt(key AESKey, ciphertext []byte) ([]byte, error) {
-	block, _ := aes.NewCipher(key[:])
-	aesgcm, _ := cipher.NewGCM(block)
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		return nil, err
+	}
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
 	plaintext, err := aesgcm.Open(nil, ciphertext[:GCMNonceSize], ciphertext[GCMNonceSize:], nil)
 	if err != nil {
 		return nil, err

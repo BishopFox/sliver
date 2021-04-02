@@ -1,33 +1,43 @@
 Sliver
 ======
 
-![Sliver](/sliver/sliver.jpeg)
+⚠️ __Notice:__ Sliver is currently in __beta__, you've been warned :) and please consider [contributing](/CONTRIBUTING.md)
 
-Sliver is a remote shellcode loading and injection service that uses end-to-end encryption (mTLS) for all network traffic. Implants are dynamically compiled with unique X.509 certificates signed by a per-instance certificate authority generated when you first run the binary. Sliver can load arbitrary shellcode but also integrates with MSFVenom to automatically generate, execute, and manage Meterpreter payloads. Sliver binaries have very low anti-virus detection as they do not contain any malicous code themselves and instead dynamically load it over the network.
+Sliver is an open source, cross-platform adversary simulation/red team platform, it can be used by organizations of all sizes to perform security testing. Sliver's implants support C2 over Mutual-TLS, HTTP(S), and DNS. Implants are dynamically compiled with unique X.509 certificates signed by a per-instance certificate authority generated when you first run the binary.
 
-Sliver can inject payloads into it's own process or optionally use remote thread injection to execute payloads in a remote processes to which your execution context has access. 
+The server and client support MacOS, Windows, and Linux. Implants are supported on MacOS, Windows, and Linux (and possibly every Golang compiler target but we've not tested them all).
 
-### Feature Progess
+![Go](https://github.com/BishopFox/sliver/workflows/Go/badge.svg?branch=master) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-#### C2
-- [x] Mutual TLS
-- [x] DNS
-- [x] HTTP(S)
-- [ ] ICMP
+### Features
 
-#### Chain Loader
-- [x] Raw Shellcode
-- [x] .NET Assemblies
-- [x] Metasploit/Meterpreter (v5 or later)
-- [ ] Empire
-- [ ] Cobalt Strike
+* Dynamic code generation
+* Compile-time obfuscation
+* Multiplayer-mode
+* Staged and Stageless payloads
+* [Procedurally generated C2](https://github.com/BishopFox/sliver/wiki/HTTP(S)-C2#under-the-hood) over HTTP(S)
+* [DNS canary](https://github.com/BishopFox/sliver/wiki/DNS-C2#dns-canaries) blue team detection
+* [Secure C2](https://github.com/BishopFox/sliver/wiki/Transport-Encryption) over mTLS, HTTP(S), and DNS
+* [Fully scriptable](https://github.com/moloch--/sliver-script)
+* Local and remote process injection
+* Windows process migration
+* Windows user token manipulation
+* Anti-anti-anti-forensics
+* Let's Encrypt integration
+* In-memory .NET assembly execution
 
-#### Post Exploitation
-- [x] Windows Token Manipulation
-- [x] Procdump
-- [ ] TCP tunnels
-- [ ] Reverse SOCKS proxy  
+### Getting Started
 
-## Compile From Source
+Download the latest [release](https://github.com/BishopFox/sliver/releases) and see the Sliver [wiki](https://github.com/BishopFox/sliver/wiki/Getting-Started) for a quick tutorial on basic setup and usage. To get the very latest and greatest compile from source.
 
-Just run the `build.py` script (requires Docker), or for details, see the [wiki](https://github.com/BishopFox/sliver/wiki/Compile-From-Source).
+### Help!
+
+Please checkout the [wiki](https://github.com/BishopFox/sliver/wiki), or start a [GitHub discussion](https://github.com/BishopFox/sliver/discussions). We also tend to hang out in the #golang Slack channel on the [Bloodhound Gang](https://bloodhoundgang.herokuapp.com/) server.
+
+### Compile From Source
+
+See the [wiki](https://github.com/BishopFox/sliver/wiki/Compile-From-Source).
+
+### License - GPLv3
+
+Sliver is licensed under [GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html), some sub-components may have separate licenses. See their respective subdirectories in this project for details.

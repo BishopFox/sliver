@@ -1,11 +1,36 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
+"""
+Sliver Implant Framework
+Copyright (C) 2019  Bishop Fox
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
 import os
 import sys
 import argparse
 
+try:
+    input = raw_input # Py2 / Py3 compatability
+except NameError:
+    pass
+
 
 INFO = "\033[1m\033[36m[*]\033[0m "
 WARN = "\033[1m\033[31m[!]\033[0m "
+BOLD = "\033[1m"
+NORM = "\033[0m"
 
 
 def exec_cmd(cmd, ignore_status=False):
@@ -36,7 +61,10 @@ def docker_rm_all():
     docker_rm_volumes()
 
 def build():
-    exec_cmd("docker build -t sliver .")
+    status = exec_cmd("docker build -t sliver .")
+    if status == 0:
+        print(INFO+"Build successful, start with %sdocker run -it sliver:latest%s" % (BOLD, NORM))
+        print(INFO+"Remember you'll need to manually forward network ports")
 
 def main(args):
     """ Execute the respective task(s) based on cli args """
@@ -69,7 +97,7 @@ if __name__ == '__main__':
                         action='store_true')
 
     parser.add_argument('--rm-all', '-rma',
-                        help='rm all containers, imagaes, and volumes',
+                        help='rm all containers, images, and volumes',
                         dest='rm_all',
                         action='store_true')
     parser.add_argument('--rm-containers', '-rmc',

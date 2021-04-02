@@ -1,12 +1,39 @@
 package core
 
-// Event - Sliver connect/disconnect
+/*
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+const (
+	// Size is arbitrary, just want to avoid weird cases where we'd block on channel sends
+	eventBufSize = 5
+)
+
+// Event - An event is fired when there's a state change involving a
+//         session, job, or client.
 type Event struct {
-	Sliver    *Sliver
-	Job       *Job
-	Client    *Client
+	Session *Session
+	Job     *Job
+	Client  *Client
+
 	EventType string
-	Err       error
+
+	Data []byte
+	Err  error
 }
 
 type eventBroker struct {
@@ -17,20 +44,20 @@ type eventBroker struct {
 	send        chan Event
 }
 
-func (b *eventBroker) Start() {
+func (broker *eventBroker) Start() {
 	subscribers := map[chan Event]struct{}{}
 	for {
 		select {
-		case <-b.stop:
+		case <-broker.stop:
 			for sub := range subscribers {
 				close(sub)
 			}
 			return
-		case sub := <-b.subscribe:
+		case sub := <-broker.subscribe:
 			subscribers[sub] = struct{}{}
-		case sub := <-b.unsubscribe:
+		case sub := <-broker.unsubscribe:
 			delete(subscribers, sub)
-		case event := <-b.publish:
+		case event := <-broker.publish:
 			for sub := range subscribers {
 				sub <- event
 			}
@@ -38,35 +65,35 @@ func (b *eventBroker) Start() {
 	}
 }
 
-func (b *eventBroker) Stop() {
-	close(b.stop)
+func (broker *eventBroker) Stop() {
+	close(broker.stop)
 }
 
 // Subscribe - Generate a new subscription channel
-func (b *eventBroker) Subscribe() chan Event {
-	events := make(chan Event, 5)
-	b.subscribe <- events
+func (broker *eventBroker) Subscribe() chan Event {
+	events := make(chan Event, eventBufSize)
+	broker.subscribe <- events
 	return events
 }
 
 // Unsubscribe - Remove a subscription channel
-func (b *eventBroker) Unsubscribe(events chan Event) {
-	b.unsubscribe <- events
+func (broker *eventBroker) Unsubscribe(events chan Event) {
+	broker.unsubscribe <- events
 	close(events)
 }
 
 // Publish - Push a message to all subscribers
-func (b *eventBroker) Publish(event Event) {
-	b.publish <- event
+func (broker *eventBroker) Publish(event Event) {
+	broker.publish <- event
 }
 
 func newBroker() *eventBroker {
 	broker := &eventBroker{
 		stop:        make(chan struct{}),
-		publish:     make(chan Event, 1),
-		subscribe:   make(chan chan Event, 1),
-		unsubscribe: make(chan chan Event, 1),
-		send:        make(chan Event, 1),
+		publish:     make(chan Event, eventBufSize),
+		subscribe:   make(chan chan Event, eventBufSize),
+		unsubscribe: make(chan chan Event, eventBufSize),
+		send:        make(chan Event, eventBufSize),
 	}
 	go broker.Start()
 	return broker

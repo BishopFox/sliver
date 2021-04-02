@@ -1,244 +1,219 @@
 package rpc
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
-	consts "sliver/client/constants"
-	pb "sliver/protobuf/client"
-	"sliver/server/assets"
-	"sliver/server/c2"
-	"sliver/server/certs"
-	"sliver/server/core"
-	"sync"
-	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/server/c2"
+	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/server/core"
 )
 
-func rpcJobs(_ []byte, resp RPCResponse) {
-	jobs := &pb.Jobs{
-		Active: []*pb.Job{},
+const (
+	defaultMTLSPort  = 4444
+	defaultDNSPort   = 53
+	defaultHTTPPort  = 80
+	defaultHTTPSPort = 443
+)
+
+var (
+	// ErrInvalidPort - Invalid TCP port number
+	ErrInvalidPort = errors.New("Invalid listener port")
+)
+
+// GetJobs - List jobs
+func (rpc *Server) GetJobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.Jobs, error) {
+	jobs := &clientpb.Jobs{
+		Active: []*clientpb.Job{},
 	}
-	for _, job := range *core.Jobs.Active {
-		jobs.Active = append(jobs.Active, &pb.Job{
-			ID:          int32(job.ID),
+	for _, job := range core.Jobs.All() {
+		jobs.Active = append(jobs.Active, &clientpb.Job{
+			ID:          uint32(job.ID),
 			Name:        job.Name,
 			Description: job.Description,
 			Protocol:    job.Protocol,
-			Port:        int32(job.Port),
+			Port:        uint32(job.Port),
+			Domains:     job.Domains,
 		})
 	}
-	data, err := proto.Marshal(jobs)
-	if err != nil {
-		log.Printf("Error encoding rpc response %v", err)
-		resp([]byte{}, err)
-		return
-	}
-	resp(data, err)
+	return jobs, nil
 }
 
-func rpcStartMTLSListener(data []byte, resp RPCResponse) {
-	mtlsReq := &pb.MTLSReq{}
-	err := proto.Unmarshal(data, mtlsReq)
-	if err != nil {
-		resp([]byte{}, err)
-		return
-	}
-	jobID, err := jobStartMTLSListener(mtlsReq.Server, uint16(mtlsReq.LPort))
-	if err != nil {
-		resp([]byte{}, err)
-		return
-	}
-	data, err = proto.Marshal(&pb.MTLS{JobID: int32(jobID)})
-	resp(data, err)
-}
-
-func jobStartMTLSListener(bindIface string, port uint16) (int, error) {
-
-	ln, err := c2.StartMutualTLSListener(bindIface, port)
-	if err != nil {
-		return -1, err // If we fail to bind don't setup the Job
-	}
-
-	job := &core.Job{
-		ID:          core.GetJobID(),
-		Name:        "mTLS",
-		Description: "mutual tls",
-		Protocol:    "tcp",
-		Port:        port,
-		JobCtrl:     make(chan bool),
-	}
-
-	go func() {
-		<-job.JobCtrl
-		log.Printf("Stopping mTLS listener (%d) ...", job.ID)
-		ln.Close() // Kills listener GoRoutines in startMutualTLSListener() but NOT connections
-
-		core.Jobs.RemoveJob(job)
-
-		core.EventBroker.Publish(core.Event{
-			Job:       job,
-			EventType: consts.StoppedEvent,
-		})
-	}()
-
-	core.Jobs.AddJob(job)
-
-	return job.ID, nil
-}
-
-func rpcStartDNSListener(data []byte, resp RPCResponse) {
-	dnsReq := &pb.DNSReq{}
-	err := proto.Unmarshal(data, dnsReq)
-	if err != nil {
-		resp([]byte{}, err)
-		return
-	}
-	jobID, err := jobStartDNSListener(dnsReq.Domain)
-	if err != nil {
-		resp([]byte{}, err)
-		return
-	}
-	data, err = proto.Marshal(&pb.DNS{JobID: int32(jobID)})
-	resp(data, err)
-}
-
-func jobStartDNSListener(domain string) (int, error) {
-	rootDir := assets.GetRootAppDir()
-	certs.GetServerRSACertificatePEM(rootDir, "slivers", domain, true)
-	server := c2.StartDNSListener(domain)
-
-	job := &core.Job{
-		ID:          core.GetJobID(),
-		Name:        "dns",
-		Description: domain,
-		Protocol:    "udp",
-		Port:        53,
-		JobCtrl:     make(chan bool),
-	}
-
-	go func() {
-		<-job.JobCtrl
-		log.Printf("Stopping DNS listener (%d) ...", job.ID)
-		server.Shutdown()
-
-		core.Jobs.RemoveJob(job)
-
-		core.EventBroker.Publish(core.Event{
-			Job:       job,
-			EventType: consts.StoppedEvent,
-		})
-	}()
-
-	core.Jobs.AddJob(job)
-
-	// There is no way to call ListenAndServe() without blocking
-	// but we also need to check the error in the case the server
-	// fails to start at all, so we setup all the Job mechanics
-	// then kick off the server and if it fails we kill the job
-	// ourselves.
-	go func() {
-		err := server.ListenAndServe()
-		if err != nil {
-			log.Printf("DNS listener error %v", err)
-			job.JobCtrl <- true
+// KillJob - Kill a server-side job
+func (rpc *Server) KillJob(ctx context.Context, kill *clientpb.KillJobReq) (*clientpb.KillJob, error) {
+	job := core.Jobs.Get(int(kill.ID))
+	killJob := &clientpb.KillJob{}
+	var err error = nil
+	if job != nil {
+		job.JobCtrl <- true
+		killJob.ID = uint32(job.ID)
+		killJob.Success = true
+		if job.PersistentID != "" {
+			configs.GetServerConfig().RemoveJob(job.PersistentID)
 		}
-	}()
-
-	return job.ID, nil
+	} else {
+		killJob.Success = false
+		err = errors.New("Invalid Job ID")
+	}
+	return killJob, err
 }
 
-func rpcStartHTTPSListener(data []byte, resp RPCResponse) {
-	httpReq := &pb.HTTPReq{}
-	err := proto.Unmarshal(data, httpReq)
+// StartMTLSListener - Start an MTLS listener
+func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSListenerReq) (*clientpb.MTLSListener, error) {
+
+	if 65535 <= req.Port {
+		return nil, ErrInvalidPort
+	}
+	listenPort := uint16(defaultMTLSPort)
+	if req.Port != 0 {
+		listenPort = uint16(req.Port)
+	}
+
+	job, err := c2.StartMTLSListenerJob(req.Host, listenPort)
 	if err != nil {
-		resp([]byte{}, err)
-		return
+		return nil, err
+	}
+
+	if req.Persistent {
+		cfg := &configs.MTLSJobConfig{
+			Host: req.Host,
+			Port: listenPort,
+		}
+		configs.GetServerConfig().AddMTLSJob(cfg)
+		job.PersistentID = cfg.JobID
+	}
+
+	return &clientpb.MTLSListener{JobID: uint32(job.ID)}, nil
+}
+
+// StartDNSListener - Start a DNS listener TODO: respect request's Host specification
+func (rpc *Server) StartDNSListener(ctx context.Context, req *clientpb.DNSListenerReq) (*clientpb.DNSListener, error) {
+	if 65535 <= req.Port {
+		return nil, ErrInvalidPort
+	}
+	listenPort := uint16(defaultDNSPort)
+	if req.Port != 0 {
+		listenPort = uint16(req.Port)
+	}
+
+	job, err := c2.StartDNSListenerJob(req.Domains, req.Canaries, listenPort)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Persistent {
+		cfg := &configs.DNSJobConfig{
+			Domains:  req.Domains,
+			Port:     listenPort,
+			Canaries: req.Canaries,
+			Host:     req.Host,
+		}
+		configs.GetServerConfig().AddDNSJob(cfg)
+		job.PersistentID = cfg.JobID
+	}
+
+	return &clientpb.DNSListener{JobID: uint32(job.ID)}, nil
+}
+
+// StartHTTPSListener - Start an HTTPS listener
+func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPListenerReq) (*clientpb.HTTPListener, error) {
+
+	if 65535 <= req.Port {
+		return nil, ErrInvalidPort
+	}
+	listenPort := uint16(defaultHTTPSPort)
+	if req.Port != 0 {
+		listenPort = uint16(req.Port)
 	}
 
 	conf := &c2.HTTPServerConfig{
-		Addr:     fmt.Sprintf("%s:%d", httpReq.Iface, httpReq.LPort),
-		LPort:    uint16(httpReq.LPort),
-		Secure:   true,
-		Domain:   httpReq.Domain,
-		CertPath: "", // TODO: Get certs
-		KeyPath:  "",
+		Addr:    fmt.Sprintf("%s:%d", req.Host, listenPort),
+		LPort:   listenPort,
+		Secure:  true,
+		Domain:  req.Domain,
+		Website: req.Website,
+		Cert:    req.Cert,
+		Key:     req.Key,
+		ACME:    req.ACME,
 	}
-	job := jobStartHTTPListener(conf)
+	job, err := c2.StartHTTPListenerJob(conf)
+	if err != nil {
+		return nil, err
+	}
 
-	data, err = proto.Marshal(&pb.HTTP{JobID: int32(job.ID)})
-	resp(data, err)
+	if req.Persistent {
+		cfg := &configs.HTTPJobConfig{
+			Domain:  req.Domain,
+			Host:    req.Host,
+			Port:    listenPort,
+			Secure:  true,
+			Website: req.Website,
+			Cert:    req.Cert,
+			Key:     req.Key,
+			ACME:    req.ACME,
+		}
+		configs.GetServerConfig().AddHTTPJob(cfg)
+		job.PersistentID = cfg.JobID
+	}
+
+	return &clientpb.HTTPListener{JobID: uint32(job.ID)}, nil
 }
 
-func rpcStartHTTPListener(data []byte, resp RPCResponse) {
-	httpReq := &pb.HTTPReq{}
-	err := proto.Unmarshal(data, httpReq)
-	if err != nil {
-		resp([]byte{}, err)
-		return
+// StartHTTPListener - Start an HTTP listener
+func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPListenerReq) (*clientpb.HTTPListener, error) {
+	if 65535 <= req.Port {
+		return nil, ErrInvalidPort
+	}
+	listenPort := uint16(defaultHTTPPort)
+	if req.Port != 0 {
+		listenPort = uint16(req.Port)
 	}
 
 	conf := &c2.HTTPServerConfig{
-		Addr:   fmt.Sprintf("%s:%d", httpReq.Iface, httpReq.LPort),
-		LPort:  uint16(httpReq.LPort),
-		Domain: httpReq.Domain,
-		Secure: false,
+		Addr:    fmt.Sprintf("%s:%d", req.Host, listenPort),
+		LPort:   listenPort,
+		Domain:  req.Domain,
+		Website: req.Website,
+		Secure:  false,
+		ACME:    false,
 	}
-	job := jobStartHTTPListener(conf)
-
-	data, err = proto.Marshal(&pb.HTTP{JobID: int32(job.ID)})
-	resp(data, err)
-}
-
-func jobStartHTTPListener(conf *c2.HTTPServerConfig) *core.Job {
-	server := c2.StartHTTPSListener(conf)
-	name := "http"
-	if conf.Secure {
-		name = "https"
+	job, err := c2.StartHTTPListenerJob(conf)
+	if err != nil {
+		return nil, err
 	}
 
-	job := &core.Job{
-		ID:          core.GetJobID(),
-		Name:        name,
-		Description: fmt.Sprintf("%s for domain %s", name, conf.Domain),
-		Protocol:    "tcp",
-		Port:        uint16(conf.LPort),
-		JobCtrl:     make(chan bool),
-	}
-	core.Jobs.AddJob(job)
-
-	cleanup := func(err error) {
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-		server.HTTPServer.Shutdown(ctx)
-		core.Jobs.RemoveJob(job)
-		core.EventBroker.Publish(core.Event{
-			Job:       job,
-			EventType: consts.StoppedEvent,
-			Err:       err,
-		})
-	}
-	once := &sync.Once{}
-
-	go func() {
-		var err error
-		if server.Conf.Secure {
-			err = server.HTTPServer.ListenAndServeTLS(conf.CertPath, conf.KeyPath)
-		} else {
-			err = server.HTTPServer.ListenAndServe()
+	if req.Persistent {
+		cfg := &configs.HTTPJobConfig{
+			Domain:  req.Domain,
+			Host:    req.Host,
+			Port:    listenPort,
+			Secure:  false,
+			Website: req.Website,
 		}
-		if err != nil {
-			log.Printf("%s listener error %v", name, err)
-			once.Do(func() { cleanup(err) })
-			job.JobCtrl <- true // Cleanup other goroutine
-		}
-	}()
+		configs.GetServerConfig().AddHTTPJob(cfg)
+		job.PersistentID = cfg.JobID
+	}
 
-	go func() {
-		<-job.JobCtrl
-		once.Do(func() { cleanup(nil) })
-	}()
-
-	return job
+	return &clientpb.HTTPListener{JobID: uint32(job.ID)}, nil
 }

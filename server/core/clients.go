@@ -1,82 +1,117 @@
 package core
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
-	clientpb "sliver/protobuf/client"
-	sliverpb "sliver/protobuf/sliver"
 	"sync"
+
+	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
 var (
-	// Clients - Manages client connections
-	Clients = &clientConns{
-		Connections: &map[int]*Client{},
-		mutex:       &sync.RWMutex{},
+	// Clients - Manages client active
+	Clients = &clients{
+		active: map[int]*Client{},
+		mutex:  &sync.Mutex{},
 	}
 
-	clientID = new(int)
+	clientID = 0
 )
 
 // Client - Single client connection
 type Client struct {
 	ID       int
-	Operator string
-
-	Send  chan *sliverpb.Envelope
-	Resp  map[uint64]chan *sliverpb.Envelope
-	mutex *sync.RWMutex
+	Operator *clientpb.Operator
 }
 
 // ToProtobuf - Get the protobuf version of the object
 func (c *Client) ToProtobuf() *clientpb.Client {
 	return &clientpb.Client{
-		ID:       int32(c.ID),
+		ID:       uint32(c.ID),
 		Operator: c.Operator,
 	}
 }
 
-// Response - Drop an evelope into a response channel
-func (c *Client) Response(envelope *sliverpb.Envelope) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	if resp, ok := c.Resp[envelope.ID]; ok {
-		resp <- envelope
-	}
-}
-
-// clientConns - Manage client connections
-type clientConns struct {
-	mutex       *sync.RWMutex
-	Connections *map[int]*Client
+// clients - Manage active clients
+type clients struct {
+	mutex  *sync.Mutex
+	active map[int]*Client
 }
 
 // AddClient - Add a client struct atomically
-func (cc *clientConns) AddClient(client *Client) {
+func (cc *clients) Add(client *Client) {
 	cc.mutex.Lock()
 	defer cc.mutex.Unlock()
-	(*cc.Connections)[client.ID] = client
+	cc.active[client.ID] = client
+	EventBroker.Publish(Event{
+		EventType: consts.JoinedEvent,
+		Client:    client,
+	})
+}
+
+// AddClient - Add a client struct atomically
+func (cc *clients) ActiveOperators() []string {
+	cc.mutex.Lock()
+	defer cc.mutex.Unlock()
+	operators := []string{}
+	for _, client := range cc.active {
+		operators = append(operators, client.Operator.Name)
+	}
+	return operators
 }
 
 // RemoveClient - Remove a client struct atomically
-func (cc *clientConns) RemoveClient(clientID int) {
+func (cc *clients) Remove(clientID int) {
 	cc.mutex.Lock()
 	defer cc.mutex.Unlock()
-	delete((*cc.Connections), clientID)
+	client := cc.active[clientID]
+	delete(cc.active, clientID)
+	EventBroker.Publish(Event{
+		EventType: consts.LeftEvent,
+		Client:    client,
+	})
 }
 
-// GetClientID - Get a client ID
-func GetClientID() int {
-	newID := (*clientID) + 1
-	(*clientID)++
+// nextClientID - Get a client ID
+func nextClientID() int {
+	newID := clientID + 1
+	clientID++
 	return newID
 }
 
-// GetClient - Create a new client object
-func GetClient(operator string) *Client {
+// NewClient - Create a new client object
+func NewClient(operatorName string) *Client {
 	return &Client{
-		ID:       GetClientID(),
-		Operator: operator,
-		mutex:    &sync.RWMutex{},
-		Send:     make(chan *sliverpb.Envelope),
-		Resp:     map[uint64]chan *sliverpb.Envelope{},
+		ID: nextClientID(),
+		Operator: &clientpb.Operator{
+			Name: operatorName,
+		},
+		// mutex: &sync.RWMutex{},
 	}
+}
+
+func (cc *clients) GetClientOperator(id int) string {
+	for _, c := range cc.active {
+		if c.ID == id {
+			return c.Operator.Name
+		}
+	}
+	return ""
 }

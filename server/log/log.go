@@ -1,5 +1,23 @@
 package log
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"errors"
 	"fmt"
@@ -9,6 +27,10 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	envVarName = "SLIVER_ROOT_DIR"
 )
 
 var (
@@ -26,19 +48,40 @@ func NamedLogger(pkg, stream string) *logrus.Entry {
 	})
 }
 
+// GetRootAppDir - Get the Sliver app dir, default is: ~/.sliver/
+func GetRootAppDir() string {
+
+	value := os.Getenv(envVarName)
+
+	var dir string
+	if len(value) == 0 {
+		user, _ := user.Current()
+		dir = path.Join(user.HomeDir, ".sliver")
+	} else {
+		dir = value
+	}
+
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err = os.MkdirAll(dir, 0700)
+		if err != nil {
+			panic("Cannot write to sliver root dir")
+		}
+	}
+	return dir
+}
+
 // GetLogDir - Return the log dir
 func GetLogDir() string {
-	user, _ := user.Current()
-	dir := path.Join(user.HomeDir, ".sliver")
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, os.ModePerm)
+	rootDir := GetRootAppDir()
+	if _, err := os.Stat(rootDir); os.IsNotExist(err) {
+		err = os.MkdirAll(rootDir, 0700)
 		if err != nil {
 			panic(err)
 		}
 	}
-	logDir := path.Join(dir, "logs")
+	logDir := path.Join(rootDir, "logs")
 	if _, err := os.Stat(logDir); os.IsNotExist(err) {
-		err = os.MkdirAll(logDir, os.ModePerm)
+		err = os.MkdirAll(logDir, 0700)
 		if err != nil {
 			panic(err)
 		}
@@ -65,7 +108,10 @@ func rootLogger() *logrus.Logger {
 // RootLogger - Returns the root logger
 func txtLogger() *logrus.Logger {
 	txtLogger := logrus.New()
-	txtLogger.Formatter = &logrus.TextFormatter{ForceColors: true}
+	txtLogger.Formatter = &logrus.TextFormatter{
+		ForceColors: true,
+		FullTimestamp: true,
+	}
 	txtFilePath := path.Join(GetLogDir(), "sliver.log")
 	txtFile, err := os.OpenFile(txtFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
