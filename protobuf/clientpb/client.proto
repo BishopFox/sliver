@@ -24,21 +24,23 @@ message Session {
   uint32 ID = 1;
   string Name = 2;
   string Hostname = 3;
-  string Username = 4;
-  string UID = 5;
-  string GID = 6;
-  string OS = 7;
-  string Arch = 8;
-  string Transport = 9;
-  string RemoteAddress = 10;
-  int32 PID = 11;
-  string Filename = 12; // Argv[0]
-  string LastCheckin = 13;
-  string ActiveC2 = 14;
-  string Version = 15;
-  bool Evasion = 16;
-  bool IsDead = 17;
-  uint32 ReconnectInterval = 18;
+  string UUID = 4;
+  string Username = 5;
+  string UID = 6;
+  string GID = 7;
+  string OS = 8;
+  string Arch = 9;
+  string Transport = 10;
+  string RemoteAddress = 11;
+  int32 PID = 12;
+  string Filename = 13; // Argv[0]
+  string LastCheckin = 14;
+  string ActiveC2 = 15;
+  string Version = 16;
+  bool Evasion = 17;
+  bool IsDead = 18;
+  uint32 ReconnectInterval = 19;
+  string ProxyURL = 20;
 }
 
 message ImplantC2 {
@@ -88,6 +90,10 @@ message ImplantConfig {
 // Configs of previously built implants
 message ImplantBuilds {
   map<string, ImplantConfig> Configs = 1;
+}
+
+message DeleteReq {
+  string Name = 1;
 }
 
 // DNSCanary - Single canary and metadata
@@ -320,11 +326,11 @@ message CreateTunnelReq {
 message CreateTunnel {
   uint32 SessionID = 1;
 
-  uint64 TunnelID = 8;
+  uint64 TunnelID = 8 [jstype = JS_STRING];
 }
 
 message CloseTunnelReq {
-  uint64 TunnelID = 8;
+  uint64 TunnelID = 8 [jstype = JS_STRING];
 
   commonpb.Request Request = 9;
 }
@@ -360,7 +366,7 @@ message Operator {
 message WebContent {
   string Path = 1;
   string ContentType = 2;
-  uint64 Size = 3;
+  uint64 Size = 3 [jstype = JS_STRING];
 
   bytes Content = 9;
 }
@@ -382,4 +388,84 @@ message Website {
 
 message Websites {
   repeated Website Websites = 1;
+}
+
+// [ History commands ] ----------------------------------------
+
+// AddCmdHistoryRequest - Consoles send their commands each time.
+// If the current command is executed in an implant context,
+// the precise UUID is passed along, so that each implant host has
+// one unified history, and all sessions created on the same host,
+// will share the same set.
+message AddCmdHistoryRequest {
+  string Line = 1;
+  Session Session = 2;      // If not nil, also require a session set
+
+  commonpb.Request Request = 9;
+}
+
+message AddCmdHistory {
+  bool Doublon = 1;          // Do not increment index, item is doublon
+  repeated string User = 2;
+  repeated string Sliver = 3;
+
+  commonpb.Response Response = 9;
+}
+
+// HistoryRequest - A console wants a command history.
+// We may ask for two sets of history at once: the user, and a session
+message HistoryRequest {
+  bool AllConsoles = 1;     // One merged history for all user consoles
+  int32 Index = 2;          // The maximum number of entries wished 
+  Session Session = 3;      // If not nil, also require a session set
+        
+  commonpb.Request Request = 9;
+}
+
+// History - Command history content.
+message History {
+  repeated string User = 2;
+  int32 UserHistLength = 3;
+
+  repeated string Sliver = 4;
+  int32 SliverHistLength = 5;
+
+  commonpb.Response Response = 9;
+}
+
+// [ Console configuration ] ----------------------------------------
+
+// ConsoleConfig - The console configuration elements,
+// saved for each user and the server default.
+message ConsoleConfig {
+  string ServerPromptRight = 1;
+  string ServerPromptLeft = 2;
+  string SliverPromptRight = 3;
+  string SliverPromptLeft = 4;
+  bool Hints = 5;
+  bool Vim = 6;
+}
+
+// Ask for config
+message GetConsoleConfigReq {
+  commonpb.Request Request = 9;
+}
+
+// Get config
+message GetConsoleConfig {
+  ConsoleConfig Config = 1;
+
+  commonpb.Response Response = 9;
+}
+
+// Save the config
+message SaveConsoleConfigReq {
+  ConsoleConfig Config = 1;
+
+  commonpb.Request Request = 9;
+}
+
+// Saved
+message SaveConsoleConfig {
+  commonpb.Response Response = 9;
 }

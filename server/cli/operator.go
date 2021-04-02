@@ -19,14 +19,24 @@ package cli
 */
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 
+	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/console"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh"
+)
+
+var (
+	namePattern = regexp.MustCompile("^[a-zA-Z0-9_]*$") // Only allow alphanumeric chars
 )
 
 var cmdOperator = &cobra.Command{
@@ -71,7 +81,8 @@ var cmdOperator = &cobra.Command{
 		}
 
 		certs.SetupCAs()
-		configJSON, err := console.NewPlayerConfig(name, lhost, lport)
+		configJSON, err := newPlayerConfig(name, lhost, lport)
+		// configJSON, err := console.NewPlayerConfig(name, lhost, lport)
 		if err != nil {
 			fmt.Printf("Failed: %s\n", err)
 			os.Exit(1)
@@ -93,4 +104,43 @@ var cmdOperator = &cobra.Command{
 			os.Exit(1)
 		}
 	},
+}
+
+// newPlayerConfig - Generate a new player/client/operator configuration
+func newPlayerConfig(operatorName, lhost string, lport uint16) ([]byte, error) {
+
+	if !namePattern.MatchString(operatorName) {
+		return nil, errors.New("Invalid operator name (alphanumerics only)")
+	}
+
+	if operatorName == "" {
+		return nil, errors.New("Operator name required")
+	}
+
+	if lhost == "" {
+		return nil, errors.New("Invalid lhost")
+	}
+
+	publicKey, privateKey, err := certs.OperatorClientGenerateCertificate(operatorName)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to generate certificate %s", err)
+	}
+
+	caCertPEM, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
+
+	// Make a fingerprint of the implant's private key, for SSH-layer authentication
+	signer, _ := ssh.ParsePrivateKey(serverCAKey)
+	keyBytes := sha256.Sum256(signer.PublicKey().Marshal())
+	fingerprint := base64.StdEncoding.EncodeToString(keyBytes[:])
+
+	config := assets.ServerConfig{
+		Operator:          operatorName,
+		LHost:             lhost,
+		LPort:             int(lport),
+		CACertificate:     string(caCertPEM),
+		PrivateKey:        string(privateKey),
+		Certificate:       string(publicKey),
+		ServerFingerprint: fingerprint,
+	}
+	return json.Marshal(config)
 }

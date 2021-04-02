@@ -68,7 +68,7 @@ type JobConfig struct {
 	HTTP []*HTTPJobConfig `json:"http,omitempty"`
 }
 
-// Per-type job configs
+// MTLSJobConfig - Per-type job configs
 type MTLSJobConfig struct {
 	Host  string `json:"host"`
 	Port  uint16 `json:"port"`
@@ -126,7 +126,7 @@ func (c *ServerConfig) Save() error {
 	return nil
 }
 
-// Add Job Configs
+// AddMTLSJob - Add Job Configs
 func (c *ServerConfig) AddMTLSJob(config *MTLSJobConfig) error {
 	if c.Jobs == nil {
 		c.Jobs = &JobConfig{}
@@ -136,6 +136,7 @@ func (c *ServerConfig) AddMTLSJob(config *MTLSJobConfig) error {
 	return c.Save()
 }
 
+// AddDNSJob - Add a persistent DNS job
 func (c *ServerConfig) AddDNSJob(config *DNSJobConfig) error {
 	if c.Jobs == nil {
 		c.Jobs = &JobConfig{}
@@ -145,6 +146,7 @@ func (c *ServerConfig) AddDNSJob(config *DNSJobConfig) error {
 	return c.Save()
 }
 
+// AddHTTPJob - Add a persistent job
 func (c *ServerConfig) AddHTTPJob(config *HTTPJobConfig) error {
 	if c.Jobs == nil {
 		c.Jobs = &JobConfig{}
@@ -154,7 +156,7 @@ func (c *ServerConfig) AddHTTPJob(config *HTTPJobConfig) error {
 	return c.Save()
 }
 
-// Remove Job by ID
+// RemoveJob - Remove Job by ID
 func (c *ServerConfig) RemoveJob(jobID string) {
 	if c.Jobs == nil {
 		return
@@ -198,6 +200,14 @@ func GetServerConfig() *ServerConfig {
 	} else {
 		serverConfigLog.Warnf("Config file does not exist, using defaults")
 	}
+
+	if config.Logs.Level < 0 {
+		config.Logs.Level = 0
+	}
+	if 6 < config.Logs.Level {
+		config.Logs.Level = 6
+	}
+
 	err := config.Save() // This updates the config with any missing fields
 	if err != nil {
 		serverConfigLog.Errorf("Failed to save default config %s", err)
@@ -213,9 +223,9 @@ func getDefaultServerConfig() *ServerConfig {
 			Port: 31337,
 		},
 		Logs: &LogConfig{
-			Level:              int(logrus.DebugLevel),
-			GRPCUnaryPayloads:  true,
-			GRPCStreamPayloads: true,
+			Level:              int(logrus.InfoLevel),
+			GRPCUnaryPayloads:  false,
+			GRPCStreamPayloads: false,
 		},
 		Jobs: &JobConfig{},
 	}

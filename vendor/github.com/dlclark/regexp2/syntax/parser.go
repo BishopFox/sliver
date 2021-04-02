@@ -1250,10 +1250,10 @@ func (p *parser) scanBasicBackslash(scanOnly bool) (*regexNode, error) {
 			return nil, nil
 		}
 
-		if p.isCaptureSlot(capnum) {
+		if p.useOptionE() || p.isCaptureSlot(capnum) {
 			return newRegexNodeM(ntRef, p.options, capnum), nil
 		}
-		if capnum <= 9 && !p.useOptionE() {
+		if capnum <= 9 {
 			return nil, p.getErr(ErrUndefinedBackRef, capnum)
 		}
 
@@ -1648,7 +1648,7 @@ func (p *parser) scanOptions() {
 }
 
 // Scans \ code for escape codes that map to single unicode chars.
-func (p *parser) scanCharEscape() (r rune, err error) {
+func (p *parser) scanCharEscape() (rune, error) {
 
 	ch := p.moveRightGetChar()
 
@@ -1657,22 +1657,16 @@ func (p *parser) scanCharEscape() (r rune, err error) {
 		return p.scanOctal(), nil
 	}
 
-	pos := p.textpos()
-
 	switch ch {
 	case 'x':
 		// support for \x{HEX} syntax from Perl and PCRE
 		if p.charsRight() > 0 && p.rightChar(0) == '{' {
-			if p.useOptionE() {
-				return ch, nil
-			}
 			p.moveRight(1)
 			return p.scanHexUntilBrace()
-		} else {
-			r, err = p.scanHex(2)
 		}
+		return p.scanHex(2)
 	case 'u':
-		r, err = p.scanHex(4)
+		return p.scanHex(4)
 	case 'a':
 		return '\u0007', nil
 	case 'b':
@@ -1690,18 +1684,13 @@ func (p *parser) scanCharEscape() (r rune, err error) {
 	case 'v':
 		return '\u000B', nil
 	case 'c':
-		r, err = p.scanControl()
+		return p.scanControl()
 	default:
 		if !p.useOptionE() && IsWordChar(ch) {
 			return 0, p.getErr(ErrUnrecognizedEscape, string(ch))
 		}
 		return ch, nil
 	}
-	if err != nil && p.useOptionE() {
-		p.textto(pos)
-		return ch, nil
-	}
-	return
 }
 
 // Grabs and converts an ascii control character
@@ -1818,12 +1807,12 @@ func (p *parser) scanOctal() rune {
 	//we know the first char is good because the caller had to check
 	i := 0
 	d := int(p.rightChar(0) - '0')
-	for c > 0 && d <= 7 && d >= 0 {
-		if i >= 0x20 && p.useOptionE() {
-			break
-		}
+	for c > 0 && d <= 7 {
 		i *= 8
 		i += d
+		if p.useOptionE() && i >= 0x20 {
+			break
+		}
 		c--
 
 		p.moveRight(1)

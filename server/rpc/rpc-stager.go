@@ -34,7 +34,10 @@ func (rpc *Server) StartTCPStagerListener(ctx context.Context, req *clientpb.Sta
 		host = "0.0.0.0"
 	}
 	job, err := c2.StartTCPStagerListenerJob(host, uint16(req.GetPort()), req.GetData())
-	return &clientpb.StagerListener{JobID: uint32(job.ID)}, err
+	if err != nil {
+		return nil, err
+	}
+	return &clientpb.StagerListener{JobID: uint32(job.ID)}, nil
 }
 
 // StartHTTPStagerListener starts a HTTP(S) stager listener

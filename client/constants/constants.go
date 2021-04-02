@@ -27,30 +27,43 @@ const (
 const (
 	UpdateStr  = "update"
 	VersionStr = "version"
+	ExitStr    = "exit"
 
 	EventStr = "event"
 
-	ServerErrorStr = "server"
+	ServerErrorStr = "server-error"
 
 	// ConnectedEvent - Sliver Connected
-	SessionOpenedEvent = "connected"
+	SessionOpenedEvent = "session-connected"
 	// DisconnectedEvent - Sliver disconnected
-	SessionClosedEvent = "disconnected"
+	SessionClosedEvent = "session-disconnected"
 	// UpdateEvent - Sliver updated
-	SessionUpdateEvent = "updated"
+	SessionUpdateEvent = "session-updated"
 
 	// JoinedEvent - Player joined the game
-	JoinedEvent = "joined"
+	JoinedEvent = "client-joined"
 	// LeftEvent - Player left the game
-	LeftEvent = "left"
+	LeftEvent = "client-left"
 
 	// CanaryEvent - A DNS canary was triggered
 	CanaryEvent = "canary"
 
 	// StartedEvent - Job was started
-	JobStartedEvent = "started"
+	JobStartedEvent = "job-started"
 	// StoppedEvent - Job was stopped
-	JobStoppedEvent = "stopped"
+	JobStoppedEvent = "job-stopped"
+
+	// BuildEvent - Fires on change to builds
+	BuildEvent = "build"
+
+	// BuildCompletedEvent - Fires when a build completes
+	BuildCompletedEvent = "build-completed"
+
+	// ProfileEvent - Fires whenever there's a change to profiles
+	ProfileEvent = "profile"
+
+	// WebsiteEvent - Fires whenever there's a change to websites
+	WebsiteEvent = "website"
 )
 
 // Commands
@@ -64,25 +77,41 @@ const (
 	BackgroundStr = "background"
 	InfoStr       = "info"
 	UseStr        = "use"
+	InteractStr   = "interact"
 	SetStr        = "set"
+	HelpStr       = "help"
 
 	GenerateStr        = "generate"
+	StageStr           = "stage"
+	StagerStr          = "stager"
 	RegenerateStr      = "regenerate"
 	ProfileGenerateStr = "generate-profile"
-	StagerStr          = "stager"
 	ProfilesStr        = "profiles"
+	ProfilesDeleteStr  = "delete"
 	NewProfileStr      = "new-profile"
 
-	ListSliverBuildsStr = "slivers"
-	ListCanariesStr     = "canaries"
+	ImplantBuildsStr = "implants"
+	ListCanariesStr  = "canaries"
 
 	JobsStr        = "jobs"
+	JobsKillStr    = "kill"
+	JobsKillAllStr = "kill-all"
 	MtlsStr        = "mtls"
 	DnsStr         = "dns"
 	HttpStr        = "http"
 	HttpsStr       = "https"
 	NamedPipeStr   = "named-pipe"
 	TCPListenerStr = "tcp-pivot"
+
+	ConfigStr             = "config"
+	ConfigSaveStr         = "save"
+	ConfigPromptServerStr = "prompt-server"
+	ConfigPromptSliverStr = "prompt-sliver"
+	ConfigVimStr          = "vim"
+	ConfigEmacsStr        = "emacs"
+	ConfigHintsStr        = "hints"
+
+	LogStr = "log"
 
 	MsfStr       = "msf"
 	MsfInjectStr = "msf-inject"
@@ -104,6 +133,7 @@ const (
 	RmStr       = "rm"
 	MkdirStr    = "mkdir"
 	CdStr       = "cd"
+	LcdStr      = "lcd"
 	PwdStr      = "pwd"
 	CatStr      = "cat"
 	DownloadStr = "download"
@@ -125,13 +155,36 @@ const (
 	LoadExtensionStr    = "load-extension"
 	StageListenerStr    = "stage-listener"
 
-	WebsitesStr = "websites"
+	WebsitesStr       = "websites"
+	RmWebContentStr   = "rm-content"
+	AddWebContentStr  = "add-content"
+	WebContentTypeStr = "content-type"
+	WebUpdateStr      = "update"
 
-	ScreenshotStr = "screenshot"
-	PsExecStr     = "psexec"
-	BackdoorStr   = "backdoor"
-	MakeTokenStr  = "make-token"
-	GetEnvStr     = "getenv"
+	ScreenshotStr         = "screenshot"
+	PsExecStr             = "psexec"
+	BackdoorStr           = "backdoor"
+	MakeTokenStr          = "make-token"
+	GetEnvStr             = "getenv"
+	SetEnvStr             = "setenv"
+	RegistryStr           = "registry"
+	RegistryReadStr       = "read"
+	RegistryWriteStr      = "write"
+	RegistryListSubStr    = "list-subkeys"
+	RegistryListValuesStr = "list-values"
+	RegistryCreateKeyStr  = "create"
+
+	RouteStr       = "route"
+	RoutePrintStr  = "print"
+	RouteAddStr    = "add"
+	RouteRemoveStr = "remove"
+
+	PortfwdStr      = "portfwd"
+	PortfwdPrintStr = "print"
+	PortfwdOpenStr  = "open"
+	PortfwdCloseStr = "close"
+
+	LicensesStr = "licenses"
 )
 
 // Groups
@@ -141,4 +194,39 @@ const (
 	SliverWinHelpGroup   = "Sliver - Windows:"
 	MultiplayerHelpGroup = "Multiplayer:"
 	ExtensionHelpGroup   = "Sliver - 3rd Party extensions:"
+)
+
+// Command categories
+const (
+	AdminGroup      = "admin"
+	CoreServerGroup = "core (server)"
+	BuildsGroup     = "implants"
+	TransportsGroup = "transports"
+	SessionsGroup   = "sessions"
+	CommGroup       = "comm"
+
+	// Session only
+	CoreSessionGroup = "core (session)"
+	FilesystemGroup  = "filesystem"
+	InfoGroup        = "information"
+	ProcGroup        = "process"
+	PrivGroup        = "priv"
+	ExecuteGroup     = "execution"
+	PersistenceGroup = "persistence"
+	ExtensionsGroup  = "extensions"
+)
+
+// C2 default values
+const (
+	DefaultMTLSLPort    = 8888
+	DefaultHTTPLPort    = 80
+	DefaultHTTPSLPort   = 443
+	DefaultDNSLPort     = 53
+	DefaultTCPLPort     = 4444
+	DefaultTCPPivotPort = 9898
+
+	DefaultReconnect = 60
+	DefaultMaxErrors = 1000
+
+	DefaultTimeout = 60
 )

@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	pivotLog        = log.NamedLogger("c2", "pivot")
+	pivotLog = log.NamedLogger("c2", "pivot")
 
 	// Pivots - holds the pivots, provides atomic access
 	Pivots = &PivotsMap{
@@ -106,17 +106,18 @@ func HandlePivotOpen(session *core.Session, data []byte) {
 		Send:          make(chan *sliverpb.Envelope),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
-		Name: 		   register.Name,
-		Hostname: 	   register.Hostname,
-		Username: 	   register.Username,
-		UID: 		   register.Uid,
-		GID: 		   register.Gid,
-		Os: 		   register.Os,
-		Arch: 		   register.Arch,
-		PID: 		   register.Pid,
-		Filename:	   register.Filename,
-		ActiveC2: 	   register.ActiveC2,
-		Version: 	   register.Version,
+		Name:          register.Name,
+		Hostname:      register.Hostname,
+		UUID:          register.Uuid,
+		Username:      register.Username,
+		UID:           register.Uid,
+		GID:           register.Gid,
+		Os:            register.Os,
+		Arch:          register.Arch,
+		PID:           register.Pid,
+		Filename:      register.Filename,
+		ActiveC2:      register.ActiveC2,
+		Version:       register.Version,
 	}
 	go func() {
 		for envelope := range sliverPivoted.Send {
@@ -133,6 +134,17 @@ func HandlePivotOpen(session *core.Session, data []byte) {
 	}()
 	core.Sessions.Add(sliverPivoted)
 	Pivots.AddSession(pivotOpen.GetPivotID(), sliverPivoted)
+
+	// Get the implant's private key for fingerprinting the SSH layer, and get the ServerCA private key as well.
+	// _, implantKey, _ := certs.GetECCCertificate(certs.ImplantCA, sliverPivoted.Name)
+	// _, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
+	//
+	// // Instantiate and start the Comms, which will build a Tunnel over the Session RPC.
+	// _, err = comm.Init(nil, sliverPivoted, serverCAKey, implantKey)
+	// if err != nil {
+	//         pivotLog.Errorf("Comm init failed: %v", err)
+	//         return
+	// }
 }
 
 // HandlePivotClose - Handles a PivotClose message

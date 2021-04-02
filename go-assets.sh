@@ -18,18 +18,15 @@
 
 
 # Creates the static go asset archives
-# You'll need wget, tar, and unzip commands
 
-GO_VER="1.15"
-GO_ARCH="amd64"
+GO_VER="1.16.2"
+GARBLE_VER="1.16.2"
+
+GO_ARCH_1="amd64"
+GO_ARCH_2="arm64"
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
 
-PROTOBUF_COMMIT=347cf4a86c1cb8d262994d8ef5924d4576c5b331
-GOLANG_SYS_COMMIT=669c56c373c468cbe0f0c12b7939832b26088d33
-
-
-if ! [ -x "$(command -v wget)" ]; then
-  echo 'Error: wget is not installed.' >&2
+if ! [ -x "$(command -v curl)" ]; then
   exit 1
 fi
 
@@ -49,87 +46,97 @@ if ! [ -x "$(command -v tar)" ]; then
 fi
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+OUTPUT_DIR=$REPO_DIR/server/assets/fs
 WORK_DIR=`mktemp -d`
 
 echo "-----------------------------------------------------------------"
-echo $WORK_DIR
+echo "$WORK_DIR (Output: $OUTPUT_DIR)"
 echo "-----------------------------------------------------------------"
 cd $WORK_DIR
-mkdir -p $REPO_DIR/assets/
 
-# --- Darwin --- 
-wget -O go$GO_VER.darwin-amd64.tar.gz https://dl.google.com/go/go$GO_VER.darwin-$GO_ARCH.tar.gz
-tar xvf go$GO_VER.darwin-amd64.tar.gz
+# --- Darwin (amd64) --- 
+curl --output go$GO_VER.darwin-$GO_ARCH_1.tar.gz https://dl.google.com/go/go$GO_VER.darwin-$GO_ARCH_1.tar.gz
+tar xvf go$GO_VER.darwin-$GO_ARCH_1.tar.gz
 
 cd go
 rm -rf $BLOAT_FILES
 zip -r ../src.zip ./src  # Zip up /src we only need to do this once
 rm -rf ./src
-rm -f ./pkg/tool/darwin_$GO_ARCH/doc
-rm -f ./pkg/tool/darwin_$GO_ARCH/tour
-rm -f ./pkg/tool/darwin_$GO_ARCH/test2json
+rm -f ./pkg/tool/darwin_$GO_ARCH_1/doc
+rm -f ./pkg/tool/darwin_$GO_ARCH_1/tour
+rm -f ./pkg/tool/darwin_$GO_ARCH_1/test2json
 cd ..
-cp -vv src.zip $REPO_DIR/assets/src.zip
+cp -vv src.zip $OUTPUT_DIR/src.zip
 rm -f src.zip
 
 zip -r darwin-go.zip ./go
-mkdir -p $REPO_DIR/assets/darwin/
-cp -vv darwin-go.zip $REPO_DIR/assets/darwin/go.zip
+mkdir -p $OUTPUT_DIR/darwin/$GO_ARCH_1
+cp -vv darwin-go.zip $OUTPUT_DIR/darwin/$GO_ARCH_1/go.zip
 
 rm -rf ./go
-rm -f darwin-go.zip go$GO_VER.darwin-$GO_ARCH.tar.gz
+rm -f darwin-go.zip go$GO_VER.darwin-$GO_ARCH_1.tar.gz
 
+# --- Darwin (arm64) --- 
+curl --output go$GO_VER.darwin-$GO_ARCH_2.tar.gz https://dl.google.com/go/go$GO_VER.darwin-$GO_ARCH_2.tar.gz
+tar xvf go$GO_VER.darwin-$GO_ARCH_2.tar.gz
+
+cd go
+rm -rf $BLOAT_FILES
+zip -r ../src.zip ./src  # Zip up /src we only need to do this once
+rm -rf ./src
+rm -f ./pkg/tool/darwin_$GO_ARCH_2/doc
+rm -f ./pkg/tool/darwin_$GO_ARCH_2/tour
+rm -f ./pkg/tool/darwin_$GO_ARCH_2/test2json
+cd ..
+cp -vv src.zip $OUTPUT_DIR/src.zip
+rm -f src.zip
+
+zip -r darwin-go.zip ./go
+mkdir -p $OUTPUT_DIR/darwin/$GO_ARCH_2
+cp -vv darwin-go.zip $OUTPUT_DIR/darwin/$GO_ARCH_2/go.zip
+
+rm -rf ./go
+rm -f darwin-go.zip go$GO_VER.darwin-$GO_ARCH_2.tar.gz
 
 # --- Linux --- 
-wget -O go$GO_VER.linux-amd64.tar.gz https://dl.google.com/go/go$GO_VER.linux-$GO_ARCH.tar.gz
+curl --output go$GO_VER.linux-amd64.tar.gz https://dl.google.com/go/go$GO_VER.linux-$GO_ARCH_1.tar.gz
 tar xvf go$GO_VER.linux-amd64.tar.gz
 cd go
 rm -rf $BLOAT_FILES
 rm -rf ./src
-rm -f ./pkg/tool/linux_$GO_ARCH/doc
-rm -f ./pkg/tool/linux_$GO_ARCH/tour
-rm -f ./pkg/tool/linux_$GO_ARCH/test2json
+rm -f ./pkg/tool/linux_$GO_ARCH_1/doc
+rm -f ./pkg/tool/linux_$GO_ARCH_1/tour
+rm -f ./pkg/tool/linux_$GO_ARCH_1/test2json
 cd ..
 zip -r linux-go.zip ./go
-mkdir -p $REPO_DIR/assets/linux/
-cp -vv linux-go.zip $REPO_DIR/assets/linux/go.zip
+mkdir -p $OUTPUT_DIR/linux/$GO_ARCH_1
+cp -vv linux-go.zip $OUTPUT_DIR/linux/$GO_ARCH_1/go.zip
 rm -rf ./go
-rm -f linux-go.zip go$GO_VER.linux-$GO_ARCH.tar.gz
+rm -f linux-go.zip go$GO_VER.linux-$GO_ARCH_1.tar.gz
 
 # --- Windows --- 
-wget -O go$GO_VER.windows-amd64.zip https://dl.google.com/go/go$GO_VER.windows-$GO_ARCH.zip
+curl --output go$GO_VER.windows-amd64.zip https://dl.google.com/go/go$GO_VER.windows-$GO_ARCH_1.zip
 unzip go$GO_VER.windows-amd64.zip
 cd go
 rm -rf $BLOAT_FILES
 rm -rf ./src
-rm -f ./pkg/tool/windows_$GO_ARCH/doc.exe
-rm -f ./pkg/tool/windows_$GO_ARCH/tour.exe
-rm -f ./pkg/tool/windows_$GO_ARCH/test2json.exe
+rm -f ./pkg/tool/windows_$GO_ARCH_1/doc.exe
+rm -f ./pkg/tool/windows_$GO_ARCH_1/tour.exe
+rm -f ./pkg/tool/windows_$GO_ARCH_1/test2json.exe
 cd ..
 zip -r windows-go.zip ./go
-mkdir -p $REPO_DIR/assets/windows/
-cp -vv windows-go.zip $REPO_DIR/assets/windows/go.zip
+mkdir -p $OUTPUT_DIR/windows/$GO_ARCH_1
+cp -vv windows-go.zip $OUTPUT_DIR/windows/$GO_ARCH_1/go.zip
 rm -rf ./go
-rm -f windows-go.zip go$GO_VER.windows-$GO_ARCH.zip
-
+rm -f windows-go.zip go$GO_VER.windows-$GO_ARCH_1.zip
 
 echo "-----------------------------------------------------------------"
-echo " 3rd Party Assets"
+echo " Garble"
 echo "-----------------------------------------------------------------"
-cd $WORK_DIR
-
-wget -O $PROTOBUF_COMMIT.zip https://github.com/golang/protobuf/archive/$PROTOBUF_COMMIT.zip
-unzip $PROTOBUF_COMMIT.zip
-rm -f $PROTOBUF_COMMIT.zip
-mv protobuf-$PROTOBUF_COMMIT protobuf
-zip -r protobuf.zip ./protobuf
-cp -vv protobuf.zip $REPO_DIR/assets/protobuf.zip
-
-wget -O $GOLANG_SYS_COMMIT.tar.gz https://github.com/golang/sys/archive/$GOLANG_SYS_COMMIT.tar.gz
-tar xfv $GOLANG_SYS_COMMIT.tar.gz
-rm -f $GOLANG_SYS_COMMIT.tar.gz
-mv sys-$GOLANG_SYS_COMMIT sys
-zip -r $REPO_DIR/assets/golang_x_sys.zip sys
+curl -L --output $OUTPUT_DIR/linux/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux
+curl -L --output $OUTPUT_DIR/windows/$GO_ARCH_1/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows.exe
+curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_1
+curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_2/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_2
 
 # end
 echo -e "clean up: $WORK_DIR"
