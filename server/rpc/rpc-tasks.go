@@ -345,7 +345,7 @@ func getExportOffsetFromFile(filepath string, exportName string) (funcOffset uin
 
 func getExportOffsetFromMemory(rawData []byte, exportName string) (funcOffset uint32, err error) {
 	peReader := bytes.NewReader(rawData)
-	fpe, err := pe.NewFileFromMemory(peReader)
+	fpe, err := pe.NewFile(peReader)
 	if err != nil {
 		return 0, err
 	}
