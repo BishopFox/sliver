@@ -274,6 +274,7 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			Data:        binData,
 			ProcessName: processName,
 			EntryPoint:  c.Entrypoint,
+			Kill:        true,
 		})
 		ctrl <- true
 		<-ctrl
@@ -298,6 +299,7 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			Data:        binData,
 			EntryPoint:  entryPoint,
 			ProcessName: processName,
+			Kill:        true,
 		})
 		ctrl <- true
 		<-ctrl
