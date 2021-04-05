@@ -1493,4 +1493,36 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 	app.AddCommand(registryCmd)
 
+	// [ Portfwd ] --------------------------------------------------------------
+	portfwdCmd := &grumble.Command{
+		Name:     consts.PortfwdStr,
+		Help:     "In-band TCP port forwarding",
+		LongHelp: help.GetHelpFor(consts.PortfwdStr),
+		Run: func(ctx *grumble.Context) error {
+			portfwd(ctx, rpc)
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	}
+	portfwdCmd.AddCommand(&grumble.Command{
+		Name:     "add",
+		Help:     "Create a new port forwarding tunnel",
+		LongHelp: help.GetHelpFor(consts.PortfwdStr),
+		Run: func(ctx *grumble.Context) error {
+			portfwdAdd(ctx, rpc)
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+	portfwdCmd.AddCommand(&grumble.Command{
+		Name:     "rm",
+		Help:     "Remove a port forwarding tunnel",
+		LongHelp: help.GetHelpFor(consts.PortfwdStr),
+		Run: func(ctx *grumble.Context) error {
+			portfwdRm(ctx, rpc)
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+	app.AddCommand(portfwdCmd)
 }

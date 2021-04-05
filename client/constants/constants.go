@@ -155,6 +155,8 @@ const (
 	RegistryListValuesStr = "list-values"
 	RegistryCreateKeyStr  = "create"
 
+	PortfwdStr = "portfwd"
+
 	LicensesStr = "licenses"
 )
 

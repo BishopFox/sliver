@@ -47,7 +47,7 @@ func portfwdAdd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		}
 	}()
 
-	fmt.Println("Started proxy!")
+	fmt.Println(Info + "Started proxy!")
 }
 
 func portfwdRm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {

