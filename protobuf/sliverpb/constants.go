@@ -192,6 +192,11 @@ const (
 	MsgRegistryWriteReq
 	// MsgRegistryCreateKeyReq
 	MsgRegistryCreateKeyReq
+
+	// MsgPortfwdReq - Establish a port forward
+	MsgPortfwdReq
+	// MsgPortfwd - Response of port forward
+	MsgPortfwd
 )
 
 // MsgNumber - Get a message number of type

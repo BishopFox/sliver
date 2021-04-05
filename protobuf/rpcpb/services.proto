@@ -97,6 +97,7 @@ service SliverRPC {
 
     // *** Realtime Commands ***
     rpc Shell(sliverpb.ShellReq) returns (sliverpb.Shell);
+    rpc Portfwd(sliverpb.PortfwdReq) returns (sliverpb.Portfwd);
 
     // *** Tunnels ***
     rpc CreateTunnel(sliverpb.Tunnel) returns (sliverpb.Tunnel);

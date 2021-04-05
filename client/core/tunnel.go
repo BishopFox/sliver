@@ -3,7 +3,6 @@ package core
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"sync"
@@ -12,27 +11,10 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-const (
-	randomIDSize = 16 // 64bits
-)
-
 var (
 	// Tunnels - Holds refs to all tunnels
 	Tunnels tunnels
 )
-
-type tunnelAddr struct {
-	network string
-	addr    string
-}
-
-func (a *tunnelAddr) Network() string {
-	return a.network
-}
-
-func (a *tunnelAddr) String() string {
-	return fmt.Sprintf("%s://%s", a.network, a.addr)
-}
 
 // Holds the tunnels locally so we can map incoming data
 // messages to the tunnel
