@@ -20,22 +20,34 @@ import (
 
 func portfwd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf("Port Forwards\n")
+	// TODO
 }
 
 func portfwdAdd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
 	if session.GetActiveC2() == "dns" {
 		fmt.Printf(Warn + "Current C2 is DNS, this is going to be a very slow tunnel!\n")
 	}
+	remoteAddr := ctx.Flags.String("remote")
+	if remoteAddr == "" {
+		fmt.Println(Warn + "Must specify a remote target host:port")
+		return
+	}
+	remoteHost, remotePort, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		fmt.Print(Warn+"Failed to parse remote target %s\n", err)
+		return
+	}
+	fmt.Printf(Info+"Port forwarding -> %s:%s\n", remoteHost, remotePort)
 
 	proxy := tcpproxy.Proxy{}
 	proxy.AddRoute("127.0.0.1:8080", &ChannelProxy{
 		rpc:             rpc,
 		session:         session,
-		Addr:            "",
+		Addr:            remoteAddr,
 		KeepAlivePeriod: 60 * time.Second,
 		DialTimeout:     30 * time.Second,
 	})
@@ -51,7 +63,7 @@ func portfwdAdd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func portfwdRm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-
+	// TODO
 }
 
 // ChannelProxy binds the Sliver Tunnel to a net.Conn object

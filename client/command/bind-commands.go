@@ -1498,6 +1498,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Name:     consts.PortfwdStr,
 		Help:     "In-band TCP port forwarding",
 		LongHelp: help.GetHelpFor(consts.PortfwdStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			portfwd(ctx, rpc)
 			return nil
@@ -1508,6 +1511,10 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Name:     "add",
 		Help:     "Create a new port forwarding tunnel",
 		LongHelp: help.GetHelpFor(consts.PortfwdStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("r", "remote", "", "remote target host:port (e.g., 10.0.0.1:445)")
+		},
 		Run: func(ctx *grumble.Context) error {
 			portfwdAdd(ctx, rpc)
 			return nil
@@ -1518,6 +1525,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Name:     "rm",
 		Help:     "Remove a port forwarding tunnel",
 		LongHelp: help.GetHelpFor(consts.PortfwdStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			portfwdRm(ctx, rpc)
 			return nil
