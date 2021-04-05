@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/tcpproxy"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -19,9 +20,6 @@ import (
 
 func portfwd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf("Port Forwards\n")
-	for _, portfwd := range core.Portfwds.List() {
-		fmt.Printf("%s:%d\n", portfwd.Protocol, portfwd.Port)
-	}
 }
 
 func portfwdAdd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -33,14 +31,33 @@ func portfwdAdd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn + "Current C2 is DNS, this is going to be a very slow tunnel!\n")
 	}
 
+	proxy := tcpproxy.Proxy{}
+	proxy.AddRoute("127.0.0.1:8080", &ChannelProxy{
+		rpc:             rpc,
+		session:         session,
+		Addr:            "",
+		KeepAlivePeriod: 60 * time.Second,
+		DialTimeout:     30 * time.Second,
+	})
+
+	go func() {
+		err := proxy.Run()
+		if err != nil {
+			fmt.Printf("\r\n"+Warn+"Proxy error %s\n", err)
+		}
+	}()
+
+	fmt.Println("Started proxy!")
 }
 
 func portfwdRm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 }
 
+// ChannelProxy binds the Sliver Tunnel to a net.Conn object
+// one ChannelProxy per port bind.
 //
-//
+// Implements the Target interface from tcpproxy pkg
 type ChannelProxy struct {
 	rpc     rpcpb.SliverRPCClient
 	session *clientpb.Session
@@ -82,24 +99,34 @@ func (p *ChannelProxy) HandleConn(conn net.Conn) {
 	}
 }
 
-func (p *ChannelProxy) Port() uint32 {
-	defaultPort := uint32(80)
-	_, rawPort, err := net.SplitHostPort(p.Addr)
+func (p *ChannelProxy) HostPort() (string, uint32) {
+	defaultPort := uint32(8080)
+	host, rawPort, err := net.SplitHostPort(p.Addr)
 	if err != nil {
 		log.Printf("Failed to parse addr %s", p.Addr)
-		return defaultPort
+		return "", defaultPort
 	}
 	portNumber, err := strconv.Atoi(rawPort)
 	if err != nil {
 		log.Printf("Failed to parse number from %s", rawPort)
-		return defaultPort
+		return "", defaultPort
 	}
 	port := uint32(portNumber)
 	if port < 1 || 65535 < port {
 		log.Printf("Invalid port number %d", port)
-		return defaultPort
+		return "", defaultPort
 	}
+	return host, port
+}
+
+func (p *ChannelProxy) Port() uint32 {
+	_, port := p.HostPort()
 	return port
+}
+
+func (p *ChannelProxy) Host() string {
+	host, _ := p.HostPort()
+	return host
 }
 
 func (p *ChannelProxy) dialImplant(ctx context.Context) (*core.Tunnel, error) {
@@ -122,6 +149,7 @@ func (p *ChannelProxy) dialImplant(ctx context.Context) (*core.Tunnel, error) {
 		Request: &commonpb.Request{
 			SessionID: p.session.ID,
 		},
+		Host:     p.Host(),
 		Port:     p.Port(),
 		Protocol: sliverpb.PortfwdProtocol_TCP,
 		TunnelID: tunnel.ID,

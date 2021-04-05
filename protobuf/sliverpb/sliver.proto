@@ -598,6 +598,8 @@ enum PortfwdProtocol {
 message PortfwdReq {
   uint32 Port = 1;
   PortfwdProtocol Protocol = 2;
+  string Host = 3;
+
 
   uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
   commonpb.Request Request = 9;
@@ -605,7 +607,9 @@ message PortfwdReq {
 
 message Portfwd {
   uint32 Port = 1;
-  
+  PortfwdProtocol Protocol = 2;
+  string Host = 3;
+
   uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
   commonpb.Response Response = 9;
 }
