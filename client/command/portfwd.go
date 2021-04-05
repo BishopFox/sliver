@@ -95,10 +95,7 @@ func (p *ChannelProxy) HandleConn(conn net.Conn) {
 	}
 
 	// Cleanup
-	defer func() {
-		go conn.Close()
-		core.Tunnels.Close(tunnel.ID)
-	}()
+	defer func() { go conn.Close() }()
 
 	errs := make(chan error, 1)
 	go toImplantLoop(conn, tunnel, errs)

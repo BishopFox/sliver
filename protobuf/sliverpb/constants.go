@@ -369,6 +369,11 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgRegistryWriteReq
 	case *RegistryCreateKeyReq:
 		return MsgRegistryCreateKeyReq
+
+	case *PortfwdReq:
+		return MsgPortfwdReq
+	case *Portfwd:
+		return MsgPortfwd
 	}
 	return uint32(0)
 }
