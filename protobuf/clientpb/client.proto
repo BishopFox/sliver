@@ -114,6 +114,11 @@ message Canaries {
   repeated DNSCanary Canaries = 1;
 }
 
+// UniqueWGIP - Unique wireguard IP
+message UniqueWGIP {
+  string IP = 1;
+}
+
 message ImplantProfile {
   string Name = 1;
   ImplantConfig Config = 2;

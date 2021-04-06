@@ -8,11 +8,11 @@ import (
 	"net"
 	"sync"
 
-	"github.com/bishopfox/sliver/client/command"
 	"github.com/bishopfox/sliver/netstack"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/generate"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/golang/protobuf/proto"
@@ -123,7 +123,7 @@ func handleKeyExchangeConnection(conn net.Conn) {
 	wgLog.Infof("Handling connection to key exchange listener")
 
 	defer conn.Close()
-	ip, err := command.GenerateUniqueIP()
+	ip, err := generate.GenerateUniqueIP()
 	if err != nil {
 		wgLog.Errorf("Failed to generate unique IP: %s", err)
 	}

@@ -137,6 +137,20 @@ func (rpc *Server) Canaries(ctx context.Context, _ *commonpb.Empty) (*clientpb.C
 	}, nil
 }
 
+// GenerateUniqueIP - Wrapper around generate.GenerateUniqueIP
+func (rpc *Server) GenerateUniqueIP(ctx context.Context, _ *commonpb.Empty) (*clientpb.UniqueWGIP, error) {
+	uniqueIP, err := generate.GenerateUniqueIP()
+
+	if err != nil {
+		rpcLog.Infof("Failed to generate unique wg peer ip: %s\n", err)
+		return nil, err
+	}
+
+	return &clientpb.UniqueWGIP{
+		IP: uniqueIP.String(),
+	}, nil
+}
+
 // ImplantProfiles - List profiles
 func (rpc *Server) ImplantProfiles(ctx context.Context, _ *commonpb.Empty) (*clientpb.ImplantProfiles, error) {
 	implantProfiles := &clientpb.ImplantProfiles{
