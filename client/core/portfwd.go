@@ -67,10 +67,15 @@ func (f *portfwds) Add(tcpProxy *tcpproxy.Proxy, channelProxy *ChannelProxy) *Po
 	return portfwd
 }
 
-func (f *portfwds) Remove(portfwdID int) {
+func (f *portfwds) Remove(portfwdID int) bool {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
-	delete(f.forwards, portfwdID)
+	if portfwd, ok := f.forwards[portfwdID]; ok {
+		portfwd.TCPProxy.Close()
+		delete(f.forwards, portfwdID)
+		return true
+	}
+	return false
 }
 
 func (f *portfwds) List() []*PortfwdMeta {
@@ -207,6 +212,13 @@ func (p *ChannelProxy) dialTimeout() time.Duration {
 }
 
 func toImplantLoop(conn net.Conn, tunnel *Tunnel, errs chan<- error) {
+	if wc, ok := conn.(*tcpproxy.Conn); ok && len(wc.Peeked) > 0 {
+		if _, err := tunnel.Write(wc.Peeked); err != nil {
+			errs <- err
+			return
+		}
+		wc.Peeked = nil
+	}
 	n, err := io.Copy(tunnel, conn)
 	log.Printf("[tcpproxy] Closing to-implant after %d byte(s)", n)
 	errs <- err

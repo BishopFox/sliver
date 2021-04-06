@@ -1532,9 +1532,12 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		LongHelp: help.GetHelpFor(consts.PortfwdStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("i", "id", 0, "id of portfwd to remove")
 		},
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			portfwdRm(ctx, rpc)
+			fmt.Println()
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,

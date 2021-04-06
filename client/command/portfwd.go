@@ -3,7 +3,9 @@ package command
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"net"
+	"sort"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -15,6 +17,10 @@ import (
 )
 
 func portfwd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	portfwds := core.Portfwds.List()
+	sort.Slice(portfwds[:], func(i, j int) bool {
+		return portfwds[i].ID < portfwds[j].ID
+	})
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 	fmt.Fprintf(table, "ID\tSession ID\tBind Address\tRemote Address\t\n")
@@ -24,9 +30,8 @@ func portfwd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		strings.Repeat("=", len("Bind Address")),
 		strings.Repeat("=", len("Remote Address")),
 	)
-	for _, p := range core.Portfwds.List() {
-		fmt.Fprintf(table, "%d\t%d\t%s\t%s\t\n",
-			p.ID, p.SessionID, p.BindAddr, p.RemoteAddr)
+	for _, p := range portfwds {
+		fmt.Fprintf(table, "%d\t%d\t%s\t%s\t\n", p.ID, p.SessionID, p.BindAddr, p.RemoteAddr)
 	}
 	table.Flush()
 	fmt.Printf("%s", outputBuf.String())
@@ -71,7 +76,8 @@ func portfwdAdd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	go func() {
 		err := tcpProxy.Run()
 		if err != nil {
-			fmt.Printf("\r\n"+Warn+"Proxy error %s\n", err)
+			// fmt.Printf("\r\n"+Warn+"Proxy error %s\n", err)
+			log.Printf("Proxy error %s", err)
 		}
 	}()
 
@@ -79,5 +85,15 @@ func portfwdAdd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func portfwdRm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	// TODO
+	portfwdID := ctx.Flags.Int("id")
+	if portfwdID < 1 {
+		fmt.Println(Warn + "Must specify a valid portfwd id")
+		return
+	}
+	found := core.Portfwds.Remove(portfwdID)
+	if !found {
+		fmt.Printf(Warn+"No portfwd with id %d\n", portfwdID)
+	} else {
+		fmt.Println(Info + "Removed portfwd")
+	}
 }
