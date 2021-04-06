@@ -301,22 +301,11 @@ func portfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 	}
 
 	go func() {
-		for {
-			tWriter := tunnelWriter{
-				tun:  tunnel,
-				conn: connection,
-			}
-			_, err := io.Copy(tWriter, tunnel.Reader)
-			if err == io.EOF {
-				cleanup(err)
-				return
-			}
-			if err != nil {
-				// {{if .Config.Debug}}
-				log.Printf("[portfwd] Tunnel copy error", err)
-				// {{end}}
-			}
+		tWriter := tunnelWriter{
+			tun:  tunnel,
+			conn: connection,
 		}
-
+		_, err := io.Copy(tWriter, tunnel.Reader)
+		cleanup(err)
 	}()
 }

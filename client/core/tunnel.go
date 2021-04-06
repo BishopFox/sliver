@@ -128,7 +128,7 @@ func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 
 		// log.Printf("Waiting for TunnelData ...")
 		incoming, err := stream.Recv()
-		log.Printf("Recv stream msg: %v", incoming)
+		// log.Printf("Recv stream msg: %v", incoming)
 		if err == io.EOF {
 			log.Printf("EOF Error: Tunnel data stream closed")
 			return nil
