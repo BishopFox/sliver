@@ -1502,7 +1502,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			portfwd(ctx, rpc)
+			fmt.Println()
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
@@ -1514,9 +1516,12 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.String("r", "remote", "", "remote target host:port (e.g., 10.0.0.1:445)")
+			f.String("b", "bind", "127.0.0.1:8080", "bind port forward to interface")
 		},
 		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
 			portfwdAdd(ctx, rpc)
+			fmt.Println()
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,

@@ -29,7 +29,7 @@ func portfwd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			p.ID, p.SessionID, p.BindAddr, p.RemoteAddr)
 	}
 	table.Flush()
-	fmt.Printf("\n%s\n", outputBuf.String())
+	fmt.Printf("%s", outputBuf.String())
 }
 
 func portfwdAdd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -50,9 +50,11 @@ func portfwdAdd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Print(Warn+"Failed to parse remote target %s\n", err)
 		return
 	}
-	bindAddr := "127.0.0.1:8080"
-
-	fmt.Printf(Info+"Port forwarding %s -> %s:%s\n", bindAddr, remoteHost, remotePort)
+	bindAddr := ctx.Flags.String("bind")
+	if remoteAddr == "" {
+		fmt.Println(Warn + "Must specify a bind target host:port")
+		return
+	}
 
 	tcpProxy := &tcpproxy.Proxy{}
 	channelProxy := &core.ChannelProxy{
@@ -73,7 +75,7 @@ func portfwdAdd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		}
 	}()
 
-	fmt.Println(Info + "Started proxy!")
+	fmt.Printf(Info+"Port forwarding %s -> %s:%s\n", bindAddr, remoteHost, remotePort)
 }
 
 func portfwdRm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
