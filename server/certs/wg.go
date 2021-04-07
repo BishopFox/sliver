@@ -20,7 +20,7 @@ var (
 
 func SetupWGKeys() {
 	if _, _, err := GetWGServerKeys(); err != nil {
-		wgKeysLog.Infof("No wg server keys detected")
+		wgKeysLog.Info("No wg server keys detected")
 		GenerateWGKeys(false, "")
 	}
 }
@@ -48,7 +48,7 @@ func GetWGPeers() (map[string]string, error) {
 // GetWGServerKeys - Get existing wg server keys
 func GetWGServerKeys() (string, string, error) {
 
-	wgKeysLog.Infof("Getting wg keys for wg server")
+	wgKeysLog.Info("Getting wg keys for wg server")
 
 	wgKeysModel := models.WGKeys{}
 	dbSession := db.Session()
@@ -65,7 +65,11 @@ func GetWGServerKeys() (string, string, error) {
 
 // GenerateWGKeys - Generates and saves new wg keys
 func GenerateWGKeys(isPeer bool, wgPeerTunIP string) (string, string, error) {
-	privKey, pubKey := genWGKeys()
+	privKey, pubKey, err := genWGKeys()
+
+	if err != nil {
+		return "", "", err
+	}
 
 	if err := saveWGKeys(isPeer, wgPeerTunIP, privKey, pubKey); err != nil {
 		wgKeysLog.Error("Error Saving wg keys: ", err)
@@ -74,21 +78,22 @@ func GenerateWGKeys(isPeer bool, wgPeerTunIP string) (string, string, error) {
 	return privKey, pubKey, nil
 }
 
-func genWGKeys() (string, string) {
+func genWGKeys() (string, string, error) {
 	wgKeysLog.Infof("Generating wg keys")
 
 	privateKey, err := wgtypes.GeneratePrivateKey()
 	if err != nil {
-		wgKeysLog.Fatalf("Failed to generate private key: %s", err)
+		wgKeysLog.Warnf("Failed to generate private key: %s", err)
+		return "", "", err
 	}
 	publicKey := privateKey.PublicKey()
-	return hex.EncodeToString(privateKey[:]), hex.EncodeToString(publicKey[:])
+	return hex.EncodeToString(privateKey[:]), hex.EncodeToString(publicKey[:]), nil
 }
 
 // saveWGKeys - Saves wg keys to the database
 func saveWGKeys(isPeer bool, wgPeerTunIP string, privKey string, pubKey string) error {
 
-	wgKeysLog.Infof("Saving wg keys")
+	wgKeysLog.Info("Saving wg keys")
 	dbSession := db.Session()
 
 	var result *gorm.DB

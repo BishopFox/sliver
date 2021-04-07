@@ -129,10 +129,13 @@ func handleKeyExchangeConnection(conn net.Conn) {
 	}
 
 	implantPrivKey, _, err := certs.ImplantGenerateWGKeys(ip.String())
-	_, serverPubKey, err := certs.GetWGServerKeys()
-
 	if err != nil {
 		wgLog.Errorf("Failed to generate new wg keys: %s", err)
+	}
+
+	_, serverPubKey, err := certs.GetWGServerKeys()
+	if err != nil {
+		wgLog.Errorf("Failed to retrieve existing wg server keys: %s", err)
 	} else {
 		wgLog.Infof("Successfully generated new wg keys")
 		message := implantPrivKey + "|" + serverPubKey + "|" + string(ip)
