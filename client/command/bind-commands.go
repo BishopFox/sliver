@@ -49,7 +49,6 @@ const (
 	defaultHTTPLPort    = 80
 	defaultHTTPSLPort   = 443
 	defaultDNSLPort     = 53
-	defaultTCPPort      = 4444
 	defaultTCPPivotPort = 9898
 
 	defaultReconnect = 60
