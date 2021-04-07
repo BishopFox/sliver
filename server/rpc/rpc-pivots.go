@@ -41,3 +41,12 @@ func (rpc *Server) TCPListener(ctx context.Context, req *sliverpb.TCPPivotReq) (
 	}
 	return resp, nil
 }
+
+func (rpc *Server) ListPivots(ctx context.Context, req *sliverpb.PivotListReq) (*sliverpb.PivotList, error) {
+	resp := &sliverpb.PivotList{}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

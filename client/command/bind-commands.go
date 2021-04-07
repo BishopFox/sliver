@@ -1493,4 +1493,21 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 	app.AddCommand(registryCmd)
 
+	app.AddCommand(&grumble.Command{
+		Name:     consts.PivotsListStr,
+		Help:     "List pivots",
+		LongHelp: help.GetHelpFor(consts.PivotsListStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			listPivots(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("i", "id", "", "session id")
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
 }

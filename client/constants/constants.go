@@ -154,6 +154,7 @@ const (
 	RegistryListSubStr    = "list-subkeys"
 	RegistryListValuesStr = "list-values"
 	RegistryCreateKeyStr  = "create"
+	PivotsListStr         = "pivots-list"
 
 	LicensesStr = "licenses"
 )

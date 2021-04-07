@@ -19,9 +19,14 @@ package command
 */
 
 import (
-	"fmt"
+	"bytes"
 	"context"
+	"fmt"
+	"strings"
+	"text/tabwriter"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
@@ -48,7 +53,7 @@ func namedPipeListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	_, err := rpc.NamedPipes(context.Background(), &sliverpb.NamedPipesReq{
 		PipeName: pipeName,
-		Request: ActiveSession.Request(ctx),
+		Request:  ActiveSession.Request(ctx),
 	})
 
 	if err != nil {
@@ -80,4 +85,66 @@ func tcpListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	fmt.Printf(Info+"Listening on tcp://%s", address)
+}
+
+func listPivots(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	timeout := ctx.Flags.Int("timeout")
+	sessionID := ctx.Flags.String("id")
+	if sessionID != "" {
+		session := GetSession(sessionID, rpc)
+		if session == nil {
+			return
+		}
+		printPivots(session, int64(timeout), rpc)
+	} else {
+		sessions, err := rpc.GetSessions(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			fmt.Printf(Warn+"Error: %v", err)
+			return
+		}
+		for _, session := range sessions.Sessions {
+			printPivots(session, int64(timeout), rpc)
+		}
+	}
+}
+
+func printPivots(session *clientpb.Session, timeout int64, rpc rpcpb.SliverRPCClient) {
+	pivotList, err := rpc.ListPivots(context.Background(), &sliverpb.PivotListReq{
+		Request: &commonpb.Request{
+			SessionID: session.ID,
+			Timeout:   timeout,
+			Async:     false,
+		},
+	})
+
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
+
+	if pivotList.Response != nil && pivotList.Response.Err != "" {
+		fmt.Printf(Warn+"Error: %s", pivotList.Response.Err)
+		return
+	}
+
+	if len(pivotList.Entries) > 0 {
+		fmt.Printf(Info+"Session %d\n", session.ID)
+		outputBuf := bytes.NewBufferString("")
+		table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+
+		fmt.Fprintf(table, "type\taddress\t\n")
+		fmt.Fprintf(table, "%s\t%s\t\n",
+			strings.Repeat("=", len("type")),
+			strings.Repeat("=", len("address")),
+		)
+
+		for _, entry := range pivotList.Entries {
+			fmt.Fprintf(table, "%s\t%s\t\n", entry.Type, entry.Remote)
+		}
+		table.Flush()
+		fmt.Printf(outputBuf.String())
+	} else {
+		fmt.Printf(Info+"No pivots found for session %d\n", session.ID)
+	}
+
 }
