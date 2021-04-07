@@ -76,6 +76,7 @@ var (
 		consts.RegistryWriteStr:     regWriteHelp,
 		consts.RegistryReadStr:      regReadHelp,
 		consts.RegistryCreateKeyStr: regCreateKeyHelp,
+		consts.PivotsListStr:        pivotListHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -425,6 +426,22 @@ When using the binary type, you must either:
 	regCreateKeyHelp = `[[.Bold]]Command:[[.Normal]] registry create PATH [name]
 [[.Bold]]About:[[.Normal]] Read a value from the windows registry
 [[.Bold]]Example:[[.Normal]] registry create --hive HKLM "software\\google\\chrome\\BLBeacon\\version"
+	`
+
+	pivotListHelp = `[[.Bold]]Command:[[.Normal]] pivots-list [--id SESSIONID]
+[[.Bold]]About:[[.Normal]] List created pivots
+[[.Bold]]Examples:[[.Normal]]
+List pivots for all sessions:
+	
+	pivots-list
+
+List pivots for a specific session:
+
+	pivots-list --id 1
+
+List pivots for the current session:
+
+	pivots-list
 	`
 )
 

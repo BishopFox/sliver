@@ -97,13 +97,18 @@ func listPivots(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		}
 		printPivots(session, int64(timeout), rpc)
 	} else {
-		sessions, err := rpc.GetSessions(context.Background(), &commonpb.Empty{})
-		if err != nil {
-			fmt.Printf(Warn+"Error: %v", err)
-			return
-		}
-		for _, session := range sessions.Sessions {
+		session := ActiveSession.Get()
+		if session != nil {
 			printPivots(session, int64(timeout), rpc)
+		} else {
+			sessions, err := rpc.GetSessions(context.Background(), &commonpb.Empty{})
+			if err != nil {
+				fmt.Printf(Warn+"Error: %v", err)
+				return
+			}
+			for _, session := range sessions.Sessions {
+				printPivots(session, int64(timeout), rpc)
+			}
 		}
 	}
 }
