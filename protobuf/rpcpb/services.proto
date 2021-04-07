@@ -26,6 +26,7 @@ service SliverRPC {
 
     // *** Listeners ***
     rpc StartMTLSListener(clientpb.MTLSListenerReq) returns (clientpb.MTLSListener);
+    rpc StartWGListener(clientpb.WGListenerReq) returns (clientpb.WGListener);
     rpc StartDNSListener(clientpb.DNSListenerReq) returns (clientpb.DNSListener);
     rpc StartHTTPSListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
     rpc StartHTTPListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
@@ -40,6 +41,7 @@ service SliverRPC {
     rpc ImplantBuilds(commonpb.Empty) returns (clientpb.ImplantBuilds);
     rpc DeleteImplantBuild(clientpb.DeleteReq) returns (commonpb.Empty);
     rpc Canaries(commonpb.Empty) returns (clientpb.Canaries);
+    rpc GenerateUniqueIP(commonpb.Empty) returns (clientpb.UniqueWGIP);
     rpc ImplantProfiles(commonpb.Empty) returns (clientpb.ImplantProfiles);
     rpc DeleteImplantProfile(clientpb.DeleteReq) returns (commonpb.Empty);
     rpc SaveImplantProfile(clientpb.ImplantProfile) returns (clientpb.ImplantProfile);
@@ -84,6 +86,7 @@ service SliverRPC {
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
     rpc NamedPipes(sliverpb.NamedPipesReq) returns (sliverpb.NamedPipes);
     rpc TCPListener(sliverpb.TCPPivotReq) returns (sliverpb.TCPPivot);
+    rpc ListPivots(sliverpb.PivotListReq) returns (sliverpb.PivotList);
     rpc StartService(sliverpb.StartServiceReq) returns (sliverpb.ServiceInfo);
     rpc StopService(sliverpb.StopServiceReq) returns (sliverpb.ServiceInfo);
     rpc RemoveService(sliverpb.RemoveServiceReq) returns (sliverpb.ServiceInfo);

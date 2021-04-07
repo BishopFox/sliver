@@ -13,6 +13,7 @@ Contributing to Sliver
 * Any changes to `vendor/` should be in a distinct commit
 * Avoid use of `CGO` (limits cross-platform support)
 * Avoid use of empty interfaces
+* Never import anything from the `server` package in the `client` package.
 
 ## Security
 

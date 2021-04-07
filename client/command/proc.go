@@ -69,13 +69,24 @@ func ps(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
-	fmt.Fprintf(table, "pid\tppid\texecutable\towner\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
-		strings.Repeat("=", len("pid")),
-		strings.Repeat("=", len("ppid")),
-		strings.Repeat("=", len("executable")),
-		strings.Repeat("=", len("owner")),
-	)
+	if session.GetOS() != "windows" {
+		fmt.Fprintf(table, "pid\tppid\texecutable\towner\t\n")
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
+			strings.Repeat("=", len("pid")),
+			strings.Repeat("=", len("ppid")),
+			strings.Repeat("=", len("executable")),
+			strings.Repeat("=", len("owner")),
+		)
+	} else {
+		fmt.Fprintf(table, "pid\tppid\texecutable\towner\tsession\n")
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+			strings.Repeat("=", len("pid")),
+			strings.Repeat("=", len("ppid")),
+			strings.Repeat("=", len("executable")),
+			strings.Repeat("=", len("owner")),
+			strings.Repeat("=", len("session")),
+		)
+	}
 
 	lineColors := []string{}
 	for _, proc := range ps.Processes {
@@ -125,7 +136,12 @@ func printProcInfo(table *tabwriter.Writer, proc *commonpb.Process) string {
 	if session != nil && proc.Pid == session.PID {
 		color = green
 	}
-	fmt.Fprintf(table, "%d\t%d\t%s\t%s\t\n", proc.Pid, proc.Ppid, proc.Executable, proc.Owner)
+	if session.GetOS() == "windows" {
+		fmt.Fprintf(table, "%d\t%d\t%s\t%s\t%d\t\n", proc.Pid, proc.Ppid, proc.Executable, proc.Owner, proc.SessionID)
+	} else {
+
+		fmt.Fprintf(table, "%d\t%d\t%s\t%s\t\n", proc.Pid, proc.Ppid, proc.Executable, proc.Owner)
+	}
 	return color
 }
 

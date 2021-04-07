@@ -60,6 +60,12 @@ message ImplantConfig {
   bool Evasion = 31;
   bool ObfuscateSymbols = 30;
 
+  string WGImplantPrivKey = 33;
+  string WGServerPubKey = 34;
+  string WGPeerTunIP = 35;
+  uint32 WGKeyExchangePort = 36;
+  uint32 WGTcpCommsPort = 37;
+
   uint32 ReconnectInterval = 8;
   uint32 MaxConnectionErrors = 9;
 
@@ -110,6 +116,11 @@ message Canaries {
   repeated DNSCanary Canaries = 1;
 }
 
+// UniqueWGIP - Unique wireguard IP
+message UniqueWGIP {
+  string IP = 1;
+}
+
 message ImplantProfile {
   string Name = 1;
   ImplantConfig Config = 2;
@@ -156,6 +167,18 @@ message MTLSListenerReq {
 }
 
 message MTLSListener {
+  uint32 JobID = 1;
+}
+
+message WGListenerReq {
+  uint32 Port = 1;
+  string TunIP = 2;
+  uint32 NPort = 3;
+  uint32 KeyPort = 4;
+  bool Persistent = 5;
+}
+
+message WGListener {
   uint32 JobID = 1;
 }
 

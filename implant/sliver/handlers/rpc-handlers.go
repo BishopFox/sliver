@@ -64,12 +64,16 @@ func psHandler(data []byte, resp RPCResponse) {
 	}
 
 	for _, proc := range procs {
-		psList.Processes = append(psList.Processes, &commonpb.Process{
+		p := &commonpb.Process{
 			Pid:        int32(proc.Pid()),
 			Ppid:       int32(proc.PPid()),
 			Executable: proc.Executable(),
 			Owner:      proc.Owner(),
-		})
+		}
+		// {{if eq .Config.GOOS "windows"}}
+		p.SessionID = int32(proc.(*ps.WindowsProcess).SessionID())
+		// {{end}}
+		psList.Processes = append(psList.Processes, p)
 	}
 	data, err = proto.Marshal(psList)
 	resp(data, err)
