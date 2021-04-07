@@ -78,9 +78,10 @@ type MTLSJobConfig struct {
 
 // WGJobConfig - Per-type job configs
 type WGJobConfig struct {
-	Port  uint16 `json:"port"`
-	NPort uint16 `json:"nport"`
-	JobID string `json:"jobid"`
+	Port    uint16 `json:"port"`
+	NPort   uint16 `json:"nport"`
+	KeyPort uint16 `json:"key_port"`
+	JobID   string `json:"jobid"`
 }
 type DNSJobConfig struct {
 	Domains  []string `json:"domains"`

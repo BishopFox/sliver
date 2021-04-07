@@ -31,12 +31,13 @@ import (
 )
 
 const (
-	defaultMTLSPort  = 4444
-	defaultWGPort    = 53
-	defaultWGNPort   = 8888
-	defaultDNSPort   = 53
-	defaultHTTPPort  = 80
-	defaultHTTPSPort = 443
+	defaultMTLSPort    = 4444
+	defaultWGPort      = 53
+	defaultWGNPort     = 8888
+	defaultWGKeyExPort = 1337
+	defaultDNSPort     = 53
+	defaultHTTPPort    = 80
+	defaultHTTPSPort   = 443
 )
 
 var (
@@ -112,7 +113,7 @@ func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSList
 // StartWGListener - Start a Wireguard listener
 func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListenerReq) (*clientpb.WGListener, error) {
 
-	if 65535 <= req.Port || 65535 <= req.NPort {
+	if 65535 <= req.Port || 65535 <= req.NPort || 65535 <= req.KeyPort {
 		return nil, ErrInvalidPort
 	}
 	listenPort := uint16(defaultWGPort)
@@ -125,7 +126,12 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 		nListenPort = uint16(req.NPort)
 	}
 
-	job, err := c2.StartWGListenerJob(listenPort, nListenPort)
+	keyExchangeListenPort := uint16(defaultWGKeyExPort)
+	if req.NPort != 0 {
+		keyExchangeListenPort = uint16(req.KeyPort)
+	}
+
+	job, err := c2.StartWGListenerJob(listenPort, nListenPort, keyExchangeListenPort)
 	if err != nil {
 		return nil, err
 	}

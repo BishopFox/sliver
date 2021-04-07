@@ -73,9 +73,11 @@ type ImplantConfig struct {
 	ReconnectInterval   uint32
 	MaxConnectionErrors uint32
 
-	WGImplantPrivKey string
-	WGServerPubKey   string
-	WGPeerTunIP      string
+	WGImplantPrivKey  string
+	WGServerPubKey    string
+	WGPeerTunIP       string
+	WGKeyExchangePort uint32
+	WGTcpCommsPort    uint32
 
 	C2 []ImplantC2
 

@@ -68,8 +68,8 @@ func StartMTLSListenerJob(host string, listenPort uint16) (*core.Job, error) {
 	return job, nil
 }
 
-func StartWGListenerJob(listenPort uint16, nListenPort uint16) (*core.Job, error) {
-	ln, dev, currenWGConf, err := StartWGListener(listenPort, nListenPort)
+func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListenPort uint16) (*core.Job, error) {
+	ln, dev, currenWGConf, err := StartWGListener(listenPort, nListenPort, keyExchangeListenPort)
 	if err != nil {
 		return nil, err // If we fail to bind don't setup the Job
 	}
@@ -351,7 +351,7 @@ func StartPersistentJobs(cfg *configs.ServerConfig) error {
 	}
 
 	for _, j := range cfg.Jobs.WG {
-		job, err := StartWGListenerJob(j.Port, j.NPort)
+		job, err := StartWGListenerJob(j.Port, j.NPort, j.KeyPort)
 		if err != nil {
 			return err
 		}

@@ -48,6 +48,7 @@ const (
 	defaultMTLSLPort    = 8888
 	defaultWGLPort      = 53
 	defaultWGNPort      = 8888
+	defaultWGKeyExPort  = 1337
 	defaultHTTPLPort    = 80
 	defaultHTTPSLPort   = 443
 	defaultDNSLPort     = 53
@@ -149,6 +150,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("l", "lport", defaultWGLPort, "udp listen port")
 			f.Int("n", "nport", defaultWGNPort, "virtual tun interface listen port")
+			f.Int("x", "key-port", defaultWGKeyExPort, "virtual tun inteface key exchange port")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
@@ -397,6 +399,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("p", "named-pipe", "", "named-pipe connection strings")
 			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
 
+			f.Int("X", "key-exchange", defaultWGKeyExPort, "wg key-exchange port")
+			f.Int("T", "tcp-comms", defaultWGNPort, "wg c2 comms port")
+
 			f.Int("j", "reconnect", defaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("k", "max-errors", defaultMaxErrors, "max number of connection errors")
 
@@ -482,6 +487,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("n", "dns", "", "dns domain(s)")
 			f.String("e", "named-pipe", "", "named-pipe connection strings")
 			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
+
+			f.Int("X", "key-exchange", defaultWGKeyExPort, "wg key-exchange port")
+			f.Int("T", "tcp-comms", defaultWGNPort, "wg c2 comms port")
 
 			f.String("c", "canary", "", "canary domain(s)")
 

@@ -126,11 +126,13 @@ func startMTLSListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 func startWGListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	lport := uint16(ctx.Flags.Int("lport"))
 	nport := uint16(ctx.Flags.Int("nport"))
+	keyExchangePort := uint16(ctx.Flags.Int("key-port"))
 
 	fmt.Printf(Info + "Starting Wireguard listener ...\n")
 	wg, err := rpc.StartWGListener(context.Background(), &clientpb.WGListenerReq{
 		Port:       uint32(lport),
 		NPort:      uint32(nport),
+		KeyPort:    uint32(keyExchangePort),
 		Persistent: ctx.Flags.Bool("persistent"),
 	})
 	if err != nil {

@@ -118,6 +118,8 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.WGImplantPrivKey = pbConfig.WGImplantPrivKey
 	cfg.WGServerPubKey = pbConfig.WGServerPubKey
 	cfg.WGPeerTunIP = pbConfig.WGPeerTunIP
+	cfg.WGKeyExchangePort = pbConfig.WGKeyExchangePort
+	cfg.WGTcpCommsPort = pbConfig.WGTcpCommsPort
 	cfg.ReconnectInterval = pbConfig.ReconnectInterval
 	cfg.MaxConnectionErrors = pbConfig.MaxConnectionErrors
 

@@ -391,7 +391,9 @@ func parseCompileFlags(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) *clientp
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,
 
-		WGPeerTunIP: tunIP.String(),
+		WGPeerTunIP:       tunIP.String(),
+		WGKeyExchangePort: uint32(ctx.Flags.Int("key-exchange")),
+		WGTcpCommsPort:    uint32(ctx.Flags.Int("tcp-comms")),
 
 		ReconnectInterval:   uint32(reconnectInterval),
 		MaxConnectionErrors: uint32(maxConnectionErrors),

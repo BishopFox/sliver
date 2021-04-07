@@ -50,12 +50,14 @@ import (
 var (
 	mtlsPingInterval = 30 * time.Second
 
-	keyPEM           = `{{.Config.Key}}`
-	certPEM          = `{{.Config.Cert}}`
-	caCertPEM        = `{{.Config.CACert}}`
-	wgImplantPrivKey = `{{.Config.WGImplantPrivKey}}`
-	wgServerPubKey   = `{{.Config.WGServerPubKey}}`
-	wgPeerTunIP      = `{{.Config.WGPeerTunIP}}`
+	keyPEM            = `{{.Config.Key}}`
+	certPEM           = `{{.Config.Cert}}`
+	caCertPEM         = `{{.Config.CACert}}`
+	wgImplantPrivKey  = `{{.Config.WGImplantPrivKey}}`
+	wgServerPubKey    = `{{.Config.WGServerPubKey}}`
+	wgPeerTunIP       = `{{.Config.WGPeerTunIP}}`
+	wgKeyExchangePort = getWgKeyExchangePort()
+	wgTcpCommsPort    = getWgTcpCommsPort()
 
 	readBufSize       = 16 * 1024 // 16kb
 	maxErrors         = getMaxConnectionErrors()
@@ -296,6 +298,22 @@ func getMaxConnectionErrors() int {
 		return 1000
 	}
 	return maxConnectionErrors
+}
+
+func getWgKeyExchangePort() int {
+	wgKeyExchangePort, err := strconv.Atoi(`{{.Config.WGKeyExchangePort}}`)
+	if err != nil {
+		return 1337
+	}
+	return wgKeyExchangePort
+}
+
+func getWgTcpCommsPort() int {
+	wgTcpCommsPort, err := strconv.Atoi(`{{.Config.WGTcpCommsPort}}`)
+	if err != nil {
+		return 8888
+	}
+	return wgTcpCommsPort
 }
 
 // {{if .Config.MTLSc2Enabled}}

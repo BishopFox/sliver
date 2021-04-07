@@ -63,6 +63,8 @@ message ImplantConfig {
   string WGImplantPrivKey = 33;
   string WGServerPubKey = 34;
   string WGPeerTunIP = 35;
+  uint32 WGKeyExchangePort = 36;
+  uint32 WGTcpCommsPort = 37;
 
   uint32 ReconnectInterval = 8;
   uint32 MaxConnectionErrors = 9;
@@ -172,7 +174,8 @@ message WGListenerReq {
   uint32 Port = 1;
   string TunIP = 2;
   uint32 NPort = 3;
-  bool Persistent = 4;
+  uint32 KeyPort = 4;
+  bool Persistent = 5;
 }
 
 message WGListener {

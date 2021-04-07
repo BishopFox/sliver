@@ -29,7 +29,7 @@ var (
 // then creates a Wireguard device/interface and applies configuration.
 // Go routines are spun up to handle key exchange connections, as well
 // as c2 comms connections.
-func StartWGListener(port uint16, netstackPort uint16) (net.Listener, *device.Device, *bytes.Buffer, error) {
+func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uint16) (net.Listener, *device.Device, *bytes.Buffer, error) {
 	StartPivotListener()
 	wgLog.Infof("Starting Wireguard listener on port: %d", port)
 
@@ -81,7 +81,7 @@ func StartWGListener(port uint16, netstackPort uint16) (net.Listener, *device.De
 	dev.Up()
 
 	// Open up key exchange TCP socket
-	keyExchangeListener, err := tnet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(tunIP), Port: 1337})
+	keyExchangeListener, err := tnet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(tunIP), Port: int(keyExchangeListenPort)})
 	if err != nil {
 		wgLog.Panic("Failed to setup up wg key exchange listener: ", err)
 	}

