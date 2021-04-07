@@ -4,16 +4,18 @@ package ps
 
 import (
 	"fmt"
+	"golang.org/x/sys/windows"
 	"syscall"
 	"unsafe"
 )
 
 // WindowsProcess is an implementation of Process for Windows.
 type WindowsProcess struct {
-	pid   int
-	ppid  int
-	exe   string
-	owner string
+	pid       int
+	ppid      int
+	exe       string
+	owner     string
+	sessionID int
 }
 
 func (p *WindowsProcess) Pid() int {
@@ -32,6 +34,10 @@ func (p *WindowsProcess) Owner() string {
 	return p.owner
 }
 
+func (p *WindowsProcess) SessionID() int {
+	return p.sessionID
+}
+
 func newWindowsProcess(e *syscall.ProcessEntry32) *WindowsProcess {
 	// Find when the string ends for decoding
 	end := 0
@@ -42,12 +48,14 @@ func newWindowsProcess(e *syscall.ProcessEntry32) *WindowsProcess {
 		end++
 	}
 	account, _ := getProcessOwner(e.ProcessID)
+	sessionID, _ := getSessionID(e.ProcessID)
 
 	return &WindowsProcess{
-		pid:   int(e.ProcessID),
-		ppid:  int(e.ParentProcessID),
-		exe:   syscall.UTF16ToString(e.ExeFile[:end]),
-		owner: account,
+		pid:       int(e.ProcessID),
+		ppid:      int(e.ParentProcessID),
+		exe:       syscall.UTF16ToString(e.ExeFile[:end]),
+		owner:     account,
+		sessionID: sessionID,
 	}
 }
 
@@ -135,4 +143,13 @@ func processes() ([]Process, error) {
 	}
 
 	return results, nil
+}
+
+func getSessionID(pid uint32) (int, error) {
+	var sessionID uint32
+	err := windows.ProcessIdToSessionId(pid, &sessionID)
+	if err != nil {
+		return -1, err
+	}
+	return int(sessionID), nil
 }

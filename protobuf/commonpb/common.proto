@@ -35,6 +35,7 @@ message Process {
   int32 Ppid = 2;
   string Executable = 3;
   string Owner = 4;
+  int32 SessionID = 5;
 }
 
 // EnvVar - Environment variable K/V
