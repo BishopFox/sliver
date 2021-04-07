@@ -31,10 +31,13 @@ import (
 )
 
 const (
-	defaultMTLSPort  = 4444
-	defaultDNSPort   = 53
-	defaultHTTPPort  = 80
-	defaultHTTPSPort = 443
+	defaultMTLSPort    = 4444
+	defaultWGPort      = 53
+	defaultWGNPort     = 8888
+	defaultWGKeyExPort = 1337
+	defaultDNSPort     = 53
+	defaultHTTPPort    = 80
+	defaultHTTPSPort   = 443
 )
 
 var (
@@ -105,6 +108,44 @@ func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSList
 	}
 
 	return &clientpb.MTLSListener{JobID: uint32(job.ID)}, nil
+}
+
+// StartWGListener - Start a Wireguard listener
+func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListenerReq) (*clientpb.WGListener, error) {
+
+	if 65535 <= req.Port || 65535 <= req.NPort || 65535 <= req.KeyPort {
+		return nil, ErrInvalidPort
+	}
+	listenPort := uint16(defaultWGPort)
+	if req.Port != 0 {
+		listenPort = uint16(req.Port)
+	}
+
+	nListenPort := uint16(defaultWGNPort)
+	if req.NPort != 0 {
+		nListenPort = uint16(req.NPort)
+	}
+
+	keyExchangeListenPort := uint16(defaultWGKeyExPort)
+	if req.NPort != 0 {
+		keyExchangeListenPort = uint16(req.KeyPort)
+	}
+
+	job, err := c2.StartWGListenerJob(listenPort, nListenPort, keyExchangeListenPort)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Persistent {
+		cfg := &configs.WGJobConfig{
+			Port:  listenPort,
+			NPort: nListenPort,
+		}
+		configs.GetServerConfig().AddWGJob(cfg)
+		job.PersistentID = cfg.JobID
+	}
+
+	return &clientpb.WGListener{JobID: uint32(job.ID)}, nil
 }
 
 // StartDNSListener - Start a DNS listener TODO: respect request's Host specification

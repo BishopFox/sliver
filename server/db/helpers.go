@@ -174,3 +174,17 @@ func WebsiteByName(name string) (*models.Website, error) {
 	}
 	return &website, nil
 }
+
+// WGPeerIPs - Fetch a list of ips for all wireguard peers
+func WGPeerIPs() ([]string, error) {
+	wgPeers := []*models.WGPeer{}
+	err := Session().Where(&models.WGPeer{}).Find(&wgPeers).Error
+	if err != nil {
+		return nil, err
+	}
+	ips := []string{}
+	for _, peer := range wgPeers {
+		ips = append(ips, peer.TunIP)
+	}
+	return ips, nil
+}

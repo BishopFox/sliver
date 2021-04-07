@@ -64,6 +64,7 @@ type DaemonConfig struct {
 // JobConfig - Restart Jobs on Load
 type JobConfig struct {
 	MTLS []*MTLSJobConfig `json:"mtls,omitempty"`
+	WG   []*WGJobConfig   `json:"wg,omitempty"`
 	DNS  []*DNSJobConfig  `json:"dns,omitempty"`
 	HTTP []*HTTPJobConfig `json:"http,omitempty"`
 }
@@ -75,6 +76,13 @@ type MTLSJobConfig struct {
 	JobID string `json:"jobid"`
 }
 
+// WGJobConfig - Per-type job configs
+type WGJobConfig struct {
+	Port    uint16 `json:"port"`
+	NPort   uint16 `json:"nport"`
+	KeyPort uint16 `json:"key_port"`
+	JobID   string `json:"jobid"`
+}
 type DNSJobConfig struct {
 	Domains  []string `json:"domains"`
 	Canaries bool     `json:"canaries"`
@@ -133,6 +141,16 @@ func (c *ServerConfig) AddMTLSJob(config *MTLSJobConfig) error {
 	}
 	config.JobID = getRandomID()
 	c.Jobs.MTLS = append(c.Jobs.MTLS, config)
+	return c.Save()
+}
+
+// AddWGJob - Add Job Configs
+func (c *ServerConfig) AddWGJob(config *WGJobConfig) error {
+	if c.Jobs == nil {
+		c.Jobs = &JobConfig{}
+	}
+	config.JobID = getRandomID()
+	c.Jobs.WG = append(c.Jobs.WG, config)
 	return c.Save()
 }
 

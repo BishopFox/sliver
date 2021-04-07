@@ -26,6 +26,7 @@ service SliverRPC {
 
     // *** Listeners ***
     rpc StartMTLSListener(clientpb.MTLSListenerReq) returns (clientpb.MTLSListener);
+    rpc StartWGListener(clientpb.WGListenerReq) returns (clientpb.WGListener);
     rpc StartDNSListener(clientpb.DNSListenerReq) returns (clientpb.DNSListener);
     rpc StartHTTPSListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
     rpc StartHTTPListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
@@ -40,6 +41,7 @@ service SliverRPC {
     rpc ImplantBuilds(commonpb.Empty) returns (clientpb.ImplantBuilds);
     rpc DeleteImplantBuild(clientpb.DeleteReq) returns (commonpb.Empty);
     rpc Canaries(commonpb.Empty) returns (clientpb.Canaries);
+    rpc GenerateUniqueIP(commonpb.Empty) returns (clientpb.UniqueWGIP);
     rpc ImplantProfiles(commonpb.Empty) returns (clientpb.ImplantProfiles);
     rpc DeleteImplantProfile(clientpb.DeleteReq) returns (commonpb.Empty);
     rpc SaveImplantProfile(clientpb.ImplantProfile) returns (clientpb.ImplantProfile);

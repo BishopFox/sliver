@@ -75,8 +75,10 @@ const (
 	// LINUX OS
 	LINUX = "linux"
 
-	// GoPrivate - The default Go private arg to garble when obfuscation is enabled
-	GoPrivate = "github.com/*,golang.org/*"
+	// GoPrivate - The default Go private arg to garble when obfuscation is enabled.
+	// Wireguard dependencies prevent the use of wildcard github.com/* and golang.org/*.
+	// The current packages below aren't definitive and need to be tidied up.
+	GoPrivate = "github.com/bishopfox/*,github.com/Microsoft/*,github.com/burntsushi/*,github.com/kbinani/*,github.com/lxn/*,github.com/golang/*,github.com/shm/*"
 
 	clientsDirName = "clients"
 	sliversDirName = "slivers"
@@ -113,6 +115,11 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
 	// cfg.CanaryDomains = pbConfig.CanaryDomains
 
+	cfg.WGImplantPrivKey = pbConfig.WGImplantPrivKey
+	cfg.WGServerPubKey = pbConfig.WGServerPubKey
+	cfg.WGPeerTunIP = pbConfig.WGPeerTunIP
+	cfg.WGKeyExchangePort = pbConfig.WGKeyExchangePort
+	cfg.WGTcpCommsPort = pbConfig.WGTcpCommsPort
 	cfg.ReconnectInterval = pbConfig.ReconnectInterval
 	cfg.MaxConnectionErrors = pbConfig.MaxConnectionErrors
 
@@ -137,6 +144,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	// Copy C2
 	cfg.C2 = copyC2List(pbConfig.C2)
 	cfg.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, cfg.C2)
+	cfg.WGc2Enabled = isC2Enabled([]string{"wg"}, cfg.C2)
 	cfg.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, cfg.C2)
 	cfg.DNSc2Enabled = isC2Enabled([]string{"dns"}, cfg.C2)
 	cfg.NamePipec2Enabled = isC2Enabled([]string{"namedpipe"}, cfg.C2)
@@ -402,6 +410,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	buildLog.Infof("Generating new sliver binary '%s'", name)
 
 	config.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, config.C2)
+	config.WGc2Enabled = isC2Enabled([]string{"wg"}, config.C2)
 	config.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, config.C2)
 	config.DNSc2Enabled = isC2Enabled([]string{"dns"}, config.C2)
 	config.NamePipec2Enabled = isC2Enabled([]string{"namedpipe"}, config.C2)
@@ -424,6 +433,19 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	config.CACert = string(serverCACert)
 	config.Cert = string(sliverCert)
 	config.Key = string(sliverKey)
+
+	// Generate wg Keys as needed
+	if config.WGc2Enabled {
+		implantPrivKey, _, err := certs.ImplantGenerateWGKeys(config.WGPeerTunIP)
+		_, serverPubKey, err := certs.GetWGServerKeys()
+
+		if err != nil {
+			return "", fmt.Errorf("Failed to embed implant wg keys: %s", err)
+		} else {
+			config.WGImplantPrivKey = implantPrivKey
+			config.WGServerPubKey = serverPubKey
+		}
+	}
 
 	// binDir - ~/.sliver/slivers/<os>/<arch>/<name>/bin
 	binDir := path.Join(projectGoPathDir, "bin")
