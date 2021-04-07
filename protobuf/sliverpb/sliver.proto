@@ -632,3 +632,17 @@ message PivotData {
   uint32 PivotID = 12;
   bytes Data = 2;
 }
+
+message PivotEntry {
+  string Type = 1;
+  string Remote = 2;
+}
+
+message PivotListReq {
+  commonpb.Request Request = 9;
+}
+
+message PivotList {
+  repeated PivotEntry Entries = 1;
+  commonpb.Response Response = 9;
+}

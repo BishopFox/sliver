@@ -43,6 +43,8 @@ var pivotsMap = &PivotsMap{
 	mutex:  &sync.RWMutex{},
 }
 
+var pivotListeners = make([]*PivotListener, 0)
+
 type pivotsMapEntry struct {
 	Conn          *net.Conn
 	PivotType     string
@@ -54,6 +56,15 @@ type pivotsMapEntry struct {
 type PivotsMap struct {
 	mutex  *sync.RWMutex
 	Pivots *map[uint32]*pivotsMapEntry
+}
+
+type PivotListener struct {
+	Type          string
+	RemoteAddress string
+}
+
+func GetListeners() []*PivotListener {
+	return pivotListeners
 }
 
 // Pivot - Get Pivot by ID

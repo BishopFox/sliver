@@ -157,6 +157,8 @@ const (
 	MsgTCPPivotReq
 	// MsgTCPPivot - Response with the result
 	MsgTCPPivot
+	// MsgPivotListReq
+	MsgPivotListReq
 
 	// MsgPivotOpen - Request to create a new pivot tunnel
 	MsgPivotOpen
@@ -364,6 +366,8 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgRegistryWriteReq
 	case *RegistryCreateKeyReq:
 		return MsgRegistryCreateKeyReq
+	case *PivotListReq:
+		return MsgPivotListReq
 	}
 	return uint32(0)
 }

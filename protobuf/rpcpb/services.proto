@@ -84,6 +84,7 @@ service SliverRPC {
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
     rpc NamedPipes(sliverpb.NamedPipesReq) returns (sliverpb.NamedPipes);
     rpc TCPListener(sliverpb.TCPPivotReq) returns (sliverpb.TCPPivot);
+    rpc ListPivots(sliverpb.PivotListReq) returns (sliverpb.PivotList);
     rpc StartService(sliverpb.StartServiceReq) returns (sliverpb.ServiceInfo);
     rpc StopService(sliverpb.StopServiceReq) returns (sliverpb.ServiceInfo);
     rpc RemoveService(sliverpb.RemoveServiceReq) returns (sliverpb.ServiceInfo);
