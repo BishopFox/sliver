@@ -78,23 +78,24 @@ func init() {
 
 	// Operator
 	operatorCmd.Flags().StringP(nameFlagStr, "n", "", "operator name")
-	operatorCmd.Flags().StringP(lhostFlagStr, "l", "", "listener host")
-	operatorCmd.Flags().Uint16P(lportFlagStr, "p", uint16(1337), "listener port")
+	operatorCmd.Flags().StringP(lhostFlagStr, "l", "", "multiplayer listener host")
+	operatorCmd.Flags().Uint16P(lportFlagStr, "p", uint16(31337), "multiplayer listener port")
 	operatorCmd.Flags().StringP(saveFlagStr, "s", "", "save file to ...")
 	rootCmd.AddCommand(operatorCmd)
 
 	// Certs
 	cmdExportCA.Flags().StringP(saveFlagStr, "s", "", "save CA to file ...")
-	cmdExportCA.Flags().StringP(caTypeFlagStr, "t", "",
-		fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
+	cmdExportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
 	rootCmd.AddCommand(cmdExportCA)
 
 	cmdImportCA.Flags().StringP(loadFlagStr, "l", "", "load CA from file ...")
-	cmdImportCA.Flags().StringP(caTypeFlagStr, "t", "",
-		fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
+	cmdImportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
 	rootCmd.AddCommand(cmdImportCA)
 
 	// Daemon
+	daemonCmd.Flags().StringP(lhostFlagStr, "l", daemon.BlankHost, "multiplayer listener host")
+	daemonCmd.Flags().Uint16P(lportFlagStr, "p", daemon.BlankPort, "multiplayer listener port")
+	daemonCmd.Flags().BoolP(forceFlagStr, "f", false, "force unpack and overwrite static assets")
 	rootCmd.AddCommand(daemonCmd)
 
 	// Version
@@ -121,14 +122,14 @@ var rootCmd = &cobra.Command{
 			}
 		}()
 
-		assets.Setup(false)
+		assets.Setup(false, true)
 		certs.SetupCAs()
 		certs.SetupWGKeys()
 
 		serverConfig := configs.GetServerConfig()
 		c2.StartPersistentJobs(serverConfig)
 		if serverConfig.DaemonMode {
-			daemon.Start()
+			daemon.Start(daemon.BlankHost, daemon.BlankPort)
 		} else {
 			os.Args = os.Args[:1] // Hide cli from grumble console
 			console.Start()

@@ -37,6 +37,6 @@ var unpackCmd = &cobra.Command{
 			return
 		}
 
-		assets.Setup(force)
+		assets.Setup(force, true)
 	},
 }
