@@ -88,7 +88,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 	// Open up key exchange TCP socket
 	keyExchangeListener, err := tnet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(tunIP), Port: int(keyExchangeListenPort)})
 	if err != nil {
-		wgLog.Errorf("Failed to setup up wg key exchange listener: ", err)
+		wgLog.Errorf("Failed to setup up wg key exchange listener: %v", err)
 		return nil, nil, nil, err
 	}
 	wgLog.Printf("Successfully setup up wg key exchange listener")
@@ -97,7 +97,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 	// Open up c2 comms listener TCP socket
 	listener, err := tnet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(tunIP), Port: int(netstackPort)})
 	if err != nil {
-		wgLog.Errorf("Failed to setup up wg sliver listener: ", err)
+		wgLog.Errorf("Failed to setup up wg sliver listener: %v", err)
 		return nil, nil, nil, err
 	}
 	wgLog.Printf("Successfully setup up wg sliver listener")
