@@ -30,7 +30,9 @@ import (
 	// {{end}}
 
 	"crypto/x509"
+	// {{if .Config.WGc2Enabled}}
 	"fmt"
+	// {{end}}
 	"io"
 	"net/url"
 	"os"
