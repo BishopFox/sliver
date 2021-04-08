@@ -129,6 +129,10 @@ func CreateNetTUN(localAddresses, dnsServers []net.IP, mtu int) (tun.Device, *Ne
 	if dev.hasV6 {
 		dev.stack.AddRoute(tcpip.Route{Destination: header.IPv6EmptySubnet, NIC: 1})
 	}
+	tcpipErr = dev.stack.SetPromiscuousMode(1, true)
+	if tcpipErr != nil {
+		return nil, nil, fmt.Errorf("SetPromiscuousMode: %v", tcpipErr)
+	}
 
 	dev.events <- tun.EventUp
 	return dev, (*Net)(dev), nil
