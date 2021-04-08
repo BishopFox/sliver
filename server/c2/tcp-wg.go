@@ -79,7 +79,11 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 		return nil, nil, nil, err
 	}
 
-	dev.Up()
+	err = dev.Up()
+	if err != nil {
+		wgLog.Errorf("Could not set up the device: %v", err)
+		return nil, nil, nil, err
+	}
 
 	// Open up key exchange TCP socket
 	keyExchangeListener, err := tnet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(tunIP), Port: int(keyExchangeListenPort)})
