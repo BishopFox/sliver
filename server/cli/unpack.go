@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cmdUnpack = &cobra.Command{
+var unpackCmd = &cobra.Command{
 	Use:   "unpack",
 	Short: "Unpack assets and exit",
 	Long:  ``,
@@ -37,6 +37,6 @@ var cmdUnpack = &cobra.Command{
 			return
 		}
 
-		assets.Setup(force)
+		assets.Setup(force, true)
 	},
 }
