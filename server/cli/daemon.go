@@ -16,9 +16,24 @@ import (
 
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
-	Short: "Start server in daemon mode",
+	Short: "Force start server in daemon mode",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
+		force, err := cmd.Flags().GetBool(forceFlagStr)
+		if err != nil {
+			fmt.Printf("Failed to parse --%s flag %s\n", forceFlagStr, err)
+			return
+		}
+		lhost, err := cmd.Flags().GetString(lhostFlagStr)
+		if err != nil {
+			fmt.Printf("Failed to parse --%s flag %s\n", lhostFlagStr, err)
+			return
+		}
+		lport, err := cmd.Flags().GetInt(lportFlagStr)
+		if err != nil {
+			fmt.Printf("Failed to parse --%s flag %s\n", lportFlagStr, err)
+			return
+		}
 
 		appDir := assets.GetRootAppDir()
 		logFile := initLogging(appDir)
@@ -32,13 +47,13 @@ var daemonCmd = &cobra.Command{
 			}
 		}()
 
-		assets.Setup(false)
+		assets.Setup(force)
 		certs.SetupCAs()
 		certs.SetupWGKeys()
 
 		serverConfig := configs.GetServerConfig()
 		c2.StartPersistentJobs(serverConfig)
 
-		daemon.Start()
+		daemon.Start(lhost, uint16(lport))
 	},
 }
