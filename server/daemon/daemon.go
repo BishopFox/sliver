@@ -43,7 +43,7 @@ func Start() {
 	if err != nil {
 		fmt.Printf("[!] Failed to start daemon %s", err)
 		daemonLog.Errorf("Error starting client listener %s", err)
-		return
+		os.Exit(1)
 	}
 
 	done := make(chan bool)
