@@ -29,7 +29,7 @@ var daemonCmd = &cobra.Command{
 			fmt.Printf("Failed to parse --%s flag %s\n", lhostFlagStr, err)
 			return
 		}
-		lport, err := cmd.Flags().GetInt(lportFlagStr)
+		lport, err := cmd.Flags().GetUint16(lportFlagStr)
 		if err != nil {
 			fmt.Printf("Failed to parse --%s flag %s\n", lportFlagStr, err)
 			return
@@ -47,7 +47,7 @@ var daemonCmd = &cobra.Command{
 			}
 		}()
 
-		assets.Setup(force)
+		assets.Setup(force, false)
 		certs.SetupCAs()
 		certs.SetupWGKeys()
 

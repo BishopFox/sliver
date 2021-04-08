@@ -122,7 +122,7 @@ var rootCmd = &cobra.Command{
 			}
 		}()
 
-		assets.Setup(false)
+		assets.Setup(false, true)
 		certs.SetupCAs()
 		certs.SetupWGKeys()
 
