@@ -73,15 +73,15 @@ func initLogging(appDir string) *os.File {
 func init() {
 
 	// Unpack
-	cmdUnpack.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
-	rootCmd.AddCommand(cmdUnpack)
+	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
+	rootCmd.AddCommand(unpackCmd)
 
 	// Operator
-	cmdOperator.Flags().StringP(nameFlagStr, "n", "", "operator name")
-	cmdOperator.Flags().StringP(lhostFlagStr, "l", "", "listener host")
-	cmdOperator.Flags().Uint16P(lportFlagStr, "p", uint16(1337), "listener port")
-	cmdOperator.Flags().StringP(saveFlagStr, "s", "", "save file to ...")
-	rootCmd.AddCommand(cmdOperator)
+	operatorCmd.Flags().StringP(nameFlagStr, "n", "", "operator name")
+	operatorCmd.Flags().StringP(lhostFlagStr, "l", "", "listener host")
+	operatorCmd.Flags().Uint16P(lportFlagStr, "p", uint16(1337), "listener port")
+	operatorCmd.Flags().StringP(saveFlagStr, "s", "", "save file to ...")
+	rootCmd.AddCommand(operatorCmd)
 
 	// Certs
 	cmdExportCA.Flags().StringP(saveFlagStr, "s", "", "save CA to file ...")
@@ -94,8 +94,11 @@ func init() {
 		fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
 	rootCmd.AddCommand(cmdImportCA)
 
+	// Daemon
+	rootCmd.AddCommand(daemonCmd)
+
 	// Version
-	rootCmd.AddCommand(cmdVersion)
+	rootCmd.AddCommand(versionCmd)
 }
 
 var rootCmd = &cobra.Command{
