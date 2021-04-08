@@ -156,6 +156,7 @@ const (
 	RegistryListValuesStr = "list-values"
 	RegistryCreateKeyStr  = "create"
 	PivotsListStr         = "pivots-list"
+	WgConfigStr           = "wg-config"
 
 	LicensesStr = "licenses"
 )

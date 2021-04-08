@@ -412,3 +412,13 @@ message Website {
 message Websites {
   repeated Website Websites = 1;
 }
+
+
+// [Wireguard]
+
+message WGClientConfig {
+  string ServerPubKey = 1;
+  string ClientPrivateKey = 2;
+  string ClientPubKey = 3;
+  string ClientIP = 4;
+}
