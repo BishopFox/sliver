@@ -1570,7 +1570,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	wgPortFwdCmd.AddCommand(&grumble.Command{
 		Name:     "add",
 		Help:     "Add a port forward from the wireguard tun interface to a host on the target network",
-		LongHelp: ``,
+		LongHelp: help.GetHelpFor(consts.WgPortFwdStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			wgPortFwdAddCmd(ctx, rpc)
@@ -1586,7 +1586,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	wgPortFwdCmd.AddCommand(&grumble.Command{
 		Name:      "rm",
 		Help:      "Remove a port forward from the wireguard tun interface",
-		LongHelp:  ``,
+		LongHelp:  help.GetHelpFor(consts.WgPortFwdStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1618,7 +1618,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	wgSocksCmd.AddCommand(&grumble.Command{
 		Name:     "start",
 		Help:     "Start a socks5 listener on the Wireguard tun interface",
-		LongHelp: ``,
+		LongHelp: help.GetHelpFor(consts.WgSocksStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			wgSocksStartCmd(ctx, rpc)
@@ -1634,6 +1634,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	wgSocksCmd.AddCommand(&grumble.Command{
 		Name:      "rm",
 		Help:      "Stop a socks5 listener on the Wireguard tun interface",
+		LongHelp:  help.GetHelpFor(consts.WgSocksStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Print()
