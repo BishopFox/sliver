@@ -161,6 +161,9 @@ github.com/kballard/go-shellquote
 github.com/kbinani/screenshot
 github.com/kbinani/screenshot/internal/util
 github.com/kbinani/screenshot/internal/xwindow
+# github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194
+## explicit
+github.com/lesnuages/go-socks5
 # github.com/lxn/win v0.0.0-20210218163916-a377121e959e
 ## explicit
 github.com/lxn/win
@@ -215,9 +218,10 @@ golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/poly1305
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20210316092652-d523dce5a7f4
+# golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
 ## explicit
 golang.org/x/net/bpf
+golang.org/x/net/context
 golang.org/x/net/dns/dnsmessage
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
@@ -229,7 +233,7 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/trace
-# golang.org/x/sys v0.0.0-20210320140829-1e4c9ba3b0c4
+# golang.org/x/sys v0.0.0-20210330210617-4fbd30eecc44
 ## explicit
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader

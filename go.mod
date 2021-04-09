@@ -26,6 +26,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
+	github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mattn/go-sqlite3 v1.14.5
 	github.com/miekg/dns v1.1.35
@@ -35,8 +36,8 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/crypto v0.0.0-20210317152858-513c2a44f670
-	golang.org/x/net v0.0.0-20210316092652-d523dce5a7f4
-	golang.org/x/sys v0.0.0-20210320140829-1e4c9ba3b0c4
+	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
+	golang.org/x/sys v0.0.0-20210330210617-4fbd30eecc44
 	golang.zx2c4.com/wireguard v0.0.20200121
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200609130330-bd2cb7843e1b
 	google.golang.org/grpc v1.36.0-dev.0.20210208035533-9280052d3665
