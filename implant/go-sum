@@ -38,3 +38,5 @@ google.golang.org/protobuf v1.20.1-0.20200309200217-e05f789c0967/go.mod h1:A+miE
 google.golang.org/protobuf v1.21.0/go.mod h1:47Nbq4nVaFHyn7ilMalzfO3qCViNmqZ2kzikPIcrTAo=
 google.golang.org/protobuf v1.23.0 h1:4MY060fB1DLGMB/7MBTLnwQUY6+F09GEiz6SsrNqyzM=
 google.golang.org/protobuf v1.23.0/go.mod h1:EGpADcykh3NcUnDUJcl1+ZksZNG86OlYog2l/sGQquU=
+github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194 h1:k4VboDB9x//V1RZdK+zji9Bk2QQYCeHVn0HpHM03As4=
+github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194/go.mod h1:0p7Kyo90yOpoiH+cElGtWjhneXBBcaB+kJggBU1snEY=

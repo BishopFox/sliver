@@ -41,6 +41,10 @@ var (
 		"evasion/evasion_linux.go",
 		"evasion/evasion_windows.go",
 
+		"forwarder/forwarder.go",
+		"forwarder/socks.go",
+		"forwarder/portforward.go",
+
 		// C files for DLL
 		"sliver.h",
 		"sliver.c",
