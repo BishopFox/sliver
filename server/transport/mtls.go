@@ -50,7 +50,9 @@ var (
 // StartClientListener - Start a mutual TLS listener
 func StartClientListener(host string, port uint16) (*grpc.Server, net.Listener, error) {
 	mtlsLog.Infof("Starting gRPC  listener on %s:%d", host, port)
-	tlsConfig := getOperatorServerTLSConfig(host)
+
+	tlsConfig := getOperatorServerTLSConfig("multiplayer")
+
 	creds := credentials.NewTLS(tlsConfig)
 	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
