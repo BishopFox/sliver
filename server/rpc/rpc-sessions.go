@@ -20,6 +20,8 @@ package rpc
 
 import (
 	"context"
+	"errors"
+	"regexp"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -27,6 +29,10 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/golang/protobuf/proto"
+)
+
+var (
+	ErrInvalidName = errors.New("Invalid session name, alphanumerics only")
 )
 
 // GetSessions - Get a list of sessions
@@ -56,14 +62,26 @@ func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillSessionRe
 	return &commonpb.Empty{}, nil
 }
 
-// UpdateSession - Update a session
+// UpdateSession - Update a session name
+const maxNameLength = 32
+
 func (rpc *Server) UpdateSession(ctx context.Context, update *clientpb.UpdateSession) (*clientpb.Session, error) {
 	resp := &clientpb.Session{}
 	session := core.Sessions.Get(update.SessionID)
 	if session == nil {
 		return resp, ErrInvalidSessionID
 	}
-	session.Name = update.Name
+	var maxLen int
+	if len(update.Name) < maxNameLength {
+		maxLen = len(update.Name)
+	} else {
+		maxLen = maxNameLength
+	}
+	name := update.Name[:maxLen]
+	if !regexp.MustCompile(`^[[:alnum:]]+$`).MatchString(name) {
+		return resp, ErrInvalidName
+	}
+	session.Name = name
 	core.Sessions.UpdateSession(session)
 	resp = session.ToProtobuf()
 	return resp, nil
