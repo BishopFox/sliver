@@ -59,9 +59,9 @@ func ExecLimits() {
 
 	// {{if .Config.LimitHostname}}
 	hostname, err := os.Hostname()
-	if err == nil && strings.ToLower(hostname) != strings.ToLower("{{.LimitHostname}}") {
+	if err == nil && strings.ToLower(hostname) != strings.ToLower("{{.Config.LimitHostname}}") {
 		// {{if .Config.Debug}}
-		log.Printf("%#v != %#v", strings.ToLower(hostname), strings.ToLower("{{.LimitHostname}}"))
+		log.Printf("%#v != %#v", strings.ToLower(hostname), strings.ToLower("{{.Config.LimitHostname}}"))
 		// {{end}}
 		os.Exit(1)
 	}
@@ -71,32 +71,32 @@ func ExecLimits() {
 	currentUser, _ := user.Current()
 	if runtime.GOOS == "windows" {
 		username := strings.Split(currentUser.Username, "\\")
-		if len(username) == 2 && username[1] != "{{.LimitUsername}}" {
+		if len(username) == 2 && username[1] != "{{.Config.LimitUsername}}" {
 			// {{if .Config.Debug}}
-			log.Printf("%#v != %#v", currentUser.Name, "{{.LimitUsername}}")
+			log.Printf("%#v != %#v", currentUser.Name, "{{.Config.LimitUsername}}")
 			// {{end}}
 			os.Exit(1)
 		}
-	} else if currentUser.Name != "{{.LimitUsername}}" {
+	} else if currentUser.Name != "{{.Config.LimitUsername}}" {
 		// {{if .Config.Debug}}
-		log.Printf("%#v != %#v", currentUser.Name, "{{.LimitUsername}}")
+		log.Printf("%#v != %#v", currentUser.Name, "{{.Config.LimitUsername}}")
 		// {{end}}
 		os.Exit(1)
 	}
 	// {{end}}
 
 	// {{if .Config.LimitDatetime}} "2014-11-12T11:45:26.371Z"
-	expiresAt, err := time.Parse(time.RFC3339, "{{.LimitDatetime}}")
+	expiresAt, err := time.Parse(time.RFC3339, "{{.Config.LimitDatetime}}")
 	if err == nil && time.Now().After(expiresAt) {
 		// {{if .Config.Debug}}
-		log.Printf("Timelimit %#v expired", "{{.LimitDatetime}}")
+		log.Printf("Timelimit %#v expired", "{{.Config.LimitDatetime}}")
 		// {{end}}
 		os.Exit(1)
 	}
 	// {{end}}
 
 	// {{if .Config.LimitFileExists}}
-	if _, err := os.Stat(`{{.LimitFileExists}}`); err != nil {
+	if _, err := os.Stat(`{{.Config.LimitFileExists}}`); err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Error statting %s: %s", `{{.Config.LimitFileExists}}`, err)
 		// {{end}}
