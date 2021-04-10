@@ -201,7 +201,7 @@ func printLogo(sliverApp *grumble.App, rpc rpcpb.SliverRPCClient) {
 	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
 	fmt.Printf(Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
 	if version.GitCommit != serverVer.Commit {
-		fmt.Printf(Info+"Client v%s\n", version.FullVersion())
+		fmt.Printf(Info+"Client %s\n", version.FullVersion())
 	}
 	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
 	fmt.Println()
