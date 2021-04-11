@@ -115,7 +115,9 @@ pb:
 	protoc -I protobuf/ protobuf/commonpb/common.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/sliverpb/sliver.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/clientpb/client.proto --go_out=paths=source_relative:protobuf/
-	protoc -I protobuf/ protobuf/rpcpb/services.proto --go_out=plugins=grpc,paths=source_relative:protobuf/
+	protoc -I protobuf/ protobuf/rpcpb/services.proto --go_out=paths=source_relative:protobuf/ --go-grpc_out=protobuf/ --go-grpc_opt=paths=source_relative 
+
+# protoc -I protobuf/ protobuf/rpcpb/services.proto --go_out=plugins=grpc,paths=source_relative:protobuf/
 
 .PHONY: clean-all
 clean-all: clean
@@ -129,6 +131,6 @@ clean-all: clean
 clean:
 	rm -f ./protobuf/client/*.pb.go
 	rm -f ./protobuf/sliver/*.pb.go
+	rm -f ./protobuf/rpcpb/*.pb.go
 	rm -f sliver-client_arm64 sliver-server_arm64
 	rm -f sliver-client sliver-server *.exe
-
