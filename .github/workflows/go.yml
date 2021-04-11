@@ -32,7 +32,7 @@ jobs:
         wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip \
         && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
         && sudo cp -vv ./bin/protoc /usr/local/bin/protoc \
-        && chmod +x /usr/local/bin/protoc && which protoc
+        && sudo chmod 755 /usr/local/bin/protoc && which protoc
 
     - name: Protoc-gen-go
       env:
