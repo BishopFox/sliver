@@ -24,23 +24,6 @@ jobs:
         git build-essential zlib1g zlib1g-dev wget zip unzip \
         mingw-w64 binutils-mingw-w64 g++-mingw-w64 gcc-multilib
 
-    - name: Protoc
-      env:
-        PROTOC_VER: 3.15.8
-      run: |
-        wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip \
-        && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
-        && sudo cp -vv ./bin/protoc /usr/local/bin/protoc \
-        && sudo chmod 755 /usr/local/bin/protoc && which protoc
-
-    - name: Protoc-gen-go
-      env:
-        PROTOC_GEN_GO_VER: v1.26.0
-        GRPC_GO: v1.1.0
-      run: |
-        go install google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VER}
-        go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${GRPC_GO}
-
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
 
@@ -84,23 +67,6 @@ jobs:
 
     - name: Mingw
       run: brew install mingw-w64
-
-    - name: Protoc
-      env:
-        PROTOC_VER: 3.15.8
-      run: |
-        wget -O protoc-${PROTOC_VER}-osx-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-osx-x86_64.zip \
-        && unzip protoc-${PROTOC_VER}-osx-x86_64.zip \
-        && sudo cp -vv ./bin/protoc /usr/local/bin/protoc \
-        && sudo chmod 755 /usr/local/bin/protoc && which protoc
-
-    - name: Protoc-gen-go
-      env:
-        PROTOC_GEN_GO_VER: v1.26.0
-        GRPC_GO: v1.1.0
-      run: |
-        go install google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VER}
-        go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${GRPC_GO}
 
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
