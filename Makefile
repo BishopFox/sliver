@@ -29,7 +29,7 @@ LDFLAGS = -ldflags "-s -w \
 # Prerequisites 
 #
 # https://stackoverflow.com/questions/5618615/check-if-a-program-exists-from-a-makefile
-EXECUTABLES = protoc protoc-gen-go uname sed git zip go date
+EXECUTABLES = protoc protoc-gen-go protoc-gen-go-grpc uname sed git zip date $(GO)
 K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
 
