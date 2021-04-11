@@ -29,7 +29,7 @@ LDFLAGS = -ldflags "-s -w \
 # Prerequisites 
 #
 # https://stackoverflow.com/questions/5618615/check-if-a-program-exists-from-a-makefile
-EXECUTABLES = protoc protoc-gen-go protoc-gen-go-grpc uname sed git zip date $(GO)
+EXECUTABLES = uname sed git zip date $(GO)
 K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
 
@@ -41,6 +41,14 @@ UNAME_P := $(shell uname -p)
 
 # If the target is Windows from Linux/Darwin, check for mingw
 CROSS_COMPILERS = x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++
+
+# Programs required for generating protobuf/grpc files
+PB_COMPILERS = protoc protoc-gen-go protoc-gen-go-grpc
+ifeq ($(MAKECMDGOALS), pb)
+	K := $(foreach exec,$(PB_COMPILERS),\
+			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
+	ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
+endif
 
 # *** Start Darwin ***
 ifeq ($(UNAME_S),Darwin)
@@ -86,27 +94,27 @@ endif
 # Targets
 #
 .PHONY: default
-default: clean pb
+default: clean
 	$(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
 	$(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: macos
-macos: clean pb
+macos: clean
 	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
 	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: macos-arm64
-macos-arm64: clean pb
+macos-arm64: clean
 	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_arm64 ./server
 	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_arm64 ./client
 
 .PHONY: linux
-linux: clean pb
+linux: clean
 	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
 	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: windows
-windows: clean pb
+windows: clean
 	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server.exe ./server
 	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client.exe ./client
 
@@ -116,8 +124,6 @@ pb:
 	protoc -I protobuf/ protobuf/sliverpb/sliver.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/clientpb/client.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/rpcpb/services.proto --go_out=paths=source_relative:protobuf/ --go-grpc_out=protobuf/ --go-grpc_opt=paths=source_relative 
-
-# protoc -I protobuf/ protobuf/rpcpb/services.proto --go_out=plugins=grpc,paths=source_relative:protobuf/
 
 .PHONY: clean-all
 clean-all: clean
@@ -129,8 +135,5 @@ clean-all: clean
 
 .PHONY: clean
 clean:
-	rm -f ./protobuf/client/*.pb.go
-	rm -f ./protobuf/sliver/*.pb.go
-	rm -f ./protobuf/rpcpb/*.pb.go
 	rm -f sliver-client_arm64 sliver-server_arm64
 	rm -f sliver-client sliver-server *.exe
