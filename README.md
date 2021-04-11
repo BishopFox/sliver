@@ -18,7 +18,7 @@ The server and client support MacOS, Windows, and Linux. Implants are supported 
 * [Procedurally generated C2](https://github.com/BishopFox/sliver/wiki/HTTP(S)-C2#under-the-hood) over HTTP(S)
 * [DNS canary](https://github.com/BishopFox/sliver/wiki/DNS-C2#dns-canaries) blue team detection
 * [Secure C2](https://github.com/BishopFox/sliver/wiki/Transport-Encryption) over mTLS, HTTP(S), and DNS
-* [Fully scriptable](https://github.com/moloch--/sliver-script)
+* Fully scriptable using [JavaScript/TypeScript](https://github.com/moloch--/sliver-script) or [Python](https://github.com/moloch--/sliver-py)
 * Local and remote process injection
 * Windows process migration
 * Windows user token manipulation
