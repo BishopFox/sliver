@@ -20,7 +20,7 @@ package transports
 
 import (
 
-	// {{if or .Config.HTTPc2Enabled .Config.TCPPivotc2Enabled}}
+	// {{if or .Config.HTTPc2Enabled .Config.TCPPivotc2Enabled .Config.WGc2Enabled}}
 	"net"
 	// {{end}}
 
@@ -29,6 +29,10 @@ import (
 	// {{end}}
 
 	"crypto/x509"
+	// {{if .Config.WGc2Enabled}}
+	"fmt"
+
+	// {{end}}
 	"io"
 	"net/url"
 	"os"
@@ -403,7 +407,15 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 	if err != nil {
 		lport = 53
 	}
-	conn, dev, err := wgSocketConnect(uri.Hostname(), uint16(lport))
+	addrs, err := net.LookupHost(uri.Hostname())
+	if err != nil {
+		return nil, err
+	}
+	if len(addrs) == 0 {
+		return nil, fmt.Errorf("invalid address")
+	}
+	hostname := addrs[0]
+	conn, dev, err := wgSocketConnect(hostname, uint16(lport))
 	if err != nil {
 		return nil, err
 	}

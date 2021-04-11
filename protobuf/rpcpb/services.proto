@@ -41,6 +41,7 @@ service SliverRPC {
     rpc ImplantBuilds(commonpb.Empty) returns (clientpb.ImplantBuilds);
     rpc DeleteImplantBuild(clientpb.DeleteReq) returns (commonpb.Empty);
     rpc Canaries(commonpb.Empty) returns (clientpb.Canaries);
+    rpc GenerateWGClientConfig(commonpb.Empty) returns (clientpb.WGClientConfig);
     rpc GenerateUniqueIP(commonpb.Empty) returns (clientpb.UniqueWGIP);
     rpc ImplantProfiles(commonpb.Empty) returns (clientpb.ImplantProfiles);
     rpc DeleteImplantProfile(clientpb.DeleteReq) returns (commonpb.Empty);

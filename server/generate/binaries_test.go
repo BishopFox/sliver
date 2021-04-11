@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 )
@@ -34,6 +35,12 @@ var (
 )
 
 func TestSliverExecutableWindows(t *testing.T) {
+
+	// Wireguard C2
+	wireguardExe(t, "windows", "amd64", false)
+	wireguardExe(t, "windows", "386", false)
+	wireguardExe(t, "windows", "amd64", true)
+	wireguardExe(t, "windows", "386", true)
 
 	// mTLS C2
 	mtlsExe(t, "windows", "amd64", false)
@@ -190,10 +197,12 @@ func multiExe(t *testing.T, goos string, goarch string, debug bool) {
 			{URL: "mtls://2.example.com", Options: "asdf"},
 			{URL: "https://3.example.com"},
 			{Priority: 3, URL: "dns://4.example.com"},
+			{Priority: 4, URL: "wg://5.example.com"},
 		},
 		MTLSc2Enabled:    true,
 		HTTPc2Enabled:    true,
 		DNSc2Enabled:     true,
+		WGc2Enabled:      true,
 		Debug:            debug,
 		ObfuscateSymbols: false,
 	}
@@ -276,6 +285,35 @@ func namedPipeExe(t *testing.T, goos string, goarch string, debug bool) {
 	}
 }
 
+func wireguardExe(t *testing.T, goos string, goarch string, debug bool) {
+	t.Logf("[wireguard] EXE %s/%s - debug: %v", goos, goarch, debug)
+	config := &models.ImplantConfig{
+		GOOS:   goos,
+		GOARCH: goarch,
+		C2: []models.ImplantC2{
+			{
+				Priority: 1,
+				URL:      "wg://1.example.com:8000",
+				Options:  "asdf",
+			},
+		},
+		WGc2Enabled:       true,
+		Debug:             debug,
+		ObfuscateSymbols:  false,
+		WGImplantPrivKey:  "153be871d7e54545c01a9700880f86fc83087275669c9237b9bcd617ddbfa43f",
+		WGServerPubKey:    "153be871d7e54545c01a9700880f86fc83087275669c9237b9bcd617ddbfa43f",
+		WGPeerTunIP:       "100.64.0.2",
+		WGKeyExchangePort: 1234,
+		WGTcpCommsPort:    5678,
+	}
+	nonce++
+	certs.SetupWGKeys()
+	_, err := SliverExecutable(fmt.Sprintf("wireguard_test%d", nonce), config)
+	if err != nil {
+		t.Errorf(fmt.Sprintf("%v", err))
+	}
+}
+
 func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 	t.Logf("[multi] LIB %s/%s - debug: %v", goos, goarch, debug)
 	config := &models.ImplantConfig{
@@ -287,12 +325,19 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 			{Priority: 2, URL: "mtls://2.example.com"},
 			{URL: "https://3.example.com"},
 			{URL: "dns://4.example.com", Options: "asdf"},
+			{URL: "wg://5.example.com", Options: "asdf"},
 		},
 
-		Debug:            debug,
-		ObfuscateSymbols: false,
-		Format:           clientpb.ImplantConfig_SHARED_LIB,
-		IsSharedLib:      true,
+		Debug:             debug,
+		ObfuscateSymbols:  false,
+		Format:            clientpb.ImplantConfig_SHARED_LIB,
+		IsSharedLib:       true,
+		WGc2Enabled:       true,
+		WGImplantPrivKey:  "153be871d7e54545c01a9700880f86fc83087275669c9237b9bcd617ddbfa43f",
+		WGServerPubKey:    "153be871d7e54545c01a9700880f86fc83087275669c9237b9bcd617ddbfa43f",
+		WGPeerTunIP:       "100.64.0.2",
+		WGKeyExchangePort: 1234,
+		WGTcpCommsPort:    5678,
 	}
 	nonce++
 	_, err := SliverSharedLibrary(fmt.Sprintf("multilibrary_test%d", nonce), config)

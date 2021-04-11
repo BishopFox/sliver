@@ -1540,6 +1540,18 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
+	app.AddCommand(&grumble.Command{
+		Name:     consts.WgConfigStr,
+		Help:     "Generate a new wireguard client config",
+		LongHelp: help.GetHelpFor(consts.WgConfigStr),
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			getWGClientConfig(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+
 	// [ Portfwd ] --------------------------------------------------------------
 	portfwdCmd := &grumble.Command{
 		Name:     consts.PortfwdStr,
