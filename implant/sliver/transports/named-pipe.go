@@ -31,9 +31,9 @@ import (
 	"log"
 	// {{end}}
 
-	"github.com/Microsoft/go-winio"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/golang/protobuf/proto"
+	"github.com/lesnuages/go-winio"
 )
 
 const (

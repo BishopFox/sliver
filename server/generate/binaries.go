@@ -78,7 +78,7 @@ const (
 	// GoPrivate - The default Go private arg to garble when obfuscation is enabled.
 	// Wireguard dependencies prevent the use of wildcard github.com/* and golang.org/*.
 	// The current packages below aren't definitive and need to be tidied up.
-	GoPrivate = "github.com/bishopfox/*,github.com/Microsoft/*,github.com/burntsushi/*,github.com/kbinani/*,github.com/lxn/*,github.com/golang/*,github.com/shm/*"
+	GoPrivate = "github.com/bishopfox/*,github.com/Microsoft/*,github.com/burntsushi/*,github.com/kbinani/*,github.com/lxn/*,github.com/golang/*,github.com/shm/*,github.com/lesnuages/*"
 
 	clientsDirName = "clients"
 	sliversDirName = "slivers"
