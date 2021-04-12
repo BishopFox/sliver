@@ -407,6 +407,9 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 	if err != nil {
 		lport = 53
 	}
+	// Attempt to resolve the hostname in case
+	// we received a domain name and not an IP address.
+	// net.LookupHost() will still work with an IP address
 	addrs, err := net.LookupHost(uri.Hostname())
 	if err != nil {
 		return nil, err

@@ -102,6 +102,13 @@ type SliverRPCClient interface {
 	RegistryRead(ctx context.Context, in *sliverpb.RegistryReadReq, opts ...grpc.CallOption) (*sliverpb.RegistryRead, error)
 	RegistryWrite(ctx context.Context, in *sliverpb.RegistryWriteReq, opts ...grpc.CallOption) (*sliverpb.RegistryWrite, error)
 	RegistryCreateKey(ctx context.Context, in *sliverpb.RegistryCreateKeyReq, opts ...grpc.CallOption) (*sliverpb.RegistryCreateKey, error)
+	// *** Wireguard Specific ***
+	WGStartPortForward(ctx context.Context, in *sliverpb.WGPortForwardStartReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error)
+	WGStopPortForward(ctx context.Context, in *sliverpb.WGPortForwardStopReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error)
+	WGStartSocks(ctx context.Context, in *sliverpb.WGSocksStartReq, opts ...grpc.CallOption) (*sliverpb.WGSocks, error)
+	WGStopSocks(ctx context.Context, in *sliverpb.WGSocksStopReq, opts ...grpc.CallOption) (*sliverpb.WGSocks, error)
+	WGListForwarders(ctx context.Context, in *sliverpb.WGTCPForwardersReq, opts ...grpc.CallOption) (*sliverpb.WGTCPForwarders, error)
+	WGListSocksServers(ctx context.Context, in *sliverpb.WGSocksServersReq, opts ...grpc.CallOption) (*sliverpb.WGSocksServers, error)
 	// *** Realtime Commands ***
 	Shell(ctx context.Context, in *sliverpb.ShellReq, opts ...grpc.CallOption) (*sliverpb.Shell, error)
 	// *** Tunnels ***
@@ -768,6 +775,60 @@ func (c *sliverRPCClient) RegistryCreateKey(ctx context.Context, in *sliverpb.Re
 	return out, nil
 }
 
+func (c *sliverRPCClient) WGStartPortForward(ctx context.Context, in *sliverpb.WGPortForwardStartReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error) {
+	out := new(sliverpb.WGPortForward)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/WGStartPortForward", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) WGStopPortForward(ctx context.Context, in *sliverpb.WGPortForwardStopReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error) {
+	out := new(sliverpb.WGPortForward)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/WGStopPortForward", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) WGStartSocks(ctx context.Context, in *sliverpb.WGSocksStartReq, opts ...grpc.CallOption) (*sliverpb.WGSocks, error) {
+	out := new(sliverpb.WGSocks)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/WGStartSocks", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) WGStopSocks(ctx context.Context, in *sliverpb.WGSocksStopReq, opts ...grpc.CallOption) (*sliverpb.WGSocks, error) {
+	out := new(sliverpb.WGSocks)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/WGStopSocks", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) WGListForwarders(ctx context.Context, in *sliverpb.WGTCPForwardersReq, opts ...grpc.CallOption) (*sliverpb.WGTCPForwarders, error) {
+	out := new(sliverpb.WGTCPForwarders)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/WGListForwarders", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) WGListSocksServers(ctx context.Context, in *sliverpb.WGSocksServersReq, opts ...grpc.CallOption) (*sliverpb.WGSocksServers, error) {
+	out := new(sliverpb.WGSocksServers)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/WGListSocksServers", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) Shell(ctx context.Context, in *sliverpb.ShellReq, opts ...grpc.CallOption) (*sliverpb.Shell, error) {
 	out := new(sliverpb.Shell)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Shell", in, out, opts...)
@@ -943,6 +1004,13 @@ type SliverRPCServer interface {
 	RegistryRead(context.Context, *sliverpb.RegistryReadReq) (*sliverpb.RegistryRead, error)
 	RegistryWrite(context.Context, *sliverpb.RegistryWriteReq) (*sliverpb.RegistryWrite, error)
 	RegistryCreateKey(context.Context, *sliverpb.RegistryCreateKeyReq) (*sliverpb.RegistryCreateKey, error)
+	// *** Wireguard Specific ***
+	WGStartPortForward(context.Context, *sliverpb.WGPortForwardStartReq) (*sliverpb.WGPortForward, error)
+	WGStopPortForward(context.Context, *sliverpb.WGPortForwardStopReq) (*sliverpb.WGPortForward, error)
+	WGStartSocks(context.Context, *sliverpb.WGSocksStartReq) (*sliverpb.WGSocks, error)
+	WGStopSocks(context.Context, *sliverpb.WGSocksStopReq) (*sliverpb.WGSocks, error)
+	WGListForwarders(context.Context, *sliverpb.WGTCPForwardersReq) (*sliverpb.WGTCPForwarders, error)
+	WGListSocksServers(context.Context, *sliverpb.WGSocksServersReq) (*sliverpb.WGSocksServers, error)
 	// *** Realtime Commands ***
 	Shell(context.Context, *sliverpb.ShellReq) (*sliverpb.Shell, error)
 	// *** Tunnels ***
@@ -1173,6 +1241,24 @@ func (UnimplementedSliverRPCServer) RegistryWrite(context.Context, *sliverpb.Reg
 }
 func (UnimplementedSliverRPCServer) RegistryCreateKey(context.Context, *sliverpb.RegistryCreateKeyReq) (*sliverpb.RegistryCreateKey, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegistryCreateKey not implemented")
+}
+func (UnimplementedSliverRPCServer) WGStartPortForward(context.Context, *sliverpb.WGPortForwardStartReq) (*sliverpb.WGPortForward, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WGStartPortForward not implemented")
+}
+func (UnimplementedSliverRPCServer) WGStopPortForward(context.Context, *sliverpb.WGPortForwardStopReq) (*sliverpb.WGPortForward, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WGStopPortForward not implemented")
+}
+func (UnimplementedSliverRPCServer) WGStartSocks(context.Context, *sliverpb.WGSocksStartReq) (*sliverpb.WGSocks, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WGStartSocks not implemented")
+}
+func (UnimplementedSliverRPCServer) WGStopSocks(context.Context, *sliverpb.WGSocksStopReq) (*sliverpb.WGSocks, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WGStopSocks not implemented")
+}
+func (UnimplementedSliverRPCServer) WGListForwarders(context.Context, *sliverpb.WGTCPForwardersReq) (*sliverpb.WGTCPForwarders, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WGListForwarders not implemented")
+}
+func (UnimplementedSliverRPCServer) WGListSocksServers(context.Context, *sliverpb.WGSocksServersReq) (*sliverpb.WGSocksServers, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WGListSocksServers not implemented")
 }
 func (UnimplementedSliverRPCServer) Shell(context.Context, *sliverpb.ShellReq) (*sliverpb.Shell, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Shell not implemented")
@@ -2498,6 +2584,114 @@ func _SliverRPC_RegistryCreateKey_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_WGStartPortForward_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.WGPortForwardStartReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).WGStartPortForward(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/WGStartPortForward",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).WGStartPortForward(ctx, req.(*sliverpb.WGPortForwardStartReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_WGStopPortForward_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.WGPortForwardStopReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).WGStopPortForward(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/WGStopPortForward",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).WGStopPortForward(ctx, req.(*sliverpb.WGPortForwardStopReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_WGStartSocks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.WGSocksStartReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).WGStartSocks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/WGStartSocks",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).WGStartSocks(ctx, req.(*sliverpb.WGSocksStartReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_WGStopSocks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.WGSocksStopReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).WGStopSocks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/WGStopSocks",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).WGStopSocks(ctx, req.(*sliverpb.WGSocksStopReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_WGListForwarders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.WGTCPForwardersReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).WGListForwarders(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/WGListForwarders",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).WGListForwarders(ctx, req.(*sliverpb.WGTCPForwardersReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_WGListSocksServers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.WGSocksServersReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).WGListSocksServers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/WGListSocksServers",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).WGListSocksServers(ctx, req.(*sliverpb.WGSocksServersReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_Shell_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.ShellReq)
 	if err := dec(in); err != nil {
@@ -2893,6 +3087,30 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegistryCreateKey",
 			Handler:    _SliverRPC_RegistryCreateKey_Handler,
+		},
+		{
+			MethodName: "WGStartPortForward",
+			Handler:    _SliverRPC_WGStartPortForward_Handler,
+		},
+		{
+			MethodName: "WGStopPortForward",
+			Handler:    _SliverRPC_WGStopPortForward_Handler,
+		},
+		{
+			MethodName: "WGStartSocks",
+			Handler:    _SliverRPC_WGStartSocks_Handler,
+		},
+		{
+			MethodName: "WGStopSocks",
+			Handler:    _SliverRPC_WGStopSocks_Handler,
+		},
+		{
+			MethodName: "WGListForwarders",
+			Handler:    _SliverRPC_WGListForwarders_Handler,
+		},
+		{
+			MethodName: "WGListSocksServers",
+			Handler:    _SliverRPC_WGListSocksServers_Handler,
 		},
 		{
 			MethodName: "Shell",
