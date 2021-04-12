@@ -22,7 +22,6 @@ import (
 
 	// {{if or .Config.HTTPc2Enabled .Config.TCPPivotc2Enabled .Config.WGc2Enabled}}
 	"net"
-
 	// {{end}}
 
 	// {{if .Config.Debug}}
@@ -32,6 +31,7 @@ import (
 	"crypto/x509"
 	// {{if .Config.WGc2Enabled}}
 	"fmt"
+
 	// {{end}}
 	"io"
 	"net/url"
