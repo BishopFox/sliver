@@ -4,9 +4,9 @@ on:
   push:
     branches:
       - test/*
-  # pull_request:
-  #   branches:
-  #     - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
   CodeQL-Build:
@@ -75,3 +75,5 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v1
+        env:
+          VERSION: ${{github.sha}}
