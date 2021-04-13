@@ -63,7 +63,7 @@ func portfwdAdd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	if remotePort == "3389" {
-		fmt.Print(Warn + "RDP is unstable over tunnelled portfwds, we recommend using WireGuard portfwds\n")
+		fmt.Print(Warn + "RDP is unstable over tunneled portfwds, we recommend using WireGuard portfwds\n")
 	}
 	bindAddr := ctx.Flags.String("bind")
 	if remoteAddr == "" {
