@@ -555,7 +555,6 @@ message RegistryCreateKey {
 }
 
 // Tunnel - Tunnel related messages
-
 message Tunnel {
   uint64 TunnelID = 8 [jstype = JS_STRING];
   uint32 SessionID = 9;
@@ -571,7 +570,7 @@ message TunnelData {
 }
 
 // ShellReq - Request the implant open a realtime shell tunnel
-message ShellReq{
+message ShellReq {
   string Path = 1;
   bool EnablePTY = 2;
   uint32 Pid = 3;
@@ -581,12 +580,37 @@ message ShellReq{
 }
 
 // Shell - Request the implant open a realtime shell tunnel
-message Shell{
+message Shell {
   string Path = 1;
   bool EnablePTY = 2;
   uint32 Pid = 3;
 
   uint64 TunnelID = 8 [jstype = JS_STRING];
+  commonpb.Response Response = 9;
+}
+
+// Portfwd
+enum PortfwdProtocol {
+  TCP = 0;
+  UDP = 1;
+}
+
+message PortfwdReq {
+  uint32 Port = 1;
+  PortfwdProtocol Protocol = 2;
+  string Host = 3;
+
+
+  uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
+  commonpb.Request Request = 9;
+}
+
+message Portfwd {
+  uint32 Port = 1;
+  PortfwdProtocol Protocol = 2;
+  string Host = 3;
+
+  uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
   commonpb.Response Response = 9;
 }
 

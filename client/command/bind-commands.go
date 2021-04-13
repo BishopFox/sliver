@@ -52,7 +52,6 @@ const (
 	defaultHTTPLPort    = 80
 	defaultHTTPSLPort   = 443
 	defaultDNSLPort     = 53
-	defaultTCPPort      = 4444
 	defaultTCPPivotPort = 9898
 
 	defaultReconnect = 60
@@ -145,7 +144,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.WGStr,
-		Help:     "Start a Wireguard listener",
+		Help:     "Start a WireGuard listener",
 		LongHelp: help.GetHelpFor(consts.WGStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("l", "lport", defaultWGLPort, "udp listen port")
@@ -1541,9 +1540,11 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
+	// [ WireGuard ] --------------------------------------------------------------
+
 	app.AddCommand(&grumble.Command{
 		Name:     consts.WgConfigStr,
-		Help:     "Generate a new wireguard client config",
+		Help:     "Generate a new WireGuard client config",
 		LongHelp: help.GetHelpFor(consts.WgConfigStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1555,7 +1556,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 	wgPortFwdCmd := &grumble.Command{
 		Name:     consts.WgPortFwdStr,
-		Help:     "List ports forwarded by the wireguard tun interface",
+		Help:     "List ports forwarded by the WireGuard tun interface",
 		LongHelp: help.GetHelpFor(consts.WgPortFwdStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1569,7 +1570,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	}
 	wgPortFwdCmd.AddCommand(&grumble.Command{
 		Name:     "add",
-		Help:     "Add a port forward from the wireguard tun interface to a host on the target network",
+		Help:     "Add a port forward from the WireGuard tun interface to a host on the target network",
 		LongHelp: help.GetHelpFor(consts.WgPortFwdStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1579,13 +1580,13 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-			f.Int("b", "bind", 1080, "port to listen on the wireguard tun interface")
+			f.Int("b", "bind", 1080, "port to listen on the WireGuard tun interface")
 			f.String("r", "remote", "", "remote target host:port (e.g., 10.0.0.1:445)")
 		},
 	})
 	wgPortFwdCmd.AddCommand(&grumble.Command{
 		Name:      "rm",
-		Help:      "Remove a port forward from the wireguard tun interface",
+		Help:      "Remove a port forward from the WireGuard tun interface",
 		LongHelp:  help.GetHelpFor(consts.WgPortFwdStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
@@ -1602,7 +1603,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 	wgSocksCmd := &grumble.Command{
 		Name:     consts.WgSocksStr,
-		Help:     "List socks servers listening on the Wireguard tun interface",
+		Help:     "List socks servers listening on the WireGuard tun interface",
 		LongHelp: help.GetHelpFor(consts.WgSocksStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1617,7 +1618,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 	wgSocksCmd.AddCommand(&grumble.Command{
 		Name:     "start",
-		Help:     "Start a socks5 listener on the Wireguard tun interface",
+		Help:     "Start a socks5 listener on the WireGuard tun interface",
 		LongHelp: help.GetHelpFor(consts.WgSocksStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1627,13 +1628,13 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-			f.Int("b", "bind", 3090, "port to listen on the wireguard tun interface")
+			f.Int("b", "bind", 3090, "port to listen on the WireGuard tun interface")
 		},
 	})
 
 	wgSocksCmd.AddCommand(&grumble.Command{
 		Name:      "rm",
-		Help:      "Stop a socks5 listener on the Wireguard tun interface",
+		Help:      "Stop a socks5 listener on the WireGuard tun interface",
 		LongHelp:  help.GetHelpFor(consts.WgSocksStr),
 		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
@@ -1647,4 +1648,55 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 	})
 	app.AddCommand(wgSocksCmd)
+
+	// [ Portfwd ] --------------------------------------------------------------
+	portfwdCmd := &grumble.Command{
+		Name:     consts.PortfwdStr,
+		Help:     "In-band TCP port forwarding",
+		LongHelp: help.GetHelpFor(consts.PortfwdStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			portfwd(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	}
+	portfwdCmd.AddCommand(&grumble.Command{
+		Name:     "add",
+		Help:     "Create a new port forwarding tunnel",
+		LongHelp: help.GetHelpFor(consts.PortfwdStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("r", "remote", "", "remote target host:port (e.g., 10.0.0.1:445)")
+			f.String("b", "bind", "127.0.0.1:8080", "bind port forward to interface")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			portfwdAdd(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+	portfwdCmd.AddCommand(&grumble.Command{
+		Name:     "rm",
+		Help:     "Remove a port forwarding tunnel",
+		LongHelp: help.GetHelpFor(consts.PortfwdStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("i", "id", 0, "id of portfwd to remove")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			portfwdRm(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+	app.AddCommand(portfwdCmd)
 }

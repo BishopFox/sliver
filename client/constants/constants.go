@@ -160,6 +160,8 @@ const (
 	WgSocksStr            = "wg-socks"
 	WgPortFwdStr          = "wg-portfwd"
 
+	PortfwdStr = "portfwd"
+
 	LicensesStr = "licenses"
 )
 

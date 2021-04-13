@@ -194,6 +194,7 @@ const (
 	MsgRegistryWriteReq
 	// MsgRegistryCreateKeyReq
 	MsgRegistryCreateKeyReq
+
 	// MsgWGStartPortFwdReq - Request to start a port forwarding in a WG transport
 	MsgWGStartPortFwdReq
 	// MsgWGStopPortFwdReq - Request to stop a port forwarding in a WG transport
@@ -206,6 +207,11 @@ const (
 	MsgWGListForwardersReq
 	// MsgWGListSocks
 	MsgWGListSocksReq
+
+	// MsgPortfwdReq - Establish a port forward
+	MsgPortfwdReq
+	// MsgPortfwd - Response of port forward
+	MsgPortfwd
 )
 
 // MsgNumber - Get a message number of type
@@ -378,8 +384,10 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgRegistryWriteReq
 	case *RegistryCreateKeyReq:
 		return MsgRegistryCreateKeyReq
+
 	case *PivotListReq:
 		return MsgPivotListReq
+
 	case *WGPortForwardStartReq:
 		return MsgWGStartPortFwdReq
 	case *WGPortForwardStopReq:
@@ -392,6 +400,12 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgWGListForwardersReq
 	case *WGSocksServersReq:
 		return MsgWGListSocksReq
+
+	case *PortfwdReq:
+		return MsgPortfwdReq
+	case *Portfwd:
+		return MsgPortfwd
+
 	}
 	return uint32(0)
 }
