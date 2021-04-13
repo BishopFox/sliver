@@ -18,6 +18,10 @@ import (
 
 func portfwd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	portfwds := core.Portfwds.List()
+	if len(portfwds) == 0 {
+		fmt.Printf(Info + "No port forwards\n")
+		return
+	}
 	sort.Slice(portfwds[:], func(i, j int) bool {
 		return portfwds[i].ID < portfwds[j].ID
 	})
@@ -44,6 +48,9 @@ func portfwdAdd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 	if session.GetActiveC2() == "dns" {
 		fmt.Printf(Warn + "Current C2 is DNS, this is going to be a very slow tunnel!\n")
+	}
+	if session.GetActiveC2() == "wg" {
+		fmt.Printf(Warn + "Current C2 is WireGuard, we recommend using the `wg-portfwd` command!\n")
 	}
 	remoteAddr := ctx.Flags.String("remote")
 	if remoteAddr == "" {

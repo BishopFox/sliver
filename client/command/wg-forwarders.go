@@ -15,12 +15,12 @@ import (
 )
 
 func wgPortFwdAddCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
 	if session.Transport != "wg" {
-		fmt.Println(Warn + "This command is only supported for Wireguard implants")
+		fmt.Println(Warn + "This command is only supported for WireGuard implants")
 		return
 	}
 
@@ -55,13 +55,12 @@ func wgPortFwdAddCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func wgPortFwdListCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
-
 	if session.Transport != "wg" {
-		fmt.Println(Warn + "This command is only supported for Wireguard implants")
+		fmt.Println(Warn + "This command is only supported for WireGuard implants")
 		return
 	}
 
@@ -80,14 +79,16 @@ func wgPortFwdListCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	if fwdList.Forwarders != nil {
-		if len(fwdList.Forwarders) > 0 {
+		if len(fwdList.Forwarders) == 0 {
+			fmt.Printf(Info + "No port forwards\n")
+		} else {
 			outBuf := bytes.NewBufferString("")
 			table := tabwriter.NewWriter(outBuf, 0, 3, 3, ' ', 0)
-			fmt.Fprintf(table, "id\tlocal address\tremote address\t\n")
+			fmt.Fprintf(table, "ID\tLocal Address\tRemote Address\t\n")
 			fmt.Fprintf(table, "%s\t%s\t%s\t\n",
-				strings.Repeat("=", len("id")),
-				strings.Repeat("=", len("local address")),
-				strings.Repeat("=", len("remote address")))
+				strings.Repeat("=", len("ID")),
+				strings.Repeat("=", len("Local Address")),
+				strings.Repeat("=", len("Remote Address")))
 			for _, fwd := range fwdList.Forwarders {
 				fmt.Fprintf(table, "%d\t%s\t%s\t\n", fwd.ID, fwd.LocalAddr, fwd.RemoteAddr)
 			}
@@ -98,13 +99,12 @@ func wgPortFwdListCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func wgPortFwdRmCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
-
 	if session.Transport != "wg" {
-		fmt.Println(Warn + "This command is only supported for Wireguard implants")
+		fmt.Println(Warn + "This command is only supported for WireGuard implants")
 		return
 	}
 
@@ -172,7 +172,7 @@ func wgSocksStartCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	if socks.Server != nil {
-		fmt.Printf(Info+"Started socks server on %s\n", socks.Server.LocalAddr)
+		fmt.Printf(Info+"Started SOCKS server on %s\n", socks.Server.LocalAddr)
 	}
 }
 
@@ -183,7 +183,7 @@ func wgSocksListCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	if session.Transport != "wg" {
-		fmt.Println(Warn + "This command is only supported for Wireguard implants")
+		fmt.Println(Warn + "This command is only supported for WireGuard implants")
 		return
 	}
 
@@ -205,10 +205,10 @@ func wgSocksListCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		if len(socksList.Servers) > 0 {
 			outBuf := bytes.NewBufferString("")
 			table := tabwriter.NewWriter(outBuf, 0, 3, 3, ' ', 0)
-			fmt.Fprintf(table, "id\tlocal address\n")
+			fmt.Fprintf(table, "ID\tLocal Address\n")
 			fmt.Fprintf(table, "%s\t%s\t\n",
-				strings.Repeat("=", len("id")),
-				strings.Repeat("=", len("local address")))
+				strings.Repeat("=", len("ID")),
+				strings.Repeat("=", len("Local Address")))
 			for _, server := range socksList.Servers {
 				fmt.Fprintf(table, "%d\t%s\t\n", server.ID, server.LocalAddr)
 			}
@@ -224,9 +224,8 @@ func wgSocksRmCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if session == nil {
 		return
 	}
-
 	if session.Transport != "wg" {
-		fmt.Println(Warn + "This command is only supported for Wireguard implants")
+		fmt.Println(Warn + "This command is only supported for WireGuard implants")
 		return
 	}
 
