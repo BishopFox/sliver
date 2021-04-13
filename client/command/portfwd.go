@@ -62,6 +62,9 @@ func portfwdAdd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Print(Warn+"Failed to parse remote target %s\n", err)
 		return
 	}
+	if remotePort == "3389" {
+		fmt.Print(Warn + "RDP is unstable over tunnelled portfwds, we recommend using WireGuard portfwds\n")
+	}
 	bindAddr := ctx.Flags.String("bind")
 	if remoteAddr == "" {
 		fmt.Println(Warn + "Must specify a bind target host:port")
