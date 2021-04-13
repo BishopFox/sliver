@@ -161,6 +161,9 @@ github.com/kballard/go-shellquote
 github.com/kbinani/screenshot
 github.com/kbinani/screenshot/internal/util
 github.com/kbinani/screenshot/internal/xwindow
+# github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194
+## explicit
+github.com/lesnuages/go-socks5
 # github.com/lxn/win v0.0.0-20210218163916-a377121e959e
 ## explicit
 github.com/lxn/win
@@ -218,6 +221,7 @@ golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20210410081132-afb366fc7cd1
 ## explicit
 golang.org/x/net/bpf
+golang.org/x/net/context
 golang.org/x/net/dns/dnsmessage
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2

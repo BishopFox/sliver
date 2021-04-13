@@ -157,6 +157,8 @@ const (
 	RegistryCreateKeyStr  = "create"
 	PivotsListStr         = "pivots-list"
 	WgConfigStr           = "wg-config"
+	WgSocksStr            = "wg-socks"
+	WgPortFwdStr          = "wg-portfwd"
 
 	PortfwdStr = "portfwd"
 

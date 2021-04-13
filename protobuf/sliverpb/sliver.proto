@@ -670,3 +670,63 @@ message PivotList {
   repeated PivotEntry Entries = 1;
   commonpb.Response Response = 9;
 }
+
+message WGPortForwardStartReq {
+  int32 LocalPort = 1;
+  string RemoteAddress = 2;
+  commonpb.Request Request = 9;
+}
+
+message WGPortForward {
+  WGTCPForwarder Forwarder = 1;
+  commonpb.Response Response = 9;
+}
+
+message WGPortForwardStopReq {
+  int32 ID = 1;
+  commonpb.Request Request = 9;
+}
+
+message WGSocksStartReq {
+  int32 Port = 1;
+  commonpb.Request Request = 9;
+}
+
+message WGSocks {
+  WGSocksServer Server = 1;
+  commonpb.Response Response = 9;
+}
+
+message WGSocksStopReq {
+  int32 ID = 1;  
+  commonpb.Request Request = 9;
+}
+
+message WGTCPForwardersReq {
+  commonpb.Request Request = 9;
+}
+
+message WGSocksServersReq {
+  commonpb.Request Request = 9;
+}
+
+message WGTCPForwarder {
+  int32 ID = 1;
+  string LocalAddr = 2;
+  string RemoteAddr = 3;
+}
+
+message WGSocksServer {
+  int32 ID = 1;
+  string LocalAddr = 2;
+}
+
+message WGSocksServers {
+  repeated WGSocksServer Servers = 1;
+  commonpb.Response Response = 9;
+}
+
+message WGTCPForwarders {
+  repeated WGTCPForwarder Forwarders = 1;
+  commonpb.Response Response = 9;
+}

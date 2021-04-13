@@ -195,6 +195,19 @@ const (
 	// MsgRegistryCreateKeyReq
 	MsgRegistryCreateKeyReq
 
+	// MsgWGStartPortFwdReq - Request to start a port forwarding in a WG transport
+	MsgWGStartPortFwdReq
+	// MsgWGStopPortFwdReq - Request to stop a port forwarding in a WG transport
+	MsgWGStopPortFwdReq
+	// MsgWGStartSocks - Request to start a socks server in a WG transport
+	MsgWGStartSocksReq
+	// MsgWGStopSocks - Request to stop a socks server in a WG transport
+	MsgWGStopSocksReq
+	// MsgWGListForwarders
+	MsgWGListForwardersReq
+	// MsgWGListSocks
+	MsgWGListSocksReq
+
 	// MsgPortfwdReq - Establish a port forward
 	MsgPortfwdReq
 	// MsgPortfwd - Response of port forward
@@ -375,10 +388,24 @@ func MsgNumber(request proto.Message) uint32 {
 	case *PivotListReq:
 		return MsgPivotListReq
 
+	case *WGPortForwardStartReq:
+		return MsgWGStartPortFwdReq
+	case *WGPortForwardStopReq:
+		return MsgWGStopPortFwdReq
+	case *WGSocksStartReq:
+		return MsgWGStartSocksReq
+	case *WGSocksStopReq:
+		return MsgWGStopSocksReq
+	case *WGTCPForwardersReq:
+		return MsgWGListForwardersReq
+	case *WGSocksServersReq:
+		return MsgWGListSocksReq
+
 	case *PortfwdReq:
 		return MsgPortfwdReq
 	case *Portfwd:
 		return MsgPortfwd
+
 	}
 	return uint32(0)
 }

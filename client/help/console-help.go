@@ -77,6 +77,8 @@ var (
 		consts.RegistryReadStr:      regReadHelp,
 		consts.RegistryCreateKeyStr: regCreateKeyHelp,
 		consts.PivotsListStr:        pivotListHelp,
+		consts.WgPortFwdStr:         wgPortFwdHelp,
+		consts.WgSocksStr:           wgSocksHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -448,6 +450,44 @@ List pivots for the current session:
 
 	pivots-list
 	`
+	wgSocksHelp = `[[.Bold]]Command:[[.Normal]] wg-socks
+[[.Bold]]About:[[.Normal]] Create a socks5 listener on the implant Wireguard tun interface
+[[.Bold]]Examples:[[.Normal]]
+Start a new listener:
+
+	wg-socks start
+
+Specify the listening port:
+
+	wg-socks start --bind 1234
+
+List existing listeners:
+
+	wg-socks
+
+Stop and remove an existing listener:
+
+	wg-socks rm 0
+`
+	wgPortFwdHelp = `[[.Bold]]Command:[[.Normal]] wg-portfwd
+[[.Bold]]About:[[.Normal]] Create a TCP port forward on the implant Wireguard tun interface
+[[.Bold]]Examples:[[.Normal]]
+Add a new forwarding rule:
+
+	wg-portfwd add --remote 1.2.3.4:1234
+
+Specify the listening port:
+
+	wg-portfwd add --bind 1234 --remote 1.2.3.4
+
+List existing listeners:
+
+	wg-portfwd
+
+Stop and remove an existing listener:
+
+	wg-portfwd rm 0
+`
 )
 
 const (

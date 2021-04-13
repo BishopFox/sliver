@@ -45,7 +45,17 @@ import (
 
 var (
 	serverTunIP = "100.64.0.1" // Don't let user configure this for now
+	tunnelNet   *netstack.Net
+	tunAddress  string
 )
+
+func GetTNet() *netstack.Net {
+	return tunnelNet
+}
+
+func GetTUNAddress() string {
+	return tunAddress
+}
 
 // socketWGWriteEnvelope - Writes a message to the wireguard socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message
@@ -175,6 +185,8 @@ func wgSocketConnect(address string, port uint16) (net.Conn, *device.Device, err
 	// {{if .Config.Debug}}
 	log.Printf("Successfully connected to sliver listener")
 	// {{end}}
+	tunnelNet = tnet
+	tunAddress = newIP
 	return connection, dev, nil
 }
 
