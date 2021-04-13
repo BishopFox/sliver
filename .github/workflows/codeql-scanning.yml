@@ -76,4 +76,4 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v1
         env:
-          VERSION: 1.4.11
+          VERSION: ${{github.sha}}
