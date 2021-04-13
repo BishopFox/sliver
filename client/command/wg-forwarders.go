@@ -177,11 +177,10 @@ func wgSocksStartCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func wgSocksListCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
-
 	if session.Transport != "wg" {
 		fmt.Println(Warn + "This command is only supported for WireGuard implants")
 		return

@@ -49,7 +49,7 @@ func portfwdAdd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if session.GetActiveC2() == "dns" {
 		fmt.Printf(Warn + "Current C2 is DNS, this is going to be a very slow tunnel!\n")
 	}
-	if session.GetActiveC2() == "wg" {
+	if session.Transport == "wg" {
 		fmt.Printf(Warn + "Current C2 is WireGuard, we recommend using the `wg-portfwd` command!\n")
 	}
 	remoteAddr := ctx.Flags.String("remote")
