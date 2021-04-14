@@ -10,7 +10,7 @@ TAGS = -tags osusergo,netgo,sqlite_omit_load_extension
 # Version Information
 #
 GO_VERSION = $(shell $(GO) version)
-VERSION? = $(shell git describe --abbrev=0)
+VERSION ?= $(shell git describe --abbrev=0)
 COMPILED_AT = $(shell date +%s)
 RELEASES_URL = https://api.github.com/repos/BishopFox/sliver/releases
 PKG = github.com/bishopfox/sliver/client/version
