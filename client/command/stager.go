@@ -79,7 +79,7 @@ func stageListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	stage2, err := getSliverBinary(*implantProfile, rpc)
+	stage2, err := getSliverBinary(implantProfile, rpc)
 	if err != nil {
 		fmt.Printf(Warn+"Error: %v\n", err)
 		return
@@ -149,7 +149,7 @@ func stageListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 }
 
-func getSliverBinary(profile clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient) ([]byte, error) {
+func getSliverBinary(profile *clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient) ([]byte, error) {
 	var data []byte
 	// get implant builds
 	builds, err := rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
@@ -164,8 +164,18 @@ func getSliverBinary(profile clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient)
 		fmt.Printf(Info+"No builds found for profile %s, generating a new one\n", profile.GetName())
 		ctrl := make(chan bool)
 		go spin.Until("Compiling, please wait ...", ctrl)
+
+		config := profile.GetConfig()
+		if config.GetWGPeerTunIP() != "" {
+			if config.WGKeyExchangePort == 0 {
+				config.WGKeyExchangePort = defaultWGKeyExPort
+			}
+			if config.WGTcpCommsPort == 0 {
+				config.WGTcpCommsPort = defaultWGNPort
+			}
+		}
 		generated, err := rpc.Generate(context.Background(), &clientpb.GenerateReq{
-			Config: profile.GetConfig(),
+			Config: config,
 		})
 		ctrl <- true
 		<-ctrl
@@ -175,7 +185,7 @@ func getSliverBinary(profile clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient)
 		}
 		data = generated.GetFile().GetData()
 		profile.Config.Name = buildImplantName(generated.GetFile().GetName())
-		_, err = rpc.SaveImplantProfile(context.Background(), &profile)
+		_, err = rpc.SaveImplantProfile(context.Background(), profile)
 		if err != nil {
 			fmt.Println("Error updating implant profile")
 			return data, err

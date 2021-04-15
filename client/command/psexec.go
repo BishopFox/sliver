@@ -69,7 +69,7 @@ func psExec(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn+"no profile found for name %s\n", profile)
 		return
 	}
-	sliverBinary, err := getSliverBinary(*p, rpc)
+	sliverBinary, err := getSliverBinary(p, rpc)
 	filename := randomString(10)
 	filePath := fmt.Sprintf("%s\\%s.exe", uploadPath, filename)
 	uploadGzip := new(encoders.Gzip).Encode(sliverBinary)
