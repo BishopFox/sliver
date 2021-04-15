@@ -26,7 +26,6 @@ import (
 	"strconv"
 	"strings"
 
-	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -36,7 +35,6 @@ import (
 
 // stage-listener --url [tcp://ip:port | http://ip:port ] --profile name
 func stageListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	var implantProfile *clientpb.ImplantProfile
 	profileName := ctx.Flags.String("profile")
 	listenerURL := ctx.Flags.String("url")
 
@@ -57,29 +55,11 @@ func stageListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	// get profile
-	profiles := getImplantProfiles(rpc)
-	if len(profiles) == 0 {
-		return
-	}
+	profile := getImplantProfileByName(rpc, profileName)
+	if profile != nil {
 
-	if len(profiles) == 0 {
-		fmt.Printf(Info+"No profiles, create one with `%s`\n", consts.NewProfileStr)
-		return
 	}
-
-	for _, profile := range profiles {
-		if profileName == profile.Name {
-			implantProfile = profile
-		}
-	}
-
-	if implantProfile.GetName() == "" {
-		fmt.Printf(Warn + "could not find the implant name from the profile\n")
-		return
-	}
-
-	stage2, err := getSliverBinary(implantProfile, rpc)
+	stage2, err := getSliverBinary(profile, rpc)
 	if err != nil {
 		fmt.Printf(Warn+"Error: %v\n", err)
 		return
@@ -165,17 +145,8 @@ func getSliverBinary(profile *clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient
 		ctrl := make(chan bool)
 		go spin.Until("Compiling, please wait ...", ctrl)
 
-		config := profile.GetConfig()
-		if config.GetWGPeerTunIP() != "" {
-			if config.WGKeyExchangePort == 0 {
-				config.WGKeyExchangePort = defaultWGKeyExPort
-			}
-			if config.WGTcpCommsPort == 0 {
-				config.WGTcpCommsPort = defaultWGNPort
-			}
-		}
 		generated, err := rpc.Generate(context.Background(), &clientpb.GenerateReq{
-			Config: config,
+			Config: profile.Config,
 		})
 		ctrl <- true
 		<-ctrl

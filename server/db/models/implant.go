@@ -140,10 +140,15 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		LimitUsername:     ic.LimitUsername,
 		LimitFileExists:   ic.LimitFileExists,
 
-		IsSharedLib: ic.IsSharedLib,
-		IsService:   ic.IsService,
-		IsShellcode: ic.IsShellcode,
-		Format:      ic.Format,
+		IsSharedLib:       ic.IsSharedLib,
+		IsService:         ic.IsService,
+		IsShellcode:       ic.IsShellcode,
+		Format:            ic.Format,
+		WGImplantPrivKey:  ic.WGImplantPrivKey,
+		WGServerPubKey:    ic.WGServerPubKey,
+		WGPeerTunIP:       ic.WGPeerTunIP,
+		WGKeyExchangePort: ic.WGKeyExchangePort,
+		WGTcpCommsPort:    ic.WGTcpCommsPort,
 
 		FileName: ic.FileName,
 	}
