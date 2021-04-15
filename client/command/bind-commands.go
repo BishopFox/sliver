@@ -1546,6 +1546,10 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Name:     consts.WgConfigStr,
 		Help:     "Generate a new WireGuard client config",
 		LongHelp: help.GetHelpFor(consts.WgConfigStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("s", "save", "", "save configuration to file (.conf)")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			getWGClientConfig(ctx, rpc)
