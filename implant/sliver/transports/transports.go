@@ -22,6 +22,7 @@ import (
 
 	// {{if or .Config.HTTPc2Enabled .Config.TCPPivotc2Enabled .Config.WGc2Enabled}}
 	"net"
+
 	// {{end}}
 
 	// {{if .Config.Debug}}
@@ -30,8 +31,7 @@ import (
 
 	"crypto/x509"
 	// {{if .Config.WGc2Enabled}}
-	"fmt"
-
+	"errors"
 	// {{end}}
 	"io"
 	"net/url"
@@ -415,7 +415,7 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 		return nil, err
 	}
 	if len(addrs) == 0 {
-		return nil, fmt.Errorf("invalid address")
+		return nil, errors.New("{{if .Config.Debug}}Invalid address{{end}}")
 	}
 	hostname := addrs[0]
 	conn, dev, err := wgSocketConnect(hostname, uint16(lport))

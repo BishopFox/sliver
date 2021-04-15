@@ -26,7 +26,6 @@ import (
 	"strconv"
 	"strings"
 
-	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -36,7 +35,6 @@ import (
 
 // stage-listener --url [tcp://ip:port | http://ip:port ] --profile name
 func stageListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	var implantProfile *clientpb.ImplantProfile
 	profileName := ctx.Flags.String("profile")
 	listenerURL := ctx.Flags.String("url")
 
@@ -57,29 +55,11 @@ func stageListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	// get profile
-	profiles := getImplantProfiles(rpc)
-	if len(profiles) == 0 {
-		return
-	}
+	profile := getImplantProfileByName(rpc, profileName)
+	if profile != nil {
 
-	if len(profiles) == 0 {
-		fmt.Printf(Info+"No profiles, create one with `%s`\n", consts.NewProfileStr)
-		return
 	}
-
-	for _, profile := range profiles {
-		if profileName == profile.Name {
-			implantProfile = profile
-		}
-	}
-
-	if implantProfile.GetName() == "" {
-		fmt.Printf(Warn + "could not find the implant name from the profile\n")
-		return
-	}
-
-	stage2, err := getSliverBinary(*implantProfile, rpc)
+	stage2, err := getSliverBinary(profile, rpc)
 	if err != nil {
 		fmt.Printf(Warn+"Error: %v\n", err)
 		return
@@ -149,7 +129,7 @@ func stageListener(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 }
 
-func getSliverBinary(profile clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient) ([]byte, error) {
+func getSliverBinary(profile *clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient) ([]byte, error) {
 	var data []byte
 	// get implant builds
 	builds, err := rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
@@ -164,8 +144,9 @@ func getSliverBinary(profile clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient)
 		fmt.Printf(Info+"No builds found for profile %s, generating a new one\n", profile.GetName())
 		ctrl := make(chan bool)
 		go spin.Until("Compiling, please wait ...", ctrl)
+
 		generated, err := rpc.Generate(context.Background(), &clientpb.GenerateReq{
-			Config: profile.GetConfig(),
+			Config: profile.Config,
 		})
 		ctrl <- true
 		<-ctrl
@@ -175,7 +156,7 @@ func getSliverBinary(profile clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient)
 		}
 		data = generated.GetFile().GetData()
 		profile.Config.Name = buildImplantName(generated.GetFile().GetName())
-		_, err = rpc.SaveImplantProfile(context.Background(), &profile)
+		_, err = rpc.SaveImplantProfile(context.Background(), profile)
 		if err != nil {
 			fmt.Println("Error updating implant profile")
 			return data, err
