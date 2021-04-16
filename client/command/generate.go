@@ -426,10 +426,10 @@ func getTargets(targetOS string, targetArch string) (string, string) {
 		targetOS = "linux"
 	}
 
-	if targetArch == "x64" || strings.HasPrefix(targetArch, "64") {
+	if targetArch == "amd64" || targetArch == "x64" || strings.HasPrefix(targetArch, "64") {
 		targetArch = "amd64"
 	}
-	if targetArch == "x86" || strings.HasPrefix(targetArch, "32") {
+	if targetArch == "386" || targetArch == "x86" || strings.HasPrefix(targetArch, "32") {
 		targetArch = "386"
 	}
 
