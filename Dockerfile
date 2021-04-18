@@ -1,4 +1,4 @@
-FROM golang:1.16.2
+FROM golang:1.16.3
 
 #
 # IMPORTANT: This Dockerfile is used for testing, I do not recommend deploying
@@ -6,8 +6,10 @@ FROM golang:1.16.2
 #            a Docker deployment this is probably a good place to start.
 #
 
-ENV PROTOC_VER 3.11.4
-ENV PROTOC_GEN_GO_VER 1.3.5
+ENV PROTOC_VER 3.15.8
+
+ENV PROTOC_GEN_GO_VER v1.26.0
+ENV GRPC_GO v1.1.0
 
 # Base packages
 RUN apt-get update --fix-missing && apt-get -y install \
@@ -31,7 +33,6 @@ RUN mkdir -p /home/sliver/ && chown -R sliver:sliver /home/sliver
 #
 # > Metasploit
 #
-
 RUN curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > msfinstall \
   && chmod 755 msfinstall \
   && ./msfinstall
@@ -48,10 +49,8 @@ RUN wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuf
     && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
     && cp -vv ./bin/protoc /usr/local/bin
 
-RUN wget -O protoc-gen-go.tar.gz https://github.com/golang/protobuf/archive/v${PROTOC_GEN_GO_VER}.tar.gz \
-    && tar xvf protoc-gen-go.tar.gz \
-    && cd protobuf-${PROTOC_GEN_GO_VER} \
-    && make install
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VER} \
+    && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${GRPC_GO}
 
 # assets
 WORKDIR /go/src/github.com/bishopfox/sliver
@@ -61,7 +60,8 @@ RUN ./go-assets.sh
 ADD . /go/src/github.com/bishopfox/sliver/
 RUN go mod vendor && make linux && cp -vv sliver-server /opt/sliver-server
 
-RUN ls -lah && /opt/sliver-server unpack --force \
+RUN ls -lah \
+    && /opt/sliver-server unpack --force \
     && /go/src/github.com/bishopfox/sliver/go-tests.sh
 RUN make clean \
     && rm -rf /go/src/* \

@@ -44,6 +44,10 @@ func StartTCPListener(address string) error {
 		// {{end}}
 		return err
 	}
+	pivotListeners = append(pivotListeners, &PivotListener{
+		Type:          "tcp",
+		RemoteAddress: address,
+	})
 	go tcpPivotAcceptNewConnection(&ln)
 	return nil
 }

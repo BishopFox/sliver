@@ -32,18 +32,30 @@ import (
 var (
 	serverConfig = configs.GetServerConfig()
 	daemonLog    = log.NamedLogger("daemon", "main")
+
+	BlankHost = "-"
+	BlankPort = uint16(0)
 )
 
 // Start - Start as daemon process
-func Start() {
-	host := serverConfig.DaemonConfig.Host
-	port := uint16(serverConfig.DaemonConfig.Port)
+func Start(host string, port uint16) {
+
+	// cli args take president over config
+	if host == BlankHost {
+		daemonLog.Info("No cli lhost, using config file or default value")
+		host = serverConfig.DaemonConfig.Host
+	}
+	if port == BlankPort {
+		daemonLog.Info("No cli lport, using config file or default value")
+		port = uint16(serverConfig.DaemonConfig.Port)
+	}
+
 	daemonLog.Infof("Starting Sliver daemon %s:%d ...", host, port)
 	_, ln, err := transport.StartClientListener(host, port)
 	if err != nil {
 		fmt.Printf("[!] Failed to start daemon %s", err)
 		daemonLog.Errorf("Error starting client listener %s", err)
-		return
+		os.Exit(1)
 	}
 
 	done := make(chan bool)

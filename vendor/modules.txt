@@ -20,7 +20,7 @@ github.com/BurntSushi/xgb
 github.com/BurntSushi/xgb/shm
 github.com/BurntSushi/xgb/xinerama
 github.com/BurntSushi/xgb/xproto
-# github.com/Microsoft/go-winio v0.4.15
+# github.com/Microsoft/go-winio v0.4.16
 ## explicit
 github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/pkg/guid
@@ -99,7 +99,7 @@ github.com/go-sql-driver/mysql
 # github.com/gofrs/uuid v3.3.0+incompatible
 ## explicit
 github.com/gofrs/uuid
-# github.com/golang/protobuf v1.4.3
+# github.com/golang/protobuf v1.5.2
 ## explicit
 github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
@@ -107,7 +107,9 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/google/go-cmp v0.5.1
+# github.com/google/btree v1.0.1
+github.com/google/btree
+# github.com/google/go-cmp v0.5.5
 ## explicit
 # github.com/google/uuid v1.2.0
 ## explicit
@@ -159,6 +161,9 @@ github.com/kballard/go-shellquote
 github.com/kbinani/screenshot
 github.com/kbinani/screenshot/internal/util
 github.com/kbinani/screenshot/internal/xwindow
+# github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194
+## explicit
+github.com/lesnuages/go-socks5
 # github.com/lxn/win v0.0.0-20210218163916-a377121e959e
 ## explicit
 github.com/lxn/win
@@ -193,17 +198,31 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.6.1
 ## explicit
 github.com/stretchr/testify/assert
-# golang.org/x/crypto v0.0.0-20201116153603-4be66e5b6582
+# golang.org/x/crypto v0.0.0-20210317152858-513c2a44f670
 ## explicit
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
+golang.org/x/crypto/blake2s
+golang.org/x/crypto/cast5
+golang.org/x/crypto/chacha20
+golang.org/x/crypto/chacha20poly1305
+golang.org/x/crypto/curve25519
 golang.org/x/crypto/ed25519
 golang.org/x/crypto/ed25519/internal/edwards25519
+golang.org/x/crypto/internal/subtle
+golang.org/x/crypto/openpgp/armor
+golang.org/x/crypto/openpgp/elgamal
+golang.org/x/crypto/openpgp/errors
+golang.org/x/crypto/openpgp/packet
+golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/pbkdf2
+golang.org/x/crypto/poly1305
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+# golang.org/x/net v0.0.0-20210410081132-afb366fc7cd1
 ## explicit
 golang.org/x/net/bpf
+golang.org/x/net/context
+golang.org/x/net/dns/dnsmessage
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
@@ -214,10 +233,9 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/trace
-# golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+# golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57
 ## explicit
-# golang.org/x/sys v0.0.0-20201116194326-cc9327a14d48
-## explicit
+golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
@@ -225,9 +243,9 @@ golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
 golang.org/x/sys/windows/svc
 golang.org/x/sys/windows/svc/mgr
-# golang.org/x/term v0.0.0-20201113234701-d7a72108b828
+# golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 golang.org/x/term
-# golang.org/x/text v0.3.3
+# golang.org/x/text v0.3.6
 golang.org/x/text/cases
 golang.org/x/text/internal
 golang.org/x/text/internal/language
@@ -241,13 +259,32 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
+# golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
+golang.org/x/time/rate
 # golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
-## explicit
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
-# google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
+# golang.zx2c4.com/wireguard v0.0.20200121 => golang.zx2c4.com/wireguard v0.0.0-20210311162910-5f0c8b942d93
+## explicit
+golang.zx2c4.com/wireguard/conn
+golang.zx2c4.com/wireguard/conn/winrio
+golang.zx2c4.com/wireguard/device
+golang.zx2c4.com/wireguard/ipc
+golang.zx2c4.com/wireguard/ipc/winpipe
+golang.zx2c4.com/wireguard/ratelimiter
+golang.zx2c4.com/wireguard/replay
+golang.zx2c4.com/wireguard/rwcancel
+golang.zx2c4.com/wireguard/tai64n
+golang.zx2c4.com/wireguard/tun
+golang.zx2c4.com/wireguard/tun/wintun
+golang.zx2c4.com/wireguard/tun/wintun/memmod
+# golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200609130330-bd2cb7843e1b
+## explicit
+golang.zx2c4.com/wireguard/wgctrl/wgtypes
+# google.golang.org/genproto v0.0.0-20210406143921-e86de6bf7a46
+## explicit
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.33.2
+# google.golang.org/grpc v1.37.0
 ## explicit
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -275,12 +312,16 @@ google.golang.org/grpc/internal/grpclog
 google.golang.org/grpc/internal/grpcrand
 google.golang.org/grpc/internal/grpcsync
 google.golang.org/grpc/internal/grpcutil
+google.golang.org/grpc/internal/metadata
+google.golang.org/grpc/internal/resolver
 google.golang.org/grpc/internal/resolver/dns
 google.golang.org/grpc/internal/resolver/passthrough
+google.golang.org/grpc/internal/resolver/unix
 google.golang.org/grpc/internal/serviceconfig
 google.golang.org/grpc/internal/status
 google.golang.org/grpc/internal/syscall
 google.golang.org/grpc/internal/transport
+google.golang.org/grpc/internal/transport/networktype
 google.golang.org/grpc/keepalive
 google.golang.org/grpc/metadata
 google.golang.org/grpc/peer
@@ -290,7 +331,10 @@ google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
 google.golang.org/grpc/test/bufconn
-# google.golang.org/protobuf v1.25.0
+# google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
+## explicit
+# google.golang.org/protobuf v1.26.0
+## explicit
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
@@ -303,22 +347,23 @@ google.golang.org/protobuf/internal/encoding/messageset
 google.golang.org/protobuf/internal/encoding/tag
 google.golang.org/protobuf/internal/encoding/text
 google.golang.org/protobuf/internal/errors
-google.golang.org/protobuf/internal/fieldsort
 google.golang.org/protobuf/internal/filedesc
 google.golang.org/protobuf/internal/filetype
 google.golang.org/protobuf/internal/flags
 google.golang.org/protobuf/internal/genid
 google.golang.org/protobuf/internal/impl
-google.golang.org/protobuf/internal/mapsort
+google.golang.org/protobuf/internal/order
 google.golang.org/protobuf/internal/pragma
 google.golang.org/protobuf/internal/set
 google.golang.org/protobuf/internal/strs
 google.golang.org/protobuf/internal/version
 google.golang.org/protobuf/proto
+google.golang.org/protobuf/reflect/protodesc
 google.golang.org/protobuf/reflect/protoreflect
 google.golang.org/protobuf/reflect/protoregistry
 google.golang.org/protobuf/runtime/protoiface
 google.golang.org/protobuf/runtime/protoimpl
+google.golang.org/protobuf/types/descriptorpb
 google.golang.org/protobuf/types/known/anypb
 google.golang.org/protobuf/types/known/durationpb
 google.golang.org/protobuf/types/known/timestamppb
@@ -349,3 +394,35 @@ gorm.io/gorm/logger
 gorm.io/gorm/migrator
 gorm.io/gorm/schema
 gorm.io/gorm/utils
+# inet.af/netstack v0.0.0-20210317161235-a1bf4e56ef22
+## explicit
+inet.af/netstack/gohacks
+inet.af/netstack/goid
+inet.af/netstack/linewriter
+inet.af/netstack/log
+inet.af/netstack/rand
+inet.af/netstack/sleep
+inet.af/netstack/state
+inet.af/netstack/state/wire
+inet.af/netstack/sync
+inet.af/netstack/tcpip
+inet.af/netstack/tcpip/adapters/gonet
+inet.af/netstack/tcpip/buffer
+inet.af/netstack/tcpip/hash/jenkins
+inet.af/netstack/tcpip/header
+inet.af/netstack/tcpip/header/parse
+inet.af/netstack/tcpip/network/hash
+inet.af/netstack/tcpip/network/internal/fragmentation
+inet.af/netstack/tcpip/network/internal/ip
+inet.af/netstack/tcpip/network/ipv4
+inet.af/netstack/tcpip/network/ipv6
+inet.af/netstack/tcpip/ports
+inet.af/netstack/tcpip/seqnum
+inet.af/netstack/tcpip/stack
+inet.af/netstack/tcpip/transport/packet
+inet.af/netstack/tcpip/transport/raw
+inet.af/netstack/tcpip/transport/tcp
+inet.af/netstack/tcpip/transport/tcpconntrack
+inet.af/netstack/tcpip/transport/udp
+inet.af/netstack/waiter
+# golang.zx2c4.com/wireguard => golang.zx2c4.com/wireguard v0.0.0-20210311162910-5f0c8b942d93

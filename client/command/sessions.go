@@ -51,7 +51,7 @@ func sessions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if killAll {
 		ActiveSession.Background()
 		for _, session := range sessions.Sessions {
-			err := killSession(session, rpc)
+			err := killSession(session, true, rpc)
 			if err != nil {
 				fmt.Printf(Warn+"%s\n", err)
 			}
@@ -64,7 +64,7 @@ func sessions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		ActiveSession.Background()
 		for _, session := range sessions.Sessions {
 			if session.IsDead {
-				err := killSession(session, rpc)
+				err := killSession(session, true, rpc)
 				if err != nil {
 					fmt.Printf(Warn+"%s\n", err)
 				}
@@ -79,7 +79,7 @@ func sessions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		if activeSession != nil && session.ID == activeSession.ID {
 			ActiveSession.Background()
 		}
-		err := killSession(session, rpc)
+		err := killSession(session, true, rpc)
 		if err != nil {
 			fmt.Printf(Warn+"%s\n", err)
 		}
@@ -210,7 +210,7 @@ func kill(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	err := killSession(session, rpc)
+	err := killSession(session, ctx.Flags.Bool("force"), rpc)
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
 		return
@@ -219,7 +219,7 @@ func kill(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	ActiveSession.Background()
 }
 
-func killSession(session *clientpb.Session, rpc rpcpb.SliverRPCClient) error {
+func killSession(session *clientpb.Session, force bool, rpc rpcpb.SliverRPCClient) error {
 	if session == nil {
 		return errors.New("Session does not exist")
 	}
@@ -227,7 +227,7 @@ func killSession(session *clientpb.Session, rpc rpcpb.SliverRPCClient) error {
 		Request: &commonpb.Request{
 			SessionID: session.ID,
 		},
-		Force: true,
+		Force: force,
 	})
 	return err
 }

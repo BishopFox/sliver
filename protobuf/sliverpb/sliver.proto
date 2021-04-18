@@ -348,6 +348,7 @@ message SideloadReq {
   string ProcessName = 2;
   string Args = 3;
   string EntryPoint = 4;
+  bool Kill = 5;
 
   commonpb.Request Request = 9;
 }
@@ -363,6 +364,7 @@ message InvokeSpawnDllReq {
   string ProcessName = 2;
   string Args = 3;
   string EntryPoint = 4;
+  bool Kill = 5;
 
   commonpb.Request Request = 9;
 }
@@ -372,6 +374,7 @@ message SpawnDllReq {
   string ProcessName = 2;
   uint32 Offset = 3;
   string Args = 4;
+  bool Kill = 5;
 
   commonpb.Request Request = 9;
 }
@@ -552,7 +555,6 @@ message RegistryCreateKey {
 }
 
 // Tunnel - Tunnel related messages
-
 message Tunnel {
   uint64 TunnelID = 8 [jstype = JS_STRING];
   uint32 SessionID = 9;
@@ -568,7 +570,7 @@ message TunnelData {
 }
 
 // ShellReq - Request the implant open a realtime shell tunnel
-message ShellReq{
+message ShellReq {
   string Path = 1;
   bool EnablePTY = 2;
   uint32 Pid = 3;
@@ -578,12 +580,37 @@ message ShellReq{
 }
 
 // Shell - Request the implant open a realtime shell tunnel
-message Shell{
+message Shell {
   string Path = 1;
   bool EnablePTY = 2;
   uint32 Pid = 3;
 
   uint64 TunnelID = 8 [jstype = JS_STRING];
+  commonpb.Response Response = 9;
+}
+
+// Portfwd
+enum PortfwdProtocol {
+  TCP = 0;
+  UDP = 1;
+}
+
+message PortfwdReq {
+  uint32 Port = 1;
+  PortfwdProtocol Protocol = 2;
+  string Host = 3;
+
+
+  uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
+  commonpb.Request Request = 9;
+}
+
+message Portfwd {
+  uint32 Port = 1;
+  PortfwdProtocol Protocol = 2;
+  string Host = 3;
+
+  uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
   commonpb.Response Response = 9;
 }
 
@@ -628,4 +655,78 @@ message PivotClose {
 message PivotData {
   uint32 PivotID = 12;
   bytes Data = 2;
+}
+
+message PivotEntry {
+  string Type = 1;
+  string Remote = 2;
+}
+
+message PivotListReq {
+  commonpb.Request Request = 9;
+}
+
+message PivotList {
+  repeated PivotEntry Entries = 1;
+  commonpb.Response Response = 9;
+}
+
+message WGPortForwardStartReq {
+  int32 LocalPort = 1;
+  string RemoteAddress = 2;
+  commonpb.Request Request = 9;
+}
+
+message WGPortForward {
+  WGTCPForwarder Forwarder = 1;
+  commonpb.Response Response = 9;
+}
+
+message WGPortForwardStopReq {
+  int32 ID = 1;
+  commonpb.Request Request = 9;
+}
+
+message WGSocksStartReq {
+  int32 Port = 1;
+  commonpb.Request Request = 9;
+}
+
+message WGSocks {
+  WGSocksServer Server = 1;
+  commonpb.Response Response = 9;
+}
+
+message WGSocksStopReq {
+  int32 ID = 1;  
+  commonpb.Request Request = 9;
+}
+
+message WGTCPForwardersReq {
+  commonpb.Request Request = 9;
+}
+
+message WGSocksServersReq {
+  commonpb.Request Request = 9;
+}
+
+message WGTCPForwarder {
+  int32 ID = 1;
+  string LocalAddr = 2;
+  string RemoteAddr = 3;
+}
+
+message WGSocksServer {
+  int32 ID = 1;
+  string LocalAddr = 2;
+}
+
+message WGSocksServers {
+  repeated WGSocksServer Servers = 1;
+  commonpb.Response Response = 9;
+}
+
+message WGTCPForwarders {
+  repeated WGTCPForwarder Forwarders = 1;
+  commonpb.Response Response = 9;
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
@@ -49,7 +50,11 @@ const (
 )
 
 // Server - gRPC server
-type Server struct{}
+type Server struct {
+	// Magical methods to break backwards compatibility
+	// Here be dragons: https://github.com/grpc/grpc-go/issues/3794
+	rpcpb.UnimplementedSliverRPCServer
+}
 
 // GenericRequest - Generic request interface to use with generic handlers
 type GenericRequest interface {

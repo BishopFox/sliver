@@ -6,7 +6,10 @@ require (
         github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc // indirect
         github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
         github.com/golang/protobuf v1.4.3
-        github.com/Microsoft/go-winio v0.4.16
+        github.com/lesnuages/go-winio v0.4.19
+        golang.zx2c4.com/wireguard v0.0.0-20210311162910-5f0c8b942d93
         github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
         github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
+        github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194
+        inet.af/netstack v0.0.0-20210317161235-a1bf4e56ef22
 )

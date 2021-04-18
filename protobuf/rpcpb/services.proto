@@ -26,6 +26,7 @@ service SliverRPC {
 
     // *** Listeners ***
     rpc StartMTLSListener(clientpb.MTLSListenerReq) returns (clientpb.MTLSListener);
+    rpc StartWGListener(clientpb.WGListenerReq) returns (clientpb.WGListener);
     rpc StartDNSListener(clientpb.DNSListenerReq) returns (clientpb.DNSListener);
     rpc StartHTTPSListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
     rpc StartHTTPListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
@@ -40,6 +41,8 @@ service SliverRPC {
     rpc ImplantBuilds(commonpb.Empty) returns (clientpb.ImplantBuilds);
     rpc DeleteImplantBuild(clientpb.DeleteReq) returns (commonpb.Empty);
     rpc Canaries(commonpb.Empty) returns (clientpb.Canaries);
+    rpc GenerateWGClientConfig(commonpb.Empty) returns (clientpb.WGClientConfig);
+    rpc GenerateUniqueIP(commonpb.Empty) returns (clientpb.UniqueWGIP);
     rpc ImplantProfiles(commonpb.Empty) returns (clientpb.ImplantProfiles);
     rpc DeleteImplantProfile(clientpb.DeleteReq) returns (commonpb.Empty);
     rpc SaveImplantProfile(clientpb.ImplantProfile) returns (clientpb.ImplantProfile);
@@ -84,6 +87,7 @@ service SliverRPC {
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
     rpc NamedPipes(sliverpb.NamedPipesReq) returns (sliverpb.NamedPipes);
     rpc TCPListener(sliverpb.TCPPivotReq) returns (sliverpb.TCPPivot);
+    rpc ListPivots(sliverpb.PivotListReq) returns (sliverpb.PivotList);
     rpc StartService(sliverpb.StartServiceReq) returns (sliverpb.ServiceInfo);
     rpc StopService(sliverpb.StopServiceReq) returns (sliverpb.ServiceInfo);
     rpc RemoveService(sliverpb.RemoveServiceReq) returns (sliverpb.ServiceInfo);
@@ -94,6 +98,13 @@ service SliverRPC {
     rpc RegistryRead(sliverpb.RegistryReadReq) returns (sliverpb.RegistryRead);
     rpc RegistryWrite(sliverpb.RegistryWriteReq) returns (sliverpb.RegistryWrite);
     rpc RegistryCreateKey(sliverpb.RegistryCreateKeyReq) returns (sliverpb.RegistryCreateKey);
+    // *** Wireguard Specific ***
+    rpc WGStartPortForward(sliverpb.WGPortForwardStartReq) returns (sliverpb.WGPortForward);
+    rpc WGStopPortForward(sliverpb.WGPortForwardStopReq) returns (sliverpb.WGPortForward);
+    rpc WGStartSocks(sliverpb.WGSocksStartReq) returns (sliverpb.WGSocks);
+    rpc WGStopSocks(sliverpb.WGSocksStopReq) returns (sliverpb.WGSocks);
+    rpc WGListForwarders(sliverpb.WGTCPForwardersReq) returns (sliverpb.WGTCPForwarders);
+    rpc WGListSocksServers(sliverpb.WGSocksServersReq) returns (sliverpb.WGSocksServers);
 
     // *** UserAttribute Helpers ***
     rpc UserAttributeDelete(clientpb.UserAttributeDeleteReq) returns (clientpb.UserAttributeDelete);
@@ -102,6 +113,7 @@ service SliverRPC {
 
     // *** Realtime Commands ***
     rpc Shell(sliverpb.ShellReq) returns (sliverpb.Shell);
+    rpc Portfwd(sliverpb.PortfwdReq) returns (sliverpb.Portfwd);
 
     // *** Tunnels ***
     rpc CreateTunnel(sliverpb.Tunnel) returns (sliverpb.Tunnel);

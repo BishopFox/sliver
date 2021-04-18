@@ -20,6 +20,8 @@ package assets
 
 import (
 	"archive/zip"
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -34,6 +36,8 @@ import (
 	protobufs "github.com/bishopfox/sliver/protobuf"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
+	"golang.org/x/crypto/openpgp/armor"
+	"golang.org/x/crypto/openpgp/packet"
 )
 
 const (
@@ -96,12 +100,14 @@ func saveAssetVersion(appDir string) {
 }
 
 // Setup - Extract or create local assets
-func Setup(force bool) {
+func Setup(force bool, echo bool) {
 	appDir := GetRootAppDir()
 	localVer := assetVersion()
 	if force || localVer == "" || localVer != ver.GitCommit {
 		setupLog.Infof("Version mismatch %v != %v", localVer, ver.GitCommit)
-		fmt.Printf("Unpacking assets ...\n")
+		if echo {
+			fmt.Printf("Unpacking assets ...\n")
+		}
 		setupGo(appDir)
 		setupCodenames(appDir)
 		setupDllPath(appDir)
@@ -117,6 +123,35 @@ func English() []string {
 	}
 	englishWords := strings.Split(string(rawEnglish), "\n")
 	return englishWords
+}
+
+// GetGPGPublicKey - Return the GPG public key from assets
+func GetGPGPublicKey() (*packet.PublicKey, error) {
+	rawPublicKey, err := assetsFs.ReadFile("fs/sliver.asc")
+	if err != nil {
+		return nil, err
+	}
+	// Decode armored public key
+	block, err := armor.Decode(bytes.NewReader(rawPublicKey))
+	if err != nil {
+		return nil, fmt.Errorf("error decoding public key: %s", err)
+	}
+	if block.Type != "PGP PUBLIC KEY BLOCK" {
+		return nil, errors.New("not an armored public key")
+	}
+
+	// Read the key
+	pack, err := packet.Read(block.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading public key: %s", err)
+	}
+
+	// Was it really a public key file ? If yes, get the PublicKey
+	publicKey, ok := pack.(*packet.PublicKey)
+	if !ok {
+		return nil, errors.New("invalid public key")
+	}
+	return publicKey, nil
 }
 
 // SetupGo - Unzip Go compiler assets
