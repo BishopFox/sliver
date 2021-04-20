@@ -621,7 +621,11 @@ func dnsSendOnce(rawData []byte) ([]string, error) {
 }
 
 func dnsSessionPoll(domain string, fields []string) ([]string, error) {
-
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println("dnsSessionPoll error:", err)
+		}
+	}()
 	sessionID, err := getFieldSessionID(fields)
 	if err != nil {
 		return []string{"1"}, errors.New("invalid session id (session poll)")
