@@ -627,7 +627,10 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 		return []string{"1"}, errors.New("invalid session id (session poll)")
 	}
 	dnsSessionsMutex.Lock()
-	dnsSession := (*dnsSessions)[sessionID]
+	dnsSession, found := (*dnsSessions)[sessionID]
+	if !found {
+		return []string{"1"}, errors.New("invalid session (nil pointer")
+	}
 	dnsSessionsMutex.Unlock()
 
 	isDrained := false
