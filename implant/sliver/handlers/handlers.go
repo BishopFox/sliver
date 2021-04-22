@@ -329,12 +329,12 @@ func uploadHandler(data []byte, resp RPCResponse) {
 	} else {
 		// Create file, write data to file system
 		defer f.Close()
-		var data []byte
+		var uploadData []byte
 		var err error
 		if uploadReq.Encoder == "gzip" {
-			data, err = gzipRead(uploadReq.Data)
+			uploadData, err = gzipRead(uploadReq.Data)
 		} else {
-			data = uploadReq.Data
+			uploadData = uploadReq.Data
 		}
 		// Check for decode errors
 		if err != nil {
@@ -342,7 +342,7 @@ func uploadHandler(data []byte, resp RPCResponse) {
 				Err: fmt.Sprintf("%v", err),
 			}
 		} else {
-			f.Write(data)
+			f.Write(uploadData)
 		}
 	}
 
