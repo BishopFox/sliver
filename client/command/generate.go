@@ -499,12 +499,15 @@ func parseHTTPc2(args string) []*clientpb.ImplantC2 {
 		if strings.HasPrefix(arg, "http://") || strings.HasPrefix(arg, "https://") {
 			uri, err = url.Parse(arg)
 			if err != nil {
-				log.Printf("Failed to parse c2 URL %v", err)
+				log.Printf("Failed to parse C2 URL %s", err)
 				continue
 			}
 		} else {
-			uri = &url.URL{Scheme: "https"} // HTTPS is the default, will fallback to HTTP
-			uri.Host = arg
+			uri, err = url.Parse(fmt.Sprintf("https://%s", arg))
+			if err != nil {
+				log.Printf("Failed to parse C2 URL %s", err)
+				continue
+			}
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),

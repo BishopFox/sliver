@@ -494,7 +494,7 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 	// {{if .Config.Debug}}
 	log.Printf("Connecting -> http(s)://%s", uri.Host)
 	// {{end}}
-	client, err := HTTPStartSession(uri.Host)
+	client, err := HTTPStartSession(uri.Host, uri.Path)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("http(s) connection error %v", err)
