@@ -45,6 +45,9 @@ var (
 		sliverpb.MsgNetstatReq:  netstatHandler,
 		sliverpb.MsgSideloadReq: sideloadHandler,
 
+		sliverpb.MsgReconnectIntervalReq: reconnectIntervalHandler,
+		sliverpb.MsgPollIntervalReq:      pollIntervalHandler,
+
 		// {{if .Config.WGc2Enabled}}
 		// Wireguard specific
 		sliverpb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,

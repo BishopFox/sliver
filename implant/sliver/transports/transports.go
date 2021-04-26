@@ -66,6 +66,7 @@ var (
 	readBufSize       = 16 * 1024 // 16kb
 	maxErrors         = getMaxConnectionErrors()
 	reconnectInterval = GetReconnectInterval()
+	pollInterval      = GetPollInterval()
 
 	ccCounter = new(int)
 
@@ -294,6 +295,23 @@ func GetReconnectInterval() time.Duration {
 		return 60 * time.Second
 	}
 	return time.Duration(reconnect) * time.Second
+}
+
+func SetReconnectInterval(interval time.Duration) {
+	reconnectInterval = interval
+}
+
+// GetPollInterval - Parse the poll interval inserted at compile-time
+func GetPollInterval() time.Duration {
+	pollInterval, err := strconv.Atoi(`{{.Config.PollInterval}}`)
+	if err != nil {
+		return 1 * time.Second
+	}
+	return time.Duration(pollInterval) * time.Second
+}
+
+func SetPollInterval(interval time.Duration) {
+	pollInterval = interval
 }
 
 func getMaxConnectionErrors() int {

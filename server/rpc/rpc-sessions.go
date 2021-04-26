@@ -72,16 +72,56 @@ func (rpc *Server) UpdateSession(ctx context.Context, update *clientpb.UpdateSes
 		return resp, ErrInvalidSessionID
 	}
 	var maxLen int
-	if len(update.Name) < maxNameLength {
-		maxLen = len(update.Name)
-	} else {
-		maxLen = maxNameLength
+	if update.Name != "" {
+		if len(update.Name) < maxNameLength {
+			maxLen = len(update.Name)
+		} else {
+			maxLen = maxNameLength
+		}
+		name := update.Name[:maxLen]
+		if !regexp.MustCompile(`^[[:alnum:]]+$`).MatchString(name) {
+			return resp, ErrInvalidName
+		}
+		session.Name = name
 	}
-	name := update.Name[:maxLen]
-	if !regexp.MustCompile(`^[[:alnum:]]+$`).MatchString(name) {
-		return resp, ErrInvalidName
+	//Update reconnect interval if set
+	if update.ReconnectInterval != -1 {
+		session.ReconnectInterval = uint32(update.ReconnectInterval)
+
+		//Create protobuf msg
+		req := sliverpb.ReconnectIntervalReq{
+			Request: &commonpb.Request{
+				SessionID: session.ID,
+				Timeout:   int64(0),
+			},
+			ReconnectIntervalSeconds: uint32(update.ReconnectInterval),
+		}
+
+		data, err := proto.Marshal(&req)
+		if err != nil {
+			return nil, err
+		}
+		session.Request(sliverpb.MsgNumber(&req), rpc.getTimeout(&req), data)
 	}
-	session.Name = name
+	//Update poll interval if set
+	if update.PollInterval != -1 {
+		session.PollInterval = uint32(update.PollInterval)
+
+		//Create protobuf msg
+		req := sliverpb.PollIntervalReq{
+			Request: &commonpb.Request{
+				SessionID: session.ID,
+				Timeout:   int64(0),
+			},
+			PollIntervalSeconds: uint32(update.PollInterval),
+		}
+
+		data, err := proto.Marshal(&req)
+		if err != nil {
+			return nil, err
+		}
+		session.Request(sliverpb.MsgNumber(&req), rpc.getTimeout(&req), data)
+	}
 	core.Sessions.UpdateSession(session)
 	resp = session.ToProtobuf()
 	return resp, nil

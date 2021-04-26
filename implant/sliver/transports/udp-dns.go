@@ -73,8 +73,6 @@ const (
 var (
 	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789-_")
 
-	pollInterval = 1 * time.Second
-
 	replayMutex = &sync.RWMutex{}
 	replay      = &map[string]bool{}
 )
@@ -355,7 +353,7 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 				log.Printf("Lookup error %v", err)
 				// {{end}}
 				error_counter += 1
-				if error_counter > 3{
+				if error_counter > 3 {
 					return
 				}
 			} else {
