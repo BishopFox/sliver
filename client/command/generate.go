@@ -428,10 +428,10 @@ func getTargets(targetOS string, targetArch string) (string, string) {
 		targetOS = "linux"
 	}
 
-	if targetArch == "x64" || strings.HasPrefix(targetArch, "64") {
+	if targetArch == "amd64" || targetArch == "x64" || strings.HasPrefix(targetArch, "64") {
 		targetArch = "amd64"
 	}
-	if targetArch == "x86" || strings.HasPrefix(targetArch, "32") {
+	if targetArch == "386" || targetArch == "x86" || strings.HasPrefix(targetArch, "32") {
 		targetArch = "386"
 	}
 
@@ -501,12 +501,15 @@ func parseHTTPc2(args string) []*clientpb.ImplantC2 {
 		if strings.HasPrefix(arg, "http://") || strings.HasPrefix(arg, "https://") {
 			uri, err = url.Parse(arg)
 			if err != nil {
-				log.Printf("Failed to parse c2 URL %v", err)
+				log.Printf("Failed to parse C2 URL %s", err)
 				continue
 			}
 		} else {
-			uri = &url.URL{Scheme: "https"} // HTTPS is the default, will fallback to HTTP
-			uri.Host = arg
+			uri, err = url.Parse(fmt.Sprintf("https://%s", arg))
+			if err != nil {
+				log.Printf("Failed to parse C2 URL %s", err)
+				continue
+			}
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),

