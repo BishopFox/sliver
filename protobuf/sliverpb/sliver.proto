@@ -566,6 +566,8 @@ message TunnelData {
   bytes Data  = 1;
   bool Closed = 2;
   uint64 Sequence = 3;
+  uint64 Ack = 4;
+  bool Resend = 5;
 
   uint64 TunnelID = 8 [jstype = JS_STRING];
   uint32 SessionID = 9;
