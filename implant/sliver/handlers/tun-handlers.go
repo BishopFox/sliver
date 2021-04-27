@@ -140,7 +140,9 @@ func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 				log.Printf("[shell] Failed to marshal protobuf %s", err)
 				// {{end}}
 			} else {
+				// {{if .Config.Debug}}
 				log.Printf("[tunnel] Requesting resend of tunnelData seq: %d", tunnel.ReadSequence)
+				// {{end}}
 				connection.RequestResend(data)
 			}
 		}
