@@ -55,6 +55,7 @@ const (
 	defaultTCPPivotPort = 9898
 
 	defaultReconnect = 60
+	defaultPoll      = 1
 	defaultMaxErrors = 1000
 
 	defaultTimeout = 60
@@ -402,6 +403,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("T", "tcp-comms", defaultWGNPort, "wg c2 comms port")
 
 			f.Int("j", "reconnect", defaultReconnect, "attempt to reconnect every n second(s)")
+			f.Int("p", "poll", defaultPoll, "attempt to poll every n second(s)")
 			f.Int("k", "max-errors", defaultMaxErrors, "max number of connection errors")
 
 			f.String("w", "limit-datetime", "", "limit execution to before datetime")
@@ -1399,10 +1401,12 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		LongHelp: help.GetHelpFor(consts.SetStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("n", "name", "", "agent name to change to")
+			f.Int("r", "reconnect", -1, "reconnect interval for agent")
+			f.Int("p", "poll", -1, "poll interval for agent")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			setCmd(ctx, rpc)
+			updateSessionCmd(ctx, rpc)
 			fmt.Println()
 			return nil
 		},

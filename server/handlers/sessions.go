@@ -95,6 +95,7 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	session.ActiveC2 = register.ActiveC2
 	session.Version = register.Version
 	session.ReconnectInterval = register.ReconnectInterval
+	session.PollInterval = register.PollInterval
 	session.ProxyURL = register.ProxyURL
 	core.Sessions.Add(session)
 	go auditLogSession(session, register)

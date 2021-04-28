@@ -32,17 +32,19 @@ import (
 
 var (
 	genericHandlers = map[uint32]RPCHandler{
-		sliverpb.MsgPing:        pingHandler,
-		sliverpb.MsgLsReq:       dirListHandler,
-		sliverpb.MsgDownloadReq: downloadHandler,
-		sliverpb.MsgUploadReq:   uploadHandler,
-		sliverpb.MsgCdReq:       cdHandler,
-		sliverpb.MsgPwdReq:      pwdHandler,
-		sliverpb.MsgRmReq:       rmHandler,
-		sliverpb.MsgMkdirReq:    mkdirHandler,
-		sliverpb.MsgExecuteReq:  executeHandler,
-		sliverpb.MsgSetEnvReq:   setEnvHandler,
-		sliverpb.MsgEnvReq:      getEnvHandler,
+		sliverpb.MsgPing:                 pingHandler,
+		sliverpb.MsgLsReq:                dirListHandler,
+		sliverpb.MsgDownloadReq:          downloadHandler,
+		sliverpb.MsgUploadReq:            uploadHandler,
+		sliverpb.MsgCdReq:                cdHandler,
+		sliverpb.MsgPwdReq:               pwdHandler,
+		sliverpb.MsgRmReq:                rmHandler,
+		sliverpb.MsgMkdirReq:             mkdirHandler,
+		sliverpb.MsgExecuteReq:           executeHandler,
+		sliverpb.MsgSetEnvReq:            setEnvHandler,
+		sliverpb.MsgEnvReq:               getEnvHandler,
+		sliverpb.MsgReconnectIntervalReq: reconnectIntervalHandler,
+		sliverpb.MsgPollIntervalReq:      pollIntervalHandler,
 	}
 )
 

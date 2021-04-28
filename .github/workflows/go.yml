@@ -34,9 +34,6 @@ jobs:
     - name: Go Assets
       run: ./go-assets.sh
 
-    - name: Remove Vendor
-      run: rm -rf ./vendor/
-
     - name: Make
       run: make linux
 
@@ -67,9 +64,6 @@ jobs:
 
     - name: Go Assets
       run: ./go-assets.sh
-
-    - name: Remove Vendor
-      run: rm -rf ./vendor/
 
     - name: Make
       run: make macos

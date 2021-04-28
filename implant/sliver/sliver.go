@@ -286,6 +286,7 @@ func getRegisterSliver() *sliverpb.Envelope {
 		ActiveC2:          transports.GetActiveC2(),
 		ReconnectInterval: uint32(transports.GetReconnectInterval() / time.Second),
 		ProxyURL:          transports.GetProxyURL(),
+		PollInterval:      uint32(transports.GetPollInterval() / time.Second),
 	})
 	if err != nil {
 		// {{if .Config.Debug}}

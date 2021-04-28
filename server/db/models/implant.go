@@ -71,6 +71,7 @@ type ImplantConfig struct {
 	Evasion             bool
 	ObfuscateSymbols    bool
 	ReconnectInterval   uint32
+	PollInterval        uint32
 	MaxConnectionErrors uint32
 
 	WGImplantPrivKey  string
@@ -132,6 +133,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		ObfuscateSymbols: ic.ObfuscateSymbols,
 
 		ReconnectInterval:   ic.ReconnectInterval,
+		PollInterval:        ic.PollInterval,
 		MaxConnectionErrors: ic.MaxConnectionErrors,
 
 		LimitDatetime:     ic.LimitDatetime,

