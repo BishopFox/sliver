@@ -1406,7 +1406,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			setCmd(ctx, rpc)
+			updateSessionCmd(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
