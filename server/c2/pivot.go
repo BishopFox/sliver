@@ -19,8 +19,10 @@ package c2
 */
 
 import (
+	"encoding/json"
 	"sync"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
@@ -133,7 +135,25 @@ func HandlePivotOpen(session *core.Session, data []byte) {
 		}
 	}()
 	core.Sessions.Add(sliverPivoted)
+	go auditLogSession(sliverPivoted, register)
 	Pivots.AddSession(pivotOpen.GetPivotID(), sliverPivoted)
+}
+
+type auditLogNewSessionMsg struct {
+	Session  *clientpb.Session
+	Register *sliverpb.Register
+}
+
+func auditLogSession(session *core.Session, register *sliverpb.Register) {
+	msg, err := json.Marshal(auditLogNewSessionMsg{
+		Session:  session.ToProtobuf(),
+		Register: register,
+	})
+	if err != nil {
+		pivotLog.Errorf("Failed to log new session to audit log %s", err)
+	} else {
+		log.AuditLogger.Warn(string(msg))
+	}
 }
 
 // HandlePivotClose - Handles a PivotClose message
