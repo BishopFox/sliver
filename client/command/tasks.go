@@ -426,6 +426,7 @@ func getActiveSliverConfig() *clientpb.ImplantConfig {
 
 		MaxConnectionErrors: uint32(1000),
 		ReconnectInterval:   uint32(60),
+		PollInterval:        uint32(1),
 
 		Format:      clientpb.ImplantConfig_SHELLCODE,
 		IsSharedLib: true,
