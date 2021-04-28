@@ -218,7 +218,7 @@ const (
 
 	MsgReconnectInterval
 
-	// MsgPollntervalReq
+	// MsgPollIntervalReq
 	MsgPollIntervalReq
 
 	MsgPollInterval

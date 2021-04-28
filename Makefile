@@ -95,28 +95,28 @@ endif
 #
 .PHONY: default
 default: clean
-	$(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
-	$(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
+	$(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
+	$(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: macos
 macos: clean
-	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
-	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
+	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
+	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: macos-arm64
 macos-arm64: clean
-	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_arm64 ./server
-	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_arm64 ./client
+	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_arm64 ./server
+	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_arm64 ./client
 
 .PHONY: linux
 linux: clean
-	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
-	GOOS=linux $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
+	GOOS=linux $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
+	GOOS=linux $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
 
 .PHONY: windows
 windows: clean
-	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server.exe ./server
-	GOOS=windows $(ENV) $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client.exe ./client
+	GOOS=windows $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server.exe ./server
+	GOOS=windows $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client.exe ./client
 
 .PHONY: pb
 pb:

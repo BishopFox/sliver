@@ -30,15 +30,10 @@ import (
 	"github.com/desertbit/grumble"
 )
 
-func setCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+func updateSessionCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	// Option to change the agent name
 	name := ctx.Flags.String("name")
-
-	//if name == "" {
-	//	fmt.Printf(Warn + "please provide a session name\n")
-	//	return
-	//}
 	if name != "" {
 		isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
 		if !isAlphanumeric(name) {
@@ -49,11 +44,9 @@ func setCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	// Option to change the reconnect interval
 	reconnect := ctx.Flags.Int("reconnect")
-	//fmt.Printf(Warn+"Reconnect Value: %v\n", reconnect)
 
 	// Option to change the reconnect interval
 	poll := ctx.Flags.Int("poll")
-	//fmt.Printf(Warn+"Poll Value: %v\n", poll)
 
 	session, err := rpc.UpdateSession(context.Background(), &clientpb.UpdateSession{
 		SessionID:         ActiveSession.session.ID,
