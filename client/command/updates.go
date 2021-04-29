@@ -191,14 +191,23 @@ func updateSavePath(ctx *grumble.Context) (string, error) {
 	return user.HomeDir, nil
 }
 
-func findAssetFor(prefix string, suffix string, assets []version.Asset) *version.Asset {
+func hasAnySuffix(assetFileName string, suffixes []string) bool {
+	for _, suffix := range suffixes {
+		if strings.HasSuffix(assetFileName, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+func findAssetFor(prefix string, suffixes []string, assets []version.Asset) *version.Asset {
 	for _, asset := range assets {
 		downloadURL, err := url.Parse(asset.BrowserDownloadURL)
 		if err != nil {
 			continue
 		}
 		assetFileName := filepath.Base(downloadURL.Path)
-		if strings.HasPrefix(assetFileName, prefix) && strings.HasSuffix(assetFileName, suffix) {
+		if strings.HasPrefix(assetFileName, prefix) && hasAnySuffix(assetFileName, suffixes) {
 			return &asset
 		}
 	}
@@ -206,21 +215,27 @@ func findAssetFor(prefix string, suffix string, assets []version.Asset) *version
 }
 
 func serverAssetForGOOS(assets []version.Asset) *version.Asset {
-	suffix := fmt.Sprintf("_%s.zip", runtime.GOOS)
+	suffixes := []string{fmt.Sprintf("_%s.zip", runtime.GOOS), runtime.GOOS}
 	if runtime.GOOS == "darwin" {
-		suffix = "_macos.zip"
+		suffixes = []string{"_macos.zip", "_macos"}
+		if runtime.GOARCH == "arm64" {
+			suffixes = []string{"_macos-arm64.zip", "_macos-arm64"}
+		}
 	}
 	prefix := "sliver-server"
-	return findAssetFor(prefix, suffix, assets)
+	return findAssetFor(prefix, suffixes, assets)
 }
 
 func clientAssetForGOOS(assets []version.Asset) *version.Asset {
-	suffix := fmt.Sprintf("_%s.zip", runtime.GOOS)
+	suffixes := []string{fmt.Sprintf("_%s.zip", runtime.GOOS), runtime.GOOS}
 	if runtime.GOOS == "darwin" {
-		suffix = "_macos.zip"
+		suffixes = []string{"_macos.zip", "_macos"}
+		if runtime.GOARCH == "arm64" {
+			suffixes = []string{"_macos-arm64.zip", "_macos-arm64"}
+		}
 	}
 	prefix := "sliver-client"
-	return findAssetFor(prefix, suffix, assets)
+	return findAssetFor(prefix, suffixes, assets)
 }
 
 func updateAvailable(client *http.Client, release *version.Release, saveTo string) {
