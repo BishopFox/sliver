@@ -107,38 +107,40 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 
 			go func() {
 
-				send_cache, _ := toImplantCache[tunnel.ID]
+				sendCache, _ := toImplantCache[tunnel.ID]
 				for tunnelData := range tunnel.FromImplant {
-					tunnelLog.Debugf("Tunnel %d: From implant %d byte(s), seq: %d ack: %d", tunnel.ID, len(tunnelData.Data), tunnelData.Sequence, tunnelData.Ack)
 
-					//Remove tunnel data from send cache if Resend is not set
+					tunnelLog.Debugf("Tunnel %d: From implant %d byte(s), seq: %d ack: %d",
+						tunnel.ID, len(tunnelData.Data), tunnelData.Sequence, tunnelData.Ack)
+
+					// Remove tunnel data from send cache if Resend is not set
 					if !tunnelData.Resend {
 
-						i := tunnelData.Ack - 1
-						for send_msg, ok := send_cache[i]; ok; send_msg, ok = send_cache[i] {
-							tunnelLog.Debugf("Tunnel %d: Removing ack: %d from send cache", tunnel.ID, send_msg.Sequence)
-							delete(send_cache, i)
-							i = i - 1
+						index := tunnelData.Ack - 1
+						for sendMsg, ok := sendCache[index]; ok; sendMsg, ok = sendCache[index] {
+							tunnelLog.Debugf("Tunnel %d: Removing ack: %d from send cache", tunnel.ID, sendMsg.Sequence)
+							delete(sendCache, index)
+							index = index - 1
 						}
 
-						recv_cache, ok := fromImplantCache[tunnel.ID]
+						recvCache, ok := fromImplantCache[tunnel.ID]
 						if ok {
-							recv_cache[tunnelData.Sequence] = tunnelData
+							recvCache[tunnelData.Sequence] = tunnelData
 						}
-						for recv, ok := recv_cache[tunnel.FromImplantSequence]; ok; recv, ok = recv_cache[tunnel.FromImplantSequence] {
+						for recv, ok := recvCache[tunnel.FromImplantSequence]; ok; recv, ok = recvCache[tunnel.FromImplantSequence] {
 							tunnel.Client.Send(&sliverpb.TunnelData{
 								TunnelID:  tunnel.ID,
 								SessionID: tunnel.SessionID,
 								Data:      recv.Data,
 								Closed:    false,
 							})
-							delete(recv_cache, tunnel.FromImplantSequence)
+							delete(recvCache, tunnel.FromImplantSequence)
 							tunnel.FromImplantSequence++
 						}
 
 					} else {
 
-						origtunnelData, ok := send_cache[tunnelData.Ack]
+						origtunnelData, ok := sendCache[tunnelData.Ack]
 						if ok {
 							tunnelLog.Debugf("Tunnel %d: Resending cached msg: %d", tunnel.ID, tunnelData.Ack)
 							session := core.Sessions.Get(tunnel.SessionID)
@@ -178,7 +180,7 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 						Data:      data,
 						Closed:    false,
 					}
-					//Add tunnel data to cache
+					// Add tunnel data to cache
 					send_cache[tunnelData.Sequence] = &tunnelData
 
 					data, _ := proto.Marshal(&tunnelData)
