@@ -40,6 +40,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	// {{if .Config.HTTPc2Enabled}}
@@ -126,6 +127,13 @@ func (c *Connection) RemoveTunnel(ID uint64) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	delete(*c.tunnels, ID)
+}
+
+func (c *Connection) RequestResend(data []byte) {
+	c.Send <- &sliverpb.Envelope{
+		Type: sliverpb.MsgTunnelData,
+		Data: data,
+	}
 }
 
 // StartConnectionLoop - Starts the main connection loop

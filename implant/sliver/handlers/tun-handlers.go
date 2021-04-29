@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	// {{if .Config.Debug}}
@@ -100,6 +101,11 @@ func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		// {{if .Config.Debug}}
 		log.Printf("[tunnel] Cache tunnel %d (seq: %d)", tunnel.ID, tunnelData.Sequence)
 		// {{end}}
+
+		//Added a thread lock here because the incrementing of the ReadSequence, adding/deleting things from a shared cache,
+		//and then making decisions based on the current size of the cache by multiple threads can cause race conditions errors
+		var l sync.Mutex
+		l.Lock()
 		tunnelDataCache[tunnel.ID][tunnelData.Sequence] = tunnelData
 
 		// NOTE: The read/write semantics can be a little mind boggling, just remember we're reading
@@ -119,6 +125,30 @@ func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 			tunnel.ReadSequence++ // Increment sequence counter
 		}
 
+		//If cache is building up it probably means a msg was lost and the server is currently hung waiting for it.
+		//Send a Resend packet to have the msg resent from the cache
+		if len(cache) > 3 {
+			data, err := proto.Marshal(&sliverpb.TunnelData{
+				Sequence: tunnel.WriteSequence, // The tunnel write sequence
+				Ack:      tunnel.ReadSequence,
+				Resend:   true,
+				TunnelID: tunnel.ID,
+				Data:     []byte{},
+			})
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[shell] Failed to marshal protobuf %s", err)
+				// {{end}}
+			} else {
+				// {{if .Config.Debug}}
+				log.Printf("[tunnel] Requesting resend of tunnelData seq: %d", tunnel.ReadSequence)
+				// {{end}}
+				connection.RequestResend(data)
+			}
+		}
+		//Unlock
+		l.Unlock()
+
 	} else {
 		// {{if .Config.Debug}}
 		log.Printf("[tunnel] Received data for nil tunnel %d", tunnelData.TunnelID)
@@ -137,11 +167,12 @@ func (tw tunnelWriter) Write(data []byte) (int, error) {
 	n := len(data)
 	data, err := proto.Marshal(&sliverpb.TunnelData{
 		Sequence: tw.tun.WriteSequence, // The tunnel write sequence
+		Ack:      tw.tun.ReadSequence,
 		TunnelID: tw.tun.ID,
 		Data:     data,
 	})
 	// {{if .Config.Debug}}
-	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d)", n, tw.tun.WriteSequence)
+	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, tw.tun.WriteSequence, tw.tun.ReadSequence)
 	// {{end}}
 	tw.tun.WriteSequence++ // Increment write sequence
 	tw.conn.Send <- &sliverpb.Envelope{
