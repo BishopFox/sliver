@@ -306,7 +306,7 @@ func filterNonce(req *http.Request, rm *mux.RouteMatch) bool {
 
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		accessLog.Infof("%s - %s - %v", req.RemoteAddr, req.RequestURI, req.Header.Get("User-Agent"))
+		accessLog.Infof("%s - %s - %v", getRemoteAddr(req), req.RequestURI, req.Header.Get("User-Agent"))
 		next.ServeHTTP(resp, req)
 	})
 }
@@ -414,7 +414,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	httpSession.Session = core.Sessions.Add(&core.Session{
 		ID:            core.NextSessionID(),
 		Transport:     "http(s)",
-		RemoteAddress: req.RemoteAddr,
+		RemoteAddress: getRemoteAddr(req),
 		Send:          make(chan *sliverpb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
@@ -544,9 +544,9 @@ func (s *SliverHTTPC2) stopHandler(resp http.ResponseWriter, req *http.Request) 
 // stagerHander - Serves the sliver shellcode to the stager requesting it
 func (s *SliverHTTPC2) stagerHander(resp http.ResponseWriter, req *http.Request) {
 	if len(s.SliverStage) != 0 {
-		httpLog.Infof("Received staging request from %s", req.RemoteAddr)
+		httpLog.Infof("Received staging request from %s", getRemoteAddr(req))
 		resp.Write(s.SliverStage)
-		httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverStage), req.RemoteAddr)
+		httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverStage), getRemoteAddr(req))
 		resp.WriteHeader(200)
 	} else {
 		resp.WriteHeader(404)
@@ -580,4 +580,15 @@ func newHTTPSessionID() string {
 	buf := make([]byte, 16)
 	rand.Read(buf)
 	return hex.EncodeToString(buf)
+}
+
+func getRemoteAddr(req *http.Request) string {
+	IPAddress := req.Header.Get("X-Real-Ip")
+	if IPAddress == "" {
+		IPAddress = req.Header.Get("X-Forwarded-For")
+	}
+	if IPAddress == "" {
+		IPAddress = req.RemoteAddr
+	}
+	return IPAddress
 }
