@@ -76,7 +76,7 @@ const (
 var (
 	dnsLog = log.NamedLogger("c2", "dns")
 
-	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789-_")
+	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789_")
 
 	sendBlocksMutex = &sync.RWMutex{}
 	sendBlocks      = &map[string]*SendBlock{}
@@ -554,7 +554,12 @@ func dnsSegmentReassemble(nonce string) ([]byte, error) {
 			dnsLog.Infof("Failed to decode session init: %v", err)
 			return nil, err
 		}
-		delete((*dnsSegmentReassembler), nonce)
+		//BUG - in the event that the session init msg does not make it to the client, this will fail. This has been
+		//observed consistently (Namely due to the race condition bug that is also being fixed in dnsSessionPoll).
+		//Currently a memory leak. Consider tracking moving the cleanup code to after polling has
+		//begun to ensure the initial handshake was successful.
+		//
+		//delete((*dnsSegmentReassembler), nonce)
 		return data, nil
 	}
 	return nil, fmt.Errorf("Invalid nonce '%#v' (session init reassembler)", nonce)
@@ -629,7 +634,9 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 	dnsSessionsMutex.Lock()
 	dnsSession, found := (*dnsSessions)[sessionID]
 	if !found {
-		return []string{"1"}, errors.New("invalid session (nil pointer")
+		dnsSessionsMutex.Unlock()
+		b64SessionId := base64.RawStdEncoding.EncodeToString([]byte(sessionID))
+		return []string{b64SessionId}, errors.New("invalid session (nil pointer)")
 	}
 	dnsSessionsMutex.Unlock()
 
@@ -644,6 +651,8 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 			isDrained = true
 		}
 	}
+
+	dnsSession.Session.UpdateCheckin()
 
 	if 0 < len(envelopes) {
 		dnsLog.Infof("%d new message(s) for session id %#v", len(envelopes), sessionID)

