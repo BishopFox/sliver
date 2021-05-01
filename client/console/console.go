@@ -83,9 +83,13 @@ type ExtraCmds func(*grumble.App, rpcpb.SliverRPCClient)
 
 // Start - Console entrypoint
 func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds, config *assets.ClientConfig) error {
-	// func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
+
 	// Keep the config reference
 	serverConfig = config
+
+	// As well, pass the RPC client to the transport package .
+	// This will be needed by many packages in the client/ directory.
+	transport.RPC = rpc
 
 	// Start monitoring tunnels
 	go core.TunnelLoop(rpc)

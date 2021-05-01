@@ -68,10 +68,7 @@ func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.Clie
 		return nil, nil, err
 	}
 
-	// Keep a reference of the RPC client
-	RPC = rpcpb.NewSliverRPCClient(connection)
-
-	return RPC, connection, nil
+	return rpcpb.NewSliverRPCClient(connection), connection, nil
 }
 
 func getTLSConfig(caCertificate string, certificate string, privateKey string) (*tls.Config, error) {
