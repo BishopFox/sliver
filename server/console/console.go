@@ -28,6 +28,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/desertbit/grumble"
 
+	clientAssets "github.com/bishopfox/sliver/client/assets"
 	clientconsole "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
@@ -58,7 +59,7 @@ func Start() {
 	defer conn.Close()
 	localRPC := rpcpb.NewSliverRPCClient(conn)
 	checkForLegacyDB()
-	clientconsole.Start(localRPC, serverOnlyCmds)
+	clientconsole.Start(localRPC, serverOnlyCmds, &clientAssets.ClientConfig{})
 }
 
 func checkForLegacyDB() {

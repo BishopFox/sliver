@@ -19,12 +19,25 @@ package console
 */
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 
-	"github.com/bishopfox/sliver/client/assets"
-
+	"github.com/maxlandon/gonsole"
+	"github.com/maxlandon/readline"
+	"google.golang.org/grpc"
 	"gopkg.in/AlecAivazis/survey.v1"
+
+	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+)
+
+var (
+	// serverConfig - The prompt and the console both need access to it at times.
+	serverConfig *assets.ClientConfig
 )
 
 func selectConfig() *assets.ClientConfig {
@@ -49,6 +62,9 @@ func selectConfig() *assets.ClientConfig {
 		return nil
 	}
 
+	// Keep a reference of the config we will use
+	serverConfig = configs[answer.Config]
+
 	return configs[answer.Config]
 }
 
@@ -70,4 +86,78 @@ func getPromptForConfigs(configs map[string]*assets.ClientConfig) []*survey.Ques
 			},
 		},
 	}
+}
+
+// loadConsoleConfig - Once the client is connected, it receives a console
+// configuration from the server, according to the user profile.
+// In case of errors, it loads the builtin console configuration below.
+func loadConsoleConfig(rpc rpcpb.SliverRPCClient) (config *gonsole.Config, err error) {
+
+	req := &clientpb.GetConsoleConfigReq{}
+	res, err := rpc.LoadConsoleConfig(context.Background(), req, grpc.EmptyCallOption{})
+	if err != nil {
+		config = loadDefaultConsoleConfig()
+		return config, fmt.Errorf("RPC Error: %s", err.Error())
+	}
+	if res.Response.Err != "" {
+		config = loadDefaultConsoleConfig()
+		return config, fmt.Errorf("%s", res.Response.Err)
+	}
+
+	// The ser has sent us a JSON struct
+	config = &gonsole.Config{}
+	err = json.Unmarshal(res.Config, config)
+	if err != nil {
+		fmt.Printf(Warn+"Error unmarshaling config: %s\n", err.Error())
+		return
+	}
+
+	return
+}
+
+// loadDefaultConsoleConfig - When the user has no saved config on the server
+// (or the server has not saved itself) we load this default console configuration.
+func loadDefaultConsoleConfig() (config *gonsole.Config) {
+
+	// Get a config object with defaults, and initialized maps.
+	config = gonsole.NewDefaultConfig()
+	config.InputMode = gonsole.InputEmacs
+	config.MaxTabCompleterRows = 40
+
+	// Make little adjustements to default server prompt, depending on server/client
+	var ps string
+	ps += readline.RESET
+	if serverConfig.LHost == "" {
+		ps += "{bddg}{y} server {fw}@{local_ip} {reset}"
+	} else {
+		ps += "{bddg}@{ly}{server_ip}{reset}"
+	}
+	// Current working directory
+	ps += " {dim}in {reset}{bold}{ly}{cwd}"
+	ps += readline.RESET
+
+	// Server context prompt
+	config.Prompts[constants.ServerMenu] = &gonsole.PromptConfig{
+		Left:            ps,
+		Right:           "{dim}[{reset}{y}{jobs}{fw} jobs, {b}{sessions}{fw} sessions{dim}]",
+		MultilinePrompt: " > ",
+		Multiline:       true,
+		NewlineAfter:    true,
+		NewlineBefore:   true,
+	}
+
+	// Sliver context prompt
+	config.Prompts[constants.SliverMenu] = &gonsole.PromptConfig{
+		Left:            "{bddg} {fr}{session_name} {reset}{bold} {user}{dim}@{reset}{bold}{host}{reset}{dim} in{reset} {bold}{b}{wd}",
+		Right:           "{dim}[{reset}{y}{bold}{platform}{reset}, {bold}{g}{address}{fw}{reset}{dim}]",
+		MultilinePrompt: " > ",
+		Multiline:       true,
+		NewlineAfter:    true,
+		NewlineBefore:   true,
+	}
+
+	// Special coloring for session environment variables
+	config.Highlighting["%"] = readline.RED
+
+	return
 }

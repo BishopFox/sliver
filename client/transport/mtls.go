@@ -26,10 +26,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 )
 
 const (
@@ -41,6 +42,12 @@ const (
 	ClientMaxReceiveMessageSize = 2 * gb
 
 	defaultTimeout = time.Duration(10 * time.Second)
+)
+
+var (
+	// RPC - The Sliver RPC client needs to be accessed by several command packages,
+	// as well the log package, so the transport might store it for acess.
+	RPC rpcpb.SliverRPCClient
 )
 
 // MTLSConnect - Connect to the sliver server
@@ -60,7 +67,11 @@ func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.Clie
 	if err != nil {
 		return nil, nil, err
 	}
-	return rpcpb.NewSliverRPCClient(connection), connection, nil
+
+	// Keep a reference of the RPC client
+	RPC = rpcpb.NewSliverRPCClient(connection)
+
+	return RPC, connection, nil
 }
 
 func getTLSConfig(caCertificate string, certificate string, privateKey string) (*tls.Config, error) {

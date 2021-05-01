@@ -47,5 +47,7 @@ func StartClientConsole() error {
 		return nil
 	}
 	defer ln.Close()
-	return Start(rpc, func(*grumble.App, rpcpb.SliverRPCClient) {})
+
+	// Pass the server configuration, that is accessed by the prompt and the console.
+	return Start(rpc, func(*grumble.App, rpcpb.SliverRPCClient) {}, config)
 }

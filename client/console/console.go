@@ -19,28 +19,28 @@ package console
 */
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	insecureRand "math/rand"
-	"os"
-	"path"
+	"time"
+
+	"github.com/desertbit/grumble"
+	"github.com/jessevdk/go-flags"
+	"github.com/maxlandon/gonsole"
 
 	"github.com/bishopfox/sliver/client/assets"
 	cmd "github.com/bishopfox/sliver/client/command"
+	"github.com/bishopfox/sliver/client/completion"
+	"github.com/bishopfox/sliver/client/constants"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
+	clientLog "github.com/bishopfox/sliver/client/log"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-
-	"time"
-
-	"github.com/desertbit/grumble"
-	"github.com/fatih/color"
 )
 
 const (
@@ -68,123 +68,223 @@ const (
 	Debug = bold + purple + "[-] " + normal
 	// Woot - Display success
 	Woot = bold + green + "[$] " + normal
+
+	// ensure that nothing remains when we refresh the prompt
+	seqClearScreenBelow = "\x1b[0J"
+)
+
+var (
+	// Console - The console instance of this client.
+	Console = gonsole.NewConsole()
 )
 
 // ExtraCmds - Bind extra commands to the app object
 type ExtraCmds func(*grumble.App, rpcpb.SliverRPCClient)
 
 // Start - Console entrypoint
-func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
-	app := grumble.New(&grumble.Config{
-		Name:                  "Sliver",
-		Description:           "Sliver Client",
-		HistoryFile:           path.Join(assets.GetRootAppDir(), "history"),
-		Prompt:                getPrompt(),
-		PromptColor:           color.New(),
-		HelpHeadlineColor:     color.New(),
-		HelpHeadlineUnderline: true,
-		HelpSubCommands:       true,
-	})
-	app.SetPrintASCIILogo(func(app *grumble.App) {
-		printLogo(app, rpc)
-	})
+func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds, config *assets.ClientConfig) error {
+	// func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
+	// Keep the config reference
+	serverConfig = config
 
-	cmd.BindCommands(app, rpc)
-	extraCmds(app, rpc)
-
-	cmd.ActiveSession.AddObserver(func(_ *clientpb.Session) {
-		app.SetPrompt(getPrompt())
-	})
-
-	go eventLoop(app, rpc)
+	// Start monitoring tunnels
 	go core.TunnelLoop(rpc)
 
-	err := app.Run()
+	// Create and setup the client console
+	err := setup(rpc)
 	if err != nil {
-		log.Printf("Run loop returned error: %v", err)
+		return fmt.Errorf("Console setup failed: %s", err)
 	}
-	return err
+
+	// Start monitoring all logs from the server and the client.
+	err = clientLog.Init(Console, rpc)
+	if err != nil {
+		return fmt.Errorf("Failed to start log monitor (%s)", err.Error())
+	}
+
+	// Start monitoring incoming events
+	go eventLoop(rpc)
+
+	// Print banner and version information. (checks last updates)
+	printLogo(rpc)
+
+	// Run the console. All errors are handled internally.
+	Console.Run()
+
+	return nil
 }
 
-func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
-	eventStream, err := rpc.Events(context.Background(), &commonpb.Empty{})
+// setup - Sets everything directly related to the client "part". This includes the full
+// console configuration, setup, history loading, menu contexts, command registration, etc..
+func setup(rpc rpcpb.SliverRPCClient) (err error) {
+
+	// Declare server and sliver contexts (menus).
+	server := Console.NewMenu(consts.ServerMenu)
+	sliver := Console.NewMenu(consts.SliverMenu)
+
+	// The current one is the server
+	Console.SwitchMenu(consts.ServerMenu)
+
+	// Get the user's console configuration from the server, and load it in the console.
+	config, err := loadConsoleConfig(rpc)
+	if err != nil {
+		fmt.Printf(Warn + "Failed to load console configuration from server.\n")
+		fmt.Printf(Info + "Defaulting to builtin values.\n")
+	}
+	Console.LoadConfig(config)
+
+	// Set prompts callback functions for both contexts
+	server.Prompt.Callbacks = serverCallbacks
+	sliver.Prompt.Callbacks = sliverCallbacks
+
+	// Set history sources for both contexts
+	setHistorySources()
+
+	// Setup parser details
+	Console.SetParserOptions(flags.IgnoreUnknown | flags.HelpFlag)
+
+	// Bind commands. In this function we also add some gonsole-provided
+	// default commands, for help and console configuration management.
+	// commands.BindCommands(Console)
+
+	return nil
+}
+
+// setHistorySources - Both contexts have different history sources available to the user.
+func setHistorySources() {
+
+	// Server context
+	server := Console.GetMenu(constants.ServerMenu)
+	server.SetHistoryCtrlR("user-wise history", UserHist)
+	server.SetHistoryAltR("client history", ClientHist)
+
+	// Request a copy of the user history to the server
+	getUserHistory()
+
+	// Sliver context
+	sliver := Console.GetMenu(constants.SliverMenu)
+	sliver.SetHistoryCtrlR("session history", SessionHist)
+	sliver.SetHistoryAltR("user-wise history", UserHist)
+
+	// We pass a function to the core package, which will
+	// allow to refresh the session history as soon as we
+	// interact with it.
+	core.SessionHistoryFunc = SessionHist.RefreshLines
+}
+
+// eventLoop - Print events coming from the server
+func eventLoop(rpc rpcpb.SliverRPCClient) {
+
+	// Call the server events stream.
+	events, err := rpc.Events(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
-	stdout := bufio.NewWriter(os.Stdout)
 
-	for {
-		event, err := eventStream.Recv()
-		if err == io.EOF || event == nil {
+	for !isDone(events.Context()) {
+		event, err := events.Recv()
+		if err != nil {
+			fmt.Printf(Warn + "It seems that the Sliver Server disconnected, falling back...\n")
 			return
 		}
 
-		// Trigger event based on type
 		switch event.EventType {
-
 		case consts.CanaryEvent:
-			fmt.Printf(clearln+Warn+bold+"WARNING: %s%s has been burned (DNS Canary)\n", normal, event.Session.Name)
-			sessions := cmd.GetSessionsByName(event.Session.Name, rpc)
+			fmt.Printf("\n\n") // Clear screen a bit before announcing shitty news
+			fmt.Printf(Warn+"WARNING: %s%s has been burned (DNS Canary)\n", normal, event.Session.Name)
+			sessions := getSessionsByName(event.Session.Name, transport.RPC)
+			var alert string
 			for _, session := range sessions {
-				fmt.Printf(clearln+"\t🔥 Session #%d is affected\n", session.ID)
+				alert += fmt.Sprintf("\t🔥 Session #%d is affected\n", session.ID)
 			}
-			fmt.Println()
-
-		case consts.JoinedEvent:
-			fmt.Printf(clearln+Info+"%s has joined the game\n\n", event.Client.Operator.Name)
-		case consts.LeftEvent:
-			fmt.Printf(clearln+Info+"%s left the game\n\n", event.Client.Operator.Name)
+			Console.RefreshPromptLog(alert)
 
 		case consts.JobStoppedEvent:
 			job := event.Job
-			fmt.Printf(clearln+Warn+"Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
+			line := fmt.Sprintf(Info+"Job #%d stopped (%s/%s)\n", job.ID, job.Protocol, job.Name)
+			Console.RefreshPromptLog(line)
 
 		case consts.SessionOpenedEvent:
 			session := event.Session
+
+			// Create a new session data cache for completions
+			completion.Cache.AddSessionCache(session)
+
+			// Clear the screen
+			fmt.Print(seqClearScreenBelow)
+
 			// The HTTP session handling is performed in two steps:
 			// - first we add an "empty" session
 			// - then we complete the session info when we receive the Register message from the Sliver
 			// This check is here to avoid displaying two sessions events for the same session
+			var news string
 			if session.OS != "" {
 				currentTime := time.Now().Format(time.RFC1123)
-				fmt.Printf(clearln+Info+"Session #%d %s - %s (%s) - %s/%s - %v\n\n",
+				news += fmt.Sprintf("\n\n") // Clear screen a bit before announcing the king
+				news += fmt.Sprintf(Info+"Session #%d %s - %s (%s) - %s/%s - %v\n\n",
 					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
+				prompt := Console.CurrentMenu().Prompt.Render()
+				Console.RefreshPromptCustom(news, prompt, 0)
 			}
 
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			fmt.Printf(clearln+Info+"Session #%d has been updated - %v\n", session.ID, currentTime)
+			updated := fmt.Sprintf(Info+"Session #%d has been updated - %v\n", session.ID, currentTime)
+			if core.ActiveSession != nil && session.ID == core.ActiveSession.ID {
+				prompt := Console.CurrentMenu().Prompt.Render()
+				Console.RefreshPromptCustom(updated, prompt, 0)
+			} else {
+				Console.RefreshPromptLog(updated)
+			}
 
 		case consts.SessionClosedEvent:
 			session := event.Session
-			fmt.Printf(clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
-				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
-			activeSession := cmd.ActiveSession.Get()
-			if activeSession != nil && activeSession.ID == session.ID {
-				cmd.ActiveSession.Set(nil)
-				app.SetPrompt(getPrompt())
-				fmt.Printf(Warn + " Active session disconnected\n")
+			var lost string
+
+			// If the session is our current session, we notify the console
+			if core.ActiveSession != nil && session.ID == core.ActiveSession.ID {
+				Console.SwitchMenu(consts.ServerMenu)
+				core.ActiveSession = nil
 			}
-			fmt.Println()
+
+			// We print a message here if its not about a session we killed ourselves, and adapt prompt
+			lost += fmt.Sprintf(Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
+				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
+			Console.RefreshPromptLog(lost)
+
+			// In any case, delete the completion data cache for the session, if any.
+			completion.Cache.RemoveSessionData(session)
 		}
-
-		fmt.Printf(getPrompt())
-		stdout.Flush()
 	}
 }
 
-func getPrompt() string {
-	prompt := underline + "sliver" + normal
-	if cmd.ActiveSession.Get() != nil {
-		prompt += fmt.Sprintf(bold+red+" (%s)%s", cmd.ActiveSession.Get().Name, normal)
+func isDone(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
 	}
-	prompt += " > "
-	return prompt
 }
 
-func printLogo(sliverApp *grumble.App, rpc rpcpb.SliverRPCClient) {
+// getSessionsByName - Return all sessions for an Implant by name
+func getSessionsByName(name string, rpc rpcpb.SliverRPCClient) []*clientpb.Session {
+	sessions, err := rpc.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return nil
+	}
+	matched := []*clientpb.Session{}
+	for _, session := range sessions.GetSessions() {
+		if session.Name == name {
+			matched = append(matched, session)
+		}
+	}
+	return matched
+}
+
+func printLogo(rpc rpcpb.SliverRPCClient) {
 	serverVer, err := rpc.GetVersion(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		panic(err.Error())

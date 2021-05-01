@@ -19,6 +19,73 @@ message Version {
   string Arch = 8;
 }
 
+// [ History commands ] ----------------------------------------
+
+// AddCmdHistoryRequest - Consoles send their commands each time.
+// If the current command is executed in an implant context,
+// the precise UUID is passed along, so that each implant host has
+// one unified history, and all sessions created on the same host,
+// will share the same set.
+message AddCmdHistoryRequest {
+  string Line = 1;
+  Session Session = 2;      
+
+  commonpb.Request Request = 9;
+}
+
+message AddCmdHistory {
+  bool Doublon = 1;          
+  repeated string User = 2;
+  repeated string Sliver = 3;
+
+  commonpb.Response Response = 9;
+}
+
+// HistoryRequest - A console wants a command history.
+// We may ask for two sets of history at once: the user, and a session
+message HistoryRequest {
+  bool AllConsoles = 1;     
+  int32 Index = 2;         
+  Session Session = 3;      
+        
+  commonpb.Request Request = 9;
+}
+
+// History - Command history content.
+message History {
+  repeated string User = 2;
+  int32 UserHistLength = 3;
+
+  repeated string Sliver = 4;
+  int32 SliverHistLength = 5;
+
+  commonpb.Response Response = 9;
+}
+
+// [ Console configuration ] ----------------------------------------
+
+// Ask for config
+message GetConsoleConfigReq {
+  commonpb.Request Request = 9;
+}
+
+// Get config
+message GetConsoleConfig {
+  bytes Config = 1;
+  commonpb.Response Response = 9;
+}
+
+// Save the config
+message SaveConsoleConfigReq {
+  bytes Config = 1;
+  commonpb.Request Request = 9;
+}
+
+// Saved
+message SaveConsoleConfig {
+  commonpb.Response Response = 9;
+}
+
 // [ Core ] ----------------------------------------
 message Session {
   uint32 ID = 1;
