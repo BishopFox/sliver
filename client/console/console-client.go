@@ -21,11 +21,10 @@ package console
 import (
 	"fmt"
 
+	"github.com/maxlandon/gonsole"
+
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-
-	"github.com/desertbit/grumble"
 )
 
 // StartClientConsole - Start the client console
@@ -49,5 +48,5 @@ func StartClientConsole() error {
 	defer ln.Close()
 
 	// Pass the server configuration, that is accessed by the prompt and the console.
-	return Start(rpc, func(*grumble.App, rpcpb.SliverRPCClient) {}, config)
+	return Start(rpc, func(menu *gonsole.Menu) {}, config)
 }

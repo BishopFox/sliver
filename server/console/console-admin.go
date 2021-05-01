@@ -23,94 +23,137 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 
-	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/constants"
+	clientLog "github.com/bishopfox/sliver/client/log"
+	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/transport"
-
-	"github.com/desertbit/grumble"
-)
-
-const (
-	// ANSI Colors
-	normal    = "\033[0m"
-	black     = "\033[30m"
-	red       = "\033[31m"
-	green     = "\033[32m"
-	orange    = "\033[33m"
-	blue      = "\033[34m"
-	purple    = "\033[35m"
-	cyan      = "\033[36m"
-	gray      = "\033[37m"
-	bold      = "\033[1m"
-	clearln   = "\r\x1b[2K"
-	upN       = "\033[%dA"
-	downN     = "\033[%dB"
-	underline = "\033[4m"
-
-	// Info - Display colorful information
-	Info = bold + cyan + "[*] " + normal
-	// Warn - Warn a user
-	Warn = bold + red + "[!] " + normal
-	// Debug - Display debug information
-	Debug = bold + purple + "[-] " + normal
-	// Woot - Display success
-	Woot = bold + green + "[$] " + normal
 )
 
 var (
+	adminLog = log.NamedLogger("console", "admin")
+
 	namePattern = regexp.MustCompile("^[a-zA-Z0-9_]*$") // Only allow alphanumeric chars
 )
 
-// ClientConfig - Client JSON config
-type ClientConfig struct {
-	Operator      string `json:"operator"`
-	LHost         string `json:"lhost"`
-	LPort         int    `json:"lport"`
-	CACertificate string `json:"ca_certificate"`
-	PrivateKey    string `json:"private_key"`
-	Certificate   string `json:"certificate"`
+// NewOperator - Command for creating a new operator user.
+type NewOperator struct {
+	Options OperatorOptions `group:"operator options"`
 }
 
-func newOperatorCmd(ctx *grumble.Context) {
-	operator := ctx.Flags.String("operator")
-	lhost := ctx.Flags.String("lhost")
-	lport := uint16(ctx.Flags.Int("lport"))
-	save := ctx.Flags.String("save")
+// OperatorOptions - Options for operator creation.
+type OperatorOptions struct {
+	Operator string `long:"operator" short:"o" description:"name of operator" required:"true"`
+	LHost    string `long:"lhost" short:"l" description:"server listening host" default:"localhost"`
+	LPort    uint16 `long:"lport" short:"p" description:"server listening port" default:"31337"`
+	Save     string `long:"save" short:"s" description:"directory/file to save configuration file"`
+}
 
-	if save == "" {
+// Execute - Create new operator user.
+func (n NewOperator) Execute(args []string) (err error) {
+	cliLog := clientLog.ClientLogger
+
+	var save string
+	if n.Options.Save == "" {
 		save, _ = os.Getwd()
 	}
 
-	fmt.Printf(Info + "Generating new client certificate, please wait ... \n")
-	configJSON, err := NewPlayerConfig(operator, lhost, lport)
+	cliLog.Debugf("Generating new client certificate for user %s (server at %s:%d)",
+		n.Options.Operator, n.Options.LHost, n.Options.LPort)
+	configJSON, err := NewPlayerConfig(n.Options.Operator, n.Options.LHost, n.Options.LPort)
 	if err != nil {
-		fmt.Printf(Warn+"%s", err)
+		fmt.Printf(util.Error+"Failed to generate user config: %v \n", err)
 		return
 	}
 
 	saveTo, _ := filepath.Abs(save)
 	fi, err := os.Stat(saveTo)
 	if !os.IsNotExist(err) && !fi.IsDir() {
-		fmt.Printf(Warn+"File already exists %v\n", err)
+		fmt.Printf(util.Error+"Failed to generate user config: file already exists (%s) ", saveTo)
 		return
 	}
 	if !os.IsNotExist(err) && fi.IsDir() {
-		filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(operator), filepath.Base(lhost))
+		filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(n.Options.Operator), filepath.Base(n.Options.LHost))
 		saveTo = filepath.Join(saveTo, filename)
 	}
 	err = ioutil.WriteFile(saveTo, configJSON, 0600)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to write config to: %s (%v) \n", saveTo, err)
+		fmt.Printf(util.Error+"Failed to write config to: %s (%v) \n", saveTo, err)
 		return
 	}
-	fmt.Printf(Info+"Saved new client config to: %s \n", saveTo)
+	cliLog.Debugf("Saved new client config to: %s \n", saveTo)
+	fmt.Printf(util.Info+"Created player config for operator %s at %s:%d \n",
+		n.Options.Operator, n.Options.LHost, n.Options.LPort)
 
+	return
+}
+
+// KickOperator - Kick an operator out of server and remove certificates.
+type KickOperator struct {
+	Positional struct {
+		Operator string `description:"name of operator to kick off"`
+	} `positional-args:"yes"`
+}
+
+// Execute - Kick operator from server.
+func (k *KickOperator) Execute(args []string) (err error) {
+
+	operator := k.Positional.Operator
+
+	if !namePattern.MatchString(operator) {
+		fmt.Printf(util.Error + "Invalid operator name (alphanumerics only)")
+		return
+	}
+	if operator == "" {
+		fmt.Printf(util.Error + "Operator name required (--operator)")
+		return
+	}
+
+	adminLog.Infof("Removing client certificate for operator %s, please wait ... \n", operator)
+	err = certs.OperatorClientRemoveCertificate(operator)
+	if err != nil {
+		err = fmt.Errorf("failed to remove the operator certificate: %v", err)
+		adminLog.Errorf(err.Error())
+		fmt.Printf(util.Error+"Failed to kick player: %v \n", err)
+		return
+	}
+	adminLog.Infof("Operator %s kicked out. \n", operator)
+	fmt.Printf(util.Info+"Kicked player %s from the server \n", k.Positional.Operator)
+
+	return
+}
+
+// MultiplayerMode - Enable team playing on server
+type MultiplayerMode struct {
+	Options MultiplayerOptions `group:"multiplayer options"`
+}
+
+// MultiplayerOptions - Available to server multiplayer mode.
+type MultiplayerOptions struct {
+	LHost string `long:"lhost" short:"l" description:"server listening host" default:"localhost"`
+	LPort uint16 `long:"lport" short:"p" description:"server listening port" default:"31337"`
+}
+
+// Execute - Start multiplayer mode.
+func (m *MultiplayerMode) Execute(args []string) (err error) {
+
+	_, err = jobStartClientListener(m.Options.LHost, m.Options.LPort)
+	if err == nil {
+		// Temporary: increase jobs counter
+		adminLog.Infof("Multiplayer mode enabled on %s:%d", m.Options.LHost, m.Options.LPort)
+		fmt.Printf(util.Info+"Started Multiplayer gRPC listener at %s:%d \n", m.Options.LHost, m.Options.LPort)
+		return
+	}
+
+	fmt.Printf(util.Error+"Failed to start gRPC client listener: %v \n", err)
+	return
 }
 
 // NewPlayerConfig - Generate a new player/client/operator configuration
@@ -130,53 +173,30 @@ func NewPlayerConfig(operatorName, lhost string, lport uint16) ([]byte, error) {
 
 	publicKey, privateKey, err := certs.OperatorClientGenerateCertificate(operatorName)
 	if err != nil {
-		return nil, fmt.Errorf(Warn+"Failed to generate certificate %s", err)
+		return nil, fmt.Errorf("Failed to generate certificate %s", err)
 	}
+
 	caCertPEM, _, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
-	config := ClientConfig{
+	// caCertPEM, serverCAKey, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
+
+	// Make a fingerprint of the implant's private key, for SSH-layer authentication
+	// signer, _ := ssh.ParsePrivateKey(serverCAKey)
+	// keyBytes := sha256.Sum256(signer.PublicKey().Marshal())
+	// fingerprint := base64.StdEncoding.EncodeToString(keyBytes[:])
+
+	config := assets.ClientConfig{
 		Operator:      operatorName,
 		LHost:         lhost,
 		LPort:         int(lport),
 		CACertificate: string(caCertPEM),
 		PrivateKey:    string(privateKey),
 		Certificate:   string(publicKey),
+		// ServerFingerprint: fingerprint,
 	}
 	return json.Marshal(config)
 }
 
-func kickOperatorCmd(ctx *grumble.Context) {
-	operator := ctx.Flags.String("operator")
-
-	if !namePattern.MatchString(operator) {
-		fmt.Println(Warn + "Invalid operator name (alphanumerics only)")
-		return
-	}
-
-	if operator == "" {
-		fmt.Printf(Warn + "Operator name required (--operator) \n")
-		return
-	}
-	fmt.Printf(Info+"Removing client certificate for operator %s, please wait ... \n", operator)
-	err := certs.OperatorClientRemoveCertificate(operator)
-	if err != nil {
-		fmt.Printf(Warn+"Failed to remove the operator certificate: %v \n", err)
-		return
-	}
-	fmt.Printf(Info+"Operator %s kicked out. \n", operator)
-}
-
-func startMultiplayerModeCmd(ctx *grumble.Context) {
-	server := ctx.Flags.String("server")
-	lport := uint16(ctx.Flags.Int("lport"))
-
-	_, err := jobStartClientListener(server, lport)
-	if err == nil {
-		fmt.Printf(Info + "Multiplayer mode enabled!\n")
-	} else {
-		fmt.Printf(Warn+"Failed to start job %v\n", err)
-	}
-}
-
+// Start the console client listener
 func jobStartClientListener(host string, port uint16) (int, error) {
 	_, ln, err := transport.StartClientListener(host, port)
 	if err != nil {
@@ -194,14 +214,14 @@ func jobStartClientListener(host string, port uint16) (int, error) {
 
 	go func() {
 		<-job.JobCtrl
-		log.Printf("Stopping client listener (%d) ...\n", job.ID)
+		adminLog.Printf("Stopping client listener (%d) ...\n", job.ID)
 		ln.Close() // Kills listener GoRoutines in startMutualTLSListener() but NOT connections
 
 		core.Jobs.Remove(job)
 
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
-			EventType: consts.JobStoppedEvent,
+			EventType: constants.JobStoppedEvent,
 		})
 	}()
 

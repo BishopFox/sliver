@@ -25,12 +25,12 @@ import (
 	insecureRand "math/rand"
 	"time"
 
-	"github.com/desertbit/grumble"
 	"github.com/jessevdk/go-flags"
 	"github.com/maxlandon/gonsole"
 
 	"github.com/bishopfox/sliver/client/assets"
-	cmd "github.com/bishopfox/sliver/client/command"
+	"github.com/bishopfox/sliver/client/command"
+	cmd "github.com/bishopfox/sliver/client/command/server"
 	"github.com/bishopfox/sliver/client/completion"
 	"github.com/bishopfox/sliver/client/constants"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -79,7 +79,7 @@ var (
 )
 
 // ExtraCmds - Bind extra commands to the app object
-type ExtraCmds func(*grumble.App, rpcpb.SliverRPCClient)
+type ExtraCmds func(menu *gonsole.Menu)
 
 // Start - Console entrypoint
 func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds, config *assets.ClientConfig) error {
@@ -95,7 +95,7 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds, config *assets.Client
 	go core.TunnelLoop(rpc)
 
 	// Create and setup the client console
-	err := setup(rpc)
+	err := setup(rpc, extraCmds)
 	if err != nil {
 		return fmt.Errorf("Console setup failed: %s", err)
 	}
@@ -120,7 +120,7 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds, config *assets.Client
 
 // setup - Sets everything directly related to the client "part". This includes the full
 // console configuration, setup, history loading, menu contexts, command registration, etc..
-func setup(rpc rpcpb.SliverRPCClient) (err error) {
+func setup(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) (err error) {
 
 	// Declare server and sliver contexts (menus).
 	server := Console.NewMenu(consts.ServerMenu)
@@ -147,9 +147,14 @@ func setup(rpc rpcpb.SliverRPCClient) (err error) {
 	// Setup parser details
 	Console.SetParserOptions(flags.IgnoreUnknown | flags.HelpFlag)
 
+	// Bind admin commands if we are the server binary.
+	if extraCmds != nil {
+		extraCmds(server)
+	}
+
 	// Bind commands. In this function we also add some gonsole-provided
 	// default commands, for help and console configuration management.
-	// commands.BindCommands(Console)
+	command.BindCommands(Console)
 
 	return nil
 }

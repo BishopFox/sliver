@@ -84,6 +84,7 @@ const (
 	InfoStr       = "info"
 	UseStr        = "use"
 	SetStr        = "set"
+	InteractStr   = "interact"
 
 	GenerateStr        = "generate"
 	StageStr           = "stage"
@@ -91,7 +92,6 @@ const (
 	RegenerateStr      = "regenerate"
 	ProfileGenerateStr = "generate-profile"
 	ProfilesStr        = "profiles"
-	ProfilesDeleteStr  = "delete"
 	NewProfileStr      = "new-profile"
 
 	ImplantBuildsStr = "implants"
@@ -108,7 +108,9 @@ const (
 	NamedPipeStr   = "named-pipe"
 	TCPListenerStr = "tcp-pivot"
 
-	LogStr = "log"
+	LogStr        = "log"
+	ConfigStr     = "config"
+	ConfigSaveStr = "save"
 
 	MsfStr       = "msf"
 	MsfInjectStr = "msf-inject"
@@ -213,13 +215,16 @@ const (
 // C2 default values
 const (
 	DefaultMTLSLPort    = 8888
+	DefaultWGLPort      = 53
+	DefaultWGNPort      = 8888
+	DefaultWGKeyExPort  = 1337
 	DefaultHTTPLPort    = 80
 	DefaultHTTPSLPort   = 443
 	DefaultDNSLPort     = 53
-	DefaultTCPLPort     = 4444
 	DefaultTCPPivotPort = 9898
 
 	DefaultReconnect = 60
+	DefaultPoll      = 1
 	DefaultMaxErrors = 1000
 
 	DefaultTimeout = 60

@@ -91,12 +91,20 @@ func SessionIfacePublicNetworks(last string, sess *clientpb.Session, alone bool)
 
 // ActiveSessionIfaceAddrs - Get all available addresses (including loopback) for an implant host
 func ActiveSessionIfaceAddrs() (comps []*readline.CompletionGroup) {
+	// Important, we never know from which menu we are called.
+	if core.ActiveSession == nil {
+		return
+	}
 	_, comps = sessionIfaceAddrs("", core.ActiveSession.Session)
 	return
 }
 
 // sessionIfaceAddrs - Get all available addresses (including loopback) for an implant host
 func sessionIfaceAddrs(last string, sess *clientpb.Session) (prefix string, comps []*readline.CompletionGroup) {
+	if sess == nil {
+		return
+	}
+
 	comp := &readline.CompletionGroup{
 		Name:        fmt.Sprintf("addresses (session %d)", sess.ID),
 		MaxLength:   5,
@@ -144,14 +152,11 @@ func routedSessionIfaceAddrs(last string, except uint32, alone bool) (comps []*r
 }
 
 // AllSessionIfaceAddrs - Returns all available IPs, for each registered/active implant (each has a group)
-func AllSessionIfaceAddrs(last string, except uint32, alone bool) (comps []*readline.CompletionGroup) {
+func AllSessionIfaceAddrs(last string) (comps []*readline.CompletionGroup) {
 	// If except is 0, do not include the matching session
 	sessions := getAllSessions()
 	if len(sessions) == 0 {
 		return
-	}
-	if except != 0 {
-		delete(sessions, except)
 	}
 
 	for _, sess := range sessions {

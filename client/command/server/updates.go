@@ -1,4 +1,4 @@
-package command
+package server
 
 /*
 	Sliver Implant Framework
@@ -38,31 +38,47 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/cheggaaa/pb/v3"
+
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/licenses"
+	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/util"
-	"github.com/cheggaaa/pb/v3"
-	"github.com/desertbit/grumble"
+	serverUtil "github.com/bishopfox/sliver/util"
 )
 
 const (
 	lastCheckFileName = "last_update_check"
 )
 
-func updates(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	verboseVersions(ctx, rpc)
+// Updates - Check for newer Sliver console/server releases.
+type Updates struct {
+	Options struct {
+		Insecure    bool   `long:"insecure" short:"I" description:"check for newer Sliver console/server releases"`
+		Timeout     int    `long:"timeout" short:"t" description:"command timeout in seconds" default:"10"`
+		PreReleases bool   `long:"prereleases" short:"P" description:"include pre-released (unstable) versions"`
+		Save        string `long:"save" short:"s" description:"save downloaded files to specific directory (default user home dir)" default:"~"`
+		Proxy       string `long:"proxy" short:"p" description:"specify a proxy url (e.g. http://localhost:8080)"`
+	} `group:"Update Check options"`
+}
 
-	timeout := time.Duration(ctx.Flags.Int("timeout")) * time.Second
+// Execute - Check for Sliver release updates.
+func (u *Updates) Execute(args []string) (err error) {
 
-	insecure := ctx.Flags.Bool("insecure")
+	verboseVersions()
+
+	timeout := time.Duration(core.GetCommandTimeout())
+
+	insecure := u.Options.Insecure
 	if insecure {
 		fmt.Println()
-		fmt.Println(Warn + "You're trying to update over an insecure connection, this is a really bad idea!")
+		fmt.Println(util.Warn + "You're trying to update over an insecure transport, this is a really bad idea!")
 		confirm := false
 		prompt := &survey.Confirm{Message: "Recklessly update?"}
-		survey.AskOne(prompt, &confirm)
+		survey.AskOne(prompt, &confirm, nil)
 		if !confirm {
 			return
 		}
@@ -74,13 +90,12 @@ func updates(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		}
 	}
 
-	proxy := ctx.Flags.String("proxy")
+	proxy := u.Options.Proxy
 	var proxyURL *url.URL = nil
-	var err error
 	if proxy != "" {
 		proxyURL, err = url.Parse(proxy)
 		if err != nil {
-			fmt.Printf(Warn+"%s", err)
+			fmt.Printf(util.Error+"%s", err)
 			return
 		}
 	}
@@ -100,23 +115,23 @@ func updates(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	fmt.Printf("\nChecking for updates ... ")
-	prereleases := ctx.Flags.Bool("prereleases")
+	prereleases := u.Options.PreReleases
 	release, err := version.CheckForUpdates(client, prereleases)
 	fmt.Printf("done!\n\n")
 	if err != nil {
-		fmt.Printf(Warn+"Update check failed %s", err)
+		fmt.Printf(util.Error+"Update check failed %s", err)
 		return
 	}
 
 	if release != nil {
-		saveTo, err := updateSavePath(ctx)
+		saveTo, err := updateSavePath(u)
 		if err != nil {
-			fmt.Printf(Warn+"%s\n", err)
-			return
+			fmt.Printf(util.Error+"%s\n", err)
+			return nil
 		}
 		updateAvailable(client, release, saveTo)
 	} else {
-		fmt.Printf(Info + "No new releases.\n")
+		fmt.Printf(util.Info + "No new releases.\n")
 	}
 	now := time.Now()
 	lastCheck := []byte(fmt.Sprintf("%d", now.Unix()))
@@ -126,6 +141,8 @@ func updates(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if err != nil {
 		log.Printf("Failed to save update check time %s", err)
 	}
+
+	return
 }
 
 // GetLastUpdateCheck - Get the timestap of the last update check, nil if none
@@ -146,29 +163,48 @@ func GetLastUpdateCheck() *time.Time {
 	return &lastUpdate
 }
 
-func verboseVersions(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+// Version - Display version information
+type Version struct{}
+
+// Execute - Display version information
+func (v *Version) Execute(args []string) (err error) {
+	verboseVersions()
+	return
+}
+
+func verboseVersions() {
 	clientVer := version.FullVersion()
-	serverVer, err := rpc.GetVersion(context.Background(), &commonpb.Empty{})
+	serverVer, err := transport.RPC.GetVersion(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(Warn+"Failed to check server version %s", err)
+		fmt.Printf(util.Warn+"Failed to check server version %s", err)
 		return
 	}
 
-	fmt.Printf(Info+"Client %s - %s/%s\n", clientVer, runtime.GOOS, runtime.GOARCH)
+	fmt.Printf(util.Info+"Client v%s - %s/%s\n", clientVer, runtime.GOOS, runtime.GOARCH)
 	clientCompiledAt, _ := version.Compiled()
-	fmt.Printf("    Compiled at %s\n", clientCompiledAt)
-	fmt.Printf("    Compiled with %s\n\n", version.GoVersion)
+	fmt.Printf("    Compiled at %s\n\n", clientCompiledAt)
 
 	fmt.Println()
-	fmt.Printf(Info+"Server v%d.%d.%d - %s - %s/%s\n",
+	fmt.Printf(util.Info+"Server v%d.%d.%d - %s - %s/%s\n",
 		serverVer.Major, serverVer.Minor, serverVer.Patch, serverVer.Commit,
 		serverVer.OS, serverVer.Arch)
 	serverCompiledAt := time.Unix(serverVer.CompiledAt, 0)
 	fmt.Printf("    Compiled at %s\n", serverCompiledAt)
 }
 
-func updateSavePath(ctx *grumble.Context) (string, error) {
-	saveTo := ctx.Flags.String("save")
+// Licenses - Display licenses
+type Licenses struct{}
+
+// Execute - Display version information
+func (l *Licenses) Execute(args []string) (err error) {
+	fmt.Println()
+	fmt.Println(licenses.All)
+	fmt.Println()
+	return
+}
+
+func updateSavePath(u *Updates) (string, error) {
+	saveTo := u.Options.Save
 	if saveTo != "" {
 		fi, err := os.Stat(saveTo)
 		if err != nil {
@@ -245,10 +281,10 @@ func updateAvailable(client *http.Client, release *version.Release, saveTo strin
 
 	fmt.Printf("New version available %s\n", release.TagName)
 	if serverAsset != nil {
-		fmt.Printf(" - Server: %s\n", util.ByteCountBinary(int64(serverAsset.Size)))
+		fmt.Printf(" - Server: %s\n", serverUtil.ByteCountBinary(int64(serverAsset.Size)))
 	}
 	if clientAsset != nil {
-		fmt.Printf(" - Client: %s\n", util.ByteCountBinary(int64(clientAsset.Size)))
+		fmt.Printf(" - Client: %s\n", serverUtil.ByteCountBinary(int64(clientAsset.Size)))
 	}
 	fmt.Println()
 
@@ -261,15 +297,15 @@ func updateAvailable(client *http.Client, release *version.Release, saveTo strin
 		fmt.Printf("Please wait ...")
 		err := downloadAsset(client, serverAsset, saveTo)
 		if err != nil {
-			fmt.Printf(clearln+Warn+"%s\n", err)
+			fmt.Printf(util.Error+"%s\n", err)
 			return
 		}
 		err = downloadAsset(client, clientAsset, saveTo)
 		if err != nil {
-			fmt.Printf(clearln+Warn+"%s\n", err)
+			fmt.Printf(util.Error+"%s\n", err)
 			return
 		}
-		fmt.Printf(clearln+"\n"+Info+"Saved updates to: %s\n", saveTo)
+		fmt.Printf("\n"+util.Info+"Saved updates to: %s\n", saveTo)
 	}
 }
 

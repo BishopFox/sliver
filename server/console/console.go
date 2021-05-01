@@ -26,17 +26,44 @@ import (
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/desertbit/grumble"
+	"github.com/maxlandon/gonsole"
+	"google.golang.org/grpc"
 
 	clientAssets "github.com/bishopfox/sliver/client/assets"
 	clientconsole "github.com/bishopfox/sliver/client/console"
-	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
 	clienttransport "github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/transport"
-	"google.golang.org/grpc"
+)
+
+const (
+	// ANSI Colors
+	normal    = "\033[0m"
+	black     = "\033[30m"
+	red       = "\033[31m"
+	green     = "\033[32m"
+	orange    = "\033[33m"
+	blue      = "\033[34m"
+	purple    = "\033[35m"
+	cyan      = "\033[36m"
+	gray      = "\033[37m"
+	bold      = "\033[1m"
+	clearln   = "\r\x1b[2K"
+	upN       = "\033[%dA"
+	downN     = "\033[%dB"
+	underline = "\033[4m"
+
+	// Info - Display colorful information
+	Info = bold + cyan + "[*] " + normal
+	// Warn - Warn a user
+	Warn = bold + red + "[!] " + normal
+	// Debug - Display debug information
+	Debug = bold + purple + "[-] " + normal
+	// Woot - Display success
+	Woot = bold + green + "[$] " + normal
 )
 
 // Start - Starts the server console
@@ -81,61 +108,31 @@ func checkForLegacyDB() {
 	}
 }
 
-// ServerOnlyCmds - Server only commands
-func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
+// serverOnlyCmds - We bind commands only available to the server admin to the console command parser.
+// Unfortunately we have to use, for each command, its Aliases field where we register its "namespace".
+// There is a namespace field, however it messes up with the option printing/detection/parsing.
+func serverOnlyCmds(cc *gonsole.Menu) {
 
-	// [ Multiplayer ] -----------------------------------------------------------------
+	cc.AddCommand(constants.NewPlayerStr,
+		"Create a new player config file",
+		help.GetHelpFor(constants.NewPlayerStr),
+		constants.AdminGroup,
+		[]string{""},
+		func() interface{} { return &NewOperator{} })
 
-	app.AddCommand(&grumble.Command{
-		Name:     consts.MultiplayerModeStr,
-		Help:     "Enable multiplayer mode",
-		LongHelp: help.GetHelpFor(consts.MultiplayerModeStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("s", "server", "", "interface to bind server to")
-			f.Int("l", "lport", 31337, "tcp listen port")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			startMultiplayerModeCmd(ctx)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.MultiplayerHelpGroup,
-	})
+	cc.AddCommand(constants.KickPlayerStr,
+		"Kick a player from the server",
+		help.GetHelpFor(constants.KickPlayerStr),
+		constants.AdminGroup,
+		[]string{""},
+		func() interface{} { return &KickOperator{} })
 
-	app.AddCommand(&grumble.Command{
-		Name:     consts.NewPlayerStr,
-		Help:     "Create a new player config file",
-		LongHelp: help.GetHelpFor(consts.NewPlayerStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("l", "lhost", "", "listen host")
-			f.Int("p", "lport", 31337, "listen port")
-			f.String("s", "save", "", "directory/file to the binary to")
-			f.String("n", "operator", "", "operator name")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			newOperatorCmd(ctx)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.MultiplayerHelpGroup,
-	})
+	cc.AddCommand(constants.MultiplayerModeStr,
+		"Enable multiplayer mode on this server",
+		help.GetHelpFor(constants.MultiplayerModeStr),
+		constants.AdminGroup,
+		[]string{""},
+		func() interface{} { return &MultiplayerMode{} })
 
-	app.AddCommand(&grumble.Command{
-		Name:     consts.KickPlayerStr,
-		Help:     "Kick a player from the server",
-		LongHelp: help.GetHelpFor(consts.KickPlayerStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("o", "operator", "", "operator name")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			kickOperatorCmd(ctx)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.MultiplayerHelpGroup,
-	})
-
+	return
 }

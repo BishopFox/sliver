@@ -163,3 +163,21 @@ func IsUserAnAdult() bool {
 	survey.AskOne(prompt, &confirm, nil)
 	return confirm
 }
+
+// GetCommandTimeout - Get the current --timeout option value
+func GetCommandTimeout() int64 {
+
+	// The current parser holds some data we want
+	var parser = Console.CommandParser()
+	if parser == nil {
+		return 60
+	}
+
+	// Get timeout
+	if opt := parser.FindOptionByLongName("timeout"); opt != nil {
+		if val, ok := opt.Value().(int64); ok {
+			return val
+		}
+	}
+	return 60
+}
