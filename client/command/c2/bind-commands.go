@@ -26,6 +26,35 @@ import (
 	"github.com/bishopfox/sliver/client/help"
 )
 
+const (
+	// ANSI Colors
+	normal    = "\033[0m"
+	black     = "\033[30m"
+	red       = "\033[31m"
+	green     = "\033[32m"
+	orange    = "\033[33m"
+	blue      = "\033[34m"
+	purple    = "\033[35m"
+	cyan      = "\033[36m"
+	gray      = "\033[37m"
+	bold      = "\033[1m"
+	clearln   = "\r\x1b[2K"
+	upN       = "\033[%dA"
+	downN     = "\033[%dB"
+	underline = "\033[4m"
+
+	// Info - Display colorful information
+	Info = bold + cyan + "[*] " + normal
+	// Debug - Display debug information
+	Debug = bold + purple + "[-] " + normal
+	// Error - Notify error to a user
+	Error = bold + red + "[!] " + normal
+	// Warning - Notify important information, not an error
+	Warning = bold + orange + "[!] " + normal
+	// Woot - Display success
+	Woot = bold + green + "[$] " + normal
+)
+
 var (
 	// Console Some commands might need to access the current context
 	// in the course of the application execution.

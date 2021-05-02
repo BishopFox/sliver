@@ -32,7 +32,6 @@ import (
 
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
@@ -57,7 +56,7 @@ func (g *GenerateStager) Execute(args []string) (err error) {
 	var stageProto clientpb.StageProtocol
 	lhost := g.TransportOptions.LHost
 	if lhost == "" {
-		fmt.Println(util.Error + "please specify a listening host")
+		fmt.Println(Error + "please specify a listening host")
 		return
 	}
 	match, err := regexp.MatchString(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`, lhost)
@@ -67,7 +66,7 @@ func (g *GenerateStager) Execute(args []string) (err error) {
 	if !match {
 		addr, err := net.LookupHost(lhost)
 		if err != nil {
-			fmt.Printf(util.Error+"Error resolving %s: %v\n", lhost, err)
+			fmt.Printf(Error+"Error resolving %s: %v\n", lhost, err)
 			return err
 		}
 		if len(addr) > 1 {
@@ -77,7 +76,7 @@ func (g *GenerateStager) Execute(args []string) (err error) {
 			}
 			err := survey.AskOne(prompt, &lhost, nil)
 			if err != nil {
-				fmt.Printf(util.Error+"Error: %v\n", err)
+				fmt.Printf(Error+"Error: %v\n", err)
 				return err
 			}
 		} else {
@@ -107,7 +106,7 @@ func (g *GenerateStager) Execute(args []string) (err error) {
 	case "https":
 		stageProto = clientpb.StageProtocol_HTTPS
 	default:
-		fmt.Printf(util.Error+"%s staging protocol not supported\n", proto)
+		fmt.Printf(Error+"%s staging protocol not supported\n", proto)
 		return
 	}
 
@@ -126,7 +125,7 @@ func (g *GenerateStager) Execute(args []string) (err error) {
 	<-ctrl
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
 
@@ -134,7 +133,7 @@ func (g *GenerateStager) Execute(args []string) (err error) {
 		saveTo, _ := filepath.Abs(save)
 		fi, err := os.Stat(saveTo)
 		if err != nil {
-			fmt.Printf(util.Error+"Failed to generate sliver stager %v\n", err)
+			fmt.Printf(Error+"Failed to generate sliver stager %v\n", err)
 			return err
 		}
 		if fi.IsDir() {
@@ -142,12 +141,12 @@ func (g *GenerateStager) Execute(args []string) (err error) {
 		}
 		err = ioutil.WriteFile(saveTo, stageFile.GetFile().GetData(), 0700)
 		if err != nil {
-			fmt.Printf(util.Error+"Failed to write to: %s\n", saveTo)
+			fmt.Printf(Error+"Failed to write to: %s\n", saveTo)
 			return err
 		}
-		fmt.Printf(util.Info+"Sliver stager saved to: %s\n", saveTo)
+		fmt.Printf(Info+"Sliver stager saved to: %s\n", saveTo)
 	} else {
-		fmt.Println(util.Info + "Here's your stager:")
+		fmt.Println(Info + "Here's your stager:")
 		fmt.Println(string(stageFile.GetFile().GetData()))
 	}
 

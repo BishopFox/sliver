@@ -35,7 +35,6 @@ import (
 	"github.com/bishopfox/sliver/client/log"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -62,11 +61,11 @@ func (es *ExecuteShellcode) Execute(args []string) (err error) {
 	shellcodePath := es.Positional.LocalPath
 	shellcodeBin, err := ioutil.ReadFile(shellcodePath)
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %s\n", err.Error())
+		fmt.Printf(Error+"Error: %s\n", err.Error())
 		return
 	}
 	if pid != 0 && interactive {
-		fmt.Printf(util.Error + "Cannot use both `--pid` and `--interactive`\n")
+		fmt.Printf(Error + "Cannot use both `--pid` and `--interactive`\n")
 		return
 	}
 	if interactive {
@@ -85,14 +84,14 @@ func (es *ExecuteShellcode) Execute(args []string) (err error) {
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v\n", err)
+		fmt.Printf(Error+"Error: %v\n", err)
 		return
 	}
 	if task.Response.GetErr() != "" {
-		fmt.Printf(util.Error+"Error: %s\n", task.Response.GetErr())
+		fmt.Printf(Error+"Error: %s\n", task.Response.GetErr())
 		return
 	}
-	fmt.Printf(util.Info + "Executed shellcode on target\n")
+	fmt.Printf(Info + "Executed shellcode on target\n")
 
 	return
 }
@@ -114,7 +113,7 @@ func (es *ExecuteShellcode) executeInteractive(hostProc string, shellcode []byte
 	})
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v\n", err)
+		fmt.Printf(Error+"Error: %v\n", err)
 		return
 	}
 
@@ -128,7 +127,7 @@ func (es *ExecuteShellcode) executeInteractive(hostProc string, shellcode []byte
 	})
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v\n", err)
+		fmt.Printf(Error+"Error: %v\n", err)
 		return
 	}
 	// Retrieve PID and start remote task
@@ -147,19 +146,19 @@ func (es *ExecuteShellcode) executeInteractive(hostProc string, shellcode []byte
 	<-ctrl
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
 
 	clog.Debugf("Bound remote program pid %d to tunnel %d", shell.Pid, shell.TunnelID)
-	fmt.Printf(util.Info+"Started remote shell with pid %d\n\n", shell.Pid)
+	fmt.Printf(Info+"Started remote shell with pid %d\n\n", shell.Pid)
 
 	var oldState *terminal.State
 	if !noPty {
 		oldState, err = terminal.MakeRaw(0)
 		clog.Tracef("Saving terminal state: %v", oldState)
 		if err != nil {
-			fmt.Printf(util.Error + "Failed to save terminal state")
+			fmt.Printf(Error + "Failed to save terminal state")
 			return
 		}
 	}
@@ -169,7 +168,7 @@ func (es *ExecuteShellcode) executeInteractive(hostProc string, shellcode []byte
 		n, err := io.Copy(os.Stdout, tunnel)
 		clog.Tracef("Wrote %d bytes to stdout", n)
 		if err != nil {
-			fmt.Printf(util.Error+"Error writing to stdout: %v", err)
+			fmt.Printf(Error+"Error writing to stdout: %v", err)
 			return
 		}
 	}()
@@ -181,7 +180,7 @@ func (es *ExecuteShellcode) executeInteractive(hostProc string, shellcode []byte
 			break
 		}
 		if err != nil {
-			fmt.Printf(util.Error+"Error reading from stdin: %v", err)
+			fmt.Printf(Error+"Error reading from stdin: %v", err)
 			break
 		}
 	}
@@ -223,7 +222,7 @@ func (s *Sideload) Execute(args []string) (err error) {
 
 	binData, err := ioutil.ReadFile(binPath)
 	if err != nil {
-		fmt.Printf(util.Error+"%s", err.Error())
+		fmt.Printf(Error+"%s", err.Error())
 		return
 	}
 	ctrl := make(chan bool)
@@ -239,12 +238,12 @@ func (s *Sideload) Execute(args []string) (err error) {
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
 
 	if sideload.GetResponse().GetErr() != "" {
-		fmt.Printf(util.Error+"Error: %s\n", sideload.GetResponse().GetErr())
+		fmt.Printf(Error+"Error: %s\n", sideload.GetResponse().GetErr())
 		return
 	}
 	var outFilePath *os.File
@@ -252,10 +251,10 @@ func (s *Sideload) Execute(args []string) (err error) {
 		outFile := path.Base(fmt.Sprintf("%s_%s*.log", constants.SideloadStr, session.GetHostname()))
 		outFilePath, err = ioutil.TempFile("", outFile)
 	}
-	fmt.Printf(util.Info+"Output:\n%s", sideload.GetResult())
+	fmt.Printf(Info+"Output:\n%s", sideload.GetResult())
 	if outFilePath != nil {
 		outFilePath.Write([]byte(sideload.GetResult()))
-		fmt.Printf(util.Info+"Output saved to %s\n", outFilePath.Name())
+		fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
 	}
 
 	return

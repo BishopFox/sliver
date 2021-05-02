@@ -169,7 +169,7 @@ func (h *SessionHistory) Write(s string) (int, error) {
 	res, err := transport.RPC.AddToHistory(context.Background(),
 		&clientpb.AddCmdHistoryRequest{
 			Line:    s,
-			Session: core.ActiveSession.Session,
+			Session: core.ActiveSession,
 		})
 	if err != nil {
 		return 0, err

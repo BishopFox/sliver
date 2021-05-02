@@ -40,7 +40,7 @@ func (c *SaveConfig) Execute(args []string) (err error) {
 	currentConf := Console.GetConfig()
 	confBytes, err := json.Marshal(currentConf)
 	if err != nil {
-		fmt.Printf(util.Error+"Error marshaling config: %s\n", err.Error())
+		fmt.Printf(Error+"Error marshaling config: %s\n", err.Error())
 	}
 
 	req := &clientpb.SaveConsoleConfigReq{
@@ -53,9 +53,9 @@ func (c *SaveConfig) Execute(args []string) (err error) {
 	}
 
 	if res.Response.Err != "" {
-		fmt.Printf(util.Error+"Error saving config: %s\n", res.Response.Err)
+		fmt.Printf(Error+"Error saving config: %s\n", res.Response.Err)
 	} else {
-		fmt.Printf(util.Info + "Saved console config\n")
+		fmt.Printf(Info + "Saved console config\n")
 	}
 	return
 }

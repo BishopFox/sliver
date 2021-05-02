@@ -95,7 +95,7 @@ func (u *Updates) Execute(args []string) (err error) {
 	if proxy != "" {
 		proxyURL, err = url.Parse(proxy)
 		if err != nil {
-			fmt.Printf(util.Error+"%s", err)
+			fmt.Printf(Error+"%s", err)
 			return
 		}
 	}
@@ -119,19 +119,19 @@ func (u *Updates) Execute(args []string) (err error) {
 	release, err := version.CheckForUpdates(client, prereleases)
 	fmt.Printf("done!\n\n")
 	if err != nil {
-		fmt.Printf(util.Error+"Update check failed %s", err)
+		fmt.Printf(Error+"Update check failed %s", err)
 		return
 	}
 
 	if release != nil {
 		saveTo, err := updateSavePath(u)
 		if err != nil {
-			fmt.Printf(util.Error+"%s\n", err)
+			fmt.Printf(Error+"%s\n", err)
 			return nil
 		}
 		updateAvailable(client, release, saveTo)
 	} else {
-		fmt.Printf(util.Info + "No new releases.\n")
+		fmt.Printf(Info + "No new releases.\n")
 	}
 	now := time.Now()
 	lastCheck := []byte(fmt.Sprintf("%d", now.Unix()))
@@ -180,12 +180,12 @@ func verboseVersions() {
 		return
 	}
 
-	fmt.Printf(util.Info+"Client v%s - %s/%s\n", clientVer, runtime.GOOS, runtime.GOARCH)
+	fmt.Printf(Info+"Client v%s - %s/%s\n", clientVer, runtime.GOOS, runtime.GOARCH)
 	clientCompiledAt, _ := version.Compiled()
 	fmt.Printf("    Compiled at %s\n\n", clientCompiledAt)
 
 	fmt.Println()
-	fmt.Printf(util.Info+"Server v%d.%d.%d - %s - %s/%s\n",
+	fmt.Printf(Info+"Server v%d.%d.%d - %s - %s/%s\n",
 		serverVer.Major, serverVer.Minor, serverVer.Patch, serverVer.Commit,
 		serverVer.OS, serverVer.Arch)
 	serverCompiledAt := time.Unix(serverVer.CompiledAt, 0)
@@ -297,15 +297,15 @@ func updateAvailable(client *http.Client, release *version.Release, saveTo strin
 		fmt.Printf("Please wait ...")
 		err := downloadAsset(client, serverAsset, saveTo)
 		if err != nil {
-			fmt.Printf(util.Error+"%s\n", err)
+			fmt.Printf(Error+"%s\n", err)
 			return
 		}
 		err = downloadAsset(client, clientAsset, saveTo)
 		if err != nil {
-			fmt.Printf(util.Error+"%s\n", err)
+			fmt.Printf(Error+"%s\n", err)
 			return
 		}
-		fmt.Printf("\n"+util.Info+"Saved updates to: %s\n", saveTo)
+		fmt.Printf("\n"+Info+"Saved updates to: %s\n", saveTo)
 	}
 }
 

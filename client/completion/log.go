@@ -19,6 +19,9 @@ package completion
 */
 
 import (
+	"sort"
+
+	"github.com/bishopfox/sliver/client/log"
 	"github.com/maxlandon/readline"
 )
 
@@ -26,7 +29,6 @@ import (
 var (
 	// Logs & components
 	logLevels = []string{"trace", "debug", "info", "warning", "error"}
-	loggers   = []string{"client"}
 )
 
 func LogLevels() (comps []*readline.CompletionGroup) {
@@ -42,14 +44,21 @@ func LogLevels() (comps []*readline.CompletionGroup) {
 	return []*readline.CompletionGroup{comp}
 }
 
+// Loggers - Returns the names of all loggers instantiated in the client console
 func Loggers() (comps []*readline.CompletionGroup) {
 	comp := &readline.CompletionGroup{
 		Name:         "loggers",
 		Descriptions: map[string]string{},
 		DisplayType:  readline.TabDisplayGrid,
 	}
-	for _, logger := range loggers {
-		comp.Suggestions = append(comp.Suggestions, logger)
+	var loggerNames []string
+	for name := range log.Loggers {
+		loggerNames = append(loggerNames, name)
+	}
+	sort.Strings(loggerNames)
+
+	for _, name := range loggerNames {
+		comp.Suggestions = append(comp.Suggestions, name)
 	}
 
 	return []*readline.CompletionGroup{comp}

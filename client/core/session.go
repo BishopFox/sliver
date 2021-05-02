@@ -31,12 +31,11 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 var (
 	// ActiveSession - The Sliver session we are currently interacting with.
-	ActiveSession *Session
+	ActiveSession *clientpb.Session
 
 	// Console At startup the console has passed itself to this package, so that
 	// we can question the application parser for timeout/request options.
@@ -51,27 +50,10 @@ var (
 	UserHistoryFunc func()
 )
 
-// Session - An implant session we are interacting with.
-// This is a wrapper for some utility methods.
-type Session struct {
-	*clientpb.Session
-	WorkingDir string // The implant working directory, stored to limit calls.
-}
-
 // SetActiveSession - Sets a session as active and
 // pulls out all informations needed by the console.
 func SetActiveSession(sess *clientpb.Session) {
-	ActiveSession = &Session{Session: sess}
-
-	// For the moment, we ask the current working directory to implant...
-	pwd, err := transport.RPC.Pwd(context.Background(), &sliverpb.PwdReq{
-		Request: ActiveSession.RequestTimeout(10),
-	})
-	if err != nil {
-		fmt.Printf("Error: %s\n", err)
-	} else {
-		ActiveSession.WorkingDir = pwd.Path
-	}
+	ActiveSession = sess
 
 	// Switch the console context
 	Console.SwitchMenu(constants.SliverMenu)
@@ -111,21 +93,17 @@ func UnsetActiveSession() {
 }
 
 // RequestTimeout - Prepare a RPC request for the current Session.
-func (s *Session) RequestTimeout(timeOut int) *commonpb.Request {
-	if s.Session == nil {
-		return nil
-	}
+func RequestTimeout(timeOut int) *commonpb.Request {
 	timeout := int(time.Second) * timeOut
 	return &commonpb.Request{
-		SessionID: s.ID,
-		Timeout:   int64(timeout),
+		Timeout: int64(timeout),
 	}
 }
 
 // ActiveSessionRequest - Make a request for the active session
 func ActiveSessionRequest() (req *commonpb.Request) {
 	if ActiveSession != nil {
-		return SessionRequest(ActiveSession.Session)
+		return SessionRequest(ActiveSession)
 	}
 	return SessionRequest(nil)
 }
@@ -174,7 +152,7 @@ func GetActiveSessionHistory() []string {
 	res, err := transport.RPC.GetHistory(context.Background(),
 		&clientpb.HistoryRequest{
 			AllConsoles: true,
-			Session:     ActiveSession.Session,
+			Session:     ActiveSession,
 		})
 	if err != nil {
 		return []string{}

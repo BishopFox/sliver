@@ -265,6 +265,13 @@ func getRegisterSliver() *sliverpb.Envelope {
 		}
 	}
 
+	workingDir, err := os.Getwd()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to determine working directory %s", err)
+		// {{end}}
+	}
+
 	// Retrieve UUID
 	uuid := hostuuid.GetUUID()
 	// {{if .Config.Debug}}
@@ -287,6 +294,7 @@ func getRegisterSliver() *sliverpb.Envelope {
 		ReconnectInterval: uint32(transports.GetReconnectInterval() / time.Second),
 		ProxyURL:          transports.GetProxyURL(),
 		PollInterval:      uint32(transports.GetPollInterval() / time.Second),
+		WorkingDirectory:  workingDir,
 	})
 	if err != nil {
 		// {{if .Config.Debug}}

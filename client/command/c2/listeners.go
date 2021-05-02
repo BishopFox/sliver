@@ -57,7 +57,7 @@ func (m *MTLSListener) Execute(args []string) (err error) {
 		lport = defaultMTLSLPort
 	}
 
-	fmt.Printf(util.Info+"Starting mTLS listener (%s:%d)...\n", m.Options.LHost, m.Options.LPort)
+	fmt.Printf(Info+"Starting mTLS listener (%s:%d)...\n", m.Options.LHost, m.Options.LPort)
 	mtls, err := transport.RPC.StartMTLSListener(context.Background(), &clientpb.MTLSListenerReq{
 		Host:       server,
 		Port:       uint32(lport),
@@ -66,7 +66,7 @@ func (m *MTLSListener) Execute(args []string) (err error) {
 	if err != nil {
 		fmt.Printf(util.RPCError+"%s\n", err)
 	} else {
-		fmt.Printf(util.Info+"Successfully started job #%d\n", mtls.JobID)
+		fmt.Printf(Info+"Successfully started job #%d\n", mtls.JobID)
 	}
 
 	return
@@ -90,7 +90,7 @@ func (w *WireGuardListener) Execute(args []string) (err error) {
 
 	keyExchangePort := uint16(w.Options.KeyPort)
 
-	fmt.Printf(util.Info + "Starting Wireguard listener ...\n")
+	fmt.Printf(Info + "Starting Wireguard listener ...\n")
 	wg, err := transport.RPC.StartWGListener(context.Background(), &clientpb.WGListenerReq{
 		Port:       uint32(lport),
 		NPort:      uint32(nport),
@@ -98,9 +98,9 @@ func (w *WireGuardListener) Execute(args []string) (err error) {
 		Persistent: w.Options.Persistent,
 	})
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 	} else {
-		fmt.Printf(util.Info+"Successfully started job #%d\n", wg.JobID)
+		fmt.Printf(Info+"Successfully started job #%d\n", wg.JobID)
 	}
 
 	return
@@ -132,7 +132,7 @@ func (m *DNSListener) Execute(args []string) (err error) {
 		lport = defaultDNSLPort
 	}
 
-	fmt.Printf(util.Info+"Starting DNS listener with parent domain(s) %v ...\n", domains)
+	fmt.Printf(Info+"Starting DNS listener with parent domain(s) %v ...\n", domains)
 	dns, err := transport.RPC.StartDNSListener(context.Background(), &clientpb.DNSListenerReq{
 		Domains:    domains,
 		Port:       uint32(lport),
@@ -142,7 +142,7 @@ func (m *DNSListener) Execute(args []string) (err error) {
 	if err != nil {
 		fmt.Printf(util.RPCError+"%s\n", err)
 	} else {
-		fmt.Printf(util.Info+"Successfully started job #%d\n", dns.JobID)
+		fmt.Printf(Info+"Successfully started job #%d\n", dns.JobID)
 	}
 
 	return
@@ -172,11 +172,11 @@ func (m *HTTPSListener) Execute(args []string) (err error) {
 
 	cert, key, err := getLocalCertificatePair(m.Options.Certificate, m.Options.PrivateKey)
 	if err != nil {
-		fmt.Printf("\n"+util.Error+"Failed to load local certificate %v", err)
+		fmt.Printf("\n"+Error+"Failed to load local certificate %v", err)
 		return
 	}
 
-	fmt.Printf(util.Info+"Starting HTTPS %s:%d listener ...\n", domain, lport)
+	fmt.Printf(Info+"Starting HTTPS %s:%d listener ...\n", domain, lport)
 	https, err := transport.RPC.StartHTTPSListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:     domain,
 		Website:    website,
@@ -188,9 +188,9 @@ func (m *HTTPSListener) Execute(args []string) (err error) {
 		Persistent: m.Options.Persistent,
 	})
 	if err != nil {
-		fmt.Printf(util.Warn+"%s\n", err)
+		fmt.Printf(Warning+"%s\n", err)
 	} else {
-		fmt.Printf(util.Info+"Successfully started job #%d\n", https.JobID)
+		fmt.Printf(Info+"Successfully started job #%d\n", https.JobID)
 	}
 
 	return
@@ -230,7 +230,7 @@ func (m *HTTPListener) Execute(args []string) (err error) {
 		lport = uint16(defaultHTTPSLPort)
 	}
 
-	fmt.Printf(util.Info+"Starting HTTP %s:%d listener ...\n", domain, lport)
+	fmt.Printf(Info+"Starting HTTP %s:%d listener ...\n", domain, lport)
 	http, err := transport.RPC.StartHTTPListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:     domain,
 		Website:    m.Options.Website,
@@ -241,7 +241,7 @@ func (m *HTTPListener) Execute(args []string) (err error) {
 	if err != nil {
 		fmt.Printf(util.RPCError+"%s\n", err)
 	} else {
-		fmt.Printf(util.Info+"Successfully started job #%d\n", http.JobID)
+		fmt.Printf(Info+"Successfully started job #%d\n", http.JobID)
 	}
 
 	return

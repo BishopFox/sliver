@@ -42,17 +42,17 @@ func (w *WireGuardPortFwd) Execute(args []string) (err error) {
 	})
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
 
 	if fwdList.Response != nil && fwdList.Response.Err != "" {
-		fmt.Printf(util.Error+"Error: %s\n", fwdList.Response.Err)
+		fmt.Printf(Error+"Error: %s\n", fwdList.Response.Err)
 		return
 	}
 
 	if fwdList.Forwarders == nil || len(fwdList.Forwarders) == 0 {
-		fmt.Printf(util.Info + "No port forwards\n")
+		fmt.Printf(Info + "No port forwards\n")
 		return
 	}
 
@@ -82,7 +82,7 @@ func (w *WireGuardPortFwdAdd) Execute(args []string) (err error) {
 
 	remoteHost, remotePort, err := net.SplitHostPort(w.Options.Remote)
 	if err != nil {
-		fmt.Print(util.Error+"Failed to parse remote target %s\n", err)
+		fmt.Print(Error+"Failed to parse remote target %s\n", err)
 		return
 	}
 
@@ -93,15 +93,15 @@ func (w *WireGuardPortFwdAdd) Execute(args []string) (err error) {
 	})
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
 
 	if pfwdAdd.Response != nil && pfwdAdd.Response.Err != "" {
-		fmt.Printf(util.Error+"Error: %s\n", pfwdAdd.Response.Err)
+		fmt.Printf(Error+"Error: %s\n", pfwdAdd.Response.Err)
 		return
 	}
-	fmt.Printf(util.Info+"Port forwarding %s -> %s:%s\n", pfwdAdd.Forwarder.LocalAddr, remoteHost, remotePort)
+	fmt.Printf(Info+"Port forwarding %s -> %s:%s\n", pfwdAdd.Forwarder.LocalAddr, remoteHost, remotePort)
 
 	return
 }
@@ -128,17 +128,17 @@ func (w *WireGuardPortFwdRm) Execute(args []string) (err error) {
 		})
 
 		if err != nil {
-			fmt.Printf(util.Error+"Error: %v", err)
+			fmt.Printf(Error+"Error: %v", err)
 			continue
 		}
 
 		if stopReq.Response != nil && stopReq.Response.Err != "" {
-			fmt.Printf(util.Error+"Error: %v\n", stopReq.Response.Err)
+			fmt.Printf(Error+"Error: %v\n", stopReq.Response.Err)
 			continue
 		}
 
 		if stopReq.Forwarder != nil {
-			fmt.Printf(util.Error+"Removed port forwarding rule %s -> %s\n", stopReq.Forwarder.LocalAddr, stopReq.Forwarder.RemoteAddr)
+			fmt.Printf(Error+"Removed port forwarding rule %s -> %s\n", stopReq.Forwarder.LocalAddr, stopReq.Forwarder.RemoteAddr)
 			continue
 		}
 
@@ -158,17 +158,17 @@ func (w *WireGuardSocks) Execute(args []string) (err error) {
 	})
 
 	if err != nil {
-		fmt.Printf(util.Warn+"Error: %v", err)
+		fmt.Printf(Warning+"Error: %v", err)
 		return
 	}
 
 	if socksList.Response != nil && socksList.Response.Err != "" {
-		fmt.Printf(util.Warn+"Error: %s\n", socksList.Response.Err)
+		fmt.Printf(Warning+"Error: %s\n", socksList.Response.Err)
 		return
 	}
 
 	if socksList.Servers == nil || len(socksList.Servers) == 0 {
-		fmt.Printf(util.Info + "No WireGuard Socks proxies\n")
+		fmt.Printf(Info + "No WireGuard Socks proxies\n")
 		return
 	}
 
@@ -202,17 +202,17 @@ func (w *WireGuardSocksStart) Execute(args []string) (err error) {
 	})
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
 
 	if socks.Response != nil && socks.Response.Err != "" {
-		fmt.Printf(util.Error+"Error: %s\n", err)
+		fmt.Printf(Error+"Error: %s\n", err)
 		return
 	}
 
 	if socks.Server != nil {
-		fmt.Printf(util.Info+"Started SOCKS server on %s\n", socks.Server.LocalAddr)
+		fmt.Printf(Info+"Started SOCKS server on %s\n", socks.Server.LocalAddr)
 	}
 	return
 }
@@ -239,17 +239,17 @@ func (w *WireGuardSocksStop) Execute(args []string) (err error) {
 		})
 
 		if err != nil {
-			fmt.Printf(util.Error+"Error: %v", err)
+			fmt.Printf(Error+"Error: %v", err)
 			continue
 		}
 
 		if stopReq.Response != nil && stopReq.Response.Err != "" {
-			fmt.Printf(util.Error+"Error: %v\n", stopReq.Response.Err)
+			fmt.Printf(Error+"Error: %v\n", stopReq.Response.Err)
 			continue
 		}
 
 		if stopReq.Server != nil {
-			fmt.Printf(util.Info+"Removed socks listener rule %s \n", stopReq.Server.LocalAddr)
+			fmt.Printf(Info+"Removed socks listener rule %s \n", stopReq.Server.LocalAddr)
 		}
 	}
 

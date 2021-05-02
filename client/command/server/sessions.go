@@ -51,7 +51,7 @@ func (s *Sessions) Execute(args []string) (err error) {
 	// Get a map of all sessions
 	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return
 	}
 	sessionsMap := map[uint32]*clientpb.Session{}
@@ -63,7 +63,7 @@ func (s *Sessions) Execute(args []string) (err error) {
 	if 0 < len(sessionsMap) {
 		printSessions(sessionsMap)
 	} else {
-		fmt.Printf(util.Info + "No sessions \n")
+		fmt.Printf(Info + "No sessions \n")
 	}
 
 	return
@@ -85,7 +85,7 @@ func (sk *SessionsKill) Execute(args []string) (err error) {
 	// Get a map of all sessions
 	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return
 	}
 	sessionsMap := map[uint32]*clientpb.Session{}
@@ -93,7 +93,7 @@ func (sk *SessionsKill) Execute(args []string) (err error) {
 		sessionsMap[session.ID] = session
 	}
 	if len(sessionsMap) == 0 {
-		fmt.Printf(util.Info + "No sessions \n")
+		fmt.Printf(Info + "No sessions \n")
 		return
 	}
 
@@ -101,7 +101,7 @@ func (sk *SessionsKill) Execute(args []string) (err error) {
 	for _, id := range sk.Positional.SessionID {
 		sess, ok := sessionsMap[id]
 		if !ok || sess == nil {
-			fmt.Printf(util.Error+"Invalid session ID: %d\n", id)
+			fmt.Printf(Error+"Invalid session ID: %d\n", id)
 		}
 
 		// Kill session
@@ -122,7 +122,7 @@ func (ka *SessionsKillAll) Execute(args []string) (err error) {
 	// Get a map of all sessions
 	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return
 	}
 	sessionsMap := map[uint32]*clientpb.Session{}
@@ -130,7 +130,7 @@ func (ka *SessionsKillAll) Execute(args []string) (err error) {
 		sessionsMap[session.ID] = session
 	}
 	if len(sessionsMap) == 0 {
-		fmt.Printf(util.Info + "No sessions \n")
+		fmt.Printf(Info + "No sessions \n")
 		return
 	}
 
@@ -138,7 +138,7 @@ func (ka *SessionsKillAll) Execute(args []string) (err error) {
 	for i := range sessionsMap {
 		sess, ok := sessionsMap[i]
 		if !ok || sess == nil {
-			fmt.Printf(util.Error+"Invalid session ID: %d\n", i)
+			fmt.Printf(Error+"Invalid session ID: %d\n", i)
 		}
 
 		// Kill session
@@ -159,7 +159,7 @@ func (ka *SessionsClean) Execute(args []string) (err error) {
 	// Get a map of all sessions
 	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return
 	}
 	sessionsMap := map[uint32]*clientpb.Session{}
@@ -167,7 +167,7 @@ func (ka *SessionsClean) Execute(args []string) (err error) {
 		sessionsMap[session.ID] = session
 	}
 	if len(sessionsMap) == 0 {
-		fmt.Printf(util.Info + "No sessions \n")
+		fmt.Printf(Info + "No sessions \n")
 		return
 	}
 
@@ -175,7 +175,7 @@ func (ka *SessionsClean) Execute(args []string) (err error) {
 	for i := range sessionsMap {
 		sess, ok := sessionsMap[i]
 		if !ok || sess == nil {
-			fmt.Printf(util.Error+"Invalid session ID: %d\n", i)
+			fmt.Printf(Error+"Invalid session ID: %d\n", i)
 		}
 
 		if sess.IsDead {
@@ -208,9 +208,9 @@ func (i *Interact) Execute(args []string) (err error) {
 	session := GetSession(i.Positional.SessionID)
 	if session != nil {
 		core.SetActiveSession(session)
-		fmt.Printf(util.Info+"Active session %s (%d)\n", session.Name, session.ID)
+		fmt.Printf(Info+"Active session %s (%d)\n", session.Name, session.ID)
 	} else {
-		fmt.Printf(util.Error+"Invalid session name or session number '%s'\n", i.Positional.SessionID)
+		fmt.Printf(Error+"Invalid session name or session number '%s'\n", i.Positional.SessionID)
 		return
 	}
 
@@ -264,11 +264,11 @@ func killSession(session *clientpb.Session, force bool, rpc rpcpb.SliverRPCClien
 	}
 
 	ctrl := make(chan bool)
-	go spin.Until(util.Info+"Waiting for confirmation...", ctrl)
+	go spin.Until(Info+"Waiting for confirmation...", ctrl)
 	time.Sleep(time.Second * 1)
 	ctrl <- true
 	<-ctrl
-	fmt.Printf(util.Info+"Killed %s (%d)\n", session.Name, session.ID)
+	fmt.Printf(Info+"Killed %s (%d)\n", session.Name, session.ID)
 
 	return nil
 }
@@ -277,7 +277,7 @@ func killSession(session *clientpb.Session, force bool, rpc rpcpb.SliverRPCClien
 func GetSession(arg string) *clientpb.Session {
 	sessions, err := transport.RPC.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return nil
 	}
 	for _, session := range sessions.GetSessions() {

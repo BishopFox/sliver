@@ -71,6 +71,7 @@ type Session struct {
 	ReconnectInterval uint32
 	ProxyURL          string
 	PollInterval      uint32
+	WorkingDirectory  string
 }
 
 // ToProtobuf - Get the protobuf version of the object
@@ -115,6 +116,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		ReconnectInterval: s.ReconnectInterval,
 		ProxyURL:          s.ProxyURL,
 		PollInterval:      s.PollInterval,
+		WorkingDirectory:  s.WorkingDirectory,
 	}
 }
 
@@ -155,6 +157,12 @@ func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([
 func (s *Session) UpdateCheckin() {
 	now := time.Now()
 	s.LastCheckin = &now
+}
+
+// UpdateWorkingDirectory - Updated when either cd is invoked successfully,
+// or if comparison does not match
+func (s *Session) UpdateWorkingDirectory(path string) {
+	s.WorkingDirectory = path
 }
 
 // sessions - Manages the slivers, provides atomic access

@@ -25,7 +25,6 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
@@ -40,7 +39,7 @@ type Migrate struct {
 func (m *Migrate) Execute(args []string) (err error) {
 	pid := m.Positional.PID
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 	}
 	config := getActiveSliverConfig()
 	ctrl := make(chan bool)
@@ -53,16 +52,16 @@ func (m *Migrate) Execute(args []string) (err error) {
 	})
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
 	ctrl <- true
 	<-ctrl
 	if !migrate.Success {
-		fmt.Printf(util.Error+"%s\n", migrate.GetResponse().GetErr())
+		fmt.Printf(Error+"%s\n", migrate.GetResponse().GetErr())
 		return
 	}
-	fmt.Printf("\n"+util.Info+"Successfully migrated to %d\n", pid)
+	fmt.Printf("\n"+Info+"Successfully migrated to %d\n", pid)
 	return
 }
 

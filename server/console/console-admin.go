@@ -30,7 +30,6 @@ import (
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/constants"
 	clientLog "github.com/bishopfox/sliver/client/log"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
@@ -69,14 +68,14 @@ func (n NewOperator) Execute(args []string) (err error) {
 		n.Options.Operator, n.Options.LHost, n.Options.LPort)
 	configJSON, err := NewPlayerConfig(n.Options.Operator, n.Options.LHost, n.Options.LPort)
 	if err != nil {
-		fmt.Printf(util.Error+"Failed to generate user config: %v \n", err)
+		fmt.Printf(Error+"Failed to generate user config: %v \n", err)
 		return
 	}
 
 	saveTo, _ := filepath.Abs(save)
 	fi, err := os.Stat(saveTo)
 	if !os.IsNotExist(err) && !fi.IsDir() {
-		fmt.Printf(util.Error+"Failed to generate user config: file already exists (%s) ", saveTo)
+		fmt.Printf(Error+"Failed to generate user config: file already exists (%s) ", saveTo)
 		return
 	}
 	if !os.IsNotExist(err) && fi.IsDir() {
@@ -85,11 +84,11 @@ func (n NewOperator) Execute(args []string) (err error) {
 	}
 	err = ioutil.WriteFile(saveTo, configJSON, 0600)
 	if err != nil {
-		fmt.Printf(util.Error+"Failed to write config to: %s (%v) \n", saveTo, err)
+		fmt.Printf(Error+"Failed to write config to: %s (%v) \n", saveTo, err)
 		return
 	}
 	cliLog.Debugf("Saved new client config to: %s \n", saveTo)
-	fmt.Printf(util.Info+"Created player config for operator %s at %s:%d \n",
+	fmt.Printf(Info+"Created player config for operator %s at %s:%d \n",
 		n.Options.Operator, n.Options.LHost, n.Options.LPort)
 
 	return
@@ -108,11 +107,11 @@ func (k *KickOperator) Execute(args []string) (err error) {
 	operator := k.Positional.Operator
 
 	if !namePattern.MatchString(operator) {
-		fmt.Printf(util.Error + "Invalid operator name (alphanumerics only)")
+		fmt.Printf(Error + "Invalid operator name (alphanumerics only)")
 		return
 	}
 	if operator == "" {
-		fmt.Printf(util.Error + "Operator name required (--operator)")
+		fmt.Printf(Error + "Operator name required (--operator)")
 		return
 	}
 
@@ -121,11 +120,11 @@ func (k *KickOperator) Execute(args []string) (err error) {
 	if err != nil {
 		err = fmt.Errorf("failed to remove the operator certificate: %v", err)
 		adminLog.Errorf(err.Error())
-		fmt.Printf(util.Error+"Failed to kick player: %v \n", err)
+		fmt.Printf(Error+"Failed to kick player: %v \n", err)
 		return
 	}
 	adminLog.Infof("Operator %s kicked out. \n", operator)
-	fmt.Printf(util.Info+"Kicked player %s from the server \n", k.Positional.Operator)
+	fmt.Printf(Info+"Kicked player %s from the server \n", k.Positional.Operator)
 
 	return
 }
@@ -148,11 +147,11 @@ func (m *MultiplayerMode) Execute(args []string) (err error) {
 	if err == nil {
 		// Temporary: increase jobs counter
 		adminLog.Infof("Multiplayer mode enabled on %s:%d", m.Options.LHost, m.Options.LPort)
-		fmt.Printf(util.Info+"Started Multiplayer gRPC listener at %s:%d \n", m.Options.LHost, m.Options.LPort)
+		fmt.Printf(Info+"Started Multiplayer gRPC listener at %s:%d \n", m.Options.LHost, m.Options.LPort)
 		return
 	}
 
-	fmt.Printf(util.Error+"Failed to start gRPC client listener: %v \n", err)
+	fmt.Printf(Error+"Failed to start gRPC client listener: %v \n", err)
 	return
 }
 

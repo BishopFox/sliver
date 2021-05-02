@@ -21,7 +21,7 @@ import (
 	"github.com/maxlandon/readline"
 	"github.com/sirupsen/logrus"
 
-	"github.com/bishopfox/sliver/client/util"
+	"github.com/bishopfox/sliver/client/log"
 )
 
 // Log - Log management commands. Sets log level by default.
@@ -37,13 +37,16 @@ func (l *Log) Execute(args []string) (err error) {
 	// Check level
 	level, valid := logrusLevels[l.Positional.Level]
 	if !valid {
-		fmt.Printf(util.Error + "Invalid log level (trace, debug, info, warn, error)\n")
+		fmt.Printf(Error + "Invalid log level (trace, debug, info, warn, error)\n")
 		return
 	}
 
 	for _, comp := range l.Positional.Components {
-		if comp == "client" {
-			fmt.Println(util.Info + "Default Client log level: " + readline.Yellow(level.String()))
+		for name, logger := range log.Loggers {
+			if name == comp {
+				fmt.Printf(Info+"Log level (%s): %s\n", readline.Blue(name), readline.Yellow(level.String()))
+				logger.SetLevel(level)
+			}
 		}
 	}
 
@@ -51,9 +54,9 @@ func (l *Log) Execute(args []string) (err error) {
 }
 
 var logrusLevels = map[string]logrus.Level{
-	"trace": logrus.TraceLevel,
-	"debug": logrus.DebugLevel,
-	"info":  logrus.InfoLevel,
-	"warn":  logrus.WarnLevel,
-	"error": logrus.ErrorLevel,
+	"trace":   logrus.TraceLevel,
+	"debug":   logrus.DebugLevel,
+	"info":    logrus.InfoLevel,
+	"warning": logrus.WarnLevel,
+	"error":   logrus.ErrorLevel,
 }

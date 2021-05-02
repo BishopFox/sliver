@@ -24,6 +24,17 @@ const (
 	upN       = "\033[%dA"
 	downN     = "\033[%dB"
 	underline = "\033[4m"
+
+	// Info - Display colorful information
+	Info = bold + cyan + "[*] " + normal
+	// Debug - Display debug information
+	Debug = bold + purple + "[-] " + normal
+	// Error - Notify error to a user
+	Error = bold + red + "[!] " + normal
+	// Warning - Notify important information, not an error
+	Warning = bold + orange + "[!] " + normal
+	// Woot - Display success
+	Woot = bold + green + "[$] " + normal
 )
 
 var (

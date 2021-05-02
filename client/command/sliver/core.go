@@ -28,7 +28,6 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -43,7 +42,7 @@ func (b *Background) Execute(args []string) (err error) {
 
 	// Takes care of menu switching, unregistering session refreshing history, etc...
 	core.UnsetActiveSession()
-	fmt.Printf(util.Info + "Background ...\n")
+	fmt.Printf(Info + "Background ...\n")
 
 	return
 }
@@ -65,7 +64,7 @@ func (s *Set) Execute(args []string) (err error) {
 	if name != "" {
 		isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
 		if !isAlphanumeric(name) {
-			fmt.Printf(util.Error + "Name must be in alphanumeric only\n")
+			fmt.Printf(Error + "Name must be in alphanumeric only\n")
 			return
 		}
 	}
@@ -77,19 +76,19 @@ func (s *Set) Execute(args []string) (err error) {
 		PollInterval:      s.Options.Poll,
 	})
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
-	core.ActiveSession = &core.Session{Session: session} // Will be noticed by all components in need.
+	core.ActiveSession = session // Will be noticed by all components in need.
 
 	// For the moment, we ask the current working directory to implant...
 	pwd, err := transport.RPC.Pwd(context.Background(), &sliverpb.PwdReq{
-		Request: core.ActiveSession.RequestTimeout(10),
+		Request: core.RequestTimeout(10),
 	})
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 	} else {
-		core.ActiveSession.WorkingDir = pwd.Path
+		core.ActiveSession.WorkingDirectory = pwd.Path
 	}
 
 	return
@@ -106,10 +105,10 @@ type Kill struct {
 // Execute - Kill the active session.
 func (k *Kill) Execute(args []string) (err error) {
 
-	session := core.ActiveSession.Session
+	session := core.ActiveSession
 	err = killSession(session, transport.RPC)
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return
 	}
 
@@ -132,11 +131,11 @@ func killSession(session *clientpb.Session, rpc rpcpb.SliverRPCClient) error {
 	}
 
 	ctrl := make(chan bool)
-	go spin.Until(util.Info+"Waiting for confirmation...", ctrl)
+	go spin.Until(Info+"Waiting for confirmation...", ctrl)
 	time.Sleep(time.Second * 1)
 	ctrl <- true
 	<-ctrl
-	fmt.Printf(util.Info+"Killed %s (%d)\n", session.Name, session.ID)
+	fmt.Printf(Info+"Killed %s (%d)\n", session.Name, session.ID)
 
 	return nil
 }

@@ -306,6 +306,11 @@ github.com/mattn/go-sqlite3 v1.14.3/go.mod h1:WVKg1VTActs4Qso6iwGbiFih2UIHo0ENGw
 github.com/mattn/go-sqlite3 v1.14.5 h1:1IdxlwTNazvbKJQSxoJ5/9ECbEeaTTyeU7sEAZ5KKTQ=
 github.com/mattn/go-sqlite3 v1.14.5/go.mod h1:WVKg1VTActs4Qso6iwGbiFih2UIHo0ENGwNd0Lj+XmI=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
+github.com/maxlandon/gonsole v0.0.0-20210502160124-377d77a27617 h1:X4bdkZp+eNl8jSBOcHwldzhyefSEcmfd1yHcK0k60cs=
+github.com/maxlandon/gonsole v0.0.0-20210502160124-377d77a27617/go.mod h1:ol1syPddkNwWgvcF8uWwjcUpgeu/A4GXKvFznvgmYe8=
+github.com/maxlandon/readline v0.1.0-beta.0.20210502041208-41bfc30613da/go.mod h1:aFr9p9hYasNQHuFAGOowWYa0e25uXzAR8gJrBXEKkNY=
+github.com/maxlandon/readline v0.1.0-beta.0.20210502150652-b9c641193f54 h1:XLXZOa/FmOlO4OFSu4qpMQzsPvTOmVW4f3P12L7+C98=
+github.com/maxlandon/readline v0.1.0-beta.0.20210502150652-b9c641193f54/go.mod h1:aFr9p9hYasNQHuFAGOowWYa0e25uXzAR8gJrBXEKkNY=
 github.com/mdlayher/genetlink v1.0.0/go.mod h1:0rJ0h4itni50A86M2kHcgS85ttZazNt7a8H2a2cw0Gc=
 github.com/mdlayher/netlink v0.0.0-20190409211403-11939a169225/go.mod h1:eQB3mZE4aiYnlUsyGGCOpPETfdQq4Jhsgf1fk3cwQaA=
 github.com/mdlayher/netlink v1.0.0/go.mod h1:KxeJAFOFLG6AjpyDkQ/iIhxygIUKD+vcwqcnu43w/+M=

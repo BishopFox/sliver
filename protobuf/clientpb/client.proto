@@ -109,6 +109,7 @@ message Session {
   uint32 ReconnectInterval = 19;
   string ProxyURL = 20;
   uint32 PollInterval = 21;
+  string WorkingDirectory = 22;
 }
 
 message ImplantC2 {

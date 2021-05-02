@@ -26,10 +26,15 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/log"
 	"github.com/bishopfox/sliver/client/tcpproxy"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/util"
 	"github.com/maxlandon/readline"
+)
+
+var (
+	portfwdLog = log.ClientLogger.WithField("portfwd", "portfwd")
 )
 
 // Portfwd - Port forwards mangement command; Prints them by default.
@@ -42,7 +47,7 @@ func (p *Portfwd) Execute(args []string) (err error) {
 
 	portfwds := core.Portfwds.List()
 	if len(portfwds) == 0 {
-		fmt.Printf(util.Info + "No port forwards\n")
+		fmt.Printf(Info + "No port forwards\n")
 		return
 	}
 	sort.Slice(portfwds[:], func(i, j int) bool {
@@ -98,24 +103,24 @@ type PortfwdAdd struct {
 
 // Execute - Create a new port forwarding tunnel.
 func (p *PortfwdAdd) Execute(args []string) (err error) {
-	session := core.ActiveSession.Session
+	session := core.ActiveSession
 
 	if session.GetActiveC2() == "dns" {
-		fmt.Printf(util.Warn + "Current C2 is DNS, this is going to be a very slow tunnel!\n")
+		fmt.Printf(Warning + "Current C2 is DNS, this is going to be a very slow tunnel!\n")
 	}
 	if session.Transport == "wg" {
-		fmt.Printf(util.Warn + "Current C2 is WireGuard, we recommend using the `wg-portfwd` command!\n")
+		fmt.Printf(Warning + "Current C2 is WireGuard, we recommend using the `wg-portfwd` command!\n")
 	}
 
 	bindAddr := p.Options.Bind
 	remoteAddr := p.Options.Remote
 	remoteHost, remotePort, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
-		fmt.Print(util.Error+"Failed to parse remote target %s\n", err)
+		fmt.Print(Error+"Failed to parse remote target %s\n", err)
 		return
 	}
 	if remotePort == "3389" {
-		fmt.Print(util.Warn + "RDP is unstable over tunneled portfwds, we recommend using WireGuard portfwds\n")
+		fmt.Print(Warning + "RDP is unstable over tunneled portfwds, we recommend using WireGuard portfwds\n")
 	}
 
 	tcpProxy := &tcpproxy.Proxy{}
@@ -133,14 +138,11 @@ func (p *PortfwdAdd) Execute(args []string) (err error) {
 	go func() {
 		err := tcpProxy.Run()
 		if err != nil {
-			// fmt.Printf("\r\n"+Warn+"Proxy error %s\n", err)
-			// log.Printf("Proxy error %s", err)
-			// errLog := fmt.Sprintf("%s Proxy error (forwarder %d): %s" util.Error)
-			// Console.RefreshPromptLog()
+			portfwdLog.Errorf("Proxy error: %s", err)
 		}
 	}()
 
-	fmt.Printf(util.Info+"Port forwarding %s -> %s:%s\n", bindAddr, remoteHost, remotePort)
+	fmt.Printf(Info+"Port forwarding %s -> %s:%s\n", bindAddr, remoteHost, remotePort)
 	return
 }
 
@@ -157,9 +159,9 @@ func (p *PortfwdRm) Execute(args []string) (err error) {
 	for _, portfwdID := range p.Args.ID {
 		found := core.Portfwds.Remove(portfwdID)
 		if !found {
-			fmt.Printf(util.Error+"No portfwd with id %d\n", portfwdID)
+			fmt.Printf(Error+"No portfwd with id %d\n", portfwdID)
 		} else {
-			fmt.Println(util.Info + "Removed portfwd")
+			fmt.Println(Info + "Removed portfwd")
 		}
 	}
 	return

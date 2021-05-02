@@ -99,20 +99,9 @@ func (c *CommandCompleter) menuCommands() (completions []*readline.CompletionGro
 				Descriptions: map[string]string{
 					cmd.Name: readline.Dim(cmd.ShortDescription),
 				},
+				DisplayType: readline.TabDisplayList,
 			}
 			completions = append(completions, grp)
-		}
-	}
-	// Make adjustments to the CompletionGroup list: set maxlength depending on items, check descriptions, etc.
-	for _, grp := range completions {
-		// If the length of suggestions is too long and we have
-		// many groups, use grid display.
-		if len(completions) >= 10 {
-			// if len(completions) >= 10 && len(grp.Suggestions) >= 10 {
-			grp.DisplayType = readline.TabDisplayGrid
-		} else {
-			// By default, we use a map of command to descriptions
-			grp.DisplayType = readline.TabDisplayList
 		}
 	}
 	return

@@ -24,7 +24,6 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -72,15 +71,15 @@ func (e *Execute) Execute(args []string) (err error) {
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		fmt.Printf(util.Error+"%s", err)
+		fmt.Printf(Error+"%s", err)
 	} else if !output {
 		if exec.Status != 0 {
-			fmt.Printf(util.Error+"Exited with status %d!\n", exec.Status)
+			fmt.Printf(Error+"Exited with status %d!\n", exec.Status)
 			if exec.Result != "" {
-				fmt.Printf(util.Info+"Output:\n%s\n", exec.Result)
+				fmt.Printf(Info+"Output:\n%s\n", exec.Result)
 			}
 		} else {
-			fmt.Printf(util.Info+"Output:\n%s", exec.Result)
+			fmt.Printf(Info+"Output:\n%s", exec.Result)
 		}
 	}
 	return

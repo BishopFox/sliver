@@ -31,7 +31,6 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -62,14 +61,14 @@ func (ea *ExecuteAssembly) Execute(args []string) (err error) {
 	}
 	if isDLL {
 		if ea.Options.Class == "" || ea.Options.Method == "" {
-			fmt.Printf(util.Error + "Please provide a class name (namespace.class) and method")
+			fmt.Printf(Error + "Please provide a class name (namespace.class) and method")
 			return
 		}
 	}
 
 	assemblyBytes, err := ioutil.ReadFile(ea.Positional.Path)
 	if err != nil {
-		fmt.Printf(util.Error+"%s", err.Error())
+		fmt.Printf(Error+"%s", err.Error())
 		return
 	}
 
@@ -98,12 +97,12 @@ func (ea *ExecuteAssembly) Execute(args []string) (err error) {
 	<-ctrl
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
 
 	if executeAssembly.GetResponse().GetErr() != "" {
-		fmt.Printf(util.Error+"Error: %s\n", executeAssembly.GetResponse().GetErr())
+		fmt.Printf(Error+"Error: %s\n", executeAssembly.GetResponse().GetErr())
 		return
 	}
 	var outFilePath *os.File
@@ -111,10 +110,10 @@ func (ea *ExecuteAssembly) Execute(args []string) (err error) {
 		outFile := path.Base(fmt.Sprintf("%s_%s*.log", constants.ExecuteAssemblyStr, session.GetHostname()))
 		outFilePath, err = ioutil.TempFile("", outFile)
 	}
-	fmt.Printf(util.Info+"Assembly output:\n%s", string(executeAssembly.GetOutput()))
+	fmt.Printf(Info+"Assembly output:\n%s", string(executeAssembly.GetOutput()))
 	if outFilePath != nil {
 		outFilePath.Write(executeAssembly.GetOutput())
-		fmt.Printf(util.Info+"Output saved to %s\n", outFilePath.Name())
+		fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
 	}
 	return
 }
@@ -146,7 +145,7 @@ func (s *SpawnDLL) Execute(cargs []string) (err error) {
 
 	binData, err := ioutil.ReadFile(binPath)
 	if err != nil {
-		fmt.Printf(util.Error+"%s", err.Error())
+		fmt.Printf(Error+"%s", err.Error())
 		return
 	}
 	ctrl := make(chan bool)
@@ -161,13 +160,13 @@ func (s *SpawnDLL) Execute(cargs []string) (err error) {
 	})
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
 	ctrl <- true
 	<-ctrl
 	if spawndll.GetResponse().GetErr() != "" {
-		fmt.Printf(util.Error+"Error: %s\n", spawndll.GetResponse().GetErr())
+		fmt.Printf(Error+"Error: %s\n", spawndll.GetResponse().GetErr())
 		return
 	}
 	var outFilePath *os.File
@@ -175,10 +174,10 @@ func (s *SpawnDLL) Execute(cargs []string) (err error) {
 		outFile := path.Base(fmt.Sprintf("%s_%s*.log", constants.SpawnDllStr, session.GetHostname()))
 		outFilePath, err = ioutil.TempFile("", outFile)
 	}
-	fmt.Printf(util.Info+"Output:\n%s", spawndll.GetResult())
+	fmt.Printf(Info+"Output:\n%s", spawndll.GetResult())
 	if outFilePath != nil {
 		outFilePath.Write([]byte(spawndll.GetResult()))
-		fmt.Printf(util.Info+"Output saved to %s\n", outFilePath.Name())
+		fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
 	}
 
 	return

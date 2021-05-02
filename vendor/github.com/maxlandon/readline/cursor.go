@@ -128,7 +128,10 @@ func (rl *Instance) moveCursorByAdjust(adjust int) {
 
 	// If we are at the end of line, and not in Insert mode, move back one.
 	if rl.modeViMode != vimInsert && (rl.pos == len(rl.line)) && len(rl.line) > 0 {
-		rl.pos--
+		if rl.modeViMode != vimInsert {
+			rl.pos--
+		} else if rl.modeViMode == vimInsert && rl.searchMode == HistoryFind && rl.modeAutoFind {
+			rl.pos--
+		}
 	}
-
 }

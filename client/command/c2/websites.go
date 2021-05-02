@@ -68,11 +68,11 @@ func (w *Websites) Execute(args []string) (err error) {
 func listWebsites(w *Websites, rpc rpcpb.SliverRPCClient) {
 	websites, err := rpc.Websites(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(util.Error+"Failed to list websites %s\n", err)
+		fmt.Printf(Error+"Failed to list websites %s\n", err)
 		return
 	}
 	if len(websites.Websites) < 1 {
-		fmt.Printf(util.Info + "No websites\n")
+		fmt.Printf(Info + "No websites\n")
 		return
 	}
 	fmt.Println(readline.Bold(readline.Yellow("Websites")))
@@ -103,13 +103,13 @@ func listWebsiteContent(w *WebsitesShow, rpc rpcpb.SliverRPCClient) {
 		Name: w.Args.Name,
 	})
 	if err != nil {
-		fmt.Printf(util.Error+"Failed to list website content %s\n", err)
+		fmt.Printf(Error+"Failed to list website content %s\n", err)
 		return
 	}
 	if 0 < len(website.Contents) {
 		displayWebsite(website)
 	} else {
-		fmt.Printf(util.Info+"No content for '%s'\n", w.Args.Name)
+		fmt.Printf(Info+"No content for '%s'\n", w.Args.Name)
 	}
 }
 
@@ -151,9 +151,9 @@ func (w *WebsitesDelete) Execute(args []string) (err error) {
 			Name: name,
 		})
 		if err != nil {
-			fmt.Printf(util.Error+"Failed to remove website %s\n", err)
+			fmt.Printf(Error+"Failed to remove website %s\n", err)
 		} else {
-			fmt.Printf(util.Info+"Removed website %s%s%s\n", readline.YELLOW, name, readline.RESET)
+			fmt.Printf(Info+"Removed website %s%s%s\n", readline.YELLOW, name, readline.RESET)
 		}
 	}
 	return
@@ -171,11 +171,11 @@ func (w *WebsitesDeleteContent) Execute(args []string) (err error) {
 	recursive := w.Recursive
 
 	if name == "" {
-		fmt.Printf(util.Error + "Must specify a website name via --website, see --help\n")
+		fmt.Printf(Error + "Must specify a website name via --website, see --help\n")
 		return
 	}
 	if webPath == "" {
-		fmt.Printf(util.Error + "Must specify a web path via --web-path, see --help\n")
+		fmt.Printf(Error + "Must specify a web path via --web-path, see --help\n")
 		return
 	}
 
@@ -183,7 +183,7 @@ func (w *WebsitesDeleteContent) Execute(args []string) (err error) {
 		Name: name,
 	})
 	if err != nil {
-		fmt.Printf(util.Error+"%s", err)
+		fmt.Printf(Error+"%s", err)
 		return
 	}
 
@@ -202,7 +202,7 @@ func (w *WebsitesDeleteContent) Execute(args []string) (err error) {
 	}
 	web, err := transport.RPC.WebsiteRemoveContent(context.Background(), rmWebContent)
 	if err != nil {
-		fmt.Printf(util.Error+"Failed to remove content %s\n", err)
+		fmt.Printf(Error+"Failed to remove content %s\n", err)
 		return
 	}
 	displayWebsite(web)
@@ -218,17 +218,17 @@ type WebsitesAddContent struct {
 func (w *WebsitesAddContent) Execute(args []string) (err error) {
 	websiteName := w.Website
 	if websiteName == "" {
-		fmt.Printf(util.Error + "Must specify a website name via --website, see --help\n")
+		fmt.Printf(Error + "Must specify a website name via --website, see --help\n")
 		return
 	}
 	webPath := w.WebPath
 	if webPath == "" {
-		fmt.Printf(util.Error + "Must specify a web path via --web-path, see --help\n")
+		fmt.Printf(Error + "Must specify a web path via --web-path, see --help\n")
 		return
 	}
 	contentPath := w.Content
 	if contentPath == "" {
-		fmt.Println(util.Error + "Must specify some --content\n")
+		fmt.Println(Error + "Must specify some --content\n")
 		return
 	}
 	contentPath, _ = filepath.Abs(contentPath)
@@ -237,7 +237,7 @@ func (w *WebsitesAddContent) Execute(args []string) (err error) {
 
 	fileInfo, err := os.Stat(contentPath)
 	if err != nil {
-		fmt.Printf(util.Error+"Error adding content %s\n", err)
+		fmt.Printf(Error+"Error adding content %s\n", err)
 		return
 	}
 
@@ -257,7 +257,7 @@ func (w *WebsitesAddContent) Execute(args []string) (err error) {
 
 	web, err := transport.RPC.WebsiteAddContent(context.Background(), addWeb)
 	if err != nil {
-		fmt.Printf(util.Error+"%s", err)
+		fmt.Printf(Error+"%s", err)
 		return
 	}
 	displayWebsite(web)
@@ -338,17 +338,17 @@ type WebsiteType struct {
 func (w *WebsiteType) Execute(args []string) (err error) {
 	websiteName := w.WebsiteOptions.Website
 	if websiteName == "" {
-		fmt.Printf(util.Error + "Must specify a website name via --website, see --help\n")
+		fmt.Printf(Error + "Must specify a website name via --website, see --help\n")
 		return
 	}
 	webPath := w.WebsiteOptions.WebPath
 	if webPath == "" {
-		fmt.Printf(util.Error + "Must specify a web path via --web-path, see --help\n")
+		fmt.Printf(Error + "Must specify a web path via --web-path, see --help\n")
 		return
 	}
 	contentType := w.WebsiteOptions.ContentType
 	if contentType == "" {
-		fmt.Println(util.Error + "Must specify a new --content-type, see --help\n")
+		fmt.Println(Error + "Must specify a new --content-type, see --help\n")
 		return
 	}
 
@@ -362,7 +362,7 @@ func (w *WebsiteType) Execute(args []string) (err error) {
 
 	web, err := transport.RPC.WebsiteUpdateContent(context.Background(), updateWeb)
 	if err != nil {
-		fmt.Printf(util.Error+"%s", err)
+		fmt.Printf(Error+"%s", err)
 		return
 	}
 	displayWebsite(web)

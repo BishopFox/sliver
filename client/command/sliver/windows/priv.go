@@ -26,7 +26,6 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
@@ -58,16 +57,16 @@ func (ra *RunAs) Execute(args []string) (err error) {
 	})
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v\n", err)
+		fmt.Printf(Error+"Error: %v\n", err)
 		return
 	}
 
 	if runAsResp.GetResponse().GetErr() != "" {
-		fmt.Printf(util.Error+"Error: %s\n", runAsResp.GetResponse().GetErr())
+		fmt.Printf(Error+"Error: %s\n", runAsResp.GetResponse().GetErr())
 		return
 	}
 
-	fmt.Printf(util.Info+"Sucessfully ran %s %s on %s\n", process, arguments, core.ActiveSession.GetName())
+	fmt.Printf(Info+"Sucessfully ran %s %s on %s\n", process, arguments, core.ActiveSession.GetName())
 
 	return
 }
@@ -89,14 +88,14 @@ func (i *Impersonate) Execute(args []string) (err error) {
 	})
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return
 	}
 	if impResp.GetResponse().GetErr() != "" {
-		fmt.Printf(util.Error+"Error: %s\n", impResp.GetResponse().GetErr())
+		fmt.Printf(Error+"Error: %s\n", impResp.GetResponse().GetErr())
 		return
 	}
-	fmt.Printf(util.Info+"Successfully impersonated %s\n", username)
+	fmt.Printf(Info+"Successfully impersonated %s\n", username)
 
 	return
 }
@@ -112,10 +111,10 @@ func (rs *Rev2Self) Execute(args []string) (err error) {
 	})
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v\n", err)
+		fmt.Printf(Error+"Error: %v\n", err)
 		return
 	}
-	fmt.Printf(util.Info + "Back to self...\n")
+	fmt.Printf(Info + "Back to self...\n")
 	return nil
 }
 
@@ -144,14 +143,14 @@ func (gs *GetSystem) Execute(args []string) (err error) {
 	<-ctrl
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v\n", err)
+		fmt.Printf(Error+"Error: %v\n", err)
 		return
 	}
 	if getsystemResp.GetResponse().GetErr() != "" {
-		fmt.Printf(util.Error+"Error: %s\n", getsystemResp.GetResponse().GetErr())
+		fmt.Printf(Error+"Error: %s\n", getsystemResp.GetResponse().GetErr())
 		return
 	}
-	fmt.Printf("\n" + util.Info + "A new SYSTEM session should pop soon...\n")
+	fmt.Printf("\n" + Info + "A new SYSTEM session should pop soon...\n")
 
 	return
 }
@@ -173,7 +172,7 @@ func (mt *MakeToken) Execute(args []string) (err error) {
 	domain := mt.Options.Domain
 
 	if username == "" || password == "" {
-		fmt.Printf(util.Error + "You must provide a username and password\n")
+		fmt.Printf(Error + "You must provide a username and password\n")
 		return
 	}
 
@@ -191,15 +190,15 @@ func (mt *MakeToken) Execute(args []string) (err error) {
 	<-ctrl
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v\n", err)
+		fmt.Printf(Error+"Error: %v\n", err)
 		return
 	}
 
 	if makeToken.GetResponse().GetErr() != "" {
 
-		fmt.Printf(util.Error+"Error: %s\n", makeToken.GetResponse().GetErr())
+		fmt.Printf(Error+"Error: %s\n", makeToken.GetResponse().GetErr())
 		return
 	}
-	fmt.Printf("\n"+util.Info+"Successfully impersonated %s\\%s. Use `rev2self` to revert to your previous token.\n", domain, username)
+	fmt.Printf("\n"+Info+"Successfully impersonated %s\\%s. Use `rev2self` to revert to your previous token.\n", domain, username)
 	return
 }

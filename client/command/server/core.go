@@ -65,7 +65,7 @@ func (cd *ChangeClientDirectory) Execute(args []string) (err error) {
 	if err != nil {
 		fmt.Printf(util.CommandError+"%s \n", err)
 	} else {
-		fmt.Printf(util.Info+"Changed directory to %s \n", dir)
+		fmt.Printf(Info+"Changed directory to %s \n", dir)
 	}
 
 	return

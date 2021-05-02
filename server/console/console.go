@@ -58,10 +58,12 @@ const (
 
 	// Info - Display colorful information
 	Info = bold + cyan + "[*] " + normal
-	// Warn - Warn a user
-	Warn = bold + red + "[!] " + normal
 	// Debug - Display debug information
 	Debug = bold + purple + "[-] " + normal
+	// Error - Notify error to a user
+	Error = bold + red + "[!] " + normal
+	// Warning - Notify important information, not an error
+	Warning = bold + orange + "[!] " + normal
 	// Woot - Display success
 	Woot = bold + green + "[$] " + normal
 )
@@ -80,7 +82,7 @@ func Start() {
 	}
 	conn, err := grpc.DialContext(context.Background(), "bufnet", options...)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to dial bufnet: %s", err)
+		fmt.Printf(Warning+"Failed to dial bufnet: %s", err)
 		return
 	}
 	defer conn.Close()
@@ -92,11 +94,11 @@ func Start() {
 func checkForLegacyDB() {
 	legacyDBPath := filepath.Join(assets.GetRootAppDir(), "db")
 	if _, err := os.Stat(legacyDBPath); !os.IsNotExist(err) {
-		fmt.Println("\n" + Warn + bold + "Compatability Warning: " + normal)
-		fmt.Println(Warn + "It looks like this server was upgraded from an older version of Sliver.")
-		fmt.Println(Warn + "We have switched to using SQL for internal data (before we used BadgerDB)")
-		fmt.Printf(Warn+"Regrettably this means there's %sno backwards compatibility%s for implants, etc.\n", bold, normal)
-		fmt.Println(Warn + "If you need to use existing implants, stick with any version up to 1.0.9")
+		fmt.Println("\n" + Warning + bold + "Compatability Warning: " + normal)
+		fmt.Println(Warning + "It looks like this server was upgraded from an older version of Sliver.")
+		fmt.Println(Warning + "We have switched to using SQL for internal data (before we used BadgerDB)")
+		fmt.Printf(Warning+"Regrettably this means there's %sno backwards compatibility%s for implants, etc.\n", bold, normal)
+		fmt.Println(Warning + "If you need to use existing implants, stick with any version up to 1.0.9")
 		fmt.Println()
 		confirm := false
 		survey.AskOne(&survey.Confirm{

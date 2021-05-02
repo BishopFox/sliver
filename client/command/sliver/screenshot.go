@@ -27,7 +27,6 @@ import (
 
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -39,7 +38,7 @@ func (s *Screenshot) Execute(args []string) (err error) {
 	session := core.ActiveSession
 
 	if session.OS != "windows" && session.OS != "linux" {
-		fmt.Printf(util.Error+"Not implemented for %s\n", session.OS)
+		fmt.Printf(Error+"Not implemented for %s\n", session.OS)
 		return
 	}
 
@@ -47,7 +46,7 @@ func (s *Screenshot) Execute(args []string) (err error) {
 		Request: core.ActiveSessionRequest(),
 	})
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return
 	}
 
@@ -55,12 +54,12 @@ func (s *Screenshot) Execute(args []string) (err error) {
 	tmpFileName := path.Base(fmt.Sprintf("screenshot_%s_%d_%s_*.png", session.Name, session.ID, timestamp))
 	tmpFile, err := ioutil.TempFile("", tmpFileName)
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return
 	}
 	err = ioutil.WriteFile(tmpFile.Name(), screenshot.Data, 0600)
 	if err != nil {
-		fmt.Printf(util.Error+"Error writting file: %s\n", err)
+		fmt.Printf(Error+"Error writting file: %s\n", err)
 		return
 	}
 	fmt.Printf(bold+"Screenshot written to %s\n", tmpFile.Name())

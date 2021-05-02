@@ -30,7 +30,6 @@ import (
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/help"
-	"github.com/bishopfox/sliver/client/util"
 )
 
 var (
@@ -54,13 +53,13 @@ func (l *LoadExtension) Execute(args []string) (err error) {
 	manifestPath := fmt.Sprintf("%s/%s", l.Positional.Path, "manifest.json")
 	jsonBytes, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
-		fmt.Printf(util.Error+"%v", err)
+		fmt.Printf(Error+"%v", err)
 	}
 	// parse it
 	ext := &extension{}
 	err = json.Unmarshal(jsonBytes, ext)
 	if err != nil {
-		fmt.Printf(util.Error+"error loading extension: %v\n", err)
+		fmt.Printf(Error+"error loading extension: %v\n", err)
 		return
 	}
 	ext.Path = l.Positional.Path
@@ -69,7 +68,7 @@ func (l *LoadExtension) Execute(args []string) (err error) {
 	// by another command, return and notify
 	for _, c := range sliverMenu.Commands() {
 		if ext.Name == c.Name {
-			fmt.Printf(util.Error+"Error loading extension: another command has name %s\n",
+			fmt.Printf(Error+"Error loading extension: another command has name %s\n",
 				readline.Yellow(ext.Name))
 			return nil
 		}

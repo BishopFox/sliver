@@ -66,7 +66,7 @@ func (p *PS) Execute(args []string) (err error) {
 		Request: core.ActiveSessionRequest(),
 	})
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return
 	}
 
@@ -79,16 +79,16 @@ func (p *PS) Execute(args []string) (err error) {
 		var lineColor = ""
 
 		if pidFilter != -1 && proc.Pid == pidFilter {
-			lineColor = printProcInfo(proc, core.ActiveSession.Session)
+			lineColor = printProcInfo(proc, core.ActiveSession)
 		}
 		if exeFilter != "" && strings.HasPrefix(proc.Executable, exeFilter) {
-			lineColor = printProcInfo(proc, core.ActiveSession.Session)
+			lineColor = printProcInfo(proc, core.ActiveSession)
 		}
 		if ownerFilter != "" && strings.HasPrefix(proc.Owner, ownerFilter) {
-			lineColor = printProcInfo(proc, core.ActiveSession.Session)
+			lineColor = printProcInfo(proc, core.ActiveSession)
 		}
 		if pidFilter == -1 && exeFilter == "" && ownerFilter == "" {
-			lineColor = printProcInfo(proc, core.ActiveSession.Session)
+			lineColor = printProcInfo(proc, core.ActiveSession)
 		}
 
 		pid := fmt.Sprintf("%s%d%s", lineColor, proc.Pid, readline.RESET)
@@ -132,10 +132,10 @@ func (p *ProcDump) Execute(args []string) (err error) {
 	name := p.Options.Name
 
 	if pid == 0 && name != "" {
-		pid = getPIDByName(name, core.ActiveSession.Session)
+		pid = getPIDByName(name, core.ActiveSession)
 	}
 	if pid == -1 {
-		fmt.Printf(util.Error + "Invalid process target\n")
+		fmt.Printf(Error + "Invalid process target\n")
 		return
 	}
 
@@ -143,13 +143,13 @@ func (p *ProcDump) Execute(args []string) (err error) {
 	go spin.Until("Dumping remote process memory ...", ctrl)
 	dump, err := transport.RPC.ProcessDump(context.Background(), &sliverpb.ProcessDumpReq{
 		Pid:     pid,
-		Timeout: int32(core.SessionRequest(core.ActiveSession.Session).Timeout),
+		Timeout: int32(core.SessionRequest(core.ActiveSession).Timeout),
 		Request: core.ActiveSessionRequest(),
 	})
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		fmt.Printf(util.Error+"Error %s", err)
+		fmt.Printf(Error+"Error %s", err)
 		return
 	}
 
@@ -157,11 +157,11 @@ func (p *ProcDump) Execute(args []string) (err error) {
 	tmpFileName := path.Base(fmt.Sprintf("procdump_%s_%d_*", hostname, pid))
 	tmpFile, err := ioutil.TempFile("", tmpFileName)
 	if err != nil {
-		fmt.Printf(util.Error+"Error creating temporary file: %v\n", err)
+		fmt.Printf(Error+"Error creating temporary file: %v\n", err)
 		return
 	}
 	tmpFile.Write(dump.GetData())
-	fmt.Printf(util.Info+"Process dump stored in: %s\n", tmpFile.Name())
+	fmt.Printf(Info+"Process dump stored in: %s\n", tmpFile.Name())
 
 	return
 }
@@ -202,9 +202,9 @@ func (t *Terminate) Execute(args []string) (err error) {
 			Request: core.ActiveSessionRequest(),
 		})
 		if err != nil {
-			fmt.Printf(util.Error+"%s\n", err)
+			fmt.Printf(Error+"%s\n", err)
 		} else {
-			fmt.Printf(util.Info+"Process %d has been terminated\n", terminated.Pid)
+			fmt.Printf(Info+"Process %d has been terminated\n", terminated.Pid)
 		}
 	}
 	return

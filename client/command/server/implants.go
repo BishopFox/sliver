@@ -47,7 +47,7 @@ func (b *Builds) Execute(args []string) (err error) {
 	if 0 < len(builds.Configs) {
 		printImplantBuilds(builds.Configs)
 	} else {
-		fmt.Printf(util.Info + "No implant builds\n")
+		fmt.Printf(Info + "No implant builds\n")
 	}
 
 	return
@@ -147,10 +147,10 @@ func (r *RemoveBuild) Execute(args []string) (err error) {
 			Name: name,
 		})
 		if err != nil {
-			fmt.Printf(util.Error+"Failed to delete implant %s\n", err)
+			fmt.Printf(Error+"Failed to delete implant %s\n", err)
 			continue
 		}
-		fmt.Printf(util.Info+"Deleted implant %s\n", name)
+		fmt.Printf(Info+"Deleted implant %s\n", name)
 
 	}
 	return

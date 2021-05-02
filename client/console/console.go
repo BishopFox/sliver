@@ -62,10 +62,12 @@ const (
 
 	// Info - Display colorful information
 	Info = bold + cyan + "[*] " + normal
-	// Warn - Warn a user
-	Warn = bold + red + "[!] " + normal
 	// Debug - Display debug information
 	Debug = bold + purple + "[-] " + normal
+	// Error - Notify error to a user
+	Error = bold + red + "[!] " + normal
+	// Warning - Notify important information, not an error
+	Warning = bold + orange + "[!] " + normal
 	// Woot - Display success
 	Woot = bold + green + "[$] " + normal
 
@@ -132,7 +134,7 @@ func setup(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) (err error) {
 	// Get the user's console configuration from the server, and load it in the console.
 	config, err := loadConsoleConfig(rpc)
 	if err != nil {
-		fmt.Printf(Warn + "Failed to load console configuration from server.\n")
+		fmt.Printf(Warning + "Failed to load console configuration from server.\n")
 		fmt.Printf(Info + "Defaulting to builtin values.\n")
 	}
 	console.LoadConfig(config)
@@ -192,21 +194,21 @@ func eventLoop(rpc rpcpb.SliverRPCClient) {
 	// Call the server events stream.
 	events, err := rpc.Events(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(Warn+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return
 	}
 
 	for !isDone(events.Context()) {
 		event, err := events.Recv()
 		if err != nil {
-			fmt.Printf(Warn + "It seems that the Sliver Server disconnected, falling back...\n")
+			fmt.Printf(Warning + "It seems that the Sliver Server disconnected, falling back...\n")
 			return
 		}
 
 		switch event.EventType {
 		case consts.CanaryEvent:
 			fmt.Printf("\n\n") // Clear screen a bit before announcing shitty news
-			fmt.Printf(Warn+"WARNING: %s%s has been burned (DNS Canary)\n", normal, event.Session.Name)
+			fmt.Printf(Warning+"WARNING: %s%s has been burned (DNS Canary)\n", normal, event.Session.Name)
 			sessions := getSessionsByName(event.Session.Name, transport.RPC)
 			var alert string
 			for _, session := range sessions {
@@ -263,7 +265,7 @@ func eventLoop(rpc rpcpb.SliverRPCClient) {
 			}
 
 			// We print a message here if its not about a session we killed ourselves, and adapt prompt
-			lost += fmt.Sprintf(Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
+			lost += fmt.Sprintf(Warning+"Lost session #%d %s - %s (%s) - %s/%s\n",
 				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
 			console.RefreshPromptLog(lost)
 
@@ -318,7 +320,7 @@ func printLogo(rpc rpcpb.SliverRPCClient) {
 	}
 	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
 	if serverVer.Major != int32(version.SemanticVersion()[0]) {
-		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
+		fmt.Printf(Warning + "Warning: Client and server may be running incompatible versions.\n")
 	}
 	checkLastUpdate()
 }

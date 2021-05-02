@@ -109,7 +109,7 @@ var (
 			return core.ActiveSession.Name
 		},
 		"{wd}": func() string {
-			return core.ActiveSession.WorkingDir
+			return core.ActiveSession.WorkingDirectory
 		},
 		"{user}": func() string {
 			return core.ActiveSession.Username

@@ -25,7 +25,6 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -57,15 +56,15 @@ func (b *Backdoor) Execute(args []string) (err error) {
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v\n", err)
+		fmt.Printf(Error+"Error: %v\n", err)
 		return
 	}
 
 	if backdoor.Response != nil && backdoor.Response.Err != "" {
-		fmt.Printf(util.Error+"Error: %s\n", backdoor.Response.Err)
+		fmt.Printf(Error+"Error: %s\n", backdoor.Response.Err)
 		return
 	}
 
-	fmt.Printf(util.Info+"Uploaded backdoored binary to %s\n", remoteFilePath)
+	fmt.Printf(Info+"Uploaded backdoored binary to %s\n", remoteFilePath)
 	return
 }

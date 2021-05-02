@@ -24,7 +24,6 @@ import (
 
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
@@ -51,7 +50,7 @@ func (e *GetEnv) Execute(args []string) (err error) {
 		})
 
 		if err != nil {
-			fmt.Printf(util.Error+"Error: %v", err)
+			fmt.Printf(Error+"Error: %v", err)
 			continue
 		}
 
@@ -81,14 +80,14 @@ func (e *SetEnv) Execute(args []string) (err error) {
 		Request: core.ActiveSessionRequest(),
 	})
 	if err != nil {
-		fmt.Printf(util.Warn+"Error: %v", err)
+		fmt.Printf(Warning+"Error: %v", err)
 		return
 	}
 	if envInfo.Response != nil && envInfo.Response.Err != "" {
-		fmt.Printf(util.Warn+"Error: %s", envInfo.Response.Err)
+		fmt.Printf(Warning+"Error: %s", envInfo.Response.Err)
 		return
 	}
-	fmt.Printf(util.Info+"set %s to %s\n", e.Positional.Key, e.Positional.Value)
+	fmt.Printf(Info+"set %s to %s\n", e.Positional.Key, e.Positional.Value)
 
 	return
 }

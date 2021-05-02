@@ -30,7 +30,6 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -75,7 +74,7 @@ func (ext *ExtensionCommand) Execute(cArgs []string) (err error) {
 
 	binPath, err := ext.root.getFileForTarget(ext.sub.Name, session.GetOS(), session.GetArch())
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v\n", err)
+		fmt.Printf(Error+"Error: %v\n", err)
 		return
 	}
 
@@ -102,7 +101,7 @@ func (ext *ExtensionCommand) Execute(cArgs []string) (err error) {
 	if proc == nil {
 		processName, err = ext.sub.getDefaultProcess(session.GetOS())
 		if err != nil {
-			fmt.Printf(util.Error+"Error: %v\n", err)
+			fmt.Printf(Error+"Error: %v\n", err)
 			return
 		}
 	}
@@ -113,7 +112,7 @@ func (ext *ExtensionCommand) Execute(cArgs []string) (err error) {
 	}
 	binData, err := ioutil.ReadFile(binPath)
 	if err != nil {
-		fmt.Printf(util.Error+"%s", err.Error())
+		fmt.Printf(Error+"%s", err.Error())
 		return
 	}
 
@@ -145,13 +144,13 @@ func (ext *ExtensionCommand) Execute(cArgs []string) (err error) {
 		ctrl <- true
 		<-ctrl
 		if err != nil {
-			fmt.Printf(util.Error+"Error: %v", err)
+			fmt.Printf(Error+"Error: %v", err)
 			return nil
 		}
-		fmt.Printf(util.Info+"Output:\n%s", string(executeAssemblyResp.GetOutput()))
+		fmt.Printf(Info+"Output:\n%s", string(executeAssemblyResp.GetOutput()))
 		if outFilePath != nil {
 			outFilePath.Write(executeAssemblyResp.GetOutput())
-			fmt.Printf(util.Info+"Output saved to %s\n", outFilePath.Name())
+			fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
 		}
 		return nil
 	}
@@ -173,14 +172,14 @@ func (ext *ExtensionCommand) Execute(cArgs []string) (err error) {
 		<-ctrl
 
 		if err != nil {
-			fmt.Printf(util.Error+"Error: %v", err)
+			fmt.Printf(Error+"Error: %v", err)
 			return nil
 		}
 
-		fmt.Printf(util.Info+"Output:\n%s", spawnDllResp.GetResult())
+		fmt.Printf(Info+"Output:\n%s", spawnDllResp.GetResult())
 		if outFilePath != nil {
 			outFilePath.Write([]byte(spawnDllResp.GetResult()))
-			fmt.Printf(util.Info+"Output saved to %s\n", outFilePath.Name())
+			fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
 		}
 		return nil
 	}
@@ -201,14 +200,14 @@ func (ext *ExtensionCommand) Execute(cArgs []string) (err error) {
 	<-ctrl
 
 	if err != nil {
-		fmt.Printf(util.Error+"Error: %v", err)
+		fmt.Printf(Error+"Error: %v", err)
 		return nil
 	}
 
-	fmt.Printf(util.Info+"Output:\n%s", sideloadResp.GetResult())
+	fmt.Printf(Info+"Output:\n%s", sideloadResp.GetResult())
 	if outFilePath != nil {
 		outFilePath.Write([]byte(sideloadResp.GetResult()))
-		fmt.Printf(util.Info+"Output saved to %s\n", outFilePath.Name())
+		fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
 	}
 
 	return

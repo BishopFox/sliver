@@ -26,7 +26,6 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
@@ -54,12 +53,12 @@ func (m *MSF) Execute(args []string) (err error) {
 	iterations := m.Iterations
 
 	if lhost == "" {
-		fmt.Printf(util.Error+"Invalid lhost '%s', see `help %s`\n", lhost, consts.MsfStr)
+		fmt.Printf(Error+"Invalid lhost '%s', see `help %s`\n", lhost, consts.MsfStr)
 		return
 	}
 
 	ctrl := make(chan bool)
-	msg := fmt.Sprintf(util.Info+"Sending payload %s %s/%s -> %s:%d ...",
+	msg := fmt.Sprintf(Info+"Sending payload %s %s/%s -> %s:%d ...",
 		payloadName, core.ActiveSession.OS, core.ActiveSession.Arch, lhost, lport)
 	go spin.Until(msg, ctrl)
 	_, err = transport.RPC.Msf(context.Background(), &clientpb.MSFReq{
@@ -73,9 +72,9 @@ func (m *MSF) Execute(args []string) (err error) {
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 	} else {
-		fmt.Printf(util.Info + "Executed payload on target\n")
+		fmt.Printf(Info + "Executed payload on target\n")
 	}
 	return nil
 }
@@ -98,7 +97,7 @@ func (m *MSFInject) Execute(args []string) (err error) {
 	iterations := m.Iterations
 
 	if lhost == "" {
-		fmt.Printf(util.Error+"Invalid lhost '%s', see `help %s`\n", lhost, consts.MsfStr)
+		fmt.Printf(Error+"Invalid lhost '%s', see `help %s`\n", lhost, consts.MsfStr)
 		return
 	}
 
@@ -118,9 +117,9 @@ func (m *MSFInject) Execute(args []string) (err error) {
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 	} else {
-		fmt.Printf(util.Info + "Executed payload on target\n")
+		fmt.Printf(Info + "Executed payload on target\n")
 	}
 	return nil
 }

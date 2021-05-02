@@ -68,15 +68,18 @@ const (
 var (
 	// ClientLogger - Logger used by console binary components only,
 	// like the client-specific part of shell tunnels.
-	ClientLogger = NewClientLogger("")
+	ClientLogger = NewClientLogger("client")
 
 	// References to console components, used by all loggers.
 	console *gonsole.Console
 
+	// Loggers - All instantiated loggers on the client console.
+	Loggers = map[string]*logrus.Logger{}
+
 	// Mappings between logrus log levels and their associated console print icon.
 	logrusPrintLevels = map[logrus.Level]string{
 		logrus.TraceLevel: fmt.Sprintf("%s[t] %s", readline.DIM, readline.RESET),
-		logrus.DebugLevel: fmt.Sprintf("%s%s[_] %s", readline.DIM, readline.BLUE, readline.RESET),
+		logrus.DebugLevel: fmt.Sprintf("%s%s[d] %s", readline.DIM, readline.BLUE, readline.RESET),
 		logrus.InfoLevel:  Info,
 		logrus.WarnLevel:  fmt.Sprintf("%s[!] %s", readline.YELLOW, readline.RESET),
 		logrus.ErrorLevel: Warn,
@@ -104,6 +107,11 @@ func NewClientLogger(name string) *logrus.Logger {
 	// Text hook
 	clientHook := &clientHook{name: name}
 	logger.AddHook(clientHook)
+
+	// Add log to list of existing loggers, so that the user
+	// can set the logging level for each of them independently.
+	Loggers[name] = logger
+
 	return logger
 }
 

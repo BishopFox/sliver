@@ -45,7 +45,7 @@ func (p *NewProfile) Execute(args []string) (err error) {
 
 	name := p.CoreOptions.Profile
 	if name == "" {
-		fmt.Printf(util.Error + "Invalid profile name\n")
+		fmt.Printf(Error + "Invalid profile name\n")
 		return
 	}
 
@@ -62,9 +62,9 @@ func (p *NewProfile) Execute(args []string) (err error) {
 	resp, err := transport.RPC.SaveImplantProfile(context.Background(), profile)
 
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 	} else {
-		fmt.Printf(util.Info+"Saved new profile %s\n", resp.Name)
+		fmt.Printf(Info+"Saved new profile %s\n", resp.Name)
 	}
 
 	return
@@ -80,7 +80,7 @@ func (p *Profiles) Execute(args []string) (err error) {
 		return
 	}
 	if len(*profiles) == 0 {
-		fmt.Printf(util.Info+"No profiles, create one with `%s`\n", constants.NewProfileStr)
+		fmt.Printf(Info+"No profiles, create one with `%s`\n", constants.NewProfileStr)
 		return
 	}
 	table := util.NewTable(readline.Bold(readline.Yellow("Implant Profiles")))
@@ -189,11 +189,11 @@ func (p *ProfileGenerate) Execute(args []string) (err error) {
 		profile.Config.Name = buildImplantName(implantFile.Name)
 		_, err = transport.RPC.SaveImplantProfile(context.Background(), profile)
 		if err != nil {
-			fmt.Printf(util.Error+"could not update implant profile: %v\n", err)
+			fmt.Printf(Error+"could not update implant profile: %v\n", err)
 			return err
 		}
 	} else {
-		fmt.Printf(util.Error+"No profile with name '%s'", name)
+		fmt.Printf(Error+"No profile with name '%s'", name)
 	}
 	return
 }
@@ -201,7 +201,7 @@ func (p *ProfileGenerate) Execute(args []string) (err error) {
 func getSliverProfiles() *map[string]*clientpb.ImplantProfile {
 	pbProfiles, err := transport.RPC.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(util.Error+"Error %s", err)
+		fmt.Printf(Error+"Error %s", err)
 		return nil
 	}
 	profiles := &map[string]*clientpb.ImplantProfile{}
@@ -245,10 +245,10 @@ func (pd *ProfileDelete) Execute(args []string) (err error) {
 			Name: p,
 		})
 		if err != nil {
-			fmt.Printf(util.Warn+"Failed to delete profile %s\n", err)
+			fmt.Printf(Warning+"Failed to delete profile %s\n", err)
 			continue
 		} else {
-			fmt.Printf(util.Info+"Delete profile %s\n", readline.Bold(p))
+			fmt.Printf(Info+"Delete profile %s\n", readline.Bold(p))
 		}
 	}
 	return

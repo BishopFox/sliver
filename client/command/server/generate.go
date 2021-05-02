@@ -140,7 +140,7 @@ type Regenerate struct {
 // Execute - Recompile an implant with a given profile
 func (r *Regenerate) Execute(args []string) (err error) {
 	if r.Positional.ImplantName == "" {
-		fmt.Printf(util.Error+"Invalid implant name, see `help %s`\n", constants.RegenerateStr)
+		fmt.Printf(Error+"Invalid implant name, see `help %s`\n", constants.RegenerateStr)
 		return
 	}
 	save := r.Options.Save
@@ -156,20 +156,20 @@ func (r *Regenerate) Execute(args []string) (err error) {
 		return
 	}
 	if regenerate.File == nil {
-		fmt.Printf(util.Error + "Failed to regenerate implant (no data)\n")
+		fmt.Printf(Error + "Failed to regenerate implant (no data)\n")
 		return
 	}
 	saveTo, err := saveLocation(save, regenerate.File.Name)
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return
 	}
 	err = ioutil.WriteFile(saveTo, regenerate.File.Data, 0500)
 	if err != nil {
-		fmt.Printf(util.Error+"Failed to write to %s\n", err)
+		fmt.Printf(Error+"Failed to write to %s\n", err)
 		return
 	}
-	fmt.Printf(util.Error+"Implant binary saved to: %s\n", saveTo)
+	fmt.Printf(Error+"Implant binary saved to: %s\n", saveTo)
 
 	return
 }
@@ -179,7 +179,7 @@ func parseCompileFlags(g StageOptions) (*clientpb.ImplantConfig, error) {
 	platform := strings.ToLower(g.CoreOptions.Platform)
 
 	if len(strings.Split(platform, "/")) != 2 {
-		return nil, fmt.Errorf(util.Error + "--platform value must be os/arch value")
+		return nil, fmt.Errorf(Error + "--platform value must be os/arch value")
 	}
 	targetOS := strings.Split(platform, "/")[0]
 	arch := strings.Split(platform, "/")[1]
@@ -191,7 +191,7 @@ func parseCompileFlags(g StageOptions) (*clientpb.ImplantConfig, error) {
 		if name != "" {
 			isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
 			if !isAlphanumeric(name) {
-				return nil, fmt.Errorf(util.Error + "Agent's name must be in alphanumeric only")
+				return nil, fmt.Errorf(Error + "Agent's name must be in alphanumeric only")
 			}
 		}
 	}
@@ -221,7 +221,7 @@ func parseCompileFlags(g StageOptions) (*clientpb.ImplantConfig, error) {
 	}
 
 	if len(mtlsC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 && len(namedPipeC2) == 0 && len(tcpPivotC2) == 0 {
-		return nil, fmt.Errorf(util.Error + "Must specify at least one of --mtls, --http, --dns, --named-pipe, or --tcp-pivot")
+		return nil, fmt.Errorf(Error + "Must specify at least one of --mtls, --http, --dns, --named-pipe, or --tcp-pivot")
 	}
 
 	var canaryDomains []string
@@ -272,7 +272,7 @@ func parseCompileFlags(g StageOptions) (*clientpb.ImplantConfig, error) {
 	}
 
 	if len(namedPipeC2) > 0 && targetOS != "windows" {
-		return nil, fmt.Errorf(util.Error + "Named pipe pivoting can only be used in Windows.")
+		return nil, fmt.Errorf(Error + "Named pipe pivoting can only be used in Windows.")
 	}
 
 	var tunIP net.IP
@@ -280,9 +280,9 @@ func parseCompileFlags(g StageOptions) (*clientpb.ImplantConfig, error) {
 		uniqueWGIP, err := transport.RPC.GenerateUniqueIP(context.Background(), &commonpb.Empty{})
 		tunIP = net.ParseIP(uniqueWGIP.IP)
 		if err != nil {
-			return nil, fmt.Errorf(util.Error + "Failed to generate unique ip for wg peer tun interface")
+			return nil, fmt.Errorf(Error + "Failed to generate unique ip for wg peer tun interface")
 		}
-		fmt.Printf(util.Info+"Generated unique ip for wg peer tun interface: %s\n", tunIP.String())
+		fmt.Printf(Info+"Generated unique ip for wg peer tun interface: %s\n", tunIP.String())
 	}
 
 	config := &clientpb.ImplantConfig{
@@ -491,13 +491,13 @@ func parseTCPPivotc2(args []string) []*clientpb.ImplantC2 {
 
 func compile(config *clientpb.ImplantConfig, save string) (*commonpb.File, error) {
 
-	fmt.Printf(util.Info+"Generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
+	fmt.Printf(Info+"Generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
 
 	if config.ObfuscateSymbols {
-		fmt.Printf(util.Info+"%sSymbol obfuscation is enabled.%s\n", bold, normal)
-		fmt.Printf(util.Info + "This process can take awhile, and consumes significant amounts of CPU/Memory\n")
+		fmt.Printf(Info+"%sSymbol obfuscation is enabled.%s\n", bold, normal)
+		fmt.Printf(Info + "This process can take awhile, and consumes significant amounts of CPU/Memory\n")
 	} else if !config.Debug {
-		fmt.Printf(util.Warn+"Symbol obfuscation is %sdisabled%s\n", bold, normal)
+		fmt.Printf(Warning+"Symbol obfuscation is %sdisabled%s\n", bold, normal)
 	}
 
 	start := time.Now()
@@ -510,15 +510,15 @@ func compile(config *clientpb.ImplantConfig, save string) (*commonpb.File, error
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return nil, err
 	}
 
 	end := time.Now()
 	elapsed := time.Time{}.Add(end.Sub(start))
-	fmt.Printf(clearln+util.Info+"Build completed in %s\n", elapsed.Format("15:04:05"))
+	fmt.Printf(clearln+Info+"Build completed in %s\n", elapsed.Format("15:04:05"))
 	if len(generated.File.Data) == 0 {
-		fmt.Printf(util.Warn + "Build failed, no file data\n")
+		fmt.Printf(Warning + "Build failed, no file data\n")
 		return nil, errors.New("No file data")
 	}
 
@@ -529,10 +529,10 @@ func compile(config *clientpb.ImplantConfig, save string) (*commonpb.File, error
 
 	err = ioutil.WriteFile(saveTo, generated.File.Data, 0700)
 	if err != nil {
-		fmt.Printf(util.Warn+"Failed to write to: %s\n", saveTo)
+		fmt.Printf(Warning+"Failed to write to: %s\n", saveTo)
 		return nil, err
 	}
-	fmt.Printf(util.Info+"Implant saved to %s\n", saveTo)
+	fmt.Printf(Info+"Implant saved to %s\n", saveTo)
 	return generated.File, err
 }
 

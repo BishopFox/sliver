@@ -24,7 +24,6 @@ import (
 
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/util"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -38,7 +37,7 @@ func (i *Ifconfig) Execute(args []string) (err error) {
 		Request: core.ActiveSessionRequest(),
 	})
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return
 	}
 
@@ -108,7 +107,7 @@ func (n *Netstat) Execute(args []string) (err error) {
 		Request:   core.ActiveSessionRequest(),
 	})
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return
 	}
 	displayEntries(netstat.Entries)

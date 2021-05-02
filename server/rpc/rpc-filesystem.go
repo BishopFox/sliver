@@ -22,6 +22,7 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/core"
 )
 
 // Ls - List a directory
@@ -61,6 +62,11 @@ func (rpc *Server) Cd(ctx context.Context, req *sliverpb.CdReq) (*sliverpb.Pwd, 
 	if err != nil {
 		return nil, err
 	}
+	// Update the session working directory
+	if sess := core.Sessions.Get(req.Request.SessionID); sess != nil {
+		sess.UpdateWorkingDirectory(resp.Path)
+	}
+
 	return resp, nil
 }
 
@@ -70,6 +76,10 @@ func (rpc *Server) Pwd(ctx context.Context, req *sliverpb.PwdReq) (*sliverpb.Pwd
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
+	}
+	// Update the session working directory
+	if sess := core.Sessions.Get(req.Request.SessionID); sess != nil {
+		sess.UpdateWorkingDirectory(resp.Path)
 	}
 	return resp, nil
 }

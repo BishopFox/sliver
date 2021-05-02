@@ -40,7 +40,7 @@ func (o *Operators) Execute(args []string) (err error) {
 	} else if 0 < len(operators.Operators) {
 		displayOperators(operators.Operators)
 	} else {
-		fmt.Printf(util.Info + "No remote operators connected\n")
+		fmt.Printf(Info + "No remote operators connected\n")
 	}
 
 	return

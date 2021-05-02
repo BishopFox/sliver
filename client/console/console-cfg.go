@@ -108,7 +108,7 @@ func loadConsoleConfig(rpc rpcpb.SliverRPCClient) (config *gonsole.Config, err e
 	config = &gonsole.Config{}
 	err = json.Unmarshal(res.Config, config)
 	if err != nil {
-		fmt.Printf(Warn+"Error unmarshaling config: %s\n", err.Error())
+		fmt.Printf(Error+"Error unmarshaling config: %s\n", err.Error())
 		return
 	}
 

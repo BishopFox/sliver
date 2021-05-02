@@ -62,8 +62,8 @@ func (cd *ChangeDirectory) Execute(args []string) (err error) {
 	if err != nil {
 		fmt.Printf(util.RPCError+"%s\n", err)
 	} else {
-		fmt.Printf(util.Info+"%s\n", pwd.Path)
-		core.ActiveSession.WorkingDir = pwd.Path
+		fmt.Printf(Info+"%s\n", pwd.Path)
+		core.ActiveSession.WorkingDirectory = pwd.Path
 	}
 
 	return
@@ -93,7 +93,7 @@ func (ls *ListSessionDirectories) Execute(args []string) error {
 			Request: core.ActiveSessionRequest(),
 		})
 		if err != nil {
-			fmt.Printf(util.Error+"%s\n", err)
+			fmt.Printf(Error+"%s\n", err)
 		} else {
 			printDirList(resp)
 		}
@@ -145,9 +145,9 @@ func (rm *Rm) Execute(args []string) (err error) {
 			Request:   core.ActiveSessionRequest(),
 		})
 		if err != nil {
-			fmt.Printf(util.Error+"%s\n", err)
+			fmt.Printf(Error+"%s\n", err)
 		} else {
-			fmt.Printf(util.Info+"Removed %s\n", res.Path)
+			fmt.Printf(Info+"Removed %s\n", res.Path)
 		}
 	}
 	return
@@ -169,9 +169,9 @@ func (md *Mkdir) Execute(args []string) (err error) {
 			Request: core.ActiveSessionRequest(),
 		})
 		if err != nil {
-			fmt.Printf(util.Error+"%s\n", err)
+			fmt.Printf(Error+"%s\n", err)
 		} else {
-			fmt.Printf(util.Info+"%s\n", mkdir.Path)
+			fmt.Printf(Info+"%s\n", mkdir.Path)
 		}
 	}
 
@@ -188,9 +188,9 @@ func (p *Pwd) Execute(args []string) (err error) {
 		Request: core.ActiveSessionRequest(),
 	})
 	if err != nil {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 	} else {
-		fmt.Printf(util.Info+"%s\n", pwd.Path)
+		fmt.Printf(Info+"%s\n", pwd.Path)
 	}
 
 	return
@@ -216,13 +216,13 @@ func (c *Cat) Execute(args []string) (err error) {
 			Request: core.ActiveSessionRequest(),
 		})
 		if err != nil {
-			fmt.Printf(util.Error+"%s\n", err)
+			fmt.Printf(Error+"%s\n", err)
 			continue
 		}
 		if download.Encoder == "gzip" {
 			download.Data, err = new(encoders.Gzip).Decode(download.Data)
 			if err != nil {
-				fmt.Printf(util.Error+"Encoder error: %s\n", err)
+				fmt.Printf(Error+"Encoder error: %s\n", err)
 				return nil
 			}
 		}
@@ -287,13 +287,13 @@ func (c *Download) Execute(args []string) (err error) {
 	dlDst, _ := filepath.Abs(c.Positional.LocalPath)
 	fi, err := os.Stat(dlDst)
 	if err != nil && !os.IsNotExist(err) {
-		fmt.Printf(util.Error+"%s\n", err)
+		fmt.Printf(Error+"%s\n", err)
 		return nil
 	}
 
 	// If we have more than one file to download, the destination must be a directory.
 	if len(c.Positional.RemotePath) > 1 && !fi.IsDir() {
-		fmt.Printf(util.Error+"%s is not a directory (must be if you download multiple files)\n", dlDst)
+		fmt.Printf(Error+"%s is not a directory (must be if you download multiple files)\n", dlDst)
 		return nil
 	}
 
@@ -338,28 +338,28 @@ func (c *Download) Execute(args []string) (err error) {
 		ctrl <- true
 		<-ctrl
 		if err != nil {
-			fmt.Printf(util.Error+"%s\n", err)
+			fmt.Printf(Error+"%s\n", err)
 			return
 		}
 
 		if download.Encoder == "gzip" {
 			download.Data, err = new(encoders.Gzip).Decode(download.Data)
 			if err != nil {
-				fmt.Printf(util.Warn+"Decoding failed %s", err)
+				fmt.Printf(Warning+"Decoding failed %s", err)
 				return
 			}
 		}
 		dstFile, err := os.Create(dst)
 		if err != nil {
-			fmt.Printf(util.Warn+"Failed to open local file %s: %s\n", dst, err)
+			fmt.Printf(Warning+"Failed to open local file %s: %s\n", dst, err)
 			return
 		}
 		defer dstFile.Close()
 		n, err := dstFile.Write(download.Data)
 		if err != nil {
-			fmt.Printf(util.Error+"Failed to write data %v\n", err)
+			fmt.Printf(Error+"Failed to write data %v\n", err)
 		} else {
-			fmt.Printf(util.Info+"Wrote %d bytes to %s\n", n, dstFile.Name())
+			fmt.Printf(Info+"Wrote %d bytes to %s\n", n, dstFile.Name())
 		}
 	}
 
@@ -397,11 +397,11 @@ func (c *Upload) Execute(args []string) (err error) {
 			Request: core.ActiveSessionRequest(),
 		})
 		if err != nil {
-			fmt.Printf(util.Error+" %s\n", err)
+			fmt.Printf(Error+" %s\n", err)
 			return nil
 		}
 		if !resp.Exists {
-			fmt.Printf(util.Error+" %s does not exists or is not a directory\n", c.Positional.RemotePath)
+			fmt.Printf(Error+" %s does not exists or is not a directory\n", c.Positional.RemotePath)
 			return nil
 		}
 		dst = resp.Path
@@ -412,7 +412,7 @@ func (c *Upload) Execute(args []string) (err error) {
 		src, _ := filepath.Abs(file)
 		_, err := os.Stat(src)
 		if err != nil {
-			fmt.Printf(util.Error+"%s\n", err)
+			fmt.Printf(Error+"%s\n", err)
 			continue
 		}
 		fileBuf, err := ioutil.ReadFile(src)
@@ -432,9 +432,9 @@ func (c *Upload) Execute(args []string) (err error) {
 		ctrl <- true
 		<-ctrl
 		if err != nil {
-			fmt.Printf(util.Error+"Upload error: %s\n", err)
+			fmt.Printf(Error+"Upload error: %s\n", err)
 		} else {
-			fmt.Printf(util.Info+"Wrote file to %s\n", upload.Path)
+			fmt.Printf(Info+"Wrote file to %s\n", upload.Path)
 		}
 	}
 

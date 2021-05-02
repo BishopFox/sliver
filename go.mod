@@ -31,8 +31,8 @@ require (
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mattn/go-sqlite3 v1.14.5
-	github.com/maxlandon/gonsole v0.0.0-20210502040604-44eac8e93324
-	github.com/maxlandon/readline v0.1.0-beta.0.20210502041208-41bfc30613da
+	github.com/maxlandon/gonsole v0.0.0-20210502160124-377d77a27617
+	github.com/maxlandon/readline v0.1.0-beta.0.20210502150652-b9c641193f54
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/miekg/dns v1.1.35
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
@@ -56,7 +56,3 @@ require (
 	gorm.io/gorm v1.20.6
 	inet.af/netstack v0.0.0-20210317161235-a1bf4e56ef22
 )
-
-replace github.com/maxlandon/gonsole => /home/user/projects/gonsole
-
-replace github.com/maxlandon/readline => /home/user/projects/readline
