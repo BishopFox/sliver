@@ -88,6 +88,11 @@ type UserHistory struct {
 	cache []string
 }
 
+// RefreshLines - Get the lines for the user command history
+func (h *UserHistory) RefreshLines(lines []string) {
+	h.cache = lines
+}
+
 // getUserHistory - On console startup, request
 // the user-wide hitory and keep it in the cache.
 func getUserHistory() {

@@ -190,16 +190,20 @@ const (
 	SliverWinHelpGroup   = "Sliver - Windows:"
 	MultiplayerHelpGroup = "Multiplayer:"
 	ExtensionHelpGroup   = "Sliver - 3rd Party extensions:"
+
+	// Transport-based
+	WireGuardGroup = "WireGuard"
 )
 
 // Command categories
 const (
-	AdminGroup      = "admin"
-	CoreServerGroup = "core (server)"
-	BuildsGroup     = "implants"
-	TransportsGroup = "transports"
-	SessionsGroup   = "sessions"
-	CommGroup       = "comm"
+	AdminGroup        = "admin"
+	CoreServerGroup   = "core (server)"
+	BuildsGroup       = "implants"
+	TransportsGroup   = "transports"
+	SessionsGroup     = "sessions"
+	CommGroup         = "comm"
+	NetworkToolsGroup = "network tools"
 
 	// Session only
 	CoreSessionGroup = "core (session)"

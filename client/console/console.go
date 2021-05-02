@@ -74,8 +74,8 @@ const (
 )
 
 var (
-	// Console - The console instance of this client.
-	Console = gonsole.NewConsole()
+	// console - The console instance of this client.
+	console = gonsole.NewConsole()
 )
 
 // ExtraCmds - Bind extra commands to the app object
@@ -101,7 +101,7 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds, config *assets.Client
 	}
 
 	// Start monitoring all logs from the server and the client.
-	err = clientLog.Init(Console, rpc)
+	err = clientLog.Init(console, rpc)
 	if err != nil {
 		return fmt.Errorf("Failed to start log monitor (%s)", err.Error())
 	}
@@ -113,7 +113,7 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds, config *assets.Client
 	printLogo(rpc)
 
 	// Run the console. All errors are handled internally.
-	Console.Run()
+	console.Run()
 
 	return nil
 }
@@ -123,11 +123,11 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds, config *assets.Client
 func setup(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) (err error) {
 
 	// Declare server and sliver contexts (menus).
-	server := Console.NewMenu(consts.ServerMenu)
-	sliver := Console.NewMenu(consts.SliverMenu)
+	server := console.NewMenu(consts.ServerMenu)
+	sliver := console.NewMenu(consts.SliverMenu)
 
 	// The current one is the server
-	Console.SwitchMenu(consts.ServerMenu)
+	console.SwitchMenu(consts.ServerMenu)
 
 	// Get the user's console configuration from the server, and load it in the console.
 	config, err := loadConsoleConfig(rpc)
@@ -135,7 +135,7 @@ func setup(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) (err error) {
 		fmt.Printf(Warn + "Failed to load console configuration from server.\n")
 		fmt.Printf(Info + "Defaulting to builtin values.\n")
 	}
-	Console.LoadConfig(config)
+	console.LoadConfig(config)
 
 	// Set prompts callback functions for both contexts
 	server.Prompt.Callbacks = serverCallbacks
@@ -145,7 +145,7 @@ func setup(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) (err error) {
 	setHistorySources()
 
 	// Setup parser details
-	Console.SetParserOptions(flags.IgnoreUnknown | flags.HelpFlag)
+	console.SetParserOptions(flags.IgnoreUnknown | flags.HelpFlag)
 
 	// Bind admin commands if we are the server binary.
 	if extraCmds != nil {
@@ -154,7 +154,7 @@ func setup(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) (err error) {
 
 	// Bind commands. In this function we also add some gonsole-provided
 	// default commands, for help and console configuration management.
-	command.BindCommands(Console)
+	command.BindCommands(console)
 
 	return nil
 }
@@ -163,15 +163,20 @@ func setup(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) (err error) {
 func setHistorySources() {
 
 	// Server context
-	server := Console.GetMenu(constants.ServerMenu)
+	server := console.GetMenu(constants.ServerMenu)
 	server.SetHistoryCtrlR("user-wise history", UserHist)
 	server.SetHistoryAltR("client history", ClientHist)
 
 	// Request a copy of the user history to the server
 	getUserHistory()
 
+	// We pass a function to the core package, which will
+	// allow to refresh the session history as soon as we
+	// interact with it.
+	core.UserHistoryFunc = getUserHistory
+
 	// Sliver context
-	sliver := Console.GetMenu(constants.SliverMenu)
+	sliver := console.GetMenu(constants.SliverMenu)
 	sliver.SetHistoryCtrlR("session history", SessionHist)
 	sliver.SetHistoryAltR("user-wise history", UserHist)
 
@@ -207,12 +212,12 @@ func eventLoop(rpc rpcpb.SliverRPCClient) {
 			for _, session := range sessions {
 				alert += fmt.Sprintf("\t🔥 Session #%d is affected\n", session.ID)
 			}
-			Console.RefreshPromptLog(alert)
+			console.RefreshPromptLog(alert)
 
 		case consts.JobStoppedEvent:
 			job := event.Job
 			line := fmt.Sprintf(Info+"Job #%d stopped (%s/%s)\n", job.ID, job.Protocol, job.Name)
-			Console.RefreshPromptLog(line)
+			console.RefreshPromptLog(line)
 
 		case consts.SessionOpenedEvent:
 			session := event.Session
@@ -233,8 +238,8 @@ func eventLoop(rpc rpcpb.SliverRPCClient) {
 				news += fmt.Sprintf("\n\n") // Clear screen a bit before announcing the king
 				news += fmt.Sprintf(Info+"Session #%d %s - %s (%s) - %s/%s - %v\n\n",
 					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
-				prompt := Console.CurrentMenu().Prompt.Render()
-				Console.RefreshPromptCustom(news, prompt, 0)
+				prompt := console.CurrentMenu().Prompt.Render()
+				console.RefreshPromptCustom(news, prompt, 0)
 			}
 
 		case consts.SessionUpdateEvent:
@@ -242,10 +247,10 @@ func eventLoop(rpc rpcpb.SliverRPCClient) {
 			currentTime := time.Now().Format(time.RFC1123)
 			updated := fmt.Sprintf(Info+"Session #%d has been updated - %v\n", session.ID, currentTime)
 			if core.ActiveSession != nil && session.ID == core.ActiveSession.ID {
-				prompt := Console.CurrentMenu().Prompt.Render()
-				Console.RefreshPromptCustom(updated, prompt, 0)
+				prompt := console.CurrentMenu().Prompt.Render()
+				console.RefreshPromptCustom(updated, prompt, 0)
 			} else {
-				Console.RefreshPromptLog(updated)
+				console.RefreshPromptLog(updated)
 			}
 
 		case consts.SessionClosedEvent:
@@ -254,14 +259,13 @@ func eventLoop(rpc rpcpb.SliverRPCClient) {
 
 			// If the session is our current session, we notify the console
 			if core.ActiveSession != nil && session.ID == core.ActiveSession.ID {
-				Console.SwitchMenu(consts.ServerMenu)
-				core.ActiveSession = nil
+				core.UnsetActiveSession()
 			}
 
 			// We print a message here if its not about a session we killed ourselves, and adapt prompt
 			lost += fmt.Sprintf(Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
-			Console.RefreshPromptLog(lost)
+			console.RefreshPromptLog(lost)
 
 			// In any case, delete the completion data cache for the session, if any.
 			completion.Cache.RemoveSessionData(session)
@@ -313,7 +317,6 @@ func printLogo(rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Info+"Client %s\n", version.FullVersion())
 	}
 	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
-	fmt.Println()
 	if serverVer.Major != int32(version.SemanticVersion()[0]) {
 		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
 	}

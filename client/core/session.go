@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/maxlandon/gonsole"
-	"gopkg.in/AlecAivazis/survey.v1"
 
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/transport"
@@ -45,6 +45,10 @@ var (
 	//SessionHistoryFunc - Will pass the session history to the console package.
 	// This is needed as we cannot import the console package, which contains histories.
 	SessionHistoryFunc func(commands []string)
+
+	// UserHistoryFunc - Same principle: a function that is called when the context
+	// is switched back from a Session to the server menu
+	UserHistoryFunc func()
 )
 
 // Session - An implant session we are interacting with.
@@ -72,14 +76,38 @@ func SetActiveSession(sess *clientpb.Session) {
 	// Switch the console context
 	Console.SwitchMenu(constants.SliverMenu)
 
+	// Hidden Commands -----------------------------------------------------
+
 	// Hide Windows commands if this implant is not Windows-based
 	if ActiveSession.OS != "windows" {
-		Console.HideCommands("windows")
+		Console.HideCommands(constants.SliverWinHelpGroup)
+	} else {
+		Console.ShowCommands(constants.SliverWinHelpGroup)
+	}
+
+	// Hide WireGuard commands if not the current transport
+	if ActiveSession.Transport != "wg" {
+		Console.HideCommands(constants.WireGuardGroup)
+	} else {
+		Console.ShowCommands(constants.WireGuardGroup)
 	}
 
 	// Then we get the history
 	sessionHistory := GetActiveSessionHistory()
 	SessionHistoryFunc(sessionHistory)
+}
+
+// UnsetActiveSession - We have backgrounded from a Sliver session, or it died.
+func UnsetActiveSession() {
+
+	// Refresh the user-wide history
+	UserHistoryFunc()
+
+	// Switch the console context
+	Console.SwitchMenu(constants.ServerMenu)
+
+	// We don't have a working Sliver object anymore.
+	ActiveSession = nil
 }
 
 // RequestTimeout - Prepare a RPC request for the current Session.

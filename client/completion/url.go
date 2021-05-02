@@ -29,6 +29,7 @@ import (
 var (
 	proxyUpdateShemes = []string{
 		"https",
+		"http",
 	}
 	stagerShemes = []string{
 		"tcp",

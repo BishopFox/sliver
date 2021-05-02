@@ -24,10 +24,10 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/maxlandon/gonsole"
 	"github.com/maxlandon/readline"
 	"google.golang.org/grpc"
-	"gopkg.in/AlecAivazis/survey.v1"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/constants"
@@ -122,7 +122,7 @@ func loadDefaultConsoleConfig() (config *gonsole.Config) {
 	// Get a config object with defaults, and initialized maps.
 	config = gonsole.NewDefaultConfig()
 	config.InputMode = gonsole.InputEmacs
-	config.MaxTabCompleterRows = 40
+	config.MaxTabCompleterRows = 37 // just half the height of my 13.3" laptop...
 
 	// Make little adjustements to default server prompt, depending on server/client
 	var ps string
