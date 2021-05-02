@@ -12,6 +12,14 @@ service SliverRPC {
     // *** Version ***
     rpc GetVersion(commonpb.Empty) returns (clientpb.Version);
 
+    // *** Command History (client and/or user-wide) *** 
+    rpc GetHistory(clientpb.HistoryRequest) returns (clientpb.History);
+    rpc AddToHistory(clientpb.AddCmdHistoryRequest) returns (clientpb.AddCmdHistory);
+
+    // *** Console configuration management
+    rpc LoadConsoleConfig(clientpb.GetConsoleConfigReq) returns (clientpb.GetConsoleConfig);
+    rpc SaveUserConsoleConfig(clientpb.SaveConsoleConfigReq) returns (clientpb.SaveConsoleConfig);
+
     // *** Operator Commands *** 
     rpc GetOperators(commonpb.Empty) returns (clientpb.Operators);
 
@@ -30,6 +38,9 @@ service SliverRPC {
     rpc StartDNSListener(clientpb.DNSListenerReq) returns (clientpb.DNSListener);
     rpc StartHTTPSListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
     rpc StartHTTPListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
+    
+    // *** Server Adresses ***
+    rpc GetServerInterfaces(sliverpb.IfconfigReq) returns (sliverpb.Ifconfig);
 
     // *** Stager Listener ***
     rpc StartTCPStagerListener(clientpb.StagerListenerReq) returns(clientpb.StagerListener);

@@ -21,18 +21,17 @@ package console
 import (
 	"fmt"
 
+	"github.com/maxlandon/gonsole"
+
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-
-	"github.com/desertbit/grumble"
 )
 
 // StartClientConsole - Start the client console
 func StartClientConsole() error {
 	configs := assets.GetConfigs()
 	if len(configs) == 0 {
-		fmt.Printf(Warn+"No config files found at %s or -import\n", assets.GetConfigDir())
+		fmt.Printf(Error+"No config files found at %s or -import\n", assets.GetConfigDir())
 		return nil
 	}
 	config := selectConfig()
@@ -43,9 +42,11 @@ func StartClientConsole() error {
 	fmt.Printf(Info+"Connecting to %s:%d ...\n", config.LHost, config.LPort)
 	rpc, ln, err := transport.MTLSConnect(config)
 	if err != nil {
-		fmt.Printf(Warn+"Connection to server failed %v", err)
+		fmt.Printf(Error+"Connection to server failed %v", err)
 		return nil
 	}
 	defer ln.Close()
-	return Start(rpc, func(*grumble.App, rpcpb.SliverRPCClient) {})
+
+	// Pass the server configuration, that is accessed by the prompt and the console.
+	return Start(rpc, func(menu *gonsole.Menu) {}, config)
 }

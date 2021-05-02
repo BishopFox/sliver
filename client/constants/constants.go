@@ -27,6 +27,7 @@ const (
 const (
 	UpdateStr  = "update"
 	VersionStr = "version"
+	ExitStr    = "exit"
 
 	EventStr = "event"
 
@@ -65,6 +66,12 @@ const (
 	WebsiteEvent = "website"
 )
 
+// Menu contexts
+const (
+	ServerMenu = "server"
+	SliverMenu = "sliver"
+)
+
 // Commands
 const (
 	NewPlayerStr       = "new-player"
@@ -77,11 +84,13 @@ const (
 	InfoStr       = "info"
 	UseStr        = "use"
 	SetStr        = "set"
+	InteractStr   = "interact"
 
 	GenerateStr        = "generate"
+	StageStr           = "stage"
+	StagerStr          = "stager"
 	RegenerateStr      = "regenerate"
 	ProfileGenerateStr = "generate-profile"
-	StagerStr          = "stager"
 	ProfilesStr        = "profiles"
 	NewProfileStr      = "new-profile"
 
@@ -89,6 +98,8 @@ const (
 	ListCanariesStr  = "canaries"
 
 	JobsStr        = "jobs"
+	JobsKillStr    = "kill"
+	JobsKillAllStr = "kill-all"
 	MtlsStr        = "mtls"
 	WGStr          = "wg"
 	DnsStr         = "dns"
@@ -96,6 +107,10 @@ const (
 	HttpsStr       = "https"
 	NamedPipeStr   = "named-pipe"
 	TCPListenerStr = "tcp-pivot"
+
+	LogStr        = "log"
+	ConfigStr     = "config"
+	ConfigSaveStr = "save"
 
 	MsfStr       = "msf"
 	MsfInjectStr = "msf-inject"
@@ -117,6 +132,7 @@ const (
 	RmStr       = "rm"
 	MkdirStr    = "mkdir"
 	CdStr       = "cd"
+	LcdStr      = "lcd"
 	PwdStr      = "pwd"
 	CatStr      = "cat"
 	DownloadStr = "download"
@@ -139,9 +155,11 @@ const (
 	StageListenerStr    = "stage-listener"
 
 	WebsitesStr       = "websites"
+	WebsitesShowStr   = "show"
 	RmWebContentStr   = "rm-content"
 	AddWebContentStr  = "add-content"
 	WebContentTypeStr = "content-type"
+	WebUpdateStr      = "update"
 
 	ScreenshotStr         = "screenshot"
 	PsExecStr             = "psexec"
@@ -172,4 +190,46 @@ const (
 	SliverWinHelpGroup   = "Sliver - Windows:"
 	MultiplayerHelpGroup = "Multiplayer:"
 	ExtensionHelpGroup   = "Sliver - 3rd Party extensions:"
+
+	// Transport-based
+	WireGuardGroup = "WireGuard"
+)
+
+// Command categories
+const (
+	AdminGroup        = "admin"
+	CoreServerGroup   = "core (server)"
+	BuildsGroup       = "implants"
+	TransportsGroup   = "transports"
+	SessionsGroup     = "sessions"
+	CommGroup         = "comm"
+	NetworkToolsGroup = "network tools"
+
+	// Session only
+	CoreSessionGroup = "core (session)"
+	FilesystemGroup  = "filesystem"
+	InfoGroup        = "information"
+	ProcGroup        = "process"
+	PrivGroup        = "priv"
+	ExecuteGroup     = "execution"
+	PersistenceGroup = "persistence"
+	ExtensionsGroup  = "extensions"
+)
+
+// C2 default values
+const (
+	DefaultMTLSLPort    = 8888
+	DefaultWGLPort      = 53
+	DefaultWGNPort      = 8888
+	DefaultWGKeyExPort  = 1337
+	DefaultHTTPLPort    = 80
+	DefaultHTTPSLPort   = 443
+	DefaultDNSLPort     = 53
+	DefaultTCPPivotPort = 9898
+
+	DefaultReconnect = 60
+	DefaultPoll      = 1
+	DefaultMaxErrors = 1000
+
+	DefaultTimeout = 60
 )

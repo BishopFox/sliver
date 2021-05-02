@@ -14,7 +14,6 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-// Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 // SliverRPCClient is the client API for SliverRPC service.
@@ -23,6 +22,12 @@ const _ = grpc.SupportPackageIsVersion7
 type SliverRPCClient interface {
 	// *** Version ***
 	GetVersion(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Version, error)
+	// *** Command History (client and/or user-wide) ***
+	GetHistory(ctx context.Context, in *clientpb.HistoryRequest, opts ...grpc.CallOption) (*clientpb.History, error)
+	AddToHistory(ctx context.Context, in *clientpb.AddCmdHistoryRequest, opts ...grpc.CallOption) (*clientpb.AddCmdHistory, error)
+	// *** Console configuration management
+	LoadConsoleConfig(ctx context.Context, in *clientpb.GetConsoleConfigReq, opts ...grpc.CallOption) (*clientpb.GetConsoleConfig, error)
+	SaveUserConsoleConfig(ctx context.Context, in *clientpb.SaveConsoleConfigReq, opts ...grpc.CallOption) (*clientpb.SaveConsoleConfig, error)
 	// *** Operator Commands ***
 	GetOperators(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Operators, error)
 	// *** Sessions ***
@@ -38,6 +43,8 @@ type SliverRPCClient interface {
 	StartDNSListener(ctx context.Context, in *clientpb.DNSListenerReq, opts ...grpc.CallOption) (*clientpb.DNSListener, error)
 	StartHTTPSListener(ctx context.Context, in *clientpb.HTTPListenerReq, opts ...grpc.CallOption) (*clientpb.HTTPListener, error)
 	StartHTTPListener(ctx context.Context, in *clientpb.HTTPListenerReq, opts ...grpc.CallOption) (*clientpb.HTTPListener, error)
+	// *** Server Adresses ***
+	GetServerInterfaces(ctx context.Context, in *sliverpb.IfconfigReq, opts ...grpc.CallOption) (*sliverpb.Ifconfig, error)
 	// *** Stager Listener ***
 	StartTCPStagerListener(ctx context.Context, in *clientpb.StagerListenerReq, opts ...grpc.CallOption) (*clientpb.StagerListener, error)
 	StartHTTPStagerListener(ctx context.Context, in *clientpb.StagerListenerReq, opts ...grpc.CallOption) (*clientpb.StagerListener, error)
@@ -137,6 +144,42 @@ func (c *sliverRPCClient) GetVersion(ctx context.Context, in *commonpb.Empty, op
 	return out, nil
 }
 
+func (c *sliverRPCClient) GetHistory(ctx context.Context, in *clientpb.HistoryRequest, opts ...grpc.CallOption) (*clientpb.History, error) {
+	out := new(clientpb.History)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetHistory", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) AddToHistory(ctx context.Context, in *clientpb.AddCmdHistoryRequest, opts ...grpc.CallOption) (*clientpb.AddCmdHistory, error) {
+	out := new(clientpb.AddCmdHistory)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/AddToHistory", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) LoadConsoleConfig(ctx context.Context, in *clientpb.GetConsoleConfigReq, opts ...grpc.CallOption) (*clientpb.GetConsoleConfig, error) {
+	out := new(clientpb.GetConsoleConfig)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/LoadConsoleConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) SaveUserConsoleConfig(ctx context.Context, in *clientpb.SaveConsoleConfigReq, opts ...grpc.CallOption) (*clientpb.SaveConsoleConfig, error) {
+	out := new(clientpb.SaveConsoleConfig)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/SaveUserConsoleConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) GetOperators(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Operators, error) {
 	out := new(clientpb.Operators)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetOperators", in, out, opts...)
@@ -230,6 +273,15 @@ func (c *sliverRPCClient) StartHTTPSListener(ctx context.Context, in *clientpb.H
 func (c *sliverRPCClient) StartHTTPListener(ctx context.Context, in *clientpb.HTTPListenerReq, opts ...grpc.CallOption) (*clientpb.HTTPListener, error) {
 	out := new(clientpb.HTTPListener)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/StartHTTPListener", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetServerInterfaces(ctx context.Context, in *sliverpb.IfconfigReq, opts ...grpc.CallOption) (*sliverpb.Ifconfig, error) {
+	out := new(sliverpb.Ifconfig)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetServerInterfaces", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -867,7 +919,7 @@ func (c *sliverRPCClient) CloseTunnel(ctx context.Context, in *sliverpb.Tunnel, 
 }
 
 func (c *sliverRPCClient) TunnelData(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_TunnelDataClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[0], "/rpcpb.SliverRPC/TunnelData", opts...)
+	stream, err := c.cc.NewStream(ctx, &_SliverRPC_serviceDesc.Streams[0], "/rpcpb.SliverRPC/TunnelData", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -898,7 +950,7 @@ func (x *sliverRPCTunnelDataClient) Recv() (*sliverpb.TunnelData, error) {
 }
 
 func (c *sliverRPCClient) Events(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (SliverRPC_EventsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[1], "/rpcpb.SliverRPC/Events", opts...)
+	stream, err := c.cc.NewStream(ctx, &_SliverRPC_serviceDesc.Streams[1], "/rpcpb.SliverRPC/Events", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -935,6 +987,12 @@ func (x *sliverRPCEventsClient) Recv() (*clientpb.Event, error) {
 type SliverRPCServer interface {
 	// *** Version ***
 	GetVersion(context.Context, *commonpb.Empty) (*clientpb.Version, error)
+	// *** Command History (client and/or user-wide) ***
+	GetHistory(context.Context, *clientpb.HistoryRequest) (*clientpb.History, error)
+	AddToHistory(context.Context, *clientpb.AddCmdHistoryRequest) (*clientpb.AddCmdHistory, error)
+	// *** Console configuration management
+	LoadConsoleConfig(context.Context, *clientpb.GetConsoleConfigReq) (*clientpb.GetConsoleConfig, error)
+	SaveUserConsoleConfig(context.Context, *clientpb.SaveConsoleConfigReq) (*clientpb.SaveConsoleConfig, error)
 	// *** Operator Commands ***
 	GetOperators(context.Context, *commonpb.Empty) (*clientpb.Operators, error)
 	// *** Sessions ***
@@ -950,6 +1008,8 @@ type SliverRPCServer interface {
 	StartDNSListener(context.Context, *clientpb.DNSListenerReq) (*clientpb.DNSListener, error)
 	StartHTTPSListener(context.Context, *clientpb.HTTPListenerReq) (*clientpb.HTTPListener, error)
 	StartHTTPListener(context.Context, *clientpb.HTTPListenerReq) (*clientpb.HTTPListener, error)
+	// *** Server Adresses ***
+	GetServerInterfaces(context.Context, *sliverpb.IfconfigReq) (*sliverpb.Ifconfig, error)
 	// *** Stager Listener ***
 	StartTCPStagerListener(context.Context, *clientpb.StagerListenerReq) (*clientpb.StagerListener, error)
 	StartHTTPStagerListener(context.Context, *clientpb.StagerListenerReq) (*clientpb.StagerListener, error)
@@ -1040,6 +1100,18 @@ type UnimplementedSliverRPCServer struct {
 func (UnimplementedSliverRPCServer) GetVersion(context.Context, *commonpb.Empty) (*clientpb.Version, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVersion not implemented")
 }
+func (UnimplementedSliverRPCServer) GetHistory(context.Context, *clientpb.HistoryRequest) (*clientpb.History, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetHistory not implemented")
+}
+func (UnimplementedSliverRPCServer) AddToHistory(context.Context, *clientpb.AddCmdHistoryRequest) (*clientpb.AddCmdHistory, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddToHistory not implemented")
+}
+func (UnimplementedSliverRPCServer) LoadConsoleConfig(context.Context, *clientpb.GetConsoleConfigReq) (*clientpb.GetConsoleConfig, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LoadConsoleConfig not implemented")
+}
+func (UnimplementedSliverRPCServer) SaveUserConsoleConfig(context.Context, *clientpb.SaveConsoleConfigReq) (*clientpb.SaveConsoleConfig, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SaveUserConsoleConfig not implemented")
+}
 func (UnimplementedSliverRPCServer) GetOperators(context.Context, *commonpb.Empty) (*clientpb.Operators, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetOperators not implemented")
 }
@@ -1072,6 +1144,9 @@ func (UnimplementedSliverRPCServer) StartHTTPSListener(context.Context, *clientp
 }
 func (UnimplementedSliverRPCServer) StartHTTPListener(context.Context, *clientpb.HTTPListenerReq) (*clientpb.HTTPListener, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartHTTPListener not implemented")
+}
+func (UnimplementedSliverRPCServer) GetServerInterfaces(context.Context, *sliverpb.IfconfigReq) (*sliverpb.Ifconfig, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetServerInterfaces not implemented")
 }
 func (UnimplementedSliverRPCServer) StartTCPStagerListener(context.Context, *clientpb.StagerListenerReq) (*clientpb.StagerListener, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartTCPStagerListener not implemented")
@@ -1298,8 +1373,8 @@ type UnsafeSliverRPCServer interface {
 	mustEmbedUnimplementedSliverRPCServer()
 }
 
-func RegisterSliverRPCServer(s grpc.ServiceRegistrar, srv SliverRPCServer) {
-	s.RegisterService(&SliverRPC_ServiceDesc, srv)
+func RegisterSliverRPCServer(s *grpc.Server, srv SliverRPCServer) {
+	s.RegisterService(&_SliverRPC_serviceDesc, srv)
 }
 
 func _SliverRPC_GetVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1316,6 +1391,78 @@ func _SliverRPC_GetVersion_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).GetVersion(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.HistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/GetHistory",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetHistory(ctx, req.(*clientpb.HistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_AddToHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.AddCmdHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).AddToHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/AddToHistory",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).AddToHistory(ctx, req.(*clientpb.AddCmdHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_LoadConsoleConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.GetConsoleConfigReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).LoadConsoleConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/LoadConsoleConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).LoadConsoleConfig(ctx, req.(*clientpb.GetConsoleConfigReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_SaveUserConsoleConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.SaveConsoleConfigReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).SaveUserConsoleConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/SaveUserConsoleConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).SaveUserConsoleConfig(ctx, req.(*clientpb.SaveConsoleConfigReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1514,6 +1661,24 @@ func _SliverRPC_StartHTTPListener_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).StartHTTPListener(ctx, req.(*clientpb.HTTPListenerReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetServerInterfaces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.IfconfigReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetServerInterfaces(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/GetServerInterfaces",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetServerInterfaces(ctx, req.(*sliverpb.IfconfigReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2825,16 +2990,29 @@ func (x *sliverRPCEventsServer) Send(m *clientpb.Event) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-// SliverRPC_ServiceDesc is the grpc.ServiceDesc for SliverRPC service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var SliverRPC_ServiceDesc = grpc.ServiceDesc{
+var _SliverRPC_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "rpcpb.SliverRPC",
 	HandlerType: (*SliverRPCServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "GetVersion",
 			Handler:    _SliverRPC_GetVersion_Handler,
+		},
+		{
+			MethodName: "GetHistory",
+			Handler:    _SliverRPC_GetHistory_Handler,
+		},
+		{
+			MethodName: "AddToHistory",
+			Handler:    _SliverRPC_AddToHistory_Handler,
+		},
+		{
+			MethodName: "LoadConsoleConfig",
+			Handler:    _SliverRPC_LoadConsoleConfig_Handler,
+		},
+		{
+			MethodName: "SaveUserConsoleConfig",
+			Handler:    _SliverRPC_SaveUserConsoleConfig_Handler,
 		},
 		{
 			MethodName: "GetOperators",
@@ -2879,6 +3057,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StartHTTPListener",
 			Handler:    _SliverRPC_StartHTTPListener_Handler,
+		},
+		{
+			MethodName: "GetServerInterfaces",
+			Handler:    _SliverRPC_GetServerInterfaces_Handler,
 		},
 		{
 			MethodName: "StartTCPStagerListener",
