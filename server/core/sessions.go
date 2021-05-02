@@ -87,7 +87,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		// If it hasn't checked in, flag it as DEAD.
 		var timePassed = uint32(math.Abs(s.LastCheckin.Sub(time.Now()).Seconds()))
 
-		if timePassed > (s.ReconnectInterval + 10) {
+		if timePassed > (s.ReconnectInterval+10) && timePassed > (s.PollInterval+10) {
 			isDead = true
 		} else {
 			isDead = false
