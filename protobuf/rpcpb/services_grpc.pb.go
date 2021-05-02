@@ -109,6 +109,10 @@ type SliverRPCClient interface {
 	WGStopSocks(ctx context.Context, in *sliverpb.WGSocksStopReq, opts ...grpc.CallOption) (*sliverpb.WGSocks, error)
 	WGListForwarders(ctx context.Context, in *sliverpb.WGTCPForwardersReq, opts ...grpc.CallOption) (*sliverpb.WGTCPForwarders, error)
 	WGListSocksServers(ctx context.Context, in *sliverpb.WGSocksServersReq, opts ...grpc.CallOption) (*sliverpb.WGSocksServers, error)
+	// *** UserAttribute Helpers ***
+	UserAttributeDelete(ctx context.Context, in *clientpb.UserAttributeDeleteReq, opts ...grpc.CallOption) (*clientpb.UserAttributeDelete, error)
+	UserAttributeGet(ctx context.Context, in *clientpb.UserAttributeGetReq, opts ...grpc.CallOption) (*clientpb.UserAttributeGet, error)
+	UserAttributeSet(ctx context.Context, in *clientpb.UserAttributeSetReq, opts ...grpc.CallOption) (*clientpb.UserAttributeSet, error)
 	// *** Realtime Commands ***
 	Shell(ctx context.Context, in *sliverpb.ShellReq, opts ...grpc.CallOption) (*sliverpb.Shell, error)
 	Portfwd(ctx context.Context, in *sliverpb.PortfwdReq, opts ...grpc.CallOption) (*sliverpb.Portfwd, error)
@@ -830,6 +834,33 @@ func (c *sliverRPCClient) WGListSocksServers(ctx context.Context, in *sliverpb.W
 	return out, nil
 }
 
+func (c *sliverRPCClient) UserAttributeDelete(ctx context.Context, in *clientpb.UserAttributeDeleteReq, opts ...grpc.CallOption) (*clientpb.UserAttributeDelete, error) {
+	out := new(clientpb.UserAttributeDelete)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/UserAttributeDelete", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) UserAttributeGet(ctx context.Context, in *clientpb.UserAttributeGetReq, opts ...grpc.CallOption) (*clientpb.UserAttributeGet, error) {
+	out := new(clientpb.UserAttributeGet)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/UserAttributeGet", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) UserAttributeSet(ctx context.Context, in *clientpb.UserAttributeSetReq, opts ...grpc.CallOption) (*clientpb.UserAttributeSet, error) {
+	out := new(clientpb.UserAttributeSet)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/UserAttributeSet", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) Shell(ctx context.Context, in *sliverpb.ShellReq, opts ...grpc.CallOption) (*sliverpb.Shell, error) {
 	out := new(sliverpb.Shell)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Shell", in, out, opts...)
@@ -1021,6 +1052,10 @@ type SliverRPCServer interface {
 	WGStopSocks(context.Context, *sliverpb.WGSocksStopReq) (*sliverpb.WGSocks, error)
 	WGListForwarders(context.Context, *sliverpb.WGTCPForwardersReq) (*sliverpb.WGTCPForwarders, error)
 	WGListSocksServers(context.Context, *sliverpb.WGSocksServersReq) (*sliverpb.WGSocksServers, error)
+	// *** UserAttribute Helpers ***
+	UserAttributeDelete(context.Context, *clientpb.UserAttributeDeleteReq) (*clientpb.UserAttributeDelete, error)
+	UserAttributeGet(context.Context, *clientpb.UserAttributeGetReq) (*clientpb.UserAttributeGet, error)
+	UserAttributeSet(context.Context, *clientpb.UserAttributeSetReq) (*clientpb.UserAttributeSet, error)
 	// *** Realtime Commands ***
 	Shell(context.Context, *sliverpb.ShellReq) (*sliverpb.Shell, error)
 	Portfwd(context.Context, *sliverpb.PortfwdReq) (*sliverpb.Portfwd, error)
@@ -1270,6 +1305,15 @@ func (UnimplementedSliverRPCServer) WGListForwarders(context.Context, *sliverpb.
 }
 func (UnimplementedSliverRPCServer) WGListSocksServers(context.Context, *sliverpb.WGSocksServersReq) (*sliverpb.WGSocksServers, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WGListSocksServers not implemented")
+}
+func (UnimplementedSliverRPCServer) UserAttributeDelete(context.Context, *clientpb.UserAttributeDeleteReq) (*clientpb.UserAttributeDelete, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UserAttributeDelete not implemented")
+}
+func (UnimplementedSliverRPCServer) UserAttributeGet(context.Context, *clientpb.UserAttributeGetReq) (*clientpb.UserAttributeGet, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UserAttributeGet not implemented")
+}
+func (UnimplementedSliverRPCServer) UserAttributeSet(context.Context, *clientpb.UserAttributeSetReq) (*clientpb.UserAttributeSet, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UserAttributeSet not implemented")
 }
 func (UnimplementedSliverRPCServer) Shell(context.Context, *sliverpb.ShellReq) (*sliverpb.Shell, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Shell not implemented")
@@ -2706,6 +2750,60 @@ func _SliverRPC_WGListSocksServers_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_UserAttributeDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.UserAttributeDeleteReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).UserAttributeDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/UserAttributeDelete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).UserAttributeDelete(ctx, req.(*clientpb.UserAttributeDeleteReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_UserAttributeGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.UserAttributeGetReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).UserAttributeGet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/UserAttributeGet",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).UserAttributeGet(ctx, req.(*clientpb.UserAttributeGetReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_UserAttributeSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.UserAttributeSetReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).UserAttributeSet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/UserAttributeSet",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).UserAttributeSet(ctx, req.(*clientpb.UserAttributeSetReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_Shell_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.ShellReq)
 	if err := dec(in); err != nil {
@@ -3143,6 +3241,18 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "WGListSocksServers",
 			Handler:    _SliverRPC_WGListSocksServers_Handler,
+		},
+		{
+			MethodName: "UserAttributeDelete",
+			Handler:    _SliverRPC_UserAttributeDelete_Handler,
+		},
+		{
+			MethodName: "UserAttributeGet",
+			Handler:    _SliverRPC_UserAttributeGet_Handler,
+		},
+		{
+			MethodName: "UserAttributeSet",
+			Handler:    _SliverRPC_UserAttributeSet_Handler,
 		},
 		{
 			MethodName: "Shell",

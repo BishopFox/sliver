@@ -2,8 +2,8 @@ name: Release
 
 on:
   push:
-    tags: v[1-9]+.[0-9]+.[0-9]+
-    branches: master
+    tags: ["v[1-9]+.[0-9]+.[0-9]+"]
+    branches: [master]
 
 jobs:
 
@@ -32,9 +32,6 @@ jobs:
 
     - name: Go Assets
       run: ./go-assets.sh
-    
-    - name: Remove Vendor
-      run: rm -rf ./vendor/
 
     - name: Make
       run: export PATH=/home/runner/go/bin/:$PATH && make linux
@@ -76,9 +73,6 @@ jobs:
 
     - name: Go Assets
       run: ./go-assets.sh
-
-    - name: Remove Vendor
-      run: rm -rf ./vendor/
 
     - name: Make AMD64
       run: make macos

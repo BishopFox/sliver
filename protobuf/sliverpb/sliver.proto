@@ -46,6 +46,7 @@ message Register {
   string Version = 12;
   uint32 ReconnectInterval = 13;
   string ProxyURL = 14;
+  uint32 PollInterval = 15;
 }
 
 // Ping - Not ICMP, just sends a rount trip message to an implant to
@@ -64,6 +65,7 @@ message KillSessionReq {
 
   commonpb.Request Request = 9;
 }
+
 
 // PsReq - Request the implant to list ses of a remote session.
 message PsReq {
@@ -564,6 +566,8 @@ message TunnelData {
   bytes Data  = 1;
   bool Closed = 2;
   uint64 Sequence = 3;
+  uint64 Ack = 4;
+  bool Resend = 5;
 
   uint64 TunnelID = 8 [jstype = JS_STRING];
   uint32 SessionID = 9;
@@ -728,5 +732,27 @@ message WGSocksServers {
 
 message WGTCPForwarders {
   repeated WGTCPForwarder Forwarders = 1;
+  commonpb.Response Response = 9;
+}
+
+// ReconnectIntervalReq - Request the implant to update it's reconnect interval
+message ReconnectIntervalReq {
+  uint32 ReconnectIntervalSeconds = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message ReconnectInterval {
+  commonpb.Response Response = 9;
+}
+
+// PollIntervalReq - Request the implant to update it's poll intervbal
+message PollIntervalReq {
+  uint32 PollIntervalSeconds = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message PollInterval {
   commonpb.Response Response = 9;
 }

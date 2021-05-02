@@ -34,6 +34,9 @@ var (
 	tunnelLog = log.NamedLogger("rpc", "tunnel")
 
 	// SessionID->Tunnels[TunnelID]->Tunnel->Cache
+	toImplantCache = map[uint64]map[uint64]*sliverpb.TunnelData{}
+
+	// SessionID->Tunnels[TunnelID]->Tunnel->Cache
 	fromImplantCache = map[uint64]map[uint64]*sliverpb.TunnelData{}
 )
 
@@ -49,6 +52,7 @@ func (s *Server) CreateTunnel(ctx context.Context, req *sliverpb.Tunnel) (*slive
 	if tunnel == nil {
 		return nil, ErrTunnelInitFailure
 	}
+	toImplantCache[tunnel.ID] = map[uint64]*sliverpb.TunnelData{}
 	fromImplantCache[tunnel.ID] = map[uint64]*sliverpb.TunnelData{}
 	return &sliverpb.Tunnel{
 		SessionID: session.ID,
@@ -59,6 +63,10 @@ func (s *Server) CreateTunnel(ctx context.Context, req *sliverpb.Tunnel) (*slive
 // CloseTunnel - Client requests we close a tunnel
 func (s *Server) CloseTunnel(ctx context.Context, req *sliverpb.Tunnel) (*commonpb.Empty, error) {
 	err := core.Tunnels.Close(req.TunnelID)
+
+	if _, ok := toImplantCache[req.TunnelID]; ok {
+		delete(toImplantCache, req.TunnelID)
+	}
 
 	if _, ok := fromImplantCache[req.TunnelID]; ok {
 		delete(fromImplantCache, req.TunnelID)
@@ -98,21 +106,58 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 			})
 
 			go func() {
+
+				sendCache, _ := toImplantCache[tunnel.ID]
 				for tunnelData := range tunnel.FromImplant {
-					tunnelLog.Debugf("Tunnel %d: From implant %d byte(s)", tunnel.ID, len(tunnelData.Data))
-					cache, ok := fromImplantCache[tunnel.ID]
-					if ok {
-						cache[tunnelData.Sequence] = tunnelData
-					}
-					for recv, ok := cache[tunnel.FromImplantSequence]; ok; recv, ok = cache[tunnel.FromImplantSequence] {
-						tunnel.Client.Send(&sliverpb.TunnelData{
-							TunnelID:  tunnel.ID,
-							SessionID: tunnel.SessionID,
-							Data:      recv.Data,
-							Closed:    false,
-						})
-						delete(cache, tunnel.FromImplantSequence)
-						tunnel.FromImplantSequence++
+
+					tunnelLog.Debugf("Tunnel %d: From implant %d byte(s), seq: %d ack: %d",
+						tunnel.ID, len(tunnelData.Data), tunnelData.Sequence, tunnelData.Ack)
+
+					// Remove tunnel data from send cache if Resend is not set
+					if !tunnelData.Resend {
+
+						index := tunnelData.Ack - 1
+						for sendMsg, ok := sendCache[index]; ok; sendMsg, ok = sendCache[index] {
+							tunnelLog.Debugf("Tunnel %d: Removing ack: %d from send cache", tunnel.ID, sendMsg.Sequence)
+							delete(sendCache, index)
+							index = index - 1
+						}
+
+						recvCache, ok := fromImplantCache[tunnel.ID]
+						if ok {
+							recvCache[tunnelData.Sequence] = tunnelData
+						}
+						for recv, ok := recvCache[tunnel.FromImplantSequence]; ok; recv, ok = recvCache[tunnel.FromImplantSequence] {
+							tunnel.Client.Send(&sliverpb.TunnelData{
+								TunnelID:  tunnel.ID,
+								SessionID: tunnel.SessionID,
+								Data:      recv.Data,
+								Closed:    false,
+							})
+							delete(recvCache, tunnel.FromImplantSequence)
+							tunnel.FromImplantSequence++
+						}
+
+					} else {
+
+						origtunnelData, ok := sendCache[tunnelData.Ack]
+						if ok {
+							tunnelLog.Debugf("Tunnel %d: Resending cached msg: %d", tunnel.ID, tunnelData.Ack)
+							session := core.Sessions.Get(tunnel.SessionID)
+							data, err := proto.Marshal(origtunnelData)
+							if err != nil {
+								// {{if .Config.Debug}}
+								tunnelLog.Debugf("[shell] Failed to marshal protobuf %s", err)
+								// {{end}}
+							}
+							session.Send <- &sliverpb.Envelope{
+								Type: sliverpb.MsgTunnelData,
+								Data: data,
+							}
+						} else {
+							tunnelLog.Debugf("Tunnel %d: Requested msg not in send cache: %d", tunnel.ID, tunnelData.Ack)
+						}
+
 					}
 				}
 				tunnelLog.Debugf("Closing tunnel %d (To Client)", tunnel.ID)
@@ -125,15 +170,20 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 
 			go func() {
 				session := core.Sessions.Get(tunnel.SessionID)
+				send_cache, _ := toImplantCache[tunnel.ID]
 				for data := range tunnel.ToImplant {
-					tunnelLog.Debugf("Tunnel %d: To implant %d byte(s)", tunnel.ID, len(data))
-					data, _ := proto.Marshal(&sliverpb.TunnelData{
+					tunnelLog.Debugf("Tunnel %d: To implant %d byte(s), seq: %d", tunnel.ID, len(data), tunnel.ToImplantSequence)
+					tunnelData := sliverpb.TunnelData{
 						Sequence:  tunnel.ToImplantSequence,
 						TunnelID:  tunnel.ID,
 						SessionID: tunnel.SessionID,
 						Data:      data,
 						Closed:    false,
-					})
+					}
+					// Add tunnel data to cache
+					send_cache[tunnelData.Sequence] = &tunnelData
+
+					data, _ := proto.Marshal(&tunnelData)
 					tunnel.ToImplantSequence++
 					session.Send <- &sliverpb.Envelope{
 						Type: sliverpb.MsgTunnelData,

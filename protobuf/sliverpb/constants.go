@@ -212,6 +212,16 @@ const (
 	MsgPortfwdReq
 	// MsgPortfwd - Response of port forward
 	MsgPortfwd
+
+	// MsgReconnectIntervalReq
+	MsgReconnectIntervalReq
+
+	MsgReconnectInterval
+
+	// MsgPollIntervalReq
+	MsgPollIntervalReq
+
+	MsgPollInterval
 )
 
 // MsgNumber - Get a message number of type
@@ -405,6 +415,18 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgPortfwdReq
 	case *Portfwd:
 		return MsgPortfwd
+
+	case *ReconnectIntervalReq:
+		return MsgReconnectIntervalReq
+
+	case *ReconnectInterval:
+		return MsgReconnectInterval
+
+	case *PollIntervalReq:
+		return MsgPollIntervalReq
+
+	case *PollInterval:
+		return MsgPollInterval
 
 	}
 	return uint32(0)

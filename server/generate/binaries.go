@@ -91,6 +91,8 @@ const (
 	DefaultMTLSLPort = 8888
 	// DefaultHTTPLPort - Default HTTP listen port
 	DefaultHTTPLPort = 443 // Assume SSL, it'll fallback
+	// DefaultPollInterval - In seconds
+	DefaultPollInterval = 1
 
 	// DefaultSuffix - Indicates a platform independent src file
 	DefaultSuffix = "_default.go"
@@ -122,6 +124,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.WGTcpCommsPort = pbConfig.WGTcpCommsPort
 	cfg.ReconnectInterval = pbConfig.ReconnectInterval
 	cfg.MaxConnectionErrors = pbConfig.MaxConnectionErrors
+	cfg.PollInterval = pbConfig.PollInterval
 
 	cfg.LimitDomainJoined = pbConfig.LimitDomainJoined
 	cfg.LimitDatetime = pbConfig.LimitDatetime

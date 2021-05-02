@@ -41,6 +41,7 @@ message Session {
   bool IsDead = 18;
   uint32 ReconnectInterval = 19;
   string ProxyURL = 20;
+  uint32 PollInterval = 21;
 }
 
 message ImplantC2 {
@@ -68,6 +69,7 @@ message ImplantConfig {
 
   uint32 ReconnectInterval = 8;
   uint32 MaxConnectionErrors = 9;
+  uint32 PollInterval = 38;
 
   // c2
   repeated ImplantC2 C2 = 10;
@@ -246,6 +248,8 @@ message Sessions {
 message UpdateSession {
   uint32 SessionID = 1;
   string Name = 2;
+  int32 ReconnectInterval = 3;
+  int32 PollInterval = 4;
 }
 
 message GenerateReq {

