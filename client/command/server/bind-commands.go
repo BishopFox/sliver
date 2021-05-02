@@ -23,7 +23,8 @@ import (
 
 	"github.com/maxlandon/gonsole"
 
-	// "github.com/bishopfox/sliver/client/commands/sliver"
+	"github.com/bishopfox/sliver/client/command/c2"
+	"github.com/bishopfox/sliver/client/command/sliver"
 	"github.com/bishopfox/sliver/client/completion"
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
@@ -84,6 +85,23 @@ func BindCommands(cc *gonsole.Menu) {
 		constants.CoreServerGroup,
 		[]string{""},
 		func() interface{} { return &Version{} })
+
+	// Cd has a context-sensitive name.
+	var cdCmdStr string
+	switch cc.Name {
+	case constants.ServerMenu:
+		cdCmdStr = constants.CdStr
+	case constants.SliverMenu:
+		cdCmdStr = constants.LcdStr
+	}
+
+	cd := cc.AddCommand(cdCmdStr,
+		"Change the client working directory",
+		"",
+		constants.CoreServerGroup,
+		[]string{""},
+		func() interface{} { return &ChangeClientDirectory{} })
+	cd.AddArgumentCompletionDynamic("Path", Console.Completer.LocalPath)
 
 	cc.AddCommand(constants.LicensesStr,
 		"Display project licenses (core & libraries)",
@@ -181,6 +199,14 @@ func BindCommands(cc *gonsole.Menu) {
 		"", "", []string{""},
 		func() interface{} { return &SessionsClean{} })
 
+	pivots := cc.AddCommand(constants.PivotsListStr,
+		"Pivots management command, prints them by default",
+		help.GetHelpFor(constants.PivotsListStr),
+		"",
+		[]string{""},
+		func() interface{} { return &c2.Pivots{} })
+	pivots.AddOptionCompletion("SessionID", completion.SessionIDs)
+
 	// Stage / Stager Generation -------------------------------------------------------------------------
 	g := cc.AddCommand(constants.GenerateStr,
 		"Configure and compile an implant (staged or stager)",
@@ -277,32 +303,27 @@ func BindCommands(cc *gonsole.Menu) {
 	// Context-sensitive commands / alias -----------------------------------------------------------
 	switch cc.Name {
 	case constants.ServerMenu:
-		cd := cc.AddCommand(constants.CdStr,
-			"Change client working directory",
-			"",
-			constants.CoreServerGroup,
-			[]string{""},
-			func() interface{} { return &ChangeClientDirectory{} })
-		// Comps
-		cd.AddArgumentCompletionDynamic("Path", Console.Completer.LocalPath)
-
 		// The info command is a session management one
 		// in server context, but a core one in session context.
-		// info := cc.AddCommand(constants.InfoStr,
-		//         "Show session information",
-		//         "",
-		//         constants.SessionsGroup,
-		//         []string{""},
-		//         func() interface{} { return &sliver.Info{} })
-		// info.AddArgumentCompletion("SessionID", completion.SessionIDs)
-
-	case constants.SliverMenu:
-		lcd := cc.AddCommand(constants.LcdStr,
-			"Change the client working directory",
+		info := cc.AddCommand(constants.InfoStr,
+			"Show session information",
 			"",
-			constants.CoreServerGroup,
+			constants.SessionsGroup,
 			[]string{""},
-			func() interface{} { return &ChangeClientDirectory{} })
-		lcd.AddArgumentCompletionDynamic("Path", Console.Completer.LocalPath)
+			func() interface{} { return &sliver.Info{} })
+		info.AddArgumentCompletion("SessionID", completion.SessionIDs)
+
+		//  Network Tools ----------------------------------------------------------------------
+
+		// The root portfwd command is accessible in both menus: in the server, you can only print
+		// forwarders, so no subcommands will be attached. When there is an active session, the commands
+		// to add/remove a forwarder will become available.
+		cc.AddCommand(constants.PortfwdStr,
+			"In-band TCP port forwarders management",
+			help.GetHelpFor(constants.PortfwdStr),
+			constants.NetworkToolsGroup,
+			[]string{""},
+			func() interface{} { return &sliver.Portfwd{} })
 	}
+
 }
