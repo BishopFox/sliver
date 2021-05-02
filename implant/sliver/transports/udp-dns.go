@@ -124,7 +124,7 @@ func dnsLookup(domain string) (string, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[dns] lookup -> %s", domain)
 	// {{end}}
-	for retry_count := 0; retry_count < 3; retry_count++ {
+	for retryCount := 0; retryCount < 3; retryCount++ {
 		txts, err = net.LookupTXT(domain)
 		if err != nil || len(txts) == 0 {
 			// {{if .Config.Debug}}
@@ -133,8 +133,9 @@ func dnsLookup(domain string) (string, error) {
 		} else {
 			break
 		}
-		//Sleep for a second before retry
-		time.Sleep(time.Second)
+		// Sleep for a second before retry
+		// TODO: Make configurable
+		time.Sleep(250 * time.Millisecond)
 	}
 	if err != nil || len(txts) == 0 {
 		return "", err
