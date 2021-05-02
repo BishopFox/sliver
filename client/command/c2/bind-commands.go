@@ -60,6 +60,14 @@ func BindCommands(cc *gonsole.Menu) {
 			[]string{""},
 			func() interface{} { return &WireGuardListener{} })
 
+		wgConfig := cc.AddCommand(constants.WgConfigStr,
+			"Generate a new WireGuard client config",
+			help.GetHelpFor(constants.WgConfigStr),
+			constants.TransportsGroup,
+			[]string{""},
+			func() interface{} { return &WireGuardConfig{} })
+		wgConfig.AddOptionCompletionDynamic("Save", Console.Completer.LocalPath)
+
 		cc.AddCommand(constants.DnsStr,
 			"Start a DNS listener on the server",
 			help.GetHelpFor(constants.DnsStr),
