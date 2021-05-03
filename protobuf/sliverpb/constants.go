@@ -186,8 +186,6 @@ const (
 	MsgSetEnvReq
 	// MsgSetEnv
 	MsgSetEnv
-	// MsgUnsetEnvReq
-	MsgUnsetEnvReq
 	// MsgExecuteTokenReq - Execute request executed with the current (Windows) token
 	MsgExecuteTokenReq
 	// MsgRegistryReadReq
@@ -224,6 +222,9 @@ const (
 	MsgPollIntervalReq
 
 	MsgPollInterval
+
+	// MsgUnsetEnvReq
+	MsgUnsetEnvReq
 )
 
 // MsgNumber - Get a message number of type
