@@ -403,7 +403,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("T", "tcp-comms", defaultWGNPort, "wg c2 comms port")
 
 			f.Int("j", "reconnect", defaultReconnect, "attempt to reconnect every n second(s)")
-			f.Int("p", "poll", defaultPoll, "attempt to poll every n second(s)")
+			f.Int("P", "poll", defaultPoll, "attempt to poll every n second(s)")
 			f.Int("k", "max-errors", defaultMaxErrors, "max number of connection errors")
 
 			f.String("w", "limit-datetime", "", "limit execution to before datetime")
@@ -496,6 +496,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 			f.Int("j", "reconnect", defaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("k", "max-errors", defaultMaxErrors, "max number of connection errors")
+			f.Int("P", "poll", defaultPoll, "attempt to poll every n second(s)")
 
 			f.String("w", "limit-datetime", "", "limit execution to before datetime")
 			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
@@ -1441,6 +1442,23 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			setEnv(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.UnsetEnvStr,
+		Help:      "Clear environment variables",
+		LongHelp:  help.GetHelpFor(consts.UnsetEnvStr),
+		AllowArgs: true,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			unsetEnv(ctx, rpc)
 			fmt.Println()
 			return nil
 		},

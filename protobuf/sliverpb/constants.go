@@ -186,6 +186,8 @@ const (
 	MsgSetEnvReq
 	// MsgSetEnv
 	MsgSetEnv
+	// MsgUnsetEnvReq
+	MsgUnsetEnvReq
 	// MsgExecuteTokenReq - Execute request executed with the current (Windows) token
 	MsgExecuteTokenReq
 	// MsgRegistryReadReq
@@ -388,6 +390,8 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgSetEnvReq
 	case *SetEnv:
 		return MsgSetEnv
+	case *UnsetEnvReq:
+		return MsgUnsetEnvReq
 	case *RegistryReadReq:
 		return MsgRegistryReadReq
 	case *RegistryWriteReq:

