@@ -89,6 +89,7 @@ var (
 		"ps/ps_windows.go",
 		"ps/ps_linux.go",
 		"ps/ps_darwin.go",
+		"ps/ps_types_darwin.go",
 
 		"registry/registry.go",
 		"registry/registry_windows.go",

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"os/user"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -57,19 +58,17 @@ func findProcess(pid int) (Process, error) {
 }
 
 func processes() ([]Process, error) {
-	buf, err := darwinSyscall()
+	var owner string
+	buf, _, err := procInfoSyscall()
 	if err != nil {
 		return nil, err
 	}
 
-	procs := make([]*kinfoProc, 0, 50)
+	procs := make([]*KinfoProc, 0, 50)
 	k := 0
 	for i := _KINFO_STRUCT_SIZE; i < buf.Len(); i += _KINFO_STRUCT_SIZE {
-		proc := &kinfoProc{}
-		err = binary.Read(bytes.NewBuffer(buf.Bytes()[k:i]), binary.LittleEndian, proc)
-		if err != nil {
-			return nil, err
-		}
+		// Super unsafe but faster than doing manual parsing
+		proc := (*KinfoProc)(unsafe.Pointer((&buf.Bytes()[k:i][0])))
 
 		k = i
 		procs = append(procs, proc)
@@ -77,18 +76,34 @@ func processes() ([]Process, error) {
 
 	darwinProcs := make([]Process, len(procs))
 	for i, p := range procs {
-		binPath, err := getPathFromPid(int(p.Pid))
+		binPath, err := getPathFromPid(int(p.Proc.P_pid))
 		if err != nil {
-			binPath = darwinCstring(p.Comm)
+			pComm := make([]byte, 17)
+			for i, x := range p.Proc.P_comm {
+				pComm[i] = byte(x)
+			}
+			pCommReader := bytes.NewBuffer(pComm)
+			binPath, _ = pCommReader.ReadString(0x00)
 		}
 		// Discard the error: if the call errors out, we'll just have an empty argv slice
-		cmdLine, _ := getArgvFromPid(int(p.Pid))
+		cmdLine, _ := getArgvFromPid(int(p.Proc.P_pid))
+
+		uid := fmt.Sprintf("%d", p.Eproc.Ucred.Uid)
+		u, err := user.LookupId(uid)
+		if err != nil {
+			owner = uid
+		} else {
+			owner = u.Username
+		}
+		if owner == "" {
+			owner = uid
+		}
 
 		darwinProcs[i] = &DarwinProcess{
-			pid:     int(p.Pid),
-			ppid:    int(p.PPid),
+			pid:     int(p.Proc.P_pid),
+			ppid:    int(p.Eproc.Ppid),
 			binary:  binPath,
-			owner:   "",
+			owner:   owner,
 			cmdLine: cmdLine,
 		}
 	}
@@ -96,20 +111,7 @@ func processes() ([]Process, error) {
 	return darwinProcs, nil
 }
 
-func darwinCstring(s [16]byte) string {
-	i := 0
-	for _, b := range s {
-		if b != 0 {
-			i++
-		} else {
-			break
-		}
-	}
-
-	return string(s[:i])
-}
-
-func darwinSyscall() (*bytes.Buffer, error) {
+func procInfoSyscall() (*bytes.Buffer, uint64, error) {
 	mib := [4]int32{_CTRL_KERN, _KERN_PROC, _KERN_PROC_ALL, 0}
 	size := uintptr(0)
 
@@ -123,7 +125,7 @@ func darwinSyscall() (*bytes.Buffer, error) {
 		0)
 
 	if errno != 0 {
-		return nil, errno
+		return nil, 0, errno
 	}
 
 	bs := make([]byte, size)
@@ -137,10 +139,10 @@ func darwinSyscall() (*bytes.Buffer, error) {
 		0)
 
 	if errno != 0 {
-		return nil, errno
+		return nil, 0, errno
 	}
 
-	return bytes.NewBuffer(bs[0:size]), nil
+	return bytes.NewBuffer(bs[0:size]), uint64(size), nil
 }
 
 const (
@@ -154,16 +156,6 @@ const (
 	PROC_PIDPATHINFO         = 11
 	_KERN_PROCARGS2          = 49
 )
-
-type kinfoProc struct {
-	_    [40]byte
-	Pid  int32
-	_    [199]byte
-	Comm [16]byte
-	_    [301]byte
-	PPid int32
-	_    [84]byte
-}
 
 func errnoErr(e syscall.Errno) error {
 	switch e {
