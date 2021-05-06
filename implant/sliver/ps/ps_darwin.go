@@ -5,15 +5,20 @@ package ps
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	"strings"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 type DarwinProcess struct {
-	pid    int
-	ppid   int
-	binary string
-	owner  string
+	pid     int
+	ppid    int
+	binary  string
+	owner   string
+	cmdLine []string
 }
 
 func (p *DarwinProcess) Pid() int {
@@ -30,6 +35,10 @@ func (p *DarwinProcess) Executable() string {
 
 func (p *DarwinProcess) Owner() string {
 	return p.owner
+}
+
+func (p *DarwinProcess) CmdLine() []string {
+	return p.cmdLine
 }
 
 func findProcess(pid int) (Process, error) {
@@ -72,11 +81,15 @@ func processes() ([]Process, error) {
 		if err != nil {
 			binPath = darwinCstring(p.Comm)
 		}
+		// Discard the error: if the call errors out, we'll just have an empty argv slice
+		cmdLine, _ := getArgvFromPid(int(p.Pid))
+
 		darwinProcs[i] = &DarwinProcess{
-			pid:    int(p.Pid),
-			ppid:   int(p.PPid),
-			binary: binPath,
-			owner:  "",
+			pid:     int(p.Pid),
+			ppid:    int(p.PPid),
+			binary:  binPath,
+			owner:   "",
+			cmdLine: cmdLine,
 		}
 	}
 
@@ -139,6 +152,7 @@ const (
 	PROC_PIDPATHINFO_MAXSIZE = MAXPATHLEN * 4
 	PROC_INFO_CALL_PIDINFO   = 0x2
 	PROC_PIDPATHINFO         = 11
+	_KERN_PROCARGS2          = 49
 )
 
 type kinfoProc struct {
@@ -166,18 +180,6 @@ func errnoErr(e syscall.Errno) error {
 
 }
 
-func readCString(data []byte) string {
-	i := 0
-	for _, b := range data {
-		if b != 0 {
-			i++
-		} else {
-			break
-		}
-	}
-	return string(data[:i])
-}
-
 func getPathFromPid(pid int) (path string, err error) {
 	bufSize := PROC_PIDPATHINFO_MAXSIZE
 	buf := make([]byte, bufSize)
@@ -198,6 +200,65 @@ func getPathFromPid(pid int) (path string, err error) {
 			return
 		}
 	}
-	path = readCString(buf)
+	buffer := bytes.NewBuffer(buf)
+	path, err = buffer.ReadString(0x00)
 	return
+}
+
+func getArgvFromPid(pid int) ([]string, error) {
+	systemMaxArgs, err := unix.SysctlUint32("kern.argmax")
+	if err != nil {
+		return []string{""}, err
+	}
+	processArgs := make([]byte, systemMaxArgs)
+	var size uint = uint(systemMaxArgs)
+	mib := [4]int32{_CTRL_KERN, _KERN_PROCARGS2, int32(pid), 0}
+	_, _, errno := syscall.Syscall6(
+		syscall.SYS___SYSCTL,
+		uintptr(unsafe.Pointer(&mib[0])),
+		4,
+		uintptr(unsafe.Pointer(&processArgs[0])),
+		uintptr(unsafe.Pointer(&size)),
+		0,
+		0,
+	)
+	if errno != 0 {
+		errStr := unix.ErrnoName(errno)
+		return []string{""}, fmt.Errorf("%s", errStr)
+	}
+	buffer := bytes.NewBuffer(processArgs)
+	numberOfArgs, err := binary.ReadUvarint(buffer)
+	if err != nil {
+		return []string{""}, err
+	}
+	buffer.Next(3)                         // skip  sizeof(int32), the number of args
+	argv := make([]string, numberOfArgs+1) // executable name is present twice
+
+	// There's probably a way to optimize that loop.
+	// processArgs is a buffer of "things" delimited by null bytes.
+	// The structure looks like this:
+	// number of args: int32
+	// executable name: null terminated string
+	// empty: null terminated string
+	// empty: null terminated string
+	// empty: null terminated string
+	// argv[]: table of null termiated strings, containing the executable name in argv[0]
+	i := 0
+	for {
+		arg, err := buffer.ReadString(0x00)
+		if err != nil {
+			continue
+		}
+		if strings.ReplaceAll(arg, "\x00", "") != "" {
+			argv[i] = arg
+			i++
+		}
+		if i == int(numberOfArgs+1) {
+			break
+		}
+	}
+	if len(argv) >= 2 {
+		argv = argv[1:]
+	}
+	return argv, nil
 }

@@ -696,6 +696,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("p", "pid", -1, "filter based on pid")
 			f.String("e", "exe", "", "filter based on executable name")
 			f.String("o", "owner", "", "filter based on owner")
+			f.Bool("c", "print-cmdline", false, "print command line arguments")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
