@@ -41,7 +41,8 @@ var (
 		sliverpb.MsgSetEnvReq:   setEnvHandler,
 		sliverpb.MsgUnsetEnvReq: unsetEnvHandler,
 
-		pb.MsgScreenshotReq: screenshotHandler,
+		pb.MsgScreenshotReq:    screenshotHandler,
+		sliverpb.MsgNetstatReq: netstatHandler,
 
 		pb.MsgSideloadReq: sideloadHandler,
 
