@@ -72,6 +72,7 @@ var (
 		"netstat/netstat_windows.go",
 		"netstat/netstat_linux.go",
 		"netstat/netstat_darwin.go",
+		"netstat/netstat_types_darwin.go",
 
 		"procdump/dump.go",
 		"procdump/dump_windows.go",
@@ -89,6 +90,7 @@ var (
 		"ps/ps_windows.go",
 		"ps/ps_linux.go",
 		"ps/ps_darwin.go",
+		"ps/ps_types_darwin.go",
 
 		"registry/registry.go",
 		"registry/registry_windows.go",

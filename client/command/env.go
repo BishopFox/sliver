@@ -67,3 +67,35 @@ func setEnv(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 	fmt.Printf(Info+"set %s to %s\n", name, value)
 }
+
+func unsetEnv(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	session := ActiveSession.Get()
+	if session == nil {
+		return
+	}
+
+	if len(ctx.Args) != 1 {
+		fmt.Printf(Warn + "Usage: unsetenv KEY\n")
+		return
+	}
+
+	name := ctx.Args[0]
+	if name == "" {
+		return
+	}
+	unsetResp, err := rpc.UnsetEnv(context.Background(), &sliverpb.UnsetEnvReq{
+		Name:    name,
+		Request: ActiveSession.Request(ctx),
+	})
+
+	if err != nil {
+		fmt.Printf(Warn+"Error: %v", err)
+		return
+	}
+
+	if unsetResp.Response != nil && unsetResp.Response.Err != "" {
+		fmt.Printf(Warn+"Error: %s\n", unsetResp.Response.Err)
+		return
+	}
+	fmt.Printf(Info+"Successfully unset %s\n", name)
+}

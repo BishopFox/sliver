@@ -222,6 +222,9 @@ const (
 	MsgPollIntervalReq
 
 	MsgPollInterval
+
+	// MsgUnsetEnvReq
+	MsgUnsetEnvReq
 )
 
 // MsgNumber - Get a message number of type
@@ -388,6 +391,8 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgSetEnvReq
 	case *SetEnv:
 		return MsgSetEnv
+	case *UnsetEnvReq:
+		return MsgUnsetEnvReq
 	case *RegistryReadReq:
 		return MsgRegistryReadReq
 	case *RegistryWriteReq:
