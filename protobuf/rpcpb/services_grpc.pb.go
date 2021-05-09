@@ -98,6 +98,7 @@ type SliverRPCClient interface {
 	MakeToken(ctx context.Context, in *sliverpb.MakeTokenReq, opts ...grpc.CallOption) (*sliverpb.MakeToken, error)
 	GetEnv(ctx context.Context, in *sliverpb.EnvReq, opts ...grpc.CallOption) (*sliverpb.EnvInfo, error)
 	SetEnv(ctx context.Context, in *sliverpb.SetEnvReq, opts ...grpc.CallOption) (*sliverpb.SetEnv, error)
+	UnsetEnv(ctx context.Context, in *sliverpb.UnsetEnvReq, opts ...grpc.CallOption) (*sliverpb.UnsetEnv, error)
 	Backdoor(ctx context.Context, in *sliverpb.BackdoorReq, opts ...grpc.CallOption) (*sliverpb.Backdoor, error)
 	RegistryRead(ctx context.Context, in *sliverpb.RegistryReadReq, opts ...grpc.CallOption) (*sliverpb.RegistryRead, error)
 	RegistryWrite(ctx context.Context, in *sliverpb.RegistryWriteReq, opts ...grpc.CallOption) (*sliverpb.RegistryWrite, error)
@@ -744,6 +745,15 @@ func (c *sliverRPCClient) SetEnv(ctx context.Context, in *sliverpb.SetEnvReq, op
 	return out, nil
 }
 
+func (c *sliverRPCClient) UnsetEnv(ctx context.Context, in *sliverpb.UnsetEnvReq, opts ...grpc.CallOption) (*sliverpb.UnsetEnv, error) {
+	out := new(sliverpb.UnsetEnv)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/UnsetEnv", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) Backdoor(ctx context.Context, in *sliverpb.BackdoorReq, opts ...grpc.CallOption) (*sliverpb.Backdoor, error) {
 	out := new(sliverpb.Backdoor)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Backdoor", in, out, opts...)
@@ -1041,6 +1051,7 @@ type SliverRPCServer interface {
 	MakeToken(context.Context, *sliverpb.MakeTokenReq) (*sliverpb.MakeToken, error)
 	GetEnv(context.Context, *sliverpb.EnvReq) (*sliverpb.EnvInfo, error)
 	SetEnv(context.Context, *sliverpb.SetEnvReq) (*sliverpb.SetEnv, error)
+	UnsetEnv(context.Context, *sliverpb.UnsetEnvReq) (*sliverpb.UnsetEnv, error)
 	Backdoor(context.Context, *sliverpb.BackdoorReq) (*sliverpb.Backdoor, error)
 	RegistryRead(context.Context, *sliverpb.RegistryReadReq) (*sliverpb.RegistryRead, error)
 	RegistryWrite(context.Context, *sliverpb.RegistryWriteReq) (*sliverpb.RegistryWrite, error)
@@ -1275,6 +1286,9 @@ func (UnimplementedSliverRPCServer) GetEnv(context.Context, *sliverpb.EnvReq) (*
 }
 func (UnimplementedSliverRPCServer) SetEnv(context.Context, *sliverpb.SetEnvReq) (*sliverpb.SetEnv, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetEnv not implemented")
+}
+func (UnimplementedSliverRPCServer) UnsetEnv(context.Context, *sliverpb.UnsetEnvReq) (*sliverpb.UnsetEnv, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UnsetEnv not implemented")
 }
 func (UnimplementedSliverRPCServer) Backdoor(context.Context, *sliverpb.BackdoorReq) (*sliverpb.Backdoor, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Backdoor not implemented")
@@ -2570,6 +2584,24 @@ func _SliverRPC_SetEnv_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_UnsetEnv_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.UnsetEnvReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).UnsetEnv(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/UnsetEnv",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).UnsetEnv(ctx, req.(*sliverpb.UnsetEnvReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_Backdoor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.BackdoorReq)
 	if err := dec(in); err != nil {
@@ -3201,6 +3233,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetEnv",
 			Handler:    _SliverRPC_SetEnv_Handler,
+		},
+		{
+			MethodName: "UnsetEnv",
+			Handler:    _SliverRPC_UnsetEnv_Handler,
 		},
 		{
 			MethodName: "Backdoor",

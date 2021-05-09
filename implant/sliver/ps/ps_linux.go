@@ -16,11 +16,12 @@ import (
 // UnixProcess is an implementation of Process
 // that contains Unix-specific fields and information.
 type UnixProcess struct {
-	pid   int
-	ppid  int
-	state rune
-	pgrp  int
-	sid   int
+	pid     int
+	ppid    int
+	state   rune
+	pgrp    int
+	sid     int
+	cmdLine []string
 
 	binary string
 	owner  string
@@ -44,6 +45,10 @@ func (p *UnixProcess) Executable() string {
 // Owner returns the username the process belongs to
 func (p *UnixProcess) Owner() string {
 	return p.owner
+}
+
+func (p *UnixProcess) CmdLine() []string {
+	return p.cmdLine
 }
 
 func getProcessOwnerUid(pid int) (uint32, error) {
@@ -72,6 +77,16 @@ func getProcessOwner(pid int) (string, error) {
 		return fmt.Sprintf("%d", uid), nil
 	}
 	return usr.Username, err
+}
+
+func getProcessCmdLine(pid int) ([]string, error) {
+	cmdLinePath := fmt.Sprintf("/proc/%d/cmdline", pid)
+	data, err := ioutil.ReadFile(cmdLinePath)
+	if err != nil {
+		return []string{""}, err
+	}
+	argv := strings.Split(string(data), "\x00")
+	return argv, nil
 }
 
 // Refresh reloads all the data associated with this process.
@@ -153,6 +168,13 @@ func processes() ([]Process, error) {
 			p.owner, err = getProcessOwner(int(pid))
 			if err != nil {
 				continue
+			}
+			argv, err := getProcessCmdLine(int(pid))
+			if err == nil {
+				p.cmdLine = argv
+				if argv[0] != "" && len(argv[0]) > 0 {
+					p.binary = argv[0]
+				}
 			}
 			results = append(results, p)
 		}

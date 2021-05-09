@@ -435,6 +435,15 @@ message SetEnv {
   commonpb.Response Response = 9;
 }
 
+message UnsetEnvReq {
+  string Name = 1;
+  commonpb.Request Request = 9;
+}
+
+message UnsetEnv {
+  commonpb.Response Response = 9;
+}
+
 // DNS Specific messages
 message DNSSessionInit {
   bytes Key = 1;

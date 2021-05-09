@@ -149,6 +149,7 @@ const (
 	MakeTokenStr          = "make-token"
 	GetEnvStr             = "getenv"
 	SetEnvStr             = "setenv"
+	UnsetEnvStr           = "unsetenv"
 	RegistryStr           = "registry"
 	RegistryReadStr       = "read"
 	RegistryWriteStr      = "write"

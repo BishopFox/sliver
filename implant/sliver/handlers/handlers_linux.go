@@ -39,6 +39,7 @@ var (
 		sliverpb.MsgExecuteReq:   executeHandler,
 		sliverpb.MsgEnvReq:       getEnvHandler,
 		sliverpb.MsgSetEnvReq:    setEnvHandler,
+		sliverpb.MsgUnsetEnvReq:  unsetEnvHandler,
 
 		sliverpb.MsgScreenshotReq: screenshotHandler,
 

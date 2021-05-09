@@ -73,6 +73,12 @@ func psHandler(data []byte, resp RPCResponse) {
 		// {{if eq .Config.GOOS "windows"}}
 		p.SessionID = int32(proc.(*ps.WindowsProcess).SessionID())
 		// {{end}}
+		// {{if eq .Config.GOOS "linux"}}
+		p.CmdLine = proc.(*ps.UnixProcess).CmdLine()
+		// {{end}}
+		// {{if eq .Config.GOOS "darwin"}}
+		p.CmdLine = proc.(*ps.DarwinProcess).CmdLine()
+		// {{end}}
 		psList.Processes = append(psList.Processes, p)
 	}
 	data, err = proto.Marshal(psList)
