@@ -97,6 +97,7 @@ type GoConfig struct {
 	GOMODCACHE string
 	CGO        string
 	CC         string
+	CXX        string
 
 	Obfuscation bool
 	GOPRIVATE   string

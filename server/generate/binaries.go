@@ -20,7 +20,6 @@ package generate
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -43,17 +42,28 @@ import (
 )
 
 var (
-	buildLog         = log.NamedLogger("generate", "build")
-	defaultMingwPath = map[string]map[string]string{
+	buildLog = log.NamedLogger("generate", "build")
+
+	// RUNTIME GOOS -> TARGET GOOS -> TARGET ARCH
+	defaultCCPaths = map[string]map[string]map[string]string{
 		"linux": {
-			"386":   "/usr/bin/i686-w64-mingw32-gcc",
-			"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
+			"windows": {
+				"386":   "/usr/bin/i686-w64-mingw32-gcc",
+				"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
+			},
+			"darwin": {
+				"amd64": "/opt/osxcross/target/bin/o64-clang", // OSX Cross
+				"arm64": "/opt/osxcross/target/bin/aarch64-apple-darwin20.2-clang",
+			},
 		},
 		"darwin": {
-			"386":   "/usr/local/bin/i686-w64-mingw32-gcc",
-			"amd64": "/usr/local/bin/x86_64-w64-mingw32-gcc",
+			"windows": {
+				"386":   "/usr/bin/i686-w64-mingw32-gcc",
+				"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
+			},
 		},
 	}
+
 	// SupportedCompilerTargets - Supported compiler targets
 	SupportedCompilerTargets = map[string]bool{
 		"darwin/amd64":  true,
@@ -97,10 +107,26 @@ const (
 	// DefaultSuffix - Indicates a platform independent src file
 	DefaultSuffix = "_default.go"
 
+	// *** Default ***
 	// SliverCC64EnvVar - Environment variable that can specify the 64 bit mingw path
 	SliverCC64EnvVar = "SLIVER_CC_64"
 	// SliverCC32EnvVar - Environment variable that can specify the 32 bit mingw path
 	SliverCC32EnvVar = "SLIVER_CC_32"
+
+	// SliverCXX64EnvVar - Environment variable that can specify the 64 bit mingw path
+	SliverCXX64EnvVar = "SLIVER_CXX_64"
+	// SliverCXX32EnvVar - Environment variable that can specify the 32 bit mingw path
+	SliverCXX32EnvVar = "SLIVER_CXX_32"
+
+	// *** Platform Specific ***
+	// SliverPlatformCC64EnvVar - Environment variable that can specify the 64 bit mingw path
+	SliverPlatformCC64EnvVar = "SLIVER_%s_CC_64"
+	// SliverPlatformCC32EnvVar - Environment variable that can specify the 32 bit mingw path
+	SliverPlatformCC32EnvVar = "SLIVER_%s_CC_32"
+	// SliverPlatformCXX64EnvVar - Environment variable that can specify the 64 bit mingw path
+	SliverPlatformCXX64EnvVar = "SLIVER_%s_CXX_64"
+	// SliverPlatformCXX32EnvVar - Environment variable that can specify the 32 bit mingw path
+	SliverPlatformCXX32EnvVar = "SLIVER_%s_CXX_32"
 )
 
 // ImplantConfigFromProtobuf - Create a native config struct from Protobuf
@@ -222,19 +248,25 @@ func GetSliversDir() string {
 // SliverShellcode - Generates a sliver shellcode using sRDI
 func SliverShellcode(name string, config *models.ImplantConfig) (string, error) {
 	// Compile go code
-	var crossCompiler string
+	// Compile go code
+	var cc string
+	var cxx string
+
 	appDir := assets.GetRootAppDir()
 	// Don't use a cross-compiler if the target bin is built on the same platform
 	// as the sliver-server.
 	if runtime.GOOS != config.GOOS {
-		crossCompiler = getCCompiler(config.GOARCH)
-		if crossCompiler == "" {
-			return "", errors.New("No cross-compiler (mingw) found")
+		buildLog.Infof("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
+		cc, cxx = getCrossCompilers(config.GOOS, config.GOARCH)
+		if cc == "" {
+			return "", fmt.Errorf("CC '%s/%s' not found", config.GOOS, config.GOARCH)
 		}
 	}
 	goConfig := &gogo.GoConfig{
-		CGO:        "1",
-		CC:         crossCompiler,
+		CGO: "1",
+		CC:  cc,
+		CXX: cxx,
+
 		GOOS:       config.GOOS,
 		GOARCH:     config.GOARCH,
 		GOCACHE:    gogo.GetGoCache(appDir),
@@ -263,10 +295,9 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 	// trimpath is now a separate flag since Go 1.13
 	trimpath := "-trimpath"
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "pie", tags, ldflags, gcflags, asmflags, trimpath)
-	// _, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags, gcflags, asmflags, trimpath)
 	config.FileName = path.Base(dest)
 	shellcode, err := DonutShellcodeFromFile(dest, config.GOARCH, false, "", "", "")
-	// shellcode, err := ShellcodeRDI(dest, "RunSliver", "")
+
 	if err != nil {
 		return "", err
 	}
@@ -287,19 +318,24 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
 func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, error) {
 	// Compile go code
-	var crossCompiler string
+	var cc string
+	var cxx string
+
 	appDir := assets.GetRootAppDir()
 	// Don't use a cross-compiler if the target bin is built on the same platform
 	// as the sliver-server.
 	if runtime.GOOS != config.GOOS {
-		crossCompiler = getCCompiler(config.GOARCH)
-		if crossCompiler == "" {
-			return "", errors.New("No cross-compiler (mingw) found")
+		buildLog.Infof("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
+		cc, cxx = getCrossCompilers(config.GOOS, config.GOARCH)
+		if cc == "" {
+			return "", fmt.Errorf("CC '%s/%s' not found", config.GOOS, config.GOARCH)
 		}
 	}
 	goConfig := &gogo.GoConfig{
-		CGO:        "1",
-		CC:         crossCompiler,
+		CGO: "1",
+		CC:  cc,
+		CXX: cxx,
+
 		GOOS:       config.GOOS,
 		GOARCH:     config.GOARCH,
 		GOCACHE:    gogo.GetGoCache(appDir),
@@ -618,29 +654,64 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	return sliverPkgDir, nil
 }
 
-func getCCompiler(arch string) string {
-	var found bool // meh, ugly
-	var compiler string
-	if arch == "amd64" {
-		compiler = os.Getenv(SliverCC64EnvVar)
-	}
-	if arch == "386" {
-		compiler = os.Getenv(SliverCC32EnvVar)
-	}
-	if compiler == "" {
-		if _, ok := defaultMingwPath[runtime.GOOS]; ok {
-			if compiler, found = defaultMingwPath[runtime.GOOS][arch]; !found {
-				buildLog.Warnf("No default for arch %s on %s", arch, runtime.GOOS)
-			}
+// Platform specific ENV VARS take precedence over generic
+func getCrossCompilersFromEnv(targetGoos string, targetGoarch string) (string, string) {
+	var cc string
+	var cxx string
+
+	TARGET_GOOS := strings.ToUpper(targetGoos)
+
+	// Get Defaults
+	if targetGoarch == "amd64" {
+		cc = os.Getenv(SliverCC64EnvVar)
+		if os.Getenv(fmt.Sprintf(SliverPlatformCC64EnvVar, TARGET_GOOS)) != "" {
+			cc = os.Getenv(fmt.Sprintf(SliverPlatformCC64EnvVar, TARGET_GOOS))
+		}
+		cxx = os.Getenv(SliverCXX64EnvVar)
+		if os.Getenv(fmt.Sprintf(SliverPlatformCXX64EnvVar, TARGET_GOOS)) != "" {
+			cc = os.Getenv(fmt.Sprintf(SliverPlatformCXX64EnvVar, TARGET_GOOS))
 		}
 	}
-	if _, err := os.Stat(compiler); os.IsNotExist(err) {
-		buildLog.Warnf("CC path %v does not exist", compiler)
-		return ""
+	if targetGoarch == "386" {
+		cc = os.Getenv(SliverCC32EnvVar)
+		if os.Getenv(fmt.Sprintf(SliverPlatformCC32EnvVar, TARGET_GOOS)) != "" {
+			cc = os.Getenv(fmt.Sprintf(SliverPlatformCC32EnvVar, TARGET_GOOS))
+		}
+		cxx = os.Getenv(SliverCXX64EnvVar)
+		if os.Getenv(fmt.Sprintf(SliverPlatformCXX32EnvVar, TARGET_GOOS)) != "" {
+			cc = os.Getenv(fmt.Sprintf(SliverPlatformCXX32EnvVar, TARGET_GOOS))
+		}
 	}
-	if runtime.GOOS == "windows" {
-		compiler = "" // TODO: Add windows mingw support
+	return cc, cxx
+}
+
+func getCrossCompilers(targetGoos string, targetGoarch string) (string, string) {
+	var found bool // meh, ugly
+
+	// Get CC and CXX from ENV
+	cc, cxx := getCrossCompilersFromEnv(targetGoos, targetGoarch)
+
+	// If no CC is set in ENV then look for default path(s), we need a CC
+	// but don't always need a CXX so we only WARN on a missing CXX
+	if cc == "" {
+		buildLog.Info("CC not found in ENV, using default paths")
+		if _, ok := defaultCCPaths[runtime.GOOS]; ok {
+			if cc, found = defaultCCPaths[runtime.GOOS][targetGoos][targetGoarch]; !found {
+				buildLog.Warnf("No default for %s/%s from %s", targetGoos, targetGoarch, runtime.GOOS)
+			}
+		} else {
+			buildLog.Warnf("No default paths for %s runtime", runtime.GOOS)
+		}
 	}
-	buildLog.Infof("CC = %v", compiler)
-	return compiler
+
+	// Check to see if CC and CXX exist
+	if _, err := os.Stat(cc); os.IsNotExist(err) {
+		buildLog.Warnf("CC path '%s' does not exist", cc)
+	}
+	if _, err := os.Stat(cxx); os.IsNotExist(err) {
+		buildLog.Warnf("CXX path '%s' does not exist", cxx)
+	}
+	buildLog.Infof(" CC = '%s'", cc)
+	buildLog.Infof("CXX = '%s'", cxx)
+	return cc, cxx
 }
