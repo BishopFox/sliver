@@ -51,6 +51,10 @@ var (
 				"386":   "/usr/bin/i686-w64-mingw32-gcc",
 				"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
 			},
+			"darwin": {
+				"amd64": "/opt/osxcross/target/bin/o64-clang", // OSX Cross
+				"arm64": "/opt/osxcross/target/bin/aarch64-apple-darwin20.2-clang",
+			},
 		},
 		"darwin": {
 			"windows": {
@@ -687,7 +691,8 @@ func getCrossCompilers(targetGoos string, targetGoarch string) (string, string) 
 	// Get CC and CXX from ENV
 	cc, cxx := getCrossCompilersFromEnv(targetGoos, targetGoarch)
 
-	// If no CC is set in ENV then look for default path(s)
+	// If no CC is set in ENV then look for default path(s), we need a CC
+	// but don't always need a CXX so we only WARN on a missing CXX
 	if cc == "" {
 		buildLog.Info("CC not found in ENV, using default paths")
 		if _, ok := defaultCCPaths[runtime.GOOS]; ok {

@@ -1,6 +1,9 @@
 .vscode/*
 .devcontainer
 
+Dockerfile.*
+*.sdk.tar.xz
+
 release-*
 
 # Diffs
