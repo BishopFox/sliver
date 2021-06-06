@@ -52,7 +52,8 @@ var (
 				"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
 			},
 			"darwin": {
-				"amd64": "/opt/osxcross/target/bin/o64-clang", // OSX Cross
+				// OSX Cross - https://github.com/tpoechtrager/osxcross
+				"amd64": "/opt/osxcross/target/bin/o64-clang",
 				"arm64": "/opt/osxcross/target/bin/aarch64-apple-darwin20.2-clang",
 			},
 		},
@@ -60,6 +61,10 @@ var (
 			"windows": {
 				"386":   "/usr/bin/i686-w64-mingw32-gcc",
 				"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
+			},
+			"linux": {
+				// brew install FiloSottile/musl-cross/musl-cross
+				"amd64": "/usr/local/bin/x86_64-linux-musl-gcc",
 			},
 		},
 	}
