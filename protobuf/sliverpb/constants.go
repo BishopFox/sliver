@@ -227,6 +227,19 @@ const (
 	MsgUnsetEnvReq
 )
 
+// Constants to replace enums
+const (
+	// Port forward protocols
+	PortFwdProtoTCP = 1
+	PortFwdProtoUDP = 2
+
+	// Registry types
+	RegistryTypeBinary = 1
+	RegistryTypeString = 2
+	RegistryTypeDWORD  = 3
+	RegistryTypeQWORD  = 4
+)
+
 // MsgNumber - Get a message number of type
 func MsgNumber(request proto.Message) uint32 {
 	switch request.(type) {
