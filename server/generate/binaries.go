@@ -59,8 +59,8 @@ var (
 		},
 		"darwin": {
 			"windows": {
-				"386":   "/usr/bin/i686-w64-mingw32-gcc",
-				"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
+				"386":   "/usr/local/bin/i686-w64-mingw32-gcc",
+				"amd64": "/usr/local/bin/x86_64-w64-mingw32-gcc",
 			},
 			"linux": {
 				// brew install FiloSottile/musl-cross/musl-cross
