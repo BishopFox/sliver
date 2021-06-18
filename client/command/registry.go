@@ -38,17 +38,17 @@ func checkHive(hive string) error {
 	return fmt.Errorf("invalid hive %s", hive)
 }
 
-func getType(t string) (sliverpb.RegistryType, error) {
-	var res sliverpb.RegistryType
+func getType(t string) (uint32, error) {
+	var res uint32
 	switch t {
 	case "binary":
-		res = sliverpb.RegistryType_BINARY
+		res = sliverpb.RegistryTypeBinary
 	case "dword":
-		res = sliverpb.RegistryType_DWORD
+		res = sliverpb.RegistryTypeDWORD
 	case "qword":
-		res = sliverpb.RegistryType_QWORD
+		res = sliverpb.RegistryTypeQWORD
 	case "string":
-		res = sliverpb.RegistryType_STRING
+		res = sliverpb.RegistryTypeString
 	default:
 		return res, fmt.Errorf("invalid type %s", t)
 	}
@@ -149,7 +149,7 @@ func registryWriteCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	regPath = regPath[:slashIndex]
 	value := ctx.Args[1]
 	switch valType {
-	case sliverpb.RegistryType_BINARY:
+	case sliverpb.RegistryTypeBinary:
 		var (
 			v   []byte
 			err error
@@ -168,21 +168,21 @@ func registryWriteCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			}
 		}
 		binaryValue = v
-	case sliverpb.RegistryType_DWORD:
+	case sliverpb.RegistryTypeDWORD:
 		v, err := strconv.ParseUint(value, 10, 32)
 		if err != nil {
 			fmt.Printf(Warn+"Error: %v", err)
 			return
 		}
 		dwordValue = uint32(v)
-	case sliverpb.RegistryType_QWORD:
+	case sliverpb.RegistryTypeQWORD:
 		v, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
 			fmt.Printf(Warn+"Error: %v", err)
 			return
 		}
 		qwordValue = v
-	case sliverpb.RegistryType_STRING:
+	case sliverpb.RegistryTypeString:
 		stringValue = value
 	default:
 		fmt.Printf(Warn + "Invalid type")

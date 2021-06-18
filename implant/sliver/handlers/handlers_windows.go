@@ -436,13 +436,13 @@ func regWriteHandler(data []byte, resp RPCResponse) {
 	}
 	var val interface{}
 	switch regWriteReq.Type {
-	case sliverpb.RegistryType_BINARY:
+	case sliverpb.RegistryTypeBinary:
 		val = regWriteReq.ByteValue
-	case sliverpb.RegistryType_DWORD:
+	case sliverpb.RegistryTypeDWORD:
 		val = regWriteReq.DWordValue
-	case sliverpb.RegistryType_QWORD:
+	case sliverpb.RegistryTypeQWORD:
 		val = regWriteReq.QWordValue
-	case sliverpb.RegistryType_STRING:
+	case sliverpb.RegistryTypeString:
 		val = regWriteReq.StringValue
 	default:
 		return

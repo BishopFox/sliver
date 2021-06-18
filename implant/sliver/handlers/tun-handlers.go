@@ -308,7 +308,7 @@ func portfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 	portfwdResp, _ := proto.Marshal(&sliverpb.Portfwd{
 		Port:     portfwdReq.Port,
 		Host:     portfwdReq.Host,
-		Protocol: sliverpb.PortfwdProtocol_TCP,
+		Protocol: sliverpb.PortFwdProtoTCP,
 		TunnelID: portfwdReq.TunnelID,
 	})
 	connection.Send <- &sliverpb.Envelope{

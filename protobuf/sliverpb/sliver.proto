@@ -515,13 +515,6 @@ message Backdoor {
   commonpb.Response Response = 9;
 }
 
-enum RegistryType {
-  BINARY = 0;
-  STRING = 1;
-  DWORD = 2;
-  QWORD = 3;
-}
-
 message RegistryReadReq {
   string Hive = 1;
   string Path = 2;
@@ -544,7 +537,7 @@ message RegistryWriteReq {
   bytes ByteValue = 6;
   uint32 DWordValue = 7;
   uint64 QWordValue = 8;
-  RegistryType Type = 10;
+  uint32 Type = 10;
 
   commonpb.Request Request = 9;
 }
@@ -602,15 +595,10 @@ message Shell {
   commonpb.Response Response = 9;
 }
 
-// Portfwd
-enum PortfwdProtocol {
-  TCP = 0;
-  UDP = 1;
-}
 
 message PortfwdReq {
   uint32 Port = 1;
-  PortfwdProtocol Protocol = 2;
+  int32 Protocol = 2;
   string Host = 3;
 
 
@@ -620,7 +608,7 @@ message PortfwdReq {
 
 message Portfwd {
   uint32 Port = 1;
-  PortfwdProtocol Protocol = 2;
+  int32 Protocol = 2;
   string Host = 3;
 
   uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
