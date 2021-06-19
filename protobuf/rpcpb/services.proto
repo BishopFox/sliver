@@ -107,6 +107,11 @@ service SliverRPC {
     rpc WGListForwarders(sliverpb.WGTCPForwardersReq) returns (sliverpb.WGTCPForwarders);
     rpc WGListSocksServers(sliverpb.WGSocksServersReq) returns (sliverpb.WGSocksServers);
 
+    // *** UserAttribute Helpers ***
+    rpc UserAttributeDelete(clientpb.UserAttributeDeleteReq) returns (clientpb.UserAttributeDelete);
+    rpc UserAttributeGet(clientpb.UserAttributeGetReq) returns (clientpb.UserAttributeGet);
+    rpc UserAttributeSet(clientpb.UserAttributeSetReq) returns (clientpb.UserAttributeSet);
+
     // *** Realtime Commands ***
     rpc Shell(sliverpb.ShellReq) returns (sliverpb.Shell);
     rpc Portfwd(sliverpb.PortfwdReq) returns (sliverpb.Portfwd);

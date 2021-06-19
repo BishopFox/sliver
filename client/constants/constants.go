@@ -163,6 +163,8 @@ const (
 
 	PortfwdStr = "portfwd"
 
+	PersistStr = "persist"
+
 	LicensesStr = "licenses"
 )
 
