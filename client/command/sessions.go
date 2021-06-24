@@ -132,6 +132,7 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 		strings.Repeat("=", len("Operating System")),
 		strings.Repeat("=", len("Last Check-in")),
 		strings.Repeat("=", len("Health")))
+	// strings.Repeat("=", len("Burned")))
 
 	// Sort the keys because maps have a randomized order
 	var keys []int
@@ -153,8 +154,12 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 		} else {
 			SessionHealth = bold + green + "[ALIVE]" + normal
 		}
+		burned := ""
+		if session.Burned {
+			burned = "🔥"
+		}
 
-		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			session.ID,
 			session.Name,
 			session.Transport,
@@ -164,6 +169,7 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 			fmt.Sprintf("%s/%s", session.OS, session.Arch),
 			session.LastCheckin,
 			SessionHealth,
+			burned,
 		)
 	}
 	table.Flush()

@@ -19,6 +19,8 @@ package generate
 */
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -31,6 +33,7 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/server/watchtower"
 )
 
 var (
@@ -64,7 +67,8 @@ func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) e
 	if err != nil {
 		return err
 	}
-
+	sum := md5.Sum(data)
+	hash := hex.EncodeToString(sum[:])
 	buildsDir, err := getBuildsDir()
 	if err != nil {
 		return err
@@ -73,7 +77,9 @@ func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) e
 	implantBuild := &models.ImplantBuild{
 		Name:          name,
 		ImplantConfig: (*config),
+		Checksum:      hash,
 	}
+	watchtower.AddImplantToWatchlist(implantBuild)
 	result := dbSession.Create(&implantBuild)
 	if result.Error != nil {
 		return result.Error

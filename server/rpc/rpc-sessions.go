@@ -28,6 +28,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -41,6 +42,12 @@ func (rpc *Server) GetSessions(ctx context.Context, _ *commonpb.Empty) (*clientp
 		Sessions: []*clientpb.Session{},
 	}
 	for _, session := range core.Sessions.All() {
+		build, err := db.ImplantBuildByName(session.Name)
+		if err == nil && build != nil {
+			if build.Burned {
+				session.Burned = true
+			}
+		}
 		resp.Sessions = append(resp.Sessions, session.ToProtobuf())
 	}
 	return resp, nil

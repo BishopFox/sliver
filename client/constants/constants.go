@@ -47,6 +47,9 @@ const (
 	// CanaryEvent - A DNS canary was triggered
 	CanaryEvent = "canary"
 
+	// WatchtowerEvent - An implant hash has been identified on a threat intel platform
+	WatchtowerEvent = "watchtower"
+
 	// StartedEvent - Job was started
 	JobStartedEvent = "job-started"
 	// StoppedEvent - Job was stopped
@@ -160,6 +163,7 @@ const (
 	WgConfigStr           = "wg-config"
 	WgSocksStr            = "wg-socks"
 	WgPortFwdStr          = "wg-portfwd"
+	MonitorStr            = "monitor"
 
 	PortfwdStr = "portfwd"
 

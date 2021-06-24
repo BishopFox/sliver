@@ -34,6 +34,11 @@ type ImplantBuild struct {
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	Name string `gorm:"unique;"`
+	// Checksum stores the MD5 sum of an implant binary
+	Checksum string
+	// Burned indicates whether the implant
+	// has been seen on threat intel platforms
+	Burned bool
 
 	ImplantConfig ImplantConfig
 }

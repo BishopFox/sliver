@@ -29,6 +29,9 @@ type SliverRPCClient interface {
 	GetSessions(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Sessions, error)
 	KillSession(ctx context.Context, in *sliverpb.KillSessionReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	UpdateSession(ctx context.Context, in *clientpb.UpdateSession, opts ...grpc.CallOption) (*clientpb.Session, error)
+	// ***Threat monitoring ***
+	MonitorStart(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*commonpb.Response, error)
+	MonitorStop(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	// *** Jobs ***
 	GetJobs(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Jobs, error)
 	KillJob(ctx context.Context, in *clientpb.KillJobReq, opts ...grpc.CallOption) (*clientpb.KillJob, error)
@@ -168,6 +171,24 @@ func (c *sliverRPCClient) KillSession(ctx context.Context, in *sliverpb.KillSess
 func (c *sliverRPCClient) UpdateSession(ctx context.Context, in *clientpb.UpdateSession, opts ...grpc.CallOption) (*clientpb.Session, error) {
 	out := new(clientpb.Session)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/UpdateSession", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) MonitorStart(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*commonpb.Response, error) {
+	out := new(commonpb.Response)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/MonitorStart", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) MonitorStop(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/MonitorStop", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -951,6 +972,9 @@ type SliverRPCServer interface {
 	GetSessions(context.Context, *commonpb.Empty) (*clientpb.Sessions, error)
 	KillSession(context.Context, *sliverpb.KillSessionReq) (*commonpb.Empty, error)
 	UpdateSession(context.Context, *clientpb.UpdateSession) (*clientpb.Session, error)
+	// ***Threat monitoring ***
+	MonitorStart(context.Context, *commonpb.Empty) (*commonpb.Response, error)
+	MonitorStop(context.Context, *commonpb.Empty) (*commonpb.Empty, error)
 	// *** Jobs ***
 	GetJobs(context.Context, *commonpb.Empty) (*clientpb.Jobs, error)
 	KillJob(context.Context, *clientpb.KillJobReq) (*clientpb.KillJob, error)
@@ -1062,6 +1086,12 @@ func (UnimplementedSliverRPCServer) KillSession(context.Context, *sliverpb.KillS
 }
 func (UnimplementedSliverRPCServer) UpdateSession(context.Context, *clientpb.UpdateSession) (*clientpb.Session, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateSession not implemented")
+}
+func (UnimplementedSliverRPCServer) MonitorStart(context.Context, *commonpb.Empty) (*commonpb.Response, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MonitorStart not implemented")
+}
+func (UnimplementedSliverRPCServer) MonitorStop(context.Context, *commonpb.Empty) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MonitorStop not implemented")
 }
 func (UnimplementedSliverRPCServer) GetJobs(context.Context, *commonpb.Empty) (*clientpb.Jobs, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetJobs not implemented")
@@ -1402,6 +1432,42 @@ func _SliverRPC_UpdateSession_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).UpdateSession(ctx, req.(*clientpb.UpdateSession))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_MonitorStart_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).MonitorStart(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/MonitorStart",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).MonitorStart(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_MonitorStop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).MonitorStop(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/MonitorStop",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).MonitorStop(ctx, req.(*commonpb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2883,6 +2949,14 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateSession",
 			Handler:    _SliverRPC_UpdateSession_Handler,
+		},
+		{
+			MethodName: "MonitorStart",
+			Handler:    _SliverRPC_MonitorStart_Handler,
+		},
+		{
+			MethodName: "MonitorStop",
+			Handler:    _SliverRPC_MonitorStop_Handler,
 		},
 		{
 			MethodName: "GetJobs",

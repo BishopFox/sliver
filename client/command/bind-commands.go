@@ -1726,4 +1726,31 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 	app.AddCommand(portfwdCmd)
+
+	monitorCmd := &grumble.Command{
+		Name: consts.MonitorStr,
+		Help: "Monitor threat intel platforms for Sliver implants",
+	}
+
+	monitorCmd.AddCommand(&grumble.Command{
+		Name: "start",
+		Help: "Start the monitoring loops",
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			monitorStartCmd(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+	monitorCmd.AddCommand(&grumble.Command{
+		Name: "stop",
+		Help: "Stop the monitoring loops",
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			monitorStopCmd(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+	})
+	app.AddCommand(monitorCmd)
 }

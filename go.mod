@@ -10,7 +10,7 @@ require (
 	github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
 	github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2
 	github.com/BurntSushi/xgb v0.0.0-20201008132610-5f9e7b3c49cd // indirect
-	github.com/Microsoft/go-winio v0.4.16
+	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/alecthomas/chroma v0.8.1
 	github.com/binject/go-donut v0.0.0-20201215224200-d947cf4d090d
 	github.com/cheggaaa/pb/v3 v3.0.5
@@ -26,6 +26,8 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194
+	github.com/lesnuages/go-winio v0.4.19
+	github.com/lesnuages/snitch v0.6.0
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mattn/go-sqlite3 v1.14.5
 	github.com/miekg/dns v1.1.35
@@ -33,7 +35,7 @@ require (
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/cobra v1.1.1
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20210317152858-513c2a44f670
 	golang.org/x/net v0.0.0-20210410081132-afb366fc7cd1
 	golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57
