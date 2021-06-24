@@ -42,6 +42,7 @@ message Session {
   uint32 ReconnectInterval = 19;
   string ProxyURL = 20;
   uint32 PollInterval = 21;
+  bool Burned = 22;
 }
 
 message ImplantC2 {

@@ -22,8 +22,9 @@ github.com/BurntSushi/xgb/xinerama
 github.com/BurntSushi/xgb/xproto
 # github.com/Microsoft/go-winio v0.4.16
 ## explicit
-github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/pkg/guid
+# github.com/VirusTotal/vt-go v0.0.0-20210528074736-45bbe34cc8ab
+github.com/VirusTotal/vt-go
 # github.com/VividCortex/ewma v1.1.1
 github.com/VividCortex/ewma
 # github.com/alecthomas/chroma v0.8.1
@@ -72,6 +73,8 @@ github.com/cheggaaa/pb/v3/termutil
 github.com/danwakefield/fnmatch
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
+# github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d
+github.com/demisto/goxforce
 # github.com/desertbit/closer/v3 v3.1.2
 ## explicit
 github.com/desertbit/closer/v3
@@ -109,8 +112,6 @@ github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
 # github.com/google/btree v1.0.1
 github.com/google/btree
-# github.com/google/go-cmp v0.5.5
-## explicit
 # github.com/google/uuid v1.2.0
 ## explicit
 github.com/google/uuid
@@ -164,6 +165,12 @@ github.com/kbinani/screenshot/internal/xwindow
 # github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194
 ## explicit
 github.com/lesnuages/go-socks5
+# github.com/lesnuages/go-winio v0.4.19
+## explicit
+github.com/lesnuages/go-winio
+# github.com/lesnuages/snitch v0.6.0
+## explicit
+github.com/lesnuages/snitch/pkg/snitch
 # github.com/lxn/win v0.0.0-20210218163916-a377121e959e
 ## explicit
 github.com/lxn/win
@@ -195,9 +202,11 @@ github.com/sirupsen/logrus
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.6.1
+# github.com/stretchr/testify v1.7.0
 ## explicit
 github.com/stretchr/testify/assert
+# github.com/thedevsaddam/gojsonq/v2 v2.5.2
+github.com/thedevsaddam/gojsonq/v2
 # golang.org/x/crypto v0.0.0-20210317152858-513c2a44f670
 ## explicit
 golang.org/x/crypto/acme
@@ -331,8 +340,6 @@ google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
 google.golang.org/grpc/test/bufconn
-# google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
-## explicit
 # google.golang.org/protobuf v1.26.0
 ## explicit
 google.golang.org/protobuf/encoding/protojson
