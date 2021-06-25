@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -127,6 +128,10 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcp
 }
 
 func runSSHCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	var (
+		privKey []byte
+		err     error
+	)
 	session := ActiveSession.GetInteractive()
 	if session == nil {
 		return
@@ -143,6 +148,15 @@ func runSSHCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	port := ctx.Flags.Uint("port")
+	privateKeypath := ctx.Flags.String("private-key")
+	if privateKeypath != "" {
+		privKey, err = ioutil.ReadFile(privateKeypath)
+		if err != nil {
+			fmt.Printf(Warn+"Error: %s\n", err.Error())
+			return
+		}
+	}
+	password := ctx.Flags.String("password")
 
 	hostname := ctx.Args[0]
 	command := ctx.Args[1:]
@@ -151,6 +165,8 @@ func runSSHCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Username: username,
 		Hostname: hostname,
 		Port:     uint32(port),
+		PrivKey:  privKey,
+		Password: password,
 		Command:  strings.Join(command, " "),
 		Request:  ActiveSession.Request(ctx),
 	})

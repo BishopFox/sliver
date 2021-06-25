@@ -759,6 +759,8 @@ message SSHCommandReq {
   string Hostname = 2;
   uint32 Port = 3;
   string Command = 4;
+  string Password = 5;
+  bytes PrivKey = 6;
   commonpb.Request Request = 9;
 }
 

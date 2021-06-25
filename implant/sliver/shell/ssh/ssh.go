@@ -3,6 +3,10 @@ package ssh
 import (
 	"bytes"
 	"fmt"
+
+	// {{if .Config.Debug}}
+
+	// {{end}}
 	"net"
 	"os"
 
@@ -10,10 +14,11 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
-func RunSSHCommand(host string, port uint16, username string, command string) (string, string, error) {
+func RunSSHCommand(host string, port uint16, username string, password string, privKey []byte, command string) (string, string, error) {
 	var (
-		stdout bytes.Buffer
-		stderr bytes.Buffer
+		stdout      bytes.Buffer
+		stderr      bytes.Buffer
+		authMethods []ssh.AuthMethod
 	)
 	// ssh-agent(1) provides a UNIX socket at $SSH_AUTH_SOCK.
 	socket := os.Getenv("SSH_AUTH_SOCK")
@@ -21,15 +26,28 @@ func RunSSHCommand(host string, port uint16, username string, command string) (s
 	if err != nil {
 		return "", "", err
 	}
+	if password != "" {
+		// Try password auth first
+		authMethods = append(authMethods, ssh.Password(password))
+	} else if len(privKey) != 0 {
+		// Then try private key
+		signer, err := ssh.ParsePrivateKey(privKey)
+		if err != nil {
+			return "", "", err
+		}
+		authMethods = append(authMethods, ssh.PublicKeys(signer))
+	} else {
+		// Use ssh-agent if neither password nor private key has been provided
+		agentClient := agent.NewClient(conn)
+		authMethods = append(authMethods, ssh.PublicKeysCallback(agentClient.Signers))
+	}
 
-	agentClient := agent.NewClient(conn)
 	config := &ssh.ClientConfig{
 		User: username,
-		Auth: []ssh.AuthMethod{
-			// Use a callback rather than PublicKeys so we only consult the
-			// agent once the remote server wants it.
-			ssh.PublicKeysCallback(agentClient.Signers),
-		},
+		Auth: authMethods,
+		// This setting is insecure, but we need to be able
+		// to connect to any host, not only those in the target's
+		// known_hosts file
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 

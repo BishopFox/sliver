@@ -1762,6 +1762,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Uint("p", "port", 22, "SSH port")
+			f.String("P", "private-key", "", "path to private key file")
+			f.String("a", "password", "", "SSH user password")
 			f.String("l", "login", "", "username to use to connect")
 		},
 		Run: func(ctx *grumble.Context) error {
