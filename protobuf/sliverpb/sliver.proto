@@ -753,3 +753,19 @@ message PollIntervalReq {
 message PollInterval {
   commonpb.Response Response = 9;
 }
+
+message SSHCommandReq {
+  string Username = 1;
+  string Hostname = 2;
+  uint32 Port = 3;
+  string Command = 4;
+  string Password = 5;
+  bytes PrivKey = 6;
+  commonpb.Request Request = 9;
+}
+
+message SSHCommand {
+  string StdOut = 1;
+  string StdErr = 2;
+  commonpb.Response Response = 9;
+}

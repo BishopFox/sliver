@@ -1753,4 +1753,25 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 	})
 	app.AddCommand(monitorCmd)
+
+	app.AddCommand(&grumble.Command{
+		Name:      consts.SSHStr,
+		Help:      "Run a SSH command on a remote host",
+		LongHelp:  help.GetHelpFor(consts.SSHStr),
+		AllowArgs: true,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Uint("p", "port", 22, "SSH port")
+			f.String("i", "private-key", "", "path to private key file")
+			f.String("P", "password", "", "SSH user password")
+			f.String("l", "login", "", "username to use to connect")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			runSSHCmd(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 }

@@ -23,8 +23,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -123,4 +125,69 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcp
 
 	log.Printf("Exit interactive")
 	bufio.NewWriter(os.Stdout).Flush()
+}
+
+func runSSHCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	var (
+		privKey []byte
+		err     error
+	)
+	session := ActiveSession.GetInteractive()
+	if session == nil {
+		return
+	}
+
+	if len(ctx.Args) < 2 {
+		fmt.Printf(Warn + "Error: this command takes at least two arguments")
+		return
+	}
+
+	username := ctx.Flags.String("login")
+	if username == "" {
+		username = session.GetUsername()
+	}
+
+	port := ctx.Flags.Uint("port")
+	privateKeypath := ctx.Flags.String("private-key")
+	if privateKeypath != "" {
+		privKey, err = ioutil.ReadFile(privateKeypath)
+		if err != nil {
+			fmt.Printf(Warn+"Error: %s\n", err.Error())
+			return
+		}
+	}
+	password := ctx.Flags.String("password")
+
+	hostname := ctx.Args[0]
+	command := ctx.Args[1:]
+
+	commandResp, err := rpc.RunSSHCommand(context.Background(), &sliverpb.SSHCommandReq{
+		Username: username,
+		Hostname: hostname,
+		Port:     uint32(port),
+		PrivKey:  privKey,
+		Password: password,
+		Command:  strings.Join(command, " "),
+		Request:  ActiveSession.Request(ctx),
+	})
+	if err != nil {
+		fmt.Printf(Warn+"Error: %s\n", err.Error())
+		return
+	}
+
+	if commandResp.Response != nil && commandResp.Response.Err != "" {
+		fmt.Printf(Warn+"Error: %s\n", commandResp.Response.Err)
+		if commandResp.StdErr != "" {
+			fmt.Printf(Warn+"StdErr: %s\n", commandResp.StdErr)
+		}
+		return
+	}
+	if commandResp.StdOut != "" {
+		fmt.Println(Info + "Output:")
+		fmt.Println(commandResp.StdOut)
+		if commandResp.StdErr != "" {
+			fmt.Println(Info + "StdErr")
+			fmt.Println(commandResp.StdErr)
+		}
+	}
 }

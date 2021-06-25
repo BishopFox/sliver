@@ -225,6 +225,9 @@ const (
 
 	// MsgUnsetEnvReq
 	MsgUnsetEnvReq
+
+	// MsgSSHCommandReq - Run a SSH command
+	MsgSSHCommandReq
 )
 
 // Constants to replace enums
@@ -445,7 +448,9 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *PollInterval:
 		return MsgPollInterval
-
+	case *SSHCommandReq:
+		return MsgSSHCommandReq
 	}
+
 	return uint32(0)
 }

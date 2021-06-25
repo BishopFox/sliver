@@ -79,6 +79,7 @@ var (
 		consts.PivotsListStr:        pivotListHelp,
 		consts.WgPortFwdStr:         wgPortFwdHelp,
 		consts.WgSocksStr:           wgSocksHelp,
+		consts.SSHStr:               sshHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -487,6 +488,18 @@ List existing listeners:
 Stop and remove an existing listener:
 
 	wg-portfwd rm 0
+`
+	sshHelp = `[[.Bold]]Command:[[.Normal]] ssh
+[[.Bold]]About:[[.Normal]] Run an one-off SSH command via the implant.
+The built-in client will use the ssh-agent to connect to the remote host.
+The username will be the current session username by default, but is configurable using the "-l" flag.
+[[.Bold]]Examples:[[.Normal]]
+
+# Connect to a remote host named "bastion" and execute "cat /etc/passwd"
+ssh bastion cat /etc/passwd
+
+# Connect to a remote host by specifying a username
+ssh -l ubuntu ec2-instance ps aux
 `
 )
 

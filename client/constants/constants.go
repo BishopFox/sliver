@@ -164,6 +164,7 @@ const (
 	WgSocksStr            = "wg-socks"
 	WgPortFwdStr          = "wg-portfwd"
 	MonitorStr            = "monitor"
+	SSHStr                = "ssh"
 
 	PortfwdStr = "portfwd"
 

@@ -12,4 +12,6 @@ require (
         github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
         github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194
         inet.af/netstack v0.0.0-20210317161235-a1bf4e56ef22
+        golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
+	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
 )

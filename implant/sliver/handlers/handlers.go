@@ -39,6 +39,7 @@ import (
 	// {{if .Config.WGc2Enabled}}
 	"github.com/bishopfox/sliver/implant/sliver/forwarder"
 	// {{end}}
+
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
