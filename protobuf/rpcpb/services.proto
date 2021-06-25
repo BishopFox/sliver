@@ -103,6 +103,7 @@ service SliverRPC {
     rpc RegistryRead(sliverpb.RegistryReadReq) returns (sliverpb.RegistryRead);
     rpc RegistryWrite(sliverpb.RegistryWriteReq) returns (sliverpb.RegistryWrite);
     rpc RegistryCreateKey(sliverpb.RegistryCreateKeyReq) returns (sliverpb.RegistryCreateKey);
+    rpc RunSSHCommand(sliverpb.SSHCommandReq) returns (sliverpb.SSHCommand);
     // *** Wireguard Specific ***
     rpc WGStartPortForward(sliverpb.WGPortForwardStartReq) returns (sliverpb.WGPortForward);
     rpc WGStopPortForward(sliverpb.WGPortForwardStopReq) returns (sliverpb.WGPortForward);

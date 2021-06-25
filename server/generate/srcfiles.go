@@ -116,6 +116,8 @@ var (
 		"shell/pty/ioctl_darwin.go",
 		"shell/pty/pty_unsupported.go",
 
+		"shell/ssh/ssh.go",
+
 		"taskrunner/task.go",
 		"taskrunner/task_windows.go",
 		"taskrunner/task_darwin.go",

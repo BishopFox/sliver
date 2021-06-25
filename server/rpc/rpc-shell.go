@@ -54,3 +54,13 @@ func (s *Server) Shell(ctx context.Context, req *sliverpb.ShellReq) (*sliverpb.S
 	err = proto.Unmarshal(data, shell)
 	return shell, err
 }
+
+// RunSSHCommand runs a SSH command using the client built into the implant
+func (rpc *Server) RunSSHCommand(ctx context.Context, req *sliverpb.SSHCommandReq) (*sliverpb.SSHCommand, error) {
+	resp := &sliverpb.SSHCommand{}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
