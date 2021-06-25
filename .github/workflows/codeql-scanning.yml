@@ -68,7 +68,7 @@ jobs:
 
       # Build the server ... is this necessary though?
       - run: |
-          make linux
+          make
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v1
