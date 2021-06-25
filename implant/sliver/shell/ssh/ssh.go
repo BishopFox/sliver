@@ -20,12 +20,6 @@ func RunSSHCommand(host string, port uint16, username string, password string, p
 		stderr      bytes.Buffer
 		authMethods []ssh.AuthMethod
 	)
-	// ssh-agent(1) provides a UNIX socket at $SSH_AUTH_SOCK.
-	socket := os.Getenv("SSH_AUTH_SOCK")
-	conn, err := net.Dial("unix", socket)
-	if err != nil {
-		return "", "", err
-	}
 	if password != "" {
 		// Try password auth first
 		authMethods = append(authMethods, ssh.Password(password))
@@ -38,6 +32,12 @@ func RunSSHCommand(host string, port uint16, username string, password string, p
 		authMethods = append(authMethods, ssh.PublicKeys(signer))
 	} else {
 		// Use ssh-agent if neither password nor private key has been provided
+		// ssh-agent(1) provides a UNIX socket at $SSH_AUTH_SOCK.
+		socket := os.Getenv("SSH_AUTH_SOCK")
+		conn, err := net.Dial("unix", socket)
+		if err != nil {
+			return "", "", err
+		}
 		agentClient := agent.NewClient(conn)
 		authMethods = append(authMethods, ssh.PublicKeysCallback(agentClient.Signers))
 	}
