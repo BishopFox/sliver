@@ -52,6 +52,7 @@ service SliverRPC {
     rpc SaveImplantProfile(clientpb.ImplantProfile) returns (clientpb.ImplantProfile);
     rpc MsfStage(clientpb.MsfStagerReq) returns (clientpb.MsfStager);
     rpc ShellcodeRDI(clientpb.ShellcodeRDIReq) returns (clientpb.ShellcodeRDI);
+    rpc GetCompiler(commonpb.Empty) returns (clientpb.Compiler);
 
     // *** Websites ***
     rpc Websites(commonpb.Empty) returns (clientpb.Websites);

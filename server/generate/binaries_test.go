@@ -218,7 +218,7 @@ func multiWindowsService(t *testing.T, goos string, goarch string, debug bool) {
 	config := &models.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-		Format: clientpb.ImplantConfig_SERVICE,
+		Format: clientpb.OutputFormat_SERVICE,
 
 		C2: []models.ImplantC2{
 			{URL: "mtls://1.example.com"},
@@ -330,7 +330,7 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 
 		Debug:             debug,
 		ObfuscateSymbols:  false,
-		Format:            clientpb.ImplantConfig_SHARED_LIB,
+		Format:            clientpb.OutputFormat_SHARED_LIB,
 		IsSharedLib:       true,
 		WGc2Enabled:       true,
 		WGImplantPrivKey:  "153be871d7e54545c01a9700880f86fc83087275669c9237b9bcd617ddbfa43f",

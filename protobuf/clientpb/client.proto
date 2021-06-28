@@ -51,6 +51,13 @@ message ImplantC2 {
   string Options = 3; // Protocol specific options
 }
 
+enum OutputFormat {
+  SHARED_LIB = 0;
+  SHELLCODE = 1;
+  EXECUTABLE = 2;
+  SERVICE = 3;
+}
+
 message ImplantConfig {
   string GOOS = 1;
   string GOARCH = 2;
@@ -82,12 +89,6 @@ message ImplantConfig {
   string LimitUsername = 23;
   string LimitFileExists = 32;
 
-  enum OutputFormat {
-    SHARED_LIB = 0;
-    SHELLCODE = 1;
-    EXECUTABLE = 2;
-    SERVICE = 3;
-  }
   OutputFormat Format = 25;
   bool IsSharedLib = 26;
 
@@ -99,6 +100,18 @@ message ImplantConfig {
 // Configs of previously built implants
 message ImplantBuilds {
   map<string, ImplantConfig> Configs = 1;
+}
+
+message CompilerTarget {
+  string GOOS = 1;  // The server's OS
+  string GOARCH = 2;  // The server's Arch
+  OutputFormat Format = 3;
+}
+
+message Compiler {
+  string GOOS = 1;  // The server's OS
+  string GOARCH = 2;  // The server's Arch
+  repeated CompilerTarget Targets = 3;
 }
 
 message DeleteReq {
@@ -363,7 +376,7 @@ message CloseTunnelReq {
   commonpb.Request Request = 9;
 }
 
-// [ events ] ----------------------------------------
+// [ Events ] ----------------------------------------
 message Client {
   uint32 ID = 1;
   string Name = 2;
@@ -390,7 +403,7 @@ message Operator {
   string Name = 2;
 }
 
-// [ websites ] ----------------------------------------
+// [ Websites ] ----------------------------------------
 message WebContent {
   string Path = 1;
   string ContentType = 2;
@@ -419,7 +432,7 @@ message Websites {
 }
 
 
-// [Wireguard]
+// [ Wireguard ] ----------------------------------------
 
 message WGClientConfig {
   string ServerPubKey = 1;

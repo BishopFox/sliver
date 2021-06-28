@@ -310,7 +310,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	config.Format = clientpb.ImplantConfig_SHELLCODE
+	config.Format = clientpb.OutputFormat_SHELLCODE
 	// Save to database
 	saveBuildErr := ImplantBuildSave(name, config, dest)
 	if saveBuildErr != nil {

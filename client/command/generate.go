@@ -341,22 +341,22 @@ func parseCompileFlags(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) *clientp
 	isShellcode := false
 
 	format := ctx.Flags.String("format")
-	var configFormat clientpb.ImplantConfig_OutputFormat
+	var configFormat clientpb.OutputFormat
 	switch format {
 	case "exe":
-		configFormat = clientpb.ImplantConfig_EXECUTABLE
+		configFormat = clientpb.OutputFormat_EXECUTABLE
 	case "shared":
-		configFormat = clientpb.ImplantConfig_SHARED_LIB
+		configFormat = clientpb.OutputFormat_SHARED_LIB
 		isSharedLib = true
 	case "shellcode":
-		configFormat = clientpb.ImplantConfig_SHELLCODE
+		configFormat = clientpb.OutputFormat_SHELLCODE
 		isShellcode = true
 	case "service":
-		configFormat = clientpb.ImplantConfig_SERVICE
+		configFormat = clientpb.OutputFormat_SERVICE
 		isService = true
 	default:
 		// default to exe
-		configFormat = clientpb.ImplantConfig_EXECUTABLE
+		configFormat = clientpb.OutputFormat_EXECUTABLE
 	}
 
 	targetOS := strings.ToLower(ctx.Flags.String("os"))
