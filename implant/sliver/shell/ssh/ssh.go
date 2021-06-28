@@ -11,12 +11,8 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
-func RunSSHCommand(host string, port uint16, username string, password string, privKey []byte, command string) (string, string, error) {
-	var (
-		stdout      bytes.Buffer
-		stderr      bytes.Buffer
-		authMethods []ssh.AuthMethod
-	)
+func getClient(host string, port uint16, username string, password string, privKey []byte) (*ssh.Client, error) {
+	var authMethods []ssh.AuthMethod
 	if password != "" {
 		// Try password auth first
 		authMethods = append(authMethods, ssh.Password(password))
@@ -24,7 +20,7 @@ func RunSSHCommand(host string, port uint16, username string, password string, p
 		// Then try private key
 		signer, err := ssh.ParsePrivateKey(privKey)
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
 		authMethods = append(authMethods, ssh.PublicKeys(signer))
 	} else {
@@ -33,7 +29,7 @@ func RunSSHCommand(host string, port uint16, username string, password string, p
 		socket := os.Getenv("SSH_AUTH_SOCK")
 		conn, err := net.Dial("unix", socket)
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
 		agentClient := agent.NewClient(conn)
 		authMethods = append(authMethods, ssh.PublicKeysCallback(agentClient.Signers))
@@ -50,7 +46,20 @@ func RunSSHCommand(host string, port uint16, username string, password string, p
 
 	sshc, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", host, port), config)
 	if err != nil {
-		return "", "", (err)
+		return nil, err
+	}
+	return sshc, nil
+
+}
+
+func RunSSHCommand(host string, port uint16, username string, password string, privKey []byte, command string) (string, string, error) {
+	var (
+		stdout bytes.Buffer
+		stderr bytes.Buffer
+	)
+	sshc, err := getClient(host, port, username, password, privKey)
+	if err != nil {
+		return "", "", err
 	}
 	// Use sshc...
 	session, err := sshc.NewSession()
