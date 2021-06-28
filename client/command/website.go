@@ -47,10 +47,11 @@ const (
 )
 
 func websites(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	if len(ctx.Args) < 1 {
+	websiteName := ctx.Args.String("name")
+	if websiteName == "" {
 		listWebsites(ctx, rpc)
 	} else {
-		listWebsiteContent(ctx, rpc)
+		listWebsiteContent(websiteName, rpc)
 	}
 }
 
@@ -71,12 +72,9 @@ func listWebsites(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 }
 
-func listWebsiteContent(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	if len(ctx.Args) < 1 {
-		return
-	}
+func listWebsiteContent(websiteName string, rpc rpcpb.SliverRPCClient) {
 	website, err := rpc.Website(context.Background(), &clientpb.Website{
-		Name: ctx.Args[0],
+		Name: websiteName,
 	})
 	if err != nil {
 		fmt.Printf(Warn+"Failed to list website content %s", err)
@@ -85,7 +83,7 @@ func listWebsiteContent(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if 0 < len(website.Contents) {
 		displayWebsite(website)
 	} else {
-		fmt.Printf(Info+"No content for '%s'", ctx.Args[0])
+		fmt.Printf(Info+"No content for '%s'", websiteName)
 	}
 }
 
@@ -171,11 +169,8 @@ func updateWebsiteContent(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func removeWebsite(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	if len(ctx.Args) < 1 {
-		return
-	}
 	_, err := rpc.WebsiteRemove(context.Background(), &clientpb.Website{
-		Name: ctx.Args[0],
+		Name: ctx.Args.String("name"),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"Failed to remove website %s", err)

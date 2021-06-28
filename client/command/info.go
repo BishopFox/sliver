@@ -38,7 +38,7 @@ func info(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if ActiveSession.GetInteractive() != nil {
 		session = ActiveSession.GetInteractive()
 	} else if 0 < len(ctx.Args) {
-		session = GetSession(ctx.Args[0], rpc)
+		session = GetSession(ctx.Args.String("session"), rpc)
 	}
 
 	if session != nil {

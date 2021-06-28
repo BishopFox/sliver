@@ -74,11 +74,11 @@ func registryReadCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 1 {
+	regPath := ctx.Args.String("registry-path")
+	if regPath == "" {
 		fmt.Printf(Warn + "you must provide a path")
 		return
 	}
-	regPath := ctx.Args[0]
 	if strings.Contains(regPath, "/") {
 		regPath = strings.ReplaceAll(regPath, "/", "\\")
 	}
@@ -136,18 +136,18 @@ func registryWriteCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 2 {
+	regPath := ctx.Args.String("registry-path")
+	value := ctx.Args.String("value")
+	if regPath == "" || value == "" {
 		fmt.Printf(Warn + "you must provide a path and a value to write")
 		return
 	}
-	regPath := ctx.Args[0]
 	if strings.Contains(regPath, "/") {
 		regPath = strings.ReplaceAll(regPath, "/", "\\")
 	}
 	slashIndex := strings.LastIndex(regPath, "\\")
 	key := regPath[slashIndex+1:]
 	regPath = regPath[:slashIndex]
-	value := ctx.Args[1]
 	switch valType {
 	case sliverpb.RegistryTypeBinary:
 		var (
@@ -225,11 +225,11 @@ func regCreateKeyCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 1 {
+	regPath := ctx.Args.String("registry-path")
+	if regPath == "" {
 		fmt.Printf(Warn + "you must provide a path")
 		return
 	}
-	regPath := ctx.Args[0]
 	if strings.Contains(regPath, "/") {
 		regPath = strings.ReplaceAll(regPath, "/", "\\")
 	}

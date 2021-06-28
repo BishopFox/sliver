@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -112,17 +111,7 @@ func wgPortFwdRmCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Println(Warn + "you must provide a rule identifier")
 		return
 	}
-	idStr := ctx.Args[0]
-	fwdID, err := strconv.Atoi(idStr)
-	if err != nil {
-		fmt.Printf(Warn+"Error: %v", err)
-		return
-	}
-
-	if fwdID == -1 {
-		return
-	}
-
+	fwdID := ctx.Args.Int("id")
 	stopReq, err := rpc.WGStopPortForward(context.Background(), &sliverpb.WGPortForwardStopReq{
 		ID:      int32(fwdID),
 		Request: ActiveSession.Request(ctx),
@@ -232,16 +221,7 @@ func wgSocksRmCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Println(Warn + "you must provide a listener identifier")
 		return
 	}
-	idStr := ctx.Args[0]
-	socksID, err := strconv.Atoi(idStr)
-	if err != nil {
-		fmt.Printf(Warn+"Error: %v", err)
-		return
-	}
-
-	if socksID == -1 {
-		return
-	}
+	socksID := ctx.Args.Int("id")
 
 	stopReq, err := rpc.WGStopSocks(context.Background(), &sliverpb.WGSocksStopReq{
 		ID:      int32(socksID),

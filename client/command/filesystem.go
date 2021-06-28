@@ -47,13 +47,11 @@ func ls(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) < 1 {
-		ctx.Args = append(ctx.Args, ".")
-	}
+	remotePath := ctx.Args.String("path")
 
 	ls, err := rpc.Ls(context.Background(), &sliverpb.LsReq{
 		Request: ActiveSession.Request(ctx),
-		Path:    ctx.Args[0],
+		Path:    remotePath,
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
@@ -83,14 +81,16 @@ func rm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) == 0 {
+	filePath := ctx.Args.String("path")
+
+	if filePath == "" {
 		fmt.Printf(Warn + "Missing parameter: file or directory name\n")
 		return
 	}
 
 	rm, err := rpc.Rm(context.Background(), &sliverpb.RmReq{
 		Request:   ActiveSession.Request(ctx),
-		Path:      ctx.Args[0],
+		Path:      filePath,
 		Recursive: ctx.Flags.Bool("recursive"),
 		Force:     ctx.Flags.Bool("force"),
 	})
@@ -107,14 +107,16 @@ func mkdir(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) == 0 {
+	filePath := ctx.Args.String("path")
+
+	if filePath == "" {
 		fmt.Printf(Warn + "Missing parameter: directory name\n")
 		return
 	}
 
 	mkdir, err := rpc.Mkdir(context.Background(), &sliverpb.MkdirReq{
 		Request: ActiveSession.Request(ctx),
-		Path:    ctx.Args[0],
+		Path:    filePath,
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
@@ -128,13 +130,11 @@ func cd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if session == nil {
 		return
 	}
-	if len(ctx.Args) < 1 {
-		ctx.Args = append(ctx.Args, ".")
-	}
+	filePath := ctx.Args.String("path")
 
 	pwd, err := rpc.Cd(context.Background(), &sliverpb.CdReq{
 		Request: ActiveSession.Request(ctx),
-		Path:    ctx.Args[0],
+		Path:    filePath,
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
@@ -165,14 +165,15 @@ func cat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) == 0 {
+	filePath := ctx.Args.String("path")
+	if filePath == "" {
 		fmt.Printf(Warn + "Missing parameter: file name\n")
 		return
 	}
 
 	download, err := rpc.Download(context.Background(), &sliverpb.DownloadReq{
 		Request: ActiveSession.Request(ctx),
-		Path:    ctx.Args[0],
+		Path:    filePath,
 	})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
@@ -235,13 +236,12 @@ func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Println(Warn + "Missing parameter(s), see `help download`\n")
 		return
 	}
-	if len(ctx.Args) == 1 {
-		ctx.Args = append(ctx.Args, ".")
-	}
+	remotePath := ctx.Args.String("remote-path")
+	localPath := ctx.Args.String("local-path")
 
-	src := ctx.Args[0]
+	src := remotePath
 	fileName := filepath.Base(src)
-	dst, _ := filepath.Abs(ctx.Args[1])
+	dst, _ := filepath.Abs(localPath)
 	fi, err := os.Stat(dst)
 	if err != nil && !os.IsNotExist(err) {
 		fmt.Printf(Warn+"%s\n", err)
@@ -264,7 +264,7 @@ func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	go spin.Until(fmt.Sprintf("%s -> %s", fileName, dst), ctrl)
 	download, err := rpc.Download(context.Background(), &sliverpb.DownloadReq{
 		Request: ActiveSession.Request(ctx),
-		Path:    ctx.Args[0],
+		Path:    remotePath,
 	})
 	ctrl <- true
 	<-ctrl
@@ -300,23 +300,26 @@ func upload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) < 1 {
+	localPath := ctx.Args.String("local-path")
+	remotePath := ctx.Args.String("remote-path")
+
+	if localPath == "" {
 		fmt.Printf(Warn + "Missing parameter, see `help upload`\n")
 		return
 	}
 
-	src, _ := filepath.Abs(ctx.Args[0])
+	src, _ := filepath.Abs(localPath)
 	_, err := os.Stat(src)
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
 
-	if len(ctx.Args) == 1 {
+	if remotePath == "" {
 		fileName := filepath.Base(src)
-		ctx.Args = append(ctx.Args, fileName)
+		remotePath = fileName
 	}
-	dst := ctx.Args[1]
+	dst := remotePath
 
 	fileBuf, err := ioutil.ReadFile(src)
 	uploadGzip := new(encoders.Gzip).Encode(fileBuf)

@@ -83,7 +83,7 @@ github.com/desertbit/closer/v3
 github.com/desertbit/columnize
 # github.com/desertbit/go-shlex v0.1.1
 github.com/desertbit/go-shlex
-# github.com/desertbit/grumble v1.0.8
+# github.com/desertbit/grumble v1.1.1
 ## explicit
 github.com/desertbit/grumble
 # github.com/desertbit/readline v1.5.1
@@ -91,7 +91,7 @@ github.com/desertbit/readline
 # github.com/dlclark/regexp2 v1.2.0
 github.com/dlclark/regexp2
 github.com/dlclark/regexp2/syntax
-# github.com/fatih/color v1.10.0
+# github.com/fatih/color v1.12.0
 ## explicit
 github.com/fatih/color
 # github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5
@@ -125,9 +125,10 @@ github.com/grpc-ecosystem/go-grpc-middleware/logging
 github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus
 github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus
 github.com/grpc-ecosystem/go-grpc-middleware/tags
-# github.com/hashicorp/errwrap v1.0.0
+# github.com/hashicorp/errwrap v1.1.0
 github.com/hashicorp/errwrap
-# github.com/hashicorp/go-multierror v1.0.0
+# github.com/hashicorp/go-multierror v1.1.1
+## explicit
 github.com/hashicorp/go-multierror
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
@@ -176,7 +177,8 @@ github.com/lesnuages/snitch/pkg/snitch
 github.com/lxn/win
 # github.com/mattn/go-colorable v0.1.8
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.12
+# github.com/mattn/go-isatty v0.0.13
+## explicit
 github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.7
 github.com/mattn/go-runewidth
@@ -247,7 +249,7 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/trace
-# golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1
+# golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
 ## explicit
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
