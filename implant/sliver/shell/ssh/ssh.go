@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"fmt"
 
-	// {{if .Config.Debug}}
-
-	// {{end}}
 	"net"
 	"os"
 
