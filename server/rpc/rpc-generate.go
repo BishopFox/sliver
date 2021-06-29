@@ -233,9 +233,10 @@ func (rpc *Server) ShellcodeRDI(ctx context.Context, req *clientpb.ShellcodeRDIR
 
 func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientpb.Compiler, error) {
 	compiler := &clientpb.Compiler{
-		GOOS:    runtime.GOOS,
-		GOARCH:  runtime.GOARCH,
-		Targets: generate.GetCompilerTargets(),
+		GOOS:           runtime.GOOS,
+		GOARCH:         runtime.GOARCH,
+		Targets:        generate.GetCompilerTargets(),
+		CrossCompilers: generate.GetCrossCompilers(),
 	}
 	return compiler, nil
 }

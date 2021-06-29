@@ -108,10 +108,18 @@ message CompilerTarget {
   OutputFormat Format = 3;
 }
 
+message CrossCompiler {
+  string TargetGOOS = 1;  // The server's OS
+  string TargetGOARCH = 2;  // The server's Arch
+  string CCPath = 3;
+  string CXXPath = 4;
+}
+
 message Compiler {
   string GOOS = 1;  // The server's OS
   string GOARCH = 2;  // The server's Arch
   repeated CompilerTarget Targets = 3;
+  repeated CrossCompiler CrossCompilers = 4;
 }
 
 message DeleteReq {

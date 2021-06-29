@@ -289,8 +289,13 @@ func generateCompilerInfo(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	fmt.Printf("%sServer:%s %s/%s\n", bold, normal, compiler.GOOS, compiler.GOARCH)
+	fmt.Println()
+	fmt.Printf("%sCross Compilers%s\n", bold, normal)
+	for _, cc := range compiler.CrossCompilers {
+		fmt.Printf("%s/%s - %s\n", cc.TargetGOOS, cc.TargetGOARCH, cc.GetCCPath())
+	}
+	fmt.Println()
 	fmt.Printf("%sTargets%s\n", bold, normal)
-
 	for _, target := range compiler.Targets {
 		fmt.Printf("%s/%s - %s\n", target.GOOS, target.GOARCH, nameOfOutputFormat(target.Format))
 	}

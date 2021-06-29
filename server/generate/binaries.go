@@ -796,3 +796,23 @@ func GetCompilerTargets() []*clientpb.CompilerTarget {
 
 	return targets
 }
+
+func GetCrossCompilers() []*clientpb.CrossCompiler {
+	compilers := []*clientpb.CrossCompiler{}
+	for longPlatform := range SupportedCompilerTargets {
+		platform := strings.SplitN(longPlatform, "/", 2)
+		if runtime.GOOS == platform[0] {
+			continue
+		}
+		cc, cxx := getCrossCompilers(platform[0], platform[1])
+		if cc != "" {
+			compilers = append(compilers, &clientpb.CrossCompiler{
+				TargetGOOS:   platform[0],
+				TargetGOARCH: platform[1],
+				CCPath:       cc,
+				CXXPath:      cxx,
+			})
+		}
+	}
+	return compilers
+}
