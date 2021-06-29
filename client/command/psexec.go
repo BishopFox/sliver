@@ -23,13 +23,11 @@ func psExec(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) < 1 {
+	hostname := ctx.Args.String("hostname")
+	if hostname == "" {
 		fmt.Println(Warn + "you need to provide a target host, see `help psexec` for examples")
 		return
 	}
-
-	hostname := ctx.Args[0]
-
 	profile := ctx.Flags.String("profile")
 	serviceName := ctx.Flags.String("service-name")
 	serviceDesc := ctx.Flags.String("service-description")

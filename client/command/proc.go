@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -227,12 +226,7 @@ func terminate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn + "Please provide a PID\n")
 		return
 	}
-	pidStr := ctx.Args[0]
-	pid, err := strconv.Atoi(pidStr)
-	if err != nil {
-		fmt.Printf(Warn+"Error: %s\n", err)
-		return
-	}
+	pid := ctx.Args.Uint("pid")
 	terminated, err := rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
 		Request: ActiveSession.Request(ctx),
 		Pid:     int32(pid),

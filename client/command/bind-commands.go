@@ -287,10 +287,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.KillStr,
-		Help:      "Kill a session",
-		LongHelp:  help.GetHelpFor(consts.KillStr),
-		AllowArgs: true,
+		Name:     consts.KillStr,
+		Help:     "Kill a session",
+		LongHelp: help.GetHelpFor(consts.KillStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			kill(ctx, rpc)
@@ -312,7 +311,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
+		Args: func(a *grumble.Args) {
+			a.String("session", "session ID")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			info(ctx, rpc)
@@ -329,7 +330,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
+		Args: func(a *grumble.Args) {
+			a.String("session", "session ID")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			use(ctx, rpc)
@@ -368,13 +371,16 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
+		Args: func(a *grumble.Args) {
+			a.String("command", "command to execute")
+			a.StringList("arguments", "arguments to the command")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			execute(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
-		AllowArgs: true,
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
@@ -394,7 +400,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 			f.String("m", "mtls", "", "mtls connection strings")
 			f.String("g", "wg", "", "wg connection strings")
-			f.String("t", "http", "", "http(s) connection strings")
+			f.String("H", "http", "", "http(s) connection strings")
 			f.String("n", "dns", "", "dns connection strings")
 			f.String("p", "named-pipe", "", "named-pipe connection strings")
 			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
@@ -484,9 +490,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 			f.String("m", "mtls", "", "mtls domain(s)")
 			f.String("g", "wg", "", "wg domain(s)")
-			f.String("t", "http", "", "http[s] domain(s)")
+			f.String("H", "http", "", "http[s] domain(s)")
 			f.String("n", "dns", "", "dns domain(s)")
-			f.String("e", "named-pipe", "", "named-pipe connection strings")
+			f.String("p", "named-pipe", "", "named-pipe connection strings")
 			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
 
 			f.Int("X", "key-exchange", defaultWGKeyExPort, "wg key-exchange port")
@@ -506,7 +512,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 
-			f.String("p", "profile-name", "", "profile name")
+			f.String("N", "profile-name", "", "profile name")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -520,10 +526,12 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.RegenerateStr,
-		Help:      "Regenerate an implant",
-		LongHelp:  help.GetHelpFor(consts.RegenerateStr),
-		AllowArgs: true,
+		Name:     consts.RegenerateStr,
+		Help:     "Regenerate an implant",
+		LongHelp: help.GetHelpFor(consts.RegenerateStr),
+		Args: func(a *grumble.Args) {
+			a.String("implant-name", "name of the implant")
+		},
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "save", "", "directory/file to the binary to")
 
@@ -560,7 +568,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
+		Args: func(a *grumble.Args) {
+			a.String("profile-name", "name of the profile")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			rmProfile(ctx, rpc)
@@ -581,7 +591,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			profileGenerate(ctx, rpc)
@@ -613,7 +622,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
+		Args: func(a *grumble.Args) {
+			a.String("implant-name", "implant name")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			rmImplantBuild(ctx, rpc)
@@ -633,7 +644,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			canaries(ctx, rpc)
@@ -716,7 +726,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			ping(ctx, rpc)
@@ -797,7 +806,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to enumerate", grumble.Default("."))
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			ls(ctx, rpc)
@@ -817,7 +828,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to the file to remove")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			rm(ctx, rpc)
@@ -834,7 +847,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to the directory to create")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			mkdir(ctx, rpc)
@@ -851,7 +866,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to the directory", grumble.Default("."))
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			cd(ctx, rpc)
@@ -878,13 +895,15 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.CatStr,
-		Help:      "Dump file to stdout",
-		LongHelp:  help.GetHelpFor(consts.CatStr),
-		AllowArgs: true,
+		Name:     consts.CatStr,
+		Help:     "Dump file to stdout",
+		LongHelp: help.GetHelpFor(consts.CatStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("c", "colorize-output", false, "colorize output")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to the file to print")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -902,7 +921,10 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
+		Args: func(a *grumble.Args) {
+			a.String("remote-path", "path to the file or directory to download")
+			a.String("local-path", "local path where the downloaded file will be saved", grumble.Default("."))
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			download(ctx, rpc)
@@ -919,7 +941,10 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
+		Args: func(a *grumble.Args) {
+			a.String("local-path", "local path to the file to upload")
+			a.String("remote-path", "path to the file or directory to upload to", grumble.Default(""))
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			upload(ctx, rpc)
@@ -956,7 +981,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Bool("t", "tcp", true, "display information about TCP sockets")
+			f.Bool("T", "tcp", true, "display information about TCP sockets")
 			f.Bool("u", "udp", false, "display information about UDP sockets")
 			f.Bool("4", "ip4", true, "display information about IPv4 sockets")
 			f.Bool("6", "ip6", false, "display information about IPv6 sockets")
@@ -1004,10 +1029,12 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.ImpersonateStr,
-		Help:      "Impersonate a logged in user.",
-		LongHelp:  help.GetHelpFor(consts.ImpersonateStr),
-		AllowArgs: true,
+		Name:     consts.ImpersonateStr,
+		Help:     "Impersonate a logged in user.",
+		LongHelp: help.GetHelpFor(consts.ImpersonateStr),
+		Args: func(a *grumble.Args) {
+			a.String("username", "name of the user account to impersonate")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			impersonate(ctx, rpc)
@@ -1021,10 +1048,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.RevToSelfStr,
-		Help:      "Revert to self: lose stolen Windows token",
-		LongHelp:  help.GetHelpFor(consts.RevToSelfStr),
-		AllowArgs: false,
+		Name:     consts.RevToSelfStr,
+		Help:     "Revert to self: lose stolen Windows token",
+		LongHelp: help.GetHelpFor(consts.RevToSelfStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			revToSelf(ctx, rpc)
@@ -1055,10 +1081,13 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.ExecuteAssemblyStr,
-		Help:      "Loads and executes a .NET assembly in a child process (Windows Only)",
-		LongHelp:  help.GetHelpFor(consts.ExecuteAssemblyStr),
-		AllowArgs: true,
+		Name:     consts.ExecuteAssemblyStr,
+		Help:     "Loads and executes a .NET assembly in a child process (Windows Only)",
+		LongHelp: help.GetHelpFor(consts.ExecuteAssemblyStr),
+		Args: func(a *grumble.Args) {
+			a.String("filepath", "path the assembly file")
+			a.StringList("arguments", "arguments to pass to the assembly entrypoint", grumble.Default([]string{}))
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			executeAssembly(ctx, rpc)
@@ -1078,15 +1107,17 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.ExecuteShellcodeStr,
-		Help:      "Executes the given shellcode in the sliver process",
-		LongHelp:  help.GetHelpFor(consts.ExecuteShellcodeStr),
-		AllowArgs: true,
+		Name:     consts.ExecuteShellcodeStr,
+		Help:     "Executes the given shellcode in the sliver process",
+		LongHelp: help.GetHelpFor(consts.ExecuteShellcodeStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			executeShellcode(ctx, rpc)
 			fmt.Println()
 			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("filepath", "path the shellcode file")
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Bool("r", "rwx-pages", false, "Use RWX permissions for memory pages")
@@ -1110,7 +1141,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("k", "keep-alive", false, "don't terminate host process once the execution completes")
 		},
-		AllowArgs: true,
+		Args: func(a *grumble.Args) {
+			a.String("filepath", "path the shared library file")
+		},
 		HelpGroup: consts.SliverHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1131,7 +1164,10 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("k", "keep-alive", false, "don't terminate host process once the execution completes")
 		},
-		AllowArgs: true,
+		Args: func(a *grumble.Args) {
+			a.String("filepath", "path the DLL file")
+			a.StringList("arguments", "arguments to pass to the DLL entrypoint", grumble.Default([]string{}))
+		},
 		HelpGroup: consts.SliverWinHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1142,15 +1178,17 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.MigrateStr,
-		Help:      "Migrate into a remote process",
-		LongHelp:  help.GetHelpFor(consts.MigrateStr),
-		AllowArgs: true,
+		Name:     consts.MigrateStr,
+		Help:     "Migrate into a remote process",
+		LongHelp: help.GetHelpFor(consts.MigrateStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			migrate(ctx, rpc)
 			fmt.Println()
 			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.Uint("pid", "pid")
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -1165,12 +1203,14 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			websites(ctx, rpc)
 			fmt.Println()
 			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("name", "website name", grumble.Default(""))
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	}
@@ -1181,12 +1221,14 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			removeWebsite(ctx, rpc)
 			fmt.Println()
 			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("name", "website name", grumble.Default(""))
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
@@ -1252,15 +1294,17 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	app.AddCommand(websitesCmd)
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.TerminateStr,
-		Help:      "Kill/terminate a process",
-		LongHelp:  help.GetHelpFor(consts.TerminateStr),
-		AllowArgs: true,
+		Name:     consts.TerminateStr,
+		Help:     "Kill/terminate a process",
+		LongHelp: help.GetHelpFor(consts.TerminateStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			terminate(ctx, rpc)
 			fmt.Println()
 			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.Uint("pid", "pid")
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Bool("f", "force", false, "disregard safety and kill the PID")
@@ -1271,10 +1315,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.ScreenshotStr,
-		Help:      "Take a screenshot",
-		LongHelp:  help.GetHelpFor(consts.ScreenshotStr),
-		AllowArgs: false,
+		Name:     consts.ScreenshotStr,
+		Help:     "Take a screenshot",
+		LongHelp: help.GetHelpFor(consts.ScreenshotStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			screenshot(ctx, rpc)
@@ -1288,15 +1331,17 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.LoadExtensionStr,
-		Help:      "Load a sliver extension",
-		LongHelp:  help.GetHelpFor(consts.LoadExtensionStr),
-		AllowArgs: true,
+		Name:     consts.LoadExtensionStr,
+		Help:     "Load a sliver extension",
+		LongHelp: help.GetHelpFor(consts.LoadExtensionStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
-			load(ctx, rpc)
+			loadExtension(ctx, rpc)
 			fmt.Println()
 			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("dir-path", "path to the extension directory")
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
@@ -1309,7 +1354,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("n", "name", "", "name of the named pipe")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			namedPipeListener(ctx, rpc)
@@ -1328,7 +1372,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("l", "lport", defaultTCPPivotPort, "tcp listen port")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: true,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			tcpListener(ctx, rpc)
@@ -1355,8 +1398,10 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			fmt.Println()
 			return nil
 		},
+		Args: func(a *grumble.Args) {
+			a.String("hostname", "hostname")
+		},
 		HelpGroup: consts.SliverWinHelpGroup,
-		AllowArgs: true,
 	})
 
 	app.AddCommand(&grumble.Command{
@@ -1367,7 +1412,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.String("p", "profile", "", "profile to use for service binary")
 		},
-		AllowArgs: true,
+		Args: func(a *grumble.Args) {
+			a.String("remote-file", "path to the file to backdoor")
+		},
 		HelpGroup: consts.SliverWinHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1387,7 +1434,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("d", "domain", "", "domain of the user to impersonate")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		AllowArgs: false,
 		HelpGroup: consts.SliverWinHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1416,12 +1462,14 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.GetEnvStr,
-		Help:      "List environment variables",
-		LongHelp:  help.GetHelpFor(consts.GetEnvStr),
-		AllowArgs: true,
+		Name:     consts.GetEnvStr,
+		Help:     "List environment variables",
+		LongHelp: help.GetHelpFor(consts.GetEnvStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("name", "environment varialbe to fetch", grumble.Default(""))
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1433,12 +1481,15 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.SetEnvStr,
-		Help:      "Set environment variables",
-		LongHelp:  help.GetHelpFor(consts.SetEnvStr),
-		AllowArgs: true,
+		Name:     consts.SetEnvStr,
+		Help:     "Set environment variables",
+		LongHelp: help.GetHelpFor(consts.SetEnvStr),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("name", "environment variable name")
+			a.String("value", "value to assign")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1450,10 +1501,12 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.UnsetEnvStr,
-		Help:      "Clear environment variables",
-		LongHelp:  help.GetHelpFor(consts.UnsetEnvStr),
-		AllowArgs: true,
+		Name:     consts.UnsetEnvStr,
+		Help:     "Clear environment variables",
+		LongHelp: help.GetHelpFor(consts.UnsetEnvStr),
+		Args: func(a *grumble.Args) {
+			a.String("name", "environment variable name")
+		},
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1499,7 +1552,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			fmt.Println()
 			return nil
 		},
-		AllowArgs: true,
+		Args: func(a *grumble.Args) {
+			a.String("registry-path", "registry path")
+		},
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.String("H", "hive", "HKCU", "egistry hive")
@@ -1508,15 +1563,18 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
 	registryCmd.AddCommand(&grumble.Command{
-		Name:      consts.RegistryWriteStr,
-		Help:      "Write values to the Windows registry",
-		LongHelp:  help.GetHelpFor(consts.RegistryWriteStr),
-		AllowArgs: true,
+		Name:     consts.RegistryWriteStr,
+		Help:     "Write values to the Windows registry",
+		LongHelp: help.GetHelpFor(consts.RegistryWriteStr),
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			registryWriteCmd(ctx, rpc)
 			fmt.Println()
 			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("registry-path", "registry path")
+			a.String("value", "value to write")
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -1528,10 +1586,12 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
 	registryCmd.AddCommand(&grumble.Command{
-		Name:      consts.RegistryCreateKeyStr,
-		Help:      "Create a registry key",
-		LongHelp:  help.GetHelpFor(consts.RegistryCreateKeyStr),
-		AllowArgs: true,
+		Name:     consts.RegistryCreateKeyStr,
+		Help:     "Create a registry key",
+		LongHelp: help.GetHelpFor(consts.RegistryCreateKeyStr),
+		Args: func(a *grumble.Args) {
+			a.String("registry-path", "registry path")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			regCreateKeyCmd(ctx, rpc)
@@ -1612,10 +1672,12 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 	})
 	wgPortFwdCmd.AddCommand(&grumble.Command{
-		Name:      "rm",
-		Help:      "Remove a port forward from the WireGuard tun interface",
-		LongHelp:  help.GetHelpFor(consts.WgPortFwdStr),
-		AllowArgs: true,
+		Name:     "rm",
+		Help:     "Remove a port forward from the WireGuard tun interface",
+		LongHelp: help.GetHelpFor(consts.WgPortFwdStr),
+		Args: func(a *grumble.Args) {
+			a.Int("id", "forwarder id")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			wgPortFwdRmCmd(ctx, rpc)
@@ -1660,10 +1722,12 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	wgSocksCmd.AddCommand(&grumble.Command{
-		Name:      "rm",
-		Help:      "Stop a socks5 listener on the WireGuard tun interface",
-		LongHelp:  help.GetHelpFor(consts.WgSocksStr),
-		AllowArgs: true,
+		Name:     "rm",
+		Help:     "Stop a socks5 listener on the WireGuard tun interface",
+		LongHelp: help.GetHelpFor(consts.WgSocksStr),
+		Args: func(a *grumble.Args) {
+			a.Int("id", "forwarder id")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Print()
 			wgSocksRmCmd(ctx, rpc)
@@ -1755,10 +1819,13 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	app.AddCommand(monitorCmd)
 
 	app.AddCommand(&grumble.Command{
-		Name:      consts.SSHStr,
-		Help:      "Run a SSH command on a remote host",
-		LongHelp:  help.GetHelpFor(consts.SSHStr),
-		AllowArgs: true,
+		Name:     consts.SSHStr,
+		Help:     "Run a SSH command on a remote host",
+		LongHelp: help.GetHelpFor(consts.SSHStr),
+		Args: func(a *grumble.Args) {
+			a.String("hostname", "remote host to SSH to")
+			a.StringList("command", "command line with arguments")
+		},
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Uint("p", "port", 22, "SSH port")

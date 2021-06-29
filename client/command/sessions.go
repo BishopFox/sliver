@@ -196,12 +196,12 @@ func use(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn + "Missing sliver name or session number, see `help use`\n")
 		return
 	}
-	session := GetSession(ctx.Args[0], rpc)
+	session := GetSession(ctx.Args.String("session"), rpc)
 	if session != nil {
 		ActiveSession.Set(session)
 		fmt.Printf(Info+"Active session %s (%d)\n", session.Name, session.ID)
 	} else {
-		fmt.Printf(Warn+"Invalid session name or session number '%s'\n", ctx.Args[0])
+		fmt.Printf(Warn+"Invalid session name or session number '%s'\n", ctx.Args.String("session"))
 	}
 }
 

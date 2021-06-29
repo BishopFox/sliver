@@ -17,13 +17,13 @@ func binject(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) < 1 {
+	remoteFilePath := ctx.Args.String("remote-file")
+	if remoteFilePath == "" {
 		fmt.Println(Warn + "Please provide a remote file path. See `help backdoor` for more info")
 		return
 	}
 
 	profileName := ctx.Flags.String("profile")
-	remoteFilePath := ctx.Args[0]
 
 	ctrl := make(chan bool)
 	msg := fmt.Sprintf("Backdooring %s ...", remoteFilePath)
