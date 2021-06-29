@@ -31,16 +31,14 @@ import (
 
 var (
 	cmdHelp = map[string]string{
-		consts.JobsStr:            jobsHelp,
-		consts.SessionsStr:        sessionsHelp,
-		consts.BackgroundStr:      backgroundHelp,
-		consts.InfoStr:            infoHelp,
-		consts.UseStr:             useHelp,
-		consts.GenerateStr:        generateHelp,
-		consts.NewProfileStr:      newProfileHelp,
-		consts.ProfileGenerateStr: generateProfileHelp,
-		consts.StagerStr:          generateStagerHelp,
-		consts.StageListenerStr:   stageListenerHelp,
+		consts.JobsStr:          jobsHelp,
+		consts.SessionsStr:      sessionsHelp,
+		consts.BackgroundStr:    backgroundHelp,
+		consts.InfoStr:          infoHelp,
+		consts.UseStr:           useHelp,
+		consts.GenerateStr:      generateHelp,
+		consts.StagerStr:        generateStagerHelp,
+		consts.StageListenerStr: stageListenerHelp,
 
 		consts.MsfStr:              msfHelp,
 		consts.MsfInjectStr:        msfInjectHelp,

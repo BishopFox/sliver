@@ -298,16 +298,6 @@ github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194 h1:k4VboDB9x//
 github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194/go.mod h1:0p7Kyo90yOpoiH+cElGtWjhneXBBcaB+kJggBU1snEY=
 github.com/lesnuages/go-winio v0.4.19 h1:lFDu1mnhg5em+8zTHO4ChSD11J56xkyE8m3N8IrVmbA=
 github.com/lesnuages/go-winio v0.4.19/go.mod h1:rm7jf4kBcldxMeljR7c7XY1qVCBc+8z3PtSgkrT9Clk=
-github.com/lesnuages/snitch v0.0.0-20210622140401-a8ca6ff38eee h1:hsW2S5ruvWIW2jsME5BtA08lciltp80fdRCn5Cgny4k=
-github.com/lesnuages/snitch v0.0.0-20210622140401-a8ca6ff38eee/go.mod h1:RfXlAVJYL7gUoZ9VMMon4LqrPiAjC8x62Ntbse4a4s0=
-github.com/lesnuages/snitch v0.2.0 h1:5cEE/jHit74JvNwDOM2LMkc+PjKZGglLf4C61SVt2F8=
-github.com/lesnuages/snitch v0.2.0/go.mod h1:RfXlAVJYL7gUoZ9VMMon4LqrPiAjC8x62Ntbse4a4s0=
-github.com/lesnuages/snitch v0.3.0 h1:mu+mZCRZwHF1RDlr9YP/r11tvSPgLrq7NNvhVslNtkg=
-github.com/lesnuages/snitch v0.3.0/go.mod h1:RfXlAVJYL7gUoZ9VMMon4LqrPiAjC8x62Ntbse4a4s0=
-github.com/lesnuages/snitch v0.4.0 h1:4rhpAe1+XmZKqPvTXus8tcN4ycATfiv1WuIra3d+K+I=
-github.com/lesnuages/snitch v0.4.0/go.mod h1:RfXlAVJYL7gUoZ9VMMon4LqrPiAjC8x62Ntbse4a4s0=
-github.com/lesnuages/snitch v0.5.0 h1:9r4x7dUYn4OrnHy7y0iwB/jdIIWpQy2Mm8txWb59494=
-github.com/lesnuages/snitch v0.5.0/go.mod h1:RfXlAVJYL7gUoZ9VMMon4LqrPiAjC8x62Ntbse4a4s0=
 github.com/lesnuages/snitch v0.6.0 h1:vOao32MdYDHYDcTAq2CKszDh6Dn8Bv1Gmgc8uVh193U=
 github.com/lesnuages/snitch v0.6.0/go.mod h1:RfXlAVJYL7gUoZ9VMMon4LqrPiAjC8x62Ntbse4a4s0=
 github.com/lib/pq v1.0.0/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=
@@ -465,8 +455,6 @@ golang.org/x/crypto v0.0.0-20200204104054-c9f3fb736b72/go.mod h1:LzIPMQfyMNhhGPh
 golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83/go.mod h1:jdWPYTVW3xRLrWPugEBEK3UY2ZEsg3UU495nc5E+M+I=
-golang.org/x/crypto v0.0.0-20210317152858-513c2a44f670 h1:gzMM0EjIYiRmJI3+jBdFuoynZlpxa2JQZsolKu09BXo=
-golang.org/x/crypto v0.0.0-20210317152858-513c2a44f670/go.mod h1:T9bdIzuCu7OtxOm1hfPfRQxPLYneinmdGuTeoZ9dtd4=
 golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e h1:gsTQYXdTw2Gq7RBsWvlQ91b+aEQ6bXFUngBGuR8sPpI=
 golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=
 golang.org/x/exp v0.0.0-20190121172915-509febef88a4/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
@@ -573,8 +561,6 @@ golang.org/x/sys v0.0.0-20210315160823-c6e025ad8005/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20210316164454-77fc1eacc6aa/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210320140829-1e4c9ba3b0c4/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210330210617-4fbd30eecc44/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
-golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57 h1:F5Gozwx4I1xtr/sr/8CFbb57iKi3297KFs0QDbGN60A=
-golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 h1:SrN+KX8Art/Sf4HNj6Zcz06G7VEz+7w9tdXTPOZ7+l4=
 golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 h1:RqytpXGR1iVNX7psjB3ff8y7sNFinVFvkx1c8SjBkio=

@@ -455,6 +455,22 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+	generateCmd.AddCommand(&grumble.Command{
+		Name:     consts.CompilerStr,
+		Help:     "Get information about the server's compiler",
+		LongHelp: help.GetHelpFor(consts.CompilerStr),
+		Flags: func(f *grumble.Flags) {
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			generateCompilerInfo(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 	app.AddCommand(generateCmd)
 
 	app.AddCommand(&grumble.Command{
@@ -471,54 +487,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			stageListener(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	})
-
-	app.AddCommand(&grumble.Command{
-		Name:     consts.NewProfileStr,
-		Help:     "Save a new implant profile",
-		LongHelp: help.GetHelpFor(consts.NewProfileStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("o", "os", "windows", "operating system")
-			f.String("a", "arch", "amd64", "cpu architecture")
-			f.Bool("d", "debug", false, "enable debug features")
-			f.Bool("e", "evasion", false, "enable evasion features")
-			f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
-
-			f.String("m", "mtls", "", "mtls domain(s)")
-			f.String("g", "wg", "", "wg domain(s)")
-			f.String("H", "http", "", "http[s] domain(s)")
-			f.String("n", "dns", "", "dns domain(s)")
-			f.String("p", "named-pipe", "", "named-pipe connection strings")
-			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
-
-			f.Int("X", "key-exchange", defaultWGKeyExPort, "wg key-exchange port")
-			f.Int("T", "tcp-comms", defaultWGNPort, "wg c2 comms port")
-
-			f.String("c", "canary", "", "canary domain(s)")
-
-			f.Int("j", "reconnect", defaultReconnect, "attempt to reconnect every n second(s)")
-			f.Int("k", "max-errors", defaultMaxErrors, "max number of connection errors")
-			f.Int("P", "poll", defaultPoll, "attempt to poll every n second(s)")
-
-			f.String("w", "limit-datetime", "", "limit execution to before datetime")
-			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
-			f.String("y", "limit-username", "", "limit execution to specified username")
-			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
-			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
-
-			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
-
-			f.String("N", "profile-name", "", "profile name")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			newProfile(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
@@ -562,6 +530,71 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	}
 	profilesCmd.AddCommand(&grumble.Command{
+		Name:     consts.GenerateStr,
+		Help:     "Generate implant from a profile",
+		LongHelp: help.GetHelpFor(consts.GenerateStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("p", "name", "", "profile name")
+			f.String("s", "save", "", "directory/file to the binary to")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			profileGenerate(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	profilesCmd.AddCommand(&grumble.Command{
+		Name:     consts.NewStr,
+		Help:     "Save a new implant profile",
+		LongHelp: help.GetHelpFor(consts.NewStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("o", "os", "windows", "operating system")
+			f.String("a", "arch", "amd64", "cpu architecture")
+			f.Bool("d", "debug", false, "enable debug features")
+			f.Bool("e", "evasion", false, "enable evasion features")
+			f.Bool("s", "skip-symbols", false, "skip symbol obfuscation")
+
+			f.String("m", "mtls", "", "mtls domain(s)")
+			f.String("g", "wg", "", "wg domain(s)")
+			f.String("H", "http", "", "http[s] domain(s)")
+			f.String("n", "dns", "", "dns domain(s)")
+			f.String("p", "named-pipe", "", "named-pipe connection strings")
+			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
+
+			f.Int("X", "key-exchange", defaultWGKeyExPort, "wg key-exchange port")
+			f.Int("T", "tcp-comms", defaultWGNPort, "wg c2 comms port")
+
+			f.String("c", "canary", "", "canary domain(s)")
+
+			f.Int("j", "reconnect", defaultReconnect, "attempt to reconnect every n second(s)")
+			f.Int("k", "max-errors", defaultMaxErrors, "max number of connection errors")
+			f.Int("P", "poll", defaultPoll, "attempt to poll every n second(s)")
+
+			f.String("w", "limit-datetime", "", "limit execution to before datetime")
+			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
+			f.String("y", "limit-username", "", "limit execution to specified username")
+			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
+			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
+
+			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
+
+			f.String("N", "profile-name", "", "profile name")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			newProfile(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	profilesCmd.AddCommand(&grumble.Command{
 		Name:     consts.RmStr,
 		Help:     "Remove a profile",
 		LongHelp: help.GetHelpFor(fmt.Sprintf("%s.%s", consts.ProfilesStr, consts.RmStr)),
@@ -580,25 +613,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 	app.AddCommand(profilesCmd)
-
-	app.AddCommand(&grumble.Command{
-		Name:     consts.ProfileGenerateStr,
-		Help:     "Generate implant from a profile",
-		LongHelp: help.GetHelpFor(consts.ProfileGenerateStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("p", "name", "", "profile name")
-			f.String("s", "save", "", "directory/file to the binary to")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			profileGenerate(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	})
 
 	implantBuildsCmd := &grumble.Command{
 		Name:     consts.ImplantBuildsStr,
