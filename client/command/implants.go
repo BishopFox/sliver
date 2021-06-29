@@ -52,7 +52,7 @@ func rmImplantBuild(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	_, err := rpc.DeleteImplantBuild(context.Background(), &clientpb.DeleteReq{
-		Name: ctx.Args[0],
+		Name: ctx.Args.String("implant-name"),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"Failed to delete implant %s\n", err)

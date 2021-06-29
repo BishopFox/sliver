@@ -59,7 +59,7 @@ func impersonate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn + "You must provide a username. See `help impersonate`\n")
 		return
 	}
-	username := ctx.Args[0]
+	username := ctx.Args.String("username")
 	impResp, err := rpc.Impersonate(context.Background(), &sliverpb.ImpersonateReq{
 		Request:  ActiveSession.Request(ctx),
 		Username: username,

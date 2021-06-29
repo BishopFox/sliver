@@ -158,8 +158,8 @@ func runSSHCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 	password := ctx.Flags.String("password")
 
-	hostname := ctx.Args[0]
-	command := ctx.Args[1:]
+	hostname := ctx.Args.String("hostname")
+	command := ctx.Args.StringList("command")
 
 	commandResp, err := rpc.RunSSHCommand(context.Background(), &sliverpb.SSHCommandReq{
 		Username: username,

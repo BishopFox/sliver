@@ -24,31 +24,48 @@
 
 package grumble
 
-// Context defines a command context.
-type Context struct {
-	// Reference to the app.
-	App *App
+// ArgOption can be supplied to modify an argument.
+type ArgOption func(*argItem)
 
-	// Flags contains all command line flags.
-	Flags FlagMap
+// Min sets the minimum required number of elements for a list argument.
+func Min(m int) ArgOption {
+	if m < 0 {
+		panic("min must be >= 0")
+	}
 
-	// Args contains all command line arguments.
-	Args ArgMap
+	return func(i *argItem) {
+		if !i.isList {
+			panic("min option only valid for list arguments")
+		}
 
-	// Cmd is the currently executing command.
-	Command *Command
-}
-
-func newContext(a *App, cmd *Command, flags FlagMap, args ArgMap) *Context {
-	return &Context{
-		App:     a,
-		Command: cmd,
-		Flags:   flags,
-		Args:    args,
+		i.listMin = m
 	}
 }
 
-// Stop signalizes the app to exit.
-func (c *Context) Stop() {
-	_ = c.App.Close()
+// Max sets the maximum required number of elements for a list argument.
+func Max(m int) ArgOption {
+	if m < 1 {
+		panic("max must be >= 1")
+	}
+
+	return func(i *argItem) {
+		if !i.isList {
+			panic("max option only valid for list arguments")
+		}
+
+		i.listMax = m
+	}
+}
+
+// Default sets a default value for the argument.
+// The argument becomes optional then.
+func Default(v interface{}) ArgOption {
+	if v == nil {
+		panic("nil default value not allowed")
+	}
+
+	return func(i *argItem) {
+		i.Default = v
+		i.optional = true
+	}
 }

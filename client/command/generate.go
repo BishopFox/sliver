@@ -105,7 +105,7 @@ func regenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	regenerate, err := rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
-		ImplantName: ctx.Args[0],
+		ImplantName: ctx.Args.String("implant-name"),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"Failed to regenerate implant %s\n", err)
@@ -617,8 +617,9 @@ func parseTCPPivotc2(args string) []*clientpb.ImplantC2 {
 
 func profileGenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	name := ctx.Flags.String("name")
-	if name == "" && 1 <= len(ctx.Args) {
-		name = ctx.Args[0]
+	if name == "" {
+		fmt.Printf(Warn + "no profile selected")
+		return
 	}
 	save := ctx.Flags.String("save")
 	if save == "" {
@@ -795,7 +796,7 @@ func rmProfile(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	_, err := rpc.DeleteImplantProfile(context.Background(), &clientpb.DeleteReq{
-		Name: ctx.Args[0],
+		Name: ctx.Args.String("profile-name"),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"Failed to delete profile %s\n", err)
