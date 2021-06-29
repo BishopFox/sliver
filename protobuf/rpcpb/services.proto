@@ -38,7 +38,14 @@ service SliverRPC {
     // *** Stager Listener ***
     rpc StartTCPStagerListener(clientpb.StagerListenerReq) returns(clientpb.StagerListener);
     rpc StartHTTPStagerListener(clientpb.StagerListenerReq) returns(clientpb.StagerListener);
-    
+
+    // *** Loot ***
+    rpc LootAdd(clientpb.Loot) returns(commonpb.Empty);
+    rpc LootRm(clientpb.Loot) returns(commonpb.Empty);
+    rpc LootAll(commonpb.Empty) returns(clientpb.AllLoot);
+    rpc LootAllOf(clientpb.LootType) returns(clientpb.AllLoot);
+    rpc LootContent(clientpb.Loot) returns(clientpb.Loot);
+
     // *** Implants ***
     rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate);
     rpc Regenerate(clientpb.RegenerateReq) returns (clientpb.Generate);
@@ -105,6 +112,7 @@ service SliverRPC {
     rpc RegistryWrite(sliverpb.RegistryWriteReq) returns (sliverpb.RegistryWrite);
     rpc RegistryCreateKey(sliverpb.RegistryCreateKeyReq) returns (sliverpb.RegistryCreateKey);
     rpc RunSSHCommand(sliverpb.SSHCommandReq) returns (sliverpb.SSHCommand);
+    
     // *** Wireguard Specific ***
     rpc WGStartPortForward(sliverpb.WGPortForwardStartReq) returns (sliverpb.WGPortForward);
     rpc WGStopPortForward(sliverpb.WGPortForwardStopReq) returns (sliverpb.WGPortForward);

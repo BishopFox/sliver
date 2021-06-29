@@ -448,3 +448,40 @@ message WGClientConfig {
   string ClientPubKey = 3;
   string ClientIP = 4;
 }
+
+
+// [ Loot ] ----------------------------------------
+enum LootType {
+  BINARY = 0;
+  TEXT = 1;
+  CREDENTIAL = 2;
+}
+
+enum CredentialType {
+  USER_PASSWORD = 0;
+  API_KEY = 1;
+}
+
+message Credential {
+  CredentialType Type = 1;
+  
+  // USER_PASSWORD
+  string User = 2;
+  string Password = 3;
+
+  // API_KEY
+  string APIKey = 4;
+}
+
+message Loot {
+  LootType Type = 1;
+  string LootID = 2;
+  string Name = 3;
+
+  Credential Credential = 8;
+  commonpb.File File = 9;
+}
+
+message AllLoot {
+  repeated Loot Loot = 1;
+}

@@ -44,6 +44,12 @@ type SliverRPCClient interface {
 	// *** Stager Listener ***
 	StartTCPStagerListener(ctx context.Context, in *clientpb.StagerListenerReq, opts ...grpc.CallOption) (*clientpb.StagerListener, error)
 	StartHTTPStagerListener(ctx context.Context, in *clientpb.StagerListenerReq, opts ...grpc.CallOption) (*clientpb.StagerListener, error)
+	// *** Loot ***
+	LootAdd(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	LootRm(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	LootAll(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.AllLoot, error)
+	LootAllCredentials(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.AllLoot, error)
+	LootGetContent(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.Loot, error)
 	// *** Implants ***
 	Generate(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
 	Regenerate(ctx context.Context, in *clientpb.RegenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
@@ -272,6 +278,51 @@ func (c *sliverRPCClient) StartTCPStagerListener(ctx context.Context, in *client
 func (c *sliverRPCClient) StartHTTPStagerListener(ctx context.Context, in *clientpb.StagerListenerReq, opts ...grpc.CallOption) (*clientpb.StagerListener, error) {
 	out := new(clientpb.StagerListener)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/StartHTTPStagerListener", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) LootAdd(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/LootAdd", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) LootRm(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/LootRm", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) LootAll(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.AllLoot, error) {
+	out := new(clientpb.AllLoot)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/LootAll", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) LootAllCredentials(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.AllLoot, error) {
+	out := new(clientpb.AllLoot)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/LootAllCredentials", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) LootGetContent(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.Loot, error) {
+	out := new(clientpb.Loot)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/LootGetContent", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1007,6 +1058,12 @@ type SliverRPCServer interface {
 	// *** Stager Listener ***
 	StartTCPStagerListener(context.Context, *clientpb.StagerListenerReq) (*clientpb.StagerListener, error)
 	StartHTTPStagerListener(context.Context, *clientpb.StagerListenerReq) (*clientpb.StagerListener, error)
+	// *** Loot ***
+	LootAdd(context.Context, *clientpb.Loot) (*commonpb.Empty, error)
+	LootRm(context.Context, *clientpb.Loot) (*commonpb.Empty, error)
+	LootAll(context.Context, *commonpb.Empty) (*clientpb.AllLoot, error)
+	LootAllCredentials(context.Context, *commonpb.Empty) (*clientpb.AllLoot, error)
+	LootGetContent(context.Context, *clientpb.Loot) (*clientpb.Loot, error)
 	// *** Implants ***
 	Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error)
 	Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error)
@@ -1141,6 +1198,21 @@ func (UnimplementedSliverRPCServer) StartTCPStagerListener(context.Context, *cli
 }
 func (UnimplementedSliverRPCServer) StartHTTPStagerListener(context.Context, *clientpb.StagerListenerReq) (*clientpb.StagerListener, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartHTTPStagerListener not implemented")
+}
+func (UnimplementedSliverRPCServer) LootAdd(context.Context, *clientpb.Loot) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LootAdd not implemented")
+}
+func (UnimplementedSliverRPCServer) LootRm(context.Context, *clientpb.Loot) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LootRm not implemented")
+}
+func (UnimplementedSliverRPCServer) LootAll(context.Context, *commonpb.Empty) (*clientpb.AllLoot, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LootAll not implemented")
+}
+func (UnimplementedSliverRPCServer) LootAllCredentials(context.Context, *commonpb.Empty) (*clientpb.AllLoot, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LootAllCredentials not implemented")
+}
+func (UnimplementedSliverRPCServer) LootGetContent(context.Context, *clientpb.Loot) (*clientpb.Loot, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LootGetContent not implemented")
 }
 func (UnimplementedSliverRPCServer) Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Generate not implemented")
@@ -1658,6 +1730,96 @@ func _SliverRPC_StartHTTPStagerListener_Handler(srv interface{}, ctx context.Con
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).StartHTTPStagerListener(ctx, req.(*clientpb.StagerListenerReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_LootAdd_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Loot)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).LootAdd(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/LootAdd",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).LootAdd(ctx, req.(*clientpb.Loot))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_LootRm_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Loot)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).LootRm(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/LootRm",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).LootRm(ctx, req.(*clientpb.Loot))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_LootAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).LootAll(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/LootAll",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).LootAll(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_LootAllCredentials_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).LootAllCredentials(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/LootAllCredentials",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).LootAllCredentials(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_LootGetContent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Loot)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).LootGetContent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/LootGetContent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).LootGetContent(ctx, req.(*clientpb.Loot))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3057,6 +3219,26 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StartHTTPStagerListener",
 			Handler:    _SliverRPC_StartHTTPStagerListener_Handler,
+		},
+		{
+			MethodName: "LootAdd",
+			Handler:    _SliverRPC_LootAdd_Handler,
+		},
+		{
+			MethodName: "LootRm",
+			Handler:    _SliverRPC_LootRm_Handler,
+		},
+		{
+			MethodName: "LootAll",
+			Handler:    _SliverRPC_LootAll_Handler,
+		},
+		{
+			MethodName: "LootAllCredentials",
+			Handler:    _SliverRPC_LootAllCredentials_Handler,
+		},
+		{
+			MethodName: "LootGetContent",
+			Handler:    _SliverRPC_LootGetContent_Handler,
 		},
 		{
 			MethodName: "Generate",
