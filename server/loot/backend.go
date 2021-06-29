@@ -42,31 +42,26 @@ type LocalBackend struct {
 	LocalCredDir string
 }
 
-func (l *LocalBackend) Add(loot *clientpb.Loot) error {
-	lootID, err := uuid.NewV4()
-	if err != nil {
-		return err
-	}
-	dbLoot := models.Loot{
-		ID:   lootID,
+func (l *LocalBackend) Add(loot *clientpb.Loot) (*clientpb.Loot, error) {
+	dbLoot := &models.Loot{
 		Name: loot.GetName(),
 		Type: int(loot.GetType()),
 	}
 	dbSession := db.Session()
-	err = dbSession.Create(dbLoot).Error
+	err := dbSession.Create(dbLoot).Error
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if loot.File != nil {
 		lootLocalFile := filepath.Join(l.LocalFileDir, dbLoot.ID.String())
 		data, err := proto.Marshal(loot.File)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		err = ioutil.WriteFile(lootLocalFile, data, 0600)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -74,15 +69,15 @@ func (l *LocalBackend) Add(loot *clientpb.Loot) error {
 		lootLocalCred := filepath.Join(l.LocalCredDir, dbLoot.ID.String())
 		data, err := proto.Marshal(loot.Credential)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		err = ioutil.WriteFile(lootLocalCred, data, 0600)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return l.GetContent(dbLoot.ID.String())
 }
 
 func (l *LocalBackend) Rm(lootID string) error {
@@ -92,7 +87,7 @@ func (l *LocalBackend) Rm(lootID string) error {
 		return errors.New("invalid loot id")
 	}
 	dbLoot := &models.Loot{}
-	result := dbSession.Where(&models.Loot{ID: lootUUID}).First(&dbLoot)
+	result := dbSession.Where(&models.Loot{ID: lootUUID}).First(dbLoot)
 	if errors.Is(result.Error, db.ErrRecordNotFound) {
 		return errors.New("loot not found")
 	}
@@ -126,7 +121,7 @@ func (l *LocalBackend) GetContent(lootID string) (*clientpb.Loot, error) {
 		return nil, errors.New("invalid loot id")
 	}
 	dbLoot := &models.Loot{}
-	result := dbSession.Where(&models.Loot{ID: lootUUID}).First(&dbLoot)
+	result := dbSession.Where(&models.Loot{ID: lootUUID}).First(dbLoot)
 	if errors.Is(result.Error, db.ErrRecordNotFound) {
 		return nil, errors.New("loot not found")
 	}
@@ -171,7 +166,7 @@ func (l *LocalBackend) GetContent(lootID string) (*clientpb.Loot, error) {
 func (l *LocalBackend) All() *clientpb.AllLoot {
 	dbSession := db.Session()
 	allDBLoot := []*models.Loot{}
-	result := dbSession.Where(&models.Loot{}).Find(&allDBLoot)
+	result := dbSession.Where(&models.Loot{}).Find(allDBLoot)
 	if result.Error != nil {
 		lootLog.Error(result.Error)
 		return nil
@@ -190,7 +185,7 @@ func (l *LocalBackend) All() *clientpb.AllLoot {
 func (l *LocalBackend) AllOf(lootType clientpb.LootType) *clientpb.AllLoot {
 	dbSession := db.Session()
 	allDBLoot := []*models.Loot{}
-	result := dbSession.Where(&models.Loot{Type: int(lootType)}).Find(&allDBLoot)
+	result := dbSession.Where(&models.Loot{Type: int(lootType)}).Find(allDBLoot)
 	if result.Error != nil {
 		lootLog.Error(result.Error)
 		return nil

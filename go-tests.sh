@@ -43,6 +43,14 @@ else
     exit 1
 fi
 
+# server / loot
+if go test -tags=server ./server/loot ; then
+    :
+else
+    cat ~/.sliver/logs/sliver.log
+    exit 1
+fi
+
 # server / certs
 if go test -tags=server ./server/certs ; then
     :

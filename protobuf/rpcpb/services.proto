@@ -40,10 +40,10 @@ service SliverRPC {
     rpc StartHTTPStagerListener(clientpb.StagerListenerReq) returns(clientpb.StagerListener);
 
     // *** Loot ***
-    rpc LootAdd(clientpb.Loot) returns(commonpb.Empty);
+    rpc LootAdd(clientpb.Loot) returns(clientpb.Loot);
     rpc LootRm(clientpb.Loot) returns(commonpb.Empty);
     rpc LootAll(commonpb.Empty) returns(clientpb.AllLoot);
-    rpc LootAllOf(clientpb.LootType) returns(clientpb.AllLoot);
+    rpc LootAllOf(clientpb.Loot) returns(clientpb.AllLoot);
     rpc LootContent(clientpb.Loot) returns(clientpb.Loot);
 
     // *** Implants ***

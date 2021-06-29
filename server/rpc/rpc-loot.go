@@ -27,10 +27,8 @@ import (
 )
 
 // LootAdd - Add loot
-func (rpc *Server) LootAdd(ctx context.Context, lootReq *clientpb.Loot) (*commonpb.Empty, error) {
-	lootStore := loot.GetLootStore()
-	err := lootStore.Add(lootReq)
-	return &commonpb.Empty{}, err
+func (rpc *Server) LootAdd(ctx context.Context, lootReq *clientpb.Loot) (*clientpb.Loot, error) {
+	return loot.GetLootStore().Add(lootReq)
 }
 
 // LootRm - Remove loot
@@ -45,8 +43,8 @@ func (rpc *Server) LootAll(ctx context.Context, _ *commonpb.Empty) (*clientpb.Al
 }
 
 // LootAll - Get a list of all loot of a specific type
-func (rpc *Server) LootAllOf(ctx context.Context, lootType clientpb.LootType) (*clientpb.AllLoot, error) {
-	return loot.GetLootStore().AllOf(lootType), nil
+func (rpc *Server) LootAllOf(ctx context.Context, lootReq *clientpb.Loot) (*clientpb.AllLoot, error) {
+	return loot.GetLootStore().AllOf(lootReq.Type), nil
 }
 
 // LootAll - Get a list of all loot of a specific type

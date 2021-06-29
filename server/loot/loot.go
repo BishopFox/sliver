@@ -27,7 +27,7 @@ import (
 )
 
 type LootBackend interface {
-	Add(*clientpb.Loot) error
+	Add(*clientpb.Loot) (*clientpb.Loot, error)
 	Rm(string) error
 	All() *clientpb.AllLoot
 	AllOf(clientpb.LootType) *clientpb.AllLoot
@@ -39,15 +39,15 @@ type LootStore struct {
 	mirrors []LootBackend
 }
 
-func (l *LootStore) Add(loot *clientpb.Loot) error {
-	err := l.backend.Add(loot)
+func (l *LootStore) Add(lootReq *clientpb.Loot) (*clientpb.Loot, error) {
+	loot, err := l.backend.Add(lootReq)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, mirror := range l.mirrors {
 		mirror.Add(loot)
 	}
-	return nil
+	return loot, nil
 }
 
 func (l *LootStore) Rm(lootID string) error {
