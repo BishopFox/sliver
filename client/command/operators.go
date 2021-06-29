@@ -20,9 +20,9 @@ package command
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
-	"context"
 	"text/tabwriter"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -57,6 +57,11 @@ func displayOperators(operators []*clientpb.Operator) {
 
 	colorRow := []string{"", ""} // Two uncolored rows for the headers
 	for _, operator := range operators {
+		// This is the CA, but I guess you could also name an operator
+		// "multiplayer" and it'll never show up in the list
+		if operator.Name == "multiplayer" {
+			continue
+		}
 		fmt.Fprintf(table, "%s\t%s\t\n", operator.Name, status(operator.Online))
 		if operator.Online {
 			colorRow = append(colorRow, bold+green)

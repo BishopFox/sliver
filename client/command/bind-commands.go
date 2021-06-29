@@ -488,9 +488,62 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 
 	app.AddCommand(&grumble.Command{
-		Name:     consts.NewProfileStr,
+		Name:      consts.RegenerateStr,
+		Help:      "Regenerate an implant",
+		LongHelp:  help.GetHelpFor(consts.RegenerateStr),
+		AllowArgs: true,
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "save", "", "directory/file to the binary to")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			regenerate(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	profilesCmd := &grumble.Command{
+		Name:     consts.ProfilesStr,
+		Help:     "List existing profiles",
+		LongHelp: help.GetHelpFor(consts.ProfilesStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			profiles(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	profilesCmd.AddCommand(&grumble.Command{
+		Name:     consts.GenerateStr,
+		Help:     "Generate implant from a profile",
+		LongHelp: help.GetHelpFor(consts.GenerateStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("p", "name", "", "profile name")
+			f.String("s", "save", "", "directory/file to the binary to")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		AllowArgs: true,
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			profileGenerate(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	profilesCmd.AddCommand(&grumble.Command{
+		Name:     consts.NewStr,
 		Help:     "Save a new implant profile",
-		LongHelp: help.GetHelpFor(consts.NewProfileStr),
+		LongHelp: help.GetHelpFor(consts.NewStr),
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
@@ -534,41 +587,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
-
-	app.AddCommand(&grumble.Command{
-		Name:      consts.RegenerateStr,
-		Help:      "Regenerate an implant",
-		LongHelp:  help.GetHelpFor(consts.RegenerateStr),
-		AllowArgs: true,
-		Flags: func(f *grumble.Flags) {
-			f.String("s", "save", "", "directory/file to the binary to")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			regenerate(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	})
-
-	profilesCmd := &grumble.Command{
-		Name:     consts.ProfilesStr,
-		Help:     "List existing profiles",
-		LongHelp: help.GetHelpFor(consts.ProfilesStr),
-		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			profiles(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	}
 	profilesCmd.AddCommand(&grumble.Command{
 		Name:     consts.RmStr,
 		Help:     "Remove a profile",
@@ -586,26 +604,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 	app.AddCommand(profilesCmd)
-
-	app.AddCommand(&grumble.Command{
-		Name:     consts.ProfileGenerateStr,
-		Help:     "Generate implant from a profile",
-		LongHelp: help.GetHelpFor(consts.ProfileGenerateStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("p", "name", "", "profile name")
-			f.String("s", "save", "", "directory/file to the binary to")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		AllowArgs: true,
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			profileGenerate(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	})
 
 	implantBuildsCmd := &grumble.Command{
 		Name:     consts.ImplantBuildsStr,

@@ -81,13 +81,13 @@ const (
 	UseStr        = "use"
 	SetStr        = "set"
 
-	GenerateStr        = "generate"
-	RegenerateStr      = "regenerate"
-	ProfileGenerateStr = "generate-profile"
-	CompilerStr        = "info"
-	StagerStr          = "stager"
-	ProfilesStr        = "profiles"
-	NewProfileStr      = "new-profile"
+	GenerateStr   = "generate"
+	RegenerateStr = "regenerate"
+	CompilerStr   = "info"
+	StagerStr     = "stager"
+	ProfilesStr   = "profiles"
+
+	NewStr = "new"
 
 	ImplantBuildsStr = "implants"
 	ListCanariesStr  = "canaries"

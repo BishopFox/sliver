@@ -694,7 +694,7 @@ func profiles(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	if len(profiles) == 0 {
-		fmt.Printf(Info+"No profiles, create one with `%s`\n", consts.NewProfileStr)
+		fmt.Printf(Info+"No profiles, create one with `%s`\n", consts.NewStr)
 		return
 	}
 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
