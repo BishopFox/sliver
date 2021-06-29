@@ -706,7 +706,8 @@ func profiles(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		strings.Repeat("=", len("Debug")),
 		strings.Repeat("=", len("Format")),
 		strings.Repeat("=", len("Obfuscation")),
-		strings.Repeat("=", len("Limitations")))
+		strings.Repeat("=", len("Limitations")),
+	)
 
 	for _, profile := range profiles {
 		config := profile.Config
