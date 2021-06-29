@@ -235,7 +235,7 @@ func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientp
 	compiler := &clientpb.Compiler{
 		GOOS:    runtime.GOOS,
 		GOARCH:  runtime.GOARCH,
-		Targets: []*clientpb.CompilerTarget{},
+		Targets: generate.GetCompilerTargets(),
 	}
 	return compiler, nil
 }

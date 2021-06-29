@@ -720,3 +720,79 @@ func getCrossCompilers(targetGoos string, targetGoarch string) (string, string) 
 	buildLog.Infof("CXX = '%s'", cxx)
 	return cc, cxx
 }
+
+// This function attempts to determine what we can reasonably target
+func GetCompilerTargets() []*clientpb.CompilerTarget {
+	targets := []*clientpb.CompilerTarget{}
+
+	// EXE - Any server should be able to target EXEs of each platform
+	for longPlatform := range SupportedCompilerTargets {
+		platform := strings.SplitN(longPlatform, "/", 2)
+		targets = append(targets, &clientpb.CompilerTarget{
+			GOOS:   platform[0],
+			GOARCH: platform[1],
+			Format: clientpb.OutputFormat_EXECUTABLE,
+		})
+	}
+
+	// SHARED_LIB - Determine if we can probably build a dll/dylib/so
+	for longPlatform := range SupportedCompilerTargets {
+		platform := strings.SplitN(longPlatform, "/", 2)
+
+		// We can always build our own platform
+		if runtime.GOOS == platform[0] {
+			targets = append(targets, &clientpb.CompilerTarget{
+				GOOS:   platform[0],
+				GOARCH: platform[1],
+				Format: clientpb.OutputFormat_SHARED_LIB,
+			})
+			continue
+		}
+
+		// Cross-compile with the right configuration
+		if runtime.GOOS == LINUX || runtime.GOOS == DARWIN {
+			cc, _ := getCrossCompilers(platform[0], platform[1])
+			if cc != "" {
+				if runtime.GOOS == DARWIN && platform[0] == LINUX && platform[1] == "386" {
+					continue // Darwin can't target 32-bit Linux, even with a cc/cxx
+				}
+				targets = append(targets, &clientpb.CompilerTarget{
+					GOOS:   platform[0],
+					GOARCH: platform[1],
+					Format: clientpb.OutputFormat_SHARED_LIB,
+				})
+			}
+		}
+
+	}
+
+	// SERVICE - Can generate service executables for Windows targets only
+	for longPlatform := range SupportedCompilerTargets {
+		platform := strings.SplitN(longPlatform, "/", 2)
+		if platform[0] != WINDOWS {
+			continue
+		}
+
+		targets = append(targets, &clientpb.CompilerTarget{
+			GOOS:   platform[0],
+			GOARCH: platform[1],
+			Format: clientpb.OutputFormat_SERVICE,
+		})
+	}
+
+	// SHELLCODE - Can generate shellcode for Windows targets only
+	for longPlatform := range SupportedCompilerTargets {
+		platform := strings.SplitN(longPlatform, "/", 2)
+		if platform[0] != WINDOWS {
+			continue
+		}
+
+		targets = append(targets, &clientpb.CompilerTarget{
+			GOOS:   platform[0],
+			GOARCH: platform[1],
+			Format: clientpb.OutputFormat_SHELLCODE,
+		})
+	}
+
+	return targets
+}

@@ -268,6 +268,34 @@ func generateStager(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 }
 
+func nameOfOutputFormat(value clientpb.OutputFormat) string {
+	switch value {
+	case clientpb.OutputFormat_EXECUTABLE:
+		return "Executable"
+	case clientpb.OutputFormat_SERVICE:
+		return "Service"
+	case clientpb.OutputFormat_SHARED_LIB:
+		return "Shared Library"
+	case clientpb.OutputFormat_SHELLCODE:
+		return "Shellcode"
+	}
+	panic(fmt.Sprintf("Unknown format %v", value))
+}
+
+func generateCompilerInfo(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	compiler, err := rpc.GetCompiler(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"Failed to get compiler information: %s\n", err)
+		return
+	}
+	fmt.Printf("%sServer:%s %s/%s\n", bold, normal, compiler.GOOS, compiler.GOARCH)
+	fmt.Printf("%sTargets%s\n", bold, normal)
+
+	for _, target := range compiler.Targets {
+		fmt.Printf("%s/%s - %s\n", target.GOOS, target.GOARCH, nameOfOutputFormat(target.Format))
+	}
+}
+
 // Shared function that extracts the compile flags from the grumble context
 func parseCompileFlags(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) *clientpb.ImplantConfig {
 	var name string

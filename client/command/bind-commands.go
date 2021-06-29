@@ -449,6 +449,22 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+	generateCmd.AddCommand(&grumble.Command{
+		Name:     consts.CompilerStr,
+		Help:     "Get information about the server's compiler",
+		LongHelp: help.GetHelpFor(consts.CompilerStr),
+		Flags: func(f *grumble.Flags) {
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			generateCompilerInfo(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 	app.AddCommand(generateCmd)
 
 	app.AddCommand(&grumble.Command{

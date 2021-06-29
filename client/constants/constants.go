@@ -84,6 +84,7 @@ const (
 	GenerateStr        = "generate"
 	RegenerateStr      = "regenerate"
 	ProfileGenerateStr = "generate-profile"
+	CompilerStr        = "info"
 	StagerStr          = "stager"
 	ProfilesStr        = "profiles"
 	NewProfileStr      = "new-profile"
