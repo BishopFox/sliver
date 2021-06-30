@@ -1805,11 +1805,11 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 	app.AddCommand(portfwdCmd)
 
+	// [ Monitor ] --------------------------------------------------------------
 	monitorCmd := &grumble.Command{
 		Name: consts.MonitorStr,
 		Help: "Monitor threat intel platforms for Sliver implants",
 	}
-
 	monitorCmd.AddCommand(&grumble.Command{
 		Name: "start",
 		Help: "Start the monitoring loops",
@@ -1832,6 +1832,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 	})
 	app.AddCommand(monitorCmd)
 
+	// [ SSH ] --------------------------------------------------------------
 	app.AddCommand(&grumble.Command{
 		Name:     consts.SSHStr,
 		Help:     "Run a SSH command on a remote host",
@@ -1855,4 +1856,91 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
+
+	// [ Loot ] --------------------------------------------------------------
+	lootCmd := &grumble.Command{
+		Name:     consts.LootStr,
+		Help:     "Manage the server's loot store",
+		LongHelp: help.GetHelpFor(consts.LootStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+
+			f.String("f", "filter", "", "filter based on loot type")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			lootRoot(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	lootCmd.AddCommand(&grumble.Command{
+		Name:     consts.LootLocalStr,
+		Help:     "Add a local file to the server's loot store",
+		LongHelp: help.GetHelpFor(consts.LootLocalStr),
+		Args: func(a *grumble.Args) {
+			a.String("path", "The local file path to the loot")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+
+			f.String("n", "name", "", "name of this piece of loot")
+			f.String("T", "type", "", "force a specific loot type")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			lootAddLocal(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	lootCmd.AddCommand(&grumble.Command{
+		Name:     consts.LootRemoteStr,
+		Help:     "Add a remote file from the current session to the server's loot store",
+		LongHelp: help.GetHelpFor(consts.LootRemoteStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			lootAddRemote(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	lootCmd.AddCommand(&grumble.Command{
+		Name:     consts.LootFetchStr,
+		Help:     "Fetch a piece of loot from the server's loot store",
+		LongHelp: help.GetHelpFor(consts.LootFetchStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			lootFetch(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	lootCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove a piece of loot from the server's loot store",
+		LongHelp: help.GetHelpFor(consts.RmStr),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			lootRm(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	app.AddCommand(lootCmd)
+
 }

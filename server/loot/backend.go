@@ -34,6 +34,9 @@ import (
 )
 
 var (
+	ErrInvalidLootID = errors.New("invalid loot id")
+	ErrLootNotFound  = errors.New("loot not found")
+
 	lootLog = log.NamedLogger("loot", "backend")
 )
 
@@ -77,19 +80,26 @@ func (l *LocalBackend) Add(loot *clientpb.Loot) (*clientpb.Loot, error) {
 		}
 	}
 
-	return l.GetContent(dbLoot.ID.String())
+	// Fetch a fresh version of the object
+	loot, err = l.GetContent(dbLoot.ID.String())
+	if loot != nil {
+		// Don't return the data, it's taken enough round trips
+		loot.File = nil
+		loot.Credential = nil
+	}
+	return loot, err
 }
 
 func (l *LocalBackend) Rm(lootID string) error {
 	dbSession := db.Session()
 	lootUUID, err := uuid.FromString(lootID)
 	if err != nil {
-		return errors.New("invalid loot id")
+		return ErrInvalidLootID
 	}
 	dbLoot := &models.Loot{}
 	result := dbSession.Where(&models.Loot{ID: lootUUID}).First(dbLoot)
 	if errors.Is(result.Error, db.ErrRecordNotFound) {
-		return errors.New("loot not found")
+		return ErrLootNotFound
 	}
 
 	// File Loot
@@ -118,12 +128,12 @@ func (l *LocalBackend) GetContent(lootID string) (*clientpb.Loot, error) {
 	dbSession := db.Session()
 	lootUUID, err := uuid.FromString(lootID)
 	if err != nil {
-		return nil, errors.New("invalid loot id")
+		return nil, ErrInvalidLootID
 	}
 	dbLoot := &models.Loot{}
 	result := dbSession.Where(&models.Loot{ID: lootUUID}).First(dbLoot)
 	if errors.Is(result.Error, db.ErrRecordNotFound) {
-		return nil, errors.New("loot not found")
+		return nil, ErrLootNotFound
 	}
 
 	// Re-construct protobuf object
@@ -166,7 +176,7 @@ func (l *LocalBackend) GetContent(lootID string) (*clientpb.Loot, error) {
 func (l *LocalBackend) All() *clientpb.AllLoot {
 	dbSession := db.Session()
 	allDBLoot := []*models.Loot{}
-	result := dbSession.Where(&models.Loot{}).Find(allDBLoot)
+	result := dbSession.Where(&models.Loot{}).Find(&allDBLoot)
 	if result.Error != nil {
 		lootLog.Error(result.Error)
 		return nil
@@ -185,7 +195,7 @@ func (l *LocalBackend) All() *clientpb.AllLoot {
 func (l *LocalBackend) AllOf(lootType clientpb.LootType) *clientpb.AllLoot {
 	dbSession := db.Session()
 	allDBLoot := []*models.Loot{}
-	result := dbSession.Where(&models.Loot{Type: int(lootType)}).Find(allDBLoot)
+	result := dbSession.Where(&models.Loot{Type: int(lootType)}).Find(&allDBLoot)
 	if result.Error != nil {
 		lootLog.Error(result.Error)
 		return nil

@@ -88,6 +88,13 @@ const (
 	ProfilesStr   = "profiles"
 
 	NewStr = "new"
+	AddStr = "add"
+	// RmStr - Already defined below for "rm" command
+
+	LootStr       = "loot"
+	LootLocalStr  = "local"
+	LootRemoteStr = "remote"
+	LootFetchStr  = "fetch"
 
 	ImplantBuildsStr = "implants"
 	ListCanariesStr  = "canaries"

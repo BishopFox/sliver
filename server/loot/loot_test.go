@@ -9,6 +9,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/gofrs/uuid"
 )
 
 var (
@@ -112,6 +113,91 @@ func TestAddGetRmLoot(t *testing.T) {
 	if loot.Credential.Password != loot2.Credential.Password {
 		t.Fatalf("Credential password mismatch %s != %s", loot.Credential.Password, loot2.Credential.Password)
 	}
+	err = lootStore.Rm(loot.LootID)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAllLoot(t *testing.T) {
+	lootStore := GetLootStore()
+	_, err := lootStore.Add(&clientpb.Loot{
+		Type: clientpb.LootType_BINARY,
+		Name: name1,
+		File: &commonpb.File{
+			Name: name1,
+			Data: data1,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = lootStore.Add(&clientpb.Loot{
+		Type: clientpb.LootType_TEXT,
+		Name: name2,
+		File: &commonpb.File{
+			Name: name1,
+			Data: []byte("hello world"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = lootStore.Add(&clientpb.Loot{
+		Type: clientpb.LootType_CREDENTIAL,
+		Name: name3,
+		Credential: &clientpb.Credential{
+			Type:     clientpb.CredentialType_USER_PASSWORD,
+			User:     "admin",
+			Password: "admin",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	allLoot := lootStore.All()
+	if allLoot == nil {
+		t.Fatalf("Loot store returned nil for AllLoot")
+	}
+	if len(allLoot.Loot) != 3 {
+		t.Fatalf("Expected all loot length of 3, but got %d", len(allLoot.Loot))
+	}
+
+	// Cleanup
+	for _, loot := range allLoot.Loot {
+		err = lootStore.Rm(loot.LootID)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestLootErrors(t *testing.T) {
+	lootStore := GetLootStore()
+	loot, err := lootStore.Add(&clientpb.Loot{
+		Type: clientpb.LootType_BINARY,
+		Name: name1,
+		File: &commonpb.File{
+			Name: name1,
+			Data: data1,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = lootStore.GetContent("foobar")
+	if err == nil {
+		t.Fatal("Expected invalid loot id error")
+	}
+
+	randomID, _ := uuid.NewV4()
+	_, err = lootStore.GetContent(randomID.String())
+	if err == nil {
+		t.Fatal("Expected loot not found error")
+	}
+
 	err = lootStore.Rm(loot.LootID)
 	if err != nil {
 		t.Fatal(err)

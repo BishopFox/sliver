@@ -19,11 +19,16 @@ package loot
 */
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
+)
+
+const (
+	MaxLootSize = 2 * 1024 * 1024 * 1024 // 2Gb, shouldn't matter the gRPC message size limit is 2Gb
 )
 
 type LootBackend interface {
@@ -40,6 +45,9 @@ type LootStore struct {
 }
 
 func (l *LootStore) Add(lootReq *clientpb.Loot) (*clientpb.Loot, error) {
+	if lootReq.File != nil && MaxLootSize < len(lootReq.File.Data) {
+		return nil, errors.New("max loot size exceeded")
+	}
 	loot, err := l.backend.Add(lootReq)
 	if err != nil {
 		return nil, err
