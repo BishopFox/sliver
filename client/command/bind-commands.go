@@ -1884,7 +1884,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.String("n", "name", "", "name of this piece of loot")
-			f.String("T", "type", "", "force a specific loot type")
+			f.String("T", "type", "", "force a specific loot type (file/cred)")
+			f.String("F", "file-type", "", "force a specific file type (binary/text)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1905,7 +1906,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.String("n", "name", "", "name of this piece of loot")
-			f.String("T", "type", "", "force a specific loot type")
+			f.String("T", "type", "", "force a specific loot type (file/cred)")
+			f.String("F", "file-type", "", "force a specific file type (binary/text)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},

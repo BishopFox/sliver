@@ -33,8 +33,9 @@ func TestAddGetRmLoot(t *testing.T) {
 	lootStore := GetLootStore()
 
 	loot, err := lootStore.Add(&clientpb.Loot{
-		Type: clientpb.LootType_BINARY,
-		Name: name1,
+		Type:     clientpb.LootType_LOOT_FILE,
+		Name:     name1,
+		FileType: clientpb.FileType_BINARY,
 		File: &commonpb.File{
 			Name: name1,
 			Data: data1,
@@ -71,8 +72,9 @@ func TestAddGetRmLoot(t *testing.T) {
 	}
 
 	loot, err = lootStore.Add(&clientpb.Loot{
-		Type: clientpb.LootType_TEXT,
-		Name: name2,
+		Type:     clientpb.LootType_LOOT_FILE,
+		Name:     name2,
+		FileType: clientpb.FileType_TEXT,
 		File: &commonpb.File{
 			Name: name1,
 			Data: data2,
@@ -87,10 +89,10 @@ func TestAddGetRmLoot(t *testing.T) {
 	}
 
 	loot, err = lootStore.Add(&clientpb.Loot{
-		Type: clientpb.LootType_CREDENTIAL,
-		Name: name3,
+		Type:           clientpb.LootType_LOOT_CREDENTIAL,
+		Name:           name3,
+		CredentialType: clientpb.CredentialType_USER_PASSWORD,
 		Credential: &clientpb.Credential{
-			Type:     clientpb.CredentialType_USER_PASSWORD,
 			User:     "admin",
 			Password: "admin",
 		},
@@ -121,8 +123,9 @@ func TestAddGetRmLoot(t *testing.T) {
 func TestAllLoot(t *testing.T) {
 	lootStore := GetLootStore()
 	_, err := lootStore.Add(&clientpb.Loot{
-		Type: clientpb.LootType_BINARY,
-		Name: name1,
+		Type:     clientpb.LootType_LOOT_FILE,
+		Name:     name1,
+		FileType: clientpb.FileType_BINARY,
 		File: &commonpb.File{
 			Name: name1,
 			Data: data1,
@@ -132,8 +135,9 @@ func TestAllLoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = lootStore.Add(&clientpb.Loot{
-		Type: clientpb.LootType_TEXT,
-		Name: name2,
+		Type:     clientpb.LootType_LOOT_FILE,
+		Name:     name2,
+		FileType: clientpb.FileType_TEXT,
 		File: &commonpb.File{
 			Name: name1,
 			Data: []byte("hello world"),
@@ -143,10 +147,10 @@ func TestAllLoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = lootStore.Add(&clientpb.Loot{
-		Type: clientpb.LootType_CREDENTIAL,
-		Name: name3,
+		Type:           clientpb.LootType_LOOT_CREDENTIAL,
+		Name:           name3,
+		CredentialType: clientpb.CredentialType_USER_PASSWORD,
 		Credential: &clientpb.Credential{
-			Type:     clientpb.CredentialType_USER_PASSWORD,
 			User:     "admin",
 			Password: "admin",
 		},
@@ -175,8 +179,9 @@ func TestAllLoot(t *testing.T) {
 func TestLootErrors(t *testing.T) {
 	lootStore := GetLootStore()
 	loot, err := lootStore.Add(&clientpb.Loot{
-		Type: clientpb.LootType_BINARY,
-		Name: name1,
+		Type:     clientpb.LootType_LOOT_FILE,
+		Name:     name1,
+		FileType: clientpb.FileType_BINARY,
 		File: &commonpb.File{
 			Name: name1,
 			Data: data1,

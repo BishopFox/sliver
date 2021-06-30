@@ -126,22 +126,19 @@ func (StageProtocol) EnumDescriptor() ([]byte, []int) {
 type LootType int32
 
 const (
-	LootType_BINARY     LootType = 0
-	LootType_TEXT       LootType = 1
-	LootType_CREDENTIAL LootType = 2
+	LootType_LOOT_FILE       LootType = 0
+	LootType_LOOT_CREDENTIAL LootType = 1
 )
 
 // Enum value maps for LootType.
 var (
 	LootType_name = map[int32]string{
-		0: "BINARY",
-		1: "TEXT",
-		2: "CREDENTIAL",
+		0: "LOOT_FILE",
+		1: "LOOT_CREDENTIAL",
 	}
 	LootType_value = map[string]int32{
-		"BINARY":     0,
-		"TEXT":       1,
-		"CREDENTIAL": 2,
+		"LOOT_FILE":       0,
+		"LOOT_CREDENTIAL": 1,
 	}
 )
 
@@ -175,19 +172,25 @@ func (LootType) EnumDescriptor() ([]byte, []int) {
 type CredentialType int32
 
 const (
-	CredentialType_USER_PASSWORD CredentialType = 0
-	CredentialType_API_KEY       CredentialType = 1
+	CredentialType_NO_CREDENTIAL CredentialType = 0
+	CredentialType_USER_PASSWORD CredentialType = 1
+	CredentialType_API_KEY       CredentialType = 2
+	CredentialType_FILE          CredentialType = 3
 )
 
 // Enum value maps for CredentialType.
 var (
 	CredentialType_name = map[int32]string{
-		0: "USER_PASSWORD",
-		1: "API_KEY",
+		0: "NO_CREDENTIAL",
+		1: "USER_PASSWORD",
+		2: "API_KEY",
+		3: "FILE",
 	}
 	CredentialType_value = map[string]int32{
-		"USER_PASSWORD": 0,
-		"API_KEY":       1,
+		"NO_CREDENTIAL": 0,
+		"USER_PASSWORD": 1,
+		"API_KEY":       2,
+		"FILE":          3,
 	}
 )
 
@@ -216,6 +219,55 @@ func (x CredentialType) Number() protoreflect.EnumNumber {
 // Deprecated: Use CredentialType.Descriptor instead.
 func (CredentialType) EnumDescriptor() ([]byte, []int) {
 	return file_clientpb_client_proto_rawDescGZIP(), []int{3}
+}
+
+type FileType int32
+
+const (
+	FileType_NO_FILE FileType = 0
+	FileType_BINARY  FileType = 1
+	FileType_TEXT    FileType = 2
+)
+
+// Enum value maps for FileType.
+var (
+	FileType_name = map[int32]string{
+		0: "NO_FILE",
+		1: "BINARY",
+		2: "TEXT",
+	}
+	FileType_value = map[string]int32{
+		"NO_FILE": 0,
+		"BINARY":  1,
+		"TEXT":    2,
+	}
+)
+
+func (x FileType) Enum() *FileType {
+	p := new(FileType)
+	*p = x
+	return p
+}
+
+func (x FileType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (FileType) Descriptor() protoreflect.EnumDescriptor {
+	return file_clientpb_client_proto_enumTypes[4].Descriptor()
+}
+
+func (FileType) Type() protoreflect.EnumType {
+	return &file_clientpb_client_proto_enumTypes[4]
+}
+
+func (x FileType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use FileType.Descriptor instead.
+func (FileType) EnumDescriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{4}
 }
 
 // [ Version ] ----------------------------------------
@@ -4191,7 +4243,6 @@ type Credential struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Type CredentialType `protobuf:"varint,1,opt,name=Type,proto3,enum=clientpb.CredentialType" json:"Type,omitempty"`
 	// USER_PASSWORD
 	User     string `protobuf:"bytes,2,opt,name=User,proto3" json:"User,omitempty"`
 	Password string `protobuf:"bytes,3,opt,name=Password,proto3" json:"Password,omitempty"`
@@ -4231,13 +4282,6 @@ func (*Credential) Descriptor() ([]byte, []int) {
 	return file_clientpb_client_proto_rawDescGZIP(), []int{58}
 }
 
-func (x *Credential) GetType() CredentialType {
-	if x != nil {
-		return x.Type
-	}
-	return CredentialType_USER_PASSWORD
-}
-
 func (x *Credential) GetUser() string {
 	if x != nil {
 		return x.User
@@ -4264,11 +4308,13 @@ type Loot struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Type       LootType       `protobuf:"varint,1,opt,name=Type,proto3,enum=clientpb.LootType" json:"Type,omitempty"`
-	LootID     string         `protobuf:"bytes,2,opt,name=LootID,proto3" json:"LootID,omitempty"`
-	Name       string         `protobuf:"bytes,3,opt,name=Name,proto3" json:"Name,omitempty"`
-	Credential *Credential    `protobuf:"bytes,8,opt,name=Credential,proto3" json:"Credential,omitempty"`
-	File       *commonpb.File `protobuf:"bytes,9,opt,name=File,proto3" json:"File,omitempty"`
+	Type           LootType       `protobuf:"varint,1,opt,name=Type,proto3,enum=clientpb.LootType" json:"Type,omitempty"`
+	LootID         string         `protobuf:"bytes,2,opt,name=LootID,proto3" json:"LootID,omitempty"`
+	Name           string         `protobuf:"bytes,3,opt,name=Name,proto3" json:"Name,omitempty"`
+	CredentialType CredentialType `protobuf:"varint,4,opt,name=CredentialType,proto3,enum=clientpb.CredentialType" json:"CredentialType,omitempty"`
+	Credential     *Credential    `protobuf:"bytes,5,opt,name=Credential,proto3" json:"Credential,omitempty"`
+	FileType       FileType       `protobuf:"varint,6,opt,name=FileType,proto3,enum=clientpb.FileType" json:"FileType,omitempty"`
+	File           *commonpb.File `protobuf:"bytes,9,opt,name=File,proto3" json:"File,omitempty"`
 }
 
 func (x *Loot) Reset() {
@@ -4307,7 +4353,7 @@ func (x *Loot) GetType() LootType {
 	if x != nil {
 		return x.Type
 	}
-	return LootType_BINARY
+	return LootType_LOOT_FILE
 }
 
 func (x *Loot) GetLootID() string {
@@ -4324,11 +4370,25 @@ func (x *Loot) GetName() string {
 	return ""
 }
 
+func (x *Loot) GetCredentialType() CredentialType {
+	if x != nil {
+		return x.CredentialType
+	}
+	return CredentialType_NO_CREDENTIAL
+}
+
 func (x *Loot) GetCredential() *Credential {
 	if x != nil {
 		return x.Credential
 	}
 	return nil
+}
+
+func (x *Loot) GetFileType() FileType {
+	if x != nil {
+		return x.FileType
+	}
+	return FileType_NO_FILE
 }
 
 func (x *Loot) GetFile() *commonpb.File {
@@ -4857,47 +4917,56 @@ var file_clientpb_client_proto_rawDesc = []byte{
 	0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x50, 0x75, 0x62, 0x4b, 0x65, 0x79, 0x18, 0x03, 0x20, 0x01,
 	0x28, 0x09, 0x52, 0x0c, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x50, 0x75, 0x62, 0x4b, 0x65, 0x79,
 	0x12, 0x1a, 0x0a, 0x08, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x50, 0x18, 0x04, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x08, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x50, 0x22, 0x82, 0x01, 0x0a,
-	0x0a, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x12, 0x2c, 0x0a, 0x04, 0x54,
-	0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x18, 0x2e, 0x63, 0x6c, 0x69, 0x65,
-	0x6e, 0x74, 0x70, 0x62, 0x2e, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x54,
-	0x79, 0x70, 0x65, 0x52, 0x04, 0x54, 0x79, 0x70, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x55, 0x73, 0x65,
-	0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x55, 0x73, 0x65, 0x72, 0x12, 0x1a, 0x0a,
-	0x08, 0x50, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x08, 0x50, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x12, 0x16, 0x0a, 0x06, 0x41, 0x50, 0x49,
-	0x4b, 0x65, 0x79, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x41, 0x50, 0x49, 0x4b, 0x65,
-	0x79, 0x22, 0xb4, 0x01, 0x0a, 0x04, 0x4c, 0x6f, 0x6f, 0x74, 0x12, 0x26, 0x0a, 0x04, 0x54, 0x79,
-	0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x12, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e,
-	0x74, 0x70, 0x62, 0x2e, 0x4c, 0x6f, 0x6f, 0x74, 0x54, 0x79, 0x70, 0x65, 0x52, 0x04, 0x54, 0x79,
-	0x70, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x4c, 0x6f, 0x6f, 0x74, 0x49, 0x44, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x06, 0x4c, 0x6f, 0x6f, 0x74, 0x49, 0x44, 0x12, 0x12, 0x0a, 0x04, 0x4e, 0x61,
-	0x6d, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x34,
-	0x0a, 0x0a, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x18, 0x08, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x14, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x2e, 0x43, 0x72,
-	0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x52, 0x0a, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e,
-	0x74, 0x69, 0x61, 0x6c, 0x12, 0x22, 0x0a, 0x04, 0x46, 0x69, 0x6c, 0x65, 0x18, 0x09, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x70, 0x62, 0x2e, 0x46, 0x69,
-	0x6c, 0x65, 0x52, 0x04, 0x46, 0x69, 0x6c, 0x65, 0x22, 0x2d, 0x0a, 0x07, 0x41, 0x6c, 0x6c, 0x4c,
-	0x6f, 0x6f, 0x74, 0x12, 0x22, 0x0a, 0x04, 0x4c, 0x6f, 0x6f, 0x74, 0x18, 0x01, 0x20, 0x03, 0x28,
-	0x0b, 0x32, 0x0e, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x2e, 0x4c, 0x6f, 0x6f,
-	0x74, 0x52, 0x04, 0x4c, 0x6f, 0x6f, 0x74, 0x2a, 0x4a, 0x0a, 0x0c, 0x4f, 0x75, 0x74, 0x70, 0x75,
-	0x74, 0x46, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x12, 0x0e, 0x0a, 0x0a, 0x53, 0x48, 0x41, 0x52, 0x45,
-	0x44, 0x5f, 0x4c, 0x49, 0x42, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09, 0x53, 0x48, 0x45, 0x4c, 0x4c,
-	0x43, 0x4f, 0x44, 0x45, 0x10, 0x01, 0x12, 0x0e, 0x0a, 0x0a, 0x45, 0x58, 0x45, 0x43, 0x55, 0x54,
-	0x41, 0x42, 0x4c, 0x45, 0x10, 0x02, 0x12, 0x0b, 0x0a, 0x07, 0x53, 0x45, 0x52, 0x56, 0x49, 0x43,
-	0x45, 0x10, 0x03, 0x2a, 0x2d, 0x0a, 0x0d, 0x53, 0x74, 0x61, 0x67, 0x65, 0x50, 0x72, 0x6f, 0x74,
-	0x6f, 0x63, 0x6f, 0x6c, 0x12, 0x07, 0x0a, 0x03, 0x54, 0x43, 0x50, 0x10, 0x00, 0x12, 0x08, 0x0a,
-	0x04, 0x48, 0x54, 0x54, 0x50, 0x10, 0x01, 0x12, 0x09, 0x0a, 0x05, 0x48, 0x54, 0x54, 0x50, 0x53,
-	0x10, 0x02, 0x2a, 0x30, 0x0a, 0x08, 0x4c, 0x6f, 0x6f, 0x74, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0a,
-	0x0a, 0x06, 0x42, 0x49, 0x4e, 0x41, 0x52, 0x59, 0x10, 0x00, 0x12, 0x08, 0x0a, 0x04, 0x54, 0x45,
-	0x58, 0x54, 0x10, 0x01, 0x12, 0x0e, 0x0a, 0x0a, 0x43, 0x52, 0x45, 0x44, 0x45, 0x4e, 0x54, 0x49,
-	0x41, 0x4c, 0x10, 0x02, 0x2a, 0x30, 0x0a, 0x0e, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69,
-	0x61, 0x6c, 0x54, 0x79, 0x70, 0x65, 0x12, 0x11, 0x0a, 0x0d, 0x55, 0x53, 0x45, 0x52, 0x5f, 0x50,
-	0x41, 0x53, 0x53, 0x57, 0x4f, 0x52, 0x44, 0x10, 0x00, 0x12, 0x0b, 0x0a, 0x07, 0x41, 0x50, 0x49,
-	0x5f, 0x4b, 0x45, 0x59, 0x10, 0x01, 0x42, 0x2f, 0x5a, 0x2d, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62,
-	0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x62, 0x69, 0x73, 0x68, 0x6f, 0x70, 0x66, 0x6f, 0x78, 0x2f, 0x73,
-	0x6c, 0x69, 0x76, 0x65, 0x72, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x63,
-	0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x28, 0x09, 0x52, 0x08, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x50, 0x22, 0x54, 0x0a, 0x0a,
+	0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x12, 0x12, 0x0a, 0x04, 0x55, 0x73,
+	0x65, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x55, 0x73, 0x65, 0x72, 0x12, 0x1a,
+	0x0a, 0x08, 0x50, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x08, 0x50, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x12, 0x16, 0x0a, 0x06, 0x41, 0x50,
+	0x49, 0x4b, 0x65, 0x79, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x41, 0x50, 0x49, 0x4b,
+	0x65, 0x79, 0x22, 0xa6, 0x02, 0x0a, 0x04, 0x4c, 0x6f, 0x6f, 0x74, 0x12, 0x26, 0x0a, 0x04, 0x54,
+	0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x12, 0x2e, 0x63, 0x6c, 0x69, 0x65,
+	0x6e, 0x74, 0x70, 0x62, 0x2e, 0x4c, 0x6f, 0x6f, 0x74, 0x54, 0x79, 0x70, 0x65, 0x52, 0x04, 0x54,
+	0x79, 0x70, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x4c, 0x6f, 0x6f, 0x74, 0x49, 0x44, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x06, 0x4c, 0x6f, 0x6f, 0x74, 0x49, 0x44, 0x12, 0x12, 0x0a, 0x04, 0x4e,
+	0x61, 0x6d, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x4e, 0x61, 0x6d, 0x65, 0x12,
+	0x40, 0x0a, 0x0e, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x54, 0x79, 0x70,
+	0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x18, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74,
+	0x70, 0x62, 0x2e, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x54, 0x79, 0x70,
+	0x65, 0x52, 0x0e, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x54, 0x79, 0x70,
+	0x65, 0x12, 0x34, 0x0a, 0x0a, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x18,
+	0x05, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62,
+	0x2e, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x52, 0x0a, 0x43, 0x72, 0x65,
+	0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x12, 0x2e, 0x0a, 0x08, 0x46, 0x69, 0x6c, 0x65, 0x54,
+	0x79, 0x70, 0x65, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x12, 0x2e, 0x63, 0x6c, 0x69, 0x65,
+	0x6e, 0x74, 0x70, 0x62, 0x2e, 0x46, 0x69, 0x6c, 0x65, 0x54, 0x79, 0x70, 0x65, 0x52, 0x08, 0x46,
+	0x69, 0x6c, 0x65, 0x54, 0x79, 0x70, 0x65, 0x12, 0x22, 0x0a, 0x04, 0x46, 0x69, 0x6c, 0x65, 0x18,
+	0x09, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x70, 0x62,
+	0x2e, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x04, 0x46, 0x69, 0x6c, 0x65, 0x22, 0x2d, 0x0a, 0x07, 0x41,
+	0x6c, 0x6c, 0x4c, 0x6f, 0x6f, 0x74, 0x12, 0x22, 0x0a, 0x04, 0x4c, 0x6f, 0x6f, 0x74, 0x18, 0x01,
+	0x20, 0x03, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x2e,
+	0x4c, 0x6f, 0x6f, 0x74, 0x52, 0x04, 0x4c, 0x6f, 0x6f, 0x74, 0x2a, 0x4a, 0x0a, 0x0c, 0x4f, 0x75,
+	0x74, 0x70, 0x75, 0x74, 0x46, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x12, 0x0e, 0x0a, 0x0a, 0x53, 0x48,
+	0x41, 0x52, 0x45, 0x44, 0x5f, 0x4c, 0x49, 0x42, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09, 0x53, 0x48,
+	0x45, 0x4c, 0x4c, 0x43, 0x4f, 0x44, 0x45, 0x10, 0x01, 0x12, 0x0e, 0x0a, 0x0a, 0x45, 0x58, 0x45,
+	0x43, 0x55, 0x54, 0x41, 0x42, 0x4c, 0x45, 0x10, 0x02, 0x12, 0x0b, 0x0a, 0x07, 0x53, 0x45, 0x52,
+	0x56, 0x49, 0x43, 0x45, 0x10, 0x03, 0x2a, 0x2d, 0x0a, 0x0d, 0x53, 0x74, 0x61, 0x67, 0x65, 0x50,
+	0x72, 0x6f, 0x74, 0x6f, 0x63, 0x6f, 0x6c, 0x12, 0x07, 0x0a, 0x03, 0x54, 0x43, 0x50, 0x10, 0x00,
+	0x12, 0x08, 0x0a, 0x04, 0x48, 0x54, 0x54, 0x50, 0x10, 0x01, 0x12, 0x09, 0x0a, 0x05, 0x48, 0x54,
+	0x54, 0x50, 0x53, 0x10, 0x02, 0x2a, 0x2e, 0x0a, 0x08, 0x4c, 0x6f, 0x6f, 0x74, 0x54, 0x79, 0x70,
+	0x65, 0x12, 0x0d, 0x0a, 0x09, 0x4c, 0x4f, 0x4f, 0x54, 0x5f, 0x46, 0x49, 0x4c, 0x45, 0x10, 0x00,
+	0x12, 0x13, 0x0a, 0x0f, 0x4c, 0x4f, 0x4f, 0x54, 0x5f, 0x43, 0x52, 0x45, 0x44, 0x45, 0x4e, 0x54,
+	0x49, 0x41, 0x4c, 0x10, 0x01, 0x2a, 0x4d, 0x0a, 0x0e, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74,
+	0x69, 0x61, 0x6c, 0x54, 0x79, 0x70, 0x65, 0x12, 0x11, 0x0a, 0x0d, 0x4e, 0x4f, 0x5f, 0x43, 0x52,
+	0x45, 0x44, 0x45, 0x4e, 0x54, 0x49, 0x41, 0x4c, 0x10, 0x00, 0x12, 0x11, 0x0a, 0x0d, 0x55, 0x53,
+	0x45, 0x52, 0x5f, 0x50, 0x41, 0x53, 0x53, 0x57, 0x4f, 0x52, 0x44, 0x10, 0x01, 0x12, 0x0b, 0x0a,
+	0x07, 0x41, 0x50, 0x49, 0x5f, 0x4b, 0x45, 0x59, 0x10, 0x02, 0x12, 0x08, 0x0a, 0x04, 0x46, 0x49,
+	0x4c, 0x45, 0x10, 0x03, 0x2a, 0x2d, 0x0a, 0x08, 0x46, 0x69, 0x6c, 0x65, 0x54, 0x79, 0x70, 0x65,
+	0x12, 0x0b, 0x0a, 0x07, 0x4e, 0x4f, 0x5f, 0x46, 0x49, 0x4c, 0x45, 0x10, 0x00, 0x12, 0x0a, 0x0a,
+	0x06, 0x42, 0x49, 0x4e, 0x41, 0x52, 0x59, 0x10, 0x01, 0x12, 0x08, 0x0a, 0x04, 0x54, 0x45, 0x58,
+	0x54, 0x10, 0x02, 0x42, 0x2f, 0x5a, 0x2d, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f,
+	0x6d, 0x2f, 0x62, 0x69, 0x73, 0x68, 0x6f, 0x70, 0x66, 0x6f, 0x78, 0x2f, 0x73, 0x6c, 0x69, 0x76,
+	0x65, 0x72, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x63, 0x6c, 0x69, 0x65,
+	0x6e, 0x74, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -4912,131 +4981,133 @@ func file_clientpb_client_proto_rawDescGZIP() []byte {
 	return file_clientpb_client_proto_rawDescData
 }
 
-var file_clientpb_client_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_clientpb_client_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
 var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 64)
 var file_clientpb_client_proto_goTypes = []interface{}{
 	(OutputFormat)(0),            // 0: clientpb.OutputFormat
 	(StageProtocol)(0),           // 1: clientpb.StageProtocol
 	(LootType)(0),                // 2: clientpb.LootType
 	(CredentialType)(0),          // 3: clientpb.CredentialType
-	(*Version)(nil),              // 4: clientpb.Version
-	(*Session)(nil),              // 5: clientpb.Session
-	(*ImplantC2)(nil),            // 6: clientpb.ImplantC2
-	(*ImplantConfig)(nil),        // 7: clientpb.ImplantConfig
-	(*ImplantBuilds)(nil),        // 8: clientpb.ImplantBuilds
-	(*CompilerTarget)(nil),       // 9: clientpb.CompilerTarget
-	(*CrossCompiler)(nil),        // 10: clientpb.CrossCompiler
-	(*Compiler)(nil),             // 11: clientpb.Compiler
-	(*DeleteReq)(nil),            // 12: clientpb.DeleteReq
-	(*DNSCanary)(nil),            // 13: clientpb.DNSCanary
-	(*Canaries)(nil),             // 14: clientpb.Canaries
-	(*UniqueWGIP)(nil),           // 15: clientpb.UniqueWGIP
-	(*ImplantProfile)(nil),       // 16: clientpb.ImplantProfile
-	(*ImplantProfiles)(nil),      // 17: clientpb.ImplantProfiles
-	(*RegenerateReq)(nil),        // 18: clientpb.RegenerateReq
-	(*Job)(nil),                  // 19: clientpb.Job
-	(*Jobs)(nil),                 // 20: clientpb.Jobs
-	(*KillJobReq)(nil),           // 21: clientpb.KillJobReq
-	(*KillJob)(nil),              // 22: clientpb.KillJob
-	(*MTLSListenerReq)(nil),      // 23: clientpb.MTLSListenerReq
-	(*MTLSListener)(nil),         // 24: clientpb.MTLSListener
-	(*WGListenerReq)(nil),        // 25: clientpb.WGListenerReq
-	(*WGListener)(nil),           // 26: clientpb.WGListener
-	(*DNSListenerReq)(nil),       // 27: clientpb.DNSListenerReq
-	(*DNSListener)(nil),          // 28: clientpb.DNSListener
-	(*HTTPListenerReq)(nil),      // 29: clientpb.HTTPListenerReq
-	(*NamedPipesReq)(nil),        // 30: clientpb.NamedPipesReq
-	(*NamedPipes)(nil),           // 31: clientpb.NamedPipes
-	(*TCPPivotReq)(nil),          // 32: clientpb.TCPPivotReq
-	(*TCPPivot)(nil),             // 33: clientpb.TCPPivot
-	(*HTTPListener)(nil),         // 34: clientpb.HTTPListener
-	(*Sessions)(nil),             // 35: clientpb.Sessions
-	(*UpdateSession)(nil),        // 36: clientpb.UpdateSession
-	(*GenerateReq)(nil),          // 37: clientpb.GenerateReq
-	(*Generate)(nil),             // 38: clientpb.Generate
-	(*MSFReq)(nil),               // 39: clientpb.MSFReq
-	(*MSFRemoteReq)(nil),         // 40: clientpb.MSFRemoteReq
-	(*StagerListenerReq)(nil),    // 41: clientpb.StagerListenerReq
-	(*StagerListener)(nil),       // 42: clientpb.StagerListener
-	(*ShellcodeRDIReq)(nil),      // 43: clientpb.ShellcodeRDIReq
-	(*ShellcodeRDI)(nil),         // 44: clientpb.ShellcodeRDI
-	(*MsfStagerReq)(nil),         // 45: clientpb.MsfStagerReq
-	(*MsfStager)(nil),            // 46: clientpb.MsfStager
-	(*GetSystemReq)(nil),         // 47: clientpb.GetSystemReq
-	(*MigrateReq)(nil),           // 48: clientpb.MigrateReq
-	(*CreateTunnelReq)(nil),      // 49: clientpb.CreateTunnelReq
-	(*CreateTunnel)(nil),         // 50: clientpb.CreateTunnel
-	(*CloseTunnelReq)(nil),       // 51: clientpb.CloseTunnelReq
-	(*Client)(nil),               // 52: clientpb.Client
-	(*Event)(nil),                // 53: clientpb.Event
-	(*Operators)(nil),            // 54: clientpb.Operators
-	(*Operator)(nil),             // 55: clientpb.Operator
-	(*WebContent)(nil),           // 56: clientpb.WebContent
-	(*WebsiteAddContent)(nil),    // 57: clientpb.WebsiteAddContent
-	(*WebsiteRemoveContent)(nil), // 58: clientpb.WebsiteRemoveContent
-	(*Website)(nil),              // 59: clientpb.Website
-	(*Websites)(nil),             // 60: clientpb.Websites
-	(*WGClientConfig)(nil),       // 61: clientpb.WGClientConfig
-	(*Credential)(nil),           // 62: clientpb.Credential
-	(*Loot)(nil),                 // 63: clientpb.Loot
-	(*AllLoot)(nil),              // 64: clientpb.AllLoot
-	nil,                          // 65: clientpb.ImplantBuilds.ConfigsEntry
-	nil,                          // 66: clientpb.WebsiteAddContent.ContentsEntry
-	nil,                          // 67: clientpb.Website.ContentsEntry
-	(*commonpb.Request)(nil),     // 68: commonpb.Request
-	(*commonpb.Response)(nil),    // 69: commonpb.Response
-	(*commonpb.File)(nil),        // 70: commonpb.File
+	(FileType)(0),                // 4: clientpb.FileType
+	(*Version)(nil),              // 5: clientpb.Version
+	(*Session)(nil),              // 6: clientpb.Session
+	(*ImplantC2)(nil),            // 7: clientpb.ImplantC2
+	(*ImplantConfig)(nil),        // 8: clientpb.ImplantConfig
+	(*ImplantBuilds)(nil),        // 9: clientpb.ImplantBuilds
+	(*CompilerTarget)(nil),       // 10: clientpb.CompilerTarget
+	(*CrossCompiler)(nil),        // 11: clientpb.CrossCompiler
+	(*Compiler)(nil),             // 12: clientpb.Compiler
+	(*DeleteReq)(nil),            // 13: clientpb.DeleteReq
+	(*DNSCanary)(nil),            // 14: clientpb.DNSCanary
+	(*Canaries)(nil),             // 15: clientpb.Canaries
+	(*UniqueWGIP)(nil),           // 16: clientpb.UniqueWGIP
+	(*ImplantProfile)(nil),       // 17: clientpb.ImplantProfile
+	(*ImplantProfiles)(nil),      // 18: clientpb.ImplantProfiles
+	(*RegenerateReq)(nil),        // 19: clientpb.RegenerateReq
+	(*Job)(nil),                  // 20: clientpb.Job
+	(*Jobs)(nil),                 // 21: clientpb.Jobs
+	(*KillJobReq)(nil),           // 22: clientpb.KillJobReq
+	(*KillJob)(nil),              // 23: clientpb.KillJob
+	(*MTLSListenerReq)(nil),      // 24: clientpb.MTLSListenerReq
+	(*MTLSListener)(nil),         // 25: clientpb.MTLSListener
+	(*WGListenerReq)(nil),        // 26: clientpb.WGListenerReq
+	(*WGListener)(nil),           // 27: clientpb.WGListener
+	(*DNSListenerReq)(nil),       // 28: clientpb.DNSListenerReq
+	(*DNSListener)(nil),          // 29: clientpb.DNSListener
+	(*HTTPListenerReq)(nil),      // 30: clientpb.HTTPListenerReq
+	(*NamedPipesReq)(nil),        // 31: clientpb.NamedPipesReq
+	(*NamedPipes)(nil),           // 32: clientpb.NamedPipes
+	(*TCPPivotReq)(nil),          // 33: clientpb.TCPPivotReq
+	(*TCPPivot)(nil),             // 34: clientpb.TCPPivot
+	(*HTTPListener)(nil),         // 35: clientpb.HTTPListener
+	(*Sessions)(nil),             // 36: clientpb.Sessions
+	(*UpdateSession)(nil),        // 37: clientpb.UpdateSession
+	(*GenerateReq)(nil),          // 38: clientpb.GenerateReq
+	(*Generate)(nil),             // 39: clientpb.Generate
+	(*MSFReq)(nil),               // 40: clientpb.MSFReq
+	(*MSFRemoteReq)(nil),         // 41: clientpb.MSFRemoteReq
+	(*StagerListenerReq)(nil),    // 42: clientpb.StagerListenerReq
+	(*StagerListener)(nil),       // 43: clientpb.StagerListener
+	(*ShellcodeRDIReq)(nil),      // 44: clientpb.ShellcodeRDIReq
+	(*ShellcodeRDI)(nil),         // 45: clientpb.ShellcodeRDI
+	(*MsfStagerReq)(nil),         // 46: clientpb.MsfStagerReq
+	(*MsfStager)(nil),            // 47: clientpb.MsfStager
+	(*GetSystemReq)(nil),         // 48: clientpb.GetSystemReq
+	(*MigrateReq)(nil),           // 49: clientpb.MigrateReq
+	(*CreateTunnelReq)(nil),      // 50: clientpb.CreateTunnelReq
+	(*CreateTunnel)(nil),         // 51: clientpb.CreateTunnel
+	(*CloseTunnelReq)(nil),       // 52: clientpb.CloseTunnelReq
+	(*Client)(nil),               // 53: clientpb.Client
+	(*Event)(nil),                // 54: clientpb.Event
+	(*Operators)(nil),            // 55: clientpb.Operators
+	(*Operator)(nil),             // 56: clientpb.Operator
+	(*WebContent)(nil),           // 57: clientpb.WebContent
+	(*WebsiteAddContent)(nil),    // 58: clientpb.WebsiteAddContent
+	(*WebsiteRemoveContent)(nil), // 59: clientpb.WebsiteRemoveContent
+	(*Website)(nil),              // 60: clientpb.Website
+	(*Websites)(nil),             // 61: clientpb.Websites
+	(*WGClientConfig)(nil),       // 62: clientpb.WGClientConfig
+	(*Credential)(nil),           // 63: clientpb.Credential
+	(*Loot)(nil),                 // 64: clientpb.Loot
+	(*AllLoot)(nil),              // 65: clientpb.AllLoot
+	nil,                          // 66: clientpb.ImplantBuilds.ConfigsEntry
+	nil,                          // 67: clientpb.WebsiteAddContent.ContentsEntry
+	nil,                          // 68: clientpb.Website.ContentsEntry
+	(*commonpb.Request)(nil),     // 69: commonpb.Request
+	(*commonpb.Response)(nil),    // 70: commonpb.Response
+	(*commonpb.File)(nil),        // 71: commonpb.File
 }
 var file_clientpb_client_proto_depIdxs = []int32{
-	6,  // 0: clientpb.ImplantConfig.C2:type_name -> clientpb.ImplantC2
+	7,  // 0: clientpb.ImplantConfig.C2:type_name -> clientpb.ImplantC2
 	0,  // 1: clientpb.ImplantConfig.Format:type_name -> clientpb.OutputFormat
-	65, // 2: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
+	66, // 2: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
 	0,  // 3: clientpb.CompilerTarget.Format:type_name -> clientpb.OutputFormat
-	9,  // 4: clientpb.Compiler.Targets:type_name -> clientpb.CompilerTarget
-	10, // 5: clientpb.Compiler.CrossCompilers:type_name -> clientpb.CrossCompiler
-	13, // 6: clientpb.Canaries.Canaries:type_name -> clientpb.DNSCanary
-	7,  // 7: clientpb.ImplantProfile.Config:type_name -> clientpb.ImplantConfig
-	16, // 8: clientpb.ImplantProfiles.Profiles:type_name -> clientpb.ImplantProfile
-	19, // 9: clientpb.Jobs.Active:type_name -> clientpb.Job
-	68, // 10: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
-	69, // 11: clientpb.NamedPipes.Response:type_name -> commonpb.Response
-	68, // 12: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
-	69, // 13: clientpb.TCPPivot.Response:type_name -> commonpb.Response
-	5,  // 14: clientpb.Sessions.Sessions:type_name -> clientpb.Session
-	7,  // 15: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
-	70, // 16: clientpb.Generate.File:type_name -> commonpb.File
-	68, // 17: clientpb.MSFReq.Request:type_name -> commonpb.Request
-	68, // 18: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
+	10, // 4: clientpb.Compiler.Targets:type_name -> clientpb.CompilerTarget
+	11, // 5: clientpb.Compiler.CrossCompilers:type_name -> clientpb.CrossCompiler
+	14, // 6: clientpb.Canaries.Canaries:type_name -> clientpb.DNSCanary
+	8,  // 7: clientpb.ImplantProfile.Config:type_name -> clientpb.ImplantConfig
+	17, // 8: clientpb.ImplantProfiles.Profiles:type_name -> clientpb.ImplantProfile
+	20, // 9: clientpb.Jobs.Active:type_name -> clientpb.Job
+	69, // 10: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
+	70, // 11: clientpb.NamedPipes.Response:type_name -> commonpb.Response
+	69, // 12: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
+	70, // 13: clientpb.TCPPivot.Response:type_name -> commonpb.Response
+	6,  // 14: clientpb.Sessions.Sessions:type_name -> clientpb.Session
+	8,  // 15: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
+	71, // 16: clientpb.Generate.File:type_name -> commonpb.File
+	69, // 17: clientpb.MSFReq.Request:type_name -> commonpb.Request
+	69, // 18: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
 	1,  // 19: clientpb.StagerListenerReq.Protocol:type_name -> clientpb.StageProtocol
 	1,  // 20: clientpb.MsfStagerReq.Protocol:type_name -> clientpb.StageProtocol
-	70, // 21: clientpb.MsfStager.File:type_name -> commonpb.File
-	7,  // 22: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
-	68, // 23: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
-	7,  // 24: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
-	68, // 25: clientpb.MigrateReq.Request:type_name -> commonpb.Request
-	68, // 26: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
-	68, // 27: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
-	55, // 28: clientpb.Client.Operator:type_name -> clientpb.Operator
-	5,  // 29: clientpb.Event.Session:type_name -> clientpb.Session
-	19, // 30: clientpb.Event.Job:type_name -> clientpb.Job
-	52, // 31: clientpb.Event.Client:type_name -> clientpb.Client
-	55, // 32: clientpb.Operators.Operators:type_name -> clientpb.Operator
-	66, // 33: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
-	67, // 34: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
-	59, // 35: clientpb.Websites.Websites:type_name -> clientpb.Website
-	3,  // 36: clientpb.Credential.Type:type_name -> clientpb.CredentialType
-	2,  // 37: clientpb.Loot.Type:type_name -> clientpb.LootType
-	62, // 38: clientpb.Loot.Credential:type_name -> clientpb.Credential
-	70, // 39: clientpb.Loot.File:type_name -> commonpb.File
-	63, // 40: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
-	7,  // 41: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
-	56, // 42: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
-	56, // 43: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
-	44, // [44:44] is the sub-list for method output_type
-	44, // [44:44] is the sub-list for method input_type
-	44, // [44:44] is the sub-list for extension type_name
-	44, // [44:44] is the sub-list for extension extendee
-	0,  // [0:44] is the sub-list for field type_name
+	71, // 21: clientpb.MsfStager.File:type_name -> commonpb.File
+	8,  // 22: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
+	69, // 23: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
+	8,  // 24: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
+	69, // 25: clientpb.MigrateReq.Request:type_name -> commonpb.Request
+	69, // 26: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
+	69, // 27: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
+	56, // 28: clientpb.Client.Operator:type_name -> clientpb.Operator
+	6,  // 29: clientpb.Event.Session:type_name -> clientpb.Session
+	20, // 30: clientpb.Event.Job:type_name -> clientpb.Job
+	53, // 31: clientpb.Event.Client:type_name -> clientpb.Client
+	56, // 32: clientpb.Operators.Operators:type_name -> clientpb.Operator
+	67, // 33: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
+	68, // 34: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
+	60, // 35: clientpb.Websites.Websites:type_name -> clientpb.Website
+	2,  // 36: clientpb.Loot.Type:type_name -> clientpb.LootType
+	3,  // 37: clientpb.Loot.CredentialType:type_name -> clientpb.CredentialType
+	63, // 38: clientpb.Loot.Credential:type_name -> clientpb.Credential
+	4,  // 39: clientpb.Loot.FileType:type_name -> clientpb.FileType
+	71, // 40: clientpb.Loot.File:type_name -> commonpb.File
+	64, // 41: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
+	8,  // 42: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
+	57, // 43: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
+	57, // 44: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
+	45, // [45:45] is the sub-list for method output_type
+	45, // [45:45] is the sub-list for method input_type
+	45, // [45:45] is the sub-list for extension type_name
+	45, // [45:45] is the sub-list for extension extendee
+	0,  // [0:45] is the sub-list for field type_name
 }
 
 func init() { file_clientpb_client_proto_init() }
@@ -5783,7 +5854,7 @@ func file_clientpb_client_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_clientpb_client_proto_rawDesc,
-			NumEnums:      4,
+			NumEnums:      5,
 			NumMessages:   64,
 			NumExtensions: 0,
 			NumServices:   0,

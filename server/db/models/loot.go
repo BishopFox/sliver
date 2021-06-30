@@ -32,8 +32,10 @@ type Loot struct {
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
-	Type int
-	Name string
+	Type           int
+	FileType       int
+	CredentialType int
+	Name           string
 }
 
 // BeforeCreate - GORM hook

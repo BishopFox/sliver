@@ -452,18 +452,24 @@ message WGClientConfig {
 
 // [ Loot ] ----------------------------------------
 enum LootType {
-  BINARY = 0;
-  TEXT = 1;
-  CREDENTIAL = 2;
+  LOOT_FILE = 0;
+  LOOT_CREDENTIAL = 1;
 }
 
 enum CredentialType {
-  USER_PASSWORD = 0;
-  API_KEY = 1;
+  NO_CREDENTIAL = 0;
+  USER_PASSWORD = 1;
+  API_KEY = 2;
+  FILE = 3;
+}
+
+enum FileType {
+  NO_FILE = 0;
+  BINARY = 1;
+  TEXT = 2;
 }
 
 message Credential {
-  CredentialType Type = 1;
   
   // USER_PASSWORD
   string User = 2;
@@ -475,10 +481,14 @@ message Credential {
 
 message Loot {
   LootType Type = 1;
+
   string LootID = 2;
   string Name = 3;
 
-  Credential Credential = 8;
+  CredentialType CredentialType = 4;
+  Credential Credential = 5;
+  FileType FileType = 6;
+
   commonpb.File File = 9;
 }
 

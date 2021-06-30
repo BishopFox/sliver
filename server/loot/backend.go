@@ -47,8 +47,10 @@ type LocalBackend struct {
 
 func (l *LocalBackend) Add(loot *clientpb.Loot) (*clientpb.Loot, error) {
 	dbLoot := &models.Loot{
-		Name: loot.GetName(),
-		Type: int(loot.GetType()),
+		Name:           loot.GetName(),
+		Type:           int(loot.GetType()),
+		CredentialType: int(loot.GetCredentialType()),
+		FileType:       int(loot.GetFileType()),
 	}
 	dbSession := db.Session()
 	err := dbSession.Create(dbLoot).Error
@@ -138,9 +140,11 @@ func (l *LocalBackend) GetContent(lootID string) (*clientpb.Loot, error) {
 
 	// Re-construct protobuf object
 	loot := &clientpb.Loot{
-		LootID: dbLoot.ID.String(),
-		Name:   dbLoot.Name,
-		Type:   clientpb.LootType(dbLoot.Type),
+		LootID:         dbLoot.ID.String(),
+		Name:           dbLoot.Name,
+		Type:           clientpb.LootType(dbLoot.Type),
+		FileType:       clientpb.FileType(dbLoot.FileType),
+		CredentialType: clientpb.CredentialType(dbLoot.CredentialType),
 	}
 
 	// File Loot

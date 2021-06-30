@@ -23,6 +23,7 @@ import (
 )
 
 var (
+	ErrInvalidFileType = errors.New("invalid file type")
 	ErrInvalidLootType = errors.New("invalid loot type")
 )
 
@@ -62,20 +63,33 @@ func lootAddLocal(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if name == "" {
 		name = path.Base(localPath)
 	}
-	lootTypeStr := ctx.Flags.String("type")
+
 	var lootType clientpb.LootType
 	var err error
+	lootTypeStr := ctx.Flags.String("type")
 	if lootTypeStr != "" {
 		lootType, err = lootTypeFromHumanStr(lootTypeStr)
+		if err == ErrInvalidLootType {
+			fmt.Printf(Warn+"Invalid loot type %s", lootTypeStr)
+			return
+		}
+	} else {
+		lootType = clientpb.LootType_LOOT_FILE
+	}
+
+	lootFileTypeStr := ctx.Flags.String("file-type")
+	var lootFileType clientpb.FileType
+	if lootFileTypeStr != "" {
+		lootFileType, err = lootFileTypeFromHumanStr(lootFileTypeStr)
 		if err != nil {
 			fmt.Printf(Warn+"%s\n", err)
 			return
 		}
 	} else {
 		if isTextFile(localPath) {
-			lootType = clientpb.LootType_TEXT
+			lootFileType = clientpb.FileType_TEXT
 		} else {
-			lootType = clientpb.LootType_BINARY
+			lootFileType = clientpb.FileType_BINARY
 		}
 	}
 	data, err := ioutil.ReadFile(localPath)
@@ -84,16 +98,19 @@ func lootAddLocal(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	ctrl := make(chan bool)
-	go spin.Until(fmt.Sprintf("Uploading loot from %s", localPath), ctrl)
-	loot, err := rpc.LootAdd(context.Background(), &clientpb.Loot{
-		Name: name,
-		Type: lootType,
+	loot := &clientpb.Loot{
+		Name:     name,
+		Type:     lootType,
+		FileType: lootFileType,
 		File: &commonpb.File{
 			Name: path.Base(localPath),
 			Data: data,
 		},
-	})
+	}
+
+	ctrl := make(chan bool)
+	go spin.Until(fmt.Sprintf("Uploading loot from %s", localPath), ctrl)
+	loot, err = rpc.LootAdd(context.Background(), loot)
 	ctrl <- true
 	<-ctrl
 	if err != nil {
@@ -112,6 +129,19 @@ func lootAddRemote(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	name := ctx.Flags.String("name")
 	if name == "" {
 		name = path.Base(remotePath)
+	}
+
+	var lootType clientpb.LootType
+	var err error
+	lootTypeStr := ctx.Flags.String("type")
+	if lootTypeStr != "" {
+		lootType, err = lootTypeFromHumanStr(lootTypeStr)
+		if err == ErrInvalidLootType {
+			fmt.Printf(Warn+"Invalid loot type %s", lootTypeStr)
+			return
+		}
+	} else {
+		lootType = clientpb.LootType_LOOT_FILE
 	}
 
 	ctrl := make(chan bool)
@@ -139,21 +169,25 @@ func lootAddRemote(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	// Determine type based on download buffer
-	var lootType clientpb.LootType
-	if isText(download.Data) {
-		lootType = clientpb.LootType_TEXT
-	} else {
-		lootType = clientpb.LootType_BINARY
+	lootFileType, err := lootFileTypeFromHumanStr(ctx.Flags.String("file-type"))
+	if lootFileType == -1 || err != nil {
+		if isText(download.Data) {
+			lootFileType = clientpb.FileType_TEXT
+		} else {
+			lootFileType = clientpb.FileType_BINARY
+		}
 	}
-
-	loot, err := rpc.LootAdd(context.Background(), &clientpb.Loot{
-		Name: name,
-		Type: lootType,
+	loot := &clientpb.Loot{
+		Name:     name,
+		Type:     lootType,
+		FileType: lootFileType,
 		File: &commonpb.File{
 			Name: path.Base(remotePath),
 			Data: download.Data,
 		},
-	})
+	}
+
+	loot, err = rpc.LootAdd(context.Background(), loot)
 	ctrl <- true
 	<-ctrl
 	if err != nil {
@@ -194,16 +228,10 @@ func lootFetch(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	// Handle loot based on its type
 	switch loot.Type {
-	case clientpb.LootType_TEXT:
-		displayLootText(loot)
-	case clientpb.LootType_CREDENTIAL:
+	case clientpb.LootType_LOOT_FILE:
+		displayLootFile(loot)
+	case clientpb.LootType_LOOT_CREDENTIAL:
 		displayLootCredential(loot)
-	default:
-		// This Loot Type must be saved to disk
-		if ctx.Flags.String("save") == "" {
-			fmt.Printf("You must specify a --save path for %s loot\n", lootTypeToStr(loot.Type))
-			return
-		}
 	}
 
 	if ctx.Flags.String("save") != "" {
@@ -218,7 +246,6 @@ func lootFetch(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func lootAddCredential(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-
 	prompt := &survey.Select{
 		Message: "Choose a credential type:",
 		Options: []string{
@@ -235,20 +262,20 @@ func lootAddCredential(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	loot := &clientpb.Loot{
-		Type:       clientpb.LootType_CREDENTIAL,
+		Type:       clientpb.LootType_LOOT_CREDENTIAL,
 		Name:       name,
 		Credential: &clientpb.Credential{},
 	}
 
 	switch credType {
 	case clientpb.CredentialType_USER_PASSWORD.String():
-		loot.Credential.Type = clientpb.CredentialType_USER_PASSWORD
+		loot.CredentialType = clientpb.CredentialType_USER_PASSWORD
 		usernamePrompt := &survey.Input{Message: "Username: "}
 		survey.AskOne(usernamePrompt, &loot.Credential.User)
 		passwordPrompt := &survey.Input{Message: "Password: "}
 		survey.AskOne(passwordPrompt, &loot.Credential.Password)
 	case clientpb.CredentialType_API_KEY.String():
-		loot.Credential.Type = clientpb.CredentialType_API_KEY
+		loot.CredentialType = clientpb.CredentialType_API_KEY
 		usernamePrompt := &survey.Input{Message: "API Key: "}
 		survey.AskOne(usernamePrompt, &loot.Credential.APIKey)
 	}
@@ -262,9 +289,8 @@ func lootAddCredential(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf(Info+"Successfully added loot to server (%s)\n", loot.LootID)
 }
 
-func displayLootText(loot *clientpb.Loot) {
+func displayLootFile(loot *clientpb.Loot) {
 	if loot.File == nil {
-		fmt.Printf(Warn + "Missing loot file\n")
 		return
 	}
 	fmt.Println()
@@ -272,23 +298,31 @@ func displayLootText(loot *clientpb.Loot) {
 	if loot.File.Name != "" {
 		fmt.Printf("%sFile Name:%s %s\n\n", bold, normal, loot.File.Name)
 	}
-	fmt.Printf(string(loot.File.Data))
+	if isText(loot.File.Data) {
+		fmt.Printf(string(loot.File.Data))
+	} else {
+		fmt.Printf("<%d bytes of binary data>\n", len(loot.File.Data))
+	}
 }
 
 func displayLootCredential(loot *clientpb.Loot) {
-	if loot.Credential == nil {
-		fmt.Printf(Warn + "Missing loot credential\n")
-		return
-	}
-
 	fmt.Println()
-
-	switch loot.Credential.Type {
+	switch loot.CredentialType {
 	case clientpb.CredentialType_USER_PASSWORD:
-		fmt.Printf("%s    User:%s %s\n", bold, normal, loot.Credential.User)
-		fmt.Printf("%sPassword:%s %s\n", bold, normal, loot.Credential.Password)
+		if loot.Credential != nil {
+			fmt.Printf("%s    User:%s %s\n", bold, normal, loot.Credential.User)
+			fmt.Printf("%sPassword:%s %s\n", bold, normal, loot.Credential.Password)
+		}
+		if loot.File != nil {
+			displayLootFile(loot)
+		}
 	case clientpb.CredentialType_API_KEY:
-		fmt.Printf("%sAPI Key:%s %s\n", bold, normal, loot.Credential.APIKey)
+		if loot.Credential != nil {
+			fmt.Printf("%sAPI Key:%s %s\n", bold, normal, loot.Credential.APIKey)
+		}
+		if loot.File != nil {
+			displayLootFile(loot)
+		}
 	default:
 		fmt.Printf("%v\n", loot.Credential) // Well, let's give it our best
 	}
@@ -357,7 +391,7 @@ func selectLoot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) (*clientpb.Loot
 	} else {
 		lootType, err := lootTypeFromHumanStr(filter)
 		if err != nil {
-			return nil, ErrInvalidLootType
+			return nil, ErrInvalidFileType
 		}
 		allLoot, err = rpc.LootAllOf(context.Background(), &clientpb.Loot{Type: lootType})
 		if err != nil {
@@ -395,40 +429,63 @@ func selectLoot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) (*clientpb.Loot
 	return nil, errors.New("loot not found")
 }
 
-func lootTypeToStr(value clientpb.LootType) string {
+func lootFileTypeToStr(value clientpb.FileType) string {
 	switch value {
-	case clientpb.LootType_BINARY:
+	case clientpb.FileType_BINARY:
 		return "binary file"
-	case clientpb.LootType_TEXT:
+	case clientpb.FileType_TEXT:
 		return "text"
-	case clientpb.LootType_CREDENTIAL:
-		return "credential"
 	default:
 		return ""
+	}
+}
+
+func lootFileTypeFromHumanStr(value string) (clientpb.FileType, error) {
+	switch strings.ToLower(value) {
+
+	case "b":
+		fallthrough
+	case "bin":
+		fallthrough
+	case "binary":
+		return clientpb.FileType_BINARY, nil
+
+	case "t":
+		fallthrough
+	case "utf-8":
+		fallthrough
+	case "utf8":
+		fallthrough
+	case "txt":
+		fallthrough
+	case "text":
+		return clientpb.FileType_TEXT, nil
+
+	default:
+		return -1, ErrInvalidFileType
 	}
 }
 
 func lootTypeFromHumanStr(value string) (clientpb.LootType, error) {
 	switch strings.ToLower(value) {
 
-	case "binary":
-		return clientpb.LootType_BINARY, nil
-	case "bin":
-		return clientpb.LootType_BINARY, nil
-
-	case "text":
-		return clientpb.LootType_TEXT, nil
-	case "utf8":
-		return clientpb.LootType_TEXT, nil
-	case "utf-8":
-		return clientpb.LootType_TEXT, nil
-
-	case "credential":
-		return clientpb.LootType_CREDENTIAL, nil
+	case "c":
+		fallthrough
 	case "cred":
-		return clientpb.LootType_CREDENTIAL, nil
+		fallthrough
 	case "creds":
-		return clientpb.LootType_CREDENTIAL, nil
+		fallthrough
+	case "credentials":
+		fallthrough
+	case "credential":
+		return clientpb.LootType_LOOT_CREDENTIAL, nil
+
+	case "f":
+		fallthrough
+	case "files":
+		fallthrough
+	case "file":
+		return clientpb.LootType_LOOT_FILE, nil
 
 	default:
 		return -1, ErrInvalidLootType
