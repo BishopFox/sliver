@@ -345,6 +345,10 @@ func displayLootCredential(loot *clientpb.Loot) {
 		if loot.File != nil {
 			displayLootFile(loot)
 		}
+	case clientpb.CredentialType_FILE:
+		if loot.File != nil {
+			displayLootFile(loot)
+		}
 	default:
 		fmt.Printf("%v\n", loot.Credential) // Well, let's give it our best
 	}
