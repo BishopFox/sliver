@@ -71,7 +71,7 @@ const (
 	LootAddedEvent = "loot-added"
 
 	// LootRemoved
-	LootRemovedEvent = "loot-added"
+	LootRemovedEvent = "loot-removed"
 )
 
 // Commands
