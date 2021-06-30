@@ -49,7 +49,17 @@ func lootRoot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			return
 		}
 	}
-	displayLootTable(allLoot)
+	if filter == "" {
+		displayAllLootTable(allLoot)
+	} else {
+		lootType, _ := lootTypeFromHumanStr(filter)
+		switch lootType {
+		case clientpb.LootType_LOOT_FILE:
+			displayFileLootTable(allLoot)
+		case clientpb.LootType_LOOT_CREDENTIAL:
+			displayCredentialLootTable(allLoot)
+		}
+	}
 }
 
 func lootAddLocal(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -106,6 +116,9 @@ func lootAddLocal(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			Name: path.Base(localPath),
 			Data: data,
 		},
+	}
+	if lootType == clientpb.LootType_LOOT_CREDENTIAL {
+		loot.CredentialType = clientpb.CredentialType_FILE
 	}
 
 	ctrl := make(chan bool)
@@ -186,6 +199,9 @@ func lootAddRemote(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			Data: download.Data,
 		},
 	}
+	if lootType == clientpb.LootType_LOOT_CREDENTIAL {
+		loot.CredentialType = clientpb.CredentialType_FILE
+	}
 
 	loot, err = rpc.LootAdd(context.Background(), loot)
 	ctrl <- true
@@ -258,7 +274,9 @@ func lootAddCredential(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	name := ctx.Flags.String("name")
 	if name == "" {
 		namePrompt := &survey.Input{Message: "Credential Name: "}
+		fmt.Println()
 		survey.AskOne(namePrompt, &name)
+		fmt.Println()
 	}
 
 	loot := &clientpb.Loot{
@@ -298,10 +316,14 @@ func displayLootFile(loot *clientpb.Loot) {
 	if loot.File.Name != "" {
 		fmt.Printf("%sFile Name:%s %s\n\n", bold, normal, loot.File.Name)
 	}
-	if isText(loot.File.Data) {
-		fmt.Printf(string(loot.File.Data))
+	if loot.File.Data != nil {
+		if isText(loot.File.Data) {
+			fmt.Printf(string(loot.File.Data))
+		} else {
+			fmt.Printf("<%d bytes of binary data>\n", len(loot.File.Data))
+		}
 	} else {
-		fmt.Printf("<%d bytes of binary data>\n", len(loot.File.Data))
+		fmt.Printf("No file data\n")
 	}
 }
 
@@ -354,7 +376,7 @@ func saveLootToDisk(ctx *grumble.Context, loot *clientpb.Loot) (string, error) {
 	return saveTo, err
 }
 
-func displayLootTable(allLoot *clientpb.AllLoot) {
+func displayAllLootTable(allLoot *clientpb.AllLoot) {
 	if allLoot == nil || len(allLoot.Loot) == 0 {
 		fmt.Printf(Info + "No loot 🙁\n")
 		return
@@ -364,15 +386,107 @@ func displayLootTable(allLoot *clientpb.AllLoot) {
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
 	// Column Headers
-	fmt.Fprintln(table, "Type\tName\t")
-	fmt.Fprintf(table, "%s\t%s\t\n",
+	fmt.Fprintln(table, "Type\tName\tUUID\t")
+	fmt.Fprintf(table, "%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("Type")),
 		strings.Repeat("=", len("Name")),
+		strings.Repeat("=", len("UUID")),
 	)
 	for _, loot := range allLoot.Loot {
-		fmt.Fprintf(table, "%s\t%s\t\n", loot.Type, loot.Name)
+		fmt.Fprintf(table, "%s\t%s\t%s\t\n", lootTypeToStr(loot.Type), loot.Name, loot.LootID)
 	}
 
+	table.Flush()
+	fmt.Printf(outputBuf.String())
+}
+
+func displayFileLootTable(allLoot *clientpb.AllLoot) {
+	if allLoot == nil || len(allLoot.Loot) == 0 {
+		fmt.Printf(Info + "No loot 🙁\n")
+		return
+	}
+
+	outputBuf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+
+	// Column Headers
+	fmt.Fprintln(table, "Type\tName\tFile Name\tSize\tUUID\t")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+		strings.Repeat("=", len("Type")),
+		strings.Repeat("=", len("Name")),
+		strings.Repeat("=", len("File Name")),
+		strings.Repeat("=", len("Size")),
+		strings.Repeat("=", len("UUID")),
+	)
+	for _, loot := range allLoot.Loot {
+		if loot.Type != clientpb.LootType_LOOT_FILE {
+			continue
+		}
+		size := 0
+		name := ""
+		if loot.File != nil {
+			name = loot.File.Name
+			size = len(loot.File.Data)
+		}
+		fmt.Fprintf(table, "%s\t%s\t%s\t%d\t%s\t\n",
+			fileTypeToStr(loot.FileType),
+			loot.Name,
+			name,
+			size,
+			loot.LootID,
+		)
+	}
+
+	table.Flush()
+	fmt.Printf(outputBuf.String())
+}
+
+func displayCredentialLootTable(allLoot *clientpb.AllLoot) {
+	if allLoot == nil || len(allLoot.Loot) == 0 {
+		fmt.Printf(Info + "No loot 🙁\n")
+		return
+	}
+
+	outputBuf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+
+	// Column Headers
+	fmt.Fprintln(table, "Type\tName\tUser\tPassword\tAPI Key\tFile Name\tUUID\t")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+		strings.Repeat("=", len("Type")),
+		strings.Repeat("=", len("Name")),
+		strings.Repeat("=", len("User")),
+		strings.Repeat("=", len("Password")),
+		strings.Repeat("=", len("API Key")),
+		strings.Repeat("=", len("File Name")),
+		strings.Repeat("=", len("UUID")),
+	)
+	for _, loot := range allLoot.Loot {
+		if loot.Type != clientpb.LootType_LOOT_CREDENTIAL {
+			continue
+		}
+		fileName := ""
+		if loot.File != nil {
+			fileName = loot.File.Name
+		}
+		user := ""
+		password := ""
+		apiKey := ""
+		if loot.Credential != nil {
+			user = loot.Credential.User
+			password = loot.Credential.Password
+			apiKey = loot.Credential.APIKey
+		}
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+			credentialTypeToString(loot.CredentialType),
+			loot.Name,
+			user,
+			password,
+			apiKey,
+			fileName,
+			loot.LootID,
+		)
+	}
 	table.Flush()
 	fmt.Printf(outputBuf.String())
 }
@@ -429,12 +543,36 @@ func selectLoot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) (*clientpb.Loot
 	return nil, errors.New("loot not found")
 }
 
-func lootFileTypeToStr(value clientpb.FileType) string {
+func lootTypeToStr(value clientpb.LootType) string {
+	switch value {
+	case clientpb.LootType_LOOT_FILE:
+		return "File"
+	case clientpb.LootType_LOOT_CREDENTIAL:
+		return "Credential"
+	default:
+		return ""
+	}
+}
+
+func credentialTypeToString(value clientpb.CredentialType) string {
+	switch value {
+	case clientpb.CredentialType_API_KEY:
+		return "API Key"
+	case clientpb.CredentialType_USER_PASSWORD:
+		return "User/Password"
+	case clientpb.CredentialType_FILE:
+		return "File"
+	default:
+		return ""
+	}
+}
+
+func fileTypeToStr(value clientpb.FileType) string {
 	switch value {
 	case clientpb.FileType_BINARY:
-		return "binary file"
+		return "Binary"
 	case clientpb.FileType_TEXT:
-		return "text"
+		return "Text"
 	default:
 		return ""
 	}

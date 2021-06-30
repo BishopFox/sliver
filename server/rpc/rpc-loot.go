@@ -65,5 +65,5 @@ func (rpc *Server) LootAllOf(ctx context.Context, lootReq *clientpb.Loot) (*clie
 
 // LootAll - Get a list of all loot of a specific type
 func (rpc *Server) LootContent(ctx context.Context, lootReq *clientpb.Loot) (*clientpb.Loot, error) {
-	return loot.GetLootStore().GetContent(lootReq.LootID)
+	return loot.GetLootStore().GetContent(lootReq.LootID, true)
 }

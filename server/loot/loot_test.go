@@ -44,7 +44,7 @@ func TestAddGetRmLoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	loot2, err := lootStore.GetContent(loot.LootID)
+	loot2, err := lootStore.GetContent(loot.LootID, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestAddGetRmLoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	loot2, err = lootStore.GetContent(loot.LootID)
+	loot2, err = lootStore.GetContent(loot.LootID, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,13 +191,13 @@ func TestLootErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = lootStore.GetContent("foobar")
+	_, err = lootStore.GetContent("foobar", true)
 	if err == nil {
 		t.Fatal("Expected invalid loot id error")
 	}
 
 	randomID, _ := uuid.NewV4()
-	_, err = lootStore.GetContent(randomID.String())
+	_, err = lootStore.GetContent(randomID.String(), true)
 	if err == nil {
 		t.Fatal("Expected loot not found error")
 	}

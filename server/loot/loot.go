@@ -36,7 +36,7 @@ type LootBackend interface {
 	Rm(string) error
 	All() *clientpb.AllLoot
 	AllOf(clientpb.LootType) *clientpb.AllLoot
-	GetContent(string) (*clientpb.Loot, error)
+	GetContent(string, bool) (*clientpb.Loot, error)
 }
 
 type LootStore struct {
@@ -69,8 +69,8 @@ func (l *LootStore) Rm(lootID string) error {
 	return nil
 }
 
-func (l *LootStore) GetContent(lootID string) (*clientpb.Loot, error) {
-	return l.backend.GetContent(lootID)
+func (l *LootStore) GetContent(lootID string, eager bool) (*clientpb.Loot, error) {
+	return l.backend.GetContent(lootID, eager)
 }
 
 func (l *LootStore) All() *clientpb.AllLoot {

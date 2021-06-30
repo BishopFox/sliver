@@ -83,11 +83,9 @@ func (l *LocalBackend) Add(loot *clientpb.Loot) (*clientpb.Loot, error) {
 	}
 
 	// Fetch a fresh version of the object
-	loot, err = l.GetContent(dbLoot.ID.String())
-	if loot != nil {
-		// Don't return the data, it's taken enough round trips
-		loot.File = nil
-		loot.Credential = nil
+	loot, err = l.GetContent(dbLoot.ID.String(), false)
+	if loot.File != nil {
+		loot.File.Data = nil
 	}
 	return loot, err
 }
@@ -126,7 +124,7 @@ func (l *LocalBackend) Rm(lootID string) error {
 	return result.Error
 }
 
-func (l *LocalBackend) GetContent(lootID string) (*clientpb.Loot, error) {
+func (l *LocalBackend) GetContent(lootID string, eager bool) (*clientpb.Loot, error) {
 	dbSession := db.Session()
 	lootUUID, err := uuid.FromString(lootID)
 	if err != nil {
@@ -188,11 +186,15 @@ func (l *LocalBackend) All() *clientpb.AllLoot {
 	}
 	all := &clientpb.AllLoot{Loot: []*clientpb.Loot{}}
 	for _, dbLoot := range allDBLoot {
-		all.Loot = append(all.Loot, &clientpb.Loot{
-			LootID: dbLoot.ID.String(),
-			Name:   dbLoot.Name,
-			Type:   clientpb.LootType(dbLoot.Type),
-		})
+		loot, err := l.GetContent(dbLoot.ID.String(), false)
+		if err != nil {
+			lootLog.Error(err)
+			continue
+		}
+		if loot.File != nil {
+			loot.File.Data = nil
+		}
+		all.Loot = append(all.Loot, loot)
 	}
 	return all
 }
@@ -207,11 +209,12 @@ func (l *LocalBackend) AllOf(lootType clientpb.LootType) *clientpb.AllLoot {
 	}
 	all := &clientpb.AllLoot{Loot: []*clientpb.Loot{}}
 	for _, dbLoot := range allDBLoot {
-		all.Loot = append(all.Loot, &clientpb.Loot{
-			LootID: dbLoot.ID.String(),
-			Name:   dbLoot.Name,
-			Type:   clientpb.LootType(dbLoot.Type),
-		})
+		loot, err := l.GetContent(dbLoot.ID.String(), true)
+		if err != nil {
+			lootLog.Error(err)
+			continue
+		}
+		all.Loot = append(all.Loot, loot)
 	}
 	return all
 }
