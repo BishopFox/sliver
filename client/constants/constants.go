@@ -66,6 +66,12 @@ const (
 
 	// WebsiteEvent - Fires whenever there's a change to websites
 	WebsiteEvent = "website"
+
+	// LootAdded
+	LootAddedEvent = "loot-added"
+
+	// LootRemoved
+	LootRemovedEvent = "loot-removed"
 )
 
 // Commands
@@ -88,6 +94,14 @@ const (
 	ProfilesStr   = "profiles"
 
 	NewStr = "new"
+	AddStr = "add"
+	// RmStr - Already defined below for "rm" command
+
+	LootStr       = "loot"
+	LootLocalStr  = "local"
+	LootRemoteStr = "remote"
+	LootFetchStr  = "fetch"
+	LootCredsStr  = "creds"
 
 	ImplantBuildsStr = "implants"
 	ListCanariesStr  = "canaries"
