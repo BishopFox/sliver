@@ -53,10 +53,6 @@ func lootRoot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 func lootAddLocal(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	localPath := ctx.Args.String("path")
-	if localPath == "" {
-		fmt.Printf(Warn + "Missing local path argument, see --help\n")
-		return
-	}
 	if _, err := os.Stat(localPath); os.IsNotExist(err) {
 		fmt.Printf(Warn+"Path '%s' not found\n", localPath)
 		return
@@ -113,10 +109,6 @@ func lootAddRemote(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	remotePath := ctx.Args.String("path")
-	if remotePath == "" {
-		fmt.Printf(Warn + "Missing remote path argument, see --help\n")
-		return
-	}
 	name := ctx.Flags.String("name")
 	if name == "" {
 		name = path.Base(remotePath)
