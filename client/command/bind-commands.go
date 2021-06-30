@@ -1918,6 +1918,23 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 	lootCmd.AddCommand(&grumble.Command{
+		Name:     consts.LootCredsStr,
+		Help:     "Add credentials to the server's loot store",
+		LongHelp: help.GetHelpFor(consts.LootCredsStr),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "name of this piece of loot")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			lootAddCredential(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	lootCmd.AddCommand(&grumble.Command{
 		Name:     consts.LootFetchStr,
 		Help:     "Fetch a piece of loot from the server's loot store",
 		LongHelp: help.GetHelpFor(consts.LootFetchStr),

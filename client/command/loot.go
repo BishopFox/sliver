@@ -225,11 +225,57 @@ func lootFetch(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 }
 
+func lootAddCredential(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+
+	prompt := &survey.Select{
+		Message: "Choose a credential type:",
+		Options: []string{
+			clientpb.CredentialType_API_KEY.String(),
+			clientpb.CredentialType_USER_PASSWORD.String(),
+		},
+	}
+	credType := ""
+	survey.AskOne(prompt, &credType, survey.WithValidator(survey.Required))
+	name := ctx.Flags.String("name")
+	if name == "" {
+		namePrompt := &survey.Input{Message: "Credential Name: "}
+		survey.AskOne(namePrompt, &name)
+	}
+
+	loot := &clientpb.Loot{
+		Type:       clientpb.LootType_CREDENTIAL,
+		Name:       name,
+		Credential: &clientpb.Credential{},
+	}
+
+	switch credType {
+	case clientpb.CredentialType_USER_PASSWORD.String():
+		loot.Credential.Type = clientpb.CredentialType_USER_PASSWORD
+		usernamePrompt := &survey.Input{Message: "Username: "}
+		survey.AskOne(usernamePrompt, &loot.Credential.User)
+		passwordPrompt := &survey.Input{Message: "Password: "}
+		survey.AskOne(passwordPrompt, &loot.Credential.Password)
+	case clientpb.CredentialType_API_KEY.String():
+		loot.Credential.Type = clientpb.CredentialType_API_KEY
+		usernamePrompt := &survey.Input{Message: "API Key: "}
+		survey.AskOne(usernamePrompt, &loot.Credential.APIKey)
+	}
+
+	loot, err := rpc.LootAdd(context.Background(), loot)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+
+	fmt.Printf(Info+"Successfully added loot to server (%s)\n", loot.LootID)
+}
+
 func displayLootText(loot *clientpb.Loot) {
 	if loot.File == nil {
 		fmt.Printf(Warn + "Missing loot file\n")
 		return
 	}
+	fmt.Println()
 
 	if loot.File.Name != "" {
 		fmt.Printf("%sFile Name:%s %s\n\n", bold, normal, loot.File.Name)
@@ -243,12 +289,14 @@ func displayLootCredential(loot *clientpb.Loot) {
 		return
 	}
 
+	fmt.Println()
+
 	switch loot.Credential.Type {
 	case clientpb.CredentialType_USER_PASSWORD:
-		fmt.Printf("%s    User:%s %s\n\n", bold, normal, loot.Credential.User)
-		fmt.Printf("%sPassword:%s %s\n\n", bold, normal, loot.Credential.Password)
+		fmt.Printf("%s    User:%s %s\n", bold, normal, loot.Credential.User)
+		fmt.Printf("%sPassword:%s %s\n", bold, normal, loot.Credential.Password)
 	case clientpb.CredentialType_API_KEY:
-		fmt.Printf("%sAPI Key:%s %s\n\n", bold, normal, loot.Credential.APIKey)
+		fmt.Printf("%sAPI Key:%s %s\n", bold, normal, loot.Credential.APIKey)
 	default:
 		fmt.Printf("%v\n", loot.Credential) // Well, let's give it our best
 	}

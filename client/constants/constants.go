@@ -95,6 +95,7 @@ const (
 	LootLocalStr  = "local"
 	LootRemoteStr = "remote"
 	LootFetchStr  = "fetch"
+	LootCredsStr  = "creds"
 
 	ImplantBuildsStr = "implants"
 	ListCanariesStr  = "canaries"
