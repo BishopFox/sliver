@@ -14,8 +14,7 @@ import (
 
 var (
 	data1 = randomData()
-	data2 = randomData()
-	data3 = randomData()
+	data2 = []byte("hello world")
 
 	name1 = "Test1"
 	name2 = "Test2"
@@ -60,11 +59,11 @@ func TestAddGetRmLoot(t *testing.T) {
 	if loot2.File == nil {
 		t.Fatal("Missing loot file")
 	}
-	if loot.File.Name != loot2.File.Name {
-		t.Fatalf("FileName mismatch %s != %s", loot.File.Name, loot2.File.Name)
+	if name1 != loot2.File.Name {
+		t.Fatalf("FileName mismatch %s != %s", name1, loot2.File.Name)
 	}
-	if !bytes.Equal(loot.File.Data, loot2.File.Data) {
-		t.Fatalf("Loot file data mismatch %v != %v", loot.File.Data, loot2.File.Data)
+	if !bytes.Equal(data1, loot2.File.Data) {
+		t.Fatalf("Loot file data mismatch %v != %v", data1, loot2.File.Data)
 	}
 	err = lootStore.Rm(loot.LootID)
 	if err != nil {
@@ -76,7 +75,7 @@ func TestAddGetRmLoot(t *testing.T) {
 		Name: name2,
 		File: &commonpb.File{
 			Name: name1,
-			Data: []byte("hello world"),
+			Data: data2,
 		},
 	})
 	if err != nil {
@@ -107,11 +106,11 @@ func TestAddGetRmLoot(t *testing.T) {
 	if loot2.Credential == nil {
 		t.Fatal("Missing credential")
 	}
-	if loot.Credential.User != loot2.Credential.User {
-		t.Fatalf("Credential user mismatch %s != %s", loot.Credential.User, loot2.Credential.User)
+	if "admin" != loot2.Credential.User {
+		t.Fatalf("Credential user mismatch %s != %s", "admin", loot2.Credential.User)
 	}
-	if loot.Credential.Password != loot2.Credential.Password {
-		t.Fatalf("Credential password mismatch %s != %s", loot.Credential.Password, loot2.Credential.Password)
+	if "admin" != loot2.Credential.Password {
+		t.Fatalf("Credential password mismatch %s != %s", "admin", loot2.Credential.Password)
 	}
 	err = lootStore.Rm(loot.LootID)
 	if err != nil {
