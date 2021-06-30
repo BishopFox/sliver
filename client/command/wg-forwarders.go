@@ -107,10 +107,6 @@ func wgPortFwdRmCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) <= 0 {
-		fmt.Println(Warn + "you must provide a rule identifier")
-		return
-	}
 	fwdID := ctx.Args.Int("id")
 	stopReq, err := rpc.WGStopPortForward(context.Background(), &sliverpb.WGPortForwardStopReq{
 		ID:      int32(fwdID),
@@ -217,10 +213,6 @@ func wgSocksRmCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) <= 0 {
-		fmt.Println(Warn + "you must provide a listener identifier")
-		return
-	}
 	socksID := ctx.Args.Int("id")
 
 	stopReq, err := rpc.WGStopSocks(context.Background(), &sliverpb.WGSocksStopReq{

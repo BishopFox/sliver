@@ -35,10 +35,11 @@ import (
 func info(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	var session *clientpb.Session
+	sessionName := ctx.Args.String("session")
 	if ActiveSession.GetInteractive() != nil {
 		session = ActiveSession.GetInteractive()
-	} else if 0 < len(ctx.Args) {
-		session = GetSession(ctx.Args.String("session"), rpc)
+	} else if sessionName != "" {
+		session = GetSession(sessionName, rpc)
 	}
 
 	if session != nil {

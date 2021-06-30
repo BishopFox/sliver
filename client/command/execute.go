@@ -30,16 +30,8 @@ func execute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) < 1 {
-		fmt.Printf(Warn + "Please provide a path. See `help execute` for more info.\n")
-		return
-	}
-
 	cmdPath := ctx.Args.String("command")
-	var args []string
-	if len(ctx.Args) > 1 {
-		args = ctx.Args.StringList("arguments")
-	}
+	args := ctx.Args.StringList("arguments")
 	output := ctx.Flags.Bool("silent")
 	token := ctx.Flags.Bool("token")
 	var exec *sliverpb.Execute

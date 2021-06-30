@@ -217,9 +217,7 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		args = c.DefaultArgs
 	}
 	if len(ctx.Args.StringList("arguments")) > 0 {
-		if len(ctx.Args) > 0 {
-			args = strings.Join(ctx.Args.StringList("arguments"), " ")
-		}
+		args = strings.Join(ctx.Args.StringList("arguments"), " ")
 	}
 
 	entryPoint := c.Entrypoint

@@ -137,11 +137,6 @@ func runSSHCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) < 2 {
-		fmt.Printf(Warn + "Error: this command takes at least two arguments")
-		return
-	}
-
 	username := ctx.Flags.String("login")
 	if username == "" {
 		username = session.GetUsername()

@@ -46,10 +46,6 @@ func executeShellcode(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 1 {
-		fmt.Printf(Warn + "You must provide a path to the shellcode\n")
-		return
-	}
 	interactive := ctx.Flags.Bool("interactive")
 	pid := ctx.Flags.Uint("pid")
 	shellcodePath := ctx.Args.String("filepath")
@@ -193,11 +189,6 @@ func migrate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 1 {
-		fmt.Printf(Warn + "You must provide a PID to migrate to")
-		return
-	}
-
 	pid := ctx.Args.Uint("pid")
 	config := getActiveSliverConfig()
 	ctrl := make(chan bool)
@@ -227,10 +218,6 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) < 1 {
-		fmt.Printf(Warn + "Please provide valid arguments.\n")
-		return
-	}
 	filePath := ctx.Args.String("filepath")
 	isDLL := false
 	if filepath.Ext(filePath) == ".dll" {
@@ -248,10 +235,7 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	var assemblyArgs []string
-	if len(ctx.Args) == 2 {
-		assemblyArgs = ctx.Args.StringList("arguments")
-	}
+	assemblyArgs := ctx.Args.StringList("arguments")
 	process := ctx.Flags.String("process")
 
 	ctrl := make(chan bool)
@@ -294,11 +278,6 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 func sideload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	session := ActiveSession.Get()
 	if session == nil {
-		return
-	}
-
-	if len(ctx.Args) < 1 {
-		fmt.Printf(Warn + "You must provide a shared object to load")
 		return
 	}
 
