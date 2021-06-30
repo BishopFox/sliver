@@ -304,9 +304,9 @@ message MSFRemoteReq {
 }
 
 enum StageProtocol {
-    TCP = 0;
-    HTTP = 1;
-    HTTPS = 2;
+  TCP = 0;
+  HTTP = 1;
+  HTTPS = 2;
 }
 
 message StagerListenerReq {

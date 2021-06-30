@@ -1,5 +1,3 @@
-// +build windows linux darwin
-
 package handlers
 
 /*
