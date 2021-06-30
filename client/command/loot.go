@@ -12,6 +12,7 @@ import (
 	"text/tabwriter"
 	"unicode/utf8"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -75,7 +76,7 @@ func lootAddLocal(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			return
 		}
 	} else {
-		if IsTextFile(localPath) {
+		if isTextFile(localPath) {
 			lootType = clientpb.LootType_TEXT
 		} else {
 			lootType = clientpb.LootType_BINARY
@@ -147,7 +148,7 @@ func lootAddRemote(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	// Determine type based on download buffer
 	var lootType clientpb.LootType
-	if IsText(download.Data) {
+	if isText(download.Data) {
 		lootType = clientpb.LootType_TEXT
 	} else {
 		lootType = clientpb.LootType_BINARY
@@ -172,11 +173,111 @@ func lootAddRemote(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func lootRm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	loot, err := selectLoot(ctx, rpc)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
 
+	_, err = rpc.LootRm(context.Background(), loot)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+	fmt.Printf(Info + "Removed loot from server\n")
 }
 
 func lootFetch(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	loot, err := selectLoot(ctx, rpc)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
 
+	loot, err = rpc.LootContent(context.Background(), loot)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+
+	// Handle loot based on its type
+	switch loot.Type {
+	case clientpb.LootType_TEXT:
+		displayLootText(loot)
+	case clientpb.LootType_CREDENTIAL:
+		displayLootCredential(loot)
+	default:
+		// This Loot Type must be saved to disk
+		if ctx.Flags.String("save") == "" {
+			fmt.Printf("You must specify a --save path for %s loot\n", lootTypeToStr(loot.Type))
+			return
+		}
+	}
+
+	if ctx.Flags.String("save") != "" {
+		savedTo, err := saveLootToDisk(ctx, loot)
+		if err != nil {
+			fmt.Printf("Failed to save loot %s\n", err)
+		}
+		if savedTo != "" {
+			fmt.Printf(Info+"Saved loot to %s\n", savedTo)
+		}
+	}
+}
+
+func displayLootText(loot *clientpb.Loot) {
+	if loot.File == nil {
+		fmt.Printf(Warn + "Missing loot file\n")
+		return
+	}
+
+	if loot.File.Name != "" {
+		fmt.Printf("%sFile Name:%s %s\n\n", bold, normal, loot.File.Name)
+	}
+	fmt.Printf(string(loot.File.Data))
+}
+
+func displayLootCredential(loot *clientpb.Loot) {
+	if loot.Credential == nil {
+		fmt.Printf(Warn + "Missing loot credential\n")
+		return
+	}
+
+	switch loot.Credential.Type {
+	case clientpb.CredentialType_USER_PASSWORD:
+		fmt.Printf("%s    User:%s %s\n\n", bold, normal, loot.Credential.User)
+		fmt.Printf("%sPassword:%s %s\n\n", bold, normal, loot.Credential.Password)
+	case clientpb.CredentialType_API_KEY:
+		fmt.Printf("%sAPI Key:%s %s\n\n", bold, normal, loot.Credential.APIKey)
+	default:
+		fmt.Printf("%v\n", loot.Credential) // Well, let's give it our best
+	}
+}
+
+// Any loot with a "File" can be saved to disk
+func saveLootToDisk(ctx *grumble.Context, loot *clientpb.Loot) (string, error) {
+	if loot.File == nil {
+		return "", errors.New("Loot does not contain a file")
+	}
+
+	saveTo := ctx.Flags.String("save")
+	fi, err := os.Stat(saveTo)
+	if err != nil && !os.IsNotExist(err) {
+		return "", err
+	}
+	if err == nil && fi.IsDir() {
+		saveTo = path.Join(saveTo, path.Base(loot.File.Name))
+	}
+	if _, err := os.Stat(saveTo); err == nil {
+		overwrite := false
+		prompt := &survey.Confirm{Message: "Overwrite local file?"}
+		survey.AskOne(prompt, &overwrite, nil)
+		if !overwrite {
+			return "", nil
+		}
+	}
+	err = ioutil.WriteFile(saveTo, loot.File.Data, 0600)
+	return saveTo, err
 }
 
 func displayLootTable(allLoot *clientpb.AllLoot) {
@@ -189,9 +290,9 @@ func displayLootTable(allLoot *clientpb.AllLoot) {
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
 	// Column Headers
-	fmt.Fprintln(table, "Loot Type\tName\t")
+	fmt.Fprintln(table, "Type\tName\t")
 	fmt.Fprintf(table, "%s\t%s\t\n",
-		strings.Repeat("=", len("Loot Type")),
+		strings.Repeat("=", len("Type")),
 		strings.Repeat("=", len("Name")),
 	)
 	for _, loot := range allLoot.Loot {
@@ -200,6 +301,58 @@ func displayLootTable(allLoot *clientpb.AllLoot) {
 
 	table.Flush()
 	fmt.Printf(outputBuf.String())
+}
+
+func selectLoot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) (*clientpb.Loot, error) {
+
+	// Fetch data with optional filter
+	filter := ctx.Flags.String("filter")
+	var allLoot *clientpb.AllLoot
+	var err error
+	if filter == "" {
+		allLoot, err = rpc.LootAll(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		lootType, err := lootTypeFromHumanStr(filter)
+		if err != nil {
+			return nil, ErrInvalidLootType
+		}
+		allLoot, err = rpc.LootAllOf(context.Background(), &clientpb.Loot{Type: lootType})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Render selection table
+	buf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
+	for _, loot := range allLoot.Loot {
+		fmt.Fprintf(table, "%s\t%s\t%s\t\n", loot.Name, loot.Type, loot.LootID)
+	}
+	table.Flush()
+	options := strings.Split(buf.String(), "\n")
+	options = options[:len(options)-1]
+	if len(options) == 0 {
+		return nil, errors.New("no loot to select from")
+	}
+
+	selected := ""
+	prompt := &survey.Select{
+		Message: "Select a piece of loot:",
+		Options: options,
+	}
+	err = survey.AskOne(prompt, &selected)
+	if err != nil {
+		return nil, err
+	}
+	for index, value := range options {
+		if value == selected {
+			return allLoot.Loot[index], nil
+		}
+	}
+	return nil, errors.New("loot not found")
 }
 
 func lootTypeToStr(value clientpb.LootType) string {
@@ -246,16 +399,16 @@ func lootTypeFromHumanStr(value string) (clientpb.LootType, error) {
 
 // textExt[x] is true if the extension x indicates a text file, and false otherwise.
 var textExt = map[string]bool{
-	".css": false, // must be served raw
-	".js":  false, // must be served raw
-	".svg": false, // must be served raw
+	".css": false, // Ignore as text
+	".js":  false, // Ignore as text
+	".svg": false, // Ignore as text
 }
 
-// IsTextFile reports whether the file has a known extension indicating
+// isTextFile reports whether the file has a known extension indicating
 // a text file, or if a significant chunk of the specified file looks like
 // correct UTF-8; that is, if it is likely that the file contains human-
 // readable text.
-func IsTextFile(filePath string) bool {
+func isTextFile(filePath string) bool {
 	// if the extension is known, use it for decision making
 	if isText, found := textExt[path.Ext(filePath)]; found {
 		return isText
@@ -275,12 +428,12 @@ func IsTextFile(filePath string) bool {
 		return false
 	}
 
-	return IsText(buf[0:n])
+	return isText(buf[0:n])
 }
 
-// IsText reports whether a significant prefix of s looks like correct UTF-8;
+// isText reports whether a significant prefix of s looks like correct UTF-8;
 // that is, if it is likely that s is human-readable text.
-func IsText(sample []byte) bool {
+func isText(sample []byte) bool {
 	const max = 1024 // at least utf8.UTFMax
 	if len(sample) > max {
 		sample = sample[0:max]

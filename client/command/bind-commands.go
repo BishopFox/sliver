@@ -1863,9 +1863,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Help:     "Manage the server's loot store",
 		LongHelp: help.GetHelpFor(consts.LootStr),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-
 			f.String("f", "filter", "", "filter based on loot type")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1883,10 +1883,10 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			a.String("path", "The local file path to the loot")
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-
 			f.String("n", "name", "", "name of this piece of loot")
 			f.String("T", "type", "", "force a specific loot type")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1900,7 +1900,13 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Name:     consts.LootRemoteStr,
 		Help:     "Add a remote file from the current session to the server's loot store",
 		LongHelp: help.GetHelpFor(consts.LootRemoteStr),
+		Args: func(a *grumble.Args) {
+			a.String("path", "The local file path to the loot")
+		},
 		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "name of this piece of loot")
+			f.String("T", "type", "", "force a specific loot type")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -1916,6 +1922,9 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Help:     "Fetch a piece of loot from the server's loot store",
 		LongHelp: help.GetHelpFor(consts.LootFetchStr),
 		Flags: func(f *grumble.Flags) {
+			f.String("s", "save", "", "save loot to a local file")
+			f.String("f", "filter", "", "filter based on loot type")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -1931,6 +1940,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Help:     "Remove a piece of loot from the server's loot store",
 		LongHelp: help.GetHelpFor(consts.RmStr),
 		Flags: func(f *grumble.Flags) {
+			f.String("f", "filter", "", "filter based on loot type")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -1942,5 +1953,4 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 	app.AddCommand(lootCmd)
-
 }

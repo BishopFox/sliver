@@ -140,6 +140,7 @@ func (l *LocalBackend) GetContent(lootID string) (*clientpb.Loot, error) {
 	loot := &clientpb.Loot{
 		LootID: dbLoot.ID.String(),
 		Name:   dbLoot.Name,
+		Type:   clientpb.LootType(dbLoot.Type),
 	}
 
 	// File Loot
