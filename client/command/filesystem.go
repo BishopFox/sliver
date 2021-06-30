@@ -232,10 +232,6 @@ func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) < 1 {
-		fmt.Println(Warn + "Missing parameter(s), see `help download`\n")
-		return
-	}
 	remotePath := ctx.Args.String("remote-path")
 	localPath := ctx.Args.String("local-path")
 

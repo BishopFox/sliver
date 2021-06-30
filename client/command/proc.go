@@ -222,10 +222,6 @@ func terminate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 1 {
-		fmt.Printf(Warn + "Please provide a PID\n")
-		return
-	}
 	pid := ctx.Args.Uint("pid")
 	terminated, err := rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
 		Request: ActiveSession.Request(ctx),

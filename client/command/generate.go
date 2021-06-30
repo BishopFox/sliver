@@ -95,10 +95,6 @@ func generate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func regenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	if len(ctx.Args) < 1 {
-		fmt.Printf(Warn+"Invalid implant name, see `help %s`\n", consts.RegenerateStr)
-		return
-	}
 	save := ctx.Flags.String("save")
 	if save == "" {
 		save, _ = os.Getwd()
@@ -796,10 +792,6 @@ func newProfile(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func rmProfile(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	if len(ctx.Args) < 1 {
-		fmt.Printf(Warn+"Invalid implant name, see `%s %s --help`\n", consts.ProfilesStr, consts.RmStr)
-		return
-	}
 	_, err := rpc.DeleteImplantProfile(context.Background(), &clientpb.DeleteReq{
 		Name: ctx.Args.String("profile-name"),
 	})

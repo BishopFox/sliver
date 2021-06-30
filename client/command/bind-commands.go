@@ -312,7 +312,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
-			a.String("session", "session ID")
+			a.String("session", "session ID", grumble.Default(""))
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
