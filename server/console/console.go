@@ -88,7 +88,7 @@ func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
 	app.AddCommand(&grumble.Command{
 		Name:     consts.MultiplayerModeStr,
 		Help:     "Enable multiplayer mode",
-		LongHelp: help.GetHelpFor(consts.MultiplayerModeStr),
+		LongHelp: help.GetHelpFor([]string{consts.MultiplayerModeStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "server", "", "interface to bind server to")
 			f.Int("l", "lport", 31337, "tcp listen port")
@@ -105,7 +105,7 @@ func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
 	app.AddCommand(&grumble.Command{
 		Name:     consts.NewPlayerStr,
 		Help:     "Create a new player config file",
-		LongHelp: help.GetHelpFor(consts.NewPlayerStr),
+		LongHelp: help.GetHelpFor([]string{consts.NewPlayerStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("l", "lhost", "", "listen host")
 			f.Int("p", "lport", 31337, "listen port")
@@ -124,7 +124,7 @@ func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
 	app.AddCommand(&grumble.Command{
 		Name:     consts.KickPlayerStr,
 		Help:     "Kick a player from the server",
-		LongHelp: help.GetHelpFor(consts.KickPlayerStr),
+		LongHelp: help.GetHelpFor([]string{consts.KickPlayerStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "operator", "", "operator name")
 		},

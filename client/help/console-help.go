@@ -24,12 +24,15 @@ package help
 
 import (
 	"bytes"
+	"strings"
 	"text/template"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 )
 
 var (
+
+	// NOTE: For sub-commands use a "." hierarchy, for example root.sub for "sub" help
 	cmdHelp = map[string]string{
 		consts.JobsStr:          jobsHelp,
 		consts.SessionsStr:      sessionsHelp,
@@ -47,6 +50,7 @@ var (
 		consts.KillStr:             killHelp,
 		consts.LsStr:               lsHelp,
 		consts.CdStr:               cdHelp,
+		consts.PwdStr:              pwdHelp,
 		consts.CatStr:              catHelp,
 		consts.DownloadStr:         downloadHelp,
 		consts.UploadStr:           uploadHelp,
@@ -65,6 +69,7 @@ var (
 		consts.LoadExtensionStr:    loadExtensionHelp,
 		consts.PsExecStr:           psExecHelp,
 		consts.BackdoorStr:         backdoorHelp,
+		consts.SpawnDllStr:         spawnDllHelp,
 
 		consts.WebsitesStr:          websitesHelp,
 		consts.ScreenshotStr:        screenshotHelp,
@@ -79,7 +84,12 @@ var (
 		consts.WgSocksStr:           wgSocksHelp,
 		consts.SSHStr:               sshHelp,
 
+		// Loot
 		consts.LootStr: lootHelp,
+
+		// Profiles
+		consts.ProfilesStr + "." + consts.NewStr:      newProfileHelp,
+		consts.ProfilesStr + "." + consts.GenerateStr: generateProfileHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -109,7 +119,7 @@ The follow command is used to generate a sliver Windows executable (PE) file, th
 
 The follow command is used to generate a sliver Windows executable (PE) file, that will connect back to the server using Wireguard on UDP port 9090,
 then connect to TCP port 1337 on the server's virtual tunnel interface to retrieve new wireguard keys, re-establish the wireguard connection using the new keys, 
-then connect to TCP port 8888 on the server's vitual tunnel interface to establish c2 comms.
+then connect to TCP port 8888 on the server's virtual tunnel interface to establish c2 comms.
 	generate --wg 3.3.3.3:9090 --key-exchange 1337 --tcp-comms 8888
 
 You can also stack the C2 configuration with multiple protocols:
@@ -117,7 +127,7 @@ You can also stack the C2 configuration with multiple protocols:
 
 
 [[.Bold]][[.Underline]]++ Formats ++[[.Normal]]
-Supported output formats are Windows PE, Windows DLL, Windows Shellcode (SRDI), Mach-O, and ELF. The output format is controlled
+Supported output formats are Windows PE, Windows DLL, Windows Shellcode, Mach-O, and ELF. The output format is controlled
 with the --os and --format flags.
 
 To output a 64bit Windows PE file (defaults to WinPE/64bit), either of the following command would be used:
@@ -556,9 +566,9 @@ const (
 )
 
 // GetHelpFor - Get help string for a command
-func GetHelpFor(cmdName string) string {
+func GetHelpFor(cmdName []string) string {
 	if 0 < len(cmdName) {
-		if helpTmpl, ok := cmdHelp[cmdName]; ok {
+		if helpTmpl, ok := cmdHelp[strings.Join(cmdName, ".")]; ok {
 			return FormatHelpTmpl(helpTmpl)
 		}
 	}
