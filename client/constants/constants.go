@@ -66,6 +66,12 @@ const (
 
 	// WebsiteEvent - Fires whenever there's a change to websites
 	WebsiteEvent = "website"
+
+	// LootAdded
+	LootAddedEvent = "loot-added"
+
+	// LootRemoved
+	LootRemovedEvent = "loot-added"
 )
 
 // Commands
