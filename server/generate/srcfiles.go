@@ -175,7 +175,10 @@ var (
 		"encoders/images.go",
 
 		"handlers/handlers_default.go",
+		"handlers/tun-handlers.go",
 		"handlers/handlers.go",
+
+		"shell/shell_default.go",
 
 		"hostuuid/uuid_default.go",
 
