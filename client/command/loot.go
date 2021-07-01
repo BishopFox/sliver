@@ -280,6 +280,28 @@ func lootAddRemote(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf(Info+"Successfully added loot to server (%s)\n", loot.LootID)
 }
 
+func lootRename(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	loot, err := selectLoot(ctx, rpc)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+	oldName := loot.Name
+	newName := ""
+	prompt := &survey.Input{Message: "Enter new name: "}
+	survey.AskOne(prompt, &newName)
+
+	loot, err = rpc.LootUpdate(context.Background(), &clientpb.Loot{
+		LootID: loot.LootID,
+		Name:   newName,
+	})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+	fmt.Printf(Info+"Renamed %s -> %s\n", oldName, loot.Name)
+}
+
 func lootRm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	loot, err := selectLoot(ctx, rpc)
 	if err != nil {

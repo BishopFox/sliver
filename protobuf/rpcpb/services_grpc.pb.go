@@ -47,9 +47,10 @@ type SliverRPCClient interface {
 	// *** Loot ***
 	LootAdd(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.Loot, error)
 	LootRm(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	LootUpdate(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.Loot, error)
+	LootContent(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.Loot, error)
 	LootAll(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.AllLoot, error)
 	LootAllOf(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.AllLoot, error)
-	LootContent(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.Loot, error)
 	// *** Implants ***
 	Generate(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
 	Regenerate(ctx context.Context, in *clientpb.RegenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
@@ -302,6 +303,24 @@ func (c *sliverRPCClient) LootRm(ctx context.Context, in *clientpb.Loot, opts ..
 	return out, nil
 }
 
+func (c *sliverRPCClient) LootUpdate(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.Loot, error) {
+	out := new(clientpb.Loot)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/LootUpdate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) LootContent(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.Loot, error) {
+	out := new(clientpb.Loot)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/LootContent", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) LootAll(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.AllLoot, error) {
 	out := new(clientpb.AllLoot)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/LootAll", in, out, opts...)
@@ -314,15 +333,6 @@ func (c *sliverRPCClient) LootAll(ctx context.Context, in *commonpb.Empty, opts 
 func (c *sliverRPCClient) LootAllOf(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.AllLoot, error) {
 	out := new(clientpb.AllLoot)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/LootAllOf", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sliverRPCClient) LootContent(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.Loot, error) {
-	out := new(clientpb.Loot)
-	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/LootContent", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1061,9 +1071,10 @@ type SliverRPCServer interface {
 	// *** Loot ***
 	LootAdd(context.Context, *clientpb.Loot) (*clientpb.Loot, error)
 	LootRm(context.Context, *clientpb.Loot) (*commonpb.Empty, error)
+	LootUpdate(context.Context, *clientpb.Loot) (*clientpb.Loot, error)
+	LootContent(context.Context, *clientpb.Loot) (*clientpb.Loot, error)
 	LootAll(context.Context, *commonpb.Empty) (*clientpb.AllLoot, error)
 	LootAllOf(context.Context, *clientpb.Loot) (*clientpb.AllLoot, error)
-	LootContent(context.Context, *clientpb.Loot) (*clientpb.Loot, error)
 	// *** Implants ***
 	Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error)
 	Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error)
@@ -1205,14 +1216,17 @@ func (UnimplementedSliverRPCServer) LootAdd(context.Context, *clientpb.Loot) (*c
 func (UnimplementedSliverRPCServer) LootRm(context.Context, *clientpb.Loot) (*commonpb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LootRm not implemented")
 }
+func (UnimplementedSliverRPCServer) LootUpdate(context.Context, *clientpb.Loot) (*clientpb.Loot, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LootUpdate not implemented")
+}
+func (UnimplementedSliverRPCServer) LootContent(context.Context, *clientpb.Loot) (*clientpb.Loot, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LootContent not implemented")
+}
 func (UnimplementedSliverRPCServer) LootAll(context.Context, *commonpb.Empty) (*clientpb.AllLoot, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LootAll not implemented")
 }
 func (UnimplementedSliverRPCServer) LootAllOf(context.Context, *clientpb.Loot) (*clientpb.AllLoot, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LootAllOf not implemented")
-}
-func (UnimplementedSliverRPCServer) LootContent(context.Context, *clientpb.Loot) (*clientpb.Loot, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LootContent not implemented")
 }
 func (UnimplementedSliverRPCServer) Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Generate not implemented")
@@ -1770,6 +1784,42 @@ func _SliverRPC_LootRm_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_LootUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Loot)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).LootUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/LootUpdate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).LootUpdate(ctx, req.(*clientpb.Loot))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_LootContent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Loot)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).LootContent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/LootContent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).LootContent(ctx, req.(*clientpb.Loot))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_LootAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(commonpb.Empty)
 	if err := dec(in); err != nil {
@@ -1802,24 +1852,6 @@ func _SliverRPC_LootAllOf_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).LootAllOf(ctx, req.(*clientpb.Loot))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SliverRPC_LootContent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(clientpb.Loot)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SliverRPCServer).LootContent(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/rpcpb.SliverRPC/LootContent",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).LootContent(ctx, req.(*clientpb.Loot))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3229,16 +3261,20 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_LootRm_Handler,
 		},
 		{
+			MethodName: "LootUpdate",
+			Handler:    _SliverRPC_LootUpdate_Handler,
+		},
+		{
+			MethodName: "LootContent",
+			Handler:    _SliverRPC_LootContent_Handler,
+		},
+		{
 			MethodName: "LootAll",
 			Handler:    _SliverRPC_LootAll_Handler,
 		},
 		{
 			MethodName: "LootAllOf",
 			Handler:    _SliverRPC_LootAllOf_Handler,
-		},
-		{
-			MethodName: "LootContent",
-			Handler:    _SliverRPC_LootContent_Handler,
 		},
 		{
 			MethodName: "Generate",
