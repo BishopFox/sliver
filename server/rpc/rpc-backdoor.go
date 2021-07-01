@@ -52,7 +52,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *sliverpb.BackdoorReq) (*sl
 		return nil, fmt.Errorf("no profile found for name %s", req.ProfileName)
 	}
 
-	if p.Config.Format != clientpb.ImplantConfig_SHELLCODE {
+	if p.Config.Format != clientpb.OutputFormat_SHELLCODE {
 		return nil, fmt.Errorf("please select a profile targeting a shellcode format")
 	}
 

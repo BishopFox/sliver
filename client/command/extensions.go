@@ -120,15 +120,16 @@ func (e *extension) getCommandFromName(name string) (extCmd *extensionCommand, e
 	return
 }
 
-func load(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+func loadExtension(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
-	if len(ctx.Args) != 1 {
+	dirPath := ctx.Args.String("dir-path")
+	if dirPath == "" {
 		fmt.Printf(Warn + "Please provide an extension path\n")
 		return
 	}
 
 	// retrieve extension manifest
-	manifestPath := fmt.Sprintf("%s/%s", ctx.Args[0], "manifest.json")
+	manifestPath := fmt.Sprintf("%s/%s", dirPath, "manifest.json")
 	jsonBytes, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
 		fmt.Printf(Warn+"%v", err)
@@ -140,7 +141,7 @@ func load(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn+"error loading extension: %v", err)
 		return
 	}
-	ext.Path = ctx.Args[0]
+	ext.Path = dirPath
 	// for each extension command, add a new app command
 	for _, extCmd := range ext.Commands {
 		// do not add if the command already exists
@@ -154,11 +155,17 @@ func load(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		// either by value or by ref fucks things up
 		commandMap[extCmd.Name] = *ext
 		helpMsg := fmt.Sprintf("[%s] %s", ext.Name, extCmd.Help)
+		extArgs := func(a *grumble.Args) {}
+		if extCmd.AllowArgs {
+			extArgs = func(a *grumble.Args) {
+				a.StringList("arguments", "arguments", grumble.Default([]string{}))
+			}
+		}
 		ctx.App.AddCommand(&grumble.Command{
-			Name:      extCmd.Name,
-			Help:      helpMsg,
-			LongHelp:  help.FormatHelpTmpl(extCmd.LongHelp),
-			AllowArgs: extCmd.AllowArgs,
+			Name:     extCmd.Name,
+			Help:     helpMsg,
+			LongHelp: help.FormatHelpTmpl(extCmd.LongHelp),
+			Args:     extArgs,
 			Run: func(extCtx *grumble.Context) error {
 				fmt.Println()
 				runExtensionCommand(extCtx, rpc)
@@ -209,10 +216,8 @@ func runExtensionCommand(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if len(c.DefaultArgs) != 0 {
 		args = c.DefaultArgs
 	}
-	if ctx.Command.AllowArgs {
-		if len(ctx.Args) > 0 {
-			args = strings.Join(ctx.Args[0:], " ")
-		}
+	if len(ctx.Args.StringList("arguments")) > 0 {
+		args = strings.Join(ctx.Args.StringList("arguments"), " ")
 	}
 
 	entryPoint := c.Entrypoint

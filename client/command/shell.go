@@ -38,6 +38,8 @@ import (
 
 const (
 	windows = "windows"
+	darwin  = "darwin"
+	linux   = "linux"
 )
 
 func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -52,8 +54,8 @@ func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	shellPath := ctx.Flags.String("shell-path")
 	noPty := ctx.Flags.Bool("no-pty")
-	if ActiveSession.Get().OS == windows {
-		noPty = true // Windows of course doesn't have PTYs
+	if ActiveSession.Get().OS != linux && ActiveSession.Get().OS != darwin {
+		noPty = true // Sliver's PTYs are only supported on linux/darwin
 	}
 	runInteractive(ctx, shellPath, noPty, rpc)
 	fmt.Println("Shell exited")
@@ -137,11 +139,6 @@ func runSSHCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) < 2 {
-		fmt.Printf(Warn + "Error: this command takes at least two arguments")
-		return
-	}
-
 	username := ctx.Flags.String("login")
 	if username == "" {
 		username = session.GetUsername()
@@ -158,8 +155,8 @@ func runSSHCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 	password := ctx.Flags.String("password")
 
-	hostname := ctx.Args[0]
-	command := ctx.Args[1:]
+	hostname := ctx.Args.String("hostname")
+	command := ctx.Args.StringList("command")
 
 	commandResp, err := rpc.RunSSHCommand(context.Background(), &sliverpb.SSHCommandReq{
 		Username: username,

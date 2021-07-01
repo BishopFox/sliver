@@ -104,7 +104,7 @@ type ImplantConfig struct {
 	LimitFileExists   string
 
 	// Output Format
-	Format clientpb.ImplantConfig_OutputFormat
+	Format clientpb.OutputFormat
 
 	// For 	IsSharedLib bool
 	IsSharedLib bool

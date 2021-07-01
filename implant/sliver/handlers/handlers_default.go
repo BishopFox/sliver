@@ -59,11 +59,6 @@ func GetSystemPivotHandlers() map[uint32]PivotHandler {
 	return map[uint32]PivotHandler{}
 }
 
-// GetTunnelHandlers - Not supported
-func GetTunnelHandlers() map[uint32]TunnelHandler {
-	return map[uint32]TunnelHandler{}
-}
-
 // GetPivotHandlers - Not supported
 func GetPivotHandlers() map[uint32]PivotHandler {
 	return map[uint32]PivotHandler{}

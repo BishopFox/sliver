@@ -4,9 +4,9 @@ on:
   push:
     branches:
       - test/*
-  pull_request:
-    branches:
-      - master
+  # pull_request:
+  #   branches:
+  #     - master
 
 jobs:
   CodeQL-Build:

@@ -161,18 +161,17 @@ func defaultPrintCommandHelp(a *App, cmd *Command, shell bool) {
 	config.Prefix = "  "
 
 	// Help description.
-	if (len(cmd.LongHelp)) > 0 {
+	if len(cmd.LongHelp) > 0 {
 		a.Printf("\n%s\n", cmd.LongHelp)
 	} else {
 		a.Printf("\n%s\n", cmd.Help)
 	}
 
-	// Usage
-	if len(cmd.Usage) > 0 {
-		a.Println()
-		printHeadline(a, "Usage:")
-		a.Printf("  %s\n", cmd.Usage)
-	}
+	// Usage.
+	printUsage(a, cmd)
+
+	// Arguments.
+	printArgs(a, &cmd.args)
 
 	// Flags.
 	printFlags(a, &cmd.flags)
@@ -217,6 +216,74 @@ func printHeadline(a *App, s string) {
 		_, _ = hp(u)
 	} else {
 		_, _ = hp(s)
+	}
+}
+
+func printUsage(a *App, cmd *Command) {
+	a.Println()
+	printHeadline(a, "Usage:")
+
+	// Print either the user-provided usage message or compose
+	// one on our own from the flags and args.
+	if len(cmd.Usage) > 0 {
+		a.Printf("  %s\n", cmd.Usage)
+		return
+	}
+
+	// Layout: Cmd [Flags] Args
+	a.Printf("  %s", cmd.Name)
+	if !cmd.flags.empty() {
+		a.Printf(" [flags]")
+	}
+	if !cmd.args.empty() {
+		for _, arg := range cmd.args.list {
+			name := arg.Name
+			if arg.isList {
+				name += "..."
+			}
+
+			if arg.optional {
+				a.Printf(" [%s]", name)
+			} else {
+				a.Printf(" %s", name)
+			}
+
+			if arg.isList && (arg.listMin != -1 || arg.listMax != -1) {
+				a.Printf("{")
+				if arg.listMin != -1 {
+					a.Printf("%d", arg.listMin)
+				}
+				a.Printf(",")
+				if arg.listMax != -1 {
+					a.Printf("%d", arg.listMax)
+				}
+				a.Printf("}")
+			}
+		}
+	}
+	a.Println()
+}
+
+func printArgs(a *App, args *Args) {
+	// Columnize options.
+	config := columnize.DefaultConfig()
+	config.Delim = "|"
+	config.Glue = " "
+	config.Prefix = "  "
+
+	var output []string
+	for _, a := range args.list {
+		defaultValue := ""
+		if a.Default != nil && len(fmt.Sprintf("%v", a.Default)) > 0 && a.optional {
+			defaultValue = fmt.Sprintf("(default: %v)", a.Default)
+		}
+		output = append(output, fmt.Sprintf("%s || %s |||| %s %s", a.Name, a.HelpArgs, a.Help, defaultValue))
+	}
+
+	if len(output) > 0 {
+		a.Println()
+		printHeadline(a, "Args:")
+		a.Printf("%s\n", columnize.Format(output, config))
 	}
 }
 

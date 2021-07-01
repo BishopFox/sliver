@@ -66,6 +66,12 @@ const (
 
 	// WebsiteEvent - Fires whenever there's a change to websites
 	WebsiteEvent = "website"
+
+	// LootAdded
+	LootAddedEvent = "loot-added"
+
+	// LootRemoved
+	LootRemovedEvent = "loot-removed"
 )
 
 // Commands
@@ -81,12 +87,21 @@ const (
 	UseStr        = "use"
 	SetStr        = "set"
 
-	GenerateStr        = "generate"
-	RegenerateStr      = "regenerate"
-	ProfileGenerateStr = "generate-profile"
-	StagerStr          = "stager"
-	ProfilesStr        = "profiles"
-	NewProfileStr      = "new-profile"
+	GenerateStr   = "generate"
+	RegenerateStr = "regenerate"
+	CompilerStr   = "info"
+	StagerStr     = "stager"
+	ProfilesStr   = "profiles"
+
+	NewStr = "new"
+	AddStr = "add"
+	// RmStr - Already defined below for "rm" command
+
+	LootStr       = "loot"
+	LootLocalStr  = "local"
+	LootRemoteStr = "remote"
+	LootFetchStr  = "fetch"
+	LootCredsStr  = "creds"
 
 	ImplantBuildsStr = "implants"
 	ListCanariesStr  = "canaries"

@@ -16,11 +16,7 @@ func getEnv(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	var name string
-	if len(ctx.Args) > 0 {
-		name = ctx.Args[0]
-	}
-
+	name := ctx.Args.String("name")
 	envInfo, err := rpc.GetEnv(context.Background(), &sliverpb.EnvReq{
 		Name:    name,
 		Request: ActiveSession.Request(ctx),
@@ -42,13 +38,12 @@ func setEnv(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 2 {
+	name := ctx.Args.String("name")
+	value := ctx.Args.String("value")
+	if name == "" || value == "" {
 		fmt.Printf(Warn + "Usage: setenv KEY VALUE\n")
 		return
 	}
-
-	name := ctx.Args[0]
-	value := ctx.Args[1]
 
 	envInfo, err := rpc.SetEnv(context.Background(), &sliverpb.SetEnvReq{
 		Variable: &commonpb.EnvVar{
@@ -74,15 +69,12 @@ func unsetEnv(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 1 {
-		fmt.Printf(Warn + "Usage: unsetenv KEY\n")
+	name := ctx.Args.String("name")
+	if name == "" {
+		fmt.Printf(Warn + "Usage: setenv NAME\n")
 		return
 	}
 
-	name := ctx.Args[0]
-	if name == "" {
-		return
-	}
 	unsetResp, err := rpc.UnsetEnv(context.Background(), &sliverpb.UnsetEnvReq{
 		Name:    name,
 		Request: ActiveSession.Request(ctx),

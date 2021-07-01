@@ -95,17 +95,13 @@ func generate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func regenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	if len(ctx.Args) < 1 {
-		fmt.Printf(Warn+"Invalid implant name, see `help %s`\n", consts.RegenerateStr)
-		return
-	}
 	save := ctx.Flags.String("save")
 	if save == "" {
 		save, _ = os.Getwd()
 	}
 
 	regenerate, err := rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
-		ImplantName: ctx.Args[0],
+		ImplantName: ctx.Args.String("implant-name"),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"Failed to regenerate implant %s\n", err)
@@ -268,6 +264,39 @@ func generateStager(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 }
 
+func nameOfOutputFormat(value clientpb.OutputFormat) string {
+	switch value {
+	case clientpb.OutputFormat_EXECUTABLE:
+		return "Executable"
+	case clientpb.OutputFormat_SERVICE:
+		return "Service"
+	case clientpb.OutputFormat_SHARED_LIB:
+		return "Shared Library"
+	case clientpb.OutputFormat_SHELLCODE:
+		return "Shellcode"
+	}
+	panic(fmt.Sprintf("Unknown format %v", value))
+}
+
+func generateCompilerInfo(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	compiler, err := rpc.GetCompiler(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"Failed to get compiler information: %s\n", err)
+		return
+	}
+	fmt.Printf("%sServer:%s %s/%s\n", bold, normal, compiler.GOOS, compiler.GOARCH)
+	fmt.Println()
+	fmt.Printf("%sCross Compilers%s\n", bold, normal)
+	for _, cc := range compiler.CrossCompilers {
+		fmt.Printf("%s/%s - %s\n", cc.TargetGOOS, cc.TargetGOARCH, cc.GetCCPath())
+	}
+	fmt.Println()
+	fmt.Printf("%sTargets%s\n", bold, normal)
+	for _, target := range compiler.Targets {
+		fmt.Printf("%s/%s - %s\n", target.GOOS, target.GOARCH, nameOfOutputFormat(target.Format))
+	}
+}
+
 // Shared function that extracts the compile flags from the grumble context
 func parseCompileFlags(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) *clientpb.ImplantConfig {
 	var name string
@@ -341,22 +370,22 @@ func parseCompileFlags(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) *clientp
 	isShellcode := false
 
 	format := ctx.Flags.String("format")
-	var configFormat clientpb.ImplantConfig_OutputFormat
+	var configFormat clientpb.OutputFormat
 	switch format {
 	case "exe":
-		configFormat = clientpb.ImplantConfig_EXECUTABLE
+		configFormat = clientpb.OutputFormat_EXECUTABLE
 	case "shared":
-		configFormat = clientpb.ImplantConfig_SHARED_LIB
+		configFormat = clientpb.OutputFormat_SHARED_LIB
 		isSharedLib = true
 	case "shellcode":
-		configFormat = clientpb.ImplantConfig_SHELLCODE
+		configFormat = clientpb.OutputFormat_SHELLCODE
 		isShellcode = true
 	case "service":
-		configFormat = clientpb.ImplantConfig_SERVICE
+		configFormat = clientpb.OutputFormat_SERVICE
 		isService = true
 	default:
 		// default to exe
-		configFormat = clientpb.ImplantConfig_EXECUTABLE
+		configFormat = clientpb.OutputFormat_EXECUTABLE
 	}
 
 	targetOS := strings.ToLower(ctx.Flags.String("os"))
@@ -589,8 +618,9 @@ func parseTCPPivotc2(args string) []*clientpb.ImplantC2 {
 
 func profileGenerate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	name := ctx.Flags.String("name")
-	if name == "" && 1 <= len(ctx.Args) {
-		name = ctx.Args[0]
+	if name == "" {
+		fmt.Printf(Warn + "no profile selected")
+		return
 	}
 	save := ctx.Flags.String("save")
 	if save == "" {
@@ -666,7 +696,7 @@ func profiles(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	if len(profiles) == 0 {
-		fmt.Printf(Info+"No profiles, create one with `%s`\n", consts.NewProfileStr)
+		fmt.Printf(Info+"No profiles, create one with `%s`\n", consts.NewStr)
 		return
 	}
 	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
@@ -678,7 +708,8 @@ func profiles(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		strings.Repeat("=", len("Debug")),
 		strings.Repeat("=", len("Format")),
 		strings.Repeat("=", len("Obfuscation")),
-		strings.Repeat("=", len("Limitations")))
+		strings.Repeat("=", len("Limitations")),
+	)
 
 	for _, profile := range profiles {
 		config := profile.Config
@@ -761,12 +792,8 @@ func newProfile(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 func rmProfile(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	if len(ctx.Args) < 1 {
-		fmt.Printf(Warn+"Invalid implant name, see `%s %s --help`\n", consts.ProfilesStr, consts.RmStr)
-		return
-	}
 	_, err := rpc.DeleteImplantProfile(context.Background(), &clientpb.DeleteReq{
-		Name: ctx.Args[0],
+		Name: ctx.Args.String("profile-name"),
 	})
 	if err != nil {
 		fmt.Printf(Warn+"Failed to delete profile %s\n", err)

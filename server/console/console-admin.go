@@ -146,12 +146,10 @@ func NewPlayerConfig(operatorName, lhost string, lport uint16) ([]byte, error) {
 
 func kickOperatorCmd(ctx *grumble.Context) {
 	operator := ctx.Flags.String("operator")
-
 	if !namePattern.MatchString(operator) {
 		fmt.Println(Warn + "Invalid operator name (alphanumerics only)")
 		return
 	}
-
 	if operator == "" {
 		fmt.Printf(Warn + "Operator name required (--operator) \n")
 		return

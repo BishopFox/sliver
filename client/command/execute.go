@@ -18,6 +18,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -30,16 +31,8 @@ func execute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) < 1 {
-		fmt.Printf(Warn + "Please provide a path. See `help execute` for more info.\n")
-		return
-	}
-
-	cmdPath := ctx.Args[0]
-	var args []string
-	if len(ctx.Args) > 1 {
-		args = ctx.Args[1:]
-	}
+	cmdPath := ctx.Args.String("command")
+	args := ctx.Args.StringList("arguments")
 	output := ctx.Flags.Bool("silent")
 	token := ctx.Flags.Bool("token")
 	var exec *sliverpb.Execute
@@ -70,6 +63,15 @@ func execute(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			}
 		} else {
 			fmt.Printf(Info+"Output:\n%s\n", exec.Result)
+			if ctx.Flags.Bool("loot") && 0 < len(exec.Result) {
+				name := fmt.Sprintf("[exec] %s %s", cmdPath, strings.Join(args, " "))
+				err = AddLootFile(rpc, name, "console.txt", []byte(exec.Result), false)
+				if err != nil {
+					fmt.Printf(Warn+"Failed to save output as loot: %s\n", err)
+				} else {
+					fmt.Printf(clearln + Info + "Output saved as loot\n")
+				}
+			}
 		}
 	}
 }

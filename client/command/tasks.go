@@ -28,7 +28,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/core"
@@ -47,13 +46,9 @@ func executeShellcode(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 1 {
-		fmt.Printf(Warn + "You must provide a path to the shellcode\n")
-		return
-	}
 	interactive := ctx.Flags.Bool("interactive")
 	pid := ctx.Flags.Uint("pid")
-	shellcodePath := ctx.Args[0]
+	shellcodePath := ctx.Args.String("filepath")
 	shellcodeBin, err := ioutil.ReadFile(shellcodePath)
 	if err != nil {
 		fmt.Printf(Warn+"Error: %s\n", err.Error())
@@ -194,15 +189,7 @@ func migrate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 1 {
-		fmt.Printf(Warn + "You must provide a PID to migrate to")
-		return
-	}
-
-	pid, err := strconv.ParseUint(ctx.Args[0], 10, 32)
-	if err != nil {
-		fmt.Printf(Warn+"Error: %v", err)
-	}
+	pid := ctx.Args.Uint("pid")
 	config := getActiveSliverConfig()
 	ctrl := make(chan bool)
 	msg := fmt.Sprintf("Migrating into %d ...", pid)
@@ -231,11 +218,7 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) < 1 {
-		fmt.Printf(Warn + "Please provide valid arguments.\n")
-		return
-	}
-	filePath := ctx.Args[0]
+	filePath := ctx.Args.String("filepath")
 	isDLL := false
 	if filepath.Ext(filePath) == ".dll" {
 		isDLL = true
@@ -252,10 +235,7 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	var assemblyArgs []string
-	if len(ctx.Args) == 2 {
-		assemblyArgs = ctx.Args[1:]
-	}
+	assemblyArgs := ctx.Args.StringList("arguments")
 	process := ctx.Flags.String("process")
 
 	ctrl := make(chan bool)
@@ -293,6 +273,16 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		outFilePath.Write(executeAssembly.GetOutput())
 		fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
 	}
+
+	if ctx.Flags.Bool("loot") && 0 < len(executeAssembly.GetOutput()) {
+		name := fmt.Sprintf("[execute-assembly] %s", filepath.Base(filePath))
+		err = AddLootFile(rpc, name, "console.txt", executeAssembly.GetOutput(), false)
+		if err != nil {
+			fmt.Printf(Warn+"Failed to save output as loot: %s\n", err)
+		} else {
+			fmt.Printf(clearln + Info + "Output saved as loot\n")
+		}
+	}
 }
 
 func sideload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -301,12 +291,7 @@ func sideload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) < 1 {
-		fmt.Printf(Warn + "You must provide a shared object to load")
-		return
-	}
-
-	binPath := ctx.Args[0]
+	binPath := ctx.Args.String("filepath")
 
 	entryPoint := ctx.Flags.String("entry-point")
 	processName := ctx.Flags.String("process")
@@ -355,15 +340,8 @@ func spawnDll(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	if session == nil {
 		return
 	}
-	var args string
-	if len(ctx.Args) < 1 {
-		fmt.Printf(Warn + "See `help spawndll` for usage.")
-		return
-	} else if len(ctx.Args) > 1 {
-		args = ctx.Args[1]
-	}
-
-	binPath := ctx.Args[0]
+	dllArgs := strings.Join(ctx.Args.StringList("arguments"), " ")
+	binPath := ctx.Args.String("filepath")
 	processName := ctx.Flags.String("process")
 	exportName := ctx.Flags.String("export")
 
@@ -377,7 +355,7 @@ func spawnDll(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	spawndll, err := rpc.SpawnDll(context.Background(), &sliverpb.InvokeSpawnDllReq{
 		Data:        binData,
 		ProcessName: processName,
-		Args:        args,
+		Args:        dllArgs,
 		EntryPoint:  exportName,
 		Request:     ActiveSession.Request(ctx),
 		Kill:        !ctx.Flags.Bool("keep-alive"),
@@ -428,7 +406,7 @@ func getActiveSliverConfig() *clientpb.ImplantConfig {
 		ReconnectInterval:   uint32(60),
 		PollInterval:        uint32(1),
 
-		Format:      clientpb.ImplantConfig_SHELLCODE,
+		Format:      clientpb.OutputFormat_SHELLCODE,
 		IsSharedLib: true,
 		C2:          c2s,
 	}
