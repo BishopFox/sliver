@@ -42,9 +42,10 @@ service SliverRPC {
     // *** Loot ***
     rpc LootAdd(clientpb.Loot) returns(clientpb.Loot);
     rpc LootRm(clientpb.Loot) returns(commonpb.Empty);
+    rpc LootUpdate(clientpb.Loot) returns(clientpb.Loot);
+    rpc LootContent(clientpb.Loot) returns(clientpb.Loot);
     rpc LootAll(commonpb.Empty) returns(clientpb.AllLoot);
     rpc LootAllOf(clientpb.Loot) returns(clientpb.AllLoot);
-    rpc LootContent(clientpb.Loot) returns(clientpb.Loot);
 
     // *** Implants ***
     rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate);

@@ -90,6 +90,28 @@ func (l *LocalBackend) Add(loot *clientpb.Loot) (*clientpb.Loot, error) {
 	return loot, err
 }
 
+func (l *LocalBackend) Update(lootReq *clientpb.Loot) (*clientpb.Loot, error) {
+	dbSession := db.Session()
+	lootUUID, err := uuid.FromString(lootReq.LootID)
+	if err != nil {
+		return nil, ErrInvalidLootID
+	}
+	dbLoot := &models.Loot{}
+	result := dbSession.Where(&models.Loot{ID: lootUUID}).First(dbLoot)
+	if errors.Is(result.Error, db.ErrRecordNotFound) {
+		return nil, ErrLootNotFound
+	}
+
+	if dbLoot.Name != lootReq.Name {
+		err = dbSession.Model(&dbLoot).Update("Name", lootReq.Name).Error
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return l.GetContent(lootReq.LootID, false)
+}
+
 func (l *LocalBackend) Rm(lootID string) error {
 	dbSession := db.Session()
 	lootUUID, err := uuid.FromString(lootID)
