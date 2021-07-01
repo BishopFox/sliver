@@ -63,4 +63,13 @@ func screenshot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 	fmt.Printf(bold+"Screenshot written to %s\n", tmpFile.Name())
+
+	if ctx.Flags.Bool("loot") && 0 < len(screenshot.Data) {
+		err = AddLootFile(rpc, fmt.Sprintf("[screenshot] %s", timestamp), tmpFileName, screenshot.Data, false)
+		if err != nil {
+			fmt.Printf(Warn+"Failed to save output as loot: %s\n", err)
+		} else {
+			fmt.Printf(clearln + Info + "Output saved as loot\n")
+		}
+	}
 }

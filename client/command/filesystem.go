@@ -193,6 +193,14 @@ func cat(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	} else {
 		fmt.Println(string(download.Data))
 	}
+	if ctx.Flags.Bool("loot") && 0 < len(download.Data) {
+		err = AddLootFile(rpc, fmt.Sprintf("[cat] %s", filepath.Base(filePath)), filePath, download.Data, false)
+		if err != nil {
+			fmt.Printf(Warn+"Failed to save output as loot: %s", err)
+		} else {
+			fmt.Printf(clearln + Info + "Output saved as loot\n")
+		}
+	}
 }
 
 func colorize(f *sliverpb.Download) error {
@@ -287,6 +295,15 @@ func download(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn+"Failed to write data %v\n", err)
 	} else {
 		fmt.Printf(Info+"Wrote %d bytes to %s\n", n, dstFile.Name())
+	}
+
+	if ctx.Flags.Bool("loot") && 0 < len(download.Data) {
+		err = AddLootFile(rpc, fmt.Sprintf("[download] %s", filepath.Base(remotePath)), remotePath, download.Data, false)
+		if err != nil {
+			fmt.Printf(Warn+"Failed to save output as loot: %s", err)
+		} else {
+			fmt.Printf(Info + "Output saved as loot\n")
+		}
 	}
 }
 

@@ -273,6 +273,16 @@ func executeAssembly(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		outFilePath.Write(executeAssembly.GetOutput())
 		fmt.Printf(Info+"Output saved to %s\n", outFilePath.Name())
 	}
+
+	if ctx.Flags.Bool("loot") && 0 < len(executeAssembly.GetOutput()) {
+		name := fmt.Sprintf("[execute-assembly] %s", filepath.Base(filePath))
+		err = AddLootFile(rpc, name, "console.txt", executeAssembly.GetOutput(), false)
+		if err != nil {
+			fmt.Printf(Warn+"Failed to save output as loot: %s\n", err)
+		} else {
+			fmt.Printf(clearln + Info + "Output saved as loot\n")
+		}
+	}
 }
 
 func sideload(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
