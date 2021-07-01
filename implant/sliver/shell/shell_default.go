@@ -61,9 +61,20 @@ func pipedShell(tunnelID uint64, command []string) *Shell {
 	var cmd *exec.Cmd
 	cmd = exec.Command(command[0], command[1:]...)
 
-	stdin, _ := cmd.StdinPipe()
-	stdout, _ := cmd.StdoutPipe()
-	// cmd.Start()
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[shell] stdin pipe failed\n")
+		// {{end}}
+		return nil
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[shell] stdout pipe failed\n")
+		// {{end}}
+		return nil
+	}
 
 	return &Shell{
 		ID:      tunnelID,

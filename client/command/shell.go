@@ -38,6 +38,8 @@ import (
 
 const (
 	windows = "windows"
+	darwin  = "darwin"
+	linux   = "linux"
 )
 
 func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -52,8 +54,8 @@ func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	shellPath := ctx.Flags.String("shell-path")
 	noPty := ctx.Flags.Bool("no-pty")
-	if ActiveSession.Get().OS == windows {
-		noPty = true // Windows of course doesn't have PTYs
+	if ActiveSession.Get().OS != linux && ActiveSession.Get().OS != darwin {
+		noPty = true // Sliver's PTYs are only supported on linux/darwin
 	}
 	runInteractive(ctx, shellPath, noPty, rpc)
 	fmt.Println("Shell exited")
