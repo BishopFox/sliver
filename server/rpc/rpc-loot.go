@@ -53,6 +53,23 @@ func (rpc *Server) LootRm(ctx context.Context, lootReq *clientpb.Loot) (*commonp
 	return &commonpb.Empty{}, err
 }
 
+// LootUpdate - Update loot metadata
+func (rpc *Server) LootUpdate(ctx context.Context, lootReq *clientpb.Loot) (*clientpb.Loot, error) {
+	loot, err := loot.GetLootStore().Update(lootReq)
+	if err != nil {
+		return nil, err
+	}
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.LootAddedEvent,
+	})
+	return loot, err
+}
+
+// LootAll - Get a list of all loot of a specific type
+func (rpc *Server) LootContent(ctx context.Context, lootReq *clientpb.Loot) (*clientpb.Loot, error) {
+	return loot.GetLootStore().GetContent(lootReq.LootID, true)
+}
+
 // LootAll - Get a list of all loot
 func (rpc *Server) LootAll(ctx context.Context, _ *commonpb.Empty) (*clientpb.AllLoot, error) {
 	return loot.GetLootStore().All(), nil
@@ -61,9 +78,4 @@ func (rpc *Server) LootAll(ctx context.Context, _ *commonpb.Empty) (*clientpb.Al
 // LootAll - Get a list of all loot of a specific type
 func (rpc *Server) LootAllOf(ctx context.Context, lootReq *clientpb.Loot) (*clientpb.AllLoot, error) {
 	return loot.GetLootStore().AllOf(lootReq.Type), nil
-}
-
-// LootAll - Get a list of all loot of a specific type
-func (rpc *Server) LootContent(ctx context.Context, lootReq *clientpb.Loot) (*clientpb.Loot, error) {
-	return loot.GetLootStore().GetContent(lootReq.LootID, true)
 }

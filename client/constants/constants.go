@@ -103,6 +103,8 @@ const (
 	LootFetchStr  = "fetch"
 	LootCredsStr  = "creds"
 
+	RenameStr = "rename"
+
 	ImplantBuildsStr = "implants"
 	ListCanariesStr  = "canaries"
 

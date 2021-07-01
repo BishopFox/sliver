@@ -25,8 +25,74 @@ import (
 var (
 	ErrInvalidFileType = errors.New("invalid file type")
 	ErrInvalidLootType = errors.New("invalid loot type")
+	ErrNoLootFileData  = errors.New("no loot file data")
 )
 
+// --- Loot Helpers for other commands ---
+
+// AddLootFile - Add a file as loot
+func AddLootFile(rpc rpcpb.SliverRPCClient, name string, fileName string, data []byte, isCredential bool) error {
+	if len(data) < 1 {
+		return ErrNoLootFileData
+	}
+	var lootType clientpb.LootType
+	if isCredential {
+		lootType = clientpb.LootType_LOOT_CREDENTIAL
+	} else {
+		lootType = clientpb.LootType_LOOT_FILE
+	}
+	var lootFileType clientpb.FileType
+	if isText(data) || strings.HasSuffix(fileName, ".txt") {
+		lootFileType = clientpb.FileType_TEXT
+	} else {
+		lootFileType = clientpb.FileType_BINARY
+	}
+	loot := &clientpb.Loot{
+		Name:     name,
+		Type:     lootType,
+		FileType: lootFileType,
+		File: &commonpb.File{
+			Name: path.Base(fileName),
+			Data: data,
+		},
+	}
+	if lootType == clientpb.LootType_LOOT_CREDENTIAL {
+		loot.CredentialType = clientpb.CredentialType_FILE
+	}
+	_, err := rpc.LootAdd(context.Background(), loot)
+	return err
+}
+
+// AddLootUserPassword - Add user/password as loot
+func AddLootUserPassword(rpc rpcpb.SliverRPCClient, name string, user string, password string) error {
+	loot := &clientpb.Loot{
+		Name:           name,
+		Type:           clientpb.LootType_LOOT_CREDENTIAL,
+		CredentialType: clientpb.CredentialType_USER_PASSWORD,
+		Credential: &clientpb.Credential{
+			User:     user,
+			Password: password,
+		},
+	}
+	_, err := rpc.LootAdd(context.Background(), loot)
+	return err
+}
+
+// AddLootAPIKey - Add a api key as loot
+func AddLootAPIKey(rpc rpcpb.SliverRPCClient, name string, apiKey string) error {
+	loot := &clientpb.Loot{
+		Name:           name,
+		Type:           clientpb.LootType_LOOT_CREDENTIAL,
+		CredentialType: clientpb.CredentialType_API_KEY,
+		Credential: &clientpb.Credential{
+			APIKey: apiKey,
+		},
+	}
+	_, err := rpc.LootAdd(context.Background(), loot)
+	return err
+}
+
+// ---  Loot Command ---
 func lootRoot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	filter := ctx.Flags.String("filter")
 	var allLoot *clientpb.AllLoot
@@ -214,6 +280,28 @@ func lootAddRemote(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	fmt.Printf(Info+"Successfully added loot to server (%s)\n", loot.LootID)
 }
 
+func lootRename(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	loot, err := selectLoot(ctx, rpc)
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+	oldName := loot.Name
+	newName := ""
+	prompt := &survey.Input{Message: "Enter new name: "}
+	survey.AskOne(prompt, &newName)
+
+	loot, err = rpc.LootUpdate(context.Background(), &clientpb.Loot{
+		LootID: loot.LootID,
+		Name:   newName,
+	})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+	fmt.Printf(Info+"Renamed %s -> %s\n", oldName, loot.Name)
+}
+
 func lootRm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	loot, err := selectLoot(ctx, rpc)
 	if err != nil {
@@ -226,7 +314,8 @@ func lootRm(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
-	fmt.Printf(Info + "Removed loot from server\n")
+	fmt.Println()
+	fmt.Printf(clearln + Info + "Removed loot from server\n")
 }
 
 func lootFetch(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -316,8 +405,8 @@ func displayLootFile(loot *clientpb.Loot) {
 	if loot.File.Name != "" {
 		fmt.Printf("%sFile Name:%s %s\n\n", bold, normal, loot.File.Name)
 	}
-	if loot.File.Data != nil {
-		if isText(loot.File.Data) {
+	if loot.File.Data != nil && 0 < len(loot.File.Data) {
+		if loot.FileType == clientpb.FileType_TEXT || isText(loot.File.Data) {
 			fmt.Printf(string(loot.File.Data))
 		} else {
 			fmt.Printf("<%d bytes of binary data>\n", len(loot.File.Data))

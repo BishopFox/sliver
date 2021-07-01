@@ -34,9 +34,10 @@ const (
 type LootBackend interface {
 	Add(*clientpb.Loot) (*clientpb.Loot, error)
 	Rm(string) error
+	Update(*clientpb.Loot) (*clientpb.Loot, error)
+	GetContent(string, bool) (*clientpb.Loot, error)
 	All() *clientpb.AllLoot
 	AllOf(clientpb.LootType) *clientpb.AllLoot
-	GetContent(string, bool) (*clientpb.Loot, error)
 }
 
 type LootStore struct {
@@ -54,6 +55,14 @@ func (l *LootStore) Add(lootReq *clientpb.Loot) (*clientpb.Loot, error) {
 	}
 	for _, mirror := range l.mirrors {
 		mirror.Add(loot)
+	}
+	return loot, nil
+}
+
+func (l *LootStore) Update(lootReq *clientpb.Loot) (*clientpb.Loot, error) {
+	loot, err := l.backend.Update(lootReq)
+	if err != nil {
+		return nil, err
 	}
 	return loot, nil
 }

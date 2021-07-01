@@ -368,6 +368,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("T", "token", false, "execute command with current token (windows only)")
 			f.Bool("s", "silent", false, "don't print the command output")
+			f.Bool("X", "loot", false, "save output as loot")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -712,6 +713,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
+	// [ Session Commands ] ---------------------------------------------
+
 	app.AddCommand(&grumble.Command{
 		Name:     consts.PsStr,
 		Help:     "List remote processes",
@@ -915,6 +918,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("c", "colorize-output", false, "colorize output")
+			f.Bool("X", "loot", false, "save output as loot")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("path", "path to the file to print")
@@ -934,6 +938,8 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		LongHelp: help.GetHelpFor([]string{consts.DownloadStr}),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+
+			f.Bool("X", "loot", false, "save output as loot")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("remote-path", "path to the file or directory to download")
@@ -1102,12 +1108,6 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			a.String("filepath", "path the assembly file")
 			a.StringList("arguments", "arguments to pass to the assembly entrypoint", grumble.Default([]string{}))
 		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			executeAssembly(ctx, rpc)
-			fmt.Println()
-			return nil
-		},
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "process", "notepad.exe", "hosting process to inject into")
 			f.String("m", "method", "", "Optional method (a method is required for a .NET DLL)")
@@ -1115,7 +1115,15 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
 			f.String("a", "arch", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
 			f.Bool("s", "save", false, "save output to file")
+			f.Bool("X", "loot", false, "save output as loot")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			executeAssembly(ctx, rpc)
+			fmt.Println()
+			return nil
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
@@ -1332,14 +1340,16 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Name:     consts.ScreenshotStr,
 		Help:     "Take a screenshot",
 		LongHelp: help.GetHelpFor([]string{consts.ScreenshotStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("X", "loot", false, "save output as loot")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			screenshot(ctx, rpc)
 			fmt.Println()
 			return nil
-		},
-		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
@@ -1459,7 +1469,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 
 	app.AddCommand(&grumble.Command{
 		Name:     consts.SetStr,
-		Help:     "Set agent option",
+		Help:     "Set an implant/session option",
 		LongHelp: help.GetHelpFor([]string{consts.SetStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("n", "name", "", "agent name to change to")
@@ -1483,7 +1493,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
-			a.String("name", "environment varialbe to fetch", grumble.Default(""))
+			a.String("name", "environment variable to fetch", grumble.Default(""))
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
@@ -1931,6 +1941,21 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			lootAddCredential(ctx, rpc)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	lootCmd.AddCommand(&grumble.Command{
+		Name:     consts.RenameStr,
+		Help:     "Re-name a piece of existing loot",
+		LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.RenameStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			lootRename(ctx, rpc)
 			fmt.Println()
 			return nil
 		},
