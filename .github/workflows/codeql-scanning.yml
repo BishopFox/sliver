@@ -13,6 +13,7 @@ jobs:
     name: CodeQL Security Scan
     # CodeQL runs on ubuntu-latest, windows-latest, and macos-latest
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       # Setup go environment
