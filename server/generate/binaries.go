@@ -824,7 +824,6 @@ func GetUnsupportedTargets() []*clientpb.CompilerTarget {
 		GOMODCACHE: gogo.GetGoModCache(appDir),
 		GOROOT:     gogo.GetGoRootDir(appDir),
 	})
-	buildLog.Infof("Dist List = %v", distList)
 	targets := []*clientpb.CompilerTarget{}
 	for _, dist := range distList {
 		if _, ok := SupportedCompilerTargets[dist]; ok {
