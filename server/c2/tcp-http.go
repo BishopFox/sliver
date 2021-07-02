@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	insecureRand "math/rand"
+	"net"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -583,12 +584,20 @@ func newHTTPSessionID() string {
 }
 
 func getRemoteAddr(req *http.Request) string {
-	IPAddress := req.Header.Get("X-Real-Ip")
-	if IPAddress == "" {
-		IPAddress = req.Header.Get("X-Forwarded-For")
+	ipAddress := req.Header.Get("X-Real-Ip")
+	if ipAddress == "" {
+		ipAddress = req.Header.Get("X-Forwarded-For")
 	}
-	if IPAddress == "" {
-		IPAddress = req.RemoteAddr
+	if ipAddress == "" {
+		return req.RemoteAddr
 	}
-	return IPAddress
+
+	// Try to parse the header as an IP address, as this is user controllable
+	// input we don't want to trust it.
+	ip := net.ParseIP(ipAddress)
+	if ip == nil {
+		httpLog.Warnf("Failed to parse X-Header as ip address")
+		return req.RemoteAddr
+	}
+	return fmt.Sprintf("tcp(%s)->%s", req.RemoteAddr, ip.String())
 }
