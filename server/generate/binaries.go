@@ -827,6 +827,9 @@ func GetUnsupportedTargets() []*clientpb.CompilerTarget {
 	buildLog.Infof("Dist List = %v", distList)
 	targets := []*clientpb.CompilerTarget{}
 	for _, dist := range distList {
+		if _, ok := SupportedCompilerTargets[dist]; ok {
+			continue
+		}
 		parts := strings.SplitN(dist, "/", 2)
 		if len(parts) != 2 {
 			continue
