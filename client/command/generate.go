@@ -655,8 +655,7 @@ func compile(config *clientpb.ImplantConfig, save string, rpc rpcpb.SliverRPCCli
 	fmt.Printf(Info+"Generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
 
 	if config.ObfuscateSymbols {
-		fmt.Printf(Info+"%sSymbol obfuscation is enabled.%s\n", bold, normal)
-		fmt.Printf(Info + "This process can take awhile, and consumes significant amounts of CPU/Memory\n")
+		fmt.Printf(Info+"%sSymbol obfuscation is enabled%s\n", bold, normal)
 	} else if !config.Debug {
 		fmt.Printf(Warn+"Symbol obfuscation is %sdisabled%s\n", bold, normal)
 	}

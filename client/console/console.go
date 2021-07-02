@@ -74,12 +74,12 @@ const (
 type ExtraCmds func(*grumble.App, rpcpb.SliverRPCClient)
 
 // Start - Console entrypoint
-func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
+func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds, isServer bool) error {
 	app := grumble.New(&grumble.Config{
 		Name:                  "Sliver",
 		Description:           "Sliver Client",
 		HistoryFile:           path.Join(assets.GetRootAppDir(), "history"),
-		Prompt:                getPrompt(),
+		Prompt:                getPrompt(isServer),
 		PromptColor:           color.New(),
 		HelpHeadlineColor:     color.New(),
 		HelpHeadlineUnderline: true,
@@ -93,10 +93,10 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 	extraCmds(app, rpc)
 
 	cmd.ActiveSession.AddObserver(func(_ *clientpb.Session) {
-		app.SetPrompt(getPrompt())
+		app.SetPrompt(getPrompt(isServer))
 	})
 
-	go eventLoop(app, rpc)
+	go eventLoop(app, rpc, isServer)
 	go core.TunnelLoop(rpc)
 
 	err := app.Run()
@@ -106,7 +106,7 @@ func Start(rpc rpcpb.SliverRPCClient, extraCmds ExtraCmds) error {
 	return err
 }
 
-func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
+func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient, isServer bool) {
 	eventStream, err := rpc.Events(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
@@ -173,19 +173,22 @@ func eventLoop(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			activeSession := cmd.ActiveSession.Get()
 			if activeSession != nil && activeSession.ID == session.ID {
 				cmd.ActiveSession.Set(nil)
-				app.SetPrompt(getPrompt())
+				app.SetPrompt(getPrompt(isServer))
 				fmt.Printf(Warn + " Active session disconnected\n")
 			}
 			fmt.Println()
 		}
 
-		fmt.Printf(getPrompt())
+		fmt.Printf(getPrompt(isServer))
 		stdout.Flush()
 	}
 }
 
-func getPrompt() string {
+func getPrompt(isServer bool) string {
 	prompt := underline + "sliver" + normal
+	if isServer {
+		prompt = bold + "[server] " + normal + underline + "sliver" + normal
+	}
 	if cmd.ActiveSession.Get() != nil {
 		prompt += fmt.Sprintf(bold+red+" (%s)%s", cmd.ActiveSession.Get().Name, normal)
 	}
