@@ -67,7 +67,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 				return nil, err
 			}
 		}
-		config.Format = clientpb.ImplantConfig_SHELLCODE
+		config.Format = clientpb.OutputFormat_SHELLCODE
 		config.ObfuscateSymbols = true
 		shellcodePath, err := generate.SliverShellcode(name, config)
 		if err != nil {
@@ -224,13 +224,13 @@ func getSliverShellcode(name string) ([]byte, error) {
 	}
 
 	switch build.ImplantConfig.Format {
-	case clientpb.ImplantConfig_SHELLCODE:
+	case clientpb.OutputFormat_SHELLCODE:
 		fileData, err := generate.ImplantFileFromBuild(build)
 		if err != nil {
 			return data, err
 		}
 		data = fileData
-	case clientpb.ImplantConfig_EXECUTABLE:
+	case clientpb.OutputFormat_EXECUTABLE:
 		// retrieve EXE from db
 		fileData, err := generate.ImplantFileFromBuild(build)
 		rpcLog.Debugf("Found implant. Len: %d\n", len(fileData))
@@ -242,7 +242,7 @@ func getSliverShellcode(name string) ([]byte, error) {
 			rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
 			return data, err
 		}
-	case clientpb.ImplantConfig_SHARED_LIB:
+	case clientpb.OutputFormat_SHARED_LIB:
 		// retrieve DLL from db
 		fileData, err := generate.ImplantFileFromBuild(build)
 		if err != nil {
@@ -252,7 +252,7 @@ func getSliverShellcode(name string) ([]byte, error) {
 		if err != nil {
 			return data, err
 		}
-	case clientpb.ImplantConfig_SERVICE:
+	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	default:
 		err = fmt.Errorf("no existing shellcode found")

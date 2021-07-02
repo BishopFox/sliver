@@ -25,27 +25,30 @@ import (
 
 var (
 	darwinHandlers = map[uint32]RPCHandler{
-		pb.MsgPsReq:           psHandler,
-		pb.MsgTerminateReq:    terminateHandler,
-		pb.MsgPing:            pingHandler,
-		pb.MsgLsReq:           dirListHandler,
-		pb.MsgDownloadReq:     downloadHandler,
-		pb.MsgUploadReq:       uploadHandler,
-		pb.MsgCdReq:           cdHandler,
-		pb.MsgPwdReq:          pwdHandler,
-		pb.MsgRmReq:           rmHandler,
-		pb.MsgMkdirReq:        mkdirHandler,
-		pb.MsgIfconfigReq:     ifconfigHandler,
-		pb.MsgExecuteReq:      executeHandler,
-		sliverpb.MsgEnvReq:    getEnvHandler,
-		sliverpb.MsgSetEnvReq: setEnvHandler,
+		pb.MsgPsReq:             psHandler,
+		pb.MsgTerminateReq:      terminateHandler,
+		pb.MsgPing:              pingHandler,
+		pb.MsgLsReq:             dirListHandler,
+		pb.MsgDownloadReq:       downloadHandler,
+		pb.MsgUploadReq:         uploadHandler,
+		pb.MsgCdReq:             cdHandler,
+		pb.MsgPwdReq:            pwdHandler,
+		pb.MsgRmReq:             rmHandler,
+		pb.MsgMkdirReq:          mkdirHandler,
+		pb.MsgIfconfigReq:       ifconfigHandler,
+		pb.MsgExecuteReq:        executeHandler,
+		sliverpb.MsgEnvReq:      getEnvHandler,
+		sliverpb.MsgSetEnvReq:   setEnvHandler,
+		sliverpb.MsgUnsetEnvReq: unsetEnvHandler,
 
-		pb.MsgScreenshotReq: screenshotHandler,
+		pb.MsgScreenshotReq:    screenshotHandler,
+		sliverpb.MsgNetstatReq: netstatHandler,
 
 		pb.MsgSideloadReq: sideloadHandler,
 
 		sliverpb.MsgReconnectIntervalReq: reconnectIntervalHandler,
 		sliverpb.MsgPollIntervalReq:      pollIntervalHandler,
+		sliverpb.MsgSSHCommandReq:        runSSHCommandHandler,
 
 		// {{if .Config.WGc2Enabled}}
 		// Wireguard specific

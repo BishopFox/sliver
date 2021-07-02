@@ -22,8 +22,9 @@ github.com/BurntSushi/xgb/xinerama
 github.com/BurntSushi/xgb/xproto
 # github.com/Microsoft/go-winio v0.4.16
 ## explicit
-github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/pkg/guid
+# github.com/VirusTotal/vt-go v0.0.0-20210528074736-45bbe34cc8ab
+github.com/VirusTotal/vt-go
 # github.com/VividCortex/ewma v1.1.1
 github.com/VividCortex/ewma
 # github.com/alecthomas/chroma v0.8.1
@@ -72,6 +73,8 @@ github.com/cheggaaa/pb/v3/termutil
 github.com/danwakefield/fnmatch
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
+# github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d
+github.com/demisto/goxforce
 # github.com/desertbit/closer/v3 v3.1.2
 ## explicit
 github.com/desertbit/closer/v3
@@ -80,7 +83,7 @@ github.com/desertbit/closer/v3
 github.com/desertbit/columnize
 # github.com/desertbit/go-shlex v0.1.1
 github.com/desertbit/go-shlex
-# github.com/desertbit/grumble v1.0.8
+# github.com/desertbit/grumble v1.1.1
 ## explicit
 github.com/desertbit/grumble
 # github.com/desertbit/readline v1.5.1
@@ -88,7 +91,7 @@ github.com/desertbit/readline
 # github.com/dlclark/regexp2 v1.2.0
 github.com/dlclark/regexp2
 github.com/dlclark/regexp2/syntax
-# github.com/fatih/color v1.10.0
+# github.com/fatih/color v1.12.0
 ## explicit
 github.com/fatih/color
 # github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5
@@ -109,8 +112,6 @@ github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
 # github.com/google/btree v1.0.1
 github.com/google/btree
-# github.com/google/go-cmp v0.5.5
-## explicit
 # github.com/google/uuid v1.2.0
 ## explicit
 github.com/google/uuid
@@ -124,9 +125,10 @@ github.com/grpc-ecosystem/go-grpc-middleware/logging
 github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus
 github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus
 github.com/grpc-ecosystem/go-grpc-middleware/tags
-# github.com/hashicorp/errwrap v1.0.0
+# github.com/hashicorp/errwrap v1.1.0
 github.com/hashicorp/errwrap
-# github.com/hashicorp/go-multierror v1.0.0
+# github.com/hashicorp/go-multierror v1.1.1
+## explicit
 github.com/hashicorp/go-multierror
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
@@ -164,12 +166,19 @@ github.com/kbinani/screenshot/internal/xwindow
 # github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194
 ## explicit
 github.com/lesnuages/go-socks5
+# github.com/lesnuages/go-winio v0.4.19
+## explicit
+github.com/lesnuages/go-winio
+# github.com/lesnuages/snitch v0.6.0
+## explicit
+github.com/lesnuages/snitch/pkg/snitch
 # github.com/lxn/win v0.0.0-20210218163916-a377121e959e
 ## explicit
 github.com/lxn/win
 # github.com/mattn/go-colorable v0.1.8
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.12
+# github.com/mattn/go-isatty v0.0.13
+## explicit
 github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.7
 github.com/mattn/go-runewidth
@@ -195,18 +204,22 @@ github.com/sirupsen/logrus
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.6.1
+# github.com/stretchr/testify v1.7.0
 ## explicit
 github.com/stretchr/testify/assert
-# golang.org/x/crypto v0.0.0-20210317152858-513c2a44f670
+# github.com/thedevsaddam/gojsonq/v2 v2.5.2
+github.com/thedevsaddam/gojsonq/v2
+# golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
 ## explicit
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
 golang.org/x/crypto/blake2s
+golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
 golang.org/x/crypto/chacha20
 golang.org/x/crypto/chacha20poly1305
 golang.org/x/crypto/curve25519
+golang.org/x/crypto/curve25519/internal/field
 golang.org/x/crypto/ed25519
 golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/internal/subtle
@@ -217,6 +230,9 @@ golang.org/x/crypto/openpgp/packet
 golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/poly1305
+golang.org/x/crypto/ssh
+golang.org/x/crypto/ssh/agent
+golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20210410081132-afb366fc7cd1
 ## explicit
@@ -233,7 +249,7 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/trace
-# golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57
+# golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
 ## explicit
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
@@ -331,8 +347,6 @@ google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
 google.golang.org/grpc/test/bufconn
-# google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
-## explicit
 # google.golang.org/protobuf v1.26.0
 ## explicit
 google.golang.org/protobuf/encoding/protojson

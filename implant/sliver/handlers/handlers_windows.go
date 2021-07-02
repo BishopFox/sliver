@@ -59,6 +59,7 @@ var (
 		sliverpb.MsgRemoveServiceReq:         removeService,
 		sliverpb.MsgEnvReq:                   getEnvHandler,
 		sliverpb.MsgSetEnvReq:                setEnvHandler,
+		sliverpb.MsgUnsetEnvReq:              unsetEnvHandler,
 		sliverpb.MsgExecuteTokenReq:          executeTokenHandler,
 
 		// Platform specific
@@ -74,17 +75,18 @@ var (
 		sliverpb.MsgRegistryCreateKeyReq: regCreateKeyHandler,
 
 		// Generic
-		sliverpb.MsgPing:        pingHandler,
-		sliverpb.MsgLsReq:       dirListHandler,
-		sliverpb.MsgDownloadReq: downloadHandler,
-		sliverpb.MsgUploadReq:   uploadHandler,
-		sliverpb.MsgCdReq:       cdHandler,
-		sliverpb.MsgPwdReq:      pwdHandler,
-		sliverpb.MsgRmReq:       rmHandler,
-		sliverpb.MsgMkdirReq:    mkdirHandler,
-		sliverpb.MsgExecuteReq:  executeHandler,
+		sliverpb.MsgPing:                 pingHandler,
+		sliverpb.MsgLsReq:                dirListHandler,
+		sliverpb.MsgDownloadReq:          downloadHandler,
+		sliverpb.MsgUploadReq:            uploadHandler,
+		sliverpb.MsgCdReq:                cdHandler,
+		sliverpb.MsgPwdReq:               pwdHandler,
+		sliverpb.MsgRmReq:                rmHandler,
+		sliverpb.MsgMkdirReq:             mkdirHandler,
+		sliverpb.MsgExecuteReq:           executeHandler,
 		sliverpb.MsgReconnectIntervalReq: reconnectIntervalHandler,
 		sliverpb.MsgPollIntervalReq:      pollIntervalHandler,
+		sliverpb.MsgSSHCommandReq:        runSSHCommandHandler,
 
 		// {{if .Config.WGc2Enabled}}
 		// Wireguard specific
@@ -435,13 +437,13 @@ func regWriteHandler(data []byte, resp RPCResponse) {
 	}
 	var val interface{}
 	switch regWriteReq.Type {
-	case sliverpb.RegistryType_BINARY:
+	case sliverpb.RegistryTypeBinary:
 		val = regWriteReq.ByteValue
-	case sliverpb.RegistryType_DWORD:
+	case sliverpb.RegistryTypeDWORD:
 		val = regWriteReq.DWordValue
-	case sliverpb.RegistryType_QWORD:
+	case sliverpb.RegistryTypeQWORD:
 		val = regWriteReq.QWordValue
-	case sliverpb.RegistryType_STRING:
+	case sliverpb.RegistryTypeString:
 		val = regWriteReq.StringValue
 	default:
 		return

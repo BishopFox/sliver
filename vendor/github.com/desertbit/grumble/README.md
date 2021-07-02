@@ -8,7 +8,7 @@ However sometimes an integrated shell interface is a great and useful extension 
 This library offers a simple API to create powerful CLI applications and automatically starts
 an **integrated interactive shell**, if the application is started without any command arguments.
 
-**Hint:** The API might change slightly, until a first 1.0 release is published.
+**Hint:** We do not guarantee 100% backwards compatiblity between minor versions (1.x). However, the API is mostly stable and should not change much.
 
 [![asciicast](https://asciinema.org/a/155332.png)](https://asciinema.org/a/155332?t=5)
 
@@ -35,22 +35,23 @@ app.AddCommand(&grumble.Command{
     Name:      "daemon",
     Help:      "run the daemon",
     Aliases:   []string{"run"},
-    Usage:     "daemon [OPTIONS]",
-    AllowArgs: true,
 
     Flags: func(f *grumble.Flags) {
         f.Duration("t", "timeout", time.Second, "timeout duration")
     },
 
+    Args: func(a *grumble.Args) {
+        a.String("service", "which service to start", grumble.Default("server"))
+    },
+
     Run: func(c *grumble.Context) error {
-        c.App.Println("timeout:", c.Flags.Duration("timeout"))
+        // Parent Flags.
         c.App.Println("directory:", c.Flags.String("directory"))
         c.App.Println("verbose:", c.Flags.Bool("verbose"))
-
-        // Handle args.
-        c.App.Println("args:")
-        c.App.Println(strings.Join(c.Args, "\n"))
-
+        // Flags.
+        c.App.Println("timeout:", c.Flags.Duration("timeout"))
+        // Args.
+        c.App.Println("service:", c.Args.String("service"))
         return nil
     },
 })

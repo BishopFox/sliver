@@ -47,6 +47,9 @@ const (
 	// CanaryEvent - A DNS canary was triggered
 	CanaryEvent = "canary"
 
+	// WatchtowerEvent - An implant hash has been identified on a threat intel platform
+	WatchtowerEvent = "watchtower"
+
 	// StartedEvent - Job was started
 	JobStartedEvent = "job-started"
 	// StoppedEvent - Job was stopped
@@ -63,6 +66,12 @@ const (
 
 	// WebsiteEvent - Fires whenever there's a change to websites
 	WebsiteEvent = "website"
+
+	// LootAdded
+	LootAddedEvent = "loot-added"
+
+	// LootRemoved
+	LootRemovedEvent = "loot-removed"
 )
 
 // Commands
@@ -78,12 +87,23 @@ const (
 	UseStr        = "use"
 	SetStr        = "set"
 
-	GenerateStr        = "generate"
-	RegenerateStr      = "regenerate"
-	ProfileGenerateStr = "generate-profile"
-	StagerStr          = "stager"
-	ProfilesStr        = "profiles"
-	NewProfileStr      = "new-profile"
+	GenerateStr   = "generate"
+	RegenerateStr = "regenerate"
+	CompilerStr   = "info"
+	StagerStr     = "stager"
+	ProfilesStr   = "profiles"
+
+	NewStr = "new"
+	AddStr = "add"
+	// RmStr - Already defined below for "rm" command
+
+	LootStr       = "loot"
+	LootLocalStr  = "local"
+	LootRemoteStr = "remote"
+	LootFetchStr  = "fetch"
+	LootCredsStr  = "creds"
+
+	RenameStr = "rename"
 
 	ImplantBuildsStr = "implants"
 	ListCanariesStr  = "canaries"
@@ -149,6 +169,7 @@ const (
 	MakeTokenStr          = "make-token"
 	GetEnvStr             = "getenv"
 	SetEnvStr             = "setenv"
+	UnsetEnvStr           = "unsetenv"
 	RegistryStr           = "registry"
 	RegistryReadStr       = "read"
 	RegistryWriteStr      = "write"
@@ -159,6 +180,8 @@ const (
 	WgConfigStr           = "wg-config"
 	WgSocksStr            = "wg-socks"
 	WgPortFwdStr          = "wg-portfwd"
+	MonitorStr            = "monitor"
+	SSHStr                = "ssh"
 
 	PortfwdStr = "portfwd"
 

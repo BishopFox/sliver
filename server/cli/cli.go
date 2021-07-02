@@ -134,7 +134,6 @@ var rootCmd = &cobra.Command{
 			os.Args = os.Args[:1] // Hide cli from grumble console
 			console.Start()
 		}
-
 	},
 }
 

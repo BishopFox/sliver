@@ -12,6 +12,7 @@ jobs:
   linux-windows-build:
     name: Linux & Windows Build
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
 
     - name: Go 1.16
@@ -46,6 +47,7 @@ jobs:
   macos-build:
     name: MacOS Build
     runs-on: macos-latest
+    timeout-minutes: 45
     steps:
 
     - name: Go 1.16

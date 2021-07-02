@@ -1,5 +1,23 @@
 package command
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2021  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"context"
 	"encoding/hex"
@@ -38,17 +56,17 @@ func checkHive(hive string) error {
 	return fmt.Errorf("invalid hive %s", hive)
 }
 
-func getType(t string) (sliverpb.RegistryType, error) {
-	var res sliverpb.RegistryType
+func getType(t string) (uint32, error) {
+	var res uint32
 	switch t {
 	case "binary":
-		res = sliverpb.RegistryType_BINARY
+		res = sliverpb.RegistryTypeBinary
 	case "dword":
-		res = sliverpb.RegistryType_DWORD
+		res = sliverpb.RegistryTypeDWORD
 	case "qword":
-		res = sliverpb.RegistryType_QWORD
+		res = sliverpb.RegistryTypeQWORD
 	case "string":
-		res = sliverpb.RegistryType_STRING
+		res = sliverpb.RegistryTypeString
 	default:
 		return res, fmt.Errorf("invalid type %s", t)
 	}
@@ -74,11 +92,11 @@ func registryReadCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 1 {
+	regPath := ctx.Args.String("registry-path")
+	if regPath == "" {
 		fmt.Printf(Warn + "you must provide a path")
 		return
 	}
-	regPath := ctx.Args[0]
 	if strings.Contains(regPath, "/") {
 		regPath = strings.ReplaceAll(regPath, "/", "\\")
 	}
@@ -136,20 +154,20 @@ func registryWriteCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 2 {
+	regPath := ctx.Args.String("registry-path")
+	value := ctx.Args.String("value")
+	if regPath == "" || value == "" {
 		fmt.Printf(Warn + "you must provide a path and a value to write")
 		return
 	}
-	regPath := ctx.Args[0]
 	if strings.Contains(regPath, "/") {
 		regPath = strings.ReplaceAll(regPath, "/", "\\")
 	}
 	slashIndex := strings.LastIndex(regPath, "\\")
 	key := regPath[slashIndex+1:]
 	regPath = regPath[:slashIndex]
-	value := ctx.Args[1]
 	switch valType {
-	case sliverpb.RegistryType_BINARY:
+	case sliverpb.RegistryTypeBinary:
 		var (
 			v   []byte
 			err error
@@ -168,21 +186,21 @@ func registryWriteCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			}
 		}
 		binaryValue = v
-	case sliverpb.RegistryType_DWORD:
+	case sliverpb.RegistryTypeDWORD:
 		v, err := strconv.ParseUint(value, 10, 32)
 		if err != nil {
 			fmt.Printf(Warn+"Error: %v", err)
 			return
 		}
 		dwordValue = uint32(v)
-	case sliverpb.RegistryType_QWORD:
+	case sliverpb.RegistryTypeQWORD:
 		v, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
 			fmt.Printf(Warn+"Error: %v", err)
 			return
 		}
 		qwordValue = v
-	case sliverpb.RegistryType_STRING:
+	case sliverpb.RegistryTypeString:
 		stringValue = value
 	default:
 		fmt.Printf(Warn + "Invalid type")
@@ -225,11 +243,11 @@ func regCreateKeyCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 1 {
+	regPath := ctx.Args.String("registry-path")
+	if regPath == "" {
 		fmt.Printf(Warn + "you must provide a path")
 		return
 	}
-	regPath := ctx.Args[0]
 	if strings.Contains(regPath, "/") {
 		regPath = strings.ReplaceAll(regPath, "/", "\\")
 	}

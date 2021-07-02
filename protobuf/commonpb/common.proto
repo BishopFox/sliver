@@ -36,6 +36,7 @@ message Process {
   string Executable = 3;
   string Owner = 4;
   int32 SessionID = 5;
+  repeated string CmdLine = 6;
 }
 
 // EnvVar - Environment variable K/V

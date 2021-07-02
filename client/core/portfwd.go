@@ -186,7 +186,7 @@ func (p *ChannelProxy) dialImplant(ctx context.Context) (*Tunnel, error) {
 		},
 		Host:     p.Host(),
 		Port:     p.Port(),
-		Protocol: sliverpb.PortfwdProtocol_TCP,
+		Protocol: sliverpb.PortFwdProtoTCP,
 		TunnelID: tunnel.ID,
 	})
 	if err != nil {

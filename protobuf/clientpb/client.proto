@@ -42,12 +42,20 @@ message Session {
   uint32 ReconnectInterval = 19;
   string ProxyURL = 20;
   uint32 PollInterval = 21;
+  bool Burned = 22;
 }
 
 message ImplantC2 {
   uint32 Priority = 1;
   string URL = 2;
   string Options = 3; // Protocol specific options
+}
+
+enum OutputFormat {
+  SHARED_LIB = 0;
+  SHELLCODE = 1;
+  EXECUTABLE = 2;
+  SERVICE = 3;
 }
 
 message ImplantConfig {
@@ -81,12 +89,6 @@ message ImplantConfig {
   string LimitUsername = 23;
   string LimitFileExists = 32;
 
-  enum OutputFormat {
-    SHARED_LIB = 0;
-    SHELLCODE = 1;
-    EXECUTABLE = 2;
-    SERVICE = 3;
-  }
   OutputFormat Format = 25;
   bool IsSharedLib = 26;
 
@@ -98,6 +100,26 @@ message ImplantConfig {
 // Configs of previously built implants
 message ImplantBuilds {
   map<string, ImplantConfig> Configs = 1;
+}
+
+message CompilerTarget {
+  string GOOS = 1;  // The server's OS
+  string GOARCH = 2;  // The server's Arch
+  OutputFormat Format = 3;
+}
+
+message CrossCompiler {
+  string TargetGOOS = 1;  // The server's OS
+  string TargetGOARCH = 2;  // The server's Arch
+  string CCPath = 3;
+  string CXXPath = 4;
+}
+
+message Compiler {
+  string GOOS = 1;  // The server's OS
+  string GOARCH = 2;  // The server's Arch
+  repeated CompilerTarget Targets = 3;
+  repeated CrossCompiler CrossCompilers = 4;
 }
 
 message DeleteReq {
@@ -282,9 +304,9 @@ message MSFRemoteReq {
 }
 
 enum StageProtocol {
-    TCP = 0;
-    HTTP = 1;
-    HTTPS = 2;
+  TCP = 0;
+  HTTP = 1;
+  HTTPS = 2;
 }
 
 message StagerListenerReq {
@@ -362,7 +384,7 @@ message CloseTunnelReq {
   commonpb.Request Request = 9;
 }
 
-// [ events ] ----------------------------------------
+// [ Events ] ----------------------------------------
 message Client {
   uint32 ID = 1;
   string Name = 2;
@@ -389,7 +411,7 @@ message Operator {
   string Name = 2;
 }
 
-// [ websites ] ----------------------------------------
+// [ Websites ] ----------------------------------------
 message WebContent {
   string Path = 1;
   string ContentType = 2;
@@ -418,11 +440,58 @@ message Websites {
 }
 
 
-// [Wireguard]
+// [ Wireguard ] ----------------------------------------
 
 message WGClientConfig {
   string ServerPubKey = 1;
   string ClientPrivateKey = 2;
   string ClientPubKey = 3;
   string ClientIP = 4;
+}
+
+
+// [ Loot ] ----------------------------------------
+enum LootType {
+  LOOT_FILE = 0;
+  LOOT_CREDENTIAL = 1;
+}
+
+enum CredentialType {
+  NO_CREDENTIAL = 0;
+  USER_PASSWORD = 1;
+  API_KEY = 2;
+  FILE = 3;
+}
+
+enum FileType {
+  NO_FILE = 0;
+  BINARY = 1;
+  TEXT = 2;
+}
+
+message Credential {
+  
+  // USER_PASSWORD
+  string User = 2;
+  string Password = 3;
+
+  // API_KEY
+  string APIKey = 4;
+}
+
+message Loot {
+  LootType Type = 1;
+
+  string LootID = 2;
+  string Name = 3;
+
+  CredentialType CredentialType = 4;
+  Credential Credential = 5;
+  FileType FileType = 6;
+
+  commonpb.File File = 9;
+}
+
+message AllLoot {
+  repeated Loot Loot = 1;
 }

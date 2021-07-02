@@ -103,12 +103,19 @@ type HTTPJobConfig struct {
 	JobID   string `json:"jobid"`
 }
 
+type WatchTowerConfig struct {
+	VTApiKey          string `json:"vt_api_key"`
+	XForceApiKey      string `json:"xforce_api_key"`
+	XForceApiPassword string `json:"xforce_api_password"`
+}
+
 // ServerConfig - Server config
 type ServerConfig struct {
-	DaemonMode   bool          `json:"daemon_mode"`
-	DaemonConfig *DaemonConfig `json:"daemon"`
-	Logs         *LogConfig    `json:"logs"`
-	Jobs         *JobConfig    `json:"jobs,omitempty"`
+	DaemonMode   bool              `json:"daemon_mode"`
+	DaemonConfig *DaemonConfig     `json:"daemon"`
+	Logs         *LogConfig        `json:"logs"`
+	Jobs         *JobConfig        `json:"jobs,omitempty"`
+	Watchtower   *WatchTowerConfig `json:"watch_tower"`
 }
 
 // Save - Save config file to disk

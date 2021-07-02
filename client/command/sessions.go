@@ -132,6 +132,7 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 		strings.Repeat("=", len("Operating System")),
 		strings.Repeat("=", len("Last Check-in")),
 		strings.Repeat("=", len("Health")))
+	// strings.Repeat("=", len("Burned")))
 
 	// Sort the keys because maps have a randomized order
 	var keys []int
@@ -153,8 +154,12 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 		} else {
 			SessionHealth = bold + green + "[ALIVE]" + normal
 		}
+		burned := ""
+		if session.Burned {
+			burned = "🔥"
+		}
 
-		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			session.ID,
 			session.Name,
 			session.Transport,
@@ -164,6 +169,7 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 			fmt.Sprintf("%s/%s", session.OS, session.Arch),
 			session.LastCheckin,
 			SessionHealth,
+			burned,
 		)
 	}
 	table.Flush()
@@ -186,16 +192,12 @@ func printSessions(sessions map[uint32]*clientpb.Session) {
 }
 
 func use(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	if len(ctx.Args) == 0 {
-		fmt.Printf(Warn + "Missing sliver name or session number, see `help use`\n")
-		return
-	}
-	session := GetSession(ctx.Args[0], rpc)
+	session := GetSession(ctx.Args.String("session"), rpc)
 	if session != nil {
 		ActiveSession.Set(session)
 		fmt.Printf(Info+"Active session %s (%d)\n", session.Name, session.ID)
 	} else {
-		fmt.Printf(Warn+"Invalid session name or session number '%s'\n", ctx.Args[0])
+		fmt.Printf(Warn+"Invalid session name or session number '%s'\n", ctx.Args.String("session"))
 	}
 }
 

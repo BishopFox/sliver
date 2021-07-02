@@ -222,6 +222,25 @@ const (
 	MsgPollIntervalReq
 
 	MsgPollInterval
+
+	// MsgUnsetEnvReq
+	MsgUnsetEnvReq
+
+	// MsgSSHCommandReq - Run a SSH command
+	MsgSSHCommandReq
+)
+
+// Constants to replace enums
+const (
+	// Port forward protocols
+	PortFwdProtoTCP = 1
+	PortFwdProtoUDP = 2
+
+	// Registry types
+	RegistryTypeBinary = 1
+	RegistryTypeString = 2
+	RegistryTypeDWORD  = 3
+	RegistryTypeQWORD  = 4
 )
 
 // MsgNumber - Get a message number of type
@@ -388,6 +407,8 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgSetEnvReq
 	case *SetEnv:
 		return MsgSetEnv
+	case *UnsetEnvReq:
+		return MsgUnsetEnvReq
 	case *RegistryReadReq:
 		return MsgRegistryReadReq
 	case *RegistryWriteReq:
@@ -427,7 +448,9 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *PollInterval:
 		return MsgPollInterval
-
+	case *SSHCommandReq:
+		return MsgSSHCommandReq
 	}
+
 	return uint32(0)
 }

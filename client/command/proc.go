@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -67,41 +66,52 @@ func ps(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	}
 
 	outputBuf := bytes.NewBufferString("")
-	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', tabwriter.DiscardEmptyColumns)
 
-	if session.GetOS() != "windows" {
-		fmt.Fprintf(table, "pid\tppid\texecutable\towner\t\n")
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
-			strings.Repeat("=", len("pid")),
-			strings.Repeat("=", len("ppid")),
-			strings.Repeat("=", len("executable")),
-			strings.Repeat("=", len("owner")),
-		)
-	} else {
-		fmt.Fprintf(table, "pid\tppid\texecutable\towner\tsession\n")
+	switch session.GetOS() {
+	case "windows":
+		fmt.Fprintf(table, "pid\tppid\towner\texecutable\tsession\n")
 		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
 			strings.Repeat("=", len("pid")),
 			strings.Repeat("=", len("ppid")),
-			strings.Repeat("=", len("executable")),
 			strings.Repeat("=", len("owner")),
+			strings.Repeat("=", len("executable")),
 			strings.Repeat("=", len("session")),
 		)
+	case "darwin":
+		fallthrough
+	case "linux":
+		fmt.Fprintf(table, "pid\tppid\towner\texecutable\t\n")
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
+			strings.Repeat("=", len("pid")),
+			strings.Repeat("=", len("ppid")),
+			strings.Repeat("=", len("owner")),
+			strings.Repeat("=", len("executable")),
+		)
+	default:
+		fmt.Fprintf(table, "pid\tppid\towner\texecutable\t\n")
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
+			strings.Repeat("=", len("pid")),
+			strings.Repeat("=", len("ppid")),
+			strings.Repeat("=", len("owner")),
+			strings.Repeat("=", len("executable")),
+		)
 	}
-
+	cmdLine := ctx.Flags.Bool("print-cmdline")
 	lineColors := []string{}
 	for _, proc := range ps.Processes {
 		var lineColor = ""
 		if pidFilter != -1 && proc.Pid == int32(pidFilter) {
-			lineColor = printProcInfo(table, proc)
+			lineColor = printProcInfo(table, proc, cmdLine)
 		}
 		if exeFilter != "" && strings.HasPrefix(proc.Executable, exeFilter) {
-			lineColor = printProcInfo(table, proc)
+			lineColor = printProcInfo(table, proc, cmdLine)
 		}
 		if ownerFilter != "" && strings.HasPrefix(proc.Owner, ownerFilter) {
-			lineColor = printProcInfo(table, proc)
+			lineColor = printProcInfo(table, proc, cmdLine)
 		}
 		if pidFilter == -1 && exeFilter == "" && ownerFilter == "" {
-			lineColor = printProcInfo(table, proc)
+			lineColor = printProcInfo(table, proc, cmdLine)
 		}
 
 		// Should be set to normal/green if we rendered the line
@@ -127,7 +137,7 @@ func ps(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 }
 
 // printProcInfo - Stylizes the process information
-func printProcInfo(table *tabwriter.Writer, proc *commonpb.Process) string {
+func printProcInfo(table *tabwriter.Writer, proc *commonpb.Process, cmdLine bool) string {
 	color := normal
 	if modifyColor, ok := knownProcs[proc.Executable]; ok {
 		color = modifyColor
@@ -136,11 +146,25 @@ func printProcInfo(table *tabwriter.Writer, proc *commonpb.Process) string {
 	if session != nil && proc.Pid == session.PID {
 		color = green
 	}
-	if session.GetOS() == "windows" {
-		fmt.Fprintf(table, "%d\t%d\t%s\t%s\t%d\t\n", proc.Pid, proc.Ppid, proc.Executable, proc.Owner, proc.SessionID)
-	} else {
-
-		fmt.Fprintf(table, "%d\t%d\t%s\t%s\t\n", proc.Pid, proc.Ppid, proc.Executable, proc.Owner)
+	switch session.GetOS() {
+	case "windows":
+		fmt.Fprintf(table, "%d\t%d\t%s\t%s\t%d\t\n", proc.Pid, proc.Ppid, proc.Owner, proc.Executable, proc.SessionID)
+	case "darwin":
+		fallthrough
+	case "linux":
+		fallthrough
+	default:
+		if cmdLine {
+			var args string
+			if len(proc.CmdLine) >= 2 {
+				args = strings.Join(proc.CmdLine, " ")
+			} else {
+				args = proc.Executable
+			}
+			fmt.Fprintf(table, "%d\t%d\t%s\t%s\t\n", proc.Pid, proc.Ppid, proc.Owner, args)
+		} else {
+			fmt.Fprintf(table, "%d\t%d\t%s\t%s\t\n", proc.Pid, proc.Ppid, proc.Owner, proc.Executable)
+		}
 	}
 	return color
 }
@@ -198,16 +222,7 @@ func terminate(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		return
 	}
 
-	if len(ctx.Args) != 1 {
-		fmt.Printf(Warn + "Please provide a PID\n")
-		return
-	}
-	pidStr := ctx.Args[0]
-	pid, err := strconv.Atoi(pidStr)
-	if err != nil {
-		fmt.Printf(Warn+"Error: %s\n", err)
-		return
-	}
+	pid := ctx.Args.Uint("pid")
 	terminated, err := rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
 		Request: ActiveSession.Request(ctx),
 		Pid:     int32(pid),

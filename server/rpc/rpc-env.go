@@ -25,3 +25,13 @@ func (rpc *Server) SetEnv(ctx context.Context, req *sliverpb.SetEnvReq) (*sliver
 	}
 	return resp, nil
 }
+
+// UnsetEnv - Set an environment variable
+func (rpc *Server) UnsetEnv(ctx context.Context, req *sliverpb.UnsetEnvReq) (*sliverpb.UnsetEnv, error) {
+	resp := &sliverpb.UnsetEnv{}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

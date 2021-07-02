@@ -72,6 +72,7 @@ var (
 		"netstat/netstat_windows.go",
 		"netstat/netstat_linux.go",
 		"netstat/netstat_darwin.go",
+		"netstat/netstat_types_darwin.go",
 
 		"procdump/dump.go",
 		"procdump/dump_windows.go",
@@ -89,6 +90,7 @@ var (
 		"ps/ps_windows.go",
 		"ps/ps_linux.go",
 		"ps/ps_darwin.go",
+		"ps/ps_types_darwin.go",
 
 		"registry/registry.go",
 		"registry/registry_windows.go",
@@ -113,6 +115,8 @@ var (
 		"shell/pty/ioctl_bsd.go",
 		"shell/pty/ioctl_darwin.go",
 		"shell/pty/pty_unsupported.go",
+
+		"shell/ssh/ssh.go",
 
 		"taskrunner/task.go",
 		"taskrunner/task_windows.go",
@@ -171,7 +175,10 @@ var (
 		"encoders/images.go",
 
 		"handlers/handlers_default.go",
+		"handlers/tun-handlers.go",
 		"handlers/handlers.go",
+
+		"shell/shell_default.go",
 
 		"hostuuid/uuid_default.go",
 

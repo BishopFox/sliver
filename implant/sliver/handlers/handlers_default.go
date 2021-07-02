@@ -43,6 +43,7 @@ var (
 		sliverpb.MsgExecuteReq:           executeHandler,
 		sliverpb.MsgSetEnvReq:            setEnvHandler,
 		sliverpb.MsgEnvReq:               getEnvHandler,
+		sliverpb.MsgUnsetEnvReq:          unsetEnvHandler,
 		sliverpb.MsgReconnectIntervalReq: reconnectIntervalHandler,
 		sliverpb.MsgPollIntervalReq:      pollIntervalHandler,
 	}
@@ -56,11 +57,6 @@ func GetSystemHandlers() map[uint32]RPCHandler {
 // GetSystemPivotHandlers - Not supported
 func GetSystemPivotHandlers() map[uint32]PivotHandler {
 	return map[uint32]PivotHandler{}
-}
-
-// GetTunnelHandlers - Not supported
-func GetTunnelHandlers() map[uint32]TunnelHandler {
-	return map[uint32]TunnelHandler{}
 }
 
 // GetPivotHandlers - Not supported

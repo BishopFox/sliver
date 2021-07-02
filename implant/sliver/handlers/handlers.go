@@ -28,7 +28,6 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"strings"
-	"time"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -40,6 +39,7 @@ import (
 	// {{if .Config.WGc2Enabled}}
 	"github.com/bishopfox/sliver/implant/sliver/forwarder"
 	// {{end}}
+
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -449,6 +449,27 @@ func setEnvHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+func unsetEnvHandler(data []byte, resp RPCResponse) {
+	unsetEnvReq := &sliverpb.UnsetEnvReq{}
+	err := proto.Unmarshal(data, unsetEnvReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v\n", err)
+		// {{end}}
+		return
+	}
+
+	err = os.Unsetenv(unsetEnvReq.Name)
+	unsetEnvResp := &sliverpb.UnsetEnv{
+		Response: &commonpb.Response{},
+	}
+	if err != nil {
+		unsetEnvResp.Response.Err = err.Error()
+	}
+	data, err = proto.Marshal(unsetEnvResp)
+	resp(data, err)
+}
+
 func reconnectIntervalHandler(data []byte, resp RPCResponse) {
 	reconnectIntervalReq := &sliverpb.ReconnectIntervalReq{}
 	err := proto.Unmarshal(data, reconnectIntervalReq)
@@ -465,7 +486,7 @@ func reconnectIntervalHandler(data []byte, resp RPCResponse) {
 	// {{end}}
 
 	// Set the reconnect interval value
-	transports.SetReconnectInterval(time.Duration(reconnectInterval) * time.Second)
+	transports.SetReconnectInterval(int(reconnectInterval))
 
 	recIntervalResp := &sliverpb.ReconnectInterval{}
 	recIntervalResp.Response = &commonpb.Response{}
@@ -493,7 +514,7 @@ func pollIntervalHandler(data []byte, resp RPCResponse) {
 	// {{end}}
 
 	// Set the reconnect interval value
-	transports.SetPollInterval(time.Duration(pollInterval) * time.Second)
+	transports.SetPollInterval(int(pollInterval))
 
 	pollIntervalResp := &sliverpb.PollInterval{}
 	pollIntervalResp.Response = &commonpb.Response{}
