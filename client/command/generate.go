@@ -291,12 +291,12 @@ func generateCompilerInfo(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		fmt.Printf("%s/%s - %s\n", cc.TargetGOOS, cc.TargetGOARCH, cc.GetCCPath())
 	}
 	fmt.Println()
-	fmt.Printf("%sTargets%s\n", bold, normal)
+	fmt.Printf("%sSupported Targets%s\n", bold, normal)
 	for _, target := range compiler.Targets {
 		fmt.Printf("%s/%s - %s\n", target.GOOS, target.GOARCH, nameOfOutputFormat(target.Format))
 	}
 	fmt.Println()
-	fmt.Printf("%sUnsupported Targets%s\n", bold, normal)
+	fmt.Printf("%sDefault Builds Only%s\n", bold, normal)
 	for _, target := range compiler.UnsupportedTargets {
 		fmt.Printf("%s/%s - %s\n", target.GOOS, target.GOARCH, nameOfOutputFormat(target.Format))
 	}
@@ -471,9 +471,11 @@ func getTargets(targetOS string, targetArch string) (string, string) {
 
 	target := fmt.Sprintf("%s/%s", targetOS, targetArch)
 	if _, ok := SupportedCompilerTargets[target]; !ok {
-		prompt := &survey.Confirm{
-			Message: fmt.Sprintf("Unsupported compiler target %s, try to build anyways?", target),
-		}
+		fmt.Printf("⚠️  Unsupported compiler target %s%s%s, but we can try to compile a default implant.\n",
+			bold, target, normal,
+		)
+		fmt.Printf("⚠️  Default implants do not support all commands/features.\n")
+		prompt := &survey.Confirm{Message: "Compile a default build?"}
 		var confirm bool
 		survey.AskOne(prompt, &confirm)
 		if !confirm {
