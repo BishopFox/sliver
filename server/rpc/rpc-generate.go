@@ -32,6 +32,11 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
+	"github.com/bishopfox/sliver/server/log"
+)
+
+var (
+	rcpLog = log.NamedLogger("rpc", "generate")
 )
 
 // Generate - Generate a new implant
@@ -233,10 +238,12 @@ func (rpc *Server) ShellcodeRDI(ctx context.Context, req *clientpb.ShellcodeRDIR
 
 func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientpb.Compiler, error) {
 	compiler := &clientpb.Compiler{
-		GOOS:           runtime.GOOS,
-		GOARCH:         runtime.GOARCH,
-		Targets:        generate.GetCompilerTargets(),
-		CrossCompilers: generate.GetCrossCompilers(),
+		GOOS:               runtime.GOOS,
+		GOARCH:             runtime.GOARCH,
+		Targets:            generate.GetCompilerTargets(),
+		UnsupportedTargets: generate.GetUnsupportedTargets(),
+		CrossCompilers:     generate.GetCrossCompilers(),
 	}
+	rcpLog.Infof("GetCompiler = %v", compiler)
 	return compiler, nil
 }

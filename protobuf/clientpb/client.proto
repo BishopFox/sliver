@@ -120,6 +120,7 @@ message Compiler {
   string GOARCH = 2;  // The server's Arch
   repeated CompilerTarget Targets = 3;
   repeated CrossCompiler CrossCompilers = 4;
+  repeated CompilerTarget UnsupportedTargets = 5;
 }
 
 message DeleteReq {
