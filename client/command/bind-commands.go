@@ -1857,6 +1857,7 @@ func BindCommands(app *grumble.App, rpc rpcpb.SliverRPCClient) {
 			f.String("i", "private-key", "", "path to private key file")
 			f.String("P", "password", "", "SSH user password")
 			f.String("l", "login", "", "username to use to connect")
+			f.Bool("s", "skip-loot", false, "skip the prompt to use loot credentials")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
