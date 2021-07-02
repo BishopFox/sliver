@@ -816,3 +816,26 @@ func GetCrossCompilers() []*clientpb.CrossCompiler {
 	}
 	return compilers
 }
+
+func GetUnsupportedTargets() []*clientpb.CompilerTarget {
+	appDir := assets.GetRootAppDir()
+	distList := gogo.GoToolDistList(gogo.GoConfig{
+		GOCACHE:    gogo.GetGoCache(appDir),
+		GOMODCACHE: gogo.GetGoModCache(appDir),
+		GOROOT:     gogo.GetGoRootDir(appDir),
+	})
+	buildLog.Infof("Dist List = %v", distList)
+	targets := []*clientpb.CompilerTarget{}
+	for _, dist := range distList {
+		parts := strings.SplitN(dist, "/", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		targets = append(targets, &clientpb.CompilerTarget{
+			GOOS:   parts[0],
+			GOARCH: parts[1],
+			Format: clientpb.OutputFormat_EXECUTABLE,
+		})
+	}
+	return targets
+}

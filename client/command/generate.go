@@ -295,6 +295,11 @@ func generateCompilerInfo(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	for _, target := range compiler.Targets {
 		fmt.Printf("%s/%s - %s\n", target.GOOS, target.GOARCH, nameOfOutputFormat(target.Format))
 	}
+	fmt.Println()
+	fmt.Printf("%sUnsupported Targets%s\n", bold, normal)
+	for _, target := range compiler.UnsupportedTargets {
+		fmt.Printf("%s/%s - %s\n", target.GOOS, target.GOARCH, nameOfOutputFormat(target.Format))
+	}
 }
 
 // Shared function that extracts the compile flags from the grumble context
