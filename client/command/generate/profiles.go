@@ -100,7 +100,7 @@ func getImplantProfiles(con *console.SliverConsoleClient) []*clientpb.ImplantPro
 	return pbProfiles.Profiles
 }
 
-func getImplantProfileByName(con *console.SliverConsoleClient, name string) *clientpb.ImplantProfile {
+func GetImplantProfileByName(name string, con *console.SliverConsoleClient) *clientpb.ImplantProfile {
 	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("Error %s", err)

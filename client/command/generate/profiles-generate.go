@@ -38,7 +38,7 @@ func ProfilesGenerateCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	if save == "" {
 		save, _ = os.Getwd()
 	}
-	profile := getImplantProfileByName(con, name)
+	profile := GetImplantProfileByName(name, con)
 	if profile != nil {
 		implantFile, err := compile(profile.Config, save, con)
 		if err != nil {
