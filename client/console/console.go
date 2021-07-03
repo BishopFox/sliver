@@ -109,6 +109,7 @@ func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isS
 			observers:  map[int]Observer{},
 			observerID: 0,
 		},
+		IsServer: isServer,
 	}
 	con.App.SetPrintASCIILogo(func(_ *grumble.App) {
 		con.PrintLogo()
@@ -216,7 +217,7 @@ func (con *SliverConsoleClient) GetPrompt() string {
 		prompt += fmt.Sprintf(Bold+Red+" (%s)%s", con.ActiveSession.Get().Name, Normal)
 	}
 	prompt += " > "
-	return prompt
+	return Clearln + prompt
 }
 
 func (con *SliverConsoleClient) PrintLogo() {
