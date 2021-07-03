@@ -37,7 +37,9 @@ import (
 	"fmt"
 
 	"github.com/bishopfox/sliver/client/command/backdoor"
+	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
+	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
@@ -60,6 +62,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/licenses"
 	"github.com/desertbit/grumble"
 )
 
@@ -1508,94 +1511,96 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.LoadExtensionStr,
-	// 	Help:     "Load a sliver extension",
-	// 	LongHelp: help.GetHelpFor([]string{consts.LoadExtensionStr}),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		loadExtension(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("dir-path", "path to the extension directory")
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	// [ Extensions ] ---------------------------------------------
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.LoadExtensionStr,
+		Help:     "Load a sliver extension",
+		LongHelp: help.GetHelpFor([]string{consts.LoadExtensionStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			extensions.LoadExtensionCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("dir-path", "path to the extension directory")
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
 	// [ Environment ] ---------------------------------------------
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.GetEnvStr,
-	// 	Help:     "List environment variables",
-	// 	LongHelp: help.GetHelpFor([]string{consts.GetEnvStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("name", "environment variable to fetch", grumble.Default(""))
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		getEnv(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.GetEnvStr,
+		Help:     "List environment variables",
+		LongHelp: help.GetHelpFor([]string{consts.GetEnvStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("name", "environment variable to fetch", grumble.Default(""))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			environment.EnvGetCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.SetEnvStr,
-	// 	Help:     "Set environment variables",
-	// 	LongHelp: help.GetHelpFor([]string{consts.SetEnvStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("name", "environment variable name")
-	// 		a.String("value", "value to assign")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		setEnv(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.SetEnvStr,
+		Help:     "Set environment variables",
+		LongHelp: help.GetHelpFor([]string{consts.SetEnvStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("name", "environment variable name")
+			a.String("value", "value to assign")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			environment.EnvSetCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.UnsetEnvStr,
-	// 	Help:     "Clear environment variables",
-	// 	LongHelp: help.GetHelpFor([]string{consts.UnsetEnvStr}),
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("name", "environment variable name")
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		unsetEnv(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.UnsetEnvStr,
+		Help:     "Clear environment variables",
+		LongHelp: help.GetHelpFor([]string{consts.UnsetEnvStr}),
+		Args: func(a *grumble.Args) {
+			a.String("name", "environment variable name")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			environment.EnvUnsetCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.LicensesStr,
-	// 	Help:     "Open source licenses",
-	// 	LongHelp: help.GetHelpFor([]string{consts.LicensesStr}),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		fmt.Println(licenses.All)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.LicensesStr,
+		Help:     "Open source licenses",
+		LongHelp: help.GetHelpFor([]string{consts.LicensesStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			fmt.Println(licenses.All)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
 	// [ Registry ] ---------------------------------------------
 
