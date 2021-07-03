@@ -31,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -322,6 +323,10 @@ func (con *SliverConsoleClient) PrintErrorf(format string, args ...interface{}) 
 	return fmt.Fprintf(con.App.Stderr(), Clearln+Warn+format, args...)
 }
 
+func (con *SliverConsoleClient) SpinUntil(message string, ctrl chan bool) {
+	go spin.Until(con.App.Stdout(), message, ctrl)
+}
+
 //
 // -------------------------- [ Active Session ] --------------------------
 //
@@ -351,9 +356,7 @@ func (s *activeSession) AddObserver(observer Observer) int {
 }
 
 func (s *activeSession) RemoveObserver(observerID int) {
-	if _, ok := s.observers[observerID]; ok {
-		delete(s.observers, observerID)
-	}
+	delete(s.observers, observerID)
 }
 
 func (s *activeSession) Request(ctx *grumble.Context) *commonpb.Request {

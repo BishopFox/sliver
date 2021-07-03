@@ -33,7 +33,6 @@ import (
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
@@ -57,16 +56,16 @@ func Ls(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if err != nil {
 		con.PrintWarnf("%s\n", err)
 	} else {
-		PrintDirList(con.App.Stdout(), ls)
+		PrintLs(con.App.Stdout(), ls)
 	}
 }
 
-func PrintDirList(stdout io.Writer, dirList *sliverpb.Ls) {
-	fmt.Fprintf(stdout, "%s\n", dirList.Path)
-	fmt.Fprintf(stdout, "%s\n", strings.Repeat("=", len(dirList.Path)))
+func PrintLs(stdout io.Writer, ls *sliverpb.Ls) {
+	fmt.Fprintf(stdout, "%s\n", ls.Path)
+	fmt.Fprintf(stdout, "%s\n", strings.Repeat("=", len(ls.Path)))
 
 	table := tabwriter.NewWriter(stdout, 0, 2, 2, ' ', 0)
-	for _, fileInfo := range dirList.Files {
+	for _, fileInfo := range ls.Files {
 		if fileInfo.IsDir {
 			fmt.Fprintf(table, "%s\t<dir>\t\n", fileInfo.Name)
 		} else {
@@ -189,10 +188,10 @@ func Cat(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	if ctx.Flags.Bool("colorize-output") {
 		if err = colorize(download); err != nil {
-			fmt.Println(string(download.Data))
+			con.Println(string(download.Data))
 		}
 	} else {
-		fmt.Println(string(download.Data))
+		con.Println(string(download.Data))
 	}
 	// if ctx.Flags.Bool("loot") && 0 < len(download.Data) {
 	// 	err = AddLootFile(rpc, fmt.Sprintf("[cat] %s", filepath.Base(filePath)), filePath, download.Data, false)
@@ -266,7 +265,7 @@ func Download(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	ctrl := make(chan bool)
-	go spin.Until(fmt.Sprintf("%s -> %s", fileName, dst), ctrl)
+	con.SpinUntil(fmt.Sprintf("%s -> %s", fileName, dst), ctrl)
 	download, err := con.Rpc.Download(context.Background(), &sliverpb.DownloadReq{
 		Request: con.ActiveSession.Request(ctx),
 		Path:    remotePath,
@@ -339,7 +338,7 @@ func Upload(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	uploadGzip := new(encoders.Gzip).Encode(fileBuf)
 
 	ctrl := make(chan bool)
-	go spin.Until(fmt.Sprintf("%s -> %s", src, dst), ctrl)
+	con.SpinUntil(fmt.Sprintf("%s -> %s", src, dst), ctrl)
 	upload, err := con.Rpc.Upload(context.Background(), &sliverpb.UploadReq{
 		Request: con.ActiveSession.Request(ctx),
 		Path:    dst,

@@ -26,9 +26,9 @@ import (
 	"github.com/desertbit/grumble"
 
 	"github.com/bishopfox/sliver/client/command"
+	"github.com/bishopfox/sliver/client/command/help"
 	clientconsole "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/help"
 	clienttransport "github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/transport"

@@ -35,22 +35,25 @@ package command
 
 import (
 	"github.com/bishopfox/sliver/client/command/help"
+	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/console"
+	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/desertbit/grumble"
 )
 
 const (
-	defaultMTLSLPort    = 8888
-	defaultWGLPort      = 53
-	defaultWGNPort      = 8888
-	defaultWGKeyExPort  = 1337
-	defaultHTTPLPort    = 80
-	defaultHTTPSLPort   = 443
-	defaultDNSLPort     = 53
-	defaultTCPPivotPort = 9898
+	// defaultMTLSLPort    = 8888
+	// defaultWGLPort      = 53
+	// defaultWGNPort      = 8888
+	// defaultWGKeyExPort  = 1337
+	// defaultHTTPLPort    = 80
+	// defaultHTTPSLPort   = 443
+	// defaultDNSLPort     = 53
+	// defaultTCPPivotPort = 9898
 
-	defaultReconnect = 60
-	defaultPoll      = 1
-	defaultMaxErrors = 1000
+	// defaultReconnect = 60
+	// defaultPoll      = 1
+	// defaultMaxErrors = 1000
 
 	defaultTimeout = 60
 )
@@ -60,45 +63,45 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	con.App.SetPrintHelp(help.HelpCmd(con)) // Responsible for display long-form help templates, etc.
 
-	// client.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.UpdateStr,
-	// 	Help:     "Check for updates",
-	// 	LongHelp: help.GetHelpFor([]string{consts.UpdateStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Bool("P", "prereleases", false, "include pre-released (unstable) versions")
-	// 		f.String("p", "proxy", "", "specify a proxy url (e.g. http://localhost:8080)")
-	// 		f.String("s", "save", "", "save downloaded files to specific directory (default user home dir)")
-	// 		f.Bool("I", "insecure", false, "skip tls certificate validation")
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.UpdateStr,
+		Help:     "Check for updates",
+		LongHelp: help.GetHelpFor([]string{consts.UpdateStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("P", "prereleases", false, "include pre-released (unstable) versions")
+			f.String("p", "proxy", "", "specify a proxy url (e.g. http://localhost:8080)")
+			f.String("s", "save", "", "save downloaded files to specific directory (default user home dir)")
+			f.Bool("I", "insecure", false, "skip tls certificate validation")
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		updates(ctx, console.Rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			update.UpdateCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// console.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.VersionStr,
-	// 	Help:     "Display version information",
-	// 	LongHelp: help.GetHelpFor([]string{consts.VersionStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		verboseVersions(ctx, console.Rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.VersionStr,
+		Help:     "Display version information",
+		LongHelp: help.GetHelpFor([]string{consts.VersionStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			update.VerboseVersionsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
 	// // [ Jobs ] -----------------------------------------------------------------
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.JobsStr,
 	// 	Help:     "Job control",
 	// 	LongHelp: help.GetHelpFor([]string{consts.JobsStr}),
@@ -117,7 +120,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.MtlsStr,
 	// 	Help:     "Start an mTLS listener",
 	// 	LongHelp: help.GetHelpFor([]string{consts.MtlsStr}),
@@ -137,7 +140,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.WGStr,
 	// 	Help:     "Start a WireGuard listener",
 	// 	LongHelp: help.GetHelpFor([]string{consts.WGStr}),
@@ -157,7 +160,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.DnsStr,
 	// 	Help:     "Start a DNS listener",
 	// 	LongHelp: help.GetHelpFor([]string{consts.DnsStr}),
@@ -178,7 +181,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.HttpStr,
 	// 	Help:     "Start an HTTP listener",
 	// 	LongHelp: help.GetHelpFor([]string{consts.HttpStr}),
@@ -199,7 +202,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.HttpsStr,
 	// 	Help:     "Start an HTTPS listener",
 	// 	LongHelp: help.GetHelpFor([]string{consts.HttpsStr}),
@@ -225,7 +228,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.PlayersStr,
 	// 	Help:     "List operators",
 	// 	LongHelp: help.GetHelpFor([]string{consts.PlayersStr}),
@@ -243,7 +246,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// // [ Commands ] --------------------------------------------------------------
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.SessionsStr,
 	// 	Help:     "Session management",
 	// 	LongHelp: help.GetHelpFor([]string{consts.SessionsStr}),
@@ -264,7 +267,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.BackgroundStr,
 	// 	Help:     "Background an active session",
 	// 	LongHelp: help.GetHelpFor([]string{consts.BackgroundStr}),
@@ -280,7 +283,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.KillStr,
 	// 	Help:     "Kill a session",
 	// 	LongHelp: help.GetHelpFor([]string{consts.KillStr}),
@@ -298,7 +301,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.InfoStr,
 	// 	Help:     "Get info about session",
 	// 	LongHelp: help.GetHelpFor([]string{consts.InfoStr}),
@@ -317,7 +320,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.UseStr,
 	// 	Help:     "Switch the active session",
 	// 	LongHelp: help.GetHelpFor([]string{consts.UseStr}),
@@ -336,7 +339,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.ShellStr,
 	// 	Help:     "Start an interactive shell",
 	// 	LongHelp: help.GetHelpFor([]string{consts.ShellStr}),
@@ -355,7 +358,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.ExecuteStr,
 	// 	Help:     "Execute a program on the remote system",
 	// 	LongHelp: help.GetHelpFor([]string{consts.ExecuteStr}),
@@ -466,9 +469,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
-	// console.App.AddCommand(generateCmd)
+	// con.App.AddCommand(generateCmd)
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.StageListenerStr,
 	// 	Help:     "Start a stager listener",
 	// 	LongHelp: help.GetHelpFor([]string{consts.StageListenerStr}),
@@ -488,7 +491,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.RegenerateStr,
 	// 	Help:     "Regenerate an implant",
 	// 	LongHelp: help.GetHelpFor([]string{consts.RegenerateStr}),
@@ -607,7 +610,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
-	// console.App.AddCommand(profilesCmd)
+	// con.App.AddCommand(profilesCmd)
 
 	// implantBuildsCmd := &grumble.Command{
 	// 	Name:     consts.ImplantBuildsStr,
@@ -642,9 +645,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
-	// console.App.AddCommand(implantBuildsCmd)
+	// con.App.AddCommand(implantBuildsCmd)
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.ListCanariesStr,
 	// 	Help:     "List previously generated canaries",
 	// 	LongHelp: help.GetHelpFor([]string{consts.ListCanariesStr}),
@@ -662,7 +665,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.MsfStr,
 	// 	Help:     "Execute an MSF payload in the current process",
 	// 	LongHelp: help.GetHelpFor([]string{consts.MsfStr}),
@@ -684,7 +687,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.MsfInjectStr,
 	// 	Help:     "Inject an MSF payload into a process",
 	// 	LongHelp: help.GetHelpFor([]string{consts.MsfInjectStr}),
@@ -709,7 +712,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// // [ Session Commands ] ---------------------------------------------
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.PsStr,
 	// 	Help:     "List remote processes",
 	// 	LongHelp: help.GetHelpFor([]string{consts.PsStr}),
@@ -730,7 +733,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.PingStr,
 	// 	Help:     "Send round trip message to implant (does not use ICMP)",
 	// 	LongHelp: help.GetHelpFor([]string{consts.PingStr}),
@@ -746,7 +749,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.GetPIDStr,
 	// 	Help:     "Get session pid",
 	// 	LongHelp: help.GetHelpFor([]string{consts.GetPIDStr}),
@@ -762,7 +765,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.GetUIDStr,
 	// 	Help:     "Get session process UID",
 	// 	LongHelp: help.GetHelpFor([]string{consts.GetUIDStr}),
@@ -778,7 +781,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.GetGIDStr,
 	// 	Help:     "Get session process GID",
 	// 	LongHelp: help.GetHelpFor([]string{consts.GetGIDStr}),
@@ -794,7 +797,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.WhoamiStr,
 	// 	Help:     "Get session user execution context",
 	// 	LongHelp: help.GetHelpFor([]string{consts.WhoamiStr}),
@@ -810,7 +813,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.LsStr,
 	// 	Help:     "List current directory",
 	// 	LongHelp: help.GetHelpFor([]string{consts.LsStr}),
@@ -829,7 +832,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.RmStr,
 	// 	Help:     "Remove a file or directory",
 	// 	LongHelp: help.GetHelpFor([]string{consts.RmStr}),
@@ -851,7 +854,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.MkdirStr,
 	// 	Help:     "Make a directory",
 	// 	LongHelp: help.GetHelpFor([]string{consts.MkdirStr}),
@@ -870,7 +873,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.CdStr,
 	// 	Help:     "Change directory",
 	// 	LongHelp: help.GetHelpFor([]string{consts.CdStr}),
@@ -889,7 +892,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.PwdStr,
 	// 	Help:     "Print working directory",
 	// 	LongHelp: help.GetHelpFor([]string{consts.PwdStr}),
@@ -905,7 +908,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.CatStr,
 	// 	Help:     "Dump file to stdout",
 	// 	LongHelp: help.GetHelpFor([]string{consts.CatStr}),
@@ -926,7 +929,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.DownloadStr,
 	// 	Help:     "Download a file",
 	// 	LongHelp: help.GetHelpFor([]string{consts.DownloadStr}),
@@ -948,7 +951,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.UploadStr,
 	// 	Help:     "Upload a file",
 	// 	LongHelp: help.GetHelpFor([]string{consts.UploadStr}),
@@ -968,7 +971,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.IfconfigStr,
 	// 	Help:     "View network interface configurations",
 	// 	LongHelp: help.GetHelpFor([]string{consts.IfconfigStr}),
@@ -984,7 +987,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.NetstatStr,
 	// 	Help:     "Print network connection information",
 	// 	LongHelp: help.GetHelpFor([]string{consts.NetstatStr}),
@@ -1005,7 +1008,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.ProcdumpStr,
 	// 	Help:     "Dump process memory",
 	// 	LongHelp: help.GetHelpFor([]string{consts.ProcdumpStr}),
@@ -1023,7 +1026,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.RunAsStr,
 	// 	Help:     "Run a new process in the context of the designated user (Windows Only)",
 	// 	LongHelp: help.GetHelpFor([]string{consts.RunAsStr}),
@@ -1042,7 +1045,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverWinHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.ImpersonateStr,
 	// 	Help:     "Impersonate a logged in user.",
 	// 	LongHelp: help.GetHelpFor([]string{consts.ImpersonateStr}),
@@ -1061,7 +1064,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverWinHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.RevToSelfStr,
 	// 	Help:     "Revert to self: lose stolen Windows token",
 	// 	LongHelp: help.GetHelpFor([]string{consts.RevToSelfStr}),
@@ -1077,7 +1080,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverWinHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.GetSystemStr,
 	// 	Help:     "Spawns a new sliver session as the NT AUTHORITY\\SYSTEM user (Windows Only)",
 	// 	LongHelp: help.GetHelpFor([]string{consts.GetSystemStr}),
@@ -1094,7 +1097,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverWinHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.ExecuteAssemblyStr,
 	// 	Help:     "Loads and executes a .NET assembly in a child process (Windows Only)",
 	// 	LongHelp: help.GetHelpFor([]string{consts.ExecuteAssemblyStr}),
@@ -1122,7 +1125,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverWinHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.ExecuteShellcodeStr,
 	// 	Help:     "Executes the given shellcode in the sliver process",
 	// 	LongHelp: help.GetHelpFor([]string{consts.ExecuteShellcodeStr}),
@@ -1145,7 +1148,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.SideloadStr,
 	// 	Help:     "Load and execute a shared object (shared library/DLL) in a remote process",
 	// 	LongHelp: help.GetHelpFor([]string{consts.SideloadStr}),
@@ -1169,7 +1172,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.SpawnDllStr,
 	// 	Help:     "Load and execute a Reflective DLL in a remote process",
 	// 	LongHelp: help.GetHelpFor([]string{consts.SpawnDllStr}),
@@ -1193,7 +1196,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.MigrateStr,
 	// 	Help:     "Migrate into a remote process",
 	// 	LongHelp: help.GetHelpFor([]string{consts.MigrateStr}),
@@ -1307,9 +1310,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
-	// console.App.AddCommand(websitesCmd)
+	// con.App.AddCommand(websitesCmd)
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.TerminateStr,
 	// 	Help:     "Kill/terminate a process",
 	// 	LongHelp: help.GetHelpFor([]string{consts.TerminateStr}),
@@ -1330,7 +1333,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.ScreenshotStr,
 	// 	Help:     "Take a screenshot",
 	// 	LongHelp: help.GetHelpFor([]string{consts.ScreenshotStr}),
@@ -1348,7 +1351,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.LoadExtensionStr,
 	// 	Help:     "Load a sliver extension",
 	// 	LongHelp: help.GetHelpFor([]string{consts.LoadExtensionStr}),
@@ -1364,7 +1367,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.NamedPipeStr,
 	// 	Help:     "Start a named pipe pivot listener",
 	// 	LongHelp: help.GetHelpFor([]string{consts.NamedPipeStr}),
@@ -1381,7 +1384,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.TCPListenerStr,
 	// 	Help:     "Start a TCP pivot listener",
 	// 	LongHelp: help.GetHelpFor([]string{consts.TCPListenerStr}),
@@ -1399,7 +1402,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.PsExecStr,
 	// 	Help:     "Start a sliver service on a remote target",
 	// 	LongHelp: help.GetHelpFor([]string{consts.PsExecStr}),
@@ -1422,7 +1425,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverWinHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.BackdoorStr,
 	// 	Help:     "Infect a remote file with a sliver shellcode",
 	// 	LongHelp: help.GetHelpFor([]string{consts.BackdoorStr}),
@@ -1442,7 +1445,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.MakeTokenStr,
 	// 	Help:     "Create a new Logon Session with the specified credentials",
 	// 	LongHelp: help.GetHelpFor([]string{consts.MakeTokenStr}),
@@ -1461,7 +1464,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.SetStr,
 	// 	Help:     "Set an implant/session option",
 	// 	LongHelp: help.GetHelpFor([]string{consts.SetStr}),
@@ -1479,7 +1482,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.GetEnvStr,
 	// 	Help:     "List environment variables",
 	// 	LongHelp: help.GetHelpFor([]string{consts.GetEnvStr}),
@@ -1498,7 +1501,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.SetEnvStr,
 	// 	Help:     "Set environment variables",
 	// 	LongHelp: help.GetHelpFor([]string{consts.SetEnvStr}),
@@ -1518,7 +1521,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.UnsetEnvStr,
 	// 	Help:     "Clear environment variables",
 	// 	LongHelp: help.GetHelpFor([]string{consts.UnsetEnvStr}),
@@ -1537,7 +1540,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.LicensesStr,
 	// 	Help:     "Open source licenses",
 	// 	LongHelp: help.GetHelpFor([]string{consts.LicensesStr}),
@@ -1622,9 +1625,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.String("o", "hostname", "", "remote host to write values to")
 	// 	},
 	// })
-	// console.App.AddCommand(registryCmd)
+	// con.App.AddCommand(registryCmd)
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.PivotsListStr,
 	// 	Help:     "List pivots",
 	// 	LongHelp: help.GetHelpFor([]string{consts.PivotsListStr}),
@@ -1643,7 +1646,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// // [ WireGuard ] --------------------------------------------------------------
 
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.WgConfigStr,
 	// 	Help:     "Generate a new WireGuard client config",
 	// 	LongHelp: help.GetHelpFor([]string{consts.WgConfigStr}),
@@ -1706,7 +1709,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// })
-	// console.App.AddCommand(wgPortFwdCmd)
+	// con.App.AddCommand(wgPortFwdCmd)
 
 	// wgSocksCmd := &grumble.Command{
 	// 	Name:     consts.WgSocksStr,
@@ -1756,7 +1759,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// })
-	// console.App.AddCommand(wgSocksCmd)
+	// con.App.AddCommand(wgSocksCmd)
 
 	// // [ Portfwd ] --------------------------------------------------------------
 	// portfwdCmd := &grumble.Command{
@@ -1807,7 +1810,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
-	// console.App.AddCommand(portfwdCmd)
+	// con.App.AddCommand(portfwdCmd)
 
 	// // [ Monitor ] --------------------------------------------------------------
 	// monitorCmd := &grumble.Command{
@@ -1834,10 +1837,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		return nil
 	// 	},
 	// })
-	// console.App.AddCommand(monitorCmd)
+	// con.App.AddCommand(monitorCmd)
 
 	// // [ SSH ] --------------------------------------------------------------
-	// console.App.AddCommand(&grumble.Command{
+	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.SSHStr,
 	// 	Help:     "Run a SSH command on a remote host",
 	// 	LongHelp: help.GetHelpFor([]string{consts.SSHStr}),
@@ -1991,5 +1994,5 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
-	// console.App.AddCommand(lootCmd)
+	// con.App.AddCommand(lootCmd)
 }
