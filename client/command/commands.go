@@ -34,6 +34,7 @@ package command
 */
 
 import (
+	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/console"
@@ -112,9 +113,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		jobs(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		jobs(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -132,9 +133,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Bool("p", "persistent", false, "make persistent across restarts")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		startMTLSListener(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		startMTLSListener(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -152,9 +153,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Bool("p", "persistent", false, "make persistent across restarts")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		startWGListener(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		startWGListener(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -173,9 +174,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Bool("p", "persistent", false, "make persistent across restarts")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		startDNSListener(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		startDNSListener(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -194,9 +195,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Bool("p", "persistent", false, "make persistent across restarts")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		startHTTPListener(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		startHTTPListener(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -220,9 +221,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Bool("p", "persistent", false, "make persistent across restarts")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		startHTTPSListener(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		startHTTPSListener(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -236,9 +237,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		operatorsCmd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		operatorsCmd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.MultiplayerHelpGroup,
@@ -259,9 +260,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		sessions(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		sessions(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -275,9 +276,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		background(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		background(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -288,9 +289,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "Kill a session",
 	// 	LongHelp: help.GetHelpFor([]string{consts.KillStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		kill(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		kill(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Flags: func(f *grumble.Flags) {
@@ -312,9 +313,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		a.String("session", "session ID", grumble.Default(""))
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		info(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		info(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -331,9 +332,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		a.String("session", "session ID")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		use(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		use(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -350,9 +351,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		shell(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		shell(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -374,9 +375,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		a.StringList("arguments", "arguments to the command")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		execute(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		execute(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -423,9 +424,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		generate(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		generate(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -446,9 +447,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		generateStager(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		generateStager(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -462,9 +463,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		generateCompilerInfo(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		generateCompilerInfo(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -483,9 +484,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate (HTTPS only)")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		stageListener(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		stageListener(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -504,9 +505,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		regenerate(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		regenerate(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -520,9 +521,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		profiles(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		profiles(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -538,9 +539,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		profileGenerate(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		profileGenerate(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -585,9 +586,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		newProfile(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		newProfile(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -603,9 +604,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		a.String("profile-name", "name of the profile")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		rmProfile(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		rmProfile(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -620,9 +621,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		listImplantBuilds(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		listImplantBuilds(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -638,9 +639,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		a.String("implant-name", "implant name")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		rmImplantBuild(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		rmImplantBuild(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -657,9 +658,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		canaries(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		canaries(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -679,9 +680,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		msf(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		msf(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -702,9 +703,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		msfInject(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		msfInject(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -712,26 +713,26 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// // [ Session Commands ] ---------------------------------------------
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.PsStr,
-	// 	Help:     "List remote processes",
-	// 	LongHelp: help.GetHelpFor([]string{consts.PsStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("p", "pid", -1, "filter based on pid")
-	// 		f.String("e", "exe", "", "filter based on executable name")
-	// 		f.String("o", "owner", "", "filter based on owner")
-	// 		f.Bool("c", "print-cmdline", false, "print command line arguments")
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.PsStr,
+		Help:     "List remote processes",
+		LongHelp: help.GetHelpFor([]string{consts.PsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("p", "pid", -1, "filter based on pid")
+			f.String("e", "exe", "", "filter based on executable name")
+			f.String("o", "owner", "", "filter based on owner")
+			f.Bool("c", "print-cmdline", false, "print command line arguments")
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		ps(ctx, console.Rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			// PsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
 	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.PingStr,
@@ -741,9 +742,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		ping(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		ping(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -757,9 +758,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		getPID(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		getPID(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -773,9 +774,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		getUID(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		getUID(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -789,9 +790,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		getGID(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		getGID(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -805,171 +806,171 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		whoami(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		whoami(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.LsStr,
-	// 	Help:     "List current directory",
-	// 	LongHelp: help.GetHelpFor([]string{consts.LsStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("path", "path to enumerate", grumble.Default("."))
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		filesystem.Ls(ctx, console)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.LsStr,
+		Help:     "List current directory",
+		LongHelp: help.GetHelpFor([]string{consts.LsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to enumerate", grumble.Default("."))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			filesystem.LsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.RmStr,
-	// 	Help:     "Remove a file or directory",
-	// 	LongHelp: help.GetHelpFor([]string{consts.RmStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Bool("r", "recursive", false, "recursively remove files")
-	// 		f.Bool("f", "force", false, "ignore safety and forcefully remove files")
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove a file or directory",
+		LongHelp: help.GetHelpFor([]string{consts.RmStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("r", "recursive", false, "recursively remove files")
+			f.Bool("f", "force", false, "ignore safety and forcefully remove files")
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("path", "path to the file to remove")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		filesystem.Rm(ctx, console)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to the file to remove")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			filesystem.RmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.MkdirStr,
-	// 	Help:     "Make a directory",
-	// 	LongHelp: help.GetHelpFor([]string{consts.MkdirStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("path", "path to the directory to create")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		mkdir(ctx, console.Rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.MkdirStr,
+		Help:     "Make a directory",
+		LongHelp: help.GetHelpFor([]string{consts.MkdirStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to the directory to create")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			filesystem.MkdirCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.CdStr,
-	// 	Help:     "Change directory",
-	// 	LongHelp: help.GetHelpFor([]string{consts.CdStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("path", "path to the directory", grumble.Default("."))
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		cd(ctx, console.Rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.CdStr,
+		Help:     "Change directory",
+		LongHelp: help.GetHelpFor([]string{consts.CdStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to the directory", grumble.Default("."))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			filesystem.CdCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.PwdStr,
-	// 	Help:     "Print working directory",
-	// 	LongHelp: help.GetHelpFor([]string{consts.PwdStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		pwd(ctx, console.Rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.PwdStr,
+		Help:     "Print working directory",
+		LongHelp: help.GetHelpFor([]string{consts.PwdStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			filesystem.PwdCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.CatStr,
-	// 	Help:     "Dump file to stdout",
-	// 	LongHelp: help.GetHelpFor([]string{consts.CatStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.Bool("c", "colorize-output", false, "colorize output")
-	// 		f.Bool("X", "loot", false, "save output as loot")
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("path", "path to the file to print")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		cat(ctx, console.Rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.CatStr,
+		Help:     "Dump file to stdout",
+		LongHelp: help.GetHelpFor([]string{consts.CatStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("c", "colorize-output", false, "colorize output")
+			f.Bool("X", "loot", false, "save output as loot")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to the file to print")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			filesystem.CatCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.DownloadStr,
-	// 	Help:     "Download a file",
-	// 	LongHelp: help.GetHelpFor([]string{consts.DownloadStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.DownloadStr,
+		Help:     "Download a file",
+		LongHelp: help.GetHelpFor([]string{consts.DownloadStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 
-	// 		f.Bool("X", "loot", false, "save output as loot")
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("remote-path", "path to the file or directory to download")
-	// 		a.String("local-path", "local path where the downloaded file will be saved", grumble.Default("."))
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		download(ctx, console.Rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+			f.Bool("X", "loot", false, "save output as loot")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("remote-path", "path to the file or directory to download")
+			a.String("local-path", "local path where the downloaded file will be saved", grumble.Default("."))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			filesystem.DownloadCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.UploadStr,
-	// 	Help:     "Upload a file",
-	// 	LongHelp: help.GetHelpFor([]string{consts.UploadStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("local-path", "local path to the file to upload")
-	// 		a.String("remote-path", "path to the file or directory to upload to", grumble.Default(""))
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		upload(ctx, console.Rpc)
-	// 		fmt.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.UploadStr,
+		Help:     "Upload a file",
+		LongHelp: help.GetHelpFor([]string{consts.UploadStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("local-path", "local path to the file to upload")
+			a.String("remote-path", "path to the file or directory to upload to", grumble.Default(""))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			filesystem.UploadCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
 	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.IfconfigStr,
@@ -979,9 +980,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		ifconfig(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		ifconfig(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -992,9 +993,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "Print network connection information",
 	// 	LongHelp: help.GetHelpFor([]string{consts.NetstatStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		netstat(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		netstat(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Flags: func(f *grumble.Flags) {
@@ -1018,9 +1019,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		procdump(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		procdump(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -1037,9 +1038,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", 30, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		runAs(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		runAs(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverWinHelpGroup,
@@ -1053,9 +1054,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		a.String("username", "name of the user account to impersonate")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		impersonate(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		impersonate(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Flags: func(f *grumble.Flags) {
@@ -1069,9 +1070,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "Revert to self: lose stolen Windows token",
 	// 	LongHelp: help.GetHelpFor([]string{consts.RevToSelfStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		revToSelf(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		revToSelf(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Flags: func(f *grumble.Flags) {
@@ -1089,9 +1090,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		getsystem(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		getsystem(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverWinHelpGroup,
@@ -1117,9 +1118,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		executeAssembly(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		executeAssembly(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverWinHelpGroup,
@@ -1130,9 +1131,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "Executes the given shellcode in the sliver process",
 	// 	LongHelp: help.GetHelpFor([]string{consts.ExecuteShellcodeStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		executeShellcode(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		executeShellcode(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Args: func(a *grumble.Args) {
@@ -1165,9 +1166,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		sideload(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		sideload(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// })
@@ -1189,9 +1190,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// 	HelpGroup: consts.SliverWinHelpGroup,
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		spawnDll(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		spawnDll(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// })
@@ -1201,9 +1202,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "Migrate into a remote process",
 	// 	LongHelp: help.GetHelpFor([]string{consts.MigrateStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		migrate(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		migrate(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Args: func(a *grumble.Args) {
@@ -1223,9 +1224,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		websites(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		websites(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Args: func(a *grumble.Args) {
@@ -1241,9 +1242,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		removeWebsite(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		removeWebsite(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Args: func(a *grumble.Args) {
@@ -1263,9 +1264,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		removeWebsiteContent(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		removeWebsiteContent(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -1284,9 +1285,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		addWebsiteContent(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		addWebsiteContent(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -1303,9 +1304,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		updateWebsiteContent(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		updateWebsiteContent(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -1317,9 +1318,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "Kill/terminate a process",
 	// 	LongHelp: help.GetHelpFor([]string{consts.TerminateStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		terminate(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		terminate(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Args: func(a *grumble.Args) {
@@ -1343,9 +1344,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		screenshot(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		screenshot(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -1356,9 +1357,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "Load a sliver extension",
 	// 	LongHelp: help.GetHelpFor([]string{consts.LoadExtensionStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		loadExtension(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		loadExtension(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Args: func(a *grumble.Args) {
@@ -1376,9 +1377,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		namedPipeListener(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		namedPipeListener(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -1394,9 +1395,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		tcpListener(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		tcpListener(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -1414,9 +1415,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.String("b", "binpath", "c:\\windows\\temp", "directory to which the executable will be uploaded")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		psExec(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		psExec(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Args: func(a *grumble.Args) {
@@ -1438,9 +1439,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// 	HelpGroup: consts.SliverWinHelpGroup,
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		binject(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		binject(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// })
@@ -1457,9 +1458,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// 	HelpGroup: consts.SliverWinHelpGroup,
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		makeToken(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		makeToken(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// })
@@ -1474,9 +1475,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("p", "poll", -1, "poll interval for agent")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		updateSessionCmd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		updateSessionCmd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -1493,9 +1494,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		a.String("name", "environment variable to fetch", grumble.Default(""))
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		getEnv(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		getEnv(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -1513,9 +1514,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		a.String("value", "value to assign")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		setEnv(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		setEnv(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -1532,9 +1533,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		unsetEnv(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		unsetEnv(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -1545,9 +1546,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "Open source licenses",
 	// 	LongHelp: help.GetHelpFor([]string{consts.LicensesStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
+	// 		con.Println()
 	// 		fmt.Println(licenses.All)
-	// 		fmt.Println()
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -1568,9 +1569,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "Read values from the Windows registry",
 	// 	LongHelp: help.GetHelpFor([]string{consts.RegistryReadStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		registryReadCmd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		registryReadCmd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Args: func(a *grumble.Args) {
@@ -1588,9 +1589,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "Write values to the Windows registry",
 	// 	LongHelp: help.GetHelpFor([]string{consts.RegistryWriteStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		registryWriteCmd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		registryWriteCmd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Args: func(a *grumble.Args) {
@@ -1614,9 +1615,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		a.String("registry-path", "registry path")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		regCreateKeyCmd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		regCreateKeyCmd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Flags: func(f *grumble.Flags) {
@@ -1632,9 +1633,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "List pivots",
 	// 	LongHelp: help.GetHelpFor([]string{consts.PivotsListStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		listPivots(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		listPivots(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Flags: func(f *grumble.Flags) {
@@ -1655,9 +1656,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.String("s", "save", "", "save configuration to file (.conf)")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		getWGClientConfig(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		getWGClientConfig(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// })
@@ -1667,9 +1668,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "List ports forwarded by the WireGuard tun interface",
 	// 	LongHelp: help.GetHelpFor([]string{consts.WgPortFwdStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		wgPortFwdListCmd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		wgPortFwdListCmd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Flags: func(f *grumble.Flags) {
@@ -1681,9 +1682,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "Add a port forward from the WireGuard tun interface to a host on the target network",
 	// 	LongHelp: help.GetHelpFor([]string{consts.WgPortFwdStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		wgPortFwdAddCmd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		wgPortFwdAddCmd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Flags: func(f *grumble.Flags) {
@@ -1700,9 +1701,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		a.Int("id", "forwarder id")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		wgPortFwdRmCmd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		wgPortFwdRmCmd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Flags: func(f *grumble.Flags) {
@@ -1716,9 +1717,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "List socks servers listening on the WireGuard tun interface",
 	// 	LongHelp: help.GetHelpFor([]string{consts.WgSocksStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		wgSocksListCmd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		wgSocksListCmd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Flags: func(f *grumble.Flags) {
@@ -1731,9 +1732,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Help:     "Start a socks5 listener on the WireGuard tun interface",
 	// 	LongHelp: help.GetHelpFor([]string{consts.WgSocksStr}),
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		wgSocksStartCmd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		wgSocksStartCmd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	Flags: func(f *grumble.Flags) {
@@ -1751,7 +1752,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
 	// 		fmt.Print()
-	// 		wgSocksRmCmd(ctx, console.Rpc)
+	// 		wgSocksRmCmd(ctx, con)
 	// 		fmt.Print()
 	// 		return nil
 	// 	},
@@ -1770,9 +1771,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		portfwd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		portfwd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -1787,9 +1788,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.String("b", "bind", "127.0.0.1:8080", "bind port forward to interface")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		portfwdAdd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		portfwdAdd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -1803,9 +1804,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("i", "id", 0, "id of portfwd to remove")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		portfwdRm(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		portfwdRm(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -1821,9 +1822,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Name: "start",
 	// 	Help: "Start the monitoring loops",
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		monitorStartCmd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		monitorStartCmd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// })
@@ -1831,9 +1832,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Name: "stop",
 	// 	Help: "Stop the monitoring loops",
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		monitorStopCmd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		monitorStopCmd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// })
@@ -1857,9 +1858,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Bool("s", "skip-loot", false, "skip the prompt to use loot credentials")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		runSSHCmd(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		runSSHCmd(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
@@ -1876,9 +1877,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		lootRoot(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		lootRoot(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -1898,9 +1899,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		lootAddLocal(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		lootAddLocal(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -1920,9 +1921,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		lootAddRemote(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		lootAddRemote(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -1937,9 +1938,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		lootAddCredential(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		lootAddCredential(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -1952,9 +1953,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		lootRename(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		lootRename(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -1970,9 +1971,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		lootFetch(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		lootFetch(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
@@ -1987,9 +1988,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 	// 	},
 	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Println()
-	// 		lootRm(ctx, console.Rpc)
-	// 		fmt.Println()
+	// 		con.Println()
+	// 		lootRm(ctx, con)
+	// 		con.Println()
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.GenericHelpGroup,
