@@ -89,7 +89,8 @@ const (
 	BackgroundStr = "background"
 	InfoStr       = "info"
 	UseStr        = "use"
-	SetStr        = "set"
+	ReconfigStr   = "reconfig"
+	PruneStr      = "prune"
 
 	GenerateStr   = "generate"
 	RegenerateStr = "regenerate"

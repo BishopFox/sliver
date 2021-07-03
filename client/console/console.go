@@ -75,8 +75,8 @@ const (
 // Observer - A function to call when the sessions changes
 type Observer func(*clientpb.Session)
 
-type activeSession struct {
-	session    *clientpb.Session
+type ActiveSession struct {
+	Session    *clientpb.Session
 	observers  map[int]Observer
 	observerID int
 }
@@ -84,7 +84,7 @@ type activeSession struct {
 type SliverConsoleClient struct {
 	App           *grumble.App
 	Rpc           rpcpb.SliverRPCClient
-	ActiveSession *activeSession
+	ActiveSession *ActiveSession
 	IsServer      bool
 }
 
@@ -105,7 +105,7 @@ func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isS
 			HelpSubCommands:       true,
 		}),
 		Rpc: rpc,
-		ActiveSession: &activeSession{
+		ActiveSession: &ActiveSession{
 			observers:  map[int]Observer{},
 			observerID: 0,
 		},
@@ -376,55 +376,55 @@ func (con *SliverConsoleClient) SpinUntil(message string, ctrl chan bool) {
 //
 
 // GetInteractive - GetInteractive the active session
-func (s *activeSession) GetInteractive() *clientpb.Session {
-	if s.session == nil {
+func (s *ActiveSession) GetInteractive() *clientpb.Session {
+	if s.Session == nil {
 		fmt.Printf(Warn + "Please select an active session via `use`\n")
 		return nil
 	}
-	return s.session
+	return s.Session
 }
 
 // Get - Same as Get() but doesn't print a warning
-func (s *activeSession) Get() *clientpb.Session {
-	if s.session == nil {
+func (s *ActiveSession) Get() *clientpb.Session {
+	if s.Session == nil {
 		return nil
 	}
-	return s.session
+	return s.Session
 }
 
 // AddObserver - Observers to notify when the active session changes
-func (s *activeSession) AddObserver(observer Observer) int {
+func (s *ActiveSession) AddObserver(observer Observer) int {
 	s.observerID++
 	s.observers[s.observerID] = observer
 	return s.observerID
 }
 
-func (s *activeSession) RemoveObserver(observerID int) {
+func (s *ActiveSession) RemoveObserver(observerID int) {
 	delete(s.observers, observerID)
 }
 
-func (s *activeSession) Request(ctx *grumble.Context) *commonpb.Request {
-	if s.session == nil {
+func (s *ActiveSession) Request(ctx *grumble.Context) *commonpb.Request {
+	if s.Session == nil {
 		return nil
 	}
 	timeout := int(time.Second) * ctx.Flags.Int("timeout")
 	return &commonpb.Request{
-		SessionID: s.session.ID,
+		SessionID: s.Session.ID,
 		Timeout:   int64(timeout),
 	}
 }
 
 // Set - Change the active session
-func (s *activeSession) Set(session *clientpb.Session) {
-	s.session = session
+func (s *ActiveSession) Set(session *clientpb.Session) {
+	s.Session = session
 	for _, observer := range s.observers {
-		observer(s.session)
+		observer(s.Session)
 	}
 }
 
 // Background - Background the active session
-func (s *activeSession) Background() {
-	s.session = nil
+func (s *ActiveSession) Background() {
+	s.Session = nil
 	for _, observer := range s.observers {
 		observer(nil)
 	}

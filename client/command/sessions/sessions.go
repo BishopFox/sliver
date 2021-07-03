@@ -131,7 +131,8 @@ func printSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 		strings.Repeat("=", len("Username")),
 		strings.Repeat("=", len("Operating System")),
 		strings.Repeat("=", len("Last Check-in")),
-		strings.Repeat("=", len("Health")))
+		strings.Repeat("=", len("Health")),
+	)
 	// strings.Repeat("=", len("Burned")))
 
 	// Sort the keys because maps have a randomized order

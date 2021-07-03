@@ -36,6 +36,7 @@ package command
 import (
 	"fmt"
 
+	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/exec"
 	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/command/generate"
@@ -51,6 +52,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/privilege"
 	"github.com/bishopfox/sliver/client/command/processes"
 	"github.com/bishopfox/sliver/client/command/registry"
+	"github.com/bishopfox/sliver/client/command/screenshot"
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/shell"
 	"github.com/bishopfox/sliver/client/command/update"
@@ -278,7 +280,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// [ Sessions ] --------------------------------------------------------------
 
-	con.App.AddCommand(&grumble.Command{
+	sessionsCmd := &grumble.Command{
 		Name:     consts.SessionsStr,
 		Help:     "Session management",
 		LongHelp: help.GetHelpFor([]string{consts.SessionsStr}),
@@ -297,6 +299,43 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.GenericHelpGroup,
+	}
+	sessionsCmd.AddCommand(&grumble.Command{
+		Name:     consts.PruneStr,
+		Help:     "Kill all stale sessions",
+		LongHelp: help.GetHelpFor([]string{consts.SessionsStr, consts.PruneStr}),
+		Flags: func(f *grumble.Flags) {
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			sessions.SessionsPruneCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+	con.App.AddCommand(sessionsCmd)
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.ReconfigStr,
+		Help:     "Reconfigure the active session",
+		LongHelp: help.GetHelpFor([]string{consts.SessionsStr, consts.ReconfigStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "agent name to change to")
+			f.Int("r", "reconnect", -1, "reconnect interval for agent")
+			f.Int("p", "poll", -1, "poll interval for agent")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			sessions.SessionsReconfigCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	con.App.AddCommand(&grumble.Command{
@@ -323,7 +362,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
-			a.String("session", "session ID")
+			a.String("session", "session ID or name", grumble.Default(""))
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1427,23 +1466,47 @@ func BindCommands(con *console.SliverConsoleClient) {
 	})
 	con.App.AddCommand(websitesCmd)
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.ScreenshotStr,
-	// 	Help:     "Take a screenshot",
-	// 	LongHelp: help.GetHelpFor([]string{consts.ScreenshotStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Bool("X", "loot", false, "save output as loot")
+	// [ Screenshot ] ---------------------------------------------
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		screenshot(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.ScreenshotStr,
+		Help:     "Take a screenshot",
+		LongHelp: help.GetHelpFor([]string{consts.ScreenshotStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("X", "loot", false, "save output as loot")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			screenshot.ScreenshotCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	// [ Backdoor ] ---------------------------------------------
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.BackdoorStr,
+		Help:     "Infect a remote file with a sliver shellcode",
+		LongHelp: help.GetHelpFor([]string{consts.BackdoorStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("p", "profile", "", "profile to use for service binary")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("remote-file", "path to the file to backdoor")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			backdoor.BackdoorCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
 
 	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.LoadExtensionStr,
@@ -1461,43 +1524,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.BackdoorStr,
-	// 	Help:     "Infect a remote file with a sliver shellcode",
-	// 	LongHelp: help.GetHelpFor([]string{consts.BackdoorStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.String("p", "profile", "", "profile to use for service binary")
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("remote-file", "path to the file to backdoor")
-	// 	},
-	// 	HelpGroup: consts.SliverWinHelpGroup,
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		binject(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// })
-
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.SetStr,
-	// 	Help:     "Set an implant/session option",
-	// 	LongHelp: help.GetHelpFor([]string{consts.SetStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("n", "name", "", "agent name to change to")
-	// 		f.Int("r", "reconnect", -1, "reconnect interval for agent")
-	// 		f.Int("p", "poll", -1, "poll interval for agent")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		updateSessionCmd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	// [ Environment ] ---------------------------------------------
 
 	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.GetEnvStr,
