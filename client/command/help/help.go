@@ -1,4 +1,4 @@
-package command
+package help
 
 /*
 	Sliver Implant Framework
@@ -22,28 +22,30 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 
 	"github.com/desertbit/columnize"
 	"github.com/desertbit/grumble"
 )
 
-func helpCmd(app *grumble.App, isShell bool) {
-	printHelp(app)
-	fmt.Println()
+func HelpCmd(con *console.SliverConsoleClient) func(a *grumble.App, shell bool) {
+	return func(a *grumble.App, shell bool) {
+		printHelp(con)
+	}
 }
 
-func printHelp(app *grumble.App) {
+func printHelp(con *console.SliverConsoleClient) {
 	config := columnize.DefaultConfig()
 	config.Delim = "|"
 	config.Glue = "  "
 	config.Prefix = "  "
 	// Group the commands by their help group if present.
 	groups := make(map[string]*grumble.Commands)
-	for _, c := range app.Commands().All() {
+	for _, c := range con.App.Commands().All() {
 		key := c.HelpGroup
-		if ActiveSession.Get() != nil {
-			if ActiveSession.Get().GetOS() != "windows" && key == consts.SliverWinHelpGroup {
+		if con.ActiveSession.Get() != nil {
+			if con.ActiveSession.Get().GetOS() != "windows" && key == consts.SliverWinHelpGroup {
 				continue
 			}
 		} else {
@@ -85,7 +87,7 @@ func printHelp(app *grumble.App) {
 
 		if len(output) > 0 {
 			fmt.Println()
-			printHeadline(app.Config(), headline)
+			printHeadline(con.App.Config(), headline)
 			fmt.Printf("%s\n", columnize.Format(output, config))
 		}
 	}

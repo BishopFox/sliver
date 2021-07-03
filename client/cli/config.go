@@ -1,4 +1,4 @@
-package console
+package cli
 
 /*
 	Sliver Implant Framework

@@ -1,254 +1,254 @@
 package command
 
-/*
-	Sliver Implant Framework
-	Copyright (C) 2021  Bishop Fox
+// /*
+// 	Sliver Implant Framework
+// 	Copyright (C) 2021  Bishop Fox
 
-	This program is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
+// 	This program is free software: you can redistribute it and/or modify
+// 	it under the terms of the GNU General Public License as published by
+// 	the Free Software Foundation, either version 3 of the License, or
+// 	(at your option) any later version.
 
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+// 	This program is distributed in the hope that it will be useful,
+// 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+// 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// 	GNU General Public License for more details.
 
-	You should have received a copy of the GNU General Public License
-	along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
+// 	You should have received a copy of the GNU General Public License
+// 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// */
 
-import (
-	"bytes"
-	"context"
-	"fmt"
-	"net"
-	"strings"
-	"text/tabwriter"
+// import (
+// 	"bytes"
+// 	"context"
+// 	"fmt"
+// 	"net"
+// 	"strings"
+// 	"text/tabwriter"
 
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
-)
+// 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+// 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+// 	"github.com/desertbit/grumble"
+// )
 
-func wgPortFwdAddCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.GetInteractive()
-	if session == nil {
-		return
-	}
-	if session.Transport != "wg" {
-		fmt.Println(Warn + "This command is only supported for WireGuard implants")
-		return
-	}
+// func wgPortFwdAddCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+// 	session := ActiveSession.GetInteractive()
+// 	if session == nil {
+// 		return
+// 	}
+// 	if session.Transport != "wg" {
+// 		fmt.Println(Warn + "This command is only supported for WireGuard implants")
+// 		return
+// 	}
 
-	localPort := ctx.Flags.Int("bind")
-	remoteAddr := ctx.Flags.String("remote")
-	if remoteAddr == "" {
-		fmt.Println(Warn + "Must specify a remote target host:port")
-		return
-	}
-	remoteHost, remotePort, err := net.SplitHostPort(remoteAddr)
-	if err != nil {
-		fmt.Print(Warn+"Failed to parse remote target %s\n", err)
-		return
-	}
+// 	localPort := ctx.Flags.Int("bind")
+// 	remoteAddr := ctx.Flags.String("remote")
+// 	if remoteAddr == "" {
+// 		fmt.Println(Warn + "Must specify a remote target host:port")
+// 		return
+// 	}
+// 	remoteHost, remotePort, err := net.SplitHostPort(remoteAddr)
+// 	if err != nil {
+// 		fmt.Print(Warn+"Failed to parse remote target %s\n", err)
+// 		return
+// 	}
 
-	pfwdAdd, err := rpc.WGStartPortForward(context.Background(), &sliverpb.WGPortForwardStartReq{
-		LocalPort:     int32(localPort),
-		RemoteAddress: remoteAddr,
-		Request:       ActiveSession.Request(ctx),
-	})
+// 	pfwdAdd, err := rpc.WGStartPortForward(context.Background(), &sliverpb.WGPortForwardStartReq{
+// 		LocalPort:     int32(localPort),
+// 		RemoteAddress: remoteAddr,
+// 		Request:       ActiveSession.Request(ctx),
+// 	})
 
-	if err != nil {
-		fmt.Printf(Warn+"Error: %v", err)
-		return
-	}
+// 	if err != nil {
+// 		fmt.Printf(Warn+"Error: %v", err)
+// 		return
+// 	}
 
-	if pfwdAdd.Response != nil && pfwdAdd.Response.Err != "" {
-		fmt.Printf(Warn+"Error: %s\n", pfwdAdd.Response.Err)
-		return
-	}
-	fmt.Printf(Info+"Port forwarding %s -> %s:%s\n", pfwdAdd.Forwarder.LocalAddr, remoteHost, remotePort)
-}
+// 	if pfwdAdd.Response != nil && pfwdAdd.Response.Err != "" {
+// 		fmt.Printf(Warn+"Error: %s\n", pfwdAdd.Response.Err)
+// 		return
+// 	}
+// 	fmt.Printf(Info+"Port forwarding %s -> %s:%s\n", pfwdAdd.Forwarder.LocalAddr, remoteHost, remotePort)
+// }
 
-func wgPortFwdListCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.GetInteractive()
-	if session == nil {
-		return
-	}
-	if session.Transport != "wg" {
-		fmt.Println(Warn + "This command is only supported for WireGuard implants")
-		return
-	}
+// func wgPortFwdListCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+// 	session := ActiveSession.GetInteractive()
+// 	if session == nil {
+// 		return
+// 	}
+// 	if session.Transport != "wg" {
+// 		fmt.Println(Warn + "This command is only supported for WireGuard implants")
+// 		return
+// 	}
 
-	fwdList, err := rpc.WGListForwarders(context.Background(), &sliverpb.WGTCPForwardersReq{
-		Request: ActiveSession.Request(ctx),
-	})
+// 	fwdList, err := rpc.WGListForwarders(context.Background(), &sliverpb.WGTCPForwardersReq{
+// 		Request: ActiveSession.Request(ctx),
+// 	})
 
-	if err != nil {
-		fmt.Printf(Warn+"Error: %v", err)
-		return
-	}
+// 	if err != nil {
+// 		fmt.Printf(Warn+"Error: %v", err)
+// 		return
+// 	}
 
-	if fwdList.Response != nil && fwdList.Response.Err != "" {
-		fmt.Printf(Warn+"Error: %s\n", fwdList.Response.Err)
-		return
-	}
+// 	if fwdList.Response != nil && fwdList.Response.Err != "" {
+// 		fmt.Printf(Warn+"Error: %s\n", fwdList.Response.Err)
+// 		return
+// 	}
 
-	if fwdList.Forwarders != nil {
-		if len(fwdList.Forwarders) == 0 {
-			fmt.Printf(Info + "No port forwards\n")
-		} else {
-			outBuf := bytes.NewBufferString("")
-			table := tabwriter.NewWriter(outBuf, 0, 3, 3, ' ', 0)
-			fmt.Fprintf(table, "ID\tLocal Address\tRemote Address\t\n")
-			fmt.Fprintf(table, "%s\t%s\t%s\t\n",
-				strings.Repeat("=", len("ID")),
-				strings.Repeat("=", len("Local Address")),
-				strings.Repeat("=", len("Remote Address")))
-			for _, fwd := range fwdList.Forwarders {
-				fmt.Fprintf(table, "%d\t%s\t%s\t\n", fwd.ID, fwd.LocalAddr, fwd.RemoteAddr)
-			}
-			table.Flush()
-			fmt.Println(outBuf.String())
-		}
-	}
-}
+// 	if fwdList.Forwarders != nil {
+// 		if len(fwdList.Forwarders) == 0 {
+// 			fmt.Printf(Info + "No port forwards\n")
+// 		} else {
+// 			outBuf := bytes.NewBufferString("")
+// 			table := tabwriter.NewWriter(outBuf, 0, 3, 3, ' ', 0)
+// 			fmt.Fprintf(table, "ID\tLocal Address\tRemote Address\t\n")
+// 			fmt.Fprintf(table, "%s\t%s\t%s\t\n",
+// 				strings.Repeat("=", len("ID")),
+// 				strings.Repeat("=", len("Local Address")),
+// 				strings.Repeat("=", len("Remote Address")))
+// 			for _, fwd := range fwdList.Forwarders {
+// 				fmt.Fprintf(table, "%d\t%s\t%s\t\n", fwd.ID, fwd.LocalAddr, fwd.RemoteAddr)
+// 			}
+// 			table.Flush()
+// 			fmt.Println(outBuf.String())
+// 		}
+// 	}
+// }
 
-func wgPortFwdRmCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.GetInteractive()
-	if session == nil {
-		return
-	}
-	if session.Transport != "wg" {
-		fmt.Println(Warn + "This command is only supported for WireGuard implants")
-		return
-	}
+// func wgPortFwdRmCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+// 	session := ActiveSession.GetInteractive()
+// 	if session == nil {
+// 		return
+// 	}
+// 	if session.Transport != "wg" {
+// 		fmt.Println(Warn + "This command is only supported for WireGuard implants")
+// 		return
+// 	}
 
-	fwdID := ctx.Args.Int("id")
-	stopReq, err := rpc.WGStopPortForward(context.Background(), &sliverpb.WGPortForwardStopReq{
-		ID:      int32(fwdID),
-		Request: ActiveSession.Request(ctx),
-	})
+// 	fwdID := ctx.Args.Int("id")
+// 	stopReq, err := rpc.WGStopPortForward(context.Background(), &sliverpb.WGPortForwardStopReq{
+// 		ID:      int32(fwdID),
+// 		Request: ActiveSession.Request(ctx),
+// 	})
 
-	if err != nil {
-		fmt.Printf(Warn+"Error: %v", err)
-		return
-	}
+// 	if err != nil {
+// 		fmt.Printf(Warn+"Error: %v", err)
+// 		return
+// 	}
 
-	if stopReq.Response != nil && stopReq.Response.Err != "" {
-		fmt.Printf(Warn+"Error: %v\n", stopReq.Response.Err)
-		return
-	}
+// 	if stopReq.Response != nil && stopReq.Response.Err != "" {
+// 		fmt.Printf(Warn+"Error: %v\n", stopReq.Response.Err)
+// 		return
+// 	}
 
-	if stopReq.Forwarder != nil {
-		fmt.Printf(Info+"Removed port forwarding rule %s -> %s\n", stopReq.Forwarder.LocalAddr, stopReq.Forwarder.RemoteAddr)
-	}
-}
+// 	if stopReq.Forwarder != nil {
+// 		fmt.Printf(Info+"Removed port forwarding rule %s -> %s\n", stopReq.Forwarder.LocalAddr, stopReq.Forwarder.RemoteAddr)
+// 	}
+// }
 
-func wgSocksStartCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
-	if session == nil {
-		return
-	}
+// func wgSocksStartCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+// 	session := ActiveSession.Get()
+// 	if session == nil {
+// 		return
+// 	}
 
-	if session.Transport != "wg" {
-		fmt.Println(Warn + "This command is only supported for Wireguard implants")
-		return
-	}
+// 	if session.Transport != "wg" {
+// 		fmt.Println(Warn + "This command is only supported for Wireguard implants")
+// 		return
+// 	}
 
-	bindPort := ctx.Flags.Int("bind")
+// 	bindPort := ctx.Flags.Int("bind")
 
-	socks, err := rpc.WGStartSocks(context.Background(), &sliverpb.WGSocksStartReq{
-		Port:    int32(bindPort),
-		Request: ActiveSession.Request(ctx),
-	})
+// 	socks, err := rpc.WGStartSocks(context.Background(), &sliverpb.WGSocksStartReq{
+// 		Port:    int32(bindPort),
+// 		Request: ActiveSession.Request(ctx),
+// 	})
 
-	if err != nil {
-		fmt.Printf(Warn+"Error: %v", err)
-		return
-	}
+// 	if err != nil {
+// 		fmt.Printf(Warn+"Error: %v", err)
+// 		return
+// 	}
 
-	if socks.Response != nil && socks.Response.Err != "" {
-		fmt.Printf(Warn+"Error: %s\n", err)
-		return
-	}
+// 	if socks.Response != nil && socks.Response.Err != "" {
+// 		fmt.Printf(Warn+"Error: %s\n", err)
+// 		return
+// 	}
 
-	if socks.Server != nil {
-		fmt.Printf(Info+"Started SOCKS server on %s\n", socks.Server.LocalAddr)
-	}
-}
+// 	if socks.Server != nil {
+// 		fmt.Printf(Info+"Started SOCKS server on %s\n", socks.Server.LocalAddr)
+// 	}
+// }
 
-func wgSocksListCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.GetInteractive()
-	if session == nil {
-		return
-	}
-	if session.Transport != "wg" {
-		fmt.Println(Warn + "This command is only supported for WireGuard implants")
-		return
-	}
+// func wgSocksListCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+// 	session := ActiveSession.GetInteractive()
+// 	if session == nil {
+// 		return
+// 	}
+// 	if session.Transport != "wg" {
+// 		fmt.Println(Warn + "This command is only supported for WireGuard implants")
+// 		return
+// 	}
 
-	socksList, err := rpc.WGListSocksServers(context.Background(), &sliverpb.WGSocksServersReq{
-		Request: ActiveSession.Request(ctx),
-	})
+// 	socksList, err := rpc.WGListSocksServers(context.Background(), &sliverpb.WGSocksServersReq{
+// 		Request: ActiveSession.Request(ctx),
+// 	})
 
-	if err != nil {
-		fmt.Printf(Warn+"Error: %v", err)
-		return
-	}
+// 	if err != nil {
+// 		fmt.Printf(Warn+"Error: %v", err)
+// 		return
+// 	}
 
-	if socksList.Response != nil && socksList.Response.Err != "" {
-		fmt.Printf(Warn+"Error: %s\n", socksList.Response.Err)
-		return
-	}
+// 	if socksList.Response != nil && socksList.Response.Err != "" {
+// 		fmt.Printf(Warn+"Error: %s\n", socksList.Response.Err)
+// 		return
+// 	}
 
-	if socksList.Servers != nil {
-		if len(socksList.Servers) > 0 {
-			outBuf := bytes.NewBufferString("")
-			table := tabwriter.NewWriter(outBuf, 0, 3, 3, ' ', 0)
-			fmt.Fprintf(table, "ID\tLocal Address\n")
-			fmt.Fprintf(table, "%s\t%s\t\n",
-				strings.Repeat("=", len("ID")),
-				strings.Repeat("=", len("Local Address")))
-			for _, server := range socksList.Servers {
-				fmt.Fprintf(table, "%d\t%s\t\n", server.ID, server.LocalAddr)
-			}
-			table.Flush()
-			fmt.Println(outBuf.String())
-		}
-	}
+// 	if socksList.Servers != nil {
+// 		if len(socksList.Servers) > 0 {
+// 			outBuf := bytes.NewBufferString("")
+// 			table := tabwriter.NewWriter(outBuf, 0, 3, 3, ' ', 0)
+// 			fmt.Fprintf(table, "ID\tLocal Address\n")
+// 			fmt.Fprintf(table, "%s\t%s\t\n",
+// 				strings.Repeat("=", len("ID")),
+// 				strings.Repeat("=", len("Local Address")))
+// 			for _, server := range socksList.Servers {
+// 				fmt.Fprintf(table, "%d\t%s\t\n", server.ID, server.LocalAddr)
+// 			}
+// 			table.Flush()
+// 			fmt.Println(outBuf.String())
+// 		}
+// 	}
 
-}
+// }
 
-func wgSocksRmCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
-	if session == nil {
-		return
-	}
-	if session.Transport != "wg" {
-		fmt.Println(Warn + "This command is only supported for WireGuard implants")
-		return
-	}
+// func wgSocksRmCmd(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
+// 	session := ActiveSession.Get()
+// 	if session == nil {
+// 		return
+// 	}
+// 	if session.Transport != "wg" {
+// 		fmt.Println(Warn + "This command is only supported for WireGuard implants")
+// 		return
+// 	}
 
-	socksID := ctx.Args.Int("id")
+// 	socksID := ctx.Args.Int("id")
 
-	stopReq, err := rpc.WGStopSocks(context.Background(), &sliverpb.WGSocksStopReq{
-		ID:      int32(socksID),
-		Request: ActiveSession.Request(ctx),
-	})
+// 	stopReq, err := rpc.WGStopSocks(context.Background(), &sliverpb.WGSocksStopReq{
+// 		ID:      int32(socksID),
+// 		Request: ActiveSession.Request(ctx),
+// 	})
 
-	if err != nil {
-		fmt.Printf(Warn+"Error: %v", err)
-		return
-	}
+// 	if err != nil {
+// 		fmt.Printf(Warn+"Error: %v", err)
+// 		return
+// 	}
 
-	if stopReq.Response != nil && stopReq.Response.Err != "" {
-		fmt.Printf(Warn+"Error: %v\n", stopReq.Response.Err)
-		return
-	}
+// 	if stopReq.Response != nil && stopReq.Response.Err != "" {
+// 		fmt.Printf(Warn+"Error: %v\n", stopReq.Response.Err)
+// 		return
+// 	}
 
-	if stopReq.Server != nil {
-		fmt.Printf(Info+"Removed socks listener rule %s \n", stopReq.Server.LocalAddr)
-	}
-}
+// 	if stopReq.Server != nil {
+// 		fmt.Printf(Info+"Removed socks listener rule %s \n", stopReq.Server.LocalAddr)
+// 	}
+// }

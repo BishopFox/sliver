@@ -25,6 +25,7 @@ import (
 
 	"github.com/desertbit/grumble"
 
+	"github.com/bishopfox/sliver/client/command"
 	clientconsole "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/help"
@@ -53,15 +54,15 @@ func Start() {
 	}
 	defer conn.Close()
 	localRPC := rpcpb.NewSliverRPCClient(conn)
-	clientconsole.Start(localRPC, serverOnlyCmds, true)
+	clientconsole.Start(localRPC, command.BindCommands, serverOnlyCmds, true)
 }
 
 // ServerOnlyCmds - Server only commands
-func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
+func serverOnlyCmds(console *clientconsole.SliverConsoleClient) {
 
 	// [ Multiplayer ] -----------------------------------------------------------------
 
-	app.AddCommand(&grumble.Command{
+	console.App.AddCommand(&grumble.Command{
 		Name:     consts.MultiplayerModeStr,
 		Help:     "Enable multiplayer mode",
 		LongHelp: help.GetHelpFor([]string{consts.MultiplayerModeStr}),
@@ -78,7 +79,7 @@ func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
 		HelpGroup: consts.MultiplayerHelpGroup,
 	})
 
-	app.AddCommand(&grumble.Command{
+	console.App.AddCommand(&grumble.Command{
 		Name:     consts.NewPlayerStr,
 		Help:     "Create a new player config file",
 		LongHelp: help.GetHelpFor([]string{consts.NewPlayerStr}),
@@ -97,7 +98,7 @@ func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
 		HelpGroup: consts.MultiplayerHelpGroup,
 	})
 
-	app.AddCommand(&grumble.Command{
+	console.App.AddCommand(&grumble.Command{
 		Name:     consts.KickPlayerStr,
 		Help:     "Kick a player from the server",
 		LongHelp: help.GetHelpFor([]string{consts.KickPlayerStr}),
