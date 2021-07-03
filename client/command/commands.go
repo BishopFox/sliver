@@ -42,7 +42,10 @@ import (
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/command/info"
 	"github.com/bishopfox/sliver/client/command/jobs"
+	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/command/operators"
+	"github.com/bishopfox/sliver/client/command/privilege"
+	"github.com/bishopfox/sliver/client/command/processes"
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/command/wireguard"
@@ -1135,94 +1138,119 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.ProcdumpStr,
-	// 	Help:     "Dump process memory",
-	// 	LongHelp: help.GetHelpFor([]string{consts.ProcdumpStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("p", "pid", -1, "target pid")
-	// 		f.String("n", "name", "", "target process name")
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		procdump(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	// [ Processes ] ---------------------------------------------
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.RunAsStr,
-	// 	Help:     "Run a new process in the context of the designated user (Windows Only)",
-	// 	LongHelp: help.GetHelpFor([]string{consts.RunAsStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("u", "username", "NT AUTHORITY\\SYSTEM", "user to impersonate")
-	// 		f.String("p", "process", "", "process to start")
-	// 		f.String("a", "args", "", "arguments for the process")
-	// 		f.Int("t", "timeout", 30, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		runAs(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverWinHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.ProcdumpStr,
+		Help:     "Dump process memory",
+		LongHelp: help.GetHelpFor([]string{consts.ProcdumpStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("p", "pid", -1, "target pid")
+			f.String("n", "name", "", "target process name")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			processes.ProcdumpCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.ImpersonateStr,
-	// 	Help:     "Impersonate a logged in user.",
-	// 	LongHelp: help.GetHelpFor([]string{consts.ImpersonateStr}),
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("username", "name of the user account to impersonate")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		impersonate(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", 30, "command timeout in seconds")
-	// 	},
-	// 	HelpGroup: consts.SliverWinHelpGroup,
-	// })
+	// [ Privileges ] ---------------------------------------------
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.RevToSelfStr,
-	// 	Help:     "Revert to self: lose stolen Windows token",
-	// 	LongHelp: help.GetHelpFor([]string{consts.RevToSelfStr}),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		revToSelf(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", 30, "command timeout in seconds")
-	// 	},
-	// 	HelpGroup: consts.SliverWinHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.RunAsStr,
+		Help:     "Run a new process in the context of the designated user (Windows Only)",
+		LongHelp: help.GetHelpFor([]string{consts.RunAsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("u", "username", "NT AUTHORITY\\SYSTEM", "user to impersonate")
+			f.String("p", "process", "", "process to start")
+			f.String("a", "args", "", "arguments for the process")
+			f.Int("t", "timeout", 30, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			privilege.RunAsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.GetSystemStr,
-	// 	Help:     "Spawns a new sliver session as the NT AUTHORITY\\SYSTEM user (Windows Only)",
-	// 	LongHelp: help.GetHelpFor([]string{consts.GetSystemStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("p", "process", "spoolsv.exe", "SYSTEM process to inject into")
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		getsystem(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverWinHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.ImpersonateStr,
+		Help:     "Impersonate a logged in user.",
+		LongHelp: help.GetHelpFor([]string{consts.ImpersonateStr}),
+		Args: func(a *grumble.Args) {
+			a.String("username", "name of the user account to impersonate")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			privilege.ImpersonateCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", 30, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.RevToSelfStr,
+		Help:     "Revert to self: lose stolen Windows token",
+		LongHelp: help.GetHelpFor([]string{consts.RevToSelfStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			privilege.RevToSelfCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", 30, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.GetSystemStr,
+		Help:     "Spawns a new sliver session as the NT AUTHORITY\\SYSTEM user (Windows Only)",
+		LongHelp: help.GetHelpFor([]string{consts.GetSystemStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("p", "process", "spoolsv.exe", "SYSTEM process to inject into")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			privilege.GetSystemCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.MakeTokenStr,
+		Help:     "Create a new Logon Session with the specified credentials",
+		LongHelp: help.GetHelpFor([]string{consts.MakeTokenStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("u", "username", "", "username of the user to impersonate")
+			f.String("p", "password", "", "password of the user to impersonate")
+			f.String("d", "domain", "", "domain of the user to impersonate")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			privilege.MakeTokenCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+
+	// [ Websites ] ---------------------------------------------
 
 	// websitesCmd := &grumble.Command{
 	// 	Name:     consts.WebsitesStr,
@@ -1449,25 +1477,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	Run: func(ctx *grumble.Context) error {
 	// 		con.Println()
 	// 		binject(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// })
-
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.MakeTokenStr,
-	// 	Help:     "Create a new Logon Session with the specified credentials",
-	// 	LongHelp: help.GetHelpFor([]string{consts.MakeTokenStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("u", "username", "", "username of the user to impersonate")
-	// 		f.String("p", "password", "", "password of the user to impersonate")
-	// 		f.String("d", "domain", "", "domain of the user to impersonate")
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	HelpGroup: consts.SliverWinHelpGroup,
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		makeToken(ctx, con)
 	// 		con.Println()
 	// 		return nil
 	// 	},
@@ -1872,134 +1881,135 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// // [ Loot ] --------------------------------------------------------------
-	// lootCmd := &grumble.Command{
-	// 	Name:     consts.LootStr,
-	// 	Help:     "Manage the server's loot store",
-	// 	LongHelp: help.GetHelpFor([]string{consts.LootStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("f", "filter", "", "filter based on loot type")
+	// [ Loot ] --------------------------------------------------------------
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		lootRoot(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// }
-	// lootCmd.AddCommand(&grumble.Command{
-	// 	Name:     consts.LootLocalStr,
-	// 	Help:     "Add a local file to the server's loot store",
-	// 	LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.LootLocalStr}),
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("path", "The local file path to the loot")
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("n", "name", "", "name of this piece of loot")
-	// 		f.String("T", "type", "", "force a specific loot type (file/cred)")
-	// 		f.String("F", "file-type", "", "force a specific file type (binary/text)")
+	lootCmd := &grumble.Command{
+		Name:     consts.LootStr,
+		Help:     "Manage the server's loot store",
+		LongHelp: help.GetHelpFor([]string{consts.LootStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("f", "filter", "", "filter based on loot type")
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		lootAddLocal(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
-	// lootCmd.AddCommand(&grumble.Command{
-	// 	Name:     consts.LootRemoteStr,
-	// 	Help:     "Add a remote file from the current session to the server's loot store",
-	// 	LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.LootRemoteStr}),
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("path", "The local file path to the loot")
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("n", "name", "", "name of this piece of loot")
-	// 		f.String("T", "type", "", "force a specific loot type (file/cred)")
-	// 		f.String("F", "file-type", "", "force a specific file type (binary/text)")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			loot.LootCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	lootCmd.AddCommand(&grumble.Command{
+		Name:     consts.LootLocalStr,
+		Help:     "Add a local file to the server's loot store",
+		LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.LootLocalStr}),
+		Args: func(a *grumble.Args) {
+			a.String("path", "The local file path to the loot")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "name of this piece of loot")
+			f.String("T", "type", "", "force a specific loot type (file/cred)")
+			f.String("F", "file-type", "", "force a specific file type (binary/text)")
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		lootAddRemote(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
-	// lootCmd.AddCommand(&grumble.Command{
-	// 	Name:     consts.LootCredsStr,
-	// 	Help:     "Add credentials to the server's loot store",
-	// 	LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.LootCredsStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("n", "name", "", "name of this piece of loot")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			loot.LootAddLocalCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	lootCmd.AddCommand(&grumble.Command{
+		Name:     consts.LootRemoteStr,
+		Help:     "Add a remote file from the current session to the server's loot store",
+		LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.LootRemoteStr}),
+		Args: func(a *grumble.Args) {
+			a.String("path", "The local file path to the loot")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "name of this piece of loot")
+			f.String("T", "type", "", "force a specific loot type (file/cred)")
+			f.String("F", "file-type", "", "force a specific file type (binary/text)")
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		lootAddCredential(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
-	// lootCmd.AddCommand(&grumble.Command{
-	// 	Name:     consts.RenameStr,
-	// 	Help:     "Re-name a piece of existing loot",
-	// 	LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.RenameStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		lootRename(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
-	// lootCmd.AddCommand(&grumble.Command{
-	// 	Name:     consts.LootFetchStr,
-	// 	Help:     "Fetch a piece of loot from the server's loot store",
-	// 	LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.LootFetchStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("s", "save", "", "save loot to a local file")
-	// 		f.String("f", "filter", "", "filter based on loot type")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			loot.LootAddRemoteCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	lootCmd.AddCommand(&grumble.Command{
+		Name:     consts.LootCredsStr,
+		Help:     "Add credentials to the server's loot store",
+		LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.LootCredsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "name of this piece of loot")
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		lootFetch(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
-	// lootCmd.AddCommand(&grumble.Command{
-	// 	Name:     consts.RmStr,
-	// 	Help:     "Remove a piece of loot from the server's loot store",
-	// 	LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.RmStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("f", "filter", "", "filter based on loot type")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			loot.LootAddCredentialCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	lootCmd.AddCommand(&grumble.Command{
+		Name:     consts.RenameStr,
+		Help:     "Re-name a piece of existing loot",
+		LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.RenameStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			loot.LootRenameCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	lootCmd.AddCommand(&grumble.Command{
+		Name:     consts.LootFetchStr,
+		Help:     "Fetch a piece of loot from the server's loot store",
+		LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.LootFetchStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "save", "", "save loot to a local file")
+			f.String("f", "filter", "", "filter based on loot type")
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		lootRm(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
-	// con.App.AddCommand(lootCmd)
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			loot.LootFetchCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	lootCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove a piece of loot from the server's loot store",
+		LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.RmStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("f", "filter", "", "filter based on loot type")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			loot.LootRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	con.App.AddCommand(lootCmd)
 }

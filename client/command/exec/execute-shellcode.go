@@ -29,7 +29,6 @@ import (
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"golang.org/x/crypto/ssh/terminal"
 
@@ -47,7 +46,7 @@ func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	shellcodePath := ctx.Args.String("filepath")
 	shellcodeBin, err := ioutil.ReadFile(shellcodePath)
 	if err != nil {
-		con.PrintErrorf("Error: %s\n", err.Error())
+		con.PrintErrorf("%s\n", err.Error())
 		return
 	}
 	if pid != 0 && interactive {
@@ -70,11 +69,11 @@ func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("Error: %v\n", err)
+		con.PrintErrorf("%s\n", err)
 		return
 	}
 	if task.Response.GetErr() != "" {
-		con.PrintErrorf("Error: %s\n", task.Response.GetErr())
+		con.PrintErrorf("%s\n", task.Response.GetErr())
 		return
 	}
 	con.PrintInfof("Executed shellcode on target\n")
@@ -176,34 +175,4 @@ func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte,
 
 	log.Printf("Exit interactive")
 	bufio.NewWriter(os.Stdout).Flush()
-}
-
-// -------- Utility functions
-
-func getActiveSliverConfig(con *console.SliverConsoleClient) *clientpb.ImplantConfig {
-	session := con.ActiveSession.Get()
-	if session == nil {
-		return nil
-	}
-	c2s := []*clientpb.ImplantC2{}
-	c2s = append(c2s, &clientpb.ImplantC2{
-		URL:      session.GetActiveC2(),
-		Priority: uint32(0),
-	})
-	config := &clientpb.ImplantConfig{
-		Name:    session.GetName(),
-		GOOS:    session.GetOS(),
-		GOARCH:  session.GetArch(),
-		Debug:   true,
-		Evasion: session.GetEvasion(),
-
-		MaxConnectionErrors: uint32(1000),
-		ReconnectInterval:   uint32(60),
-		PollInterval:        uint32(1),
-
-		Format:      clientpb.OutputFormat_SHELLCODE,
-		IsSharedLib: true,
-		C2:          c2s,
-	}
-	return config
 }

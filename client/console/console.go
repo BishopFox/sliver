@@ -292,6 +292,34 @@ func (con *SliverConsoleClient) GetSessionsByName(name string) []*clientpb.Sessi
 	return matched
 }
 
+func (con *SliverConsoleClient) GetActiveSliverConfig() *clientpb.ImplantConfig {
+	session := con.ActiveSession.Get()
+	if session == nil {
+		return nil
+	}
+	c2s := []*clientpb.ImplantC2{}
+	c2s = append(c2s, &clientpb.ImplantC2{
+		URL:      session.GetActiveC2(),
+		Priority: uint32(0),
+	})
+	config := &clientpb.ImplantConfig{
+		Name:    session.GetName(),
+		GOOS:    session.GetOS(),
+		GOARCH:  session.GetArch(),
+		Debug:   true,
+		Evasion: session.GetEvasion(),
+
+		MaxConnectionErrors: uint32(1000),
+		ReconnectInterval:   uint32(60),
+		PollInterval:        uint32(1),
+
+		Format:      clientpb.OutputFormat_SHELLCODE,
+		IsSharedLib: true,
+		C2:          c2s,
+	}
+	return config
+}
+
 // This should be called for any dangerous (OPSEC-wise) functions
 func (con *SliverConsoleClient) IsUserAnAdult() bool {
 	confirm := false

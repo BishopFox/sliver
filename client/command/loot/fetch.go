@@ -27,7 +27,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
-func lootFetch(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func LootFetchCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	loot, err := SelectLoot(ctx, con.Rpc)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
