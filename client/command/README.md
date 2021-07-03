@@ -10,4 +10,5 @@ General guidance on the structure of this package:
  * The root command, and reused code should go into the file named after the command
    * For example, code shared between the `generate` and the `regenerate` command should go in `generate.go`, and any `regenerate` specific code should go in `regenerate.go`
  * Command entrypoint functions should have the suffix `Cmd` e.g., `GenerateCmd` is the entrypoint for `generate`
+   * Command entrypoints should always a function signature of `func (ctx *grumble.Context, con *console.SliverConsoleClient)`
  * Functions that are only ever exported for other commands to use should go in a `helpers.go`, if the function is used internally and exported follow the guidance above on shared code.
