@@ -93,8 +93,11 @@ const (
 	StagerStr     = "stager"
 	ProfilesStr   = "profiles"
 
-	NewStr = "new"
-	AddStr = "add"
+	// Generic
+	NewStr   = "new"
+	AddStr   = "add"
+	StartStr = "start"
+	StopStr  = "stop"
 	// RmStr - Already defined below for "rm" command
 
 	LootStr       = "loot"

@@ -34,6 +34,8 @@ package command
 */
 
 import (
+	"fmt"
+
 	"github.com/bishopfox/sliver/client/command/exec"
 	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/command/generate"
@@ -43,6 +45,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/operators"
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/update"
+	"github.com/bishopfox/sliver/client/command/wireguard"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/desertbit/grumble"
@@ -1650,122 +1653,120 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.SliverHelpGroup,
 	// })
 
-	// // [ WireGuard ] --------------------------------------------------------------
+	// [ WireGuard ] --------------------------------------------------------------
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.WgConfigStr,
-	// 	Help:     "Generate a new WireGuard client config",
-	// 	LongHelp: help.GetHelpFor([]string{consts.WgConfigStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.String("s", "save", "", "save configuration to file (.conf)")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		getWGClientConfig(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.WgConfigStr,
+		Help:     "Generate a new WireGuard client config",
+		LongHelp: help.GetHelpFor([]string{consts.WgConfigStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("s", "save", "", "save configuration to file (.conf)")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			wireguard.WGConfigCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
 
-	// wgPortFwdCmd := &grumble.Command{
-	// 	Name:     consts.WgPortFwdStr,
-	// 	Help:     "List ports forwarded by the WireGuard tun interface",
-	// 	LongHelp: help.GetHelpFor([]string{consts.WgPortFwdStr}),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		wgPortFwdListCmd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// }
-	// wgPortFwdCmd.AddCommand(&grumble.Command{
-	// 	Name:     "add",
-	// 	Help:     "Add a port forward from the WireGuard tun interface to a host on the target network",
-	// 	LongHelp: help.GetHelpFor([]string{consts.WgPortFwdStr}),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		wgPortFwdAddCmd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.Int("b", "bind", 1080, "port to listen on the WireGuard tun interface")
-	// 		f.String("r", "remote", "", "remote target host:port (e.g., 10.0.0.1:445)")
-	// 	},
-	// })
-	// wgPortFwdCmd.AddCommand(&grumble.Command{
-	// 	Name:     "rm",
-	// 	Help:     "Remove a port forward from the WireGuard tun interface",
-	// 	LongHelp: help.GetHelpFor([]string{consts.WgPortFwdStr}),
-	// 	Args: func(a *grumble.Args) {
-	// 		a.Int("id", "forwarder id")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		wgPortFwdRmCmd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// })
-	// con.App.AddCommand(wgPortFwdCmd)
+	wgPortFwdCmd := &grumble.Command{
+		Name:     consts.WgPortFwdStr,
+		Help:     "List ports forwarded by the WireGuard tun interface",
+		LongHelp: help.GetHelpFor([]string{consts.WgPortFwdStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			wireguard.WGPortFwdListCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+	}
+	wgPortFwdCmd.AddCommand(&grumble.Command{
+		Name:     consts.AddStr,
+		Help:     "Add a port forward from the WireGuard tun interface to a host on the target network",
+		LongHelp: help.GetHelpFor([]string{consts.WgPortFwdStr, consts.AddStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			wireguard.WGPortFwdAddCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("b", "bind", 1080, "port to listen on the WireGuard tun interface")
+			f.String("r", "remote", "", "remote target host:port (e.g., 10.0.0.1:445)")
+		},
+	})
+	wgPortFwdCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove a port forward from the WireGuard tun interface",
+		LongHelp: help.GetHelpFor([]string{consts.WgPortFwdStr, consts.RmStr}),
+		Args: func(a *grumble.Args) {
+			a.Int("id", "forwarder id")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			wireguard.WGPortFwdRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+	})
+	con.App.AddCommand(wgPortFwdCmd)
 
-	// wgSocksCmd := &grumble.Command{
-	// 	Name:     consts.WgSocksStr,
-	// 	Help:     "List socks servers listening on the WireGuard tun interface",
-	// 	LongHelp: help.GetHelpFor([]string{consts.WgSocksStr}),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		wgSocksListCmd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// }
-
-	// wgSocksCmd.AddCommand(&grumble.Command{
-	// 	Name:     "start",
-	// 	Help:     "Start a socks5 listener on the WireGuard tun interface",
-	// 	LongHelp: help.GetHelpFor([]string{consts.WgSocksStr}),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		wgSocksStartCmd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.Int("b", "bind", 3090, "port to listen on the WireGuard tun interface")
-	// 	},
-	// })
-
-	// wgSocksCmd.AddCommand(&grumble.Command{
-	// 	Name:     "rm",
-	// 	Help:     "Stop a socks5 listener on the WireGuard tun interface",
-	// 	LongHelp: help.GetHelpFor([]string{consts.WgSocksStr}),
-	// 	Args: func(a *grumble.Args) {
-	// 		a.Int("id", "forwarder id")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		fmt.Print()
-	// 		wgSocksRmCmd(ctx, con)
-	// 		fmt.Print()
-	// 		return nil
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// })
-	// con.App.AddCommand(wgSocksCmd)
+	wgSocksCmd := &grumble.Command{
+		Name:     consts.WgSocksStr,
+		Help:     "List socks servers listening on the WireGuard tun interface",
+		LongHelp: help.GetHelpFor([]string{consts.WgSocksStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			wireguard.WGSocksListCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+	}
+	wgSocksCmd.AddCommand(&grumble.Command{
+		Name:     consts.StartStr,
+		Help:     "Start a socks5 listener on the WireGuard tun interface",
+		LongHelp: help.GetHelpFor([]string{consts.WgSocksStr, consts.StartStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			wireguard.WGSocksStartCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("b", "bind", 3090, "port to listen on the WireGuard tun interface")
+		},
+	})
+	wgSocksCmd.AddCommand(&grumble.Command{
+		Name:     consts.StopStr,
+		Help:     "Stop a socks5 listener on the WireGuard tun interface",
+		LongHelp: help.GetHelpFor([]string{consts.WgSocksStr, consts.StopStr}),
+		Args: func(a *grumble.Args) {
+			a.Int("id", "forwarder id")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Print()
+			wireguard.WGSocksStopCmd(ctx, con)
+			fmt.Print()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+	})
+	con.App.AddCommand(wgSocksCmd)
 
 	// // [ Portfwd ] --------------------------------------------------------------
 	// portfwdCmd := &grumble.Command{
