@@ -23,6 +23,10 @@ const (
 	KeepAliveStr = "keepalive"
 )
 
+const (
+	LastUpdateCheckFileName = "last_update_check"
+)
+
 // Events
 const (
 	UpdateStr  = "update"

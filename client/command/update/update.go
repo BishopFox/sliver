@@ -33,22 +33,18 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/cheggaaa/pb/v3"
 	"github.com/desertbit/grumble"
-)
-
-const (
-	lastCheckFileName = "last_update_check"
 )
 
 func UpdateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
@@ -121,29 +117,11 @@ func UpdateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	now := time.Now()
 	lastCheck := []byte(fmt.Sprintf("%d", now.Unix()))
 	appDir := assets.GetRootAppDir()
-	lastUpdateCheckPath := path.Join(appDir, lastCheckFileName)
+	lastUpdateCheckPath := path.Join(appDir, consts.LastUpdateCheckFileName)
 	err = ioutil.WriteFile(lastUpdateCheckPath, lastCheck, 0600)
 	if err != nil {
 		log.Printf("Failed to save update check time %s", err)
 	}
-}
-
-// GetLastUpdateCheck - Get the timestap of the last update check, nil if none
-func GetLastUpdateCheck() *time.Time {
-	appDir := assets.GetRootAppDir()
-	lastUpdateCheckPath := path.Join(appDir, lastCheckFileName)
-	data, err := ioutil.ReadFile(lastUpdateCheckPath)
-	if err != nil {
-		log.Printf("Failed to read last update check %s", err)
-		return nil
-	}
-	unixTime, err := strconv.Atoi(string(data))
-	if err != nil {
-		log.Printf("Failed to parse last update check %s", err)
-		return nil
-	}
-	lastUpdate := time.Unix(int64(unixTime), 0)
-	return &lastUpdate
 }
 
 func VerboseVersionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {

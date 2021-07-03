@@ -43,7 +43,11 @@ import (
 	"github.com/bishopfox/sliver/client/command/info"
 	"github.com/bishopfox/sliver/client/command/jobs"
 	"github.com/bishopfox/sliver/client/command/loot"
+	"github.com/bishopfox/sliver/client/command/monitor"
+	"github.com/bishopfox/sliver/client/command/network"
 	"github.com/bishopfox/sliver/client/command/operators"
+	"github.com/bishopfox/sliver/client/command/pivots"
+	"github.com/bishopfox/sliver/client/command/portfwd"
 	"github.com/bishopfox/sliver/client/command/privilege"
 	"github.com/bishopfox/sliver/client/command/processes"
 	"github.com/bishopfox/sliver/client/command/registry"
@@ -1105,42 +1109,44 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.IfconfigStr,
-	// 	Help:     "View network interface configurations",
-	// 	LongHelp: help.GetHelpFor([]string{consts.IfconfigStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		ifconfig(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	// [ Network ] ---------------------------------------------
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.NetstatStr,
-	// 	Help:     "Print network connection information",
-	// 	LongHelp: help.GetHelpFor([]string{consts.NetstatStr}),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		netstat(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Bool("T", "tcp", true, "display information about TCP sockets")
-	// 		f.Bool("u", "udp", false, "display information about UDP sockets")
-	// 		f.Bool("4", "ip4", true, "display information about IPv4 sockets")
-	// 		f.Bool("6", "ip6", false, "display information about IPv6 sockets")
-	// 		f.Bool("l", "listen", false, "display information about listening sockets")
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.IfconfigStr,
+		Help:     "View network interface configurations",
+		LongHelp: help.GetHelpFor([]string{consts.IfconfigStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			network.IfconfigCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.NetstatStr,
+		Help:     "Print network connection information",
+		LongHelp: help.GetHelpFor([]string{consts.NetstatStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			network.NetstatCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("T", "tcp", true, "display information about TCP sockets")
+			f.Bool("u", "udp", false, "display information about UDP sockets")
+			f.Bool("4", "ip4", true, "display information about IPv4 sockets")
+			f.Bool("6", "ip6", false, "display information about IPv6 sockets")
+			f.Bool("l", "listen", false, "display information about listening sockets")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
 	// [ Processes ] ---------------------------------------------
 
@@ -1430,41 +1436,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// })
 
 	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.NamedPipeStr,
-	// 	Help:     "Start a named pipe pivot listener",
-	// 	LongHelp: help.GetHelpFor([]string{consts.NamedPipeStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("n", "name", "", "name of the named pipe")
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		namedPipeListener(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
-
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.TCPListenerStr,
-	// 	Help:     "Start a TCP pivot listener",
-	// 	LongHelp: help.GetHelpFor([]string{consts.TCPListenerStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("s", "server", "0.0.0.0", "interface to bind server to")
-	// 		f.Int("l", "lport", defaultTCPPivotPort, "tcp listen port")
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		tcpListener(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
-
-	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.BackdoorStr,
 	// 	Help:     "Infect a remote file with a sliver shellcode",
 	// 	LongHelp: help.GetHelpFor([]string{consts.BackdoorStr}),
@@ -1651,22 +1622,57 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// [ Pivots ] --------------------------------------------------------------
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.PivotsListStr,
-	// 	Help:     "List pivots",
-	// 	LongHelp: help.GetHelpFor([]string{consts.PivotsListStr}),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		listPivots(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.String("i", "id", "", "session id")
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.PivotsListStr,
+		Help:     "List pivots",
+		LongHelp: help.GetHelpFor([]string{consts.PivotsListStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			pivots.PivotsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("i", "id", "", "session id")
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.NamedPipeStr,
+		Help:     "Start a named pipe pivot listener",
+		LongHelp: help.GetHelpFor([]string{consts.NamedPipeStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "name of the named pipe")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			pivots.NamedPipeListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.TCPListenerStr,
+		Help:     "Start a TCP pivot listener",
+		LongHelp: help.GetHelpFor([]string{consts.TCPListenerStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "server", "0.0.0.0", "interface to bind server to")
+			f.Int("l", "lport", generate.DefaultTCPPivotPort, "tcp listen port")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			pivots.TCPListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
 	// [ WireGuard ] --------------------------------------------------------------
 
@@ -1784,82 +1790,82 @@ func BindCommands(con *console.SliverConsoleClient) {
 	con.App.AddCommand(wgSocksCmd)
 
 	// // [ Portfwd ] --------------------------------------------------------------
-	// portfwdCmd := &grumble.Command{
-	// 	Name:     consts.PortfwdStr,
-	// 	Help:     "In-band TCP port forwarding",
-	// 	LongHelp: help.GetHelpFor([]string{consts.PortfwdStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		portfwd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// }
-	// portfwdCmd.AddCommand(&grumble.Command{
-	// 	Name:     "add",
-	// 	Help:     "Create a new port forwarding tunnel",
-	// 	LongHelp: help.GetHelpFor([]string{consts.PortfwdStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.String("r", "remote", "", "remote target host:port (e.g., 10.0.0.1:445)")
-	// 		f.String("b", "bind", "127.0.0.1:8080", "bind port forward to interface")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		portfwdAdd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
-	// portfwdCmd.AddCommand(&grumble.Command{
-	// 	Name:     "rm",
-	// 	Help:     "Remove a port forwarding tunnel",
-	// 	LongHelp: help.GetHelpFor([]string{consts.PortfwdStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.Int("i", "id", 0, "id of portfwd to remove")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		portfwdRm(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
-	// con.App.AddCommand(portfwdCmd)
+	portfwdCmd := &grumble.Command{
+		Name:     consts.PortfwdStr,
+		Help:     "In-band TCP port forwarding",
+		LongHelp: help.GetHelpFor([]string{consts.PortfwdStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			portfwd.PortfwdCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	}
+	portfwdCmd.AddCommand(&grumble.Command{
+		Name:     "add",
+		Help:     "Create a new port forwarding tunnel",
+		LongHelp: help.GetHelpFor([]string{consts.PortfwdStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("r", "remote", "", "remote target host:port (e.g., 10.0.0.1:445)")
+			f.String("b", "bind", "127.0.0.1:8080", "bind port forward to interface")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			portfwd.PortfwdAddCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+	portfwdCmd.AddCommand(&grumble.Command{
+		Name:     "rm",
+		Help:     "Remove a port forwarding tunnel",
+		LongHelp: help.GetHelpFor([]string{consts.PortfwdStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("i", "id", 0, "id of portfwd to remove")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			portfwd.PortfwdRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+	con.App.AddCommand(portfwdCmd)
 
-	// // [ Monitor ] --------------------------------------------------------------
-	// monitorCmd := &grumble.Command{
-	// 	Name: consts.MonitorStr,
-	// 	Help: "Monitor threat intel platforms for Sliver implants",
-	// }
-	// monitorCmd.AddCommand(&grumble.Command{
-	// 	Name: "start",
-	// 	Help: "Start the monitoring loops",
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		monitorStartCmd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// })
-	// monitorCmd.AddCommand(&grumble.Command{
-	// 	Name: "stop",
-	// 	Help: "Stop the monitoring loops",
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		monitorStopCmd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// })
-	// con.App.AddCommand(monitorCmd)
+	// [ Monitor ] --------------------------------------------------------------
+	monitorCmd := &grumble.Command{
+		Name: consts.MonitorStr,
+		Help: "Monitor threat intel platforms for Sliver implants",
+	}
+	monitorCmd.AddCommand(&grumble.Command{
+		Name: "start",
+		Help: "Start the monitoring loops",
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			monitor.MonitorStartCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	monitorCmd.AddCommand(&grumble.Command{
+		Name: "stop",
+		Help: "Stop the monitoring loops",
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			monitor.MonitorStopCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	con.App.AddCommand(monitorCmd)
 
 	// // [ SSH ] --------------------------------------------------------------
 	// con.App.AddCommand(&grumble.Command{

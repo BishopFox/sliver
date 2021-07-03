@@ -23,9 +23,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	insecureRand "math/rand"
 	"path"
+	"strconv"
 
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -245,20 +247,37 @@ func (con *SliverConsoleClient) PrintLogo() {
 }
 
 func (con *SliverConsoleClient) CheckLastUpdate() {
-	// now := time.Now()
-	// lastUpdate := GetLastUpdateCheck()
-	// compiledAt, err := version.Compiled()
-	// if err != nil {
-	// 	log.Printf("Failed to parse compiled at timestamp %s", err)
-	// 	return
-	// }
+	now := time.Now()
+	lastUpdate := getLastUpdateCheck()
+	compiledAt, err := version.Compiled()
+	if err != nil {
+		log.Printf("Failed to parse compiled at timestamp %s", err)
+		return
+	}
 
-	// day := 24 * time.Hour
-	// if compiledAt.Add(30 * day).Before(now) {
-	// 	if lastUpdate == nil || lastUpdate.Add(30*day).Before(now) {
-	// 		fmt.Printf(Info + "Check for updates with the 'update' command\n\n")
-	// 	}
-	// }
+	day := 24 * time.Hour
+	if compiledAt.Add(30 * day).Before(now) {
+		if lastUpdate == nil || lastUpdate.Add(30*day).Before(now) {
+			fmt.Printf(Info + "Check for updates with the 'update' command\n\n")
+		}
+	}
+}
+
+func getLastUpdateCheck() *time.Time {
+	appDir := assets.GetRootAppDir()
+	lastUpdateCheckPath := path.Join(appDir, consts.LastUpdateCheckFileName)
+	data, err := ioutil.ReadFile(lastUpdateCheckPath)
+	if err != nil {
+		log.Printf("Failed to read last update check %s", err)
+		return nil
+	}
+	unixTime, err := strconv.Atoi(string(data))
+	if err != nil {
+		log.Printf("Failed to parse last update check %s", err)
+		return nil
+	}
+	lastUpdate := time.Unix(int64(unixTime), 0)
+	return &lastUpdate
 }
 
 // GetSession - Get session by session ID or name
