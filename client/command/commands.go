@@ -46,8 +46,10 @@ import (
 	"github.com/bishopfox/sliver/client/command/operators"
 	"github.com/bishopfox/sliver/client/command/privilege"
 	"github.com/bishopfox/sliver/client/command/processes"
+	"github.com/bishopfox/sliver/client/command/registry"
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/update"
+	"github.com/bishopfox/sliver/client/command/websites"
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -656,6 +658,29 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.PsExecStr,
+		Help:     "Start a sliver service on a remote target",
+		LongHelp: help.GetHelpFor([]string{consts.PsExecStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("s", "service-name", "Sliver", "name that will be used to register the service")
+			f.String("d", "service-description", "Sliver implant", "description of the service")
+			f.String("p", "profile", "", "profile to use for service binary")
+			f.String("b", "binpath", "c:\\windows\\temp", "directory to which the executable will be uploaded")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			exec.PsExecCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("hostname", "hostname")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
 	// [ Generate ] --------------------------------------------------------------
 
 	generateCmd := &grumble.Command{
@@ -920,28 +945,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 
-	// [ Session Commands ] ---------------------------------------------
-
-	con.App.AddCommand(&grumble.Command{
-		Name:     consts.PsStr,
-		Help:     "List remote processes",
-		LongHelp: help.GetHelpFor([]string{consts.PsStr}),
-		Flags: func(f *grumble.Flags) {
-			f.Int("p", "pid", -1, "filter based on pid")
-			f.String("e", "exe", "", "filter based on executable name")
-			f.String("o", "owner", "", "filter based on owner")
-			f.Bool("c", "print-cmdline", false, "print command line arguments")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			con.Println()
-			// PsCmd(ctx, con)
-			con.Println()
-			return nil
-		},
-		HelpGroup: consts.SliverHelpGroup,
-	})
+	// [ Filesystem ] ---------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{
 		Name:     consts.LsStr,
@@ -1141,6 +1145,27 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// [ Processes ] ---------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{
+		Name:     consts.PsStr,
+		Help:     "List remote processes",
+		LongHelp: help.GetHelpFor([]string{consts.PsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("p", "pid", -1, "filter based on pid")
+			f.String("e", "exe", "", "filter based on executable name")
+			f.String("o", "owner", "", "filter based on owner")
+			f.Bool("c", "print-cmdline", false, "print command line arguments")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			processes.PsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
 		Name:     consts.ProcdumpStr,
 		Help:     "Dump process memory",
 		LongHelp: help.GetHelpFor([]string{consts.ProcdumpStr}),
@@ -1154,6 +1179,27 @@ func BindCommands(con *console.SliverConsoleClient) {
 			processes.ProcdumpCmd(ctx, con)
 			con.Println()
 			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.TerminateStr,
+		Help:     "Terminate a process on the remote system",
+		LongHelp: help.GetHelpFor([]string{consts.TerminateStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			processes.TerminateCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.Uint("pid", "pid")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("f", "force", false, "disregard safety and kill the PID")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
@@ -1252,123 +1298,102 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// [ Websites ] ---------------------------------------------
 
-	// websitesCmd := &grumble.Command{
-	// 	Name:     consts.WebsitesStr,
-	// 	Help:     "Host static content (used with HTTP C2)",
-	// 	LongHelp: help.GetHelpFor([]string{consts.WebsitesStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		websites(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("name", "website name", grumble.Default(""))
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// }
-	// websitesCmd.AddCommand(&grumble.Command{
-	// 	Name:     consts.RmStr,
-	// 	Help:     "Remove an entire website",
-	// 	LongHelp: help.GetHelpFor([]string{consts.WebsitesStr, consts.RmStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		removeWebsite(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("name", "website name", grumble.Default(""))
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
-	// websitesCmd.AddCommand(&grumble.Command{
-	// 	Name:     consts.RmWebContentStr,
-	// 	Help:     "Remove content from a website",
-	// 	LongHelp: help.GetHelpFor([]string{consts.WebsitesStr, consts.RmWebContentStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Bool("r", "recursive", false, "recursively add/rm content")
-	// 		f.String("w", "website", "", "website name")
-	// 		f.String("p", "web-path", "", "http path to host file at")
+	websitesCmd := &grumble.Command{
+		Name:     consts.WebsitesStr,
+		Help:     "Host static content (used with HTTP C2)",
+		LongHelp: help.GetHelpFor([]string{consts.WebsitesStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			websites.WebsitesCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("name", "website name", grumble.Default(""))
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	websitesCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove an entire website and all of its contents",
+		LongHelp: help.GetHelpFor([]string{consts.WebsitesStr, consts.RmStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			websites.WebsiteRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("name", "website name", grumble.Default(""))
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	websitesCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmWebContentStr,
+		Help:     "Remove specific content from a website",
+		LongHelp: help.GetHelpFor([]string{consts.WebsitesStr, consts.RmWebContentStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("r", "recursive", false, "recursively add/rm content")
+			f.String("w", "website", "", "website name")
+			f.String("p", "web-path", "", "http path to host file at")
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		removeWebsiteContent(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
-	// websitesCmd.AddCommand(&grumble.Command{
-	// 	Name:     consts.AddWebContentStr,
-	// 	Help:     "Add content to a website",
-	// 	LongHelp: help.GetHelpFor([]string{consts.WebsitesStr, consts.RmWebContentStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("w", "website", "", "website name")
-	// 		f.String("m", "content-type", "", "mime content-type (if blank use file ext.)")
-	// 		f.String("p", "web-path", "/", "http path to host file at")
-	// 		f.String("c", "content", "", "local file path/dir (must use --recursive for dir)")
-	// 		f.Bool("r", "recursive", false, "recursively add/rm content")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			websites.WebsitesRmContent(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	websitesCmd.AddCommand(&grumble.Command{
+		Name:     consts.AddWebContentStr,
+		Help:     "Add content to a website",
+		LongHelp: help.GetHelpFor([]string{consts.WebsitesStr, consts.RmWebContentStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("w", "website", "", "website name")
+			f.String("m", "content-type", "", "mime content-type (if blank use file ext.)")
+			f.String("p", "web-path", "/", "http path to host file at")
+			f.String("c", "content", "", "local file path/dir (must use --recursive for dir)")
+			f.Bool("r", "recursive", false, "recursively add/rm content")
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		addWebsiteContent(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
-	// websitesCmd.AddCommand(&grumble.Command{
-	// 	Name:     consts.WebContentTypeStr,
-	// 	Help:     "Update a path's content-type",
-	// 	LongHelp: help.GetHelpFor([]string{consts.WebsitesStr, consts.WebContentTypeStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("w", "website", "", "website name")
-	// 		f.String("m", "content-type", "", "mime content-type (if blank use file ext.)")
-	// 		f.String("p", "web-path", "/", "http path to host file at")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			websites.WebsitesAddContentCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	websitesCmd.AddCommand(&grumble.Command{
+		Name:     consts.WebContentTypeStr,
+		Help:     "Update a path's content-type",
+		LongHelp: help.GetHelpFor([]string{consts.WebsitesStr, consts.WebContentTypeStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("w", "website", "", "website name")
+			f.String("m", "content-type", "", "mime content-type (if blank use file ext.)")
+			f.String("p", "web-path", "/", "http path to host file at")
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		updateWebsiteContent(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
-	// con.App.AddCommand(websitesCmd)
-
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.TerminateStr,
-	// 	Help:     "Kill/terminate a process",
-	// 	LongHelp: help.GetHelpFor([]string{consts.TerminateStr}),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		terminate(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.Uint("pid", "pid")
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Bool("f", "force", false, "disregard safety and kill the PID")
-
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			websites.WebsitesUpdateContentCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	con.App.AddCommand(websitesCmd)
 
 	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.ScreenshotStr,
@@ -1437,29 +1462,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 		return nil
 	// 	},
 	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
-
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.PsExecStr,
-	// 	Help:     "Start a sliver service on a remote target",
-	// 	LongHelp: help.GetHelpFor([]string{consts.PsExecStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.String("s", "service-name", "Sliver", "name that will be used to register the service")
-	// 		f.String("d", "service-description", "Sliver implant", "description of the service")
-	// 		f.String("p", "profile", "", "profile to use for service binary")
-	// 		f.String("b", "binpath", "c:\\windows\\temp", "directory to which the executable will be uploaded")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		psExec(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("hostname", "hostname")
-	// 	},
-	// 	HelpGroup: consts.SliverWinHelpGroup,
 	// })
 
 	// con.App.AddCommand(&grumble.Command{
@@ -1571,79 +1573,83 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// 	HelpGroup: consts.GenericHelpGroup,
 	// })
 
-	// registryCmd := &grumble.Command{
-	// 	Name:     consts.RegistryStr,
-	// 	Help:     "Windows registry operations",
-	// 	LongHelp: help.GetHelpFor([]string{consts.RegistryStr}),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverWinHelpGroup,
-	// }
+	// [ Registry ] ---------------------------------------------
 
-	// registryCmd.AddCommand(&grumble.Command{
-	// 	Name:     consts.RegistryReadStr,
-	// 	Help:     "Read values from the Windows registry",
-	// 	LongHelp: help.GetHelpFor([]string{consts.RegistryReadStr}),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		registryReadCmd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("registry-path", "registry path")
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.String("H", "hive", "HKCU", "egistry hive")
-	// 		f.String("o", "hostname", "", "remote host to read values from")
-	// 	},
-	// 	HelpGroup: consts.SliverWinHelpGroup,
-	// })
-	// registryCmd.AddCommand(&grumble.Command{
-	// 	Name:     consts.RegistryWriteStr,
-	// 	Help:     "Write values to the Windows registry",
-	// 	LongHelp: help.GetHelpFor([]string{consts.RegistryWriteStr}),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		registryWriteCmd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("registry-path", "registry path")
-	// 		a.String("value", "value to write")
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.String("H", "hive", "HKCU", "registry hive")
-	// 		f.String("o", "hostname", "", "remote host to write values to")
-	// 		f.String("T", "type", "string", "type of the value to write (string, dword, qword, binary). If binary, you must provide a path to a file with --path")
-	// 		f.String("p", "path", "", "path to the binary file to write")
-	// 	},
-	// 	HelpGroup: consts.SliverWinHelpGroup,
-	// })
-	// registryCmd.AddCommand(&grumble.Command{
-	// 	Name:     consts.RegistryCreateKeyStr,
-	// 	Help:     "Create a registry key",
-	// 	LongHelp: help.GetHelpFor([]string{consts.RegistryCreateKeyStr}),
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("registry-path", "registry path")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		regCreateKeyCmd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.String("H", "hive", "HKCU", "registry hive")
-	// 		f.String("o", "hostname", "", "remote host to write values to")
-	// 	},
-	// })
-	// con.App.AddCommand(registryCmd)
+	registryCmd := &grumble.Command{
+		Name:     consts.RegistryStr,
+		Help:     "Windows registry operations",
+		LongHelp: help.GetHelpFor([]string{consts.RegistryStr}),
+		Run: func(ctx *grumble.Context) error {
+			return nil
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	}
+
+	registryCmd.AddCommand(&grumble.Command{
+		Name:     consts.RegistryReadStr,
+		Help:     "Read values from the Windows registry",
+		LongHelp: help.GetHelpFor([]string{consts.RegistryReadStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			registry.RegReadCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("registry-path", "registry path")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("H", "hive", "HKCU", "egistry hive")
+			f.String("o", "hostname", "", "remote host to read values from")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+	registryCmd.AddCommand(&grumble.Command{
+		Name:     consts.RegistryWriteStr,
+		Help:     "Write values to the Windows registry",
+		LongHelp: help.GetHelpFor([]string{consts.RegistryWriteStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			registry.RegWriteCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("registry-path", "registry path")
+			a.String("value", "value to write")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("H", "hive", "HKCU", "registry hive")
+			f.String("o", "hostname", "", "remote host to write values to")
+			f.String("T", "type", "string", "type of the value to write (string, dword, qword, binary). If binary, you must provide a path to a file with --path")
+			f.String("p", "path", "", "path to the binary file to write")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+	registryCmd.AddCommand(&grumble.Command{
+		Name:     consts.RegistryCreateKeyStr,
+		Help:     "Create a registry key",
+		LongHelp: help.GetHelpFor([]string{consts.RegistryCreateKeyStr}),
+		Args: func(a *grumble.Args) {
+			a.String("registry-path", "registry path")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			registry.RegCreateKeyCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("H", "hive", "HKCU", "registry hive")
+			f.String("o", "hostname", "", "remote host to write values to")
+		},
+	})
+	con.App.AddCommand(registryCmd)
+
+	// [ Pivots ] --------------------------------------------------------------
 
 	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.PivotsListStr,
