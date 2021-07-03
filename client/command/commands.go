@@ -52,6 +52,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/processes"
 	"github.com/bishopfox/sliver/client/command/registry"
 	"github.com/bishopfox/sliver/client/command/sessions"
+	"github.com/bishopfox/sliver/client/command/shell"
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/command/websites"
 	"github.com/bishopfox/sliver/client/command/wireguard"
@@ -454,24 +455,24 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// [ Shell ] --------------------------------------------------------------
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.ShellStr,
-	// 	Help:     "Start an interactive shell",
-	// 	LongHelp: help.GetHelpFor([]string{consts.ShellStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Bool("y", "no-pty", false, "disable use of pty on macos/linux")
-	// 		f.String("s", "shell-path", "", "path to shell interpreter")
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.ShellStr,
+		Help:     "Start an interactive shell",
+		LongHelp: help.GetHelpFor([]string{consts.ShellStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("y", "no-pty", false, "disable use of pty on macos/linux")
+			f.String("s", "shell-path", "", "path to shell interpreter")
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		shell(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			shell.ShellCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 
 	// [ Exec ] --------------------------------------------------------------
 
@@ -683,6 +684,31 @@ func BindCommands(con *console.SliverConsoleClient) {
 			a.String("hostname", "hostname")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.SSHStr,
+		Help:     "Run a SSH command on a remote host",
+		LongHelp: help.GetHelpFor([]string{consts.SSHStr}),
+		Args: func(a *grumble.Args) {
+			a.String("hostname", "remote host to SSH to")
+			a.StringList("command", "command line with arguments")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Uint("p", "port", 22, "SSH port")
+			f.String("i", "private-key", "", "path to private key file")
+			f.String("P", "password", "", "SSH user password")
+			f.String("l", "login", "", "username to use to connect")
+			f.Bool("s", "skip-loot", false, "skip the prompt to use loot credentials")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			exec.SSHCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
 	})
 
 	// [ Generate ] --------------------------------------------------------------
@@ -1866,32 +1892,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 	con.App.AddCommand(monitorCmd)
-
-	// // [ SSH ] --------------------------------------------------------------
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.SSHStr,
-	// 	Help:     "Run a SSH command on a remote host",
-	// 	LongHelp: help.GetHelpFor([]string{consts.SSHStr}),
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("hostname", "remote host to SSH to")
-	// 		a.StringList("command", "command line with arguments")
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.Uint("p", "port", 22, "SSH port")
-	// 		f.String("i", "private-key", "", "path to private key file")
-	// 		f.String("P", "password", "", "SSH user password")
-	// 		f.String("l", "login", "", "username to use to connect")
-	// 		f.Bool("s", "skip-loot", false, "skip the prompt to use loot credentials")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		runSSHCmd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
 
 	// [ Loot ] --------------------------------------------------------------
 
