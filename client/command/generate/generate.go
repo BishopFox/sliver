@@ -1,0 +1,545 @@
+package generate
+
+/*
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net"
+	"net/url"
+	"os"
+	"path"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"time"
+
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/desertbit/grumble"
+)
+
+const (
+	DefaultMTLSLPort    = 8888
+	DefaultWGLPort      = 53
+	DefaultWGNPort      = 8888
+	DefaultWGKeyExPort  = 1337
+	DefaultHTTPLPort    = 80
+	DefaultHTTPSLPort   = 443
+	DefaultDNSLPort     = 53
+	DefaultTCPPivotPort = 9898
+
+	DefaultReconnect = 60
+	DefaultPoll      = 1
+	DefaultMaxErrors = 1000
+)
+
+var (
+	// SupportedCompilerTargets - Supported compiler targets
+	SupportedCompilerTargets = map[string]bool{
+		"darwin/amd64":  true,
+		"darwin/arm64":  true,
+		"linux/386":     true,
+		"linux/amd64":   true,
+		"windows/386":   true,
+		"windows/amd64": true,
+	}
+
+	// validFormats = []string{
+	// 	"bash",
+	// 	"c",
+	// 	"csharp",
+	// 	"dw",
+	// 	"dword",
+	// 	"hex",
+	// 	"java",
+	// 	"js_be",
+	// 	"js_le",
+	// 	"num",
+	// 	"perl",
+	// 	"pl",
+	// 	"powershell",
+	// 	"ps1",
+	// 	"py",
+	// 	"python",
+	// 	"raw",
+	// 	"rb",
+	// 	"ruby",
+	// 	"sh",
+	// 	"vbapplication",
+	// 	"vbscript",
+	// }
+)
+
+func GenerateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	config := parseCompileFlags(ctx, con)
+	if config == nil {
+		return
+	}
+	save := ctx.Flags.String("save")
+	if save == "" {
+		save, _ = os.Getwd()
+	}
+	compile(config, save, con)
+}
+
+func saveLocation(save, DefaultName string) (string, error) {
+	var saveTo string
+	if save == "" {
+		save, _ = os.Getwd()
+	}
+	fi, err := os.Stat(save)
+	if os.IsNotExist(err) {
+		log.Printf("%s does not exist\n", save)
+		if strings.HasSuffix(save, "/") {
+			log.Printf("%s is dir\n", save)
+			os.MkdirAll(save, 0700)
+			saveTo, _ = filepath.Abs(path.Join(saveTo, DefaultName))
+		} else {
+			log.Printf("%s is not dir\n", save)
+			saveDir := filepath.Dir(save)
+			_, err := os.Stat(saveTo)
+			if os.IsNotExist(err) {
+				os.MkdirAll(saveDir, 0700)
+			}
+			saveTo, _ = filepath.Abs(save)
+		}
+	} else {
+		log.Printf("%s does exist\n", save)
+		if fi.IsDir() {
+			log.Printf("%s is dir\n", save)
+			saveTo, _ = filepath.Abs(path.Join(save, DefaultName))
+		} else {
+			log.Printf("%s is not dir\n", save)
+			prompt := &survey.Confirm{Message: "Overwrite existing file?"}
+			var confirm bool
+			survey.AskOne(prompt, &confirm)
+			if !confirm {
+				return "", errors.New("file already exists")
+			}
+			saveTo, _ = filepath.Abs(save)
+		}
+	}
+	return saveTo, nil
+}
+
+func nameOfOutputFormat(value clientpb.OutputFormat) string {
+	switch value {
+	case clientpb.OutputFormat_EXECUTABLE:
+		return "Executable"
+	case clientpb.OutputFormat_SERVICE:
+		return "Service"
+	case clientpb.OutputFormat_SHARED_LIB:
+		return "Shared Library"
+	case clientpb.OutputFormat_SHELLCODE:
+		return "Shellcode"
+	}
+	panic(fmt.Sprintf("Unknown format %v", value))
+}
+
+// Shared function that extracts the compile flags from the grumble context
+func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *clientpb.ImplantConfig {
+	var name string
+	if ctx.Flags["name"] != nil {
+		name = strings.ToLower(ctx.Flags.String("name"))
+
+		if name != "" {
+			isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
+			if !isAlphanumeric(name) {
+				con.PrintErrorf("Implant's name must be in alphanumeric only\n")
+				return nil
+			}
+		}
+	}
+
+	c2s := []*clientpb.ImplantC2{}
+
+	mtlsC2 := parseMTLSc2(ctx.Flags.String("mtls"))
+	c2s = append(c2s, mtlsC2...)
+
+	wgC2 := parseWGc2(ctx.Flags.String("wg"))
+	c2s = append(c2s, wgC2...)
+
+	httpC2 := parseHTTPc2(ctx.Flags.String("http"))
+	c2s = append(c2s, httpC2...)
+
+	dnsC2 := parseDNSc2(ctx.Flags.String("dns"))
+	c2s = append(c2s, dnsC2...)
+
+	namedPipeC2 := parseNamedPipec2(ctx.Flags.String("named-pipe"))
+	c2s = append(c2s, namedPipeC2...)
+
+	tcpPivotC2 := parseTCPPivotc2(ctx.Flags.String("tcp-pivot"))
+	c2s = append(c2s, tcpPivotC2...)
+
+	var symbolObfuscation bool
+	if ctx.Flags.Bool("debug") {
+		symbolObfuscation = false
+	} else {
+		symbolObfuscation = !ctx.Flags.Bool("skip-symbols")
+	}
+
+	if len(mtlsC2) == 0 && len(wgC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 && len(namedPipeC2) == 0 && len(tcpPivotC2) == 0 {
+		con.PrintErrorf("Must specify at least one of --mtls, --wg, --http, --dns, --named-pipe, or --tcp-pivot\n")
+		return nil
+	}
+
+	rawCanaries := ctx.Flags.String("canary")
+	canaryDomains := []string{}
+	if 0 < len(rawCanaries) {
+		for _, canaryDomain := range strings.Split(rawCanaries, ",") {
+			if !strings.HasSuffix(canaryDomain, ".") {
+				canaryDomain += "." // Ensure we have the FQDN
+			}
+			canaryDomains = append(canaryDomains, canaryDomain)
+		}
+	}
+
+	reconnectInterval := ctx.Flags.Int("reconnect")
+	pollInterval := ctx.Flags.Int("poll")
+	maxConnectionErrors := ctx.Flags.Int("max-errors")
+
+	limitDomainJoined := ctx.Flags.Bool("limit-domainjoined")
+	limitHostname := ctx.Flags.String("limit-hostname")
+	limitUsername := ctx.Flags.String("limit-username")
+	limitDatetime := ctx.Flags.String("limit-datetime")
+	limitFileExists := ctx.Flags.String("limit-fileexists")
+
+	isSharedLib := false
+	isService := false
+	isShellcode := false
+
+	format := ctx.Flags.String("format")
+	var configFormat clientpb.OutputFormat
+	switch format {
+	case "exe":
+		configFormat = clientpb.OutputFormat_EXECUTABLE
+	case "shared":
+		configFormat = clientpb.OutputFormat_SHARED_LIB
+		isSharedLib = true
+	case "shellcode":
+		configFormat = clientpb.OutputFormat_SHELLCODE
+		isShellcode = true
+	case "service":
+		configFormat = clientpb.OutputFormat_SERVICE
+		isService = true
+	default:
+		// Default to exe
+		configFormat = clientpb.OutputFormat_EXECUTABLE
+	}
+
+	targetOS := strings.ToLower(ctx.Flags.String("os"))
+	arch := strings.ToLower(ctx.Flags.String("arch"))
+	targetOS, arch = getTargets(targetOS, arch, con)
+	if targetOS == "" || arch == "" {
+		return nil
+	}
+
+	if len(namedPipeC2) > 0 && targetOS != "windows" {
+		con.PrintErrorf("Named pipe pivoting can only be used in Windows.")
+		return nil
+	}
+
+	var tunIP net.IP
+	if wg := ctx.Flags.String("wg"); wg != "" {
+		uniqueWGIP, err := con.Rpc.GenerateUniqueIP(context.Background(), &commonpb.Empty{})
+		tunIP = net.ParseIP(uniqueWGIP.IP)
+		if err != nil {
+			con.PrintErrorf("Failed to generate unique ip for wg peer tun interface")
+			return nil
+		}
+		con.PrintInfof("Generated unique ip for wg peer tun interface: %s\n", tunIP.String())
+	}
+
+	config := &clientpb.ImplantConfig{
+		GOOS:             targetOS,
+		GOARCH:           arch,
+		Name:             name,
+		Debug:            ctx.Flags.Bool("debug"),
+		Evasion:          ctx.Flags.Bool("evasion"),
+		ObfuscateSymbols: symbolObfuscation,
+		C2:               c2s,
+		CanaryDomains:    canaryDomains,
+
+		WGPeerTunIP:       tunIP.String(),
+		WGKeyExchangePort: uint32(ctx.Flags.Int("key-exchange")),
+		WGTcpCommsPort:    uint32(ctx.Flags.Int("tcp-comms")),
+
+		ReconnectInterval:   uint32(reconnectInterval),
+		PollInterval:        uint32(pollInterval),
+		MaxConnectionErrors: uint32(maxConnectionErrors),
+
+		LimitDomainJoined: limitDomainJoined,
+		LimitHostname:     limitHostname,
+		LimitUsername:     limitUsername,
+		LimitDatetime:     limitDatetime,
+		LimitFileExists:   limitFileExists,
+
+		Format:      configFormat,
+		IsSharedLib: isSharedLib,
+		IsService:   isService,
+		IsShellcode: isShellcode,
+	}
+
+	return config
+}
+
+func getTargets(targetOS string, targetArch string, con *console.SliverConsoleClient) (string, string) {
+
+	/* For UX we convert some synonymous terms */
+	if targetOS == "darwin" || targetOS == "mac" || targetOS == "macos" || targetOS == "osx" {
+		targetOS = "darwin"
+	}
+	if targetOS == "windows" || targetOS == "win" || targetOS == "shit" {
+		targetOS = "windows"
+	}
+	if targetOS == "linux" || targetOS == "lin" {
+		targetOS = "linux"
+	}
+
+	if targetArch == "amd64" || targetArch == "x64" || strings.HasPrefix(targetArch, "64") {
+		targetArch = "amd64"
+	}
+	if targetArch == "386" || targetArch == "x86" || strings.HasPrefix(targetArch, "32") {
+		targetArch = "386"
+	}
+
+	target := fmt.Sprintf("%s/%s", targetOS, targetArch)
+	if _, ok := SupportedCompilerTargets[target]; !ok {
+		con.Printf("⚠️  Unsupported compiler target %s%s%s, but we can try to compile a Default implant.\n",
+			console.Bold, target, console.Normal,
+		)
+		con.Printf("⚠️  Default implants do not support all commands/features.\n")
+		prompt := &survey.Confirm{Message: "Compile a Default build?"}
+		var confirm bool
+		survey.AskOne(prompt, &confirm)
+		if !confirm {
+			return "", ""
+		}
+	}
+
+	return targetOS, targetArch
+}
+
+func parseMTLSc2(args string) []*clientpb.ImplantC2 {
+	c2s := []*clientpb.ImplantC2{}
+	if args == "" {
+		return c2s
+	}
+	for index, arg := range strings.Split(args, ",") {
+		uri := url.URL{Scheme: "mtls"}
+		uri.Host = arg
+		if uri.Port() == "" {
+			uri.Host = fmt.Sprintf("%s:%d", uri.Host, DefaultMTLSLPort)
+		}
+		c2s = append(c2s, &clientpb.ImplantC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s
+}
+
+func parseWGc2(args string) []*clientpb.ImplantC2 {
+	c2s := []*clientpb.ImplantC2{}
+	if args == "" {
+		return c2s
+	}
+	for index, arg := range strings.Split(args, ",") {
+		arg = strings.ToLower(arg)
+		uri := url.URL{Scheme: "wg"}
+		uri.Host = arg
+		if uri.Port() == "" {
+			uri.Host = fmt.Sprintf("%s:%d", uri.Host, DefaultWGLPort)
+		}
+		c2s = append(c2s, &clientpb.ImplantC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s
+}
+
+func parseHTTPc2(args string) []*clientpb.ImplantC2 {
+	c2s := []*clientpb.ImplantC2{}
+	if args == "" {
+		return c2s
+	}
+	for index, arg := range strings.Split(args, ",") {
+		arg = strings.ToLower(arg)
+		var uri *url.URL
+		var err error
+		if strings.HasPrefix(arg, "http://") || strings.HasPrefix(arg, "https://") {
+			uri, err = url.Parse(arg)
+			if err != nil {
+				log.Printf("Failed to parse C2 URL %s", err)
+				continue
+			}
+		} else {
+			uri, err = url.Parse(fmt.Sprintf("https://%s", arg))
+			if err != nil {
+				log.Printf("Failed to parse C2 URL %s", err)
+				continue
+			}
+		}
+		c2s = append(c2s, &clientpb.ImplantC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s
+}
+
+func parseDNSc2(args string) []*clientpb.ImplantC2 {
+	c2s := []*clientpb.ImplantC2{}
+	if args == "" {
+		return c2s
+	}
+	for index, arg := range strings.Split(args, ",") {
+		uri := url.URL{Scheme: "dns"}
+		if len(arg) < 1 {
+			continue
+		}
+		// Make sure we have the FQDN
+		if !strings.HasSuffix(arg, ".") {
+			arg += "."
+		}
+		arg = strings.TrimPrefix(arg, ".")
+
+		uri.Host = arg
+		c2s = append(c2s, &clientpb.ImplantC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s
+}
+
+func parseNamedPipec2(args string) []*clientpb.ImplantC2 {
+	c2s := []*clientpb.ImplantC2{}
+	if args == "" {
+		return c2s
+	}
+	for index, arg := range strings.Split(args, ",") {
+		uri, err := url.Parse("namedpipe://" + arg)
+		if len(arg) < 1 {
+			continue
+		}
+		if err != nil {
+			return c2s
+		}
+		c2s = append(c2s, &clientpb.ImplantC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s
+}
+
+func parseTCPPivotc2(args string) []*clientpb.ImplantC2 {
+	c2s := []*clientpb.ImplantC2{}
+	if args == "" {
+		return c2s
+	}
+	for index, arg := range strings.Split(args, ",") {
+
+		uri := url.URL{Scheme: "tcppivot"}
+		uri.Host = arg
+		if uri.Port() == "" {
+			uri.Host = fmt.Sprintf("%s:%d", uri.Host, DefaultTCPPivotPort)
+		}
+		c2s = append(c2s, &clientpb.ImplantC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s
+}
+
+func compile(config *clientpb.ImplantConfig, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
+
+	con.PrintInfof("Generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
+
+	if config.ObfuscateSymbols {
+		con.PrintInfof("%sSymbol obfuscation is enabled%s\n", console.Bold, console.Normal)
+	} else if !config.Debug {
+		con.PrintErrorf("Symbol obfuscation is %sdisabled%s\n", console.Bold, console.Normal)
+	}
+
+	start := time.Now()
+	ctrl := make(chan bool)
+	con.SpinUntil("Compiling, please wait ...", ctrl)
+
+	generated, err := con.Rpc.Generate(context.Background(), &clientpb.GenerateReq{
+		Config: config,
+	})
+	ctrl <- true
+	<-ctrl
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return nil, err
+	}
+
+	end := time.Now()
+	elapsed := time.Time{}.Add(end.Sub(start))
+	con.PrintInfof("Build completed in %s\n", elapsed.Format("15:04:05"))
+	if len(generated.File.Data) == 0 {
+		con.PrintErrorf("Build failed, no file data\n")
+		return nil, errors.New("no file data")
+	}
+
+	saveTo, err := saveLocation(save, generated.File.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	err = ioutil.WriteFile(saveTo, generated.File.Data, 0700)
+	if err != nil {
+		con.PrintErrorf("Failed to write to: %s\n", saveTo)
+		return nil, err
+	}
+	con.PrintInfof("Implant saved to %s\n", saveTo)
+	return generated.File, err
+}
+
+func getLimitsString(config *clientpb.ImplantConfig) string {
+	limits := []string{}
+	if config.LimitDatetime != "" {
+		limits = append(limits, fmt.Sprintf("datetime=%s", config.LimitDatetime))
+	}
+	if config.LimitDomainJoined {
+		limits = append(limits, fmt.Sprintf("domainjoined=%v", config.LimitDomainJoined))
+	}
+	if config.LimitUsername != "" {
+		limits = append(limits, fmt.Sprintf("username=%s", config.LimitUsername))
+	}
+	if config.LimitHostname != "" {
+		limits = append(limits, fmt.Sprintf("hostname=%s", config.LimitHostname))
+	}
+	if config.LimitFileExists != "" {
+		limits = append(limits, fmt.Sprintf("fileexists=%s", config.LimitFileExists))
+	}
+	return strings.Join(limits, "; ")
+}
