@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -73,17 +74,17 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	generateCtrl <- true
 	<-generateCtrl
-	var p *clientpb.ImplantProfile
+	var implantProfile *clientpb.ImplantProfile
 	for _, prof := range profiles.Profiles {
 		if prof.Name == profile {
-			p = prof
+			implantProfile = prof
 		}
 	}
-	if p.GetName() == "" {
+	if implantProfile.GetName() == "" {
 		con.PrintErrorf("No profile found for name %s\n", profile)
 		return
 	}
-	sliverBinary, err := getSliverBinary(p, con.Rpc)
+	sliverBinary, err := generate.GetSliverBinary(implantProfile, con)
 	filename := randomString(10)
 	filePath := fmt.Sprintf("%s\\%s.exe", uploadPath, filename)
 	uploadGzip := new(encoders.Gzip).Encode(sliverBinary)

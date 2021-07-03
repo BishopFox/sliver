@@ -43,19 +43,6 @@ import (
 )
 
 const (
-	// defaultMTLSLPort    = 8888
-	// defaultWGLPort      = 53
-	// defaultWGNPort      = 8888
-	// defaultWGKeyExPort  = 1337
-	// defaultHTTPLPort    = 80
-	// defaultHTTPSLPort   = 443
-	// defaultDNSLPort     = 53
-	// defaultTCPPivotPort = 9898
-
-	// defaultReconnect = 60
-	// defaultPoll      = 1
-	// defaultMaxErrors = 1000
-
 	defaultTimeout = 60
 )
 
