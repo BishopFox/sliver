@@ -35,7 +35,12 @@ package command
 
 import (
 	"github.com/bishopfox/sliver/client/command/filesystem"
+	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
+	"github.com/bishopfox/sliver/client/command/info"
+	"github.com/bishopfox/sliver/client/command/jobs"
+	"github.com/bishopfox/sliver/client/command/operators"
+	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -50,6 +55,8 @@ const (
 func BindCommands(con *console.SliverConsoleClient) {
 
 	con.App.SetPrintHelp(help.HelpCmd(con)) // Responsible for display long-form help templates, etc.
+
+	// [ Update ] --------------------------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{
 		Name:     consts.UpdateStr,
@@ -88,244 +95,331 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 
-	// // [ Jobs ] -----------------------------------------------------------------
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.JobsStr,
-	// 	Help:     "Job control",
-	// 	LongHelp: help.GetHelpFor([]string{consts.JobsStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("k", "kill", -1, "kill a background job")
-	// 		f.Bool("K", "kill-all", false, "kill all jobs")
+	// [ Jobs ] -----------------------------------------------------------------
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		jobs(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.JobsStr,
+		Help:     "Job control",
+		LongHelp: help.GetHelpFor([]string{consts.JobsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("k", "kill", -1, "kill a background job")
+			f.Bool("K", "kill-all", false, "kill all jobs")
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.MtlsStr,
-	// 	Help:     "Start an mTLS listener",
-	// 	LongHelp: help.GetHelpFor([]string{consts.MtlsStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("s", "server", "", "interface to bind server to")
-	// 		f.Int("l", "lport", defaultMTLSLPort, "tcp listen port")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			jobs.JobsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.Bool("p", "persistent", false, "make persistent across restarts")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		startMTLSListener(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.MtlsStr,
+		Help:     "Start an mTLS listener",
+		LongHelp: help.GetHelpFor([]string{consts.MtlsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "server", "", "interface to bind server to")
+			f.Int("l", "lport", generate.DefaultMTLSLPort, "tcp listen port")
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.WGStr,
-	// 	Help:     "Start a WireGuard listener",
-	// 	LongHelp: help.GetHelpFor([]string{consts.WGStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("l", "lport", defaultWGLPort, "udp listen port")
-	// 		f.Int("n", "nport", defaultWGNPort, "virtual tun interface listen port")
-	// 		f.Int("x", "key-port", defaultWGKeyExPort, "virtual tun inteface key exchange port")
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.Bool("p", "persistent", false, "make persistent across restarts")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		startWGListener(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("p", "persistent", false, "make persistent across restarts")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			jobs.MTLSListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.DnsStr,
-	// 	Help:     "Start a DNS listener",
-	// 	LongHelp: help.GetHelpFor([]string{consts.DnsStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("d", "domains", "", "parent domain(s) to use for DNS c2")
-	// 		f.Bool("c", "no-canaries", false, "disable dns canary detection")
-	// 		f.Int("l", "lport", defaultDNSLPort, "udp listen port")
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.WGStr,
+		Help:     "Start a WireGuard listener",
+		LongHelp: help.GetHelpFor([]string{consts.WGStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("l", "lport", generate.DefaultWGLPort, "udp listen port")
+			f.Int("n", "nport", generate.DefaultWGNPort, "virtual tun interface listen port")
+			f.Int("x", "key-port", generate.DefaultWGKeyExPort, "virtual tun inteface key exchange port")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("p", "persistent", false, "make persistent across restarts")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			jobs.WGListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.Bool("p", "persistent", false, "make persistent across restarts")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		startDNSListener(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.DnsStr,
+		Help:     "Start a DNS listener",
+		LongHelp: help.GetHelpFor([]string{consts.DnsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("d", "domains", "", "parent domain(s) to use for DNS c2")
+			f.Bool("c", "no-canaries", false, "disable dns canary detection")
+			f.Int("l", "lport", generate.DefaultDNSLPort, "udp listen port")
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.HttpStr,
-	// 	Help:     "Start an HTTP listener",
-	// 	LongHelp: help.GetHelpFor([]string{consts.HttpStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("d", "domain", "", "limit responses to specific domain")
-	// 		f.String("w", "website", "", "website name (see websites cmd)")
-	// 		f.Int("l", "lport", defaultHTTPLPort, "tcp listen port")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("p", "persistent", false, "make persistent across restarts")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			jobs.DNSListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.Bool("p", "persistent", false, "make persistent across restarts")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		startHTTPListener(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.HttpStr,
+		Help:     "Start an HTTP listener",
+		LongHelp: help.GetHelpFor([]string{consts.HttpStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("d", "domain", "", "limit responses to specific domain")
+			f.String("w", "website", "", "website name (see websites cmd)")
+			f.Int("l", "lport", generate.DefaultHTTPLPort, "tcp listen port")
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.HttpsStr,
-	// 	Help:     "Start an HTTPS listener",
-	// 	LongHelp: help.GetHelpFor([]string{consts.HttpsStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("d", "domain", "", "limit responses to specific domain")
-	// 		f.String("w", "website", "", "website name (see websites cmd)")
-	// 		f.Int("l", "lport", defaultHTTPSLPort, "tcp listen port")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("p", "persistent", false, "make persistent across restarts")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			jobs.HTTPListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// 		f.String("c", "cert", "", "PEM encoded certificate file")
-	// 		f.String("k", "key", "", "PEM encoded private key file")
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.HttpsStr,
+		Help:     "Start an HTTPS listener",
+		LongHelp: help.GetHelpFor([]string{consts.HttpsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("d", "domain", "", "limit responses to specific domain")
+			f.String("w", "website", "", "website name (see websites cmd)")
+			f.Int("l", "lport", generate.DefaultHTTPSLPort, "tcp listen port")
 
-	// 		f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate")
+			f.String("c", "cert", "", "PEM encoded certificate file")
+			f.String("k", "key", "", "PEM encoded private key file")
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 		f.Bool("p", "persistent", false, "make persistent across restarts")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		startHTTPSListener(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate")
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.PlayersStr,
-	// 	Help:     "List operators",
-	// 	LongHelp: help.GetHelpFor([]string{consts.PlayersStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		operatorsCmd(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.MultiplayerHelpGroup,
-	// })
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("p", "persistent", false, "make persistent across restarts")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			jobs.HTTPSListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// // [ Commands ] --------------------------------------------------------------
+	// [ Operators ] --------------------------------------------------------------
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.SessionsStr,
-	// 	Help:     "Session management",
-	// 	LongHelp: help.GetHelpFor([]string{consts.SessionsStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.String("i", "interact", "", "interact with a sliver")
-	// 		f.String("k", "kill", "", "Kill the designated session")
-	// 		f.Bool("K", "kill-all", false, "Kill all the sessions")
-	// 		f.Bool("C", "clean", false, "Clean out any sessions marked as [DEAD]")
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.PlayersStr,
+		Help:     "Manage operators",
+		LongHelp: help.GetHelpFor([]string{consts.PlayersStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			operators.OperatorsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.MultiplayerHelpGroup,
+	})
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		sessions(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	// [ Sessions ] --------------------------------------------------------------
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.BackgroundStr,
-	// 	Help:     "Background an active session",
-	// 	LongHelp: help.GetHelpFor([]string{consts.BackgroundStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		background(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.SessionsStr,
+		Help:     "Session management",
+		LongHelp: help.GetHelpFor([]string{consts.SessionsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("i", "interact", "", "interact with a sliver")
+			f.String("k", "kill", "", "Kill the designated session")
+			f.Bool("K", "kill-all", false, "Kill all the sessions")
+			f.Bool("C", "clean", false, "Clean out any sessions marked as [DEAD]")
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.KillStr,
-	// 	Help:     "Kill a session",
-	// 	LongHelp: help.GetHelpFor([]string{consts.KillStr}),
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		kill(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Bool("f", "force", false, "Force kill,  does not clean up")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			sessions.SessionsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.BackgroundStr,
+		Help:     "Background an active session",
+		LongHelp: help.GetHelpFor([]string{consts.BackgroundStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			sessions.BackgroundCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.InfoStr,
-	// 	Help:     "Get info about session",
-	// 	LongHelp: help.GetHelpFor([]string{consts.InfoStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("session", "session ID", grumble.Default(""))
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		info(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.UseStr,
+		Help:     "Switch the active session",
+		LongHelp: help.GetHelpFor([]string{consts.UseStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("session", "session ID")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			sessions.UseCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.UseStr,
-	// 	Help:     "Switch the active session",
-	// 	LongHelp: help.GetHelpFor([]string{consts.UseStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Args: func(a *grumble.Args) {
-	// 		a.String("session", "session ID")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		use(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.GenericHelpGroup,
-	// })
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.KillStr,
+		Help:     "Kill a session",
+		LongHelp: help.GetHelpFor([]string{consts.KillStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			sessions.KillCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("f", "force", false, "Force kill,  does not clean up")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	// [ Info ] --------------------------------------------------------------
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.InfoStr,
+		Help:     "Get info about session",
+		LongHelp: help.GetHelpFor([]string{consts.InfoStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("session", "session ID", grumble.Default(""))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			info.InfoCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.PingStr,
+		Help:     "Send round trip message to implant (does not use ICMP)",
+		LongHelp: help.GetHelpFor([]string{consts.PingStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			info.PingCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.GetPIDStr,
+		Help:     "Get session pid",
+		LongHelp: help.GetHelpFor([]string{consts.GetPIDStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			info.PIDCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.GetUIDStr,
+		Help:     "Get session process UID",
+		LongHelp: help.GetHelpFor([]string{consts.GetUIDStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			info.UIDCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.GetGIDStr,
+		Help:     "Get session process GID",
+		LongHelp: help.GetHelpFor([]string{consts.GetGIDStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			info.GIDCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.WhoamiStr,
+		Help:     "Get session user execution context",
+		LongHelp: help.GetHelpFor([]string{consts.WhoamiStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			info.WhoamiCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	// [] --------------------------------------------------------------
 
 	// con.App.AddCommand(&grumble.Command{
 	// 	Name:     consts.ShellStr,
@@ -720,86 +814,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
-
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.PingStr,
-	// 	Help:     "Send round trip message to implant (does not use ICMP)",
-	// 	LongHelp: help.GetHelpFor([]string{consts.PingStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		ping(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
-
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.GetPIDStr,
-	// 	Help:     "Get session pid",
-	// 	LongHelp: help.GetHelpFor([]string{consts.GetPIDStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		getPID(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
-
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.GetUIDStr,
-	// 	Help:     "Get session process UID",
-	// 	LongHelp: help.GetHelpFor([]string{consts.GetUIDStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		getUID(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
-
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.GetGIDStr,
-	// 	Help:     "Get session process GID",
-	// 	LongHelp: help.GetHelpFor([]string{consts.GetGIDStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		getGID(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
-
-	// con.App.AddCommand(&grumble.Command{
-	// 	Name:     consts.WhoamiStr,
-	// 	Help:     "Get session user execution context",
-	// 	LongHelp: help.GetHelpFor([]string{consts.WhoamiStr}),
-	// 	Flags: func(f *grumble.Flags) {
-	// 		f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-	// 	},
-	// 	Run: func(ctx *grumble.Context) error {
-	// 		con.Println()
-	// 		whoami(ctx, con)
-	// 		con.Println()
-	// 		return nil
-	// 	},
-	// 	HelpGroup: consts.SliverHelpGroup,
-	// })
 
 	con.App.AddCommand(&grumble.Command{
 		Name:     consts.LsStr,

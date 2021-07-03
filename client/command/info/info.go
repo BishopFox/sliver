@@ -33,7 +33,7 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if con.ActiveSession.GetInteractive() != nil {
 		session = con.ActiveSession.GetInteractive()
 	} else if sessionName != "" {
-		session = con.GetSession(sessionName, con.Rpc)
+		session = con.GetSession(sessionName)
 	}
 
 	if session != nil {

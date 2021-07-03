@@ -25,7 +25,6 @@ import (
 	"io"
 	"log"
 	insecureRand "math/rand"
-	"os"
 	"path"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -136,8 +135,6 @@ func (con *SliverConsoleClient) EventLoop() {
 		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
-	stdout := bufio.NewWriter(os.Stdout)
-
 	for {
 		event, err := eventStream.Recv()
 		if err == io.EOF || event == nil {
@@ -149,20 +146,20 @@ func (con *SliverConsoleClient) EventLoop() {
 
 		case consts.CanaryEvent:
 			con.Printf(Clearln+Warn+Bold+"WARNING: %s%s has been burned (DNS Canary)\n", Normal, event.Session.Name)
-			sessions := con.GetSessionsByName(event.Session.Name, con.Rpc)
+			sessions := con.GetSessionsByName(event.Session.Name)
 			for _, session := range sessions {
 				con.Printf(Clearln+"\t🔥 Session #%d is affected\n", session.ID)
 			}
-			fmt.Println()
+			con.Println()
 
 		case consts.WatchtowerEvent:
 			msg := string(event.Data)
-			fmt.Printf(Clearln+Warn+Bold+"WARNING: %s%s has been burned (seen on %s)\n", Normal, event.Session.Name, msg)
-			sessions := con.GetSessionsByName(event.Session.Name, con.Rpc)
+			con.Printf(Clearln+Warn+Bold+"WARNING: %s%s has been burned (seen on %s)\n", Normal, event.Session.Name, msg)
+			sessions := con.GetSessionsByName(event.Session.Name)
 			for _, session := range sessions {
 				con.PrintWarnf("\t🔥 Session #%d is affected\n", session.ID)
 			}
-			fmt.Println()
+			con.Println()
 
 		case consts.JoinedEvent:
 			con.PrintInfof("%s has joined the game\n\n", event.Client.Operator.Name)
@@ -188,23 +185,23 @@ func (con *SliverConsoleClient) EventLoop() {
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			fmt.Printf(Clearln+Info+"Session #%d has been updated - %v\n", session.ID, currentTime)
+			con.Printf(Clearln+Info+"Session #%d has been updated - %v\n", session.ID, currentTime)
 
 		case consts.SessionClosedEvent:
 			session := event.Session
-			fmt.Printf(Clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
+			con.Printf(Clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
 				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
 			activeSession := con.ActiveSession.Get()
 			if activeSession != nil && activeSession.ID == session.ID {
 				con.ActiveSession.Set(nil)
 				con.App.SetPrompt(con.GetPrompt())
-				fmt.Printf(Warn + " Active session disconnected\n")
+				con.Printf(Warn + " Active session disconnected\n")
 			}
-			fmt.Println()
+			con.Println()
 		}
 
-		fmt.Printf(con.GetPrompt())
-		stdout.Flush()
+		con.Printf(Clearln + con.GetPrompt())
+		bufio.NewWriter(con.App.Stdout()).Flush()
 	}
 }
 
@@ -265,8 +262,8 @@ func (con *SliverConsoleClient) CheckLastUpdate() {
 }
 
 // GetSession - Get session by session ID or name
-func (con *SliverConsoleClient) GetSession(arg string, rpc rpcpb.SliverRPCClient) *clientpb.Session {
-	sessions, err := rpc.GetSessions(context.Background(), &commonpb.Empty{})
+func (con *SliverConsoleClient) GetSession(arg string) *clientpb.Session {
+	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
 		return nil
@@ -280,8 +277,8 @@ func (con *SliverConsoleClient) GetSession(arg string, rpc rpcpb.SliverRPCClient
 }
 
 // GetSessionsByName - Return all sessions for an Implant by name
-func (con *SliverConsoleClient) GetSessionsByName(name string, rpc rpcpb.SliverRPCClient) []*clientpb.Session {
-	sessions, err := rpc.GetSessions(context.Background(), &commonpb.Empty{})
+func (con *SliverConsoleClient) GetSessionsByName(name string) []*clientpb.Session {
+	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
 		return nil

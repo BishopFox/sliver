@@ -35,7 +35,7 @@ import (
 
 func JobsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if ctx.Flags.Int("kill") != -1 {
-		JobKillCmd(uint32(ctx.Flags.Int("kill")), con)
+		jobKill(uint32(ctx.Flags.Int("kill")), con)
 	} else if ctx.Flags.Bool("kill-all") {
 		killAllJobs(con)
 	} else {
@@ -77,4 +77,27 @@ func printJobs(jobs map[uint32]*clientpb.Job) {
 		fmt.Fprintf(table, "%d\t%s\t%s\t%d\t\n", job.ID, job.Name, job.Protocol, job.Port)
 	}
 	table.Flush()
+}
+
+func jobKill(jobID uint32, con *console.SliverConsoleClient) {
+	con.PrintInfof("Killing job #%d ...\n", jobID)
+	jobKill, err := con.Rpc.KillJob(context.Background(), &clientpb.KillJobReq{
+		ID: jobID,
+	})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+	} else {
+		con.PrintInfof("Successfully killed job #%d\n", jobKill.ID)
+	}
+}
+
+func killAllJobs(con *console.SliverConsoleClient) {
+	jobs, err := con.Rpc.GetJobs(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	for _, job := range jobs.Active {
+		jobKill(job.ID, con)
+	}
 }
