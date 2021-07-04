@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// InfoCmd - Display information about the active session
 func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	var session *clientpb.Session
@@ -57,6 +58,7 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 }
 
+// PIDCmd - Get the active session's PID
 func PIDCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {
@@ -65,6 +67,7 @@ func PIDCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.Printf("%d\n", session.PID)
 }
 
+// UIDCmd - Get the active session's UID
 func UIDCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {
@@ -73,6 +76,7 @@ func UIDCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.Printf("%s\n", session.UID)
 }
 
+// GIDCmd - Get the active session's GID
 func GIDCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {
@@ -81,6 +85,7 @@ func GIDCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.Printf("%s\n", session.GID)
 }
 
+// WhoamiCmd - Displays the current user of the active session
 func WhoamiCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

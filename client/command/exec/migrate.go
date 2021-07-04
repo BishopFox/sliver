@@ -24,6 +24,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// MigrateCmd - Windows only, inject an implant into another process
 func MigrateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.Get()
 	if session == nil {

@@ -33,6 +33,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// DownloadCmd - Download a file from the remote system
 func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

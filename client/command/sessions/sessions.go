@@ -33,6 +33,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// SessionsCmd - Display/interact with sessions
 func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	interact := ctx.Flags.String("interact")

@@ -47,6 +47,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// UpdateCmd - Check for updates
 func UpdateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	VerboseVersionsCmd(ctx, con)
 
@@ -124,6 +125,7 @@ func UpdateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 }
 
+// VerboseVersionsCmd - Get verbose version information about the client and server
 func VerboseVersionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	clientVer := version.FullVersion()
 	serverVer, err := con.Rpc.GetVersion(context.Background(), &commonpb.Empty{})

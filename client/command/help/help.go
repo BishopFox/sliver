@@ -29,6 +29,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// HelpCmd - Returns an instance of the 'help' command
 func HelpCmd(con *console.SliverConsoleClient) func(a *grumble.App, shell bool) {
 	return func(a *grumble.App, shell bool) {
 		printHelp(con)

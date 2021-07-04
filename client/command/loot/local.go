@@ -31,6 +31,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// LootAddLocalCmd - Add a local file to the server as loot
 func LootAddLocalCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	localPath := ctx.Args.String("path")
 	if _, err := os.Stat(localPath); os.IsNotExist(err) {

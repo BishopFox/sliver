@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// EnvUnsetCmd - Unset a remote environment variable
 func EnvUnsetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.Get()
 	if session == nil {

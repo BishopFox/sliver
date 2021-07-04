@@ -36,6 +36,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/desertbit/grumble"
 )
 
 var (
@@ -106,6 +107,7 @@ func AddLootAPIKey(rpc rpcpb.SliverRPCClient, name string, apiKey string) error 
 	return err
 }
 
+// SelectCredentials - An interactive menu for the user to select a piece of loot
 func SelectCredentials(con *console.SliverConsoleClient) (*clientpb.Loot, error) {
 	allLoot, err := con.Rpc.LootAllOf(context.Background(), &clientpb.Loot{
 		Type: clientpb.LootType_LOOT_CREDENTIAL,
@@ -130,6 +132,59 @@ func SelectCredentials(con *console.SliverConsoleClient) (*clientpb.Loot, error)
 	selected := ""
 	prompt := &survey.Select{
 		Message: "Select a piece of credentials:",
+		Options: options,
+	}
+	err = survey.AskOne(prompt, &selected)
+	if err != nil {
+		return nil, err
+	}
+	for index, value := range options {
+		if value == selected {
+			return allLoot.Loot[index], nil
+		}
+	}
+	return nil, errors.New("loot not found")
+}
+
+// SelectLoot - Interactive menu for the user to select a piece loot (all types)
+func SelectLoot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) (*clientpb.Loot, error) {
+
+	// Fetch data with optional filter
+	filter := ctx.Flags.String("filter")
+	var allLoot *clientpb.AllLoot
+	var err error
+	if filter == "" {
+		allLoot, err = rpc.LootAll(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		lootType, err := lootTypeFromHumanStr(filter)
+		if err != nil {
+			return nil, ErrInvalidFileType
+		}
+		allLoot, err = rpc.LootAllOf(context.Background(), &clientpb.Loot{Type: lootType})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Render selection table
+	buf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
+	for _, loot := range allLoot.Loot {
+		fmt.Fprintf(table, "%s\t%s\t%s\t\n", loot.Name, loot.Type, loot.LootID)
+	}
+	table.Flush()
+	options := strings.Split(buf.String(), "\n")
+	options = options[:len(options)-1]
+	if len(options) == 0 {
+		return nil, errors.New("no loot to select from")
+	}
+
+	selected := ""
+	prompt := &survey.Select{
+		Message: "Select a piece of loot:",
 		Options: options,
 	}
 	err = survey.AskOne(prompt, &selected)

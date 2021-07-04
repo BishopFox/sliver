@@ -29,6 +29,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// MsfInjectCmd - Inject a metasploit payload into a remote process
 func MsfInjectCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

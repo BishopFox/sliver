@@ -8,6 +8,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// WebsitesUpdateContentCmd - Update metadata about static website content
 func WebsitesUpdateContentCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	websiteName := ctx.Flags.String("website")
 	if websiteName == "" {

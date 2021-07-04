@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// RunAsCmd - Run a command as another user on the remote system
 func RunAsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

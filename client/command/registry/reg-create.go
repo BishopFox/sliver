@@ -27,6 +27,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// RegCreateKeyCmd - Create a new Windows registry key
 func RegCreateKeyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.Get()
 	if session == nil {

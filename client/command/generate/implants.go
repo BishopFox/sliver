@@ -32,6 +32,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// ImplantsCmd - Displays archived implant builds
 func ImplantsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
 	if err != nil {

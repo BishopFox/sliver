@@ -27,6 +27,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// DNSListenerCmd - Start a DNS lisenter
 func DNSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	domains := strings.Split(ctx.Flags.String("domains"), ",")

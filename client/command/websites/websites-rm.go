@@ -8,6 +8,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// WebsiteRmCmd - Remove a website and all its static content
 func WebsiteRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	_, err := con.Rpc.WebsiteRemove(context.Background(), &clientpb.Website{
 		Name: ctx.Args.String("name"),

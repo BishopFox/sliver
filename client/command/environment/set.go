@@ -27,6 +27,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// EnvSetCmd - Set a remote environment variable
 func EnvSetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.Get()
 	if session == nil {

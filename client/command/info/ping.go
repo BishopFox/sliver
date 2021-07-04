@@ -9,6 +9,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// PingCmd - Send a round trip C2 message to an implant (does not use ICMP)
 func PingCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

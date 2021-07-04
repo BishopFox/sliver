@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// RevToSelfCmd - Drop any impersonated tokens
 func RevToSelfCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

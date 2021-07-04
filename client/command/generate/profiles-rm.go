@@ -8,6 +8,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// ProfilesRmCmd - Delete an implant profile
 func ProfilesRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	_, err := con.Rpc.DeleteImplantProfile(context.Background(), &clientpb.DeleteReq{
 		Name: ctx.Args.String("profile-name"),

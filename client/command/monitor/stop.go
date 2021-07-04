@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// MonitorStopCmd - Stop monitoring threat intel for implants
 func MonitorStopCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	_, err := con.Rpc.MonitorStop(context.Background(), &commonpb.Empty{})
 	if err != nil {

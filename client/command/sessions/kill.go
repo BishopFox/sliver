@@ -12,6 +12,7 @@ import (
 	"gopkg.in/AlecAivazis/survey.v1"
 )
 
+// KillCmd - Kill the active session (not to be confused with TerminateCmd)
 func KillCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

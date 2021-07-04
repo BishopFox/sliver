@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// MTLSListenerCmd - Start an mTLS listener
 func MTLSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	server := ctx.Flags.String("server")
 	lport := uint16(ctx.Flags.Int("lport"))

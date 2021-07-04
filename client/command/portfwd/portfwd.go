@@ -30,6 +30,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// PortfwdCmd - Display information about tunneled port forward(s)
 func PortfwdCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	portfwds := core.Portfwds.List()
 	if len(portfwds) == 0 {

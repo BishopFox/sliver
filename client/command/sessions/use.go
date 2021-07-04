@@ -6,6 +6,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// UseCmd - Change the active session
 func UseCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	sessionArg := ctx.Args.String("session")
 	if sessionArg != "" {

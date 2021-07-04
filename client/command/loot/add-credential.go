@@ -27,6 +27,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// LootAddCredentialCmd - Add a credential type loot
 func LootAddCredentialCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	prompt := &survey.Select{
 		Message: "Choose a credential type:",

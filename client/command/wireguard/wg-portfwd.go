@@ -30,6 +30,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// WGPortFwdListCmd - List WireGuard port forwards
 func WGPortFwdListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

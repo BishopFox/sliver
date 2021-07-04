@@ -32,6 +32,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// OperatorsCmd - Display operators and current online status
 func OperatorsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	operators, err := con.Rpc.GetOperators(context.Background(), &commonpb.Empty{})
 	if err != nil {

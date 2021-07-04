@@ -28,6 +28,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// RegenerateCmd - Download an archived implant build/binary
 func RegenerateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	save := ctx.Flags.String("save")
 	if save == "" {

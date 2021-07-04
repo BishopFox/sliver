@@ -27,6 +27,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// BackdoorCmd - Command to inject implant code into an existing binary
 func BackdoorCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

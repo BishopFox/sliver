@@ -9,6 +9,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// TCPListenerCmd - Start a TCP pivot listener on the remote system
 func TCPListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

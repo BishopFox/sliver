@@ -13,6 +13,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// SpawnDllCmd - Spawn execution of a DLL on the remote system
 func SpawnDllCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.Get()
 	if session == nil {

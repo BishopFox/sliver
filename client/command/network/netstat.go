@@ -29,6 +29,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// NetstatCmd - Display active network connections on the remote system
 func NetstatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

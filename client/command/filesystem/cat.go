@@ -33,6 +33,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// CatCmd - Display the contents of a remote file
 func CatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

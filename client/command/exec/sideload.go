@@ -27,6 +27,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// SideloadCmd - Sideload a shared library on the remote system
 func SideloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.Get()
 	if session == nil {

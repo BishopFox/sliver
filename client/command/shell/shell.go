@@ -28,9 +28,9 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/desertbit/grumble"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 const (
@@ -39,6 +39,7 @@ const (
 	linux   = "linux"
 )
 
+// ShellCmd - Start an interactive shell on the remote system
 func ShellCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

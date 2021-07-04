@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// WGSocksStopCmd - Stop a WireGuard SOCKS proxy
 func WGSocksStopCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.Get()
 	if session == nil {

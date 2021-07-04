@@ -8,6 +8,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// ProfilesNewCmd - Create a new implant profile
 func ProfilesNewCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	name := ctx.Flags.String("profile-name")
 	if name == "" {

@@ -30,7 +30,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
-// registry write --hive HKCU --type dword "software\google\chrome\blbeacon\hello" 32
+// RegWriteCmd - Write to a Windows registry key: registry write --hive HKCU --type dword "software\google\chrome\blbeacon\hello" 32
 func RegWriteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

@@ -93,6 +93,7 @@ var (
 	// }
 )
 
+// GenerateCmd - The main command used to generate implant binaries
 func GenerateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	config := parseCompileFlags(ctx, con)
 	if config == nil {

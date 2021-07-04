@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// EnvGetCmd - Get a remote environment variable
 func EnvGetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.Get()
 	if session == nil {

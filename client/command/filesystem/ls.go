@@ -32,6 +32,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// LsCmd - List the contents of a remote directory
 func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

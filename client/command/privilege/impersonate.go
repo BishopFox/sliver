@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// ImpersonateCmd - Windows only, impersonate a user token
 func ImpersonateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

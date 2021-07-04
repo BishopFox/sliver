@@ -27,6 +27,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// WGPortFwdAddCmd - Add a new WireGuard port forward
 func WGPortFwdAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

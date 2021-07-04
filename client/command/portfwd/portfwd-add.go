@@ -29,6 +29,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// PortfwdAddCmd - Add a new tunneled port forward
 func PortfwdAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

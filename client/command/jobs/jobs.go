@@ -33,6 +33,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// JobsCmd - Manage server jobs (listeners, etc)
 func JobsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if ctx.Flags.Int("kill") != -1 {
 		jobKill(uint32(ctx.Flags.Int("kill")), con)

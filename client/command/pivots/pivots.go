@@ -33,6 +33,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// PivotsCmd - Display pivots for all sessions
 func PivotsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	timeout := ctx.Flags.Int("timeout")
 	sessionID := ctx.Flags.String("id")
