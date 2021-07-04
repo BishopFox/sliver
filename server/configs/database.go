@@ -43,7 +43,7 @@ const (
 )
 
 var (
-	// ErrInvalidDialect -
+	// ErrInvalidDialect - An invalid dialect was specified
 	ErrInvalidDialect = errors.New("Invalid SQL Dialect")
 
 	databaseConfigLog = log.NamedLogger("config", "database")
