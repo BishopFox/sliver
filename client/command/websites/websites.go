@@ -56,10 +56,10 @@ func ListWebsites(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintInfof("No websites\n")
 		return
 	}
-	fmt.Println("Websites")
-	fmt.Println(strings.Repeat("=", len("Websites")))
+	con.Println("Websites")
+	con.Println(strings.Repeat("=", len("Websites")))
 	for _, site := range websites.Websites {
-		fmt.Printf("%s%s%s - %d page(s)\n", console.Bold, site.Name, console.Normal, len(site.Contents))
+		con.Printf("%s%s%s - %d page(s)\n", console.Bold, site.Name, console.Normal, len(site.Contents))
 	}
 }
 

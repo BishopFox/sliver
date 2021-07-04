@@ -96,7 +96,7 @@ func PrintLootFile(stdout io.Writer, loot *clientpb.Loot) {
 }
 
 func PrintLootCredential(stdout io.Writer, loot *clientpb.Loot) {
-	fmt.Println()
+	stdout.Write([]byte("\n"))
 	switch loot.CredentialType {
 	case clientpb.CredentialType_USER_PASSWORD:
 		if loot.Credential != nil {

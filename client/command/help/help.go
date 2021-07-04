@@ -86,23 +86,23 @@ func printHelp(con *console.SliverConsoleClient) {
 		}
 
 		if len(output) > 0 {
-			fmt.Println()
-			printHeadline(con.App.Config(), headline)
-			fmt.Printf("%s\n", columnize.Format(output, config))
+			con.Println()
+			printHeadline(con.App.Config(), headline, con)
+			con.Printf("%s\n", columnize.Format(output, config))
 		}
 	}
 }
 
-func headlinePrinter(c *grumble.Config) func(v ...interface{}) (int, error) {
+func headlinePrinter(c *grumble.Config, con *console.SliverConsoleClient) func(v ...interface{}) (int, error) {
 	if c.NoColor || c.HelpHeadlineColor == nil {
-		return fmt.Println
+		return con.Println
 	}
 	return c.HelpHeadlineColor.Println
 }
 
-func printHeadline(c *grumble.Config, s string) {
-	println := headlinePrinter(c)
-	if c.HelpHeadlineUnderline {
+func printHeadline(config *grumble.Config, s string, con *console.SliverConsoleClient) {
+	println := headlinePrinter(config, con)
+	if config.HelpHeadlineUnderline {
 		println(s)
 		u := ""
 		for i := 0; i < len(s); i++ {

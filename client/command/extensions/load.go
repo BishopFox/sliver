@@ -168,9 +168,9 @@ func LoadExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			LongHelp: help.FormatHelpTmpl(extCmd.LongHelp),
 			Args:     extArgs,
 			Run: func(extCtx *grumble.Context) error {
-				fmt.Println()
+				con.Println()
 				runExtensionCommand(extCtx, con)
-				fmt.Println()
+				con.Println()
 				return nil
 			},
 			Flags: func(f *grumble.Flags) {

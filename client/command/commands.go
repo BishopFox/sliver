@@ -34,8 +34,6 @@ package command
 */
 
 import (
-	"fmt"
-
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
@@ -1595,7 +1593,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.LicensesStr}),
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			fmt.Println(licenses.All)
+			con.Println(licenses.All)
 			con.Println()
 			return nil
 		},
@@ -1836,9 +1834,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 			a.Int("id", "forwarder id")
 		},
 		Run: func(ctx *grumble.Context) error {
-			fmt.Print()
+			con.Println()
 			wireguard.WGSocksStopCmd(ctx, con)
-			fmt.Print()
+			con.Println()
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {

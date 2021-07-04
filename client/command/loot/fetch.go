@@ -20,7 +20,6 @@ package loot
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -51,7 +50,7 @@ func LootFetchCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if ctx.Flags.String("save") != "" {
 		savedTo, err := saveLootToDisk(ctx, loot)
 		if err != nil {
-			fmt.Printf("Failed to save loot %s\n", err)
+			con.PrintErrorf("Failed to save loot %s\n", err)
 		}
 		if savedTo != "" {
 			con.PrintInfof("Saved loot to %s\n", savedTo)

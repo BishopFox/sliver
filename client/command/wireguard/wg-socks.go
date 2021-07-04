@@ -66,7 +66,7 @@ func WGSocksListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				fmt.Fprintf(table, "%d\t%s\t\n", server.ID, server.LocalAddr)
 			}
 			table.Flush()
-			fmt.Println(outBuf.String())
+			con.Println(outBuf.String())
 		}
 	}
 

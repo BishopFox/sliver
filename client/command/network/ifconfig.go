@@ -20,7 +20,6 @@ package network
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -45,9 +44,9 @@ func IfconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	for ifaceIndex, iface := range ifconfig.NetInterfaces {
-		fmt.Printf("%s%s%s (%d)\n", console.Bold, iface.Name, console.Normal, ifaceIndex)
+		con.Printf("%s%s%s (%d)\n", console.Bold, iface.Name, console.Normal, ifaceIndex)
 		if 0 < len(iface.MAC) {
-			fmt.Printf("   MAC Address: %s\n", iface.MAC)
+			con.Printf("   MAC Address: %s\n", iface.MAC)
 		}
 		for _, ip := range iface.IPAddresses {
 
@@ -63,11 +62,11 @@ func IfconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			}
 
 			if 0 < subnet && subnet <= 32 && !isLoopback(ip) {
-				fmt.Printf(console.Bold+console.Green+"    IP Address: %s%s\n", ip, console.Normal)
+				con.Printf(console.Bold+console.Green+"    IP Address: %s%s\n", ip, console.Normal)
 			} else if 32 < subnet && !isLoopback(ip) {
-				fmt.Printf(console.Bold+console.Cyan+"    IP Address: %s%s\n", ip, console.Normal)
+				con.Printf(console.Bold+console.Cyan+"    IP Address: %s%s\n", ip, console.Normal)
 			} else {
-				fmt.Printf("    IP Address: %s\n", ip)
+				con.Printf("    IP Address: %s\n", ip)
 			}
 		}
 	}

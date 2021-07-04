@@ -20,7 +20,6 @@ package loot
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
@@ -41,9 +40,9 @@ func LootAddCredentialCmd(ctx *grumble.Context, con *console.SliverConsoleClient
 	name := ctx.Flags.String("name")
 	if name == "" {
 		namePrompt := &survey.Input{Message: "Credential Name: "}
-		fmt.Println()
+		con.Println()
 		survey.AskOne(namePrompt, &name)
-		fmt.Println()
+		con.Println()
 	}
 
 	loot := &clientpb.Loot{

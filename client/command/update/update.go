@@ -221,14 +221,14 @@ func updateAvailable(con *console.SliverConsoleClient, client *http.Client, rele
 	serverAsset := serverAssetForGOOS(release.Assets)
 	clientAsset := clientAssetForGOOS(release.Assets)
 
-	fmt.Printf("New version available %s\n", release.TagName)
+	con.Printf("New version available %s\n", release.TagName)
 	if serverAsset != nil {
-		fmt.Printf(" - Server: %s\n", util.ByteCountBinary(int64(serverAsset.Size)))
+		con.Printf(" - Server: %s\n", util.ByteCountBinary(int64(serverAsset.Size)))
 	}
 	if clientAsset != nil {
-		fmt.Printf(" - Client: %s\n", util.ByteCountBinary(int64(clientAsset.Size)))
+		con.Printf(" - Client: %s\n", util.ByteCountBinary(int64(clientAsset.Size)))
 	}
-	fmt.Println()
+	con.Println()
 
 	confirm := false
 	prompt := &survey.Confirm{
@@ -236,7 +236,7 @@ func updateAvailable(con *console.SliverConsoleClient, client *http.Client, rele
 	}
 	survey.AskOne(prompt, &confirm)
 	if confirm {
-		fmt.Printf("Please wait ...")
+		con.Printf("Please wait ...")
 		err := downloadAsset(client, serverAsset, saveTo)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)

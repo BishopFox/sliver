@@ -69,7 +69,7 @@ func WGPortFwdListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				fmt.Fprintf(table, "%d\t%s\t%s\t\n", fwd.ID, fwd.LocalAddr, fwd.RemoteAddr)
 			}
 			table.Flush()
-			fmt.Println(outBuf.String())
+			con.Println(outBuf.String())
 		}
 	}
 }

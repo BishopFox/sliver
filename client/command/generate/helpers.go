@@ -2,7 +2,6 @@ package generate
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -31,14 +30,14 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverConsol
 		ctrl <- true
 		<-ctrl
 		if err != nil {
-			fmt.Println("Error generating implant")
+			con.PrintErrorf("Error generating implant\n")
 			return data, err
 		}
 		data = generated.GetFile().GetData()
 		profile.Config.Name = buildImplantName(generated.GetFile().GetName())
 		_, err = con.Rpc.SaveImplantProfile(context.Background(), profile)
 		if err != nil {
-			fmt.Println("Error updating implant profile")
+			con.PrintErrorf("Error updating implant profile\n")
 			return data, err
 		}
 	} else {

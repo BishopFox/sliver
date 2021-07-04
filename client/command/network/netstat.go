@@ -80,10 +80,10 @@ func displayEntries(entries []*sliverpb.SockTabEntry, con *console.SliverConsole
 		srcAddr := lookup(e.LocalAddr)
 		dstAddr := lookup(e.RemoteAddr)
 		if e.Process != nil && e.Process.Pid == session.PID && isSliverAddr(dstAddr, con) {
-			fmt.Printf("%s%-5s %-23.23s %-23.23s %-12s %-16s%s\n",
+			con.Printf("%s%-5s %-23.23s %-23.23s %-12s %-16s%s\n",
 				console.Green, e.Protocol, srcAddr, dstAddr, e.SkState, p, console.Normal)
 		} else {
-			fmt.Printf("%-5s %-23.23s %-23.23s %-12s %-16s\n",
+			con.Printf("%-5s %-23.23s %-23.23s %-12s %-16s\n",
 				e.Protocol, srcAddr, dstAddr, e.SkState, p)
 		}
 	}
