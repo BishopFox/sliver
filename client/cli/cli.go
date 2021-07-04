@@ -25,7 +25,9 @@ import (
 	"path"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/command"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
 
 	"github.com/spf13/cobra"
@@ -69,11 +71,33 @@ var rootCmd = &cobra.Command{
 		defer logFile.Close()
 
 		os.Args = os.Args[:1] // Stops grumble from complaining
-		err := console.StartClientConsole()
+		err := StartClientConsole()
 		if err != nil {
 			fmt.Printf("[!] %s\n", err)
 		}
 	},
+}
+
+// StartClientConsole - Start the client console
+func StartClientConsole() error {
+	configs := assets.GetConfigs()
+	if len(configs) == 0 {
+		fmt.Printf("No config files found at %s or -import\n", assets.GetConfigDir())
+		return nil
+	}
+	config := selectConfig()
+	if config == nil {
+		return nil
+	}
+
+	fmt.Printf("Connecting to %s:%d ...\n", config.LHost, config.LPort)
+	rpc, ln, err := transport.MTLSConnect(config)
+	if err != nil {
+		fmt.Printf("Connection to server failed %v", err)
+		return nil
+	}
+	defer ln.Close()
+	return console.Start(rpc, command.BindCommands, func(*console.SliverConsoleClient) {}, false)
 }
 
 // Execute - Execute root command

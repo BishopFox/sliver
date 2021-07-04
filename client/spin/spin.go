@@ -4,6 +4,7 @@ package spin
 
 import (
 	"fmt"
+	"io"
 	"sync"
 	"time"
 )
@@ -94,16 +95,16 @@ func (s *Spinner) Reset() {
 	s.pos = 0
 }
 
-// Until - Spint until ctrl channel signals
-func Until(msg string, ctrl chan bool) {
+// Until - Spin until ctrl channel signals
+func Until(stdout io.Writer, msg string, ctrl chan bool) {
 	defer close(ctrl)
 	s := New()
 	for {
 		select {
 		case <-time.After(100 * time.Millisecond):
-			fmt.Printf(clearln+" %s  %s", s.Next(), msg)
+			fmt.Fprintf(stdout, clearln+" %s  %s", s.Next(), msg)
 		case <-ctrl:
-			fmt.Printf(clearln)
+			fmt.Fprintf(stdout, "%s", clearln)
 			ctrl <- true
 			return
 		}

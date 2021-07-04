@@ -23,6 +23,10 @@ const (
 	KeepAliveStr = "keepalive"
 )
 
+const (
+	LastUpdateCheckFileName = "last_update_check"
+)
+
 // Events
 const (
 	UpdateStr  = "update"
@@ -85,7 +89,8 @@ const (
 	BackgroundStr = "background"
 	InfoStr       = "info"
 	UseStr        = "use"
-	SetStr        = "set"
+	ReconfigStr   = "reconfig"
+	PruneStr      = "prune"
 
 	GenerateStr   = "generate"
 	RegenerateStr = "regenerate"
@@ -93,8 +98,11 @@ const (
 	StagerStr     = "stager"
 	ProfilesStr   = "profiles"
 
-	NewStr = "new"
-	AddStr = "add"
+	// Generic
+	NewStr   = "new"
+	AddStr   = "add"
+	StartStr = "start"
+	StopStr  = "stop"
 	// RmStr - Already defined below for "rm" command
 
 	LootStr       = "loot"
