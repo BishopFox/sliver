@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// Execute - Run a command on the remote system
 func ExecuteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

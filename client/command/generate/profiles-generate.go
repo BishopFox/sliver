@@ -28,6 +28,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// ProfilesGenerateCmd - Generate an implant binary based on a profile
 func ProfilesGenerateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	name := ctx.Flags.String("name")
 	if name == "" {

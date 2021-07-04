@@ -35,6 +35,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// ExecuteShellcodeCmd - Execute shellcode in-memory
 func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

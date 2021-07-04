@@ -34,6 +34,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// PsExecCmd - psexec command implementation.
 func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

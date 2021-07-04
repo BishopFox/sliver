@@ -16,6 +16,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// GenerateStagerCmd - Generate a stager using Metasploit
 func GenerateStagerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var stageProto clientpb.StageProtocol
 	lhost := ctx.Flags.String("lhost")

@@ -27,6 +27,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// MkdirCmd - Make a remote directory
 func MkdirCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

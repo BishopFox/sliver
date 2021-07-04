@@ -32,6 +32,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// UploadCmd - Upload a file to the remote system
 func UploadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

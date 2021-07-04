@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// LootFetchCmd - Display the contents of or download a piece of loot
 func LootFetchCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	loot, err := SelectLoot(ctx, con.Rpc)
 	if err != nil {

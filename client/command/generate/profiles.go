@@ -32,6 +32,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// ProfilesCmd - Display implant profiles
 func ProfilesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	profiles := getImplantProfiles(con)
 	if profiles == nil {

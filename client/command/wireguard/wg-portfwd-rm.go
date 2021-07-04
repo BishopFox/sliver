@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// WGPortFwdRmCmd - Remove a WireGuard port forward
 func WGPortFwdRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

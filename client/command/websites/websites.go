@@ -37,6 +37,7 @@ const (
 	defaultMimeType = "application/octet-stream"
 )
 
+// WebsitesCmd - Manage websites
 func WebsitesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	websiteName := ctx.Args.String("name")
 	if websiteName == "" {
@@ -46,6 +47,7 @@ func WebsitesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 }
 
+// ListWebsites - Display a list of websites
 func ListWebsites(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	websites, err := con.Rpc.Websites(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -63,6 +65,7 @@ func ListWebsites(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 }
 
+// ListWebsiteContent - List the static contents of a website
 func ListWebsiteContent(websiteName string, con *console.SliverConsoleClient) {
 	website, err := con.Rpc.Website(context.Background(), &clientpb.Website{
 		Name: websiteName,

@@ -8,6 +8,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
+// GetSliverBinary - Get the binary of an implant based on it's profile
 func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverConsoleClient) ([]byte, error) {
 	var data []byte
 	// get implant builds

@@ -13,6 +13,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// CanariesCmd - Display canaries from the database and their status
 func CanariesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	canaries, err := con.Rpc.Canaries(context.Background(), &commonpb.Empty{})
 	if err != nil {

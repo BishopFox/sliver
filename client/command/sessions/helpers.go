@@ -38,6 +38,7 @@ var (
 	ErrNoSelection = errors.New("no selection")
 )
 
+// SelectSession - Interactive menu for the user to select an session, optionally only display live sessions
 func SelectSession(onlyAlive bool, con *console.SliverConsoleClient) (*clientpb.Session, error) {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {

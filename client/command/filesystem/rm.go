@@ -27,6 +27,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// RmCmd - Remove a directory from the remote file system
 func RmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

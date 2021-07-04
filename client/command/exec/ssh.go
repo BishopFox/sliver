@@ -13,6 +13,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// SSHCmd - A built-in SSH client command for the remote system (doesn't shell out)
 func SSHCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var (
 		privKey []byte

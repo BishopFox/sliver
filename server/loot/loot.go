@@ -31,6 +31,7 @@ const (
 	MaxLootSize = 2 * 1024 * 1024 * 1024 // 2Gb, shouldn't matter the gRPC message size limit is 2Gb
 )
 
+// LootBackend - The interface any loot backend must implement
 type LootBackend interface {
 	Add(*clientpb.Loot) (*clientpb.Loot, error)
 	Rm(string) error
@@ -40,11 +41,12 @@ type LootBackend interface {
 	AllOf(clientpb.LootType) *clientpb.AllLoot
 }
 
+// LootStore - The struct that represents the loot store
 type LootStore struct {
 	backend LootBackend
-	mirrors []LootBackend
 }
 
+// Add - Add a piece of loot to the loot store
 func (l *LootStore) Add(lootReq *clientpb.Loot) (*clientpb.Loot, error) {
 	if lootReq.File != nil && MaxLootSize < len(lootReq.File.Data) {
 		return nil, errors.New("max loot size exceeded")
@@ -53,12 +55,10 @@ func (l *LootStore) Add(lootReq *clientpb.Loot) (*clientpb.Loot, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, mirror := range l.mirrors {
-		mirror.Add(loot)
-	}
 	return loot, nil
 }
 
+// Update - Update a piece of loot in the loot store
 func (l *LootStore) Update(lootReq *clientpb.Loot) (*clientpb.Loot, error) {
 	loot, err := l.backend.Update(lootReq)
 	if err != nil {
@@ -67,29 +67,31 @@ func (l *LootStore) Update(lootReq *clientpb.Loot) (*clientpb.Loot, error) {
 	return loot, nil
 }
 
+// Remove - Remove a piece of loot from the loot store
 func (l *LootStore) Rm(lootID string) error {
 	err := l.backend.Rm(lootID)
 	if err != nil {
 		return err
 	}
-	for _, mirror := range l.mirrors {
-		mirror.Rm(lootID)
-	}
 	return nil
 }
 
+// GetContent - Get the content of a piece of loot from the loot store
 func (l *LootStore) GetContent(lootID string, eager bool) (*clientpb.Loot, error) {
 	return l.backend.GetContent(lootID, eager)
 }
 
+// All - Get all loot from the loot store
 func (l *LootStore) All() *clientpb.AllLoot {
 	return l.backend.All()
 }
 
+// AllOf - Get loot of a particular type from the loot store
 func (l *LootStore) AllOf(lootType clientpb.LootType) *clientpb.AllLoot {
 	return l.backend.AllOf(lootType)
 }
 
+// GetLootStore - Get an instances of the core LootStore
 func GetLootStore() *LootStore {
 	return &LootStore{
 		backend: &LocalBackend{
@@ -99,6 +101,7 @@ func GetLootStore() *LootStore {
 	}
 }
 
+// GetLootDir - Get the directory that contains all loot
 func GetLootDir() string {
 	lootDir := filepath.Join(assets.GetRootAppDir(), "loot")
 	if _, err := os.Stat(lootDir); os.IsNotExist(err) {
@@ -110,6 +113,7 @@ func GetLootDir() string {
 	return lootDir
 }
 
+// GetLootFileDir - Get the subdirectory where loot files are stored
 func GetLootFileDir() string {
 	lootFileDir := filepath.Join(GetLootDir(), "files")
 	if _, err := os.Stat(lootFileDir); os.IsNotExist(err) {
@@ -121,6 +125,7 @@ func GetLootFileDir() string {
 	return lootFileDir
 }
 
+// GetLootCredentialDir - Get the subdirectory where loot credentials are stored
 func GetLootCredentialDir() string {
 	lootCredDir := filepath.Join(GetLootDir(), "credentials")
 	if _, err := os.Stat(lootCredDir); os.IsNotExist(err) {

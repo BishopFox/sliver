@@ -11,6 +11,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// ProcdumpCmd - Dump the memory of a remote process
 func ProcdumpCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

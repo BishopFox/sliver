@@ -121,6 +121,7 @@ func (e *extension) getCommandFromName(name string) (extCmd *extensionCommand, e
 	return
 }
 
+// LoadExtensionCmd - Locally load an extension into the Sliver shell.
 func LoadExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	dirPath := ctx.Args.String("dir-path")

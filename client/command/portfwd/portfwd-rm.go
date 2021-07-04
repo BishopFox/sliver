@@ -24,6 +24,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// PortfwdRmCmd - Remove an existing tunneled port forward
 func PortfwdRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	portfwdID := ctx.Flags.Int("id")
 	if portfwdID < 1 {

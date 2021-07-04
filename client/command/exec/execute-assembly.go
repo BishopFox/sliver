@@ -30,6 +30,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// ExecuteAssemblyCmd - Execute a .NET assembly in-memory
 func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.Get()
 	if session == nil {

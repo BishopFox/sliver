@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// HTTPListenerCmd - Start an HTTP listener
 func HTTPListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	domain := ctx.Flags.String("domain")
 	lport := uint16(ctx.Flags.Int("lport"))

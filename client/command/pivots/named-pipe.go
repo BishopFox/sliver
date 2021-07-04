@@ -8,6 +8,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// NamedPipeListenerCmd - Start a named pipe pivot listener on the remote system
 func NamedPipeListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

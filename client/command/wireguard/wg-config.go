@@ -51,6 +51,7 @@ type wgQuickConfig struct {
 	AllowedSubnet   string
 }
 
+// WGConfigCmd - Generate a WireGuard client configuration
 func WGConfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	wgConfig, err := con.Rpc.GenerateWGClientConfig(context.Background(), &commonpb.Empty{})
 	if err != nil {

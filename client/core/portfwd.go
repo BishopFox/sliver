@@ -18,6 +18,7 @@ import (
 )
 
 var (
+	// Portfwds - Struct instance that holds all the portfwds
 	Portfwds = portfwds{
 		forwards: map[int]*Portfwd{},
 		mutex:    &sync.RWMutex{},
@@ -41,6 +42,7 @@ type Portfwd struct {
 	ChannelProxy *ChannelProxy
 }
 
+// GetMetadata - Get metadata about the portfwd
 func (p *Portfwd) GetMetadata() *PortfwdMeta {
 	return &PortfwdMeta{
 		ID:         p.ID,
@@ -55,6 +57,7 @@ type portfwds struct {
 	mutex    *sync.RWMutex
 }
 
+// Add - Add a TCP proxy instance
 func (f *portfwds) Add(tcpProxy *tcpproxy.Proxy, channelProxy *ChannelProxy) *Portfwd {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -67,6 +70,7 @@ func (f *portfwds) Add(tcpProxy *tcpproxy.Proxy, channelProxy *ChannelProxy) *Po
 	return portfwd
 }
 
+// Remove - Remove a TCP proxy instance
 func (f *portfwds) Remove(portfwdID int) bool {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -78,6 +82,7 @@ func (f *portfwds) Remove(portfwdID int) bool {
 	return false
 }
 
+// List - List all TCP proxy instances
 func (f *portfwds) List() []*PortfwdMeta {
 	f.mutex.RLock()
 	defer f.mutex.RUnlock()
@@ -102,6 +107,7 @@ type ChannelProxy struct {
 	DialTimeout     time.Duration
 }
 
+// HandleConn - Handle a TCP connection
 func (p *ChannelProxy) HandleConn(conn net.Conn) {
 	log.Printf("[tcpproxy] Handling new connection")
 	ctx := context.Background()
@@ -134,6 +140,7 @@ func (p *ChannelProxy) HandleConn(conn net.Conn) {
 	}
 }
 
+// HostPort - Returns the host and port of the TCP proxy
 func (p *ChannelProxy) HostPort() (string, uint32) {
 	defaultPort := uint32(8080)
 	host, rawPort, err := net.SplitHostPort(p.RemoteAddr)
@@ -154,11 +161,13 @@ func (p *ChannelProxy) HostPort() (string, uint32) {
 	return host, port
 }
 
+// Port - Returns the TCP port of the proxy
 func (p *ChannelProxy) Port() uint32 {
 	_, port := p.HostPort()
 	return port
 }
 
+// Host - Returns the host (i.e., interface) of the TCP proxy
 func (p *ChannelProxy) Host() string {
 	host, _ := p.HostPort()
 	return host

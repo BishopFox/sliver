@@ -34,17 +34,21 @@ import (
 )
 
 var (
+	// ErrInvalidLootID - Invalid Loot ID
 	ErrInvalidLootID = errors.New("invalid loot id")
-	ErrLootNotFound  = errors.New("loot not found")
+	// ErrLootNotFound - Loot not found
+	ErrLootNotFound = errors.New("loot not found")
 
 	lootLog = log.NamedLogger("loot", "backend")
 )
 
+// LocalBackend - A loot backend that saves files locally to disk
 type LocalBackend struct {
 	LocalFileDir string
 	LocalCredDir string
 }
 
+// Add - Add a piece of loot
 func (l *LocalBackend) Add(loot *clientpb.Loot) (*clientpb.Loot, error) {
 	dbLoot := &models.Loot{
 		Name:           loot.GetName(),
@@ -90,6 +94,7 @@ func (l *LocalBackend) Add(loot *clientpb.Loot) (*clientpb.Loot, error) {
 	return loot, err
 }
 
+// Update - Update metadata about loot, currently only 'name' can be changed
 func (l *LocalBackend) Update(lootReq *clientpb.Loot) (*clientpb.Loot, error) {
 	dbSession := db.Session()
 	lootUUID, err := uuid.FromString(lootReq.LootID)
@@ -112,6 +117,7 @@ func (l *LocalBackend) Update(lootReq *clientpb.Loot) (*clientpb.Loot, error) {
 	return l.GetContent(lootReq.LootID, false)
 }
 
+// Rm - Remove a piece of loot
 func (l *LocalBackend) Rm(lootID string) error {
 	dbSession := db.Session()
 	lootUUID, err := uuid.FromString(lootID)
@@ -146,6 +152,7 @@ func (l *LocalBackend) Rm(lootID string) error {
 	return result.Error
 }
 
+// GetContent - Get the content of a piece of loot
 func (l *LocalBackend) GetContent(lootID string, eager bool) (*clientpb.Loot, error) {
 	dbSession := db.Session()
 	lootUUID, err := uuid.FromString(lootID)
@@ -198,6 +205,7 @@ func (l *LocalBackend) GetContent(lootID string, eager bool) (*clientpb.Loot, er
 	return loot, nil
 }
 
+// All - Get all loot
 func (l *LocalBackend) All() *clientpb.AllLoot {
 	dbSession := db.Session()
 	allDBLoot := []*models.Loot{}
@@ -221,6 +229,7 @@ func (l *LocalBackend) All() *clientpb.AllLoot {
 	return all
 }
 
+// AllOf - Get all loot of a particular loot type
 func (l *LocalBackend) AllOf(lootType clientpb.LootType) *clientpb.AllLoot {
 	dbSession := db.Session()
 	allDBLoot := []*models.Loot{}

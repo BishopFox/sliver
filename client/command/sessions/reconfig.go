@@ -28,6 +28,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// SessionsReconfigCmd - Reconfigure metadata about a sessions
 func SessionsReconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

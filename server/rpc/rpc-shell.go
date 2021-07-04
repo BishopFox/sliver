@@ -33,7 +33,7 @@ var (
 )
 
 // Shell - Open an interactive shell
-func (s *Server) Shell(ctx context.Context, req *sliverpb.ShellReq) (*sliverpb.Shell, error) {
+func (rpc *Server) Shell(ctx context.Context, req *sliverpb.ShellReq) (*sliverpb.Shell, error) {
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
@@ -46,7 +46,7 @@ func (s *Server) Shell(ctx context.Context, req *sliverpb.ShellReq) (*sliverpb.S
 	if err != nil {
 		return nil, err
 	}
-	data, err := session.Request(sliverpb.MsgNumber(req), s.getTimeout(req), reqData)
+	data, err := session.Request(sliverpb.MsgNumber(req), rpc.getTimeout(req), reqData)
 	if err != nil {
 		return nil, err
 	}

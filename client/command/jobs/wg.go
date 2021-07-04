@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// WGListenerCmd - Start a WireGuard listener
 func WGListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	lport := uint16(ctx.Flags.Int("lport"))
 	nport := uint16(ctx.Flags.Int("nport"))

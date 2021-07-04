@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// GetSystemCmd - Windows only, attempt to get SYSTEM on the remote system
 func GetSystemCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

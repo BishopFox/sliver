@@ -32,6 +32,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// ScreenshotCmd - Take a screenshot of the remote system
 func ScreenshotCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

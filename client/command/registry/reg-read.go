@@ -70,7 +70,7 @@ func getType(t string) (uint32, error) {
 	return res, nil
 }
 
-// registry read --hostname aa.bc.local --hive HKCU "software\google\chrome\blbeacon\version"
+// RegReadCmd - Read a windows registry key: registry read --hostname aa.bc.local --hive HKCU "software\google\chrome\blbeacon\version"
 func RegReadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// MakeTokenCmd - Windows only, create a token using "valid" credentails
 func MakeTokenCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

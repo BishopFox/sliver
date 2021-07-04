@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// WGSocksStartCmd - Start a WireGuard reverse SOCKS proxy
 func WGSocksStartCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

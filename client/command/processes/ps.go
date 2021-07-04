@@ -44,6 +44,7 @@ var (
 	}
 )
 
+// PsCmd - List processes on the remote system
 func PsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

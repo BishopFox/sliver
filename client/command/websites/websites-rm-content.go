@@ -9,6 +9,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// WebsitesRmContent - Remove static content from a website
 func WebsitesRmContent(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	name := ctx.Flags.String("website")
 	webPath := ctx.Flags.String("web-path")

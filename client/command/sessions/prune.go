@@ -8,6 +8,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// SessionsPruneCmd - Forcefully kill stale sessions
 func SessionsPruneCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {

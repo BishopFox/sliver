@@ -8,6 +8,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// TerminateCmd - Terminate a process on the remote system
 func TerminateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

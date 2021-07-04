@@ -16,6 +16,7 @@ import (
 	"gopkg.in/AlecAivazis/survey.v1"
 )
 
+// WebsitesAddContentCmd - Add static content to a website
 func WebsitesAddContentCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	websiteName := ctx.Flags.String("website")
 	if websiteName == "" {

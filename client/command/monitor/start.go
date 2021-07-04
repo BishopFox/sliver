@@ -26,6 +26,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// MonitorStartCmd - Start monitoring threat intel for implants
 func MonitorStartCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	resp, err := con.Rpc.MonitorStart(context.Background(), &commonpb.Empty{})
 	if err != nil {
