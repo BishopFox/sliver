@@ -1,14 +1,5 @@
 package loot
 
-import (
-	"context"
-
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/desertbit/grumble"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2021  Bishop Fox
@@ -26,6 +17,15 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"context"
+
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/desertbit/grumble"
+)
 
 func LootRenameCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	loot, err := SelectLoot(ctx, con.Rpc)
