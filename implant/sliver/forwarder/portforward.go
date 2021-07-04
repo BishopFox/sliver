@@ -16,6 +16,7 @@ import (
 
 var tcpForwarderID = 0
 
+// WGTCPForwarder - A WireGuard TCP forwarder
 type WGTCPForwarder struct {
 	ID            int
 	tunIP         string
@@ -27,6 +28,7 @@ type WGTCPForwarder struct {
 	listener      net.Listener
 }
 
+// NewWGTCPForwarder - Create a new WireGuard TCP forwarder
 func NewWGTCPForwarder(targetAddress string, tunIP string, tunPort int, tnet *netstack.Net) *WGTCPForwarder {
 	tf := &WGTCPForwarder{
 		tunIP:         tunIP,
@@ -41,14 +43,17 @@ func NewWGTCPForwarder(targetAddress string, tunIP string, tunPort int, tnet *ne
 	return tf
 }
 
+// LocalAddr - The local address
 func (f *WGTCPForwarder) LocalAddr() string {
 	return fmt.Sprintf("%s:%d", f.tunIP, f.tunPort)
 }
 
+// RemoteAddr - The remote address
 func (f *WGTCPForwarder) RemoteAddr() string {
 	return f.targetAddress
 }
 
+// Start - Start the forwarder
 func (f *WGTCPForwarder) Start() error {
 	// Start wg net listener
 	var err error
@@ -80,6 +85,7 @@ func (f *WGTCPForwarder) Start() error {
 	}
 }
 
+// Stop - Stop the forwarder
 func (f *WGTCPForwarder) Stop() {
 	// {{if .Config.Debug}}
 	log.Printf("Stop called, closing channel\n")

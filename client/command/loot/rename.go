@@ -27,6 +27,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// LootRenameCmd - Rename a piece of loot
 func LootRenameCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	loot, err := SelectLoot(ctx, con.Rpc)
 	if err != nil {

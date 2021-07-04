@@ -40,9 +40,12 @@ import (
 )
 
 var (
+	// ErrInvalidFileType - Invalid file type
 	ErrInvalidFileType = errors.New("invalid file type")
+	// ErrInvalidLootType - Invalid loot type
 	ErrInvalidLootType = errors.New("invalid loot type")
-	ErrNoLootFileData  = errors.New("no loot file data")
+	// ErrNoLootFileData - No loot file data
+	ErrNoLootFileData = errors.New("no loot file data")
 )
 
 // AddLootFile - Add a file as loot

@@ -31,6 +31,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+// LootAddRemoteCmd - Add a file from the remote system to the server as loot
 func LootAddRemoteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {

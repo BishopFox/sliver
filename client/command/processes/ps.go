@@ -167,6 +167,7 @@ func printProcInfo(table *tabwriter.Writer, proc *commonpb.Process, cmdLine bool
 	return color
 }
 
+// GetPIDByName - Get a PID by name from the active session
 func GetPIDByName(ctx *grumble.Context, name string, con *console.SliverConsoleClient) int {
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
 		Request: con.ActiveSession.Request(ctx),

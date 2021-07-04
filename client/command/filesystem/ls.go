@@ -52,6 +52,7 @@ func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 }
 
+// PrintLs - Display an sliverpb.Ls object
 func PrintLs(stdout io.Writer, ls *sliverpb.Ls) {
 	fmt.Fprintf(stdout, "%s\n", ls.Path)
 	fmt.Fprintf(stdout, "%s\n", strings.Repeat("=", len(ls.Path)))

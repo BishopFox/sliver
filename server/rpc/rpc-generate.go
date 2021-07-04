@@ -236,6 +236,7 @@ func (rpc *Server) ShellcodeRDI(ctx context.Context, req *clientpb.ShellcodeRDIR
 	return &clientpb.ShellcodeRDI{Data: shellcode}, err
 }
 
+// GetCompiler - Get information about the internal Go compiler and its configuration
 func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientpb.Compiler, error) {
 	compiler := &clientpb.Compiler{
 		GOOS:               runtime.GOOS,
@@ -244,6 +245,6 @@ func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientp
 		UnsupportedTargets: generate.GetUnsupportedTargets(),
 		CrossCompilers:     generate.GetCrossCompilers(),
 	}
-	rcpLog.Infof("GetCompiler = %v", compiler)
+	rcpLog.Debugf("GetCompiler = %v", compiler)
 	return compiler, nil
 }

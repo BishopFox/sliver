@@ -20,20 +20,26 @@ package constants
 
 // Meta
 const (
+	// KeepAliveStr - Keep alive constant
 	KeepAliveStr = "keepalive"
 )
 
 const (
+	// LastUpdateCheckFileName - Last update check file name
 	LastUpdateCheckFileName = "last_update_check"
 )
 
 // Events
 const (
-	UpdateStr  = "update"
+	// UpdateStr - "update"
+	UpdateStr = "update"
+	// VersionStr - "version"
 	VersionStr = "version"
 
+	// EventStr - "event"
 	EventStr = "event"
 
+	// ServersStr - "server-error"
 	ServerErrorStr = "server-error"
 
 	// ConnectedEvent - Sliver Connected

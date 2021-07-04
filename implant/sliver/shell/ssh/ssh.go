@@ -52,6 +52,7 @@ func getClient(host string, port uint16, username string, password string, privK
 
 }
 
+// RunSSHCommand - SSH to a host and execute a command
 func RunSSHCommand(host string, port uint16, username string, password string, privKey []byte, command string) (string, string, error) {
 	var (
 		stdout bytes.Buffer

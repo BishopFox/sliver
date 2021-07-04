@@ -65,7 +65,7 @@ func (rpc *Server) LootUpdate(ctx context.Context, lootReq *clientpb.Loot) (*cli
 	return loot, err
 }
 
-// LootAll - Get a list of all loot of a specific type
+// LootContent - Get a list of all loot of a specific type
 func (rpc *Server) LootContent(ctx context.Context, lootReq *clientpb.Loot) (*clientpb.Loot, error) {
 	return loot.GetLootStore().GetContent(lootReq.LootID, true)
 }
@@ -75,7 +75,7 @@ func (rpc *Server) LootAll(ctx context.Context, _ *commonpb.Empty) (*clientpb.Al
 	return loot.GetLootStore().All(), nil
 }
 
-// LootAll - Get a list of all loot of a specific type
+// LootAllOf - Get a list of all loot of a specific type
 func (rpc *Server) LootAllOf(ctx context.Context, lootReq *clientpb.Loot) (*clientpb.AllLoot, error) {
 	return loot.GetLootStore().AllOf(lootReq.Type), nil
 }
