@@ -1845,7 +1845,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	})
 	con.App.AddCommand(wgSocksCmd)
 
-	// // [ Portfwd ] --------------------------------------------------------------
+	// [ Portfwd ] --------------------------------------------------------------
 	portfwdCmd := &grumble.Command{
 		Name:     consts.PortfwdStr,
 		Help:     "In-band TCP port forwarding",
