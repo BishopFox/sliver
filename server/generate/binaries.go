@@ -113,6 +113,7 @@ const (
 	DefaultSuffix = "_default.go"
 
 	// *** Default ***
+
 	// SliverCC64EnvVar - Environment variable that can specify the 64 bit mingw path
 	SliverCC64EnvVar = "SLIVER_CC_64"
 	// SliverCC32EnvVar - Environment variable that can specify the 32 bit mingw path
@@ -124,6 +125,7 @@ const (
 	SliverCXX32EnvVar = "SLIVER_CXX_32"
 
 	// *** Platform Specific ***
+
 	// SliverPlatformCC64EnvVar - Environment variable that can specify the 64 bit mingw path
 	SliverPlatformCC64EnvVar = "SLIVER_%s_CC_64"
 	// SliverPlatformCC32EnvVar - Environment variable that can specify the 32 bit mingw path
@@ -721,7 +723,7 @@ func getCrossCompilers(targetGoos string, targetGoarch string) (string, string) 
 	return cc, cxx
 }
 
-// This function attempts to determine what we can reasonably target
+// GetCompilerTargets - This function attempts to determine what we can reasonably target
 func GetCompilerTargets() []*clientpb.CompilerTarget {
 	targets := []*clientpb.CompilerTarget{}
 
@@ -797,6 +799,7 @@ func GetCompilerTargets() []*clientpb.CompilerTarget {
 	return targets
 }
 
+// GetCrossCompilers - Get information about the server's cross-compiler configuration
 func GetCrossCompilers() []*clientpb.CrossCompiler {
 	compilers := []*clientpb.CrossCompiler{}
 	for longPlatform := range SupportedCompilerTargets {
@@ -817,6 +820,7 @@ func GetCrossCompilers() []*clientpb.CrossCompiler {
 	return compilers
 }
 
+// GetUnsupportedTargets - Get compiler targets that are not "supported" on this platform
 func GetUnsupportedTargets() []*clientpb.CompilerTarget {
 	appDir := assets.GetRootAppDir()
 	distList := gogo.GoToolDistList(gogo.GoConfig{
