@@ -32,8 +32,11 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
+const maxNameLength = 32
+
 var (
-	ErrInvalidName = errors.New("Invalid session name, alphanumerics only")
+	// ErrInvalidName - Invalid name
+	ErrInvalidName = errors.New("invalid session name, alphanumerics only")
 )
 
 // GetSessions - Get a list of sessions
@@ -70,8 +73,6 @@ func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillSessionRe
 }
 
 // UpdateSession - Update a session name
-const maxNameLength = 32
-
 func (rpc *Server) UpdateSession(ctx context.Context, update *clientpb.UpdateSession) (*clientpb.Session, error) {
 	resp := &clientpb.Session{}
 	session := core.Sessions.Get(update.SessionID)

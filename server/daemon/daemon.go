@@ -33,7 +33,9 @@ var (
 	serverConfig = configs.GetServerConfig()
 	daemonLog    = log.NamedLogger("daemon", "main")
 
+	// BlankHost is a blank hostname
 	BlankHost = "-"
+	// BlankPort is a blank port number
 	BlankPort = uint16(0)
 )
 

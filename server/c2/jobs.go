@@ -41,6 +41,7 @@ var (
 	jobLog = log.NamedLogger("c2", "jobs")
 )
 
+// StartMTLSListenerJob - Start an mTLS listener as a job
 func StartMTLSListenerJob(host string, listenPort uint16) (*core.Job, error) {
 	bind := fmt.Sprintf("%s:%d", host, listenPort)
 	ln, err := StartMutualTLSListener(host, listenPort)
@@ -68,6 +69,7 @@ func StartMTLSListenerJob(host string, listenPort uint16) (*core.Job, error) {
 	return job, nil
 }
 
+// StartWGListenerJob - Start a WireGuard listener as a job
 func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListenPort uint16) (*core.Job, error) {
 	ln, dev, currenWGConf, err := StartWGListener(listenPort, nListenPort, keyExchangeListenPort)
 	if err != nil {
@@ -143,6 +145,7 @@ func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListen
 	return job, nil
 }
 
+// StartDNSListenerJob - Start a DNS listener as a job
 func StartDNSListenerJob(domains []string, canaries bool, listenPort uint16) (*core.Job, error) {
 	server := StartDNSListener(domains, canaries)
 	description := fmt.Sprintf("%s (canaries %v)", strings.Join(domains, " "), canaries)
@@ -185,6 +188,7 @@ func StartDNSListenerJob(domains []string, canaries bool, listenPort uint16) (*c
 	return job, nil
 }
 
+// StartHTTPListenerJob - Start a HTTP listener as a job
 func StartHTTPListenerJob(conf *HTTPServerConfig) (*core.Job, error) {
 	server, err := StartHTTPSListener(conf)
 	if err != nil {
@@ -243,7 +247,7 @@ func StartHTTPListenerJob(conf *HTTPServerConfig) (*core.Job, error) {
 	return job, nil
 }
 
-// Start a TCP staging payload listener
+// StartTCPStagerListenerJob - Start a TCP staging payload listener
 func StartTCPStagerListenerJob(host string, port uint16, shellcode []byte) (*core.Job, error) {
 	ln, err := StartTCPListener(host, port, shellcode)
 	if err != nil {
@@ -277,7 +281,7 @@ func StartTCPStagerListenerJob(host string, port uint16, shellcode []byte) (*cor
 	return job, nil
 }
 
-// StartHTTPStagerListener - Start an HTTP(S) stager payload listener
+// StartHTTPStagerListenerJob - Start an HTTP(S) stager payload listener
 func StartHTTPStagerListenerJob(conf *HTTPServerConfig, data []byte) (*core.Job, error) {
 	server, err := StartHTTPSListener(conf)
 	if err != nil {
@@ -335,7 +339,7 @@ func StartHTTPStagerListenerJob(conf *HTTPServerConfig, data []byte) (*core.Job,
 	return job, nil
 }
 
-// Start persistent jobs
+// StartPersistentJobs - Start persistent jobs
 func StartPersistentJobs(cfg *configs.ServerConfig) error {
 	if cfg.Jobs == nil {
 		return nil

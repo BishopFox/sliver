@@ -28,6 +28,7 @@ import (
 )
 
 const (
+	// MaxLootSize - The maximum size of a loot file in bytes
 	MaxLootSize = 2 * 1024 * 1024 * 1024 // 2Gb, shouldn't matter the gRPC message size limit is 2Gb
 )
 

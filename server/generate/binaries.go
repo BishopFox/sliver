@@ -487,10 +487,9 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 
 		if err != nil {
 			return "", fmt.Errorf("Failed to embed implant wg keys: %s", err)
-		} else {
-			config.WGImplantPrivKey = implantPrivKey
-			config.WGServerPubKey = serverPubKey
 		}
+		config.WGImplantPrivKey = implantPrivKey
+		config.WGServerPubKey = serverPubKey
 	}
 
 	// binDir - ~/.sliver/slivers/<os>/<arch>/<name>/bin

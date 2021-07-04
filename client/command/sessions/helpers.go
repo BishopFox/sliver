@@ -34,7 +34,9 @@ import (
 )
 
 var (
-	ErrNoSessions  = errors.New("no sessions")
+	// ErrNoSessions - No sessions available
+	ErrNoSessions = errors.New("no sessions")
+	// ErrNoSelection - No selection made
 	ErrNoSelection = errors.New("no selection")
 )
 

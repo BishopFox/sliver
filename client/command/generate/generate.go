@@ -42,17 +42,28 @@ import (
 )
 
 const (
-	DefaultMTLSLPort    = 8888
-	DefaultWGLPort      = 53
-	DefaultWGNPort      = 8888
-	DefaultWGKeyExPort  = 1337
-	DefaultHTTPLPort    = 80
-	DefaultHTTPSLPort   = 443
-	DefaultDNSLPort     = 53
+	// DefaultMTLSLPort is the default port for mtls
+	DefaultMTLSLPort = 8888
+	// DefaultWGPort is the default port for wg
+	DefaultWGLPort = 53
+	// DefaultWGNPort is the default n port for wg
+	DefaultWGNPort = 8888
+	// DefaultWGKeyExPort is the default port for wg key exchange
+	DefaultWGKeyExPort = 1337
+	// DefaultHTTPLPort is the default port for http
+	DefaultHTTPLPort = 80
+	// DefaultHTTPSLPort is the default port for https
+	DefaultHTTPSLPort = 443
+	// DefaultDNSLPortis the default port for dns
+	DefaultDNSLPort = 53
+	// DefaultTCPPivotPort is the default port for tcp pivots
 	DefaultTCPPivotPort = 9898
 
+	// DefaultReconnect is the default reconnect time
 	DefaultReconnect = 60
-	DefaultPoll      = 1
+	// DefaultPoll is the default poll interval
+	DefaultPoll = 1
+	// DefaultMaxErrors is the default max reconnection errors before giving up
 	DefaultMaxErrors = 1000
 )
 

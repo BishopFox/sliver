@@ -254,6 +254,7 @@ func GoVersion(config GoConfig) ([]byte, error) {
 	return GoCmd(config, wd, goCommand)
 }
 
+// GoToolDistList - Get a list of supported GOOS/GOARCH pairs
 func GoToolDistList(config GoConfig) []string {
 	var goCommand = []string{"tool", "dist", "list"}
 	wd, _ := os.Getwd()
