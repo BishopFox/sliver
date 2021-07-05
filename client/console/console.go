@@ -213,31 +213,33 @@ func (con *SliverConsoleClient) EventLoop() {
 
 func (con *SliverConsoleClient) triggerReactions(event *clientpb.Event) {
 	reactions := core.Reactions.On(event.EventType)
-	if 0 < len(reactions) {
-		for _, reaction := range reactions {
-			for _, line := range reaction.Commands {
+	if len(reactions) == 0 {
+		return
+	}
 
-				// We need some special handling for SessionOpenedEvent to
-				// set the new session as the active session
-				currentActiveSession := con.ActiveSession.Get()
-				defer con.ActiveSession.Set(currentActiveSession)
-				if event.EventType == consts.SessionOpenedEvent {
-					if event.Session == nil || event.Session.OS == "" {
-						return // Half-open session, do not execute any command
-					}
-					con.ActiveSession.Set(event.Session)
-				}
+	// We need some special handling for SessionOpenedEvent to
+	// set the new session as the active session
+	currentActiveSession := con.ActiveSession.Get()
+	defer con.ActiveSession.Set(currentActiveSession)
+	con.ActiveSession.Set(nil)
+	if event.EventType == consts.SessionOpenedEvent {
+		if event.Session == nil || event.Session.OS == "" {
+			return // Half-open session, do not execute any command
+		}
+		con.ActiveSession.Set(event.Session)
+	}
 
-				con.PrintInfof("Execute reaction: '%s'\n", line)
-				args, err := shlex.Split(line, true)
-				if err != nil {
-					con.PrintErrorf("Reaction command has invalid args: %s\n", err)
-					continue
-				}
-				err = con.App.RunCommand(args)
-				if err != nil {
-					con.PrintErrorf("Reaction command error: %s\n", err)
-				}
+	for _, reaction := range reactions {
+		for _, line := range reaction.Commands {
+			con.PrintInfof("Execute reaction: '%s'\n", line)
+			args, err := shlex.Split(line, true)
+			if err != nil {
+				con.PrintErrorf("Reaction command has invalid args: %s\n", err)
+				continue
+			}
+			err = con.App.RunCommand(args)
+			if err != nil {
+				con.PrintErrorf("Reaction command error: %s\n", err)
 			}
 		}
 	}
