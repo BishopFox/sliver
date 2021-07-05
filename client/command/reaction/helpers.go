@@ -39,7 +39,7 @@ func GetReactionFilePath() string {
 // SaveReactions - Save the reactions to the reaction file
 func SaveReactions(reactions []core.Reaction) error {
 	reactionFilePath := GetReactionFilePath()
-	data, err := json.Marshal(reactions)
+	data, err := json.MarshalIndent(reactions, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,19 @@ func LoadReactions() (int, error) {
 		core.Reactions.Remove(oldReaction.ID)
 	}
 	for _, reaction := range reactions {
+		if !isReactable(reaction) {
+			continue
+		}
 		core.Reactions.Add(reaction)
 	}
 	return len(reactions), nil
+}
+
+func isReactable(reaction core.Reaction) bool {
+	for _, eventType := range core.ReactableEvents {
+		if reaction.EventType == eventType {
+			return true
+		}
+	}
+	return false
 }

@@ -1,7 +1,27 @@
 package core
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2021  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"sync"
+
+	consts "github.com/bishopfox/sliver/client/constants"
 )
 
 var (
@@ -9,6 +29,24 @@ var (
 	Reactions = &reactions{
 		reactionMap: map[string][]Reaction{},
 		mutex:       &sync.RWMutex{},
+	}
+
+	ReactableEvents = []string{
+		consts.SessionOpenedEvent,
+		consts.SessionUpdateEvent,
+		consts.SessionClosedEvent,
+		consts.CanaryEvent,
+		consts.WatchtowerEvent,
+		consts.LootAddedEvent,
+		consts.LootRemovedEvent,
+
+		// Not sure if we want to add these or not:
+		// consts.JobStartedEvent,
+		// consts.JobStoppedEvent,
+		// consts.BuildEvent,
+		// consts.BuildCompletedEvent,
+		// consts.ProfileEvent,
+		// consts.WebsiteEvent,
 	}
 )
 
@@ -73,7 +111,7 @@ func (r *reactions) All() []Reaction {
 
 // Reaction - Metadata about a portfwd listener
 type Reaction struct {
-	ID        int
+	ID        int      `json:"-"`
 	EventType string   `json:"event_type"`
 	Commands  []string `json:"commands"`
 }

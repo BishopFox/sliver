@@ -69,7 +69,7 @@ func getEventType(ctx *grumble.Context, con *console.SliverConsoleClient) (strin
 	if rawEventType == "" {
 		return selectEventType(con)
 	} else {
-		for _, eventType := range ReactableEvents {
+		for _, eventType := range core.ReactableEvents {
 			if eventType == rawEventType {
 				return eventType, nil
 			}
@@ -81,14 +81,14 @@ func getEventType(ctx *grumble.Context, con *console.SliverConsoleClient) (strin
 func selectEventType(con *console.SliverConsoleClient) (string, error) {
 	prompt := &survey.Select{
 		Message: "Select an event:",
-		Options: ReactableEvents,
+		Options: core.ReactableEvents,
 	}
 	selection := ""
 	err := survey.AskOne(prompt, &selection)
 	if err != nil {
 		return "", err
 	}
-	for _, eventType := range ReactableEvents {
+	for _, eventType := range core.ReactableEvents {
 		if eventType == selection {
 			return eventType, nil
 		}

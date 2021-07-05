@@ -24,6 +24,7 @@ package help
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"text/template"
 
@@ -94,6 +95,11 @@ var (
 		// Profiles
 		consts.ProfilesStr + sep + consts.NewStr:      newProfileHelp,
 		consts.ProfilesStr + sep + consts.GenerateStr: generateProfileHelp,
+
+		// Reactions
+		consts.ReactionStr:                         reactionHelp,
+		consts.ReactionStr + sep + consts.SetStr:   reactionSetHelp,
+		consts.ReactionStr + sep + consts.UnsetStr: reactionUnsetHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -548,6 +554,60 @@ loot --filter creds
 
 # Display the contents of a piece of loot:
 loot fetch
+`
+
+	reactionHelp = fmt.Sprintf(`[[.Bold]]Command:[[.Normal]] reaction
+[[.Bold]]About:[[.Normal]] Automate commands in reaction to event(s).
+
+[[.Bold]]Reactable Events:[[.Normal]]
+% 20s  Triggered when a new session is opened to a target
+% 20s  Triggered on changes to session metadata
+% 20s  Triggered when a session is closed (for any reason)
+% 20s  Triggered when a canary is burned or created
+% 20s  Triggered when implants are discovered on threat intel platforms
+% 20s  Triggered when a new piece of loot is added to the server
+% 20s  Triggered when a piece of loot is removed from the server
+`,
+		consts.SessionOpenedEvent,
+		consts.SessionUpdateEvent,
+		consts.SessionClosedEvent,
+		consts.CanaryEvent,
+		consts.WatchtowerEvent,
+		consts.LootAddedEvent,
+		consts.LootRemovedEvent,
+	)
+
+	reactionSetHelp = fmt.Sprintf(`[[.Bold]]Command:[[.Normal]] reaction set
+[[.Bold]]About:[[.Normal]] Set automated commands in reaction to event(s).
+
+[[.Bold]]Examples:[[.Normal]]
+# The command uses interactive menus to build a reaction. Simply run:
+reaction set
+
+[[.Bold]]Reactable Events:[[.Normal]]
+% 20s  Triggered when a new session is opened to a target
+% 20s  Triggered on changes to session metadata
+% 20s  Triggered when a session is closed (for any reason)
+% 20s  Triggered when a canary is burned or created
+% 20s  Triggered when implants are discovered on threat intel platforms
+% 20s  Triggered when a new piece of loot is added to the server
+% 20s  Triggered when a piece of loot is removed from the server
+	`,
+		consts.SessionOpenedEvent,
+		consts.SessionUpdateEvent,
+		consts.SessionClosedEvent,
+		consts.CanaryEvent,
+		consts.WatchtowerEvent,
+		consts.LootAddedEvent,
+		consts.LootRemovedEvent,
+	)
+
+	reactionUnsetHelp = `[[.Bold]]Command:[[.Normal]] reaction unset
+[[.Bold]]About:[[.Normal]] Unset/remove automated commands in reaction to event(s).
+
+[[.Bold]]Examples:[[.Normal]]
+# Remove a reaction
+reaction unset --id 1
 `
 )
 

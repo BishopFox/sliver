@@ -30,22 +30,10 @@ import (
 	"github.com/desertbit/grumble"
 )
 
-var (
-	ReactableEvents = []string{
-		consts.SessionOpenedEvent,
-		consts.SessionUpdateEvent,
-		consts.SessionClosedEvent,
-		consts.CanaryEvent,
-		consts.WatchtowerEvent,
-		consts.LootAddedEvent,
-		consts.LootRemovedEvent,
-	}
-)
-
 // ReactionCmd - Manage reactions to events
 func ReactionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	totalReactions := 0
-	for _, eventType := range ReactableEvents {
+	for _, eventType := range core.ReactableEvents {
 		reactions := core.Reactions.On(eventType)
 		if 0 < len(reactions) {
 			displayReactionsTable(eventType, reactions, con)
