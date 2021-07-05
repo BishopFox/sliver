@@ -34,6 +34,8 @@ package command
 */
 
 import (
+	"os"
+
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
@@ -71,6 +73,13 @@ const (
 
 // BindCommands - Bind commands to a App
 func BindCommands(con *console.SliverConsoleClient) {
+
+	n, err := reaction.LoadReactions()
+	if err != nil && !os.IsNotExist(err) {
+		con.PrintErrorf("Failed to load reactions: %s\n", err)
+	} else if n > 0 {
+		con.PrintInfof("Loaded %d reaction(s) from disk\n", n)
+	}
 
 	con.App.SetPrintHelp(help.HelpCmd(con)) // Responsible for display long-form help templates, etc.
 
@@ -2097,6 +2106,30 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			reaction.ReactionUnsetCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	reactionCmd.AddCommand(&grumble.Command{
+		Name:     consts.SaveStr,
+		Help:     "Save current reactions to disk",
+		LongHelp: help.GetHelpFor([]string{consts.ReactionStr, consts.SaveStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			reaction.ReactionSaveCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	reactionCmd.AddCommand(&grumble.Command{
+		Name:     consts.ReloadStr,
+		Help:     "Reload reactions from disk, replaces the running configuration",
+		LongHelp: help.GetHelpFor([]string{consts.ReactionStr, consts.ReloadStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			reaction.ReactionReloadCmd(ctx, con)
 			con.Println()
 			return nil
 		},
