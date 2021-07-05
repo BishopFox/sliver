@@ -30,6 +30,10 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 )
 
+const (
+	sep = "."
+)
+
 var (
 
 	// NOTE: For sub-commands use a "." hierarchy, for example root.sub for "sub" help
@@ -71,25 +75,25 @@ var (
 		consts.BackdoorStr:         backdoorHelp,
 		consts.SpawnDllStr:         spawnDllHelp,
 
-		consts.WebsitesStr:          websitesHelp,
-		consts.ScreenshotStr:        screenshotHelp,
-		consts.MakeTokenStr:         makeTokenHelp,
-		consts.GetEnvStr:            getEnvHelp,
-		consts.SetEnvStr:            setEnvHelp,
-		consts.RegistryWriteStr:     regWriteHelp,
-		consts.RegistryReadStr:      regReadHelp,
-		consts.RegistryCreateKeyStr: regCreateKeyHelp,
-		consts.PivotsListStr:        pivotListHelp,
-		consts.WgPortFwdStr:         wgPortFwdHelp,
-		consts.WgSocksStr:           wgSocksHelp,
-		consts.SSHStr:               sshHelp,
+		consts.WebsitesStr:                  websitesHelp,
+		consts.ScreenshotStr:                screenshotHelp,
+		consts.MakeTokenStr:                 makeTokenHelp,
+		consts.EnvStr:                       getEnvHelp,
+		consts.EnvStr + sep + consts.SetStr: setEnvHelp,
+		consts.RegistryWriteStr:             regWriteHelp,
+		consts.RegistryReadStr:              regReadHelp,
+		consts.RegistryCreateKeyStr:         regCreateKeyHelp,
+		consts.PivotsListStr:                pivotListHelp,
+		consts.WgPortFwdStr:                 wgPortFwdHelp,
+		consts.WgSocksStr:                   wgSocksHelp,
+		consts.SSHStr:                       sshHelp,
 
 		// Loot
 		consts.LootStr: lootHelp,
 
 		// Profiles
-		consts.ProfilesStr + "." + consts.NewStr:      newProfileHelp,
-		consts.ProfilesStr + "." + consts.GenerateStr: generateProfileHelp,
+		consts.ProfilesStr + sep + consts.NewStr:      newProfileHelp,
+		consts.ProfilesStr + sep + consts.GenerateStr: generateProfileHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -568,7 +572,7 @@ const (
 // GetHelpFor - Get help string for a command
 func GetHelpFor(cmdName []string) string {
 	if 0 < len(cmdName) {
-		if helpTmpl, ok := cmdHelp[strings.Join(cmdName, ".")]; ok {
+		if helpTmpl, ok := cmdHelp[strings.Join(cmdName, sep)]; ok {
 			return FormatHelpTmpl(helpTmpl)
 		}
 	}

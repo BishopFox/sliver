@@ -270,16 +270,16 @@ func (con *SliverConsoleClient) PrintLogo() {
 
 	insecureRand.Seed(time.Now().Unix())
 	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
-	fmt.Println(logo)
-	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
-	fmt.Printf(Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
+	con.Println(logo)
+	con.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
+	con.Printf(Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
 	if version.GitCommit != serverVer.Commit {
-		fmt.Printf(Info+"Client %s\n", version.FullVersion())
+		con.Printf(Info+"Client %s\n", version.FullVersion())
 	}
-	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
-	fmt.Println()
+	con.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
+	con.Println()
 	if serverVer.Major != int32(version.SemanticVersion()[0]) {
-		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
+		con.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
 	}
 	con.CheckLastUpdate()
 }
@@ -296,7 +296,7 @@ func (con *SliverConsoleClient) CheckLastUpdate() {
 	day := 24 * time.Hour
 	if compiledAt.Add(30 * day).Before(now) {
 		if lastUpdate == nil || lastUpdate.Add(30*day).Before(now) {
-			fmt.Printf(Info + "Check for updates with the 'update' command\n\n")
+			con.Printf(Info + "Check for updates with the 'update' command\n\n")
 		}
 	}
 }
@@ -349,7 +349,8 @@ func (con *SliverConsoleClient) GetSessionsByName(name string) []*clientpb.Sessi
 	return matched
 }
 
-func (con *SliverConsoleClient) GetActiveSliverConfig() *clientpb.ImplantConfig {
+// GetActiveSessionConfig - Get the active sessions's config
+func (con *SliverConsoleClient) GetActiveSessionConfig() *clientpb.ImplantConfig {
 	session := con.ActiveSession.Get()
 	if session == nil {
 		return nil

@@ -32,7 +32,7 @@ func MigrateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	pid := ctx.Args.Uint("pid")
-	config := con.GetActiveSliverConfig()
+	config := con.GetActiveSessionConfig()
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("Migrating into %d ...", pid), ctrl)
 	migrate, err := con.Rpc.Migrate(context.Background(), &clientpb.MigrateReq{

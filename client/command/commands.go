@@ -1530,10 +1530,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// [ Environment ] ---------------------------------------------
 
-	con.App.AddCommand(&grumble.Command{
-		Name:     consts.GetEnvStr,
+	envCmd := &grumble.Command{
+		Name:     consts.EnvStr,
 		Help:     "List environment variables",
-		LongHelp: help.GetHelpFor([]string{consts.GetEnvStr}),
+		LongHelp: help.GetHelpFor([]string{consts.EnvStr}),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1547,12 +1547,11 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.GenericHelpGroup,
-	})
-
-	con.App.AddCommand(&grumble.Command{
-		Name:     consts.SetEnvStr,
+	}
+	envCmd.AddCommand(&grumble.Command{
+		Name:     consts.SetStr,
 		Help:     "Set environment variables",
-		LongHelp: help.GetHelpFor([]string{consts.SetEnvStr}),
+		LongHelp: help.GetHelpFor([]string{consts.EnvStr, consts.SetStr}),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1568,11 +1567,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
-
-	con.App.AddCommand(&grumble.Command{
-		Name:     consts.UnsetEnvStr,
+	envCmd.AddCommand(&grumble.Command{
+		Name:     consts.UnsetStr,
 		Help:     "Clear environment variables",
-		LongHelp: help.GetHelpFor([]string{consts.UnsetEnvStr}),
+		LongHelp: help.GetHelpFor([]string{consts.EnvStr, consts.UnsetStr}),
 		Args: func(a *grumble.Args) {
 			a.String("name", "environment variable name")
 		},
@@ -1587,6 +1585,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+	con.App.AddCommand(envCmd)
+
+	// [ Licenses ] ---------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{
 		Name:     consts.LicensesStr,
@@ -1612,7 +1613,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 	}
-
 	registryCmd.AddCommand(&grumble.Command{
 		Name:     consts.RegistryReadStr,
 		Help:     "Read values from the Windows registry",
@@ -1847,6 +1847,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	con.App.AddCommand(wgSocksCmd)
 
 	// [ Portfwd ] --------------------------------------------------------------
+
 	portfwdCmd := &grumble.Command{
 		Name:     consts.PortfwdStr,
 		Help:     "In-band TCP port forwarding",
@@ -1898,6 +1899,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	con.App.AddCommand(portfwdCmd)
 
 	// [ Monitor ] --------------------------------------------------------------
+
 	monitorCmd := &grumble.Command{
 		Name: consts.MonitorStr,
 		Help: "Monitor threat intel platforms for Sliver implants",
@@ -2057,6 +2059,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	con.App.AddCommand(lootCmd)
 
 	// [ Reactions ] -----------------------------------------------------------------
+
 	reactionCmd := &grumble.Command{
 		Name:     consts.ReactionStr,
 		Help:     "Manage automatic reactions to events",
