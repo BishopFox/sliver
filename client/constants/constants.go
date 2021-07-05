@@ -105,6 +105,8 @@ const (
 	ProfilesStr   = "profiles"
 
 	// Generic
+
+	// NewStr - "new"
 	NewStr    = "new"
 	AddStr    = "add"
 	StartStr  = "start"
@@ -113,7 +115,6 @@ const (
 	UnsetStr  = "unset"
 	SaveStr   = "save"
 	ReloadStr = "reload"
-	// RmStr - Already defined below for "rm" command
 
 	LootStr       = "loot"
 	LootLocalStr  = "local"

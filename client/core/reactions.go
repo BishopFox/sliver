@@ -31,6 +31,7 @@ var (
 		mutex:       &sync.RWMutex{},
 	}
 
+	// ReactableEvents - A list of reactionable events
 	ReactableEvents = []string{
 		consts.SessionOpenedEvent,
 		consts.SessionUpdateEvent,
@@ -56,7 +57,7 @@ type reactions struct {
 	reactionID  int
 }
 
-// Start - Start a reaction
+// Add - Add a reaction
 func (r *reactions) Add(reaction Reaction) Reaction {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
