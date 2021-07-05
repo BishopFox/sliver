@@ -41,6 +41,7 @@ import (
 
 	"time"
 
+	"github.com/desertbit/go-shlex"
 	"github.com/desertbit/grumble"
 	"github.com/fatih/color"
 )
@@ -203,8 +204,42 @@ func (con *SliverConsoleClient) EventLoop() {
 			con.Println()
 		}
 
+		con.triggerReactions(event)
+
 		con.Printf(Clearln + con.GetPrompt())
 		bufio.NewWriter(con.App.Stdout()).Flush()
+	}
+}
+
+func (con *SliverConsoleClient) triggerReactions(event *clientpb.Event) {
+	reactions := core.Reactions.On(event.EventType)
+	if 0 < len(reactions) {
+		for _, reaction := range reactions {
+			for _, line := range reaction.Commands {
+
+				// We need some special handling for SessionOpenedEvent to
+				// set the new session as the active session
+				currentActiveSession := con.ActiveSession.Get()
+				defer con.ActiveSession.Set(currentActiveSession)
+				if event.EventType == consts.SessionOpenedEvent {
+					if event.Session == nil || event.Session.OS == "" {
+						return // Half-open session, do not execute any command
+					}
+					con.ActiveSession.Set(event.Session)
+				}
+
+				con.PrintInfof("Execute reaction: '%s'\n", line)
+				args, err := shlex.Split(line, true)
+				if err != nil {
+					con.PrintErrorf("Reaction command has invalid args: %s\n", err)
+					continue
+				}
+				err = con.App.RunCommand(args)
+				if err != nil {
+					con.PrintErrorf("Reaction command error: %s\n", err)
+				}
+			}
+		}
 	}
 }
 

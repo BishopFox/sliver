@@ -109,6 +109,8 @@ const (
 	AddStr   = "add"
 	StartStr = "start"
 	StopStr  = "stop"
+	SetStr   = "set"
+	UnsetStr = "unset"
 	// RmStr - Already defined below for "rm" command
 
 	LootStr       = "loot"
@@ -198,6 +200,8 @@ const (
 	SSHStr                = "ssh"
 
 	PortfwdStr = "portfwd"
+
+	ReactionStr = "reaction"
 
 	LicensesStr = "licenses"
 )

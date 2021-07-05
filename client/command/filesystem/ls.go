@@ -19,9 +19,9 @@ package filesystem
 */
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"strings"
 	"text/tabwriter"
 
@@ -48,16 +48,17 @@ func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if err != nil {
 		con.PrintWarnf("%s\n", err)
 	} else {
-		PrintLs(con.App.Stdout(), ls)
+		PrintLs(ls, con)
 	}
 }
 
 // PrintLs - Display an sliverpb.Ls object
-func PrintLs(stdout io.Writer, ls *sliverpb.Ls) {
-	fmt.Fprintf(stdout, "%s\n", ls.Path)
-	fmt.Fprintf(stdout, "%s\n", strings.Repeat("=", len(ls.Path)))
+func PrintLs(ls *sliverpb.Ls, con *console.SliverConsoleClient) {
+	con.Printf("%s\n", ls.Path)
+	con.Printf("%s\n", strings.Repeat("=", len(ls.Path)))
 
-	table := tabwriter.NewWriter(stdout, 0, 2, 2, ' ', 0)
+	outputBuf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 	for _, fileInfo := range ls.Files {
 		if fileInfo.IsDir {
 			fmt.Fprintf(table, "%s\t<dir>\t\n", fileInfo.Name)
@@ -66,4 +67,5 @@ func PrintLs(stdout io.Writer, ls *sliverpb.Ls) {
 		}
 	}
 	table.Flush()
+	con.Printf("%s\n", outputBuf.String())
 }

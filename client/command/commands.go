@@ -51,6 +51,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/portfwd"
 	"github.com/bishopfox/sliver/client/command/privilege"
 	"github.com/bishopfox/sliver/client/command/processes"
+	"github.com/bishopfox/sliver/client/command/reaction"
 	"github.com/bishopfox/sliver/client/command/registry"
 	"github.com/bishopfox/sliver/client/command/screenshot"
 	"github.com/bishopfox/sliver/client/command/sessions"
@@ -2054,4 +2055,49 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 	con.App.AddCommand(lootCmd)
+
+	// [ Reactions ] -----------------------------------------------------------------
+	reactionCmd := &grumble.Command{
+		Name:     consts.ReactionStr,
+		Help:     "Manage automatic reactions to events",
+		LongHelp: help.GetHelpFor([]string{consts.ReactionStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			reaction.ReactionCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	reactionCmd.AddCommand(&grumble.Command{
+		Name:     consts.SetStr,
+		Help:     "Set a reaction to an event",
+		LongHelp: help.GetHelpFor([]string{consts.ReactionStr, consts.SetStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("e", "event", "", "specify the event type to react to")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			reaction.ReactionSetCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	reactionCmd.AddCommand(&grumble.Command{
+		Name:     consts.UnsetStr,
+		Help:     "Unset an existing reaction",
+		LongHelp: help.GetHelpFor([]string{consts.ReactionStr, consts.UnsetStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("i", "id", 0, "the id of the reaction to remove")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			reaction.ReactionUnsetCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	con.App.AddCommand(reactionCmd)
 }
