@@ -264,7 +264,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 	// as the sliver-server.
 	if runtime.GOOS != config.GOOS {
 		buildLog.Infof("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
-		cc, cxx = getCrossCompilers(config.GOOS, config.GOARCH)
+		cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
 		if cc == "" {
 			return "", fmt.Errorf("CC '%s/%s' not found", config.GOOS, config.GOARCH)
 		}
@@ -333,7 +333,7 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 	// as the sliver-server.
 	if runtime.GOOS != config.GOOS {
 		buildLog.Infof("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
-		cc, cxx = getCrossCompilers(config.GOOS, config.GOARCH)
+		cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
 		if cc == "" {
 			return "", fmt.Errorf("CC '%s/%s' not found", config.GOOS, config.GOARCH)
 		}
@@ -691,8 +691,8 @@ func getCrossCompilersFromEnv(targetGoos string, targetGoarch string) (string, s
 	return cc, cxx
 }
 
-func getCrossCompilers(targetGoos string, targetGoarch string) (string, string) {
-	var found bool // meh, ugly
+func findCrossCompilers(targetGoos string, targetGoarch string) (string, string) {
+	var found bool
 
 	// Get CC and CXX from ENV
 	cc, cxx := getCrossCompilersFromEnv(targetGoos, targetGoarch)
@@ -713,9 +713,11 @@ func getCrossCompilers(targetGoos string, targetGoarch string) (string, string) 
 	// Check to see if CC and CXX exist
 	if _, err := os.Stat(cc); os.IsNotExist(err) {
 		buildLog.Warnf("CC path '%s' does not exist", cc)
+		cc = "" // Path does not exist
 	}
 	if _, err := os.Stat(cxx); os.IsNotExist(err) {
 		buildLog.Warnf("CXX path '%s' does not exist", cxx)
+		cxx = "" // Path does not exist
 	}
 	buildLog.Infof(" CC = '%s'", cc)
 	buildLog.Infof("CXX = '%s'", cxx)
@@ -752,7 +754,7 @@ func GetCompilerTargets() []*clientpb.CompilerTarget {
 
 		// Cross-compile with the right configuration
 		if runtime.GOOS == LINUX || runtime.GOOS == DARWIN {
-			cc, _ := getCrossCompilers(platform[0], platform[1])
+			cc, _ := findCrossCompilers(platform[0], platform[1])
 			if cc != "" {
 				if runtime.GOOS == DARWIN && platform[0] == LINUX && platform[1] == "386" {
 					continue // Darwin can't target 32-bit Linux, even with a cc/cxx
@@ -806,7 +808,7 @@ func GetCrossCompilers() []*clientpb.CrossCompiler {
 		if runtime.GOOS == platform[0] {
 			continue
 		}
-		cc, cxx := getCrossCompilers(platform[0], platform[1])
+		cc, cxx := findCrossCompilers(platform[0], platform[1])
 		if cc != "" {
 			compilers = append(compilers, &clientpb.CrossCompiler{
 				TargetGOOS:   platform[0],

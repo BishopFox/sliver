@@ -30,6 +30,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"time"
@@ -65,6 +66,10 @@ const (
 	DefaultPoll = 1
 	// DefaultMaxErrors is the default max reconnection errors before giving up
 	DefaultMaxErrors = 1000
+)
+
+const (
+	crossCompilerInfoURL = "https://github.com/BishopFox/sliver/wiki/Cross-Compiling-Implants"
 )
 
 var (
@@ -263,14 +268,18 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	}
 
 	targetOS := strings.ToLower(ctx.Flags.String("os"))
-	arch := strings.ToLower(ctx.Flags.String("arch"))
-	targetOS, arch = getTargets(targetOS, arch, con)
-	if targetOS == "" || arch == "" {
+	targetArch := strings.ToLower(ctx.Flags.String("arch"))
+	targetOS, targetArch = getTargets(targetOS, targetArch, con)
+	if targetOS == "" || targetArch == "" {
+		return nil
+	}
+	if len(namedPipeC2) > 0 && targetOS != "windows" {
+		con.PrintErrorf("Named pipe pivoting can only be used in Windows.")
 		return nil
 	}
 
-	if len(namedPipeC2) > 0 && targetOS != "windows" {
-		con.PrintErrorf("Named pipe pivoting can only be used in Windows.")
+	// Check to see if we can *probably* build the target binary
+	if !checkBuildTargetCompatibility(configFormat, targetOS, targetArch, con) {
 		return nil
 	}
 
@@ -287,7 +296,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
-		GOARCH:           arch,
+		GOARCH:           targetArch,
 		Name:             name,
 		Debug:            ctx.Flags.Bool("debug"),
 		Evasion:          ctx.Flags.Bool("evasion"),
@@ -554,4 +563,63 @@ func getLimitsString(config *clientpb.ImplantConfig) string {
 		limits = append(limits, fmt.Sprintf("fileexists=%s", config.LimitFileExists))
 	}
 	return strings.Join(limits, "; ")
+}
+
+func checkBuildTargetCompatibility(format clientpb.OutputFormat, targetOS string, targetArch string, con *console.SliverConsoleClient) bool {
+	if format == clientpb.OutputFormat_EXECUTABLE {
+		return true // We don't need cross-compilers when targeting EXECUTABLE formats
+	}
+
+	compilers, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		con.PrintWarnf("Failed to check target compatibility: %s\n", err)
+		return true
+	}
+
+	if runtime.GOOS != "windows" && targetOS == "windows" {
+		if !hasCC(targetOS, targetArch, compilers.CrossCompilers) {
+			return warnMissingCrossCompiler(format, targetOS, targetArch, con)
+		}
+	}
+
+	if runtime.GOOS != "darwin" && targetOS == "darwin" {
+		if !hasCC(targetOS, targetArch, compilers.CrossCompilers) {
+			return warnMissingCrossCompiler(format, targetOS, targetArch, con)
+		}
+	}
+
+	if runtime.GOOS != "linux" && targetOS == "linux" {
+		if !hasCC(targetOS, targetArch, compilers.CrossCompilers) {
+			return warnMissingCrossCompiler(format, targetOS, targetArch, con)
+		}
+	}
+
+	return true
+}
+
+func hasCC(targetOS string, targetArch string, crossCompilers []*clientpb.CrossCompiler) bool {
+	for _, cc := range crossCompilers {
+		if cc.GetTargetGOOS() == targetOS && cc.GetTargetGOARCH() == targetArch {
+			return true
+		}
+	}
+	return false
+}
+
+func warnMissingCrossCompiler(format clientpb.OutputFormat, targetOS string, targetArch string, con *console.SliverConsoleClient) bool {
+	con.PrintWarnf("WARNING: Missing cross-compiler for %s on %s/%s\n", nameOfOutputFormat(format), targetOS, targetArch)
+	switch targetOS {
+	case "windows":
+		con.PrintWarnf("The server cannot find an installation of mingw")
+	case "darwin":
+		con.PrintWarnf("The server cannot find an installation of osxcross")
+	case "linux":
+		con.PrintWarnf("The server cannot find an installation of musl-cross")
+	}
+	con.PrintWarnf("For more inforamation read: %s\n", crossCompilerInfoURL)
+
+	confirm := false
+	prompt := &survey.Confirm{Message: "Try to compile anyways (will likely fail)?"}
+	survey.AskOne(prompt, &confirm, nil)
+	return confirm
 }
