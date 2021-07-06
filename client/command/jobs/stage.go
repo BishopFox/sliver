@@ -52,7 +52,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	profile := generate.GetImplantProfileByName(profileName, con)
-	if profile != nil {
+	if profile == nil {
 		con.PrintErrorf("Profile not found\n")
 		return
 	}
