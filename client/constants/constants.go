@@ -105,11 +105,16 @@ const (
 	ProfilesStr   = "profiles"
 
 	// Generic
-	NewStr   = "new"
-	AddStr   = "add"
-	StartStr = "start"
-	StopStr  = "stop"
-	// RmStr - Already defined below for "rm" command
+
+	// NewStr - "new"
+	NewStr    = "new"
+	AddStr    = "add"
+	StartStr  = "start"
+	StopStr   = "stop"
+	SetStr    = "set"
+	UnsetStr  = "unset"
+	SaveStr   = "save"
+	ReloadStr = "reload"
 
 	LootStr       = "loot"
 	LootLocalStr  = "local"
@@ -181,9 +186,7 @@ const (
 	PsExecStr             = "psexec"
 	BackdoorStr           = "backdoor"
 	MakeTokenStr          = "make-token"
-	GetEnvStr             = "getenv"
-	SetEnvStr             = "setenv"
-	UnsetEnvStr           = "unsetenv"
+	EnvStr                = "env"
 	RegistryStr           = "registry"
 	RegistryReadStr       = "read"
 	RegistryWriteStr      = "write"
@@ -198,6 +201,8 @@ const (
 	SSHStr                = "ssh"
 
 	PortfwdStr = "portfwd"
+
+	ReactionStr = "reaction"
 
 	LicensesStr = "licenses"
 )

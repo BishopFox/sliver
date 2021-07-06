@@ -24,10 +24,15 @@ package help
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"text/template"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+)
+
+const (
+	sep = "."
 )
 
 var (
@@ -71,25 +76,30 @@ var (
 		consts.BackdoorStr:         backdoorHelp,
 		consts.SpawnDllStr:         spawnDllHelp,
 
-		consts.WebsitesStr:          websitesHelp,
-		consts.ScreenshotStr:        screenshotHelp,
-		consts.MakeTokenStr:         makeTokenHelp,
-		consts.GetEnvStr:            getEnvHelp,
-		consts.SetEnvStr:            setEnvHelp,
-		consts.RegistryWriteStr:     regWriteHelp,
-		consts.RegistryReadStr:      regReadHelp,
-		consts.RegistryCreateKeyStr: regCreateKeyHelp,
-		consts.PivotsListStr:        pivotListHelp,
-		consts.WgPortFwdStr:         wgPortFwdHelp,
-		consts.WgSocksStr:           wgSocksHelp,
-		consts.SSHStr:               sshHelp,
+		consts.WebsitesStr:                  websitesHelp,
+		consts.ScreenshotStr:                screenshotHelp,
+		consts.MakeTokenStr:                 makeTokenHelp,
+		consts.EnvStr:                       getEnvHelp,
+		consts.EnvStr + sep + consts.SetStr: setEnvHelp,
+		consts.RegistryWriteStr:             regWriteHelp,
+		consts.RegistryReadStr:              regReadHelp,
+		consts.RegistryCreateKeyStr:         regCreateKeyHelp,
+		consts.PivotsListStr:                pivotListHelp,
+		consts.WgPortFwdStr:                 wgPortFwdHelp,
+		consts.WgSocksStr:                   wgSocksHelp,
+		consts.SSHStr:                       sshHelp,
 
 		// Loot
 		consts.LootStr: lootHelp,
 
 		// Profiles
-		consts.ProfilesStr + "." + consts.NewStr:      newProfileHelp,
-		consts.ProfilesStr + "." + consts.GenerateStr: generateProfileHelp,
+		consts.ProfilesStr + sep + consts.NewStr:      newProfileHelp,
+		consts.ProfilesStr + sep + consts.GenerateStr: generateProfileHelp,
+
+		// Reactions
+		consts.ReactionStr:                         reactionHelp,
+		consts.ReactionStr + sep + consts.SetStr:   reactionSetHelp,
+		consts.ReactionStr + sep + consts.UnsetStr: reactionUnsetHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -545,6 +555,60 @@ loot --filter creds
 # Display the contents of a piece of loot:
 loot fetch
 `
+
+	reactionHelp = fmt.Sprintf(`[[.Bold]]Command:[[.Normal]] reaction
+[[.Bold]]About:[[.Normal]] Automate commands in reaction to event(s).
+
+[[.Bold]]Reactable Events:[[.Normal]]
+% 20s  Triggered when a new session is opened to a target
+% 20s  Triggered on changes to session metadata
+% 20s  Triggered when a session is closed (for any reason)
+% 20s  Triggered when a canary is burned or created
+% 20s  Triggered when implants are discovered on threat intel platforms
+% 20s  Triggered when a new piece of loot is added to the server
+% 20s  Triggered when a piece of loot is removed from the server
+`,
+		consts.SessionOpenedEvent,
+		consts.SessionUpdateEvent,
+		consts.SessionClosedEvent,
+		consts.CanaryEvent,
+		consts.WatchtowerEvent,
+		consts.LootAddedEvent,
+		consts.LootRemovedEvent,
+	)
+
+	reactionSetHelp = fmt.Sprintf(`[[.Bold]]Command:[[.Normal]] reaction set
+[[.Bold]]About:[[.Normal]] Set automated commands in reaction to event(s).
+
+[[.Bold]]Examples:[[.Normal]]
+# The command uses interactive menus to build a reaction. Simply run:
+reaction set
+
+[[.Bold]]Reactable Events:[[.Normal]]
+% 20s  Triggered when a new session is opened to a target
+% 20s  Triggered on changes to session metadata
+% 20s  Triggered when a session is closed (for any reason)
+% 20s  Triggered when a canary is burned or created
+% 20s  Triggered when implants are discovered on threat intel platforms
+% 20s  Triggered when a new piece of loot is added to the server
+% 20s  Triggered when a piece of loot is removed from the server
+	`,
+		consts.SessionOpenedEvent,
+		consts.SessionUpdateEvent,
+		consts.SessionClosedEvent,
+		consts.CanaryEvent,
+		consts.WatchtowerEvent,
+		consts.LootAddedEvent,
+		consts.LootRemovedEvent,
+	)
+
+	reactionUnsetHelp = `[[.Bold]]Command:[[.Normal]] reaction unset
+[[.Bold]]About:[[.Normal]] Unset/remove automated commands in reaction to event(s).
+
+[[.Bold]]Examples:[[.Normal]]
+# Remove a reaction
+reaction unset --id 1
+`
 )
 
 const (
@@ -568,7 +632,7 @@ const (
 // GetHelpFor - Get help string for a command
 func GetHelpFor(cmdName []string) string {
 	if 0 < len(cmdName) {
-		if helpTmpl, ok := cmdHelp[strings.Join(cmdName, ".")]; ok {
+		if helpTmpl, ok := cmdHelp[strings.Join(cmdName, sep)]; ok {
 			return FormatHelpTmpl(helpTmpl)
 		}
 	}

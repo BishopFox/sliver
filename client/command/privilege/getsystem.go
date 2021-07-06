@@ -33,7 +33,7 @@ func GetSystemCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	process := ctx.Flags.String("process")
-	config := con.GetActiveSliverConfig()
+	config := con.GetActiveSessionConfig()
 	ctrl := make(chan bool)
 	con.SpinUntil("Attempting to create a new sliver session as 'NT AUTHORITY\\SYSTEM'...", ctrl)
 

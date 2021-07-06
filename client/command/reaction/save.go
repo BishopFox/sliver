@@ -1,4 +1,4 @@
-package processes
+package reaction
 
 /*
 	Sliver Implant Framework
@@ -19,30 +19,28 @@ package processes
 */
 
 import (
-	"context"
+	"os"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/client/core"
 	"github.com/desertbit/grumble"
 )
 
-// TerminateCmd - Terminate a process on the remote system
-func TerminateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
-		return
+// ReactionSaveCmd - Manage reactions to events
+func ReactionSaveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	if _, err := os.Stat(GetReactionFilePath()); !os.IsNotExist(err) {
+		confirm := false
+		prompt := &survey.Confirm{Message: "Overwrite reactions on disk?"}
+		survey.AskOne(prompt, &confirm)
+		if !confirm {
+			return
+		}
 	}
-
-	pid := ctx.Args.Uint("pid")
-	terminated, err := con.Rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
-		Request: con.ActiveSession.Request(ctx),
-		Pid:     int32(pid),
-		Force:   ctx.Flags.Bool("force"),
-	})
+	err := SaveReactions(core.Reactions.All())
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	} else {
-		con.PrintInfof("Process %d has been terminated\n", terminated.Pid)
+		con.PrintInfof("Saved reactions to disk\n")
 	}
-
 }

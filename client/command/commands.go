@@ -34,6 +34,8 @@ package command
 */
 
 import (
+	"os"
+
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
@@ -51,6 +53,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/portfwd"
 	"github.com/bishopfox/sliver/client/command/privilege"
 	"github.com/bishopfox/sliver/client/command/processes"
+	"github.com/bishopfox/sliver/client/command/reaction"
 	"github.com/bishopfox/sliver/client/command/registry"
 	"github.com/bishopfox/sliver/client/command/screenshot"
 	"github.com/bishopfox/sliver/client/command/sessions"
@@ -70,6 +73,13 @@ const (
 
 // BindCommands - Bind commands to a App
 func BindCommands(con *console.SliverConsoleClient) {
+
+	n, err := reaction.LoadReactions()
+	if err != nil && !os.IsNotExist(err) {
+		con.PrintErrorf("Failed to load reactions: %s\n", err)
+	} else if n > 0 {
+		con.PrintInfof("Loaded %d reaction(s) from disk\n", n)
+	}
 
 	con.App.SetPrintHelp(help.HelpCmd(con)) // Responsible for display long-form help templates, etc.
 
@@ -1529,10 +1539,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// [ Environment ] ---------------------------------------------
 
-	con.App.AddCommand(&grumble.Command{
-		Name:     consts.GetEnvStr,
+	envCmd := &grumble.Command{
+		Name:     consts.EnvStr,
 		Help:     "List environment variables",
-		LongHelp: help.GetHelpFor([]string{consts.GetEnvStr}),
+		LongHelp: help.GetHelpFor([]string{consts.EnvStr}),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1546,12 +1556,11 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.GenericHelpGroup,
-	})
-
-	con.App.AddCommand(&grumble.Command{
-		Name:     consts.SetEnvStr,
+	}
+	envCmd.AddCommand(&grumble.Command{
+		Name:     consts.SetStr,
 		Help:     "Set environment variables",
-		LongHelp: help.GetHelpFor([]string{consts.SetEnvStr}),
+		LongHelp: help.GetHelpFor([]string{consts.EnvStr, consts.SetStr}),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1567,11 +1576,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
-
-	con.App.AddCommand(&grumble.Command{
-		Name:     consts.UnsetEnvStr,
+	envCmd.AddCommand(&grumble.Command{
+		Name:     consts.UnsetStr,
 		Help:     "Clear environment variables",
-		LongHelp: help.GetHelpFor([]string{consts.UnsetEnvStr}),
+		LongHelp: help.GetHelpFor([]string{consts.EnvStr, consts.UnsetStr}),
 		Args: func(a *grumble.Args) {
 			a.String("name", "environment variable name")
 		},
@@ -1586,6 +1594,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+	con.App.AddCommand(envCmd)
+
+	// [ Licenses ] ---------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{
 		Name:     consts.LicensesStr,
@@ -1611,7 +1622,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 	}
-
 	registryCmd.AddCommand(&grumble.Command{
 		Name:     consts.RegistryReadStr,
 		Help:     "Read values from the Windows registry",
@@ -1846,6 +1856,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	con.App.AddCommand(wgSocksCmd)
 
 	// [ Portfwd ] --------------------------------------------------------------
+
 	portfwdCmd := &grumble.Command{
 		Name:     consts.PortfwdStr,
 		Help:     "In-band TCP port forwarding",
@@ -1897,6 +1908,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	con.App.AddCommand(portfwdCmd)
 
 	// [ Monitor ] --------------------------------------------------------------
+
 	monitorCmd := &grumble.Command{
 		Name: consts.MonitorStr,
 		Help: "Monitor threat intel platforms for Sliver implants",
@@ -2054,4 +2066,74 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 	con.App.AddCommand(lootCmd)
+
+	// [ Reactions ] -----------------------------------------------------------------
+
+	reactionCmd := &grumble.Command{
+		Name:     consts.ReactionStr,
+		Help:     "Manage automatic reactions to events",
+		LongHelp: help.GetHelpFor([]string{consts.ReactionStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			reaction.ReactionCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	reactionCmd.AddCommand(&grumble.Command{
+		Name:     consts.SetStr,
+		Help:     "Set a reaction to an event",
+		LongHelp: help.GetHelpFor([]string{consts.ReactionStr, consts.SetStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("e", "event", "", "specify the event type to react to")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			reaction.ReactionSetCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	reactionCmd.AddCommand(&grumble.Command{
+		Name:     consts.UnsetStr,
+		Help:     "Unset an existing reaction",
+		LongHelp: help.GetHelpFor([]string{consts.ReactionStr, consts.UnsetStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("i", "id", 0, "the id of the reaction to remove")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			reaction.ReactionUnsetCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	reactionCmd.AddCommand(&grumble.Command{
+		Name:     consts.SaveStr,
+		Help:     "Save current reactions to disk",
+		LongHelp: help.GetHelpFor([]string{consts.ReactionStr, consts.SaveStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			reaction.ReactionSaveCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	reactionCmd.AddCommand(&grumble.Command{
+		Name:     consts.ReloadStr,
+		Help:     "Reload reactions from disk, replaces the running configuration",
+		LongHelp: help.GetHelpFor([]string{consts.ReactionStr, consts.ReloadStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			reaction.ReactionReloadCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	con.App.AddCommand(reactionCmd)
 }
