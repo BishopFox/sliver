@@ -616,7 +616,7 @@ func warnMissingCrossCompiler(format clientpb.OutputFormat, targetOS string, tar
 	case "linux":
 		con.PrintWarnf("The server cannot find an installation of musl-cross")
 	}
-	con.PrintWarnf("For more inforamation read: %s\n", crossCompilerInfoURL)
+	con.PrintWarnf("For more information please read %s\n", crossCompilerInfoURL)
 
 	confirm := false
 	prompt := &survey.Confirm{Message: "Try to compile anyways (will likely fail)?"}
