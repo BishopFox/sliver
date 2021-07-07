@@ -38,7 +38,7 @@ import (
 	"github.com/desertbit/grumble"
 )
 
-// ---  Loot Command ---
+// LootCmd - The loot root command
 func LootCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	filter := ctx.Flags.String("filter")
 	var allLoot *clientpb.AllLoot
