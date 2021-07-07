@@ -6,11 +6,13 @@ This directory contains the client implementation, pretty much all of this code 
 __Important:__ No code in this directory can import any code from `server/`.
 
  * `assets/` - Static asset files and management code (e.g. client configs)
- * `command/` - Command implementations
+ * `cli/` - Command line interface implementation
+ * `command/` - Console command implementations
  * `constants/` - Various shared constant values
  * `core/` - Client state management
- * `help/` - Console help
+ * `licenses/` - Open source licenses 
  * `spin/` - Console spinner library
+ * `tcpproxy/` - Local TCP proxy listener code
  * `transport/` - Wires the client to the server
  * `version/` - Version information
  * `main.go` - Entrypoint

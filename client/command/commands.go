@@ -170,7 +170,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("l", "lport", generate.DefaultWGLPort, "udp listen port")
 			f.Int("n", "nport", generate.DefaultWGNPort, "virtual tun interface listen port")
-			f.Int("x", "key-port", generate.DefaultWGKeyExPort, "virtual tun inteface key exchange port")
+			f.Int("x", "key-port", generate.DefaultWGKeyExPort, "virtual tun interface key exchange port")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
