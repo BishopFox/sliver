@@ -1,0 +1,100 @@
+#!/bin/bash
+set -e
+
+if [ -n "$(command -v yum)" ]
+then
+    sudo -S -p '' yum -y install zip unzip curl gcc gcc-c++ make mingw64-gcc
+fi
+
+if [ -n "$(command -v apt-get)" ]
+then
+    DEBIAN_FRONTEND=noninteractive sudo -S -p '' apt-get install -yqq \
+        zip unzip curl build-essential \
+        mingw-w64 binutils-mingw-w64 g++-mingw-w64
+fi
+
+# Curl
+if ! command -v curl &> /dev/null
+then
+    echo "curl could not be found"
+    exit 1
+fi
+# Awk
+if ! command -v awk &> /dev/null
+then
+    echo "awk could not be found"
+    exit 1
+fi
+# Zip
+if ! command -v zip &> /dev/null
+then
+    echo "zip could not be found"
+    exit 1
+fi
+
+cd $HOME
+echo "Running from $HOME"
+
+#
+# Download and Unpack Sliver Server
+#
+ARTIFACTS=$(curl -s "https://api.github.com/repos/BishopFox/sliver/releases/latest" | awk -F '"' '/browser_download_url/{print $4}')
+SLIVER_SERVER_ZIP='sliver-server_linux.zip'
+SLIVER_CLIENT_ZIP='sliver-client_linux.zip'
+SLIVER_SERVER='sliver-server'
+SLIVER_CLIENT='sliver-client'
+
+
+for URL in $ARTIFACTS
+do
+    if [[ "$URL" == *"$SLIVER_SERVER_ZIP"* ]]; then
+        echo "Downloading $URL"
+        curl --silent -L $URL --output $(basename $URL)
+    fi
+    if [[ "$URL" == *"$SLIVER_CLIENT_ZIP"* ]]; then
+        echo "Downloading $URL"
+        curl --silent -L $URL --output $(basename $URL)
+    fi
+done
+
+if test -f "$SLIVER_SERVER_ZIP"; then
+    unzip -o $SLIVER_SERVER_ZIP -d $HOME
+    rm -f $SLIVER_SERVER_ZIP
+else 
+    exit 2
+fi
+
+if test -f "$HOME/$SLIVER_SERVER"; then
+    chmod 755 $HOME/$SLIVER_SERVER
+    $HOME/$SLIVER_SERVER unpack --force
+else
+    exit 3
+fi
+
+if test -f "$SLIVER_CLIENT_ZIP"; then
+    unzip -o $SLIVER_CLIENT_ZIP -d $HOME
+    rm -f $SLIVER_CLIENT_ZIP
+else 
+    exit 2
+fi
+
+if test -f "$HOME/$SLIVER_CLIENT"; then
+    chmod 755 $HOME/$SLIVER_CLIENT 
+    cp -vv $HOME/$SLIVER_CLIENT /usr/local/bin/sliver
+    chmod 755 /usr/local/bin/sliver
+else
+    exit 3
+fi
+
+# systemd
+curl -o ./sliver.service https://gist.githubusercontent.com/moloch--/bfe0d00ef74fe87e327c1b3bebad0050/raw/b2d0766b8a01b9d2ace7065ed0e4d1fb9ce5bba2/sliver.service
+cp ./sliver.service /etc/systemd/system/sliver.service
+chown root:root /etc/systemd/system/sliver.service
+chmod 600 /etc/systemd/system/sliver.service
+systemctl start sliver
+rm -f ./sliver.service
+
+# generate local configs
+mkdir -p $HOME/.sliver-client/configs
+/root/sliver-server operator --name $USER --lhost localhost --save $HOME/.sliver-client/configs
+chown -R $USER:$USER $HOME/.sliver-client/
