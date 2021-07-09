@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
-	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 // KillCmd - Kill the active session (not to be confused with TerminateCmd)

@@ -1,4 +1,0 @@
-# Sliver
-
-Implant framework
-
