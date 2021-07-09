@@ -87,7 +87,7 @@ else
 fi
 
 # systemd
-curl -o ./sliver.service https://gist.githubusercontent.com/moloch--/bfe0d00ef74fe87e327c1b3bebad0050/raw/b2d0766b8a01b9d2ace7065ed0e4d1fb9ce5bba2/sliver.service
+curl -o ./sliver.service https://sliver.sh/sliver.service
 cp ./sliver.service /etc/systemd/system/sliver.service
 chown root:root /etc/systemd/system/sliver.service
 chmod 600 /etc/systemd/system/sliver.service
