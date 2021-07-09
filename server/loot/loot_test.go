@@ -176,6 +176,64 @@ func TestAllLoot(t *testing.T) {
 	}
 }
 
+func TestAllLootOf(t *testing.T) {
+	lootStore := GetLootStore()
+	_, err := lootStore.Add(&clientpb.Loot{
+		Type:     clientpb.LootType_LOOT_FILE,
+		Name:     name1,
+		FileType: clientpb.FileType_BINARY,
+		File: &commonpb.File{
+			Name: name1,
+			Data: data1,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = lootStore.Add(&clientpb.Loot{
+		Type:     clientpb.LootType_LOOT_FILE,
+		Name:     name2,
+		FileType: clientpb.FileType_TEXT,
+		File: &commonpb.File{
+			Name: name1,
+			Data: []byte("hello world"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = lootStore.Add(&clientpb.Loot{
+		Type:           clientpb.LootType_LOOT_CREDENTIAL,
+		Name:           name3,
+		CredentialType: clientpb.CredentialType_USER_PASSWORD,
+		Credential: &clientpb.Credential{
+			User:     "admin",
+			Password: "admin",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// AllOf
+	fileLoot := lootStore.AllOf(clientpb.LootType_LOOT_FILE).Loot
+	if len(fileLoot) != 2 {
+		t.Fatalf("AllOf file returned %d expected 2", len(fileLoot))
+	}
+	credLoot := lootStore.AllOf(clientpb.LootType_LOOT_CREDENTIAL).Loot
+	if len(credLoot) != 1 {
+		t.Fatalf("AllOf cred returned %d expected 2", len(credLoot))
+	}
+
+	// Cleanup
+	for _, loot := range lootStore.All().Loot {
+		err = lootStore.Rm(loot.LootID)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestLootErrors(t *testing.T) {
 	lootStore := GetLootStore()
 	loot, err := lootStore.Add(&clientpb.Loot{

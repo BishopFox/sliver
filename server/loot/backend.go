@@ -233,7 +233,7 @@ func (l *LocalBackend) All() *clientpb.AllLoot {
 func (l *LocalBackend) AllOf(lootType clientpb.LootType) *clientpb.AllLoot {
 	dbSession := db.Session()
 	allDBLoot := []*models.Loot{}
-	result := dbSession.Where(&models.Loot{Type: int(lootType)}).Find(&allDBLoot)
+	result := dbSession.Where("type == ?", int(lootType)).Find(&allDBLoot)
 	if result.Error != nil {
 		lootLog.Error(result.Error)
 		return nil

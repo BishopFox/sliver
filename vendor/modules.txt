@@ -76,12 +76,12 @@ github.com/davecgh/go-spew/spew
 # github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d
 github.com/demisto/goxforce
 # github.com/desertbit/closer/v3 v3.1.2
-## explicit
 github.com/desertbit/closer/v3
 # github.com/desertbit/columnize v2.1.0+incompatible
 ## explicit
 github.com/desertbit/columnize
 # github.com/desertbit/go-shlex v0.1.1
+## explicit
 github.com/desertbit/go-shlex
 # github.com/desertbit/grumble v1.1.1
 ## explicit

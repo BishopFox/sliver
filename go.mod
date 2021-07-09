@@ -14,8 +14,8 @@ require (
 	github.com/alecthomas/chroma v0.8.1
 	github.com/binject/go-donut v0.0.0-20201215224200-d947cf4d090d
 	github.com/cheggaaa/pb/v3 v3.0.5
-	github.com/desertbit/closer/v3 v3.1.2 // indirect
 	github.com/desertbit/columnize v2.1.0+incompatible
+	github.com/desertbit/go-shlex v0.1.1
 	github.com/desertbit/grumble v1.1.1
 	github.com/fatih/color v1.12.0
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect

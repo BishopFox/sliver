@@ -10,10 +10,10 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/desertbit/grumble"
-	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 // WebsitesAddContentCmd - Add static content to a website
