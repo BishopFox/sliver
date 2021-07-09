@@ -28,6 +28,10 @@ The server and client support MacOS, Windows, and Linux. Implants are supported 
 
 Download the latest [release](https://github.com/BishopFox/sliver/releases) and see the Sliver [wiki](https://github.com/BishopFox/sliver/wiki/Getting-Started) for a quick tutorial on basic setup and usage. To get the very latest and greatest compile from source.
 
+#### Linux One Liner
+
+`curl https://sliver.sh/install|sudo bash` and then run `sliver`
+
 ### Help!
 
 Please checkout the [wiki](https://github.com/BishopFox/sliver/wiki), or start a [GitHub discussion](https://github.com/BishopFox/sliver/discussions). We also tend to hang out in the #golang Slack channel on the [Bloodhound Gang](https://bloodhoundgang.herokuapp.com/) server.
