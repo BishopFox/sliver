@@ -32,7 +32,7 @@ import (
 
 // ExecuteAssemblyCmd - Execute a .NET assembly in-memory
 func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.Get()
+	session := con.ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}

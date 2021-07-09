@@ -25,7 +25,12 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/loot"
+)
+
+var (
+	lootRPCLog = log.NamedLogger("rpc", "loot")
 )
 
 // LootAdd - Add loot
@@ -77,5 +82,6 @@ func (rpc *Server) LootAll(ctx context.Context, _ *commonpb.Empty) (*clientpb.Al
 
 // LootAllOf - Get a list of all loot of a specific type
 func (rpc *Server) LootAllOf(ctx context.Context, lootReq *clientpb.Loot) (*clientpb.AllLoot, error) {
-	return loot.GetLootStore().AllOf(lootReq.Type), nil
+	allLoot := loot.GetLootStore().AllOf(lootReq.Type)
+	return allLoot, nil
 }
