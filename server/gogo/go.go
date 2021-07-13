@@ -137,7 +137,8 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	}
 	garbleBinPath := path.Join(config.GOROOT, "bin", "garble")
 	seed := fmt.Sprintf("-seed=%s", seed())
-	command = append([]string{"-literals", "-tiny", seed}, command...)
+	// command = append([]string{"-literals", "-tiny", seed}, command...)
+	command = append([]string{"-literals", seed}, command...)
 	cmd := exec.Command(garbleBinPath, command...)
 	cmd.Dir = cwd
 	cmd.Env = []string{
