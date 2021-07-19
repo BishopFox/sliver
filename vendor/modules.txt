@@ -6,7 +6,7 @@ github.com/AlecAivazis/survey/v2/terminal
 # github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
 ## explicit
 github.com/Binject/binjection/bj
-# github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2
+# github.com/Binject/debug v0.0.0-20210312092933-6277045c2fdf
 ## explicit
 github.com/Binject/debug/elf
 github.com/Binject/debug/macho

