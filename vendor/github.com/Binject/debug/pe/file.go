@@ -260,10 +260,12 @@ func newFileInternal(r io.ReaderAt, memoryMode bool) (*File, error) {
 		return nil, err
 	}
 
-	// Read certificate table
-	f.CertificateTable, err = readCertTable(f, sr)
-	if err != nil {
-		return nil, err
+	// Read certificate table (only in disk mode)
+	if !memoryMode {
+		f.CertificateTable, err = readCertTable(f, sr)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	//fill net info

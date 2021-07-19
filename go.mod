@@ -8,7 +8,7 @@ replace golang.zx2c4.com/wireguard => golang.zx2c4.com/wireguard v0.0.0-20210311
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.2
 	github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
-	github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2
+	github.com/Binject/debug v0.0.0-20210312092933-6277045c2fdf
 	github.com/BurntSushi/xgb v0.0.0-20201008132610-5f9e7b3c49cd // indirect
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/alecthomas/chroma v0.8.1
