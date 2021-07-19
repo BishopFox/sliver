@@ -37,11 +37,13 @@ func DNSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 	}
 
+	lhost := ctx.Flags.String("lhost")
 	lport := uint16(ctx.Flags.Int("lport"))
 
 	con.PrintInfof("Starting DNS listener with parent domain(s) %v ...\n", domains)
 	dns, err := con.Rpc.StartDNSListener(context.Background(), &clientpb.DNSListenerReq{
 		Domains:    domains,
+		Host:       lhost,
 		Port:       uint32(lport),
 		Canaries:   !ctx.Flags.Bool("no-canaries"),
 		Persistent: ctx.Flags.Bool("persistent"),

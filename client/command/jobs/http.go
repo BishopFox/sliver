@@ -29,12 +29,14 @@ import (
 // HTTPListenerCmd - Start an HTTP listener
 func HTTPListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	domain := ctx.Flags.String("domain")
+	lhost := ctx.Flags.String("lhost")
 	lport := uint16(ctx.Flags.Int("lport"))
 
 	con.PrintInfof("Starting HTTP %s:%d listener ...\n", domain, lport)
 	http, err := con.Rpc.StartHTTPListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:     domain,
 		Website:    ctx.Flags.String("website"),
+		Host:       lhost,
 		Port:       uint32(lport),
 		Secure:     false,
 		Persistent: ctx.Flags.Bool("persistent"),

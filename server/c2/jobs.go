@@ -71,7 +71,7 @@ func StartMTLSListenerJob(host string, listenPort uint16) (*core.Job, error) {
 
 // StartWGListenerJob - Start a WireGuard listener as a job
 func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListenPort uint16) (*core.Job, error) {
-	ln, dev, currenWGConf, err := StartWGListener(listenPort, nListenPort, keyExchangeListenPort)
+	ln, dev, currentWGConf, err := StartWGListener(listenPort, nListenPort, keyExchangeListenPort)
 	if err != nil {
 		return nil, err // If we fail to bind don't setup the Job
 	}
@@ -88,8 +88,8 @@ func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListen
 	ticker := time.NewTicker(5 * time.Second)
 	done := make(chan bool)
 
-	// Every 5 seconds update the wirguard config to include new peers
-	go func(dev *device.Device, currenWGConf *bytes.Buffer) {
+	// Every 5 seconds update the wireguard config to include new peers
+	go func(dev *device.Device, currentWGConf *bytes.Buffer) {
 		oldNumPeers := 0
 		for {
 			select {
@@ -107,15 +107,15 @@ func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListen
 
 					oldNumPeers = len(currentPeers)
 
-					jobLog.Infof("Old WG config for peers: %s", currenWGConf.String())
+					jobLog.Infof("Old WG config for peers: %s", currentWGConf.String())
 					for k, v := range currentPeers {
-						fmt.Fprintf(currenWGConf, "public_key=%s\n", k)
-						fmt.Fprintf(currenWGConf, "allowed_ip=%s/32\n", v)
+						fmt.Fprintf(currentWGConf, "public_key=%s\n", k)
+						fmt.Fprintf(currentWGConf, "allowed_ip=%s/32\n", v)
 					}
 
-					jobLog.Infof("New WG config for peers: %s", currenWGConf.String())
+					jobLog.Infof("New WG config for peers: %s", currentWGConf.String())
 
-					if err := dev.IpcSetOperation(bufio.NewReader(currenWGConf)); err != nil {
+					if err := dev.IpcSetOperation(bufio.NewReader(currentWGConf)); err != nil {
 						jobLog.Errorf("Failed to update Wireguard Config %s", err)
 						continue
 					}
@@ -123,7 +123,7 @@ func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListen
 				}
 			}
 		}
-	}(dev, currenWGConf)
+	}(dev, currentWGConf)
 
 	go func() {
 		<-job.JobCtrl
@@ -146,15 +146,15 @@ func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListen
 }
 
 // StartDNSListenerJob - Start a DNS listener as a job
-func StartDNSListenerJob(domains []string, canaries bool, listenPort uint16) (*core.Job, error) {
-	server := StartDNSListener(domains, canaries)
+func StartDNSListenerJob(bindIface string, lport uint16, domains []string, canaries bool) (*core.Job, error) {
+	server := StartDNSListener(bindIface, lport, domains, canaries)
 	description := fmt.Sprintf("%s (canaries %v)", strings.Join(domains, " "), canaries)
 	job := &core.Job{
 		ID:          core.NextJobID(),
 		Name:        "dns",
 		Description: description,
 		Protocol:    "udp",
-		Port:        listenPort,
+		Port:        lport,
 		JobCtrl:     make(chan bool),
 		Domains:     domains,
 	}
@@ -362,7 +362,7 @@ func StartPersistentJobs(cfg *configs.ServerConfig) error {
 	}
 
 	for _, j := range cfg.Jobs.DNS {
-		job, err := StartDNSListenerJob(j.Domains, j.Canaries, j.Port)
+		job, err := StartDNSListenerJob(j.Host, j.Port, j.Domains, j.Canaries)
 		if err != nil {
 			return err
 		}

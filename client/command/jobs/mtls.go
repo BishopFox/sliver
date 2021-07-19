@@ -28,12 +28,12 @@ import (
 
 // MTLSListenerCmd - Start an mTLS listener
 func MTLSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	server := ctx.Flags.String("server")
+	lhost := ctx.Flags.String("lhost")
 	lport := uint16(ctx.Flags.Int("lport"))
 
 	con.PrintInfof("Starting mTLS listener ...\n")
 	mtls, err := con.Rpc.StartMTLSListener(context.Background(), &clientpb.MTLSListenerReq{
-		Host:       server,
+		Host:       lhost,
 		Port:       uint32(lport),
 		Persistent: ctx.Flags.Bool("persistent"),
 	})
