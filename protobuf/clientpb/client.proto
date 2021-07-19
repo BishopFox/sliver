@@ -196,6 +196,7 @@ message MTLSListener {
 }
 
 message WGListenerReq {
+  string Host = 6;
   uint32 Port = 1;
   string TunIP = 2;
   uint32 NPort = 3;

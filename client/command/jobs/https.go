@@ -31,6 +31,7 @@ import (
 func HTTPSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	domain := ctx.Flags.String("domain")
 	website := ctx.Flags.String("website")
+	lhost := ctx.Flags.String("lhost")
 	lport := uint16(ctx.Flags.Int("lport"))
 
 	cert, key, err := getLocalCertificatePair(ctx)
@@ -44,6 +45,7 @@ func HTTPSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	https, err := con.Rpc.StartHTTPSListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:     domain,
 		Website:    website,
+		Host:       lhost,
 		Port:       uint32(lport),
 		Secure:     true,
 		Cert:       cert,

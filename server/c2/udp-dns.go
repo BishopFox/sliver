@@ -122,7 +122,7 @@ func (s *DNSSession) isReplayAttack(ciphertext []byte) bool {
 // --------------------------- DNS SERVER ---------------------------
 
 // StartDNSListener - Start a DNS listener
-func StartDNSListener(domains []string, canaries bool) *dns.Server {
+func StartDNSListener(bindIface string, lport uint16, domains []string, canaries bool) *dns.Server {
 	StartPivotListener()
 	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
 
@@ -131,7 +131,7 @@ func StartDNSListener(domains []string, canaries bool) *dns.Server {
 		handleDNSRequest(domains, canaries, writer, req)
 	})
 
-	server := &dns.Server{Addr: ":53", Net: "udp"}
+	server := &dns.Server{Addr: fmt.Sprintf("%s:%d", bindIface, lport), Net: "udp"}
 	return server
 }
 

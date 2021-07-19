@@ -149,7 +149,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Start an mTLS listener",
 		LongHelp: help.GetHelpFor([]string{consts.MtlsStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("s", "server", "", "interface to bind server to")
+			f.String("L", "lhost", "", "interface to bind server to")
 			f.Int("l", "lport", generate.DefaultMTLSLPort, "tcp listen port")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -169,6 +169,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Start a WireGuard listener",
 		LongHelp: help.GetHelpFor([]string{consts.WGStr}),
 		Flags: func(f *grumble.Flags) {
+			f.String("L", "lhost", "", "interface to bind server to")
 			f.Int("l", "lport", generate.DefaultWGLPort, "udp listen port")
 			f.Int("n", "nport", generate.DefaultWGNPort, "virtual tun interface listen port")
 			f.Int("x", "key-port", generate.DefaultWGKeyExPort, "virtual tun interface key exchange port")
@@ -191,6 +192,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domains", "", "parent domain(s) to use for DNS c2")
 			f.Bool("c", "no-canaries", false, "disable dns canary detection")
+			f.String("L", "lhost", "", "interface to bind server to")
 			f.Int("l", "lport", generate.DefaultDNSLPort, "udp listen port")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -212,6 +214,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domain", "", "limit responses to specific domain")
 			f.String("w", "website", "", "website name (see websites cmd)")
+			f.String("L", "lhost", "", "interface to bind server to")
 			f.Int("l", "lport", generate.DefaultHTTPLPort, "tcp listen port")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -233,6 +236,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domain", "", "limit responses to specific domain")
 			f.String("w", "website", "", "website name (see websites cmd)")
+			f.String("L", "lhost", "", "interface to bind server to")
 			f.Int("l", "lport", generate.DefaultHTTPSLPort, "tcp listen port")
 
 			f.String("c", "cert", "", "PEM encoded certificate file")
@@ -675,7 +679,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.MsfStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("m", "payload", "meterpreter_reverse_https", "msf payload")
-			f.String("o", "lhost", "", "listen host")
+			f.String("L", "lhost", "", "listen host")
 			f.Int("l", "lport", 4444, "listen port")
 			f.String("e", "encoder", "", "msf encoder")
 			f.Int("i", "iterations", 1, "iterations of the encoder")
@@ -698,7 +702,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("p", "pid", -1, "pid to inject into")
 			f.String("m", "payload", "meterpreter_reverse_https", "msf payload")
-			f.String("o", "lhost", "", "listen host")
+			f.String("L", "lhost", "", "listen host")
 			f.Int("l", "lport", 4444, "listen port")
 			f.String("e", "encoder", "", "msf encoder")
 			f.Int("i", "iterations", 1, "iterations of the encoder")
@@ -819,8 +823,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
-			f.String("l", "lhost", "", "Listening host")
-			f.Int("p", "lport", 8443, "Listening port")
+			f.String("L", "lhost", "", "Listening host")
+			f.Int("l", "lport", 8443, "Listening port")
 			f.String("r", "protocol", "tcp", "Staging protocol (tcp/http/https)")
 			f.String("f", "format", "raw", "Output format (msfvenom formats, see `help generate stager` for the list)")
 			f.String("b", "badchars", "", "bytes to exclude from stage shellcode")
