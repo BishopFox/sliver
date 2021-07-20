@@ -1134,6 +1134,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("c", "colorize-output", false, "colorize output")
+			f.Bool("x", "hex", false, "display as a hex dump")
 			f.Bool("X", "loot", false, "save output as loot")
 		},
 		Args: func(a *grumble.Args) {
