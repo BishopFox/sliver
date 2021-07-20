@@ -157,17 +157,10 @@ func LoadExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		// either by value or by ref fucks things up
 		commandMap[extCmd.Name] = *ext
 		helpMsg := fmt.Sprintf("[%s] %s", ext.Name, extCmd.Help)
-		extArgs := func(a *grumble.Args) {}
-		if extCmd.AllowArgs {
-			extArgs = func(a *grumble.Args) {
-				a.StringList("arguments", "arguments", grumble.Default([]string{}))
-			}
-		}
-		ctx.App.AddCommand(&grumble.Command{
+		extensionCmd := &grumble.Command{
 			Name:     extCmd.Name,
 			Help:     helpMsg,
 			LongHelp: help.FormatHelpTmpl(extCmd.LongHelp),
-			Args:     extArgs,
 			Run: func(extCtx *grumble.Context) error {
 				con.Println()
 				runExtensionCommand(extCtx, con)
@@ -185,8 +178,12 @@ func LoadExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				f.Bool("s", "save", false, "Save output to disk")
 				f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			},
+			Args: func(a *grumble.Args) {
+				a.StringList("arguments", "arguments", grumble.Default([]string{}))
+			},
 			HelpGroup: consts.ExtensionHelpGroup,
-		})
+		}
+		con.App.AddCommand(extensionCmd)
 	}
 	con.PrintInfof("%s extension has been loaded\n", ext.Name)
 }
@@ -214,14 +211,13 @@ func runExtensionCommand(ctx *grumble.Context, con *console.SliverConsoleClient)
 		return
 	}
 
-	var args string
-	if len(c.DefaultArgs) != 0 {
-		args = c.DefaultArgs
+	args := ctx.Args.StringList("arguments")
+	var extArgs string
+	if len(c.DefaultArgs) != 0 && len(args) == 0 {
+		extArgs = c.DefaultArgs
+	} else {
+		extArgs = strings.Join(args, " ")
 	}
-	if len(ctx.Args.StringList("arguments")) > 0 {
-		args = strings.Join(ctx.Args.StringList("arguments"), " ")
-	}
-
 	entryPoint := c.Entrypoint
 	processName := ctx.Flags.String("process")
 	if processName == "" {
@@ -251,13 +247,13 @@ func runExtensionCommand(ctx *grumble.Context, con *console.SliverConsoleClient)
 	}
 	if c.IsAssembly {
 		ctrl := make(chan bool)
-		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, args)
+		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
 		executeAssemblyResp, err := con.Rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
 			Request:   con.ActiveSession.Request(ctx),
 			IsDLL:     isDLL,
 			Process:   processName,
-			Arguments: args,
+			Arguments: extArgs,
 			Assembly:  binData,
 			Arch:      ctx.Flags.String("arch"),
 			Method:    ctx.Flags.String("method"),
@@ -277,11 +273,11 @@ func runExtensionCommand(ctx *grumble.Context, con *console.SliverConsoleClient)
 		}
 	} else if c.IsReflective {
 		ctrl := make(chan bool)
-		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, args)
+		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
 		spawnDllResp, err := con.Rpc.SpawnDll(context.Background(), &sliverpb.InvokeSpawnDllReq{
 			Request:     con.ActiveSession.Request(ctx),
-			Args:        strings.Trim(args, " "),
+			Args:        strings.Trim(extArgs, " "),
 			Data:        binData,
 			ProcessName: processName,
 			EntryPoint:  c.Entrypoint,
@@ -302,11 +298,11 @@ func runExtensionCommand(ctx *grumble.Context, con *console.SliverConsoleClient)
 		}
 	} else {
 		ctrl := make(chan bool)
-		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, args)
+		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
 		sideloadResp, err := con.Rpc.Sideload(context.Background(), &sliverpb.SideloadReq{
 			Request:     con.ActiveSession.Request(ctx),
-			Args:        args,
+			Args:        extArgs,
 			Data:        binData,
 			EntryPoint:  entryPoint,
 			ProcessName: processName,
