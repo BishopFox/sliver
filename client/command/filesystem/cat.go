@@ -20,6 +20,7 @@ package filesystem
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"os"
 
@@ -66,7 +67,11 @@ func CatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.Println(string(download.Data))
 		}
 	} else {
-		con.Println(string(download.Data))
+		if ctx.Flags.Bool("hex") {
+			con.Println(hex.Dump(download.Data))
+		} else {
+			con.Println(string(download.Data))
+		}
 	}
 	// if ctx.Flags.Bool("loot") && 0 < len(download.Data) {
 	// 	err = AddLootFile(rpc, fmt.Sprintf("[cat] %s", filepath.Base(filePath)), filePath, download.Data, false)
