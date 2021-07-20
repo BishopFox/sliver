@@ -320,6 +320,9 @@ func SpawnDll(procName string, data []byte, offset uint32, args string, kill boo
 		if err != nil {
 			return "", err
 		}
+		// {{if .Config.Debug}}
+		log.Printf("[*] Thread completed execution, attempting to kill remote process\n")
+		// {{end}}
 		cmd.Process.Kill()
 		return stdoutBuff.String() + stderrBuff.String(), nil
 	}
@@ -391,6 +394,9 @@ func waitForCompletion(threadHandle windows.Handle) error {
 			// {{end}}
 			return err
 		}
+		// {{if .Config.Debug}}
+		log.Printf("[!] Error: %v, code: %d\n", err, code)
+		// {{end}}
 		if code == syscalls.STILL_ACTIVE {
 			time.Sleep(time.Second)
 		} else {

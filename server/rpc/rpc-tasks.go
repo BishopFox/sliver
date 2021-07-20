@@ -30,7 +30,6 @@ import (
 	"strings"
 
 	"github.com/Binject/debug/pe"
-	"github.com/binject/go-donut/donut"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
@@ -149,7 +148,8 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 	timeout := rpc.getTimeout(req)
 	switch session.ToProtobuf().GetOS() {
 	case "windows":
-		shellcode, err := generate.ShellcodeRDIFromBytes(req.Data, req.EntryPoint, req.Args)
+		shellcode, err := generate.DonutShellcodeFromPE(req.Data, session.Arch, false, req.Args, "", "", req.IsDLL)
+		// shellcode, err := generate.ShellcodeRDIFromBytes(req.Data, req.EntryPoint, req.Args)
 		if err != nil {
 			return nil, err
 		}
@@ -237,7 +237,7 @@ func getSliverShellcode(name string) ([]byte, error) {
 		if err != nil {
 			return data, err
 		}
-		data, err = generate.DonutShellcodeFromPE(fileData, build.ImplantConfig.GOARCH, false, "", "", "", donut.DONUT_MODULE_EXE)
+		data, err = generate.DonutShellcodeFromPE(fileData, build.ImplantConfig.GOARCH, false, "", "", "", false)
 		if err != nil {
 			rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
 			return data, err

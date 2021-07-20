@@ -311,6 +311,7 @@ func runExtensionCommand(ctx *grumble.Context, con *console.SliverConsoleClient)
 			EntryPoint:  entryPoint,
 			ProcessName: processName,
 			Kill:        true,
+			IsDLL:       isDLL,
 		})
 		ctrl <- true
 		<-ctrl

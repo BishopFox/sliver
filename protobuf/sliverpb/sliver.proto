@@ -351,6 +351,7 @@ message SideloadReq {
   string Args = 3;
   string EntryPoint = 4;
   bool Kill = 5;
+  bool isDLL = 6;
 
   commonpb.Request Request = 9;
 }
