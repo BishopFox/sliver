@@ -611,7 +611,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Load and execute a shared object (shared library/DLL) in a remote process",
 		LongHelp: help.GetHelpFor([]string{consts.SideloadStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("a", "args", "", "Arguments for the shared library function")
 			f.String("e", "entry-point", "", "Entrypoint for the DLL (Windows only)")
 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
 			f.Bool("s", "save", false, "save output to file")
@@ -620,6 +619,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Args: func(a *grumble.Args) {
 			a.String("filepath", "path the shared library file")
+			a.StringList("args", "arguments for the binary", grumble.Default([]string{}))
 		},
 		HelpGroup: consts.SliverHelpGroup,
 		Run: func(ctx *grumble.Context) error {

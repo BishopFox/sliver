@@ -15,15 +15,25 @@ func DonutShellcodeFromFile(filePath string, arch string, dotnet bool, params st
 	if err != nil {
 		return
 	}
-	donutType := getDonutType(filepath.Ext(filePath), dotnet)
-	return DonutShellcodeFromPE(pe, arch, dotnet, params, className, method, donutType)
+	isDLL := (filepath.Ext(filePath) == ".dll")
+	return DonutShellcodeFromPE(pe, arch, dotnet, params, className, method, isDLL)
 }
 
 // DonutShellcodeFromPE returns a Donut shellcode for the given PE file
-func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, className string, method string, donutType donut.ModuleType) (data []byte, err error) {
+func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, className string, method string, isDLL bool) (data []byte, err error) {
+	ext := ".exe"
+	if isDLL {
+		ext = ".dll"
+	}
 	donutArch := getDonutArch(arch)
+	// We don't use DonutConfig.Thread = 1 because we create our own remote thread
+	// in the task runner, and we're doing some housekeeping on it.
+	// Having DonutConfig.Thread = 1 means another thread will be created
+	// inside the one we created, and that will fuck up our monitoring
+	// since we can't grab a handle to the thread created by the Donut loader,
+	// and thus the waitForCompletion call will most of the time never complete.
 	config := donut.DonutConfig{
-		Type:       donutType,
+		Type:       getDonutType(ext, false),
 		InstType:   donut.DONUT_INSTANCE_PIC,
 		Parameters: params,
 		Class:      className,
@@ -33,7 +43,6 @@ func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, cl
 		Arch:       donutArch,
 		Entropy:    0,         // 1=disable, 2=use random names, 3=random names + symmetric encryption (default)
 		Compress:   uint32(1), // 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman
-		Thread:     1,         // start a new thread
 		ExitOpt:    1,         // exit thread
 		Unicode:    0,
 	}

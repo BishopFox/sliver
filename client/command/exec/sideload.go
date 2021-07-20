@@ -21,6 +21,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -38,13 +40,14 @@ func SideloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	entryPoint := ctx.Flags.String("entry-point")
 	processName := ctx.Flags.String("process")
-	args := ctx.Flags.String("args")
+	args := strings.Join(ctx.Args.StringList("args"), " ")
 
 	binData, err := ioutil.ReadFile(binPath)
 	if err != nil {
 		con.PrintErrorf("%s", err.Error())
 		return
 	}
+	isDLL := (filepath.Ext(binPath) == ".dll")
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("Sideloading %s ...", binPath), ctrl)
 	sideload, err := con.Rpc.Sideload(context.Background(), &sliverpb.SideloadReq{
@@ -54,6 +57,7 @@ func SideloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		EntryPoint:  entryPoint,
 		ProcessName: processName,
 		Kill:        !ctx.Flags.Bool("keep-alive"),
+		IsDLL:       isDLL,
 	})
 	ctrl <- true
 	<-ctrl
