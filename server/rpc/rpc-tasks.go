@@ -36,7 +36,7 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // Task - Execute shellcode in-memory

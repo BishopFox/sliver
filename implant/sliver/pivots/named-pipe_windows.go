@@ -32,7 +32,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/lesnuages/go-winio"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 func StartNamedPipeListener(pipeName string) error {

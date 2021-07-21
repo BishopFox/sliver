@@ -29,7 +29,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 const maxNameLength = 32
