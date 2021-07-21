@@ -17,8 +17,6 @@ github.com/AlecAivazis/survey/v2 v2.2.2/go.mod h1:9FJRdMdDm8rnT+zHVbvQT2RTSTLq0T
 github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d h1:uq6FM7b88vkNEqwjyP2mK6oL8cymY5b75Luu6ADTStY=
 github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d/go.mod h1:rJLtHgGUqTxJbfg+b+LjWBBPuYUzFFza1LXFhrzfxHA=
 github.com/Binject/debug v0.0.0-20200621050044-63af8e405111/go.mod h1:6WgJ7mEG7ngJkNwwDkEVreDk2dPGg3oqdI6OEWaeDNg=
-github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2 h1:8kQNJC9AxAaNs0JkXnWUfbNeDnIO1QLYYWjYqC6JEE4=
-github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2/go.mod h1:QzgxDLY/qdKlvnbnb65eqTedhvQPbaSP2NqIbcuKvsQ=
 github.com/Binject/debug v0.0.0-20210312092933-6277045c2fdf h1:Cx4YJvjPZD91xiffqJOq8l3j1YKcvx3+8duqq7DX9gY=
 github.com/Binject/debug v0.0.0-20210312092933-6277045c2fdf/go.mod h1:QzgxDLY/qdKlvnbnb65eqTedhvQPbaSP2NqIbcuKvsQ=
 github.com/Binject/shellcode v0.0.0-20191101084904-a8a90e7d4563 h1:T8z8Wz/fqaPPANF8Unv4LjWLoa0TAvsjYAsRpvSkOqs=

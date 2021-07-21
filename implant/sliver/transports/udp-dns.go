@@ -46,7 +46,7 @@ import (
 
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 const (

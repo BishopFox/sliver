@@ -34,7 +34,7 @@ import (
 	// {{end}}
 	// {{end}}
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 var specialHandlers = map[uint32]SpecialHandler{

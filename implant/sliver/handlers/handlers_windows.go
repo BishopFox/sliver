@@ -37,8 +37,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
-	"github.com/golang/protobuf/proto"
 	"golang.org/x/sys/windows"
+	"google.golang.org/protobuf/proto"
 )
 
 var (

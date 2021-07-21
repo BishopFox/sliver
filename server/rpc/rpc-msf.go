@@ -32,7 +32,7 @@ import (
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/msf"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // Msf - Helper function to execute MSF payloads on the remote system

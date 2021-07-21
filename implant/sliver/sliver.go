@@ -52,7 +52,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/implant/sliver/version"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	// {{if .Config.IsService}}
 	"golang.org/x/sys/windows/svc"

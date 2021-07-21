@@ -1,7 +1,7 @@
 package sliverpb
 
 import (
-	proto "github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 /*

@@ -103,7 +103,6 @@ github.com/go-sql-driver/mysql
 ## explicit
 github.com/gofrs/uuid
 # github.com/golang/protobuf v1.5.2
-## explicit
 github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
