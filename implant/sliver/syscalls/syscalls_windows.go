@@ -5,6 +5,8 @@ package syscalls
 //sys InitializeProcThreadAttributeList(lpAttributeList *PROC_THREAD_ATTRIBUTE_LIST, dwAttributeCount uint32, dwFlags uint32, lpSize *uintptr) (err error) = kernel32.InitializeProcThreadAttributeList
 //sys GetProcessHeap() (procHeap windows.Handle, err error) = kernel32.GetProcessHeap
 //sys HeapAlloc(hHeap windows.Handle, dwFlags uint32, dwBytes uintptr) (lpMem uintptr, err error) = kernel32.HeapAlloc
+//sys HeapReAlloc(hHeap windows.Handle, dwFlags uint32, lpMem uintptr, dwBytes uintptr) (lpRes uintptr, err error) = kernel32.HeapReAlloc
+//sys HeapSize(hHeap windows.Handle, dwFlags uint32, lpMem uintptr) (res uint32, err error) = kernel32.HeapSize
 //sys UpdateProcThreadAttribute(lpAttributeList *PROC_THREAD_ATTRIBUTE_LIST, dwFlags uint32, attribute uintptr, lpValue *uintptr, cbSize uintptr, lpPreviousValue uintptr, lpReturnSize *uintptr) (err error) = kernel32.UpdateProcThreadAttribute
 //sys CreateProcess(appName *uint16, commandLine *uint16, procSecurity *windows.SecurityAttributes, threadSecurity *windows.SecurityAttributes, inheritHandles bool, creationFlags uint32, env *uint16, currentDir *uint16, startupInfo *StartupInfoEx, outProcInfo *windows.ProcessInformation) (err error) = kernel32.CreateProcessW
 //sys VirtualAllocEx(hProcess windows.Handle, lpAddress uintptr, dwSize uintptr, flAllocationType uint32, flProtect uint32) (addr uintptr, err error) = kernel32.VirtualAllocEx
@@ -35,3 +37,6 @@ package syscalls
 //sys SelectObject(hdc windows.Handle, h windows.Handle) (HGDIOBJ windows.Handle, err error) = Gdi32.SelectObject
 //sys BitBlt(hdc windows.Handle, x uint32, y uint32, cx uint32, cy uint32, hdcSrc windows.Handle, x1 uint32, y1 uint32, rop int32) (BOOL int, err error) = Gdi32.BitBlt
 //sys GetDIBits(hdc windows.Handle, hbm windows.Handle, start uint32, cLines uint32, lpvBits uintptr, lpbmi uintptr, usage int) (ret int, err error) = Gdi32.GetDIBits
+//sys PssCaptureSnapshot(processHandle windows.Handle, captureFlags uint32, threadContextFlags uint32, snapshotHandle *windows.Handle) (err error) = kernel32.PssCaptureSnapshot
+
+//sys RtlCopyMemory(dest uintptr, src uintptr, dwSize uint32) = ntdll.RtlCopyMemory
