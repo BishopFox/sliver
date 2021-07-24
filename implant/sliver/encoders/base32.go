@@ -18,23 +18,25 @@ package encoders
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import "encoding/base64"
+import (
+	"encoding/base32"
+)
 
-// Base64EncoderID - EncoderID
-const Base64EncoderID = 13
+// Base32EncoderID - EncoderID
+const Base32EncoderID = 65
 
-// Base64 Encoder
-type Base64 struct{}
+// Base32 Encoder
+type Base32 struct{}
 
-var base64Alphabet = "a0b2c5def6hijklmnopqr_st-uvwxyzA1B3C4DEFGHIJKLM7NO9PQR8ST+UVWXYZ"
-var sliverBase64 = base64.NewEncoding(base64Alphabet)
+var base32Alphabet = "ab1c2d3e4f5g6h7j8k9m0npqrtuvwxyz"
+var sliverBase32 = base32.NewEncoding(base32Alphabet)
 
-// Encode - Base64 Encode
-func (e Base64) Encode(data []byte) []byte {
-	return []byte(sliverBase64.EncodeToString(data))
+// Encode - Base32 Encode
+func (e Base32) Encode(data []byte) []byte {
+	return []byte(sliverBase32.EncodeToString(data))
 }
 
-// Decode - Base64 Decode
-func (e Base64) Decode(data []byte) ([]byte, error) {
-	return sliverBase64.DecodeString(string(data))
+// Decode - Base32 Decode
+func (e Base32) Decode(data []byte) ([]byte, error) {
+	return sliverBase32.DecodeString(string(data))
 }

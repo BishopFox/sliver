@@ -27,6 +27,8 @@ var (
 	srcFiles = []string{
 		"constants/constants.go",
 
+		"encoders/base32.go",
+		"encoders/base62.go",
 		"encoders/base64.go",
 		"encoders/combos.go",
 		"encoders/encoders.go",
@@ -165,6 +167,8 @@ var (
 	genericSrcFiles = []string{
 		"constants/constants.go",
 
+		"encoders/base32.go",
+		"encoders/base62.go",
 		"encoders/base64.go",
 		"encoders/combos.go",
 		"encoders/encoders.go",

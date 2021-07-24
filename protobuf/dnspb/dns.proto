@@ -1,0 +1,23 @@
+syntax = "proto3";
+package dnspb;
+option go_package = "github.com/bishopfox/sliver/protobuf/dnspb";
+
+enum DNSMessageType {
+    NOP = 0; // aka FINGERPRINT
+    DOMAIN_KEY = 1;
+    SESSION_INIT = 2;
+    SESSION_POLL = 3;
+
+    BLOCK_PREAMBLE = 7;
+    BLOCK_DATA = 8;
+    BLOCK_CLEAR = 9;
+}
+
+message DNSMessage {
+    DNSMessageType Type = 1;
+    uint32 ID = 2;
+    uint32 N = 3;
+    uint32 Size = 4;
+    bytes Data = 5;
+}
+

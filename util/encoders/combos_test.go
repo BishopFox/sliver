@@ -1,12 +1,5 @@
 package encoders
 
-import (
-	"bytes"
-	"testing"
-
-	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -24,6 +17,13 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"bytes"
+	"testing"
+
+	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
+)
 
 func TestGzipEnglish(t *testing.T) {
 	sample := randomData()

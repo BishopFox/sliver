@@ -25,14 +25,14 @@ import (
 	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 )
 
-func TestBase64(t *testing.T) {
+func TestBase62(t *testing.T) {
 	sample := randomData()
 
-	b64 := new(Base64)
-	output := b64.Encode(sample)
-	data, err := b64.Decode(output)
+	b62 := new(Base62)
+	output := b62.Encode(sample)
+	data, err := b62.Decode(output)
 	if err != nil {
-		t.Errorf("b64 decode returned an error %v", err)
+		t.Errorf("b62 decode returned an error %v", err)
 	}
 	if !bytes.Equal(sample, data) {
 		t.Logf("sample = %#v", sample)
@@ -41,11 +41,11 @@ func TestBase64(t *testing.T) {
 		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 	}
 
-	implantBase64 := new(implantEncoders.Base64)
-	output2 := implantBase64.Encode(sample)
-	data2, err := implantBase64.Decode(output2)
+	implantBase62 := new(implantEncoders.Base62)
+	output2 := implantBase62.Encode(sample)
+	data2, err := implantBase62.Decode(output2)
 	if err != nil {
-		t.Errorf("implant b64 decode returned an error %v", err)
+		t.Errorf("implant b62 decode returned an error %v", err)
 	}
 	if !bytes.Equal(sample, data2) {
 		t.Logf("sample  = %#v", sample)
@@ -54,10 +54,10 @@ func TestBase64(t *testing.T) {
 		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 	}
 
-	output = b64.Encode(sample)
-	data, err = implantBase64.Decode(output)
+	output = b62.Encode(sample)
+	data, err = implantBase62.Decode(output)
 	if err != nil {
-		t.Errorf("b64 decode returned an error %v", err)
+		t.Errorf("b62 decode returned an error %v", err)
 	}
 	if !bytes.Equal(sample, data) {
 		t.Logf("sample = %#v", sample)
@@ -66,10 +66,10 @@ func TestBase64(t *testing.T) {
 		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 	}
 
-	output = implantBase64.Encode(sample)
-	data, err = b64.Decode(output)
+	output = implantBase62.Encode(sample)
+	data, err = b62.Decode(output)
 	if err != nil {
-		t.Errorf("b64 decode returned an error %v", err)
+		t.Errorf("b62 decode returned an error %v", err)
 	}
 	if !bytes.Equal(sample, data) {
 		t.Logf("sample = %#v", sample)

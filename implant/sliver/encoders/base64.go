@@ -1,7 +1,5 @@
 package encoders
 
-import "encoding/base64"
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -19,6 +17,8 @@ import "encoding/base64"
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import "encoding/base64"
 
 // Base64EncoderID - EncoderID
 const Base64EncoderID = 13
