@@ -116,6 +116,7 @@ type SliverRPCClient interface {
 	RegistryCreateKey(ctx context.Context, in *sliverpb.RegistryCreateKeyReq, opts ...grpc.CallOption) (*sliverpb.RegistryCreateKey, error)
 	RunSSHCommand(ctx context.Context, in *sliverpb.SSHCommandReq, opts ...grpc.CallOption) (*sliverpb.SSHCommand, error)
 	HijackDLL(ctx context.Context, in *sliverpb.DllHijackReq, opts ...grpc.CallOption) (*sliverpb.DllHijack, error)
+	GetPrivs(ctx context.Context, in *sliverpb.GetPrivsReq, opts ...grpc.CallOption) (*sliverpb.GetPrivs, error)
 	// *** Wireguard Specific ***
 	WGStartPortForward(ctx context.Context, in *sliverpb.WGPortForwardStartReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error)
 	WGStopPortForward(ctx context.Context, in *sliverpb.WGPortForwardStopReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error)
@@ -902,6 +903,15 @@ func (c *sliverRPCClient) HijackDLL(ctx context.Context, in *sliverpb.DllHijackR
 	return out, nil
 }
 
+func (c *sliverRPCClient) GetPrivs(ctx context.Context, in *sliverpb.GetPrivsReq, opts ...grpc.CallOption) (*sliverpb.GetPrivs, error) {
+	out := new(sliverpb.GetPrivs)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetPrivs", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) WGStartPortForward(ctx context.Context, in *sliverpb.WGPortForwardStartReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error) {
 	out := new(sliverpb.WGPortForward)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/WGStartPortForward", in, out, opts...)
@@ -1181,6 +1191,7 @@ type SliverRPCServer interface {
 	RegistryCreateKey(context.Context, *sliverpb.RegistryCreateKeyReq) (*sliverpb.RegistryCreateKey, error)
 	RunSSHCommand(context.Context, *sliverpb.SSHCommandReq) (*sliverpb.SSHCommand, error)
 	HijackDLL(context.Context, *sliverpb.DllHijackReq) (*sliverpb.DllHijack, error)
+	GetPrivs(context.Context, *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error)
 	// *** Wireguard Specific ***
 	WGStartPortForward(context.Context, *sliverpb.WGPortForwardStartReq) (*sliverpb.WGPortForward, error)
 	WGStopPortForward(context.Context, *sliverpb.WGPortForwardStopReq) (*sliverpb.WGPortForward, error)
@@ -1459,6 +1470,9 @@ func (UnimplementedSliverRPCServer) RunSSHCommand(context.Context, *sliverpb.SSH
 }
 func (UnimplementedSliverRPCServer) HijackDLL(context.Context, *sliverpb.DllHijackReq) (*sliverpb.DllHijack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HijackDLL not implemented")
+}
+func (UnimplementedSliverRPCServer) GetPrivs(context.Context, *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPrivs not implemented")
 }
 func (UnimplementedSliverRPCServer) WGStartPortForward(context.Context, *sliverpb.WGPortForwardStartReq) (*sliverpb.WGPortForward, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WGStartPortForward not implemented")
@@ -3030,6 +3044,24 @@ func _SliverRPC_HijackDLL_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_GetPrivs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.GetPrivsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetPrivs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/GetPrivs",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetPrivs(ctx, req.(*sliverpb.GetPrivsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_WGStartPortForward_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.WGPortForwardStartReq)
 	if err := dec(in); err != nil {
@@ -3653,6 +3685,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "HijackDLL",
 			Handler:    _SliverRPC_HijackDLL_Handler,
+		},
+		{
+			MethodName: "GetPrivs",
+			Handler:    _SliverRPC_GetPrivs_Handler,
 		},
 		{
 			MethodName: "WGStartPortForward",

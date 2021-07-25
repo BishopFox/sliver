@@ -61,6 +61,7 @@ var (
 		sliverpb.MsgSetEnvReq:                setEnvHandler,
 		sliverpb.MsgUnsetEnvReq:              unsetEnvHandler,
 		sliverpb.MsgExecuteTokenReq:          executeTokenHandler,
+		sliverpb.MsgGetPrivsReq:              getPrivsHandler,
 
 		// Platform specific
 		sliverpb.MsgIfconfigReq:          ifconfigHandler,
@@ -491,5 +492,49 @@ func regCreateKeyHandler(data []byte, resp RPCResponse) {
 		createResp.Response.Err = err.Error()
 	}
 	data, err = proto.Marshal(createResp)
+	resp(data, err)
+}
+
+func getPrivsHandler(data []byte, resp RPCResponse) {
+	createReq := &sliverpb.GetPrivsReq{}
+
+	err := proto.Unmarshal(data, createReq)
+	if err != nil {
+		return
+	}
+
+	privsInfo, err := priv.GetPrivs()
+
+	response_data := make([]*sliverpb.WindowsPrivilegeEntry, len(privsInfo))
+
+	/*
+		Translate the PrivilegeInfo structs into
+		sliverpb.WindowsPrivilegeEntry structs and put them in the data
+		that will go back to the server / client
+	*/
+	for index, entry := range privsInfo {
+		var currentEntry sliverpb.WindowsPrivilegeEntry
+
+		currentEntry.Name = entry.Name
+		currentEntry.Description = entry.Description
+		currentEntry.Enabled = entry.Enabled
+		currentEntry.EnabledByDefault = entry.EnabledByDefault
+		currentEntry.Removed = entry.Removed
+		currentEntry.UsedForAccess = entry.UsedForAccess
+
+		response_data[index] = &currentEntry
+	}
+
+	// Package up the response
+	getPrivsResp := &sliverpb.GetPrivs{
+		PrivInfo: response_data,
+		Response: &commonpb.Response{},
+	}
+
+	if err != nil {
+		getPrivsResp.Response.Err = err.Error()
+	}
+
+	data, err = proto.Marshal(getPrivsResp)
 	resp(data, err)
 }

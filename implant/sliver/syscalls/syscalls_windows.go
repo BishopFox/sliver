@@ -35,3 +35,5 @@ package syscalls
 //sys SelectObject(hdc windows.Handle, h windows.Handle) (HGDIOBJ windows.Handle, err error) = Gdi32.SelectObject
 //sys BitBlt(hdc windows.Handle, x uint32, y uint32, cx uint32, cy uint32, hdcSrc windows.Handle, x1 uint32, y1 uint32, rop int32) (BOOL int, err error) = Gdi32.BitBlt
 //sys GetDIBits(hdc windows.Handle, hbm windows.Handle, start uint32, cLines uint32, lpvBits uintptr, lpbmi uintptr, usage int) (ret int, err error) = Gdi32.GetDIBits
+//sys LookupPrivilegeNameW(systemName string, luid *uint64, buffer *uint16, size *uint32) (err error) = advapi32.LookupPrivilegeNameW
+//sys LookupPrivilegeDisplayNameW(systemName string, privilegeName *uint16, buffer *uint16, size *uint32, languageId *uint32) (err error) = advapi32.LookupPrivilegeDisplayNameW

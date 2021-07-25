@@ -242,6 +242,9 @@ const (
 
 	// MsgSSHCommandReq - Run a SSH command
 	MsgSSHCommandReq
+
+	// MsgGetPrivsReq - Get privileges (Windows)
+	MsgGetPrivsReq
 )
 
 // Constants to replace enums
@@ -464,6 +467,9 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgPollInterval
 	case *SSHCommandReq:
 		return MsgSSHCommandReq
+
+	case *GetPrivsReq:
+		return MsgGetPrivsReq
 	}
 
 	return uint32(0)

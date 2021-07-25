@@ -208,6 +208,8 @@ const (
 	ReactionStr = "reaction"
 
 	LicensesStr = "licenses"
+
+	GetPrivsStr = "getprivs"
 )
 
 // Groups
