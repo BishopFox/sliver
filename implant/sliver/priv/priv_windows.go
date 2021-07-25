@@ -26,6 +26,8 @@ import (
 	"log"
 
 	// {{end}}
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"os/exec"
 	"runtime"
@@ -42,6 +44,15 @@ import (
 const (
 	THREAD_ALL_ACCESS = windows.STANDARD_RIGHTS_REQUIRED | windows.SYNCHRONIZE | 0xffff
 )
+
+type PrivilegeInfo struct {
+	Name             string
+	Description      string
+	Enabled          bool
+	EnabledByDefault bool
+	Removed          bool
+	UsedForAccess    bool
+}
 
 var CurrentToken windows.Token
 
@@ -327,4 +338,164 @@ func GetSystem(data []byte, hostingProcess string) (err error) {
 		}
 	}
 	return
+}
+
+func lookupPrivilegeNameByLUID(luid uint64) (string, string, error) {
+	/*
+	   We will need the LookupPrivilegeNameW and LookupPrivilegeDisplayNameW functions
+	   https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-lookupprivilegenamew
+	   https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-lookupprivilegedisplaynamew
+
+	   Defined these syscalls in implant/sliver/syscalls/syscalls_windows.go and generated them with
+	   mkwinsyscall, so we are good to go.
+	*/
+
+	// Allocate 256 wide unicode characters (uint16) for the both names (255 characters plus a null terminator)
+	nameBuffer := make([]uint16, 256)
+	nameBufferSize := uint32(len(nameBuffer))
+	displayNameBuffer := make([]uint16, 256)
+	displayNameBufferSize := uint32(len(displayNameBuffer))
+
+	// A blank string for the system name tells the call to use the local machine
+	systemName := ""
+
+	/*
+	  A language ID that gets returned from LookupPrivilegeDisplayNameW
+	  We do not need it for anything, but we still need to provide it
+	*/
+	var langID uint32
+
+	err := syscalls.LookupPrivilegeNameW(systemName, &luid, &nameBuffer[0], &nameBufferSize)
+
+	if err != nil {
+		return "", "", err
+	}
+
+	err = syscalls.LookupPrivilegeDisplayNameW(systemName, &nameBuffer[0], &displayNameBuffer[0], &displayNameBufferSize, &langID)
+
+	if err != nil {
+		// We already got the privilege name, so we might as well return that
+		return syscall.UTF16ToString(nameBuffer), "", err
+	}
+
+	return syscall.UTF16ToString(nameBuffer), syscall.UTF16ToString(displayNameBuffer), nil
+}
+
+func GetPrivs() ([]PrivilegeInfo, error) {
+	// A place to store the process token
+	var tokenHandle syscall.Token
+
+	// A place to put the size of the token information
+	var tokenInfoBufferSize uint32
+
+	// Get a handle for the current process
+	currentProcHandle, err := syscall.GetCurrentProcess()
+
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("Could not get a handle for the current process: ", err)
+		// {{end}}
+		return nil, err
+	}
+
+	// Get the process token from the current process
+	err = syscall.OpenProcessToken(currentProcHandle, syscall.TOKEN_QUERY, &tokenHandle)
+
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("Could not open process token: ", err)
+		// {{end}}
+		return nil, err
+	}
+
+	// Get the size of the token information buffer so we know how large of a buffer to allocate
+	// This produces an error about a data area passed to the syscall being too small, but
+	// we do not care about that because we just want to know how big of a buffer to make
+	syscall.GetTokenInformation(tokenHandle, syscall.TokenPrivileges, nil, 0, &tokenInfoBufferSize)
+
+	// Make the buffer and get token information
+	// Using a bytes Buffer so that we can Read from it later
+	tokenInfoBuffer := bytes.NewBuffer(make([]byte, tokenInfoBufferSize))
+
+	err = syscall.GetTokenInformation(tokenHandle,
+		syscall.TokenPrivileges,
+		&tokenInfoBuffer.Bytes()[0],
+		uint32(tokenInfoBuffer.Len()),
+		&tokenInfoBufferSize,
+	)
+
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("Error in call to GetTokenInformation: ", err)
+		// {{end}}
+		return nil, err
+	}
+
+	// The first 32 bits is the number of privileges in the structure
+	var privilegeCount uint32
+	err = binary.Read(tokenInfoBuffer, binary.LittleEndian, &privilegeCount)
+
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("Could not read the number of privileges from the token information.")
+		// {{end}}
+		return nil, err
+	}
+
+	/*
+		The remaining bytes contain the privileges themselves
+		LUID_AND_ATTRIBUTES Privileges[ANYSIZE_ARRAY]
+		Structure of the array: https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-luid_and_attributes
+	*/
+
+	privInfo := make([]PrivilegeInfo, int(privilegeCount))
+
+	for index := 0; index < int(privilegeCount); index++ {
+		// Iterate over the privileges and make sense of them
+		// In case of errors, return what we have so far and the error
+
+		// LUIDs consist of a DWORD and a LONG
+		var luid uint64
+
+		// Attributes are up to 32 one bit flags, so a uint32 is good for that
+		var attributes uint32
+
+		var currentPrivInfo PrivilegeInfo
+
+		// Read the LUID
+		err = binary.Read(tokenInfoBuffer, binary.LittleEndian, &luid)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Println("Could not read the LUID from the binary stream: ", err)
+			// {{end}}
+			return privInfo, err
+		}
+
+		// Read the attributes
+		err = binary.Read(tokenInfoBuffer, binary.LittleEndian, &attributes)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Println("Could not read the attributes from the binary stream: ", err)
+			// {{end}}
+			return privInfo, err
+		}
+
+		currentPrivInfo.Name, currentPrivInfo.Description, err = lookupPrivilegeNameByLUID(luid)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Println("Could not get privilege info based on the LUID: ", err)
+			// {{end}}
+			return privInfo, err
+		}
+
+		// Figure out the attributes
+		currentPrivInfo.EnabledByDefault = (attributes & windows.SE_PRIVILEGE_ENABLED_BY_DEFAULT) > 0
+		currentPrivInfo.UsedForAccess = (attributes & windows.SE_PRIVILEGE_USED_FOR_ACCESS) > 0
+		currentPrivInfo.Enabled = (attributes & windows.SE_PRIVILEGE_ENABLED) > 0
+		currentPrivInfo.Removed = (attributes & windows.SE_PRIVILEGE_REMOVED) > 0
+
+		privInfo[index] = currentPrivInfo
+	}
+
+	return privInfo, nil
 }

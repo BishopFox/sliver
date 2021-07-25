@@ -118,3 +118,13 @@ func (rpc *Server) MakeToken(ctx context.Context, req *sliverpb.MakeTokenReq) (*
 	}
 	return resp, nil
 }
+
+// GetPrivs - gRPC interface to get privilege information from the current process
+func (rpc *Server) GetPrivs(ctx context.Context, req *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error) {
+	resp := &sliverpb.GetPrivs{}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
