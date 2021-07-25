@@ -628,6 +628,10 @@ dllhijack --reference-path c:\\windows\\system32\\msasn1.dll --profile dll c:\\u
 # Use a local DLL as the reference DLL
 dllhijack --reference-path c:\\windows\\system32\\msasn1.dll --reference-file /tmp/msasn1.dll.orig --profile dll c:\\users\\bob\\appdata\\slack\\app-4.18.0\\msasn1.dll
 `
+
+	getPrivsHelp = `[[.Bold]]Command:[[.Normal]] getprivs
+[[.Bold]]About:[[.Normal]] Get privilege information for the current process (Windows only).
+`
 )
 
 const (

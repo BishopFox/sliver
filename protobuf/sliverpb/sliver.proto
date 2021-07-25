@@ -784,3 +784,22 @@ message DllHijackReq {
 message DllHijack {
   commonpb.Response Response = 9;
 }
+
+message GetPrivsReq {
+  commonpb.Request Request = 9;
+}
+
+message WindowsPrivilegeEntry {
+  string Name = 1;
+  string Description = 2;
+  bool Enabled = 3;
+  bool EnabledByDefault = 4;
+  bool Removed = 5;
+  bool UsedForAccess = 6;
+}
+
+message GetPrivs {
+  repeated WindowsPrivilegeEntry PrivInfo = 1;
+
+  commonpb.Response Response = 9;
+}

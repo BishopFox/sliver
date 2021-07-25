@@ -2168,4 +2168,22 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	}
 	con.App.AddCommand(dllhijackCmd)
+
+	// [ Get Privs ] -----------------------------------------------------------------
+	getprivsCmd := &grumble.Command{
+		Name:      consts.GetPrivsStr,
+		Help:      "Get current privileges (Windows)",
+		LongHelp:  help.GetHelpFor([]string{consts.GetPrivsStr}),
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			privilege.GetPrivsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+	}
+	con.App.AddCommand(getprivsCmd)
 }
