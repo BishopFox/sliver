@@ -15,9 +15,9 @@ import (
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/netstack"
-	"github.com/golang/protobuf/proto"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
+	"google.golang.org/protobuf/proto"
 )
 
 var (

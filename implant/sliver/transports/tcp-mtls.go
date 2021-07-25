@@ -36,7 +36,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing

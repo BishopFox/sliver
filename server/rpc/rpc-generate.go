@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"runtime"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -31,6 +32,11 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
+	"github.com/bishopfox/sliver/server/log"
+)
+
+var (
+	rcpLog = log.NamedLogger("rpc", "generate")
 )
 
 // Generate - Generate a new implant
@@ -49,14 +55,14 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		return nil, errors.New("Invalid implant config")
 	}
 	switch req.Config.Format {
-	case clientpb.ImplantConfig_SERVICE:
+	case clientpb.OutputFormat_SERVICE:
 		fallthrough
-	case clientpb.ImplantConfig_EXECUTABLE:
+	case clientpb.OutputFormat_EXECUTABLE:
 		fPath, err = generate.SliverExecutable(name, config)
 		break
-	case clientpb.ImplantConfig_SHARED_LIB:
+	case clientpb.OutputFormat_SHARED_LIB:
 		fPath, err = generate.SliverSharedLibrary(name, config)
-	case clientpb.ImplantConfig_SHELLCODE:
+	case clientpb.OutputFormat_SHELLCODE:
 		fPath, err = generate.SliverShellcode(name, config)
 	}
 
@@ -228,4 +234,17 @@ func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteR
 func (rpc *Server) ShellcodeRDI(ctx context.Context, req *clientpb.ShellcodeRDIReq) (*clientpb.ShellcodeRDI, error) {
 	shellcode, err := generate.ShellcodeRDIFromBytes(req.GetData(), req.GetFunctionName(), req.GetArguments())
 	return &clientpb.ShellcodeRDI{Data: shellcode}, err
+}
+
+// GetCompiler - Get information about the internal Go compiler and its configuration
+func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientpb.Compiler, error) {
+	compiler := &clientpb.Compiler{
+		GOOS:               runtime.GOOS,
+		GOARCH:             runtime.GOARCH,
+		Targets:            generate.GetCompilerTargets(),
+		UnsupportedTargets: generate.GetUnsupportedTargets(),
+		CrossCompilers:     generate.GetCrossCompilers(),
+	}
+	rcpLog.Debugf("GetCompiler = %v", compiler)
+	return compiler, nil
 }

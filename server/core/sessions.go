@@ -71,6 +71,7 @@ type Session struct {
 	ReconnectInterval uint32
 	ProxyURL          string
 	PollInterval      uint32
+	Burned            bool
 }
 
 // ToProtobuf - Get the protobuf version of the object
@@ -115,6 +116,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		ReconnectInterval: s.ReconnectInterval,
 		ProxyURL:          s.ProxyURL,
 		PollInterval:      s.PollInterval,
+		Burned:            s.Burned,
 	}
 }
 

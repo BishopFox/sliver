@@ -4,15 +4,16 @@ on:
   push:
     branches:
       - test/*
-  pull_request:
-    branches:
-      - master
+  # pull_request:
+  #   branches:
+  #     - master
 
 jobs:
   CodeQL-Build:
     name: CodeQL Security Scan
     # CodeQL runs on ubuntu-latest, windows-latest, and macos-latest
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       # Setup go environment
@@ -68,7 +69,7 @@ jobs:
 
       # Build the server ... is this necessary though?
       - run: |
-          make linux
+          make
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v1

@@ -83,6 +83,8 @@ type WGJobConfig struct {
 	KeyPort uint16 `json:"key_port"`
 	JobID   string `json:"jobid"`
 }
+
+// DNSJobConfig - Persistent DNS job config
 type DNSJobConfig struct {
 	Domains  []string `json:"domains"`
 	Canaries bool     `json:"canaries"`
@@ -91,6 +93,7 @@ type DNSJobConfig struct {
 	JobID    string   `json:"jobid"`
 }
 
+// HTTPJobConfig - Persistent HTTP job config
 type HTTPJobConfig struct {
 	Domain  string `json:"domain"`
 	Host    string `json:"host"`
@@ -103,12 +106,20 @@ type HTTPJobConfig struct {
 	JobID   string `json:"jobid"`
 }
 
+// WatchTowerConfig - Watch Tower job config
+type WatchTowerConfig struct {
+	VTApiKey          string `json:"vt_api_key"`
+	XForceApiKey      string `json:"xforce_api_key"`
+	XForceApiPassword string `json:"xforce_api_password"`
+}
+
 // ServerConfig - Server config
 type ServerConfig struct {
-	DaemonMode   bool          `json:"daemon_mode"`
-	DaemonConfig *DaemonConfig `json:"daemon"`
-	Logs         *LogConfig    `json:"logs"`
-	Jobs         *JobConfig    `json:"jobs,omitempty"`
+	DaemonMode   bool              `json:"daemon_mode"`
+	DaemonConfig *DaemonConfig     `json:"daemon"`
+	Logs         *LogConfig        `json:"logs"`
+	Jobs         *JobConfig        `json:"jobs,omitempty"`
+	Watchtower   *WatchTowerConfig `json:"watch_tower"`
 }
 
 // Save - Save config file to disk

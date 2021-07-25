@@ -116,6 +116,8 @@ var (
 		"shell/pty/ioctl_darwin.go",
 		"shell/pty/pty_unsupported.go",
 
+		"shell/ssh/ssh.go",
+
 		"taskrunner/task.go",
 		"taskrunner/task_windows.go",
 		"taskrunner/task_darwin.go",
@@ -173,7 +175,10 @@ var (
 		"encoders/images.go",
 
 		"handlers/handlers_default.go",
+		"handlers/tun-handlers.go",
 		"handlers/handlers.go",
+
+		"shell/shell_default.go",
 
 		"hostuuid/uuid_default.go",
 

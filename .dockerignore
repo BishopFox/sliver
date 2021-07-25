@@ -2,8 +2,9 @@ assets/*.zip
 assets/darwin
 assets/linux
 assets/windows
-
 server/assets/fs/**.zip
+
+*.sdk.tar.xz
 
 sliver-server
 sliver-server.exe

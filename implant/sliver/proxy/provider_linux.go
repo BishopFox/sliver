@@ -17,7 +17,7 @@ type providerLinux struct {
 }
 
 /*
-Create a new Provider which is used to retrieve Proxy configurations.
+NewProvider - Create a new Provider which is used to retrieve Proxy configurations.
 Params:
 	configFile: Optional. Path to a configuration file which specifies proxies.
 */

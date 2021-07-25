@@ -28,7 +28,7 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/generate"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // Impersonate - Impersonate a remote user
@@ -79,7 +79,7 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 				return nil, err
 			}
 		}
-		config.Format = clientpb.ImplantConfig_SHELLCODE
+		config.Format = clientpb.OutputFormat_SHELLCODE
 		config.ObfuscateSymbols = false
 		shellcodePath, err := generate.SliverShellcode(name, config)
 		if err != nil {

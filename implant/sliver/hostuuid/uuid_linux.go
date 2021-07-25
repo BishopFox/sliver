@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 )
 
+// GetUUID - Get a system specific UUID
 func GetUUID() string {
 	uuid, err := ioutil.ReadFile("/etc/machine-id")
 	// UUID length is 32 plus newline

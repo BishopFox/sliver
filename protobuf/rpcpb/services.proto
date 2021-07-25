@@ -19,6 +19,10 @@ service SliverRPC {
     rpc GetSessions(commonpb.Empty) returns (clientpb.Sessions);
     rpc KillSession(sliverpb.KillSessionReq) returns (commonpb.Empty);
     rpc UpdateSession(clientpb.UpdateSession) returns (clientpb.Session);
+
+    // ***Threat monitoring ***
+    rpc MonitorStart(commonpb.Empty) returns (commonpb.Response);
+    rpc MonitorStop(commonpb.Empty) returns (commonpb.Empty);
     
     // *** Jobs ***
     rpc GetJobs(commonpb.Empty) returns (clientpb.Jobs);
@@ -34,7 +38,15 @@ service SliverRPC {
     // *** Stager Listener ***
     rpc StartTCPStagerListener(clientpb.StagerListenerReq) returns(clientpb.StagerListener);
     rpc StartHTTPStagerListener(clientpb.StagerListenerReq) returns(clientpb.StagerListener);
-    
+
+    // *** Loot ***
+    rpc LootAdd(clientpb.Loot) returns(clientpb.Loot);
+    rpc LootRm(clientpb.Loot) returns(commonpb.Empty);
+    rpc LootUpdate(clientpb.Loot) returns(clientpb.Loot);
+    rpc LootContent(clientpb.Loot) returns(clientpb.Loot);
+    rpc LootAll(commonpb.Empty) returns(clientpb.AllLoot);
+    rpc LootAllOf(clientpb.Loot) returns(clientpb.AllLoot);
+
     // *** Implants ***
     rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate);
     rpc Regenerate(clientpb.RegenerateReq) returns (clientpb.Generate);
@@ -48,6 +60,7 @@ service SliverRPC {
     rpc SaveImplantProfile(clientpb.ImplantProfile) returns (clientpb.ImplantProfile);
     rpc MsfStage(clientpb.MsfStagerReq) returns (clientpb.MsfStager);
     rpc ShellcodeRDI(clientpb.ShellcodeRDIReq) returns (clientpb.ShellcodeRDI);
+    rpc GetCompiler(commonpb.Empty) returns (clientpb.Compiler);
 
     // *** Websites ***
     rpc Websites(commonpb.Empty) returns (clientpb.Websites);
@@ -99,6 +112,9 @@ service SliverRPC {
     rpc RegistryRead(sliverpb.RegistryReadReq) returns (sliverpb.RegistryRead);
     rpc RegistryWrite(sliverpb.RegistryWriteReq) returns (sliverpb.RegistryWrite);
     rpc RegistryCreateKey(sliverpb.RegistryCreateKeyReq) returns (sliverpb.RegistryCreateKey);
+    rpc RunSSHCommand(sliverpb.SSHCommandReq) returns (sliverpb.SSHCommand);
+    rpc HijackDLL(sliverpb.DllHijackReq) returns (sliverpb.DllHijack);
+    
     // *** Wireguard Specific ***
     rpc WGStartPortForward(sliverpb.WGPortForwardStartReq) returns (sliverpb.WGPortForward);
     rpc WGStopPortForward(sliverpb.WGPortForwardStopReq) returns (sliverpb.WGPortForward);

@@ -6,14 +6,17 @@ var (
 	socksServers  map[int]*WGSocksServer
 )
 
+// GetTCPForwarders - Returns a map of WireGuard TCP forwarders
 func GetTCPForwarders() map[int]*WGTCPForwarder {
 	return tcpForwarders
 }
 
+// GetSocksServers - Returns a map of WireGuard SOCKS proxies
 func GetSocksServers() map[int]*WGSocksServer {
 	return socksServers
 }
 
+// GetTCPForwarder - Returns a WireGuard TCP forwarder by id
 func GetTCPForwarder(id int) *WGTCPForwarder {
 	if f, ok := tcpForwarders[id]; ok {
 		return f
@@ -21,10 +24,12 @@ func GetTCPForwarder(id int) *WGTCPForwarder {
 	return nil
 }
 
+// RemoteTCPForwarder - Remove a TCP forwarder by id
 func RemoveTCPForwarder(id int) {
 	delete(tcpForwarders, id)
 }
 
+// GetSocksServer - Returns a WireGuard SOCKS proxy by id
 func GetSocksServer(id int) *WGSocksServer {
 	if s, ok := socksServers[id]; ok {
 		return s
@@ -32,6 +37,7 @@ func GetSocksServer(id int) *WGSocksServer {
 	return nil
 }
 
+// RemoveSocksServer - Remove a SOCKS proxy by id
 func RemoveSocksServer(id int) {
 	delete(socksServers, id)
 }

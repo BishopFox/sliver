@@ -59,6 +59,7 @@ func newDBClient() *gorm.DB {
 		&models.ImplantBuild{},
 		&models.CanaryDomain{},
 		&models.ImplantProfile{},
+		&models.Loot{},
 		&models.WebContent{},
 		&models.Website{},
 		&models.User{},

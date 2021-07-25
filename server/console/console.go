@@ -22,18 +22,15 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
-	"path/filepath"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/desertbit/grumble"
 
+	"github.com/bishopfox/sliver/client/command"
+	"github.com/bishopfox/sliver/client/command/help"
 	clientconsole "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/help"
 	clienttransport "github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/transport"
 	"google.golang.org/grpc"
 )
@@ -57,38 +54,18 @@ func Start() {
 	}
 	defer conn.Close()
 	localRPC := rpcpb.NewSliverRPCClient(conn)
-	checkForLegacyDB()
-	clientconsole.Start(localRPC, serverOnlyCmds)
-}
-
-func checkForLegacyDB() {
-	legacyDBPath := filepath.Join(assets.GetRootAppDir(), "db")
-	if _, err := os.Stat(legacyDBPath); !os.IsNotExist(err) {
-		fmt.Println("\n" + Warn + bold + "Compatability Warning: " + normal)
-		fmt.Println(Warn + "It looks like this server was upgraded from an older version of Sliver.")
-		fmt.Println(Warn + "We have switched to using SQL for internal data (before we used BadgerDB)")
-		fmt.Printf(Warn+"Regrettably this means there's %sno backwards compatibility%s for implants, etc.\n", bold, normal)
-		fmt.Println(Warn + "If you need to use existing implants, stick with any version up to 1.0.9")
-		fmt.Println()
-		confirm := false
-		survey.AskOne(&survey.Confirm{
-			Message: "Delete old database (CANNOT BE UNDONE)",
-		}, &confirm)
-		if confirm {
-			os.RemoveAll(legacyDBPath)
-		}
-	}
+	clientconsole.Start(localRPC, command.BindCommands, serverOnlyCmds, true)
 }
 
 // ServerOnlyCmds - Server only commands
-func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
+func serverOnlyCmds(console *clientconsole.SliverConsoleClient) {
 
 	// [ Multiplayer ] -----------------------------------------------------------------
 
-	app.AddCommand(&grumble.Command{
+	console.App.AddCommand(&grumble.Command{
 		Name:     consts.MultiplayerModeStr,
 		Help:     "Enable multiplayer mode",
-		LongHelp: help.GetHelpFor(consts.MultiplayerModeStr),
+		LongHelp: help.GetHelpFor([]string{consts.MultiplayerModeStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "server", "", "interface to bind server to")
 			f.Int("l", "lport", 31337, "tcp listen port")
@@ -102,10 +79,10 @@ func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
 		HelpGroup: consts.MultiplayerHelpGroup,
 	})
 
-	app.AddCommand(&grumble.Command{
+	console.App.AddCommand(&grumble.Command{
 		Name:     consts.NewPlayerStr,
 		Help:     "Create a new player config file",
-		LongHelp: help.GetHelpFor(consts.NewPlayerStr),
+		LongHelp: help.GetHelpFor([]string{consts.NewPlayerStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("l", "lhost", "", "listen host")
 			f.Int("p", "lport", 31337, "listen port")
@@ -121,10 +98,10 @@ func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
 		HelpGroup: consts.MultiplayerHelpGroup,
 	})
 
-	app.AddCommand(&grumble.Command{
+	console.App.AddCommand(&grumble.Command{
 		Name:     consts.KickPlayerStr,
 		Help:     "Kick a player from the server",
-		LongHelp: help.GetHelpFor(consts.KickPlayerStr),
+		LongHelp: help.GetHelpFor([]string{consts.KickPlayerStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "operator", "", "operator name")
 		},

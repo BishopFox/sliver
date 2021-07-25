@@ -89,6 +89,12 @@ func (s *Section) Open() io.ReadSeeker {
 	return io.NewSectionReader(s.sr, 0, 1<<63-1)
 }
 
+// Replace Section's Data
+func (s *Section) Replace(reader io.ReaderAt, length int64) {
+	s.sr = io.NewSectionReader(reader, 0, length)
+	s.ReaderAt = s.sr
+}
+
 // Section Flags (Characteristics field)
 const (
 	IMAGE_SCN_CNT_CODE    = 0x00000020 // Section contains code

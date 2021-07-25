@@ -27,7 +27,7 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -189,14 +189,14 @@ func (h *PivotsMap) Session(pivotID uint32) *core.Session {
 	return (*h.Pivots)[pivotID]
 }
 
-// AddSliver - Add a sliver to the hive (atomically)
+// AddSession - Add a sliver to the core (atomically)
 func (h *PivotsMap) AddSession(pivotID uint32, session *core.Session) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 	(*h.Pivots)[pivotID] = session
 }
 
-// RemoveSliver - Remove a session from the hive (atomically)
+// RemoveSession - Remove a session from the core (atomically)
 func (h *PivotsMap) RemoveSession(pivotID uint32) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()

@@ -28,11 +28,15 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/golang/protobuf/proto"
+	"github.com/bishopfox/sliver/server/db"
+	"google.golang.org/protobuf/proto"
 )
 
+const maxNameLength = 32
+
 var (
-	ErrInvalidName = errors.New("Invalid session name, alphanumerics only")
+	// ErrInvalidName - Invalid name
+	ErrInvalidName = errors.New("invalid session name, alphanumerics only")
 )
 
 // GetSessions - Get a list of sessions
@@ -41,6 +45,12 @@ func (rpc *Server) GetSessions(ctx context.Context, _ *commonpb.Empty) (*clientp
 		Sessions: []*clientpb.Session{},
 	}
 	for _, session := range core.Sessions.All() {
+		build, err := db.ImplantBuildByName(session.Name)
+		if err == nil && build != nil {
+			if build.Burned {
+				session.Burned = true
+			}
+		}
 		resp.Sessions = append(resp.Sessions, session.ToProtobuf())
 	}
 	return resp, nil
@@ -63,8 +73,6 @@ func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillSessionRe
 }
 
 // UpdateSession - Update a session name
-const maxNameLength = 32
-
 func (rpc *Server) UpdateSession(ctx context.Context, update *clientpb.UpdateSession) (*clientpb.Session, error) {
 	resp := &clientpb.Session{}
 	session := core.Sessions.Get(update.SessionID)

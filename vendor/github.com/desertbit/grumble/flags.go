@@ -32,8 +32,8 @@ import (
 	"time"
 )
 
-type parseFunc func(flag, equalVal string, args []string, res FlagMap) ([]string, bool, error)
-type defaultFunc func(res FlagMap)
+type parseFlagFunc func(flag, equalVal string, args []string, res FlagMap) ([]string, bool, error)
+type defaultFlagFunc func(res FlagMap)
 
 type flagItem struct {
 	Short           string
@@ -46,9 +46,14 @@ type flagItem struct {
 
 // Flags holds all the registered flags.
 type Flags struct {
-	parsers  []parseFunc
-	defaults map[string]defaultFunc
+	parsers  []parseFlagFunc
+	defaults map[string]defaultFlagFunc
 	list     []*flagItem
+}
+
+// empty returns true, if the flags are empty.
+func (f *Flags) empty() bool {
+	return len(f.list) == 0
 }
 
 // sort the flags by their name.
@@ -62,8 +67,8 @@ func (f *Flags) register(
 	short, long, help, helpArgs string,
 	helpShowDefault bool,
 	defaultValue interface{},
-	df defaultFunc,
-	pf parseFunc,
+	df defaultFlagFunc,
+	pf parseFlagFunc,
 ) {
 	// Validate.
 	if len(short) > 1 {
@@ -78,6 +83,17 @@ func (f *Flags) register(
 		panic(fmt.Errorf("empty flag help message for flag: '%s'", long))
 	}
 
+	// Check, that both short and long are unique.
+	// Short flags are empty if not set.
+	for _, fi := range f.list {
+		if fi.Short != "" && short != "" && fi.Short == short {
+			panic(fmt.Errorf("flag shortcut '%s' registered twice", short))
+		}
+		if fi.Long == long {
+			panic(fmt.Errorf("flag '%s' registered twice", long))
+		}
+	}
+
 	f.list = append(f.list, &flagItem{
 		Short:           short,
 		Long:            long,
@@ -88,7 +104,7 @@ func (f *Flags) register(
 	})
 
 	if f.defaults == nil {
-		f.defaults = make(map[string]defaultFunc)
+		f.defaults = make(map[string]defaultFlagFunc)
 	}
 	f.defaults[long] = df
 

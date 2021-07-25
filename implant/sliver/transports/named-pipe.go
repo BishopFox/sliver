@@ -32,8 +32,8 @@ import (
 	// {{end}}
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/golang/protobuf/proto"
 	"github.com/lesnuages/go-winio"
+	"google.golang.org/protobuf/proto"
 )
 
 const (

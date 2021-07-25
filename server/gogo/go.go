@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 
 	"github.com/bishopfox/sliver/server/log"
 )
@@ -97,6 +98,7 @@ type GoConfig struct {
 	GOMODCACHE string
 	CGO        string
 	CC         string
+	CXX        string
 
 	Obfuscation bool
 	GOPRIVATE   string
@@ -135,7 +137,8 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	}
 	garbleBinPath := path.Join(config.GOROOT, "bin", "garble")
 	seed := fmt.Sprintf("-seed=%s", seed())
-	command = append([]string{"-literals", "-tiny", seed}, command...)
+	// command = append([]string{"-literals", "-tiny", seed}, command...)
+	command = append([]string{"-literals", seed}, command...)
 	cmd := exec.Command(garbleBinPath, command...)
 	cmd.Dir = cwd
 	cmd.Env = []string{
@@ -171,10 +174,6 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 
 // GoCmd - Execute a go command
 func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
-	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
-	if _, ok := ValidCompilerTargets[target]; !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
-	}
 	goBinPath := path.Join(config.GOROOT, "bin", "go")
 	cmd := exec.Command(goBinPath, command...)
 	cmd.Dir = cwd
@@ -210,6 +209,10 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 
 // GoBuild - Execute a go build command, returns stdout/error
 func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []string, ldflags []string, gcflags, asmflags string, trimpath string) ([]byte, error) {
+	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
+	if _, ok := ValidCompilerTargets[target]; !ok {
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
+	}
 	var goCommand = []string{"build"}
 	if 0 < len(trimpath) {
 		goCommand = append(goCommand, trimpath)
@@ -250,4 +253,16 @@ func GoVersion(config GoConfig) ([]byte, error) {
 	var goCommand = []string{"version"}
 	wd, _ := os.Getwd()
 	return GoCmd(config, wd, goCommand)
+}
+
+// GoToolDistList - Get a list of supported GOOS/GOARCH pairs
+func GoToolDistList(config GoConfig) []string {
+	var goCommand = []string{"tool", "dist", "list"}
+	wd, _ := os.Getwd()
+	data, err := GoCmd(config, wd, goCommand)
+	if err != nil {
+		return nil
+	}
+	lines := strings.Split(string(data), "\n")
+	return lines
 }

@@ -44,7 +44,7 @@ import (
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	// {{if .Config.HTTPc2Enabled}}
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	// {{end}}
 
 	// {{if .Config.TCPPivotc2Enabled}}

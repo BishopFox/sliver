@@ -20,16 +20,26 @@ package constants
 
 // Meta
 const (
+	// KeepAliveStr - Keep alive constant
 	KeepAliveStr = "keepalive"
+)
+
+const (
+	// LastUpdateCheckFileName - Last update check file name
+	LastUpdateCheckFileName = "last_update_check"
 )
 
 // Events
 const (
-	UpdateStr  = "update"
+	// UpdateStr - "update"
+	UpdateStr = "update"
+	// VersionStr - "version"
 	VersionStr = "version"
 
+	// EventStr - "event"
 	EventStr = "event"
 
+	// ServersStr - "server-error"
 	ServerErrorStr = "server-error"
 
 	// ConnectedEvent - Sliver Connected
@@ -47,6 +57,9 @@ const (
 	// CanaryEvent - A DNS canary was triggered
 	CanaryEvent = "canary"
 
+	// WatchtowerEvent - An implant hash has been identified on a threat intel platform
+	WatchtowerEvent = "watchtower"
+
 	// StartedEvent - Job was started
 	JobStartedEvent = "job-started"
 	// StoppedEvent - Job was stopped
@@ -63,6 +76,12 @@ const (
 
 	// WebsiteEvent - Fires whenever there's a change to websites
 	WebsiteEvent = "website"
+
+	// LootAdded
+	LootAddedEvent = "loot-added"
+
+	// LootRemoved
+	LootRemovedEvent = "loot-removed"
 )
 
 // Commands
@@ -76,14 +95,34 @@ const (
 	BackgroundStr = "background"
 	InfoStr       = "info"
 	UseStr        = "use"
-	SetStr        = "set"
+	ReconfigStr   = "reconfig"
+	PruneStr      = "prune"
 
-	GenerateStr        = "generate"
-	RegenerateStr      = "regenerate"
-	ProfileGenerateStr = "generate-profile"
-	StagerStr          = "stager"
-	ProfilesStr        = "profiles"
-	NewProfileStr      = "new-profile"
+	GenerateStr   = "generate"
+	RegenerateStr = "regenerate"
+	CompilerStr   = "info"
+	StagerStr     = "stager"
+	ProfilesStr   = "profiles"
+
+	// Generic
+
+	// NewStr - "new"
+	NewStr    = "new"
+	AddStr    = "add"
+	StartStr  = "start"
+	StopStr   = "stop"
+	SetStr    = "set"
+	UnsetStr  = "unset"
+	SaveStr   = "save"
+	ReloadStr = "reload"
+
+	LootStr       = "loot"
+	LootLocalStr  = "local"
+	LootRemoteStr = "remote"
+	LootFetchStr  = "fetch"
+	LootCredsStr  = "creds"
+
+	RenameStr = "rename"
 
 	ImplantBuildsStr = "implants"
 	ListCanariesStr  = "canaries"
@@ -147,9 +186,7 @@ const (
 	PsExecStr             = "psexec"
 	BackdoorStr           = "backdoor"
 	MakeTokenStr          = "make-token"
-	GetEnvStr             = "getenv"
-	SetEnvStr             = "setenv"
-	UnsetEnvStr           = "unsetenv"
+	EnvStr                = "env"
 	RegistryStr           = "registry"
 	RegistryReadStr       = "read"
 	RegistryWriteStr      = "write"
@@ -160,10 +197,15 @@ const (
 	WgConfigStr           = "wg-config"
 	WgSocksStr            = "wg-socks"
 	WgPortFwdStr          = "wg-portfwd"
+	MonitorStr            = "monitor"
+	SSHStr                = "ssh"
+	DLLHijackStr          = "dllhijack"
 
 	PortfwdStr = "portfwd"
 
 	PersistStr = "persist"
+
+	ReactionStr = "reaction"
 
 	LicensesStr = "licenses"
 )

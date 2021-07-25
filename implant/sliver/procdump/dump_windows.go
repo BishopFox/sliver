@@ -38,10 +38,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const (
-	PROCESS_ALL_ACCESS = 0x1F0FFF
-)
-
 type WindowsDump struct {
 	data []byte
 }
@@ -51,19 +47,34 @@ func (d *WindowsDump) Data() []byte {
 }
 
 func dumpProcess(pid int32) (ProcessDump, error) {
+	var lpTargetHandle windows.Handle
 	res := &WindowsDump{}
 	if err := priv.SePrivEnable("SeDebugPrivilege"); err != nil {
 		return res, fmt.Errorf("Could not set SeDebugPrivilege on", pid)
 	}
 
-	hProc, err := windows.OpenProcess(PROCESS_ALL_ACCESS, false, uint32(pid))
+	hProc, err := windows.OpenProcess(syscalls.PROCESS_DUP_HANDLE, false, uint32(pid))
+	currentProcHandle, err := windows.GetCurrentProcess()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("GetCurrentProcess failed")
+		// {{end}}
+		return res, err
+	}
+	err = windows.DuplicateHandle(hProc, currentProcHandle, currentProcHandle, &lpTargetHandle, 0, false, syscalls.DUPLICATE_SAME_ACCESS)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("DuplicateHandle failed")
+		// {{end}}
+		return res, err
+	}
 	if err != nil {
 		return res, err
 	}
 	if hProc != 0 {
-		return minidump(uint32(pid), hProc)
+		return minidump(uint32(pid), lpTargetHandle)
 	}
-	return res, fmt.Errorf("Could not dump process memory")
+	return res, fmt.Errorf("{{if .Config.Debug}}Could not dump process memory{{end}}")
 }
 
 func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
