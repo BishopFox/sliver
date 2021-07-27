@@ -1643,7 +1643,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-			f.String("H", "hive", "HKCU", "egistry hive")
+			f.String("H", "hive", "HKCU", "registry hive")
 			f.String("o", "hostname", "", "remote host to read values from")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
