@@ -254,6 +254,7 @@ func registerExtension(con *console.SliverConsoleClient, ext *extensionCommand, 
 		Name:    ext.Name,
 		Data:    binData,
 		OS:      session.OS,
+		Init:    ext.Init,
 		Request: con.ActiveSession.Request(ctx),
 	})
 	if err != nil {

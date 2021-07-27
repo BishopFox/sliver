@@ -19,14 +19,16 @@ type WindowsExtension struct {
 	data     []byte
 	module   *memmod.Module
 	arch     string
+	init     string
 	onFinish func([]byte)
 }
 
-func NewWindowsExtension(data []byte, id string, arch string) *WindowsExtension {
+func NewWindowsExtension(data []byte, id string, arch string, init string) *WindowsExtension {
 	return &WindowsExtension{
 		id:   id,
 		data: data,
 		arch: arch,
+		init: init,
 	}
 }
 
@@ -45,9 +47,11 @@ func (w *WindowsExtension) Load() error {
 		return err
 	}
 	// if the DLL is a nim compiled DLL, call NimMain to initialize the GC
-	nimMain, errNim := w.module.ProcAddressByName("NimMain")
-	if errNim == nil {
-		syscall.Syscall(nimMain, 0, 0, 0, 0)
+	if w.init != "" {
+		initProc, errInit := w.module.ProcAddressByName(w.init)
+		if errInit == nil {
+			syscall.Syscall(initProc, 0, 0, 0, 0)
+		}
 	}
 	return nil
 }

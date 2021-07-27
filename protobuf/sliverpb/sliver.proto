@@ -810,6 +810,7 @@ message RegisterExtensionReq {
   string Name = 1;
   bytes Data = 2;
   string OS = 3;
+  string Init = 4;
 
   commonpb.Request Request = 9;
 }
