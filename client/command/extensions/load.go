@@ -35,6 +35,7 @@ type extensionCommand struct {
 	Arguments  []extensionArgument `json:"arguments"`
 	Entrypoint string              `json:"entrypoint"`
 	DependsOn  string              `json:"dependsOn"`
+	Init       string              `json:"init"`
 	Path       string
 }
 type binFiles struct {
@@ -327,86 +328,12 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	// This block will pack both the BOF data and its arguments into a single buffer that
 	// the loader will extract and load.
 	if isBOF {
-		binData, err := ioutil.ReadFile(binPath)
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
-		argsBuffer := BOFArgsBuffer{
-			Buffer: new(bytes.Buffer),
-		}
-		// Parse BOF arguments from grumble
-		for _, arg := range ext.Arguments {
-			switch arg.Type {
-			case "int":
-				val := ctx.Args.Int(arg.Name)
-				err = argsBuffer.AddInt(uint32(val))
-				if err != nil {
-					con.PrintErrorf("%s\n", err)
-					return
-				}
-			case "short":
-				val := ctx.Args.Int(arg.Name)
-				err = argsBuffer.AddShort(uint16(val))
-				if err != nil {
-					con.PrintErrorf("%s\n", err)
-					return
-				}
-			case "string":
-				val := ctx.Args.String(arg.Name)
-				err = argsBuffer.AddString(val)
-				if err != nil {
-					con.PrintErrorf("%s\n", err)
-					return
-				}
-			case "wstring":
-				val := ctx.Args.String(arg.Name)
-				err = argsBuffer.AddWString(val)
-				if err != nil {
-					con.PrintErrorf("%s\n", err)
-					return
-				}
-			// Adding support for filepaths so we can
-			// send binary data like shellcodes to BOFs
-			case "file":
-				val := ctx.Args.String(arg.Name)
-				data, err := ioutil.ReadFile(val)
-				if err != nil {
-					con.PrintErrorf("%s\n", err)
-					return
-				}
-				err = argsBuffer.AddData(data)
-				if err != nil {
-					con.PrintErrorf("%s\n", err)
-					return
-				}
-			}
-		}
-		parsedArgs, err := argsBuffer.GetBuffer()
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
-		// Now build the extension's argument buffer
-		extensionArgsBuffer := BOFArgsBuffer{
-			Buffer: new(bytes.Buffer),
-		}
-		err = extensionArgsBuffer.AddData(binData)
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
-		err = extensionArgsBuffer.AddData(parsedArgs)
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
-		extensionArgs, err = extensionArgsBuffer.GetBuffer()
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
 		// Beacon Object File -- requires a COFF loader
+		extensionArgs, err = getBOFArgs(ctx, binPath, ext)
+		if err != nil {
+			con.PrintErrorf("Error: %s\n", err)
+			return
+		}
 		extName = ext.DependsOn
 		entryPoint = commandMap[extName].Entrypoint // should exist at this point
 	} else {
@@ -443,6 +370,80 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.PrintInfof("Output saved to %s\n", outFilePath.Name())
 		}
 	}
+}
+
+func getBOFArgs(ctx *grumble.Context, binPath string, ext extensionCommand) ([]byte, error) {
+	var extensionArgs []byte
+	binData, err := ioutil.ReadFile(binPath)
+	if err != nil {
+		return nil, err
+	}
+	argsBuffer := BOFArgsBuffer{
+		Buffer: new(bytes.Buffer),
+	}
+	// Parse BOF arguments from grumble
+	for _, arg := range ext.Arguments {
+		switch arg.Type {
+		case "int":
+			val := ctx.Args.Int(arg.Name)
+			err = argsBuffer.AddInt(uint32(val))
+			if err != nil {
+				return nil, err
+			}
+		case "short":
+			val := ctx.Args.Int(arg.Name)
+			err = argsBuffer.AddShort(uint16(val))
+			if err != nil {
+				return nil, err
+			}
+		case "string":
+			val := ctx.Args.String(arg.Name)
+			err = argsBuffer.AddString(val)
+			if err != nil {
+				return nil, err
+			}
+		case "wstring":
+			val := ctx.Args.String(arg.Name)
+			err = argsBuffer.AddWString(val)
+			if err != nil {
+				return nil, err
+			}
+		// Adding support for filepaths so we can
+		// send binary data like shellcodes to BOFs
+		case "file":
+			val := ctx.Args.String(arg.Name)
+			data, err := ioutil.ReadFile(val)
+			if err != nil {
+				return nil, err
+			}
+			err = argsBuffer.AddData(data)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	parsedArgs, err := argsBuffer.GetBuffer()
+	if err != nil {
+		return nil, err
+	}
+	// Now build the extension's argument buffer
+	extensionArgsBuffer := BOFArgsBuffer{
+		Buffer: new(bytes.Buffer),
+	}
+	err = extensionArgsBuffer.AddData(binData)
+	if err != nil {
+		return nil, err
+	}
+	err = extensionArgsBuffer.AddData(parsedArgs)
+	if err != nil {
+		return nil, err
+	}
+	extensionArgs, err = extensionArgsBuffer.GetBuffer()
+	if err != nil {
+		return nil, err
+	}
+	return extensionArgs, nil
+
 }
 
 func cmdExists(name string, app *grumble.App) bool {
