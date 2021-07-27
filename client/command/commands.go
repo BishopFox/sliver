@@ -34,7 +34,6 @@ package command
 */
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -2226,13 +2225,12 @@ func BindCommands(con *console.SliverConsoleClient) {
 	})
 	con.App.AddCommand(extensionCmd)
 
-	// Attempt to load extensions from $SLIVER_CLIENT_ROOT/extensions/
-	extDir := fmt.Sprintf("%s/%s", assets.GetRootAppDir(), "extensions")
-	exts, err := extensions.ParseExtensions(extDir)
-	if err != nil {
-		con.PrintErrorf("Error parsing extensions: %s\n", err)
-	}
-	for _, ext := range exts {
-		extensions.RegisterExtensionCommand(ext, con)
+	// Attempt to load extensions from ~/.sliver-client/extensions/
+	exts, err := extensions.ParseExtensions(assets.GetExtensionsDir())
+	// Absorb error in case there's no extensions manifest
+	if err == nil {
+		for _, ext := range exts {
+			extensions.RegisterExtensionCommand(ext, con)
+		}
 	}
 }

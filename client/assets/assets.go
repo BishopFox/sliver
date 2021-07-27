@@ -28,12 +28,27 @@ import (
 const (
 	// SliverClientDirName - Directory storing all of the client configs/logs
 	SliverClientDirName = ".sliver-client"
+	// SliverExtensionsDirName - Directory storing the client side extensions
+	SliverExtensionsDirName = "extensions"
 )
 
 // GetRootAppDir - Get the Sliver app dir ~/.sliver-client/
 func GetRootAppDir() string {
 	user, _ := user.Current()
 	dir := path.Join(user.HomeDir, SliverClientDirName)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err = os.MkdirAll(dir, 0700)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	return dir
+}
+
+// GetExtensionsDir - Get the Sliver extension directory: ~/.sliver-client/extensions
+func GetExtensionsDir() string {
+	user, _ := user.Current()
+	dir := path.Join(user.HomeDir, SliverExtensionsDirName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0700)
 		if err != nil {
