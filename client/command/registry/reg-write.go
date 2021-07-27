@@ -71,9 +71,17 @@ func RegWriteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if strings.Contains(regPath, "/") {
 		regPath = strings.ReplaceAll(regPath, "/", "\\")
 	}
-	slashIndex := strings.LastIndex(regPath, "\\")
-	key := regPath[slashIndex+1:]
-	regPath = regPath[:slashIndex]
+	pathBaseIdx := strings.LastIndex(regPath, `\`)
+	if pathBaseIdx < 0 {
+		con.PrintErrorf("invalid path: %s", regPath)
+		return
+	}
+	if len(regPath) < pathBaseIdx+1 {
+		con.PrintErrorf("invalid path: %s", regPath)
+		return
+	}
+	finalPath := regPath[:pathBaseIdx]
+	key := regPath[pathBaseIdx+1:]
 	switch valType {
 	case sliverpb.RegistryTypeBinary:
 		var (
@@ -118,7 +126,7 @@ func RegWriteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Request:     con.ActiveSession.Request(ctx),
 		Hostname:    hostname,
 		Hive:        hive,
-		Path:        regPath,
+		Path:        finalPath,
 		Type:        valType,
 		Key:         key,
 		StringValue: stringValue,
