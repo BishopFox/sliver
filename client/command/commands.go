@@ -84,6 +84,14 @@ func BindCommands(con *console.SliverConsoleClient) {
 		con.PrintInfof("Loaded %d reaction(s) from disk\n", n)
 	}
 
+	// Attempt to load extensions from ~/.sliver-client/extensions/
+	exts, err := extensions.ParseExtensions(assets.GetExtensionsDir())
+	// Absorb error in case there's no extensions manifest
+	if err == nil {
+		for _, ext := range exts {
+			extensions.RegisterExtensionCommand(ext, con)
+		}
+	}
 	con.App.SetPrintHelp(help.HelpCmd(con)) // Responsible for display long-form help templates, etc.
 
 	// [ Update ] --------------------------------------------------------------
@@ -2224,13 +2232,4 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 	con.App.AddCommand(extensionCmd)
-
-	// Attempt to load extensions from ~/.sliver-client/extensions/
-	exts, err := extensions.ParseExtensions(assets.GetExtensionsDir())
-	// Absorb error in case there's no extensions manifest
-	if err == nil {
-		for _, ext := range exts {
-			extensions.RegisterExtensionCommand(ext, con)
-		}
-	}
 }

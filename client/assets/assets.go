@@ -48,7 +48,7 @@ func GetRootAppDir() string {
 // GetExtensionsDir - Get the Sliver extension directory: ~/.sliver-client/extensions
 func GetExtensionsDir() string {
 	user, _ := user.Current()
-	dir := path.Join(user.HomeDir, SliverExtensionsDirName)
+	dir := path.Join(user.HomeDir, SliverClientDirName, SliverExtensionsDirName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0700)
 		if err != nil {
