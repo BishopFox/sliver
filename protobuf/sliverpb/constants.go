@@ -245,6 +245,15 @@ const (
 
 	// MsgGetPrivsReq - Get privileges (Windows)
 	MsgGetPrivsReq
+
+	// MsgRegisterExtensionReq - Register a new extension
+	MsgRegisterExtensionReq
+
+	// MsgCallExtensionReq - Run an extension command
+	MsgCallExtensionReq
+
+	// MsgListExtensionsReq - List loaded extensions
+	MsgListExtensionsReq
 )
 
 // Constants to replace enums
@@ -470,6 +479,15 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *GetPrivsReq:
 		return MsgGetPrivsReq
+
+	case *RegisterExtensionReq:
+		return MsgRegisterExtensionReq
+
+	case *CallExtensionReq:
+		return MsgCallExtensionReq
+
+	case *ListExtensionsReq:
+		return MsgListExtensionsReq
 	}
 
 	return uint32(0)

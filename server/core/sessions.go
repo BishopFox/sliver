@@ -72,6 +72,7 @@ type Session struct {
 	ProxyURL          string
 	PollInterval      uint32
 	Burned            bool
+	Extensions        []string
 }
 
 // ToProtobuf - Get the protobuf version of the object

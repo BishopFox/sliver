@@ -71,7 +71,7 @@ var (
 		consts.MigrateStr:          migrateHelp,
 		consts.SideloadStr:         sideloadHelp,
 		consts.TerminateStr:        terminateHelp,
-		consts.LoadExtensionStr:    loadExtensionHelp,
+		consts.LoadMacroStr:        loadMacrosHelp,
 		consts.PsExecStr:           psExecHelp,
 		consts.BackdoorStr:         backdoorHelp,
 		consts.SpawnDllStr:         spawnDllHelp,
@@ -89,6 +89,7 @@ var (
 		consts.WgSocksStr:                   wgSocksHelp,
 		consts.SSHStr:                       sshHelp,
 		consts.DLLHijackStr:                 dllHijackHelp,
+		consts.GetPrivsStr:                  getPrivsHelp,
 
 		// Loot
 		consts.LootStr: lootHelp,
@@ -345,21 +346,21 @@ Parameters to the Linux and MacOS shared module are passed using the [[.Bold]]LD
 	screenshotHelp = `[[.Bold]]Command:[[.Normal]] screenshot
 [[.Bold]]About:[[.Normal]] Take a screenshot from the remote implant.
 `
-	loadExtensionHelp = `[[.Bold]]Command:[[.Normal]] load-extension <directory path> 
-[[.Bold]]About:[[.Normal]] Load a Sliver extension to add new commands.
-Extensions are using the [[.Bold]]sideload[[.Normal]] or [[.Bold]]spawndll[[.Normal]] commands under the hood, depending on the use case.
-For Linux and Mac OS, the [[.Bold]]sideload[[.Normal]] command will be used. On Windows, it will depend the extension file is a reflective DLL or not.
-Load an extension:
+	loadMacrosHelp = `[[.Bold]]Command:[[.Normal]] load-macro <directory path> 
+[[.Bold]]About:[[.Normal]] Load a Sliver macro to add new commands.
+Macros are using the [[.Bold]]sideload[[.Normal]] or [[.Bold]]spawndll[[.Normal]] commands under the hood, depending on the use case.
+For Linux and Mac OS, the [[.Bold]]sideload[[.Normal]] command will be used. On Windows, it will depend the macro file is a reflective DLL or not.
+Load an macro:
 	load /tmp/chrome-dump
-Sliver extensions have the following structure (example for the [[.Bold]]chrome-dump[[.Normal]] extension):
+Sliver macros have the following structure (example for the [[.Bold]]chrome-dump[[.Normal]] macro):
 chrome-dump
 ├── chrome-dump.dll
 ├── chrome-dump.so
 └── manifest.json
 It is a directory containing any number of files, with a mandatory [[.Bold]]manifest.json[[.Normal]], that has the following structure:
 {
-  "extensionName":"chrome-dump", // name of the extension, can be anything
-  "extensionCommands":[
+  "macroName":"chrome-dump", // name of the macro, can be anything
+  "macroCommands":[
     {
       "name":"chrome-dump", // name of the command available in the sliver client (no space)
       "entrypoint":"ChromeDump", // entrypoint of the shared library to execute
@@ -371,7 +372,7 @@ It is a directory containing any number of files, with a mandatory [[.Bold]]mani
 		  "os":"windows", // Target OS for the following files. Values can be "windows", "linux" or "darwin"
           "files":{
             "x64":"chrome-dump.dll",
-            "x86":"chrome-dump.x86.dll" // only x86 and x64 arch are supported, path is relative to the extension directory
+            "x86":"chrome-dump.x86.dll" // only x86 and x64 arch are supported, path is relative to the macro directory
           }
         },
         {

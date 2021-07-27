@@ -803,3 +803,41 @@ message GetPrivs {
 
   commonpb.Response Response = 9;
 }
+
+// Extensions
+
+message RegisterExtensionReq {
+  string Name = 1;
+  bytes Data = 2;
+  string OS = 3;
+
+  commonpb.Request Request = 9;
+}
+
+message RegisterExtension {
+  commonpb.Response Response = 9;
+}
+
+message CallExtensionReq {
+  string Name = 1;
+  string Export = 2;
+  bytes Args = 3;
+
+  commonpb.Request Request = 9;
+}
+
+message CallExtension {
+  bytes Output = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message ListExtensionsReq {
+  commonpb.Request Request = 9;
+}
+
+message ListExtensions {
+  repeated string Names = 1;
+
+  commonpb.Response Response = 9;
+}

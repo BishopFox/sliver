@@ -115,6 +115,7 @@ const (
 	UnsetStr  = "unset"
 	SaveStr   = "save"
 	ReloadStr = "reload"
+	LoadStr   = "load"
 
 	LootStr       = "loot"
 	LootLocalStr  = "local"
@@ -174,7 +175,8 @@ const (
 	MigrateStr          = "migrate"
 	SideloadStr         = "sideload"
 	SpawnDllStr         = "spawndll"
-	LoadExtensionStr    = "load-extension"
+	ExtensionStr        = "extension"
+	LoadMacroStr        = "load-macro"
 	StageListenerStr    = "stage-listener"
 
 	WebsitesStr       = "websites"
@@ -216,5 +218,6 @@ const (
 	SliverHelpGroup      = "Sliver:"
 	SliverWinHelpGroup   = "Sliver - Windows:"
 	MultiplayerHelpGroup = "Multiplayer:"
+	MacroHelpGroup       = "Sliver - 3rd Party macros:"
 	ExtensionHelpGroup   = "Sliver - 3rd Party extensions:"
 )

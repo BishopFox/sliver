@@ -97,7 +97,7 @@ func StartClientConsole() error {
 		return nil
 	}
 	defer ln.Close()
-	return console.Start(rpc, command.BindCommands, func(*console.SliverConsoleClient) {}, false)
+	return console.Start(rpc, command.BindCommands, func(con *console.SliverConsoleClient) {}, false)
 }
 
 // Execute - Execute root command

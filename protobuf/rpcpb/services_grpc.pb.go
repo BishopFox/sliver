@@ -117,6 +117,10 @@ type SliverRPCClient interface {
 	RunSSHCommand(ctx context.Context, in *sliverpb.SSHCommandReq, opts ...grpc.CallOption) (*sliverpb.SSHCommand, error)
 	HijackDLL(ctx context.Context, in *sliverpb.DllHijackReq, opts ...grpc.CallOption) (*sliverpb.DllHijack, error)
 	GetPrivs(ctx context.Context, in *sliverpb.GetPrivsReq, opts ...grpc.CallOption) (*sliverpb.GetPrivs, error)
+	// Extensions
+	RegisterExtension(ctx context.Context, in *sliverpb.RegisterExtensionReq, opts ...grpc.CallOption) (*sliverpb.RegisterExtension, error)
+	CallExtension(ctx context.Context, in *sliverpb.CallExtensionReq, opts ...grpc.CallOption) (*sliverpb.CallExtension, error)
+	ListExtensions(ctx context.Context, in *sliverpb.ListExtensionsReq, opts ...grpc.CallOption) (*sliverpb.ListExtensions, error)
 	// *** Wireguard Specific ***
 	WGStartPortForward(ctx context.Context, in *sliverpb.WGPortForwardStartReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error)
 	WGStopPortForward(ctx context.Context, in *sliverpb.WGPortForwardStopReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error)
@@ -908,6 +912,33 @@ func (c *sliverRPCClient) GetPrivs(ctx context.Context, in *sliverpb.GetPrivsReq
 	return out, nil
 }
 
+func (c *sliverRPCClient) RegisterExtension(ctx context.Context, in *sliverpb.RegisterExtensionReq, opts ...grpc.CallOption) (*sliverpb.RegisterExtension, error) {
+	out := new(sliverpb.RegisterExtension)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/RegisterExtension", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CallExtension(ctx context.Context, in *sliverpb.CallExtensionReq, opts ...grpc.CallOption) (*sliverpb.CallExtension, error) {
+	out := new(sliverpb.CallExtension)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CallExtension", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) ListExtensions(ctx context.Context, in *sliverpb.ListExtensionsReq, opts ...grpc.CallOption) (*sliverpb.ListExtensions, error) {
+	out := new(sliverpb.ListExtensions)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/ListExtensions", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) WGStartPortForward(ctx context.Context, in *sliverpb.WGPortForwardStartReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error) {
 	out := new(sliverpb.WGPortForward)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/WGStartPortForward", in, out, opts...)
@@ -1161,6 +1192,10 @@ type SliverRPCServer interface {
 	RunSSHCommand(context.Context, *sliverpb.SSHCommandReq) (*sliverpb.SSHCommand, error)
 	HijackDLL(context.Context, *sliverpb.DllHijackReq) (*sliverpb.DllHijack, error)
 	GetPrivs(context.Context, *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error)
+	// Extensions
+	RegisterExtension(context.Context, *sliverpb.RegisterExtensionReq) (*sliverpb.RegisterExtension, error)
+	CallExtension(context.Context, *sliverpb.CallExtensionReq) (*sliverpb.CallExtension, error)
+	ListExtensions(context.Context, *sliverpb.ListExtensionsReq) (*sliverpb.ListExtensions, error)
 	// *** Wireguard Specific ***
 	WGStartPortForward(context.Context, *sliverpb.WGPortForwardStartReq) (*sliverpb.WGPortForward, error)
 	WGStopPortForward(context.Context, *sliverpb.WGPortForwardStopReq) (*sliverpb.WGPortForward, error)
@@ -1438,6 +1473,15 @@ func (UnimplementedSliverRPCServer) HijackDLL(context.Context, *sliverpb.DllHija
 }
 func (UnimplementedSliverRPCServer) GetPrivs(context.Context, *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPrivs not implemented")
+}
+func (UnimplementedSliverRPCServer) RegisterExtension(context.Context, *sliverpb.RegisterExtensionReq) (*sliverpb.RegisterExtension, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterExtension not implemented")
+}
+func (UnimplementedSliverRPCServer) CallExtension(context.Context, *sliverpb.CallExtensionReq) (*sliverpb.CallExtension, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CallExtension not implemented")
+}
+func (UnimplementedSliverRPCServer) ListExtensions(context.Context, *sliverpb.ListExtensionsReq) (*sliverpb.ListExtensions, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListExtensions not implemented")
 }
 func (UnimplementedSliverRPCServer) WGStartPortForward(context.Context, *sliverpb.WGPortForwardStartReq) (*sliverpb.WGPortForward, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WGStartPortForward not implemented")
@@ -3018,6 +3062,60 @@ func _SliverRPC_GetPrivs_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_RegisterExtension_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.RegisterExtensionReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).RegisterExtension(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/RegisterExtension",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).RegisterExtension(ctx, req.(*sliverpb.RegisterExtensionReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CallExtension_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.CallExtensionReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CallExtension(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CallExtension",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CallExtension(ctx, req.(*sliverpb.CallExtensionReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_ListExtensions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.ListExtensionsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ListExtensions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/ListExtensions",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ListExtensions(ctx, req.(*sliverpb.ListExtensionsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_WGStartPortForward_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.WGPortForwardStartReq)
 	if err := dec(in); err != nil {
@@ -3591,6 +3689,18 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPrivs",
 			Handler:    _SliverRPC_GetPrivs_Handler,
+		},
+		{
+			MethodName: "RegisterExtension",
+			Handler:    _SliverRPC_RegisterExtension_Handler,
+		},
+		{
+			MethodName: "CallExtension",
+			Handler:    _SliverRPC_CallExtension_Handler,
+		},
+		{
+			MethodName: "ListExtensions",
+			Handler:    _SliverRPC_ListExtensions_Handler,
 		},
 		{
 			MethodName: "WGStartPortForward",

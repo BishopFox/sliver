@@ -115,6 +115,10 @@ service SliverRPC {
     rpc RunSSHCommand(sliverpb.SSHCommandReq) returns (sliverpb.SSHCommand);
     rpc HijackDLL(sliverpb.DllHijackReq) returns (sliverpb.DllHijack);
     rpc GetPrivs(sliverpb.GetPrivsReq) returns  (sliverpb.GetPrivs);
+    // Extensions
+    rpc RegisterExtension(sliverpb.RegisterExtensionReq) returns (sliverpb.RegisterExtension);
+    rpc CallExtension(sliverpb.CallExtensionReq) returns (sliverpb.CallExtension);
+    rpc ListExtensions(sliverpb.ListExtensionsReq) returns (sliverpb.ListExtensions);
     
     // *** Wireguard Specific ***
     rpc WGStartPortForward(sliverpb.WGPortForwardStartReq) returns (sliverpb.WGPortForward);

@@ -113,5 +113,4 @@ func serverOnlyCmds(console *clientconsole.SliverConsoleClient) {
 		},
 		HelpGroup: consts.MultiplayerHelpGroup,
 	})
-
 }

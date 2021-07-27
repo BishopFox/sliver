@@ -34,8 +34,10 @@ package command
 */
 
 import (
+	"fmt"
 	"os"
 
+	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/dllhijack"
 	"github.com/bishopfox/sliver/client/command/environment"
@@ -47,6 +49,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/info"
 	"github.com/bishopfox/sliver/client/command/jobs"
 	"github.com/bishopfox/sliver/client/command/loot"
+	"github.com/bishopfox/sliver/client/command/macros"
 	"github.com/bishopfox/sliver/client/command/monitor"
 	"github.com/bishopfox/sliver/client/command/network"
 	"github.com/bishopfox/sliver/client/command/operators"
@@ -1525,20 +1528,20 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 
-	// [ Extensions ] ---------------------------------------------
+	// [ Macros ] ---------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{
-		Name:     consts.LoadExtensionStr,
-		Help:     "Load a sliver extension",
-		LongHelp: help.GetHelpFor([]string{consts.LoadExtensionStr}),
+		Name:     consts.LoadMacroStr,
+		Help:     "Load a sliver macro",
+		LongHelp: help.GetHelpFor([]string{consts.LoadMacroStr}),
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			extensions.LoadExtensionCmd(ctx, con)
+			macros.LoadMacroCmd(ctx, con)
 			con.Println()
 			return nil
 		},
 		Args: func(a *grumble.Args) {
-			a.String("dir-path", "path to the extension directory")
+			a.String("dir-path", "path to the macro directory")
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
@@ -2186,4 +2189,50 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	}
 	con.App.AddCommand(getprivsCmd)
+
+	// [ Extensions ] -----------------------------------------------------------------
+	extensionCmd := &grumble.Command{
+		Name:      consts.ExtensionStr,
+		Help:      "Manage sliver extensions",
+		LongHelp:  help.GetHelpFor([]string{consts.ExtensionStr}),
+		HelpGroup: consts.SliverHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			extensions.ListCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+	}
+	extensionCmd.AddCommand(&grumble.Command{
+		Name:      consts.LoadStr,
+		Help:      "Register a new extension",
+		LongHelp:  help.GetHelpFor([]string{consts.ExtensionStr, consts.LoadStr}),
+		HelpGroup: consts.SliverHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			extensions.LoadCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("dir-path", "path to the extension directory")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+	})
+	con.App.AddCommand(extensionCmd)
+
+	// Attempt to load extensions from $SLIVER_CLIENT_ROOT/extensions/
+	extDir := fmt.Sprintf("%s/%s", assets.GetRootAppDir(), "extensions")
+	exts, err := extensions.ParseExtensions(extDir)
+	if err != nil {
+		con.PrintErrorf("Error parsing extensions: %s\n", err)
+	}
+	for _, ext := range exts {
+		extensions.RegisterExtensionCommand(ext, con)
+	}
 }

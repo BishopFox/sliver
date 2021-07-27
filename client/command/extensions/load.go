@@ -1,26 +1,11 @@
 package extensions
 
-/*
-	Sliver Implant Framework
-	Copyright (C) 2019  Bishop Fox
-
-	This program is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
-
-	You should have received a copy of the GNU General Public License
-	along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
-
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -28,80 +13,58 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bishopfox/sliver/client/command/help"
+	"golang.org/x/text/encoding/unicode"
+
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
 )
 
 const (
 	defaultTimeout = 60
-
-	windowsDefaultHostProc = `c:\windows\system32\notepad.exe`
-	linuxDefaultHostProc   = "/bin/bash"
-	macosDefaultHostProc   = "/Applications/Safari.app/Contents/MacOS/SafariForWebKitDevelopment"
 )
 
-var commandMap map[string]extension
-var defaultHostProc = map[string]string{
-	"windows": windowsDefaultHostProc,
-	"linux":   windowsDefaultHostProc,
-	"darwin":  macosDefaultHostProc,
-}
+var commandMap map[string]extensionCommand
 
+type extensionCommand struct {
+	Name       string              `json:"name"`
+	Help       string              `json:"help"`
+	Files      []extensionFiles    `json:"extFiles"`
+	Arguments  []extensionArgument `json:"arguments"`
+	Entrypoint string              `json:"entrypoint"`
+	DependsOn  string              `json:"dependsOn"`
+	Path       string
+}
 type binFiles struct {
 	Ext64Path string `json:"x64"`
 	Ext32Path string `json:"x86"`
 }
 
-type extFile struct {
+type extensionFiles struct {
 	OS    string   `json:"os"`
 	Files binFiles `json:"files"`
 }
 
-type extensionCommand struct {
-	Name           string    `json:"name"`
-	Entrypoint     string    `json:"entrypoint"`
-	Help           string    `json:"help"`
-	LongHelp       string    `json:"longHelp"`
-	AllowArgs      bool      `json:"allowArgs"`
-	DefaultArgs    string    `json:"defaultArgs"`
-	ExtensionFiles []extFile `json:"extFiles"`
-	IsReflective   bool      `json:"isReflective"`
-	IsAssembly     bool      `json:"IsAssembly"`
+type extensionArgument struct {
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	Desc     string `json:"desc"`
+	Optional bool   `json:"optional"`
 }
 
-func (ec *extensionCommand) getDefaultProcess(targetOS string) (proc string, err error) {
-	proc, ok := defaultHostProc[targetOS]
-	if !ok {
-		err = fmt.Errorf("no default process for %s target, please specify one", targetOS)
-	}
-	return
-}
-
-type extension struct {
-	Name     string             `json:"extensionName"`
-	Commands []extensionCommand `json:"extensionCommands"`
-	Path     string
-}
-
-func (e *extension) getFileForTarget(cmdName string, targetOS string, targetArch string) (filePath string, err error) {
-	for _, c := range e.Commands {
-		if cmdName == c.Name {
-			for _, ef := range c.ExtensionFiles {
-				if targetOS == ef.OS {
-					switch targetArch {
-					case "x86":
-						filePath = fmt.Sprintf("%s/%s", e.Path, ef.Files.Ext32Path)
-					case "x64":
-						filePath = fmt.Sprintf("%s/%s", e.Path, ef.Files.Ext64Path)
-					default:
-						filePath = fmt.Sprintf("%s/%s", e.Path, ef.Files.Ext64Path)
-					}
-				}
+func (e *extensionCommand) getFileForTarget(cmdName string, targetOS string, targetArch string) (filePath string, err error) {
+	for _, ef := range e.Files {
+		if targetOS == ef.OS {
+			switch targetArch {
+			case "x86":
+				filePath = fmt.Sprintf("%s/%s/%s/%s", e.Path, targetOS, targetArch, ef.Files.Ext32Path)
+			case "x64":
+				filePath = fmt.Sprintf("%s/%s/%s/%s", e.Path, targetOS, targetArch, ef.Files.Ext64Path)
+			default:
+				filePath = fmt.Sprintf("%s/%s/%s/%s", e.Path, targetOS, targetArch, ef.Files.Ext64Path)
 			}
-
 		}
 	}
 	if filePath == "" {
@@ -110,132 +73,237 @@ func (e *extension) getFileForTarget(cmdName string, targetOS string, targetArch
 	return
 }
 
-func (e *extension) getCommandFromName(name string) (extCmd *extensionCommand, err error) {
-	for _, x := range e.Commands {
-		if x.Name == name {
-			extCmd = &x
-			return
-		}
-	}
-	err = fmt.Errorf("no extension command found for name %s", name)
-	return
-}
-
-// LoadExtensionCmd - Locally load an extension into the Sliver shell.
-func LoadExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-
+func LoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	dirPath := ctx.Args.String("dir-path")
-	if dirPath == "" {
-		con.PrintErrorf("Please provide an extension path\n")
+	extCmds, err := ParseExtensions(dirPath)
+	if err != nil {
+		con.PrintErrorf("Error: %s\n", err)
 		return
 	}
 
-	// retrieve extension manifest
-	manifestPath := fmt.Sprintf("%s/%s", dirPath, "manifest.json")
+	for _, extCmd := range extCmds {
+		// do not add if the command already exists
+		if cmdExists(extCmd.Name, con.App) {
+			con.PrintErrorf("%s command already exists\n", extCmd.Name)
+			continue
+		}
+		RegisterExtensionCommand(extCmd, con)
+		con.PrintInfof("Added %s command: %s\n", extCmd.Name, extCmd.Help)
+	}
+}
+
+func ParseExtensions(extPath string) ([]*extensionCommand, error) {
+	manifestPath := fmt.Sprintf("%s/%s", extPath, "manifest.json")
 	jsonBytes, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		return nil, err
 	}
-	// parse it
-	ext := &extension{}
-	err = json.Unmarshal(jsonBytes, ext)
+	extensionsCmds := make([]*extensionCommand, 0)
+	err = json.Unmarshal(jsonBytes, &extensionsCmds)
 	if err != nil {
-		con.PrintErrorf("Error loading extension: %v", err)
-		return
+		return nil, err
 	}
-	ext.Path = dirPath
-	// for each extension command, add a new app command
-	for _, extCmd := range ext.Commands {
-		// do not add if the command already exists
-		if cmdExists(extCmd.Name, ctx.App) {
-			con.PrintErrorf("%s command already exists\n", extCmd.Name)
-			return
-		}
-		con.PrintInfof("Adding %s command: %s\n", extCmd.Name, extCmd.Help)
-
-		// Have to use a global map here, as passing the extCmd
-		// either by value or by ref fucks things up
-		commandMap[extCmd.Name] = *ext
-		helpMsg := fmt.Sprintf("[%s] %s", ext.Name, extCmd.Help)
-		extensionCmd := &grumble.Command{
-			Name:     extCmd.Name,
-			Help:     helpMsg,
-			LongHelp: help.FormatHelpTmpl(extCmd.LongHelp),
-			Run: func(extCtx *grumble.Context) error {
-				con.Println()
-				runExtensionCommand(extCtx, con)
-				con.Println()
-				return nil
-			},
-			Flags: func(f *grumble.Flags) {
-				if extCmd.IsAssembly {
-					f.String("m", "method", "", "Optional method (a method is required for a .NET DLL)")
-					f.String("c", "class", "", "Optional class name (required for .NET DLL)")
-					f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
-					f.String("a", "arch", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
-				}
-				f.String("p", "process", "", "Path to process to host the shared object")
-				f.Bool("s", "save", false, "Save output to disk")
-				f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-			},
-			Args: func(a *grumble.Args) {
-				a.StringList("arguments", "arguments", grumble.Default([]string{}))
-			},
-			HelpGroup: consts.ExtensionHelpGroup,
-		}
-		con.App.AddCommand(extensionCmd)
+	for _, extCmd := range extensionsCmds {
+		extCmd.Path = extPath
+		commandMap[extCmd.Name] = *extCmd
 	}
-	con.PrintInfof("%s extension has been loaded\n", ext.Name)
+	return extensionsCmds, nil
 }
 
-func runExtensionCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func RegisterExtensionCommand(extCmd *extensionCommand, con *console.SliverConsoleClient) {
+	commandMap[extCmd.Name] = *extCmd
+	helpMsg := extCmd.Help
+	extensionCmd := &grumble.Command{
+		Name: extCmd.Name,
+		Help: helpMsg,
+		Run: func(extCtx *grumble.Context) error {
+			con.Println()
+			runExtensionCmd(extCtx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("s", "save", false, "Save output to disk")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			if len(extCmd.Arguments) > 0 {
+				// BOF specific
+				for _, arg := range extCmd.Arguments {
+					var (
+						argFunc      func(string, string, ...grumble.ArgOption)
+						defaultValue grumble.ArgOption
+					)
+					switch arg.Type {
+					case "int", "short":
+						argFunc = a.Int
+						defaultValue = grumble.Default(0)
+					case "string", "wstring", "file":
+						argFunc = a.String
+						defaultValue = grumble.Default("")
+					}
+					if arg.Optional {
+						argFunc(arg.Name, arg.Desc, defaultValue)
+					} else {
+						argFunc(arg.Name, arg.Desc)
+					}
+				}
+			} else {
+				a.StringList("arguments", "arguments", grumble.Default([]string{}))
+			}
+		},
+		HelpGroup: consts.ExtensionHelpGroup,
+	}
+	con.App.AddCommand(extensionCmd)
+}
+
+func ListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {
 		return
 	}
+
+	extList, err := con.Rpc.ListExtensions(context.Background(), &sliverpb.ListExtensionsReq{
+		Request: con.ActiveSession.Request(ctx),
+	})
+	if err != nil {
+		con.PrintErrorf("Error: %s", err)
+		return
+	}
+
+	if extList.Response != nil && extList.Response.Err != "" {
+		con.PrintErrorf("Error: %s", extList.Response.Err)
+		return
+	}
+	if len(extList.Names) > 0 {
+		con.PrintInfof("Loaded extensions:\n")
+		for _, ext := range extList.Names {
+			con.Printf("- %s\n", ext)
+		}
+	}
+}
+
+func loadExtension(ctx *grumble.Context, session *clientpb.Session, con *console.SliverConsoleClient, ext *extensionCommand) error {
+	var extensionList []string
+	binPath, err := ext.getFileForTarget(ctx.Command.Name, session.OS, session.Arch)
+	if err != nil {
+		return err
+	}
+	// Try to find the extension in the loaded extensions
+	if len(session.Extensions) == 0 {
+		extList, err := con.Rpc.ListExtensions(context.Background(), &sliverpb.ListExtensionsReq{
+			Request: con.ActiveSession.Request(ctx),
+		})
+		if err != nil {
+			con.PrintErrorf("Error: %s\n", err.Error())
+			return err
+		}
+		if extList.Response != nil && extList.Response.Err != "" {
+			return errors.New(extList.Response.Err)
+		}
+		extensionList = extList.Names
+		if filepath.Ext(binPath) != ".o" {
+			// Don't update session for BOFs, we don't cache them
+			// on the implant side (yet)
+			// update the Session info
+			_, err = con.Rpc.UpdateSession(context.Background(), &clientpb.UpdateSession{
+				Extensions: extensionList,
+				SessionID:  session.ID,
+			})
+			if err != nil {
+				con.PrintErrorf("Error: %s\n", err.Error())
+				return err
+			}
+		}
+	} else {
+		extensionList = session.Extensions
+	}
+	depLoaded := false
+	for _, extName := range extensionList {
+		if !depLoaded && extName == ext.DependsOn {
+			depLoaded = true
+		}
+		if ext.Name == extName {
+			return nil
+		}
+	}
+	// Extension not found, let's load it
+	if filepath.Ext(binPath) == ".o" {
+		// BOFs are not loaded by the DLL loader, but we make sure the loader itself is loaded
+		// Auto load the coff loader if we have it
+		if !depLoaded {
+			if errLoad := loadDep(session, con, ctx, ext.DependsOn); errLoad != nil {
+				return errLoad
+			}
+		}
+		return nil
+	}
+	binData, err := ioutil.ReadFile(binPath)
+	if err != nil {
+		return err
+	}
+	if errRegister := registerExtension(con, ext, binData, session, ctx); errRegister != nil {
+		return errRegister
+	}
+	return nil
+}
+
+func registerExtension(con *console.SliverConsoleClient, ext *extensionCommand, binData []byte, session *clientpb.Session, ctx *grumble.Context) error {
+	registerResp, err := con.Rpc.RegisterExtension(context.Background(), &sliverpb.RegisterExtensionReq{
+		Name:    ext.Name,
+		Data:    binData,
+		OS:      session.OS,
+		Request: con.ActiveSession.Request(ctx),
+	})
+	if err != nil {
+		return err
+	}
+	if registerResp.Response != nil && registerResp.Response.Err != "" {
+		return errors.New(registerResp.Response.Err)
+	}
+	return nil
+}
+
+func loadDep(session *clientpb.Session, con *console.SliverConsoleClient, ctx *grumble.Context, depName string) error {
+	depExt, f := commandMap[depName]
+	if f {
+		depBinPath, err := depExt.getFileForTarget(depExt.Name, session.OS, session.Arch)
+		if err != nil {
+			return err
+		}
+		depBinData, err := ioutil.ReadFile(depBinPath)
+		if err != nil {
+			return err
+		}
+		return registerExtension(con, &depExt, depBinData, session, ctx)
+	}
+	return fmt.Errorf("missing dependency %s", depName)
+}
+
+func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	var (
+		callExtension *sliverpb.CallExtension
+		err           error
+		extensionArgs []byte
+		extName       string
+		entryPoint    string
+	)
+	session := con.ActiveSession.GetInteractive()
+	if session == nil {
+		return
+	}
+
 	ext, ok := commandMap[ctx.Command.Name]
 	if !ok {
 		con.PrintErrorf("No extension command found for `%s` command\n", ctx.Command.Name)
 		return
 	}
 
-	binPath, err := ext.getFileForTarget(ctx.Command.Name, session.GetOS(), session.GetArch())
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
+	if err = loadExtension(ctx, session, con, &ext); err != nil {
+		con.PrintErrorf("Error: %s\n", err)
 		return
 	}
 
-	c, err := ext.getCommandFromName(ctx.Command.Name)
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return
-	}
-
-	args := ctx.Args.StringList("arguments")
-	var extArgs string
-	if len(c.DefaultArgs) != 0 && len(args) == 0 {
-		extArgs = c.DefaultArgs
-	} else {
-		extArgs = strings.Join(args, " ")
-	}
-	entryPoint := c.Entrypoint
-	processName := ctx.Flags.String("process")
-	if processName == "" {
-		processName, err = c.getDefaultProcess(session.GetOS())
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
-	}
-	isDLL := false
-	if filepath.Ext(binPath) == ".dll" {
-		isDLL = true
-	}
-	binData, err := ioutil.ReadFile(binPath)
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return
-	}
 	var outFilePath *os.File
 	if ctx.Flags.Bool("save") {
 		outFile := path.Base(fmt.Sprintf("%s_%s*.log", ctx.Command.Name, session.GetHostname()))
@@ -245,81 +313,133 @@ func runExtensionCommand(ctx *grumble.Context, con *console.SliverConsoleClient)
 			return
 		}
 	}
-	if c.IsAssembly {
-		ctrl := make(chan bool)
-		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
-		con.SpinUntil(msg, ctrl)
-		executeAssemblyResp, err := con.Rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
-			Request:   con.ActiveSession.Request(ctx),
-			IsDLL:     isDLL,
-			Process:   processName,
-			Arguments: extArgs,
-			Assembly:  binData,
-			Arch:      ctx.Flags.String("arch"),
-			Method:    ctx.Flags.String("method"),
-			ClassName: ctx.Flags.String("class"),
-			AppDomain: ctx.Flags.String("app-domain"),
-		})
-		ctrl <- true
-		<-ctrl
+	binPath, err := ext.getFileForTarget(ctx.Command.Name, session.OS, session.Arch)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	isBOF := filepath.Ext(binPath) == ".o"
+
+	// BOFs (Beacon Object Files) are a specific kind of extensions
+	// than require another extension (a COFF loader) to be present.
+	// BOFs also have strongly typed arguments that need to be parsed in the proper way.
+	// This block will pack both the BOF data and its arguments into a single buffer that
+	// the loader will extract and load.
+	if isBOF {
+		binData, err := ioutil.ReadFile(binPath)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-		con.PrintInfof("Output:\n%s", string(executeAssemblyResp.GetOutput()))
-		if outFilePath != nil {
-			outFilePath.Write(executeAssemblyResp.GetOutput())
-			con.PrintInfof("Output saved to %s\n", outFilePath.Name())
+		argsBuffer := BOFArgsBuffer{
+			Buffer: new(bytes.Buffer),
 		}
-	} else if c.IsReflective {
-		ctrl := make(chan bool)
-		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
-		con.SpinUntil(msg, ctrl)
-		spawnDllResp, err := con.Rpc.SpawnDll(context.Background(), &sliverpb.InvokeSpawnDllReq{
-			Request:     con.ActiveSession.Request(ctx),
-			Args:        strings.Trim(extArgs, " "),
-			Data:        binData,
-			ProcessName: processName,
-			EntryPoint:  c.Entrypoint,
-			Kill:        true,
-		})
-		ctrl <- true
-		<-ctrl
-
+		// Parse BOF arguments from grumble
+		for _, arg := range ext.Arguments {
+			switch arg.Type {
+			case "int":
+				val := ctx.Args.Int(arg.Name)
+				err = argsBuffer.AddInt(uint32(val))
+				if err != nil {
+					con.PrintErrorf("%s\n", err)
+					return
+				}
+			case "short":
+				val := ctx.Args.Int(arg.Name)
+				err = argsBuffer.AddShort(uint16(val))
+				if err != nil {
+					con.PrintErrorf("%s\n", err)
+					return
+				}
+			case "string":
+				val := ctx.Args.String(arg.Name)
+				err = argsBuffer.AddString(val)
+				if err != nil {
+					con.PrintErrorf("%s\n", err)
+					return
+				}
+			case "wstring":
+				val := ctx.Args.String(arg.Name)
+				err = argsBuffer.AddWString(val)
+				if err != nil {
+					con.PrintErrorf("%s\n", err)
+					return
+				}
+			// Adding support for filepaths so we can
+			// send binary data like shellcodes to BOFs
+			case "file":
+				val := ctx.Args.String(arg.Name)
+				data, err := ioutil.ReadFile(val)
+				if err != nil {
+					con.PrintErrorf("%s\n", err)
+					return
+				}
+				err = argsBuffer.AddData(data)
+				if err != nil {
+					con.PrintErrorf("%s\n", err)
+					return
+				}
+			}
+		}
+		parsedArgs, err := argsBuffer.GetBuffer()
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-
-		con.PrintInfof("Output:\n%s", spawnDllResp.GetResult())
-		if outFilePath != nil {
-			outFilePath.Write([]byte(spawnDllResp.GetResult()))
-			con.PrintInfof("Output saved to %s\n", outFilePath.Name())
+		// Now build the extension's argument buffer
+		extensionArgsBuffer := BOFArgsBuffer{
+			Buffer: new(bytes.Buffer),
 		}
+		err = extensionArgsBuffer.AddData(binData)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		err = extensionArgsBuffer.AddData(parsedArgs)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		extensionArgs, err = extensionArgsBuffer.GetBuffer()
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		// Beacon Object File -- requires a COFF loader
+		extName = ext.DependsOn
+		entryPoint = commandMap[extName].Entrypoint // should exist at this point
 	} else {
-		ctrl := make(chan bool)
-		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
-		con.SpinUntil(msg, ctrl)
-		sideloadResp, err := con.Rpc.Sideload(context.Background(), &sliverpb.SideloadReq{
-			Request:     con.ActiveSession.Request(ctx),
-			Args:        extArgs,
-			Data:        binData,
-			EntryPoint:  entryPoint,
-			ProcessName: processName,
-			Kill:        true,
-			IsDLL:       isDLL,
-		})
-		ctrl <- true
-		<-ctrl
-
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
-
-		con.PrintInfof("Output:\n%s", sideloadResp.GetResult())
+		// Regular DLL
+		extArgs := strings.Join(ctx.Args.StringList("arguments"), " ")
+		extensionArgs = []byte(extArgs)
+		extName = ext.Name
+		entryPoint = ext.Entrypoint
+	}
+	ctrl := make(chan bool)
+	msg := fmt.Sprintf("Executing %s ...", ctx.Command.Name)
+	con.SpinUntil(msg, ctrl)
+	callExtension, err = con.Rpc.CallExtension(context.Background(), &sliverpb.CallExtensionReq{
+		Name:    extName,
+		Export:  entryPoint,
+		Args:    extensionArgs,
+		Request: con.ActiveSession.Request(ctx),
+	})
+	ctrl <- true
+	<-ctrl
+	if err != nil {
+		con.PrintErrorf("Error: %s\n", err.Error())
+		return
+	}
+	if callExtension.Response != nil && callExtension.Response.Err != "" {
+		con.PrintErrorf("Error: %s\n", callExtension.Response.Err)
+		return
+	}
+	con.PrintInfof("Sucessfuly executed %s\n", extName)
+	if len(callExtension.Output) > 0 {
+		con.PrintInfof("Got output:\n%s", string(callExtension.Output))
 		if outFilePath != nil {
-			outFilePath.Write([]byte(sideloadResp.GetResult()))
+			outFilePath.Write(callExtension.Output)
 			con.PrintInfof("Output saved to %s\n", outFilePath.Name())
 		}
 	}
@@ -335,5 +455,66 @@ func cmdExists(name string, app *grumble.App) bool {
 }
 
 func init() {
-	commandMap = make(map[string]extension)
+	commandMap = make(map[string]extensionCommand)
+}
+
+// BOF Specific code
+
+type BOFArgsBuffer struct {
+	Buffer *bytes.Buffer
+}
+
+func (b *BOFArgsBuffer) AddData(d []byte) error {
+	dataLen := uint32(len(d))
+	err := binary.Write(b.Buffer, binary.LittleEndian, &dataLen)
+	if err != nil {
+		return err
+	}
+	return binary.Write(b.Buffer, binary.LittleEndian, &d)
+}
+
+func (b *BOFArgsBuffer) AddShort(d uint16) error {
+	return binary.Write(b.Buffer, binary.LittleEndian, &d)
+}
+
+func (b *BOFArgsBuffer) AddInt(d uint32) error {
+	return binary.Write(b.Buffer, binary.LittleEndian, &d)
+}
+
+func (b *BOFArgsBuffer) AddString(d string) error {
+	stringLen := uint32(len(d)) + 1
+	err := binary.Write(b.Buffer, binary.LittleEndian, &stringLen)
+	if err != nil {
+		return err
+	}
+	dBytes := append([]byte(d), 0x00)
+	return binary.Write(b.Buffer, binary.LittleEndian, dBytes)
+}
+
+func (b *BOFArgsBuffer) AddWString(d string) error {
+	encoder := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder()
+	strBytes := append([]byte(d), 0x00)
+	utf16Data, err := encoder.Bytes(strBytes)
+	if err != nil {
+		return err
+	}
+	stringLen := uint32(len(utf16Data))
+	err = binary.Write(b.Buffer, binary.LittleEndian, &stringLen)
+	if err != nil {
+		return err
+	}
+	return binary.Write(b.Buffer, binary.LittleEndian, utf16Data)
+}
+
+func (b *BOFArgsBuffer) GetBuffer() ([]byte, error) {
+	outBuffer := new(bytes.Buffer)
+	err := binary.Write(outBuffer, binary.LittleEndian, uint32(b.Buffer.Len()))
+	if err != nil {
+		return nil, err
+	}
+	err = binary.Write(outBuffer, binary.LittleEndian, b.Buffer.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	return outBuffer.Bytes(), nil
 }

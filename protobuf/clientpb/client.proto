@@ -43,6 +43,7 @@ message Session {
   string ProxyURL = 20;
   uint32 PollInterval = 21;
   bool Burned = 22;
+  repeated string Extensions = 23;
 }
 
 message ImplantC2 {
@@ -274,6 +275,7 @@ message UpdateSession {
   string Name = 2;
   int32 ReconnectInterval = 3;
   int32 PollInterval = 4;
+  repeated string Extensions = 5;
 }
 
 message GenerateReq {

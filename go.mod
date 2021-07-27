@@ -40,6 +40,7 @@ require (
 	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
 	golang.org/x/net v0.0.0-20210410081132-afb366fc7cd1
 	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
+	golang.org/x/text v0.3.6
 	golang.zx2c4.com/wireguard v0.0.20200121
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200609130330-bd2cb7843e1b
 	google.golang.org/genproto v0.0.0-20210406143921-e86de6bf7a46 // indirect
