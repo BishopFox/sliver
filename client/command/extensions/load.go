@@ -60,11 +60,11 @@ func (e *extensionCommand) getFileForTarget(cmdName string, targetOS string, tar
 		if targetOS == ef.OS {
 			switch targetArch {
 			case "x86":
-				filePath = fmt.Sprintf("%s/%s/%s/%s", e.Path, targetOS, targetArch, ef.Files.Ext32Path)
+				filePath = filepath.Join(e.Path, targetOS, targetArch, ef.Files.Ext32Path)
 			case "x64":
-				filePath = fmt.Sprintf("%s/%s/%s/%s", e.Path, targetOS, targetArch, ef.Files.Ext64Path)
+				filePath = filepath.Join(e.Path, targetOS, targetArch, ef.Files.Ext64Path)
 			default:
-				filePath = fmt.Sprintf("%s/%s/%s/%s", e.Path, targetOS, targetArch, ef.Files.Ext64Path)
+				filePath = filepath.Join(e.Path, targetOS, targetArch, ef.Files.Ext64Path)
 			}
 		}
 	}
@@ -94,7 +94,7 @@ func LoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 func ParseExtensions(extPath string) ([]*extensionCommand, error) {
-	manifestPath := fmt.Sprintf("%s/%s", extPath, "manifest.json")
+	manifestPath := filepath.Join(extPath, "manifest.json")
 	jsonBytes, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
 		return nil, err
@@ -364,7 +364,7 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Error: %s\n", callExtension.Response.Err)
 		return
 	}
-	con.PrintInfof("Sucessfuly executed %s\n", extName)
+	con.PrintInfof("Successfully executed %s\n", extName)
 	if len(callExtension.Output) > 0 {
 		con.PrintInfof("Got output:\n%s", string(callExtension.Output))
 		if outFilePath != nil {
