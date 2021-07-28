@@ -93,11 +93,11 @@ func (e *macro) getFileForTarget(cmdName string, targetOS string, targetArch str
 				if targetOS == ef.OS {
 					switch targetArch {
 					case "x86":
-						filePath = fmt.Sprintf("%s/%s", e.Path, ef.Files.Ext32Path)
+						filePath = filepath.Join(e.Path, ef.Files.Ext32Path)
 					case "x64":
-						filePath = fmt.Sprintf("%s/%s", e.Path, ef.Files.Ext64Path)
+						filePath = filepath.Join(e.Path, ef.Files.Ext64Path)
 					default:
-						filePath = fmt.Sprintf("%s/%s", e.Path, ef.Files.Ext64Path)
+						filePath = filepath.Join(e.Path, ef.Files.Ext64Path)
 					}
 				}
 			}
