@@ -431,6 +431,10 @@ func getBOFArgs(ctx *grumble.Context, binPath string, ext extensionCommand) ([]b
 	extensionArgsBuffer := BOFArgsBuffer{
 		Buffer: new(bytes.Buffer),
 	}
+	err = extensionArgsBuffer.AddString(ext.Entrypoint)
+	if err != nil {
+		return nil, err
+	}
 	err = extensionArgsBuffer.AddData(binData)
 	if err != nil {
 		return nil, err

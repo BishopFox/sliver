@@ -555,7 +555,7 @@ func registerExtensionHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
-	ext := extension.NewWindowsExtension(registerReq.Data, registerReq.Name, registerReq.OS)
+	ext := extension.NewWindowsExtension(registerReq.Data, registerReq.Name, registerReq.OS, registerReq.Init)
 	extension.Add(ext)
 	err = ext.Load()
 	registerResp := &sliverpb.RegisterExtension{
