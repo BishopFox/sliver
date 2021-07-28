@@ -203,19 +203,6 @@ func loadExtension(ctx *grumble.Context, session *clientpb.Session, con *console
 			return errors.New(extList.Response.Err)
 		}
 		extensionList = extList.Names
-		if filepath.Ext(binPath) != ".o" {
-			// Don't update session for BOFs, we don't cache them
-			// on the implant side (yet)
-			// update the Session info
-			_, err = con.Rpc.UpdateSession(context.Background(), &clientpb.UpdateSession{
-				Extensions: extensionList,
-				SessionID:  session.ID,
-			})
-			if err != nil {
-				con.PrintErrorf("Error: %s\n", err.Error())
-				return err
-			}
-		}
 	} else {
 		extensionList = session.Extensions
 	}
@@ -245,6 +232,20 @@ func loadExtension(ctx *grumble.Context, session *clientpb.Session, con *console
 	}
 	if errRegister := registerExtension(con, ext, binData, session, ctx); errRegister != nil {
 		return errRegister
+	}
+	// Update session info
+	if filepath.Ext(binPath) != ".o" {
+		// Don't update session for BOFs, we don't cache them
+		// on the implant side (yet)
+		// update the Session info
+		_, err = con.Rpc.UpdateSession(context.Background(), &clientpb.UpdateSession{
+			Extensions: extensionList,
+			SessionID:  session.ID,
+		})
+		if err != nil {
+			con.PrintErrorf("Error: %s\n", err.Error())
+			return err
+		}
 	}
 	return nil
 }

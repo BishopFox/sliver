@@ -6,6 +6,10 @@ import (
 	"syscall"
 	"unsafe"
 
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
 	"golang.zx2c4.com/wireguard/tun/wintun/memmod"
 )
 
@@ -46,11 +50,15 @@ func (w *WindowsExtension) Load() error {
 	if err != nil {
 		return err
 	}
-	// if the DLL is a nim compiled DLL, call NimMain to initialize the GC
 	if w.init != "" {
 		initProc, errInit := w.module.ProcAddressByName(w.init)
 		if errInit == nil {
+			// {{if .Config.Debug}}
+			log.Printf("Calling %s\n", w.init)
+			// {{end}}
 			syscall.Syscall(initProc, 0, 0, 0, 0)
+		} else {
+			return errInit
 		}
 	}
 	return nil
@@ -74,6 +82,9 @@ func (w *WindowsExtension) Call(export string, arguments []byte, onFinish func([
 		argumentsPtr = uintptr(unsafe.Pointer(&arguments[0]))
 		argumentsSize = uintptr(uint32(len(arguments)))
 	}
+	// {{if .Config.Debug}}
+	log.Printf("Calling %s, arguments addr: 0x%08x, args size: %08x\n", export, argumentsPtr, argumentsSize)
+	// {{end}}
 	// The extension API must respect the following prototype:
 	// int Run(buffer char*, bufferSize uint32_t, goCallback callback)
 	// where goCallback = int(char *, int)
