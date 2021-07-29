@@ -72,6 +72,10 @@ func getType(t string) (uint32, error) {
 
 // RegReadCmd - Read a windows registry key: registry read --hostname aa.bc.local --hive HKCU "software\google\chrome\blbeacon\version"
 func RegReadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	var (
+		finalPath string
+		key       string
+	)
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {
 		return
@@ -93,15 +97,24 @@ func RegReadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("You must provide a path")
 		return
 	}
+
 	if strings.Contains(regPath, "/") {
 		regPath = strings.ReplaceAll(regPath, "/", "\\")
 	}
-	slashIndex := strings.LastIndex(regPath, "\\")
-	key := regPath[slashIndex+1:]
-	regPath = regPath[:slashIndex]
+	pathBaseIdx := strings.LastIndex(regPath, `\`)
+	if pathBaseIdx < 0 {
+		con.PrintErrorf("invalid path: %s", regPath)
+		return
+	}
+	if len(regPath) < pathBaseIdx+1 {
+		con.PrintErrorf("invalid path: %s", regPath)
+		return
+	}
+	finalPath = regPath[:pathBaseIdx]
+	key = regPath[pathBaseIdx+1:]
 	regRead, err := con.Rpc.RegistryRead(context.Background(), &sliverpb.RegistryReadReq{
 		Hive:     hive,
-		Path:     regPath,
+		Path:     finalPath,
 		Key:      key,
 		Hostname: hostname,
 		Request:  con.ActiveSession.Request(ctx),

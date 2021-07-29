@@ -245,6 +245,12 @@ const (
 
 	// MsgGetPrivsReq - Get privileges (Windows)
 	MsgGetPrivsReq
+
+	// MsgRegistryListReq - List registry sub keys
+	MsgRegistrySubKeysListReq
+
+	// MsgRegistryListValuesReq - List registry values
+	MsgRegistryListValuesReq
 )
 
 // Constants to replace enums
@@ -470,6 +476,10 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *GetPrivsReq:
 		return MsgGetPrivsReq
+	case *RegistrySubKeyListReq:
+		return MsgRegistrySubKeysListReq
+	case *RegistryListValuesReq:
+		return MsgRegistryListValuesReq
 	}
 
 	return uint32(0)
