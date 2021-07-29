@@ -20,6 +20,8 @@ package hosts
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -37,13 +39,14 @@ func HostsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	if 0 < len(allHosts.Hosts) {
-		con.Printf(hostsTable(allHosts.Hosts))
+		con.Printf(hostsTable(allHosts.Hosts, con))
+		con.Println()
 	} else {
 		con.PrintInfof("No hosts\n")
 	}
 }
 
-func hostsTable(hosts []*clientpb.Host) string {
+func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string {
 	tw := table.NewWriter()
 	tw.AppendHeader(table.Row{"ID", "Hostname", "OS Version", "Sessions"})
 	for _, host := range hosts {
@@ -51,8 +54,34 @@ func hostsTable(hosts []*clientpb.Host) string {
 			host.HostUUID,
 			host.Hostname,
 			host.OSVersion,
-			"",
+			hostSessionNumbers(host.HostUUID, con),
 		})
 	}
 	return tw.Render()
+}
+
+func hostSessionNumbers(hostUUID string, con *console.SliverConsoleClient) string {
+	hostSessions := SessionsForHost(hostUUID, con)
+	if 0 == len(hostSessions) {
+		return "None"
+	}
+	sessionNumbers := []string{}
+	for _, hostSession := range hostSessions {
+		sessionNumbers = append(sessionNumbers, fmt.Sprintf("%d", hostSession.ID))
+	}
+	return strings.Join(sessionNumbers, ", ")
+}
+
+func SessionsForHost(hostUUID string, con *console.SliverConsoleClient) []*clientpb.Session {
+	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return []*clientpb.Session{}
+	}
+	hostSessions := []*clientpb.Session{}
+	for _, session := range sessions.Sessions {
+		if session.UUID == hostUUID {
+			hostSessions = append(hostSessions, session)
+		}
+	}
+	return hostSessions
 }
