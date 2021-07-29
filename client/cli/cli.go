@@ -80,6 +80,7 @@ var rootCmd = &cobra.Command{
 
 // StartClientConsole - Start the client console
 func StartClientConsole() error {
+	assets.Setup(false, true)
 	configs := assets.GetConfigs()
 	if len(configs) == 0 {
 		fmt.Printf("No config files found at %s or -import\n", assets.GetConfigDir())

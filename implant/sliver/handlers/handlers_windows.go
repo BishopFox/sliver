@@ -65,16 +65,18 @@ var (
 		sliverpb.MsgGetPrivsReq:              getPrivsHandler,
 
 		// Platform specific
-		sliverpb.MsgIfconfigReq:          ifconfigHandler,
-		sliverpb.MsgScreenshotReq:        screenshotHandler,
-		sliverpb.MsgSideloadReq:          sideloadHandler,
-		sliverpb.MsgNetstatReq:           netstatHandler,
-		sliverpb.MsgMakeTokenReq:         makeTokenHandler,
-		sliverpb.MsgPsReq:                psHandler,
-		sliverpb.MsgTerminateReq:         terminateHandler,
-		sliverpb.MsgRegistryReadReq:      regReadHandler,
-		sliverpb.MsgRegistryWriteReq:     regWriteHandler,
-		sliverpb.MsgRegistryCreateKeyReq: regCreateKeyHandler,
+		sliverpb.MsgIfconfigReq:            ifconfigHandler,
+		sliverpb.MsgScreenshotReq:          screenshotHandler,
+		sliverpb.MsgSideloadReq:            sideloadHandler,
+		sliverpb.MsgNetstatReq:             netstatHandler,
+		sliverpb.MsgMakeTokenReq:           makeTokenHandler,
+		sliverpb.MsgPsReq:                  psHandler,
+		sliverpb.MsgTerminateReq:           terminateHandler,
+		sliverpb.MsgRegistryReadReq:        regReadHandler,
+		sliverpb.MsgRegistryWriteReq:       regWriteHandler,
+		sliverpb.MsgRegistryCreateKeyReq:   regCreateKeyHandler,
+		sliverpb.MsgRegistrySubKeysListReq: regSubKeysListHandler,
+		sliverpb.MsgRegistryListValuesReq:  regValuesListHandler,
 
 		// Generic
 		sliverpb.MsgPing:                 pingHandler,
@@ -498,6 +500,44 @@ func regCreateKeyHandler(data []byte, resp RPCResponse) {
 		createResp.Response.Err = err.Error()
 	}
 	data, err = proto.Marshal(createResp)
+	resp(data, err)
+}
+
+func regSubKeysListHandler(data []byte, resp RPCResponse) {
+	listReq := &sliverpb.RegistrySubKeyListReq{}
+	err := proto.Unmarshal(data, listReq)
+	if err != nil {
+		return
+	}
+	subKeys, err := registry.ListSubKeys(listReq.Hostname, listReq.Hive, listReq.Path)
+	regListResp := &sliverpb.RegistrySubKeyList{
+		Response: &commonpb.Response{},
+	}
+	if err != nil {
+		regListResp.Response.Err = err.Error()
+	} else {
+		regListResp.Subkeys = subKeys
+	}
+	data, err = proto.Marshal(regListResp)
+	resp(data, err)
+}
+
+func regValuesListHandler(data []byte, resp RPCResponse) {
+	listReq := &sliverpb.RegistryListValuesReq{}
+	err := proto.Unmarshal(data, listReq)
+	if err != nil {
+		return
+	}
+	regValues, err := registry.ListValues(listReq.Hostname, listReq.Hive, listReq.Path)
+	regListResp := &sliverpb.RegistryValuesList{
+		Response: &commonpb.Response{},
+	}
+	if err != nil {
+		regListResp.Response.Err = err.Error()
+	} else {
+		regListResp.ValueNames = regValues
+	}
+	data, err = proto.Marshal(regListResp)
 	resp(data, err)
 }
 

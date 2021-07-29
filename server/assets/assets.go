@@ -42,8 +42,7 @@ import (
 
 const (
 	// GoDirName - The directory to store the go compiler/toolchain files in
-	GoDirName  = "go"
-	dllDirName = "dll"
+	GoDirName = "go"
 
 	goPathDirName   = "gopath"
 	versionFileName = "version"
@@ -76,12 +75,6 @@ func GetRootAppDir() string {
 	return dir
 }
 
-// GetDllDir - Returns the full path to the data directory
-func GetDllDir() string {
-	dir := path.Join(GetRootAppDir(), dllDirName)
-	return dir
-}
-
 func assetVersion() string {
 	appDir := GetRootAppDir()
 	data, err := ioutil.ReadFile(path.Join(appDir, versionFileName))
@@ -110,7 +103,6 @@ func Setup(force bool, echo bool) {
 		}
 		setupGo(appDir)
 		setupCodenames(appDir)
-		setupDllPath(appDir)
 		saveAssetVersion(appDir)
 	}
 }
@@ -261,22 +253,6 @@ func SetupGoPath(goPathSrc string) error {
 	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0600)
 
 	return nil
-}
-
-// setupDllPath - Sets the data directory up
-func setupDllPath(appDir string) error {
-	dataDir := GetDllDir()
-	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
-		setupLog.Infof("Creating data directory: %s", dataDir)
-		os.MkdirAll(dataDir, 0700)
-	}
-	hostingDll, err := assetsFs.ReadFile(path.Join("fs", "dll", "HostingCLRx64.dll"))
-	if err != nil {
-		setupLog.Info("failed to find the dll")
-		return err
-	}
-	err = ioutil.WriteFile(path.Join(dataDir, "HostingCLRx64.dll"), hostingDll, 0600)
-	return err
 }
 
 func unzipGoDependency(fsPath string, targetPath string) error {
