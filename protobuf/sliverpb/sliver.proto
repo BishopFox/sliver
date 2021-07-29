@@ -190,6 +190,7 @@ message UploadReq {
   string Path = 1;
   string Encoder = 2;
   bytes Data = 3;
+  bool IsIOC = 4;
 
   commonpb.Request Request = 9;
 }
