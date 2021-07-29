@@ -246,6 +246,11 @@ const (
 	// MsgGetPrivsReq - Get privileges (Windows)
 	MsgGetPrivsReq
 
+	// MsgRegistryListReq - List registry sub keys
+	MsgRegistrySubKeysListReq
+
+	// MsgRegistryListValuesReq - List registry values
+	MsgRegistryListValuesReq
 	// MsgRegisterExtensionReq - Register a new extension
 	MsgRegisterExtensionReq
 
@@ -479,6 +484,10 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *GetPrivsReq:
 		return MsgGetPrivsReq
+	case *RegistrySubKeyListReq:
+		return MsgRegistrySubKeysListReq
+	case *RegistryListValuesReq:
+		return MsgRegistryListValuesReq
 
 	case *RegisterExtensionReq:
 		return MsgRegisterExtensionReq
