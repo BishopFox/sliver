@@ -559,6 +559,32 @@ message RegistryCreateKey {
   commonpb.Response Response = 9;
 }
 
+message RegistrySubKeyListReq {
+  string Hive = 1;
+  string Path = 2;
+  // Keep the same ID as the other registry operations
+  string Hostname = 4;
+  commonpb.Request Request = 9;
+}
+
+message RegistrySubKeyList {
+  repeated string Subkeys = 1;
+  commonpb.Response Response = 9;
+}
+
+message RegistryListValuesReq {
+  string Hive = 1;
+  string Path = 2;
+  // Keep the same ID as the other registry operations
+  string Hostname = 4;
+  commonpb.Request Request = 9;
+}
+
+message RegistryValuesList {
+  repeated string ValueNames = 1;
+  commonpb.Response Response = 9;
+}
+
 // Tunnel - Tunnel related messages
 message Tunnel {
   uint64 TunnelID = 8 [jstype = JS_STRING];

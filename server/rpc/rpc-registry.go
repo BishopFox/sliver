@@ -35,3 +35,23 @@ func (rpc *Server) RegistryCreateKey(ctx context.Context, req *sliverpb.Registry
 	}
 	return resp, nil
 }
+
+// RegistryListSubKeys - gRPC interface to list the sub keys of a registry key
+func (rpc *Server) RegistryListSubKeys(ctx context.Context, req *sliverpb.RegistrySubKeyListReq) (*sliverpb.RegistrySubKeyList, error) {
+	resp := &sliverpb.RegistrySubKeyList{}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// RegistryListSubKeys - gRPC interface to list the sub keys of a registry key
+func (rpc *Server) RegistryListValues(ctx context.Context, req *sliverpb.RegistryListValuesReq) (*sliverpb.RegistryValuesList, error) {
+	resp := &sliverpb.RegistryValuesList{}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
