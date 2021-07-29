@@ -74,6 +74,7 @@ type GenericResponse interface {
 
 // NewServer - Create new server instance
 func NewServer() *Server {
+	core.StartEventAutomation()
 	return &Server{}
 }
 

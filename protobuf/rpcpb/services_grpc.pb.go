@@ -51,6 +51,10 @@ type SliverRPCClient interface {
 	LootContent(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.Loot, error)
 	LootAll(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.AllLoot, error)
 	LootAllOf(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.AllLoot, error)
+	// *** Hosts ***
+	Hosts(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.AllHosts, error)
+	Host(ctx context.Context, in *clientpb.Host, opts ...grpc.CallOption) (*clientpb.Host, error)
+	RmHost(ctx context.Context, in *clientpb.Host, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	// *** Implants ***
 	Generate(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
 	Regenerate(ctx context.Context, in *clientpb.RegenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
@@ -339,6 +343,33 @@ func (c *sliverRPCClient) LootAll(ctx context.Context, in *commonpb.Empty, opts 
 func (c *sliverRPCClient) LootAllOf(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.AllLoot, error) {
 	out := new(clientpb.AllLoot)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/LootAllOf", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) Hosts(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.AllHosts, error) {
+	out := new(clientpb.AllHosts)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Hosts", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) Host(ctx context.Context, in *clientpb.Host, opts ...grpc.CallOption) (*clientpb.Host, error) {
+	out := new(clientpb.Host)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Host", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) RmHost(ctx context.Context, in *clientpb.Host, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/RmHost", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1126,6 +1157,10 @@ type SliverRPCServer interface {
 	LootContent(context.Context, *clientpb.Loot) (*clientpb.Loot, error)
 	LootAll(context.Context, *commonpb.Empty) (*clientpb.AllLoot, error)
 	LootAllOf(context.Context, *clientpb.Loot) (*clientpb.AllLoot, error)
+	// *** Hosts ***
+	Hosts(context.Context, *commonpb.Empty) (*clientpb.AllHosts, error)
+	Host(context.Context, *clientpb.Host) (*clientpb.Host, error)
+	RmHost(context.Context, *clientpb.Host) (*commonpb.Empty, error)
 	// *** Implants ***
 	Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error)
 	Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error)
@@ -1284,6 +1319,15 @@ func (UnimplementedSliverRPCServer) LootAll(context.Context, *commonpb.Empty) (*
 }
 func (UnimplementedSliverRPCServer) LootAllOf(context.Context, *clientpb.Loot) (*clientpb.AllLoot, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LootAllOf not implemented")
+}
+func (UnimplementedSliverRPCServer) Hosts(context.Context, *commonpb.Empty) (*clientpb.AllHosts, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Hosts not implemented")
+}
+func (UnimplementedSliverRPCServer) Host(context.Context, *clientpb.Host) (*clientpb.Host, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Host not implemented")
+}
+func (UnimplementedSliverRPCServer) RmHost(context.Context, *clientpb.Host) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RmHost not implemented")
 }
 func (UnimplementedSliverRPCServer) Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Generate not implemented")
@@ -1924,6 +1968,60 @@ func _SliverRPC_LootAllOf_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).LootAllOf(ctx, req.(*clientpb.Loot))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_Hosts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).Hosts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/Hosts",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).Hosts(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_Host_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Host)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).Host(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/Host",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).Host(ctx, req.(*clientpb.Host))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_RmHost_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Host)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).RmHost(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/RmHost",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).RmHost(ctx, req.(*clientpb.Host))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3437,6 +3535,18 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LootAllOf",
 			Handler:    _SliverRPC_LootAllOf_Handler,
+		},
+		{
+			MethodName: "Hosts",
+			Handler:    _SliverRPC_Hosts_Handler,
+		},
+		{
+			MethodName: "Host",
+			Handler:    _SliverRPC_Host_Handler,
+		},
+		{
+			MethodName: "RmHost",
+			Handler:    _SliverRPC_RmHost_Handler,
 		},
 		{
 			MethodName: "Generate",

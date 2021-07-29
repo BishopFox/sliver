@@ -829,6 +829,7 @@ message CallExtensionReq {
 
 message CallExtension {
   bytes Output = 1;
+  bool ServerStore = 2;
 
   commonpb.Response Response = 9;
 }

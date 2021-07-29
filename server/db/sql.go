@@ -54,6 +54,9 @@ func newDBClient() *gorm.DB {
 	err := dbClient.AutoMigrate(
 		&models.DNSCanary{},
 		&models.Certificate{},
+		&models.Host{},
+		&models.IOC{},
+		&models.ExtensionData{},
 		&models.ImplantC2{},
 		&models.ImplantConfig{},
 		&models.ImplantBuild{},

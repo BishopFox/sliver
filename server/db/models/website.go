@@ -61,7 +61,7 @@ type WebContent struct {
 	// gorm.Model
 
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	WebsiteID uuid.UUID
+	WebsiteID uuid.UUID `gorm:"type:uuid;"`
 
 	Path        string `gorm:"primaryKey"`
 	Size        int

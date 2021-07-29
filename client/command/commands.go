@@ -45,6 +45,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
+	"github.com/bishopfox/sliver/client/command/hosts"
 	"github.com/bishopfox/sliver/client/command/info"
 	"github.com/bishopfox/sliver/client/command/jobs"
 	"github.com/bishopfox/sliver/client/command/loot"
@@ -2082,6 +2083,24 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 	con.App.AddCommand(lootCmd)
+
+	// [ Hosts ] --------------------------------------------------------------
+	hostsCmd := &grumble.Command{
+		Name:     consts.HostsStr,
+		Help:     "Manage hosts",
+		LongHelp: help.GetHelpFor([]string{consts.HostsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			hosts.HostsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	con.App.AddCommand(hostsCmd)
 
 	// [ Reactions ] -----------------------------------------------------------------
 
