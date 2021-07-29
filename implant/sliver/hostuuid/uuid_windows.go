@@ -21,23 +21,35 @@ package hostuuid
 */
 
 import (
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
 	"golang.org/x/sys/windows/registry"
 )
 
 // Stored Format: {U-U-I-D}
-var uuid_keypath = "HKEY_LOCAL_MACHINE\\SYSTEM\\HardwareConfig"
-var uuid_key = "LastConfig"
+var uuidKeyPath = "SYSTEM\\HardwareConfig"
+var uuidKey = "LastConfig"
 
 func GetUUID() string {
-	key, err := registry.OpenKey(registry.CURRENT_USER, uuid_keypath, registry.QUERY_VALUE)
-	if err != nil {
-		return ""
-	}
+	var uuidStr string
+	var err error
 
-	str, _, err := key.GetStringValue(uuid_key)
-	if err != nil {
-		return ""
+	key, err := registry.OpenKey(registry.LOCAL_MACHINE, uuidKeyPath, registry.QUERY_VALUE)
+	if err == nil {
+		uuidStr, _, err = key.GetStringValue(uuidKey)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("Failed to read reg key string value: %s", err)
+			// {{end}}
+			return ""
+		}
+		return uuidStr[1:37]
+	} else {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to read reg key: %s", err)
+		// {{end}}
 	}
-
-	return str[1:37]
+	return ""
 }
