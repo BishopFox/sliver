@@ -1,0 +1,16 @@
+[
+    {
+        "name": "coff-loader",
+        "help": "Load and execute Beacon Object Files (BOFs) in memory.",
+        "entrypoint": "LoadAndRun",
+        "extFiles": [
+            {
+                "os": "windows",
+                "files": {
+                    "x64": "COFFLoader.x64.dll",
+                    "x86": "COFFLoader.x86.dll"
+                }
+            }
+        ]
+    }
+]
