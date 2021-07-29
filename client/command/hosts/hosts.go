@@ -19,16 +19,28 @@ package hosts
 */
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"sort"
 	"strings"
+	"text/tabwriter"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/desertbit/grumble"
 
 	"github.com/jedib0t/go-pretty/v6/table"
+)
+
+var (
+	// ErrNoHosts - No hosts in database
+	ErrNoHosts = errors.New("no hosts")
+	// ErrNoSelection - No selection made
+	ErrNoSelection = errors.New("no selection")
 )
 
 // HostsCmd - Main hosts command
@@ -84,4 +96,54 @@ func SessionsForHost(hostUUID string, con *console.SliverConsoleClient) []*clien
 		}
 	}
 	return hostSessions
+}
+
+// SelectHost - Interactively select a host from the database
+func SelectHost(con *console.SliverConsoleClient) (*clientpb.Host, error) {
+	allHosts, err := con.Rpc.Hosts(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	// Sort the keys because maps have a randomized order, these keys must be ordered for the selection
+	// to work properly since we rely on the index of the user's selection to find the session in the map
+	var keys []string
+	var hostMap = make(map[string]*clientpb.Host)
+	for _, host := range allHosts.Hosts {
+		keys = append(keys, host.HostUUID)
+		hostMap[host.HostUUID] = host
+	}
+	sort.Strings(keys)
+
+	outputBuf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+
+	// Column Headers
+	for _, key := range keys {
+		host := hostMap[key]
+		fmt.Fprintf(table, "%s\t%s\t\n",
+			host.Hostname,
+			host.OSVersion,
+		)
+	}
+	table.Flush()
+
+	options := strings.Split(outputBuf.String(), "\n")
+	options = options[:len(options)-1] // Remove the last empty option
+	prompt := &survey.Select{
+		Message: "Select a host:",
+		Options: options,
+	}
+	selected := ""
+	survey.AskOne(prompt, &selected)
+	if selected == "" {
+		return nil, ErrNoSelection
+	}
+
+	// Go from the selected option -> index -> host
+	for index, option := range options {
+		if option == selected {
+			return hostMap[keys[index]], nil
+		}
+	}
+	return nil, ErrNoSelection
 }

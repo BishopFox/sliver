@@ -53,8 +53,8 @@ func (rpc *Server) Host(ctx context.Context, req *clientpb.Host) (*clientpb.Host
 	return dbHost.ToProtobuf(), nil
 }
 
-// RmHost - Remove a host from the database
-func (rpc *Server) RmHost(ctx context.Context, req *clientpb.Host) (*commonpb.Empty, error) {
+// HostRm - Remove a host from the database
+func (rpc *Server) HostRm(ctx context.Context, req *clientpb.Host) (*commonpb.Empty, error) {
 	dbHost, err := db.HostByHostUUID(req.HostUUID)
 	if err != nil {
 		return nil, err

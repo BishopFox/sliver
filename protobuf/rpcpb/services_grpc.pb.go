@@ -54,7 +54,7 @@ type SliverRPCClient interface {
 	// *** Hosts ***
 	Hosts(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.AllHosts, error)
 	Host(ctx context.Context, in *clientpb.Host, opts ...grpc.CallOption) (*clientpb.Host, error)
-	RmHost(ctx context.Context, in *clientpb.Host, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	HostRm(ctx context.Context, in *clientpb.Host, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	// *** Implants ***
 	Generate(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
 	Regenerate(ctx context.Context, in *clientpb.RegenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
@@ -367,9 +367,9 @@ func (c *sliverRPCClient) Host(ctx context.Context, in *clientpb.Host, opts ...g
 	return out, nil
 }
 
-func (c *sliverRPCClient) RmHost(ctx context.Context, in *clientpb.Host, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+func (c *sliverRPCClient) HostRm(ctx context.Context, in *clientpb.Host, opts ...grpc.CallOption) (*commonpb.Empty, error) {
 	out := new(commonpb.Empty)
-	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/RmHost", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/HostRm", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1160,7 +1160,7 @@ type SliverRPCServer interface {
 	// *** Hosts ***
 	Hosts(context.Context, *commonpb.Empty) (*clientpb.AllHosts, error)
 	Host(context.Context, *clientpb.Host) (*clientpb.Host, error)
-	RmHost(context.Context, *clientpb.Host) (*commonpb.Empty, error)
+	HostRm(context.Context, *clientpb.Host) (*commonpb.Empty, error)
 	// *** Implants ***
 	Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error)
 	Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error)
@@ -1326,8 +1326,8 @@ func (UnimplementedSliverRPCServer) Hosts(context.Context, *commonpb.Empty) (*cl
 func (UnimplementedSliverRPCServer) Host(context.Context, *clientpb.Host) (*clientpb.Host, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Host not implemented")
 }
-func (UnimplementedSliverRPCServer) RmHost(context.Context, *clientpb.Host) (*commonpb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RmHost not implemented")
+func (UnimplementedSliverRPCServer) HostRm(context.Context, *clientpb.Host) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HostRm not implemented")
 }
 func (UnimplementedSliverRPCServer) Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Generate not implemented")
@@ -2008,20 +2008,20 @@ func _SliverRPC_Host_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SliverRPC_RmHost_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _SliverRPC_HostRm_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(clientpb.Host)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SliverRPCServer).RmHost(ctx, in)
+		return srv.(SliverRPCServer).HostRm(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rpcpb.SliverRPC/RmHost",
+		FullMethod: "/rpcpb.SliverRPC/HostRm",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).RmHost(ctx, req.(*clientpb.Host))
+		return srv.(SliverRPCServer).HostRm(ctx, req.(*clientpb.Host))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3545,8 +3545,8 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_Host_Handler,
 		},
 		{
-			MethodName: "RmHost",
-			Handler:    _SliverRPC_RmHost_Handler,
+			MethodName: "HostRm",
+			Handler:    _SliverRPC_HostRm_Handler,
 		},
 		{
 			MethodName: "Generate",

@@ -2087,7 +2087,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// [ Hosts ] --------------------------------------------------------------
 	hostsCmd := &grumble.Command{
 		Name:     consts.HostsStr,
-		Help:     "Manage hosts",
+		Help:     "Manage the database of hosts",
 		LongHelp: help.GetHelpFor([]string{consts.HostsStr}),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -2100,6 +2100,21 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	}
+	hostsCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove a host from the database",
+		LongHelp: help.GetHelpFor([]string{consts.HostsStr, consts.RmStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			hosts.HostsRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 	con.App.AddCommand(hostsCmd)
 
 	// [ Reactions ] -----------------------------------------------------------------
