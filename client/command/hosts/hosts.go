@@ -51,8 +51,7 @@ func HostsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	if 0 < len(allHosts.Hosts) {
-		con.Printf(hostsTable(allHosts.Hosts, con))
-		con.Println()
+		con.Printf("%s\n", hostsTable(allHosts.Hosts, con))
 	} else {
 		con.PrintInfof("No hosts\n")
 	}
@@ -60,13 +59,16 @@ func HostsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string {
 	tw := table.NewWriter()
-	tw.AppendHeader(table.Row{"ID", "Hostname", "OS Version", "Sessions"})
+	tw.SetStyle(table.StyleBold)
+	tw.AppendHeader(table.Row{"Hostname", "Operating System", "Sessions", "IOCs", "Extension Data", "ID (Short)"})
 	for _, host := range hosts {
 		tw.AppendRow(table.Row{
-			host.HostUUID,
 			host.Hostname,
 			host.OSVersion,
 			hostSessionNumbers(host.HostUUID, con),
+			len(host.IOCs),
+			len(host.ExtensionData),
+			host.HostUUID[:8],
 		})
 	}
 	return tw.Render()

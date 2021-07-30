@@ -208,6 +208,7 @@ const (
 	ReactionStr = "reaction"
 
 	HostsStr = "hosts"
+	IOCStr   = "iocs"
 
 	LicensesStr = "licenses"
 
