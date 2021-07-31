@@ -65,3 +65,16 @@ func (rpc *Server) HostRm(ctx context.Context, req *clientpb.Host) (*commonpb.Em
 	}
 	return &commonpb.Empty{}, nil
 }
+
+// HostIOCRm - Remove a host from the database
+func (rpc *Server) HostIOCRm(ctx context.Context, req *clientpb.IOC) (*commonpb.Empty, error) {
+	dbIOC, err := db.IOCByID(req.ID)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Session().Delete(dbIOC).Error
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.Empty{}, nil
+}

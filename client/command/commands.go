@@ -2156,7 +2156,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
-	hostsCmd.AddCommand(&grumble.Command{
+	iocCmd := &grumble.Command{
 		Name:     consts.IOCStr,
 		Help:     "Manage tracked IOCs on a given host",
 		LongHelp: help.GetHelpFor([]string{consts.HostsStr, consts.IOCStr}),
@@ -2165,12 +2165,28 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			hosts.HostsIOCsCmd(ctx, con)
+			hosts.HostsIOCCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	iocCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Delete IOCs from the database",
+		LongHelp: help.GetHelpFor([]string{consts.HostsStr, consts.IOCStr, consts.RmStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			hosts.HostsIOCRmCmd(ctx, con)
 			con.Println()
 			return nil
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+	hostsCmd.AddCommand(iocCmd)
 	con.App.AddCommand(hostsCmd)
 
 	// [ Reactions ] -----------------------------------------------------------------

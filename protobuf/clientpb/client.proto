@@ -503,6 +503,7 @@ message AllLoot {
 message IOC {
   string Path = 1;
   string FileHash = 2;
+  string ID = 3;
 }
 
 message ExtensionData {

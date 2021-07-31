@@ -221,3 +221,12 @@ func HostByHostUUID(id string) (*models.Host, error) {
 	}
 	return &host, nil
 }
+
+// IOCByID - Select an IOC by ID
+func IOCByID(id string) (*models.IOC, error) {
+	ioc := &models.IOC{}
+	err := Session().Where(
+		&models.IOC{ID: uuid.FromStringOrNil(id)},
+	).First(ioc).Error
+	return ioc, err
+}
