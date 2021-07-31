@@ -59,16 +59,29 @@ func HostsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string {
 	tw := table.NewWriter()
-	tw.SetStyle(table.StyleBold)
-	tw.AppendHeader(table.Row{"Hostname", "Operating System", "Sessions", "IOCs", "Extension Data", "ID (Short)"})
+	tw.SetStyle(table.StyleLight)
+	tw.AppendHeader(table.Row{
+		"Hostname",
+		"Operating System",
+		"Sessions",
+		"IOCs",
+		"Extension Data",
+		"ID (Short)",
+	})
 	for _, host := range hosts {
+		var shortID string
+		if len(host.HostUUID) < 8 {
+			shortID = host.HostUUID[:len(host.HostUUID)]
+		} else {
+			shortID = host.HostUUID[:8]
+		}
 		tw.AppendRow(table.Row{
 			host.Hostname,
 			host.OSVersion,
 			hostSessionNumbers(host.HostUUID, con),
 			len(host.IOCs),
 			len(host.ExtensionData),
-			host.HostUUID[:8],
+			shortID,
 		})
 	}
 	return tw.Render()

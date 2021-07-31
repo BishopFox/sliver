@@ -28,7 +28,7 @@ import (
 
 // Host - Represents a host machine
 type Host struct {
-	// gorm.Model
+	gorm.Model
 
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	HostUUID  uuid.UUID `gorm:"type:uuid;"`
@@ -82,7 +82,7 @@ func (h *Host) extensionDataToProtobuf() map[string]*clientpb.ExtensionData {
 // IOC - Represents an indicator of compromise, generally a file we've
 // uploaded to a remote system.
 type IOC struct {
-	// gorm.Model
+	gorm.Model
 
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	HostID    uuid.UUID `gorm:"type:uuid;"`
@@ -112,7 +112,7 @@ func (i *IOC) ToProtobuf() *clientpb.IOC {
 // ExtensionData - Represents an indicator of compromise, generally a file we've
 // uploaded to a remote system.
 type ExtensionData struct {
-	// gorm.Model
+	gorm.Model
 
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	HostID    uuid.UUID `gorm:"type:uuid;"`

@@ -108,6 +108,7 @@ func (rpc *Server) Upload(ctx context.Context, req *sliverpb.UploadReq) (*sliver
 }
 
 func trackIOC(req *sliverpb.UploadReq, resp *sliverpb.Upload) {
+	fsLog.Debugf("Adding IOC to database ...")
 	request := req.GetRequest()
 	if request == nil {
 		fsLog.Error("No request for upload")

@@ -1188,6 +1188,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.UploadStr}),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+
+			f.Bool("i", "ioc", false, "track uploaded file as an ioc")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("local-path", "local path to the file to upload")

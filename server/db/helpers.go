@@ -193,7 +193,9 @@ func WGPeerIPs() ([]string, error) {
 // ListHosts - List of all hosts in the database
 func ListHosts() ([]*models.Host, error) {
 	hosts := []*models.Host{}
-	err := Session().Where(&models.Host{}).Find(&hosts).Error
+	err := Session().Where(
+		&models.Host{},
+	).Preload("IOCs").Preload("ExtensionData").Find(&hosts).Error
 	return hosts, err
 }
 
@@ -210,7 +212,10 @@ func HostByHostID(id uuid.UUID) (*models.Host, error) {
 // HostByHostUUID - Get host by the session's reported HostUUID
 func HostByHostUUID(id string) (*models.Host, error) {
 	host := models.Host{}
-	err := Session().Where(&models.Host{HostUUID: uuid.FromStringOrNil(id)}).First(&host).Error
+	err := Session().Where(
+		&models.Host{HostUUID: uuid.FromStringOrNil(id)},
+	).Preload("IOCs").Preload("ExtensionData").Find(&host).Error
+
 	if err != nil {
 		return nil, err
 	}

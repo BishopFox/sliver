@@ -1,7 +1,5 @@
 package encoders
 
-import "encoding/hex"
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -19,6 +17,8 @@ import "encoding/hex"
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import "encoding/hex"
 
 // HexEncoderID - EncoderID
 const HexEncoderID = 92
