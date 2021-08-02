@@ -105,7 +105,7 @@ func (w *WindowsExtension) extensionCallback(data uintptr, dataLen uintptr) uint
 		b := (*byte)(unsafe.Pointer(uintptr(i) + data))
 		outBuff.WriteByte(*b)
 	}
-	//TODO: do somethig with outBuff
+	//TODO: do something with outBuff
 	if outBuff.Len() > 0 {
 		w.onFinish(outBuff.Bytes())
 	}
