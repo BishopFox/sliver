@@ -36,6 +36,8 @@ type Loot struct {
 	FileType       int
 	CredentialType int
 	Name           string
+
+	OriginHost uuid.UUID `gorm:"type:uuid;"`
 }
 
 // BeforeCreate - GORM hook

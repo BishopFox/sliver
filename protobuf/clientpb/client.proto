@@ -498,3 +498,27 @@ message Loot {
 message AllLoot {
   repeated Loot Loot = 1;
 }
+
+// [ Hosts ] ----------------------------------------
+message IOC {
+  string Path = 1;
+  string FileHash = 2;
+  string ID = 3;
+}
+
+message ExtensionData {
+  string Output = 1;
+}
+
+message Host {
+  string Hostname = 1;
+  string HostUUID = 2;
+  string OSVersion = 3;
+
+  repeated IOC IOCs = 4;
+  map<string, ExtensionData> ExtensionData = 5;
+}
+
+message AllHosts {
+  repeated Host Hosts = 1;
+}

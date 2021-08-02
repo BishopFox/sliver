@@ -24,6 +24,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/jedib0t/go-pretty/v6 v6.2.4
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194
 	github.com/lesnuages/go-winio v0.4.19

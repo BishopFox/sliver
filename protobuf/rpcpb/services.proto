@@ -47,6 +47,12 @@ service SliverRPC {
     rpc LootAll(commonpb.Empty) returns(clientpb.AllLoot);
     rpc LootAllOf(clientpb.Loot) returns(clientpb.AllLoot);
 
+    // *** Hosts ***
+    rpc Hosts(commonpb.Empty) returns(clientpb.AllHosts);
+    rpc Host(clientpb.Host) returns(clientpb.Host);
+    rpc HostRm(clientpb.Host) returns(commonpb.Empty);
+    rpc HostIOCRm(clientpb.IOC) returns(commonpb.Empty);
+
     // *** Implants ***
     rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate);
     rpc Regenerate(clientpb.RegenerateReq) returns (clientpb.Generate);

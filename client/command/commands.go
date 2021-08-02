@@ -45,6 +45,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
+	"github.com/bishopfox/sliver/client/command/hosts"
 	"github.com/bishopfox/sliver/client/command/info"
 	"github.com/bishopfox/sliver/client/command/jobs"
 	"github.com/bishopfox/sliver/client/command/loot"
@@ -1187,6 +1188,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.UploadStr}),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+
+			f.Bool("i", "ioc", false, "track uploaded file as an ioc")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("local-path", "local path to the file to upload")
@@ -2121,6 +2124,70 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 	con.App.AddCommand(lootCmd)
+
+	// [ Hosts ] --------------------------------------------------------------
+	hostsCmd := &grumble.Command{
+		Name:     consts.HostsStr,
+		Help:     "Manage the database of hosts",
+		LongHelp: help.GetHelpFor([]string{consts.HostsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			hosts.HostsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	hostsCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove a host from the database",
+		LongHelp: help.GetHelpFor([]string{consts.HostsStr, consts.RmStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			hosts.HostsRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	iocCmd := &grumble.Command{
+		Name:     consts.IOCStr,
+		Help:     "Manage tracked IOCs on a given host",
+		LongHelp: help.GetHelpFor([]string{consts.HostsStr, consts.IOCStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			hosts.HostsIOCCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	iocCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Delete IOCs from the database",
+		LongHelp: help.GetHelpFor([]string{consts.HostsStr, consts.IOCStr, consts.RmStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			hosts.HostsIOCRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	hostsCmd.AddCommand(iocCmd)
+	con.App.AddCommand(hostsCmd)
 
 	// [ Reactions ] -----------------------------------------------------------------
 

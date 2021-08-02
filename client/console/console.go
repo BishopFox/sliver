@@ -199,7 +199,7 @@ func (con *SliverConsoleClient) EventLoop() {
 			if activeSession != nil && activeSession.ID == session.ID {
 				con.ActiveSession.Set(nil)
 				con.App.SetPrompt(con.GetPrompt())
-				con.Printf(Warn + " Active session disconnected\n")
+				con.Printf(Warn + "Active session disconnected\n")
 			}
 			con.Println()
 		}

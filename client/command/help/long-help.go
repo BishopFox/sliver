@@ -559,7 +559,10 @@ loot fetch
 `
 
 	reactionHelp = fmt.Sprintf(`[[.Bold]]Command:[[.Normal]] reaction
-[[.Bold]]About:[[.Normal]] Automate commands in reaction to event(s).
+[[.Bold]]About:[[.Normal]] Automate commands in reaction to event(s). The built-in
+reactions do not support variables or logic, they simply allow you to run verbatim
+commands when an event occurs. To implement complex event-based logic we recommend
+using SliverPy (Python) or sliver-script (TypeScript/JavaScript).
 
 [[.Bold]]Reactable Events:[[.Normal]]
 % 20s  Triggered when a new session is opened to a target
@@ -580,7 +583,11 @@ loot fetch
 	)
 
 	reactionSetHelp = fmt.Sprintf(`[[.Bold]]Command:[[.Normal]] reaction set
-[[.Bold]]About:[[.Normal]] Set automated commands in reaction to event(s).
+[[.Bold]]About:[[.Normal]] Set automated commands in reaction to event(s).  
+
+The built-in reactions do not support variables or logic, they simply allow you to 
+run verbatim commands when an event occurs. To implement complex event-based logic 
+we recommend using SliverPy (Python) or sliver-script (TypeScript/JavaScript).
 
 [[.Bold]]Examples:[[.Normal]]
 # The command uses interactive menus to build a reaction. Simply run:
