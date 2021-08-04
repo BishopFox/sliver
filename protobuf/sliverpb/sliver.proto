@@ -850,6 +850,7 @@ message CallExtensionReq {
   string Name = 1;
   string Export = 2;
   bytes Args = 3;
+  bool ServerStore = 2;
 
   commonpb.Request Request = 9;
 }

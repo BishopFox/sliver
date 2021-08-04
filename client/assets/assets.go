@@ -109,7 +109,7 @@ func setupCoffLoaderExt(appDir string) error {
 	win64ExtDir := path.Join("windows", "amd64")
 	coffLoader32 := path.Join("fs", SliverExtensionsDirName, win32ExtDir, "COFFLoader.x86.dll")
 	coffLoader64 := path.Join("fs", SliverExtensionsDirName, win64ExtDir, "COFFLoader.x64.dll")
-	manfiestPath := path.Join("fs", SliverExtensionsDirName, "manifest.json")
+	manifestPath := path.Join("fs", SliverExtensionsDirName, "manifest.json")
 	loader64, err := assetsFs.ReadFile(coffLoader64)
 	if err != nil {
 		return err
@@ -118,7 +118,7 @@ func setupCoffLoaderExt(appDir string) error {
 	if err != nil {
 		return err
 	}
-	manifest, err := assetsFs.ReadFile(manfiestPath)
+	manifest, err := assetsFs.ReadFile(manifestPath)
 	if err != nil {
 		return err
 	}

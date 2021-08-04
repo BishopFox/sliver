@@ -19,12 +19,13 @@ const (
 )
 
 type WindowsExtension struct {
-	id       string
-	data     []byte
-	module   *memmod.Module
-	arch     string
-	init     string
-	onFinish func([]byte)
+	id          string
+	data        []byte
+	module      *memmod.Module
+	arch        string
+	init        string
+	onFinish    func([]byte)
+	serverStore bool
 }
 
 func NewWindowsExtension(data []byte, id string, arch string, init string) *WindowsExtension {
@@ -105,7 +106,7 @@ func (w *WindowsExtension) extensionCallback(data uintptr, dataLen uintptr) uint
 		b := (*byte)(unsafe.Pointer(uintptr(i) + data))
 		outBuff.WriteByte(*b)
 	}
-	//TODO: do somethig with outBuff
+	//TODO: do something with outBuff
 	if outBuff.Len() > 0 {
 		w.onFinish(outBuff.Bytes())
 	}

@@ -80,10 +80,9 @@ var rootCmd = &cobra.Command{
 
 // StartClientConsole - Start the client console
 func StartClientConsole() error {
-	assets.Setup(false, true)
 	configs := assets.GetConfigs()
 	if len(configs) == 0 {
-		fmt.Printf("No config files found at %s or -import\n", assets.GetConfigDir())
+		fmt.Printf("No config files found at %s (see --help)\n", assets.GetConfigDir())
 		return nil
 	}
 	config := selectConfig()
@@ -94,7 +93,7 @@ func StartClientConsole() error {
 	fmt.Printf("Connecting to %s:%d ...\n", config.LHost, config.LPort)
 	rpc, ln, err := transport.MTLSConnect(config)
 	if err != nil {
-		fmt.Printf("Connection to server failed %v", err)
+		fmt.Printf("Connection to server failed %s", err)
 		return nil
 	}
 	defer ln.Close()
