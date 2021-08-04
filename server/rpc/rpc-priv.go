@@ -28,7 +28,7 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/generate"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // Impersonate - Impersonate a remote user
@@ -112,6 +112,16 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 // MakeToken - Creates a new logon session to impersonate a user based on its credentials.
 func (rpc *Server) MakeToken(ctx context.Context, req *sliverpb.MakeTokenReq) (*sliverpb.MakeToken, error) {
 	resp := &sliverpb.MakeToken{}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// GetPrivs - gRPC interface to get privilege information from the current process
+func (rpc *Server) GetPrivs(ctx context.Context, req *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error) {
+	resp := &sliverpb.GetPrivs{}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err

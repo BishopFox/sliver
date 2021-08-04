@@ -103,8 +103,6 @@ func (tun *Tunnel) Read(data []byte) (int, error) {
 	case data := <-tun.Recv:
 		log.Printf("Read %d bytes", len(data))
 		buff.Write(data)
-	default:
-		break
 	}
 	n := copy(data, buff.Bytes())
 	return n, nil

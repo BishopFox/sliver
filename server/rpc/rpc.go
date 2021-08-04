@@ -31,9 +31,10 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 var (
@@ -61,6 +62,7 @@ type GenericRequest interface {
 	Reset()
 	String() string
 	ProtoMessage()
+	ProtoReflect() protoreflect.Message
 
 	GetRequest() *commonpb.Request
 }

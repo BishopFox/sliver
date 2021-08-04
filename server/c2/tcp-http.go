@@ -47,8 +47,8 @@ import (
 	"github.com/bishopfox/sliver/server/website"
 	"github.com/bishopfox/sliver/util/encoders"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
+	"google.golang.org/protobuf/proto"
 )
 
 var (

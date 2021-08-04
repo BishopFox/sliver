@@ -1643,7 +1643,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-			f.String("H", "hive", "HKCU", "egistry hive")
+			f.String("H", "hive", "HKCU", "registry hive")
 			f.String("o", "hostname", "", "remote host to read values from")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
@@ -1681,6 +1681,45 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			registry.RegCreateKeyCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("H", "hive", "HKCU", "registry hive")
+			f.String("o", "hostname", "", "remote host to write values to")
+		},
+	})
+	registryCmd.AddCommand(&grumble.Command{
+		Name:     consts.RegistryListSubStr,
+		Help:     "List the sub keys under a registry key",
+		LongHelp: help.GetHelpFor([]string{consts.RegistryListSubStr}),
+		Args: func(a *grumble.Args) {
+			a.String("registry-path", "registry path")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			registry.RegListSubKeysCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("H", "hive", "HKCU", "registry hive")
+			f.String("o", "hostname", "", "remote host to write values to")
+		},
+	})
+
+	registryCmd.AddCommand(&grumble.Command{
+		Name:     consts.RegistryListValuesStr,
+		Help:     "List the values for a registry key",
+		LongHelp: help.GetHelpFor([]string{consts.RegistryListValuesStr}),
+		Args: func(a *grumble.Args) {
+			a.String("registry-path", "registry path")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			registry.RegListValuesCmd(ctx, con)
 			con.Println()
 			return nil
 		},
@@ -2168,4 +2207,22 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	}
 	con.App.AddCommand(dllhijackCmd)
+
+	// [ Get Privs ] -----------------------------------------------------------------
+	getprivsCmd := &grumble.Command{
+		Name:      consts.GetPrivsStr,
+		Help:      "Get current privileges (Windows)",
+		LongHelp:  help.GetHelpFor([]string{consts.GetPrivsStr}),
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			privilege.GetPrivsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+	}
+	con.App.AddCommand(getprivsCmd)
 }

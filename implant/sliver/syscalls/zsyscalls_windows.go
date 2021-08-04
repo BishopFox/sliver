@@ -64,6 +64,8 @@ var (
 	procReleaseDC                         = modUser32.NewProc("ReleaseDC")
 	procImpersonateLoggedOnUser           = modadvapi32.NewProc("ImpersonateLoggedOnUser")
 	procLogonUserW                        = modadvapi32.NewProc("LogonUserW")
+	procLookupPrivilegeDisplayNameW       = modadvapi32.NewProc("LookupPrivilegeDisplayNameW")
+	procLookupPrivilegeNameW              = modadvapi32.NewProc("LookupPrivilegeNameW")
 	procCreateProcessW                    = modkernel32.NewProc("CreateProcessW")
 	procCreateRemoteThread                = modkernel32.NewProc("CreateRemoteThread")
 	procCreateThread                      = modkernel32.NewProc("CreateThread")
@@ -229,6 +231,40 @@ func ImpersonateLoggedOnUser(hToken windows.Token) (err error) {
 
 func LogonUser(lpszUsername *uint16, lpszDomain *uint16, lpszPassword *uint16, dwLogonType uint32, dwLogonProvider uint32, phToken *windows.Token) (err error) {
 	r1, _, e1 := syscall.Syscall6(procLogonUserW.Addr(), 6, uintptr(unsafe.Pointer(lpszUsername)), uintptr(unsafe.Pointer(lpszDomain)), uintptr(unsafe.Pointer(lpszPassword)), uintptr(dwLogonType), uintptr(dwLogonProvider), uintptr(unsafe.Pointer(phToken)))
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func LookupPrivilegeDisplayNameW(systemName string, privilegeName *uint16, buffer *uint16, size *uint32, languageId *uint32) (err error) {
+	var _p0 *uint16
+	_p0, err = syscall.UTF16PtrFromString(systemName)
+	if err != nil {
+		return
+	}
+	return _LookupPrivilegeDisplayNameW(_p0, privilegeName, buffer, size, languageId)
+}
+
+func _LookupPrivilegeDisplayNameW(systemName *uint16, privilegeName *uint16, buffer *uint16, size *uint32, languageId *uint32) (err error) {
+	r1, _, e1 := syscall.Syscall6(procLookupPrivilegeDisplayNameW.Addr(), 5, uintptr(unsafe.Pointer(systemName)), uintptr(unsafe.Pointer(privilegeName)), uintptr(unsafe.Pointer(buffer)), uintptr(unsafe.Pointer(size)), uintptr(unsafe.Pointer(languageId)), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func LookupPrivilegeNameW(systemName string, luid *uint64, buffer *uint16, size *uint32) (err error) {
+	var _p0 *uint16
+	_p0, err = syscall.UTF16PtrFromString(systemName)
+	if err != nil {
+		return
+	}
+	return _LookupPrivilegeNameW(_p0, luid, buffer, size)
+}
+
+func _LookupPrivilegeNameW(systemName *uint16, luid *uint64, buffer *uint16, size *uint32) (err error) {
+	r1, _, e1 := syscall.Syscall6(procLookupPrivilegeNameW.Addr(), 4, uintptr(unsafe.Pointer(systemName)), uintptr(unsafe.Pointer(luid)), uintptr(unsafe.Pointer(buffer)), uintptr(unsafe.Pointer(size)), 0, 0)
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}

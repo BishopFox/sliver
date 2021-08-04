@@ -37,10 +37,10 @@ import (
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/bishopfox/sliver/implant/sliver/netstack"
-	"github.com/golang/protobuf/proto"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
 	"golang.zx2c4.com/wireguard/tun"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
