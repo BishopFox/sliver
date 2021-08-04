@@ -44,6 +44,8 @@ var (
 	modUser32   = windows.NewLazySystemDLL("User32.dll")
 	modadvapi32 = windows.NewLazySystemDLL("advapi32.dll")
 	modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
+	modntdll    = windows.NewLazySystemDLL("ntdll.dll")
+	modpsapi    = windows.NewLazySystemDLL("psapi.dll")
 
 	procMiniDumpWriteDump                 = modDbgHelp.NewProc("MiniDumpWriteDump")
 	procBitBlt                            = modGdi32.NewProc("BitBlt")
@@ -72,12 +74,17 @@ var (
 	procGetProcessHeap                    = modkernel32.NewProc("GetProcessHeap")
 	procHeapAlloc                         = modkernel32.NewProc("HeapAlloc")
 	procHeapFree                          = modkernel32.NewProc("HeapFree")
+	procHeapReAlloc                       = modkernel32.NewProc("HeapReAlloc")
+	procHeapSize                          = modkernel32.NewProc("HeapSize")
 	procInitializeProcThreadAttributeList = modkernel32.NewProc("InitializeProcThreadAttributeList")
+	procPssCaptureSnapshot                = modkernel32.NewProc("PssCaptureSnapshot")
 	procQueueUserAPC                      = modkernel32.NewProc("QueueUserAPC")
 	procUpdateProcThreadAttribute         = modkernel32.NewProc("UpdateProcThreadAttribute")
 	procVirtualAllocEx                    = modkernel32.NewProc("VirtualAllocEx")
 	procVirtualProtectEx                  = modkernel32.NewProc("VirtualProtectEx")
 	procWriteProcessMemory                = modkernel32.NewProc("WriteProcessMemory")
+	procRtlCopyMemory                     = modntdll.NewProc("RtlCopyMemory")
+	procGetProcessMemoryInfo              = modpsapi.NewProc("GetProcessMemoryInfo")
 )
 
 func MiniDumpWriteDump(hProcess windows.Handle, pid uint32, hFile uintptr, dumpType uint32, exceptionParam uintptr, userStreamParam uintptr, callbackParam uintptr) (err error) {
@@ -333,8 +340,34 @@ func HeapFree(hHeap windows.Handle, dwFlags uint32, lpMem uintptr) (err error) {
 	return
 }
 
+func HeapReAlloc(hHeap windows.Handle, dwFlags uint32, lpMem uintptr, dwBytes uintptr) (lpRes uintptr, err error) {
+	r0, _, e1 := syscall.Syscall6(procHeapReAlloc.Addr(), 4, uintptr(hHeap), uintptr(dwFlags), uintptr(lpMem), uintptr(dwBytes), 0, 0)
+	lpRes = uintptr(r0)
+	if lpRes == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func HeapSize(hHeap windows.Handle, dwFlags uint32, lpMem uintptr) (res uint32, err error) {
+	r0, _, e1 := syscall.Syscall(procHeapSize.Addr(), 3, uintptr(hHeap), uintptr(dwFlags), uintptr(lpMem))
+	res = uint32(r0)
+	if res == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func InitializeProcThreadAttributeList(lpAttributeList *PROC_THREAD_ATTRIBUTE_LIST, dwAttributeCount uint32, dwFlags uint32, lpSize *uintptr) (err error) {
 	r1, _, e1 := syscall.Syscall6(procInitializeProcThreadAttributeList.Addr(), 4, uintptr(unsafe.Pointer(lpAttributeList)), uintptr(dwAttributeCount), uintptr(dwFlags), uintptr(unsafe.Pointer(lpSize)), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func PssCaptureSnapshot(processHandle windows.Handle, captureFlags uint32, threadContextFlags uint32, snapshotHandle *windows.Handle) (err error) {
+	r1, _, e1 := syscall.Syscall6(procPssCaptureSnapshot.Addr(), 4, uintptr(processHandle), uintptr(captureFlags), uintptr(threadContextFlags), uintptr(unsafe.Pointer(snapshotHandle)), 0, 0)
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
@@ -376,6 +409,19 @@ func VirtualProtectEx(hProcess windows.Handle, lpAddress uintptr, dwSize uintptr
 
 func WriteProcessMemory(hProcess windows.Handle, lpBaseAddress uintptr, lpBuffer *byte, nSize uintptr, lpNumberOfBytesWritten *uintptr) (err error) {
 	r1, _, e1 := syscall.Syscall6(procWriteProcessMemory.Addr(), 5, uintptr(hProcess), uintptr(lpBaseAddress), uintptr(unsafe.Pointer(lpBuffer)), uintptr(nSize), uintptr(unsafe.Pointer(lpNumberOfBytesWritten)), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func RtlCopyMemory(dest uintptr, src uintptr, dwSize uint32) {
+	syscall.Syscall(procRtlCopyMemory.Addr(), 3, uintptr(dest), uintptr(src), uintptr(dwSize))
+	return
+}
+
+func GetProcessMemoryInfo(process windows.Handle, ppsmemCounters *ProcessMemoryCounters, cb uint32) (err error) {
+	r1, _, e1 := syscall.Syscall(procGetProcessMemoryInfo.Addr(), 3, uintptr(process), uintptr(unsafe.Pointer(ppsmemCounters)), uintptr(cb))
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
