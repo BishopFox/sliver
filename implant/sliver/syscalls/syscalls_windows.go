@@ -40,3 +40,4 @@ package syscalls
 //sys PssCaptureSnapshot(processHandle windows.Handle, captureFlags uint32, threadContextFlags uint32, snapshotHandle *windows.Handle) (err error) = kernel32.PssCaptureSnapshot
 
 //sys RtlCopyMemory(dest uintptr, src uintptr, dwSize uint32) = ntdll.RtlCopyMemory
+//sys GetProcessMemoryInfo(process windows.Handle, ppsmemCounters *ProcessMemoryCounters, cb uint32) (err error) = psapi.GetProcessMemoryInfo

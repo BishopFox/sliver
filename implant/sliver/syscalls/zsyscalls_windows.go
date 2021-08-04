@@ -45,6 +45,7 @@ var (
 	modadvapi32 = windows.NewLazySystemDLL("advapi32.dll")
 	modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
 	modntdll    = windows.NewLazySystemDLL("ntdll.dll")
+	modpsapi    = windows.NewLazySystemDLL("psapi.dll")
 
 	procMiniDumpWriteDump                 = modDbgHelp.NewProc("MiniDumpWriteDump")
 	procBitBlt                            = modGdi32.NewProc("BitBlt")
@@ -81,6 +82,7 @@ var (
 	procVirtualProtectEx                  = modkernel32.NewProc("VirtualProtectEx")
 	procWriteProcessMemory                = modkernel32.NewProc("WriteProcessMemory")
 	procRtlCopyMemory                     = modntdll.NewProc("RtlCopyMemory")
+	procGetProcessMemoryInfo              = modpsapi.NewProc("GetProcessMemoryInfo")
 )
 
 func MiniDumpWriteDump(hProcess windows.Handle, pid uint32, hFile uintptr, dumpType uint32, exceptionParam uintptr, userStreamParam uintptr, callbackParam uintptr) (err error) {
@@ -379,5 +381,13 @@ func WriteProcessMemory(hProcess windows.Handle, lpBaseAddress uintptr, lpBuffer
 
 func RtlCopyMemory(dest uintptr, src uintptr, dwSize uint32) {
 	syscall.Syscall(procRtlCopyMemory.Addr(), 3, uintptr(dest), uintptr(src), uintptr(dwSize))
+	return
+}
+
+func GetProcessMemoryInfo(process windows.Handle, ppsmemCounters *ProcessMemoryCounters, cb uint32) (err error) {
+	r1, _, e1 := syscall.Syscall(procGetProcessMemoryInfo.Addr(), 3, uintptr(process), uintptr(unsafe.Pointer(ppsmemCounters)), uintptr(cb))
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
 	return
 }

