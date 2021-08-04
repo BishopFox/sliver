@@ -95,6 +95,8 @@ type BindCmds func(console *SliverConsoleClient)
 // Start - Console entrypoint
 func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isServer bool) error {
 
+	assets.Setup(false, false)
+
 	con := &SliverConsoleClient{
 		App: grumble.New(&grumble.Config{
 			Name:                  "Sliver",
