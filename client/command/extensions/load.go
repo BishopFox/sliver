@@ -325,7 +325,7 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	isBOF := filepath.Ext(binPath) == ".o"
 
 	// BOFs (Beacon Object Files) are a specific kind of extensions
-	// than require another extension (a COFF loader) to be present.
+	// that require another extension (a COFF loader) to be present.
 	// BOFs also have strongly typed arguments that need to be parsed in the proper way.
 	// This block will pack both the BOF data and its arguments into a single buffer that
 	// the loader will extract and load.
