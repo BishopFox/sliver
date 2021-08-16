@@ -848,9 +848,9 @@ message RegisterExtension {
 
 message CallExtensionReq {
   string Name = 1;
-  string Export = 2;
-  bytes Args = 3;
   bool ServerStore = 2;
+  bytes Args = 3;
+  string Export = 4;
 
   commonpb.Request Request = 9;
 }
