@@ -826,6 +826,7 @@ message WindowsPrivilegeEntry {
 
 message GetPrivs {
   repeated WindowsPrivilegeEntry PrivInfo = 1;
+  string ProcessIntegrity = 2;
 
   commonpb.Response Response = 9;
 }
