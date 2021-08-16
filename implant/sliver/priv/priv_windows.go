@@ -42,7 +42,11 @@ import (
 )
 
 const (
-	THREAD_ALL_ACCESS = windows.STANDARD_RIGHTS_REQUIRED | windows.SYNCHRONIZE | 0xffff
+	THREAD_ALL_ACCESS             = windows.STANDARD_RIGHTS_REQUIRED | windows.SYNCHRONIZE | 0xffff
+	SECURITY_MANDATORY_LOW_RID    = 0x00001000
+	SECURITY_MANDATORY_MEDIUM_RID = 0x00002000
+	SECURITY_MANDATORY_HIGH_RID   = 0x00003000
+	SECURITY_MANDATORY_SYSTEM_RID = 0x00004000
 )
 
 type PrivilegeInfo struct {
@@ -340,6 +344,60 @@ func GetSystem(data []byte, hostingProcess string) (err error) {
 	return
 }
 
+func getProcessIntegrityLevel(processToken syscall.Token) (string, error) {
+	// A place to put the size of the token integrity information
+	var tokenIntegrityBufferSize uint32
+
+	// Determine the integrity of the process
+	syscall.GetTokenInformation(processToken, windows.TokenIntegrityLevel, nil, 0, &tokenIntegrityBufferSize)
+
+	if tokenIntegrityBufferSize < 4 {
+		// {{if .Config.Debug}}
+		log.Println("TokenIntegrityBuffer is too small (must be at least 4 bytes)")
+		// {{end}}
+		return "Unknown", nil
+	}
+
+	tokenIntegrityBuffer := make([]byte, tokenIntegrityBufferSize)
+
+	err := syscall.GetTokenInformation(processToken,
+		syscall.TokenIntegrityLevel,
+		&tokenIntegrityBuffer[0],
+		tokenIntegrityBufferSize,
+		&tokenIntegrityBufferSize,
+	)
+
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("Error in call to GetTokenInformation (integrity): ", err)
+		// {{end}}
+		return "", err
+	}
+
+	/*
+		When calling GetTokenInformation with a type of TokenIntegrityLevel, the structure we get back
+		is a TOKEN_MANDATORY_LABEL (https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-token_mandatory_label)
+		which has one SID_AND_ATTRIBUTES structure (https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-sid_and_attributes)
+
+		We need the last 4 bytes (uint32) from the structure because that contains the attributes.  The attributes
+		tell us what privilege level we are operating at.
+	*/
+
+	var privilegeLevel uint32 = binary.LittleEndian.Uint32(tokenIntegrityBuffer[tokenIntegrityBufferSize-4:])
+
+	if privilegeLevel < SECURITY_MANDATORY_LOW_RID {
+		return "Untrusted", nil
+	} else if privilegeLevel < SECURITY_MANDATORY_MEDIUM_RID {
+		return "Low", nil
+	} else if privilegeLevel >= SECURITY_MANDATORY_MEDIUM_RID && privilegeLevel < SECURITY_MANDATORY_HIGH_RID {
+		return "Medium", nil
+	} else if privilegeLevel >= SECURITY_MANDATORY_HIGH_RID {
+		return "High", nil
+	}
+
+	return "Unknown", nil
+}
+
 func lookupPrivilegeNameByLUID(luid uint64) (string, string, error) {
 	/*
 	   We will need the LookupPrivilegeNameW and LookupPrivilegeDisplayNameW functions
@@ -348,6 +406,8 @@ func lookupPrivilegeNameByLUID(luid uint64) (string, string, error) {
 
 	   Defined these syscalls in implant/sliver/syscalls/syscalls_windows.go and generated them with
 	   mkwinsyscall, so we are good to go.
+
+	   mkwinsyscall -output zsyscalls_windows.go syscalls_windows.go
 	*/
 
 	// Allocate 256 wide unicode characters (uint16) for the both names (255 characters plus a null terminator)
@@ -381,7 +441,7 @@ func lookupPrivilegeNameByLUID(luid uint64) (string, string, error) {
 	return syscall.UTF16ToString(nameBuffer), syscall.UTF16ToString(displayNameBuffer), nil
 }
 
-func GetPrivs() ([]PrivilegeInfo, error) {
+func GetPrivs() ([]PrivilegeInfo, string, error) {
 	// A place to store the process token
 	var tokenHandle syscall.Token
 
@@ -395,7 +455,7 @@ func GetPrivs() ([]PrivilegeInfo, error) {
 		// {{if .Config.Debug}}
 		log.Println("Could not get a handle for the current process: ", err)
 		// {{end}}
-		return nil, err
+		return nil, "", err
 	}
 
 	// Get the process token from the current process
@@ -405,7 +465,7 @@ func GetPrivs() ([]PrivilegeInfo, error) {
 		// {{if .Config.Debug}}
 		log.Println("Could not open process token: ", err)
 		// {{end}}
-		return nil, err
+		return nil, "", err
 	}
 
 	// Get the size of the token information buffer so we know how large of a buffer to allocate
@@ -426,9 +486,9 @@ func GetPrivs() ([]PrivilegeInfo, error) {
 
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Println("Error in call to GetTokenInformation: ", err)
+		log.Println("Error in call to GetTokenInformation (privileges): ", err)
 		// {{end}}
-		return nil, err
+		return nil, "", err
 	}
 
 	// The first 32 bits is the number of privileges in the structure
@@ -439,7 +499,7 @@ func GetPrivs() ([]PrivilegeInfo, error) {
 		// {{if .Config.Debug}}
 		log.Println("Could not read the number of privileges from the token information.")
 		// {{end}}
-		return nil, err
+		return nil, "", err
 	}
 
 	/*
@@ -468,7 +528,7 @@ func GetPrivs() ([]PrivilegeInfo, error) {
 			// {{if .Config.Debug}}
 			log.Println("Could not read the LUID from the binary stream: ", err)
 			// {{end}}
-			return privInfo, err
+			return privInfo, "", err
 		}
 
 		// Read the attributes
@@ -477,7 +537,7 @@ func GetPrivs() ([]PrivilegeInfo, error) {
 			// {{if .Config.Debug}}
 			log.Println("Could not read the attributes from the binary stream: ", err)
 			// {{end}}
-			return privInfo, err
+			return privInfo, "", err
 		}
 
 		currentPrivInfo.Name, currentPrivInfo.Description, err = lookupPrivilegeNameByLUID(luid)
@@ -485,7 +545,7 @@ func GetPrivs() ([]PrivilegeInfo, error) {
 			// {{if .Config.Debug}}
 			log.Println("Could not get privilege info based on the LUID: ", err)
 			// {{end}}
-			return privInfo, err
+			return privInfo, "", err
 		}
 
 		// Figure out the attributes
@@ -497,5 +557,12 @@ func GetPrivs() ([]PrivilegeInfo, error) {
 		privInfo[index] = currentPrivInfo
 	}
 
-	return privInfo, nil
+	// Get the process integrity before we leave
+	integrity, err := getProcessIntegrityLevel(tokenHandle)
+
+	if err != nil {
+		return privInfo, "Could not determine integrity level", err
+	}
+
+	return privInfo, integrity, nil
 }
