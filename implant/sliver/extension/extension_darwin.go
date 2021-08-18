@@ -59,6 +59,13 @@ func (d *DarwinExtension) Load() error {
 }
 
 func (d *DarwinExtension) Call(export string, arguments []byte, onFinish func([]byte)) error {
+	// We currently have 2 issues with Darwin extensions:
+	// - cppgo (used by universal) fucks up when calling a function with more than 1 argument
+	// - we don't have Go callback support for the loaded extension,
+	// so we have to wait for the call to finish to get the results
+	// To circumvent these issues, we pass the extensionArguments structure
+	// as the only argument to the call, so we can pass args in and extract
+	// the result at the same time.
 	extArgs := extensionArguments{}
 	if len(arguments) > 0 {
 		extArgs.inDataBuff = uintptr(unsafe.Pointer(&arguments[0]))
