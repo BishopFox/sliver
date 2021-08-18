@@ -28,6 +28,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"strings"
+	"time"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -97,7 +98,8 @@ func dirListHandler(data []byte, resp RPCResponse) {
 	dir, files, err := getDirList(dirListReq.Path)
 
 	// Convert directory listing to protobuf
-	dirList := &sliverpb.Ls{Path: dir}
+	timezone, offset := time.Now().Zone()
+	dirList := &sliverpb.Ls{Path: dir, Timezone: timezone, TimezoneOffset: int32(offset)}
 	if err == nil {
 		dirList.Exists = true
 	} else {
@@ -109,6 +111,13 @@ func dirListHandler(data []byte, resp RPCResponse) {
 			Name:  fileInfo.Name(),
 			IsDir: fileInfo.IsDir(),
 			Size:  fileInfo.Size(),
+			/* Send the time back to the client / server as the number of seconds
+			since epoch.  This will decouple formatting the time to display from the
+			time itself.  We can change the format of the time displayed in the client
+			and not have to worry about having to update implants.
+			*/
+			ModTime: fileInfo.ModTime().Unix(),
+			Mode:    fileInfo.Mode().String(),
 		})
 	}
 
