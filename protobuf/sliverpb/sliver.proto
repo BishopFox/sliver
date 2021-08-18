@@ -120,6 +120,8 @@ message Ls {
   string Path = 1;
   bool Exists = 2;
   repeated FileInfo Files = 3;
+  string timezone = 4;
+  int32 timezoneOffset = 5;
 
   commonpb.Response Response = 9;
 }
@@ -128,6 +130,8 @@ message FileInfo {
   string Name = 1;
   bool IsDir = 2;
   int64 Size = 3;
+  int64 ModTime = 4;
+  string Mode = 5;
 }
 
 message CdReq {

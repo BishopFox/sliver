@@ -1049,6 +1049,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.LsStr}),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("r", "reverse", false, "reverse sort order")
+			f.Bool("m", "modified", false, "sort by modified time")
+			f.Bool("s", "size", false, "sort by size")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("path", "path to enumerate", grumble.Default("."))
