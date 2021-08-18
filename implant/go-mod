@@ -14,4 +14,5 @@ require (
         inet.af/netstack v0.0.0-20210317161235-a1bf4e56ef22
         golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
 	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
+	github.com/Binject/universal v0.0.0-20210304094126-daefaa886313
 )

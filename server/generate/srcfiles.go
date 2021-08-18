@@ -43,6 +43,7 @@ var (
 
 		"extension/extension.go",
 		"extension/extension_windows.go",
+		"extension/extension_darwin.go",
 
 		"forwarder/forwarder.go",
 		"forwarder/socks.go",

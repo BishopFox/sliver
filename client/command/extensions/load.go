@@ -59,9 +59,9 @@ func (e *extensionCommand) getFileForTarget(cmdName string, targetOS string, tar
 	for _, ef := range e.Files {
 		if targetOS == ef.OS {
 			switch targetArch {
-			case "x86":
+			case "386":
 				filePath = filepath.Join(e.Path, targetOS, targetArch, ef.Files.Ext32Path)
-			case "x64":
+			case "amd64":
 				filePath = filepath.Join(e.Path, targetOS, targetArch, ef.Files.Ext64Path)
 			default:
 				filePath = filepath.Join(e.Path, targetOS, targetArch, ef.Files.Ext64Path)
@@ -78,7 +78,6 @@ func LoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	dirPath := ctx.Args.String("dir-path")
 	extCmds, err := ParseExtensions(dirPath)
 	if err != nil {
-		con.PrintErrorf("Error: %s\n", err)
 		return
 	}
 
@@ -303,7 +302,6 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	if err = loadExtension(ctx, session, con, &ext); err != nil {
-		con.PrintErrorf("Error: %s\n", err)
 		return
 	}
 
