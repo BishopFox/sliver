@@ -73,6 +73,8 @@ func (d *DarwinExtension) Call(export string, arguments []byte, onFinish func([]
 		b := (*byte)(unsafe.Pointer(uintptr(i) + extArgs.outDataBuff))
 		outData.WriteByte(*b)
 	}
+	// We currently don't have a way to trigger a callback
+	// in the loaded code for Darwin.
 	if outData.Len() > 0 {
 		onFinish(outData.Bytes())
 	}
