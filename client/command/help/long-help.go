@@ -237,6 +237,8 @@ c2 message round trip to ensure the remote Sliver is still responding to command
 	lsHelp = `[[.Bold]]Command:[[.Normal]] ls <remote path>
 [[.Bold]]About:[[.Normal]] List remote files in current directory, or path if provided.
 
+On Windows, escaping is disabled. Instead, '\\' is treated as path separator.
+
 [[.Bold]][[.Underline]]Sorting[[.Normal]]
 Directory and file listings are sorted by name in ascending order by default.  Listings can also be sorted by size (-s) and modified time (-m).  All sorts can be reversed with -r.
 
