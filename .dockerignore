@@ -1,28 +1,21 @@
-assets/*.zip
-assets/darwin
-assets/linux
-assets/windows
-server/assets/fs/**.zip
+/server/assets/fs/**.zip
 
-*.sdk.tar.xz
+/*.sdk.tar.xz
 
-sliver-server
-sliver-server.exe
+/sliver-server
+/sliver-server.exe
 
-sliver-client
-sliver-client.exe
+/sliver-client
+/sliver-client.exe
 
-gui/
-gui/*
+/.vscode/
+/.vscode/*
 
-.vscode/
-.vscode/*
+/.github/
+/.github/*
 
-.github/
-.github/*
-
-build.py
-LICENSE
-SECURITY.md
-README.md
-CONTRIBUTING.md
+/build.py
+/LICENSE
+/SECURITY.md
+/README.md
+/CONTRIBUTING.md

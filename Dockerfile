@@ -57,9 +57,8 @@ RUN ./go-assets.sh
 
 # Compile sliver server
 ADD . /go/src/github.com/bishopfox/sliver/
-RUN make linux \
+RUN make \
     && cp -vv sliver-server /opt/sliver-server \
-    && ls -lah \
     && /opt/sliver-server unpack --force 
 
 # Run unit tests
