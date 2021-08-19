@@ -1,4 +1,4 @@
-FROM golang:1.16.7
+FROM golang:1.17
 
 #
 # IMPORTANT: This Dockerfile is used for testing, I do not recommend deploying
@@ -42,26 +42,29 @@ RUN mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete \
 # > Sliver
 #
 
-# protoc
+# Protoc
 WORKDIR /tmp
 RUN wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip \
     && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
     && cp -vv ./bin/protoc /usr/local/bin
-
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VER} \
     && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${GRPC_GO}
 
-# assets
+# Go assets
 WORKDIR /go/src/github.com/bishopfox/sliver
 ADD ./go-assets.sh /go/src/github.com/bishopfox/sliver/go-assets.sh
 RUN ./go-assets.sh
 
+# Compile sliver server
 ADD . /go/src/github.com/bishopfox/sliver/
-RUN go mod vendor && make linux && cp -vv sliver-server /opt/sliver-server
+RUN make \
+    && cp -vv sliver-server /opt/sliver-server \
+    && /opt/sliver-server unpack --force 
 
-RUN ls -lah \
-    && /opt/sliver-server unpack --force \
-    && /go/src/github.com/bishopfox/sliver/go-tests.sh
+# Run unit tests
+RUN /go/src/github.com/bishopfox/sliver/go-tests.sh
+
+# Clean up
 RUN make clean \
     && rm -rf /go/src/* \
     && rm -rf /home/sliver/.sliver

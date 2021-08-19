@@ -1,6 +1,6 @@
 module github.com/bishopfox/sliver
 
-go 1.16
+go 1.17
 
 // fix wgctrl requiring old wireguard
 replace golang.zx2c4.com/wireguard => golang.zx2c4.com/wireguard v0.0.0-20210311162910-5f0c8b942d93
@@ -9,10 +9,10 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.2.2
 	github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
 	github.com/Binject/debug v0.0.0-20210312092933-6277045c2fdf
+	github.com/Binject/go-donut v0.0.0-20210701074227-67a31e2d883e
 	github.com/BurntSushi/xgb v0.0.0-20201008132610-5f9e7b3c49cd // indirect
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/alecthomas/chroma v0.8.1
-	github.com/binject/go-donut v0.0.0-20201215224200-d947cf4d090d
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/desertbit/columnize v2.1.0+incompatible
 	github.com/desertbit/go-shlex v0.1.1
@@ -52,4 +52,43 @@ require (
 	gorm.io/driver/sqlite v1.1.3
 	gorm.io/gorm v1.20.6
 	inet.af/netstack v0.0.0-20210317161235-a1bf4e56ef22
+)
+
+require (
+	github.com/Binject/shellcode v0.0.0-20191101084904-a8a90e7d4563 // indirect
+	github.com/VirusTotal/vt-go v0.0.0-20210528074736-45bbe34cc8ab // indirect
+	github.com/VividCortex/ewma v1.1.1 // indirect
+	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d // indirect
+	github.com/desertbit/closer/v3 v3.1.2 // indirect
+	github.com/desertbit/readline v1.5.1 // indirect
+	github.com/dlclark/regexp2 v1.2.0 // indirect
+	github.com/go-sql-driver/mysql v1.5.0 // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/google/btree v1.0.1 // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
+	github.com/jackc/pgconn v1.7.0 // indirect
+	github.com/jackc/pgio v1.0.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgproto3/v2 v2.0.5 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
+	github.com/jackc/pgtype v1.5.0 // indirect
+	github.com/jackc/pgx/v4 v4.9.0 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.1 // indirect
+	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
+	github.com/mattn/go-colorable v0.1.8 // indirect
+	github.com/mattn/go-runewidth v0.0.7 // indirect
+	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/thedevsaddam/gojsonq/v2 v2.5.2 // indirect
+	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
+	golang.org/x/text v0.3.6 // indirect
+	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )
