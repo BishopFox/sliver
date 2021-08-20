@@ -19,8 +19,11 @@ package handlers
 */
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
+	"os"
 
 	// {{if .Config.Debug}}
 	"log"
