@@ -115,7 +115,7 @@ service SliverRPC {
     rpc RegistryListSubKeys(sliverpb.RegistrySubKeyListReq) returns (sliverpb.RegistrySubKeyList);
     rpc RegistryListValues(sliverpb.RegistryListValuesReq) returns (sliverpb.RegistryValuesList);
     rpc RunSSHCommand(sliverpb.SSHCommandReq) returns (sliverpb.SSHCommand);
-    rpc HijackDLL(sliverpb.DllHijackReq) returns (sliverpb.DllHijack);
+    rpc HijackDLL(clientpb.DllHijackReq) returns (clientpb.DllHijack);
     rpc GetPrivs(sliverpb.GetPrivsReq) returns  (sliverpb.GetPrivs);
     
     // *** Wireguard Specific ***

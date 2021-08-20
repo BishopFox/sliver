@@ -496,3 +496,19 @@ message Loot {
 message AllLoot {
   repeated Loot Loot = 1;
 }
+
+
+// [ Dll Hijack ] ----------------------------------------
+message DllHijackReq {
+  string ReferenceDLLPath = 1;
+  string TargetLocation = 2;
+  bytes ReferenceDLL = 3;
+  bytes TargetDLL = 4;
+  string ProfileName = 5;
+
+  commonpb.Request Request = 9;
+}
+
+message DllHijack {
+  commonpb.Response Response = 9;
+}
