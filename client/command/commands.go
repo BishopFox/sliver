@@ -539,6 +539,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("T", "token", false, "execute command with current token (windows only)")
 			f.Bool("s", "silent", false, "don't print the command output")
 			f.Bool("X", "loot", false, "save output as loot")
+			f.Bool("S", "ignore-stderr", false, "don't print STDERR output")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},

