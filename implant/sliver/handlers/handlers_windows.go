@@ -19,6 +19,7 @@ package handlers
 */
 
 import (
+	"bytes"
 	"fmt"
 
 	// {{if .Config.Debug}}
