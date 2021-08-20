@@ -20,6 +20,7 @@ package handlers
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"errors"
@@ -362,7 +363,11 @@ func uploadHandler(data []byte, resp RPCResponse) {
 
 func executeHandler(data []byte, resp RPCResponse) {
 	var (
-		err error
+		err       error
+		stdErr    io.Writer
+		stdOut    io.Writer
+		errWriter *bufio.Writer
+		outWriter *bufio.Writer
 	)
 	execReq := &sliverpb.ExecuteReq{}
 	err = proto.Unmarshal(data, execReq)
@@ -377,13 +382,43 @@ func executeHandler(data []byte, resp RPCResponse) {
 	cmd := exec.Command(execReq.Path, execReq.Args...)
 
 	if execReq.Output {
-		stdOut := new(bytes.Buffer)
-		stdErr := new(bytes.Buffer)
+		stdOutBuff := new(bytes.Buffer)
+		stdErrBuff := new(bytes.Buffer)
+		stdErr = stdErrBuff
+		stdOut = stdOutBuff
+		if execReq.Stderr != "" {
+			stdErrFile, err := os.Create(execReq.Stderr)
+			if err != nil {
+				execResp.Response = &commonpb.Response{
+					Err: fmt.Sprintf("%s", err),
+				}
+				proto.Marshal(execResp)
+				resp(data, err)
+				return
+			}
+			defer stdErrFile.Close()
+			errWriter = bufio.NewWriter(stdErrFile)
+			stdErr = io.MultiWriter(errWriter, stdErrBuff)
+		}
+		if execReq.Stdout != "" {
+			stdOutFile, err := os.Create(execReq.Stdout)
+			if err != nil {
+				execResp.Response = &commonpb.Response{
+					Err: fmt.Sprintf("%s", err),
+				}
+				proto.Marshal(execResp)
+				resp(data, err)
+				return
+			}
+			defer stdOutFile.Close()
+			outWriter = bufio.NewWriter(stdOutFile)
+			stdOut = io.MultiWriter(outWriter, stdOutBuff)
+		}
 		cmd.Stdout = stdOut
 		cmd.Stderr = stdErr
 		err := cmd.Run()
 		//{{if .Config.Debug}}
-		log.Println(string(stdOut.String()))
+		log.Println(string(stdOutBuff.String()))
 		//{{end}}
 		if err != nil {
 			// Exit errors are not a failure of the RPC, but of the command.
@@ -395,8 +430,14 @@ func executeHandler(data []byte, resp RPCResponse) {
 				}
 			}
 		}
-		execResp.Stderr = stdErr.String()
-		execResp.Stdout = stdOut.String()
+		if errWriter != nil {
+			errWriter.Flush()
+		}
+		if outWriter != nil {
+			outWriter.Flush()
+		}
+		execResp.Stderr = stdErrBuff.String()
+		execResp.Stdout = stdOutBuff.String()
 	} else {
 		err = cmd.Start()
 		if err != nil {

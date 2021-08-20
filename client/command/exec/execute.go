@@ -37,6 +37,8 @@ func ExecuteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	args := ctx.Args.StringList("arguments")
 	output := ctx.Flags.Bool("silent")
 	ignoreStderr := ctx.Flags.Bool("ignore-stderr")
+	stdout := ctx.Flags.String("stdout")
+	stderr := ctx.Flags.String("stderr")
 	token := ctx.Flags.Bool("token")
 	var exec *sliverpb.Execute
 	var err error
@@ -48,6 +50,8 @@ func ExecuteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			Path:    cmdPath,
 			Args:    args,
 			Output:  !output,
+			Stderr:  stderr,
+			Stdout:  stdout,
 		})
 	} else {
 		exec, err = con.Rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
@@ -55,6 +59,8 @@ func ExecuteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			Path:    cmdPath,
 			Args:    args,
 			Output:  !output,
+			Stderr:  stderr,
+			Stdout:  stdout,
 		})
 	}
 	ctrl <- true
@@ -63,20 +69,22 @@ func ExecuteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if err != nil {
 		con.PrintErrorf("%s", err)
 	} else if !output {
+		combined := ""
+		if stdout == "" {
+			combined = exec.Stdout
+			con.PrintInfof("Output:\n%s", exec.Stdout)
+		} else {
+			con.PrintInfof("StdOut saved at %s\n", stdout)
+		}
+		if !ignoreStderr && stderr == "" {
+			combined = fmt.Sprintf("%s\nStdErr:\n%s", combined, exec.Stderr)
+			con.PrintInfof("StdErr:\n%s", exec.Stderr)
+		} else {
+			con.PrintInfof("Stderr saved at %s\n", stderr)
+		}
 		if exec.Status != 0 {
 			con.PrintErrorf("Exited with status %d!\n", exec.Status)
-			if exec.Stdout != "" {
-				con.PrintInfof("Stdout:\n%s\n", exec.Stdout)
-			}
-			if exec.Stderr != "" && !ignoreStderr {
-				con.PrintInfof("Stderr:\n%s\n", exec.Stderr)
-			}
 		} else {
-			combined := fmt.Sprintf("%s\n%s\n", exec.Stdout, exec.Stderr)
-			if ignoreStderr {
-				combined = exec.Stdout
-			}
-			con.PrintInfof("Output:\n%s\n", combined)
 			if ctx.Flags.Bool("loot") && 0 < len(combined) {
 				name := fmt.Sprintf("[exec] %s %s", cmdPath, strings.Join(args, " "))
 				err = loot.AddLootFile(con.Rpc, name, "console.txt", []byte(combined), false)
