@@ -620,14 +620,18 @@ func callExtensionHandler(data []byte, resp RPCResponse) {
 	callResp := &sliverpb.CallExtension{
 		Response: &commonpb.Response{},
 	}
+	gotOutput := false
 	err = extension.Run(callReq.Name, callReq.Export, callReq.Args, func(out []byte) {
+		gotOutput = true
 		callResp.Output = out
 		data, err = proto.Marshal(callResp)
 		resp(data, err)
 	})
 	// Only send back synchronously if there was an error
-	if err != nil {
-		callResp.Response.Err = err.Error()
+	if err != nil || !gotOutput {
+		if err != nil {
+			callResp.Response.Err = err.Error()
+		}
 		data, err = proto.Marshal(callResp)
 		resp(data, err)
 	}

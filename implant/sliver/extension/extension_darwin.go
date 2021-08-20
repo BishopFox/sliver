@@ -2,8 +2,12 @@ package extension
 
 import (
 	"bytes"
+	"runtime"
 	"unsafe"
 
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
 	"github.com/Binject/universal"
 )
 
@@ -66,17 +70,29 @@ func (d *DarwinExtension) Call(export string, arguments []byte, onFinish func([]
 	// To circumvent these issues, we pass the extensionArguments structure
 	// as the only argument to the call, so we can pass args in and extract
 	// the result at the same time.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	extArgs := extensionArguments{}
 	if len(arguments) > 0 {
 		extArgs.inDataBuff = uintptr(unsafe.Pointer(&arguments[0]))
 		extArgs.inDataSize = uintptr(uint64(len(arguments)))
 	}
+	// {{if .Config.Debug}}
+	log.Printf("Calling %s, arg size: %d\n", export, extArgs.inDataSize)
+	// {{end}}
 	_, err := d.module.Call(export, uintptr(unsafe.Pointer(&extArgs)))
 	if err != nil {
 		return err
 	}
+	// {{if .Config.Debug}}
+	log.Printf("%s done!\n", export)
+	// {{end}}
 	outData := new(bytes.Buffer)
-	for i := 0; i < int(extArgs.outDataSize); i++ {
+	outDataSize := int(extArgs.outDataSize)
+	// {{if .Config.Debug}}
+	log.Printf("Out data size: %d\n", outDataSize)
+	// {{end}}
+	for i := 0; i < outDataSize; i++ {
 		b := (*byte)(unsafe.Pointer(uintptr(i) + extArgs.outDataBuff))
 		outData.WriteByte(*b)
 	}
