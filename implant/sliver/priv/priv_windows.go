@@ -344,12 +344,12 @@ func GetSystem(data []byte, hostingProcess string) (err error) {
 	return
 }
 
-func getProcessIntegrityLevel(processToken syscall.Token) (string, error) {
+func getProcessIntegrityLevel(processToken windows.Token) (string, error) {
 	// A place to put the size of the token integrity information
 	var tokenIntegrityBufferSize uint32
 
 	// Determine the integrity of the process
-	syscall.GetTokenInformation(processToken, windows.TokenIntegrityLevel, nil, 0, &tokenIntegrityBufferSize)
+	windows.GetTokenInformation(processToken, windows.TokenIntegrityLevel, nil, 0, &tokenIntegrityBufferSize)
 
 	if tokenIntegrityBufferSize < 4 {
 		// {{if .Config.Debug}}
@@ -360,8 +360,8 @@ func getProcessIntegrityLevel(processToken syscall.Token) (string, error) {
 
 	tokenIntegrityBuffer := make([]byte, tokenIntegrityBufferSize)
 
-	err := syscall.GetTokenInformation(processToken,
-		syscall.TokenIntegrityLevel,
+	err := windows.GetTokenInformation(processToken,
+		windows.TokenIntegrityLevel,
 		&tokenIntegrityBuffer[0],
 		tokenIntegrityBufferSize,
 		&tokenIntegrityBufferSize,
@@ -441,44 +441,73 @@ func lookupPrivilegeNameByLUID(luid uint64) (string, string, error) {
 	return syscall.UTF16ToString(nameBuffer), syscall.UTF16ToString(displayNameBuffer), nil
 }
 
-func GetPrivs() ([]PrivilegeInfo, string, error) {
+func GetPrivs() ([]PrivilegeInfo, string, string, error) {
 	// A place to store the process token
-	var tokenHandle syscall.Token
+	var tokenHandle windows.Token
+
+	// Process integrity
+	var integrity string
+
+	// The current process name
+	var processName string
 
 	// A place to put the size of the token information
 	var tokenInfoBufferSize uint32
 
 	// Get a handle for the current process
-	currentProcHandle, err := syscall.GetCurrentProcess()
+	currentProcHandle, err := windows.GetCurrentProcess()
 
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Println("Could not get a handle for the current process: ", err)
 		// {{end}}
-		return nil, "", err
+		return nil, integrity, processName, err
+	}
+
+	// Get the PID for the current process
+	sessionPID, err := windows.GetProcessId(currentProcHandle)
+
+	// This error is not fatal.  Worst case, we can display the PID from the registered session
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("Could not get PID for current process: ", err)
+		// {{end}}
+	} else {
+		// Get process info for the current PID
+		processInformation, err := ps.FindProcess(int(sessionPID))
+
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("Could not get process information for PID %d: %v\n", sessionPID, err)
+			// {{end}}
+		}
+
+		if processInformation != nil {
+			processName = processInformation.Executable()
+		}
 	}
 
 	// Get the process token from the current process
-	err = syscall.OpenProcessToken(currentProcHandle, syscall.TOKEN_QUERY, &tokenHandle)
+	err = windows.OpenProcessToken(currentProcHandle, windows.TOKEN_QUERY, &tokenHandle)
 
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Println("Could not open process token: ", err)
 		// {{end}}
-		return nil, "", err
+		return nil, integrity, processName, err
 	}
 
 	// Get the size of the token information buffer so we know how large of a buffer to allocate
 	// This produces an error about a data area passed to the syscall being too small, but
 	// we do not care about that because we just want to know how big of a buffer to make
-	syscall.GetTokenInformation(tokenHandle, syscall.TokenPrivileges, nil, 0, &tokenInfoBufferSize)
+	windows.GetTokenInformation(tokenHandle, windows.TokenPrivileges, nil, 0, &tokenInfoBufferSize)
 
 	// Make the buffer and get token information
 	// Using a bytes Buffer so that we can Read from it later
 	tokenInfoBuffer := bytes.NewBuffer(make([]byte, tokenInfoBufferSize))
 
-	err = syscall.GetTokenInformation(tokenHandle,
-		syscall.TokenPrivileges,
+	err = windows.GetTokenInformation(tokenHandle,
+		windows.TokenPrivileges,
 		&tokenInfoBuffer.Bytes()[0],
 		uint32(tokenInfoBuffer.Len()),
 		&tokenInfoBufferSize,
@@ -488,7 +517,7 @@ func GetPrivs() ([]PrivilegeInfo, string, error) {
 		// {{if .Config.Debug}}
 		log.Println("Error in call to GetTokenInformation (privileges): ", err)
 		// {{end}}
-		return nil, "", err
+		return nil, integrity, processName, err
 	}
 
 	// The first 32 bits is the number of privileges in the structure
@@ -499,7 +528,7 @@ func GetPrivs() ([]PrivilegeInfo, string, error) {
 		// {{if .Config.Debug}}
 		log.Println("Could not read the number of privileges from the token information.")
 		// {{end}}
-		return nil, "", err
+		return nil, integrity, processName, err
 	}
 
 	/*
@@ -528,7 +557,7 @@ func GetPrivs() ([]PrivilegeInfo, string, error) {
 			// {{if .Config.Debug}}
 			log.Println("Could not read the LUID from the binary stream: ", err)
 			// {{end}}
-			return privInfo, "", err
+			return privInfo, integrity, processName, err
 		}
 
 		// Read the attributes
@@ -537,7 +566,7 @@ func GetPrivs() ([]PrivilegeInfo, string, error) {
 			// {{if .Config.Debug}}
 			log.Println("Could not read the attributes from the binary stream: ", err)
 			// {{end}}
-			return privInfo, "", err
+			return privInfo, integrity, processName, err
 		}
 
 		currentPrivInfo.Name, currentPrivInfo.Description, err = lookupPrivilegeNameByLUID(luid)
@@ -545,7 +574,7 @@ func GetPrivs() ([]PrivilegeInfo, string, error) {
 			// {{if .Config.Debug}}
 			log.Println("Could not get privilege info based on the LUID: ", err)
 			// {{end}}
-			return privInfo, "", err
+			return privInfo, integrity, processName, err
 		}
 
 		// Figure out the attributes
@@ -558,11 +587,11 @@ func GetPrivs() ([]PrivilegeInfo, string, error) {
 	}
 
 	// Get the process integrity before we leave
-	integrity, err := getProcessIntegrityLevel(tokenHandle)
+	integrity, err = getProcessIntegrityLevel(tokenHandle)
 
 	if err != nil {
-		return privInfo, "Could not determine integrity level", err
+		return privInfo, "Could not determine integrity level", processName, err
 	}
 
-	return privInfo, integrity, nil
+	return privInfo, integrity, processName, nil
 }
