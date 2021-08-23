@@ -549,7 +549,7 @@ func getPrivsHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
-	privsInfo, integrity, err := priv.GetPrivs()
+	privsInfo, integrity, processName, err := priv.GetPrivs()
 
 	response_data := make([]*sliverpb.WindowsPrivilegeEntry, len(privsInfo))
 
@@ -575,6 +575,7 @@ func getPrivsHandler(data []byte, resp RPCResponse) {
 	getPrivsResp := &sliverpb.GetPrivs{
 		PrivInfo:         response_data,
 		ProcessIntegrity: integrity,
+		ProcessName:      processName,
 		Response:         &commonpb.Response{},
 	}
 
