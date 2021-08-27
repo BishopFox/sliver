@@ -25,6 +25,7 @@ package db
 
 import (
 	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
@@ -32,6 +33,18 @@ var (
 	// ErrRecordNotFound - Record not found error
 	ErrRecordNotFound = gorm.ErrRecordNotFound
 )
+
+// ImplantConfigByID - Fetch implant build by name
+func ImplantConfigByID(id string) (*models.ImplantConfig, error) {
+	config := models.ImplantConfig{}
+	err := Session().Where(&models.ImplantConfig{
+		ID: uuid.FromStringOrNil(id),
+	}).First(&config).Error
+	if err != nil {
+		return nil, err
+	}
+	return &config, err
+}
 
 // ImplantBuilds - Return all implant builds
 func ImplantBuilds() ([]*models.ImplantBuild, error) {

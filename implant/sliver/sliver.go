@@ -37,6 +37,8 @@ import (
 	"log"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/pquerna/otp"
+	"github.com/pquerna/otp/totp"
 
 	// {{if eq .Config.GOOS "windows"}}
 	"github.com/bishopfox/sliver/implant/sliver/priv"
@@ -257,7 +259,7 @@ func getRegisterSliver() *sliverpb.Envelope {
 	filename, err := os.Executable()
 	// Should not happen, but still...
 	if err != nil {
-		//TODO: build the absolute path to os.Args[0]
+		// TODO: build the absolute path to os.Args[0]
 		if 0 < len(os.Args) {
 			filename = os.Args[0]
 		} else {
@@ -287,6 +289,7 @@ func getRegisterSliver() *sliverpb.Envelope {
 		ReconnectInterval: uint32(transports.GetReconnectInterval() / time.Second),
 		ProxyURL:          transports.GetProxyURL(),
 		PollInterval:      uint32(transports.GetPollInterval() / time.Second),
+		ConfigID:          "{{ .Config.ID }}",
 	})
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -298,4 +301,19 @@ func getRegisterSliver() *sliverpb.Envelope {
 		Type: sliverpb.MsgRegister,
 		Data: data,
 	}
+}
+
+func getOTPCode() string {
+	now := time.Now().UTC()
+	opts := totp.ValidateOpts{
+		Digits:    8,
+		Algorithm: otp.AlgorithmSHA256,
+		Period:    uint(30),
+		Skew:      uint(1),
+	}
+	code, _ := totp.GenerateCodeCustom("{{ .OTPSecret }}", now, opts)
+	// {{if .Config.Debug}}
+	log.Printf("TOTP Code: %s", code)
+	// {{end}}
+	return code
 }

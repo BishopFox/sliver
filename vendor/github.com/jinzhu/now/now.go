@@ -152,9 +152,9 @@ func (now *Now) Parse(strs ...string) (t time.Time, err error) {
 	var (
 		setCurrentTime  bool
 		parseTime       []int
-		currentTime     = []int{now.Nanosecond(), now.Second(), now.Minute(), now.Hour(), now.Day(), int(now.Month()), now.Year()}
 		currentLocation = now.Location()
 		onlyTimeInStr   = true
+		currentTime  = formatTimeToList(now.Time)
 	)
 
 	for _, str := range strs {
@@ -162,8 +162,7 @@ func (now *Now) Parse(strs ...string) (t time.Time, err error) {
 		onlyTimeInStr = hasTimeInStr && onlyTimeInStr && onlyTimeRegexp.MatchString(str)
 		if t, err = now.parseWithFormat(str, currentLocation); err == nil {
 			location := t.Location()
-
-			parseTime = []int{t.Nanosecond(), t.Second(), t.Minute(), t.Hour(), t.Day(), int(t.Month()), t.Year()}
+			parseTime = formatTimeToList(t)
 
 			for i, v := range parseTime {
 				// Don't reset hour, minute, second if current time str including time
@@ -190,7 +189,7 @@ func (now *Now) Parse(strs ...string) (t time.Time, err error) {
 			}
 
 			t = time.Date(parseTime[6], time.Month(parseTime[5]), parseTime[4], parseTime[3], parseTime[2], parseTime[1], parseTime[0], location)
-			currentTime = []int{t.Nanosecond(), t.Second(), t.Minute(), t.Hour(), t.Day(), int(t.Month()), t.Year()}
+			currentTime = formatTimeToList(t)
 		}
 	}
 	return

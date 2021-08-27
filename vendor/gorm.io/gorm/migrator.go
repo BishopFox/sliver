@@ -7,7 +7,18 @@ import (
 
 // Migrator returns migrator
 func (db *DB) Migrator() Migrator {
-	return db.Dialector.Migrator(db.Session(&Session{WithConditions: true}))
+	tx := db.getInstance()
+
+	// apply scopes to migrator
+	for len(tx.Statement.scopes) > 0 {
+		scopes := tx.Statement.scopes
+		tx.Statement.scopes = nil
+		for _, scope := range scopes {
+			tx = scope(tx)
+		}
+	}
+
+	return tx.Dialector.Migrator(tx.Session(&Session{}))
 }
 
 // AutoMigrate run auto migration for given models

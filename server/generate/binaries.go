@@ -35,6 +35,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/gogo"
 	"github.com/bishopfox/sliver/server/log"
@@ -480,6 +482,11 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	config.Cert = string(sliverCert)
 	config.Key = string(sliverKey)
 
+	otpSecret, err := cryptography.TOTPServerSecret()
+	if err != nil {
+		return "", err
+	}
+
 	// Generate wg Keys as needed
 	if config.WGc2Enabled {
 		implantPrivKey, _, err := certs.ImplantGenerateWGKeys(config.WGPeerTunIP)
@@ -490,6 +497,11 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		}
 		config.WGImplantPrivKey = implantPrivKey
 		config.WGServerPubKey = serverPubKey
+	}
+
+	err = ImplantConfigSave(config)
+	if err != nil {
+		return "", err
 	}
 
 	// binDir - ~/.sliver/slivers/<os>/<arch>/<name>/bin
@@ -601,12 +613,20 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 
 		// Render code
 		sliverCodeTmpl := template.Must(template.New("sliver").Parse(sliverGoCode))
-		err = sliverCodeTmpl.Execute(buf, struct {
-			Name   string
-			Config *models.ImplantConfig
+		err = sliverCodeTmpl.Funcs(template.FuncMap{
+			"GenerateUserAgent": func() string {
+				return configs.GetHTTPC2Config().GenerateUserAgent(config.GOOS, config.GOARCH)
+			},
+		}).Execute(buf, struct {
+			Name         string
+			Config       *models.ImplantConfig
+			OTPSecret    string
+			HTTPC2Config *configs.HTTPC2ImplantConfig
 		}{
 			name,
 			config,
+			otpSecret,
+			configs.GetHTTPC2Config().RandomImplantConfig(),
 		})
 		if err != nil {
 			buildLog.Error(err)

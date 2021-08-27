@@ -59,6 +59,8 @@ enum OutputFormat {
 }
 
 message ImplantConfig {
+  string ID = 100;
+
   string GOOS = 1;
   string GOARCH = 2;
   string Name = 3;

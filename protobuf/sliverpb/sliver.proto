@@ -47,6 +47,7 @@ message Register {
   uint32 ReconnectInterval = 13;
   string ProxyURL = 14;
   uint32 PollInterval = 15;
+  string ConfigID = 16;
 }
 
 // Ping - Not ICMP, just sends a rount trip message to an implant to

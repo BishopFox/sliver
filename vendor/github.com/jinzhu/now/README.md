@@ -27,9 +27,6 @@ now.BeginningOfMonth()         // 2013-11-01 00:00:00 Fri
 now.BeginningOfQuarter()       // 2013-10-01 00:00:00 Tue
 now.BeginningOfYear()          // 2013-01-01 00:00:00 Tue
 
-now.WeekStartDay = time.Monday // Set Monday as first day, default is Sunday
-now.BeginningOfWeek()          // 2013-11-18 00:00:00 Mon
-
 now.EndOfMinute()              // 2013-11-18 17:51:59.999999999 Mon
 now.EndOfHour()                // 2013-11-18 17:59:59.999999999 Mon
 now.EndOfDay()                 // 2013-11-18 23:59:59.999999999 Mon
