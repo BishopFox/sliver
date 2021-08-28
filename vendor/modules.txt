@@ -71,6 +71,12 @@ github.com/alecthomas/chroma/lexers/x
 github.com/alecthomas/chroma/lexers/y
 github.com/alecthomas/chroma/lexers/z
 github.com/alecthomas/chroma/styles
+# github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0
+## explicit; go 1.16
+github.com/awgh/cppgo/asmcall/cdecl
+# github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4
+## explicit
+github.com/awgh/rawreader
 # github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc
 ## explicit
 github.com/boombuler/barcode

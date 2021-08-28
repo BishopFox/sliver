@@ -62,6 +62,8 @@ require (
 	github.com/Binject/shellcode v0.0.0-20191101084904-a8a90e7d4563 // indirect
 	github.com/VirusTotal/vt-go v0.0.0-20210528074736-45bbe34cc8ab // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
+	github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0 // indirect
+	github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
