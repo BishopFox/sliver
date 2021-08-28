@@ -41,6 +41,7 @@ func UploadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	localPath := ctx.Args.String("local-path")
 	remotePath := ctx.Args.String("remote-path")
+	isIOC := ctx.Flags.Bool("ioc")
 
 	if localPath == "" {
 		con.PrintErrorf("Missing parameter, see `help upload`\n")
@@ -70,6 +71,7 @@ func UploadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Path:    dst,
 		Data:    uploadGzip,
 		Encoder: "gzip",
+		IsIOC:   isIOC,
 	})
 	ctrl <- true
 	<-ctrl

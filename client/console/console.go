@@ -95,6 +95,8 @@ type BindCmds func(console *SliverConsoleClient)
 // Start - Console entrypoint
 func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isServer bool) error {
 
+	assets.Setup(false, false)
+
 	con := &SliverConsoleClient{
 		App: grumble.New(&grumble.Config{
 			Name:                  "Sliver",
@@ -199,7 +201,7 @@ func (con *SliverConsoleClient) EventLoop() {
 			if activeSession != nil && activeSession.ID == session.ID {
 				con.ActiveSession.Set(nil)
 				con.App.SetPrompt(con.GetPrompt())
-				con.Printf(Warn + " Active session disconnected\n")
+				con.Printf(Warn + "Active session disconnected\n")
 			}
 			con.Println()
 		}

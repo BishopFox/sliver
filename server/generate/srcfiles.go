@@ -41,6 +41,10 @@ var (
 		"evasion/evasion_linux.go",
 		"evasion/evasion_windows.go",
 
+		"extension/extension.go",
+		"extension/extension_windows.go",
+		"extension/extension_darwin.go",
+
 		"forwarder/forwarder.go",
 		"forwarder/socks.go",
 		"forwarder/portforward.go",

@@ -25,6 +25,7 @@ package db
 
 import (
 	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
@@ -187,4 +188,45 @@ func WGPeerIPs() ([]string, error) {
 		ips = append(ips, peer.TunIP)
 	}
 	return ips, nil
+}
+
+// ListHosts - List of all hosts in the database
+func ListHosts() ([]*models.Host, error) {
+	hosts := []*models.Host{}
+	err := Session().Where(
+		&models.Host{},
+	).Preload("IOCs").Preload("ExtensionData").Find(&hosts).Error
+	return hosts, err
+}
+
+// HostByHostID - Get host by the session's reported HostUUID
+func HostByHostID(id uuid.UUID) (*models.Host, error) {
+	host := models.Host{}
+	err := Session().Where(&models.Host{ID: id}).First(&host).Error
+	if err != nil {
+		return nil, err
+	}
+	return &host, nil
+}
+
+// HostByHostUUID - Get host by the session's reported HostUUID
+func HostByHostUUID(id string) (*models.Host, error) {
+	host := models.Host{}
+	err := Session().Where(
+		&models.Host{HostUUID: uuid.FromStringOrNil(id)},
+	).Preload("IOCs").Preload("ExtensionData").Find(&host).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return &host, nil
+}
+
+// IOCByID - Select an IOC by ID
+func IOCByID(id string) (*models.IOC, error) {
+	ioc := &models.IOC{}
+	err := Session().Where(
+		&models.IOC{ID: uuid.FromStringOrNil(id)},
+	).First(ioc).Error
+	return ioc, err
 }

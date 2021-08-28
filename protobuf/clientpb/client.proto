@@ -43,6 +43,7 @@ message Session {
   string ProxyURL = 20;
   uint32 PollInterval = 21;
   bool Burned = 22;
+  repeated string Extensions = 23;
 }
 
 message ImplantC2 {
@@ -274,6 +275,7 @@ message UpdateSession {
   string Name = 2;
   int32 ReconnectInterval = 3;
   int32 PollInterval = 4;
+  repeated string Extensions = 5;
 }
 
 message GenerateReq {
@@ -495,4 +497,28 @@ message Loot {
 
 message AllLoot {
   repeated Loot Loot = 1;
+}
+
+// [ Hosts ] ----------------------------------------
+message IOC {
+  string Path = 1;
+  string FileHash = 2;
+  string ID = 3;
+}
+
+message ExtensionData {
+  string Output = 1;
+}
+
+message Host {
+  string Hostname = 1;
+  string HostUUID = 2;
+  string OSVersion = 3;
+
+  repeated IOC IOCs = 4;
+  map<string, ExtensionData> ExtensionData = 5;
+}
+
+message AllHosts {
+  repeated Host Hosts = 1;
 }

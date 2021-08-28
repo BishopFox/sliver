@@ -194,6 +194,7 @@ message UploadReq {
   string Path = 1;
   string Encoder = 2;
   bytes Data = 3;
+  bool IsIOC = 4;
 
   commonpb.Request Request = 9;
 }
@@ -832,6 +833,47 @@ message GetPrivs {
   repeated WindowsPrivilegeEntry PrivInfo = 1;
   string ProcessIntegrity = 2;
   string ProcessName = 3;
+
+  commonpb.Response Response = 9;
+}
+
+// Extensions
+
+message RegisterExtensionReq {
+  string Name = 1;
+  bytes Data = 2;
+  string OS = 3;
+  string Init = 4;
+
+  commonpb.Request Request = 9;
+}
+
+message RegisterExtension {
+  commonpb.Response Response = 9;
+}
+
+message CallExtensionReq {
+  string Name = 1;
+  bool ServerStore = 2;
+  bytes Args = 3;
+  string Export = 4;
+
+  commonpb.Request Request = 9;
+}
+
+message CallExtension {
+  bytes Output = 1;
+  bool ServerStore = 2;
+
+  commonpb.Response Response = 9;
+}
+
+message ListExtensionsReq {
+  commonpb.Request Request = 9;
+}
+
+message ListExtensions {
+  repeated string Names = 1;
 
   commonpb.Response Response = 9;
 }

@@ -82,7 +82,7 @@ var rootCmd = &cobra.Command{
 func StartClientConsole() error {
 	configs := assets.GetConfigs()
 	if len(configs) == 0 {
-		fmt.Printf("No config files found at %s or -import\n", assets.GetConfigDir())
+		fmt.Printf("No config files found at %s (see --help)\n", assets.GetConfigDir())
 		return nil
 	}
 	config := selectConfig()
@@ -93,11 +93,11 @@ func StartClientConsole() error {
 	fmt.Printf("Connecting to %s:%d ...\n", config.LHost, config.LPort)
 	rpc, ln, err := transport.MTLSConnect(config)
 	if err != nil {
-		fmt.Printf("Connection to server failed %v", err)
+		fmt.Printf("Connection to server failed %s", err)
 		return nil
 	}
 	defer ln.Close()
-	return console.Start(rpc, command.BindCommands, func(*console.SliverConsoleClient) {}, false)
+	return console.Start(rpc, command.BindCommands, func(con *console.SliverConsoleClient) {}, false)
 }
 
 // Execute - Execute root command

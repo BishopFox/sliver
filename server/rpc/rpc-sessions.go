@@ -130,6 +130,9 @@ func (rpc *Server) UpdateSession(ctx context.Context, update *clientpb.UpdateSes
 		}
 		session.Request(sliverpb.MsgNumber(&req), rpc.getTimeout(&req), data)
 	}
+	if len(update.Extensions) != 0 {
+		session.Extensions = update.Extensions
+	}
 	core.Sessions.UpdateSession(session)
 	resp = session.ToProtobuf()
 	return resp, nil

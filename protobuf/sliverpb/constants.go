@@ -251,6 +251,14 @@ const (
 
 	// MsgRegistryListValuesReq - List registry values
 	MsgRegistryListValuesReq
+	// MsgRegisterExtensionReq - Register a new extension
+	MsgRegisterExtensionReq
+
+	// MsgCallExtensionReq - Run an extension command
+	MsgCallExtensionReq
+
+	// MsgListExtensionsReq - List loaded extensions
+	MsgListExtensionsReq
 )
 
 // Constants to replace enums
@@ -480,6 +488,15 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgRegistrySubKeysListReq
 	case *RegistryListValuesReq:
 		return MsgRegistryListValuesReq
+
+	case *RegisterExtensionReq:
+		return MsgRegisterExtensionReq
+
+	case *CallExtensionReq:
+		return MsgCallExtensionReq
+
+	case *ListExtensionsReq:
+		return MsgListExtensionsReq
 	}
 
 	return uint32(0)

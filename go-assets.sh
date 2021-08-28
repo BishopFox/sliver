@@ -21,9 +21,11 @@
 
 GO_VER="1.17"
 GARBLE_VER="1.17.1"
+COFF_LOADER_VER="1.0.5"
 
 GO_ARCH_1="amd64"
 GO_ARCH_2="arm64"
+GO_ARCH_3="386"
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
 
 if ! [ -x "$(command -v curl)" ]; then
@@ -47,6 +49,7 @@ fi
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 OUTPUT_DIR=$REPO_DIR/server/assets/fs
+CLIENT_OUTPUT_DIR=$REPO_DIR/client/assets/fs
 WORK_DIR=`mktemp -d`
 
 echo "-----------------------------------------------------------------"
@@ -130,6 +133,10 @@ cp -vv windows-go.zip $OUTPUT_DIR/windows/$GO_ARCH_1/go.zip
 rm -rf ./go
 rm -f windows-go.zip go$GO_VER.windows-$GO_ARCH_1.zip
 
+# --- Client ---
+mkdir -p $CLIENT_OUTPUT_DIR/extensions/windows/$GO_ARCH_1
+mkdir -p $CLIENT_OUTPUT_DIR/extensions/windows/$GO_ARCH_3
+
 echo "-----------------------------------------------------------------"
 echo " Garble"
 echo "-----------------------------------------------------------------"
@@ -137,6 +144,12 @@ curl -L --output $OUTPUT_DIR/linux/$GO_ARCH_1/garble https://github.com/moloch--
 curl -L --output $OUTPUT_DIR/windows/$GO_ARCH_1/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows.exe
 curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_1
 curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_2/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_2
+
+echo "-----------------------------------------------------------------"
+echo " COFF Loader"
+echo "-----------------------------------------------------------------"
+curl -L --output $CLIENT_OUTPUT_DIR/extensions/windows/$GO_ARCH_1/COFFLoader.x64.dll https://github.com/lesnuages/COFFLoader/releases/download/v$COFF_LOADER_VER/COFFLoader.x64.dll
+curl -L --output $CLIENT_OUTPUT_DIR/extensions/windows/$GO_ARCH_3/COFFLoader.x86.dll https://github.com/lesnuages/COFFLoader/releases/download/v$COFF_LOADER_VER/COFFLoader.x86.dll
 
 # end
 echo -e "clean up: $WORK_DIR"

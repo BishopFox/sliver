@@ -1,0 +1,9 @@
+fs/*.zip
+fs/extensions/darwin/amd64/
+fs/extensions/darwin/arm64/
+fs/extensions/linux/amd64/
+fs/extensions/windows/amd64/
+fs/extensions/darwin/386/
+fs/extensions/darwin/386/
+fs/extensions/linux/386/
+fs/extensions/windows/386/

@@ -20,8 +20,18 @@ package rpc
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/server/log"
+)
+
+var (
+	fsLog = log.NamedLogger("rcp", "fs")
 )
 
 // Ls - List a directory
@@ -91,5 +101,37 @@ func (rpc *Server) Upload(ctx context.Context, req *sliverpb.UploadReq) (*sliver
 	if err != nil {
 		return nil, err
 	}
+	if req.IsIOC {
+		go trackIOC(req, resp)
+	}
 	return resp, nil
+}
+
+func trackIOC(req *sliverpb.UploadReq, resp *sliverpb.Upload) {
+	fsLog.Debugf("Adding IOC to database ...")
+	request := req.GetRequest()
+	if request == nil {
+		fsLog.Error("No request for upload")
+		return
+	}
+	session := core.Sessions.Get(request.SessionID)
+	if session == nil {
+		fsLog.Error("No session for upload request")
+		return
+	}
+	host, err := db.HostByHostUUID(session.UUID)
+	if err != nil {
+		fsLog.Errorf("No host for session uuid %v", session.UUID)
+		return
+	}
+
+	sum := sha256.Sum256(req.Data)
+	ioc := &models.IOC{
+		HostID:   host.ID,
+		Path:     resp.Path,
+		FileHash: fmt.Sprintf("%x", sum),
+	}
+	if db.Session().Create(ioc).Error != nil {
+		fsLog.Error("Failed to create IOC")
+	}
 }
