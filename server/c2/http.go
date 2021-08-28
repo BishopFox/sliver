@@ -19,6 +19,7 @@ package c2
 */
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -27,19 +28,23 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	insecureRand "math/rand"
 	"net"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	sliverHandlers "github.com/bishopfox/sliver/server/handlers"
@@ -54,12 +59,19 @@ import (
 var (
 	httpLog   = log.NamedLogger("c2", "http")
 	accessLog = log.NamedLogger("c2", "http-access")
+
+	ErrMissingNonce = errors.New("nonce not found in request")
+	ErrMissingOTP   = errors.New("otp code not found in request")
 )
 
 const (
 	defaultHTTPTimeout = time.Second * 60
 	pollTimeout        = defaultHTTPTimeout - 5
 )
+
+func init() {
+	insecureRand.Seed(time.Now().UnixNano())
+}
 
 // HTTPSession - Holds data related to a sliver c2 session
 type HTTPSession struct {
@@ -150,6 +162,12 @@ func (s *SliverHTTPC2) getServerHeader() string {
 		}
 	}
 	return s.server
+}
+
+func (s *SliverHTTPC2) getCookieName() string {
+	cookies := configs.GetHTTPC2Config().ServerConfig.Cookies
+	index := insecureRand.Intn(len(cookies))
+	return cookies[index]
 }
 
 func (s *SliverHTTPC2) getPoweredByHeader() string {
@@ -266,14 +284,13 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	// Procedural C2
 	// ===============
 	// .txt = rsakey
-	// .css = start
-	// .php = session
-	//  .js = poll
+	// .php = start / session
+	// .js = poll
 	// .png = stop
 	// .woff = sliver shellcode
 
 	router.HandleFunc("/{rpath:.*\\.txt$}", s.rsaKeyHandler).MatcherFunc(filterNonce).Methods(http.MethodGet)
-	router.HandleFunc("/{rpath:.*\\.css$}", s.startSessionHandler).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
+	router.HandleFunc("/{rpath:.*\\1.php$}", s.startSessionHandler).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
 	router.HandleFunc("/{rpath:.*\\.php$}", s.sessionHandler).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
 	router.HandleFunc("/{rpath:.*\\.js$}", s.pollHandler).MatcherFunc(filterNonce).Methods(http.MethodGet)
 	router.HandleFunc("/{rpath:.*\\.png$}", s.stopHandler).MatcherFunc(filterNonce).Methods(http.MethodGet)
@@ -301,22 +318,64 @@ func (s *SliverHTTPC2) router() *mux.Router {
 
 // This filters requests that do not have a valid nonce
 func filterNonce(req *http.Request, rm *mux.RouteMatch) bool {
-	qNonce := req.URL.Query().Get("_")
-	nonce, err := strconv.Atoi(qNonce)
+	nonce, err := getNonceFromURL(req.URL)
 	if err != nil {
-		httpLog.Warnf("Invalid nonce '%s' ignore request", qNonce)
+		httpLog.Warnf("Invalid nonce '%d' ignore request", nonce)
 		return false // NaN
-	}
-	_, _, err = encoders.EncoderFromNonce(nonce)
-	if err != nil {
-		httpLog.Warnf("Invalid nonce (%d) ignore request", nonce)
-		return false // Not a valid encoder
 	}
 	return true
 }
 
-func isNumeric(value string, length int) bool {
-	return true
+func getNonceFromURL(reqURL *url.URL) (int, error) {
+	qNonce := ""
+	for arg, values := range reqURL.Query() {
+		if len(arg) == 1 {
+			qNonce = digitsOnly(values[0])
+			break
+		}
+	}
+	if qNonce == "" {
+		httpLog.Warnf("Nonce not found in request", qNonce)
+		return 0, ErrMissingNonce
+	}
+	nonce, err := strconv.Atoi(qNonce)
+	if err != nil {
+		httpLog.Warnf("Invalid nonce, failed to parse '%s'", qNonce)
+		return 0, err
+	}
+	httpLog.Debugf("Request nonce = %d", nonce)
+	_, _, err = encoders.EncoderFromNonce(nonce)
+	if err != nil {
+		httpLog.Warnf("Invalid nonce (%s)", err)
+		return 0, err
+	}
+	return nonce, nil
+}
+
+func getOTPFromURL(reqURL *url.URL) (string, error) {
+	otpCode := ""
+	for arg, values := range reqURL.Query() {
+		if len(arg) == 2 {
+			otpCode = digitsOnly(values[0])
+			break
+		}
+	}
+	if otpCode == "" {
+		httpLog.Warnf("OTP not found in request", otpCode)
+		return "", ErrMissingNonce
+	}
+	httpLog.Debugf("Request OTP = %s", otpCode)
+	return otpCode, nil
+}
+
+func digitsOnly(value string) string {
+	var buf bytes.Buffer
+	for _, char := range value {
+		if unicode.IsDigit(char) {
+			buf.WriteRune(char)
+		}
+	}
+	return buf.String()
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
@@ -371,9 +430,22 @@ func default404Handler(resp http.ResponseWriter, req *http.Request) {
 // [ HTTP Handlers ] ---------------------------------------------------------------
 
 func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
-	qNonce := req.URL.Query().Get("_")
-	nonce, err := strconv.Atoi(qNonce)
-
+	if s.EnforceOTP {
+		otpCode, err := getOTPFromURL(req.URL)
+		if err != nil {
+			resp.WriteHeader(404)
+			return
+		}
+		valid, err := cryptography.ValidateTOTP(otpCode)
+		if err != nil {
+			httpLog.Warnf("Failed to validate OTP %s", err)
+		}
+		if !valid {
+			resp.WriteHeader(404)
+			return
+		}
+	}
+	nonce, _ := getNonceFromURL(req.URL)
 	certPEM, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, s.Conf.Domain)
 	if err != nil {
 		httpLog.Infof("Failed to get server certificate for cn = '%s': %s", s.Conf.Domain, err)
@@ -386,11 +458,26 @@ func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request
 }
 
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request) {
+	if s.EnforceOTP {
+		otpCode, err := getOTPFromURL(req.URL)
+		if err != nil {
+			resp.WriteHeader(404)
+			return
+		}
+		valid, err := cryptography.ValidateTOTP(otpCode)
+		if err != nil {
+			httpLog.Warnf("Failed to validate OTP %s", err)
+		}
+		if !valid {
+			resp.WriteHeader(404)
+			return
+		}
+	}
 
 	// Note: these are the c2 certificates NOT the certificates/keys used for SSL/TLS
 	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, s.Conf.Domain)
 	if err != nil {
-		httpLog.Info("Failed to fetch rsa private key")
+		httpLog.Warn("Failed to fetch rsa private key")
 		resp.WriteHeader(404)
 		return
 	}
@@ -404,7 +491,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	nonce, err := strconv.Atoi(req.URL.Query().Get("_"))
 	_, encoder, err := encoders.EncoderFromNonce(nonce)
 	if err != nil {
-		httpLog.Infof("Request specified an invalid encoder (%d)", nonce)
+		httpLog.Warnf("Request specified an invalid encoder (%d)", nonce)
 		resp.WriteHeader(404)
 		return
 	}
@@ -418,7 +505,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 	sessionInitData, err := cryptography.RSADecrypt(data, privateKey)
 	if err != nil {
-		httpLog.Info("RSA decryption failed")
+		httpLog.Error("RSA decryption failed")
 		resp.WriteHeader(404)
 		return
 	}
@@ -447,7 +534,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	}
 	http.SetCookie(resp, &http.Cookie{
 		Domain:   s.Conf.Domain,
-		Name:     sessionCookieName,
+		Name:     s.getCookieName(),
 		Value:    httpSession.ID,
 		Secure:   true,
 		HttpOnly: true,
@@ -503,7 +590,9 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 		handler.(func(*core.Session, []byte))(httpSession.Session, envelope.Data)
 	}
 	resp.WriteHeader(200)
+
 	// TODO: Return random data?
+
 }
 
 func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) {
@@ -570,13 +659,10 @@ func (s *SliverHTTPC2) stagerHander(resp http.ResponseWriter, req *http.Request)
 
 func (s *SliverHTTPC2) getHTTPSession(req *http.Request) *HTTPSession {
 	for _, cookie := range req.Cookies() {
-		if cookie.Name == sessionCookieName {
-			httpSession := s.HTTPSessions.Get(cookie.Value)
-			if httpSession != nil {
-				httpSession.Session.UpdateCheckin()
-				return httpSession
-			}
-			return nil
+		httpSession := s.HTTPSessions.Get(cookie.Value)
+		if httpSession != nil {
+			httpSession.Session.UpdateCheckin()
+			return httpSession
 		}
 	}
 	return nil // No valid cookie names

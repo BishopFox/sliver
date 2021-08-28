@@ -611,13 +611,20 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		buf := bytes.NewBuffer([]byte{})
 		buildLog.Infof("[render] %s -> %s", boxName, sliverCodePath)
 
-		// Render code
-		sliverCodeTmpl := template.Must(template.New("sliver").Parse(sliverGoCode))
-		err = sliverCodeTmpl.Funcs(template.FuncMap{
+		// --------------
+		// Render Code
+		// --------------
+		sliverCodeTmpl := template.New("sliver")
+		sliverCodeTmpl, err = sliverCodeTmpl.Funcs(template.FuncMap{
 			"GenerateUserAgent": func() string {
 				return configs.GetHTTPC2Config().GenerateUserAgent(config.GOOS, config.GOARCH)
 			},
-		}).Execute(buf, struct {
+		}).Parse(sliverGoCode)
+		if err != nil {
+			buildLog.Errorf("Template parsing error %s", err)
+			return "", err
+		}
+		err = sliverCodeTmpl.Execute(buf, struct {
 			Name         string
 			Config       *models.ImplantConfig
 			OTPSecret    string
@@ -629,7 +636,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 			configs.GetHTTPC2Config().RandomImplantConfig(),
 		})
 		if err != nil {
-			buildLog.Error(err)
+			buildLog.Errorf("Template execution error %s", err)
 			return "", err
 		}
 

@@ -37,8 +37,6 @@ import (
 	"log"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/pquerna/otp"
-	"github.com/pquerna/otp/totp"
 
 	// {{if eq .Config.GOOS "windows"}}
 	"github.com/bishopfox/sliver/implant/sliver/priv"
@@ -301,19 +299,4 @@ func getRegisterSliver() *sliverpb.Envelope {
 		Type: sliverpb.MsgRegister,
 		Data: data,
 	}
-}
-
-func getOTPCode() string {
-	now := time.Now().UTC()
-	opts := totp.ValidateOpts{
-		Digits:    8,
-		Algorithm: otp.AlgorithmSHA256,
-		Period:    uint(30),
-		Skew:      uint(1),
-	}
-	code, _ := totp.GenerateCodeCustom("{{ .OTPSecret }}", now, opts)
-	// {{if .Config.Debug}}
-	log.Printf("TOTP Code: %s", code)
-	// {{end}}
-	return code
 }

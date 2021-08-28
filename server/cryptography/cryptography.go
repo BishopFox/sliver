@@ -33,6 +33,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"time"
 
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/pquerna/otp"
@@ -170,6 +171,19 @@ func TOTPServerSecret() (string, error) {
 		data, err := ioutil.ReadFile(totpSecretPath)
 		return string(data), err
 	}
+}
+
+// ValidateTOTP - Validate a TOTP code
+func ValidateTOTP(code string) (bool, error) {
+	secret, err := TOTPServerSecret()
+	if err != nil {
+		return false, err
+	}
+	valid, err := totp.ValidateCustom(code, secret, time.Now().UTC(), TOTPOptions())
+	if err != nil {
+		return false, err
+	}
+	return valid, nil
 }
 
 func totpGenerateSecret(saveTo string) (string, error) {
