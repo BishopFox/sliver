@@ -36,7 +36,7 @@ var (
 		sessions: map[uint32]*Session{},
 		mutex:    &sync.RWMutex{},
 	}
-	hiveID = uint32(0)
+	rollingSessionID = uint32(0)
 
 	// ErrUnknownMessageType - Returned if the implant did not understand the message for
 	//                         example when the command is not supported on the platform
@@ -212,8 +212,8 @@ func (s *sessions) Remove(sessionID uint32) {
 
 // NextSessionID - Returns an incremental nonce as an id
 func NextSessionID() uint32 {
-	newID := hiveID + 1
-	hiveID++
+	newID := rollingSessionID + 1
+	rollingSessionID++
 	return newID
 }
 

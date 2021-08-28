@@ -60,14 +60,14 @@ func AddSessionHandlers(key uint32, value interface{}) {
 }
 
 func registerSessionHandler(session *core.Session, data []byte) {
-	register := &sliverpb.Register{}
-	err := proto.Unmarshal(data, register)
-	if err != nil {
-		handlerLog.Warnf("error decoding message: %v", err)
+	if session == nil {
 		return
 	}
 
-	if session == nil {
+	register := &sliverpb.Register{}
+	err := proto.Unmarshal(data, register)
+	if err != nil {
+		handlerLog.Errorf("Error decoding message: %s", err)
 		return
 	}
 
@@ -78,10 +78,8 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	// Parse Register UUID
 	sessionUUID, err := uuid.Parse(register.Uuid)
 	if err != nil {
-		// Generate Random UUID
-		sessionUUID = uuid.New()
+		sessionUUID = uuid.New() // Generate Random UUID
 	}
-
 	session.Name = register.Name
 	session.Hostname = register.Hostname
 	session.UUID = sessionUUID.String()
@@ -161,5 +159,5 @@ func tunnelCloseHandler(session *core.Session, data []byte) {
 }
 
 func pingHandler(session *core.Session, data []byte) {
-	handlerLog.Infof("ping from session %d", session.ID)
+	handlerLog.Debugf("ping from session %d", session.ID)
 }

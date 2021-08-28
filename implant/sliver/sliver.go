@@ -257,7 +257,7 @@ func getRegisterSliver() *sliverpb.Envelope {
 	filename, err := os.Executable()
 	// Should not happen, but still...
 	if err != nil {
-		//TODO: build the absolute path to os.Args[0]
+		// TODO: build the absolute path to os.Args[0]
 		if 0 < len(os.Args) {
 			filename = os.Args[0]
 		} else {
@@ -287,6 +287,7 @@ func getRegisterSliver() *sliverpb.Envelope {
 		ReconnectInterval: uint32(transports.GetReconnectInterval() / time.Second),
 		ProxyURL:          transports.GetProxyURL(),
 		PollInterval:      uint32(transports.GetPollInterval() / time.Second),
+		ConfigID:          "{{ .Config.ID }}",
 	})
 	if err != nil {
 		// {{if .Config.Debug}}

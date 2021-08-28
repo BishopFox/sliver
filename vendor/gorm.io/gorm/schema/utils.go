@@ -61,7 +61,7 @@ func removeSettingFromTag(tag reflect.StructTag, names ...string) reflect.Struct
 // GetRelationsValues get relations's values from a reflect value
 func GetRelationsValues(reflectValue reflect.Value, rels []*Relationship) (reflectResults reflect.Value) {
 	for _, rel := range rels {
-		reflectResults = reflect.MakeSlice(reflect.SliceOf(reflect.PtrTo(rel.FieldSchema.ModelType)), 0, 0)
+		reflectResults = reflect.MakeSlice(reflect.SliceOf(reflect.PtrTo(rel.FieldSchema.ModelType)), 0, 1)
 
 		appendToResults := func(value reflect.Value) {
 			if _, isZero := rel.Field.ValueOf(value); !isZero {
@@ -71,10 +71,10 @@ func GetRelationsValues(reflectValue reflect.Value, rels []*Relationship) (refle
 					reflectResults = reflect.Append(reflectResults, result.Addr())
 				case reflect.Slice, reflect.Array:
 					for i := 0; i < result.Len(); i++ {
-						if result.Index(i).Kind() == reflect.Ptr {
-							reflectResults = reflect.Append(reflectResults, result.Index(i))
+						if elem := result.Index(i); elem.Kind() == reflect.Ptr {
+							reflectResults = reflect.Append(reflectResults, elem)
 						} else {
-							reflectResults = reflect.Append(reflectResults, result.Index(i).Addr())
+							reflectResults = reflect.Append(reflectResults, elem.Addr())
 						}
 					}
 				}
@@ -142,7 +142,7 @@ func GetIdentityFieldValuesMap(reflectValue reflect.Value, fields []*Field) (map
 			if notZero {
 				dataKey := utils.ToStringKey(fieldValues...)
 				if _, ok := dataResults[dataKey]; !ok {
-					results = append(results, fieldValues[:])
+					results = append(results, fieldValues)
 					dataResults[dataKey] = []reflect.Value{elem}
 				} else {
 					dataResults[dataKey] = append(dataResults[dataKey], elem)
@@ -178,17 +178,18 @@ func ToQueryValues(table string, foreignKeys []string, foreignValues [][]interfa
 		}
 
 		return clause.Column{Table: table, Name: foreignKeys[0]}, queryValues
-	} else {
-		columns := make([]clause.Column, len(foreignKeys))
-		for idx, key := range foreignKeys {
-			columns[idx] = clause.Column{Table: table, Name: key}
-		}
-
-		for idx, r := range foreignValues {
-			queryValues[idx] = r
-		}
-		return columns, queryValues
 	}
+
+	columns := make([]clause.Column, len(foreignKeys))
+	for idx, key := range foreignKeys {
+		columns[idx] = clause.Column{Table: table, Name: key}
+	}
+
+	for idx, r := range foreignValues {
+		queryValues[idx] = r
+	}
+
+	return columns, queryValues
 }
 
 type embeddedNamer struct {

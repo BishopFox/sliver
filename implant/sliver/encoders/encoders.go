@@ -69,6 +69,21 @@ func RandomEncoder() (int, Encoder) {
 	return nonce, EncoderMap[encoderID]
 }
 
+// RandomTxtEncoder - Get a random nonce identifier and a matching encoder
+func RandomTxtEncoder() (int, Encoder) {
+	textEncoders := map[int]Encoder{
+		EnglishEncoderID: English{},
+		Base64EncoderID:  Base64{},
+	}
+	keys := make([]int, 0, len(textEncoders))
+	for k := range textEncoders {
+		keys = append(keys, k)
+	}
+	encoderID := keys[insecureRand.Intn(len(keys))]
+	nonce := (insecureRand.Intn(maxN) * EncoderModulus) + encoderID
+	return nonce, textEncoders[encoderID]
+}
+
 // NopNonce - A NOP nonce identifies a request with no encoder/payload
 //            any value where mod = 0
 func NopNonce() int {

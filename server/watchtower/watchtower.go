@@ -21,8 +21,8 @@ var (
 
 func update(implantBuild *models.ImplantBuild) {
 	if watcher != nil && initialized {
-		watchtowerLog.Debugf("Monitoring implant %s (%s)", implantBuild.Name, implantBuild.Checksum)
-		watcher.Add(implantBuild.Name, implantBuild.Checksum)
+		watchtowerLog.Debugf("Monitoring implant %s (%s)", implantBuild.Name, implantBuild.MD5)
+		watcher.Add(implantBuild.Name, implantBuild.MD5)
 		watchtowerLog.Debugf("Implant added to the watch list")
 	}
 }

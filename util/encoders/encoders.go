@@ -55,7 +55,7 @@ func EncoderFromNonce(nonce int) (int, Encoder, error) {
 	if encoder, ok := EncoderMap[encoderID]; ok {
 		return encoderID, encoder, nil
 	}
-	return -1, nil, errors.New("{{if .Config.Debug}}Invalid encoder nonce{{end}}")
+	return -1, nil, errors.New("Invalid encoder nonce")
 }
 
 // RandomEncoder - Get a random nonce identifier and a matching encoder

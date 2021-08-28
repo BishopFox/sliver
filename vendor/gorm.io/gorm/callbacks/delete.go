@@ -10,7 +10,7 @@ import (
 )
 
 func BeforeDelete(db *gorm.DB) {
-	if db.Error == nil && db.Statement.Schema != nil && db.Statement.Schema.BeforeDelete {
+	if db.Error == nil && db.Statement.Schema != nil && !db.Statement.SkipHooks && db.Statement.Schema.BeforeDelete {
 		callMethod(db, func(value interface{}, tx *gorm.DB) bool {
 			if i, ok := value.(BeforeDeleteInterface); ok {
 				db.AddError(i.BeforeDelete(tx))
@@ -34,11 +34,14 @@ func DeleteBeforeAssociations(db *gorm.DB) {
 						case schema.HasOne, schema.HasMany:
 							queryConds := rel.ToQueryConditions(db.Statement.ReflectValue)
 							modelValue := reflect.New(rel.FieldSchema.ModelType).Interface()
-							tx := db.Session(&gorm.Session{}).Model(modelValue)
+							tx := db.Session(&gorm.Session{NewDB: true}).Model(modelValue)
 							withoutConditions := false
+							if db.Statement.Unscoped {
+								tx = tx.Unscoped()
+							}
 
 							if len(db.Statement.Selects) > 0 {
-								var selects []string
+								selects := make([]string, 0, len(db.Statement.Selects))
 								for _, s := range db.Statement.Selects {
 									if s == clause.Associations {
 										selects = append(selects, s)
@@ -66,12 +69,12 @@ func DeleteBeforeAssociations(db *gorm.DB) {
 							}
 						case schema.Many2Many:
 							var (
-								queryConds     []clause.Expression
-								foreignFields  []*schema.Field
-								relForeignKeys []string
+								queryConds     = make([]clause.Expression, 0, len(rel.References))
+								foreignFields  = make([]*schema.Field, 0, len(rel.References))
+								relForeignKeys = make([]string, 0, len(rel.References))
 								modelValue     = reflect.New(rel.JoinTable.ModelType).Interface()
 								table          = rel.JoinTable.Table
-								tx             = db.Session(&gorm.Session{}).Model(modelValue).Table(table)
+								tx             = db.Session(&gorm.Session{NewDB: true}).Model(modelValue).Table(table)
 							)
 
 							for _, ref := range rel.References {
@@ -132,7 +135,7 @@ func Delete(db *gorm.DB) {
 			}
 
 			db.Statement.AddClauseIfNotExists(clause.From{})
-			db.Statement.Build("DELETE", "FROM", "WHERE")
+			db.Statement.Build(db.Statement.BuildClauses...)
 		}
 
 		if _, ok := db.Statement.Clauses["WHERE"]; !db.AllowGlobalUpdate && !ok && db.Error == nil {
@@ -153,7 +156,7 @@ func Delete(db *gorm.DB) {
 }
 
 func AfterDelete(db *gorm.DB) {
-	if db.Error == nil && db.Statement.Schema != nil && db.Statement.Schema.AfterDelete {
+	if db.Error == nil && db.Statement.Schema != nil && !db.Statement.SkipHooks && db.Statement.Schema.AfterDelete {
 		callMethod(db, func(value interface{}, tx *gorm.DB) bool {
 			if i, ok := value.(AfterDeleteInterface); ok {
 				db.AddError(i.AfterDelete(tx))

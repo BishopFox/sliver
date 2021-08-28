@@ -50,15 +50,14 @@ func (db *DB) Table(name string, args ...interface{}) (tx *DB) {
 		tx.Statement.TableExpr = &clause.Expr{SQL: name, Vars: args}
 		if results := tableRegexp.FindStringSubmatch(name); len(results) == 2 {
 			tx.Statement.Table = results[1]
-			return
 		}
 	} else if tables := strings.Split(name, "."); len(tables) == 2 {
 		tx.Statement.TableExpr = &clause.Expr{SQL: tx.Statement.Quote(name)}
 		tx.Statement.Table = tables[1]
-		return
+	} else {
+		tx.Statement.TableExpr = &clause.Expr{SQL: tx.Statement.Quote(name)}
+		tx.Statement.Table = name
 	}
-
-	tx.Statement.Table = name
 	return
 }
 
@@ -93,10 +92,17 @@ func (db *DB) Select(query interface{}, args ...interface{}) (tx *DB) {
 		}
 		delete(tx.Statement.Clauses, "SELECT")
 	case string:
-		fields := strings.FieldsFunc(v, utils.IsValidDBNameChar)
-
-		// normal field names
-		if len(fields) == 1 || (len(fields) == 3 && strings.ToUpper(fields[1]) == "AS") {
+		if strings.Count(v, "?") >= len(args) && len(args) > 0 {
+			tx.Statement.AddClause(clause.Select{
+				Distinct:   db.Statement.Distinct,
+				Expression: clause.Expr{SQL: v, Vars: args},
+			})
+		} else if strings.Count(v, "@") > 0 && len(args) > 0 {
+			tx.Statement.AddClause(clause.Select{
+				Distinct:   db.Statement.Distinct,
+				Expression: clause.NamedExpr{SQL: v, Vars: args},
+			})
+		} else {
 			tx.Statement.Selects = []string{v}
 
 			for _, arg := range args {
@@ -115,11 +121,6 @@ func (db *DB) Select(query interface{}, args ...interface{}) (tx *DB) {
 			}
 
 			delete(tx.Statement.Clauses, "SELECT")
-		} else {
-			tx.Statement.AddClause(clause.Select{
-				Distinct:   db.Statement.Distinct,
-				Expression: clause.Expr{SQL: v, Vars: args},
-			})
 		}
 	default:
 		tx.AddError(fmt.Errorf("unsupported select args %v %v", query, args))
@@ -207,12 +208,14 @@ func (db *DB) Order(value interface{}) (tx *DB) {
 		tx.Statement.AddClause(clause.OrderBy{
 			Columns: []clause.OrderByColumn{v},
 		})
-	default:
-		tx.Statement.AddClause(clause.OrderBy{
-			Columns: []clause.OrderByColumn{{
-				Column: clause.Column{Name: fmt.Sprint(value), Raw: true},
-			}},
-		})
+	case string:
+		if v != "" {
+			tx.Statement.AddClause(clause.OrderBy{
+				Columns: []clause.OrderByColumn{{
+					Column: clause.Column{Name: v, Raw: true},
+				}},
+			})
+		}
 	}
 	return
 }
@@ -243,11 +246,10 @@ func (db *DB) Offset(offset int) (tx *DB) {
 //     }
 //
 //     db.Scopes(AmountGreaterThan1000, OrderStatus([]string{"paid", "shipped"})).Find(&orders)
-func (db *DB) Scopes(funcs ...func(*DB) *DB) *DB {
-	for _, f := range funcs {
-		db = f(db)
-	}
-	return db
+func (db *DB) Scopes(funcs ...func(*DB) *DB) (tx *DB) {
+	tx = db.getInstance()
+	tx.Statement.scopes = append(tx.Statement.scopes, funcs...)
+	return tx
 }
 
 // Preload preload associations with given conditions
