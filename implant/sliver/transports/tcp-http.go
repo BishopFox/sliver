@@ -347,14 +347,6 @@ func (s *SliverHTTPClient) pathJoinURL(segments []string) string {
 	return strings.Join(segments, "/")
 }
 
-// Procedural C2
-// ===============
-// .txt = rsakey
-// .php = start / session
-// .js = poll
-// .png = stop
-// .woff = sliver shellcode
-
 func (s *SliverHTTPClient) jsURL() *url.URL {
 	curl, _ := url.Parse(s.Origin)
 

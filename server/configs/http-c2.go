@@ -91,9 +91,6 @@ func (h *HTTPC2Config) RandomImplantConfig() *HTTPC2ImplantConfig {
 		MaxFiles: h.ImplantConfig.MaxFiles,
 		MaxPaths: h.ImplantConfig.MaxPaths,
 
-		CssFiles: h.ImplantConfig.RandomCssFiles(),
-		CssPaths: h.ImplantConfig.RandomCssPaths(),
-
 		JsFiles: h.ImplantConfig.RandomJsFiles(),
 		JsPaths: h.ImplantConfig.RandomJsPaths(),
 
@@ -133,10 +130,6 @@ type HTTPC2ImplantConfig struct {
 	MaxPaths int `json:"max_paths"`
 	MinPaths int `json:"min_paths"`
 
-	// CSS files and paths
-	CssFiles []string `json:"css_files"`
-	CssPaths []string `json:"css_paths"`
-
 	// JS files and paths
 	JsFiles []string `json:"js_files"`
 	JsPaths []string `json:"js_paths"`
@@ -152,18 +145,6 @@ type HTTPC2ImplantConfig struct {
 	// Php files and paths
 	PhpFiles []string `json:"php_files"`
 	PhpPaths []string `json:"php_paths"`
-}
-
-func (h *HTTPC2ImplantConfig) RandomCssFiles() []string {
-	min := h.MinFiles
-	if min < 1 {
-		min = 1
-	}
-	return h.randomSample(h.CssFiles, min, h.MaxFiles)
-}
-
-func (h *HTTPC2ImplantConfig) RandomCssPaths() []string {
-	return h.randomSample(h.CssPaths, h.MinPaths, h.MaxPaths)
 }
 
 func (h *HTTPC2ImplantConfig) RandomJsFiles() []string {
@@ -235,7 +216,9 @@ var (
 
 	defaultHTTPC2Config = &HTTPC2Config{
 		ServerConfig: &HTTPC2ServerConfig{
-			Cookies: []string{"PHPSESSID", "SID", "SSID", "APISID", "csrf-state", "AWSALBCORS"},
+			Cookies: []string{
+				"PHPSESSID", "SID", "SSID", "APISID", "csrf-state", "AWSALBCORS",
+			},
 		},
 		ImplantConfig: &HTTPC2ImplantConfig{
 			UserAgent: "", // Blank string is rendered as randomized platform user-agent
@@ -244,20 +227,38 @@ var (
 			MaxPaths:  8,
 			MinPaths:  2,
 
-			CssFiles: []string{"bootstrap.css", "bootstrap.min.css", "vendor.css"},
-			CssPaths: []string{"css", "styles", "style", "stylesheets", "stylesheet"},
+			JsFiles: []string{
+				"bootstrap.js", "bootstrap.min.js", "jquery.min.js", "jquery.js", "route.js",
+				"app.js", "app.min.js", "array.js", "backbone.js", "script.js", "email.js",
+			},
+			JsPaths: []string{
+				"js", "umd", "assets", "bundle", "bundles", "scripts", "script", "javascripts",
+				"javascript", "jscript",
+			},
 
-			JsFiles: []string{"bootstrap.js", "bootstrap.min.js", "jquery.min.js", "jquery.js"},
-			JsPaths: []string{"js", "umd", "assets", "bundle", "bundles", "scripts", "script", "javascripts", "javascript"},
+			TxtFiles: []string{
+				"robots.txt", "sample.txt", "readme.txt", "example.txt",
+			},
+			TxtPaths: []string{
+				"static", "www", "assets", "text", "docs", "sample", "data", "readme",
+				"examples",
+			},
 
-			TxtFiles: []string{"robots.txt", "sample.txt", "readme.txt", "example.txt"},
-			TxtPaths: []string{"static", "www", "assets", "text", "docs", "sample"},
+			PngFiles: []string{
+				"favicon.png", "sample.png", "example.png",
+			},
+			PngPaths: []string{
+				"static", "www", "assets", "images", "icons", "image", "icon", "png",
+			},
 
-			PngFiles: []string{"favicon.png", "sample.png", "example.png"},
-			PngPaths: []string{"static", "www", "assets", "images", "icons"},
-
-			PhpFiles: []string{"login.php", "signin.php", "api.php", "samples.php", "rpc.php"},
-			PhpPaths: []string{"php", "api", "upload", "actions", "rest", "v1", "async"},
+			PhpFiles: []string{
+				"login.php", "signin.php", "api.php", "samples.php", "rpc.php", "index.php",
+				"admin.php", "register.php", "sign-up.php",
+			},
+			PhpPaths: []string{
+				"php", "api", "upload", "actions", "rest", "v1", "auth", "authenticate",
+				"oauth", "oauth2", "oauth2callback", "database", "db", "namespaces",
+			},
 		},
 	}
 )
