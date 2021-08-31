@@ -170,6 +170,12 @@ func TestRemoveContent(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	_, _, err = GetContent(website1, "/foobar")
+	if !errors.Is(err, db.ErrRecordNotFound) {
+		t.Errorf("Expected ErrRecordNotFound, but got %v", err)
+	}
+
 	_, _, err = GetContent(website1, "/data1")
 	if !errors.Is(err, db.ErrRecordNotFound) {
 		t.Errorf("Expected ErrRecordNotFound, but got %v", err)

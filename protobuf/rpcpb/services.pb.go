@@ -350,8 +350,8 @@ var file_rpcpb_services_proto_rawDesc = []byte{
 	0x53, 0x48, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x52, 0x65, 0x71, 0x1a, 0x14, 0x2e, 0x73,
 	0x6c, 0x69, 0x76, 0x65, 0x72, 0x70, 0x62, 0x2e, 0x53, 0x53, 0x48, 0x43, 0x6f, 0x6d, 0x6d, 0x61,
 	0x6e, 0x64, 0x12, 0x38, 0x0a, 0x09, 0x48, 0x69, 0x6a, 0x61, 0x63, 0x6b, 0x44, 0x4c, 0x4c, 0x12,
-	0x16, 0x2e, 0x73, 0x6c, 0x69, 0x76, 0x65, 0x72, 0x70, 0x62, 0x2e, 0x44, 0x6c, 0x6c, 0x48, 0x69,
-	0x6a, 0x61, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x1a, 0x13, 0x2e, 0x73, 0x6c, 0x69, 0x76, 0x65, 0x72,
+	0x16, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x2e, 0x44, 0x6c, 0x6c, 0x48, 0x69,
+	0x6a, 0x61, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x1a, 0x13, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74,
 	0x70, 0x62, 0x2e, 0x44, 0x6c, 0x6c, 0x48, 0x69, 0x6a, 0x61, 0x63, 0x6b, 0x12, 0x35, 0x0a, 0x08,
 	0x47, 0x65, 0x74, 0x50, 0x72, 0x69, 0x76, 0x73, 0x12, 0x15, 0x2e, 0x73, 0x6c, 0x69, 0x76, 0x65,
 	0x72, 0x70, 0x62, 0x2e, 0x47, 0x65, 0x74, 0x50, 0x72, 0x69, 0x76, 0x73, 0x52, 0x65, 0x71, 0x1a,
@@ -488,7 +488,7 @@ var file_rpcpb_services_proto_goTypes = []interface{}{
 	(*sliverpb.RegistrySubKeyListReq)(nil), // 62: sliverpb.RegistrySubKeyListReq
 	(*sliverpb.RegistryListValuesReq)(nil), // 63: sliverpb.RegistryListValuesReq
 	(*sliverpb.SSHCommandReq)(nil),         // 64: sliverpb.SSHCommandReq
-	(*sliverpb.DllHijackReq)(nil),          // 65: sliverpb.DllHijackReq
+	(*clientpb.DllHijackReq)(nil),          // 65: clientpb.DllHijackReq
 	(*sliverpb.GetPrivsReq)(nil),           // 66: sliverpb.GetPrivsReq
 	(*sliverpb.RegisterExtensionReq)(nil),  // 67: sliverpb.RegisterExtensionReq
 	(*sliverpb.CallExtensionReq)(nil),      // 68: sliverpb.CallExtensionReq
@@ -564,7 +564,7 @@ var file_rpcpb_services_proto_goTypes = []interface{}{
 	(*sliverpb.RegistrySubKeyList)(nil),    // 138: sliverpb.RegistrySubKeyList
 	(*sliverpb.RegistryValuesList)(nil),    // 139: sliverpb.RegistryValuesList
 	(*sliverpb.SSHCommand)(nil),            // 140: sliverpb.SSHCommand
-	(*sliverpb.DllHijack)(nil),             // 141: sliverpb.DllHijack
+	(*clientpb.DllHijack)(nil),             // 141: clientpb.DllHijack
 	(*sliverpb.GetPrivs)(nil),              // 142: sliverpb.GetPrivs
 	(*sliverpb.RegisterExtension)(nil),     // 143: sliverpb.RegisterExtension
 	(*sliverpb.CallExtension)(nil),         // 144: sliverpb.CallExtension
@@ -667,7 +667,7 @@ var file_rpcpb_services_proto_depIdxs = []int32{
 	62,  // 86: rpcpb.SliverRPC.RegistryListSubKeys:input_type -> sliverpb.RegistrySubKeyListReq
 	63,  // 87: rpcpb.SliverRPC.RegistryListValues:input_type -> sliverpb.RegistryListValuesReq
 	64,  // 88: rpcpb.SliverRPC.RunSSHCommand:input_type -> sliverpb.SSHCommandReq
-	65,  // 89: rpcpb.SliverRPC.HijackDLL:input_type -> sliverpb.DllHijackReq
+	65,  // 89: rpcpb.SliverRPC.HijackDLL:input_type -> clientpb.DllHijackReq
 	66,  // 90: rpcpb.SliverRPC.GetPrivs:input_type -> sliverpb.GetPrivsReq
 	67,  // 91: rpcpb.SliverRPC.RegisterExtension:input_type -> sliverpb.RegisterExtensionReq
 	68,  // 92: rpcpb.SliverRPC.CallExtension:input_type -> sliverpb.CallExtensionReq
@@ -773,7 +773,7 @@ var file_rpcpb_services_proto_depIdxs = []int32{
 	138, // 192: rpcpb.SliverRPC.RegistryListSubKeys:output_type -> sliverpb.RegistrySubKeyList
 	139, // 193: rpcpb.SliverRPC.RegistryListValues:output_type -> sliverpb.RegistryValuesList
 	140, // 194: rpcpb.SliverRPC.RunSSHCommand:output_type -> sliverpb.SSHCommand
-	141, // 195: rpcpb.SliverRPC.HijackDLL:output_type -> sliverpb.DllHijack
+	141, // 195: rpcpb.SliverRPC.HijackDLL:output_type -> clientpb.DllHijack
 	142, // 196: rpcpb.SliverRPC.GetPrivs:output_type -> sliverpb.GetPrivs
 	143, // 197: rpcpb.SliverRPC.RegisterExtension:output_type -> sliverpb.RegisterExtension
 	144, // 198: rpcpb.SliverRPC.CallExtension:output_type -> sliverpb.CallExtension

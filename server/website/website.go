@@ -96,6 +96,7 @@ func AddWebsite(websiteName string) (*models.Website, error) {
 		website = &models.Website{Name: websiteName}
 		err = dbSession.Create(&website).Error
 	}
+	dbSession.Commit()
 	return website, err
 }
 
@@ -129,6 +130,7 @@ func AddContent(websiteName string, path string, contentType string, content []b
 	if err != nil {
 		return err
 	}
+	dbSession.Commit()
 
 	// Write content to disk
 	webContentDir, err := getWebContentDir()
@@ -176,7 +178,8 @@ func RemoveContent(websiteName string, path string) error {
 	}
 
 	// Delete row
-	result = dbSession.Delete(&content)
+	result = dbSession.Delete(&models.WebContent{}, content.ID)
+	dbSession.Commit()
 	return result.Error
 }
 

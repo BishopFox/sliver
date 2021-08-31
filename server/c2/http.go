@@ -237,9 +237,7 @@ func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 			}
 		}
 	}
-
-	c, k, err := certs.C2ServerGetRSACertificate(conf.Domain)
-	httpLog.Infof("C2-Server: %v %v %v", c, k, err)
+	_, _, err := certs.C2ServerGetRSACertificate(conf.Domain)
 	if err == certs.ErrCertDoesNotExist {
 		httpLog.Infof("Generating C2 server certificate ...")
 		_, _, err := certs.C2ServerGenerateRSACertificate(conf.Domain)
@@ -336,7 +334,7 @@ func getNonceFromURL(reqURL *url.URL) (int, error) {
 		}
 	}
 	if qNonce == "" {
-		httpLog.Warnf("Nonce not found in request", qNonce)
+		httpLog.Warn("Nonce not found in request")
 		return 0, ErrMissingNonce
 	}
 	nonce, err := strconv.Atoi(qNonce)
@@ -362,7 +360,7 @@ func getOTPFromURL(reqURL *url.URL) (string, error) {
 		}
 	}
 	if otpCode == "" {
-		httpLog.Warnf("OTP not found in request", otpCode)
+		httpLog.Warn("OTP not found in request")
 		return "", ErrMissingNonce
 	}
 	httpLog.Debugf("Request OTP = %s", otpCode)

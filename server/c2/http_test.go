@@ -42,11 +42,12 @@ func TestRsaKeyHandler(t *testing.T) {
 		t.Errorf("Listener failed to start %s", err)
 		return
 	}
+
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(server.rsaKeyHandler)
 	handler.ServeHTTP(rr, req)
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("handler returned wrong status code: got %d want %d", status, http.StatusNotFound)
 	}
 
 }

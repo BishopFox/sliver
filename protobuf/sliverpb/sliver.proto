@@ -332,6 +332,8 @@ message ExecuteReq {
   string Path = 1;
   repeated string Args = 2;
   bool Output = 3;
+  string Stdout = 4;
+  string Stderr = 5;
 
   commonpb.Request Request = 9;
 }
@@ -340,13 +342,16 @@ message ExecuteTokenReq {
   string Path = 1;
   repeated string Args = 2;
   bool Output = 3;
+  string Stdout = 4;
+  string Stderr = 5;
 
   commonpb.Request Request = 9;
 }
 
 message Execute {
-  string Result = 1;
-  uint32 Status = 2;
+  uint32 Status = 1;
+  string Stdout = 2;
+  string Stderr = 3;
 
   commonpb.Response Response = 9;
 }
@@ -800,20 +805,6 @@ message SSHCommandReq {
 message SSHCommand {
   string StdOut = 1;
   string StdErr = 2;
-  commonpb.Response Response = 9;
-}
-
-message DllHijackReq {
-  string ReferenceDLLPath = 1;
-  string TargetLocation = 2;
-  bytes ReferenceDLL = 3;
-  bytes TargetDLL = 4;
-  string ProfileName = 5;
-
-  commonpb.Request Request = 9;
-}
-
-message DllHijack {
   commonpb.Response Response = 9;
 }
 
