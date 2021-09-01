@@ -82,31 +82,6 @@ var (
 		"windows/386":   true,
 		"windows/amd64": true,
 	}
-
-	// validFormats = []string{
-	// 	"bash",
-	// 	"c",
-	// 	"csharp",
-	// 	"dw",
-	// 	"dword",
-	// 	"hex",
-	// 	"java",
-	// 	"js_be",
-	// 	"js_le",
-	// 	"num",
-	// 	"perl",
-	// 	"pl",
-	// 	"powershell",
-	// 	"ps1",
-	// 	"py",
-	// 	"python",
-	// 	"raw",
-	// 	"rb",
-	// 	"ruby",
-	// 	"sh",
-	// 	"vbapplication",
-	// 	"vbscript",
-	// }
 )
 
 // GenerateCmd - The main command used to generate implant binaries
@@ -349,11 +324,11 @@ func getTargets(targetOS string, targetArch string, con *console.SliverConsoleCl
 
 	target := fmt.Sprintf("%s/%s", targetOS, targetArch)
 	if _, ok := SupportedCompilerTargets[target]; !ok {
-		con.Printf("⚠️  Unsupported compiler target %s%s%s, but we can try to compile a Default implant.\n",
+		con.Printf("⚠️  Unsupported compiler target %s%s%s, but we can try to compile a generic implant.\n",
 			console.Bold, target, console.Normal,
 		)
-		con.Printf("⚠️  Default implants do not support all commands/features.\n")
-		prompt := &survey.Confirm{Message: "Compile a Default build?"}
+		con.Printf("⚠️  Generic implants do not support all commands/features.\n")
+		prompt := &survey.Confirm{Message: "Attempt to build generic implant?"}
 		var confirm bool
 		survey.AskOne(prompt, &confirm)
 		if !confirm {

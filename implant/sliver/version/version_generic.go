@@ -1,4 +1,4 @@
-//go:build !(linux || darwin || windows)
+//go:build !(darwin || windows) || !(linux && (amd64 || 386))
 
 package version
 
