@@ -537,17 +537,17 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		sliverGoCode := string(sliverGoCodeRaw)
 
 		// Skip dllmain files for anything non windows
-		if f.Name() == "sliver.h" || f.Name() == "sliver.c" {
+		if f.Name() == "sliver.c" || f.Name() == "sliver.h" {
 			if !config.IsSharedLib && !config.IsShellcode {
 				return nil
 			}
 		}
 
 		var sliverCodePath string
-		if f.Name() != "sliver.go" {
-			sliverCodePath = path.Join(sliverPkgDir, "implant", fsPath)
+		if f.Name() == "sliver.go" || f.Name() == "sliver.c" || f.Name() == "sliver.h" {
+			sliverCodePath = path.Join(sliverPkgDir, f.Name())
 		} else {
-			sliverCodePath = path.Join(sliverPkgDir, "sliver.go")
+			sliverCodePath = path.Join(sliverPkgDir, "implant", fsPath)
 		}
 		dirPath := path.Dir(sliverCodePath)
 		if _, err := os.Stat(dirPath); os.IsNotExist(err) {
