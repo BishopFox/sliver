@@ -128,7 +128,13 @@ func dirListHandler(data []byte, resp RPCResponse) {
 }
 
 func getDirList(target string) (string, []os.FileInfo, error) {
-	dir, _ := filepath.Abs(target)
+	dir, err := filepath.Abs(target)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("dir list failed to construct path %s", err)
+		// {{end}}
+		return "", nil, err
+	}
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		files, err := ioutil.ReadDir(dir)
 		return dir, files, err
@@ -141,7 +147,7 @@ func rmHandler(data []byte, resp RPCResponse) {
 	err := proto.Unmarshal(data, rmReq)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("error decoding message: %v", err)
+		log.Printf("error decoding message: %s", err)
 		// {{end}}
 		return
 	}

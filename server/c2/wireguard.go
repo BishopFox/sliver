@@ -1,5 +1,23 @@
 package c2
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2021  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"bufio"
 	"bytes"
@@ -25,7 +43,7 @@ var (
 	tunIP = "100.64.0.1" // Don't let user configure this for now
 )
 
-// StartWGListener - First ceates an inet.af network stack.
+// StartWGListener - First creates an inet.af network stack.
 // then creates a Wireguard device/interface and applies configuration.
 // Go routines are spun up to handle key exchange connections, as well
 // as c2 comms connections.
@@ -146,8 +164,7 @@ func handleKeyExchangeConnection(conn net.Conn) {
 	} else {
 		wgLog.Infof("Successfully generated new wg keys")
 		message := implantPrivKey + "|" + serverPubKey + "|" + string(ip)
-
-		wgLog.Infof("Sending new wg keys and IP: %s", message)
+		wgLog.Debugf("Sending new wg keys and IP: %s", message)
 		conn.Write([]byte(message))
 	}
 }

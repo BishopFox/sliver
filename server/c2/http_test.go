@@ -36,7 +36,8 @@ func TestRsaKeyHandler(t *testing.T) {
 	}
 
 	server, err := StartHTTPSListener(&HTTPServerConfig{
-		Addr: "127.0.0.1:8888",
+		Addr:       "127.0.0.1:8888",
+		EnforceOTP: true,
 	})
 	if err != nil {
 		t.Errorf("Listener failed to start %s", err)
