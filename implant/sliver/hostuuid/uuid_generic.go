@@ -1,4 +1,4 @@
-// +build !darwin !windows !linux
+//go:build !(linux || darwin || windows)
 
 package hostuuid
 

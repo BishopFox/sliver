@@ -231,7 +231,7 @@ func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 			defer cancelHTTPS()
 			server.HTTPServer.Shutdown(ctx)
 			if err := acmeHTTPServer.Shutdown(ctx); err != nil {
-				httpLog.Warnf("Failed to shutdown https server")
+				httpLog.Warn("Failed to shutdown https server")
 			}
 		}
 	} else {
@@ -241,7 +241,7 @@ func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 			defer cancel()
 			server.HTTPServer.Shutdown(ctx)
 			if err := server.HTTPServer.Shutdown(ctx); err != nil {
-				httpLog.Warnf("Failed to shutdown https server")
+				httpLog.Warn("Failed to shutdown https server")
 			}
 		}
 	}
@@ -719,7 +719,7 @@ func getRemoteAddr(req *http.Request) string {
 	// input we don't want to trust it.
 	ip := net.ParseIP(ipAddress)
 	if ip == nil {
-		httpLog.Warnf("Failed to parse X-Header as ip address")
+		httpLog.Warn("Failed to parse X-Header as ip address")
 		return req.RemoteAddr
 	}
 	return fmt.Sprintf("tcp(%s)->%s", req.RemoteAddr, ip.String())

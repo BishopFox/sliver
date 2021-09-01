@@ -21,11 +21,11 @@ package generate
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -523,93 +523,46 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		return "", nil
 	}
 
-	// Load code template
-	renderFiles := srcFiles
-	_, isSupportedTarget := SupportedCompilerTargets[fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)]
-	if !isSupportedTarget {
-		buildLog.Warnf("Unsupported compiler target, using generic src files ...")
-		renderFiles = genericSrcFiles
-	}
-	for index, boxName := range renderFiles {
-
-		// Gobfuscate doesn't handle all the platform specific code
-		// well and the renamer can get confused when symbols for a
-		// different OS don't show up. So we just filter out anything
-		// we're not actually going to compile into the final binary
-		suffix := ".go"
-		if strings.Contains(boxName, "_") {
-			fileNameParts := strings.Split(boxName, "_")
-			suffix = "_" + fileNameParts[len(fileNameParts)-1]
-
-			// Test files get skipped
-			if strings.HasSuffix(boxName, "_test.go") {
-				buildLog.Infof("Skipping (test): %s", boxName)
-				continue
-			}
-
-			// We only include "_default.go" files for "unsupported" platforms i.e., not windows/darwin/linux
-			if suffix == DefaultSuffix && isSupportedTarget {
-				buildLog.Infof("Skipping default file (target is supported): %s", boxName)
-				continue
-			}
-
-			// Only include code for our target goos/goarch
-			if isSupportedTarget {
-				osSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOOS))
-				archSuffix := fmt.Sprintf("_%s.go", strings.ToLower(config.GOARCH))
-				if !strings.HasSuffix(boxName, osSuffix) && !strings.HasSuffix(boxName, archSuffix) {
-					buildLog.Infof("Skipping file wrong os/arch: %s", boxName)
-					continue
-				}
-			}
+	err = fs.WalkDir(implant.FS, ".", func(fsPath string, f fs.DirEntry, err error) error {
+		if f.IsDir() {
+			return nil
 		}
+		buildLog.Debugf("Walking: %s %s %v", fsPath, f.Name(), err)
 
-		sliverGoCodeRaw, err := implant.FS.ReadFile(path.Join("sliver", boxName))
+		sliverGoCodeRaw, err := implant.FS.ReadFile(fsPath)
 		if err != nil {
-			buildLog.Warnf("Failed to read %s: %s", boxName, err)
-			continue
+			buildLog.Errorf("Failed to read %s: %s", fsPath, err)
+			return nil
 		}
 		sliverGoCode := string(sliverGoCodeRaw)
 
-		// We need to correct for the "github.com/bishopfox/sliver/implant/sliver/foo" imports,
-		// since Go doesn't allow relative imports and "sliver" is a subdirectory of
-		// the main "sliver" repo we need to fake this when copying the code
-		// to our per-compile "GOPATH"
-		var sliverCodePath string
-		dirName := filepath.Dir(boxName)
-		var fileName string
 		// Skip dllmain files for anything non windows
-		if boxName == "sliver.h" || boxName == "sliver.c" {
+		if f.Name() == "sliver.h" || f.Name() == "sliver.c" {
 			if !config.IsSharedLib && !config.IsShellcode {
-				continue
+				return nil
 			}
-		}
-		if config.Debug || strings.HasSuffix(boxName, ".c") || strings.HasSuffix(boxName, ".h") {
-			fileName = filepath.Base(boxName)
-		} else {
-			fileName = fmt.Sprintf("s%d%s", index, suffix)
-		}
-		if dirName != "." {
-			// Add an extra "sliver" dir
-			dirPath := path.Join(sliverPkgDir, "implant", "sliver", dirName)
-			if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-				buildLog.Infof("[mkdir] %#v", dirPath)
-				err = os.MkdirAll(dirPath, 0700)
-				if err != nil {
-					return "", err
-				}
-			}
-			sliverCodePath = path.Join(dirPath, fileName)
-		} else {
-			sliverCodePath = path.Join(sliverPkgDir, fileName)
 		}
 
+		var sliverCodePath string
+		if f.Name() != "sliver.go" {
+			sliverCodePath = path.Join(sliverPkgDir, "implant", fsPath)
+		} else {
+			sliverCodePath = path.Join(sliverPkgDir, "sliver.go")
+		}
+		dirPath := path.Dir(sliverCodePath)
+		if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+			buildLog.Infof("[mkdir] %#v", dirPath)
+			err = os.MkdirAll(dirPath, 0700)
+			if err != nil {
+				return err
+			}
+		}
 		fSliver, err := os.Create(sliverCodePath)
 		if err != nil {
-			return "", err
+			return err
 		}
 		buf := bytes.NewBuffer([]byte{})
-		buildLog.Infof("[render] %s -> %s", boxName, sliverCodePath)
+		buildLog.Infof("[render] %s -> %s", f.Name(), sliverCodePath)
 
 		// --------------
 		// Render Code
@@ -622,7 +575,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		}).Parse(sliverGoCode)
 		if err != nil {
 			buildLog.Errorf("Template parsing error %s", err)
-			return "", err
+			return err
 		}
 		err = sliverCodeTmpl.Execute(buf, struct {
 			Name         string
@@ -637,7 +590,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		})
 		if err != nil {
 			buildLog.Errorf("Template execution error %s", err)
-			return "", err
+			return err
 		}
 
 		// Render canaries
@@ -651,14 +604,18 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 			"GenerateCanary": canaryGenerator.GenerateCanary,
 		}).Parse(buf.String())
 		if err != nil {
-			return "", err
+			return err
 		}
 		err = canaryTmpl.Execute(fSliver, canaryGenerator)
 
 		if err != nil {
 			buildLog.Infof("Failed to render go code: %s", err)
-			return "", err
+			return err
 		}
+		return nil
+	})
+	if err != nil {
+		return "", err
 	}
 
 	// Render GoMod

