@@ -20,11 +20,14 @@ package configs
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	insecureRand "math/rand"
 	"os"
 	"path"
+	"regexp"
+	"strings"
 
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
@@ -91,24 +94,30 @@ func (h *HTTPC2Config) RandomImplantConfig() *HTTPC2ImplantConfig {
 		MaxFiles: h.ImplantConfig.MaxFiles,
 		MaxPaths: h.ImplantConfig.MaxPaths,
 
-		JsFiles: h.ImplantConfig.RandomJsFiles(),
-		JsPaths: h.ImplantConfig.RandomJsPaths(),
+		PollFiles: h.ImplantConfig.RandomPollFiles(),
+		PollPaths: h.ImplantConfig.RandomPollPaths(),
 
-		TxtFiles: h.ImplantConfig.RandomTxtFiles(),
-		TxtPaths: h.ImplantConfig.RandomTxtPaths(),
+		KeyExchangeFiles: h.ImplantConfig.RandomKeyExchangeFiles(),
+		KeyExchangePaths: h.ImplantConfig.RandomKeyExchangePaths(),
 
-		PngFiles: h.ImplantConfig.RandomPngFiles(),
-		PngPaths: h.ImplantConfig.RandomPngPaths(),
+		CloseFiles: h.ImplantConfig.RandomCloseFiles(),
+		ClosePaths: h.ImplantConfig.RandomClosePaths(),
 
-		PhpFiles: h.ImplantConfig.RandomPhpFiles(),
-		PhpPaths: h.ImplantConfig.RandomPhpPaths(),
+		SessionFiles: h.ImplantConfig.RandomSessionFiles(),
+		SessionPaths: h.ImplantConfig.RandomSessionPaths(),
 	}
+}
+
+type HTTPHeader struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 // HTTPC2ServerConfig - Server configuration options
 type HTTPC2ServerConfig struct {
-	Headers []string `json:"headers"`
-	Cookies []string `json:"cookies"`
+	RandomVersionHeaders bool         `json:"random_version_headers"`
+	ExtraHeaders         []HTTPHeader `json:"headers"`
+	Cookies              []string     `json:"cookies"`
 }
 
 // HTTPC2ImplantConfig - Implant configuration options
@@ -130,72 +139,80 @@ type HTTPC2ImplantConfig struct {
 	MaxPaths int `json:"max_paths"`
 	MinPaths int `json:"min_paths"`
 
-	// JS files and paths
-	JsFiles []string `json:"js_files"`
-	JsPaths []string `json:"js_paths"`
+	// Stager File Extension
+	StagerFileExt string `json:"stager_file_ext"`
 
-	// Txt files and paths
-	TxtFiles []string `json:"txt_files"`
-	TxtPaths []string `json:"txt_paths"`
+	// Key Exchange (default .txt) files and paths
+	KeyExchangeFileExt string   `json:"key_exchange_file_ext"`
+	KeyExchangeFiles   []string `json:"key_exchange_files"`
+	KeyExchangePaths   []string `json:"key_exchange_paths"`
 
-	// Png files and paths
-	PngFiles []string `json:"png_files"`
-	PngPaths []string `json:"png_paths"`
+	// Poll files and paths
+	PollFileExt string   `json:"poll_file_ext"`
+	PollFiles   []string `json:"poll_files"`
+	PollPaths   []string `json:"poll_paths"`
 
-	// Php files and paths
-	PhpFiles []string `json:"php_files"`
-	PhpPaths []string `json:"php_paths"`
+	// Session files and paths
+	StartSessionFileExt string   `json:"start_session_file_ext"`
+	SessionFileExt      string   `json:"session_file_ext"`
+	SessionFiles        []string `json:"session_files"`
+	SessionPaths        []string `json:"session_paths"`
+
+	// Close session files and paths
+	CloseFileExt string   `json:"close_file_ext"`
+	CloseFiles   []string `json:"close_files"`
+	ClosePaths   []string `json:"close_paths"`
 }
 
-func (h *HTTPC2ImplantConfig) RandomJsFiles() []string {
+func (h *HTTPC2ImplantConfig) RandomKeyExchangeFiles() []string {
 	min := h.MinFiles
 	if min < 1 {
 		min = 1
 	}
-	return h.randomSample(h.JsFiles, min, h.MaxFiles)
+	return h.randomSample(h.KeyExchangeFiles, h.KeyExchangeFileExt, min, h.MaxFiles)
 }
 
-func (h *HTTPC2ImplantConfig) RandomJsPaths() []string {
-	return h.randomSample(h.JsPaths, h.MinPaths, h.MaxPaths)
+func (h *HTTPC2ImplantConfig) RandomKeyExchangePaths() []string {
+	return h.randomSample(h.KeyExchangePaths, "", h.MinPaths, h.MaxPaths)
 }
 
-func (h *HTTPC2ImplantConfig) RandomTxtFiles() []string {
+func (h *HTTPC2ImplantConfig) RandomPollFiles() []string {
 	min := h.MinFiles
 	if min < 1 {
 		min = 1
 	}
-	return h.randomSample(h.TxtFiles, min, h.MaxFiles)
+	return h.randomSample(h.PollFiles, h.PollFileExt, min, h.MaxFiles)
 }
 
-func (h *HTTPC2ImplantConfig) RandomTxtPaths() []string {
-	return h.randomSample(h.TxtPaths, h.MinPaths, h.MaxPaths)
+func (h *HTTPC2ImplantConfig) RandomPollPaths() []string {
+	return h.randomSample(h.PollPaths, "", h.MinPaths, h.MaxPaths)
 }
 
-func (h *HTTPC2ImplantConfig) RandomPngFiles() []string {
+func (h *HTTPC2ImplantConfig) RandomCloseFiles() []string {
 	min := h.MinFiles
 	if min < 1 {
 		min = 1
 	}
-	return h.randomSample(h.PngFiles, min, h.MaxFiles)
+	return h.randomSample(h.CloseFiles, h.CloseFileExt, min, h.MaxFiles)
 }
 
-func (h *HTTPC2ImplantConfig) RandomPngPaths() []string {
-	return h.randomSample(h.PngPaths, h.MinPaths, h.MaxPaths)
+func (h *HTTPC2ImplantConfig) RandomClosePaths() []string {
+	return h.randomSample(h.ClosePaths, "", h.MinPaths, h.MaxPaths)
 }
 
-func (h *HTTPC2ImplantConfig) RandomPhpFiles() []string {
+func (h *HTTPC2ImplantConfig) RandomSessionFiles() []string {
 	min := h.MinFiles
 	if min < 1 {
 		min = 1
 	}
-	return h.randomSample(h.PhpFiles, min, h.MaxFiles)
+	return h.randomSample(h.SessionFiles, h.SessionFileExt, min, h.MaxFiles)
 }
 
-func (h *HTTPC2ImplantConfig) RandomPhpPaths() []string {
-	return h.randomSample(h.PhpPaths, h.MinPaths, h.MaxPaths)
+func (h *HTTPC2ImplantConfig) RandomSessionPaths() []string {
+	return h.randomSample(h.SessionPaths, "", h.MinPaths, h.MaxPaths)
 }
 
-func (h *HTTPC2ImplantConfig) randomSample(values []string, min int, max int) []string {
+func (h *HTTPC2ImplantConfig) randomSample(values []string, ext string, min int, max int) []string {
 	count := insecureRand.Intn(len(values))
 	if count < min {
 		count = min
@@ -206,7 +223,7 @@ func (h *HTTPC2ImplantConfig) randomSample(values []string, min int, max int) []
 	sample := []string{}
 	for i := 0; len(sample) < count; i++ {
 		index := (count + i) % len(values)
-		sample = append(sample, values[index])
+		sample = append(sample, values[index]+ext)
 	}
 	return sample
 }
@@ -214,8 +231,9 @@ func (h *HTTPC2ImplantConfig) randomSample(values []string, min int, max int) []
 var (
 	httpC2ConfigLog = log.NamedLogger("config", "http-c2")
 
-	defaultHTTPC2Config = &HTTPC2Config{
+	defaultHTTPC2Config = HTTPC2Config{
 		ServerConfig: &HTTPC2ServerConfig{
+			RandomVersionHeaders: true,
 			Cookies: []string{
 				"PHPSESSID", "SID", "SSID", "APISID", "csrf-state", "AWSALBCORS",
 			},
@@ -227,37 +245,42 @@ var (
 			MaxPaths:  8,
 			MinPaths:  2,
 
-			JsFiles: []string{
-				"bootstrap.js", "bootstrap.min.js", "jquery.min.js", "jquery.js", "route.js",
-				"app.js", "app.min.js", "array.js", "backbone.js", "script.js", "email.js",
+			KeyExchangeFileExt: ".txt",
+			KeyExchangeFiles: []string{
+				"robots", "sample", "readme", "example",
 			},
-			JsPaths: []string{
-				"js", "umd", "assets", "bundle", "bundles", "scripts", "script", "javascripts",
-				"javascript", "jscript",
-			},
-
-			TxtFiles: []string{
-				"robots.txt", "sample.txt", "readme.txt", "example.txt",
-			},
-			TxtPaths: []string{
+			KeyExchangePaths: []string{
 				"static", "www", "assets", "text", "docs", "sample", "data", "readme",
 				"examples",
 			},
 
-			PngFiles: []string{
-				"favicon.png", "sample.png", "example.png",
+			PollFileExt: ".js",
+			PollFiles: []string{
+				"bootstrap", "bootstrap.min", "jquery.min", "jquery", "route",
+				"app", "app.min", "array", "backbone", "script", "email",
 			},
-			PngPaths: []string{
-				"static", "www", "assets", "images", "icons", "image", "icon", "png",
+			PollPaths: []string{
+				"js", "umd", "assets", "bundle", "bundles", "scripts", "script", "javascripts",
+				"javascript", "jscript",
 			},
 
-			PhpFiles: []string{
-				"login.php", "signin.php", "api.php", "samples.php", "rpc.php", "index.php",
-				"admin.php", "register.php", "sign-up.php",
+			StartSessionFileExt: ".phtml",
+			SessionFileExt:      ".php",
+			SessionFiles: []string{
+				"login", "signin", "api", "samples", "rpc", "index",
+				"admin", "register", "sign-up",
 			},
-			PhpPaths: []string{
+			SessionPaths: []string{
 				"php", "api", "upload", "actions", "rest", "v1", "auth", "authenticate",
 				"oauth", "oauth2", "oauth2callback", "database", "db", "namespaces",
+			},
+
+			CloseFileExt: ".png",
+			CloseFiles: []string{
+				"favicon", "sample", "example",
+			},
+			ClosePaths: []string{
+				"static", "www", "assets", "images", "icons", "image", "icon", "png",
 			},
 		},
 	}
@@ -277,19 +300,24 @@ func GetHTTPC2Config() *HTTPC2Config {
 		err = generateDefaultConfig(configPath)
 		if err != nil {
 			httpC2ConfigLog.Errorf("Failed to generate http c2 config %s", err)
-			return defaultHTTPC2Config
+			return &defaultHTTPC2Config
 		}
 	}
 	data, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		httpC2ConfigLog.Errorf("Failed to read http c2 config %s", err)
-		return defaultHTTPC2Config
+		return &defaultHTTPC2Config
 	}
 	config := &HTTPC2Config{}
 	err = json.Unmarshal(data, config)
 	if err != nil {
 		httpC2ConfigLog.Errorf("Failed to parse http c2 config %s", err)
-		return defaultHTTPC2Config
+		return &defaultHTTPC2Config
+	}
+	err = CheckHTTPC2Config(config)
+	if err != nil {
+		httpC2ConfigLog.Errorf("Invalid http c2 config: %s", err)
+		return &defaultHTTPC2Config
 	}
 	return config
 }
@@ -300,4 +328,157 @@ func generateDefaultConfig(saveTo string) error {
 		return err
 	}
 	return ioutil.WriteFile(saveTo, data, 0600)
+}
+
+var (
+	ErrMissingCookies             = errors.New("config must specify at least one cookie")
+	ErrMissingPollFileExt         = errors.New("config must specify a poll_file_ext")
+	ErrTooFewPollFiles            = errors.New("config must specify at least one poll_files value")
+	ErrMissingKeyExchangeFileExt  = errors.New("config must specify a key_exchange_file_ext")
+	ErrTooFewKeyExchangeFiles     = errors.New("config must specify at least one key_exchange_files value")
+	ErrMissingCloseFileExt        = errors.New("config must specify a close_file_ext")
+	ErrTooFewCloseFiles           = errors.New("config must specify at least one close_files value")
+	ErrMissingStartSessionFileExt = errors.New("config must specify a start_session_file_ext")
+	ErrMissingSessionFileExt      = errors.New("config must specify a session_file_ext")
+	ErrTooFewSessionFiles         = errors.New("config must specify at least one session_files value")
+	ErrNonuniqueFileExt           = errors.New("config must specify unique file extensions")
+
+	fileNameExp = regexp.MustCompile("[^a-zA-Z0-9\\._-]+")
+)
+
+// CheckHTTPC2Config - Validate the HTTP C2 config, coerces common mistakes
+func CheckHTTPC2Config(config *HTTPC2Config) error {
+	err := checkServerConfig(config.ServerConfig)
+	if err != nil {
+		return err
+	}
+	return checkImplantConfig(config.ImplantConfig)
+}
+
+func coerceFileExt(value string) string {
+	value = fileNameExp.ReplaceAllString(value, "")
+	for strings.HasPrefix(value, ".") {
+		value = strings.TrimPrefix(value, ".")
+	}
+	return value
+}
+
+func coerceFiles(values []string, ext string) []string {
+	values = uniqueFileName(values)
+	coerced := []string{}
+	for _, value := range values {
+		if strings.HasSuffix(value, fmt.Sprintf(".%s", coerceFileExt(ext))) {
+			value = strings.TrimSuffix(value, fmt.Sprintf(".%s", coerceFileExt(ext)))
+		}
+		coerced = append(coerced, value)
+	}
+	return coerced
+}
+
+func uniqueFileName(strSlice []string) []string {
+	allKeys := make(map[string]bool)
+	list := []string{}
+	for _, item := range strSlice {
+		item = fileNameExp.ReplaceAllString(item, "")
+		if len(item) < 1 {
+			continue
+		}
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			list = append(list, item)
+		}
+	}
+	return list
+}
+
+func checkServerConfig(config *HTTPC2ServerConfig) error {
+
+	// Check min number of cookie names
+	if len(config.Cookies) < 1 {
+		return ErrMissingCookies
+	}
+
+	return nil
+}
+
+func checkImplantConfig(config *HTTPC2ImplantConfig) error {
+
+	// MinFiles and MaxFiles
+	if config.MinFiles < 1 {
+		config.MinFiles = 1
+	}
+	if config.MaxFiles < config.MinFiles {
+		config.MaxFiles = config.MinFiles
+	}
+
+	// MinPaths and MaxPaths
+	if config.MinPaths < 0 {
+		config.MinPaths = 0
+	}
+	if config.MaxPaths < config.MinPaths {
+		config.MaxPaths = config.MinPaths
+	}
+
+	// Key Exchange
+	config.KeyExchangeFileExt = coerceFileExt(config.KeyExchangeFileExt)
+	if config.KeyExchangeFileExt == "" {
+		return ErrMissingKeyExchangeFileExt
+	}
+	config.KeyExchangeFiles = coerceFiles(config.KeyExchangeFiles, config.KeyExchangeFileExt)
+	if len(config.KeyExchangeFiles) < 1 {
+		return ErrTooFewKeyExchangeFiles
+	}
+
+	// Poll Settings
+	config.PollFileExt = coerceFileExt(config.PollFileExt)
+	if config.PollFileExt == "" {
+		return ErrMissingPollFileExt
+	}
+	config.PollFiles = coerceFiles(config.PollFiles, config.PollFileExt)
+	if len(config.PollFiles) < 1 {
+		return ErrTooFewPollFiles
+	}
+
+	// Session Settings
+	config.StartSessionFileExt = coerceFileExt(config.StartSessionFileExt)
+	if config.StartSessionFileExt == "" {
+		return ErrMissingStartSessionFileExt
+	}
+	config.SessionFileExt = coerceFileExt(config.SessionFileExt)
+	if config.SessionFileExt == "" {
+		return ErrMissingSessionFileExt
+	}
+	config.SessionFiles = coerceFiles(config.SessionFiles, config.StartSessionFileExt)
+	config.SessionFiles = coerceFiles(config.SessionFiles, config.SessionFileExt)
+	if len(config.SessionFiles) < 1 {
+		return ErrTooFewSessionFiles
+	}
+
+	// Close Settings
+	config.CloseFileExt = coerceFileExt(config.CloseFileExt)
+	if config.CloseFileExt == "" {
+		return ErrMissingCloseFileExt
+	}
+	config.CloseFiles = coerceFiles(config.CloseFiles, config.CloseFileExt)
+	if len(config.CloseFiles) < 1 {
+		return ErrTooFewCloseFiles
+	}
+
+	// Unique file extensions
+	allExtensions := map[string]bool{}
+	extensions := []string{
+		config.KeyExchangeFileExt,
+		config.PollFileExt,
+		config.StartSessionFileExt,
+		config.SessionFileExt,
+		config.CloseFileExt,
+	}
+	for _, ext := range extensions {
+		if _, ok := allExtensions[ext]; ok {
+			return ErrNonuniqueFileExt
+		}
+		allExtensions[ext] = true
+	}
+
+	return nil
 }

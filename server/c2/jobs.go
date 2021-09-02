@@ -223,8 +223,8 @@ func StartHTTPListenerJob(conf *HTTPServerConfig) (*core.Job, error) {
 
 	go func() {
 		var err error
-		if server.Conf.Secure {
-			if server.Conf.ACME {
+		if server.ServerConf.Secure {
+			if server.ServerConf.ACME {
 				err = server.HTTPServer.ListenAndServeTLS("", "") // ACME manager pulls the certs under the hood
 			} else {
 				err = listenAndServeTLS(server.HTTPServer, conf.Cert, conf.Key)
@@ -315,8 +315,8 @@ func StartHTTPStagerListenerJob(conf *HTTPServerConfig, data []byte) (*core.Job,
 
 	go func() {
 		var err error
-		if server.Conf.Secure {
-			if server.Conf.ACME {
+		if server.ServerConf.Secure {
+			if server.ServerConf.ACME {
 				err = server.HTTPServer.ListenAndServeTLS("", "") // ACME manager pulls the certs under the hood
 			} else {
 				err = listenAndServeTLS(server.HTTPServer, conf.Cert, conf.Key)

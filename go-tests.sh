@@ -83,6 +83,14 @@ else
     exit 1
 fi
 
+# server / configs
+if go test -tags=server ./server/configs ; then
+    :
+else
+    cat ~/.sliver/logs/sliver.log
+    exit 1
+fi
+
 # server / generate
 if go test -tags=server ./server/generate -timeout 6h ; then
     :

