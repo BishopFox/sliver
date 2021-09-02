@@ -18,7 +18,7 @@ const (
 	writeBufSizeTCP = 1024
 )
 
-func tcpPivoteWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
+func tcpPivotWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -87,7 +87,7 @@ func tcpPivotReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Unmarshaling envelope error: %v", err)
+		log.Printf("[tcppivot] Unmarshal envelope error: %v", err)
 		// {{end}}
 		return &sliverpb.Envelope{}, err
 	}

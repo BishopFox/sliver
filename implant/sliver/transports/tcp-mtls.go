@@ -33,7 +33,6 @@ import (
 
 	"os"
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"google.golang.org/protobuf/proto"
@@ -63,9 +62,9 @@ func socketWritePing(connection *tls.Conn) error {
 	// {{end}}
 
 	// We don't need a real nonce here, we just need to write to the socket
-	pingBuf, _ := proto.Marshal(&sliverpb.Ping{Nonce: 31337})
-	envelope := sliverpb.Envelope{
-		Type: sliverpb.MsgPing,
+	pingBuf, _ := proto.Marshal(&pb.Ping{Nonce: 31337})
+	envelope := pb.Envelope{
+		Type: pb.MsgPing,
 		Data: pingBuf,
 	}
 	return socketWriteEnvelope(connection, &envelope)
@@ -152,7 +151,6 @@ func getTLSConfig() *tls.Config {
 		InsecureSkipVerify:    true, // Don't worry I sorta know what I'm doing
 		VerifyPeerCertificate: rootOnlyVerifyCertificate,
 	}
-	tlsConfig.BuildNameToCertificate()
 
 	return tlsConfig
 }

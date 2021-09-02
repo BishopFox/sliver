@@ -32,7 +32,6 @@ else
     exit 1
 fi
 
-
 ## Server
 
 # server / website
@@ -85,6 +84,14 @@ fi
 
 # server / configs
 if go test -tags=server ./server/configs ; then
+    :
+else
+    cat ~/.sliver/logs/sliver.log
+    exit 1
+fi
+
+# server / console
+if go test -tags=server ./server/console ; then
     :
 else
     cat ~/.sliver/logs/sliver.log

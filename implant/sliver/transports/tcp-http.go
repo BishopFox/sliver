@@ -20,13 +20,6 @@ package transports
 
 // {{if .Config.HTTPc2Enabled}}
 
-// Procedural C2
-// ===============
-// .txt = rsakey
-// .png = init
-// .php = session
-//  .js = poll
-
 import (
 	"bytes"
 	"crypto/rsa"

