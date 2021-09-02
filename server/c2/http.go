@@ -250,6 +250,7 @@ func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 			return nil, err
 		}
 	}
+
 	return server, nil
 }
 
@@ -280,6 +281,9 @@ func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
 func (s *SliverHTTPC2) router() *mux.Router {
 	router := mux.NewRouter()
 	c2Config := s.LoadC2Config()
+	if s.ServerConf.MaxRequestLength < 1024 {
+		s.ServerConf.MaxRequestLength = DefaultMaxBodyLength
+	}
 
 	// Key Exchange Handler
 	router.HandleFunc(
@@ -289,13 +293,13 @@ func (s *SliverHTTPC2) router() *mux.Router {
 
 	// Start Session Handler
 	router.HandleFunc(
-		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.SessionFileExt),
+		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.StartSessionFileExt),
 		s.startSessionHandler,
 	).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
 
 	// Session Handler
 	router.HandleFunc(
-		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.StartSessionFileExt),
+		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.SessionFileExt),
 		s.sessionHandler,
 	).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
 
@@ -362,7 +366,6 @@ func getNonceFromURL(reqURL *url.URL) (int, error) {
 		httpLog.Warnf("Invalid nonce, failed to parse '%s'", qNonce)
 		return 0, err
 	}
-	httpLog.Debugf("Request nonce = %d", nonce)
 	_, _, err = encoders.EncoderFromNonce(nonce)
 	if err != nil {
 		httpLog.Warnf("Invalid nonce (%s)", err)
@@ -383,7 +386,6 @@ func getOTPFromURL(reqURL *url.URL) (string, error) {
 		httpLog.Warn("OTP not found in request")
 		return "", ErrMissingNonce
 	}
-	httpLog.Debugf("Request OTP = %s", otpCode)
 	return otpCode, nil
 }
 
@@ -442,13 +444,14 @@ func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http
 }
 
 func default404Handler(resp http.ResponseWriter, req *http.Request) {
+	httpLog.Debug("[404] No match for %s", req.RequestURI)
 	resp.WriteHeader(http.StatusNotFound)
 }
 
 // [ HTTP Handlers ] ---------------------------------------------------------------
 
 func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
-	httpLog.Info("Public key request")
+	httpLog.Debug("Public key request")
 	if s.ServerConf.EnforceOTP {
 		otpCode, err := getOTPFromURL(req.URL)
 		if err != nil {
@@ -477,7 +480,7 @@ func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request
 }
 
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request) {
-	httpLog.Info("Start http session request")
+	httpLog.Debug("Start http session request")
 	if s.ServerConf.EnforceOTP {
 		otpCode, err := getOTPFromURL(req.URL)
 		if err != nil {
@@ -567,7 +570,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 }
 
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request) {
-	httpLog.Info("Session request")
+	httpLog.Debug("Session request")
 	httpSession := s.getHTTPSession(req)
 	if httpSession == nil {
 		httpLog.Infof("No session with id %#v", httpSession.ID)
@@ -577,6 +580,7 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 
 	plaintext, err := s.readReqBody(httpSession, resp, req)
 	if err != nil {
+		httpLog.Warnf("Failed to decode request body: %s", err)
 		return
 	}
 	envelope := &sliverpb.Envelope{}
@@ -596,9 +600,10 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 }
 
 func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) {
+	httpLog.Debug("Poll request")
 	httpSession := s.getHTTPSession(req)
 	if httpSession == nil {
-		httpLog.Infof("No session with id %#v", httpSession.ID)
+		httpLog.Warnf("No session with id %#v", httpSession.ID)
 		resp.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -632,8 +637,11 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 		resp.WriteHeader(http.StatusNotFound)
 		return nil, ErrInvalidEncoder
 	}
-	limitedReader := &io.LimitedReader{R: req.Body, N: int64(s.ServerConf.MaxRequestLength)}
-	body, err := ioutil.ReadAll(limitedReader)
+
+	body, err := ioutil.ReadAll(&io.LimitedReader{
+		R: req.Body,
+		N: int64(s.ServerConf.MaxRequestLength),
+	})
 	if err != nil {
 		httpLog.Warnf("Failed to read request body %s", err)
 		return nil, err
@@ -656,7 +664,8 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 }
 
 func (s *SliverHTTPC2) getPollTimeout() time.Duration {
-	return time.Duration(s.ServerConf.LongPollTimeoutMilli+insecureRand.Intn(s.ServerConf.LongPollJitterMilli)) * time.Millisecond
+	return time.Duration(60 * time.Second)
+	// return time.Duration(s.ServerConf.LongPollTimeoutMilli+insecureRand.Intn(s.ServerConf.LongPollJitterMilli)) * time.Millisecond
 }
 
 func (s *SliverHTTPC2) randomEtag() string {
@@ -666,6 +675,7 @@ func (s *SliverHTTPC2) randomEtag() string {
 }
 
 func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request) {
+	httpLog.Debug("Close request")
 	httpSession := s.getHTTPSession(req)
 	if httpSession == nil {
 		httpLog.Infof("No session with id %#v", httpSession.ID)

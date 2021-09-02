@@ -578,10 +578,10 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 			return err
 		}
 		err = sliverCodeTmpl.Execute(buf, struct {
-			Name         string
-			Config       *models.ImplantConfig
-			OTPSecret    string
-			HTTPC2Config *configs.HTTPC2ImplantConfig
+			Name                string
+			Config              *models.ImplantConfig
+			OTPSecret           string
+			HTTPC2ImplantConfig *configs.HTTPC2ImplantConfig
 		}{
 			name,
 			config,
