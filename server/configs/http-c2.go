@@ -245,6 +245,8 @@ var (
 			MaxPaths:  8,
 			MinPaths:  2,
 
+			StagerFileExt: ".woff",
+
 			KeyExchangeFileExt: ".txt",
 			KeyExchangeFiles: []string{
 				"robots", "sample", "readme", "example",
@@ -331,17 +333,18 @@ func generateDefaultConfig(saveTo string) error {
 }
 
 var (
-	ErrMissingCookies             = errors.New("config must specify at least one cookie")
-	ErrMissingPollFileExt         = errors.New("config must specify a poll_file_ext")
-	ErrTooFewPollFiles            = errors.New("config must specify at least one poll_files value")
-	ErrMissingKeyExchangeFileExt  = errors.New("config must specify a key_exchange_file_ext")
-	ErrTooFewKeyExchangeFiles     = errors.New("config must specify at least one key_exchange_files value")
-	ErrMissingCloseFileExt        = errors.New("config must specify a close_file_ext")
-	ErrTooFewCloseFiles           = errors.New("config must specify at least one close_files value")
-	ErrMissingStartSessionFileExt = errors.New("config must specify a start_session_file_ext")
-	ErrMissingSessionFileExt      = errors.New("config must specify a session_file_ext")
-	ErrTooFewSessionFiles         = errors.New("config must specify at least one session_files value")
-	ErrNonuniqueFileExt           = errors.New("config must specify unique file extensions")
+	ErrMissingCookies             = errors.New("server config must specify at least one cookie")
+	ErrMissingStagerFileExt       = errors.New("implant config must specify a stager_file_ext")
+	ErrMissingPollFileExt         = errors.New("implant config must specify a poll_file_ext")
+	ErrTooFewPollFiles            = errors.New("implant config must specify at least one poll_files value")
+	ErrMissingKeyExchangeFileExt  = errors.New("implant config must specify a key_exchange_file_ext")
+	ErrTooFewKeyExchangeFiles     = errors.New("implant config must specify at least one key_exchange_files value")
+	ErrMissingCloseFileExt        = errors.New("implant config must specify a close_file_ext")
+	ErrTooFewCloseFiles           = errors.New("implant config must specify at least one close_files value")
+	ErrMissingStartSessionFileExt = errors.New("implant config must specify a start_session_file_ext")
+	ErrMissingSessionFileExt      = errors.New("implant config must specify a session_file_ext")
+	ErrTooFewSessionFiles         = errors.New("implant config must specify at least one session_files value")
+	ErrNonuniqueFileExt           = errors.New("implant config must specify unique file extensions")
 
 	fileNameExp = regexp.MustCompile("[^a-zA-Z0-9\\._-]+")
 )
@@ -392,12 +395,9 @@ func uniqueFileName(strSlice []string) []string {
 }
 
 func checkServerConfig(config *HTTPC2ServerConfig) error {
-
-	// Check min number of cookie names
 	if len(config.Cookies) < 1 {
 		return ErrMissingCookies
 	}
-
 	return nil
 }
 
@@ -417,6 +417,12 @@ func checkImplantConfig(config *HTTPC2ImplantConfig) error {
 	}
 	if config.MaxPaths < config.MinPaths {
 		config.MaxPaths = config.MinPaths
+	}
+
+	// Stager
+	config.StagerFileExt = coerceFileExt(config.StagerFileExt)
+	if config.StagerFileExt == "" {
+		return ErrMissingStagerFileExt
 	}
 
 	// Key Exchange
@@ -467,6 +473,7 @@ func checkImplantConfig(config *HTTPC2ImplantConfig) error {
 	// Unique file extensions
 	allExtensions := map[string]bool{}
 	extensions := []string{
+		config.StagerFileExt,
 		config.KeyExchangeFileExt,
 		config.PollFileExt,
 		config.StartSessionFileExt,

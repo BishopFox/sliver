@@ -33,6 +33,7 @@ import (
 	"io"
 	"io/ioutil"
 	insecureRand "math/rand"
+	"mime"
 	"net"
 	"net/http"
 	"net/url"
@@ -69,8 +70,11 @@ var (
 )
 
 const (
-	DefaultMaxBodyLength = 4 * 1024 * 1024 * 1024 // 4Gb
-	DefaultHTTPTimeout   = time.Second * 60
+	DefaultMaxBodyLength   = 2 * 1024 * 1024 * 1024 // 2Gb
+	DefaultHTTPTimeout     = time.Minute * 5
+	DefaultLongPollTimeout = float32(20)
+	DefaultLongPollJitter  = float32(20)
+	minPollTimeout         = time.Second * 5
 )
 
 func init() {
@@ -144,9 +148,9 @@ type HTTPServerConfig struct {
 
 	MaxRequestLength int
 
-	EnforceOTP           bool
-	LongPollTimeoutMilli int
-	LongPollJitterMilli  int
+	EnforceOTP      bool
+	LongPollTimeout float32
+	LongPollJitter  float32
 }
 
 // SliverHTTPC2 - Holds refs to all the C2 objects
@@ -280,36 +284,43 @@ func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
 func (s *SliverHTTPC2) router() *mux.Router {
 	router := mux.NewRouter()
 	c2Config := s.LoadC2Config()
+	if s.ServerConf.MaxRequestLength < 1024 {
+		s.ServerConf.MaxRequestLength = DefaultMaxBodyLength
+	}
+	if s.ServerConf.LongPollTimeout == 0 {
+		s.ServerConf.LongPollTimeout = DefaultLongPollTimeout
+		s.ServerConf.LongPollJitter = DefaultLongPollJitter
+	}
 
 	// Key Exchange Handler
 	router.HandleFunc(
 		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.KeyExchangeFileExt),
 		s.rsaKeyHandler,
-	).MatcherFunc(filterNonce).Methods(http.MethodGet)
+	).MatcherFunc(s.filterOTP).MatcherFunc(s.filterNonce).Methods(http.MethodGet)
 
 	// Start Session Handler
 	router.HandleFunc(
 		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.SessionFileExt),
 		s.startSessionHandler,
-	).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
+	).MatcherFunc(s.filterOTP).MatcherFunc(s.filterNonce).Methods(http.MethodGet, http.MethodPost)
 
 	// Session Handler
 	router.HandleFunc(
 		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.StartSessionFileExt),
 		s.sessionHandler,
-	).MatcherFunc(filterNonce).Methods(http.MethodGet, http.MethodPost)
+	).MatcherFunc(s.filterNonce).Methods(http.MethodGet, http.MethodPost)
 
 	// Poll Handler
 	router.HandleFunc(
 		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.PollFileExt),
 		s.pollHandler,
-	).MatcherFunc(filterNonce).Methods(http.MethodGet)
+	).MatcherFunc(s.filterNonce).Methods(http.MethodGet)
 
 	// Close Handler
 	router.HandleFunc(
 		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.CloseFileExt),
 		s.closeHandler,
-	).MatcherFunc(filterNonce).Methods(http.MethodGet)
+	).MatcherFunc(s.filterNonce).Methods(http.MethodGet)
 
 	// Can't force the user agent on the stager payload
 	// Request from msf stager payload will look like:
@@ -317,7 +328,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	router.HandleFunc(
 		fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExt),
 		s.stagerHander,
-	).Methods(http.MethodGet)
+	).MatcherFunc(s.filterOTP).Methods(http.MethodGet)
 
 	// Request does not match the C2 profile so we pass it to the static content or 404 handler
 	if s.ServerConf.Website != "" {
@@ -336,11 +347,28 @@ func (s *SliverHTTPC2) router() *mux.Router {
 }
 
 // This filters requests that do not have a valid nonce
-func filterNonce(req *http.Request, rm *mux.RouteMatch) bool {
+func (s *SliverHTTPC2) filterNonce(req *http.Request, rm *mux.RouteMatch) bool {
 	nonce, err := getNonceFromURL(req.URL)
 	if err != nil {
 		httpLog.Warnf("Invalid nonce '%d' ignore request", nonce)
 		return false // NaN
+	}
+	return true
+}
+
+func (s *SliverHTTPC2) filterOTP(req *http.Request, rm *mux.RouteMatch) bool {
+	if s.ServerConf.EnforceOTP {
+		otpCode, err := getOTPFromURL(req.URL)
+		if err != nil {
+			return false
+		}
+		valid, err := cryptography.ValidateTOTP(otpCode)
+		if err != nil {
+			httpLog.Warnf("Failed to validate OTP %s", err)
+		}
+		if !valid {
+			return false
+		}
 	}
 	return true
 }
@@ -362,7 +390,6 @@ func getNonceFromURL(reqURL *url.URL) (int, error) {
 		httpLog.Warnf("Invalid nonce, failed to parse '%s'", qNonce)
 		return 0, err
 	}
-	httpLog.Debugf("Request nonce = %d", nonce)
 	_, _, err = encoders.EncoderFromNonce(nonce)
 	if err != nil {
 		httpLog.Warnf("Invalid nonce (%s)", err)
@@ -383,7 +410,6 @@ func getOTPFromURL(reqURL *url.URL) (string, error) {
 		httpLog.Warn("OTP not found in request")
 		return "", ErrMissingNonce
 	}
-	httpLog.Debugf("Request OTP = %s", otpCode)
 	return otpCode, nil
 }
 
@@ -409,22 +435,25 @@ func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		resp.Header().Set("Server", s.getServerHeader())
 		resp.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
-
-		switch uri := req.URL.Path; {
-		case strings.HasSuffix(uri, ".txt"):
-			resp.Header().Set("Content-type", "text/plain; charset=utf-8")
-		case strings.HasSuffix(uri, ".css"):
-			resp.Header().Set("Content-type", "text/css; charset=utf-8")
-		case strings.HasSuffix(uri, ".php"):
-			resp.Header().Set("Content-type", "text/html; charset=utf-8")
-		case strings.HasSuffix(uri, ".js"):
-			resp.Header().Set("Content-type", "text/javascript; charset=utf-8")
-		case strings.HasSuffix(uri, ".png"):
-			resp.Header().Set("Content-type", "image/png")
-		default:
-			resp.Header().Set("Content-type", "application/octet-stream")
+		if resp.Header().Get("Content-type") == "" {
+			contentType := mime.TypeByExtension(req.URL.Path)
+			if contentType != "" {
+				resp.Header().Set("Content-type", contentType)
+			} else {
+				// We add a few more common mime types that aren't detected by
+				// the stdlib mime library
+				switch uri := req.URL.Path; {
+				case strings.HasSuffix(uri, ".jsp"):
+					fallthrough
+				case strings.HasSuffix(uri, ".phtml"):
+					fallthrough
+				case strings.HasSuffix(uri, ".php"):
+					resp.Header().Set("Content-type", mime.TypeByExtension(".html"))
+				default:
+					resp.Header().Set("Content-type", "application/octet-stream")
+				}
+			}
 		}
-
 		next.ServeHTTP(resp, req)
 	})
 }
@@ -443,27 +472,13 @@ func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http
 
 func default404Handler(resp http.ResponseWriter, req *http.Request) {
 	resp.WriteHeader(http.StatusNotFound)
+	resp.Header().Set("Content-type", mime.TypeByExtension(".html"))
 }
 
 // [ HTTP Handlers ] ---------------------------------------------------------------
 
 func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
-	httpLog.Info("Public key request")
-	if s.ServerConf.EnforceOTP {
-		otpCode, err := getOTPFromURL(req.URL)
-		if err != nil {
-			resp.WriteHeader(http.StatusNotFound)
-			return
-		}
-		valid, err := cryptography.ValidateTOTP(otpCode)
-		if err != nil {
-			httpLog.Warnf("Failed to validate OTP %s", err)
-		}
-		if !valid {
-			resp.WriteHeader(http.StatusNotFound)
-			return
-		}
-	}
+	httpLog.Debug("Public key request")
 	nonce, _ := getNonceFromURL(req.URL)
 	certPEM, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, s.ServerConf.Domain)
 	if err != nil {
@@ -477,22 +492,7 @@ func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request
 }
 
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request) {
-	httpLog.Info("Start http session request")
-	if s.ServerConf.EnforceOTP {
-		otpCode, err := getOTPFromURL(req.URL)
-		if err != nil {
-			resp.WriteHeader(http.StatusNotFound)
-			return
-		}
-		valid, err := cryptography.ValidateTOTP(otpCode)
-		if err != nil {
-			httpLog.Warnf("Failed to validate OTP %s", err)
-		}
-		if !valid {
-			resp.WriteHeader(http.StatusNotFound)
-			return
-		}
-	}
+	httpLog.Debug("Start http session request")
 
 	// Note: these are the c2 certificates NOT the certificates/keys used for SSL/TLS
 	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, s.ServerConf.Domain)
@@ -567,7 +567,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 }
 
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request) {
-	httpLog.Info("Session request")
+	httpLog.Debug("Session request")
 	httpSession := s.getHTTPSession(req)
 	if httpSession == nil {
 		httpLog.Infof("No session with id %#v", httpSession.ID)
@@ -577,6 +577,7 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 
 	plaintext, err := s.readReqBody(httpSession, resp, req)
 	if err != nil {
+		httpLog.Warnf("Failed to decode request body: %s", err)
 		return
 	}
 	envelope := &sliverpb.Envelope{}
@@ -596,9 +597,10 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 }
 
 func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) {
+	httpLog.Debug("Poll request")
 	httpSession := s.getHTTPSession(req)
 	if httpSession == nil {
-		httpLog.Infof("No session with id %#v", httpSession.ID)
+		httpLog.Warnf("No session with id %#v", httpSession.ID)
 		resp.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -632,8 +634,11 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 		resp.WriteHeader(http.StatusNotFound)
 		return nil, ErrInvalidEncoder
 	}
-	limitedReader := &io.LimitedReader{R: req.Body, N: int64(s.ServerConf.MaxRequestLength)}
-	body, err := ioutil.ReadAll(limitedReader)
+
+	body, err := ioutil.ReadAll(&io.LimitedReader{
+		R: req.Body,
+		N: int64(s.ServerConf.MaxRequestLength),
+	})
 	if err != nil {
 		httpLog.Warnf("Failed to read request body %s", err)
 		return nil, err
@@ -656,7 +661,18 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 }
 
 func (s *SliverHTTPC2) getPollTimeout() time.Duration {
-	return time.Duration(s.ServerConf.LongPollTimeoutMilli+insecureRand.Intn(s.ServerConf.LongPollJitterMilli)) * time.Millisecond
+	if s.ServerConf.LongPollJitter < 0 {
+		s.ServerConf.LongPollJitter = 0
+	}
+	min := s.ServerConf.LongPollTimeout
+	max := s.ServerConf.LongPollTimeout + s.ServerConf.LongPollJitter
+	timeout := min + insecureRand.Float32()*(max-min)
+	pollTimeout := time.Duration(timeout) * time.Second
+	if pollTimeout < minPollTimeout {
+		httpLog.Warnf("Poll timeout is too short, using default minimum %v", minPollTimeout)
+		pollTimeout = minPollTimeout
+	}
+	return pollTimeout
 }
 
 func (s *SliverHTTPC2) randomEtag() string {
@@ -675,6 +691,8 @@ func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request)
 
 	_, err := s.readReqBody(httpSession, resp, req)
 	if err != nil {
+		httpLog.Errorf("Failed to read request body %s", err)
+		resp.WriteHeader(http.StatusForbidden)
 		return
 	}
 
@@ -685,11 +703,12 @@ func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request)
 
 // stagerHander - Serves the sliver shellcode to the stager requesting it
 func (s *SliverHTTPC2) stagerHander(resp http.ResponseWriter, req *http.Request) {
+	httpLog.Debug("Stager request")
 	if len(s.SliverStage) != 0 {
 		httpLog.Infof("Received staging request from %s", getRemoteAddr(req))
 		resp.Write(s.SliverStage)
 		httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverStage), getRemoteAddr(req))
-		resp.WriteHeader(200)
+		resp.WriteHeader(http.StatusOK)
 	} else {
 		resp.WriteHeader(http.StatusNotFound)
 	}
