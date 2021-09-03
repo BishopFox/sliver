@@ -41,12 +41,12 @@ func TestRsaKeyHandler(t *testing.T) {
 		t.Errorf("Listener failed to start %s", err)
 		return
 	}
-	handler := http.HandlerFunc(server.rsaKeyHandler)
+	router := server.router()
 
 	// Missing parameters
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/test/foo.txt", nil)
-	handler.ServeHTTP(rr, req)
+	router.ServeHTTP(rr, req)
 	if status := rr.Code; status != http.StatusNotFound {
 		t.Errorf("handler returned wrong status code: got %d want %d", status, http.StatusNotFound)
 	}
@@ -54,7 +54,7 @@ func TestRsaKeyHandler(t *testing.T) {
 	// Invalid OTP code
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("GET", fmt.Sprintf("/test/foo.txt?aa=%d", insecureRand.Intn(99999999)), nil)
-	handler.ServeHTTP(rr, req)
+	router.ServeHTTP(rr, req)
 	if status := rr.Code; status != http.StatusNotFound {
 		t.Errorf("handler returned wrong status code: got %d want %d", status, http.StatusNotFound)
 	}

@@ -359,19 +359,25 @@ func (s *SliverHTTPC2) filterNonce(req *http.Request, rm *mux.RouteMatch) bool {
 
 func (s *SliverHTTPC2) filterOTP(req *http.Request, rm *mux.RouteMatch) bool {
 	if s.ServerConf.EnforceOTP {
+		httpLog.Debug("Checking for valid OTP code ...")
 		otpCode, err := getOTPFromURL(req.URL)
 		if err != nil {
+			httpLog.Warnf("Failed to validate OTP %s", err)
 			return false
 		}
 		valid, err := cryptography.ValidateTOTP(otpCode)
 		if err != nil {
 			httpLog.Warnf("Failed to validate OTP %s", err)
-		}
-		if !valid {
 			return false
 		}
+		if valid {
+			return true
+		}
+		return false
+	} else {
+		httpLog.Debug("OTP enforcement is disabled")
+		return true // OTP enforcement is disabled
 	}
-	return true
 }
 
 func getNonceFromURL(reqURL *url.URL) (int, error) {
@@ -472,7 +478,7 @@ func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http
 }
 
 func default404Handler(resp http.ResponseWriter, req *http.Request) {
-	httpLog.Debug("[404] No match for %s", req.RequestURI)
+	httpLog.Debugf("[404] No match for %s", req.RequestURI)
 	resp.WriteHeader(http.StatusNotFound)
 	resp.Header().Set("Content-type", mime.TypeByExtension(".html"))
 }
