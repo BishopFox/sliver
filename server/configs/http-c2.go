@@ -88,24 +88,22 @@ func (h *HTTPC2Config) ChromeVer() string {
 
 // RandomImplantConfig - Randomly generate a config
 func (h *HTTPC2Config) RandomImplantConfig() *HTTPC2ImplantConfig {
-	return &HTTPC2ImplantConfig{
-		UserAgent: h.ImplantConfig.UserAgent,
+	config := &HTTPC2ImplantConfig{}
+	*config = *h.ImplantConfig
 
-		MaxFiles: h.ImplantConfig.MaxFiles,
-		MaxPaths: h.ImplantConfig.MaxPaths,
+	config.KeyExchangeFiles = h.ImplantConfig.RandomKeyExchangeFiles()
+	config.KeyExchangePaths = h.ImplantConfig.RandomKeyExchangePaths()
 
-		PollFiles: h.ImplantConfig.RandomPollFiles(),
-		PollPaths: h.ImplantConfig.RandomPollPaths(),
+	config.PollFiles = h.ImplantConfig.RandomPollFiles()
+	config.PollPaths = h.ImplantConfig.RandomPollPaths()
 
-		KeyExchangeFiles: h.ImplantConfig.RandomKeyExchangeFiles(),
-		KeyExchangePaths: h.ImplantConfig.RandomKeyExchangePaths(),
+	config.SessionFiles = h.ImplantConfig.RandomSessionFiles()
+	config.SessionPaths = h.ImplantConfig.RandomSessionPaths()
 
-		CloseFiles: h.ImplantConfig.RandomCloseFiles(),
-		ClosePaths: h.ImplantConfig.RandomClosePaths(),
+	config.CloseFiles = h.ImplantConfig.RandomCloseFiles()
+	config.ClosePaths = h.ImplantConfig.RandomClosePaths()
 
-		SessionFiles: h.ImplantConfig.RandomSessionFiles(),
-		SessionPaths: h.ImplantConfig.RandomSessionPaths(),
-	}
+	return config
 }
 
 type HTTPHeader struct {
@@ -223,7 +221,7 @@ func (h *HTTPC2ImplantConfig) randomSample(values []string, ext string, min int,
 	sample := []string{}
 	for i := 0; len(sample) < count; i++ {
 		index := (count + i) % len(values)
-		sample = append(sample, values[index]+ext)
+		sample = append(sample, values[index])
 	}
 	return sample
 }
@@ -370,8 +368,8 @@ func coerceFiles(values []string, ext string) []string {
 	values = uniqueFileName(values)
 	coerced := []string{}
 	for _, value := range values {
-		if strings.HasSuffix(value, fmt.Sprintf(".%s", coerceFileExt(ext))) {
-			value = strings.TrimSuffix(value, fmt.Sprintf(".%s", coerceFileExt(ext)))
+		if strings.HasSuffix(value, fmt.Sprintf(".%s", ext)) {
+			value = strings.TrimSuffix(value, fmt.Sprintf(".%s", ext))
 		}
 		coerced = append(coerced, value)
 	}

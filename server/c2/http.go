@@ -254,6 +254,7 @@ func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 			return nil, err
 		}
 	}
+
 	return server, nil
 }
 
@@ -300,13 +301,13 @@ func (s *SliverHTTPC2) router() *mux.Router {
 
 	// Start Session Handler
 	router.HandleFunc(
-		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.SessionFileExt),
+		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.StartSessionFileExt),
 		s.startSessionHandler,
 	).MatcherFunc(s.filterOTP).MatcherFunc(s.filterNonce).Methods(http.MethodGet, http.MethodPost)
 
 	// Session Handler
 	router.HandleFunc(
-		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.StartSessionFileExt),
+		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.SessionFileExt),
 		s.sessionHandler,
 	).MatcherFunc(s.filterNonce).Methods(http.MethodGet, http.MethodPost)
 
@@ -471,6 +472,7 @@ func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http
 }
 
 func default404Handler(resp http.ResponseWriter, req *http.Request) {
+	httpLog.Debug("[404] No match for %s", req.RequestURI)
 	resp.WriteHeader(http.StatusNotFound)
 	resp.Header().Set("Content-type", mime.TypeByExtension(".html"))
 }
@@ -682,6 +684,7 @@ func (s *SliverHTTPC2) randomEtag() string {
 }
 
 func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request) {
+	httpLog.Debug("Close request")
 	httpSession := s.getHTTPSession(req)
 	if httpSession == nil {
 		httpLog.Infof("No session with id %#v", httpSession.ID)
