@@ -24,7 +24,10 @@ package transports
 
 import (
 	"github.com/bishopfox/sliver/implant/sliver/transports/namedpipe"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"io"
 	"net/url"
+	"sync"
 
 	// {{if .Config.Debug}}
 	"log"
