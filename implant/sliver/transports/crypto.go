@@ -30,7 +30,10 @@ import (
 	"crypto/sha256"
 	"errors"
 	"io"
+
+	// {{if .Config.Debug}}
 	"log"
+	// {{end}}
 	"time"
 
 	"github.com/pquerna/otp"
