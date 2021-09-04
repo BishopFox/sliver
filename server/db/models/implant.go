@@ -71,6 +71,10 @@ type ImplantConfig struct {
 	GOOS   string
 	GOARCH string
 
+	IsBeacon       bool
+	BeaconInterval int64
+	BeaconJitter   int64
+
 	// Standard
 	CACert              string
 	Cert                string

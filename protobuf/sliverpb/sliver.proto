@@ -31,7 +31,8 @@ message Envelope {
 }
 
 message BeaconTasks {
-  repeated Envelope Tasks = 1;
+  string ID = 1;
+  repeated Envelope Tasks = 2;
 }
 
 // Register - First message the implant sends to the server
@@ -55,8 +56,13 @@ message Register {
 }
 
 message BeaconRegister {
-  int64 BeaconInterval = 1;
+  BeaconDuration Duration = 1;
   Register Register = 2;
+}
+
+message BeaconDuration {
+  int64 Interval = 1;
+  int64 Jitter = 2;
 }
 
 // Ping - Not ICMP, just sends a rount trip message to an implant to

