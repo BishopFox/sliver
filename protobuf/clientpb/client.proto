@@ -85,6 +85,7 @@ message ImplantConfig {
   // c2
   repeated ImplantC2 C2 = 10;
   repeated string CanaryDomains = 11;
+  string ConnectionStrategy = 39;
 
   bool LimitDomainJoined = 20;
   string LimitDatetime = 21;

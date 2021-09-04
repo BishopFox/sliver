@@ -81,6 +81,7 @@ type ImplantConfig struct {
 	ReconnectInterval   uint32
 	PollInterval        uint32
 	MaxConnectionErrors uint32
+	ConnectionStrategy  string
 
 	WGImplantPrivKey  string
 	WGServerPubKey    string
@@ -145,6 +146,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		ReconnectInterval:   ic.ReconnectInterval,
 		PollInterval:        ic.PollInterval,
 		MaxConnectionErrors: ic.MaxConnectionErrors,
+		ConnectionStrategy:  ic.ConnectionStrategy,
 
 		LimitDatetime:     ic.LimitDatetime,
 		LimitDomainJoined: ic.LimitDomainJoined,
