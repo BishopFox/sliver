@@ -31,6 +31,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -56,6 +57,8 @@ var (
 	wgPeerTunIP       = `{{.Config.WGPeerTunIP}}`
 	wgKeyExchangePort = getWgKeyExchangePort()
 	wgTcpCommsPort    = getWgTcpCommsPort()
+
+	PingInterval = 2 * time.Minute
 )
 
 // GetTNet - Get the netstack Net object

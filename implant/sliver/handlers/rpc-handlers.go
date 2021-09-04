@@ -43,49 +43,6 @@ import (
 // ------------------------------------------------------------------------------------------
 // These are generic handlers (as in calling convention) that use platform specific code
 // ------------------------------------------------------------------------------------------
-
-func psHandler(data []byte, resp RPCResponse) {
-	psListReq := &sliverpb.PsReq{}
-	err := proto.Unmarshal(data, psListReq)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("error decoding message: %v", err)
-		// {{end}}
-		return
-	}
-	procs, err := ps.Processes()
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("failed to list procs %v", err)
-		// {{end}}
-	}
-
-	psList := &sliverpb.Ps{
-		Processes: []*commonpb.Process{},
-	}
-
-	for _, proc := range procs {
-		p := &commonpb.Process{
-			Pid:        int32(proc.Pid()),
-			Ppid:       int32(proc.PPid()),
-			Executable: proc.Executable(),
-			Owner:      proc.Owner(),
-		}
-		// {{if eq .Config.GOOS "windows"}}
-		p.SessionID = int32(proc.(*ps.WindowsProcess).SessionID())
-		// {{end}}
-		// {{if eq .Config.GOOS "linux"}}
-		p.CmdLine = proc.(*ps.UnixProcess).CmdLine()
-		// {{end}}
-		// {{if eq .Config.GOOS "darwin"}}
-		p.CmdLine = proc.(*ps.DarwinProcess).CmdLine()
-		// {{end}}
-		psList.Processes = append(psList.Processes, p)
-	}
-	data, err = proto.Marshal(psList)
-	resp(data, err)
-}
-
 func terminateHandler(data []byte, resp RPCResponse) {
 
 	terminateReq := &sliverpb.TerminateReq{}

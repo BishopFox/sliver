@@ -19,7 +19,6 @@ package transports
 */
 
 import (
-	"fmt"
 	insecureRand "math/rand"
 
 	// {{if or .Config.HTTPc2Enabled .Config.TCPPivotc2Enabled .Config.WGc2Enabled}}
@@ -31,9 +30,7 @@ import (
 	// {{end}}
 
 	// {{if .Config.MTLSc2Enabled}}
-	"github.com/bishopfox/sliver/implant/sliver/transports/dnsclient"
 	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
-
 	// {{end}}
 
 	// {{if .Config.WGc2Enabled}}
@@ -43,6 +40,20 @@ import (
 
 	// {{end}}
 
+	// {{if .Config.HTTPc2Enabled}}
+	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient"
+	"google.golang.org/protobuf/proto"
+
+	// {{end}}
+
+	// {{if .Config.DNSc2Enabled}}
+	"github.com/bishopfox/sliver/implant/sliver/transports/dnsclient"
+	// {{end}}
+
+	// {{if .Config.TCPPivotc2Enabled}}
+	"fmt"
+	// {{end}}
+
 	"io"
 	"net/url"
 	"strconv"
@@ -50,13 +61,6 @@ import (
 	"time"
 
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
-
-	// {{if .Config.HTTPc2Enabled}}
-	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient"
-	"google.golang.org/protobuf/proto"
-	// {{end}}
-	// {{if .Config.TCPPivotc2Enabled}}
-	// {{end}}
 )
 
 var (
@@ -506,7 +510,7 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 				if err != nil {
 					return
 				}
-			case <-time.After(mtls.PingInterval):
+			case <-time.After(wireguard.PingInterval):
 				wireguard.WritePing(conn)
 				if err != nil {
 					return

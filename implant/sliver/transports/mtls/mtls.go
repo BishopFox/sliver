@@ -40,7 +40,7 @@ import (
 )
 
 var (
-	PingInterval = 30 * time.Second
+	PingInterval = 2 * time.Minute
 	readBufSize  = 16 * 1024 // 16kb
 	keyPEM       = `{{.Config.Key}}`
 	certPEM      = `{{.Config.Cert}}`

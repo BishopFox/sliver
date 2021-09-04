@@ -31,7 +31,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"io"
+
+	// {{if .Config.Debug}}
 	"log"
+	// {{end}}
+
 	"os"
 	"time"
 
