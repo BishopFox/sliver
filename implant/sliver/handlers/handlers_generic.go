@@ -63,8 +63,3 @@ func GetSystemPivotHandlers() map[uint32]PivotHandler {
 func GetPivotHandlers() map[uint32]PivotHandler {
 	return map[uint32]PivotHandler{}
 }
-
-// GetSpecialHandlers - Not supported
-func GetSpecialHandlers() map[uint32]SpecialHandler {
-	return map[uint32]SpecialHandler{}
-}
