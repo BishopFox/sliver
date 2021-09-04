@@ -575,7 +575,7 @@ func pollIntervalHandler(data []byte, resp RPCResponse) {
 	// {{end}}
 
 	// Set the reconnect interval value
-	transports.SetPollInterval(int(pollInterval))
+	transports.SetPollTimeout(int(pollInterval))
 
 	pollIntervalResp := &sliverpb.PollInterval{}
 	pollIntervalResp.Response = &commonpb.Response{}

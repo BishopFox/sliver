@@ -30,6 +30,10 @@ message Envelope {
   bool UnknownMessageType = 4; // Set if the implant did not understand the message
 }
 
+message BeaconTasks {
+  repeated Envelope Tasks = 1;
+}
+
 // Register - First message the implant sends to the server
 message Register {
   string Name = 1;
@@ -46,8 +50,13 @@ message Register {
   string Version = 12;
   uint32 ReconnectInterval = 13;
   string ProxyURL = 14;
-  uint32 PollInterval = 15;
+  uint32 PollTimeout = 15;
   string ConfigID = 16;
+}
+
+message BeaconRegister {
+  int64 BeaconInterval = 1;
+  Register Register = 2;
 }
 
 // Ping - Not ICMP, just sends a rount trip message to an implant to
