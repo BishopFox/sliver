@@ -28,7 +28,7 @@ import (
 	"time"
 
 	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
-	implantTransports "github.com/bishopfox/sliver/implant/sliver/transports"
+	implantTransports "github.com/bishopfox/sliver/implant/sliver/transports/httpclient"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/pquerna/otp"

@@ -1,10 +1,10 @@
-//go:build !windows
+//go:build !windows && !darwin && !linux
 
-package transports
+package wireguard
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2019  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -18,19 +18,8 @@ package transports
 
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-	-----------------------------------------------------------------------
-
-	Place holder so we don't get undefined functions when compiling to
-	non-Windows platforms.
-
 */
 
-import (
-	"errors"
-	"net/url"
-)
-
-func namedPipeConnect(_ *url.URL) (*Connection, error) {
-	return nil, errors.New("not supported")
+func WireguardConnect(_ string, _ uint16) (net.Conn, *device.Device, error) {
+	return nil, nil, errors.New("{{if .Config.Debug}}WireguardConnect not implemented on this platform{{end}}")
 }

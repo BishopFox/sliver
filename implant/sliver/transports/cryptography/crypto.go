@@ -1,4 +1,4 @@
-package transports
+package cryptography
 
 /*
 	Sliver Implant Framework
@@ -28,9 +28,11 @@ import (
 	secureRand "crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
 	"errors"
 	"io"
 	"log"
+	"os"
 	"time"
 
 	"github.com/pquerna/otp"
@@ -43,6 +45,10 @@ const (
 
 	// GCMNonceSize - 96 bit nonces for GCM
 	GCMNonceSize = 12
+)
+
+var (
+	CACertPEM = `{{.Config.CACert}}`
 )
 
 // AESKey - 128 bit key
@@ -144,4 +150,42 @@ func GetOTPCode() string {
 	log.Printf("TOTP Code: %s", code)
 	// {{end}}
 	return code
+}
+
+// rootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so
+// we have to disable all of the certificate validation and re-implement everything.
+// https://github.com/golang/go/issues/21971
+func RootOnlyVerifyCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+
+	roots := x509.NewCertPool()
+	ok := roots.AppendCertsFromPEM([]byte(CACertPEM))
+	if !ok {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to parse root certificate")
+		// {{end}}
+		os.Exit(3)
+	}
+
+	cert, err := x509.ParseCertificate(rawCerts[0]) // We should only get one cert
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to parse certificate: " + err.Error())
+		// {{end}}
+		return err
+	}
+
+	// Basically we only care if the certificate was signed by our authority
+	// Go selects sensible defaults for time and EKU, basically we're only
+	// skipping the hostname check, I think?
+	options := x509.VerifyOptions{
+		Roots: roots,
+	}
+	if _, err := cert.Verify(options); err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to verify certificate: " + err.Error())
+		// {{end}}
+		return err
+	}
+
+	return nil
 }

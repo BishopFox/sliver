@@ -9,7 +9,7 @@ import (
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -18,7 +18,7 @@ const (
 	writeBufSizeTCP = 1024
 )
 
-func tcpPivotWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
+func tcpPivotWriteEnvelope(conn *net.Conn, envelope *pb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -56,7 +56,7 @@ func tcpPivotWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	return nil
 }
 
-func tcpPivotReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
+func tcpPivotReadEnvelope(conn *net.Conn) (*pb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4)
 	_, err := (*conn).Read(dataLengthBuf)
 	if err != nil {
@@ -83,13 +83,13 @@ func tcpPivotReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 			break
 		}
 	}
-	envelope := &sliverpb.Envelope{}
+	envelope := &pb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[tcppivot] Unmarshal envelope error: %v", err)
 		// {{end}}
-		return &sliverpb.Envelope{}, err
+		return &pb.Envelope{}, err
 	}
 	return envelope, nil
 }
