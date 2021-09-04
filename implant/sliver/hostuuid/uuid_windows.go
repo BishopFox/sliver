@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package hostuuid
@@ -43,7 +44,7 @@ func GetUUID() string {
 			// {{if .Config.Debug}}
 			log.Printf("Failed to read reg key string value: %s", err)
 			// {{end}}
-			return ""
+			return UUIDFromMAC()
 		}
 		return uuidStr[1:37]
 	} else {
@@ -51,5 +52,5 @@ func GetUUID() string {
 		log.Printf("Failed to read reg key: %s", err)
 		// {{end}}
 	}
-	return ""
+	return UUIDFromMAC()
 }
