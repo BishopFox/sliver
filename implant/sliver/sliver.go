@@ -32,12 +32,11 @@ import (
 
 	// {{if .Config.IsBeacon}}
 	"sync"
+	"time"
 
 	"github.com/gofrs/uuid"
 
 	// {{end}}
-
-	"time"
 
 	// {{if .Config.Debug}}{{else}}
 	"io/ioutil"
@@ -255,7 +254,9 @@ func beaconMain(beacon *transports.Beacon) error {
 				defer resultsMutex.Unlock()
 				defer wg.Done()
 				// {{if .Config.Debug}}
-				log.Printf("[beacon] handler function returned an error: %s", err)
+				if err != nil {
+					log.Printf("[beacon] handler function returned an error: %s", err)
+				}
 				// {{end}}
 				results = append(results, &sliverpb.Envelope{
 					ID:   task.ID,
@@ -432,9 +433,9 @@ func RegisterSliver() *sliverpb.Register {
 		Pid:               int32(os.Getpid()),
 		Filename:          filename,
 		ActiveC2:          transports.GetActiveC2(),
-		ReconnectInterval: uint32(transports.GetReconnectInterval() / time.Second),
+		ReconnectInterval: int64(transports.GetReconnectInterval()),
 		ProxyURL:          transports.GetProxyURL(),
-		PollTimeout:       uint32(transports.GetPollTimeout() / time.Second),
+		PollTimeout:       int64(transports.GetPollTimeout()),
 		ConfigID:          "{{ .Config.ID }}",
 	}
 }

@@ -33,8 +33,8 @@ var (
 	}
 
 	maxErrors         = getMaxConnectionErrors()
-	reconnectInterval = -1
-	pollTimeout       = -1
+	reconnectInterval = int64(0)
+	pollTimeout       = int64(0)
 
 	ccCounter = new(int)
 
@@ -108,13 +108,13 @@ func GetReconnectInterval() time.Duration {
 		if err != nil {
 			return 60 * time.Second
 		}
-		return time.Duration(reconnect) * time.Second
+		return time.Duration(reconnect)
 	} else {
-		return time.Duration(reconnectInterval) * time.Second
+		return time.Duration(reconnectInterval)
 	}
 }
 
-func SetReconnectInterval(interval int) {
+func SetReconnectInterval(interval int64) {
 	reconnectInterval = interval
 }
 
@@ -131,7 +131,7 @@ func GetPollTimeout() time.Duration {
 	}
 }
 
-func SetPollTimeout(seconds int) {
+func SetPollTimeout(seconds int64) {
 	pollTimeout = seconds
 }
 

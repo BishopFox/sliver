@@ -161,8 +161,7 @@ func printSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 		if session.Burned {
 			burned = "🔥"
 		}
-
-		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			session.ID,
 			session.Name,
 			session.Transport,
@@ -170,9 +169,8 @@ func printSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 			session.Hostname,
 			session.Username,
 			fmt.Sprintf("%s/%s", session.OS, session.Arch),
-			time.Unix(session.LastCheckin, 0).Format(time.RFC3339),
-			SessionHealth,
-			burned,
+			time.Unix(session.LastCheckin, 0).Format(time.RFC1123),
+			burned+SessionHealth,
 		)
 	}
 	table.Flush()
