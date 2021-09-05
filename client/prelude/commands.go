@@ -3,7 +3,6 @@ package prelude
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -38,7 +37,6 @@ func execute(cmd string, executor string, agentConfig *AgentConfig, rpc rpcpb.Sl
 	if executor == "psh" {
 		executor = "powershell.exe"
 	}
-	log.Printf("[!] Executing %s %s\n", executor, strings.Join(args, " "))
 	execResp, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 		Path:    executor,
 		Args:    args,
