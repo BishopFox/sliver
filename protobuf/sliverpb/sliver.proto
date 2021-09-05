@@ -30,6 +30,7 @@ message Envelope {
   bool UnknownMessageType = 4; // Set if the implant did not understand the message
 }
 
+// BeaconTasks - DO NOT CONFUSE WITH clientpb.BeaconTasks
 message BeaconTasks {
   string ID = 1;
   repeated Envelope Tasks = 2;
@@ -56,8 +57,9 @@ message Register {
 }
 
 message BeaconRegister {
-  BeaconDuration Duration = 1;
-  Register Register = 2;
+  string ID = 1;
+  BeaconDuration Duration = 2;
+  Register Register = 3;
 }
 
 message BeaconDuration {

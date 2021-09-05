@@ -29,36 +29,58 @@ import (
 type Beacon struct {
 	gorm.Model
 
-	ID           uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	ImplantBuild uuid.UUID
+	ID            uuid.UUID `gorm:"type:uuid;"`
+	Name          string
+	Hostname      string
+	UUID          uuid.UUID `gorm:"type:uuid;"` // Host UUID
+	UID           string
+	GID           string
+	OS            string
+	Arch          string
+	Transport     string
+	RemoteAddress string
+	PID           int32
+	Filename      string
+	LastCheckin   time.Time
+	ActiveC2      string
+	Version       string
+	Evasion       bool
+	IsDead        bool
+	ProxyURL      string
+
+	ImplantBuild uuid.UUID `gorm:"type:uuid;"`
 	HostUUID     uuid.UUID `gorm:"type:uuid;"`
 	CreatedAt    time.Time `gorm:"->;<-:create;"`
-	LastCheckin  time.Time
-	Interval     time.Time
-	Jitter       time.Time
-	Tasks        []BeaconTask
+
+	Interval time.Time
+	Jitter   time.Time
+
+	Tasks []BeaconTask
 }
 
 // BeforeCreate - GORM hook
 func (b *Beacon) BeforeCreate(tx *gorm.DB) (err error) {
-	b.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
 	b.CreatedAt = time.Now()
 	return nil
 }
 
 // BeaconTask - Represents a host machine
+const (
+	PENDING   = "pending"
+	SENT      = "sent"
+	COMPLETED = "completed"
+)
+
 type BeaconTask struct {
 	gorm.Model
 
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	CreatedAt time.Time `gorm:"->;<-:create;"`
-	Sent      bool
-	Responded bool
-	Request   []byte // *sliverpb.Envelope
-	Response  []byte // *sliverpb.Envelope
+	ID          uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CreatedAt   time.Time `gorm:"->;<-:create;"`
+	State       string
+	SentAt      time.Time
+	CompletedAt time.Time
+	Request     []byte // *sliverpb.Envelope
+	Response    []byte // *sliverpb.Envelope
 }
 
 // BeforeCreate - GORM hook
@@ -68,5 +90,6 @@ func (b *BeaconTask) BeforeCreate(tx *gorm.DB) (err error) {
 		return err
 	}
 	b.CreatedAt = time.Now()
+	b.State = PENDING
 	return nil
 }

@@ -13,6 +13,7 @@ message Request {
   bool Async = 1;
   int64 Timeout = 2;
 
+  string BeaconID = 8;
   uint32 SessionID = 9;
 }
   

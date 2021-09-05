@@ -47,7 +47,7 @@ message Session {
 }
 
 message Beacon {
-  uint32 ID = 1;
+  string ID = 1;
   string Name = 2;
   string Hostname = 3;
   string UUID = 4;
@@ -60,15 +60,35 @@ message Beacon {
   string RemoteAddress = 11;
   int32 PID = 12;
   string Filename = 13; // Argv[0]
-  string LastCheckin = 14;
+  int64 LastCheckin = 14;
   string ActiveC2 = 15;
   string Version = 16;
   bool Evasion = 17;
   bool IsDead = 18;
-  uint32 ReconnectInterval = 19;
+
   string ProxyURL = 20;
-  uint64 BeaconInterval = 21;
-  bool Burned = 22;
+  int64 Interval = 21;
+  int64 Jitter = 22;
+  bool Burned = 23;
+}
+
+message Beacons {
+  repeated Beacons Beacons = 2;
+}
+
+message BeaconTask {
+  string ID = 1;
+  int64 CreatedAt = 2;
+  string State = 3;
+  int64 SentAt  = 4;
+  int64 CompletedAt = 5;
+  bytes Request = 6;
+  bytes Response = 7;
+}
+
+message BeaconTasks {
+  string BeaconID = 1;
+  repeated BeaconTask Tasks = 2;
 }
 
 message ImplantC2 {

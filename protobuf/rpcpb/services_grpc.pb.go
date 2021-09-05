@@ -29,6 +29,10 @@ type SliverRPCClient interface {
 	GetSessions(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Sessions, error)
 	KillSession(ctx context.Context, in *sliverpb.KillSessionReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	UpdateSession(ctx context.Context, in *clientpb.UpdateSession, opts ...grpc.CallOption) (*clientpb.Session, error)
+	// *** Beacons ***
+	GetBeacons(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Beacons, error)
+	GetBeaconTasks(ctx context.Context, in *clientpb.Beacon, opts ...grpc.CallOption) (*clientpb.BeaconTasks, error)
+	GetBeaconTaskContent(ctx context.Context, in *clientpb.BeaconTask, opts ...grpc.CallOption) (*clientpb.BeaconTask, error)
 	// ***Threat monitoring ***
 	MonitorStart(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*commonpb.Response, error)
 	MonitorStop(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -193,6 +197,33 @@ func (c *sliverRPCClient) KillSession(ctx context.Context, in *sliverpb.KillSess
 func (c *sliverRPCClient) UpdateSession(ctx context.Context, in *clientpb.UpdateSession, opts ...grpc.CallOption) (*clientpb.Session, error) {
 	out := new(clientpb.Session)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/UpdateSession", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetBeacons(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Beacons, error) {
+	out := new(clientpb.Beacons)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetBeacons", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetBeaconTasks(ctx context.Context, in *clientpb.Beacon, opts ...grpc.CallOption) (*clientpb.BeaconTasks, error) {
+	out := new(clientpb.BeaconTasks)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetBeaconTasks", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetBeaconTaskContent(ctx context.Context, in *clientpb.BeaconTask, opts ...grpc.CallOption) (*clientpb.BeaconTask, error) {
+	out := new(clientpb.BeaconTask)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetBeaconTaskContent", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1165,6 +1196,10 @@ type SliverRPCServer interface {
 	GetSessions(context.Context, *commonpb.Empty) (*clientpb.Sessions, error)
 	KillSession(context.Context, *sliverpb.KillSessionReq) (*commonpb.Empty, error)
 	UpdateSession(context.Context, *clientpb.UpdateSession) (*clientpb.Session, error)
+	// *** Beacons ***
+	GetBeacons(context.Context, *commonpb.Empty) (*clientpb.Beacons, error)
+	GetBeaconTasks(context.Context, *clientpb.Beacon) (*clientpb.BeaconTasks, error)
+	GetBeaconTaskContent(context.Context, *clientpb.BeaconTask) (*clientpb.BeaconTask, error)
 	// ***Threat monitoring ***
 	MonitorStart(context.Context, *commonpb.Empty) (*commonpb.Response, error)
 	MonitorStop(context.Context, *commonpb.Empty) (*commonpb.Empty, error)
@@ -1301,6 +1336,15 @@ func (UnimplementedSliverRPCServer) KillSession(context.Context, *sliverpb.KillS
 }
 func (UnimplementedSliverRPCServer) UpdateSession(context.Context, *clientpb.UpdateSession) (*clientpb.Session, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateSession not implemented")
+}
+func (UnimplementedSliverRPCServer) GetBeacons(context.Context, *commonpb.Empty) (*clientpb.Beacons, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBeacons not implemented")
+}
+func (UnimplementedSliverRPCServer) GetBeaconTasks(context.Context, *clientpb.Beacon) (*clientpb.BeaconTasks, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBeaconTasks not implemented")
+}
+func (UnimplementedSliverRPCServer) GetBeaconTaskContent(context.Context, *clientpb.BeaconTask) (*clientpb.BeaconTask, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBeaconTaskContent not implemented")
 }
 func (UnimplementedSliverRPCServer) MonitorStart(context.Context, *commonpb.Empty) (*commonpb.Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MonitorStart not implemented")
@@ -1704,6 +1748,60 @@ func _SliverRPC_UpdateSession_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).UpdateSession(ctx, req.(*clientpb.UpdateSession))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetBeacons_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetBeacons(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/GetBeacons",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetBeacons(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetBeaconTasks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Beacon)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetBeaconTasks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/GetBeaconTasks",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetBeaconTasks(ctx, req.(*clientpb.Beacon))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetBeaconTaskContent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BeaconTask)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetBeaconTaskContent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/GetBeaconTaskContent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetBeaconTaskContent(ctx, req.(*clientpb.BeaconTask))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3563,6 +3661,18 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateSession",
 			Handler:    _SliverRPC_UpdateSession_Handler,
+		},
+		{
+			MethodName: "GetBeacons",
+			Handler:    _SliverRPC_GetBeacons_Handler,
+		},
+		{
+			MethodName: "GetBeaconTasks",
+			Handler:    _SliverRPC_GetBeaconTasks_Handler,
+		},
+		{
+			MethodName: "GetBeaconTaskContent",
+			Handler:    _SliverRPC_GetBeaconTaskContent_Handler,
 		},
 		{
 			MethodName: "MonitorStart",
