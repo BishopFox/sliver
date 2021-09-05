@@ -21,6 +21,7 @@ package sessions
 import (
 	"context"
 	"regexp"
+	"time"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -54,8 +55,8 @@ func SessionsReconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	session, err := con.Rpc.UpdateSession(context.Background(), &clientpb.UpdateSession{
 		SessionID:         con.ActiveSession.Session.ID,
 		Name:              name,
-		ReconnectInterval: int32(reconnect),
-		PollInterval:      int32(poll),
+		ReconnectInterval: int64(reconnect) * int64(time.Second),
+		PollInterval:      int64(poll) * int64(time.Second),
 	})
 
 	if err != nil {

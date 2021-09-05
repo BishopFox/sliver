@@ -569,6 +569,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request) {
 	httpLog.Debug("Session request")
 	httpSession := s.getHTTPSession(req)
+	httpSession.ImplanConn.UpdateLastMessage()
 	if httpSession == nil {
 		httpLog.Infof("No session with id %#v", httpSession.ID)
 		resp.WriteHeader(http.StatusForbidden)
@@ -591,7 +592,7 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 			resp <- envelope
 		}
 	} else if handler, ok := handlers[envelope.Type]; ok {
-		handler.(func(*core.ImplantConnection, []byte))(httpSession.ImplanConn, envelope.Data)
+		handler(httpSession.ImplanConn, envelope.Data)
 	}
 	resp.WriteHeader(http.StatusAccepted)
 }
@@ -599,6 +600,7 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) {
 	httpLog.Debug("Poll request")
 	httpSession := s.getHTTPSession(req)
+	httpSession.ImplanConn.UpdateLastMessage()
 	if httpSession == nil {
 		httpLog.Warnf("No session with id %#v", httpSession.ID)
 		resp.WriteHeader(http.StatusForbidden)

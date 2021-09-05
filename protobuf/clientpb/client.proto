@@ -34,14 +34,14 @@ message Session {
   string RemoteAddress = 11;
   int32 PID = 12;
   string Filename = 13; // Argv[0]
-  string LastCheckin = 14;
+  int64 LastCheckin = 14;
   string ActiveC2 = 15;
   string Version = 16;
   bool Evasion = 17;
   bool IsDead = 18;
-  uint32 ReconnectInterval = 19;
+  int64 ReconnectInterval = 19;
   string ProxyURL = 20;
-  uint32 PollInterval = 21;
+  int64 PollInterval = 21;
   bool Burned = 22;
   repeated string Extensions = 23;
 }
@@ -126,9 +126,9 @@ message ImplantConfig {
   uint32 WGKeyExchangePort = 36;
   uint32 WGTcpCommsPort = 37;
 
-  uint32 ReconnectInterval = 8;
+  int64 ReconnectInterval = 8;
   uint32 MaxConnectionErrors = 9;
-  uint32 PollTimeout = 38;
+  int64 PollTimeout = 38;
 
   // c2
   repeated ImplantC2 C2 = 10;
@@ -324,8 +324,8 @@ message Sessions {
 message UpdateSession {
   uint32 SessionID = 1;
   string Name = 2;
-  int32 ReconnectInterval = 3;
-  int32 PollInterval = 4;
+  int64 ReconnectInterval = 3;
+  int64 PollInterval = 4;
   repeated string Extensions = 5;
 }
 

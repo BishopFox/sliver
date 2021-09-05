@@ -50,9 +50,9 @@ message Register {
   string Filename = 10;
   string ActiveC2 = 11;
   string Version = 12;
-  uint32 ReconnectInterval = 13;
+  int64 ReconnectInterval = 13;
   string ProxyURL = 14;
-  uint32 PollTimeout = 15;
+  int64 PollTimeout = 15;
   string ConfigID = 16;
 }
 
@@ -786,7 +786,7 @@ message WGTCPForwarders {
 
 // ReconnectIntervalReq - Request the implant to update it's reconnect interval
 message ReconnectIntervalReq {
-  uint32 ReconnectIntervalSeconds = 1;
+  int64 ReconnectInterval = 1;
 
   commonpb.Request Request = 9;
 }
@@ -797,7 +797,7 @@ message ReconnectInterval {
 
 // PollIntervalReq - Request the implant to update it's poll intervbal
 message PollIntervalReq {
-  uint32 PollIntervalSeconds = 1;
+  int64 PollInterval = 1;
 
   commonpb.Request Request = 9;
 }

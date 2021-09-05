@@ -213,7 +213,7 @@ func handleWGSliverConnection(conn net.Conn) {
 				}
 				implantConn.RespMutex.RUnlock()
 			} else if handler, ok := handlers[envelope.Type]; ok {
-				go handler.(func(*core.ImplantConnection, []byte))(implantConn, envelope.Data)
+				go handler(implantConn, envelope.Data)
 			}
 		}
 	}()

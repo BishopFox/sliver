@@ -25,6 +25,7 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -169,7 +170,7 @@ func printSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 			session.Hostname,
 			session.Username,
 			fmt.Sprintf("%s/%s", session.OS, session.Arch),
-			session.LastCheckin,
+			time.Unix(session.LastCheckin, 0).Format(time.RFC3339),
 			SessionHealth,
 			burned,
 		)

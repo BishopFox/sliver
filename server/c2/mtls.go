@@ -104,6 +104,7 @@ func handleSliverConnection(conn net.Conn) {
 				mtlsLog.Errorf("Socket read error %v", err)
 				return
 			}
+			implantConn.UpdateLastMessage()
 			if envelope.ID != 0 {
 				implantConn.RespMutex.RLock()
 				if resp, ok := implantConn.Resp[envelope.ID]; ok {
@@ -111,7 +112,7 @@ func handleSliverConnection(conn net.Conn) {
 				}
 				implantConn.RespMutex.RUnlock()
 			} else if handler, ok := handlers[envelope.Type]; ok {
-				go handler.(func(*core.ImplantConnection, []byte))(implantConn, envelope.Data)
+				go handler(implantConn, envelope.Data)
 			}
 		}
 	}()

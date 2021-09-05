@@ -82,8 +82,8 @@ type ImplantConfig struct {
 	Debug               bool
 	Evasion             bool
 	ObfuscateSymbols    bool
-	ReconnectInterval   uint32
-	PollTimeout         uint32
+	ReconnectInterval   int64
+	PollTimeout         int64
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
 

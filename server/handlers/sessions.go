@@ -51,6 +51,7 @@ func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) {
 	}
 
 	session := core.NewSession(implantConn)
+
 	// Parse Register UUID
 	sessionUUID, err := uuid.Parse(register.Uuid)
 	if err != nil {
@@ -94,10 +95,10 @@ func auditLogSession(session *core.Session, register *sliverpb.Register) {
 
 // The handler mutex prevents a send on a closed channel, without it
 // two handlers calls may race when a tunnel is quickly created and closed.
-func tunnelDataHandler(session *core.Session, data []byte) {
+func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) {
+	session := core.SessionFromImplantConnection(implantConn)
 	tunnelHandlerMutex.Lock()
 	defer tunnelHandlerMutex.Unlock()
-
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
@@ -112,7 +113,8 @@ func tunnelDataHandler(session *core.Session, data []byte) {
 	}
 }
 
-func tunnelCloseHandler(session *core.Session, data []byte) {
+func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) {
+	session := core.SessionFromImplantConnection(implantConn)
 	tunnelHandlerMutex.Lock()
 	defer tunnelHandlerMutex.Unlock()
 
@@ -134,6 +136,7 @@ func tunnelCloseHandler(session *core.Session, data []byte) {
 	}
 }
 
-func pingHandler(session *core.Session, data []byte) {
+func pingHandler(implantConn *core.ImplantConnection, data []byte) {
+	session := core.SessionFromImplantConnection(implantConn)
 	sessionHandlerLog.Debugf("ping from session %d", session.ID)
 }

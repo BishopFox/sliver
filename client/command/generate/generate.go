@@ -283,8 +283,8 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		WGKeyExchangePort: uint32(ctx.Flags.Int("key-exchange")),
 		WGTcpCommsPort:    uint32(ctx.Flags.Int("tcp-comms")),
 
-		ReconnectInterval:   uint32(reconnectInterval),
-		PollTimeout:         uint32(pollTimeout),
+		ReconnectInterval:   int64(reconnectInterval) * int64(time.Second),
+		PollTimeout:         int64(pollTimeout) * int64(time.Second),
 		MaxConnectionErrors: uint32(maxConnectionErrors),
 
 		LimitDomainJoined: limitDomainJoined,

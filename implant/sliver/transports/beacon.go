@@ -20,26 +20,28 @@ package transports
 
 import (
 	// {{if .Config.Debug}}
-
-	"crypto/tls"
 	"log"
-	insecureRand "math/rand"
-	"net"
 
 	// {{end}}
 
+	"crypto/tls"
+	insecureRand "math/rand"
 	"net/url"
 	"strconv"
 	"time"
 
 	// {{if .Config.MTLSc2Enabled}}
-	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient"
 	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
 
 	// {{end}}
 
+	// {{if .Config.HTTPc2Enabled}}
+	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient"
+	// {{end}}
+
 	// {{if .Config.WGc2Enabled}}
 	"errors"
+	"net"
 
 	"github.com/bishopfox/sliver/implant/sliver/transports/wireguard"
 	"golang.zx2c4.com/wireguard/device"

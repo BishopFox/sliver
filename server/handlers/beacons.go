@@ -25,7 +25,6 @@ package handlers
 import (
 	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 	"google.golang.org/protobuf/proto"
 )
@@ -44,6 +43,12 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) {
 	beaconHandlerLog.Info("Beacon registration from %s", register.ID)
 }
 
-func beaconTasksHandler(beacon *models.Beacon, data []byte) {
-	beaconHandlerLog.Info("Beacon from %s", beacon.ID)
+func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) {
+	beaconTasks := &sliverpb.BeaconTasks{}
+	err := proto.Unmarshal(data, beaconTasks)
+	if err != nil {
+		beaconHandlerLog.Errorf("Error decoding beacon tasks message: %s", err)
+		return
+	}
+	beaconHandlerLog.Info("Beacon tasks from %s", beaconTasks.ID)
 }

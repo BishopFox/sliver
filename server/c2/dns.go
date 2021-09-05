@@ -520,7 +520,7 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 				resp <- envelope
 			}
 		} else if handler, ok := handlers[envelope.Type]; ok {
-			handler.(func(*core.ImplantConnection, []byte))(dnsSession.ImplantConnection, envelope.Data)
+			handler(dnsSession.ImplantConnection, envelope.Data)
 		}
 		return []string{"0"}, nil
 	}

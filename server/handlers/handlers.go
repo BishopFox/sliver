@@ -26,10 +26,13 @@ import (
 	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/core"
 )
 
+type ServerHandler func(*core.ImplantConnection, []byte)
+
 var (
-	serverHandlers = map[uint32]interface{}{
+	serverHandlers = map[uint32]ServerHandler{
 		// Sessions
 		sliverpb.MsgRegister:    registerSessionHandler,
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
@@ -45,11 +48,11 @@ var (
 )
 
 // GetHandlers - Returns a map of server-side msg handlers
-func GetHandlers() map[uint32]interface{} {
+func GetHandlers() map[uint32]ServerHandler {
 	return serverHandlers
 }
 
 // AddHandler -  Adds a new handler to the map of server-side msg handlers
-func AddHandler(key uint32, value interface{}) {
+func AddHandler(key uint32, value ServerHandler) {
 	serverHandlers[key] = value
 }

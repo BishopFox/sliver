@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
@@ -58,41 +59,35 @@ type Session struct {
 	Os                string
 	Version           string
 	Arch              string
-	Transport         string
-	RemoteAddress     string
 	PID               int32
 	Filename          string
-	LastCheckin       *time.Time
-	Connection        ImplantConnection
+	Connection        *ImplantConnection
 	ActiveC2          string
-	IsDead            bool
-	ReconnectInterval uint32
+	ReconnectInterval int64
 	ProxyURL          string
-	PollTimeout       uint32
+	PollTimeout       int64
 	Burned            bool
 	Extensions        []string
 }
 
+func (s *Session) LastCheckin() time.Time {
+	return s.Connection.LastMessage
+}
+
+func (s *Session) IsDead() bool {
+	padding := time.Duration(10 * time.Second)
+	timePassed := time.Duration(int64(math.Abs(s.LastCheckin().Sub(time.Now()).Seconds())))
+	if timePassed < time.Duration(s.ReconnectInterval)+padding && timePassed < time.Duration(s.PollTimeout)+padding {
+		return false
+	}
+	if time.Now().Sub(s.Connection.LastMessage) < mtls.PingInterval+padding {
+		return false
+	}
+	return true
+}
+
 // ToProtobuf - Get the protobuf version of the object
 func (s *Session) ToProtobuf() *clientpb.Session {
-	var (
-		lastCheckin string
-		isDead      bool
-	)
-	if !s.Connection.LastMessage.IsZero() {
-		lastCheckin = s.Connection.LastMessage.Format(time.RFC1123)
-		// Calculates how much time has passed in seconds and compares that to the ReconnectInterval+10 of the Implant.
-		// (ReconnectInterval+10 seconds is just arbitrary padding to account for potential delays)
-		// If it hasn't checked in, flag it as DEAD.
-		var timePassed = uint32(math.Abs(s.Connection.LastMessage.Sub(time.Now()).Seconds()))
-
-		if timePassed > (s.ReconnectInterval+10) && timePassed > (s.PollTimeout+10) {
-			isDead = true
-		} else {
-			isDead = false
-		}
-	}
-
 	return &clientpb.Session{
 		ID:                uint32(s.ID),
 		Name:              s.Name,
@@ -104,13 +99,13 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		OS:                s.Os,
 		Version:           s.Version,
 		Arch:              s.Arch,
-		Transport:         s.Transport,
-		RemoteAddress:     s.RemoteAddress,
+		Transport:         s.Connection.Transport,
+		RemoteAddress:     s.Connection.RemoteAddress,
 		PID:               int32(s.PID),
 		Filename:          s.Filename,
-		LastCheckin:       lastCheckin,
+		LastCheckin:       s.LastCheckin().Unix(),
 		ActiveC2:          s.ActiveC2,
-		IsDead:            isDead,
+		IsDead:            s.IsDead(),
 		ReconnectInterval: s.ReconnectInterval,
 		ProxyURL:          s.ProxyURL,
 		PollInterval:      s.PollTimeout,
@@ -120,7 +115,6 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 
 // Request - Sends a protobuf request to the active sliver and returns the response
 func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([]byte, error) {
-
 	resp := make(chan *sliverpb.Envelope)
 	reqID := EnvelopeID()
 	s.Connection.RespMutex.Lock()
@@ -147,14 +141,7 @@ func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([
 	if respEnvelope.UnknownMessageType {
 		return nil, ErrUnknownMessageType
 	}
-	s.UpdateCheckin()
 	return respEnvelope.Data, nil
-}
-
-// UpdateCheckin - Update a session's checkin time
-func (s *Session) UpdateCheckin() {
-	now := time.Now()
-	s.LastCheckin = &now
 }
 
 // sessions - Manages the slivers, provides atomic access
@@ -208,10 +195,22 @@ func (s *sessions) Remove(sessionID uint32) {
 }
 
 func NewSession(implantConn *ImplantConnection) *Session {
+	implantConn.UpdateLastMessage()
 	return &Session{
 		ID:         nextSessionID(),
-		Connection: *implantConn,
+		Connection: implantConn,
 	}
+}
+
+func SessionFromImplantConnection(conn *ImplantConnection) *Session {
+	Sessions.mutex.RLock()
+	defer Sessions.mutex.RUnlock()
+	for _, session := range Sessions.sessions {
+		if session.Connection.ID == conn.ID {
+			return session
+		}
+	}
+	return nil
 }
 
 // nextSessionID - Returns an incremental nonce as an id

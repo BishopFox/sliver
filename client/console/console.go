@@ -385,8 +385,8 @@ func (con *SliverConsoleClient) GetActiveSessionConfig() *clientpb.ImplantConfig
 		Evasion: session.GetEvasion(),
 
 		MaxConnectionErrors: uint32(1000),
-		ReconnectInterval:   uint32(60),
-		PollTimeout:         uint32(1),
+		ReconnectInterval:   int64(60),
+		PollTimeout:         int64(1),
 
 		Format:      clientpb.OutputFormat_SHELLCODE,
 		IsSharedLib: true,
