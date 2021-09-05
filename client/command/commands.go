@@ -2347,9 +2347,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	con.App.AddCommand(extensionCmd)
 	// [ Prelude's Operator ] ------------------------------------------------------------
 	operatorCmd := &grumble.Command{
-		Name:      consts.OperatorStr,
+		Name:      consts.PreludeOperatorStr,
 		Help:      "Manage connection to Prelude's Operator",
-		LongHelp:  help.GetHelpFor([]string{consts.OperatorStr}),
+		LongHelp:  help.GetHelpFor([]string{consts.PreludeOperatorStr}),
 		HelpGroup: consts.GenericHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2361,7 +2361,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	operatorCmd.AddCommand(&grumble.Command{
 		Name:      consts.ConnectStr,
 		Help:      "Connect with Prelude's Operator",
-		LongHelp:  help.GetHelpFor([]string{consts.OperatorStr, consts.ConnectStr}),
+		LongHelp:  help.GetHelpFor([]string{consts.PreludeOperatorStr, consts.ConnectStr}),
 		HelpGroup: consts.GenericHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
