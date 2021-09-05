@@ -16,15 +16,14 @@ package handlers
 
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	------------------------------------------------------------------------
 
-	---
 	WARNING: These functions can be invoked by remote implants without user interaction
-	---
+
 */
 
 import (
 	"encoding/json"
-	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -37,44 +36,21 @@ import (
 )
 
 var (
-	handlerLog = log.NamedLogger("handlers", "sessions")
-
-	sessionHandlers = map[uint32]interface{}{
-		sliverpb.MsgRegister:    registerSessionHandler,
-		sliverpb.MsgTunnelData:  tunnelDataHandler,
-		sliverpb.MsgTunnelClose: tunnelCloseHandler,
-		sliverpb.MsgPing:        pingHandler,
-	}
-
-	tunnelHandlerMutex = &sync.Mutex{}
+	sessionHandlerLog = log.NamedLogger("handlers", "sessions")
 )
 
-// GetSessionHandlers - Returns a map of server-side msg handlers
-func GetSessionHandlers() map[uint32]interface{} {
-	return sessionHandlers
-}
-
-// AddSessionHandlers -  Adds a new handler to the map of server-side msg handlers
-func AddSessionHandlers(key uint32, value interface{}) {
-	sessionHandlers[key] = value
-}
-
-func registerSessionHandler(session *core.Session, data []byte) {
-	if session == nil {
+func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) {
+	if implantConn == nil {
 		return
 	}
-
 	register := &sliverpb.Register{}
 	err := proto.Unmarshal(data, register)
 	if err != nil {
-		handlerLog.Errorf("Error decoding message: %s", err)
+		sessionHandlerLog.Errorf("Error decoding session registration message: %s", err)
 		return
 	}
 
-	if session.ID == 0 {
-		session.ID = core.NextSessionID()
-	}
-
+	session := core.NewSession(implantConn)
 	// Parse Register UUID
 	sessionUUID, err := uuid.Parse(register.Uuid)
 	if err != nil {
@@ -110,7 +86,7 @@ func auditLogSession(session *core.Session, register *sliverpb.Register) {
 		Register: register,
 	})
 	if err != nil {
-		handlerLog.Errorf("Failed to log new session to audit log %s", err)
+		sessionHandlerLog.Errorf("Failed to log new session to audit log %s", err)
 	} else {
 		log.AuditLogger.Warn(string(msg))
 	}
@@ -129,10 +105,10 @@ func tunnelDataHandler(session *core.Session, data []byte) {
 		if session.ID == tunnel.SessionID {
 			tunnel.FromImplant <- tunnelData
 		} else {
-			handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
+			sessionHandlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
 		}
 	} else {
-		handlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
+		sessionHandlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
 	}
 }
 
@@ -148,16 +124,16 @@ func tunnelCloseHandler(session *core.Session, data []byte) {
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
 	if tunnel != nil {
 		if session.ID == tunnel.SessionID {
-			handlerLog.Infof("Closing tunnel %d", tunnel.ID)
+			sessionHandlerLog.Infof("Closing tunnel %d", tunnel.ID)
 			core.Tunnels.Close(tunnel.ID)
 		} else {
-			handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
+			sessionHandlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
 		}
 	} else {
-		handlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
+		sessionHandlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
 	}
 }
 
 func pingHandler(session *core.Session, data []byte) {
-	handlerLog.Debugf("ping from session %d", session.ID)
+	sessionHandlerLog.Debugf("ping from session %d", session.ID)
 }

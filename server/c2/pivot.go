@@ -25,7 +25,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
-	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
 	"google.golang.org/protobuf/proto"
 )
@@ -42,101 +41,101 @@ var (
 
 // StartPivotListener - Starts listening for pivot messages
 func StartPivotListener() error {
-	serverHandlers.AddSessionHandlers(sliverpb.MsgPivotData, HandlePivotData)
-	serverHandlers.AddSessionHandlers(sliverpb.MsgPivotOpen, HandlePivotOpen)
-	serverHandlers.AddSessionHandlers(sliverpb.MsgPivotClose, HandlePivotClose)
+	// serverHandlers.AddHandler(sliverpb.MsgPivotData, HandlePivotData)
+	// serverHandlers.AddHandler(sliverpb.MsgPivotOpen, HandlePivotOpen)
+	// serverHandlers.AddHandler(sliverpb.MsgPivotClose, HandlePivotClose)
 	return nil
 }
 
 // HandlePivotData - Handles a PivotData message
 func HandlePivotData(session *core.Session, data []byte) {
-	envi := &sliverpb.PivotData{}
-	err2 := proto.Unmarshal(data, envi)
-	if err2 != nil {
-		pivotLog.Errorf("unmarshaling envelope error: %v", err2)
-		return
-	}
-	envelope := &sliverpb.Envelope{}
-	err := proto.Unmarshal(envi.Data, envelope)
-	if err != nil {
-		pivotLog.Errorf("unmarshaling envelope error: %v", err)
-		return
-	}
-	pivotLog.Printf("[PIVOT] XXXX: %v\n", envelope)
-	sliverPivoted := Pivots.Session(envi.GetPivotID())
-	handlers := serverHandlers.GetSessionHandlers()
-	if envelope.ID != 0 {
-		sliverPivoted.RespMutex.RLock()
-		if resp, ok := sliverPivoted.Resp[envelope.ID]; ok {
-			resp <- envelope // Could deadlock, maybe want to investigate better solutions
-			pivotLog.Printf("[PIVOT] Found envelope: %v\n", envelope)
-		} else {
-			pivotLog.Printf("[PIVOT] NotFound envelope: %v\n", envelope)
-		}
-		sliverPivoted.RespMutex.RUnlock()
-	} else if handler, ok := handlers[envelope.Type]; ok {
-		go handler.(func(*core.Session, []byte))(sliverPivoted, envelope.Data)
-	}
+	// envi := &sliverpb.PivotData{}
+	// err2 := proto.Unmarshal(data, envi)
+	// if err2 != nil {
+	// 	pivotLog.Errorf("unmarshal envelope error: %v", err2)
+	// 	return
+	// }
+	// envelope := &sliverpb.Envelope{}
+	// err := proto.Unmarshal(envi.Data, envelope)
+	// if err != nil {
+	// 	pivotLog.Errorf("unmarshal envelope error: %v", err)
+	// 	return
+	// }
+	// pivotLog.Printf("[PIVOT] XXXX: %v\n", envelope)
+	// sliverPivoted := Pivots.Session(envi.GetPivotID())
+	// handlers := serverHandlers.GetHandlers()
+	// if envelope.ID != 0 {
+	// 	sliverPivoted.RespMutex.RLock()
+	// 	if resp, ok := sliverPivoted.Resp[envelope.ID]; ok {
+	// 		resp <- envelope // Could deadlock, maybe want to investigate better solutions
+	// 		pivotLog.Printf("[PIVOT] Found envelope: %v\n", envelope)
+	// 	} else {
+	// 		pivotLog.Printf("[PIVOT] NotFound envelope: %v\n", envelope)
+	// 	}
+	// 	sliverPivoted.RespMutex.RUnlock()
+	// } else if handler, ok := handlers[envelope.Type]; ok {
+	// 	go handler.(func(*core.Session, []byte))(sliverPivoted, envelope.Data)
+	// }
 
 }
 
 // HandlePivotOpen - Handles a PivotOpen message
 func HandlePivotOpen(session *core.Session, data []byte) {
-	pivotOpen := &sliverpb.PivotOpen{}
-	err := proto.Unmarshal(data, pivotOpen)
-	if err != nil {
-		pivotLog.Errorf("unmarshaling envelope error: %v", err)
-		return
-	}
-	registerEnvelope := &sliverpb.Envelope{}
-	err = proto.Unmarshal(pivotOpen.RegisterMsg, registerEnvelope)
-	if err != nil {
-		pivotLog.Warnf("error decoding message: %v", err)
-		return
-	}
-	register := &sliverpb.Register{}
-	err = proto.Unmarshal(registerEnvelope.Data, register)
-	if err != nil {
-		pivotLog.Warnf("error decoding message: %v", err)
-		return
-	}
-	pivotLog.Warnf("HandlePivotOpen %v %v %s\n", pivotOpen, register, register.Name)
-	sliverPivoted := &core.Session{
-		ID:            core.NextSessionID(),
-		Transport:     pivotOpen.GetPivotType() + " (PIVOT)",
-		RemoteAddress: pivotOpen.GetRemoteAddress(),
-		Send:          make(chan *sliverpb.Envelope),
-		RespMutex:     &sync.RWMutex{},
-		Resp:          map[uint64]chan *sliverpb.Envelope{},
-		Name:          register.Name,
-		Hostname:      register.Hostname,
-		UUID:          register.Uuid,
-		Username:      register.Username,
-		UID:           register.Uid,
-		GID:           register.Gid,
-		Os:            register.Os,
-		Arch:          register.Arch,
-		PID:           register.Pid,
-		Filename:      register.Filename,
-		ActiveC2:      register.ActiveC2,
-		Version:       register.Version,
-	}
-	go func() {
-		for envelope := range sliverPivoted.Send {
-			originalEnvlopeData, _ := proto.Marshal(envelope)
-			data, _ = proto.Marshal(&sliverpb.PivotData{
-				PivotID: pivotOpen.GetPivotID(),
-				Data:    originalEnvlopeData,
-			})
-			session.Send <- &sliverpb.Envelope{
-				Type: sliverpb.MsgPivotData,
-				Data: data,
-			}
-		}
-	}()
-	core.Sessions.Add(sliverPivoted)
-	go auditLogSession(sliverPivoted, register)
-	Pivots.AddSession(pivotOpen.GetPivotID(), sliverPivoted)
+	// pivotOpen := &sliverpb.PivotOpen{}
+	// err := proto.Unmarshal(data, pivotOpen)
+	// if err != nil {
+	// 	pivotLog.Errorf("unmarshal envelope error: %v", err)
+	// 	return
+	// }
+	// registerEnvelope := &sliverpb.Envelope{}
+	// err = proto.Unmarshal(pivotOpen.RegisterMsg, registerEnvelope)
+	// if err != nil {
+	// 	pivotLog.Warnf("error decoding message: %v", err)
+	// 	return
+	// }
+	// register := &sliverpb.Register{}
+	// err = proto.Unmarshal(registerEnvelope.Data, register)
+	// if err != nil {
+	// 	pivotLog.Warnf("error decoding message: %v", err)
+	// 	return
+	// }
+	// pivotLog.Warnf("HandlePivotOpen %v %v %s\n", pivotOpen, register, register.Name)
+	// sliverPivoted := &core.Session{
+	// 	ID:            core.NextSessionID(),
+	// 	Transport:     pivotOpen.GetPivotType() + " (PIVOT)",
+	// 	RemoteAddress: pivotOpen.GetRemoteAddress(),
+	// 	Send:          make(chan *sliverpb.Envelope),
+	// 	RespMutex:     &sync.RWMutex{},
+	// 	Resp:          map[uint64]chan *sliverpb.Envelope{},
+	// 	Name:          register.Name,
+	// 	Hostname:      register.Hostname,
+	// 	UUID:          register.Uuid,
+	// 	Username:      register.Username,
+	// 	UID:           register.Uid,
+	// 	GID:           register.Gid,
+	// 	Os:            register.Os,
+	// 	Arch:          register.Arch,
+	// 	PID:           register.Pid,
+	// 	Filename:      register.Filename,
+	// 	ActiveC2:      register.ActiveC2,
+	// 	Version:       register.Version,
+	// }
+	// go func() {
+	// 	for envelope := range sliverPivoted.Send {
+	// 		originalEnvlopeData, _ := proto.Marshal(envelope)
+	// 		data, _ = proto.Marshal(&sliverpb.PivotData{
+	// 			PivotID: pivotOpen.GetPivotID(),
+	// 			Data:    originalEnvlopeData,
+	// 		})
+	// 		session.Send <- &sliverpb.Envelope{
+	// 			Type: sliverpb.MsgPivotData,
+	// 			Data: data,
+	// 		}
+	// 	}
+	// }()
+	// core.Sessions.Add(sliverPivoted)
+	// go auditLogSession(sliverPivoted, register)
+	// Pivots.AddSession(pivotOpen.GetPivotID(), sliverPivoted)
 }
 
 type auditLogNewSessionMsg struct {

@@ -25,7 +25,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
@@ -86,43 +85,33 @@ func acceptSliverConnections(ln net.Listener) {
 func handleSliverConnection(conn net.Conn) {
 	mtlsLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
 
-	session := &core.Session{
-		Transport:     "mtls",
-		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
-		Send:          make(chan *sliverpb.Envelope),
-		RespMutex:     &sync.RWMutex{},
-		Resp:          map[uint64]chan *sliverpb.Envelope{},
-	}
-	session.UpdateCheckin()
-
 	defer func() {
-		mtlsLog.Debugf("Cleaning up for %s", session.Name)
-		core.Sessions.Remove(session.ID)
+		mtlsLog.Debugf("mtls connection closing")
 		conn.Close()
 	}()
 
+	implantConn := core.NewImplantConnection("mtls", conn.RemoteAddr().String())
 	done := make(chan bool)
 
 	go func() {
 		defer func() {
 			done <- true
 		}()
-		handlers := serverHandlers.GetSessionHandlers()
+		handlers := serverHandlers.GetHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
 			if err != nil {
 				mtlsLog.Errorf("Socket read error %v", err)
 				return
 			}
-			session.UpdateCheckin()
 			if envelope.ID != 0 {
-				session.RespMutex.RLock()
-				if resp, ok := session.Resp[envelope.ID]; ok {
+				implantConn.RespMutex.RLock()
+				if resp, ok := implantConn.Resp[envelope.ID]; ok {
 					resp <- envelope // Could deadlock, maybe want to investigate better solutions
 				}
-				session.RespMutex.RUnlock()
+				implantConn.RespMutex.RUnlock()
 			} else if handler, ok := handlers[envelope.Type]; ok {
-				go handler.(func(*core.Session, []byte))(session, envelope.Data)
+				go handler.(func(*core.ImplantConnection, []byte))(implantConn, envelope.Data)
 			}
 		}
 	}()
@@ -130,7 +119,7 @@ func handleSliverConnection(conn net.Conn) {
 Loop:
 	for {
 		select {
-		case envelope := <-session.Send:
+		case envelope := <-implantConn.Send:
 			err := socketWriteEnvelope(conn, envelope)
 			if err != nil {
 				mtlsLog.Errorf("Socket write failed %v", err)
@@ -140,7 +129,7 @@ Loop:
 			break Loop
 		}
 	}
-	mtlsLog.Infof("Closing connection to session %s", session.Name)
+	mtlsLog.Debugf("Closing implant connection %s", implantConn.ID)
 }
 
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing

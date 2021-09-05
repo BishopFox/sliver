@@ -83,11 +83,11 @@ func init() {
 
 // HTTPSession - Holds data related to a sliver c2 session
 type HTTPSession struct {
-	ID      string
-	Session *core.Session
-	Key     cryptography.AESKey
-	Started time.Time
-	replay  map[string]bool // Sessions are mutex'd
+	ID         string
+	ImplanConn *core.ImplantConnection
+	Key        cryptography.AESKey
+	Started    time.Time
+	replay     map[string]bool // Sessions are mutex'd
 }
 
 // Keeps a hash of each msg in a session to detect replay'd messages
@@ -546,15 +546,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 	httpSession := newHTTPSession()
 	httpSession.Key, _ = cryptography.AESKeyFromBytes(sessionInit.Key)
-	httpSession.Session = core.Sessions.Add(&core.Session{
-		ID:            core.NextSessionID(),
-		Transport:     "http(s)",
-		RemoteAddress: getRemoteAddr(req),
-		Send:          make(chan *sliverpb.Envelope),
-		RespMutex:     &sync.RWMutex{},
-		Resp:          map[uint64]chan *sliverpb.Envelope{},
-	})
-	httpSession.Session.UpdateCheckin()
+	httpSession.ImplanConn = core.NewImplantConnection("http(s)", getRemoteAddr(req))
 	s.HTTPSessions.Add(httpSession)
 	httpLog.Infof("Started new session with http session id: %s", httpSession.ID)
 
@@ -591,15 +583,15 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 	envelope := &sliverpb.Envelope{}
 	proto.Unmarshal(plaintext, envelope)
 
-	handlers := sliverHandlers.GetSessionHandlers()
+	handlers := sliverHandlers.GetHandlers()
 	if envelope.ID != 0 {
-		httpSession.Session.RespMutex.RLock()
-		defer httpSession.Session.RespMutex.RUnlock()
-		if resp, ok := httpSession.Session.Resp[envelope.ID]; ok {
+		httpSession.ImplanConn.RespMutex.RLock()
+		defer httpSession.ImplanConn.RespMutex.RUnlock()
+		if resp, ok := httpSession.ImplanConn.Resp[envelope.ID]; ok {
 			resp <- envelope
 		}
 	} else if handler, ok := handlers[envelope.Type]; ok {
-		handler.(func(*core.Session, []byte))(httpSession.Session, envelope.Data)
+		handler.(func(*core.ImplantConnection, []byte))(httpSession.ImplanConn, envelope.Data)
 	}
 	resp.WriteHeader(http.StatusAccepted)
 }
@@ -617,7 +609,7 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 	nonce, _ := getNonceFromURL(req.URL)
 	_, encoder, _ := encoders.EncoderFromNonce(nonce)
 	select {
-	case envelope := <-httpSession.Session.Send:
+	case envelope := <-httpSession.ImplanConn.Send:
 		resp.WriteHeader(http.StatusOK)
 		envelopeData, _ := proto.Marshal(envelope)
 		ciphertext, err := cryptography.GCMEncrypt(httpSession.Key, envelopeData)
@@ -705,7 +697,7 @@ func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	core.Sessions.Remove(httpSession.Session.ID)
+	//	core.Sessions.Remove(httpSession.ImplanConn.ID)
 	s.HTTPSessions.Remove(httpSession.ID)
 	resp.WriteHeader(http.StatusAccepted)
 }
@@ -727,7 +719,7 @@ func (s *SliverHTTPC2) getHTTPSession(req *http.Request) *HTTPSession {
 	for _, cookie := range req.Cookies() {
 		httpSession := s.HTTPSessions.Get(cookie.Value)
 		if httpSession != nil {
-			httpSession.Session.UpdateCheckin()
+			httpSession.ImplanConn.UpdateLastMessage()
 			return httpSession
 		}
 	}

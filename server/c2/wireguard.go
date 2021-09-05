@@ -24,7 +24,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
@@ -186,18 +185,10 @@ func acceptWGSliverConnections(ln net.Listener) {
 func handleWGSliverConnection(conn net.Conn) {
 	wgLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
 
-	session := &core.Session{
-		Transport:     "wg",
-		RemoteAddress: fmt.Sprintf("%s", conn.RemoteAddr()),
-		Send:          make(chan *sliverpb.Envelope),
-		RespMutex:     &sync.RWMutex{},
-		Resp:          map[uint64]chan *sliverpb.Envelope{},
-	}
-	session.UpdateCheckin()
+	implantConn := core.NewImplantConnection("wg", fmt.Sprintf("%s", conn.RemoteAddr()))
+	implantConn.UpdateLastMessage()
 
 	defer func() {
-		wgLog.Debugf("Cleaning up for %s", session.Name)
-		core.Sessions.Remove(session.ID)
 		conn.Close()
 	}()
 
@@ -207,22 +198,22 @@ func handleWGSliverConnection(conn net.Conn) {
 		defer func() {
 			done <- true
 		}()
-		handlers := serverHandlers.GetSessionHandlers()
+		handlers := serverHandlers.GetHandlers()
 		for {
 			envelope, err := socketWGReadEnvelope(conn)
 			if err != nil {
-				wgLog.Errorf("Socket read error %v", err)
+				wgLog.Errorf("Socket read error %s", err)
 				return
 			}
-			session.UpdateCheckin()
+			implantConn.UpdateLastMessage()
 			if envelope.ID != 0 {
-				session.RespMutex.RLock()
-				if resp, ok := session.Resp[envelope.ID]; ok {
+				implantConn.RespMutex.RLock()
+				if resp, ok := implantConn.Resp[envelope.ID]; ok {
 					resp <- envelope // Could deadlock, maybe want to investigate better solutions
 				}
-				session.RespMutex.RUnlock()
+				implantConn.RespMutex.RUnlock()
 			} else if handler, ok := handlers[envelope.Type]; ok {
-				go handler.(func(*core.Session, []byte))(session, envelope.Data)
+				go handler.(func(*core.ImplantConnection, []byte))(implantConn, envelope.Data)
 			}
 		}
 	}()
@@ -230,17 +221,17 @@ func handleWGSliverConnection(conn net.Conn) {
 Loop:
 	for {
 		select {
-		case envelope := <-session.Send:
+		case envelope := <-implantConn.Send:
 			err := socketWGWriteEnvelope(conn, envelope)
 			if err != nil {
-				wgLog.Errorf("Socket write failed %v", err)
+				wgLog.Errorf("Socket write failed %s", err)
 				break Loop
 			}
 		case <-done:
 			break Loop
 		}
 	}
-	wgLog.Infof("Closing connection to session %s", session.Name)
+	wgLog.Debugf("Closing connection to implant %s", implantConn.ID)
 }
 
 // socketWGWriteEnvelope - Writes a message to the wireguard socket using length prefix framing

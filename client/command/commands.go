@@ -55,6 +55,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/operators"
 	"github.com/bishopfox/sliver/client/command/pivots"
 	"github.com/bishopfox/sliver/client/command/portfwd"
+	operator "github.com/bishopfox/sliver/client/command/prelude-operator"
 	"github.com/bishopfox/sliver/client/command/privilege"
 	"github.com/bishopfox/sliver/client/command/processes"
 	"github.com/bishopfox/sliver/client/command/reaction"
@@ -2344,4 +2345,39 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 	con.App.AddCommand(extensionCmd)
+	// [ Prelude's Operator ] ------------------------------------------------------------
+	operatorCmd := &grumble.Command{
+		Name:      consts.PreludeOperatorStr,
+		Help:      "Manage connection to Prelude's Operator",
+		LongHelp:  help.GetHelpFor([]string{consts.PreludeOperatorStr}),
+		HelpGroup: consts.GenericHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			operator.OperatorCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	}
+	operatorCmd.AddCommand(&grumble.Command{
+		Name:      consts.ConnectStr,
+		Help:      "Connect with Prelude's Operator",
+		LongHelp:  help.GetHelpFor([]string{consts.PreludeOperatorStr, consts.ConnectStr}),
+		HelpGroup: consts.GenericHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			operator.ConnectCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("connection-string", "connection string to the Operator Host")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("s", "skip-existing", false, "Do not add existing sessions as Operator Agents")
+			f.String("a", "aes-key", "abcdefghijklmnopqrstuvwxyz012345", "AES key for communication encryption")
+			f.String("r", "range", "sliver", "Agents range")
+		},
+	})
+
+	con.App.AddCommand(operatorCmd)
 }

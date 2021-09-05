@@ -58,13 +58,9 @@ message Register {
 
 message BeaconRegister {
   string ID = 1;
-  BeaconDuration Duration = 2;
-  Register Register = 3;
-}
-
-message BeaconDuration {
-  int64 Interval = 1;
-  int64 Jitter = 2;
+  int64 Interval = 2;
+  int64 Jitter = 3;
+  Register Register = 4;
 }
 
 // Ping - Not ICMP, just sends a rount trip message to an implant to
@@ -369,6 +365,7 @@ message Execute {
   uint32 Status = 1;
   string Stdout = 2;
   string Stderr = 3;
+  uint32 Pid = 4;
 
   commonpb.Response Response = 9;
 }

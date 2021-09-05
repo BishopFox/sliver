@@ -32,6 +32,7 @@ import (
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/prelude"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -187,6 +188,13 @@ func (con *SliverConsoleClient) EventLoop() {
 				con.PrintInfof("Session #%d %s - %s (%s) - %s/%s - %v\n\n",
 					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			}
+			// Prelude Operator
+			if prelude.SessionMapper != nil {
+				err = prelude.SessionMapper.AddSession(session)
+				if err != nil {
+					con.PrintErrorf("Could not add session to Operator: %s", err)
+				}
+			}
 
 		case consts.SessionUpdateEvent:
 			session := event.Session
@@ -202,6 +210,13 @@ func (con *SliverConsoleClient) EventLoop() {
 				con.ActiveSession.Set(nil)
 				con.App.SetPrompt(con.GetPrompt())
 				con.Printf(Warn + "Active session disconnected\n")
+			}
+			if prelude.SessionMapper != nil {
+				err = prelude.SessionMapper.RemoveSession(session)
+				if err != nil {
+					con.PrintErrorf("Could not remove session from Operator: %s", err)
+				}
+				con.PrintInfof("Removed session %s from Operator\n", session.Name)
 			}
 			con.Println()
 		}
@@ -371,7 +386,7 @@ func (con *SliverConsoleClient) GetActiveSessionConfig() *clientpb.ImplantConfig
 
 		MaxConnectionErrors: uint32(1000),
 		ReconnectInterval:   uint32(60),
-		PollInterval:        uint32(1),
+		PollTimeout:         uint32(1),
 
 		Format:      clientpb.OutputFormat_SHELLCODE,
 		IsSharedLib: true,

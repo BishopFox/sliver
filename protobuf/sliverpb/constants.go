@@ -259,6 +259,12 @@ const (
 
 	// MsgListExtensionsReq - List loaded extensions
 	MsgListExtensionsReq
+
+	// MsgRegisterBeacon - Register a new beacon
+	MsgRegisterBeacon
+
+	// MsgBeaconTasks - Send/recv batches of beacon tasks
+	MsgBeaconTasks
 )
 
 // Constants to replace enums
@@ -497,6 +503,9 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *ListExtensionsReq:
 		return MsgListExtensionsReq
+
+	case *BeaconTasks:
+		return MsgBeaconTasks
 	}
 
 	return uint32(0)

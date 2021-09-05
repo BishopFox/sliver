@@ -83,7 +83,7 @@ type ImplantConfig struct {
 	Evasion             bool
 	ObfuscateSymbols    bool
 	ReconnectInterval   uint32
-	PollInterval        uint32
+	PollTimeout         uint32
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
 
@@ -137,6 +137,10 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 	config := &clientpb.ImplantConfig{
 		ID: ic.ID.String(),
 
+		IsBeacon:       ic.IsBeacon,
+		BeaconInterval: ic.BeaconInterval,
+		BeaconJitter:   ic.BeaconJitter,
+
 		GOOS:   ic.GOOS,
 		GOARCH: ic.GOARCH,
 
@@ -148,7 +152,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		ObfuscateSymbols: ic.ObfuscateSymbols,
 
 		ReconnectInterval:   ic.ReconnectInterval,
-		PollInterval:        ic.PollInterval,
+		PollTimeout:         ic.PollTimeout,
 		MaxConnectionErrors: ic.MaxConnectionErrors,
 		ConnectionStrategy:  ic.ConnectionStrategy,
 

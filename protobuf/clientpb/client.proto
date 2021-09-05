@@ -106,6 +106,9 @@ enum OutputFormat {
 
 message ImplantConfig {
   string ID = 100;
+  bool IsBeacon = 200;
+  int64 BeaconInterval = 201;
+  int64 BeaconJitter = 202;
 
   string GOOS = 1;
   string GOARCH = 2;
@@ -125,7 +128,7 @@ message ImplantConfig {
 
   uint32 ReconnectInterval = 8;
   uint32 MaxConnectionErrors = 9;
-  uint32 PollInterval = 38;
+  uint32 PollTimeout = 38;
 
   // c2
   repeated ImplantC2 C2 = 10;

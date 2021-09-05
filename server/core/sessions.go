@@ -63,9 +63,7 @@ type Session struct {
 	PID               int32
 	Filename          string
 	LastCheckin       *time.Time
-	Send              chan *sliverpb.Envelope
-	Resp              map[uint64]chan *sliverpb.Envelope
-	RespMutex         *sync.RWMutex
+	Connection        ImplantConnection
 	ActiveC2          string
 	IsDead            bool
 	ReconnectInterval uint32
@@ -126,16 +124,16 @@ func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([
 
 	resp := make(chan *sliverpb.Envelope)
 	reqID := EnvelopeID()
-	s.RespMutex.Lock()
-	s.Resp[reqID] = resp
-	s.RespMutex.Unlock()
+	s.Connection.RespMutex.Lock()
+	s.Connection.Resp[reqID] = resp
+	s.Connection.RespMutex.Unlock()
 	defer func() {
-		s.RespMutex.Lock()
-		defer s.RespMutex.Unlock()
+		s.Connection.RespMutex.Lock()
+		defer s.Connection.RespMutex.Unlock()
 		// close(resp)
-		delete(s.Resp, reqID)
+		delete(s.Connection.Resp, reqID)
 	}()
-	s.Send <- &sliverpb.Envelope{
+	s.Connection.Send <- &sliverpb.Envelope{
 		ID:   reqID,
 		Type: msgType,
 		Data: data,
@@ -210,8 +208,15 @@ func (s *sessions) Remove(sessionID uint32) {
 	}
 }
 
-// NextSessionID - Returns an incremental nonce as an id
-func NextSessionID() uint32 {
+func NewSession(implantConn *ImplantConnection) *Session {
+	return &Session{
+		ID:         nextSessionID(),
+		Connection: *implantConn,
+	}
+}
+
+// nextSessionID - Returns an incremental nonce as an id
+func nextSessionID() uint32 {
 	newID := rollingSessionID + 1
 	rollingSessionID++
 	return newID
