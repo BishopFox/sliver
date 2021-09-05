@@ -31,12 +31,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"io"
+	"os"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
-
-	"os"
 	"time"
 
 	"github.com/pquerna/otp"

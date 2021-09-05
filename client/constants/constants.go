@@ -213,6 +213,8 @@ const (
 	LicensesStr = "licenses"
 
 	GetPrivsStr = "getprivs"
+	OperatorStr = "operator"
+	ConnectStr  = "connect"
 )
 
 // Groups

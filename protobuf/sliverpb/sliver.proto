@@ -352,6 +352,7 @@ message Execute {
   uint32 Status = 1;
   string Stdout = 2;
   string Stderr = 3;
+  uint32 Pid = 4;
 
   commonpb.Response Response = 9;
 }

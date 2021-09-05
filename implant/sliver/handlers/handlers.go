@@ -444,6 +444,9 @@ func executeHandler(data []byte, resp RPCResponse) {
 		}
 		execResp.Stderr = stdErrBuff.String()
 		execResp.Stdout = stdOutBuff.String()
+		if cmd.Process != nil {
+			execResp.Pid = uint32(cmd.Process.Pid)
+		}
 	} else {
 		err = cmd.Start()
 		if err != nil {
