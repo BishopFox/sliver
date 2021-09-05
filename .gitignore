@@ -1,5 +1,6 @@
 /.vscode/*
 /.devcontainer
+/.idea
 
 /Dockerfile.*
 /*.sdk.tar.xz
