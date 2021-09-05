@@ -2374,7 +2374,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Bool("s", "skip-existing", false, "Do not add existing sessions as Operator Agents")
-			f.String("a", "aes-key", "", "AES key for communication encryption")
+			f.String("a", "aes-key", "abcdefghijklmnopqrstuvwxyz012345", "AES key for communication encryption")
 			f.String("r", "range", "sliver", "Agents range")
 		},
 	})

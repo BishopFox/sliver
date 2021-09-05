@@ -13,10 +13,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-const (
-	aesDefaultKey = "abcdefghijklmnopqrstuvwxyz012345"
-)
-
 var SessionMapper *PreludeSessionMapper
 
 type OperatorConfig struct {
@@ -77,10 +73,10 @@ func (p *PreludeSessionMapper) AddSession(s *clientpb.Session) error {
 		Sleep:     3,
 	}
 
-	encryptionKey := aesDefaultKey
-	if p.conf.AESKey != "" {
-		encryptionKey = p.conf.AESKey
+	if p.conf.AESKey == "" {
+		return errors.New("missing AES key")
 	}
+	encryptionKey := p.conf.AESKey
 	agentConfig := AgentConfig{
 		Name:      sessName,
 		AESKey:    encryptionKey,
