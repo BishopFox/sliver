@@ -79,13 +79,12 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		lastCheckin string
 		isDead      bool
 	)
-	if s.LastCheckin != nil {
-		lastCheckin = s.LastCheckin.Format(time.RFC1123)
-
+	if !s.Connection.LastMessage.IsZero() {
+		lastCheckin = s.Connection.LastMessage.Format(time.RFC1123)
 		// Calculates how much time has passed in seconds and compares that to the ReconnectInterval+10 of the Implant.
 		// (ReconnectInterval+10 seconds is just arbitrary padding to account for potential delays)
 		// If it hasn't checked in, flag it as DEAD.
-		var timePassed = uint32(math.Abs(s.LastCheckin.Sub(time.Now()).Seconds()))
+		var timePassed = uint32(math.Abs(s.Connection.LastMessage.Sub(time.Now()).Seconds()))
 
 		if timePassed > (s.ReconnectInterval+10) && timePassed > (s.PollTimeout+10) {
 			isDead = true

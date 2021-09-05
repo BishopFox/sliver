@@ -160,7 +160,7 @@ func HandlePivotClose(session *core.Session, data []byte) {
 	pivotClose := &sliverpb.PivotClose{}
 	err := proto.Unmarshal(data, pivotClose)
 	if err != nil {
-		pivotLog.Errorf("unmarshaling envelope error: %v", err)
+		pivotLog.Errorf("unmarshal envelope error: %v", err)
 		return
 	}
 	sliverPivoted := Pivots.Session(pivotClose.GetPivotID())
@@ -175,7 +175,7 @@ func HandlePivotClose(session *core.Session, data []byte) {
 	})*/
 }
 
-// PivotsMap - Mananges the pivots, provides atomic access
+// PivotsMap - Manages the pivots, provides atomic access
 type PivotsMap struct {
 	mutex  *sync.RWMutex
 	Pivots *map[uint32]*core.Session

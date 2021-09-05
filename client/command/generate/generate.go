@@ -210,7 +210,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	}
 
 	reconnectInterval := ctx.Flags.Int("reconnect")
-	pollInterval := ctx.Flags.Int("poll")
+	pollTimeout := ctx.Flags.Int("poll")
 	maxConnectionErrors := ctx.Flags.Int("max-errors")
 
 	limitDomainJoined := ctx.Flags.Bool("limit-domainjoined")
@@ -284,7 +284,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		WGTcpCommsPort:    uint32(ctx.Flags.Int("tcp-comms")),
 
 		ReconnectInterval:   uint32(reconnectInterval),
-		PollInterval:        uint32(pollInterval),
+		PollTimeout:         uint32(pollTimeout),
 		MaxConnectionErrors: uint32(maxConnectionErrors),
 
 		LimitDomainJoined: limitDomainJoined,
