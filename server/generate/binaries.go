@@ -142,6 +142,10 @@ const (
 func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *models.ImplantConfig) {
 	cfg := &models.ImplantConfig{}
 
+	cfg.IsBeacon = pbConfig.IsBeacon
+	cfg.BeaconInterval = pbConfig.BeaconInterval
+	cfg.BeaconJitter = pbConfig.BeaconJitter
+
 	cfg.GOOS = pbConfig.GOOS
 	cfg.GOARCH = pbConfig.GOARCH
 	cfg.CACert = pbConfig.CACert

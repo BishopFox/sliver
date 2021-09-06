@@ -62,16 +62,41 @@ type BeaconClose func() error
 
 // Beacon - Abstract connection to the server
 type Beacon struct {
-	Interval int64
-	Jitter   int64
-	Start    BeaconStart
-	Send     BeaconSend
-	Recv     BeaconRecv
-	Close    BeaconClose
+	Start BeaconStart
+	Send  BeaconSend
+	Recv  BeaconRecv
+	Close BeaconClose
+}
+
+func (b *Beacon) Interval() int64 {
+	interval, err := strconv.Atoi(`{{.Config.BeaconInterval}}`)
+	if err != nil {
+		interval = int(30 * time.Second)
+	}
+	return int64(interval)
+}
+
+func (b *Beacon) Jitter() int64 {
+	jitter, err := strconv.Atoi(`{{.Config.BeaconJitter}}`)
+	if err != nil {
+		jitter = int(30 * time.Second)
+	}
+	return int64(jitter)
 }
 
 func (b *Beacon) Duration() time.Duration {
-	return time.Duration(b.Interval) + time.Duration(int64(insecureRand.Intn(int(b.Jitter))))
+	// {{if .Config.Debug}}
+	log.Printf("Interval: %v Jitter: %v", b.Interval(), b.Jitter())
+	// {{end}}
+	jitterDuration := time.Duration(0)
+	if 0 < b.Jitter() {
+		jitterDuration = time.Duration(int64(insecureRand.Intn(int(b.Jitter()))))
+	}
+	duration := time.Duration(b.Interval()) + jitterDuration
+	// {{if .Config.Debug}}
+	log.Printf("Duration: %v", duration)
+	// {{end}}
+	return duration
 }
 
 func StartBeaconLoop() *Beacon {

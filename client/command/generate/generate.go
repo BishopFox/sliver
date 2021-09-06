@@ -475,9 +475,12 @@ func parseTCPPivotc2(args string) []*clientpb.ImplantC2 {
 }
 
 func compile(config *clientpb.ImplantConfig, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
-
-	con.PrintInfof("Generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
-
+	if config.IsBeacon {
+		interval := time.Duration(config.BeaconInterval)
+		con.PrintInfof("Generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
+	} else {
+		con.PrintInfof("Generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
+	}
 	if config.ObfuscateSymbols {
 		con.PrintInfof("%sSymbol obfuscation is enabled%s\n", console.Bold, console.Normal)
 	} else if !config.Debug {

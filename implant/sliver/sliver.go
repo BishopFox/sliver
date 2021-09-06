@@ -171,6 +171,9 @@ func main() {
 	for {
 
 		// {{if .Config.IsBeacon}}
+		// {{if .Config.Debug}}
+		log.Printf("Running in Beacon mode with ID: %s", BeaconID)
+		// {{end}}
 		beacon := transports.StartBeaconLoop()
 		if beacon == nil {
 			break
@@ -178,6 +181,9 @@ func main() {
 		beaconMainLoop(beacon)
 
 		// {{else}}
+		// {{if .Config.Debug}}
+		log.Printf("Running in session mode")
+		// {{end}}
 		connection := transports.StartConnectionLoop()
 		if connection == nil {
 			break
@@ -204,8 +210,8 @@ func beaconMainLoop(beacon *transports.Beacon) {
 	// {{end}}
 	beacon.Send(Envelope(&sliverpb.BeaconRegister{
 		ID:       BeaconID,
-		Interval: beacon.Interval,
-		Jitter:   beacon.Jitter,
+		Interval: beacon.Interval(),
+		Jitter:   beacon.Jitter(),
 		Register: RegisterSliver(),
 	}))
 	beacon.Close()
@@ -222,7 +228,11 @@ func beaconMainLoop(beacon *transports.Beacon) {
 				// {{end}}
 			}
 		}()
-		time.Sleep(beacon.Duration())
+		duration := beacon.Duration()
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] sleep for %v", duration)
+		// {{end}}
+		time.Sleep(duration)
 	}
 }
 

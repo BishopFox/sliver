@@ -103,6 +103,8 @@ const (
 	CompilerStr   = "info"
 	StagerStr     = "stager"
 	ProfilesStr   = "profiles"
+	BeaconStr     = "beacon"
+	BeaconsStr    = "beacons"
 
 	// Generic
 

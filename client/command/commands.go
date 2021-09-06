@@ -793,13 +793,13 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("N", "name", "", "agent name")
 			f.Bool("d", "debug", false, "enable debug features")
 			f.Bool("e", "evasion", false, "enable evasion features")
-			f.Bool("b", "skip-symbols", false, "skip symbol obfuscation")
+			f.Bool("l", "skip-symbols", false, "skip symbol obfuscation")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
 			f.String("m", "mtls", "", "mtls connection strings")
 			f.String("g", "wg", "", "wg connection strings")
-			f.String("H", "http", "", "http(s) connection strings")
+			f.String("b", "http", "", "http(s) connection strings")
 			f.String("n", "dns", "", "dns connection strings")
 			f.String("p", "named-pipe", "", "named-pipe connection strings")
 			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
@@ -818,7 +818,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
-
 			f.String("s", "save", "", "directory/file to the binary to")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -831,6 +830,59 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	}
+	generateCmd.AddCommand(&grumble.Command{
+		Name:     consts.BeaconStr,
+		Help:     "Generate a beacon binary",
+		LongHelp: help.GetHelpFor([]string{consts.GenerateStr, consts.BeaconStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int64("D", "days", 0, "beacon interval days")
+			f.Int64("H", "hours", 0, "beacon interval hours")
+			f.Int64("M", "minutes", 15, "beacon interval minutes")
+			f.Int64("S", "seconds", 0, "beacon interval seconds")
+			f.Int64("J", "jitter", 30, "beacon interval jitter in seconds")
+
+			// Generate flags
+			f.String("o", "os", "windows", "operating system")
+			f.String("a", "arch", "amd64", "cpu architecture")
+			f.String("N", "name", "", "agent name")
+			f.Bool("d", "debug", false, "enable debug features")
+			f.Bool("e", "evasion", false, "enable evasion features")
+			f.Bool("l", "skip-symbols", false, "skip symbol obfuscation")
+
+			f.String("c", "canary", "", "canary domain(s)")
+
+			f.String("m", "mtls", "", "mtls connection strings")
+			f.String("g", "wg", "", "wg connection strings")
+			f.String("b", "http", "", "http(s) connection strings")
+			f.String("n", "dns", "", "dns connection strings")
+			f.String("p", "named-pipe", "", "named-pipe connection strings")
+			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
+
+			f.Int("X", "key-exchange", generate.DefaultWGKeyExPort, "wg key-exchange port")
+			f.Int("T", "tcp-comms", generate.DefaultWGNPort, "wg c2 comms port")
+
+			f.Int("j", "reconnect", generate.DefaultReconnect, "attempt to reconnect every n second(s)")
+			f.Int("P", "poll-timeout", generate.DefaultPollTimeout, "long poll request timeout")
+			f.Int("k", "max-errors", generate.DefaultMaxErrors, "max number of connection errors")
+
+			f.String("w", "limit-datetime", "", "limit execution to before datetime")
+			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
+			f.String("y", "limit-username", "", "limit execution to specified username")
+			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
+			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
+
+			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
+			f.String("s", "save", "", "directory/file to the binary to")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			generate.GenerateBeaconCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
 	generateCmd.AddCommand(&grumble.Command{
 		Name:     consts.StagerStr,
 		Help:     "Generate a implant stager using MSF",
