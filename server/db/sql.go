@@ -52,6 +52,8 @@ func newDBClient() *gorm.DB {
 	}
 
 	err := dbClient.AutoMigrate(
+		&models.Beacon{},
+		&models.BeaconTask{},
 		&models.DNSCanary{},
 		&models.Certificate{},
 		&models.Host{},

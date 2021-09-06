@@ -260,8 +260,8 @@ const (
 	// MsgListExtensionsReq - List loaded extensions
 	MsgListExtensionsReq
 
-	// MsgRegisterBeacon - Register a new beacon
-	MsgRegisterBeacon
+	// MsgBeaconRegister - Register a new beacon
+	MsgBeaconRegister
 
 	// MsgBeaconTasks - Send/recv batches of beacon tasks
 	MsgBeaconTasks

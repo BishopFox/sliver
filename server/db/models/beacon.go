@@ -29,31 +29,34 @@ import (
 type Beacon struct {
 	gorm.Model
 
-	ID            uuid.UUID `gorm:"type:uuid;"`
-	Name          string
-	Hostname      string
-	UUID          uuid.UUID `gorm:"type:uuid;"` // Host UUID
-	UID           string
-	GID           string
-	OS            string
-	Arch          string
-	Transport     string
-	RemoteAddress string
-	PID           int32
-	Filename      string
-	LastCheckin   time.Time
-	ActiveC2      string
-	Version       string
-	Evasion       bool
-	IsDead        bool
-	ProxyURL      string
+	CreatedAt time.Time `gorm:"->;<-:create;"`
 
+	ID                uuid.UUID `gorm:"type:uuid;"`
+	Name              string
+	Hostname          string
+	UUID              uuid.UUID `gorm:"type:uuid;"` // Host UUID
+	Username          string
+	UID               string
+	GID               string
+	OS                string
+	Arch              string
+	Transport         string
+	RemoteAddress     string
+	PID               int32
+	Filename          string
+	LastCheckin       time.Time
+	Version           string
+	ReconnectInterval int64
+	ProxyURL          string
+	PollTimeout       int64
+
+	ConfigID     uuid.UUID `gorm:"type:uuid;"`
 	ImplantBuild uuid.UUID `gorm:"type:uuid;"`
 	HostUUID     uuid.UUID `gorm:"type:uuid;"`
-	CreatedAt    time.Time `gorm:"->;<-:create;"`
 
-	Interval time.Time
-	Jitter   time.Time
+	Interval    int64
+	Jitter      int64
+	NextCheckin int64
 
 	Tasks []BeaconTask
 }
@@ -75,6 +78,7 @@ type BeaconTask struct {
 	gorm.Model
 
 	ID          uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	BeaconID    uuid.UUID `gorm:"type:uuid;"`
 	CreatedAt   time.Time `gorm:"->;<-:create;"`
 	State       string
 	SentAt      time.Time

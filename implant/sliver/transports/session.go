@@ -244,11 +244,11 @@ func StartConnectionLoop() *Connection {
 			// {{end}}
 		}
 
-		reconnect := GetReconnectInterval()
-		// {{if .Config.Debug}}
-		log.Printf("Sleep %s ...", reconnect)
-		// {{end}}
-		time.Sleep(reconnect)
+		// reconnect := GetReconnectInterval()
+		// // {{if .Config.Debug}}
+		// log.Printf("Sleep %s ...", reconnect)
+		// // {{end}}
+		// time.Sleep(reconnect)
 	}
 	// {{if .Config.Debug}}
 	log.Printf("[!] Max connection errors reached\n")

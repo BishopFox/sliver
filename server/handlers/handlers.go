@@ -40,7 +40,7 @@ var (
 		sliverpb.MsgPing:        pingHandler,
 
 		// Beacons
-		sliverpb.MsgRegisterBeacon: beaconRegisterHandler,
+		sliverpb.MsgBeaconRegister: beaconRegisterHandler,
 		sliverpb.MsgBeaconTasks:    beaconTasksHandler,
 	}
 

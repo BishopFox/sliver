@@ -32,7 +32,7 @@ var (
 		// {{end}}
 	}
 
-	maxErrors         = getMaxConnectionErrors()
+	maxErrors         = GetMaxConnectionErrors()
 	reconnectInterval = time.Duration(0)
 	pollTimeout       = time.Duration(0)
 
@@ -141,7 +141,7 @@ func SetPollTimeout(timeout int64) {
 	pollTimeout = time.Duration(timeout)
 }
 
-func getMaxConnectionErrors() int {
+func GetMaxConnectionErrors() int {
 	maxConnectionErrors, err := strconv.Atoi(`{{.Config.MaxConnectionErrors}}`)
 	if err != nil {
 		return 1000

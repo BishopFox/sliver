@@ -242,3 +242,19 @@ func IOCByID(id string) (*models.IOC, error) {
 	).First(ioc).Error
 	return ioc, err
 }
+
+// BeaconByID - Select a Beacon by ID
+func BeaconByID(id string) (*models.Beacon, error) {
+	beacon := &models.Beacon{}
+	err := Session().Where(
+		&models.Beacon{ID: uuid.FromStringOrNil(id)},
+	).First(beacon).Error
+	return beacon, err
+}
+
+// ListBeacons - Select a Beacon by ID
+func ListBeacons() ([]*models.Beacon, error) {
+	beacons := []*models.Beacon{}
+	err := Session().Where(&models.Beacon{}).Find(beacons).Error
+	return beacons, err
+}
