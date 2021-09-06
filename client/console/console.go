@@ -367,6 +367,7 @@ func (con *SliverConsoleClient) GetSessionsByName(name string) []*clientpb.Sessi
 }
 
 // GetActiveSessionConfig - Get the active sessions's config
+// TODO: Switch to query config based on ConfigID
 func (con *SliverConsoleClient) GetActiveSessionConfig() *clientpb.ImplantConfig {
 	session := con.ActiveSession.Get()
 	if session == nil {

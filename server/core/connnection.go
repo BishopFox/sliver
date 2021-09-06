@@ -34,6 +34,7 @@ type ImplantConnection struct {
 	Transport     string
 	RemoteAddress string
 	LastMessage   time.Time
+	Cleanup       func()
 }
 
 func (c *ImplantConnection) UpdateLastMessage() {
@@ -48,6 +49,7 @@ func NewImplantConnection(transport string, remoteAddress string) *ImplantConnec
 		Resp:          map[uint64]chan *sliverpb.Envelope{},
 		Transport:     transport,
 		RemoteAddress: remoteAddress,
+		Cleanup:       func() {},
 	}
 }
 

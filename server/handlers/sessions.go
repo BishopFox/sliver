@@ -72,7 +72,11 @@ func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) {
 	session.ReconnectInterval = register.ReconnectInterval
 	session.PollTimeout = register.PollTimeout
 	session.ProxyURL = register.ProxyURL
+	session.ConfigID = register.ConfigID
 	core.Sessions.Add(session)
+	implantConn.Cleanup = func() {
+		core.Sessions.Remove(session.ID)
+	}
 	go auditLogSession(session, register)
 }
 
