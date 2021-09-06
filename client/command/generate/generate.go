@@ -62,8 +62,8 @@ const (
 
 	// DefaultReconnect is the default reconnect time
 	DefaultReconnect = 60
-	// DefaultPoll is the default poll interval
-	DefaultPoll = 1
+	// DefaultPollTimeout is the default poll timeout
+	DefaultPollTimeout = 360 // 6 minutes
 	// DefaultMaxErrors is the default max reconnection errors before giving up
 	DefaultMaxErrors = 1000
 )
@@ -210,7 +210,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	}
 
 	reconnectInterval := ctx.Flags.Int("reconnect")
-	pollTimeout := ctx.Flags.Int("poll")
+	pollTimeout := ctx.Flags.Int("poll-timeout")
 	maxConnectionErrors := ctx.Flags.Int("max-errors")
 
 	limitDomainJoined := ctx.Flags.Bool("limit-domainjoined")

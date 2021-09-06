@@ -50,7 +50,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 	StartPivotListener()
 	wgLog.Infof("Starting Wireguard listener on port: %d", port)
 
-	tun, tnet, err := netstack.CreateNetTUN(
+	tun, tNet, err := netstack.CreateNetTUN(
 		[]net.IP{net.ParseIP(tunIP)},
 		[]net.IP{net.ParseIP("127.0.0.1")}, // We don't use DNS in the WG listener. Yet.
 		1420,
@@ -103,7 +103,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 	}
 
 	// Open up key exchange TCP socket
-	keyExchangeListener, err := tnet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(tunIP), Port: int(keyExchangeListenPort)})
+	keyExchangeListener, err := tNet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(tunIP), Port: int(keyExchangeListenPort)})
 	if err != nil {
 		wgLog.Errorf("Failed to setup up wg key exchange listener: %v", err)
 		return nil, nil, nil, err
@@ -112,7 +112,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 	go acceptKeyExchangeConnection(keyExchangeListener)
 
 	// Open up c2 comms listener TCP socket
-	listener, err := tnet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(tunIP), Port: int(netstackPort)})
+	listener, err := tNet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(tunIP), Port: int(netstackPort)})
 	if err != nil {
 		wgLog.Errorf("Failed to setup up wg sliver listener: %v", err)
 		return nil, nil, nil, err
@@ -187,13 +187,12 @@ func handleWGSliverConnection(conn net.Conn) {
 
 	implantConn := core.NewImplantConnection("wg", fmt.Sprintf("%s", conn.RemoteAddr()))
 	implantConn.UpdateLastMessage()
-
 	defer func() {
+		implantConn.Cleanup()
 		conn.Close()
 	}()
 
 	done := make(chan bool)
-
 	go func() {
 		defer func() {
 			done <- true

@@ -59,7 +59,6 @@ func (broker *eventBroker) Start() {
 			delete(subscribers, sub)
 		case event := <-broker.publish:
 			for sub := range subscribers {
-				//TODO: Observed "panic: send on closed channel" here. Probably worth investigating
 				sub <- event
 			}
 		}

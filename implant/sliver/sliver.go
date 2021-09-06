@@ -336,7 +336,9 @@ func sessionMainLoop(connection *transports.Connection) {
 			// {{end}}
 			go handler(envelope.Data, func(data []byte, err error) {
 				// {{if .Config.Debug}}
-				log.Printf("handler function returned an error: %s", err)
+				if err != nil {
+					log.Printf("[session] handler function returned an error: %s", err)
+				}
 				// {{end}}
 				connection.Send <- &sliverpb.Envelope{
 					ID:   envelope.ID,
