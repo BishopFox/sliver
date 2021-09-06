@@ -620,6 +620,9 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 			ciphertext = []byte{}
 		}
 		resp.Write(encoder.Encode(ciphertext))
+	case <-req.Context().Done():
+		httpLog.Debug("Poll client hang up")
+		return
 	case <-time.After(s.getPollTimeout()):
 		httpLog.Debug("Poll time out")
 		resp.Header().Set("Etag", s.randomEtag())
