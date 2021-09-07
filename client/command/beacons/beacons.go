@@ -76,7 +76,7 @@ func printBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) 
 			time.Unix(beacon.LastCheckin, 0).Format(time.RFC1123),
 			time.Unix(beacon.NextCheckin, 0).Format(time.RFC1123),
 		)
-		table.Flush()
 	}
+	table.Flush()
 	con.Printf("%s", outputBuf.String())
 }

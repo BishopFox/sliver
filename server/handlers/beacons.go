@@ -94,5 +94,33 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) {
 		beaconHandlerLog.Errorf("Error decoding beacon tasks message: %s", err)
 		return
 	}
+
 	beaconHandlerLog.Infof("Beacon tasks from %s", beaconTasks.ID)
+	pendingTasks, err := db.PendingBeaconTasksByBeaconID(beaconTasks.ID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		beaconHandlerLog.Errorf("Beacon task database error: %s", err)
+		return
+	}
+	tasks := []*sliverpb.Envelope{}
+	for _, pendingTask := range pendingTasks {
+		envelope := &sliverpb.Envelope{}
+		err = proto.Unmarshal(pendingTask.Request, envelope)
+		if err != nil {
+			beaconHandlerLog.Errorf("Error decoding pending task: %s", err)
+			continue
+		}
+		tasks = append(tasks, envelope)
+		pendingTask.State = models.SENT
+	}
+	taskData, err := proto.Marshal(&sliverpb.BeaconTasks{Tasks: tasks})
+	if err != nil {
+		beaconHandlerLog.Errorf("Error marshaling beacon tasks message: %s", err)
+		return
+	}
+	beaconHandlerLog.Infof("Sending %d task(s) to beacon %s", len(pendingTasks), beaconTasks.ID)
+	implantConn.Send <- &sliverpb.Envelope{
+		Type: sliverpb.MsgBeaconTasks,
+		Data: taskData,
+	}
+	db.Session().Save(pendingTasks)
 }

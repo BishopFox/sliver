@@ -258,3 +258,15 @@ func ListBeacons() ([]*models.Beacon, error) {
 	err := Session().Where(&models.Beacon{}).Find(&beacons).Error
 	return beacons, err
 }
+
+// PendingBeaconTasksByBeaconID - Select a Beacon by ID
+func PendingBeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error) {
+	tasks := []*models.BeaconTask{}
+	err := Session().Where(
+		&models.BeaconTask{
+			BeaconID: uuid.FromStringOrNil(beaconID),
+			State:    models.PENDING,
+		},
+	).First(&tasks).Error
+	return tasks, err
+}
