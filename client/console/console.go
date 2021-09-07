@@ -94,6 +94,10 @@ type SliverConsoleClient struct {
 // BindCmds - Bind extra commands to the app object
 type BindCmds func(console *SliverConsoleClient)
 
+func init() {
+	insecureRand.Seed(time.Now().Unix())
+}
+
 // Start - Console entrypoint
 func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isServer bool) error {
 
@@ -290,7 +294,6 @@ func (con *SliverConsoleClient) PrintLogo() {
 	}
 	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
 
-	insecureRand.Seed(time.Now().Unix())
 	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
 	con.Println(logo)
 	con.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])

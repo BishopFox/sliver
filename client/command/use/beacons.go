@@ -29,7 +29,7 @@ func UseBeaconCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	beacon, err := beacons.SelectBeacon(con)
 	if beacon != nil {
 		con.ActiveTarget.Set(nil, beacon)
-		con.PrintInfof("Active beacon %s (%d)\n", beacon.Name, beacon.ID)
+		con.PrintInfof("Active beacon %s (%s)\n", beacon.Name, beacon.ID)
 	} else if err != nil {
 		switch err {
 		case beacons.ErrNoBeacons:

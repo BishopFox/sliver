@@ -19,23 +19,123 @@ package use
 */
 
 import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+	"text/tabwriter"
+
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/desertbit/grumble"
+)
+
+var (
+	ErrNoSelection = errors.New("no selection")
 )
 
 // UseCmd - Change the active session
 func UseCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	// sessionArg := ctx.Args.String("session")
-	// beaconArg := ctx.Args.String("beacon")
-	// if beaconArg != "" {
+	session, beacon, err := SelectSessionOrBeacon(con)
+	if err != nil {
+		con.PrintWarnf("%s\n", err)
+		return
+	}
+	if session != nil {
+		con.ActiveTarget.Set(session, nil)
+		con.PrintInfof("Active session %s (%s)\n", beacon.Name, beacon.ID)
+	} else if beacon != nil {
+		con.ActiveTarget.Set(nil, beacon)
+		con.PrintInfof("Active beacon %s (%s)\n", beacon.Name, beacon.ID)
+	}
+}
 
-	// } else if sessionArg != "" {
-	// 	session := con.GetSession(sessionArg)
-	// 	if session == nil {
-	// 		con.PrintErrorf("Invalid session name or session number '%s'\n", ctx.Args.String("session"))
-	// 	} else {
-	// 		con.ActiveTarget.Set(session, nil)
-	// 		con.PrintInfof("Active session %s (%d)\n", session.Name, session.ID)
-	// 	}
-	// }
+// SelectSessionOrBeacon - Select a session or beacon
+func SelectSessionOrBeacon(con *console.SliverConsoleClient) (*clientpb.Session, *clientpb.Beacon, error) {
+	// Get and sort sessions
+	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return nil, nil, err
+	}
+	sessionsMap := map[uint32]*clientpb.Session{}
+	for _, session := range sessions.GetSessions() {
+		sessionsMap[session.ID] = session
+	}
+	var sessionKeys []int
+	for _, session := range sessions.Sessions {
+		sessionKeys = append(sessionKeys, int(session.ID))
+	}
+	sort.Ints(sessionKeys)
+
+	// Get and sort beacons
+	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return nil, nil, err
+	}
+	beaconsMap := map[string]*clientpb.Beacon{}
+	for _, beacon := range beacons.Beacons {
+		beaconsMap[beacon.ID] = beacon
+	}
+	beaconKeys := []string{}
+	for beaconID := range beaconsMap {
+		beaconKeys = append(beaconKeys, beaconID)
+	}
+	sort.Strings(beaconKeys)
+
+	if len(beaconKeys) == 0 && len(sessionKeys) == 0 {
+		return nil, nil, fmt.Errorf("No sessions or beacons 🙁")
+	}
+
+	// Render selection table
+	outputBuf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+
+	for _, key := range sessionKeys {
+		session := sessionsMap[uint32(key)]
+		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\n",
+			session.ID,
+			session.Name,
+			session.RemoteAddress,
+			session.Hostname,
+			session.Username,
+			fmt.Sprintf("%s/%s", session.OS, session.Arch),
+		)
+	}
+	for _, key := range beaconKeys {
+		beacon := beaconsMap[key]
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\n",
+			beacon.ID,
+			beacon.Name,
+			beacon.RemoteAddress,
+			beacon.Hostname,
+			beacon.Username,
+			fmt.Sprintf("%s/%s", beacon.OS, beacon.Arch),
+		)
+	}
+	table.Flush()
+
+	options := strings.Split(outputBuf.String(), "\n")
+	options = options[:len(options)-1] // Remove the last empty option
+	prompt := &survey.Select{
+		Message: "Select a session or beacon:",
+		Options: options,
+	}
+	selected := ""
+	survey.AskOne(prompt, &selected)
+	if selected == "" {
+		return nil, nil, ErrNoSelection
+	}
+	for index, option := range options {
+		if option == selected {
+			if index < len(sessionKeys) {
+				return sessionsMap[uint32(sessionKeys[index])], nil, nil
+			}
+			return nil, beaconsMap[beaconKeys[index-len(sessionKeys)]], nil
+		}
+	}
+	return nil, nil, nil
 }
