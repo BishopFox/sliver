@@ -29,7 +29,7 @@ import (
 
 // WGPortFwdAddCmd - Add a new WireGuard port forward
 func WGPortFwdAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -53,7 +53,7 @@ func WGPortFwdAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	pfwdAdd, err := con.Rpc.WGStartPortForward(context.Background(), &sliverpb.WGPortForwardStartReq{
 		LocalPort:     int32(localPort),
 		RemoteAddress: remoteAddr,
-		Request:       con.ActiveSession.Request(ctx),
+		Request:       con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {

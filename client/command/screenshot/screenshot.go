@@ -34,7 +34,7 @@ import (
 
 // ScreenshotCmd - Take a screenshot of the remote system
 func ScreenshotCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -45,7 +45,7 @@ func ScreenshotCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	screenshot, err := con.Rpc.Screenshot(context.Background(), &sliverpb.ScreenshotReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

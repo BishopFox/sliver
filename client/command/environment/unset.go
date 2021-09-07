@@ -28,8 +28,8 @@ import (
 
 // EnvUnsetCmd - Unset a remote environment variable
 func EnvUnsetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.Get()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -41,7 +41,7 @@ func EnvUnsetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	unsetResp, err := con.Rpc.UnsetEnv(context.Background(), &sliverpb.UnsetEnvReq{
 		Name:    name,
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {

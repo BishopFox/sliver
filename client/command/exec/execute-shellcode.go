@@ -37,7 +37,7 @@ import (
 
 // ExecuteShellcodeCmd - Execute shellcode in-memory
 func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -65,7 +65,7 @@ func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 		Data:     shellcodeBin,
 		RWXPages: ctx.Flags.Bool("rwx-pages"),
 		Pid:      uint32(pid),
-		Request:  con.ActiveSession.Request(ctx),
+		Request:  con.ActiveTarget.Request(ctx),
 	})
 	ctrl <- true
 	<-ctrl
@@ -82,7 +82,7 @@ func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 
 func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte, rwxPages bool, con *console.SliverConsoleClient) {
 	// Check active session
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -104,7 +104,7 @@ func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte,
 	tunnel := core.Tunnels.Start(rpcTunnel.GetTunnelID(), rpcTunnel.GetSessionID())
 
 	shell, err := con.Rpc.Shell(context.Background(), &sliverpb.ShellReq{
-		Request:   con.ActiveSession.Request(ctx),
+		Request:   con.ActiveTarget.Request(ctx),
 		Path:      hostProc,
 		EnablePTY: !noPty,
 		TunnelID:  tunnel.ID,
@@ -121,7 +121,7 @@ func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte,
 	msg := fmt.Sprintf("Sending shellcode to %s ...", session.GetName())
 	con.SpinUntil(msg, ctrl)
 	_, err = con.Rpc.Task(context.Background(), &sliverpb.TaskReq{
-		Request:  con.ActiveSession.Request(ctx),
+		Request:  con.ActiveTarget.Request(ctx),
 		Pid:      pid,
 		Data:     shellcode,
 		RWXPages: rwxPages,

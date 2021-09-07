@@ -1,4 +1,4 @@
-package processes
+package use
 
 /*
 	Sliver Implant Framework
@@ -19,30 +19,25 @@ package processes
 */
 
 import (
-	"context"
-
+	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
 )
 
-// TerminateCmd - Terminate a process on the remote system
-func TerminateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveTarget.GetSessionInteractive()
-	if session == nil {
-		return
+// UseSessionCmd - Change the active session
+func UseSessionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	session, err := sessions.SelectSession(false, con)
+	if session != nil {
+		con.ActiveTarget.Set(session, nil)
+		con.PrintInfof("Active session %s (%d)\n", session.Name, session.ID)
+	} else if err != nil {
+		switch err {
+		case sessions.ErrNoSessions:
+			con.PrintErrorf("No sessions available\n")
+		case sessions.ErrNoSelection:
+			con.PrintErrorf("No session selected\n")
+		default:
+			con.PrintErrorf("%s\n", err)
+		}
 	}
-
-	pid := ctx.Args.Uint("pid")
-	terminated, err := con.Rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
-		Request: con.ActiveTarget.Request(ctx),
-		Pid:     int32(pid),
-		Force:   ctx.Flags.Bool("force"),
-	})
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-	} else {
-		con.PrintInfof("Process %d has been terminated\n", terminated.Pid)
-	}
-
 }

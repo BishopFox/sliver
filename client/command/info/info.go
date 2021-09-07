@@ -31,8 +31,8 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	var session *clientpb.Session
 	sessionName := ctx.Args.String("session")
-	if con.ActiveSession.GetInteractive() != nil {
-		session = con.ActiveSession.GetInteractive()
+	if con.ActiveTarget.GetSessionInteractive() != nil {
+		session = con.ActiveTarget.GetSessionInteractive()
 	} else if sessionName != "" {
 		session = con.GetSession(sessionName)
 	}
@@ -61,7 +61,7 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 // PIDCmd - Get the active session's PID
 func PIDCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -70,7 +70,7 @@ func PIDCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 // UIDCmd - Get the active session's UID
 func UIDCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -79,7 +79,7 @@ func UIDCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 // GIDCmd - Get the active session's GID
 func GIDCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -88,7 +88,7 @@ func GIDCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 // WhoamiCmd - Displays the current user of the active session
 func WhoamiCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}

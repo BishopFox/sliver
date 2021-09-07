@@ -32,7 +32,7 @@ import (
 
 // RegWriteCmd - Write to a Windows registry key: registry write --hive HKCU --type dword "software\google\chrome\blbeacon\hello" 32
 func RegWriteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -123,7 +123,7 @@ func RegWriteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	regWrite, err := con.Rpc.RegistryWrite(context.Background(), &sliverpb.RegistryWriteReq{
-		Request:     con.ActiveSession.Request(ctx),
+		Request:     con.ActiveTarget.Request(ctx),
 		Hostname:    hostname,
 		Hive:        hive,
 		Path:        finalPath,

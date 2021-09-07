@@ -26,7 +26,7 @@ import (
 
 // MigrateCmd - Windows only, inject an implant into another process
 func MigrateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.Get()
+	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		return
 	}
@@ -38,7 +38,7 @@ func MigrateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	migrate, err := con.Rpc.Migrate(context.Background(), &clientpb.MigrateReq{
 		Pid:     uint32(pid),
 		Config:  config,
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	ctrl <- true
 	<-ctrl

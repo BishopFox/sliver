@@ -19,7 +19,7 @@ func SSHCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		privKey []byte
 		err     error
 	)
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -58,7 +58,7 @@ func SSHCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		PrivKey:  privKey,
 		Password: password,
 		Command:  strings.Join(command, " "),
-		Request:  con.ActiveSession.Request(ctx),
+		Request:  con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

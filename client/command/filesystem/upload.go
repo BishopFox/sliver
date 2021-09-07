@@ -34,8 +34,8 @@ import (
 
 // UploadCmd - Upload a file to the remote system
 func UploadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -67,7 +67,7 @@ func UploadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("%s -> %s", src, dst), ctrl)
 	upload, err := con.Rpc.Upload(context.Background(), &sliverpb.UploadReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 		Path:    dst,
 		Data:    uploadGzip,
 		Encoder: "gzip",

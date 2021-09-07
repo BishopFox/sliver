@@ -31,7 +31,7 @@ import (
 
 // MsfInjectCmd - Inject a metasploit payload into a remote process
 func MsfInjectCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -58,7 +58,7 @@ func MsfInjectCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		payloadName, session.OS, session.Arch, lhost, lport)
 	con.SpinUntil(msg, ctrl)
 	_, err := con.Rpc.MsfRemote(context.Background(), &clientpb.MSFRemoteReq{
-		Request:    con.ActiveSession.Request(ctx),
+		Request:    con.ActiveTarget.Request(ctx),
 		Payload:    payloadName,
 		LHost:      lhost,
 		LPort:      uint32(lport),

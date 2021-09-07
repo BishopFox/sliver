@@ -28,7 +28,7 @@ import (
 
 // MakeTokenCmd - Windows only, create a token using "valid" credentails
 func MakeTokenCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -45,7 +45,7 @@ func MakeTokenCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.SpinUntil("Creating new logon session ...", ctrl)
 
 	makeToken, err := con.Rpc.MakeToken(context.Background(), &sliverpb.MakeTokenReq{
-		Request:  con.ActiveSession.Request(ctx),
+		Request:  con.ActiveTarget.Request(ctx),
 		Username: username,
 		Domain:   domain,
 		Password: password,

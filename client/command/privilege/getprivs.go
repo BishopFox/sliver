@@ -31,7 +31,7 @@ import (
 func GetPrivsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var processName string = "Current Process"
 
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -42,7 +42,7 @@ func GetPrivsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	privs, err := con.Rpc.GetPrivs(context.Background(), &sliverpb.GetPrivsReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {

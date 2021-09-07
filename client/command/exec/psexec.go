@@ -36,7 +36,7 @@ import (
 
 // PsExecCmd - psexec command implementation.
 func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -96,7 +96,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Encoder: "gzip",
 		Data:    uploadGzip,
 		Path:    filePath,
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	uploadCtrl <- true
 	<-uploadCtrl
@@ -119,7 +119,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	start, err := con.Rpc.StartService(context.Background(), &sliverpb.StartServiceReq{
 		BinPath:            binaryPath,
 		Hostname:           hostname,
-		Request:            con.ActiveSession.Request(ctx),
+		Request:            con.ActiveTarget.Request(ctx),
 		ServiceDescription: serviceDesc,
 		ServiceName:        serviceName,
 		Arguments:          "",
@@ -142,7 +142,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			Hostname:    hostname,
 			ServiceName: serviceName,
 		},
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	removeChan <- true
 	<-removeChan

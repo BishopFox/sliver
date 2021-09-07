@@ -29,14 +29,14 @@ import (
 
 // CdCmd - Change directory on the remote system
 func CdCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 	filePath := ctx.Args.String("path")
 
 	pwd, err := con.Rpc.Cd(context.Background(), &sliverpb.CdReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 		Path:    filePath,
 	})
 	if err != nil {

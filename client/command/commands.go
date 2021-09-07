@@ -65,6 +65,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/shell"
 	"github.com/bishopfox/sliver/client/command/update"
+	"github.com/bishopfox/sliver/client/command/use"
 	"github.com/bishopfox/sliver/client/command/websites"
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	"github.com/bishopfox/sliver/client/console"
@@ -384,25 +385,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 	})
 
 	con.App.AddCommand(&grumble.Command{
-		Name:     consts.UseStr,
-		Help:     "Switch the active session",
-		LongHelp: help.GetHelpFor([]string{consts.UseStr}),
-		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Args: func(a *grumble.Args) {
-			a.String("session", "session ID or name", grumble.Default(""))
-		},
-		Run: func(ctx *grumble.Context) error {
-			con.Println()
-			sessions.UseCmd(ctx, con)
-			con.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	})
-
-	con.App.AddCommand(&grumble.Command{
 		Name:     consts.KillStr,
 		Help:     "Kill a session",
 		LongHelp: help.GetHelpFor([]string{consts.KillStr}),
@@ -419,6 +401,63 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
+
+	// [ Use ] --------------------------------------------------------------
+
+	useCmd := &grumble.Command{
+		Name:     consts.UseStr,
+		Help:     "Switch the active session or beacon",
+		LongHelp: help.GetHelpFor([]string{consts.UseStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("session", "session ID or name", grumble.Default(""))
+			a.String("beacon", "beacon ID or name", grumble.Default(""))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			use.UseCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	useCmd.AddCommand(&grumble.Command{
+		Name:     consts.SessionsStr,
+		Help:     "Switch the active session",
+		LongHelp: help.GetHelpFor([]string{consts.UseStr, consts.SessionsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			use.UseSessionCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	useCmd.AddCommand(&grumble.Command{
+		Name:     consts.BeaconsStr,
+		Help:     "Switch the active beacon",
+		LongHelp: help.GetHelpFor([]string{consts.UseStr, consts.BeaconsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			use.UseBeaconCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	con.App.AddCommand(useCmd)
 
 	// [ Info ] --------------------------------------------------------------
 

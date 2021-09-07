@@ -32,7 +32,7 @@ import (
 
 // ExecuteAssemblyCmd - Execute a .NET assembly in-memory
 func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -60,7 +60,7 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 	ctrl := make(chan bool)
 	con.SpinUntil("Executing assembly ...", ctrl)
 	executeAssembly, err := con.Rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
-		Request:   con.ActiveSession.Request(ctx),
+		Request:   con.ActiveTarget.Request(ctx),
 		IsDLL:     isDLL,
 		Process:   process,
 		Arguments: strings.Join(assemblyArgs, " "),

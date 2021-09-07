@@ -7,6 +7,6 @@ import (
 
 // BackgroundCmd - Background the active session
 func BackgroundCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	con.ActiveSession.Background()
+	con.ActiveTarget.Background()
 	con.PrintInfof("Background ...\n")
 }

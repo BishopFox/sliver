@@ -29,7 +29,7 @@ import (
 
 // BackdoorCmd - Command to inject implant code into an existing binary
 func BackdoorCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -48,7 +48,7 @@ func BackdoorCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	backdoor, err := con.Rpc.Backdoor(context.Background(), &sliverpb.BackdoorReq{
 		FilePath:    remoteFilePath,
 		ProfileName: profileName,
-		Request:     con.ActiveSession.Request(ctx),
+		Request:     con.ActiveTarget.Request(ctx),
 	})
 	ctrl <- true
 	<-ctrl

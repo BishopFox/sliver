@@ -28,13 +28,13 @@ import (
 
 // ImpersonateCmd - Windows only, impersonate a user token
 func ImpersonateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 	username := ctx.Args.String("username")
 	impResp, err := con.Rpc.Impersonate(context.Background(), &sliverpb.ImpersonateReq{
-		Request:  con.ActiveSession.Request(ctx),
+		Request:  con.ActiveTarget.Request(ctx),
 		Username: username,
 	})
 

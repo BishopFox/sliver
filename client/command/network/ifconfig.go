@@ -31,13 +31,13 @@ import (
 
 // IfconfigCmd - Display network interfaces on the remote system
 func IfconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 
 	ifconfig, err := con.Rpc.Ifconfig(context.Background(), &sliverpb.IfconfigReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

@@ -37,8 +37,8 @@ import (
 
 // LsCmd - List the contents of a remote directory
 func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -60,18 +60,17 @@ func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			of the client does not necessarily match the OS of the
 			implant
 		*/
-		lastSeparatorOccurence := strings.LastIndex(testPath, "/")
+		lastSeparatorOccurrence := strings.LastIndex(testPath, "/")
 
-		if lastSeparatorOccurence == -1 {
+		if lastSeparatorOccurrence == -1 {
 			// Then this is only a filter
 			filter = remotePath
 			remotePath = "."
 		} else {
 			// Then we need to test for a filter on the end of the string
-
-			// The indicies should be the same because we did not change the length of the string
-			baseDir := remotePath[:lastSeparatorOccurence]
-			potentialFilter := remotePath[lastSeparatorOccurence+1:]
+			// The indices should be the same because we did not change the length of the string
+			baseDir := remotePath[:lastSeparatorOccurrence]
+			potentialFilter := remotePath[lastSeparatorOccurrence+1:]
 
 			_, err := filepath.Match(potentialFilter, "")
 
@@ -84,7 +83,7 @@ func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 		Path:    remotePath,
 	})
 	if err != nil {

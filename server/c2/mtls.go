@@ -221,13 +221,11 @@ func getServerTLSConfig(host string) *tls.Config {
 	}
 
 	tlsConfig := &tls.Config{
-		RootCAs:                  sliverCACertPool,
-		ClientAuth:               tls.RequireAndVerifyClientCert,
-		ClientCAs:                sliverCACertPool,
-		Certificates:             []tls.Certificate{cert},
-		CipherSuites:             []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384},
-		PreferServerCipherSuites: true,
-		MinVersion:               tls.VersionTLS12,
+		RootCAs:      sliverCACertPool,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    sliverCACertPool,
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS13, // Force TLS v1.3
 	}
 	tlsConfig.BuildNameToCertificate()
 	return tlsConfig

@@ -31,7 +31,7 @@ import (
 
 // SideloadCmd - Sideload a shared library on the remote system
 func SideloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.Get()
+	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		return
 	}
@@ -51,7 +51,7 @@ func SideloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("Sideloading %s ...", binPath), ctrl)
 	sideload, err := con.Rpc.Sideload(context.Background(), &sliverpb.SideloadReq{
-		Request:     con.ActiveSession.Request(ctx),
+		Request:     con.ActiveTarget.Request(ctx),
 		Args:        args,
 		Data:        binData,
 		EntryPoint:  entryPoint,

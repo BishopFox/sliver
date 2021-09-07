@@ -9,7 +9,7 @@ import (
 )
 
 func RegListSubKeysCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -22,7 +22,7 @@ func RegListSubKeysCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Hive:     hive,
 		Hostname: hostname,
 		Path:     path,
-		Request:  con.ActiveSession.Request(ctx),
+		Request:  con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {
@@ -43,7 +43,7 @@ func RegListSubKeysCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 func RegListValuesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -56,7 +56,7 @@ func RegListValuesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Hive:     hive,
 		Hostname: hostname,
 		Path:     regPath,
-		Request:  con.ActiveSession.Request(ctx),
+		Request:  con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {

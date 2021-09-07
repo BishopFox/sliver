@@ -28,7 +28,7 @@ import (
 
 // RunAsCmd - Run a command as another user on the remote system
 func RunAsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -47,7 +47,7 @@ func RunAsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	runAsResp, err := con.Rpc.RunAs(context.Background(), &sliverpb.RunAsReq{
-		Request:     con.ActiveSession.Request(ctx),
+		Request:     con.ActiveTarget.Request(ctx),
 		Username:    username,
 		ProcessName: process,
 		Args:        arguments,

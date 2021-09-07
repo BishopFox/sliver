@@ -28,15 +28,15 @@ import (
 
 // EnvGetCmd - Get a remote environment variable
 func EnvGetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.Get()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
 	name := ctx.Args.String("name")
 	envInfo, err := con.Rpc.GetEnv(context.Background(), &sliverpb.EnvReq{
 		Name:    name,
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {

@@ -28,12 +28,12 @@ import (
 
 // RevToSelfCmd - Drop any impersonated tokens
 func RevToSelfCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 	_, err := con.Rpc.RevToSelf(context.Background(), &sliverpb.RevToSelfReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {

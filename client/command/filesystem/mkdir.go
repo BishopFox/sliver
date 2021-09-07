@@ -29,8 +29,8 @@ import (
 
 // MkdirCmd - Make a remote directory
 func MkdirCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -42,7 +42,7 @@ func MkdirCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	mkdir, err := con.Rpc.Mkdir(context.Background(), &sliverpb.MkdirReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 		Path:    filePath,
 	})
 	if err != nil {

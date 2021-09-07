@@ -29,7 +29,7 @@ import (
 
 // RegCreateKeyCmd - Create a new Windows registry key
 func RegCreateKeyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.Get()
+	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		return
 	}
@@ -65,7 +65,7 @@ func RegCreateKeyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Path:     finalPath,
 		Key:      key,
 		Hostname: hostname,
-		Request:  con.ActiveSession.Request(ctx),
+		Request:  con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {

@@ -31,7 +31,7 @@ import (
 
 // SessionsReconfigCmd - Reconfigure metadata about a sessions
 func SessionsReconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -53,7 +53,7 @@ func SessionsReconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	poll := ctx.Flags.Int("poll")
 
 	session, err := con.Rpc.UpdateSession(context.Background(), &clientpb.UpdateSession{
-		SessionID:         con.ActiveSession.Session.ID,
+		SessionID:         con.ActiveTarget.Session.ID,
 		Name:              name,
 		ReconnectInterval: int64(reconnect) * int64(time.Second),
 		PollInterval:      int64(poll) * int64(time.Second),
@@ -64,5 +64,5 @@ func SessionsReconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 		return
 	}
 
-	con.ActiveSession.Set(session)
+	con.ActiveTarget.Set(session, nil)
 }

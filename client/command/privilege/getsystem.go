@@ -28,7 +28,7 @@ import (
 
 // GetSystemCmd - Windows only, attempt to get SYSTEM on the remote system
 func GetSystemCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -38,7 +38,7 @@ func GetSystemCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.SpinUntil("Attempting to create a new sliver session as 'NT AUTHORITY\\SYSTEM'...", ctrl)
 
 	getsystemResp, err := con.Rpc.GetSystem(context.Background(), &clientpb.GetSystemReq{
-		Request:        con.ActiveSession.Request(ctx),
+		Request:        con.ActiveTarget.Request(ctx),
 		Config:         config,
 		HostingProcess: process,
 	})

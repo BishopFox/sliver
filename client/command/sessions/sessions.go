@@ -49,7 +49,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	if killAll {
-		con.ActiveSession.Background()
+		con.ActiveTarget.Background()
 		for _, session := range sessions.Sessions {
 			err := killSession(session, true, con)
 			if err != nil {
@@ -62,7 +62,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	if clean {
-		con.ActiveSession.Background()
+		con.ActiveTarget.Background()
 		for _, session := range sessions.Sessions {
 			if session.IsDead {
 				err := killSession(session, true, con)
@@ -77,9 +77,9 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	if kill != "" {
 		session := con.GetSession(kill)
-		activeSession := con.ActiveSession.Get()
+		activeSession := con.ActiveTarget.GetSession()
 		if activeSession != nil && session.ID == activeSession.ID {
-			con.ActiveSession.Background()
+			con.ActiveTarget.Background()
 		}
 		err := killSession(session, true, con)
 		if err != nil {
@@ -91,7 +91,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if interact != "" {
 		session := con.GetSession(interact)
 		if session != nil {
-			con.ActiveSession.Set(session)
+			con.ActiveTarget.Set(session, nil)
 			con.PrintInfof("Active session %s (%d)\n", session.Name, session.ID)
 		} else {
 			con.PrintErrorf("Invalid session name or session number: %s\n", interact)
@@ -146,7 +146,7 @@ func printSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 	activeIndex := -1
 	for index, key := range keys {
 		session := sessions[uint32(key)]
-		if con.ActiveSession.Get() != nil && con.ActiveSession.Get().ID == session.ID {
+		if con.ActiveTarget.GetSession() != nil && con.ActiveTarget.GetSession().ID == session.ID {
 			activeIndex = index + 2 // Two lines for the headers
 		}
 

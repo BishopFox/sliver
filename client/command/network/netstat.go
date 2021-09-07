@@ -31,7 +31,7 @@ import (
 
 // NetstatCmd - Display active network connections on the remote system
 func NetstatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -43,7 +43,7 @@ func NetstatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	udp := ctx.Flags.Bool("udp")
 
 	netstat, err := con.Rpc.Netstat(context.Background(), &sliverpb.NetstatReq{
-		Request:   con.ActiveSession.Request(ctx),
+		Request:   con.ActiveTarget.Request(ctx),
 		TCP:       tcp,
 		UDP:       udp,
 		Listening: listening,
@@ -72,7 +72,7 @@ func displayEntries(entries []*sliverpb.SockTabEntry, con *console.SliverConsole
 	}
 
 	con.Printf("Proto %-23s %-23s %-12s %-16s\n", "Local Addr", "Foreign Addr", "State", "PID/Program name")
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	for _, e := range entries {
 		p := ""
 		if e.Process != nil {
@@ -95,6 +95,6 @@ func isSliverAddr(dstAddr string, con *console.SliverConsoleClient) bool {
 	if len(parts) != 3 {
 		return false
 	}
-	c2Addr := strings.Split(con.ActiveSession.GetInteractive().ActiveC2, "://")[1]
+	c2Addr := strings.Split(con.ActiveTarget.GetSessionInteractive().ActiveC2, "://")[1]
 	return strings.Join(parts[:2], ":") == c2Addr
 }

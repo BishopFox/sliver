@@ -46,7 +46,7 @@ var (
 
 // PsCmd - List processes on the remote system
 func PsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -56,7 +56,7 @@ func PsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ownerFilter := ctx.Flags.String("owner")
 
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -140,7 +140,7 @@ func printProcInfo(table *tabwriter.Writer, proc *commonpb.Process, cmdLine bool
 	if modifyColor, ok := knownProcs[proc.Executable]; ok {
 		color = modifyColor
 	}
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session != nil && proc.Pid == session.PID {
 		color = console.Green
 	}
@@ -170,7 +170,7 @@ func printProcInfo(table *tabwriter.Writer, proc *commonpb.Process, cmdLine bool
 // GetPIDByName - Get a PID by name from the active session
 func GetPIDByName(ctx *grumble.Context, name string, con *console.SliverConsoleClient) int {
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {
 		return -1

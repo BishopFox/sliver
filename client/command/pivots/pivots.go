@@ -44,7 +44,7 @@ func PivotsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 		printPivots(session, int64(timeout), con)
 	} else {
-		session := con.ActiveSession.Get()
+		session := con.ActiveTarget.GetSession()
 		if session != nil {
 			printPivots(session, int64(timeout), con)
 		} else {

@@ -35,8 +35,8 @@ import (
 
 // DownloadCmd - Download a file from the remote system
 func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -67,7 +67,7 @@ func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("%s -> %s", fileName, dst), ctrl)
 	download, err := con.Rpc.Download(context.Background(), &sliverpb.DownloadReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 		Path:    remotePath,
 	})
 	ctrl <- true

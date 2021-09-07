@@ -29,8 +29,8 @@ import (
 
 // RmCmd - Remove a directory from the remote file system
 func RmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -42,7 +42,7 @@ func RmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	rm, err := con.Rpc.Rm(context.Background(), &sliverpb.RmReq{
-		Request:   con.ActiveSession.Request(ctx),
+		Request:   con.ActiveTarget.Request(ctx),
 		Path:      filePath,
 		Recursive: ctx.Flags.Bool("recursive"),
 		Force:     ctx.Flags.Bool("force"),

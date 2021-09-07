@@ -1,4 +1,4 @@
-package processes
+package use
 
 /*
 	Sliver Implant Framework
@@ -19,30 +19,25 @@ package processes
 */
 
 import (
-	"context"
-
+	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
 )
 
-// TerminateCmd - Terminate a process on the remote system
-func TerminateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveTarget.GetSessionInteractive()
-	if session == nil {
-		return
+// UseBeaconCmd - Change the active beacon
+func UseBeaconCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	beacon, err := beacons.SelectBeacon(con)
+	if beacon != nil {
+		con.ActiveTarget.Set(nil, beacon)
+		con.PrintInfof("Active beacon %s (%d)\n", beacon.Name, beacon.ID)
+	} else if err != nil {
+		switch err {
+		case beacons.ErrNoBeacons:
+			con.PrintErrorf("No beacon available\n")
+		case beacons.ErrNoSelection:
+			con.PrintErrorf("No beacon selected\n")
+		default:
+			con.PrintErrorf("%s\n", err)
+		}
 	}
-
-	pid := ctx.Args.Uint("pid")
-	terminated, err := con.Rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
-		Request: con.ActiveTarget.Request(ctx),
-		Pid:     int32(pid),
-		Force:   ctx.Flags.Bool("force"),
-	})
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-	} else {
-		con.PrintInfof("Process %d has been terminated\n", terminated.Pid)
-	}
-
 }

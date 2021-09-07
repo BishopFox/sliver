@@ -41,7 +41,7 @@ const (
 
 // ShellCmd - Start an interactive shell on the remote system
 func ShellCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -52,7 +52,7 @@ func ShellCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	shellPath := ctx.Flags.String("shell-path")
 	noPty := ctx.Flags.Bool("no-pty")
-	if con.ActiveSession.Get().OS != linux && con.ActiveSession.Get().OS != darwin {
+	if con.ActiveTarget.GetSession().OS != linux && con.ActiveTarget.GetSession().OS != darwin {
 		noPty = true // Sliver's PTYs are only supported on linux/darwin
 	}
 	runInteractive(ctx, shellPath, noPty, con)
@@ -61,7 +61,7 @@ func ShellCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *console.SliverConsoleClient) {
 	con.PrintInfof("Opening shell tunnel (EOF to exit) ...\n\n")
-	session := con.ActiveSession.Get()
+	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		return
 	}
@@ -80,7 +80,7 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *con
 	tunnel := core.Tunnels.Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
 
 	shell, err := con.Rpc.Shell(context.Background(), &sliverpb.ShellReq{
-		Request:   con.ActiveSession.Request(ctx),
+		Request:   con.ActiveTarget.Request(ctx),
 		Path:      shellPath,
 		EnablePTY: !noPty,
 		TunnelID:  tunnel.ID,

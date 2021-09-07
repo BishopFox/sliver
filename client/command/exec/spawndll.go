@@ -15,7 +15,7 @@ import (
 
 // SpawnDllCmd - Spawn execution of a DLL on the remote system
 func SpawnDllCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.Get()
+	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		return
 	}
@@ -36,7 +36,7 @@ func SpawnDllCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		ProcessName: processName,
 		Args:        dllArgs,
 		EntryPoint:  exportName,
-		Request:     con.ActiveSession.Request(ctx),
+		Request:     con.ActiveTarget.Request(ctx),
 		Kill:        !ctx.Flags.Bool("keep-alive"),
 	})
 

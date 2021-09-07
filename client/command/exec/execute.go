@@ -28,7 +28,7 @@ import (
 
 // ExecuteCmd - Run a command on the remote system
 func ExecuteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -46,7 +46,7 @@ func ExecuteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.SpinUntil(fmt.Sprintf("Executing %s %s ...", cmdPath, strings.Join(args, " ")), ctrl)
 	if token {
 		exec, err = con.Rpc.ExecuteToken(context.Background(), &sliverpb.ExecuteTokenReq{
-			Request: con.ActiveSession.Request(ctx),
+			Request: con.ActiveTarget.Request(ctx),
 			Path:    cmdPath,
 			Args:    args,
 			Output:  !output,
@@ -55,7 +55,7 @@ func ExecuteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		})
 	} else {
 		exec, err = con.Rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-			Request: con.ActiveSession.Request(ctx),
+			Request: con.ActiveTarget.Request(ctx),
 			Path:    cmdPath,
 			Args:    args,
 			Output:  !output,

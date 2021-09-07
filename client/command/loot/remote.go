@@ -33,7 +33,7 @@ import (
 
 // LootAddRemoteCmd - Add a file from the remote system to the server as loot
 func LootAddRemoteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -60,7 +60,7 @@ func LootAddRemoteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.SpinUntil(fmt.Sprintf("Looting remote file %s", remotePath), ctrl)
 
 	download, err := con.Rpc.Download(context.Background(), &sliverpb.DownloadReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 		Path:    remotePath,
 	})
 	if err != nil {
