@@ -120,7 +120,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		ProxyURL:          s.ProxyURL,
 		PollTimeout:       s.PollTimeout,
 		Burned:            s.Burned,
-		ConfigID:          s.ConfigID,
+		// ConfigID:          s.ConfigID,
 	}
 }
 

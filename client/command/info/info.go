@@ -53,7 +53,7 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.Printf(console.Bold+"         Proxy URL: %s%s\n", console.Normal, session.ProxyURL)
 		con.Printf(console.Bold+"      Poll Timeout: %s%d\n", console.Normal, session.PollTimeout)
 		con.Printf(console.Bold+"Reconnect Interval: %s%d\n", console.Normal, session.ReconnectInterval)
-		con.Printf(console.Bold+" Implant Config ID: %s%d\n", console.Normal, session.ConfigID)
+		// con.Printf(console.Bold+" Implant Config ID: %s%d\n", console.Normal, session.ConfigID)
 	} else {
 		con.PrintErrorf("No target session, see `help %s`\n", consts.InfoStr)
 	}

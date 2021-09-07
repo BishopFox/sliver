@@ -21,6 +21,7 @@ package models
 import (
 	"time"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
@@ -50,9 +51,7 @@ type Beacon struct {
 	ProxyURL          string
 	PollTimeout       int64
 
-	ConfigID     uuid.UUID `gorm:"type:uuid;"`
-	ImplantBuild uuid.UUID `gorm:"type:uuid;"`
-	HostUUID     uuid.UUID `gorm:"type:uuid;"`
+	ImplantBuildID uuid.UUID `gorm:"type:uuid;"`
 
 	Interval    int64
 	Jitter      int64
@@ -65,6 +64,33 @@ type Beacon struct {
 func (b *Beacon) BeforeCreate(tx *gorm.DB) (err error) {
 	b.CreatedAt = time.Now()
 	return nil
+}
+
+func (b *Beacon) ToProtobuf() *clientpb.Beacon {
+	return &clientpb.Beacon{
+		ID:            b.ID.String(),
+		Name:          b.Name,
+		Hostname:      b.Hostname,
+		UUID:          b.UUID.String(),
+		Username:      b.Username,
+		UID:           b.UID,
+		GID:           b.GID,
+		OS:            b.OS,
+		Arch:          b.Arch,
+		Transport:     b.Transport,
+		RemoteAddress: b.RemoteAddress,
+		PID:           b.PID,
+		Filename:      b.Filename,
+		LastCheckin:   b.LastCheckin.Unix(),
+		Version:       b.Version,
+		// ReconnectInterval: b.ReconnectInterval,
+		ProxyURL: b.ProxyURL,
+		// PollTimeout: b.PollTimeout,
+		// ImplantBuildID: b.ImplantBuildID.String(),
+		Interval:    b.Interval,
+		Jitter:      b.Jitter,
+		NextCheckin: b.NextCheckin,
+	}
 }
 
 // BeaconTask - Represents a host machine

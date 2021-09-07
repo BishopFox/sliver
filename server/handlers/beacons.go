@@ -55,42 +55,32 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) {
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		beacon = &models.Beacon{
-			ID:                uuid.FromStringOrNil(beaconReg.ID),
-			Name:              beaconReg.Register.Name,
-			Hostname:          beaconReg.Register.Hostname,
-			UUID:              uuid.FromStringOrNil(beaconReg.Register.Uuid),
-			Username:          beaconReg.Register.Username,
-			UID:               beaconReg.Register.Uid,
-			GID:               beaconReg.Register.Gid,
-			OS:                beaconReg.Register.Os,
-			Arch:              beaconReg.Register.Arch,
-			Transport:         implantConn.Transport,
-			RemoteAddress:     implantConn.RemoteAddress,
-			PID:               beaconReg.Register.Pid,
-			Filename:          beaconReg.Register.Filename,
-			LastCheckin:       implantConn.LastMessage,
-			Version:           beaconReg.Register.Version,
-			ReconnectInterval: beaconReg.Register.ReconnectInterval,
-			ProxyURL:          beaconReg.Register.ProxyURL,
-			PollTimeout:       beaconReg.Register.PollTimeout,
-			ConfigID:          uuid.FromStringOrNil(beaconReg.Register.ConfigID),
-
-			Interval:    beaconReg.Interval,
-			Jitter:      beaconReg.Jitter,
-			NextCheckin: beacon.NextCheckin,
-		}
-	} else {
-		// Found existing Beacon, update specific values if they've changed
-		if beaconReg.NextCheckin != beacon.NextCheckin {
-			beacon.NextCheckin = beaconReg.NextCheckin
-		}
-		if implantConn.Transport != beacon.Transport {
-			beacon.Transport = implantConn.Transport
-		}
-		if implantConn.RemoteAddress != beacon.RemoteAddress {
-			beacon.RemoteAddress = implantConn.RemoteAddress
+			ID: uuid.FromStringOrNil(beaconReg.ID),
 		}
 	}
+	beacon.Name = beaconReg.Register.Name
+	beacon.Hostname = beaconReg.Register.Hostname
+	beacon.UUID = uuid.FromStringOrNil(beaconReg.Register.Uuid)
+	beacon.Username = beaconReg.Register.Username
+	beacon.UID = beaconReg.Register.Uid
+	beacon.GID = beaconReg.Register.Gid
+	beacon.OS = beaconReg.Register.Os
+	beacon.Arch = beaconReg.Register.Arch
+	beacon.Transport = implantConn.Transport
+	beacon.RemoteAddress = implantConn.RemoteAddress
+	beacon.PID = beaconReg.Register.Pid
+	beacon.Filename = beaconReg.Register.Filename
+	beacon.LastCheckin = implantConn.LastMessage
+	beacon.Version = beaconReg.Register.Version
+	beacon.ReconnectInterval = beaconReg.Register.ReconnectInterval
+	beacon.ProxyURL = beaconReg.Register.ProxyURL
+	beacon.PollTimeout = beaconReg.Register.PollTimeout
+	// beacon.ConfigID = uuid.FromStringOrNil(beaconReg.Register.ConfigID)
+
+	beacon.Interval = beaconReg.Interval
+	beacon.Jitter = beaconReg.Jitter
+	beacon.NextCheckin = beaconReg.NextCheckin
+
 	err = db.Session().Save(beacon).Error
 	if err != nil {
 		beaconHandlerLog.Errorf("Database write %s", err)

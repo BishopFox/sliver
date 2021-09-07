@@ -255,6 +255,6 @@ func BeaconByID(id string) (*models.Beacon, error) {
 // ListBeacons - Select a Beacon by ID
 func ListBeacons() ([]*models.Beacon, error) {
 	beacons := []*models.Beacon{}
-	err := Session().Where(&models.Beacon{}).Find(beacons).Error
+	err := Session().Where(&models.Beacon{}).Find(&beacons).Error
 	return beacons, err
 }

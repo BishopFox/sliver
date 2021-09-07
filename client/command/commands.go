@@ -38,6 +38,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/backdoor"
+	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/command/dllhijack"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
@@ -1592,6 +1593,24 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			backdoor.BackdoorCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+
+	// [ Beacons ] ---------------------------------------------
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.BeaconsStr,
+		Help:     "Manage beacons",
+		LongHelp: help.GetHelpFor([]string{consts.BeaconsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			beacons.BeaconsCmd(ctx, con)
 			con.Println()
 			return nil
 		},

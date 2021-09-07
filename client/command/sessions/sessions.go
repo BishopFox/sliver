@@ -187,6 +187,6 @@ func printSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 			}
 		}
 	} else {
-		con.Printf(outputBuf.String())
+		con.Printf("%s", outputBuf.String())
 	}
 }

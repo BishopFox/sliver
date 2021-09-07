@@ -44,7 +44,7 @@ message Session {
   int64 PollTimeout = 21;
   bool Burned = 22;
   repeated string Extensions = 23;
-  string ConfigID = 24;
+  // string ConfigID = 24;
 }
 
 message Beacon {
@@ -71,11 +71,12 @@ message Beacon {
   int64 Interval = 21;
   int64 Jitter = 22;
   bool Burned = 23;
-  string ConfigID = 24;
+  int64 NextCheckin = 24;
+  // string ConfigID = 24;
 }
 
 message Beacons {
-  repeated Beacons Beacons = 2;
+  repeated Beacon Beacons = 2;
 }
 
 message BeaconTask {
