@@ -1600,7 +1600,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// [ Beacons ] ---------------------------------------------
 
-	con.App.AddCommand(&grumble.Command{
+	beaconsCmd := &grumble.Command{
 		Name:     consts.BeaconsStr,
 		Help:     "Manage beacons",
 		LongHelp: help.GetHelpFor([]string{consts.BeaconsStr}),
@@ -1614,7 +1614,23 @@ func BindCommands(con *console.SliverConsoleClient) {
 			con.Println()
 			return nil
 		},
+	}
+	beaconsCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove a beacon",
+		LongHelp: help.GetHelpFor([]string{consts.BeaconsStr, consts.RmStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			beacons.BeaconsRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
 	})
+	con.App.AddCommand(beaconsCmd)
 
 	// [ Macros ] ---------------------------------------------
 

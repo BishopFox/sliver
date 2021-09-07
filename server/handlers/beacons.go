@@ -112,6 +112,7 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) {
 		tasks = append(tasks, envelope)
 		pendingTask.State = models.SENT
 	}
+	defer db.Session().Save(pendingTasks)
 	taskData, err := proto.Marshal(&sliverpb.BeaconTasks{Tasks: tasks})
 	if err != nil {
 		beaconHandlerLog.Errorf("Error marshaling beacon tasks message: %s", err)
@@ -122,5 +123,4 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) {
 		Type: sliverpb.MsgBeaconTasks,
 		Data: taskData,
 	}
-	db.Session().Save(pendingTasks)
 }

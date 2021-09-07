@@ -22,6 +22,7 @@ service SliverRPC {
 
     // *** Beacons ***
     rpc GetBeacons(commonpb.Empty) returns (clientpb.Beacons);
+    rpc RmBeacon(clientpb.Beacon) returns (commonpb.Empty);
     rpc GetBeaconTasks(clientpb.Beacon) returns (clientpb.BeaconTasks);
     rpc GetBeaconTaskContent(clientpb.BeaconTask) returns (clientpb.BeaconTask);
 
