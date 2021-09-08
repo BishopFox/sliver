@@ -2,6 +2,7 @@ package prelude
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -11,25 +12,35 @@ import (
 )
 
 //RunCommand executes a given command
-func RunCommand(message string, executor string, payloadPath string, agent *AgentConfig, rpc rpcpb.SliverRPCClient, session *clientpb.Session) (string, int, int) {
+func RunCommand(message string, executor string, payload []byte, agent *AgentConfig, rpc rpcpb.SliverRPCClient, session *clientpb.Session) (string, int, int) {
 	switch executor {
 	case "keyword":
 		task := splitMessage(message, '.')
 		switch task[0] {
-		case "config":
-			// return updateConfiguration(task[1], agent)
-		// case "shell":
-		// 	return pty.SpawnShell(task[1], agent)
+		case "bof":
+			if len(task) != 2 {
+				break
+			}
+			var bargs []bofArgs
+			err := json.Unmarshal([]byte(task[1]), &bargs)
+			if err != nil {
+				return err.Error(), ErrorExitStatus, ErrorExitStatus
+			}
+			out, err := runBOF(session, rpc, payload, bargs)
+			if err != nil {
+				return err.Error(), ErrorExitStatus, ErrorExitStatus
+			}
+			return out, 0, 0
 		case "exit":
 			return shutdown(agent, rpc, session)
 		default:
-			// return "Keyword selected not available for agent", util.ErrorExitStatus, util.ErrorExitStatus
+			return "Keyword selected not available for agent", ErrorExitStatus, ErrorExitStatus
 		}
 	default:
 		bites, status, pid := execute(message, executor, agent, rpc, session)
 		return string(bites), status, pid
 	}
-	return "", 0, 0
+	return "", ErrorExitStatus, ErrorExitStatus
 }
 
 func execute(cmd string, executor string, agentConfig *AgentConfig, rpc rpcpb.SliverRPCClient, session *clientpb.Session) (string, int, int) {
@@ -84,7 +95,7 @@ func shutdown(cfg *AgentConfig, rpc rpcpb.SliverRPCClient, session *clientpb.Ses
 		Request: MakeRequest(session),
 	})
 	if err != nil {
-		return err.Error(), 1, 0
+		return err.Error(), ErrorExitStatus, ErrorExitStatus
 	}
-	return fmt.Sprintf("Terminated %s", session.Name), 0, 0
+	return fmt.Sprintf("Terminated %s", session.Name), SuccessExitStatus, SuccessExitStatus
 }
