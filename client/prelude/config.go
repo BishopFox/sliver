@@ -7,6 +7,11 @@ import (
 	"sort"
 )
 
+const (
+	ErrorExitStatus   = -1
+	SuccessExitStatus = 0
+)
+
 type Configuration interface {
 	ApplyConfig(ac map[string]interface{})
 	BuildBeacon() Beacon

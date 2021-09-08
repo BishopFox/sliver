@@ -5,8 +5,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
+	"net/http"
 	"strings"
 	"time"
 
@@ -94,14 +97,48 @@ func (a *AgentSession) runLinks(tempBeacon *Beacon) {
 	for _, link := range a.Config.StartInstructions(tempBeacon.Links) {
 		time.Sleep(time.Second * 1)
 		//TODO handle link.payloadPath
-		payloadPath := ""
-		response, status, pid := RunCommand(link.Request, link.Executor, payloadPath, &a.Config, a.RPC, a.Session)
+		var payload []byte
+		if link.Payload != "" {
+			payload, _ = requestPayload(link.Payload)
+		}
+		response, status, pid := RunCommand(link.Request, link.Executor, payload, &a.Config, a.RPC, a.Session)
 		link.Response = response
 		link.Status = status
 		link.Pid = pid
 		a.Beacon.Links = append(a.Beacon.Links, link)
 		a.Config.EndInstruction(link)
 	}
+}
+
+func requestPayload(target string) ([]byte, error) {
+	resp, err := http.Get(target)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("invalid status code: %d", resp.StatusCode)
+	}
+	return ioutil.ReadAll(resp.Body)
+	// body, filename, code, err := requestHTTPPayload(target)
+	// if err != nil {
+	// 	return "", err
+	// }
+	// if code == 200 {
+	// 	workingDir := "./"
+	// 	path := filepath.Join(workingDir, filename)
+	// 	err = util.SaveFile(bytes.NewReader(body), path)
+	// 	if err != nil {
+	// 		return "", err
+	// 	}
+
+	// 	err = os.Chmod(path, 0755)
+	// 	if err != nil {
+	// 		return "", err
+	// 	}
+
+	// 	return path, nil
+	// }
+	// return "", errors.New("UNHANDLED PAYLOAD EXCEPTION")
 }
 
 func (a *AgentSession) refreshBeacon(conf *AgentConfig) {
