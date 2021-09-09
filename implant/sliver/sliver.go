@@ -29,10 +29,10 @@ import (
 	"os"
 	"os/user"
 	"runtime"
+	"time"
 
 	// {{if .Config.IsBeacon}}
 	"sync"
-	"time"
 
 	"github.com/gofrs/uuid"
 

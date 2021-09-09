@@ -78,8 +78,8 @@ const (
 type Observer func(*clientpb.Session, *clientpb.Beacon)
 
 type ActiveTarget struct {
-	Session    *clientpb.Session
-	Beacon     *clientpb.Beacon
+	session    *clientpb.Session
+	beacon     *clientpb.Beacon
 	observers  map[int]Observer
 	observerID int
 }
@@ -442,50 +442,50 @@ func (con *SliverConsoleClient) SpinUntil(message string, ctrl chan bool) {
 
 // GetSessionInteractive - Get the active target(s)
 func (s *ActiveTarget) GetInteractive() (*clientpb.Session, *clientpb.Beacon) {
-	if s.Session == nil && s.Beacon == nil {
+	if s.session == nil && s.beacon == nil {
 		fmt.Printf(Warn + "Please select a session or beacon via `use`\n")
 		return nil, nil
 	}
-	return s.Session, s.Beacon
+	return s.session, s.beacon
 }
 
 // GetSessionInteractive - GetSessionInteractive the active session
 func (s *ActiveTarget) GetSessionInteractive() *clientpb.Session {
-	if s.Session == nil {
+	if s.session == nil {
 		fmt.Printf(Warn + "Please select a session via `use`\n")
 		return nil
 	}
-	return s.Session
+	return s.session
 }
 
 // GetSession - Same as GetSession() but doesn't print a warning
 func (s *ActiveTarget) GetSession() *clientpb.Session {
-	if s.Session == nil {
+	if s.session == nil {
 		return nil
 	}
-	return s.Session
+	return s.session
 }
 
 // GetBeaconInteractive - Get beacon interactive the active session
 func (s *ActiveTarget) GetBeaconInteractive() *clientpb.Beacon {
-	if s.Beacon == nil {
+	if s.beacon == nil {
 		fmt.Printf(Warn + "Please select a beacon via `use`\n")
 		return nil
 	}
-	return s.Beacon
+	return s.beacon
 }
 
 // GetBeacon - Same as GetBeacon() but doesn't print a warning
 func (s *ActiveTarget) GetBeacon() *clientpb.Beacon {
-	if s.Beacon == nil {
+	if s.beacon == nil {
 		return nil
 	}
-	return s.Beacon
+	return s.beacon
 }
 
 // IsSession - Is the current target a session?
 func (s *ActiveTarget) IsSession() bool {
-	if s.Session != nil {
+	if s.session != nil {
 		return true
 	}
 	return false
@@ -503,42 +503,45 @@ func (s *ActiveTarget) RemoveObserver(observerID int) {
 }
 
 func (s *ActiveTarget) Request(ctx *grumble.Context) *commonpb.Request {
-	if s.Session == nil && s.Beacon == nil {
+	if s.session == nil && s.beacon == nil {
 		return nil
 	}
 	timeout := int(time.Second) * ctx.Flags.Int("timeout")
 	req := &commonpb.Request{}
 	req.Timeout = int64(timeout)
-	if s.Session != nil {
+	if s.session != nil {
 		req.Async = false
-		req.SessionID = s.Session.ID
+		req.SessionID = s.session.ID
 	}
-	if s.Beacon != nil {
+	if s.beacon != nil {
 		req.Async = true
-		req.BeaconID = s.Beacon.ID
+		req.BeaconID = s.beacon.ID
 	}
 	return req
 }
 
 // Set - Change the active session
 func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
+	if session != nil && beacon != nil {
+		panic("cannot set both an active beacon and an active session")
+	}
 	if session != nil {
-		s.Session = session
+		s.session = session
 		for _, observer := range s.observers {
-			observer(s.Session, s.Beacon)
+			observer(s.session, s.beacon)
 		}
 	} else if beacon != nil {
-		s.Beacon = beacon
+		s.beacon = beacon
 		for _, observer := range s.observers {
-			observer(s.Session, s.Beacon)
+			observer(s.session, s.beacon)
 		}
 	}
 }
 
 // Background - Background the active session
 func (s *ActiveTarget) Background() {
-	s.Session = nil
-	s.Beacon = nil
+	s.session = nil
+	s.beacon = nil
 	for _, observer := range s.observers {
 		observer(nil, nil)
 	}

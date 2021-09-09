@@ -22,7 +22,9 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/gofrs/uuid"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
 
@@ -91,6 +93,19 @@ func (b *Beacon) ToProtobuf() *clientpb.Beacon {
 		Jitter:      b.Jitter,
 		NextCheckin: b.NextCheckin,
 	}
+}
+
+func (b *Beacon) Task(envelope *sliverpb.Envelope) (*BeaconTask, error) {
+	data, err := proto.Marshal(envelope)
+	if err != nil {
+		return nil, err
+	}
+	task := &BeaconTask{
+		BeaconID: b.ID,
+		State:    PENDING,
+		Request:  data,
+	}
+	return task, nil
 }
 
 // BeaconTask - Represents a host machine

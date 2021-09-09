@@ -52,8 +52,9 @@ func SessionsReconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	// Option to change the reconnect interval
 	poll := ctx.Flags.Int("poll")
 
+	oldSession := con.ActiveTarget.GetSession()
 	session, err := con.Rpc.UpdateSession(context.Background(), &clientpb.UpdateSession{
-		SessionID:         con.ActiveTarget.Session.ID,
+		SessionID:         oldSession.ID,
 		Name:              name,
 		ReconnectInterval: int64(reconnect) * int64(time.Second),
 		PollInterval:      int64(poll) * int64(time.Second),

@@ -30,6 +30,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
@@ -40,6 +41,8 @@ import (
 var (
 	rpcLog = log.NamedLogger("rpc", "server")
 
+	// ErrInvalidBeaconID - Invalid Beacon ID in request
+	ErrInvalidBeaconID = errors.New("Invalid beacon ID")
 	// ErrInvalidSessionID - Invalid Session ID in request
 	ErrInvalidSessionID = errors.New("Invalid session ID")
 	// ErrMissingRequestField - Returned when a request does not contain a commonpb.Request
@@ -101,6 +104,11 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error 
 	if request == nil {
 		return ErrMissingRequestField
 	}
+	if request.Async {
+		return rpc.asyncGenericHandler(req, resp)
+	}
+
+	// Sync request
 	session := core.Sessions.Get(request.SessionID)
 	if session == nil {
 		return ErrInvalidSessionID
@@ -120,6 +128,39 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error 
 		return err
 	}
 	return rpc.getError(resp.(GenericResponse))
+}
+
+// asyncGenericHandler - Generic handler for async request/response's for beacon tasks
+func (rpc *Server) asyncGenericHandler(req GenericRequest, resp proto.Message) error {
+	request := req.GetRequest()
+	if request == nil {
+		return ErrMissingRequestField
+	}
+	beacon, err := db.BeaconByID(request.BeaconID)
+	if beacon == nil || err != nil {
+		rpcLog.Errorf("Invalid beacon ID in request: %s", err)
+		return ErrInvalidBeaconID
+	}
+	reqData, err := proto.Marshal(req)
+	if err != nil {
+		return err
+	}
+	task, err := beacon.Task(&sliverpb.Envelope{
+		Type: sliverpb.MsgNumber(req),
+		Data: reqData,
+	})
+	if err != nil {
+		return err
+	}
+	err = db.Session().Save(task).Error
+	if err != nil {
+		return err
+	}
+	resp = &sliverpb.Envelope{
+		Type: sliverpb.MsgNumber(req),
+		Data: []byte{},
+	}
+	return nil
 }
 
 func (rpc *Server) getClientCommonName(ctx context.Context) string {
