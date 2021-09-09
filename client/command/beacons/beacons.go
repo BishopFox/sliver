@@ -19,17 +19,17 @@ package beacons
 */
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"strings"
-	"text/tabwriter"
 	"time"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // BeaconsCmd - Display/interact with beacons
@@ -40,7 +40,7 @@ func BeaconsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	printBeacons(beacons.Beacons, con)
+	PrintBeacons(beacons.Beacons, con)
 }
 
 // BeaconsRmCmd - Display/interact with beacons
@@ -58,33 +58,34 @@ func BeaconsRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.PrintInfof("Beacon removed (%s)\n", beacon.ID)
 }
 
-// printBeacons - Display a list of beacons
-func printBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) {
+// PrintBeacons - Display a list of beacons
+func PrintBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) {
 
 	if len(beacons) == 0 {
 		con.PrintInfof("No beacons 🙁\n")
 		return
 	}
 
-	outputBuf := bytes.NewBufferString("")
-	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
-
-	// Column Headers
-	fmt.Fprintln(table, "ID\tName\tTransport\tRemote Address\tHostname\tUsername\tOperating System\tLast Check-in\tNext Check-in\t")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-		strings.Repeat("=", len("ID")),
-		strings.Repeat("=", len("Name")),
-		strings.Repeat("=", len("Transport")),
-		strings.Repeat("=", len("Remote Address")),
-		strings.Repeat("=", len("Hostname")),
-		strings.Repeat("=", len("Username")),
-		strings.Repeat("=", len("Operating System")),
-		strings.Repeat("=", len("Last Check-in")),
-		strings.Repeat("=", len("Next Check-in")),
-	)
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle())
+	tw.AppendHeader(table.Row{
+		"ID",
+		"Name",
+		"Transport",
+		"Remote Address",
+		"Hostname",
+		"Username",
+		"Operating System",
+		"Last Check-in",
+		"Next Check-in",
+	})
 
 	for _, beacon := range beacons {
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		next := time.Unix(beacon.NextCheckin, 0).Format(time.RFC1123)
+		if time.Unix(beacon.NextCheckin, 0).Before(time.Now()) {
+			next = fmt.Sprintf("%s%s%s", console.Bold+console.Red, next, console.Normal)
+		}
+		tw.AppendRow(table.Row{
 			strings.Split(beacon.ID, "-")[0],
 			beacon.Name,
 			beacon.Transport,
@@ -93,9 +94,8 @@ func printBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) 
 			beacon.Username,
 			fmt.Sprintf("%s/%s", beacon.OS, beacon.Arch),
 			time.Unix(beacon.LastCheckin, 0).Format(time.RFC1123),
-			time.Unix(beacon.NextCheckin, 0).Format(time.RFC1123),
-		)
+			next,
+		})
 	}
-	table.Flush()
-	con.Printf("%s", outputBuf.String())
+	con.Printf("%s\n", tw.Render())
 }

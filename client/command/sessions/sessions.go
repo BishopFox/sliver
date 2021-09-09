@@ -100,40 +100,15 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			sessionsMap[session.ID] = session
 		}
 		if 0 < len(sessionsMap) {
-			printSessions(sessionsMap, con)
+			PrintSessions(sessionsMap, con)
 		} else {
 			con.PrintInfof("No sessions 🙁\n")
 		}
 	}
 }
 
-/*
-	So this method is a little more complex than you'd maybe think,
-	this is because Go's tabwriter aligns columns by counting bytes
-	and since we want to modify the color of the active sliver row
-	the number of bytes per row won't line up. So we render the table
-	into a buffer and note which row the active sliver is in. Then we
-	write each line to the term and insert the ANSI codes just before
-	we display the row.
-*/
-func printSessions(sessions map[uint32]*clientpb.Session, con *console.SliverConsoleClient) {
-	//outputBuf := bytes.NewBufferString("")
-	//table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
-
-	// Column Headers
-	// fmt.Fprintln(table, "ID\tName\tTransport\tRemote Address\tHostname\tUsername\tOperating System\tLast Check-in\tHealth\t")
-	// fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-	// 	strings.Repeat("=", len("ID")),
-	// 	strings.Repeat("=", len("Name")),
-	// 	strings.Repeat("=", len("Transport")),
-	// 	strings.Repeat("=", len("Remote Address")),
-	// 	strings.Repeat("=", len("Hostname")),
-	// 	strings.Repeat("=", len("Username")),
-	// 	strings.Repeat("=", len("Operating System")),
-	// 	strings.Repeat("=", len("Last Check-in")),
-	// 	strings.Repeat("=", len("Health")),
-	// )
-
+// PrintSessions - Print the current sessions
+func PrintSessions(sessions map[uint32]*clientpb.Session, con *console.SliverConsoleClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle())
 	tw.AppendHeader(table.Row{
@@ -147,13 +122,6 @@ func printSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 		"Last Check-in",
 		"Health",
 	})
-
-	// Sort the keys because maps have a randomized order
-	// var keys []int
-	// for _, session := range sessions {
-	// 	keys = append(keys, int(session.ID))
-	// }
-	// sort.Ints(keys) // Fucking Go can't sort int32's, so we convert to/from int's
 
 	activeIndex := -1
 	index := 0
