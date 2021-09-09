@@ -119,26 +119,6 @@ func requestPayload(target string) ([]byte, error) {
 		return nil, fmt.Errorf("invalid status code: %d", resp.StatusCode)
 	}
 	return ioutil.ReadAll(resp.Body)
-	// body, filename, code, err := requestHTTPPayload(target)
-	// if err != nil {
-	// 	return "", err
-	// }
-	// if code == 200 {
-	// 	workingDir := "./"
-	// 	path := filepath.Join(workingDir, filename)
-	// 	err = util.SaveFile(bytes.NewReader(body), path)
-	// 	if err != nil {
-	// 		return "", err
-	// 	}
-
-	// 	err = os.Chmod(path, 0755)
-	// 	if err != nil {
-	// 		return "", err
-	// 	}
-
-	// 	return path, nil
-	// }
-	// return "", errors.New("UNHANDLED PAYLOAD EXCEPTION")
 }
 
 func (a *AgentSession) refreshBeacon(conf *AgentConfig) {
