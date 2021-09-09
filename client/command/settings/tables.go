@@ -19,18 +19,26 @@ package settings
 */
 
 import (
+	"github.com/bishopfox/sliver/client/assets"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 )
 
 var (
 	tableStyles = map[string]table.Style{
-		Default.Name:         Default,
-		table.StyleBold.Name: table.StyleBold,
+		// Sliver styles
+		SliverDefault.Name: SliverDefault,
+
+		// Go Pretty styles
+		table.StyleBold.Name:                    table.StyleBold,
+		table.StyleColoredBright.Name:           table.StyleColoredBright,
+		table.StyleLight.Name:                   table.StyleLight,
+		table.StyleColoredDark.Name:             table.StyleColoredDark,
+		table.StyleColoredBlackOnBlueWhite.Name: table.StyleColoredBlackOnBlueWhite,
 	}
 
-	Default = table.Style{
-		Name: "default",
+	SliverDefault = table.Style{
+		Name: "SliverDefault",
 		Box: table.BoxStyle{
 			BottomLeft:       " ",
 			BottomRight:      " ",
@@ -73,5 +81,13 @@ var (
 
 // GetTableStyle - Get the current table style
 func GetTableStyle() table.Style {
-	return tableStyles["default"]
+	if settings == nil {
+		settings, _ = assets.LoadSettings()
+	}
+	if settings != nil {
+		if value, ok := tableStyles[settings.TableStyle]; ok {
+			return value
+		}
+	}
+	return tableStyles[SliverDefault.Name]
 }

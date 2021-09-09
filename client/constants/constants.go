@@ -105,6 +105,7 @@ const (
 	ProfilesStr   = "profiles"
 	BeaconStr     = "beacon"
 	BeaconsStr    = "beacons"
+	SettingsStr   = "settings"
 
 	// Generic
 
@@ -118,6 +119,7 @@ const (
 	SaveStr   = "save"
 	ReloadStr = "reload"
 	LoadStr   = "load"
+	TablesStr = "tables"
 
 	LootStr       = "loot"
 	LootLocalStr  = "local"

@@ -63,6 +63,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/registry"
 	"github.com/bishopfox/sliver/client/command/screenshot"
 	"github.com/bishopfox/sliver/client/command/sessions"
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/command/shell"
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/command/use"
@@ -458,6 +459,46 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 	con.App.AddCommand(useCmd)
+
+	// [ Settings ] --------------------------------------------------------------
+
+	settingsCmd := &grumble.Command{
+		Name:     consts.SettingsStr,
+		Help:     "Manage client settings",
+		LongHelp: help.GetHelpFor([]string{consts.SettingsStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			settings.SettingsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	settingsCmd.AddCommand(&grumble.Command{
+		Name:     consts.SaveStr,
+		Help:     "Save the current settings to disk",
+		LongHelp: help.GetHelpFor([]string{consts.SettingsStr, consts.SaveStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			settings.SettingsSaveCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	settingsCmd.AddCommand(&grumble.Command{
+		Name:     consts.TablesStr,
+		Help:     "Modify tables setting (style)",
+		LongHelp: help.GetHelpFor([]string{consts.SettingsStr, consts.TablesStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			settings.SettingsTablesCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	con.App.AddCommand(settingsCmd)
 
 	// [ Info ] --------------------------------------------------------------
 

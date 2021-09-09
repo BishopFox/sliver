@@ -100,6 +100,7 @@ func hostSessionNumbers(hostUUID string, con *console.SliverConsoleClient) strin
 	return strings.Join(sessionNumbers, ", ")
 }
 
+// SessionsForHost - Find session for a given host by id
 func SessionsForHost(hostUUID string, con *console.SliverConsoleClient) []*clientpb.Session {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
