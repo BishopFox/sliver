@@ -19,19 +19,17 @@ package sessions
 */
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"sort"
 	"strings"
-	"text/tabwriter"
 	"time"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // SessionsCmd - Display/interact with sessions
@@ -119,36 +117,51 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	we display the row.
 */
 func printSessions(sessions map[uint32]*clientpb.Session, con *console.SliverConsoleClient) {
-	outputBuf := bytes.NewBufferString("")
-	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+	//outputBuf := bytes.NewBufferString("")
+	//table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
 	// Column Headers
-	fmt.Fprintln(table, "ID\tName\tTransport\tRemote Address\tHostname\tUsername\tOperating System\tLast Check-in\tHealth\t")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-		strings.Repeat("=", len("ID")),
-		strings.Repeat("=", len("Name")),
-		strings.Repeat("=", len("Transport")),
-		strings.Repeat("=", len("Remote Address")),
-		strings.Repeat("=", len("Hostname")),
-		strings.Repeat("=", len("Username")),
-		strings.Repeat("=", len("Operating System")),
-		strings.Repeat("=", len("Last Check-in")),
-		strings.Repeat("=", len("Health")),
-	)
+	// fmt.Fprintln(table, "ID\tName\tTransport\tRemote Address\tHostname\tUsername\tOperating System\tLast Check-in\tHealth\t")
+	// fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+	// 	strings.Repeat("=", len("ID")),
+	// 	strings.Repeat("=", len("Name")),
+	// 	strings.Repeat("=", len("Transport")),
+	// 	strings.Repeat("=", len("Remote Address")),
+	// 	strings.Repeat("=", len("Hostname")),
+	// 	strings.Repeat("=", len("Username")),
+	// 	strings.Repeat("=", len("Operating System")),
+	// 	strings.Repeat("=", len("Last Check-in")),
+	// 	strings.Repeat("=", len("Health")),
+	// )
+
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle())
+	tw.AppendHeader(table.Row{
+		"ID",
+		"Name",
+		"Transport",
+		"Remote Address",
+		"Hostname",
+		"Username",
+		"Operating System",
+		"Last Check-in",
+		"Health",
+	})
 
 	// Sort the keys because maps have a randomized order
-	var keys []int
-	for _, session := range sessions {
-		keys = append(keys, int(session.ID))
-	}
-	sort.Ints(keys) // Fucking Go can't sort int32's, so we convert to/from int's
+	// var keys []int
+	// for _, session := range sessions {
+	// 	keys = append(keys, int(session.ID))
+	// }
+	// sort.Ints(keys) // Fucking Go can't sort int32's, so we convert to/from int's
 
 	activeIndex := -1
-	for index, key := range keys {
-		session := sessions[uint32(key)]
+	index := 0
+	for _, session := range sessions {
 		if con.ActiveTarget.GetSession() != nil && con.ActiveTarget.GetSession().ID == session.ID {
 			activeIndex = index + 2 // Two lines for the headers
 		}
+		index++
 
 		var SessionHealth string
 		if session.IsDead {
@@ -160,7 +173,7 @@ func printSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 		if session.Burned {
 			burned = "🔥"
 		}
-		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		tw.AppendRow(table.Row{
 			session.ID,
 			session.Name,
 			session.Transport,
@@ -169,13 +182,15 @@ func printSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 			session.Username,
 			fmt.Sprintf("%s/%s", session.OS, session.Arch),
 			time.Unix(session.LastCheckin, 0).Format(time.RFC1123),
-			burned+SessionHealth,
-		)
+			burned + SessionHealth,
+		})
 	}
-	table.Flush()
+	tw.SortBy([]table.SortBy{
+		{Name: "ID", Mode: table.Asc},
+	})
 
 	if activeIndex != -1 {
-		lines := strings.Split(outputBuf.String(), "\n")
+		lines := strings.Split(tw.Render(), "\n")
 		for lineNumber, line := range lines {
 			if len(line) == 0 {
 				continue
@@ -187,6 +202,7 @@ func printSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 			}
 		}
 	} else {
-		con.Printf("%s", outputBuf.String())
+		con.Printf("%s\n", tw.Render())
 	}
+
 }

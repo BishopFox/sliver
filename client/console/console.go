@@ -213,8 +213,8 @@ func (con *SliverConsoleClient) EventLoop() {
 			activeSession := con.ActiveTarget.GetSession()
 			if activeSession != nil && activeSession.ID == session.ID {
 				con.ActiveTarget.Set(nil, nil)
-				con.App.SetPrompt(con.GetPrompt())
 				con.Printf(Warn + "Active session disconnected\n")
+				con.App.SetPrompt(con.GetPrompt())
 			}
 			if prelude.SessionMapper != nil {
 				err = prelude.SessionMapper.RemoveSession(session)
@@ -460,9 +460,6 @@ func (s *ActiveTarget) GetSessionInteractive() *clientpb.Session {
 
 // GetSession - Same as GetSession() but doesn't print a warning
 func (s *ActiveTarget) GetSession() *clientpb.Session {
-	if s.session == nil {
-		return nil
-	}
 	return s.session
 }
 
@@ -477,9 +474,6 @@ func (s *ActiveTarget) GetBeaconInteractive() *clientpb.Beacon {
 
 // GetBeacon - Same as GetBeacon() but doesn't print a warning
 func (s *ActiveTarget) GetBeacon() *clientpb.Beacon {
-	if s.beacon == nil {
-		return nil
-	}
 	return s.beacon
 }
 

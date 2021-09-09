@@ -28,6 +28,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -59,7 +60,7 @@ func HostsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string {
 	tw := table.NewWriter()
-	tw.SetStyle(table.StyleLight)
+	tw.SetStyle(settings.GetTableStyle())
 	tw.AppendHeader(table.Row{
 		"Hostname",
 		"Operating System",

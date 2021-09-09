@@ -19,6 +19,8 @@ package core
 */
 
 import (
+	"errors"
+
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -46,16 +48,19 @@ func StartEventAutomation() {
 	}()
 }
 
-// Triggered on new sessione events, checks to see if the host is in
+// Triggered on new session events, checks to see if the host is in
 // the database and adds it if not.
 func hostsSessionCallback(session *Session) {
+	coreLog.Debugf("Hosts session callback for %v", session.UUID)
 	dbSession := db.Session()
-	_, err := db.HostByHostUUID(session.UUID)
-	if err != nil && err != gorm.ErrRecordNotFound {
+	host, err := db.HostByHostUUID(session.UUID)
+	coreLog.Debugf("Hosts query result: %v %v", host, err)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		coreLog.Error(err)
 		return
 	}
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		coreLog.Infof("Session %v is from a new host", session.ID)
 		err := dbSession.Create(&models.Host{
 			HostUUID:      uuid.FromStringOrNil(session.UUID),
 			Hostname:      session.Hostname,

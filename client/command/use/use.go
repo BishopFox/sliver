@@ -47,7 +47,7 @@ func UseCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	if session != nil {
 		con.ActiveTarget.Set(session, nil)
-		con.PrintInfof("Active session %s (%s)\n", session.Name, session.ID)
+		con.PrintInfof("Active session %s (%d)\n", session.Name, session.ID)
 	} else if beacon != nil {
 		con.ActiveTarget.Set(nil, beacon)
 		con.PrintInfof("Active beacon %s (%s)\n", beacon.Name, beacon.ID)
@@ -108,7 +108,7 @@ func SelectSessionOrBeacon(con *console.SliverConsoleClient) (*clientpb.Session,
 	for _, key := range beaconKeys {
 		beacon := beaconsMap[key]
 		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\n",
-			beacon.ID,
+			strings.Split(beacon.ID, "-")[0],
 			beacon.Name,
 			beacon.RemoteAddress,
 			beacon.Hostname,

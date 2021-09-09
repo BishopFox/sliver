@@ -226,8 +226,7 @@ func HostByHostUUID(id string) (*models.Host, error) {
 	host := models.Host{}
 	err := Session().Where(
 		&models.Host{HostUUID: uuid.FromStringOrNil(id)},
-	).Preload("IOCs").Preload("ExtensionData").Find(&host).Error
-
+	).Preload("IOCs").Preload("ExtensionData").First(&host).Error
 	if err != nil {
 		return nil, err
 	}
