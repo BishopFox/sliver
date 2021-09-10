@@ -28,8 +28,6 @@ import (
 
 // ImplantBuild - Represents an implant
 type ImplantBuild struct {
-	// gorm.Model
-
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 

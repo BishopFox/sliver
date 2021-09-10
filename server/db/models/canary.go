@@ -28,8 +28,6 @@ import (
 
 // DNSCanary - Colletions of content to serve from HTTP(S)
 type DNSCanary struct {
-	// gorm.Model
-
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 

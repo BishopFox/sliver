@@ -23,7 +23,7 @@ import "commonpb/common.proto";
 // Envelope - Used to encode implant<->server messages since we 
 //            cannot use gRPC due to the various transports used.
 message Envelope {
-  uint64 ID = 1;   // Envelope ID used to track request/response
+  int64 ID = 1;   // Envelope ID used to track request/response
   uint32 Type = 2; // Message type
   bytes Data = 3;  // Actual message data
 

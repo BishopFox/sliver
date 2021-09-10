@@ -95,7 +95,18 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) {
 		return
 	}
 
-	beaconHandlerLog.Infof("Beacon tasks from %s", beaconTasks.ID)
+	// If the message contains tasks then process it as results
+	// otherwise send the beacon any pending tasks. Currently we
+	// don't receive results and send pending tasks on the same
+	// request. We only send pending tasks if the request is empty.
+	// If we send the Beacon 0 tasks it should not respond at all.
+	if 0 < len(beaconTasks.Tasks) {
+		beaconHandlerLog.Infof("Beacon %s returned %d task result(s)", beaconTasks.ID, len(beaconTasks.Tasks))
+		go beaconTaskResults(beaconTasks.ID, beaconTasks.Tasks)
+		return
+	}
+
+	beaconHandlerLog.Infof("Beacon %s requested pending task(s)", beaconTasks.ID)
 	pendingTasks, err := db.PendingBeaconTasksByBeaconID(beaconTasks.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		beaconHandlerLog.Errorf("Beacon task database error: %s", err)
@@ -109,10 +120,16 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) {
 			beaconHandlerLog.Errorf("Error decoding pending task: %s", err)
 			continue
 		}
+		envelope.ID = pendingTask.EnvelopeID
 		tasks = append(tasks, envelope)
 		pendingTask.State = models.SENT
+		err = db.Session().Model(&models.BeaconTask{}).Where(&models.BeaconTask{
+			ID: pendingTask.ID,
+		}).Updates(pendingTask).Error
+		if err != nil {
+			beaconHandlerLog.Errorf("Database error: %s", err)
+		}
 	}
-	defer db.Session().Save(pendingTasks)
 	taskData, err := proto.Marshal(&sliverpb.BeaconTasks{Tasks: tasks})
 	if err != nil {
 		beaconHandlerLog.Errorf("Error marshaling beacon tasks message: %s", err)
@@ -122,5 +139,28 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) {
 	implantConn.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgBeaconTasks,
 		Data: taskData,
+	}
+}
+
+func beaconTaskResults(beaconID string, taskEnvelopes []*sliverpb.Envelope) {
+	for _, envelope := range taskEnvelopes {
+		dbTask, err := db.BeaconTaskByEnvelopeID(beaconID, envelope.ID)
+		if err != nil {
+			beaconHandlerLog.Errorf("Error finding db task: %s", err)
+			continue
+		}
+		if dbTask == nil {
+			beaconHandlerLog.Errorf("Error: nil db task!")
+			continue
+		}
+		dbTask.State = models.COMPLETED
+		dbTask.Response = envelope.Data
+		err = db.Session().Model(&models.BeaconTask{}).Where(&models.BeaconTask{
+			ID: dbTask.ID,
+		}).Updates(dbTask).Error
+		if err != nil {
+			beaconHandlerLog.Errorf("Error updating db task: %s", err)
+			continue
+		}
 	}
 }

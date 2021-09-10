@@ -30,7 +30,7 @@ type ImplantConnection struct {
 	ID            string
 	Send          chan *sliverpb.Envelope
 	RespMutex     *sync.RWMutex
-	Resp          map[uint64]chan *sliverpb.Envelope
+	Resp          map[int64]chan *sliverpb.Envelope
 	Transport     string
 	RemoteAddress string
 	LastMessage   time.Time
@@ -46,7 +46,7 @@ func NewImplantConnection(transport string, remoteAddress string) *ImplantConnec
 		ID:            generateImplantConnectionID(),
 		Send:          make(chan *sliverpb.Envelope),
 		RespMutex:     &sync.RWMutex{},
-		Resp:          map[uint64]chan *sliverpb.Envelope{},
+		Resp:          map[int64]chan *sliverpb.Envelope{},
 		Transport:     transport,
 		RemoteAddress: remoteAddress,
 		Cleanup:       func() {},

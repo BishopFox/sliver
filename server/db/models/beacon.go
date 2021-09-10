@@ -19,6 +19,8 @@ package models
 */
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -30,8 +32,6 @@ import (
 
 // Beacon - Represents a host machine
 type Beacon struct {
-	gorm.Model
-
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	ID                uuid.UUID `gorm:"type:uuid;"`
@@ -116,9 +116,8 @@ const (
 )
 
 type BeaconTask struct {
-	gorm.Model
-
 	ID          uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	EnvelopeID  int64     `gorm:"uniqueIndex"`
 	BeaconID    uuid.UUID `gorm:"type:uuid;"`
 	CreatedAt   time.Time `gorm:"->;<-:create;"`
 	State       string
@@ -136,5 +135,11 @@ func (b *BeaconTask) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 	b.CreatedAt = time.Now()
 	b.State = PENDING
+	buf := make([]byte, 8)
+	_, err = rand.Read(buf)
+	if err != nil {
+		panic(err)
+	}
+	b.EnvelopeID = int64(binary.LittleEndian.Uint64(buf))
 	return nil
 }

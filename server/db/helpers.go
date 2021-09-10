@@ -269,3 +269,16 @@ func PendingBeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error)
 	).First(&tasks).Error
 	return tasks, err
 }
+
+// BeaconTasksByEnvelopeID - Select a Beacon by ID
+func BeaconTaskByEnvelopeID(beaconID string, envelopeID int64) (*models.BeaconTask, error) {
+	task := &models.BeaconTask{}
+	err := Session().Where(
+		&models.BeaconTask{
+			BeaconID:   uuid.FromStringOrNil(beaconID),
+			EnvelopeID: envelopeID,
+			State:      models.SENT,
+		},
+	).First(task).Error
+	return task, err
+}
