@@ -38,7 +38,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"gopkg.in/AlecAivazis/survey.v1"
 
 	"time"
 
@@ -407,14 +406,6 @@ func (con *SliverConsoleClient) GetActiveSessionConfig() *clientpb.ImplantConfig
 // PrintAsyncResponse - Print the generic async response information
 func (con *SliverConsoleClient) PrintAsyncResponse(resp *commonpb.Response) {
 	con.PrintInfof("Tasked beacon %s (%s)\n", resp.BeaconID, resp.TaskID)
-}
-
-// This should be called for any dangerous (OPSEC-wise) functions
-func (con *SliverConsoleClient) IsUserAnAdult() bool {
-	confirm := false
-	prompt := &survey.Confirm{Message: "This action is bad OPSEC, are you an adult?"}
-	survey.AskOne(prompt, &confirm, nil)
-	return confirm
 }
 
 func (con *SliverConsoleClient) Printf(format string, args ...interface{}) (n int, err error) {

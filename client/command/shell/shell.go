@@ -25,6 +25,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -46,7 +47,7 @@ func ShellCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	if !con.IsUserAnAdult() {
+	if !settings.IsUserAnAdult() {
 		return
 	}
 

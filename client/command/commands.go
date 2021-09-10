@@ -497,6 +497,30 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+	settingsCmd.AddCommand(&grumble.Command{
+		Name:     "beacon-autoresults",
+		Help:     "Automatically display beacon task results when completed",
+		LongHelp: help.GetHelpFor([]string{consts.SettingsStr, "beacon-autoresults"}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			settings.SettingsBeaconsAutoResultCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	settingsCmd.AddCommand(&grumble.Command{
+		Name:     "autoadult",
+		Help:     "Automatically accept OPSEC warnings",
+		LongHelp: help.GetHelpFor([]string{consts.SettingsStr, "autoadult"}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			settings.SettingsAutoAdultCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 	con.App.AddCommand(settingsCmd)
 
 	// [ Info ] --------------------------------------------------------------

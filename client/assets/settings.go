@@ -1,11 +1,5 @@
 package assets
 
-import (
-	"encoding/json"
-	"io/ioutil"
-	"path/filepath"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2021  Bishop Fox
@@ -24,13 +18,21 @@ import (
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	"encoding/json"
+	"io/ioutil"
+	"path/filepath"
+)
+
 const (
 	settingsFileName = "tui-settings.json"
 )
 
 // ClientSettings - Client JSON config
 type ClientSettings struct {
-	TableStyle string `json:"table_style"`
+	TableStyle        string `json:"tables"`
+	AutoAdult         bool   `json:"autoadult"`
+	BeaconAutoResults bool   `json:"beacon_autoresults"`
 }
 
 // LoadSettings - Load the client settings from disk

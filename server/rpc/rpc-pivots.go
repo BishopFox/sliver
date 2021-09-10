@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -25,7 +26,7 @@ import (
 */
 
 func (rpc *Server) NamedPipes(ctx context.Context, req *sliverpb.NamedPipesReq) (*sliverpb.NamedPipes, error) {
-	resp := &sliverpb.NamedPipes{}
+	resp := &sliverpb.NamedPipes{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -34,7 +35,7 @@ func (rpc *Server) NamedPipes(ctx context.Context, req *sliverpb.NamedPipesReq) 
 }
 
 func (rpc *Server) TCPListener(ctx context.Context, req *sliverpb.TCPPivotReq) (*sliverpb.TCPPivot, error) {
-	resp := &sliverpb.TCPPivot{}
+	resp := &sliverpb.TCPPivot{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -43,7 +44,7 @@ func (rpc *Server) TCPListener(ctx context.Context, req *sliverpb.TCPPivotReq) (
 }
 
 func (rpc *Server) ListPivots(ctx context.Context, req *sliverpb.PivotListReq) (*sliverpb.PivotList, error) {
-	resp := &sliverpb.PivotList{}
+	resp := &sliverpb.PivotList{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err

@@ -43,8 +43,10 @@ func SettingsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	tw := table.NewWriter()
 	tw.SetStyle(GetTableStyle())
-	tw.AppendHeader(table.Row{"Name", "Value"})
-	tw.AppendRow(table.Row{"Tables", settings.TableStyle})
+	tw.AppendHeader(table.Row{"Name", "Value", "Description"})
+	tw.AppendRow(table.Row{"Tables", settings.TableStyle, "Set the stylization of tables"})
+	tw.AppendRow(table.Row{"Auto Adult", settings.AutoAdult, "Automatically accept OPSEC warnings"})
+	tw.AppendRow(table.Row{"Beacon Auto Results", settings.BeaconAutoResults, "Automatically display beacon results when tasks complete"})
 	con.Printf("%s\n", tw.Render())
 }
 

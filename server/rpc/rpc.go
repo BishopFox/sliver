@@ -32,8 +32,10 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -42,11 +44,13 @@ var (
 	rpcLog = log.NamedLogger("rpc", "server")
 
 	// ErrInvalidBeaconID - Invalid Beacon ID in request
-	ErrInvalidBeaconID = errors.New("Invalid beacon ID")
+	ErrInvalidBeaconID = status.Error(codes.InvalidArgument, "Invalid beacon ID")
 	// ErrInvalidSessionID - Invalid Session ID in request
-	ErrInvalidSessionID = errors.New("Invalid session ID")
+	ErrInvalidSessionID = status.Error(codes.InvalidArgument, "Invalid session ID")
 	// ErrMissingRequestField - Returned when a request does not contain a commonpb.Request
-	ErrMissingRequestField = errors.New("Missing session request field")
+	ErrMissingRequestField = status.Error(codes.InvalidArgument, "Missing session request field")
+	// ErrAsyncNotSupported - Unsupported mode / command type
+	ErrAsyncNotSupported = status.Error(codes.Unavailable, "Async not supported for this command")
 )
 
 const (

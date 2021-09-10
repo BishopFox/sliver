@@ -31,6 +31,7 @@ import (
 
 	"github.com/Binject/debug/pe"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
@@ -41,7 +42,7 @@ import (
 
 // Task - Execute shellcode in-memory
 func (rpc *Server) Task(ctx context.Context, req *sliverpb.TaskReq) (*sliverpb.Task, error) {
-	resp := &sliverpb.Task{}
+	resp := &sliverpb.Task{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
