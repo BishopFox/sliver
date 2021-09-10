@@ -294,9 +294,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// [ Operators ] --------------------------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{
-		Name:     consts.PlayersStr,
+		Name:     consts.OperatorsStr,
 		Help:     "Manage operators",
-		LongHelp: help.GetHelpFor([]string{consts.PlayersStr}),
+		LongHelp: help.GetHelpFor([]string{consts.OperatorsStr}),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -413,8 +413,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
-			a.String("session", "session ID or name", grumble.Default(""))
-			a.String("beacon", "beacon ID or name", grumble.Default(""))
+			a.String("id", "beacon or session ID", grumble.Default(""))
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1161,9 +1160,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	con.App.AddCommand(implantBuildsCmd)
 
 	con.App.AddCommand(&grumble.Command{
-		Name:     consts.ListCanariesStr,
+		Name:     consts.CanariesStr,
 		Help:     "List previously generated canaries",
-		LongHelp: help.GetHelpFor([]string{consts.ListCanariesStr}),
+		LongHelp: help.GetHelpFor([]string{consts.CanariesStr}),
 		Flags: func(f *grumble.Flags) {
 			f.Bool("b", "burned", false, "show only triggered/burned canaries")
 

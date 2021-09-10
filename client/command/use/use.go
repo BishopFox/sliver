@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -40,7 +41,15 @@ var (
 
 // UseCmd - Change the active session
 func UseCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session, beacon, err := SelectSessionOrBeacon(con)
+	var session *clientpb.Session
+	var beacon *clientpb.Beacon
+	var err error
+	idArg := ctx.Args.String("id")
+	if idArg != "" {
+		session, beacon, err = SessionOrBeaconByID(idArg, con)
+	} else {
+		session, beacon, err = SelectSessionOrBeacon(con)
+	}
 	if err != nil {
 		con.PrintWarnf("%s\n", err)
 		return
@@ -52,6 +61,32 @@ func UseCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.ActiveTarget.Set(nil, beacon)
 		con.PrintInfof("Active beacon %s (%s)\n", beacon.Name, beacon.ID)
 	}
+}
+
+// SessionOrBeaconByID - Select a session or beacon by ID
+func SessionOrBeaconByID(id string, con *console.SliverConsoleClient) (*clientpb.Session, *clientpb.Beacon, error) {
+	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return nil, nil, err
+	}
+	idNumber, err := strconv.Atoi(id)
+	if err == nil {
+		for _, session := range sessions.Sessions {
+			if session.ID == uint32(idNumber) {
+				return session, nil, nil
+			}
+		}
+	}
+	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, beacon := range beacons.Beacons {
+		if strings.HasPrefix(beacon.ID, id) {
+			return nil, beacon, nil
+		}
+	}
+	return nil, nil, fmt.Errorf("no session or beacon found with ID %s", id)
 }
 
 // SelectSessionOrBeacon - Select a session or beacon

@@ -23,6 +23,7 @@ import (
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 var (
@@ -40,6 +41,11 @@ func SettingsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 	}
 
+	tw := table.NewWriter()
+	tw.SetStyle(GetTableStyle())
+	tw.AppendHeader(table.Row{"Name", "Value"})
+	tw.AppendRow(table.Row{"Tables", settings.TableStyle})
+	con.Printf("%s\n", tw.Render())
 }
 
 // SettingsTablesCmd - The client settings command

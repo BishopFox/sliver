@@ -86,9 +86,9 @@ const (
 
 // Commands
 const (
-	NewPlayerStr       = "new-player"
-	PlayersStr         = "players"
-	KickPlayerStr      = "kick-player"
+	OperatorsStr       = "operators"
+	NewOperatorStr     = "new-operator"
+	KickStr            = "kick"
 	MultiplayerModeStr = "multiplayer"
 
 	SessionsStr   = "sessions"
@@ -130,7 +130,7 @@ const (
 	RenameStr = "rename"
 
 	ImplantBuildsStr = "implants"
-	ListCanariesStr  = "canaries"
+	CanariesStr      = "canaries"
 
 	JobsStr        = "jobs"
 	MtlsStr        = "mtls"
