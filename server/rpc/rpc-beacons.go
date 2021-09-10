@@ -49,7 +49,7 @@ func (rpc *Server) GetBeacons(ctx context.Context, req *commonpb.Empty) (*client
 func (rpc *Server) RmBeacon(ctx context.Context, req *clientpb.Beacon) (*commonpb.Empty, error) {
 	beacon, err := db.BeaconByID(req.ID)
 	if err != nil {
-		return nil, err
+		return nil, ErrInvalidBeaconID
 	}
 	err = db.Session().Delete(beacon).Error
 	if err != nil {
@@ -60,12 +60,23 @@ func (rpc *Server) RmBeacon(ctx context.Context, req *clientpb.Beacon) (*commonp
 
 // GetBeaconTasks - Get a list of tasks for a specific beacon
 func (rpc *Server) GetBeaconTasks(ctx context.Context, req *clientpb.Beacon) (*clientpb.BeaconTasks, error) {
-
-	return nil, nil
+	beacon, err := db.BeaconByID(req.ID)
+	if err != nil {
+		return nil, ErrInvalidBeaconID
+	}
+	dbTasks, err := db.BeaconTasksByBeaconID(beacon.ID.String())
+	tasks := []*clientpb.BeaconTask{}
+	for _, task := range dbTasks {
+		tasks = append(tasks, task.ToProtobuf(false))
+	}
+	return &clientpb.BeaconTasks{Tasks: tasks}, err
 }
 
 // GetBeaconTaskContent - Get the content of a specific task
 func (rpc *Server) GetBeaconTaskContent(ctx context.Context, req *clientpb.BeaconTask) (*clientpb.BeaconTask, error) {
-
-	return nil, nil
+	task, err := db.BeaconTaskByID(req.ID)
+	if err != nil {
+		return nil, err
+	}
+	return task.ToProtobuf(true), nil
 }

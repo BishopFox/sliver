@@ -143,3 +143,19 @@ func (b *BeaconTask) BeforeCreate(tx *gorm.DB) (err error) {
 	b.EnvelopeID = int64(binary.LittleEndian.Uint64(buf))
 	return nil
 }
+
+func (b *BeaconTask) ToProtobuf(content bool) *clientpb.BeaconTask {
+	task := &clientpb.BeaconTask{
+		ID:          b.ID.String(),
+		BeaconID:    b.BeaconID.String(),
+		CreatedAt:   int64(b.CreatedAt.UTC().Unix()),
+		State:       b.State,
+		SentAt:      int64(b.SentAt.UTC().Unix()),
+		CompletedAt: int64(b.CompletedAt.UTC().Unix()),
+	}
+	if content {
+		task.Request = b.Request
+		task.Response = b.Response
+	}
+	return task
+}

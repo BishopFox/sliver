@@ -25,6 +25,7 @@ package handlers
 import (
 	"errors"
 
+	consts "github.com/bishopfox/sliver/client/constants"
 	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
@@ -85,6 +86,12 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) {
 	if err != nil {
 		beaconHandlerLog.Errorf("Database write %s", err)
 	}
+
+	eventData, _ := proto.Marshal(beacon.ToProtobuf())
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.BeaconRegisteredEvent,
+		Data:      eventData,
+	})
 }
 
 func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) {
@@ -97,8 +104,8 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) {
 
 	// If the message contains tasks then process it as results
 	// otherwise send the beacon any pending tasks. Currently we
-	// don't receive results and send pending tasks on the same
-	// request. We only send pending tasks if the request is empty.
+	// don't receive results and send pending tasks at the same
+	// time. We only send pending tasks if the request is empty.
 	// If we send the Beacon 0 tasks it should not respond at all.
 	if 0 < len(beaconTasks.Tasks) {
 		beaconHandlerLog.Infof("Beacon %s returned %d task result(s)", beaconTasks.ID, len(beaconTasks.Tasks))
@@ -162,5 +169,10 @@ func beaconTaskResults(beaconID string, taskEnvelopes []*sliverpb.Envelope) {
 			beaconHandlerLog.Errorf("Error updating db task: %s", err)
 			continue
 		}
+		eventData, _ := proto.Marshal(dbTask.ToProtobuf(false))
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.BeaconTaskResultEvent,
+			Data:      eventData,
+		})
 	}
 }

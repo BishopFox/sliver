@@ -52,7 +52,9 @@ func LoadSettings() (*ClientSettings, error) {
 
 func defaultSettings() *ClientSettings {
 	return &ClientSettings{
-		TableStyle: "SliverDefault",
+		TableStyle:        "SliverDefault",
+		AutoAdult:         false,
+		BeaconAutoResults: true,
 	}
 }
 

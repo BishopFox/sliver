@@ -28,6 +28,7 @@ import (
 	insecureRand "math/rand"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -38,6 +39,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/golang/protobuf/proto"
 
 	"time"
 
@@ -183,15 +185,10 @@ func (con *SliverConsoleClient) EventLoop() {
 
 		case consts.SessionOpenedEvent:
 			session := event.Session
-			// The HTTP session handling is performed in two steps:
-			// - first we add an "empty" session
-			// - then we complete the session info when we receive the Register message from the Sliver
-			// This check is here to avoid displaying two sessions events for the same session
-			if session.OS != "" {
-				currentTime := time.Now().Format(time.RFC1123)
-				con.PrintInfof("Session #%d %s - %s (%s) - %s/%s - %v\n\n",
-					session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
-			}
+			currentTime := time.Now().Format(time.RFC1123)
+			con.PrintInfof("Session #%d %s - %s (%s) - %s/%s - %v\n\n",
+				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
+
 			// Prelude Operator
 			if prelude.SessionMapper != nil {
 				err = prelude.SessionMapper.AddSession(session)
@@ -223,6 +220,19 @@ func (con *SliverConsoleClient) EventLoop() {
 				con.PrintInfof("Removed session %s from Operator\n", session.Name)
 			}
 			con.Println()
+
+		case consts.BeaconRegisteredEvent:
+			beacon := &clientpb.Beacon{}
+			proto.Unmarshal(event.Data, beacon)
+			currentTime := time.Now().Format(time.RFC1123)
+			shortID := strings.Split(beacon.ID, "-")[0]
+			con.PrintInfof("Beacon #%s %s - %s (%s) - %s/%s - %v\n\n",
+				shortID, beacon.Name, beacon.RemoteAddress, beacon.Hostname, beacon.OS, beacon.Arch, currentTime)
+
+		case consts.BeaconTaskResultEvent:
+			beaconTask := &clientpb.BeaconTask{}
+			proto.Unmarshal(event.Data, beaconTask)
+
 		}
 
 		con.triggerReactions(event)

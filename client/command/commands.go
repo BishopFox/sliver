@@ -65,6 +65,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/command/shell"
+	"github.com/bishopfox/sliver/client/command/tasks"
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/command/use"
 	"github.com/bishopfox/sliver/client/command/websites"
@@ -402,6 +403,25 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
+
+	// [ Tasks ] --------------------------------------------------------------
+
+	tasksCmd := &grumble.Command{
+		Name:     consts.TasksStr,
+		Help:     "Beacon task management",
+		LongHelp: help.GetHelpFor([]string{consts.TasksStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			tasks.TasksCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	con.App.AddCommand(tasksCmd)
 
 	// [ Use ] --------------------------------------------------------------
 

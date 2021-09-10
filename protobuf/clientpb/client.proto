@@ -81,12 +81,13 @@ message Beacons {
 
 message BeaconTask {
   string ID = 1;
-  int64 CreatedAt = 2;
-  string State = 3;
-  int64 SentAt  = 4;
-  int64 CompletedAt = 5;
-  bytes Request = 6;
-  bytes Response = 7;
+  string BeaconID = 2;
+  int64 CreatedAt = 3;
+  string State = 4;
+  int64 SentAt  = 5;
+  int64 CompletedAt = 6;
+  bytes Request = 7;
+  bytes Response = 8;
 }
 
 message BeaconTasks {

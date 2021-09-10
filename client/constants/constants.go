@@ -82,6 +82,12 @@ const (
 
 	// LootRemoved
 	LootRemovedEvent = "loot-removed"
+
+	// BeaconRegisteredEvent - First connection from a new beacon
+	BeaconRegisteredEvent = "beacon-registered"
+
+	// BeaconTaskResult - Beacon task completed with a result
+	BeaconTaskResultEvent = "beacon-taskresult"
 )
 
 // Commands
@@ -97,7 +103,7 @@ const (
 	UseStr        = "use"
 	ReconfigStr   = "reconfig"
 	PruneStr      = "prune"
-
+	TasksStr      = "tasks"
 	GenerateStr   = "generate"
 	RegenerateStr = "regenerate"
 	CompilerStr   = "info"

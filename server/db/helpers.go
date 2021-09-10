@@ -251,6 +251,28 @@ func BeaconByID(id string) (*models.Beacon, error) {
 	return beacon, err
 }
 
+// BeaconTasksByBeaconID - Get all tasks for a specific beacon
+// by default will not fetch the request/response columns since
+// these could be arbitrarily large.
+func BeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error) {
+	beaconTasks := []*models.BeaconTask{}
+	id := uuid.FromStringOrNil(beaconID)
+	err := Session().Select([]string{
+		"ID", "EnvelopeID", "BeaconID", "CreatedAt", "State", "SentAt", "CompletedAt",
+	}).Where(&models.BeaconTask{BeaconID: id}).Find(&beaconTasks).Error
+	return beaconTasks, err
+}
+
+// BeaconTaskByID - Select a specific BeaconTask by ID, this
+// will fetch the full request/response
+func BeaconTaskByID(taskID string) (*models.BeaconTask, error) {
+	task := &models.BeaconTask{}
+	err := Session().Where(
+		&models.BeaconTask{ID: uuid.FromStringOrNil(taskID)},
+	).First(task).Error
+	return task, err
+}
+
 // ListBeacons - Select a Beacon by ID
 func ListBeacons() ([]*models.Beacon, error) {
 	beacons := []*models.Beacon{}
@@ -270,7 +292,7 @@ func PendingBeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error)
 	return tasks, err
 }
 
-// BeaconTasksByEnvelopeID - Select a Beacon by ID
+// BeaconTasksByEnvelopeID - Select a (sent) BeaconTask by its envelope ID
 func BeaconTaskByEnvelopeID(beaconID string, envelopeID int64) (*models.BeaconTask, error) {
 	task := &models.BeaconTask{}
 	err := Session().Where(
