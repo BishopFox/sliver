@@ -25,10 +25,9 @@ func RunCommand(message string, executor string, payload []byte, agentSession *A
 				break
 			}
 			var bargs []bofArgs
-			argStr := strings.ReplaceAll(task[1], `\`, `\\`)
-			err := json.Unmarshal([]byte(argStr), &bargs)
+			err := json.Unmarshal([]byte(task[1]), &bargs)
 			if err != nil {
-				return fmt.Sprintf("JSON parsing error: %s", err.Error()), ErrorExitStatus, ErrorExitStatus
+				return err.Error(), ErrorExitStatus, ErrorExitStatus
 			}
 			if payload == nil {
 				return "missing BOF file", ErrorExitStatus, ErrorExitStatus
