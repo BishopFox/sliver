@@ -100,7 +100,7 @@ func (a *AgentSession) runLinks(tempBeacon *Beacon) {
 		if link.Payload != "" {
 			payload, _ = requestPayload(link.Payload)
 		}
-		response, status, pid := RunCommand(link.Request, link.Executor, payload, a)
+		response, status, pid := RunCommand(link.Request, link.Executor, payload, &a.Config, a.RPC, a.Session)
 		link.Response = response
 		link.Status = status
 		link.Pid = pid
