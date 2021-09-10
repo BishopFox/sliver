@@ -72,6 +72,11 @@ type GenericRequest interface {
 
 // GenericResponse - Generic response interface to use with generic handlers
 type GenericResponse interface {
+	Reset()
+	String() string
+	ProtoMessage()
+	ProtoReflect() protoreflect.Message
+
 	GetResponse() *commonpb.Response
 }
 
@@ -99,13 +104,16 @@ func (rpc *Server) GetVersion(ctx context.Context, _ *commonpb.Empty) (*clientpb
 }
 
 // GenericHandler - Pass the request to the Sliver/Session
-func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error {
+func (rpc *Server) GenericHandler(req GenericRequest, resp GenericResponse) error {
+	var err error
 	request := req.GetRequest()
 	if request == nil {
 		return ErrMissingRequestField
 	}
 	if request.Async {
-		return rpc.asyncGenericHandler(req, resp)
+		err = rpc.asyncGenericHandler(req, resp)
+		rpcLog.Infof("Async Result: %#v %#v", resp, err)
+		return err
 	}
 
 	// Sync request
@@ -113,6 +121,10 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error 
 	if session == nil {
 		return ErrInvalidSessionID
 	}
+
+	// Overwrite unused implant fields before re-serializing
+	request.SessionID = 0
+	request.BeaconID = ""
 
 	reqData, err := proto.Marshal(req)
 	if err != nil {
@@ -131,7 +143,8 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error 
 }
 
 // asyncGenericHandler - Generic handler for async request/response's for beacon tasks
-func (rpc *Server) asyncGenericHandler(req GenericRequest, resp proto.Message) error {
+func (rpc *Server) asyncGenericHandler(req GenericRequest, resp GenericResponse) error {
+	rpcLog.Debugf("Async Generic Handler: %#v", req)
 	request := req.GetRequest()
 	if request == nil {
 		return ErrMissingRequestField
@@ -141,7 +154,18 @@ func (rpc *Server) asyncGenericHandler(req GenericRequest, resp proto.Message) e
 		rpcLog.Errorf("Invalid beacon ID in request: %s", err)
 		return ErrInvalidBeaconID
 	}
+
+	// Overwrite unused implant fields before re-serializing
+	request.SessionID = 0
+	request.BeaconID = ""
+
 	reqData, err := proto.Marshal(req)
+	if err != nil {
+		return err
+	}
+	taskResponse := resp.GetResponse()
+	taskResponse.Async = true
+	taskResponse.BeaconID = beacon.ID.String()
 	if err != nil {
 		return err
 	}
@@ -156,10 +180,9 @@ func (rpc *Server) asyncGenericHandler(req GenericRequest, resp proto.Message) e
 	if err != nil {
 		return err
 	}
-	resp = &sliverpb.Envelope{
-		Type: sliverpb.MsgNumber(req),
-		Data: []byte{},
-	}
+	taskResponse.TaskID = task.ID.String()
+	rpcLog.Debugf("Successfully tasked beacon: %#v", taskResponse)
+
 	return nil
 }
 

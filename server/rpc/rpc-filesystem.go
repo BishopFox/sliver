@@ -23,6 +23,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
@@ -36,7 +37,7 @@ var (
 
 // Ls - List a directory
 func (rpc *Server) Ls(ctx context.Context, req *sliverpb.LsReq) (*sliverpb.Ls, error) {
-	resp := &sliverpb.Ls{}
+	resp := &sliverpb.Ls{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -46,7 +47,7 @@ func (rpc *Server) Ls(ctx context.Context, req *sliverpb.LsReq) (*sliverpb.Ls, e
 
 // Rm - Remove file or directory
 func (rpc *Server) Rm(ctx context.Context, req *sliverpb.RmReq) (*sliverpb.Rm, error) {
-	resp := &sliverpb.Rm{}
+	resp := &sliverpb.Rm{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -56,7 +57,7 @@ func (rpc *Server) Rm(ctx context.Context, req *sliverpb.RmReq) (*sliverpb.Rm, e
 
 // Mkdir - Make a directory
 func (rpc *Server) Mkdir(ctx context.Context, req *sliverpb.MkdirReq) (*sliverpb.Mkdir, error) {
-	resp := &sliverpb.Mkdir{}
+	resp := &sliverpb.Mkdir{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -66,7 +67,7 @@ func (rpc *Server) Mkdir(ctx context.Context, req *sliverpb.MkdirReq) (*sliverpb
 
 // Cd - Change directory
 func (rpc *Server) Cd(ctx context.Context, req *sliverpb.CdReq) (*sliverpb.Pwd, error) {
-	resp := &sliverpb.Pwd{}
+	resp := &sliverpb.Pwd{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -76,7 +77,7 @@ func (rpc *Server) Cd(ctx context.Context, req *sliverpb.CdReq) (*sliverpb.Pwd, 
 
 // Pwd - Change directory
 func (rpc *Server) Pwd(ctx context.Context, req *sliverpb.PwdReq) (*sliverpb.Pwd, error) {
-	resp := &sliverpb.Pwd{}
+	resp := &sliverpb.Pwd{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -86,7 +87,7 @@ func (rpc *Server) Pwd(ctx context.Context, req *sliverpb.PwdReq) (*sliverpb.Pwd
 
 // Download - Download a file from the remote file system
 func (rpc *Server) Download(ctx context.Context, req *sliverpb.DownloadReq) (*sliverpb.Download, error) {
-	resp := &sliverpb.Download{}
+	resp := &sliverpb.Download{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -96,7 +97,7 @@ func (rpc *Server) Download(ctx context.Context, req *sliverpb.DownloadReq) (*sl
 
 // Upload - Upload a file from the remote file system
 func (rpc *Server) Upload(ctx context.Context, req *sliverpb.UploadReq) (*sliverpb.Upload, error) {
-	resp := &sliverpb.Upload{}
+	resp := &sliverpb.Upload{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err

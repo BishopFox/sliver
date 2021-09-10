@@ -409,6 +409,7 @@ func sessionMainLoop(connection *transports.Connection) {
 	}
 }
 
+// Envelope - Creates an envelope with the given type and data.
 func Envelope(msgType uint32, message protoreflect.ProtoMessage) *sliverpb.Envelope {
 	data, err := proto.Marshal(message)
 	if err != nil {
@@ -423,6 +424,7 @@ func Envelope(msgType uint32, message protoreflect.ProtoMessage) *sliverpb.Envel
 	}
 }
 
+// RegisterSliver - Creates a registartion protobuf message
 func RegisterSliver() *sliverpb.Register {
 	hostname, err := os.Hostname()
 	if err != nil {

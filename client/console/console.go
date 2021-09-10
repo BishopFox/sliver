@@ -404,6 +404,11 @@ func (con *SliverConsoleClient) GetActiveSessionConfig() *clientpb.ImplantConfig
 	return config
 }
 
+// PrintAsyncResponse - Print the generic async response information
+func (con *SliverConsoleClient) PrintAsyncResponse(resp *commonpb.Response) {
+	con.PrintInfof("Tasked beacon %s (%s)\n", resp.BeaconID, resp.TaskID)
+}
+
 // This should be called for any dangerous (OPSEC-wise) functions
 func (con *SliverConsoleClient) IsUserAnAdult() bool {
 	confirm := false

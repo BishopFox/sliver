@@ -89,7 +89,11 @@ func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if err != nil {
 		con.PrintWarnf("%s\n", err)
 	} else {
-		PrintLs(ls, con, ctx.Flags, filter)
+		if ls.Response.Async {
+			con.PrintAsyncResponse(ls.Response)
+		} else {
+			PrintLs(ls, con, ctx.Flags, filter)
+		}
 	}
 }
 
