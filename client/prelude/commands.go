@@ -33,7 +33,7 @@ func RunCommand(message string, executor string, payload []byte, agent *AgentCon
 			if err != nil {
 				return err.Error(), ErrorExitStatus, ErrorExitStatus
 			}
-			return out, 0, 0
+			return out, 0, int(session.PID)
 		case "exit":
 			return shutdown(agent, rpc, session)
 		default:
