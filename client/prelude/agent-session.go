@@ -96,7 +96,6 @@ func (a *AgentSession) respond(message string) error {
 func (a *AgentSession) runLinks(tempBeacon *Beacon) {
 	for _, link := range a.Config.StartInstructions(tempBeacon.Links) {
 		time.Sleep(time.Second * 1)
-		//TODO handle link.payloadPath
 		var payload []byte
 		if link.Payload != "" {
 			payload, _ = requestPayload(link.Payload)
