@@ -26,6 +26,9 @@ func RunCommand(message string, executor string, payload []byte, agent *AgentCon
 			if err != nil {
 				return err.Error(), ErrorExitStatus, ErrorExitStatus
 			}
+			if payload == nil {
+				return "missing BOF file", ErrorExitStatus, ErrorExitStatus
+			}
 			out, err := runBOF(session, rpc, payload, bargs)
 			if err != nil {
 				return err.Error(), ErrorExitStatus, ErrorExitStatus
