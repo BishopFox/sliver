@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 //RunCommand executes a given command
-func RunCommand(message string, executor string, payload []byte, agent *AgentConfig, rpc rpcpb.SliverRPCClient, session *clientpb.Session) (string, int, int) {
+func RunCommand(message string, executor string, payload []byte, agentSession *AgentSession) (string, int, int) {
 	switch executor {
 	case "keyword":
 		task := splitMessage(message, '.')
@@ -22,40 +20,41 @@ func RunCommand(message string, executor string, payload []byte, agent *AgentCon
 				break
 			}
 			var bargs []bofArgs
-			err := json.Unmarshal([]byte(task[1]), &bargs)
+			argStr := strings.ReplaceAll(task[1], `\`, `\\`)
+			err := json.Unmarshal([]byte(argStr), &bargs)
 			if err != nil {
 				return err.Error(), ErrorExitStatus, ErrorExitStatus
 			}
 			if payload == nil {
 				return "missing BOF file", ErrorExitStatus, ErrorExitStatus
 			}
-			out, err := runBOF(session, rpc, payload, bargs)
+			out, err := runBOF(agentSession.Session, agentSession.RPC, payload, bargs)
 			if err != nil {
 				return err.Error(), ErrorExitStatus, ErrorExitStatus
 			}
-			return out, 0, int(session.PID)
+			return out, 0, int(agentSession.Session.GetID())
 		case "exit":
-			return shutdown(agent, rpc, session)
+			return shutdown(agentSession)
 		default:
 			return "Keyword selected not available for agent", ErrorExitStatus, ErrorExitStatus
 		}
 	default:
-		bites, status, pid := execute(message, executor, agent, rpc, session)
+		bites, status, pid := execute(message, executor, agentSession)
 		return string(bites), status, pid
 	}
 	return "", ErrorExitStatus, ErrorExitStatus
 }
 
-func execute(cmd string, executor string, agentConfig *AgentConfig, rpc rpcpb.SliverRPCClient, session *clientpb.Session) (string, int, int) {
+func execute(cmd string, executor string, agentSession *AgentSession) (string, int, int) {
 	args := append(getCmdArg(executor), cmd)
 	if executor == "psh" {
 		executor = "powershell.exe"
 	}
-	execResp, err := rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+	execResp, err := agentSession.RPC.Execute(context.Background(), &sliverpb.ExecuteReq{
 		Path:    executor,
 		Args:    args,
 		Output:  true,
-		Request: MakeRequest(session),
+		Request: MakeRequest(agentSession.Session),
 	})
 
 	if err != nil {
@@ -92,13 +91,13 @@ func splitMessage(message string, splitRune rune) []string {
 	return values
 }
 
-func shutdown(cfg *AgentConfig, rpc rpcpb.SliverRPCClient, session *clientpb.Session) (string, int, int) {
-	_, err := rpc.KillSession(context.Background(), &sliverpb.KillSessionReq{
+func shutdown(agentSession *AgentSession) (string, int, int) {
+	_, err := agentSession.RPC.KillSession(context.Background(), &sliverpb.KillSessionReq{
 		Force:   false,
-		Request: MakeRequest(session),
+		Request: MakeRequest(agentSession.Session),
 	})
 	if err != nil {
 		return err.Error(), ErrorExitStatus, ErrorExitStatus
 	}
-	return fmt.Sprintf("Terminated %s", session.Name), SuccessExitStatus, SuccessExitStatus
+	return fmt.Sprintf("Terminated %s", agentSession.Session.Name), SuccessExitStatus, SuccessExitStatus
 }
