@@ -87,6 +87,11 @@ func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 // PrintDownload - Print the download response, and save file to disk
 func PrintDownload(download *sliverpb.Download, ctx *grumble.Context, con *console.SliverConsoleClient) {
+	if download.Response != nil && download.Response.Err != "" {
+		con.PrintErrorf("%s\n", download.Response.Err)
+		return
+	}
+
 	remotePath := ctx.Args.String("remote-path")
 	localPath := ctx.Args.String("local-path")
 

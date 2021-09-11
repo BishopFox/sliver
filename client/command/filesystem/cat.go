@@ -76,6 +76,10 @@ func CatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 // PrintCat - Print the download to stdout
 func PrintCat(download *sliverpb.Download, ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var err error
+	if download.Response != nil && download.Response.Err != "" {
+		con.PrintErrorf("%s\n", download.Response.Err)
+		return
+	}
 	if download.Encoder == "gzip" {
 		download.Data, err = new(encoders.Gzip).Decode(download.Data)
 		if err != nil {

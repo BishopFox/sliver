@@ -289,7 +289,7 @@ func PendingBeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error)
 			BeaconID: uuid.FromStringOrNil(beaconID),
 			State:    models.PENDING,
 		},
-	).First(&tasks).Error
+	).Find(&tasks).Error
 	return tasks, err
 }
 

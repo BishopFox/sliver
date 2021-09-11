@@ -99,5 +99,9 @@ func UploadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 // PrintUpload - Print the result of the upload command
 func PrintUpload(upload *sliverpb.Upload, con *console.SliverConsoleClient) {
+	if upload.Response != nil && upload.Response.Err != "" {
+		con.PrintErrorf("%s\n", upload.Response.Err)
+		return
+	}
 	con.PrintInfof("Wrote file to %s\n", upload.Path)
 }

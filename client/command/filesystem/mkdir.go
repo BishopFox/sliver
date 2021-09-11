@@ -69,5 +69,9 @@ func MkdirCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 // PrintMkdir - Print make directory
 func PrintMkdir(mkdir *sliverpb.Mkdir, con *console.SliverConsoleClient) {
+	if mkdir.Response != nil && mkdir.Response.Err != "" {
+		con.PrintErrorf("%s\n", mkdir.Response.Err)
+		return
+	}
 	con.PrintInfof("%s\n", mkdir.Path)
 }

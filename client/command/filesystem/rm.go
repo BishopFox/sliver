@@ -71,5 +71,9 @@ func RmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 // PrintRm - Print the rm response
 func PrintRm(rm *sliverpb.Rm, con *console.SliverConsoleClient) {
+	if rm.Response != nil && rm.Response.Err != "" {
+		con.PrintErrorf("%s\n", rm.Response.Err)
+		return
+	}
 	con.PrintInfof("%s\n", rm.Path)
 }

@@ -60,5 +60,9 @@ func PwdCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 // PrintPwd - Print the remote working directory
 func PrintPwd(pwd *sliverpb.Pwd, con *console.SliverConsoleClient) {
+	if pwd.Response != nil && pwd.Response.Err != "" {
+		con.PrintErrorf("%s\n", pwd.Response.Err)
+		return
+	}
 	con.PrintInfof("%s\n", pwd.Path)
 }

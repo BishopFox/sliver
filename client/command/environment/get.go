@@ -22,8 +22,10 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 // EnvGetCmd - Get a remote environment variable
@@ -38,12 +40,32 @@ func EnvGetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Name:    name,
 		Request: con.ActiveTarget.Request(ctx),
 	})
-
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	if envInfo.Response.Async {
+		con.AddBeaconCallback(envInfo.Response.TaskID, func(task *clientpb.BeaconTask) {
+			con.PrintInfof("Task completed: %s\n\n", task.ID)
+			err = proto.Unmarshal(task.Response, envInfo)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintGetEnvInfo(envInfo, con)
+		})
+		con.PrintAsyncResponse(envInfo.Response)
+	} else {
+		PrintGetEnvInfo(envInfo, con)
+	}
+}
 
+// PrintGetEnvInfo - Print the results of the env get command
+func PrintGetEnvInfo(envInfo *sliverpb.EnvInfo, con *console.SliverConsoleClient) {
+	if envInfo.Response != nil && envInfo.Response.Err != "" {
+		con.PrintErrorf("%s\n", envInfo.Response.Err)
+		return
+	}
 	for _, envVar := range envInfo.Variables {
 		con.Printf("%s=%s\n", envVar.Key, envVar.Value)
 	}

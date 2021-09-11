@@ -110,6 +110,11 @@ func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 // PrintLs - Display an sliverpb.Ls object
 func PrintLs(ls *sliverpb.Ls, flags grumble.FlagMap, filter string, con *console.SliverConsoleClient) {
+	if ls.Response != nil && ls.Response.Err != "" {
+		con.PrintErrorf("%s\n", ls.Response.Err)
+		return
+	}
+
 	con.Printf("%s\n", ls.Path)
 	con.Printf("%s\n", strings.Repeat("=", len(ls.Path)))
 

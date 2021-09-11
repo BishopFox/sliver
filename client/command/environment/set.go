@@ -22,9 +22,11 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 // EnvSetCmd - Set a remote environment variable
@@ -52,6 +54,25 @@ func EnvSetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	if envInfo.Response.Async {
+		con.AddBeaconCallback(envInfo.Response.TaskID, func(task *clientpb.BeaconTask) {
+			con.PrintInfof("Task completed: %s\n\n", task.ID)
+			err = proto.Unmarshal(task.Response, envInfo)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintSetEnvInfo(name, value, envInfo, con)
+		})
+		con.PrintAsyncResponse(envInfo.Response)
+	} else {
+		PrintSetEnvInfo(name, value, envInfo, con)
+	}
+
+}
+
+// PrintSetEnvInfo - Print the set environment info
+func PrintSetEnvInfo(name string, value string, envInfo *sliverpb.SetEnv, con *console.SliverConsoleClient) {
 	if envInfo.Response != nil && envInfo.Response.Err != "" {
 		con.PrintErrorf("%s\n", envInfo.Response.Err)
 		return
