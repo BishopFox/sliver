@@ -71,6 +71,7 @@ func PrintBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) 
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Name",
+		"Tasks",
 		"Transport",
 		"Remote Address",
 		"Hostname",
@@ -88,6 +89,7 @@ func PrintBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) 
 		tw.AppendRow(table.Row{
 			strings.Split(beacon.ID, "-")[0],
 			beacon.Name,
+			fmt.Sprintf("%d / %d", beacon.TasksCountCompleted, beacon.TasksCount),
 			beacon.Transport,
 			beacon.RemoteAddress,
 			beacon.Hostname,

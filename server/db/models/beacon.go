@@ -123,6 +123,7 @@ type BeaconTask struct {
 	State       string
 	SentAt      time.Time
 	CompletedAt time.Time
+	Description string
 	Request     []byte // *sliverpb.Envelope
 	Response    []byte // *sliverpb.Envelope
 }
@@ -152,6 +153,7 @@ func (b *BeaconTask) ToProtobuf(content bool) *clientpb.BeaconTask {
 		State:       b.State,
 		SentAt:      int64(b.SentAt.UTC().Unix()),
 		CompletedAt: int64(b.CompletedAt.UTC().Unix()),
+		Description: b.Description,
 	}
 	if content {
 		task.Request = b.Request

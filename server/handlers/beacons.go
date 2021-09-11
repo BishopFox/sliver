@@ -24,6 +24,7 @@ package handlers
 
 import (
 	"errors"
+	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -130,6 +131,7 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) {
 		envelope.ID = pendingTask.EnvelopeID
 		tasks = append(tasks, envelope)
 		pendingTask.State = models.SENT
+		pendingTask.SentAt = time.Now()
 		err = db.Session().Model(&models.BeaconTask{}).Where(&models.BeaconTask{
 			ID: pendingTask.ID,
 		}).Updates(pendingTask).Error
@@ -161,6 +163,7 @@ func beaconTaskResults(beaconID string, taskEnvelopes []*sliverpb.Envelope) {
 			continue
 		}
 		dbTask.State = models.COMPLETED
+		dbTask.CompletedAt = time.Now()
 		dbTask.Response = envelope.Data
 		err = db.Session().Model(&models.BeaconTask{}).Where(&models.BeaconTask{
 			ID: dbTask.ID,

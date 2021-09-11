@@ -24,6 +24,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 )
 
@@ -36,11 +37,18 @@ func (rpc *Server) GetBeacons(ctx context.Context, req *commonpb.Empty) (*client
 	dbBeacons, err := db.ListBeacons()
 	if err != nil {
 		beaconRpcLog.Errorf("Failed to find db beacons: %s", err)
-		return nil, err
+		return nil, ErrDatabaseFailure
 	}
 	beacons := []*clientpb.Beacon{}
 	for _, beacon := range dbBeacons {
-		beacons = append(beacons, beacon.ToProtobuf())
+		pbBeacon := beacon.ToProtobuf()
+		all, completed, err := db.CountTasksByBeaconID(beacon.ID)
+		if err != nil {
+			beaconRpcLog.Errorf("Task count failed: %s", err)
+		}
+		pbBeacon.TasksCount = all
+		pbBeacon.TasksCountCompleted = completed
+		beacons = append(beacons, pbBeacon)
 	}
 	return &clientpb.Beacons{Beacons: beacons}, nil
 }
@@ -51,9 +59,17 @@ func (rpc *Server) RmBeacon(ctx context.Context, req *clientpb.Beacon) (*commonp
 	if err != nil {
 		return nil, ErrInvalidBeaconID
 	}
+	err = db.Session().Where(&models.BeaconTask{
+		BeaconID: beacon.ID},
+	).Delete(&models.BeaconTask{}).Error
+	if err != nil {
+		beaconRpcLog.Errorf("Database error: %s", err)
+		return nil, ErrDatabaseFailure
+	}
 	err = db.Session().Delete(beacon).Error
 	if err != nil {
-		return nil, err
+		beaconRpcLog.Errorf("Database error: %s", err)
+		return nil, ErrDatabaseFailure
 	}
 	return &commonpb.Empty{}, nil
 }
@@ -76,7 +92,7 @@ func (rpc *Server) GetBeaconTasks(ctx context.Context, req *clientpb.Beacon) (*c
 func (rpc *Server) GetBeaconTaskContent(ctx context.Context, req *clientpb.BeaconTask) (*clientpb.BeaconTask, error) {
 	task, err := db.BeaconTaskByID(req.ID)
 	if err != nil {
-		return nil, err
+		return nil, ErrInvalidBeaconTaskID
 	}
 	return task.ToProtobuf(true), nil
 }

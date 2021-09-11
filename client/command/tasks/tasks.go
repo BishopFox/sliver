@@ -32,6 +32,7 @@ func PrintBeaconTasks(tasks []*clientpb.BeaconTask, con *console.SliverConsoleCl
 	tw.SetStyle(settings.GetTableStyle())
 	tw.AppendHeader(table.Row{
 		"State",
+		"Message Type",
 		"Created At",
 		"Sent At",
 		"Completed At",
@@ -39,6 +40,7 @@ func PrintBeaconTasks(tasks []*clientpb.BeaconTask, con *console.SliverConsoleCl
 	for _, task := range tasks {
 		tw.AppendRow(table.Row{
 			prettyState(task.State),
+			task.Description,
 			time.Unix(task.CreatedAt, 0).Format(time.RFC1123),
 			time.Unix(task.SentAt, 0).Format(time.RFC1123),
 			time.Unix(task.CompletedAt, 0).Format(time.RFC1123),

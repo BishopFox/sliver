@@ -259,6 +259,7 @@ func BeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error) {
 	id := uuid.FromStringOrNil(beaconID)
 	err := Session().Select([]string{
 		"ID", "EnvelopeID", "BeaconID", "CreatedAt", "State", "SentAt", "CompletedAt",
+		"Description",
 	}).Where(&models.BeaconTask{BeaconID: id}).Find(&beaconTasks).Error
 	return beaconTasks, err
 }
@@ -303,4 +304,25 @@ func BeaconTaskByEnvelopeID(beaconID string, envelopeID int64) (*models.BeaconTa
 		},
 	).First(task).Error
 	return task, err
+}
+
+// CountTasksByBeaconID - Select a (sent) BeaconTask by its envelope ID
+func CountTasksByBeaconID(beaconID uuid.UUID) (int64, int64, error) {
+	allTasks := int64(0)
+	completedTasks := int64(0)
+	err := Session().Model(&models.BeaconTask{}).Where(
+		&models.BeaconTask{
+			BeaconID: beaconID,
+		},
+	).Count(&allTasks).Error
+	if err != nil {
+		return 0, 0, err
+	}
+	err = Session().Model(&models.BeaconTask{}).Where(
+		&models.BeaconTask{
+			BeaconID: beaconID,
+			State:    models.COMPLETED,
+		},
+	).Count(&completedTasks).Error
+	return allTasks, completedTasks, err
 }

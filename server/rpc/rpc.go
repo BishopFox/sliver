@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/client/version"
@@ -32,25 +33,14 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 var (
 	rpcLog = log.NamedLogger("rpc", "server")
-
-	// ErrInvalidBeaconID - Invalid Beacon ID in request
-	ErrInvalidBeaconID = status.Error(codes.InvalidArgument, "Invalid beacon ID")
-	// ErrInvalidSessionID - Invalid Session ID in request
-	ErrInvalidSessionID = status.Error(codes.InvalidArgument, "Invalid session ID")
-	// ErrMissingRequestField - Returned when a request does not contain a commonpb.Request
-	ErrMissingRequestField = status.Error(codes.InvalidArgument, "Missing session request field")
-	// ErrAsyncNotSupported - Unsupported mode / command type
-	ErrAsyncNotSupported = status.Error(codes.Unavailable, "Async not supported for this command")
 )
 
 const (
@@ -116,7 +106,6 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp GenericResponse) erro
 	}
 	if request.Async {
 		err = rpc.asyncGenericHandler(req, resp)
-		rpcLog.Infof("Async Result: %#v %#v", resp, err)
 		return err
 	}
 
@@ -153,6 +142,7 @@ func (rpc *Server) asyncGenericHandler(req GenericRequest, resp GenericResponse)
 	if request == nil {
 		return ErrMissingRequestField
 	}
+
 	beacon, err := db.BeaconByID(request.BeaconID)
 	if beacon == nil || err != nil {
 		rpcLog.Errorf("Invalid beacon ID in request: %s", err)
@@ -162,7 +152,6 @@ func (rpc *Server) asyncGenericHandler(req GenericRequest, resp GenericResponse)
 	// Overwrite unused implant fields before re-serializing
 	request.SessionID = 0
 	request.BeaconID = ""
-
 	reqData, err := proto.Marshal(req)
 	if err != nil {
 		return err
@@ -170,23 +159,24 @@ func (rpc *Server) asyncGenericHandler(req GenericRequest, resp GenericResponse)
 	taskResponse := resp.GetResponse()
 	taskResponse.Async = true
 	taskResponse.BeaconID = beacon.ID.String()
-	if err != nil {
-		return err
-	}
 	task, err := beacon.Task(&sliverpb.Envelope{
 		Type: sliverpb.MsgNumber(req),
 		Data: reqData,
 	})
 	if err != nil {
-		return err
+		rpcLog.Errorf("Database error: %s", err)
+		return ErrDatabaseFailure
 	}
+	parts := strings.Split(string(req.ProtoReflect().Descriptor().FullName().Name()), ".")
+	name := parts[len(parts)-1]
+	task.Description = name
 	err = db.Session().Save(task).Error
 	if err != nil {
-		return err
+		rpcLog.Errorf("Database error: %s", err)
+		return ErrDatabaseFailure
 	}
 	taskResponse.TaskID = task.ID.String()
 	rpcLog.Debugf("Successfully tasked beacon: %#v", taskResponse)
-
 	return nil
 }
 

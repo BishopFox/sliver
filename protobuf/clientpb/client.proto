@@ -72,7 +72,9 @@ message Beacon {
   int64 Jitter = 22;
   bool Burned = 23;
   int64 NextCheckin = 24;
-  // string ConfigID = 24;
+
+  int64 TasksCount = 25;
+  int64 TasksCountCompleted = 26;
 }
 
 message Beacons {
@@ -88,6 +90,7 @@ message BeaconTask {
   int64 CompletedAt = 6;
   bytes Request = 7;
   bytes Response = 8;
+  string Description = 9;
 }
 
 message BeaconTasks {
