@@ -22,7 +22,9 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
@@ -49,7 +51,25 @@ func RmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
-	} else {
-		con.PrintInfof("%s\n", rm.Path)
+		return
 	}
+	if rm.Response.Async {
+		con.AddBeaconCallback(rm.Response.TaskID, func(task *clientpb.BeaconTask) {
+			con.PrintInfof("Task completed: %s\n\n", task.ID)
+			err = proto.Unmarshal(task.Response, rm)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintRm(rm, con)
+		})
+		con.PrintAsyncResponse(rm.Response)
+	} else {
+		PrintRm(rm, con)
+	}
+}
+
+// PrintRm - Print the rm response
+func PrintRm(rm *sliverpb.Rm, con *console.SliverConsoleClient) {
+	con.PrintInfof("%s\n", rm.Path)
 }

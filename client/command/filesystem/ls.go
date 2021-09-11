@@ -90,27 +90,26 @@ func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	})
 	if err != nil {
 		con.PrintWarnf("%s\n", err)
+		return
+	}
+	if ls.Response.Async {
+		con.AddBeaconCallback(ls.Response.TaskID, func(task *clientpb.BeaconTask) {
+			con.PrintInfof("Task completed: %s\n\n", task.ID)
+			err = proto.Unmarshal(task.Response, ls)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintLs(ls, ctx.Flags, filter, con)
+		})
+		con.PrintAsyncResponse(ls.Response)
 	} else {
-		if ls.Response.Async {
-			con.AddBeaconCallback(ls.Response.TaskID, func(task *clientpb.BeaconTask) {
-				con.PrintInfof("Task completed: %s\n\n", task.ID)
-				err = proto.Unmarshal(task.Response, ls)
-				if err != nil {
-					con.PrintErrorf("Failed to decode response %s\n", err)
-					return
-				}
-				// con.PrintInfof("%#v\n\n", ls)
-				PrintLs(ls, con, ctx.Flags, filter)
-			})
-			con.PrintAsyncResponse(ls.Response)
-		} else {
-			PrintLs(ls, con, ctx.Flags, filter)
-		}
+		PrintLs(ls, ctx.Flags, filter, con)
 	}
 }
 
 // PrintLs - Display an sliverpb.Ls object
-func PrintLs(ls *sliverpb.Ls, con *console.SliverConsoleClient, flags grumble.FlagMap, filter string) {
+func PrintLs(ls *sliverpb.Ls, flags grumble.FlagMap, filter string, con *console.SliverConsoleClient) {
 	con.Printf("%s\n", ls.Path)
 	con.Printf("%s\n", strings.Repeat("=", len(ls.Path)))
 

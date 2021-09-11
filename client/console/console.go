@@ -261,9 +261,6 @@ func (con *SliverConsoleClient) triggerReactions(event *clientpb.Event) {
 	}
 	con.ActiveTarget.Set(nil, nil)
 	if event.EventType == consts.SessionOpenedEvent {
-		if event.Session == nil || event.Session.OS == "" {
-			return // Half-open session, do not execute any command
-		}
 		con.ActiveTarget.Set(event.Session, nil)
 	}
 
@@ -292,11 +289,17 @@ func (con *SliverConsoleClient) triggerBeaconTaskCallback(data []byte) {
 		return
 	}
 
+	// If the callback is not in our map then we don't do anything, the beacon task
+	// was either issued by another operator in multiplayer mode or the client process
+	// was restarted between the time the task was created and the server go the result
 	con.BeaconTaskCallbacksMutex.Lock()
 	defer con.BeaconTaskCallbacksMutex.Unlock()
 	if callback, ok := con.BeaconTaskCallbacks[task.ID]; ok {
 		if con.Settings.BeaconAutoResults {
-			task, err = con.Rpc.GetBeaconTaskContent(context.Background(), &clientpb.BeaconTask{ID: task.ID})
+			// TODO: The background context could block forever and deadlock the mutex
+			task, err = con.Rpc.GetBeaconTaskContent(context.Background(), &clientpb.BeaconTask{
+				ID: task.ID,
+			})
 			con.Printf(Clearln + "\r")
 			if err == nil {
 				callback(task)

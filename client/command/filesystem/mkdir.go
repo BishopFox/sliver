@@ -22,7 +22,9 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
@@ -47,7 +49,25 @@ func MkdirCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
-	} else {
-		con.PrintInfof("%s\n", mkdir.Path)
+		return
 	}
+	if mkdir.Response.Async {
+		con.AddBeaconCallback(mkdir.Response.TaskID, func(task *clientpb.BeaconTask) {
+			con.PrintInfof("Task completed: %s\n\n", task.ID)
+			err = proto.Unmarshal(task.Response, mkdir)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintMkdir(mkdir, con)
+		})
+		con.PrintAsyncResponse(mkdir.Response)
+	} else {
+		PrintMkdir(mkdir, con)
+	}
+}
+
+// PrintMkdir - Print make directory
+func PrintMkdir(mkdir *sliverpb.Mkdir, con *console.SliverConsoleClient) {
+	con.PrintInfof("%s\n", mkdir.Path)
 }

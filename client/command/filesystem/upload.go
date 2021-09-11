@@ -26,8 +26,10 @@ import (
 	"path/filepath"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
@@ -77,7 +79,25 @@ func UploadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	<-ctrl
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
-	} else {
-		con.PrintInfof("Wrote file to %s\n", upload.Path)
+		return
 	}
+	if upload.Response.Async {
+		con.AddBeaconCallback(upload.Response.TaskID, func(task *clientpb.BeaconTask) {
+			con.PrintInfof("Task completed: %s\n\n", task.ID)
+			err = proto.Unmarshal(task.Response, upload)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintUpload(upload, con)
+		})
+		con.PrintAsyncResponse(upload.Response)
+	} else {
+		PrintUpload(upload, con)
+	}
+}
+
+// PrintUpload - Print the result of the upload command
+func PrintUpload(upload *sliverpb.Upload, con *console.SliverConsoleClient) {
+	con.PrintInfof("Wrote file to %s\n", upload.Path)
 }

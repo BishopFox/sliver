@@ -28,8 +28,10 @@ import (
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
@@ -55,6 +57,25 @@ func CatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	if download.Response.Async {
+		con.AddBeaconCallback(download.Response.TaskID, func(task *clientpb.BeaconTask) {
+			con.PrintInfof("Task completed: %s\n\n", task.ID)
+			err = proto.Unmarshal(task.Response, download)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintCat(download, ctx, con)
+		})
+		con.PrintAsyncResponse(download.Response)
+	} else {
+		PrintCat(download, ctx, con)
+	}
+}
+
+// PrintCat - Print the download to stdout
+func PrintCat(download *sliverpb.Download, ctx *grumble.Context, con *console.SliverConsoleClient) {
+	var err error
 	if download.Encoder == "gzip" {
 		download.Data, err = new(encoders.Gzip).Decode(download.Data)
 		if err != nil {
@@ -73,14 +94,6 @@ func CatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.Println(string(download.Data))
 		}
 	}
-	// if ctx.Flags.Bool("loot") && 0 < len(download.Data) {
-	// 	err = AddLootFile(rpc, fmt.Sprintf("[cat] %s", filepath.Base(filePath)), filePath, download.Data, false)
-	// 	if err != nil {
-	// 		con.PrintErrorf("Failed to save output as loot: %s", err)
-	// 	} else {
-	// 		fmt.Printf(clearln + Info + "Output saved as loot\n")
-	// 	}
-	// }
 }
 
 func colorize(f *sliverpb.Download) error {

@@ -27,8 +27,10 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
@@ -55,15 +57,6 @@ func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		dst = path.Join(dst, fileName)
 	}
 
-	if _, err := os.Stat(dst); err == nil {
-		overwrite := false
-		prompt := &survey.Confirm{Message: "Overwrite local file?"}
-		survey.AskOne(prompt, &overwrite, nil)
-		if !overwrite {
-			return
-		}
-	}
-
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("%s -> %s", fileName, dst), ctrl)
 	download, err := con.Rpc.Download(context.Background(), &sliverpb.DownloadReq{
@@ -76,7 +69,46 @@ func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	if download.Response.Async {
+		con.AddBeaconCallback(download.Response.TaskID, func(task *clientpb.BeaconTask) {
+			con.PrintInfof("Task completed: %s\n\n", task.ID)
+			err = proto.Unmarshal(task.Response, download)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintDownload(download, ctx, con)
+		})
+		con.PrintAsyncResponse(download.Response)
+	} else {
+		PrintDownload(download, ctx, con)
+	}
+}
 
+// PrintDownload - Print the download response, and save file to disk
+func PrintDownload(download *sliverpb.Download, ctx *grumble.Context, con *console.SliverConsoleClient) {
+	remotePath := ctx.Args.String("remote-path")
+	localPath := ctx.Args.String("local-path")
+
+	src := remotePath
+	fileName := filepath.Base(src)
+	dst, _ := filepath.Abs(localPath)
+	fi, err := os.Stat(dst)
+	if err != nil && !os.IsNotExist(err) {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if err == nil && fi.IsDir() {
+		dst = path.Join(dst, fileName)
+	}
+	if _, err := os.Stat(dst); err == nil {
+		overwrite := false
+		prompt := &survey.Confirm{Message: "Overwrite local file?"}
+		survey.AskOne(prompt, &overwrite, nil)
+		if !overwrite {
+			return
+		}
+	}
 	if download.Encoder == "gzip" {
 		download.Data, err = new(encoders.Gzip).Decode(download.Data)
 		if err != nil {
@@ -96,13 +128,4 @@ func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	} else {
 		con.PrintInfof("Wrote %d bytes to %s\n", n, dstFile.Name())
 	}
-
-	// if ctx.Flags.Bool("loot") && 0 < len(download.Data) {
-	// 	err = AddLootFile(rpc, fmt.Sprintf("[download] %s", filepath.Base(remotePath)), remotePath, download.Data, false)
-	// 	if err != nil {
-	// 		con.PrintErrorf("Failed to save output as loot: %s", err)
-	// 	} else {
-	// 		fmt.Printf(Info + "Output saved as loot\n")
-	// 	}
-	// }
 }
