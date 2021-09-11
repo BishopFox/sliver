@@ -47,7 +47,7 @@ func ShellCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	if !settings.IsUserAnAdult() {
+	if !settings.IsUserAnAdult(con) {
 		return
 	}
 

@@ -28,20 +28,20 @@ import (
 // SettingsAutoAdultCmd - The client settings command
 func SettingsAutoAdultCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var err error
-	if settings == nil {
-		settings, err = assets.LoadSettings()
+	if con.Settings == nil {
+		con.Settings, err = assets.LoadSettings()
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
 	}
-	settings.AutoAdult = !settings.AutoAdult
-	con.PrintInfof("Auto Adult = %v\n", settings.AutoAdult)
+	con.Settings.AutoAdult = !con.Settings.AutoAdult
+	con.PrintInfof("Auto Adult = %v\n", con.Settings.AutoAdult)
 }
 
 // IsUserAnAdult - This should be called for any dangerous (OPSEC-wise) functions
-func IsUserAnAdult() bool {
-	if GetAutoAdult() {
+func IsUserAnAdult(con *console.SliverConsoleClient) bool {
+	if GetAutoAdult(con) {
 		return true
 	}
 	confirm := false
@@ -51,12 +51,12 @@ func IsUserAnAdult() bool {
 }
 
 // GetAutoAdult - Get the current auto adult setting
-func GetAutoAdult() bool {
-	if settings == nil {
-		settings, _ = assets.LoadSettings()
+func GetAutoAdult(con *console.SliverConsoleClient) bool {
+	if con.Settings == nil {
+		con.Settings, _ = assets.LoadSettings()
 	}
-	if settings != nil {
-		return settings.AutoAdult
+	if con.Settings != nil {
+		return con.Settings.AutoAdult
 	}
 	return false
 }

@@ -26,15 +26,11 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 )
 
-var (
-	settings *assets.ClientSettings
-)
-
 // SettingsCmd - The client settings command
 func SettingsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var err error
-	if settings == nil {
-		settings, err = assets.LoadSettings()
+	if con.Settings == nil {
+		con.Settings, err = assets.LoadSettings()
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
@@ -42,19 +38,19 @@ func SettingsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	tw := table.NewWriter()
-	tw.SetStyle(GetTableStyle())
+	tw.SetStyle(GetTableStyle(con))
 	tw.AppendHeader(table.Row{"Name", "Value", "Description"})
-	tw.AppendRow(table.Row{"Tables", settings.TableStyle, "Set the stylization of tables"})
-	tw.AppendRow(table.Row{"Auto Adult", settings.AutoAdult, "Automatically accept OPSEC warnings"})
-	tw.AppendRow(table.Row{"Beacon Auto Results", settings.BeaconAutoResults, "Automatically display beacon results when tasks complete"})
+	tw.AppendRow(table.Row{"Tables", con.Settings.TableStyle, "Set the stylization of tables"})
+	tw.AppendRow(table.Row{"Auto Adult", con.Settings.AutoAdult, "Automatically accept OPSEC warnings"})
+	tw.AppendRow(table.Row{"Beacon Auto Results", con.Settings.BeaconAutoResults, "Automatically display beacon results when tasks complete"})
 	con.Printf("%s\n", tw.Render())
 }
 
 // SettingsTablesCmd - The client settings command
 func SettingsTablesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var err error
-	if settings == nil {
-		settings, err = assets.LoadSettings()
+	if con.Settings == nil {
+		con.Settings, err = assets.LoadSettings()
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
@@ -76,7 +72,7 @@ func SettingsTablesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	if _, ok := tableStyles[style]; ok {
-		settings.TableStyle = style
+		con.Settings.TableStyle = style
 	} else {
 		con.PrintErrorf("Invalid style\n")
 	}
@@ -85,14 +81,14 @@ func SettingsTablesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 // SettingsSaveCmd - The client settings command
 func SettingsSaveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var err error
-	if settings == nil {
-		settings, err = assets.LoadSettings()
+	if con.Settings == nil {
+		con.Settings, err = assets.LoadSettings()
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
 	}
-	err = assets.SaveSettings(settings)
+	err = assets.SaveSettings(con.Settings)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	} else {

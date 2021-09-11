@@ -29,6 +29,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -77,6 +78,7 @@ const (
 
 // Observer - A function to call when the sessions changes
 type Observer func(*clientpb.Session, *clientpb.Beacon)
+type BeaconTaskCallback func(*clientpb.BeaconTask)
 
 type ActiveTarget struct {
 	session    *clientpb.Session
@@ -86,10 +88,13 @@ type ActiveTarget struct {
 }
 
 type SliverConsoleClient struct {
-	App          *grumble.App
-	Rpc          rpcpb.SliverRPCClient
-	ActiveTarget *ActiveTarget
-	IsServer     bool
+	App                      *grumble.App
+	Rpc                      rpcpb.SliverRPCClient
+	ActiveTarget             *ActiveTarget
+	BeaconTaskCallbacks      map[string]BeaconTaskCallback
+	BeaconTaskCallbacksMutex *sync.Mutex
+	IsServer                 bool
+	Settings                 *assets.ClientSettings
 }
 
 // BindCmds - Bind extra commands to the app object
@@ -101,9 +106,8 @@ func init() {
 
 // Start - Console entrypoint
 func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isServer bool) error {
-
 	assets.Setup(false, false)
-
+	settings, _ := assets.LoadSettings()
 	con := &SliverConsoleClient{
 		App: grumble.New(&grumble.Config{
 			Name:                  "Sliver",
@@ -119,7 +123,10 @@ func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isS
 			observers:  map[int]Observer{},
 			observerID: 0,
 		},
-		IsServer: isServer,
+		BeaconTaskCallbacks:      map[string]BeaconTaskCallback{},
+		BeaconTaskCallbacksMutex: &sync.Mutex{},
+		IsServer:                 isServer,
+		Settings:                 settings,
 	}
 	con.App.SetPrintASCIILogo(func(_ *grumble.App) {
 		con.PrintLogo()
@@ -230,9 +237,7 @@ func (con *SliverConsoleClient) EventLoop() {
 				shortID, beacon.Name, beacon.RemoteAddress, beacon.Hostname, beacon.OS, beacon.Arch, currentTime)
 
 		case consts.BeaconTaskResultEvent:
-			beaconTask := &clientpb.BeaconTask{}
-			proto.Unmarshal(event.Data, beaconTask)
-
+			con.triggerBeaconTaskCallback(event.Data)
 		}
 
 		con.triggerReactions(event)
@@ -276,6 +281,38 @@ func (con *SliverConsoleClient) triggerReactions(event *clientpb.Event) {
 			}
 		}
 	}
+}
+
+// triggerBeaconTaskCallback - Triggers the callback for a beacon task
+func (con *SliverConsoleClient) triggerBeaconTaskCallback(data []byte) {
+	task := &clientpb.BeaconTask{}
+	err := proto.Unmarshal(data, task)
+	if err != nil {
+		con.PrintErrorf("\rCould not unmarshal beacon task: %s\n", err)
+		return
+	}
+
+	con.BeaconTaskCallbacksMutex.Lock()
+	defer con.BeaconTaskCallbacksMutex.Unlock()
+	if callback, ok := con.BeaconTaskCallbacks[task.ID]; ok {
+		if con.Settings.BeaconAutoResults {
+			task, err = con.Rpc.GetBeaconTaskContent(context.Background(), &clientpb.BeaconTask{ID: task.ID})
+			con.Printf(Clearln + "\r")
+			if err == nil {
+				callback(task)
+			} else {
+				con.PrintErrorf("Could not get beacon task content: %s\n", err)
+			}
+			con.Println()
+		}
+		delete(con.BeaconTaskCallbacks, task.ID)
+	}
+}
+
+func (con *SliverConsoleClient) AddBeaconCallback(taskID string, callback BeaconTaskCallback) {
+	con.BeaconTaskCallbacksMutex.Lock()
+	defer con.BeaconTaskCallbacksMutex.Unlock()
+	con.BeaconTaskCallbacks[taskID] = callback
 }
 
 func (con *SliverConsoleClient) GetPrompt() string {

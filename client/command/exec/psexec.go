@@ -56,7 +56,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if serviceName == "Sliver" || serviceDesc == "Sliver implant" {
 		con.PrintWarnf("Warning: You're going to deploy the following service:\n- Name: %s\n- Description: %s\n", serviceName, serviceDesc)
 		con.PrintWarnf("You might want to change that before going further...\n")
-		if !settings.IsUserAnAdult() {
+		if !settings.IsUserAnAdult(con) {
 			return
 		}
 	}

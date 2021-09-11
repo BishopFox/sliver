@@ -27,24 +27,13 @@ import (
 // SettingsBeaconsAutoResultCmd - The client settings command
 func SettingsBeaconsAutoResultCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var err error
-	if settings == nil {
-		settings, err = assets.LoadSettings()
+	if con.Settings == nil {
+		con.Settings, err = assets.LoadSettings()
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
 	}
-	settings.BeaconAutoResults = !settings.BeaconAutoResults
-	con.PrintInfof("Beacon Auto Result = %v\n", settings.BeaconAutoResults)
-}
-
-// GetBeaconAutoResults - Get the current auto adult setting
-func GetBeaconAutoResults() bool {
-	if settings == nil {
-		settings, _ = assets.LoadSettings()
-	}
-	if settings != nil {
-		return settings.BeaconAutoResults
-	}
-	return true
+	con.Settings.BeaconAutoResults = !con.Settings.BeaconAutoResults
+	con.PrintInfof("Beacon Auto Result = %v\n", con.Settings.BeaconAutoResults)
 }

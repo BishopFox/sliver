@@ -110,7 +110,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 // PrintSessions - Print the current sessions
 func PrintSessions(sessions map[uint32]*clientpb.Session, con *console.SliverConsoleClient) {
 	tw := table.NewWriter()
-	tw.SetStyle(settings.GetTableStyle())
+	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Name",

@@ -67,7 +67,7 @@ func PrintBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) 
 	}
 
 	tw := table.NewWriter()
-	tw.SetStyle(settings.GetTableStyle())
+	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Name",

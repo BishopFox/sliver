@@ -20,6 +20,7 @@ package settings
 
 import (
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/console"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 )
@@ -80,12 +81,12 @@ var (
 )
 
 // GetTableStyle - Get the current table style
-func GetTableStyle() table.Style {
-	if settings == nil {
-		settings, _ = assets.LoadSettings()
+func GetTableStyle(con *console.SliverConsoleClient) table.Style {
+	if con.Settings == nil {
+		con.Settings, _ = assets.LoadSettings()
 	}
-	if settings != nil {
-		if value, ok := tableStyles[settings.TableStyle]; ok {
+	if con.Settings != nil {
+		if value, ok := tableStyles[con.Settings.TableStyle]; ok {
 			return value
 		}
 	}

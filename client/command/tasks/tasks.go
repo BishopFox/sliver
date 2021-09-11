@@ -29,7 +29,7 @@ func TasksCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 // PrintBeaconTasks - Print beacon tasks
 func PrintBeaconTasks(tasks []*clientpb.BeaconTask, con *console.SliverConsoleClient) {
 	tw := table.NewWriter()
-	tw.SetStyle(settings.GetTableStyle())
+	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
 		"State",
 		"Message Type",

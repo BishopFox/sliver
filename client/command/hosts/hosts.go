@@ -60,7 +60,7 @@ func HostsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string {
 	tw := table.NewWriter()
-	tw.SetStyle(settings.GetTableStyle())
+	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
 		"Hostname",
 		"Operating System",
