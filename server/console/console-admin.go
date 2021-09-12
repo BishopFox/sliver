@@ -19,6 +19,8 @@ package console
 */
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,6 +33,8 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/transport"
 
 	"github.com/desertbit/grumble"
@@ -70,6 +74,7 @@ var (
 // ClientConfig - Client JSON config
 type ClientConfig struct {
 	Operator      string `json:"operator"`
+	Token         string `json:"token"`
 	LHost         string `json:"lhost"`
 	LPort         int    `json:"lport"`
 	CACertificate string `json:"ca_certificate"`
@@ -78,7 +83,7 @@ type ClientConfig struct {
 }
 
 func newOperatorCmd(ctx *grumble.Context) {
-	operator := ctx.Flags.String("operator")
+	name := ctx.Flags.String("name")
 	lhost := ctx.Flags.String("lhost")
 	lport := uint16(ctx.Flags.Int("lport"))
 	save := ctx.Flags.String("save")
@@ -88,7 +93,7 @@ func newOperatorCmd(ctx *grumble.Context) {
 	}
 
 	fmt.Printf(Info + "Generating new client certificate, please wait ... \n")
-	configJSON, err := NewPlayerConfig(operator, lhost, lport)
+	configJSON, err := NewPlayerConfig(name, lhost, lport)
 	if err != nil {
 		fmt.Printf(Warn+"%s", err)
 		return
@@ -101,7 +106,7 @@ func newOperatorCmd(ctx *grumble.Context) {
 		return
 	}
 	if !os.IsNotExist(err) && fi.IsDir() {
-		filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(operator), filepath.Base(lhost))
+		filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(name), filepath.Base(lhost))
 		saveTo = filepath.Join(saveTo, filename)
 	}
 	err = ioutil.WriteFile(saveTo, configJSON, 0600)
@@ -114,27 +119,36 @@ func newOperatorCmd(ctx *grumble.Context) {
 }
 
 // NewPlayerConfig - Generate a new player/client/operator configuration
-func NewPlayerConfig(operatorName, lhost string, lport uint16) ([]byte, error) {
-
+func NewPlayerConfig(operatorName string, lhost string, lport uint16) ([]byte, error) {
 	if !namePattern.MatchString(operatorName) {
 		return nil, errors.New("Invalid operator name (alphanumerics only)")
 	}
-
 	if operatorName == "" {
 		return nil, errors.New("Operator name required")
 	}
-
 	if lhost == "" {
 		return nil, errors.New("Invalid lhost")
 	}
 
+	rawToken := models.GenerateOperatorToken()
+	digest := sha256.Sum256([]byte(rawToken))
+	dbOperator := &models.Operator{
+		Name:  operatorName,
+		Token: hex.EncodeToString(digest[:]),
+	}
+	err := db.Session().Save(dbOperator).Error
+	if err != nil {
+		return nil, err
+	}
+
 	publicKey, privateKey, err := certs.OperatorClientGenerateCertificate(operatorName)
 	if err != nil {
-		return nil, fmt.Errorf(Warn+"Failed to generate certificate %s", err)
+		return nil, fmt.Errorf("Failed to generate certificate %s", err)
 	}
 	caCertPEM, _, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
 	config := ClientConfig{
 		Operator:      operatorName,
+		Token:         rawToken,
 		LHost:         lhost,
 		LPort:         int(lport),
 		CACertificate: string(caCertPEM),

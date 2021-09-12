@@ -87,7 +87,7 @@ func serverOnlyCmds(console *clientconsole.SliverConsoleClient) {
 			f.String("l", "lhost", "", "listen host")
 			f.Int("p", "lport", 31337, "listen port")
 			f.String("s", "save", "", "directory/file to the binary to")
-			f.String("n", "operator", "", "operator name")
+			f.String("n", "name", "", "operator name")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()

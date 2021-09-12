@@ -146,10 +146,12 @@ github.com/gorilla/mux
 # github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 ## explicit; go 1.14
 github.com/grpc-ecosystem/go-grpc-middleware
+github.com/grpc-ecosystem/go-grpc-middleware/auth
 github.com/grpc-ecosystem/go-grpc-middleware/logging
 github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus
 github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus
 github.com/grpc-ecosystem/go-grpc-middleware/tags
+github.com/grpc-ecosystem/go-grpc-middleware/util/metautils
 # github.com/hashicorp/errwrap v1.1.0
 ## explicit
 github.com/hashicorp/errwrap
@@ -302,6 +304,8 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/trace
+# golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+## explicit; go 1.11
 # golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
 ## explicit; go 1.17
 golang.org/x/sys/cpu
@@ -409,6 +413,8 @@ google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
 google.golang.org/grpc/test/bufconn
+# google.golang.org/grpc/examples v0.0.0-20210910232509-03268c8ed29e
+## explicit; go 1.14
 # google.golang.org/protobuf v1.26.0
 ## explicit; go 1.9
 google.golang.org/protobuf/encoding/protojson

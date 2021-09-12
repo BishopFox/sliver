@@ -40,6 +40,7 @@ type ClientConfig struct {
 	Operator      string `json:"operator"` // This value is actually ignored for the most part (cert CN is used instead)
 	LHost         string `json:"lhost"`
 	LPort         int    `json:"lport"`
+	Token         string `json:"token"`
 	CACertificate string `json:"ca_certificate"`
 	PrivateKey    string `json:"private_key"`
 	Certificate   string `json:"certificate"`

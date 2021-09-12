@@ -21,6 +21,7 @@ require (
 	github.com/fatih/color v1.12.0
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
 	github.com/gofrs/uuid v3.3.0+incompatible
+	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
@@ -72,7 +73,6 @@ require (
 	github.com/desertbit/readline v1.5.1 // indirect
 	github.com/dlclark/regexp2 v1.2.0 // indirect
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
-	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
@@ -93,8 +93,10 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/thedevsaddam/gojsonq/v2 v2.5.2 // indirect
+	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	google.golang.org/grpc/examples v0.0.0-20210910232509-03268c8ed29e // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )

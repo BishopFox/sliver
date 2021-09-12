@@ -20,43 +20,111 @@ package transport
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpc_tags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
 	serverConfig = configs.GetServerConfig()
 )
 
-// initLoggerMiddleware - Initialize middleware logger
-func initLoggerMiddleware() []grpc.ServerOption {
+// initMiddleware - Initialize middleware logger
+func initMiddleware(auth bool) []grpc.ServerOption {
 	logrusEntry := log.NamedLogger("transport", "grpc")
 	logrusOpts := []grpc_logrus.Option{
 		grpc_logrus.WithLevels(codeToLevel),
 	}
 	grpc_logrus.ReplaceGrpcLogger(logrusEntry)
-	return []grpc.ServerOption{
-		grpc_middleware.WithUnaryServerChain(
-			auditLogUnaryServerInterceptor(),
-			grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
-			grpc_logrus.UnaryServerInterceptor(logrusEntry, logrusOpts...),
-			grpc_logrus.PayloadUnaryServerInterceptor(logrusEntry, deciderUnary),
-		),
-		grpc_middleware.WithStreamServerChain(
-			grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
-			grpc_logrus.StreamServerInterceptor(logrusEntry, logrusOpts...),
-			grpc_logrus.PayloadStreamServerInterceptor(logrusEntry, deciderStream),
-		),
+
+	if auth {
+		return []grpc.ServerOption{
+			grpc_middleware.WithUnaryServerChain(
+				grpc_auth.UnaryServerInterceptor(tokenAuthFunc),
+				auditLogUnaryServerInterceptor(),
+				grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
+				grpc_logrus.UnaryServerInterceptor(logrusEntry, logrusOpts...),
+				grpc_logrus.PayloadUnaryServerInterceptor(logrusEntry, deciderUnary),
+			),
+			grpc_middleware.WithStreamServerChain(
+				grpc_auth.StreamServerInterceptor(tokenAuthFunc),
+				grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
+				grpc_logrus.StreamServerInterceptor(logrusEntry, logrusOpts...),
+				grpc_logrus.PayloadStreamServerInterceptor(logrusEntry, deciderStream),
+			),
+		}
+	} else {
+		return []grpc.ServerOption{
+			grpc_middleware.WithUnaryServerChain(
+				auditLogUnaryServerInterceptor(),
+				grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
+				grpc_logrus.UnaryServerInterceptor(logrusEntry, logrusOpts...),
+				grpc_logrus.PayloadUnaryServerInterceptor(logrusEntry, deciderUnary),
+			),
+			grpc_middleware.WithStreamServerChain(
+				grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
+				grpc_logrus.StreamServerInterceptor(logrusEntry, logrusOpts...),
+				grpc_logrus.PayloadStreamServerInterceptor(logrusEntry, deciderStream),
+			),
+		}
 	}
+
+}
+
+var (
+	tokenCache      = map[string]string{}
+	tokenCacheMutex = &sync.Mutex{}
+)
+
+func tokenAuthFunc(ctx context.Context) (context.Context, error) {
+	mtlsLog.Debugf("Auth interceptor checking operator token ...")
+	tokenCacheMutex.Lock()
+	defer tokenCacheMutex.Unlock()
+	rawToken, err := grpc_auth.AuthFromMD(ctx, "bearer")
+	if err != nil {
+		mtlsLog.Errorf("Authentication failure: %s", err)
+		return nil, status.Error(codes.Unauthenticated, "Authentication failure")
+	}
+
+	// Check auth cache
+	digest := sha256.Sum256([]byte(rawToken))
+	token := hex.EncodeToString(digest[:])
+	if name, ok := tokenCache[token]; ok {
+		mtlsLog.Debugf("Token in cache!")
+		newCtx := context.WithValue(ctx, "operator", name)
+		return newCtx, nil
+	}
+	operator, err := db.OperatorByToken(rawToken)
+	if err != nil {
+		mtlsLog.Errorf("Authentication failure: %s", err)
+		return nil, status.Error(codes.Unauthenticated, "Authentication failure")
+	}
+	mtlsLog.Debugf("Valid user token for %s", operator.Name)
+	tokenCache[token] = operator.Name
+
+	// tokenInfo := token
+	// if err != nil {
+	// 	return nil, status.Errorf(codes.Unauthenticated, "invalid auth token: %v", err)
+	// }
+	// grpc_ctxtags.Extract(ctx).Set("auth.sub", userClaimFromToken(tokenInfo))
+	// WARNING: in production define your own type to avoid context collisions
+
+	newCtx := context.WithValue(ctx, "operator", operator.Name)
+	return newCtx, nil
 }
 
 func deciderUnary(_ context.Context, _ string, _ interface{}) bool {

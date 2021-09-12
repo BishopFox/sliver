@@ -64,7 +64,7 @@ func StartClientListener(host string, port uint16) (*grpc.Server, net.Listener, 
 		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
 		grpc.MaxSendMsgSize(ServerMaxMessageSize),
 	}
-	options = append(options, initLoggerMiddleware()...)
+	options = append(options, initMiddleware(true)...)
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
 	go func() {
