@@ -100,10 +100,10 @@ func (s *HTTPSession) isReplayAttack(ciphertext []byte) bool {
 	sha := sha256.New()
 	sha.Write(ciphertext)
 	digest := base64.RawStdEncoding.EncodeToString(sha.Sum(nil))
-	if _,ok:=s.replay.Load(digest);ok {
+	if _, ok := s.replay.Load(digest); ok {
 		return true
 	}
-	s.replay.Store(digest,true)
+	s.replay.Store(digest, true)
 	return false
 }
 
