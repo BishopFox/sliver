@@ -50,7 +50,7 @@ func EnvUnsetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	if unsetResp.Response.Async {
+	if unsetResp.Response != nil && unsetResp.Response.Async {
 		con.AddBeaconCallback(unsetResp.Response.TaskID, func(task *clientpb.BeaconTask) {
 			con.PrintInfof("Task completed: %s\n\n", task.ID)
 			err = proto.Unmarshal(task.Response, unsetResp)

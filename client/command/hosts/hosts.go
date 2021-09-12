@@ -62,12 +62,12 @@ func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
+		"ID",
 		"Hostname",
 		"Operating System",
 		"Sessions",
 		"IOCs",
 		"Extension Data",
-		"ID (Short)",
 	})
 	for _, host := range hosts {
 		var shortID string
@@ -77,12 +77,12 @@ func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string
 			shortID = host.HostUUID[:8]
 		}
 		tw.AppendRow(table.Row{
+			shortID,
 			host.Hostname,
 			host.OSVersion,
 			hostSessionNumbers(host.HostUUID, con),
 			len(host.IOCs),
 			len(host.ExtensionData),
-			shortID,
 		})
 	}
 	return tw.Render()

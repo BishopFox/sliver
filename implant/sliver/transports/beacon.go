@@ -28,9 +28,7 @@ import (
 	"net/url"
 	"time"
 
-	// {{if or .Config.MTLSc2Enabled .Config.WGc2Enabled}}
 	"strconv"
-	// {{end}}
 
 	// {{if .Config.MTLSc2Enabled}}
 	"crypto/tls"

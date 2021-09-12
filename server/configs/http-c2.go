@@ -231,9 +231,12 @@ var (
 
 	defaultHTTPC2Config = HTTPC2Config{
 		ServerConfig: &HTTPC2ServerConfig{
-			RandomVersionHeaders: true,
+			RandomVersionHeaders: false,
 			Cookies: []string{
 				"PHPSESSID", "SID", "SSID", "APISID", "csrf-state", "AWSALBCORS",
+			},
+			ExtraHeaders: []HTTPHeader{
+				{"Cache-Control", "no-store, no-cache, must-revalidate"},
 			},
 		},
 		ImplantConfig: &HTTPC2ImplantConfig{

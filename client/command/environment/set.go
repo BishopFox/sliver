@@ -54,7 +54,7 @@ func EnvSetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	if envInfo.Response.Async {
+	if envInfo.Response != nil && envInfo.Response.Async {
 		con.AddBeaconCallback(envInfo.Response.TaskID, func(task *clientpb.BeaconTask) {
 			con.PrintInfof("Task completed: %s\n\n", task.ID)
 			err = proto.Unmarshal(task.Response, envInfo)

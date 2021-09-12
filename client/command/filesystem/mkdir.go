@@ -51,7 +51,7 @@ func MkdirCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	if mkdir.Response.Async {
+	if mkdir.Response != nil && mkdir.Response.Async {
 		con.AddBeaconCallback(mkdir.Response.TaskID, func(task *clientpb.BeaconTask) {
 			con.PrintInfof("Task completed: %s\n\n", task.ID)
 			err = proto.Unmarshal(task.Response, mkdir)

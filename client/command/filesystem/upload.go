@@ -81,7 +81,7 @@ func UploadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	if upload.Response.Async {
+	if upload.Response != nil && upload.Response.Async {
 		con.AddBeaconCallback(upload.Response.TaskID, func(task *clientpb.BeaconTask) {
 			con.PrintInfof("Task completed: %s\n\n", task.ID)
 			err = proto.Unmarshal(task.Response, upload)

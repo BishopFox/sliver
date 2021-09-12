@@ -53,7 +53,7 @@ func RmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	if rm.Response.Async {
+	if rm.Response != nil && rm.Response.Async {
 		con.AddBeaconCallback(rm.Response.TaskID, func(task *clientpb.BeaconTask) {
 			con.PrintInfof("Task completed: %s\n\n", task.ID)
 			err = proto.Unmarshal(task.Response, rm)
