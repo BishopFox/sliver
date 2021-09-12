@@ -81,7 +81,7 @@ func serverOnlyCmds(console *clientconsole.SliverConsoleClient) {
 
 	console.App.AddCommand(&grumble.Command{
 		Name:     consts.NewOperatorStr,
-		Help:     "Create a new player config file",
+		Help:     "Create a new operator config file",
 		LongHelp: help.GetHelpFor([]string{consts.NewOperatorStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("l", "lhost", "", "listen host")
@@ -92,6 +92,22 @@ func serverOnlyCmds(console *clientconsole.SliverConsoleClient) {
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
 			newOperatorCmd(ctx)
+			fmt.Println()
+			return nil
+		},
+		HelpGroup: consts.MultiplayerHelpGroup,
+	})
+
+	console.App.AddCommand(&grumble.Command{
+		Name:     consts.KickOperatorStr,
+		Help:     "Kick an operator from the server",
+		LongHelp: help.GetHelpFor([]string{consts.KickOperatorStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "operator name")
+		},
+		Run: func(ctx *grumble.Context) error {
+			fmt.Println()
+			kickOperatorCmd(ctx)
 			fmt.Println()
 			return nil
 		},

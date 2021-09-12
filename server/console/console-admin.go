@@ -93,16 +93,16 @@ func newOperatorCmd(ctx *grumble.Context) {
 	}
 
 	fmt.Printf(Info + "Generating new client certificate, please wait ... \n")
-	configJSON, err := NewPlayerConfig(name, lhost, lport)
+	configJSON, err := NewOperatorConfig(name, lhost, lport)
 	if err != nil {
-		fmt.Printf(Warn+"%s", err)
+		fmt.Printf(Warn+"%s\n", err)
 		return
 	}
 
 	saveTo, _ := filepath.Abs(save)
 	fi, err := os.Stat(saveTo)
 	if !os.IsNotExist(err) && !fi.IsDir() {
-		fmt.Printf(Warn+"File already exists %v\n", err)
+		fmt.Printf(Warn+"File already exists %s\n", err)
 		return
 	}
 	if !os.IsNotExist(err) && fi.IsDir() {
@@ -111,15 +111,14 @@ func newOperatorCmd(ctx *grumble.Context) {
 	}
 	err = ioutil.WriteFile(saveTo, configJSON, 0600)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to write config to: %s (%v) \n", saveTo, err)
+		fmt.Printf(Warn+"Failed to write config to: %s (%s) \n", saveTo, err)
 		return
 	}
 	fmt.Printf(Info+"Saved new client config to: %s \n", saveTo)
-
 }
 
-// NewPlayerConfig - Generate a new player/client/operator configuration
-func NewPlayerConfig(operatorName string, lhost string, lport uint16) ([]byte, error) {
+// NewOperatorConfig - Generate a new player/client/operator configuration
+func NewOperatorConfig(operatorName string, lhost string, lport uint16) ([]byte, error) {
 	if !namePattern.MatchString(operatorName) {
 		return nil, errors.New("Invalid operator name (alphanumerics only)")
 	}
@@ -159,22 +158,22 @@ func NewPlayerConfig(operatorName string, lhost string, lport uint16) ([]byte, e
 }
 
 func kickOperatorCmd(ctx *grumble.Context) {
-	operator := ctx.Flags.String("operator")
-	if !namePattern.MatchString(operator) {
-		fmt.Println(Warn + "Invalid operator name (alphanumerics only)")
+	operator := ctx.Flags.String("name")
+	fmt.Printf(Info+"Removing auth token(s) for %s, please wait ... \n", operator)
+	err := db.Session().Where(&models.Operator{
+		Name: operator,
+	}).Delete(&models.Operator{}).Error
+	if err != nil {
 		return
 	}
-	if operator == "" {
-		fmt.Printf(Warn + "Operator name required (--operator) \n")
-		return
-	}
-	fmt.Printf(Info+"Removing client certificate for operator %s, please wait ... \n", operator)
-	err := certs.OperatorClientRemoveCertificate(operator)
+	transport.ClearTokenCache()
+	fmt.Printf(Info+"Removing client certificate(s) for %s, please wait ... \n", operator)
+	err = certs.OperatorClientRemoveCertificate(operator)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to remove the operator certificate: %v \n", err)
 		return
 	}
-	fmt.Printf(Info+"Operator %s kicked out. \n", operator)
+	fmt.Printf(Info+"Operator %s has been kicked out.\n", operator)
 }
 
 func startMultiplayerModeCmd(ctx *grumble.Context) {

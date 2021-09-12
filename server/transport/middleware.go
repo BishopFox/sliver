@@ -90,6 +90,13 @@ var (
 	tokenCacheMutex = &sync.Mutex{}
 )
 
+// ClearTokenCache - Clear the auth token cache
+func ClearTokenCache() {
+	tokenCacheMutex.Lock()
+	defer tokenCacheMutex.Unlock()
+	tokenCache = map[string]string{}
+}
+
 func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	mtlsLog.Debugf("Auth interceptor checking operator token ...")
 	tokenCacheMutex.Lock()
@@ -108,7 +115,7 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 		newCtx := context.WithValue(ctx, "operator", name)
 		return newCtx, nil
 	}
-	operator, err := db.OperatorByToken(rawToken)
+	operator, err := db.OperatorByToken(token)
 	if err != nil {
 		mtlsLog.Errorf("Authentication failure: %s", err)
 		return nil, status.Error(codes.Unauthenticated, "Authentication failure")

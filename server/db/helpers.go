@@ -24,9 +24,6 @@ package db
 */
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
@@ -332,11 +329,9 @@ func CountTasksByBeaconID(beaconID uuid.UUID) (int64, int64, error) {
 
 // OperatorByToken - Select an operator by token value
 func OperatorByToken(value string) (*models.Operator, error) {
-	digest := sha256.Sum256([]byte(value))
-	tokenValue := hex.EncodeToString(digest[:])
 	operator := &models.Operator{}
 	err := Session().Where(&models.Operator{
-		Token: tokenValue,
+		Token: value,
 	}).First(operator).Error
 	return operator, err
 }

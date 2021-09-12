@@ -94,7 +94,7 @@ const (
 const (
 	OperatorsStr       = "operators"
 	NewOperatorStr     = "new-operator"
-	KickStr            = "kick"
+	KickOperatorStr    = "kick-operator"
 	MultiplayerModeStr = "multiplayer"
 
 	SessionsStr   = "sessions"
