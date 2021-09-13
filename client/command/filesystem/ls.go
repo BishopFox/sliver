@@ -70,8 +70,9 @@ func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			remotePath = "."
 		} else {
 			// Then we need to test for a filter on the end of the string
-			// The indices should be the same because we did not change the length of the string
-			baseDir := remotePath[:lastSeparatorOccurrence]
+
+			// The indicies should be the same because we did not change the length of the string
+			baseDir := remotePath[:lastSeparatorOccurrence+1]
 			potentialFilter := remotePath[lastSeparatorOccurrence+1:]
 
 			_, err := filepath.Match(potentialFilter, "")
