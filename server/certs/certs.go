@@ -124,7 +124,13 @@ func RemoveCertificate(caType string, keyType string, commonName string) error {
 	if keyType != ECCKey && keyType != RSAKey {
 		return fmt.Errorf("Invalid key type '%s'", keyType)
 	}
-	return nil
+	dbSession := db.Session()
+	err := dbSession.Where(&models.Certificate{
+		CAType:     caType,
+		KeyType:    keyType,
+		CommonName: commonName,
+	}).Delete(&models.Certificate{}).Error
+	return err
 }
 
 // --------------------------------

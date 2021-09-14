@@ -101,7 +101,7 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	mtlsLog.Debugf("Auth interceptor checking operator token ...")
 	tokenCacheMutex.Lock()
 	defer tokenCacheMutex.Unlock()
-	rawToken, err := grpc_auth.AuthFromMD(ctx, "bearer")
+	rawToken, err := grpc_auth.AuthFromMD(ctx, "Bearer")
 	if err != nil {
 		mtlsLog.Errorf("Authentication failure: %s", err)
 		return nil, status.Error(codes.Unauthenticated, "Authentication failure")
@@ -116,17 +116,13 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 		return newCtx, nil
 	}
 	operator, err := db.OperatorByToken(token)
-	if err != nil {
+	if err != nil || operator == nil {
 		mtlsLog.Errorf("Authentication failure: %s", err)
 		return nil, status.Error(codes.Unauthenticated, "Authentication failure")
 	}
 	mtlsLog.Debugf("Valid user token for %s", operator.Name)
 	tokenCache[token] = operator.Name
 
-	// tokenInfo := token
-	// if err != nil {
-	// 	return nil, status.Errorf(codes.Unauthenticated, "invalid auth token: %v", err)
-	// }
 	// grpc_ctxtags.Extract(ctx).Set("auth.sub", userClaimFromToken(tokenInfo))
 	// WARNING: in production define your own type to avoid context collisions
 
