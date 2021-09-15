@@ -86,21 +86,16 @@ func initMiddleware(auth bool) []grpc.ServerOption {
 }
 
 var (
-	tokenCache      = map[string]string{}
-	tokenCacheMutex = &sync.Mutex{}
+	tokenCache = sync.Map{}
 )
 
 // ClearTokenCache - Clear the auth token cache
 func ClearTokenCache() {
-	tokenCacheMutex.Lock()
-	defer tokenCacheMutex.Unlock()
-	tokenCache = map[string]string{}
+	tokenCache = sync.Map{}
 }
 
 func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	mtlsLog.Debugf("Auth interceptor checking operator token ...")
-	tokenCacheMutex.Lock()
-	defer tokenCacheMutex.Unlock()
 	rawToken, err := grpc_auth.AuthFromMD(ctx, "Bearer")
 	if err != nil {
 		mtlsLog.Errorf("Authentication failure: %s", err)
@@ -110,9 +105,9 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	// Check auth cache
 	digest := sha256.Sum256([]byte(rawToken))
 	token := hex.EncodeToString(digest[:])
-	if name, ok := tokenCache[token]; ok {
+	if name, ok := tokenCache.Load(token); ok {
 		mtlsLog.Debugf("Token in cache!")
-		newCtx := context.WithValue(ctx, "operator", name)
+		newCtx := context.WithValue(ctx, "operator", name.(string))
 		return newCtx, nil
 	}
 	operator, err := db.OperatorByToken(token)
@@ -121,7 +116,7 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 		return nil, status.Error(codes.Unauthenticated, "Authentication failure")
 	}
 	mtlsLog.Debugf("Valid user token for %s", operator.Name)
-	tokenCache[token] = operator.Name
+	tokenCache.Store(token, operator.Name)
 
 	// grpc_ctxtags.Extract(ctx).Set("auth.sub", userClaimFromToken(tokenInfo))
 	// WARNING: in production define your own type to avoid context collisions

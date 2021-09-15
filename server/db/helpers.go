@@ -335,3 +335,10 @@ func OperatorByToken(value string) (*models.Operator, error) {
 	}).First(operator).Error
 	return operator, err
 }
+
+// OperatorAll - Select all operators from the database
+func OperatorAll() ([]*models.Operator, error) {
+	operators := []*models.Operator{}
+	err := Session().Distinct("Name").Find(&operators).Error
+	return operators, err
+}
