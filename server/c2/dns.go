@@ -453,7 +453,7 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 	}
 	dnsSessionsMutex.Unlock()
 
-	encryptedSessionID, _ := cryptography.GCMEncrypt(aesKey, []byte(sessionID))
+	encryptedSessionID, _ := cryptography.AESEncrypt(aesKey, []byte(sessionID))
 	result, err := dnsSendOnce(encryptedSessionID)
 	if err != nil {
 		dnsLog.Infof("Failed to encode message into single result %v", err)
@@ -500,7 +500,7 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 			dnsLog.Infof("WARNING: Replay attack detected, ignore request")
 			return []string{"1"}, errors.New("Replay attack")
 		}
-		envelopeData, err := cryptography.GCMDecrypt(dnsSession.Key, encryptedDNSEnvelope)
+		envelopeData, err := cryptography.AESDecrypt(dnsSession.Key, encryptedDNSEnvelope)
 		if err != nil {
 			return []string{"1"}, errors.New("Failed to decrypt DNS envelope")
 		}
@@ -657,7 +657,7 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 				continue
 			}
 
-			encryptedEnvelopeData, err := cryptography.GCMEncrypt(dnsSession.Key, data)
+			encryptedEnvelopeData, err := cryptography.AESEncrypt(dnsSession.Key, data)
 			if err != nil {
 				dnsLog.Infof("Failed to encrypt poll data %v", err)
 				return []string{"1"}, errors.New("Failed to encrypt dns poll data")
@@ -674,7 +674,7 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 			dnsLog.Infof("Failed to encode envelope %v", err)
 			return []string{"1"}, errors.New("Failed to encode dns poll data")
 		}
-		encryptedPollData, err := cryptography.GCMEncrypt(dnsSession.Key, pollData)
+		encryptedPollData, err := cryptography.AESEncrypt(dnsSession.Key, pollData)
 		if err != nil {
 			dnsLog.Infof("Failed to encrypt poll data %v", err)
 			return []string{"1"}, errors.New("Failed to encrypt dns poll data")

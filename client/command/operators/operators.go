@@ -43,21 +43,18 @@ func OperatorsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 func displayOperators(operators []*clientpb.Operator, con *console.SliverConsoleClient) {
-
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
 		"Name",
 		"Status",
 	})
-
 	for _, operator := range operators {
 		tw.AppendRow(table.Row{
 			console.Bold + operator.Name + console.Normal,
 			status(operator.Online),
 		})
 	}
-
 	con.Printf("%s\n", tw.Render())
 }
 

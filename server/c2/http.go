@@ -89,7 +89,7 @@ type HTTPSession struct {
 	ImplanConn *core.ImplantConnection
 	Key        cryptography.AESKey
 	Started    time.Time
-	replay     sync.Map // Sessions are mutex'd
+	replay     sync.Map
 }
 
 // Keeps a hash of each msg in a session to detect replay'd messages
@@ -535,7 +535,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	s.HTTPSessions.Add(httpSession)
 	httpLog.Infof("Started new session with http session id: %s", httpSession.ID)
 
-	ciphertext, err := cryptography.GCMEncrypt(httpSession.Key, []byte(httpSession.ID))
+	ciphertext, err := cryptography.AESEncrypt(httpSession.Key, []byte(httpSession.ID))
 	if err != nil {
 		httpLog.Info("Failed to encrypt session identifier")
 		default404Handler(resp, req)
@@ -597,7 +597,7 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 	case envelope := <-httpSession.ImplanConn.Send:
 		resp.WriteHeader(http.StatusOK)
 		envelopeData, _ := proto.Marshal(envelope)
-		ciphertext, err := cryptography.GCMEncrypt(httpSession.Key, envelopeData)
+		ciphertext, err := cryptography.AESEncrypt(httpSession.Key, envelopeData)
 		if err != nil {
 			httpLog.Errorf("Failed to encrypt message %s", err)
 			ciphertext = []byte{}
@@ -643,7 +643,7 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 		default404Handler(resp, req)
 		return nil, ErrReplayAttack
 	}
-	plaintext, err := cryptography.GCMDecrypt(httpSession.Key, data)
+	plaintext, err := cryptography.AESDecrypt(httpSession.Key, data)
 	return plaintext, err
 }
 
