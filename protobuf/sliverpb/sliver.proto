@@ -671,7 +671,7 @@ message Portfwd {
 
 // Named Pipes Messages
 message NamedPipesReq {
-  string PipeName = 16;
+  string PipeName = 1;
   
   commonpb.Request Request = 9;
 }
@@ -684,7 +684,7 @@ message NamedPipes {
 
 // TCP Messages for pivoting
 message TCPPivotReq {
-  string Address = 16;
+  string Address = 1;
 
   commonpb.Request Request = 9;
 }
@@ -695,20 +695,23 @@ message TCPPivot {
 }
 
 // Pivot transport
+message PivotPublicKey {
+  bytes PublicKey = 1;
+  string OTP = 2;
+}
+
 message PivotOpen {
-  uint32 PivotID = 12;
-  string PivotType = 13;
-  string RemoteAddress = 14;
-  bytes  RegisterMsg = 15;
+  uint32 PivotID = 1;
+  bytes  PivotKey = 2;
 }
 
 message PivotClose {
-  uint32 PivotID = 12;
+  uint32 PivotID = 1;
   string Err = 2;
 }
 
 message PivotData {
-  uint32 PivotID = 12;
+  uint32 PivotID = 1;
   bytes Data = 2;
 }
 

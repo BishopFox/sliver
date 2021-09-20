@@ -34,6 +34,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/bishopfox/sliver/server/assets"
@@ -57,6 +58,9 @@ const (
 var (
 	// ErrInvalidKeyLength - Invalid key length
 	ErrInvalidKeyLength = errors.New("invalid length")
+
+	// ErrReplayAttack - Replay attack
+	ErrReplayAttack = errors.New("replay attack detected")
 )
 
 // AESKey - 256 bit key
@@ -191,6 +195,47 @@ func AESDecrypt(key AESKey, ciphertext []byte) ([]byte, error) {
 		return nil, err
 	}
 	return plaintext, nil
+}
+
+// NewCipherContext - Wrapper around creating a cipher context from a key
+func NewCipherContext(key AESKey) *CipherContext {
+	return &CipherContext{
+		Key:    key,
+		replay: &sync.Map{},
+	}
+}
+
+// CipherContext - Tracks a series of messages encrypted under the same key
+// and detects/prevents replay attacks.
+type CipherContext struct {
+	Key    AESKey
+	replay *sync.Map
+}
+
+// Decrypt - Decrypt a message with the contextual key and check for replay attacks
+func (c *CipherContext) Decrypt(data []byte) ([]byte, error) {
+	digest := sha256.New()
+	digest.Write(data)
+	if _, ok := c.replay.LoadOrStore(digest.Sum(nil), true); ok {
+		return nil, ErrReplayAttack
+	}
+	plaintext, err := AESDecrypt(c.Key, data)
+	if err != nil {
+		return nil, err
+	}
+	return plaintext, nil
+}
+
+// Encrypt - Encrypt a message with the contextual key
+func (c *CipherContext) Encrypt(plaintext []byte) ([]byte, error) {
+	ciphertext, err := AESEncrypt(c.Key, plaintext)
+	if err != nil {
+		return nil, err
+	}
+	digest := sha256.New()
+	digest.Write(ciphertext)
+	c.replay.Store(digest.Sum(nil), true)
+	return ciphertext, nil
 }
 
 // TOTPOptions - Customized totp validation options

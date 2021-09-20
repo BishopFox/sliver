@@ -166,20 +166,21 @@ const (
 	MsgNamedPipesReq
 	// MsgNamedPipes - Response with the result
 	MsgNamedPipes
-
 	// MsgTCPPivotReq - Request to take create a new MTLS listener
 	MsgTCPPivotReq
 	// MsgTCPPivot - Response with the result
 	MsgTCPPivot
 	// MsgPivotListReq
 	MsgPivotListReq
-
+	// MsgPivotPublicKey - Request the pivot public key
+	MsgPivotPublicKey
 	// MsgPivotOpen - Request to create a new pivot tunnel
 	MsgPivotOpen
 	// MsgPivotClose - Request to notify the closing of an existing pivot tunnel
 	MsgPivotClose
 	// MsgPivotData - Request that encapsulates and envelope form a sliver to the server though the pivot and viceversa
 	MsgPivotData
+
 	// MsgStartServiceReq - Request to start a service
 	MsgStartServiceReq
 	// MsgStartService - Response to start service request

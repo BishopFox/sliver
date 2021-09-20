@@ -40,6 +40,7 @@ func SetupCAs() {
 	GenerateCertificateAuthority(ImplantCA, "")
 	GenerateCertificateAuthority(OperatorCA, "operators")
 	GenerateCertificateAuthority(HTTPSCA, "")
+	GenerateCertificateAuthority(PivotCA, "")
 }
 
 func getCertDir() string {

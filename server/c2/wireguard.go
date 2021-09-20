@@ -47,7 +47,6 @@ var (
 // Go routines are spun up to handle key exchange connections, as well
 // as c2 comms connections.
 func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uint16) (net.Listener, *device.Device, *bytes.Buffer, error) {
-	StartPivotListener()
 	wgLog.Infof("Starting Wireguard listener on port: %d", port)
 
 	tun, tNet, err := netstack.CreateNetTUN(
@@ -111,7 +110,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 	wgLog.Printf("Successfully setup up wg key exchange listener")
 	go acceptKeyExchangeConnection(keyExchangeListener)
 
-	// Open up c2 comms listener TCP socket
+	// Open up c2 commincation listener TCP socket
 	listener, err := tNet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(tunIP), Port: int(netstackPort)})
 	if err != nil {
 		wgLog.Errorf("Failed to setup up wg sliver listener: %v", err)

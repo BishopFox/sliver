@@ -67,17 +67,17 @@ type Beacon struct {
 }
 
 func (b *Beacon) Interval() int64 {
-	interval, err := strconv.Atoi(`{{.Config.BeaconInterval}}`)
+	interval, err := strconv.ParseInt(`{{.Config.BeaconInterval}}`, 10, 64)
 	if err != nil {
-		interval = int(30 * time.Second)
+		interval = int64(30 * time.Second)
 	}
 	return int64(interval)
 }
 
 func (b *Beacon) Jitter() int64 {
-	jitter, err := strconv.Atoi(`{{.Config.BeaconJitter}}`)
+	jitter, err := strconv.ParseInt(`{{.Config.BeaconJitter}}`, 10, 64)
 	if err != nil {
-		jitter = int(30 * time.Second)
+		jitter = int64(30 * time.Second)
 	}
 	return int64(jitter)
 }

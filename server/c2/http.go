@@ -22,10 +22,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
@@ -64,7 +62,7 @@ var (
 	ErrMissingOTP     = errors.New("otp code not found in request")
 	ErrInvalidEncoder = errors.New("invalid request encoder")
 	ErrDecodeFailed   = errors.New("failed to decode request")
-	ErrReplayAttack   = errors.New("replay attack detected")
+	ErrDecryptFailed  = errors.New("failed to decrypt request")
 )
 
 const (
@@ -87,24 +85,8 @@ func init() {
 type HTTPSession struct {
 	ID         string
 	ImplanConn *core.ImplantConnection
-	Key        cryptography.AESKey
+	CipherCtx  *cryptography.CipherContext
 	Started    time.Time
-	replay     sync.Map
-}
-
-// Keeps a hash of each msg in a session to detect replay'd messages
-func (s *HTTPSession) isReplayAttack(ciphertext []byte) bool {
-	if len(ciphertext) < 1 {
-		return false
-	}
-	sha := sha256.New()
-	sha.Write(ciphertext)
-	digest := base64.RawStdEncoding.EncodeToString(sha.Sum(nil))
-	if _, ok := s.replay.Load(digest); ok {
-		return true
-	}
-	s.replay.Store(digest, true)
-	return false
 }
 
 // HTTPSessions - All currently open HTTP sessions
@@ -196,7 +178,6 @@ func (s *SliverHTTPC2) LoadC2Config() *configs.HTTPC2Config {
 //						HTTP/HTTPS depending on the caller's conf
 // TODO: Better error handling, configurable ACME host/port
 func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
-	StartPivotListener()
 	httpLog.Infof("Starting https listener on '%s'", conf.Addr)
 	server := &SliverHTTPC2{
 		ServerConf: conf,
@@ -279,7 +260,6 @@ func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
 	}
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
 	}
 }
 
@@ -530,12 +510,17 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	proto.Unmarshal(sessionInitData, sessionInit)
 
 	httpSession := newHTTPSession()
-	httpSession.Key, _ = cryptography.AESKeyFromBytes(sessionInit.Key)
+	sKey, err := cryptography.AESKeyFromBytes(sessionInit.Key)
+	if err != nil {
+		httpLog.Error("Failed to convert bytes to session key")
+		return
+	}
+	httpSession.CipherCtx = cryptography.NewCipherContext(sKey)
 	httpSession.ImplanConn = core.NewImplantConnection("http(s)", getRemoteAddr(req))
 	s.HTTPSessions.Add(httpSession)
 	httpLog.Infof("Started new session with http session id: %s", httpSession.ID)
 
-	ciphertext, err := cryptography.AESEncrypt(httpSession.Key, []byte(httpSession.ID))
+	ciphertext, err := httpSession.CipherCtx.Encrypt([]byte(httpSession.ID))
 	if err != nil {
 		httpLog.Info("Failed to encrypt session identifier")
 		default404Handler(resp, req)
@@ -597,7 +582,7 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 	case envelope := <-httpSession.ImplanConn.Send:
 		resp.WriteHeader(http.StatusOK)
 		envelopeData, _ := proto.Marshal(envelope)
-		ciphertext, err := cryptography.AESEncrypt(httpSession.Key, envelopeData)
+		ciphertext, err := httpSession.CipherCtx.Encrypt(envelopeData)
 		if err != nil {
 			httpLog.Errorf("Failed to encrypt message %s", err)
 			ciphertext = []byte{}
@@ -637,13 +622,12 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 		default404Handler(resp, req)
 		return nil, ErrDecodeFailed
 	}
-
-	if httpSession.isReplayAttack(data) {
-		httpLog.Warn("Replay attack detected")
+	plaintext, err := httpSession.CipherCtx.Decrypt(data)
+	if err != nil {
+		httpLog.Warnf("Decryption failure %s", err)
 		default404Handler(resp, req)
-		return nil, ErrReplayAttack
+		return nil, ErrDecryptFailed
 	}
-	plaintext, err := cryptography.AESDecrypt(httpSession.Key, data)
 	return plaintext, err
 }
 
@@ -711,7 +695,6 @@ func newHTTPSession() *HTTPSession {
 	return &HTTPSession{
 		ID:      newHTTPSessionID(),
 		Started: time.Now(),
-		replay:  sync.Map{},
 	}
 }
 

@@ -14,8 +14,7 @@ import (
 )
 
 const (
-	readBufSizeTCP  = 1024
-	writeBufSizeTCP = 1024
+	bufSize = 1024
 )
 
 func tcpPivotWriteEnvelope(conn *net.Conn, envelope *pb.Envelope) error {
@@ -35,8 +34,8 @@ func tcpPivotWriteEnvelope(conn *net.Conn, envelope *pb.Envelope) error {
 		// {{end}}
 	}
 	totalWritten := 0
-	for totalWritten < len(data)-writeBufSizeTCP {
-		n, err2 := (*conn).Write(data[totalWritten : totalWritten+writeBufSizeTCP])
+	for totalWritten < len(data)-bufSize {
+		n, err2 := (*conn).Write(data[totalWritten : totalWritten+bufSize])
 		totalWritten += n
 		if err2 != nil {
 			// {{if .Config.Debug}}
@@ -66,7 +65,7 @@ func tcpPivotReadEnvelope(conn *net.Conn) (*pb.Envelope, error) {
 		return nil, err
 	}
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
-	readBuf := make([]byte, readBufSizeTCP)
+	readBuf := make([]byte, bufSize)
 	dataBuf := make([]byte, 0)
 	totalRead := 0
 	for {
