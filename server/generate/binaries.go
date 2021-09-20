@@ -482,9 +482,23 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	if err != nil {
 		return "", err
 	}
-	config.MtlsCACert = string(serverCACert)
-	config.MtlsCert = string(sliverCert)
-	config.MtlsKey = string(sliverKey)
+
+	// ECC keys
+	implantKeyPair, err := cryptography.RandomECCKeyPair()
+	if err != nil {
+		return "", err
+	}
+	serverKeyPair := cryptography.ECCServerKeyPair()
+	config.ECCPublicKey = implantKeyPair.PublicBase64()
+	config.ECCPrivateKey = implantKeyPair.PrivateBase64()
+	config.ECCServerPublicKey = serverKeyPair.PublicBase64()
+
+	// MTLS keys
+	if config.MTLSc2Enabled {
+		config.MtlsCACert = string(serverCACert)
+		config.MtlsCert = string(sliverCert)
+		config.MtlsKey = string(sliverKey)
+	}
 
 	otpSecret, err := cryptography.TOTPServerSecret()
 	if err != nil {

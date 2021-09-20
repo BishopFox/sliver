@@ -46,8 +46,8 @@ func ECCEncryptToServer(plaintext []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	msg := make([]byte, len(keyPair.Public), len(keyPair.Public)+len(ciphertext))
-	copy(msg, keyPair.Public[:])
-	copy(msg[len(keyPair.Public):], ciphertext)
+	msg := make([]byte, 32+len(ciphertext))
+	copy(msg, (*keyPair.Public)[:])
+	copy(msg[32:], ciphertext)
 	return msg, nil
 }

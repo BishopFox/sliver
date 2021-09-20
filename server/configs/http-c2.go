@@ -91,9 +91,6 @@ func (h *HTTPC2Config) RandomImplantConfig() *HTTPC2ImplantConfig {
 	config := &HTTPC2ImplantConfig{}
 	*config = *h.ImplantConfig
 
-	config.KeyExchangeFiles = h.ImplantConfig.RandomKeyExchangeFiles()
-	config.KeyExchangePaths = h.ImplantConfig.RandomKeyExchangePaths()
-
 	config.PollFiles = h.ImplantConfig.RandomPollFiles()
 	config.PollPaths = h.ImplantConfig.RandomPollPaths()
 
@@ -140,11 +137,6 @@ type HTTPC2ImplantConfig struct {
 	// Stager File Extension
 	StagerFileExt string `json:"stager_file_ext"`
 
-	// Key Exchange (default .txt) files and paths
-	KeyExchangeFileExt string   `json:"key_exchange_file_ext"`
-	KeyExchangeFiles   []string `json:"key_exchange_files"`
-	KeyExchangePaths   []string `json:"key_exchange_paths"`
-
 	// Poll files and paths
 	PollFileExt string   `json:"poll_file_ext"`
 	PollFiles   []string `json:"poll_files"`
@@ -160,18 +152,6 @@ type HTTPC2ImplantConfig struct {
 	CloseFileExt string   `json:"close_file_ext"`
 	CloseFiles   []string `json:"close_files"`
 	ClosePaths   []string `json:"close_paths"`
-}
-
-func (h *HTTPC2ImplantConfig) RandomKeyExchangeFiles() []string {
-	min := h.MinFiles
-	if min < 1 {
-		min = 1
-	}
-	return h.randomSample(h.KeyExchangeFiles, h.KeyExchangeFileExt, min, h.MaxFiles)
-}
-
-func (h *HTTPC2ImplantConfig) RandomKeyExchangePaths() []string {
-	return h.randomSample(h.KeyExchangePaths, "", h.MinPaths, h.MaxPaths)
 }
 
 func (h *HTTPC2ImplantConfig) RandomPollFiles() []string {
@@ -247,15 +227,6 @@ var (
 			MinPaths:  2,
 
 			StagerFileExt: ".woff",
-
-			KeyExchangeFileExt: ".txt",
-			KeyExchangeFiles: []string{
-				"robots", "sample", "readme", "example",
-			},
-			KeyExchangePaths: []string{
-				"static", "www", "assets", "text", "docs", "sample", "data", "readme",
-				"examples",
-			},
 
 			PollFileExt: ".js",
 			PollFiles: []string{
@@ -426,16 +397,6 @@ func checkImplantConfig(config *HTTPC2ImplantConfig) error {
 		return ErrMissingStagerFileExt
 	}
 
-	// Key Exchange
-	config.KeyExchangeFileExt = coerceFileExt(config.KeyExchangeFileExt)
-	if config.KeyExchangeFileExt == "" {
-		return ErrMissingKeyExchangeFileExt
-	}
-	config.KeyExchangeFiles = coerceFiles(config.KeyExchangeFiles, config.KeyExchangeFileExt)
-	if len(config.KeyExchangeFiles) < 1 {
-		return ErrTooFewKeyExchangeFiles
-	}
-
 	// Poll Settings
 	config.PollFileExt = coerceFileExt(config.PollFileExt)
 	if config.PollFileExt == "" {
@@ -475,7 +436,6 @@ func checkImplantConfig(config *HTTPC2ImplantConfig) error {
 	allExtensions := map[string]bool{}
 	extensions := []string{
 		config.StagerFileExt,
-		config.KeyExchangeFileExt,
 		config.PollFileExt,
 		config.StartSessionFileExt,
 		config.SessionFileExt,
