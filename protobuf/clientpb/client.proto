@@ -112,48 +112,54 @@ enum OutputFormat {
 }
 
 message ImplantConfig {
-  string ID = 100;
-  bool IsBeacon = 200;
-  int64 BeaconInterval = 201;
-  int64 BeaconJitter = 202;
+  string ID = 1;
+  bool IsBeacon = 2;
+  int64 BeaconInterval = 3;
+  int64 BeaconJitter = 4;
 
-  string GOOS = 1;
-  string GOARCH = 2;
-  string Name = 3;
-  string CACert = 4;
-  string Cert = 5;
-  string Key = 6;
-  bool Debug = 7;
-  bool Evasion = 31;
-  bool ObfuscateSymbols = 30;
+  string GOOS = 5;
+  string GOARCH = 6;
+  string Name = 7;
 
-  string WGImplantPrivKey = 33;
-  string WGServerPubKey = 34;
-  string WGPeerTunIP = 35;
-  uint32 WGKeyExchangePort = 36;
-  uint32 WGTcpCommsPort = 37;
+  bool Debug = 8;
+  bool Evasion = 9;
+  bool ObfuscateSymbols = 10;
 
-  int64 ReconnectInterval = 8;
-  uint32 MaxConnectionErrors = 9;
-  int64 PollTimeout = 38;
+  string MtlsCACert = 20;
+  string MtlsCert = 21;
+  string MtlsKey = 22;
+
+  string ECCPublicKey = 23;
+  string ECCPrivateKey = 24;
+  string ECCPublicKeySignature = 25;
+  string ECCServerPublicKey = 26;
+
+  string WGImplantPrivKey = 30;
+  string WGServerPubKey = 31;
+  string WGPeerTunIP = 32;
+  uint32 WGKeyExchangePort = 33;
+  uint32 WGTcpCommsPort = 34;
+
+  int64 ReconnectInterval = 40;
+  uint32 MaxConnectionErrors = 41;
+  int64 PollTimeout = 42;
 
   // c2
-  repeated ImplantC2 C2 = 10;
-  repeated string CanaryDomains = 11;
-  string ConnectionStrategy = 39;
+  repeated ImplantC2 C2 = 50;
+  repeated string CanaryDomains = 51;
+  string ConnectionStrategy = 52;
 
-  bool LimitDomainJoined = 20;
-  string LimitDatetime = 21;
-  string LimitHostname = 22;
-  string LimitUsername = 23;
-  string LimitFileExists = 32;
+  bool LimitDomainJoined = 60;
+  string LimitDatetime = 61;
+  string LimitHostname = 62;
+  string LimitUsername = 63;
+  string LimitFileExists = 64;
 
-  OutputFormat Format = 25;
-  bool IsSharedLib = 26;
-
-  string FileName = 27;
-  bool IsService = 28;
-  bool IsShellcode = 29;
+  OutputFormat Format = 100;
+  bool IsSharedLib = 101;
+  string FileName = 102;
+  bool IsService = 103;
+  bool IsShellcode = 104;
 }
 
 // Configs of previously built implants

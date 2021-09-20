@@ -18,11 +18,27 @@ var (
 	ErrWGServerKeysDoNotExist = errors.New("wg server keys do not exist")
 )
 
+// SetupWGKeys - Setup server keys
 func SetupWGKeys() {
 	if _, _, err := GetWGServerKeys(); err != nil {
 		wgKeysLog.Info("No wg server keys detected")
 		GenerateWGKeys(false, "")
 	}
+}
+
+// ImplantGenerateWGKeys - Generate WG keys for implant
+func ImplantGenerateWGKeys(wgPeerTunIP string) (string, string, error) {
+	isPeer := true
+	privKey, pubKey, err := GenerateWGKeys(isPeer, wgPeerTunIP)
+
+	if err != nil {
+		wgKeysLog.Errorf("Error generating wg keys for peer: %s", err)
+		wgKeysLog.Errorf("priv:  %s", privKey)
+		wgKeysLog.Errorf("pub:  %s", pubKey)
+		return "", "", err
+	}
+
+	return privKey, pubKey, nil
 }
 
 // GetWGSPeers - Get a map of Pubkey:TunIP for existing wg peers

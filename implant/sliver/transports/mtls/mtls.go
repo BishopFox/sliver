@@ -44,8 +44,12 @@ var (
 	PingInterval = 2 * time.Minute
 
 	readBufSize = 16 * 1024 // 16kb
-	keyPEM      = `{{.Config.Key}}`
-	certPEM     = `{{.Config.Cert}}`
+
+	// caCertPEM - PEM encoded CA certificate
+	caCertPEM = `{{.Config.MtlsCACert}}`
+
+	keyPEM  = `{{.Config.MtlsKey}}`
+	certPEM = `{{.Config.MtlsCert}}`
 )
 
 // WriteEnvelope - Writes a message to the TLS socket using length prefix framing
@@ -153,14 +157,16 @@ func getTLSConfig() *tls.Config {
 
 	// Load CA cert
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM([]byte(cryptography.CACertPEM))
+	caCertPool.AppendCertsFromPEM([]byte(caCertPEM))
 
 	// Setup config with custom certificate validation routine
 	tlsConfig := &tls.Config{
-		Certificates:          []tls.Certificate{certPEM},
-		RootCAs:               caCertPool,
-		InsecureSkipVerify:    true, // Don't worry I sorta know what I'm doing
-		VerifyPeerCertificate: cryptography.RootOnlyVerifyCertificate,
+		Certificates:       []tls.Certificate{certPEM},
+		RootCAs:            caCertPool,
+		InsecureSkipVerify: true, // Don't worry I sorta know what I'm doing
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			return cryptography.RootOnlyVerifyCertificate(caCertPEM, rawCerts, verifiedChains)
+		},
 	}
 
 	return tlsConfig

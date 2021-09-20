@@ -16,19 +16,13 @@ package cryptography
 
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-	---
-	This package contains wrappers around Golang's crypto package that make it easier to use
-	we manage things like the nonces, key gen, etc.
 */
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	secureRand "crypto/rand"
-	"crypto/rsa"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"errors"
 	"io"
 	"os"
@@ -41,21 +35,11 @@ import (
 
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
-)
-
-const (
-	// AESKeySize - Always use 256 bit keys
-	AESKeySize = 16
-
-	// GCMNonceSize - 96 bit nonces for GCM
-	GCMNonceSize = 12
+	"golang.org/x/crypto/chacha20poly1305"
+	"golang.org/x/crypto/nacl/box"
 )
 
 var (
-	// CACertPEM - PEM encoded CA certificate
-	CACertPEM = `{{.Config.CACert}}`
-
-	totpSecret  = "{{ .OTPSecret }}"
 	totpOptions = totp.ValidateOpts{
 		Digits:    8,
 		Algorithm: otp.AlgorithmSHA256,
@@ -65,105 +49,86 @@ var (
 
 	// ErrReplayAttack - Replay attack
 	ErrReplayAttack = errors.New("replay attack detected")
+	// ErrDecryptFailed
+	ErrDecryptFailed = errors.New("decryption failed")
 )
 
-// AESKey - 128 bit key
-type AESKey [AESKeySize]byte
-
-// FromBytes - Creates an AESKey from bytes
-func (AESKey) FromBytes(data []byte) AESKey {
-	var key AESKey
-	copy(key[:], data[:AESKeySize])
-	return key
+// ECCKeyPair - Holds the public/private key pair
+type ECCKeyPair struct {
+	Public  *[32]byte
+	Private *[32]byte
 }
 
-// AESIV - 128 bit IV
-type AESIV [aes.BlockSize]byte
+// ECCEncrypt - Encrypt using Nacl Box
+func ECCEncrypt(recipientPublicKey *[32]byte, senderPrivateKey *[32]byte, plaintext []byte) ([]byte, error) {
+	var nonce [24]byte
+	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
+		return nil, err
+	}
+	encrypted := box.Seal(nonce[:], plaintext, &nonce, recipientPublicKey, senderPrivateKey)
+	return encrypted, nil
+}
 
-// RandomAESKey - Generate random ID of randomIDSize bytes
-func RandomAESKey() AESKey {
+// ECCDecrypt - Decrypt using Curve 25519 + ChaCha20Poly1305
+func ECCDecrypt(senderPublicKey *[32]byte, recipientPrivateKey *[32]byte, ciphertext []byte) ([]byte, error) {
+	var decryptNonce [24]byte
+	copy(decryptNonce[:], ciphertext[:24])
+	plaintext, ok := box.Open(nil, ciphertext[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)
+	if !ok {
+		return nil, ErrDecryptFailed
+	}
+	return plaintext, nil
+}
+
+// RandomKey - Generate random ID of randomIDSize bytes
+func RandomKey() [chacha20poly1305.KeySize]byte {
 	randBuf := make([]byte, 64)
-	n, err := secureRand.Read(randBuf)
-	if n != 64 || err != nil {
-		panic("[[GenerateCanary]]") // If we can't securely generate keys then we die
-	}
-	digest := sha256.Sum256(randBuf)
-	var key AESKey
-	copy(key[:], digest[:AESKeySize])
+	rand.Read(randBuf)
+	return deriveKeyFrom(randBuf)
+}
+
+// deriveKeyFrom - Derives a key from input data using SHA256
+func deriveKeyFrom(data []byte) [chacha20poly1305.KeySize]byte {
+	digest := sha256.Sum256(data)
+	var key [chacha20poly1305.KeySize]byte
+	copy(key[:], digest[:chacha20poly1305.KeySize])
 	return key
 }
 
-// RandomAESIV - 128 bit Random IV
-func RandomAESIV() AESIV {
-	data := RandomAESKey()
-	var iv AESIV
-	copy(iv[:], data[:16])
-	return iv
-}
-
-// RSAEncrypt - Encrypt a msg with a public rsa key
-func RSAEncrypt(msg []byte, pub *rsa.PublicKey) ([]byte, error) {
-	hash := sha256.New()
-	ciphertext, err := rsa.EncryptOAEP(hash, secureRand.Reader, pub, msg, nil)
+// Encrypt - Encrypt using chacha20poly1305
+// https://pkg.go.dev/golang.org/x/crypto/chacha20poly1305
+func Encrypt(key [chacha20poly1305.KeySize]byte, plaintext []byte) ([]byte, error) {
+	aead, err := chacha20poly1305.New(key[:])
 	if err != nil {
 		return nil, err
 	}
-	return ciphertext, nil
+	nonce := make([]byte, aead.NonceSize(), aead.NonceSize()+len(plaintext)+aead.Overhead())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
+	return aead.Seal(nonce, nonce, plaintext, nil), nil
 }
 
-// RSADecrypt - Decrypt ciphertext with rsa private key
-func RSADecrypt(ciphertext []byte, privateKey *rsa.PrivateKey) ([]byte, error) {
-	hash := sha256.New()
-	plaintext, err := rsa.DecryptOAEP(hash, secureRand.Reader, privateKey, ciphertext, nil)
+// Decrypt - Decrypt using chacha20poly1305
+// https://pkg.go.dev/golang.org/x/crypto/chacha20poly1305
+func Decrypt(key [chacha20poly1305.KeySize]byte, ciphertext []byte) ([]byte, error) {
+	aead, err := chacha20poly1305.New(key[:])
 	if err != nil {
 		return nil, err
 	}
-	return plaintext, nil
-}
-
-// AESEncrypt - Encrypt using AES GCM
-func AESEncrypt(key AESKey, plaintext []byte) ([]byte, error) {
-	block, _ := aes.NewCipher(key[:])
-	nonce := make([]byte, GCMNonceSize)
-	if _, err := io.ReadFull(secureRand.Reader, nonce); err != nil {
-		return nil, err
+	if len(ciphertext) < aead.NonceSize() {
+		return nil, errors.New("ciphertext too short")
 	}
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-	ciphertext := aesgcm.Seal(nil, nonce, plaintext, nil)
 
-	// Prepend nonce to ciphertext
-	ciphertext = append(nonce, ciphertext...)
-	return ciphertext, nil
-}
+	// Split nonce and ciphertext.
+	nonce, ciphertext := ciphertext[:aead.NonceSize()], ciphertext[aead.NonceSize():]
 
-// AESDecrypt - Decrypt GCM ciphertext
-func AESDecrypt(key AESKey, ciphertext []byte) ([]byte, error) {
-	if len(ciphertext) < GCMNonceSize+1 {
-		return nil, errors.New("[[GenerateCanary]]")
-	}
-	block, _ := aes.NewCipher(key[:])
-	aesgcm, _ := cipher.NewGCM(block)
-	plaintext, err := aesgcm.Open(nil, ciphertext[:GCMNonceSize], ciphertext[GCMNonceSize:], nil)
-	if err != nil {
-		return nil, err
-	}
-	return plaintext, nil
-}
-
-// PeerAESKey - Translate an otp into a peer key
-func PeerAESKey(otp string) AESKey {
-	digest := sha256.New()
-	digest.Write([]byte(totpSecret + otp))
-	var peerKey AESKey
-	copy(peerKey[:], digest.Sum(nil)[:AESKeySize])
-	return peerKey
+	// Decrypt the message and check it wasn't tampered with.
+	return aead.Open(nil, nonce, ciphertext, nil)
 }
 
 // NewCipherContext - Wrapper around creating a cipher context from a key
-func NewCipherContext(key AESKey) *CipherContext {
+func NewCipherContext(key [chacha20poly1305.KeySize]byte) *CipherContext {
 	return &CipherContext{
 		Key:    key,
 		replay: &sync.Map{},
@@ -173,18 +138,18 @@ func NewCipherContext(key AESKey) *CipherContext {
 // CipherContext - Tracks a series of messages encrypted under the same key
 // and detects/prevents replay attacks.
 type CipherContext struct {
-	Key    AESKey
+	Key    [chacha20poly1305.KeySize]byte
 	replay *sync.Map
 }
 
 // Decrypt - Decrypt a message with the contextual key and check for replay attacks
 func (c *CipherContext) Decrypt(data []byte) ([]byte, error) {
-	digest := sha256.New()
-	digest.Write(data)
-	if _, ok := c.replay.LoadOrStore(digest.Sum(nil), true); ok {
+	digest := sha256.Sum256(data)
+	hexDigest := hex.EncodeToString(digest[:])
+	if _, ok := c.replay.LoadOrStore(hexDigest, true); ok {
 		return nil, ErrReplayAttack
 	}
-	plaintext, err := AESDecrypt(c.Key, data)
+	plaintext, err := Decrypt(c.Key, data)
 	if err != nil {
 		return nil, err
 	}
@@ -193,13 +158,13 @@ func (c *CipherContext) Decrypt(data []byte) ([]byte, error) {
 
 // Encrypt - Encrypt a message with the contextual key
 func (c *CipherContext) Encrypt(plaintext []byte) ([]byte, error) {
-	ciphertext, err := AESEncrypt(c.Key, plaintext)
+	ciphertext, err := Encrypt(c.Key, plaintext)
 	if err != nil {
 		return nil, err
 	}
-	digest := sha256.New()
-	digest.Write(ciphertext)
-	c.replay.Store(digest.Sum(nil), true)
+	digest := sha256.Sum256(ciphertext)
+	hexDigest := hex.EncodeToString(digest[:])
+	c.replay.Store(hexDigest, true)
 	return ciphertext, nil
 }
 
@@ -226,10 +191,9 @@ func ValidateTOTP(code string) (bool, error) {
 // rootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so
 // we have to disable all of the certificate validation and re-implement everything.
 // https://github.com/golang/go/issues/21971
-func RootOnlyVerifyCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-
+func RootOnlyVerifyCertificate(caCertPEM string, rawCerts [][]byte, _ [][]*x509.Certificate) error {
 	roots := x509.NewCertPool()
-	ok := roots.AppendCertsFromPEM([]byte(CACertPEM))
+	ok := roots.AppendCertsFromPEM([]byte(caCertPEM))
 	if !ok {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to parse root certificate")

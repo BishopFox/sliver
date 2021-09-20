@@ -23,9 +23,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/hex"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -227,15 +225,6 @@ func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 			}
 		}
 	}
-	_, _, err := certs.C2ServerGetRSACertificate(conf.Domain)
-	if err == certs.ErrCertDoesNotExist {
-		httpLog.Infof("Generating C2 server certificate ...")
-		_, _, err := certs.C2ServerGenerateRSACertificate(conf.Domain)
-		if err != nil {
-			httpLog.Errorf("Failed to generate server rsa certificate %s", err)
-			return nil, err
-		}
-	}
 
 	return server, nil
 }
@@ -273,12 +262,6 @@ func (s *SliverHTTPC2) router() *mux.Router {
 		s.ServerConf.LongPollTimeout = int64(DefaultLongPollTimeout)
 		s.ServerConf.LongPollJitter = int64(DefaultLongPollJitter)
 	}
-
-	// Key Exchange Handler
-	router.HandleFunc(
-		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.KeyExchangeFileExt),
-		s.rsaKeyHandler,
-	).MatcherFunc(s.filterOTP).MatcherFunc(s.filterNonce).Methods(http.MethodGet)
 
 	// Start Session Handler
 	router.HandleFunc(
@@ -450,37 +433,8 @@ func default404Handler(resp http.ResponseWriter, req *http.Request) {
 
 // [ HTTP Handlers ] ---------------------------------------------------------------
 
-func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
-	httpLog.Debug("Public key request")
-	nonce, _ := getNonceFromURL(req.URL)
-	certPEM, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, s.ServerConf.Domain)
-	if err != nil {
-		httpLog.Infof("Failed to get server certificate for cn = '%s': %s", s.ServerConf.Domain, err)
-	}
-	_, encoder, err := encoders.EncoderFromNonce(nonce)
-	if err != nil {
-		httpLog.Infof("Failed to find encoder from nonce %d", nonce)
-	}
-	resp.Write(encoder.Encode(certPEM))
-}
-
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request) {
 	httpLog.Debug("Start http session request")
-
-	// Note: these are the c2 certificates NOT the certificates/keys used for SSL/TLS
-	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, s.ServerConf.Domain)
-	if err != nil {
-		httpLog.Warn("Failed to fetch rsa private key")
-		default404Handler(resp, req)
-		return
-	}
-
-	// RSA decrypt request body
-	publicKeyBlock, _ := pem.Decode([]byte(publicKeyPEM))
-	httpLog.Debugf("RSA Fingerprint: %s", fingerprintSHA256(publicKeyBlock))
-	privateKeyBlock, _ := pem.Decode([]byte(privateKeyPEM))
-	privateKey, _ := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
-
 	nonce, _ := getNonceFromURL(req.URL)
 	_, encoder, err := encoders.EncoderFromNonce(nonce)
 	if err != nil {
@@ -499,8 +453,17 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		default404Handler(resp, req)
 		return
 	}
+	if len(data) < 32 {
+		httpLog.Warn("Invalid data length")
+		default404Handler(resp, req)
+		return
+	}
 
-	sessionInitData, err := cryptography.RSADecrypt(data, privateKey)
+	var senderPublicKey [32]byte
+	copy(senderPublicKey[:], data[:32])
+	ciphertext := data[32:]
+	serverKeyPair := cryptography.ECCServerKeyPair()
+	sessionInitData, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, ciphertext)
 	if err != nil {
 		httpLog.Error("RSA decryption failed")
 		default404Handler(resp, req)
@@ -510,7 +473,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	proto.Unmarshal(sessionInitData, sessionInit)
 
 	httpSession := newHTTPSession()
-	sKey, err := cryptography.AESKeyFromBytes(sessionInit.Key)
+	sKey, err := cryptography.KeyFromBytes(sessionInit.Key)
 	if err != nil {
 		httpLog.Error("Failed to convert bytes to session key")
 		return
@@ -520,7 +483,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	s.HTTPSessions.Add(httpSession)
 	httpLog.Infof("Started new session with http session id: %s", httpSession.ID)
 
-	ciphertext, err := httpSession.CipherCtx.Encrypt([]byte(httpSession.ID))
+	responseCiphertext, err := httpSession.CipherCtx.Encrypt([]byte(httpSession.ID))
 	if err != nil {
 		httpLog.Info("Failed to encrypt session identifier")
 		default404Handler(resp, req)
@@ -533,7 +496,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		Secure:   false,
 		HttpOnly: true,
 	})
-	resp.Write(encoder.Encode(ciphertext))
+	resp.Write(encoder.Encode(responseCiphertext))
 }
 
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request) {

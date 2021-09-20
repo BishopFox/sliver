@@ -22,10 +22,8 @@ import (
 	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
-	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -58,7 +56,6 @@ func (p *Pivots) RemoveSession(pivotID uint32) {
 
 // StartPivotHandlers - Starts listening for pivot messages
 func StartPivotHandlers() error {
-	serverHandlers[sliverpb.MsgPivotPublicKey] = HandlePivotPublicKey
 	serverHandlers[sliverpb.MsgPivotOpen] = HandlePivotOpen
 	serverHandlers[sliverpb.MsgPivotData] = HandlePivotData
 	serverHandlers[sliverpb.MsgPivotClose] = HandlePivotClose
@@ -67,33 +64,12 @@ func StartPivotHandlers() error {
 
 // StopPivotHandlers - Starts listening for pivot messages
 func StopPivotHandlers() error {
-	if _, ok := serverHandlers[sliverpb.MsgPivotPublicKey]; ok {
-		delete(serverHandlers, sliverpb.MsgPivotPublicKey)
+	if _, ok := serverHandlers[sliverpb.MsgPivotOpen]; ok {
 		delete(serverHandlers, sliverpb.MsgPivotOpen)
 		delete(serverHandlers, sliverpb.MsgPivotData)
 		delete(serverHandlers, sliverpb.MsgPivotClose)
 	}
 	return nil
-}
-
-// HandlePivotPublicKey - Retrieve the pivot public key
-func HandlePivotPublicKey(implantConn *core.ImplantConnection, data []byte) {
-	cert, _, err := certs.GetCertificateAuthorityPEM(certs.PivotCA)
-	if err != nil {
-		pivotLog.Errorf("error retrieving pivot public key: %v", err)
-		return
-	}
-	respData, err := proto.Marshal(&sliverpb.PivotPublicKey{
-		PublicKey: cert,
-	})
-	if err != nil {
-		pivotLog.Errorf("%s", err)
-		return
-	}
-	implantConn.Send <- &sliverpb.Envelope{
-		Type: sliverpb.MsgPivotPublicKey,
-		Data: respData,
-	}
 }
 
 // HandlePivotOpen - Handles a PivotOpen message

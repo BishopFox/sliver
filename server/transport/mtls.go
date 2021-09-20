@@ -86,7 +86,6 @@ func StartClientListener(host string, port uint16) (*grpc.Server, net.Listener, 
 // getOperatorServerTLSConfig - Generate the TLS configuration, we do now allow the end user
 // to specify any TLS paramters, we choose sensible defaults instead
 func getOperatorServerTLSConfig(host string) *tls.Config {
-
 	caCertPtr, _, err := certs.GetCertificateAuthority(certs.OperatorCA)
 	if err != nil {
 		mtlsLog.Fatalf("Invalid ca type (%s): %v", certs.OperatorCA, host)

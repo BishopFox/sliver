@@ -57,8 +57,6 @@ func (ib *ImplantBuild) BeforeCreate(tx *gorm.DB) (err error) {
 
 // ImplantConfig - An implant build configuration
 type ImplantConfig struct {
-	// gorm.Model
-
 	ID               uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	ImplantBuildID   uuid.UUID
 	ImplantProfileID uuid.UUID
@@ -73,10 +71,17 @@ type ImplantConfig struct {
 	BeaconInterval int64
 	BeaconJitter   int64
 
-	// Standard
-	CACert              string
-	Cert                string
-	Key                 string
+	// ECC
+	ECCPublicKey          string
+	ECCPrivateKey         string
+	ECCPublicKeySignature string
+	ECCServerPublicKey    string
+
+	// MTLS
+	MtlsCACert string
+	MtlsCert   string
+	MtlsKey    string
+
 	Debug               bool
 	Evasion             bool
 	ObfuscateSymbols    bool
@@ -85,6 +90,7 @@ type ImplantConfig struct {
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
 
+	// WireGuard
 	WGImplantPrivKey  string
 	WGServerPubKey    string
 	WGPeerTunIP       string
@@ -142,9 +148,10 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		GOOS:   ic.GOOS,
 		GOARCH: ic.GOARCH,
 
-		CACert:           ic.CACert,
-		Cert:             ic.Cert,
-		Key:              ic.Key,
+		MtlsCACert: ic.MtlsCACert,
+		MtlsCert:   ic.MtlsCert,
+		MtlsKey:    ic.MtlsKey,
+
 		Debug:            ic.Debug,
 		Evasion:          ic.Evasion,
 		ObfuscateSymbols: ic.ObfuscateSymbols,
