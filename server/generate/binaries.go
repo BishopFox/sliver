@@ -477,8 +477,8 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	goConfig.ProjectDir = projectGoPathDir
 
 	// Cert PEM encoded certificates
-	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.MtlsCA)
-	sliverCert, sliverKey, err := certs.MtlsImplantGenerateECCCertificate(name)
+	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.MtlsServerCA)
+	sliverCert, sliverKey, err := certs.MtlsC2ImplantGenerateECCCertificate(name)
 	if err != nil {
 		return "", err
 	}

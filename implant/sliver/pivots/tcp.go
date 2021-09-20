@@ -94,8 +94,8 @@ func tcpPivotConnectionHandler(conn net.Conn) {
 		// {{end}}
 		return
 	}
-	cipherCtx := cryptography.NewCipherContext(cryptography.PeerAESKey(otpCode))
-	tcpPivotStart(cipherCtx, conn)
+	// cipherCtx := cryptography.NewCipherContext(cryptography.PeerAESKey(otpCode))
+	// tcpPivotStart(cipherCtx, conn)
 }
 
 func tcpPivotStart(cipherCtx *cryptography.CipherContext, conn net.Conn) {

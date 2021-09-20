@@ -110,32 +110,32 @@ func ReconnectActivePivots(connection *transports.Connection) {
 
 // SendPivotOpen - Sends a PivotOpen message back to the server
 func SendPivotOpen(pivotID uint32, registerMsg []byte, connection *transports.Connection) {
-	pivotsMap.Pivot(pivotID).Register = registerMsg
-	pivot := pivotsMap.Pivot(pivotID)
-	pivotOpen := &sliverpb.PivotOpen{
-		PivotID:       pivotID,
-		PivotType:     pivot.PivotType,
-		RemoteAddress: pivot.RemoteAddress,
-		RegisterMsg:   registerMsg,
-	}
-	data, err := proto.Marshal(pivotOpen)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Println(err)
-		// {{end}}
-		return
-	}
-	// W T F!!!!!
-	if connection.IsOpen {
-		connection.Send <- &sliverpb.Envelope{
-			Type: sliverpb.MsgPivotOpen,
-			Data: data,
-		}
-	} else {
-		// {{if .Config.Debug}}
-		log.Println("Connection is not open...")
-		// {{end}}
-	}
+	// pivotsMap.Pivot(pivotID).Register = registerMsg
+	// pivot := pivotsMap.Pivot(pivotID)
+	// pivotOpen := &sliverpb.PivotOpen{
+	// 	PivotID:       pivotID,
+	// 	PivotType:     pivot.PivotType,
+	// 	RemoteAddress: pivot.RemoteAddress,
+	// 	RegisterMsg:   registerMsg,
+	// }
+	// data, err := proto.Marshal(pivotOpen)
+	// if err != nil {
+	// 	// {{if .Config.Debug}}
+	// 	log.Println(err)
+	// 	// {{end}}
+	// 	return
+	// }
+	// // W T F!!!!!
+	// if connection.IsOpen {
+	// 	connection.Send <- &sliverpb.Envelope{
+	// 		Type: sliverpb.MsgPivotOpen,
+	// 		Data: data,
+	// 	}
+	// } else {
+	// 	// {{if .Config.Debug}}
+	// 	log.Println("Connection is not open...")
+	// 	// {{end}}
+	// }
 }
 
 // SendPivotClose - Sends a PivotClose message back to the server

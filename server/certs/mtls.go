@@ -19,20 +19,21 @@ package certs
 */
 
 const (
-	// MtlsCA - Directory containing HTTPS server certificates
-	MtlsCA = "mtls"
+	// MtlsImplantCA - Directory containing HTTPS server certificates
+	MtlsImplantCA = "mtls-implant"
+	MtlsServerCA  = "mtls-server"
 )
 
-// MtlsServerGenerateECCCertificate - Generate a server certificate signed with a given CA
-func MtlsServerGenerateECCCertificate(host string) ([]byte, []byte, error) {
-	cert, key := GenerateECCCertificate(MtlsCA, host, false, false)
-	err := saveCertificate(MtlsCA, ECCKey, host, cert, key)
+// MtlsC2ServerGenerateECCCertificate - Generate a server certificate signed with a given CA
+func MtlsC2ServerGenerateECCCertificate(host string) ([]byte, []byte, error) {
+	cert, key := GenerateECCCertificate(MtlsServerCA, host, false, false)
+	err := saveCertificate(MtlsServerCA, ECCKey, host, cert, key)
 	return cert, key, err
 }
 
-// MtlsImplantGenerateECCCertificate - Generate a server certificate signed with a given CA
-func MtlsImplantGenerateECCCertificate(name string) ([]byte, []byte, error) {
-	cert, key := GenerateECCCertificate(MtlsCA, name, false, true)
-	err := saveCertificate(MtlsCA, ECCKey, name, cert, key)
+// MtlsC2ImplantGenerateECCCertificate - Generate a server certificate signed with a given CA
+func MtlsC2ImplantGenerateECCCertificate(name string) ([]byte, []byte, error) {
+	cert, key := GenerateECCCertificate(MtlsImplantCA, name, false, true)
+	err := saveCertificate(MtlsImplantCA, ECCKey, name, cert, key)
 	return cert, key, err
 }
