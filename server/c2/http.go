@@ -91,7 +91,7 @@ type HTTPSession struct {
 
 // HTTPSessions - All currently open HTTP sessions
 type HTTPSessions struct {
-	active *map[string]*HTTPSession
+	active map[string]*HTTPSession
 	mutex  *sync.RWMutex
 }
 
@@ -99,21 +99,21 @@ type HTTPSessions struct {
 func (s *HTTPSessions) Add(session *HTTPSession) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	(*s.active)[session.ID] = session
+	s.active[session.ID] = session
 }
 
 // Get - Get an HTTP session
 func (s *HTTPSessions) Get(sessionID string) *HTTPSession {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return (*s.active)[sessionID]
+	return s.active[sessionID]
 }
 
 // Remove - Remove an HTTP session
 func (s *HTTPSessions) Remove(sessionID string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	delete((*s.active), sessionID)
+	delete(s.active, sessionID)
 }
 
 // HTTPHandler - Path mapped to a handler function
@@ -182,7 +182,7 @@ func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 	server := &SliverHTTPC2{
 		ServerConf: conf,
 		HTTPSessions: &HTTPSessions{
-			active: &map[string]*HTTPSession{},
+			active: map[string]*HTTPSession{},
 			mutex:  &sync.RWMutex{},
 		},
 	}
@@ -297,15 +297,9 @@ func (s *SliverHTTPC2) router() *mux.Router {
 		s.stagerHander,
 	).MatcherFunc(s.filterOTP).Methods(http.MethodGet)
 
-	// Request does not match the C2 profile so we pass it to the static content or 404 handler
-	if s.ServerConf.Website != "" {
-		httpLog.Infof("Serving static content from website %v", s.ServerConf.Website)
-		router.HandleFunc("/{rpath:.*}", s.websiteContentHandler).Methods(http.MethodGet)
-	} else {
-		// 404 Handler - Just 404 on every path that doesn't match another handler
-		httpLog.Infof("No website content, using wildcard 404 handler")
-		router.HandleFunc("/{rpath:.*}", default404Handler).Methods(http.MethodGet, http.MethodPost)
-	}
+	// 404 Handler - Just 404 on every path that doesn't match another handler
+	httpLog.Infof("No website content, using wildcard 404 handler")
+	router.HandleFunc("/{rpath:.*}", s.defaultHandler).Methods(http.MethodGet, http.MethodPost)
 
 	router.Use(loggingMiddleware)
 	router.Use(s.DefaultRespHeaders)
@@ -416,19 +410,27 @@ func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 	})
 }
 
-func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http.Request) {
+func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http.Request) error {
 	httpLog.Infof("Request for site %v -> %s", s.ServerConf.Website, req.RequestURI)
 	contentType, content, err := website.GetContent(s.ServerConf.Website, req.RequestURI)
 	if err != nil {
 		httpLog.Infof("No website content for %s", req.RequestURI)
-		default404Handler(resp, req)
-		return
+		return err
 	}
 	resp.Header().Set("Content-type", contentType)
 	resp.Write(content)
+	return nil
 }
 
-func default404Handler(resp http.ResponseWriter, req *http.Request) {
+func (s *SliverHTTPC2) defaultHandler(resp http.ResponseWriter, req *http.Request) {
+	// Request does not match the C2 profile so we pass it to the static content or 404 handler
+	if s.ServerConf.Website != "" {
+		httpLog.Infof("Serving static content from website %v", s.ServerConf.Website)
+		err := s.websiteContentHandler(resp, req)
+		if err == nil {
+			return
+		}
+	}
 	httpLog.Debugf("[404] No match for %s", req.RequestURI)
 	resp.WriteHeader(http.StatusNotFound)
 }
@@ -441,23 +443,24 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	_, encoder, err := encoders.EncoderFromNonce(nonce)
 	if err != nil {
 		httpLog.Warnf("Request specified an invalid encoder (%d)", nonce)
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
 		return
 	}
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		httpLog.Errorf("Failed to read body %s", err)
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
+		return
 	}
 	data, err := encoder.Decode(body)
 	if err != nil {
 		httpLog.Errorf("Failed to decode body %s", err)
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
 		return
 	}
 	if len(data) < 32 {
 		httpLog.Warn("Invalid data length")
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
 		return
 	}
 
@@ -466,14 +469,14 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	implantConfig, err := db.ImplantConfigByECCPublicKeyDigest(publicKeyDigest)
 	if err != nil || implantConfig == nil {
 		httpLog.Warn("Unknown public key")
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
 		return
 	}
 	// Don't forget to re-add the b64 padding, the length is known so no big deal
 	publicKey, err := base64.StdEncoding.DecodeString(implantConfig.ECCPublicKey + "=")
 	if err != nil || len(publicKey) != 32 {
 		httpLog.Warn("Failed to decode public key")
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
 		return
 	}
 	var senderPublicKey [32]byte
@@ -484,11 +487,15 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	sessionInitData, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, ciphertext)
 	if err != nil {
 		httpLog.Error("ECC decryption failed")
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
 		return
 	}
 	sessionInit := &sliverpb.HTTPSessionInit{}
-	proto.Unmarshal(sessionInitData, sessionInit)
+	err = proto.Unmarshal(sessionInitData, sessionInit)
+	if err != nil {
+		httpLog.Error("Failed to decode session init")
+		return
+	}
 
 	httpSession := newHTTPSession()
 	sKey, err := cryptography.KeyFromBytes(sessionInit.Key)
@@ -504,7 +511,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	responseCiphertext, err := httpSession.CipherCtx.Encrypt([]byte(httpSession.ID))
 	if err != nil {
 		httpLog.Info("Failed to encrypt session identifier")
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
 		return
 	}
 	http.SetCookie(resp, &http.Cookie{
@@ -521,7 +528,7 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 	httpLog.Debug("Session request")
 	httpSession := s.getHTTPSession(req)
 	if httpSession == nil {
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
 		return
 	}
 	httpSession.ImplanConn.UpdateLastMessage()
@@ -551,7 +558,7 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 	httpLog.Debug("Poll request")
 	httpSession := s.getHTTPSession(req)
 	if httpSession == nil {
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
 		return
 	}
 	httpSession.ImplanConn.UpdateLastMessage()
@@ -584,7 +591,7 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 	_, encoder, err := encoders.EncoderFromNonce(nonce)
 	if err != nil {
 		httpLog.Warnf("Request specified an invalid encoder (%d)", nonce)
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
 		return nil, ErrInvalidEncoder
 	}
 
@@ -600,13 +607,13 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 	data, err := encoder.Decode(body)
 	if err != nil {
 		httpLog.Warnf("Failed to decode body %s", err)
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
 		return nil, ErrDecodeFailed
 	}
 	plaintext, err := httpSession.CipherCtx.Decrypt(data)
 	if err != nil {
 		httpLog.Warnf("Decryption failure %s", err)
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
 		return nil, ErrDecryptFailed
 	}
 	return plaintext, err
@@ -633,14 +640,14 @@ func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request)
 	httpSession := s.getHTTPSession(req)
 	if httpSession == nil {
 		httpLog.Infof("No session with id %#v", httpSession.ID)
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
 		return
 	}
 
 	_, err := s.readReqBody(httpSession, resp, req)
 	if err != nil {
 		httpLog.Errorf("Failed to read request body %s", err)
-		default404Handler(resp, req)
+		s.defaultHandler(resp, req)
 		return
 	}
 
