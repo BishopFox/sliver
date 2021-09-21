@@ -24,6 +24,8 @@ package db
 */
 
 import (
+	"encoding/hex"
+
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
@@ -39,6 +41,18 @@ func ImplantConfigByID(id string) (*models.ImplantConfig, error) {
 	config := models.ImplantConfig{}
 	err := Session().Where(&models.ImplantConfig{
 		ID: uuid.FromStringOrNil(id),
+	}).First(&config).Error
+	if err != nil {
+		return nil, err
+	}
+	return &config, err
+}
+
+// ImplantConfigByECCPublicKey - Fetch implant build by it's ecc public key
+func ImplantConfigByECCPublicKeyDigest(publicKeyDigest [32]byte) (*models.ImplantConfig, error) {
+	config := models.ImplantConfig{}
+	err := Session().Where(&models.ImplantConfig{
+		ECCPublicKeyDigest: hex.EncodeToString(publicKeyDigest[:]),
 	}).First(&config).Error
 	if err != nil {
 		return nil, err

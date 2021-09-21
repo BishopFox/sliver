@@ -20,6 +20,8 @@ package generate
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -489,7 +491,9 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		return "", err
 	}
 	serverKeyPair := cryptography.ECCServerKeyPair()
+	digest := sha256.Sum256((*implantKeyPair.Public)[:])
 	config.ECCPublicKey = implantKeyPair.PublicBase64()
+	config.ECCPublicKeyDigest = hex.EncodeToString(digest[:])
 	config.ECCPrivateKey = implantKeyPair.PrivateBase64()
 	config.ECCServerPublicKey = serverKeyPair.PublicBase64()
 

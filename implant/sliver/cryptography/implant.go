@@ -1,6 +1,9 @@
 package cryptography
 
-import "encoding/base64"
+import (
+	"crypto/sha256"
+	"encoding/base64"
+)
 
 var (
 	// ECCPublicKey - The implant's ECC public key
@@ -46,8 +49,9 @@ func ECCEncryptToServer(plaintext []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	digest := sha256.Sum256((*keyPair.Public)[:])
 	msg := make([]byte, 32+len(ciphertext))
-	copy(msg, (*keyPair.Public)[:])
+	copy(msg, digest[:])
 	copy(msg[32:], ciphertext)
 	return msg, nil
 }

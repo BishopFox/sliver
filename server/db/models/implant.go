@@ -73,6 +73,7 @@ type ImplantConfig struct {
 
 	// ECC
 	ECCPublicKey          string
+	ECCPublicKeyDigest    string
 	ECCPrivateKey         string
 	ECCPublicKeySignature string
 	ECCServerPublicKey    string

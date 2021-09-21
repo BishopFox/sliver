@@ -23,6 +23,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -43,6 +44,7 @@ import (
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
+	"github.com/bishopfox/sliver/server/db"
 	sliverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/website"
@@ -459,10 +461,24 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		return
 	}
 
-	httpLog.Infof("GOT: %v", data)
-
+	var publicKeyDigest [32]byte
+	copy(publicKeyDigest[:], data[:32])
+	implantConfig, err := db.ImplantConfigByECCPublicKeyDigest(publicKeyDigest)
+	if err != nil || implantConfig == nil {
+		httpLog.Warn("Unknown public key")
+		default404Handler(resp, req)
+		return
+	}
+	// Don't forget to re-add the b64 padding, the length is known so no big deal
+	publicKey, err := base64.StdEncoding.DecodeString(implantConfig.ECCPublicKey + "=")
+	if err != nil || len(publicKey) != 32 {
+		httpLog.Warn("Failed to decode public key")
+		default404Handler(resp, req)
+		return
+	}
 	var senderPublicKey [32]byte
-	copy(senderPublicKey[:], data[:32])
+	copy(senderPublicKey[:], publicKey)
+
 	ciphertext := data[32:]
 	serverKeyPair := cryptography.ECCServerKeyPair()
 	sessionInitData, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, ciphertext)
