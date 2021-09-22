@@ -642,14 +642,10 @@ func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request)
 		s.defaultHandler(resp, req)
 		return
 	}
-
-	_, err := s.readReqBody(httpSession, resp, req)
-	if err != nil {
-		httpLog.Errorf("Failed to read request body %s", err)
-		s.defaultHandler(resp, req)
-		return
+	for _, cookie := range req.Cookies() {
+		cookie.MaxAge = -1
+		http.SetCookie(resp, cookie)
 	}
-
 	s.HTTPSessions.Remove(httpSession.ID)
 	resp.WriteHeader(http.StatusAccepted)
 }

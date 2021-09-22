@@ -20,14 +20,13 @@ package pivots
 
 import (
 	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
 
 	"encoding/binary"
 	"fmt"
-	"log"
 	"math/rand"
 	"time"
-
-	// {{end}}
 
 	"net"
 

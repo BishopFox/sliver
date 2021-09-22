@@ -238,7 +238,7 @@ var (
 				"javascript", "jscript",
 			},
 
-			StartSessionFileExt: ".phtml",
+			StartSessionFileExt: ".html",
 			SessionFileExt:      ".php",
 			SessionFiles: []string{
 				"login", "signin", "api", "samples", "rpc", "index",
