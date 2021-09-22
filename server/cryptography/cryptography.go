@@ -54,8 +54,6 @@ const (
 	// TOTPDigits - Number of digits in the TOTP
 	TOTPDigits = 8
 	TOTPPeriod = uint(30)
-
-	x25519Label = "sliver-x25519-v1"
 )
 
 var (
@@ -88,7 +86,7 @@ func RandomKey() [chacha20poly1305.KeySize]byte {
 func KeyFromBytes(data []byte) ([chacha20poly1305.KeySize]byte, error) {
 	var key [chacha20poly1305.KeySize]byte
 	if len(data) != chacha20poly1305.KeySize {
-		// We have to return a key due to the type, returning a random key
+		// We cannot return nil due to the fixed length buffer type ...
 		// and it seems like a really bad idea to return a zero key in case
 		// the error is not checked by the caller, so instead we return a
 		// random key, which should break everything if the error is not checked.
@@ -104,10 +102,12 @@ type ECCKeyPair struct {
 	Private *[32]byte `json:"private"`
 }
 
+// PublicBase64 - Base64 encoded public key
 func (e *ECCKeyPair) PublicBase64() string {
 	return base64.RawStdEncoding.EncodeToString(e.Public[:])
 }
 
+// PrivateBase64 - Base64 encoded private key
 func (e *ECCKeyPair) PrivateBase64() string {
 	return base64.RawStdEncoding.EncodeToString(e.Private[:])
 }

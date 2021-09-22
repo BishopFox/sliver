@@ -297,8 +297,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 		s.stagerHander,
 	).MatcherFunc(s.filterOTP).Methods(http.MethodGet)
 
-	// 404 Handler - Just 404 on every path that doesn't match another handler
-	httpLog.Infof("No website content, using wildcard 404 handler")
+	// Default handler returns static content or 404s
 	router.HandleFunc("/{rpath:.*}", s.defaultHandler).Methods(http.MethodGet, http.MethodPost)
 
 	router.Use(loggingMiddleware)
