@@ -25,6 +25,7 @@ package db
 
 import (
 	"encoding/hex"
+	"time"
 
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/gofrs/uuid"
@@ -305,6 +306,17 @@ func PendingBeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error)
 		},
 	).Find(&tasks).Error
 	return tasks, err
+}
+
+// UpdateBeaconCheckinByID - Update the beacon's last / next checkin
+func UpdateBeaconCheckinByID(beaconID string, next int64) error {
+	err := Session().Where(&models.Beacon{
+		ID: uuid.FromStringOrNil(beaconID),
+	}).Updates(models.Beacon{
+		LastCheckin: time.Now(),
+		NextCheckin: next,
+	}).Error
+	return err
 }
 
 // BeaconTasksByEnvelopeID - Select a (sent) BeaconTask by its envelope ID

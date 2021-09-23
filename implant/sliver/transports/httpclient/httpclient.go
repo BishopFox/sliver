@@ -387,6 +387,9 @@ func (s *SliverHTTPClient) CloseSession() error {
 		// {{end}}
 		return errors.New("{{if .Config.Debug}}HTTP close failed (non-200 resp){{end}}")
 	}
+	// {{if .Config.Debug}}
+	log.Printf("[http] session closed")
+	// {{end}}
 	return nil
 }
 

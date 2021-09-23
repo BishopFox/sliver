@@ -199,7 +199,11 @@ func main() {
 		if connection != nil {
 			sessionMainLoop(connection)
 		}
-		time.Sleep(transports.GetReconnectInterval())
+		reconnect := transports.GetReconnectInterval()
+		// {{if .Config.Debug}}
+		log.Printf("Reconnect sleep: %s", reconnect)
+		// {{end}}
+		time.Sleep(reconnect)
 	}
 	// {{end}}
 
@@ -356,7 +360,9 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 			})
 		}
 	}
-
+	// {{if .Config.Debug}}
+	log.Printf("[beacon] waiting for task(s) to complete ...")
+	// {{end}}
 	wg.Wait() // Wait for all tasks to complete
 	// {{if .Config.Debug}}
 	log.Printf("[beacon] all tasks completed, sending results to server")

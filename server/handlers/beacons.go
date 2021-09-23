@@ -104,6 +104,12 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) *slive
 		beaconHandlerLog.Errorf("Error decoding beacon tasks message: %s", err)
 		return nil
 	}
+	go func() {
+		err = db.UpdateBeaconCheckinByID(beaconTasks.ID, beaconTasks.NextCheckin)
+		if err != nil {
+			beaconHandlerLog.Errorf("failed to update checkin: %s", err)
+		}
+	}()
 
 	// If the message contains tasks then process it as results
 	// otherwise send the beacon any pending tasks. Currently we
