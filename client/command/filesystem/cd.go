@@ -47,7 +47,6 @@ func CdCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	if pwd.Response != nil && pwd.Response.Async {
 		con.AddBeaconCallback(pwd.Response.TaskID, func(task *clientpb.BeaconTask) {
-			con.PrintInfof("Task completed: %s\n\n", task.ID)
 			err = proto.Unmarshal(task.Response, pwd)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)

@@ -53,10 +53,21 @@ func (rpc *Server) GetBeacons(ctx context.Context, req *commonpb.Empty) (*client
 	return &clientpb.Beacons{Beacons: beacons}, nil
 }
 
+// GetBeacon - Get a list of beacons from the database
+func (rpc *Server) GetBeacon(ctx context.Context, req *clientpb.Beacon) (*clientpb.Beacon, error) {
+	beacon, err := db.BeaconByID(req.ID)
+	if err != nil {
+		beaconRpcLog.Error(err)
+		return nil, ErrDatabaseFailure
+	}
+	return beacon.ToProtobuf(), nil
+}
+
 // RmBeacon - Delete a beacon and any related tasks
 func (rpc *Server) RmBeacon(ctx context.Context, req *clientpb.Beacon) (*commonpb.Empty, error) {
 	beacon, err := db.BeaconByID(req.ID)
 	if err != nil {
+		beaconRpcLog.Error(err)
 		return nil, ErrInvalidBeaconID
 	}
 	err = db.Session().Where(&models.BeaconTask{

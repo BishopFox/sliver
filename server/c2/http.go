@@ -481,9 +481,8 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	var senderPublicKey [32]byte
 	copy(senderPublicKey[:], publicKey)
 
-	ciphertext := data[32:]
 	serverKeyPair := cryptography.ECCServerKeyPair()
-	sessionInitData, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, ciphertext)
+	sessionInitData, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, data[32:])
 	if err != nil {
 		httpLog.Error("ECC decryption failed")
 		s.defaultHandler(resp, req)

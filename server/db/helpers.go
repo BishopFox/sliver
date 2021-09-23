@@ -115,7 +115,6 @@ func ImplantProfiles() ([]*models.ImplantProfile, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	for _, profile := range profiles {
 		err = loadC2s(profile.ImplantConfig)
 		if err != nil {
@@ -134,12 +133,10 @@ func ImplantProfileByName(name string) (*models.ImplantProfile, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	err = loadC2s(profile.ImplantConfig)
 	if err != nil {
 		return nil, err
 	}
-
 	return &profile, err
 }
 

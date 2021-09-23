@@ -59,7 +59,6 @@ func CatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	if download.Response != nil && download.Response.Async {
 		con.AddBeaconCallback(download.Response.TaskID, func(task *clientpb.BeaconTask) {
-			con.PrintInfof("Task completed: %s\n\n", task.ID)
 			err = proto.Unmarshal(task.Response, download)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)

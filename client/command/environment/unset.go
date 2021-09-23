@@ -52,7 +52,6 @@ func EnvUnsetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	if unsetResp.Response != nil && unsetResp.Response.Async {
 		con.AddBeaconCallback(unsetResp.Response.TaskID, func(task *clientpb.BeaconTask) {
-			con.PrintInfof("Task completed: %s\n\n", task.ID)
 			err = proto.Unmarshal(task.Response, unsetResp)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)

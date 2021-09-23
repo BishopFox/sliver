@@ -83,7 +83,8 @@ func PrintBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) 
 
 	for _, beacon := range beacons {
 		next := time.Unix(beacon.NextCheckin, 0).Format(time.RFC1123)
-		if time.Unix(beacon.NextCheckin, 0).Before(time.Now()) {
+		// Arbitrary 3 second margin of error (jitter is already accounted for)
+		if time.Unix(beacon.NextCheckin, 0).Add(3 * time.Second).Before(time.Now()) {
 			next = fmt.Sprintf("%s%s%s", console.Bold+console.Red, next, console.Normal)
 		}
 		tw.AppendRow(table.Row{
@@ -95,7 +96,7 @@ func PrintBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) 
 			beacon.Hostname,
 			beacon.Username,
 			fmt.Sprintf("%s/%s", beacon.OS, beacon.Arch),
-			time.Unix(beacon.LastCheckin, 0).Format(time.RFC1123),
+			fmt.Sprintf("%s ago", time.Now().Sub(time.Unix(beacon.LastCheckin, 0))),
 			next,
 		})
 	}

@@ -74,6 +74,8 @@ const (
 	Debug = Bold + Purple + "[-] " + Normal
 	// Woot - Display success
 	Woot = Bold + Green + "[$] " + Normal
+	// Success - Diplay success
+	Success = Bold + Green + "[+] " + Normal
 )
 
 // Observer - A function to call when the sessions changes
@@ -288,6 +290,9 @@ func (con *SliverConsoleClient) triggerBeaconTaskCallback(data []byte) {
 		con.PrintErrorf("\rCould not unmarshal beacon task: %s\n", err)
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	beacon, _ := con.Rpc.GetBeacon(ctx, &clientpb.Beacon{ID: task.BeaconID})
 
 	// If the callback is not in our map then we don't do anything, the beacon task
 	// was either issued by another operator in multiplayer mode or the client process
@@ -296,8 +301,10 @@ func (con *SliverConsoleClient) triggerBeaconTaskCallback(data []byte) {
 	defer con.BeaconTaskCallbacksMutex.Unlock()
 	if callback, ok := con.BeaconTaskCallbacks[task.ID]; ok {
 		if con.Settings.BeaconAutoResults {
-			// TODO: The background context could block forever and deadlock the mutex
-			task, err = con.Rpc.GetBeaconTaskContent(context.Background(), &clientpb.BeaconTask{
+			if beacon != nil {
+				con.PrintSuccessf("%s completed task %s\n\n", beacon.Name, strings.Split(task.ID, "-")[0])
+			}
+			task, err = con.Rpc.GetBeaconTaskContent(ctx, &clientpb.BeaconTask{
 				ID: task.ID,
 			})
 			con.Printf(Clearln + "\r")
@@ -455,7 +462,14 @@ func (con *SliverConsoleClient) GetActiveSessionConfig() *clientpb.ImplantConfig
 
 // PrintAsyncResponse - Print the generic async response information
 func (con *SliverConsoleClient) PrintAsyncResponse(resp *commonpb.Response) {
-	con.PrintInfof("Tasked beacon %s (%s)\n", resp.BeaconID, resp.TaskID)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	beacon, err := con.Rpc.GetBeacon(ctx, &clientpb.Beacon{ID: resp.BeaconID})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return
+	}
+	con.PrintInfof("Tasked beacon %s (%s)\n", beacon.Name, strings.Split(resp.TaskID, "-")[0])
 }
 
 func (con *SliverConsoleClient) Printf(format string, args ...interface{}) (n int, err error) {
@@ -468,6 +482,10 @@ func (con *SliverConsoleClient) Println(args ...interface{}) (n int, err error) 
 
 func (con *SliverConsoleClient) PrintInfof(format string, args ...interface{}) (n int, err error) {
 	return fmt.Fprintf(con.App.Stdout(), Clearln+Info+format, args...)
+}
+
+func (con *SliverConsoleClient) PrintSuccessf(format string, args ...interface{}) (n int, err error) {
+	return fmt.Fprintf(con.App.Stdout(), Clearln+Success+format, args...)
 }
 
 func (con *SliverConsoleClient) PrintWarnf(format string, args ...interface{}) (n int, err error) {
