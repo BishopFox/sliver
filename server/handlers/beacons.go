@@ -41,19 +41,19 @@ var (
 	beaconHandlerLog = log.NamedLogger("handlers", "beacons")
 )
 
-func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) {
+func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	beaconReg := &sliverpb.BeaconRegister{}
 	err := proto.Unmarshal(data, beaconReg)
 	if err != nil {
 		beaconHandlerLog.Errorf("Error decoding beacon registration message: %s", err)
-		return
+		return nil
 	}
 	beaconHandlerLog.Infof("Beacon registration from %s", beaconReg.ID)
 	beacon, err := db.BeaconByID(beaconReg.ID)
 	beaconHandlerLog.Debugf("Found %v err = %s", beacon, err)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		beaconHandlerLog.Errorf("Database query error %s", err)
-		return
+		return nil
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		beacon = &models.Beacon{
@@ -93,14 +93,16 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) {
 		EventType: consts.BeaconRegisteredEvent,
 		Data:      eventData,
 	})
+
+	return nil
 }
 
-func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) {
+func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	beaconTasks := &sliverpb.BeaconTasks{}
 	err := proto.Unmarshal(data, beaconTasks)
 	if err != nil {
 		beaconHandlerLog.Errorf("Error decoding beacon tasks message: %s", err)
-		return
+		return nil
 	}
 
 	// If the message contains tasks then process it as results
@@ -111,14 +113,14 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) {
 	if 0 < len(beaconTasks.Tasks) {
 		beaconHandlerLog.Infof("Beacon %s returned %d task result(s)", beaconTasks.ID, len(beaconTasks.Tasks))
 		go beaconTaskResults(beaconTasks.ID, beaconTasks.Tasks)
-		return
+		return nil
 	}
 
 	beaconHandlerLog.Infof("Beacon %s requested pending task(s)", beaconTasks.ID)
 	pendingTasks, err := db.PendingBeaconTasksByBeaconID(beaconTasks.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		beaconHandlerLog.Errorf("Beacon task database error: %s", err)
-		return
+		return nil
 	}
 	tasks := []*sliverpb.Envelope{}
 	for _, pendingTask := range pendingTasks {
@@ -142,16 +144,16 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) {
 	taskData, err := proto.Marshal(&sliverpb.BeaconTasks{Tasks: tasks})
 	if err != nil {
 		beaconHandlerLog.Errorf("Error marshaling beacon tasks message: %s", err)
-		return
+		return nil
 	}
 	beaconHandlerLog.Infof("Sending %d task(s) to beacon %s", len(pendingTasks), beaconTasks.ID)
-	implantConn.Send <- &sliverpb.Envelope{
+	return &sliverpb.Envelope{
 		Type: sliverpb.MsgBeaconTasks,
 		Data: taskData,
 	}
 }
 
-func beaconTaskResults(beaconID string, taskEnvelopes []*sliverpb.Envelope) {
+func beaconTaskResults(beaconID string, taskEnvelopes []*sliverpb.Envelope) *sliverpb.Envelope {
 	for _, envelope := range taskEnvelopes {
 		dbTask, err := db.BeaconTaskByEnvelopeID(beaconID, envelope.ID)
 		if err != nil {
@@ -178,4 +180,5 @@ func beaconTaskResults(beaconID string, taskEnvelopes []*sliverpb.Envelope) {
 			Data:      eventData,
 		})
 	}
+	return nil
 }

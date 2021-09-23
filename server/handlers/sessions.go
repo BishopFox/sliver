@@ -39,15 +39,15 @@ var (
 	sessionHandlerLog = log.NamedLogger("handlers", "sessions")
 )
 
-func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) {
+func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	if implantConn == nil {
-		return
+		return nil
 	}
 	register := &sliverpb.Register{}
 	err := proto.Unmarshal(data, register)
 	if err != nil {
 		sessionHandlerLog.Errorf("Error decoding session registration message: %s", err)
-		return
+		return nil
 	}
 
 	session := core.NewSession(implantConn)
@@ -78,6 +78,7 @@ func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) {
 		core.Sessions.Remove(session.ID)
 	}
 	go auditLogSession(session, register)
+	return nil
 }
 
 type auditLogNewSessionMsg struct {
@@ -99,7 +100,7 @@ func auditLogSession(session *core.Session, register *sliverpb.Register) {
 
 // The handler mutex prevents a send on a closed channel, without it
 // two handlers calls may race when a tunnel is quickly created and closed.
-func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) {
+func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	session := core.SessionFromImplantConnection(implantConn)
 	tunnelHandlerMutex.Lock()
 	defer tunnelHandlerMutex.Unlock()
@@ -115,9 +116,10 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) {
 	} else {
 		sessionHandlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
 	}
+	return nil
 }
 
-func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) {
+func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	session := core.SessionFromImplantConnection(implantConn)
 	tunnelHandlerMutex.Lock()
 	defer tunnelHandlerMutex.Unlock()
@@ -125,7 +127,7 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) {
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
 	if !tunnelData.Closed {
-		return
+		return nil
 	}
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
 	if tunnel != nil {
@@ -138,9 +140,11 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) {
 	} else {
 		sessionHandlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
 	}
+	return nil
 }
 
-func pingHandler(implantConn *core.ImplantConnection, data []byte) {
+func pingHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	session := core.SessionFromImplantConnection(implantConn)
 	sessionHandlerLog.Debugf("ping from session %d", session.ID)
+	return nil
 }

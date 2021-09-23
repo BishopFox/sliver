@@ -540,6 +540,7 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 	envelope := &sliverpb.Envelope{}
 	proto.Unmarshal(plaintext, envelope)
 
+	resp.WriteHeader(http.StatusAccepted)
 	handlers := sliverHandlers.GetHandlers()
 	if envelope.ID != 0 {
 		httpSession.ImplanConn.RespMutex.RLock()
@@ -548,9 +549,13 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 			resp <- envelope
 		}
 	} else if handler, ok := handlers[envelope.Type]; ok {
-		handler(httpSession.ImplanConn, envelope.Data)
+		respEnvelope := handler(httpSession.ImplanConn, envelope.Data)
+		if respEnvelope != nil {
+			go func() {
+				httpSession.ImplanConn.Send <- respEnvelope
+			}()
+		}
 	}
-	resp.WriteHeader(http.StatusAccepted)
 }
 
 func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) {

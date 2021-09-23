@@ -262,7 +262,7 @@ func httpBeacon(uri *url.URL) *Beacon {
 			client, err = httpclient.HTTPStartSession(uri.Host, uri.Path, timeout, proxyConfig)
 			if err != nil {
 				// {{if .Config.Debug}}
-				log.Printf("http(s) connection error %s", err)
+				log.Printf("[beacon] http(s) connection error %s", err)
 				// {{end}}
 				return err
 			}

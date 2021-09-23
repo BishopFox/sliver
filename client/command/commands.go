@@ -961,8 +961,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int64("D", "days", 0, "beacon interval days")
 			f.Int64("H", "hours", 0, "beacon interval hours")
-			f.Int64("M", "minutes", 15, "beacon interval minutes")
-			f.Int64("S", "seconds", 0, "beacon interval seconds")
+			f.Int64("M", "minutes", 0, "beacon interval minutes")
+			f.Int64("S", "seconds", 60, "beacon interval seconds")
 			f.Int64("J", "jitter", 30, "beacon interval jitter in seconds")
 
 			// Generate flags

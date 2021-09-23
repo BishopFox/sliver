@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	minBeaconInterval         = 15 * time.Second
+	minBeaconInterval         = 5 * time.Second
 	ErrBeaconIntervalTooShort = fmt.Errorf("Beacon interval must be %v or greater", minBeaconInterval)
 )
 

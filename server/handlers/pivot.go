@@ -73,7 +73,7 @@ func StopPivotHandlers() error {
 }
 
 // HandlePivotOpen - Handles a PivotOpen message
-func HandlePivotOpen(implantConn *core.ImplantConnection, data []byte) {
+func HandlePivotOpen(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	// if implantConn == nil {
 	// 	return
 	// }
@@ -135,10 +135,11 @@ func HandlePivotOpen(implantConn *core.ImplantConnection, data []byte) {
 	// core.Sessions.Add(sliverPivoted)
 	// go auditLogSession(sliverPivoted, register)
 	// Pivots.AddSession(pivotOpen.GetPivotID(), sliverPivoted)
+	return nil
 }
 
 // HandlePivotData - Handles a PivotData message
-func HandlePivotData(implantConn *core.ImplantConnection, data []byte) {
+func HandlePivotData(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	// envi := &sliverpb.PivotData{}
 	// err2 := proto.Unmarshal(data, envi)
 	// if err2 != nil {
@@ -165,10 +166,11 @@ func HandlePivotData(implantConn *core.ImplantConnection, data []byte) {
 	// } else if handler, ok := handlers[envelope.Type]; ok {
 	// 	go handler.(func(*core.Session, []byte))(sliverPivoted, envelope.Data)
 	// }
+	return nil
 }
 
 // HandlePivotClose - Handles a PivotClose message
-func HandlePivotClose(conn *core.ImplantConnection, data []byte) {
+func HandlePivotClose(conn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	// pivotClose := &sliverpb.PivotClose{}
 	// err := proto.Unmarshal(data, pivotClose)
 	// if err != nil {
@@ -181,4 +183,5 @@ func HandlePivotClose(conn *core.ImplantConnection, data []byte) {
 	// 	core.Sessions.Remove(sliverPivoted.ID)
 	// }
 	// Pivots.RemoveSession(pivotClose.GetPivotID())
+	return nil
 }

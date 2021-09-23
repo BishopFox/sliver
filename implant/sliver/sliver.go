@@ -175,13 +175,20 @@ func main() {
 	// {{end}}
 	for {
 		beacon := transports.NextBeacon()
+		// {{if .Config.Debug}}
+		log.Printf("Next beacon = %v", beacon)
+		// {{end}}
 		if beacon != nil {
 			err := beaconMainLoop(beacon)
 			if err != nil {
 				break
 			}
 		}
-		time.Sleep(transports.GetReconnectInterval())
+		reconnect := transports.GetReconnectInterval()
+		// {{if .Config.Debug}}
+		log.Printf("Reconnect sleep: %s", reconnect)
+		// {{end}}
+		time.Sleep(reconnect)
 	}
 	// {{else}}
 	// {{if .Config.Debug}}
@@ -229,7 +236,6 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 		NextCheckin: nextBeacon.UTC().Unix(),
 	}))
 	beacon.Close()
-
 	time.Sleep(time.Second)
 
 	// BeaconMain - Is executed in it's own goroutine as the function will block
@@ -263,28 +269,51 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	err := beacon.Start()
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] start failure %s", err)
+		// {{end}}
 		return err
 	}
-	defer beacon.Close()
+	defer func() {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] closing ...")
+		// {{end}}
+		beacon.Close()
+	}()
+	// {{if .Config.Debug}}
+	log.Printf("[beacon] sending check in ...")
+	// {{end}}
 	err = beacon.Send(Envelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
 		ID:          BeaconID,
 		NextCheckin: nextCheckin.UTC().Unix(),
 	}))
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] send failure %s", err)
+		// {{end}}
 		return err
 	}
+	// {{if .Config.Debug}}
+	log.Printf("[beacon] recv task(s) ...")
+	// {{end}}
 	envelope, err := beacon.Recv()
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] recv failure %s", err)
+		// {{end}}
 		return err
 	}
 	tasks := &sliverpb.BeaconTasks{}
 	err = proto.Unmarshal(envelope.Data, tasks)
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] unmarshal failure %s", err)
+		// {{end}}
 		return err
 	}
 
 	// {{if .Config.Debug}}
-	log.Printf("[beacon] Received %d task(s) from server", len(tasks.Tasks))
+	log.Printf("[beacon] received %d task(s) from server", len(tasks.Tasks))
 	// {{end}}
 	if len(tasks.Tasks) == 0 {
 		return nil
@@ -311,8 +340,6 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 				if err != nil {
 					log.Printf("[beacon] handler function returned an error: %s", err)
 				}
-				// {{end}}
-				// {{if .Config.Debug}}
 				log.Printf("[beacon] task completed (id: %d)", taskID)
 				// {{end}}
 				results = append(results, &sliverpb.Envelope{
@@ -341,7 +368,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	}))
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[beacon] Error sending results %s", err)
+		log.Printf("[beacon] error sending results %s", err)
 		// {{end}}
 	}
 	// {{if .Config.Debug}}
