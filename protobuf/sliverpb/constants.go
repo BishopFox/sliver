@@ -228,6 +228,9 @@ const (
 	// MsgPortfwd - Response of port forward
 	MsgPortfwd
 
+	// MsgSocksData - Response of SocksData
+	MsgSocksData
+
 	// MsgReconnectIntervalReq
 	MsgReconnectIntervalReq
 

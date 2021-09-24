@@ -214,6 +214,7 @@ const (
 	DLLHijackStr          = "dllhijack"
 
 	PortfwdStr = "portfwd"
+	Socks5Str = "socks5"
 
 	ReactionStr = "reaction"
 

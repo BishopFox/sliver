@@ -669,6 +669,23 @@ message Portfwd {
   commonpb.Response Response = 9;
 }
 
+// Socks
+message Socks {
+  uint64 TunnelID = 8 [jstype = JS_STRING];
+  uint32 SessionID = 9;
+}
+message SocksData {
+  bytes Data  = 1;
+  bool CloseConn = 2;
+  string Username = 3;
+  string Password = 4;
+  uint64 Sequence = 5;
+
+
+  uint64 TunnelID = 8 [jstype = JS_STRING];
+  commonpb.Request Request = 9;
+}
+
 // Named Pipes Messages
 message NamedPipesReq {
   string PipeName = 1;

