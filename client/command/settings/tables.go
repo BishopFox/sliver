@@ -19,6 +19,8 @@ package settings
 */
 
 import (
+	"strings"
+
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -56,7 +58,7 @@ var (
 			TopLeft:          " ",
 			TopRight:         " ",
 			TopSeparator:     " ",
-			UnfinishedRow:    " ~~",
+			UnfinishedRow:    "~~",
 		},
 		Color: table.ColorOptions{
 			IndexColumn:  text.Colors{},
@@ -91,4 +93,28 @@ func GetTableStyle(con *console.SliverConsoleClient) table.Style {
 		}
 	}
 	return tableStyles[SliverDefault.Name]
+}
+
+// GetPageSize - Page size for tables
+func GetPageSize() int {
+	return 10
+}
+
+func PagesOf(tw table.Writer) [][]string {
+	lines := strings.Split(tw.Render(), "\n")
+	if len(lines) < 2 {
+		return [][]string{}
+	}
+	token := lines[0]
+	pages := [][]string{}
+	page := []string{token}
+	for _, line := range lines[1:] {
+		if line != token {
+			page = append(page, line)
+		} else {
+			pages = append(pages, page)
+			page = []string{token}
+		}
+	}
+	return pages
 }

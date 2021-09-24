@@ -82,21 +82,30 @@ func PrintBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) 
 	})
 
 	for _, beacon := range beacons {
+		color := console.Normal
+		activeBeacon := con.ActiveTarget.GetBeacon()
+		if activeBeacon != nil && activeBeacon.ID == beacon.ID {
+			color = console.Green
+		}
+
 		next := time.Unix(beacon.NextCheckin, 0).Format(time.RFC1123)
 		// Arbitrary 3 second margin of error (jitter is already accounted for)
 		if time.Unix(beacon.NextCheckin, 0).Add(3 * time.Second).Before(time.Now()) {
 			next = fmt.Sprintf("%s%s%s", console.Bold+console.Red, next, console.Normal)
+		} else {
+			next = fmt.Sprintf("%s%s%s", console.Bold+console.Green, next, console.Normal)
 		}
+
 		tw.AppendRow(table.Row{
-			strings.Split(beacon.ID, "-")[0],
-			beacon.Name,
-			fmt.Sprintf("%d / %d", beacon.TasksCountCompleted, beacon.TasksCount),
-			beacon.Transport,
-			beacon.RemoteAddress,
-			beacon.Hostname,
-			beacon.Username,
-			fmt.Sprintf("%s/%s", beacon.OS, beacon.Arch),
-			fmt.Sprintf("%s ago", time.Now().Sub(time.Unix(beacon.LastCheckin, 0))),
+			fmt.Sprintf(color+"%s"+console.Normal, strings.Split(beacon.ID, "-")[0]),
+			fmt.Sprintf(color+"%s"+console.Normal, beacon.Name),
+			fmt.Sprintf(color+"%d / %d"+console.Normal, beacon.TasksCountCompleted, beacon.TasksCount),
+			fmt.Sprintf(color+"%s"+console.Normal, beacon.Transport),
+			fmt.Sprintf(color+"%s"+console.Normal, beacon.RemoteAddress),
+			fmt.Sprintf(color+"%s"+console.Normal, beacon.Hostname),
+			fmt.Sprintf(color+"%s"+console.Normal, beacon.Username),
+			fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
+			fmt.Sprintf(color+"%s ago"+console.Normal, time.Now().Sub(time.Unix(beacon.LastCheckin, 0))),
 			next,
 		})
 	}

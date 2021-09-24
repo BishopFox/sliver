@@ -22,8 +22,10 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 // TerminateCmd - Terminate a process on the remote system
@@ -39,10 +41,26 @@ func TerminateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Pid:     int32(pid),
 		Force:   ctx.Flags.Bool("force"),
 	})
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-	} else {
-		con.PrintInfof("Process %d has been terminated\n", terminated.Pid)
-	}
 
+	if terminated.Response != nil && terminated.Response.Async {
+		con.AddBeaconCallback(terminated.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, terminated)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+			} else {
+				con.PrintInfof("Process %d has been terminated\n", terminated.Pid)
+			}
+		})
+		con.PrintAsyncResponse(terminated.Response)
+	} else {
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+		} else {
+			con.PrintInfof("Process %d has been terminated\n", terminated.Pid)
+		}
+	}
 }

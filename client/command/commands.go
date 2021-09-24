@@ -1437,6 +1437,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("e", "exe", "", "filter based on executable name")
 			f.String("o", "owner", "", "filter based on owner")
 			f.Bool("c", "print-cmdline", false, "print command line arguments")
+			f.Bool("O", "overflow", false, "overflow terminal width (display truncated rows)")
+			f.Int("S", "skip-pages", 0, "skip the first n page(s)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},

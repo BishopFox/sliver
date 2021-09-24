@@ -21,7 +21,6 @@ package sessions
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -123,14 +122,11 @@ func PrintSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 		"Health",
 	})
 
-	activeIndex := -1
-	index := 0
 	for _, session := range sessions {
+		color := console.Normal
 		if con.ActiveTarget.GetSession() != nil && con.ActiveTarget.GetSession().ID == session.ID {
-			activeIndex = index + 2 // Two lines for the headers
+			color = console.Green
 		}
-		index++
-
 		var SessionHealth string
 		if session.IsDead {
 			SessionHealth = console.Bold + console.Red + "[DEAD]" + console.Normal
@@ -142,14 +138,14 @@ func PrintSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 			burned = "🔥"
 		}
 		tw.AppendRow(table.Row{
-			session.ID,
-			session.Name,
-			session.Transport,
-			session.RemoteAddress,
-			session.Hostname,
-			session.Username,
-			fmt.Sprintf("%s/%s", session.OS, session.Arch),
-			time.Unix(session.LastCheckin, 0).Format(time.RFC1123),
+			fmt.Sprintf(color+"%d"+console.Normal, session.ID),
+			fmt.Sprintf(color+"%s"+console.Normal, session.Name),
+			fmt.Sprintf(color+"%s"+console.Normal, session.Transport),
+			fmt.Sprintf(color+"%s"+console.Normal, session.RemoteAddress),
+			fmt.Sprintf(color+"%s"+console.Normal, session.Hostname),
+			fmt.Sprintf(color+"%s"+console.Normal, session.Username),
+			fmt.Sprintf(color+"%s/%s"+console.Normal, session.OS, session.Arch),
+			fmt.Sprintf(color+"%s"+console.Normal, time.Unix(session.LastCheckin, 0).Format(time.RFC1123)),
 			burned + SessionHealth,
 		})
 	}
@@ -157,20 +153,5 @@ func PrintSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 		{Name: "ID", Mode: table.Asc},
 	})
 
-	if activeIndex != -1 {
-		lines := strings.Split(tw.Render(), "\n")
-		for lineNumber, line := range lines {
-			if len(line) == 0 {
-				continue
-			}
-			if lineNumber == activeIndex {
-				con.Printf("%s%s%s\n", console.Green, line, console.Normal)
-			} else {
-				con.Printf("%s\n", line)
-			}
-		}
-	} else {
-		con.Printf("%s\n", tw.Render())
-	}
-
+	con.Printf("%s\n", tw.Render())
 }
