@@ -585,11 +585,13 @@ func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
 	}
 	if session != nil {
 		s.session = session
+		s.beacon = nil
 		for _, observer := range s.observers {
 			observer(s.session, s.beacon)
 		}
 	} else if beacon != nil {
 		s.beacon = beacon
+		s.session = nil
 		for _, observer := range s.observers {
 			observer(s.session, s.beacon)
 		}

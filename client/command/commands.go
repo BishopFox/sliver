@@ -411,6 +411,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Beacon task management",
 		LongHelp: help.GetHelpFor([]string{consts.TasksStr}),
 		Flags: func(f *grumble.Flags) {
+			f.Bool("O", "overflow", false, "overflow terminal width (display truncated rows)")
+			f.Int("S", "skip-pages", 0, "skip the first n page(s)")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {

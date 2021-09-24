@@ -19,12 +19,15 @@ package settings
 */
 
 import (
+	"fmt"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 var (
@@ -100,6 +103,7 @@ func GetPageSize() int {
 	return 10
 }
 
+// PagesOf - Return the pages of a table
 func PagesOf(tw table.Writer) [][]string {
 	lines := strings.Split(tw.Render(), "\n")
 	if len(lines) < 2 {
@@ -116,5 +120,53 @@ func PagesOf(tw table.Writer) [][]string {
 			page = []string{token}
 		}
 	}
+	pages = append(pages, page)
 	return pages
+}
+
+// PaginateTable - Render paginated table to console
+func PaginateTable(tw table.Writer, skipPages int, overflow bool, interactive bool, con *console.SliverConsoleClient) {
+	if !overflow {
+		width, height, err := terminal.GetSize(0)
+		if err == nil {
+			if 7 < height {
+				tw.SetPageSize(height - 6)
+				tw.SetAllowedRowLength(width)
+			}
+		} else {
+			tw.SetAllowedRowLength(150)
+		}
+	}
+
+	pages := PagesOf(tw)
+	for pageNumber, page := range pages {
+		if pageNumber+1 < skipPages {
+			continue
+		}
+		for _, line := range page {
+			if len(line) == 0 {
+				continue
+			}
+			con.Printf("%s\n", line)
+		}
+		con.Println()
+		if interactive {
+			if 1 < len(pages) {
+				nextPage := false
+				prompt := &survey.Confirm{
+					Message: fmt.Sprintf("[%d/%d] Continue?", pageNumber+1, len(pages)),
+				}
+				survey.AskOne(prompt, &nextPage)
+				if !nextPage {
+					break
+				}
+				con.Println()
+			}
+		} else {
+			if 1 < len(pages) {
+				con.Printf(console.Bold+"Page [%d/%d]\n", pageNumber+1, len(pages))
+			}
+			break
+		}
+	}
 }

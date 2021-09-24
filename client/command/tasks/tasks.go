@@ -41,11 +41,11 @@ func TasksCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintWarnf("%s\n", err)
 		return
 	}
-	PrintBeaconTasks(beaconTasks.Tasks, con)
+	PrintBeaconTasks(beaconTasks.Tasks, ctx, con)
 }
 
 // PrintBeaconTasks - Print beacon tasks
-func PrintBeaconTasks(tasks []*clientpb.BeaconTask, con *console.SliverConsoleClient) {
+func PrintBeaconTasks(tasks []*clientpb.BeaconTask, ctx *grumble.Context, con *console.SliverConsoleClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
@@ -74,7 +74,9 @@ func PrintBeaconTasks(tasks []*clientpb.BeaconTask, con *console.SliverConsoleCl
 			completedAt,
 		})
 	}
-	con.Printf("%s\n", tw.Render())
+	overflow := ctx.Flags.Bool("overflow")
+	skipPages := ctx.Flags.Int("skip-pages")
+	settings.PaginateTable(tw, skipPages, overflow, true, con)
 }
 
 func prettyState(state string) string {
