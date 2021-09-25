@@ -428,7 +428,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 				"exe":           &grumble.FlagMapItem{Value: ""},
 				"owner":         &grumble.FlagMapItem{Value: ""},
 				"overflow":      &grumble.FlagMapItem{Value: false},
-				"skipPages":     &grumble.FlagMapItem{Value: 0},
+				"skip-pages":    &grumble.FlagMapItem{Value: 0},
 				"print-cmdline": &grumble.FlagMapItem{Value: true},
 			},
 		}

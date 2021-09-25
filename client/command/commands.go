@@ -1796,6 +1796,23 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 	})
+	beaconsCmd.AddCommand(&grumble.Command{
+		Name:     consts.PruneStr,
+		Help:     "Prune stale beacons automatically",
+		LongHelp: help.GetHelpFor([]string{consts.BeaconsStr, consts.PruneStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("d", "duration", "1h", "duration to prune beacons that have missed their last checkin")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			beacons.BeaconsPruneCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
 	con.App.AddCommand(beaconsCmd)
 
 	// [ Macros ] ---------------------------------------------

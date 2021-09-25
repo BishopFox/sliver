@@ -20,6 +20,7 @@ package tasks
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"time"
 
@@ -56,11 +57,11 @@ func PrintBeaconTasks(tasks []*clientpb.BeaconTask, ctx *grumble.Context, con *c
 		"Sent",
 		"Completed",
 	})
-	tw.SortBy([]table.SortBy{
-		{Name: "Created", Mode: table.Asc},
-		{Name: "Sent", Mode: table.Asc},
-		{Name: "Completed", Mode: table.Asc},
+
+	sort.Slice(tasks, func(i, j int) bool {
+		return tasks[i].CreatedAt > tasks[j].CreatedAt
 	})
+
 	filter := strings.ToLower(ctx.Flags.String("filter"))
 	for _, task := range tasks {
 		if filter != "" && !strings.HasPrefix(strings.ToLower(task.Description), filter) {
