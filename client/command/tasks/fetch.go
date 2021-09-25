@@ -29,7 +29,9 @@ import (
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
 	"github.com/bishopfox/sliver/client/command/filesystem"
+	"github.com/bishopfox/sliver/client/command/network"
 	"github.com/bishopfox/sliver/client/command/processes"
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -116,6 +118,7 @@ func filterTasksByTaskType(taskType string, tasks []*clientpb.BeaconTask) []*cli
 // PrintTask - Print the details of a beacon task
 func PrintTask(task *clientpb.BeaconTask, con *console.SliverConsoleClient) {
 	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableWithBordersStyle(con))
 	tw.AppendRow(table.Row{console.Bold + "Beacon Task" + console.Normal, task.ID})
 	tw.AppendSeparator()
 	tw.AppendRow(table.Row{"State", emojiState(task.State) + " " + prettyState(strings.Title(task.State))})
@@ -390,6 +393,19 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			return
 		}
 		filesystem.PrintUpload(upload, con)
+
+	// ---------------------
+	// Network commands
+	// ---------------------
+
+	case sliverpb.MsgIfconfigReq:
+		ifconfig := &sliverpb.Ifconfig{}
+		err := proto.Unmarshal(task.Response, ifconfig)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		network.PrintIfconfig(ifconfig, con)
 
 	// ---------------------
 	// Processes commands
