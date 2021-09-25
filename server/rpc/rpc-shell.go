@@ -59,9 +59,6 @@ func (rpc *Server) Shell(ctx context.Context, req *sliverpb.ShellReq) (*sliverpb
 
 // RunSSHCommand runs a SSH command using the client built into the implant
 func (rpc *Server) RunSSHCommand(ctx context.Context, req *sliverpb.SSHCommandReq) (*sliverpb.SSHCommand, error) {
-	if req.Request != nil && req.Request.Async {
-		return nil, ErrAsyncNotSupported
-	}
 	resp := &sliverpb.SSHCommand{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {

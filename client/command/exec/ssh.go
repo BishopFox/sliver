@@ -11,6 +11,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 // SSHCmd - A built-in SSH client command for the remote system (doesn't shell out)
@@ -51,7 +52,7 @@ func SSHCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 	}
 
-	commandResp, err := con.Rpc.RunSSHCommand(context.Background(), &sliverpb.SSHCommandReq{
+	sshCmd, err := con.Rpc.RunSSHCommand(context.Background(), &sliverpb.SSHCommandReq{
 		Username: username,
 		Hostname: hostname,
 		Port:     uint32(port),
@@ -64,20 +65,36 @@ func SSHCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	if sshCmd.Response != nil && sshCmd.Response.Async {
+		con.AddBeaconCallback(sshCmd.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, sshCmd)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintSSHCmd(sshCmd, con)
+		})
+		con.PrintAsyncResponse(sshCmd.Response)
+	} else {
+		PrintSSHCmd(sshCmd, con)
+	}
+}
 
-	if commandResp.Response != nil && commandResp.Response.Err != "" {
-		con.PrintErrorf("Error: %s\n", commandResp.Response.Err)
-		if commandResp.StdErr != "" {
-			con.PrintErrorf("StdErr: %s\n", commandResp.StdErr)
+// PrintSSHCmd - Print the ssh command response
+func PrintSSHCmd(sshCmd *sliverpb.SSHCommand, con *console.SliverConsoleClient) {
+	if sshCmd.Response != nil && sshCmd.Response.Err != "" {
+		con.PrintErrorf("Error: %s\n", sshCmd.Response.Err)
+		if sshCmd.StdErr != "" {
+			con.PrintErrorf("StdErr: %s\n", sshCmd.StdErr)
 		}
 		return
 	}
-	if commandResp.StdOut != "" {
-		con.PrintInfof("Output:")
-		con.Println(commandResp.StdOut)
-		if commandResp.StdErr != "" {
-			con.PrintInfof("StdErr")
-			con.Println(commandResp.StdErr)
+	if sshCmd.StdOut != "" {
+		con.PrintInfof("Output:\n")
+		con.Println(sshCmd.StdOut)
+		if sshCmd.StdErr != "" {
+			con.PrintInfof("StdErr:\n")
+			con.Println(sshCmd.StdErr)
 		}
 	}
 }

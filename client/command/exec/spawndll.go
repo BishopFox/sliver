@@ -67,7 +67,7 @@ func SpawnDllCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 // PrintSpawnDll - Print the SpawnDll command response
 func PrintSpawnDll(spawndll *sliverpb.SpawnDll, hostname string, ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if spawndll.GetResponse().GetErr() != "" {
-		con.PrintErrorf("Failed to spawn DLL: %s\n", spawndll.GetResponse().GetErr())
+		con.PrintErrorf("Failed to spawn dll: %s\n", spawndll.GetResponse().GetErr())
 		return
 	}
 

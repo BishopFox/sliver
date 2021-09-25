@@ -1,15 +1,5 @@
 package privilege
 
-import (
-	"context"
-	"strconv"
-	"strings"
-
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2021  Bishop Fox
@@ -28,6 +18,17 @@ import (
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	"context"
+	"strconv"
+	"strings"
+
+	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/desertbit/grumble"
+)
+
+// GetPrivsCmd - Get the current process privileges (Windows only)
 func GetPrivsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var processName string = "Current Process"
 
