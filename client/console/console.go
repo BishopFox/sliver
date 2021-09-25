@@ -167,75 +167,72 @@ func (con *SliverConsoleClient) EventLoop() {
 		switch event.EventType {
 
 		case consts.CanaryEvent:
-			con.Printf(Clearln+Warn+Bold+"WARNING: %s%s has been burned (DNS Canary)\n", Normal, event.Session.Name)
+			eventMsg := fmt.Sprintf(Bold+"WARNING: %s%s has been burned (DNS Canary)\n", Normal, event.Session.Name)
 			sessions := con.GetSessionsByName(event.Session.Name)
 			for _, session := range sessions {
-				con.Printf(Clearln+"\t🔥 Session #%d is affected\n", session.ID)
+				con.Printf(eventMsg+"\n"+Clearln+"\t🔥 Session #%d is affected\n", session.ID)
 			}
-			con.Println()
 
 		case consts.WatchtowerEvent:
 			msg := string(event.Data)
-			con.Printf(Clearln+Warn+Bold+"WARNING: %s%s has been burned (seen on %s)\n", Normal, event.Session.Name, msg)
+			eventMsg := fmt.Sprintf(Bold+"WARNING: %s%s has been burned (seen on %s)\n", Normal, event.Session.Name, msg)
 			sessions := con.GetSessionsByName(event.Session.Name)
 			for _, session := range sessions {
-				con.PrintErrorf("\t🔥 Session #%d is affected\n", session.ID)
+				con.PrintEventErrorf(eventMsg+"\n"+Clearln+"\t🔥 Session #%d is affected", session.ID)
 			}
-			con.Println()
 
 		case consts.JoinedEvent:
-			con.PrintInfof("%s has joined the game\n\n", event.Client.Operator.Name)
+			con.PrintEventInfof("%s has joined the game", event.Client.Operator.Name)
 		case consts.LeftEvent:
-			con.PrintInfof("%s left the game\n\n", event.Client.Operator.Name)
+			con.PrintEventInfof("%s left the game", event.Client.Operator.Name)
 
 		case consts.JobStoppedEvent:
 			job := event.Job
-			con.PrintErrorf("Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
+			con.PrintEventErrorf("Job #%d stopped (%s/%s)", job.ID, job.Protocol, job.Name)
 
 		case consts.SessionOpenedEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			con.PrintInfof("Session #%d %s - %s (%s) - %s/%s - %v\n\n",
+			con.PrintEventInfof("Session #%d %s - %s (%s) - %s/%s - %v",
 				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 
 			// Prelude Operator
 			if prelude.SessionMapper != nil {
 				err = prelude.SessionMapper.AddSession(session)
 				if err != nil {
-					con.PrintErrorf("Could not add session to Operator: %s", err)
+					con.PrintEventErrorf("Could not add session to Operator: %s", err)
 				}
 			}
 
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			con.Printf(Clearln+Info+"Session #%d has been updated - %v\n", session.ID, currentTime)
+			con.PrintEventInfof("Session #%d has been updated - %v", session.ID, currentTime)
 
 		case consts.SessionClosedEvent:
 			session := event.Session
-			con.Printf(Clearln+Warn+"Lost session #%d %s - %s (%s) - %s/%s\n",
+			con.PrintEventErrorf("Lost session #%d %s - %s (%s) - %s/%s",
 				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
 			activeSession := con.ActiveTarget.GetSession()
 			if activeSession != nil && activeSession.ID == session.ID {
 				con.ActiveTarget.Set(nil, nil)
-				con.Printf(Warn + "Active session disconnected\n")
+				con.PrintEventErrorf("Active session disconnected")
 				con.App.SetPrompt(con.GetPrompt())
 			}
 			if prelude.SessionMapper != nil {
 				err = prelude.SessionMapper.RemoveSession(session)
 				if err != nil {
-					con.PrintErrorf("Could not remove session from Operator: %s", err)
+					con.PrintEventErrorf("Could not remove session from Operator: %s", err)
 				}
-				con.PrintInfof("Removed session %s from Operator\n", session.Name)
+				con.PrintEventInfof("Removed session %s from Operator", session.Name)
 			}
-			con.Println()
 
 		case consts.BeaconRegisteredEvent:
 			beacon := &clientpb.Beacon{}
 			proto.Unmarshal(event.Data, beacon)
 			currentTime := time.Now().Format(time.RFC1123)
 			shortID := strings.Split(beacon.ID, "-")[0]
-			con.PrintInfof("Beacon #%s %s - %s (%s) - %s/%s - %v\n\n",
+			con.PrintEventInfof("Beacon #%s %s - %s (%s) - %s/%s - %v",
 				shortID, beacon.Name, beacon.RemoteAddress, beacon.Hostname, beacon.OS, beacon.Arch, currentTime)
 
 		case consts.BeaconTaskResultEvent:
@@ -494,6 +491,14 @@ func (con *SliverConsoleClient) PrintWarnf(format string, args ...interface{}) (
 
 func (con *SliverConsoleClient) PrintErrorf(format string, args ...interface{}) (n int, err error) {
 	return fmt.Fprintf(con.App.Stderr(), Clearln+Warn+format, args...)
+}
+
+func (con *SliverConsoleClient) PrintEventInfof(format string, args ...interface{}) (n int, err error) {
+	return fmt.Fprintf(con.App.Stdout(), Clearln+Info+format+"\n"+Clearln+"\r\n"+Clearln+"\r", args...)
+}
+
+func (con *SliverConsoleClient) PrintEventErrorf(format string, args ...interface{}) (n int, err error) {
+	return fmt.Fprintf(con.App.Stderr(), Clearln+Warn+format+"\n"+Clearln+"\r\n"+Clearln+"\r", args...)
 }
 
 func (con *SliverConsoleClient) SpinUntil(message string, ctrl chan bool) {

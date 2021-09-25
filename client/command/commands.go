@@ -1782,6 +1782,21 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 	})
+	beaconsCmd.AddCommand(&grumble.Command{
+		Name:     consts.WatchStr,
+		Help:     "Watch your beacons",
+		LongHelp: help.GetHelpFor([]string{consts.BeaconsStr, consts.WatchStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			beacons.BeaconsWatchCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
 	con.App.AddCommand(beaconsCmd)
 
 	// [ Macros ] ---------------------------------------------

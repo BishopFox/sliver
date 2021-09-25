@@ -44,28 +44,17 @@ func BeaconsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	PrintBeacons(beacons.Beacons, con)
 }
 
-// BeaconsRmCmd - Display/interact with beacons
-func BeaconsRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	beacon, err := SelectBeacon(con)
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return
-	}
-	_, err = con.Rpc.RmBeacon(context.Background(), beacon)
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return
-	}
-	con.PrintInfof("Beacon removed (%s)\n", beacon.ID)
-}
-
 // PrintBeacons - Display a list of beacons
 func PrintBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) {
-
 	if len(beacons) == 0 {
 		con.PrintInfof("No beacons 🙁\n")
 		return
 	}
+	tw := renderBeacons(beacons, con)
+	con.Printf("%s\n", tw.Render())
+}
+
+func renderBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) table.Writer {
 	width, _, err := terminal.GetSize(0)
 	if err != nil {
 		width = 999
@@ -139,5 +128,5 @@ func PrintBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) 
 			})
 		}
 	}
-	con.Printf("%s\n", tw.Render())
+	return tw
 }
