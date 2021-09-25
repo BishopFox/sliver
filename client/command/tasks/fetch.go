@@ -186,6 +186,84 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		}
 		exec.PrintExecuteAssembly(execAssembly, hostname, assemblyPath, ctx, con)
 
+	// execute-shellcode
+	case sliverpb.MsgTaskReq:
+		shellcodeExec := &sliverpb.Task{}
+		err := proto.Unmarshal(task.Response, shellcodeExec)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		exec.PrintExecuteShellcode(shellcodeExec, con)
+
+	case sliverpb.MsgExecuteReq:
+		execReq := &sliverpb.ExecuteReq{}
+		err := proto.Unmarshal(reqEnvelope.Data, execReq)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		execResult := &sliverpb.Execute{}
+		err = proto.Unmarshal(task.Response, execResult)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		ctx := &grumble.Context{
+			Flags: grumble.FlagMap{
+				"ignore-stderr": &grumble.FlagMapItem{Value: false},
+				"loot":          &grumble.FlagMapItem{Value: false},
+				"stdout":        &grumble.FlagMapItem{Value: ""},
+				"stderr":        &grumble.FlagMapItem{Value: ""},
+				"output":        &grumble.FlagMapItem{Value: true},
+			},
+			Args: grumble.ArgMap{
+				"command":   &grumble.ArgMapItem{Value: execReq.Path},
+				"arguments": &grumble.ArgMapItem{Value: execReq.Args},
+			},
+		}
+		exec.PrintExecute(execResult, ctx, con)
+
+	case sliverpb.MsgSideloadReq:
+		sideload := &sliverpb.Sideload{}
+		err := proto.Unmarshal(reqEnvelope.Data, sideload)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		beacon, _ := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
+		hostname := "hostname"
+		if beacon != nil {
+			hostname = beacon.Hostname
+		}
+		ctx := &grumble.Context{
+			Command: &grumble.Command{Name: "sideload"},
+			Flags: grumble.FlagMap{
+				"save": &grumble.FlagMapItem{Value: false},
+			},
+		}
+		exec.PrintSideload(sideload, hostname, ctx, con)
+
+	case sliverpb.MsgSpawnDllReq:
+		spawnDll := &sliverpb.SpawnDll{}
+		err := proto.Unmarshal(reqEnvelope.Data, spawnDll)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		beacon, _ := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
+		hostname := "hostname"
+		if beacon != nil {
+			hostname = beacon.Hostname
+		}
+		ctx := &grumble.Context{
+			Command: &grumble.Command{Name: "spawndll"},
+			Flags: grumble.FlagMap{
+				"save": &grumble.FlagMapItem{Value: false},
+			},
+		}
+		exec.PrintSpawnDll(spawnDll, hostname, ctx, con)
+
 	// ---------------------
 	// File system commands
 	// ---------------------
@@ -218,9 +296,9 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			return
 		}
 		flags := grumble.FlagMap{
-			"reverse":  &grumble.FlagMapItem{Value: false, IsDefault: true},
-			"modified": &grumble.FlagMapItem{Value: false, IsDefault: true},
-			"size":     &grumble.FlagMapItem{Value: false, IsDefault: true},
+			"reverse":  &grumble.FlagMapItem{Value: false},
+			"modified": &grumble.FlagMapItem{Value: false},
+			"size":     &grumble.FlagMapItem{Value: false},
 		}
 		filesystem.PrintLs(ls, flags, "", con)
 

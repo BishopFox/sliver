@@ -489,7 +489,7 @@ func (con *SliverConsoleClient) PrintSuccessf(format string, args ...interface{}
 }
 
 func (con *SliverConsoleClient) PrintWarnf(format string, args ...interface{}) (n int, err error) {
-	return fmt.Fprintf(con.App.Stdout(), Clearln+"⚠️ "+Normal+format, args...)
+	return fmt.Fprintf(con.App.Stdout(), Clearln+"⚠️  "+Normal+format, args...)
 }
 
 func (con *SliverConsoleClient) PrintErrorf(format string, args ...interface{}) (n int, err error) {
