@@ -97,8 +97,8 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 }
 
 // PrintExecuteAssembly - Print the results of an assembly execution
-func PrintExecuteAssembly(execAssembly *sliverpb.ExecuteAssembly, hostname string, assemblyPath string,
-	ctx *grumble.Context, con *console.SliverConsoleClient) {
+func PrintExecuteAssembly(execAssembly *sliverpb.ExecuteAssembly, hostname string,
+	assemblyPath string, ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	if execAssembly.GetResponse().GetErr() != "" {
 		con.PrintErrorf("Error: %s\n", execAssembly.GetResponse().GetErr())
