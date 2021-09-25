@@ -1421,6 +1421,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "View network interface configurations",
 		LongHelp: help.GetHelpFor([]string{consts.IfconfigStr}),
 		Flags: func(f *grumble.Flags) {
+			f.Bool("A", "all", false, "show all network adapters (default only shows IPv4)")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {

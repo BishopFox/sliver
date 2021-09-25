@@ -47,6 +47,7 @@ func IfconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	all := ctx.Flags.Bool("all")
 	if ifconfig.Response != nil && ifconfig.Response.Async {
 		con.AddBeaconCallback(ifconfig.Response.TaskID, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, ifconfig)
@@ -54,22 +55,23 @@ func IfconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintIfconfig(ifconfig, con)
+			PrintIfconfig(ifconfig, all, con)
 		})
 		con.PrintAsyncResponse(ifconfig.Response)
 	} else {
-		PrintIfconfig(ifconfig, con)
+		PrintIfconfig(ifconfig, all, con)
 	}
 }
 
 // PrintIfconfig - Print the ifconfig response
-func PrintIfconfig(ifconfig *sliverpb.Ifconfig, con *console.SliverConsoleClient) {
+func PrintIfconfig(ifconfig *sliverpb.Ifconfig, all bool, con *console.SliverConsoleClient) {
 	var err error
 	interfaces := ifconfig.NetInterfaces
 	sort.Slice(interfaces, func(i, j int) bool {
 		return interfaces[i].Index < interfaces[j].Index
 	})
-	for _, iface := range interfaces {
+	hidden := 0
+	for index, iface := range interfaces {
 		tw := table.NewWriter()
 		tw.SetStyle(settings.GetTableWithBordersStyle(con))
 		tw.SetTitle(fmt.Sprintf(console.Bold+"%s"+console.Normal, iface.Name))
@@ -98,11 +100,13 @@ func PrintIfconfig(ifconfig *sliverpb.Ifconfig, con *console.SliverConsoleClient
 			}
 			if 0 < subnet && subnet <= 32 && !isLoopback(ip) {
 				ips = append(ips, fmt.Sprintf(console.Bold+console.Green+"%s"+console.Normal, ip))
-			} else if 32 < subnet && !isLoopback(ip) {
-				ips = append(ips, fmt.Sprintf(console.Bold+console.Cyan+"%s"+console.Normal, ip))
-			} else {
+			} else if all {
 				ips = append(ips, fmt.Sprintf("%s", ip))
 			}
+		}
+		if !all && len(ips) < 1 {
+			hidden++
+			continue
 		}
 		if 0 < len(ips) {
 			for _, ip := range ips {
@@ -111,7 +115,13 @@ func PrintIfconfig(ifconfig *sliverpb.Ifconfig, con *console.SliverConsoleClient
 		} else {
 			tw.AppendRow(table.Row{iface.Index, " ", macAddress}, rowConfig)
 		}
-		con.Printf("%s\n\n", tw.Render())
+		con.Printf("%s\n", tw.Render())
+		if index+1 < len(interfaces) {
+			con.Println()
+		}
+	}
+	if !all {
+		con.Printf("%d adapters not shown.\n", hidden)
 	}
 }
 
