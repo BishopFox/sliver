@@ -64,7 +64,7 @@ func hostsSessionCallback(session *Session) {
 		err := dbSession.Create(&models.Host{
 			HostUUID:      uuid.FromStringOrNil(session.UUID),
 			Hostname:      session.Hostname,
-			OSVersion:     session.Os,
+			OSVersion:     session.OS,
 			IOCs:          []models.IOC{},
 			ExtensionData: []models.ExtensionData{},
 		}).Error

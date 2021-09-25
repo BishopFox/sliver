@@ -62,7 +62,7 @@ func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) *s
 	session.Username = register.Username
 	session.UID = register.Uid
 	session.GID = register.Gid
-	session.Os = register.Os
+	session.OS = register.Os
 	session.Arch = register.Arch
 	session.PID = register.Pid
 	session.Filename = register.Filename

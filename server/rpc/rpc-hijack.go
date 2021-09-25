@@ -52,9 +52,9 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 	if session == nil {
 		return resp, ErrInvalidSessionID
 	}
-	if session.Os != "windows" {
+	if session.OS != "windows" {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf(
-			"this feature is not supported on the target operating system (%s)", session.Os,
+			"this feature is not supported on the target operating system (%s)", session.OS,
 		))
 	}
 

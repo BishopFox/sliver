@@ -102,8 +102,8 @@ type SliverRPCClient interface {
 	RevToSelf(ctx context.Context, in *sliverpb.RevToSelfReq, opts ...grpc.CallOption) (*sliverpb.RevToSelf, error)
 	GetSystem(ctx context.Context, in *clientpb.GetSystemReq, opts ...grpc.CallOption) (*sliverpb.GetSystem, error)
 	Task(ctx context.Context, in *sliverpb.TaskReq, opts ...grpc.CallOption) (*sliverpb.Task, error)
-	Msf(ctx context.Context, in *clientpb.MSFReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
-	MsfRemote(ctx context.Context, in *clientpb.MSFRemoteReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	Msf(ctx context.Context, in *clientpb.MSFReq, opts ...grpc.CallOption) (*sliverpb.Task, error)
+	MsfRemote(ctx context.Context, in *clientpb.MSFRemoteReq, opts ...grpc.CallOption) (*sliverpb.Task, error)
 	ExecuteAssembly(ctx context.Context, in *sliverpb.ExecuteAssemblyReq, opts ...grpc.CallOption) (*sliverpb.ExecuteAssembly, error)
 	Migrate(ctx context.Context, in *clientpb.MigrateReq, opts ...grpc.CallOption) (*sliverpb.Migrate, error)
 	Execute(ctx context.Context, in *sliverpb.ExecuteReq, opts ...grpc.CallOption) (*sliverpb.Execute, error)
@@ -776,8 +776,8 @@ func (c *sliverRPCClient) Task(ctx context.Context, in *sliverpb.TaskReq, opts .
 	return out, nil
 }
 
-func (c *sliverRPCClient) Msf(ctx context.Context, in *clientpb.MSFReq, opts ...grpc.CallOption) (*commonpb.Empty, error) {
-	out := new(commonpb.Empty)
+func (c *sliverRPCClient) Msf(ctx context.Context, in *clientpb.MSFReq, opts ...grpc.CallOption) (*sliverpb.Task, error) {
+	out := new(sliverpb.Task)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Msf", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -785,8 +785,8 @@ func (c *sliverRPCClient) Msf(ctx context.Context, in *clientpb.MSFReq, opts ...
 	return out, nil
 }
 
-func (c *sliverRPCClient) MsfRemote(ctx context.Context, in *clientpb.MSFRemoteReq, opts ...grpc.CallOption) (*commonpb.Empty, error) {
-	out := new(commonpb.Empty)
+func (c *sliverRPCClient) MsfRemote(ctx context.Context, in *clientpb.MSFRemoteReq, opts ...grpc.CallOption) (*sliverpb.Task, error) {
+	out := new(sliverpb.Task)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/MsfRemote", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1342,8 +1342,8 @@ type SliverRPCServer interface {
 	RevToSelf(context.Context, *sliverpb.RevToSelfReq) (*sliverpb.RevToSelf, error)
 	GetSystem(context.Context, *clientpb.GetSystemReq) (*sliverpb.GetSystem, error)
 	Task(context.Context, *sliverpb.TaskReq) (*sliverpb.Task, error)
-	Msf(context.Context, *clientpb.MSFReq) (*commonpb.Empty, error)
-	MsfRemote(context.Context, *clientpb.MSFRemoteReq) (*commonpb.Empty, error)
+	Msf(context.Context, *clientpb.MSFReq) (*sliverpb.Task, error)
+	MsfRemote(context.Context, *clientpb.MSFRemoteReq) (*sliverpb.Task, error)
 	ExecuteAssembly(context.Context, *sliverpb.ExecuteAssemblyReq) (*sliverpb.ExecuteAssembly, error)
 	Migrate(context.Context, *clientpb.MigrateReq) (*sliverpb.Migrate, error)
 	Execute(context.Context, *sliverpb.ExecuteReq) (*sliverpb.Execute, error)
@@ -1605,10 +1605,10 @@ func (UnimplementedSliverRPCServer) GetSystem(context.Context, *clientpb.GetSyst
 func (UnimplementedSliverRPCServer) Task(context.Context, *sliverpb.TaskReq) (*sliverpb.Task, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Task not implemented")
 }
-func (UnimplementedSliverRPCServer) Msf(context.Context, *clientpb.MSFReq) (*commonpb.Empty, error) {
+func (UnimplementedSliverRPCServer) Msf(context.Context, *clientpb.MSFReq) (*sliverpb.Task, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Msf not implemented")
 }
-func (UnimplementedSliverRPCServer) MsfRemote(context.Context, *clientpb.MSFRemoteReq) (*commonpb.Empty, error) {
+func (UnimplementedSliverRPCServer) MsfRemote(context.Context, *clientpb.MSFRemoteReq) (*sliverpb.Task, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MsfRemote not implemented")
 }
 func (UnimplementedSliverRPCServer) ExecuteAssembly(context.Context, *sliverpb.ExecuteAssemblyReq) (*sliverpb.ExecuteAssembly, error) {

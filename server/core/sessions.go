@@ -58,7 +58,7 @@ type Session struct {
 	UUID              string
 	UID               string
 	GID               string
-	Os                string
+	OS                string
 	Version           string
 	Arch              string
 	PID               int32
@@ -106,7 +106,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		UUID:              s.UUID,
 		UID:               s.UID,
 		GID:               s.GID,
-		OS:                s.Os,
+		OS:                s.OS,
 		Version:           s.Version,
 		Arch:              s.Arch,
 		Transport:         s.Connection.Transport,

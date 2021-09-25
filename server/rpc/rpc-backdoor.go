@@ -38,8 +38,8 @@ import (
 func (rpc *Server) Backdoor(ctx context.Context, req *sliverpb.BackdoorReq) (*sliverpb.Backdoor, error) {
 	resp := &sliverpb.Backdoor{}
 	session := core.Sessions.Get(req.Request.SessionID)
-	if session.Os != "windows" {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("%s is currently not supported", session.Os))
+	if session.OS != "windows" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("%s is currently not supported", session.OS))
 	}
 	download, err := rpc.Download(context.Background(), &sliverpb.DownloadReq{
 		Request: &commonpb.Request{
