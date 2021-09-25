@@ -23,26 +23,27 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 // ExecuteAssemblyCmd - Execute a .NET assembly in-memory
 func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveTarget.GetSessionInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
-	filePath := ctx.Args.String("filepath")
+	assemblyPath := ctx.Args.String("filepath")
 	isDLL := false
-	if filepath.Ext(filePath) == ".dll" {
+	if filepath.Ext(assemblyPath) == ".dll" {
 		isDLL = true
 	}
 	if isDLL {
@@ -51,7 +52,7 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 			return
 		}
 	}
-	assemblyBytes, err := ioutil.ReadFile(filePath)
+	assemblyBytes, err := ioutil.ReadFile(assemblyPath)
 	if err != nil {
 		con.PrintErrorf("%s", err.Error())
 		return
@@ -62,7 +63,7 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 
 	ctrl := make(chan bool)
 	con.SpinUntil("Executing assembly ...", ctrl)
-	executeAssembly, err := con.Rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
+	execAssembly, err := con.Rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
 		Request:   con.ActiveTarget.Request(ctx),
 		IsDLL:     isDLL,
 		Process:   process,
@@ -75,34 +76,64 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 	})
 	ctrl <- true
 	<-ctrl
-
 	if err != nil {
-		con.PrintErrorf("Error: %s", err)
+		con.PrintErrorf("%s", err)
+		return
+	}
+	hostname := getHostname(session, beacon)
+	if execAssembly.Response != nil && execAssembly.Response.Async {
+		con.AddBeaconCallback(execAssembly.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, execAssembly)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintExecuteAssembly(execAssembly, hostname, assemblyPath, ctx, con)
+		})
+		con.PrintAsyncResponse(execAssembly.Response)
+	} else {
+		PrintExecuteAssembly(execAssembly, hostname, assemblyPath, ctx, con)
+	}
+}
+
+// PrintExecuteAssembly - Print the results of an assembly execution
+func PrintExecuteAssembly(execAssembly *sliverpb.ExecuteAssembly, hostname string, assemblyPath string,
+	ctx *grumble.Context, con *console.SliverConsoleClient) {
+
+	if execAssembly.GetResponse().GetErr() != "" {
+		con.PrintErrorf("Error: %s\n", execAssembly.GetResponse().GetErr())
 		return
 	}
 
-	if executeAssembly.GetResponse().GetErr() != "" {
-		con.PrintErrorf("Error: %s\n", executeAssembly.GetResponse().GetErr())
-		return
-	}
 	var outFilePath *os.File
+	var err error
 	if ctx.Flags.Bool("save") {
-		outFile := path.Base(fmt.Sprintf("%s_%s*.log", ctx.Command.Name, session.GetHostname()))
+		outFile := filepath.Base(fmt.Sprintf("%s_%s*.log", ctx.Command.Name, hostname))
 		outFilePath, err = ioutil.TempFile("", outFile)
 	}
-	con.PrintInfof("Assembly output:\n%s", string(executeAssembly.GetOutput()))
+	con.PrintInfof("Assembly output:\n%s", string(execAssembly.GetOutput()))
 	if outFilePath != nil {
-		outFilePath.Write(executeAssembly.GetOutput())
+		outFilePath.Write(execAssembly.GetOutput())
 		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
 	}
 
-	if ctx.Flags.Bool("loot") && 0 < len(executeAssembly.GetOutput()) {
-		name := fmt.Sprintf("[execute-assembly] %s", filepath.Base(filePath))
-		err = loot.AddLootFile(con.Rpc, name, "console.txt", executeAssembly.GetOutput(), false)
+	if ctx.Flags.Bool("loot") && 0 < len(execAssembly.GetOutput()) {
+		name := fmt.Sprintf("[execute-assembly] %s", filepath.Base(assemblyPath))
+		err = loot.AddLootFile(con.Rpc, name, "console.txt", execAssembly.GetOutput(), false)
 		if err != nil {
 			con.PrintErrorf("Failed to save output as loot: %s\n", err)
 		} else {
 			con.PrintInfof("Output saved as loot\n")
 		}
 	}
+}
+
+func getHostname(session *clientpb.Session, beacon *clientpb.Beacon) string {
+	if session != nil {
+		return session.Hostname
+	}
+	if beacon != nil {
+		return beacon.Hostname
+	}
+	return ""
 }
