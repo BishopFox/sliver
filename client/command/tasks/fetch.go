@@ -405,7 +405,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			con.PrintErrorf("Failed to decode task response: %s\n", err)
 			return
 		}
-		network.PrintIfconfig(ifconfig, con)
+		network.PrintIfconfig(ifconfig, true, con)
 
 	// ---------------------
 	// Processes commands
