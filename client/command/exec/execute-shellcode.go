@@ -121,7 +121,7 @@ func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte,
 	})
 
 	if err != nil {
-		con.PrintErrorf("Error: %v\n", err)
+		con.PrintErrorf("%s\n", err)
 		return
 	}
 
@@ -135,7 +135,7 @@ func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte,
 	})
 
 	if err != nil {
-		con.PrintErrorf("Error: %v\n", err)
+		con.PrintErrorf("%s\n", err)
 		return
 	}
 	// Retrieve PID and start remote task
@@ -154,7 +154,7 @@ func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte,
 	<-ctrl
 
 	if err != nil {
-		con.PrintErrorf("Error: %v", err)
+		con.PrintErrorf("%s\n", err)
 		return
 	}
 
