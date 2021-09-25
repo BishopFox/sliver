@@ -20,9 +20,13 @@ package tasks
 
 import (
 	"context"
+	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/bishopfox/sliver/client/command/exec"
 	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -130,7 +134,11 @@ func PrintTask(task *clientpb.BeaconTask, con *console.SliverConsoleClient) {
 	con.Printf("%s\n", tw.Render())
 	if !time.Unix(task.CompletedAt, 0).IsZero() {
 		con.Println()
-		renderTaskResult(task, con)
+		if 0 < len(task.Response) {
+			renderTaskResponse(task, con)
+		} else {
+			con.PrintInfof("No task response\n")
+		}
 	}
 }
 
@@ -148,10 +156,82 @@ func emojiState(state string) string {
 }
 
 // Decode and render message specific content
-func renderTaskResult(task *clientpb.BeaconTask, con *console.SliverConsoleClient) {
+func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleClient) {
 	reqEnvelope := &sliverpb.Envelope{}
 	proto.Unmarshal(task.Request, reqEnvelope)
 	switch reqEnvelope.Type {
+
+	// ---------------------
+	// Exec commands
+	// ---------------------
+	case sliverpb.MsgExecuteAssemblyReq:
+		execAssembly := &sliverpb.ExecuteAssembly{}
+		err := proto.Unmarshal(task.Response, execAssembly)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		beacon, _ := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
+		hostname := "hostname"
+		if beacon != nil {
+			hostname = beacon.Hostname
+		}
+		assemblyPath := ""
+		ctx := &grumble.Context{
+			Command: &grumble.Command{Name: "execute-assembly"},
+			Flags: grumble.FlagMap{
+				"save": &grumble.FlagMapItem{Value: false, IsDefault: true},
+				"loot": &grumble.FlagMapItem{Value: false, IsDefault: true},
+			},
+		}
+		exec.PrintExecuteAssembly(execAssembly, hostname, assemblyPath, ctx, con)
+
+	// ---------------------
+	// File system commands
+	// ---------------------
+
+	// Cat = download
+
+	case sliverpb.MsgCdReq:
+		pwd := &sliverpb.Pwd{}
+		err := proto.Unmarshal(task.Response, pwd)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		filesystem.PrintPwd(pwd, con)
+
+	case sliverpb.MsgDownload:
+		download := &sliverpb.Download{}
+		err := proto.Unmarshal(task.Response, download)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		taskResponseDownload(download, con)
+
+	case sliverpb.MsgLsReq:
+		ls := &sliverpb.Ls{}
+		err := proto.Unmarshal(task.Response, ls)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		flags := grumble.FlagMap{
+			"reverse":  &grumble.FlagMapItem{Value: false, IsDefault: true},
+			"modified": &grumble.FlagMapItem{Value: false, IsDefault: true},
+			"size":     &grumble.FlagMapItem{Value: false, IsDefault: true},
+		}
+		filesystem.PrintLs(ls, flags, "", con)
+
+	case sliverpb.MsgMkdirReq:
+		mkdir := &sliverpb.Mkdir{}
+		err := proto.Unmarshal(task.Response, mkdir)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		filesystem.PrintMkdir(mkdir, con)
 
 	case sliverpb.MsgPwdReq:
 		pwd := &sliverpb.Pwd{}
@@ -162,7 +242,75 @@ func renderTaskResult(task *clientpb.BeaconTask, con *console.SliverConsoleClien
 		}
 		filesystem.PrintPwd(pwd, con)
 
+	case sliverpb.MsgRmReq:
+		rm := &sliverpb.Rm{}
+		err := proto.Unmarshal(task.Response, rm)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		filesystem.PrintRm(rm, con)
+
+	case sliverpb.MsgUpload:
+		upload := &sliverpb.Upload{}
+		err := proto.Unmarshal(task.Response, upload)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		filesystem.PrintUpload(upload, con)
+
+	// ---------------------
+	// Default
+	// ---------------------
 	default:
-		con.PrintErrorf("Cannot render task result for msg type %v\n", reqEnvelope.Type)
+		con.PrintErrorf("Cannot render task response for msg type %v\n", reqEnvelope.Type)
 	}
+}
+
+func taskResponseDownload(download *sliverpb.Download, con *console.SliverConsoleClient) {
+	const (
+		dump   = "Dump Contents"
+		saveTo = "Save to File ..."
+	)
+	action := saveTo
+	prompt := &survey.Select{
+		Message: "Choose an option:",
+		Options: []string{dump, saveTo},
+	}
+	err := survey.AskOne(prompt, &action, survey.WithValidator(survey.Required))
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	switch action {
+	case dump:
+		con.Printf("%s\n", string(download.Data))
+	default:
+		promptSaveToFile(download.Data, con)
+	}
+}
+
+func promptSaveToFile(data []byte, con *console.SliverConsoleClient) {
+	saveTo := ""
+	saveToPrompt := &survey.Input{Message: "Save to: "}
+	err := survey.AskOne(saveToPrompt, &saveTo)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if _, err := os.Stat(saveTo); !os.IsNotExist(err) {
+		confirm := false
+		prompt := &survey.Confirm{Message: "Overwrite existing file?"}
+		survey.AskOne(prompt, &confirm)
+		if !confirm {
+			return
+		}
+	}
+	err = ioutil.WriteFile(saveTo, data, 0600)
+	if err != nil {
+		con.PrintErrorf("Failed to save file: %s\n", err)
+		return
+	}
+	con.PrintInfof("Wrote %d byte(s) to %s", len(data), saveTo)
 }
