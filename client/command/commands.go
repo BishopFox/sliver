@@ -413,6 +413,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("O", "overflow", false, "overflow terminal width (display truncated rows)")
 			f.Int("S", "skip-pages", 0, "skip the first n page(s)")
+			f.String("f", "filter", "", "filter based on task type (case-insensitive prefix matching)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -424,6 +425,28 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	}
+	tasksCmd.AddCommand(&grumble.Command{
+		Name:     consts.FetchStr,
+		Help:     "Fetch the details of a beacon task",
+		LongHelp: help.GetHelpFor([]string{consts.TasksStr, consts.FetchStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("O", "overflow", false, "overflow terminal width (display truncated rows)")
+			f.Int("S", "skip-pages", 0, "skip the first n page(s)")
+			f.String("f", "filter", "", "filter based on task type (case-insensitive prefix matching)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("id", "beacon task ID", grumble.Default(""))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			tasks.TasksFetchCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 	con.App.AddCommand(tasksCmd)
 
 	// [ Use ] --------------------------------------------------------------
@@ -2311,9 +2334,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 	lootCmd.AddCommand(&grumble.Command{
-		Name:     consts.LootFetchStr,
+		Name:     consts.FetchStr,
 		Help:     "Fetch a piece of loot from the server's loot store",
-		LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.LootFetchStr}),
+		LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.FetchStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "save", "", "save loot to a local file")
 			f.String("f", "filter", "", "filter based on loot type")
