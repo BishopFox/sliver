@@ -30,6 +30,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/desertbit/grumble"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 // BeaconsCmd - Display/interact with beacons
@@ -65,21 +66,37 @@ func PrintBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) 
 		con.PrintInfof("No beacons 🙁\n")
 		return
 	}
+	width, _, err := terminal.GetSize(0)
+	if err != nil {
+		width = 999
+	}
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	tw.AppendHeader(table.Row{
-		"ID",
-		"Name",
-		"Tasks",
-		"Transport",
-		"Remote Address",
-		"Hostname",
-		"Username",
-		"Operating System",
-		"Last Check-in",
-		"Next Check-in",
-	})
+	if 182 < width {
+		tw.AppendHeader(table.Row{
+			"ID",
+			"Name",
+			"Tasks",
+			"Transport",
+			"Remote Address",
+			"Hostname",
+			"Username",
+			"Operating System",
+			"Last Check-in",
+			"Next Check-in",
+		})
+	} else {
+		tw.AppendHeader(table.Row{
+			"ID",
+			"Name",
+			"Transport",
+			"Username",
+			"Operating System",
+			"Last Check-in",
+			"Next Check-in",
+		})
+	}
 
 	for _, beacon := range beacons {
 		color := console.Normal
@@ -88,26 +105,39 @@ func PrintBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) 
 			color = console.Green
 		}
 
-		next := time.Unix(beacon.NextCheckin, 0).Format(time.RFC1123)
-		// Arbitrary 3 second margin of error (jitter is already accounted for)
-		if time.Unix(beacon.NextCheckin, 0).Add(3 * time.Second).Before(time.Now()) {
-			next = fmt.Sprintf("%s%s%s", console.Bold+console.Red, next, console.Normal)
+		nextCheckin := time.Unix(beacon.NextCheckin, 0)
+		var next string
+		if time.Unix(beacon.NextCheckin, 0).Before(time.Now()) {
+			past := time.Now().Sub(nextCheckin)
+			next = fmt.Sprintf("%s-%s%s", console.Bold+console.Red, past, console.Normal)
 		} else {
-			next = fmt.Sprintf("%s%s%s", console.Bold+console.Green, next, console.Normal)
+			eta := nextCheckin.Sub(time.Now())
+			next = fmt.Sprintf("%s%s%s", console.Bold+console.Green, eta, console.Normal)
 		}
-
-		tw.AppendRow(table.Row{
-			fmt.Sprintf(color+"%s"+console.Normal, strings.Split(beacon.ID, "-")[0]),
-			fmt.Sprintf(color+"%s"+console.Normal, beacon.Name),
-			fmt.Sprintf(color+"%d / %d"+console.Normal, beacon.TasksCountCompleted, beacon.TasksCount),
-			fmt.Sprintf(color+"%s"+console.Normal, beacon.Transport),
-			fmt.Sprintf(color+"%s"+console.Normal, beacon.RemoteAddress),
-			fmt.Sprintf(color+"%s"+console.Normal, beacon.Hostname),
-			fmt.Sprintf(color+"%s"+console.Normal, beacon.Username),
-			fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
-			fmt.Sprintf(color+"%s ago"+console.Normal, time.Now().Sub(time.Unix(beacon.LastCheckin, 0))),
-			next,
-		})
+		if 182 < width {
+			tw.AppendRow(table.Row{
+				fmt.Sprintf(color+"%s"+console.Normal, strings.Split(beacon.ID, "-")[0]),
+				fmt.Sprintf(color+"%s"+console.Normal, beacon.Name),
+				fmt.Sprintf(color+"%d / %d"+console.Normal, beacon.TasksCountCompleted, beacon.TasksCount),
+				fmt.Sprintf(color+"%s"+console.Normal, beacon.Transport),
+				fmt.Sprintf(color+"%s"+console.Normal, beacon.RemoteAddress),
+				fmt.Sprintf(color+"%s"+console.Normal, beacon.Hostname),
+				fmt.Sprintf(color+"%s"+console.Normal, beacon.Username),
+				fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
+				fmt.Sprintf(color+"%s ago"+console.Normal, time.Now().Sub(time.Unix(beacon.LastCheckin, 0))),
+				next,
+			})
+		} else {
+			tw.AppendRow(table.Row{
+				fmt.Sprintf(color+"%s"+console.Normal, strings.Split(beacon.ID, "-")[0]),
+				fmt.Sprintf(color+"%s"+console.Normal, beacon.Name),
+				fmt.Sprintf(color+"%s"+console.Normal, beacon.Transport),
+				fmt.Sprintf(color+"%s"+console.Normal, beacon.Username),
+				fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
+				fmt.Sprintf(color+"%s ago"+console.Normal, time.Now().Sub(time.Unix(beacon.LastCheckin, 0))),
+				next,
+			})
+		}
 	}
 	con.Printf("%s\n", tw.Render())
 }

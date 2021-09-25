@@ -4,7 +4,7 @@
 
 DWORD WINAPI Enjoy()
 {
-    RunSliver();
+    Start();
     return 0;
 }
 
@@ -40,24 +40,24 @@ BOOL WINAPI DllMain(
 #elif __linux__
 #include <stdlib.h>
 
-void RunSliver();
+void Start();
 
 static void init(int argc, char **argv, char **envp)
 {
     unsetenv("LD_PRELOAD");
     unsetenv("LD_PARAMS");
-    RunSliver();
+    Start();
 }
 __attribute__((section(".init_array"), used)) static typeof(init) *init_p = init;
 #elif __APPLE__
 #include <stdlib.h>
-void RunSliver();
+void Start();
 
 __attribute__((constructor)) static void init(int argc, char **argv, char **envp)
 {
     unsetenv("DYLD_INSERT_LIBRARIES");
     unsetenv("LD_PARAMS");
-    RunSliver();
+    Start();
 }
 
 #endif
