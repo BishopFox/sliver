@@ -424,7 +424,7 @@ func executeHandler(data []byte, resp RPCResponse) {
 		cmd.Stderr = stdErr
 		err := cmd.Run()
 		//{{if .Config.Debug}}
-		log.Println(string(stdOutBuff.String()))
+		log.Printf("Exec (%v): %s", err, string(stdOutBuff.String()))
 		//{{end}}
 		if err != nil {
 			// Exit errors are not a failure of the RPC, but of the command.

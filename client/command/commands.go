@@ -676,11 +676,11 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.ExecuteStr}),
 		Flags: func(f *grumble.Flags) {
 			f.Bool("T", "token", false, "execute command with current token (windows only)")
-			f.Bool("s", "silent", false, "don't print the command output")
+			f.Bool("o", "output", false, "capture command output")
 			f.Bool("X", "loot", false, "save output as loot")
 			f.Bool("S", "ignore-stderr", false, "don't print STDERR output")
-			f.String("o", "stdout", "", "remote path to redirect STDOUT to")
-			f.String("e", "stderr", "", "remote path to redirect STDERR to")
+			f.String("O", "stdout", "", "remote path to redirect STDOUT to")
+			f.String("E", "stderr", "", "remote path to redirect STDERR to")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},

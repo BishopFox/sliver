@@ -118,7 +118,7 @@ func PrintBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) 
 			tw.AppendRow(table.Row{
 				fmt.Sprintf(color+"%s"+console.Normal, strings.Split(beacon.ID, "-")[0]),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Name),
-				fmt.Sprintf(color+"%d / %d"+console.Normal, beacon.TasksCountCompleted, beacon.TasksCount),
+				fmt.Sprintf(color+"%d/%d"+console.Normal, beacon.TasksCountCompleted, beacon.TasksCount),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Transport),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.RemoteAddress),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Hostname),

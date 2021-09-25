@@ -179,7 +179,7 @@ func (con *SliverConsoleClient) EventLoop() {
 			con.Printf(Clearln+Warn+Bold+"WARNING: %s%s has been burned (seen on %s)\n", Normal, event.Session.Name, msg)
 			sessions := con.GetSessionsByName(event.Session.Name)
 			for _, session := range sessions {
-				con.PrintWarnf("\t🔥 Session #%d is affected\n", session.ID)
+				con.PrintErrorf("\t🔥 Session #%d is affected\n", session.ID)
 			}
 			con.Println()
 
@@ -190,7 +190,7 @@ func (con *SliverConsoleClient) EventLoop() {
 
 		case consts.JobStoppedEvent:
 			job := event.Job
-			con.PrintWarnf("Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
+			con.PrintErrorf("Job #%d stopped (%s/%s)\n\n", job.ID, job.Protocol, job.Name)
 
 		case consts.SessionOpenedEvent:
 			session := event.Session
@@ -489,7 +489,7 @@ func (con *SliverConsoleClient) PrintSuccessf(format string, args ...interface{}
 }
 
 func (con *SliverConsoleClient) PrintWarnf(format string, args ...interface{}) (n int, err error) {
-	return fmt.Fprintf(con.App.Stdout(), Clearln+Warn+format, args...)
+	return fmt.Fprintf(con.App.Stdout(), Clearln+"⚠️ "+Bold+"WARNING: "+Normal+format, args...)
 }
 
 func (con *SliverConsoleClient) PrintErrorf(format string, args ...interface{}) (n int, err error) {

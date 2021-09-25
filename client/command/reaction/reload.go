@@ -29,7 +29,7 @@ import (
 // ReactionSaveCmd - Manage reactions to events
 func ReactionReloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if _, err := os.Stat(GetReactionFilePath()); os.IsNotExist(err) {
-		con.PrintWarnf("Missing reaction file %s\n", GetReactionFilePath())
+		con.PrintErrorf("Missing reaction file %s\n", GetReactionFilePath())
 		return
 	}
 	confirm := false
