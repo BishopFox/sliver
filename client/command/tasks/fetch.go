@@ -26,8 +26,10 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
 	"github.com/bishopfox/sliver/client/command/filesystem"
+	"github.com/bishopfox/sliver/client/command/processes"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -162,6 +164,48 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 	switch reqEnvelope.Type {
 
 	// ---------------------
+	// Environment commands
+	// ---------------------
+	case sliverpb.MsgEnvInfo:
+		envInfo := &sliverpb.EnvInfo{}
+		err := proto.Unmarshal(task.Request, envInfo)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		environment.PrintGetEnvInfo(envInfo, con)
+
+	case sliverpb.MsgSetEnvReq:
+		setEnvReq := &sliverpb.SetEnvReq{}
+		err := proto.Unmarshal(task.Request, setEnvReq)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task request: %s\n", err)
+			return
+		}
+		setEnv := &sliverpb.SetEnv{}
+		err = proto.Unmarshal(task.Response, setEnv)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		environment.PrintSetEnvInfo(setEnvReq.Variable.Key, setEnvReq.Variable.Value, setEnv, con)
+
+	case sliverpb.MsgUnsetEnvReq:
+		unsetEnvReq := &sliverpb.UnsetEnvReq{}
+		err := proto.Unmarshal(task.Request, unsetEnvReq)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task request: %s\n", err)
+			return
+		}
+		unsetEnv := &sliverpb.UnsetEnv{}
+		err = proto.Unmarshal(task.Response, unsetEnv)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		environment.PrintUnsetEnvInfo(unsetEnvReq.Name, unsetEnv, con)
+
+	// ---------------------
 	// Exec commands
 	// ---------------------
 	case sliverpb.MsgExecuteAssemblyReq:
@@ -226,7 +270,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 
 	case sliverpb.MsgSideloadReq:
 		sideload := &sliverpb.Sideload{}
-		err := proto.Unmarshal(reqEnvelope.Data, sideload)
+		err := proto.Unmarshal(task.Response, sideload)
 		if err != nil {
 			con.PrintErrorf("Failed to decode task response: %s\n", err)
 			return
@@ -246,7 +290,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 
 	case sliverpb.MsgSpawnDllReq:
 		spawnDll := &sliverpb.SpawnDll{}
-		err := proto.Unmarshal(reqEnvelope.Data, spawnDll)
+		err := proto.Unmarshal(task.Response, spawnDll)
 		if err != nil {
 			con.PrintErrorf("Failed to decode task response: %s\n", err)
 			return
@@ -263,6 +307,15 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			},
 		}
 		exec.PrintSpawnDll(spawnDll, hostname, ctx, con)
+
+	case sliverpb.MsgSSHCommandReq:
+		sshCommand := &sliverpb.SSHCommand{}
+		err := proto.Unmarshal(task.Response, sshCommand)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		exec.PrintSSHCmd(sshCommand, con)
 
 	// ---------------------
 	// File system commands
@@ -337,6 +390,33 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			return
 		}
 		filesystem.PrintUpload(upload, con)
+
+	// ---------------------
+	// Processes commands
+	// ---------------------
+	case sliverpb.MsgPsReq:
+		ps := &sliverpb.Ps{}
+		err := proto.Unmarshal(task.Response, ps)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		beacon, err := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
+		if err != nil {
+			con.PrintErrorf("Failed to get beacon: %s\n", err)
+			return
+		}
+		ctx := &grumble.Context{
+			Flags: grumble.FlagMap{
+				"pid":           &grumble.FlagMapItem{Value: -1},
+				"exe":           &grumble.FlagMapItem{Value: ""},
+				"owner":         &grumble.FlagMapItem{Value: ""},
+				"overflow":      &grumble.FlagMapItem{Value: false},
+				"skipPages":     &grumble.FlagMapItem{Value: 0},
+				"print-cmdline": &grumble.FlagMapItem{Value: true},
+			},
+		}
+		processes.PrintPS(beacon.OS, ps, true, ctx, con)
 
 	// ---------------------
 	// Default
