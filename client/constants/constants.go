@@ -111,6 +111,7 @@ const (
 	ProfilesStr   = "profiles"
 	BeaconStr     = "beacon"
 	BeaconsStr    = "beacons"
+	WatchStr      = "watch"
 	SettingsStr   = "settings"
 
 	// Generic
