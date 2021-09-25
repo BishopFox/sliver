@@ -56,7 +56,16 @@ func PrintBeaconTasks(tasks []*clientpb.BeaconTask, ctx *grumble.Context, con *c
 		"Sent",
 		"Completed",
 	})
+	tw.SortBy([]table.SortBy{
+		{Name: "Created", Mode: table.Asc},
+		{Name: "Sent", Mode: table.Asc},
+		{Name: "Completed", Mode: table.Asc},
+	})
+	filter := strings.ToLower(ctx.Flags.String("filter"))
 	for _, task := range tasks {
+		if filter != "" && !strings.HasPrefix(strings.ToLower(task.Description), filter) {
+			continue
+		}
 		sentAt := time.Unix(task.SentAt, 0).Format(time.RFC1123)
 		if time.Unix(task.SentAt, 0).IsZero() {
 			sentAt = ""
@@ -68,7 +77,7 @@ func PrintBeaconTasks(tasks []*clientpb.BeaconTask, ctx *grumble.Context, con *c
 		tw.AppendRow(table.Row{
 			strings.Split(task.ID, "-")[0],
 			prettyState(task.State),
-			task.Description,
+			strings.TrimSuffix(task.Description, "Req"),
 			time.Unix(task.CreatedAt, 0).Format(time.RFC1123),
 			sentAt,
 			completedAt,

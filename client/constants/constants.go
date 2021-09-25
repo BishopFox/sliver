@@ -130,7 +130,7 @@ const (
 	LootStr       = "loot"
 	LootLocalStr  = "local"
 	LootRemoteStr = "remote"
-	LootFetchStr  = "fetch"
+	FetchStr      = "fetch"
 	LootCredsStr  = "creds"
 
 	RenameStr = "rename"
