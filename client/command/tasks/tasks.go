@@ -38,7 +38,7 @@ func TasksCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
 	if err != nil {
-		con.PrintWarnf("%s\n", err)
+		con.PrintErrorf("%s\n", err)
 		return
 	}
 	PrintBeaconTasks(beaconTasks.Tasks, ctx, con)

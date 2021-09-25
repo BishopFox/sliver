@@ -44,7 +44,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	hostname := ctx.Args.String("hostname")
 	if hostname == "" {
-		con.PrintWarnf("you need to provide a target host, see `help psexec` for examples")
+		con.PrintErrorf("You need to provide a target host, see `help psexec` for examples")
 		return
 	}
 	profile := ctx.Flags.String("profile")
@@ -54,7 +54,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	uploadPath := fmt.Sprintf(`\\%s\%s`, hostname, strings.ReplaceAll(strings.ToLower(ctx.Flags.String("binpath")), "c:", "C$"))
 
 	if serviceName == "Sliver" || serviceDesc == "Sliver implant" {
-		con.PrintWarnf("Warning: You're going to deploy the following service:\n- Name: %s\n- Description: %s\n", serviceName, serviceDesc)
+		con.PrintWarnf("You're going to deploy the following service:\n- Name: %s\n- Description: %s\n", serviceName, serviceDesc)
 		con.PrintWarnf("You might want to change that before going further...\n")
 		if !settings.IsUserAnAdult(con) {
 			return

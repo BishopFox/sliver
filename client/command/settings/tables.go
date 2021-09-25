@@ -104,8 +104,8 @@ func GetPageSize() int {
 }
 
 // PagesOf - Return the pages of a table
-func PagesOf(tw table.Writer) [][]string {
-	lines := strings.Split(tw.Render(), "\n")
+func PagesOf(renderedTable string) [][]string {
+	lines := strings.Split(renderedTable, "\n")
 	if len(lines) < 2 {
 		return [][]string{}
 	}
@@ -126,19 +126,24 @@ func PagesOf(tw table.Writer) [][]string {
 
 // PaginateTable - Render paginated table to console
 func PaginateTable(tw table.Writer, skipPages int, overflow bool, interactive bool, con *console.SliverConsoleClient) {
+	renderedTable := tw.Render()
+	lineCount := strings.Count(renderedTable, "\n")
 	if !overflow {
+		// Only paginate if the number of lines is at least 2x the terminal height
 		width, height, err := terminal.GetSize(0)
-		if err == nil {
+		if err == nil && 2*height < lineCount {
 			if 7 < height {
 				tw.SetPageSize(height - 6)
 				tw.SetAllowedRowLength(width)
+			} else {
+				tw.SetPageSize(2)
+				tw.SetAllowedRowLength(width)
 			}
-		} else {
-			tw.SetAllowedRowLength(150)
+			renderedTable = tw.Render()
 		}
 	}
 
-	pages := PagesOf(tw)
+	pages := PagesOf(renderedTable)
 	for pageNumber, page := range pages {
 		if pageNumber+1 < skipPages {
 			continue
@@ -152,15 +157,19 @@ func PaginateTable(tw table.Writer, skipPages int, overflow bool, interactive bo
 		con.Println()
 		if interactive {
 			if 1 < len(pages) {
-				nextPage := false
-				prompt := &survey.Confirm{
-					Message: fmt.Sprintf("[%d/%d] Continue?", pageNumber+1, len(pages)),
+				if pageNumber+1 < len(pages) {
+					nextPage := false
+					prompt := &survey.Confirm{
+						Message: fmt.Sprintf("[%d/%d] Continue?", pageNumber+1, len(pages)),
+					}
+					survey.AskOne(prompt, &nextPage)
+					if !nextPage {
+						break
+					}
+					con.Println()
+				} else {
+					con.Printf(console.Bold+"Page [%d/%d]\n", pageNumber+1, len(pages))
 				}
-				survey.AskOne(prompt, &nextPage)
-				if !nextPage {
-					break
-				}
-				con.Println()
 			}
 		} else {
 			if 1 < len(pages) {

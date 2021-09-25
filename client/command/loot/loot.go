@@ -46,7 +46,7 @@ func LootCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if filter == "" {
 		allLoot, err = con.Rpc.LootAll(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			con.PrintWarnf("Failed to fetch loot %s\n", err)
+			con.PrintErrorf("Failed to fetch loot %s\n", err)
 			return
 		}
 	} else {

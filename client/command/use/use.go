@@ -51,7 +51,7 @@ func UseCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		session, beacon, err = SelectSessionOrBeacon(con)
 	}
 	if err != nil {
-		con.PrintWarnf("%s\n", err)
+		con.PrintErrorf("%s\n", err)
 		return
 	}
 	if session != nil {

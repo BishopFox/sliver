@@ -34,7 +34,7 @@ import (
 func KillCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
-		con.PrintWarnf("No active session\n")
+		con.PrintErrorf("No active session\n")
 		return
 	}
 	// Confirm with the user, just in case they confused kill with terminate

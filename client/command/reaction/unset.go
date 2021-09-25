@@ -47,7 +47,7 @@ func ReactionUnsetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.Println()
 		con.PrintInfof("Successfully removed reaction with id %d", reactionID)
 	} else {
-		con.PrintWarnf("No reaction found with id %d", reactionID)
+		con.PrintErrorf("No reaction found with id %d", reactionID)
 	}
 	con.Println()
 }
