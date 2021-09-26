@@ -287,6 +287,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 		GOCACHE:    gogo.GetGoCache(appDir),
 		GOMODCACHE: gogo.GetGoModCache(appDir),
 		GOROOT:     gogo.GetGoRootDir(appDir),
+		GOPROXY:    getGoProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
 		GOPRIVATE:   GoPrivate,
@@ -356,6 +357,7 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 		GOCACHE:    gogo.GetGoCache(appDir),
 		GOMODCACHE: gogo.GetGoModCache(appDir),
 		GOROOT:     gogo.GetGoRootDir(appDir),
+		GOPROXY:    getGoProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
 		GOPRIVATE:   GoPrivate,
@@ -412,6 +414,7 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 		GOROOT:     gogo.GetGoRootDir(appDir),
 		GOCACHE:    gogo.GetGoCache(appDir),
 		GOMODCACHE: gogo.GetGoModCache(appDir),
+		GOPROXY:    getGoProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
 		GOPRIVATE:   GoPrivate,
@@ -851,4 +854,19 @@ func GetUnsupportedTargets() []*clientpb.CompilerTarget {
 		})
 	}
 	return targets
+}
+
+func getGoProxy() string {
+	serverConfig := configs.GetServerConfig()
+	if serverConfig.GoProxy != "" {
+		buildLog.Infof("Using GOPROXY from server config = %s", serverConfig.GoProxy)
+		return serverConfig.GoProxy
+	}
+	value, present := os.LookupEnv("GOPROXY")
+	if present {
+		buildLog.Infof("Using GOPROXY from env: %s", value)
+		return value
+	}
+	buildLog.Debugf("No GOPROXY found")
+	return ""
 }

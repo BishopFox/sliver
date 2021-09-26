@@ -130,6 +130,7 @@ type ServerConfig struct {
 	Logs         *LogConfig        `json:"logs"`
 	Jobs         *JobConfig        `json:"jobs,omitempty"`
 	Watchtower   *WatchTowerConfig `json:"watch_tower"`
+	GoProxy      string            `json:"go_proxy"`
 }
 
 // Save - Save config file to disk
