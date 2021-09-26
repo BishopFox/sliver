@@ -32,6 +32,7 @@ import (
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -177,12 +178,20 @@ func kickOperatorCmd(ctx *grumble.Context) {
 }
 
 func startMultiplayerModeCmd(ctx *grumble.Context) {
-	server := ctx.Flags.String("server")
+	lhost := ctx.Flags.String("lhost")
 	lport := uint16(ctx.Flags.Int("lport"))
-
-	_, err := jobStartClientListener(server, lport)
+	persistent := ctx.Flags.Bool("persistent")
+	_, err := jobStartClientListener(lhost, lport)
 	if err == nil {
 		fmt.Printf(Info + "Multiplayer mode enabled!\n")
+		if persistent {
+			serverConfig := configs.GetServerConfig()
+			serverConfig.AddMultiplayerJob(&configs.MultiplayerJobConfig{
+				Host: lhost,
+				Port: lport,
+			})
+			serverConfig.Save()
+		}
 	} else {
 		fmt.Printf(Warn+"Failed to start job %v\n", err)
 	}
@@ -209,7 +218,6 @@ func jobStartClientListener(host string, port uint16) (int, error) {
 		ln.Close() // Kills listener GoRoutines in startMutualTLSListener() but NOT connections
 
 		core.Jobs.Remove(job)
-
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
 			EventType: consts.JobStoppedEvent,

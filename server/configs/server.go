@@ -63,17 +63,24 @@ type DaemonConfig struct {
 
 // JobConfig - Restart Jobs on Load
 type JobConfig struct {
-	MTLS []*MTLSJobConfig `json:"mtls,omitempty"`
-	WG   []*WGJobConfig   `json:"wg,omitempty"`
-	DNS  []*DNSJobConfig  `json:"dns,omitempty"`
-	HTTP []*HTTPJobConfig `json:"http,omitempty"`
+	Multiplayer []*MultiplayerJobConfig `json:"multiplayer"`
+	MTLS        []*MTLSJobConfig        `json:"mtls,omitempty"`
+	WG          []*WGJobConfig          `json:"wg,omitempty"`
+	DNS         []*DNSJobConfig         `json:"dns,omitempty"`
+	HTTP        []*HTTPJobConfig        `json:"http,omitempty"`
+}
+
+type MultiplayerJobConfig struct {
+	Host  string `json:"host"`
+	Port  uint16 `json:"port"`
+	JobID string `json:"job_id"`
 }
 
 // MTLSJobConfig - Per-type job configs
 type MTLSJobConfig struct {
 	Host  string `json:"host"`
 	Port  uint16 `json:"port"`
-	JobID string `json:"jobid"`
+	JobID string `json:"job_id"`
 }
 
 // WGJobConfig - Per-type job configs
@@ -81,7 +88,7 @@ type WGJobConfig struct {
 	Port    uint16 `json:"port"`
 	NPort   uint16 `json:"nport"`
 	KeyPort uint16 `json:"key_port"`
-	JobID   string `json:"jobid"`
+	JobID   string `json:"job_id"`
 }
 
 // DNSJobConfig - Persistent DNS job config
@@ -90,7 +97,7 @@ type DNSJobConfig struct {
 	Canaries bool     `json:"canaries"`
 	Host     string   `json:"host"`
 	Port     uint16   `json:"port"`
-	JobID    string   `json:"jobid"`
+	JobID    string   `json:"job_id"`
 }
 
 // HTTPJobConfig - Persistent HTTP job config
@@ -103,7 +110,7 @@ type HTTPJobConfig struct {
 	Cert            []byte `json:"cert"`
 	Key             []byte `json:"key"`
 	ACME            bool   `json:"acme"`
-	JobID           string `json:"jobid"`
+	JobID           string `json:"job_id"`
 	EnforceOTP      bool   `json:"enforce_otp"`
 	LongPollTimeout int64  `json:"long_poll_timeout"`
 	LongPollJitter  int64  `json:"long_poll_jitter"`
@@ -146,6 +153,16 @@ func (c *ServerConfig) Save() error {
 		serverConfigLog.Errorf("Failed to write config %s", err)
 	}
 	return nil
+}
+
+// AddMultiplayerJob - Add Job Configs
+func (c *ServerConfig) AddMultiplayerJob(config *MultiplayerJobConfig) error {
+	if c.Jobs == nil {
+		c.Jobs = &JobConfig{}
+	}
+	config.JobID = getRandomID()
+	c.Jobs.Multiplayer = append(c.Jobs.Multiplayer, config)
+	return c.Save()
 }
 
 // AddMTLSJob - Add Job Configs
