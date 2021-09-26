@@ -371,14 +371,17 @@ func StartPersistentJobs(cfg *configs.ServerConfig) error {
 
 	for _, j := range cfg.Jobs.HTTP {
 		cfg := &HTTPServerConfig{
-			Addr:    fmt.Sprintf("%s:%d", j.Host, j.Port),
-			LPort:   j.Port,
-			Secure:  j.Secure,
-			Domain:  j.Domain,
-			Website: j.Website,
-			Cert:    j.Cert,
-			Key:     j.Key,
-			ACME:    j.ACME,
+			Addr:            fmt.Sprintf("%s:%d", j.Host, j.Port),
+			LPort:           j.Port,
+			Secure:          j.Secure,
+			Domain:          j.Domain,
+			Website:         j.Website,
+			Cert:            j.Cert,
+			Key:             j.Key,
+			ACME:            j.ACME,
+			EnforceOTP:      j.EnforceOTP,
+			LongPollTimeout: j.LongPollTimeout,
+			LongPollJitter:  j.LongPollJitter,
 		}
 		job, err := StartHTTPListenerJob(cfg)
 		if err != nil {

@@ -67,8 +67,9 @@ func serverOnlyCmds(console *clientconsole.SliverConsoleClient) {
 		Help:     "Enable multiplayer mode",
 		LongHelp: help.GetHelpFor([]string{consts.MultiplayerModeStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("s", "server", "", "interface to bind server to")
+			f.String("L", "lhost", "", "interface to bind server to")
 			f.Int("l", "lport", 31337, "tcp listen port")
+			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
 		Run: func(ctx *grumble.Context) error {
 			fmt.Println()
