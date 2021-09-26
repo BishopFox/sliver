@@ -407,6 +407,20 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		}
 		network.PrintIfconfig(ifconfig, true, con)
 
+	case sliverpb.MsgNetstatReq:
+		netstat := &sliverpb.Netstat{}
+		err := proto.Unmarshal(task.Response, netstat)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		beacon, err := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
+		if err != nil {
+			con.PrintErrorf("Failed to fetch beacon: %s\n", err)
+			return
+		}
+		network.PrintNetstat(netstat, beacon.PID, beacon.ActiveC2, con)
+
 	// ---------------------
 	// Processes commands
 	// ---------------------
