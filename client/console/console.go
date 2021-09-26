@@ -299,7 +299,7 @@ func (con *SliverConsoleClient) triggerBeaconTaskCallback(data []byte) {
 	if callback, ok := con.BeaconTaskCallbacks[task.ID]; ok {
 		if con.Settings.BeaconAutoResults {
 			if beacon != nil {
-				con.PrintSuccessf("%s completed task %s\n\n", beacon.Name, strings.Split(task.ID, "-")[0])
+				con.PrintEventSuccessf("%s completed task %s", beacon.Name, strings.Split(task.ID, "-")[0])
 			}
 			task, err = con.Rpc.GetBeaconTaskContent(ctx, &clientpb.BeaconTask{
 				ID: task.ID,
@@ -499,6 +499,10 @@ func (con *SliverConsoleClient) PrintEventInfof(format string, args ...interface
 
 func (con *SliverConsoleClient) PrintEventErrorf(format string, args ...interface{}) (n int, err error) {
 	return fmt.Fprintf(con.App.Stderr(), Clearln+Warn+format+"\n"+Clearln+"\r\n"+Clearln+"\r", args...)
+}
+
+func (con *SliverConsoleClient) PrintEventSuccessf(format string, args ...interface{}) (n int, err error) {
+	return fmt.Fprintf(con.App.Stdout(), Clearln+Success+format+"\n"+Clearln+"\r\n"+Clearln+"\r", args...)
 }
 
 func (con *SliverConsoleClient) SpinUntil(message string, ctrl chan bool) {
