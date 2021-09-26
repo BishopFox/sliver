@@ -95,15 +95,18 @@ type DNSJobConfig struct {
 
 // HTTPJobConfig - Persistent HTTP job config
 type HTTPJobConfig struct {
-	Domain  string `json:"domain"`
-	Host    string `json:"host"`
-	Port    uint16 `json:"port"`
-	Secure  bool   `json:"secure"`
-	Website string `json:"website"`
-	Cert    []byte `json:"cert"`
-	Key     []byte `json:"key"`
-	ACME    bool   `json:"acme"`
-	JobID   string `json:"jobid"`
+	Domain          string `json:"domain"`
+	Host            string `json:"host"`
+	Port            uint16 `json:"port"`
+	Secure          bool   `json:"secure"`
+	Website         string `json:"website"`
+	Cert            []byte `json:"cert"`
+	Key             []byte `json:"key"`
+	ACME            bool   `json:"acme"`
+	JobID           string `json:"jobid"`
+	EnforceOTP      bool   `json:"enforce_otp"`
+	LongPollTimeout int64  `json:"long_poll_timeout"`
+	LongPollJitter  int64  `json:"long_poll_jitter"`
 }
 
 // WatchTowerConfig - Watch Tower job config

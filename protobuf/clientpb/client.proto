@@ -295,6 +295,9 @@ message HTTPListenerReq {
   bytes Key = 7;
   bool ACME = 8;
   bool Persistent = 9;
+  bool EnforceOTP = 10;
+  int64 LongPollTimeout = 11;
+  int64 LongPollJitter = 12;
 }
 
 // Named Pipes Messages for pivoting

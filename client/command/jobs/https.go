@@ -21,6 +21,7 @@ package jobs
 import (
 	"context"
 	"io/ioutil"
+	"time"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -34,6 +35,18 @@ func HTTPSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	lhost := ctx.Flags.String("lhost")
 	lport := uint16(ctx.Flags.Int("lport"))
 
+	disableOTP := ctx.Flags.Bool("disable-otp")
+	longPollTimeout, err := time.ParseDuration(ctx.Flags.String("long-poll-timeout"))
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	longPollJitter, err := time.ParseDuration(ctx.Flags.String("long-poll-jitter"))
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
 	cert, key, err := getLocalCertificatePair(ctx)
 	if err != nil {
 		con.Println()
@@ -43,15 +56,18 @@ func HTTPSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	con.PrintInfof("Starting HTTPS %s:%d listener ...\n", domain, lport)
 	https, err := con.Rpc.StartHTTPSListener(context.Background(), &clientpb.HTTPListenerReq{
-		Domain:     domain,
-		Website:    website,
-		Host:       lhost,
-		Port:       uint32(lport),
-		Secure:     true,
-		Cert:       cert,
-		Key:        key,
-		ACME:       ctx.Flags.Bool("lets-encrypt"),
-		Persistent: ctx.Flags.Bool("persistent"),
+		Domain:          domain,
+		Website:         website,
+		Host:            lhost,
+		Port:            uint32(lport),
+		Secure:          true,
+		Cert:            cert,
+		Key:             key,
+		ACME:            ctx.Flags.Bool("lets-encrypt"),
+		Persistent:      ctx.Flags.Bool("persistent"),
+		EnforceOTP:      !disableOTP,
+		LongPollTimeout: int64(longPollTimeout),
+		LongPollJitter:  int64(longPollJitter),
 	})
 	con.Println()
 	if err != nil {
