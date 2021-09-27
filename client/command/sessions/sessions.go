@@ -19,18 +19,16 @@ package sessions
 */
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"sort"
-	"strings"
-	"text/tabwriter"
+	"time"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // SessionsCmd - Display/interact with sessions
@@ -48,7 +46,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	if killAll {
-		con.ActiveSession.Background()
+		con.ActiveTarget.Background()
 		for _, session := range sessions.Sessions {
 			err := killSession(session, true, con)
 			if err != nil {
@@ -61,7 +59,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	if clean {
-		con.ActiveSession.Background()
+		con.ActiveTarget.Background()
 		for _, session := range sessions.Sessions {
 			if session.IsDead {
 				err := killSession(session, true, con)
@@ -76,9 +74,9 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	if kill != "" {
 		session := con.GetSession(kill)
-		activeSession := con.ActiveSession.Get()
+		activeSession := con.ActiveTarget.GetSession()
 		if activeSession != nil && session.ID == activeSession.ID {
-			con.ActiveSession.Background()
+			con.ActiveTarget.Background()
 		}
 		err := killSession(session, true, con)
 		if err != nil {
@@ -90,7 +88,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if interact != "" {
 		session := con.GetSession(interact)
 		if session != nil {
-			con.ActiveSession.Set(session)
+			con.ActiveTarget.Set(session, nil)
 			con.PrintInfof("Active session %s (%d)\n", session.Name, session.ID)
 		} else {
 			con.PrintErrorf("Invalid session name or session number: %s\n", interact)
@@ -101,55 +99,34 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			sessionsMap[session.ID] = session
 		}
 		if 0 < len(sessionsMap) {
-			printSessions(sessionsMap, con)
+			PrintSessions(sessionsMap, con)
 		} else {
 			con.PrintInfof("No sessions 🙁\n")
 		}
 	}
 }
 
-/*
-	So this method is a little more complex than you'd maybe think,
-	this is because Go's tabwriter aligns columns by counting bytes
-	and since we want to modify the color of the active sliver row
-	the number of bytes per row won't line up. So we render the table
-	into a buffer and note which row the active sliver is in. Then we
-	write each line to the term and insert the ANSI codes just before
-	we display the row.
-*/
-func printSessions(sessions map[uint32]*clientpb.Session, con *console.SliverConsoleClient) {
-	outputBuf := bytes.NewBufferString("")
-	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+// PrintSessions - Print the current sessions
+func PrintSessions(sessions map[uint32]*clientpb.Session, con *console.SliverConsoleClient) {
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{
+		"ID",
+		"Name",
+		"Transport",
+		"Remote Address",
+		"Hostname",
+		"Username",
+		"Operating System",
+		"Last Check-in",
+		"Health",
+	})
 
-	// Column Headers
-	fmt.Fprintln(table, "ID\tName\tTransport\tRemote Address\tHostname\tUsername\tOperating System\tLast Check-in\tHealth\t")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-		strings.Repeat("=", len("ID")),
-		strings.Repeat("=", len("Name")),
-		strings.Repeat("=", len("Transport")),
-		strings.Repeat("=", len("Remote Address")),
-		strings.Repeat("=", len("Hostname")),
-		strings.Repeat("=", len("Username")),
-		strings.Repeat("=", len("Operating System")),
-		strings.Repeat("=", len("Last Check-in")),
-		strings.Repeat("=", len("Health")),
-	)
-	// strings.Repeat("=", len("Burned")))
-
-	// Sort the keys because maps have a randomized order
-	var keys []int
 	for _, session := range sessions {
-		keys = append(keys, int(session.ID))
-	}
-	sort.Ints(keys) // Fucking Go can't sort int32's, so we convert to/from int's
-
-	activeIndex := -1
-	for index, key := range keys {
-		session := sessions[uint32(key)]
-		if con.ActiveSession.Get() != nil && con.ActiveSession.Get().ID == session.ID {
-			activeIndex = index + 2 // Two lines for the headers
+		color := console.Normal
+		if con.ActiveTarget.GetSession() != nil && con.ActiveTarget.GetSession().ID == session.ID {
+			color = console.Green
 		}
-
 		var SessionHealth string
 		if session.IsDead {
 			SessionHealth = console.Bold + console.Red + "[DEAD]" + console.Normal
@@ -160,35 +137,21 @@ func printSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 		if session.Burned {
 			burned = "🔥"
 		}
-
-		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			session.ID,
-			session.Name,
-			session.Transport,
-			session.RemoteAddress,
-			session.Hostname,
-			session.Username,
-			fmt.Sprintf("%s/%s", session.OS, session.Arch),
-			session.LastCheckin,
-			SessionHealth,
-			burned,
-		)
+		tw.AppendRow(table.Row{
+			fmt.Sprintf(color+"%d"+console.Normal, session.ID),
+			fmt.Sprintf(color+"%s"+console.Normal, session.Name),
+			fmt.Sprintf(color+"%s"+console.Normal, session.Transport),
+			fmt.Sprintf(color+"%s"+console.Normal, session.RemoteAddress),
+			fmt.Sprintf(color+"%s"+console.Normal, session.Hostname),
+			fmt.Sprintf(color+"%s"+console.Normal, session.Username),
+			fmt.Sprintf(color+"%s/%s"+console.Normal, session.OS, session.Arch),
+			fmt.Sprintf(color+"%s"+console.Normal, time.Unix(session.LastCheckin, 0).Format(time.RFC1123)),
+			burned + SessionHealth,
+		})
 	}
-	table.Flush()
+	tw.SortBy([]table.SortBy{
+		{Name: "ID", Mode: table.Asc},
+	})
 
-	if activeIndex != -1 {
-		lines := strings.Split(outputBuf.String(), "\n")
-		for lineNumber, line := range lines {
-			if len(line) == 0 {
-				continue
-			}
-			if lineNumber == activeIndex {
-				con.Printf("%s%s%s\n", console.Green, line, console.Normal)
-			} else {
-				con.Printf("%s\n", line)
-			}
-		}
-	} else {
-		con.Printf(outputBuf.String())
-	}
+	con.Printf("%s\n", tw.Render())
 }

@@ -23,23 +23,21 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
 )
 
 // GetOperators - Get a list of operators
 func (s *Server) GetOperators(ctx context.Context, _ *commonpb.Empty) (*clientpb.Operators, error) {
-	operatorCerts := certs.OperatorClientListCertificates()
-	operators := &clientpb.Operators{
-		Operators: []*clientpb.Operator{},
+	operators := &clientpb.Operators{Operators: []*clientpb.Operator{}}
+	dbOperators, err := db.OperatorAll()
+	if err != nil {
+		return nil, ErrDatabaseFailure
 	}
-	for _, cert := range operatorCerts {
-		if cert.Subject.CommonName == "" {
-			continue
-		}
+	for _, dbOperator := range dbOperators {
 		operators.Operators = append(operators.Operators, &clientpb.Operator{
-			Name:   cert.Subject.CommonName,
-			Online: isOperatorOnline(cert.Subject.CommonName),
+			Name:   dbOperator.Name,
+			Online: isOperatorOnline(dbOperator.Name),
 		})
 	}
 	return operators, nil

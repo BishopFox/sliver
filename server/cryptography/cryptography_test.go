@@ -21,8 +21,8 @@ package cryptography
 import (
 	"bytes"
 	"crypto/rand"
-	"crypto/rsa"
 	insecureRand "math/rand"
+	"sync"
 	"testing"
 )
 
@@ -37,137 +37,125 @@ func randomData() []byte {
 	return buf
 }
 
-// TestAESEncryptDecrypt - Test AES functions
-func TestAESEncryptDecrypt(t *testing.T) {
-	key := RandomAESKey()
-	cipher1, err := GCMEncrypt(key, sample1)
+// TestEncryptDecrypt - Test AEAD functions
+func TestEncryptDecrypt(t *testing.T) {
+	key := RandomKey()
+	cipher1, err := Encrypt(key, sample1)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	data1, err := GCMDecrypt(key, cipher1)
+	data1, err := Decrypt(key, cipher1)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if !bytes.Equal(sample1, data1) {
-		t.Errorf("Sample does not match decrypted data")
+		t.Fatalf("Sample does not match decrypted data")
 	}
 
-	key = RandomAESKey()
-	cipher2, err := GCMEncrypt(key, sample2)
+	key = RandomKey()
+	cipher2, err := Encrypt(key, sample2)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	data2, err := GCMDecrypt(key, cipher2)
+	data2, err := Decrypt(key, cipher2)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if !bytes.Equal(sample2, data2) {
-		t.Errorf("Sample does not match decrypted data")
+		t.Fatalf("Sample does not match decrypted data")
 	}
 }
 
-// TestAESTamperData - Detect tampered ciphertext
-func TestAESTamperData(t *testing.T) {
-	key := RandomAESKey()
-	cipher1, err := GCMEncrypt(key, sample1)
+// TestTamperData - Detect tampered ciphertext
+func TestTamperData(t *testing.T) {
+	key := RandomKey()
+	cipher1, err := Encrypt(key, sample1)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	index := insecureRand.Intn(len(cipher1))
 	cipher1[index]++
 
-	_, err = GCMDecrypt(key, cipher1)
+	_, err = Decrypt(key, cipher1)
 	if err == nil {
-		t.Errorf("Decrypted tampered data, should have resulted in error")
+		t.Fatalf("Decrypted tampered data, should have resulted in Fatal")
 	}
 }
 
-// TestAESWrongKey - Attempt to decrypt with wrong key
-func TestAESWrongKey(t *testing.T) {
-	key := RandomAESKey()
-	cipher1, err := GCMEncrypt(key, sample1)
+// TestWrongKey - Attempt to decrypt with wrong key
+func TestWrongKey(t *testing.T) {
+	key := RandomKey()
+	cipher1, err := Encrypt(key, sample1)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-
-	key2 := RandomAESKey()
-	_, err = GCMDecrypt(key2, cipher1)
+	key2 := RandomKey()
+	_, err = Decrypt(key2, cipher1)
 	if err == nil {
-		t.Errorf("Decrypted with wrong key, should have resulted in error")
+		t.Fatalf("Decrypted with wrong key, should have resulted in Fatal")
 	}
 }
 
-// TestRSAEncryptDecrypt - Test RSA functions
-func TestRSAEncryptDecrypt(t *testing.T) {
-
-	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Error(err)
+// TestCipherContext - Test CipherContext
+func TestCipherContext(t *testing.T) {
+	testKey := RandomKey()
+	cipherCtx1 := &CipherContext{
+		Key:    testKey,
+		replay: &sync.Map{},
 	}
-	cipher1, err := RSAEncrypt(sample1, &rsaKey.PublicKey)
-	if err != nil {
-		t.Error(err)
-	}
-	data1, err := RSADecrypt(cipher1, rsaKey)
-	if err != nil {
-		t.Error(err)
-	}
-	if !bytes.Equal(sample1, data1) {
-		t.Errorf("Sample does not match decrypted data")
+	cipherCtx2 := &CipherContext{
+		Key:    testKey,
+		replay: &sync.Map{},
 	}
 
-	rsaKey, err = rsa.GenerateKey(rand.Reader, 2048)
-	cipher2, err := RSAEncrypt(sample2, &rsaKey.PublicKey)
+	sample := randomData()
+
+	ciphertext, err := cipherCtx1.Encrypt(sample)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("Failed to encrypt sample: %s", err)
 	}
-	data2, err := RSADecrypt(cipher2, rsaKey)
+	_, err = cipherCtx1.Decrypt(ciphertext)
+	if err != ErrReplayAttack {
+		t.Fatal("Failed to detect replay attack")
+	}
+	_, err = cipherCtx1.Decrypt(ciphertext)
+	if err != ErrReplayAttack {
+		t.Fatal("Failed to detect replay attack")
+	}
+
+	plaintext, err := cipherCtx2.Decrypt(ciphertext)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	if !bytes.Equal(sample2, data2) {
-		t.Errorf("Sample does not match decrypted data")
+	if !bytes.Equal(sample, plaintext) {
+		t.Fatalf("Sample does not match decrypted data")
+	}
+	_, err = cipherCtx2.Decrypt(ciphertext)
+	if err != ErrReplayAttack {
+		t.Fatal("Failed to detect replay attack")
 	}
 }
 
-// TestRSATamperData - Test RSA with tampered data
-func TestRSATamperData(t *testing.T) {
-	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+func TestECCEncryptDecrypt(t *testing.T) {
+	sample := randomData()
+	sender, err := RandomECCKeyPair()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	cipher1, err := RSAEncrypt(sample1, &rsaKey.PublicKey)
+	receiver, err := RandomECCKeyPair()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-
-	index := insecureRand.Intn(len(cipher1))
-	cipher1[index]++
-
-	_, err = RSADecrypt(cipher1, rsaKey)
-	if err == nil {
-		t.Errorf("Decrypted tampered data, should have resulted in error")
-	}
-}
-
-// TestRSAWrongKey - Test RSA with wrong key
-func TestRSAWrongKey(t *testing.T) {
-	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	ciphertext, err := ECCEncrypt(receiver.Public, sender.Private, sample)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	cipher1, err := RSAEncrypt(sample1, &rsaKey.PublicKey)
+	plaintext, err := ECCDecrypt(sender.Public, receiver.Private, ciphertext)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-
-	rsaKey2, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Error(err)
-	}
-	_, err = RSADecrypt(cipher1, rsaKey2)
-	if err == nil {
-		t.Errorf("Decrypted with wrong key, should have resulted in error")
+	if !bytes.Equal(plaintext, sample) {
+		t.Fatalf("Sample does not match decrypted data")
 	}
 }

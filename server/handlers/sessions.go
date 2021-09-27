@@ -16,15 +16,14 @@ package handlers
 
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	------------------------------------------------------------------------
 
-	---
 	WARNING: These functions can be invoked by remote implants without user interaction
-	---
+
 */
 
 import (
 	"encoding/json"
-	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -37,43 +36,21 @@ import (
 )
 
 var (
-	handlerLog = log.NamedLogger("handlers", "sessions")
-
-	sessionHandlers = map[uint32]interface{}{
-		sliverpb.MsgRegister:    registerSessionHandler,
-		sliverpb.MsgTunnelData:  tunnelDataHandler,
-		sliverpb.MsgTunnelClose: tunnelCloseHandler,
-		sliverpb.MsgPing:        pingHandler,
-	}
-
-	tunnelHandlerMutex = &sync.Mutex{}
+	sessionHandlerLog = log.NamedLogger("handlers", "sessions")
 )
 
-// GetSessionHandlers - Returns a map of server-side msg handlers
-func GetSessionHandlers() map[uint32]interface{} {
-	return sessionHandlers
-}
-
-// AddSessionHandlers -  Adds a new handler to the map of server-side msg handlers
-func AddSessionHandlers(key uint32, value interface{}) {
-	sessionHandlers[key] = value
-}
-
-func registerSessionHandler(session *core.Session, data []byte) {
-	if session == nil {
-		return
+func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
+	if implantConn == nil {
+		return nil
 	}
-
 	register := &sliverpb.Register{}
 	err := proto.Unmarshal(data, register)
 	if err != nil {
-		handlerLog.Errorf("Error decoding message: %s", err)
-		return
+		sessionHandlerLog.Errorf("Error decoding session registration message: %s", err)
+		return nil
 	}
 
-	if session.ID == 0 {
-		session.ID = core.NextSessionID()
-	}
+	session := core.NewSession(implantConn)
 
 	// Parse Register UUID
 	sessionUUID, err := uuid.Parse(register.Uuid)
@@ -86,17 +63,22 @@ func registerSessionHandler(session *core.Session, data []byte) {
 	session.Username = register.Username
 	session.UID = register.Uid
 	session.GID = register.Gid
-	session.Os = register.Os
+	session.OS = register.Os
 	session.Arch = register.Arch
 	session.PID = register.Pid
 	session.Filename = register.Filename
 	session.ActiveC2 = register.ActiveC2
 	session.Version = register.Version
 	session.ReconnectInterval = register.ReconnectInterval
-	session.PollInterval = register.PollInterval
+	session.PollTimeout = register.PollTimeout
 	session.ProxyURL = register.ProxyURL
+	session.ConfigID = register.ConfigID
 	core.Sessions.Add(session)
+	implantConn.Cleanup = func() {
+		core.Sessions.Remove(session.ID)
+	}
 	go auditLogSession(session, register)
+	return nil
 }
 
 type auditLogNewSessionMsg struct {
@@ -110,7 +92,7 @@ func auditLogSession(session *core.Session, register *sliverpb.Register) {
 		Register: register,
 	})
 	if err != nil {
-		handlerLog.Errorf("Failed to log new session to audit log %s", err)
+		sessionHandlerLog.Errorf("Failed to log new session to audit log %s", err)
 	} else {
 		log.AuditLogger.Warn(string(msg))
 	}
@@ -118,10 +100,10 @@ func auditLogSession(session *core.Session, register *sliverpb.Register) {
 
 // The handler mutex prevents a send on a closed channel, without it
 // two handlers calls may race when a tunnel is quickly created and closed.
-func tunnelDataHandler(session *core.Session, data []byte) {
+func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
+	session := core.SessionFromImplantConnection(implantConn)
 	tunnelHandlerMutex.Lock()
 	defer tunnelHandlerMutex.Unlock()
-
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
@@ -129,35 +111,40 @@ func tunnelDataHandler(session *core.Session, data []byte) {
 		if session.ID == tunnel.SessionID {
 			tunnel.FromImplant <- tunnelData
 		} else {
-			handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
+			sessionHandlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
 		}
 	} else {
-		handlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
+		sessionHandlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
 	}
+	return nil
 }
 
-func tunnelCloseHandler(session *core.Session, data []byte) {
+func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
+	session := core.SessionFromImplantConnection(implantConn)
 	tunnelHandlerMutex.Lock()
 	defer tunnelHandlerMutex.Unlock()
 
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
 	if !tunnelData.Closed {
-		return
+		return nil
 	}
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
 	if tunnel != nil {
 		if session.ID == tunnel.SessionID {
-			handlerLog.Infof("Closing tunnel %d", tunnel.ID)
+			sessionHandlerLog.Infof("Closing tunnel %d", tunnel.ID)
 			core.Tunnels.Close(tunnel.ID)
 		} else {
-			handlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
+			sessionHandlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
 		}
 	} else {
-		handlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
+		sessionHandlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
 	}
+	return nil
 }
 
-func pingHandler(session *core.Session, data []byte) {
-	handlerLog.Debugf("ping from session %d", session.ID)
+func pingHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
+	session := core.SessionFromImplantConnection(implantConn)
+	sessionHandlerLog.Debugf("ping from session %d", session.ID)
+	return nil
 }

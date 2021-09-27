@@ -32,7 +32,6 @@ var (
 
 // StartTCPListener - Start a TCP listener
 func StartTCPListener(bindIface string, port uint16, data []byte) (net.Listener, error) {
-	StartPivotListener()
 	tcpLog.Infof("Starting Raw TCP listener on %s:%d", bindIface, port)
 	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", bindIface, port))
 	if err != nil {

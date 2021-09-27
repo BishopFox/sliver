@@ -22,15 +22,17 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 // EnvSetCmd - Set a remote environment variable
 func EnvSetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.Get()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -46,12 +48,30 @@ func EnvSetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			Key:   name,
 			Value: value,
 		},
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	if envInfo.Response != nil && envInfo.Response.Async {
+		con.AddBeaconCallback(envInfo.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, envInfo)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintSetEnvInfo(name, value, envInfo, con)
+		})
+		con.PrintAsyncResponse(envInfo.Response)
+	} else {
+		PrintSetEnvInfo(name, value, envInfo, con)
+	}
+
+}
+
+// PrintSetEnvInfo - Print the set environment info
+func PrintSetEnvInfo(name string, value string, envInfo *sliverpb.SetEnv, con *console.SliverConsoleClient) {
 	if envInfo.Response != nil && envInfo.Response.Err != "" {
 		con.PrintErrorf("%s\n", envInfo.Response.Err)
 		return

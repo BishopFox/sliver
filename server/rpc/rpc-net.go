@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -26,7 +27,7 @@ import (
 
 // Ifconfig - Get remote interface configurations
 func (rpc *Server) Ifconfig(ctx context.Context, req *sliverpb.IfconfigReq) (*sliverpb.Ifconfig, error) {
-	resp := &sliverpb.Ifconfig{}
+	resp := &sliverpb.Ifconfig{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -36,7 +37,7 @@ func (rpc *Server) Ifconfig(ctx context.Context, req *sliverpb.IfconfigReq) (*sl
 
 // Netstat - List network connections on the remote system
 func (rpc *Server) Netstat(ctx context.Context, req *sliverpb.NetstatReq) (*sliverpb.Netstat, error) {
-	resp := &sliverpb.Netstat{}
+	resp := &sliverpb.Netstat{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err

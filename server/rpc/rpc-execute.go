@@ -21,12 +21,13 @@ package rpc
 import (
 	"context"
 
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 // Execute - Execute a remote process
 func (rpc *Server) Execute(ctx context.Context, req *sliverpb.ExecuteReq) (*sliverpb.Execute, error) {
-	resp := &sliverpb.Execute{}
+	resp := &sliverpb.Execute{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -36,7 +37,7 @@ func (rpc *Server) Execute(ctx context.Context, req *sliverpb.ExecuteReq) (*sliv
 
 // ExecuteToken - Execute a remote process with token (windows only)
 func (rpc *Server) ExecuteToken(ctx context.Context, req *sliverpb.ExecuteTokenReq) (*sliverpb.Execute, error) {
-	resp := &sliverpb.Execute{}
+	resp := &sliverpb.Execute{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err

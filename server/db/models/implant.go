@@ -28,8 +28,6 @@ import (
 
 // ImplantBuild - Represents an implant
 type ImplantBuild struct {
-	// gorm.Model
-
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
@@ -59,8 +57,6 @@ func (ib *ImplantBuild) BeforeCreate(tx *gorm.DB) (err error) {
 
 // ImplantConfig - An implant build configuration
 type ImplantConfig struct {
-	// gorm.Model
-
 	ID               uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	ImplantBuildID   uuid.UUID
 	ImplantProfileID uuid.UUID
@@ -71,18 +67,31 @@ type ImplantConfig struct {
 	GOOS   string
 	GOARCH string
 
-	// Standard
-	CACert              string
-	Cert                string
-	Key                 string
+	IsBeacon       bool
+	BeaconInterval int64
+	BeaconJitter   int64
+
+	// ECC
+	ECCPublicKey          string
+	ECCPublicKeyDigest    string
+	ECCPrivateKey         string
+	ECCPublicKeySignature string
+	ECCServerPublicKey    string
+
+	// MTLS
+	MtlsCACert string
+	MtlsCert   string
+	MtlsKey    string
+
 	Debug               bool
 	Evasion             bool
 	ObfuscateSymbols    bool
-	ReconnectInterval   uint32
-	PollInterval        uint32
+	ReconnectInterval   int64
+	PollTimeout         int64
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
 
+	// WireGuard
 	WGImplantPrivKey  string
 	WGServerPubKey    string
 	WGPeerTunIP       string
@@ -133,18 +142,23 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 	config := &clientpb.ImplantConfig{
 		ID: ic.ID.String(),
 
+		IsBeacon:       ic.IsBeacon,
+		BeaconInterval: ic.BeaconInterval,
+		BeaconJitter:   ic.BeaconJitter,
+
 		GOOS:   ic.GOOS,
 		GOARCH: ic.GOARCH,
 
-		CACert:           ic.CACert,
-		Cert:             ic.Cert,
-		Key:              ic.Key,
+		MtlsCACert: ic.MtlsCACert,
+		MtlsCert:   ic.MtlsCert,
+		MtlsKey:    ic.MtlsKey,
+
 		Debug:            ic.Debug,
 		Evasion:          ic.Evasion,
 		ObfuscateSymbols: ic.ObfuscateSymbols,
 
 		ReconnectInterval:   ic.ReconnectInterval,
-		PollInterval:        ic.PollInterval,
+		PollTimeout:         ic.PollTimeout,
 		MaxConnectionErrors: ic.MaxConnectionErrors,
 		ConnectionStrategy:  ic.ConnectionStrategy,
 

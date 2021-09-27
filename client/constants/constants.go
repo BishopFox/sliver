@@ -82,13 +82,19 @@ const (
 
 	// LootRemoved
 	LootRemovedEvent = "loot-removed"
+
+	// BeaconRegisteredEvent - First connection from a new beacon
+	BeaconRegisteredEvent = "beacon-registered"
+
+	// BeaconTaskResult - Beacon task completed with a result
+	BeaconTaskResultEvent = "beacon-taskresult"
 )
 
 // Commands
 const (
-	NewPlayerStr       = "new-player"
-	PlayersStr         = "players"
-	KickPlayerStr      = "kick-player"
+	OperatorsStr       = "operators"
+	NewOperatorStr     = "new-operator"
+	KickOperatorStr    = "kick-operator"
 	MultiplayerModeStr = "multiplayer"
 
 	SessionsStr   = "sessions"
@@ -97,12 +103,16 @@ const (
 	UseStr        = "use"
 	ReconfigStr   = "reconfig"
 	PruneStr      = "prune"
-
+	TasksStr      = "tasks"
 	GenerateStr   = "generate"
 	RegenerateStr = "regenerate"
 	CompilerStr   = "info"
 	StagerStr     = "stager"
 	ProfilesStr   = "profiles"
+	BeaconStr     = "beacon"
+	BeaconsStr    = "beacons"
+	WatchStr      = "watch"
+	SettingsStr   = "settings"
 
 	// Generic
 
@@ -116,17 +126,18 @@ const (
 	SaveStr   = "save"
 	ReloadStr = "reload"
 	LoadStr   = "load"
+	TablesStr = "tables"
 
 	LootStr       = "loot"
 	LootLocalStr  = "local"
 	LootRemoteStr = "remote"
-	LootFetchStr  = "fetch"
+	FetchStr      = "fetch"
 	LootCredsStr  = "creds"
 
 	RenameStr = "rename"
 
 	ImplantBuildsStr = "implants"
-	ListCanariesStr  = "canaries"
+	CanariesStr      = "canaries"
 
 	JobsStr        = "jobs"
 	MtlsStr        = "mtls"

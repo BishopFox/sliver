@@ -23,11 +23,18 @@ import "commonpb/common.proto";
 // Envelope - Used to encode implant<->server messages since we 
 //            cannot use gRPC due to the various transports used.
 message Envelope {
-  uint64 ID = 1;   // Envelope ID used to track request/response
+  int64 ID = 1;   // Envelope ID used to track request/response
   uint32 Type = 2; // Message type
   bytes Data = 3;  // Actual message data
 
   bool UnknownMessageType = 4; // Set if the implant did not understand the message
+}
+
+// BeaconTasks - DO NOT CONFUSE WITH clientpb.BeaconTasks
+message BeaconTasks {
+  string ID = 1;
+  repeated Envelope Tasks = 2;
+  int64 NextCheckin = 3;
 }
 
 // Register - First message the implant sends to the server
@@ -44,10 +51,18 @@ message Register {
   string Filename = 10;
   string ActiveC2 = 11;
   string Version = 12;
-  uint32 ReconnectInterval = 13;
+  int64 ReconnectInterval = 13;
   string ProxyURL = 14;
-  uint32 PollInterval = 15;
+  int64 PollTimeout = 15;
   string ConfigID = 16;
+}
+
+message BeaconRegister {
+  string ID = 1;
+  int64 Interval = 2;
+  int64 Jitter = 3;
+  Register Register = 4;
+  int64 NextCheckin = 5;
 }
 
 // Ping - Not ICMP, just sends a rount trip message to an implant to
@@ -656,7 +671,7 @@ message Portfwd {
 
 // Named Pipes Messages
 message NamedPipesReq {
-  string PipeName = 16;
+  string PipeName = 1;
   
   commonpb.Request Request = 9;
 }
@@ -669,7 +684,7 @@ message NamedPipes {
 
 // TCP Messages for pivoting
 message TCPPivotReq {
-  string Address = 16;
+  string Address = 1;
 
   commonpb.Request Request = 9;
 }
@@ -680,20 +695,23 @@ message TCPPivot {
 }
 
 // Pivot transport
+message PivotPublicKey {
+  bytes PublicKey = 1;
+  string OTP = 2;
+}
+
 message PivotOpen {
-  uint32 PivotID = 12;
-  string PivotType = 13;
-  string RemoteAddress = 14;
-  bytes  RegisterMsg = 15;
+  uint32 PivotID = 1;
+  bytes  PivotKey = 2;
 }
 
 message PivotClose {
-  uint32 PivotID = 12;
+  uint32 PivotID = 1;
   string Err = 2;
 }
 
 message PivotData {
-  uint32 PivotID = 12;
+  uint32 PivotID = 1;
   bytes Data = 2;
 }
 
@@ -773,7 +791,7 @@ message WGTCPForwarders {
 
 // ReconnectIntervalReq - Request the implant to update it's reconnect interval
 message ReconnectIntervalReq {
-  uint32 ReconnectIntervalSeconds = 1;
+  int64 ReconnectInterval = 1;
 
   commonpb.Request Request = 9;
 }
@@ -784,7 +802,7 @@ message ReconnectInterval {
 
 // PollIntervalReq - Request the implant to update it's poll intervbal
 message PollIntervalReq {
-  uint32 PollIntervalSeconds = 1;
+  int64 PollInterval = 1;
 
   commonpb.Request Request = 9;
 }

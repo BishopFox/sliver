@@ -22,22 +22,46 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 // RevToSelfCmd - Drop any impersonated tokens
 func RevToSelfCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
-	_, err := con.Rpc.RevToSelf(context.Background(), &sliverpb.RevToSelfReq{
-		Request: con.ActiveSession.Request(ctx),
-	})
 
+	revert, err := con.Rpc.RevToSelf(context.Background(), &sliverpb.RevToSelfReq{
+		Request: con.ActiveTarget.Request(ctx),
+	})
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	if revert.Response != nil && revert.Response.Async {
+		con.AddBeaconCallback(revert.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, revert)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintRev2Self(revert, con)
+		})
+		con.PrintAsyncResponse(revert.Response)
+	} else {
+		PrintRev2Self(revert, con)
+	}
+}
+
+// PrintRev2Self - Print the result of revert to self
+func PrintRev2Self(revert *sliverpb.RevToSelf, con *console.SliverConsoleClient) {
+	if revert.Response != nil && revert.Response.GetErr() != "" {
+		con.PrintErrorf("%s\n", revert.Response.GetErr())
 		return
 	}
 	con.PrintInfof("Back to self...")

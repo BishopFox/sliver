@@ -62,8 +62,8 @@ const (
 
 	// DefaultReconnect is the default reconnect time
 	DefaultReconnect = 60
-	// DefaultPoll is the default poll interval
-	DefaultPoll = 1
+	// DefaultPollTimeout is the default poll timeout
+	DefaultPollTimeout = 360 // 6 minutes
 	// DefaultMaxErrors is the default max reconnection errors before giving up
 	DefaultMaxErrors = 1000
 )
@@ -210,7 +210,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	}
 
 	reconnectInterval := ctx.Flags.Int("reconnect")
-	pollInterval := ctx.Flags.Int("poll")
+	pollTimeout := ctx.Flags.Int("poll-timeout")
 	maxConnectionErrors := ctx.Flags.Int("max-errors")
 
 	limitDomainJoined := ctx.Flags.Bool("limit-domainjoined")
@@ -283,8 +283,8 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		WGKeyExchangePort: uint32(ctx.Flags.Int("key-exchange")),
 		WGTcpCommsPort:    uint32(ctx.Flags.Int("tcp-comms")),
 
-		ReconnectInterval:   uint32(reconnectInterval),
-		PollInterval:        uint32(pollInterval),
+		ReconnectInterval:   int64(reconnectInterval) * int64(time.Second),
+		PollTimeout:         int64(pollTimeout) * int64(time.Second),
 		MaxConnectionErrors: uint32(maxConnectionErrors),
 
 		LimitDomainJoined: limitDomainJoined,
@@ -475,9 +475,12 @@ func parseTCPPivotc2(args string) []*clientpb.ImplantC2 {
 }
 
 func compile(config *clientpb.ImplantConfig, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
-
-	con.PrintInfof("Generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
-
+	if config.IsBeacon {
+		interval := time.Duration(config.BeaconInterval)
+		con.PrintInfof("Generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
+	} else {
+		con.PrintInfof("Generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
+	}
 	if config.ObfuscateSymbols {
 		con.PrintInfof("%sSymbol obfuscation is enabled%s\n", console.Bold, console.Normal)
 	} else if !config.Debug {
@@ -547,7 +550,7 @@ func checkBuildTargetCompatibility(format clientpb.OutputFormat, targetOS string
 
 	compilers, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintWarnf("Failed to check target compatibility: %s\n", err)
+		con.PrintErrorf("Failed to check target compatibility: %s\n", err)
 		return true
 	}
 
@@ -582,7 +585,7 @@ func hasCC(targetOS string, targetArch string, crossCompilers []*clientpb.CrossC
 }
 
 func warnMissingCrossCompiler(format clientpb.OutputFormat, targetOS string, targetArch string, con *console.SliverConsoleClient) bool {
-	con.PrintWarnf("WARNING: Missing cross-compiler for %s on %s/%s\n", nameOfOutputFormat(format), targetOS, targetArch)
+	con.PrintWarnf("Missing cross-compiler for %s on %s/%s\n", nameOfOutputFormat(format), targetOS, targetArch)
 	switch targetOS {
 	case "windows":
 		con.PrintWarnf("The server cannot find an installation of mingw")

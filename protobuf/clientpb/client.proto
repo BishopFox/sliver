@@ -34,16 +34,68 @@ message Session {
   string RemoteAddress = 11;
   int32 PID = 12;
   string Filename = 13; // Argv[0]
-  string LastCheckin = 14;
+  int64 LastCheckin = 14;
   string ActiveC2 = 15;
   string Version = 16;
   bool Evasion = 17;
   bool IsDead = 18;
-  uint32 ReconnectInterval = 19;
+  int64 ReconnectInterval = 19;
   string ProxyURL = 20;
-  uint32 PollInterval = 21;
+  int64 PollTimeout = 21;
   bool Burned = 22;
   repeated string Extensions = 23;
+  // string ConfigID = 24;
+}
+
+message Beacon {
+  string ID = 1;
+  string Name = 2;
+  string Hostname = 3;
+  string UUID = 4;
+  string Username = 5;
+  string UID = 6;
+  string GID = 7;
+  string OS = 8;
+  string Arch = 9;
+  string Transport = 10;
+  string RemoteAddress = 11;
+  int32 PID = 12;
+  string Filename = 13; // Argv[0]
+  int64 LastCheckin = 14;
+  string ActiveC2 = 15;
+  string Version = 16;
+  bool Evasion = 17;
+  bool IsDead = 18;
+
+  string ProxyURL = 20;
+  int64 Interval = 21;
+  int64 Jitter = 22;
+  bool Burned = 23;
+  int64 NextCheckin = 24;
+
+  int64 TasksCount = 25;
+  int64 TasksCountCompleted = 26;
+}
+
+message Beacons {
+  repeated Beacon Beacons = 2;
+}
+
+message BeaconTask {
+  string ID = 1;
+  string BeaconID = 2;
+  int64 CreatedAt = 3;
+  string State = 4;
+  int64 SentAt  = 5;
+  int64 CompletedAt = 6;
+  bytes Request = 7;
+  bytes Response = 8;
+  string Description = 9;
+}
+
+message BeaconTasks {
+  string BeaconID = 1;
+  repeated BeaconTask Tasks = 2;
 }
 
 message ImplantC2 {
@@ -60,45 +112,54 @@ enum OutputFormat {
 }
 
 message ImplantConfig {
-  string ID = 100;
+  string ID = 1;
+  bool IsBeacon = 2;
+  int64 BeaconInterval = 3;
+  int64 BeaconJitter = 4;
 
-  string GOOS = 1;
-  string GOARCH = 2;
-  string Name = 3;
-  string CACert = 4;
-  string Cert = 5;
-  string Key = 6;
-  bool Debug = 7;
-  bool Evasion = 31;
-  bool ObfuscateSymbols = 30;
+  string GOOS = 5;
+  string GOARCH = 6;
+  string Name = 7;
 
-  string WGImplantPrivKey = 33;
-  string WGServerPubKey = 34;
-  string WGPeerTunIP = 35;
-  uint32 WGKeyExchangePort = 36;
-  uint32 WGTcpCommsPort = 37;
+  bool Debug = 8;
+  bool Evasion = 9;
+  bool ObfuscateSymbols = 10;
 
-  uint32 ReconnectInterval = 8;
-  uint32 MaxConnectionErrors = 9;
-  uint32 PollInterval = 38;
+  string MtlsCACert = 20;
+  string MtlsCert = 21;
+  string MtlsKey = 22;
+
+  string ECCPublicKey = 23;
+  string ECCPrivateKey = 24;
+  string ECCPublicKeySignature = 25;
+  string ECCServerPublicKey = 26;
+
+  string WGImplantPrivKey = 30;
+  string WGServerPubKey = 31;
+  string WGPeerTunIP = 32;
+  uint32 WGKeyExchangePort = 33;
+  uint32 WGTcpCommsPort = 34;
+
+  int64 ReconnectInterval = 40;
+  uint32 MaxConnectionErrors = 41;
+  int64 PollTimeout = 42;
 
   // c2
-  repeated ImplantC2 C2 = 10;
-  repeated string CanaryDomains = 11;
-  string ConnectionStrategy = 39;
+  repeated ImplantC2 C2 = 50;
+  repeated string CanaryDomains = 51;
+  string ConnectionStrategy = 52;
 
-  bool LimitDomainJoined = 20;
-  string LimitDatetime = 21;
-  string LimitHostname = 22;
-  string LimitUsername = 23;
-  string LimitFileExists = 32;
+  bool LimitDomainJoined = 60;
+  string LimitDatetime = 61;
+  string LimitHostname = 62;
+  string LimitUsername = 63;
+  string LimitFileExists = 64;
 
-  OutputFormat Format = 25;
-  bool IsSharedLib = 26;
-
-  string FileName = 27;
-  bool IsService = 28;
-  bool IsShellcode = 29;
+  OutputFormat Format = 100;
+  bool IsSharedLib = 101;
+  string FileName = 102;
+  bool IsService = 103;
+  bool IsShellcode = 104;
 }
 
 // Configs of previously built implants
@@ -234,6 +295,9 @@ message HTTPListenerReq {
   bytes Key = 7;
   bool ACME = 8;
   bool Persistent = 9;
+  bool EnforceOTP = 10;
+  int64 LongPollTimeout = 11;
+  int64 LongPollJitter = 12;
 }
 
 // Named Pipes Messages for pivoting
@@ -276,8 +340,8 @@ message Sessions {
 message UpdateSession {
   uint32 SessionID = 1;
   string Name = 2;
-  int32 ReconnectInterval = 3;
-  int32 PollInterval = 4;
+  int64 ReconnectInterval = 3;
+  int64 PollInterval = 4;
   repeated string Extensions = 5;
 }
 

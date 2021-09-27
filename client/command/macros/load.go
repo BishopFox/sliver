@@ -185,7 +185,7 @@ func LoadMacroCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 func runMacroCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -246,7 +246,7 @@ func runMacroCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
 		executeAssemblyResp, err := con.Rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
-			Request:   con.ActiveSession.Request(ctx),
+			Request:   con.ActiveTarget.Request(ctx),
 			IsDLL:     isDLL,
 			Process:   processName,
 			Arguments: extArgs,
@@ -272,7 +272,7 @@ func runMacroCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
 		spawnDllResp, err := con.Rpc.SpawnDll(context.Background(), &sliverpb.InvokeSpawnDllReq{
-			Request:     con.ActiveSession.Request(ctx),
+			Request:     con.ActiveTarget.Request(ctx),
 			Args:        strings.Trim(extArgs, " "),
 			Data:        binData,
 			ProcessName: processName,
@@ -297,7 +297,7 @@ func runMacroCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
 		sideloadResp, err := con.Rpc.Sideload(context.Background(), &sliverpb.SideloadReq{
-			Request:     con.ActiveSession.Request(ctx),
+			Request:     con.ActiveTarget.Request(ctx),
 			Args:        extArgs,
 			Data:        binData,
 			EntryPoint:  entryPoint,

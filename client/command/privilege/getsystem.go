@@ -23,34 +23,58 @@ import (
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 // GetSystemCmd - Windows only, attempt to get SYSTEM on the remote system
 func GetSystemCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
+	targetOS := getOS(session, beacon)
+	if targetOS != "windows" {
+		con.PrintErrorf("Command only supported on Windows.\n")
+		return
+	}
+
 	process := ctx.Flags.String("process")
 	config := con.GetActiveSessionConfig()
 	ctrl := make(chan bool)
 	con.SpinUntil("Attempting to create a new sliver session as 'NT AUTHORITY\\SYSTEM'...", ctrl)
 
-	getsystemResp, err := con.Rpc.GetSystem(context.Background(), &clientpb.GetSystemReq{
-		Request:        con.ActiveSession.Request(ctx),
+	getSystem, err := con.Rpc.GetSystem(context.Background(), &clientpb.GetSystemReq{
+		Request:        con.ActiveTarget.Request(ctx),
 		Config:         config,
 		HostingProcess: process,
 	})
-
 	ctrl <- true
 	<-ctrl
-
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	if getsystemResp.GetResponse().GetErr() != "" {
+
+	if getSystem.Response != nil && getSystem.Response.Async {
+		con.AddBeaconCallback(getSystem.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, getSystem)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintGetSystem(getSystem, con)
+		})
+		con.PrintAsyncResponse(getSystem.Response)
+	} else {
+		PrintGetSystem(getSystem, con)
+	}
+}
+
+// PrintGetSystem - Print the results of get system
+func PrintGetSystem(getsystemResp *sliverpb.GetSystem, con *console.SliverConsoleClient) {
+	if getsystemResp.Response != nil && getsystemResp.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", getsystemResp.GetResponse().GetErr())
 		return
 	}

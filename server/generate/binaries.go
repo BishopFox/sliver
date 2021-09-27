@@ -20,6 +20,8 @@ package generate
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -142,11 +144,15 @@ const (
 func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *models.ImplantConfig) {
 	cfg := &models.ImplantConfig{}
 
+	cfg.IsBeacon = pbConfig.IsBeacon
+	cfg.BeaconInterval = pbConfig.BeaconInterval
+	cfg.BeaconJitter = pbConfig.BeaconJitter
+
 	cfg.GOOS = pbConfig.GOOS
 	cfg.GOARCH = pbConfig.GOARCH
-	cfg.CACert = pbConfig.CACert
-	cfg.Cert = pbConfig.Cert
-	cfg.Key = pbConfig.Key
+	cfg.MtlsCACert = pbConfig.MtlsCACert
+	cfg.MtlsCert = pbConfig.MtlsCert
+	cfg.MtlsKey = pbConfig.MtlsKey
 	cfg.Debug = pbConfig.Debug
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
@@ -159,7 +165,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.WGTcpCommsPort = pbConfig.WGTcpCommsPort
 	cfg.ReconnectInterval = pbConfig.ReconnectInterval
 	cfg.MaxConnectionErrors = pbConfig.MaxConnectionErrors
-	cfg.PollInterval = pbConfig.PollInterval
+	cfg.PollTimeout = pbConfig.PollTimeout
 
 	cfg.LimitDomainJoined = pbConfig.LimitDomainJoined
 	cfg.LimitDatetime = pbConfig.LimitDatetime
@@ -281,6 +287,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 		GOCACHE:    gogo.GetGoCache(appDir),
 		GOMODCACHE: gogo.GetGoModCache(appDir),
 		GOROOT:     gogo.GetGoRootDir(appDir),
+		GOPROXY:    getGoProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
 		GOPRIVATE:   GoPrivate,
@@ -350,6 +357,7 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 		GOCACHE:    gogo.GetGoCache(appDir),
 		GOMODCACHE: gogo.GetGoModCache(appDir),
 		GOROOT:     gogo.GetGoRootDir(appDir),
+		GOPROXY:    getGoProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
 		GOPRIVATE:   GoPrivate,
@@ -406,6 +414,7 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 		GOROOT:     gogo.GetGoRootDir(appDir),
 		GOCACHE:    gogo.GetGoCache(appDir),
 		GOMODCACHE: gogo.GetGoModCache(appDir),
+		GOPROXY:    getGoProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
 		GOPRIVATE:   GoPrivate,
@@ -473,14 +482,30 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	goConfig.ProjectDir = projectGoPathDir
 
 	// Cert PEM encoded certificates
-	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.C2ServerCA)
-	sliverCert, sliverKey, err := certs.ImplantGenerateECCCertificate(name)
+	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.MtlsServerCA)
+	sliverCert, sliverKey, err := certs.MtlsC2ImplantGenerateECCCertificate(name)
 	if err != nil {
 		return "", err
 	}
-	config.CACert = string(serverCACert)
-	config.Cert = string(sliverCert)
-	config.Key = string(sliverKey)
+
+	// ECC keys
+	implantKeyPair, err := cryptography.RandomECCKeyPair()
+	if err != nil {
+		return "", err
+	}
+	serverKeyPair := cryptography.ECCServerKeyPair()
+	digest := sha256.Sum256((*implantKeyPair.Public)[:])
+	config.ECCPublicKey = implantKeyPair.PublicBase64()
+	config.ECCPublicKeyDigest = hex.EncodeToString(digest[:])
+	config.ECCPrivateKey = implantKeyPair.PrivateBase64()
+	config.ECCServerPublicKey = serverKeyPair.PublicBase64()
+
+	// MTLS keys
+	if config.MTLSc2Enabled {
+		config.MtlsCACert = string(serverCACert)
+		config.MtlsCert = string(sliverCert)
+		config.MtlsKey = string(sliverKey)
+	}
 
 	otpSecret, err := cryptography.TOTPServerSecret()
 	if err != nil {
@@ -829,4 +854,19 @@ func GetUnsupportedTargets() []*clientpb.CompilerTarget {
 		})
 	}
 	return targets
+}
+
+func getGoProxy() string {
+	serverConfig := configs.GetServerConfig()
+	if serverConfig.GoProxy != "" {
+		buildLog.Infof("Using GOPROXY from server config = %s", serverConfig.GoProxy)
+		return serverConfig.GoProxy
+	}
+	value, present := os.LookupEnv("GOPROXY")
+	if present {
+		buildLog.Infof("Using GOPROXY from env: %s", value)
+		return value
+	}
+	buildLog.Debugf("No GOPROXY found")
+	return ""
 }

@@ -156,13 +156,13 @@ func RegisterExtensionCommand(extCmd *extensionCommand, con *console.SliverConso
 }
 
 func ListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 
 	extList, err := con.Rpc.ListExtensions(context.Background(), &sliverpb.ListExtensionsReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {
 		con.PrintErrorf("Error: %s", err)
@@ -190,7 +190,7 @@ func loadExtension(ctx *grumble.Context, session *clientpb.Session, con *console
 	// Try to find the extension in the loaded extensions
 	if len(session.Extensions) == 0 {
 		extList, err := con.Rpc.ListExtensions(context.Background(), &sliverpb.ListExtensionsReq{
-			Request: con.ActiveSession.Request(ctx),
+			Request: con.ActiveTarget.Request(ctx),
 		})
 		if err != nil {
 			con.PrintErrorf("Error: %s\n", err.Error())
@@ -253,7 +253,7 @@ func registerExtension(con *console.SliverConsoleClient, ext *extensionCommand, 
 		Data:    binData,
 		OS:      session.OS,
 		Init:    ext.Init,
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {
 		return err
@@ -288,7 +288,7 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		extName       string
 		entryPoint    string
 	)
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -348,7 +348,7 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Name:    extName,
 		Export:  entryPoint,
 		Args:    extensionArgs,
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	ctrl <- true
 	<-ctrl

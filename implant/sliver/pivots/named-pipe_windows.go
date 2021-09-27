@@ -20,131 +20,128 @@ package pivots
 
 import (
 	// {{if .Config.Debug}}
-	"log"
+	// "log"
 	// {{end}}
-	"math/rand"
+	// "math/rand"
 	"net"
-	"os"
-	"strings"
-	"time"
-
-	"github.com/bishopfox/sliver/implant/sliver/transports"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/lesnuages/go-winio"
-
-	"google.golang.org/protobuf/proto"
+	// "os"
+	// "strings"
+	// "time"
+	// "github.com/bishopfox/sliver/implant/sliver/transports"
+	// "github.com/bishopfox/sliver/protobuf/sliverpb"
+	// "github.com/lesnuages/go-winio"
+	// "google.golang.org/protobuf/proto"
 )
 
 func StartNamedPipeListener(pipeName string) error {
-	fullName := "\\\\.\\pipe\\" + pipeName
-	config := &winio.PipeConfig{
-		RemoteClientMode: true,
-	}
-	ln, err := winio.ListenPipe(fullName, config)
-	// {{if .Config.Debug}}
-	log.Printf("Listening on %s", fullName)
-	// {{end}}
-	if err != nil {
-		return err
-	}
-	pivotListeners = append(pivotListeners, &PivotListener{
-		Type:          "named-pipe",
-		RemoteAddress: fullName,
-	})
-	go nampedPipeAcceptNewConnection(&ln)
+	// fullName := "\\\\.\\pipe\\" + pipeName
+	// config := &winio.PipeConfig{
+	// 	RemoteClientMode: true,
+	// }
+	// ln, err := winio.ListenPipe(fullName, config)
+	// // {{if .Config.Debug}}
+	// log.Printf("Listening on %s", fullName)
+	// // {{end}}
+	// if err != nil {
+	// 	return err
+	// }
+	// pivotListeners = append(pivotListeners, &PivotListener{
+	// 	Type:          "named-pipe",
+	// 	RemoteAddress: fullName,
+	// })
+	// go nampedPipeAcceptNewConnection(&ln)
 	return nil
 }
 
 func nampedPipeAcceptNewConnection(ln *net.Listener) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to determine hostname %s", err)
-		// {{end}}
-		hostname = "."
-	}
-	namedPipe := strings.ReplaceAll((*ln).Addr().String(), ".", hostname)
-	for {
-		conn, err := (*ln).Accept()
-		if err != nil {
-			continue
-		}
-		rand.Seed(time.Now().UnixNano())
-		pivotID := rand.Uint32()
-		pivotsMap.AddPivot(pivotID, &conn, "named-pipe", namedPipe)
-		//SendPivotOpen(pivotID, "named-pipe", namedPipe)
+	// hostname, err := os.Hostname()
+	// if err != nil {
+	// 	// {{if .Config.Debug}}
+	// 	log.Printf("Failed to determine hostname %s", err)
+	// 	// {{end}}
+	// 	hostname = "."
+	// }
+	// namedPipe := strings.ReplaceAll((*ln).Addr().String(), ".", hostname)
+	// for {
+	// 	conn, err := (*ln).Accept()
+	// 	if err != nil {
+	// 		continue
+	// 	}
+	// 	pivotID := rand.Uint32()
+	// 	pivotsMap.AddPivot(pivotID, &conn, "named-pipe", namedPipe)
+	// 	//SendPivotOpen(pivotID, "named-pipe", namedPipe)
 
-		// {{if .Config.Debug}}
-		log.Println("Accepted a new connection")
-		// {{end}}
+	// 	// {{if .Config.Debug}}
+	// 	log.Println("Accepted a new connection")
+	// 	// {{end}}
 
-		// handle connection like any other net.Conn
-		go nampedPipeConnectionHandler(&conn, pivotID)
-	}
+	// 	// handle connection like any other net.Conn
+	// 	go nampedPipeConnectionHandler(&conn, pivotID)
+	// }
 }
 
 func nampedPipeConnectionHandler(conn *net.Conn, pivotID uint32) {
 
-	defer func() {
-		// {{if .Config.Debug}}
-		log.Printf("Cleaning up for pivot %d\n", pivotID)
-		// {{end}}
-		(*conn).Close()
-		pivotClose := &sliverpb.PivotClose{
-			PivotID: pivotID,
-		}
-		data, err := proto.Marshal(pivotClose)
-		if err != nil {
-			// {{if .Config.Debug}}
-			log.Println(err)
-			// {{end}}
-			return
-		}
-		connection := transports.GetActiveConnection()
-		if connection.IsOpen {
-			connection.Send <- &sliverpb.Envelope{
-				Type: sliverpb.MsgPivotClose,
-				Data: data,
-			}
-		}
-	}()
+	// defer func() {
+	// 	// {{if .Config.Debug}}
+	// 	log.Printf("Cleaning up for pivot %d\n", pivotID)
+	// 	// {{end}}
+	// 	(*conn).Close()
+	// 	pivotClose := &sliverpb.PivotClose{
+	// 		PivotID: pivotID,
+	// 	}
+	// 	data, err := proto.Marshal(pivotClose)
+	// 	if err != nil {
+	// 		// {{if .Config.Debug}}
+	// 		log.Println(err)
+	// 		// {{end}}
+	// 		return
+	// 	}
+	// 	connection := transports.GetActiveConnection()
+	// 	if connection.IsOpen {
+	// 		connection.Send <- &sliverpb.Envelope{
+	// 			Type: sliverpb.MsgPivotClose,
+	// 			Data: data,
+	// 		}
+	// 	}
+	// }()
 
-	for {
-		envelope, err := PivotReadEnvelope(conn)
-		if err != nil {
-			// {{if .Config.Debug}}
-			log.Println(err)
-			// {{end}}
-			return
-		}
-		dataBuf, err1 := proto.Marshal(envelope)
-		if err1 != nil {
-			// {{if .Config.Debug}}
-			log.Println(err1)
-			// {{end}}
-			return
-		}
-		pivotOpen := &sliverpb.PivotData{
-			PivotID: pivotID,
-			Data:    dataBuf,
-		}
-		connection := transports.GetActiveConnection()
-		if envelope.Type == 1 {
-			SendPivotOpen(pivotID, dataBuf, connection)
-			continue
-		}
-		data2, err2 := proto.Marshal(pivotOpen)
-		if err2 != nil {
-			// {{if .Config.Debug}}
-			log.Println(err2)
-			// {{end}}
-			return
-		}
-		if connection.IsOpen {
-			connection.Send <- &sliverpb.Envelope{
-				Type: sliverpb.MsgPivotData,
-				Data: data2,
-			}
-		}
-	}
+	// for {
+	// 	envelope, err := PivotReadEnvelope(conn)
+	// 	if err != nil {
+	// 		// {{if .Config.Debug}}
+	// 		log.Println(err)
+	// 		// {{end}}
+	// 		return
+	// 	}
+	// 	dataBuf, err1 := proto.Marshal(envelope)
+	// 	if err1 != nil {
+	// 		// {{if .Config.Debug}}
+	// 		log.Println(err1)
+	// 		// {{end}}
+	// 		return
+	// 	}
+	// 	pivotOpen := &sliverpb.PivotData{
+	// 		PivotID: pivotID,
+	// 		Data:    dataBuf,
+	// 	}
+	// 	connection := transports.GetActiveConnection()
+	// 	if envelope.Type == 1 {
+	// 		SendPivotOpen(pivotID, dataBuf, connection)
+	// 		continue
+	// 	}
+	// 	data2, err2 := proto.Marshal(pivotOpen)
+	// 	if err2 != nil {
+	// 		// {{if .Config.Debug}}
+	// 		log.Println(err2)
+	// 		// {{end}}
+	// 		return
+	// 	}
+	// 	if connection.IsOpen {
+	// 		connection.Send <- &sliverpb.Envelope{
+	// 			Type: sliverpb.MsgPivotData,
+	// 			Data: data2,
+	// 		}
+	// 	}
+	// }
 }

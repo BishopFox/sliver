@@ -45,8 +45,8 @@ func printHelp(con *console.SliverConsoleClient) {
 	groups := make(map[string]*grumble.Commands)
 	for _, c := range con.App.Commands().All() {
 		key := c.HelpGroup
-		if con.ActiveSession.Get() != nil {
-			if con.ActiveSession.Get().GetOS() != "windows" && key == consts.SliverWinHelpGroup {
+		if con.ActiveTarget.GetSession() != nil {
+			if con.ActiveTarget.GetSession().GetOS() != "windows" && key == consts.SliverWinHelpGroup {
 				continue
 			}
 		} else {

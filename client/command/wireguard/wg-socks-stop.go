@@ -28,7 +28,7 @@ import (
 
 // WGSocksStopCmd - Stop a WireGuard SOCKS proxy
 func WGSocksStopCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.Get()
+	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		return
 	}
@@ -41,7 +41,7 @@ func WGSocksStopCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	stopReq, err := con.Rpc.WGStopSocks(context.Background(), &sliverpb.WGSocksStopReq{
 		ID:      int32(socksID),
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {

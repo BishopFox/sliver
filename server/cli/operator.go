@@ -71,7 +71,7 @@ var operatorCmd = &cobra.Command{
 		}
 
 		certs.SetupCAs()
-		configJSON, err := console.NewPlayerConfig(name, lhost, lport)
+		configJSON, err := console.NewOperatorConfig(name, lhost, lport)
 		if err != nil {
 			fmt.Printf("Failed: %s\n", err)
 			os.Exit(1)

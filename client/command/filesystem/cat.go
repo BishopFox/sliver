@@ -28,16 +28,18 @@ import (
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
 
 // CatCmd - Display the contents of a remote file
 func CatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -48,11 +50,33 @@ func CatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	download, err := con.Rpc.Download(context.Background(), &sliverpb.DownloadReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 		Path:    filePath,
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if download.Response != nil && download.Response.Async {
+		con.AddBeaconCallback(download.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, download)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintCat(download, ctx, con)
+		})
+		con.PrintAsyncResponse(download.Response)
+	} else {
+		PrintCat(download, ctx, con)
+	}
+}
+
+// PrintCat - Print the download to stdout
+func PrintCat(download *sliverpb.Download, ctx *grumble.Context, con *console.SliverConsoleClient) {
+	var err error
+	if download.Response != nil && download.Response.Err != "" {
+		con.PrintErrorf("%s\n", download.Response.Err)
 		return
 	}
 	if download.Encoder == "gzip" {
@@ -73,14 +97,6 @@ func CatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.Println(string(download.Data))
 		}
 	}
-	// if ctx.Flags.Bool("loot") && 0 < len(download.Data) {
-	// 	err = AddLootFile(rpc, fmt.Sprintf("[cat] %s", filepath.Base(filePath)), filePath, download.Data, false)
-	// 	if err != nil {
-	// 		con.PrintErrorf("Failed to save output as loot: %s", err)
-	// 	} else {
-	// 		fmt.Printf(clearln + Info + "Output saved as loot\n")
-	// 	}
-	// }
 }
 
 func colorize(f *sliverpb.Download) error {

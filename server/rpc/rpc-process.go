@@ -21,12 +21,13 @@ package rpc
 import (
 	"context"
 
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 // Ps - List the processes on the remote machine
 func (rpc *Server) Ps(ctx context.Context, req *sliverpb.PsReq) (*sliverpb.Ps, error) {
-	resp := &sliverpb.Ps{}
+	resp := &sliverpb.Ps{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -36,7 +37,7 @@ func (rpc *Server) Ps(ctx context.Context, req *sliverpb.PsReq) (*sliverpb.Ps, e
 
 // ProcessDump - Dump the memory of a remote process
 func (rpc *Server) ProcessDump(ctx context.Context, req *sliverpb.ProcessDumpReq) (*sliverpb.ProcessDump, error) {
-	resp := &sliverpb.ProcessDump{}
+	resp := &sliverpb.ProcessDump{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -46,7 +47,7 @@ func (rpc *Server) ProcessDump(ctx context.Context, req *sliverpb.ProcessDumpReq
 
 // Terminate - Terminate a remote process
 func (rpc *Server) Terminate(ctx context.Context, req *sliverpb.TerminateReq) (*sliverpb.Terminate, error) {
-	resp := &sliverpb.Terminate{}
+	resp := &sliverpb.Terminate{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err

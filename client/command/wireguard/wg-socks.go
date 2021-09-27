@@ -32,7 +32,7 @@ import (
 
 // WGSocksListCmd - List WireGuard SOCKS proxies
 func WGSocksListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -42,7 +42,7 @@ func WGSocksListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	socksList, err := con.Rpc.WGListSocksServers(context.Background(), &sliverpb.WGSocksServersReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {

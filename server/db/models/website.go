@@ -28,8 +28,6 @@ import (
 
 // Website - Colletions of content to serve from HTTP(S)
 type Website struct {
-	// gorm.Model
-
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
@@ -58,8 +56,6 @@ func (w *Website) ToProtobuf() *clientpb.Website {
 
 // WebContent - One piece of content mapped to a path
 type WebContent struct {
-	// gorm.Model
-
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	WebsiteID uuid.UUID `gorm:"type:uuid;"`
 

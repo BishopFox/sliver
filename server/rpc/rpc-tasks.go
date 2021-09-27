@@ -24,24 +24,30 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 	"strings"
 
 	"github.com/Binject/debug/pe"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/generate"
+	"github.com/bishopfox/sliver/server/log"
 
 	"google.golang.org/protobuf/proto"
 )
 
+var (
+	tasksLog = log.NamedLogger("rpc", "tasks")
+)
+
 // Task - Execute shellcode in-memory
 func (rpc *Server) Task(ctx context.Context, req *sliverpb.TaskReq) (*sliverpb.Task, error) {
-	resp := &sliverpb.Task{}
+	resp := &sliverpb.Task{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -97,10 +103,25 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 
 // ExecuteAssembly - Execute a .NET assembly on the remote system in-memory (Windows only)
 func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAssemblyReq) (*sliverpb.ExecuteAssembly, error) {
-	session := core.Sessions.Get(req.Request.SessionID)
-	if session == nil {
-		return nil, ErrInvalidSessionID
+	var session *core.Session
+	var beacon *models.Beacon
+	var err error
+	if !req.Request.Async {
+		session = core.Sessions.Get(req.Request.SessionID)
+		if session == nil {
+			return nil, ErrInvalidSessionID
+		}
+	} else {
+		beacon, err = db.BeaconByID(req.Request.BeaconID)
+		if err != nil {
+			tasksLog.Errorf("%s", err)
+			return nil, ErrDatabaseFailure
+		}
+		if beacon == nil {
+			return nil, ErrInvalidBeaconID
+		}
 	}
+
 	shellcode, err := generate.DonutFromAssembly(
 		req.Assembly,
 		req.IsDLL,
@@ -111,75 +132,58 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 		req.AppDomain,
 	)
 	if err != nil {
+		tasksLog.Errorf("Execute assembly failed: %s", err)
 		return nil, err
 	}
 
-	reqData, err := proto.Marshal(&sliverpb.InvokeExecuteAssemblyReq{
+	invokeExecAssembly := &sliverpb.InvokeExecuteAssemblyReq{
 		Data:    shellcode,
 		Process: req.Process,
-	})
-	if err != nil {
-		return nil, err
 	}
-	rpcLog.Infof("Sending execute assembly request to session %d\n", req.Request.SessionID)
-	timeout := rpc.getTimeout(req)
-	respData, err := session.Request(sliverpb.MsgInvokeExecuteAssemblyReq, timeout, reqData)
-	if err != nil {
-		return nil, err
-	}
-	resp := &sliverpb.ExecuteAssembly{}
-	err = proto.Unmarshal(respData, resp)
+	resp := &sliverpb.ExecuteAssembly{Response: &commonpb.Response{}}
+	err = rpc.GenericHandler(invokeExecAssembly, resp)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
-
 }
 
 // Sideload - Sideload a DLL on the remote system (Windows only)
 func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sliverpb.Sideload, error) {
-	session := core.Sessions.Get(req.Request.SessionID)
-	if session == nil {
-		return nil, ErrInvalidSessionID
+	var session *core.Session
+	var beacon *models.Beacon
+	var err error
+	if !req.Request.Async {
+		session = core.Sessions.Get(req.Request.SessionID)
+		if session == nil {
+			return nil, ErrInvalidSessionID
+		}
+	} else {
+		beacon, err = db.BeaconByID(req.Request.BeaconID)
+		if err != nil {
+			msfLog.Errorf("%s", err)
+			return nil, ErrDatabaseFailure
+		}
+		if beacon == nil {
+			return nil, ErrInvalidBeaconID
+		}
 	}
 
-	var err error
-	var respData []byte
-	timeout := rpc.getTimeout(req)
-	switch session.ToProtobuf().GetOS() {
-	case "windows":
+	if getOS(session, beacon) == "windows" {
 		shellcode, err := generate.DonutShellcodeFromPE(req.Data, session.Arch, false, req.Args, "", "", req.IsDLL)
-		// shellcode, err := generate.ShellcodeRDIFromBytes(req.Data, req.EntryPoint, req.Args)
 		if err != nil {
+			tasksLog.Errorf("Sideload failed: %s", err)
 			return nil, err
 		}
-		data, err := proto.Marshal(&sliverpb.SideloadReq{
+		req = &sliverpb.SideloadReq{
 			Request:     req.Request,
 			Data:        shellcode,
 			ProcessName: req.ProcessName,
 			Kill:        req.Kill,
-		})
-		if err != nil {
-			return nil, err
 		}
-		respData, err = session.Request(sliverpb.MsgSideloadReq, timeout, data)
-	case "darwin":
-		fallthrough
-	case "linux":
-		reqData, err := proto.Marshal(req)
-		if err != nil {
-			return nil, err
-		}
-		respData, err = session.Request(sliverpb.MsgSideloadReq, timeout, reqData)
-	default:
-		err = fmt.Errorf("%s does not support sideloading", session.ToProtobuf().GetOS())
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &sliverpb.Sideload{}
-	err = proto.Unmarshal(respData, resp)
+	resp := &sliverpb.Sideload{Response: &commonpb.Response{}}
+	err = rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -188,31 +192,53 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 
 // SpawnDll - Spawn a DLL on the remote system (Windows only)
 func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq) (*sliverpb.SpawnDll, error) {
-	session := core.Sessions.Get(req.Request.SessionID)
-	if session == nil {
-		return nil, ErrInvalidSessionID
+	var session *core.Session
+	var beacon *models.Beacon
+	var err error
+	if !req.Request.Async {
+		session = core.Sessions.Get(req.Request.SessionID)
+		if session == nil {
+			return nil, ErrInvalidSessionID
+		}
+	} else {
+		beacon, err = db.BeaconByID(req.Request.BeaconID)
+		if err != nil {
+			msfLog.Errorf("%s", err)
+			return nil, ErrDatabaseFailure
+		}
+		if beacon == nil {
+			return nil, ErrInvalidBeaconID
+		}
 	}
 
-	resp := &sliverpb.SpawnDll{}
+	resp := &sliverpb.SpawnDll{Response: &commonpb.Response{}}
 	offset, err := getExportOffsetFromMemory(req.Data, req.EntryPoint)
 	if err != nil {
 		return nil, err
 	}
-	timeout := rpc.getTimeout(req)
-	data, err := proto.Marshal(&sliverpb.SpawnDllReq{
+	spawnDLLReq := &sliverpb.SpawnDllReq{
 		Data:        req.Data,
 		Offset:      offset,
 		ProcessName: req.ProcessName,
 		Args:        req.Args,
 		Request:     req.Request,
 		Kill:        req.Kill,
-	})
+	}
+	err = rpc.GenericHandler(spawnDLLReq, resp)
 	if err != nil {
 		return nil, err
 	}
-	respData, err := session.Request(sliverpb.MsgSpawnDllReq, timeout, data)
-	err = proto.Unmarshal(respData, resp)
-	return resp, err
+	return resp, nil
+}
+
+func getOS(session *core.Session, beacon *models.Beacon) string {
+	if session != nil {
+		return session.OS
+	}
+	if beacon != nil {
+		return beacon.OS
+	}
+	return ""
 }
 
 // Utility functions
@@ -290,7 +316,7 @@ func getFuncName(index uint32, rawData []byte, fpe *pe.File) string {
 	nameFOA := rvaToFoa(nameRva, fpe)
 	funcNameBytes, err := bytes.NewBuffer(rawData[nameFOA:]).ReadBytes(0)
 	if err != nil {
-		log.Fatal(err)
+		tasksLog.Fatal(err)
 		return ""
 	}
 	funcName := string(funcNameBytes[:len(funcNameBytes)-1])

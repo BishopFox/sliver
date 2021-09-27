@@ -22,17 +22,20 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"google.golang.org/protobuf/proto"
 )
 
 // NetstatCmd - Display active network connections on the remote system
 func NetstatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -42,8 +45,11 @@ func NetstatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	tcp := ctx.Flags.Bool("tcp")
 	udp := ctx.Flags.Bool("udp")
 
+	implantPID := getPID(session, beacon)
+	activeC2 := getActiveC2(session, beacon)
+
 	netstat, err := con.Rpc.Netstat(context.Background(), &sliverpb.NetstatReq{
-		Request:   con.ActiveSession.Request(ctx),
+		Request:   con.ActiveTarget.Request(ctx),
 		TCP:       tcp,
 		UDP:       udp,
 		Listening: listening,
@@ -54,10 +60,22 @@ func NetstatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	displayEntries(netstat.Entries, con)
+	if netstat.Response != nil && netstat.Response.Async {
+		con.AddBeaconCallback(netstat.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, netstat)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintNetstat(netstat, implantPID, activeC2, con)
+		})
+		con.PrintAsyncResponse(netstat.Response)
+	} else {
+		PrintNetstat(netstat, implantPID, activeC2, con)
+	}
 }
 
-func displayEntries(entries []*sliverpb.SockTabEntry, con *console.SliverConsoleClient) {
+func PrintNetstat(netstat *sliverpb.Netstat, implantPID int32, activeC2 string, con *console.SliverConsoleClient) {
 	lookup := func(skaddr *sliverpb.SockTabEntry_SockAddr) string {
 		const IPv4Strlen = 17
 		addr := skaddr.Ip
@@ -71,30 +89,48 @@ func displayEntries(entries []*sliverpb.SockTabEntry, con *console.SliverConsole
 		return fmt.Sprintf("%s:%d", addr, skaddr.Port)
 	}
 
-	con.Printf("Proto %-23s %-23s %-12s %-16s\n", "Local Addr", "Foreign Addr", "State", "PID/Program name")
-	session := con.ActiveSession.GetInteractive()
-	for _, e := range entries {
-		p := ""
-		if e.Process != nil {
-			p = fmt.Sprintf("%d/%s", e.Process.Pid, e.Process.Executable)
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{"Protocol", "Local Address", "Foreign Address", "State", "PID/Program name"})
+
+	for _, entry := range netstat.Entries {
+		pid := ""
+		if entry.Process != nil {
+			pid = fmt.Sprintf("%d/%s", entry.Process.Pid, entry.Process.Executable)
 		}
-		srcAddr := lookup(e.LocalAddr)
-		dstAddr := lookup(e.RemoteAddr)
-		if e.Process != nil && e.Process.Pid == session.PID && isSliverAddr(dstAddr, con) {
-			con.Printf("%s%-5s %-23.23s %-23.23s %-12s %-16s%s\n",
-				console.Green, e.Protocol, srcAddr, dstAddr, e.SkState, p, console.Normal)
+		srcAddr := lookup(entry.LocalAddr)
+		dstAddr := lookup(entry.RemoteAddr)
+		if entry.Process != nil && entry.Process.Pid == implantPID {
+			tw.AppendRow(table.Row{
+				fmt.Sprintf(console.Green+"%s"+console.Normal, entry.Protocol),
+				fmt.Sprintf(console.Green+"%s"+console.Normal, srcAddr),
+				fmt.Sprintf(console.Green+"%s"+console.Normal, dstAddr),
+				fmt.Sprintf(console.Green+"%s"+console.Normal, entry.SkState),
+				fmt.Sprintf(console.Green+"%s"+console.Normal, pid),
+			})
 		} else {
-			con.Printf("%-5s %-23.23s %-23.23s %-12s %-16s\n",
-				e.Protocol, srcAddr, dstAddr, e.SkState, p)
+			tw.AppendRow(table.Row{entry.Protocol, srcAddr, dstAddr, entry.SkState, pid})
 		}
 	}
+	con.Printf("%s\n", tw.Render())
 }
 
-func isSliverAddr(dstAddr string, con *console.SliverConsoleClient) bool {
-	parts := strings.Split(dstAddr, ":")
-	if len(parts) != 3 {
-		return false
+func getActiveC2(session *clientpb.Session, beacon *clientpb.Beacon) string {
+	if session != nil {
+		return session.ActiveC2
 	}
-	c2Addr := strings.Split(con.ActiveSession.GetInteractive().ActiveC2, "://")[1]
-	return strings.Join(parts[:2], ":") == c2Addr
+	if beacon != nil {
+		return beacon.ActiveC2
+	}
+	return ""
+}
+
+func getPID(session *clientpb.Session, beacon *clientpb.Beacon) int32 {
+	if session != nil {
+		return session.PID
+	}
+	if beacon != nil {
+		return beacon.PID
+	}
+	return -1
 }

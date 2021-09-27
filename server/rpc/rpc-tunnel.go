@@ -150,7 +150,7 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 								tunnelLog.Debugf("[shell] Failed to marshal protobuf %s", err)
 								// {{end}}
 							}
-							session.Send <- &sliverpb.Envelope{
+							session.Connection.Send <- &sliverpb.Envelope{
 								Type: sliverpb.MsgTunnelData,
 								Data: data,
 							}
@@ -185,7 +185,7 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 
 					data, _ := proto.Marshal(&tunnelData)
 					tunnel.ToImplantSequence++
-					session.Send <- &sliverpb.Envelope{
+					session.Connection.Send <- &sliverpb.Envelope{
 						Type: sliverpb.MsgTunnelData,
 						Data: data,
 					}
@@ -199,7 +199,7 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 					Data:      make([]byte, 0),
 					Closed:    true,
 				})
-				session.Send <- &sliverpb.Envelope{
+				session.Connection.Send <- &sliverpb.Envelope{
 					Type: sliverpb.MsgTunnelData,
 					Data: data,
 				}

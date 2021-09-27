@@ -39,7 +39,7 @@ func DllHijackCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		targetDLLData []byte
 		err           error
 	)
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -83,7 +83,7 @@ func DllHijackCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		TargetLocation:   targetPath,
 		ReferenceDLL:     localRefData,
 		TargetDLL:        targetDLLData,
-		Request:          con.ActiveSession.Request(ctx),
+		Request:          con.ActiveTarget.Request(ctx),
 		ProfileName:      profileName,
 	})
 	ctrl <- true

@@ -22,15 +22,17 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
 
 // MkdirCmd - Make a remote directory
 func MkdirCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -42,12 +44,33 @@ func MkdirCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	mkdir, err := con.Rpc.Mkdir(context.Background(), &sliverpb.MkdirReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 		Path:    filePath,
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
-	} else {
-		con.PrintInfof("%s\n", mkdir.Path)
+		return
 	}
+	if mkdir.Response != nil && mkdir.Response.Async {
+		con.AddBeaconCallback(mkdir.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, mkdir)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintMkdir(mkdir, con)
+		})
+		con.PrintAsyncResponse(mkdir.Response)
+	} else {
+		PrintMkdir(mkdir, con)
+	}
+}
+
+// PrintMkdir - Print make directory
+func PrintMkdir(mkdir *sliverpb.Mkdir, con *console.SliverConsoleClient) {
+	if mkdir.Response != nil && mkdir.Response.Err != "" {
+		con.PrintErrorf("%s\n", mkdir.Response.Err)
+		return
+	}
+	con.PrintInfof("%s\n", mkdir.Path)
 }

@@ -22,24 +22,46 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
 
 // PwdCmd - Print the remote working directory
 func PwdCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
-
 	pwd, err := con.Rpc.Pwd(context.Background(), &sliverpb.PwdReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
-	} else {
-		con.PrintInfof("%s\n", pwd.Path)
+		return
 	}
+	if pwd.Response != nil && pwd.Response.Async {
+		con.AddBeaconCallback(pwd.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, pwd)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintPwd(pwd, con)
+		})
+		con.PrintAsyncResponse(pwd.Response)
+	} else {
+		PrintPwd(pwd, con)
+	}
+}
+
+// PrintPwd - Print the remote working directory
+func PrintPwd(pwd *sliverpb.Pwd, con *console.SliverConsoleClient) {
+	if pwd.Response != nil && pwd.Response.Err != "" {
+		con.PrintErrorf("%s\n", pwd.Response.Err)
+		return
+	}
+	con.PrintInfof("%s\n", pwd.Path)
 }

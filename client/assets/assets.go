@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"path/filepath"
 	"strings"
 
 	ver "github.com/bishopfox/sliver/client/version"
@@ -100,6 +101,9 @@ func Setup(force bool, echo bool) {
 			log.Fatal(err)
 		}
 		saveAssetVersion(appDir)
+	}
+	if _, err := os.Stat(filepath.Join(appDir, settingsFileName)); os.IsNotExist(err) {
+		SaveSettings(nil)
 	}
 }
 
