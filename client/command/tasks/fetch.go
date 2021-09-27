@@ -467,6 +467,18 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		processes.PrintTerminate(terminate, con)
 
 	// ---------------------
+	// Screenshot
+	// ---------------------
+	case sliverpb.MsgScreenshot:
+		screenshot := &sliverpb.Screenshot{}
+		err := proto.Unmarshal(task.Response, screenshot)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		promptSaveToFile(screenshot.Data, con)
+
+	// ---------------------
 	// Default
 	// ---------------------
 	default:

@@ -105,7 +105,7 @@ func PrintProcessDump(dump *sliverpb.ProcessDump, saveTo string, hostname string
 			return
 		}
 	}
-
+	defer saveToFile.Close()
 	saveToFile.Write(dump.GetData())
 	con.PrintInfof("Process dump stored in: %s\n", saveToFile.Name())
 }
