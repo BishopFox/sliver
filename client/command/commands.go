@@ -1769,7 +1769,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		HelpGroup: consts.SliverHelpGroup,
+		HelpGroup: consts.GenericHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			beacons.BeaconsCmd(ctx, con)
