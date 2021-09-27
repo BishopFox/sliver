@@ -46,12 +46,13 @@ func printHelp(con *console.SliverConsoleClient) {
 	for _, c := range con.App.Commands().All() {
 		key := c.HelpGroup
 		targetOS := ""
-		if con.ActiveTarget.GetSession() != nil {
-			targetOS = con.ActiveTarget.GetSession().OS
-		} else if con.ActiveTarget.GetBeacon() != nil {
-			targetOS = con.ActiveTarget.GetBeacon().OS
+		session, beacon := con.ActiveTarget.GetInteractive()
+		if session != nil {
+			targetOS = session.OS
+		} else if beacon != nil {
+			targetOS = beacon.OS
 		}
-		if con.ActiveTarget.GetSession() != nil || con.ActiveTarget.GetBeacon() != nil {
+		if beacon != nil || session != nil {
 			if targetOS != "windows" && key == consts.SliverWinHelpGroup {
 				continue
 			}
