@@ -30,6 +30,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/exec"
 	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/command/network"
+	"github.com/bishopfox/sliver/client/command/privilege"
 	"github.com/bishopfox/sliver/client/command/processes"
 	"github.com/bishopfox/sliver/client/command/registry"
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -324,9 +325,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 	// ---------------------
 	// File system commands
 	// ---------------------
-
 	// Cat = download
-
 	case sliverpb.MsgCdReq:
 		pwd := &sliverpb.Pwd{}
 		err := proto.Unmarshal(task.Response, pwd)
@@ -398,7 +397,6 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 	// ---------------------
 	// Network commands
 	// ---------------------
-
 	case sliverpb.MsgIfconfigReq:
 		ifconfig := &sliverpb.Ifconfig{}
 		err := proto.Unmarshal(task.Response, ifconfig)
@@ -421,6 +419,82 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			return
 		}
 		network.PrintNetstat(netstat, beacon.PID, beacon.ActiveC2, con)
+
+	// ---------------------
+	// Privilege commands
+	// ---------------------
+	case sliverpb.MsgGetPrivsReq:
+		privs := &sliverpb.GetPrivs{}
+		err := proto.Unmarshal(task.Response, privs)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		beacon, err := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
+		if err != nil {
+			con.PrintErrorf("Failed to fetch beacon: %s\n", err)
+			return
+		}
+		privilege.PrintGetPrivs(privs, beacon.PID, con)
+
+	case sliverpb.MsgInvokeGetSystemReq:
+		getSystem := &sliverpb.GetSystem{}
+		err := proto.Unmarshal(task.Response, getSystem)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		privilege.PrintGetSystem(getSystem, con)
+
+	case sliverpb.MsgImpersonateReq:
+		impersonateReq := &sliverpb.ImpersonateReq{}
+		err := proto.Unmarshal(task.Response, impersonateReq)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task request: %s\n", err)
+			return
+		}
+		impersonate := &sliverpb.Impersonate{}
+		err = proto.Unmarshal(task.Response, impersonate)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		privilege.PrintImpersonate(impersonate, impersonateReq.Username, con)
+
+	case sliverpb.MsgMakeTokenReq:
+		makeTokenReq := &sliverpb.MakeTokenReq{}
+		err := proto.Unmarshal(task.Response, makeTokenReq)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task request: %s\n", err)
+			return
+		}
+		makeToken := &sliverpb.MakeToken{}
+		err = proto.Unmarshal(task.Response, makeToken)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task request: %s\n", err)
+			return
+		}
+		privilege.PrintMakeToken(makeToken, makeTokenReq.Domain, makeTokenReq.Username, con)
+
+	case sliverpb.MsgRunAsReq:
+		runAsReq := &sliverpb.RunAsReq{}
+		err := proto.Unmarshal(task.Response, runAsReq)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task request: %s\n", err)
+			return
+		}
+		runAs := &sliverpb.RunAs{}
+		err = proto.Unmarshal(task.Response, runAs)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task request: %s\n", err)
+			return
+		}
+		beacon, err := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
+		if err != nil {
+			con.PrintErrorf("Failed to fetch beacon: %s\n", err)
+			return
+		}
+		privilege.PrintRunAs(runAs, runAsReq.ProcessName, runAsReq.Args, beacon.Name, con)
 
 	// ---------------------
 	// Processes commands
