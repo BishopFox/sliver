@@ -45,8 +45,14 @@ func printHelp(con *console.SliverConsoleClient) {
 	groups := make(map[string]*grumble.Commands)
 	for _, c := range con.App.Commands().All() {
 		key := c.HelpGroup
+		targetOS := ""
 		if con.ActiveTarget.GetSession() != nil {
-			if con.ActiveTarget.GetSession().GetOS() != "windows" && key == consts.SliverWinHelpGroup {
+			targetOS = con.ActiveTarget.GetSession().OS
+		} else if con.ActiveTarget.GetBeacon() != nil {
+			targetOS = con.ActiveTarget.GetBeacon().OS
+		}
+		if con.ActiveTarget.GetSession() != nil || con.ActiveTarget.GetBeacon() != nil {
+			if targetOS != "windows" && key == consts.SliverWinHelpGroup {
 				continue
 			}
 		} else {
