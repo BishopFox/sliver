@@ -474,6 +474,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 			con.Println()
 			return nil
 		},
+		Completer: func(prefix string, args []string) []string {
+			return use.Completer(con, prefix, args)
+		},
 		HelpGroup: consts.GenericHelpGroup,
 	}
 	useCmd.AddCommand(&grumble.Command{
