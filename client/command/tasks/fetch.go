@@ -31,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/command/network"
 	"github.com/bishopfox/sliver/client/command/processes"
+	"github.com/bishopfox/sliver/client/command/registry"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -465,6 +466,72 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			return
 		}
 		processes.PrintTerminate(terminate, con)
+
+	// ---------------------
+	// Registry commands
+	// ---------------------
+	case sliverpb.MsgRegistryCreateKeyReq:
+		createKeyReq := &sliverpb.RegistryCreateKeyReq{}
+		err := proto.Unmarshal(task.Request, createKeyReq)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		createKey := &sliverpb.RegistryCreateKey{}
+		err = proto.Unmarshal(task.Response, createKey)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		registry.PrintCreateKey(createKey, createKeyReq.Path, createKeyReq.Key, con)
+
+	case sliverpb.MsgRegistryListValuesReq:
+		listValuesReq := &sliverpb.RegistryListValuesReq{}
+		err := proto.Unmarshal(task.Request, listValuesReq)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		regList := &sliverpb.RegistryValuesList{}
+		err = proto.Unmarshal(task.Response, regList)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		registry.PrintListValues(regList, listValuesReq.Hive, listValuesReq.Path, con)
+
+	case sliverpb.MsgRegistrySubKeysListReq:
+		listValuesReq := &sliverpb.RegistrySubKeyListReq{}
+		err := proto.Unmarshal(task.Request, listValuesReq)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		regList := &sliverpb.RegistrySubKeyList{}
+		err = proto.Unmarshal(task.Response, regList)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		registry.PrintListSubKeys(regList, listValuesReq.Hive, listValuesReq.Path, con)
+
+	case sliverpb.MsgRegistryReadReq:
+		regRead := &sliverpb.RegistryRead{}
+		err := proto.Unmarshal(task.Response, regRead)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		registry.PrintRegRead(regRead, con)
+
+	case sliverpb.MsgRegistryWriteReq:
+		regWrite := &sliverpb.RegistryWrite{}
+		err := proto.Unmarshal(task.Response, regWrite)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		registry.PrintRegWrite(regWrite, con)
 
 	// ---------------------
 	// Screenshot
