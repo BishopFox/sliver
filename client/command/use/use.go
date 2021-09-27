@@ -174,3 +174,25 @@ func SelectSessionOrBeacon(con *console.SliverConsoleClient) (*clientpb.Session,
 	}
 	return nil, nil, nil
 }
+func Completer(con *console.SliverConsoleClient, prefix string, args []string) (results []string) {
+	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return
+	}
+	for _, s := range sessions.Sessions {
+		sid := fmt.Sprintf("%d", s.ID)
+		if strings.HasPrefix(sid, prefix) {
+			results = append(results, fmt.Sprintf("%d", s.ID))
+		}
+	}
+	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return
+	}
+	for _, b := range beacons.Beacons {
+		if strings.HasPrefix(b.ID, prefix) {
+			results = append(results, b.ID)
+		}
+	}
+	return
+}
