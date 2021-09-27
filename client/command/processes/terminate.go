@@ -49,18 +49,19 @@ func TerminateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			if err != nil {
-				con.PrintErrorf("%s\n", err)
-			} else {
-				con.PrintInfof("Process %d has been terminated\n", terminated.Pid)
-			}
+			PrintTerminate(terminated, con)
 		})
 		con.PrintAsyncResponse(terminated.Response)
 	} else {
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-		} else {
-			con.PrintInfof("Process %d has been terminated\n", terminated.Pid)
-		}
+		PrintTerminate(terminated, con)
+	}
+}
+
+// PrintTerminate - Print the results of the terminate command
+func PrintTerminate(terminated *sliverpb.Terminate, con *console.SliverConsoleClient) {
+	if terminated.Response != nil && terminated.Response.GetErr() != "" {
+		con.PrintErrorf("%s\n", terminated.Response.GetErr())
+	} else {
+		con.PrintInfof("Process %d has been terminated\n", terminated.Pid)
 	}
 }

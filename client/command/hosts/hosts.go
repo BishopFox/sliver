@@ -66,8 +66,9 @@ func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string
 		"Hostname",
 		"Operating System",
 		"Sessions",
+		"Beacons",
 		"IOCs",
-		"Extension Data",
+		"Extensions",
 	})
 	for _, host := range hosts {
 		var shortID string
@@ -81,6 +82,7 @@ func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string
 			host.Hostname,
 			host.OSVersion,
 			hostSessionNumbers(host.HostUUID, con),
+			hostBeacons(host.HostUUID, con),
 			len(host.IOCs),
 			len(host.ExtensionData),
 		})
@@ -98,6 +100,24 @@ func hostSessionNumbers(hostUUID string, con *console.SliverConsoleClient) strin
 		sessionNumbers = append(sessionNumbers, fmt.Sprintf("%d", hostSession.ID))
 	}
 	return strings.Join(sessionNumbers, ", ")
+}
+
+func hostBeacons(hostUUID string, con *console.SliverConsoleClient) string {
+	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return "Error"
+	}
+	count := 0
+	for _, beacon := range beacons.Beacons {
+		if beacon.UUID == hostUUID {
+			count++
+		}
+	}
+	if count == 0 {
+		return "None"
+	} else {
+		return fmt.Sprintf("%d", count)
+	}
 }
 
 // SessionsForHost - Find session for a given host by id
