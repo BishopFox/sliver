@@ -44,15 +44,32 @@ const (
 	defaultTimeout = time.Duration(10 * time.Second)
 )
 
+type TokenAuth struct {
+	token string
+}
+
+// Return value is mapped to request headers.
+func (t TokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
+	return map[string]string{
+		"Authorization": "Bearer " + t.token,
+	}, nil
+}
+
+func (TokenAuth) RequireTransportSecurity() bool {
+	return true
+}
+
 // MTLSConnect - Connect to the sliver server
 func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
 	tlsConfig, err := getTLSConfig(config.CACertificate, config.Certificate, config.PrivateKey)
 	if err != nil {
 		return nil, nil, err
 	}
-	creds := credentials.NewTLS(tlsConfig)
+	transportCreds := credentials.NewTLS(tlsConfig)
+	callCreds := credentials.PerRPCCredentials(TokenAuth{token: config.Token})
 	options := []grpc.DialOption{
-		grpc.WithTransportCredentials(creds),
+		grpc.WithTransportCredentials(transportCreds),
+		grpc.WithPerRPCCredentials(callCreds),
 		grpc.WithBlock(),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(ClientMaxReceiveMessageSize)),
 	}

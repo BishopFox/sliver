@@ -22,14 +22,16 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 // EnvUnsetCmd - Unset a remote environment variable
 func EnvUnsetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.Get()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -41,16 +43,33 @@ func EnvUnsetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	unsetResp, err := con.Rpc.UnsetEnv(context.Background(), &sliverpb.UnsetEnvReq{
 		Name:    name,
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	if unsetResp.Response != nil && unsetResp.Response.Async {
+		con.AddBeaconCallback(unsetResp.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, unsetResp)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintUnsetEnvInfo(name, unsetResp, con)
+		})
+		con.PrintAsyncResponse(unsetResp.Response)
+	} else {
+		PrintUnsetEnvInfo(name, unsetResp, con)
+	}
 
-	if unsetResp.Response != nil && unsetResp.Response.Err != "" {
-		con.PrintErrorf("%s\n", unsetResp.Response.Err)
+}
+
+// PrintUnsetEnvInfo - Print the set environment info
+func PrintUnsetEnvInfo(name string, envInfo *sliverpb.UnsetEnv, con *console.SliverConsoleClient) {
+	if envInfo.Response != nil && envInfo.Response.Err != "" {
+		con.PrintErrorf("%s\n", envInfo.Response.Err)
 		return
 	}
 	con.PrintInfof("Successfully unset %s\n", name)

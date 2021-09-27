@@ -22,16 +22,19 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 // MakeTokenCmd - Windows only, create a token using "valid" credentails
 func MakeTokenCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
+
 	username := ctx.Flags.String("username")
 	password := ctx.Flags.String("password")
 	domain := ctx.Flags.String("domain")
@@ -45,22 +48,37 @@ func MakeTokenCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.SpinUntil("Creating new logon session ...", ctrl)
 
 	makeToken, err := con.Rpc.MakeToken(context.Background(), &sliverpb.MakeTokenReq{
-		Request:  con.ActiveSession.Request(ctx),
+		Request:  con.ActiveTarget.Request(ctx),
 		Username: username,
 		Domain:   domain,
 		Password: password,
 	})
-
 	ctrl <- true
 	<-ctrl
-
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
 
-	if makeToken.GetResponse().GetErr() != "" {
-		con.PrintErrorf("%s\n", makeToken.GetResponse().GetErr())
+	if makeToken.Response != nil && makeToken.Response.Async {
+		con.AddBeaconCallback(makeToken.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, makeToken)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintMakeToken(makeToken, domain, username, con)
+		})
+		con.PrintAsyncResponse(makeToken.Response)
+	} else {
+		PrintMakeToken(makeToken, domain, username, con)
+	}
+}
+
+// PrintMakeToken - Print the results of attempting to make a token
+func PrintMakeToken(makeToken *sliverpb.MakeToken, domain string, username string, con *console.SliverConsoleClient) {
+	if makeToken.Response != nil && makeToken.Response.GetErr() != "" {
+		con.PrintErrorf("%s\n", makeToken.Response.GetErr())
 		return
 	}
 	con.Println()

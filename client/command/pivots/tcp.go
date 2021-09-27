@@ -11,7 +11,7 @@ import (
 
 // TCPListenerCmd - Start a TCP pivot listener on the remote system
 func TCPListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -22,7 +22,7 @@ func TCPListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	_, err := con.Rpc.TCPListener(context.Background(), &sliverpb.TCPPivotReq{
 		Address: address,
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {

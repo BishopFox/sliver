@@ -10,7 +10,7 @@ import (
 
 // NamedPipeListenerCmd - Start a named pipe pivot listener on the remote system
 func NamedPipeListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -28,7 +28,7 @@ func NamedPipeListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient
 
 	_, err := con.Rpc.NamedPipes(context.Background(), &sliverpb.NamedPipesReq{
 		PipeName: pipeName,
-		Request:  con.ActiveSession.Request(ctx),
+		Request:  con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {

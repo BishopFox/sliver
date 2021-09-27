@@ -22,16 +22,19 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 // RunAsCmd - Run a command as another user on the remote system
 func RunAsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
+
 	username := ctx.Flags.String("username")
 	process := ctx.Flags.String("process")
 	arguments := ctx.Flags.String("args")
@@ -46,22 +49,49 @@ func RunAsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	runAsResp, err := con.Rpc.RunAs(context.Background(), &sliverpb.RunAsReq{
-		Request:     con.ActiveSession.Request(ctx),
+	runAs, err := con.Rpc.RunAs(context.Background(), &sliverpb.RunAsReq{
+		Request:     con.ActiveTarget.Request(ctx),
 		Username:    username,
 		ProcessName: process,
 		Args:        arguments,
 	})
-
 	if err != nil {
 		con.PrintErrorf("%s", err)
 		return
 	}
 
-	if runAsResp.GetResponse().GetErr() != "" {
-		con.PrintErrorf("%s\n", runAsResp.GetResponse().GetErr())
-		return
+	name := getName(session, beacon)
+	if runAs.Response != nil && runAs.Response.Async {
+		con.AddBeaconCallback(runAs.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, runAs)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintRunAs(runAs, process, arguments, name, con)
+		})
+		con.PrintAsyncResponse(runAs.Response)
+	} else {
+		PrintRunAs(runAs, process, arguments, name, con)
 	}
 
-	con.PrintInfof("Successfully ran %s %s on %s\n", process, arguments, session.GetName())
+}
+
+// PrintRunAs - Print the result of run as
+func PrintRunAs(runAs *sliverpb.RunAs, process string, args string, name string, con *console.SliverConsoleClient) {
+	if runAs.Response != nil && runAs.Response.GetErr() != "" {
+		con.PrintErrorf("%s\n", runAs.Response.GetErr())
+		return
+	}
+	con.PrintInfof("Successfully ran %s %s on %s\n", process, args, name)
+}
+
+func getName(session *clientpb.Session, beacon *clientpb.Beacon) string {
+	if session != nil {
+		return session.Name
+	}
+	if beacon != nil {
+		return beacon.Name
+	}
+	panic("no session or beacon")
 }

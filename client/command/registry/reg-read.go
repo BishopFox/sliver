@@ -24,8 +24,10 @@ import (
 	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 var validHives = []string{
@@ -76,12 +78,13 @@ func RegReadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		finalPath string
 		key       string
 	)
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
-	if session.OS != "windows" {
-		con.PrintErrorf("Command not supported on this operating system.")
+	targetOS := getOS(session, beacon)
+	if targetOS != "windows" {
+		con.PrintErrorf("Registry operations can only target Windows\n")
 		return
 	}
 
@@ -112,19 +115,36 @@ func RegReadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	finalPath = regPath[:pathBaseIdx]
 	key = regPath[pathBaseIdx+1:]
+
 	regRead, err := con.Rpc.RegistryRead(context.Background(), &sliverpb.RegistryReadReq{
 		Hive:     hive,
 		Path:     finalPath,
 		Key:      key,
 		Hostname: hostname,
-		Request:  con.ActiveSession.Request(ctx),
+		Request:  con.ActiveTarget.Request(ctx),
 	})
-
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
 
+	if regRead.Response != nil && regRead.Response.Async {
+		con.AddBeaconCallback(regRead.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, regRead)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintRegRead(regRead, con)
+		})
+		con.PrintAsyncResponse(regRead.Response)
+	} else {
+		PrintRegRead(regRead, con)
+	}
+}
+
+// PrintRegRead - Print the results of the registry read command
+func PrintRegRead(regRead *sliverpb.RegistryRead, con *console.SliverConsoleClient) {
 	if regRead.Response != nil && regRead.Response.Err != "" {
 		con.PrintErrorf("%s\n", regRead.Response.Err)
 		return

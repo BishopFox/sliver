@@ -28,7 +28,7 @@ import (
 
 // WGPortFwdRmCmd - Remove a WireGuard port forward
 func WGPortFwdRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -40,7 +40,7 @@ func WGPortFwdRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	fwdID := ctx.Args.Int("id")
 	stopReq, err := con.Rpc.WGStopPortForward(context.Background(), &sliverpb.WGPortForwardStopReq{
 		ID:      int32(fwdID),
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {

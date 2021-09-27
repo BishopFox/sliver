@@ -20,16 +20,18 @@ package rpc
 
 import (
 	"context"
-	"errors"
 
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
 var (
 	// ErrTunnelInitFailure - Returned when a tunnel cannot be initialized
-	ErrTunnelInitFailure = errors.New("Failed to initialize tunnel")
+	ErrTunnelInitFailure = status.Error(codes.Internal, "Failed to initialize tunnel")
 )
 
 // Shell - Open an interactive shell
@@ -57,7 +59,7 @@ func (rpc *Server) Shell(ctx context.Context, req *sliverpb.ShellReq) (*sliverpb
 
 // RunSSHCommand runs a SSH command using the client built into the implant
 func (rpc *Server) RunSSHCommand(ctx context.Context, req *sliverpb.SSHCommandReq) (*sliverpb.SSHCommand, error) {
-	resp := &sliverpb.SSHCommand{}
+	resp := &sliverpb.SSHCommand{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err

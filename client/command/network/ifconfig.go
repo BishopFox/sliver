@@ -20,37 +20,74 @@ package network
 
 import (
 	"context"
+	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/desertbit/grumble"
-
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"google.golang.org/protobuf/proto"
 )
 
 // IfconfigCmd - Display network interfaces on the remote system
 func IfconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
-
 	ifconfig, err := con.Rpc.Ifconfig(context.Background(), &sliverpb.IfconfigReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	all := ctx.Flags.Bool("all")
+	if ifconfig.Response != nil && ifconfig.Response.Async {
+		con.AddBeaconCallback(ifconfig.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, ifconfig)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintIfconfig(ifconfig, all, con)
+		})
+		con.PrintAsyncResponse(ifconfig.Response)
+	} else {
+		PrintIfconfig(ifconfig, all, con)
+	}
+}
 
-	for ifaceIndex, iface := range ifconfig.NetInterfaces {
-		con.Printf("%s%s%s (%d)\n", console.Bold, iface.Name, console.Normal, ifaceIndex)
+// PrintIfconfig - Print the ifconfig response
+func PrintIfconfig(ifconfig *sliverpb.Ifconfig, all bool, con *console.SliverConsoleClient) {
+	var err error
+	interfaces := ifconfig.NetInterfaces
+	sort.Slice(interfaces, func(i, j int) bool {
+		return interfaces[i].Index < interfaces[j].Index
+	})
+	hidden := 0
+	for index, iface := range interfaces {
+		tw := table.NewWriter()
+		tw.SetStyle(settings.GetTableWithBordersStyle(con))
+		tw.SetTitle(fmt.Sprintf(console.Bold+"%s"+console.Normal, iface.Name))
+		tw.SetColumnConfigs([]table.ColumnConfig{
+			{Name: "#", AutoMerge: true},
+			{Name: "IP Address", AutoMerge: true},
+			{Name: "MAC Address", AutoMerge: true},
+		})
+		rowConfig := table.RowConfig{AutoMerge: true}
+		tw.AppendHeader(table.Row{"#", "IP Addresses", "MAC Address"}, rowConfig)
+		macAddress := ""
 		if 0 < len(iface.MAC) {
-			con.Printf("   MAC Address: %s\n", iface.MAC)
+			macAddress = iface.MAC
 		}
+		ips := []string{}
 		for _, ip := range iface.IPAddresses {
-
 			// Try to find local IPs and colorize them
 			subnet := -1
 			if strings.Contains(ip, "/") {
@@ -61,15 +98,30 @@ func IfconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 					subnet = -1
 				}
 			}
-
 			if 0 < subnet && subnet <= 32 && !isLoopback(ip) {
-				con.Printf(console.Bold+console.Green+"    IP Address: %s%s\n", ip, console.Normal)
-			} else if 32 < subnet && !isLoopback(ip) {
-				con.Printf(console.Bold+console.Cyan+"    IP Address: %s%s\n", ip, console.Normal)
-			} else {
-				con.Printf("    IP Address: %s\n", ip)
+				ips = append(ips, fmt.Sprintf(console.Bold+console.Green+"%s"+console.Normal, ip))
+			} else if all {
+				ips = append(ips, fmt.Sprintf("%s", ip))
 			}
 		}
+		if !all && len(ips) < 1 {
+			hidden++
+			continue
+		}
+		if 0 < len(ips) {
+			for _, ip := range ips {
+				tw.AppendRow(table.Row{iface.Index, ip, macAddress}, rowConfig)
+			}
+		} else {
+			tw.AppendRow(table.Row{iface.Index, " ", macAddress}, rowConfig)
+		}
+		con.Printf("%s\n", tw.Render())
+		if index+1 < len(interfaces) {
+			con.Println()
+		}
+	}
+	if !all {
+		con.Printf("%d adapters not shown.\n", hidden)
 	}
 }
 

@@ -27,8 +27,6 @@ import (
 
 // Certificate - Certificate database model
 type Certificate struct {
-	// gorm.Model
-
 	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt      time.Time `gorm:"->;<-:create;"`
 	CommonName     string

@@ -31,7 +31,7 @@ import (
 
 // PortfwdAddCmd - Add a new tunneled port forward
 func PortfwdAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}

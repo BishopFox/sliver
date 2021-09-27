@@ -11,7 +11,7 @@ import (
 
 // PingCmd - Send a round trip C2 message to an implant (does not use ICMP)
 func PingCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -20,7 +20,7 @@ func PingCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.PrintInfof("Ping %d\n", nonce)
 	pong, err := con.Rpc.Ping(context.Background(), &sliverpb.Ping{
 		Nonce:   int32(nonce),
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

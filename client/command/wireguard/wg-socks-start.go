@@ -28,7 +28,7 @@ import (
 
 // WGSocksStartCmd - Start a WireGuard reverse SOCKS proxy
 func WGSocksStartCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
+	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
@@ -41,7 +41,7 @@ func WGSocksStartCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	socks, err := con.Rpc.WGStartSocks(context.Background(), &sliverpb.WGSocksStartReq{
 		Port:    int32(bindPort),
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
 
 	if err != nil {

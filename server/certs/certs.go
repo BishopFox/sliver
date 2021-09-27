@@ -124,7 +124,13 @@ func RemoveCertificate(caType string, keyType string, commonName string) error {
 	if keyType != ECCKey && keyType != RSAKey {
 		return fmt.Errorf("Invalid key type '%s'", keyType)
 	}
-	return nil
+	dbSession := db.Session()
+	err := dbSession.Where(&models.Certificate{
+		CAType:     caType,
+		KeyType:    keyType,
+		CommonName: commonName,
+	}).Delete(&models.Certificate{}).Error
+	return err
 }
 
 // --------------------------------
@@ -155,7 +161,7 @@ func GenerateECCCertificate(caType string, commonName string, isCA bool, isClien
 // GenerateRSACertificate - Generates a 2048 bit RSA Certificate
 func GenerateRSACertificate(caType string, commonName string, isCA bool, isClient bool) ([]byte, []byte) {
 
-	certsLog.Infof("Generating TLS certificate (RSA) for '%s' ...", commonName)
+	certsLog.Debugf("Generating TLS certificate (RSA) for '%s' ...", commonName)
 
 	var privateKey interface{}
 	var err error
@@ -178,31 +184,31 @@ func generateCertificate(caType string, subject pkix.Name, isCA bool, isClient b
 	days := randomInt(365) * -1 // Within -1 year
 	notBefore = notBefore.AddDate(0, 0, days)
 	notAfter := notBefore.Add(validFor)
-	certsLog.Infof("Valid from %v to %v", notBefore, notAfter)
+	certsLog.Debugf("Valid from %v to %v", notBefore, notAfter)
 
 	// Serial number
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, _ := rand.Int(rand.Reader, serialNumberLimit)
-	certsLog.Infof("Serial Number: %d", serialNumber)
+	certsLog.Debugf("Serial Number: %d", serialNumber)
 
 	var keyUsage x509.KeyUsage = x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
 	var extKeyUsage []x509.ExtKeyUsage
 
 	if isCA {
-		certsLog.Infof("Authority certificate")
+		certsLog.Debugf("Authority certificate")
 		keyUsage = x509.KeyUsageCertSign | x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
 		extKeyUsage = []x509.ExtKeyUsage{
 			x509.ExtKeyUsageServerAuth,
 			x509.ExtKeyUsageClientAuth,
 		}
 	} else if isClient {
-		certsLog.Infof("Client authentication certificate")
+		certsLog.Debugf("Client authentication certificate")
 		extKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
 	} else {
-		certsLog.Infof("Server authentication certificate")
+		certsLog.Debugf("Server authentication certificate")
 		extKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
 	}
-	certsLog.Infof("ExtKeyUsage = %v", extKeyUsage)
+	certsLog.Debugf("ExtKeyUsage = %v", extKeyUsage)
 
 	// Certificate template
 	template := x509.Certificate{
@@ -218,21 +224,21 @@ func generateCertificate(caType string, subject pkix.Name, isCA bool, isClient b
 	if !isClient {
 		// Host or IP address
 		if ip := net.ParseIP(subject.CommonName); ip != nil {
-			certsLog.Infof("Certificate authenticates IP address: %v", ip)
+			certsLog.Debugf("Certificate authenticates IP address: %v", ip)
 			template.IPAddresses = append(template.IPAddresses, ip)
 		} else {
-			certsLog.Infof("Certificate authenticates host: %v", subject.CommonName)
+			certsLog.Debugf("Certificate authenticates host: %v", subject.CommonName)
 			template.DNSNames = append(template.DNSNames, subject.CommonName)
 		}
 	} else {
-		certsLog.Infof("Client certificate authenticates CN: %v", subject.CommonName)
+		certsLog.Debugf("Client certificate authenticates CN: %v", subject.CommonName)
 	}
 
 	// Sign certificate or self-sign if CA
 	var err error
 	var derBytes []byte
 	if isCA {
-		certsLog.Infof("Certificate is an AUTHORITY")
+		certsLog.Debugf("Certificate is an AUTHORITY")
 		template.IsCA = true
 		template.KeyUsage |= x509.KeyUsageCertSign
 		derBytes, err = x509.CreateCertificate(rand.Reader, &template, &template, publicKey(privateKey), privateKey)

@@ -22,28 +22,48 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 // ImpersonateCmd - Windows only, impersonate a user token
 func ImpersonateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
+
 	username := ctx.Args.String("username")
-	impResp, err := con.Rpc.Impersonate(context.Background(), &sliverpb.ImpersonateReq{
-		Request:  con.ActiveSession.Request(ctx),
+	impersonate, err := con.Rpc.Impersonate(context.Background(), &sliverpb.ImpersonateReq{
+		Request:  con.ActiveTarget.Request(ctx),
 		Username: username,
 	})
-
 	if err != nil {
 		con.PrintErrorf("%s", err)
 		return
 	}
-	if impResp.GetResponse().GetErr() != "" {
-		con.PrintErrorf("%s\n", impResp.GetResponse().GetErr())
+
+	if impersonate.Response != nil && impersonate.Response.Async {
+		con.AddBeaconCallback(impersonate.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, impersonate)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintImpersonate(impersonate, username, con)
+		})
+		con.PrintAsyncResponse(impersonate.Response)
+	} else {
+		PrintImpersonate(impersonate, username, con)
+	}
+}
+
+// PrintImpersonate - Print the results of the attempted impersonation
+func PrintImpersonate(impersonate *sliverpb.Impersonate, username string, con *console.SliverConsoleClient) {
+	if impersonate.Response != nil && impersonate.Response.GetErr() != "" {
+		con.PrintErrorf("%s\n", impersonate.Response.GetErr())
 		return
 	}
 	con.PrintInfof("Successfully impersonated %s\n", username)

@@ -96,6 +96,7 @@ type GoConfig struct {
 	GOROOT     string
 	GOCACHE    string
 	GOMODCACHE string
+	GOPROXY    string
 	CGO        string
 	CC         string
 	CXX        string
@@ -150,6 +151,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
 		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
 		fmt.Sprintf("GOPRIVATE=%s", config.GOPRIVATE),
+		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
 		fmt.Sprintf("PATH=%s:%s", path.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
 	}
 	var stdout bytes.Buffer
@@ -185,6 +187,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
 		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
+		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
 		fmt.Sprintf("PATH=%s:%s", path.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
 	}
 	var stdout bytes.Buffer

@@ -1,15 +1,5 @@
 package privilege
 
-import (
-	"context"
-	"strconv"
-	"strings"
-
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2021  Bishop Fox
@@ -28,38 +18,65 @@ import (
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-func GetPrivsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	var processName string = "Current Process"
+import (
+	"context"
+	"strconv"
+	"strings"
 
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
+)
+
+// GetPrivsCmd - Get the current process privileges (Windows only)
+func GetPrivsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
-
-	if session.OS != "windows" {
-		con.PrintErrorf("Command not supported on this operating system.")
+	targetOS := getOS(session, beacon)
+	if targetOS != "windows" {
+		con.PrintErrorf("Command only supported on Windows.\n")
 		return
 	}
 
 	privs, err := con.Rpc.GetPrivs(context.Background(), &sliverpb.GetPrivsReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 	})
-
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	pid := getPID(session, beacon)
+	if privs.Response != nil && privs.Response.Async {
+		con.AddBeaconCallback(privs.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, privs)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintGetPrivs(privs, pid, con)
+		})
+		con.PrintAsyncResponse(privs.Response)
+	} else {
+		PrintGetPrivs(privs, pid, con)
+	}
+}
 
+// PrintGetPrivs - Print the results of the get privs command
+func PrintGetPrivs(privs *sliverpb.GetPrivs, pid int32, con *console.SliverConsoleClient) {
 	// Response is the Envelope (see RPC API), Err is part of it.
 	if privs.Response != nil && privs.Response.Err != "" {
 		con.PrintErrorf("NOTE: Information may be incomplete due to an error:\n")
 		con.PrintErrorf("%s\n", privs.Response.Err)
 	}
-
 	if privs.PrivInfo == nil {
 		return
 	}
 
+	var processName string = "Current Process"
 	if privs.ProcessName != "" {
 		processName = privs.ProcessName
 	}
@@ -68,7 +85,7 @@ func GetPrivsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	// for column width
 	var nameColumnWidth int = 0
 	var descriptionColumnWidth int = 0
-	var introWidth int = 34 + len(processName) + len(strconv.Itoa(int(session.PID)))
+	var introWidth int = 34 + len(processName) + len(strconv.Itoa(int(pid)))
 
 	for _, entry := range privs.PrivInfo {
 		if len(entry.Name) > nameColumnWidth {
@@ -83,7 +100,7 @@ func GetPrivsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	nameColumnWidth += 1
 	descriptionColumnWidth += 1
 
-	con.Printf("Privilege Information for %s (PID: %d)\n", processName, session.PID)
+	con.Printf("Privilege Information for %s (PID: %d)\n", processName, pid)
 	con.Println(strings.Repeat("-", introWidth))
 	con.Printf("\nProcess Integrity Level: %s\n\n", privs.ProcessIntegrity)
 	con.Printf("%-*s\t%-*s\t%s\n", nameColumnWidth, "Name", descriptionColumnWidth, "Description", "Attributes")
@@ -106,4 +123,24 @@ func GetPrivsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 		con.Printf("\n")
 	}
+}
+
+func getOS(session *clientpb.Session, beacon *clientpb.Beacon) string {
+	if session != nil {
+		return session.OS
+	}
+	if beacon != nil {
+		return beacon.OS
+	}
+	panic("no session or beacon")
+}
+
+func getPID(session *clientpb.Session, beacon *clientpb.Beacon) int32 {
+	if session != nil {
+		return session.PID
+	}
+	if beacon != nil {
+		return beacon.PID
+	}
+	panic("no session or beacon")
 }

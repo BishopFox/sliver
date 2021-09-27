@@ -24,9 +24,10 @@ Contributing to Sliver
 * _Never_ use homegrown or non-peer reviewed encryption or random number generation algorithms.
 * Whenever possible, use the following algorithms/encryption modes:
     - AES-GCM-256
-    - RSA-OAEP-2048 / RSA-OAEP-4096
     - SHA2-256 / HMAC-SHA2-256 or higher (e.g. SHA2-384)
     - Curves P521, P384, P256
+    - Curve25519, XSalsa20, and Poly1305 (Nacl)
+    - ChaCha20Poly1305
 * _Never_ use the following in a security context, and _avoid_ use even in a non-security context:
     - MD5
     - SHA1

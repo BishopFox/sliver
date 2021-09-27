@@ -22,15 +22,17 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
 
 // RmCmd - Remove a directory from the remote file system
 func RmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -42,14 +44,35 @@ func RmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	rm, err := con.Rpc.Rm(context.Background(), &sliverpb.RmReq{
-		Request:   con.ActiveSession.Request(ctx),
+		Request:   con.ActiveTarget.Request(ctx),
 		Path:      filePath,
 		Recursive: ctx.Flags.Bool("recursive"),
 		Force:     ctx.Flags.Bool("force"),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
-	} else {
-		con.PrintInfof("%s\n", rm.Path)
+		return
 	}
+	if rm.Response != nil && rm.Response.Async {
+		con.AddBeaconCallback(rm.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, rm)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintRm(rm, con)
+		})
+		con.PrintAsyncResponse(rm.Response)
+	} else {
+		PrintRm(rm, con)
+	}
+}
+
+// PrintRm - Print the rm response
+func PrintRm(rm *sliverpb.Rm, con *console.SliverConsoleClient) {
+	if rm.Response != nil && rm.Response.Err != "" {
+		con.PrintErrorf("%s\n", rm.Response.Err)
+		return
+	}
+	con.PrintInfof("%s\n", rm.Path)
 }

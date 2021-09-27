@@ -28,6 +28,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -59,14 +60,15 @@ func HostsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string {
 	tw := table.NewWriter()
-	tw.SetStyle(table.StyleLight)
+	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
+		"ID",
 		"Hostname",
 		"Operating System",
 		"Sessions",
+		"Beacons",
 		"IOCs",
-		"Extension Data",
-		"ID (Short)",
+		"Extensions",
 	})
 	for _, host := range hosts {
 		var shortID string
@@ -76,12 +78,13 @@ func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string
 			shortID = host.HostUUID[:8]
 		}
 		tw.AppendRow(table.Row{
+			shortID,
 			host.Hostname,
 			host.OSVersion,
 			hostSessionNumbers(host.HostUUID, con),
+			hostBeacons(host.HostUUID, con),
 			len(host.IOCs),
 			len(host.ExtensionData),
-			shortID,
 		})
 	}
 	return tw.Render()
@@ -99,6 +102,25 @@ func hostSessionNumbers(hostUUID string, con *console.SliverConsoleClient) strin
 	return strings.Join(sessionNumbers, ", ")
 }
 
+func hostBeacons(hostUUID string, con *console.SliverConsoleClient) string {
+	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return "Error"
+	}
+	count := 0
+	for _, beacon := range beacons.Beacons {
+		if beacon.UUID == hostUUID {
+			count++
+		}
+	}
+	if count == 0 {
+		return "None"
+	} else {
+		return fmt.Sprintf("%d", count)
+	}
+}
+
+// SessionsForHost - Find session for a given host by id
 func SessionsForHost(hostUUID string, con *console.SliverConsoleClient) []*clientpb.Session {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {

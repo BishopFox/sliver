@@ -1,14 +1,5 @@
 package taskrunner
 
-import (
-	insecureRand "math/rand"
-	"os/exec"
-	"sync"
-	"syscall"
-	"time"
-	"unsafe"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -26,6 +17,15 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	insecureRand "math/rand"
+	"os/exec"
+	"sync"
+	"syscall"
+	"time"
+	"unsafe"
+)
 
 // Utility functions
 

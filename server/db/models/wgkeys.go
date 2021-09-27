@@ -9,7 +9,6 @@ import (
 
 // WGKeys - WGKeys database model
 type WGKeys struct {
-	// gorm.Model
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 	PrivKey   string

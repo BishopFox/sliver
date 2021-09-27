@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/client/version"
@@ -30,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
@@ -39,11 +41,6 @@ import (
 
 var (
 	rpcLog = log.NamedLogger("rpc", "server")
-
-	// ErrInvalidSessionID - Invalid Session ID in request
-	ErrInvalidSessionID = errors.New("Invalid session ID")
-	// ErrMissingRequestField - Returned when a request does not contain a commonpb.Request
-	ErrMissingRequestField = errors.New("Missing session request field")
 )
 
 const (
@@ -69,6 +66,11 @@ type GenericRequest interface {
 
 // GenericResponse - Generic response interface to use with generic handlers
 type GenericResponse interface {
+	Reset()
+	String() string
+	ProtoMessage()
+	ProtoReflect() protoreflect.Message
+
 	GetResponse() *commonpb.Response
 }
 
@@ -96,15 +98,26 @@ func (rpc *Server) GetVersion(ctx context.Context, _ *commonpb.Empty) (*clientpb
 }
 
 // GenericHandler - Pass the request to the Sliver/Session
-func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error {
+func (rpc *Server) GenericHandler(req GenericRequest, resp GenericResponse) error {
+	var err error
 	request := req.GetRequest()
 	if request == nil {
 		return ErrMissingRequestField
 	}
+	if request.Async {
+		err = rpc.asyncGenericHandler(req, resp)
+		return err
+	}
+
+	// Sync request
 	session := core.Sessions.Get(request.SessionID)
 	if session == nil {
 		return ErrInvalidSessionID
 	}
+
+	// Overwrite unused implant fields before re-serializing
+	request.SessionID = 0
+	request.BeaconID = ""
 
 	reqData, err := proto.Marshal(req)
 	if err != nil {
@@ -120,6 +133,51 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp proto.Message) error 
 		return err
 	}
 	return rpc.getError(resp.(GenericResponse))
+}
+
+// asyncGenericHandler - Generic handler for async request/response's for beacon tasks
+func (rpc *Server) asyncGenericHandler(req GenericRequest, resp GenericResponse) error {
+	rpcLog.Debugf("Async Generic Handler: %#v", req)
+	request := req.GetRequest()
+	if request == nil {
+		return ErrMissingRequestField
+	}
+
+	beacon, err := db.BeaconByID(request.BeaconID)
+	if beacon == nil || err != nil {
+		rpcLog.Errorf("Invalid beacon ID in request: %s", err)
+		return ErrInvalidBeaconID
+	}
+
+	// Overwrite unused implant fields before re-serializing
+	request.SessionID = 0
+	request.BeaconID = ""
+	reqData, err := proto.Marshal(req)
+	if err != nil {
+		return err
+	}
+	taskResponse := resp.GetResponse()
+	taskResponse.Async = true
+	taskResponse.BeaconID = beacon.ID.String()
+	task, err := beacon.Task(&sliverpb.Envelope{
+		Type: sliverpb.MsgNumber(req),
+		Data: reqData,
+	})
+	if err != nil {
+		rpcLog.Errorf("Database error: %s", err)
+		return ErrDatabaseFailure
+	}
+	parts := strings.Split(string(req.ProtoReflect().Descriptor().FullName().Name()), ".")
+	name := parts[len(parts)-1]
+	task.Description = name
+	err = db.Session().Save(task).Error
+	if err != nil {
+		rpcLog.Errorf("Database error: %s", err)
+		return ErrDatabaseFailure
+	}
+	taskResponse.TaskID = task.ID.String()
+	rpcLog.Debugf("Successfully tasked beacon: %#v", taskResponse)
+	return nil
 }
 
 func (rpc *Server) getClientCommonName(ctx context.Context) string {

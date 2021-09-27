@@ -151,8 +151,8 @@ func ReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 	return envelope, nil
 }
 
-// WireguardConnect - Get a wg connection or die trying
-func WireguardConnect(address string, port uint16) (net.Conn, *device.Device, error) {
+// WGConnect - Get a wg connection or die trying
+func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 
 	_, dev, tNet, err := bringUpWGInterface(address, port, wgImplantPrivKey, wgServerPubKey, wgPeerTunIP)
 	if err != nil {

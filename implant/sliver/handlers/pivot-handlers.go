@@ -1,3 +1,4 @@
+//go:build windows || linux || darwin
 // +build windows linux darwin
 
 package handlers
@@ -80,7 +81,6 @@ func pivotListHandler(envelope *sliverpb.Envelope, connection *transports.Connec
 }
 
 func tcpListenerHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
-
 	tcpPivot := &sliverpb.TCPPivotReq{}
 	err := proto.Unmarshal(envelope.Data, tcpPivot)
 	if err != nil {
@@ -133,7 +133,7 @@ func pivotDataHandler(envelope *sliverpb.Envelope, connection *transports.Connec
 
 	pivotConn := pivots.Pivot(pivData.GetPivotID())
 	if pivotConn != nil {
-		pivots.PivotWriteEnvelope(pivotConn, origData)
+		// pivots.PivotWriteEnvelope(pivotConn, origData)
 	} else {
 		// {{if .Config.Debug}}
 		log.Printf("[pivotDataHandler] PivotID %d not found\n", pivData.GetPivotID())

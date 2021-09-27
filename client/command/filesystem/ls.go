@@ -29,16 +29,18 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
 
 // LsCmd - List the contents of a remote directory
 func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveSession.GetInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -60,18 +62,17 @@ func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			of the client does not necessarily match the OS of the
 			implant
 		*/
-		lastSeparatorOccurence := strings.LastIndex(testPath, "/")
+		lastSeparatorOccurrence := strings.LastIndex(testPath, "/")
 
-		if lastSeparatorOccurence == -1 {
+		if lastSeparatorOccurrence == -1 {
 			// Then this is only a filter
 			filter = remotePath
 			remotePath = "."
 		} else {
 			// Then we need to test for a filter on the end of the string
-
-			// The indicies should be the same because we did not change the length of the string
-			baseDir := remotePath[:lastSeparatorOccurence]
-			potentialFilter := remotePath[lastSeparatorOccurence+1:]
+			// The indices should be the same because we did not change the length of the string
+			baseDir := remotePath[:lastSeparatorOccurrence+1]
+			potentialFilter := remotePath[lastSeparatorOccurrence+1:]
 
 			_, err := filepath.Match(potentialFilter, "")
 
@@ -84,18 +85,35 @@ func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
-		Request: con.ActiveSession.Request(ctx),
+		Request: con.ActiveTarget.Request(ctx),
 		Path:    remotePath,
 	})
 	if err != nil {
 		con.PrintWarnf("%s\n", err)
+		return
+	}
+	if ls.Response != nil && ls.Response.Async {
+		con.AddBeaconCallback(ls.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, ls)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintLs(ls, ctx.Flags, filter, con)
+		})
+		con.PrintAsyncResponse(ls.Response)
 	} else {
-		PrintLs(ls, con, ctx.Flags, filter)
+		PrintLs(ls, ctx.Flags, filter, con)
 	}
 }
 
 // PrintLs - Display an sliverpb.Ls object
-func PrintLs(ls *sliverpb.Ls, con *console.SliverConsoleClient, flags grumble.FlagMap, filter string) {
+func PrintLs(ls *sliverpb.Ls, flags grumble.FlagMap, filter string, con *console.SliverConsoleClient) {
+	if ls.Response != nil && ls.Response.Err != "" {
+		con.PrintErrorf("%s\n", ls.Response.Err)
+		return
+	}
+
 	con.Printf("%s\n", ls.Path)
 	con.Printf("%s\n", strings.Repeat("=", len(ls.Path)))
 

@@ -19,17 +19,15 @@ package operators
 */
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"strings"
-	"text/tabwriter"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // OperatorsCmd - Display operators and current online status
@@ -45,46 +43,24 @@ func OperatorsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 func displayOperators(operators []*clientpb.Operator, con *console.SliverConsoleClient) {
-
-	outputBuf := bytes.NewBufferString("")
-	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
-
-	// Column Headers
-	fmt.Fprintln(table, "Operator\tStatus\t")
-	fmt.Fprintf(table, "%s\t%s\t\n",
-		strings.Repeat("=", len("Operator")),
-		strings.Repeat("=", len("Status")),
-	)
-
-	colorRow := []string{"", ""} // Two uncolored rows for the headers
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{
+		"Name",
+		"Status",
+	})
 	for _, operator := range operators {
-		// This is the CA, but I guess you could also name an operator
-		// "multiplayer" and it'll never show up in the list
-		if operator.Name == "multiplayer" {
-			continue
-		}
-		fmt.Fprintf(table, "%s\t%s\t\n", operator.Name, status(operator.Online))
-		if operator.Online {
-			colorRow = append(colorRow, console.Bold+console.Green)
-		} else {
-			colorRow = append(colorRow, "")
-		}
-
+		tw.AppendRow(table.Row{
+			console.Bold + operator.Name + console.Normal,
+			status(operator.Online),
+		})
 	}
-	table.Flush()
-
-	lines := strings.Split(outputBuf.String(), "\n")
-	for lineNumber, line := range lines {
-		if len(line) == 0 {
-			continue
-		}
-		con.Printf("%s%s%s\n", colorRow[lineNumber], line, console.Normal)
-	}
+	con.Printf("%s\n", tw.Render())
 }
 
 func status(isOnline bool) string {
 	if isOnline {
-		return "Online"
+		return console.Bold + console.Green + "Online" + console.Normal
 	}
-	return "Offline"
+	return console.Bold + console.Red + "Offline" + console.Normal
 }

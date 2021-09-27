@@ -21,12 +21,13 @@ package rpc
 import (
 	"context"
 
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 // GetEnv - Retrieve the environment variables list from the current session
 func (rpc *Server) GetEnv(ctx context.Context, req *sliverpb.EnvReq) (*sliverpb.EnvInfo, error) {
-	resp := &sliverpb.EnvInfo{}
+	resp := &sliverpb.EnvInfo{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -36,7 +37,7 @@ func (rpc *Server) GetEnv(ctx context.Context, req *sliverpb.EnvReq) (*sliverpb.
 
 // SetEnv - Set an environment variable
 func (rpc *Server) SetEnv(ctx context.Context, req *sliverpb.SetEnvReq) (*sliverpb.SetEnv, error) {
-	resp := &sliverpb.SetEnv{}
+	resp := &sliverpb.SetEnv{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -46,7 +47,7 @@ func (rpc *Server) SetEnv(ctx context.Context, req *sliverpb.SetEnvReq) (*sliver
 
 // UnsetEnv - Set an environment variable
 func (rpc *Server) UnsetEnv(ctx context.Context, req *sliverpb.UnsetEnvReq) (*sliverpb.UnsetEnv, error) {
-	resp := &sliverpb.UnsetEnv{}
+	resp := &sliverpb.UnsetEnv{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
