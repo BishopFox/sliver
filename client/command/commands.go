@@ -1724,6 +1724,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Take a screenshot",
 		LongHelp: help.GetHelpFor([]string{consts.ScreenshotStr}),
 		Flags: func(f *grumble.Flags) {
+			f.String("s", "save", "", "save to file (will overwrite if exists)")
 			f.Bool("X", "loot", false, "save output as loot")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")

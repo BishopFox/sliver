@@ -26,18 +26,21 @@ import (
 	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 // RegWriteCmd - Write to a Windows registry key: registry write --hive HKCU --type dword "software\google\chrome\blbeacon\hello" 32
 func RegWriteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveTarget.GetSessionInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
-	if session.OS != "windows" {
-		con.PrintErrorf("Error: command not supported on this operating system.")
+	targetOS := getOS(session, beacon)
+	if targetOS != "windows" {
+		con.PrintErrorf("Registry operations can only target Windows\n")
 		return
 	}
 
@@ -134,11 +137,28 @@ func RegWriteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		QWordValue:  qwordValue,
 		ByteValue:   binaryValue,
 	})
-
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+
+	if regWrite.Response != nil && regWrite.Response.Async {
+		con.AddBeaconCallback(regWrite.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, regWrite)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintRegWrite(regWrite, con)
+		})
+		con.PrintAsyncResponse(regWrite.Response)
+	} else {
+		PrintRegWrite(regWrite, con)
+	}
+}
+
+// PrintRegWrite - Print the registry write operation
+func PrintRegWrite(regWrite *sliverpb.RegistryWrite, con *console.SliverConsoleClient) {
 	if regWrite.Response != nil && regWrite.Response.Err != "" {
 		con.PrintErrorf("%s", regWrite.Response.Err)
 		return
