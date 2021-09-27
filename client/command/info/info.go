@@ -32,6 +32,7 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	if session != nil {
+
 		con.Printf(console.Bold+"                ID: %s%d\n", console.Normal, session.ID)
 		con.Printf(console.Bold+"              Name: %s%s\n", console.Normal, session.Name)
 		con.Printf(console.Bold+"          Hostname: %s%s\n", console.Normal, session.Hostname)
@@ -65,8 +66,6 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.Printf(console.Bold+"         Proxy URL: %s%s\n", console.Normal, beacon.ProxyURL)
 		con.Printf(console.Bold+"          Interval: %s%d\n", console.Normal, beacon.Interval)
 		con.Printf(console.Bold+"            Jitter: %s%d\n", console.Normal, beacon.Jitter)
-		// con.Printf(console.Bold+"      Poll Timeout: %s%d\n", console.Normal, beacon.PollTimeout)
-		// con.Printf(console.Bold+"Reconnect Interval: %s%d\n", console.Normal, beacon.ReconnectInterval)
 
 	} else {
 		con.PrintErrorf("No target session, see `help %s`\n", consts.InfoStr)

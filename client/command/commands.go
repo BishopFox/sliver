@@ -1493,6 +1493,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("p", "pid", -1, "target pid")
 			f.String("n", "name", "", "target process name")
+			f.String("s", "save", "", "save to file (will overwrite if exists)")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {

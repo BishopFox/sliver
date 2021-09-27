@@ -424,6 +424,15 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 	// ---------------------
 	// Processes commands
 	// ---------------------
+	case sliverpb.MsgProcessDumpReq:
+		dump := &sliverpb.ProcessDump{}
+		err := proto.Unmarshal(task.Response, dump)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		promptSaveToFile(dump.Data, con)
+
 	case sliverpb.MsgPsReq:
 		ps := &sliverpb.Ps{}
 		err := proto.Unmarshal(task.Response, ps)
@@ -447,6 +456,15 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			},
 		}
 		processes.PrintPS(beacon.OS, ps, true, ctx, con)
+
+	case sliverpb.MsgTerminateReq:
+		terminate := &sliverpb.Terminate{}
+		err := proto.Unmarshal(task.Response, terminate)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		processes.PrintTerminate(terminate, con)
 
 	// ---------------------
 	// Default
