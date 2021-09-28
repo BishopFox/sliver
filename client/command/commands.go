@@ -1772,8 +1772,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Manage beacons",
 		LongHelp: help.GetHelpFor([]string{consts.BeaconsStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("k", "kill", -1, "kill a background job")
-			f.Bool("K", "kill-all", false, "kill all jobs")
+			f.String("k", "kill", "", "kill a beacon")
+			f.Bool("K", "kill-all", false, "kill all beacons")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.GenericHelpGroup,
