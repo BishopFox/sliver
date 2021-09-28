@@ -1,4 +1,4 @@
-package sessions
+package kill
 
 /*
 	Sliver Implant Framework
@@ -32,37 +32,66 @@ import (
 
 // KillCmd - Kill the active session (not to be confused with TerminateCmd)
 func KillCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveTarget.GetSessionInteractive()
-	if session == nil {
-		con.PrintErrorf("No active session\n")
-		return
-	}
+	session, beacon := con.ActiveTarget.GetInteractive()
 	// Confirm with the user, just in case they confused kill with terminate
 	confirm := false
-	prompt := &survey.Confirm{Message: "Kill the active session?"}
-	survey.AskOne(prompt, &confirm, nil)
-	if !confirm {
+	promptSession := &survey.Confirm{Message: "Kill the active session?"}
+	promptBeacon := &survey.Confirm{Message: "Kill the active beacon?"}
+	if session != nil {
+		survey.AskOne(promptSession, &confirm, nil)
+		if !confirm {
+			return
+		}
+		err := KillSession(session, ctx.Flags.Bool("force"), con)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		con.PrintInfof("Killed %s (%d)\n", session.Name, session.ID)
+		con.ActiveTarget.Background()
 		return
 	}
-
-	err := killSession(session, ctx.Flags.Bool("force"), con)
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
+	if beacon != nil {
+		survey.AskOne(promptBeacon, &confirm, nil)
+		if !confirm {
+			return
+		}
+		err := KillBeacon(beacon, ctx.Flags.Bool("force"), con)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		con.PrintInfof("Killed %s (%s)\n", beacon.Name, beacon.ID)
+		con.ActiveTarget.Background()
 		return
 	}
-	con.PrintInfof("Killed %s (%d)\n", session.Name, session.ID)
-	con.ActiveTarget.Background()
+	con.PrintErrorf("No active session or beacon\n")
+	return
 }
 
-func killSession(session *clientpb.Session, force bool, con *console.SliverConsoleClient) error {
+func KillSession(session *clientpb.Session, force bool, con *console.SliverConsoleClient) error {
 	if session == nil {
 		return errors.New("session does not exist")
 	}
-	_, err := con.Rpc.KillSession(context.Background(), &sliverpb.KillSessionReq{
+	_, err := con.Rpc.Kill(context.Background(), &sliverpb.KillReq{
 		Request: &commonpb.Request{
 			SessionID: session.ID,
 		},
 		Force: force,
 	})
 	return err
+}
+
+func KillBeacon(beacon *clientpb.Beacon, force bool, con *console.SliverConsoleClient) error {
+	if beacon == nil {
+		return errors.New("session does not exist")
+	}
+	_, err := con.Rpc.Kill(context.Background(), &sliverpb.KillReq{
+		Request: &commonpb.Request{
+			BeaconID: beacon.ID,
+		},
+		Force: force,
+	})
+	return err
+
 }

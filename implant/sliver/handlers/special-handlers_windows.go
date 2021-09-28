@@ -47,8 +47,8 @@ func GetSpecialHandlers() map[uint32]SpecialHandler {
 	return specialHandlers
 }
 
-func killHandler(data []byte, connection *transports.Connection) error {
-	killReq := &sliverpb.KillSessionReq{}
+func killHandler(data []byte, _ *transports.Connection) error {
+	killReq := &sliverpb.KillReq{}
 	err := proto.Unmarshal(data, killReq)
 	// {{if .Config.Debug}}
 	log.Println("KILL called")
@@ -56,8 +56,6 @@ func killHandler(data []byte, connection *transports.Connection) error {
 	if err != nil {
 		return err
 	}
-	// Cleanup connection
-	connection.Cleanup()
 	// {{if or .Config.IsSharedLib .Config.IsShellcode}}
 	// Windows only: ExitThread() instead of os.Exit() for DLL/shellcode slivers
 	// so that the parent process is not killed

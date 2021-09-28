@@ -76,7 +76,7 @@ message Ping {
 }
 
 // KillSessionReq - Request the implant to kill a session
-message KillSessionReq {
+message KillReq {
   bool Force = 1;
 
   commonpb.Request Request = 9;

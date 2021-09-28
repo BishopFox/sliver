@@ -21,6 +21,7 @@ package sessions
 import (
 	"context"
 
+	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/desertbit/grumble"
@@ -40,7 +41,7 @@ func SessionsPruneCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	for _, session := range sessions.GetSessions() {
 		if session.IsDead {
 			con.Printf("Pruning session #%d ...", session.ID)
-			err = killSession(session, true, con)
+			err = kill.KillSession(session, true, con)
 			if err != nil {
 				con.Printf("failed!\n")
 				con.PrintErrorf("%s\n", err)

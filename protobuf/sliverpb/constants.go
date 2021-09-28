@@ -297,7 +297,7 @@ func MsgNumber(request proto.Message) uint32 {
 	case *Ping:
 		return MsgPing
 
-	case *KillSessionReq:
+	case *KillReq:
 		return MsgKillSessionReq
 
 	case *LsReq:

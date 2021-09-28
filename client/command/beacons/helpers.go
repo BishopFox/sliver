@@ -38,6 +38,8 @@ var (
 	ErrNoBeacons = errors.New("no beacons")
 	// ErrNoSelection - No selection made
 	ErrNoSelection = errors.New("no selection")
+	// ErrBeaconNotFound
+	ErrBeaconNotFound = errors.New("no beacon found for this ID")
 )
 
 // SelectBeacon - Interactive menu for the user to select an session, optionally only display live sessions
@@ -96,4 +98,31 @@ func SelectBeacon(con *console.SliverConsoleClient) (*clientpb.Beacon, error) {
 		}
 	}
 	return nil, ErrNoSelection
+}
+
+func GetBeacon(con *console.SliverConsoleClient, beaconID string) (*clientpb.Beacon, error) {
+	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	if len(beacons.Beacons) == 0 {
+		return nil, ErrNoBeacons
+	}
+	for _, beacon := range beacons.Beacons {
+		if beacon.ID == beaconID {
+			return beacon, nil
+		}
+	}
+	return nil, ErrBeaconNotFound
+}
+
+func GetBeacons(con *console.SliverConsoleClient) (*clientpb.Beacons, error) {
+	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	if len(beacons.Beacons) == 0 {
+		return nil, ErrNoBeacons
+	}
+	return beacons, nil
 }

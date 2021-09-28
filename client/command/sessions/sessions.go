@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -35,7 +36,7 @@ import (
 func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	interact := ctx.Flags.String("interact")
-	kill := ctx.Flags.String("kill")
+	killFlag := ctx.Flags.String("kill")
 	killAll := ctx.Flags.Bool("kill-all")
 	clean := ctx.Flags.Bool("clean")
 
@@ -48,7 +49,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if killAll {
 		con.ActiveTarget.Background()
 		for _, session := range sessions.Sessions {
-			err := killSession(session, true, con)
+			err := kill.KillSession(session, true, con)
 			if err != nil {
 				con.PrintErrorf("%s\n", err)
 			}
@@ -62,7 +63,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.ActiveTarget.Background()
 		for _, session := range sessions.Sessions {
 			if session.IsDead {
-				err := killSession(session, true, con)
+				err := kill.KillSession(session, true, con)
 				if err != nil {
 					con.PrintErrorf("%s\n", err)
 				}
@@ -72,13 +73,13 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 		return
 	}
-	if kill != "" {
-		session := con.GetSession(kill)
+	if killFlag != "" {
+		session := con.GetSession(killFlag)
 		activeSession := con.ActiveTarget.GetSession()
 		if activeSession != nil && session.ID == activeSession.ID {
 			con.ActiveTarget.Background()
 		}
-		err := killSession(session, true, con)
+		err := kill.KillSession(session, true, con)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 		}
