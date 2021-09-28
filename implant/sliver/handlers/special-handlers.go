@@ -26,6 +26,10 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
 	"google.golang.org/protobuf/proto"
 )
 
@@ -38,19 +42,17 @@ func GetSpecialHandlers() map[uint32]SpecialHandler {
 	return specialHandlers
 }
 
-func killHandler(data []byte, connection *transports.Connection) error {
-	killReq := &sliverpb.KillSessionReq{}
+func killHandler(data []byte, _ *transports.Connection) error {
+	killReq := &sliverpb.KillReq{}
 	err := proto.Unmarshal(data, killReq)
 	// {{if .Config.Debug}}
-	println("KILL called")
+	log.Println("KILL called")
 	// {{end}}
 	if err != nil {
 		return err
 	}
-	// Cleanup connection
-	connection.Cleanup()
 	// {{if .Config.Debug}}
-	println("Let's exit!")
+	log.Println("Let's exit!")
 	// {{end}}
 	os.Exit(0)
 	return nil

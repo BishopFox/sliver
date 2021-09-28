@@ -15,9 +15,11 @@ service SliverRPC {
     // *** Operator Commands *** 
     rpc GetOperators(commonpb.Empty) returns (clientpb.Operators);
 
+    // *** Generic ***
+    rpc Kill(sliverpb.KillReq) returns (commonpb.Empty);
+
     // *** Sessions ***
     rpc GetSessions(commonpb.Empty) returns (clientpb.Sessions);
-    rpc KillSession(sliverpb.KillSessionReq) returns (commonpb.Empty);
     rpc UpdateSession(clientpb.UpdateSession) returns (clientpb.Session);
 
     // *** Beacons ***

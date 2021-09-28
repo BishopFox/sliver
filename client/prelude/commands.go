@@ -110,7 +110,7 @@ func splitMessage(message string, splitRune rune) []string {
 }
 
 func shutdown(agentSession *AgentSession) (string, int, int) {
-	_, err := agentSession.RPC.KillSession(context.Background(), &sliverpb.KillSessionReq{
+	_, err := agentSession.RPC.Kill(context.Background(), &sliverpb.KillReq{
 		Force:   false,
 		Request: MakeRequest(agentSession.Session),
 	})

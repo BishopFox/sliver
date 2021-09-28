@@ -57,7 +57,7 @@ func (rpc *Server) GetSessions(ctx context.Context, _ *commonpb.Empty) (*clientp
 }
 
 // KillSession - Kill a session
-func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillSessionReq) (*commonpb.Empty, error) {
+func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillReq) (*commonpb.Empty, error) {
 	session := core.Sessions.Get(kill.Request.SessionID)
 	if session == nil {
 		return &commonpb.Empty{}, ErrInvalidSessionID

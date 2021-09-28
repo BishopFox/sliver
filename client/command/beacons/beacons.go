@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -35,6 +36,42 @@ import (
 
 // BeaconsCmd - Display/interact with beacons
 func BeaconsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	killFlag := ctx.Flags.String("kill")
+	killAll := ctx.Flags.Bool("kill-all")
+
+	// Handle kill
+	if killFlag != "" {
+		beacon, err := GetBeacon(con, killFlag)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		err = kill.KillBeacon(beacon, false, con)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		con.Println()
+		con.PrintInfof("Killed %s (%s)\n", beacon.Name, beacon.ID)
+	}
+
+	if killAll {
+		beacons, err := GetBeacons(con)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		for _, beacon := range beacons.Beacons {
+			err = kill.KillBeacon(beacon, true, con)
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+				return
+			}
+			con.Println()
+			con.PrintInfof("Killed %s (%s)\n", beacon.Name, beacon.ID)
+		}
+	}
+
 	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

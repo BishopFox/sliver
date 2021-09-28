@@ -49,6 +49,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/hosts"
 	"github.com/bishopfox/sliver/client/command/info"
 	"github.com/bishopfox/sliver/client/command/jobs"
+	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/command/macros"
 	"github.com/bishopfox/sliver/client/command/monitor"
@@ -398,7 +399,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.KillStr}),
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			sessions.KillCmd(ctx, con)
+			kill.KillCmd(ctx, con)
 			con.Println()
 			return nil
 		},
@@ -1770,6 +1771,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Manage beacons",
 		LongHelp: help.GetHelpFor([]string{consts.BeaconsStr}),
 		Flags: func(f *grumble.Flags) {
+			f.Int("k", "kill", -1, "kill a background job")
+			f.Bool("K", "kill-all", false, "kill all jobs")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.GenericHelpGroup,
