@@ -1,4 +1,5 @@
-//+build windows
+//go:build windows
+// +build windows
 
 package taskrunner
 
@@ -174,9 +175,9 @@ func LocalTask(data []byte, rwxPages bool) error {
 	}
 	size := len(data)
 	addr, _ := sysAlloc(size, rwxPages)
-	buf := (*[9999999]byte)(unsafe.Pointer(addr))
 	for index := 0; index < size; index++ {
-		buf[index] = data[index]
+		// super unsafe, but supports arbitrary sizes
+		*(*byte)(unsafe.Pointer(addr + uintptr(index))) = data[index]
 	}
 	if !rwxPages {
 		var oldProtect uint32
