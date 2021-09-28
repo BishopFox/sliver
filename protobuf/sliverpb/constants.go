@@ -231,11 +231,13 @@ const (
 	// MsgReconnectIntervalReq
 	MsgReconnectIntervalReq
 
+	// MsgReconnectInterval - Set reconnect interval
 	MsgReconnectInterval
 
 	// MsgPollIntervalReq
 	MsgPollIntervalReq
 
+	// MsgPollInterval - Set poll interval
 	MsgPollInterval
 
 	// MsgUnsetEnvReq
@@ -249,7 +251,6 @@ const (
 
 	// MsgRegistryListReq - List registry sub keys
 	MsgRegistrySubKeysListReq
-
 	// MsgRegistryListValuesReq - List registry values
 	MsgRegistryListValuesReq
 	// MsgRegisterExtensionReq - Register a new extension
@@ -257,15 +258,18 @@ const (
 
 	// MsgCallExtensionReq - Run an extension command
 	MsgCallExtensionReq
-
 	// MsgListExtensionsReq - List loaded extensions
 	MsgListExtensionsReq
 
 	// MsgBeaconRegister - Register a new beacon
 	MsgBeaconRegister
-
 	// MsgBeaconTasks - Send/recv batches of beacon tasks
 	MsgBeaconTasks
+
+	// MsgOpenSession - Open a new session
+	MsgOpenSession
+	// MsgCloseSession - Close the active session
+	MsgCloseSession
 )
 
 // Constants to replace enums

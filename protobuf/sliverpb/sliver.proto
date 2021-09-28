@@ -65,6 +65,22 @@ message BeaconRegister {
   int64 NextCheckin = 5;
 }
 
+message OpenSession {
+  repeated string C2s = 1;
+  int64 Delay = 2;
+
+  commonpb.Response Response = 8;
+  commonpb.Request Request = 9;
+}
+
+message CloseSession {
+
+  // No message content
+
+  commonpb.Response Response = 8;
+  commonpb.Request Request = 9;
+}
+
 // Ping - Not ICMP, just sends a rount trip message to an implant to
 //        see if it's still responding.
 message Ping {
