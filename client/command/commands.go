@@ -1173,7 +1173,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 
-			f.String("N", "profile-name", "", "profile name")
+			f.String("P", "profile-name", "", "profile name")
+			f.String("N", "name", "", "agent name")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
