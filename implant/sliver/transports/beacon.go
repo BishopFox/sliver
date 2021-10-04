@@ -66,6 +66,7 @@ type Beacon struct {
 	Close BeaconClose
 }
 
+// Interval - Interval between beacons
 func (b *Beacon) Interval() int64 {
 	interval, err := strconv.ParseInt(`{{.Config.BeaconInterval}}`, 10, 64)
 	if err != nil {
@@ -74,6 +75,7 @@ func (b *Beacon) Interval() int64 {
 	return int64(interval)
 }
 
+// Jitter - Jitter between beacons
 func (b *Beacon) Jitter() int64 {
 	jitter, err := strconv.ParseInt(`{{.Config.BeaconJitter}}`, 10, 64)
 	if err != nil {
@@ -82,6 +84,7 @@ func (b *Beacon) Jitter() int64 {
 	return int64(jitter)
 }
 
+// Duration - Interval + random value <= Jitter
 func (b *Beacon) Duration() time.Duration {
 	// {{if .Config.Debug}}
 	log.Printf("Interval: %v Jitter: %v", b.Interval(), b.Jitter())

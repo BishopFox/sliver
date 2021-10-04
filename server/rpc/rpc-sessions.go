@@ -92,11 +92,11 @@ func (rpc *Server) UpdateSession(ctx context.Context, update *clientpb.UpdateSes
 		}
 		session.Name = name
 	}
-	//Update reconnect interval if set
+	// Update reconnect interval if set
 	if update.ReconnectInterval != -1 {
 		session.ReconnectInterval = update.ReconnectInterval
 
-		//Create protobuf msg
+		// Create protobuf msg
 		req := sliverpb.ReconnectIntervalReq{
 			Request: &commonpb.Request{
 				SessionID: session.ID,
@@ -111,11 +111,11 @@ func (rpc *Server) UpdateSession(ctx context.Context, update *clientpb.UpdateSes
 		}
 		session.Request(sliverpb.MsgNumber(&req), rpc.getTimeout(&req), data)
 	}
-	//Update poll interval if set
+	// Update poll interval if set
 	if update.PollInterval != -1 {
 		session.PollTimeout = update.PollInterval
 
-		//Create protobuf msg
+		// Create protobuf msg
 		req := sliverpb.PollIntervalReq{
 			Request: &commonpb.Request{
 				SessionID: session.ID,
@@ -135,5 +135,15 @@ func (rpc *Server) UpdateSession(ctx context.Context, update *clientpb.UpdateSes
 	}
 	core.Sessions.UpdateSession(session)
 	resp = session.ToProtobuf()
+	return resp, nil
+}
+
+// OpenSession - Instruct beacon to open a new session on next checkin
+func (rpc *Server) OpenSession(ctx context.Context, openSession *sliverpb.OpenSession) (*sliverpb.OpenSession, error) {
+	resp := &sliverpb.OpenSession{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(openSession, resp)
+	if err != nil {
+		return nil, err
+	}
 	return resp, nil
 }

