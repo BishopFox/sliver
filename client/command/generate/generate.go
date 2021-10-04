@@ -168,22 +168,22 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 
 	c2s := []*clientpb.ImplantC2{}
 
-	mtlsC2 := parseMTLSc2(ctx.Flags.String("mtls"))
+	mtlsC2 := ParseMTLSc2(ctx.Flags.String("mtls"))
 	c2s = append(c2s, mtlsC2...)
 
-	wgC2 := parseWGc2(ctx.Flags.String("wg"))
+	wgC2 := ParseWGc2(ctx.Flags.String("wg"))
 	c2s = append(c2s, wgC2...)
 
-	httpC2 := parseHTTPc2(ctx.Flags.String("http"))
+	httpC2 := ParseHTTPc2(ctx.Flags.String("http"))
 	c2s = append(c2s, httpC2...)
 
-	dnsC2 := parseDNSc2(ctx.Flags.String("dns"))
+	dnsC2 := ParseDNSc2(ctx.Flags.String("dns"))
 	c2s = append(c2s, dnsC2...)
 
-	namedPipeC2 := parseNamedPipec2(ctx.Flags.String("named-pipe"))
+	namedPipeC2 := ParseNamedPipec2(ctx.Flags.String("named-pipe"))
 	c2s = append(c2s, namedPipeC2...)
 
-	tcpPivotC2 := parseTCPPivotc2(ctx.Flags.String("tcp-pivot"))
+	tcpPivotC2 := ParseTCPPivotc2(ctx.Flags.String("tcp-pivot"))
 	c2s = append(c2s, tcpPivotC2...)
 
 	var symbolObfuscation bool
@@ -339,7 +339,8 @@ func getTargets(targetOS string, targetArch string, con *console.SliverConsoleCl
 	return targetOS, targetArch
 }
 
-func parseMTLSc2(args string) []*clientpb.ImplantC2 {
+// ParseMTLSc2 - Parse mtls connection string arg
+func ParseMTLSc2(args string) []*clientpb.ImplantC2 {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
 		return c2s
@@ -358,7 +359,8 @@ func parseMTLSc2(args string) []*clientpb.ImplantC2 {
 	return c2s
 }
 
-func parseWGc2(args string) []*clientpb.ImplantC2 {
+// ParseWGc2 - Parse wg connect string arg
+func ParseWGc2(args string) []*clientpb.ImplantC2 {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
 		return c2s
@@ -378,7 +380,8 @@ func parseWGc2(args string) []*clientpb.ImplantC2 {
 	return c2s
 }
 
-func parseHTTPc2(args string) []*clientpb.ImplantC2 {
+// ParseHTTPc2 - Parse HTTP connection string arg
+func ParseHTTPc2(args string) []*clientpb.ImplantC2 {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
 		return c2s
@@ -408,7 +411,8 @@ func parseHTTPc2(args string) []*clientpb.ImplantC2 {
 	return c2s
 }
 
-func parseDNSc2(args string) []*clientpb.ImplantC2 {
+// ParseDNSc2 - Parse DNS connection string arg
+func ParseDNSc2(args string) []*clientpb.ImplantC2 {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
 		return c2s
@@ -433,7 +437,8 @@ func parseDNSc2(args string) []*clientpb.ImplantC2 {
 	return c2s
 }
 
-func parseNamedPipec2(args string) []*clientpb.ImplantC2 {
+// ParseNamedPipec2 - Parse named pipe connection string arg
+func ParseNamedPipec2(args string) []*clientpb.ImplantC2 {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
 		return c2s
@@ -454,7 +459,8 @@ func parseNamedPipec2(args string) []*clientpb.ImplantC2 {
 	return c2s
 }
 
-func parseTCPPivotc2(args string) []*clientpb.ImplantC2 {
+// ParseTCPPivotc2 - Parse tcp pivot connection string arg
+func ParseTCPPivotc2(args string) []*clientpb.ImplantC2 {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
 		return c2s

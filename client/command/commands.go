@@ -412,6 +412,32 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
+	openSessionCmd := &grumble.Command{
+		Name:     consts.OpenSessionStr,
+		Help:     "Open a new session (Beacon only)",
+		LongHelp: help.GetHelpFor([]string{consts.OpenSessionStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("m", "mtls", "", "mtls connection strings")
+			f.String("g", "wg", "", "wg connection strings")
+			f.String("b", "http", "", "http(s) connection strings")
+			f.String("n", "dns", "", "dns connection strings")
+			f.String("p", "named-pipe", "", "named-pipe connection strings")
+			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
+
+			f.String("d", "delay", "0s", "delay opening the session (after checkin) for a given period of time")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			sessions.OpenSessionCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	}
+	con.App.AddCommand(openSessionCmd)
+
 	// [ Tasks ] --------------------------------------------------------------
 
 	tasksCmd := &grumble.Command{
