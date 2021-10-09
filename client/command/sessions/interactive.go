@@ -29,8 +29,8 @@ import (
 	"github.com/desertbit/grumble"
 )
 
-// OpenSessionCmd - Beacon only command to open an interactive session
-func OpenSessionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+// InteractiveCmd - Beacon only command to open an interactive session
+func InteractiveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
 		return
@@ -68,8 +68,9 @@ func OpenSessionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	openSession := &sliverpb.OpenSession{
-		C2S:   []string{},
-		Delay: int64(delay),
+		Request: con.ActiveTarget.Request(ctx),
+		C2S:     []string{},
+		Delay:   int64(delay),
 	}
 	for _, c2 := range c2s {
 		openSession.C2S = append(openSession.C2S, c2.URL)

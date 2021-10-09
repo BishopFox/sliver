@@ -65,6 +65,9 @@ func GetActiveConnection() *Connection {
 
 // C2Generator - Creates a stream of C2 URLs based on a connection strategy
 func C2Generator(c2Servers []string, abort <-chan struct{}) <-chan *url.URL {
+	// {{if .Config.Debug}}
+	log.Printf("Starting c2 url generator ({{.Config.ConnectionStrategy}}) ...")
+	// {{end}}
 	generator := make(chan *url.URL)
 	go func() {
 		defer close(generator)
@@ -93,6 +96,10 @@ func C2Generator(c2Servers []string, abort <-chan struct{}) <-chan *url.URL {
 				continue
 			}
 
+			// {{if .Config.Debug}}
+			log.Printf("Yield c2 uri = '%s'", uri)
+			// {{end}}
+
 			// Generate next C2 URL or abort
 			select {
 			case generator <- uri:
@@ -101,6 +108,9 @@ func C2Generator(c2Servers []string, abort <-chan struct{}) <-chan *url.URL {
 			}
 		}
 	}()
+	// {{if .Config.Debug}}
+	log.Printf("Return generator: %#v", generator)
+	// {{end}}
 	return generator
 }
 

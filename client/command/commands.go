@@ -411,9 +411,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	})
 
 	openSessionCmd := &grumble.Command{
-		Name:     consts.OpenSessionStr,
-		Help:     "Open a new session (Beacon only)",
-		LongHelp: help.GetHelpFor([]string{consts.OpenSessionStr}),
+		Name:     consts.InteractiveStr,
+		Help:     "Task a beacon to open an interactive session (Beacon only)",
+		LongHelp: help.GetHelpFor([]string{consts.InteractiveStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("m", "mtls", "", "mtls connection strings")
 			f.String("g", "wg", "", "wg connection strings")
@@ -428,7 +428,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			sessions.OpenSessionCmd(ctx, con)
+			sessions.InteractiveCmd(ctx, con)
 			con.Println()
 			return nil
 		},

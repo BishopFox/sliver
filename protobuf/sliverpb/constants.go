@@ -511,6 +511,12 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *BeaconTasks:
 		return MsgBeaconTasks
+
+	case *OpenSession:
+		return MsgOpenSession
+	case *CloseSession:
+		return MsgCloseSession
+
 	}
 
 	return uint32(0)

