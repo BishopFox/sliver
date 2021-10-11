@@ -316,7 +316,13 @@ func getExportOffsetFromFile(filepath string, exportName string) (funcOffset uin
 	}
 	defer handle.Close()
 	fpe, _ := pe.NewFile(handle)
-	exportDirectoryRVA := fpe.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
+	var exportDirectoryRVA uint32
+	switch (fpe.OptionalHeader).(type) {
+	case *pe.OptionalHeader32:
+		exportDirectoryRVA = fpe.OptionalHeader.(*pe.OptionalHeader32).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
+	case *pe.OptionalHeader64:
+		exportDirectoryRVA = fpe.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
+	}
 	var offset = rvaToFoa(exportDirectoryRVA, fpe)
 	exportDir := ExportDirectory{}
 	buff := &bytes.Buffer{}
@@ -350,7 +356,13 @@ func getExportOffsetFromMemory(rawData []byte, exportName string) (funcOffset ui
 		return 0, err
 	}
 
-	exportDirectoryRVA := fpe.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
+	var exportDirectoryRVA uint32
+	switch (fpe.OptionalHeader).(type) {
+	case *pe.OptionalHeader32:
+		exportDirectoryRVA = fpe.OptionalHeader.(*pe.OptionalHeader32).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
+	case *pe.OptionalHeader64:
+		exportDirectoryRVA = fpe.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
+	}
 	var offset = rvaToFoa(exportDirectoryRVA, fpe)
 	exportDir := ExportDirectory{}
 	buff := &bytes.Buffer{}
