@@ -64,7 +64,7 @@ const (
 )
 
 var (
-	namePattern = regexp.MustCompile("^[a-zA-Z0-9_]*$") // Only allow alphanumeric chars
+	namePattern = regexp.MustCompile("^[a-zA-Z0-9_-]*$") // Only allow alphanumeric chars
 )
 
 // ClientConfig - Client JSON config
