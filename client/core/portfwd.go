@@ -14,7 +14,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/core"
 )
 
 var (
@@ -126,7 +125,7 @@ func (p *ChannelProxy) HandleConn(conn net.Conn) {
 	// Cleanup
 	defer func() {
 		go conn.Close()
-		core.Tunnels.Close(tunnel.ID)
+		Tunnels.Close(tunnel.ID)
 	}()
 
 	errs := make(chan error, 1)
