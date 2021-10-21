@@ -147,7 +147,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 			fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
 			fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
 			fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
-			fmt.Sprint(color+"%s"+console.Normal, proc.Executable),
+			fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
 			fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
 		}
 	case "darwin":
