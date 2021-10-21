@@ -99,11 +99,9 @@ func (tun *Tunnel) Read(data []byte) (int, error) {
 		log.Printf("Warning: Read on closed tunnel %d", tun.ID)
 		return 0, io.EOF
 	}
-	select {
-	case data := <-tun.Recv:
-		log.Printf("Read %d bytes", len(data))
-		buff.Write(data)
-	}
+	recvData := <-tun.Recv
+	log.Printf("Read %d bytes", len(recvData))
+	buff.Write(recvData)
 	n := copy(data, buff.Bytes())
 	return n, nil
 }
