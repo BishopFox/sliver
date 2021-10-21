@@ -213,6 +213,7 @@ const (
 	MonitorStr            = "monitor"
 	SSHStr                = "ssh"
 	DLLHijackStr          = "dllhijack"
+	InteractiveStr        = "interactive"
 
 	PortfwdStr = "portfwd"
 

