@@ -339,9 +339,9 @@ var file_rpcpb_services_proto_rawDesc = []byte{
 	0x2e, 0x53, 0x53, 0x48, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x52, 0x65, 0x71, 0x1a, 0x14,
 	0x2e, 0x73, 0x6c, 0x69, 0x76, 0x65, 0x72, 0x70, 0x62, 0x2e, 0x53, 0x53, 0x48, 0x43, 0x6f, 0x6d,
 	0x6d, 0x61, 0x6e, 0x64, 0x12, 0x38, 0x0a, 0x09, 0x48, 0x69, 0x6a, 0x61, 0x63, 0x6b, 0x44, 0x4c,
-	0x4c, 0x12, 0x16, 0x2e, 0x73, 0x6c, 0x69, 0x76, 0x65, 0x72, 0x70, 0x62, 0x2e, 0x44, 0x6c, 0x6c,
-	0x48, 0x69, 0x6a, 0x61, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x1a, 0x13, 0x2e, 0x73, 0x6c, 0x69, 0x76,
-	0x65, 0x72, 0x70, 0x62, 0x2e, 0x44, 0x6c, 0x6c, 0x48, 0x69, 0x6a, 0x61, 0x63, 0x6b, 0x12, 0x35,
+	0x4c, 0x12, 0x16, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x2e, 0x44, 0x6c, 0x6c,
+	0x48, 0x69, 0x6a, 0x61, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x1a, 0x13, 0x2e, 0x63, 0x6c, 0x69, 0x65,
+	0x6e, 0x74, 0x70, 0x62, 0x2e, 0x44, 0x6c, 0x6c, 0x48, 0x69, 0x6a, 0x61, 0x63, 0x6b, 0x12, 0x35,
 	0x0a, 0x08, 0x47, 0x65, 0x74, 0x50, 0x72, 0x69, 0x76, 0x73, 0x12, 0x15, 0x2e, 0x73, 0x6c, 0x69,
 	0x76, 0x65, 0x72, 0x70, 0x62, 0x2e, 0x47, 0x65, 0x74, 0x50, 0x72, 0x69, 0x76, 0x73, 0x52, 0x65,
 	0x71, 0x1a, 0x12, 0x2e, 0x73, 0x6c, 0x69, 0x76, 0x65, 0x72, 0x70, 0x62, 0x2e, 0x47, 0x65, 0x74,
@@ -462,7 +462,7 @@ var file_rpcpb_services_proto_goTypes = []interface{}{
 	(*sliverpb.RegistrySubKeyListReq)(nil), // 60: sliverpb.RegistrySubKeyListReq
 	(*sliverpb.RegistryListValuesReq)(nil), // 61: sliverpb.RegistryListValuesReq
 	(*sliverpb.SSHCommandReq)(nil),         // 62: sliverpb.SSHCommandReq
-	(*sliverpb.DllHijackReq)(nil),          // 63: sliverpb.DllHijackReq
+	(*clientpb.DllHijackReq)(nil),          // 63: clientpb.DllHijackReq
 	(*sliverpb.GetPrivsReq)(nil),           // 64: sliverpb.GetPrivsReq
 	(*sliverpb.WGPortForwardStartReq)(nil), // 65: sliverpb.WGPortForwardStartReq
 	(*sliverpb.WGPortForwardStopReq)(nil),  // 66: sliverpb.WGPortForwardStopReq
@@ -534,7 +534,7 @@ var file_rpcpb_services_proto_goTypes = []interface{}{
 	(*sliverpb.RegistrySubKeyList)(nil),    // 132: sliverpb.RegistrySubKeyList
 	(*sliverpb.RegistryValuesList)(nil),    // 133: sliverpb.RegistryValuesList
 	(*sliverpb.SSHCommand)(nil),            // 134: sliverpb.SSHCommand
-	(*sliverpb.DllHijack)(nil),             // 135: sliverpb.DllHijack
+	(*clientpb.DllHijack)(nil),             // 135: clientpb.DllHijack
 	(*sliverpb.GetPrivs)(nil),              // 136: sliverpb.GetPrivs
 	(*sliverpb.WGPortForward)(nil),         // 137: sliverpb.WGPortForward
 	(*sliverpb.WGSocks)(nil),               // 138: sliverpb.WGSocks
@@ -630,7 +630,7 @@ var file_rpcpb_services_proto_depIdxs = []int32{
 	60,  // 82: rpcpb.SliverRPC.RegistryListSubKeys:input_type -> sliverpb.RegistrySubKeyListReq
 	61,  // 83: rpcpb.SliverRPC.RegistryListValues:input_type -> sliverpb.RegistryListValuesReq
 	62,  // 84: rpcpb.SliverRPC.RunSSHCommand:input_type -> sliverpb.SSHCommandReq
-	63,  // 85: rpcpb.SliverRPC.HijackDLL:input_type -> sliverpb.DllHijackReq
+	63,  // 85: rpcpb.SliverRPC.HijackDLL:input_type -> clientpb.DllHijackReq
 	64,  // 86: rpcpb.SliverRPC.GetPrivs:input_type -> sliverpb.GetPrivsReq
 	65,  // 87: rpcpb.SliverRPC.WGStartPortForward:input_type -> sliverpb.WGPortForwardStartReq
 	66,  // 88: rpcpb.SliverRPC.WGStopPortForward:input_type -> sliverpb.WGPortForwardStopReq
@@ -729,7 +729,7 @@ var file_rpcpb_services_proto_depIdxs = []int32{
 	132, // 181: rpcpb.SliverRPC.RegistryListSubKeys:output_type -> sliverpb.RegistrySubKeyList
 	133, // 182: rpcpb.SliverRPC.RegistryListValues:output_type -> sliverpb.RegistryValuesList
 	134, // 183: rpcpb.SliverRPC.RunSSHCommand:output_type -> sliverpb.SSHCommand
-	135, // 184: rpcpb.SliverRPC.HijackDLL:output_type -> sliverpb.DllHijack
+	135, // 184: rpcpb.SliverRPC.HijackDLL:output_type -> clientpb.DllHijack
 	136, // 185: rpcpb.SliverRPC.GetPrivs:output_type -> sliverpb.GetPrivs
 	137, // 186: rpcpb.SliverRPC.WGStartPortForward:output_type -> sliverpb.WGPortForward
 	137, // 187: rpcpb.SliverRPC.WGStopPortForward:output_type -> sliverpb.WGPortForward

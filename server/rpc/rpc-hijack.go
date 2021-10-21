@@ -37,12 +37,12 @@ import (
 	"github.com/bishopfox/sliver/util/encoders"
 )
 
-func (rpc *Server) HijackDLL(ctx context.Context, req *sliverpb.DllHijackReq) (*sliverpb.DllHijack, error) {
+func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*clientpb.DllHijack, error) {
 	var (
 		refDLL        []byte
 		targetDLLData []byte
 	)
-	resp := &sliverpb.DllHijack{
+	resp := &clientpb.DllHijack{
 		Response: &commonpb.Response{},
 	}
 	session := core.Sessions.Get(req.Request.SessionID)

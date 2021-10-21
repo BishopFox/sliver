@@ -24,7 +24,7 @@ import (
 	"io/ioutil"
 
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/desertbit/grumble"
 )
 
@@ -78,7 +78,7 @@ func DllHijackCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ctrl := make(chan bool)
 	msg := fmt.Sprintf("Crafting and planting DLL at %s ...", targetPath)
 	con.SpinUntil(msg, ctrl)
-	_, err = con.Rpc.HijackDLL(context.Background(), &sliverpb.DllHijackReq{
+	_, err = con.Rpc.HijackDLL(context.Background(), &clientpb.DllHijackReq{
 		ReferenceDLLPath: referencePath,
 		TargetLocation:   targetPath,
 		ReferenceDLL:     localRefData,
