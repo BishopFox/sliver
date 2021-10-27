@@ -48,8 +48,8 @@ func (o *Operator) BeforeCreate(tx *gorm.DB) (err error) {
 // GenerateOperatorToken - Generate a new operator auth token
 func GenerateOperatorToken() string {
 	buf := make([]byte, 32)
-	_, err := rand.Read(buf)
-	if err != nil {
+	n, err := rand.Read(buf)
+	if err != nil || n != len(buf) {
 		panic(err)
 	}
 	return hex.EncodeToString(buf)
