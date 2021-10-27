@@ -32,7 +32,11 @@ import (
 )
 
 // UUIDFromMAC - Generate a UUID based on the machine's MAC addresses, this is
-// generally used as a last resort to fingerpint the host machine.
+// generally used as a last resort to fingerpint the host machine. It creates
+// a uuid by hashing the MAC addresses of all network interfaces and using the
+// first 16 bytes of the hash as the UUID. This should work so long as network
+// interfaces are not added or removed, since its physical addresses this should
+// be uncommon; an except would be machines with USB WiFi/Ethernet or something.
 func UUIDFromMAC() string {
 	// {{if .Config.Debug}}
 	log.Printf("Generating host UUID from hardware addresses ...")
