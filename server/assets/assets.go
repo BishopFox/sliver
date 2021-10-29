@@ -25,12 +25,15 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	insecureRand "math/rand"
 	"os"
 	"os/user"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	ver "github.com/bishopfox/sliver/client/version"
 	protobufs "github.com/bishopfox/sliver/protobuf"
@@ -237,10 +240,11 @@ func SetupGoPath(goPathSrc string) error {
 		setupLog.Info("Static asset not found: constants.go")
 		return err
 	}
+	sliverpbGoSrc = stripSliverpb(sliverpbGoSrc)
 	sliverpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliverpb")
 	os.MkdirAll(sliverpbDir, 0700)
-	ioutil.WriteFile(path.Join(sliverpbDir, "constants.go"), sliverpbGoSrc, 0600)
-	ioutil.WriteFile(path.Join(sliverpbDir, "sliver.pb.go"), sliverpbConstSrc, 0600)
+	ioutil.WriteFile(path.Join(sliverpbDir, "sliver.pb.go"), sliverpbGoSrc, 0600)
+	ioutil.WriteFile(path.Join(sliverpbDir, "constants.go"), sliverpbConstSrc, 0600)
 
 	// Common PB
 	commonpbSrc, err := protobufs.FS.ReadFile("commonpb/common.pb.go")
@@ -253,6 +257,21 @@ func SetupGoPath(goPathSrc string) error {
 	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0600)
 
 	return nil
+}
+
+func stripSliverpb(src []byte) []byte {
+	out := src
+	re := regexp.MustCompile(`protobuf:"[a-z]+,\d+,[a-z]+,name=(?P<FieldName1>[a-zA-Z0-9]+),proto3" json:"(?P<FiledName2>[a-zA-Z0-9]+),[a-z]+"`)
+	found := re.FindAllSubmatch(src, -1)
+	for _, x := range found {
+		line := x[0] // line that matched
+		item := x[1] // first named capturing group (FieldName1)
+		// we don't care about FieldName2 because its value is the same as FieldName1
+		newItem := pseudoRandStringRunes(len(item))
+		newLine := bytes.ReplaceAll(line, item, []byte(newItem))
+		out = bytes.ReplaceAll(out, line, []byte(newLine))
+	}
+	return out
 }
 
 func unzipGoDependency(fsPath string, targetPath string) error {
@@ -343,4 +362,14 @@ func unzip(src string, dest string) ([]string, error) {
 		}
 	}
 	return filenames, nil
+}
+
+func pseudoRandStringRunes(n int) string {
+	insecureRand.Seed(time.Now().UnixNano())
+	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[insecureRand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }
