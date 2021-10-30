@@ -252,6 +252,15 @@ func SetupGoPath(goPathSrc string) error {
 	os.MkdirAll(commonpbDir, 0700)
 	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0600)
 
+	// DNS PB
+	dnspbSrc, err := protobufs.FS.ReadFile("dnspb/dns.pb.go")
+	if err != nil {
+		setupLog.Info("Static asset not found: dns.pb.go")
+		return err
+	}
+	dnspbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "dnspb")
+	os.MkdirAll(dnspbDir, 0700)
+	ioutil.WriteFile(path.Join(dnspbDir, "dns.pb.go"), dnspbSrc, 0600)
 	return nil
 }
 
