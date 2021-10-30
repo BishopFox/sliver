@@ -94,11 +94,6 @@ const (
 	// LINUX OS
 	LINUX = "linux"
 
-	// GoPrivate - The default Go private arg to garble when obfuscation is enabled.
-	// Wireguard dependencies prevent the use of wildcard github.com/* and golang.org/*.
-	// The current packages below aren't definitive and need to be tidied up.
-	GoPrivate = "github.com/bishopfox/*,github.com/Microsoft/*,github.com/burntsushi/*,github.com/kbinani/*,github.com/lxn/*,github.com/golang/*,github.com/shm/*,github.com/lesnuages/*"
-
 	clientsDirName = "clients"
 	sliversDirName = "slivers"
 
@@ -290,7 +285,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 		GOPROXY:    getGoProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
-		GOPRIVATE:   GoPrivate,
+		GOPRIVATE:   goPrivate(config),
 	}
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
@@ -360,7 +355,7 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 		GOPROXY:    getGoProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
-		GOPRIVATE:   GoPrivate,
+		GOPRIVATE:   goPrivate(config),
 	}
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
@@ -417,7 +412,7 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 		GOPROXY:    getGoProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
-		GOPRIVATE:   GoPrivate,
+		GOPRIVATE:   goPrivate(config),
 	}
 
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
@@ -869,4 +864,26 @@ func getGoProxy() string {
 	}
 	buildLog.Debugf("No GOPROXY found")
 	return ""
+}
+
+const (
+	// GoPrivate - The default Go private arg to garble when obfuscation is enabled.
+	// Wireguard dependencies prevent the use of wildcard github.com/* and golang.org/*.
+	// The current packages below aren't definitive and need to be tidied up.
+	// GoPrivate = "github.com/bishopfox/*,github.com/Microsoft/*,github.com/burntsushi/*,github.com/kbinani/*,github.com/lxn/*,github.com/golang/*,github.com/shm/*,github.com/lesnuages/*"
+	wgGoPrivate  = "github.com/*,golang.org/*,golang.zx2c4.com/*,google.golang.org/*"
+	allGoPrivate = "*"
+)
+
+func goPrivate(config *models.ImplantConfig) string {
+	for _, c2 := range config.C2 {
+		uri, err := url.Parse(c2.URL)
+		if err != nil {
+			return wgGoPrivate
+		}
+		if uri.Scheme == "wg" {
+			return wgGoPrivate
+		}
+	}
+	return allGoPrivate
 }
