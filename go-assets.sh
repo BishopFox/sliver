@@ -26,7 +26,7 @@ COFF_LOADER_VER="1.0.7"
 GO_ARCH_1="amd64"
 GO_ARCH_2="arm64"
 GO_ARCH_3="386"
-BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
+BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt SECURITY.md CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
 
 if ! [ -x "$(command -v curl)" ]; then
   exit 1
