@@ -20,7 +20,7 @@
 # Creates the static go asset archives
 
 GO_VER="1.17.2"
-GARBLE_VER="1.17.1"
+GARBLE_VER="1.17.2"
 COFF_LOADER_VER="1.0.7"
 
 GO_ARCH_1="amd64"
