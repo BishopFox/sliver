@@ -29,9 +29,8 @@ package c2
 import (
 	secureRand "crypto/rand"
 	"errors"
-	"hash/crc32"
-	insecureRand "math/rand"
 	"net"
+	"unicode"
 
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/protobuf/dnspb"
@@ -75,6 +74,8 @@ var (
 
 	recvBlocksMutex = &sync.RWMutex{}
 	recvBlocks      = map[uint32]*Block{}
+
+	ErrInvalidMsg = errors.New("invalid dns message")
 )
 
 // Block - A blob of data that we're sending or receiving, blocks of data
@@ -186,7 +187,7 @@ func isC2SubDomain(domains []string, reqDomain string) (bool, string) {
 			return true, parentDomain
 		}
 	}
-	dnsLog.Infof("'%s' is NOT subdomain of any %v", reqDomain, domains)
+	dnsLog.Infof("'%s' is NOT subdomain of any c2 domain %v", reqDomain, domains)
 	return false, ""
 }
 
@@ -195,18 +196,50 @@ func isC2SubDomain(domains []string, reqDomain string) (bool, string) {
 // record that was requested
 func handleC2(domain string, req *dns.Msg) *dns.Msg {
 	subdomain := req.Question[0].Name[:len(req.Question[0].Name)-len(domain)]
-	if strings.HasSuffix(subdomain, ".") {
-		subdomain = subdomain[:len(subdomain)-1]
-	}
-	dnsLog.Infof("processing req for subdomain = %s", subdomain)
+	dnsLog.Debugf("processing req for subdomain = %s", subdomain)
 	switch req.Question[0].Qtype {
 	case dns.TypeTXT:
 		return handleTXT(domain, subdomain, req)
 	case dns.TypeA:
-		return handleA(domain, subdomain, req)
+		// return handleA(domain, subdomain, req)
 	default:
 	}
 	return nil
+}
+
+// Parse subdomain as data
+func decodeSubdata(subdomain string) (*dnspb.DNSMessage, error) {
+	subdata := strings.Join(strings.Split(subdomain, "."), "")
+	dnsLog.Debugf("subdata = %s", subdata)
+	encoders := determineLikelyEncoders(subdata)
+	for _, encoder := range encoders {
+		data, err := encoder.Decode([]byte(subdata))
+		if err == nil {
+			msg := &dnspb.DNSMessage{}
+			err = proto.Unmarshal(data, msg)
+			if err == nil {
+				return msg, nil
+			}
+		}
+		dnsLog.Debugf("failed to decode subdata with %#v (%s)", encoder, err)
+	}
+	return nil, ErrInvalidMsg
+}
+
+// Returns the most likely -> least likely encoders, if decoding fails fallback to
+// the next encoder until we run out of options.
+func determineLikelyEncoders(subdata string) []encoders.Encoder {
+	// If the string contains i, l, o, s is must be base62 these
+	// chars are missing from the base32 alphabet
+	if strings.ContainsAny(subdata, "silo") {
+		return []encoders.Encoder{encoders.Base62{}, encoders.Base32{}}
+	}
+	for _, char := range subdata {
+		if unicode.IsUpper(char) {
+			return []encoders.Encoder{encoders.Base62{}, encoders.Base32{}}
+		}
+	}
+	return []encoders.Encoder{encoders.Base32{}, encoders.Base62{}}
 }
 
 // ---------------------------
@@ -250,17 +283,15 @@ func handleCanary(req *dns.Msg) *dns.Msg {
 			Hdr: dns.RR_Header{Name: req.Question[0].Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 0},
 			A:   randomIP(),
 		})
-	default:
 	}
 
 	return resp
 }
 
+// Ensure non-zeros with various bitmasks
 func randomIP() net.IP {
 	randBuf := make([]byte, 4)
 	secureRand.Read(randBuf)
-
-	// Ensure non-zeros with various bitmasks
 	return net.IPv4(randBuf[0]|0x10, randBuf[1]|0x10, randBuf[2]|0x1, randBuf[3]|0x10)
 }
 
@@ -272,136 +303,17 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 	resp := new(dns.Msg)
 	resp.SetReply(req)
 
-	// checksum, dnsMsg := parseC2Query(subdomain)
-	// if dnsMsg == nil {
-	// 	dnsLog.Errorf("Failed to parse TXT query")
-	// 	return nil
-	// }
-
-	// Execute action based on message type
-
 	txtRecords := []string{}
-
-	// switch dnsMsg.Type {
-	// case dnspb.DNSMessageType_DOMAIN_KEY:
-	// 	data, _ := proto.Marshal(&dnspb.DNSMessage{
-	// 		N:    checksum,
-	// 		Data: blockID,
-	// 	})
-	// 	record := string(new(encoders.Base64).Encode(data))
-	// 	txtRecords = append(txtRecords, record)
-	// }
-
+	msg, err := decodeSubdata(subdomain)
+	if err == nil {
+		dnsLog.Infof("dns msg '%v'", msg)
+	}
 	txt := &dns.TXT{
 		Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
 		Txt: txtRecords,
 	}
 	resp.Answer = append(resp.Answer, txt)
 	return resp
-}
-
-func handleA(domain string, subdomain string, req *dns.Msg) *dns.Msg {
-	q := req.Question[0]
-	resp := new(dns.Msg)
-	resp.SetReply(req)
-
-	checksum, dnsMsg := parseC2Query(subdomain)
-	if dnsMsg == nil {
-		dnsLog.Errorf("Failed to parse A query")
-		return nil
-	}
-
-	switch dnsMsg.Type {
-	case dnspb.DNSMessageType_NOP:
-		break
-	}
-
-	checksumBuf := make([]byte, 4)
-	binary.LittleEndian.PutUint32(checksumBuf, checksum)
-	resp.Answer = append(resp.Answer, &dns.A{
-		Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 0},
-		A:   checksumBuf,
-	})
-	return resp
-}
-
-// ---------------------------
-// C2 Handler
-// ---------------------------
-// This parses the C2 message and performs actions based on the request
-// the response is a CRC32 of the encoded data in the message
-func parseC2Query(subdomain string) (uint32, *dnspb.DNSMessage) {
-	subdomainData := strings.Join(strings.Split(subdomain, "."), "")
-	dnsLog.Debugf("Subdomain = %v, Data = %v", subdomain, subdomainData)
-	dnsMsg := decodeMessage(subdomainData)
-	if dnsMsg == nil {
-		return 0, nil
-	}
-	checksum := crc32.Checksum(dnsMsg.Data, crc32.IEEETable)
-	return checksum, dnsMsg
-}
-
-func decodeMessage(subdomainData string) *dnspb.DNSMessage {
-	encoders := detectEncoding(subdomainData)
-	query := &dnspb.DNSMessage{}
-	for _, encoder := range encoders {
-		dnsLog.Debugf("Attempting to decode subdomain data with %v", encoder)
-		data, err := encoder.Decode([]byte(subdomainData))
-		if err != nil {
-			dnsLog.Debugf("Decode attempt failed %s, continue ...", err)
-			continue
-		}
-		err = proto.Unmarshal(data, query)
-		if err != nil {
-			dnsLog.Debugf("Failed to parse pb %s, continue ...", err)
-			continue
-		}
-		return query
-	}
-	return nil
-}
-
-// This function attempts to detect the most likely encoder used by the implant
-// we return a list of encoders in order of most likely to least likely
-func detectEncoding(subdomainData string) []encoders.Encoder {
-
-	// Our version of base32 is missing chars: i, l, o, s
-	// if any of these appear the message must be base62
-	base62Chars := strings.ContainsAny(subdomainData, "silo") // "silo" simply appeases my spell checker
-	if base62Chars {
-		return []encoders.Encoder{new(encoders.Base62)}
-	}
-
-	// Okay now we detect if the message only contains lower case letters
-	// our base32 encoder only uses lower case but a resolver could have
-	// messed with the domain letter cases on the way over to us. So we
-	// say it's likely base62 if it contains a mix but fallback to base32
-	if strings.ContainsAny(subdomainData, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
-		return []encoders.Encoder{new(encoders.Base62), new(encoders.Base32)}
-	} else {
-		return []encoders.Encoder{new(encoders.Base32), new(encoders.Base64)}
-	}
-}
-
-// --------------------------- DNS HANDLERS ---------------------------
-func encodeSendBlock(domain string, data []byte) *Block {
-	encodedData := new(encoders.Base64).Encode(data)
-	blockData := [][]byte{}
-	for index := 0; index < len(encodedData); {
-		end := index + 254
-		if len(encodedData) < end {
-			end = len(encodedData)
-		}
-		blockData = append(blockData, encodedData[index:end])
-		index += 254
-	}
-	return &Block{
-		ID:      blockID(),
-		Size:    len(data),
-		data:    blockData,
-		Started: time.Now(),
-		Mutex:   sync.RWMutex{},
-	}
 }
 
 // Returns an confirmation value (e.g. exit code 0 non-0) and error
@@ -411,19 +323,11 @@ func startDNSSession(msgID uint32, domain string) ([]string, error) {
 	return nil, nil
 }
 
-// SessionIDs are public parameters in this use case
-// so it's only important that they're unique
-func dnsSessionID() string {
-	sessionID := []rune{}
-	for i := 0; i < sessionIDSize; i++ {
-		index := insecureRand.Intn(len(dnsCharSet))
-		sessionID = append(sessionID, dnsCharSet[index])
-	}
-	return string(sessionID)
-}
-
-func blockID() uint32 {
+// DNSSessionIDs are public and identify a stream of DNS requests
+// the lower 8 bits are the message ID so we chop them off
+func dnsSessionID() uint32 {
 	randBuf := make([]byte, 4)
 	secureRand.Read(randBuf)
-	return binary.LittleEndian.Uint32(randBuf)
+	dnsSessionID := binary.LittleEndian.Uint32(randBuf)
+	return dnsSessionID & 0xffffff00
 }
