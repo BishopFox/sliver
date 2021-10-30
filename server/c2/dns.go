@@ -18,7 +18,11 @@ package c2
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 	------------------------------------------------------------------------
 
-	DNS command and control implementation
+	DNS command and control implementation:
+
+	1. Implant sends TOTP encoded message to DNS server, server checks validity
+	2. DNS server responds with the "DNS Session ID" which is just some random value
+	3. Requests with valid DNS session IDs enable the server to respond with CRC32 responses
 
 */
 
@@ -30,7 +34,6 @@ import (
 	"net"
 
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
-	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/bishopfox/sliver/protobuf/dnspb"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
@@ -86,6 +89,7 @@ type Block struct {
 	Mutex   sync.RWMutex
 }
 
+// AddData - Add data to the block
 func (b *Block) AddData(index int, data []byte) (bool, error) {
 	b.Mutex.Lock()
 	defer b.Mutex.Unlock()
@@ -100,6 +104,7 @@ func (b *Block) AddData(index int, data []byte) (bool, error) {
 	return sum == b.Size, nil
 }
 
+// GetData - Get a data block at index
 func (b *Block) GetData(index int) ([]byte, error) {
 	b.Mutex.Lock()
 	defer b.Mutex.Unlock()
@@ -109,6 +114,7 @@ func (b *Block) GetData(index int) ([]byte, error) {
 	return b.data[index], nil
 }
 
+// Reassemble - Reassemble a block of data
 func (b *Block) Reassemble() []byte {
 	b.Mutex.RLock()
 	defer b.Mutex.RUnlock()
@@ -266,25 +272,25 @@ func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
 	resp := new(dns.Msg)
 	resp.SetReply(req)
 
-	checksum, dnsMsg := parseC2Query(subdomain)
-	if dnsMsg == nil {
-		dnsLog.Errorf("Failed to parse TXT query")
-		return nil
-	}
+	// checksum, dnsMsg := parseC2Query(subdomain)
+	// if dnsMsg == nil {
+	// 	dnsLog.Errorf("Failed to parse TXT query")
+	// 	return nil
+	// }
 
 	// Execute action based on message type
 
 	txtRecords := []string{}
 
-	switch dnsMsg.Type {
-	case dnspb.DNSMessageType_DOMAIN_KEY:
-		data, _ := proto.Marshal(&dnspb.DNSMessage{
-			N:    checksum,
-			Data: blockID,
-		})
-		record := string(new(encoders.Base64).Encode(data))
-		txtRecords = append(txtRecords, record)
-	}
+	// switch dnsMsg.Type {
+	// case dnspb.DNSMessageType_DOMAIN_KEY:
+	// 	data, _ := proto.Marshal(&dnspb.DNSMessage{
+	// 		N:    checksum,
+	// 		Data: blockID,
+	// 	})
+	// 	record := string(new(encoders.Base64).Encode(data))
+	// 	txtRecords = append(txtRecords, record)
+	// }
 
 	txt := &dns.TXT{
 		Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},

