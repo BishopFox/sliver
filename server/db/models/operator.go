@@ -21,6 +21,7 @@ package models
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -50,7 +51,7 @@ func GenerateOperatorToken() string {
 	buf := make([]byte, 32)
 	n, err := rand.Read(buf)
 	if err != nil || n != len(buf) {
-		panic(err)
+		panic(errors.New("failed to read from secure rand"))
 	}
 	return hex.EncodeToString(buf)
 }

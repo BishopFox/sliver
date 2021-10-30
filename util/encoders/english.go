@@ -21,7 +21,6 @@ package encoders
 import (
 	insecureRand "math/rand"
 	"strings"
-	"time"
 )
 
 // EnglishEncoderID - EncoderID
@@ -37,7 +36,6 @@ func (e English) Encode(data []byte) []byte {
 	if dictionary == nil {
 		buildDictionary()
 	}
-	insecureRand.Seed(time.Now().Unix())
 	words := []string{}
 	for _, b := range data {
 		possibleWords := (*dictionary)[int(b)]

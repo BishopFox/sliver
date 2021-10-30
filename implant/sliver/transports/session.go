@@ -19,7 +19,6 @@ package transports
 */
 
 import (
-	insecureRand "math/rand"
 
 	// {{if or .Config.HTTPc2Enabled .Config.TCPPivotc2Enabled .Config.WGc2Enabled}}
 	"net"
@@ -94,10 +93,6 @@ type Tunnel struct {
 
 	Writer        io.WriteCloser
 	WriteSequence uint64
-}
-
-func init() {
-	insecureRand.Seed(time.Now().UnixNano())
 }
 
 // Tunnel - Add tunnel to mapping

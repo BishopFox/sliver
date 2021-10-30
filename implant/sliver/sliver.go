@@ -25,7 +25,10 @@ import "C"
 // {{end}}
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"log"
+	insecureRand "math/rand"
 	"os"
 	"os/user"
 	"runtime"
@@ -77,16 +80,25 @@ var (
 	}
 )
 
-// {{if .Config.IsBeacon}}
 func init() {
+	buf := make([]byte, 8)
+	n, err := rand.Read(buf)
+	seed := uint64(time.Now().Unix())
+	if err == nil && n == len(buf) {
+		binary.LittleEndian.PutUint64(buf, uint64(seed))
+	}
+	insecureRand.Seed(int64(seed))
+
+	// {{if .Config.IsBeacon}}
 	id, err := uuid.NewV4()
 	if err != nil {
-		BeaconID = "00000000-0000-0000-0000-000000000000"
+		buf := make([]byte, 16) // NewV4 fails if secure rand fails
+		insecureRand.Read(buf)
+		id = uuid.FromBytesOrNil(buf)
 	}
 	BeaconID = id.String()
+	// {{end}}
 }
-
-// {{end}}
 
 // {{if .Config.IsService}}
 
