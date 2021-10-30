@@ -23,12 +23,12 @@ package dnsclient
 import (
 
 	// {{if .Config.Debug}}
-	"errors"
 	"log"
+	// {{end}}
+
+	"errors"
 	"strings"
 	"time"
-
-	// {{end}}
 
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )

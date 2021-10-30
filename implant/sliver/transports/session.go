@@ -26,6 +26,8 @@ import (
 
 	// {{if or .Config.MTLSc2Enabled .Config.WGc2Enabled}}
 	"strconv"
+	"time"
+
 	// {{end}}
 
 	// {{if .Config.Debug}}
@@ -59,7 +61,6 @@ import (
 	"io"
 	"net/url"
 	"sync"
-	"time"
 
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
@@ -243,12 +244,6 @@ func StartConnectionLoop(c2s []string) *Connection {
 				log.Printf("Unknown c2 protocol %s", uri.Scheme)
 				// {{end}}
 			}
-
-			// reconnect := GetReconnectInterval()
-			// // {{if .Config.Debug}}
-			// log.Printf("Sleep %s ...", reconnect)
-			// // {{end}}
-			// time.Sleep(reconnect)
 		}
 	}
 	// {{if .Config.Debug}}
