@@ -551,7 +551,6 @@ func dnsDecodeString(raw string) ([]byte, error) {
 // SessionIDs are public parameters in this use case
 // so it's only important that they're unique
 func dnsSessionID() string {
-	insecureRand.Seed(time.Now().UnixNano())
 	sessionID := []rune{}
 	for i := 0; i < sessionIDSize; i++ {
 		index := insecureRand.Intn(len(dnsCharSet))

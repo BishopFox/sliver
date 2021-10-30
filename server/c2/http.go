@@ -77,10 +77,6 @@ var (
 	serverVersionHeader string
 )
 
-func init() {
-	insecureRand.Seed(time.Now().UnixNano())
-}
-
 // HTTPSession - Holds data related to a sliver c2 session
 type HTTPSession struct {
 	ID         string

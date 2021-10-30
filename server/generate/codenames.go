@@ -25,7 +25,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
@@ -65,7 +64,6 @@ func readlines(fpath string) ([]string, error) {
 
 // getRandomWord - Get a random word from a file, not cryptographically secure
 func getRandomWord(fpath string) (string, error) {
-	insecureRand.Seed(time.Now().UnixNano())
 	appDir := assets.GetRootAppDir()
 	words, err := readlines(path.Join(appDir, fpath))
 	if err != nil {

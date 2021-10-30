@@ -102,10 +102,6 @@ type SliverConsoleClient struct {
 // BindCmds - Bind extra commands to the app object
 type BindCmds func(console *SliverConsoleClient)
 
-func init() {
-	insecureRand.Seed(time.Now().Unix())
-}
-
 // Start - Console entrypoint
 func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isServer bool) error {
 	assets.Setup(false, false)

@@ -19,8 +19,25 @@ package main
 */
 
 import (
+	"crypto/rand"
+	"encoding/binary"
+	insecureRand "math/rand"
+	"time"
+
 	"github.com/bishopfox/sliver/server/cli"
 )
+
+// Attempt to seed insecure rand with secure rand, but we really
+// don't care that much if it fails since it's insecure anyways
+func init() {
+	buf := make([]byte, 8)
+	_, err := rand.Read(buf)
+	seed := uint64(time.Now().Unix())
+	if err == nil {
+		binary.LittleEndian.PutUint64(buf, uint64(seed))
+	}
+	insecureRand.Seed(int64(seed))
+}
 
 func main() {
 	cli.Execute()

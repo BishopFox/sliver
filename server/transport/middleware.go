@@ -44,14 +44,13 @@ var (
 )
 
 // initMiddleware - Initialize middleware logger
-func initMiddleware(auth bool) []grpc.ServerOption {
+func initMiddleware(remoteAuth bool) []grpc.ServerOption {
 	logrusEntry := log.NamedLogger("transport", "grpc")
 	logrusOpts := []grpc_logrus.Option{
 		grpc_logrus.WithLevels(codeToLevel),
 	}
 	grpc_logrus.ReplaceGrpcLogger(logrusEntry)
-
-	if auth {
+	if remoteAuth {
 		return []grpc.ServerOption{
 			grpc_middleware.WithUnaryServerChain(
 				grpc_auth.UnaryServerInterceptor(tokenAuthFunc),
@@ -70,12 +69,14 @@ func initMiddleware(auth bool) []grpc.ServerOption {
 	} else {
 		return []grpc.ServerOption{
 			grpc_middleware.WithUnaryServerChain(
+				grpc_auth.UnaryServerInterceptor(serverAuthFunc),
 				auditLogUnaryServerInterceptor(),
 				grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 				grpc_logrus.UnaryServerInterceptor(logrusEntry, logrusOpts...),
 				grpc_logrus.PayloadUnaryServerInterceptor(logrusEntry, deciderUnary),
 			),
 			grpc_middleware.WithStreamServerChain(
+				grpc_auth.StreamServerInterceptor(serverAuthFunc),
 				grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 				grpc_logrus.StreamServerInterceptor(logrusEntry, logrusOpts...),
 				grpc_logrus.PayloadStreamServerInterceptor(logrusEntry, deciderStream),
@@ -94,6 +95,12 @@ func ClearTokenCache() {
 	tokenCache = sync.Map{}
 }
 
+func serverAuthFunc(ctx context.Context) (context.Context, error) {
+	newCtx := context.WithValue(ctx, "transport", "local")
+	newCtx = context.WithValue(ctx, "operator", "server")
+	return newCtx, nil
+}
+
 func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	mtlsLog.Debugf("Auth interceptor checking operator token ...")
 	rawToken, err := grpc_auth.AuthFromMD(ctx, "Bearer")
@@ -105,9 +112,10 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	// Check auth cache
 	digest := sha256.Sum256([]byte(rawToken))
 	token := hex.EncodeToString(digest[:])
+	newCtx := context.WithValue(ctx, "transport", "mtls")
 	if name, ok := tokenCache.Load(token); ok {
 		mtlsLog.Debugf("Token in cache!")
-		newCtx := context.WithValue(ctx, "operator", name.(string))
+		newCtx = context.WithValue(newCtx, "operator", name.(string))
 		return newCtx, nil
 	}
 	operator, err := db.OperatorByToken(token)
@@ -121,7 +129,7 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	// grpc_ctxtags.Extract(ctx).Set("auth.sub", userClaimFromToken(tokenInfo))
 	// WARNING: in production define your own type to avoid context collisions
 
-	newCtx := context.WithValue(ctx, "operator", operator.Name)
+	newCtx = context.WithValue(newCtx, "operator", operator.Name)
 	return newCtx, nil
 }
 

@@ -109,7 +109,7 @@ func rootLogger() *logrus.Logger {
 func txtLogger() *logrus.Logger {
 	txtLogger := logrus.New()
 	txtLogger.Formatter = &logrus.TextFormatter{
-		ForceColors: true,
+		ForceColors:   true,
 		FullTimestamp: true,
 	}
 	txtFilePath := path.Join(GetLogDir(), "sliver.log")

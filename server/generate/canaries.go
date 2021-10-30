@@ -22,7 +22,6 @@ import (
 	"fmt"
 	insecureRand "math/rand"
 	"strings"
-	"time"
 
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -73,7 +72,6 @@ func (g *CanaryGenerator) GenerateCanary() string {
 	}
 
 	// Don't need secure random here
-	insecureRand.Seed(time.Now().UnixNano())
 	index := insecureRand.Intn(len(g.ParentDomains))
 
 	parentDomain := g.ParentDomains[index]
