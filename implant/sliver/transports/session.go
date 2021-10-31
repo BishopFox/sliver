@@ -532,7 +532,8 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 	log.Printf("Attempting to connect via DNS via parent: %s\n", dnsParent)
 	// {{end}}
 	pollTimeout := GetPollTimeout()
-	client, err := dnsclient.DNSConnect(dnsParent, pollTimeout)
+	retry := time.Duration(time.Millisecond * 100) // TODO: make configurable
+	client, err := dnsclient.DNSStartSession(dnsParent, retry, pollTimeout)
 	if err != nil {
 		return nil, err
 	}
