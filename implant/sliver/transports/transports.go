@@ -154,7 +154,7 @@ func SetReconnectInterval(interval int64) {
 
 // GetPollTimeout - Parse the poll interval inserted at compile-time
 func GetPollTimeout() time.Duration {
-	minTimeout := 10 * time.Second // Somewhat arbitrary minimum poll timeout
+	minTimeout := 5 * time.Second // Somewhat arbitrary minimum poll timeout
 	if pollTimeout == time.Duration(0) {
 		poll, err := strconv.ParseInt(`{{.Config.PollTimeout}}`, 10, 64)
 		if err != nil {
