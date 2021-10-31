@@ -28,9 +28,9 @@ import (
 func TestBase62(t *testing.T) {
 	sample := randomData()
 
-	b62 := new(Base62)
-	output := b62.Encode(sample)
-	data, err := b62.Decode(output)
+	b58 := new(Base58)
+	output := b58.Encode(sample)
+	data, err := b58.Decode(output)
 	if err != nil {
 		t.Errorf("b62 decode returned an error %v", err)
 	}
@@ -41,9 +41,9 @@ func TestBase62(t *testing.T) {
 		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 	}
 
-	implantBase62 := new(implantEncoders.Base62)
-	output2 := implantBase62.Encode(sample)
-	data2, err := implantBase62.Decode(output2)
+	implantBase58 := new(implantEncoders.Base58)
+	output2 := implantBase58.Encode(sample)
+	data2, err := implantBase58.Decode(output2)
 	if err != nil {
 		t.Errorf("implant b62 decode returned an error %v", err)
 	}
@@ -54,8 +54,8 @@ func TestBase62(t *testing.T) {
 		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 	}
 
-	output = b62.Encode(sample)
-	data, err = implantBase62.Decode(output)
+	output = b58.Encode(sample)
+	data, err = implantBase58.Decode(output)
 	if err != nil {
 		t.Errorf("b62 decode returned an error %v", err)
 	}
@@ -66,8 +66,8 @@ func TestBase62(t *testing.T) {
 		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 	}
 
-	output = implantBase62.Encode(sample)
-	data, err = b62.Decode(output)
+	output = implantBase58.Encode(sample)
+	data, err = b58.Decode(output)
 	if err != nil {
 		t.Errorf("b62 decode returned an error %v", err)
 	}
