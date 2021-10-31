@@ -25,17 +25,17 @@ var (
 package encoders
 
 const (
-	// alphabet is the modified base58 alphabet used by Bitcoin.
-	alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+	// alphabet is the modified base58 alphabet used by Sliver.
+	alphabet = "213465789aBcDeFgHjKLMNPQRSTUVWXYZAbCdEfGhiJkmnopqrstuvwxyz"
 
-	alphabetIdx0 = '1'
+	alphabetIdx0 = '2'
 )
 
 var b58 = [256]byte{`)
 
 	end = []byte(`}`)
 
-	alphabet = []byte("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+	alphabet = []byte("213465789aBcDeFgHjKLMNPQRSTUVWXYZAbCdEfGhiJkmnopqrstuvwxyz")
 	tab      = []byte("\t")
 	invalid  = []byte("255")
 	comma    = []byte(",")

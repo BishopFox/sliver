@@ -229,17 +229,12 @@ func decodeSubdata(subdomain string) (*dnspb.DNSMessage, error) {
 // Returns the most likely -> least likely encoders, if decoding fails fallback to
 // the next encoder until we run out of options.
 func determineLikelyEncoders(subdata string) []encoders.Encoder {
-	// If the string contains i, l, o, s is must be base62 these
-	// chars are missing from the base32 alphabet
-	if strings.ContainsAny(subdata, "silo") {
-		return []encoders.Encoder{encoders.Base62{}, encoders.Base32{}}
-	}
 	for _, char := range subdata {
 		if unicode.IsUpper(char) {
-			return []encoders.Encoder{encoders.Base62{}, encoders.Base32{}}
+			return []encoders.Encoder{encoders.Base58{}, encoders.Base32{}}
 		}
 	}
-	return []encoders.Encoder{encoders.Base32{}, encoders.Base62{}}
+	return []encoders.Encoder{encoders.Base32{}, encoders.Base58{}}
 }
 
 // ---------------------------
