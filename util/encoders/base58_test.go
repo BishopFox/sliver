@@ -25,14 +25,14 @@ import (
 	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 )
 
-func TestBase62(t *testing.T) {
+func TestBase58(t *testing.T) {
 	sample := randomData()
 
 	b58 := new(Base58)
 	output := b58.Encode(sample)
 	data, err := b58.Decode(output)
 	if err != nil {
-		t.Errorf("b62 decode returned an error %v", err)
+		t.Errorf("b58 decode returned an error %v", err)
 	}
 	if !bytes.Equal(sample, data) {
 		t.Logf("sample = %#v", sample)
@@ -45,7 +45,7 @@ func TestBase62(t *testing.T) {
 	output2 := implantBase58.Encode(sample)
 	data2, err := implantBase58.Decode(output2)
 	if err != nil {
-		t.Errorf("implant b62 decode returned an error %v", err)
+		t.Errorf("implant b58 decode returned an error %v", err)
 	}
 	if !bytes.Equal(sample, data2) {
 		t.Logf("sample  = %#v", sample)
@@ -57,7 +57,7 @@ func TestBase62(t *testing.T) {
 	output = b58.Encode(sample)
 	data, err = implantBase58.Decode(output)
 	if err != nil {
-		t.Errorf("b62 decode returned an error %v", err)
+		t.Errorf("b58 decode returned an error %v", err)
 	}
 	if !bytes.Equal(sample, data) {
 		t.Logf("sample = %#v", sample)
@@ -69,7 +69,7 @@ func TestBase62(t *testing.T) {
 	output = implantBase58.Encode(sample)
 	data, err = b58.Decode(output)
 	if err != nil {
-		t.Errorf("b62 decode returned an error %v", err)
+		t.Errorf("b58 decode returned an error %v", err)
 	}
 	if !bytes.Equal(sample, data) {
 		t.Logf("sample = %#v", sample)
