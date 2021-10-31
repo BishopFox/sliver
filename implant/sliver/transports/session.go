@@ -26,7 +26,6 @@ import (
 
 	// {{if or .Config.MTLSc2Enabled .Config.WGc2Enabled}}
 	"strconv"
-	"time"
 
 	// {{end}}
 
@@ -61,6 +60,7 @@ import (
 	"io"
 	"net/url"
 	"sync"
+	"time"
 
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )

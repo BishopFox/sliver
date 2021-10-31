@@ -29,11 +29,12 @@ const Base32EncoderID = 65
 type Base32 struct{}
 
 var base32Alphabet = "ab1c2d3e4f5g6h7j8k9m0npqrtuvwxyz"
-var sliverBase32 = base32.NewEncoding(base32Alphabet)
+var sliverBase32 = base32.NewEncoding(base32Alphabet).WithPadding(base32.NoPadding)
 
 // Encode - Base32 Encode
 func (e Base32) Encode(data []byte) []byte {
-	return []byte(sliverBase32.EncodeToString(data))
+	value := sliverBase32.EncodeToString(data)
+	return []byte(value)
 }
 
 // Decode - Base32 Decode

@@ -18,22 +18,28 @@ package c2
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 	------------------------------------------------------------------------
 
-	DNS command and control implementation:
+	I've put a little effort to making the server at least not super easily fingerprintable,
+	though I'm guessing it's also still not super hard to do. The server must receive a valid
+	TOTP code before we start returning any non-error records. All requests must be formatted
+	as valid protobuf and contain a 24-bit "dns session ID" (16777216 possible values), and a
+	8 bit "message ID." The server only responds to non-TOTP queries with valid dns session IDs
+	16,777,216 can probably be bruteforced but it'll at least be slow.
 
-	1. Implant sends TOTP encoded message to DNS server, server checks validity
-	2. DNS server responds with the "DNS Session ID" which is just some random value
-	3. Requests with valid DNS session IDs enable the server to respond with CRC32 responses
+	DNS command and control outline:
+		1. Implant sends TOTP encoded message to DNS server, server checks validity
+		2. DNS server responds with the "DNS Session ID" which is just some random value
+		3. Requests with valid DNS session IDs enable the server to respond with CRC32 responses
+		4. Implant establishes encrypted session
 
 */
 
 import (
 	secureRand "crypto/rand"
 	"errors"
-	"net"
 	"unicode"
 
-	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/protobuf/dnspb"
+	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/util/encoders"
@@ -54,29 +60,34 @@ import (
 )
 
 const (
-	sessionIDSize = 12
-
-	// Max TXT record is 255, records are b64 so (n*8 + 5) / 6 = ~250
-	byteBlockSize = 185 // Can be as high as n = 187, but we'll leave some slop
-	blockIDSize   = 6
+	// Little endian
+	sessionIDBitMask = 0x00ffffff // Bitwise mask to get the dns session ID
+	messageIDBitMask = 0xff000000 // Bitwise mask to get the message ID
 )
 
 var (
-	dnsLog = log.NamedLogger("c2", "dns")
-
-	dnsCharSet = []rune("abcdefghijklmnopqrstuvwxyz0123456789_")
-
-	dnsSessionsMutex = &sync.RWMutex{}
-	dnsSessions      = map[string]*DNSSession{}
-
-	sendBlocksMutex = &sync.RWMutex{}
-	sendBlocks      = map[uint32]*Block{}
-
-	recvBlocksMutex = &sync.RWMutex{}
-	recvBlocks      = map[uint32]*Block{}
-
+	dnsLog        = log.NamedLogger("c2", "dns")
 	ErrInvalidMsg = errors.New("invalid dns message")
 )
+
+// StartDNSListener - Start a DNS listener
+func StartDNSListener(bindIface string, lport uint16, domains []string, canaries bool) *SliverDNSServer {
+	// StartPivotListener()
+	server := &SliverDNSServer{
+		server:          &dns.Server{Addr: fmt.Sprintf("%s:%d", bindIface, lport), Net: "udp"},
+		sessions:        &sync.Map{}, // DNS Session ID -> DNSSession
+		messages:        &sync.Map{}, // In progress message streams
+		totpToSessionID: &sync.Map{}, // Atomic TOTP -> DNS Session ID
+		TTL:             0,
+	}
+	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
+	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {
+		started := time.Now()
+		server.HandleDNSRequest(domains, canaries, writer, req)
+		dnsLog.Debugf("DNS server took %s", time.Since(started))
+	})
+	return server
+}
 
 // Block - A blob of data that we're sending or receiving, blocks of data
 // are split up into arrays of bytes (chunks) that are encoded per-query
@@ -87,7 +98,7 @@ type Block struct {
 	data    [][]byte
 	Size    int
 	Started time.Time
-	Mutex   sync.RWMutex
+	Mutex   sync.Mutex
 }
 
 // AddData - Add data to the block
@@ -105,20 +116,10 @@ func (b *Block) AddData(index int, data []byte) (bool, error) {
 	return sum == b.Size, nil
 }
 
-// GetData - Get a data block at index
-func (b *Block) GetData(index int) ([]byte, error) {
-	b.Mutex.Lock()
-	defer b.Mutex.Unlock()
-	if len(b.data) < index+1 {
-		return nil, errors.New("Data index out of bounds")
-	}
-	return b.data[index], nil
-}
-
 // Reassemble - Reassemble a block of data
 func (b *Block) Reassemble() []byte {
-	b.Mutex.RLock()
-	defer b.Mutex.RUnlock()
+	b.Mutex.Lock()
+	defer b.Mutex.Unlock()
 	data := []byte{}
 	for _, block := range b.data {
 		data = append(data, block...)
@@ -128,31 +129,37 @@ func (b *Block) Reassemble() []byte {
 
 // DNSSession - Holds DNS session information
 type DNSSession struct {
-	ID      string
+	ID      uint32
 	Session *core.Session
-	Key     cryptography.CipherContext
-	replay  *sync.Map // Sessions are mutex 'd
+	Cipher  cryptography.CipherContext
 }
 
 // --------------------------- DNS SERVER ---------------------------
 
-// StartDNSListener - Start a DNS listener
-func StartDNSListener(bindIface string, lport uint16, domains []string, canaries bool) *dns.Server {
-	// StartPivotListener()
-	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
-	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {
-		// req.Question[0].Name = strings.ToLower(req.Question[0].Name)
-		handleDNSRequest(domains, canaries, writer, req)
-	})
-	server := &dns.Server{Addr: fmt.Sprintf("%s:%d", bindIface, lport), Net: "udp"}
-	return server
+// SliverDNSServer - DNS server implementation
+type SliverDNSServer struct {
+	server          *dns.Server
+	sessions        *sync.Map
+	messages        *sync.Map
+	totpToSessionID *sync.Map
+	TTL             uint32
+}
+
+// Shutdown - Shutdown the DNS server
+func (s *SliverDNSServer) Shutdown() error {
+	return s.server.Shutdown()
+}
+
+// ListenAndServe - Listen for DNS requests and respond
+func (s *SliverDNSServer) ListenAndServe() error {
+	return s.server.ListenAndServe()
 }
 
 // ---------------------------
 // DNS Handler
 // ---------------------------
 // Handles all DNS queries, first we determine if the query is C2 or a canary
-func handleDNSRequest(domains []string, canaries bool, writer dns.ResponseWriter, req *dns.Msg) {
+func (s *SliverDNSServer) HandleDNSRequest(domains []string, canaries bool, writer dns.ResponseWriter, req *dns.Msg) {
 	if req == nil {
 		dnsLog.Info("req can not be nil")
 		return
@@ -164,13 +171,13 @@ func handleDNSRequest(domains []string, canaries bool, writer dns.ResponseWriter
 	}
 
 	var resp *dns.Msg
-	isC2, domain := isC2SubDomain(domains, req.Question[0].Name)
+	isC2, domain := s.isC2SubDomain(domains, req.Question[0].Name)
 	if isC2 {
 		dnsLog.Debugf("'%s' is subdomain of c2 parent '%s'", req.Question[0].Name, domain)
-		resp = handleC2(domain, req)
+		resp = s.handleC2(domain, req)
 	} else if canaries {
 		dnsLog.Debugf("checking '%s' for DNS canary matches", req.Question[0].Name)
-		resp = handleCanary(req)
+		resp = s.handleCanary(req)
 	}
 	if resp != nil {
 		writer.WriteMsg(resp)
@@ -180,7 +187,7 @@ func handleDNSRequest(domains []string, canaries bool, writer dns.ResponseWriter
 }
 
 // Returns true if the requested domain is a c2 subdomain, and the domain it matched with
-func isC2SubDomain(domains []string, reqDomain string) (bool, string) {
+func (s *SliverDNSServer) isC2SubDomain(domains []string, reqDomain string) (bool, string) {
 	for _, parentDomain := range domains {
 		if dns.IsSubDomain(parentDomain, reqDomain) {
 			dnsLog.Infof("'%s' is subdomain of '%s'", reqDomain, parentDomain)
@@ -194,24 +201,39 @@ func isC2SubDomain(domains []string, reqDomain string) (bool, string) {
 // The query is C2, pass to the appropriate record handler this is done
 // so the record handler can encode the response based on the type of
 // record that was requested
-func handleC2(domain string, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 	subdomain := req.Question[0].Name[:len(req.Question[0].Name)-len(domain)]
 	dnsLog.Debugf("processing req for subdomain = %s", subdomain)
-	switch req.Question[0].Qtype {
-	case dns.TypeTXT:
-		return handleTXT(domain, subdomain, req)
-	case dns.TypeA:
-		// return handleA(domain, subdomain, req)
-	default:
+	msg, err := s.decodeSubdata(subdomain)
+	if err != nil {
+		dnsLog.Errorf("error decoding subdata: %v", err)
+		return s.nameErrorResp(req)
+	}
+
+	// TOTP Handler can be called without dns session ID
+	if msg.Type == dnspb.DNSMessageType_TOTP {
+		return s.handleTOTP(domain, msg, req)
+	}
+
+	// All other handlers require a valid dns session ID
+	_, ok := s.sessions.Load(msg.ID & sessionIDBitMask)
+	if !ok {
+		dnsLog.Warnf("session not found for id %v (%v)", msg.ID, msg.ID&sessionIDBitMask)
+		return s.nameErrorResp(req)
+	}
+
+	// Msg Type -> Query Type -> Handler
+	switch msg.Type {
+
 	}
 	return nil
 }
 
 // Parse subdomain as data
-func decodeSubdata(subdomain string) (*dnspb.DNSMessage, error) {
+func (s *SliverDNSServer) decodeSubdata(subdomain string) (*dnspb.DNSMessage, error) {
 	subdata := strings.Join(strings.Split(subdomain, "."), "")
 	dnsLog.Debugf("subdata = %s", subdata)
-	encoders := determineLikelyEncoders(subdata)
+	encoders := s.determineLikelyEncoders(subdata)
 	for _, encoder := range encoders {
 		data, err := encoder.Decode([]byte(subdata))
 		if err == nil {
@@ -228,7 +250,7 @@ func decodeSubdata(subdomain string) (*dnspb.DNSMessage, error) {
 
 // Returns the most likely -> least likely encoders, if decoding fails fallback to
 // the next encoder until we run out of options.
-func determineLikelyEncoders(subdata string) []encoders.Encoder {
+func (s *SliverDNSServer) determineLikelyEncoders(subdata string) []encoders.Encoder {
 	for _, char := range subdata {
 		if unicode.IsUpper(char) {
 			return []encoders.Encoder{encoders.Base58{}, encoders.Base32{}}
@@ -237,92 +259,110 @@ func determineLikelyEncoders(subdata string) []encoders.Encoder {
 	return []encoders.Encoder{encoders.Base32{}, encoders.Base58{}}
 }
 
+func (s *SliverDNSServer) nameErrorResp(req *dns.Msg) *dns.Msg {
+	resp := new(dns.Msg)
+	resp.SetRcode(req, dns.RcodeNameError)
+	resp.Authoritative = true
+	return resp
+}
+
+// ---------------------------
+// DNS Message Handlers
+// ---------------------------
+func (s *SliverDNSServer) handleTOTP(domain string, msg *dnspb.DNSMessage, req *dns.Msg) *dns.Msg {
+	dnsLog.Debugf("totp request: %v", msg)
+	totpCode := fmt.Sprintf("%08d", msg.ID)
+	valid, err := cryptography.ValidateTOTP(totpCode)
+	if err != nil || !valid {
+		dnsLog.Warnf("totp request invalid (%v)", err)
+		return s.nameErrorResp(req)
+	}
+	dnsLog.Debugf("totp request valid")
+
+	// Queries must be deterministic, so create or load the dns session id
+	// we'll likely get multiple queries for the same domain
+	actualID, loaded := s.totpToSessionID.LoadOrStore(totpCode, dnsSessionID())
+	dnsSessionID := actualID.(uint32)
+	dnsLog.Debugf("DNS Session ID = %d", dnsSessionID&sessionIDBitMask)
+	if !loaded {
+		s.sessions.Store(dnsSessionID&sessionIDBitMask, &DNSSession{
+			ID: dnsSessionID & sessionIDBitMask,
+		})
+		go func() {
+			time.Sleep(90 * time.Second) // Best effort to remove totp code after expiration
+			s.totpToSessionID.Delete(totpCode)
+		}()
+	}
+	resp := new(dns.Msg)
+	resp.SetReply(req)
+	resp.Authoritative = true
+	respBuf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(respBuf, dnsSessionID)
+	for _, q := range req.Question {
+		switch q.Qtype {
+		case dns.TypeA:
+			a := &dns.A{
+				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: s.TTL},
+				A:   respBuf,
+			}
+			resp.Answer = append(resp.Answer, a)
+		}
+	}
+	return resp
+}
+
 // ---------------------------
 // Canary Record Handler
 // ---------------------------
 // Canary -> valid? -> trigger alert event
-func handleCanary(req *dns.Msg) *dns.Msg {
-	reqDomain := strings.ToLower(req.Question[0].Name)
-	if !strings.HasSuffix(reqDomain, ".") {
-		reqDomain += "." // Ensure we have the FQDN
-	}
-	canary, err := db.CanaryByDomain(reqDomain)
-	if err != nil {
-		return nil
-	}
-	resp := new(dns.Msg)
-	resp.SetReply(req)
-	if canary != nil {
-		dnsLog.Warnf("DNS canary tripped for '%s'", canary.ImplantName)
-		if !canary.Triggered {
-			// Defer publishing the event until we're sure the db is sync'd
-			defer core.EventBroker.Publish(core.Event{
-				Session: &core.Session{
-					Name: canary.ImplantName,
-				},
-				Data:      []byte(canary.Domain),
-				EventType: consts.CanaryEvent,
-			})
-			canary.Triggered = true
-			canary.FirstTrigger = time.Now()
+func (s *SliverDNSServer) handleCanary(req *dns.Msg) *dns.Msg {
+	// Don't block, return error as fast as possible
+	go func() {
+		reqDomain := strings.ToLower(req.Question[0].Name)
+		if !strings.HasSuffix(reqDomain, ".") {
+			reqDomain += "." // Ensure we have the FQDN
 		}
-		canary.LatestTrigger = time.Now()
-		canary.Count++
-		generate.UpdateCanary(canary)
-	}
-
-	// Respond with random IPs
-	switch req.Question[0].Qtype {
-	case dns.TypeA:
-		resp.Answer = append(resp.Answer, &dns.A{
-			Hdr: dns.RR_Header{Name: req.Question[0].Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 0},
-			A:   randomIP(),
-		})
-	}
-
-	return resp
-}
-
-// Ensure non-zeros with various bitmasks
-func randomIP() net.IP {
-	randBuf := make([]byte, 4)
-	secureRand.Read(randBuf)
-	return net.IPv4(randBuf[0]|0x10, randBuf[1]|0x10, randBuf[2]|0x1, randBuf[3]|0x10)
-}
-
-// ---------------------------
-// C2 Record Handlers
-// ---------------------------
-func handleTXT(domain string, subdomain string, req *dns.Msg) *dns.Msg {
-	q := req.Question[0]
-	resp := new(dns.Msg)
-	resp.SetReply(req)
-
-	txtRecords := []string{}
-	msg, err := decodeSubdata(subdomain)
-	if err == nil {
-		dnsLog.Infof("dns msg '%v'", msg)
-	}
-	txt := &dns.TXT{
-		Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
-		Txt: txtRecords,
-	}
-	resp.Answer = append(resp.Answer, txt)
-	return resp
-}
-
-// Returns an confirmation value (e.g. exit code 0 non-0) and error
-func startDNSSession(msgID uint32, domain string) ([]string, error) {
-	dnsLog.Infof("Complete session init message received, reassembling ...")
-
-	return nil, nil
+		canary, err := db.CanaryByDomain(reqDomain)
+		if err != nil {
+			dnsLog.Errorf("Failed to find canary: %s", err)
+			return
+		}
+		if canary != nil {
+			dnsLog.Warnf("DNS canary tripped for '%s'", canary.ImplantName)
+			if !canary.Triggered {
+				// Defer publishing the event until we're sure the db is sync'd
+				defer core.EventBroker.Publish(core.Event{
+					Session: &core.Session{
+						Name: canary.ImplantName,
+					},
+					Data:      []byte(canary.Domain),
+					EventType: consts.CanaryEvent,
+				})
+				canary.Triggered = true
+				canary.FirstTrigger = time.Now()
+			}
+			canary.LatestTrigger = time.Now()
+			canary.Count++
+			generate.UpdateCanary(canary)
+		}
+	}()
+	return s.nameErrorResp(req)
 }
 
 // DNSSessionIDs are public and identify a stream of DNS requests
 // the lower 8 bits are the message ID so we chop them off
 func dnsSessionID() uint32 {
 	randBuf := make([]byte, 4)
-	secureRand.Read(randBuf)
+	for {
+		secureRand.Read(randBuf)
+		if randBuf[0] == 0 {
+			continue
+		}
+		if randBuf[len(randBuf)-1] == 0 {
+			continue
+		}
+		break
+	}
 	dnsSessionID := binary.LittleEndian.Uint32(randBuf)
-	return dnsSessionID & 0xffffff00
+	return dnsSessionID
 }
