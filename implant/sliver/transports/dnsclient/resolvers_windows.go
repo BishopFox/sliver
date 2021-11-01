@@ -51,13 +51,13 @@ func dnsClientConfig() (*dns.ClientConfig, error) {
 	if err := windows.GetAdaptersAddresses(windows.AF_UNSPEC, windows.GAA_FLAG_INCLUDE_PREFIX, 0, (*windows.IpAdapterAddresses)(unsafe.Pointer(&b[0])), &l); err != nil {
 		return nil, err
 	}
-	var adapter []*windows.IpAdapterAddresses
+	var adapters []*windows.IpAdapterAddresses
 	for addr := (*windows.IpAdapterAddresses)(unsafe.Pointer(&b[0])); addr != nil; addr = addr.Next {
-		adapter = append(adapter, addr)
+		adapters = append(adapters, addr)
 	}
 
 	resolvers := map[string]bool{}
-	for _, adapter := range adapter {
+	for _, adapter := range adapters {
 		if adapter.OperStatus != windows.IfOperStatusUp {
 			continue // Skip down interfaces
 		}
