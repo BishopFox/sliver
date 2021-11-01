@@ -295,7 +295,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 	dest := path.Join(goConfig.ProjectDir, "bin", path.Base(name))
 	dest += ".bin"
 
-	tags := []string{"netgo"}
+	tags := []string{} // []string{"netgo"}
 	ldflags := []string{"-s -w -buildid="}
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
@@ -373,7 +373,7 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 		dest += ".so"
 	}
 
-	tags := []string{"netgo"}
+	tags := []string{} // []string{"netgo"}
 	ldflags := []string{"-s -w -buildid="}
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
@@ -424,7 +424,7 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 	if goConfig.GOOS == WINDOWS {
 		dest += ".exe"
 	}
-	tags := []string{"netgo"}
+	tags := []string{} // []string{"netgo"}
 	ldflags := []string{"-s -w -buildid="}
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
