@@ -1189,7 +1189,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.Int("j", "reconnect", generate.DefaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("k", "max-errors", generate.DefaultMaxErrors, "max number of connection errors")
-			f.Int("P", "poll", generate.DefaultPollTimeout, "attempt to poll every n second(s)")
+			f.Int("P", "poll-timeout", generate.DefaultPollTimeout, "attempt to poll every n second(s)")
 
 			f.String("w", "limit-datetime", "", "limit execution to before datetime")
 			f.Bool("x", "limit-domainjoined", false, "limit execution to domain joined machines")
