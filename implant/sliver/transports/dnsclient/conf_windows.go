@@ -93,7 +93,7 @@ func dnsClientConfig() (*dns.ClientConfig, error) {
 		Search:   []string{},
 		Port:     "53",
 		Ndots:    1,
-		Timeout:  5,
+		Timeout:  5, // seconds
 		Attempts: 1,
 	}, nil
 }

