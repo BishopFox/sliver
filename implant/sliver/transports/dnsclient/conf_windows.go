@@ -41,9 +41,17 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+var (
+	forceResolvConf = ``
+)
+
 // dnsClientConfig - returns all DNS server addresses associated with the given address
 // using various windows fuckery.
 func dnsClientConfig() (*dns.ClientConfig, error) {
+	if 0 < len(forceResolvConf) {
+		return dns.ClientConfigFromReader(strings.NewReader(forceResolvConf))
+	}
+
 	l := uint32(20000)
 	b := make([]byte, l)
 
