@@ -2,7 +2,7 @@ package c2
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2021  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -16,9 +16,10 @@ package c2
 
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 	------------------------------------------------------------------------
 
-	I've put a little effort to making the server at least not super easily fingerprintable,
+	We've put a little effort to making the server at least not super easily fingerprintable,
 	though I'm guessing it's also still not super hard to do. The server must receive a valid
 	TOTP code before we start returning any non-error records. All requests must be formatted
 	as valid protobuf and contain a 24-bit "dns session ID" (16777216 possible values), and a

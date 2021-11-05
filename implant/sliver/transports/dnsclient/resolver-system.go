@@ -1,5 +1,23 @@
 package dnsclient
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2021  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"net"
 	"time"
@@ -9,24 +27,17 @@ import (
 	// {{end}}
 )
 
-// Abstraction on top of miekg/dns and net/dns
-type SystemResolver interface {
-	Address() string
-	A(string) ([][]byte, time.Duration, error)
+func NewSystemResolver() DNSResolver {
+	return &SystemResolver{}
 }
 
-func NewSystemResolver() SystemResolver {
-	return &NetResolver{}
-}
+type SystemResolver struct{}
 
-type NetResolver struct {
-}
-
-func (r *NetResolver) Address() string {
+func (r *SystemResolver) Address() string {
 	return "system"
 }
 
-func (r *NetResolver) A(domain string) ([][]byte, time.Duration, error) {
+func (r *SystemResolver) A(domain string) ([][]byte, time.Duration, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[dns] %s->A record of %s?", r.Address(), domain)
 	// {{end}}
