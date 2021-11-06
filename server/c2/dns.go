@@ -37,6 +37,7 @@ package c2
 import (
 	secureRand "crypto/rand"
 	"errors"
+	"hash/crc32"
 	"unicode"
 
 	"github.com/bishopfox/sliver/protobuf/dnspb"
@@ -205,7 +206,7 @@ func (s *SliverDNSServer) isC2SubDomain(domains []string, reqDomain string) (boo
 func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 	subdomain := req.Question[0].Name[:len(req.Question[0].Name)-len(domain)]
 	dnsLog.Debugf("processing req for subdomain = %s", subdomain)
-	msg, err := s.decodeSubdata(subdomain)
+	msg, checksum, err := s.decodeSubdata(subdomain)
 	if err != nil {
 		dnsLog.Errorf("error decoding subdata: %v", err)
 		return s.nameErrorResp(req)
@@ -215,6 +216,7 @@ func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 	if msg.Type == dnspb.DNSMessageType_TOTP {
 		return s.handleTOTP(domain, msg, req)
 	}
+	dnsLog.Debugf("dns session id: %d", msg.ID&sessionIDBitMask)
 
 	// All other handlers require a valid dns session ID
 	_, ok := s.sessions.Load(msg.ID & sessionIDBitMask)
@@ -223,15 +225,16 @@ func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 		return s.nameErrorResp(req)
 	}
 
-	// Msg Type -> Query Type -> Handler
+	// Msg Type -> Handler
 	switch msg.Type {
-
+	case dnspb.DNSMessageType_NOP:
+		return s.handleNOP(domain, msg, checksum, req)
 	}
 	return nil
 }
 
 // Parse subdomain as data
-func (s *SliverDNSServer) decodeSubdata(subdomain string) (*dnspb.DNSMessage, error) {
+func (s *SliverDNSServer) decodeSubdata(subdomain string) (*dnspb.DNSMessage, uint32, error) {
 	subdata := strings.Join(strings.Split(subdomain, "."), "")
 	dnsLog.Debugf("subdata = %s", subdata)
 	encoders := s.determineLikelyEncoders(subdata)
@@ -241,12 +244,12 @@ func (s *SliverDNSServer) decodeSubdata(subdomain string) (*dnspb.DNSMessage, er
 			msg := &dnspb.DNSMessage{}
 			err = proto.Unmarshal(data, msg)
 			if err == nil {
-				return msg, nil
+				return msg, crc32.ChecksumIEEE(data), nil
 			}
 		}
 		dnsLog.Debugf("failed to decode subdata with %#v (%s)", encoder, err)
 	}
-	return nil, ErrInvalidMsg
+	return nil, 0, ErrInvalidMsg
 }
 
 // Returns the most likely -> least likely encoders, if decoding fails fallback to
@@ -299,6 +302,25 @@ func (s *SliverDNSServer) handleTOTP(domain string, msg *dnspb.DNSMessage, req *
 	resp.Authoritative = true
 	respBuf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(respBuf, dnsSessionID)
+	for _, q := range req.Question {
+		switch q.Qtype {
+		case dns.TypeA:
+			a := &dns.A{
+				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: s.TTL},
+				A:   respBuf,
+			}
+			resp.Answer = append(resp.Answer, a)
+		}
+	}
+	return resp
+}
+
+func (s *SliverDNSServer) handleNOP(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+	dnsLog.Debugf("[nop] request checksum: %d", checksum)
+	resp := new(dns.Msg)
+	resp.SetReply(req)
+	respBuf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(respBuf, checksum)
 	for _, q := range req.Question {
 		switch q.Qtype {
 		case dns.TypeA:
