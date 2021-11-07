@@ -468,7 +468,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		return
 	}
 	// Don't forget to re-add the b64 padding, the length is known so no big deal
-	publicKey, err := base64.StdEncoding.DecodeString(implantConfig.ECCPublicKey + "=")
+	publicKey, err := base64.RawStdEncoding.DecodeString(implantConfig.ECCPublicKey)
 	if err != nil || len(publicKey) != 32 {
 		httpLog.Warn("Failed to decode public key")
 		s.defaultHandler(resp, req)

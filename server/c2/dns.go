@@ -47,6 +47,7 @@ import (
 	"github.com/bishopfox/sliver/util/encoders"
 	"google.golang.org/protobuf/proto"
 
+	"encoding/base64"
 	"encoding/binary"
 
 	"fmt"
@@ -68,7 +69,10 @@ const (
 )
 
 var (
-	dnsLog        = log.NamedLogger("c2", "dns")
+	dnsLog = log.NamedLogger("c2", "dns")
+
+	implantBase64 = encoders.Base64{} // Implant's version of base64 with custom alphabet
+
 	ErrInvalidMsg = errors.New("invalid dns message")
 )
 
@@ -131,9 +135,9 @@ func (b *Block) Reassemble() []byte {
 
 // DNSSession - Holds DNS session information
 type DNSSession struct {
-	ID      uint32
-	Session *core.Session
-	Cipher  cryptography.CipherContext
+	ID        uint32
+	Session   *core.Session
+	CipherCtx *cryptography.CipherContext
 }
 
 // --------------------------- DNS SERVER ---------------------------
@@ -229,11 +233,15 @@ func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 	switch msg.Type {
 	case dnspb.DNSMessageType_NOP:
 		return s.handleNOP(domain, msg, checksum, req)
+	case dnspb.DNSMessageType_SESSION_INIT:
+		return s.handleSessionInit(domain, msg, checksum, req)
 	}
 	return nil
 }
 
-// Parse subdomain as data
+// Parse subdomain as data and calculate the CRC32 checksum, I decided to add the
+// checksum calculation here to ensure that no one accidentally calculates the crc32
+// of the plaintext data (that would be very bad).
 func (s *SliverDNSServer) decodeSubdata(subdomain string) (*dnspb.DNSMessage, uint32, error) {
 	subdata := strings.Join(strings.Split(subdomain, "."), "")
 	dnsLog.Debugf("subdata = %s", subdata)
@@ -266,6 +274,13 @@ func (s *SliverDNSServer) determineLikelyEncoders(subdata string) []encoders.Enc
 func (s *SliverDNSServer) nameErrorResp(req *dns.Msg) *dns.Msg {
 	resp := new(dns.Msg)
 	resp.SetRcode(req, dns.RcodeNameError)
+	resp.Authoritative = true
+	return resp
+}
+
+func (s *SliverDNSServer) refusedErrorResp(req *dns.Msg) *dns.Msg {
+	resp := new(dns.Msg)
+	resp.SetRcode(req, dns.RcodeRefused)
 	resp.Authoritative = true
 	return resp
 }
@@ -315,10 +330,80 @@ func (s *SliverDNSServer) handleTOTP(domain string, msg *dnspb.DNSMessage, req *
 	return resp
 }
 
+func (s *SliverDNSServer) handleSessionInit(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+	dnsLog.Debugf("[session init] with dns session id %d", msg.ID&sessionIDBitMask)
+	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
+	dnsSession := loadSession.(*DNSSession)
+	if len(msg.Data) <= 32 {
+		dnsLog.Warnf("[session init] invalid msg data length")
+		return s.refusedErrorResp(req)
+	}
+	if dnsSession.CipherCtx != nil {
+		dnsLog.Warnf("[session init] session is already initialized")
+		return s.refusedErrorResp(req)
+	}
+
+	var publicKeyDigest [32]byte
+	copy(publicKeyDigest[:], msg.Data[:32])
+	implantConfig, err := db.ImplantConfigByECCPublicKeyDigest(publicKeyDigest)
+	if err != nil || implantConfig == nil {
+		dnsLog.Errorf("[session init] error implant public key not found")
+		return s.refusedErrorResp(req)
+	}
+	publicKey, err := base64.RawStdEncoding.DecodeString(implantConfig.ECCPublicKey)
+	if err != nil || len(publicKey) != 32 {
+		dnsLog.Errorf("[session init] error decoding public key: %s", err)
+		return s.refusedErrorResp(req)
+	}
+	var senderPublicKey [32]byte
+	copy(senderPublicKey[:], publicKey)
+	serverKeyPair := cryptography.ECCServerKeyPair()
+	sessionInit, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, msg.Data[32:])
+	if err != nil {
+		dnsLog.Errorf("[session init] error decrypting session init data: %s", err)
+		return s.refusedErrorResp(req)
+	}
+	sessionKey, err := cryptography.KeyFromBytes(sessionInit)
+	if err != nil {
+		dnsLog.Errorf("[session init] invalid session key: %s", err)
+		return s.refusedErrorResp(req)
+	}
+	dnsSession.CipherCtx = cryptography.NewCipherContext(sessionKey)
+	buf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(buf, dnsSession.ID)
+	respData, err := dnsSession.CipherCtx.Encrypt(buf)
+	if err != nil {
+		dnsLog.Errorf("[session init] failed to encrypt msg with session key: %s", err)
+		return s.refusedErrorResp(req)
+	}
+
+	resp := new(dns.Msg)
+	resp.SetReply(req)
+	resp.Authoritative = true
+	for _, q := range req.Question {
+		switch q.Qtype {
+		case dns.TypeTXT:
+			// We're sending back the encrypted dns session id, which is just a uint32
+			// so this should basically never be too long.
+			respTxt := implantBase64.Encode(respData)
+			if 255 < len(respTxt) {
+				panic("response text too large")
+			}
+			txt := &dns.TXT{
+				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: s.TTL},
+				Txt: []string{string(respTxt)},
+			}
+			resp.Answer = append(resp.Answer, txt)
+		}
+	}
+	return resp
+}
+
 func (s *SliverDNSServer) handleNOP(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[nop] request checksum: %d", checksum)
 	resp := new(dns.Msg)
 	resp.SetReply(req)
+	resp.Authoritative = true
 	respBuf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(respBuf, checksum)
 	for _, q := range req.Question {

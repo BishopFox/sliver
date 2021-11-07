@@ -244,6 +244,8 @@ func StartConnectionLoop(c2s []string) *Connection {
 				log.Printf("Unknown c2 protocol %s", uri.Scheme)
 				// {{end}}
 			}
+
+			time.Sleep(time.Second)
 		}
 	}
 	// {{if .Config.Debug}}
