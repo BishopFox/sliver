@@ -13,9 +13,18 @@ enum DNSMessageType {
     BLOCK_CLEAR = 9;
 }
 
+/*
+    NOTE: DNS is very space sensitive so certain fields are re-purposed
+    depending on the DNSMessageType as noted below:
+
+    [Type TOTP]: ID field is used for the TOTP code
+
+*/
 message DNSMessage {
     DNSMessageType Type = 1;
-    uint32 ID = 2; // Upper 24 bits are the session ID, lower 8 bits are the block ID
+    
+    uint32 ID = 2; // 8 bit message id + 24 bit dns session ID
+
     uint32 Index = 3; // Index of size (e.g. block 0 of 4)
     uint32 Size = 4; // Total size
     bytes Data = 5; // Actual data

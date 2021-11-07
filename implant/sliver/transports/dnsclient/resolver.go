@@ -25,5 +25,6 @@ import (
 // Abstraction on top of miekg/dns and net/dns
 type DNSResolver interface {
 	Address() string
-	A(string) ([][]byte, time.Duration, error)
+	A(string) ([]byte, time.Duration, error)
+	TXT(string) ([]byte, time.Duration, error)
 }

