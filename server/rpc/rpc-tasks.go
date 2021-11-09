@@ -139,6 +139,7 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 	invokeExecAssembly := &sliverpb.InvokeExecuteAssemblyReq{
 		Data:    shellcode,
 		Process: req.Process,
+		Request: req.Request,
 	}
 	resp := &sliverpb.ExecuteAssembly{Response: &commonpb.Response{}}
 	err = rpc.GenericHandler(invokeExecAssembly, resp)
