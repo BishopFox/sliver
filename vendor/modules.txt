@@ -114,6 +114,12 @@ github.com/desertbit/readline
 ## explicit
 github.com/dlclark/regexp2
 github.com/dlclark/regexp2/syntax
+# github.com/emirpasic/gods v1.12.0
+## explicit
+github.com/emirpasic/gods/containers
+github.com/emirpasic/gods/lists
+github.com/emirpasic/gods/lists/singlylinkedlist
+github.com/emirpasic/gods/utils
 # github.com/fatih/color v1.12.0
 ## explicit; go 1.13
 github.com/fatih/color

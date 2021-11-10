@@ -594,10 +594,15 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 					if errCount < maxErrors {
 						continue
 					}
+				case dnsclient.ErrClosed:
+					// {{if .Config.Debug}}
+					log.Printf("[dns] session is closed")
+					// {{end}}
+					return
 				default:
 					errCount++
 					// {{if .Config.Debug}}
-					log.Printf("[dns] error: %#v", err)
+					log.Printf("[dns] error: %s", err)
 					// {{end}}
 					if errCount < maxErrors {
 						continue

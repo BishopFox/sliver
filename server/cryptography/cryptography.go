@@ -27,7 +27,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -191,14 +190,14 @@ type CipherContext struct {
 
 // Decrypt - Decrypt a message with the contextual key and check for replay attacks
 func (c *CipherContext) Decrypt(data []byte) ([]byte, error) {
-	digest := sha256.Sum256(data)
-	hexDigest := hex.EncodeToString(digest[:])
-	if _, ok := c.replay.LoadOrStore(hexDigest, true); ok {
-		return nil, ErrReplayAttack
-	}
 	plaintext, err := Decrypt(c.Key, data)
 	if err != nil {
 		return nil, err
+	}
+	digest := sha256.Sum256(data)
+	b64Digest := base64.RawStdEncoding.EncodeToString(digest[:])
+	if _, ok := c.replay.LoadOrStore(b64Digest, true); ok {
+		return nil, ErrReplayAttack
 	}
 	return plaintext, nil
 }
@@ -210,8 +209,8 @@ func (c *CipherContext) Encrypt(plaintext []byte) ([]byte, error) {
 		return nil, err
 	}
 	digest := sha256.Sum256(ciphertext)
-	hexDigest := hex.EncodeToString(digest[:])
-	c.replay.Store(hexDigest, true)
+	b64Digest := base64.RawStdEncoding.EncodeToString(digest[:])
+	c.replay.Store(b64Digest, true)
 	return ciphertext, nil
 }
 
