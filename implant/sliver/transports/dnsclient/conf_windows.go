@@ -32,10 +32,13 @@ package dnsclient
 */
 
 import (
-	"fmt"
-	"log"
 	"strings"
 	"unsafe"
+
+	// {{if .Config.Debug}}
+	"fmt"
+	"log"
+	// {{end}}
 
 	"github.com/miekg/dns"
 	"golang.org/x/sys/windows"

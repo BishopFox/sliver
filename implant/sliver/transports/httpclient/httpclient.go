@@ -106,7 +106,7 @@ func (s *SliverHTTPClient) SessionInit() error {
 		// {{end}}
 		return err
 	}
-	err = s.getSessionID(encryptedSessionInit)
+	err = s.establishSessionID(encryptedSessionInit)
 	if err != nil {
 		return err
 	}
@@ -185,10 +185,10 @@ func (s *SliverHTTPClient) DoPoll(req *http.Request) (*http.Response, error) {
 
 // We do our own POST here because the server doesn't have the
 // session key yet.
-func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
+func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
 	nonce, encoder := encoders.RandomEncoder()
 	payload := encoder.Encode(sessionInit)
-	reqBody := bytes.NewReader(payload) // Already RSA encrypted
+	reqBody := bytes.NewReader(payload)
 
 	uri := s.startSessionURL()
 	s.NonceQueryArgument(uri, nonce)
@@ -206,7 +206,7 @@ func (s *SliverHTTPClient) getSessionID(sessionInit []byte) error {
 		// {{end}}
 		return err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		// {{if .Config.Debug}}
 		log.Printf("[http] non-200 response (%d): %v", resp.StatusCode, resp)
 		// {{end}}
@@ -340,7 +340,7 @@ func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
 		// {{end}}
 		return err
 	}
-	if resp.StatusCode != 202 {
+	if resp.StatusCode != http.StatusAccepted {
 		// {{if .Config.Debug}}
 		log.Printf("[http] non-202 response (%d): %v", resp.StatusCode, resp)
 		// {{end}}
@@ -381,7 +381,7 @@ func (s *SliverHTTPClient) CloseSession() error {
 		// {{end}}
 		return err
 	}
-	if resp.StatusCode != 202 {
+	if resp.StatusCode != http.StatusAccepted {
 		// {{if .Config.Debug}}
 		log.Printf("[http] non-202 response (%d): %v", resp.StatusCode, resp)
 		// {{end}}

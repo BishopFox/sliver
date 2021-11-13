@@ -19,79 +19,118 @@ package c2
 */
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	insecureRand "math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"testing"
-	"time"
 
+	implantCrypto "github.com/bishopfox/sliver/implant/sliver/cryptography"
 	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 	implantTransports "github.com/bishopfox/sliver/implant/sliver/transports/httpclient"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/cryptography"
-	"github.com/pquerna/otp"
-	"github.com/pquerna/otp/totp"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
+	"google.golang.org/protobuf/proto"
 )
 
-func TestRsaKeyHandler(t *testing.T) {
+var (
+	serverECCKeyPair  *cryptography.ECCKeyPair
+	implantECCKeyPair *cryptography.ECCKeyPair
+	totpSecret        string
+)
+
+func TestMain(m *testing.M) {
+	implantConfig := setup()
+	code := m.Run()
+	cleanup(implantConfig)
+	os.Exit(code)
+}
+
+func setup() *models.ImplantConfig {
+	var err error
 	certs.SetupCAs()
+	serverECCKeyPair = cryptography.ECCServerKeyPair()
+	implantECCKeyPair, err = cryptography.RandomECCKeyPair()
+	if err != nil {
+		panic(err)
+	}
+	totpSecret, err := cryptography.TOTPServerSecret()
+	if err != nil {
+		panic(err)
+	}
+	implantCrypto.SetSecrets(
+		implantECCKeyPair.PublicBase64(),
+		implantECCKeyPair.PrivateBase64(),
+		"",
+		serverECCKeyPair.PublicBase64(),
+		totpSecret,
+	)
+	digest := sha256.Sum256(implantECCKeyPair.Public[:])
+	implantConfig := &models.ImplantConfig{
+		ECCPublicKey:       implantECCKeyPair.PublicBase64(),
+		ECCPrivateKey:      implantECCKeyPair.PrivateBase64(),
+		ECCPublicKeyDigest: hex.EncodeToString(digest[:]),
+		ECCServerPublicKey: serverECCKeyPair.PublicBase64(),
+	}
+	err = db.Session().Create(implantConfig).Error
+	if err != nil {
+		panic(err)
+	}
+	return implantConfig
+}
+
+func cleanup(implantConfig *models.ImplantConfig) {
+	db.Session().Delete(implantConfig)
+}
+
+func TestStartSessionHandler(t *testing.T) {
 	server, err := StartHTTPSListener(&HTTPServerConfig{
 		Addr:       "127.0.0.1:8888",
+		Secure:     false,
 		EnforceOTP: true,
 	})
 	if err != nil {
-		t.Errorf("Listener failed to start %s", err)
+		t.Fatalf("Listener failed to start %s", err)
 		return
 	}
 
-	router := server.router()
-
-	// Missing parameters
-	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/test/foo.txt", nil)
-	router.ServeHTTP(rr, req)
-	if status := rr.Code; status != http.StatusNotFound {
-		t.Errorf("handler returned wrong status code: got %d want %d", status, http.StatusNotFound)
-	}
-
-	// Invalid OTP code
-	for i := 0; i < 100; i++ {
-		rr = httptest.NewRecorder()
-		req, _ = http.NewRequest("GET", fmt.Sprintf("/test/foo.txt?aa=%d", insecureRand.Intn(99999999)), nil)
-		router.ServeHTTP(rr, req)
-		if status := rr.Code; status != http.StatusNotFound {
-			t.Errorf("handler returned wrong status code: got %d want %d", status, http.StatusNotFound)
-		}
-	}
-
-	// Valid OTP code
+	c2Config := configs.GetHTTPC2Config()
 	client := implantTransports.SliverHTTPClient{}
 	baseURL := &url.URL{
 		Scheme: "http",
 		Host:   "127.0.0.1:8888",
-		Path:   "/test/foo.txt",
+		Path:   fmt.Sprintf("/test/foo.%s", c2Config.ImplantConfig.StartSessionFileExt),
 	}
-	nonce, _ := implantEncoders.RandomEncoder()
+	nonce, encoder := implantEncoders.RandomEncoder()
 	testURL := client.NonceQueryArgument(baseURL, nonce)
+	testURL = client.OTPQueryArgument(testURL, implantCrypto.GetOTPCode())
 
-	now := time.Now().UTC()
-	opts := totp.ValidateOpts{
-		Digits:    8,
-		Algorithm: otp.AlgorithmSHA256,
-		Period:    uint(30),
-		Skew:      uint(1),
+	// Generate key exchange request
+	sKey := cryptography.RandomKey()
+	httpSessionInit := &sliverpb.HTTPSessionInit{Key: sKey[:]}
+	data, _ := proto.Marshal(httpSessionInit)
+	encryptedSessionInit, err := implantCrypto.ECCEncryptToServer(data)
+	if err != nil {
+		t.Fatalf("Failed to encrypt session init %s", err)
 	}
-	secret, _ := cryptography.TOTPServerSecret()
-	code, _ := totp.GenerateCodeCustom(secret, now, opts)
+	payload := encoder.Encode(encryptedSessionInit)
+	body := bytes.NewReader(payload)
 
-	testURL = client.OTPQueryArgument(baseURL, code)
-	rr = httptest.NewRecorder()
-	req, _ = http.NewRequest("GET", testURL.String(), nil)
-	router.ServeHTTP(rr, req)
+	validReq := httptest.NewRequest(http.MethodPost, testURL.String(), body)
+	t.Logf("[http] req request uri: '%v'", validReq.RequestURI)
+	rr := httptest.NewRecorder()
+	server.HTTPServer.Handler.ServeHTTP(rr, validReq)
 	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %d want %d", status, http.StatusOK)
+		t.Fatalf("handler returned wrong status code: got %d want %d", status, http.StatusOK)
 	}
 
 }
@@ -109,7 +148,7 @@ func TestGetOTPFromURL(t *testing.T) {
 		testURL := client.OTPQueryArgument(baseURL, value)
 		urlValue, err := getOTPFromURL(testURL)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 		if urlValue != value {
 			t.Fatalf("Mismatched OTP values %s (%s != %s)", testURL.String(), value, urlValue)
@@ -129,7 +168,7 @@ func TestGetNonceFromURL(t *testing.T) {
 		testURL := client.NonceQueryArgument(baseURL, nonce)
 		urlNonce, err := getNonceFromURL(testURL)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 		if urlNonce != nonce {
 			t.Fatalf("Mismatched encoder nonces %s (%d != %d)", testURL.String(), nonce, urlNonce)
