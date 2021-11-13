@@ -19,7 +19,7 @@
 
 # Creates the static go asset archives
 
-GO_VER="1.17.2"
+GO_VER="1.17.3"
 GARBLE_VER="1.17.3"
 COFF_LOADER_VER="1.0.7"
 
@@ -29,6 +29,7 @@ GO_ARCH_3="386"
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt SECURITY.md CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
 
 if ! [ -x "$(command -v curl)" ]; then
+  echo 'Error: curl is not installed.' >&2
   exit 1
 fi
 

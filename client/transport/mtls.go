@@ -110,7 +110,6 @@ func getTLSConfig(caCertificate string, certificate string, privateKey string) (
 // we have to disable all of the certificate validation and re-implement everything.
 // https://github.com/golang/go/issues/21971
 func RootOnlyVerifyCertificate(caCertificate string, rawCerts [][]byte) error {
-
 	roots := x509.NewCertPool()
 	ok := roots.AppendCertsFromPEM([]byte(caCertificate))
 	if !ok {
@@ -129,6 +128,9 @@ func RootOnlyVerifyCertificate(caCertificate string, rawCerts [][]byte) error {
 	// skipping the hostname check, I think?
 	options := x509.VerifyOptions{
 		Roots: roots,
+	}
+	if options.Roots == nil {
+		panic("no root certificate")
 	}
 	if _, err := cert.Verify(options); err != nil {
 		log.Printf("Failed to verify certificate: " + err.Error())

