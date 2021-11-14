@@ -248,7 +248,7 @@ func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 	case dnspb.DNSMessageType_NOP:
 		return s.handleNOP(domain, msg, checksum, req)
 	case dnspb.DNSMessageType_INIT:
-		return s.handleSessionInit(domain, msg, checksum, req)
+		return s.handleDNSSessionInit(domain, msg, checksum, req)
 	case dnspb.DNSMessageType_DATA_FROM_IMPLANT:
 		return s.handleDataFromImplant(domain, msg, checksum, req)
 	case dnspb.DNSMessageType_DATA_TO_IMPLANT:
@@ -348,7 +348,7 @@ func (s *SliverDNSServer) handleTOTP(domain string, msg *dnspb.DNSMessage, req *
 	return resp
 }
 
-func (s *SliverDNSServer) handleSessionInit(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[session init] with dns session id %d", msg.ID&sessionIDBitMask)
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)

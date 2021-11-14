@@ -190,7 +190,7 @@ func StartDNSListenerJob(bindIface string, lport uint16, domains []string, canar
 
 // StartHTTPListenerJob - Start a HTTP listener as a job
 func StartHTTPListenerJob(conf *HTTPServerConfig) (*core.Job, error) {
-	server, err := StartHTTPSListener(conf)
+	server, err := StartHTTPListener(conf)
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +283,7 @@ func StartTCPStagerListenerJob(host string, port uint16, shellcode []byte) (*cor
 
 // StartHTTPStagerListenerJob - Start an HTTP(S) stager payload listener
 func StartHTTPStagerListenerJob(conf *HTTPServerConfig, data []byte) (*core.Job, error) {
-	server, err := StartHTTPSListener(conf)
+	server, err := StartHTTPListener(conf)
 	if err != nil {
 		return nil, err
 	}

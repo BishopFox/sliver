@@ -170,10 +170,10 @@ func (s *SliverHTTPC2) LoadC2Config() *configs.HTTPC2Config {
 	return s.c2Config
 }
 
-// StartHTTPSListener - Start an HTTP(S) listener, this can be used to start both
+// StartHTTPListener - Start an HTTP(S) listener, this can be used to start both
 //						HTTP/HTTPS depending on the caller's conf
 // TODO: Better error handling, configurable ACME host/port
-func StartHTTPSListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
+func StartHTTPListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 	httpLog.Infof("Starting https listener on '%s'", conf.Addr)
 	server := &SliverHTTPC2{
 		ServerConf: conf,

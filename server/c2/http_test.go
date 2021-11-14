@@ -2,7 +2,7 @@ package c2
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2021  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -20,80 +20,24 @@ package c2
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	insecureRand "math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"testing"
 
 	implantCrypto "github.com/bishopfox/sliver/implant/sliver/cryptography"
 	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 	implantTransports "github.com/bishopfox/sliver/implant/sliver/transports/httpclient"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/cryptography"
-	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/db/models"
 	"google.golang.org/protobuf/proto"
 )
 
-var (
-	serverECCKeyPair  *cryptography.ECCKeyPair
-	implantECCKeyPair *cryptography.ECCKeyPair
-	totpSecret        string
-)
-
-func TestMain(m *testing.M) {
-	implantConfig := setup()
-	code := m.Run()
-	cleanup(implantConfig)
-	os.Exit(code)
-}
-
-func setup() *models.ImplantConfig {
-	var err error
-	certs.SetupCAs()
-	serverECCKeyPair = cryptography.ECCServerKeyPair()
-	implantECCKeyPair, err = cryptography.RandomECCKeyPair()
-	if err != nil {
-		panic(err)
-	}
-	totpSecret, err := cryptography.TOTPServerSecret()
-	if err != nil {
-		panic(err)
-	}
-	implantCrypto.SetSecrets(
-		implantECCKeyPair.PublicBase64(),
-		implantECCKeyPair.PrivateBase64(),
-		"",
-		serverECCKeyPair.PublicBase64(),
-		totpSecret,
-	)
-	digest := sha256.Sum256(implantECCKeyPair.Public[:])
-	implantConfig := &models.ImplantConfig{
-		ECCPublicKey:       implantECCKeyPair.PublicBase64(),
-		ECCPrivateKey:      implantECCKeyPair.PrivateBase64(),
-		ECCPublicKeyDigest: hex.EncodeToString(digest[:]),
-		ECCServerPublicKey: serverECCKeyPair.PublicBase64(),
-	}
-	err = db.Session().Create(implantConfig).Error
-	if err != nil {
-		panic(err)
-	}
-	return implantConfig
-}
-
-func cleanup(implantConfig *models.ImplantConfig) {
-	db.Session().Delete(implantConfig)
-}
-
 func TestStartSessionHandler(t *testing.T) {
-	server, err := StartHTTPSListener(&HTTPServerConfig{
+	server, err := StartHTTPListener(&HTTPServerConfig{
 		Addr:       "127.0.0.1:8888",
 		Secure:     false,
 		EnforceOTP: true,
