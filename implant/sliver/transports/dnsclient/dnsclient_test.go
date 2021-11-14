@@ -67,25 +67,73 @@ func randomData(size int) []byte {
 	return buf
 }
 
-func TestSplitBuffer(t *testing.T) {
+func TestSplitBufferBase58(t *testing.T) {
 
-	// With base58 resolver
+	t.Logf("Testing with client1")
 	client1 := newDNSClient(parent1, timeout, retryWait)
-	addTestResolver(client1, true)
 	testData := randomData(2048)
+	clientSplitBuffer(t, client1, encoders.Base58{}, testData)
+
+	t.Logf("Testing with client2")
+	client2 := newDNSClient(parent2, timeout, retryWait)
+	testData2 := randomData(2048)
+	clientSplitBuffer(t, client2, encoders.Base58{}, testData2)
+
+	t.Logf("Testing with client3")
+	client3 := newDNSClient(parent3, timeout, retryWait)
+	testData3 := randomData(2048)
+	clientSplitBuffer(t, client3, encoders.Base58{}, testData3)
+
+	t.Logf("Testing all clients with randomly sized data")
+	for _, client := range []*SliverDNSClient{client1, client2, client3} {
+		for count := 0; count < 10; count++ {
+			testData := randomDataRandomSize(2 * 1024 * 1024)
+			clientSplitBuffer(t, client, encoders.Base58{}, testData)
+		}
+	}
+}
+
+func TestSplitBufferBase32(t *testing.T) {
+
+	t.Logf("Testing with client1")
+	client1 := newDNSClient(parent1, timeout, retryWait)
+	testData := randomData(2048)
+	clientSplitBuffer(t, client1, encoders.Base32{}, testData)
+
+	t.Logf("Testing with client2")
+	client2 := newDNSClient(parent2, timeout, retryWait)
+	testData2 := randomData(2048)
+	clientSplitBuffer(t, client2, encoders.Base32{}, testData2)
+
+	t.Logf("Testing with client3")
+	client3 := newDNSClient(parent3, timeout, retryWait)
+	testData3 := randomData(2048)
+	clientSplitBuffer(t, client3, encoders.Base32{}, testData3)
+
+	t.Logf("Testing all clients with randomly sized data")
+	for _, client := range []*SliverDNSClient{client1, client2, client3} {
+		for count := 0; count < 10; count++ {
+			testData := randomDataRandomSize(2 * 1024 * 1024)
+			clientSplitBuffer(t, client, encoders.Base32{}, testData)
+		}
+	}
+}
+
+func clientSplitBuffer(t *testing.T, client *SliverDNSClient, encoder encoders.Encoder, testData []byte) {
 	msg := &dnspb.DNSMessage{
 		Type: dnspb.DNSMessageType_DATA_FROM_IMPLANT,
 		Size: uint32(len(testData)),
 	}
-	domains, err := client1.splitBuffer(msg, encoders.Base58{}, client1.subdataSpace, testData)
+	domains, err := client.splitBuffer(msg, encoder, testData)
 	if err != nil {
 		t.Fatalf("Unexpected error splitting buffer: %s", err)
 	}
+	t.Logf("Domains: %v", domains)
 	allData := []byte{}
 	for _, domain := range domains {
-		subdata := strings.TrimSuffix(domain, parent1)
+		subdata := strings.TrimSuffix(domain, client.parent)
 		subdata = strings.ReplaceAll(subdata, ".", "")
-		data, err := encoders.Base58{}.Decode([]byte(subdata))
+		data, err := encoder.Decode([]byte(subdata))
 		if err != nil {
 			t.Fatalf("Unexpected error decoding subdata: %s", err)
 		}
@@ -99,9 +147,6 @@ func TestSplitBuffer(t *testing.T) {
 	if !bytes.Equal(allData, testData) {
 		t.Fatalf("Unexpected data returned from splitting buffer\nSample: %v\nData: %v\n", testData, allData)
 	}
-
-	/// With base32 resolver
-
 }
 
 func addTestResolver(client *SliverDNSClient, enableBase58 bool) {

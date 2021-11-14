@@ -21,6 +21,11 @@
 ## Util
 
 # util / encoders
+if go test -tags=server ./util/encoders/basex ; then
+    :
+else
+    exit 1
+fi
 if go test -tags=server ./util/encoders ; then
     :
 else
