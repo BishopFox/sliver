@@ -30,6 +30,13 @@ var (
 	forceResolvConf = ``
 )
 
+// {{if .Config.Debug}}
+func SetForceResolvConf(conf string) {
+	forceResolvConf = conf
+}
+
+// {{end}}
+
 // dnsClientConfig - returns all DNS server addresses associated with the given address
 // on non-windows, we ignore the ip parameter because routing is not insane
 func dnsClientConfig() (*dns.ClientConfig, error) {
