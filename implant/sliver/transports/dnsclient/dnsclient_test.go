@@ -19,10 +19,20 @@ package dnsclient
 */
 
 import (
+	"bytes"
+	"crypto/rand"
 	"fmt"
+	"log"
+	insecureRand "math/rand"
+	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/bishopfox/sliver/implant/sliver/encoders"
+	"github.com/bishopfox/sliver/protobuf/dnspb"
+	"github.com/golang/protobuf/proto"
+	"github.com/miekg/dns"
 )
 
 const (
@@ -40,8 +50,78 @@ var (
 	retryWait = time.Second * 1
 )
 
+func TestMain(m *testing.M) {
+	log.SetOutput(os.Stdout)
+	os.Exit(m.Run())
+}
+
+func randomDataRandomSize(maxSize int) []byte {
+	buf := make([]byte, insecureRand.Intn(maxSize))
+	rand.Read(buf)
+	return buf
+}
+
+func randomData(size int) []byte {
+	buf := make([]byte, size)
+	rand.Read(buf)
+	return buf
+}
+
 func TestSplitBuffer(t *testing.T) {
 
+	// With base58 resolver
+	client1 := newDNSClient(parent1, timeout, retryWait)
+	addTestResolver(client1, true)
+	testData := randomData(2048)
+	msg := &dnspb.DNSMessage{
+		Type: dnspb.DNSMessageType_DATA_FROM_IMPLANT,
+		Size: uint32(len(testData)),
+	}
+	domains, err := client1.splitBuffer(msg, encoders.Base58{}, client1.subdataSpace, testData)
+	if err != nil {
+		t.Fatalf("Unexpected error splitting buffer: %s", err)
+	}
+	allData := []byte{}
+	for _, domain := range domains {
+		subdata := strings.TrimSuffix(domain, parent1)
+		subdata = strings.ReplaceAll(subdata, ".", "")
+		data, err := encoders.Base58{}.Decode([]byte(subdata))
+		if err != nil {
+			t.Fatalf("Unexpected error decoding subdata: %s", err)
+		}
+		msg := &dnspb.DNSMessage{}
+		err = proto.Unmarshal(data, msg)
+		if err != nil {
+			t.Fatalf("Unexpected error un-marshaling subdata: %s", err)
+		}
+		allData = append(allData, msg.Data...)
+	}
+	if !bytes.Equal(allData, testData) {
+		t.Fatalf("Unexpected data returned from splitting buffer\nSample: %v\nData: %v\n", testData, allData)
+	}
+
+	/// With base32 resolver
+
+}
+
+func addTestResolver(client *SliverDNSClient, enableBase58 bool) {
+	client.resolvers = []DNSResolver{
+		&GenericResolver{
+			address:   "127.0.0.1:53",
+			retries:   1,
+			retryWait: retryWait,
+			resolver: &dns.Client{
+				ReadTimeout:  timeout,
+				WriteTimeout: timeout,
+			},
+			base64: encoders.Base64{},
+		},
+	}
+	client.metadata["127.0.0.1:53"] = &ResolverMetadata{
+		Address:      "127.0.0.1:53",
+		EnableBase58: enableBase58,
+		Errors:       0,
+	}
 }
 
 func TestSubdataSpace(t *testing.T) {

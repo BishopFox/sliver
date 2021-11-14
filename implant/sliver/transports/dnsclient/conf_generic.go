@@ -30,7 +30,7 @@ var (
 	forceResolvConf = ``
 )
 
-// {{if .Config.Debug}}
+// {{if .Config.Debug}} - Unit tests only
 func SetForceResolvConf(conf string) {
 	forceResolvConf = conf
 }

@@ -31,7 +31,7 @@ var (
 	c2Domains = []string{example1}
 )
 
-func randomData(maxSize int) []byte {
+func randomDataRandomSize(maxSize int) []byte {
 	buf := make([]byte, insecureRand.Intn(maxSize))
 	rand.Read(buf)
 	return buf
@@ -58,7 +58,7 @@ func TestIsC2Domain(t *testing.T) {
 
 func TestDetermineLikelyEncoders(t *testing.T) {
 	listener := StartDNSListener("", uint16(9999), c2Domains, false)
-	sample := randomData(2048)
+	sample := randomDataRandomSize(2048)
 	b58Sample := string(encoders.Base58{}.Encode(sample))
 	likelyEncoders := listener.determineLikelyEncoders(b58Sample)
 	_, err := likelyEncoders[0].Decode([]byte(b58Sample))

