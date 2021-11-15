@@ -278,7 +278,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 		}
 	}
 	goConfig := &gogo.GoConfig{
-		CGO: "1",
+		CGO: "0",
 		CC:  cc,
 		CXX: cxx,
 
