@@ -300,6 +300,7 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	if err = loadExtension(ctx, session, con, &ext); err != nil {
+		con.PrintErrorf("Could not load extension: %s\n", err)
 		return
 	}
 

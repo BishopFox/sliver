@@ -28,7 +28,7 @@ import (
 	"log"
 	// {{end}}
 
-	"golang.zx2c4.com/wireguard/tun/wintun/memmod"
+	"golang.zx2c4.com/wireguard/windows/driver/memmod"
 )
 
 const (
