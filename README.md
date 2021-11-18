@@ -20,9 +20,11 @@ The server and client support MacOS, Windows, and Linux. Implants are supported 
 * Local and remote process injection
 * Windows process migration
 * Windows user token manipulation
-* Anti-anti-anti-forensics
+* Anti-fingerprinting features
 * Let's Encrypt integration
 * In-memory .NET assembly execution
+* COFF/BOF in-memory loader
+* Much more!
 
 ### Getting Started
 

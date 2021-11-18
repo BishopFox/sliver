@@ -69,6 +69,8 @@ const (
 	// Little endian
 	sessionIDBitMask = 0x00ffffff // Bitwise mask to get the dns session ID
 	messageIDBitMask = 0xff000000 // Bitwise mask to get the message ID
+
+	defaultMaxTXTLength = 254
 )
 
 var (
@@ -87,6 +89,7 @@ func StartDNSListener(bindIface string, lport uint16, domains []string, canaries
 		messages:        &sync.Map{}, // In progress message streams
 		totpToSessionID: &sync.Map{}, // Atomic TOTP -> DNS Session ID
 		TTL:             0,
+		MaxTXTLength:    defaultMaxTXTLength,
 	}
 	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
 	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {
@@ -299,6 +302,7 @@ type SliverDNSServer struct {
 	messages        *sync.Map
 	totpToSessionID *sync.Map
 	TTL             uint32
+	MaxTXTLength    int
 }
 
 // Shutdown - Shutdown the DNS server
@@ -359,10 +363,10 @@ func (s *SliverDNSServer) isC2SubDomain(domains []string, reqDomain string) (boo
 // record that was requested
 func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 	subdomain := req.Question[0].Name[:len(req.Question[0].Name)-len(domain)]
-	dnsLog.Debugf("processing req for subdomain = %s", subdomain)
+	dnsLog.Debugf("[dns] processing req for subdomain = %s", subdomain)
 	msg, checksum, err := s.decodeSubdata(subdomain)
 	if err != nil {
-		dnsLog.Errorf("error decoding subdata: %v", err)
+		dnsLog.Errorf("[dns] error decoding subdata: %v", err)
 		return s.nameErrorResp(req)
 	}
 
@@ -370,12 +374,11 @@ func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 	if msg.Type == dnspb.DNSMessageType_TOTP {
 		return s.handleTOTP(domain, msg, req)
 	}
-	dnsLog.Debugf("dns session id: %d", msg.ID&sessionIDBitMask)
 
 	// All other handlers require a valid dns session ID
 	_, ok := s.sessions.Load(msg.ID & sessionIDBitMask)
 	if !ok {
-		dnsLog.Warnf("session not found for id %v (%v)", msg.ID, msg.ID&sessionIDBitMask)
+		dnsLog.Warnf("[dns] session not found for id %v (%v)", msg.ID, msg.ID&sessionIDBitMask)
 		return s.nameErrorResp(req)
 	}
 
@@ -447,20 +450,20 @@ func (s *SliverDNSServer) refusedErrorResp(req *dns.Msg) *dns.Msg {
 // DNS Message Handlers
 // ---------------------------
 func (s *SliverDNSServer) handleTOTP(domain string, msg *dnspb.DNSMessage, req *dns.Msg) *dns.Msg {
-	dnsLog.Debugf("totp request: %v", msg)
+	dnsLog.Debugf("[dns] totp request: %v", msg)
 	totpCode := fmt.Sprintf("%08d", msg.ID)
 	valid, err := cryptography.ValidateTOTP(totpCode)
 	if err != nil || !valid {
 		dnsLog.Warnf("totp request invalid (%v)", err)
 		return s.nameErrorResp(req)
 	}
-	dnsLog.Debugf("totp request valid")
+	dnsLog.Debugf("[dns] totp request valid")
 
 	// Queries must be deterministic, so create or load the dns session id
 	// we'll likely get multiple queries for the same domain
 	actualID, loaded := s.totpToSessionID.LoadOrStore(totpCode, dnsSessionID())
 	dnsSessionID := actualID.(uint32)
-	dnsLog.Debugf("DNS Session ID = %d", dnsSessionID&sessionIDBitMask)
+	dnsLog.Debugf("[dns] Assigned new dns session id = %d", dnsSessionID&sessionIDBitMask)
 	if !loaded {
 		s.sessions.Store(dnsSessionID&sessionIDBitMask, &DNSSession{
 			ID:                dnsSessionID & sessionIDBitMask,
@@ -534,6 +537,12 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 	}
 
 	dnsSession.ImplanConn = core.NewImplantConnection("dns", "n/a")
+	go func() {
+		for envelope := range dnsSession.ImplanConn.Send {
+			dnsSession.StageOutgoingEnvelope(envelope)
+		}
+		dnsLog.Debugf("[dns] closing implant conn send loop")
+	}()
 	dnsSession.CipherCtx = cryptography.NewCipherContext(sessionKey)
 	buf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, dnsSession.ID)
@@ -552,7 +561,7 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 			respTxt := string(implantBase64.Encode(respData))
 			txts := []string{}
 			for start, stop := 0, 0; stop < len(respTxt); start = stop {
-				stop += 254
+				stop += s.MaxTXTLength
 				if len(respTxt) < stop {
 					stop = len(respTxt)
 				}
@@ -596,7 +605,7 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 			respTxt := string(implantBase64.Encode(respData))
 			txts := []string{}
 			for start, stop := 0, 0; stop < len(respTxt); start = stop {
-				stop += 254
+				stop += s.MaxTXTLength
 				if len(respTxt) < stop {
 					stop = len(respTxt)
 				}
@@ -661,7 +670,7 @@ func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessa
 			respTxt := string(implantBase64.Encode(data))
 			txts := []string{}
 			for start, stop := 0, 0; stop < len(respTxt); start = stop {
-				stop += 254
+				stop += s.MaxTXTLength
 				if len(respTxt) < stop {
 					stop = len(respTxt)
 				}
@@ -701,7 +710,7 @@ func (s *SliverDNSServer) handleClear(domain string, msg *dnspb.DNSMessage, chec
 			respTxt := string(implantBase64.Encode(respBuf))
 			txts := []string{}
 			for start, stop := 0, 0; stop < len(respTxt); start = stop {
-				stop += 254
+				stop += s.MaxTXTLength
 				if len(respTxt) < stop {
 					stop = len(respTxt)
 				}
