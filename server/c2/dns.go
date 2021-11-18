@@ -102,14 +102,14 @@ type DNSSession struct {
 	Session          *core.Session
 	CipherCtx        *cryptography.CipherContext
 	pendingEnvelopes map[uint32]*PendingEnvelope
-	mutex            sync.Mutex
+	mutex            *sync.Mutex
 }
 
-// GetPending - Get a pending message linked list, creates one if it doesn't exist
-func (s *DNSSession) GetPending(dnsMsg *dnspb.DNSMessage) *PendingEnvelope {
+// GetPendingEnvelope - Get a pending message linked list, creates one if it doesn't exist
+func (s *DNSSession) GetPendingEnvelope(dnsID uint32, size uint32) *PendingEnvelope {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if pendingMsg, ok := s.pendingEnvelopes[dnsMsg.ID]; ok {
+	if pendingMsg, ok := s.pendingEnvelopes[dnsID]; ok {
 		return pendingMsg
 	}
 	linkedList := singlylinkedlist.New()
@@ -123,10 +123,13 @@ func (s *DNSSession) GetPending(dnsMsg *dnspb.DNSMessage) *PendingEnvelope {
 		}
 	})
 	pendingMsg := &PendingEnvelope{
-		Size:     dnsMsg.Size,
+		Size:     size,
+		received: uint32(0),
 		messages: linkedList,
+		mutex:    &sync.Mutex{},
+		complete: false,
 	}
-	s.pendingEnvelopes[dnsMsg.ID] = pendingMsg
+	s.pendingEnvelopes[dnsID] = pendingMsg
 	return pendingMsg
 }
 
@@ -136,22 +139,52 @@ type PendingEnvelope struct {
 	received uint32
 	messages *singlylinkedlist.List
 	mutex    *sync.Mutex
+	complete bool
+}
+
+// Reassemble - Reassemble a completed message
+func (p *PendingEnvelope) Reassemble() ([]byte, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	if !p.complete {
+		return nil, errors.New("pending message not complete")
+	}
+	buffer := make([]byte, p.Size)
+	for _, msg := range p.messages.Values() {
+		msgAssert := msg.(*dnspb.DNSMessage)
+		if msgAssert.Start+uint32(len(msgAssert.Data)) > uint32(len(buffer)) {
+			return nil, fmt.Errorf("message boundaries are invalid (%d -> %d) of %d",
+				msgAssert.Start, msgAssert.Start+msgAssert.Size, len(buffer))
+		}
+		copy(buffer[msgAssert.Start:], msgAssert.Data)
+	}
+	return buffer, nil
 }
 
 // Insert - Pending message, returns true if message is complete
 func (p *PendingEnvelope) Insert(dnsMsg *dnspb.DNSMessage) bool {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+	if p.complete {
+		return false // Already complete
+	}
 	iter := p.messages.Iterator()
 	p.received += uint32(len(dnsMsg.Data))
+	wasInserted := false
 	for iter.Next() {
 		if iter.Value().(*dnspb.DNSMessage).Start > dnsMsg.Start {
+			dnsLog.Debugf("Inserting pending message at %d (start: %d)", iter.Index(), dnsMsg.Start)
 			p.messages.Insert(iter.Index(), dnsMsg)
-			return p.received >= p.Size
+			wasInserted = true
+			break
 		}
 	}
-	p.messages.Append(dnsMsg)
-	return p.received >= p.Size
+	if !wasInserted {
+		dnsLog.Debugf("Appending pending message (start: %d)", dnsMsg.Start)
+		p.messages.Append(dnsMsg)
+	}
+	p.complete = p.received >= p.Size
+	return p.complete
 }
 
 // --------------------------- DNS SERVER ---------------------------
@@ -421,7 +454,7 @@ func (s *SliverDNSServer) handleDataFromImplant(domain string, msg *dnspb.DNSMes
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
 
-	pending := dnsSession.GetPending(msg)
+	pending := dnsSession.GetPendingEnvelope(msg.ID, msg.Size)
 	complete := pending.Insert(msg)
 	if complete {
 		// process complete envelope
