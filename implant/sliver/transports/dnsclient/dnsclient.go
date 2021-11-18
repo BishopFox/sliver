@@ -97,7 +97,7 @@ func DNSStartSession(parent string, retryWait time.Duration, timeout time.Durati
 	// {{if .Config.Debug}}
 	log.Printf("DNS client connecting to '%s' (timeout: %s) ...", parent, timeout)
 	// {{end}}
-	client := newDNSClient(parent, timeout, retryWait)
+	client := NewDNSClient(parent, timeout, retryWait)
 	err := client.SessionInit()
 	if err != nil {
 		return nil, err
@@ -105,7 +105,9 @@ func DNSStartSession(parent string, retryWait time.Duration, timeout time.Durati
 	return client, nil
 }
 
-func newDNSClient(parent string, timeout time.Duration, retryWait time.Duration) *SliverDNSClient {
+// NewDNSClient - Initialize a new DNS client, generally you should use DNSStartSession
+// instead of this function, this is exported mostly for unit testing
+func NewDNSClient(parent string, timeout time.Duration, retryWait time.Duration) *SliverDNSClient {
 	parent = strings.TrimSuffix("."+strings.TrimPrefix(parent, "."), ".") + "."
 	return &SliverDNSClient{
 		metadata:     map[string]*ResolverMetadata{},
@@ -303,7 +305,7 @@ func (s *SliverDNSClient) SessionInit() error {
 }
 
 func (s *SliverDNSClient) sendInit(resolver DNSResolver, encoder encoders.Encoder, msg *dnspb.DNSMessage, data []byte) ([]byte, error) {
-	allSubdata, err := s.splitBuffer(msg, encoder, data)
+	allSubdata, err := s.SplitBuffer(msg, encoder, data)
 	if err != nil {
 		return nil, err
 	}
@@ -381,6 +383,7 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	return envelope, err
 }
 
+// Close - Close the dns session
 func (s *SliverDNSClient) Close() error {
 	s.closed = true
 	close(s.queue)
@@ -399,7 +402,7 @@ func (s *SliverDNSClient) parallelSend(data []byte) error {
 		Type: dnspb.DNSMessageType_DATA_FROM_IMPLANT,
 		ID:   s.nextMsgID(),
 	}
-	domains, err := s.splitBuffer(msg, encoder, data)
+	domains, err := s.SplitBuffer(msg, encoder, data)
 	if err != nil {
 		return err
 	}
@@ -490,9 +493,9 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) (*pb.Envelope
 	return envelope, err
 }
 
-// There's probably a fancy way to calculate this with math and shit but it's much easier to just encode bytes
+// SplitBuffer - There's probably a fancy way to calculate this with math and shit but it's much easier to just encode bytes
 // and check the length until we hit the limit
-func (s *SliverDNSClient) splitBuffer(msg *dnspb.DNSMessage, encoder encoders.Encoder, data []byte) ([]string, error) {
+func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.Encoder, data []byte) ([]string, error) {
 	subdata := []string{}
 	start := 0
 	stop := start

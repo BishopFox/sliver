@@ -21,8 +21,10 @@ package c2
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	insecureRand "math/rand"
 	"os"
 	"testing"
+	"time"
 
 	implantCrypto "github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/server/certs"
@@ -38,6 +40,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	insecureRand.Seed(time.Now().UnixNano())
 	implantConfig := setup()
 	code := m.Run()
 	cleanup(implantConfig)
