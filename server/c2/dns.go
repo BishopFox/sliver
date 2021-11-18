@@ -41,9 +41,11 @@ import (
 	"unicode"
 
 	"github.com/bishopfox/sliver/protobuf/dnspb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
+	sliverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/util/encoders"
 	"google.golang.org/protobuf/proto"
 
@@ -70,10 +72,8 @@ const (
 )
 
 var (
-	dnsLog = log.NamedLogger("c2", "dns")
-
+	dnsLog        = log.NamedLogger("c2", "dns")
 	implantBase64 = encoders.Base64{} // Implant's version of base64 with custom alphabet
-
 	ErrInvalidMsg = errors.New("invalid dns message")
 )
 
@@ -99,29 +99,20 @@ func StartDNSListener(bindIface string, lport uint16, domains []string, canaries
 // DNSSession - Holds DNS session information
 type DNSSession struct {
 	ID               uint32
-	Session          *core.Session
+	ImplanConn       *core.ImplantConnection
 	CipherCtx        *cryptography.CipherContext
 	pendingEnvelopes map[uint32]*PendingEnvelope
 	mutex            *sync.Mutex
 }
 
 // GetPendingEnvelope - Get a pending message linked list, creates one if it doesn't exist
-func (s *DNSSession) GetPendingEnvelope(dnsID uint32, size uint32) *PendingEnvelope {
+func (s *DNSSession) GetPendingEnvelope(msgID uint32, size uint32) *PendingEnvelope {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if pendingMsg, ok := s.pendingEnvelopes[dnsID]; ok {
+	if pendingMsg, ok := s.pendingEnvelopes[msgID]; ok {
 		return pendingMsg
 	}
 	linkedList := singlylinkedlist.New()
-	linkedList.Sort(func(left, right interface{}) int {
-		leftAssert := left.(*dnspb.DNSMessage)
-		rightAssert := right.(*dnspb.DNSMessage)
-		if leftAssert.Start > rightAssert.Start {
-			return 1
-		} else {
-			return -1
-		}
-	})
 	pendingMsg := &PendingEnvelope{
 		Size:     size,
 		received: uint32(0),
@@ -129,8 +120,47 @@ func (s *DNSSession) GetPendingEnvelope(dnsID uint32, size uint32) *PendingEnvel
 		mutex:    &sync.Mutex{},
 		complete: false,
 	}
-	s.pendingEnvelopes[dnsID] = pendingMsg
+	s.pendingEnvelopes[msgID] = pendingMsg
 	return pendingMsg
+}
+
+// ForwardCompletedEnvelope - Reassembles and forwards envelopes to core
+func (s *DNSSession) ForwardCompletedEnvelope(msgID uint32, pending *PendingEnvelope) {
+	dnsLog.Debugf("[dns] dns session id: %d, msg id: %d completed message", s.ID, msgID)
+	s.mutex.Lock()
+	delete(s.pendingEnvelopes, msgID) // Remove pending message
+	s.mutex.Unlock()
+	data, err := pending.Reassemble()
+	if err != nil {
+		dnsLog.Errorf("Failed to reassemble message %d: %s", msgID, err)
+		return
+	}
+	plaintext, err := s.CipherCtx.Decrypt(data)
+	if err != nil {
+		dnsLog.Errorf("Failed to decrypt message %d: %s", msgID, err)
+		return
+	}
+	envelope := &sliverpb.Envelope{}
+	err = proto.Unmarshal(plaintext, envelope)
+	if err != nil {
+		dnsLog.Errorf("Failed to unmarshal message %d: %s", msgID, err)
+		return
+	}
+
+	s.ImplanConn.UpdateLastMessage()
+	handlers := sliverHandlers.GetHandlers()
+	if envelope.ID != 0 {
+		s.ImplanConn.RespMutex.RLock()
+		defer s.ImplanConn.RespMutex.RUnlock()
+		if resp, ok := s.ImplanConn.Resp[envelope.ID]; ok {
+			resp <- envelope
+		}
+	} else if handler, ok := handlers[envelope.Type]; ok {
+		respEnvelope := handler(s.ImplanConn, envelope.Data)
+		if respEnvelope != nil {
+			s.ImplanConn.Send <- respEnvelope
+		}
+	}
 }
 
 // PendingEnvelope - Holds data related to a pending message
@@ -149,6 +179,15 @@ func (p *PendingEnvelope) Reassemble() ([]byte, error) {
 	if !p.complete {
 		return nil, errors.New("pending message not complete")
 	}
+	p.messages.Sort(func(left, right interface{}) int {
+		leftAssert := left.(*dnspb.DNSMessage)
+		rightAssert := right.(*dnspb.DNSMessage)
+		if leftAssert.Start > rightAssert.Start {
+			return 1
+		} else {
+			return -1
+		}
+	})
 	buffer := make([]byte, p.Size)
 	for _, msg := range p.messages.Values() {
 		msgAssert := msg.(*dnspb.DNSMessage)
@@ -168,21 +207,8 @@ func (p *PendingEnvelope) Insert(dnsMsg *dnspb.DNSMessage) bool {
 	if p.complete {
 		return false // Already complete
 	}
-	iter := p.messages.Iterator()
+	p.messages.Append(dnsMsg)
 	p.received += uint32(len(dnsMsg.Data))
-	wasInserted := false
-	for iter.Next() {
-		if iter.Value().(*dnspb.DNSMessage).Start > dnsMsg.Start {
-			dnsLog.Debugf("Inserting pending message at %d (start: %d)", iter.Index(), dnsMsg.Start)
-			p.messages.Insert(iter.Index(), dnsMsg)
-			wasInserted = true
-			break
-		}
-	}
-	if !wasInserted {
-		dnsLog.Debugf("Appending pending message (start: %d)", dnsMsg.Start)
-		p.messages.Append(dnsMsg)
-	}
 	p.complete = p.received >= p.Size
 	return p.complete
 }
@@ -419,6 +445,8 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 		dnsLog.Errorf("[session init] invalid session key: %s", err)
 		return s.refusedErrorResp(req)
 	}
+
+	dnsSession.ImplanConn = core.NewImplantConnection("dns", "n/a")
 	dnsSession.CipherCtx = cryptography.NewCipherContext(sessionKey)
 	buf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, dnsSession.ID)
@@ -453,11 +481,10 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 func (s *SliverDNSServer) handleDataFromImplant(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
-
 	pending := dnsSession.GetPendingEnvelope(msg.ID, msg.Size)
 	complete := pending.Insert(msg)
 	if complete {
-		// process complete envelope
+		go dnsSession.ForwardCompletedEnvelope(msg.ID, pending)
 	}
 
 	resp := new(dns.Msg)
@@ -475,7 +502,7 @@ func (s *SliverDNSServer) handleDataFromImplant(domain string, msg *dnspb.DNSMes
 			resp.Answer = append(resp.Answer, a)
 		}
 	}
-	return nil
+	return resp
 }
 
 func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {

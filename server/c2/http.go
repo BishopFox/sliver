@@ -535,10 +535,16 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 	plaintext, err := s.readReqBody(httpSession, resp, req)
 	if err != nil {
 		httpLog.Warnf("Failed to decode request body: %s", err)
+		s.defaultHandler(resp, req)
 		return
 	}
 	envelope := &sliverpb.Envelope{}
-	proto.Unmarshal(plaintext, envelope)
+	err = proto.Unmarshal(plaintext, envelope)
+	if err != nil {
+		httpLog.Warnf("Failed to decode request body: %s", err)
+		s.defaultHandler(resp, req)
+		return
+	}
 
 	resp.WriteHeader(http.StatusAccepted)
 	handlers := sliverHandlers.GetHandlers()
