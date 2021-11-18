@@ -30,7 +30,6 @@ import (
 
 	"github.com/bishopfox/sliver/implant/sliver/transports/dnsclient"
 	"github.com/bishopfox/sliver/protobuf/dnspb"
-	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/util/encoders"
 	"google.golang.org/protobuf/proto"
 )
@@ -71,7 +70,7 @@ func randomDNSMsgs(t *testing.T, parent string, maxSize int, encoder encoders.En
 		Type: dnspb.DNSMessageType_DATA_FROM_IMPLANT,
 		Size: uint32(len(testData)),
 	}
-	domains, err := client.SplitBuffer(msg, encoders.Base58{}, testData)
+	domains, err := client.SplitBuffer(msg, encoder, testData)
 	if err != nil {
 		t.Fatalf("failed to encode sample: %s", err)
 	}
@@ -94,19 +93,23 @@ func randomDNSMsgs(t *testing.T, parent string, maxSize int, encoder encoders.En
 }
 
 func TestPendingEnvelopes(t *testing.T) {
-
-	const smallSize = 256
-
-	// *** Example1 + Base58 ***
-	client := dnsclient.NewDNSClient(example1, timeout, retryWait)
-	dnsMsgs, original := randomDNSMsgs(t, example1, smallSize, encoders.Base58{}, client)
-	sessionKey, err := cryptography.KeyFromBytes(randomData(32))
-	if err != nil {
-		t.Fatalf("failed to generate session key: %s", err)
+	// *** Small ***
+	for i := 0; i < 10; i++ {
+		reassemble(t, example1, 256, encoders.Base58{})
+		reassemble(t, example1, 256, encoders.Base32{})
 	}
+	// *** Large ***
+	for i := 0; i < 10; i++ {
+		reassemble(t, example1, 10*1024, encoders.Base58{})
+		reassemble(t, example1, 10*1024, encoders.Base32{})
+	}
+}
+
+func reassemble(t *testing.T, parent string, size int, encoder encoders.Encoder) {
+	client := dnsclient.NewDNSClient(example1, timeout, retryWait)
+	dnsMsgs, original := randomDNSMsgs(t, example1, size, encoder, client)
 	dnsSession := DNSSession{
 		ID:               dnsSessionID(),
-		CipherCtx:        cryptography.NewCipherContext(sessionKey),
 		pendingEnvelopes: map[uint32]*PendingEnvelope{},
 		mutex:            &sync.Mutex{},
 	}
