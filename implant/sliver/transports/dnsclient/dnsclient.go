@@ -430,7 +430,6 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) (*pb.Envelope
 
 	wg := &sync.WaitGroup{}
 	results := make(chan *DNSResult, int(manifest.Size/bytesPerTxt)+1)
-
 	for index := uint32(0); index < manifest.Size; index += bytesPerTxt {
 		if manifest.Size < index {
 			index = manifest.Size
