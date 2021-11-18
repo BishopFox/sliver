@@ -109,15 +109,15 @@ func reassemble(t *testing.T, parent string, size int, encoder encoders.Encoder)
 	client := dnsclient.NewDNSClient(example1, timeout, retryWait)
 	dnsMsgs, original := randomDNSMsgs(t, example1, size, encoder, client)
 	dnsSession := DNSSession{
-		ID:               dnsSessionID(),
-		pendingEnvelopes: map[uint32]*PendingEnvelope{},
-		mutex:            &sync.Mutex{},
+		ID:                dnsSessionID(),
+		incomingEnvelopes: map[uint32]*PendingEnvelope{},
+		incomingMutex:     &sync.Mutex{},
 	}
 
 	// Re-assemble original message
 	var pending *PendingEnvelope
 	for _, dnsMsg := range dnsMsgs {
-		pending = dnsSession.GetPendingEnvelope(dnsMsg.ID, dnsMsg.Size)
+		pending = dnsSession.IncomingPendingEnvelope(dnsMsg.ID, dnsMsg.Size)
 		if pending == nil {
 			t.Fatal("GetPendingEnvelope returned nil")
 		}

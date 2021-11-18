@@ -7,6 +7,7 @@ enum DNSMessageType {
     TOTP = 1;
     INIT = 2;
     POLL = 3;
+    CLOSE = 4;
 
     MANIFEST = 6;
     DATA_TO_IMPLANT = 7;
