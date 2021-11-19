@@ -126,6 +126,7 @@ func (s *DNSSession) nextMsgID() uint32 {
 
 // StageOutgoingEnvelope - Stage an outgoing envelope
 func (s *DNSSession) StageOutgoingEnvelope(envelope *sliverpb.Envelope) error {
+	// dnsLog.Debugf("Staging outgoing envelope %v", envelope)
 	plaintext, err := proto.Marshal(envelope)
 	if err != nil {
 		return err
@@ -140,6 +141,7 @@ func (s *DNSSession) StageOutgoingEnvelope(envelope *sliverpb.Envelope) error {
 	msgID := s.nextMsgID()
 	s.outgoingMsgIDs = append(s.outgoingMsgIDs, msgID)
 	s.outgoingBuffers[msgID] = ciphertext
+	dnsLog.Debugf("Staged outgoing envelope successfully (%d bytes)", len(ciphertext))
 	return nil
 }
 
@@ -153,11 +155,11 @@ func (s *DNSSession) PopOutgoingMsgID() (uint32, uint32, error) {
 	}
 	msgID := s.outgoingMsgIDs[0]
 	s.outgoingMsgIDs = s.outgoingMsgIDs[1:]
-	buf, ok := s.outgoingBuffers[msgID]
+	ciphertext, ok := s.outgoingBuffers[msgID]
 	if !ok {
 		return 0, 0, errors.New("no buffer for msg id")
 	}
-	return msgID, uint32(len(buf)), nil
+	return msgID, uint32(len(ciphertext)), nil
 }
 
 // OutgoingRead - Read request from implant
@@ -215,6 +217,7 @@ func (s *DNSSession) ForwardCompletedEnvelope(msgID uint32, pending *PendingEnve
 		dnsLog.Errorf("Failed to reassemble message %d: %s", msgID, err)
 		return
 	}
+	// dnsLog.Debugf("[dns] decrypt: %v", data)
 	plaintext, err := s.CipherCtx.Decrypt(data)
 	if err != nil {
 		dnsLog.Errorf("Failed to decrypt message %d: %s", msgID, err)
@@ -538,6 +541,7 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 
 	dnsSession.ImplanConn = core.NewImplantConnection("dns", "n/a")
 	go func() {
+		dnsLog.Debugf("[dns] starting implant conn send loop")
 		for envelope := range dnsSession.ImplanConn.Send {
 			dnsSession.StageOutgoingEnvelope(envelope)
 		}
@@ -589,6 +593,7 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 	}
 	respData := []byte{}
 	if err == nil {
+		dnsLog.Debugf("[poll] manifest %d (%d bytes)", msgID, msgLen)
 		respData, _ = proto.Marshal(&dnspb.DNSMessage{
 			Type: dnspb.DNSMessageType_MANIFEST,
 			ID:   msgID,
@@ -625,6 +630,7 @@ func (s *SliverDNSServer) handleDataFromImplant(domain string, msg *dnspb.DNSMes
 	dnsLog.Debugf("[from implant] dns session id %d", msg.ID&sessionIDBitMask)
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
+	dnsLog.Debugf("[from implant] msg id: %d, size: %d", msg.ID, msg.Size)
 	pending := dnsSession.IncomingPendingEnvelope(msg.ID, msg.Size)
 	complete := pending.Insert(msg)
 	if complete {
@@ -661,13 +667,19 @@ func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessa
 		return s.refusedErrorResp(req)
 	}
 
+	respData, _ := proto.Marshal(&dnspb.DNSMessage{
+		// Type:  dnspb.DNSMessageType_DATA_TO_IMPLANT,
+		Start: msg.Start,
+		Data:  data,
+	})
+
 	resp := new(dns.Msg)
 	resp.SetReply(req)
 	resp.Authoritative = true
 	for _, q := range req.Question {
 		switch q.Qtype {
 		case dns.TypeTXT:
-			respTxt := string(implantBase64.Encode(data))
+			respTxt := string(implantBase64.Encode(respData))
 			txts := []string{}
 			for start, stop := 0, 0; stop < len(respTxt); start = stop {
 				stop += s.MaxTXTLength
