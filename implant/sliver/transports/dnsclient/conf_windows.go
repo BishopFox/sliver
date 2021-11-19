@@ -36,7 +36,6 @@ import (
 	"unsafe"
 
 	// {{if .Config.Debug}}
-	"fmt"
 	"log"
 	// {{end}}
 
