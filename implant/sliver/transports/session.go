@@ -586,6 +586,7 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 					if envelope != nil {
 						recv <- envelope
 					}
+					time.Sleep(time.Millisecond * 100)
 				case dnsclient.ErrTimeout:
 					errCount++
 					// {{if .Config.Debug}}

