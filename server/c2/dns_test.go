@@ -40,8 +40,12 @@ var (
 	example3  = "something-even-longer.example.computer."
 	c2Domains = []string{example1, example2, example3}
 
-	timeout   = time.Second * 5
-	retryWait = time.Second * 1
+	opts = &dnsclient.DNSOptions{
+		QueryTimeout:      time.Duration(time.Second * 3),
+		RetryWait:         time.Duration(time.Second * 3),
+		RetryCount:        1,
+		WokersPerResolver: 1,
+	}
 )
 
 func randomDataRandomSize(maxSize int) []byte {
@@ -106,7 +110,7 @@ func TestPendingEnvelopes(t *testing.T) {
 }
 
 func reassemble(t *testing.T, parent string, size int, encoder encoders.Encoder) {
-	client := dnsclient.NewDNSClient(example1, timeout, retryWait)
+	client := dnsclient.NewDNSClient(example1, opts)
 	dnsMsgs, original := randomDNSMsgs(t, example1, size, encoder, client)
 	dnsSession := DNSSession{
 		ID:                dnsSessionID(),

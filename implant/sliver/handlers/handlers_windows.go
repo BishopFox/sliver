@@ -93,7 +93,6 @@ var (
 		sliverpb.MsgMkdirReq:             mkdirHandler,
 		sliverpb.MsgExecuteReq:           executeHandler,
 		sliverpb.MsgReconnectIntervalReq: reconnectIntervalHandler,
-		sliverpb.MsgPollIntervalReq:      pollIntervalHandler,
 		sliverpb.MsgSSHCommandReq:        runSSHCommandHandler,
 
 		// Extensions

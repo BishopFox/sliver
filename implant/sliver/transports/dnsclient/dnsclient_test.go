@@ -45,8 +45,12 @@ var (
 	// Max NS subdomain + Max Domain + Max TLD = 153 chars
 	parentMax = fmt.Sprintf(".%s.%s.%s.", strings.Repeat("a", 63), strings.Repeat("b", 63), strings.Repeat("c", 24))
 
-	timeout   = time.Second * 5
-	retryWait = time.Second * 1
+	opts = &DNSOptions{
+		QueryTimeout:      time.Duration(time.Second * 3),
+		RetryWait:         time.Duration(time.Second * 3),
+		RetryCount:        1,
+		WokersPerResolver: 1,
+	}
 )
 
 func TestMain(m *testing.M) {
@@ -69,22 +73,22 @@ func randomData(size int) []byte {
 func TestSplitBufferBase58(t *testing.T) {
 
 	t.Logf("Testing with client1")
-	client1 := NewDNSClient(parent1, timeout, retryWait)
+	client1 := NewDNSClient(parent1, opts)
 	testData := randomData(2048)
 	clientSplitBuffer(t, client1, encoders.Base58{}, testData)
 
 	t.Logf("Testing with client2")
-	client2 := NewDNSClient(parent2, timeout, retryWait)
+	client2 := NewDNSClient(parent2, opts)
 	testData2 := randomData(2048)
 	clientSplitBuffer(t, client2, encoders.Base58{}, testData2)
 
 	t.Logf("Testing with client3")
-	client3 := NewDNSClient(parent3, timeout, retryWait)
+	client3 := NewDNSClient(parent3, opts)
 	testData3 := randomData(2048)
 	clientSplitBuffer(t, client3, encoders.Base58{}, testData3)
 
 	t.Logf("Testing with client max")
-	clientMax := NewDNSClient(parentMax, timeout, retryWait)
+	clientMax := NewDNSClient(parentMax, opts)
 	testDataMax := randomData(2048)
 	clientSplitBuffer(t, clientMax, encoders.Base58{}, testDataMax)
 
@@ -100,22 +104,22 @@ func TestSplitBufferBase58(t *testing.T) {
 func TestSplitBufferBase32(t *testing.T) {
 
 	t.Logf("Testing with client1")
-	client1 := NewDNSClient(parent1, timeout, retryWait)
+	client1 := NewDNSClient(parent1, opts)
 	testData := randomData(2048)
 	clientSplitBuffer(t, client1, encoders.Base32{}, testData)
 
 	t.Logf("Testing with client2")
-	client2 := NewDNSClient(parent2, timeout, retryWait)
+	client2 := NewDNSClient(parent2, opts)
 	testData2 := randomData(2048)
 	clientSplitBuffer(t, client2, encoders.Base32{}, testData2)
 
 	t.Logf("Testing with client3")
-	client3 := NewDNSClient(parent3, timeout, retryWait)
+	client3 := NewDNSClient(parent3, opts)
 	testData3 := randomData(2048)
 	clientSplitBuffer(t, client3, encoders.Base32{}, testData3)
 
 	t.Logf("Testing with client max")
-	clientMax := NewDNSClient(parentMax, timeout, retryWait)
+	clientMax := NewDNSClient(parentMax, opts)
 	testDataMax := randomData(2048)
 	clientSplitBuffer(t, clientMax, encoders.Base32{}, testDataMax)
 
@@ -185,7 +189,7 @@ func TestSubdataSpace(t *testing.T) {
 	//       parent |  subdata with '.'    | subdata without '.'
 	// 254 -   15   -  [64 - 64 - 64 - 47] = 63 + 63 + 63 + 46 (235)
 	// expected value is thus 235 (max chars without '.'), rounded down if applicable
-	client1 := NewDNSClient(parent1, timeout, retryWait)
+	client1 := NewDNSClient(parent1, opts)
 	if client1.subdataSpace != 235 {
 		t.Fatalf("Unexpected subdata space for parent %s: %d", parent1, client1.subdataSpace)
 	}
@@ -195,7 +199,7 @@ func TestSubdataSpace(t *testing.T) {
 	//       parent |  subdata with '.'    | subdata without '.'
 	// 254 -   30   -  [64 - 64 - 64 - 32] = 63 + 63 + 63 + 31 (220)
 	// expected value is thus 235 (max chars without '.'), rounded down if applicable
-	client2 := NewDNSClient(parent2, timeout, retryWait)
+	client2 := NewDNSClient(parent2, opts)
 	if client2.subdataSpace != 220 {
 		t.Fatalf("Unexpected subdata space for parent %s: %d", parent2, client2.subdataSpace)
 	}
@@ -205,7 +209,7 @@ func TestSubdataSpace(t *testing.T) {
 	//       parent |  subdata with '.'    | subdata without '.'
 	// 254 -   40   -  [64 - 64 - 64 - 22] = 63 + 63 + 63 + 21 (210)
 	// expected value is thus 235 (max chars without '.'), rounded down if applicable
-	client3 := NewDNSClient(parent3, timeout, retryWait)
+	client3 := NewDNSClient(parent3, opts)
 	if client3.subdataSpace != 210 {
 		t.Fatalf("Unexpected subdata space for parent %s: %d", parent3, client3.subdataSpace)
 	}
@@ -215,7 +219,7 @@ func TestSubdataSpace(t *testing.T) {
 	//       parent  |  subdata with '.'    | subdata without '.'
 	// 254 -   154   -  [64 - 36]           = 63 + 35 (98)
 	// expected value is thus 98 (max chars without '.'), rounded down if applicable
-	clientMax := NewDNSClient(parentMax, timeout, retryWait)
+	clientMax := NewDNSClient(parentMax, opts)
 	if clientMax.subdataSpace != 98 {
 		t.Fatalf("Unexpected subdata space for parent %s: %d", parentMax, clientMax.subdataSpace)
 	}
@@ -224,7 +228,7 @@ func TestSubdataSpace(t *testing.T) {
 func TestJoinSubdata(t *testing.T) {
 	subdata := strings.Repeat("1234567890", 9) // 90 chars
 
-	client1 := NewDNSClient(parent1, timeout, retryWait)
+	client1 := NewDNSClient(parent1, opts)
 	domain, err := client1.joinSubdataToParent(subdata)
 	if err != nil {
 		t.Fatalf("Error joining subdata to parent: %s", err)
@@ -233,7 +237,7 @@ func TestJoinSubdata(t *testing.T) {
 		t.Fatalf("Unexpected domain value: %s", domain)
 	}
 
-	client2 := NewDNSClient(parent2, timeout, retryWait)
+	client2 := NewDNSClient(parent2, opts)
 	domain, err = client2.joinSubdataToParent(subdata)
 	if err != nil {
 		t.Fatalf("Error joining subdata to parent: %s", err)
@@ -242,7 +246,7 @@ func TestJoinSubdata(t *testing.T) {
 		t.Fatalf("Unexpected domain value: %s", domain)
 	}
 
-	client3 := NewDNSClient(parent3, timeout, retryWait)
+	client3 := NewDNSClient(parent3, opts)
 	domain, err = client3.joinSubdataToParent(subdata)
 	if err != nil {
 		t.Fatalf("Error joining subdata to parent: %s", err)
@@ -251,7 +255,7 @@ func TestJoinSubdata(t *testing.T) {
 		t.Fatalf("Unexpected domain value: %s", domain)
 	}
 
-	clientMax := NewDNSClient(parentMax, timeout, retryWait)
+	clientMax := NewDNSClient(parentMax, opts)
 	domain, err = clientMax.joinSubdataToParent(subdata)
 	if err != nil {
 		t.Fatalf("Error joining subdata to parent: %s", err)

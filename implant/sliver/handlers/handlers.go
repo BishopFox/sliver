@@ -562,34 +562,6 @@ func reconnectIntervalHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func pollIntervalHandler(data []byte, resp RPCResponse) {
-	pollIntervalReq := &sliverpb.PollIntervalReq{}
-	err := proto.Unmarshal(data, pollIntervalReq)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("error decoding message: %v\n", err)
-		// {{end}}
-		return
-	}
-
-	pollInterval := pollIntervalReq.GetPollInterval()
-	// {{if .Config.Debug}}
-	log.Printf("Update poll interval called: %d\n", pollInterval)
-	// {{end}}
-
-	// Set the reconnect interval value
-	transports.SetPollTimeout(pollInterval)
-
-	pollIntervalResp := &sliverpb.PollInterval{}
-	pollIntervalResp.Response = &commonpb.Response{}
-	if err != nil {
-		pollIntervalResp.Response.Err = err.Error()
-	}
-
-	data, err = proto.Marshal(pollIntervalResp)
-	resp(data, err)
-}
-
 // ---------------- Data Encoders ----------------
 
 func gzipWrite(w io.Writer, data []byte) error {

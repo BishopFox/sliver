@@ -38,7 +38,6 @@ const (
 var (
 	maxErrors         = GetMaxConnectionErrors()
 	reconnectInterval = time.Duration(0)
-	pollTimeout       = time.Duration(0)
 
 	activeC2         string
 	activeConnection *Connection
@@ -150,28 +149,6 @@ func GetReconnectInterval() time.Duration {
 // SetReconnectInterval - Set the running reconnect interval
 func SetReconnectInterval(interval int64) {
 	reconnectInterval = time.Duration(interval)
-}
-
-// GetPollTimeout - Parse the poll interval inserted at compile-time
-func GetPollTimeout() time.Duration {
-	minTimeout := 5 * time.Second // Somewhat arbitrary minimum poll timeout
-	if pollTimeout == time.Duration(0) {
-		poll, err := strconv.ParseInt(`{{.Config.PollTimeout}}`, 10, 64)
-		if err != nil {
-			pollTimeout = minTimeout
-		} else {
-			pollTimeout = time.Duration(poll)
-		}
-	}
-	if pollTimeout < minTimeout {
-		return minTimeout
-	}
-	return pollTimeout
-}
-
-// SetPollTimeout - Set the running poll timeout
-func SetPollTimeout(timeout int64) {
-	pollTimeout = time.Duration(timeout)
 }
 
 func GetMaxConnectionErrors() int {

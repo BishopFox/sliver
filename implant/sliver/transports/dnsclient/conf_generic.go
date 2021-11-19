@@ -21,27 +21,11 @@ package dnsclient
 */
 
 import (
-	"strings"
-
 	"github.com/miekg/dns"
 )
-
-var (
-	forceResolvConf = ``
-)
-
-// {{if .Config.Debug}} - Unit tests only
-func SetForceResolvConf(conf string) {
-	forceResolvConf = conf
-}
-
-// {{end}}
 
 // dnsClientConfig - returns all DNS server addresses associated with the given address
 // on non-windows, we ignore the ip parameter because routing is not insane
 func dnsClientConfig() (*dns.ClientConfig, error) {
-	if 0 < len(forceResolvConf) {
-		return dns.ClientConfigFromReader(strings.NewReader(forceResolvConf))
-	}
 	return dns.ClientConfigFromFile("/etc/resolv.conf")
 }
