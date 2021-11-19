@@ -69,7 +69,6 @@ func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) *s
 	session.ActiveC2 = register.ActiveC2
 	session.Version = register.Version
 	session.ReconnectInterval = register.ReconnectInterval
-	session.PollTimeout = register.PollTimeout
 	session.ProxyURL = register.ProxyURL
 	session.ConfigID = register.ConfigID
 	core.Sessions.Add(session)

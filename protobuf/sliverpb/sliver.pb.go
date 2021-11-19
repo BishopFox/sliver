@@ -177,7 +177,6 @@ type Register struct {
 	Version           string `protobuf:"bytes,12,opt,name=Version,proto3" json:"Version,omitempty"`
 	ReconnectInterval int64  `protobuf:"varint,13,opt,name=ReconnectInterval,proto3" json:"ReconnectInterval,omitempty"`
 	ProxyURL          string `protobuf:"bytes,14,opt,name=ProxyURL,proto3" json:"ProxyURL,omitempty"`
-	PollTimeout       int64  `protobuf:"varint,15,opt,name=PollTimeout,proto3" json:"PollTimeout,omitempty"`
 	ConfigID          string `protobuf:"bytes,16,opt,name=ConfigID,proto3" json:"ConfigID,omitempty"`
 }
 
@@ -309,13 +308,6 @@ func (x *Register) GetProxyURL() string {
 		return x.ProxyURL
 	}
 	return ""
-}
-
-func (x *Register) GetPollTimeout() int64 {
-	if x != nil {
-		return x.PollTimeout
-	}
-	return 0
 }
 
 func (x *Register) GetConfigID() string {

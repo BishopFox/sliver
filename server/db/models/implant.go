@@ -87,7 +87,6 @@ type ImplantConfig struct {
 	Evasion             bool
 	ObfuscateSymbols    bool
 	ReconnectInterval   int64
-	PollTimeout         int64
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
 
@@ -158,7 +157,6 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		ObfuscateSymbols: ic.ObfuscateSymbols,
 
 		ReconnectInterval:   ic.ReconnectInterval,
-		PollTimeout:         ic.PollTimeout,
 		MaxConnectionErrors: ic.MaxConnectionErrors,
 		ConnectionStrategy:  ic.ConnectionStrategy,
 

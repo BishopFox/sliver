@@ -53,7 +53,6 @@ message Register {
   string Version = 12;
   int64 ReconnectInterval = 13;
   string ProxyURL = 14;
-  int64 PollTimeout = 15;
   string ConfigID = 16;
 }
 

@@ -292,6 +292,7 @@ func (p *PendingEnvelope) Insert(dnsMsg *dnspb.DNSMessage) bool {
 	}
 	p.messages.Append(dnsMsg)
 	p.received += uint32(len(dnsMsg.Data))
+	dnsLog.Debugf("[dns] msg id: %d, recv: %d of %d", dnsMsg.ID, p.received, p.Size)
 	p.complete = p.received >= p.Size
 	return p.complete
 }
