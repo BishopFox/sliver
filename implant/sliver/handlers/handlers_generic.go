@@ -45,7 +45,6 @@ var (
 		sliverpb.MsgEnvReq:               getEnvHandler,
 		sliverpb.MsgUnsetEnvReq:          unsetEnvHandler,
 		sliverpb.MsgReconnectIntervalReq: reconnectIntervalHandler,
-		sliverpb.MsgPollIntervalReq:      pollIntervalHandler,
 	}
 )
 

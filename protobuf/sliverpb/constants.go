@@ -234,9 +234,6 @@ const (
 	// MsgReconnectInterval - Set reconnect interval
 	MsgReconnectInterval
 
-	// MsgPollIntervalReq
-	MsgPollIntervalReq
-
 	// MsgPollInterval - Set poll interval
 	MsgPollInterval
 
@@ -484,9 +481,6 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *ReconnectInterval:
 		return MsgReconnectInterval
-
-	case *PollIntervalReq:
-		return MsgPollIntervalReq
 
 	case *PollInterval:
 		return MsgPollInterval

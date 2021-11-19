@@ -50,7 +50,6 @@ var (
 		pb.MsgSideloadReq: sideloadHandler,
 
 		sliverpb.MsgReconnectIntervalReq: reconnectIntervalHandler,
-		sliverpb.MsgPollIntervalReq:      pollIntervalHandler,
 		sliverpb.MsgSSHCommandReq:        runSSHCommandHandler,
 
 		// Extensions
