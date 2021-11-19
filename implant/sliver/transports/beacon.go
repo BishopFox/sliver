@@ -33,7 +33,6 @@ import (
 	// {{if .Config.MTLSc2Enabled}}
 	"crypto/tls"
 
-	"github.com/bishopfox/sliver/implant/sliver/transports/dnsclient"
 	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
 
 	// {{end}}
@@ -49,6 +48,11 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/transports/wireguard"
 	"golang.zx2c4.com/wireguard/device"
 
+	// {{end}}
+
+	// {{if .Config.DNSc2Enabled}}
+
+	"github.com/bishopfox/sliver/implant/sliver/transports/dnsclient"
 	// {{end}}
 
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"

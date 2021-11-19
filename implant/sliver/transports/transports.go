@@ -146,11 +146,12 @@ func GetReconnectInterval() time.Duration {
 	return reconnectInterval
 }
 
-// SetReconnectInterval - Set the running reconnect interval
+// SetReconnectInterval - Runtime set the running reconnect interval
 func SetReconnectInterval(interval int64) {
 	reconnectInterval = time.Duration(interval)
 }
 
+// GetMaxConnectionErrors - Parse the max connection errors inserted at compile-time
 func GetMaxConnectionErrors() int {
 	maxConnectionErrors, err := strconv.Atoi(`{{.Config.MaxConnectionErrors}}`)
 	if err != nil {

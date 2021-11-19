@@ -604,7 +604,6 @@ func RegisterSliver() *sliverpb.Register {
 		ActiveC2:          transports.GetActiveC2(),
 		ReconnectInterval: int64(transports.GetReconnectInterval()),
 		ProxyURL:          transports.GetProxyURL(),
-		PollTimeout:       int64(transports.GetPollTimeout()),
 		ConfigID:          "{{ .Config.ID }}",
 	}
 }

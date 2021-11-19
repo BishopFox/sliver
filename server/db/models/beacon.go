@@ -51,7 +51,6 @@ type Beacon struct {
 	Version           string
 	ReconnectInterval int64
 	ProxyURL          string
-	PollTimeout       int64
 
 	ImplantBuildID uuid.UUID `gorm:"type:uuid;"`
 

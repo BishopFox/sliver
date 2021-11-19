@@ -76,7 +76,6 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) *sl
 	beacon.Version = beaconReg.Register.Version
 	beacon.ReconnectInterval = beaconReg.Register.ReconnectInterval
 	beacon.ProxyURL = beaconReg.Register.ProxyURL
-	beacon.PollTimeout = beaconReg.Register.PollTimeout
 	// beacon.ConfigID = uuid.FromStringOrNil(beaconReg.Register.ConfigID)
 
 	beacon.Interval = beaconReg.Interval
