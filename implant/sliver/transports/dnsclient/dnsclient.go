@@ -418,7 +418,7 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 }
 
 // Close - Close the dns session
-func (s *SliverDNSClient) Close() error {
+func (s *SliverDNSClient) CloseSession() error {
 	s.closed = true
 	for _, worker := range s.workerPool {
 		worker.Ctrl <- struct{}{}
