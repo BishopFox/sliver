@@ -19,15 +19,15 @@ package reaction
 */
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
-	"text/tabwriter"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // ReactionCmd - Manage reactions to events
@@ -36,6 +36,9 @@ func ReactionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	for _, eventType := range core.ReactableEvents {
 		reactions := core.Reactions.On(eventType)
 		if 0 < len(reactions) {
+			if totalReactions != 0 {
+				con.Printf("\n") // Add newline between each table after the first
+			}
 			displayReactionsTable(eventType, reactions, con)
 		}
 		totalReactions += len(reactions)
@@ -46,25 +49,25 @@ func ReactionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 func displayReactionsTable(eventType string, reactions []core.Reaction, con *console.SliverConsoleClient) {
-
-	// Title
-	con.Printf("%s%s%s\n", console.Bold, EventTypeToTitle(eventType), console.Normal)
-
-	// Table
-	outputBuf := bytes.NewBufferString("")
-	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
-	fmt.Fprintf(table, "ID\tCommands\t\n")
-	fmt.Fprintf(table, "%s\t%s\t\n",
-		strings.Repeat("=", len("ID")),
-		strings.Repeat("=", len("Commands")),
-	)
-	for _, react := range reactions {
-		fmt.Fprintf(table, "%d\t%s\t\n",
-			react.ID, strings.Join(react.Commands, ","),
-		)
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.SetTitle(fmt.Sprintf(console.Bold+"%s"+console.Normal, EventTypeToTitle(eventType)))
+	tw.AppendSeparator()
+	slackSpace := len(EventTypeToTitle(eventType)) - len("Commands") - len("ID") - 3
+	if slackSpace < 0 {
+		slackSpace = 1
 	}
-	table.Flush()
-	con.Printf("%s", outputBuf.String())
+	tw.AppendHeader(table.Row{
+		"ID",
+		"Commands" + strings.Repeat(" ", slackSpace), // Leave space for title
+	})
+	for _, react := range reactions {
+		tw.AppendRow(table.Row{
+			react.ID,
+			strings.Join(react.Commands, ","),
+		})
+	}
+	con.Printf("%s\n", tw.Render())
 }
 
 // EventTypeToTitle - Convert an eventType to a more human friendly string
@@ -77,6 +80,9 @@ func EventTypeToTitle(eventType string) string {
 		return "Session Closed"
 	case consts.SessionUpdateEvent:
 		return "Session Updated"
+
+	case consts.BeaconRegisteredEvent:
+		return "Beacon Registered"
 
 	case consts.CanaryEvent:
 		return "Canary Trigger"

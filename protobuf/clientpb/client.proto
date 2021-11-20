@@ -41,7 +41,6 @@ message Session {
   bool IsDead = 18;
   int64 ReconnectInterval = 19;
   string ProxyURL = 20;
-  int64 PollTimeout = 21;
   bool Burned = 22;
   repeated string Extensions = 23;
   // string ConfigID = 24;

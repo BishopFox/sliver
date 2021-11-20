@@ -118,7 +118,6 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		IsDead:            s.IsDead(),
 		ReconnectInterval: s.ReconnectInterval,
 		ProxyURL:          s.ProxyURL,
-		PollTimeout:       s.PollTimeout,
 		Burned:            s.Burned,
 		// ConfigID:          s.ConfigID,
 	}

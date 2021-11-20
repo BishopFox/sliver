@@ -58,17 +58,21 @@ import (
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
+type BeaconInit func() error
 type BeaconStart func() error
 type BeaconRecv func() (*pb.Envelope, error)
 type BeaconSend func(*pb.Envelope) error
 type BeaconClose func() error
+type BeaconCleanup func() error
 
 // Beacon - Abstract connection to the server
 type Beacon struct {
-	Start BeaconStart
-	Send  BeaconSend
-	Recv  BeaconRecv
-	Close BeaconClose
+	Init    BeaconInit
+	Start   BeaconStart
+	Send    BeaconSend
+	Recv    BeaconRecv
+	Close   BeaconClose
+	Cleanup BeaconCleanup
 }
 
 // Interval - Interval between beacons
@@ -190,6 +194,9 @@ func mtlsBeacon(uri *url.URL) *Beacon {
 
 	var conn *tls.Conn
 	beacon := &Beacon{
+		Init: func() error {
+			return nil
+		},
 		Start: func() error {
 			conn, err = mtls.MtlsConnect(uri.Hostname(), uint16(lport))
 			if err != nil {
@@ -209,6 +216,9 @@ func mtlsBeacon(uri *url.URL) *Beacon {
 				return err
 			}
 			conn = nil
+			return nil
+		},
+		Cleanup: func() error {
 			return nil
 		},
 	}
@@ -231,6 +241,9 @@ func wgBeacon(uri *url.URL) *Beacon {
 	var conn net.Conn
 	var dev *device.Device
 	beacon := &Beacon{
+		Init: func() error {
+			return nil
+		},
 		Start: func() error {
 			addrs, err := net.LookupHost(uri.Hostname())
 			if err != nil {
@@ -265,6 +278,9 @@ func wgBeacon(uri *url.URL) *Beacon {
 			dev = nil
 			return nil
 		},
+		Cleanup: func() error {
+			return nil
+		},
 	}
 	return beacon
 }
@@ -281,7 +297,7 @@ func httpBeacon(uri *url.URL) *Beacon {
 	var client *httpclient.SliverHTTPClient
 	var err error
 	beacon := &Beacon{
-		Start: func() error {
+		Init: func() error {
 			opts := httpclient.ParseHTTPOptions(uri)
 			client, err = httpclient.HTTPStartSession(uri.Host, uri.Path, opts)
 			if err != nil {
@@ -293,6 +309,9 @@ func httpBeacon(uri *url.URL) *Beacon {
 			proxyURL = client.ProxyURL
 			return nil
 		},
+		Start: func() error {
+			return nil
+		},
 		Recv: func() (*pb.Envelope, error) {
 			return client.ReadEnvelope()
 		},
@@ -300,6 +319,9 @@ func httpBeacon(uri *url.URL) *Beacon {
 			return client.WriteEnvelope(envelope)
 		},
 		Close: func() error {
+			return nil
+		},
+		Cleanup: func() error {
 			return client.CloseSession()
 		},
 	}
@@ -314,7 +336,7 @@ func dnsBeacon(uri *url.URL) *Beacon {
 	var client *dnsclient.SliverDNSClient
 	var err error
 	beacon := &Beacon{
-		Start: func() error {
+		Init: func() error {
 			opts := dnsclient.ParseDNSOptions(uri)
 			client, err = dnsclient.DNSStartSession(uri.Host, opts)
 			if err != nil {
@@ -325,6 +347,9 @@ func dnsBeacon(uri *url.URL) *Beacon {
 			}
 			return nil
 		},
+		Start: func() error {
+			return nil
+		},
 		Recv: func() (*pb.Envelope, error) {
 			return client.ReadEnvelope()
 		},
@@ -332,6 +357,9 @@ func dnsBeacon(uri *url.URL) *Beacon {
 			return client.WriteEnvelope(envelope)
 		},
 		Close: func() error {
+			return nil
+		},
+		Cleanup: func() error {
 			return client.CloseSession()
 		},
 	}

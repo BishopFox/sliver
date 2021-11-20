@@ -40,7 +40,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"time"
 
@@ -250,13 +250,24 @@ func (con *SliverConsoleClient) triggerReactions(event *clientpb.Event) {
 
 	// We need some special handling for SessionOpenedEvent to
 	// set the new session as the active session
-	currentActiveSession := con.ActiveTarget.GetSession()
-	if currentActiveSession != nil {
-		defer con.ActiveTarget.Set(currentActiveSession, nil)
+	currentActiveSession, currentActiveBeacon := con.ActiveTarget.Get()
+	log.Printf("reactions starting, save active targets: %v %v",
+		currentActiveSession, currentActiveBeacon)
+	if currentActiveSession != nil || currentActiveBeacon != nil {
+		defer func() {
+			log.Printf("reactions complete, revert active targets: %v %v",
+				currentActiveSession, currentActiveBeacon)
+			con.ActiveTarget.Set(currentActiveSession, currentActiveBeacon)
+		}()
 	}
+
 	con.ActiveTarget.Set(nil, nil)
 	if event.EventType == consts.SessionOpenedEvent {
 		con.ActiveTarget.Set(event.Session, nil)
+	} else if event.EventType == consts.BeaconRegisteredEvent {
+		beacon := &clientpb.Beacon{}
+		proto.Unmarshal(event.Data, beacon)
+		con.ActiveTarget.Set(nil, beacon)
 	}
 
 	for _, reaction := range reactions {
@@ -518,6 +529,11 @@ func (s *ActiveTarget) GetInteractive() (*clientpb.Session, *clientpb.Beacon) {
 	return s.session, s.beacon
 }
 
+// GetSessionInteractive - Get the active target(s)
+func (s *ActiveTarget) Get() (*clientpb.Session, *clientpb.Beacon) {
+	return s.session, s.beacon
+}
+
 // GetSessionInteractive - GetSessionInteractive the active session
 func (s *ActiveTarget) GetSessionInteractive() *clientpb.Session {
 	if s.session == nil {
@@ -548,10 +564,7 @@ func (s *ActiveTarget) GetBeacon() *clientpb.Beacon {
 
 // IsSession - Is the current target a session?
 func (s *ActiveTarget) IsSession() bool {
-	if s.session != nil {
-		return true
-	}
-	return false
+	return s.session != nil
 }
 
 // AddObserver - Observers to notify when the active session changes
