@@ -3,6 +3,8 @@ package forwarder
 // {{if .Config.WGc2Enabled}}
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net"
 
 	"github.com/bishopfox/sliver/implant/sliver/netstack"
@@ -39,11 +41,10 @@ func (s *WGSocksServer) LocalAddr() string {
 }
 
 func (s *WGSocksServer) Start() error {
-	config := &socks5.Config{}
-	server, err := socks5.New(config)
-	if err != nil {
-		return err
-	}
+	var err error
+	server := socks5.NewServer(
+		socks5.WithLogger(socks5.NewLogger(log.New(ioutil.Discard, "", log.LstdFlags))),
+	)
 	select {
 	case <-s.done:
 		return nil

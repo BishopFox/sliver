@@ -387,9 +387,14 @@ func socksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 			socksData.Username: socksData.Password,
 		}
 		auth := socks5.UserPassAuthenticator{Credentials: cred}
-		server, _ = socks5.New(&socks5.Config{AuthMethods: []socks5.Authenticator{auth}, Logger: log.New(ioutil.Discard, "", log.Ltime|log.Lshortfile)})
+		socks5.NewServer(
+			socks5.WithAuthMethods([]socks5.Authenticator{auth}),
+			socks5.WithLogger(socks5.NewLogger(log.New(ioutil.Discard, "", log.LstdFlags))),
+		)
 	} else {
-		server, _ = socks5.New(&socks5.Config{Logger: log.New(ioutil.Discard, "", log.Ltime|log.Lshortfile)})
+		socks5.NewServer(
+			socks5.WithLogger(socks5.NewLogger(log.New(ioutil.Discard, "", log.LstdFlags))),
+		)
 	}
 
 	// init tunnel
