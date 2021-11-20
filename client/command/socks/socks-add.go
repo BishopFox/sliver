@@ -19,6 +19,8 @@ package socks
 */
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"time"
@@ -49,15 +51,12 @@ func SocksAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if err != nil {
 		return
 	}
-	password := ctx.Flags.String("password")
-	if err != nil {
-		return
-	}
-
-	if username != "" || password != "" {
+	password := ""
+	if username != "" {
 		con.PrintWarnf("SOCKS proxy authentication credentials are tunneled to the implant\n")
 		con.PrintWarnf("These credentials are recoverable from the implant's memory!\n")
 		settings.IsUserAnAdult(con)
+		password = randomPassword()
 	}
 
 	channelProxy := &core.TcpProxy{
@@ -76,4 +75,10 @@ func SocksAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}(core.SocksProxies.Add(channelProxy).ChannelProxy)
 	con.PrintInfof("Started SOCKS5 %s %s %s %s\n", host, port, username, password)
 	con.PrintWarnf("In-band SOCKS proxies can be a little unstable depending on protocol\n")
+}
+
+func randomPassword() string {
+	buf := make([]byte, 16)
+	rand.Read(buf)
+	return base64.RawStdEncoding.EncodeToString(buf)
 }

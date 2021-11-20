@@ -2312,8 +2312,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("H", "host", "127.0.0.1", "Bind a Socks5 Host")
 			f.String("P", "port", "1081", "Bind a Socks5 Port")
-			f.String("u", "user", "", "socks5 auth user")
-			f.String("p", "password", "", "socks5 auth pass")
+			f.String("u", "user", "", "socks5 auth username (will generate random password)")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
