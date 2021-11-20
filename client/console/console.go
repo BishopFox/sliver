@@ -27,6 +27,7 @@ import (
 	"log"
 	insecureRand "math/rand"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -166,7 +167,7 @@ func (con *SliverConsoleClient) EventLoop() {
 			eventMsg := fmt.Sprintf(Bold+"WARNING: %s%s has been burned (DNS Canary)\n", Normal, event.Session.Name)
 			sessions := con.GetSessionsByName(event.Session.Name)
 			for _, session := range sessions {
-				con.Printf(eventMsg+"\n"+Clearln+"\t🔥 Session #%d is affected\n", session.ID)
+				con.PrintEventErrorf(eventMsg+"\n"+Clearln+"\t🔥 Session #%d is affected\n", session.ID)
 			}
 
 		case consts.WatchtowerEvent:
@@ -251,15 +252,9 @@ func (con *SliverConsoleClient) triggerReactions(event *clientpb.Event) {
 	// We need some special handling for SessionOpenedEvent to
 	// set the new session as the active session
 	currentActiveSession, currentActiveBeacon := con.ActiveTarget.Get()
-	log.Printf("reactions starting, save active targets: %v %v",
-		currentActiveSession, currentActiveBeacon)
-	if currentActiveSession != nil || currentActiveBeacon != nil {
-		defer func() {
-			log.Printf("reactions complete, revert active targets: %v %v",
-				currentActiveSession, currentActiveBeacon)
-			con.ActiveTarget.Set(currentActiveSession, currentActiveBeacon)
-		}()
-	}
+	defer func() {
+		con.ActiveTarget.Set(currentActiveSession, currentActiveBeacon)
+	}()
 
 	con.ActiveTarget.Set(nil, nil)
 	if event.EventType == consts.SessionOpenedEvent {
@@ -388,7 +383,7 @@ func (con *SliverConsoleClient) CheckLastUpdate() {
 
 func getLastUpdateCheck() *time.Time {
 	appDir := assets.GetRootAppDir()
-	lastUpdateCheckPath := path.Join(appDir, consts.LastUpdateCheckFileName)
+	lastUpdateCheckPath := filepath.Join(appDir, consts.LastUpdateCheckFileName)
 	data, err := ioutil.ReadFile(lastUpdateCheckPath)
 	if err != nil {
 		log.Printf("Failed to read last update check %s", err)
@@ -407,7 +402,7 @@ func getLastUpdateCheck() *time.Time {
 func (con *SliverConsoleClient) GetSession(arg string) *clientpb.Session {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(Warn+"%s\n", err)
+		con.PrintWarnf("%s\n", err)
 		return nil
 	}
 	for _, session := range sessions.GetSessions() {
@@ -455,11 +450,9 @@ func (con *SliverConsoleClient) GetActiveSessionConfig() *clientpb.ImplantConfig
 
 		MaxConnectionErrors: uint32(1000),
 		ReconnectInterval:   int64(60),
-		PollTimeout:         int64(1),
-
-		Format:      clientpb.OutputFormat_SHELLCODE,
-		IsSharedLib: true,
-		C2:          c2s,
+		Format:              clientpb.OutputFormat_SHELLCODE,
+		IsSharedLib:         true,
+		C2:                  c2s,
 	}
 	return config
 }
@@ -601,6 +594,15 @@ func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
 	if session != nil && beacon != nil {
 		panic("cannot set both an active beacon and an active session")
 	}
+	if session == nil && beacon == nil {
+		s.session = nil
+		s.beacon = nil
+		for _, observer := range s.observers {
+			observer(s.session, s.beacon)
+		}
+		return
+	}
+
 	if session != nil {
 		s.session = session
 		s.beacon = nil
