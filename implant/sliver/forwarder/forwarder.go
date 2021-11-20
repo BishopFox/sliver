@@ -43,8 +43,8 @@ func RemoveSocksServer(id int) {
 }
 
 func init() {
-	tcpForwarders = make(map[int]*WGTCPForwarder, 0)
-	socksServers = make(map[int]*WGSocksServer, 0)
+	tcpForwarders = make(map[int]*WGTCPForwarder)
+	socksServers = make(map[int]*WGSocksServer)
 }
 
 // {{end}}

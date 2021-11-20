@@ -20,4 +20,5 @@ require (
 	golang.zx2c4.com/wireguard/windows v0.5.1
 	google.golang.org/protobuf v1.23.0
 	inet.af/netstack v0.0.0-20210317161235-a1bf4e56ef22
+	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
 )

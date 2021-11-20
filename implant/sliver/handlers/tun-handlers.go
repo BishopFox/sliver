@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"sync"
 	"time"
@@ -34,10 +33,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/things-go/go-socks5"
 	"google.golang.org/protobuf/proto"
-)
-
-const (
-	readBufSize = 1024
 )
 
 var (
@@ -75,9 +70,7 @@ func tunnelCloseHandler(envelope *sliverpb.Envelope, connection *transports.Conn
 		connection.RemoveTunnel(tunnel.ID)
 		tunnel.Reader.Close()
 		tunnel.Writer.Close()
-		if _, ok := tunnelDataCache[tunnel.ID]; ok {
-			delete(tunnelDataCache, tunnel.ID)
-		}
+		delete(tunnelDataCache, tunnel.ID)
 	}
 }
 
@@ -365,8 +358,9 @@ var socksTunnels = socksTunnelPool{
 	Sequence:   map[uint64]uint64{},
 }
 
+var socksServer *socks5.Server
+
 func socksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
-	var server = &socks5.Server{}
 	socksData := &sliverpb.SocksData{}
 	err := proto.Unmarshal(envelope.Data, socksData)
 	if err != nil {
@@ -382,26 +376,28 @@ func socksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	log.Printf("[socks] User to Client to (server to implant) Data Sequence %d, Data Size %d\n", socksData.Sequence, len(socksData.Data))
 	// {{end}}
 
-	if socksData.Username != "" && socksData.Password != "" {
-		cred := socks5.StaticCredentials{
-			socksData.Username: socksData.Password,
-		}
-		auth := socks5.UserPassAuthenticator{Credentials: cred}
-		socks5.NewServer(
-			socks5.WithAuthMethods([]socks5.Authenticator{auth}),
-			socks5.WithLogger(socks5.NewLogger(log.New(ioutil.Discard, "", log.LstdFlags))),
-		)
-	} else {
-		socks5.NewServer(
-			socks5.WithLogger(socks5.NewLogger(log.New(ioutil.Discard, "", log.LstdFlags))),
-		)
-	}
+	// if socksData.Username != "" && socksData.Password != "" {
+	// 	cred := socks5.StaticCredentials{
+	// 		socksData.Username: socksData.Password,
+	// 	}
+	// 	auth := socks5.UserPassAuthenticator{Credentials: cred}
+	// 	socksServer = socks5.NewServer(
+	// 		socks5.WithAuthMethods([]socks5.Authenticator{auth}),
+
+	// 	)
+	// } else {
+	socksServer = socks5.NewServer()
+	//}
+
+	// {{if .Config.Debug}}
+	log.Printf("[socks] Server: %v", socksServer)
+	// {{end}}
 
 	// init tunnel
 	if _, ok := socksTunnels.tunnels[socksData.TunnelID]; !ok {
 		socksTunnels.tunnels[socksData.TunnelID] = make(chan []byte, 10)
 		socksTunnels.tunnels[socksData.TunnelID] <- socksData.Data
-		err := server.ServeConn(&socks{stream: socksData, conn: connection})
+		err := socksServer.ServeConn(&socks{stream: socksData, conn: connection})
 		if err != nil {
 			return
 		}
@@ -426,6 +422,7 @@ func (s *socks) Read(b []byte) (n int, err error) {
 	data := <-channel
 	return copy(b, data), nil
 }
+
 func (s *socks) Write(b []byte) (n int, err error) {
 	socksTunnels.writeMutex.Lock()
 	data, err := proto.Marshal(&sliverpb.SocksData{
@@ -437,7 +434,7 @@ func (s *socks) Write(b []byte) (n int, err error) {
 		return 0, err
 	}
 	// {{if .Config.Debug}}
-	log.Printf("[socks] (agent to Server) to Client to User   Data Sequence %d , Data Size %d Data %v\n", s.Sequence, len(b), b)
+	log.Printf("[socks] (implant to Server) to Client to User Data Sequence %d, Data Size %d Data %v\n", s.Sequence, len(b), b)
 	// {{end}}
 	s.conn.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgSocksData,
@@ -470,7 +467,10 @@ func (c *socks) LocalAddr() net.Addr {
 }
 
 func (c *socks) RemoteAddr() net.Addr {
-	return nil
+	return &net.IPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Zone: "",
+	}
 }
 
 // TODO impl

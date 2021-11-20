@@ -61,7 +61,7 @@ require (
 require (
 	github.com/emirpasic/gods v1.12.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
-	github.com/things-go/go-socks5 v0.0.2
+	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
 )
 
 require (

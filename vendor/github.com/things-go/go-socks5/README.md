@@ -2,7 +2,6 @@
 
 [![GoDoc](https://godoc.org/github.com/things-go/go-socks5?status.svg)](https://godoc.org/github.com/things-go/go-socks5)
 [![Go.Dev reference](https://img.shields.io/badge/go.dev-reference-blue?logo=go&logoColor=white)](https://pkg.go.dev/github.com/things-go/go-socks5?tab=doc)
-[![Build Status](https://travis-ci.com/things-go/go-socks5.svg?branch=master)](https://travis-ci.com/things-go/go-socks5)
 ![Action Status](https://github.com/things-go/go-socks5/workflows/Go/badge.svg)
 [![codecov](https://codecov.io/gh/things-go/go-socks5/branch/master/graph/badge.svg)](https://codecov.io/gh/things-go/go-socks5)
 [![Go Report Card](https://goreportcard.com/badge/github.com/things-go/go-socks5)](https://goreportcard.com/report/github.com/things-go/go-socks5)
