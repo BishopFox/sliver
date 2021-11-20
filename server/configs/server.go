@@ -257,6 +257,7 @@ func GetServerConfig() *ServerConfig {
 	if 6 < config.Logs.Level {
 		config.Logs.Level = 6
 	}
+	log.RootLogger.SetLevel(log.LevelFrom(config.Logs.Level))
 
 	err := config.Save() // This updates the config with any missing fields
 	if err != nil {

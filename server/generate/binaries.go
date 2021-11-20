@@ -241,7 +241,7 @@ func GetSliversDir() string {
 	appDir := assets.GetRootAppDir()
 	sliversDir := path.Join(appDir, sliversDirName)
 	if _, err := os.Stat(sliversDir); os.IsNotExist(err) {
-		buildLog.Infof("Creating bin directory: %s", sliversDir)
+		buildLog.Debugf("Creating bin directory: %s", sliversDir)
 		err = os.MkdirAll(sliversDir, 0700)
 		if err != nil {
 			buildLog.Fatal(err)
@@ -265,7 +265,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 	// Don't use a cross-compiler if the target bin is built on the same platform
 	// as the sliver-server.
 	if runtime.GOOS != config.GOOS {
-		buildLog.Infof("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
+		buildLog.Debugf("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
 		cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
 		if cc == "" {
 			return "", fmt.Errorf("CC '%s/%s' not found", config.GOOS, config.GOARCH)
@@ -335,7 +335,7 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 	// Don't use a cross-compiler if the target bin is built on the same platform
 	// as the sliver-server.
 	if runtime.GOOS != config.GOOS {
-		buildLog.Infof("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
+		buildLog.Debugf("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
 		cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
 		if cc == "" {
 			return "", fmt.Errorf("CC '%s/%s' not found", config.GOOS, config.GOARCH)
@@ -458,7 +458,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		return "", fmt.Errorf("Invalid compiler target: %s", target)
 	}
 
-	buildLog.Infof("Generating new sliver binary '%s'", name)
+	buildLog.Debugf("Generating new sliver binary '%s'", name)
 
 	config.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, config.C2)
 	config.WGc2Enabled = isC2Enabled([]string{"wg"}, config.C2)
@@ -570,7 +570,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		}
 		dirPath := path.Dir(sliverCodePath)
 		if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-			buildLog.Infof("[mkdir] %#v", dirPath)
+			buildLog.Debugf("[mkdir] %#v", dirPath)
 			err = os.MkdirAll(dirPath, 0700)
 			if err != nil {
 				return err
@@ -581,7 +581,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 			return err
 		}
 		buf := bytes.NewBuffer([]byte{})
-		buildLog.Infof("[render] %s -> %s", f.Name(), sliverCodePath)
+		buildLog.Debugf("[render] %s -> %s", f.Name(), sliverCodePath)
 
 		// --------------
 		// Render Code
@@ -613,7 +613,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		}
 
 		// Render canaries
-		buildLog.Infof("Canary domain(s): %v", config.CanaryDomains)
+		buildLog.Debugf("Canary domain(s): %v", config.CanaryDomains)
 		canaryTmpl := template.New("canary").Delims("[[", "]]")
 		canaryGenerator := &CanaryGenerator{
 			ImplantName:   name,
@@ -628,7 +628,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		err = canaryTmpl.Execute(fSliver, canaryGenerator)
 
 		if err != nil {
-			buildLog.Infof("Failed to render go code: %s", err)
+			buildLog.Debugf("Failed to render go code: %s", err)
 			return err
 		}
 		return nil
@@ -649,7 +649,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	if err != nil {
 		return "", err
 	}
-	buildLog.Infof("Created %s", goModPath)
+	buildLog.Debugf("Created %s", goModPath)
 	output, err := gogo.GoMod((*goConfig), sliverPkgDir, []string{"tidy"})
 	if err != nil {
 		buildLog.Errorf("Go mod tidy failed:\n%s", output)
@@ -722,8 +722,8 @@ func findCrossCompilers(targetGoos string, targetGoarch string) (string, string)
 		buildLog.Warnf("CXX path '%s' does not exist", cxx)
 		cxx = "" // Path does not exist
 	}
-	buildLog.Infof(" CC = '%s'", cc)
-	buildLog.Infof("CXX = '%s'", cxx)
+	buildLog.Debugf(" CC = '%s'", cc)
+	buildLog.Debugf("CXX = '%s'", cxx)
 	return cc, cxx
 }
 
@@ -853,12 +853,12 @@ func GetUnsupportedTargets() []*clientpb.CompilerTarget {
 func getGoProxy() string {
 	serverConfig := configs.GetServerConfig()
 	if serverConfig.GoProxy != "" {
-		buildLog.Infof("Using GOPROXY from server config = %s", serverConfig.GoProxy)
+		buildLog.Debugf("Using GOPROXY from server config = %s", serverConfig.GoProxy)
 		return serverConfig.GoProxy
 	}
 	value, present := os.LookupEnv("GOPROXY")
 	if present {
-		buildLog.Infof("Using GOPROXY from env: %s", value)
+		buildLog.Debugf("Using GOPROXY from env: %s", value)
 		return value
 	}
 	buildLog.Debugf("No GOPROXY found")

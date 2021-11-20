@@ -140,7 +140,7 @@ func NewTxtHook(name string) *TxtHook {
 // Fire - Implements the fire method of the Logrus hook
 func (hook *TxtHook) Fire(entry *logrus.Entry) error {
 	if hook.logger == nil {
-		return errors.New("No txt logger")
+		return errors.New("no txt logger")
 	}
 
 	// Determine the caller (filename/line number)
@@ -174,4 +174,25 @@ func (hook *TxtHook) Fire(entry *logrus.Entry) error {
 // Levels - Hook all levels
 func (hook *TxtHook) Levels() []logrus.Level {
 	return logrus.AllLevels
+}
+
+// LevelFrom - returns level from int
+func LevelFrom(level int) logrus.Level {
+	switch level {
+	case 0:
+		return logrus.PanicLevel
+	case 1:
+		return logrus.FatalLevel
+	case 2:
+		return logrus.ErrorLevel
+	case 3:
+		return logrus.WarnLevel
+	case 4:
+		return logrus.InfoLevel
+	case 5:
+		return logrus.DebugLevel
+	case 6:
+		return logrus.TraceLevel
+	}
+	return logrus.DebugLevel
 }
