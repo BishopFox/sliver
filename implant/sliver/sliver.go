@@ -246,11 +246,24 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	// Register beacon
 	err := beacon.Init()
 	if err != nil {
+		beaconErrors++
+		if transports.GetMaxConnectionErrors() < beaconErrors {
+			return err
+		}
 		// {{if .Config.Debug}}
 		log.Printf("[beacon] init failure %s", err)
 		// {{end}}
-		return err
+		return nil
 	}
+	defer func() {
+		err := beacon.Cleanup()
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("[beacon] cleanup failure %s", err)
+			// {{end}}
+		}
+	}()
+
 	err = beacon.Start()
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -279,27 +292,28 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	// BeaconMain - Is executed in it's own goroutine as the function will block
 	// until all tasks complete (in success or failure), if a task handler blocks
 	// forever it will simply block this set of tasks instead of the entire beacon
-	intervalErrors := 0
+	errors := make(chan error)
 	for {
-		if transports.GetMaxConnectionErrors() < intervalErrors {
-			break
-		}
 		duration := beacon.Duration()
 		nextCheckin = time.Now().Add(duration)
 		go func() {
 			err := beaconMain(beacon, nextCheckin)
 			if err != nil {
-				intervalErrors++
 				// {{if .Config.Debug}}
-				log.Printf("[beacon] main %s", err)
+				log.Printf("[beacon] main error: %v", nextCheckin)
 				// {{end}}
+				errors <- err
 			}
 		}()
 
 		// {{if .Config.Debug}}
 		log.Printf("[beacon] sleep until %v", nextCheckin)
 		// {{end}}
-		time.Sleep(duration)
+		select {
+		case <-errors:
+			return err
+		case <-time.After(duration):
+		}
 	}
 	return nil
 }

@@ -415,7 +415,7 @@ func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
 		// {{if .Config.Debug}}
 		log.Printf("[http] non-202 response (%d): %v", resp.StatusCode, resp)
 		// {{end}}
-		return errors.New("{{if .Config.Debug}}HTTP send failed (non-200 resp){{end}}")
+		return ErrStatusCodeUnexpected
 	}
 	return nil
 }
