@@ -32,7 +32,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/shell"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/lesnuages/go-socks5"
+	"github.com/things-go/go-socks5"
 	"google.golang.org/protobuf/proto"
 )
 

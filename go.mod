@@ -28,7 +28,6 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/jedib0t/go-pretty/v6 v6.2.4
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
-	github.com/lesnuages/go-socks5 v0.0.0-20210409090601-adbe23bd0194
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/lesnuages/snitch v0.6.0
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
@@ -42,8 +41,8 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
-	golang.org/x/net v0.0.0-20210410081132-afb366fc7cd1
-	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
+	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
+	golang.org/x/sys v0.0.0-20211117180635-dee7805ff2e1
 	golang.org/x/text v0.3.6
 	golang.zx2c4.com/wireguard v0.0.20200121
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200609130330-bd2cb7843e1b
@@ -59,7 +58,11 @@ require (
 	inet.af/netstack v0.0.0-20210317161235-a1bf4e56ef22
 )
 
-require github.com/emirpasic/gods v1.12.0
+require (
+	github.com/emirpasic/gods v1.12.0
+	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
+	github.com/things-go/go-socks5 v0.0.2
+)
 
 require (
 	github.com/Binject/shellcode v0.0.0-20191101084904-a8a90e7d4563 // indirect

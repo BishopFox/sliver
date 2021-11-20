@@ -1,0 +1,42 @@
+language: go
+
+os:
+  - osx
+  - windows
+  - linux
+
+go:
+  - 1.15.x
+  - 1.16.x
+
+before_install:
+  - if [[ "${GO111MODULE}" = "on" ]]; then mkdir "${HOME}/go"; export GOPATH="${HOME}/go";
+    export PATH="$GOPATH/bin:$PATH"; fi
+  - mkdir -p ~/bin/ && export PATH="~/bin/:$PATH"
+
+install:
+  - go get -u golang.org/x/lint/golint
+  - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+  - curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+
+script:
+  - go get -v ./...
+  - |-
+    case $TRAVIS_OS_NAME in
+      linux|osx)
+        golint ./... | reviewdog -f=golint -reporter=github-check
+        golangci-lint run --out-format=line-number -E goimports -E misspell | reviewdog -f=golangci-lint -reporter=github-check
+        golint ./... | reviewdog -f=golint -reporter=github-pr-review
+        golangci-lint run --out-format=line-number -E goimports -E misspell | reviewdog -f=golangci-lint -reporter=github-pr-review
+        ;;
+    esac
+  - go test -v -benchmem -test.bench=".*" -coverprofile=coverage.txt -covermode=atomic  ./...
+
+after_success:
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then curl -s https://codecov.io/bash >
+    .codecov && chmod +x .codecov && ./.codecov; else bash <(curl -s https://codecov.io/bash);
+    fi
+
+env:
+  global:
+    - GO111MODULE=on

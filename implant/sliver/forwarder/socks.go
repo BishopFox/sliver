@@ -6,7 +6,7 @@ import (
 	"net"
 
 	"github.com/bishopfox/sliver/implant/sliver/netstack"
-	"github.com/lesnuages/go-socks5"
+	"github.com/things-go/go-socks5"
 )
 
 var socksServerID = 0
