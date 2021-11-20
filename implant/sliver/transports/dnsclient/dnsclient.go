@@ -436,9 +436,6 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(respData) < 1 {
-		return nil, nil // No pending envelopes
-	}
 
 	dnsMsg := &dnspb.DNSMessage{}
 	err = proto.Unmarshal(respData, dnsMsg)
@@ -447,6 +444,9 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	}
 	if dnsMsg.Type != dnspb.DNSMessageType_MANIFEST {
 		return nil, ErrInvalidResponse
+	}
+	if dnsMsg.Size == 0 {
+		return nil, nil
 	}
 	ciphertext, err := s.parallelRecv(dnsMsg)
 	if err != nil {

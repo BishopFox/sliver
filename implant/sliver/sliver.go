@@ -355,6 +355,12 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 		// {{end}}
 		return err
 	}
+	if envelope == nil {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] read nil envelope (no tasks)")
+		// {{end}}
+		return nil
+	}
 	tasks := &sliverpb.BeaconTasks{}
 	err = proto.Unmarshal(envelope.Data, tasks)
 	if err != nil {

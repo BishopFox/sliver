@@ -21,6 +21,7 @@ package dnsclient
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	"strings"
 	"time"
 
@@ -30,6 +31,11 @@ import (
 
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/miekg/dns"
+)
+
+var (
+	// ErrInvalidRcode - Returned when the response code is not a success
+	ErrInvalidRcode = errors.New("invalid rcode")
 )
 
 // NewGenericResolver - Instantiate a new generic resolver
@@ -91,7 +97,7 @@ func (r *GenericResolver) a(domain string) ([]byte, time.Duration, error) {
 		// {{if .Config.Debug}}
 		log.Printf("[dns] error response status: %v", resp.Rcode)
 		// {{end}}
-		return nil, rtt, err
+		return nil, rtt, ErrInvalidRcode
 	}
 	records := []byte{}
 	for _, answer := range resp.Answer {
@@ -132,7 +138,7 @@ func (r *GenericResolver) txt(domain string) ([]byte, time.Duration, error) {
 		// {{if .Config.Debug}}
 		log.Printf("[dns] error response status: %v", resp.Rcode)
 		// {{end}}
-		return nil, rtt, err
+		return nil, rtt, ErrInvalidRcode
 	}
 
 	records := ""
