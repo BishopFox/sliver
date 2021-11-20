@@ -68,5 +68,5 @@ func SocksAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		core.SocksProxies.Start(channelProxy)
 	}(core.SocksProxies.Add(channelProxy).ChannelProxy)
 	con.PrintInfof("Started SOCKS5 %s %s %s %s\n", host, port, username, password)
-
+	con.PrintWarnf("In-band SOCKS proxies can be a little unstable depending on protocol\n")
 }

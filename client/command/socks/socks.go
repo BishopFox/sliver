@@ -19,40 +19,38 @@ package socks
 */
 
 import (
-	"bytes"
-	"fmt"
 	"sort"
-	"strings"
-	"text/tabwriter"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // SocksCmd - Display information about tunneled port forward(s)
 func SocksCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	socks := core.SocksProxies.List()
 	if len(socks) == 0 {
-		con.PrintInfof("No port socks5\n")
+		con.PrintInfof("No socks5 proxies\n")
 		return
 	}
 	sort.Slice(socks[:], func(i, j int) bool {
 		return socks[i].ID < socks[j].ID
 	})
-	outputBuf := bytes.NewBufferString("")
-	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
-	fmt.Fprintf(table, "ID\tSession ID\tBind Address\tUsername\tPassword\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
-		strings.Repeat("=", len("ID")),
-		strings.Repeat("=", len("Session ID")),
-		strings.Repeat("=", len("Bind Address")),
-		strings.Repeat("=", len("Username")),
-		strings.Repeat("=", len("Password")),
-	)
+
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{
+		"ID",
+		"Session ID",
+		"Bind Address",
+		"Username",
+		"Passwords",
+	})
 	for _, p := range socks {
-		fmt.Fprintf(table, "%d\t%d\t%s\t%s\t%s\t\n", p.ID, p.SessionID, p.BindAddr, p.Username, p.Password)
+		tw.AppendRow(table.Row{p.ID, p.SessionID, p.BindAddr, p.Username, p.Password})
 	}
-	table.Flush()
-	con.Printf("%s", outputBuf.String())
+
+	con.Printf("%s\n", tw.Render())
 }
