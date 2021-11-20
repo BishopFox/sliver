@@ -32,7 +32,7 @@ import (
 
 // SocksCmd - Display information about tunneled port forward(s)
 func SocksCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	socks := core.SocksProxys.List()
+	socks := core.SocksProxies.List()
 	if len(socks) == 0 {
 		con.PrintInfof("No port socks5\n")
 		return
@@ -51,7 +51,7 @@ func SocksCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		strings.Repeat("=", len("Password")),
 	)
 	for _, p := range socks {
-		fmt.Fprintf(table, "%d\t%d\t%s\t%s\t%s\t\n", p.ID, p.SessionID, p.BindAddr, p.Username,p.Password)
+		fmt.Fprintf(table, "%d\t%d\t%s\t%s\t%s\t\n", p.ID, p.SessionID, p.BindAddr, p.Username, p.Password)
 	}
 	table.Flush()
 	con.Printf("%s", outputBuf.String())

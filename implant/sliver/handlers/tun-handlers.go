@@ -379,15 +379,15 @@ func socksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		return
 	}
 	// {{if .Config.Debug}}
-	log.Printf("[socks] User to Client to (Server  to agent)   Data Sequence %d , Data Size %d \n", socksData.Sequence, len(socksData.Data))
+	log.Printf("[socks] User to Client to (server to implant) Data Sequence %d, Data Size %d\n", socksData.Sequence, len(socksData.Data))
 	// {{end}}
 
 	if socksData.Username != "" && socksData.Password != "" {
 		cred := socks5.StaticCredentials{
 			socksData.Username: socksData.Password,
 		}
-		cator := socks5.UserPassAuthenticator{Credentials: cred}
-		server, _ = socks5.New(&socks5.Config{AuthMethods: []socks5.Authenticator{cator}, Logger: log.New(ioutil.Discard, "", log.Ltime|log.Lshortfile)})
+		auth := socks5.UserPassAuthenticator{Credentials: cred}
+		server, _ = socks5.New(&socks5.Config{AuthMethods: []socks5.Authenticator{auth}, Logger: log.New(ioutil.Discard, "", log.Ltime|log.Lshortfile)})
 	} else {
 		server, _ = socks5.New(&socks5.Config{Logger: log.New(ioutil.Discard, "", log.Ltime|log.Lshortfile)})
 	}
@@ -408,9 +408,9 @@ func socksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 var _ net.Conn = &socks{}
 
 type socks struct {
-	stream   *sliverpb.SocksData
-	conn     *transports.Connection
-	mux      sync.Mutex
+	stream *sliverpb.SocksData
+	conn   *transports.Connection
+	// mux      sync.Mutex
 	Sequence uint64
 }
 

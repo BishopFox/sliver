@@ -20,11 +20,12 @@ package socks
 
 import (
 	"fmt"
+	"net"
+	"time"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/desertbit/grumble"
-	"net"
-	"time"
 )
 
 // SocksAddCmd - Add a new tunneled port forward
@@ -33,43 +34,39 @@ func SocksAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if session == nil {
 		return
 	}
-	mode:=ctx.Flags.String("mode")
-	if mode == "local"{
-		// listener
-		host := ctx.Flags.String("host")
-		port := ctx.Flags.String("port")
-		bindAddr := fmt.Sprintf("%s:%s",host,port)
-		ln, err := net.Listen("tcp", bindAddr)
-		if err != nil {
-			con.PrintErrorf("Socks5 Listen %s \n",err.Error())
-			return
-		}
-		username := ctx.Flags.String("user")
-		if err != nil {
-			return
-		}
-		passwrod := ctx.Flags.String("pass")
-		if err != nil {
-			return
-		}
-		//tcpProxy := &tcpproxy.Proxy{}
-		channelProxy := &core.TcpProxy{
-			Rpc:             con.Rpc,
-			Session:         session,
-			Listener:        ln,
-			BindAddr:        bindAddr,
-			Username: username,
-			Password: passwrod,
-			KeepAlivePeriod: 60 * time.Second,
-			DialTimeout:     30 * time.Second,
-		}
 
-		go func(channelProxy *core.TcpProxy) {
-			core.SocksProxys.Start(channelProxy)
-		}(core.SocksProxys.Add(channelProxy).ChannelProxy)
-		con.PrintInfof("Start socks5 %s %s %s %s\n",host,port,username,passwrod)
-	}else if mode == "remote" { // In multiplayer, Listening will be turned on in server
-
+	// listener
+	host := ctx.Flags.String("host")
+	port := ctx.Flags.String("port")
+	bindAddr := fmt.Sprintf("%s:%s", host, port)
+	ln, err := net.Listen("tcp", bindAddr)
+	if err != nil {
+		con.PrintErrorf("Socks5 Listen %s \n", err.Error())
+		return
 	}
+	username := ctx.Flags.String("user")
+	if err != nil {
+		return
+	}
+	password := ctx.Flags.String("password")
+	if err != nil {
+		return
+	}
+
+	channelProxy := &core.TcpProxy{
+		Rpc:             con.Rpc,
+		Session:         session,
+		Listener:        ln,
+		BindAddr:        bindAddr,
+		Username:        username,
+		Password:        password,
+		KeepAlivePeriod: 60 * time.Second,
+		DialTimeout:     30 * time.Second,
+	}
+
+	go func(channelProxy *core.TcpProxy) {
+		core.SocksProxies.Start(channelProxy)
+	}(core.SocksProxies.Add(channelProxy).ChannelProxy)
+	con.PrintInfof("Started SOCKS5 %s %s %s %s\n", host, port, username, password)
 
 }

@@ -20,6 +20,7 @@ package socks
 
 import (
 	"context"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -33,7 +34,7 @@ func SocksRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Must specify a valid portfwd id\n")
 		return
 	}
-	found := core.SocksProxys.Remove(socksID)
+	found := core.SocksProxies.Remove(socksID)
 	if !found {
 		con.PrintErrorf("No portfwd with id %d\n", socksID)
 	} else {
@@ -41,5 +42,5 @@ func SocksRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	// close
-	con.Rpc.CloseSocks(context.Background(),&sliverpb.Socks{})
+	con.Rpc.CloseSocks(context.Background(), &sliverpb.Socks{})
 }

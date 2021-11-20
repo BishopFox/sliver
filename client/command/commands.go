@@ -34,8 +34,9 @@ package command
 */
 
 import (
-	"github.com/bishopfox/sliver/client/command/socks"
 	"os"
+
+	"github.com/bishopfox/sliver/client/command/socks"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/backdoor"
@@ -2291,7 +2292,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	socksCmd := &grumble.Command{
 		Name:     consts.Socks5Str,
-		Help:     "In-band Socks5 Proxy",
+		Help:     "In-band SOCKS5 Proxy",
 		LongHelp: help.GetHelpFor([]string{consts.Socks5Str}),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "router timeout in seconds")
@@ -2311,9 +2312,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("H", "host", "127.0.0.1", "Bind a Socks5 Host")
 			f.String("P", "port", "1081", "Bind a Socks5 Port")
-			f.String("u", "user", "test", "socks5 auth user")
-			f.String("p", "pass", "1qaz222", "socks5  auth pass")
-			f.String("m", "mode", "local", "Listening on the client by default")
+			f.String("u", "user", "", "socks5 auth user")
+			f.String("p", "password", "", "socks5 auth pass")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()

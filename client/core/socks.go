@@ -35,10 +35,10 @@ import (
 )
 
 var (
-	// SocksProxys - Struct instance that holds all the portfwds
-	SocksProxys = socksProxy{
-		tcpProxys: map[int]*SocksProxy{},
-		mutex:     &sync.RWMutex{},
+	// SocksProxies - Struct instance that holds all the portfwds
+	SocksProxies = socksProxy{
+		tcpProxies: map[int]*SocksProxy{},
+		mutex:      &sync.RWMutex{},
 	}
 	SocksConnPool = sync.Map{}
 	SocksProxyID  = 0
@@ -84,8 +84,8 @@ func (p *SocksProxy) GetMetadata() *SocksProxyMeta {
 }
 
 type socksProxy struct {
-	tcpProxys map[int]*SocksProxy
-	mutex     *sync.RWMutex
+	tcpProxies map[int]*SocksProxy
+	mutex      *sync.RWMutex
 }
 
 // Add - Add a TCP proxy instance
@@ -96,7 +96,7 @@ func (f *socksProxy) Add(tcpProxy *TcpProxy) *SocksProxy {
 		ID:           nextSocksProxyID(),
 		ChannelProxy: tcpProxy,
 	}
-	f.tcpProxys[Sockser.ID] = Sockser
+	f.tcpProxies[Sockser.ID] = Sockser
 
 	return Sockser
 }
@@ -151,7 +151,7 @@ func (f *socksProxy) Start(tcpProxy *TcpProxy) error {
 			Request:  &commonpb.Request{SessionID: rpcSocks.SessionID},
 		})
 	}
-	fmt.Printf("Socks Stop -> %s\n", tcpProxy.BindAddr)
+	coreLog.Infof("Socks Stop -> %s\n", tcpProxy.BindAddr)
 	tcpProxy.Listener.Close()
 	proxy.CloseSend()
 	return nil
@@ -161,9 +161,9 @@ func (f *socksProxy) Start(tcpProxy *TcpProxy) error {
 func (f *socksProxy) Remove(socksId int) bool {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
-	if _, ok := f.tcpProxys[socksId]; ok {
-		f.tcpProxys[socksId].ChannelProxy.stopChan = true
-		delete(f.tcpProxys, socksId)
+	if _, ok := f.tcpProxies[socksId]; ok {
+		f.tcpProxies[socksId].ChannelProxy.stopChan = true
+		delete(f.tcpProxies, socksId)
 		return true
 	}
 	return false
@@ -174,7 +174,7 @@ func (f *socksProxy) List() []*SocksProxyMeta {
 	f.mutex.RLock()
 	defer f.mutex.RUnlock()
 	socksProxy := []*SocksProxyMeta{}
-	for _, socks := range f.tcpProxys {
+	for _, socks := range f.tcpProxies {
 		socksProxy = append(socksProxy, socks.GetMetadata())
 	}
 	return socksProxy
@@ -192,8 +192,8 @@ var leakyBuf = leaky.NewLeakyBuf(2048, leakyBufSize)
 func connect(conn net.Conn, stream rpcpb.SliverRPC_SocksProxyClient, frame *sliverpb.SocksData) {
 
 	SocksConnPool.Store(frame.TunnelID, conn)
-	//defer fmt.Printf("tcp close %q<--><-->%q", conn.LocalAddr(), conn.RemoteAddr())
-	fmt.Printf("tcp conn %q<--><-->%q \n", conn.LocalAddr(), conn.RemoteAddr())
+
+	coreLog.Infof("tcp conn %q<--><-->%q \n", conn.LocalAddr(), conn.RemoteAddr())
 
 	buff := leakyBuf.Get()
 	defer leakyBuf.Put(buff)
