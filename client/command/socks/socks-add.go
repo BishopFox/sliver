@@ -23,6 +23,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/desertbit/grumble"
@@ -51,6 +52,12 @@ func SocksAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	password := ctx.Flags.String("password")
 	if err != nil {
 		return
+	}
+
+	if username != "" || password != "" {
+		con.PrintWarnf("SOCKS proxy authentication credentials are tunneled to the implant\n")
+		con.PrintWarnf("These credentials are recoverable from the implant's memory!\n")
+		settings.IsUserAnAdult(con)
 	}
 
 	channelProxy := &core.TcpProxy{
