@@ -589,10 +589,10 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 	case <-req.Context().Done():
 		httpLog.Debug("Poll client hang up")
 		return
-	case <-time.After(s.getPollTimeout()):
-		httpLog.Debug("Poll time out")
-		resp.WriteHeader(http.StatusNoContent)
-		resp.Write([]byte{})
+		// case <-time.After(s.getPollTimeout()):
+		// 	httpLog.Debug("Poll time out")
+		// 	resp.WriteHeader(http.StatusNoContent)
+		// 	resp.Write([]byte{})
 	}
 }
 

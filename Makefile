@@ -137,4 +137,4 @@ clean-all: clean
 .PHONY: clean
 clean:
 	rm -f sliver-client_arm64 sliver-server_arm64
-	rm -f sliver-client sliver-server *.exe
+	rm -f sliver-client sliver-server sliver-*.exe
