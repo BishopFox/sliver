@@ -38,6 +38,7 @@ var (
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnelCloseHandler,
 		sliverpb.MsgPing:        pingHandler,
+		sliverpb.MsgSocksData:   socksDataHandler,
 
 		// Beacons
 		sliverpb.MsgBeaconRegister: beaconRegisterHandler,
