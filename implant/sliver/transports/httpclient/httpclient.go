@@ -235,8 +235,10 @@ func (s *SliverHTTPClient) DoPoll(req *http.Request) (*http.Response, []byte, er
 			// {{end}}
 			done <- http.ErrHandlerTimeout
 		default:
-			data, err = ioutil.ReadAll(resp.Body)
-			defer resp.Body.Close()
+			if err == nil && resp != nil {
+				data, err = ioutil.ReadAll(resp.Body)
+				defer resp.Body.Close()
+			}
 			// {{if .Config.Debug}}
 			if err != nil {
 				log.Printf("[http] poll failed to read all response: %s", err)
