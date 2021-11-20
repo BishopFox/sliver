@@ -25,10 +25,10 @@ import (
 	"net"
 	"time"
 
-	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/desertbit/grumble"
+	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 // SocksAddCmd - Add a new tunneled port forward
@@ -54,9 +54,15 @@ func SocksAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	password := ""
 	if username != "" {
 		con.PrintWarnf("SOCKS proxy authentication credentials are tunneled to the implant\n")
-		con.PrintWarnf("These credentials are recoverable from the implant's memory!\n")
-		settings.IsUserAnAdult(con)
+		con.PrintWarnf("These credentials are recoverable from the implant's memory!\n\n")
+		confirm := false
+		prompt := &survey.Confirm{Message: "Do you understand the implication?"}
+		survey.AskOne(prompt, &confirm, nil)
+		if !confirm {
+			return
+		}
 		password = randomPassword()
+		con.Printf("\n")
 	}
 
 	channelProxy := &core.TcpProxy{
