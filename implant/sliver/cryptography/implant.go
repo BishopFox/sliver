@@ -28,10 +28,12 @@ var (
 	eccPublicKey = "{{.Config.ECCPublicKey}}"
 	// eccPrivateKey - The implant's ECC private key
 	eccPrivateKey = "{{.Config.ECCPrivateKey}}"
-	// eccPublicKeySignature - The implant's signed ECC key by the server using Ed25519
-	eccPublicKeySignature = "{{.Config.ECCPublicKeySignature}}"
+	// eccPublicKeySignature - The implant's public key minisigned'd
+	ECCPublicKeySignature = "{{.Config.ECCPublicKeySignature}}"
 	// eccServerPublicKey - Server's ECC public key
 	eccServerPublicKey = "{{.Config.ECCServerPublicKey}}"
+	// minisignServerPublicKey - The server's minisign public key
+	minisignServerPublicKey = "{{.Config.MinisignServerPublicKey}}"
 
 	// TOTP secret value
 	totpSecret = "{{.OTPSecret}}"
@@ -41,7 +43,7 @@ var (
 func SetSecrets(newEccPublicKey, newEccPrivateKey, newEccPublicKeySignature, newEccServerPublicKey, newTotpSecret string) {
 	eccPublicKey = newEccPublicKey
 	eccPrivateKey = newEccPrivateKey
-	eccPublicKeySignature = newEccPublicKeySignature
+	ECCPublicKeySignature = newEccPublicKeySignature
 	eccServerPublicKey = newEccServerPublicKey
 	totpSecret = newTotpSecret
 }

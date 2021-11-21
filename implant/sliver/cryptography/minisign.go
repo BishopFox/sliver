@@ -51,8 +51,8 @@ type Signature struct {
 	GlobalSignature    [64]byte
 }
 
-// NewPublicKey - Creates a new public key
-func NewPublicKey(publicKeyStr string) (PublicKey, error) {
+// minisignPublicKey - Creates a new public key
+func minisignPublicKey(publicKeyStr string) (PublicKey, error) {
 	var publicKey PublicKey
 	bin, err := base64.StdEncoding.DecodeString(publicKeyStr)
 	if err != nil || len(bin) != 42 {
@@ -64,21 +64,21 @@ func NewPublicKey(publicKeyStr string) (PublicKey, error) {
 	return publicKey, nil
 }
 
-func DecodePublicKey(in string) (PublicKey, error) {
+func DecodeMinisignPublicKey(in string) (PublicKey, error) {
 	var publicKey PublicKey
 	lines := strings.SplitN(in, "\n", 2)
 	if len(lines) < 2 {
 		return publicKey, errors.New("incomplete encoded public key")
 	}
-	return NewPublicKey(lines[1])
+	return minisignPublicKey(lines[1])
 }
 
 func trimCarriageReturn(input string) string {
 	return strings.TrimRight(input, "\r")
 }
 
-// DecodeSignature - Decodes a signature
-func DecodeSignature(in string) (Signature, error) {
+// DecodeMinisignSignature - Decodes a signature
+func DecodeMinisignSignature(in string) (Signature, error) {
 	var signature Signature
 	lines := strings.SplitN(in, "\n", 4)
 	if len(lines) < 4 {
@@ -108,17 +108,7 @@ func NewPublicKeyFromFile(file string) (PublicKey, error) {
 	if err != nil {
 		return publicKey, err
 	}
-	return DecodePublicKey(string(bin))
-}
-
-// NewSignatureFromFile - Reads a signature from a file
-func NewSignatureFromFile(file string) (Signature, error) {
-	var signature Signature
-	bin, err := ioutil.ReadFile(file)
-	if err != nil {
-		return signature, err
-	}
-	return DecodeSignature(string(bin))
+	return DecodeMinisignPublicKey(string(bin))
 }
 
 // Verify - Verifies a signature of a buffer
@@ -153,13 +143,4 @@ func (publicKey *PublicKey) Verify(bin []byte, signature Signature) (bool, error
 		return false, errors.New("invalid global signature")
 	}
 	return true, nil
-}
-
-// VerifyFromFile - Verifies a signature of a file
-func (publicKey *PublicKey) VerifyFromFile(file string, signature Signature) (bool, error) {
-	bin, err := ioutil.ReadFile(file)
-	if err != nil {
-		return false, err
-	}
-	return publicKey.Verify(bin, signature)
 }

@@ -269,4 +269,46 @@ func TestServerMinisign(t *testing.T) {
 	if !minisign.Verify(privateKey.Public().(minisign.PublicKey), message, signature) {
 		t.Fatalf("Failed to very message with server minisign")
 	}
+	message[0]++
+	if minisign.Verify(privateKey.Public().(minisign.PublicKey), message, signature) {
+		t.Fatalf("Minisign verified tampered message")
+	}
+}
+
+func TestImplantMinisign(t *testing.T) {
+	message := randomData()
+	privateKey := ServerMinisign()
+	signature := minisign.Sign(*privateKey, message)
+
+	publicKey := privateKey.Public().(minisign.PublicKey)
+	publicKeyTxt, err := publicKey.MarshalText()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	implantPublicKey, err := implantCrypto.DecodeMinisignPublicKey(string(publicKeyTxt))
+	if err != nil {
+		t.Fatal(err)
+	}
+	implantSig, err := implantCrypto.DecodeMinisignSignature(string(signature))
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid, err := implantPublicKey.Verify(message, implantSig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !valid {
+		t.Fatal("Implant failed to verify minisign signature")
+	}
+	message[0]++
+	valid, err = implantPublicKey.Verify(message, implantSig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if valid {
+		t.Fatal("Implant verified tampered message")
+	}
+
 }
