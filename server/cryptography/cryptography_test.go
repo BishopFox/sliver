@@ -304,8 +304,8 @@ func TestImplantMinisign(t *testing.T) {
 	}
 	message[0]++
 	valid, err = implantPublicKey.Verify(message, implantSig)
-	if err != nil {
-		t.Fatal(err)
+	if err == nil {
+		t.Fatal("Expected invalid signature error")
 	}
 	if valid {
 		t.Fatal("Implant verified tampered message")
