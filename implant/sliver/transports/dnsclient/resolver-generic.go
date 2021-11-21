@@ -64,10 +64,12 @@ type GenericResolver struct {
 	base64    encoders.Base64
 }
 
+// Address - Return the address of the resolver
 func (r *GenericResolver) Address() string {
 	return r.address
 }
 
+// A - Query for A records
 func (r *GenericResolver) A(domain string) ([]byte, time.Duration, error) {
 	var resp []byte
 	var rtt time.Duration
@@ -112,6 +114,7 @@ func (r *GenericResolver) a(domain string) ([]byte, time.Duration, error) {
 	return records, rtt, err
 }
 
+// TXT - Query for TXT records
 func (r *GenericResolver) TXT(domain string) ([]byte, time.Duration, error) {
 	var resp []byte
 	var rtt time.Duration

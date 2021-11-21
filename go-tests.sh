@@ -80,6 +80,14 @@ else
     exit 1
 fi
 
+# server / cryptography / minisign
+if go test -tags=server ./server/cryptography/minisign ; then
+    :
+else
+    cat ~/.sliver/logs/sliver.log
+    exit 1
+fi
+
 # server / gogo
 if go test -tags=server ./server/gogo ; then
     :

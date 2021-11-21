@@ -43,6 +43,7 @@ const (
 	writeBufSizeNamedPipe = 1024
 )
 
+// NamedPipeConnect - Connect over a windows named pipe
 func NamedPipeConnect(uri *url.URL) (net.Conn, error) {
 	address := uri.String()
 	address = strings.ReplaceAll(address, "namedpipe://", "")
@@ -53,6 +54,7 @@ func NamedPipeConnect(uri *url.URL) (net.Conn, error) {
 	return winio.DialPipe(address, nil)
 }
 
+// WriteEnvelope - Write an Envelope to a named pipe
 func WriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
@@ -91,6 +93,7 @@ func WriteEnvelope(conn *net.Conn, envelope *sliverpb.Envelope) error {
 	return nil
 }
 
+// ReadEnvelope - Read an Envelope from a named pipe
 func ReadEnvelope(conn *net.Conn) (*sliverpb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4)
 	_, err := (*conn).Read(dataLengthBuf)

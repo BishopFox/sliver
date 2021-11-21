@@ -439,8 +439,6 @@ github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/thedevsaddam/gojsonq/v2 v2.5.2 h1:CoMVaYyKFsVj6TjU6APqAhAvC07hTI6IQen8PHzHYY0=
 github.com/thedevsaddam/gojsonq/v2 v2.5.2/go.mod h1:bv6Xa7kWy82uT0LnXPE2SzGqTj33TAEeR560MdJkiXs=
-github.com/things-go/go-socks5 v0.0.2 h1:dFi5iZ/LqgHRTQ6n3XlipTLDWHAQsejvJ300bH2VFWo=
-github.com/things-go/go-socks5 v0.0.2/go.mod h1:dhnDTBbIg31cbJdROP4/Zz6Iw7JPEpiMvOl2LdHSSjE=
 github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43 h1:+sN63SJGqchSsVyNoeW4GyA0Y+g0LvKOHcaeqs1Rf6M=
 github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43/go.mod h1:dhnDTBbIg31cbJdROP4/Zz6Iw7JPEpiMvOl2LdHSSjE=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=

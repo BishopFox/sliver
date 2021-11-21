@@ -30,7 +30,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
 )
 
-// NewSystemResolver -
+// NewSystemResolver - Initialize a new system resolver
 func NewSystemResolver() DNSResolver {
 	return &SystemResolver{
 		base64: encoders.Base64{},
@@ -42,10 +42,12 @@ type SystemResolver struct {
 	base64 encoders.Base64
 }
 
+// Address - Returns the address of the resolver
 func (r *SystemResolver) Address() string {
 	return "system"
 }
 
+// A - Query for A records
 func (r *SystemResolver) A(domain string) ([]byte, time.Duration, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[dns] %s->A record of %s?", r.Address(), domain)
@@ -68,6 +70,7 @@ func (r *SystemResolver) A(domain string) ([]byte, time.Duration, error) {
 	return addrs, rtt, nil
 }
 
+// TXT - Query for TXT records
 func (r *SystemResolver) TXT(domain string) ([]byte, time.Duration, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[dns] %s->A record of %s?", r.Address(), domain)
