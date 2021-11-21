@@ -41,19 +41,23 @@ func PrivateKeyFromFile(password, path string) (PrivateKey, error) {
 type PrivateKey struct {
 	_ [0]func() // prevent direct comparison: p1 == p2.
 
-	id    uint64
-	bytes [ed25519.PrivateKeySize]byte
+	RawID    uint64
+	RawBytes [ed25519.PrivateKeySize]byte
+}
+
+func (p PrivateKey) Bytes() []byte {
+	return p.RawBytes[:]
 }
 
 var _ crypto.Signer = (*PrivateKey)(nil) // compiler check
 
 // ID returns the 64 bit key ID.
-func (p PrivateKey) ID() uint64 { return p.id }
+func (p PrivateKey) ID() uint64 { return p.RawID }
 
 // Public returns the corresponding public key.
 func (p PrivateKey) Public() crypto.PublicKey {
 	var bytes [ed25519.PublicKeySize]byte
-	copy(bytes[:], p.bytes[32:])
+	copy(bytes[:], p.RawBytes[32:])
 
 	return PublicKey{
 		id:    p.ID(),
@@ -98,7 +102,7 @@ func (p PrivateKey) Equal(x crypto.PrivateKey) bool {
 	if !ok {
 		return false
 	}
-	return p.id == xx.id && subtle.ConstantTimeCompare(p.bytes[:], xx.bytes[:]) == 1
+	return p.RawID == xx.RawID && subtle.ConstantTimeCompare(p.RawBytes[:], xx.RawBytes[:]) == 1
 }
 
 const (
@@ -116,7 +120,7 @@ const (
 func EncryptKey(password string, privateKey PrivateKey) ([]byte, error) {
 	var privateKeyBytes [72]byte
 	binary.LittleEndian.PutUint64(privateKeyBytes[:], privateKey.ID())
-	copy(privateKeyBytes[8:], privateKey.bytes[:])
+	copy(privateKeyBytes[8:], privateKey.RawBytes[:])
 
 	var salt [32]byte
 	if _, err := io.ReadFull(rand.Reader, salt[:]); err != nil {
@@ -188,9 +192,9 @@ func DecryptKey(password string, privateKey []byte) (PrivateKey, error) {
 	}
 
 	key := PrivateKey{
-		id: binary.LittleEndian.Uint64(privateKeyBytes[:8]),
+		RawID: binary.LittleEndian.Uint64(privateKeyBytes[:8]),
 	}
-	copy(key.bytes[:], privateKeyBytes[8:])
+	copy(key.RawBytes[:], privateKeyBytes[8:])
 	return key, nil
 }
 

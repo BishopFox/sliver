@@ -24,6 +24,7 @@ package cryptography
 */
 
 import (
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -33,6 +34,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bishopfox/sliver/server/cryptography/minisign"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
@@ -42,10 +44,11 @@ import (
 
 const (
 	// TOTPDigits - Number of digits in the TOTP
-	TOTPDigits          = 8
-	TOTPPeriod          = uint(30)
-	TOTPSecretKey       = "server.totp"
-	ServerECCKeyPairKey = "server.ecc"
+	TOTPDigits               = 8
+	TOTPPeriod               = uint(30)
+	TOTPSecretKey            = "server.totp"
+	ServerECCKeyPairKey      = "server.ecc"
+	ServerMinisignPrivateKey = "server.minisign"
 )
 
 var (
@@ -288,4 +291,49 @@ func totpGenerateSecret() (string, error) {
 	secret := otpSecret.Secret()
 	err = db.SetKeyValue(TOTPSecretKey, secret)
 	return secret, err
+}
+
+// minisignPrivateKey - This is here so we can marshal to/from JSON
+type minisignPrivateKey struct {
+	ID         uint64 `json:"id"`
+	PrivateKey []byte `json:"private_key"`
+}
+
+// ServerMinisign - Get the server's minisign key pair
+func ServerMinisign() *minisign.PrivateKey {
+	data, err := db.GetKeyValue(ServerMinisignPrivateKey)
+	if err == db.ErrRecordNotFound {
+		privateKey, err := generateServerMinisignPrivateKey()
+		if err != nil {
+			panic(err)
+		}
+		return privateKey
+	}
+	privateKey := &minisignPrivateKey{}
+	err = json.Unmarshal([]byte(data), privateKey)
+	if err != nil {
+		panic(err)
+	}
+	rawBytes := [ed25519.PrivateKeySize]byte{}
+	copy(rawBytes[:], privateKey.PrivateKey)
+	return &minisign.PrivateKey{
+		RawID:    privateKey.ID,
+		RawBytes: rawBytes,
+	}
+}
+
+func generateServerMinisignPrivateKey() (*minisign.PrivateKey, error) {
+	_, privateKey, err := minisign.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	data, err := json.Marshal(&minisignPrivateKey{
+		ID:         privateKey.ID(),
+		PrivateKey: privateKey.Bytes(),
+	})
+	err = db.SetKeyValue(ServerMinisignPrivateKey, string(data))
+	if err != nil {
+		return nil, err
+	}
+	return &privateKey, err
 }

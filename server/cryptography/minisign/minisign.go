@@ -48,9 +48,9 @@ func GenerateKey(random io.Reader) (PublicKey, PrivateKey, error) {
 	copy(publicKey.bytes[:], pub)
 
 	privateKey := PrivateKey{
-		id: publicKey.ID(),
+		RawID: publicKey.ID(),
 	}
-	copy(privateKey.bytes[:], priv)
+	copy(privateKey.RawBytes[:], priv)
 
 	return publicKey, privateKey, nil
 }
@@ -168,8 +168,8 @@ func sign(privateKey PrivateKey, message []byte, trustedComment, untrustedCommen
 	}
 
 	var (
-		msgSignature     = ed25519.Sign(ed25519.PrivateKey(privateKey.bytes[:]), message)
-		commentSignature = ed25519.Sign(ed25519.PrivateKey(privateKey.bytes[:]), append(msgSignature, []byte(trustedComment)...))
+		msgSignature     = ed25519.Sign(ed25519.PrivateKey(privateKey.RawBytes[:]), message)
+		commentSignature = ed25519.Sign(ed25519.PrivateKey(privateKey.RawBytes[:]), append(msgSignature, []byte(trustedComment)...))
 	)
 	signature := Signature{
 		Algorithm: algorithm,

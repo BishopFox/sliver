@@ -31,12 +31,15 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	clienttransport "github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/transport"
 	"google.golang.org/grpc"
 )
 
 // Start - Starts the server console
 func Start() {
+	generateServerSpecificValues()
+
 	_, ln, _ := transport.LocalListener()
 	ctxDialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return ln.Dial()
@@ -55,6 +58,13 @@ func Start() {
 	defer conn.Close()
 	localRPC := rpcpb.NewSliverRPCClient(conn)
 	clientconsole.Start(localRPC, command.BindCommands, serverOnlyCmds, true)
+}
+
+// generates server specific values if they do not already exist
+func generateServerSpecificValues() {
+	cryptography.ECCServerKeyPair()
+	cryptography.TOTPServerSecret()
+	cryptography.ServerMinisign()
 }
 
 // ServerOnlyCmds - Server only commands

@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	implantCrypto "github.com/bishopfox/sliver/implant/sliver/cryptography"
+	"github.com/bishopfox/sliver/server/cryptography/minisign"
 )
 
 var (
@@ -258,5 +259,14 @@ func TestImplantECCEncryptDecryptTamperData(t *testing.T) {
 	_, err = ECCDecrypt(implantECCKeyPair.Public, serverECCKeyPair.Private, ciphertext[32:])
 	if err == nil {
 		t.Fatal("ecc decrypted tampered data without error")
+	}
+}
+
+func TestServerMinisign(t *testing.T) {
+	message := randomData()
+	privateKey := ServerMinisign()
+	signature := minisign.Sign(*privateKey, message)
+	if !minisign.Verify(privateKey.Public().(minisign.PublicKey), message, signature) {
+		t.Fatalf("Failed to very message with server minisign")
 	}
 }
