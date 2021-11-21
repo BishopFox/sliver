@@ -55,7 +55,6 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/handlers"
 	"github.com/bishopfox/sliver/implant/sliver/hostuuid"
 	"github.com/bishopfox/sliver/implant/sliver/limits"
-	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/implant/sliver/version"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -484,7 +483,7 @@ func openSessionHandler(data []byte) {
 
 func sessionMainLoop(connection *transports.Connection) {
 	// Reconnect active pivots
-	pivots.ReconnectActivePivots(connection)
+	// pivots.ReconnectActivePivots(connection)
 
 	connection.Send <- Envelope(sliverpb.MsgRegister, RegisterSliver()) // Send registration information
 

@@ -56,19 +56,19 @@ func (p *Pivots) RemoveSession(pivotID uint32) {
 
 // StartPivotHandlers - Starts listening for pivot messages
 func StartPivotHandlers() error {
-	serverHandlers[sliverpb.MsgPivotOpen] = HandlePivotOpen
-	serverHandlers[sliverpb.MsgPivotData] = HandlePivotData
-	serverHandlers[sliverpb.MsgPivotClose] = HandlePivotClose
+	// serverHandlers[sliverpb.MsgPivotOpen] = HandlePivotOpen
+	// serverHandlers[sliverpb.MsgPivotData] = HandlePivotData
+	// serverHandlers[sliverpb.MsgPivotClose] = HandlePivotClose
 	return nil
 }
 
 // StopPivotHandlers - Starts listening for pivot messages
 func StopPivotHandlers() error {
-	if _, ok := serverHandlers[sliverpb.MsgPivotOpen]; ok {
-		delete(serverHandlers, sliverpb.MsgPivotOpen)
-		delete(serverHandlers, sliverpb.MsgPivotData)
-		delete(serverHandlers, sliverpb.MsgPivotClose)
-	}
+	// if _, ok := serverHandlers[sliverpb.MsgPivotOpen]; ok {
+	// 	delete(serverHandlers, sliverpb.MsgPivotOpen)
+	// 	delete(serverHandlers, sliverpb.MsgPivotData)
+	// 	delete(serverHandlers, sliverpb.MsgPivotClose)
+	// }
 	return nil
 }
 

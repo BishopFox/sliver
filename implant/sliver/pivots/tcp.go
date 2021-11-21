@@ -26,6 +26,8 @@ import (
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
+
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 var (
@@ -46,9 +48,11 @@ func StartTCPPivotListener(address string) (*PivotListener, error) {
 		return nil, err
 	}
 	pivotListener := &PivotListener{
-		Type:     "tcp",
-		Listener: ln,
-		Pivots:   &sync.Map{},
+		ID:          ListenerID(),
+		Type:        pb.PivotType_TCP,
+		Listener:    ln,
+		Pivots:      &sync.Map{},
+		BindAddress: address,
 	}
 	go tcpPivotAcceptNewConnections(pivotListener)
 	return pivotListener, nil

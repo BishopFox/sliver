@@ -34,11 +34,11 @@ var (
 	// eccPrivateKey - The implant's ECC private key
 	eccPrivateKey = "{{.Config.ECCPrivateKey}}"
 	// eccPublicKeySignature - The implant's public key minisigned'd
-	ECCPublicKeySignature = "{{.Config.ECCPublicKeySignature}}"
+	ECCPublicKeySignature = `{{.Config.ECCPublicKeySignature}}`
 	// eccServerPublicKey - Server's ECC public key
 	eccServerPublicKey = "{{.Config.ECCServerPublicKey}}"
 	// minisignServerPublicKey - The server's minisign public key
-	minisignServerPublicKey = "{{.Config.MinisignServerPublicKey}}"
+	minisignServerPublicKey = `{{.Config.MinisignServerPublicKey}}`
 
 	// TOTP secret value
 	totpSecret = "{{.OTPSecret}}"

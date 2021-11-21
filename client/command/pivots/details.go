@@ -2,7 +2,7 @@ package pivots
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2021  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -20,17 +20,17 @@ package pivots
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/jedib0t/go-pretty/v6/table"
-
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
-// PivotsCmd - Display pivots for all sessions
-func PivotsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+// PivotDetailsCmd - Display pivots for all sessions
+func PivotDetailsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -47,43 +47,50 @@ func PivotsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	if len(pivotListeners.Listeners) == 0 {
-		con.PrintInfof("No pivot listeners running on this session\n")
-	} else {
-		PrintPivotListeners(pivotListeners.Listeners, con)
+	id := uint32(ctx.Flags.Int("id"))
+	if id == uint32(0) {
+		selectedListener, err := SelectPivotListener(pivotListeners.Listeners, con)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		id = selectedListener.ID
+	}
+
+	found := false
+	for _, listener := range pivotListeners.Listeners {
+		if listener.ID == id {
+			PrintPivotListenerDetails(listener, con)
+			found = true
+		}
+	}
+	if !found {
+		con.PrintErrorf("No pivot listener with id %d\n", id)
 	}
 }
 
-// PrintPivotListeners - Print a table of pivot listeners
-func PrintPivotListeners(pivotListeners []*sliverpb.PivotListener, con *console.SliverConsoleClient) {
+// PrintPivotListenerDetails - Print details of a single pivot listener
+func PrintPivotListenerDetails(listener *sliverpb.PivotListener, con *console.SliverConsoleClient) {
+	con.Printf("\n")
+	con.Printf("               ID: %d\n", listener.ID)
+	con.Printf("         Protocol: %s\n", PivotTypeToString(listener.Type))
+	con.Printf("     Bind Address: %s\n", listener.BindAddress)
+	con.Printf(" Number of Pivots: %d\n", len(listener.Pivots))
+	con.Printf("\n")
+
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	tw.SetTitle(fmt.Sprintf(console.Bold+"%s Pivots"+console.Normal, PivotTypeToString(listener.Type)))
+	tw.AppendSeparator()
 	tw.AppendHeader(table.Row{
 		"ID",
-		"Protocol",
-		"Bind Address",
-		"Number of Pivots",
+		"Remote Address",
 	})
-	for _, listener := range pivotListeners {
+	for _, pivot := range listener.Pivots {
 		tw.AppendRow(table.Row{
-			listener.ID,
-			PivotTypeToString(listener.Type),
-			listener.BindAddress,
-			len(listener.Pivots),
+			pivot.ID,
+			pivot.RemoteAddress,
 		})
 	}
 	con.Printf("%s\n", tw.Render())
-}
-
-// PivotTypeToString - Convert a pivot type to a human string
-func PivotTypeToString(pivotType sliverpb.PivotType) string {
-	switch pivotType {
-	case sliverpb.PivotType_TCP:
-		return "TCP"
-	case sliverpb.PivotType_UDP:
-		return "UDP"
-	case sliverpb.PivotType_NamedPipe:
-		return "Named Pipe"
-	}
-	return "Unknown"
 }

@@ -20,7 +20,7 @@ package transports
 
 import (
 
-	// {{if or .Config.HTTPc2Enabled .Config.TCPPivotc2Enabled .Config.WGc2Enabled}}
+	// {{if or .Config.WGc2Enabled .Config.HTTPc2Enabled}}
 	"net"
 	// {{end}}
 
@@ -629,7 +629,7 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 	// {{end}}
 
 	opts := tcppivot.ParseTCPPivotOptions(uri)
-	pivot, err := tcppivot.TCPPivotStartSession(uri.Host, uri.Port(), opts)
+	pivot, err := tcppivot.TCPPivotStartSession(uri.Host, opts)
 	if err != nil {
 		return nil, err
 	}

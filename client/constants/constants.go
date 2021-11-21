@@ -117,16 +117,17 @@ const (
 	// Generic
 
 	// NewStr - "new"
-	NewStr    = "new"
-	AddStr    = "add"
-	StartStr  = "start"
-	StopStr   = "stop"
-	SetStr    = "set"
-	UnsetStr  = "unset"
-	SaveStr   = "save"
-	ReloadStr = "reload"
-	LoadStr   = "load"
-	TablesStr = "tables"
+	NewStr     = "new"
+	AddStr     = "add"
+	StartStr   = "start"
+	StopStr    = "stop"
+	SetStr     = "set"
+	UnsetStr   = "unset"
+	SaveStr    = "save"
+	ReloadStr  = "reload"
+	LoadStr    = "load"
+	TablesStr  = "tables"
+	DetailsStr = "details"
 
 	LootStr       = "loot"
 	LootLocalStr  = "local"
@@ -146,7 +147,7 @@ const (
 	HttpStr        = "http"
 	HttpsStr       = "https"
 	NamedPipeStr   = "named-pipe"
-	TCPListenerStr = "tcp-pivot"
+	TCPListenerStr = "tcp"
 
 	MsfStr       = "msf"
 	MsfInjectStr = "msf-inject"
@@ -206,7 +207,7 @@ const (
 	RegistryListSubStr    = "list-subkeys"
 	RegistryListValuesStr = "list-values"
 	RegistryCreateKeyStr  = "create"
-	PivotsListStr         = "pivots-list"
+	PivotsStr             = "pivots"
 	WgConfigStr           = "wg-config"
 	WgSocksStr            = "wg-socks"
 	WgPortFwdStr          = "wg-portfwd"
@@ -216,7 +217,7 @@ const (
 	InteractiveStr        = "interactive"
 
 	PortfwdStr = "portfwd"
-	Socks5Str = "socks5"
+	Socks5Str  = "socks5"
 
 	ReactionStr = "reaction"
 

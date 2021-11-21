@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"net"
 	"net/url"
 	"sync"
@@ -30,8 +29,8 @@ var (
 	defaultDeadline = time.Second * 10
 )
 
-// TCPPivotParseOptions - Parse the options for the TCP pivot from a C2 URL
-func TCPPivotParseOptions(uri *url.URL) *TCPPivotOptions {
+// ParseTCPPivotOptions - Parse the options for the TCP pivot from a C2 URL
+func ParseTCPPivotOptions(uri *url.URL) *TCPPivotOptions {
 	readDeadline, err := time.ParseDuration(uri.Query().Get("read-deadline"))
 	if err != nil {
 		readDeadline = defaultDeadline
@@ -53,8 +52,8 @@ type TCPPivotOptions struct {
 }
 
 // TCPPivotStartSession - Start a TCP pivot session with a peer
-func TCPPivotStartSession(peer string, port string, opts *TCPPivotOptions) (*TCPPivotClient, error) {
-	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%s", peer, port))
+func TCPPivotStartSession(peer string, opts *TCPPivotOptions) (*TCPPivotClient, error) {
+	conn, err := net.Dial("tcp", peer)
 	if err != nil {
 		return nil, err
 	}
