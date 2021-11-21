@@ -61,7 +61,7 @@ require (
 require (
 	github.com/emirpasic/gods v1.12.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
-	github.com/shirou/gopsutil v3.21.10+incompatible
+	github.com/shirou/gopsutil/v3 v3.21.10
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
 )
 
@@ -79,7 +79,7 @@ require (
 	github.com/desertbit/closer/v3 v3.1.2 // indirect
 	github.com/desertbit/readline v1.5.1 // indirect
 	github.com/dlclark/regexp2 v1.2.0 // indirect
-	github.com/go-ole/go-ole v1.2.5 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -95,6 +95,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.2 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
+	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect

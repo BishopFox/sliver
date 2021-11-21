@@ -3,7 +3,7 @@ package mem
 import (
 	"encoding/json"
 
-	"github.com/shirou/gopsutil/internal/common"
+	"github.com/shirou/gopsutil/v3/internal/common"
 )
 
 var invoke common.Invoker = common.Invoke{}
@@ -52,30 +52,30 @@ type VirtualMemoryStat struct {
 	// https://www.kernel.org/doc/Documentation/vm/overcommit-accounting
 	Buffers        uint64 `json:"buffers"`
 	Cached         uint64 `json:"cached"`
-	Writeback      uint64 `json:"writeback"`
+	WriteBack      uint64 `json:"writeBack"`
 	Dirty          uint64 `json:"dirty"`
-	WritebackTmp   uint64 `json:"writebacktmp"`
+	WriteBackTmp   uint64 `json:"writeBackTmp"`
 	Shared         uint64 `json:"shared"`
 	Slab           uint64 `json:"slab"`
-	SReclaimable   uint64 `json:"sreclaimable"`
-	SUnreclaim     uint64 `json:"sunreclaim"`
-	PageTables     uint64 `json:"pagetables"`
-	SwapCached     uint64 `json:"swapcached"`
-	CommitLimit    uint64 `json:"commitlimit"`
-	CommittedAS    uint64 `json:"committedas"`
-	HighTotal      uint64 `json:"hightotal"`
-	HighFree       uint64 `json:"highfree"`
-	LowTotal       uint64 `json:"lowtotal"`
-	LowFree        uint64 `json:"lowfree"`
-	SwapTotal      uint64 `json:"swaptotal"`
-	SwapFree       uint64 `json:"swapfree"`
+	Sreclaimable   uint64 `json:"sreclaimable"`
+	Sunreclaim     uint64 `json:"sunreclaim"`
+	PageTables     uint64 `json:"pageTables"`
+	SwapCached     uint64 `json:"swapCached"`
+	CommitLimit    uint64 `json:"commitLimit"`
+	CommittedAS    uint64 `json:"committedAS"`
+	HighTotal      uint64 `json:"highTotal"`
+	HighFree       uint64 `json:"highFree"`
+	LowTotal       uint64 `json:"lowTotal"`
+	LowFree        uint64 `json:"lowFree"`
+	SwapTotal      uint64 `json:"swapTotal"`
+	SwapFree       uint64 `json:"swapFree"`
 	Mapped         uint64 `json:"mapped"`
-	VMallocTotal   uint64 `json:"vmalloctotal"`
-	VMallocUsed    uint64 `json:"vmallocused"`
-	VMallocChunk   uint64 `json:"vmallocchunk"`
-	HugePagesTotal uint64 `json:"hugepagestotal"`
-	HugePagesFree  uint64 `json:"hugepagesfree"`
-	HugePageSize   uint64 `json:"hugepagesize"`
+	VmallocTotal   uint64 `json:"vmallocTotal"`
+	VmallocUsed    uint64 `json:"vmallocUsed"`
+	VmallocChunk   uint64 `json:"vmallocChunk"`
+	HugePagesTotal uint64 `json:"hugePagesTotal"`
+	HugePagesFree  uint64 `json:"hugePagesFree"`
+	HugePageSize   uint64 `json:"hugePageSize"`
 }
 
 type SwapMemoryStat struct {
@@ -85,13 +85,13 @@ type SwapMemoryStat struct {
 	UsedPercent float64 `json:"usedPercent"`
 	Sin         uint64  `json:"sin"`
 	Sout        uint64  `json:"sout"`
-	PgIn        uint64  `json:"pgin"`
-	PgOut       uint64  `json:"pgout"`
-	PgFault     uint64  `json:"pgfault"`
+	PgIn        uint64  `json:"pgIn"`
+	PgOut       uint64  `json:"pgOut"`
+	PgFault     uint64  `json:"pgFault"`
 
 	// Linux specific numbers
 	// https://www.kernel.org/doc/Documentation/cgroup-v2.txt
-	PgMajFault uint64 `json:"pgmajfault"`
+	PgMajFault  uint64  `json:"pgMajFault"`
 }
 
 func (m VirtualMemoryStat) String() string {

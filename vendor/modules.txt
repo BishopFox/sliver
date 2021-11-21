@@ -129,7 +129,7 @@ github.com/fatih/color
 # github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5
 ## explicit
 github.com/gen2brain/shm
-# github.com/go-ole/go-ole v1.2.5
+# github.com/go-ole/go-ole v1.2.6
 ## explicit; go 1.12
 github.com/go-ole/go-ole
 github.com/go-ole/go-ole/oleutil
@@ -226,6 +226,9 @@ github.com/lesnuages/go-winio
 # github.com/lesnuages/snitch v0.6.0
 ## explicit; go 1.16
 github.com/lesnuages/snitch/pkg/snitch
+# github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0
+## explicit; go 1.16
+github.com/lufia/plan9stats
 # github.com/lxn/win v0.0.0-20210218163916-a377121e959e
 ## explicit; go 1.12
 github.com/lxn/win
@@ -262,10 +265,10 @@ github.com/pquerna/otp/hotp
 github.com/pquerna/otp/totp
 # github.com/sergi/go-diff v1.1.0
 ## explicit; go 1.12
-# github.com/shirou/gopsutil v3.21.10+incompatible
-## explicit
-github.com/shirou/gopsutil/internal/common
-github.com/shirou/gopsutil/mem
+# github.com/shirou/gopsutil/v3 v3.21.10
+## explicit; go 1.15
+github.com/shirou/gopsutil/v3/internal/common
+github.com/shirou/gopsutil/v3/mem
 # github.com/sirupsen/logrus v1.7.0
 ## explicit; go 1.13
 github.com/sirupsen/logrus

@@ -29,7 +29,7 @@ import (
 	"strings"
 
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
 const (

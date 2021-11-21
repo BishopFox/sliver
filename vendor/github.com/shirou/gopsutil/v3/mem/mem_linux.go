@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shirou/gopsutil/internal/common"
+	"github.com/shirou/gopsutil/v3/internal/common"
 	"golang.org/x/sys/unix"
 )
 
@@ -62,7 +62,7 @@ func fillFromMeminfoWithContext(ctx context.Context) (*VirtualMemoryStat, *Virtu
 	memavail := false
 	activeFile := false   // "Active(file)" not available: 2.6.28 / Dec 2008
 	inactiveFile := false // "Inactive(file)" not available: 2.6.28 / Dec 2008
-	sReclaimable := false // "SReclaimable:" not available: 2.6.19 / Nov 2006
+	sReclaimable := false // "Sreclaimable:" not available: 2.6.19 / Nov 2006
 
 	ret := &VirtualMemoryStat{}
 	retEx := &VirtualMemoryExStat{}
@@ -152,18 +152,18 @@ func fillFromMeminfoWithContext(ctx context.Context) (*VirtualMemoryStat, *Virtu
 				return ret, retEx, err
 			}
 			retEx.Unevictable = t * 1024
-		case "Writeback":
+		case "WriteBack":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return ret, retEx, err
 			}
-			ret.Writeback = t * 1024
-		case "WritebackTmp":
+			ret.WriteBack = t * 1024
+		case "WriteBackTmp":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return ret, retEx, err
 			}
-			ret.WritebackTmp = t * 1024
+			ret.WriteBackTmp = t * 1024
 		case "Dirty":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
@@ -188,13 +188,13 @@ func fillFromMeminfoWithContext(ctx context.Context) (*VirtualMemoryStat, *Virtu
 				return ret, retEx, err
 			}
 			sReclaimable = true
-			ret.SReclaimable = t * 1024
+			ret.Sreclaimable = t * 1024
 		case "SUnreclaim":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return ret, retEx, err
 			}
-			ret.SUnreclaim = t * 1024
+			ret.Sunreclaim = t * 1024
 		case "PageTables":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
@@ -266,19 +266,19 @@ func fillFromMeminfoWithContext(ctx context.Context) (*VirtualMemoryStat, *Virtu
 			if err != nil {
 				return ret, retEx, err
 			}
-			ret.VMallocTotal = t * 1024
+			ret.VmallocTotal = t * 1024
 		case "VmallocUsed":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return ret, retEx, err
 			}
-			ret.VMallocUsed = t * 1024
+			ret.VmallocUsed = t * 1024
 		case "VmallocChunk":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return ret, retEx, err
 			}
-			ret.VMallocChunk = t * 1024
+			ret.VmallocChunk = t * 1024
 		case "HugePages_Total":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
@@ -300,7 +300,7 @@ func fillFromMeminfoWithContext(ctx context.Context) (*VirtualMemoryStat, *Virtu
 		}
 	}
 
-	ret.Cached += ret.SReclaimable
+	ret.Cached += ret.Sreclaimable
 
 	if !memavail {
 		if activeFile && inactiveFile && sReclaimable {
@@ -357,25 +357,25 @@ func SwapMemoryWithContext(ctx context.Context) (*SwapMemoryStat, error) {
 				continue
 			}
 			ret.Sout = value * 4 * 1024
-		case "pgpgin":
+		case "pgpgIn":
 			value, err := strconv.ParseUint(fields[1], 10, 64)
 			if err != nil {
 				continue
 			}
 			ret.PgIn = value * 4 * 1024
-		case "pgpgout":
+		case "pgpgOut":
 			value, err := strconv.ParseUint(fields[1], 10, 64)
 			if err != nil {
 				continue
 			}
 			ret.PgOut = value * 4 * 1024
-		case "pgfault":
+		case "pgFault":
 			value, err := strconv.ParseUint(fields[1], 10, 64)
 			if err != nil {
 				continue
 			}
 			ret.PgFault = value * 4 * 1024
-		case "pgmajfault":
+		case "pgMajFault":
 			value, err := strconv.ParseUint(fields[1], 10, 64)
 			if err != nil {
 				continue
@@ -421,7 +421,7 @@ func calcuateAvailVmem(ret *VirtualMemoryStat, retEx *VirtualMemoryExStat) uint6
 	pageCache := retEx.ActiveFile + retEx.InactiveFile
 	pageCache -= uint64(math.Min(float64(pageCache/2), float64(watermarkLow)))
 	availMemory += pageCache
-	availMemory += ret.SReclaimable - uint64(math.Min(float64(ret.SReclaimable/2.0), float64(watermarkLow)))
+	availMemory += ret.Sreclaimable - uint64(math.Min(float64(ret.Sreclaimable/2.0), float64(watermarkLow)))
 
 	if availMemory < 0 {
 		availMemory = 0
