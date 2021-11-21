@@ -42,54 +42,6 @@ const (
 
 var (
 	gogoLog = log.NamedLogger("gogo", "compiler")
-
-	// ValidCompilerTargets - Supported compiler targets
-	ValidCompilerTargets = map[string]bool{
-		"aix/ppc64":       true,
-		"android/386":     true,
-		"android/amd64":   true,
-		"android/arm":     true,
-		"android/arm64":   true,
-		"darwin/amd64":    true,
-		"darwin/arm64":    true,
-		"dragonfly/amd64": true,
-		"freebsd/386":     true,
-		"freebsd/amd64":   true,
-		"freebsd/arm":     true,
-		"freebsd/arm64":   true,
-		"illumos/amd64":   true,
-		"ios/amd64":       true,
-		"ios/arm64":       true,
-		"js/wasm":         true,
-		"linux/386":       true,
-		"linux/amd64":     true,
-		"linux/arm":       true,
-		"linux/arm64":     true,
-		"linux/mips":      true,
-		"linux/mips64":    true,
-		"linux/mips64le":  true,
-		"linux/mipsle":    true,
-		"linux/ppc64":     true,
-		"linux/ppc64le":   true,
-		"linux/riscv64":   true,
-		"linux/s390x":     true,
-		"netbsd/386":      true,
-		"netbsd/amd64":    true,
-		"netbsd/arm":      true,
-		"netbsd/arm64":    true,
-		"openbsd/386":     true,
-		"openbsd/amd64":   true,
-		"openbsd/arm":     true,
-		"openbsd/arm64":   true,
-		"openbsd/mips64":  true,
-		"plan9/386":       true,
-		"plan9/amd64":     true,
-		"plan9/arm":       true,
-		"solaris/amd64":   true,
-		"windows/386":     true,
-		"windows/amd64":   true,
-		"windows/arm":     true,
-	}
 )
 
 // GoConfig - Env variables for Go compiler
@@ -153,7 +105,7 @@ func seed() string {
 // GarbleCmd - Execute a go command
 func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
-	if _, ok := ValidCompilerTargets[target]; !ok {
+	if _, ok := ValidCompilerTargets(config)[target]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	garbleBinPath := path.Join(config.GOROOT, "bin", "garble")
@@ -234,7 +186,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 // GoBuild - Execute a go build command, returns stdout/error
 func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []string, ldflags []string, gcflags, asmflags string, trimpath string) ([]byte, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
-	if _, ok := ValidCompilerTargets[target]; !ok {
+	if _, ok := ValidCompilerTargets(config)[target]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	var goCommand = []string{"build"}
@@ -277,6 +229,14 @@ func GoVersion(config GoConfig) ([]byte, error) {
 	var goCommand = []string{"version"}
 	wd, _ := os.Getwd()
 	return GoCmd(config, wd, goCommand)
+}
+
+func ValidCompilerTargets(config GoConfig) map[string]bool {
+	validTargets := make(map[string]bool)
+	for _, target := range GoToolDistList(config) {
+		validTargets[target] = true
+	}
+	return validTargets
 }
 
 // GoToolDistList - Get a list of supported GOOS/GOARCH pairs

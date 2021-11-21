@@ -68,9 +68,10 @@ func setup() {
 	implantCrypto.SetSecrets(
 		implantECCKeyPair.PublicBase64(),
 		implantECCKeyPair.PrivateBase64(),
-		"",
+		MinisignServerSign(implantECCKeyPair.Public[:]),
 		serverECCKeyPair.PublicBase64(),
 		totpSecret,
+		MinisignServerPublicKey(),
 	)
 }
 

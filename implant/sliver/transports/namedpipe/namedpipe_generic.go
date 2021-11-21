@@ -2,12 +2,6 @@
 
 package namedpipe
 
-import (
-	"errors"
-	"net"
-	"net/url"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -25,6 +19,12 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"errors"
+	"net"
+	"net/url"
+)
 
 func NamedPipeConnect(_ *url.URL) (net.Conn, error) {
 	return nil, errors.New("{{if .Config.Debug}}NamedPipeConnect not implemented on this platform{{end}}")

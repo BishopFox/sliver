@@ -455,7 +455,7 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gogo.GoConfig) (string, error) {
 	var err error
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
-	if _, ok := gogo.ValidCompilerTargets[target]; !ok {
+	if _, ok := gogo.ValidCompilerTargets(*goConfig)[target]; !ok {
 		return "", fmt.Errorf("Invalid compiler target: %s", target)
 	}
 
