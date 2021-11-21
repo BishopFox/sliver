@@ -64,7 +64,7 @@ func Start() {
 func generateServerSpecificValues() {
 	cryptography.ECCServerKeyPair()
 	cryptography.TOTPServerSecret()
-	cryptography.ServerMinisign()
+	cryptography.MinisignServerPrivateKey()
 }
 
 // ServerOnlyCmds - Server only commands

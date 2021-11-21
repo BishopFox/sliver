@@ -28,6 +28,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -492,7 +493,9 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	config.ECCPublicKey = implantKeyPair.PublicBase64()
 	config.ECCPublicKeyDigest = hex.EncodeToString(digest[:])
 	config.ECCPrivateKey = implantKeyPair.PrivateBase64()
+	config.ECCPublicKeySignature = cryptography.MinisignServerSign(implantKeyPair.Public[:])
 	config.ECCServerPublicKey = serverKeyPair.PublicBase64()
+	config.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
 
 	// MTLS keys
 	if config.MTLSc2Enabled {
@@ -524,11 +527,11 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	}
 
 	// binDir - ~/.sliver/slivers/<os>/<arch>/<name>/bin
-	binDir := path.Join(projectGoPathDir, "bin")
+	binDir := filepath.Join(projectGoPathDir, "bin")
 	os.MkdirAll(binDir, 0700)
 
 	// srcDir - ~/.sliver/slivers/<os>/<arch>/<name>/src
-	srcDir := path.Join(projectGoPathDir, "src")
+	srcDir := filepath.Join(projectGoPathDir, "src")
 	assets.SetupGoPath(srcDir)            // Extract GOPATH dependency files
 	err = util.ChmodR(srcDir, 0600, 0700) // Ensures src code files are writable
 	if err != nil {
@@ -536,7 +539,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		return "", err
 	}
 
-	sliverPkgDir := path.Join(srcDir, "github.com", "bishopfox", "sliver") // "main"
+	sliverPkgDir := filepath.Join(srcDir, "github.com", "bishopfox", "sliver") // "main"
 	err = os.MkdirAll(sliverPkgDir, 0700)
 	if err != nil {
 		return "", nil
@@ -564,11 +567,11 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 
 		var sliverCodePath string
 		if f.Name() == "sliver.go" || f.Name() == "sliver.c" || f.Name() == "sliver.h" {
-			sliverCodePath = path.Join(sliverPkgDir, f.Name())
+			sliverCodePath = filepath.Join(sliverPkgDir, f.Name())
 		} else {
-			sliverCodePath = path.Join(sliverPkgDir, "implant", fsPath)
+			sliverCodePath = filepath.Join(sliverPkgDir, "implant", fsPath)
 		}
-		dirPath := path.Dir(sliverCodePath)
+		dirPath := filepath.Dir(sliverCodePath)
 		if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 			buildLog.Debugf("[mkdir] %#v", dirPath)
 			err = os.MkdirAll(dirPath, 0700)

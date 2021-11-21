@@ -27,7 +27,6 @@ package cryptography
 import (
 	"encoding/base64"
 	"errors"
-	"io/ioutil"
 	"strings"
 
 	"golang.org/x/crypto/blake2b"
@@ -99,16 +98,6 @@ func DecodeMinisignSignature(in string) (Signature, error) {
 	copy(signature.Signature[:], bin1[10:74])
 	copy(signature.GlobalSignature[:], bin2)
 	return signature, nil
-}
-
-// NewPublicKeyFromFile - Reads a public key from a file
-func NewPublicKeyFromFile(file string) (PublicKey, error) {
-	var publicKey PublicKey
-	bin, err := ioutil.ReadFile(file)
-	if err != nil {
-		return publicKey, err
-	}
-	return DecodeMinisignPublicKey(string(bin))
 }
 
 // Verify - Verifies a signature of a buffer

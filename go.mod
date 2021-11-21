@@ -61,11 +61,13 @@ require (
 require (
 	github.com/emirpasic/gods v1.12.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
+	github.com/shirou/gopsutil v3.21.10+incompatible
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
 )
 
 require (
 	github.com/Binject/shellcode v0.0.0-20191101084904-a8a90e7d4563 // indirect
+	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/VirusTotal/vt-go v0.0.0-20210528074736-45bbe34cc8ab // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
 	github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0 // indirect
@@ -77,6 +79,7 @@ require (
 	github.com/desertbit/closer/v3 v3.1.2 // indirect
 	github.com/desertbit/readline v1.5.1 // indirect
 	github.com/dlclark/regexp2 v1.2.0 // indirect
+	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect

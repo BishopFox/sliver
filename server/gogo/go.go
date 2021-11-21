@@ -29,10 +29,15 @@ import (
 	"strings"
 
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/shirou/gopsutil/mem"
 )
 
 const (
 	goDirName = "go"
+
+	kb = 1024
+	mb = 1024 * kb
+	gb = 1024 * mb
 )
 
 var (
@@ -124,6 +129,21 @@ func GetGoModCache(appDir string) string {
 	return cachePath
 }
 
+// The 6Gb limit here is somewhat arbitrary but is based on my own testing
+func garbleMaxLiteralSize() []string {
+	vmStat, err := mem.VirtualMemory()
+	if err != nil {
+		gogoLog.Errorf("Failed to detect amount of system memory: %s", err)
+		return []string{} // Use default
+	}
+	if 6*gb < vmStat.Total {
+		gogoLog.Infof("More than 6Gb of system memory, enable large literal obfuscation")
+		return []string{"-literals-max-size", fmt.Sprintf("%d", 512*kb)}
+	}
+	gogoLog.Infof("Less than 6Gb of system memory, disable large literal obfuscation")
+	return []string{}
+}
+
 func seed() string {
 	seed := make([]byte, 32)
 	rand.Read(seed)
@@ -138,8 +158,9 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	}
 	garbleBinPath := path.Join(config.GOROOT, "bin", "garble")
 	seed := fmt.Sprintf("-seed=%s", seed())
-	// command = append([]string{"-literals", "-tiny", seed}, command...)
-	command = append([]string{"-literals", seed}, command...)
+	garbleFlags := []string{"-literals", seed}
+	garbleFlags = append(garbleFlags, garbleMaxLiteralSize()...)
+	command = append(garbleFlags, command...)
 	cmd := exec.Command(garbleBinPath, command...)
 	cmd.Dir = cwd
 	cmd.Env = []string{

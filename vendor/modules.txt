@@ -30,6 +30,9 @@ github.com/BurntSushi/xgb/xproto
 # github.com/Microsoft/go-winio v0.4.16
 ## explicit; go 1.12
 github.com/Microsoft/go-winio/pkg/guid
+# github.com/StackExchange/wmi v1.2.1
+## explicit; go 1.13
+github.com/StackExchange/wmi
 # github.com/VirusTotal/vt-go v0.0.0-20210528074736-45bbe34cc8ab
 ## explicit; go 1.14
 github.com/VirusTotal/vt-go
@@ -126,6 +129,10 @@ github.com/fatih/color
 # github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5
 ## explicit
 github.com/gen2brain/shm
+# github.com/go-ole/go-ole v1.2.5
+## explicit; go 1.12
+github.com/go-ole/go-ole
+github.com/go-ole/go-ole/oleutil
 # github.com/go-sql-driver/mysql v1.5.0
 ## explicit; go 1.10
 github.com/go-sql-driver/mysql
@@ -255,6 +262,10 @@ github.com/pquerna/otp/hotp
 github.com/pquerna/otp/totp
 # github.com/sergi/go-diff v1.1.0
 ## explicit; go 1.12
+# github.com/shirou/gopsutil v3.21.10+incompatible
+## explicit
+github.com/shirou/gopsutil/internal/common
+github.com/shirou/gopsutil/mem
 # github.com/sirupsen/logrus v1.7.0
 ## explicit; go 1.13
 github.com/sirupsen/logrus

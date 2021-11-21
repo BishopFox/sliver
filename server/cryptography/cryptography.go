@@ -48,7 +48,7 @@ const (
 	TOTPPeriod               = uint(30)
 	TOTPSecretKey            = "server.totp"
 	ServerECCKeyPairKey      = "server.ecc"
-	ServerMinisignPrivateKey = "server.minisign"
+	serverMinisignPrivateKey = "server.minisign"
 )
 
 var (
@@ -299,9 +299,25 @@ type minisignPrivateKey struct {
 	PrivateKey []byte `json:"private_key"`
 }
 
-// ServerMinisign - Get the server's minisign key pair
-func ServerMinisign() *minisign.PrivateKey {
-	data, err := db.GetKeyValue(ServerMinisignPrivateKey)
+// MinisignServerPublicKey - Get the server's minisign public key string
+func MinisignServerPublicKey() string {
+	publicKey := MinisignServerPrivateKey().Public().(minisign.PublicKey)
+	publicKeyText, err := publicKey.MarshalText()
+	if err != nil {
+		panic(err)
+	}
+	return string(publicKeyText)
+}
+
+// MinisignServerSign - Sign a message with the server's minisign private key
+func MinisignServerSign(message []byte) string {
+	privateKey := MinisignServerPrivateKey()
+	return string(minisign.Sign(*privateKey, message))
+}
+
+// MinisignServerPrivateKey - Get the server's minisign key pair
+func MinisignServerPrivateKey() *minisign.PrivateKey {
+	data, err := db.GetKeyValue(serverMinisignPrivateKey)
 	if err == db.ErrRecordNotFound {
 		privateKey, err := generateServerMinisignPrivateKey()
 		if err != nil {
@@ -331,7 +347,7 @@ func generateServerMinisignPrivateKey() (*minisign.PrivateKey, error) {
 		ID:         privateKey.ID(),
 		PrivateKey: privateKey.Bytes(),
 	})
-	err = db.SetKeyValue(ServerMinisignPrivateKey, string(data))
+	err = db.SetKeyValue(serverMinisignPrivateKey, string(data))
 	if err != nil {
 		return nil, err
 	}

@@ -264,7 +264,7 @@ func TestImplantECCEncryptDecryptTamperData(t *testing.T) {
 
 func TestServerMinisign(t *testing.T) {
 	message := randomData()
-	privateKey := ServerMinisign()
+	privateKey := MinisignServerPrivateKey()
 	signature := minisign.Sign(*privateKey, message)
 	if !minisign.Verify(privateKey.Public().(minisign.PublicKey), message, signature) {
 		t.Fatalf("Failed to very message with server minisign")
@@ -277,7 +277,7 @@ func TestServerMinisign(t *testing.T) {
 
 func TestImplantMinisign(t *testing.T) {
 	message := randomData()
-	privateKey := ServerMinisign()
+	privateKey := MinisignServerPrivateKey()
 	signature := minisign.Sign(*privateKey, message)
 
 	publicKey := privateKey.Public().(minisign.PublicKey)
