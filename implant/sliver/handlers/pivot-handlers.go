@@ -34,6 +34,7 @@ var (
 		pb.MsgPivotListenersReq:     pivotListenersHandler,
 		pb.MsgPivotStartListenerReq: pivotStartListenerHandler,
 		pb.MsgPivotStopListenerReq:  pivotStopListenerHandler,
+		pb.MsgPivotPeerEnvelope:     pivotPeerEnvelopeHandler,
 	}
 )
 
@@ -68,7 +69,7 @@ func pivotStartListenerHandler(envelope *pb.Envelope, connection *transports.Con
 	}
 
 	if startListener, ok := pivots.SupportedPivotListeners[req.Type]; ok {
-		listener, err := startListener(req.BindAddress)
+		listener, err := startListener(req.BindAddress, connection.Send)
 		if err != nil {
 			resp.Response.Err = err.Error()
 			data, _ := proto.Marshal(resp)
@@ -112,4 +113,8 @@ func pivotStopListenerHandler(envelope *pb.Envelope, connection *transports.Conn
 		ID:   envelope.ID,
 		Data: []byte{},
 	}
+}
+
+func pivotPeerEnvelopeHandler(envelope *pb.Envelope, connection *transports.Connection) {
+
 }

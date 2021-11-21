@@ -36,7 +36,7 @@ var (
 )
 
 // StartTCPPivotListener - Start a TCP listener
-func StartTCPPivotListener(address string) (*PivotListener, error) {
+func StartTCPPivotListener(address string, upstream chan<- *pb.Envelope) (*PivotListener, error) {
 	// {{if .Config.Debug}}
 	log.Printf("Starting TCP pivot listener on %s", address)
 	// {{end}}
@@ -53,6 +53,7 @@ func StartTCPPivotListener(address string) (*PivotListener, error) {
 		Listener:    ln,
 		Pivots:      &sync.Map{},
 		BindAddress: address,
+		Upstream:    upstream,
 	}
 	go tcpPivotAcceptNewConnections(pivotListener)
 	return pivotListener, nil
@@ -75,13 +76,9 @@ func tcpPivotAcceptNewConnections(pivotListener *PivotListener) {
 			writeMutex:    &sync.Mutex{},
 			readDeadline:  tcpPivotReadDeadline,
 			writeDeadline: tcpPivotWriteDeadline,
+			upstream:      pivotListener.Upstream,
+			Downstream:    make(chan *pb.Envelope),
 		}
-		go func() {
-			// Do not add to pivot listener until key exchange is successful
-			err = pivotConn.Start()
-			if err == nil {
-				pivotListener.Pivots.Store(pivotConn.ID(), pivotConn)
-			}
-		}()
+		go pivotConn.Start(pivotListener.Pivots)
 	}
 }

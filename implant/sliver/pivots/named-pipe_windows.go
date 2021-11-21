@@ -41,7 +41,7 @@ var (
 )
 
 // StartNamedPipePivotListener - Starts a named pipe listener
-func StartNamedPipePivotListener(pipeName string) (*PivotListener, error) {
+func StartNamedPipePivotListener(pipeName string, upstream <-chan *pb.Envelope) (*PivotListener, error) {
 	fullName := "\\\\.\\pipe\\" + pipeName
 	config := &winio.PipeConfig{
 		RemoteClientMode: true,
@@ -60,6 +60,7 @@ func StartNamedPipePivotListener(pipeName string) (*PivotListener, error) {
 		Listener:    ln,
 		Pivots:      &sync.Map{},
 		BindAddress: fullName,
+		upstream:    upstream,
 	}, nil
 }
 

