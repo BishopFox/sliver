@@ -1,6 +1,6 @@
-//go:build !windows
+// go:build !windows
 
-package namedpipe
+package pivotclients
 
 /*
 	Sliver Implant Framework
@@ -22,10 +22,9 @@ package namedpipe
 
 import (
 	"errors"
-	"net"
-	"net/url"
 )
 
-func NamedPipeConnect(_ *url.URL) (net.Conn, error) {
-	return nil, errors.New("{{if .Config.Debug}}NamedPipeConnect not implemented on this platform{{end}}")
+// NamedPipeConnect - Non windows implementation of the named pipe client
+func NamedPipePivotStartSession(_ string, _ *NamedPipePivotOptions) (*NetConnPivotClient, error) {
+	return nil, errors.New("unsupported platform")
 }

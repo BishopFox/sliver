@@ -740,6 +740,17 @@ message PivotHello {
   bytes SessionKey = 3;
 }
 
+enum PivotOriginEnvelopeType {
+  SESSION_INIT = 0;
+  SESSION_DATA = 1;
+}
+
+message PivotOriginEnvelope {
+  PivotOriginEnvelopeType Type = 1;
+  int64 OriginID = 2;
+  bytes Data = 3;
+}
+
 message PivotPing {
   uint32 Nonce = 1;
 }

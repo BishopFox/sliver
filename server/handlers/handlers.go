@@ -43,6 +43,10 @@ var (
 		// Beacons
 		sliverpb.MsgBeaconRegister: beaconRegisterHandler,
 		sliverpb.MsgBeaconTasks:    beaconTasksHandler,
+
+		// Pivots
+		sliverpb.MsgPivotPeerEnvelope: pivotPeerEnvelopeHandler,
+		sliverpb.MsgPivotPeerFailure:  pivotPeerFailureHandler,
 	}
 
 	tunnelHandlerMutex = &sync.Mutex{}

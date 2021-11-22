@@ -26,6 +26,7 @@ import (
 	"github.com/gofrs/uuid"
 )
 
+// ImplantConnection - Abstract connection to an implant
 type ImplantConnection struct {
 	ID            string
 	Send          chan *sliverpb.Envelope
@@ -37,10 +38,12 @@ type ImplantConnection struct {
 	Cleanup       func()
 }
 
+// UpdateLastMessage - Updates the last message time
 func (c *ImplantConnection) UpdateLastMessage() {
 	c.LastMessage = time.Now()
 }
 
+// NewImplantConnection - Creates a new implant connection
 func NewImplantConnection(transport string, remoteAddress string) *ImplantConnection {
 	return &ImplantConnection{
 		ID:            generateImplantConnectionID(),
