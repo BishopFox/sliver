@@ -26,7 +26,9 @@ import (
 	"sync"
 	"time"
 
+	// {{if .Config.Debug}}
 	"log"
+	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/shell"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
