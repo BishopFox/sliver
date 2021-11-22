@@ -749,6 +749,10 @@ message PivotPeer {
   string RemoteAddress = 2;
 }
 
+message PivotPeerFailure {
+  int64 ID = 1;
+}
+
 message PivotListenersReq {
 
   commonpb.Request Request = 9;

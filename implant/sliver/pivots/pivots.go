@@ -72,6 +72,33 @@ func StopListener(id uint32) {
 	}
 }
 
+// SendToPeer - Forward an envelope to a peer
+func SendToPeer(envelope *pb.Envelope) bool {
+	downstreamEnvelope := &pb.Envelope{}
+	err := proto.Unmarshal(envelope.Data, downstreamEnvelope)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to unmarshal downstream envelope: %s", err)
+		// {{end}}
+		return false
+	}
+	sent := false
+	pivotListeners.Range(func(key interface{}, value interface{}) bool {
+		listener := value.(*PivotListener)
+		listener.Pivots.Range(func(key interface{}, value interface{}) bool {
+			pivot := value.(*NetConnPivot)
+			if pivot.ID() == envelope.ID {
+				pivot.Downstream <- downstreamEnvelope
+				sent = true  // break from the outer loop
+				return false // stop iterating inner loop
+			}
+			return true // Keep iterating
+		})
+		return sent
+	})
+	return sent
+}
+
 // PivotListener - A pivot listener
 type PivotListener struct {
 	ID          uint32
@@ -182,17 +209,13 @@ func (p *NetConnPivot) Start(pivots *sync.Map) {
 					Type: pb.MsgPivotPing,
 					Data: envelope.Data,
 				}
-			} else if envelope.Type == pb.MsgPivotPeerEnvelope {
+			} else {
 				data, _ := proto.Marshal(envelope)
 				p.upstream <- &pb.Envelope{
 					ID:   p.ID(),
 					Type: pb.MsgPivotPeerEnvelope,
 					Data: data,
 				}
-			} else {
-				// {{if .Config.Debug}}
-				log.Printf("unexpected envelope type: %v", envelope.Type)
-				// {{end}}
 			}
 		}
 	}()

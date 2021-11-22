@@ -116,5 +116,12 @@ func pivotStopListenerHandler(envelope *pb.Envelope, connection *transports.Conn
 }
 
 func pivotPeerEnvelopeHandler(envelope *pb.Envelope, connection *transports.Connection) {
-
+	sent := pivots.SendToPeer(envelope)
+	if !sent {
+		data, _ := proto.Marshal(&pb.PivotPeerFailure{ID: envelope.ID})
+		connection.Send <- &pb.Envelope{
+			Type: pb.MsgPivotPeerFailure,
+			Data: data,
+		}
+	}
 }
