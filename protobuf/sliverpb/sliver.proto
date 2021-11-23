@@ -710,7 +710,6 @@ enum PivotType {
   NamedPipe = 2;
 }
 
-// Named Pipes Messages
 message PivotStartListenerReq {
   PivotType Type = 1;
   string BindAddress = 2;
@@ -723,7 +722,6 @@ message PivotStopListenerReq {
   
   commonpb.Request Request = 9;
 }
-
 
 message PivotListener {
   uint32 ID = 1;
@@ -743,6 +741,12 @@ message PivotHello {
 message PivotServerKeyExchange {
   int64 OriginID = 2;
   bytes SessionKey = 3;
+}
+
+message PivotPeerEnvelope {
+  int64 PeerID = 1;
+  string Name = 2;
+  bytes Data = 3;
 }
 
 message PivotPing {

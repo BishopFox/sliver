@@ -32,6 +32,8 @@ var (
 // pivotPeerEnvelopeHandler - Ingress point for any pivot traffic, the `implantConn` here is the
 // connection from which we received the pivot peer envelope we need to unwrap and forward it
 func pivotPeerEnvelopeHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
+	pivotLog.Debugf("received pivot peer envelope ...")
+
 	outerEnvelope := &sliverpb.Envelope{}
 	err := proto.Unmarshal(data, outerEnvelope)
 	if err != nil {

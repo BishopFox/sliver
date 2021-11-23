@@ -27,19 +27,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
 	// {{if .Config.Debug}}
 	"log"
-	// {{end}}
-
-	"os"
-	"path/filepath"
-
-	// {{if .Config.WGc2Enabled}}
-
 	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/transports"
@@ -139,7 +134,7 @@ func getDirList(target string) (string, []os.FileInfo, error) {
 		files, err := ioutil.ReadDir(dir)
 		return dir, files, err
 	}
-	return dir, []os.FileInfo{}, errors.New("Directory does not exist")
+	return dir, []os.FileInfo{}, errors.New("directory does not exist")
 }
 
 func rmHandler(data []byte, resp RPCResponse) {
