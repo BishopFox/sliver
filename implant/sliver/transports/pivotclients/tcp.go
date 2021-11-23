@@ -72,16 +72,10 @@ func TCPPivotStartSession(peer string, opts *TCPPivotOptions) (*NetConnPivotClie
 		readDeadline:  opts.ReadDeadline,
 		writeDeadline: opts.WriteDeadline,
 	}
-	err = pivot.peerKeyExchange()
+	err = pivot.KeyExchange()
 	if err != nil {
 		conn.Close()
 		return nil, err
 	}
-	err = pivot.serverKeyExchange()
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-
 	return pivot, nil
 }

@@ -187,10 +187,13 @@ func (p *NetConnPivot) ToProtobuf() *pb.PivotPeer {
 // Start - Starts the TCP pivot connection handler
 func (p *NetConnPivot) Start(pivots *sync.Map) {
 	defer p.conn.Close()
-	err := p.keyExchange()
+	err := p.peerKeyExchange()
 	if err != nil {
 		return
 	}
+	// {{if .Config.Debug}}
+	log.Printf("[pivots] peer key exchange completed successfully")
+	// {{end}}
 
 	// We don't want to register the peer prior to the key exchange
 	// Add & remove self from listener pivots map
@@ -205,11 +208,17 @@ func (p *NetConnPivot) Start(pivots *sync.Map) {
 				return // Will return when connection is closed
 			}
 			if envelope.Type == pb.MsgPivotPing {
+				// {{if .Config.Debug}}
+				log.Printf("[pivots] received peer ping, sending peer pong ...")
+				// {{end}}
 				p.Downstream <- &pb.Envelope{
 					Type: pb.MsgPivotPing,
 					Data: envelope.Data,
 				}
 			} else {
+				// {{if .Config.Debug}}
+				log.Printf("[pivots] received peer envelope, upstreaming ...")
+				// {{end}}
 				data, _ := proto.Marshal(envelope)
 				p.upstream <- &pb.Envelope{
 					ID:   p.ID(),
@@ -228,9 +237,9 @@ func (p *NetConnPivot) Start(pivots *sync.Map) {
 	}
 }
 
-// keyExchange - Exchange session key with peer, it's important that we DO NOT write
+// peerKeyExchange - Exchange session key with peer, it's important that we DO NOT write
 // anything to the socket before we've validated the peer's key is properly signed.
-func (p *NetConnPivot) keyExchange() error {
+func (p *NetConnPivot) peerKeyExchange() error {
 	p.conn.SetReadDeadline(time.Now().Add(tcpPivotReadDeadline))
 	peerHelloRaw, err := p.read()
 	p.conn.SetReadDeadline(time.Time{})

@@ -174,10 +174,14 @@ const (
 	MsgPivotListeners
 	// MsgPivotPing - Pivot peer ping message
 	MsgPivotPing
+	// PivotServerKeyExchange - Pivot to server key exchange
+	MsgPivotServerKeyExchange
 	// MsgPivotPeerEnvelope - An envelope from a pivot peer
 	MsgPivotPeerEnvelope
 	// MsgPivotPeerFailure - Failure to send an envelope to a pivot peer
 	MsgPivotPeerFailure
+	// MsgPivotOriginEnvelope
+	MsgPivotOriginEnvelope
 
 	// MsgStartServiceReq - Request to start a service
 	MsgStartServiceReq

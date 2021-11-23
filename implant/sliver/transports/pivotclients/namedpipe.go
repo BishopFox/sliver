@@ -18,8 +18,6 @@ package pivotclients
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if .Config.NamePipec2Enabled}}
-
 import (
 	"net/url"
 	"time"
@@ -50,5 +48,3 @@ type NamedPipePivotOptions struct {
 	ReadDeadline  time.Duration
 	WriteDeadline time.Duration
 }
-
-// {{end}}

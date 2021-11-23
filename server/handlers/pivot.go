@@ -29,6 +29,8 @@ var (
 	pivotLog = log.NamedLogger("handlers", "pivot")
 )
 
+// pivotPeerEnvelopeHandler - Ingress point for any pivot traffic, the `implantConn` here is the
+// connection from which we received the pivot peer envelope we need to unwrap and forward it
 func pivotPeerEnvelopeHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	outerEnvelope := &sliverpb.Envelope{}
 	err := proto.Unmarshal(data, outerEnvelope)
@@ -42,6 +44,8 @@ func pivotPeerEnvelopeHandler(implantConn *core.ImplantConnection, data []byte) 
 		return nil
 	}
 	// Determine if the message is associated with an existing session
+
+	pivotLog.Infof("Chain = %v, Origin = %v, Err = %v", chain, origin, err)
 
 	return nil
 }
