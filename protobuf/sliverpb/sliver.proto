@@ -745,8 +745,9 @@ message PivotServerKeyExchange {
 
 message PivotPeerEnvelope {
   int64 PeerID = 1;
-  string Name = 2;
-  bytes Data = 3;
+  int64 PivotID = 2;
+  string Name = 3;
+  bytes Data = 4;
 }
 
 message PivotPing {

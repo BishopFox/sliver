@@ -43,6 +43,7 @@ type TcpTunnel struct {
 	FromImplantSequence uint64
 	Client              rpcpb.SliverRPC_SocksProxyServer
 }
+
 type tcpTunnel struct {
 	tunnels map[uint64]*TcpTunnel
 	mutex   *sync.Mutex
