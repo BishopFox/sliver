@@ -3,7 +3,7 @@
 #
 
 GO ?= go
-ENV = CGO_ENABLED=1
+ENV =
 TAGS = -tags osusergo,netgo,sqlite_omit_load_extension
 
 #

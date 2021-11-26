@@ -23,7 +23,6 @@ package transports
 // {{if .Config.NamePipec2Enabled}}
 
 import (
-	"github.com/bishopfox/sliver/implant/sliver/transports/namedpipe"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"io"
 	"net/url"
