@@ -4,7 +4,7 @@
 
 GO ?= go
 ENV =
-TAGS = -tags osusergo,netgo,sqlite_omit_load_extension
+TAGS = -tags osusergo,netgo
 
 #
 # Version Information
