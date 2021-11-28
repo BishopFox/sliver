@@ -40,6 +40,9 @@ var (
 		"cb.exe":          console.Red, // Carbon Black
 		"MsMpEng.exe":     console.Red, // Windows Defender
 		"smartscreen.exe": console.Red, // Windows Defender Smart Screen
+		"bdservicehost.exe": console.Red, // Bitdefender (Total Security)
+		"bdagent.exe": console.Red, // Bitdefender (Total Security)
+		"bdredline.exe": console.Red, // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
 	}
 )
 
