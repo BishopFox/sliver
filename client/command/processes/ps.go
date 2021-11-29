@@ -36,13 +36,13 @@ import (
 var (
 	// Stylizes known processes in the `ps` command
 	knownSecurityTools = map[string]string{
-		"ccSvcHst.exe":    console.Red, // SEP
-		"cb.exe":          console.Red, // Carbon Black
-		"MsMpEng.exe":     console.Red, // Windows Defender
-		"smartscreen.exe": console.Red, // Windows Defender Smart Screen
+		"ccSvcHst.exe":      console.Red, // SEP
+		"cb.exe":            console.Red, // Carbon Black
+		"MsMpEng.exe":       console.Red, // Windows Defender
+		"smartscreen.exe":   console.Red, // Windows Defender Smart Screen
 		"bdservicehost.exe": console.Red, // Bitdefender (Total Security)
-		"bdagent.exe": console.Red, // Bitdefender (Total Security)
-		"bdredline.exe": console.Red, // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
+		"bdagent.exe":       console.Red, // Bitdefender (Total Security)
+		"bdredline.exe":     console.Red, // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
 	}
 )
 
@@ -146,12 +146,28 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 	var row table.Row
 	switch session.GetOS() {
 	case "windows":
-		row = table.Row{
-			fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
-			fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
-			fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
-			fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
-			fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
+		if cmdLine {
+			var args string
+			if len(proc.CmdLine) >= 1 {
+				args = strings.Join(proc.CmdLine, " ")
+			} else {
+				args = proc.Executable
+			}
+			row = table.Row{
+				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
+				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+				fmt.Sprintf(color+"%s"+console.Normal, args),
+				fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
+			}
+		} else {
+			row = table.Row{
+				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
+				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
+				fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
+			}
 		}
 	case "darwin":
 		fallthrough
