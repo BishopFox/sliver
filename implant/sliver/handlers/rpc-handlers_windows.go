@@ -56,6 +56,7 @@ func psHandler(data []byte, resp RPCResponse) {
 			Executable: proc.Executable(),
 			Owner:      proc.Owner(),
 		}
+		p.CmdLine = proc.(*ps.WindowsProcess).CmdLine()
 		p.SessionID = int32(proc.(*ps.WindowsProcess).SessionID())
 		psList.Processes = append(psList.Processes, p)
 	}

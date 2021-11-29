@@ -77,6 +77,7 @@ var (
 	procHeapReAlloc                       = modkernel32.NewProc("HeapReAlloc")
 	procHeapSize                          = modkernel32.NewProc("HeapSize")
 	procInitializeProcThreadAttributeList = modkernel32.NewProc("InitializeProcThreadAttributeList")
+	procModule32FirstW                    = modkernel32.NewProc("Module32FirstW")
 	procPssCaptureSnapshot                = modkernel32.NewProc("PssCaptureSnapshot")
 	procQueueUserAPC                      = modkernel32.NewProc("QueueUserAPC")
 	procUpdateProcThreadAttribute         = modkernel32.NewProc("UpdateProcThreadAttribute")
@@ -360,6 +361,14 @@ func HeapSize(hHeap windows.Handle, dwFlags uint32, lpMem uintptr) (res uint32, 
 
 func InitializeProcThreadAttributeList(lpAttributeList *PROC_THREAD_ATTRIBUTE_LIST, dwAttributeCount uint32, dwFlags uint32, lpSize *uintptr) (err error) {
 	r1, _, e1 := syscall.Syscall6(procInitializeProcThreadAttributeList.Addr(), 4, uintptr(unsafe.Pointer(lpAttributeList)), uintptr(dwAttributeCount), uintptr(dwFlags), uintptr(unsafe.Pointer(lpSize)), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func Module32FirstW(hSnapshot windows.Handle, lpme *MODULEENTRY32W) (err error) {
+	r1, _, e1 := syscall.Syscall(procModule32FirstW.Addr(), 2, uintptr(hSnapshot), uintptr(unsafe.Pointer(lpme)), 0)
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
