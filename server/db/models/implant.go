@@ -122,6 +122,7 @@ type ImplantConfig struct {
 	IsSharedLib bool
 	IsService   bool
 	IsShellcode bool
+	IsDaemon    bool
 
 	FileName string
 }
@@ -168,6 +169,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 
 		IsSharedLib:       ic.IsSharedLib,
 		IsService:         ic.IsService,
+		IsDaemon:          ic.IsDaemon,
 		IsShellcode:       ic.IsShellcode,
 		Format:            ic.Format,
 		WGImplantPrivKey:  ic.WGImplantPrivKey,

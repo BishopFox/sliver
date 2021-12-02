@@ -1008,6 +1008,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 			f.String("s", "save", "", "directory/file to the binary to")
 
+			f.Bool("D", "daemonize", false, "daemonize implant on start")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {

