@@ -47,6 +47,7 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.Printf(console.Bold+"    Remote Address: %s%s\n", console.Normal, session.RemoteAddress)
 		con.Printf(console.Bold+"         Proxy URL: %s%s\n", console.Normal, session.ProxyURL)
 		con.Printf(console.Bold+"Reconnect Interval: %s%d\n", console.Normal, session.ReconnectInterval)
+		con.Printf(console.Bold+"          IsDaemon: %s%v\n", console.Normal, session.IsDaemon)
 
 	} else if beacon != nil {
 

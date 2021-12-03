@@ -44,6 +44,7 @@ message Session {
   bool Burned = 22;
   repeated string Extensions = 23;
   // string ConfigID = 24;
+  bool IsDaemon = 25;
 }
 
 message Beacon {

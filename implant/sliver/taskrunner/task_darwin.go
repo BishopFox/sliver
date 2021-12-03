@@ -59,8 +59,16 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 
 // SideloadFile - Create a file for use with Sideload
 func SideloadFile(data []byte) (string, error) {
-	fdPath := fmt.Sprintf("/tmp/.%s", randomString(10))
-	err := ioutil.WriteFile(fdPath, data, 0755)
+	fd, err := ioutil.TempFile("", "."+randomString(10))
+	if err != nil {
+		return "", err
+	}
+	err = fd.Chmod(0775)
+	if err != nil {
+		return "", err
+	}
+	fdPath := fd.Name()
+	_, err = fd.Write(data)
 	return fdPath, err
 }
 

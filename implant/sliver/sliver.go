@@ -638,5 +638,10 @@ func RegisterSliver() *sliverpb.Register {
 		ReconnectInterval: int64(transports.GetReconnectInterval()),
 		ProxyURL:          transports.GetProxyURL(),
 		ConfigID:          "{{ .Config.ID }}",
+		// {{if .Config.IsDaemon}}
+		IsDaemon: true,
+		// {{else}}
+		IsDaemon: false,
+		// {{end}}
 	}
 }

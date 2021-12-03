@@ -71,6 +71,7 @@ type Session struct {
 	Burned            bool
 	Extensions        []string
 	ConfigID          string
+	IsDaemon          bool
 }
 
 func (s *Session) LastCheckin() time.Time {
@@ -120,6 +121,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		ProxyURL:          s.ProxyURL,
 		Burned:            s.Burned,
 		// ConfigID:          s.ConfigID,
+		IsDaemon: s.IsDaemon,
 	}
 }
 

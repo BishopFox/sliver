@@ -71,6 +71,7 @@ func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) *s
 	session.ReconnectInterval = register.ReconnectInterval
 	session.ProxyURL = register.ProxyURL
 	session.ConfigID = register.ConfigID
+	session.IsDaemon = register.IsDaemon
 	core.Sessions.Add(session)
 	implantConn.Cleanup = func() {
 		core.Sessions.Remove(session.ID)
@@ -158,10 +159,10 @@ func socksDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverp
 	//	core.SocksTunnels.Close(socksData.TunnelID)
 	//	return nil
 	//}
-	sessionHandlerLog.Debugf("socksDataHandler:",len(socksData.Data), socksData.Data)
-	SocksTunne:=core.SocksTunnels.Get(socksData.TunnelID)
-	if SocksTunne!= nil {
-		if session.ID == SocksTunne.SessionID{
+	sessionHandlerLog.Debugf("socksDataHandler:", len(socksData.Data), socksData.Data)
+	SocksTunne := core.SocksTunnels.Get(socksData.TunnelID)
+	if SocksTunne != nil {
+		if session.ID == SocksTunne.SessionID {
 			SocksTunne.FromImplant <- socksData
 		} else {
 			sessionHandlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
