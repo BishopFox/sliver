@@ -151,7 +151,9 @@ func serverKeyExchange(implantConn *core.ImplantConnection, chain []*sliverpb.Pi
 
 func wrapPivotPeerEnvelope(chain []*sliverpb.PivotPeerEnvelope, envelope *sliverpb.Envelope) *sliverpb.Envelope {
 	pivotLog.Debugf("Wrapping pivot peer envelope ...")
-	// Wrap the nested envelopes
+	for index, peer := range chain {
+		pivotLog.Debugf("Chain[%d] = %v", index, peer.Name)
+	}
 
 	return nil
 }
