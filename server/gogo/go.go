@@ -81,19 +81,19 @@ func GetGoModCache(appDir string) string {
 	return cachePath
 }
 
-// The 6Gb limit here is somewhat arbitrary but is based on my own testing
+// The Gb limit here is somewhat arbitrary but is based on my own testing
 func garbleMaxLiteralSize() []string {
 	vmStat, err := mem.VirtualMemory()
 	if err != nil {
 		gogoLog.Errorf("Failed to detect amount of system memory: %s", err)
-		return []string{} // Use default
+		return []string{"-literals-max-size", fmt.Sprintf("%d", 1*kb)} // Use default
 	}
-	if 6*gb < vmStat.Total {
-		gogoLog.Infof("More than 6Gb of system memory, enable large literal obfuscation")
-		return []string{"-literals-max-size", fmt.Sprintf("%d", 512*kb)}
+	if 10*gb < vmStat.Total {
+		gogoLog.Infof("More than 10Gb of system memory, enable large literal obfuscation")
+		return []string{"-literals-max-size", fmt.Sprintf("%d", 64*kb)}
 	}
-	gogoLog.Infof("Less than 6Gb of system memory, disable large literal obfuscation")
-	return []string{}
+	gogoLog.Infof("Low system memory, disable large literal obfuscation")
+	return []string{"-literals-max-size", fmt.Sprintf("%d", 2*kb)}
 }
 
 func seed() string {
@@ -109,8 +109,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	garbleBinPath := path.Join(config.GOROOT, "bin", "garble")
-	seed := fmt.Sprintf("-seed=%s", seed())
-	garbleFlags := []string{"-literals", seed}
+	garbleFlags := []string{fmt.Sprintf("-seed=%s", seed()), "-literals"}
 	garbleFlags = append(garbleFlags, garbleMaxLiteralSize()...)
 	command = append(garbleFlags, command...)
 	cmd := exec.Command(garbleBinPath, command...)
@@ -231,6 +230,7 @@ func GoVersion(config GoConfig) ([]byte, error) {
 	return GoCmd(config, wd, goCommand)
 }
 
+// ValidCompilerTargets - Returns a map of valid compiler targets
 func ValidCompilerTargets(config GoConfig) map[string]bool {
 	validTargets := make(map[string]bool)
 	for _, target := range GoToolDistList(config) {
