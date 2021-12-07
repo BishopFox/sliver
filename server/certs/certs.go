@@ -235,23 +235,23 @@ func generateCertificate(caType string, subject pkix.Name, isCA bool, isClient b
 	}
 
 	// Sign certificate or self-sign if CA
-	var err error
+	var certErr error
 	var derBytes []byte
 	if isCA {
 		certsLog.Debugf("Certificate is an AUTHORITY")
 		template.IsCA = true
 		template.KeyUsage |= x509.KeyUsageCertSign
-		derBytes, err = x509.CreateCertificate(rand.Reader, &template, &template, publicKey(privateKey), privateKey)
+		derBytes, certErr = x509.CreateCertificate(rand.Reader, &template, &template, publicKey(privateKey), privateKey)
 	} else {
 		caCert, caKey, err := GetCertificateAuthority(caType) // Sign the new certificate with our CA
 		if err != nil {
 			certsLog.Fatalf("Invalid ca type (%s): %v", caType, err)
 		}
-		derBytes, err = x509.CreateCertificate(rand.Reader, &template, caCert, publicKey(privateKey), caKey)
+		derBytes, certErr = x509.CreateCertificate(rand.Reader, &template, caCert, publicKey(privateKey), caKey)
 	}
-	if err != nil {
+	if certErr != nil {
 		// We maybe don't want this to be fatal, but it should basically never happen afaik
-		certsLog.Fatalf("Failed to create certificate: %s", err)
+		certsLog.Fatalf("Failed to create certificate: %s", certErr)
 	}
 
 	// Encode certificate and key

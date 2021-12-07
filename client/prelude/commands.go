@@ -82,7 +82,7 @@ func execute(cmd string, executor string, agentSession *AgentSession) (string, i
 	if execResp.Response != nil && execResp.Response.Err != "" {
 		return execResp.Response.Err, 0, 0
 	}
-	return execResp.Stdout, int(execResp.Status), int(execResp.Pid)
+	return string(execResp.Stdout), int(execResp.Status), int(execResp.Pid)
 }
 
 func getCmdArg(executor string) []string {

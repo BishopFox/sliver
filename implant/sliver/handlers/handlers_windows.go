@@ -305,8 +305,8 @@ func executeTokenHandler(data []byte, resp RPCResponse) {
 		if outWriter != nil {
 			outWriter.Flush()
 		}
-		execResp.Stderr = stdErrBuff.String()
-		execResp.Stdout = stdOutBuff.String()
+		execResp.Stderr = stdErrBuff.Bytes()
+		execResp.Stdout = stdOutBuff.Bytes()
 	} else {
 		err = cmd.Start()
 		if err != nil {

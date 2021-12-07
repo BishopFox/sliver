@@ -97,11 +97,21 @@ func GenerateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	compile(config, save, con)
 }
 
+func expandPath(path string) string {
+	// unless path starts with ~
+	if len(path) == 0 || path[0] != 126 {
+		return path
+	}
+
+	return filepath.Join(os.Getenv("HOME"), path[1:])
+}
+
 func saveLocation(save, DefaultName string) (string, error) {
 	var saveTo string
 	if save == "" {
 		save, _ = os.Getwd()
 	}
+	save = expandPath(save)
 	fi, err := os.Stat(save)
 	if os.IsNotExist(err) {
 		log.Printf("%s does not exist\n", save)

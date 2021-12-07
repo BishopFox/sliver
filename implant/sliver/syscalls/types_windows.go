@@ -165,3 +165,21 @@ const (
 	GMEM_ZEROINIT = 0x0040
 	GPTR          = GMEM_FIXED | GMEM_ZEROINIT
 )
+
+const (
+	MAX_MODULE_NAME32 = 255
+	MAX_PATH          = 260
+)
+
+type MODULEENTRY32W struct {
+	DwSize        uint32
+	Th32ModuleID  uint32
+	Th32ProcessID uint32
+	GlblcntUsage  uint32
+	ProccntUsage  uint32
+	ModBaseAddr   uintptr
+	ModBaseSize   uint32
+	HModule       uintptr
+	SzModule      [MAX_MODULE_NAME32 + 1]uint16
+	SzExePath     [MAX_PATH]uint16
+}
