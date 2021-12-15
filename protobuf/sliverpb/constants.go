@@ -270,6 +270,9 @@ const (
 	MsgOpenSession
 	// MsgCloseSession - Close the active session
 	MsgCloseSession
+
+	// MsgLibInjectReq - Inject a shared library into a Linux process
+	MsgLibInjectReq
 )
 
 // Constants to replace enums
@@ -513,7 +516,8 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgOpenSession
 	case *CloseSession:
 		return MsgCloseSession
-
+	case *LibInjectReq:
+		return MsgLibInjectReq
 	}
 
 	return uint32(0)

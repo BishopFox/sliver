@@ -627,6 +627,16 @@ message RegistryValuesList {
   commonpb.Response Response = 9;
 }
 
+message LibInjectReq {
+  uint64 Pid = 1;
+  bytes Data = 2;
+  commonpb.Request Request = 9;
+}
+
+message LibInject {
+  commonpb.Response Response = 9;
+}
+
 // Tunnel - Tunnel related messages
 message Tunnel {
   uint64 TunnelID = 8 [jstype = JS_STRING];

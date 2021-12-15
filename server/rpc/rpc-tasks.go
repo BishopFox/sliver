@@ -204,7 +204,7 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq
 	} else {
 		beacon, err = db.BeaconByID(req.Request.BeaconID)
 		if err != nil {
-			msfLog.Errorf("%s", err)
+			tasksLog.Errorf("%s", err)
 			return nil, ErrDatabaseFailure
 		}
 		if beacon == nil {
@@ -226,6 +226,34 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq
 		Kill:        req.Kill,
 	}
 	err = rpc.GenericHandler(spawnDLLReq, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (rpc *Server) LibInject(ctx context.Context, req *sliverpb.LibInjectReq) (*sliverpb.LibInject, error) {
+	var session *core.Session
+	var beacon *models.Beacon
+	var err error
+	if !req.Request.Async {
+		session = core.Sessions.Get(req.Request.SessionID)
+		if session == nil {
+			return nil, ErrInvalidSessionID
+		}
+	} else {
+		beacon, err = db.BeaconByID(req.Request.BeaconID)
+		if err != nil {
+			tasksLog.Errorf("%s", err)
+			return nil, ErrDatabaseFailure
+		}
+		if beacon == nil {
+			return nil, ErrInvalidBeaconID
+		}
+	}
+
+	resp := &sliverpb.LibInject{Response: &commonpb.Response{}}
+	err = rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
 	}

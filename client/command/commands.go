@@ -2746,6 +2746,27 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("r", "range", "sliver", "Agents range")
 		},
 	})
-
 	con.App.AddCommand(operatorCmd)
+
+	// [ LibInject ] -----------------------------------------------------------------
+	libInjectCmd := &grumble.Command{
+		Name:      consts.LibInjectStr,
+		Help:      "Inject a Linux shared library into a process",
+		LongHelp:  help.GetHelpFor([]string{consts.LibInjectStr}),
+		HelpGroup: consts.SliverHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			exec.LibInjectCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.Uint64("pid", "Target process ID")
+			a.String("library-path", "Path to the shared library to inject")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+	}
+	con.App.AddCommand(libInjectCmd)
 }

@@ -131,6 +131,7 @@ type SliverRPCClient interface {
 	RunSSHCommand(ctx context.Context, in *sliverpb.SSHCommandReq, opts ...grpc.CallOption) (*sliverpb.SSHCommand, error)
 	HijackDLL(ctx context.Context, in *clientpb.DllHijackReq, opts ...grpc.CallOption) (*clientpb.DllHijack, error)
 	GetPrivs(ctx context.Context, in *sliverpb.GetPrivsReq, opts ...grpc.CallOption) (*sliverpb.GetPrivs, error)
+	LibInject(ctx context.Context, in *sliverpb.LibInjectReq, opts ...grpc.CallOption) (*sliverpb.LibInject, error)
 	// Beacon only commands
 	OpenSession(ctx context.Context, in *sliverpb.OpenSession, opts ...grpc.CallOption) (*sliverpb.OpenSession, error)
 	// Extensions
@@ -1031,6 +1032,15 @@ func (c *sliverRPCClient) GetPrivs(ctx context.Context, in *sliverpb.GetPrivsReq
 	return out, nil
 }
 
+func (c *sliverRPCClient) LibInject(ctx context.Context, in *sliverpb.LibInjectReq, opts ...grpc.CallOption) (*sliverpb.LibInject, error) {
+	out := new(sliverpb.LibInject)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/LibInject", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) OpenSession(ctx context.Context, in *sliverpb.OpenSession, opts ...grpc.CallOption) (*sliverpb.OpenSession, error) {
 	out := new(sliverpb.OpenSession)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/OpenSession", in, out, opts...)
@@ -1383,6 +1393,7 @@ type SliverRPCServer interface {
 	RunSSHCommand(context.Context, *sliverpb.SSHCommandReq) (*sliverpb.SSHCommand, error)
 	HijackDLL(context.Context, *clientpb.DllHijackReq) (*clientpb.DllHijack, error)
 	GetPrivs(context.Context, *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error)
+	LibInject(context.Context, *sliverpb.LibInjectReq) (*sliverpb.LibInject, error)
 	// Beacon only commands
 	OpenSession(context.Context, *sliverpb.OpenSession) (*sliverpb.OpenSession, error)
 	// Extensions
@@ -1703,6 +1714,9 @@ func (UnimplementedSliverRPCServer) HijackDLL(context.Context, *clientpb.DllHija
 }
 func (UnimplementedSliverRPCServer) GetPrivs(context.Context, *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPrivs not implemented")
+}
+func (UnimplementedSliverRPCServer) LibInject(context.Context, *sliverpb.LibInjectReq) (*sliverpb.LibInject, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LibInject not implemented")
 }
 func (UnimplementedSliverRPCServer) OpenSession(context.Context, *sliverpb.OpenSession) (*sliverpb.OpenSession, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OpenSession not implemented")
@@ -3502,6 +3516,24 @@ func _SliverRPC_GetPrivs_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_LibInject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.LibInjectReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).LibInject(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/LibInject",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).LibInject(ctx, req.(*sliverpb.LibInjectReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_OpenSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.OpenSession)
 	if err := dec(in); err != nil {
@@ -4253,6 +4285,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPrivs",
 			Handler:    _SliverRPC_GetPrivs_Handler,
+		},
+		{
+			MethodName: "LibInject",
+			Handler:    _SliverRPC_LibInject_Handler,
 		},
 		{
 			MethodName: "OpenSession",

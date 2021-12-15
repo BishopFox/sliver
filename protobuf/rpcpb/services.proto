@@ -132,6 +132,7 @@ service SliverRPC {
     rpc RunSSHCommand(sliverpb.SSHCommandReq) returns (sliverpb.SSHCommand);
     rpc HijackDLL(clientpb.DllHijackReq) returns (clientpb.DllHijack);
     rpc GetPrivs(sliverpb.GetPrivsReq) returns (sliverpb.GetPrivs);
+    rpc LibInject(sliverpb.LibInjectReq) returns (sliverpb.LibInject);
 
     // Beacon only commands
     rpc OpenSession(sliverpb.OpenSession) returns (sliverpb.OpenSession);

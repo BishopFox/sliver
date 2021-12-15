@@ -216,7 +216,7 @@ const (
 	InteractiveStr        = "interactive"
 
 	PortfwdStr = "portfwd"
-	Socks5Str = "socks5"
+	Socks5Str  = "socks5"
 
 	ReactionStr = "reaction"
 
@@ -228,6 +228,8 @@ const (
 	GetPrivsStr        = "getprivs"
 	PreludeOperatorStr = "prelude-operator"
 	ConnectStr         = "connect"
+
+	LibInjectStr = "lib-inject"
 )
 
 // Groups
