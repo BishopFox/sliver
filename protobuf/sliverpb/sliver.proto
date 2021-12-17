@@ -601,6 +601,18 @@ message RegistryCreateKey {
   commonpb.Response Response = 9;
 }
 
+message RegistryDeleteKeyReq {
+  string Hive = 1;
+  string Path = 2;
+  string Key = 3;
+  string Hostname = 4;
+  commonpb.Request Request = 9;
+}
+
+message RegistryDeleteKey {
+  commonpb.Response Response = 9;
+}
+
 message RegistrySubKeyListReq {
   string Hive = 1;
   string Path = 2;

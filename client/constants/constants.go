@@ -206,6 +206,7 @@ const (
 	RegistryListSubStr    = "list-subkeys"
 	RegistryListValuesStr = "list-values"
 	RegistryCreateKeyStr  = "create"
+	RegistryDeleteKeyStr  = "delete"
 	PivotsListStr         = "pivots-list"
 	WgConfigStr           = "wg-config"
 	WgSocksStr            = "wg-socks"
@@ -216,7 +217,7 @@ const (
 	InteractiveStr        = "interactive"
 
 	PortfwdStr = "portfwd"
-	Socks5Str = "socks5"
+	Socks5Str  = "socks5"
 
 	ReactionStr = "reaction"
 

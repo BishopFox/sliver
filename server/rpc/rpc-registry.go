@@ -55,6 +55,16 @@ func (rpc *Server) RegistryCreateKey(ctx context.Context, req *sliverpb.Registry
 	return resp, nil
 }
 
+// RegistryDeleteKey - gRPC interface to delete a registry key on a session
+func (rpc *Server) RegistryDeleteKey(ctx context.Context, req *sliverpb.RegistryDeleteKeyReq) (*sliverpb.RegistryDeleteKey, error) {
+	resp := &sliverpb.RegistryDeleteKey{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 // RegistryListSubKeys - gRPC interface to list the sub keys of a registry key
 func (rpc *Server) RegistryListSubKeys(ctx context.Context, req *sliverpb.RegistrySubKeyListReq) (*sliverpb.RegistrySubKeyList, error) {
 	resp := &sliverpb.RegistrySubKeyList{Response: &commonpb.Response{}}

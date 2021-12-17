@@ -127,6 +127,7 @@ service SliverRPC {
     rpc RegistryRead(sliverpb.RegistryReadReq) returns (sliverpb.RegistryRead);
     rpc RegistryWrite(sliverpb.RegistryWriteReq) returns (sliverpb.RegistryWrite);
     rpc RegistryCreateKey(sliverpb.RegistryCreateKeyReq) returns (sliverpb.RegistryCreateKey);
+    rpc RegistryDeleteKey(sliverpb.RegistryDeleteKeyReq) returns (sliverpb.RegistryDeleteKey);
     rpc RegistryListSubKeys(sliverpb.RegistrySubKeyListReq) returns (sliverpb.RegistrySubKeyList);
     rpc RegistryListValues(sliverpb.RegistryListValuesReq) returns (sliverpb.RegistryValuesList);
     rpc RunSSHCommand(sliverpb.SSHCommandReq) returns (sliverpb.SSHCommand);

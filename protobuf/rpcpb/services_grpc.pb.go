@@ -126,6 +126,7 @@ type SliverRPCClient interface {
 	RegistryRead(ctx context.Context, in *sliverpb.RegistryReadReq, opts ...grpc.CallOption) (*sliverpb.RegistryRead, error)
 	RegistryWrite(ctx context.Context, in *sliverpb.RegistryWriteReq, opts ...grpc.CallOption) (*sliverpb.RegistryWrite, error)
 	RegistryCreateKey(ctx context.Context, in *sliverpb.RegistryCreateKeyReq, opts ...grpc.CallOption) (*sliverpb.RegistryCreateKey, error)
+	RegistryDeleteKey(ctx context.Context, in *sliverpb.RegistryDeleteKeyReq, opts ...grpc.CallOption) (*sliverpb.RegistryDeleteKey, error)
 	RegistryListSubKeys(ctx context.Context, in *sliverpb.RegistrySubKeyListReq, opts ...grpc.CallOption) (*sliverpb.RegistrySubKeyList, error)
 	RegistryListValues(ctx context.Context, in *sliverpb.RegistryListValuesReq, opts ...grpc.CallOption) (*sliverpb.RegistryValuesList, error)
 	RunSSHCommand(ctx context.Context, in *sliverpb.SSHCommandReq, opts ...grpc.CallOption) (*sliverpb.SSHCommand, error)
@@ -986,6 +987,15 @@ func (c *sliverRPCClient) RegistryCreateKey(ctx context.Context, in *sliverpb.Re
 	return out, nil
 }
 
+func (c *sliverRPCClient) RegistryDeleteKey(ctx context.Context, in *sliverpb.RegistryDeleteKeyReq, opts ...grpc.CallOption) (*sliverpb.RegistryDeleteKey, error) {
+	out := new(sliverpb.RegistryDeleteKey)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/RegistryDeleteKey", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) RegistryListSubKeys(ctx context.Context, in *sliverpb.RegistrySubKeyListReq, opts ...grpc.CallOption) (*sliverpb.RegistrySubKeyList, error) {
 	out := new(sliverpb.RegistrySubKeyList)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/RegistryListSubKeys", in, out, opts...)
@@ -1378,6 +1388,7 @@ type SliverRPCServer interface {
 	RegistryRead(context.Context, *sliverpb.RegistryReadReq) (*sliverpb.RegistryRead, error)
 	RegistryWrite(context.Context, *sliverpb.RegistryWriteReq) (*sliverpb.RegistryWrite, error)
 	RegistryCreateKey(context.Context, *sliverpb.RegistryCreateKeyReq) (*sliverpb.RegistryCreateKey, error)
+	RegistryDeleteKey(context.Context, *sliverpb.RegistryDeleteKeyReq) (*sliverpb.RegistryDeleteKey, error)
 	RegistryListSubKeys(context.Context, *sliverpb.RegistrySubKeyListReq) (*sliverpb.RegistrySubKeyList, error)
 	RegistryListValues(context.Context, *sliverpb.RegistryListValuesReq) (*sliverpb.RegistryValuesList, error)
 	RunSSHCommand(context.Context, *sliverpb.SSHCommandReq) (*sliverpb.SSHCommand, error)
@@ -1688,6 +1699,9 @@ func (UnimplementedSliverRPCServer) RegistryWrite(context.Context, *sliverpb.Reg
 }
 func (UnimplementedSliverRPCServer) RegistryCreateKey(context.Context, *sliverpb.RegistryCreateKeyReq) (*sliverpb.RegistryCreateKey, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegistryCreateKey not implemented")
+}
+func (UnimplementedSliverRPCServer) RegistryDeleteKey(context.Context, *sliverpb.RegistryDeleteKeyReq) (*sliverpb.RegistryDeleteKey, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegistryDeleteKey not implemented")
 }
 func (UnimplementedSliverRPCServer) RegistryListSubKeys(context.Context, *sliverpb.RegistrySubKeyListReq) (*sliverpb.RegistrySubKeyList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegistryListSubKeys not implemented")
@@ -3412,6 +3426,24 @@ func _SliverRPC_RegistryCreateKey_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_RegistryDeleteKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.RegistryDeleteKeyReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).RegistryDeleteKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/RegistryDeleteKey",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).RegistryDeleteKey(ctx, req.(*sliverpb.RegistryDeleteKeyReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_RegistryListSubKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.RegistrySubKeyListReq)
 	if err := dec(in); err != nil {
@@ -4233,6 +4265,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegistryCreateKey",
 			Handler:    _SliverRPC_RegistryCreateKey_Handler,
+		},
+		{
+			MethodName: "RegistryDeleteKey",
+			Handler:    _SliverRPC_RegistryDeleteKey_Handler,
 		},
 		{
 			MethodName: "RegistryListSubKeys",
