@@ -110,20 +110,11 @@ var (
 		sliverpb.MsgWGListSocksReq:      wgListSocksServersHandler,
 		// {{end}}
 	}
-
-	windowsPivotHandlers = map[uint32]PivotHandler{
-		sliverpb.MsgNamedPipesReq: namedPipeListenerHandler,
-	}
 )
 
 // GetSystemHandlers - Returns a map of the windows system handlers
 func GetSystemHandlers() map[uint32]RPCHandler {
 	return windowsHandlers
-}
-
-// GetSystemPivotHandlers - Returns a map of the windows system handlers
-func GetSystemPivotHandlers() map[uint32]PivotHandler {
-	return windowsPivotHandlers
 }
 
 // ---------------- Windows Handlers ----------------

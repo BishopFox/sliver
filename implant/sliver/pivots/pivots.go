@@ -88,7 +88,16 @@ func SendToPeer(envelope *pb.Envelope) bool {
 		// {{end}}
 		return false
 	}
-	downstreamEnvelope := &pb.Envelope{}
+
+	// {{if .Config.Debug}}
+	log.Printf("Peer Envelope: %v", peerEnvelope)
+	log.Printf("Send to downstream pivot id: %d", peerEnvelope.PivotID)
+	// {{end}}
+
+	downstreamEnvelope := &pb.Envelope{
+		Type: pb.MsgPivotPeerEnvelope,
+		Data: peerEnvelope.Data,
+	}
 	err = proto.Unmarshal(peerEnvelope.Data, downstreamEnvelope)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -104,7 +113,7 @@ func SendToPeer(envelope *pb.Envelope) bool {
 		listener := value.(*PivotListener)
 		listener.Pivots.Range(func(key interface{}, value interface{}) bool {
 			pivot := value.(*NetConnPivot)
-			if pivot.ID() == peerEnvelope.PeerID {
+			if pivot.ID() == peerEnvelope.PivotID {
 				pivot.Downstream <- downstreamEnvelope
 				sent = true  // break from the outer loop
 				return false // stop iterating inner loop
@@ -113,6 +122,11 @@ func SendToPeer(envelope *pb.Envelope) bool {
 		})
 		return !sent // keep iterating while not sent
 	})
+	// {{if .Config.Debug}}
+	if !sent {
+		log.Printf("Failed to find pivot with id %d", peerEnvelope.PivotID)
+	}
+	// {{end}}
 	return sent
 }
 
