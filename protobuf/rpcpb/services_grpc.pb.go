@@ -117,7 +117,7 @@ type SliverRPCClient interface {
 	RegistryListSubKeys(ctx context.Context, in *sliverpb.RegistrySubKeyListReq, opts ...grpc.CallOption) (*sliverpb.RegistrySubKeyList, error)
 	RegistryListValues(ctx context.Context, in *sliverpb.RegistryListValuesReq, opts ...grpc.CallOption) (*sliverpb.RegistryValuesList, error)
 	RunSSHCommand(ctx context.Context, in *sliverpb.SSHCommandReq, opts ...grpc.CallOption) (*sliverpb.SSHCommand, error)
-	HijackDLL(ctx context.Context, in *sliverpb.DllHijackReq, opts ...grpc.CallOption) (*sliverpb.DllHijack, error)
+	HijackDLL(ctx context.Context, in *clientpb.DllHijackReq, opts ...grpc.CallOption) (*clientpb.DllHijack, error)
 	GetPrivs(ctx context.Context, in *sliverpb.GetPrivsReq, opts ...grpc.CallOption) (*sliverpb.GetPrivs, error)
 	// *** Wireguard Specific ***
 	WGStartPortForward(ctx context.Context, in *sliverpb.WGPortForwardStartReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error)
@@ -914,8 +914,8 @@ func (c *sliverRPCClient) RunSSHCommand(ctx context.Context, in *sliverpb.SSHCom
 	return out, nil
 }
 
-func (c *sliverRPCClient) HijackDLL(ctx context.Context, in *sliverpb.DllHijackReq, opts ...grpc.CallOption) (*sliverpb.DllHijack, error) {
-	out := new(sliverpb.DllHijack)
+func (c *sliverRPCClient) HijackDLL(ctx context.Context, in *clientpb.DllHijackReq, opts ...grpc.CallOption) (*clientpb.DllHijack, error) {
+	out := new(clientpb.DllHijack)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/HijackDLL", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1212,7 +1212,7 @@ type SliverRPCServer interface {
 	RegistryListSubKeys(context.Context, *sliverpb.RegistrySubKeyListReq) (*sliverpb.RegistrySubKeyList, error)
 	RegistryListValues(context.Context, *sliverpb.RegistryListValuesReq) (*sliverpb.RegistryValuesList, error)
 	RunSSHCommand(context.Context, *sliverpb.SSHCommandReq) (*sliverpb.SSHCommand, error)
-	HijackDLL(context.Context, *sliverpb.DllHijackReq) (*sliverpb.DllHijack, error)
+	HijackDLL(context.Context, *clientpb.DllHijackReq) (*clientpb.DllHijack, error)
 	GetPrivs(context.Context, *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error)
 	// *** Wireguard Specific ***
 	WGStartPortForward(context.Context, *sliverpb.WGPortForwardStartReq) (*sliverpb.WGPortForward, error)
@@ -1496,7 +1496,7 @@ func (UnimplementedSliverRPCServer) RegistryListValues(context.Context, *sliverp
 func (UnimplementedSliverRPCServer) RunSSHCommand(context.Context, *sliverpb.SSHCommandReq) (*sliverpb.SSHCommand, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunSSHCommand not implemented")
 }
-func (UnimplementedSliverRPCServer) HijackDLL(context.Context, *sliverpb.DllHijackReq) (*sliverpb.DllHijack, error) {
+func (UnimplementedSliverRPCServer) HijackDLL(context.Context, *clientpb.DllHijackReq) (*clientpb.DllHijack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HijackDLL not implemented")
 }
 func (UnimplementedSliverRPCServer) GetPrivs(context.Context, *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error) {
@@ -3091,7 +3091,7 @@ func _SliverRPC_RunSSHCommand_Handler(srv interface{}, ctx context.Context, dec 
 }
 
 func _SliverRPC_HijackDLL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(sliverpb.DllHijackReq)
+	in := new(clientpb.DllHijackReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -3103,7 +3103,7 @@ func _SliverRPC_HijackDLL_Handler(srv interface{}, ctx context.Context, dec func
 		FullMethod: "/rpcpb.SliverRPC/HijackDLL",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).HijackDLL(ctx, req.(*sliverpb.DllHijackReq))
+		return srv.(SliverRPCServer).HijackDLL(ctx, req.(*clientpb.DllHijackReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }

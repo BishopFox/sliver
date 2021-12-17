@@ -120,6 +120,8 @@ message Ls {
   string Path = 1;
   bool Exists = 2;
   repeated FileInfo Files = 3;
+  string timezone = 4;
+  int32 timezoneOffset = 5;
 
   commonpb.Response Response = 9;
 }
@@ -128,6 +130,8 @@ message FileInfo {
   string Name = 1;
   bool IsDir = 2;
   int64 Size = 3;
+  int64 ModTime = 4;
+  string Mode = 5;
 }
 
 message CdReq {
@@ -797,20 +801,6 @@ message SSHCommand {
   commonpb.Response Response = 9;
 }
 
-message DllHijackReq {
-  string ReferenceDLLPath = 1;
-  string TargetLocation = 2;
-  bytes ReferenceDLL = 3;
-  bytes TargetDLL = 4;
-  string ProfileName = 5;
-
-  commonpb.Request Request = 9;
-}
-
-message DllHijack {
-  commonpb.Response Response = 9;
-}
-
 message GetPrivsReq {
   commonpb.Request Request = 9;
 }
@@ -826,6 +816,8 @@ message WindowsPrivilegeEntry {
 
 message GetPrivs {
   repeated WindowsPrivilegeEntry PrivInfo = 1;
+  string ProcessIntegrity = 2;
+  string ProcessName = 3;
 
   commonpb.Response Response = 9;
 }

@@ -239,7 +239,31 @@ c2 message round trip to ensure the remote Sliver is still responding to command
 [[.Bold]]About:[[.Normal]] Kill a remote sliver process (does not delete file).`
 
 	lsHelp = `[[.Bold]]Command:[[.Normal]] ls <remote path>
-[[.Bold]]About:[[.Normal]] List remote files in current directory, or path if provided.`
+[[.Bold]]About:[[.Normal]] List remote files in current directory, or path if provided.
+
+[[.Bold]][[.Underline]]Sorting[[.Normal]]
+Directory and file listings are sorted by name in ascending order by default.  Listings can also be sorted by size (-s) and modified time (-m).  All sorts can be reversed with -r.
+
+[[.Bold]][[.Underline]]Filters[[.Normal]]
+Filters are a way to limit search results to directory and file names matching given criteria.
+
+Filters are specified after the path.  A blank path will filter on names in the current directory.  For example:
+/etc/passwd will display the listing for /etc/passwd.  "/etc/" is the path, and "passwd" is the filter.
+
+Directory and file listings can be filtered using the following patterns:
+'*': Wildcard, matches any sequence of non-path separators (slashes)
+	Example: n*.txt will match all file and directory names starting with n and ending with .txt
+
+'?': Single character wildcard, matches a single non-path separator (slashes)
+	Example: s?iver will match all file and directory names starting with s followed by any non-separator character and ending with iver.
+
+'[{range}]': Match a range of characters.  Ranges are specified with '-'. This is usually combined with other patterns. Ranges can be negated with '^'.
+	Example: [a-c] will match the characters a, b, and c.  [a-c]* will match all directory and file names that start with a, b, or c.
+		^[r-u] will match all characters except r, s, t, and u.
+
+If you need to match a special character (*, ?, '-', '[', ']', '\\'), place '\\' in front of it (example: \\?).
+On Windows, escaping is disabled. Instead, '\\' is treated as path separator.
+`
 
 	cdHelp = `[[.Bold]]Command:[[.Normal]] cd [remote path]
 [[.Bold]]About:[[.Normal]] Change working directory of the active Sliver.`

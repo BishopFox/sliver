@@ -2,6 +2,8 @@ package privilege
 
 import (
 	"context"
+	"strconv"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -27,6 +29,8 @@ import (
 */
 
 func GetPrivsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	var processName string = "Current Process"
+
 	session := con.ActiveSession.GetInteractive()
 	if session == nil {
 		return
@@ -56,10 +60,15 @@ func GetPrivsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
+	if privs.ProcessName != "" {
+		processName = privs.ProcessName
+	}
+
 	// To make things look pretty, figure out the longest name and description
 	// for column width
 	var nameColumnWidth int = 0
 	var descriptionColumnWidth int = 0
+	var introWidth int = 34 + len(processName) + len(strconv.Itoa(int(session.PID)))
 
 	for _, entry := range privs.PrivInfo {
 		if len(entry.Name) > nameColumnWidth {
@@ -74,12 +83,13 @@ func GetPrivsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	nameColumnWidth += 1
 	descriptionColumnWidth += 1
 
-	con.Println("Privilege Information for Current Process")
-	con.Println("-----------------------------------------")
+	con.Printf("Privilege Information for %s (PID: %d)\n", processName, session.PID)
+	con.Println(strings.Repeat("-", introWidth))
+	con.Printf("\nProcess Integrity Level: %s\n\n", privs.ProcessIntegrity)
 	con.Printf("%-*s\t%-*s\t%s\n", nameColumnWidth, "Name", descriptionColumnWidth, "Description", "Attributes")
 	con.Printf("%-*s\t%-*s\t%s\n", nameColumnWidth, "====", descriptionColumnWidth, "===========", "==========")
 	for _, entry := range privs.PrivInfo {
-		con.Printf("%-*s\t%-*s\t(", nameColumnWidth, entry.Name, descriptionColumnWidth, entry.Description)
+		con.Printf("%-*s\t%-*s\t", nameColumnWidth, entry.Name, descriptionColumnWidth, entry.Description)
 		if entry.Enabled {
 			con.Printf("Enabled")
 		} else {
@@ -94,6 +104,6 @@ func GetPrivsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		if entry.UsedForAccess {
 			con.Printf(", Used for Access")
 		}
-		con.Printf(")\n")
+		con.Printf("\n")
 	}
 }
