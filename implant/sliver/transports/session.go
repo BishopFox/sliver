@@ -695,6 +695,18 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			if err == io.EOF {
 				break
 			}
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[tcp-pivot] read envelope error: %s", err)
+				// {{end}}
+				continue
+			}
+			if envelope == nil {
+				// {{if .Config.Debug}}
+				log.Printf("[tcp-pivot] read nil envelope")
+				// {{end}}
+				continue
+			}
 			if envelope.Type == pb.MsgPivotPing {
 				// {{if .Config.Debug}}
 				log.Printf("[tcp-pivot] received peer pong")

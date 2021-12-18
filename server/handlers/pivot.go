@@ -56,7 +56,20 @@ func (p *Pivot) Start() {
 			pivotLog.Debugf("pivot session %s send loop closing", p.ID)
 		}()
 		for envelope := range p.ImplantConn.Send {
-			peerEnvelope, err := wrapPivotPeerEnvelope(p.Chain, envelope)
+			envelope, err := proto.Marshal(envelope)
+			if err != nil {
+				pivotLog.Errorf("failed to marshal envelope: %v", err)
+				continue
+			}
+			ciphertext, err := p.CipherCtx.Encrypt(envelope)
+			if err != nil {
+				pivotLog.Errorf("failed to encrypt envelope: %v", err)
+				continue
+			}
+			peerEnvelope, err := wrapPivotPeerEnvelope(p.Chain, &sliverpb.Envelope{
+				Type: sliverpb.MsgPivotOriginEnvelope,
+				Data: ciphertext,
+			})
 			if err != nil {
 				pivotLog.Errorf("failed to wrap pivot peer envelope: %v", err)
 				continue
@@ -163,7 +176,7 @@ func handlePivotEnvelope(pivot *Pivot, envelope *sliverpb.Envelope) {
 }
 
 func pivotPeerFailureHandler(implantConn *core.ImplantConnection, chain []*sliverpb.PivotPeerEnvelope, origin *sliverpb.Envelope) *sliverpb.Envelope {
-
+	pivotLog.Errorf("pivot peer failure received")
 	return nil
 }
 
@@ -205,9 +218,9 @@ func serverKeyExchange(implantConn *core.ImplantConnection, chain []*sliverpb.Pi
 	}
 	pivotSession := NewPivotSession(chain)
 	pivotSession.CipherCtx = cryptography.NewCipherContext(sessionKey)
-	pivotRemoteAddr := fmt.Sprintf("%s=>", chain[0].Name)
+	pivotRemoteAddr := fmt.Sprintf("%s->", chain[0].Name)
 	for _, peer := range chain[1:] {
-		pivotRemoteAddr += fmt.Sprintf("%s=>", peer.Name)
+		pivotRemoteAddr += fmt.Sprintf("%s->", peer.Name)
 	}
 	pivotSession.ImplantConn = core.NewImplantConnection("pivot", pivotRemoteAddr)
 	pivotSession.ImmediateImplantConn = implantConn
@@ -262,8 +275,9 @@ func wrapPivotPeerEnvelope(chain []*sliverpb.PivotPeerEnvelope, envelope *sliver
 				return nil, err
 			}
 			peerEnvelopes = &sliverpb.PivotPeerEnvelope{
-				PeerID: chain[index].PeerID,
-				Data:   peerData,
+				PeerID:  chain[index].PeerID,
+				PivotID: chain[index].PivotID,
+				Data:    peerData,
 			}
 		}
 	}
