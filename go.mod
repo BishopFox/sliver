@@ -32,7 +32,7 @@ require (
 	github.com/lesnuages/snitch v0.6.0
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mattn/go-isatty v0.0.13 // indirect
-	github.com/mattn/go-sqlite3 v1.14.9 // indirect
+	github.com/mattn/go-sqlite3 v1.14.9
 	github.com/miekg/dns v1.1.35
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pquerna/otp v1.3.0

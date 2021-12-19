@@ -4,7 +4,7 @@
 
 GO ?= go
 ENV =
-TAGS = -tags osusergo,netgo
+TAGS = -tags osusergo,netgo,gosqlite
 
 #
 # Version Information
@@ -43,7 +43,7 @@ UNAME_P := $(shell uname -p)
 PB_COMPILERS = protoc protoc-gen-go protoc-gen-go-grpc
 ifeq ($(MAKECMDGOALS), pb)
 	K := $(foreach exec,$(PB_COMPILERS),\
-			$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
+			$(if $(shell which $(exec)),some string,$(error "Missing protobuf util $(exec) in PATH")))
 endif
 
 # *** Darwin ***

@@ -1,4 +1,4 @@
-// +build server
+//go:build server
 
 package assets
 
