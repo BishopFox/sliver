@@ -24,10 +24,13 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
-	"log"
 	"net"
 	"sync"
 	"time"
+
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"

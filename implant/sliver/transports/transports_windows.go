@@ -23,7 +23,6 @@ package transports
 // {{if .Config.NamePipec2Enabled}}
 
 import (
-	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"io"
 	"net/url"
 	"sync"
@@ -31,16 +30,20 @@ import (
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
+
+	"github.com/bishopfox/sliver/implant/sliver/transports/pivotclients"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 func namedPipeConnect(uri *url.URL) (*Connection, error) {
-	conn, err := namedpipe.NamedPipeConnect(uri)
+	opts := &pivotclients.NamedPipePivotOptions{}
+	client, err := pivotclients.NamedPipePivotStartSession(uri, opts)
 	if err != nil {
 		return nil, err
 	}
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
-	ctrl := make(chan bool, 1)
+	ctrl := make(chan struct{}, 1)
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
@@ -54,7 +57,7 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 			log.Printf("[namedpipe] lost connection, cleanup...")
 			// {{end}}
 			close(send)
-			ctrl <- true
+			ctrl <- struct{}{}
 			close(recv)
 		},
 	}
@@ -65,14 +68,14 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 			// {{if .Config.Debug}}
 			log.Printf("[namedpipe] send loop envelope type %d\n", envelope.Type)
 			// {{end}}
-			namedpipe.WriteEnvelope(&conn, envelope)
+			client.WriteEnvelope(envelope)
 		}
 	}()
 
 	go func() {
 		defer connection.Cleanup()
 		for {
-			envelope, err := namedpipe.ReadEnvelope(&conn)
+			envelope, err := client.ReadEnvelope()
 			if err == io.EOF {
 				break
 			}
