@@ -131,7 +131,7 @@ message ImplantConfig {
   string ECCPublicKey = 23;
   string ECCPrivateKey = 24;
   string ECCPublicKeySignature = 25;
-  string ECCServerPublicKey = 26;
+  string MinisignServerPublicKey = 26;
 
   string WGImplantPrivKey = 30;
   string WGServerPubKey = 31;

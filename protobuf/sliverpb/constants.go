@@ -162,24 +162,26 @@ const (
 	// MsgNetstatReq - Netstat request
 	MsgNetstatReq
 
-	// MsgNamedPipesReq - Request to take create a new named pipe listener
-	MsgNamedPipesReq
-	// MsgNamedPipes - Response with the result
-	MsgNamedPipes
-	// MsgTCPPivotReq - Request to take create a new MTLS listener
-	MsgTCPPivotReq
-	// MsgTCPPivot - Response with the result
-	MsgTCPPivot
-	// MsgPivotListReq
-	MsgPivotListReq
-	// MsgPivotPublicKey - Request the pivot public key
-	MsgPivotPublicKey
-	// MsgPivotOpen - Request to create a new pivot tunnel
-	MsgPivotOpen
-	// MsgPivotClose - Request to notify the closing of an existing pivot tunnel
-	MsgPivotClose
-	// MsgPivotData - Request that encapsulates and envelope form a sliver to the server though the pivot and viceversa
-	MsgPivotData
+	// *** Pivots ***
+
+	// MsgPivotStartListenerReq - Start a listener
+	MsgPivotStartListenerReq
+	// MsgPivotStopListenerReq - Stop a listener
+	MsgPivotStopListenerReq
+	// MsgPivotListenersReq - List listeners request
+	MsgPivotListenersReq
+	// MsgPivotListeners - List listeners response
+	MsgPivotListeners
+	// MsgPivotPing - Pivot peer ping message
+	MsgPivotPing
+	// PivotServerKeyExchange - Pivot to server key exchange
+	MsgPivotServerKeyExchange
+	// MsgPivotPeerEnvelope - An envelope from a pivot peer
+	MsgPivotPeerEnvelope
+	// MsgPivotPeerFailure - Failure to send an envelope to a pivot peer
+	MsgPivotPeerFailure
+	// MsgPivotOriginEnvelope
+	MsgPivotOriginEnvelope
 
 	// MsgStartServiceReq - Request to start a service
 	MsgStartServiceReq
@@ -294,146 +296,110 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *Register:
 		return MsgRegister
-
 	case *TaskReq:
 		return MsgTaskReq
-
 	case *Ping:
 		return MsgPing
-
 	case *KillReq:
 		return MsgKillSessionReq
-
 	case *LsReq:
 		return MsgLsReq
 	case *Ls:
 		return MsgLs
-
 	case *DownloadReq:
 		return MsgDownloadReq
 	case *Download:
 		return MsgDownload
-
 	case *UploadReq:
 		return MsgUploadReq
 	case *Upload:
 		return MsgUpload
-
 	case *CdReq:
 		return MsgCdReq
-
 	case *PwdReq:
 		return MsgPwdReq
 	case *Pwd:
 		return MsgPwd
-
 	case *RmReq:
 		return MsgRmReq
 	case *Rm:
 		return MsgRm
-
 	case *MkdirReq:
 		return MsgMkdirReq
 	case *Mkdir:
 		return MsgMkdir
-
 	case *PsReq:
 		return MsgPsReq
 	case *Ps:
 		return MsgPs
-
 	case *ShellReq:
 		return MsgShellReq
 	case *Shell:
 		return MsgShell
-
 	case *ProcessDumpReq:
 		return MsgProcessDumpReq
 	case *ProcessDump:
 		return MsgProcessDump
-
 	case *ImpersonateReq:
 		return MsgImpersonateReq
 	case *Impersonate:
 		return MsgImpersonate
-
 	case *RunAsReq:
 		return MsgRunAsReq
-
 	case *RunAs:
 		return MsgRunAs
-
 	case *RevToSelfReq:
 		return MsgRevToSelfReq
-
 	case *InvokeGetSystemReq:
 		return MsgInvokeGetSystemReq
-
 	case *GetSystem:
 		return MsgGetSystem
-
 	case *ExecuteAssemblyReq:
 		return MsgExecuteAssemblyReq
-
 	case *InvokeExecuteAssemblyReq:
 		return MsgInvokeExecuteAssemblyReq
-
 	case *ExecuteAssembly:
 		return MsgExecuteAssembly
 	case *ExecuteTokenReq:
 		return MsgExecuteTokenReq
-
 	case *InvokeMigrateReq:
 		return MsgInvokeMigrateReq
-
 	case *SideloadReq:
 		return MsgSideloadReq
 	case *Sideload:
 		return MsgSideload
-
 	case *SpawnDllReq:
 		return MsgSpawnDllReq
 	case *SpawnDll:
 		return MsgSpawnDll
-
 	case *IfconfigReq:
 		return MsgIfconfigReq
 	case *Ifconfig:
 		return MsgIfconfig
-
 	case *ExecuteReq:
 		return MsgExecuteReq
-
 	case *TerminateReq:
 		return MsgTerminateReq
-
 	case *Terminate:
 		return MsgTerminate
-
 	case *ScreenshotReq:
 		return MsgScreenshotReq
 	case *Screenshot:
 		return MsgScreenshot
-
 	case *NetstatReq:
 		return MsgNetstatReq
 
-	case *NamedPipesReq:
-		return MsgNamedPipesReq
-	case *NamedPipes:
-		return MsgNamedPipes
+	case *PivotStartListenerReq:
+		return MsgPivotStartListenerReq
+	case *PivotStopListenerReq:
+		return MsgPivotStopListenerReq
+	case *PivotListenersReq:
+		return MsgPivotListenersReq
+	case *PivotListeners:
+		return MsgPivotListeners
+	case *PivotPing:
+		return MsgPivotPing
 
-	case *TCPPivotReq:
-		return MsgTCPPivotReq
-	case *TCPPivot:
-		return MsgTCPPivot
-
-	case *PivotOpen:
-		return MsgPivotOpen
-	case *PivotClose:
-		return MsgPivotClose
-	case *PivotData:
-		return MsgPivotData
 	case *StartServiceReq:
 		return MsgStartServiceReq
 	case *StopServiceReq:
@@ -462,9 +428,6 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgRegistryCreateKeyReq
 	case *RegistryDeleteKeyReq:
 		return MsgRegistryDeleteKeyReq
-
-	case *PivotListReq:
-		return MsgPivotListReq
 
 	case *WGPortForwardStartReq:
 		return MsgWGStartPortFwdReq

@@ -18,6 +18,8 @@ package transports
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+// {{if .Config.IsBeacon}}
+
 import (
 	// {{if .Config.Debug}}
 	"log"
@@ -366,4 +368,6 @@ func dnsBeacon(uri *url.URL) *Beacon {
 	return beacon
 }
 
-// {{end}}
+// {{end}} - DNSc2Enabled
+
+// {{end}} - IsBeacon

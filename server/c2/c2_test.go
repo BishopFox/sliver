@@ -65,6 +65,7 @@ func setup() *models.ImplantConfig {
 		"",
 		serverECCKeyPair.PublicBase64(),
 		totpSecret,
+		"",
 	)
 	digest := sha256.Sum256(implantECCKeyPair.Public[:])
 	implantConfig := &models.ImplantConfig{

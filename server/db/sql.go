@@ -30,7 +30,7 @@ import (
 	"gorm.io/gorm"
 
 	// Always include SQLite
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 var (
@@ -62,6 +62,7 @@ func newDBClient() *gorm.DB {
 		&models.ImplantC2{},
 		&models.ImplantConfig{},
 		&models.ImplantBuild{},
+		&models.KeyValue{},
 		&models.CanaryDomain{},
 		&models.ImplantProfile{},
 		&models.Loot{},

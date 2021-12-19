@@ -21,54 +21,51 @@ package handlers
 import (
 	"github.com/bishopfox/sliver/implant/sliver/extension"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
 
 var (
 	darwinHandlers = map[uint32]RPCHandler{
-		pb.MsgPsReq:             psHandler,
-		pb.MsgTerminateReq:      terminateHandler,
-		pb.MsgPing:              pingHandler,
-		pb.MsgLsReq:             dirListHandler,
-		pb.MsgDownloadReq:       downloadHandler,
-		pb.MsgUploadReq:         uploadHandler,
-		pb.MsgCdReq:             cdHandler,
-		pb.MsgPwdReq:            pwdHandler,
-		pb.MsgRmReq:             rmHandler,
-		pb.MsgMkdirReq:          mkdirHandler,
-		pb.MsgIfconfigReq:       ifconfigHandler,
-		pb.MsgExecuteReq:        executeHandler,
-		sliverpb.MsgEnvReq:      getEnvHandler,
-		sliverpb.MsgSetEnvReq:   setEnvHandler,
-		sliverpb.MsgUnsetEnvReq: unsetEnvHandler,
+		pb.MsgPsReq:        psHandler,
+		pb.MsgTerminateReq: terminateHandler,
+		pb.MsgPing:         pingHandler,
+		pb.MsgLsReq:        dirListHandler,
+		pb.MsgDownloadReq:  downloadHandler,
+		pb.MsgUploadReq:    uploadHandler,
+		pb.MsgCdReq:        cdHandler,
+		pb.MsgPwdReq:       pwdHandler,
+		pb.MsgRmReq:        rmHandler,
+		pb.MsgMkdirReq:     mkdirHandler,
+		pb.MsgIfconfigReq:  ifconfigHandler,
+		pb.MsgExecuteReq:   executeHandler,
+		pb.MsgEnvReq:       getEnvHandler,
+		pb.MsgSetEnvReq:    setEnvHandler,
+		pb.MsgUnsetEnvReq:  unsetEnvHandler,
 
-		pb.MsgScreenshotReq:    screenshotHandler,
-		sliverpb.MsgNetstatReq: netstatHandler,
+		pb.MsgScreenshotReq: screenshotHandler,
+		pb.MsgNetstatReq:    netstatHandler,
 
 		pb.MsgSideloadReq: sideloadHandler,
 
-		sliverpb.MsgReconnectIntervalReq: reconnectIntervalHandler,
-		sliverpb.MsgSSHCommandReq:        runSSHCommandHandler,
+		pb.MsgReconnectIntervalReq: reconnectIntervalHandler,
+		pb.MsgSSHCommandReq:        runSSHCommandHandler,
 
 		// Extensions
-		sliverpb.MsgRegisterExtensionReq: registerExtensionHandler,
-		sliverpb.MsgCallExtensionReq:     callExtensionHandler,
-		sliverpb.MsgListExtensionsReq:    listExtensionsHandler,
+		pb.MsgRegisterExtensionReq: registerExtensionHandler,
+		pb.MsgCallExtensionReq:     callExtensionHandler,
+		pb.MsgListExtensionsReq:    listExtensionsHandler,
 
 		// {{if .Config.WGc2Enabled}}
 		// Wireguard specific
-		sliverpb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,
-		sliverpb.MsgWGStopPortFwdReq:    wgStopPortfwdHandler,
-		sliverpb.MsgWGListForwardersReq: wgListTCPForwardersHandler,
-		sliverpb.MsgWGStartSocksReq:     wgStartSocksHandler,
-		sliverpb.MsgWGStopSocksReq:      wgStopSocksHandler,
-		sliverpb.MsgWGListSocksReq:      wgListSocksServersHandler,
+		pb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,
+		pb.MsgWGStopPortFwdReq:    wgStopPortfwdHandler,
+		pb.MsgWGListForwardersReq: wgListTCPForwardersHandler,
+		pb.MsgWGStartSocksReq:     wgStartSocksHandler,
+		pb.MsgWGStopSocksReq:      wgStopSocksHandler,
+		pb.MsgWGListSocksReq:      wgListSocksServersHandler,
 		// {{end}}
 	}
-
-	darwinPivotHandlers = map[uint32]PivotHandler{}
 )
 
 // GetSystemHandlers - Returns a map of the darwin system handlers
@@ -76,15 +73,10 @@ func GetSystemHandlers() map[uint32]RPCHandler {
 	return darwinHandlers
 }
 
-// GetSystemPivotHandlers - Returns a map of the darwin system handlers
-func GetSystemPivotHandlers() map[uint32]PivotHandler {
-	return darwinPivotHandlers
-}
-
 // Extensions
 
 func registerExtensionHandler(data []byte, resp RPCResponse) {
-	registerReq := &sliverpb.RegisterExtensionReq{}
+	registerReq := &pb.RegisterExtensionReq{}
 
 	err := proto.Unmarshal(data, registerReq)
 	if err != nil {
@@ -94,7 +86,7 @@ func registerExtensionHandler(data []byte, resp RPCResponse) {
 	ext := extension.NewDarwinExtension(registerReq.Data, registerReq.Name, registerReq.OS, registerReq.Init)
 	extension.Add(ext)
 	err = ext.Load()
-	registerResp := &sliverpb.RegisterExtension{
+	registerResp := &pb.RegisterExtension{
 		Response: &commonpb.Response{},
 	}
 	if err != nil {
@@ -105,14 +97,14 @@ func registerExtensionHandler(data []byte, resp RPCResponse) {
 }
 
 func callExtensionHandler(data []byte, resp RPCResponse) {
-	callReq := &sliverpb.CallExtensionReq{}
+	callReq := &pb.CallExtensionReq{}
 
 	err := proto.Unmarshal(data, callReq)
 	if err != nil {
 		return
 	}
 
-	callResp := &sliverpb.CallExtension{
+	callResp := &pb.CallExtension{
 		Response: &commonpb.Response{},
 	}
 	gotOutput := false
@@ -133,14 +125,14 @@ func callExtensionHandler(data []byte, resp RPCResponse) {
 }
 
 func listExtensionsHandler(data []byte, resp RPCResponse) {
-	lstReq := &sliverpb.ListExtensionsReq{}
+	lstReq := &pb.ListExtensionsReq{}
 	err := proto.Unmarshal(data, lstReq)
 	if err != nil {
 		return
 	}
 
 	exts := extension.List()
-	lstResp := &sliverpb.ListExtensions{
+	lstResp := &pb.ListExtensions{
 		Response: &commonpb.Response{},
 		Names:    exts,
 	}

