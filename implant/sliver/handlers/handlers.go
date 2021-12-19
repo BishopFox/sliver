@@ -437,8 +437,8 @@ func executeHandler(data []byte, resp RPCResponse) {
 		if outWriter != nil {
 			outWriter.Flush()
 		}
-		execResp.Stderr = stdErrBuff.String()
-		execResp.Stdout = stdOutBuff.String()
+		execResp.Stderr = stdErrBuff.Bytes()
+		execResp.Stdout = stdOutBuff.Bytes()
 		if cmd.Process != nil {
 			execResp.Pid = uint32(cmd.Process.Pid)
 		}

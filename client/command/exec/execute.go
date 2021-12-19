@@ -113,16 +113,16 @@ func PrintExecute(exec *sliverpb.Execute, ctx *grumble.Context, con *console.Sli
 
 	combined := ""
 	if stdout == "" {
-		combined = exec.Stdout
-		con.PrintInfof("Output:\n%s", exec.Stdout)
+		combined = string(exec.Stdout)
+		con.PrintInfof("Output:\n%s", combined)
 	} else {
 		con.PrintInfof("Stdout saved at %s\n", stdout)
 	}
 
 	if stderr == "" {
 		if !ignoreStderr && 0 < len(exec.Stderr) {
-			combined = fmt.Sprintf("%s\nStderr:\n%s", combined, exec.Stderr)
-			con.PrintInfof("Stderr:\n%s", exec.Stderr)
+			combined = fmt.Sprintf("%s\nStderr:\n%s", combined, string(exec.Stderr))
+			con.PrintInfof("Stderr:\n%s", string(exec.Stderr))
 		}
 	} else {
 		con.PrintInfof("Stderr saved at %s\n", stderr)

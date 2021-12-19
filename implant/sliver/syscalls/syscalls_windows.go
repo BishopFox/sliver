@@ -43,3 +43,5 @@ package syscalls
 //sys GetProcessMemoryInfo(process windows.Handle, ppsmemCounters *ProcessMemoryCounters, cb uint32) (err error) = psapi.GetProcessMemoryInfo
 //sys LookupPrivilegeNameW(systemName string, luid *uint64, buffer *uint16, size *uint32) (err error) = advapi32.LookupPrivilegeNameW
 //sys LookupPrivilegeDisplayNameW(systemName string, privilegeName *uint16, buffer *uint16, size *uint32, languageId *uint32) (err error) = advapi32.LookupPrivilegeDisplayNameW
+
+//sys Module32FirstW(hSnapshot windows.Handle, lpme *MODULEENTRY32W) (err error) = kernel32.Module32FirstW
