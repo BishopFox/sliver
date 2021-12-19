@@ -2071,10 +2071,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// [ Pivots ] --------------------------------------------------------------
 
-	con.App.AddCommand(&grumble.Command{
-		Name:     consts.PivotsListStr,
-		Help:     "List pivots",
-		LongHelp: help.GetHelpFor([]string{consts.PivotsListStr}),
+	pivotsCmd := &grumble.Command{
+		Name:     consts.PivotsStr,
+		Help:     "List pivots for active session",
+		LongHelp: help.GetHelpFor([]string{consts.PivotsStr}),
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			pivots.PivotsCmd(ctx, con)
@@ -2083,40 +2083,78 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-			f.String("i", "id", "", "session id")
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+	con.App.AddCommand(pivotsCmd)
 
-	con.App.AddCommand(&grumble.Command{
+	pivotsCmd.AddCommand(&grumble.Command{
 		Name:     consts.NamedPipeStr,
 		Help:     "Start a named pipe pivot listener",
-		LongHelp: help.GetHelpFor([]string{consts.NamedPipeStr}),
+		LongHelp: help.GetHelpFor([]string{consts.PivotsStr, consts.NamedPipeStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("n", "name", "", "name of the named pipe")
+			f.String("b", "bind", "", "name of the named pipe to bind pivot listener")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			pivots.NamedPipeListenerCmd(ctx, con)
+			pivots.StartNamedPipeListenerCmd(ctx, con)
 			con.Println()
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
-	con.App.AddCommand(&grumble.Command{
+	pivotsCmd.AddCommand(&grumble.Command{
 		Name:     consts.TCPListenerStr,
 		Help:     "Start a TCP pivot listener",
-		LongHelp: help.GetHelpFor([]string{consts.TCPListenerStr}),
+		LongHelp: help.GetHelpFor([]string{consts.PivotsStr, consts.TCPListenerStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("s", "server", "0.0.0.0", "interface to bind server to")
-			f.Int("l", "lport", generate.DefaultTCPPivotPort, "tcp listen port")
+			f.String("b", "bind", "", "remote interface to bind pivot listener")
+			f.Int("l", "lport", generate.DefaultTCPPivotPort, "tcp pivot listener port")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			pivots.TCPListenerCmd(ctx, con)
+			pivots.StartTCPListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	pivotsCmd.AddCommand(&grumble.Command{
+		Name:     consts.StopStr,
+		Help:     "Stop a pivot listener",
+		LongHelp: help.GetHelpFor([]string{consts.PivotsStr, consts.StopStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("i", "id", 0, "id of the pivot listener to stop")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			pivots.StopPivotListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	pivotsCmd.AddCommand(&grumble.Command{
+		Name:     consts.DetailsStr,
+		Help:     "Get details of a pivot listener",
+		LongHelp: help.GetHelpFor([]string{consts.PivotsStr, consts.StopStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("i", "id", 0, "id of the pivot listener to stop")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			pivots.PivotDetailsCmd(ctx, con)
 			con.Println()
 			return nil
 		},

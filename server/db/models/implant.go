@@ -72,11 +72,12 @@ type ImplantConfig struct {
 	BeaconJitter   int64
 
 	// ECC
-	ECCPublicKey          string
-	ECCPublicKeyDigest    string
-	ECCPrivateKey         string
-	ECCPublicKeySignature string
-	ECCServerPublicKey    string
+	ECCPublicKey            string
+	ECCPublicKeyDigest      string
+	ECCPrivateKey           string
+	ECCPublicKeySignature   string
+	ECCServerPublicKey      string
+	MinisignServerPublicKey string
 
 	// MTLS
 	MtlsCACert string

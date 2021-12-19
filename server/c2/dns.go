@@ -262,9 +262,18 @@ func (p *PendingEnvelope) Reassemble() ([]byte, error) {
 	if !p.complete {
 		return nil, errors.New("pending message not complete")
 	}
+	// There could be some sort of race in here, the unit tests
+	// seem to fail randomly but I can't tell exactly where ...
+	// could be a bug in the unit test, the linked list, or this code
 	p.messages.Sort(func(left, right interface{}) int {
 		leftAssert := left.(*dnspb.DNSMessage)
 		rightAssert := right.(*dnspb.DNSMessage)
+		if leftAssert == nil {
+			panic("left is nil")
+		}
+		if rightAssert == nil {
+			panic("right is nil")
+		}
 		if leftAssert.Start > rightAssert.Start {
 			return 1
 		} else {

@@ -19,84 +19,71 @@ package pivots
 */
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"strings"
-	"text/tabwriter"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/jedib0t/go-pretty/v6/table"
 
 	"github.com/desertbit/grumble"
 )
 
 // PivotsCmd - Display pivots for all sessions
 func PivotsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	timeout := ctx.Flags.Int("timeout")
-	sessionID := ctx.Flags.String("id")
-	if sessionID != "" {
-		session := con.GetSession(sessionID)
-		if session == nil {
-			return
-		}
-		printPivots(session, int64(timeout), con)
-	} else {
-		session := con.ActiveTarget.GetSession()
-		if session != nil {
-			printPivots(session, int64(timeout), con)
-		} else {
-			sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
-			if err != nil {
-				con.PrintErrorf("%s\n", err)
-				return
-			}
-			for _, session := range sessions.Sessions {
-				printPivots(session, int64(timeout), con)
-			}
-		}
+	session := con.ActiveTarget.GetSessionInteractive()
+	if session == nil {
+		return
 	}
-}
-
-func printPivots(session *clientpb.Session, timeout int64, con *console.SliverConsoleClient) {
-	pivotList, err := con.Rpc.ListPivots(context.Background(), &sliverpb.PivotListReq{
-		Request: &commonpb.Request{
-			SessionID: session.ID,
-			Timeout:   timeout,
-			Async:     false,
-		},
+	pivotListeners, err := con.Rpc.PivotListeners(context.Background(), &sliverpb.PivotListenersReq{
+		Request: con.ActiveTarget.Request(ctx),
 	})
-
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-
-	if pivotList.Response != nil && pivotList.Response.Err != "" {
-		con.PrintErrorf("%s\n", pivotList.Response.Err)
+	if pivotListeners.Response != nil && pivotListeners.Response.Err != "" {
+		con.PrintErrorf("%s\n", pivotListeners.Response.Err)
 		return
 	}
 
-	if len(pivotList.Entries) > 0 {
-		con.PrintInfof("Session %d\n", session.ID)
-		outputBuf := bytes.NewBufferString("")
-		table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
-
-		fmt.Fprintf(table, "type\taddress\t\n")
-		fmt.Fprintf(table, "%s\t%s\t\n",
-			strings.Repeat("=", len("type")),
-			strings.Repeat("=", len("address")),
-		)
-
-		for _, entry := range pivotList.Entries {
-			fmt.Fprintf(table, "%s\t%s\t\n", entry.Type, entry.Remote)
-		}
-		table.Flush()
-		con.Printf(outputBuf.String())
+	if len(pivotListeners.Listeners) == 0 {
+		con.PrintInfof("No pivot listeners running on this session\n")
 	} else {
-		con.PrintInfof("No pivots found for session %d\n", session.ID)
+		PrintPivotListeners(pivotListeners.Listeners, con)
 	}
+}
 
+// PrintPivotListeners - Print a table of pivot listeners
+func PrintPivotListeners(pivotListeners []*sliverpb.PivotListener, con *console.SliverConsoleClient) {
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{
+		"ID",
+		"Protocol",
+		"Bind Address",
+		"Number of Pivots",
+	})
+	for _, listener := range pivotListeners {
+		tw.AppendRow(table.Row{
+			listener.ID,
+			PivotTypeToString(listener.Type),
+			listener.BindAddress,
+			len(listener.Pivots),
+		})
+	}
+	con.Printf("%s\n", tw.Render())
+}
+
+// PivotTypeToString - Convert a pivot type to a human string
+func PivotTypeToString(pivotType sliverpb.PivotType) string {
+	switch pivotType {
+	case sliverpb.PivotType_TCP:
+		return "TCP"
+	case sliverpb.PivotType_UDP:
+		return "UDP"
+	case sliverpb.PivotType_NamedPipe:
+		return "Named Pipe"
+	}
+	return "Unknown"
 }

@@ -20,6 +20,13 @@
 
 ## Util
 
+# util 
+if go test -tags=server ./util ; then
+    :
+else
+    exit 1
+fi
+
 # util / encoders
 if go test -tags=server ./util/encoders/basex ; then
     :
@@ -74,6 +81,14 @@ fi
 
 # server / cryptography
 if go test -tags=server ./server/cryptography ; then
+    :
+else
+    cat ~/.sliver/logs/sliver.log
+    exit 1
+fi
+
+# server / cryptography / minisign
+if go test -tags=server ./server/cryptography/minisign ; then
     :
 else
     cat ~/.sliver/logs/sliver.log

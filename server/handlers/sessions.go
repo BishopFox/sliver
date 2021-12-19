@@ -24,6 +24,7 @@ package handlers
 
 import (
 	"encoding/json"
+
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
@@ -171,5 +172,4 @@ func socksDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverp
 		sessionHandlerLog.Warnf("Data sent on nil tunnel %d", socksData.TunnelID)
 	}
 	return nil
-
 }
