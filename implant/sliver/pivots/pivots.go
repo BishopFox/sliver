@@ -252,8 +252,8 @@ func (p *NetConnPivot) Start(pivots *sync.Map) {
 				// {{end}}
 				envelopeData, _ := proto.Marshal(envelope)
 				data, _ := proto.Marshal(&pb.PivotPeerEnvelope{
-					PeerID:  PeerID, // Our Peer ID
-					PivotID: p.ID(),
+					PeerID:  PeerID, // This proccess' Peer ID
+					PivotID: p.ID(), // The Pivot connection ID
 					Name:    consts.SliverName,
 					Data:    envelopeData,
 				})
