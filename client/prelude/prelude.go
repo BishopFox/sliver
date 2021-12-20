@@ -103,6 +103,7 @@ func (p *PreludeSessionMapper) AddSession(s *clientpb.Session) error {
 		Address:   p.conf.OperatorURL,
 		Pid:       int(s.PID),
 		Executing: make(map[string]Instruction),
+		Sleep:     3,
 	}
 	util.EncryptionKey = &agentConfig.AESKey
 	agentSession := NewAgentSession(&conn, s, p.conf.RPC, beacon, agentConfig)
