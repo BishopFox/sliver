@@ -24,6 +24,7 @@ package handlers
 
 import (
 	"encoding/json"
+
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
@@ -158,10 +159,10 @@ func socksDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverp
 	//	core.SocksTunnels.Close(socksData.TunnelID)
 	//	return nil
 	//}
-	sessionHandlerLog.Debugf("socksDataHandler:",len(socksData.Data), socksData.Data)
-	SocksTunne:=core.SocksTunnels.Get(socksData.TunnelID)
-	if SocksTunne!= nil {
-		if session.ID == SocksTunne.SessionID{
+	sessionHandlerLog.Debugf("socksDataHandler:", len(socksData.Data), socksData.Data)
+	SocksTunne := core.SocksTunnels.Get(socksData.TunnelID)
+	if SocksTunne != nil {
+		if session.ID == SocksTunne.SessionID {
 			SocksTunne.FromImplant <- socksData
 		} else {
 			sessionHandlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
@@ -170,5 +171,4 @@ func socksDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverp
 		sessionHandlerLog.Warnf("Data sent on nil tunnel %d", socksData.TunnelID)
 	}
 	return nil
-
 }

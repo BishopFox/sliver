@@ -33,12 +33,10 @@ import (
 	"syscall"
 
 	"github.com/bishopfox/sliver/implant/sliver/extension"
-	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	"github.com/bishopfox/sliver/implant/sliver/priv"
 	"github.com/bishopfox/sliver/implant/sliver/registry"
 	"github.com/bishopfox/sliver/implant/sliver/service"
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
-	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
@@ -110,20 +108,11 @@ var (
 		sliverpb.MsgWGListSocksReq:      wgListSocksServersHandler,
 		// {{end}}
 	}
-
-	windowsPivotHandlers = map[uint32]PivotHandler{
-		sliverpb.MsgNamedPipesReq: namedPipeListenerHandler,
-	}
 )
 
 // GetSystemHandlers - Returns a map of the windows system handlers
 func GetSystemHandlers() map[uint32]RPCHandler {
 	return windowsHandlers
-}
-
-// GetSystemPivotHandlers - Returns a map of the windows system handlers
-func GetSystemPivotHandlers() map[uint32]PivotHandler {
-	return windowsPivotHandlers
 }
 
 // ---------------- Windows Handlers ----------------
@@ -372,50 +361,6 @@ func spawnDllHandler(data []byte, resp RPCResponse) {
 
 	data, err = proto.Marshal(spawnResp)
 	resp(data, err)
-}
-
-func namedPipeListenerHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
-	namedPipeReq := &sliverpb.NamedPipesReq{}
-	err := proto.Unmarshal(envelope.Data, namedPipeReq)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("error decoding message: %v", err)
-		// {{end}}
-		namedPipeResp := &sliverpb.NamedPipes{
-			Success:  false,
-			Response: &commonpb.Response{Err: err.Error()},
-		}
-		data, _ := proto.Marshal(namedPipeResp)
-		connection.Send <- &sliverpb.Envelope{
-			ID:   envelope.GetID(),
-			Data: data,
-		}
-		return
-	}
-	err = pivots.StartNamedPipeListener(namedPipeReq.GetPipeName())
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("error with listener: %s", err.Error())
-		// {{end}}
-		namedPipeResp := &sliverpb.NamedPipes{
-			Success:  false,
-			Response: &commonpb.Response{Err: err.Error()},
-		}
-		data, _ := proto.Marshal(namedPipeResp)
-		connection.Send <- &sliverpb.Envelope{
-			ID:   envelope.GetID(),
-			Data: data,
-		}
-		return
-	}
-	namedPipeResp := &sliverpb.NamedPipes{
-		Success: true,
-	}
-	data, _ := proto.Marshal(namedPipeResp)
-	connection.Send <- &sliverpb.Envelope{
-		ID:   envelope.GetID(),
-		Data: data,
-	}
 }
 
 func makeTokenHandler(data []byte, resp RPCResponse) {

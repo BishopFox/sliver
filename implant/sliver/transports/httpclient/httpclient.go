@@ -74,23 +74,14 @@ type HTTPOptions struct {
 func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 	netTimeout, err := time.ParseDuration(c2URI.Query().Get("net-timeout"))
 	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to parse poll-timeout %s", err)
-		// {{end}}
 		netTimeout = time.Duration(30 * time.Second)
 	}
 	tlsTimeout, err := time.ParseDuration(c2URI.Query().Get("tls-timeout"))
 	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to parse poll-timeout %s", err)
-		// {{end}}
 		tlsTimeout = time.Duration(30 * time.Second)
 	}
 	pollTimeout, err := time.ParseDuration(c2URI.Query().Get("poll-timeout"))
 	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to parse poll-timeout %s", err)
-		// {{end}}
 		pollTimeout = time.Duration(30 * time.Second)
 	}
 	return &HTTPOptions{

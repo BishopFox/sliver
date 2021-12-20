@@ -19,11 +19,25 @@ package util
 */
 
 import (
+	"bytes"
 	"crypto/rand"
+	insecureRand "math/rand"
+	"testing"
 )
 
-func randomData() []byte {
-	buf := make([]byte, 128)
+func randomDataRandomSize(maxSize int) []byte {
+	buf := make([]byte, insecureRand.Intn(maxSize))
 	rand.Read(buf)
 	return buf
+}
+
+func TestGzipGunzip(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		data := randomDataRandomSize(8192)
+		gzipData := GzipBuf(data)
+		gunzipData := GunzipBuf(gzipData)
+		if !bytes.Equal(data, gunzipData) {
+			t.Fatalf("Data does not match")
+		}
+	}
 }

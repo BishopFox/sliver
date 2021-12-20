@@ -1,4 +1,4 @@
-// +build client
+//go:build client
 
 package assets
 

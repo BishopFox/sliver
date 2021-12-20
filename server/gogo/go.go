@@ -29,62 +29,19 @@ import (
 	"strings"
 
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
 const (
 	goDirName = "go"
+
+	kb = 1024
+	mb = 1024 * kb
+	gb = 1024 * mb
 )
 
 var (
 	gogoLog = log.NamedLogger("gogo", "compiler")
-
-	// ValidCompilerTargets - Supported compiler targets
-	ValidCompilerTargets = map[string]bool{
-		"aix/ppc64":       true,
-		"android/386":     true,
-		"android/amd64":   true,
-		"android/arm":     true,
-		"android/arm64":   true,
-		"darwin/amd64":    true,
-		"darwin/arm64":    true,
-		"dragonfly/amd64": true,
-		"freebsd/386":     true,
-		"freebsd/amd64":   true,
-		"freebsd/arm":     true,
-		"freebsd/arm64":   true,
-		"illumos/amd64":   true,
-		"ios/amd64":       true,
-		"ios/arm64":       true,
-		"js/wasm":         true,
-		"linux/386":       true,
-		"linux/amd64":     true,
-		"linux/arm":       true,
-		"linux/arm64":     true,
-		"linux/mips":      true,
-		"linux/mips64":    true,
-		"linux/mips64le":  true,
-		"linux/mipsle":    true,
-		"linux/ppc64":     true,
-		"linux/ppc64le":   true,
-		"linux/riscv64":   true,
-		"linux/s390x":     true,
-		"netbsd/386":      true,
-		"netbsd/amd64":    true,
-		"netbsd/arm":      true,
-		"netbsd/arm64":    true,
-		"openbsd/386":     true,
-		"openbsd/amd64":   true,
-		"openbsd/arm":     true,
-		"openbsd/arm64":   true,
-		"openbsd/mips64":  true,
-		"plan9/386":       true,
-		"plan9/amd64":     true,
-		"plan9/arm":       true,
-		"solaris/amd64":   true,
-		"windows/386":     true,
-		"windows/amd64":   true,
-		"windows/arm":     true,
-	}
 )
 
 // GoConfig - Env variables for Go compiler
@@ -124,6 +81,21 @@ func GetGoModCache(appDir string) string {
 	return cachePath
 }
 
+// The Gb limit here is somewhat arbitrary but is based on my own testing
+func garbleMaxLiteralSize() []string {
+	vmStat, err := mem.VirtualMemory()
+	if err != nil {
+		gogoLog.Errorf("Failed to detect amount of system memory: %s", err)
+		return []string{"-literals-max-size", fmt.Sprintf("%d", 1*kb)} // Use default
+	}
+	if 10*gb < vmStat.Total {
+		gogoLog.Infof("More than 10Gb of system memory, enable large literal obfuscation")
+		return []string{"-literals-max-size", fmt.Sprintf("%d", 64*kb)}
+	}
+	gogoLog.Infof("Low system memory, disable large literal obfuscation")
+	return []string{"-literals-max-size", fmt.Sprintf("%d", 2*kb)}
+}
+
 func seed() string {
 	seed := make([]byte, 32)
 	rand.Read(seed)
@@ -133,13 +105,13 @@ func seed() string {
 // GarbleCmd - Execute a go command
 func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
-	if _, ok := ValidCompilerTargets[target]; !ok {
+	if _, ok := ValidCompilerTargets(config)[target]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	garbleBinPath := path.Join(config.GOROOT, "bin", "garble")
-	seed := fmt.Sprintf("-seed=%s", seed())
-	// command = append([]string{"-literals", "-tiny", seed}, command...)
-	command = append([]string{"-literals", seed}, command...)
+	garbleFlags := []string{fmt.Sprintf("-seed=%s", seed()), "-literals"}
+	garbleFlags = append(garbleFlags, garbleMaxLiteralSize()...)
+	command = append(garbleFlags, command...)
 	cmd := exec.Command(garbleBinPath, command...)
 	cmd.Dir = cwd
 	cmd.Env = []string{
@@ -213,7 +185,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 // GoBuild - Execute a go build command, returns stdout/error
 func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []string, ldflags []string, gcflags, asmflags string, trimpath string) ([]byte, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
-	if _, ok := ValidCompilerTargets[target]; !ok {
+	if _, ok := ValidCompilerTargets(config)[target]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	var goCommand = []string{"build"}
@@ -256,6 +228,15 @@ func GoVersion(config GoConfig) ([]byte, error) {
 	var goCommand = []string{"version"}
 	wd, _ := os.Getwd()
 	return GoCmd(config, wd, goCommand)
+}
+
+// ValidCompilerTargets - Returns a map of valid compiler targets
+func ValidCompilerTargets(config GoConfig) map[string]bool {
+	validTargets := make(map[string]bool)
+	for _, target := range GoToolDistList(config) {
+		validTargets[target] = true
+	}
+	return validTargets
 }
 
 // GoToolDistList - Get a list of supported GOOS/GOARCH pairs

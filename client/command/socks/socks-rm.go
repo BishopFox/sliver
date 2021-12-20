@@ -31,14 +31,14 @@ import (
 func SocksRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	socksID := ctx.Flags.Int("id")
 	if socksID < 1 {
-		con.PrintErrorf("Must specify a valid portfwd id\n")
+		con.PrintErrorf("Must specify a valid socks5 id\n")
 		return
 	}
 	found := core.SocksProxies.Remove(socksID)
 	if !found {
-		con.PrintErrorf("No portfwd with id %d\n", socksID)
+		con.PrintErrorf("No socks5 with id %d\n", socksID)
 	} else {
-		con.PrintInfof("Removed portfwd\n")
+		con.PrintInfof("Removed socks5\n")
 	}
 
 	// close

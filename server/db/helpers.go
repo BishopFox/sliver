@@ -365,3 +365,40 @@ func OperatorAll() ([]*models.Operator, error) {
 	err := Session().Distinct("Name").Find(&operators).Error
 	return operators, err
 }
+
+// GetKeyValue - Get a value from a key
+func GetKeyValue(key string) (string, error) {
+	keyValue := &models.KeyValue{}
+	err := Session().Where(&models.KeyValue{
+		Key: key,
+	}).First(keyValue).Error
+	return keyValue.Value, err
+}
+
+// SetKeyValue - Set the value for a key/value pair
+func SetKeyValue(key string, value string) error {
+	err := Session().Where(&models.KeyValue{
+		Key: key,
+	}).First(&models.KeyValue{}).Error
+	if err == ErrRecordNotFound {
+		err = Session().Create(&models.KeyValue{
+			Key:   key,
+			Value: value,
+		}).Error
+	} else {
+		err = Session().Where(&models.KeyValue{
+			Key: key,
+		}).Updates(models.KeyValue{
+			Key:   key,
+			Value: value,
+		}).Error
+	}
+	return err
+}
+
+// DeleteKeyValue - Delete a key/value pair
+func DeleteKeyValue(key string, value string) error {
+	return Session().Delete(&models.KeyValue{
+		Key: key,
+	}).Error
+}

@@ -84,7 +84,7 @@ var (
 		consts.RegistryWriteStr:             regWriteHelp,
 		consts.RegistryReadStr:              regReadHelp,
 		consts.RegistryCreateKeyStr:         regCreateKeyHelp,
-		consts.PivotsListStr:                pivotListHelp,
+		consts.PivotsStr:                    pivotsHelp,
 		consts.WgPortFwdStr:                 wgPortFwdHelp,
 		consts.WgSocksStr:                   wgSocksHelp,
 		consts.SSHStr:                       sshHelp,
@@ -482,21 +482,19 @@ When using the binary type, you must either:
 [[.Bold]]Example:[[.Normal]] registry create --hive HKLM "software\\google\\chrome\\BLBeacon\\version"
 	`
 
-	pivotListHelp = `[[.Bold]]Command:[[.Normal]] pivots-list [--id SESSIONID]
-[[.Bold]]About:[[.Normal]] List created pivots
+	pivotsHelp = `[[.Bold]]Command:[[.Normal]] pivots
+[[.Bold]]About:[[.Normal]] List pivots for the current session. NOTE: pivots are only supported on sessions, not beacons.
 [[.Bold]]Examples:[[.Normal]]
-List pivots for all sessions:
-	
-	pivots-list
-
-List pivots for a specific session:
-
-	pivots-list --id 1
 
 List pivots for the current session:
 
-	pivots-list
-	`
+	pivots
+
+Start a tcp pivot on the current session:
+
+	pivots tcp --bind 0.0.0.0
+
+`
 	wgSocksHelp = `[[.Bold]]Command:[[.Normal]] wg-socks
 [[.Bold]]About:[[.Normal]] Create a socks5 listener on the implant Wireguard tun interface
 [[.Bold]]Examples:[[.Normal]]
