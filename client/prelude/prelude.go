@@ -33,6 +33,8 @@ import (
 
 var SessionMapper *PreludeSessionMapper
 
+const defaultImplantSleep = 5
+
 type OperatorConfig struct {
 	Range       string
 	OperatorURL string
@@ -88,7 +90,7 @@ func (p *PreludeSessionMapper) AddSession(s *clientpb.Session) error {
 		Links:     make([]Instruction, 0),
 		Executing: "",
 		Pwd:       pwd,
-		Sleep:     3,
+		Sleep:     defaultImplantSleep,
 	}
 
 	if p.conf.AESKey == "" {
@@ -103,7 +105,7 @@ func (p *PreludeSessionMapper) AddSession(s *clientpb.Session) error {
 		Address:   p.conf.OperatorURL,
 		Pid:       int(s.PID),
 		Executing: make(map[string]Instruction),
-		Sleep:     3,
+		Sleep:     defaultImplantSleep,
 	}
 	util.EncryptionKey = &agentConfig.AESKey
 	agentSession := NewAgentSession(&conn, s, p.conf.RPC, beacon, agentConfig)
