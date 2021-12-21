@@ -28,9 +28,6 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-
-	// Always include SQLite
-	_ "modernc.org/sqlite"
 )
 
 var (
