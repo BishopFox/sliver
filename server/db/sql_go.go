@@ -22,8 +22,9 @@ package db
 
 import (
 	"github.com/bishopfox/sliver/server/configs"
-	"gorm.io/driver/sqlite"
+	"github.com/bishopfox/sliver/server/db/gosqlite"
 	"gorm.io/gorm"
+	_ "modernc.org/sqlite"
 )
 
 func sqliteClient(dbConfig *configs.DatabaseConfig) *gorm.DB {
@@ -33,7 +34,7 @@ func sqliteClient(dbConfig *configs.DatabaseConfig) *gorm.DB {
 	}
 	clientLog.Infof("sqlite -> %s", dsn)
 
-	dbClient, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
+	dbClient, err := gorm.Open(gosqlite.Open(dsn), &gorm.Config{
 		PrepareStmt: true,
 		Logger:      getGormLogger(dbConfig),
 	})
