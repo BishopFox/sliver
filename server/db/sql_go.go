@@ -21,6 +21,24 @@ package db
 */
 
 import (
-	// Always include SQLite
-	_ "modernc.org/sqlite"
+	"github.com/bishopfox/sliver/server/configs"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
+
+func sqliteClient(dbConfig *configs.DatabaseConfig) *gorm.DB {
+	dsn, err := dbConfig.DSN()
+	if err != nil {
+		panic(err)
+	}
+	clientLog.Infof("sqlite -> %s", dsn)
+
+	dbClient, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
+		PrepareStmt: true,
+		Logger:      getGormLogger(dbConfig),
+	})
+	if err != nil {
+		panic(err)
+	}
+	return dbClient
+}
