@@ -87,7 +87,7 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 			}
 		}
 	}()
-	activeConnection = connection
+
 	return connection, nil
 }
 

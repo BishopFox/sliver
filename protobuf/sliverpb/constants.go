@@ -172,8 +172,10 @@ const (
 	MsgPivotListenersReq
 	// MsgPivotListeners - List listeners response
 	MsgPivotListeners
-	// MsgPivotPing - Pivot peer ping message
-	MsgPivotPing
+	// MsgPivotPeerPing - Pivot peer ping message
+	MsgPivotPeerPing
+	// MsgPivotServerPing - Pivot peer ping message
+	MsgPivotServerPing
 	// PivotServerKeyExchange - Pivot to server key exchange
 	MsgPivotServerKeyExchange
 	// MsgPivotPeerEnvelope - An envelope from a pivot peer
@@ -395,7 +397,7 @@ func MsgNumber(request proto.Message) uint32 {
 	case *PivotListeners:
 		return MsgPivotListeners
 	case *PivotPing:
-		return MsgPivotPing
+		return MsgPivotPeerPing
 
 	case *StartServiceReq:
 		return MsgStartServiceReq

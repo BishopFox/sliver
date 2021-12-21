@@ -17,28 +17,32 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+echo "----------------------------------------------------------------"
+echo "WARNING: Running unit tests on slow systems can take a LONG time"
+echo "         Recommended to only run on 16+ CPU cores and 32Gb+ RAM"
+echo "----------------------------------------------------------------"
 
 ## Util
 
 # util 
-if go test -tags=server ./util ; then
+if go test -tags=server,gosqlite ./util ; then
     :
 else
     exit 1
 fi
 
 # util / encoders
-if go test -tags=server ./util/encoders/basex ; then
+if go test -tags=server,gosqlite ./util/encoders/basex ; then
     :
 else
     exit 1
 fi
-if go test -tags=server ./util/encoders ; then
+if go test -tags=server,gosqlite ./util/encoders ; then
     :
 else
     exit 1
 fi
-if go test -tags=client ./util/encoders ; then
+if go test -tags=client,gosqlite ./util/encoders ; then
     :
 else
     exit 1
@@ -47,7 +51,7 @@ fi
 ## Implant
 
 # implant / sliver / transports / dnsclient
-if go test -tags=server ./implant/sliver/transports/dnsclient ; then
+if go test -tags=server,gosqlite ./implant/sliver/transports/dnsclient ; then
     :
 else
     exit 1
@@ -56,7 +60,7 @@ fi
 ## Server
 
 # server / website
-if go test -tags=server ./server/website ; then
+if go test -tags=server,gosqlite ./server/website ; then
     :
 else
     cat ~/.sliver/logs/sliver.log
@@ -64,7 +68,7 @@ else
 fi
 
 # server / loot
-if go test -tags=server ./server/loot ; then
+if go test -tags=server,gosqlite ./server/loot ; then
     :
 else
     cat ~/.sliver/logs/sliver.log
@@ -72,7 +76,7 @@ else
 fi
 
 # server / certs
-if go test -tags=server ./server/certs ; then
+if go test -tags=server,gosqlite ./server/certs ; then
     :
 else
     cat ~/.sliver/logs/sliver.log
@@ -80,7 +84,7 @@ else
 fi
 
 # server / cryptography
-if go test -tags=server ./server/cryptography ; then
+if go test -tags=server,gosqlite ./server/cryptography ; then
     :
 else
     cat ~/.sliver/logs/sliver.log
@@ -88,7 +92,7 @@ else
 fi
 
 # server / cryptography / minisign
-if go test -tags=server ./server/cryptography/minisign ; then
+if go test -tags=server,gosqlite ./server/cryptography/minisign ; then
     :
 else
     cat ~/.sliver/logs/sliver.log
@@ -96,7 +100,7 @@ else
 fi
 
 # server / gogo
-if go test -tags=server ./server/gogo ; then
+if go test -tags=server,gosqlite ./server/gogo ; then
     :
 else
     cat ~/.sliver/logs/sliver.log
@@ -104,7 +108,7 @@ else
 fi
 
 # server / c2
-if go test -tags=server ./server/c2 ; then
+if go test -tags=server,gosqlite ./server/c2 ; then
     :
 else
     cat ~/.sliver/logs/sliver.log
@@ -112,7 +116,7 @@ else
 fi
 
 # server / configs
-if go test -tags=server ./server/configs ; then
+if go test -tags=server,gosqlite ./server/configs ; then
     :
 else
     cat ~/.sliver/logs/sliver.log
@@ -120,7 +124,7 @@ else
 fi
 
 # server / console
-if go test -tags=server ./server/console ; then
+if go test -tags=server,gosqlite ./server/console ; then
     :
 else
     cat ~/.sliver/logs/sliver.log
@@ -128,7 +132,7 @@ else
 fi
 
 # server / generate
-if go test -tags=server ./server/generate -timeout 6h ; then
+if go test -tags=server,gosqlite ./server/generate -timeout 6h ; then
     :
 else
     cat ~/.sliver/logs/sliver.log

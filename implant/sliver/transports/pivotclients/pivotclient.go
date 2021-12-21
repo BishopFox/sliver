@@ -273,23 +273,30 @@ func (p *NetConnPivotClient) WriteEnvelope(envelope *pb.Envelope) error {
 		// {{end}}
 		return err
 	}
-	// Prepend the message with the pivot session ID
-	// note this can only be done after the server key change
-	ciphertext, err := p.serverCipherCtx.Encrypt(plaintext)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("[pivot] Server encryption error: %s", err)
-		// {{end}}
-		return err
+	var peerPlaintext []byte
+	if envelope.Type != pb.MsgPivotPeerPing {
+		// Prepend the message with the pivot session ID
+		// note this can only be done after the server key change
+		ciphertext, err := p.serverCipherCtx.Encrypt(plaintext)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("[pivot] Server encryption error: %s", err)
+			// {{end}}
+			return err
+		}
+		msgBuf := make([]byte, len(p.pivotSessionID)+len(ciphertext))
+		copy(msgBuf, p.pivotSessionID)
+		copy(msgBuf[len(p.pivotSessionID):], ciphertext)
+		peerPlaintext, _ = proto.Marshal(&pb.Envelope{
+			Type: pb.MsgPivotOriginEnvelope,
+			Data: msgBuf,
+		})
+	} else {
+		// Pivot pings are not encrypted with the sever key
+		peerPlaintext = plaintext
 	}
-	msgBuf := make([]byte, len(p.pivotSessionID)+len(ciphertext))
-	copy(msgBuf, p.pivotSessionID)
-	copy(msgBuf[len(p.pivotSessionID):], ciphertext)
-	peerEnvelope, _ := proto.Marshal(&pb.Envelope{
-		Type: pb.MsgPivotOriginEnvelope,
-		Data: msgBuf,
-	})
-	peerCiphertext, err := p.peerCipherCtx.Encrypt(peerEnvelope)
+
+	peerCiphertext, err := p.peerCipherCtx.Encrypt(peerPlaintext)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[pivot] Peer encryption error: %s", err)
@@ -324,7 +331,7 @@ func (p *NetConnPivotClient) ReadEnvelope() (*pb.Envelope, error) {
 		return nil, err
 	}
 	// The only msg type that isn't encrypted by the server should be pivot pings
-	if peerEnvelope.Type == pb.MsgPivotPing {
+	if peerEnvelope.Type == pb.MsgPivotPeerPing {
 		return peerEnvelope, nil
 	}
 	if peerEnvelope.Type != pb.MsgPivotOriginEnvelope {

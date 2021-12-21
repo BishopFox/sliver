@@ -4,7 +4,7 @@ package db
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2020  Bishop Fox
+	Copyright (C) 2021  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by

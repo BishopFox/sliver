@@ -98,6 +98,7 @@ type DNSOptions struct {
 	QueryTimeout      time.Duration
 	RetryWait         time.Duration
 	RetryCount        int
+	MaxErrors         int
 	WokersPerResolver int
 	ForceBase32       bool
 	ForceResolvConf   string
@@ -125,11 +126,17 @@ func ParseDNSOptions(c2URI *url.URL) *DNSOptions {
 	if err != nil || workersPerResolver < 1 {
 		workersPerResolver = 2
 	}
+	// Max errors
+	maxErrors, err := strconv.Atoi(c2URI.Query().Get("max-errors"))
+	if err != nil || maxErrors < 0 {
+		maxErrors = 10
+	}
 
 	return &DNSOptions{
 		QueryTimeout:      queryTimeout,
 		RetryWait:         retryWait,
 		RetryCount:        retryCount,
+		MaxErrors:         maxErrors,
 		WokersPerResolver: workersPerResolver,
 		ForceBase32:       strings.ToLower(c2URI.Query().Get("force-base32")) == "true",
 		ForceResolvConf:   c2URI.Query().Get("force-resolv-conf"),
