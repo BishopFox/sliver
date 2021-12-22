@@ -297,7 +297,7 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	register := registerSliver()
 	register.ActiveC2 = beacon.URL()
 	register.ProxyURL = beacon.ProxyURL()
-	beacon.Send(Envelope(sliverpb.MsgBeaconRegister, &sliverpb.BeaconRegister{
+	beacon.Send(wrapEnvelope(sliverpb.MsgBeaconRegister, &sliverpb.BeaconRegister{
 		ID:          InstanceID,
 		Interval:    beacon.Interval(),
 		Jitter:      beacon.Jitter(),
@@ -353,7 +353,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	// {{if .Config.Debug}}
 	log.Printf("[beacon] sending check in ...")
 	// {{end}}
-	err = beacon.Send(Envelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
+	err = beacon.Send(wrapEnvelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
 		ID:          InstanceID,
 		NextCheckin: nextCheckin.UTC().Unix(),
 	}))
@@ -452,7 +452,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	log.Printf("[beacon] all tasks completed, sending results to server")
 	// {{end}}
 
-	err = beacon.Send(Envelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
+	err = beacon.Send(wrapEnvelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
 		ID:    InstanceID,
 		Tasks: results,
 	}))
@@ -534,7 +534,7 @@ func sessionMainLoop(connection *transports.Connection) error {
 	register := registerSliver()
 	register.ActiveC2 = connection.URL()
 	register.ProxyURL = connection.ProxyURL()
-	connection.Send <- Envelope(sliverpb.MsgRegister, register) // Send registration information
+	connection.Send <- wrapEnvelope(sliverpb.MsgRegister, register) // Send registration information
 
 	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()
@@ -604,7 +604,7 @@ func sessionMainLoop(connection *transports.Connection) error {
 }
 
 // Envelope - Creates an envelope with the given type and data.
-func Envelope(msgType uint32, message protoreflect.ProtoMessage) *sliverpb.Envelope {
+func wrapEnvelope(msgType uint32, message protoreflect.ProtoMessage) *sliverpb.Envelope {
 	data, err := proto.Marshal(message)
 	if err != nil {
 		// {{if .Config.Debug}}
