@@ -123,11 +123,16 @@ func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*Sl
 	return client, nil
 }
 
+// HTTPDriver - The interface to send/recv HTTP data
+type HTTPDriver interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 // SliverHTTPClient - Helper struct to keep everything together
 type SliverHTTPClient struct {
 	Origin      string
 	PathPrefix  string
-	Client      *http.Client
+	driver      HTTPDriver
 	ProxyURL    string
 	SessionCtx  *cryptography.CipherContext
 	SessionID   string
@@ -223,7 +228,7 @@ func (s *SliverHTTPClient) DoPoll(req *http.Request) (*http.Response, []byte, er
 	var data []byte
 	var err error
 	go func() {
-		resp, err = s.Client.Do(req.WithContext(ctx))
+		resp, err = s.driver.Do(req.WithContext(ctx))
 		select {
 		case <-ctx.Done():
 			done <- ctx.Err()
@@ -264,7 +269,7 @@ func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
 	log.Printf("[http] POST -> %s (%d bytes)", uri, len(sessionInit))
 	// {{end}}
 
-	resp, err := s.Client.Do(req)
+	resp, err := s.driver.Do(req)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[http] http response error: %s", err)
@@ -399,7 +404,7 @@ func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
 	// {{end}}
 
 	req := s.newHTTPRequest(http.MethodPost, uri, reader)
-	resp, err := s.Client.Do(req)
+	resp, err := s.driver.Do(req)
 	// {{if .Config.Debug}}
 	log.Printf("[http] POST request completed")
 	// {{end}}
@@ -443,7 +448,7 @@ func (s *SliverHTTPClient) CloseSession() error {
 	// {{if .Config.Debug}}
 	log.Printf("[http] GET -> %s", uri)
 	// {{end}}
-	resp, err := s.Client.Do(req)
+	resp, err := s.driver.Do(req)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[http] GET failed %v", err)
@@ -561,7 +566,7 @@ func httpClient(address string, netTimeout time.Duration, tlsTimeout time.Durati
 	}
 	client := &SliverHTTPClient{
 		Origin: fmt.Sprintf("http://%s", address),
-		Client: &http.Client{
+		driver: &http.Client{
 			Jar:       cookieJar(),
 			Timeout:   netTimeout,
 			Transport: transport,
@@ -583,7 +588,7 @@ func httpsClient(address string, netTimeout time.Duration, tlsTimeout time.Durat
 	}
 	client := &SliverHTTPClient{
 		Origin: fmt.Sprintf("https://%s", address),
-		Client: &http.Client{
+		driver: &http.Client{
 			Jar:       cookieJar(),
 			Timeout:   netTimeout,
 			Transport: transport,
