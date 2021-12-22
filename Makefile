@@ -4,7 +4,7 @@
 
 GO ?= go
 ENV =
-TAGS = -tags osusergo,netgo,gosqlite
+TAGS = -tags osusergo,netgo,cgosqlite
 
 #
 # Version Information
@@ -38,6 +38,16 @@ STATIC_TARGET := linux
 
 UNAME_S := $(shell uname -s)
 UNAME_P := $(shell uname -p)
+
+# If the target is Windows from Linux/Darwin, check for mingw
+CROSS_COMPILERS = x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++
+ifneq (,$(findstring cgosqlite,$(TAGS)))
+	ifeq ($(MAKECMDGOALS), windows)
+		K := $(foreach exec,$(CROSS_COMPILERS),\
+				$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
+		ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
+	endif
+endif
 
 # Programs required for generating protobuf/grpc files
 PB_COMPILERS = protoc protoc-gen-go protoc-gen-go-grpc
