@@ -294,11 +294,14 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	log.Printf("Registering beacon with server")
 	// {{end}}
 	nextCheckin := time.Now().Add(beacon.Duration())
+	register := registerSliver()
+	register.ActiveC2 = beacon.URL()
+	register.ProxyURL = beacon.ProxyURL()
 	beacon.Send(Envelope(sliverpb.MsgBeaconRegister, &sliverpb.BeaconRegister{
 		ID:          InstanceID,
 		Interval:    beacon.Interval(),
 		Jitter:      beacon.Jitter(),
-		Register:    registerSliver(),
+		Register:    register,
 		NextCheckin: nextCheckin.UTC().Unix(),
 	}))
 	beacon.Close()
@@ -528,8 +531,10 @@ func sessionMainLoop(connection *transports.Connection) error {
 	connectionErrors = 0
 	// Reconnect active pivots
 	// pivots.ReconnectActivePivots(connection)
-
-	connection.Send <- Envelope(sliverpb.MsgRegister, registerSliver()) // Send registration information
+	register := registerSliver()
+	register.ActiveC2 = connection.URL()
+	register.ProxyURL = connection.ProxyURL()
+	connection.Send <- Envelope(sliverpb.MsgRegister, register) // Send registration information
 
 	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()

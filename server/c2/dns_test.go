@@ -49,13 +49,7 @@ var (
 )
 
 func randomDataRandomSize(maxSize int) []byte {
-	buf := make([]byte, insecureRand.Intn(maxSize)+1)
-	rand.Read(buf)
-	return buf
-}
-
-func randomData(size int) []byte {
-	buf := make([]byte, size)
+	buf := make([]byte, insecureRand.Intn(maxSize-1)+1)
 	rand.Read(buf)
 	return buf
 }
