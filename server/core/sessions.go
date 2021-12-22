@@ -43,10 +43,10 @@ var (
 
 	// ErrUnknownMessageType - Returned if the implant did not understand the message for
 	//                         example when the command is not supported on the platform
-	ErrUnknownMessageType = errors.New("Unknown message type")
+	ErrUnknownMessageType = errors.New("unknown message type")
 
 	// ErrImplantTimeout - The implant did not respond prior to timeout deadline
-	ErrImplantTimeout = errors.New("Implant timeout")
+	ErrImplantTimeout = errors.New("implant timeout")
 )
 
 // Session - Represents a connection to an implant
@@ -81,7 +81,7 @@ func (s *Session) LastCheckin() time.Time {
 func (s *Session) IsDead() bool {
 	sessionsLog.Debugf("Last checkin was %v", s.Connection.LastMessage)
 	padding := time.Duration(10 * time.Second) // Arbitrary margin of error
-	timePassed := time.Now().Sub(s.LastCheckin())
+	timePassed := time.Since(s.LastCheckin())
 	reconnect := time.Duration(s.ReconnectInterval)
 	pollTimeout := time.Duration(s.PollTimeout)
 	if timePassed < reconnect+padding && timePassed < pollTimeout+padding {
@@ -89,7 +89,7 @@ func (s *Session) IsDead() bool {
 		return false
 	}
 	if s.Connection.Transport == consts.MtlsStr {
-		if time.Now().Sub(s.Connection.LastMessage) < mtls.PingInterval+padding {
+		if time.Since(s.Connection.LastMessage) < mtls.PingInterval+padding {
 			sessionsLog.Debugf("Last message within ping interval with padding")
 			return false
 		}
@@ -198,6 +198,13 @@ func (s *sessions) Remove(sessionID uint32) {
 	defer s.mutex.Unlock()
 	session := s.sessions[sessionID]
 	if session != nil {
+
+		// Remove any pivots associated with this session
+		PivotSessions.Range(func(key, value interface{}) bool {
+
+			return true
+		})
+
 		delete(s.sessions, sessionID)
 		EventBroker.Publish(Event{
 			EventType: consts.SessionClosedEvent,

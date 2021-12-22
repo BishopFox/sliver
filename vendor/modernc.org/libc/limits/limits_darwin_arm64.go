@@ -83,6 +83,7 @@ const (
 	WORD_BIT                               = 32
 	X_ARM_LIMITS_H_                        = 0
 	X_ARM__LIMITS_H_                       = 0
+	X_BSD_MACHINE_LIMITS_H_                = 0
 	X_CDEFS_H_                             = 0
 	X_DARWIN_FEATURE_64_BIT_INODE          = 1
 	X_DARWIN_FEATURE_ONLY_64_BIT_INODE     = 1
@@ -332,6 +333,12 @@ type X__float128 = float64        /* <builtin>:47:21 */
 // The __CONCAT macro is a bit tricky -- make sure you don't put spaces
 // in between its arguments.  __CONCAT can also concatenate double-quoted
 // strings produced by the __STRING macro, but this only works with ANSI C.
+
+// __pure2 can be used for functions that are only a function of their scalar
+// arguments (meaning they can't dereference pointers).
+//
+// __stateful_pure can be used for functions that have no side effects,
+// but depend on the state of the memory.
 
 // __unused denotes variables and functions that may not be used, preventing
 // the compiler from warning about it if not used.
@@ -620,6 +627,7 @@ type X__float128 = float64        /* <builtin>:47:21 */
 //  compiler.  GCC provides its own limits.h which can be found in
 //  /usr/lib/gcc, although it is not very informative.
 //  This file is public domain.
+
 // Copyright (c) 2000-2007 Apple Inc. All rights reserved.
 // Copyright (c) 1988, 1993
 //	The Regents of the University of California.  All rights reserved.

@@ -238,17 +238,17 @@ func (p *NetConnPivot) Start(pivots *sync.Map) {
 			if err != nil {
 				return // Will return when connection is closed
 			}
-			if envelope.Type == pb.MsgPivotPing {
+			if envelope.Type == pb.MsgPivotPeerPing {
 				// {{if .Config.Debug}}
 				log.Printf("[pivot] received peer ping, sending peer pong ...")
 				// {{end}}
 				p.Downstream <- &pb.Envelope{
-					Type: pb.MsgPivotPing,
+					Type: pb.MsgPivotPeerPing,
 					Data: envelope.Data,
 				}
 			} else {
 				// {{if .Config.Debug}}
-				log.Printf("[pivot] received peer envelope, upstreaming ...")
+				log.Printf("[pivot] received peer envelope, upstreaming (%d) ...", envelope.Type)
 				// {{end}}
 				envelopeData, _ := proto.Marshal(envelope)
 				data, _ := proto.Marshal(&pb.PivotPeerEnvelope{

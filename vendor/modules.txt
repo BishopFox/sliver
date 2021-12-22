@@ -560,13 +560,13 @@ inet.af/netstack/waiter
 # lukechampine.com/uint128 v1.1.1
 ## explicit; go 1.12
 lukechampine.com/uint128
-# modernc.org/cc/v3 v3.35.17
+# modernc.org/cc/v3 v3.35.18
 ## explicit; go 1.15
 modernc.org/cc/v3
-# modernc.org/ccgo/v3 v3.12.65
-## explicit; go 1.15
+# modernc.org/ccgo/v3 v3.12.95
+## explicit; go 1.16
 modernc.org/ccgo/v3/lib
-# modernc.org/libc v1.11.71
+# modernc.org/libc v1.11.104
 ## explicit; go 1.16
 modernc.org/libc
 modernc.org/libc/errno
@@ -591,6 +591,7 @@ modernc.org/libc/termios
 modernc.org/libc/time
 modernc.org/libc/unistd
 modernc.org/libc/utime
+modernc.org/libc/uuid
 modernc.org/libc/uuid/uuid
 modernc.org/libc/wctype
 # modernc.org/mathutil v1.4.1
@@ -602,8 +603,8 @@ modernc.org/memory
 # modernc.org/opt v0.1.1
 ## explicit; go 1.13
 modernc.org/opt
-# modernc.org/sqlite v1.14.1
-## explicit; go 1.15
+# modernc.org/sqlite v1.14.3
+## explicit; go 1.16
 modernc.org/sqlite
 modernc.org/sqlite/lib
 # modernc.org/strutil v1.1.1

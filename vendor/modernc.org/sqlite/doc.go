@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package sqlite is a CGo-free port of SQLite/SQLite3 v3.36.0.
+// Package sqlite is a sql/database driver using a CGo-free port of the C
+// SQLite3 library.
 //
 // SQLite is an in-process implementation of a self-contained, serverless,
 // zero-configuration, transactional SQL database engine.
@@ -11,14 +12,16 @@
 //
 // These combinations of GOOS and GOARCH are currently supported
 //
-// 	darwin	amd64
-// 	darwin	arm64
-// 	freebsd	amd64
-// 	linux	386
-// 	linux	amd64
-// 	linux	arm
-// 	linux	arm64
-// 	windows	amd64
+//	OS      Arch    SQLite version
+//	------------------------------
+//	darwin	amd64   3.37.0
+//	darwin	arm64   3.37.0
+//	freebsd	amd64   3.37.0
+//	linux	386     3.37.0
+//	linux	amd64   3.37.0
+//	linux	arm     3.37.0
+//	linux	arm64   3.37.0
+//	windows	amd64   3.37.0
 //
 // Builders
 //

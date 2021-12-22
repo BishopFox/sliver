@@ -249,6 +249,7 @@ void *__builtin_memset(void *s, int c, size_t n);
 void *__builtin_mmap(void *addr, size_t length, int prot, int flags, int fd, __INTPTR_TYPE__ offset);
 void *__ccgo_va_arg(__builtin_va_list ap);
 void __builtin_abort(void);
+void __builtin_bzero(void *s, size_t n);
 void __builtin_exit(int status);
 void __builtin_free(void *ptr);
 void __builtin_prefetch (const void *addr, ...);
@@ -284,7 +285,6 @@ unsigned __sync_sub_and_fetch_uint32(unsigned*, unsigned);
 
 func origin(skip int) string {
 	pc, fn, fl, _ := runtime.Caller(skip)
-	fn = filepath.Base(fn)
 	f := runtime.FuncForPC(pc)
 	var fns string
 	if f != nil {
@@ -296,32 +296,20 @@ func origin(skip int) string {
 	return fmt.Sprintf("%s:%d:%s", fn, fl, fns)
 }
 
-func todo(s string, args ...interface{}) string { //TODO-
+func todo(s string, args ...interface{}) string {
 	switch {
 	case s == "":
 		s = fmt.Sprintf(strings.Repeat("%v ", len(args)), args...)
 	default:
 		s = fmt.Sprintf(s, args...)
 	}
-	pc, fn, fl, _ := runtime.Caller(1)
-	f := runtime.FuncForPC(pc)
-	var fns string
-	if f != nil {
-		fns = f.Name()
-		if x := strings.LastIndex(fns, "."); x > 0 {
-			fns = fns[x+1:]
-		}
-	}
-	r := fmt.Sprintf("%s:%d:%s: TODOTODO %s", fn, fl, fns, s) //TODOOK
-	if dmesgs {
-		dmesg("%v: %v", origin(1), r)
-	}
+	r := fmt.Sprintf("%s\n\tTODO %s", origin(2), s) //TODOOK
 	fmt.Fprintf(os.Stdout, "%s\n", r)
 	os.Stdout.Sync()
 	return r
 }
 
-func trc(s string, args ...interface{}) string { //TODO-
+func trc(s string, args ...interface{}) string {
 	switch {
 	case s == "":
 		s = fmt.Sprintf(strings.Repeat("%v ", len(args)), args...)
@@ -329,8 +317,8 @@ func trc(s string, args ...interface{}) string { //TODO-
 		s = fmt.Sprintf(s, args...)
 	}
 	r := fmt.Sprintf("%s: TRC %s", origin(2), s)
-	fmt.Fprintf(os.Stdout, "%s\n", r)
-	os.Stdout.Sync()
+	fmt.Fprintf(os.Stderr, "%s\n", r)
+	os.Stderr.Sync()
 	return r
 }
 
@@ -367,7 +355,8 @@ type Task struct {
 	hostIncludes                    []string
 	hostPredefined                  string
 	hostSysIncludes                 []string
-	ignoredIncludes                 string // -ignored-includes
+	ignoredIncludes                 string              // -ignored-includes
+	ignoredObjects                  map[string]struct{} // -ignore-object
 	imported                        []*imported
 	includedFiles                   map[string]struct{}
 	l                               []string // -l
@@ -395,37 +384,37 @@ type Task struct {
 	// feature should ever set it.
 	CallOutBinary string
 
-	E                     bool // -E
-	allErrors             bool // -all-errors
-	compiledbValid        bool // -compiledb present
-	configSaved           bool
-	configured            bool // hostPredefined, hostIncludes, hostSysIncludes are valid
-	cover                 bool // -cover-instrumentation
-	coverC                bool // -cover-instrumentation-c
-	defaultUnExport       bool // -unexported-by-default
-	errTrace              bool // -err-trace
-	exportDefinesValid    bool // -export-defines present
-	exportEnumsValid      bool // -export-enums present
-	exportExternsValid    bool // -export-externs present
-	exportFieldsValid     bool // -export-fields present
-	exportStructsValid    bool // -export-structs present
-	exportTypedefsValid   bool // -export-typedefs present
-	fullPathComments      bool // -full-path-comments
-	funcSig               bool // -func-sig
-	header                bool // -header
-	ignoreUndefined       bool // -ignoreUndefined
-	isScripted            bool
-	mingw                 bool
-	noCapi                bool // -nocapi
-	nostdinc              bool // -nostdinc
-	nostdlib              bool // -nostdlib
-	panicStubs            bool // -panic-stubs
-	tracePinning          bool // -trace-pinning
-	traceTranslationUnits bool // -trace-translation-units
-	verifyStructs         bool // -verify-structs
-	version               bool // -version
-	watch                 bool // -watch-instrumentation
-	windows               bool // -windows
+	E                         bool // -E
+	allErrors                 bool // -all-errors
+	compiledbValid            bool // -compiledb present
+	configSaved               bool
+	configured                bool // hostPredefined, hostIncludes, hostSysIncludes are valid
+	cover                     bool // -cover-instrumentation
+	coverC                    bool // -cover-instrumentation-c
+	defaultUnExport           bool // -unexported-by-default
+	errTrace                  bool // -err-trace
+	exportDefinesValid        bool // -export-defines present
+	exportEnumsValid          bool // -export-enums present
+	exportExternsValid        bool // -export-externs present
+	exportFieldsValid         bool // -export-fields present
+	exportStructsValid        bool // -export-structs present
+	exportTypedefsValid       bool // -export-typedefs present
+	fullPathComments          bool // -full-path-comments
+	funcSig                   bool // -func-sig
+	header                    bool // -header
+	ignoreUnsupportedAligment bool // -ignore-unsupported-alignment
+	isScripted                bool
+	mingw                     bool
+	noCapi                    bool // -nocapi
+	nostdinc                  bool // -nostdinc
+	nostdlib                  bool // -nostdlib
+	panicStubs                bool // -panic-stubs
+	tracePinning              bool // -trace-pinning
+	traceTranslationUnits     bool // -trace-translation-units
+	verifyStructs             bool // -verify-structs
+	version                   bool // -version
+	watch                     bool // -watch-instrumentation
+	windows                   bool // -windows
 }
 
 // NewTask returns a newly created Task.
@@ -617,7 +606,6 @@ func (t *Task) capi2(files []string) (pkgName string, exports map[string]struct{
 
 // Main executes task.
 func (t *Task) Main() (err error) {
-	// trc("%p: %q", t, t.args)
 	if dmesgs {
 		defer func() {
 			if err != nil {
@@ -681,7 +669,7 @@ func (t *Task) Main() (err error) {
 	opts.Opt("full-path-comments", func(opt string) error { t.fullPathComments = true; return nil })
 	opts.Opt("func-sig", func(opt string) error { t.funcSig = true; return nil })
 	opts.Opt("header", func(opt string) error { t.header = true; return nil })
-	opts.Opt("ignore-undefined", func(opt string) error { t.ignoreUndefined = true; return nil })
+	opts.Opt("ignore-unsupported-alignment", func(opt string) error { t.ignoreUnsupportedAligment = true; return nil })
 	opts.Opt("nocapi", func(opt string) error { t.noCapi = true; return nil })
 	opts.Opt("nostdinc", func(opt string) error { t.nostdinc = true; return nil })
 	opts.Opt("panic-stubs", func(opt string) error { t.panicStubs = true; return nil })
@@ -708,6 +696,13 @@ func (t *Task) Main() (err error) {
 				fmt.Fprintf(os.Stderr, "#include %s\n", pathName)
 			}
 		}
+		return nil
+	})
+	opts.Arg("ignore-object", false, func(arg, value string) error {
+		if t.ignoredObjects == nil {
+			t.ignoredObjects = map[string]struct{}{}
+		}
+		t.ignoredObjects[value] = struct{}{}
 		return nil
 	})
 	opts.Arg("save-config", false, func(arg, value string) error {
@@ -1120,6 +1115,9 @@ func (t *Task) link() (err error) {
 			return
 		}
 
+		if out, e := exec.Command("gofmt", "-r", "(x) -> x", "-l", "-s", "-w", t.o).CombinedOutput(); e != nil && err == nil {
+			err = fmt.Errorf(strings.Join([]string{string(out), e.Error()}, ": "))
+		}
 		if out, e := exec.Command("gofmt", "-l", "-s", "-w", t.o).CombinedOutput(); e != nil && err == nil {
 			err = fmt.Errorf(strings.Join([]string{string(out), e.Error()}, ": "))
 		}
@@ -1232,7 +1230,7 @@ type cdb struct {
 	outputIndex map[string][]*cdbItem
 }
 
-func (db *cdb) find(obj map[string]*cdbItem, nm string, ver, seqLimit int, path []string, cc, ar string) error {
+func (db *cdb) find(obj map[string]*cdbItem, nm string, ver, seqLimit int, path []string, cc, ar string, ignored map[string]struct{}) error {
 	// trc("%v: nm %q ver %v seqLimit %v path %q cc %q ar %q", origin(1), nm, ver, seqLimit, path, cc, ar)
 	var item *cdbItem
 	var k string
@@ -1292,6 +1290,12 @@ func (db *cdb) find(obj map[string]*cdbItem, nm string, ver, seqLimit int, path 
 		}
 	}
 	if item == nil {
+		for k := range ignored {
+			if k == nm || strings.HasSuffix(nm, k) {
+				return nil
+			}
+		}
+
 		return fmt.Errorf("not found in compile DB: %s (max seq %d), path %v", k, seqLimit, path)
 	}
 
@@ -1302,7 +1306,7 @@ func (db *cdb) find(obj map[string]*cdbItem, nm string, ver, seqLimit int, path 
 	obj[k] = item
 	var errs []string
 	for _, v := range item.sources(cc, ar) {
-		if err := db.find(obj, v, -1, item.seq, append(path, nm), cc, ar); err != nil {
+		if err := db.find(obj, v, -1, item.seq, append(path, nm), cc, ar, ignored); err != nil {
 			errs = append(errs, err.Error())
 		}
 	}
@@ -1380,7 +1384,7 @@ func (t *Task) useCompileDB(fn string, args []string) error {
 	notFound := false
 	for _, v := range args {
 		v, ver := suffixNum(v, 0)
-		if err := cdb.find(obj, v, ver, -1, nil, t.ccLookPath, t.arLookPath); err != nil {
+		if err := cdb.find(obj, v, ver, -1, nil, t.ccLookPath, t.arLookPath, t.ignoredObjects); err != nil {
 			notFound = true
 			fmt.Fprintln(os.Stderr, err)
 		}
@@ -1584,9 +1588,19 @@ func hasPlusPrefix(s string) (n int, r string) {
 }
 
 func makeXParser(s string) (r []string, err error) {
-	n, s := hasPlusPrefix(s)
-	if n == 0 {
-		return nil, nil
+	switch {
+	case strings.HasPrefix(s, "libtool: link: ar "):
+		s = s[len("libtool: link:"):]
+	case strings.HasPrefix(s, "libtool: compile: "):
+		s = s[len("libtool: compile:"):]
+		for strings.HasPrefix(s, "  ") {
+			s = s[1:]
+		}
+	default:
+		var n int
+		if n, s = hasPlusPrefix(s); n == 0 {
+			return nil, nil
+		}
 	}
 
 	if !strings.HasPrefix(s, " ") {
@@ -1599,6 +1613,9 @@ func makeXParser(s string) (r []string, err error) {
 		if strings.Contains(err.Error(), "Unterminated single-quoted string") {
 			return nil, nil // ignore
 		}
+	}
+	if len(r) != 0 && filepath.Base(r[0]) == "libtool" {
+		r[0] = "libtool"
 	}
 	return r, err
 }
@@ -1692,13 +1709,20 @@ func (it *cdbItem) ccgoArgs(cc string) (r []string, err error) {
 				strings.HasPrefix(arg, "-m"):
 
 				// nop
+			case strings.HasPrefix(arg, ">"):
+				return opt.Skip(nil)
 			default:
 				return fmt.Errorf("unknown/unsupported CC option: %s", arg)
 			}
 
 			return nil
 		}); err != nil {
-			return nil, err
+			switch err.(type) {
+			case opt.Skip:
+				// ok
+			default:
+				return nil, err
+			}
 		}
 
 		return r, nil
@@ -1756,6 +1780,7 @@ func (it *cdbItem) sources(cc, ar string) (r []string) {
 	case
 		"libtool",
 		ar,
+		filepath.Base(ar),
 		cc:
 
 		var prev string
@@ -1780,6 +1805,7 @@ type cdbMakeWriter struct {
 	b      bytes.Buffer
 	cc     string
 	ar     string
+	arBase string
 	dir    string
 	err    error
 	it     cdbItem
@@ -1793,6 +1819,7 @@ func (t *Task) newCdbMakeWriter(w *cdbWriter, dir string, parser func(s string) 
 	r := &cdbMakeWriter{
 		cc:     t.ccLookPath,
 		ar:     t.arLookPath,
+		arBase: filepath.Base(t.arLookPath),
 		dir:    dir,
 		parser: parser,
 		w:      w,
@@ -1868,6 +1895,8 @@ func (w *cdbMakeWriter) Write(b []byte) (int, error) {
 			fmt.Printf("CCGO CC: %q\n", args)
 			err = w.handleGCC(args)
 		case w.ar:
+			fallthrough
+		case w.arBase:
 			if isCreateArchive(args[1]) {
 				fmt.Printf("CCGO AR: %q\n", args)
 				err = w.handleAR(args)

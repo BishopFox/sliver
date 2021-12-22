@@ -288,10 +288,6 @@ func Xsymlink(t *TLS, target, linkpath uintptr) int32 {
 	// 	return 0
 }
 
-func Xchmod(t *TLS, pathname uintptr, mode int32) int32 {
-	panic(todo(""))
-}
-
 // int utimes(const char *filename, const struct timeval times[2]);
 func Xutimes(t *TLS, filename, times uintptr) int32 {
 	panic(todo(""))

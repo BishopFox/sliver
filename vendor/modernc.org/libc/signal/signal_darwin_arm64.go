@@ -45,6 +45,7 @@ const (
 	ILL_PRVOPC                             = 3
 	ILL_PRVREG                             = 6
 	MAC_OS_VERSION_11_0                    = 110000
+	MAC_OS_VERSION_12_0                    = 120000
 	MAC_OS_X_VERSION_10_0                  = 1000
 	MAC_OS_X_VERSION_10_1                  = 1010
 	MAC_OS_X_VERSION_10_10                 = 101000
@@ -152,10 +153,12 @@ const (
 	SV_SIGINFO                             = 64
 	TRAP_BRKPT                             = 1
 	TRAP_TRACE                             = 2
+	X_ARM_MACHTYPES_H_                     = 0
 	X_ARM_SIGNAL_                          = 1
 	X_BSD_ARM__TYPES_H_                    = 0
 	X_BSD_MACHINE_SIGNAL_H_                = 0
 	X_BSD_MACHINE_TYPES_H_                 = 0
+	X_BSD_MACHINE__MCONTEXT_H_             = 0
 	X_BSD_MACHINE__TYPES_H_                = 0
 	X_CDEFS_H_                             = 0
 	X_DARWIN_FEATURE_64_BIT_INODE          = 1
@@ -340,6 +343,12 @@ type X__float128 = float64        /* <builtin>:47:21 */
 // The __CONCAT macro is a bit tricky -- make sure you don't put spaces
 // in between its arguments.  __CONCAT can also concatenate double-quoted
 // strings produced by the __STRING macro, but this only works with ANSI C.
+
+// __pure2 can be used for functions that are only a function of their scalar
+// arguments (meaning they can't dereference pointers).
+//
+// __stateful_pure can be used for functions that have no side effects,
+// but depend on the state of the memory.
 
 // __unused denotes variables and functions that may not be used, preventing
 // the compiler from warning about it if not used.
@@ -764,17 +773,17 @@ type X__float128 = float64        /* <builtin>:47:21 */
 // This header file contains integer types.  It's intended to also contain
 // flotaing point and other arithmetic types, as needed, later.
 
-type X__int8_t = int8     /* _types.h:13:33 */
-type X__uint8_t = uint8   /* _types.h:17:33 */
-type X__int16_t = int16   /* _types.h:18:33 */
-type X__uint16_t = uint16 /* _types.h:19:33 */
-type X__int32_t = int32   /* _types.h:20:33 */
-type X__uint32_t = uint32 /* _types.h:21:33 */
-type X__int64_t = int64   /* _types.h:22:33 */
-type X__uint64_t = uint64 /* _types.h:23:33 */
+type X__int8_t = int8     /* _types.h:15:33 */
+type X__uint8_t = uint8   /* _types.h:19:33 */
+type X__int16_t = int16   /* _types.h:20:33 */
+type X__uint16_t = uint16 /* _types.h:21:33 */
+type X__int32_t = int32   /* _types.h:22:33 */
+type X__uint32_t = uint32 /* _types.h:23:33 */
+type X__int64_t = int64   /* _types.h:24:33 */
+type X__uint64_t = uint64 /* _types.h:25:33 */
 
-type X__darwin_intptr_t = int64   /* _types.h:25:33 */
-type X__darwin_natural_t = uint32 /* _types.h:26:33 */
+type X__darwin_intptr_t = int64   /* _types.h:27:33 */
+type X__darwin_natural_t = uint32 /* _types.h:28:33 */
 
 // The rune type below is declared to be an ``int'' instead of the more natural
 // ``unsigned long'' or ``long''.  Two things are happening here.  It is not
@@ -792,33 +801,33 @@ type X__darwin_natural_t = uint32 /* _types.h:26:33 */
 // wchar_t, and should also be able to hold all members of the largest
 // character set plus one extra value (WEOF). wint_t must be at least 16 bits.
 
-type X__darwin_ct_rune_t = int32 /* _types.h:46:33 */ // ct_rune_t
+type X__darwin_ct_rune_t = int32 /* _types.h:48:33 */ // ct_rune_t
 
 // mbstate_t is an opaque object to keep conversion state, during multibyte
 // stream conversions.  The content must not be referenced by user programs.
 type X__mbstate_t = struct {
-	_           [0]uint64
-	F__mbstate8 [128]int8
-} /* _types.h:55:3 */
+	F__ccgo_pad1 [0]uint64
+	F__mbstate8  [128]int8
+} /* _types.h:57:3 */
 
-type X__darwin_mbstate_t = X__mbstate_t /* _types.h:57:33 */ // mbstate_t
+type X__darwin_mbstate_t = X__mbstate_t /* _types.h:59:33 */ // mbstate_t
 
-type X__darwin_ptrdiff_t = int64 /* _types.h:60:33 */ // ptr1 - ptr2
+type X__darwin_ptrdiff_t = int64 /* _types.h:62:33 */ // ptr1 - ptr2
 
-type X__darwin_size_t = uint64 /* _types.h:68:33 */ // sizeof()
+type X__darwin_size_t = uint64 /* _types.h:70:33 */ // sizeof()
 
-type X__darwin_va_list = X__builtin_va_list /* _types.h:74:33 */ // va_list
+type X__darwin_va_list = X__builtin_va_list /* _types.h:76:33 */ // va_list
 
-type X__darwin_wchar_t = int32 /* _types.h:80:33 */ // wchar_t
+type X__darwin_wchar_t = int32 /* _types.h:82:33 */ // wchar_t
 
-type X__darwin_rune_t = X__darwin_wchar_t /* _types.h:85:33 */ // rune_t
+type X__darwin_rune_t = X__darwin_wchar_t /* _types.h:87:33 */ // rune_t
 
-type X__darwin_wint_t = int32 /* _types.h:88:33 */ // wint_t
+type X__darwin_wint_t = int32 /* _types.h:90:33 */ // wint_t
 
-type X__darwin_clock_t = uint64        /* _types.h:93:33 */ // clock()
-type X__darwin_socklen_t = X__uint32_t /* _types.h:94:33 */ // socklen_t (duh)
-type X__darwin_ssize_t = int64         /* _types.h:95:33 */ // byte count or error
-type X__darwin_time_t = int64          /* _types.h:96:33 */ // time()
+type X__darwin_clock_t = uint64        /* _types.h:95:33 */ // clock()
+type X__darwin_socklen_t = X__uint32_t /* _types.h:96:33 */ // socklen_t (duh)
+type X__darwin_ssize_t = int64         /* _types.h:97:33 */ // byte count or error
+type X__darwin_time_t = int64          /* _types.h:98:33 */ // time()
 
 // Type definitions; takes common type definitions that must be used
 // in multiple header files due to [XSI], removes them from the system
@@ -1334,7 +1343,7 @@ type X__darwin_wctype_t = X__uint32_t /* _types.h:43:20 */
 //
 //     It has been auto-edited by fixincludes from:
 //
-// 	"/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityInternal.h"
+// 	"/Library/Developer/CommandLineTools/SDKs/MacOSX12.sdk/usr/include/AvailabilityInternal.h"
 //
 //     This had to be done to correct non-standard usages in the
 //     original, manufacturer supplied header file.
@@ -1512,7 +1521,7 @@ type X__darwin_wctype_t = X__uint32_t /* _types.h:43:20 */
 //
 //	@(#)cdefs.h	8.8 (Berkeley) 1/9/95
 
-type Sig_atomic_t = int32 /* signal.h:15:13 */
+type Sig_atomic_t = int32 /* signal.h:17:13 */
 
 // Language spec sez we must list exactly one parameter, even though we
 // actually supply three.  Ugh!
@@ -1569,6 +1578,7 @@ type Sig_atomic_t = int32 /* signal.h:15:13 */
 // limitations under the License.
 //
 // @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+
 // Copyright (c) 2003-2012 Apple Inc. All rights reserved.
 //
 // @APPLE_OSREFERENCE_LICENSE_HEADER_START@
@@ -2135,7 +2145,7 @@ type U_int32_t = uint32 /* _u_int32_t.h:30:33 */
 // @APPLE_OSREFERENCE_LICENSE_HEADER_END@
 type U_int64_t = uint64 /* _u_int64_t.h:30:33 */
 
-type Register_t = Int64_t /* types.h:63:33 */
+type Register_t = Int64_t /* types.h:66:33 */
 
 // Copyright (c) 2003-2012 Apple Inc. All rights reserved.
 //
@@ -2215,31 +2225,32 @@ type Intptr_t = X__darwin_intptr_t /* _intptr_t.h:32:33 */
 // limitations under the License.
 //
 // @APPLE_OSREFERENCE_LICENSE_HEADER_END@
-type Uintptr_t = uint64 /* _uintptr_t.h:30:33 */
+
+type Uintptr_t = uint64 /* _uintptr_t.h:34:33 */
 
 // These types are used for reserving the largest possible size.
-type User_addr_t = U_int64_t  /* types.h:74:33 */
-type User_size_t = U_int64_t  /* types.h:75:33 */
-type User_ssize_t = Int64_t   /* types.h:76:33 */
-type User_long_t = Int64_t    /* types.h:77:33 */
-type User_ulong_t = U_int64_t /* types.h:78:33 */
-type User_time_t = Int64_t    /* types.h:79:33 */
-type User_off_t = Int64_t     /* types.h:80:33 */
+type User_addr_t = U_int64_t  /* types.h:77:33 */
+type User_size_t = U_int64_t  /* types.h:78:33 */
+type User_ssize_t = Int64_t   /* types.h:79:33 */
+type User_long_t = Int64_t    /* types.h:80:33 */
+type User_ulong_t = U_int64_t /* types.h:81:33 */
+type User_time_t = Int64_t    /* types.h:82:33 */
+type User_off_t = Int64_t     /* types.h:83:33 */
 
 // This defines the size of syscall arguments after copying into the kernel:
-type Syscall_arg_t = U_int64_t /* types.h:101:33 */
+type Syscall_arg_t = U_int64_t /* types.h:104:33 */
 
 type X__darwin_arm_exception_state = struct {
 	F__exception X__uint32_t
 	F__fsr       X__uint32_t
 	F__far       X__uint32_t
-} /* _structs.h:39:1 */
+} /* _structs.h:41:1 */
 
 type X__darwin_arm_exception_state64 = struct {
 	F__far       X__uint64_t
 	F__esr       X__uint32_t
 	F__exception X__uint32_t
-} /* _structs.h:57:1 */
+} /* _structs.h:59:1 */
 
 type X__darwin_arm_thread_state = struct {
 	F__r    [13]X__uint32_t
@@ -2247,7 +2258,7 @@ type X__darwin_arm_thread_state = struct {
 	F__lr   X__uint32_t
 	F__pc   X__uint32_t
 	F__cpsr X__uint32_t
-} /* _structs.h:75:1 */
+} /* _structs.h:77:1 */
 
 // By default, the pointer fields in the arm_thread_state64_t structure are
 // opaque on the arm64e architecture and require the use of accessor macros.
@@ -2262,7 +2273,7 @@ type X__darwin_arm_thread_state64 = struct {
 	F__pc   X__uint64_t
 	F__cpsr X__uint32_t
 	F__pad  X__uint32_t
-} /* _structs.h:134:1 */
+} /* _structs.h:136:1 */
 
 // Accessor macros for arm_thread_state64_t pointer fields
 
@@ -2281,29 +2292,21 @@ type X__darwin_arm_thread_state64 = struct {
 type X__darwin_arm_vfp_state = struct {
 	F__r     [64]X__uint32_t
 	F__fpscr X__uint32_t
-} /* _structs.h:422:1 */
+} /* _structs.h:424:1 */
 
 type X__darwin_arm_neon_state64 = struct {
 	F__v    [32]X__uint128_t
 	F__fpsr X__uint32_t
 	F__fpcr X__uint32_t
-} /* _structs.h:441:1 */
+} /* _structs.h:443:1 */
 
 type X__darwin_arm_neon_state = struct {
 	F__v    [16]X__uint128_t
 	F__fpsr X__uint32_t
 	F__fpcr X__uint32_t
-} /* _structs.h:448:1 */
+} /* _structs.h:450:1 */
 
-type X__darwin_arm_amx_state_v1 = struct {
-	F__ccgo_pad1       [0]uint64
-	F__x               [8][64]X__uint8_t
-	F__y               [8][64]X__uint8_t
-	F__z               [64][64]X__uint8_t
-	F__amx_state_t_el1 X__uint64_t
-} /* _structs.h:512:1 */
-
-type X__arm_pagein_state = struct{ F__pagein_error int32 } /* _structs.h:531:1 */
+type X__arm_pagein_state = struct{ F__pagein_error int32 } /* _structs.h:514:1 */
 
 // Debug State
 
@@ -2314,7 +2317,7 @@ type X__arm_legacy_debug_state = struct {
 	F__bcr [16]X__uint32_t
 	F__wvr [16]X__uint32_t
 	F__wcr [16]X__uint32_t
-} /* _structs.h:568:1 */
+} /* _structs.h:551:1 */
 
 type X__darwin_arm_debug_state32 = struct {
 	F__bvr       [16]X__uint32_t
@@ -2322,7 +2325,7 @@ type X__darwin_arm_debug_state32 = struct {
 	F__wvr       [16]X__uint32_t
 	F__wcr       [16]X__uint32_t
 	F__mdscr_el1 X__uint64_t
-} /* _structs.h:591:1 */
+} /* _structs.h:574:1 */
 
 type X__darwin_arm_debug_state64 = struct {
 	F__bvr       [16]X__uint64_t
@@ -2330,9 +2333,9 @@ type X__darwin_arm_debug_state64 = struct {
 	F__wvr       [16]X__uint64_t
 	F__wcr       [16]X__uint64_t
 	F__mdscr_el1 X__uint64_t
-} /* _structs.h:601:1 */
+} /* _structs.h:584:1 */
 
-type X__darwin_arm_cpmu_state64 = struct{ F__ctrs [16]X__uint64_t } /* _structs.h:633:1 */
+type X__darwin_arm_cpmu_state64 = struct{ F__ctrs [16]X__uint64_t } /* _structs.h:616:1 */
 
 type X__darwin_mcontext32 = struct {
 	F__es struct {
@@ -2351,7 +2354,7 @@ type X__darwin_mcontext32 = struct {
 		F__r     [64]X__uint32_t
 		F__fpscr X__uint32_t
 	}
-} /* _mcontext.h:39:1 */
+} /* _mcontext.h:41:1 */
 
 type X__darwin_mcontext64 = struct {
 	F__es struct {
@@ -2373,9 +2376,9 @@ type X__darwin_mcontext64 = struct {
 		F__fpsr X__uint32_t
 		F__fpcr X__uint32_t
 	}
-} /* _mcontext.h:62:1 */
+} /* _mcontext.h:64:1 */
 
-type Mcontext_t = uintptr /* _mcontext.h:83:33 */
+type Mcontext_t = uintptr /* _mcontext.h:85:33 */
 
 // Copyright (c) 2003-2012 Apple Inc. All rights reserved.
 //
@@ -2695,32 +2698,6 @@ type Stack_t = X__darwin_sigaltstack /* _sigaltstack.h:48:33 */ // [???] signal 
 // limitations under the License.
 //
 // @APPLE_OSREFERENCE_LICENSE_HEADER_END@
-// Copyright (c) 2003-2012 Apple Inc. All rights reserved.
-//
-// @APPLE_OSREFERENCE_LICENSE_HEADER_START@
-//
-// This file contains Original Code and/or Modifications of Original Code
-// as defined in and that are subject to the Apple Public Source License
-// Version 2.0 (the 'License'). You may not use this file except in
-// compliance with the License. The rights granted to you under the License
-// may not be used to create, or enable the creation or redistribution of,
-// unlawful or unlicensed copies of an Apple operating system, or to
-// circumvent, violate, or enable the circumvention or violation of, any
-// terms of an Apple operating system software license agreement.
-//
-// Please obtain a copy of the License at
-// http://www.opensource.apple.com/apsl/ and read it before using this file.
-//
-// The Original Code and all software distributed under the License are
-// distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
-// EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
-// INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
-// Please see the License for the specific language governing rights and
-// limitations under the License.
-//
-// @APPLE_OSREFERENCE_LICENSE_HEADER_END@
-
 // Copyright (c) 2003-2007 Apple Inc. All rights reserved.
 //
 // @APPLE_OSREFERENCE_LICENSE_HEADER_START@
@@ -2950,18 +2927,18 @@ type Sigset_t = X__darwin_sigset_t /* _sigset_t.h:31:41 */
 type Uid_t = X__darwin_uid_t /* _uid_t.h:31:31 */
 
 type Sigval = struct {
-	_          [0]uint64
-	Fsival_int int32
-	_          [4]byte
+	F__ccgo_pad1 [0]uint64
+	Fsival_int   int32
+	F__ccgo_pad2 [4]byte
 } /* signal.h:158:1 */
 
 type Sigevent = struct {
 	Fsigev_notify int32
 	Fsigev_signo  int32
 	Fsigev_value  struct {
-		_          [0]uint64
-		Fsival_int int32
-		_          [4]byte
+		F__ccgo_pad1 [0]uint64
+		Fsival_int   int32
+		F__ccgo_pad2 [4]byte
 	}
 	Fsigev_notify_function   uintptr
 	Fsigev_notify_attributes uintptr
@@ -2976,9 +2953,9 @@ type X__siginfo = struct {
 	Fsi_status int32
 	Fsi_addr   uintptr
 	Fsi_value  struct {
-		_          [0]uint64
-		Fsival_int int32
-		_          [4]byte
+		F__ccgo_pad1 [0]uint64
+		Fsival_int   int32
+		F__ccgo_pad2 [4]byte
 	}
 	Fsi_band int64
 	F__pad   [7]uint64

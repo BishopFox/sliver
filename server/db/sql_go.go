@@ -4,7 +4,7 @@ package db
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2020  Bishop Fox
+	Copyright (C) 2021  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -21,6 +21,25 @@ package db
 */
 
 import (
-	// Always include SQLite
+	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/server/db/gosqlite"
+	"gorm.io/gorm"
 	_ "modernc.org/sqlite"
 )
+
+func sqliteClient(dbConfig *configs.DatabaseConfig) *gorm.DB {
+	dsn, err := dbConfig.DSN()
+	if err != nil {
+		panic(err)
+	}
+	clientLog.Infof("sqlite -> %s", dsn)
+
+	dbClient, err := gorm.Open(gosqlite.Open(dsn), &gorm.Config{
+		PrepareStmt: true,
+		Logger:      getGormLogger(dbConfig),
+	})
+	if err != nil {
+		panic(err)
+	}
+	return dbClient
+}

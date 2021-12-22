@@ -33,9 +33,7 @@ const (
 	DUMMYUNIONNAME9                                 = 0
 	F_OK                                            = 0
 	MINGW_DDK_H                                     = 0
-	MINGW_DDRAW_VERSION                             = 7
 	MINGW_HAS_DDK_H                                 = 1
-	MINGW_HAS_DDRAW_H                               = 1
 	MINGW_HAS_SECURE_API                            = 1
 	MINGW_SDK_INIT                                  = 0
 	R_OK                                            = 4
@@ -89,6 +87,7 @@ const (
 	X_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES        = 0
 	X_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES_COUNT  = 0
 	X_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES_MEMORY = 0
+	X_CRT_USE_WINAPI_FAMILY_DESKTOP_APP             = 0
 	X_DEV_T_DEFINED                                 = 0
 	X_DLL                                           = 0
 	X_ERRCODE_DEFINED                               = 0
@@ -97,6 +96,8 @@ const (
 	X_FILE_OFFSET_BITS_SET_OFFT                     = 0
 	X_FINDDATA_T_DEFINED                            = 0
 	X_FSIZE_T_DEFINED                               = 0
+	X_ILP32                                         = 1
+	X_INC_CORECRT                                   = 0
 	X_INC_CRTDEFS                                   = 0
 	X_INC_CRTDEFS_MACRO                             = 0
 	X_INC_MINGW_SECAPI                              = 0
@@ -198,6 +199,11 @@ type Va_list = X__builtin_va_list /* <builtin>:50:27 */
 // This file is part of the mingw-w64 runtime package.
 // No warranty is given; refer to the file DISCLAIMER.PD within this package.
 
+// *
+// This file has no copyright assigned and is placed in the Public Domain.
+// This file is part of the mingw-w64 runtime package.
+// No warranty is given; refer to the file DISCLAIMER.PD within this package.
+
 // This macro holds an monotonic increasing value, which indicates
 //    a specific fix/patch is present on trunk.  This value isn't related to
 //    minor/major version-macros.  It is increased on demand, if a big
@@ -217,6 +223,12 @@ type Va_list = X__builtin_va_list /* <builtin>:50:27 */
 
 // MinGW-w64 has some additional C99 printf/scanf feature support.
 //    So we add some helper macros to ease recognition of them.
+
+// If _FORTIFY_SOURCE is enabled, some inline functions may use
+//    __builtin_va_arg_pack().  GCC may report an error if the address
+//    of such a function is used.  Set _FORTIFY_VA_ARG=0 in this case.
+
+// Enable workaround for ABI incompatibility on affected platforms
 
 // *
 // This file has no copyright assigned and is placed in the Public Domain.
@@ -258,26 +270,28 @@ type Va_list = X__builtin_va_list /* <builtin>:50:27 */
 // This file is part of the mingw-w64 runtime package.
 // No warranty is given; refer to the file DISCLAIMER.PD within this package.
 
+// for backward compatibility
+
 type X__gnuc_va_list = X__builtin_va_list /* vadefs.h:24:29 */
 
-type Ssize_t = int32 /* crtdefs.h:47:13 */
+type Ssize_t = int32 /* corecrt.h:52:13 */
 
-type Rsize_t = Size_t /* crtdefs.h:52:16 */
+type Rsize_t = Size_t /* corecrt.h:57:16 */
 
-type Intptr_t = int32 /* crtdefs.h:64:13 */
+type Intptr_t = int32 /* corecrt.h:69:13 */
 
-type Uintptr_t = uint32 /* crtdefs.h:77:22 */
+type Uintptr_t = uint32 /* corecrt.h:82:22 */
 
-type Wint_t = uint16   /* crtdefs.h:106:24 */
-type Wctype_t = uint16 /* crtdefs.h:107:24 */
+type Wint_t = uint16   /* corecrt.h:111:24 */
+type Wctype_t = uint16 /* corecrt.h:112:24 */
 
-type Errno_t = int32 /* crtdefs.h:113:13 */
+type Errno_t = int32 /* corecrt.h:118:13 */
 
-type X__time32_t = int32 /* crtdefs.h:118:14 */
+type X__time32_t = int32 /* corecrt.h:123:14 */
 
-type X__time64_t = int64 /* crtdefs.h:123:35 */
+type X__time64_t = int64 /* corecrt.h:128:35 */
 
-type Time_t = X__time32_t /* crtdefs.h:136:20 */
+type Time_t = X__time32_t /* corecrt.h:141:20 */
 
 type Threadlocaleinfostruct = struct {
 	Frefcount      int32
@@ -303,29 +317,29 @@ type Threadlocaleinfostruct = struct {
 	Fpclmap              uintptr
 	Fpcumap              uintptr
 	Flc_time_curr        uintptr
-} /* crtdefs.h:422:1 */
+} /* corecrt.h:435:1 */
 
-type Pthreadlocinfo = uintptr /* crtdefs.h:424:39 */
-type Pthreadmbcinfo = uintptr /* crtdefs.h:425:36 */
+type Pthreadlocinfo = uintptr /* corecrt.h:437:39 */
+type Pthreadmbcinfo = uintptr /* corecrt.h:438:36 */
 
 type Localeinfo_struct = struct {
 	Flocinfo Pthreadlocinfo
 	Fmbcinfo Pthreadmbcinfo
-} /* crtdefs.h:428:9 */
+} /* corecrt.h:441:9 */
 
-type X_locale_tstruct = Localeinfo_struct /* crtdefs.h:431:3 */
-type X_locale_t = uintptr                 /* crtdefs.h:431:19 */
+type X_locale_tstruct = Localeinfo_struct /* corecrt.h:444:3 */
+type X_locale_t = uintptr                 /* corecrt.h:444:19 */
 
 type TagLC_ID = struct {
 	FwLanguage uint16
 	FwCountry  uint16
 	FwCodePage uint16
-} /* crtdefs.h:422:1 */
+} /* corecrt.h:435:1 */
 
-type LC_ID = TagLC_ID  /* crtdefs.h:439:3 */
-type LPLC_ID = uintptr /* crtdefs.h:439:9 */
+type LC_ID = TagLC_ID  /* corecrt.h:452:3 */
+type LPLC_ID = uintptr /* corecrt.h:452:9 */
 
-type Threadlocinfo = Threadlocaleinfostruct /* crtdefs.h:468:3 */
+type Threadlocinfo = Threadlocaleinfostruct /* corecrt.h:487:3 */
 type X_fsize_t = uint32                     /* io.h:29:25 */
 
 type X_finddata32_t = struct {
@@ -344,12 +358,12 @@ type X_finddata32i64_t = struct {
 	Ftime_write  X__time32_t
 	Fsize        int64
 	Fname        [260]int8
-	_            [4]byte
+	F__ccgo_pad1 [4]byte
 } /* io.h:44:3 */
 
 type X_finddata64i32_t = struct {
 	Fattrib      uint32
-	_            [4]byte
+	F__ccgo_pad1 [4]byte
 	Ftime_create X__time64_t
 	Ftime_access X__time64_t
 	Ftime_write  X__time64_t
@@ -359,13 +373,13 @@ type X_finddata64i32_t = struct {
 
 type X__finddata64_t = struct {
 	Fattrib      uint32
-	_            [4]byte
+	F__ccgo_pad1 [4]byte
 	Ftime_create X__time64_t
 	Ftime_access X__time64_t
 	Ftime_write  X__time64_t
 	Fsize        int64
 	Fname        [260]int8
-	_            [4]byte
+	F__ccgo_pad2 [4]byte
 } /* io.h:62:3 */
 
 type X_wfinddata32_t = struct {
@@ -388,18 +402,18 @@ type X_wfinddata32i64_t = struct {
 
 type X_wfinddata64i32_t = struct {
 	Fattrib      uint32
-	_            [4]byte
+	F__ccgo_pad1 [4]byte
 	Ftime_create X__time64_t
 	Ftime_access X__time64_t
 	Ftime_write  X__time64_t
 	Fsize        X_fsize_t
 	Fname        [260]Wchar_t
-	_            [4]byte
+	F__ccgo_pad2 [4]byte
 } /* io.h:112:3 */
 
 type X_wfinddata64_t = struct {
 	Fattrib      uint32
-	_            [4]byte
+	F__ccgo_pad1 [4]byte
 	Ftime_create X__time64_t
 	Ftime_access X__time64_t
 	Ftime_write  X__time64_t
@@ -460,81 +474,81 @@ type Itimerspec = struct {
 type X_sigset_t = uint32 /* types.h:106:23 */
 
 type X_stat32 = struct {
-	Fst_dev   X_dev_t
-	Fst_ino   X_ino_t
-	Fst_mode  uint16
-	Fst_nlink int16
-	Fst_uid   int16
-	Fst_gid   int16
-	_         [2]byte
-	Fst_rdev  X_dev_t
-	Fst_size  X_off_t
-	Fst_atime X__time32_t
-	Fst_mtime X__time32_t
-	Fst_ctime X__time32_t
+	Fst_dev      X_dev_t
+	Fst_ino      X_ino_t
+	Fst_mode     uint16
+	Fst_nlink    int16
+	Fst_uid      int16
+	Fst_gid      int16
+	F__ccgo_pad1 [2]byte
+	Fst_rdev     X_dev_t
+	Fst_size     X_off_t
+	Fst_atime    X__time32_t
+	Fst_mtime    X__time32_t
+	Fst_ctime    X__time32_t
 } /* _mingw_stat64.h:25:3 */
 
 type Stat = struct {
-	Fst_dev   X_dev_t
-	Fst_ino   X_ino_t
-	Fst_mode  uint16
-	Fst_nlink int16
-	Fst_uid   int16
-	Fst_gid   int16
-	_         [2]byte
-	Fst_rdev  X_dev_t
-	Fst_size  X_off_t
-	Fst_atime Time_t
-	Fst_mtime Time_t
-	Fst_ctime Time_t
+	Fst_dev      X_dev_t
+	Fst_ino      X_ino_t
+	Fst_mode     uint16
+	Fst_nlink    int16
+	Fst_uid      int16
+	Fst_gid      int16
+	F__ccgo_pad1 [2]byte
+	Fst_rdev     X_dev_t
+	Fst_size     X_off_t
+	Fst_atime    Time_t
+	Fst_mtime    Time_t
+	Fst_ctime    Time_t
 } /* _mingw_stat64.h:40:3 */
 
 type X_stati64 = struct {
-	Fst_dev   X_dev_t
-	Fst_ino   X_ino_t
-	Fst_mode  uint16
-	Fst_nlink int16
-	Fst_uid   int16
-	Fst_gid   int16
-	_         [2]byte
-	Fst_rdev  X_dev_t
-	_         [4]byte
-	Fst_size  int64
-	Fst_atime X__time32_t
-	Fst_mtime X__time32_t
-	Fst_ctime X__time32_t
-	_         [4]byte
+	Fst_dev      X_dev_t
+	Fst_ino      X_ino_t
+	Fst_mode     uint16
+	Fst_nlink    int16
+	Fst_uid      int16
+	Fst_gid      int16
+	F__ccgo_pad1 [2]byte
+	Fst_rdev     X_dev_t
+	F__ccgo_pad2 [4]byte
+	Fst_size     int64
+	Fst_atime    X__time32_t
+	Fst_mtime    X__time32_t
+	Fst_ctime    X__time32_t
+	F__ccgo_pad3 [4]byte
 } /* _mingw_stat64.h:55:3 */
 
 type X_stat64i32 = struct {
-	Fst_dev   X_dev_t
-	Fst_ino   X_ino_t
-	Fst_mode  uint16
-	Fst_nlink int16
-	Fst_uid   int16
-	Fst_gid   int16
-	_         [2]byte
-	Fst_rdev  X_dev_t
-	Fst_size  X_off_t
-	Fst_atime X__time64_t
-	Fst_mtime X__time64_t
-	Fst_ctime X__time64_t
+	Fst_dev      X_dev_t
+	Fst_ino      X_ino_t
+	Fst_mode     uint16
+	Fst_nlink    int16
+	Fst_uid      int16
+	Fst_gid      int16
+	F__ccgo_pad1 [2]byte
+	Fst_rdev     X_dev_t
+	Fst_size     X_off_t
+	Fst_atime    X__time64_t
+	Fst_mtime    X__time64_t
+	Fst_ctime    X__time64_t
 } /* _mingw_stat64.h:69:3 */
 
 type X_stat64 = struct {
-	Fst_dev   X_dev_t
-	Fst_ino   X_ino_t
-	Fst_mode  uint16
-	Fst_nlink int16
-	Fst_uid   int16
-	Fst_gid   int16
-	_         [2]byte
-	Fst_rdev  X_dev_t
-	_         [4]byte
-	Fst_size  int64
-	Fst_atime X__time64_t
-	Fst_mtime X__time64_t
-	Fst_ctime X__time64_t
+	Fst_dev      X_dev_t
+	Fst_ino      X_ino_t
+	Fst_mode     uint16
+	Fst_nlink    int16
+	Fst_uid      int16
+	Fst_gid      int16
+	F__ccgo_pad1 [2]byte
+	Fst_rdev     X_dev_t
+	F__ccgo_pad2 [4]byte
+	Fst_size     int64
+	Fst_atime    X__time64_t
+	Fst_mtime    X__time64_t
+	Fst_ctime    X__time64_t
 } /* _mingw_stat64.h:83:3 */
 
 var _ int8 /* gen.c:2:13: */

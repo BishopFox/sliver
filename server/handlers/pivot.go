@@ -22,7 +22,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
@@ -35,8 +34,6 @@ import (
 
 var (
 	pivotLog = log.NamedLogger("handlers", "pivot")
-
-	pivotSessions = &sync.Map{} // ID -> Pivot
 )
 
 // Pivot - Wraps an ImplantConnection
@@ -97,8 +94,8 @@ func NewPivotSession(chain []*sliverpb.PivotPeerEnvelope) *Pivot {
 // envelope so we can just straight to parsing PivotPeerEnvelope's
 func pivotPeerEnvelopeHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	pivotLog.Debugf("received pivot peer envelope ...")
-	// Unwrap the nested envelopes
 
+	// Unwrap the nested envelopes
 	chain, originEnvelope, err := unwrapPivotPeerEnvelopes(data)
 	if err != nil {
 		return nil
@@ -118,6 +115,8 @@ func pivotPeerEnvelopeHandler(implantConn *core.ImplantConnection, data []byte) 
 		resp = originEnvelopeHandler(implantConn, chain, originEnvelope)
 	case sliverpb.MsgPivotPeerFailure:
 		resp = pivotPeerFailureHandler(implantConn, chain, originEnvelope)
+	case sliverpb.MsgPivotServerPing:
+		resp = pivotServerPingHandler(implantConn, chain, originEnvelope)
 	}
 
 	return resp
@@ -131,7 +130,7 @@ func originEnvelopeHandler(implantConn *core.ImplantConnection, chain []*sliverp
 	}
 	pivotSessionID := uuid.FromBytesOrNil(origin.Data[:16]).String()
 	pivotLog.Debugf("origin envelope pivot session ID = %s", pivotSessionID)
-	pivotEntry, ok := pivotSessions.Load(pivotSessionID)
+	pivotEntry, ok := core.PivotSessions.Load(pivotSessionID)
 	if !ok {
 		pivotLog.Errorf("pivot session id '%s' not found", pivotSessionID)
 		return nil
@@ -157,6 +156,7 @@ func originEnvelopeHandler(implantConn *core.ImplantConnection, chain []*sliverp
 func handlePivotEnvelope(pivot *Pivot, envelope *sliverpb.Envelope) {
 	pivotLog.Debugf("pivot session %s received envelope: %v", pivot.ID, envelope.Type)
 	handlers := GetNonPivotHandlers()
+	pivot.ImplantConn.UpdateLastMessage()
 	if envelope.ID != 0 {
 		pivot.ImplantConn.RespMutex.RLock()
 		defer pivot.ImplantConn.RespMutex.RUnlock()
@@ -177,6 +177,25 @@ func handlePivotEnvelope(pivot *Pivot, envelope *sliverpb.Envelope) {
 
 func pivotPeerFailureHandler(implantConn *core.ImplantConnection, chain []*sliverpb.PivotPeerEnvelope, origin *sliverpb.Envelope) *sliverpb.Envelope {
 	pivotLog.Errorf("pivot peer failure received")
+	return nil
+}
+
+func pivotServerPingHandler(implantConn *core.ImplantConnection, chain []*sliverpb.PivotPeerEnvelope, origin *sliverpb.Envelope) *sliverpb.Envelope {
+	pivotLog.Debugf("pivot server ping received")
+
+	// Find the pivot session for the server ping
+	pivotSessionID := uuid.FromBytesOrNil(origin.Data[:16]).String()
+	pivotLog.Debugf("origin envelope pivot session ID = %s", pivotSessionID)
+	pivotEntry, ok := core.PivotSessions.Load(pivotSessionID)
+	if !ok {
+		pivotLog.Errorf("pivot session id '%s' not found", pivotSessionID)
+		return nil
+	}
+	pivot := pivotEntry.(*Pivot)
+
+	// Update last message time
+	pivot.ImplantConn.UpdateLastMessage()
+
 	return nil
 }
 
@@ -224,7 +243,7 @@ func serverKeyExchange(implantConn *core.ImplantConnection, chain []*sliverpb.Pi
 	}
 	pivotSession.ImplantConn = core.NewImplantConnection("pivot", pivotRemoteAddr)
 	pivotSession.ImmediateImplantConn = implantConn
-	pivotSessions.Store(pivotSession.ID, pivotSession)
+	core.PivotSessions.Store(pivotSession.ID, pivotSession)
 	innerEnvelope, _ := proto.Marshal(&sliverpb.Envelope{
 		Type: sliverpb.MsgPivotServerKeyExchange,
 		Data: uuid.FromStringOrNil(pivotSession.ID).Bytes(),

@@ -12,7 +12,7 @@ import (
 
 var (
 	minBeaconInterval         = 5 * time.Second
-	ErrBeaconIntervalTooShort = fmt.Errorf("Beacon interval must be %v or greater", minBeaconInterval)
+	ErrBeaconIntervalTooShort = fmt.Errorf("beacon interval must be %v or greater", minBeaconInterval)
 )
 
 // GenerateBeaconCmd - The main command used to generate implant binaries

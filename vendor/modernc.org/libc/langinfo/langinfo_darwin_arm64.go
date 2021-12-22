@@ -259,6 +259,12 @@ type X__float128 = float64        /* <builtin>:47:21 */
 // in between its arguments.  __CONCAT can also concatenate double-quoted
 // strings produced by the __STRING macro, but this only works with ANSI C.
 
+// __pure2 can be used for functions that are only a function of their scalar
+// arguments (meaning they can't dereference pointers).
+//
+// __stateful_pure can be used for functions that have no side effects,
+// but depend on the state of the memory.
+
 // __unused denotes variables and functions that may not be used, preventing
 // the compiler from warning about it if not used.
 
@@ -573,17 +579,17 @@ type X__float128 = float64        /* <builtin>:47:21 */
 // This header file contains integer types.  It's intended to also contain
 // flotaing point and other arithmetic types, as needed, later.
 
-type X__int8_t = int8     /* _types.h:13:33 */
-type X__uint8_t = uint8   /* _types.h:17:33 */
-type X__int16_t = int16   /* _types.h:18:33 */
-type X__uint16_t = uint16 /* _types.h:19:33 */
-type X__int32_t = int32   /* _types.h:20:33 */
-type X__uint32_t = uint32 /* _types.h:21:33 */
-type X__int64_t = int64   /* _types.h:22:33 */
-type X__uint64_t = uint64 /* _types.h:23:33 */
+type X__int8_t = int8     /* _types.h:15:33 */
+type X__uint8_t = uint8   /* _types.h:19:33 */
+type X__int16_t = int16   /* _types.h:20:33 */
+type X__uint16_t = uint16 /* _types.h:21:33 */
+type X__int32_t = int32   /* _types.h:22:33 */
+type X__uint32_t = uint32 /* _types.h:23:33 */
+type X__int64_t = int64   /* _types.h:24:33 */
+type X__uint64_t = uint64 /* _types.h:25:33 */
 
-type X__darwin_intptr_t = int64   /* _types.h:25:33 */
-type X__darwin_natural_t = uint32 /* _types.h:26:33 */
+type X__darwin_intptr_t = int64   /* _types.h:27:33 */
+type X__darwin_natural_t = uint32 /* _types.h:28:33 */
 
 // The rune type below is declared to be an ``int'' instead of the more natural
 // ``unsigned long'' or ``long''.  Two things are happening here.  It is not
@@ -601,33 +607,33 @@ type X__darwin_natural_t = uint32 /* _types.h:26:33 */
 // wchar_t, and should also be able to hold all members of the largest
 // character set plus one extra value (WEOF). wint_t must be at least 16 bits.
 
-type X__darwin_ct_rune_t = int32 /* _types.h:46:33 */ // ct_rune_t
+type X__darwin_ct_rune_t = int32 /* _types.h:48:33 */ // ct_rune_t
 
 // mbstate_t is an opaque object to keep conversion state, during multibyte
 // stream conversions.  The content must not be referenced by user programs.
 type X__mbstate_t = struct {
-	_           [0]uint64
-	F__mbstate8 [128]int8
-} /* _types.h:55:3 */
+	F__ccgo_pad1 [0]uint64
+	F__mbstate8  [128]int8
+} /* _types.h:57:3 */
 
-type X__darwin_mbstate_t = X__mbstate_t /* _types.h:57:33 */ // mbstate_t
+type X__darwin_mbstate_t = X__mbstate_t /* _types.h:59:33 */ // mbstate_t
 
-type X__darwin_ptrdiff_t = int64 /* _types.h:60:33 */ // ptr1 - ptr2
+type X__darwin_ptrdiff_t = int64 /* _types.h:62:33 */ // ptr1 - ptr2
 
-type X__darwin_size_t = uint64 /* _types.h:68:33 */ // sizeof()
+type X__darwin_size_t = uint64 /* _types.h:70:33 */ // sizeof()
 
-type X__darwin_va_list = X__builtin_va_list /* _types.h:74:33 */ // va_list
+type X__darwin_va_list = X__builtin_va_list /* _types.h:76:33 */ // va_list
 
-type X__darwin_wchar_t = int32 /* _types.h:80:33 */ // wchar_t
+type X__darwin_wchar_t = int32 /* _types.h:82:33 */ // wchar_t
 
-type X__darwin_rune_t = X__darwin_wchar_t /* _types.h:85:33 */ // rune_t
+type X__darwin_rune_t = X__darwin_wchar_t /* _types.h:87:33 */ // rune_t
 
-type X__darwin_wint_t = int32 /* _types.h:88:33 */ // wint_t
+type X__darwin_wint_t = int32 /* _types.h:90:33 */ // wint_t
 
-type X__darwin_clock_t = uint64        /* _types.h:93:33 */ // clock()
-type X__darwin_socklen_t = X__uint32_t /* _types.h:94:33 */ // socklen_t (duh)
-type X__darwin_ssize_t = int64         /* _types.h:95:33 */ // byte count or error
-type X__darwin_time_t = int64          /* _types.h:96:33 */ // time()
+type X__darwin_clock_t = uint64        /* _types.h:95:33 */ // clock()
+type X__darwin_socklen_t = X__uint32_t /* _types.h:96:33 */ // socklen_t (duh)
+type X__darwin_ssize_t = int64         /* _types.h:97:33 */ // byte count or error
+type X__darwin_time_t = int64          /* _types.h:98:33 */ // time()
 
 // Type definitions; takes common type definitions that must be used
 // in multiple header files due to [XSI], removes them from the system
