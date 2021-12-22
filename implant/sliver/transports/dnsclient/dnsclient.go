@@ -635,16 +635,20 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 		}
 		msg.Start = uint32(start)
 		if lastLen == 0 {
-			stop += int(float64(s.subdataSpace) / 2) // base32 overhead is about 160%
+			stop += int(float64(s.subdataSpace)/2) - 1 // base32 overhead is about 160%
 		} else {
-			stop += (lastLen - 6) // max start uint32 overhead
+			stop += (lastLen - 4) // max start uint32 overhead
 		}
-		if len(data) < stop {
+		if len(data) <= stop {
 			stop = len(data) - 1 // make sure the loop is executed at least once
 		}
 
 		// Sometimes adding a byte will result in +2 chars so we -1 the subdata space
 		encoded = ""
+		// {{if .Config.Debug}}
+		log.Printf("[dns] encoded: %d, subdata space: %d | stop: %d, len: %d",
+			len(encoded), (s.subdataSpace - 1), stop, len(data))
+		// {{end}}
 		for len(encoded) < (s.subdataSpace-1) && stop < len(data) {
 			stop++
 			// {{if .Config.Debug}}
@@ -676,7 +680,11 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 	total := 0
 	for index, domain := range encodedSubdata {
 		dnsMsg := &dnspb.DNSMessage{}
-		rawData, _ := encoder.Decode([]byte(domain))
+		rawData, err := encoder.Decode([]byte(domain))
+		if err != nil {
+			log.Printf("[dns] decode failed: %s", err)
+			panic("failed to decode subdata")
+		}
 		proto.Unmarshal(rawData, dnsMsg)
 		total += len(dnsMsg.Data)
 		log.Printf("[dns] subdata %d (%d->%d): %d bytes",
