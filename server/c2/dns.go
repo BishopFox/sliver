@@ -38,6 +38,7 @@ import (
 	secureRand "crypto/rand"
 	"errors"
 	"hash/crc32"
+	"sort"
 	"unicode"
 
 	"github.com/bishopfox/sliver/protobuf/dnspb"
@@ -60,7 +61,6 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/emirpasic/gods/lists/singlylinkedlist"
 
 	"github.com/miekg/dns"
 )
@@ -194,11 +194,10 @@ func (s *DNSSession) IncomingPendingEnvelope(msgID uint32, size uint32) *Pending
 	if pendingMsg, ok := s.incomingEnvelopes[msgID]; ok {
 		return pendingMsg
 	}
-	linkedList := singlylinkedlist.New()
 	pendingMsg := &PendingEnvelope{
 		Size:     size,
 		received: uint32(0),
-		messages: linkedList,
+		messages: map[uint32][]byte{},
 		mutex:    &sync.Mutex{},
 		complete: false,
 	}
@@ -250,7 +249,7 @@ func (s *DNSSession) ForwardCompletedEnvelope(msgID uint32, pending *PendingEnve
 type PendingEnvelope struct {
 	Size     uint32
 	received uint32
-	messages *singlylinkedlist.List
+	messages map[uint32][]byte
 	mutex    *sync.Mutex
 	complete bool
 }
@@ -263,32 +262,15 @@ func (p *PendingEnvelope) Reassemble() ([]byte, error) {
 	if !p.complete {
 		return nil, fmt.Errorf("pending message not complete %d of %d", p.received, p.Size)
 	}
-	// There could be some sort of race in here, the unit tests
-	// seem to fail randomly but I can't tell exactly where ...
-	// could be a bug in the unit test, the linked list, or this code
-	p.messages.Sort(func(left, right interface{}) int {
-		leftAssert := left.(*dnspb.DNSMessage)
-		rightAssert := right.(*dnspb.DNSMessage)
-		if leftAssert == nil {
-			panic("left is nil")
-		}
-		if rightAssert == nil {
-			panic("right is nil")
-		}
-		if leftAssert.Start > rightAssert.Start {
-			return 1
-		} else {
-			return -1
-		}
-	})
-	buffer := make([]byte, p.Size)
-	for _, msg := range p.messages.Values() {
-		msgAssert := msg.(*dnspb.DNSMessage)
-		if msgAssert.Start+uint32(len(msgAssert.Data)) > uint32(len(buffer)) {
-			return nil, fmt.Errorf("message boundaries are invalid (%d -> %d) of %d",
-				msgAssert.Start, msgAssert.Start+msgAssert.Size, len(buffer))
-		}
-		copy(buffer[msgAssert.Start:], msgAssert.Data)
+	buffer := []byte{}
+	keys := []uint32{}
+	for k := range p.messages {
+		keys = append(keys, k)
+	}
+	dnsLog.Debugf("[dns] reassemble from: %v", keys)
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	for _, k := range keys {
+		buffer = append(buffer, p.messages[k]...)
 	}
 	return buffer, nil
 }
@@ -300,9 +282,9 @@ func (p *PendingEnvelope) Insert(dnsMsg *dnspb.DNSMessage) bool {
 	if p.complete {
 		return false // Already complete
 	}
-	p.messages.Append(dnsMsg)
+	p.messages[dnsMsg.Start] = dnsMsg.Data
 	p.received += uint32(len(dnsMsg.Data))
-	dnsLog.Debugf("[dns] msg id: %d, recv: %d of %d", dnsMsg.ID, p.received, p.Size)
+	dnsLog.Debugf("[dns] msg id: %d, start: %d, recv: %d of %d", dnsMsg.ID, dnsMsg.Start, p.received, p.Size)
 	p.complete = p.received >= p.Size
 	return p.complete
 }

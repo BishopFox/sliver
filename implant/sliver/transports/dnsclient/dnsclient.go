@@ -634,7 +634,7 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 		if lastLen == 0 {
 			stop += int(float64(s.subdataSpace) / 2) // base32 overhead is about 160%
 		} else {
-			stop += (lastLen - 4) // max start uint32 overhead
+			stop += (lastLen - 6) // max start uint32 overhead
 		}
 		if len(data) < stop {
 			stop = len(data) - 1 // make sure the loop is executed at least once
