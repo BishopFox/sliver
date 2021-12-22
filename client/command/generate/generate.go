@@ -178,22 +178,46 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 
 	c2s := []*clientpb.ImplantC2{}
 
-	mtlsC2 := ParseMTLSc2(ctx.Flags.String("mtls"))
+	mtlsC2, err := ParseMTLSc2(ctx.Flags.String("mtls"))
+	if err != nil {
+		con.PrintErrorf("%s\n", err.Error())
+		return nil
+	}
 	c2s = append(c2s, mtlsC2...)
 
-	wgC2 := ParseWGc2(ctx.Flags.String("wg"))
+	wgC2, err := ParseWGc2(ctx.Flags.String("wg"))
+	if err != nil {
+		con.PrintErrorf("%s\n", err.Error())
+		return nil
+	}
 	c2s = append(c2s, wgC2...)
 
-	httpC2 := ParseHTTPc2(ctx.Flags.String("http"))
+	httpC2, err := ParseHTTPc2(ctx.Flags.String("http"))
+	if err != nil {
+		con.PrintErrorf("%s\n", err.Error())
+		return nil
+	}
 	c2s = append(c2s, httpC2...)
 
-	dnsC2 := ParseDNSc2(ctx.Flags.String("dns"))
+	dnsC2, err := ParseDNSc2(ctx.Flags.String("dns"))
+	if err != nil {
+		con.PrintErrorf("%s\n", err.Error())
+		return nil
+	}
 	c2s = append(c2s, dnsC2...)
 
-	namedPipeC2 := ParseNamedPipec2(ctx.Flags.String("named-pipe"))
+	namedPipeC2, err := ParseNamedPipec2(ctx.Flags.String("named-pipe"))
+	if err != nil {
+		con.PrintErrorf("%s\n", err.Error())
+		return nil
+	}
 	c2s = append(c2s, namedPipeC2...)
 
-	tcpPivotC2 := ParseTCPPivotc2(ctx.Flags.String("tcp-pivot"))
+	tcpPivotC2, err := ParseTCPPivotc2(ctx.Flags.String("tcp-pivot"))
+	if err != nil {
+		con.PrintErrorf("%s\n", err.Error())
+		return nil
+	}
 	c2s = append(c2s, tcpPivotC2...)
 
 	var symbolObfuscation bool
@@ -350,51 +374,74 @@ func getTargets(targetOS string, targetArch string, con *console.SliverConsoleCl
 }
 
 // ParseMTLSc2 - Parse mtls connection string arg
-func ParseMTLSc2(args string) []*clientpb.ImplantC2 {
+func ParseMTLSc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
-		return c2s
-	}
-	for index, arg := range strings.Split(args, ",") {
-		uri := url.URL{Scheme: "mtls"}
-		uri.Host = arg
-		if uri.Port() == "" {
-			uri.Host = fmt.Sprintf("%s:%d", uri.Host, DefaultMTLSLPort)
-		}
-		c2s = append(c2s, &clientpb.ImplantC2{
-			Priority: uint32(index),
-			URL:      uri.String(),
-		})
-	}
-	return c2s
-}
-
-// ParseWGc2 - Parse wg connect string arg
-func ParseWGc2(args string) []*clientpb.ImplantC2 {
-	c2s := []*clientpb.ImplantC2{}
-	if args == "" {
-		return c2s
+		return c2s, nil
 	}
 	for index, arg := range strings.Split(args, ",") {
 		arg = strings.ToLower(arg)
-		uri := url.URL{Scheme: "wg"}
-		uri.Host = arg
+		var uri *url.URL
+		var err error
+		if strings.HasPrefix(arg, "mtls://") {
+			uri, err = url.Parse(arg)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			uri, err = url.Parse(fmt.Sprintf("mtls://%s", arg))
+			if err != nil {
+				return nil, err
+			}
+		}
 		if uri.Port() == "" {
-			uri.Host = fmt.Sprintf("%s:%d", uri.Host, DefaultWGLPort)
+			uri.Host = fmt.Sprintf("%s:%d", uri.Hostname(), DefaultMTLSLPort)
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
 			URL:      uri.String(),
 		})
 	}
-	return c2s
+	return c2s, nil
+}
+
+// ParseWGc2 - Parse wg connect string arg
+func ParseWGc2(args string) ([]*clientpb.ImplantC2, error) {
+	c2s := []*clientpb.ImplantC2{}
+	if args == "" {
+		return c2s, nil
+	}
+	for index, arg := range strings.Split(args, ",") {
+		arg = strings.ToLower(arg)
+		var uri *url.URL
+		var err error
+		if strings.HasPrefix(arg, "mtls://") {
+			uri, err = url.Parse(arg)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			uri, err = url.Parse(fmt.Sprintf("mtls://%s", arg))
+			if err != nil {
+				return nil, err
+			}
+		}
+		if uri.Port() == "" {
+			uri.Host = fmt.Sprintf("%s:%d", uri.Hostname(), DefaultWGLPort)
+		}
+		c2s = append(c2s, &clientpb.ImplantC2{
+			Priority: uint32(index),
+			URL:      uri.String(),
+		})
+	}
+	return c2s, nil
 }
 
 // ParseHTTPc2 - Parse HTTP connection string arg
-func ParseHTTPc2(args string) []*clientpb.ImplantC2 {
+func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
-		return c2s
+		return c2s, nil
 	}
 	for index, arg := range strings.Split(args, ",") {
 		arg = strings.ToLower(arg)
@@ -403,14 +450,12 @@ func ParseHTTPc2(args string) []*clientpb.ImplantC2 {
 		if strings.HasPrefix(arg, "http://") || strings.HasPrefix(arg, "https://") {
 			uri, err = url.Parse(arg)
 			if err != nil {
-				log.Printf("Failed to parse C2 URL %s", err)
-				continue
+				return nil, err
 			}
 		} else {
 			uri, err = url.Parse(fmt.Sprintf("https://%s", arg))
 			if err != nil {
-				log.Printf("Failed to parse C2 URL %s", err)
-				continue
+				return nil, err
 			}
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
@@ -418,76 +463,94 @@ func ParseHTTPc2(args string) []*clientpb.ImplantC2 {
 			URL:      uri.String(),
 		})
 	}
-	return c2s
+	return c2s, nil
 }
 
 // ParseDNSc2 - Parse DNS connection string arg
-func ParseDNSc2(args string) []*clientpb.ImplantC2 {
+func ParseDNSc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
-		return c2s
+		return c2s, nil
 	}
 	for index, arg := range strings.Split(args, ",") {
-		uri := url.URL{Scheme: "dns"}
-		if len(arg) < 1 {
-			continue
+		arg = strings.ToLower(arg)
+		var uri *url.URL
+		var err error
+		if strings.HasPrefix(arg, "dns://") {
+			uri, err = url.Parse(arg)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			uri, err = url.Parse(fmt.Sprintf("dns://%s", arg))
+			if err != nil {
+				return nil, err
+			}
 		}
-		// Make sure we have the FQDN
-		if !strings.HasSuffix(arg, ".") {
-			arg += "."
-		}
-		arg = strings.TrimPrefix(arg, ".")
-
-		uri.Host = arg
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
 			URL:      uri.String(),
 		})
 	}
-	return c2s
+	return c2s, nil
 }
 
 // ParseNamedPipec2 - Parse named pipe connection string arg
-func ParseNamedPipec2(args string) []*clientpb.ImplantC2 {
+func ParseNamedPipec2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
-		return c2s
+		return c2s, nil
 	}
 	for index, arg := range strings.Split(args, ",") {
-		uri, err := url.Parse("namedpipe://" + arg)
-		if len(arg) < 1 {
-			continue
-		}
-		if err != nil {
-			return c2s
+		arg = strings.ToLower(arg)
+		var uri *url.URL
+		var err error
+		if strings.HasPrefix(arg, "named-pipe://") {
+			uri, err = url.Parse(arg)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			uri, err = url.Parse(fmt.Sprintf("named-pipe://%s", arg))
+			if err != nil {
+				return nil, err
+			}
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
 			URL:      uri.String(),
 		})
 	}
-	return c2s
+	return c2s, nil
 }
 
 // ParseTCPPivotc2 - Parse tcp pivot connection string arg
-func ParseTCPPivotc2(args string) []*clientpb.ImplantC2 {
+func ParseTCPPivotc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
-		return c2s
+		return c2s, nil
 	}
 	for index, arg := range strings.Split(args, ",") {
-
-		uri := url.URL{Scheme: "tcppivot"}
-		uri.Host = arg
-		if uri.Port() == "" {
-			uri.Host = fmt.Sprintf("%s:%d", uri.Host, DefaultTCPPivotPort)
+		arg = strings.ToLower(arg)
+		var uri *url.URL
+		var err error
+		if strings.HasPrefix(arg, "tcp-pivot://") {
+			uri, err = url.Parse(arg)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			uri, err = url.Parse(fmt.Sprintf("tcp-pivot://%s", arg))
+			if err != nil {
+				return nil, err
+			}
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
 			URL:      uri.String(),
 		})
 	}
-	return c2s
+	return c2s, nil
 }
 
 func compile(config *clientpb.ImplantConfig, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {

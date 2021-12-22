@@ -119,15 +119,14 @@ func reassemble(t *testing.T, parent string, size int, encoder encoders.Encoder)
 	}
 
 	// Re-assemble original message
-	var pending *PendingEnvelope
-	for _, dnsMsg := range dnsMsgs {
-		pending = dnsSession.IncomingPendingEnvelope(dnsMsg.ID, dnsMsg.Size)
-		if pending == nil {
-			t.Fatal("GetPendingEnvelope returned nil")
-		}
-		complete := pending.Insert(dnsMsg)
-		if complete {
-			break
+	pending := dnsSession.IncomingPendingEnvelope(dnsMsgs[0].ID, dnsMsgs[0].Size)
+	complete := pending.Insert(dnsMsgs[0])
+	if !complete {
+		for _, dnsMsg := range dnsMsgs[1:] {
+			complete = pending.Insert(dnsMsg)
+			if complete {
+				break
+			}
 		}
 	}
 	data, err := pending.Reassemble()

@@ -60,6 +60,10 @@ import (
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
+var (
+	_ url.URL
+)
+
 type BeaconInit func() error
 type BeaconStart func() error
 type BeaconRecv func() (*pb.Envelope, error)

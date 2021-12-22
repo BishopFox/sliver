@@ -257,10 +257,11 @@ type PendingEnvelope struct {
 
 // Reassemble - Reassemble a completed message
 func (p *PendingEnvelope) Reassemble() ([]byte, error) {
+	// There's some weird race here with a nil pointer
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	if !p.complete {
-		return nil, errors.New("pending message not complete")
+		return nil, fmt.Errorf("pending message not complete %d of %d", p.received, p.Size)
 	}
 	// There could be some sort of race in here, the unit tests
 	// seem to fail randomly but I can't tell exactly where ...

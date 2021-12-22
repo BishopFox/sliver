@@ -19,6 +19,8 @@ package cryptography
 */
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
@@ -106,7 +108,7 @@ func Encrypt(key [chacha20poly1305.KeySize]byte, plaintext []byte) ([]byte, erro
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	return aead.Seal(nonce, nonce, plaintext, nil), nil
+	return aead.Seal(nonce, nonce, GzipBuf(plaintext), nil), nil
 }
 
 // Decrypt - Decrypt using chacha20poly1305
@@ -124,7 +126,11 @@ func Decrypt(key [chacha20poly1305.KeySize]byte, ciphertext []byte) ([]byte, err
 	nonce, ciphertext := ciphertext[:aead.NonceSize()], ciphertext[aead.NonceSize():]
 
 	// Decrypt the message and check it wasn't tampered with.
-	return aead.Open(nil, nonce, ciphertext, nil)
+	plaintext, err := aead.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+	return GunzipBuf(plaintext), nil
 }
 
 // NewCipherContext - Wrapper around creating a cipher context from a key
@@ -223,4 +229,21 @@ func RootOnlyVerifyCertificate(caCertPEM string, rawCerts [][]byte, _ [][]*x509.
 	}
 
 	return nil
+}
+
+// GzipBuf - Gzip a buffer
+func GzipBuf(data []byte) []byte {
+	var buf bytes.Buffer
+	zip := gzip.NewWriter(&buf)
+	zip.Write(data)
+	zip.Close()
+	return buf.Bytes()
+}
+
+// GunzipBuf - Gunzip a buffer
+func GunzipBuf(data []byte) []byte {
+	zip, _ := gzip.NewReader(bytes.NewBuffer(data))
+	var buf bytes.Buffer
+	buf.ReadFrom(zip)
+	return buf.Bytes()
 }

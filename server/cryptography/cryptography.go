@@ -36,6 +36,7 @@ import (
 
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/util"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/chacha20poly1305"
@@ -148,7 +149,7 @@ func Encrypt(key [chacha20poly1305.KeySize]byte, plaintext []byte) ([]byte, erro
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	return aead.Seal(nonce, nonce, plaintext, nil), nil
+	return aead.Seal(nonce, nonce, util.GzipBuf(plaintext), nil), nil
 }
 
 // Decrypt - Decrypt using chacha20poly1305
@@ -166,7 +167,11 @@ func Decrypt(key [chacha20poly1305.KeySize]byte, ciphertext []byte) ([]byte, err
 	nonce, ciphertext := ciphertext[:aead.NonceSize()], ciphertext[aead.NonceSize():]
 
 	// Decrypt the message and check it wasn't tampered with.
-	return aead.Open(nil, nonce, ciphertext, nil)
+	plaintext, err := aead.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+	return util.GunzipBuf(plaintext), nil
 }
 
 // NewCipherContext - Wrapper around creating a cipher context from a key
