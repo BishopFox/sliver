@@ -62,6 +62,14 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 		},
 	}
 
+	connection.Stop = func() error {
+		// {{if .Config.Debug}}
+		log.Printf("[named-pipe] Stop()")
+		// {{end}}
+		connection.Cleanup()
+		return nil
+	}
+
 	go func() {
 		defer connection.Cleanup()
 		for envelope := range send {

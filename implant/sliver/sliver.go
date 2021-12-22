@@ -518,6 +518,12 @@ func sessionMainLoop(connection *transports.Connection) error {
 		// {{end}}
 		return err
 	}
+	if connection == nil {
+		// {{if .Config.Debug}}
+		log.Printf("[session] nil connection!")
+		// {{end}}
+		return nil
+	}
 	defer connection.Stop()
 	connectionErrors = 0
 	// Reconnect active pivots

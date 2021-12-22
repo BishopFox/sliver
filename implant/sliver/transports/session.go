@@ -387,6 +387,14 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 		},
 	}
 
+	connection.Stop = func() error {
+		// {{if .Config.Debug}}
+		log.Printf("[wg] Stop()")
+		// {{end}}
+		connection.Cleanup()
+		return nil
+	}
+
 	connection.Start = func() error {
 		// {{if .Config.Debug}}
 		log.Printf("Connecting -> %s", uri.Host)
@@ -482,6 +490,14 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 			ctrl <- struct{}{}
 			close(recv)
 		},
+	}
+
+	connection.Stop = func() error {
+		// {{if .Config.Debug}}
+		log.Printf("[http] Stop()")
+		// {{end}}
+		connection.Cleanup()
+		return nil
 	}
 
 	connection.Start = func() error {
@@ -591,6 +607,14 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 		},
 	}
 
+	connection.Stop = func() error {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] Stop()")
+		// {{end}}
+		connection.Cleanup()
+		return nil
+	}
+
 	connection.Start = func() error {
 		dnsParent := uri.Hostname()
 		// {{if .Config.Debug}}
@@ -627,7 +651,7 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 						if envelope != nil {
 							recv <- envelope
 						}
-						time.Sleep(time.Millisecond * 100)
+						time.Sleep(time.Millisecond * 250)
 					case dnsclient.ErrTimeout:
 						errCount++
 						// {{if .Config.Debug}}
@@ -687,6 +711,14 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			ctrl <- struct{}{}
 			close(recv)
 		},
+	}
+
+	connection.Stop = func() error {
+		// {{if .Config.Debug}}
+		log.Printf("[tcp-pivot] Stop()")
+		// {{end}}
+		connection.Cleanup()
+		return nil
 	}
 
 	connection.Start = func() error {

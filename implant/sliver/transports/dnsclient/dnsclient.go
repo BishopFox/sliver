@@ -91,6 +91,7 @@ var (
 	ErrClosed              = errors.New("dns session closed")
 	ErrInvalidResponse     = errors.New("invalid response")
 	ErrInvalidIndex        = errors.New("invalid start/stop index")
+	ErrEmptyResponse       = errors.New("empty response")
 )
 
 // DNSOptions - c2 specific options
@@ -442,6 +443,12 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	respData, _, err := resolver.TXT(domain)
 	if err != nil {
 		return nil, err
+	}
+	// {{if .Config.Debug}}
+	log.Printf("[dns] read msg resp data: %v", respData)
+	// {{end}}
+	if len(respData) < 1 {
+		return nil, nil
 	}
 
 	dnsMsg := &dnspb.DNSMessage{}
