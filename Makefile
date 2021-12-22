@@ -4,7 +4,7 @@
 
 GO ?= go
 ENV =
-TAGS = -tags osusergo,netgo,cgosqlite
+TAGS = -tags osusergo,netgo,cgosqlite,sqlite_omit_load_extension
 
 #
 # Version Information
@@ -42,6 +42,7 @@ UNAME_P := $(shell uname -p)
 # If the target is Windows from Linux/Darwin, check for mingw
 CROSS_COMPILERS = x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++
 ifneq (,$(findstring cgosqlite,$(TAGS)))
+	ENV +=CGO_ENABLED=1
 	ifeq ($(MAKECMDGOALS), windows)
 		K := $(foreach exec,$(CROSS_COMPILERS),\
 				$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
@@ -63,6 +64,18 @@ ifeq ($(UNAME_S),Darwin)
 endif
 ifeq ($(UNAME_P),arm)
 	ENV += GOARCH=arm64
+endif
+
+ifeq ($(MAKECMDGOALS), linux)
+	# Redefine LDFLAGS to add the static part
+	LDFLAGS = -ldflags "-s -w \
+		-extldflags '-static' \
+		-X $(PKG).Version=$(VERSION) \
+		-X \"$(PKG).GoVersion=$(GO_VERSION)\" \
+		-X $(PKG).CompiledAt=$(COMPILED_AT) \
+		-X $(PKG).GithubReleasesURL=$(RELEASES_URL) \
+		-X $(PKG).GitCommit=$(GIT_COMMIT) \
+		-X $(PKG).GitDirty=$(GIT_DIRTY)"
 endif
 
 #
