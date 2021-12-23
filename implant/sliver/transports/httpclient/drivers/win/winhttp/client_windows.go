@@ -3,6 +3,8 @@ package winhttp
 import (
 	"encoding/binary"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"time"
 )
 
@@ -38,13 +40,30 @@ func NewClient(userAgent string) (*Client, error) {
 }
 
 // Do will send the HTTP request and return an HTTP response.
-func (c *Client) Do(req *Request) (*Response, error) {
+func (c *Client) Do(request *http.Request) (*http.Response, error) {
 	var buf []byte
 	var err error
 	var reqHandle uintptr
-	var res *Response
+	var resp *Response
 	var tlsIgnore uintptr
 
+	// Convert http.Request to internal pkg Request
+	rawBody, err := ioutil.ReadAll(request.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read request body: %w", err)
+	}
+	headers := make(map[string]string)
+	for headerName, headerValue := range request.Header {
+		if 0 < len(headerValue) {
+			headers[headerName] = headerValue[0]
+		}
+	}
+	req := &Request{
+		Method:  request.Method,
+		URL:     request.URL.String(),
+		Headers: headers,
+		Body:    rawBody,
+	}
 	if reqHandle, err = buildRequest(c.handle, req); err != nil {
 		return nil, err
 	}
@@ -137,34 +156,19 @@ func (c *Client) Do(req *Request) (*Response, error) {
 		return nil, err
 	}
 
-	if res, err = buildResponse(reqHandle, req); err != nil {
+	if resp, err = buildResponse(reqHandle, req); err != nil {
 		return nil, err
 	}
 
-	return res, nil
-}
-
-// Get will make a GET request using dll.
-func (c *Client) Get(url string) (*Response, error) {
-	return c.Do(NewRequest(MethodGet, url))
-}
-
-// Head will make a HEAD request using dll.
-func (c *Client) Head(url string) (*Response, error) {
-	return c.Do(NewRequest(MethodHead, url))
-}
-
-// Post will make a POST request using dll.
-func (c *Client) Post(
-	url string,
-	contentType string,
-	body []byte,
-) (*Response, error) {
-	var r *Request = NewRequest(MethodPost, url, body)
-
-	if contentType != "" {
-		r.Headers["Content-Type"] = contentType
-	}
-
-	return c.Do(r)
+	return &http.Response{
+		Status:        resp.Status,
+		StatusCode:    resp.StatusCode,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Body:          resp.Body,
+		ContentLength: resp.ContentLength,
+		Request:       request,
+		Header:        make(http.Header),
+	}, nil
 }
