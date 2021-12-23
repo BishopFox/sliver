@@ -46,7 +46,7 @@ func GetHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, e
 
 	case wininetDriver:
 		// {{if .Config.Debug}}
-		log.Printf("Using winhttp driver")
+		log.Printf("Using wininet driver")
 		// {{end}}
 		return WininetDriver(origin, secure, opts)
 
