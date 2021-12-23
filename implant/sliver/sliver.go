@@ -18,7 +18,7 @@ package main
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if or .Config.IsSharedLib .Config.IsShellcode}}
+// {{if or .Config.IsSharedLib }}
 //#include "sliver.h"
 import "C"
 
