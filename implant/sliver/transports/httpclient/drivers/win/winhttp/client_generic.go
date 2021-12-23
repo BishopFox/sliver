@@ -1,6 +1,6 @@
 //go:build !windows
 
-package http
+package winhttp
 
 import "errors"
 
