@@ -35,7 +35,7 @@ func GetHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, e
 
 	default:
 		// {{if .Config.Debug}}
-		log.Printf("[DEBUG] httpclient: unknown HTTP driver: %s", opts.Driver)
+		log.Printf("WARNING: unknown HTTP driver: %s", opts.Driver)
 		// {{end}}
 		return GoHTTPDriver(origin, secure, opts)
 	}

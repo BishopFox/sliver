@@ -193,10 +193,12 @@ func (w *WinHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	// {{if .Config.Debug}}
 	log.Printf("[winhttp] bytesRead: %v", bytesRead)
 	log.Printf("[winhttp] data: %v\n", string(dataBuf))
+	// {{else}}
+	bytesRead++
+	bytesRead--
 	// {{end}}
 
 	resp := &http.Response{
@@ -205,7 +207,7 @@ func (w *WinHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		Proto:         "HTTP/1.1",
 		ProtoMajor:    1,
 		ProtoMinor:    1,
-		Body:          ioutil.NopCloser(bytes.NewBufferString(string(dataBuf))),
+		Body:          ioutil.NopCloser(bytes.NewReader(dataBuf)),
 		ContentLength: int64(dataSize),
 		Request:       req,
 		Header:        make(http.Header),
