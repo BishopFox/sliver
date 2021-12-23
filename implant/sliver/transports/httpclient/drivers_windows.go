@@ -19,9 +19,10 @@ package httpclient
 */
 
 import (
+	"net/url"
+
 	// {{if .Config.Debug}}
 	"log"
-
 	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient/winhttp"
@@ -32,9 +33,15 @@ func GetHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, e
 	switch opts.Driver {
 
 	case goHTTPDriver:
+		// {{if .Config.Debug}}
+		log.Printf("Using go http driver")
+		// {{end}}
 		return GoHTTPDriver(origin, secure, opts)
 
 	case winHTTPDriver:
+		// {{if .Config.Debug}}
+		log.Printf("Using winhttp driver")
+		// {{end}}
 		return WinHTTPDriver(origin, secure, opts)
 
 	default:
@@ -49,8 +56,12 @@ func GetHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, e
 func WinHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, error) {
 	port := uint16(80)
 	if secure {
-		port = uint16(443)
+		port = uint16(80)
 	}
-	driver := winhttp.NewWinHTTPClient(origin, port)
+	c2URL, err := url.Parse(origin)
+	if err != nil {
+		return nil, err
+	}
+	driver := winhttp.NewWinHTTPClient(c2URL.Host, port)
 	return driver, nil
 }

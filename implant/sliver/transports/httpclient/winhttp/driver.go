@@ -22,6 +22,7 @@ package winhttp
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -84,7 +85,11 @@ func (w *WinHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	}
 
 	openReqFlags := uint32(0)
-	hRequest, err := OpenRequest(hConnect, req.Method, req.RequestURI, "", w.referrer, w.acceptTypes, openReqFlags)
+	reqPath := fmt.Sprintf("%s?%s", req.URL.Path, req.URL.RawQuery)
+	// {{if .Config.Debug}}
+	log.Printf("[winhttp] req -> %s", reqPath)
+	// {{end}}
+	hRequest, err := OpenRequest(hConnect, req.Method, reqPath, "", w.referrer, w.acceptTypes, openReqFlags)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[winhttp] open request failed: %s", err)
