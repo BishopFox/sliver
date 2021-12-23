@@ -19,8 +19,11 @@ package winhttp
 */
 
 import (
+	"bytes"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"strconv"
 	"syscall"
 	"unsafe"
 
@@ -30,20 +33,19 @@ import (
 )
 
 // NewWinHTTPClient - Init a new WinHTTPClient
-func NewWinHTTPClient(hostname string, port uint16, referrer string, acceptTypes []string) *WinHTTPClient {
+func NewWinHTTPClient(hostname string, port uint16) *WinHTTPClient {
 	return &WinHTTPClient{
-		hostname:    hostname,
-		port:        port,
-		referrer:    referrer,
-		acceptTypes: acceptTypes,
+		hostname: hostname,
+		port:     port,
 	}
 }
 
 // WinHTTPClient - A WinHTTP driver
 type WinHTTPClient struct {
-	secure   bool
 	port     uint16
 	hostname string
+
+	hSession HInternet
 
 	referrer    string
 	acceptTypes []string
@@ -51,21 +53,27 @@ type WinHTTPClient struct {
 
 // Do - Execute an HTTP request
 func (w *WinHTTPClient) Do(req *http.Request) (*http.Response, error) {
-	hSession, err := Open(
-		req.Header.Get("User-Agent"),
-		WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-		"",
-		"",
-		0,
-	)
-	if err != nil {
+	var err error
+	if w.hSession == 0 {
 		// {{if .Config.Debug}}
-		log.Printf("[winhttp] open failed: %s", err)
+		log.Printf("[winhttp] starting new session ...")
 		// {{end}}
-		return nil, err
+		w.hSession, err = Open(
+			req.Header.Get("User-Agent"),
+			WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+			"",
+			"",
+			0,
+		)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("[winhttp] open failed: %s", err)
+			// {{end}}
+			return nil, err
+		}
 	}
 
-	hConnect, err := Connect(hSession, w.hostname, int(w.port))
+	hConnect, err := Connect(w.hSession, w.hostname, int(w.port))
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[winhttp] connect failed: %s", err)
@@ -120,19 +128,86 @@ func (w *WinHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
+	utf16StatusCode := make([]uint16, 16)
+	statusCodeSize := uint32(unsafe.Sizeof(uint16(0)) * 16)
+	err = QueryHeaders(
+		hRequest,
+		WINHTTP_QUERY_STATUS_CODE,
+		"",
+		&utf16StatusCode[0],
+		&statusCodeSize,
+		nil,
+	)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[winhttp] query headers failed: %s", err)
+		// {{end}}
+		return nil, err
+	}
+	statusCode, err := strconv.Atoi(syscall.UTF16ToString(utf16StatusCode[:]))
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[winhttp] failed to parse utf16 status code: %s", err)
+		// {{end}}
+		return nil, err
+	}
+
 	utf16Status := make([]uint16, 16)
 	statusSize := uint32(unsafe.Sizeof(uint16(0)) * 16)
 	err = QueryHeaders(
 		hRequest,
-		WINHTTP_QUERY_STATUS_CODE,
+		WINHTTP_QUERY_STATUS_TEXT,
 		"",
 		&utf16Status[0],
 		&statusSize,
 		nil,
 	)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[winhttp] query headers failed: %s", err)
+		// {{end}}
+		return nil, err
+	}
 	status := syscall.UTF16ToString(utf16Status[:])
 
-	log.Printf("[winhttp] status code: %s", status)
+	// {{if .Config.Debug}}
+	log.Printf("[winhttp] status code: %d", statusCode)
+	// {{end}}
 
-	return nil, nil
+	var dataSize uint
+	dataSize, err = QueryDataAvailable(hRequest)
+	if err != nil {
+		return nil, err
+	}
+	// {{if .Config.Debug}}
+	log.Printf("[winhttp] data size: %v", dataSize)
+	// {{end}}
+	dataBuf := make([]byte, dataSize)
+	var bytesRead int
+	bytesRead, err = ReadData(
+		hRequest,
+		dataBuf,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// {{if .Config.Debug}}
+	log.Printf("[winhttp] bytesRead: %v", bytesRead)
+	log.Printf("[winhttp] data: %v\n", string(dataBuf))
+	// {{end}}
+
+	resp := &http.Response{
+		Status:        status,
+		StatusCode:    statusCode,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Body:          ioutil.NopCloser(bytes.NewBufferString(string(dataBuf))),
+		ContentLength: int64(dataSize),
+		Request:       req,
+		Header:        make(http.Header),
+	}
+
+	return resp, nil
 }
