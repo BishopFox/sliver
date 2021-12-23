@@ -132,7 +132,7 @@ func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*Sl
 
 // HTTPDriver - The interface to send/recv HTTP data
 type HTTPDriver interface {
-	Do(req *http.Request) (*http.Response, error)
+	Do(*http.Request) (*http.Response, error)
 }
 
 // SliverHTTPClient - Helper struct to keep everything together

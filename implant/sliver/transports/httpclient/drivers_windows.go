@@ -19,13 +19,12 @@ package httpclient
 */
 
 import (
-	"net/url"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
-	winhttp "github.com/bishopfox/sliver/implant/sliver/transports/httpclient/drivers/win/winhttp/http"
+	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient/drivers/win/winhttp"
 )
 
 // GetHTTPDriver - Get an instance of the specified HTTP driver
@@ -54,15 +53,8 @@ func GetHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, e
 
 // WinHTTPDriver - Initialize a WinHTTP driver (Windows only)
 func WinHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, error) {
-	port := uint16(80)
-	if secure {
-		port = uint16(80)
-	}
-	c2URL, err := url.Parse(origin)
-	if err != nil {
-		return nil, err
-	}
-	winhttpClient, err := winhttp.NewClient()
+
+	winhttpClient, err := winhttp.NewClient(userAgent)
 	if err != nil {
 		return nil, err
 	}

@@ -48,10 +48,14 @@ func (c *Client) Do(request *http.Request) (*http.Response, error) {
 	var tlsIgnore uintptr
 
 	// Convert http.Request to internal pkg Request
-	rawBody, err := ioutil.ReadAll(request.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read request body: %w", err)
+	var rawBody []byte
+	if request.Body != nil {
+		rawBody, err = ioutil.ReadAll(request.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read request body: %w", err)
+		}
 	}
+
 	headers := make(map[string]string)
 	for headerName, headerValue := range request.Header {
 		if 0 < len(headerValue) {
