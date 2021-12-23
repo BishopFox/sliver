@@ -3,13 +3,15 @@ package wininet
 import (
 	"encoding/binary"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"time"
 )
 
 // Client is a struct containing relevant metadata to make HTTP
 // requests.
 type Client struct {
-	hndl            uintptr
+	handle          uintptr
 	Timeout         time.Duration
 	TLSClientConfig struct {
 		InsecureSkipVerify bool
@@ -18,128 +20,133 @@ type Client struct {
 
 // NewClient will return a pointer to a new Client instance that
 // simply wraps the net/http.Client type.
-func NewClient() (*Client, error) {
-	var c = &Client{}
-	var e error
+func NewClient(userAgent string) (*Client, error) {
+	var client = &Client{}
+	var err error
 
 	// Create session
-	c.hndl, e = InternetOpenW(
-		"Go-http-client/1.1",
+	client.handle, err = InternetOpenW(
+		userAgent,
 		InternetOpenTypePreconfig,
 		"",
 		"",
 		0,
 	)
-	if e != nil {
-		return nil, fmt.Errorf("failed to create session: %w", e)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
-
-	return c, nil
+	return client, nil
 }
 
 // Do will send the HTTP request and return an HTTP response.
-func (c *Client) Do(r *Request) (*Response, error) {
-	var b []byte
-	var e error
-	var reqHndl uintptr
-	var res *Response
+func (c *Client) Do(request *http.Request) (*http.Response, error) {
+	var buf []byte
+	var err error
+	var reqHandle uintptr
+	var resp *Response
 
-	if reqHndl, e = buildRequest(c.hndl, r); e != nil {
-		return nil, e
+	var rawBody []byte
+	if request.Body != nil {
+		rawBody, err = ioutil.ReadAll(request.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read request body: %w", err)
+		}
+	}
+
+	headers := make(map[string]string)
+	for headerName, headerValue := range request.Header {
+		if 0 < len(headerValue) {
+			headers[headerName] = headerValue[0]
+		}
+	}
+	req := &Request{
+		Method:  request.Method,
+		URL:     request.URL.String(),
+		Headers: headers,
+		Body:    rawBody,
+	}
+
+	if reqHandle, err = buildRequest(c.handle, req); err != nil {
+		return nil, err
 	}
 
 	if c.Timeout > 0 {
-		b = make([]byte, 4)
+		buf = make([]byte, 4)
 		binary.LittleEndian.PutUint32(
-			b,
+			buf,
 			uint32(c.Timeout.Milliseconds()),
 		)
 
-		e = InternetSetOptionW(
-			reqHndl,
+		err = InternetSetOptionW(
+			reqHandle,
 			InternetOptionConnectTimeout,
-			b,
-			len(b),
+			buf,
+			len(buf),
 		)
-		if e != nil {
-			e = fmt.Errorf("failed to set connect timeout: %w", e)
-			return nil, e
+		if err != nil {
+			err = fmt.Errorf("failed to set connect timeout: %w", err)
+			return nil, err
 		}
 
-		e = InternetSetOptionW(
-			reqHndl,
+		err = InternetSetOptionW(
+			reqHandle,
 			InternetOptionReceiveTimeout,
-			b,
-			len(b),
+			buf,
+			len(buf),
 		)
-		if e != nil {
-			e = fmt.Errorf("failed to set receive timeout: %w", e)
-			return nil, e
+		if err != nil {
+			err = fmt.Errorf("failed to set receive timeout: %w", err)
+			return nil, err
 		}
 
-		e = InternetSetOptionW(
-			reqHndl,
+		err = InternetSetOptionW(
+			reqHandle,
 			InternetOptionSendTimeout,
-			b,
-			len(b),
+			buf,
+			len(buf),
 		)
-		if e != nil {
-			e = fmt.Errorf("failed to set send timeout: %w", e)
-			return nil, e
+		if err != nil {
+			err = fmt.Errorf("failed to set send timeout: %w", err)
+			return nil, err
 		}
 	}
 
 	if c.TLSClientConfig.InsecureSkipVerify {
-		b = make([]byte, 4)
+		buf = make([]byte, 4)
 		binary.LittleEndian.PutUint32(
-			b,
+			buf,
 			uint32(SecuritySetMask),
 		)
 
-		e = InternetSetOptionW(
-			reqHndl,
+		err = InternetSetOptionW(
+			reqHandle,
 			InternetOptionSecurityFlags,
-			b,
-			len(b),
+			buf,
+			len(buf),
 		)
-		if e != nil {
-			e = fmt.Errorf("failed to set security flags: %w", e)
-			return nil, e
+		if err != nil {
+			err = fmt.Errorf("failed to set security flags: %w", err)
+			return nil, err
 		}
 	}
 
-	if e = sendRequest(reqHndl, r); e != nil {
-		return nil, e
+	if err = sendRequest(reqHandle, req); err != nil {
+		return nil, err
 	}
 
-	if res, e = buildResponse(reqHndl, r); e != nil {
-		return nil, e
+	if resp, err = buildResponse(reqHandle, req); err != nil {
+		return nil, err
 	}
 
-	return res, nil
-}
-
-// Get will make a GET request using dll.
-func (c *Client) Get(url string) (*Response, error) {
-	return c.Do(NewRequest(MethodGet, url))
-}
-
-// Head will make a HEAD request using dll.
-func (c *Client) Head(url string) (*Response, error) {
-	return c.Do(NewRequest(MethodHead, url))
-}
-
-// Post will make a POST request using dll.
-func (c *Client) Post(
-	url string,
-	contentType string,
-	body []byte,
-) (*Response, error) {
-	var r *Request = NewRequest(MethodPost, url, body)
-
-	if contentType != "" {
-		r.Headers["Content-Type"] = contentType
-	}
-
-	return c.Do(r)
+	return &http.Response{
+		Status:        resp.Status,
+		StatusCode:    resp.StatusCode,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Body:          resp.Body,
+		ContentLength: resp.ContentLength,
+		Request:       request,
+		Header:        make(http.Header),
+	}, nil
 }

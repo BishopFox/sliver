@@ -49,6 +49,7 @@ import (
 const (
 	goHTTPDriver  = "go"
 	winHTTPDriver = "winhttp"
+	wininetDriver = "wininet"
 
 	userAgent         = "{{GenerateUserAgent}}"
 	nonceQueryArgs    = "abcdefghijklmnopqrstuvwxyz_"

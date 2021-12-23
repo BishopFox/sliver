@@ -25,6 +25,7 @@ import (
 	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient/drivers/win/winhttp"
+	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient/drivers/win/wininet"
 )
 
 // GetHTTPDriver - Get an instance of the specified HTTP driver
@@ -43,6 +44,12 @@ func GetHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, e
 		// {{end}}
 		return WinHTTPDriver(origin, secure, opts)
 
+	case wininetDriver:
+		// {{if .Config.Debug}}
+		log.Printf("Using winhttp driver")
+		// {{end}}
+		return WininetDriver(origin, secure, opts)
+
 	default:
 		// {{if .Config.Debug}}
 		log.Printf("WARNING: unknown HTTP driver: %s", opts.Driver)
@@ -53,12 +60,20 @@ func GetHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, e
 
 // WinHTTPDriver - Initialize a WinHTTP driver (Windows only)
 func WinHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, error) {
-
 	winhttpClient, err := winhttp.NewClient(userAgent)
 	if err != nil {
 		return nil, err
 	}
 	winhttpClient.TLSClientConfig.InsecureSkipVerify = true
-
 	return winhttpClient, nil
+}
+
+// WininetDriver - Initialize a WinHTTP driver (Windows only)
+func WininetDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, error) {
+	wininetClient, err := wininet.NewClient(userAgent)
+	if err != nil {
+		return nil, err
+	}
+	wininetClient.TLSClientConfig.InsecureSkipVerify = true
+	return wininetClient, nil
 }
