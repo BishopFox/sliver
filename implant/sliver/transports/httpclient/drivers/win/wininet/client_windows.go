@@ -1,11 +1,9 @@
-package http
+package wininet
 
 import (
 	"encoding/binary"
 	"fmt"
 	"time"
-
-	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient/drivers/win/wininet"
 )
 
 // Client is a struct containing relevant metadata to make HTTP
@@ -25,9 +23,9 @@ func NewClient() (*Client, error) {
 	var e error
 
 	// Create session
-	c.hndl, e = wininet.InternetOpenW(
+	c.hndl, e = InternetOpenW(
 		"Go-http-client/1.1",
-		wininet.InternetOpenTypePreconfig,
+		InternetOpenTypePreconfig,
 		"",
 		"",
 		0,
@@ -57,9 +55,9 @@ func (c *Client) Do(r *Request) (*Response, error) {
 			uint32(c.Timeout.Milliseconds()),
 		)
 
-		e = wininet.InternetSetOptionW(
+		e = InternetSetOptionW(
 			reqHndl,
-			wininet.InternetOptionConnectTimeout,
+			InternetOptionConnectTimeout,
 			b,
 			len(b),
 		)
@@ -68,9 +66,9 @@ func (c *Client) Do(r *Request) (*Response, error) {
 			return nil, e
 		}
 
-		e = wininet.InternetSetOptionW(
+		e = InternetSetOptionW(
 			reqHndl,
-			wininet.InternetOptionReceiveTimeout,
+			InternetOptionReceiveTimeout,
 			b,
 			len(b),
 		)
@@ -79,9 +77,9 @@ func (c *Client) Do(r *Request) (*Response, error) {
 			return nil, e
 		}
 
-		e = wininet.InternetSetOptionW(
+		e = InternetSetOptionW(
 			reqHndl,
-			wininet.InternetOptionSendTimeout,
+			InternetOptionSendTimeout,
 			b,
 			len(b),
 		)
@@ -95,12 +93,12 @@ func (c *Client) Do(r *Request) (*Response, error) {
 		b = make([]byte, 4)
 		binary.LittleEndian.PutUint32(
 			b,
-			uint32(wininet.SecuritySetMask),
+			uint32(SecuritySetMask),
 		)
 
-		e = wininet.InternetSetOptionW(
+		e = InternetSetOptionW(
 			reqHndl,
-			wininet.InternetOptionSecurityFlags,
+			InternetOptionSecurityFlags,
 			b,
 			len(b),
 		)
@@ -121,17 +119,17 @@ func (c *Client) Do(r *Request) (*Response, error) {
 	return res, nil
 }
 
-// Get will make a GET request using Wininet.dll.
+// Get will make a GET request using dll.
 func (c *Client) Get(url string) (*Response, error) {
 	return c.Do(NewRequest(MethodGet, url))
 }
 
-// Head will make a HEAD request using Wininet.dll.
+// Head will make a HEAD request using dll.
 func (c *Client) Head(url string) (*Response, error) {
 	return c.Do(NewRequest(MethodHead, url))
 }
 
-// Post will make a POST request using Wininet.dll.
+// Post will make a POST request using dll.
 func (c *Client) Post(
 	url string,
 	contentType string,
