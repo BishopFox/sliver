@@ -1,0 +1,6 @@
+*.profile
+*.test
+build
+cmd/*
+local
+tags
