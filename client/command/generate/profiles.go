@@ -21,6 +21,7 @@ package generate
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
@@ -38,7 +39,7 @@ func ProfilesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	if len(profiles) == 0 {
-		con.PrintInfof("No profiles, create one with `%s`\n", consts.NewStr)
+		con.PrintInfof("No profiles, see `%s %s help`\n", consts.ProfilesStr, consts.NewStr)
 		return
 	} else {
 		PrintProfiles(profiles, con)
@@ -47,7 +48,6 @@ func ProfilesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 // PrintProfiles - Print the profiles
 func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverConsoleClient) {
-
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
@@ -60,52 +60,34 @@ func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverConso
 		"Obfuscation",
 		"Limitations",
 	})
+	tw.SortBy([]table.SortBy{
+		{Name: "Profile Name", Mode: table.Asc},
+	})
 
 	for _, profile := range profiles {
 		config := profile.Config
-		if 0 < len(config.C2) {
-			obfuscation := "disabled"
-			if config.ObfuscateSymbols {
-				obfuscation = "enabled"
-			}
-			implantType := "session"
-			if config.IsBeacon {
-				implantType = "beacon"
-			}
-			tw.AppendRow(table.Row{
-				profile.Name,
-				implantType,
-				fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
-				fmt.Sprintf("[1] %s", config.C2[0].URL),
-				fmt.Sprintf("%v", config.Debug),
-				fmt.Sprintf("%v", config.Format),
-				obfuscation,
-				getLimitsString(config),
-			})
+
+		obfuscation := "disabled"
+		if config.ObfuscateSymbols {
+			obfuscation = "enabled"
 		}
-		if 1 < len(config.C2) {
-			for index, c2 := range config.C2[1:] {
-				tw.AppendRow(table.Row{
-					"",
-					"",
-					"",
-					fmt.Sprintf("[%d] %s", index+2, c2.URL),
-					"",
-					"",
-					"",
-					"",
-				})
-			}
+		implantType := "session"
+		if config.IsBeacon {
+			implantType = "beacon"
+		}
+		c2URLs := []string{}
+		for index, c2 := range config.C2 {
+			c2URLs = append(c2URLs, fmt.Sprintf("[%d] %s", index+1, c2.URL))
 		}
 		tw.AppendRow(table.Row{
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
+			profile.Name,
+			implantType,
+			fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
+			strings.Join(c2URLs, "\n"),
+			fmt.Sprintf("%v", config.Debug),
+			fmt.Sprintf("%v", config.Format),
+			obfuscation,
+			getLimitsString(config),
 		})
 	}
 
@@ -121,6 +103,7 @@ func getImplantProfiles(con *console.SliverConsoleClient) []*clientpb.ImplantPro
 	return pbProfiles.Profiles
 }
 
+// GetImplantProfileByName - Get an implant profile by a specific name
 func GetImplantProfileByName(name string, con *console.SliverConsoleClient) *clientpb.ImplantProfile {
 	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -133,4 +116,19 @@ func GetImplantProfileByName(name string, con *console.SliverConsoleClient) *cli
 		}
 	}
 	return nil
+}
+
+// ProfileNameCompleter - Completer for implant build names
+func ProfileNameCompleter(prefix string, args []string, con *console.SliverConsoleClient) []string {
+	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return []string{}
+	}
+	results := []string{}
+	for _, profile := range pbProfiles.Profiles {
+		if strings.HasPrefix(profile.Name, prefix) {
+			results = append(results, profile.Name)
+		}
+	}
+	return results
 }

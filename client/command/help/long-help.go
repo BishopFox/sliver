@@ -211,12 +211,12 @@ profiles new --profile-name windows-shellcode --format shellcode --mtls 1.2.3.4 
 
 [[.Bold]][[.Underline]]++ Profiles ++[[.Normal]]
 Profiles are an easy way to save an implant configuration and easily generate multiple copies of the binary with the same
-settings. Generated implants will still have per-binary certificates/obfuscation/etc. This command is used with generate-profile:
-	profiles new --profile-name mtls-profile --mtls foo.example.com --canary 1.foobar.com
-	generate-profile mtls-profile
+settings. Generated implants will still have per-binary certificates/obfuscation/etc. This command is used with "profiles generate":
+	profiles new --mtls foo.example.com --canary 1.foobar.com my-profile-name
+	profiles generate my-profile-name
 `
 
-	generateProfileHelp = `[[.Bold]]Command:[[.Normal]] generate-profile [name] <options>
+	generateProfileHelp = `[[.Bold]]Command:[[.Normal]] generate [name] <options>
 [[.Bold]]About:[[.Normal]] Generate an implant from a saved profile (see 'profiles new --help').`
 
 	msfHelp = `[[.Bold]]Command:[[.Normal]] msf [--lhost] <options>
