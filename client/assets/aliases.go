@@ -19,6 +19,7 @@ package assets
 */
 
 import (
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -39,4 +40,26 @@ func GetAliasesDir() string {
 		}
 	}
 	return dir
+}
+
+// GetInstalledAliasManifests - Returns a list of installed alias manifests
+func GetInstalledAliasManifests() []string {
+	aliasDir := GetAliasesDir()
+	aliasDirContent, err := ioutil.ReadDir(aliasDir)
+	if err != nil {
+		log.Printf("error loading aliases: %s", err)
+		return []string{}
+	}
+	manifests := []string{}
+	for _, fi := range aliasDirContent {
+		if fi.IsDir() {
+			manifestPath := filepath.Join(aliasDir, fi.Name(), "manifest.json")
+			if _, err := os.Stat(manifestPath); !os.IsNotExist(err) {
+				log.Printf("no manifest in %s, skipping ...", manifestPath)
+				continue
+			}
+			manifests = append(manifests, manifestPath)
+		}
+	}
+	return manifests
 }

@@ -40,6 +40,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/beacons"
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/dllhijack"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
@@ -1972,6 +1973,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Args: func(a *grumble.Args) {
 			a.String("dir-path", "path to the alias directory")
+		},
+		Completer: func(prefix string, args []string) []string {
+			return completers.LocalPathCompleter(prefix, args, con)
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})

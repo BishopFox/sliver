@@ -19,6 +19,7 @@ package assets
 */
 
 import (
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -40,4 +41,26 @@ func GetExtensionsDir() string {
 		}
 	}
 	return dir
+}
+
+// GetInstalledExtensionManifests - Returns a list of installed extension manifests
+func GetInstalledExtensionManifests() []string {
+	extDir := GetExtensionsDir()
+	extDirContent, err := ioutil.ReadDir(extDir)
+	if err != nil {
+		log.Printf("error loading aliases: %s", err)
+		return []string{}
+	}
+	manifests := []string{}
+	for _, fi := range extDirContent {
+		if fi.IsDir() {
+			manifestPath := filepath.Join(extDir, fi.Name(), "manifest.json")
+			if _, err := os.Stat(manifestPath); !os.IsNotExist(err) {
+				log.Printf("no manifest in %s, skipping ...", manifestPath)
+				continue
+			}
+			manifests = append(manifests, manifestPath)
+		}
+	}
+	return manifests
 }

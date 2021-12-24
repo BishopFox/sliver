@@ -21,6 +21,7 @@ package assets
 import (
 	"embed"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"os"
@@ -80,7 +81,7 @@ func Setup(force bool, echo bool) {
 		if echo {
 			fmt.Printf("Unpacking assets ...\n")
 		}
-		err := setupCoffLoaderExt(appDir)
+		err := setupDefaultExtensions(appDir)
 		if err != nil {
 			fmt.Println(err)
 			log.Fatal(err)
@@ -92,42 +93,29 @@ func Setup(force bool, echo bool) {
 	}
 }
 
-func setupCoffLoaderExt(appDir string) error {
-	extDir := GetExtensionsDir()
-	win32ExtDir := filepath.Join("windows", "386")
-	win64ExtDir := filepath.Join("windows", "amd64")
-	coffLoader32 := filepath.Join("fs", SliverExtensionsDirName, win32ExtDir, "COFFLoader.x86.dll")
-	coffLoader64 := filepath.Join("fs", SliverExtensionsDirName, win64ExtDir, "COFFLoader.x64.dll")
-	manifestPath := filepath.Join("fs", SliverExtensionsDirName, "manifest.json")
-	loader64, err := clientAssetsFs.ReadFile(coffLoader64)
-	if err != nil {
-		return err
-	}
-	loader32, err := clientAssetsFs.ReadFile(coffLoader32)
-	if err != nil {
-		return err
-	}
-	manifest, err := clientAssetsFs.ReadFile(manifestPath)
-	if err != nil {
-		return err
-	}
-	localWin32ExtDir := filepath.Join(extDir, win32ExtDir)
-	err = os.MkdirAll(localWin32ExtDir, 0700)
-	if err != nil {
-		return err
-	}
-	localWin64ExtDir := filepath.Join(extDir, win64ExtDir)
-	err = os.MkdirAll(localWin64ExtDir, 0700)
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(filepath.Join(localWin32ExtDir, "COFFLoader.x86.dll"), loader32, 0744)
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(filepath.Join(extDir, "manifest.json"), manifest, 0700)
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(filepath.Join(localWin64ExtDir, "COFFLoader.x64.dll"), loader64, 0744)
+func setupDefaultExtensions(appDir string) error {
+	localExtDir := GetExtensionsDir()
+	rootEmbedPath := "fs/extensions"
+	return fs.WalkDir(clientAssetsFs, rootEmbedPath, func(embedPath string, embedDir fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		localPath := strings.TrimPrefix(embedPath, rootEmbedPath)
+		if embedDir.IsDir() {
+			err := os.MkdirAll(filepath.Join(localExtDir, localPath), 0o700)
+			if err != nil {
+				return err
+			}
+		} else {
+			data, err := fs.ReadFile(clientAssetsFs, embedPath)
+			if err != nil {
+				return err
+			}
+			err = ioutil.WriteFile(filepath.Join(localExtDir, localPath), data, 0o600)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

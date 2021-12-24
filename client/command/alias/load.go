@@ -43,11 +43,21 @@ const (
 	macosDefaultHostProc   = "/Applications/Safari.app/Contents/MacOS/SafariForWebKitDevelopment"
 )
 
-var commandMap map[string]Alias
-var defaultHostProc = map[string]string{
-	"windows": windowsDefaultHostProc,
-	"linux":   windowsDefaultHostProc,
-	"darwin":  macosDefaultHostProc,
+var (
+	// alias name -> manifest/command
+	loadedAliases = map[string]*loadedAlias{}
+
+	defaultHostProc = map[string]string{
+		"windows": windowsDefaultHostProc,
+		"linux":   windowsDefaultHostProc,
+		"darwin":  macosDefaultHostProc,
+	}
+)
+
+// Ties the manifest struct to the command struct
+type loadedAlias struct {
+	Manifest *AliasManifest
+	Command  *grumble.Command
 }
 
 type binFiles struct {
@@ -64,12 +74,12 @@ type AliasCommand struct {
 	Name         string      `json:"name"`
 	Entrypoint   string      `json:"entrypoint"`
 	Help         string      `json:"help"`
-	LongHelp     string      `json:"longHelp"`
-	AllowArgs    bool        `json:"allowArgs"`
-	DefaultArgs  string      `json:"defaultArgs"`
-	AliasFiles   []AliasFile `json:"extFiles"`
-	IsReflective bool        `json:"isReflective"`
-	IsAssembly   bool        `json:"IsAssembly"`
+	LongHelp     string      `json:"long_help"`
+	AllowArgs    bool        `json:"allow_args"`
+	DefaultArgs  string      `json:"default_args"`
+	AliasFiles   []AliasFile `json:"files"`
+	IsReflective bool        `json:"is_reflective"`
+	IsAssembly   bool        `json:"is_assembly"`
 }
 
 func (ec *AliasCommand) getDefaultProcess(targetOS string) (proc string, err error) {
@@ -80,109 +90,109 @@ func (ec *AliasCommand) getDefaultProcess(targetOS string) (proc string, err err
 	return
 }
 
-type Alias struct {
-	Name     string         `json:"aliasName"`
-	Commands []AliasCommand `json:"aliasCommands"`
-	Path     string
+type AliasManifest struct {
+	Name     string       `json:"name"`
+	Command  AliasCommand `json:"command"`
+	RootPath string
 }
 
-func (e *Alias) getFileForTarget(cmdName string, targetOS string, targetArch string) (filePath string, err error) {
-	for _, c := range e.Commands {
-		if cmdName == c.Name {
-			for _, ef := range c.AliasFiles {
-				if targetOS == ef.OS {
-					switch targetArch {
-					case "x86":
-						filePath = filepath.Join(e.Path, ef.Files.Ext32Path)
-					case "x64":
-						filePath = filepath.Join(e.Path, ef.Files.Ext64Path)
-					default:
-						filePath = filepath.Join(e.Path, ef.Files.Ext64Path)
-					}
-				}
+func (a *AliasManifest) getFileForTarget(cmdName string, targetOS string, targetArch string) (string, error) {
+	var filePath string
+	var err error
+	for _, ef := range a.Command.AliasFiles {
+		if targetOS == ef.OS {
+			switch targetArch {
+			case "x86":
+				filePath = filepath.Join(a.RootPath, filepath.Base(ef.Files.Ext32Path))
+			case "x64":
+				filePath = filepath.Join(a.RootPath, filepath.Base(ef.Files.Ext64Path))
+			default:
+				filePath = filepath.Join(a.RootPath, filepath.Base(ef.Files.Ext64Path))
 			}
-
 		}
 	}
 	if filePath == "" {
 		err = fmt.Errorf("no alias file found for %s/%s", targetOS, targetArch)
 	}
-	return
-}
-
-func (e *Alias) getCommandFromName(name string) (extCmd *AliasCommand, err error) {
-	for _, x := range e.Commands {
-		if x.Name == name {
-			extCmd = &x
-			return
-		}
-	}
-	err = fmt.Errorf("no alias command found for name %s", name)
-	return
+	return filePath, err
 }
 
 // LoadAliasCmd - Locally load a alias into the Sliver shell.
 func LoadAliasCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-
 	dirPath := ctx.Args.String("dir-path")
+	alias, err := LoadAlias(dirPath, ctx, con)
+	if err != nil {
+		con.PrintErrorf("Failed to load alias: %s\n", err)
+	} else {
+		con.PrintInfof("%s alias has been loaded\n", alias.Name)
+	}
+}
 
+// LoadAlias - Load an alias into the Sliver shell from a given directory
+func LoadAlias(dirPath string, ctx *grumble.Context, con *console.SliverConsoleClient) (*AliasManifest, error) {
 	// retrieve alias manifest
-	manifestPath := fmt.Sprintf("%s/%s", dirPath, "manifest.json")
+	var err error
+	dirPath, err = filepath.Abs(dirPath)
+	if err != nil {
+		return nil, err
+	}
+	manifestPath := filepath.Join(dirPath, "manifest.json")
 	jsonBytes, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	}
 	// parse it
-	alias := &Alias{}
+	alias := &AliasManifest{}
 	err = json.Unmarshal(jsonBytes, alias)
 	if err != nil {
-		con.PrintErrorf("Error loading alias: %v", err)
-		return
+		return nil, err
 	}
-	alias.Path = dirPath
+	alias.RootPath = dirPath
 	// for each alias command, add a new app command
-	for _, extCmd := range alias.Commands {
-		// do not add if the command already exists
-		if cmdExists(extCmd.Name, ctx.App) {
-			con.PrintErrorf("%s command already exists\n", extCmd.Name)
-			return
-		}
-		con.PrintInfof("Adding %s command: %s\n", extCmd.Name, extCmd.Help)
 
-		// Have to use a global map here, as passing the extCmd
-		// either by value or by ref fucks things up
-		commandMap[extCmd.Name] = *alias
-		helpMsg := fmt.Sprintf("[%s] %s", alias.Name, extCmd.Help)
-		addAliasCmd := &grumble.Command{
-			Name:     extCmd.Name,
-			Help:     helpMsg,
-			LongHelp: help.FormatHelpTmpl(extCmd.LongHelp),
-			Run: func(extCtx *grumble.Context) error {
-				con.Println()
-				runAliasCommand(extCtx, con)
-				con.Println()
-				return nil
-			},
-			Flags: func(f *grumble.Flags) {
-				if extCmd.IsAssembly {
-					f.String("m", "method", "", "Optional method (a method is required for a .NET DLL)")
-					f.String("c", "class", "", "Optional class name (required for .NET DLL)")
-					f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
-					f.String("a", "arch", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
-				}
-				f.String("p", "process", "", "Path to process to host the shared object")
-				f.Bool("s", "save", false, "Save output to disk")
-
-				f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-			},
-			Args: func(a *grumble.Args) {
-				a.StringList("arguments", "arguments", grumble.Default([]string{}))
-			},
-			HelpGroup: consts.AliasHelpGroup,
-		}
-		con.App.AddCommand(addAliasCmd)
+	// do not add if the command already exists
+	if cmdExists(alias.Name, ctx.App) {
+		return nil, fmt.Errorf("'%s' command already exists", alias.Name)
 	}
-	con.PrintInfof("%s alias has been loaded\n", alias.Name)
+
+	helpMsg := fmt.Sprintf("[%s] %s", alias.Name, alias.Command.Help)
+	addAliasCmd := &grumble.Command{
+		Name:     alias.Name,
+		Help:     helpMsg,
+		LongHelp: help.FormatHelpTmpl(alias.Command.LongHelp),
+		Run: func(extCtx *grumble.Context) error {
+			con.Println()
+			runAliasCommand(extCtx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			if alias.Command.IsAssembly {
+				f.String("m", "method", "", "Optional method (a method is required for a .NET DLL)")
+				f.String("c", "class", "", "Optional class name (required for .NET DLL)")
+				f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
+				f.String("a", "arch", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
+			}
+			f.String("p", "process", "", "Path to process to host the shared object")
+			f.Bool("s", "save", false, "Save output to disk")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.StringList("arguments", "arguments", grumble.Default([]string{}))
+		},
+		HelpGroup: consts.AliasHelpGroup,
+	}
+	con.App.AddCommand(addAliasCmd)
+
+	// Have to use a global map here, as passing the aliasCmd
+	// either by value or by ref fucks things up
+	loadedAliases[alias.Name] = &loadedAlias{
+		Manifest: alias,
+		Command:  addAliasCmd,
+	}
+
+	return alias, nil
 }
 
 func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
@@ -190,35 +200,28 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if session == nil {
 		return
 	}
-	ext, ok := commandMap[ctx.Command.Name]
+	loadedAlias, ok := loadedAliases[ctx.Command.Name]
 	if !ok {
-		con.PrintErrorf("No alias command found for `%s` command\n", ctx.Command.Name)
+		con.PrintErrorf("No alias found for `%s` command\n", ctx.Command.Name)
 		return
 	}
-
-	binPath, err := ext.getFileForTarget(ctx.Command.Name, session.GetOS(), session.GetArch())
+	alias := loadedAlias.Manifest
+	binPath, err := alias.getFileForTarget(ctx.Command.Name, session.GetOS(), session.GetArch())
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-
-	c, err := ext.getCommandFromName(ctx.Command.Name)
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return
-	}
-
 	args := ctx.Args.StringList("arguments")
 	var extArgs string
-	if len(c.DefaultArgs) != 0 && len(args) == 0 {
-		extArgs = c.DefaultArgs
+	if len(alias.Command.DefaultArgs) != 0 && len(args) == 0 {
+		extArgs = alias.Command.DefaultArgs
 	} else {
 		extArgs = strings.Join(args, " ")
 	}
-	entryPoint := c.Entrypoint
+	entryPoint := alias.Command.Entrypoint
 	processName := ctx.Flags.String("process")
 	if processName == "" {
-		processName, err = c.getDefaultProcess(session.GetOS())
+		processName, err = alias.Command.getDefaultProcess(session.GetOS())
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
@@ -242,7 +245,7 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			return
 		}
 	}
-	if c.IsAssembly {
+	if alias.Command.IsAssembly {
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
@@ -268,7 +271,7 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			outFilePath.Write(executeAssemblyResp.GetOutput())
 			con.PrintInfof("Output saved to %s\n", outFilePath.Name())
 		}
-	} else if c.IsReflective {
+	} else if alias.Command.IsReflective {
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
@@ -277,7 +280,7 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			Args:        strings.Trim(extArgs, " "),
 			Data:        binData,
 			ProcessName: processName,
-			EntryPoint:  c.Entrypoint,
+			EntryPoint:  alias.Command.Entrypoint,
 			Kill:        true,
 		})
 		ctrl <- true
@@ -329,8 +332,4 @@ func cmdExists(name string, app *grumble.App) bool {
 		}
 	}
 	return false
-}
-
-func init() {
-	commandMap = make(map[string]Alias)
 }
