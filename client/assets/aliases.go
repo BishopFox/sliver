@@ -54,7 +54,7 @@ func GetInstalledAliasManifests() []string {
 	for _, fi := range aliasDirContent {
 		if fi.IsDir() {
 			manifestPath := filepath.Join(aliasDir, fi.Name(), "manifest.json")
-			if _, err := os.Stat(manifestPath); !os.IsNotExist(err) {
+			if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
 				log.Printf("no manifest in %s, skipping ...", manifestPath)
 				continue
 			}

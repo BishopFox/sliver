@@ -55,7 +55,7 @@ func GetInstalledExtensionManifests() []string {
 	for _, fi := range extDirContent {
 		if fi.IsDir() {
 			manifestPath := filepath.Join(extDir, fi.Name(), "manifest.json")
-			if _, err := os.Stat(manifestPath); !os.IsNotExist(err) {
+			if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
 				log.Printf("no manifest in %s, skipping ...", manifestPath)
 				continue
 			}

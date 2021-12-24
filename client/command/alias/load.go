@@ -120,7 +120,7 @@ func (a *AliasManifest) getFileForTarget(cmdName string, targetOS string, target
 // LoadAliasCmd - Locally load a alias into the Sliver shell.
 func LoadAliasCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	dirPath := ctx.Args.String("dir-path")
-	alias, err := LoadAlias(dirPath, ctx, con)
+	alias, err := LoadAlias(dirPath, con)
 	if err != nil {
 		con.PrintErrorf("Failed to load alias: %s\n", err)
 	} else {
@@ -129,7 +129,7 @@ func LoadAliasCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 // LoadAlias - Load an alias into the Sliver shell from a given directory
-func LoadAlias(dirPath string, ctx *grumble.Context, con *console.SliverConsoleClient) (*AliasManifest, error) {
+func LoadAlias(dirPath string, con *console.SliverConsoleClient) (*AliasManifest, error) {
 	// retrieve alias manifest
 	var err error
 	dirPath, err = filepath.Abs(dirPath)
@@ -151,7 +151,7 @@ func LoadAlias(dirPath string, ctx *grumble.Context, con *console.SliverConsoleC
 	// for each alias command, add a new app command
 
 	// do not add if the command already exists
-	if cmdExists(alias.Name, ctx.App) {
+	if cmdExists(alias.Name, con.App) {
 		return nil, fmt.Errorf("'%s' command already exists", alias.Name)
 	}
 

@@ -86,6 +86,7 @@ const (
 // BindCommands - Bind commands to a App
 func BindCommands(con *console.SliverConsoleClient) {
 
+	// Load Reactions
 	n, err := reaction.LoadReactions()
 	if err != nil && !os.IsNotExist(err) {
 		con.PrintErrorf("Failed to load reactions: %s\n", err)
@@ -93,13 +94,36 @@ func BindCommands(con *console.SliverConsoleClient) {
 		con.PrintInfof("Loaded %d reaction(s) from disk\n", n)
 	}
 
-	// Attempt to load extensions from ~/.sliver-client/extensions/
-	exts, err := extensions.ParseExtensions(assets.GetExtensionsDir())
-	// Absorb error in case there's no extensions manifest
-	if err == nil {
-		for _, ext := range exts {
-			extensions.ExtensionRegisterCommand(ext, con)
+	// Load Aliases
+	aliasManifests := assets.GetInstalledAliasManifests()
+	n = 0
+	for _, manifest := range aliasManifests {
+		_, err = alias.LoadAlias(manifest, con)
+		if err != nil {
+			con.PrintErrorf("Failed to load alias: %s\n", err)
+			continue
 		}
+		n++
+	}
+	if 0 < n {
+		con.PrintInfof("Loaded %d alias(es) from disk\n", n)
+	}
+
+	// Load Extensions
+	extensionManifests := assets.GetInstalledExtensionManifests()
+	n = 0
+	for _, manifest := range extensionManifests {
+		ext, err := extensions.ParseExtensionManifest(manifest)
+		// Absorb error in case there's no extensions manifest
+		if err != nil {
+			con.PrintErrorf("Failed to load extension: %s\n", err)
+			continue
+		}
+		extensions.ExtensionRegisterCommand(ext, con)
+		n++
+	}
+	if 0 < n {
+		con.PrintInfof("Loaded %d extension(s) from disk\n", n)
 	}
 	con.App.SetPrintHelp(help.HelpCmd(con)) // Responsible for display long-form help templates, etc.
 
