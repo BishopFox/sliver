@@ -17,7 +17,7 @@ package command
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-	---
+	---------------------------------------------------------------------
 	This file contains all of the code that binds a given string/flags/etc. to a
 	command implementation function.
 
@@ -36,9 +36,8 @@ package command
 import (
 	"os"
 
-	"github.com/bishopfox/sliver/client/command/socks"
-
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/command/dllhijack"
@@ -53,7 +52,6 @@ import (
 	"github.com/bishopfox/sliver/client/command/jobs"
 	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/command/loot"
-	"github.com/bishopfox/sliver/client/command/macros"
 	"github.com/bishopfox/sliver/client/command/monitor"
 	"github.com/bishopfox/sliver/client/command/network"
 	"github.com/bishopfox/sliver/client/command/operators"
@@ -68,6 +66,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/command/shell"
+	"github.com/bishopfox/sliver/client/command/socks"
 	"github.com/bishopfox/sliver/client/command/tasks"
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/command/use"
@@ -98,7 +97,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// Absorb error in case there's no extensions manifest
 	if err == nil {
 		for _, ext := range exts {
-			extensions.RegisterExtensionCommand(ext, con)
+			extensions.ExtensionRegisterCommand(ext, con)
 		}
 	}
 	con.App.SetPrintHelp(help.HelpCmd(con)) // Responsible for display long-form help templates, etc.
@@ -804,6 +803,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Uint("p", "pid", 0, "Pid of process to inject into (0 means injection into ourselves)")
 			f.String("n", "process", `c:\windows\system32\notepad.exe`, "Process to inject into when running in interactive mode")
 			f.Bool("i", "interactive", false, "Inject into a new process and interact with it")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
@@ -817,8 +817,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("e", "entry-point", "", "Entrypoint for the DLL (Windows only)")
 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
 			f.Bool("s", "save", false, "save output to file")
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("k", "keep-alive", false, "don't terminate host process once the execution completes")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("filepath", "path the shared library file")
@@ -1943,20 +1944,34 @@ func BindCommands(con *console.SliverConsoleClient) {
 	})
 	con.App.AddCommand(beaconsCmd)
 
-	// [ Macros ] ---------------------------------------------
+	// [ Aliases ] ---------------------------------------------
 
-	con.App.AddCommand(&grumble.Command{
-		Name:     consts.LoadMacroStr,
-		Help:     "Load a sliver macro",
-		LongHelp: help.GetHelpFor([]string{consts.LoadMacroStr}),
+	aliasCmd := &grumble.Command{
+		Name:     consts.AliasStr,
+		Help:     "List current aliases",
+		LongHelp: help.GetHelpFor([]string{consts.AliasStr}),
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			macros.LoadMacroCmd(ctx, con)
+			alias.AliasCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	con.App.AddCommand(aliasCmd)
+
+	aliasCmd.AddCommand(&grumble.Command{
+		Name:     consts.LoadStr,
+		Help:     "Load a command alias",
+		LongHelp: help.GetHelpFor([]string{consts.AliasStr, consts.LoadStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			alias.LoadAliasCmd(ctx, con)
 			con.Println()
 			return nil
 		},
 		Args: func(a *grumble.Args) {
-			a.String("dir-path", "path to the macro directory")
+			a.String("dir-path", "path to the alias directory")
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
@@ -2806,7 +2821,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			extensions.ListCmd(ctx, con)
+			extensions.ExtensionListCmd(ctx, con)
 			con.Println()
 			return nil
 		},
@@ -2821,7 +2836,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			extensions.LoadCmd(ctx, con)
+			extensions.ExtensionLoadCmd(ctx, con)
 			con.Println()
 			return nil
 		},

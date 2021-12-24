@@ -1,4 +1,4 @@
-package macros
+package alias
 
 /*
 	Sliver Implant Framework
@@ -43,7 +43,7 @@ const (
 	macosDefaultHostProc   = "/Applications/Safari.app/Contents/MacOS/SafariForWebKitDevelopment"
 )
 
-var commandMap map[string]macro
+var commandMap map[string]Alias
 var defaultHostProc = map[string]string{
 	"windows": windowsDefaultHostProc,
 	"linux":   windowsDefaultHostProc,
@@ -55,24 +55,24 @@ type binFiles struct {
 	Ext32Path string `json:"x86"`
 }
 
-type macroFile struct {
+type AliasFile struct {
 	OS    string   `json:"os"`
 	Files binFiles `json:"files"`
 }
 
-type macroCommand struct {
+type AliasCommand struct {
 	Name         string      `json:"name"`
 	Entrypoint   string      `json:"entrypoint"`
 	Help         string      `json:"help"`
 	LongHelp     string      `json:"longHelp"`
 	AllowArgs    bool        `json:"allowArgs"`
 	DefaultArgs  string      `json:"defaultArgs"`
-	MacroFiles   []macroFile `json:"extFiles"`
+	AliasFiles   []AliasFile `json:"extFiles"`
 	IsReflective bool        `json:"isReflective"`
 	IsAssembly   bool        `json:"IsAssembly"`
 }
 
-func (ec *macroCommand) getDefaultProcess(targetOS string) (proc string, err error) {
+func (ec *AliasCommand) getDefaultProcess(targetOS string) (proc string, err error) {
 	proc, ok := defaultHostProc[targetOS]
 	if !ok {
 		err = fmt.Errorf("no default process for %s target, please specify one", targetOS)
@@ -80,16 +80,16 @@ func (ec *macroCommand) getDefaultProcess(targetOS string) (proc string, err err
 	return
 }
 
-type macro struct {
-	Name     string         `json:"macroName"`
-	Commands []macroCommand `json:"macroCommands"`
+type Alias struct {
+	Name     string         `json:"aliasName"`
+	Commands []AliasCommand `json:"aliasCommands"`
 	Path     string
 }
 
-func (e *macro) getFileForTarget(cmdName string, targetOS string, targetArch string) (filePath string, err error) {
+func (e *Alias) getFileForTarget(cmdName string, targetOS string, targetArch string) (filePath string, err error) {
 	for _, c := range e.Commands {
 		if cmdName == c.Name {
-			for _, ef := range c.MacroFiles {
+			for _, ef := range c.AliasFiles {
 				if targetOS == ef.OS {
 					switch targetArch {
 					case "x86":
@@ -105,43 +105,43 @@ func (e *macro) getFileForTarget(cmdName string, targetOS string, targetArch str
 		}
 	}
 	if filePath == "" {
-		err = fmt.Errorf("no macro file found for %s/%s", targetOS, targetArch)
+		err = fmt.Errorf("no alias file found for %s/%s", targetOS, targetArch)
 	}
 	return
 }
 
-func (e *macro) getCommandFromName(name string) (extCmd *macroCommand, err error) {
+func (e *Alias) getCommandFromName(name string) (extCmd *AliasCommand, err error) {
 	for _, x := range e.Commands {
 		if x.Name == name {
 			extCmd = &x
 			return
 		}
 	}
-	err = fmt.Errorf("no macro command found for name %s", name)
+	err = fmt.Errorf("no alias command found for name %s", name)
 	return
 }
 
-// LoadMacroCmd - Locally load a macro into the Sliver shell.
-func LoadMacroCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+// LoadAliasCmd - Locally load a alias into the Sliver shell.
+func LoadAliasCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	dirPath := ctx.Args.String("dir-path")
 
-	// retrieve macro manifest
+	// retrieve alias manifest
 	manifestPath := fmt.Sprintf("%s/%s", dirPath, "manifest.json")
 	jsonBytes, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	}
 	// parse it
-	ext := &macro{}
-	err = json.Unmarshal(jsonBytes, ext)
+	alias := &Alias{}
+	err = json.Unmarshal(jsonBytes, alias)
 	if err != nil {
-		con.PrintErrorf("Error loading macro: %v", err)
+		con.PrintErrorf("Error loading alias: %v", err)
 		return
 	}
-	ext.Path = dirPath
-	// for each macro command, add a new app command
-	for _, extCmd := range ext.Commands {
+	alias.Path = dirPath
+	// for each alias command, add a new app command
+	for _, extCmd := range alias.Commands {
 		// do not add if the command already exists
 		if cmdExists(extCmd.Name, ctx.App) {
 			con.PrintErrorf("%s command already exists\n", extCmd.Name)
@@ -151,15 +151,15 @@ func LoadMacroCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 		// Have to use a global map here, as passing the extCmd
 		// either by value or by ref fucks things up
-		commandMap[extCmd.Name] = *ext
-		helpMsg := fmt.Sprintf("[%s] %s", ext.Name, extCmd.Help)
-		macroCmd := &grumble.Command{
+		commandMap[extCmd.Name] = *alias
+		helpMsg := fmt.Sprintf("[%s] %s", alias.Name, extCmd.Help)
+		addAliasCmd := &grumble.Command{
 			Name:     extCmd.Name,
 			Help:     helpMsg,
 			LongHelp: help.FormatHelpTmpl(extCmd.LongHelp),
 			Run: func(extCtx *grumble.Context) error {
 				con.Println()
-				runMacroCommand(extCtx, con)
+				runAliasCommand(extCtx, con)
 				con.Println()
 				return nil
 			},
@@ -172,26 +172,27 @@ func LoadMacroCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				}
 				f.String("p", "process", "", "Path to process to host the shared object")
 				f.Bool("s", "save", false, "Save output to disk")
+
 				f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			},
 			Args: func(a *grumble.Args) {
 				a.StringList("arguments", "arguments", grumble.Default([]string{}))
 			},
-			HelpGroup: consts.MacroHelpGroup,
+			HelpGroup: consts.AliasHelpGroup,
 		}
-		con.App.AddCommand(macroCmd)
+		con.App.AddCommand(addAliasCmd)
 	}
-	con.PrintInfof("%s macro has been loaded\n", ext.Name)
+	con.PrintInfof("%s alias has been loaded\n", alias.Name)
 }
 
-func runMacroCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 	ext, ok := commandMap[ctx.Command.Name]
 	if !ok {
-		con.PrintErrorf("No macro command found for `%s` command\n", ctx.Command.Name)
+		con.PrintErrorf("No alias command found for `%s` command\n", ctx.Command.Name)
 		return
 	}
 
@@ -331,5 +332,5 @@ func cmdExists(name string, app *grumble.App) bool {
 }
 
 func init() {
-	commandMap = make(map[string]macro)
+	commandMap = make(map[string]Alias)
 }

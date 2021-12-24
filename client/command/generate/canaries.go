@@ -20,13 +20,14 @@ func CanariesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	if 0 < len(canaries.Canaries) {
-		displayCanaries(con, canaries.Canaries, ctx.Flags.Bool("burned"))
+		PrintCanaries(con, canaries.Canaries, ctx.Flags.Bool("burned"))
 	} else {
 		con.PrintInfof("No canaries in database\n")
 	}
 }
 
-func displayCanaries(con *console.SliverConsoleClient, canaries []*clientpb.DNSCanary, burnedOnly bool) {
+// PrintCanaries - Print the canaries tracked by the server
+func PrintCanaries(con *console.SliverConsoleClient, canaries []*clientpb.DNSCanary, burnedOnly bool) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{

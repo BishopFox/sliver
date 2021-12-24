@@ -97,7 +97,7 @@ func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverConso
 func getImplantProfiles(con *console.SliverConsoleClient) []*clientpb.ImplantProfile {
 	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("Error %s", err)
+		con.PrintErrorf("%s\n", err)
 		return nil
 	}
 	return pbProfiles.Profiles
@@ -107,7 +107,7 @@ func getImplantProfiles(con *console.SliverConsoleClient) []*clientpb.ImplantPro
 func GetImplantProfileByName(name string, con *console.SliverConsoleClient) *clientpb.ImplantProfile {
 	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("Error %s", err)
+		con.PrintErrorf("%s\n", err)
 		return nil
 	}
 	for _, profile := range pbProfiles.Profiles {

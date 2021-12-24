@@ -57,7 +57,7 @@ func printHelp(con *console.SliverConsoleClient) {
 				continue
 			}
 		} else {
-			if key == consts.SliverHelpGroup || key == consts.SliverWinHelpGroup || key == consts.MacroHelpGroup || key == consts.ExtensionHelpGroup {
+			if key == consts.SliverHelpGroup || key == consts.SliverWinHelpGroup || key == consts.AliasHelpGroup || key == consts.ExtensionHelpGroup {
 				continue
 			}
 		}

@@ -72,7 +72,8 @@ func (e *extensionCommand) getFileForTarget(cmdName string, targetOS string, tar
 	return
 }
 
-func LoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+// ExtensionLoadCmd - Load extension command
+func ExtensionLoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	dirPath := ctx.Args.String("dir-path")
 	extCmds, err := ParseExtensions(dirPath)
 	if err != nil {
@@ -85,7 +86,7 @@ func LoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.PrintErrorf("%s command already exists\n", extCmd.Name)
 			continue
 		}
-		RegisterExtensionCommand(extCmd, con)
+		ExtensionRegisterCommand(extCmd, con)
 		con.PrintInfof("Added %s command: %s\n", extCmd.Name, extCmd.Help)
 	}
 }
@@ -108,7 +109,8 @@ func ParseExtensions(extPath string) ([]*extensionCommand, error) {
 	return extensionsCmds, nil
 }
 
-func RegisterExtensionCommand(extCmd *extensionCommand, con *console.SliverConsoleClient) {
+// ExtensionRegisterCommand - Register a new extension command
+func ExtensionRegisterCommand(extCmd *extensionCommand, con *console.SliverConsoleClient) {
 	commandMap[extCmd.Name] = *extCmd
 	helpMsg := extCmd.Help
 	extensionCmd := &grumble.Command{
@@ -155,7 +157,8 @@ func RegisterExtensionCommand(extCmd *extensionCommand, con *console.SliverConso
 	con.App.AddCommand(extensionCmd)
 }
 
-func ListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+// ExtensionListCmd - List all extension loaded on the active session/beacon
+func ExtensionListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

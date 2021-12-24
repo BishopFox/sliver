@@ -135,8 +135,7 @@ rm -rf ./go
 rm -f windows-go.zip go$GO_VER.windows-$GO_ARCH_1.zip
 
 # --- Client ---
-mkdir -p $CLIENT_OUTPUT_DIR/extensions/windows/$GO_ARCH_1
-mkdir -p $CLIENT_OUTPUT_DIR/extensions/windows/$GO_ARCH_3
+mkdir -p $CLIENT_OUTPUT_DIR/extensions/coff-loader/windows
 
 echo "-----------------------------------------------------------------"
 echo " Garble"
@@ -149,8 +148,8 @@ curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_2/garble https://github.com/moloch-
 echo "-----------------------------------------------------------------"
 echo " COFF Loader"
 echo "-----------------------------------------------------------------"
-curl -L --output $CLIENT_OUTPUT_DIR/extensions/windows/$GO_ARCH_1/COFFLoader.x64.dll https://github.com/lesnuages/COFFLoader/releases/download/v$COFF_LOADER_VER/COFFLoader.x64.dll
-curl -L --output $CLIENT_OUTPUT_DIR/extensions/windows/$GO_ARCH_3/COFFLoader.x86.dll https://github.com/lesnuages/COFFLoader/releases/download/v$COFF_LOADER_VER/COFFLoader.x86.dll
+curl -L --output $CLIENT_OUTPUT_DIR/extensions/coff-loader/windows/COFFLoader.x64.dll https://github.com/lesnuages/COFFLoader/releases/download/v$COFF_LOADER_VER/COFFLoader.x64.dll
+curl -L --output $CLIENT_OUTPUT_DIR/extensions/coff-loader/windows/COFFLoader.x86.dll https://github.com/lesnuages/COFFLoader/releases/download/v$COFF_LOADER_VER/COFFLoader.x86.dll
 
 # end
 echo -e "clean up: $WORK_DIR"

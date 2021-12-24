@@ -188,7 +188,7 @@ const (
 	SideloadStr         = "sideload"
 	SpawnDllStr         = "spawndll"
 	ExtensionStr        = "extension"
-	LoadMacroStr        = "load-macro"
+	AliasStr            = "alias"
 	StageListenerStr    = "stage-listener"
 
 	WebsitesStr       = "websites"
@@ -237,6 +237,6 @@ const (
 	SliverHelpGroup      = "Sliver:"
 	SliverWinHelpGroup   = "Sliver - Windows:"
 	MultiplayerHelpGroup = "Multiplayer:"
-	MacroHelpGroup       = "Sliver - 3rd Party macros:"
+	AliasHelpGroup       = "Sliver - 3rd Party macros:"
 	ExtensionHelpGroup   = "Sliver - 3rd Party extensions:"
 )

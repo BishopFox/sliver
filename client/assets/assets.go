@@ -25,7 +25,6 @@ import (
 	"log"
 	"os"
 	"os/user"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -33,35 +32,21 @@ import (
 )
 
 var (
-	//go:embed fs/extensions/*
-	assetsFs embed.FS
+	//go:embed fs/*
+	clientAssetsFs embed.FS
 )
 
 const (
 	// SliverClientDirName - Directory storing all of the client configs/logs
 	SliverClientDirName = ".sliver-client"
-	// SliverExtensionsDirName - Directory storing the client side extensions
-	SliverExtensionsDirName = "extensions"
-	versionFileName         = "version"
+
+	versionFileName = "version"
 )
 
 // GetRootAppDir - Get the Sliver app dir ~/.sliver-client/
 func GetRootAppDir() string {
 	user, _ := user.Current()
-	dir := path.Join(user.HomeDir, SliverClientDirName)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, 0700)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	return dir
-}
-
-// GetExtensionsDir - Get the Sliver extension directory: ~/.sliver-client/extensions
-func GetExtensionsDir() string {
-	user, _ := user.Current()
-	dir := path.Join(user.HomeDir, SliverClientDirName, SliverExtensionsDirName)
+	dir := filepath.Join(user.HomeDir, SliverClientDirName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0700)
 		if err != nil {
@@ -73,7 +58,7 @@ func GetExtensionsDir() string {
 
 func assetVersion() string {
 	appDir := GetRootAppDir()
-	data, err := ioutil.ReadFile(path.Join(appDir, versionFileName))
+	data, err := ioutil.ReadFile(filepath.Join(appDir, versionFileName))
 	if err != nil {
 		return ""
 	}
@@ -81,7 +66,7 @@ func assetVersion() string {
 }
 
 func saveAssetVersion(appDir string) {
-	versionFilePath := path.Join(appDir, versionFileName)
+	versionFilePath := filepath.Join(appDir, versionFileName)
 	fVer, _ := os.Create(versionFilePath)
 	defer fVer.Close()
 	fVer.Write([]byte(ver.GitCommit))
@@ -109,40 +94,40 @@ func Setup(force bool, echo bool) {
 
 func setupCoffLoaderExt(appDir string) error {
 	extDir := GetExtensionsDir()
-	win32ExtDir := path.Join("windows", "386")
-	win64ExtDir := path.Join("windows", "amd64")
-	coffLoader32 := path.Join("fs", SliverExtensionsDirName, win32ExtDir, "COFFLoader.x86.dll")
-	coffLoader64 := path.Join("fs", SliverExtensionsDirName, win64ExtDir, "COFFLoader.x64.dll")
-	manifestPath := path.Join("fs", SliverExtensionsDirName, "manifest.json")
-	loader64, err := assetsFs.ReadFile(coffLoader64)
+	win32ExtDir := filepath.Join("windows", "386")
+	win64ExtDir := filepath.Join("windows", "amd64")
+	coffLoader32 := filepath.Join("fs", SliverExtensionsDirName, win32ExtDir, "COFFLoader.x86.dll")
+	coffLoader64 := filepath.Join("fs", SliverExtensionsDirName, win64ExtDir, "COFFLoader.x64.dll")
+	manifestPath := filepath.Join("fs", SliverExtensionsDirName, "manifest.json")
+	loader64, err := clientAssetsFs.ReadFile(coffLoader64)
 	if err != nil {
 		return err
 	}
-	loader32, err := assetsFs.ReadFile(coffLoader32)
+	loader32, err := clientAssetsFs.ReadFile(coffLoader32)
 	if err != nil {
 		return err
 	}
-	manifest, err := assetsFs.ReadFile(manifestPath)
+	manifest, err := clientAssetsFs.ReadFile(manifestPath)
 	if err != nil {
 		return err
 	}
-	localWin32ExtDir := path.Join(extDir, win32ExtDir)
+	localWin32ExtDir := filepath.Join(extDir, win32ExtDir)
 	err = os.MkdirAll(localWin32ExtDir, 0700)
 	if err != nil {
 		return err
 	}
-	localWin64ExtDir := path.Join(extDir, win64ExtDir)
+	localWin64ExtDir := filepath.Join(extDir, win64ExtDir)
 	err = os.MkdirAll(localWin64ExtDir, 0700)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(path.Join(localWin32ExtDir, "COFFLoader.x86.dll"), loader32, 0744)
+	err = ioutil.WriteFile(filepath.Join(localWin32ExtDir, "COFFLoader.x86.dll"), loader32, 0744)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(path.Join(extDir, "manifest.json"), manifest, 0700)
+	err = ioutil.WriteFile(filepath.Join(extDir, "manifest.json"), manifest, 0700)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path.Join(localWin64ExtDir, "COFFLoader.x64.dll"), loader64, 0744)
+	return ioutil.WriteFile(filepath.Join(localWin64ExtDir, "COFFLoader.x64.dll"), loader64, 0744)
 }
