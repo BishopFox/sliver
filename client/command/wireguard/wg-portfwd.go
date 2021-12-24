@@ -19,15 +19,13 @@ package wireguard
 */
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"strings"
-	"text/tabwriter"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // WGPortFwdListCmd - List WireGuard port forwards
@@ -44,12 +42,10 @@ func WGPortFwdListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	fwdList, err := con.Rpc.WGListForwarders(context.Background(), &sliverpb.WGTCPForwardersReq{
 		Request: con.ActiveTarget.Request(ctx),
 	})
-
 	if err != nil {
 		con.PrintErrorf("Error: %v", err)
 		return
 	}
-
 	if fwdList.Response != nil && fwdList.Response.Err != "" {
 		con.PrintErrorf("Error: %s\n", fwdList.Response.Err)
 		return
@@ -59,18 +55,22 @@ func WGPortFwdListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		if len(fwdList.Forwarders) == 0 {
 			con.PrintInfof("No port forwards\n")
 		} else {
-			outBuf := bytes.NewBufferString("")
-			table := tabwriter.NewWriter(outBuf, 0, 3, 3, ' ', 0)
-			fmt.Fprintf(table, "ID\tLocal Address\tRemote Address\t\n")
-			fmt.Fprintf(table, "%s\t%s\t%s\t\n",
-				strings.Repeat("=", len("ID")),
-				strings.Repeat("=", len("Local Address")),
-				strings.Repeat("=", len("Remote Address")))
+			tw := table.NewWriter()
+			tw.SetStyle(settings.GetTableStyle(con))
+			tw.AppendHeader(table.Row{
+				"ID",
+				"Name",
+				"Protocol",
+				"Port",
+			})
 			for _, fwd := range fwdList.Forwarders {
-				fmt.Fprintf(table, "%d\t%s\t%s\t\n", fwd.ID, fwd.LocalAddr, fwd.RemoteAddr)
+				tw.AppendRow(table.Row{
+					fwd.ID,
+					fwd.LocalAddr,
+					fwd.RemoteAddr,
+				})
 			}
-			table.Flush()
-			con.Println(outBuf.String())
+			con.Println(tw.Render())
 		}
 	}
 }

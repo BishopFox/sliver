@@ -50,7 +50,7 @@ func WGPortFwdAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	pfwdAdd, err := con.Rpc.WGStartPortForward(context.Background(), &sliverpb.WGPortForwardStartReq{
+	portfwdAdd, err := con.Rpc.WGStartPortForward(context.Background(), &sliverpb.WGPortForwardStartReq{
 		LocalPort:     int32(localPort),
 		RemoteAddress: remoteAddr,
 		Request:       con.ActiveTarget.Request(ctx),
@@ -61,9 +61,9 @@ func WGPortFwdAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	if pfwdAdd.Response != nil && pfwdAdd.Response.Err != "" {
-		con.PrintErrorf("Error: %s\n", pfwdAdd.Response.Err)
+	if portfwdAdd.Response != nil && portfwdAdd.Response.Err != "" {
+		con.PrintErrorf("Error: %s\n", portfwdAdd.Response.Err)
 		return
 	}
-	con.PrintInfof("Port forwarding %s -> %s:%s\n", pfwdAdd.Forwarder.LocalAddr, remoteHost, remotePort)
+	con.PrintInfof("Port forwarding %s -> %s:%s\n", portfwdAdd.Forwarder.LocalAddr, remoteHost, remotePort)
 }
