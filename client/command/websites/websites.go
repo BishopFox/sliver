@@ -20,14 +20,14 @@ package websites
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/jedib0t/go-pretty/v6/table"
 
 	"github.com/desertbit/grumble"
 )
@@ -75,21 +75,23 @@ func ListWebsiteContent(websiteName string, con *console.SliverConsoleClient) {
 		return
 	}
 	if 0 < len(website.Contents) {
-		displayWebsite(website, con)
+		PrintWebsite(website, con)
 	} else {
 		con.PrintInfof("No content for '%s'", websiteName)
 	}
 }
 
-func displayWebsite(web *clientpb.Website, con *console.SliverConsoleClient) {
+// PrintWebsite - Print a website and its contents, paths, etc.
+func PrintWebsite(web *clientpb.Website, con *console.SliverConsoleClient) {
 	con.Println(console.Clearln + console.Info + web.Name)
 	con.Println()
-	table := tabwriter.NewWriter(con.App.Stdout(), 0, 2, 2, ' ', 0)
-	fmt.Fprintf(table, "Path\tContent-type\tSize\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t\n",
-		strings.Repeat("=", len("Path")),
-		strings.Repeat("=", len("Content-type")),
-		strings.Repeat("=", len("Size")))
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{
+		"Path",
+		"Content-type",
+		"Size",
+	})
 	sortedContents := []*clientpb.WebContent{}
 	for _, content := range web.Contents {
 		sortedContents = append(sortedContents, content)
@@ -98,7 +100,11 @@ func displayWebsite(web *clientpb.Website, con *console.SliverConsoleClient) {
 		return sortedContents[i].Path < sortedContents[j].Path
 	})
 	for _, content := range sortedContents {
-		fmt.Fprintf(table, "%s\t%s\t%d\t\n", content.Path, content.ContentType, content.Size)
+		tw.AppendHeader(table.Row{
+			content.Path,
+			content.ContentType,
+			content.Size,
+		})
 	}
-	table.Flush()
+	con.Println(tw.Render())
 }
