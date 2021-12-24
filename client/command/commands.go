@@ -286,7 +286,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Start a stager listener",
 		LongHelp: help.GetHelpFor([]string{consts.StageListenerStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("p", "profile", "", "Implant profile to link with the listener")
+			f.String("p", "profile", "", "Implant profile name to link with the listener")
 			f.String("u", "url", "", "URL to which the stager will call back to")
 			f.String("c", "cert", "", "path to PEM encoded certificate file (HTTPS only)")
 			f.String("k", "key", "", "path to PEM encoded private key file (HTTPS only)")
@@ -2344,8 +2344,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	}
 	socksCmd.AddCommand(&grumble.Command{
-		Name:     "add",
-		Help:     "Create a new Socks5 Proxy",
+		Name:     consts.StartStr,
+		Help:     "Start an in-band SOCKS5 proxy",
 		LongHelp: help.GetHelpFor([]string{consts.Socks5Str}),
 		Flags: func(f *grumble.Flags) {
 			f.String("H", "host", "127.0.0.1", "Bind a Socks5 Host")
@@ -2354,15 +2354,15 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			socks.SocksAddCmd(ctx, con)
+			socks.SocksStartCmd(ctx, con)
 			con.Println()
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
 	socksCmd.AddCommand(&grumble.Command{
-		Name:     "rm",
-		Help:     "Remove a Socks5 Proxy",
+		Name:     consts.StopStr,
+		Help:     "Stop a SOCKS5 proxy",
 		LongHelp: help.GetHelpFor([]string{consts.Socks5Str}),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "router timeout in seconds")
@@ -2370,7 +2370,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			socks.SocksRmCmd(ctx, con)
+			socks.SocksStopCmd(ctx, con)
 			con.Println()
 			return nil
 		},

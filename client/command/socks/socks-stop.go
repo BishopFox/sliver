@@ -27,8 +27,8 @@ import (
 	"github.com/desertbit/grumble"
 )
 
-// SocksRmCmd - Remove an existing tunneled port forward
-func SocksRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+// SocksStopCmd - Remove an existing tunneled port forward
+func SocksStopCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	socksID := ctx.Flags.Int("id")
 	if socksID < 1 {
 		con.PrintErrorf("Must specify a valid socks5 id\n")
