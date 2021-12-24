@@ -1,8 +1,12 @@
 {
     "name": "coff-loader",
+    "version": "1.0.7",
+    "extension_author": "@lesnuages",
+    "original_author": "@TrustedSec",
+    "repo_url": "https://github.com/lesnuages/COFFLoader",
     "help": "Load and execute Beacon Object Files (BOFs) in memory.",
     "entrypoint": "LoadAndRun",
-    "extFiles": [
+    "files": [
         {
             "os": "windows",
             "files": {

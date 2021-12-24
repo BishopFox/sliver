@@ -102,12 +102,14 @@ func (a *AliasManifest) getFileForTarget(cmdName string, targetOS string, target
 	for _, ef := range a.Command.AliasFiles {
 		if targetOS == ef.OS {
 			switch targetArch {
+			// path.Clean() will not remove leading path traversal so we need to prefix the
+			// path with a root path. Then filepath.Join() should fix Windows path separators
 			case "x86":
-				filePath = filepath.Join(a.RootPath, filepath.Base(ef.Files.Ext32Path))
+				filePath = filepath.Join(a.RootPath, path.Clean("/"+ef.Files.Ext32Path))
 			case "x64":
-				filePath = filepath.Join(a.RootPath, filepath.Base(ef.Files.Ext64Path))
+				filePath = filepath.Join(a.RootPath, path.Clean("/"+ef.Files.Ext64Path))
 			default:
-				filePath = filepath.Join(a.RootPath, filepath.Base(ef.Files.Ext64Path))
+				filePath = filepath.Join(a.RootPath, path.Clean("/"+ef.Files.Ext64Path))
 			}
 		}
 	}

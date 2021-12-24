@@ -1,5 +1,5 @@
 Extensions
-====
+===========
 
 Allows to load and execute 3rd party extensions.
 
@@ -9,10 +9,14 @@ Extensions must be loaded from a directory with the following architecture:
 /path/to/extension/folder/
 ├── manifest.json
 └── windows
-    ├── 386
-    │   └── extension.x86.dll
-    └── amd64
-        └── extension.x64.dll
+│    └── extension.x86.dll
+│    └── extension.x64.dll
+└── linux
+│    └── extension.x86.so
+│    └── extension.x64.so
+└── darwin
+     └── extension.x86.dylib
+     └── extension.x64.dylib
 ```
 
 The extension folder structure must follow the `GOOS/GOARCH/` scheme.
@@ -20,13 +24,16 @@ The extension folder structure must follow the `GOOS/GOARCH/` scheme.
 Here's an example manifest:
 
 ```json
-[
 {
     "name": "foo",
+    "version": "1.0.0",
+    "extension_author": "ac1d-burn",
+    "original_author": "zer0-cool",
+    "repo_url": "https://github.com/foo/bar",
     "help": "Help for foo command",
     "entrypoint": "RunFoo",
     "init" :"NimMain",
-    "dependsOn": "bar",
+    "depends_on": "bar",
     "files": [
         {
             "os": "windows",
@@ -40,7 +47,6 @@ Here's an example manifest:
         {"name": "pid", "type": "int", "desc": "pid", "optional": false},
     ]
 }
-]
 ```
 
 The structure is the following one:

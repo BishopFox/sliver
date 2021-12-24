@@ -71,7 +71,7 @@ var (
 		consts.MigrateStr:          migrateHelp,
 		consts.SideloadStr:         sideloadHelp,
 		consts.TerminateStr:        terminateHelp,
-		consts.AliasStr:            loadMacrosHelp,
+		consts.AliasesStr:          loadMacrosHelp,
 		consts.PsExecStr:           psExecHelp,
 		consts.BackdoorStr:         backdoorHelp,
 		consts.SpawnDllStr:         spawnDllHelp,

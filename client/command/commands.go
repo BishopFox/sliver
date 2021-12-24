@@ -113,7 +113,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	extensionManifests := assets.GetInstalledExtensionManifests()
 	n = 0
 	for _, manifest := range extensionManifests {
-		ext, err := extensions.ParseExtensionManifest(manifest)
+		ext, err := extensions.LoadExtensionManifest(manifest)
 		// Absorb error in case there's no extensions manifest
 		if err != nil {
 			con.PrintErrorf("Failed to load extension: %s\n", err)
@@ -1972,9 +1972,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// [ Aliases ] ---------------------------------------------
 
 	aliasCmd := &grumble.Command{
-		Name:     consts.AliasStr,
+		Name:     consts.AliasesStr,
 		Help:     "List current aliases",
-		LongHelp: help.GetHelpFor([]string{consts.AliasStr}),
+		LongHelp: help.GetHelpFor([]string{consts.AliasesStr}),
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			alias.AliasCmd(ctx, con)
@@ -1988,7 +1988,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	aliasCmd.AddCommand(&grumble.Command{
 		Name:     consts.LoadStr,
 		Help:     "Load a command alias",
-		LongHelp: help.GetHelpFor([]string{consts.AliasStr, consts.LoadStr}),
+		LongHelp: help.GetHelpFor([]string{consts.AliasesStr, consts.LoadStr}),
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			alias.LoadAliasCmd(ctx, con)
@@ -2826,7 +2826,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// [ Get Privs ] -----------------------------------------------------------------
 	getprivsCmd := &grumble.Command{
 		Name:      consts.GetPrivsStr,
-		Help:      "Get current privileges (Windows)",
+		Help:      "Get current privileges (Windows only)",
 		LongHelp:  help.GetHelpFor([]string{consts.GetPrivsStr}),
 		HelpGroup: consts.SliverWinHelpGroup,
 		Run: func(ctx *grumble.Context) error {
@@ -2843,13 +2843,13 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// [ Extensions ] -----------------------------------------------------------------
 	extensionCmd := &grumble.Command{
-		Name:      consts.ExtensionStr,
-		Help:      "Manage sliver extensions",
-		LongHelp:  help.GetHelpFor([]string{consts.ExtensionStr}),
+		Name:      consts.ExtensionsStr,
+		Help:      "Manage extensions",
+		LongHelp:  help.GetHelpFor([]string{consts.ExtensionsStr}),
 		HelpGroup: consts.SliverHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			extensions.ExtensionListCmd(ctx, con)
+			extensions.ExtensionsCmd(ctx, con)
 			con.Println()
 			return nil
 		},
@@ -2857,10 +2857,27 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 	}
+
+	extensionCmd.AddCommand(&grumble.Command{
+		Name:      consts.ListStr,
+		Help:      "List extensions loaded in the current session or beacon",
+		LongHelp:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.ListStr}),
+		HelpGroup: consts.SliverHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			extensions.ExtensionsListCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+
 	extensionCmd.AddCommand(&grumble.Command{
 		Name:      consts.LoadStr,
-		Help:      "Register a new extension",
-		LongHelp:  help.GetHelpFor([]string{consts.ExtensionStr, consts.LoadStr}),
+		Help:      "Temporarily load an extension from a local directory",
+		LongHelp:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.LoadStr}),
 		HelpGroup: consts.SliverHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2871,11 +2888,37 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Args: func(a *grumble.Args) {
 			a.String("dir-path", "path to the extension directory")
 		},
+		Completer: func(prefix string, args []string) []string {
+			return completers.LocalPathCompleter(prefix, args, con)
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+	})
+
+	extensionCmd.AddCommand(&grumble.Command{
+		Name:      consts.InstallStr,
+		Help:      "Install an extension from a local directory (will be automatically loaded)",
+		LongHelp:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.InstallStr}),
+		HelpGroup: consts.SliverHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			extensions.ExtensionsInstallCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("dir-path", "path to the extension directory")
+		},
+		Completer: func(prefix string, args []string) []string {
+			return completers.LocalPathCompleter(prefix, args, con)
+		},
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 	})
 	con.App.AddCommand(extensionCmd)
+
 	// [ Prelude's Operator ] ------------------------------------------------------------
 	operatorCmd := &grumble.Command{
 		Name:      consts.PreludeOperatorStr,

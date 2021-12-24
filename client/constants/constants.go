@@ -187,8 +187,10 @@ const (
 	MigrateStr          = "migrate"
 	SideloadStr         = "sideload"
 	SpawnDllStr         = "spawndll"
-	ExtensionStr        = "extension"
-	AliasStr            = "alias"
+	ExtensionsStr       = "extensions"
+	InstallStr          = "install"
+	ListStr             = "list"
+	AliasesStr          = "aliases"
 	StageListenerStr    = "stage-listener"
 
 	WebsitesStr       = "websites"
