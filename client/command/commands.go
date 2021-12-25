@@ -2898,7 +2898,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	extensionCmd.AddCommand(&grumble.Command{
 		Name:      consts.InstallStr,
-		Help:      "Install an extension from a local directory (will be automatically loaded)",
+		Help:      "Install an extension from a local directory or .tar.gz file",
 		LongHelp:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.InstallStr}),
 		HelpGroup: consts.SliverHelpGroup,
 		Run: func(ctx *grumble.Context) error {
@@ -2908,7 +2908,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Args: func(a *grumble.Args) {
-			a.String("dir-path", "path to the extension directory")
+			a.String("path", "path to the extension .tar.gz or directory")
 		},
 		Completer: func(prefix string, args []string) []string {
 			return completers.LocalPathCompleter(prefix, args, con)
