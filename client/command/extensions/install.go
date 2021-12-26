@@ -53,7 +53,7 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Error reading %s: %s", ManifestFileName, err)
 		return
 	}
-	manifest, err := parseExtensionManifest(string(manifestData))
+	manifest, err := parseExtensionManifest(manifestData)
 	if err != nil {
 		con.PrintErrorf("Error parsing %s: %s", ManifestFileName, err)
 		return
@@ -84,19 +84,9 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 	}
 
 	for _, manifestFile := range manifest.Files {
-		if manifestFile.Files.Ext32Path != "" {
-			src := filepath.Join(extLocalPath, util.ResolvePath(manifestFile.Files.Ext32Path))
-			dst := filepath.Join(installPath, util.ResolvePath(manifestFile.Files.Ext32Path))
-			err := util.CopyFile(src, dst)
-			if err != nil {
-				con.PrintErrorf("\nError copying file '%s' -> '%s': %s\n", src, dst, err)
-				os.RemoveAll(installPath)
-				return
-			}
-		}
-		if manifestFile.Files.Ext64Path != "" {
-			src := filepath.Join(extLocalPath, util.ResolvePath(manifestFile.Files.Ext64Path))
-			dst := filepath.Join(installPath, util.ResolvePath(manifestFile.Files.Ext64Path))
+		if manifestFile.Path != "" {
+			src := filepath.Join(extLocalPath, util.ResolvePath(manifestFile.Path))
+			dst := filepath.Join(installPath, util.ResolvePath(manifestFile.Path))
 			err := util.CopyFile(src, dst)
 			if err != nil {
 				con.PrintErrorf("\nError copying file '%s' -> '%s': %s\n", src, dst, err)
@@ -115,7 +105,7 @@ func InstallFromFile(extLocalPath string, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Failed to read %s from '%s': %s\n", ManifestFileName, extLocalPath, err)
 		return
 	}
-	manifest, err := parseExtensionManifest(string(manifestData))
+	manifest, err := parseExtensionManifest(manifestData)
 	if err != nil {
 		con.PrintErrorf("Failed to parse %s: %s\n", ManifestFileName, err)
 		return
@@ -145,16 +135,8 @@ func InstallFromFile(extLocalPath string, con *console.SliverConsoleClient) {
 		return
 	}
 	for _, manifestFile := range manifest.Files {
-		if manifestFile.Files.Ext32Path != "" {
-			err = installArtifact(extLocalPath, installPath, manifestFile.Files.Ext32Path, con)
-			if err != nil {
-				con.PrintErrorf("\nFailed to install file: %s\n", err)
-				os.RemoveAll(installPath)
-				return
-			}
-		}
-		if manifestFile.Files.Ext64Path != "" {
-			err = installArtifact(extLocalPath, installPath, manifestFile.Files.Ext64Path, con)
+		if manifestFile.Path != "" {
+			err = installArtifact(extLocalPath, installPath, manifestFile.Path, con)
 			if err != nil {
 				con.PrintErrorf("\nFailed to install file: %s\n", err)
 				os.RemoveAll(installPath)

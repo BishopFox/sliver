@@ -48,29 +48,26 @@ const (
 var loadedExtensions = map[string]*ExtensionManifest{}
 
 type ExtensionManifest struct {
-	Name            string              `json:"name"`
-	Version         string              `json:"version"`
-	ExtensionAuthor string              `json:"extension_author"`
-	OriginalAuthor  string              `json:"original_author"`
-	RepoURL         string              `json:"repo_url"`
-	Help            string              `json:"help"`
-	Files           []extensionFiles    `json:"files"`
-	Arguments       []extensionArgument `json:"arguments"`
-	Entrypoint      string              `json:"entrypoint"`
-	DependsOn       string              `json:"depends_on"`
-	Init            string              `json:"init"`
+	Name            string               `json:"name"`
+	CommandName     string               `json:"command_name"`
+	Version         string               `json:"version"`
+	ExtensionAuthor string               `json:"extension_author"`
+	OriginalAuthor  string               `json:"original_author"`
+	RepoURL         string               `json:"repo_url"`
+	Help            string               `json:"help"`
+	Files           []*extensionFile     `json:"files"`
+	Arguments       []*extensionArgument `json:"arguments"`
+	Entrypoint      string               `json:"entrypoint"`
+	DependsOn       string               `json:"depends_on"`
+	Init            string               `json:"init"`
 
 	RootPath string `json:"-"`
 }
 
-type binFiles struct {
-	Ext64Path string `json:"x64"`
-	Ext32Path string `json:"x86"`
-}
-
-type extensionFiles struct {
-	OS    string   `json:"os"`
-	Files binFiles `json:"files"`
+type extensionFile struct {
+	OS   string `json:"os"`
+	Arch string `json:"arch"`
+	Path string `json:"path"`
 }
 
 type extensionArgument struct {
@@ -81,19 +78,11 @@ type extensionArgument struct {
 }
 
 func (e *ExtensionManifest) getFileForTarget(cmdName string, targetOS string, targetArch string) (string, error) {
-	var filePath string
-	for _, ef := range e.Files {
-		if targetOS == ef.OS {
-			switch targetArch {
-			case "386":
-				// path.Clean() will not remove leading path traversal so we need to prefix the
-				// path with a root path. Then filepath.Join() should fix Windows path separators
-				filePath = filepath.Join(e.RootPath, util.ResolvePath(ef.Files.Ext32Path))
-			case "amd64":
-				filePath = filepath.Join(e.RootPath, util.ResolvePath(ef.Files.Ext64Path))
-			default:
-				filePath = filepath.Join(e.RootPath, util.ResolvePath(ef.Files.Ext64Path))
-			}
+	filePath := ""
+	for _, extFile := range e.Files {
+		if targetOS == extFile.OS && targetArch == extFile.Arch {
+			filePath = extFile.Path
+			break
 		}
 	}
 	if filePath == "" {
@@ -125,7 +114,11 @@ func ExtensionLoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 // ParseExtensions - Parse extension files
 func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
-	extManifest, err := parseExtensionManifest(manifestPath)
+	data, err := ioutil.ReadFile(manifestPath)
+	if err != nil {
+		return nil, err
+	}
+	extManifest, err := parseExtensionManifest(data)
 	if err != nil {
 		return nil, err
 	}
@@ -134,18 +127,17 @@ func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 	return extManifest, nil
 }
 
-func parseExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
-	data, err := ioutil.ReadFile(manifestPath)
-	if err != nil {
-		return nil, err
-	}
+func parseExtensionManifest(data []byte) (*ExtensionManifest, error) {
 	extManifest := &ExtensionManifest{}
-	err = json.Unmarshal(data, &extManifest)
+	err := json.Unmarshal(data, &extManifest)
 	if err != nil {
 		return nil, err
 	}
 	if extManifest.Name == "" {
 		return nil, errors.New("missing `name` field in extension manifest")
+	}
+	if extManifest.CommandName == "" {
+		return nil, errors.New("missing `command_name` field in extension manifest")
 	}
 	if len(extManifest.Files) == 0 {
 		return nil, errors.New("missing `files` field in extension manifest")
@@ -154,7 +146,15 @@ func parseExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 		if extFiles.OS == "" {
 			return nil, errors.New("missing `files.os` field in extension manifest")
 		}
+		if extFiles.Arch == "" {
+			return nil, errors.New("missing `files.arch` field in extension manifest")
+		}
+		extFiles.Path = util.ResolvePath(extFiles.Path)
+		if extFiles.Path == "" || extFiles.Path == "/" {
+			return nil, errors.New("missing `files.path` field in extension manifest")
+		}
 		extFiles.OS = strings.ToLower(extFiles.OS)
+		extFiles.Arch = strings.ToLower(extFiles.Arch)
 	}
 	if extManifest.Help == "" {
 		return nil, errors.New("missing `help` field in extension manifest")
@@ -164,10 +164,10 @@ func parseExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 
 // ExtensionRegisterCommand - Register a new extension command
 func ExtensionRegisterCommand(extCmd *ExtensionManifest, con *console.SliverConsoleClient) {
-	loadedExtensions[extCmd.Name] = extCmd
+	loadedExtensions[extCmd.CommandName] = extCmd
 	helpMsg := extCmd.Help
 	extensionCmd := &grumble.Command{
-		Name: extCmd.Name,
+		Name: extCmd.CommandName,
 		Help: helpMsg,
 		Run: func(extCtx *grumble.Context) error {
 			con.Println()
