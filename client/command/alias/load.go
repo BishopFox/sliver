@@ -38,6 +38,8 @@ import (
 const (
 	defaultTimeout = 60
 
+	ManifestFileName = "alias.json"
+
 	windowsDefaultHostProc = `c:\windows\system32\notepad.exe`
 	linuxDefaultHostProc   = "/bin/bash"
 	macosDefaultHostProc   = "/Applications/Safari.app/Contents/MacOS/SafariForWebKitDevelopment"
@@ -77,7 +79,7 @@ type AliasCommand struct {
 	LongHelp     string      `json:"long_help"`
 	AllowArgs    bool        `json:"allow_args"`
 	DefaultArgs  string      `json:"default_args"`
-	AliasFiles   []AliasFile `json:"files"`
+	Files        []AliasFile `json:"files"`
 	IsReflective bool        `json:"is_reflective"`
 	IsAssembly   bool        `json:"is_assembly"`
 }
@@ -91,15 +93,17 @@ func (ec *AliasCommand) getDefaultProcess(targetOS string) (proc string, err err
 }
 
 type AliasManifest struct {
-	Name     string       `json:"name"`
-	Command  AliasCommand `json:"command"`
-	RootPath string
+	Name    string       `json:"name"`
+	Version string       `json:"version"`
+	Command AliasCommand `json:"command"`
+
+	RootPath string `json:"-"`
 }
 
 func (a *AliasManifest) getFileForTarget(cmdName string, targetOS string, targetArch string) (string, error) {
 	var filePath string
 	var err error
-	for _, ef := range a.Command.AliasFiles {
+	for _, ef := range a.Command.Files {
 		if targetOS == ef.OS {
 			switch targetArch {
 			// path.Clean() will not remove leading path traversal so we need to prefix the
@@ -119,8 +123,8 @@ func (a *AliasManifest) getFileForTarget(cmdName string, targetOS string, target
 	return filePath, err
 }
 
-// LoadAliasCmd - Locally load a alias into the Sliver shell.
-func LoadAliasCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+// AliasesLoadCmd - Locally load a alias into the Sliver shell.
+func AliasesLoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	dirPath := ctx.Args.String("dir-path")
 	alias, err := LoadAlias(dirPath, con)
 	if err != nil {
@@ -138,18 +142,18 @@ func LoadAlias(dirPath string, con *console.SliverConsoleClient) (*AliasManifest
 	if err != nil {
 		return nil, err
 	}
-	manifestPath := filepath.Join(dirPath, "manifest.json")
-	jsonBytes, err := ioutil.ReadFile(manifestPath)
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-	}
+
 	// parse it
-	alias := &AliasManifest{}
-	err = json.Unmarshal(jsonBytes, alias)
+	manifestPath := filepath.Join(dirPath, ManifestFileName)
+	data, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
 		return nil, err
 	}
-	alias.RootPath = dirPath
+	alias, err := parseAliasManifest(data)
+	if err != nil {
+		return nil, err
+	}
+	alias.RootPath = filepath.Dir(manifestPath)
 	// for each alias command, add a new app command
 
 	// do not add if the command already exists
@@ -192,6 +196,33 @@ func LoadAlias(dirPath string, con *console.SliverConsoleClient) (*AliasManifest
 	loadedAliases[alias.Name] = &loadedAlias{
 		Manifest: alias,
 		Command:  addAliasCmd,
+	}
+
+	return alias, nil
+}
+
+func parseAliasManifest(data []byte) (*AliasManifest, error) {
+	// parse it
+	alias := &AliasManifest{}
+	err := json.Unmarshal(data, alias)
+	if err != nil {
+		return nil, err
+	}
+	if alias.Name == "" {
+		return nil, fmt.Errorf("missing alias name in manifest")
+	}
+	if alias.Command.Name == "" {
+		return nil, fmt.Errorf("missing command.name in alias manifest")
+	}
+	if alias.Command.Help == "" {
+		return nil, fmt.Errorf("missing command.help in alias manifest")
+	}
+
+	for _, aliasFile := range alias.Command.Files {
+		if aliasFile.OS == "" {
+			return nil, fmt.Errorf("missing command.files.os in alias manifest")
+		}
+		aliasFile.OS = strings.ToLower(aliasFile.OS)
 	}
 
 	return alias, nil

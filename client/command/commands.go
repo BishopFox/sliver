@@ -1977,7 +1977,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.AliasesStr}),
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			alias.AliasCmd(ctx, con)
+			alias.AliasesCmd(ctx, con)
 			con.Println()
 			return nil
 		},
@@ -1991,7 +1991,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.AliasesStr, consts.LoadStr}),
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			alias.LoadAliasCmd(ctx, con)
+			alias.AliasesLoadCmd(ctx, con)
 			con.Println()
 			return nil
 		},

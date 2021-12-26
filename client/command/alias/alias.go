@@ -19,11 +19,44 @@ package alias
 */
 
 import (
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
-// AliasCmd - The alias command
-func AliasCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+// AliasesCmd - The alias command
+func AliasesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	if 0 < len(loadedAliases) {
+		PrintAliases(con)
+	} else {
+		con.PrintInfof("No aliases loaded\n")
+	}
+}
 
+// PrintAliases - Print a list of loaded aliases
+func PrintAliases(con *console.SliverConsoleClient) {
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{
+		"Name",
+		"Command Name",
+		".NET Assembly",
+		"Reflective",
+		"Help",
+	})
+	tw.SortBy([]table.SortBy{
+		{Name: "Name", Mode: table.Asc},
+	})
+
+	for _, alias := range loadedAliases {
+		tw.AppendRow(table.Row{
+			alias.Manifest.Name,
+			alias.Manifest.Command.Name,
+			alias.Manifest.Command.IsAssembly,
+			alias.Manifest.Command.IsReflective,
+			alias.Manifest.Command.Help,
+		})
+	}
+	con.Println(tw.Render())
 }

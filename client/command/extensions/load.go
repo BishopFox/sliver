@@ -40,6 +40,8 @@ import (
 
 const (
 	defaultTimeout = 60
+
+	ManifestFileName = "extension.json"
 )
 
 var loadedExtensions = map[string]*ExtensionManifest{}
@@ -56,7 +58,8 @@ type ExtensionManifest struct {
 	Entrypoint      string              `json:"entrypoint"`
 	DependsOn       string              `json:"depends_on"`
 	Init            string              `json:"init"`
-	RootPath        string
+
+	RootPath string `json:"-"`
 }
 
 type binFiles struct {
@@ -106,7 +109,7 @@ func (e *ExtensionManifest) getFileForTarget(cmdName string, targetOS string, ta
 // ExtensionLoadCmd - Load extension command
 func ExtensionLoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	dirPath := ctx.Args.String("dir-path")
-	extCmd, err := LoadExtensionManifest(filepath.Join(dirPath, "manifest.json"))
+	extCmd, err := LoadExtensionManifest(filepath.Join(dirPath, ManifestFileName))
 	if err != nil {
 		return
 	}
@@ -140,8 +143,20 @@ func parseExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 	if err != nil {
 		return nil, err
 	}
+	if extManifest.Name == "" {
+		return nil, errors.New("missing `name` field in extension manifest")
+	}
+	if len(extManifest.Files) == 0 {
+		return nil, errors.New("missing `files` field in extension manifest")
+	}
 	for _, extFiles := range extManifest.Files {
+		if extFiles.OS == "" {
+			return nil, errors.New("missing `files.os` field in extension manifest")
+		}
 		extFiles.OS = strings.ToLower(extFiles.OS)
+	}
+	if extManifest.Help == "" {
+		return nil, errors.New("missing `help` field in extension manifest")
 	}
 	return extManifest, nil
 }
@@ -206,7 +221,7 @@ func loadExtension(ctx *grumble.Context, session *clientpb.Session, con *console
 			Request: con.ActiveTarget.Request(ctx),
 		})
 		if err != nil {
-			con.PrintErrorf("Error: %s\n", err.Error())
+			con.PrintErrorf("%s\n", err.Error())
 			return err
 		}
 		if extList.Response != nil && extList.Response.Err != "" {
@@ -367,11 +382,11 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("Error: %s\n", err.Error())
+		con.PrintErrorf("%s\n", err.Error())
 		return
 	}
 	if callExtension.Response != nil && callExtension.Response.Err != "" {
-		con.PrintErrorf("Error: %s\n", callExtension.Response.Err)
+		con.PrintErrorf("%s\n", callExtension.Response.Err)
 		return
 	}
 	con.PrintInfof("Successfully executed %s\n", extName)

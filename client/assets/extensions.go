@@ -26,14 +26,14 @@ import (
 )
 
 const (
-	// SliverExtensionsDirName - Directory storing the client side extensions
-	SliverExtensionsDirName = "extensions"
+	// ExtensionsDirName - Directory storing the client side extensions
+	ExtensionsDirName = "extensions"
 )
 
 // GetExtensionsDir - Get the Sliver extension directory: ~/.sliver-client/extensions
 func GetExtensionsDir() string {
 	rootDir, _ := filepath.Abs(GetRootAppDir())
-	dir := filepath.Join(rootDir, SliverExtensionsDirName)
+	dir := filepath.Join(rootDir, ExtensionsDirName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0700)
 		if err != nil {
@@ -54,7 +54,7 @@ func GetInstalledExtensionManifests() []string {
 	manifests := []string{}
 	for _, fi := range extDirContent {
 		if fi.IsDir() {
-			manifestPath := filepath.Join(extDir, fi.Name(), "manifest.json")
+			manifestPath := filepath.Join(extDir, fi.Name(), "extension.json")
 			if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
 				log.Printf("no manifest in %s, skipping ...", manifestPath)
 				continue

@@ -19,9 +19,12 @@ package util
 */
 
 import (
+	"archive/tar"
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -69,4 +72,61 @@ func ByteCountBinary(b int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+// ReadFileFromTarGz - Read a file from a tar.gz file in-memory
+func ReadFileFromTarGz(tarGzFile string, tarPath string) ([]byte, error) {
+	f, err := os.Open(tarGzFile)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	gzf, err := gzip.NewReader(f)
+	if err != nil {
+		return nil, err
+	}
+	defer gzf.Close()
+
+	tarReader := tar.NewReader(gzf)
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if header.Name == tarPath {
+			switch header.Typeflag {
+			case tar.TypeDir: // = directory
+				continue
+			case tar.TypeReg: // = regular file
+				return ioutil.ReadAll(tarReader)
+			}
+		}
+	}
+	return nil, nil
+}
+
+// CopyFile - Copy a file from src to dst
+func CopyFile(src string, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+	err = out.Close()
+	if err != nil {
+		return err
+	}
+	return err
 }
