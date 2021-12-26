@@ -35,6 +35,7 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/util"
 	"github.com/desertbit/grumble"
 )
 
@@ -87,11 +88,11 @@ func (e *ExtensionManifest) getFileForTarget(cmdName string, targetOS string, ta
 			case "386":
 				// path.Clean() will not remove leading path traversal so we need to prefix the
 				// path with a root path. Then filepath.Join() should fix Windows path separators
-				filePath = filepath.Join(e.RootPath, path.Clean("/"+ef.Files.Ext32Path))
+				filePath = filepath.Join(e.RootPath, util.ResolvePath(ef.Files.Ext32Path))
 			case "amd64":
-				filePath = filepath.Join(e.RootPath, path.Clean("/"+ef.Files.Ext64Path))
+				filePath = filepath.Join(e.RootPath, util.ResolvePath(ef.Files.Ext64Path))
 			default:
-				filePath = filepath.Join(e.RootPath, path.Clean("/"+ef.Files.Ext64Path))
+				filePath = filepath.Join(e.RootPath, util.ResolvePath(ef.Files.Ext64Path))
 			}
 		}
 	}

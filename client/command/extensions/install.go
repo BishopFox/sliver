@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -86,8 +85,8 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 
 	for _, manifestFile := range manifest.Files {
 		if manifestFile.Files.Ext32Path != "" {
-			src := filepath.Join(extLocalPath, path.Clean("/"+manifestFile.Files.Ext32Path))
-			dst := filepath.Join(installPath, path.Clean("/"+manifestFile.Files.Ext32Path))
+			src := filepath.Join(extLocalPath, util.ResolvePath(manifestFile.Files.Ext32Path))
+			dst := filepath.Join(installPath, util.ResolvePath(manifestFile.Files.Ext32Path))
 			err := util.CopyFile(src, dst)
 			if err != nil {
 				con.PrintErrorf("\nError copying file '%s' -> '%s': %s\n", src, dst, err)
@@ -96,8 +95,8 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 			}
 		}
 		if manifestFile.Files.Ext64Path != "" {
-			src := filepath.Join(extLocalPath, path.Clean("/"+manifestFile.Files.Ext64Path))
-			dst := filepath.Join(installPath, path.Clean("/"+manifestFile.Files.Ext64Path))
+			src := filepath.Join(extLocalPath, util.ResolvePath(manifestFile.Files.Ext64Path))
+			dst := filepath.Join(installPath, util.ResolvePath(manifestFile.Files.Ext64Path))
 			err := util.CopyFile(src, dst)
 			if err != nil {
 				con.PrintErrorf("\nError copying file '%s' -> '%s': %s\n", src, dst, err)
@@ -171,7 +170,7 @@ func installArtifact(extGzFilePath string, installPath string, artifactPath stri
 	if err != nil {
 		return err
 	}
-	localArtifactPath := filepath.Join(installPath, path.Clean("/"+artifactPath))
+	localArtifactPath := filepath.Join(installPath, util.ResolvePath(artifactPath))
 	artifactDir := filepath.Dir(localArtifactPath)
 	if _, err := os.Stat(artifactDir); os.IsNotExist(err) {
 		os.MkdirAll(artifactDir, 0o700)
