@@ -25,6 +25,13 @@ TAGS=osusergo,netgo,cgosqlite,sqlite_omit_load_extension
 
 ## Client
 
+# client / command / alias
+if go test -tags=client,$TAGS ./client/command/alias ; then
+    :
+else
+    exit 1
+fi
+
 # client / command / extensions
 if go test -tags=client,$TAGS ./client/command/extensions ; then
     :

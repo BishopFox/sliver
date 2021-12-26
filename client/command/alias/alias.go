@@ -52,10 +52,10 @@ func PrintAliases(con *console.SliverConsoleClient) {
 	for _, alias := range loadedAliases {
 		tw.AppendRow(table.Row{
 			alias.Manifest.Name,
-			alias.Manifest.Command.Name,
-			alias.Manifest.Command.IsAssembly,
-			alias.Manifest.Command.IsReflective,
-			alias.Manifest.Command.Help,
+			alias.Manifest.CommandName,
+			alias.Manifest.IsAssembly,
+			alias.Manifest.IsReflective,
+			alias.Manifest.Help,
 		})
 	}
 	con.Println(tw.Render())

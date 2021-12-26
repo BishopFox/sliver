@@ -84,20 +84,10 @@ func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
 		return
 	}
 
-	for _, cmdFile := range manifest.Command.Files {
-		if cmdFile.Files.Ext32Path != "" {
-			src := filepath.Join(aliasLocalPath, path.Clean("/"+cmdFile.Files.Ext32Path))
-			dst := filepath.Join(installPath, path.Clean("/"+cmdFile.Files.Ext32Path))
-			err := util.CopyFile(src, dst)
-			if err != nil {
-				con.PrintErrorf("\nError copying file '%s' -> '%s': %s\n", src, dst, err)
-				os.RemoveAll(installPath)
-				return
-			}
-		}
-		if cmdFile.Files.Ext64Path != "" {
-			src := filepath.Join(aliasLocalPath, path.Clean("/"+cmdFile.Files.Ext64Path))
-			dst := filepath.Join(installPath, path.Clean("/"+cmdFile.Files.Ext64Path))
+	for _, cmdFile := range manifest.Files {
+		if cmdFile.Path != "" {
+			src := filepath.Join(aliasLocalPath, path.Clean("/"+cmdFile.Path))
+			dst := filepath.Join(installPath, path.Clean("/"+cmdFile.Path))
 			err := util.CopyFile(src, dst)
 			if err != nil {
 				con.PrintErrorf("\nError copying file '%s' -> '%s': %s\n", src, dst, err)
@@ -124,7 +114,7 @@ func InstallFromFile(aliasGzFilePath string, con *console.SliverConsoleClient) {
 	}
 	installPath := filepath.Join(assets.GetAliasesDir(), filepath.Base(manifest.Name))
 	if _, err := os.Stat(installPath); !os.IsNotExist(err) {
-		con.PrintInfof("Alias '%s' already exists\n", manifest.Command.Name)
+		con.PrintInfof("Alias '%s' already exists\n", manifest.CommandName)
 		confirm := false
 		prompt := &survey.Confirm{Message: "Overwrite current install?"}
 		survey.AskOne(prompt, &confirm)
@@ -146,17 +136,9 @@ func InstallFromFile(aliasGzFilePath string, con *console.SliverConsoleClient) {
 		os.RemoveAll(installPath)
 		return
 	}
-	for _, aliasFile := range manifest.Command.Files {
-		if aliasFile.Files.Ext64Path != "" {
-			err := installArtifact(aliasGzFilePath, installPath, aliasFile.Files.Ext64Path, con)
-			if err != nil {
-				con.PrintErrorf("\nFailed to install file: %s\n", err)
-				os.RemoveAll(installPath)
-				return
-			}
-		}
-		if aliasFile.Files.Ext32Path != "" {
-			err := installArtifact(aliasGzFilePath, installPath, aliasFile.Files.Ext32Path, con)
+	for _, aliasFile := range manifest.Files {
+		if aliasFile.Path != "" {
+			err := installArtifact(aliasGzFilePath, installPath, aliasFile.Path, con)
 			if err != nil {
 				con.PrintErrorf("\nFailed to install file: %s\n", err)
 				os.RemoveAll(installPath)
