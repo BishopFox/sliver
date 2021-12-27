@@ -118,7 +118,7 @@ func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 	if err != nil {
 		return nil, err
 	}
-	extManifest, err := parseExtensionManifest(data)
+	extManifest, err := ParseExtensionManifest(data)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 	return extManifest, nil
 }
 
-func parseExtensionManifest(data []byte) (*ExtensionManifest, error) {
+func ParseExtensionManifest(data []byte) (*ExtensionManifest, error) {
 	extManifest := &ExtensionManifest{}
 	err := json.Unmarshal(data, &extManifest)
 	if err != nil {

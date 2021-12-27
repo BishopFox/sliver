@@ -136,7 +136,7 @@ func LoadAlias(dirPath string, con *console.SliverConsoleClient) (*AliasManifest
 	if err != nil {
 		return nil, err
 	}
-	alias, err := parseAliasManifest(data)
+	alias, err := ParseAliasManifest(data)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func LoadAlias(dirPath string, con *console.SliverConsoleClient) (*AliasManifest
 	return alias, nil
 }
 
-func parseAliasManifest(data []byte) (*AliasManifest, error) {
+func ParseAliasManifest(data []byte) (*AliasManifest, error) {
 	// parse it
 	alias := &AliasManifest{}
 	err := json.Unmarshal(data, alias)

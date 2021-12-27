@@ -190,6 +190,7 @@ const (
 	ExtensionsStr       = "extensions"
 	InstallStr          = "install"
 	ListStr             = "list"
+	ArmoryStr           = "armory"
 	AliasesStr          = "aliases"
 	StageListenerStr    = "stage-listener"
 

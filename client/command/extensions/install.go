@@ -53,7 +53,7 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Error reading %s: %s", ManifestFileName, err)
 		return
 	}
-	manifest, err := parseExtensionManifest(manifestData)
+	manifest, err := ParseExtensionManifest(manifestData)
 	if err != nil {
 		con.PrintErrorf("Error parsing %s: %s", ManifestFileName, err)
 		return
@@ -105,7 +105,7 @@ func InstallFromFile(extLocalPath string, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Failed to read %s from '%s': %s\n", ManifestFileName, extLocalPath, err)
 		return
 	}
-	manifest, err := parseExtensionManifest(manifestData)
+	manifest, err := ParseExtensionManifest(manifestData)
 	if err != nil {
 		con.PrintErrorf("Failed to parse %s: %s\n", ManifestFileName, err)
 		return

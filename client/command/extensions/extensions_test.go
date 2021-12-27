@@ -56,7 +56,7 @@ const (
 )
 
 func TestParseExtensionManifest(t *testing.T) {
-	extManifest, err := parseExtensionManifest([]byte(sample1))
+	extManifest, err := ParseExtensionManifest([]byte(sample1))
 	if err != nil {
 		t.Fatalf("Error parsing extension manifest: %s", err)
 	}
@@ -94,7 +94,7 @@ func TestParseExtensionManifest(t *testing.T) {
 		t.Errorf("Expected path '/foo/test1.dll', got '%s'", extManifest.Files[0].Path)
 	}
 
-	extManifest2, err := parseExtensionManifest([]byte(sample2))
+	extManifest2, err := ParseExtensionManifest([]byte(sample2))
 	if err != nil {
 		t.Fatalf("Error parsing extension manifest (2): %s", err)
 	}
@@ -141,7 +141,7 @@ const (
 )
 
 func TestParseExtensionManifestErrors(t *testing.T) {
-	sample3, err := parseExtensionManifest([]byte(sample3))
+	sample3, err := ParseExtensionManifest([]byte(sample3))
 	if err != nil {
 		t.Fatalf("Failed to parse initial sample3: %s", err)
 	}
@@ -149,7 +149,7 @@ func TestParseExtensionManifestErrors(t *testing.T) {
 	missingName := (*sample3)
 	missingName.Name = ""
 	data, _ := json.Marshal(missingName)
-	_, err = parseExtensionManifest(data)
+	_, err = ParseExtensionManifest(data)
 	if err == nil {
 		t.Fatalf("Expected missing name error, got none")
 	}
@@ -157,7 +157,7 @@ func TestParseExtensionManifestErrors(t *testing.T) {
 	missingCmdName := (*sample3)
 	missingCmdName.CommandName = ""
 	data, _ = json.Marshal(missingCmdName)
-	_, err = parseExtensionManifest(data)
+	_, err = ParseExtensionManifest(data)
 	if err == nil {
 		t.Fatalf("Expected missing command name error, got none")
 	}
@@ -165,7 +165,7 @@ func TestParseExtensionManifestErrors(t *testing.T) {
 	missingHelp := (*sample3)
 	missingHelp.Help = ""
 	data, _ = json.Marshal(missingHelp)
-	_, err = parseExtensionManifest(data)
+	_, err = ParseExtensionManifest(data)
 	if err == nil {
 		t.Fatalf("Expected missing help error, got none")
 	}
@@ -173,7 +173,7 @@ func TestParseExtensionManifestErrors(t *testing.T) {
 	missingFiles := (*sample3)
 	missingFiles.Files = []*extensionFile{}
 	data, _ = json.Marshal(missingFiles)
-	_, err = parseExtensionManifest(data)
+	_, err = ParseExtensionManifest(data)
 	if err == nil {
 		t.Fatalf("Expected missing files error, got none")
 	}
@@ -187,7 +187,7 @@ func TestParseExtensionManifestErrors(t *testing.T) {
 		},
 	}
 	data, _ = json.Marshal(missingFileOS)
-	_, err = parseExtensionManifest(data)
+	_, err = ParseExtensionManifest(data)
 	if err == nil {
 		t.Fatalf("Expected missing files.os error, got none")
 	}
@@ -201,7 +201,7 @@ func TestParseExtensionManifestErrors(t *testing.T) {
 		},
 	}
 	data, _ = json.Marshal(missingFileArch)
-	_, err = parseExtensionManifest(data)
+	_, err = ParseExtensionManifest(data)
 	if err == nil {
 		t.Fatalf("Expected missing files.arch error, got none")
 	}
@@ -215,7 +215,7 @@ func TestParseExtensionManifestErrors(t *testing.T) {
 		},
 	}
 	data, _ = json.Marshal(missingFilePath)
-	_, err = parseExtensionManifest(data)
+	_, err = ParseExtensionManifest(data)
 	if err == nil {
 		t.Fatalf("Expected missing files.path error, got none")
 	}
@@ -236,7 +236,7 @@ func TestParseExtensionManifestErrors(t *testing.T) {
 			},
 		}
 		data, _ = json.Marshal(missingFilePath2)
-		_, err = parseExtensionManifest(data)
+		_, err = ParseExtensionManifest(data)
 		if err == nil {
 			t.Fatalf("Expected missing files.path error, got none")
 		}

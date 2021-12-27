@@ -43,7 +43,7 @@ const (
 )
 
 func TestParseAliasManifest(t *testing.T) {
-	alias1, err := parseAliasManifest([]byte(sample1))
+	alias1, err := ParseAliasManifest([]byte(sample1))
 	if err != nil {
 		t.Errorf("Error parsing alias manifest: %s", err)
 	}

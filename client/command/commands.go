@@ -38,6 +38,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/alias"
+	"github.com/bishopfox/sliver/client/command/armory"
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/command/completers"
@@ -126,6 +127,76 @@ func BindCommands(con *console.SliverConsoleClient) {
 		con.PrintInfof("Loaded %d extension(s) from disk\n", n)
 	}
 	con.App.SetPrintHelp(help.HelpCmd(con)) // Responsible for display long-form help templates, etc.
+
+	// [ Aliases ] ---------------------------------------------
+
+	aliasCmd := &grumble.Command{
+		Name:     consts.AliasesStr,
+		Help:     "List current aliases",
+		LongHelp: help.GetHelpFor([]string{consts.AliasesStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			alias.AliasesCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	con.App.AddCommand(aliasCmd)
+
+	aliasCmd.AddCommand(&grumble.Command{
+		Name:     consts.LoadStr,
+		Help:     "Load a command alias",
+		LongHelp: help.GetHelpFor([]string{consts.AliasesStr, consts.LoadStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			alias.AliasesLoadCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("dir-path", "path to the alias directory")
+		},
+		Completer: func(prefix string, args []string) []string {
+			return completers.LocalPathCompleter(prefix, args, con)
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	aliasCmd.AddCommand(&grumble.Command{
+		Name:     consts.InstallStr,
+		Help:     "Install a command alias",
+		LongHelp: help.GetHelpFor([]string{consts.AliasesStr, consts.InstallStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			alias.AliasesInstallCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to the alias directory or tar.gz file")
+		},
+		Completer: func(prefix string, args []string) []string {
+			return completers.LocalPathCompleter(prefix, args, con)
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
+	// [ Armory ] ---------------------------------------------
+
+	armoryCmd := &grumble.Command{
+		Name:     consts.ArmoryStr,
+		Help:     "Automatically download and install extensions/aliases",
+		LongHelp: help.GetHelpFor([]string{consts.ArmoryStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			armory.ArmoryCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	con.App.AddCommand(armoryCmd)
 
 	// [ Update ] --------------------------------------------------------------
 
@@ -1968,60 +2039,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 	con.App.AddCommand(beaconsCmd)
-
-	// [ Aliases ] ---------------------------------------------
-
-	aliasCmd := &grumble.Command{
-		Name:     consts.AliasesStr,
-		Help:     "List current aliases",
-		LongHelp: help.GetHelpFor([]string{consts.AliasesStr}),
-		Run: func(ctx *grumble.Context) error {
-			con.Println()
-			alias.AliasesCmd(ctx, con)
-			con.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	}
-	con.App.AddCommand(aliasCmd)
-
-	aliasCmd.AddCommand(&grumble.Command{
-		Name:     consts.LoadStr,
-		Help:     "Load a command alias",
-		LongHelp: help.GetHelpFor([]string{consts.AliasesStr, consts.LoadStr}),
-		Run: func(ctx *grumble.Context) error {
-			con.Println()
-			alias.AliasesLoadCmd(ctx, con)
-			con.Println()
-			return nil
-		},
-		Args: func(a *grumble.Args) {
-			a.String("dir-path", "path to the alias directory")
-		},
-		Completer: func(prefix string, args []string) []string {
-			return completers.LocalPathCompleter(prefix, args, con)
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	})
-
-	aliasCmd.AddCommand(&grumble.Command{
-		Name:     consts.InstallStr,
-		Help:     "Install a command alias",
-		LongHelp: help.GetHelpFor([]string{consts.AliasesStr, consts.InstallStr}),
-		Run: func(ctx *grumble.Context) error {
-			con.Println()
-			alias.AliasesInstallCmd(ctx, con)
-			con.Println()
-			return nil
-		},
-		Args: func(a *grumble.Args) {
-			a.String("path", "path to the alias directory or tar.gz file")
-		},
-		Completer: func(prefix string, args []string) []string {
-			return completers.LocalPathCompleter(prefix, args, con)
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	})
 
 	// [ Environment ] ---------------------------------------------
 

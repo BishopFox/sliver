@@ -19,13 +19,17 @@ package armory
 */
 
 import (
+	"encoding/base64"
 	"errors"
 	"net/url"
 	"sync"
 	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/command/alias"
+	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/server/cryptography/minisign"
 	"github.com/desertbit/grumble"
 )
 
@@ -39,6 +43,8 @@ type ArmoryPackage struct {
 	CommandName string `json:"command_name"`
 	RepoURL     string `json:"repo_url"`
 	PublicKey   string `json:"public_key"`
+
+	IsAlias bool `json:"-"`
 }
 
 type ArmoryHTTPConfig struct {
@@ -48,16 +54,21 @@ type ArmoryHTTPConfig struct {
 	DisableTLSValidation bool
 }
 
-type armoryIndexCacheEntry struct {
+type indexCacheEntry struct {
+	RepoURL string
 	Fetched time.Time
 	Index   ArmoryIndex
 	LastErr error
 }
 
-type armoryPkgCacheEntry struct {
-	Fetched time.Time
-	Pkg     ArmoryPackage
-	LastErr error
+type pkgCacheEntry struct {
+	RepoURL   string
+	Fetched   time.Time
+	Pkg       ArmoryPackage
+	Sig       minisign.Signature
+	Alias     *alias.AliasManifest
+	Extension *extensions.ExtensionManifest
+	LastErr   error
 }
 
 var (
@@ -73,13 +84,49 @@ var (
 // ArmoryCmd - The main armory command
 func ArmoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	armoriesConfig := assets.GetArmoriesConfig()
-	con.PrintInfof("Fetching %d armory index(es) ...", len(armoriesConfig))
+
+	con.PrintInfof("Fetching %d armory index(es) ... ", len(armoriesConfig))
 	clientConfig := parseArmoryHTTPConfig()
 	indexes := fetchIndexes(armoriesConfig, clientConfig)
-	if 0 < len(indexes) {
-		con.PrintInfof("Fetching package information ...", len(armoriesConfig))
-		fetchPackageSignatures(indexes, clientConfig)
+	if len(indexes) != len(armoriesConfig) {
+		con.Printf("errors!\n")
+		indexCache.Range(func(key, value interface{}) bool {
+			cacheEntry := value.(indexCacheEntry)
+			if cacheEntry.LastErr != nil {
+				con.PrintErrorf("%s: %s\n", cacheEntry.RepoURL, cacheEntry.LastErr)
+			}
+			return true
+		})
+	} else {
+		con.Printf("done!\n")
 	}
+
+	if 0 < len(indexes) {
+		con.PrintInfof("Fetching package information ... ")
+		fetchPackageSignatures(indexes, clientConfig)
+		errorCount := 0
+		packages := []ArmoryPackage{}
+		pkgCache.Range(func(key, value interface{}) bool {
+			cacheEntry := value.(pkgCacheEntry)
+			if cacheEntry.LastErr != nil {
+				errorCount++
+				if errorCount == 0 {
+					con.Printf("errors!\n")
+				}
+				con.PrintErrorf("%s: %s\n", cacheEntry.RepoURL, cacheEntry.LastErr)
+			} else {
+				packages = append(packages, cacheEntry.Pkg)
+			}
+			return true
+		})
+		if errorCount == 0 {
+			con.Printf("done!\n")
+		}
+	}
+}
+
+// PrintArmoryPackages - Prints the armory packages
+func PrintArmoryPackages() {
 
 }
 
@@ -101,7 +148,7 @@ func fetchIndexes(armoryConfigs []*assets.ArmoryConfig, clientConfig ArmoryHTTPC
 	wg.Wait()
 	indexes := []ArmoryIndex{}
 	indexCache.Range(func(key, value interface{}) bool {
-		cacheEntry := value.(armoryIndexCacheEntry)
+		cacheEntry := value.(indexCacheEntry)
 		if cacheEntry.LastErr == nil {
 			indexes = append(indexes, cacheEntry.Index)
 		}
@@ -114,16 +161,16 @@ func fetchIndex(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig
 	defer wg.Done()
 	cacheEntry, ok := indexCache.Load(armoryConfig.PublicKey)
 	if ok {
-		cached := cacheEntry.(*armoryIndexCacheEntry)
+		cached := cacheEntry.(indexCacheEntry)
 		if time.Since(cached.Fetched) < cacheTime && cached.LastErr == nil && !clientConfig.SkipCache {
 			return
 		}
 	}
 
-	armoryResult := &armoryIndexCacheEntry{}
+	armoryResult := &indexCacheEntry{RepoURL: armoryConfig.RepoURL}
 	defer func() {
 		armoryResult.Fetched = time.Now()
-		indexCache.Store(armoryConfig.PublicKey, armoryResult)
+		indexCache.Store(armoryConfig.PublicKey, *armoryResult)
 	}()
 
 	repoURL, err := url.Parse(armoryConfig.RepoURL)
@@ -142,7 +189,9 @@ func fetchIndex(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig
 	} else {
 		index, err = DefaultArmoryIndexParser(armoryConfig, clientConfig)
 	}
-	armoryResult.Index = *index
+	if index != nil {
+		armoryResult.Index = *index
+	}
 	armoryResult.LastErr = err
 }
 
@@ -151,33 +200,35 @@ func fetchPackageSignatures(indexes []ArmoryIndex, clientConfig ArmoryHTTPConfig
 	for _, index := range indexes {
 		for _, armoryPkg := range index.Extensions {
 			wg.Add(1)
-			go fetchPackageSignature(wg, armoryPkg.RepoURL, armoryPkg.PublicKey, clientConfig)
+			armoryPkg.IsAlias = false
+			go fetchPackageSignature(wg, armoryPkg, clientConfig)
 		}
 		for _, armoryPkg := range index.Aliases {
 			wg.Add(1)
-			go fetchPackageSignature(wg, armoryPkg.RepoURL, armoryPkg.PublicKey, clientConfig)
+			armoryPkg.IsAlias = true
+			go fetchPackageSignature(wg, armoryPkg, clientConfig)
 		}
 	}
 	wg.Wait()
 }
 
-func fetchPackageSignature(wg *sync.WaitGroup, rawRepoURL string, rawPublicKey string, clientConfig ArmoryHTTPConfig) {
+func fetchPackageSignature(wg *sync.WaitGroup, armoryPkg *ArmoryPackage, clientConfig ArmoryHTTPConfig) {
 	defer wg.Done()
-	cacheEntry, ok := pkgCache.Load(rawPublicKey)
+	cacheEntry, ok := pkgCache.Load(armoryPkg.PublicKey)
 	if ok {
-		cached := cacheEntry.(*armoryIndexCacheEntry)
+		cached := cacheEntry.(pkgCacheEntry)
 		if time.Since(cached.Fetched) < cacheTime && cached.LastErr == nil && !clientConfig.SkipCache {
 			return
 		}
 	}
 
-	var pkgCacheEntry *armoryPkgCacheEntry
+	pkgCacheEntry := &pkgCacheEntry{RepoURL: armoryPkg.RepoURL}
 	defer func() {
 		pkgCacheEntry.Fetched = time.Now()
-		indexCache.Store(rawPublicKey, pkgCacheEntry)
+		pkgCache.Store(armoryPkg.PublicKey, *pkgCacheEntry)
 	}()
 
-	repoURL, err := url.Parse(rawRepoURL)
+	repoURL, err := url.Parse(armoryPkg.RepoURL)
 	if err != nil {
 		pkgCacheEntry.LastErr = err
 		return
@@ -187,12 +238,30 @@ func fetchPackageSignature(wg *sync.WaitGroup, rawRepoURL string, rawPublicKey s
 		return
 	}
 
-	var pkg *ArmoryPackage
+	var sig *minisign.Signature
 	if pkgParser, ok := pkgParsers[repoURL.Hostname()]; ok {
-		pkg, err = pkgParser(rawRepoURL, rawPublicKey, true, clientConfig)
+		sig, _, err = pkgParser(armoryPkg, true, clientConfig)
 	} else {
-		pkg, err = DefaultArmoryPkgParser(rawRepoURL, rawPublicKey, true, clientConfig)
+		sig, _, err = DefaultArmoryPkgParser(armoryPkg, true, clientConfig)
 	}
-	pkgCacheEntry.Pkg = *pkg
+	if sig != nil {
+		pkgCacheEntry.Sig = *sig
+	}
+	if armoryPkg != nil {
+		pkgCacheEntry.Pkg = *armoryPkg
+	}
 	pkgCacheEntry.LastErr = err
+	if err == nil {
+		manifestData, err := base64.StdEncoding.DecodeString(sig.TrustedComment)
+		if err != nil {
+			pkgCacheEntry.LastErr = err
+			return
+		}
+		if armoryPkg.IsAlias {
+			pkgCacheEntry.Alias, err = alias.ParseAliasManifest(manifestData)
+		} else {
+			pkgCacheEntry.Extension, err = extensions.ParseExtensionManifest(manifestData)
+		}
+		pkgCacheEntry.LastErr = err
+	}
 }

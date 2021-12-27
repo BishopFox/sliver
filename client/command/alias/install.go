@@ -53,7 +53,7 @@ func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Error reading %s: %s", ManifestFileName, err)
 		return
 	}
-	manifest, err := parseAliasManifest(manifestData)
+	manifest, err := ParseAliasManifest(manifestData)
 	if err != nil {
 		con.PrintErrorf("Error parsing %s: %s", ManifestFileName, err)
 		return
@@ -106,7 +106,7 @@ func InstallFromFile(aliasGzFilePath string, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Failed to read %s from '%s': %s\n", ManifestFileName, aliasGzFilePath, err)
 		return
 	}
-	manifest, err := parseAliasManifest(manifestData)
+	manifest, err := ParseAliasManifest(manifestData)
 	if err != nil {
 		con.PrintErrorf("Failed to parse %s: %s\n", ManifestFileName, err)
 		return
