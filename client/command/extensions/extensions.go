@@ -20,6 +20,7 @@ package extensions
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"strings"
 
@@ -42,18 +43,19 @@ func PrintExtensions(con *console.SliverConsoleClient) {
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
 		"Name",
+		"Command Name",
 		"Platforms",
 		"Version",
+		"Installed",
 		"Extension Author",
 		"Original Author",
-		"Installed",
 		"Repository",
 	})
 	tw.SortBy([]table.SortBy{
 		{Name: "Name", Mode: table.Asc},
 	})
 	tw.SetColumnConfigs([]table.ColumnConfig{
-		{Number: 6, Align: text.AlignCenter},
+		{Number: 5, Align: text.AlignCenter},
 	})
 
 	installedManifests := getInstalledManifests()
@@ -64,11 +66,12 @@ func PrintExtensions(con *console.SliverConsoleClient) {
 		}
 		tw.AppendRow(table.Row{
 			extension.Name,
-			strings.Join(extensionPlatforms(extension), ","),
+			extension.CommandName,
+			strings.Join(extensionPlatforms(extension), ",\n"),
 			extension.Version,
+			installed,
 			extension.ExtensionAuthor,
 			extension.OriginalAuthor,
-			installed,
 			extension.RepoURL,
 		})
 	}
@@ -76,11 +79,15 @@ func PrintExtensions(con *console.SliverConsoleClient) {
 }
 
 func extensionPlatforms(extension *ExtensionManifest) []string {
-	platforms := []string{}
+	platforms := map[string]string{}
 	for _, entry := range extension.Files {
-		platforms = append(platforms, entry.OS)
+		platforms[fmt.Sprintf("%s/%s", entry.OS, entry.Arch)] = ""
 	}
-	return platforms
+	keys := []string{}
+	for key := range platforms {
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 func getInstalledManifests() map[string]*ExtensionManifest {

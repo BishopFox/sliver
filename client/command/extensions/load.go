@@ -123,7 +123,7 @@ func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 		return nil, err
 	}
 	extManifest.RootPath = filepath.Dir(manifestPath)
-	loadedExtensions[extManifest.Name] = extManifest
+	loadedExtensions[extManifest.CommandName] = extManifest
 	return extManifest, nil
 }
 

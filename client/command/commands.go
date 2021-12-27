@@ -2004,6 +2004,25 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 
+	aliasCmd.AddCommand(&grumble.Command{
+		Name:     consts.InstallStr,
+		Help:     "Install a command alias",
+		LongHelp: help.GetHelpFor([]string{consts.AliasesStr, consts.InstallStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			alias.AliasesInstallCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to the alias directory or tar.gz file")
+		},
+		Completer: func(prefix string, args []string) []string {
+			return completers.LocalPathCompleter(prefix, args, con)
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
 	// [ Environment ] ---------------------------------------------
 
 	envCmd := &grumble.Command{
