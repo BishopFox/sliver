@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -154,7 +153,7 @@ func installArtifact(aliasGzFilePath string, installPath, artifactPath string, c
 	if err != nil {
 		return err
 	}
-	localArtifactPath := filepath.Join(installPath, path.Clean("/"+artifactPath))
+	localArtifactPath := filepath.Join(installPath, util.ResolvePath(artifactPath))
 	artifactDir := filepath.Dir(localArtifactPath)
 	if _, err := os.Stat(artifactDir); os.IsNotExist(err) {
 		os.MkdirAll(artifactDir, 0o700)

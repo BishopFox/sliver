@@ -13,16 +13,21 @@ GO_VERSION = $(shell $(GO) version)
 VERSION ?= $(shell git describe --abbrev=0)
 COMPILED_AT = $(shell date +%s)
 RELEASES_URL = https://api.github.com/repos/BishopFox/sliver/releases
-PKG = github.com/bishopfox/sliver/client/version
+CLIENT_ASSETS_PKG = github.com/bishopfox/sliver/client/assets
+ARMORY_PUB_KEY = RWSBpxpRWDrD7Fe+VvRE3c2VEDC2NK80rlNCj+BX0gz44Xw07r6KQD9L
+ARMORY_REPO_URL = 
+VERSION_PKG = github.com/bishopfox/sliver/client/version
 GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
 GIT_COMMIT = $(shell git rev-parse HEAD)
 LDFLAGS = -ldflags "-s -w \
-	-X $(PKG).Version=$(VERSION) \
-	-X \"$(PKG).GoVersion=$(GO_VERSION)\" \
-	-X $(PKG).CompiledAt=$(COMPILED_AT) \
-	-X $(PKG).GithubReleasesURL=$(RELEASES_URL) \
-	-X $(PKG).GitCommit=$(GIT_COMMIT) \
-	-X $(PKG).GitDirty=$(GIT_DIRTY)"
+	-X $(VERSION_PKG).Version=$(VERSION) \
+	-X \"$(VERSION_PKG).GoVersion=$(GO_VERSION)\" \
+	-X $(VERSION_PKG).CompiledAt=$(COMPILED_AT) \
+	-X $(VERSION_PKG).GithubReleasesURL=$(RELEASES_URL) \
+	-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
+	-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY) \
+	-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUB_KEY) \
+	-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 
 
 #
@@ -70,12 +75,12 @@ ifeq ($(MAKECMDGOALS), linux)
 	# Redefine LDFLAGS to add the static part
 	LDFLAGS = -ldflags "-s -w \
 		-extldflags '-static' \
-		-X $(PKG).Version=$(VERSION) \
-		-X \"$(PKG).GoVersion=$(GO_VERSION)\" \
-		-X $(PKG).CompiledAt=$(COMPILED_AT) \
-		-X $(PKG).GithubReleasesURL=$(RELEASES_URL) \
-		-X $(PKG).GitCommit=$(GIT_COMMIT) \
-		-X $(PKG).GitDirty=$(GIT_DIRTY)"
+		-X $(VERSION_PKG).Version=$(VERSION) \
+		-X \"$(VERSION_PKG).GoVersion=$(GO_VERSION)\" \
+		-X $(VERSION_PKG).CompiledAt=$(COMPILED_AT) \
+		-X $(VERSION_PKG).GithubReleasesURL=$(RELEASES_URL) \
+		-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
+		-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY)"
 endif
 
 #
