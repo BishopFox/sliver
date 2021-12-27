@@ -70,7 +70,7 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 		os.RemoveAll(installPath)
 	}
 
-	con.Printf("Installing extension '%s' ... ", manifest.Name)
+	con.PrintInfof("Installing extension '%s' (%s) ... ", manifest.Name, manifest.Version)
 	err = os.MkdirAll(installPath, 0o700)
 	if err != nil {
 		con.PrintErrorf("\nError creating extension directory: %s\n", err)
@@ -122,7 +122,7 @@ func InstallFromFile(extLocalPath string, con *console.SliverConsoleClient) {
 		os.RemoveAll(installPath)
 	}
 
-	con.Printf("Installing extension '%s' ... ", manifest.Name)
+	con.PrintInfof("Installing extension '%s' (%s) ... ", manifest.Name, manifest.Version)
 	err = os.MkdirAll(installPath, 0o700)
 	if err != nil {
 		con.PrintErrorf("\nFailed to create extension directory: %s\n", err)

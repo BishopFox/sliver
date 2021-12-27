@@ -61,7 +61,7 @@ func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
 	}
 	installPath := filepath.Join(assets.GetAliasesDir(), filepath.Base(manifest.Name))
 	if _, err := os.Stat(installPath); !os.IsNotExist(err) {
-		con.PrintInfof("Extension '%s' already exists", manifest.Name)
+		con.PrintInfof("Alias '%s' already exists", manifest.Name)
 		confirm := false
 		prompt := &survey.Confirm{Message: "Overwrite current install?"}
 		survey.AskOne(prompt, &confirm)
@@ -71,10 +71,10 @@ func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
 		os.RemoveAll(installPath)
 	}
 
-	con.Printf("Installing extension '%s' (v%s) ... ", manifest.Name, manifest.Version)
+	con.PrintInfof("Installing alias '%s' (%s) ... ", manifest.Name, manifest.Version)
 	err = os.MkdirAll(installPath, 0o700)
 	if err != nil {
-		con.PrintErrorf("\nError creating extension directory: %s\n", err)
+		con.PrintErrorf("\nError creating alias directory: %s\n", err)
 		return
 	}
 	err = ioutil.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
@@ -86,8 +86,8 @@ func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
 
 	for _, cmdFile := range manifest.Files {
 		if cmdFile.Path != "" {
-			src := filepath.Join(aliasLocalPath, path.Clean("/"+cmdFile.Path))
-			dst := filepath.Join(installPath, path.Clean("/"+cmdFile.Path))
+			src := filepath.Join(aliasLocalPath, util.ResolvePath(cmdFile.Path))
+			dst := filepath.Join(installPath, util.ResolvePath(cmdFile.Path))
 			err := util.CopyFile(src, dst)
 			if err != nil {
 				con.PrintErrorf("\nError copying file '%s' -> '%s': %s\n", src, dst, err)
@@ -124,7 +124,7 @@ func InstallFromFile(aliasGzFilePath string, con *console.SliverConsoleClient) {
 		os.RemoveAll(installPath)
 	}
 
-	con.Printf("Installing alias '%s' (v%s) ... ", manifest.Name, manifest.Version)
+	con.PrintInfof("Installing alias '%s' (%s) ... ", manifest.Name, manifest.Version)
 	err = os.MkdirAll(installPath, 0o700)
 	if err != nil {
 		con.PrintErrorf("\nFailed to create alias directory: %s\n", err)
