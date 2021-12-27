@@ -28,9 +28,11 @@ import (
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/extensions"
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 type ArmoryIndex struct {
@@ -105,7 +107,8 @@ func ArmoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintInfof("Fetching package information ... ")
 		fetchPackageSignatures(indexes, clientConfig)
 		errorCount := 0
-		packages := []ArmoryPackage{}
+		aliases := []*alias.AliasManifest{}
+		extensions := []*extensions.ExtensionManifest{}
 		pkgCache.Range(func(key, value interface{}) bool {
 			cacheEntry := value.(pkgCacheEntry)
 			if cacheEntry.LastErr != nil {
@@ -115,19 +118,77 @@ func ArmoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				}
 				con.PrintErrorf("%s: %s\n", cacheEntry.RepoURL, cacheEntry.LastErr)
 			} else {
-				packages = append(packages, cacheEntry.Pkg)
+				if cacheEntry.Pkg.IsAlias {
+					aliases = append(aliases, cacheEntry.Alias)
+				} else {
+					extensions = append(extensions, cacheEntry.Extension)
+				}
 			}
 			return true
 		})
 		if errorCount == 0 {
 			con.Printf("done!\n")
 		}
+		if 0 < len(aliases) || 0 < len(extensions) {
+			con.Println()
+			PrintArmoryPackages(aliases, extensions, con)
+		} else {
+			con.PrintInfof("No packages found\n")
+		}
+	} else {
+		con.PrintInfof("No indexes found\n")
 	}
 }
 
 // PrintArmoryPackages - Prints the armory packages
-func PrintArmoryPackages() {
+func PrintArmoryPackages(aliases []*alias.AliasManifest, extensions []*extensions.ExtensionManifest, con *console.SliverConsoleClient) {
 
+	type pkgInfo struct {
+		CommandName string
+		Version     string
+		Type        string
+		URL         string
+	}
+	packages := []pkgInfo{}
+	for _, alias := range aliases {
+		packages = append(packages, pkgInfo{
+			CommandName: alias.CommandName,
+			Version:     alias.Version,
+			Type:        "Alias",
+			URL:         alias.RepoURL,
+		})
+	}
+	for _, extension := range extensions {
+		packages = append(packages, pkgInfo{
+			CommandName: extension.CommandName,
+			Version:     extension.Version,
+			Type:        "Extension",
+			URL:         extension.RepoURL,
+		})
+	}
+
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{
+		"Command Name",
+		"Version",
+		"Type",
+		"URL",
+	})
+	tw.SortBy([]table.SortBy{
+		{Name: "Command Name", Mode: table.Asc},
+	})
+
+	for _, pkg := range packages {
+		tw.AppendRow(table.Row{
+			pkg.CommandName,
+			pkg.Version,
+			pkg.Type,
+			pkg.URL,
+		})
+	}
+
+	con.Printf("%s\n", tw.Render())
 }
 
 func parseArmoryHTTPConfig() ArmoryHTTPConfig {
