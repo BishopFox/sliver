@@ -64,14 +64,36 @@ func installAlias(alias *alias.AliasManifest, clientConfig ArmoryHTTPConfig, con
 }
 
 func installExtension(ext *extensions.ExtensionManifest, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {
-	err := fetchPackageByName(ext.CommandName, clientConfig, con)
+	deps := make(map[string]struct{})
+	resolveExtensionPackageDependencies(ext.CommandName, deps, clientConfig, con)
+	err := installExtensionPackageByName(ext.CommandName, clientConfig, con)
 	if err != nil {
 		con.PrintErrorf("Failed to install extension '%s': %s", ext.CommandName, err)
 		return
 	}
 }
 
-func fetchPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) error {
+func resolveExtensionPackageDependencies(name string, deps map[string]struct{}, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {
+	var entry *pkgCacheEntry
+	pkgCache.Range(func(key, value interface{}) bool {
+		cacheEntry := value.(pkgCacheEntry)
+		if cacheEntry.Pkg.CommandName == name {
+			entry = &cacheEntry
+			return false
+		}
+		return true
+	})
+	if entry == nil {
+		return
+	}
+	if entry.Extension.DependsOn == name {
+		return // Avoid infinite loop of something that depends on itself
+	}
+	deps[entry.Extension.DependsOn] = struct{}{}
+	resolveExtensionPackageDependencies(entry.Extension.DependsOn, deps, clientConfig, con)
+}
+
+func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) error {
 	var entry *pkgCacheEntry
 	pkgCache.Range(func(key, value interface{}) bool {
 		cacheEntry := value.(pkgCacheEntry)
@@ -130,9 +152,8 @@ func fetchPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console
 
 	// do not add if the command already exists
 	if extensions.CmdExists(extCmd.Name, con.App) {
-		return fmt.Errorf("%s command already exists\n", extCmd.Name)
+		return fmt.Errorf("%s command already exists", extCmd.Name)
 	}
 	extensions.ExtensionRegisterCommand(extCmd, con)
-
 	return nil
 }
