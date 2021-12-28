@@ -159,6 +159,11 @@ func resolveExtensionPackageDependencies(name string, deps map[string]struct{}, 
 	if entry.Extension.DependsOn == name {
 		return // Avoid infinite loop of something that depends on itself
 	}
+	// We also need to look out for circular dependencies, so if we've already
+	// seen this dependency, we stop resolving
+	if _, ok := deps[entry.Extension.DependsOn]; ok {
+		return // Already resolved
+	}
 	deps[entry.Extension.DependsOn] = struct{}{}
 	resolveExtensionPackageDependencies(entry.Extension.DependsOn, deps, clientConfig, con)
 }
