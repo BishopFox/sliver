@@ -10,7 +10,7 @@ be ignored.
 
 ```shell
 /path/to/extension/folder/
-├── manifest.json
+├── extension.json
 └── windows
 │    └── extension.x86.dll
 │    └── extension.x64.dll
@@ -22,7 +22,7 @@ be ignored.
      └── extension.x64.dylib
 ```
 
-Here's an example manifest:
+Here's an example manifest (i.e., the `extension.json` or a `alias.json`):
 
 ```json
 {
