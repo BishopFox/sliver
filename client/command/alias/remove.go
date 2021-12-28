@@ -1,4 +1,4 @@
-package extensions
+package alias
 
 /*
 	Sliver Implant Framework
@@ -30,41 +30,37 @@ import (
 	"github.com/desertbit/grumble"
 )
 
-// ExtensionsRemoveCmd - Remove an extension
-func ExtensionsRemoveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+// AliasesRemoveCmd - Locally load a alias into the Sliver shell.
+func AliasesRemoveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	name := ctx.Args.String("name")
 	if name == "" {
 		con.PrintErrorf("Extension name is required\n")
 		return
 	}
-	if name == "coff-loader" {
-		con.PrintInfof("Yeah, you don't to remove that one\n")
-		return
-	}
 	confirm := false
-	prompt := &survey.Confirm{Message: fmt.Sprintf("Remove '%s' extension?", name)}
+	prompt := &survey.Confirm{Message: fmt.Sprintf("Remove '%s' alias?", name)}
 	survey.AskOne(prompt, &confirm)
 	if !confirm {
 		return
 	}
-	err := RemoveExtensionByCommandName(name, con)
+	err := RemoveAliasByCommandName(name, con)
 	if err != nil {
-		con.PrintErrorf("Error removing extension: %s\n", err)
+		con.PrintErrorf("Error removing alias: %s\n", err)
 		return
 	} else {
-		con.PrintInfof("Extension '%s' removed\n", name)
+		con.PrintInfof("Alias '%s' removed\n", name)
 	}
 }
 
-// RemoveExtensionByCommandName - Remove an extension by command name
-func RemoveExtensionByCommandName(commandName string, con *console.SliverConsoleClient) error {
+// RemoveAliasByCommandName - Remove an alias by command name
+func RemoveAliasByCommandName(commandName string, con *console.SliverConsoleClient) error {
 	if commandName == "" {
 		return errors.New("command name is required")
 	}
-	if _, ok := loadedExtensions[commandName]; !ok {
-		return errors.New("extension not loaded")
+	if _, ok := loadedAliases[commandName]; !ok {
+		return errors.New("alias not loaded")
 	}
-	delete(loadedExtensions, commandName)
+	delete(loadedAliases, commandName)
 
 	allCommands := con.App.Commands().All()
 	var index int
@@ -76,7 +72,7 @@ func RemoveExtensionByCommandName(commandName string, con *console.SliverConsole
 	}
 	removeCmd(allCommands, index)
 
-	extPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(commandName))
+	extPath := filepath.Join(assets.GetAliasesDir(), filepath.Base(commandName))
 	if _, err := os.Stat(extPath); os.IsNotExist(err) {
 		return nil
 	}

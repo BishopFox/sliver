@@ -182,6 +182,25 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 
+	aliasCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove an alias",
+		LongHelp: help.GetHelpFor([]string{consts.RmStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			alias.AliasesRemoveCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("name", "name of the alias to remove")
+		},
+		Completer: func(prefix string, args []string) []string {
+			return alias.AliasCommandNameCompleter(prefix, args, con)
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
 	// [ Armory ] ---------------------------------------------
 
 	armoryCmd := &grumble.Command{
