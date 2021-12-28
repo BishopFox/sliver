@@ -3,7 +3,10 @@ Extensions
 
 Allows to load and execute 3rd party extensions.
 
-Extensions must be loaded from a directory with the following architecture:
+Extensions directory structures can be relative, however in the root of the directory or .tar.gz there
+must be a `extension.json` or a `alias.json` file. All paths are relative to the manifest/root directory,
+parent directories are not allowed. Only files listed in the manifest are copied, any other files will
+be ignored.
 
 ```shell
 /path/to/extension/folder/
@@ -18,8 +21,6 @@ Extensions must be loaded from a directory with the following architecture:
      └── extension.x86.dylib
      └── extension.x64.dylib
 ```
-
-The extension folder structure must follow the `GOOS/GOARCH/` scheme.
 
 Here's an example manifest:
 
@@ -37,10 +38,8 @@ Here's an example manifest:
     "files": [
         {
             "os": "windows",
-            "files":{
-                "x86": "extension.x86.o",
-                "x64": "extension.x64.o",
-            }
+            "arch": "amd64",
+            "path": "extension.x64.o",
         }
     ],
     "arguments": [
