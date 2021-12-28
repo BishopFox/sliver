@@ -60,12 +60,82 @@ func ArmoryInstallCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 func installAlias(alias *alias.AliasManifest, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {
+	err := installAliasPackageByName(alias.CommandName, clientConfig, con)
+	if err != nil {
+		con.PrintErrorf("Failed to install alias '%s': %s", alias.CommandName, err)
+		return
+	}
+}
 
+func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) error {
+	var entry *pkgCacheEntry
+	pkgCache.Range(func(key, value interface{}) bool {
+		cacheEntry := value.(pkgCacheEntry)
+		if cacheEntry.Pkg.CommandName == name {
+			entry = &cacheEntry
+			return false
+		}
+		return true
+	})
+	if entry == nil {
+		return errors.New("package not found")
+	}
+	repoURL, err := url.Parse(entry.RepoURL)
+	if err != nil {
+		return err
+	}
+
+	var sig *minisign.Signature
+	var tarGz []byte
+	if pkgParser, ok := pkgParsers[repoURL.Hostname()]; ok {
+		sig, tarGz, err = pkgParser(&entry.Pkg, false, clientConfig)
+	} else {
+		sig, tarGz, err = DefaultArmoryPkgParser(&entry.Pkg, false, clientConfig)
+	}
+	if err != nil {
+		return err
+	}
+
+	var publicKey minisign.PublicKey
+	publicKey.UnmarshalText([]byte(entry.Pkg.PublicKey))
+	rawSig, _ := sig.MarshalText()
+	valid := minisign.Verify(publicKey, tarGz, []byte(rawSig))
+	if !valid {
+		return errors.New("signature verification failed")
+	}
+
+	tmpFile, err := ioutil.TempFile("", "sliver-armory-")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpFile.Name())
+	_, err = tmpFile.Write(tarGz)
+	if err != nil {
+		return err
+	}
+	tmpFile.Close()
+
+	installPath := alias.InstallFromFile(tmpFile.Name(), con)
+	if installPath == nil {
+		return errors.New("failed to install alias")
+	}
+	_, err = alias.LoadAlias(filepath.Join(*installPath, alias.ManifestFileName), con)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func installExtension(ext *extensions.ExtensionManifest, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {
 	deps := make(map[string]struct{})
 	resolveExtensionPackageDependencies(ext.CommandName, deps, clientConfig, con)
+	for dep := range deps {
+		err := installExtensionPackageByName(dep, clientConfig, con)
+		if err != nil {
+			con.PrintErrorf("Failed to install extension dependency '%s': %s", dep, err)
+			return
+		}
+	}
 	err := installExtensionPackageByName(ext.CommandName, clientConfig, con)
 	if err != nil {
 		con.PrintErrorf("Failed to install extension '%s': %s", ext.CommandName, err)

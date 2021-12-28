@@ -100,16 +100,16 @@ func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
 }
 
 // Install an extension from a .tar.gz file
-func InstallFromFile(aliasGzFilePath string, con *console.SliverConsoleClient) {
+func InstallFromFile(aliasGzFilePath string, con *console.SliverConsoleClient) *string {
 	manifestData, err := util.ReadFileFromTarGz(aliasGzFilePath, fmt.Sprintf("./%s", ManifestFileName))
 	if err != nil {
 		con.PrintErrorf("Failed to read %s from '%s': %s\n", ManifestFileName, aliasGzFilePath, err)
-		return
+		return nil
 	}
 	manifest, err := ParseAliasManifest(manifestData)
 	if err != nil {
 		con.PrintErrorf("Failed to parse %s: %s\n", ManifestFileName, err)
-		return
+		return nil
 	}
 	installPath := filepath.Join(assets.GetAliasesDir(), filepath.Base(manifest.Name))
 	if _, err := os.Stat(installPath); !os.IsNotExist(err) {
@@ -118,7 +118,7 @@ func InstallFromFile(aliasGzFilePath string, con *console.SliverConsoleClient) {
 		prompt := &survey.Confirm{Message: "Overwrite current install?"}
 		survey.AskOne(prompt, &confirm)
 		if !confirm {
-			return
+			return nil
 		}
 		os.RemoveAll(installPath)
 	}
@@ -127,13 +127,13 @@ func InstallFromFile(aliasGzFilePath string, con *console.SliverConsoleClient) {
 	err = os.MkdirAll(installPath, 0o700)
 	if err != nil {
 		con.PrintErrorf("\nFailed to create alias directory: %s\n", err)
-		return
+		return nil
 	}
 	err = ioutil.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
 	if err != nil {
 		con.PrintErrorf("\nFailed to write %s: %s\n", ManifestFileName, err)
 		os.RemoveAll(installPath)
-		return
+		return nil
 	}
 	for _, aliasFile := range manifest.Files {
 		if aliasFile.Path != "" {
@@ -141,11 +141,12 @@ func InstallFromFile(aliasGzFilePath string, con *console.SliverConsoleClient) {
 			if err != nil {
 				con.PrintErrorf("\nFailed to install file: %s\n", err)
 				os.RemoveAll(installPath)
-				return
+				return nil
 			}
 		}
 	}
 	con.Printf("done!\n")
+	return &installPath
 }
 
 func installArtifact(aliasGzFilePath string, installPath, artifactPath string, con *console.SliverConsoleClient) error {
