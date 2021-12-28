@@ -130,6 +130,9 @@ func installExtension(ext *extensions.ExtensionManifest, clientConfig ArmoryHTTP
 	deps := make(map[string]struct{})
 	resolveExtensionPackageDependencies(ext.CommandName, deps, clientConfig, con)
 	for dep := range deps {
+		if extensions.CmdExists(dep, con.App) {
+			continue // Dependency is already installed
+		}
 		err := installExtensionPackageByName(dep, clientConfig, con)
 		if err != nil {
 			con.PrintErrorf("Failed to install extension dependency '%s': %s", dep, err)
