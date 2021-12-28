@@ -479,6 +479,7 @@ func getBOFArgs(ctx *grumble.Context, binPath string, ext *ExtensionManifest) ([
 
 }
 
+// CmdExists - checks if a command exists
 func CmdExists(name string, app *grumble.App) bool {
 	for _, c := range app.Commands().All() {
 		if name == c.Name {

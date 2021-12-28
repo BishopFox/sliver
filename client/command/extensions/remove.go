@@ -34,7 +34,11 @@ import (
 func ExtensionsRemoveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	name := ctx.Args.String("name")
 	if name == "" {
-		con.Println("Extension name is required")
+		con.PrintErrorf("Extension name is required\n")
+		return
+	}
+	if name == "coff-loader" {
+		con.PrintInfof("Yeah, you don't to remove that one\n")
 		return
 	}
 	confirm := false
@@ -45,7 +49,7 @@ func ExtensionsRemoveCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	}
 	err := RemoveExtensionByCommandName(name, con)
 	if err != nil {
-		con.PrintErrorf("Error removing extension: %s", err)
+		con.PrintErrorf("Error removing extension: %s\n", err)
 		return
 	} else {
 		con.PrintInfof("Extension '%s' removed\n", name)
