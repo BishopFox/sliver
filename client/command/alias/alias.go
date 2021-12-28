@@ -19,6 +19,8 @@ package alias
 */
 
 import (
+	"strings"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/desertbit/grumble"
@@ -59,4 +61,15 @@ func PrintAliases(con *console.SliverConsoleClient) {
 		})
 	}
 	con.Println(tw.Render())
+}
+
+// AliasCommandNameCompleter - Completer for installed extensions command names
+func AliasCommandNameCompleter(prefix string, args []string, con *console.SliverConsoleClient) []string {
+	results := []string{}
+	for name := range loadedAliases {
+		if strings.HasPrefix(name, prefix) {
+			results = append(results, name)
+		}
+	}
+	return results
 }

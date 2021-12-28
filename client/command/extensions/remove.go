@@ -70,6 +70,7 @@ func RemoveExtensionByCommandName(commandName string, con *console.SliverConsole
 			break
 		}
 	}
+	//lint:ignore SA4006 - false positive
 	allCommands = append(allCommands[:index], allCommands[index+1:]...)
 
 	extPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(commandName))

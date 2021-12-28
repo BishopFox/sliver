@@ -204,6 +204,31 @@ func BindCommands(con *console.SliverConsoleClient) {
 	}
 	con.App.AddCommand(armoryCmd)
 
+	armoryCmd.AddCommand(&grumble.Command{
+		Name:     consts.InstallStr,
+		Help:     "Install an alias or extension",
+		LongHelp: help.GetHelpFor([]string{consts.ArmoryStr, consts.InstallStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("I", "insecure", false, "skip tls certificate validation")
+			f.String("p", "proxy", "", "specify a proxy url (e.g. http://localhost:8080)")
+			f.Bool("c", "ignore-cache", false, "ignore metadata cache, force refresh")
+			f.String("t", "timeout", "15m", "download timeout")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			armory.ArmoryInstallCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("name", "name of the extension or alias to install")
+		},
+		Completer: func(prefix string, args []string) []string {
+			return armory.AliasOrExtensionCompleter(prefix, args, con)
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
 	// [ Update ] --------------------------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{

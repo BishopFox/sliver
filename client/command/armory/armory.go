@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -86,7 +87,6 @@ var (
 // ArmoryCmd - The main armory command
 func ArmoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	armoriesConfig := assets.GetArmoriesConfig()
-
 	con.PrintInfof("Fetching %d armory index(es) ... ", len(armoriesConfig))
 	clientConfig := parseArmoryHTTPConfig(ctx)
 	indexes := fetchIndexes(armoriesConfig, clientConfig)
@@ -138,6 +138,46 @@ func ArmoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	} else {
 		con.PrintInfof("No indexes found\n")
 	}
+}
+
+func refresh(clientConfig ArmoryHTTPConfig) {
+	armoriesConfig := assets.GetArmoriesConfig()
+	indexes := fetchIndexes(armoriesConfig, clientConfig)
+	fetchPackageSignatures(indexes, clientConfig)
+}
+
+func packagesInCache() ([]*alias.AliasManifest, []*extensions.ExtensionManifest) {
+	aliases := []*alias.AliasManifest{}
+	extensions := []*extensions.ExtensionManifest{}
+	pkgCache.Range(func(key, value interface{}) bool {
+		cacheEntry := value.(pkgCacheEntry)
+		if cacheEntry.LastErr == nil {
+			if cacheEntry.Pkg.IsAlias {
+				aliases = append(aliases, cacheEntry.Alias)
+			} else {
+				extensions = append(extensions, cacheEntry.Extension)
+			}
+		}
+		return true
+	})
+	return aliases, extensions
+}
+
+// AliasOrExtensionCompleter - Completer for alias and extension command names
+func AliasOrExtensionCompleter(prefix string, args []string, con *console.SliverConsoleClient) []string {
+	results := []string{}
+	aliases, extensions := packagesInCache()
+	for _, alias := range aliases {
+		if strings.HasPrefix(alias.CommandName, prefix) {
+			results = append(results, alias.CommandName)
+		}
+	}
+	for _, extension := range extensions {
+		if strings.HasPrefix(extension.CommandName, prefix) {
+			results = append(results, extension.CommandName)
+		}
+	}
+	return results
 }
 
 // PrintArmoryPackages - Prints the armory packages

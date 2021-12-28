@@ -40,7 +40,7 @@ func ExtensionsInstallCmd(ctx *grumble.Context, con *console.SliverConsoleClient
 		return
 	}
 	if !fi.IsDir() {
-		InstallFromFile(extLocalPath, con)
+		InstallFromFilePath(extLocalPath, con)
 	} else {
 		installFromDir(extLocalPath, con)
 	}
@@ -99,16 +99,16 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 }
 
 // Install an extension from a .tar.gz file
-func InstallFromFile(extLocalPath string, con *console.SliverConsoleClient) {
+func InstallFromFilePath(extLocalPath string, con *console.SliverConsoleClient) *string {
 	manifestData, err := util.ReadFileFromTarGz(extLocalPath, fmt.Sprintf("./%s", ManifestFileName))
 	if err != nil {
 		con.PrintErrorf("Failed to read %s from '%s': %s\n", ManifestFileName, extLocalPath, err)
-		return
+		return nil
 	}
 	manifest, err := ParseExtensionManifest(manifestData)
 	if err != nil {
 		con.PrintErrorf("Failed to parse %s: %s\n", ManifestFileName, err)
-		return
+		return nil
 	}
 	installPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(manifest.CommandName))
 	if _, err := os.Stat(installPath); !os.IsNotExist(err) {
@@ -117,7 +117,7 @@ func InstallFromFile(extLocalPath string, con *console.SliverConsoleClient) {
 		prompt := &survey.Confirm{Message: "Overwrite current install?"}
 		survey.AskOne(prompt, &confirm)
 		if !confirm {
-			return
+			return nil
 		}
 		os.RemoveAll(installPath)
 	}
@@ -126,13 +126,13 @@ func InstallFromFile(extLocalPath string, con *console.SliverConsoleClient) {
 	err = os.MkdirAll(installPath, 0o700)
 	if err != nil {
 		con.PrintErrorf("\nFailed to create extension directory: %s\n", err)
-		return
+		return nil
 	}
 	err = ioutil.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
 	if err != nil {
 		con.PrintErrorf("\nFailed to write %s: %s\n", ManifestFileName, err)
 		os.RemoveAll(installPath)
-		return
+		return nil
 	}
 	for _, manifestFile := range manifest.Files {
 		if manifestFile.Path != "" {
@@ -140,11 +140,12 @@ func InstallFromFile(extLocalPath string, con *console.SliverConsoleClient) {
 			if err != nil {
 				con.PrintErrorf("\nFailed to install file: %s\n", err)
 				os.RemoveAll(installPath)
-				return
+				return nil
 			}
 		}
 	}
 	con.Printf("done!\n")
+	return &installPath
 }
 
 func installArtifact(extGzFilePath string, installPath string, artifactPath string, con *console.SliverConsoleClient) error {

@@ -104,7 +104,7 @@ func ExtensionLoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	// do not add if the command already exists
-	if cmdExists(extCmd.Name, con.App) {
+	if CmdExists(extCmd.Name, con.App) {
 		con.PrintErrorf("%s command already exists\n", extCmd.Name)
 		return
 	}
@@ -479,7 +479,7 @@ func getBOFArgs(ctx *grumble.Context, binPath string, ext *ExtensionManifest) ([
 
 }
 
-func cmdExists(name string, app *grumble.App) bool {
+func CmdExists(name string, app *grumble.App) bool {
 	for _, c := range app.Commands().All() {
 		if name == c.Name {
 			return true
