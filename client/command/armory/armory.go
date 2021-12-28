@@ -232,7 +232,6 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, extensions []*extension
 }
 
 func parseArmoryHTTPConfig(ctx *grumble.Context) ArmoryHTTPConfig {
-
 	var proxyURL *url.URL
 	rawProxyURL := ctx.Flags.String("proxy")
 	if rawProxyURL != "" {
@@ -257,6 +256,8 @@ func parseArmoryHTTPConfig(ctx *grumble.Context) ArmoryHTTPConfig {
 	}
 }
 
+// fetch armory indexes, only returns indexes that were fetched successfully
+// errors are still in the cache objects however and can be checked
 func fetchIndexes(armoryConfigs []*assets.ArmoryConfig, clientConfig ArmoryHTTPConfig) []ArmoryIndex {
 	wg := &sync.WaitGroup{}
 	for _, armoryConfig := range armoryConfigs {
