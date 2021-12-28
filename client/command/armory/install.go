@@ -161,6 +161,11 @@ func resolveExtensionPackageDependencies(name string, deps map[string]struct{}, 
 	if entry == nil {
 		return
 	}
+
+	if entry.Extension.DependsOn == "" {
+		return // Avoid adding empty dependency
+	}
+
 	if entry.Extension.DependsOn == name {
 		return // Avoid infinite loop of something that depends on itself
 	}
