@@ -127,6 +127,7 @@ func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 	return extManifest, nil
 }
 
+// ParseExtensionManifest - Parse extension manifest from buffer
 func ParseExtensionManifest(data []byte) (*ExtensionManifest, error) {
 	extManifest := &ExtensionManifest{}
 	err := json.Unmarshal(data, &extManifest)

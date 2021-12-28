@@ -58,9 +58,9 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Error parsing %s: %s", ManifestFileName, err)
 		return
 	}
-	installPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(manifest.Name))
+	installPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(manifest.CommandName))
 	if _, err := os.Stat(installPath); !os.IsNotExist(err) {
-		con.PrintInfof("Extension '%s' already exists", manifest.Name)
+		con.PrintInfof("Extension '%s' already exists", manifest.CommandName)
 		confirm := false
 		prompt := &survey.Confirm{Message: "Overwrite current install?"}
 		survey.AskOne(prompt, &confirm)
@@ -70,7 +70,7 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 		os.RemoveAll(installPath)
 	}
 
-	con.PrintInfof("Installing extension '%s' (%s) ... ", manifest.Name, manifest.Version)
+	con.PrintInfof("Installing extension '%s' (%s) ... ", manifest.CommandName, manifest.Version)
 	err = os.MkdirAll(installPath, 0o700)
 	if err != nil {
 		con.PrintErrorf("\nError creating extension directory: %s\n", err)
@@ -110,9 +110,9 @@ func InstallFromFile(extLocalPath string, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Failed to parse %s: %s\n", ManifestFileName, err)
 		return
 	}
-	installPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(manifest.Name))
+	installPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(manifest.CommandName))
 	if _, err := os.Stat(installPath); !os.IsNotExist(err) {
-		con.PrintInfof("Extension '%s' already exists\n", manifest.Name)
+		con.PrintInfof("Extension '%s' already exists\n", manifest.CommandName)
 		confirm := false
 		prompt := &survey.Confirm{Message: "Overwrite current install?"}
 		survey.AskOne(prompt, &confirm)
@@ -122,7 +122,7 @@ func InstallFromFile(extLocalPath string, con *console.SliverConsoleClient) {
 		os.RemoveAll(installPath)
 	}
 
-	con.PrintInfof("Installing extension '%s' (%s) ... ", manifest.Name, manifest.Version)
+	con.PrintInfof("Installing extension '%s' (%s) ... ", manifest.CommandName, manifest.Version)
 	err = os.MkdirAll(installPath, 0o700)
 	if err != nil {
 		con.PrintErrorf("\nFailed to create extension directory: %s\n", err)

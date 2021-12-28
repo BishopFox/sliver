@@ -61,7 +61,7 @@ func PrintExtensions(con *console.SliverConsoleClient) {
 	installedManifests := getInstalledManifests()
 	for _, extension := range loadedExtensions {
 		installed := ""
-		if _, ok := installedManifests[extension.Name]; ok {
+		if _, ok := installedManifests[extension.CommandName]; ok {
 			installed = "✅"
 		}
 		tw.AppendRow(table.Row{
@@ -103,7 +103,19 @@ func getInstalledManifests() map[string]*ExtensionManifest {
 		if err != nil {
 			continue
 		}
-		installedManifests[manifest.Name] = manifest
+		installedManifests[manifest.CommandName] = manifest
 	}
 	return installedManifests
+}
+
+// ExtensionsCommandNameCompleter - Completer for installed extensions command names
+func ExtensionsCommandNameCompleter(prefix string, args []string, con *console.SliverConsoleClient) []string {
+	installedManifests := getInstalledManifests()
+	results := []string{}
+	for _, manifest := range installedManifests {
+		if strings.HasPrefix(manifest.CommandName, prefix) {
+			results = append(results, manifest.CommandName)
+		}
+	}
+	return results
 }

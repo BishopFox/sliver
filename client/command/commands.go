@@ -188,6 +188,12 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Name:     consts.ArmoryStr,
 		Help:     "Automatically download and install extensions/aliases",
 		LongHelp: help.GetHelpFor([]string{consts.ArmoryStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("I", "insecure", false, "skip tls certificate validation")
+			f.String("p", "proxy", "", "specify a proxy url (e.g. http://localhost:8080)")
+			f.Bool("c", "ignore-cache", false, "ignore metadata cache, force refresh")
+			f.String("t", "timeout", "15m", "download timeout")
+		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			armory.ArmoryCmd(ctx, con)
@@ -2927,9 +2933,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Completer: func(prefix string, args []string) []string {
 			return completers.LocalPathCompleter(prefix, args, con)
 		},
-		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
 	})
 
 	extensionCmd.AddCommand(&grumble.Command{
@@ -2949,10 +2952,27 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Completer: func(prefix string, args []string) []string {
 			return completers.LocalPathCompleter(prefix, args, con)
 		},
-		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+	})
+
+	extensionCmd.AddCommand(&grumble.Command{
+		Name:      consts.RmStr,
+		Help:      "Remove an installed extension",
+		LongHelp:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.RmStr}),
+		HelpGroup: consts.SliverHelpGroup,
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			extensions.ExtensionsRemoveCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Args: func(a *grumble.Args) {
+			a.String("name", "the command name of the extension to remove")
+		},
+		Completer: func(prefix string, args []string) []string {
+			return extensions.ExtensionsCommandNameCompleter(prefix, args, con)
 		},
 	})
+
 	con.App.AddCommand(extensionCmd)
 
 	// [ Prelude's Operator ] ------------------------------------------------------------

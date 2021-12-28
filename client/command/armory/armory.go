@@ -50,7 +50,7 @@ type ArmoryPackage struct {
 }
 
 type ArmoryHTTPConfig struct {
-	SkipCache            bool
+	IgnoreCache          bool
 	ProxyURL             *url.URL
 	Timeout              time.Duration
 	DisableTLSValidation bool
@@ -88,7 +88,7 @@ func ArmoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	armoriesConfig := assets.GetArmoriesConfig()
 
 	con.PrintInfof("Fetching %d armory index(es) ... ", len(armoriesConfig))
-	clientConfig := parseArmoryHTTPConfig()
+	clientConfig := parseArmoryHTTPConfig(ctx)
 	indexes := fetchIndexes(armoriesConfig, clientConfig)
 	if len(indexes) != len(armoriesConfig) {
 		con.Printf("errors!\n")
@@ -191,12 +191,29 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, extensions []*extension
 	con.Printf("%s\n", tw.Render())
 }
 
-func parseArmoryHTTPConfig() ArmoryHTTPConfig {
+func parseArmoryHTTPConfig(ctx *grumble.Context) ArmoryHTTPConfig {
+
+	var proxyURL *url.URL
+	rawProxyURL := ctx.Flags.String("proxy")
+	if rawProxyURL != "" {
+		proxyURL, _ = url.Parse(rawProxyURL)
+	}
+
+	timeout := defaultTimeout
+	rawTimeout := ctx.Flags.String("timeout")
+	if rawTimeout != "" {
+		var err error
+		timeout, err = time.ParseDuration(rawTimeout)
+		if err != nil {
+			timeout = defaultTimeout
+		}
+	}
+
 	return ArmoryHTTPConfig{
-		SkipCache:            false,
-		ProxyURL:             nil,
-		Timeout:              defaultTimeout,
-		DisableTLSValidation: false,
+		IgnoreCache:          ctx.Flags.Bool("ignore-cache"),
+		ProxyURL:             proxyURL,
+		Timeout:              timeout,
+		DisableTLSValidation: ctx.Flags.Bool("insecure"),
 	}
 }
 
@@ -223,7 +240,7 @@ func fetchIndex(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig
 	cacheEntry, ok := indexCache.Load(armoryConfig.PublicKey)
 	if ok {
 		cached := cacheEntry.(indexCacheEntry)
-		if time.Since(cached.Fetched) < cacheTime && cached.LastErr == nil && !clientConfig.SkipCache {
+		if time.Since(cached.Fetched) < cacheTime && cached.LastErr == nil && !clientConfig.IgnoreCache {
 			return
 		}
 	}
@@ -278,7 +295,7 @@ func fetchPackageSignature(wg *sync.WaitGroup, armoryPkg *ArmoryPackage, clientC
 	cacheEntry, ok := pkgCache.Load(armoryPkg.PublicKey)
 	if ok {
 		cached := cacheEntry.(pkgCacheEntry)
-		if time.Since(cached.Fetched) < cacheTime && cached.LastErr == nil && !clientConfig.SkipCache {
+		if time.Since(cached.Fetched) < cacheTime && cached.LastErr == nil && !clientConfig.IgnoreCache {
 			return
 		}
 	}
