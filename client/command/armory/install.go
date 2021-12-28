@@ -143,6 +143,8 @@ func installExtension(ext *extensions.ExtensionManifest, clientConfig ArmoryHTTP
 	}
 }
 
+const maxDepDepth = 10 // Arbitrary recursive limit for dependencies
+
 func resolveExtensionPackageDependencies(name string, deps map[string]struct{}, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {
 	var entry *pkgCacheEntry
 	pkgCache.Range(func(key, value interface{}) bool {
@@ -163,6 +165,9 @@ func resolveExtensionPackageDependencies(name string, deps map[string]struct{}, 
 	// seen this dependency, we stop resolving
 	if _, ok := deps[entry.Extension.DependsOn]; ok {
 		return // Already resolved
+	}
+	if maxDepDepth < len(deps) {
+		return
 	}
 	deps[entry.Extension.DependsOn] = struct{}{}
 	resolveExtensionPackageDependencies(entry.Extension.DependsOn, deps, clientConfig, con)
