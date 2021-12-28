@@ -3,7 +3,7 @@ Extensions
 
 Allows to load and execute 3rd party extensions.
 
-Extensions directory structures can be relative, however in the root of the directory or .tar.gz there
+Extensions directory structures can be arbitrary, however in the root of the directory or .tar.gz there
 must be a `extension.json` or a `alias.json` file. All paths are relative to the manifest/root directory,
 parent directories are not allowed. Only files listed in the manifest are copied, any other files will
 be ignored.
