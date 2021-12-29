@@ -37,10 +37,6 @@ func ExtensionsRemoveCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 		con.PrintErrorf("Extension name is required\n")
 		return
 	}
-	if name == "coff-loader" {
-		con.PrintInfof("Yeah, you don't to remove that one\n")
-		return
-	}
 	confirm := false
 	prompt := &survey.Confirm{Message: fmt.Sprintf("Remove '%s' extension?", name)}
 	survey.AskOne(prompt, &confirm)
