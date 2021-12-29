@@ -267,6 +267,22 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 
+	armoryCmd.AddCommand(&grumble.Command{
+		Name:     consts.SearchStr,
+		Help:     "Search for aliases and extensions by name (regex)",
+		LongHelp: help.GetHelpFor([]string{consts.ArmoryStr, consts.SearchStr}),
+		Args: func(a *grumble.Args) {
+			a.String("name", "a name regular expression")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			armory.ArmorySearchCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+
 	// [ Update ] --------------------------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{

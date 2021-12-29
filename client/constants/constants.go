@@ -113,6 +113,7 @@ const (
 	BeaconsStr      = "beacons"
 	WatchStr        = "watch"
 	SettingsStr     = "settings"
+	SearchStr       = "search"
 
 	// Generic
 
