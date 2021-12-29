@@ -70,12 +70,13 @@ type AliasFile struct {
 }
 
 type AliasManifest struct {
-	Name        string `json:"name"`
-	Version     string `json:"version"`
-	CommandName string `json:"command_name"`
-	RepoURL     string `json:"repo_url"`
-	Help        string `json:"help"`
-	LongHelp    string `json:"long_help"`
+	Name           string `json:"name"`
+	Version        string `json:"version"`
+	CommandName    string `json:"command_name"`
+	OriginalAuthor string `json:"original_author"`
+	RepoURL        string `json:"repo_url"`
+	Help           string `json:"help"`
+	LongHelp       string `json:"long_help"`
 
 	Entrypoint   string       `json:"entrypoint"`
 	AllowArgs    bool         `json:"allow_args"`

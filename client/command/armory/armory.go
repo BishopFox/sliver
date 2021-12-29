@@ -188,6 +188,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 		CommandName string
 		Version     string
 		Type        string
+		Help        string
 		URL         string
 	}
 	packages := []pkgInfo{}
@@ -196,6 +197,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 			CommandName: alias.CommandName,
 			Version:     alias.Version,
 			Type:        "Alias",
+			Help:        alias.Help,
 			URL:         alias.RepoURL,
 		})
 	}
@@ -204,6 +206,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 			CommandName: extension.CommandName,
 			Version:     extension.Version,
 			Type:        "Extension",
+			Help:        extension.Help,
 			URL:         extension.RepoURL,
 		})
 	}
@@ -214,6 +217,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 		"Command Name",
 		"Version",
 		"Type",
+		"Help",
 		"URL",
 	})
 	tw.SortBy([]table.SortBy{
@@ -229,6 +233,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 			fmt.Sprintf(color+"%s"+console.Normal, pkg.CommandName),
 			fmt.Sprintf(color+"%s"+console.Normal, pkg.Version),
 			fmt.Sprintf(color+"%s"+console.Normal, pkg.Type),
+			fmt.Sprintf(color+"%s"+console.Normal, pkg.Help),
 			fmt.Sprintf(color+"%s"+console.Normal, pkg.URL),
 		})
 	}
@@ -338,7 +343,7 @@ func fetchPackageSignatures(indexes []ArmoryIndex, clientConfig ArmoryHTTPConfig
 
 func fetchPackageSignature(wg *sync.WaitGroup, armoryPkg *ArmoryPackage, clientConfig ArmoryHTTPConfig) {
 	defer wg.Done()
-	cacheEntry, ok := pkgCache.Load(armoryPkg.PublicKey)
+	cacheEntry, ok := pkgCache.Load(armoryPkg.CommandName)
 	if ok {
 		cached := cacheEntry.(pkgCacheEntry)
 		if time.Since(cached.Fetched) < cacheTime && cached.LastErr == nil && !clientConfig.IgnoreCache {
@@ -349,7 +354,7 @@ func fetchPackageSignature(wg *sync.WaitGroup, armoryPkg *ArmoryPackage, clientC
 	pkgCacheEntry := &pkgCacheEntry{RepoURL: armoryPkg.RepoURL}
 	defer func() {
 		pkgCacheEntry.Fetched = time.Now()
-		pkgCache.Store(armoryPkg.PublicKey, *pkgCacheEntry)
+		pkgCache.Store(armoryPkg.CommandName, *pkgCacheEntry)
 	}()
 
 	repoURL, err := url.Parse(armoryPkg.RepoURL)
@@ -368,13 +373,19 @@ func fetchPackageSignature(wg *sync.WaitGroup, armoryPkg *ArmoryPackage, clientC
 	} else {
 		sig, _, err = DefaultArmoryPkgParser(armoryPkg, true, clientConfig)
 	}
+	if err != nil {
+		pkgCacheEntry.LastErr = err
+		return
+	}
 	if sig != nil {
 		pkgCacheEntry.Sig = *sig
+	} else {
+		pkgCacheEntry.LastErr = errors.New("nil signature")
+		return
 	}
 	if armoryPkg != nil {
 		pkgCacheEntry.Pkg = *armoryPkg
 	}
-	pkgCacheEntry.LastErr = err
 	if err == nil {
 		manifestData, err := base64.StdEncoding.DecodeString(sig.TrustedComment)
 		if err != nil {
