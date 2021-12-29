@@ -21,6 +21,7 @@ package armory
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"sync"
@@ -108,7 +109,7 @@ func ArmoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		fetchPackageSignatures(indexes, clientConfig)
 		errorCount := 0
 		aliases := []*alias.AliasManifest{}
-		extensions := []*extensions.ExtensionManifest{}
+		exts := []*extensions.ExtensionManifest{}
 		pkgCache.Range(func(key, value interface{}) bool {
 			cacheEntry := value.(pkgCacheEntry)
 			if cacheEntry.LastErr != nil {
@@ -121,7 +122,7 @@ func ArmoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				if cacheEntry.Pkg.IsAlias {
 					aliases = append(aliases, cacheEntry.Alias)
 				} else {
-					extensions = append(extensions, cacheEntry.Extension)
+					exts = append(exts, cacheEntry.Extension)
 				}
 			}
 			return true
@@ -129,9 +130,9 @@ func ArmoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		if errorCount == 0 {
 			con.Printf("done!\n")
 		}
-		if 0 < len(aliases) || 0 < len(extensions) {
+		if 0 < len(aliases) || 0 < len(exts) {
 			con.Println()
-			PrintArmoryPackages(aliases, extensions, con)
+			PrintArmoryPackages(aliases, exts, con)
 		} else {
 			con.PrintInfof("No packages found\n")
 		}
@@ -148,31 +149,31 @@ func refresh(clientConfig ArmoryHTTPConfig) {
 
 func packagesInCache() ([]*alias.AliasManifest, []*extensions.ExtensionManifest) {
 	aliases := []*alias.AliasManifest{}
-	extensions := []*extensions.ExtensionManifest{}
+	exts := []*extensions.ExtensionManifest{}
 	pkgCache.Range(func(key, value interface{}) bool {
 		cacheEntry := value.(pkgCacheEntry)
 		if cacheEntry.LastErr == nil {
 			if cacheEntry.Pkg.IsAlias {
 				aliases = append(aliases, cacheEntry.Alias)
 			} else {
-				extensions = append(extensions, cacheEntry.Extension)
+				exts = append(exts, cacheEntry.Extension)
 			}
 		}
 		return true
 	})
-	return aliases, extensions
+	return aliases, exts
 }
 
 // AliasOrExtensionCompleter - Completer for alias and extension command names
 func AliasOrExtensionCompleter(prefix string, args []string, con *console.SliverConsoleClient) []string {
 	results := []string{}
-	aliases, extensions := packagesInCache()
+	aliases, exts := packagesInCache()
 	for _, alias := range aliases {
 		if strings.HasPrefix(alias.CommandName, prefix) {
 			results = append(results, alias.CommandName)
 		}
 	}
-	for _, extension := range extensions {
+	for _, extension := range exts {
 		if strings.HasPrefix(extension.CommandName, prefix) {
 			results = append(results, extension.CommandName)
 		}
@@ -181,7 +182,7 @@ func AliasOrExtensionCompleter(prefix string, args []string, con *console.Sliver
 }
 
 // PrintArmoryPackages - Prints the armory packages
-func PrintArmoryPackages(aliases []*alias.AliasManifest, extensions []*extensions.ExtensionManifest, con *console.SliverConsoleClient) {
+func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.ExtensionManifest, con *console.SliverConsoleClient) {
 
 	type pkgInfo struct {
 		CommandName string
@@ -198,7 +199,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, extensions []*extension
 			URL:         alias.RepoURL,
 		})
 	}
-	for _, extension := range extensions {
+	for _, extension := range exts {
 		packages = append(packages, pkgInfo{
 			CommandName: extension.CommandName,
 			Version:     extension.Version,
@@ -220,11 +221,15 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, extensions []*extension
 	})
 
 	for _, pkg := range packages {
+		color := console.Normal
+		if extensions.CmdExists(pkg.CommandName, con.App) {
+			color = console.Green
+		}
 		tw.AppendRow(table.Row{
-			pkg.CommandName,
-			pkg.Version,
-			pkg.Type,
-			pkg.URL,
+			fmt.Sprintf(color+"%s"+console.Normal, pkg.CommandName),
+			fmt.Sprintf(color+"%s"+console.Normal, pkg.Version),
+			fmt.Sprintf(color+"%s"+console.Normal, pkg.Type),
+			fmt.Sprintf(color+"%s"+console.Normal, pkg.URL),
 		})
 	}
 
