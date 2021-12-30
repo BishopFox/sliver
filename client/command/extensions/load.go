@@ -105,12 +105,12 @@ func ExtensionLoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	// do not add if the command already exists
-	if CmdExists(extCmd.Name, con.App) {
-		con.PrintErrorf("%s command already exists\n", extCmd.Name)
+	if CmdExists(extCmd.CommandName, con.App) {
+		con.PrintErrorf("%s command already exists\n", extCmd.CommandName)
 		return
 	}
 	ExtensionRegisterCommand(extCmd, con)
-	con.PrintInfof("Added %s command: %s\n", extCmd.Name, extCmd.Help)
+	con.PrintInfof("Added %s command: %s\n", extCmd.CommandName, extCmd.Help)
 }
 
 // ParseExtensions - Parse extension files
@@ -298,7 +298,7 @@ func registerExtension(con *console.SliverConsoleClient, ext *ExtensionManifest,
 func loadDep(session *clientpb.Session, con *console.SliverConsoleClient, ctx *grumble.Context, depName string) error {
 	depExt, f := loadedExtensions[depName]
 	if f {
-		depBinPath, err := depExt.getFileForTarget(depExt.Name, session.OS, session.Arch)
+		depBinPath, err := depExt.getFileForTarget(depExt.CommandName, session.OS, session.Arch)
 		if err != nil {
 			return err
 		}

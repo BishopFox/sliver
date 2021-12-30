@@ -56,7 +56,7 @@ The structure is the following one:
 - `files`: a list of object pointing to the extensions files to load for each architectures and operating systems
 - `init`: the initialization function name (if relevant, can be omitted)
 - `arguments`: an optional list of objects (for DLLs), but mandatory for BOFs
-- `dependsOn`: the name of an extension required by the current extension (won't load if the dependency is not loaded)
+- `depends_on`: the name of an extension required by the current extension (won't load if the dependency is not loaded)
 
 The `type` of an argument can be one of the following:
 
