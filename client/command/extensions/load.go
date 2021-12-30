@@ -82,7 +82,7 @@ func (e *ExtensionManifest) getFileForTarget(cmdName string, targetOS string, ta
 	filePath := ""
 	for _, extFile := range e.Files {
 		if targetOS == extFile.OS && targetArch == extFile.Arch {
-			filePath = path.Join(assets.GetExtensionsDir(), cmdName, extFile.Path)
+			filePath = path.Join(assets.GetExtensionsDir(), e.CommandName, extFile.Path)
 			break
 		}
 	}
