@@ -20,7 +20,6 @@ package armory
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -266,10 +265,8 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 	if err != nil {
 		return err
 	}
-
-	// do not add if the command already exists
 	if extensions.CmdExists(extCmd.Name, con.App) {
-		return fmt.Errorf("%s command already exists", extCmd.Name)
+		con.App.Commands().Remove(extCmd.Name)
 	}
 	extensions.ExtensionRegisterCommand(extCmd, con)
 	return nil
