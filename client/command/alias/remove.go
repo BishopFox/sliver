@@ -61,17 +61,7 @@ func RemoveAliasByCommandName(commandName string, con *console.SliverConsoleClie
 		return errors.New("alias not loaded")
 	}
 	delete(loadedAliases, commandName)
-
-	allCommands := con.App.Commands().All()
-	var index int
-	var cmd *grumble.Command
-	for index, cmd = range allCommands {
-		if cmd.Name == commandName {
-			break
-		}
-	}
-	removeCmd(allCommands, index)
-
+	con.App.Commands().Remove(commandName)
 	extPath := filepath.Join(assets.GetAliasesDir(), filepath.Base(commandName))
 	if _, err := os.Stat(extPath); os.IsNotExist(err) {
 		return nil
@@ -82,8 +72,4 @@ func RemoveAliasByCommandName(commandName string, con *console.SliverConsoleClie
 	}
 
 	return nil
-}
-
-func removeCmd(slice []*grumble.Command, s int) []*grumble.Command {
-	return append(slice[:s], slice[s+1:]...)
 }
